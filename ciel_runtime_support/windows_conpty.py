@@ -63,10 +63,9 @@ class WindowsConPtySession:
         self._output_tail = bytearray()
         self._closed = False
         self._stop = threading.Event()
+        self._stdin_console_handle: Any = None
         self._old_input_mode: int | None = None
         self._old_output_mode: int | None = None
-        self._old_input_cp: int | None = None
-        self._old_output_cp: int | None = None
         self._last_size = (0, 0)
         self._coord_type: Any = None
         self._kernel32: Any = None
@@ -481,13 +480,19 @@ class WindowsConPtySession:
             wintypes.LPVOID,
         ]
         kernel32.WriteConsoleW.restype = wintypes.BOOL
+        kernel32.ReadConsoleW.argtypes = [
+            wintypes.HANDLE,
+            wintypes.LPWSTR,
+            wintypes.DWORD,
+            ctypes.POINTER(wintypes.DWORD),
+            wintypes.LPVOID,
+        ]
+        kernel32.ReadConsoleW.restype = wintypes.BOOL
         input_handle = kernel32.GetStdHandle(-10 & 0xFFFFFFFF)
         mode = wintypes.DWORD(0)
         if not kernel32.GetConsoleMode(input_handle, ctypes.byref(mode)):
             return
         self._old_input_mode = int(mode.value)
-        self._old_input_cp = int(kernel32.GetConsoleCP())
-        self._old_output_cp = int(kernel32.GetConsoleOutputCP())
         raw_mode = (
             self._old_input_mode
             & ~(0x0001 | 0x0002 | 0x0004 | 0x0010 | 0x0008)
@@ -495,8 +500,11 @@ class WindowsConPtySession:
         if not kernel32.SetConsoleMode(input_handle, raw_mode):
             self._old_input_mode = None
             return
-        kernel32.SetConsoleCP(65001)
-        kernel32.SetConsoleOutputCP(65001)
+        # Read the parent console through ReadConsoleW in _pump_input.  Changing
+        # the shared console code pages here corrupts active CJK IME input in the
+        # parent terminal for the lifetime of the routed CLI.  Wide-character
+        # input lets ConPTY receive UTF-8 without mutating that shared state.
+        self._stdin_console_handle = input_handle
         output_handle = kernel32.GetStdHandle(-11 & 0xFFFFFFFF)
         output_mode = wintypes.DWORD(0)
         if kernel32.GetConsoleMode(output_handle, ctypes.byref(output_mode)):
@@ -509,11 +517,7 @@ class WindowsConPtySession:
             return
         input_handle = self._kernel32.GetStdHandle(-10 & 0xFFFFFFFF)
         self._kernel32.SetConsoleMode(input_handle, self._old_input_mode)
-        if self._old_input_cp:
-            self._kernel32.SetConsoleCP(self._old_input_cp)
-        if self._old_output_cp:
-            self._kernel32.SetConsoleOutputCP(self._old_output_cp)
-            self._old_output_cp = None
+        self._stdin_console_handle = None
         self._old_input_mode = None
         if self._old_output_mode is not None:
             output_handle = self._kernel32.GetStdHandle(-11 & 0xFFFFFFFF)
@@ -598,10 +602,32 @@ class WindowsConPtySession:
                 f"wrote {int(written.value)}"
             )
 
+    def _read_input_bytes(self) -> bytes:
+        if self._stdin_console_handle is None:
+            return os.read(self._stdin_fd, 4096)
+        import ctypes
+        from ctypes import wintypes
+
+        buffer = ctypes.create_unicode_buffer(4096)
+        read = wintypes.DWORD(0)
+        if not self._kernel32.ReadConsoleW(
+            self._stdin_console_handle,
+            buffer,
+            len(buffer) - 1,
+            ctypes.byref(read),
+            None,
+        ):
+            raise ctypes.WinError(ctypes.get_last_error())
+        units = int(read.value)
+        if units <= 0:
+            return b""
+        raw = ctypes.string_at(ctypes.addressof(buffer), units * ctypes.sizeof(ctypes.c_wchar))
+        return raw.decode("utf-16-le").encode("utf-8")
+
     def _pump_input(self) -> None:
         while not self._stop.is_set():
             try:
-                data = os.read(self._stdin_fd, 4096)
+                data = self._read_input_bytes()
                 if not data:
                     return
                 self.write(data)

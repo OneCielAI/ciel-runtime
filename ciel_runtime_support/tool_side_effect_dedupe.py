@@ -13,7 +13,17 @@ class ToolSideEffectDedupePolicy:
     side_effect_suffixes: frozenset[str]
     ttl_seconds: float = 600.0
     repeated_execution_suffixes: frozenset[str] = frozenset(
-        {"shell_command", "bash", "exec", "execute", "run_command", "write", "edit", "apply_patch"}
+        {
+            "shell_command",
+            "exec_command",
+            "bash",
+            "exec",
+            "execute",
+            "run_command",
+            "write",
+            "edit",
+            "apply_patch",
+        }
     )
     # One completed call can legitimately be retried after a client/process
     # interruption because the resumed request carries no explicit new user

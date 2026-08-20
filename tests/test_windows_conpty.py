@@ -1,5 +1,6 @@
 import hashlib
 import codecs
+import ctypes
 import os
 import sys
 import time
@@ -54,7 +55,7 @@ class WindowsConPtyPolicyTests(unittest.TestCase):
             WindowsConPtySession.normalize_prompt("first\r\nsecond\tthird"),
         )
 
-    def test_parent_console_uses_utf8_input_and_output_then_restores_both(self):
+    def test_parent_console_preserves_code_pages_and_restores_modes(self):
         kernel32 = mock.MagicMock()
         kernel32.GetStdHandle.side_effect = lambda value: value
 
@@ -63,27 +64,40 @@ class WindowsConPtyPolicyTests(unittest.TestCase):
             return 1
 
         kernel32.GetConsoleMode.side_effect = get_console_mode
-        kernel32.GetConsoleCP.return_value = 437
-        kernel32.GetConsoleOutputCP.return_value = 949
         session = object.__new__(WindowsConPtySession)
         session._kernel32 = kernel32
+        session._stdin_console_handle = None
         session._old_input_mode = None
         session._old_output_mode = None
-        session._old_input_cp = None
-        session._old_output_cp = None
 
         session._configure_parent_console()
 
-        kernel32.SetConsoleCP.assert_called_once_with(65001)
-        kernel32.SetConsoleOutputCP.assert_called_once_with(65001)
+        self.assertEqual(-10 & 0xFFFFFFFF, session._stdin_console_handle)
+        kernel32.SetConsoleCP.assert_not_called()
+        kernel32.SetConsoleOutputCP.assert_not_called()
 
         session._restore_parent_console()
 
-        self.assertEqual([mock.call(65001), mock.call(437)], kernel32.SetConsoleCP.call_args_list)
-        self.assertEqual(
-            [mock.call(65001), mock.call(949)],
-            kernel32.SetConsoleOutputCP.call_args_list,
-        )
+        self.assertIsNone(session._stdin_console_handle)
+        kernel32.SetConsoleMode.assert_any_call(-10 & 0xFFFFFFFF, 0x001F)
+
+    def test_console_input_reads_wide_korean_and_encodes_utf8(self):
+        kernel32 = mock.MagicMock()
+
+        def read_console(_handle, buffer, _length, read_pointer, _reserved):
+            text = "한글 입력 🚀"
+            for index, unit in enumerate(text.encode("utf-16-le")):
+                ctypes.memmove(ctypes.addressof(buffer) + index, bytes((unit,)), 1)
+            read_pointer._obj.value = len(text.encode("utf-16-le")) // 2
+            return 1
+
+        kernel32.ReadConsoleW.side_effect = read_console
+        session = object.__new__(WindowsConPtySession)
+        session._kernel32 = kernel32
+        session._stdin_console_handle = 44
+        session._stdin_fd = -1
+
+        self.assertEqual("한글 입력 🚀".encode("utf-8"), session._read_input_bytes())
 
     def test_console_mirror_decodes_utf8_across_arbitrary_pipe_chunks(self):
         captured = []

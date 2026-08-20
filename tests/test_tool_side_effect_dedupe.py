@@ -131,6 +131,71 @@ class ToolSideEffectDedupeServiceTest(unittest.TestCase):
         )
         self.assertEqual("dropped_repeated_completed_tool_call", audits[0][0])
 
+    def test_default_policy_drops_third_consecutive_exec_command(self):
+        audits = []
+        service = ToolSideEffectDedupeService(
+            ToolSideEffectDedupePolicy(frozenset()),
+            ToolSideEffectDedupeRepository({}, threading.Lock()),
+            ToolSideEffectDedupePorts(
+                now=lambda: 10.0,
+                audit=lambda event, payload: audits.append((event, payload)),
+                log=lambda _level, _message: None,
+            ),
+        )
+        tool_input = {
+            "cmd": "wsl -d UbuntuV -- curl -s http://127.0.0.1:18080/health",
+            "yield_time_ms": 30000,
+        }
+        body = {
+            "messages": [
+                {
+                    "role": "assistant",
+                    "content": [
+                        {
+                            "type": "tool_use",
+                            "id": "call_1",
+                            "name": "exec_command",
+                            "input": tool_input,
+                        }
+                    ],
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": "call_1",
+                            "content": "Process exited with code 0",
+                        }
+                    ],
+                },
+                {
+                    "role": "assistant",
+                    "content": [
+                        {
+                            "type": "tool_use",
+                            "id": "call_2",
+                            "name": "exec_command",
+                            "input": tool_input,
+                        }
+                    ],
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": "call_2",
+                            "content": "Process exited with code 0",
+                        }
+                    ],
+                },
+            ]
+        }
+
+        self.assertTrue(service.should_drop("exec_command", tool_input, source_body=body))
+        self.assertEqual("dropped_repeated_completed_tool_call", audits[0][0])
+
     def test_empty_apply_patch_is_never_counted_as_completed(self):
         service = ToolSideEffectDedupeService(
             ToolSideEffectDedupePolicy(
