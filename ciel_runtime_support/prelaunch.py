@@ -790,7 +790,15 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                         messages = set_remote_instruction_config("enabled", "toggle")
                     elif value == "sync":
                         messages = set_remote_instruction_config("sync", "")
-                    elif value in {"claude_url", "codex_url", "agy_url", "kimi_url", "authorization", "timeout_seconds"}:
+                    elif value in {
+                        "claude_url",
+                        "codex_url",
+                        "agy_url",
+                        "kimi_url",
+                        "grok_url",
+                        "authorization",
+                        "timeout_seconds",
+                    }:
                         entered = prompt_menu_value(
                             "HTTP GET URL (blank clears)" if value.endswith("_url") else (
                                 "Authorization header (for example: Bearer %SYSTEM_PROMPT_AUTH%)"

@@ -1971,7 +1971,7 @@ def set_remote_instruction_config(key: str, value: Any) -> list[str]:
             remote[key] = max(1, min(30, int(str(value).strip())))
         except ValueError:
             return ["HTTP timeout must be a whole number from 1 to 30 seconds."]
-    elif key in {"claude_url", "codex_url", "agy_url", "kimi_url"}:
+    elif key in {"claude_url", "codex_url", "agy_url", "kimi_url", "grok_url"}:
         url = str(value or "").strip()
         if url:
             parsed = urllib.parse.urlparse(url)
@@ -1983,7 +1983,7 @@ def set_remote_instruction_config(key: str, value: Any) -> list[str]:
     elif key == "sync":
         results = [
             sync_remote_instruction(runtime, reason="manual")
-            for runtime in ("claude", "codex", "agy", "kimi")
+            for runtime in ("claude", "codex", "agy", "kimi", "grok")
         ]
         visible = [result for result in results if result.status != "not-configured"]
         return [
@@ -4891,6 +4891,7 @@ launch_claude = SynchronizedLaunch(_RUNTIME_LAUNCH_API.launch_claude, sync_remot
 launch_codex = SynchronizedLaunch(_RUNTIME_LAUNCH_API.launch_codex, sync_remote_instruction, "codex")
 launch_codex_app_server = SynchronizedLaunch(_RUNTIME_LAUNCH_API.launch_codex_app_server, sync_remote_instruction, "codex-app-server")
 launch_agy = SynchronizedLaunch(_RUNTIME_LAUNCH_API.launch_agy, sync_remote_instruction, "agy")
+launch_grok = SynchronizedLaunch(launch_grok, sync_remote_instruction, "grok")
 CLAUDE_CODE_STDERR_LOG = CONFIG_DIR / "claude-code-stderr.log"
 def launch_command_diagnostics() -> LaunchCommandDiagnostics: return LaunchCommandDiagnostics(router_log, mask_secret, CODEX_RUNTIME_API_KEY_ENV)
 def _log_claude_command_for_diagnostics(cmd: list[str], env: dict[str, str]) -> None: launch_command_diagnostics().claude(cmd, env)

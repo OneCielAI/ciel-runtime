@@ -101,6 +101,39 @@ class RemoteInstructionTests(unittest.TestCase):
         self.assertTrue(any("Authorization header  [configured]" in row for row in rows))
         self.assertFalse(any("top-secret" in row for row in rows))
 
+    def test_grok_downloads_into_the_agents_file_like_the_other_runtimes(self):
+        # Grok is offered by the Launch menu, so it needs the same instruction
+        # parameter. Without `grok_url` the panel had no row for it and a Grok
+        # launch skipped instruction synchronization entirely.
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            requests = []
+
+            def opener(request, **_kwargs):
+                requests.append(request)
+                return _Response(b"# Grok instructions\n")
+
+            config = {"remote_instructions": {
+                "enabled": True,
+                "grok_url": "https://config.example/agents",
+            }}
+
+            result = self._service(root, config, opener).sync("grok")
+
+            self.assertEqual("updated", result.status)
+            self.assertEqual(
+                "# Grok instructions\n",
+                (root / "workspace" / "AGENTS.md").read_text(encoding="utf-8"),
+            )
+            self.assertEqual("https://config.example/agents", requests[0].full_url)
+
+    def test_panel_offers_every_launchable_runtime(self):
+        rows, values = panel_rows({"remote_instructions": {}})
+
+        for key in ("claude_url", "codex_url", "agy_url", "kimi_url", "grok_url"):
+            self.assertIn(key, values)
+        self.assertTrue(any("Grok URL → AGENTS.md" in row for row in rows))
+
     def test_launch_adapter_synchronizes_before_delegate(self):
         calls = []
         launch = SynchronizedLaunch(

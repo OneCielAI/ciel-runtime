@@ -21,6 +21,8 @@ RUNTIME_FILES = {
     "codex-app-server": "AGENTS.md",
     "agy": "GEMINI.md",
     "kimi": "AGENTS.md",
+    # Grok Build reads the AGENTS.md family, like Codex and Kimi.
+    "grok": "AGENTS.md",
 }
 URL_KEYS = {
     "claude": "claude_url",
@@ -28,6 +30,7 @@ URL_KEYS = {
     "codex-app-server": "codex_url",
     "agy": "agy_url",
     "kimi": "kimi_url",
+    "grok": "grok_url",
 }
 
 _ENV_REFERENCE = re.compile(r"%([A-Za-z_][A-Za-z0-9_]*)%|\$\{([A-Za-z_][A-Za-z0-9_]*)\}|\{([A-Za-z_][A-Za-z0-9_]*)\}")
@@ -207,12 +210,24 @@ def panel_rows(config: dict[str, Any]) -> tuple[list[str], list[str]]:
             f"Codex URL → AGENTS.md  [{compact(current.get('codex_url') or 'unset')}]",
             f"AGY URL → GEMINI.md  [{compact(current.get('agy_url') or 'unset')}]",
             f"Kimi URL → AGENTS.md  [{compact(current.get('kimi_url') or 'unset')}]",
+            f"Grok URL → AGENTS.md  [{compact(current.get('grok_url') or 'unset')}]",
             f"Authorization header  [{'configured' if current.get('authorization') else 'unset'}]",
             f"HTTP timeout seconds  [{current.get('timeout_seconds') or 5}]",
             "Sync configured instruction files now",
             "Back",
         ],
-        ["enabled", "claude_url", "codex_url", "agy_url", "kimi_url", "authorization", "timeout_seconds", "sync", "back"],
+        [
+            "enabled",
+            "claude_url",
+            "codex_url",
+            "agy_url",
+            "kimi_url",
+            "grok_url",
+            "authorization",
+            "timeout_seconds",
+            "sync",
+            "back",
+        ],
     )
 
 
