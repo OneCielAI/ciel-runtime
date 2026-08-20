@@ -318,7 +318,9 @@ def tool_result_ids(message: dict[str, Any]) -> set[str]:
     }
 
 
-def active_tool_call_from_text(text: str) -> bool:
+def active_tool_call_from_text(text: str, *, not_before: float | None = None) -> bool:
+    """Whether a tool call from the current console launch is still pending."""
+
     pending_tool_ids: set[str] = set()
     unknown_tool_active = False
     for raw_line in text.splitlines():
@@ -328,6 +330,10 @@ def active_tool_call_from_text(text: str) -> bool:
             continue
         if not isinstance(record, dict):
             continue
+        if not_before is not None:
+            timestamp = record_timestamp_seconds(record)
+            if timestamp is None or timestamp < not_before:
+                continue
         record_type = str(record.get("type") or "")
         message = record.get("message")
         message_obj = message if isinstance(message, dict) else {}

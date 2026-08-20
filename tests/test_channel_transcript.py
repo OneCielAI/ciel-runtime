@@ -162,6 +162,8 @@ class ChannelTranscriptTests(unittest.TestCase):
         resumed_bookkeeping = json.dumps({"type": "last-prompt", "leafUuid": "abc"})
         text = "\n".join((killed, resumed_bookkeeping))
         launched_at = 1787128000.0  # after the killed record, before the relaunch turn
+        self.assertTrue(active_tool_call_from_text(text))
+        self.assertFalse(active_tool_call_from_text(text, not_before=launched_at))
         self.assertTrue(active_turn_from_text(text))
         self.assertFalse(active_turn_from_text(text, not_before=launched_at))
         # A turn opened after the relaunch is still reported as running.
@@ -173,6 +175,22 @@ class ChannelTranscriptTests(unittest.TestCase):
             }
         )
         self.assertTrue(active_turn_from_text("\n".join((text, fresh)), not_before=launched_at))
+        fresh_tool = json.dumps(
+            {
+                "type": "assistant",
+                "timestamp": "2026-08-19T09:00:01Z",
+                "message": {
+                    "role": "assistant",
+                    "stop_reason": "tool_use",
+                    "content": [{"type": "tool_use", "id": "tool-10", "name": "Bash"}],
+                },
+            }
+        )
+        self.assertTrue(
+            active_tool_call_from_text(
+                "\n".join((text, fresh, fresh_tool)), not_before=launched_at
+            )
+        )
 
     def test_claude_turn_duration_closes_turn_without_end_turn_record(self):
         user = json.dumps({"type": "user", "message": {"role": "user", "content": "work"}})
