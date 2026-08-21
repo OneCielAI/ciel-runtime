@@ -244,6 +244,7 @@ from ciel_runtime_support.prompt_injection import normalize_anthropic_system_rol
 from ciel_runtime_support.prompt_injection import normalize_anthropic_system_role_messages_by_strategy as project_normalize_anthropic_system_role_messages_by_strategy
 from ciel_runtime_support.remote_instructions import RemoteInstructionResult, RemoteInstructionSynchronizer, SynchronizedLaunch
 from ciel_runtime_support.remote_instructions import panel_rows as project_remote_instruction_panel_rows
+from ciel_runtime_support.remote_memory import RemoteMemoryResult, RemoteMemorySynchronizer, sync_all_memory_pointers as project_sync_all_memory_pointers, sync_instruction_with_memory_pointer as project_sync_instruction_with_memory_pointer, sync_launch_assets as project_sync_launch_assets
 from ciel_runtime_support.protocols import PROTOCOL_ADAPTERS
 from ciel_runtime_support.protocols.anthropic_content import content_to_text as anthropic_content_to_text
 from ciel_runtime_support.protocols.anthropic_thinking_policy import AnthropicThinkingPolicy, SuppressedThinkingRepository, ThinkingPolicyPorts
@@ -1945,16 +1946,13 @@ def set_external_event_config(key: str, value: Any) -> list[str]:
         "External events use the private Runtime Input Gateway and are never published to Web Chat.",
     ]
 
-def remote_instruction_synchronizer() -> RemoteInstructionSynchronizer:
-    return RemoteInstructionSynchronizer(
-        load_config=load_config,
-        workspace=Path.cwd,
-        state_dir=WORKSPACE_STATE_DIR,
-        log=router_log,
-    )
+def remote_instruction_synchronizer() -> RemoteInstructionSynchronizer: return RemoteInstructionSynchronizer(load_config=load_config, workspace=Path.cwd, state_dir=WORKSPACE_STATE_DIR, log=router_log)
 
-def sync_remote_instruction(runtime: str, *, reason: str) -> RemoteInstructionResult:
-    return remote_instruction_synchronizer().sync(runtime, reason=reason)
+def remote_memory_synchronizer() -> RemoteMemorySynchronizer: return RemoteMemorySynchronizer(load_config=load_config, workspace=Path.cwd, state_dir=WORKSPACE_STATE_DIR, log=router_log)
+def sync_remote_instruction(runtime: str, *, reason: str) -> RemoteInstructionResult: return project_sync_instruction_with_memory_pointer(runtime, reason=reason, instruction_synchronizer=remote_instruction_synchronizer, memory_synchronizer=remote_memory_synchronizer, log=router_log)
+def sync_remote_memory(runtime: str, *, reason: str) -> RemoteMemoryResult: return remote_memory_synchronizer().sync(runtime, reason=reason)
+def sync_remote_launch_assets(runtime: str, *, reason: str) -> RemoteMemoryResult: return project_sync_launch_assets(runtime, reason=reason, instruction_sync=sync_remote_instruction, memory_sync=sync_remote_memory)
+def sync_all_remote_memories() -> list[str]: return project_sync_all_memory_pointers(remote_memory_synchronizer())
 
 def remote_instruction_panel_rows(cfg: dict[str, Any]) -> tuple[list[str], list[str]]:
     return project_remote_instruction_panel_rows(cfg)
@@ -4002,7 +4000,7 @@ install_kimi_code_if_missing = _KIMI_RUNTIME_API.install_if_missing
 run_kimi_oauth_login = _KIMI_RUNTIME_API.oauth_login
 run_kimi_oauth_action = _KIMI_RUNTIME_API.oauth_action
 launch_kimi = _KIMI_RUNTIME_API.launch
-launch_kimi = SynchronizedLaunch(launch_kimi, sync_remote_instruction, "kimi")
+launch_kimi = SynchronizedLaunch(launch_kimi, sync_remote_launch_assets, "kimi")
 enable_ansi = enable_terminal_ansi
 ansi = render_ansi
 animated_ansi_text = render_animated_ansi_text
@@ -4888,11 +4886,11 @@ def runtime_launch_context() -> RuntimeLaunchContext:
     )
 
 _RUNTIME_LAUNCH_API = RuntimeLaunchCompatibilityApi(runtime_launch_context)
-launch_claude = SynchronizedLaunch(_RUNTIME_LAUNCH_API.launch_claude, sync_remote_instruction, "claude")
-launch_codex = SynchronizedLaunch(_RUNTIME_LAUNCH_API.launch_codex, sync_remote_instruction, "codex")
-launch_codex_app_server = SynchronizedLaunch(_RUNTIME_LAUNCH_API.launch_codex_app_server, sync_remote_instruction, "codex-app-server")
-launch_agy = SynchronizedLaunch(_RUNTIME_LAUNCH_API.launch_agy, sync_remote_instruction, "agy")
-launch_grok = SynchronizedLaunch(launch_grok, sync_remote_instruction, "grok")
+launch_claude = SynchronizedLaunch(_RUNTIME_LAUNCH_API.launch_claude, sync_remote_launch_assets, "claude")
+launch_codex = SynchronizedLaunch(_RUNTIME_LAUNCH_API.launch_codex, sync_remote_launch_assets, "codex")
+launch_codex_app_server = SynchronizedLaunch(_RUNTIME_LAUNCH_API.launch_codex_app_server, sync_remote_launch_assets, "codex-app-server")
+launch_agy = SynchronizedLaunch(_RUNTIME_LAUNCH_API.launch_agy, sync_remote_launch_assets, "agy")
+launch_grok = SynchronizedLaunch(launch_grok, sync_remote_launch_assets, "grok")
 CLAUDE_CODE_STDERR_LOG = CONFIG_DIR / "claude-code-stderr.log"
 def launch_command_diagnostics() -> LaunchCommandDiagnostics: return LaunchCommandDiagnostics(router_log, mask_secret, CODEX_RUNTIME_API_KEY_ENV)
 def _log_claude_command_for_diagnostics(cmd: list[str], env: dict[str, str]) -> None: launch_command_diagnostics().claude(cmd, env)
@@ -4950,7 +4948,7 @@ def cli_parser_services() -> cli_parser.CliParserServices:
     return cli_assembly.CliParserAssembly(
             launch=cli_parser.CliParserLaunch(cmd_cli, cmd_launch, cmd_launch_codex, cmd_launch_codex_app_server, cmd_launch_agy, serve, cmd_launch_grok),
             runtime=cli_parser.CliParserRuntime(cmd_version, cmd_status, cmd_env, cmd_stop, cmd_test),
-            settings=cli_parser.CliParserSettings(cmd_language, cmd_web_search, cmd_web_fetch, cmd_log_level, *event_settings_cli.handlers(event_settings_cli.EventSettingsCliPorts(load_config, save_config, external_event_receiver_service, lambda: set_remote_instruction_config('sync', ''), print))),
+            settings=cli_parser.CliParserSettings(cmd_language, cmd_web_search, cmd_web_fetch, cmd_log_level, *event_settings_cli.handlers(event_settings_cli.EventSettingsCliPorts(load_config, save_config, external_event_receiver_service, lambda: set_remote_instruction_config('sync', ''), sync_all_remote_memories, print))),
             provider=cli_parser.CliParserProvider(cmd_ollama_native, cmd_ollama_options, cmd_provider_options, cmd_ollama_catalog, cmd_provider,
                                                   cmd_api_key, cmd_set_api_key, cmd_set_api_keys, cmd_base_url, cmd_copilot_oauth),
             models=cli_parser.CliParserModels(cmd_model, cmd_advisor_model, cmd_models),

@@ -115,6 +115,23 @@ ciel-runtimectl api-keys [PROVIDER] [KEY1] [KEY2] ...
 
 ### Router 관리
 
+#### `remote-memory`
+
+```bash
+ciel-runtimectl remote-memory
+ciel-runtimectl remote-memory enabled=true manifest_url=https://memory.example/manifest.json sync
+```
+
+별도 HTTP manifest에서 워크스페이스 메모리 트리를 동기화한다. `sync`는 설정을
+저장한 뒤 즉시 한 번 내려받는다. 시작 시에는 선택된 런타임을 실행하기 전에 자동으로
+다시 내려받으며, 시스템 지침 파일 하단에는 로컬 인덱스 주소만 추가한다.
+
+주요 키: `enabled`, `manifest_url`, `authorization`, `directory`,
+`timeout_seconds`, `max_manifest_bytes`, `max_file_bytes`, `max_total_bytes`,
+`max_files`.
+
+전체 manifest 계약은 [Remote Memory](Remote-Memory.md)를 참고한다.
+
 #### `serve`
 ```bash
 ciel-runtimectl serve [--port PORT]

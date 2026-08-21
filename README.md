@@ -83,6 +83,11 @@ Ciel Runtime delivers its own Web Chat and explicit wake messages. External MCP 
 
 See [docs/MCP-Channels.md](docs/MCP-Channels.md) for the ownership boundary and the stateless internal tool endpoint.
 
+Workspace memory trees can be synchronized from a separate HTTP manifest at
+runtime launch. Ciel downloads the declared OKF, Markdown, JSON, YAML, TOML, or
+text files atomically and appends only the local index address to the native
+runtime instruction file. See [Remote Memory](docs/Remote-Memory.md).
+
 ## Stable and nightly releases
 
 Install the stable npm release:

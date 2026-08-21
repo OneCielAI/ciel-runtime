@@ -260,6 +260,26 @@ macOS, Linux에서 동일하게 해석된다. 환경변수가 없으면 다운�
 
 ---
 
+## 원격 메모리 트리
+
+Remote Memory는 Remote Instructions와 분리된 manifest endpoint를 사용한다.
+다음 명령은 시작할 때마다 `.ciel/memory`를 새 manifest 내용으로 원자적으로 교체한다.
+
+```bash
+ciel-runtimectl remote-memory enabled=true \
+  manifest_url=https://memory.example/v1/manifest.json \
+  authorization='Bearer {CIEL_MEMORY_TOKEN}' sync
+```
+
+manifest는 인덱스 상대경로, 폴더 구조를 나타내는 파일 상대경로, 각 파일의 다운로드
+URL과 포맷을 제공한다. 지원 포맷은 OKF, Markdown, JSON, YAML, TOML, 일반 텍스트다.
+동기화 후 실제 메모리 내용 대신 `Memory index: .ciel/memory/<index>` 한 줄만
+`CLAUDE.md`, `AGENTS.md`, `GEMINI.md` 하단의 관리 블록에 추가한다.
+
+계약, 제한, 예시는 [Remote Memory](Remote-Memory.md)를 참고한다.
+
+---
+
 ## 반복 폭주 가드
 
 모델이 같은 문장을 끝없이 되풀이하는 생성 루프에 빠지면 라우터가 이를 끊는다.

@@ -84,6 +84,7 @@ class EventSettingsCliTests(unittest.TestCase):
                 save_config=lambda value: self.config.update(value),
                 receiver_service=lambda: self.service,
                 sync_instructions=self._sync,
+                sync_memories=lambda: ["remote-memory: updated"],
                 output=self.output.append,
             )
         )
@@ -232,15 +233,63 @@ class EventSettingsCliTests(unittest.TestCase):
             self.config["remote_instructions"]["authorization"],
         )
 
+    # -- remote memory ----------------------------------------------------
+
+    def test_remote_memory_manifest_and_limits_are_stored(self):
+        self.controller.remote_memory(
+            _args(
+                "enabled=true",
+                "manifest_url=https://memory.example/manifest.json",
+                "directory=.ciel/team-memory",
+                "max_files=42",
+            )
+        )
+
+        stored = self.config["remote_memory"]
+        self.assertTrue(stored["enabled"])
+        self.assertEqual(
+            "https://memory.example/manifest.json", stored["manifest_url"]
+        )
+        self.assertEqual(".ciel/team-memory", stored["directory"])
+        self.assertEqual(42, stored["max_files"])
+
+    def test_remote_memory_rejects_unsafe_directory_and_non_http_manifest(self):
+        for token in (
+            "directory=../outside",
+            "directory=C:\\outside",
+            "manifest_url=ftp://memory.example/manifest.json",
+        ):
+            with self.subTest(token=token), self.assertRaises(EventSettingsCliError):
+                self.controller.remote_memory(_args(token))
+        self.assertNotIn("remote_memory", self.config)
+
+    def test_remote_memory_authorization_is_masked_and_sync_is_available(self):
+        self.controller.remote_memory(_args("authorization=Bearer {MEMORY_TOKEN}"))
+        self.output.clear()
+
+        self.controller.remote_memory(_args())
+        self.controller.remote_memory(_args("sync"))
+
+        report = "\n".join(self.output)
+        self.assertIn("authorization=stored", report)
+        self.assertNotIn("MEMORY_TOKEN", report)
+        self.assertIn("remote-memory: updated", report)
+
+    def test_remote_memory_limits_are_bounded(self):
+        for token in ("timeout_seconds=0", "max_files=2049", "max_file_bytes=nope"):
+            with self.subTest(token=token), self.assertRaises(EventSettingsCliError):
+                self.controller.remote_memory(_args(token))
+
     # -- CLI boundary ------------------------------------------------------
 
     def test_handlers_report_a_rejected_parameter_without_a_traceback(self):
-        external, remote = handlers(
+        external, remote, _memory = handlers(
             EventSettingsCliPorts(
                 load_config=lambda: self.config,
                 save_config=lambda value: self.config.update(value),
                 receiver_service=lambda: self.service,
                 sync_instructions=self._sync,
+                sync_memories=lambda: ["remote-memory: updated"],
                 output=self.output.append,
             )
         )
@@ -254,12 +303,13 @@ class EventSettingsCliTests(unittest.TestCase):
         self.assertIn("1 to 30", str(raised.exception))
 
     def test_receiver_contract_errors_also_arrive_as_a_message(self):
-        external, _remote = handlers(
+        external, _remote, _memory = handlers(
             EventSettingsCliPorts(
                 load_config=lambda: self.config,
                 save_config=lambda value: self.config.update(value),
                 receiver_service=lambda: _ReceiverService(),
                 sync_instructions=self._sync,
+                sync_memories=lambda: ["remote-memory: updated"],
                 output=self.output.append,
             )
         )

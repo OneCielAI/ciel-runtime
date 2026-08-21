@@ -1,4 +1,4 @@
-"""CLI parameter injection for the external-event and remote-instruction menus.
+"""CLI parameter injection for event, instruction, and memory settings.
 
 The prelaunch menus flip `enabled` and `transport` because a keypress carries no
 value.  A command line does, and an injected parameter has to mean the same
@@ -14,6 +14,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable
 import urllib.parse
+from pathlib import PurePosixPath
 
 from .config_value_codec import parse_bool
 
@@ -44,6 +45,24 @@ REMOTE_INSTRUCTION_KEYS = (
     "authorization",
     "timeout_seconds",
 )
+REMOTE_MEMORY_KEYS = (
+    "enabled",
+    "manifest_url",
+    "authorization",
+    "directory",
+    "timeout_seconds",
+    "max_manifest_bytes",
+    "max_file_bytes",
+    "max_total_bytes",
+    "max_files",
+)
+REMOTE_MEMORY_LIMITS = {
+    "timeout_seconds": (1, 30),
+    "max_manifest_bytes": (1_024, 4_194_304),
+    "max_file_bytes": (1_024, 16_777_216),
+    "max_total_bytes": (1_024, 134_217_728),
+    "max_files": (1, 2_048),
+}
 _SECRET_KEYS = frozenset({"webhook_secret", "authorization"})
 
 
@@ -95,6 +114,7 @@ class EventSettingsCliPorts:
     save_config: Callable[[dict[str, Any]], None]
     receiver_service: Callable[[], Any]
     sync_instructions: Callable[[], list[str]]
+    sync_memories: Callable[[], list[str]]
     output: Callable[[str], None]
 
 
@@ -236,6 +256,91 @@ class EventSettingsCli:
         if sync_requested:
             self._sync()
 
+    # -- remote memory ----------------------------------------------------
+
+    def _memory_settings(self) -> dict[str, Any]:
+        value = self.ports.load_config().get("remote_memory")
+        return value if isinstance(value, dict) else {}
+
+    def remote_memory_values(self) -> dict[str, Any]:
+        current = self._memory_settings()
+        return {
+            "enabled": bool(current.get("enabled", False)),
+            "manifest_url": str(current.get("manifest_url") or ""),
+            "authorization": "stored" if current.get("authorization") else "unset",
+            "directory": str(current.get("directory") or ".ciel/memory"),
+            "timeout_seconds": current.get("timeout_seconds") or 5,
+            "max_manifest_bytes": current.get("max_manifest_bytes") or 1_048_576,
+            "max_file_bytes": current.get("max_file_bytes") or 4_194_304,
+            "max_total_bytes": current.get("max_total_bytes") or 33_554_432,
+            "max_files": current.get("max_files") or 256,
+        }
+
+    def remote_memory(self, args: Any) -> None:
+        tokens = [str(value) for value in (getattr(args, "values", None) or [])]
+        if not tokens:
+            self._report("remote-memory", self.remote_memory_values())
+            return
+        updates: dict[str, Any] = {}
+        changed: list[str] = []
+        sync_requested = False
+        for token in tokens:
+            key, value = split_assignment(token, bare_keys=("sync",))
+            if key == "sync":
+                sync_requested = True
+                continue
+            if key not in REMOTE_MEMORY_KEYS:
+                raise EventSettingsCliError(
+                    f"unsupported remote memory option: {key}; expected one of "
+                    f"{', '.join(REMOTE_MEMORY_KEYS)}, sync"
+                )
+            if key == "enabled":
+                updates[key] = parse_flag(key, value)
+            elif key == "manifest_url":
+                updates[key] = _validated_url(key, value)
+            elif key == "directory":
+                directory = value.strip()
+                if directory:
+                    path = PurePosixPath(directory)
+                    if (
+                        "\\" in directory
+                        or ":" in directory
+                        or path.is_absolute()
+                        or any(part in {"", ".", ".."} for part in path.parts)
+                    ):
+                        raise EventSettingsCliError(
+                            "directory must be a portable path inside the workspace"
+                        )
+                updates[key] = directory
+            elif key in REMOTE_MEMORY_LIMITS:
+                minimum, maximum = REMOTE_MEMORY_LIMITS[key]
+                try:
+                    parsed = int(value.strip())
+                except ValueError:
+                    raise EventSettingsCliError(
+                        f"{key} must be a whole number from {minimum} to {maximum}"
+                    ) from None
+                if not minimum <= parsed <= maximum:
+                    raise EventSettingsCliError(
+                        f"{key} must be a whole number from {minimum} to {maximum}"
+                    )
+                updates[key] = parsed
+            else:
+                updates[key] = value
+            changed.append(key)
+        if changed:
+            config = self.ports.load_config()
+            stored = config.get("remote_memory")
+            if not isinstance(stored, dict):
+                stored = {}
+                config["remote_memory"] = stored
+            stored.update(updates)
+            self.ports.save_config(config)
+            self._confirm("remote-memory", changed)
+        if sync_requested:
+            for line in self.ports.sync_memories() or ():
+                self.ports.output(f"  {line}")
+
     # -- reporting ---------------------------------------------------------
 
     def _report(self, command: str, values: dict[str, Any]) -> None:
@@ -272,17 +377,19 @@ def _guarded(handler: Callable[[Any], None]) -> Callable[[Any], None]:
 
 
 def handlers(ports: EventSettingsCliPorts) -> tuple[Callable[[Any], None], ...]:
-    """Return the (external-events, remote-instructions) command handlers."""
+    """Return external-event, remote-instruction, and remote-memory handlers."""
 
     controller = EventSettingsCli(ports)
     return (
         _guarded(controller.external_events),
         _guarded(controller.remote_instructions),
+        _guarded(controller.remote_memory),
     )
 
 
 __all__ = [
     "EXTERNAL_EVENT_KEYS",
+    "REMOTE_MEMORY_KEYS",
     "REMOTE_INSTRUCTION_KEYS",
     "REMOTE_INSTRUCTION_URL_KEYS",
     "EventSettingsCli",

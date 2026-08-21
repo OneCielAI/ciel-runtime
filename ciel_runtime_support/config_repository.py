@@ -123,6 +123,17 @@ def build_default_config(provider_defaults: dict[str, Any]) -> dict[str, Any]:
             "timeout_seconds": 5,
             "max_bytes": 1048576,
         },
+        "remote_memory": {
+            "enabled": False,
+            "manifest_url": "",
+            "authorization": "",
+            "directory": ".ciel/memory",
+            "timeout_seconds": 5,
+            "max_manifest_bytes": 1048576,
+            "max_file_bytes": 4194304,
+            "max_total_bytes": 33554432,
+            "max_files": 256,
+        },
         "speech": {
             "colab": {
                 "enabled": True,

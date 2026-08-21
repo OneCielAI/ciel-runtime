@@ -35,6 +35,7 @@ class CliParserSettings:
     log_level: CliHandler
     external_events: CliHandler
     remote_instructions: CliHandler
+    remote_memory: CliHandler
 
 
 @dataclass(frozen=True)
@@ -91,6 +92,7 @@ def build_cli_parser(services: CliParserServices) -> argparse.ArgumentParser:
     _add_optional_value_command(commands, "log-level", services.settings.log_level)
     _add_values_command(commands, "external-events", services.settings.external_events)
     _add_values_command(commands, "remote-instructions", services.settings.remote_instructions)
+    _add_values_command(commands, "remote-memory", services.settings.remote_memory)
     _add_optional_value_command(commands, "ollama-native", services.provider.ollama_native)
     _add_values_command(commands, "ollama-options", services.provider.ollama_options)
     _add_values_command(commands, "provider-options", services.provider.provider_options)
