@@ -2,8 +2,8 @@
 
 Remote Memory downloads a workspace-scoped memory tree from a separate HTTP
 manifest endpoint before an interactive runtime starts. It does not place the
-memory contents in the system prompt. Ciel adds only the local memory-index
-address to the bottom of the runtime's native instruction file.
+memory contents in the system prompt. Ciel adds only the verified local
+memory-index address to its managed system/developer prompt context.
 
 ## Configure and synchronize
 
@@ -15,11 +15,13 @@ ciel-runtimectl remote-memory `
   sync
 ```
 
-The default destination is `.ciel/memory` below the launch workspace. A custom
-destination must remain a portable relative path inside the workspace:
+The default destination is `memory` below Ciel's workspace state directory. On
+Windows, for example, the resulting boundary is
+`%APPDATA%\ciel-runtime\workspaces\<workspace-id>\memory`. A custom destination
+must remain a portable relative path inside that state directory:
 
 ```powershell
-ciel-runtimectl remote-memory directory=.ciel/team-memory
+ciel-runtimectl remote-memory directory=team-memory
 ```
 
 Use `ciel-runtimectl remote-memory` without values to display the current
@@ -78,24 +80,25 @@ and optional SHA-256 values pass does Ciel replace the previous memory tree.
 Files omitted by the new manifest therefore disappear. A failed synchronization
 keeps the previous tree unchanged and logs `remote_memory_failed`.
 
-The router's normalized launch workspace is authoritative for both the memory
-tree and native instruction file. Ciel rejects Remote Memory when that workspace
-is the user's home directory or a filesystem root, because a native instruction
-file there would escape project scope. A rejected launch removes an existing
-managed memory pointer without deleting user-authored instruction text.
+The router's workspace identifier selects the workspace state directory. The
+launch directory may therefore be the user's home directory when a machine has
+no separate project checkout; the memory tree remains isolated below the Ciel
+workspace state boundary.
 
-After a successful synchronization, Ciel appends this managed block at the
-bottom of `CLAUDE.md`, `AGENTS.md`, or `GEMINI.md` as appropriate:
+After a successful synchronization, routed OpenAI Responses, OpenAI Chat, and
+Anthropic Messages requests receive a managed prompt block like this:
 
 ```markdown
 <!-- ciel-runtime:remote-memory:begin -->
-Memory index: .ciel/memory/index.okf
+Memory index: C:\Users\name\AppData\Roaming\ciel-runtime\workspaces\<workspace-id>\memory\index.okf
 <!-- ciel-runtime:remote-memory:end -->
 ```
 
-The block is replaced instead of duplicated on later launches. Remote
-Instruction refreshes and context compaction also restore the pointer after
-rewriting the native instruction file.
+The block is inserted idempotently. Ciel does not create or append a Remote
+Memory block in the launch directory's `CLAUDE.md`, `AGENTS.md`, or `GEMINI.md`.
+During migration it removes a block previously managed by Ciel while preserving
+the rest of the user-authored file. The legacy `.ciel/memory` configuration
+value is accepted as an alias for the new `memory` state-directory destination.
 
 ## Safety and limits
 

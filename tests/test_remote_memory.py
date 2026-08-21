@@ -11,6 +11,7 @@ from unittest import mock
 from ciel_runtime_support.remote_memory import (
     MEMORY_POINTER_BEGIN,
     RemoteMemorySynchronizer,
+    current_memory_prompt,
     parse_manifest,
     update_memory_pointer,
 )
@@ -67,7 +68,7 @@ class RemoteMemoryTests(unittest.TestCase):
         ):
             root = Path(td)
             workspace = root / "workspace"
-            memory = workspace / ".ciel" / "memory"
+            memory = root / "state" / "memory"
             memory.mkdir(parents=True)
             (memory / "stale.md").write_text("stale", encoding="utf-8")
             manifest_url = "https://memory.example/v1/manifest.json"
@@ -110,7 +111,7 @@ class RemoteMemoryTests(unittest.TestCase):
 
             self.assertEqual("updated", first.status)
             self.assertEqual(3, first.file_count)
-            self.assertEqual(".ciel/memory/index.okf", first.index_address)
+            self.assertEqual(str((memory / "index.okf").resolve()), first.index_address)
             self.assertFalse((memory / "stale.md").exists())
             self.assertEqual("root: memory\n", (memory / "index.okf").read_text())
             self.assertEqual("# Ciel\n", (memory / "projects" / "ciel.md").read_text())
@@ -118,9 +119,9 @@ class RemoteMemoryTests(unittest.TestCase):
                 '{"ready": true}\n',
                 (memory / "state" / "runtime.json").read_text(),
             )
-            agents = (workspace / "AGENTS.md").read_text(encoding="utf-8")
-            self.assertTrue(agents.rstrip().endswith("<!-- ciel-runtime:remote-memory:end -->"))
-            self.assertEqual(1, agents.count("Memory index: .ciel/memory/index.okf"))
+            self.assertFalse((workspace / "AGENTS.md").exists())
+            prompt = current_memory_prompt(root / "state", config)
+            self.assertIn(f"Memory index: {(memory / 'index.okf').resolve()}", prompt)
 
             self.assertTrue(
                 all(
@@ -134,8 +135,7 @@ class RemoteMemoryTests(unittest.TestCase):
 
             self.assertEqual("updated", second.status)
             self.assertEqual("root: replaced\n", (memory / "index.okf").read_text())
-            agents = (workspace / "AGENTS.md").read_text(encoding="utf-8")
-            self.assertEqual(1, agents.count("Memory index: .ciel/memory/index.okf"))
+            self.assertFalse((workspace / "AGENTS.md").exists())
 
     def test_real_local_http_manifest_downloads_a_nested_memory_tree(self):
         requests = []
@@ -191,7 +191,7 @@ class RemoteMemoryTests(unittest.TestCase):
                 self.assertEqual(2, result.file_count)
                 self.assertEqual(
                     "# Current memory\n",
-                    (root / "workspace" / ".ciel" / "memory" / "journal" / "current.md").read_text(),
+                    (root / "state" / "memory" / "journal" / "current.md").read_text(),
                 )
                 self.assertEqual(
                     [
@@ -233,7 +233,7 @@ class RemoteMemoryTests(unittest.TestCase):
             self.assertEqual("Bearer private", server.requests[0].get_header("Authorization"))
             self.assertIsNone(server.requests[1].get_header("Authorization"))
 
-    def test_user_home_scope_refuses_download_and_removes_managed_pointer(self):
+    def test_user_home_launch_downloads_to_workspace_state_and_removes_legacy_pointer(self):
         with tempfile.TemporaryDirectory() as td:
             workspace = Path(td) / "home"
             workspace.mkdir()
@@ -265,14 +265,18 @@ class RemoteMemoryTests(unittest.TestCase):
                 state_dir=Path(td) / "state",
                 log=lambda *_args: None,
                 urlopen=server,
-                home=lambda: workspace,
             ).sync("codex")
 
-            self.assertEqual("failed", result.status)
-            self.assertIn("user home is not allowed", result.detail)
-            self.assertEqual([], server.requests)
+            self.assertEqual("updated", result.status)
+            self.assertEqual(2, len(server.requests))
             self.assertEqual("# User rules\n", agents.read_text(encoding="utf-8"))
             self.assertFalse((workspace / ".ciel" / "memory").exists())
+            self.assertEqual(
+                "index\n",
+                (Path(td) / "state" / "memory" / "index.okf").read_text(
+                    encoding="utf-8"
+                ),
+            )
 
     def test_distinct_project_workspaces_receive_isolated_memory_trees(self):
         with tempfile.TemporaryDirectory() as td:
@@ -301,26 +305,23 @@ class RemoteMemoryTests(unittest.TestCase):
                     state_dir=root / "state" / name,
                     log=lambda *_args: None,
                     urlopen=server,
-                    home=lambda: root / "home",
                 ).sync("codex")
                 self.assertEqual("updated", result.status)
 
             for name in ("alpha", "beta"):
-                workspace = root / name
                 self.assertEqual(
                     "project memory\n",
-                    (workspace / ".ciel" / "memory" / "index.okf").read_text(
+                    (root / "state" / name / "memory" / "index.okf").read_text(
                         encoding="utf-8"
                     ),
                 )
-                self.assertTrue((workspace / "AGENTS.md").is_file())
+                self.assertFalse((root / name / "AGENTS.md").exists())
             self.assertFalse((root / ".ciel" / "memory").exists())
 
     def test_sha_mismatch_keeps_the_previous_memory_tree(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
-            workspace = root / "workspace"
-            memory = workspace / ".ciel" / "memory"
+            memory = root / "state" / "memory"
             memory.mkdir(parents=True)
             (memory / "index.okf").write_text("previous", encoding="utf-8")
             manifest_url = "https://memory.example/manifest.json"

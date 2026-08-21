@@ -127,7 +127,7 @@ def build_default_config(provider_defaults: dict[str, Any]) -> dict[str, Any]:
             "enabled": False,
             "manifest_url": "",
             "authorization": "",
-            "directory": ".ciel/memory",
+            "directory": "memory",
             "timeout_seconds": 5,
             "max_manifest_bytes": 1048576,
             "max_file_bytes": 4194304,

@@ -38,7 +38,7 @@ class RemoteMemoryRuntimeIntegrationTests(unittest.TestCase):
                 launch = getattr(ciel_runtime, name)
                 self.assertIs(ciel_runtime.sync_remote_launch_assets, launch.synchronize)
 
-    def test_instruction_refresh_reprojects_the_current_memory_pointer(self):
+    def test_instruction_refresh_removes_the_obsolete_native_memory_pointer(self):
         instruction_service = mock.Mock()
         instruction_service.sync.return_value = RemoteInstructionResult(
             "codex", "https://instructions.example/AGENTS.md", Path("AGENTS.md"), "updated"
@@ -60,6 +60,71 @@ class RemoteMemoryRuntimeIntegrationTests(unittest.TestCase):
 
         self.assertEqual("updated", result.status)
         memory_service.project_current_pointer.assert_called_once_with("codex")
+
+    def test_managed_memory_prompt_is_injected_for_all_router_protocol_families(self):
+        with tempfile.TemporaryDirectory() as td:
+            state = Path(td) / "workspace-state"
+            index = state / "memory" / "index.md"
+            index.parent.mkdir(parents=True)
+            index.write_text("# memory\n", encoding="utf-8")
+            (state / "remote-memory.json").write_text(
+                '{"root":"memory","index":"index.md"}', encoding="utf-8"
+            )
+            prompt = (
+                "<!-- ciel-runtime:remote-memory:begin -->\n"
+                f"Memory index: {index.resolve()}\n"
+                "<!-- ciel-runtime:remote-memory:end -->"
+            )
+            with (
+                mock.patch.object(ciel_runtime, "WORKSPACE_STATE_DIR", state),
+                mock.patch.object(
+                    ciel_runtime,
+                    "load_config",
+                    return_value={"remote_memory": {"enabled": True}},
+                ),
+            ):
+                responses = ciel_runtime.body_with_remote_memory_prompt(
+                    {"instructions": "base"}, "openai_responses"
+                )
+                chat = ciel_runtime.body_with_remote_memory_prompt(
+                    {"messages": [{"role": "user", "content": "hello"}]},
+                    "openai_chat",
+                )
+                anthropic = ciel_runtime.body_with_remote_memory_prompt(
+                    {"system": "base", "messages": []}, "anthropic_messages"
+                )
+
+        self.assertIn(prompt, responses["instructions"])
+        self.assertEqual("system", chat["messages"][0]["role"])
+        self.assertEqual(prompt, chat["messages"][0]["content"])
+        self.assertEqual(prompt, anthropic["system"][-1]["text"])
+
+    def test_managed_memory_prompt_injection_is_idempotent(self):
+        with tempfile.TemporaryDirectory() as td:
+            state = Path(td) / "workspace-state"
+            index = state / "memory" / "index.md"
+            index.parent.mkdir(parents=True)
+            index.write_text("# memory\n", encoding="utf-8")
+            (state / "remote-memory.json").write_text(
+                '{"root":"memory","index":"index.md"}', encoding="utf-8"
+            )
+            with (
+                mock.patch.object(ciel_runtime, "WORKSPACE_STATE_DIR", state),
+                mock.patch.object(
+                    ciel_runtime,
+                    "load_config",
+                    return_value={"remote_memory": {"enabled": True}},
+                ),
+            ):
+                once = ciel_runtime.body_with_remote_memory_prompt(
+                    {"instructions": "base"}, "openai_responses"
+                )
+                twice = ciel_runtime.body_with_remote_memory_prompt(
+                    once, "openai_responses"
+                )
+
+        self.assertEqual(once, twice)
+        self.assertEqual(1, twice["instructions"].count("Memory index:"))
 
     def test_launch_assets_sync_instruction_before_replacing_memory(self):
         memory = RemoteMemoryResult(

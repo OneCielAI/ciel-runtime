@@ -15,6 +15,8 @@ import urllib.parse
 import urllib.request
 import uuid
 
+from .architecture import MessageProtocol
+from .prompt_injection import PromptInjector
 from .remote_instructions import (
     RUNTIME_FILES,
     expand_environment_references,
@@ -24,7 +26,8 @@ from .remote_instructions import (
 
 MEMORY_POINTER_BEGIN = "<!-- ciel-runtime:remote-memory:begin -->"
 MEMORY_POINTER_END = "<!-- ciel-runtime:remote-memory:end -->"
-DEFAULT_DIRECTORY = ".ciel/memory"
+DEFAULT_DIRECTORY = "memory"
+LEGACY_DIRECTORY = ".ciel/memory"
 DEFAULT_MAX_MANIFEST_BYTES = 1_048_576
 DEFAULT_MAX_FILE_BYTES = 4_194_304
 DEFAULT_MAX_TOTAL_BYTES = 33_554_432
@@ -74,28 +77,22 @@ def _safe_relative_path(value: Any, *, field: str) -> PurePosixPath:
     return path
 
 
-def memory_directory(workspace: Path, config: Mapping[str, Any]) -> Path:
+def memory_directory(state_dir: Path, config: Mapping[str, Any]) -> Path:
+    configured = str(settings(config).get("directory") or DEFAULT_DIRECTORY).strip()
+    # 0.2.22 briefly interpreted this setting relative to the launch directory.
+    # Preserve that release's default as an alias while moving the owned data
+    # into the Ciel workspace-state boundary.
+    if configured.replace("\\", "/") == LEGACY_DIRECTORY:
+        configured = DEFAULT_DIRECTORY
     relative = _safe_relative_path(
-        settings(config).get("directory") or DEFAULT_DIRECTORY,
+        configured,
         field="remote_memory.directory",
     )
-    root = workspace.resolve()
+    root = state_dir.resolve()
     destination = root.joinpath(*relative.parts).resolve()
     if destination == root or root not in destination.parents:
-        raise ValueError("remote_memory.directory must stay inside the workspace")
+        raise ValueError("remote_memory.directory must stay inside the workspace state directory")
     return destination
-
-
-def workspace_scope_error(workspace: Path, home: Path) -> str:
-    """Reject scopes whose instruction file would apply beyond one project."""
-
-    resolved = workspace.resolve()
-    if resolved == home.resolve():
-        return "remote memory requires a project workspace; user home is not allowed"
-    anchor = Path(resolved.anchor).resolve() if resolved.anchor else resolved
-    if resolved == anchor:
-        return "remote memory requires a project workspace; filesystem root is not allowed"
-    return ""
 
 
 def _normalized_format(value: Any, path: PurePosixPath) -> str:
@@ -214,6 +211,54 @@ def _managed_pointer_block(index_address: str) -> str:
     )
 
 
+def current_memory_index_address(
+    state_dir: Path,
+    config: Mapping[str, Any],
+) -> str:
+    """Return a verified workspace-state index path for prompt injection."""
+
+    if not bool(settings(config).get("enabled", False)):
+        return ""
+    try:
+        state = json.loads((state_dir / "remote-memory.json").read_text(encoding="utf-8"))
+    except (FileNotFoundError, OSError, json.JSONDecodeError):
+        return ""
+    if not isinstance(state, dict):
+        return ""
+    try:
+        root_relative = _safe_relative_path(state.get("root"), field="root")
+        index_relative = _safe_relative_path(state.get("index"), field="index")
+    except ValueError:
+        return ""
+    state_root = state_dir.resolve()
+    root = state_root.joinpath(*root_relative.parts).resolve()
+    if state_root not in root.parents:
+        return ""
+    path = root.joinpath(*index_relative.parts).resolve()
+    if root not in path.parents:
+        return ""
+    return str(path) if path.is_file() else ""
+
+
+def current_memory_prompt(state_dir: Path, config: Mapping[str, Any]) -> str:
+    address = current_memory_index_address(state_dir, config)
+    return _managed_pointer_block(address) if address else ""
+
+
+def inject_current_memory_prompt(
+    body: dict[str, Any],
+    protocol: MessageProtocol,
+    state_dir: Path,
+    config: Mapping[str, Any],
+) -> dict[str, Any]:
+    prompt = current_memory_prompt(state_dir, config)
+    if not prompt or MEMORY_POINTER_BEGIN in json.dumps(
+        body, ensure_ascii=False, default=str
+    ):
+        return body
+    return PromptInjector().inject(body, protocol, [prompt])
+
+
 def update_memory_pointer(path: Path, index_address: str = "") -> bool:
     """Replace Ciel's memory pointer at the bottom without changing user text."""
 
@@ -269,27 +314,22 @@ class RemoteMemorySynchronizer:
     state_dir: Path
     log: Callable[[str, str], None]
     urlopen: Callable[..., Any] = urllib.request.urlopen
-    home: Callable[[], Path] = Path.home
 
     def sync(self, runtime: str, *, reason: str = "launch") -> RemoteMemoryResult:
         config = self.load_config()
         remote = settings(config)
         manifest_url = str(remote.get("manifest_url") or "").strip()
         workspace = self.workspace().resolve()
+        self._remove_legacy_pointer(runtime, workspace)
         if not bool(remote.get("enabled", False)):
-            project_memory_pointer(workspace, runtime, "")
             return RemoteMemoryResult(manifest_url, None, None, "", "disabled")
-        scope_error = workspace_scope_error(workspace, self.home())
-        if scope_error:
-            project_memory_pointer(workspace, runtime, "")
-            return self._failed(runtime, manifest_url, scope_error)
         try:
             manifest_url = _http_url(
                 manifest_url,
                 base="",
                 field="remote_memory.manifest_url",
             )
-            root = memory_directory(workspace, config)
+            root = memory_directory(self.state_dir, config)
         except ValueError as exc:
             return self._failed(runtime, manifest_url, str(exc))
 
@@ -350,11 +390,10 @@ class RemoteMemorySynchronizer:
                 authorization=authorization,
             )
             index_path = root.joinpath(*manifest.index.parts)
-            project_memory_pointer(workspace, runtime, index_address)
             self._write_state(
                 {
                     "manifest_url": manifest_url,
-                    "root": root.relative_to(workspace).as_posix(),
+                    "root": root.relative_to(self.state_dir.resolve()).as_posix(),
                     "index": manifest.index.as_posix(),
                     "index_address": index_address,
                     "files": [
@@ -391,24 +430,25 @@ class RemoteMemorySynchronizer:
         )
 
     def current_index_address(self) -> str:
-        try:
-            state = json.loads(self._state_path().read_text(encoding="utf-8"))
-        except (FileNotFoundError, OSError, json.JSONDecodeError):
-            return ""
-        if not isinstance(state, dict):
-            return ""
-        address = str(state.get("index_address") or "")
-        try:
-            relative = _safe_relative_path(address, field="index_address")
-        except ValueError:
-            return ""
-        path = self.workspace().resolve().joinpath(*relative.parts)
-        return relative.as_posix() if path.is_file() else ""
+        return current_memory_index_address(self.state_dir, self.load_config())
+
+    def current_prompt_text(self) -> str:
+        return current_memory_prompt(self.state_dir, self.load_config())
 
     def project_current_pointer(self, runtime: str) -> bool:
-        remote = settings(self.load_config())
-        address = self.current_index_address() if remote.get("enabled") else ""
-        return project_memory_pointer(self.workspace().resolve(), runtime, address)
+        """Remove the obsolete native-file projection left by 0.2.22."""
+
+        return project_memory_pointer(self.workspace().resolve(), runtime, "")
+
+    def _remove_legacy_pointer(self, runtime: str, workspace: Path) -> None:
+        try:
+            project_memory_pointer(workspace, runtime, "")
+        except (OSError, ValueError) as exc:
+            self.log(
+                "WARN",
+                f"remote_memory_legacy_pointer_cleanup_failed runtime={runtime} "
+                f"error={type(exc).__name__}: {exc}",
+            )
 
     def _download(
         self,
@@ -490,8 +530,7 @@ class RemoteMemorySynchronizer:
         finally:
             if staging.exists():
                 shutil.rmtree(staging)
-        workspace = self.workspace().resolve()
-        return root.joinpath(*manifest.index.parts).relative_to(workspace).as_posix()
+        return str(root.joinpath(*manifest.index.parts).resolve())
 
     def _state_path(self) -> Path:
         return self.state_dir / "remote-memory.json"
@@ -531,7 +570,7 @@ def sync_instruction_with_memory_pointer(
     memory_synchronizer: Callable[[], RemoteMemorySynchronizer],
     log: Callable[[str, str], Any],
 ) -> Any:
-    """Refresh native instructions and restore the managed memory pointer."""
+    """Refresh native instructions and remove the obsolete file pointer."""
 
     result = instruction_synchronizer().sync(runtime, reason=reason)
     try:
@@ -561,7 +600,7 @@ def sync_launch_assets(
 def sync_all_memory_pointers(
     synchronizer: RemoteMemorySynchronizer,
 ) -> list[str]:
-    """Download once and project the resulting index into every native file."""
+    """Download once and remove obsolete native-file pointers."""
 
     result = synchronizer.sync("codex", reason="manual")
     for runtime in ("claude", "agy", "kimi", "grok"):
@@ -585,6 +624,9 @@ __all__ = [
     "RemoteMemoryManifest",
     "RemoteMemoryResult",
     "RemoteMemorySynchronizer",
+    "current_memory_index_address",
+    "current_memory_prompt",
+    "inject_current_memory_prompt",
     "memory_directory",
     "parse_manifest",
     "project_memory_pointer",

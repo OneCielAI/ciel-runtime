@@ -244,7 +244,7 @@ from ciel_runtime_support.prompt_injection import normalize_anthropic_system_rol
 from ciel_runtime_support.prompt_injection import normalize_anthropic_system_role_messages_by_strategy as project_normalize_anthropic_system_role_messages_by_strategy
 from ciel_runtime_support.remote_instructions import RemoteInstructionResult, RemoteInstructionSynchronizer, SynchronizedLaunch
 from ciel_runtime_support.remote_instructions import panel_rows as project_remote_instruction_panel_rows
-from ciel_runtime_support.remote_memory import RemoteMemoryResult, RemoteMemorySynchronizer, sync_all_memory_pointers as project_sync_all_memory_pointers, sync_instruction_with_memory_pointer as project_sync_instruction_with_memory_pointer, sync_launch_assets as project_sync_launch_assets
+from ciel_runtime_support.remote_memory import RemoteMemoryResult, RemoteMemorySynchronizer, inject_current_memory_prompt as project_inject_current_memory_prompt, sync_all_memory_pointers as project_sync_all_memory_pointers, sync_instruction_with_memory_pointer as project_sync_instruction_with_memory_pointer, sync_launch_assets as project_sync_launch_assets
 from ciel_runtime_support.protocols import PROTOCOL_ADAPTERS
 from ciel_runtime_support.protocols.anthropic_content import content_to_text as anthropic_content_to_text
 from ciel_runtime_support.protocols.anthropic_thinking_policy import AnthropicThinkingPolicy, SuppressedThinkingRepository, ThinkingPolicyPorts
@@ -1949,6 +1949,7 @@ def set_external_event_config(key: str, value: Any) -> list[str]:
 def remote_instruction_synchronizer() -> RemoteInstructionSynchronizer: return RemoteInstructionSynchronizer(load_config=load_config, workspace=lambda: Path(ROUTER_WORKSPACE), state_dir=WORKSPACE_STATE_DIR, log=router_log)
 
 def remote_memory_synchronizer() -> RemoteMemorySynchronizer: return RemoteMemorySynchronizer(load_config=load_config, workspace=lambda: Path(ROUTER_WORKSPACE), state_dir=WORKSPACE_STATE_DIR, log=router_log)
+def body_with_remote_memory_prompt(body: dict[str, Any], protocol: MessageProtocol) -> dict[str, Any]: return project_inject_current_memory_prompt(body, protocol, WORKSPACE_STATE_DIR, load_config())
 def sync_remote_instruction(runtime: str, *, reason: str) -> RemoteInstructionResult: return project_sync_instruction_with_memory_pointer(runtime, reason=reason, instruction_synchronizer=remote_instruction_synchronizer, memory_synchronizer=remote_memory_synchronizer, log=router_log)
 def sync_remote_memory(runtime: str, *, reason: str) -> RemoteMemoryResult: return remote_memory_synchronizer().sync(runtime, reason=reason)
 def sync_remote_launch_assets(runtime: str, *, reason: str) -> RemoteMemoryResult: return project_sync_launch_assets(runtime, reason=reason, instruction_sync=sync_remote_instruction, memory_sync=sync_remote_memory)
@@ -2897,7 +2898,8 @@ codex_backend_http_adapter = _CODEX_BACKEND_API.backend_adapter
 provider_responses_headers = _CODEX_BACKEND_API.provider_responses_headers
 provider_chat_headers = _CODEX_BACKEND_API.provider_chat_headers
 provider_chat_passthrough = _CODEX_BACKEND_API.chat_passthrough
-forward_provider_chat = _CODEX_BACKEND_API.forward_provider_chat
+_forward_provider_chat_without_memory = _CODEX_BACKEND_API.forward_provider_chat
+def forward_provider_chat(handler: Any, provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> Any: return _forward_provider_chat_without_memory(handler, provider, pcfg, body_with_remote_memory_prompt(body, "openai_chat"))
 provider_responses_passthrough = _CODEX_BACKEND_API.responses_passthrough
 forward_provider_responses = _CODEX_BACKEND_API.forward_provider_responses
 codex_backend_upstream_url = _CODEX_BACKEND_API.upstream_url
@@ -2907,6 +2909,7 @@ forward_codex_backend_get = _CODEX_BACKEND_API.forward_get
 forward_codex_responses = _CODEX_BACKEND_API.forward_responses
 
 def body_with_codex_compat_instructions(cfg: dict[str, Any], provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> dict[str, Any]:
+    body = body_with_remote_memory_prompt(body, "openai_responses")
     return codex_turn_recovery.body_with_codex_compat_instructions(body, ROUTED_CODEX_COMPAT_PROMPT, is_native_codex=codex_routed_enabled(provider, pcfg), compat_enabled=should_append_compat_prompt(provider, pcfg, cfg))
 
 def _codex_turn_recovery_services() -> codex_turn_recovery.CodexTurnRecoveryServices:
@@ -4429,7 +4432,7 @@ def _channel_prompt_references_message_id(text: str, message_id: int, prompt_tex
 def _channel_message_ids_already_in_request(body: dict[str, Any]) -> set[int]: return channel_wake_context().message_ids_already_in_request(body)
 def _channel_llm_commit_cursor_locked(last_id: int) -> None: channel_wake_context().commit_cursor(last_id)
 def _channel_llm_stdin_skip_reason(message_id: int) -> str: return channel_wake_context().stdin_skip_reason(message_id)
-def body_with_pending_channel_messages(body: dict[str, Any]) -> dict[str, Any]: return channel_wake_context().body_with_pending_messages(body)
+def body_with_pending_channel_messages(body: dict[str, Any]) -> dict[str, Any]: return channel_wake_context().body_with_pending_messages(body_with_remote_memory_prompt(body, "anthropic_messages"))
 def _write_fd_all(fd: int, data: bytes) -> None: ChannelWakeContext.write_all(fd, data)
 def _channel_wake_enter_bytes(value: str | bytes | None = None) -> bytes: return channel_wake_context().enter_bytes(value)
 def _channel_wake_input_bytes(prompt: str, enter_bytes: bytes | None = None) -> bytes: return channel_wake_context().input_bytes(prompt, enter_bytes)
