@@ -1,3 +1,7 @@
+import json
+import shutil
+import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -17,6 +21,47 @@ class WindowsInstallScriptTests(unittest.TestCase):
         self.assertIn(
             '[Environment]::SetEnvironmentVariable("CIEL_RUNTIME_HOME", $shareDir, "User")',
             script,
+        )
+
+    def test_installer_rejects_runtime_home_below_windows_temp(self):
+        script = (Path(__file__).resolve().parents[1] / "install.ps1").read_text(encoding="utf-8")
+
+        self.assertIn("$temporaryRuntimeHome", script)
+        self.assertIn("$ephemeralRuntimeHome = $snapshotHome -or $temporaryRuntimeHome", script)
+        self.assertIn("Ignoring ephemeral CIEL_RUNTIME_HOME", script)
+
+    def test_npm_repair_targets_only_missing_runtime_below_temp(self):
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("Node.js is unavailable")
+        root = Path(__file__).resolve().parents[1]
+        module = root / "npm-bin" / "repair-windows-runtime-pin.js"
+        with tempfile.TemporaryDirectory() as temporary:
+            temp = Path(temporary)
+            stale = temp / "tmp_bundle" / "share" / "ciel-runtime"
+            stable = temp.parent / "stable" / "ciel-runtime"
+            script = """
+const repair = require(process.argv[1]);
+const stale = process.argv[2];
+const stable = process.argv[3];
+const temp = process.argv[4];
+process.stdout.write(JSON.stringify({
+  staleMissing: repair.shouldRepairRuntimeHome(stale, temp, () => false),
+  stalePresent: repair.shouldRepairRuntimeHome(stale, temp, () => true),
+  stableMissing: repair.shouldRepairRuntimeHome(stable, temp, () => false),
+}));
+"""
+            result = subprocess.run(
+                [node, "-e", script, str(module), str(stale), str(stable), str(temp)],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            observed = json.loads(result.stdout)
+
+        self.assertEqual(
+            {"staleMissing": True, "stalePresent": False, "stableMissing": False},
+            observed,
         )
 
     def test_windows_launchers_prefer_registered_pin_over_stale_terminal_snapshot(self):

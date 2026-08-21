@@ -1,0 +1,97 @@
+okf_version: "1.0"
+knowledge:
+  task:
+    id: local-stale-temporary-runtime-pin-repair-20260821
+    date: "2026-08-21"
+    objective: >-
+      Diagnose and correct the local bare ciel-runtime launch failure that tried
+      to execute ciel_runtime.py from a deleted Windows temporary directory.
+
+  environment:
+    machine:
+      user: djlov
+      failing_workspace: "G:\\OneCielDMSUI"
+      shell_observed: cmd.exe
+    installed_nightly:
+      version: 0.2.22-nightly.20260821-191423.5d24d79
+      npm_root: >-
+        C:\Users\djlov\AppData\Roaming\npm\node_modules\
+        @oneciel-ai\ciel-runtime
+
+  evidence:
+    failing_command:
+      command: "ciel-runtime --continue"
+      python: >-
+        C:\Users\djlov\AppData\Local\Python\pythoncore-3.14-64\python.exe
+      missing_script: >-
+        C:\Users\djlov\AppData\Local\Temp\tmp6fs9_fba\share\
+        ciel-runtime\ciel_runtime.py
+      errno: 2
+    path_resolution:
+      first_launcher: "C:\\Users\\djlov\\.local\\bin\\ciel-runtime.cmd"
+      later_npm_launcher: >-
+        C:\Users\djlov\AppData\Roaming\npm\ciel-runtime.cmd
+      confirmed_order: standalone_launcher_before_npm_launcher
+    registered_runtime_home:
+      before: >-
+        C:\Users\djlov\AppData\Local\Temp\tmp6fs9_fba\share\
+        ciel-runtime
+      script_present: false
+      launcher_behavior: >-
+        The first CMD launcher reads HKCU\Environment\CIEL_RUNTIME_HOME and
+        constructs the Python script path from it.
+    npm_installation:
+      npm_shim_direct_version_succeeded: true
+      installed_ciel_runtime_py_present: true
+      conclusion: >-
+        The npm package and generated npm shim were intact. The bare command
+        failed because the earlier standalone launcher consumed the stale
+        registered temporary home.
+
+  immediate_repair:
+    registered_home_after: >-
+      C:\Users\djlov\AppData\Roaming\npm\node_modules\@oneciel-ai\
+      ciel-runtime
+    verification:
+      working_directory: "G:\\OneCielDMSUI"
+      command: "ciel-runtime version"
+      output: "ciel-runtime 0.2.22-nightly.20260821-191423.5d24d79"
+      exit_code: 0
+
+  package_repair:
+    windows_installer:
+      behavior: >-
+        install.ps1 now treats any CIEL_RUNTIME_HOME below the expanded Windows
+        TEMP root as ephemeral, in addition to the existing version-snapshot
+        name check. An explicit CIEL_RUNTIME_INSTALL_HOME still has precedence.
+    npm_postinstall:
+      behavior: >-
+        On Windows only, postinstall reads the registered runtime home. It
+        replaces the value with the current npm package root only when the old
+        value is below the Windows temporary root and ciel_runtime.py is absent.
+      unchanged_cases:
+        - A temporary runtime home whose script still exists.
+        - A missing runtime home outside the temporary root.
+        - Every non-Windows npm installation.
+    exceptions_added:
+      machine: false
+      user: false
+      workspace: false
+
+  verification:
+    unit_tests: "5 passed"
+    node_syntax: passed
+    powershell_parse: passed
+    python_lint: passed
+    postinstall_live_state_transition:
+      stale_value: >-
+        C:\Users\djlov\AppData\Local\Temp\
+        ciel-runtime-postinstall-verification\share\ciel-runtime
+      repaired_value: "C:\\Users\\djlov\\ciel-runtime"
+      original_value_restored: true
+    installer_live_state_transition:
+      ephemeral_home_ignored: true
+      default_prefix_install_succeeded: true
+      registered_home_matched_default_prefix: true
+      original_value_restored: true
+      temporary_test_directory_removed: true

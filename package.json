@@ -47,6 +47,7 @@
     "docs/"
   ],
   "scripts": {
+    "postinstall": "node npm-bin/repair-windows-runtime-pin.js",
     "test": "python -m compileall -q ciel_runtime.py ciel_runtime_support ciel-runtime-menu.py ciel-runtime-tool-guard.py scripts && python scripts/run_test_group.py unit && python scripts/run_test_group.py router && python scripts/run_test_group.py channel && python scripts/run_test_group.py runtime",
     "test:unit": "python scripts/run_test_group.py unit",
     "test:router": "python scripts/run_test_group.py router",
