@@ -5,6 +5,57 @@ import ciel_runtime
 
 
 class ProviderWireNormalizationTests(unittest.TestCase):
+    def test_parallel_responses_tool_turn_survives_provider_normalization(self):
+        """Codex emits parallel calls/results as consecutive Responses items."""
+
+        raw = {
+            "model": "ciel-runtime-ollama-cloud-deepseek-v4-pro-0813",
+            "input": [
+                {
+                    "type": "reasoning",
+                    "summary": [{"type": "summary_text", "text": "inspect MCP state"}],
+                },
+                {
+                    "type": "function_call",
+                    "call_id": "call_resources",
+                    "name": "list_mcp_resources",
+                    "arguments": "{}",
+                },
+                {
+                    "type": "function_call",
+                    "call_id": "call_templates",
+                    "name": "list_mcp_resource_templates",
+                    "arguments": "{}",
+                },
+                {
+                    "type": "function_call_output",
+                    "call_id": "call_resources",
+                    "output": "resources",
+                },
+                {
+                    "type": "function_call_output",
+                    "call_id": "call_templates",
+                    "output": "templates",
+                },
+            ],
+        }
+        converted = ciel_runtime.openai_responses_to_anthropic_messages(raw, "fallback")
+        pcfg = copy.deepcopy(ciel_runtime.DEFAULT_CONFIG["providers"]["ollama-cloud"])
+
+        normalized = ciel_runtime.normalize_anthropic_tool_turns_for_provider(
+            "ollama-cloud", pcfg, converted
+        )
+
+        self.assertEqual(["assistant", "user"], [item["role"] for item in normalized["messages"]])
+        self.assertEqual(
+            ["call_resources", "call_templates"],
+            [block["id"] for block in normalized["messages"][0]["content"] if block["type"] == "tool_use"],
+        )
+        self.assertEqual(
+            ["call_resources", "call_templates"],
+            [block["tool_use_id"] for block in normalized["messages"][1]["content"]],
+        )
+
     def test_same_model_id_uses_provider_wire_profile(self):
         body = {"model": "deepseek-v4-flash"}
 

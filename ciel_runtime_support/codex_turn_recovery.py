@@ -197,9 +197,8 @@ def recover_preamble_only_turn(
         return message
     text = message_text(message)
     empty_end_turn = message_has_only_empty_end_turn_notice(message)
-    kimi_reasoning_only = (
-        (provider or "").strip().lower() == "kimi"
-        and message_has_reasoning(message)
+    reasoning_only = (
+        message_has_reasoning(message)
         and (not text.strip() or message_has_only_reasoning_notice(message))
     )
     kimi_promised_followup = (
@@ -209,7 +208,7 @@ def recover_preamble_only_turn(
     )
     if (
         not empty_end_turn
-        and not kimi_reasoning_only
+        and not reasoning_only
         and not kimi_promised_followup
         and not services.should_retry(body, text, [])
     ):
@@ -219,7 +218,7 @@ def recover_preamble_only_turn(
         "empty_end_turn"
         if empty_end_turn
         else "reasoning_only"
-        if kimi_reasoning_only
+        if reasoning_only
         else "promised_followup"
         if kimi_promised_followup
         else "preamble_only"
@@ -232,7 +231,7 @@ def recover_preamble_only_turn(
     try:
         nudge = (
             CODEX_EMPTY_REASONING_CONTINUATION_NUDGE
-            if empty_end_turn or kimi_reasoning_only
+            if empty_end_turn or reasoning_only
             else CODEX_CONTINUATION_NUDGE
         )
         recovery_config = dict(pcfg)
@@ -247,7 +246,7 @@ def recover_preamble_only_turn(
                 message_without_empty_end_turn_notice(message)
                 if empty_end_turn
                 else message_without_reasoning_notice(message)
-                if kimi_reasoning_only
+                if reasoning_only
                 else message,
                 nudge,
             ),
@@ -260,7 +259,7 @@ def recover_preamble_only_turn(
         return message
     if not isinstance(retried, dict):
         return message
-    if empty_end_turn or kimi_reasoning_only:
+    if empty_end_turn or reasoning_only:
         if not message_has_tool_use(retried) and not message_text(retried).strip():
             return message
         return retried

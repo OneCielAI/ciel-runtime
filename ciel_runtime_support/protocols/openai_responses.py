@@ -175,6 +175,7 @@ def openai_responses_to_anthropic_messages(body: dict[str, Any], fallback_model:
         raw_input = []
     saw_conversation_item = False
     pending_reasoning = ""
+    pending_tool_role = ""
     for item in raw_input:
         if not isinstance(item, dict):
             continue
@@ -200,30 +201,33 @@ def openai_responses_to_anthropic_messages(body: dict[str, Any], fallback_model:
                     ),
                 }
             )
-            messages.append(
-                {
-                    "role": "assistant",
-                    "content": content,
-                }
-            )
+            if pending_tool_role == "assistant" and messages:
+                messages[-1]["content"].extend(content)
+            else:
+                messages.append(
+                    {
+                        "role": "assistant",
+                        "content": content,
+                    }
+                )
+            pending_tool_role = "assistant"
             saw_conversation_item = True
             continue
         if item_type in {"function_call_output", "custom_tool_call_output"}:
             call_id = str(item.get("call_id") or item.get("id") or "call_tool")
-            messages.append(
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "tool_result",
-                            "tool_use_id": call_id,
-                            "content": _content_text(item.get("output")),
-                        }
-                    ],
-                }
-            )
+            result = {
+                "type": "tool_result",
+                "tool_use_id": call_id,
+                "content": _content_text(item.get("output")),
+            }
+            if pending_tool_role == "user" and messages:
+                messages[-1]["content"].append(result)
+            else:
+                messages.append({"role": "user", "content": [result]})
+            pending_tool_role = "user"
             saw_conversation_item = True
             continue
+        pending_tool_role = ""
         role = str(item.get("role") or "user").strip().lower()
         blocks = _content_blocks(item.get("content", item.get("text", "")))
         if not blocks:

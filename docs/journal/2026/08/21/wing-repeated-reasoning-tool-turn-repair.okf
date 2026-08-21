@@ -1,0 +1,112 @@
+okf_version: "1.0"
+knowledge:
+  task:
+    id: wing-repeated-reasoning-tool-turn-repair-20260821
+    date: "2026-08-21"
+    objective: >-
+      Determine from live Wing evidence why a routed Codex session repeatedly
+      restarts the same reasoning after Ciel reports a reasoning-only upstream
+      response, then correct the general protocol boundary.
+    scope:
+      machine_exception_added: false
+      user_exception_added: false
+      provider_name_exception_added: false
+
+  environment:
+    wing:
+      host: WING
+      user: "wing\\daniel.yun"
+      tailscale_address: 100.124.160.62
+      ssh_port: 1004
+      workspace: "C:\\Users\\daniel.yun.WING"
+    affected_runtime:
+      version: 0.2.22-nightly.20260821-172735.c8d920e
+      provider: ollama-cloud
+      upstream_model: "deepseek-v4-pro:0813"
+      transcript: >-
+        C:\Users\daniel.yun.WING\.codex\sessions\2026\08\21\
+        rollout-2026-08-21T10-44-11-01a024fe-7666-79e3-9c1a-98f46e26af5f.jsonl
+      router_log: >-
+        C:\Users\daniel.yun.WING\AppData\Roaming\ciel-runtime\
+        router-instances\9139-f895679997f4\router.log
+
+  evidence:
+    live_router:
+      reasoning_only_markers:
+        - "2026-08-21T14:02:35"
+        - "2026-08-21T14:02:41"
+      observed_classification: preamble_only
+      request_growth:
+        first_observed_tokens: 59879
+        later_observed_tokens: 61480
+        first_observed_bytes: 247671
+        later_observed_bytes: 254077
+      historical_blocks_discarded:
+        earlier_pair_count: 509
+        later_pair_count: 551
+        log_marker: discarded unmatched historical Anthropic tool blocks
+    transcript_sequence:
+      inspected_lines: "2460-2590"
+      repeated_tools:
+        - list_mcp_resources
+        - list_mcp_resource_templates
+      call_arguments_sha256_prefix: 44136FA355B3678A
+      resources_result_sha256_prefix: 5470BCB5A8C4539D
+      templates_result_sha256_prefix: 87854A2460A872FF
+      repeated_reasoning_sha256_prefixes:
+        - E38C5BDE35754197
+        - 3CD26012D6413F6E
+      confirmed_behavior: >-
+        The same reasoning, the same two empty-argument tool calls, and the same
+        two tool results recur with only newly generated call IDs. The tools were
+        actually executed; this was not a display-only repetition.
+    source_boundary:
+      responses_projection: >-
+        openai_responses_to_anthropic_messages emitted each consecutive
+        function_call as a separate assistant message and each consecutive
+        function_call_output as a separate user message.
+      provider_normalization: >-
+        normalize_historical_anthropic_tool_turns retains a tool use only when
+        the immediately following user message contains its matching result.
+      confirmed_interaction: >-
+        For the observed Responses order of call, call, result, result, neither
+        assistant message was immediately followed by its matching user result.
+        The normalizer therefore removed both calls and both results before the
+        next upstream request.
+    regression_test:
+      before_repair: >-
+        test_parallel_responses_tool_turn_survives_provider_normalization failed;
+        normalized roles were [assistant] instead of [assistant, user].
+      after_repair: >-
+        Provider wire normalization passed 6 tests and Codex turn recovery
+        passed 29 tests.
+
+  repair:
+    tool_turn_projection: >-
+      Consecutive Responses function calls are grouped into one Anthropic
+      assistant turn, and consecutive outputs are grouped into one Anthropic
+      user turn. Matching call IDs and result IDs therefore survive the existing
+      strict provider normalization.
+    reasoning_only_recovery: >-
+      Reasoning-only content shape is recognized independently of provider
+      name. The synthetic runtime notice is excluded from retry history, one
+      bounded continuation is performed, and either real tool work or a visible
+      final answer may complete the recovery.
+    invariants:
+      - Recovery remains bounded to one extra upstream call.
+      - Empty responses after recovery preserve the original notice.
+      - Kimi follow-up-promise wording remains Kimi-specific.
+      - No Wing, user, model, CLI, or agent exception was introduced.
+
+  verification:
+    focused:
+      provider_wire_normalization: "6 passed"
+      codex_turn_recovery: "29 passed"
+      ruff: passed
+      git_diff_check: passed
+    complete_groups:
+      unit: "1113 passed, 44 skipped"
+      router: "906 passed"
+      channel: "379 passed, 80 skipped"
+      runtime: "248 passed, 12 skipped"
+      total: "2646 passed, 136 skipped"

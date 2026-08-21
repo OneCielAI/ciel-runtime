@@ -418,7 +418,7 @@ class RecoverPreambleOnlyTurnTests(unittest.TestCase):
             )
         )
 
-    def test_reasoning_only_turn_is_not_retried_for_other_providers(self):
+    def test_reasoning_only_turn_retries_for_other_providers(self):
         calls = []
         original = reasoning_message()
         recovered = codex_turn_recovery.recover_preamble_only_turn(
@@ -430,8 +430,30 @@ class RecoverPreambleOnlyTurnTests(unittest.TestCase):
             self._services(tool_message(), calls),
         )
 
-        self.assertEqual(original, recovered)
-        self.assertEqual([], calls)
+        self.assertTrue(codex_turn_recovery.message_has_tool_use(recovered))
+        self.assertEqual(1, len(calls))
+
+    def test_ollama_projected_reasoning_notice_is_not_replayed(self):
+        calls = []
+        recovered = codex_turn_recovery.recover_preamble_only_turn(
+            None,
+            "ollama-cloud",
+            {},
+            work_request_body(),
+            reasoning_notice_message(),
+            self._services(text_message("검사를 마쳤습니다."), calls),
+        )
+
+        self.assertEqual("검사를 마쳤습니다.", codex_turn_recovery.message_text(recovered))
+        self.assertEqual(1, len(calls))
+        self.assertFalse(
+            any(
+                "Upstream model returned reasoning" in str(block.get("text") or "")
+                for message in calls[0]["messages"]
+                for block in message.get("content") or []
+                if isinstance(message, dict) and isinstance(block, dict)
+            )
+        )
 
     def test_kimi_truly_empty_turn_is_not_retried(self):
         calls = []
