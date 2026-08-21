@@ -132,5 +132,30 @@ knowledge:
         Installed locally and on WING. Fresh-session message 1240 proved claim
         rollback and periodic retry worked, then exposed the blank-line
         whitespace mismatch above, so this build was not accepted as complete.
-    wing_live: pending_fourth_nightly
-    deployment: pending_fourth_nightly
+    fourth_nightly:
+      version: "0.2.22-nightly.20260821-212609.39f1119"
+      commit: "39f11192101fbd631d5475c9274e5ce69720d589"
+      ci_run: "https://github.com/OneCielAI/ciel-runtime/actions/runs/32528301706"
+      publish_run: "https://github.com/OneCielAI/ciel-runtime/actions/runs/32528301741"
+      result: accepted_by_wing_live_verification
+    wing_live:
+      session: "01a02639-b0aa-7530-9115-8084007b2754"
+      message_id: 1241
+      event_id: "evt_wing_first_message_verify_39f1119"
+      persisted_at: "2026-08-21T16:29:17"
+      evidence:
+        - "16:29:21 channel_input_prompt_ready result=observed"
+        - "16:29:22 channel_stdin_proxy_submit_confirmed attempt=1"
+        - "16:29:22 channel_stdin_proxy_injected message_ids=1241 enter=cr"
+        - "16:29:25 channel_llm_injected message_ids=1241"
+        - "16:29:30 POST /v1/responses HTTP/1.1 200"
+        - "16:29:33 channel_wake_completed_evidence message_id=1241"
+        - "16:29:33 channel_windows_console_confirmed message_id=1241 cursor=1241"
+        - "Codex terminal rendered the exact response WING_FIRST_MESSAGE_OK"
+    deployment:
+      local_version: "0.2.22-nightly.20260821-212609.39f1119"
+      wing_version: "0.2.22-nightly.20260821-212609.39f1119"
+      windows_conpty_sha256: >-
+        5EE8FE12A9C7D680025B538F9EF8253BCAC2F5E285B942A56D5A758A6371E915
+      local_package_and_runtime_hash_match: true
+      local_and_wing_hash_match: true
