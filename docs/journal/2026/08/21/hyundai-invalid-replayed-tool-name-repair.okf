@@ -1,0 +1,88 @@
+okf_version: "1.0"
+knowledge:
+  task:
+    id: hyundai-invalid-replayed-tool-name-repair-20260821
+    date: "2026-08-21"
+    objective: >-
+      Diagnose and repair the OpenAI Responses rejection reported from the
+      Hyundai workspace for input[696].name.
+
+  observed_failure:
+    workspace: "C:\\Users\\djlov\\source\\repos\\Hyundai"
+    session: >-
+      C:\Users\djlov\.codex\sessions\2026\05\27\
+      rollout-2026-05-27T11-18-11-019e6a3a-b011-7720-adc1-f97e3cc98da7.jsonl
+    upstream_error: >-
+      Invalid 'input[696].name': string does not match pattern.
+      Expected a string that matches the pattern '^[a-zA-Z0-9_-]+$'.
+    repeated_at_utc:
+      - "2026-08-21T19:44:46.101Z"
+      - "2026-08-21T19:44:55.944Z"
+      - "2026-08-21T19:46:15.730Z"
+    router_evidence:
+      provider: codex
+      path: /backend-api/codex/responses
+      responses:
+        - "2026-08-21T14:44:46 400"
+        - "2026-08-21T14:44:55 400"
+        - "2026-08-21T14:46:15 400"
+
+  confirmed_cause:
+    invalid_item:
+      transcript_line: 4511
+      type: function_call
+      input_index_reported_by_upstream: 696
+      name: multi_tool_use.parallel
+      call_id: call_00_nbmPi78JjzHHzM5agBXa9326
+    paired_output:
+      transcript_line: 4512
+      output: "unsupported call: multi_tool_use.parallel"
+    transcript_name_scan:
+      total_name_fields: 946
+      invalid_names:
+        - multi_tool_use.parallel
+    conclusion: >-
+      A historical unsupported function call containing a period was replayed
+      to the Codex Responses backend. The period violates the exact name
+      pattern returned by the upstream validator.
+
+  implementation:
+    boundary: >-
+      ciel_runtime_support.responses_input_compatibility.
+      repair_replayed_response_items
+    behavior: >-
+      When a replayed function_call or custom_tool_call has a present name that
+      violates ^[a-zA-Z0-9_-]+$, omit that call. Existing family-and-call_id
+      balancing then omits its matching output.
+    preserved_behavior:
+      - Valid function and custom tool pairs are retained.
+      - Missing synthetic name fields retain their previous behavior.
+      - The source request body remains unchanged.
+      - No provider, model, user, machine, or workspace exception is added.
+    rejected_behavior: >-
+      The invalid name is not rewritten to multi_tool_use_parallel because that
+      would describe a tool invocation that did not occur; its recorded output
+      says the original call was unsupported.
+
+  references:
+    official_openai_function_calling: >-
+      https://developers.openai.com/api/docs/guides/function-calling
+    observed_contract: >-
+      Function call outputs are associated with their original calls by
+      call_id; replay must keep or remove a call and its output consistently.
+
+  verification:
+    focused_compatibility_tests: "18 passed"
+    routed_codex_tests: "17 passed"
+    full_suite:
+      unit: "1115 passed, 44 skipped"
+      router: "906 passed"
+      channel: "379 passed, 80 skipped"
+      runtime: "249 passed, 12 skipped"
+      total: "2649 passed, 136 skipped"
+    lint: passed
+    exact_regression:
+      input_696_name: multi_tool_use.parallel
+      invalid_pair_removed: true
+      valid_pair_preserved: true
+      original_body_unchanged: true

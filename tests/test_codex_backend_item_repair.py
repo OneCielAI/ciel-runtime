@@ -246,6 +246,36 @@ class MissingItemRetryTests(unittest.TestCase):
         )
         self.assertEqual("call_TqE66SGyCQxJYqXPdlJBpM98", body["input"][0]["call_id"])
 
+    def test_invalid_historical_tool_name_never_reaches_codex_upstream(self):
+        body = {
+            "model": "gpt-5.6-sol",
+            "input": [
+                {"type": "message", "role": "user", "content": "before"},
+                {
+                    "type": "function_call",
+                    "call_id": "call_invalid_parallel",
+                    "name": "multi_tool_use.parallel",
+                    "arguments": '{"tool_calls":[]}',
+                },
+                {
+                    "type": "function_call_output",
+                    "call_id": "call_invalid_parallel",
+                    "output": "unsupported call: multi_tool_use.parallel",
+                },
+                {"type": "message", "role": "user", "content": "continue"},
+            ],
+        }
+        upstream = ScriptedUpstream([])
+
+        adapter_for(upstream, []).forward_json(FakeHandler(), "codex", {}, body)
+
+        self.assertEqual(1, len(upstream.bodies))
+        self.assertEqual(
+            ["message", "message"],
+            [item["type"] for item in upstream.bodies[0]["input"]],
+        )
+        self.assertEqual("multi_tool_use.parallel", body["input"][1]["name"])
+
     def test_transport_failure_before_response_is_retried_without_freezing(self):
         class TransientUpstream:
             def __init__(self):

@@ -271,6 +271,50 @@ class ResponsesInputCompatibilityTests(unittest.TestCase):
 
         self.assertIs(body, repair_replayed_response_items(body))
 
+    def test_drops_paired_replayed_call_with_invalid_tool_name(self):
+        prefix = [
+            {"type": "message", "role": "user", "content": f"history {index}"}
+            for index in range(696)
+        ]
+        body = {
+            "input": prefix
+            + [
+                {
+                    "type": "function_call",
+                    "call_id": "call_invalid_parallel",
+                    "name": "multi_tool_use.parallel",
+                    "arguments": '{"tool_calls":[]}',
+                },
+                {
+                    "type": "function_call_output",
+                    "call_id": "call_invalid_parallel",
+                    "output": "unsupported call: multi_tool_use.parallel",
+                },
+                {
+                    "type": "function_call",
+                    "call_id": "call_valid_parallel",
+                    "name": "multi_tool_use_parallel",
+                    "arguments": '{"tool_calls":[]}',
+                },
+                {
+                    "type": "function_call_output",
+                    "call_id": "call_valid_parallel",
+                    "output": "completed",
+                },
+            ]
+        }
+
+        self.assertEqual("multi_tool_use.parallel", body["input"][696]["name"])
+
+        repaired = repair_replayed_response_items(body)
+
+        self.assertEqual(698, len(repaired["input"]))
+        self.assertEqual(
+            ["call_valid_parallel", "call_valid_parallel"],
+            [item["call_id"] for item in repaired["input"][-2:]],
+        )
+        self.assertEqual("multi_tool_use.parallel", body["input"][696]["name"])
+
     def test_drops_cross_type_call_and_output_with_the_same_id(self):
         body = {
             "input": [

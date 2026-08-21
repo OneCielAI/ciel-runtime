@@ -26,6 +26,7 @@ _MISSING_TOOL_OUTPUT = re.compile(
     r"No tool output found for (?:custom|function) tool call ([A-Za-z0-9_-]+)",
     re.IGNORECASE,
 )
+_VALID_TOOL_NAME = re.compile(r"^[a-zA-Z0-9_-]+$")
 _TOOL_CALL_TYPES = frozenset({"function_call", "custom_tool_call"})
 _TOOL_OUTPUT_TYPES = frozenset(
     {"function_call_output", "custom_tool_call_output"}
@@ -68,6 +69,11 @@ def repair_replayed_response_items(body: dict[str, Any]) -> dict[str, Any]:
     keep ``call_id``, the tool name, arguments, output, and message content so
     the transcript remains usable.
 
+    Historical clients can also persist function names that the Responses API
+    does not accept, such as ``multi_tool_use.parallel``. Drop that call rather
+    than inventing a different tool name. The call/output balancing below then
+    drops its matching output by ``call_id``.
+
     IDs the router minted itself are treated the same way. They carry the right
     prefix, so the type check alone accepts them, but no backend ever stored
     them: OpenAI answers a replayed one with ``Item with id 'rs_..._0' not
@@ -94,6 +100,14 @@ def repair_replayed_response_items(body: dict[str, Any]) -> dict[str, Any]:
             continue
         item = value_item
         item_type = item.get("type")
+        item_name = item.get("name")
+        if (
+            item_type in _TOOL_CALL_TYPES
+            and item_name is not None
+            and not _VALID_TOOL_NAME.fullmatch(str(item_name))
+        ):
+            changed = True
+            continue
         item_id = str(item.get("id") or "")
         expected_prefix = OPENAI_RESPONSES_ITEM_ID_PREFIXES.get(str(item_type or ""))
         invalid_item_id = bool(item_id) and (
