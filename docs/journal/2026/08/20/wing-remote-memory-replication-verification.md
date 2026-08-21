@@ -80,3 +80,28 @@ the managed local index pointer.
 - The same probe used the synthetic user home as workspace. It returned
   `failed`, made zero HTTP requests, removed the managed pointer, and did not
   create a parent/global memory tree.
+
+## Wing post-deployment recheck
+
+- Wing is running installed nightly
+  `0.2.22-nightly.20260821-051020.13f5d91`; router health reports the same
+  version and source fingerprint `7e5d2ce08c25c07e`.
+- The only registered and launched workspace remains
+  `C:\Users\daniel.yun.WING`, the user's home directory.
+- Four post-deployment launches logged `remote_memory_failed` with the exact
+  project-scope rejection. No post-deployment `remote_memory_updated` entry
+  exists.
+- The old state and 28 downloaded files remain on disk with their original
+  `2026-08-21T04:45:14Z` timestamps. They are stale artifacts from the earlier
+  home-scoped implementation, not a new project-scoped dump.
+- `AGENTS.md` contains zero managed memory-pointer matches. Its pointer-removal
+  write occurred at `2026-08-21T06:39:34Z`.
+- The active Codex process started at `2026-08-21T06:39:51Z`, after pointer
+  removal, so this active session did not start with the stale memory index
+  pointer.
+
+## Post-deployment conclusion
+
+The scope guard is working, but Wing does not currently have a usable
+project-scoped memory dump because it is still launched from the user home.
+The 28 files visible under the home directory are stale and unreferenced.

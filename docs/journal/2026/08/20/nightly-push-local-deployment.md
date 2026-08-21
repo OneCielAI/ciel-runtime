@@ -36,5 +36,62 @@
   modules and task journals.
 - Branch synchronization before commit: local `nightly` and `origin/nightly`
   had zero commits of divergence.
-- Published version, workflow results, local installation, and runtime evidence
-  are recorded after the registry artifact becomes available.
+- Commit: `0ea4cce` (`fix: harden runtime replay and MCP environment`).
+- Published npm version:
+  `0.2.21-nightly.20260821-003258.0ea4cce`.
+- Registry `gitHead`: `0ea4ccefce5955e3dbd37eff3b38cf8e122e0a75`.
+- Publish workflow `32432946530`: success, including npm test, publish, and
+  published-tarball verification.
+- CI workflow `32432946541`: success for minimum Python, unit, router,
+  channel, runtime, quality, documentation, and package checks.
+- The exact registry version was installed globally on the local workstation.
+  Its package manifest reports the nightly version above.
+- Source and installed SHA-256 values match for all three changed runtime
+  modules:
+  - `responses_input_compatibility.py`:
+    `A0B38961262AC7870317F99C892C4A1535525979C93EF632A177571C3C8DCDC2`
+  - `runtime_launch.py`:
+    `036E0323E6DD9FBF5B5DD3EC591017CB47FDCB2EE7CB6361C47143F734BDD609`
+  - `workspace_mcp.py`:
+    `C79DE505E5CA27DF0562DC006038CB68DAB1B2D1FA010D4E9160B1B38384AAAF`
+- Installed-module runtime checks:
+  - the reported orphan custom call ID was removed while its following user
+    message remained;
+  - generic MCP projection produced `Authorization=Bearer test-token`,
+    `X-Env=projected`, and retained the static header;
+  - `ciel-runtime --version` exited successfully and printed the base runtime
+    compatibility version `0.2.21`; the nightly artifact identity is verified
+    separately from the installed package manifest and npm registry metadata.
+
+## Remote memory and routed-turn recovery release
+
+- Commits pushed to `nightly`:
+  - `c93e4b6` — remote workspace-memory manifest synchronization
+  - `fb1f871` — exact missing tool-output verdict repair
+  - `6d7ffb8` — bounded routed-Codex empty-end-turn recovery
+- Published npm version:
+  `0.2.21-nightly.20260821-040635.6d7ffb8`.
+- Registry `gitHead`:
+  `6d7ffb8a90a37a662d1721ae33476f5a545c130d`.
+- CI workflow `32445593344`: success.
+- Publish workflow `32445593325`: success, including npm test, publish, and
+  published-tarball verification.
+- The published tarball contains `remote_memory.py`, `Remote-Memory.md`,
+  `codex_turn_recovery.py`, and `responses_input_compatibility.py`.
+- The exact published version was installed globally on Wing through SSH port
+  1004. Installed and source SHA-256 values match:
+  - `remote_memory.py`:
+    `C00F72CD469436D597D8D9C286C714E65F6B890A06324AC63C811AB0192750A0`
+  - `codex_turn_recovery.py`:
+    `270D064CDBCEEB4E4D84351F8481620A5B9B219B80740DB81F4E9EBD22DE7F37`
+  - `responses_input_compatibility.py`:
+    `B69FB5690F0BC2AD0253F79689D6A7195A5AD95117874E8CEF3ACFE4B4289279`
+- Wing's installed `ciel-runtimectl remote-memory` command exited 0 and
+  reported all manifest, destination, authorization, timeout, and size-limit
+  settings.
+- An installed-module probe on Wing presented the exact runtime-generated
+  empty-end-turn notice. It performed exactly one retry, accepted the visible
+  retry result, and did not replay the synthetic notice into the retry request.
+- No Python, Node, or Codex process remained active on Wing after installation,
+  so no stale in-memory runtime needs to be terminated; the next launch loads
+  the installed version.

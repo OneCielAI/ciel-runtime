@@ -1,0 +1,129 @@
+okf_version: "1.0"
+knowledge:
+  task:
+    id: wing-ai-net-mcp-boundary-diagnosis-20260821
+    date: "2026-08-21"
+    objective: >-
+      Determine from live Wing evidence whether the reported AI-Net MCP load
+      failure is caused by the AI-Net installation script or by Ciel Runtime.
+    mutation_scope:
+      runtime_code_changed: false
+      wing_configuration_changed: false
+      diagnostic_mcp_sessions_only: true
+
+  environment:
+    wing:
+      host: WING
+      user: "wing\\daniel.yun"
+      tailscale_address: 100.124.160.62
+      ssh_port: 1004
+      workspace: "C:\\Users\\daniel.yun.WING"
+    versions:
+      ciel_runtime: 0.2.22-nightly.20260821-172735.c8d920e
+      codex_cli: 0.149.0
+
+  evidence:
+    active_ciel_launch:
+      command_line_url: "http://100.94.212.25:3603/mcp"
+      bearer_token_env_var: AINET_API_KEY
+      push_header_env_var: AINET_MCP_PUSH
+      api_key_process_present: true
+      api_key_user_present: true
+      api_key_length_observed: 75
+      secret_value_recorded: false
+    installed_code_integrity:
+      workspace_mcp_sha256:
+        local: C79DE505E5CA27DF0562DC006038CB68DAB1B2D1FA010D4E9160B1B38384AAAF
+        wing: C79DE505E5CA27DF0562DC006038CB68DAB1B2D1FA010D4E9160B1B38384AAAF
+      runtime_launch_sha256:
+        local: D77717369068881329488C6BB9441D1A3E5CB86D6F929CD21972589805580B4A
+        wing: D77717369068881329488C6BB9441D1A3E5CB86D6F929CD21972589805580B4A
+    ai_net_installer:
+      url: "http://100.94.212.25:3600/api/v1/integrations/codex-mcp/setup.ps1"
+      fetched_length: 12821
+      fetched_sha256: 2EF7A4FB8D50D8E45A8E5752D5C13BC1807F2E4BEC8CBC89B8940C9121704405
+      declared_default_endpoint: "http://100.94.212.25:3603/mcp"
+      declared_v2_opt_in: AINET_MCP_V2=1
+      declared_v2_endpoint: "http://100.94.212.25:3603/v2/mcp"
+      declared_v2_protocol: "2026-07-28 only"
+      persistent_auth_behavior: >-
+        The script writes literal Authorization and X-AI-Net-Push headers into
+        the native Codex config. No credential value is copied into this journal.
+    wing_install_history:
+      observed_sequence:
+        - "$env:AINET_MCP_V2=\"1\""
+        - "irm http://100.94.212.25:3600/api/v1/integrations/codex-mcp/setup.ps1 | iex"
+      native_codex_config_written_at_utc: "2026-08-21T17:38:30.2627753Z"
+      resulting_native_url: "http://100.94.212.25:3603/v2/mcp"
+      resulting_native_static_headers:
+        - Authorization
+        - X-AI-Net-Push
+    endpoint_probes:
+      legacy_mcp_without_push_off:
+        requested_protocol: "2025-03-26"
+        http_status: 200
+        session_created: true
+      legacy_mcp_with_push_off:
+        requested_protocol: "2025-03-26"
+        http_status: 200
+        session_created: true
+      v2_with_legacy_protocol:
+        requested_protocol: "2025-06-18"
+        http_status: 400
+        mcp_error_code: -32022
+        server_supported_protocol: "2026-07-28"
+      legacy_tools_list:
+        requested_protocol: "2025-06-18"
+        initialize_status: 200
+        initialized_notification_status: 202
+        tools_list_status: 200
+        tool_count: 35
+        get_messages_present: true
+        send_message_present: true
+    active_codex_log:
+      process_id: 15544
+      thread_id: 01a024fe-7666-79e3-9c1a-98f46e26af5f
+      observed_server: ai-net
+      observed_rpc_errors:
+        resources_list: "-32601 Method not found"
+        resource_templates_list: "-32601 Method not found"
+      interpretation: >-
+        These RPC responses prove that the active Codex MCP client reached the
+        AI-Net server. They are unsupported resource-method errors, not MCP
+        initialization or authentication failures.
+    current_ciel_change_scope:
+      code_commit: fe7c4b09ad4178adabc73162b3c6dc2cbb5870f2
+      journal_commit: c8d920e3e52eafd1642ace01206734c538574824
+      mcp_files_changed_by_these_commits: false
+      changed_area: Alibaba Singapore Qwen3.8 provider configuration
+
+  findings:
+    native_codex:
+      status: incompatible_configuration
+      cause_confirmed: >-
+        AINET_MCP_V2=1 caused the AI-Net installer to persist /v2/mcp. That
+        endpoint rejects the protocol used by Codex 0.149 with -32022.
+      responsible_boundary: ai_net_installer_v2_opt_in_configuration
+    ciel_managed_codex:
+      status: ai_net_mcp_loaded
+      evidence: >-
+        Ciel overrides the URL to /mcp; that endpoint initializes successfully,
+        lists 35 tools, and the active Codex process receives AI-Net RPC replies.
+      load_failure_caused_by_current_ciel_change: false
+    visible_resource_errors:
+      status: server_method_not_supported
+      cause_confirmed: >-
+        AI-Net exposes tools but does not implement the MCP resource listing
+        methods requested by Codex's generic resource commands.
+
+  conclusion:
+    confirmed: >-
+      The native Codex load problem is produced by the installer invocation's
+      AINET_MCP_V2=1 setting and the resulting /v2/mcp protocol mismatch. The
+      active Ciel-managed Wing session is using /mcp and has loaded AI-Net MCP.
+      Current Ciel Runtime changes are not the cause of the observed native
+      protocol failure.
+    not_claimed:
+      - No claim is made that every historical Wing session had the same state.
+      - No configuration or runtime process was restarted during this diagnosis.
+      - No code fix is included because the requested task was diagnosis.
