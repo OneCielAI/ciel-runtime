@@ -36,6 +36,9 @@ class WindowsConPtySession:
     """Own a Windows pseudo console and expose it as a byte input transport."""
 
     separate_input_stages = False
+    # Codex collapses long pastes to a placeholder, so the captured output tail
+    # cannot prove that the original prompt prefix is present.  The snapshot is
+    # still usable for comparing output before and after a submit key.
     supports_input_snapshot = False
 
     def __init__(
@@ -87,9 +90,10 @@ class WindowsConPtySession:
     def normalize_prompt(prompt: str) -> str:
         return " ".join(str(prompt or "").replace("\t", " ").splitlines()).strip()
 
-    @staticmethod
-    def input_snapshot() -> None:
-        return None
+    def input_snapshot(self) -> str:
+        """Return the captured child-output tail for submission confirmation."""
+
+        return self.output_tail().decode("utf-8", errors="replace")
 
     @staticmethod
     def pending_input_events() -> None:

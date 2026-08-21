@@ -3,6 +3,7 @@ import codecs
 import ctypes
 import os
 import sys
+import threading
 import time
 import unittest
 from unittest import mock
@@ -11,6 +12,14 @@ from ciel_runtime_support.windows_conpty import WindowsConPtySession, conpty_ena
 
 
 class WindowsConPtyPolicyTests(unittest.TestCase):
+    def test_input_snapshot_decodes_captured_output_tail(self) -> None:
+        session = WindowsConPtySession.__new__(WindowsConPtySession)
+        session._output_lock = threading.Lock()
+        session._output_tail = bytearray("[Pasted Content 1048 chars]".encode("utf-8"))
+
+        self.assertEqual("[Pasted Content 1048 chars]", session.input_snapshot())
+        self.assertFalse(session.supports_input_snapshot)
+
     def test_enabled_by_default_only_on_windows(self):
         self.assertTrue(conpty_enabled({}, platform_name="nt"))
         self.assertFalse(conpty_enabled({}, platform_name="posix"))

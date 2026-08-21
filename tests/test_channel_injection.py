@@ -108,6 +108,43 @@ class ChannelPromptInjectorTests(unittest.TestCase):
         )
         self.assertTrue(any("action=rewrite-full-prompt" in line for line in logs))
 
+    def test_transport_snapshot_retries_submit_without_rewriting_body(self) -> None:
+        transport = FakeWindowsTransport()
+        transport.supports_input_snapshot = False
+        snapshots = iter(("prompt-ready", "prompt-ready", "turn-started"))
+        transport.input_snapshot = lambda: next(snapshots)
+        logs: list[str] = []
+        injector = ChannelPromptInjector(
+            sleep=lambda _seconds: None,
+            retry_delay_seconds=lambda: 0.0,
+            snapshot=lambda: None,
+            log=lambda _level, message: logs.append(message),
+        )
+
+        injector.inject(
+            transport,
+            PromptInjection(
+                prompt="visible external message",
+                policy=RuntimeInjectionPolicy(
+                    runtime="codex",
+                    clear_input=b"\x15",
+                    submit_input=b"\r",
+                    submit_delay_seconds=0.0,
+                    submit_attempts=4,
+                    confirm_submission=True,
+                ),
+            ),
+        )
+
+        self.assertEqual(
+            [b"\x15", b"visible external message", b"\r", b"\r"],
+            transport.writes,
+        )
+        self.assertEqual(1, transport.writes.count(b"visible external message"))
+        self.assertTrue(
+            any("channel_stdin_proxy_submit_confirmed attempt=2" in line for line in logs)
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

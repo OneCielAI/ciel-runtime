@@ -104,7 +104,11 @@ class ChannelPromptInjector:
         if policy.submit_delay_seconds:
             self._sleep(policy.submit_delay_seconds)
 
-        before = self._snapshot() if policy.confirm_submission and policy.submit_attempts > 1 else None
+        before = (
+            self._submission_snapshot(transport)
+            if policy.confirm_submission and policy.submit_attempts > 1
+            else None
+        )
         for attempt in range(policy.submit_attempts):
             if bool(getattr(transport, "separate_input_stages", False)):
                 self._write_stage(
@@ -120,10 +124,19 @@ class ChannelPromptInjector:
             retry_delay = self._retry_delay_seconds()
             if retry_delay:
                 self._sleep(retry_delay)
-            after = self._snapshot()
+            after = self._submission_snapshot(transport)
             if after and after != before:
                 self._log("INFO", f"channel_stdin_proxy_submit_confirmed attempt={attempt + 1}")
                 break
+
+    def _submission_snapshot(self, transport: InputTransport) -> str | None:
+        """Use the host snapshot when available, then the transport's own view."""
+
+        captured = self._snapshot()
+        if captured is not None:
+            return captured
+        snapshot = getattr(transport, "input_snapshot", None)
+        return snapshot() if callable(snapshot) else None
 
     def _write_stage(
         self,
