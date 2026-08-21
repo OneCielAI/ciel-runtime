@@ -32,6 +32,11 @@ RUNTIME_REASONING_ONLY_NOTICE_PREFIXES = (
     "[ciel-runtime] Upstream model exhausted its output budget during reasoning",
 )
 
+RUNTIME_EMPTY_END_TURN_NOTICE_PREFIX = (
+    "[ciel-runtime] Upstream model returned an empty end_turn with no text or "
+    "tool call."
+)
+
 KIMI_FOLLOWUP_PROMISE_RE = re.compile(
     r"(?:겠습니다|할게요|해볼게요|하겠습니다|"
     r"i(?:'|’)ll\b[^\n]*|i\s+will\b[^\n]*|let\s+me\b[^\n]*)[.!?。！？]?\s*$",
@@ -77,6 +82,21 @@ def message_has_only_reasoning_notice(message: dict[str, Any]) -> bool:
     )
 
 
+def message_has_only_empty_end_turn_notice(message: dict[str, Any]) -> bool:
+    """Identify the runtime's projection of a structurally empty upstream turn."""
+
+    texts = [
+        str(block.get("text") or "").strip()
+        for block in message.get("content") or []
+        if isinstance(block, dict)
+        and block.get("type") == "text"
+        and str(block.get("text") or "").strip()
+    ]
+    return bool(texts) and all(
+        text.startswith(RUNTIME_EMPTY_END_TURN_NOTICE_PREFIX) for text in texts
+    )
+
+
 def kimi_message_promises_followup(message: dict[str, Any]) -> bool:
     """Recognize Kimi ending a reasoning turn with an unperformed next action."""
 
@@ -87,6 +107,18 @@ def kimi_message_promises_followup(message: dict[str, Any]) -> bool:
 
 def message_without_reasoning_notice(message: dict[str, Any]) -> dict[str, Any]:
     if not message_has_only_reasoning_notice(message):
+        return message
+    projected = dict(message)
+    projected["content"] = [
+        dict(block) if isinstance(block, dict) else block
+        for block in message.get("content") or []
+        if not (isinstance(block, dict) and block.get("type") == "text")
+    ]
+    return projected
+
+
+def message_without_empty_end_turn_notice(message: dict[str, Any]) -> dict[str, Any]:
+    if not message_has_only_empty_end_turn_notice(message):
         return message
     projected = dict(message)
     projected["content"] = [
@@ -164,6 +196,7 @@ def recover_preamble_only_turn(
     if not isinstance(message, dict) or message_has_tool_use(message):
         return message
     text = message_text(message)
+    empty_end_turn = message_has_only_empty_end_turn_notice(message)
     kimi_reasoning_only = (
         (provider or "").strip().lower() == "kimi"
         and message_has_reasoning(message)
@@ -175,14 +208,17 @@ def recover_preamble_only_turn(
         and services.should_retry(body, text.replace("`", ""), [])
     )
     if (
-        not kimi_reasoning_only
+        not empty_end_turn
+        and not kimi_reasoning_only
         and not kimi_promised_followup
         and not services.should_retry(body, text, [])
     ):
         return message
 
     reason = (
-        "reasoning_only"
+        "empty_end_turn"
+        if empty_end_turn
+        else "reasoning_only"
         if kimi_reasoning_only
         else "promised_followup"
         if kimi_promised_followup
@@ -196,7 +232,7 @@ def recover_preamble_only_turn(
     try:
         nudge = (
             CODEX_EMPTY_REASONING_CONTINUATION_NUDGE
-            if kimi_reasoning_only
+            if empty_end_turn or kimi_reasoning_only
             else CODEX_CONTINUATION_NUDGE
         )
         recovery_config = dict(pcfg)
@@ -208,7 +244,11 @@ def recover_preamble_only_turn(
             recovery_config,
             body_with_continuation_nudge(
                 body,
-                message_without_reasoning_notice(message) if kimi_reasoning_only else message,
+                message_without_empty_end_turn_notice(message)
+                if empty_end_turn
+                else message_without_reasoning_notice(message)
+                if kimi_reasoning_only
+                else message,
                 nudge,
             ),
         )
@@ -220,7 +260,7 @@ def recover_preamble_only_turn(
         return message
     if not isinstance(retried, dict):
         return message
-    if kimi_reasoning_only:
+    if empty_end_turn or kimi_reasoning_only:
         if not message_has_tool_use(retried) and not message_text(retried).strip():
             return message
         return retried
@@ -246,13 +286,16 @@ def _merged(original: dict[str, Any], retried: dict[str, Any]) -> dict[str, Any]
 __all__ = [
     "CODEX_CONTINUATION_NUDGE",
     "CODEX_EMPTY_REASONING_CONTINUATION_NUDGE",
+    "RUNTIME_EMPTY_END_TURN_NOTICE_PREFIX",
     "CodexTurnRecoveryServices",
     "body_with_codex_compat_instructions",
     "body_with_continuation_nudge",
     "message_has_tool_use",
     "message_has_reasoning",
     "message_has_only_reasoning_notice",
+    "message_has_only_empty_end_turn_notice",
     "kimi_message_promises_followup",
+    "message_without_empty_end_turn_notice",
     "message_without_reasoning_notice",
     "message_text",
     "recover_preamble_only_turn",

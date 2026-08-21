@@ -231,6 +231,72 @@ class RecoverPreambleOnlyTurnTests(unittest.TestCase):
 
         self.assertEqual(original, recovered)
 
+    def test_runtime_empty_end_turn_notice_retries_once_and_accepts_tool_work(self):
+        calls = []
+        original = text_message(
+            "[ciel-runtime] Upstream model returned an empty end_turn with no text or "
+            "tool call. No work was performed; please retry or ask me to continue."
+        )
+
+        recovered = codex_turn_recovery.recover_preamble_only_turn(
+            None,
+            "ollama-cloud",
+            {},
+            work_request_body(),
+            original,
+            self._services(tool_message(), calls),
+        )
+
+        self.assertTrue(codex_turn_recovery.message_has_tool_use(recovered))
+        self.assertEqual(1, len(calls), "empty-turn recovery must be bounded")
+        replayed = calls[0]["messages"]
+        self.assertNotEqual("assistant", replayed[-2]["role"])
+        self.assertIn(
+            codex_turn_recovery.CODEX_EMPTY_REASONING_CONTINUATION_NUDGE,
+            replayed[-1]["content"][0]["text"],
+        )
+
+    def test_runtime_empty_end_turn_retry_accepts_a_visible_final_answer(self):
+        calls = []
+        original = text_message(
+            "[ciel-runtime] Upstream model returned an empty end_turn with no text or "
+            "tool call. No work was performed; please retry or ask me to continue."
+        )
+
+        recovered = codex_turn_recovery.recover_preamble_only_turn(
+            None,
+            "ollama-cloud",
+            {},
+            work_request_body(),
+            original,
+            self._services(text_message("검사를 마쳤고 결과를 확인했습니다."), calls),
+        )
+
+        self.assertEqual(
+            "검사를 마쳤고 결과를 확인했습니다.",
+            codex_turn_recovery.message_text(recovered),
+        )
+        self.assertEqual(1, len(calls))
+
+    def test_repeated_runtime_empty_end_turn_keeps_the_first_notice(self):
+        calls = []
+        original = text_message(
+            "[ciel-runtime] Upstream model returned an empty end_turn with no text or "
+            "tool call. No work was performed; please retry or ask me to continue."
+        )
+
+        recovered = codex_turn_recovery.recover_preamble_only_turn(
+            None,
+            "ollama-cloud",
+            {},
+            work_request_body(),
+            original,
+            self._services({"content": []}, calls),
+        )
+
+        self.assertEqual(original, recovered)
+        self.assertEqual(1, len(calls))
+
     def test_kimi_reasoning_only_turn_retries_once_and_accepts_tool_work(self):
         calls = []
         recovered = codex_turn_recovery.recover_preamble_only_turn(
