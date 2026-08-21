@@ -73,8 +73,7 @@ from ciel_runtime_support.channel_message_policy import message_has_external_pro
 from ciel_runtime_support.channel_message_policy import message_is_web_chat_request as _channel_message_is_web_chat_request
 from ciel_runtime_support.channel_message_policy import string_list as _as_string_list
 from ciel_runtime_support.channel_message_policy import superseded_message_ids as _channel_superseded_message_ids
-from ciel_runtime_support.channel_message_prompt import format_llm_batch_prompt as format_channel_llm_batch_prompt
-from ciel_runtime_support.channel_message_prompt import format_llm_delivery_wake_prompt as format_channel_llm_delivery_wake_prompt
+from ciel_runtime_support.channel_message_prompt import format_llm_batch_prompt as format_channel_llm_batch_prompt, format_llm_delivery_wake_prompt as format_channel_llm_delivery_wake_prompt, format_visible_llm_delivery_wake_prompt as format_channel_visible_llm_delivery_wake_prompt
 from ciel_runtime_support.channel_message_prompt import format_wake_batch_prompt as format_channel_wake_batch_prompt
 from ciel_runtime_support.channel_message_prompt import format_wake_prompt as format_channel_wake_prompt  # noqa: F401 - compatibility export
 from ciel_runtime_support.channel_message_prompt import format_web_chat_wake_batch_prompt as format_channel_web_chat_wake_batch_prompt
@@ -4415,7 +4414,7 @@ def channel_wake_context() -> ChannelWakeContext:
         pending_state=ChannelPendingStatePorts(_channel_stdin_active_tool_call, _channel_stdin_active_turn, _channel_stdin_recover_cursor_from_queued_only, _channel_pending_scan_limit,
                                                _channel_superseded_message_ids, _channel_message_is_web_chat_request, _channel_llm_message_skip_reason, _channel_message_event_identity_key,
                                                _channel_stdin_wake_state_for_message, _channel_stdin_wake_queued_is_stale_for_message),
-        pending_delivery=ChannelPendingDeliveryPorts(format_channel_llm_delivery_wake_prompt, format_channel_web_chat_wake_batch_prompt, format_channel_wake_batch_prompt, _channel_enter_label,
+        pending_delivery=ChannelPendingDeliveryPorts(format_channel_llm_delivery_wake_prompt, format_channel_visible_llm_delivery_wake_prompt, format_channel_web_chat_wake_batch_prompt, format_channel_wake_batch_prompt, _channel_enter_label,
                                                      _channel_wake_store_release_stale, _CHANNEL_WAKE_DELIVERY_REPOSITORY.mark_delivered, _channel_wake_store_record_prompts,
                                                      _channel_wake_store_rollback, _commit_channel_llm_cursor_if_newer),
         pending_io=ChannelPendingIoPorts(_CHANNEL_STDIN_INJECT_LOCK, read_runtime_inputs, _write_channel_wake_prompt, _read_channel_compact_request, _clear_channel_compact_request, _runtime_input_storage_path(), router_log),
@@ -4510,7 +4509,7 @@ def _inject_pending_channel_messages(
     enter_bytes: bytes | None = None,
     *,
     web_chat_only: bool = False,
-    wake_for_llm_delivery: bool = False,
+    wake_for_llm_delivery: bool = False, display_llm_delivery_body: bool = False,
     commit_cursor: bool = True,
     injected_message_ids: list[int] | None = None,
     submit_retry_count: int = 1,
@@ -4525,6 +4524,7 @@ def _inject_pending_channel_messages(
         enter_bytes,
         web_chat_only=web_chat_only,
         wake_for_llm_delivery=wake_for_llm_delivery,
+        display_llm_delivery_body=display_llm_delivery_body,
         commit_cursor=commit_cursor,
         injected_message_ids=injected_message_ids,
         submit_retry_count=submit_retry_count,

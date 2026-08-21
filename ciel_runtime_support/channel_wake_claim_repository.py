@@ -24,6 +24,13 @@ def prompt_contains(candidate: str, prompt: str) -> bool:
 
 
 def prompt_message_ids(text: str) -> set[int]:
+    normalized = re.sub(r"^[\x00-\x1f\x7f\s]+", "", str(text or ""))
+    if normalized.startswith("[ciel-wake]"):
+        # A visible Codex wake may contain an untrusted original body after
+        # the first line.  Only the trusted marker line owns correlation IDs;
+        # strings such as ``id=999`` in the external body must not claim an
+        # unrelated queued message.
+        text = normalized.splitlines()[0]
     ids: set[int] = set()
     for match in _PROMPT_IDS_RE.finditer(str(text or "")):
         for raw in re.split(r"\D+", match.group(1)):

@@ -66,6 +66,7 @@ class ChannelPendingInjectionOptions:
     enabled: bool
     web_chat_only: bool
     wake_for_llm_delivery: bool
+    display_llm_delivery_body: bool
     submit_retry_count: int
     confirm_submit: bool
     bracketed_paste: bool
@@ -138,6 +139,7 @@ def poll_pending_channel_messages(
         enter_bytes,
         web_chat_only=options.web_chat_only,
         wake_for_llm_delivery=options.wake_for_llm_delivery,
+        display_llm_delivery_body=options.display_llm_delivery_body,
         commit_cursor=False,
         injected_message_ids=injected_ids,
         submit_retry_count=options.submit_retry_count,

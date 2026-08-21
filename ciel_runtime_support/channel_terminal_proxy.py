@@ -122,6 +122,7 @@ def run_windows_channel_terminal_proxy(
     inject_channel_messages: bool = True,
     inject_web_chat_only: bool = False,
     wake_for_llm_delivery: bool = False,
+    channel_wake_display_body: bool = False,
     synthetic_enter_bytes: str | bytes | None = None,
     channel_wake_submit_retries: int = 1,
     channel_wake_confirm_submit: bool = False,
@@ -172,6 +173,7 @@ def run_windows_channel_terminal_proxy(
         enabled=inject_channel_messages,
         web_chat_only=inject_web_chat_only,
         wake_for_llm_delivery=wake_for_llm_delivery,
+        display_llm_delivery_body=channel_wake_display_body,
         submit_retry_count=submit_retry_count,
         confirm_submit=channel_wake_confirm_submit,
         bracketed_paste=windows_bracketed_paste,
@@ -194,7 +196,8 @@ def run_windows_channel_terminal_proxy(
         f"pid={proc.pid} transport={'conpty' if conpty is not None else 'console-input'} "
         f"enter={policy.enter_label(channel_enter_bytes)} "
         f"submit_retries={submit_retry_count} confirm_submit={bool(channel_wake_confirm_submit)} "
-        f"bracketed_paste={windows_bracketed_paste}",
+        f"bracketed_paste={windows_bracketed_paste} "
+        f"display_body={bool(channel_wake_display_body)}",
     )
     try:
         while proc.poll() is None:
@@ -308,6 +311,7 @@ def run_posix_channel_terminal_proxy(
     inject_channel_messages: bool = True,
     inject_web_chat_only: bool = False,
     wake_for_llm_delivery: bool = False,
+    channel_wake_display_body: bool = False,
     synthetic_enter_bytes: str | bytes | None = None,
     normalize_bare_cr_for_synthetic_enter: bool = True,
     channel_wake_submit_retries: int = 1,
@@ -353,6 +357,7 @@ def run_posix_channel_terminal_proxy(
         enabled=inject_channel_messages,
         web_chat_only=inject_web_chat_only,
         wake_for_llm_delivery=wake_for_llm_delivery,
+        display_llm_delivery_body=channel_wake_display_body,
         submit_retry_count=submit_retry_count,
         confirm_submit=channel_wake_confirm_submit,
         bracketed_paste=channel_wake_bracketed_paste,
@@ -372,7 +377,8 @@ def run_posix_channel_terminal_proxy(
         "channel_stdin_proxy_enter_default "
         f"enter={policy.enter_label(channel_enter_bytes)} os={os.name} platform={sys.platform} "
         f"submit_retries={submit_retry_count} confirm_submit={bool(channel_wake_confirm_submit)} "
-        f"bracketed_paste={bool(channel_wake_bracketed_paste)}",
+        f"bracketed_paste={bool(channel_wake_bracketed_paste)} "
+        f"display_body={bool(channel_wake_display_body)}",
     )
     terminal.reset_input_mode()
 

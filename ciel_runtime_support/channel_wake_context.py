@@ -129,6 +129,7 @@ class ChannelPendingStatePorts:
 @dataclass(frozen=True, slots=True)
 class ChannelPendingDeliveryPorts:
     format_llm_delivery: Callable[[list[dict[str, Any]]], str]
+    format_visible_llm_delivery: Callable[[list[dict[str, Any]]], str]
     format_web_chat: Callable[[list[dict[str, Any]]], str]
     format_standard: Callable[[list[dict[str, Any]]], str]
     enter_label: Callable[[bytes], str]
@@ -530,6 +531,9 @@ class ChannelWakeContext:
             ),
             prompts=ChannelInjectionPrompts(
                 llm_delivery=self.pending_delivery.format_llm_delivery,
+                visible_llm_delivery=(
+                    self.pending_delivery.format_visible_llm_delivery
+                ),
                 web_chat=self.pending_delivery.format_web_chat,
                 standard=self.pending_delivery.format_standard,
                 enter_bytes=self.enter_bytes,

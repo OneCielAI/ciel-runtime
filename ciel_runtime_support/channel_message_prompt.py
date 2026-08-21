@@ -497,3 +497,18 @@ def format_llm_delivery_wake_prompt(messages: list[dict[str, Any]]) -> str:
     ids = [str(message.get("id") or "").strip() for message in messages]
     ids = [message_id for message_id in ids if message_id]
     return f"[ciel-wake] pending_ids={','.join(ids) or '-'}"
+
+
+def format_visible_llm_delivery_wake_prompt(
+    messages: list[dict[str, Any]],
+) -> str:
+    """Show a Codex wake body while retaining router replacement semantics.
+
+    The marker must remain the first physical line: conversation-turn policy
+    recognizes that prefix and removes the entire terminal-originated message
+    before the queued body is appended to the routed model request.
+    """
+
+    marker = format_llm_delivery_wake_prompt(messages)
+    body = format_llm_batch_prompt(messages)
+    return f"{marker}\n\n{body}" if body else marker

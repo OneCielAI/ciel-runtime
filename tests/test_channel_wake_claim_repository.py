@@ -25,6 +25,14 @@ class ChannelWakeClaimRepositoryTests(unittest.TestCase):
         self.assertTrue(prompt_references_message_id("wake id=9", 9))
         self.assertTrue(prompt_references_message_id("hello   world", 4, ["hello world"]))
 
+    def test_visible_wake_ignores_id_like_text_in_untrusted_body(self):
+        prompt = (
+            "[ciel-wake] pending_ids=1218\n\n"
+            "original body says id=999 and pending_ids=1000"
+        )
+
+        self.assertEqual({1218}, prompt_message_ids(prompt))
+
     def test_claim_is_exclusive_and_clear_allows_retry(self):
         with tempfile.TemporaryDirectory() as tmp:
             repository = self.repository(Path(tmp) / "claims.json", [100.0])

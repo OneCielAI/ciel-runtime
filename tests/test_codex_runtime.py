@@ -670,6 +670,7 @@ class CodexRuntimeTests(unittest.TestCase):
             captured["channel_wake_submit_retries"] = kwargs.get("channel_wake_submit_retries")
             captured["channel_wake_confirm_submit"] = kwargs.get("channel_wake_confirm_submit")
             captured["channel_wake_bracketed_paste"] = kwargs.get("channel_wake_bracketed_paste")
+            captured["channel_wake_display_body"] = kwargs.get("channel_wake_display_body")
             captured["channel_wake_submit_delay_seconds"] = kwargs.get("channel_wake_submit_delay_seconds")
             return 0
 
@@ -707,6 +708,7 @@ class CodexRuntimeTests(unittest.TestCase):
         self.assertEqual("ciel-runtime-router-local-key", captured["env"]["CIEL_RUNTIME_CODEX_API_KEY"])
         self.assertTrue(captured["wake_for_llm_delivery"])
         self.assertTrue(captured["channel_wake_bracketed_paste"])
+        self.assertTrue(captured["channel_wake_display_body"])
         self.assertEqual(0.25, captured["channel_wake_submit_delay_seconds"])
 
     def test_launch_codex_keeps_native_mcp_and_starts_channel_sse(self):

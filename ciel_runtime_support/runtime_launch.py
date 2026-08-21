@@ -961,6 +961,7 @@ def run_codex(
             cmd,
             env,
             wake_for_llm_delivery=channel_delivery_mode(cfg) == "llm",
+            channel_wake_display_body=True,
             synthetic_enter_bytes=codex_synthetic_enter,
             normalize_bare_cr_for_synthetic_enter=False,
             channel_wake_submit_retries=_codex_channel_wake_submit_retries(),

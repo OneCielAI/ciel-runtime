@@ -47,6 +47,7 @@ class ChannelTerminalDispatchService:
         inject_channel_messages: bool = True,
         inject_web_chat_only: bool = False,
         wake_for_llm_delivery: bool = False,
+        channel_wake_display_body: bool = False,
         synthetic_enter_bytes: str | bytes | None = None,
         normalize_bare_cr_for_synthetic_enter: bool = True,
         channel_wake_submit_retries: int = 1,
@@ -59,6 +60,7 @@ class ChannelTerminalDispatchService:
             "inject_channel_messages": inject_channel_messages,
             "inject_web_chat_only": inject_web_chat_only,
             "wake_for_llm_delivery": wake_for_llm_delivery,
+            "channel_wake_display_body": channel_wake_display_body,
             "synthetic_enter_bytes": synthetic_enter_bytes,
             "normalize_bare_cr_for_synthetic_enter": (
                 normalize_bare_cr_for_synthetic_enter

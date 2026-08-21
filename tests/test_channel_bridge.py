@@ -1587,6 +1587,7 @@ class ChannelBridgeTests(unittest.TestCase):
 
         self.assertIn("channel_wake_confirm_submit=True", source)
         self.assertIn("channel_wake_bracketed_paste=True", source)
+        self.assertNotIn("channel_wake_display_body=True", source)
         self.assertIn(
             'set_channel_transcript_scope(',
             source,
@@ -2401,6 +2402,65 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertNotIn(b"wake up later", wake_bytes)
         self.assertIn("pending_ids=8", ciel_runtime._CHANNEL_STDIN_WAKE_PROMPTS[8])
         commit_cursor.assert_not_called()
+
+    def test_codex_visible_llm_delivery_wake_contains_original_body_and_marker(self):
+        raw = '{"type":"net.ai-net.room.activity","content":"원본 메시지"}'
+        messages = [
+            {
+                "id": 1218,
+                "channel": "ai-net-http",
+                "kind": "external_event",
+                "message": raw,
+                "meta": {
+                    "receiver_id": "ai-net",
+                    "transport": "sse",
+                    "input_transport": "router",
+                },
+                "delivery": ["llm"],
+            }
+        ]
+        injected: list[int] = []
+        with tempfile.TemporaryDirectory() as td:
+            claims_path = Path(td) / "claims.json"
+            with (
+                mock.patch.object(ciel_runtime, "CHANNEL_STDIN_WAKE_CLAIMS_PATH", claims_path),
+                mock.patch.object(ciel_runtime, "read_chat_messages", return_value=messages),
+                mock.patch.object(ciel_runtime, "_write_fd_all") as write_all,
+                mock.patch.object(ciel_runtime, "_channel_wake_submit_delay_seconds", return_value=0),
+                mock.patch.object(ciel_runtime, "router_log"),
+            ):
+                last_id = ciel_runtime._inject_pending_channel_messages(
+                    99,
+                    1217,
+                    wake_for_llm_delivery=True,
+                    display_llm_delivery_body=True,
+                    commit_cursor=False,
+                    injected_message_ids=injected,
+                )
+
+        self.assertEqual(1217, last_id)
+        self.assertEqual([1218], injected)
+        wake_text = write_all.call_args_list[0].args[1].decode("utf-8")
+        self.assertTrue(wake_text.startswith("\x15[ciel-wake] pending_ids=1218"))
+        self.assertEqual(1, wake_text.count(raw))
+        self.assertIn("원본 메시지", wake_text)
+
+    def test_visible_wake_is_recognized_and_removed_as_one_terminal_turn(self):
+        wake = ciel_runtime.format_channel_visible_llm_delivery_wake_prompt(
+            [{"id": 1218, "message": "body id=999"}]
+        )
+        body = {
+            "messages": [
+                {"role": "user", "content": [{"type": "text", "text": "earlier"}]},
+                {"role": "user", "content": [{"type": "text", "text": wake}]},
+            ]
+        }
+
+        self.assertTrue(ciel_runtime.channel_llm_wake_request(body))
+        self.assertEqual({1218}, ciel_runtime._channel_prompt_message_ids(wake))
+        stripped = ciel_runtime.body_without_channel_llm_wake_prompt(body)
+        self.assertEqual(1, len(stripped["messages"]))
+        self.assertEqual("earlier", stripped["messages"][0]["content"][0]["text"])
 
     def test_explicit_router_transport_never_falls_back_to_direct_tty(self):
         messages = [{
@@ -3482,6 +3542,42 @@ class ChannelBridgeTests(unittest.TestCase):
         log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
         self.assertTrue(any("channel_llm_inject_plan_mode_override" in item for item in log_messages))
         self.assertTrue(any("channel_llm_wake_prompt_stripped" in item for item in log_messages))
+
+    def test_visible_codex_wake_is_replaced_with_one_exact_router_body(self):
+        raw = '{"type":"net.ai-net.room.activity","content":"원본 id=999"}'
+        message = {
+            "id": 1218,
+            "channel": "ai-net-http",
+            "kind": "external_event",
+            "message": raw,
+            "meta": {
+                "receiver_id": "ai-net",
+                "transport": "sse",
+                "input_transport": "router",
+            },
+            "delivery": ["llm"],
+        }
+        wake = ciel_runtime.format_channel_visible_llm_delivery_wake_prompt([message])
+        body = {
+            "messages": [
+                {"role": "user", "content": "previous"},
+                {"role": "user", "content": wake},
+            ],
+            "stream": True,
+        }
+        with (
+            mock.patch.object(ciel_runtime, "load_config", return_value={"claude_code": {"channel_delivery": "llm"}}),
+            mock.patch.object(ciel_runtime, "_channel_llm_read_cursor_locked", return_value=1217),
+            mock.patch.object(ciel_runtime, "read_chat_messages", return_value=[message]),
+            mock.patch.object(ciel_runtime, "router_log"),
+        ):
+            out = ciel_runtime.body_with_pending_channel_messages(body)
+
+        rendered = json.dumps(out["messages"], ensure_ascii=False)
+        self.assertNotIn("[ciel-wake]", rendered)
+        injected = out["messages"][-1]["content"][0]["text"]
+        self.assertEqual(1, injected.count(raw))
+        self.assertEqual("1218", out["metadata"]["ciel_runtime_channel_message_ids"])
 
     def test_body_with_pending_channel_messages_strips_wake_when_no_pending(self):
         body = {

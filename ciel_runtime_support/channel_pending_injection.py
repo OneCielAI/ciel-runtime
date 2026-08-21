@@ -31,6 +31,7 @@ class ChannelInjectionState:
 @dataclass(frozen=True, slots=True)
 class ChannelInjectionPrompts:
     llm_delivery: Callable[..., str]
+    visible_llm_delivery: Callable[..., str]
     web_chat: Callable[..., str]
     standard: Callable[..., str]
     enter_bytes: Callable[..., bytes]
@@ -87,6 +88,7 @@ def inject_pending_channel_messages(
     *,
     web_chat_only: bool = False,
     wake_for_llm_delivery: bool = False,
+    display_llm_delivery_body: bool = False,
     commit_cursor: bool = True,
     injected_message_ids: list[int] | None = None,
     submit_retry_count: int = 1,
@@ -170,7 +172,12 @@ def inject_pending_channel_messages(
                 io.log("INFO", f"channel_stdin_proxy_skipped_noise message_id={message_id} channel={channel} reason=duplicate_channel_event")
                 continue
             if candidate_uses_router:
-                message_prompt = prompts.llm_delivery([message])
+                formatter = (
+                    prompts.visible_llm_delivery
+                    if display_llm_delivery_body
+                    else prompts.llm_delivery
+                )
+                message_prompt = formatter([message])
             elif web_chat_only and state.message_is_web_chat(message):
                 message_prompt = prompts.web_chat([message])
             else:
@@ -228,7 +235,12 @@ def inject_pending_channel_messages(
         if not pending:
             return last_id
         if pending_uses_router:
-            prompt = prompts.llm_delivery(pending)
+            formatter = (
+                prompts.visible_llm_delivery
+                if display_llm_delivery_body
+                else prompts.llm_delivery
+            )
+            prompt = formatter(pending)
         elif web_chat_only and all(state.message_is_web_chat(message) for message in pending):
             prompt = prompts.web_chat(pending)
         else:
@@ -267,6 +279,9 @@ def inject_pending_channel_messages(
         channels = ",".join(sorted({str(message.get("channel") or "default") for message in pending}))
         io.log(
             "INFO",
-            f"channel_stdin_proxy_injected count={len(pending)} message_ids={ids} channels={channels} enter={prompts.enter_label(submit_bytes)} commit_cursor={commit_cursor}",
+            f"channel_stdin_proxy_injected count={len(pending)} message_ids={ids} "
+            f"channels={channels} enter={prompts.enter_label(submit_bytes)} "
+            f"commit_cursor={commit_cursor} "
+            f"display_body={bool(pending_uses_router and display_llm_delivery_body)}",
         )
         return return_last_id if pending_uses_router else last_id

@@ -3,6 +3,7 @@ import unittest
 from ciel_runtime_support.channel_message_prompt import (
     format_llm_delivery_wake_prompt,
     format_llm_batch_prompt,
+    format_visible_llm_delivery_wake_prompt,
     format_web_chat_wake_batch_prompt,
     format_wake_prompt,
     llm_message_skip_reason,
@@ -21,6 +22,23 @@ class ChannelMessagePromptTests(unittest.TestCase):
         self.assertNotIn("channels=", prompt)
         self.assertLessEqual(len(prompt), 40)
         self.assertNotIn("private full request body", prompt)
+
+    def test_visible_router_wake_keeps_marker_first_and_exact_body(self):
+        raw = '{"type":"demo","text":"그대로"}'
+        prompt = format_visible_llm_delivery_wake_prompt(
+            [
+                {
+                    "id": 77,
+                    "kind": "external_event",
+                    "message": raw,
+                    "meta": {"receiver_id": "wing", "transport": "sse"},
+                }
+            ]
+        )
+
+        self.assertTrue(prompt.startswith("[ciel-wake] pending_ids=77\n\n"))
+        self.assertEqual(1, prompt.count(raw))
+        self.assertIn("untrusted external event", prompt)
 
     def test_external_event_keeps_exact_raw_body_inside_transport_boundaries(self):
         raw = '{\n  "specversion": "1.0",\n  "id": "evt-1",\n  "source": "/test",\n  "type": "demo",\n  "data": {"text": "그대로"}\n}'

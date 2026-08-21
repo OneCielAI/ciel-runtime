@@ -12,7 +12,9 @@ from ciel_runtime_support.channel_terminal_proxy import ChannelTerminalPolling
 
 class ChannelPendingPollTests(unittest.TestCase):
     def options(self, *, enabled=True):
-        return ChannelPendingInjectionOptions(enabled, False, True, 2, True, False, 0.1)
+        return ChannelPendingInjectionOptions(
+            enabled, False, True, True, 2, True, False, 0.1
+        )
 
     def services(self, *, active=False, inject=None, logs=None):
         return ChannelPendingPollServices(
@@ -84,6 +86,7 @@ class ChannelPendingPollTests(unittest.TestCase):
         self.assertEqual(1.0, state.inflight_started_at)
         self.assertFalse(observed[0]["commit_cursor"])
         self.assertFalse(observed[0]["skip_blocking_wake_states"])
+        self.assertTrue(observed[0]["display_llm_delivery_body"])
 
     def test_batch_commit_cursor_uses_highest_injected_id_not_deferred_return_cursor(self):
         def inject(*args, **kwargs):
