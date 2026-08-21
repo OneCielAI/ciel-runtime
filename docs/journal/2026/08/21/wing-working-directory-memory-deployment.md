@@ -72,5 +72,39 @@ publish/install the result as a nightly build for an end-to-end Wing check.
 - After correcting final-system placement, the focused Remote Memory and prompt
   injection suites passed 25 tests, Ruff passed, and the second full suite
   passed: `Ran 2633 tests in 292.956s`, `OK (skipped=136)`.
-- Final nightly publication, Wing installation, and a new no-search model read
-  remain pending.
+- Commit `21872ed694428e46d4246e4bc08389f84ae462de` published as
+  `0.2.22-nightly.20260821-080802.21872ed`; npm `gitHead` matched and GitHub CI
+  run `32461589362` completed successfully.
+- Wing installed that exact version and again synchronized 28 files (50,689
+  bytes) below the launch workspace. The index existed and its first line was
+  `---`.
+- A real no-search model turn still denied receiving the index address. A
+  loopback Ollama wire capture then measured zero Remote Memory markers and no
+  index path in the complete upstream JSON.
+- A temporary, non-published probe of the same installed source recorded
+  `marker_after=True` for both the `openai_responses` injection and the later
+  `anthropic_messages` injection. The package and provider configuration were
+  restored immediately afterward.
+
+## Final wire truncation correction
+
+- The measured transition is therefore: marker present after Anthropic
+  injection, marker absent in Ollama wire projection.
+- Source inspection identifies the destructive transition in
+  `coalesce_ollama_system_messages`: it applies
+  `compact_message_text_for_prompt` to the combined Anthropic system text.
+  That helper has a fixed `PROMPT_MESSAGE_TEXT_LIMIT=20000`, so a pointer at the
+  tail of Wing's longer Codex system prompt is removed before the existing
+  post-projection placement helper runs.
+- `move_memory_pointer_to_system_end` now accepts a verified fallback pointer.
+  The final Ollama and OpenAI chat projection wrappers obtain that pointer from
+  the current workspace state and restore it only when the managed block was
+  removed by an intermediate projection.
+- The regression test uses a 25,000-character system instruction and verifies
+  that the ordinary system text is truncated while the workspace memory index
+  is present exactly once at the final system-message tail.
+- Focused Remote Memory and prompt-injection verification passed 25 tests;
+  Ruff and `git diff --check` also passed. The full suite passed 2,633 tests
+  with 136 skips, and `npm pack --dry-run --json` reported 385 entries.
+  Nightly publication and a new Wing wire/model check remain required before
+  closure.

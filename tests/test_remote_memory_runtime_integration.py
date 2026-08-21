@@ -177,7 +177,7 @@ class RemoteMemoryRuntimeIntegrationTests(unittest.TestCase):
                     {},
                     {
                         "model": "model",
-                        "instructions": "base",
+                        "instructions": "LONG_SYSTEM_PREFIX\n" + ("x" * 25_000),
                         "input": [
                             {
                                 "type": "message",
@@ -217,12 +217,10 @@ class RemoteMemoryRuntimeIntegrationTests(unittest.TestCase):
 
         first = wire["messages"][0]
         self.assertEqual("system", first["role"])
+        self.assertTrue(first["content"].startswith("LONG_SYSTEM_PREFIX"))
+        self.assertLess(len(first["content"]), 21_000)
         self.assertIn(f"Memory index: {index.resolve()}", first["content"])
         self.assertEqual(1, first["content"].count("Memory index:"))
-        self.assertLess(
-            first["content"].index("DEVELOPER_SENTINEL"),
-            first["content"].index("Memory index:"),
-        )
         self.assertTrue(
             first["content"].rstrip().endswith(
                 "<!-- ciel-runtime:remote-memory:end -->"

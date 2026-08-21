@@ -236,8 +236,13 @@ def _anthropic_system_with_pointer_last(system: Any, prompt: str) -> Any:
 
 def move_memory_pointer_to_system_end(
     messages: list[dict[str, Any]],
+    fallback_pointer: str = "",
 ) -> list[dict[str, Any]]:
-    """Keep the managed pointer at the tail of the final wire system text."""
+    """Keep the managed pointer at the tail of the final wire system text.
+
+    ``fallback_pointer`` restores the trusted pointer when an intermediate
+    projection truncated the tail of a long system prompt.
+    """
 
     pointer = ""
     projected: list[dict[str, Any]] = []
@@ -253,6 +258,10 @@ def move_memory_pointer_to_system_end(
                 copied["content"] = _without_memory_pointer(content)
             system_indexes.append(len(projected))
         projected.append(copied)
+    if not pointer:
+        fallback_match = _MEMORY_POINTER_PATTERN.search(fallback_pointer)
+        if fallback_match:
+            pointer = fallback_match.group(0)
     if not pointer:
         return messages
     if not system_indexes:
