@@ -268,7 +268,7 @@ class EventSettingsCli:
             "enabled": bool(current.get("enabled", False)),
             "manifest_url": str(current.get("manifest_url") or ""),
             "authorization": "stored" if current.get("authorization") else "unset",
-            "directory": str(current.get("directory") or "memory"),
+            "directory": str(current.get("directory") or ".ciel/memory"),
             "timeout_seconds": current.get("timeout_seconds") or 5,
             "max_manifest_bytes": current.get("max_manifest_bytes") or 1_048_576,
             "max_file_bytes": current.get("max_file_bytes") or 4_194_304,

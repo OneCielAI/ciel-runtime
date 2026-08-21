@@ -11,6 +11,7 @@ from unittest import mock
 from ciel_runtime_support.remote_memory import (
     MEMORY_POINTER_BEGIN,
     RemoteMemorySynchronizer,
+    current_memory_index_address,
     current_memory_prompt,
     parse_manifest,
     update_memory_pointer,
@@ -68,7 +69,7 @@ class RemoteMemoryTests(unittest.TestCase):
         ):
             root = Path(td)
             workspace = root / "workspace"
-            memory = root / "state" / "memory"
+            memory = workspace / ".ciel" / "memory"
             memory.mkdir(parents=True)
             (memory / "stale.md").write_text("stale", encoding="utf-8")
             manifest_url = "https://memory.example/v1/manifest.json"
@@ -120,7 +121,7 @@ class RemoteMemoryTests(unittest.TestCase):
                 (memory / "state" / "runtime.json").read_text(),
             )
             self.assertFalse((workspace / "AGENTS.md").exists())
-            prompt = current_memory_prompt(root / "state", config)
+            prompt = current_memory_prompt(root / "state", config, workspace)
             self.assertIn(f"Memory index: {(memory / 'index.okf').resolve()}", prompt)
 
             self.assertTrue(
@@ -191,7 +192,7 @@ class RemoteMemoryTests(unittest.TestCase):
                 self.assertEqual(2, result.file_count)
                 self.assertEqual(
                     "# Current memory\n",
-                    (root / "state" / "memory" / "journal" / "current.md").read_text(),
+                    (root / "workspace" / ".ciel" / "memory" / "journal" / "current.md").read_text(),
                 )
                 self.assertEqual(
                     [
@@ -233,7 +234,7 @@ class RemoteMemoryTests(unittest.TestCase):
             self.assertEqual("Bearer private", server.requests[0].get_header("Authorization"))
             self.assertIsNone(server.requests[1].get_header("Authorization"))
 
-    def test_user_home_launch_downloads_to_workspace_state_and_removes_legacy_pointer(self):
+    def test_user_home_launch_downloads_to_working_directory_and_removes_legacy_pointer(self):
         with tempfile.TemporaryDirectory() as td:
             workspace = Path(td) / "home"
             workspace.mkdir()
@@ -270,10 +271,9 @@ class RemoteMemoryTests(unittest.TestCase):
             self.assertEqual("updated", result.status)
             self.assertEqual(2, len(server.requests))
             self.assertEqual("# User rules\n", agents.read_text(encoding="utf-8"))
-            self.assertFalse((workspace / ".ciel" / "memory").exists())
             self.assertEqual(
                 "index\n",
-                (Path(td) / "state" / "memory" / "index.okf").read_text(
+                (workspace / ".ciel" / "memory" / "index.okf").read_text(
                     encoding="utf-8"
                 ),
             )
@@ -311,7 +311,7 @@ class RemoteMemoryTests(unittest.TestCase):
             for name in ("alpha", "beta"):
                 self.assertEqual(
                     "project memory\n",
-                    (root / "state" / name / "memory" / "index.okf").read_text(
+                    (root / name / ".ciel" / "memory" / "index.okf").read_text(
                         encoding="utf-8"
                     ),
                 )
@@ -321,7 +321,7 @@ class RemoteMemoryTests(unittest.TestCase):
     def test_sha_mismatch_keeps_the_previous_memory_tree(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
-            memory = root / "state" / "memory"
+            memory = root / "workspace" / ".ciel" / "memory"
             memory.mkdir(parents=True)
             (memory / "index.okf").write_text("previous", encoding="utf-8")
             manifest_url = "https://memory.example/manifest.json"
@@ -352,6 +352,36 @@ class RemoteMemoryTests(unittest.TestCase):
             self.assertEqual("failed", result.status)
             self.assertIn("sha256 mismatch", result.detail)
             self.assertEqual("previous", (memory / "index.okf").read_text())
+
+    def test_saved_index_is_rejected_for_a_different_launch_workspace(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            workspace = root / "workspace-a"
+            index = workspace / ".ciel" / "memory" / "index.okf"
+            index.parent.mkdir(parents=True)
+            index.write_text("memory\n", encoding="utf-8")
+            state = root / "state"
+            state.mkdir()
+            (state / "remote-memory.json").write_text(
+                json.dumps(
+                    {
+                        "workspace": str(workspace.resolve()),
+                        "root": ".ciel/memory",
+                        "index": "index.okf",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            config = {"remote_memory": {"enabled": True}}
+
+            self.assertEqual(
+                str(index.resolve()),
+                current_memory_index_address(state, config, workspace),
+            )
+            self.assertEqual(
+                "",
+                current_memory_index_address(state, config, root / "workspace-b"),
+            )
 
     def test_manifest_rejects_traversal_duplicates_and_unknown_formats(self):
         base = "https://memory.example/manifest.json"

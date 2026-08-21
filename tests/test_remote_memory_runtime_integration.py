@@ -1,3 +1,4 @@
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -64,11 +65,20 @@ class RemoteMemoryRuntimeIntegrationTests(unittest.TestCase):
     def test_managed_memory_prompt_is_injected_for_all_router_protocol_families(self):
         with tempfile.TemporaryDirectory() as td:
             state = Path(td) / "workspace-state"
-            index = state / "memory" / "index.md"
+            workspace = Path(td) / "workspace"
+            index = workspace / ".ciel" / "memory" / "index.md"
             index.parent.mkdir(parents=True)
             index.write_text("# memory\n", encoding="utf-8")
+            state.mkdir(parents=True)
             (state / "remote-memory.json").write_text(
-                '{"root":"memory","index":"index.md"}', encoding="utf-8"
+                json.dumps(
+                    {
+                        "workspace": str(workspace.resolve()),
+                        "root": ".ciel/memory",
+                        "index": "index.md",
+                    }
+                ),
+                encoding="utf-8",
             )
             prompt = (
                 "<!-- ciel-runtime:remote-memory:begin -->\n"
@@ -77,6 +87,7 @@ class RemoteMemoryRuntimeIntegrationTests(unittest.TestCase):
             )
             with (
                 mock.patch.object(ciel_runtime, "WORKSPACE_STATE_DIR", state),
+                mock.patch.object(ciel_runtime, "ROUTER_WORKSPACE", str(workspace)),
                 mock.patch.object(
                     ciel_runtime,
                     "load_config",
@@ -102,14 +113,24 @@ class RemoteMemoryRuntimeIntegrationTests(unittest.TestCase):
     def test_managed_memory_prompt_injection_is_idempotent(self):
         with tempfile.TemporaryDirectory() as td:
             state = Path(td) / "workspace-state"
-            index = state / "memory" / "index.md"
+            workspace = Path(td) / "workspace"
+            index = workspace / ".ciel" / "memory" / "index.md"
             index.parent.mkdir(parents=True)
             index.write_text("# memory\n", encoding="utf-8")
+            state.mkdir(parents=True)
             (state / "remote-memory.json").write_text(
-                '{"root":"memory","index":"index.md"}', encoding="utf-8"
+                json.dumps(
+                    {
+                        "workspace": str(workspace.resolve()),
+                        "root": ".ciel/memory",
+                        "index": "index.md",
+                    }
+                ),
+                encoding="utf-8",
             )
             with (
                 mock.patch.object(ciel_runtime, "WORKSPACE_STATE_DIR", state),
+                mock.patch.object(ciel_runtime, "ROUTER_WORKSPACE", str(workspace)),
                 mock.patch.object(
                     ciel_runtime,
                     "load_config",
@@ -125,6 +146,53 @@ class RemoteMemoryRuntimeIntegrationTests(unittest.TestCase):
 
         self.assertEqual(once, twice)
         self.assertEqual(1, twice["instructions"].count("Memory index:"))
+
+    def test_responses_memory_pointer_survives_to_ollama_system_wire_message(self):
+        with tempfile.TemporaryDirectory() as td:
+            state = Path(td) / "workspace-state"
+            workspace = Path(td) / "workspace"
+            index = workspace / ".ciel" / "memory" / "index.md"
+            index.parent.mkdir(parents=True)
+            index.write_text("# memory\n", encoding="utf-8")
+            state.mkdir(parents=True)
+            (state / "remote-memory.json").write_text(
+                json.dumps(
+                    {
+                        "workspace": str(workspace.resolve()),
+                        "root": ".ciel/memory",
+                        "index": "index.md",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            config = {"remote_memory": {"enabled": True}}
+            with (
+                mock.patch.object(ciel_runtime, "WORKSPACE_STATE_DIR", state),
+                mock.patch.object(ciel_runtime, "ROUTER_WORKSPACE", str(workspace)),
+                mock.patch.object(ciel_runtime, "load_config", return_value=config),
+            ):
+                responses = ciel_runtime.body_with_codex_compat_instructions(
+                    config,
+                    "ollama-cloud",
+                    {},
+                    {"model": "model", "instructions": "base", "input": "hello"},
+                )
+                anthropic = ciel_runtime.openai_responses_to_anthropic_messages(
+                    responses,
+                    "model",
+                )
+                wire = ciel_runtime.ollama_chat_request(
+                    "model",
+                    anthropic,
+                    {},
+                    stream=True,
+                    provider="ollama-cloud",
+                )
+
+        first = wire["messages"][0]
+        self.assertEqual("system", first["role"])
+        self.assertIn(f"Memory index: {index.resolve()}", first["content"])
+        self.assertEqual(1, first["content"].count("Memory index:"))
 
     def test_launch_assets_sync_instruction_before_replacing_memory(self):
         memory = RemoteMemoryResult(

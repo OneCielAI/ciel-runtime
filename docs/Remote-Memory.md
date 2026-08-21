@@ -15,10 +15,10 @@ ciel-runtimectl remote-memory `
   sync
 ```
 
-The default destination is `memory` below Ciel's workspace state directory. On
-Windows, for example, the resulting boundary is
-`%APPDATA%\ciel-runtime\workspaces\<workspace-id>\memory`. A custom destination
-must remain a portable relative path inside that state directory:
+The default destination is `.ciel/memory` below the runtime's actual launch
+workspace. On Windows, launching from `C:\work\project` produces
+`C:\work\project\.ciel\memory`. A custom destination must remain a portable
+relative path inside that launch workspace:
 
 ```powershell
 ciel-runtimectl remote-memory directory=team-memory
@@ -80,25 +80,26 @@ and optional SHA-256 values pass does Ciel replace the previous memory tree.
 Files omitted by the new manifest therefore disappear. A failed synchronization
 keeps the previous tree unchanged and logs `remote_memory_failed`.
 
-The router's workspace identifier selects the workspace state directory. The
-launch directory may therefore be the user's home directory when a machine has
-no separate project checkout; the memory tree remains isolated below the Ciel
-workspace state boundary.
+The router's launch-workspace identity selects the destination. A machine with
+no separate project checkout may use its user home as the launch workspace; in
+that case Ciel creates `<home>/.ciel/memory`. Different launch workspaces receive
+different trees. Ciel keeps only synchronization metadata in its workspace
+state directory.
 
 After a successful synchronization, routed OpenAI Responses, OpenAI Chat, and
 Anthropic Messages requests receive a managed prompt block like this:
 
 ```markdown
 <!-- ciel-runtime:remote-memory:begin -->
-Memory index: C:\Users\name\AppData\Roaming\ciel-runtime\workspaces\<workspace-id>\memory\index.okf
+Memory index: C:\work\project\.ciel\memory\index.okf
 <!-- ciel-runtime:remote-memory:end -->
 ```
 
-The block is inserted idempotently. Ciel does not create or append a Remote
+The absolute address is verified to remain below the current launch workspace
+before injection. The block is inserted idempotently. Ciel does not create or append a Remote
 Memory block in the launch directory's `CLAUDE.md`, `AGENTS.md`, or `GEMINI.md`.
 During migration it removes a block previously managed by Ciel while preserving
-the rest of the user-authored file. The legacy `.ciel/memory` configuration
-value is accepted as an alias for the new `memory` state-directory destination.
+the rest of the user-authored file.
 
 ## Safety and limits
 

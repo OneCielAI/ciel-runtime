@@ -26,8 +26,7 @@ from .remote_instructions import (
 
 MEMORY_POINTER_BEGIN = "<!-- ciel-runtime:remote-memory:begin -->"
 MEMORY_POINTER_END = "<!-- ciel-runtime:remote-memory:end -->"
-DEFAULT_DIRECTORY = "memory"
-LEGACY_DIRECTORY = ".ciel/memory"
+DEFAULT_DIRECTORY = ".ciel/memory"
 DEFAULT_MAX_MANIFEST_BYTES = 1_048_576
 DEFAULT_MAX_FILE_BYTES = 4_194_304
 DEFAULT_MAX_TOTAL_BYTES = 33_554_432
@@ -77,21 +76,16 @@ def _safe_relative_path(value: Any, *, field: str) -> PurePosixPath:
     return path
 
 
-def memory_directory(state_dir: Path, config: Mapping[str, Any]) -> Path:
+def memory_directory(workspace: Path, config: Mapping[str, Any]) -> Path:
     configured = str(settings(config).get("directory") or DEFAULT_DIRECTORY).strip()
-    # 0.2.22 briefly interpreted this setting relative to the launch directory.
-    # Preserve that release's default as an alias while moving the owned data
-    # into the Ciel workspace-state boundary.
-    if configured.replace("\\", "/") == LEGACY_DIRECTORY:
-        configured = DEFAULT_DIRECTORY
     relative = _safe_relative_path(
         configured,
         field="remote_memory.directory",
     )
-    root = state_dir.resolve()
+    root = workspace.resolve()
     destination = root.joinpath(*relative.parts).resolve()
     if destination == root or root not in destination.parents:
-        raise ValueError("remote_memory.directory must stay inside the workspace state directory")
+        raise ValueError("remote_memory.directory must stay inside the workspace")
     return destination
 
 
@@ -214,8 +208,9 @@ def _managed_pointer_block(index_address: str) -> str:
 def current_memory_index_address(
     state_dir: Path,
     config: Mapping[str, Any],
+    workspace: Path | None = None,
 ) -> str:
-    """Return a verified workspace-state index path for prompt injection."""
+    """Return a verified launch-workspace index path for prompt injection."""
 
     if not bool(settings(config).get("enabled", False)):
         return ""
@@ -226,13 +221,18 @@ def current_memory_index_address(
     if not isinstance(state, dict):
         return ""
     try:
+        raw_workspace = str(state.get("workspace") or "").strip()
+        if not raw_workspace:
+            return ""
+        stored_workspace = Path(raw_workspace).resolve()
         root_relative = _safe_relative_path(state.get("root"), field="root")
         index_relative = _safe_relative_path(state.get("index"), field="index")
-    except ValueError:
+    except (OSError, ValueError):
         return ""
-    state_root = state_dir.resolve()
-    root = state_root.joinpath(*root_relative.parts).resolve()
-    if state_root not in root.parents:
+    if workspace is not None and stored_workspace != workspace.resolve():
+        return ""
+    root = stored_workspace.joinpath(*root_relative.parts).resolve()
+    if stored_workspace not in root.parents:
         return ""
     path = root.joinpath(*index_relative.parts).resolve()
     if root not in path.parents:
@@ -240,8 +240,12 @@ def current_memory_index_address(
     return str(path) if path.is_file() else ""
 
 
-def current_memory_prompt(state_dir: Path, config: Mapping[str, Any]) -> str:
-    address = current_memory_index_address(state_dir, config)
+def current_memory_prompt(
+    state_dir: Path,
+    config: Mapping[str, Any],
+    workspace: Path | None = None,
+) -> str:
+    address = current_memory_index_address(state_dir, config, workspace)
     return _managed_pointer_block(address) if address else ""
 
 
@@ -250,8 +254,9 @@ def inject_current_memory_prompt(
     protocol: MessageProtocol,
     state_dir: Path,
     config: Mapping[str, Any],
+    workspace: Path | None = None,
 ) -> dict[str, Any]:
-    prompt = current_memory_prompt(state_dir, config)
+    prompt = current_memory_prompt(state_dir, config, workspace)
     if not prompt or MEMORY_POINTER_BEGIN in json.dumps(
         body, ensure_ascii=False, default=str
     ):
@@ -329,7 +334,7 @@ class RemoteMemorySynchronizer:
                 base="",
                 field="remote_memory.manifest_url",
             )
-            root = memory_directory(self.state_dir, config)
+            root = memory_directory(workspace, config)
         except ValueError as exc:
             return self._failed(runtime, manifest_url, str(exc))
 
@@ -393,7 +398,8 @@ class RemoteMemorySynchronizer:
             self._write_state(
                 {
                     "manifest_url": manifest_url,
-                    "root": root.relative_to(self.state_dir.resolve()).as_posix(),
+                    "workspace": str(workspace),
+                    "root": root.relative_to(workspace).as_posix(),
                     "index": manifest.index.as_posix(),
                     "index_address": index_address,
                     "files": [
@@ -430,10 +436,18 @@ class RemoteMemorySynchronizer:
         )
 
     def current_index_address(self) -> str:
-        return current_memory_index_address(self.state_dir, self.load_config())
+        return current_memory_index_address(
+            self.state_dir,
+            self.load_config(),
+            self.workspace().resolve(),
+        )
 
     def current_prompt_text(self) -> str:
-        return current_memory_prompt(self.state_dir, self.load_config())
+        return current_memory_prompt(
+            self.state_dir,
+            self.load_config(),
+            self.workspace().resolve(),
+        )
 
     def project_current_pointer(self, runtime: str) -> bool:
         """Remove the obsolete native-file projection left by 0.2.22."""
