@@ -173,7 +173,7 @@ class WindowsConPtySession:
         output: bytes,
         expected_prompt: str | None,
     ) -> bool:
-        prompt = " ".join(str(expected_prompt or "").split())
+        prompt = WindowsConPtySession.normalize_prompt(str(expected_prompt or ""))
         if not prompt:
             return bool(output)
         prefix = prompt[:48].encode("utf-8", errors="replace")
@@ -187,7 +187,7 @@ class WindowsConPtySession:
     ) -> bool:
         if current == baseline:
             return False
-        prompt = " ".join(str(expected_prompt or "").split())
+        prompt = WindowsConPtySession.normalize_prompt(str(expected_prompt or ""))
         prefix = prompt[:48]
         if prefix and current.count(prefix) > baseline.count(prefix):
             return True

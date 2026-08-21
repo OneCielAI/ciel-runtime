@@ -53,6 +53,25 @@ class WindowsConPtyPolicyTests(unittest.TestCase):
             )
         )
 
+    def test_prompt_checkpoint_preserves_blank_line_as_two_visible_spaces(self) -> None:
+        session = WindowsConPtySession.__new__(WindowsConPtySession)
+        session._output_lock = threading.Lock()
+        prompt = "[ciel-wake] pending_ids=1240\n\n[ciel-runtime event body]"
+        rendered = (
+            b"\x1b[22m [ciel-wake] pending_ids=1240  "
+            b"[ciel-runtime event body]"
+        )
+        session._output_tail = bytearray(rendered)
+        session._output_total_bytes = len(rendered)
+
+        self.assertTrue(
+            session.wait_until_prompt_ready(
+                0,
+                0.0,
+                expected_prompt=prompt,
+            )
+        )
+
     def test_prompt_ready_requires_the_injected_body_render(self) -> None:
         baseline = "Codex starting"
 

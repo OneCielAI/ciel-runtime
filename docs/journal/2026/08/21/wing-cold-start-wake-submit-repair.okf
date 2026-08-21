@@ -60,6 +60,12 @@ knowledge:
       injector correctly withheld Enter, but the pending-delivery layer still
       recorded the message as injected and retained its claim. Logs then
       repeated state=unknown instead of retrying.
+    - >-
+      WING fresh-session message 1240 retried at 16:15:29, 16:15:59, and
+      16:16:30 after claim rollback. The exact visible prefix contained two
+      spaces between the wake header and the external-event marker because the
+      source prompt has a blank line. Prompt detection incorrectly collapsed
+      that pair to one space, so every real render was rejected.
 
   correction:
     files:
@@ -84,23 +90,27 @@ knowledge:
         not record the prompt or injected id, and leaves the cursor unchanged
         so the next idle scan retries the complete body and Enter.
       - >-
+        Prompt-render matching now uses the same normalize_prompt operation as
+        the injected body. Blank lines therefore remain the same two visible
+        spaces in both the expected prefix and captured ConPTY output.
+      - >-
         No WING, user, message, model, provider, or agent-specific exception was
         introduced.
 
   verification:
     focused:
       channel_injection: "6 passed"
-      windows_conpty: "17 passed"
+      windows_conpty: "18 passed"
       channel_bridge: "207 passed, 80 skipped"
       channel_injection_architecture: "4 passed"
       codex_runtime: "69 passed, 12 skipped"
       ruff: passed
     full_npm_test:
-      unit: "1119 passed, 44 skipped"
+      unit: "1120 passed, 44 skipped"
       router: "906 passed"
       channel: "381 passed, 80 skipped"
       runtime: "249 passed, 12 skipped"
-      total: "2655 passed, 136 skipped"
+      total: "2656 passed, 136 skipped"
     first_nightly:
       version: "0.2.22-nightly.20260821-203346.87525c6"
       commit: "87525c6bbb83d9483d30a1d3b54c0b1c73599c7c"
@@ -115,5 +125,12 @@ knowledge:
         Installed locally and on WING. Fresh-session message 1239 exposed the
         missing submission-result propagation and claim rollback above, so
         this build was not accepted as complete.
-    wing_live: pending_third_nightly
-    deployment: pending_third_nightly
+    third_nightly:
+      version: "0.2.22-nightly.20260821-211233.f357b91"
+      commit: "f357b91c7ae21079d45f5458a01f72f026341f50"
+      result: >-
+        Installed locally and on WING. Fresh-session message 1240 proved claim
+        rollback and periodic retry worked, then exposed the blank-line
+        whitespace mismatch above, so this build was not accepted as complete.
+    wing_live: pending_fourth_nightly
+    deployment: pending_fourth_nightly
