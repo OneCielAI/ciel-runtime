@@ -16,12 +16,23 @@ class AlibabaProviderTests(unittest.TestCase):
         config.update(overrides)
         return config
 
+    def test_model_studio_singapore_defaults_match_qwen38_official_limits(self):
+        config = self.config()
+
+        self.assertEqual("qwen3.8-max", config["current_model"])
+        self.assertEqual("ap-southeast-1", config["region"])
+        self.assertEqual(1_000_000, config["context_window"])
+        self.assertEqual(1_000_000, config["max_model_len"])
+        self.assertEqual(131_072, config["max_output_tokens"])
+        self.assertEqual("xhigh", config["effort_level"])
+        self.assertIn("qwen3.8-max", config["custom_models"])
+
     def test_token_plan_qwen38_defaults_match_live_catalog_and_model_limits(self):
         config = self.token_config()
 
         self.assertEqual("qwen3.8-max", config["current_model"])
-        self.assertEqual(1_048_576, config["context_window"])
-        self.assertEqual(1_048_576, config["max_model_len"])
+        self.assertEqual(1_000_000, config["context_window"])
+        self.assertEqual(1_000_000, config["max_model_len"])
         self.assertEqual(131_072, config["max_output_tokens"])
         self.assertEqual(900_000, config["auto_compact_window"])
         self.assertEqual("xhigh", config["effort_level"])
@@ -35,6 +46,19 @@ class AlibabaProviderTests(unittest.TestCase):
             ciel_runtime.PROVIDER_ALIASES["alibaba-token-individual"],
         )
         self.assertEqual("ap-southeast-1", config["region"])
+
+    def test_model_studio_workspace_url_derives_official_anthropic_route(self):
+        config = self.config(
+            base_url=(
+                "https://workspace-id.ap-southeast-1.maas.aliyuncs.com/"
+                "compatible-mode/v1"
+            )
+        )
+
+        self.assertEqual(
+            "https://workspace-id.ap-southeast-1.maas.aliyuncs.com/apps/anthropic",
+            ciel_runtime.native_anthropic_base_url("alims-intl", config),
+        )
 
     def test_token_plan_uses_responses_for_codex_and_anthropic_for_claude(self):
         config = self.token_config()
@@ -458,6 +482,7 @@ class AlibabaProviderTests(unittest.TestCase):
         self.assertTrue(
             {
                 "qwen3.7-max",
+                "qwen3.8-max",
                 "qwen3.7-plus",
                 "qwen3.6-flash",
                 "deepseek-v4-pro",
@@ -497,11 +522,13 @@ class AlibabaProviderTests(unittest.TestCase):
         self.assertIn("qwen3.7-plus", cfg["providers"]["alicode"]["custom_models"])
         self.assertIn("qwen3-coder-plus", cfg["providers"]["alicode-intl"]["custom_models"])
         self.assertIn("legacy-custom", cfg["providers"]["alims-intl"]["custom_models"])
+        self.assertIn("qwen3.8-max", cfg["providers"]["alims-intl"]["custom_models"])
         self.assertIn("qwen3.7-max", cfg["providers"]["alims-intl"]["custom_models"])
         self.assertIn("private-token-model", cfg["providers"]["alitoken"]["custom_models"])
         self.assertIn("qwen3.8-max", cfg["providers"]["alitoken"]["custom_models"])
         self.assertEqual("ap-southeast-1", cfg["providers"]["alitoken"]["region"])
         self.assertTrue(cfg["migrations"]["alibaba_provider_catalogs_20260806"])
+        self.assertTrue(cfg["migrations"]["alibaba_qwen38_singapore_20260821"])
         self.assertTrue(cfg["migrations"]["alibaba_token_plan_singapore_20260806"])
         self.assertTrue(cfg["migrations"]["alibaba_native_anthropic_routes_20260806"])
         self.assertTrue(cfg["migrations"]["alibaba_token_plan_individual_20260806"])
@@ -510,6 +537,50 @@ class AlibabaProviderTests(unittest.TestCase):
             "alitoken-individual",
         ):
             self.assertTrue(cfg["providers"][provider]["native_compat"])
+
+    def test_qwen38_migration_updates_only_untouched_alibaba_defaults(self):
+        cfg = {
+            "migrations": {},
+            "providers": {
+                "alims-intl": {
+                    "current_model": "qwen3.7-max",
+                    "opus_model": "qwen3.7-max",
+                    "custom_models": ["private-model"],
+                    "context_window": 1_000_000,
+                    "max_model_len": 1_000_000,
+                    "max_output_tokens": 65_536,
+                    "effort_level": "high",
+                },
+                "alitoken": {
+                    "current_model": "qwen3.8-max",
+                    "context_window": 1_048_576,
+                    "max_model_len": 1_048_576,
+                },
+                "alitoken-individual": {
+                    "current_model": "private-token-model",
+                    "context_window": 1_048_576,
+                    "max_model_len": 1_048_576,
+                },
+            },
+        }
+
+        ciel_runtime.apply_config_migrations(cfg)
+
+        model_studio = cfg["providers"]["alims-intl"]
+        self.assertEqual("qwen3.8-max", model_studio["current_model"])
+        self.assertEqual("qwen3.8-max", model_studio["opus_model"])
+        self.assertEqual(1_000_000, model_studio["context_window"])
+        self.assertEqual(131_072, model_studio["max_output_tokens"])
+        self.assertEqual("xhigh", model_studio["effort_level"])
+        self.assertEqual("ap-southeast-1", model_studio["region"])
+        self.assertIn("private-model", model_studio["custom_models"])
+        self.assertIn("qwen3.8-max", model_studio["custom_models"])
+        self.assertEqual(1_000_000, cfg["providers"]["alitoken"]["context_window"])
+        self.assertEqual(1_000_000, cfg["providers"]["alitoken"]["max_model_len"])
+        self.assertEqual(
+            1_048_576,
+            cfg["providers"]["alitoken-individual"]["context_window"],
+        )
 
     def test_preview_model_id_is_preserved_for_models_endpoint_authority(self):
         cfg = {
@@ -564,7 +635,7 @@ class AlibabaProviderTests(unittest.TestCase):
                     "data": [
                         {
                             "id": "qwen3.8-max",
-                            "max_context_length": 1_048_576,
+                            "max_context_length": 1_000_000,
                         }
                     ]
                 },

@@ -20,13 +20,16 @@ from .base import HttpBearerProviderAdapter, provider_configuration
 
 QWEN38_MAX_MODEL = "qwen3.8-max"
 QWEN38_MAX_PREVIEW_MODEL = "qwen3.8-max-preview"
-QWEN38_CONTEXT_WINDOW = 1_048_576
+QWEN38_CONTEXT_WINDOW = 1_000_000
+QWEN38_MAX_INPUT = 991_808
+QWEN38_THINKING_MAX_INPUT = 983_616
 QWEN38_MAX_OUTPUT = 131_072
+QWEN38_MAX_REASONING = 262_144
 QWEN38_AUTO_COMPACT = 900_000
 ALIBABA_TOKEN_PLAN_RESPONSES_MAX_BYTES = 10 * 1024 * 1024
 QWEN38_CODEX_CATALOG = {
-    "context_window": 983_616,
-    "max_context_window": 983_616,
+    "context_window": QWEN38_THINKING_MAX_INPUT,
+    "max_context_window": QWEN38_THINKING_MAX_INPUT,
     "effective_context_window_percent": 95,
     "supports_parallel_tool_calls": False,
     "supports_image_detail_original": True,
@@ -58,6 +61,7 @@ ALIBABA_CODING_PLAN_MODELS = (
     "glm-4.7",
 )
 ALIBABA_MODEL_STUDIO_MODELS = (
+    QWEN38_MAX_MODEL,
     QWEN37_MAX_MODEL,
     "qwen3.7-plus",
     "qwen3.6-plus",
@@ -125,26 +129,27 @@ class AlibabaModelStudioProviderAdapter(HttpBearerProviderAdapter):
     base_url: str = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
     configuration_defaults_value: dict = field(
         default_factory=lambda: provider_configuration(
-            QWEN37_MAX_MODEL,
+            QWEN38_MAX_MODEL,
             custom_models=ALIBABA_MODEL_STUDIO_MODELS,
             native_compat=True,
             supports_tool_choice=True,
-            context_window=QWEN37_CONTEXT_WINDOW,
-            max_model_len=QWEN37_CONTEXT_WINDOW,
-            max_output_tokens=QWEN37_MAX_OUTPUT,
+            context_window=QWEN38_CONTEXT_WINDOW,
+            max_model_len=QWEN38_CONTEXT_WINDOW,
+            max_output_tokens=QWEN38_MAX_OUTPUT,
             context_reserve_tokens=8192,
             auto_compact_window=QWEN38_AUTO_COMPACT,
             codex_auto_compact_window=QWEN38_AUTO_COMPACT,
             request_timeout_ms=DEFAULT_REQUEST_TIMEOUT_MS,
             stream_enabled=True,
             stream_word_chunking=False,
-            effort_level="high",
+            effort_level="xhigh",
             explicit_cache=True,
             explicit_cache_markers=4,
             haiku_model="qwen3.6-flash",
-            opus_model=QWEN37_MAX_MODEL,
+            opus_model=QWEN38_MAX_MODEL,
             sonnet_model="qwen3.7-plus",
             subagent_model="qwen3.7-plus",
+            region="ap-southeast-1",
         )
     )
     authorization_header: str = "authorization"
@@ -640,6 +645,9 @@ __all__ = [
     "AlibabaTokenPlanProviderAdapter",
     "QWEN38_AUTO_COMPACT",
     "QWEN38_CONTEXT_WINDOW",
+    "QWEN38_MAX_INPUT",
     "QWEN38_MAX_MODEL",
     "QWEN38_MAX_OUTPUT",
+    "QWEN38_MAX_REASONING",
+    "QWEN38_THINKING_MAX_INPUT",
 ]

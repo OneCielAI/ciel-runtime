@@ -44,6 +44,25 @@ token은 Bearer header로 전송하며, 사용자 지정 `base_url`로 사설 ga
 `base_url`로 명시해야 한다. “수동 OAuth token” 범주는 transport가 구현된 상태를
 뜻하며, Ciel이 브라우저 로그인이나 refresh token을 대신 발급한다는 뜻은 아니다.
 
+### Alibaba Model Studio Singapore
+
+`alims-intl`의 기본 모델은 Singapore International scope의 `qwen3.8-max`다.
+공식 한도에 맞춰 context window는 1,000,000, 최대 입력은 일반 모드 991,808,
+thinking 모드 983,616, 최대 출력은 131,072로 취급한다. Codex에는 thinking 모드의
+안전한 입력 상한인 983,616을 model catalog context로 제공한다.
+
+신규 workspace endpoint는 계정별 Workspace ID가 필요하므로 Ciel이 이를 추측하지
+않는다. Model Studio console에서 발급된 다음 OpenAI-compatible URL을 `base_url`에
+입력한다.
+
+```text
+https://{WorkspaceId}.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1
+```
+
+이 URL을 사용하면 Claude용 native endpoint는 같은 workspace의
+`/apps/anthropic`으로 파생된다. `alitoken`은 별도 구독·과금 계약의 Singapore Token
+Plan endpoint를 계속 사용하므로 일반 `alims-intl` workspace URL과 혼용하지 않는다.
+
 ### Anthropic Messages 호환 제공자
 
 `minimax`와 `minimax-cn`은 OpenAI 변환을 거치지 않고 Anthropic Messages 계약,
