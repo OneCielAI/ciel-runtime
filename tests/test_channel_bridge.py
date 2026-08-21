@@ -1658,6 +1658,25 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertFalse(ciel_runtime._channel_stdin_active_turn_from_text(completed))
         self.assertFalse(ciel_runtime._channel_stdin_active_turn_from_text(aborted))
 
+    def test_channel_active_turn_preserves_incremental_state_without_lifecycle_record(self):
+        started = '{"type":"event_msg","payload":{"type":"task_started"}}'
+        reasoning_only = '{"type":"response_item","payload":{"type":"reasoning"}}'
+        completed = '{"type":"event_msg","payload":{"type":"task_complete"}}'
+
+        self.assertTrue(ciel_runtime._channel_stdin_active_turn_from_text(started))
+        self.assertTrue(
+            ciel_runtime._channel_stdin_active_turn_from_text(
+                reasoning_only,
+                initial_active=True,
+            )
+        )
+        self.assertFalse(
+            ciel_runtime._channel_stdin_active_turn_from_text(
+                completed,
+                initial_active=True,
+            )
+        )
+
     def test_channel_enter_bytes_from_user_input_tracks_observed_submit_key(self):
         self.assertEqual(b"\n", ciel_runtime._channel_enter_bytes_from_user_input(b"\n"))
         self.assertEqual(b"\r", ciel_runtime._channel_enter_bytes_from_user_input(b"\r"))

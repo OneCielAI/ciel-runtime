@@ -479,14 +479,20 @@ class ChannelWakeContext:
 
     def active_turn(self) -> bool:
         path = self.transcript_policy.latest_transcript()
-        text = self.transcript.read_tail(path) if path is not None else ""
+        if path is None:
+            return bool(self.transcript.scope.get("turn_active"))
+        text = self.transcript_repository().read_turn_updates(path)
         if not text:
-            return False
-        return bool(
+            return bool(self.transcript.scope.get("turn_active"))
+        active = bool(
             self.transcript.active_turn_from_text(
-                text, not_before=self.console_started_at()
+                text,
+                not_before=self.console_started_at(),
+                initial_active=bool(self.transcript.scope.get("turn_active")),
             )
         )
+        self.transcript.scope["turn_active"] = active
+        return active
 
     def queued_command_ids_from_text(self, text: str) -> set[int]:
         return self.transcript_policy.queued_ids_from_text(

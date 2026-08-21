@@ -291,6 +291,75 @@ class ChannelTranscriptRepositoryTests(unittest.TestCase):
                 ),
             )
 
+    def test_turn_updates_track_lifecycle_beyond_bounded_tail(self):
+        with tempfile.TemporaryDirectory() as raw_dir:
+            home = Path(raw_dir)
+            sessions = home / ".codex" / "sessions" / "2026"
+            sessions.mkdir(parents=True)
+            transcript = sessions / "resumed.jsonl"
+            transcript.write_text(
+                json.dumps(
+                    {
+                        "type": "session_meta",
+                        "payload": {
+                            "session_id": "resumed-session",
+                            "timestamp": "1970-01-01T00:01:40Z",
+                            "cwd": "/repo/target",
+                        },
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            scope = {}
+            repository = self.repository(home, scope=scope, now=200)
+            repository.set_scope(
+                "codex",
+                started_at=200,
+                cwd=Path("/repo/target"),
+                session_id="resumed-session",
+            )
+
+            with transcript.open("a", encoding="utf-8") as stream:
+                stream.write(
+                    json.dumps(
+                        {
+                            "timestamp": "1970-01-01T00:03:21Z",
+                            "type": "event_msg",
+                            "payload": {"type": "task_started"},
+                        }
+                    )
+                    + "\n"
+                )
+                stream.write(
+                    json.dumps(
+                        {
+                            "timestamp": "1970-01-01T00:03:22Z",
+                            "type": "response_item",
+                            "payload": {"type": "reasoning", "text": "x" * (600 * 1024)},
+                        }
+                    )
+                    + "\n"
+                )
+
+            updates = repository.read_turn_updates(transcript)
+            self.assertIn('"task_started"', updates)
+            self.assertGreater(len(updates.encode("utf-8")), 512 * 1024)
+            self.assertEqual("", repository.read_turn_updates(transcript))
+
+            with transcript.open("a", encoding="utf-8") as stream:
+                stream.write(
+                    json.dumps(
+                        {
+                            "timestamp": "1970-01-01T00:03:23Z",
+                            "type": "event_msg",
+                            "payload": {"type": "task_complete"},
+                        }
+                    )
+                    + "\n"
+                )
+            self.assertIn('"task_complete"', repository.read_turn_updates(transcript))
+
 
 if __name__ == "__main__":
     unittest.main()

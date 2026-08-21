@@ -398,7 +398,12 @@ def active_tool_call_from_text(text: str, *, not_before: float | None = None) ->
     return bool(pending_tool_ids or unknown_tool_active)
 
 
-def active_turn_from_text(text: str, *, not_before: float | None = None) -> bool:
+def active_turn_from_text(
+    text: str,
+    *,
+    not_before: float | None = None,
+    initial_active: bool = False,
+) -> bool:
     """Whether a model turn is running.
 
     `not_before` is the current console launch time: a record older than it
@@ -408,7 +413,7 @@ def active_turn_from_text(text: str, *, not_before: float | None = None) -> bool
     channel wake.
     """
 
-    active = False
+    active = bool(initial_active)
     for raw_line in text.splitlines():
         try:
             record = json.loads(raw_line)

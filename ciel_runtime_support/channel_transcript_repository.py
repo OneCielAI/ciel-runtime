@@ -41,6 +41,60 @@ class ChannelTranscriptRepository:
         self.scope["bound_path"] = None
         self.cache.clear()
         self.cache.update({"checked_at": 0.0, "path": None})
+        self.scope["turn_active"] = False
+        self.scope["turn_scan_path"] = None
+        self.scope["turn_scan_offset"] = 0
+        self._capture_turn_scan_boundary()
+
+    def _capture_turn_scan_boundary(self) -> None:
+        """Remember where this console launch begins in an existing transcript."""
+
+        path = self.latest(ttl_seconds=0)
+        if path is not None:
+            try:
+                self.scope["turn_scan_path"] = path
+                self.scope["turn_scan_offset"] = path.stat().st_size
+            except OSError:
+                self.scope["turn_scan_path"] = None
+                self.scope["turn_scan_offset"] = 0
+        # Boundary discovery must not pin the ordinary latest-path TTL cache.
+        self.cache.clear()
+        self.cache.update({"checked_at": 0.0, "path": None})
+
+    def read_turn_updates(self, path: Path) -> str:
+        """Read complete JSONL records appended since this console launched.
+
+        Active turns can emit more than the bounded diagnostic tail before they
+        finish. Keeping an incremental offset preserves the opening lifecycle
+        event without repeatedly reading a large resumed-session transcript.
+        """
+
+        scan_path = self.scope.get("turn_scan_path")
+        if scan_path is None:
+            self.scope["turn_scan_path"] = path
+        elif Path(scan_path) != path:
+            self.scope["turn_scan_path"] = path
+            self.scope["turn_scan_offset"] = 0
+            self.scope["turn_active"] = False
+        try:
+            size = path.stat().st_size
+            offset = max(0, int(self.scope.get("turn_scan_offset") or 0))
+            if size < offset:
+                offset = 0
+                self.scope["turn_active"] = False
+            if size <= offset:
+                return ""
+            with path.open("rb") as stream:
+                stream.seek(offset)
+                data = stream.read()
+        except (OSError, TypeError, ValueError):
+            return ""
+        complete_end = data.rfind(b"\n")
+        if complete_end < 0:
+            return ""
+        consumed = complete_end + 1
+        self.scope["turn_scan_offset"] = offset + consumed
+        return data[:consumed].decode("utf-8", errors="replace")
 
     def roots(self) -> tuple[tuple[Path, str], ...]:
         runtime = str(self.scope.get("runtime") or "").strip().casefold()
