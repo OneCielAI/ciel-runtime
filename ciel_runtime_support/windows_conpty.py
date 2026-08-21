@@ -101,27 +101,46 @@ class WindowsConPtySession:
         self,
         previous_snapshot: str | None,
         timeout_seconds: float = 2.0,
+        *,
+        expected_prompt: str | None = None,
     ) -> bool:
         """Wait for the child to render and settle after injected prompt input."""
 
         baseline = str(previous_snapshot or "")
         last = baseline
-        changed = False
+        rendered = False
         stable_since: float | None = None
         deadline = time.monotonic() + max(0.0, float(timeout_seconds))
         while True:
             now = time.monotonic()
             current = self.input_snapshot()
-            if current != baseline:
-                changed = True
-            if changed and current != last:
+            if self._prompt_rendered_since(baseline, current, expected_prompt):
+                rendered = True
+            if rendered and current != last:
                 last = current
                 stable_since = now
-            elif changed and stable_since is not None and now - stable_since >= 0.12:
+            elif rendered and stable_since is not None and now - stable_since >= 0.5:
                 return True
             if now >= deadline:
                 return False
             time.sleep(0.02)
+
+    @staticmethod
+    def _prompt_rendered_since(
+        baseline: str,
+        current: str,
+        expected_prompt: str | None,
+    ) -> bool:
+        if current == baseline:
+            return False
+        prompt = " ".join(str(expected_prompt or "").split())
+        prefix = prompt[:48]
+        if prefix and current.count(prefix) > baseline.count(prefix):
+            return True
+        paste_marker = "[Pasted Content"
+        if prompt and current.count(paste_marker) > baseline.count(paste_marker):
+            return True
+        return not prompt
 
     @staticmethod
     def pending_input_events() -> None:

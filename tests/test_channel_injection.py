@@ -69,9 +69,14 @@ class FakeConPtyTransport:
         return self.snapshot
 
     def wait_until_prompt_ready(
-        self, previous_snapshot: str | None, _timeout_seconds: float = 2.0
+        self,
+        previous_snapshot: str | None,
+        _timeout_seconds: float = 2.0,
+        *,
+        expected_prompt: str | None = None,
     ) -> bool:
         self.ready_previous = previous_snapshot
+        self.ready_expected_prompt = expected_prompt
         self.snapshot = "prompt-ready"
         return True
 
@@ -215,8 +220,41 @@ class ChannelPromptInjectorTests(unittest.TestCase):
         body = b"\x1b[200~long visible external message\x1b[201~"
         self.assertEqual([b"\x15" + body, b"\r", b"\r"], transport.writes)
         self.assertEqual("idle", transport.ready_previous)
+        self.assertEqual("long visible external message", transport.ready_expected_prompt)
         self.assertTrue(any("channel_input_prompt_ready result=observed" in line for line in logs))
         self.assertTrue(any("submit_confirmed attempt=2" in line for line in logs))
+
+    def test_conpty_does_not_submit_when_injected_prompt_was_not_rendered(self) -> None:
+        transport = FakeConPtyTransport()
+        transport.wait_until_prompt_ready = lambda *_args, **_kwargs: False
+        logs: list[str] = []
+        injector = ChannelPromptInjector(
+            sleep=lambda _seconds: None,
+            retry_delay_seconds=lambda: 0.0,
+            snapshot=lambda: None,
+            log=lambda _level, message: logs.append(message),
+        )
+
+        injector.inject(
+            transport,
+            PromptInjection(
+                prompt="cold-start external message",
+                policy=RuntimeInjectionPolicy(
+                    runtime="codex",
+                    clear_input=b"\x15",
+                    submit_input=b"\r",
+                    submit_delay_seconds=0.0,
+                    submit_attempts=4,
+                    confirm_submission=True,
+                    bracketed_paste=True,
+                ),
+            ),
+        )
+
+        body = b"\x1b[200~cold-start external message\x1b[201~"
+        self.assertEqual([b"\x15" + body], transport.writes)
+        self.assertTrue(any("result=timeout" in line for line in logs))
+        self.assertTrue(any("reason=prompt_render_timeout" in line for line in logs))
 
 
 if __name__ == "__main__":

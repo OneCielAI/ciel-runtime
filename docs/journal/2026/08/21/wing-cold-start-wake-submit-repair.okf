@@ -1,0 +1,88 @@
+okf_version: "1.0"
+knowledge:
+  task:
+    id: wing-cold-start-wake-submit-repair-20260821
+    date: "2026-08-21"
+    objective: >-
+      Diagnose and repair the WING cold-start condition where the first external
+      SSE message is rendered in the Codex input editor but is not submitted.
+
+  evidence:
+    host: "WING"
+    user: "wing\\daniel.yun"
+    workspace: "C:\\Users\\daniel.yun.WING"
+    installed_version: "0.2.22-nightly.20260821-200044.511148d"
+    runtime_mode: "codex-router"
+    transport: "conpty"
+    active_session: "01a024fe-7666-79e3-9c1a-98f46e26af5f"
+    message:
+      id: 1236
+      kind: external_event
+      event_type: net.ai-net.connected
+      persisted_at: "2026-08-21T15:12:43"
+    router_log:
+      path: >-
+        C:\Users\daniel.yun.WING\AppData\Roaming\ciel-runtime\
+        router-instances\9140-f895679997f4\router.log
+      observations:
+        - "15:12:44 channel_windows_console_proxy_started transport=conpty"
+        - "15:12:54 channel_input_prompt_ready result=timeout"
+        - "15:12:55 channel_stdin_proxy_submit_confirmed attempt=1"
+        - "15:13:12 channel_windows_console_unseen_retry message_id=1236"
+        - "15:13:13 channel_input_prompt_ready result=observed"
+        - "15:13:14 channel_stdin_proxy_submit_confirmed attempt=1"
+        - "15:13:32 channel_windows_console_body_fallback message_id=1236"
+      absent_evidence:
+        - >-
+          No POST /backend-api/codex/responses occurred after message 1236 was
+          injected and before the body fallback.
+
+  confirmed_cause:
+    - >-
+      WindowsConPtySession.wait_until_prompt_ready accepted any child-output
+      change after injection; it did not require evidence that the injected
+      prompt itself had rendered.
+    - >-
+      ChannelPromptInjector submitted Enter after a prompt-ready timeout and
+      treated an unrelated output-tail change as submit confirmation.
+    - >-
+      The SSE event was received and durably persisted. The failure boundary
+      was the cold-start TTY submit path, not SSE receipt or message storage.
+
+  correction:
+    files:
+      - ciel_runtime_support/channel_injection.py
+      - ciel_runtime_support/windows_conpty.py
+      - tests/test_channel_injection.py
+      - tests/test_windows_conpty.py
+    behavior:
+      - >-
+        Prompt readiness now requires a newly rendered prompt prefix or a new
+        Codex [Pasted Content ...] placeholder relative to the pre-injection
+        snapshot.
+      - >-
+        The bounded prompt-render wait is 30 seconds and requires 0.5 seconds
+        of stable output before Enter is submitted.
+      - >-
+        A prompt-render timeout defers Enter instead of reporting a false
+        submission.
+      - >-
+        No WING, user, message, model, provider, or agent-specific exception was
+        introduced.
+
+  verification:
+    focused:
+      channel_injection: "6 passed"
+      windows_conpty: "15 passed"
+      channel_bridge: "206 passed, 80 skipped"
+      channel_injection_architecture: "4 passed"
+      codex_runtime: "69 passed, 12 skipped"
+      ruff: passed
+    full_npm_test:
+      unit: "1117 passed, 44 skipped"
+      router: "906 passed"
+      channel: "380 passed, 80 skipped"
+      runtime: "249 passed, 12 skipped"
+      total: "2652 passed, 136 skipped"
+    wing_live: pending
+    deployment: pending

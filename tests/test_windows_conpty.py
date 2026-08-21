@@ -20,6 +20,38 @@ class WindowsConPtyPolicyTests(unittest.TestCase):
         self.assertEqual("[Pasted Content 1048 chars]", session.input_snapshot())
         self.assertFalse(session.supports_input_snapshot)
 
+    def test_prompt_ready_requires_the_injected_body_render(self) -> None:
+        baseline = "Codex starting"
+
+        self.assertFalse(
+            WindowsConPtySession._prompt_rendered_since(
+                baseline,
+                baseline + "\nMCP startup complete",
+                "[ciel-wake] pending_ids=1236 full event body",
+            )
+        )
+        self.assertTrue(
+            WindowsConPtySession._prompt_rendered_since(
+                baseline,
+                baseline + "\n[Pasted Content 1048 chars]",
+                "[ciel-wake] pending_ids=1236 full event body",
+            )
+        )
+
+    def test_prompt_ready_accepts_new_visible_prompt_prefix(self) -> None:
+        prompt = "[ciel-wake] pending_ids=1236 short event body"
+
+        self.assertFalse(
+            WindowsConPtySession._prompt_rendered_since(prompt, prompt, prompt)
+        )
+        self.assertTrue(
+            WindowsConPtySession._prompt_rendered_since(
+                "idle",
+                "idle\n[ciel-wake] pending_ids=1236 short event body",
+                prompt,
+            )
+        )
+
     def test_enabled_by_default_only_on_windows(self):
         self.assertTrue(conpty_enabled({}, platform_name="nt"))
         self.assertFalse(conpty_enabled({}, platform_name="posix"))
