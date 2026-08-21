@@ -97,5 +97,35 @@
 
 ## Deployment
 
-Pending nightly commit, npm publish, WING installation, and installed-package
-verification.
+- Code commit: `72a2474dedbc9048f4605486d29840d5000f7ca3`.
+- Pushed to `origin/nightly`.
+- GitHub CI run `32470113497`: passed all quality, minimum-Python,
+  unit, router, channel, and runtime jobs.
+- npm publish run `32470113566`: passed package tests, publish, and tarball
+  verification.
+- Published and installed on WING:
+  `0.2.22-nightly.20260821-095648.72a2474`.
+- npm registry `gitHead`:
+  `72a2474dedbc9048f4605486d29840d5000f7ca3`.
+
+## Installed-package verification
+
+The WING-installed package was executed against its actual durable record
+`1218`:
+
+- record kind: `external_event`.
+- raw SHA-256:
+  `3f98b234c39a32373eb310dff8f022efef8ce789056ade3cb47455452bf406b5`.
+- visible first line: `[ciel-wake] pending_ids=1218`.
+- exact raw occurrence in visible prompt: one.
+- raw occurrence in shared short prompt: zero.
+- parsed correlation IDs after appending hostile `id=999` text: `{1218}`.
+- wake recognized: true.
+- complete terminal wake turn removed before router injection: true.
+- installed Codex launch enables body display: true.
+- installed Claude launch enables body display: false.
+
+The already-running WING TUI process loaded the previous package before the
+global npm replacement. It was deliberately not killed over SSH because that
+would terminate the user's attached interactive session. A newly launched
+Codex session loads the verified installed package.
