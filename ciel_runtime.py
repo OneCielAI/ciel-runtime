@@ -1946,9 +1946,9 @@ def set_external_event_config(key: str, value: Any) -> list[str]:
         "External events use the private Runtime Input Gateway and are never published to Web Chat.",
     ]
 
-def remote_instruction_synchronizer() -> RemoteInstructionSynchronizer: return RemoteInstructionSynchronizer(load_config=load_config, workspace=Path.cwd, state_dir=WORKSPACE_STATE_DIR, log=router_log)
+def remote_instruction_synchronizer() -> RemoteInstructionSynchronizer: return RemoteInstructionSynchronizer(load_config=load_config, workspace=lambda: Path(ROUTER_WORKSPACE), state_dir=WORKSPACE_STATE_DIR, log=router_log)
 
-def remote_memory_synchronizer() -> RemoteMemorySynchronizer: return RemoteMemorySynchronizer(load_config=load_config, workspace=Path.cwd, state_dir=WORKSPACE_STATE_DIR, log=router_log)
+def remote_memory_synchronizer() -> RemoteMemorySynchronizer: return RemoteMemorySynchronizer(load_config=load_config, workspace=lambda: Path(ROUTER_WORKSPACE), state_dir=WORKSPACE_STATE_DIR, log=router_log)
 def sync_remote_instruction(runtime: str, *, reason: str) -> RemoteInstructionResult: return project_sync_instruction_with_memory_pointer(runtime, reason=reason, instruction_synchronizer=remote_instruction_synchronizer, memory_synchronizer=remote_memory_synchronizer, log=router_log)
 def sync_remote_memory(runtime: str, *, reason: str) -> RemoteMemoryResult: return remote_memory_synchronizer().sync(runtime, reason=reason)
 def sync_remote_launch_assets(runtime: str, *, reason: str) -> RemoteMemoryResult: return project_sync_launch_assets(runtime, reason=reason, instruction_sync=sync_remote_instruction, memory_sync=sync_remote_memory)

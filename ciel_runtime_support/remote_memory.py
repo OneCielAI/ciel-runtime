@@ -86,6 +86,18 @@ def memory_directory(workspace: Path, config: Mapping[str, Any]) -> Path:
     return destination
 
 
+def workspace_scope_error(workspace: Path, home: Path) -> str:
+    """Reject scopes whose instruction file would apply beyond one project."""
+
+    resolved = workspace.resolve()
+    if resolved == home.resolve():
+        return "remote memory requires a project workspace; user home is not allowed"
+    anchor = Path(resolved.anchor).resolve() if resolved.anchor else resolved
+    if resolved == anchor:
+        return "remote memory requires a project workspace; filesystem root is not allowed"
+    return ""
+
+
 def _normalized_format(value: Any, path: PurePosixPath) -> str:
     declared = str(value or "").strip().lower()
     normalized = _FORMAT_ALIASES.get(declared, declared)
@@ -257,6 +269,7 @@ class RemoteMemorySynchronizer:
     state_dir: Path
     log: Callable[[str, str], None]
     urlopen: Callable[..., Any] = urllib.request.urlopen
+    home: Callable[[], Path] = Path.home
 
     def sync(self, runtime: str, *, reason: str = "launch") -> RemoteMemoryResult:
         config = self.load_config()
@@ -266,6 +279,10 @@ class RemoteMemorySynchronizer:
         if not bool(remote.get("enabled", False)):
             project_memory_pointer(workspace, runtime, "")
             return RemoteMemoryResult(manifest_url, None, None, "", "disabled")
+        scope_error = workspace_scope_error(workspace, self.home())
+        if scope_error:
+            project_memory_pointer(workspace, runtime, "")
+            return self._failed(runtime, manifest_url, scope_error)
         try:
             manifest_url = _http_url(
                 manifest_url,

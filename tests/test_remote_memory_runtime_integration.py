@@ -1,3 +1,4 @@
+import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -8,6 +9,22 @@ from ciel_runtime_support.remote_memory import RemoteMemoryResult
 
 
 class RemoteMemoryRuntimeIntegrationTests(unittest.TestCase):
+    def test_synchronizers_use_the_router_launch_workspace(self):
+        with tempfile.TemporaryDirectory() as td:
+            workspace = Path(td) / "project"
+            with (
+                mock.patch.object(ciel_runtime, "ROUTER_WORKSPACE", str(workspace)),
+                mock.patch.object(
+                    ciel_runtime.Path,
+                    "cwd",
+                    return_value=Path(td) / "router-process-directory",
+                ),
+            ):
+                instruction = ciel_runtime.remote_instruction_synchronizer()
+                memory = ciel_runtime.remote_memory_synchronizer()
+                self.assertEqual(workspace, instruction.workspace())
+                self.assertEqual(workspace, memory.workspace())
+
     def test_every_interactive_launch_synchronizes_instructions_and_memory(self):
         for name in (
             "launch_claude",

@@ -233,6 +233,89 @@ class RemoteMemoryTests(unittest.TestCase):
             self.assertEqual("Bearer private", server.requests[0].get_header("Authorization"))
             self.assertIsNone(server.requests[1].get_header("Authorization"))
 
+    def test_user_home_scope_refuses_download_and_removes_managed_pointer(self):
+        with tempfile.TemporaryDirectory() as td:
+            workspace = Path(td) / "home"
+            workspace.mkdir()
+            agents = workspace / "AGENTS.md"
+            agents.write_text(
+                "# User rules\n\n"
+                "<!-- ciel-runtime:remote-memory:begin -->\n"
+                "Memory index: .ciel/memory/index.okf\n"
+                "<!-- ciel-runtime:remote-memory:end -->\n",
+                encoding="utf-8",
+            )
+            manifest_url = "https://memory.example/manifest.json"
+            server = _Server(
+                {
+                    manifest_url: self._manifest(
+                        [{"path": "index.okf", "url": "index.okf"}]
+                    ),
+                    "https://memory.example/index.okf": b"index\n",
+                }
+            )
+            result = RemoteMemorySynchronizer(
+                load_config=lambda: {
+                    "remote_memory": {
+                        "enabled": True,
+                        "manifest_url": manifest_url,
+                    }
+                },
+                workspace=lambda: workspace,
+                state_dir=Path(td) / "state",
+                log=lambda *_args: None,
+                urlopen=server,
+                home=lambda: workspace,
+            ).sync("codex")
+
+            self.assertEqual("failed", result.status)
+            self.assertIn("user home is not allowed", result.detail)
+            self.assertEqual([], server.requests)
+            self.assertEqual("# User rules\n", agents.read_text(encoding="utf-8"))
+            self.assertFalse((workspace / ".ciel" / "memory").exists())
+
+    def test_distinct_project_workspaces_receive_isolated_memory_trees(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            manifest_url = "https://memory.example/manifest.json"
+            server = _Server(
+                {
+                    manifest_url: self._manifest(
+                        [{"path": "index.okf", "url": "index.okf"}]
+                    ),
+                    "https://memory.example/index.okf": b"project memory\n",
+                }
+            )
+            config = {
+                "remote_memory": {
+                    "enabled": True,
+                    "manifest_url": manifest_url,
+                }
+            }
+
+            for name in ("alpha", "beta"):
+                workspace = root / name
+                result = RemoteMemorySynchronizer(
+                    load_config=lambda: config,
+                    workspace=lambda workspace=workspace: workspace,
+                    state_dir=root / "state" / name,
+                    log=lambda *_args: None,
+                    urlopen=server,
+                    home=lambda: root / "home",
+                ).sync("codex")
+                self.assertEqual("updated", result.status)
+
+            for name in ("alpha", "beta"):
+                workspace = root / name
+                self.assertEqual(
+                    "project memory\n",
+                    (workspace / ".ciel" / "memory" / "index.okf").read_text(
+                        encoding="utf-8"
+                    ),
+                )
+                self.assertTrue((workspace / "AGENTS.md").is_file())
+            self.assertFalse((root / ".ciel" / "memory").exists())
+
     def test_sha_mismatch_keeps_the_previous_memory_tree(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)

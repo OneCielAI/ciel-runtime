@@ -78,6 +78,12 @@ and optional SHA-256 values pass does Ciel replace the previous memory tree.
 Files omitted by the new manifest therefore disappear. A failed synchronization
 keeps the previous tree unchanged and logs `remote_memory_failed`.
 
+The router's normalized launch workspace is authoritative for both the memory
+tree and native instruction file. Ciel rejects Remote Memory when that workspace
+is the user's home directory or a filesystem root, because a native instruction
+file there would escape project scope. A rejected launch removes an existing
+managed memory pointer without deleting user-authored instruction text.
+
 After a successful synchronization, Ciel appends this managed block at the
 bottom of `CLAUDE.md`, `AGENTS.md`, or `GEMINI.md` as appropriate:
 
