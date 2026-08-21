@@ -49,4 +49,16 @@
 - Full Ruff, documentation metadata, `git diff --check`, compilation, and npm
   package dry-run checks passed. The package contains 387 files, including the
   changed provider, migration, documentation, and journal files.
-- Nightly publication is pending.
+- Code commit `fe7c4b09ad4178adabc73162b3c6dc2cbb5870f2` passed CI run
+  `32507635324` and npm publication run `32507635197`.
+- npm published `0.2.22-nightly.20260821-172249.fe7c4b0`; its registry
+  `gitHead` exactly matches the code commit.
+- The exact published version was installed globally. The npm shim reported the
+  same version, and SHA-256 hashes for the installed provider and migration
+  files exactly matched the workspace files.
+- Executing the npm-installed code produced the expected `alims-intl` defaults:
+  `qwen3.8-max`, `ap-southeast-1`, context/max model length `1000000`, max
+  output `131072`, and effort `xhigh`.
+- Executing its migration upgraded the untouched Qwen3.7 Model Studio profile,
+  preserved `private-model`, corrected Qwen3.8 Token Plan context to `1000000`,
+  and left a separately selected private Token Plan model at `1048576`.
