@@ -23,9 +23,11 @@ class InputTransport(Protocol):
 
     def input_snapshot(self) -> str | None: ...
 
+    def prompt_readiness_checkpoint(self) -> object: ...
+
     def wait_until_prompt_ready(
         self,
-        previous_snapshot: str | None,
+        previous_snapshot: object,
         timeout_seconds: float = 2.0,
         *,
         expected_prompt: str | None = None,
@@ -87,7 +89,7 @@ class ChannelPromptInjector:
             getattr(transport, "supports_prompt_ready_wait", False)
         )
         before_prompt = (
-            self._submission_snapshot(transport)
+            self._prompt_readiness_checkpoint(transport)
             if prompt_ready_wait
             and policy.confirm_submission
             and policy.submit_attempts > 1
@@ -173,10 +175,18 @@ class ChannelPromptInjector:
         snapshot = getattr(transport, "input_snapshot", None)
         return snapshot() if callable(snapshot) else None
 
+    def _prompt_readiness_checkpoint(self, transport: InputTransport) -> object:
+        """Capture the transport's own output position before prompt input."""
+
+        checkpoint = getattr(transport, "prompt_readiness_checkpoint", None)
+        if callable(checkpoint):
+            return checkpoint()
+        return self._submission_snapshot(transport)
+
     def _wait_until_prompt_ready(
         self,
         transport: InputTransport,
-        previous_snapshot: str | None,
+        previous_snapshot: object,
         prompt: str,
         policy: RuntimeInjectionPolicy,
     ) -> bool | None:
@@ -288,9 +298,15 @@ class CallableInputTransport:
         snapshot = getattr(self._target, "input_snapshot", None)
         return snapshot() if callable(snapshot) else None
 
+    def prompt_readiness_checkpoint(self) -> object:
+        checkpoint = getattr(self._target, "prompt_readiness_checkpoint", None)
+        if callable(checkpoint):
+            return checkpoint()
+        return self.input_snapshot()
+
     def wait_until_prompt_ready(
         self,
-        previous_snapshot: str | None,
+        previous_snapshot: object,
         timeout_seconds: float = 2.0,
         *,
         expected_prompt: str | None = None,

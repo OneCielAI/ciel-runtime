@@ -16,9 +16,42 @@ class WindowsConPtyPolicyTests(unittest.TestCase):
         session = WindowsConPtySession.__new__(WindowsConPtySession)
         session._output_lock = threading.Lock()
         session._output_tail = bytearray("[Pasted Content 1048 chars]".encode("utf-8"))
+        session._output_total_bytes = len(session._output_tail)
 
         self.assertEqual("[Pasted Content 1048 chars]", session.input_snapshot())
         self.assertFalse(session.supports_input_snapshot)
+
+    def test_prompt_checkpoint_detects_new_render_after_same_prompt_rolled_in_tail(self) -> None:
+        session = WindowsConPtySession.__new__(WindowsConPtySession)
+        session._output_lock = threading.Lock()
+        prompt = "[ciel-wake] pending_ids=1238 short event body"
+        old = prompt.encode("utf-8")
+        new = b"\x1b[39m\x1b[22m " + old
+        session._output_tail = bytearray(old + new)
+        session._output_total_bytes = len(session._output_tail)
+
+        self.assertTrue(
+            session.wait_until_prompt_ready(
+                len(old),
+                0.0,
+                expected_prompt=prompt,
+            )
+        )
+
+    def test_prompt_checkpoint_rejects_unrelated_startup_output(self) -> None:
+        session = WindowsConPtySession.__new__(WindowsConPtySession)
+        session._output_lock = threading.Lock()
+        output = b"MCP startup complete"
+        session._output_tail = bytearray(output)
+        session._output_total_bytes = len(output)
+
+        self.assertFalse(
+            session.wait_until_prompt_ready(
+                0,
+                0.0,
+                expected_prompt="[ciel-wake] pending_ids=1238 short event body",
+            )
+        )
 
     def test_prompt_ready_requires_the_injected_body_render(self) -> None:
         baseline = "Codex starting"

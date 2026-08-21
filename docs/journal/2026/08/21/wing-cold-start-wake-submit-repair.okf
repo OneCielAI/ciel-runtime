@@ -48,6 +48,12 @@ knowledge:
     - >-
       The SSE event was received and durably persisted. The failure boundary
       was the cold-start TTY submit path, not SSE receipt or message storage.
+    - >-
+      WING live message 1238 proved that occurrence-count comparison is not
+      valid for the 64 KiB rolling ConPTY output tail. The same prompt rendered
+      twice, at 15:44:57 and 15:45:27, while both waits timed out and no Enter
+      was submitted. A previous occurrence can roll out as a new occurrence
+      enters, leaving the count unchanged.
 
   correction:
     files:
@@ -57,12 +63,12 @@ knowledge:
       - tests/test_windows_conpty.py
     behavior:
       - >-
-        Prompt readiness now requires a newly rendered prompt prefix or a new
-        Codex [Pasted Content ...] placeholder relative to the pre-injection
-        snapshot.
+        Prompt readiness now captures the ConPTY absolute output-byte position
+        before writing input and searches only bytes emitted after that
+        checkpoint for the prompt prefix or [Pasted Content ...] marker.
       - >-
-        The bounded prompt-render wait is 30 seconds and requires 0.5 seconds
-        of stable output before Enter is submitted.
+        Rolling-tail eviction and repeated rendering of the same prompt can no
+        longer hide new render evidence.
       - >-
         A prompt-render timeout defers Enter instead of reporting a false
         submission.
@@ -73,16 +79,23 @@ knowledge:
   verification:
     focused:
       channel_injection: "6 passed"
-      windows_conpty: "15 passed"
+      windows_conpty: "17 passed"
       channel_bridge: "206 passed, 80 skipped"
       channel_injection_architecture: "4 passed"
       codex_runtime: "69 passed, 12 skipped"
       ruff: passed
     full_npm_test:
-      unit: "1117 passed, 44 skipped"
+      unit: "1119 passed, 44 skipped"
       router: "906 passed"
       channel: "380 passed, 80 skipped"
       runtime: "249 passed, 12 skipped"
-      total: "2652 passed, 136 skipped"
-    wing_live: pending
-    deployment: pending
+      total: "2654 passed, 136 skipped"
+    first_nightly:
+      version: "0.2.22-nightly.20260821-203346.87525c6"
+      commit: "87525c6bbb83d9483d30a1d3b54c0b1c73599c7c"
+      result: >-
+        Installed locally and on WING. Live message 1238 exposed the rolling
+        output-tail evidence defect above, so this build was not accepted as
+        complete.
+    wing_live: pending_second_nightly
+    deployment: pending_second_nightly

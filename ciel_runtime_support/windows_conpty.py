@@ -66,6 +66,7 @@ class WindowsConPtySession:
         self._write_lock = threading.Lock()
         self._output_lock = threading.Lock()
         self._output_tail = bytearray()
+        self._output_total_bytes = 0
         self._closed = False
         self._stop = threading.Event()
         self._stdin_console_handle: Any = None
@@ -97,14 +98,27 @@ class WindowsConPtySession:
 
         return self.output_tail().decode("utf-8", errors="replace")
 
+    def prompt_readiness_checkpoint(self) -> int:
+        """Return an absolute child-output position for prompt render checks."""
+
+        with self._output_lock:
+            return int(self._output_total_bytes)
+
     def wait_until_prompt_ready(
         self,
-        previous_snapshot: str | None,
+        previous_snapshot: object,
         timeout_seconds: float = 2.0,
         *,
         expected_prompt: str | None = None,
     ) -> bool:
         """Wait for the child to render and settle after injected prompt input."""
+
+        if isinstance(previous_snapshot, int) and not isinstance(previous_snapshot, bool):
+            return self._wait_for_prompt_output(
+                previous_snapshot,
+                timeout_seconds,
+                expected_prompt,
+            )
 
         baseline = str(previous_snapshot or "")
         last = baseline
@@ -124,6 +138,46 @@ class WindowsConPtySession:
             if now >= deadline:
                 return False
             time.sleep(0.02)
+
+    def _wait_for_prompt_output(
+        self,
+        checkpoint: int,
+        timeout_seconds: float,
+        expected_prompt: str | None,
+    ) -> bool:
+        """Observe bytes emitted after input instead of comparing a rolling tail."""
+
+        cursor = max(0, int(checkpoint))
+        observed = bytearray()
+        deadline = time.monotonic() + max(0.0, float(timeout_seconds))
+        while True:
+            chunk, cursor = self._output_since(cursor)
+            if chunk:
+                observed.extend(chunk)
+                del observed[: max(0, len(observed) - 64 * 1024)]
+                if self._prompt_rendered_in_output(bytes(observed), expected_prompt):
+                    return True
+            if time.monotonic() >= deadline:
+                return False
+            time.sleep(0.02)
+
+    def _output_since(self, checkpoint: int) -> tuple[bytes, int]:
+        with self._output_lock:
+            total = int(self._output_total_bytes)
+            base = total - len(self._output_tail)
+            start = max(base, min(total, int(checkpoint)))
+            return bytes(self._output_tail[start - base :]), total
+
+    @staticmethod
+    def _prompt_rendered_in_output(
+        output: bytes,
+        expected_prompt: str | None,
+    ) -> bool:
+        prompt = " ".join(str(expected_prompt or "").split())
+        if not prompt:
+            return bool(output)
+        prefix = prompt[:48].encode("utf-8", errors="replace")
+        return bool(prefix and prefix in output) or b"[Pasted Content" in output
 
     @staticmethod
     def _prompt_rendered_since(
@@ -611,6 +665,7 @@ class WindowsConPtySession:
                     break
                 with self._output_lock:
                     self._output_tail.extend(data)
+                    self._output_total_bytes += len(data)
                     del self._output_tail[: max(0, len(self._output_tail) - 64 * 1024)]
                 if self._mirror_output:
                     self._mirror_bytes(data)

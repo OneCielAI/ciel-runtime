@@ -44,6 +44,7 @@ class FakeConPtyTransport:
         self.writes: list[bytes] = []
         self.snapshot = "idle"
         self.ready_previous: str | None = None
+        self.readiness_checkpoint = 17
         self.submit_count = 0
 
     def write(self, data: bytes) -> None:
@@ -68,9 +69,12 @@ class FakeConPtyTransport:
     def input_snapshot(self) -> str:
         return self.snapshot
 
+    def prompt_readiness_checkpoint(self) -> int:
+        return self.readiness_checkpoint
+
     def wait_until_prompt_ready(
         self,
-        previous_snapshot: str | None,
+        previous_snapshot: object,
         _timeout_seconds: float = 2.0,
         *,
         expected_prompt: str | None = None,
@@ -219,7 +223,7 @@ class ChannelPromptInjectorTests(unittest.TestCase):
 
         body = b"\x1b[200~long visible external message\x1b[201~"
         self.assertEqual([b"\x15" + body, b"\r", b"\r"], transport.writes)
-        self.assertEqual("idle", transport.ready_previous)
+        self.assertEqual(17, transport.ready_previous)
         self.assertEqual("long visible external message", transport.ready_expected_prompt)
         self.assertTrue(any("channel_input_prompt_ready result=observed" in line for line in logs))
         self.assertTrue(any("submit_confirmed attempt=2" in line for line in logs))
