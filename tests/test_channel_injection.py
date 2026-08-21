@@ -205,7 +205,7 @@ class ChannelPromptInjectorTests(unittest.TestCase):
             log=lambda _level, message: logs.append(message),
         )
 
-        injector.inject(
+        submitted = injector.inject(
             transport,
             PromptInjection(
                 prompt="long visible external message",
@@ -223,6 +223,7 @@ class ChannelPromptInjectorTests(unittest.TestCase):
 
         body = b"\x1b[200~long visible external message\x1b[201~"
         self.assertEqual([b"\x15" + body, b"\r", b"\r"], transport.writes)
+        self.assertTrue(submitted)
         self.assertEqual(17, transport.ready_previous)
         self.assertEqual("long visible external message", transport.ready_expected_prompt)
         self.assertTrue(any("channel_input_prompt_ready result=observed" in line for line in logs))
@@ -239,7 +240,7 @@ class ChannelPromptInjectorTests(unittest.TestCase):
             log=lambda _level, message: logs.append(message),
         )
 
-        injector.inject(
+        submitted = injector.inject(
             transport,
             PromptInjection(
                 prompt="cold-start external message",
@@ -257,6 +258,7 @@ class ChannelPromptInjectorTests(unittest.TestCase):
 
         body = b"\x1b[200~cold-start external message\x1b[201~"
         self.assertEqual([b"\x15" + body], transport.writes)
+        self.assertFalse(submitted)
         self.assertTrue(any("result=timeout" in line for line in logs))
         self.assertTrue(any("reason=prompt_render_timeout" in line for line in logs))
 

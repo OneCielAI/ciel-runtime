@@ -83,7 +83,7 @@ class ChannelPromptInjector:
         self._snapshot = snapshot
         self._log = log
 
-    def inject(self, transport: InputTransport, request: PromptInjection) -> None:
+    def inject(self, transport: InputTransport, request: PromptInjection) -> bool:
         policy = request.policy
         prompt_ready_wait = bool(
             getattr(transport, "supports_prompt_ready_wait", False)
@@ -136,7 +136,7 @@ class ChannelPromptInjector:
                     "WARN",
                     "channel_input_submit_deferred reason=prompt_render_timeout",
                 )
-                return
+                return False
 
         if policy.submit_delay_seconds:
             self._sleep(policy.submit_delay_seconds)
@@ -165,6 +165,7 @@ class ChannelPromptInjector:
             if after and after != before:
                 self._log("INFO", f"channel_stdin_proxy_submit_confirmed attempt={attempt + 1}")
                 break
+        return True
 
     def _submission_snapshot(self, transport: InputTransport) -> str | None:
         """Use the host snapshot when available, then the transport's own view."""

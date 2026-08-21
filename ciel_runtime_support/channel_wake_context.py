@@ -144,7 +144,7 @@ class ChannelPendingDeliveryPorts:
 class ChannelPendingIoPorts:
     inject_lock: Any
     read_messages: Callable[..., list[dict[str, Any]]]
-    write_prompt: Callable[..., None]
+    write_prompt: Callable[..., bool]
     compact_read: Callable[[], dict[str, Any] | None]
     compact_clear: Callable[[], None]
     messages_path: Path
@@ -332,7 +332,7 @@ class ChannelWakeContext:
         submit_delay_seconds: float | None = None,
         write_all: Callable[[Any, bytes], None] | None = None,
         snapshot: Callable[[], str | None] | None = None,
-    ) -> None:
+    ) -> bool:
         delay = (
             self.input.submit_delay_seconds()
             if submit_delay_seconds is None
@@ -344,7 +344,7 @@ class ChannelWakeContext:
             snapshot=snapshot or self.current_tmux_pane_text,
             log=self.input.log,
         )
-        injector.inject(
+        return injector.inject(
             channel_injection.CallableInputTransport(
                 master_fd, write_all or self.write_all
             ),

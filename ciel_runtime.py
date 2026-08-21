@@ -4446,8 +4446,8 @@ def _windows_channel_startup_grace_seconds() -> float:
 def _windows_channel_wake_max_attempts() -> int:
     return channel_runtime_environment_policy().windows_wake_max_attempts()
 
-def _write_channel_wake_prompt( master_fd: int, prompt: str, enter_bytes: bytes | None = None, *, submit_retry_count: int = 1, confirm_submit: bool = False, bracketed_paste: bool = False, submit_delay_seconds: float | None = None, ) -> None:
-    channel_wake_context().write_prompt(
+def _write_channel_wake_prompt( master_fd: int, prompt: str, enter_bytes: bytes | None = None, *, submit_retry_count: int = 1, confirm_submit: bool = False, bracketed_paste: bool = False, submit_delay_seconds: float | None = None, ) -> bool:
+    return channel_wake_context().write_prompt(
         master_fd, prompt, enter_bytes, submit_retry_count=submit_retry_count,
         confirm_submit=confirm_submit, bracketed_paste=bracketed_paste,
         submit_delay_seconds=submit_delay_seconds, write_all=_write_fd_all,

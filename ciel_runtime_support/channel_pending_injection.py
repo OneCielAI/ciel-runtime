@@ -257,7 +257,7 @@ def inject_pending_channel_messages(
                 claimed_ids.append(claim_id)
         submit_bytes = prompts.enter_bytes(enter_bytes)
         try:
-            io.write_prompt(
+            submitted = io.write_prompt(
                 master_fd,
                 prompt,
                 submit_bytes,
@@ -266,6 +266,15 @@ def inject_pending_channel_messages(
                 bracketed_paste=bracketed_paste,
                 submit_delay_seconds=submit_delay_seconds,
             )
+            if submitted is False:
+                wake_store.rollback(pending, claimed_ids)
+                ids = ",".join(str(message.get("id") or "") for message in pending)
+                io.log(
+                    "WARN",
+                    "channel_stdin_proxy_deferred "
+                    f"message_ids={ids} reason=prompt_not_submitted",
+                )
+                return return_last_id if pending_uses_router else previous_last_id
             wake_store.record_prompts(pending, prompt)
         except Exception:
             wake_store.rollback(pending, claimed_ids)

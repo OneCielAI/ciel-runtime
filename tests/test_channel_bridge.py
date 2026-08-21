@@ -2263,6 +2263,55 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertEqual([8], injected)
         commit_cursor.assert_not_called()
 
+    def test_inject_pending_rolls_back_claim_when_submit_is_deferred(self):
+        messages = [
+            {
+                "id": 9,
+                "channel": "external:default",
+                "sender_id": "verification",
+                "message": "cold start wake",
+                "meta": {"receiver_id": "default"},
+                "delivery": ["llm"],
+            }
+        ]
+        injected: list[int] = []
+        with tempfile.TemporaryDirectory() as td:
+            claims_path = Path(td) / "claims.json"
+            with (
+                mock.patch.object(
+                    ciel_runtime, "CHANNEL_STDIN_WAKE_CLAIMS_PATH", claims_path
+                ),
+                mock.patch.object(
+                    ciel_runtime, "read_chat_messages", return_value=messages
+                ),
+                mock.patch.object(
+                    ciel_runtime, "_write_channel_wake_prompt", return_value=False
+                ),
+                mock.patch.object(
+                    ciel_runtime, "_commit_channel_llm_cursor_if_newer"
+                ) as commit_cursor,
+                mock.patch.object(ciel_runtime, "router_log") as router_log,
+            ):
+                last_id = ciel_runtime._inject_pending_channel_messages(
+                    99,
+                    8,
+                    wake_for_llm_delivery=True,
+                    commit_cursor=False,
+                    injected_message_ids=injected,
+                )
+
+        self.assertEqual(8, last_id)
+        self.assertEqual([], injected)
+        self.assertNotIn(9, ciel_runtime._CHANNEL_STDIN_WAKE_DELIVERED)
+        self.assertNotIn(9, ciel_runtime._CHANNEL_STDIN_WAKE_PROMPTS)
+        commit_cursor.assert_not_called()
+        self.assertTrue(
+            any(
+                "message_ids=9 reason=prompt_not_submitted" in str(call.args[1])
+                for call in router_log.call_args_list
+            )
+        )
+
     def test_llm_delivery_wake_prompt_hides_external_content(self):
         prompt = ciel_runtime.format_channel_llm_delivery_wake_prompt(
             [
