@@ -64,4 +64,22 @@
   Windows ConPTY 13, and the affected channel bridge regression 1.
 - Follow-up full unittest discovery passed: 2,641 tests, 136 skipped, in
   290.103 seconds.
-- Final nightly publication and WING execution evidence are pending.
+- Final code nightly: `0.2.22-nightly.20260821-153910.b410b4c` with npm
+  `gitHead=b410b4cc8ef791c0e0066c70fc703b709ed3fafd`.
+- GitHub CI run `32498550524`: passed.
+- GitHub npm publish run `32498550502`: passed, including tarball
+  verification.
+- WING installed that exact version and executed Codex 0.149.0 in the actual
+  `C:\Users\daniel.yun.WING` workspace through Windows ConPTY.
+- External SSE connection event `1224` was rendered in the Codex editor and,
+  without any manual input, the editor cleared and changed to `Working`.
+- Router evidence:
+  - `channel_input_prompt_ready result=observed` at 10:44:18;
+  - `channel_stdin_proxy_submit_confirmed attempt=1` and injected `1224` at
+    10:44:20;
+  - LLM context injection at 10:44:21;
+  - transcript completion evidence and cursor confirmation to `1224` at
+    10:44:35.
+- The latest Codex transcript contains one user record for `1224`. No record
+  contains `pending_ids=1224` more than once, proving the former duplicate-body
+  retry did not recur.
