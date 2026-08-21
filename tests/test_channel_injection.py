@@ -35,6 +35,47 @@ class FakeWindowsTransport:
         return None
 
 
+class FakeConPtyTransport:
+    separate_input_stages = False
+    supports_input_snapshot = False
+    supports_prompt_ready_wait = True
+
+    def __init__(self) -> None:
+        self.writes: list[bytes] = []
+        self.snapshot = "idle"
+        self.ready_previous: str | None = None
+        self.submit_count = 0
+
+    def write(self, data: bytes) -> None:
+        self.writes.append(data)
+        if data == b"\r":
+            self.submit_count += 1
+            if self.submit_count == 2:
+                self.snapshot = "turn-started"
+
+    @staticmethod
+    def wait_until_input_consumed(_timeout_seconds: float = 2.0) -> bool:
+        return True
+
+    @staticmethod
+    def normalize_prompt(prompt: str) -> str:
+        return " ".join(prompt.splitlines())
+
+    @staticmethod
+    def pending_input_events() -> None:
+        return None
+
+    def input_snapshot(self) -> str:
+        return self.snapshot
+
+    def wait_until_prompt_ready(
+        self, previous_snapshot: str | None, _timeout_seconds: float = 2.0
+    ) -> bool:
+        self.ready_previous = previous_snapshot
+        self.snapshot = "prompt-ready"
+        return True
+
+
 class ChannelPromptInjectorTests(unittest.TestCase):
     def test_windows_stages_clear_body_and_submit_and_flattens_newlines(self) -> None:
         transport = FakeWindowsTransport()
@@ -144,6 +185,38 @@ class ChannelPromptInjectorTests(unittest.TestCase):
         self.assertTrue(
             any("channel_stdin_proxy_submit_confirmed attempt=2" in line for line in logs)
         )
+
+    def test_conpty_waits_for_prompt_render_before_submitting(self) -> None:
+        transport = FakeConPtyTransport()
+        logs: list[str] = []
+        injector = ChannelPromptInjector(
+            sleep=lambda _seconds: None,
+            retry_delay_seconds=lambda: 0.0,
+            snapshot=lambda: None,
+            log=lambda _level, message: logs.append(message),
+        )
+
+        injector.inject(
+            transport,
+            PromptInjection(
+                prompt="long visible external message",
+                policy=RuntimeInjectionPolicy(
+                    runtime="codex",
+                    clear_input=b"\x15",
+                    submit_input=b"\r",
+                    submit_delay_seconds=0.0,
+                    submit_attempts=4,
+                    confirm_submission=True,
+                    bracketed_paste=True,
+                ),
+            ),
+        )
+
+        body = b"\x1b[200~long visible external message\x1b[201~"
+        self.assertEqual([b"\x15" + body, b"\r", b"\r"], transport.writes)
+        self.assertEqual("idle", transport.ready_previous)
+        self.assertTrue(any("channel_input_prompt_ready result=observed" in line for line in logs))
+        self.assertTrue(any("submit_confirmed attempt=2" in line for line in logs))
 
 
 if __name__ == "__main__":

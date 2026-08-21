@@ -7,6 +7,7 @@ import codecs
 import subprocess
 import sys
 import threading
+import time
 from collections.abc import Mapping
 from typing import Any, Callable
 
@@ -36,6 +37,7 @@ class WindowsConPtySession:
     """Own a Windows pseudo console and expose it as a byte input transport."""
 
     separate_input_stages = False
+    supports_prompt_ready_wait = True
     # Codex collapses long pastes to a placeholder, so the captured output tail
     # cannot prove that the original prompt prefix is present.  The snapshot is
     # still usable for comparing output before and after a submit key.
@@ -94,6 +96,32 @@ class WindowsConPtySession:
         """Return the captured child-output tail for submission confirmation."""
 
         return self.output_tail().decode("utf-8", errors="replace")
+
+    def wait_until_prompt_ready(
+        self,
+        previous_snapshot: str | None,
+        timeout_seconds: float = 2.0,
+    ) -> bool:
+        """Wait for the child to render and settle after injected prompt input."""
+
+        baseline = str(previous_snapshot or "")
+        last = baseline
+        changed = False
+        stable_since: float | None = None
+        deadline = time.monotonic() + max(0.0, float(timeout_seconds))
+        while True:
+            now = time.monotonic()
+            current = self.input_snapshot()
+            if current != baseline:
+                changed = True
+            if changed and current != last:
+                last = current
+                stable_since = now
+            elif changed and stable_since is not None and now - stable_since >= 0.12:
+                return True
+            if now >= deadline:
+                return False
+            time.sleep(0.02)
 
     @staticmethod
     def pending_input_events() -> None:

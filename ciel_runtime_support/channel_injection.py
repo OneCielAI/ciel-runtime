@@ -23,6 +23,12 @@ class InputTransport(Protocol):
 
     def input_snapshot(self) -> str | None: ...
 
+    def wait_until_prompt_ready(
+        self,
+        previous_snapshot: str | None,
+        timeout_seconds: float = 2.0,
+    ) -> bool | None: ...
+
 
 @dataclass(frozen=True)
 class RuntimeInjectionPolicy:
@@ -72,6 +78,16 @@ class ChannelPromptInjector:
 
     def inject(self, transport: InputTransport, request: PromptInjection) -> None:
         policy = request.policy
+        prompt_ready_wait = bool(
+            getattr(transport, "supports_prompt_ready_wait", False)
+        )
+        before_prompt = (
+            self._submission_snapshot(transport)
+            if prompt_ready_wait
+            and policy.confirm_submission
+            and policy.submit_attempts > 1
+            else None
+        )
         normalize = getattr(transport, "normalize_prompt", None)
         prompt_text = (
             str(normalize(request.prompt)) if callable(normalize) else request.prompt
@@ -100,6 +116,9 @@ class ChannelPromptInjector:
                 policy.input_drain_timeout_seconds
             ):
                 self._log("WARN", "channel_input_drain_timeout")
+
+        if prompt_ready_wait:
+            self._wait_until_prompt_ready(transport, before_prompt, policy)
 
         if policy.submit_delay_seconds:
             self._sleep(policy.submit_delay_seconds)
@@ -137,6 +156,24 @@ class ChannelPromptInjector:
             return captured
         snapshot = getattr(transport, "input_snapshot", None)
         return snapshot() if callable(snapshot) else None
+
+    def _wait_until_prompt_ready(
+        self,
+        transport: InputTransport,
+        previous_snapshot: str | None,
+        policy: RuntimeInjectionPolicy,
+    ) -> None:
+        if not policy.confirm_submission or policy.submit_attempts <= 1:
+            return
+        wait = getattr(transport, "wait_until_prompt_ready", None)
+        if not callable(wait):
+            return
+        ready = wait(previous_snapshot, policy.input_drain_timeout_seconds)
+        if ready is not None:
+            self._log(
+                "INFO" if ready else "WARN",
+                f"channel_input_prompt_ready result={'observed' if ready else 'timeout'}",
+            )
 
     def _write_stage(
         self,
@@ -201,6 +238,9 @@ class CallableInputTransport:
         self.supports_input_snapshot = callable(
             getattr(target, "input_snapshot", None)
         )
+        self.supports_prompt_ready_wait = callable(
+            getattr(target, "wait_until_prompt_ready", None)
+        )
 
     def write(self, data: bytes) -> None:
         self._write(self._target, data)
@@ -225,6 +265,16 @@ class CallableInputTransport:
     def input_snapshot(self) -> str | None:
         snapshot = getattr(self._target, "input_snapshot", None)
         return snapshot() if callable(snapshot) else None
+
+    def wait_until_prompt_ready(
+        self,
+        previous_snapshot: str | None,
+        timeout_seconds: float = 2.0,
+    ) -> bool | None:
+        wait = getattr(self._target, "wait_until_prompt_ready", None)
+        if not callable(wait):
+            return None
+        return bool(wait(previous_snapshot, timeout_seconds))
 
 
 __all__ = [

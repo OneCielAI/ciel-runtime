@@ -48,4 +48,20 @@
 
 ## Deployment verification
 
-- Pending nightly publication and WING installed-runtime execution evidence.
+- First nightly `0.2.22-nightly.20260821-152001.fc290a0` passed CI and npm
+  publication, but its WING execution did not satisfy the task:
+  - event `1223` remained in the Codex input editor;
+  - the runtime incorrectly logged `channel_stdin_proxy_submit_confirmed
+    attempt=1`;
+  - a physical Enter delivered through the same SSH PTY immediately cleared
+    the editor and started the turn.
+- This disproved output-tail change alone as submission evidence. The delayed
+  prompt redraw was the observed change, meaning automatic Enter was sent
+  before Codex completed rendering the injected paste.
+- Follow-up correction waits for a ConPTY output change to settle before the
+  submit delay and Enter attempts begin.
+- Follow-up focused suites passed: injection 5, injection architecture 4,
+  Windows ConPTY 13, and the affected channel bridge regression 1.
+- Follow-up full unittest discovery passed: 2,641 tests, 136 skipped, in
+  290.103 seconds.
+- Final nightly publication and WING execution evidence are pending.
