@@ -28,25 +28,62 @@ class InstallScriptPathTests(unittest.TestCase):
             path_before = subprocess.run(
                 read_user_path, capture_output=True, text=True, check=True
             ).stdout
+            read_runtime_home = [
+                pwsh,
+                "-NoProfile",
+                "-Command",
+                '[Environment]::GetEnvironmentVariable("CIEL_RUNTIME_HOME", "User")',
+            ]
+            runtime_home_before = subprocess.run(
+                read_runtime_home, capture_output=True, text=True, check=True
+            ).stdout.rstrip("\r\n")
             env = {
                 **os.environ,
                 "PREFIX": prefix,
                 "CIEL_RUNTIME_SKIP_PATH_REGISTRATION": "1",
             }
-            subprocess.run(
-                [pwsh, "-NoProfile", "-File", str(ROOT / "install.ps1")],
-                cwd=unrelated_cwd,
-                env=env,
-                capture_output=True,
-                text=True,
-                check=True,
-            )
+            try:
+                subprocess.run(
+                    [pwsh, "-NoProfile", "-File", str(ROOT / "install.ps1")],
+                    cwd=unrelated_cwd,
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                    check=True,
+                )
+            finally:
+                restore_env = {
+                    **os.environ,
+                    "CIEL_RUNTIME_TEST_SAVED_HOME": runtime_home_before,
+                    "CIEL_RUNTIME_TEST_HOME_WAS_SET": "1" if runtime_home_before else "0",
+                }
+                restore = (
+                    "$value = if ($env:CIEL_RUNTIME_TEST_HOME_WAS_SET -eq '1') { "
+                    "$env:CIEL_RUNTIME_TEST_SAVED_HOME } else { $null }; "
+                    '[Environment]::SetEnvironmentVariable("CIEL_RUNTIME_HOME", $value, "User")'
+                )
+                subprocess.run(
+                    [pwsh, "-NoProfile", "-Command", restore],
+                    env=restore_env,
+                    capture_output=True,
+                    text=True,
+                    check=True,
+                )
             path_after = subprocess.run(
                 read_user_path, capture_output=True, text=True, check=True
             ).stdout
             installed = Path(prefix) / "share" / "ciel-runtime" / "ciel_runtime.py"
             self.assertEqual((ROOT / "ciel_runtime.py").read_bytes(), installed.read_bytes())
             self.assertEqual(path_before, path_after)
+            self.assertEqual(
+                runtime_home_before,
+                subprocess.run(
+                    read_runtime_home,
+                    capture_output=True,
+                    text=True,
+                    check=True,
+                ).stdout.rstrip("\r\n"),
+            )
 
     def test_posix_installer_reads_assets_from_its_own_directory(self):
         script = (ROOT / "install.sh").read_text(encoding="utf-8")

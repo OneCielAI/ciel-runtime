@@ -44,7 +44,12 @@ $expandedRuntimeHome = if ($runtimeHome) {
 } else {
     ""
 }
-$expandedTempHome = [System.IO.Path]::GetFullPath($env:TEMP).TrimEnd('\') + '\'
+$expandedTempHome = [System.IO.Path]::GetFullPath(
+    [System.IO.Path]::GetTempPath()
+).TrimEnd(
+    [System.IO.Path]::DirectorySeparatorChar,
+    [System.IO.Path]::AltDirectorySeparatorChar
+) + [System.IO.Path]::DirectorySeparatorChar
 $temporaryRuntimeHome = (
     $expandedRuntimeHome -and
     $expandedRuntimeHome.StartsWith(

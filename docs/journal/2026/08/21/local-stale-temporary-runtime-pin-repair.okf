@@ -40,6 +40,20 @@ knowledge:
       launcher_behavior: >-
         The first CMD launcher reads HKCU\Environment\CIEL_RUNTIME_HOME and
         constructs the Python script path from it.
+    confirmed_origin:
+      test: test_powershell_installer_reads_assets_from_its_own_directory
+      mechanism: >-
+        The test supplied a Python TemporaryDirectory as PREFIX and ran
+        install.ps1. It preserved the user PATH but did not restore the user
+        CIEL_RUNTIME_HOME changed by the installer. TemporaryDirectory cleanup
+        then removed the registered share/ciel-runtime directory.
+      path_shape_match: >-
+        The observed tmp6fs9_fba/share/ciel-runtime path exactly matches that
+        test's PREFIX/share/ciel-runtime construction.
+      live_reproduction: >-
+        Running install.ps1 with a temporary PREFIX changed the registered home
+        to that PREFIX's share/ciel-runtime path; restoring the saved value
+        returned bare launches to the npm installation.
     npm_installation:
       npm_shim_direct_version_succeeded: true
       installed_ciel_runtime_py_present: true
@@ -64,31 +78,38 @@ knowledge:
         install.ps1 now treats any CIEL_RUNTIME_HOME below the expanded Windows
         TEMP root as ephemeral, in addition to the existing version-snapshot
         name check. An explicit CIEL_RUNTIME_INSTALL_HOME still has precedence.
-    npm_postinstall:
+    windows_launchers:
       behavior: >-
-        On Windows only, postinstall reads the registered runtime home. It
-        replaces the value with the current npm package root only when the old
-        value is below the Windows temporary root and ciel_runtime.py is absent.
+        CMD launchers now discard the registered runtime home when its
+        ciel_runtime.py is absent, matching the existing PowerShell launcher
+        validation, before falling back to the installed default home.
       unchanged_cases:
-        - A temporary runtime home whose script still exists.
-        - A missing runtime home outside the temporary root.
-        - Every non-Windows npm installation.
+        - A registered runtime home whose ciel_runtime.py exists.
+        - An explicit CIEL_RUNTIME_HOME_OVERRIDE.
+        - npm lifecycle scripts remain disabled.
+    test_isolation:
+      behavior: >-
+        The PowerShell installer path test now snapshots the user
+        CIEL_RUNTIME_HOME and restores it in a finally block, including the
+        originally-unset case, then asserts equality after the test.
+    rejected_approach:
+      npm_postinstall: >-
+        Removed after CI proved it violated the repository invariant that npm
+        packages have no install lifecycle scripts. The final repair does not
+        execute package code during npm installation.
     exceptions_added:
       machine: false
       user: false
       workspace: false
 
   verification:
-    unit_tests: "5 passed"
-    node_syntax: passed
+    unit_tests: "1114 passed, 44 skipped"
+    runtime_tests: "248 passed, 12 skipped"
+    installer_path_tests: "4 passed, 1 skipped"
+    windows_installer_source_tests: "4 passed"
     powershell_parse: passed
     python_lint: passed
-    postinstall_live_state_transition:
-      stale_value: >-
-        C:\Users\djlov\AppData\Local\Temp\
-        ciel-runtime-postinstall-verification\share\ciel-runtime
-      repaired_value: "C:\\Users\\djlov\\ciel-runtime"
-      original_value_restored: true
+    registry_preserved_across_installer_test: true
     installer_live_state_transition:
       ephemeral_home_ignored: true
       default_prefix_install_succeeded: true
