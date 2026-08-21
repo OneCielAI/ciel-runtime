@@ -22,6 +22,16 @@ OPENAI_RESPONSES_ITEM_ID_PREFIXES = {
 # (``rs_0b9eabb999...``) and Codex's client-side IDs are UUIDs
 # (``fco_019fd660-738b-...``) -- so the shape identifies the router's own.
 _ROUTER_SYNTHESIZED_ITEM_ID = re.compile(r"^[a-z]+_[0-9a-f]{8}_\d+$")
+_TOOL_CALL_TYPES = frozenset({"function_call", "custom_tool_call"})
+_TOOL_OUTPUT_TYPES = frozenset(
+    {"function_call_output", "custom_tool_call_output"}
+)
+_TOOL_FAMILY = {
+    "function_call": "function",
+    "function_call_output": "function",
+    "custom_tool_call": "custom",
+    "custom_tool_call_output": "custom",
+}
 
 
 def router_synthesized_item_id(prefix: str, response_id: str, index: int) -> str:
@@ -60,6 +70,12 @@ def repair_replayed_response_items(body: dict[str, Any]) -> dict[str, Any]:
     found. Items are not persisted when 'store' is set to false``, which kills
     the turn. Dropping the ID keeps the content and lets the item be replayed
     inline.
+
+    Responses also requires every replayed tool call to have a corresponding
+    output. Interrupted turns and provider switches can leave either half in
+    the persisted input. Keep only call IDs represented on both sides; an
+    orphan call cannot be executed again from replay, and an orphan output has
+    no call for the upstream to attach it to.
     """
 
     value = body.get("input")
@@ -102,10 +118,37 @@ def repair_replayed_response_items(body: dict[str, Any]) -> dict[str, Any]:
         retained.pop("id", None)
         repaired.append(retained)
 
+    call_keys = {
+        (_TOOL_FAMILY[str(item.get("type"))], str(item.get("call_id") or ""))
+        for item in repaired
+        if isinstance(item, dict) and item.get("type") in _TOOL_CALL_TYPES
+    }
+    output_keys = {
+        (_TOOL_FAMILY[str(item.get("type"))], str(item.get("call_id") or ""))
+        for item in repaired
+        if isinstance(item, dict) and item.get("type") in _TOOL_OUTPUT_TYPES
+    }
+    paired_keys = {
+        key for key in call_keys & output_keys if key[1]
+    }
+    balanced: list[Any] = []
+    for item in repaired:
+        if isinstance(item, dict) and item.get("type") in (
+            _TOOL_CALL_TYPES | _TOOL_OUTPUT_TYPES
+        ):
+            key = (
+                _TOOL_FAMILY[str(item.get("type"))],
+                str(item.get("call_id") or ""),
+            )
+            if key not in paired_keys:
+                changed = True
+                continue
+        balanced.append(item)
+
     if not changed:
         return body
     projected = dict(body)
-    projected["input"] = repaired
+    projected["input"] = balanced
     return projected
 
 

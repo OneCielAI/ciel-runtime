@@ -90,9 +90,11 @@ def workspace_mcp_servers(config: dict[str, Any], runtime: str | None = None) ->
             url = str(raw.get("url") or "").strip()
             if not url:
                 continue
+            headers = _string_map(raw.get("http_headers"))
+            headers.update(_string_map(raw.get("headers")))
             item.update(
                 url=url,
-                headers=_string_map(raw.get("headers") or raw.get("http_headers")),
+                headers=headers,
                 env_http_headers=_string_map(raw.get("env_http_headers")),
                 bearer_token_env_var=str(raw.get("bearer_token_env_var") or "").strip(),
             )
@@ -113,6 +115,33 @@ def _toml_string(value: Any) -> str:
 
 def _toml_array(values: list[str]) -> str:
     return "[" + ",".join(_toml_string(value) for value in values) + "]"
+
+
+def resolve_mcp_http_headers(
+    server: Mapping[str, Any],
+    environment: Mapping[str, str] | None = None,
+) -> dict[str, str]:
+    """Resolve the normalized HTTP-header contract for config-only runtimes.
+
+    Static headers are the base. Environment-backed mappings override the same
+    header, and the bearer-token binding has final precedence for Authorization.
+    Missing environment variables do not erase a static fallback.
+    """
+    source_environment = os.environ if environment is None else environment
+    resolved = dict(server.get("headers") or {})
+    for header, variable in dict(server.get("env_http_headers") or {}).items():
+        if variable in source_environment:
+            value = str(source_environment[variable])
+            if value.strip():
+                resolved[str(header)] = value
+    bearer_variable = str(server.get("bearer_token_env_var") or "").strip()
+    if bearer_variable and bearer_variable in source_environment:
+        token = str(source_environment[bearer_variable]).strip()
+        if token:
+            resolved["Authorization"] = (
+                token if token.lower().startswith("bearer ") else f"Bearer {token}"
+            )
+    return resolved
 
 
 def project_claude_mcp(
@@ -138,16 +167,7 @@ def project_claude_mcp(
                 server["env"] = resolved_env
         else:
             server = {"type": "http", "url": item["url"]}
-            resolved_headers = dict(item.get("headers") or {})
-            for header, variable in dict(item.get("env_http_headers") or {}).items():
-                if variable in source_environment:
-                    resolved_headers[header] = str(source_environment[variable])
-            bearer_variable = str(item.get("bearer_token_env_var") or "")
-            if bearer_variable and bearer_variable in source_environment:
-                token = str(source_environment[bearer_variable]).strip()
-                resolved_headers["Authorization"] = (
-                    token if token.lower().startswith("bearer ") else f"Bearer {token}"
-                )
+            resolved_headers = resolve_mcp_http_headers(item, source_environment)
             if resolved_headers:
                 server["headers"] = resolved_headers
         projected[name] = server
@@ -221,7 +241,14 @@ class WorkspaceMcpLaunchService:
         self.workspace = workspace
         self.ports = ports
 
-    def prepare(self, runtime: str, config: dict[str, Any]) -> WorkspaceMcpLaunch:
+    def prepare(
+        self,
+        runtime: str,
+        config: dict[str, Any],
+        environment: Mapping[str, str] | None = None,
+    ) -> WorkspaceMcpLaunch:
+        if runtime not in _RUNTIMES:
+            raise ValueError(f"Unsupported workspace MCP runtime: {runtime}")
         self.recover_stale()
         servers = workspace_mcp_servers(config, runtime)
         if not servers:
@@ -238,7 +265,7 @@ class WorkspaceMcpLaunchService:
         projected_digest = ""
         if runtime == "claude":
             path = directory / "claude-mcp.json"
-            payload = project_claude_mcp(servers)
+            payload = project_claude_mcp(servers, environment)
             _atomic_json(path, payload)
             claude_paths = (path,)
             projected_digest = hashlib.sha256(path.read_bytes()).hexdigest()
@@ -447,5 +474,6 @@ __all__ = [
     "WorkspaceMcpMenuService",
     "project_claude_mcp",
     "project_codex_mcp_args",
+    "resolve_mcp_http_headers",
     "workspace_mcp_servers",
 ]

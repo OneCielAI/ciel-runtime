@@ -11,6 +11,7 @@ from ciel_runtime_support.workspace_mcp import (
     WorkspaceMcpMenuService,
     project_claude_mcp,
     project_codex_mcp_args,
+    resolve_mcp_http_headers,
     workspace_mcp_servers,
 )
 
@@ -85,6 +86,79 @@ class WorkspaceMcpProjectionTests(unittest.TestCase):
         self.assertEqual("Bearer global-secret", projected["headers"]["Authorization"])
         self.assertNotIn("global-secret", json.dumps(sample_config()))
 
+    def test_normalization_merges_header_aliases_without_dropping_values(self) -> None:
+        config = {
+            "workspace_mcp": {
+                "servers": {
+                    "remote": {
+                        "transport": "streamable_http",
+                        "url": "https://example.test/mcp",
+                        "http_headers": {"X-From-Codex": "kept", "X-Shared": "old"},
+                        "headers": {"X-From-Claude": "kept", "X-Shared": "new"},
+                    }
+                }
+            }
+        }
+
+        server = workspace_mcp_servers(config, "codex")["remote"]
+
+        self.assertEqual(
+            {
+                "X-From-Codex": "kept",
+                "X-From-Claude": "kept",
+                "X-Shared": "new",
+            },
+            server["headers"],
+        )
+
+    def test_common_http_header_resolution_has_documented_precedence(self) -> None:
+        resolved = resolve_mcp_http_headers(
+            {
+                "headers": {
+                    "Authorization": "Bearer static-fallback",
+                    "X-AI-Net-Push": "off",
+                    "X-Tenant": "static",
+                },
+                "env_http_headers": {
+                    "X-AI-Net-Push": "PUSH_MODE",
+                    "X-Tenant": "TENANT",
+                },
+                "bearer_token_env_var": "API_TOKEN",
+            },
+            {
+                "PUSH_MODE": "on",
+                "TENANT": "environment",
+                "API_TOKEN": "secret-token",
+            },
+        )
+
+        self.assertEqual("Bearer secret-token", resolved["Authorization"])
+        self.assertEqual("on", resolved["X-AI-Net-Push"])
+        self.assertEqual("environment", resolved["X-Tenant"])
+
+    def test_missing_environment_binding_preserves_static_fallback(self) -> None:
+        resolved = resolve_mcp_http_headers(
+            {
+                "headers": {"Authorization": "Bearer fallback"},
+                "env_http_headers": {"Authorization": "MISSING_AUTH"},
+                "bearer_token_env_var": "MISSING_TOKEN",
+            },
+            {},
+        )
+
+        self.assertEqual({"Authorization": "Bearer fallback"}, resolved)
+
+    def test_empty_environment_binding_preserves_static_fallback(self) -> None:
+        resolved = resolve_mcp_http_headers(
+            {
+                "headers": {"X-Mode": "fallback"},
+                "env_http_headers": {"X-Mode": "EMPTY_MODE"},
+            },
+            {"EMPTY_MODE": "  "},
+        )
+
+        self.assertEqual({"X-Mode": "fallback"}, resolved)
+
     def test_invalid_and_incomplete_servers_are_not_projected(self) -> None:
         config = {
             "workspace_mcp": {
@@ -132,6 +206,41 @@ class WorkspaceMcpLeaseTests(unittest.TestCase):
             self.assertEqual(["local-tools"], manifest["server_names"])
             service.finish(launch)
             self.assertFalse(launch.directory and launch.directory.exists())
+
+    def test_prepare_uses_the_exact_child_environment_snapshot(self) -> None:
+        config = {
+            "workspace_mcp": {
+                "servers": {
+                    "remote": {
+                        "transport": "streamable_http",
+                        "url": "https://example.test/mcp",
+                        "bearer_token_env_var": "CHILD_ONLY_TOKEN",
+                        "runtimes": ["claude"],
+                    }
+                }
+            }
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / "mcp-launches"
+            service = self.service(root, {11}, [])
+            launch = service.prepare(
+                "claude", config, {"CHILD_ONLY_TOKEN": "child-secret"}
+            )
+            payload = json.loads(
+                launch.claude_config_paths[0].read_text(encoding="utf-8")
+            )
+
+            self.assertEqual(
+                "Bearer child-secret",
+                payload["mcpServers"]["remote"]["headers"]["Authorization"],
+            )
+            service.finish(launch)
+
+    def test_prepare_rejects_unknown_runtime_instead_of_using_codex_format(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            service = self.service(Path(temporary) / "mcp-launches", {11}, [])
+            with self.assertRaisesRegex(ValueError, "Unsupported workspace MCP runtime"):
+                service.prepare("unknown-cli", sample_config(), {})
 
     def test_active_owner_lease_is_not_recovered(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

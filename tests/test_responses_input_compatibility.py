@@ -128,14 +128,107 @@ class ResponsesInputCompatibilityTests(unittest.TestCase):
             "input": [
                 {"type": "message", "id": "msg_valid"},
                 {"type": "reasoning", "id": "rs_valid"},
-                {"type": "function_call", "id": "fc_valid"},
-                {"type": "function_call_output", "id": "fco_valid"},
-                {"type": "custom_tool_call", "id": "ctc_valid"},
-                {"type": "custom_tool_call_output", "id": "ctco_valid"},
+                {"type": "function_call", "id": "fc_valid", "call_id": "call_1"},
+                {
+                    "type": "function_call_output",
+                    "id": "fco_valid",
+                    "call_id": "call_1",
+                },
+                {
+                    "type": "custom_tool_call",
+                    "id": "ctc_valid",
+                    "call_id": "call_2",
+                },
+                {
+                    "type": "custom_tool_call_output",
+                    "id": "ctco_valid",
+                    "call_id": "call_2",
+                },
             ]
         }
 
         self.assertIs(body, repair_replayed_response_items(body))
+
+    def test_drops_orphan_custom_tool_calls_and_outputs(self):
+        body = {
+            "input": [
+                {"type": "message", "id": "msg_before", "role": "assistant"},
+                {
+                    "type": "custom_tool_call",
+                    "id": "ctc_orphan",
+                    "call_id": "call_TqE66SGyCQxJYqXPdlJBpM98",
+                    "name": "apply_patch",
+                    "input": "patch",
+                },
+                {
+                    "type": "custom_tool_call_output",
+                    "id": "ctco_orphan",
+                    "call_id": "call_output_without_call",
+                    "output": "done",
+                },
+                {"type": "message", "id": "msg_after", "role": "user"},
+            ]
+        }
+
+        repaired = repair_replayed_response_items(body)
+
+        self.assertEqual(
+            ["msg_before", "msg_after"],
+            [item["id"] for item in repaired["input"]],
+        )
+        self.assertEqual(4, len(body["input"]))
+
+    def test_keeps_complete_function_and_custom_tool_pairs(self):
+        body = {
+            "input": [
+                {
+                    "type": "function_call",
+                    "call_id": "call_function",
+                    "name": "shell",
+                    "arguments": "{}",
+                },
+                {
+                    "type": "function_call_output",
+                    "call_id": "call_function",
+                    "output": "ok",
+                },
+                {
+                    "type": "custom_tool_call",
+                    "call_id": "call_custom",
+                    "name": "apply_patch",
+                    "input": "patch",
+                },
+                {
+                    "type": "custom_tool_call_output",
+                    "call_id": "call_custom",
+                    "output": "done",
+                },
+            ]
+        }
+
+        self.assertIs(body, repair_replayed_response_items(body))
+
+    def test_drops_cross_type_call_and_output_with_the_same_id(self):
+        body = {
+            "input": [
+                {
+                    "type": "custom_tool_call",
+                    "call_id": "call_shared",
+                    "name": "apply_patch",
+                    "input": "patch",
+                },
+                {
+                    "type": "function_call_output",
+                    "call_id": "call_shared",
+                    "output": "wrong output type",
+                },
+                {"type": "message", "id": "msg_after", "role": "user"},
+            ]
+        }
+
+        repaired = repair_replayed_response_items(body)
+
+        self.assertEqual(["message"], [item["type"] for item in repaired["input"]])
 
 
 class RouterSynthesizedItemIdTests(unittest.TestCase):
@@ -194,7 +287,7 @@ class RouterSynthesizedItemIdTests(unittest.TestCase):
             [item["id"] for item in repaired["input"]],
         )
 
-    def test_keeps_router_minted_tool_calls_without_their_ids(self):
+    def test_drops_router_minted_tool_call_when_output_is_missing(self):
         body = {
             "input": [
                 {
@@ -210,10 +303,9 @@ class RouterSynthesizedItemIdTests(unittest.TestCase):
 
         repaired = repair_replayed_response_items(body)
 
+        self.assertEqual(1, len(repaired["input"]))
         self.assertNotIn("id", repaired["input"][0])
-        self.assertEqual("call_1", repaired["input"][0]["call_id"])
-        self.assertNotIn("id", repaired["input"][1])
-        self.assertEqual("assistant", repaired["input"][1]["role"])
+        self.assertEqual("assistant", repaired["input"][0]["role"])
 
     def test_upstream_issued_ids_survive_untouched(self):
         body = {"input": [{"type": "reasoning", "id": self.UPSTREAM_ISSUED[0]}]}

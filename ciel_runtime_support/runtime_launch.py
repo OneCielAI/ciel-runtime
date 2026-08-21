@@ -457,7 +457,7 @@ def run_claude(
     if should_attach_web_search(provider, cfg, web_search_override):
         mcp_config_paths.append(str(write_duckduckgo_mcp_config(cfg)))
     workspace_mcp_launch = (
-        workspace_mcp.prepare("claude", cfg) if workspace_mcp is not None else None
+        workspace_mcp.prepare("claude", cfg, env) if workspace_mcp is not None else None
     )
     if workspace_mcp_launch is not None:
         mcp_config_paths.extend(str(path) for path in workspace_mcp_launch.claude_config_paths)
@@ -896,7 +896,7 @@ def run_codex(
         ),
     )
     workspace_mcp_launch = (
-        workspace_mcp.prepare("codex", cfg) if workspace_mcp is not None else None
+        workspace_mcp.prepare("codex", cfg, env) if workspace_mcp is not None else None
     )
     if workspace_mcp_launch is not None:
         codex_mcp_compat_args.extend(workspace_mcp_launch.codex_args)
@@ -1225,7 +1225,7 @@ def run_codex_app_server(
         ),
     )
     workspace_mcp_launch = (
-        workspace_mcp.prepare("codex-app-server", cfg)
+        workspace_mcp.prepare("codex-app-server", cfg, env)
         if workspace_mcp is not None else None
     )
     try:

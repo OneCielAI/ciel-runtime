@@ -147,6 +147,36 @@ def sealed_body():
 
 
 class MissingItemRetryTests(unittest.TestCase):
+    def test_orphan_custom_tool_call_is_removed_before_upstream_request(self):
+        body = {
+            "model": "gpt-5.4-codex",
+            "input": [
+                {
+                    "type": "custom_tool_call",
+                    "id": "ctc_valid_shape",
+                    "call_id": "call_TqE66SGyCQxJYqXPdlJBpM98",
+                    "name": "apply_patch",
+                    "input": "patch",
+                },
+                {
+                    "type": "message",
+                    "id": "msg_continue",
+                    "role": "user",
+                    "content": [{"type": "input_text", "text": "continue"}],
+                },
+            ],
+        }
+        upstream = ScriptedUpstream([])
+
+        adapter_for(upstream, []).forward_json(FakeHandler(), "codex", {}, body)
+
+        self.assertEqual(1, len(upstream.bodies))
+        self.assertEqual(
+            ["message"],
+            [item["type"] for item in upstream.bodies[0]["input"]],
+        )
+        self.assertEqual("call_TqE66SGyCQxJYqXPdlJBpM98", body["input"][0]["call_id"])
+
     def test_transport_failure_before_response_is_retried_without_freezing(self):
         class TransientUpstream:
             def __init__(self):
