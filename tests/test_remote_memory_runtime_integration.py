@@ -175,11 +175,37 @@ class RemoteMemoryRuntimeIntegrationTests(unittest.TestCase):
                     config,
                     "ollama-cloud",
                     {},
-                    {"model": "model", "instructions": "base", "input": "hello"},
+                    {
+                        "model": "model",
+                        "instructions": "base",
+                        "input": [
+                            {
+                                "type": "message",
+                                "role": "developer",
+                                "content": [
+                                    {
+                                        "type": "input_text",
+                                        "text": "DEVELOPER_SENTINEL",
+                                    }
+                                ],
+                            },
+                            {
+                                "type": "message",
+                                "role": "user",
+                                "content": [
+                                    {"type": "input_text", "text": "hello"}
+                                ],
+                            },
+                        ],
+                    },
                 )
                 anthropic = ciel_runtime.openai_responses_to_anthropic_messages(
                     responses,
                     "model",
+                )
+                anthropic = ciel_runtime.body_with_remote_memory_prompt(
+                    anthropic,
+                    "anthropic_messages",
                 )
                 wire = ciel_runtime.ollama_chat_request(
                     "model",
@@ -193,6 +219,15 @@ class RemoteMemoryRuntimeIntegrationTests(unittest.TestCase):
         self.assertEqual("system", first["role"])
         self.assertIn(f"Memory index: {index.resolve()}", first["content"])
         self.assertEqual(1, first["content"].count("Memory index:"))
+        self.assertLess(
+            first["content"].index("DEVELOPER_SENTINEL"),
+            first["content"].index("Memory index:"),
+        )
+        self.assertTrue(
+            first["content"].rstrip().endswith(
+                "<!-- ciel-runtime:remote-memory:end -->"
+            )
+        )
 
     def test_launch_assets_sync_instruction_before_replacing_memory(self):
         memory = RemoteMemoryResult(

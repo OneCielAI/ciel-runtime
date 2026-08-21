@@ -16,7 +16,7 @@ import urllib.request
 import uuid
 
 from .architecture import MessageProtocol
-from .prompt_injection import PromptInjector
+from .prompt_injection import PromptInjector, append_anthropic_system_texts
 from .remote_instructions import (
     RUNTIME_FILES,
     expand_environment_references,
@@ -46,6 +46,12 @@ _FORMAT_ALIASES = {
     "txt": "text",
 }
 _SHA256 = re.compile(r"^[0-9a-fA-F]{64}$")
+_MEMORY_POINTER_PATTERN = re.compile(
+    re.escape(MEMORY_POINTER_BEGIN)
+    + r".*?"
+    + re.escape(MEMORY_POINTER_END),
+    re.DOTALL,
+)
 
 
 def settings(config: Mapping[str, Any]) -> dict[str, Any]:
@@ -205,6 +211,58 @@ def _managed_pointer_block(index_address: str) -> str:
     )
 
 
+def _without_memory_pointer(value: str) -> str:
+    return _MEMORY_POINTER_PATTERN.sub("", value).strip()
+
+
+def _anthropic_system_with_pointer_last(system: Any, prompt: str) -> Any:
+    if isinstance(system, list):
+        cleaned: list[Any] = []
+        for block in system:
+            if isinstance(block, dict) and block.get("type") == "text":
+                text = _without_memory_pointer(str(block.get("text") or ""))
+                if text:
+                    cleaned.append({**block, "text": text})
+            elif isinstance(block, str):
+                text = _without_memory_pointer(block)
+                if text:
+                    cleaned.append(text)
+            else:
+                cleaned.append(dict(block) if isinstance(block, dict) else block)
+        return append_anthropic_system_texts(cleaned, [prompt])
+    cleaned = _without_memory_pointer(str(system or ""))
+    return append_anthropic_system_texts(cleaned, [prompt])
+
+
+def move_memory_pointer_to_system_end(
+    messages: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Keep the managed pointer at the tail of the final wire system text."""
+
+    pointer = ""
+    projected: list[dict[str, Any]] = []
+    system_indexes: list[int] = []
+    for message in messages:
+        copied = dict(message)
+        role = str(copied.get("role") or "")
+        content = copied.get("content")
+        if role in {"system", "developer"} and isinstance(content, str):
+            match = _MEMORY_POINTER_PATTERN.search(content)
+            if match:
+                pointer = match.group(0)
+                copied["content"] = _without_memory_pointer(content)
+            system_indexes.append(len(projected))
+        projected.append(copied)
+    if not pointer:
+        return messages
+    if not system_indexes:
+        return [{"role": "system", "content": pointer}, *projected]
+    target = system_indexes[-1]
+    current = str(projected[target].get("content") or "").rstrip()
+    projected[target]["content"] = f"{current}\n\n{pointer}" if current else pointer
+    return projected
+
+
 def current_memory_index_address(
     state_dir: Path,
     config: Mapping[str, Any],
@@ -257,7 +315,16 @@ def inject_current_memory_prompt(
     workspace: Path | None = None,
 ) -> dict[str, Any]:
     prompt = current_memory_prompt(state_dir, config, workspace)
-    if not prompt or MEMORY_POINTER_BEGIN in json.dumps(
+    if not prompt:
+        return body
+    if protocol == "anthropic_messages":
+        projected = dict(body)
+        projected["system"] = _anthropic_system_with_pointer_last(
+            body.get("system"),
+            prompt,
+        )
+        return projected
+    if MEMORY_POINTER_BEGIN in json.dumps(
         body, ensure_ascii=False, default=str
     ):
         return body
@@ -642,6 +709,7 @@ __all__ = [
     "current_memory_prompt",
     "inject_current_memory_prompt",
     "memory_directory",
+    "move_memory_pointer_to_system_end",
     "parse_manifest",
     "project_memory_pointer",
     "settings",

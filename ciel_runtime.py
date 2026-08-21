@@ -244,7 +244,7 @@ from ciel_runtime_support.prompt_injection import normalize_anthropic_system_rol
 from ciel_runtime_support.prompt_injection import normalize_anthropic_system_role_messages_by_strategy as project_normalize_anthropic_system_role_messages_by_strategy
 from ciel_runtime_support.remote_instructions import RemoteInstructionResult, RemoteInstructionSynchronizer, SynchronizedLaunch
 from ciel_runtime_support.remote_instructions import panel_rows as project_remote_instruction_panel_rows
-from ciel_runtime_support.remote_memory import RemoteMemoryResult, RemoteMemorySynchronizer, inject_current_memory_prompt as project_inject_current_memory_prompt, sync_all_memory_pointers as project_sync_all_memory_pointers, sync_instruction_with_memory_pointer as project_sync_instruction_with_memory_pointer, sync_launch_assets as project_sync_launch_assets
+from ciel_runtime_support.remote_memory import RemoteMemoryResult, RemoteMemorySynchronizer, inject_current_memory_prompt as project_inject_current_memory_prompt, move_memory_pointer_to_system_end as project_move_memory_pointer_to_system_end, sync_all_memory_pointers as project_sync_all_memory_pointers, sync_instruction_with_memory_pointer as project_sync_instruction_with_memory_pointer, sync_launch_assets as project_sync_launch_assets
 from ciel_runtime_support.protocols import PROTOCOL_ADAPTERS
 from ciel_runtime_support.protocols.anthropic_content import content_to_text as anthropic_content_to_text
 from ciel_runtime_support.protocols.anthropic_thinking_policy import AnthropicThinkingPolicy, SuppressedThinkingRepository, ThinkingPolicyPorts
@@ -2410,8 +2410,8 @@ def chat_projection_services() -> ChatProjectionServices:
         ),
     )
 
-def anthropic_messages_to_ollama(body: dict[str, Any]) -> list[dict[str, Any]]: return project_anthropic_messages_to_ollama(body, services=chat_projection_services())
-def anthropic_messages_to_openai(body: dict[str, Any], reasoning_passback: bool = False) -> list[dict[str, Any]]: return project_anthropic_messages_to_openai(body, reasoning_passback, services=chat_projection_services())
+def anthropic_messages_to_ollama(body: dict[str, Any]) -> list[dict[str, Any]]: return project_move_memory_pointer_to_system_end(project_anthropic_messages_to_ollama(body, services=chat_projection_services()))
+def anthropic_messages_to_openai(body: dict[str, Any], reasoning_passback: bool = False) -> list[dict[str, Any]]: return project_move_memory_pointer_to_system_end(project_anthropic_messages_to_openai(body, reasoning_passback, services=chat_projection_services()))
 missing_openai_tool_result_message = project_missing_openai_tool_result_message
 orphan_openai_tool_message_to_user = project_orphan_openai_tool_message_to_user
 def repair_openai_tool_call_adjacency(messages: list[dict[str, Any]]) -> list[dict[str, Any]]: return project_repair_openai_tool_call_adjacency(messages, OpenAiHistoryServices(log=router_log))

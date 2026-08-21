@@ -20,6 +20,11 @@ publish/install the result as a nightly build for an end-to-end Wing check.
 - A real routed model turn nevertheless claimed that no memory index was
   present. That answer contradicts the captured wire payload and is not used as
   evidence that the router dropped the prompt.
+- After the first working-directory nightly was installed, the real model turn
+  again denied seeing the pointer, searched the home tree, then found and read
+  `.ciel/memory/index.md`. Source inspection showed that the pointer was placed
+  before Codex's later developer context and Ciel's execution reminder, not at
+  the requested bottom of the final system text.
 
 ## Correction
 
@@ -33,6 +38,10 @@ publish/install the result as a nightly build for an end-to-end Wing check.
 - Continue removing obsolete Ciel-managed pointer blocks from native runtime
   instruction files; no new `AGENTS.md`, `CLAUDE.md`, or `GEMINI.md` pointer is
   created.
+- During Responses-to-Anthropic conversion, remove any earlier managed pointer
+  and append it after all converted developer context. During OpenAI/Ollama wire
+  projection, move it behind execution reminders and state messages so it is
+  the final text in the system message.
 
 ## Local verification
 
@@ -50,4 +59,18 @@ publish/install the result as a nightly build for an end-to-end Wing check.
 
 ## Deployment verification
 
-Pending nightly publication and Wing installation.
+- Commit `66483657e033943a8388b805c90a468d1104c83a` published as
+  `0.2.22-nightly.20260821-075242.6648365`; npm `gitHead` matched.
+- GitHub npm publish run `32460413577` completed successfully, including its
+  published-tarball verification.
+- Wing installed that exact version and synchronized 28 files (50,689 bytes)
+  to `C:\Users\daniel.yun.WING\.ciel\memory`; the index existed and its first
+  line was `---`.
+- The first real model test only reached the correct two-line result after a
+  broad filesystem search. That is recorded as a failed prompt-visibility
+  check, not as successful instruction use.
+- After correcting final-system placement, the focused Remote Memory and prompt
+  injection suites passed 25 tests, Ruff passed, and the second full suite
+  passed: `Ran 2633 tests in 292.956s`, `OK (skipped=136)`.
+- Final nightly publication, Wing installation, and a new no-search model read
+  remain pending.
