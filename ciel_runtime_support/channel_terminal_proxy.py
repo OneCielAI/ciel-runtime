@@ -64,10 +64,16 @@ class ChannelTerminalPolling:
     file_marker: Callable[[], Any]
     should_check: Callable[..., bool]
     active_tool_call: Callable[..., bool]
+    active_turn: Callable[..., bool]
     inject_pending: Callable[..., Any]
     wake_state: Callable[[int], Any]
     inflight_effects: Callable[[], Any]
     mark_body_fallback: Callable[[int, str], None]
+
+    def input_busy(self) -> bool:
+        """Whether terminal injection would be queued into an active turn."""
+
+        return self.active_tool_call() or self.active_turn()
 
 
 @dataclass(frozen=True)
@@ -355,12 +361,12 @@ def run_posix_channel_terminal_proxy(
     pending_poll_services = ChannelPendingPollServices(
         file_marker=polling.file_marker,
         should_check=polling.should_check,
-        active=polling.active_tool_call,
+        active=polling.input_busy,
         ensure_cursor=policy.initial_cursor,
         inject_pending=polling.inject_pending,
         log=policy.log,
     )
-    pending_poll_policy = ChannelPendingPollPolicy("channel_stdin_proxy", "active_tool_call")
+    pending_poll_policy = ChannelPendingPollPolicy("channel_stdin_proxy", "active_turn")
     policy.log(
         "INFO",
         "channel_stdin_proxy_enter_default "

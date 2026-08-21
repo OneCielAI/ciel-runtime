@@ -7,6 +7,7 @@ from ciel_runtime_support.channel_pending_poll import (
     ChannelPendingPollState,
     poll_pending_channel_messages,
 )
+from ciel_runtime_support.channel_terminal_proxy import ChannelTerminalPolling
 
 
 class ChannelPendingPollTests(unittest.TestCase):
@@ -25,6 +26,24 @@ class ChannelPendingPollTests(unittest.TestCase):
 
     def policy(self):
         return ChannelPendingPollPolicy("channel_test", "active_turn")
+
+    def terminal_polling(self, *, active_tool_call=False, active_turn=False):
+        return ChannelTerminalPolling(
+            inject_compact=lambda *args, **kwargs: None,
+            file_marker=lambda: (0.0, 0),
+            should_check=lambda *args: False,
+            active_tool_call=lambda: active_tool_call,
+            active_turn=lambda: active_turn,
+            inject_pending=lambda *args, **kwargs: args[1],
+            wake_state=lambda _message_id: "missing",
+            inflight_effects=lambda: None,
+            mark_body_fallback=lambda _message_id, _reason: None,
+        )
+
+    def test_terminal_input_busy_covers_active_turn_between_tool_calls(self):
+        self.assertTrue(self.terminal_polling(active_tool_call=True).input_busy())
+        self.assertTrue(self.terminal_polling(active_turn=True).input_busy())
+        self.assertFalse(self.terminal_polling().input_busy())
 
     def test_disabled_poll_still_advances_timestamp_and_reads_marker(self):
         state = ChannelPendingPollState(last_id=10)

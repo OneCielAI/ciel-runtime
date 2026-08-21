@@ -49,6 +49,7 @@ class ChannelTerminalPollingPorts:
     file_marker: Callable[[], Any]
     should_check: Callable[..., bool]
     active_tool_call: Callable[..., bool]
+    active_turn: Callable[..., bool]
     inject_pending: Callable[..., Any]
     wake_state: Callable[[int], Any]
     inflight_effects: Callable[[], Any]
@@ -126,6 +127,7 @@ class ChannelTerminalContext:
             file_marker=self.polling.file_marker,
             should_check=self.polling.should_check,
             active_tool_call=self.polling.active_tool_call,
+            active_turn=self.polling.active_turn,
             inject_pending=self.polling.inject_pending,
             wake_state=self.polling.wake_state,
             inflight_effects=self.polling.inflight_effects,

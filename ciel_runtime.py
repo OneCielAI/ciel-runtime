@@ -4612,7 +4612,7 @@ def channel_terminal_context() -> ChannelTerminalContext:
                                           _channel_wake_enter_env_is_fixed, _channel_stdin_unseen_retry_seconds, _channel_stdin_inflight_is_stale, router_log,
                                           _windows_channel_wake_max_attempts),
         polling=ChannelTerminalPollingPorts(_inject_pending_compact_request, _chat_messages_file_marker, _channel_stdin_should_check_pending,
-                                            _channel_stdin_active_tool_call, _inject_pending_channel_messages, _channel_stdin_wake_state, channel_inflight_effects,
+                                            _channel_stdin_active_tool_call, _channel_stdin_active_turn, _inject_pending_channel_messages, _channel_stdin_wake_state, channel_inflight_effects,
                                             _channel_stdin_mark_body_fallback),
         io=ChannelTerminalIoPorts(_terminal_winsize_from_fd, _apply_pty_winsize, _write_fd_all, _TerminalMouseInputFilter,
                                   _channel_synthetic_enter_bytes_from_user_input, _write_terminal_input_mode_reset),
