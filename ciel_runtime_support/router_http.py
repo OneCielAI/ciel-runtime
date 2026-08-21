@@ -25,6 +25,8 @@ from ciel_runtime_support.codex_reasoning_rejects import (
     repair_unstored_items,
 )
 from ciel_runtime_support.responses_input_compatibility import (
+    drop_rejected_tool_pair,
+    parse_missing_tool_output_call_id,
     repair_replayed_response_items,
 )
 from ciel_runtime_support.channel_llm_context import ChannelLlmInjectionDeferred
@@ -354,8 +356,40 @@ class CodexBackendHttpAdapter:
         """Rebuild the request around the item the upstream just named."""
 
         if status == 400:
+            repaired = self._without_rejected_tool_pair(
+                error_text, upstream_body, provider
+            )
+            if repaired is not None:
+                return repaired
             return self._without_unverifiable_reasoning(error_text, upstream_body, provider)
         return self._without_unknown_item(error_text, upstream_body, provider)
+
+    def _without_rejected_tool_pair(
+        self,
+        error_text: str,
+        upstream_body: dict[str, Any],
+        provider: str,
+    ) -> dict[str, Any] | None:
+        call_id = parse_missing_tool_output_call_id(error_text)
+        if call_id is None:
+            return None
+        repaired, count = drop_rejected_tool_pair(upstream_body, error_text)
+        if not count:
+            return None
+        self._retry.log(
+            "WARN",
+            f"codex_rejected_tool_pair_dropped call_id={call_id} "
+            f"items={count} retrying",
+        )
+        self._retry.publish(
+            level="warn",
+            category="router.retry",
+            message="Dropped a tool pair the upstream rejected as incomplete",
+            provider=provider,
+            model=str(repaired.get("model") or ""),
+            data={"call_id": call_id, "items": count},
+        )
+        return repaired
 
     def _without_unverifiable_reasoning(
         self,

@@ -4,12 +4,75 @@ from ciel_runtime_support.protocols.openai_responses import (
     anthropic_message_to_openai_response,
 )
 from ciel_runtime_support.responses_input_compatibility import (
+    drop_rejected_tool_pair,
     is_router_synthesized_item_id,
+    parse_missing_tool_output_call_id,
     repair_replayed_response_items,
 )
 
 
 class ResponsesInputCompatibilityTests(unittest.TestCase):
+    def test_parses_the_call_id_from_a_missing_custom_tool_output_error(self):
+        error = (
+            "invalid_request_error: No tool output found for custom tool call "
+            "call_aul297D4jWf5nUXpEmbine7E."
+        )
+
+        self.assertEqual(
+            "call_aul297D4jWf5nUXpEmbine7E",
+            parse_missing_tool_output_call_id(error),
+        )
+
+    def test_drops_only_the_tool_pair_named_by_the_upstream(self):
+        rejected = "call_aul297D4jWf5nUXpEmbine7E"
+        body = {
+            "input": [
+                {"type": "message", "role": "user"},
+                {
+                    "type": "custom_tool_call",
+                    "call_id": rejected,
+                    "name": "apply_patch",
+                    "input": "patch",
+                },
+                {
+                    "type": "custom_tool_call_output",
+                    "call_id": rejected,
+                    "output": "done",
+                },
+                {
+                    "type": "function_call",
+                    "call_id": "call_preserved",
+                    "name": "shell",
+                    "arguments": "{}",
+                },
+                {
+                    "type": "function_call_output",
+                    "call_id": "call_preserved",
+                    "output": "ok",
+                },
+            ]
+        }
+
+        repaired, removed = drop_rejected_tool_pair(
+            body,
+            f"No tool output found for custom tool call {rejected}.",
+        )
+
+        self.assertEqual(2, removed)
+        self.assertEqual(
+            ["message", "function_call", "function_call_output"],
+            [item["type"] for item in repaired["input"]],
+        )
+        self.assertEqual(5, len(body["input"]))
+
+    def test_does_not_modify_history_for_an_unrecognized_error(self):
+        body = {"input": [{"type": "message", "role": "user"}]}
+
+        repaired, removed = drop_rejected_tool_pair(body, "Unknown model")
+
+        self.assertIs(body, repaired)
+        self.assertEqual(0, removed)
+
     def test_drops_foreign_summary_only_reasoning_item(self):
         body = {
             "input": [

@@ -29,6 +29,19 @@ MISSING_ITEM_404 = json.dumps(
     }
 ).encode("utf-8")
 
+MISSING_TOOL_OUTPUT_400 = json.dumps(
+    {
+        "type": "error",
+        "error": {
+            "type": "invalid_request_error",
+            "message": (
+                "invalid_request_error: No tool output found for custom tool call "
+                "call_aul297D4jWf5nUXpEmbine7E."
+            ),
+        },
+    }
+).encode("utf-8")
+
 
 class FakeWfile:
     def __init__(self):
@@ -147,6 +160,62 @@ def sealed_body():
 
 
 class MissingItemRetryTests(unittest.TestCase):
+    def test_upstream_missing_tool_output_verdict_drops_exact_pair_and_retries(self):
+        rejected = "call_aul297D4jWf5nUXpEmbine7E"
+        body = {
+            "model": "gpt-5.4-codex",
+            "input": [
+                {"type": "message", "role": "user"},
+                {
+                    "type": "custom_tool_call",
+                    "call_id": rejected,
+                    "name": "apply_patch",
+                    "input": "patch",
+                },
+                {
+                    "type": "custom_tool_call_output",
+                    "call_id": rejected,
+                    "output": "done",
+                },
+                {
+                    "type": "function_call",
+                    "call_id": "call_preserved",
+                    "name": "shell",
+                    "arguments": "{}",
+                },
+                {
+                    "type": "function_call_output",
+                    "call_id": "call_preserved",
+                    "output": "ok",
+                },
+            ],
+        }
+        upstream = ScriptedUpstream([(400, MISSING_TOOL_OUTPUT_400)])
+        logs = []
+
+        adapter_for(upstream, logs).forward_json(FakeHandler(), "codex", {}, body)
+
+        self.assertEqual(2, len(upstream.bodies))
+        self.assertEqual(5, len(upstream.bodies[0]["input"]))
+        self.assertEqual(
+            ["message", "function_call", "function_call_output"],
+            [item["type"] for item in upstream.bodies[1]["input"]],
+        )
+        self.assertTrue(
+            any("codex_rejected_tool_pair_dropped" in message for _level, message in logs)
+        )
+
+    def test_missing_tool_output_for_absent_call_id_is_relayed_unchanged(self):
+        upstream = ScriptedUpstream([(400, MISSING_TOOL_OUTPUT_400)])
+        body = {"model": "gpt-5.4-codex", "input": [{"type": "message"}]}
+
+        with self.assertRaises(urllib.error.HTTPError) as raised:
+            adapter_for(upstream, []).forward_json(FakeHandler(), "codex", {}, body)
+
+        self.assertEqual(400, raised.exception.code)
+        self.assertEqual(MISSING_TOOL_OUTPUT_400, raised.exception.read())
+        self.assertEqual(1, len(upstream.bodies))
+
     def test_orphan_custom_tool_call_is_removed_before_upstream_request(self):
         body = {
             "model": "gpt-5.4-codex",

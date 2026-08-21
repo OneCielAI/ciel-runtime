@@ -22,6 +22,10 @@ OPENAI_RESPONSES_ITEM_ID_PREFIXES = {
 # (``rs_0b9eabb999...``) and Codex's client-side IDs are UUIDs
 # (``fco_019fd660-738b-...``) -- so the shape identifies the router's own.
 _ROUTER_SYNTHESIZED_ITEM_ID = re.compile(r"^[a-z]+_[0-9a-f]{8}_\d+$")
+_MISSING_TOOL_OUTPUT = re.compile(
+    r"No tool output found for (?:custom|function) tool call ([A-Za-z0-9_-]+)",
+    re.IGNORECASE,
+)
 _TOOL_CALL_TYPES = frozenset({"function_call", "custom_tool_call"})
 _TOOL_OUTPUT_TYPES = frozenset(
     {"function_call_output", "custom_tool_call_output"}
@@ -152,12 +156,53 @@ def repair_replayed_response_items(body: dict[str, Any]) -> dict[str, Any]:
     return projected
 
 
+def parse_missing_tool_output_call_id(error_text: str) -> str | None:
+    """Extract the call ID from an upstream missing-output rejection."""
+
+    match = _MISSING_TOOL_OUTPUT.search(str(error_text or ""))
+    return match.group(1) if match else None
+
+
+def drop_rejected_tool_pair(
+    body: dict[str, Any], error_text: str
+) -> tuple[dict[str, Any], int]:
+    """Drop the exact tool pair an upstream says is incomplete.
+
+    The normal preflight repair removes visibly orphaned records. This second
+    boundary handles an upstream that rejects a call after provider-specific
+    request normalization. The upstream names the call ID, so no unrelated
+    tool history is removed.
+    """
+
+    call_id = parse_missing_tool_output_call_id(error_text)
+    items = body.get("input")
+    if call_id is None or not isinstance(items, list):
+        return body, 0
+    retained = [
+        item
+        for item in items
+        if not (
+            isinstance(item, dict)
+            and item.get("type") in (_TOOL_CALL_TYPES | _TOOL_OUTPUT_TYPES)
+            and str(item.get("call_id") or "") == call_id
+        )
+    ]
+    removed = len(items) - len(retained)
+    if not removed:
+        return body, 0
+    projected = dict(body)
+    projected["input"] = retained
+    return repair_replayed_response_items(projected), removed
+
+
 repair_replayed_reasoning_items = repair_replayed_response_items
 
 
 __all__ = [
     "OPENAI_RESPONSES_ITEM_ID_PREFIXES",
     "is_router_synthesized_item_id",
+    "drop_rejected_tool_pair",
+    "parse_missing_tool_output_call_id",
     "repair_replayed_reasoning_items",
     "repair_replayed_response_items",
     "router_synthesized_item_id",
