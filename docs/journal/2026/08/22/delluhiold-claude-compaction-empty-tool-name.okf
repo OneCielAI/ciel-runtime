@@ -113,3 +113,56 @@ knowledge:
       The live ai-net router and real Alibaba Anthropic endpoint accepted the
       same invalid-history shape after request sanitization. The original
       transcript file was not modified.
+
+  interactive_revalidation:
+    time_utc: "2026-08-22T06:44:07Z..2026-08-22T06:55:10Z"
+    prior_completion_claim_withdrawn: true
+    failed_launch_evidence:
+      executable: /usr/local/bin/ciel-runtime
+      installed_version: 0.2.22-nightly.20260822-063634.5223153
+      installed_sanitizer_sha256: >-
+        792c65dc1b7dc7edfbac5eb7f032edfa5455730aac0d8c643b6ee10dd3a296c5
+      active_provider: anthropic
+      active_mode: anthropic-native
+      router_requests_after_0641_utc: 0
+      result: >-
+        The failing resumed Claude process bypassed the router, so the request
+        boundary sanitizer was not invoked. The installed file itself was the
+        final patched version; deployment version mismatch was not the cause.
+    corrected_workspace_state:
+      workspace: /home/oneciel/ai-net
+      provider: alitoken
+      model: qwen3.8-max
+      mode: ciel-runtime-router
+      base_url: >-
+        https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1
+    actual_tty_compaction:
+      command: /usr/local/bin/ciel-runtime --continue
+      session_id: bd9b33a6-2be4-46ac-81bc-2bd5c5eed995
+      transcript_result: compact_boundary
+      trigger: manual
+      duration_ms: 303647
+      pre_tokens: 319439
+      post_tokens: 14108
+      compacted_at_utc: "2026-08-22T06:54:11.187Z"
+      precompact_hook: passed
+      postcompact_hook: passed
+      empty_tool_name_400_during_compaction: false
+    post_compaction_request:
+      prompt: "검증: OK라고만 답해"
+      upstream_model: qwen3.8-max
+      router_activity_time: "2026-08-22T06:55:10Z"
+      result: >-
+        The request reached the model and emitted valid named Bash tool calls;
+        it did not reproduce the empty-tool-name 400. The model ignored the
+        requested terse answer and resumed work from the compacted summary, so
+        the response was interrupted before further side effects and the TTY
+        session was exited normally.
+    final_state:
+      provider_preserved: alitoken
+      model_preserved: qwen3.8-max
+      active_test_processes: 0
+      router_after_exit: down
+      expected_next_launch: >-
+        The Ciel launcher starts and owns the workspace router when the user
+        next launches or continues Claude.
