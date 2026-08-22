@@ -1,0 +1,142 @@
+okf_version: "1.0"
+knowledge:
+  task:
+    id: alibaba-singapore-dual-endpoint-wire-alignment-20260822
+    date: "2026-08-22"
+    objective: >-
+      Verify the two user-supplied Alibaba Model Studio Singapore API
+      references and apply both OpenAI Chat and Anthropic Messages wire
+      contracts without inferring the protocol from shared JSON fields.
+
+  official_sources:
+    anthropic_messages:
+      console_document_id: "2980295"
+      public_url: >-
+        https://www.alibabacloud.com/help/en/doc-detail/2980295.html
+      verified_base_url: >-
+        https://{WorkspaceId}.ap-southeast-1.maas.aliyuncs.com/apps/anthropic
+      verified_request_url: >-
+        POST https://{WorkspaceId}.ap-southeast-1.maas.aliyuncs.com/apps/anthropic/v1/messages
+      verified_auth: >-
+        Model Studio API key in either x-api-key or Authorization: Bearer.
+      verified_request_fields:
+        - max_tokens is required
+        - thinking is an optional Anthropic Extended Thinking object
+        - streaming emits thinking and text content blocks
+    openai_chat:
+      console_document_id: "3016807"
+      public_url: >-
+        https://www.alibabacloud.com/help/en/doc-detail/3016807.html
+      verified_base_url: >-
+        https://{WorkspaceId}.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1
+      verified_request_url: >-
+        POST https://{WorkspaceId}.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1/chat/completions
+      verified_auth: "Authorization: Bearer <Model Studio API key>"
+      qwen38_reasoning:
+        supported_efforts: [low, medium, xhigh]
+        documented_aliases:
+          max: xhigh
+          high: xhigh
+          minimal: low
+          none: enable_thinking_false
+        mutual_exclusion: >-
+          qwen3.8-max rejects reasoning_effort and thinking_budget when both
+          are present.
+        documented_budget_mapping:
+          low: 4096
+          medium: 16384
+          xhigh: 262144
+
+  pre_change_reproduction:
+    provider: alitoken
+    model: qwen3.8-max
+    selected_protocol: anthropic_messages
+    selected_base_url: >-
+      https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic
+    observed_wire_profile_thinking_policy: strip
+    observed_input:
+      max_tokens: 32768
+      thinking:
+        type: enabled
+        budget_tokens: 16384
+    observed_normalized_output:
+      thinking_present: false
+      max_tokens_present: false
+      max_completion_tokens: 32768
+    evidence_conclusion: >-
+      The endpoint selection was correct, but Alibaba request normalization
+      inferred OpenAI Chat from the shared messages field. It consequently
+      removed the native Anthropic thinking object and rewrote the required
+      Anthropic max_tokens field to the OpenAI max_completion_tokens field.
+
+  implementation:
+    architecture:
+      file: ciel_runtime_support/architecture.py
+      change: >-
+        Added a protocol-aware request-normalization hook. Existing adapters
+        retain their protocol-neutral behavior by default.
+    pipeline:
+      file: ciel_runtime_support/provider_policy.py
+      change: >-
+        Pass the already-resolved upstream wire protocol to provider request
+        normalization instead of requiring adapters to infer it from body
+        structure.
+    alibaba_provider:
+      file: ciel_runtime_support/providers/alibaba.py
+      changes:
+        - Mark the native Alibaba Anthropic contract as preserving Anthropic thinking.
+        - Preserve native Anthropic request fields and history blocks unchanged.
+        - Retain existing Qwen3.8 OpenAI Chat reasoning and token normalization.
+    compatibility_facade:
+      file: ciel_runtime.py
+      change: >-
+        Accept an optional MessageProtocol and project it through the provider
+        adapter facade without exceeding the monolith line-count ratchet.
+
+  post_change_verification:
+    native_anthropic_projection:
+      upstream_format: anthropic-messages
+      thinking_policy: preserve
+      thinking_preserved: true
+      historical_thinking_blocks_preserved: true
+      max_tokens_preserved: true
+      max_completion_tokens_added: false
+    openai_chat_projection:
+      reasoning_effort_medium_preserved: true
+      conflicting_thinking_budget_removed: true
+      max_tokens_projected_to_max_completion_tokens: true
+    automated_tests:
+      alibaba_provider: "34 passed"
+      architecture_budget: "2 passed"
+      unit: "1129 passed, 44 skipped"
+      router: "910 passed"
+      channel: "381 passed, 80 skipped"
+      runtime: "252 passed, 12 skipped"
+      aggregate: "2672 passed, 136 skipped"
+      ruff: passed
+      compileall: passed
+      diff_check: passed
+    live_singapore_requests:
+      configuration_scope: >-
+        Ciel workspace configuration for C:/Users/djlov/ciel-runtime; API key
+        presence was confirmed without printing the credential.
+      openai_chat:
+        url: >-
+          https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1/chat/completions
+        status: 200
+        elapsed_seconds: 2.469
+        finish_reason: stop
+        response_text: "OK."
+      anthropic_messages:
+        url: >-
+          https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic/v1/messages
+        status: 200
+        elapsed_seconds: 1.562
+        stop_reason: end_turn
+        response_text: "OK."
+
+  evidence_boundary: >-
+    The live probes establish that both configured Singapore endpoints,
+    bearer authentication, qwen3.8-max, and minimal non-streaming request
+    shapes were accepted. They do not benchmark comparative reasoning latency
+    or prove behavior for unrelated Alibaba models.

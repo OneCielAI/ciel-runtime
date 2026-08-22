@@ -91,7 +91,13 @@ def normalize_provider_request(provider: str, pcfg: dict[str, Any], body: dict[s
     sanitize_invalid_anthropic_tool_history = services.sanitize_invalid_anthropic_tool_history
     profile = provider_wire_profile(provider, pcfg, body)
     out = normalize_thinking_for_non_anthropic_provider(provider, pcfg, body)
-    out = apply_provider_adapter_request_policy(provider, pcfg, out)
+    selected_protocol = str(profile.get("upstream_format") or "").replace("-", "_")
+    out = apply_provider_adapter_request_policy(
+        provider,
+        pcfg,
+        out,
+        selected_protocol or None,
+    )
     out = normalize_tool_choice_for_provider(provider, pcfg, out)
     out = sanitize_invalid_anthropic_tool_history(out)
     out = sanitize_assistant_pseudo_tool_text_history(out)

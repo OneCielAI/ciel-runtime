@@ -934,9 +934,9 @@ def select_provider_protocol(provider: str, pcfg: dict[str, Any], operation: Mes
     adapter = configured_provider_adapter(provider, pcfg)
     return adapter.select_protocol(operation, provider_contract_config(provider, pcfg), model)
 
-def apply_provider_adapter_request_policy(provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> dict[str, Any]:
+def apply_provider_adapter_request_policy(provider: str, pcfg: dict[str, Any], body: dict[str, Any], protocol: MessageProtocol | None = None) -> dict[str, Any]:
     adapter = configured_provider_adapter(provider, pcfg)
-    normalized = adapter.normalize_request_options(provider_contract_config(provider, pcfg), body)
+    normalized = adapter.normalize_request_options_for_protocol(provider_contract_config(provider, pcfg), body, protocol)
     return dict(normalized)
 
 def provider_has_api_key(provider: str, pcfg: dict[str, Any]) -> bool: return bool(provider_config_api_keys(provider, pcfg))

@@ -123,7 +123,7 @@ _EFFORTS = ("none", "minimal", "low", "medium", "high", "xhigh", "max")
 
 @dataclass(frozen=True)
 class AlibabaModelStudioProviderAdapter(HttpBearerProviderAdapter):
-    """Preserve Qwen Responses features while supporting Claude via Chat."""
+    """Expose Qwen's OpenAI and native Anthropic-compatible wire surfaces."""
 
     name: str = "alims-intl"
     base_url: str = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
@@ -160,6 +160,7 @@ class AlibabaModelStudioProviderAdapter(HttpBearerProviderAdapter):
         default_factory=lambda: ProviderCapabilities(
             upstream_protocol="openai_responses",
             supports_thinking=True,
+            preserves_anthropic_thinking=True,
             requires_api_key=True,
         )
     )
@@ -286,6 +287,20 @@ class AlibabaModelStudioProviderAdapter(HttpBearerProviderAdapter):
         elif "messages" in normalized:
             self._normalize_chat(config, normalized, model)
         return normalized
+
+    def normalize_request_options_for_protocol(
+        self,
+        config: ProviderConfig,
+        request: Mapping[str, Any],
+        protocol: MessageProtocol | None,
+    ) -> Mapping[str, Any]:
+        if protocol == "anthropic_messages":
+            # Alibaba's /apps/anthropic endpoint accepts the Anthropic Messages
+            # body directly. In particular, max_tokens and thinking must not be
+            # rewritten as OpenAI Chat fields merely because both formats use a
+            # top-level messages array.
+            return deepcopy(request)
+        return self.normalize_request_options(config, request)
 
     def openai_reasoning_effort(
         self, config: ProviderConfig, model: str, request: Mapping[str, Any]

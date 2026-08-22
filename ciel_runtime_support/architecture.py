@@ -699,6 +699,23 @@ class ProviderAdapter(ABC):
         del config
         return request
 
+    def normalize_request_options_for_protocol(
+        self,
+        config: ProviderConfig,
+        request: Mapping[str, Any],
+        protocol: MessageProtocol | None,
+    ) -> Mapping[str, Any]:
+        """Normalize request options for the selected upstream wire protocol.
+
+        Existing adapters remain protocol-neutral by default. Providers that
+        expose more than one wire surface can override this hook without
+        inferring the protocol from overlapping request fields such as
+        ``messages`` and ``max_tokens``.
+        """
+
+        del protocol
+        return self.normalize_request_options(config, request)
+
     def anthropic_system_role_strategy(
         self, config: ProviderConfig
     ) -> Literal["inline_user", "hoist_top_level"]:

@@ -80,6 +80,17 @@ class AlibabaProviderTests(unittest.TestCase):
             ciel_runtime.native_anthropic_base_url("alitoken", config),
         )
         self.assertEqual(
+            "https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1/chat/completions",
+            ciel_runtime.provider_endpoint("alitoken", config, "chat"),
+        )
+        self.assertEqual(
+            "https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic/v1/messages",
+            ciel_runtime.join_url(
+                ciel_runtime.native_anthropic_base_url("alitoken", config),
+                "/v1/messages",
+            ),
+        )
+        self.assertEqual(
             10 * 1024 * 1024,
             ciel_runtime.configured_provider_adapter(
                 "alitoken", config
@@ -117,6 +128,76 @@ class AlibabaProviderTests(unittest.TestCase):
                 ciel_runtime.provider_contract_config("alitoken-individual", config)
             )
         )
+
+    def test_native_anthropic_wire_preserves_qwen38_thinking_and_max_tokens(self):
+        config = self.token_config()
+        body = {
+            "model": "qwen3.8-max",
+            "max_tokens": 32768,
+            "thinking": {"type": "enabled", "budget_tokens": 16384},
+            "messages": [
+                {
+                    "role": "assistant",
+                    "content": [
+                        {
+                            "type": "thinking",
+                            "thinking": "prior reasoning",
+                            "signature": "provider-signature",
+                        },
+                        {"type": "text", "text": "prior answer"},
+                    ],
+                },
+                {"role": "user", "content": "continue"},
+            ],
+        }
+
+        profile = ciel_runtime.provider_wire_profile("alitoken", config, body)
+        normalized = ciel_runtime.normalize_request_for_provider_wire(
+            "alitoken", config, body
+        )
+
+        self.assertEqual("anthropic-messages", profile["upstream_format"])
+        self.assertEqual("preserve", profile["thinking_policy"])
+        self.assertTrue(
+            ciel_runtime.preserves_anthropic_thinking_contract(
+                "alitoken", config
+            )
+        )
+        self.assertEqual(body["thinking"], normalized["thinking"])
+        self.assertEqual(32768, normalized["max_tokens"])
+        self.assertNotIn("max_completion_tokens", normalized)
+        self.assertEqual(body["messages"], normalized["messages"])
+        self.assertIsNot(body["messages"], normalized["messages"])
+
+    def test_openai_chat_wire_keeps_qwen38_chat_normalization(self):
+        config = self.token_config(native_compat=False)
+        body = {
+            "model": "qwen3.8-max",
+            "messages": [{"role": "user", "content": "test"}],
+            "reasoning_effort": "medium",
+            "thinking_budget": 8192,
+            "max_tokens": 4096,
+        }
+
+        normalized = ciel_runtime.apply_provider_adapter_request_policy(
+            "alitoken", config, body, "openai_chat"
+        )
+
+        self.assertEqual("medium", normalized["reasoning_effort"])
+        self.assertNotIn("thinking_budget", normalized)
+        self.assertEqual(4096, normalized["max_completion_tokens"])
+        self.assertNotIn("max_tokens", normalized)
+
+    def test_both_singapore_endpoints_use_documented_bearer_auth(self):
+        config = self.token_config(api_key="test-key")
+
+        for protocol in ("openai_chat", "anthropic_messages"):
+            with self.subTest(protocol=protocol):
+                headers = ciel_runtime.provider_headers(
+                    "alitoken", config, None, protocol
+                )
+                self.assertEqual("Bearer test-key", headers["authorization"])
+                self.assertEqual("2023-06-01", headers["anthropic-version"])
 
     def test_responses_preserves_and_normalizes_qwen_builtin_tools(self):
         config = self.token_config()
