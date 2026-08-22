@@ -308,6 +308,73 @@ class ToolSideEffectDedupeServiceTest(unittest.TestCase):
             )
         )
 
+    def test_runtime_control_nudge_does_not_reset_completed_repeat_history(self):
+        audits = []
+        service = ToolSideEffectDedupeService(
+            ToolSideEffectDedupePolicy(frozenset()),
+            ToolSideEffectDedupeRepository({}, threading.Lock()),
+            ToolSideEffectDedupePorts(
+                now=lambda: 10.0,
+                audit=lambda event, payload: audits.append((event, payload)),
+                log=lambda _level, _message: None,
+            ),
+        )
+        tool_input = {"cmd": "curl.exe -i http://service.invalid/mcp"}
+        body = {
+            "messages": [
+                {
+                    "role": "assistant",
+                    "content": [
+                        {
+                            "type": "tool_use",
+                            "id": "call_1",
+                            "name": "exec_command",
+                            "input": tool_input,
+                        }
+                    ],
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": "call_1",
+                            "content": "HTTP/1.1 400 Bad Request",
+                        }
+                    ],
+                },
+                {
+                    "role": "assistant",
+                    "content": [
+                        {
+                            "type": "tool_use",
+                            "id": "call_2",
+                            "name": "exec_command",
+                            "input": tool_input,
+                        }
+                    ],
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": "call_2",
+                            "content": "HTTP/1.1 400 Bad Request",
+                        }
+                    ],
+                },
+                {
+                    "role": "user",
+                    "ciel_runtime_control": "repeated_tool_call_recovery",
+                    "content": [{"type": "text", "text": "Choose a different action."}],
+                },
+            ]
+        }
+
+        self.assertTrue(service.should_drop("exec_command", tool_input, source_body=body))
+        self.assertEqual("dropped_repeated_completed_tool_call", audits[0][0])
+
 
 if __name__ == "__main__":
     unittest.main()

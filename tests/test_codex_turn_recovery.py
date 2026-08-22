@@ -256,6 +256,81 @@ class RecoverPreambleOnlyTurnTests(unittest.TestCase):
             replayed[-1]["content"][0]["text"],
         )
 
+    def test_repeated_tool_guard_retries_once_without_exposing_control_notice(self):
+        calls = []
+        original = text_message(
+            "[ciel-runtime] Stopped an identical completed tool call from repeating. "
+            "The previous result is already in context; choose a different action or finish the turn."
+        )
+
+        recovered = codex_turn_recovery.recover_preamble_only_turn(
+            None,
+            "ollama-cloud",
+            {},
+            work_request_body(),
+            original,
+            self._services(text_message("사무엘에게서 새 메시지는 오지 않았습니다."), calls),
+        )
+
+        self.assertEqual(
+            "사무엘에게서 새 메시지는 오지 않았습니다.",
+            codex_turn_recovery.message_text(recovered),
+        )
+        self.assertEqual(1, len(calls), "repeated-tool recovery must be bounded")
+        replayed = calls[0]["messages"]
+        self.assertEqual(
+            codex_turn_recovery.RUNTIME_REPEATED_TOOL_RECOVERY,
+            replayed[-1][codex_turn_recovery.RUNTIME_CONTROL_MESSAGE_KEY],
+        )
+        self.assertIn(
+            codex_turn_recovery.CODEX_REPEATED_TOOL_CONTINUATION_NUDGE,
+            replayed[-1]["content"][0]["text"],
+        )
+        self.assertFalse(
+            any(
+                "Stopped an identical completed tool call" in str(block.get("text") or "")
+                for message in replayed
+                for block in message.get("content") or []
+                if isinstance(message, dict) and isinstance(block, dict)
+            )
+        )
+
+    def test_repeated_tool_guard_recovery_accepts_a_different_tool(self):
+        calls = []
+        original = text_message(
+            "[ciel-runtime] Stopped an identical completed tool call from repeating."
+        )
+
+        recovered = codex_turn_recovery.recover_preamble_only_turn(
+            None,
+            "deepseek",
+            {},
+            work_request_body(),
+            original,
+            self._services(tool_message(), calls),
+        )
+
+        self.assertTrue(codex_turn_recovery.message_has_tool_use(recovered))
+        self.assertEqual(1, len(calls))
+
+    def test_repeated_tool_guard_recovery_does_not_recurse(self):
+        calls = []
+        original = text_message(
+            "[ciel-runtime] Stopped an identical completed tool call from repeating."
+        )
+
+        recovered = codex_turn_recovery.recover_preamble_only_turn(
+            None,
+            "deepseek",
+            {},
+            work_request_body(),
+            original,
+            self._services(original, calls),
+        )
+
+        self.assertEqual(original, recovered)
+        self.assertEqual(1, len(calls))
+
     def test_runtime_empty_end_turn_retry_accepts_a_visible_final_answer(self):
         calls = []
         original = text_message(

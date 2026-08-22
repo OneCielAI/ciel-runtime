@@ -143,10 +143,13 @@ class ToolSideEffectDedupeService:
                 for block in blocks
                 if isinstance(block, dict) and block.get("type") == "tool_result"
             ]
-            has_new_intent = isinstance(content, str) and bool(content.strip())
-            has_new_intent = has_new_intent or any(
-                not isinstance(block, dict) or block.get("type") != "tool_result"
-                for block in blocks
+            runtime_control = bool(message.get("ciel_runtime_control"))
+            has_new_intent = not runtime_control and (
+                (isinstance(content, str) and bool(content.strip()))
+                or any(
+                    not isinstance(block, dict) or block.get("type") != "tool_result"
+                    for block in blocks
+                )
             )
             if has_new_intent:
                 completed.clear()

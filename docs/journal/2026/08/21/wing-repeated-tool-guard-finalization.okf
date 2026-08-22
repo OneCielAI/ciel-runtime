@@ -1,0 +1,81 @@
+okf_version: "1.0"
+knowledge:
+  task:
+    id: wing-repeated-tool-guard-finalization-20260821
+    date: "2026-08-21"
+    objective: >-
+      Repair the WING routed Codex turn that exposes the repeated-tool guard as
+      the assistant's final answer instead of completing the user's request.
+
+  evidence:
+    host: WING
+    workspace: "C:\\Users\\daniel.yun.WING"
+    runtime_version: "0.2.22-nightly.20260821-213321.46d0e4e"
+    session: "01a02639-b0aa-7530-9115-8084007b2754"
+    transcript: >-
+      C:\Users\daniel.yun.WING\.codex\sessions\2026\08\21\
+      rollout-2026-08-21T16-28-30-01a02639-b0aa-7530-9115-8084007b2754.jsonl
+    router_log: >-
+      C:\Users\daniel.yun.WING\AppData\Roaming\ciel-runtime\
+      router-instances\9140-f895679997f4\router.log
+    observed_sequence:
+      - "20:18:18 the new Korean user question was present in the transcript"
+      - >-
+        20:18:21 the upstream reasoning correctly identified that the user asked
+        whether a message had arrived from Samuel
+      - >-
+        20:18:21 and 20:18:25 the same exec_command was emitted and returned the
+        same HTTP 400 JSON-RPC result
+      - >-
+        20:18:29 the third identical call was dropped with completed_repeats=2
+      - >-
+        transcript ordinals 126-129 projected the runtime guard notice as an
+        assistant message and immediately recorded task_complete
+    excluded_causes:
+      - "The user's new question was not missing from the Codex transcript."
+      - "The upstream model did not misidentify the user's requested subject."
+      - "The duplicate-call guard did prevent a third identical execution."
+    security_note: >-
+      The captured command arguments contained an authentication value in the
+      transcript. It is redacted from this journal and all reports.
+
+  confirmed_cause: >-
+    project_ollama_response converts the internal repeated-tool guard into a
+    normal assistant text block. recover_preamble_only_turn did not classify
+    that runtime-owned control notice as recoverable, so the Responses adapter
+    emitted it with end_turn and Codex committed task_complete.
+
+  correction:
+    status: implemented_and_locally_verified
+    behavior:
+      - >-
+        Recognize only the exact runtime-owned repeated-tool notice and perform
+        one bounded upstream continuation.
+      - >-
+        Do not replay the control notice to the model. Supply a marked internal
+        continuation directing it to use the existing result, choose a distinct
+        action, or give the concrete answer.
+      - >-
+        The internal continuation does not reset repeated-call history, so the
+        blocked call cannot execute again during recovery.
+      - >-
+        Accept either a distinct tool call or a visible final answer from the
+        recovery request.
+      - "No host, user, model, provider, agent, or command-specific exception."
+
+  verification:
+    focused:
+      ollama_response_projection: "49 passed"
+      codex_turn_recovery: "32 passed"
+      tool_repeat_dedupe: "10 passed"
+      ruff: passed
+      documentation_metadata: passed
+      git_diff_check: passed
+    full_test:
+      unit: "1121 passed, 44 skipped"
+      router: "906 passed"
+      channel: "381 passed, 80 skipped"
+      runtime: "252 passed, 12 skipped"
+      total: "2660 passed, 136 skipped"
+    wing_live: pending
+    deployment: pending
