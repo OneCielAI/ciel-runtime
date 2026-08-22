@@ -86,4 +86,30 @@ knowledge:
       aggregate: "2669 passed, 136 skipped"
     ruff: passed
     diff_check: passed
-    deployment_status: pending
+    deployment:
+      commit: d7d93697401503be7ac5d46c28b06339f31ec592
+      nightly: 0.2.22-nightly.20260822-062859.d7d9369
+      local_windows: verified
+      remote_prefix: /home/oneciel/.npm-global
+      remote_router_pid: 1871851
+      remote_router_source: >-
+        /home/oneciel/.npm-global/lib/node_modules/@oneciel-ai/ciel-runtime/
+        ciel_runtime.py
+      remote_provider_restored: anthropic
+    live_remote_request:
+      workspace: /home/oneciel/ai-net
+      provider_during_probe: alitoken
+      model: qwen3.8-max
+      input: >-
+        Included an assistant tool_use with name="" and its paired error
+        tool_result, matching the observed corrupt history shape.
+      status: 200
+      response_text: OK
+      router_activity_time: "2026-08-22T06:33:21Z"
+      router_activity_bytes: 303
+    evidence_boundary: >-
+      The original interactive Claude process had already exited before the
+      patched package was installed, so its /compact UI command was not rerun.
+      The live ai-net router and real Alibaba Anthropic endpoint accepted the
+      same invalid-history shape after request sanitization. The original
+      transcript file was not modified.
