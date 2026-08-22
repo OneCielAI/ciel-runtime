@@ -19,13 +19,20 @@ from .architecture import MessageProtocol
 from .prompt_injection import PromptInjector, append_anthropic_system_texts
 from .remote_instructions import (
     RUNTIME_FILES,
+    configured_url as configured_instruction_url,
     expand_environment_references,
+    normalized_instruction_sha256,
+    settings as instruction_settings,
     target_file,
 )
 
 
 MEMORY_POINTER_BEGIN = "<!-- ciel-runtime:remote-memory:begin -->"
 MEMORY_POINTER_END = "<!-- ciel-runtime:remote-memory:end -->"
+MEMORY_REFERENCE_INSTRUCTION = (
+    "Memory guidance: Read the memory index first and use the relevant files "
+    "under the memory root as context for your work."
+)
 DEFAULT_DIRECTORY = ".ciel/memory"
 DEFAULT_MAX_MANIFEST_BYTES = 1_048_576
 DEFAULT_MAX_FILE_BYTES = 4_194_304
@@ -203,40 +210,135 @@ def parse_manifest(
     return RemoteMemoryManifest(index_path, tuple(files))
 
 
-def _managed_pointer_block(index_address: str) -> str:
+def _managed_pointer_block(index_address: str, root_address: str = "") -> str:
+    resolved_root = str(root_address or "").strip()
+    if not resolved_root:
+        resolved_root = str(Path(index_address).parent)
     return (
         f"{MEMORY_POINTER_BEGIN}\n"
+        f"Memory root: {resolved_root}\n"
         f"Memory index: {index_address}\n"
+        f"{MEMORY_REFERENCE_INSTRUCTION}\n"
         f"{MEMORY_POINTER_END}"
     )
 
 
-def _without_memory_pointer(value: str) -> str:
+def without_memory_pointer(value: str) -> str:
+    """Remove Ciel's managed memory block from trusted instruction text."""
+
     return _MEMORY_POINTER_PATTERN.sub("", value).strip()
 
 
-def _anthropic_system_with_pointer_last(system: Any, prompt: str) -> Any:
-    if isinstance(system, list):
-        cleaned: list[Any] = []
-        for block in system:
-            if isinstance(block, dict) and block.get("type") == "text":
-                text = _without_memory_pointer(str(block.get("text") or ""))
-                if text:
-                    cleaned.append({**block, "text": text})
-            elif isinstance(block, str):
-                text = _without_memory_pointer(block)
-                if text:
-                    cleaned.append(text)
+def _without_pointer_from_content(value: Any) -> tuple[Any, str]:
+    """Scrub managed blocks from a privileged text/content-part value."""
+
+    if isinstance(value, str):
+        matches = tuple(_MEMORY_POINTER_PATTERN.finditer(value))
+        return without_memory_pointer(value), matches[-1].group(0) if matches else ""
+    if isinstance(value, dict):
+        copied = dict(value)
+        text_key = next(
+            (
+                key
+                for key in ("text", "input_text", "output_text")
+                if isinstance(copied.get(key), str)
+            ),
+            "",
+        )
+        if not text_key:
+            return copied, ""
+        copied[text_key], pointer = _without_pointer_from_content(copied[text_key])
+        if not copied[text_key] and str(copied.get("type") or "") in {
+            "",
+            "text",
+            "input_text",
+            "output_text",
+        }:
+            return "", pointer
+        return copied, pointer
+    if not isinstance(value, list):
+        return value, ""
+    cleaned: list[Any] = []
+    pointer = ""
+    for part in value:
+        if isinstance(part, str):
+            next_part, found = _without_pointer_from_content(part)
+            if found:
+                pointer = found
+            if next_part:
+                cleaned.append(next_part)
+            continue
+        if not isinstance(part, dict):
+            cleaned.append(part)
+            continue
+        copied = dict(part)
+        text_key = next(
+            (
+                key
+                for key in ("text", "input_text", "output_text")
+                if isinstance(copied.get(key), str)
+            ),
+            "",
+        )
+        if text_key:
+            copied[text_key], found = _without_pointer_from_content(copied[text_key])
+            if found:
+                pointer = found
+            if not copied[text_key] and str(copied.get("type") or "") in {
+                "",
+                "text",
+                "input_text",
+                "output_text",
+            }:
+                continue
+        cleaned.append(copied)
+    return cleaned, pointer
+
+
+def _append_pointer_to_content(value: Any, pointer: str) -> Any:
+    if isinstance(value, list):
+        return [*value, {"type": "text", "text": pointer}]
+    current = str(value or "").rstrip()
+    return f"{current}\n\n{pointer}" if current else pointer
+
+
+def _messages_without_memory_pointer(
+    messages: Any,
+) -> tuple[list[Any], str, list[int]]:
+    if not isinstance(messages, list):
+        return [], "", []
+    projected: list[Any] = []
+    pointer = ""
+    privileged: list[int] = []
+    for message in messages:
+        if not isinstance(message, dict):
+            projected.append(message)
+            continue
+        copied = dict(message)
+        if str(copied.get("role") or "") in {"system", "developer"}:
+            if "content" in copied:
+                copied["content"], found = _without_pointer_from_content(
+                    copied.get("content")
+                )
+            elif isinstance(copied.get("text"), str):
+                copied["text"], found = _without_pointer_from_content(copied["text"])
             else:
-                cleaned.append(dict(block) if isinstance(block, dict) else block)
-        return append_anthropic_system_texts(cleaned, [prompt])
-    cleaned = _without_memory_pointer(str(system or ""))
-    return append_anthropic_system_texts(cleaned, [prompt])
+                found = ""
+            if found:
+                pointer = found
+            privileged.append(len(projected))
+        projected.append(copied)
+    return projected, pointer, privileged
+
+
+def _anthropic_system_with_pointer_last(system: Any, prompt: str) -> Any:
+    cleaned, _pointer = _without_pointer_from_content(system)
+    return append_anthropic_system_texts(cleaned, [prompt] if prompt else [])
 
 
 def move_memory_pointer_to_system_end(
     messages: list[dict[str, Any]],
-    fallback_pointer: str = "",
+    fallback_pointer: str | None = None,
 ) -> list[dict[str, Any]]:
     """Keep the managed pointer at the tail of the final wire system text.
 
@@ -244,32 +346,75 @@ def move_memory_pointer_to_system_end(
     projection truncated the tail of a long system prompt.
     """
 
-    pointer = ""
-    projected: list[dict[str, Any]] = []
-    system_indexes: list[int] = []
-    for message in messages:
-        copied = dict(message)
-        role = str(copied.get("role") or "")
-        content = copied.get("content")
-        if role in {"system", "developer"} and isinstance(content, str):
-            match = _MEMORY_POINTER_PATTERN.search(content)
-            if match:
-                pointer = match.group(0)
-                copied["content"] = _without_memory_pointer(content)
-            system_indexes.append(len(projected))
-        projected.append(copied)
+    fallback_match = _MEMORY_POINTER_PATTERN.search(fallback_pointer or "")
+    pointer = fallback_match.group(0) if fallback_match else ""
+    projected, existing_pointer, system_indexes = _messages_without_memory_pointer(
+        messages
+    )
+    if not pointer and fallback_pointer is None:
+        pointer = existing_pointer
     if not pointer:
-        fallback_match = _MEMORY_POINTER_PATTERN.search(fallback_pointer)
-        if fallback_match:
-            pointer = fallback_match.group(0)
-    if not pointer:
-        return messages
+        return projected
     if not system_indexes:
         return [{"role": "system", "content": pointer}, *projected]
     target = system_indexes[-1]
-    current = str(projected[target].get("content") or "").rstrip()
-    projected[target]["content"] = f"{current}\n\n{pointer}" if current else pointer
+    projected[target]["content"] = _append_pointer_to_content(
+        projected[target].get("content"),
+        pointer,
+    )
     return projected
+
+
+def _current_memory_addresses(
+    state_dir: Path,
+    config: Mapping[str, Any],
+    workspace: Path | None = None,
+) -> tuple[str, str]:
+    """Return verified launch-workspace root and index paths."""
+
+    if not bool(settings(config).get("enabled", False)):
+        return "", ""
+    try:
+        state = json.loads((state_dir / "remote-memory.json").read_text(encoding="utf-8"))
+    except (FileNotFoundError, OSError, UnicodeError, json.JSONDecodeError):
+        return "", ""
+    if not isinstance(state, dict):
+        return "", ""
+    try:
+        raw_workspace = str(state.get("workspace") or "").strip()
+        if not raw_workspace:
+            return "", ""
+        stored_workspace = Path(raw_workspace).resolve()
+        root_relative = _safe_relative_path(state.get("root"), field="root")
+        index_relative = _safe_relative_path(state.get("index"), field="index")
+    except (OSError, ValueError):
+        return "", ""
+    if workspace is not None and stored_workspace != workspace.resolve():
+        return "", ""
+    root = stored_workspace.joinpath(*root_relative.parts).resolve()
+    if stored_workspace not in root.parents:
+        return "", ""
+    path = root.joinpath(*index_relative.parts).resolve()
+    if root not in path.parents:
+        return "", ""
+    if not root.is_dir() or not path.is_file():
+        return "", ""
+    return str(root), str(path)
+
+
+def current_memory_root_address(
+    state_dir: Path,
+    config: Mapping[str, Any],
+    workspace: Path | None = None,
+) -> str:
+    """Return the verified launch-workspace memory root for prompt injection."""
+
+    root_address, _index_address = _current_memory_addresses(
+        state_dir,
+        config,
+        workspace,
+    )
+    return root_address
 
 
 def current_memory_index_address(
@@ -279,32 +424,12 @@ def current_memory_index_address(
 ) -> str:
     """Return a verified launch-workspace index path for prompt injection."""
 
-    if not bool(settings(config).get("enabled", False)):
-        return ""
-    try:
-        state = json.loads((state_dir / "remote-memory.json").read_text(encoding="utf-8"))
-    except (FileNotFoundError, OSError, json.JSONDecodeError):
-        return ""
-    if not isinstance(state, dict):
-        return ""
-    try:
-        raw_workspace = str(state.get("workspace") or "").strip()
-        if not raw_workspace:
-            return ""
-        stored_workspace = Path(raw_workspace).resolve()
-        root_relative = _safe_relative_path(state.get("root"), field="root")
-        index_relative = _safe_relative_path(state.get("index"), field="index")
-    except (OSError, ValueError):
-        return ""
-    if workspace is not None and stored_workspace != workspace.resolve():
-        return ""
-    root = stored_workspace.joinpath(*root_relative.parts).resolve()
-    if stored_workspace not in root.parents:
-        return ""
-    path = root.joinpath(*index_relative.parts).resolve()
-    if root not in path.parents:
-        return ""
-    return str(path) if path.is_file() else ""
+    _root_address, index_address = _current_memory_addresses(
+        state_dir,
+        config,
+        workspace,
+    )
+    return index_address
 
 
 def current_memory_prompt(
@@ -312,8 +437,16 @@ def current_memory_prompt(
     config: Mapping[str, Any],
     workspace: Path | None = None,
 ) -> str:
-    address = current_memory_index_address(state_dir, config, workspace)
-    return _managed_pointer_block(address) if address else ""
+    root_address, index_address = _current_memory_addresses(
+        state_dir,
+        config,
+        workspace,
+    )
+    return (
+        _managed_pointer_block(index_address, root_address)
+        if root_address and index_address
+        else ""
+    )
 
 
 def inject_current_memory_prompt(
@@ -324,44 +457,83 @@ def inject_current_memory_prompt(
     workspace: Path | None = None,
 ) -> dict[str, Any]:
     prompt = current_memory_prompt(state_dir, config, workspace)
-    if not prompt:
-        return body
     if protocol == "anthropic_messages":
         projected = dict(body)
-        projected["system"] = _anthropic_system_with_pointer_last(
-            body.get("system"),
+        if "system" in body or prompt:
+            projected["system"] = _anthropic_system_with_pointer_last(
+                body.get("system"),
+                prompt,
+            )
+        messages, _pointer, _privileged = _messages_without_memory_pointer(
+            body.get("messages")
+        )
+        if isinstance(body.get("messages"), list):
+            projected["messages"] = messages
+        return body if projected == body else projected
+    if protocol == "openai_responses":
+        projected = dict(body)
+        instructions = body.get("instructions")
+        current = (
+            without_memory_pointer(instructions)
+            if isinstance(instructions, str)
+            else instructions
+        )
+        if current or prompt or "instructions" in body:
+            projected["instructions"] = (
+                f"{current}\n\n{prompt}" if current and prompt else current or prompt
+            )
+        inputs, _pointer, _privileged = _messages_without_memory_pointer(
+            body.get("input")
+        )
+        if isinstance(body.get("input"), list):
+            projected["input"] = inputs
+        elif isinstance(body.get("input"), dict):
+            projected["input"] = _messages_without_memory_pointer(
+                [body["input"]]
+            )[0][0]
+        return body if projected == body else projected
+    if protocol in {"openai_chat", "ollama_chat"}:
+        messages = body.get("messages")
+        projected = dict(body)
+        projected["messages"] = move_memory_pointer_to_system_end(
+            messages if isinstance(messages, list) else [],
             prompt,
         )
-        return projected
-    if MEMORY_POINTER_BEGIN in json.dumps(
-        body, ensure_ascii=False, default=str
-    ):
-        return body
-    return PromptInjector().inject(body, protocol, [prompt])
+        return body if projected == body else projected
+    if protocol == "google_generative":
+        projected = dict(body)
+        key = "system_instruction" if "system_instruction" in body else "systemInstruction"
+        current = body.get(key)
+        if isinstance(current, dict):
+            system_instruction = dict(current)
+            parts, _pointer = _without_pointer_from_content(current.get("parts"))
+            system_instruction["parts"] = parts
+            projected[key] = system_instruction
+        elif isinstance(current, str):
+            projected[key] = without_memory_pointer(current)
+        if prompt:
+            projected = PromptInjector().inject(projected, protocol, [prompt])
+        return body if projected == body else projected
+    return PromptInjector().inject(body, protocol, [prompt]) if prompt else body
 
 
-def update_memory_pointer(path: Path, index_address: str = "") -> bool:
+def update_memory_pointer(
+    path: Path,
+    index_address: str = "",
+    root_address: str = "",
+) -> bool:
     """Replace Ciel's memory pointer at the bottom without changing user text."""
 
     try:
         current = path.read_text(encoding="utf-8")
     except FileNotFoundError:
         current = ""
-    start = current.find(MEMORY_POINTER_BEGIN)
-    end = (
-        current.find(MEMORY_POINTER_END, start + len(MEMORY_POINTER_BEGIN))
-        if start >= 0
-        else -1
-    )
-    if not index_address and (start < 0 or end < 0):
+    if not index_address and not _MEMORY_POINTER_PATTERN.search(current):
         return False
-    if start >= 0 and end >= 0:
-        current = (
-            current[:start] + current[end + len(MEMORY_POINTER_END) :]
-        ).strip()
+    current = without_memory_pointer(current)
     next_text = current
     if index_address:
-        block = _managed_pointer_block(index_address)
+        block = _managed_pointer_block(index_address, root_address)
         next_text = f"{current}\n\n{block}".strip() if current else block
     if next_text:
         next_text += "\n"
@@ -382,10 +554,72 @@ def project_memory_pointer(
     workspace: Path,
     runtime: str,
     index_address: str = "",
+    root_address: str = "",
 ) -> bool:
     if runtime not in RUNTIME_FILES:
         raise ValueError(f"unsupported instruction runtime: {runtime}")
-    return update_memory_pointer(target_file(workspace, runtime), index_address)
+    return update_memory_pointer(
+        target_file(workspace, runtime),
+        index_address,
+        root_address,
+    )
+
+
+def _can_project_native_pointer(
+    config: Mapping[str, Any],
+    state_dir: Path,
+    workspace: Path,
+    runtime: str,
+) -> bool:
+    instruction = instruction_settings(dict(config))
+    configured = configured_instruction_url(dict(config), runtime)
+    target = target_file(workspace, runtime)
+    if not bool(instruction.get("enabled", False)) or not configured or not target.is_file():
+        return False
+    safe_runtime = runtime.replace("-", "_")
+    try:
+        state = json.loads(
+            (state_dir / f"remote-instructions-{safe_runtime}.json").read_text(
+                encoding="utf-8"
+            )
+        )
+    except (FileNotFoundError, OSError, UnicodeError, json.JSONDecodeError):
+        return False
+    if (
+        not isinstance(state, dict)
+        or str(state.get("url") or "") != configured
+        or str(state.get("target") or "") != target.name
+    ):
+        return False
+    try:
+        raw = target.read_bytes()
+    except OSError:
+        return False
+    downloaded_digest = str(state.get("sha256") or "")
+    if downloaded_digest and hashlib.sha256(raw).hexdigest() == downloaded_digest:
+        return True
+    normalized_digest = str(state.get("normalized_sha256") or "")
+    if not normalized_digest:
+        return False
+    try:
+        managed_content = without_memory_pointer(raw.decode("utf-8"))
+    except UnicodeError:
+        return False
+    return normalized_instruction_sha256(managed_content) == normalized_digest
+
+
+def _shared_target_has_projectable_pointer(
+    config: Mapping[str, Any],
+    state_dir: Path,
+    workspace: Path,
+    runtime: str,
+) -> bool:
+    filename = RUNTIME_FILES[runtime]
+    return any(
+        _can_project_native_pointer(config, state_dir, workspace, candidate)
+        for candidate, candidate_filename in RUNTIME_FILES.items()
+        if candidate_filename == filename
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -401,8 +635,8 @@ class RemoteMemorySynchronizer:
         remote = settings(config)
         manifest_url = str(remote.get("manifest_url") or "").strip()
         workspace = self.workspace().resolve()
-        self._remove_legacy_pointer(runtime, workspace)
         if not bool(remote.get("enabled", False)):
+            self._remove_legacy_pointer(runtime, workspace)
             return RemoteMemoryResult(manifest_url, None, None, "", "disabled")
         try:
             manifest_url = _http_url(
@@ -461,6 +695,22 @@ class RemoteMemorySynchronizer:
                 manifest_url=manifest_url,
                 max_files=max_files,
             )
+            def commit_state(index_address: str) -> None:
+                self._write_state(
+                    {
+                        "manifest_url": manifest_url,
+                        "workspace": str(workspace),
+                        "root": root.relative_to(workspace).as_posix(),
+                        "index": manifest.index.as_posix(),
+                        "index_address": index_address,
+                        "files": [
+                            {"path": item.path.as_posix(), "format": item.format}
+                            for item in manifest.files
+                        ],
+                        "reason": reason,
+                    }
+                )
+
             index_address = self._replace_tree(
                 root,
                 manifest,
@@ -469,22 +719,9 @@ class RemoteMemorySynchronizer:
                 file_limit=file_limit,
                 total_limit=total_limit,
                 authorization=authorization,
+                commit=commit_state,
             )
             index_path = root.joinpath(*manifest.index.parts)
-            self._write_state(
-                {
-                    "manifest_url": manifest_url,
-                    "workspace": str(workspace),
-                    "root": root.relative_to(workspace).as_posix(),
-                    "index": manifest.index.as_posix(),
-                    "index_address": index_address,
-                    "files": [
-                        {"path": item.path.as_posix(), "format": item.format}
-                        for item in manifest.files
-                    ],
-                    "reason": reason,
-                }
-            )
         except (
             json.JSONDecodeError,
             OSError,
@@ -496,6 +733,32 @@ class RemoteMemorySynchronizer:
                 runtime,
                 manifest_url,
                 f"{type(exc).__name__}: {exc}",
+            )
+        projection_detail = ""
+        try:
+            if _shared_target_has_projectable_pointer(
+                config,
+                self.state_dir,
+                workspace,
+                runtime,
+            ):
+                project_memory_pointer(
+                    workspace,
+                    runtime,
+                    index_address,
+                    str(root.resolve()),
+                )
+            else:
+                project_memory_pointer(workspace, runtime, "")
+        except (OSError, UnicodeError, ValueError) as exc:
+            projection_detail = (
+                "memory pointer projection failed: "
+                f"{type(exc).__name__}: {exc}"
+            )
+            self.log(
+                "WARN",
+                f"remote_memory_pointer_failed runtime={runtime} "
+                f"error={type(exc).__name__}: {exc}",
             )
         self.log(
             "INFO",
@@ -509,6 +772,7 @@ class RemoteMemorySynchronizer:
             index_address,
             "updated",
             len(manifest.files),
+            projection_detail,
         )
 
     def current_index_address(self) -> str:
@@ -526,14 +790,33 @@ class RemoteMemorySynchronizer:
         )
 
     def project_current_pointer(self, runtime: str) -> bool:
-        """Remove the obsolete native-file projection left by 0.2.22."""
+        """Project the verified current memory location into native instructions."""
 
-        return project_memory_pointer(self.workspace().resolve(), runtime, "")
+        config = self.load_config()
+        workspace = self.workspace().resolve()
+        if not _shared_target_has_projectable_pointer(
+            config,
+            self.state_dir,
+            workspace,
+            runtime,
+        ):
+            return project_memory_pointer(workspace, runtime, "")
+        root_address, index_address = _current_memory_addresses(
+            self.state_dir,
+            config,
+            workspace,
+        )
+        return project_memory_pointer(
+            workspace,
+            runtime,
+            index_address,
+            root_address,
+        )
 
     def _remove_legacy_pointer(self, runtime: str, workspace: Path) -> None:
         try:
             project_memory_pointer(workspace, runtime, "")
-        except (OSError, ValueError) as exc:
+        except (OSError, UnicodeError, ValueError) as exc:
             self.log(
                 "WARN",
                 f"remote_memory_legacy_pointer_cleanup_failed runtime={runtime} "
@@ -573,6 +856,7 @@ class RemoteMemorySynchronizer:
         file_limit: int,
         total_limit: int,
         authorization: str,
+        commit: Callable[[str], None],
     ) -> str:
         parent = root.parent
         parent.mkdir(parents=True, exist_ok=True)
@@ -615,12 +899,27 @@ class RemoteMemorySynchronizer:
                 if moved_previous and backup.exists() and not root.exists():
                     os.replace(backup, root)
                 raise
+            index_address = str(root.joinpath(*manifest.index.parts).resolve())
+            try:
+                commit(index_address)
+            except Exception:
+                os.replace(root, staging)
+                if moved_previous and backup.exists():
+                    os.replace(backup, root)
+                raise
             if backup.exists():
-                shutil.rmtree(backup)
+                try:
+                    shutil.rmtree(backup)
+                except OSError as exc:
+                    self.log(
+                        "WARN",
+                        "remote_memory_backup_cleanup_failed "
+                        f"path={backup} error={type(exc).__name__}: {exc}",
+                    )
         finally:
             if staging.exists():
                 shutil.rmtree(staging)
-        return str(root.joinpath(*manifest.index.parts).resolve())
+        return index_address
 
     def _state_path(self) -> Path:
         return self.state_dir / "remote-memory.json"
@@ -660,12 +959,12 @@ def sync_instruction_with_memory_pointer(
     memory_synchronizer: Callable[[], RemoteMemorySynchronizer],
     log: Callable[[str, str], Any],
 ) -> Any:
-    """Refresh native instructions and remove the obsolete file pointer."""
+    """Refresh native instructions and restore the verified memory pointer."""
 
     result = instruction_synchronizer().sync(runtime, reason=reason)
     try:
         memory_synchronizer().project_current_pointer(runtime)
-    except (OSError, ValueError) as exc:
+    except (OSError, UnicodeError, ValueError) as exc:
         log(
             "WARN",
             f"remote_memory_pointer_failed runtime={runtime} "
@@ -690,11 +989,18 @@ def sync_launch_assets(
 def sync_all_memory_pointers(
     synchronizer: RemoteMemorySynchronizer,
 ) -> list[str]:
-    """Download once and remove obsolete native-file pointers."""
+    """Download once and project the verified pointer for every runtime."""
 
     result = synchronizer.sync("codex", reason="manual")
-    for runtime in ("claude", "agy", "kimi", "grok"):
-        synchronizer.project_current_pointer(runtime)
+    for runtime in ("codex-app-server", "claude", "agy", "kimi", "grok"):
+        try:
+            synchronizer.project_current_pointer(runtime)
+        except (OSError, UnicodeError, ValueError) as exc:
+            synchronizer.log(
+                "WARN",
+                f"remote_memory_pointer_failed runtime={runtime} "
+                f"error={type(exc).__name__}: {exc}",
+            )
     if result.status == "disabled":
         return ["Remote memory is disabled."]
     detail = (
@@ -710,12 +1016,14 @@ __all__ = [
     "DEFAULT_DIRECTORY",
     "MEMORY_POINTER_BEGIN",
     "MEMORY_POINTER_END",
+    "MEMORY_REFERENCE_INSTRUCTION",
     "RemoteMemoryFile",
     "RemoteMemoryManifest",
     "RemoteMemoryResult",
     "RemoteMemorySynchronizer",
     "current_memory_index_address",
     "current_memory_prompt",
+    "current_memory_root_address",
     "inject_current_memory_prompt",
     "memory_directory",
     "move_memory_pointer_to_system_end",
@@ -726,4 +1034,5 @@ __all__ = [
     "sync_instruction_with_memory_pointer",
     "sync_launch_assets",
     "update_memory_pointer",
+    "without_memory_pointer",
 ]

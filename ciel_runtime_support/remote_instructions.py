@@ -65,6 +65,13 @@ def target_file(workspace: Path, runtime: str) -> Path:
     return workspace.resolve() / filename
 
 
+def normalized_instruction_sha256(value: str) -> str:
+    """Hash managed instruction text independently of platform line endings."""
+
+    normalized = value.replace("\r\n", "\n").replace("\r", "\n").strip()
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+
+
 @dataclass(frozen=True, slots=True)
 class RemoteInstructionResult:
     runtime: str
@@ -104,10 +111,14 @@ class RemoteInstructionSynchronizer:
             return self._failed(runtime, url, f"missing authorization environment variable: {', '.join(sorted(set(missing)))}")
         if authorization.strip():
             headers["Authorization"] = authorization.strip()
-        if state.get("etag"):
-            headers["If-None-Match"] = str(state["etag"])
-        if state.get("last_modified"):
-            headers["If-Modified-Since"] = str(state["last_modified"])
+        # States written before normalized content verification cannot safely
+        # authorize pointer projection after platform newline conversion.
+        # Refresh them without validators once so the next state is verifiable.
+        if state.get("normalized_sha256"):
+            if state.get("etag"):
+                headers["If-None-Match"] = str(state["etag"])
+            if state.get("last_modified"):
+                headers["If-Modified-Since"] = str(state["last_modified"])
         request = urllib.request.Request(url, headers=headers, method="GET")
         try:
             with self.urlopen(request, timeout=timeout) as response:
@@ -126,6 +137,7 @@ class RemoteInstructionSynchronizer:
                     "url": url,
                     "target": path.name,
                     "sha256": digest,
+                    "normalized_sha256": normalized_instruction_sha256(text),
                     "etag": str(response.headers.get("etag") or ""),
                     "last_modified": str(response.headers.get("last-modified") or ""),
                     "updated_at": self.now(),
@@ -162,14 +174,15 @@ class RemoteInstructionSynchronizer:
 
     @staticmethod
     def _write_if_changed(path: Path, text: str) -> bool:
+        raw = text.encode("utf-8")
         try:
-            if path.read_text(encoding="utf-8") == text:
+            if path.read_bytes() == raw:
                 return False
         except FileNotFoundError:
             pass
         path.parent.mkdir(parents=True, exist_ok=True)
         temporary = path.with_name(path.name + ".ciel-runtime.tmp")
-        temporary.write_text(text, encoding="utf-8")
+        temporary.write_bytes(raw)
         os.replace(temporary, path)
         return True
 
@@ -237,6 +250,7 @@ __all__ = [
     "SynchronizedLaunch",
     "configured_url",
     "expand_environment_references",
+    "normalized_instruction_sha256",
     "panel_rows",
     "settings",
     "target_file",

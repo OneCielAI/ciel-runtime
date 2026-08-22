@@ -1,0 +1,121 @@
+okf_version: "1.0"
+knowledge:
+  task:
+    id: remote-memory-root-system-prompt-20260822
+    date: "2026-08-22"
+    objective: >-
+      When remote instructions and remote memory are downloaded, append the
+      verified workspace memory root, index path, and an explicit instruction
+      to consult that memory at the end of the system context.
+
+  evidence:
+    before_change:
+      source: ciel_runtime_support/remote_memory.py
+      observed: >-
+        The managed prompt block contained only Memory index. It did not expose
+        the memory-tree root or explicitly direct the model to consult the
+        downloaded files.
+    delivery_paths:
+      observed: >-
+        Provider normalization, tool-schema compaction, protocol conversion,
+        and native instruction refresh can all run after an early injection;
+        therefore each final wire path requires a final memory projection.
+
+  implementation:
+    managed_tail:
+      fields:
+        - Memory root
+        - Memory index
+        - Memory guidance
+      guidance: >-
+        Read the memory index first and use the relevant files under the memory
+        root as context for your work.
+    placement:
+      native_files:
+        claude: CLAUDE.md
+        codex_and_codex_app_server: AGENTS.md
+        agy: GEMINI.md
+        kimi_and_grok: AGENTS.md
+      routed_protocols:
+        - Anthropic Messages
+        - OpenAI Responses
+        - OpenAI and Ollama chat
+        - Google Generative system instructions
+      invariant: >-
+        Stale blocks are removed, one current block is emitted, and that block
+        is restored at the final privileged tail after normalization and hard
+        context compaction.
+    validation:
+      memory_paths: >-
+        Root and index are emitted only when both resolve inside the recorded
+        launch workspace and the downloaded directory and index file exist.
+      native_file_ownership: >-
+        A native instruction file is modified only when its current content
+        matches the recorded remote-instruction download, either byte-for-byte
+        or after removing the managed block and normalizing line endings.
+      legacy_state_upgrade: >-
+        State records without the normalized content hash are fetched once
+        without conditional HTTP validators so Windows installations acquire a
+        verifiable state instead of trusting stale metadata.
+      transaction: >-
+        Memory tree replacement and state commit roll back together. A later
+        native-pointer write failure is reported without misreporting the
+        already committed memory download as failed.
+
+  verification:
+    status: passed
+    focused:
+      command: >-
+        python -m unittest -q test_remote_instructions test_remote_memory
+        test_remote_memory_runtime_integration
+        test_remote_instruction_compaction test_codex_turn_recovery
+      result: "79 tests run; all passed"
+    live_http:
+      result: passed
+      observation: >-
+        A loopback HTTP server delivered a multi-line CRLF instruction,
+        manifest, and nested memory tree on Windows. The instruction bytes and
+        text were preserved and the file ended with exactly one verified
+        root/index/guidance block.
+    final_wire:
+      result: passed
+      observation: >-
+        Direct Chat, Responses, native Anthropic, vLLM Anthropic, and translated
+        OpenAI/Ollama transport tests captured the final outgoing body after
+        provider policy and context compaction and found one current block at
+        the final privileged tail.
+    safety_regressions:
+      - "A stale shared AGENTS.md state does not modify a user-owned replacement."
+      - "LF and CRLF instruction content produce the same ownership digest."
+      - "LF and CRLF downloads retain their exact bytes before pointer projection."
+      - "A failed memory state commit preserves the prior tree, state, and pointer."
+      - "Memory-only configuration does not create native instruction files."
+      - "Disabling memory removes only the managed block and preserves user text."
+    full_suite:
+      total_run: 2690
+      passed: 2554
+      skipped_environment_dependent: 136
+      groups:
+        unit: "1147 run, 44 skipped"
+        router: "910 run"
+        channel: "381 run, 80 skipped"
+        runtime: "252 run, 12 skipped"
+    quality:
+      compileall: passed
+      ruff: passed
+      documentation_metadata: "passed; 22 Markdown files"
+      diff_check: passed
+      package_dry_run: "passed; 400 entries"
+
+  deployment:
+    local:
+      status: passed
+      path: C:/Users/djlov/.local/share/ciel-runtime
+      command: C:/Users/djlov/.local/bin/ciel-runtime.ps1
+      version_output: "ciel-runtime 0.2.22"
+      evidence: >-
+        Installed remote_memory.py and remote_instructions.py SHA-256 values
+        matched the tested source. Executing the installed module emitted the
+        verified root, index, guidance, and closing marker.
+    nightly:
+      mechanism: "git push origin HEAD:nightly triggers npm-publish.yml"

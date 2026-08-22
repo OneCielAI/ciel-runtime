@@ -2,8 +2,10 @@
 
 Remote Memory downloads a workspace-scoped memory tree from a separate HTTP
 manifest endpoint before an interactive runtime starts. It does not place the
-memory contents in the system prompt. Ciel adds only the verified local
-memory-index address to its managed system/developer prompt context.
+memory contents in the system prompt. Ciel appends the verified local memory
+root, memory-index address, and an instruction to consult the relevant memory
+files to the downloaded native instruction file and keeps the same managed
+block at the end of routed system/developer prompt context.
 
 ## Configure and synchronize
 
@@ -91,15 +93,21 @@ Anthropic Messages requests receive a managed prompt block like this:
 
 ```markdown
 <!-- ciel-runtime:remote-memory:begin -->
+Memory root: C:\work\project\.ciel\memory
 Memory index: C:\work\project\.ciel\memory\index.okf
+Memory guidance: Read the memory index first and use the relevant files under the memory root as context for your work.
 <!-- ciel-runtime:remote-memory:end -->
 ```
 
 The absolute address is verified to remain below the current launch workspace
-before injection. The block is inserted idempotently. Ciel does not create or append a Remote
-Memory block in the launch directory's `CLAUDE.md`, `AGENTS.md`, or `GEMINI.md`.
-During migration it removes a block previously managed by Ciel while preserving
-the rest of the user-authored file.
+before projection. When the matching Remote Instructions download has a verified
+state and native file, Ciel appends the block idempotently to that downloaded
+`CLAUDE.md`, `AGENTS.md`, or `GEMINI.md` and restores it after an instruction
+refresh. Remote Memory by itself does not create a native instruction file or
+modify an unverified user-owned file. Routed requests remove any earlier copy
+and place one verified copy at the final system/developer prompt tail. Disabling
+Remote Memory removes only the Ciel-managed block while preserving the rest of
+the instruction file.
 
 ## Safety and limits
 

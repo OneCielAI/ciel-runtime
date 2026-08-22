@@ -50,6 +50,9 @@ class ProviderOptionPorts:
     sampling_options: tuple[str, ...]
     anthropic_runtime_hints: Callable[[str], dict[str, Any]]
     log: Callable[[str, str], None]
+    finalize_messages: Callable[[list[dict[str, Any]]], list[dict[str, Any]]] = (
+        lambda messages: messages
+    )
 
 
 class ProviderRequestBuilder:
@@ -198,7 +201,7 @@ class ProviderRequestBuilder:
             configured,
             _token_cache=token_cache,
         )
-        return self.ollama.apply_optional(
+        request = self.ollama.apply_optional(
             request,
             provider,
             model,
@@ -206,6 +209,8 @@ class ProviderRequestBuilder:
             body,
             output_limit=num_predict,
         )
+        request["messages"] = self.options.finalize_messages(request["messages"])
+        return request
 
     def openai_chat(
         self,
@@ -255,7 +260,9 @@ class ProviderRequestBuilder:
         for key in ("temperature", "top_p"):
             if self.openai.sampling_allowed(provider, config) and config.get(key) is not None:
                 request[key] = config[key]
-        return self.openai.normalize_request(provider, config, request)
+        normalized = self.openai.normalize_request(provider, config, request)
+        normalized["messages"] = self.options.finalize_messages(normalized["messages"])
+        return normalized
 
 
 @dataclass(frozen=True, slots=True)

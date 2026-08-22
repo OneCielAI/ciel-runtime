@@ -244,7 +244,7 @@ from ciel_runtime_support.prompt_injection import normalize_anthropic_system_rol
 from ciel_runtime_support.prompt_injection import normalize_anthropic_system_role_messages_by_strategy as project_normalize_anthropic_system_role_messages_by_strategy
 from ciel_runtime_support.remote_instructions import RemoteInstructionResult, RemoteInstructionSynchronizer, SynchronizedLaunch
 from ciel_runtime_support.remote_instructions import panel_rows as project_remote_instruction_panel_rows
-from ciel_runtime_support.remote_memory import RemoteMemoryResult, RemoteMemorySynchronizer, current_memory_prompt as project_current_memory_prompt, inject_current_memory_prompt as project_inject_current_memory_prompt, move_memory_pointer_to_system_end as project_move_memory_pointer_to_system_end, sync_all_memory_pointers as project_sync_all_memory_pointers, sync_instruction_with_memory_pointer as project_sync_instruction_with_memory_pointer, sync_launch_assets as project_sync_launch_assets
+from ciel_runtime_support.remote_memory import RemoteMemoryResult, RemoteMemorySynchronizer, current_memory_prompt as project_current_memory_prompt, inject_current_memory_prompt as project_inject_current_memory_prompt, move_memory_pointer_to_system_end as project_move_memory_pointer_to_system_end, sync_all_memory_pointers as project_sync_all_memory_pointers, sync_instruction_with_memory_pointer as project_sync_instruction_with_memory_pointer, sync_launch_assets as project_sync_launch_assets, without_memory_pointer as project_without_memory_pointer
 from ciel_runtime_support.protocols import PROTOCOL_ADAPTERS
 from ciel_runtime_support.protocols.anthropic_content import content_to_text as anthropic_content_to_text
 from ciel_runtime_support.protocols.anthropic_thinking_policy import AnthropicThinkingPolicy, SuppressedThinkingRepository, ThinkingPolicyPorts
@@ -1947,14 +1947,13 @@ def set_external_event_config(key: str, value: Any) -> list[str]:
     ]
 
 def remote_instruction_synchronizer() -> RemoteInstructionSynchronizer: return RemoteInstructionSynchronizer(load_config=load_config, workspace=lambda: Path(ROUTER_WORKSPACE), state_dir=WORKSPACE_STATE_DIR, log=router_log)
-
 def remote_memory_synchronizer() -> RemoteMemorySynchronizer: return RemoteMemorySynchronizer(load_config=load_config, workspace=lambda: Path(ROUTER_WORKSPACE), state_dir=WORKSPACE_STATE_DIR, log=router_log)
 def body_with_remote_memory_prompt(body: dict[str, Any], protocol: MessageProtocol) -> dict[str, Any]: return project_inject_current_memory_prompt(body, protocol, WORKSPACE_STATE_DIR, load_config(), Path(ROUTER_WORKSPACE))
+def finalized_anthropic_upstream_body(body: dict[str, Any]) -> dict[str, Any]: return body_without_ciel_runtime_internal_metadata(body_with_remote_memory_prompt(body, "anthropic_messages"))
 def sync_remote_instruction(runtime: str, *, reason: str) -> RemoteInstructionResult: return project_sync_instruction_with_memory_pointer(runtime, reason=reason, instruction_synchronizer=remote_instruction_synchronizer, memory_synchronizer=remote_memory_synchronizer, log=router_log)
 def sync_remote_memory(runtime: str, *, reason: str) -> RemoteMemoryResult: return remote_memory_synchronizer().sync(runtime, reason=reason)
 def sync_remote_launch_assets(runtime: str, *, reason: str) -> RemoteMemoryResult: return project_sync_launch_assets(runtime, reason=reason, instruction_sync=sync_remote_instruction, memory_sync=sync_remote_memory)
 def sync_all_remote_memories() -> list[str]: return project_sync_all_memory_pointers(remote_memory_synchronizer())
-
 def remote_instruction_panel_rows(cfg: dict[str, Any]) -> tuple[list[str], list[str]]:
     return project_remote_instruction_panel_rows(cfg)
 
@@ -2007,7 +2006,7 @@ def _latest_remote_instruction(runtime: str, *, reason: str) -> str:
     if path is None or not path.is_file():
         return ""
     try:
-        return path.read_text(encoding="utf-8").strip()
+        return project_without_memory_pointer(path.read_text(encoding="utf-8"))
     except OSError as exc:
         router_log("WARN", f"remote_instructions_read_failed runtime={runtime} error={type(exc).__name__}: {exc}")
         return ""
@@ -2048,7 +2047,7 @@ def _refresh_anthropic_compact_body(body: dict[str, Any], runtime: str = "claude
         _without_remote_instruction_blocks(body.get("system")),
         [_with_latest_instruction_text("", instruction)],
     )
-    return updated
+    return body_with_remote_memory_prompt(updated, "anthropic_messages")
 
 def _refresh_chat_compact_messages(messages: list[dict[str, Any]], runtime: str = "claude") -> list[dict[str, Any]]:
     instruction = _latest_remote_instruction(runtime, reason="pre-compact")
@@ -2058,15 +2057,17 @@ def _refresh_chat_compact_messages(messages: list[dict[str, Any]], runtime: str 
     for message in updated:
         if str(message.get("role") or "") == "system" and isinstance(message.get("content"), str):
             message["content"] = _with_latest_instruction_text(message.get("content"), instruction)
-            return updated
-    return [{"role": "system", "content": _with_latest_instruction_text("", instruction)}, *updated]
+            break
+    else:
+        updated = [{"role": "system", "content": _with_latest_instruction_text("", instruction)}, *updated]
+    return project_move_memory_pointer_to_system_end(updated, project_current_memory_prompt(WORKSPACE_STATE_DIR, load_config(), Path(ROUTER_WORKSPACE)))
 
 def compact_responses_with_remote_instruction(body: dict[str, Any], budget: int, **kwargs: Any) -> dict[str, Any]:
     instruction = _latest_remote_instruction("codex", reason="pre-compact")
     updated = dict(body)
     if instruction:
         updated["instructions"] = _with_latest_instruction_text(body.get("instructions"), instruction)
-    return run_responses_prompt_compaction(updated, budget, services=prompt_compaction_services(), **kwargs)
+    return body_with_remote_memory_prompt(run_responses_prompt_compaction(updated, budget, services=prompt_compaction_services(), **kwargs), "openai_responses")
 
 def _channel_compact_request_ttl_seconds() -> float: return compact_request_ttl(os.environ.get('CIEL_RUNTIME_CHANNEL_COMPACT_REQUEST_TTL_SECONDS'))
 
@@ -2535,7 +2536,7 @@ def provider_request_builder() -> ProviderRequestBuilder:
             sampling_allowed=lambda provider, config: configured_provider_adapter(provider, config).allows_sampling_overrides(provider_contract_config(provider, config)),
             omit_tool_choice=should_omit_openai_chat_tool_choice, tool_choice=anthropic_tool_choice_to_openai, normalize_request=apply_provider_adapter_request_policy,
         ),
-        ProviderOptionPorts(frozenset(PROVIDER_SAMPLING_OPTION_PROVIDERS), tuple(PROVIDER_SAMPLING_OPTIONS), anthropic_model_runtime_hints, router_log),
+        ProviderOptionPorts(frozenset(PROVIDER_SAMPLING_OPTION_PROVIDERS), tuple(PROVIDER_SAMPLING_OPTIONS), anthropic_model_runtime_hints, router_log, lambda messages: project_move_memory_pointer_to_system_end(messages, project_current_memory_prompt(WORKSPACE_STATE_DIR, load_config(), Path(ROUTER_WORKSPACE)))),
     )
 
 _PROVIDER_REQUEST_API = ProviderRequestCompatibilityApi(provider_request_builder)
@@ -2844,7 +2845,7 @@ def response_collection_context() -> ResponseCollectionContext:
         anthropic=AnthropicCollectionServices(
             request=AnthropicCollectionRequest(normalize_thinking_for_non_anthropic_provider, normalize_anthropic_system_role_messages_for_provider, cap_anthropic_body_for_provider,
                                                apply_provider_request_options, rehydrate_suppressed_thinking_passback, resolve_requested_model, provider_upstream_model,
-                                               resolve_tool_model_references, normalize_anthropic_model_request_options, body_without_ciel_runtime_internal_metadata),
+                                               resolve_tool_model_references, normalize_anthropic_model_request_options, finalized_anthropic_upstream_body),
             transport=AnthropicCollectionTransport(provider_native_compat_enabled, native_anthropic_base_url, provider_upstream_request_base, join_url, upstream_messages_query,
                                                    provider_headers, apply_router_rate_limit, open_provider_request_with_key_retry, provider_request_timeout_seconds),
             projection=AnthropicCollectionProjection(normalize_response_thinking_for_non_anthropic_provider, append_synthetic_tasklist_to_message,
@@ -2882,7 +2883,8 @@ def codex_backend_context() -> CodexBackendContext:
         provider_projection=ProviderPassthroughProjectionPorts(provider_headers, lambda *args, **kwargs: provider_chat_headers(*args, **kwargs),
                                                                 lambda *args, **kwargs: provider_responses_headers(*args, **kwargs),
                                                                 provider_upstream_model, resolve_requested_model, apply_provider_adapter_request_policy,
-                                                                lambda provider, pcfg: configured_provider_adapter(provider, pcfg).responses_request_max_bytes(provider_contract_config(provider, pcfg))),
+                                                                lambda provider, pcfg: configured_provider_adapter(provider, pcfg).responses_request_max_bytes(provider_contract_config(provider, pcfg)),
+                                                                lambda body: body_with_remote_memory_prompt(body, "openai_chat"), lambda body: body_with_remote_memory_prompt(body, "openai_responses")),
         provider_transport=ProviderPassthroughTransportPorts(provider_upstream_request_base, join_url, provider_urlopen,
                                                              provider_request_timeout_seconds,
                                                              lambda *args, **kwargs: _copy_upstream_response_headers(*args, **kwargs), write_router_activity),
@@ -2898,8 +2900,7 @@ codex_backend_http_adapter = _CODEX_BACKEND_API.backend_adapter
 provider_responses_headers = _CODEX_BACKEND_API.provider_responses_headers
 provider_chat_headers = _CODEX_BACKEND_API.provider_chat_headers
 provider_chat_passthrough = _CODEX_BACKEND_API.chat_passthrough
-_forward_provider_chat_without_memory = _CODEX_BACKEND_API.forward_provider_chat
-def forward_provider_chat(handler: Any, provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> Any: return _forward_provider_chat_without_memory(handler, provider, pcfg, body_with_remote_memory_prompt(body, "openai_chat"))
+forward_provider_chat = _CODEX_BACKEND_API.forward_provider_chat
 provider_responses_passthrough = _CODEX_BACKEND_API.responses_passthrough
 forward_provider_responses = _CODEX_BACKEND_API.forward_provider_responses
 codex_backend_upstream_url = _CODEX_BACKEND_API.upstream_url
@@ -2909,8 +2910,8 @@ forward_codex_backend_get = _CODEX_BACKEND_API.forward_get
 forward_codex_responses = _CODEX_BACKEND_API.forward_responses
 
 def body_with_codex_compat_instructions(cfg: dict[str, Any], provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> dict[str, Any]:
-    body = body_with_remote_memory_prompt(body, "openai_responses")
-    return codex_turn_recovery.body_with_codex_compat_instructions(body, ROUTED_CODEX_COMPAT_PROMPT, is_native_codex=codex_routed_enabled(provider, pcfg), compat_enabled=should_append_compat_prompt(provider, pcfg, cfg))
+    body = codex_turn_recovery.body_with_codex_compat_instructions(body, ROUTED_CODEX_COMPAT_PROMPT, is_native_codex=codex_routed_enabled(provider, pcfg), compat_enabled=should_append_compat_prompt(provider, pcfg, cfg))
+    return body_with_remote_memory_prompt(body, "openai_responses")
 
 def _codex_turn_recovery_services() -> codex_turn_recovery.CodexTurnRecoveryServices:
     return codex_turn_recovery.CodexTurnRecoveryServices(should_retry=should_retry_preamble_only_turn, collect_message=collect_provider_message_for_responses, log=router_log)
@@ -2942,7 +2943,7 @@ def _router_request_context() -> RouterRequestContext:
         assembly.ClaudeRouterRoutingPorts(forward_ollama_api_chat, forward_openai_compatible_chat, select_provider_protocol, provider_request_policy, resolve_requested_model, PROVIDER_LABELS, write_json),
         assembly.ClaudeRouterNormalizationPorts(normalize_request_for_provider_wire, normalize_thinking_for_non_anthropic_provider, normalize_anthropic_system_role_messages_for_provider,
                                                 cap_anthropic_body_for_provider, apply_provider_request_options, rehydrate_suppressed_thinking_passback, ncp_model_id_for_nvidia_hosted,
-                                                resolve_tool_model_references, normalize_anthropic_model_request_options, body_without_ciel_runtime_internal_metadata),
+                                                resolve_tool_model_references, normalize_anthropic_model_request_options, finalized_anthropic_upstream_body),
         assembly.ClaudeRouterTransportPorts(native_anthropic_base_url, provider_native_compat_enabled, provider_upstream_request_base, join_url, upstream_messages_query,
                                             provider_headers, apply_router_rate_limit, open_provider_request_with_key_retry, provider_request_timeout_seconds, provider_stream_idle_timeout_seconds),
         assembly.ClaudeRouterResponsePorts(_rebatch_anthropic_sse_text, preserves_anthropic_thinking_contract, should_normalize_anthropic_stream_tool_use,

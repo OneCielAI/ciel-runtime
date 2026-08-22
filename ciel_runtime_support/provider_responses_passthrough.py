@@ -44,6 +44,7 @@ class ProviderResponsesPassthroughPorts:
     compact_responses: Callable[..., dict[str, Any]] = (
         lambda body, _budget, **_kwargs: body
     )
+    finalize_body: Callable[[dict[str, Any]], dict[str, Any]] = lambda body: body
 
 
 class ProviderResponsesPassthrough:
@@ -65,6 +66,7 @@ class ProviderResponsesPassthrough:
         upstream_body["model"] = self._ports.normalize_model(
             provider, config, str(body.get("model") or "")
         )
+        upstream_body = self._ports.finalize_body(upstream_body)
         data = self._encode(upstream_body)
         url = self._ports.join_url(
             self._ports.upstream_base(provider, config),
@@ -127,6 +129,7 @@ class ProviderResponsesPassthrough:
                 provider=provider,
                 model=str(current.get("model") or ""),
             )
+            compacted = self._ports.finalize_body(compacted)
             compacted_data = self._encode(compacted)
             self._ports.log(
                 "WARN",
@@ -280,6 +283,7 @@ class ProviderResponsesPassthrough:
         upstream_body, delivery_body = self._ports.project_channel_context(
             upstream_body
         )
+        upstream_body = self._ports.finalize_body(upstream_body)
         self._ports.begin_channel_delivery(handler, delivery_body)
         url = self._ports.join_url(
             self._ports.upstream_base(provider, config),

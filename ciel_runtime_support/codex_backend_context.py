@@ -67,6 +67,8 @@ class ProviderPassthroughProjectionPorts:
     responses_request_max_bytes: Callable[[str, dict[str, Any]], int | None] = (
         lambda _provider, _config: None
     )
+    finalize_chat: Callable[[dict[str, Any]], dict[str, Any]] = lambda body: body
+    finalize_responses: Callable[[dict[str, Any]], dict[str, Any]] = lambda body: body
 
 
 @dataclass(frozen=True, slots=True)
@@ -249,6 +251,7 @@ class CodexBackendContext:
                 urlopen=self.provider_transport.urlopen,
                 timeout_seconds=self.provider_transport.timeout_seconds,
                 copy_response_headers=self.provider_transport.copy_response_headers,
+                finalize_body=self.provider_projection.finalize_chat,
             )
         )
 
@@ -279,6 +282,7 @@ class CodexBackendContext:
                 request_max_bytes=self.provider_projection.responses_request_max_bytes,
                 estimate_tokens=self.replay.estimate_tokens,
                 compact_responses=self.replay.compact_responses,
+                finalize_body=self.provider_projection.finalize_responses,
             )
         )
 

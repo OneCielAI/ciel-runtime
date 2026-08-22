@@ -273,8 +273,13 @@ ciel-runtimectl remote-memory enabled=true \
 
 manifest는 인덱스 상대경로, 폴더 구조를 나타내는 파일 상대경로, 각 파일의 다운로드
 URL과 포맷을 제공한다. 지원 포맷은 OKF, Markdown, JSON, YAML, TOML, 일반 텍스트다.
-동기화 후 실제 메모리 내용 대신 `Memory index: .ciel/memory/<index>` 한 줄만
-`CLAUDE.md`, `AGENTS.md`, `GEMINI.md` 하단의 관리 블록에 추가한다.
+동기화 후 실제 메모리 내용 전체를 프롬프트에 넣지 않는다. 대신 검증된 메모리 루트와
+인덱스의 절대경로, 그리고 인덱스부터 읽고 관련 메모리 파일을 참조하라는 지시를 최종
+wire 시스템/개발자 문맥 하단의 관리 블록에 추가한다. 같은 블록을 원격으로 내려받은
+`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`의 마지막에도 기록하여 라우터를 우회하는
+네이티브 CLI 실행에서도 동일하게 참조할 수 있게 한다. Remote Instructions의 성공
+상태와 해당 다운로드 파일이 확인된 경우에만 네이티브 파일을 갱신하며, Remote Memory
+단독 설정으로 지시 파일을 새로 만들거나 확인되지 않은 사용자 파일을 변경하지 않는다.
 
 계약, 제한, 예시는 [Remote Memory](Remote-Memory.md)를 참고한다.
 

@@ -18,6 +18,7 @@ class OpenAIChatPassthroughPorts:
     urlopen: Callable[..., Any]
     timeout_seconds: Callable[[dict[str, Any]], float]
     copy_response_headers: Callable[[Any, Any], None]
+    finalize_body: Callable[[dict[str, Any]], dict[str, Any]] = lambda body: body
 
 
 class OpenAIChatPassthrough:
@@ -40,6 +41,7 @@ class OpenAIChatPassthrough:
         upstream_body = dict(
             self._ports.normalize_request(provider, config, upstream_body)
         )
+        upstream_body = self._ports.finalize_body(upstream_body)
         url = self._ports.join_url(
             self._ports.upstream_base(provider, config),
             "/v1/chat/completions",

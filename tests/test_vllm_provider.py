@@ -1,4 +1,6 @@
 import json
+from pathlib import Path
+import tempfile
 import unittest
 from unittest import mock
 
@@ -113,10 +115,29 @@ class VllmProviderTests(unittest.TestCase):
         )
 
     def test_vllm_native_router_normalizes_system_role_before_upstream(self):
+        memory_temp = tempfile.TemporaryDirectory()
+        self.addCleanup(memory_temp.cleanup)
+        workspace = Path(memory_temp.name) / "workspace"
+        state = Path(memory_temp.name) / "state"
+        index = workspace / ".ciel" / "memory" / "index.md"
+        index.parent.mkdir(parents=True)
+        index.write_text("# memory\n", encoding="utf-8")
+        state.mkdir()
+        (state / "remote-memory.json").write_text(
+            json.dumps(
+                {
+                    "workspace": str(workspace.resolve()),
+                    "root": ".ciel/memory",
+                    "index": "index.md",
+                }
+            ),
+            encoding="utf-8",
+        )
         cfg = {
             "current_provider": "vllm",
             "providers": {"vllm": dict(ciel_runtime.DEFAULT_CONFIG["providers"]["vllm"])},
             "router_debug_message_preview_chars": 0,
+            "remote_memory": {"enabled": True},
         }
         pcfg = cfg["providers"]["vllm"]
         pcfg["base_url"] = "http://vllm.local:8000"
@@ -145,8 +166,24 @@ class VllmProviderTests(unittest.TestCase):
             captured["body"] = json.loads(data.decode("utf-8"))
             return mock.Mock()
 
+        def append_late_cap_context(_provider, _pcfg, body):
+            projected = dict(body)
+            projected["system"] = ciel_runtime.append_anthropic_system_texts(
+                body.get("system"),
+                ["LATE_PROVIDER_CAP_CONTEXT"],
+            )
+            return projected
+
         with (
             mock.patch.object(ciel_runtime, "load_config", return_value=cfg),
+            mock.patch.multiple(
+                ciel_runtime,
+                WORKSPACE_STATE_DIR=state,
+                ROUTER_WORKSPACE=str(workspace),
+                cap_anthropic_body_for_provider=mock.Mock(
+                    side_effect=append_late_cap_context
+                ),
+            ),
             mock.patch.object(ciel_runtime, "reject_external_router_request", return_value=False),
             mock.patch.object(ciel_runtime, "handle_llm_config_post", return_value=False),
             mock.patch.object(ciel_runtime, "handle_channel_mcp_post", return_value=False),
@@ -181,6 +218,14 @@ class VllmProviderTests(unittest.TestCase):
         system_text = ciel_runtime.anthropic_content_to_text(upstream_body["system"])
         self.assertIn("Original system", system_text)
         self.assertIn("Runtime state", system_text)
+        self.assertIn("LATE_PROVIDER_CAP_CONTEXT", system_text)
+        self.assertEqual(1, system_text.count("ciel-runtime:remote-memory:begin"))
+        self.assertIn(f"Memory root: {index.parent.resolve()}", system_text)
+        self.assertTrue(
+            upstream_body["system"][-1]["text"].endswith(
+                "<!-- ciel-runtime:remote-memory:end -->"
+            )
+        )
 
     def test_set_base_url_autodetects_openai_only_endpoint(self):
         cfg = {

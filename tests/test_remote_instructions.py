@@ -1,4 +1,5 @@
 import io
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -9,6 +10,7 @@ from ciel_runtime_support.remote_instructions import (
     RemoteInstructionSynchronizer,
     SynchronizedLaunch,
     expand_environment_references,
+    normalized_instruction_sha256,
     panel_rows,
 )
 
@@ -62,6 +64,89 @@ class RemoteInstructionTests(unittest.TestCase):
             self.assertEqual("updated", result.status)
             self.assertEqual("# Managed instructions\n", (root / "workspace" / "AGENTS.md").read_text(encoding="utf-8"))
             self.assertEqual("Bearer secret-token", requests[0].get_header("Authorization"))
+            state = json.loads(
+                (root / "state" / "remote-instructions-codex.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertEqual(
+                normalized_instruction_sha256("# Managed instructions\n"),
+                state["normalized_sha256"],
+            )
+
+    def test_normalized_instruction_sha_is_platform_line_ending_independent(self):
+        self.assertEqual(
+            normalized_instruction_sha256("# First\n\nSecond\n"),
+            normalized_instruction_sha256("# First\r\n\r\nSecond\r\n"),
+        )
+
+    def test_instruction_sync_preserves_lf_and_crlf_download_bytes(self):
+        for label, body in (
+            ("lf", b"# First\n\nSecond\n"),
+            ("crlf", b"# First\r\n\r\nSecond\r\n"),
+        ):
+            with self.subTest(line_endings=label), tempfile.TemporaryDirectory() as td:
+                root = Path(td)
+                config = {
+                    "remote_instructions": {
+                        "enabled": True,
+                        "codex_url": "https://config.example/agents",
+                    }
+                }
+
+                result = self._service(
+                    root,
+                    config,
+                    lambda *_args, **_kwargs: _Response(body),
+                ).sync("codex")
+
+                self.assertEqual("updated", result.status)
+                self.assertEqual(body, (root / "workspace" / "AGENTS.md").read_bytes())
+
+    def test_legacy_state_is_refreshed_without_conditional_headers(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            state_dir = root / "state"
+            state_dir.mkdir()
+            (state_dir / "remote-instructions-codex.json").write_text(
+                json.dumps(
+                    {
+                        "url": "https://config.example/agents",
+                        "target": "AGENTS.md",
+                        "sha256": "legacy-download-digest",
+                        "etag": '"legacy"',
+                        "last_modified": "Sat, 22 Aug 2026 00:00:00 GMT",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            requests = []
+
+            def opener(request, **_kwargs):
+                requests.append(request)
+                return _Response(b"# First\n\nSecond\n", headers={"etag": '"new"'})
+
+            config = {
+                "remote_instructions": {
+                    "enabled": True,
+                    "codex_url": "https://config.example/agents",
+                }
+            }
+
+            result = self._service(root, config, opener).sync("codex")
+
+            self.assertEqual("updated", result.status)
+            self.assertIsNone(requests[0].get_header("If-None-Match"))
+            self.assertIsNone(requests[0].get_header("If-Modified-Since"))
+            refreshed = json.loads(
+                (state_dir / "remote-instructions-codex.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertEqual(
+                normalized_instruction_sha256("# First\n\nSecond\n"),
+                refreshed["normalized_sha256"],
+            )
 
     def test_missing_authorization_environment_variable_fails_before_request(self):
         with tempfile.TemporaryDirectory() as td:
