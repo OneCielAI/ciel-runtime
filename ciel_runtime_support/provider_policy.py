@@ -72,6 +72,7 @@ class ProviderRequestServices:
     normalize_tool_choice_for_provider: Callable[..., Any]
     provider_wire_profile: Callable[..., Any]
     sanitize_assistant_pseudo_tool_text_history: Callable[..., Any]
+    sanitize_invalid_anthropic_tool_history: Callable[..., Any]
 
 
 def normalize_provider_request(provider: str, pcfg: dict[str, Any], body: dict[str, Any],
@@ -87,10 +88,12 @@ def normalize_provider_request(provider: str, pcfg: dict[str, Any], body: dict[s
     normalize_tool_choice_for_provider = services.normalize_tool_choice_for_provider
     provider_wire_profile = services.provider_wire_profile
     sanitize_assistant_pseudo_tool_text_history = services.sanitize_assistant_pseudo_tool_text_history
+    sanitize_invalid_anthropic_tool_history = services.sanitize_invalid_anthropic_tool_history
     profile = provider_wire_profile(provider, pcfg, body)
     out = normalize_thinking_for_non_anthropic_provider(provider, pcfg, body)
     out = apply_provider_adapter_request_policy(provider, pcfg, out)
     out = normalize_tool_choice_for_provider(provider, pcfg, out)
+    out = sanitize_invalid_anthropic_tool_history(out)
     out = sanitize_assistant_pseudo_tool_text_history(out)
     out = normalize_anthropic_tool_turns_for_provider(provider, pcfg, out)
     if profile.get("upstream_format") == "anthropic-messages":

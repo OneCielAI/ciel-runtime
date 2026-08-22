@@ -1,0 +1,89 @@
+okf_version: "1.0"
+knowledge:
+  task:
+    id: delluhiold-claude-compaction-empty-tool-name-20260822
+    date: "2026-08-22"
+    objective: >-
+      Diagnose and repair the Claude /compact 400 error in the ai-net
+      workspace on delluhiold without attributing an unverified cause.
+
+  remote_evidence:
+    host: delluhiold
+    user: oneciel
+    workspace: /home/oneciel/ai-net
+    transcript: >-
+      /home/oneciel/.claude/projects/-home-oneciel-ai-net/
+      bd9b33a6-2be4-46ac-81bc-2bd5c5eed995.jsonl
+    transcript_scan:
+      lines: 42279
+      malformed_json_lines: 0
+      tool_use_blocks: 9005
+      invalid_empty_name_blocks: 3
+      invalid_lines:
+        - line: 42224
+          timestamp: "2026-08-22T05:21:37.787Z"
+          model: qwen3.8-max
+          tool_use_id: toolu_53d6b073b4cd405183a039cf
+          raw_arguments: "}"
+        - line: 42246
+          timestamp: "2026-08-22T05:36:06.176Z"
+          model: qwen3.8-max
+          tool_use_id: toolu_114f0f73eed54a8da8bda2f3
+          raw_arguments: ""
+        - line: 42248
+          timestamp: "2026-08-22T05:46:14.643Z"
+          model: qwen3.8-max
+          tool_use_id: toolu_0275f15ac8214d95be41982e
+          raw_arguments: "}"
+      paired_results: >-
+        Each invalid block is followed by a tool_result containing
+        "No such tool available" for the same tool_use_id.
+
+  endpoint_evidence:
+    configured_provider: alitoken
+    configured_base_url: >-
+      https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1
+    native_compat: true
+    resolved_claude_base_url: >-
+      https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic
+    resolved_messages_url: >-
+      https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic/v1/messages
+    conclusion: >-
+      Claude used the native Anthropic endpoint. The earlier OpenAI endpoint
+      attribution contradicted the provider configuration and source and was
+      withdrawn.
+
+  chronology:
+    corrupt_records_created_utc: "2026-08-22T05:21:37Z..2026-08-22T05:46:14Z"
+    current_nightly_installed_utc: "2026-08-22T06:06:04Z"
+    current_version: 0.2.22-nightly.20260822-030054.b70a228
+    current_output_reproduction: >-
+      Feeding the same empty-name Anthropic SSE block to the current runtime
+      emits no tool_use and downgrades the malformed tool_use stop to end_turn.
+    remaining_failure_before_patch: >-
+      The three historical invalid blocks remain in the resumed transcript and
+      are revalidated by compaction.
+
+  implementation:
+    file: ciel_runtime_support/anthropic_tool_turns.py
+    behavior: >-
+      Before provider-wire normalization, remove only assistant tool_use blocks
+      whose names are empty or whitespace and user tool_result blocks that
+      explicitly reference those invalid IDs. Preserve valid, unmatched, and
+      unrelated history.
+    pipeline: ciel_runtime_support/provider_policy.py
+    scope: all Anthropic Messages requests, including native Anthropic providers
+
+  verification:
+    focused_provider_wire_tests: "7 passed"
+    alibaba_provider_tests: "31 passed"
+    architecture_contract_tests: "261 passed, 42 skipped"
+    full_test_groups:
+      unit: "1129 passed, 44 skipped"
+      router: "907 passed"
+      channel: "381 passed, 80 skipped"
+      runtime: "252 passed, 12 skipped"
+      aggregate: "2669 passed, 136 skipped"
+    ruff: passed
+    diff_check: passed
+    deployment_status: pending

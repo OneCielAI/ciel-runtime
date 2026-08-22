@@ -12,6 +12,80 @@ class AnthropicToolTurnServices:
     log: Callable[[str, str], Any]
 
 
+def sanitize_invalid_anthropic_tool_history(
+    body: dict[str, Any],
+    services: AnthropicToolTurnServices,
+) -> dict[str, Any]:
+    """Remove schema-invalid tool uses and only their paired results.
+
+    Provider-native compaction validates retained messages again.  A historical
+    assistant tool block with an empty name therefore makes every later
+    compaction fail, even when the current runtime no longer emits that block.
+    Preserve valid and unmatched history; remove only invalid tool blocks and
+    results that explicitly reference their IDs.
+    """
+    messages = body.get("messages")
+    if not isinstance(messages, list):
+        return body
+
+    invalid_ids = {
+        str(block.get("id") or "")
+        for message in messages
+        if isinstance(message, dict)
+        and str(message.get("role") or "") == "assistant"
+        for block in _content_blocks(message)
+        if isinstance(block, dict)
+        and block.get("type") == "tool_use"
+        and not str(block.get("name") or "").strip()
+        and str(block.get("id") or "")
+    }
+    invalid_uses = 0
+    invalid_results = 0
+    normalized_messages: list[Any] = []
+    for message in messages:
+        if not isinstance(message, dict) or not isinstance(message.get("content"), list):
+            normalized_messages.append(message)
+            continue
+        role = str(message.get("role") or "")
+        next_content: list[Any] = []
+        content_changed = False
+        for block in message["content"]:
+            if (
+                role == "assistant"
+                and isinstance(block, dict)
+                and block.get("type") == "tool_use"
+                and not str(block.get("name") or "").strip()
+            ):
+                invalid_uses += 1
+                content_changed = True
+                continue
+            if (
+                role == "user"
+                and isinstance(block, dict)
+                and block.get("type") == "tool_result"
+                and str(block.get("tool_use_id") or "") in invalid_ids
+            ):
+                invalid_results += 1
+                content_changed = True
+                continue
+            next_content.append(block)
+        if not content_changed:
+            normalized_messages.append(message)
+        elif next_content:
+            normalized_messages.append(_with_content(message, next_content))
+
+    if not invalid_uses and not invalid_results:
+        return body
+    out = dict(body)
+    out["messages"] = normalized_messages
+    services.log(
+        "WARN",
+        "discarded schema-invalid historical Anthropic tool blocks "
+        f"tool_uses={invalid_uses} tool_results={invalid_results}",
+    )
+    return out
+
+
 def normalize_historical_anthropic_tool_turns(
     provider: str,
     body: dict[str, Any],
@@ -133,3 +207,10 @@ def _with_content(message: dict[str, Any], content: list[Any]) -> dict[str, Any]
     updated = dict(message)
     updated["content"] = content
     return updated
+
+
+__all__ = [
+    "AnthropicToolTurnServices",
+    "normalize_historical_anthropic_tool_turns",
+    "sanitize_invalid_anthropic_tool_history",
+]

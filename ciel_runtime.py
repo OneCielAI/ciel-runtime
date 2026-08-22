@@ -45,7 +45,7 @@ from ciel_runtime_support.agy_installer import AgyInstaller
 from ciel_runtime_support.anthropic_response_writer import AnthropicResponseWriter
 from ciel_runtime_support.anthropic_response_writer import anthropic_text_response as project_anthropic_text_response
 from ciel_runtime_support.anthropic_response_writer import prepend_anthropic_text as project_prepend_anthropic_text
-from ciel_runtime_support.anthropic_tool_turns import AnthropicToolTurnServices, normalize_historical_anthropic_tool_turns
+from ciel_runtime_support.anthropic_tool_turns import AnthropicToolTurnServices, normalize_historical_anthropic_tool_turns, sanitize_invalid_anthropic_tool_history
 from ciel_runtime_support.api_key_cooldown import API_KEY_COOLDOWN_DEFAULT_SECONDS  # noqa: F401 - compatibility export
 from ciel_runtime_support.api_key_cooldown import API_KEY_COOLDOWN_MAX_SECONDS  # noqa: F401 - compatibility export
 from ciel_runtime_support.api_key_cooldown import RATE_LIMIT_RESET_HEADER_NAMES as _RATE_LIMIT_RESET_HEADER_NAMES  # noqa: F401 - compatibility export
@@ -2305,7 +2305,7 @@ def normalize_request_for_provider_wire(provider: str, pcfg: dict[str, Any], bod
             normalize_thinking_for_non_anthropic_provider=normalize_thinking_for_non_anthropic_provider,
             normalize_tool_choice_for_provider=normalize_tool_choice_for_provider,
             provider_wire_profile=provider_wire_profile,
-            sanitize_assistant_pseudo_tool_text_history=sanitize_assistant_pseudo_tool_text_history
+            sanitize_assistant_pseudo_tool_text_history=sanitize_assistant_pseudo_tool_text_history, sanitize_invalid_anthropic_tool_history=lambda body: sanitize_invalid_anthropic_tool_history(body, AnthropicToolTurnServices(log=router_log))
         ),
     )
 

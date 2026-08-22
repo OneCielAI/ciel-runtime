@@ -155,6 +155,90 @@ class ProviderWireNormalizationTests(unittest.TestCase):
         self.assertIs(out, body)
         self.assertEqual("tool_use", out["messages"][0]["content"][0]["type"])
 
+    def test_anthropic_wire_discards_empty_name_tool_history_and_paired_results(self):
+        pcfg = copy.deepcopy(ciel_runtime.DEFAULT_CONFIG["providers"]["anthropic"])
+        body = {
+            "model": "claude-opus-4-6",
+            "messages": [
+                {
+                    "role": "assistant",
+                    "content": [
+                        {"type": "text", "text": "continuing"},
+                        {
+                            "type": "tool_use",
+                            "id": "toolu_bad_1",
+                            "name": "",
+                            "input": {"raw_arguments": "}"},
+                        },
+                    ],
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": "toolu_bad_1",
+                            "is_error": True,
+                            "content": "No such tool available",
+                        }
+                    ],
+                },
+                {
+                    "role": "assistant",
+                    "content": [
+                        {
+                            "type": "tool_use",
+                            "id": "toolu_bad_2",
+                            "name": "   ",
+                            "input": {"raw_arguments": ""},
+                        }
+                    ],
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": "toolu_bad_2",
+                            "is_error": True,
+                            "content": "No such tool available",
+                        }
+                    ],
+                },
+                {
+                    "role": "assistant",
+                    "content": [
+                        {
+                            "type": "tool_use",
+                            "id": "toolu_valid",
+                            "name": "Bash",
+                            "input": {"command": "pwd"},
+                        }
+                    ],
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": "toolu_valid",
+                            "content": "workspace",
+                        }
+                    ],
+                },
+            ],
+        }
+
+        out = ciel_runtime.normalize_request_for_provider_wire("anthropic", pcfg, body)
+
+        serialized = str(out["messages"])
+        self.assertNotIn("toolu_bad_1", serialized)
+        self.assertNotIn("toolu_bad_2", serialized)
+        self.assertNotIn("No such tool available", serialized)
+        self.assertIn("continuing", serialized)
+        self.assertIn("toolu_valid", serialized)
+        self.assertIn("workspace", serialized)
+
 
 if __name__ == "__main__":
     unittest.main()
