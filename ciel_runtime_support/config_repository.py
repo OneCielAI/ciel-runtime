@@ -112,6 +112,15 @@ def build_default_config(provider_defaults: dict[str, Any]) -> dict[str, Any]:
         "web_backends": {},
         "workspace_mcp": {"servers": {}},
         "external_event_receivers": {},
+        "transcript_events": {
+            "enabled": False,
+            "url": "",
+            "authorization": "",
+            "timeout_seconds": 5,
+            "poll_interval_ms": 1000,
+            "max_batch_bytes": 1048576,
+            "start_mode": "tail",
+        },
         "remote_instructions": {
             "enabled": False,
             "claude_url": "",

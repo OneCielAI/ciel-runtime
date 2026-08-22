@@ -32,6 +32,20 @@ EXTERNAL_EVENT_KEYS = (
     "webhook_secret",
     "authorization",
 )
+TRANSCRIPT_EVENT_KEYS = (
+    "enabled",
+    "url",
+    "authorization",
+    "timeout_seconds",
+    "poll_interval_ms",
+    "max_batch_bytes",
+    "start_mode",
+)
+TRANSCRIPT_EVENT_LIMITS = {
+    "timeout_seconds": (1, 30),
+    "poll_interval_ms": (100, 60_000),
+    "max_batch_bytes": (1_024, 16_777_216),
+}
 REMOTE_INSTRUCTION_URL_KEYS = (
     "claude_url",
     "codex_url",
@@ -185,6 +199,80 @@ class EventSettingsCli:
             changed.append(key)
         service.save_receiver(self.receiver_id, body)
         self._confirm("external-events", changed)
+
+    # -- transcript events ------------------------------------------------
+
+    def _transcript_event_settings(self) -> dict[str, Any]:
+        value = self.ports.load_config().get("transcript_events")
+        return value if isinstance(value, dict) else {}
+
+    def transcript_event_values(self) -> dict[str, Any]:
+        current = self._transcript_event_settings()
+        return {
+            "enabled": bool(current.get("enabled", False)),
+            "url": str(current.get("url") or ""),
+            "authorization": "stored" if current.get("authorization") else "unset",
+            "timeout_seconds": current.get("timeout_seconds") or 5,
+            "poll_interval_ms": current.get("poll_interval_ms") or 1000,
+            "max_batch_bytes": current.get("max_batch_bytes") or 1_048_576,
+            "start_mode": str(current.get("start_mode") or "tail"),
+        }
+
+    def transcript_events(self, args: Any) -> None:
+        tokens = [str(value) for value in (getattr(args, "values", None) or [])]
+        if not tokens:
+            self._report("transcript-events", self.transcript_event_values())
+            return
+        current = dict(self._transcript_event_settings())
+        updates: dict[str, Any] = {}
+        changed: list[str] = []
+        for token in tokens:
+            key, value = split_assignment(token)
+            if key not in TRANSCRIPT_EVENT_KEYS:
+                raise EventSettingsCliError(
+                    f"unsupported transcript event option: {key}; expected one of "
+                    f"{', '.join(TRANSCRIPT_EVENT_KEYS)}"
+                )
+            if key == "enabled":
+                updates[key] = parse_flag(key, value)
+            elif key == "url":
+                updates[key] = _validated_url(key, value)
+            elif key in TRANSCRIPT_EVENT_LIMITS:
+                minimum, maximum = TRANSCRIPT_EVENT_LIMITS[key]
+                try:
+                    parsed = int(value.strip())
+                except ValueError:
+                    raise EventSettingsCliError(
+                        f"{key} must be a whole number from {minimum} to {maximum}"
+                    ) from None
+                if not minimum <= parsed <= maximum:
+                    raise EventSettingsCliError(
+                        f"{key} must be a whole number from {minimum} to {maximum}"
+                    )
+                updates[key] = parsed
+            elif key == "start_mode":
+                mode = value.strip().lower()
+                if mode not in {"tail", "beginning"}:
+                    raise EventSettingsCliError(
+                        "start_mode must be tail or beginning"
+                    )
+                updates[key] = mode
+            else:
+                updates[key] = value
+            changed.append(key)
+        resulting = {**current, **updates}
+        if resulting.get("enabled") and not str(resulting.get("url") or "").strip():
+            raise EventSettingsCliError(
+                "transcript-events requires url when enabled=true"
+            )
+        config = self.ports.load_config()
+        stored = config.get("transcript_events")
+        if not isinstance(stored, dict):
+            stored = {}
+            config["transcript_events"] = stored
+        stored.update(updates)
+        self.ports.save_config(config)
+        self._confirm("transcript-events", changed)
 
     # -- remote instructions -----------------------------------------------
 
@@ -377,11 +465,12 @@ def _guarded(handler: Callable[[Any], None]) -> Callable[[Any], None]:
 
 
 def handlers(ports: EventSettingsCliPorts) -> tuple[Callable[[Any], None], ...]:
-    """Return external-event, remote-instruction, and remote-memory handlers."""
+    """Return event, transcript, instruction, and memory handlers."""
 
     controller = EventSettingsCli(ports)
     return (
         _guarded(controller.external_events),
+        _guarded(controller.transcript_events),
         _guarded(controller.remote_instructions),
         _guarded(controller.remote_memory),
     )
@@ -389,6 +478,7 @@ def handlers(ports: EventSettingsCliPorts) -> tuple[Callable[[Any], None], ...]:
 
 __all__ = [
     "EXTERNAL_EVENT_KEYS",
+    "TRANSCRIPT_EVENT_KEYS",
     "REMOTE_MEMORY_KEYS",
     "REMOTE_INSTRUCTION_KEYS",
     "REMOTE_INSTRUCTION_URL_KEYS",

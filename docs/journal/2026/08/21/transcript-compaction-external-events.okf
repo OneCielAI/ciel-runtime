@@ -1,0 +1,131 @@
+okf_version: "1.0"
+knowledge:
+  task:
+    id: transcript-compaction-external-events-20260821
+    date: "2026-08-21"
+    objective: >-
+      Determine whether ciel-runtime can expose transcript content from before
+      and after a client compaction as externally consumable events.
+
+  confirmed_current_state:
+    transcript_repository:
+      file: ciel_runtime_support/channel_transcript_repository.py
+      capability: >-
+        Discovers Claude and Codex transcript JSONL files and incrementally
+        reads complete records appended after a captured byte offset.
+    claude_detection:
+      file: ciel_runtime_support/channel_transcript.py
+      capability: >-
+        Recognizes Claude compact-summary records through isCompactSummary and
+        distinguishes them from normal user turns.
+    claude_hooks:
+      file: ciel_runtime_support/tool_guard_hooks.py
+      capability: "Installs both PreCompact and PostCompact hook events."
+    codex_control:
+      file: ciel_runtime_support/codex_app_server.py
+      capability: >-
+        Can request thread/compact/start and receives app-server notifications,
+        but its tracked state currently covers thread and turn lifecycle only.
+    runtime_compaction_events:
+      files:
+        - ciel_runtime_support/prompt_compaction.py
+        - ciel_runtime_support/context_compaction.py
+        - ciel_runtime_support/runtime_activity_repository.py
+      capability: >-
+        Publishes context.compact events with counts, token totals, phase,
+        budget, and retained or omitted message counts. It does not publish the
+        before or after transcript content.
+    externally_consumable_sse:
+      file: ciel_runtime_support/router_http.py
+      endpoint: /ca/events/stream
+      capability: >-
+        Streams EventBus records to connected SSE consumers and supports replay
+        from a supplied event ID while records remain in the in-memory buffer.
+    external_event_receiver:
+      file: ciel_runtime_support/external_event_receiver.py
+      direction: inbound_only
+      capability: >-
+        Receives CloudEvents through webhook or SSE and submits them as runtime
+        inputs. It is not an outbound webhook publisher.
+
+  implementation:
+    delivery_service:
+      file: ciel_runtime_support/transcript_delta_delivery.py
+      event_type: ai.oneciel.ciel-runtime.transcript.delta
+      behavior:
+        - "Reads from a durable per-destination and per-transcript byte offset."
+        - "Sends only complete newline-terminated JSONL records."
+        - "Advances the cursor only after an HTTP 2xx response."
+        - "Retries an unchanged batch with the same deterministic event ID."
+        - "Restarts at byte zero with rotated=true after transcript truncation."
+        - "Expands authorization environment references at send time."
+    runtime_wiring:
+      file: ciel_runtime.py
+      behavior: >-
+        Starts the daemon delivery worker when a Claude or Codex transcript
+        scope is established for the running workspace.
+    configuration:
+      command: >-
+        ciel-runtimectl transcript-events enabled=true
+        url=https://memory.example/v1/transcripts
+        authorization='Bearer {MEMORY_TOKEN}' start_mode=tail
+      keys:
+        - enabled
+        - url
+        - authorization
+        - timeout_seconds
+        - poll_interval_ms
+        - max_batch_bytes
+        - start_mode
+
+  event_contract:
+    envelope: CloudEvents 1.0 structured JSON
+    content_type: application/cloudevents+json
+    idempotency_header: Idempotency-Key
+    data_fields:
+      - workspace_id
+      - runtime
+      - session_id
+      - transcript_name
+      - start_offset
+      - end_offset
+      - content_sha256
+      - record_count
+      - rotated
+      - format
+      - content
+
+  verification:
+    automated:
+      focused:
+        transcript_delta_delivery: "4 passed"
+        event_settings_cli: "28 passed"
+        cli_parser: "5 passed"
+      full_groups:
+        unit: "1129 passed, 44 skipped"
+        router: "906 passed"
+        channel: "381 passed, 80 skipped"
+        runtime: "252 passed, 12 skipped"
+      aggregate: "2668 passed, 136 skipped"
+    live_http:
+      result: LIVE_TRANSCRIPT_DELIVERY_OK
+      observation: >-
+        A local HTTP server received exactly two newly appended records. The
+        old 11-byte record was skipped in tail mode, offsets were
+        11->23->35, and the persisted final cursor was 35.
+      authorization: "Bearer environment reference expanded at send time"
+      idempotency: "Idempotency-Key matched the CloudEvent event ID"
+    cli_boundary:
+      result: CLI_TRANSCRIPT_SETTINGS_OK
+      observation: >-
+        The executable command stored the settings and its status output
+        rendered authorization=stored without printing the configured value.
+
+  answer:
+    feasible: true
+    implemented_now: true
+    incremental_unit: byte_offset_over_complete_jsonl_records
+    compaction_relation: >-
+      Delivery is continuous and independent of a provider-specific compaction
+      callback. Transcript records written before and after compaction are
+      therefore delivered through the same ordered offset stream.

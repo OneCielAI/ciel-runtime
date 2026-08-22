@@ -153,6 +153,46 @@ class EventSettingsCliTests(unittest.TestCase):
         self.assertIn("transport=sse", report)
         self.assertIn("url=https://events.example/stream", report)
 
+    # -- transcript events ------------------------------------------------
+
+    def test_transcript_events_store_registered_destination_and_limits(self):
+        self.controller.transcript_events(
+            _args(
+                "enabled=true",
+                "url=https://memory.example/transcripts",
+                "authorization=Bearer token",
+                "timeout_seconds=8",
+                "poll_interval_ms=500",
+                "max_batch_bytes=2097152",
+                "start_mode=beginning",
+            )
+        )
+
+        stored = self.config["transcript_events"]
+        self.assertTrue(stored["enabled"])
+        self.assertEqual("https://memory.example/transcripts", stored["url"])
+        self.assertEqual("Bearer token", stored["authorization"])
+        self.assertEqual(8, stored["timeout_seconds"])
+        self.assertEqual(500, stored["poll_interval_ms"])
+        self.assertEqual(2_097_152, stored["max_batch_bytes"])
+        self.assertEqual("beginning", stored["start_mode"])
+        self.assertNotIn("Bearer token", "\n".join(self.output))
+
+    def test_transcript_events_require_url_when_enabled(self):
+        with self.assertRaisesRegex(EventSettingsCliError, "requires url"):
+            self.controller.transcript_events(_args("enabled=true"))
+        self.assertNotIn("transcript_events", self.config)
+
+    def test_transcript_events_validate_mode_url_and_numeric_limits(self):
+        for value in (
+            "start_mode=all",
+            "url=file:///tmp/transcript",
+            "poll_interval_ms=99",
+            "max_batch_bytes=100",
+        ):
+            with self.subTest(value=value), self.assertRaises(EventSettingsCliError):
+                self.controller.transcript_events(_args(value))
+
     # -- remote instructions -----------------------------------------------
 
     def test_remote_urls_are_written_and_others_preserved(self):
@@ -283,7 +323,7 @@ class EventSettingsCliTests(unittest.TestCase):
     # -- CLI boundary ------------------------------------------------------
 
     def test_handlers_report_a_rejected_parameter_without_a_traceback(self):
-        external, remote, _memory = handlers(
+        external, _transcript, remote, _memory = handlers(
             EventSettingsCliPorts(
                 load_config=lambda: self.config,
                 save_config=lambda value: self.config.update(value),
@@ -303,7 +343,7 @@ class EventSettingsCliTests(unittest.TestCase):
         self.assertIn("1 to 30", str(raised.exception))
 
     def test_receiver_contract_errors_also_arrive_as_a_message(self):
-        external, _remote, _memory = handlers(
+        external, _transcript, _remote, _memory = handlers(
             EventSettingsCliPorts(
                 load_config=lambda: self.config,
                 save_config=lambda value: self.config.update(value),

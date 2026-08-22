@@ -115,6 +115,17 @@ ciel-runtimectl api-keys [PROVIDER] [KEY1] [KEY2] ...
 
 ### Router 관리
 
+#### `transcript-events`
+
+```bash
+ciel-runtimectl transcript-events enabled=true url=https://memory.example/v1/transcripts authorization='Bearer {MEMORY_TOKEN}'
+```
+
+현재 런타임의 Claude/Codex JSONL 트랜스크립트를 등록한 HTTP(S) 주소로 증분
+전송한다. URL과 트랜스크립트별 바이트 커서는 워크스페이스 상태에 저장되며 HTTP
+2xx 이후에만 전진한다. `start_mode=tail`은 현재 실행 경계 이후만,
+`start_mode=beginning`은 파일 처음부터 보낸다. 설정 확인은 인자 없이 실행한다.
+
 #### `remote-memory`
 
 ```bash

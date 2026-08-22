@@ -102,6 +102,7 @@ from ciel_runtime_support.channel_transcript import queued_age_seconds_from_text
 from ciel_runtime_support.channel_transcript import queued_command_ids_from_text as analyze_channel_queued_ids
 from ciel_runtime_support.channel_transcript import wake_state_evidence_from_text as analyze_channel_wake_evidence
 from ciel_runtime_support.channel_transcript_repository import ChannelTranscriptRepository
+from ciel_runtime_support.transcript_delta_delivery import TranscriptDeliveryPorts, TranscriptDeltaDeliveryService
 from ciel_runtime_support.channel_wake_claim_repository import ChannelWakeClaimRepository
 from ciel_runtime_support.channel_wake_claim_repository import prompt_message_ids as _channel_prompt_message_ids
 from ciel_runtime_support.channel_wake_claim_repository import prompt_references_message_id as analyze_prompt_message_reference
@@ -4460,11 +4461,9 @@ _CHANNEL_TRANSCRIPT_SCOPE: dict[str, Any] = {
     'session_id': '', 'bound_path': None,
 }
 _CHANNEL_STDIN_RECOVERY_CACHE: dict[str, Any] = {'checked_at': 0.0, 'last_id': None, 'marker': None, 'recovered_last_id': None}
+_TRANSCRIPT_DELIVERY_SERVICE = TranscriptDeltaDeliveryService(WORKSPACE_STATE_DIR / "transcript-event-cursors.json", ROUTER_WORKSPACE_ID, TranscriptDeliveryPorts(load_config, lambda: _latest_claude_transcript_path(ttl_seconds=0.5), lambda: dict(_CHANNEL_TRANSCRIPT_SCOPE), router_log))
 def channel_transcript_repository() -> ChannelTranscriptRepository: return channel_wake_context().transcript_repository()
-
-def _set_channel_transcript_scope(runtime: str, *, started_at: float | None = None, codex_home: Path | None = None, cwd: Path | None = None, session_id: str | None = None) -> None:
-    channel_wake_context().set_transcript_scope(runtime, started_at=started_at, codex_home=codex_home, cwd=cwd, session_id=session_id)
-
+def _set_channel_transcript_scope(runtime: str, *, started_at: float | None = None, codex_home: Path | None = None, cwd: Path | None = None, session_id: str | None = None) -> None: return (channel_wake_context().set_transcript_scope(runtime, started_at=started_at, codex_home=codex_home, cwd=cwd, session_id=session_id), _TRANSCRIPT_DELIVERY_SERVICE.start())[1]
 def _channel_transcript_roots() -> tuple[tuple[Path, str], ...]: return channel_wake_context().transcript_roots()
 def _latest_claude_transcript_path(ttl_seconds: float = 2.0) -> Path | None: return channel_wake_context().latest_transcript_path(ttl_seconds)
 _read_file_tail_text = ChannelTranscriptRepository.read_tail_text

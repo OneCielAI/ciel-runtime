@@ -31,6 +31,19 @@ class CliParserTests(unittest.TestCase):
         self.assertEqual("status", args.action)
         self.assertIs(ciel_runtime.cmd_copilot_oauth, args.func)
 
+    def test_transcript_events_command_accepts_registered_destination_values(self):
+        args = ciel_runtime.build_parser().parse_args(
+            [
+                "transcript-events",
+                "enabled=true",
+                "url=https://memory.example/transcripts",
+            ]
+        )
+
+        self.assertEqual(
+            ["enabled=true", "url=https://memory.example/transcripts"], args.values
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

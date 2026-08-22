@@ -1,0 +1,101 @@
+okf_version: "1.0"
+knowledge:
+  task:
+    id: wing-powershell-memory-runaway-20260821
+    date: "2026-08-21"
+    objective: >-
+      Identify the exact PowerShell command that consumed more than 63 GB on
+      WING, terminate only the runaway diagnostic process, and preserve the
+      evidence without attributing an unverified internal mechanism.
+
+  evidence:
+    host: WING
+    process:
+      image: powershell.exe
+      pid: 7940
+      created: "2026-08-21 15:18:53 WING local time"
+      working_set_mb: 63269.96
+      private_memory_gb: 120.711
+      command_mode: "-NoProfile -NonInteractive -EncodedCommand"
+    windows_event:
+      provider: Microsoft-Windows-Resource-Exhaustion-Detector
+      event_id: 2004
+      observations:
+        - >-
+          20:49:10: powershell.exe PID 7940 consumed 129,961,250,816
+          bytes of virtual memory.
+        - >-
+          Repeated event 2004 records from 19:52:01 through 20:49:10 identify
+          the same PID as the largest virtual-memory consumer.
+    local_codex_record:
+      file: >-
+        C:\Users\djlov\.codex\sessions\2026\08\20\
+        rollout-2026-08-20T11-44-17-01a0200f-2245-7cc1-8219-85d745a719a8.jsonl
+      line: 13109
+      timestamp_utc: "2026-08-21T20:18:50.122Z"
+      result_at_20_seconds: "no output; remote process remained running"
+
+  exact_diagnostic_script:
+    purpose: >-
+      Read selected router events, the last 12 runtime inputs, and the last
+      1,200 Codex session records, then serialize a compact JSON report.
+    sources:
+      router_log: >-
+        C:\Users\daniel.yun.WING\AppData\Roaming\ciel-runtime\
+        router-instances\9140-f895679997f4\router.log
+      input_log: >-
+        C:\Users\daniel.yun.WING\AppData\Roaming\ciel-runtime\
+        workspaces\f895679997f4\runtime-inputs.jsonl
+      session_log: >-
+        C:\Users\daniel.yun.WING\.codex\sessions\2026\08\21\
+        rollout-2026-08-21T10-44-11-01a024fe-7666-79e3-9c1a-98f46e26af5f.jsonl
+    critical_expression: >-
+      Get-Content -LiteralPath $sessionLog -Tail 1200
+
+  isolation:
+    router_tail:
+      expression: "Get-Content router.log -Tail 1000 plus event filter"
+      result: "11 records in 206 ms"
+    input_tail:
+      expression: "Get-Content runtime-inputs.jsonl -Tail 12 plus JSON parsing"
+      result: "12 records in 281 ms"
+    session_tail:
+      expression: "Get-Content session JSONL -Tail 1200 without JSON parsing"
+      result: >-
+        Did not complete within 10 seconds; a new service-session PowerShell
+        process remained alive and its working set rose from 61,512 KB to
+        67,352 KB before termination.
+    session_file:
+      bytes: 8055707
+      lines: 2893
+      maximum_line_bytes: 281563
+      line_endings: "LF=2893, CR=0"
+      null_bytes: 0
+    excluded:
+      - >-
+        The three source files total approximately 10 MB, so source file size
+        alone does not account for the observed 63 GB working set.
+      - >-
+        ConvertFrom-Json and ConvertTo-Json are downstream of the independently
+        reproduced stall and are not required to reproduce it.
+
+  confirmed_cause_scope: >-
+    The runaway is reproduced at Windows PowerShell 5.1.20348.4294 executing
+    Get-Content -Tail 1200 against the identified Codex LF-only JSONL file.
+    Available evidence does not establish the deeper internal PowerShell
+    implementation defect, so no more specific mechanism is asserted.
+
+  remediation:
+    pid_7940: "terminated"
+    reproduction_pid_18032: "terminated"
+    aborted_measurement_pid_18700: "terminated"
+    remaining_powershell: >-
+      PID 10808 in the user's RDP session, approximately 105 MB; not modified.
+    final_check:
+      runaway_process_present: false
+      free_physical_memory_kb: 40509592
+
+  accountability: >-
+    The diagnostic command was issued by this Codex session. It exceeded the
+    20-second observation window, and failure to immediately follow up and
+    terminate the still-running remote process allowed it to remain active.

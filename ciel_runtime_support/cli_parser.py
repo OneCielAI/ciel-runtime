@@ -34,6 +34,7 @@ class CliParserSettings:
     web_fetch: CliHandler
     log_level: CliHandler
     external_events: CliHandler
+    transcript_events: CliHandler
     remote_instructions: CliHandler
     remote_memory: CliHandler
 
@@ -91,6 +92,7 @@ def build_cli_parser(services: CliParserServices) -> argparse.ArgumentParser:
     _add_optional_value_command(commands, "web-fetch", services.settings.web_fetch)
     _add_optional_value_command(commands, "log-level", services.settings.log_level)
     _add_values_command(commands, "external-events", services.settings.external_events)
+    _add_values_command(commands, "transcript-events", services.settings.transcript_events)
     _add_values_command(commands, "remote-instructions", services.settings.remote_instructions)
     _add_values_command(commands, "remote-memory", services.settings.remote_memory)
     _add_optional_value_command(commands, "ollama-native", services.provider.ollama_native)
