@@ -509,7 +509,8 @@ from ciel_runtime_support.upstream_stream_io import iter_lines_until_disconnect 
 from ciel_runtime_support.upstream_stream_io import set_stream_read_timeout as project_set_stream_read_timeout
 from ciel_runtime_support.upstream_stream_io import sleep_until_disconnect as project_sleep_until_disconnect
 from ciel_runtime_support.upstream_stream_io import stream_idle_timeout as project_stream_idle_timeout
-from ciel_runtime_support.usage_events import JsonlUsageEventSink
+from ciel_runtime_support.usage_events import CompositeUsageEventSink, JsonlUsageEventSink
+from ciel_runtime_support.usage_service import SqliteUsageLedger, UsageApiKeyRepository, UsageHttpAdapter, UsagePushDeliveryService, UsageRuntimeServices, usage_jsonl_enabled
 from ciel_runtime_support.visible_stream_filters import VISIBLE_THINKING_MARKUP_PREFIXES  # noqa: F401 - compatibility export
 from ciel_runtime_support.visible_stream_filters import VISIBLE_THINKING_MARKUP_TAG_RE  # noqa: F401 - compatibility export
 from ciel_runtime_support.visible_stream_filters import VISIBLE_TOOL_CALL_ARTIFACT_HOLD_CHARS  # noqa: F401 - compatibility export
@@ -586,17 +587,12 @@ _CHANNEL_COMPACT_REQUEST_LOCK = threading.Lock()
 _TOOL_SIDE_EFFECT_DEDUP_TTL_SECONDS = 10 * 60.0
 _TOOL_SIDE_EFFECT_DEDUP_LOCK = threading.Lock()
 _TOOL_SIDE_EFFECT_DEDUP_RECENT: dict[str, float] = {}
-EVENT_BUS = EventBus()
-TUI_OBSERVATION_BUS = TuiObservationBus()
-USAGE_EVENT_SINK = JsonlUsageEventSink(
-    USAGE_EVENTS_PATH,
-    enabled=lambda: str(os.environ.get("CIEL_RUNTIME_USAGE_LOG", "1")).strip().lower()
-    not in {"0", "false", "off", "no", ""},
-)
+EVENT_BUS, TUI_OBSERVATION_BUS = EventBus(), TuiObservationBus()
+USAGE_API_KEYS = UsageApiKeyRepository(USAGE_LEDGER := SqliteUsageLedger(WORKSPACE_STATE_DIR / "usage" / "usage.sqlite3", ROUTER_WORKSPACE_ID), WORKSPACE_STATE_DIR / "usage" / "api-key.pepper", os.environ)
+USAGE_EVENT_SINK = CompositeUsageEventSink(JsonlUsageEventSink(USAGE_EVENTS_PATH, enabled=lambda: usage_jsonl_enabled(load_config(), os.environ)), USAGE_LEDGER)
 # Tools Claude Code injects into every model's tool list that misfire when called
 # by non-Anthropic models. See docs/notes from anthropics/claude-code issues
 # #25720, #29950 and Piebald-AI/claude-code-system-prompts for tool semantics.
-
 def positive_env_int(name: str, default: int) -> int: return runtime_primitives.positive_environment_int(os.environ, name, default)
 SUPPRESSED_THINKING_PASSBACK_MAX = positive_env_int("CIEL_RUNTIME_THINKING_PASSBACK_MAX", 4096)
 SUPPRESSED_THINKING_PASSBACK_CACHE: list[dict[str, Any]] = []
@@ -1727,10 +1723,12 @@ def parse_json_body(raw: bytes) -> dict[str, Any]:
     except Exception:
         return {}
     return value if isinstance(value, dict) else {}
-
 query_int = EventHttpAdapter.query_int
 def event_http_adapter() -> EventHttpAdapter: return EventHttpAdapter(EventHttpPorts(EVENT_BUS.recent, EVENT_BUS.wait_after, render_events_html, write_text_response, write_json, router_log))
 def handle_events_get(handler: BaseHTTPRequestHandler, path: str, query: dict[str, list[str]]) -> bool: return event_http_adapter().handle_get(handler, path, query)
+_USAGE_HTTP_ADAPTER = UsageHttpAdapter(USAGE_LEDGER, USAGE_API_KEYS, write_json, reject_external_router_request, load_config, router_log)
+def handle_usage_post(handler: BaseHTTPRequestHandler, path: str, body: dict[str, Any]) -> bool: return _USAGE_HTTP_ADAPTER.handle_post(handler, path, body)
+def handle_observability_get(handler: BaseHTTPRequestHandler, path: str, query: dict[str, list[str]]) -> bool: return _USAGE_HTTP_ADAPTER.handle_get(handler, path, query) or handle_events_get(handler, path, query)
 def tui_observation_http_adapter() -> TuiObservationHttpAdapter: return TuiObservationHttpAdapter(TuiObservationHttpPorts(TUI_OBSERVATION_BUS, write_json, write_text_response, router_log))
 def handle_tui_observation_get(handler: BaseHTTPRequestHandler, path: str, query: dict[str, list[str]]) -> bool: return tui_observation_http_adapter().handle_get(handler, path, query)
 def observe_tui_runtime_response(handler: BaseHTTPRequestHandler, path: str, provider: str, model: str, body: dict[str, Any]) -> Any: return observe_runtime_response(handler, path, provider, model, body, TUI_OBSERVATION_BUS)
@@ -2966,9 +2964,7 @@ runtime_router_capability_matrix = _ROUTER_REQUEST_API.capability_matrix
 runtime_router_capability_gaps = _ROUTER_REQUEST_API.capability_gaps
 route_runtime_get = _ROUTER_REQUEST_API.route_get
 route_runtime_post = _ROUTER_REQUEST_API.route_post
-
 _ROUTER_REQUEST_BODY_POLICY: RouterRequestBodyPolicy | None = None
-
 def router_request_body_policy() -> RouterRequestBodyPolicy:
     global _ROUTER_REQUEST_BODY_POLICY
     if _ROUTER_REQUEST_BODY_POLICY is None:
@@ -2979,17 +2975,21 @@ def router_request_body_policy() -> RouterRequestBodyPolicy:
         for warning in _ROUTER_REQUEST_BODY_POLICY.configuration_warnings:
             router_log("WARN", f"router_request_limit_configuration {warning}")
     return _ROUTER_REQUEST_BODY_POLICY
-
 def _router_server_context() -> RouterServerContext:
+    usage_services = UsageRuntimeServices(USAGE_LEDGER, USAGE_API_KEYS, UsagePushDeliveryService(USAGE_LEDGER, load_config, os.environ, router_log), CONFIG_DIR, WORKSPACE_STATE_DIR, ROUTER_WORKSPACE_ID, USAGE_EVENTS_PATH, router_log)
+    def start_router_services() -> None:
+        external_event_receiver_service().start()
+        usage_services.start()
+    def stop_router_services() -> None:
+        usage_services.stop()
+        external_event_receiver_service().stop()
     http_services = RouterHttpServices(
         core=RouterHttpCore(load_config, reject_external_router_request, get_current_provider, parse_json_body, is_client_disconnect_error, router_log, observe_tui_runtime_response, router_request_body_policy()),
-        # Channel MCP delivery was retired in favor of the TTY/PTY bridge.  Do
-        # not expose the legacy endpoint or register it with Claude.
-        get=RouterHttpGetEndpoints(handle_tui_observation_get, handle_events_get, handle_llm_config_get, lambda _handler, _path: False, handle_web_get,
+        get=RouterHttpGetEndpoints(handle_tui_observation_get, handle_observability_get, handle_llm_config_get, lambda _handler, _path: False, handle_web_get,
                                    lambda handler, path: speech_http_controller().get(handler, path), handle_chat_get, handle_plan_get, route_runtime_get,
                                    handle_external_event_get),
-        post=RouterHttpPostEndpoints(lambda handler, path, raw, content_type: speech_http_controller().post(handler, path, raw, content_type), handle_llm_config_post, lambda _handler, _path, _body: False, handle_chat_post,
-                                     handle_plan_post, route_runtime_post, handle_external_event_raw_post, handle_external_event_config_post),
+        post=RouterHttpPostEndpoints(lambda handler, path, raw, content_type: speech_http_controller().post(handler, path, raw, content_type), handle_llm_config_post, handle_channel_mcp_post, handle_chat_post,
+                                     handle_plan_post, route_runtime_post, handle_external_event_raw_post, handle_external_event_config_post, handle_usage_post),
         presentation=RouterHttpPresentation(render_router_home_html, router_health_payload, write_text_response, write_json, list_model_objects_for_request,
                                             resolve_requested_model, model_object),
         errors=RouterHttpErrors(write_openai_responses_error, try_write_json),
@@ -3001,8 +3001,8 @@ def _router_server_context() -> RouterServerContext:
         router_server_runtime.RouterServerEffects(os.chmod, sys.stderr, ThreadingHTTPServer, start_managed_router_lifetime_watchdog,
                                                   lambda bind_host: configure_requested_web_endpoints(ROUTER_PORT, ROUTER_HOST, bind_host,
                                                                                                        config=load_config()),
-                                                  external_event_receiver_service().start,
-                                                  external_event_receiver_service().stop),
+                                                   start_router_services,
+                                                   stop_router_services),
     )
     return RouterServerContext(
         health=RouterHealthPresentationPorts(VERSION, SOURCE_FINGERPRINT, RouterHealthRuntimePorts(os.getpid, active_router_client_pids), getpass.getuser, HOME, ROUTER_INSTANCE_DIR, ROUTER_WORKSPACE, ROUTER_PORT, ROUTER_INSTANCE_ID, current_alias),
@@ -4951,7 +4951,7 @@ def cli_parser_services() -> cli_parser.CliParserServices:
     return cli_assembly.CliParserAssembly(
             launch=cli_parser.CliParserLaunch(cmd_cli, cmd_launch, cmd_launch_codex, cmd_launch_codex_app_server, cmd_launch_agy, serve, cmd_launch_grok),
             runtime=cli_parser.CliParserRuntime(cmd_version, cmd_status, cmd_env, cmd_stop, cmd_test),
-            settings=cli_parser.CliParserSettings(cmd_language, cmd_web_search, cmd_web_fetch, cmd_log_level, *event_settings_cli.handlers(event_settings_cli.EventSettingsCliPorts(load_config, save_config, external_event_receiver_service, lambda: set_remote_instruction_config('sync', ''), sync_all_remote_memories, print))),
+            settings=cli_parser.CliParserSettings(cmd_language, cmd_web_search, cmd_web_fetch, cmd_log_level, *event_settings_cli.handlers(event_settings_cli.EventSettingsCliPorts(load_config, save_config, external_event_receiver_service, lambda: set_remote_instruction_config('sync', ''), sync_all_remote_memories, print, lambda: USAGE_API_KEYS))),
             provider=cli_parser.CliParserProvider(cmd_ollama_native, cmd_ollama_options, cmd_provider_options, cmd_ollama_catalog, cmd_provider,
                                                   cmd_api_key, cmd_set_api_key, cmd_set_api_keys, cmd_base_url, cmd_copilot_oauth),
             models=cli_parser.CliParserModels(cmd_model, cmd_advisor_model, cmd_models),

@@ -246,11 +246,15 @@ class WorkspaceMcpLaunchService:
         runtime: str,
         config: dict[str, Any],
         environment: Mapping[str, str] | None = None,
+        injected_servers: Mapping[str, Any] | None = None,
     ) -> WorkspaceMcpLaunch:
         if runtime not in _RUNTIMES:
             raise ValueError(f"Unsupported workspace MCP runtime: {runtime}")
         self.recover_stale()
         servers = workspace_mcp_servers(config, runtime)
+        if injected_servers:
+            injected = {"workspace_mcp": {"servers": dict(injected_servers)}}
+            servers.update(workspace_mcp_servers(injected, runtime))
         if not servers:
             return WorkspaceMcpLaunch()
         launch_id = uuid.uuid4().hex

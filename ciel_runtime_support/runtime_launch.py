@@ -18,7 +18,7 @@ from ciel_runtime_support.runtime_constants import (
     PRELAUNCH_LAUNCH_CODEX_APP_SERVER,
     ROUTED_COMPAT_PROMPT,
 )
-from ciel_runtime_support.runtime_paths import CONFIG_DIR, LOG_PATH, ROUTER_INSTANCE_DIR, WORKSPACE_STATE_DIR
+from ciel_runtime_support.runtime_paths import CONFIG_DIR, LOG_PATH, ROUTER_BASE, ROUTER_INSTANCE_DIR, WORKSPACE_STATE_DIR
 from ciel_runtime_support.web_endpoints import (
     current_web_workspace,
     web_backend_owned_by_workspace,
@@ -457,7 +457,13 @@ def run_claude(
     if should_attach_web_search(provider, cfg, web_search_override):
         mcp_config_paths.append(str(write_duckduckgo_mcp_config(cfg)))
     workspace_mcp_launch = (
-        workspace_mcp.prepare("claude", cfg, env) if workspace_mcp is not None else None
+        workspace_mcp.prepare(
+            "claude", cfg, env,
+            injected_servers={"ciel-runtime-router": {
+                "transport": "streamable_http", "url": f"{ROUTER_BASE}/ca/mcp",
+                "runtimes": ["claude"],
+            }} if llm_channel_delivery and web_backend_start_requested(cfg) else None,
+        ) if workspace_mcp is not None else None
     )
     if workspace_mcp_launch is not None:
         mcp_config_paths.extend(str(path) for path in workspace_mcp_launch.claude_config_paths)

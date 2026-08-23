@@ -1,0 +1,89 @@
+okf_version: "1.0"
+knowledge:
+  task:
+    id: claude-web-chat-stateless-mcp-repair-20260823
+    date: "2026-08-23"
+    workspace: G:/ncc
+    objective: >-
+      Determine why a Web Chat message reached the Claude prompt but the
+      session could not reply through Ciel Runtime, then restore only the
+      supported stateless internal MCP path.
+    status: implementation-complete
+
+  observed_evidence:
+    router_instance: C:/Users/djlov/AppData/Roaming/ciel-runtime/router-instances/9467-84a9f0d21381
+    workspace_state: C:/Users/djlov/AppData/Roaming/ciel-runtime/workspaces/84a9f0d21381
+    message:
+      persisted_id: 1
+      channel: web-chat-1dc2cba6-9ac5-4970-8d46-e90574fe77cb
+      tty_submit_log:
+        timestamp: "2026-08-23T18:26:50"
+        enter: crlf
+        submit_confirmed: true
+    claude_launch:
+      timestamp: "2026-08-23T18:25:11"
+      log: "claude_launch_cmd ciel_mcp_config=- argv_len=7"
+      actual_command_contains_mcp_config: false
+    router_probe_before_change:
+      method: POST
+      path: /ca/mcp
+      status: 404
+    conclusion: >-
+      The message queue and TTY injection were active, but the launched Claude
+      process had no Ciel MCP configuration and the composed router disabled
+      the internal MCP POST handler.
+
+  historical_constraint:
+    retired_implementation:
+      commit: e354683ecbb804c25560dce067b8c2fc18f163ca
+      kind: legacy Claude channel MCP bridge
+    retained_constraint: >-
+      Do not restore the legacy SSE endpoint, session registry, replay cursor,
+      or Ciel ownership of external MCP server lifecycles.
+
+  implementation:
+    router:
+      restored: stateless POST /ca/mcp handler only
+      get_stream_restored: false
+      sse_restored: false
+    claude_launch:
+      condition: LLM channel delivery plus workspace Web backend start
+      server_name: ciel-runtime-router
+      transport: streamable_http
+      url_suffix: /ca/mcp
+      artifact_scope: ephemeral workspace launch lease
+      persistent_workspace_config_mutated: false
+    genericity: >-
+      Workspace MCP launch preparation accepts normalized injected server maps;
+      the mechanism is not keyed to a user, machine, or provider.
+
+  verification:
+    workspace_mcp_tests: "17 passed"
+    channel_bridge_tests: "207 passed, 80 skipped"
+    deepseek_provider_tests: "21 passed"
+    architecture_contracts: "261 passed, 42 skipped"
+    live_isolated_router:
+      initialize_status: 200
+      protocol: 2025-03-26
+      server: ciel-runtime-router
+      tools_list_status: 200
+      tools: [compact_session, send_message, send_file, llm_options]
+    full_suite:
+      unit: "1164 passed, 44 skipped"
+      router: "923 passed"
+      channel: "381 passed, 80 skipped"
+      runtime: "252 passed, 12 skipped"
+    ruff: passed
+    documentation_metadata: "passed; 23 Markdown files"
+    package_dry_run: "passed; 411 files"
+
+  deployment:
+    local:
+      status: passed
+      path: C:/Users/djlov/.local/share/ciel-runtime
+      source_hash_matched: true
+      installed_tools_list_status: 200
+      installed_tools: [compact_session, send_message, send_file, llm_options]
+      restart_required_for_existing_claude_session: true
+    nightly:
+      status: pending

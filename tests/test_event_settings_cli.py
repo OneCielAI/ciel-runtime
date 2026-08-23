@@ -1,6 +1,7 @@
 """Parameter injection for the external-event and remote-instruction menus."""
 
 import argparse
+import os
 import unittest
 
 from ciel_runtime_support.event_settings_cli import (
@@ -55,6 +56,31 @@ class _ReceiverService:
         return stored
 
 
+class _UsageKeys:
+    def __init__(self):
+        self.rows = []
+        self.revoked = []
+
+    def issue(self, name, scopes, expires_at, *, secret="", key_id=""):
+        row = {
+            "key_id": key_id or "uk_test",
+            "name": name,
+            "api_key": secret or "cu_secret",
+            "scopes": list(scopes),
+            "expires_at": expires_at,
+            "revoked_at": 0,
+        }
+        self.rows.append(row)
+        return row
+
+    def list(self):
+        return [dict(row) for row in self.rows]
+
+    def revoke(self, key_id):
+        self.revoked.append(key_id)
+        return key_id == "uk_test"
+
+
 def _args(*values):
     return argparse.Namespace(values=list(values))
 
@@ -78,6 +104,7 @@ class EventSettingsCliTests(unittest.TestCase):
             }
         )
         self.output = []
+        self.usage_keys = _UsageKeys()
         self.controller = EventSettingsCli(
             EventSettingsCliPorts(
                 load_config=lambda: self.config,
@@ -86,6 +113,7 @@ class EventSettingsCliTests(unittest.TestCase):
                 sync_instructions=self._sync,
                 sync_memories=lambda: ["remote-memory: updated"],
                 output=self.output.append,
+                usage_keys=lambda: self.usage_keys,
             )
         )
 
@@ -192,6 +220,91 @@ class EventSettingsCliTests(unittest.TestCase):
         ):
             with self.subTest(value=value), self.assertRaises(EventSettingsCliError):
                 self.controller.transcript_events(_args(value))
+
+    # -- usage events -----------------------------------------------------
+
+    def test_usage_events_store_endpoint_audit_and_backfill_settings(self):
+        self.controller.usage_events(
+            _args(
+                "endpoint_id=finance",
+                "enabled=true",
+                "url=https://audit.example/usage",
+                "authorization=Bearer {USAGE_PUSH_TOKEN}",
+                "audit_interval_seconds=86400",
+                "jsonl_enabled=false",
+                "start_mode=beginning",
+                f"backfill_paths=C:\\old\\usage.jsonl{os.pathsep}D:\\archive\\usage.jsonl",
+            )
+        )
+
+        usage = self.config["usage"]
+        endpoint = usage["push_endpoints"][0]
+        self.assertEqual("finance", endpoint["id"])
+        self.assertTrue(endpoint["enabled"])
+        self.assertEqual("https://audit.example/usage", endpoint["url"])
+        self.assertEqual(86400, endpoint["audit_interval_seconds"])
+        self.assertEqual("beginning", endpoint["start_mode"])
+        self.assertFalse(usage["jsonl_enabled"])
+        self.assertEqual(2, len(usage["backfill_paths"]))
+        self.assertNotIn("USAGE_PUSH_TOKEN", "\n".join(self.output))
+
+    def test_new_usage_endpoint_is_disabled_unless_enabled_is_explicit(self):
+        self.controller.usage_events(
+            _args("endpoint_id=staged", "url=https://audit.example/usage")
+        )
+
+        self.assertFalse(self.config["usage"]["push_endpoints"][0]["enabled"])
+
+    def test_endpoint_id_alone_reports_without_mutating_configuration(self):
+        self.controller.usage_events(
+            _args("endpoint_id=finance", "url=https://audit.example/usage")
+        )
+        before = dict(self.config)
+        self.output.clear()
+
+        self.controller.usage_events(_args("endpoint_id=finance"))
+
+        self.assertEqual(before, self.config)
+        self.assertIn("endpoint_id=finance", "\n".join(self.output))
+
+    def test_usage_events_validate_url_mode_and_limits(self):
+        for value in (
+            "url=file:///tmp/usage",
+            "start_mode=all",
+            "poll_interval_seconds=0",
+            "audit_interval_seconds=31536001",
+        ):
+            with self.subTest(value=value), self.assertRaises(EventSettingsCliError):
+                self.controller.usage_events(_args(value))
+
+    def test_usage_api_key_issue_list_and_revoke(self):
+        self.controller.usage_api_key(
+            _args("issue", "name=auditor", "scopes=read,stream", "ttl_seconds=60")
+        )
+        self.assertIn("api_key=cu_secret", "\n".join(self.output))
+        self.assertEqual(["usage:read", "usage:stream"], self.usage_keys.rows[0]["scopes"])
+
+        self.output.clear()
+        self.controller.usage_api_key(_args("list"))
+        self.assertIn("uk_test name=auditor", "\n".join(self.output))
+
+        self.controller.usage_api_key(_args("revoke", "key_id=uk_test"))
+        self.assertEqual(["uk_test"], self.usage_keys.revoked)
+
+    def test_usage_api_key_accepts_environment_equivalent_identity_and_secret(self):
+        self.controller.usage_api_key(
+            _args(
+                "issue", "name=environment", "key_id=env_auditor",
+                "api_key=fixed-secret", "scopes=read", "expires_at=2000000000",
+            )
+        )
+
+        row = self.usage_keys.rows[0]
+        self.assertEqual("env_auditor", row["key_id"])
+        self.assertEqual("fixed-secret", row["api_key"])
+        self.assertEqual("environment", row["name"])
+        self.assertEqual(["usage:read"], row["scopes"])
+        self.assertEqual(2_000_000_000, row["expires_at"])
 
     # -- remote instructions -----------------------------------------------
 
@@ -323,7 +436,7 @@ class EventSettingsCliTests(unittest.TestCase):
     # -- CLI boundary ------------------------------------------------------
 
     def test_handlers_report_a_rejected_parameter_without_a_traceback(self):
-        external, _transcript, remote, _memory = handlers(
+        external, _transcript, _usage, _usage_key, remote, _memory = handlers(
             EventSettingsCliPorts(
                 load_config=lambda: self.config,
                 save_config=lambda value: self.config.update(value),
@@ -343,7 +456,7 @@ class EventSettingsCliTests(unittest.TestCase):
         self.assertIn("1 to 30", str(raised.exception))
 
     def test_receiver_contract_errors_also_arrive_as_a_message(self):
-        external, _transcript, _remote, _memory = handlers(
+        external, _transcript, _usage, _usage_key, _remote, _memory = handlers(
             EventSettingsCliPorts(
                 load_config=lambda: self.config,
                 save_config=lambda value: self.config.update(value),

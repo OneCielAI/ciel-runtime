@@ -44,6 +44,21 @@ class CliParserTests(unittest.TestCase):
             ["enabled=true", "url=https://memory.example/transcripts"], args.values
         )
 
+    def test_usage_commands_accept_registered_values(self):
+        events = ciel_runtime.build_parser().parse_args(
+            ["usage-events", "endpoint_id=audit", "audit_interval_seconds=86400"]
+        )
+        key = ciel_runtime.build_parser().parse_args(
+            ["usage-api-key", "issue", "name=auditor", "scopes=read,stream"]
+        )
+
+        self.assertEqual(
+            ["endpoint_id=audit", "audit_interval_seconds=86400"], events.values
+        )
+        self.assertEqual(
+            ["issue", "name=auditor", "scopes=read,stream"], key.values
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

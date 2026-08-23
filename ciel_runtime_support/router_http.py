@@ -117,6 +117,7 @@ class RouterHttpPostEndpoints:
     runtime: Callable[..., bool]
     external_events_raw: Callable[[Any, str, bytes], bool] | None = None
     external_events_config: Callable[[Any, str, dict[str, Any]], bool] | None = None
+    usage: Callable[[Any, str, dict[str, Any]], bool] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -711,6 +712,8 @@ class RouterHttpHandler(BaseHTTPRequestHandler):
         path = parsed.path
         query = urllib.parse.parse_qs(parsed.query)
         cfg = services.core.load_config()
+        if path.startswith("/ca/usage/") and services.get.events(self, path, query):
+            return
         if services.core.reject_external(self, cfg):
             return
         endpoints = services.get
@@ -964,6 +967,8 @@ class RouterHttpHandler(BaseHTTPRequestHandler):
                         length,
                         body,
                     )
+                    if endpoints.usage is not None and endpoints.usage(self, path, body):
+                        return
                     if endpoints.external_events_config is not None and endpoints.external_events_config(self, path, body):
                         return
                     if endpoints.llm_config(self, path, body):

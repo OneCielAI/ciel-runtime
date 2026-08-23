@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import threading
 import time
+import uuid
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Callable, Protocol
@@ -20,17 +21,57 @@ class UsageEvent:
     protocol: str = ""
     status: str = "completed"
     timestamp: float = 0.0
+    event_id: str = ""
+    runtime: str = ""
+    workspace_id: str = ""
+    session_id: str = ""
+    turn_id: str = ""
+    cache_read_input_tokens: int = 0
+    cache_write_input_tokens: int = 0
+    input_tokens_total: int = 0
+    reasoning_output_tokens: int = 0
+    request_started_at: float = 0.0
+    request_completed_at: float = 0.0
+    duration_ms: float = 0.0
+    usage_source: str = "router_response"
+    is_estimated: bool = False
+    is_incomplete: bool = False
 
     def normalized(self, clock: Callable[[], float] = time.time) -> UsageEvent:
+        timestamp = float(self.timestamp or clock())
+        completed_at = float(self.request_completed_at or timestamp)
+        started_at = float(self.request_started_at or completed_at)
+        input_tokens = max(0, int(self.input_tokens or 0))
+        cache_read = max(0, int(self.cache_read_input_tokens or 0))
+        cache_write = max(0, int(self.cache_write_input_tokens or 0))
         return UsageEvent(
             provider=str(self.provider or "").strip(),
             model=str(self.model or "").strip(),
-            input_tokens=max(0, int(self.input_tokens or 0)),
+            input_tokens=input_tokens,
             output_tokens=max(0, int(self.output_tokens or 0)),
             request_id=str(self.request_id or "").strip(),
             protocol=str(self.protocol or "").strip(),
             status=str(self.status or "completed").strip() or "completed",
-            timestamp=float(self.timestamp or clock()),
+            timestamp=timestamp,
+            event_id=str(self.event_id or uuid.uuid4().hex).strip(),
+            runtime=str(self.runtime or "").strip(),
+            workspace_id=str(self.workspace_id or "").strip(),
+            session_id=str(self.session_id or "").strip(),
+            turn_id=str(self.turn_id or "").strip(),
+            cache_read_input_tokens=cache_read,
+            cache_write_input_tokens=cache_write,
+            input_tokens_total=max(
+                0,
+                int(self.input_tokens_total or (input_tokens + cache_read + cache_write)),
+            ),
+            reasoning_output_tokens=max(0, int(self.reasoning_output_tokens or 0)),
+            request_started_at=started_at,
+            request_completed_at=completed_at,
+            duration_ms=max(0.0, float(self.duration_ms or 0.0)),
+            usage_source=str(self.usage_source or "router_response").strip()
+            or "router_response",
+            is_estimated=bool(self.is_estimated),
+            is_incomplete=bool(self.is_incomplete),
         )
 
 
@@ -78,8 +119,9 @@ class CompositeUsageEventSink:
         self._sinks = sinks
 
     def record(self, event: UsageEvent) -> None:
+        normalized = event.normalized()
         for sink in self._sinks:
-            sink.record(event)
+            sink.record(normalized)
 
 
 def summarize_usage(events: list[UsageEvent]) -> dict[tuple[str, str], dict[str, int]]:

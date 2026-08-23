@@ -1,0 +1,378 @@
+okf_version: "1.0"
+knowledge:
+  task:
+    id: cross-runtime-token-usage-interfaces-research-20260823
+    date: "2026-08-23"
+    objective: >-
+      Research evidence-backed interfaces for real-time token-usage delivery and
+      authenticated time-range queries across every CLI runtime supported by
+      ciel-runtime.
+    status: research-complete
+    implementation_status: not-started
+
+  confirmed_current_state:
+    runtime_families:
+      - claude-code
+      - codex-tui
+      - codex-app-server
+      - agy
+      - kimi-code
+      - grok-build
+    usage_event:
+      source: ciel_runtime_support/usage_events.py
+      persisted_fields:
+        - provider
+        - model
+        - input_tokens
+        - output_tokens
+        - request_id
+        - protocol
+        - status
+        - timestamp
+      missing_required_fields:
+        - runtime
+        - workspace_id
+        - session_id
+        - turn_id
+        - cache_read_input_tokens
+        - cache_write_input_tokens
+        - reasoning_output_tokens
+        - request_started_at
+        - request_completed_at
+        - duration_ms
+        - usage_source
+        - is_estimated
+        - is_incomplete
+      storage: rotating-jsonl
+      current_summary_dimensions: [provider, model]
+      current_summary_values: [requests, input_tokens, output_tokens]
+    router_activity:
+      source: ciel_runtime_support/runtime_activity.py
+      behavior: >-
+        An atomic latest-state snapshot is overwritten for each update. It is
+        not a durable usage ledger and cannot answer historical range queries.
+    event_bus:
+      source: ciel_runtime_support/event_bus.py
+      behavior: >-
+        A process-local bounded deque feeds recent-event and SSE routes. It is
+        not restart-safe and therefore cannot be the source of truth.
+    external_authentication:
+      source: ciel_runtime_support/router_access.py
+      behavior: >-
+        One router-wide bearer token or x-ciel-runtime-token protects external
+        router access. There are no independent usage-consumer keys, scopes,
+        expirations, per-key revocation records, or last-used audit fields.
+    outbound_delivery_pattern:
+      source: ciel_runtime_support/transcript_delta_delivery.py
+      reusable_properties:
+        - CloudEvents 1.0 envelope
+        - persistent per-destination cursor
+        - cursor advance only after HTTP 2xx
+        - stable Idempotency-Key across retries
+        - environment-expanded authorization header
+        - byte-bounded batching
+        - rotation-aware incremental delivery
+    observed_local_state:
+      workspace_state: C:/Users/djlov/AppData/Roaming/ciel-runtime/workspaces/bd5f642b3583
+      router_instance: C:/Users/djlov/AppData/Roaming/ciel-runtime/workspaces/bd5f642b3583/router-instances/6971-bd5f642b3583
+      usage_events_jsonl: absent
+      router_activity_json: present
+      implication: >-
+        The inspected instance has a latest request snapshot but no durable
+        usage-event file from which a time-range total could be produced.
+
+  confirmed_collection_sources:
+    claude_code:
+      official_source: https://code.claude.com/docs/en/monitoring-usage
+      exact_source: OpenTelemetry claude_code.api_request event or LLM span
+      available_fields:
+        - model
+        - duration_ms
+        - input_tokens
+        - output_tokens
+        - cache_read_tokens
+        - cache_creation_tokens
+        - request_id
+        - client_request_id
+        - cost
+        - effort
+      current_ciel_adapter: absent
+    codex_app_server:
+      official_source: https://github.com/openai/codex/blob/main/codex-rs/app-server/README.md
+      exact_source: experimental rawResponse/completed usage
+      accumulated_source: thread/tokenUsage/updated
+      persistence_note: >-
+        thread/tokenUsage/updated is accumulated and replayed on resume;
+        rawResponse/completed is exact per upstream response but experimental
+        and is not persisted or replayed.
+      current_ciel_adapter: absent
+    codex_tui:
+      local_evidence:
+        version: 0.149.0
+        source: ~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl
+        observed_event: token_count
+        observed_fields:
+          - input_tokens
+          - cached_input_tokens
+          - cache_write_input_tokens
+          - output_tokens
+          - reasoning_output_tokens
+          - total_tokens
+      deduplication_constraint: >-
+        token_count records can repeat unchanged last_token_usage values. A
+        collector must use monotonic total deltas or a stable request identity,
+        not blindly sum every record.
+      current_ciel_adapter: absent
+    agy:
+      official_source: https://www.agy.dev/docs/cli/headless/
+      confirmed_headless_source: --output-format stream-json
+      available_fields:
+        - input_tokens
+        - output_tokens
+        - thinking_tokens
+        - cache_read_tokens
+        - total_tokens
+        - duration
+      interactive_source_status: not-confirmed
+      ciel_routed_semantics:
+        source: ciel_runtime_support/provider_choice.py
+        behavior: >-
+          AGY Routed retains native Google Antigravity model authentication and
+          settings; Ciel adds channel and PTY wake support only. Model requests
+          do not thereby become observable at the Ciel router.
+    kimi_code:
+      official_source: https://github.com/MoonshotAI/kimi-code/blob/main/AGENTS.md
+      installed_package_source: '@moonshot-ai/kimi-code 0.36.0'
+      exact_source: agents/<agentId>/wire.jsonl usage.record entries
+      available_fields:
+        - inputOther
+        - output
+        - inputCacheRead
+        - inputCacheCreation
+        - model
+        - usageScope
+      routed_behavior:
+        source: ciel_runtime_support/kimi_runtime_context.py
+        behavior: >-
+          Kimi Routed sets KIMI_MODEL_BASE_URL to the local Ciel /v1 endpoint,
+          so routed requests are also observable at the router.
+      current_ciel_adapter: absent
+    grok_build:
+      official_source: https://github.com/xai-org/grok-build/blob/main/crates/codegen/xai-grok-pager/docs/user-guide/14-headless-mode.md
+      confirmed_headless_source: streaming-json end event
+      available_fields:
+        - input_tokens
+        - cache_read_input_tokens
+        - output_tokens
+        - reasoning_tokens
+        - total_tokens
+        - modelUsage
+        - usage_is_incomplete
+      interactive_source:
+        source: ~/.grok/README.md
+        confirmed_storage: sessions/<encoded-cwd>/<session-id>/signals.json
+        exact_schema_status: not-observed-locally
+      current_ciel_adapter: absent
+    routed_protocols:
+      openai_responses:
+        official_source: https://developers.openai.com/api/reference/resources/responses
+        current_ciel_observer: ciel_runtime_support/responses_usage_observer.py
+        observed_fields:
+          - input_tokens
+          - output_tokens
+          - cache_read_tokens
+          - cache_creation_tokens
+          - uncached_input_tokens
+        current_gap: >-
+          These detailed fields reach the latest router-activity snapshot but
+          are reduced to input/output in the durable UsageEvent.
+      openai_chat:
+        current_ciel_behavior: streamed bytes are passed through without usage parsing
+      anthropic_messages:
+        official_source: https://platform.claude.com/docs/en/api/messages/create
+        official_fields:
+          - input_tokens
+          - output_tokens
+          - cache_creation_input_tokens
+          - cache_read_input_tokens
+          - output_tokens_details.thinking_tokens
+        current_ciel_behavior: native/routed Anthropic SSE lacks a general durable usage observer
+      ollama:
+        official_source: https://docs.ollama.com/api/usage
+        official_fields:
+          - prompt_eval_count
+          - eval_count
+          - total_duration
+          - load_duration
+          - prompt_eval_duration
+          - eval_duration
+        cache_breakdown_status: not-defined-in-the-cited-usage-contract
+
+  proposed_contract:
+    collection_boundary:
+      truly_routed_requests: >-
+        Capture usage once at the Ciel Router response boundary. The router is
+        the canonical collector because both the upstream request and response
+        pass through it. Do not also ingest the CLI journal for the same call.
+      native_or_bypass_requests: >-
+        Use the runtime-specific collector because the model API exchange does
+        not cross the Ciel Router.
+      terminology_exception: >-
+        AGY Routed is not a model-traffic route in the current implementation;
+        it adds channel and PTY wake support only. It therefore belongs to the
+        native-or-bypass collection case.
+      protocol_constraint: >-
+        Exact token counts still depend on the upstream response exposing usage.
+        Each routed protocol adapter must parse its non-streaming response or
+        terminal streaming usage event. Missing provider usage remains null or
+        explicitly estimated; it must not be presented as an exact count.
+    canonical_usage_event:
+      identity:
+        fields: [event_id, schema_version, workspace_id, runtime, session_id, turn_id, request_id]
+      routing:
+        fields: [provider, model, protocol, runtime_version]
+      time:
+        fields: [observed_at, request_started_at, request_completed_at, duration_ms]
+      usage:
+        fields:
+          - input_tokens_uncached
+          - cache_read_input_tokens
+          - cache_write_input_tokens
+          - input_tokens_total
+          - output_tokens
+          - reasoning_output_tokens
+          - total_tokens
+      quality:
+        fields: [usage_source, is_estimated, is_incomplete, status]
+      raw:
+        field: raw_usage
+        rule: optional, redacted, and protocol-namespaced
+      nullability_rule: >-
+        An unavailable metric remains null. Unknown cache usage must not be
+        represented as zero.
+    normalization_rules:
+      openai: >-
+        input_tokens is total input; derive uncached input by subtracting cache
+        read and cache write details when those details are present.
+      anthropic: >-
+        input_tokens is uncached input; total processed input is input_tokens
+        plus cache_read_input_tokens plus cache_creation_input_tokens.
+      output_reasoning: >-
+        Reasoning or thinking tokens are stored as a breakdown. They are not
+        added a second time when the provider's output total already includes
+        them.
+    source_precedence:
+      - exact routed response usage when the request traverses Ciel Router
+      - exact CLI-native per-request event when the request bypasses Ciel Router
+      - monotonic session-journal delta
+      - explicit estimate
+    deduplication:
+      rule: >-
+        Prefer provider response/request IDs. Otherwise use runtime, workspace,
+        session, turn, and sequence identity. Never sum a native CLI event and a
+        router event for the same request.
+
+  proposed_interfaces:
+    durable_ledger:
+      scope: workspace
+      proposed_location: WORKSPACE_STATE_DIR/usage/usage.sqlite3
+      not_router_instance_reason: >-
+        Router-instance directories are process/port-specific. A time-range
+        ledger must survive router restarts and instance rotation.
+      indexes:
+        - request_completed_at
+        - workspace_id-runtime-request_completed_at
+        - provider-model-request_completed_at
+        - request_id
+    realtime_delivery:
+      event_type: ai.oneciel.ciel-runtime.usage.recorded
+      ordering: persist-ledger-then-enqueue-outbox
+      transports:
+        - outbound authenticated webhook to configured receivers
+        - authenticated local SSE stream with a resumable after cursor
+      delivery_rules:
+        - never block a model response on receiver availability
+        - retry with the same event_id and Idempotency-Key
+        - advance delivery cursor only after HTTP 2xx
+        - preserve immutable usage records
+        - retain retry state and dead-letter state separately
+    query_api:
+      event_route: GET /ca/usage/events
+      summary_route: GET /ca/usage/summary
+      stream_route: GET /ca/usage/stream
+      required_filters:
+        - from
+        - to
+        - runtime
+        - provider
+        - model
+        - workspace_id
+      pagination: cursor-and-limit
+      aggregation_dimensions: [runtime, provider, model, hour, day]
+      response_integrity:
+        fields: [coverage, incomplete_sources]
+        reason: >-
+          A cross-runtime total must reveal which collectors were unavailable or
+          incomplete during the requested interval.
+    consumer_api_keys:
+      separation_rule: >-
+        Usage-consumer credentials are separate from the router-wide external
+        token and from every upstream provider secret. Provider API keys are
+        never returned in usage events or query responses.
+      issued_secret: returned-once
+      persisted_metadata:
+        - key_id
+        - key_prefix
+        - keyed_hash
+        - scopes
+        - created_at
+        - expires_at
+        - revoked_at
+        - last_used_at
+      scopes: [usage:read, usage:stream]
+      administration: local-or-admin-only issue, rotate, list, and revoke operations
+      verification: constant-time comparison, rate limiting, and audit logging
+
+  coverage_and_gaps:
+    exact_or_documented_paths:
+      - Claude Code OpenTelemetry
+      - Codex app-server raw response and accumulated token usage
+      - Codex TUI rollout token_count journal
+      - AGY headless stream-json
+      - Kimi wire.jsonl usage.record
+      - Grok Build headless streaming-json end event
+      - routed OpenAI Responses observer
+    unconfirmed_or_incomplete_paths:
+      - AGY interactive exact usage source
+      - Grok interactive signals.json exact schema on this machine
+      - OpenAI Chat streaming usage parser in Ciel
+      - general Anthropic Messages durable usage observer in Ciel
+      - durable cache and reasoning fields in UsageEvent
+      - per-consumer API-key issuance and authorization
+      - durable time-range query store and API
+      - usage-specific outbound webhook worker
+    conclusion: >-
+      Both requested interfaces are feasible, but the current repository does
+      not implement them end to end. Implementation requires runtime-specific
+      collectors feeding one workspace-scoped canonical ledger, an idempotent
+      asynchronous delivery outbox, and a separately authenticated query API.
+
+  verification:
+    evidence_types:
+      - repository source inspection
+      - installed CLI version and package inspection
+      - local Codex rollout JSONL inspection
+      - current workspace state inspection
+      - official vendor documentation
+    no_live_inference_performed: true
+    reason: >-
+      This task requested research. No provider request was sent and no usage
+      feature implementation or deployment was performed.
+    focused_baseline_tests:
+      command_style: python -m unittest discover -s tests -p <file> -v
+      results:
+        test_usage_events.py: "3 passed"
+        test_responses_usage_observer.py: "2 passed"
+        test_transcript_delta_delivery.py: "4 passed"
+        test_router_access.py: "7 passed"
+      total: "16 passed"

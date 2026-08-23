@@ -193,6 +193,29 @@ class WorkspaceMcpLeaseTests(unittest.TestCase):
             ),
         )
 
+    def test_injected_stateless_http_server_is_ephemeral_and_projected_for_claude(self):
+        state = {"workspace_mcp": {"servers": {}}}
+        with tempfile.TemporaryDirectory() as directory:
+            launch = self.service(Path(directory), {11}, []).prepare(
+                "claude",
+                state,
+                {},
+                injected_servers={
+                    "ciel-runtime-router": {
+                        "transport": "streamable_http",
+                        "url": "http://127.0.0.1:8799/ca/mcp",
+                        "runtimes": ["claude"],
+                    }
+                },
+            )
+            projected = json.loads(launch.claude_config_paths[0].read_text(encoding="utf-8"))
+
+        self.assertEqual(
+            {"type": "http", "url": "http://127.0.0.1:8799/ca/mcp"},
+            projected["mcpServers"]["ciel-runtime-router"],
+        )
+        self.assertEqual({}, state["workspace_mcp"]["servers"])
+
     def test_prepare_and_normal_finish_remove_ephemeral_artifacts(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary) / "mcp-launches"

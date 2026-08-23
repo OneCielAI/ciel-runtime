@@ -13,6 +13,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any, Callable
+import os
+import time
 import urllib.parse
 from pathlib import PurePosixPath
 
@@ -46,6 +48,25 @@ TRANSCRIPT_EVENT_LIMITS = {
     "poll_interval_ms": (100, 60_000),
     "max_batch_bytes": (1_024, 16_777_216),
 }
+USAGE_EVENT_KEYS = (
+    "endpoint_id",
+    "enabled",
+    "url",
+    "authorization",
+    "api_key",
+    "timeout_seconds",
+    "poll_interval_seconds",
+    "start_mode",
+    "audit_interval_seconds",
+    "audit_emit_on_start",
+    "jsonl_enabled",
+    "backfill_paths",
+)
+USAGE_EVENT_LIMITS = {
+    "timeout_seconds": (1, 30),
+    "poll_interval_seconds": (1, 60),
+    "audit_interval_seconds": (1, 31_536_000),
+}
 REMOTE_INSTRUCTION_URL_KEYS = (
     "claude_url",
     "codex_url",
@@ -77,7 +98,7 @@ REMOTE_MEMORY_LIMITS = {
     "max_total_bytes": (1_024, 134_217_728),
     "max_files": (1, 2_048),
 }
-_SECRET_KEYS = frozenset({"webhook_secret", "authorization"})
+_SECRET_KEYS = frozenset({"webhook_secret", "authorization", "api_key"})
 
 
 class EventSettingsCliError(ValueError):
@@ -130,6 +151,7 @@ class EventSettingsCliPorts:
     sync_instructions: Callable[[], list[str]]
     sync_memories: Callable[[], list[str]]
     output: Callable[[str], None]
+    usage_keys: Callable[[], Any] = lambda: None
 
 
 @dataclass(frozen=True, slots=True)
@@ -273,6 +295,173 @@ class EventSettingsCli:
         stored.update(updates)
         self.ports.save_config(config)
         self._confirm("transcript-events", changed)
+
+    # -- usage events -----------------------------------------------------
+
+    def _usage_settings(self) -> dict[str, Any]:
+        value = self.ports.load_config().get("usage")
+        return value if isinstance(value, dict) else {}
+
+    def _usage_endpoint(self, endpoint_id: str) -> dict[str, Any]:
+        endpoints = self._usage_settings().get("push_endpoints")
+        for endpoint in endpoints if isinstance(endpoints, list) else []:
+            if isinstance(endpoint, dict) and str(endpoint.get("id") or "") == endpoint_id:
+                return dict(endpoint)
+        return {"id": endpoint_id, "enabled": False}
+
+    def usage_event_values(self, endpoint_id: str = "default") -> dict[str, Any]:
+        current = self._usage_endpoint(endpoint_id)
+        settings = self._usage_settings()
+        return {
+            "endpoint_id": endpoint_id,
+            "enabled": bool(current.get("enabled", False)),
+            "url": str(current.get("url") or ""),
+            "authorization": "stored" if current.get("authorization") else "unset",
+            "api_key": "stored" if current.get("api_key") else "unset",
+            "timeout_seconds": current.get("timeout_seconds") or 5,
+            "poll_interval_seconds": current.get("poll_interval_seconds") or 1,
+            "start_mode": str(current.get("start_mode") or "tail"),
+            "audit_interval_seconds": current.get("audit_interval_seconds") or 86400,
+            "audit_emit_on_start": bool(current.get("audit_emit_on_start", True)),
+            "jsonl_enabled": bool(settings.get("jsonl_enabled", True)),
+            "backfill_paths": os.pathsep.join(str(path) for path in (settings.get("backfill_paths") or [])),
+        }
+
+    def usage_events(self, args: Any) -> None:
+        tokens = [str(value) for value in (getattr(args, "values", None) or [])]
+        endpoint_id = "default"
+        for token in tokens:
+            key, value = split_assignment(token)
+            if key == "endpoint_id":
+                endpoint_id = value.strip() or "default"
+        if not tokens or all(split_assignment(token)[0] == "endpoint_id" for token in tokens):
+            self._report("usage-events", self.usage_event_values(endpoint_id))
+            return
+        current = self._usage_endpoint(endpoint_id)
+        updates: dict[str, Any] = {"id": endpoint_id}
+        changed: list[str] = []
+        backfill_paths: list[str] | None = None
+        jsonl_enabled: bool | None = None
+        for token in tokens:
+            key, value = split_assignment(token)
+            if key not in USAGE_EVENT_KEYS:
+                raise EventSettingsCliError(
+                    f"unsupported usage event option: {key}; expected one of {', '.join(USAGE_EVENT_KEYS)}"
+                )
+            if key == "endpoint_id":
+                continue
+            if key in {"enabled", "audit_emit_on_start"}:
+                updates[key] = parse_flag(key, value)
+            elif key == "jsonl_enabled":
+                jsonl_enabled = parse_flag(key, value)
+            elif key == "url":
+                updates[key] = _validated_url(key, value)
+            elif key in USAGE_EVENT_LIMITS:
+                minimum, maximum = USAGE_EVENT_LIMITS[key]
+                try:
+                    parsed = int(value.strip())
+                except ValueError:
+                    raise EventSettingsCliError(
+                        f"{key} must be a whole number from {minimum} to {maximum}"
+                    ) from None
+                if not minimum <= parsed <= maximum:
+                    raise EventSettingsCliError(
+                        f"{key} must be a whole number from {minimum} to {maximum}"
+                    )
+                updates[key] = parsed
+            elif key == "start_mode":
+                mode = value.strip().lower()
+                if mode not in {"tail", "beginning"}:
+                    raise EventSettingsCliError("start_mode must be tail or beginning")
+                updates[key] = mode
+            elif key == "backfill_paths":
+                backfill_paths = [path.strip() for path in value.split(os.pathsep) if path.strip()]
+            else:
+                updates[key] = value
+            changed.append(key)
+        resulting = {**current, **updates}
+        if resulting.get("enabled") and not str(resulting.get("url") or "").strip():
+            raise EventSettingsCliError("usage-events requires url when enabled=true")
+        config = self.ports.load_config()
+        settings = config.get("usage")
+        if not isinstance(settings, dict):
+            settings = {}
+            config["usage"] = settings
+        endpoints = settings.get("push_endpoints")
+        stored_endpoints = [dict(item) for item in endpoints if isinstance(item, dict)] if isinstance(endpoints, list) else []
+        stored_endpoints = [item for item in stored_endpoints if str(item.get("id") or "") != endpoint_id]
+        stored_endpoints.append(resulting)
+        settings["push_endpoints"] = stored_endpoints
+        if backfill_paths is not None:
+            settings["backfill_paths"] = backfill_paths
+        if jsonl_enabled is not None:
+            settings["jsonl_enabled"] = jsonl_enabled
+        self.ports.save_config(config)
+        self._confirm("usage-events", changed)
+
+    def usage_api_key(self, args: Any) -> None:
+        tokens = [str(value) for value in (getattr(args, "values", None) or [])]
+        repository = self.ports.usage_keys()
+        if repository is None:
+            raise EventSettingsCliError("usage API key repository is unavailable")
+        action = "list"
+        assignments: dict[str, str] = {}
+        for index, token in enumerate(tokens):
+            key, value = split_assignment(token, bare_keys=("list", "issue", "revoke"))
+            if index == 0 and key in {"list", "issue", "revoke"}:
+                action = key
+            else:
+                assignments[key] = value
+        if action == "list":
+            rows = repository.list()
+            self.ports.output("usage-api-key:")
+            for row in rows:
+                self.ports.output(
+                    f"  {row['key_id']} name={row['name']} scopes={','.join(row['scopes'])} "
+                    f"expires_at={row['expires_at']} revoked_at={row['revoked_at']}"
+                )
+            if not rows:
+                self.ports.output("  none")
+            return
+        if action == "revoke":
+            key_id = assignments.get("key_id", "").strip()
+            if not key_id:
+                raise EventSettingsCliError("usage-api-key revoke requires key_id=<id>")
+            self.ports.output(f"usage-api-key revoked: {key_id} ok={repository.revoke(key_id)}")
+            return
+        allowed = {"name", "scopes", "ttl_seconds", "expires_at", "api_key", "key_id"}
+        unknown = sorted(set(assignments) - allowed)
+        if unknown:
+            raise EventSettingsCliError(f"unsupported usage API key option: {unknown[0]}")
+        scopes = []
+        for scope in assignments.get("scopes", "read,stream").split(","):
+            normalized = scope.strip().lower()
+            if normalized in {"read", "usage:read"}:
+                scopes.append("usage:read")
+            elif normalized in {"stream", "usage:stream"}:
+                scopes.append("usage:stream")
+            elif normalized:
+                raise EventSettingsCliError(f"unsupported usage API key scope: {scope}")
+        try:
+            ttl = int(assignments.get("ttl_seconds", "0") or 0)
+        except ValueError:
+            raise EventSettingsCliError("ttl_seconds must be a non-negative whole number") from None
+        if ttl < 0:
+            raise EventSettingsCliError("ttl_seconds must be a non-negative whole number")
+        try:
+            expires_at = float(assignments.get("expires_at", "0") or 0)
+        except ValueError:
+            raise EventSettingsCliError("expires_at must be a non-negative epoch timestamp") from None
+        if expires_at < 0:
+            raise EventSettingsCliError("expires_at must be a non-negative epoch timestamp")
+        result = repository.issue(
+            assignments.get("name", "usage-consumer"), scopes,
+            expires_at or (time.time() + ttl if ttl else 0),
+            secret=assignments.get("api_key", ""), key_id=assignments.get("key_id", ""),
+        )
+        self.ports.output(f"usage-api-key issued: key_id={result['key_id']}")
+        self.ports.output(f"  api_key={result['api_key']}")
+        self.ports.output(f"  scopes={','.join(result['scopes'])}")
 
     # -- remote instructions -----------------------------------------------
 
@@ -465,12 +654,14 @@ def _guarded(handler: Callable[[Any], None]) -> Callable[[Any], None]:
 
 
 def handlers(ports: EventSettingsCliPorts) -> tuple[Callable[[Any], None], ...]:
-    """Return event, transcript, instruction, and memory handlers."""
+    """Return event, usage, instruction, and memory handlers."""
 
     controller = EventSettingsCli(ports)
     return (
         _guarded(controller.external_events),
         _guarded(controller.transcript_events),
+        _guarded(controller.usage_events),
+        _guarded(controller.usage_api_key),
         _guarded(controller.remote_instructions),
         _guarded(controller.remote_memory),
     )
@@ -479,6 +670,7 @@ def handlers(ports: EventSettingsCliPorts) -> tuple[Callable[[Any], None], ...]:
 __all__ = [
     "EXTERNAL_EVENT_KEYS",
     "TRANSCRIPT_EVENT_KEYS",
+    "USAGE_EVENT_KEYS",
     "REMOTE_MEMORY_KEYS",
     "REMOTE_INSTRUCTION_KEYS",
     "REMOTE_INSTRUCTION_URL_KEYS",

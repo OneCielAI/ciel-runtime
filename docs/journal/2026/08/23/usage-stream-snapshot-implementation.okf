@@ -1,0 +1,117 @@
+okf_version: "1.0"
+knowledge:
+  task:
+    id: usage-stream-snapshot-implementation-20260823
+    date: "2026-08-23"
+    objective: >-
+      Implement workspace-scoped token usage capture, authenticated real-time
+      delivery, time-range snapshots, retry-safe per-key cursors, daily audit
+      delivery, legacy backfill, startup environment configuration, and the
+      equivalent ciel-runtimectl configuration surface.
+    status: implementation-complete
+
+  architecture:
+    storage:
+      kind: sqlite
+      workspace_scoped: true
+      relative_path: usage/usage.sqlite3
+      immutable_event_sequence: true
+    inbound_interfaces:
+      events: GET /ca/usage/events
+      stream: GET /ca/usage/stream
+      snapshot: GET /ca/usage/snapshot
+      key_administration: /ca/usage/keys
+    outbound_interfaces:
+      event_type: ai.oneciel.ciel-runtime.usage.recorded
+      audit_type: ai.oneciel.ciel-runtime.usage.audit
+      envelope: CloudEvents-1.0
+      retry_rule: cursor advances only after HTTP 2xx
+      idempotency_rule: event ID and Idempotency-Key remain stable across retry
+      cursor_identity: endpoint ID plus URL plus expanded authorization fingerprint
+    audit:
+      default_interval_seconds: 86400
+      contains: [period, totals, rates, groups, sequence_coverage]
+    backfill:
+      inputs: [workspace-owned usage-events.jsonl, usage-events.jsonl.1, explicit paths]
+      cursor: per-source-byte-offset
+      rotation_deduplication: deterministic legacy event ID
+      incomplete_trailing_line: deferred
+
+  configuration:
+    startup_environment:
+      - CIEL_RUNTIME_USAGE_API_KEY
+      - CIEL_RUNTIME_USAGE_API_KEYS
+      - CIEL_RUNTIME_USAGE_PUSH_ID
+      - CIEL_RUNTIME_USAGE_PUSH_URL
+      - CIEL_RUNTIME_USAGE_PUSH_AUTHORIZATION
+      - CIEL_RUNTIME_USAGE_PUSH_API_KEY
+      - CIEL_RUNTIME_USAGE_PUSH_ENDPOINTS
+      - CIEL_RUNTIME_USAGE_AUDIT_INTERVAL_SECONDS
+      - CIEL_RUNTIME_USAGE_BACKFILL_PATHS
+      - CIEL_RUNTIME_USAGE_LOG
+    ctl:
+      usage_events:
+        command: ciel-runtimectl usage-events
+        values:
+          - endpoint_id
+          - enabled
+          - url
+          - authorization
+          - api_key
+          - timeout_seconds
+          - poll_interval_seconds
+          - start_mode
+          - audit_interval_seconds
+          - audit_emit_on_start
+          - jsonl_enabled
+          - backfill_paths
+      usage_api_key:
+        command: ciel-runtimectl usage-api-key
+        actions: [issue, list, revoke]
+        exact_environment_equivalents: [key_id, api_key, name, scopes, expires_at]
+      persistence: workspace config plus keyed-digest API-key repository
+      shell_environment_mutation: false
+
+  confirmed_limits:
+    native_direct_runtime_usage: >-
+      Requests that bypass the Ciel router are not observed by the router ledger.
+    unrecoverable_history: >-
+      A historical period with no Ciel JSONL record and no native CLI usage
+      record cannot be reconstructed.
+    unowned_global_jsonl: >-
+      A legacy global JSONL file with no workspace identity is not assigned
+      automatically and requires an explicit backfill path.
+
+  verification:
+    focused_usage_service: "8 passed"
+    focused_event_settings_cli: "34 passed"
+    architecture_contracts: "261 passed, 42 skipped"
+    ruff: passed
+    diff_check: passed
+    main_module_lines: 4980
+    ctl_wrapper_probe:
+      destination_saved: true
+      destination_report_masked_authorization: true
+      daily_interval_seconds: 86400
+      jsonl_enabled: false
+      backfill_path_count: 1
+      exact_api_key_id: env_auditor
+      key_metadata_listed: true
+      ledger_created: true
+      pepper_created: true
+    full_suite:
+      unit: "1164 passed, 44 skipped"
+      router: "923 passed"
+      channel: "381 passed, 80 skipped"
+      runtime: "252 passed, 12 skipped"
+    documentation_metadata: "passed; 23 Markdown files"
+    package_dry_run: "passed; 411 files"
+
+  deployment:
+    local:
+      status: passed
+      path: C:/Users/djlov/.local/share/ciel-runtime
+      source_hash_matched: true
+      installed_version: 0.2.22
+    nightly:
+      status: pending
