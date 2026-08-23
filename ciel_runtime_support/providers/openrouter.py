@@ -105,6 +105,22 @@ class OpenRouterProviderAdapter(OpenAICompatibleProviderAdapter):
             "OpenRouter Ox Alpha profile applied: 1,048,576-token context and 131,072-token maximum output.",
         )
 
+    def openai_reasoning_effort(
+        self,
+        config: ProviderConfig,
+        model: str,
+        request: Mapping[str, Any],
+    ) -> str | None:
+        del config, model
+        metadata = request.get("metadata")
+        hinted = (
+            metadata.get("ciel_runtime_reasoning_effort")
+            if isinstance(metadata, Mapping)
+            else None
+        )
+        value = str(request.get("reasoning_effort") or hinted or "").strip().casefold()
+        return value or None
+
 
 __all__ = [
     "OPENROUTER_OX_ALPHA_CONTEXT_WINDOW",

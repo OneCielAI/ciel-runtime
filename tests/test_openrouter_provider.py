@@ -66,6 +66,39 @@ class OpenRouterProviderTests(unittest.TestCase):
         self.assertEqual("openrouter-ox-alpha-1m", pcfg["model_profile"])
         self.assertTrue(any("Ox Alpha profile applied" in message for message in messages))
 
+    def test_reasoning_effort_is_forwarded_from_codex_metadata(self):
+        pcfg = self.openrouter_pcfg(current_model="stealth/ox-alpha")
+        request = ciel_runtime.openai_compatible_chat_request(
+            "openrouter",
+            "stealth/ox-alpha",
+            {
+                "model": "stealth/ox-alpha",
+                "messages": [{"role": "user", "content": "inspect"}],
+                "metadata": {"ciel_runtime_reasoning_effort": "low"},
+            },
+            pcfg,
+            stream=True,
+        )
+
+        self.assertEqual("low", request["reasoning_effort"])
+
+    def test_explicit_reasoning_effort_takes_precedence(self):
+        pcfg = self.openrouter_pcfg(current_model="stealth/ox-alpha")
+        request = ciel_runtime.openai_compatible_chat_request(
+            "openrouter",
+            "stealth/ox-alpha",
+            {
+                "model": "stealth/ox-alpha",
+                "messages": [{"role": "user", "content": "inspect"}],
+                "reasoning_effort": "HIGH",
+                "metadata": {"ciel_runtime_reasoning_effort": "low"},
+            },
+            pcfg,
+            stream=True,
+        )
+
+        self.assertEqual("high", request["reasoning_effort"])
+
     def test_migration_adds_ox_alpha_without_removing_custom_models(self):
         cfg = {
             "migrations": {},

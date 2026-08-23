@@ -1,0 +1,135 @@
+okf_version: "1.0"
+knowledge:
+  task:
+    id: mia-openrouter-ox-alpha-latency-diagnosis-20260823
+    date: "2026-08-23"
+    objective: >-
+      Determine from live host, runtime, source, and provider evidence why the
+      Mia Codex session using OpenRouter Ox Alpha is slow.
+    status: diagnosis_complete
+
+  scope:
+    host: aap-pool-hera
+    user: mia
+    session_id: 01a02d19-baff-7410-9d91-dc7b932aee82
+    runtime_version: 0.2.22-nightly.20260823-070606.65e69f1
+    provider: openrouter
+    model: stealth/ox-alpha
+
+  confirmed_evidence:
+    reasoning_projection:
+      codex_log_effort: low
+      installed_openrouter_adapter_override_present: false
+      projection_probe:
+        requested_effort: low
+        projected_effort: null
+      provider_request_builder_behavior: >-
+        Adds reasoning_effort only when the provider adapter returns a
+        non-empty normalized effort.
+      openrouter_model_metadata:
+        reasoning_mandatory: true
+        reasoning_default_enabled: true
+        reasoning_default_effort: max
+        supported_efforts: [max, high, low]
+      conclusion: >-
+        The Mia UI/Codex request selected low, but ciel-runtime omitted the
+        reasoning_effort field on the OpenRouter Chat Completions wire. Ox
+        Alpha therefore used its documented default max reasoning effort.
+
+    observed_latency:
+      first_ox_task:
+        model_calls: 19
+        minimum_seconds: 8.470
+        median_seconds: 19.171
+        maximum_seconds: 119.111
+      following_ox_task:
+        observed_model_calls: 17
+        minimum_seconds: 4.855
+        median_seconds: 11.076
+        maximum_seconds: 28.510
+
+    rate_limit:
+      observed_at_utc: "2026-08-23T07:45:46.900Z"
+      result: "429 Too Many Requests"
+      task_result: "exceeded retry limit"
+      local_rate_limit_rpm: 0
+      local_rate_limit_status: false
+      openrouter_key_is_free_tier: false
+      openrouter_key_limit: null
+
+    request_shape:
+      messages: 193
+      tools: 12
+      context_estimate_tokens: 112445
+      observed_router_request_tokens_range: [131060, 146479]
+      observed_router_request_bytes_range: [595898, 672272]
+      note: >-
+        This is a substantial repeated request load, but its independent share
+        of total latency was not isolated in this diagnosis.
+
+    network_and_host:
+      openrouter_models_http_samples: 5
+      openrouter_models_http_total_seconds_range: [0.137942, 0.156657]
+      router_process_cpu_percent: 0.7
+      router_process_rss_kib: 69680
+      conclusion: >-
+        No evidence was observed that Mia-to-OpenRouter network round-trip or
+        Mia host CPU saturation explains the multi-second model waits.
+
+    upstream_endpoint:
+      endpoint_count: 1
+      provider_name: Stealth
+      uptime_last_5m_percent: 99.98009342817709
+      latency_last_30m: null
+      throughput_last_30m: null
+
+  diagnosis:
+    primary_confirmed_cause: >-
+      ciel-runtime drops Codex's low reasoning effort for OpenRouter Ox Alpha,
+      causing the mandatory-reasoning model to fall back to max effort.
+    additional_confirmed_degradation:
+      - "The live session received an upstream 429 and the turn ended after the configured zero Codex retries."
+      - "Large 0.60-0.67 MB agent-history requests are sent on successive tool steps."
+    not_supported_by_evidence:
+      - "Mia host CPU saturation"
+      - "Mia-to-OpenRouter network latency"
+      - "A local Ollama bottleneck in this OpenRouter session"
+
+  mutations:
+    runtime_config_changed: false
+    process_restarted: false
+    source_code_changed: true
+    source_fix:
+      behavior: >-
+        OpenRouter now forwards the explicit request effort or the preserved
+        ciel_runtime_reasoning_effort metadata value on Chat Completions wires.
+      scope: provider-wide
+      mia_specific_exception: false
+
+  fix_verification:
+    projected_request:
+      requested_effort: low
+      forwarded_effort: low
+    live_openrouter_request:
+      http_status: 200
+      elapsed_seconds: 2.713
+      prompt_tokens: 91
+      completion_tokens: 3
+      cost: 0
+    focused_tests: "61 passed"
+    full_suite:
+      total: "2698 passed, 136 skipped"
+      unit: "1148 passed, 44 skipped"
+      router: "917 passed"
+      channel: "381 passed, 80 skipped"
+      runtime: "252 passed, 12 skipped"
+    quality:
+      ruff: passed
+      documentation_metadata: passed
+      package_dry_run: "passed; 404 entries"
+    local_install:
+      status: passed
+      path: C:/Users/djlov/.local/share/ciel-runtime
+      source_hash_matched: true
+      installed_projected_effort: low
+    nightly_publish: pending
