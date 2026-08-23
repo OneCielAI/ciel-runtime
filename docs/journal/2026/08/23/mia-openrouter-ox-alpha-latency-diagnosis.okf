@@ -132,4 +132,15 @@ knowledge:
       path: C:/Users/djlov/.local/share/ciel-runtime
       source_hash_matched: true
       installed_projected_effort: low
-    nightly_publish: pending
+    nightly_publish:
+      status: passed
+      commit: c243e753eb9ba3d9a3471611421751a37806972a
+      version: 0.2.22-nightly.20260823-082018.c243e75
+      ci_run: 32627887859
+      publish_run: 32627887878
+      registry_git_head_matched: true
+      tarball_verified: true
+    npm_global_install:
+      status: passed
+      version: 0.2.22-nightly.20260823-082018.c243e75
+      installed_projected_effort: low
