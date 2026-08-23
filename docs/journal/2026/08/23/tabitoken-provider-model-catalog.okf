@@ -6,7 +6,7 @@ knowledge:
     objective: >-
       Determine whether ciel-runtime supports tabitoken.com and implement its
       currently published provider endpoints and model catalog.
-    status: local_verified_pending_nightly
+    status: complete
 
   official_evidence:
     pricing_page:
@@ -82,4 +82,16 @@ knowledge:
       installed_models: 4
       installed_openai_url: https://tabitoken.com/v1/chat/completions
       installed_anthropic_url: https://tabitoken.com/v1/messages
-    nightly: pending
+    nightly:
+      status: passed
+      source_commit: d81eb003b7896d55b91588fbcf020fc364ef8c5b
+      version: 0.2.22-nightly.20260823-085017.d81eb00
+      ci_run: 32629221468
+      publish_run: 32629221482
+      registry_git_head_matched: true
+      published_tarball_verified: true
+      npm_global_install:
+        status: passed
+        installed_version: 0.2.22-nightly.20260823-085017.d81eb00
+        source_hash_matched: true
+        installed_models: 4
