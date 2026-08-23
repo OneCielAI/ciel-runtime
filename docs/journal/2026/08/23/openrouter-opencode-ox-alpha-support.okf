@@ -98,4 +98,17 @@ knowledge:
       reason: >-
         No OpenRouter, OpenCode Zen, or OpenCode Go API key was configured in
         the process environment or local ciel-runtime provider configuration.
-    nightly_publish: pending
+    nightly_publish:
+      status: passed
+      workflow_run: 32624300464
+      workflow_url: https://github.com/OneCielAI/ciel-runtime/actions/runs/32624300464
+      commit: 70c5d32ece7636b0a61a43c38742b92ce2ea91a0
+      version: 0.2.22-nightly.20260823-070025.70c5d32
+      registry_git_head_matched: true
+    npm_global_install:
+      status: passed
+      version: 0.2.22-nightly.20260823-070025.70c5d32
+      path: C:/Users/djlov/AppData/Roaming/npm/node_modules/@oneciel-ai/ciel-runtime
+      installed_live_catalog_matrix:
+        opencode: "64 models checked; 0 protocol mismatches"
+        opencode_go: "29 models checked; 0 protocol mismatches"
