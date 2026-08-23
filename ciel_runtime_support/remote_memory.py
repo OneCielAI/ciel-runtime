@@ -30,8 +30,9 @@ from .remote_instructions import (
 MEMORY_POINTER_BEGIN = "<!-- ciel-runtime:remote-memory:begin -->"
 MEMORY_POINTER_END = "<!-- ciel-runtime:remote-memory:end -->"
 MEMORY_REFERENCE_INSTRUCTION = (
-    "Memory guidance: Read the memory index first and use the relevant files "
-    "under the memory root as context for your work."
+    "Memory guidance: Resolve these paths from the current workspace root. "
+    "Read the memory index first and use the relevant files under the memory "
+    "root as context for your work."
 )
 DEFAULT_DIRECTORY = ".ciel/memory"
 DEFAULT_MAX_MANIFEST_BYTES = 1_048_576
@@ -213,7 +214,7 @@ def parse_manifest(
 def _managed_pointer_block(index_address: str, root_address: str = "") -> str:
     resolved_root = str(root_address or "").strip()
     if not resolved_root:
-        resolved_root = str(Path(index_address).parent)
+        resolved_root = PurePosixPath(index_address).parent.as_posix()
     return (
         f"{MEMORY_POINTER_BEGIN}\n"
         f"Memory root: {resolved_root}\n"
@@ -370,7 +371,7 @@ def _current_memory_addresses(
     config: Mapping[str, Any],
     workspace: Path | None = None,
 ) -> tuple[str, str]:
-    """Return verified launch-workspace root and index paths."""
+    """Return verified workspace-relative root and index paths."""
 
     if not bool(settings(config).get("enabled", False)):
         return "", ""
@@ -399,7 +400,7 @@ def _current_memory_addresses(
         return "", ""
     if not root.is_dir() or not path.is_file():
         return "", ""
-    return str(root), str(path)
+    return root_relative.as_posix(), root_relative.joinpath(index_relative).as_posix()
 
 
 def current_memory_root_address(
@@ -407,7 +408,7 @@ def current_memory_root_address(
     config: Mapping[str, Any],
     workspace: Path | None = None,
 ) -> str:
-    """Return the verified launch-workspace memory root for prompt injection."""
+    """Return the verified workspace-relative memory root for prompt injection."""
 
     root_address, _index_address = _current_memory_addresses(
         state_dir,
@@ -422,7 +423,7 @@ def current_memory_index_address(
     config: Mapping[str, Any],
     workspace: Path | None = None,
 ) -> str:
-    """Return a verified launch-workspace index path for prompt injection."""
+    """Return a verified workspace-relative index path for prompt injection."""
 
     _root_address, index_address = _current_memory_addresses(
         state_dir,
@@ -745,8 +746,8 @@ class RemoteMemorySynchronizer:
                 project_memory_pointer(
                     workspace,
                     runtime,
-                    index_address,
-                    str(root.resolve()),
+                    index_path.relative_to(workspace).as_posix(),
+                    root.relative_to(workspace).as_posix(),
                 )
             else:
                 project_memory_pointer(workspace, runtime, "")

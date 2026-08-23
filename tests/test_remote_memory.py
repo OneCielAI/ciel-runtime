@@ -128,8 +128,9 @@ class RemoteMemoryTests(unittest.TestCase):
             )
             self.assertFalse((workspace / "AGENTS.md").exists())
             prompt = current_memory_prompt(root / "state", config, workspace)
-            self.assertIn(f"Memory root: {memory.resolve()}", prompt)
-            self.assertIn(f"Memory index: {(memory / 'index.okf').resolve()}", prompt)
+            self.assertIn("Memory root: .ciel/memory", prompt)
+            self.assertIn("Memory index: .ciel/memory/index.okf", prompt)
+            self.assertNotIn(str(workspace.resolve()), prompt)
             self.assertIn(MEMORY_REFERENCE_INSTRUCTION, prompt)
 
             self.assertTrue(
@@ -231,13 +232,12 @@ class RemoteMemoryTests(unittest.TestCase):
                     requests,
                 )
                 workspace = root / "workspace"
-                memory_root = (workspace / ".ciel" / "memory").resolve()
-                index = memory_root / "index.okf"
                 rendered = (workspace / "AGENTS.md").read_text(encoding="utf-8")
                 self.assertIn("# Remote instructions", rendered)
                 self.assertIn("Second line", rendered)
-                self.assertIn(f"Memory root: {memory_root}", rendered)
-                self.assertIn(f"Memory index: {index}", rendered)
+                self.assertIn("Memory root: .ciel/memory", rendered)
+                self.assertIn("Memory index: .ciel/memory/index.okf", rendered)
+                self.assertNotIn(str(workspace.resolve()), rendered)
                 self.assertIn(MEMORY_REFERENCE_INSTRUCTION, rendered)
                 self.assertTrue(
                     rendered.rstrip().endswith(
@@ -256,7 +256,7 @@ class RemoteMemoryTests(unittest.TestCase):
                 refreshed = (workspace / "AGENTS.md").read_text(encoding="utf-8")
                 self.assertTrue(refreshed.startswith("# Refreshed system prompt\n"))
                 self.assertEqual(1, refreshed.count(MEMORY_POINTER_BEGIN))
-                self.assertIn(f"Memory root: {memory_root}", refreshed)
+                self.assertIn("Memory root: .ciel/memory", refreshed)
                 self.assertTrue(
                     refreshed.rstrip().endswith(
                         "<!-- ciel-runtime:remote-memory:end -->"
@@ -266,6 +266,36 @@ class RemoteMemoryTests(unittest.TestCase):
             server.shutdown()
             server.server_close()
             thread.join(timeout=5)
+
+    def test_configured_directory_is_projected_as_a_portable_workspace_relative_path(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            workspace = root / "workspace"
+            manifest_url = "https://memory.example/manifest.json"
+            config = {
+                "remote_memory": {
+                    "enabled": True,
+                    "manifest_url": manifest_url,
+                    "directory": "agent-data/memory",
+                }
+            }
+            server = _Server(
+                {
+                    manifest_url: self._manifest(
+                        [{"path": "catalog/index.md", "url": "index.md"}],
+                        index="catalog/index.md",
+                    ),
+                    "https://memory.example/index.md": b"# memory\n",
+                }
+            )
+
+            result = self._service(root, config, server).sync("codex")
+            prompt = current_memory_prompt(root / "state", config, workspace)
+
+            self.assertEqual("updated", result.status)
+            self.assertIn("Memory root: agent-data/memory", prompt)
+            self.assertIn("Memory index: agent-data/memory/catalog/index.md", prompt)
+            self.assertNotIn(str(workspace.resolve()), prompt)
 
     def test_downloaded_instruction_file_ends_with_memory_guidance_for_every_runtime(self):
         runtime_files = {
@@ -324,13 +354,12 @@ class RemoteMemoryTests(unittest.TestCase):
                     memory_sync=memory.sync,
                 )
 
-                memory_root = (workspace / ".ciel" / "memory").resolve()
-                index = memory_root / "catalog" / "index.okf"
                 rendered = (workspace / filename).read_text(encoding="utf-8")
                 self.assertEqual("updated", result.status)
                 self.assertTrue(rendered.startswith("# Downloaded system prompt\n"))
-                self.assertIn(f"Memory root: {memory_root}", rendered)
-                self.assertIn(f"Memory index: {index}", rendered)
+                self.assertIn("Memory root: .ciel/memory", rendered)
+                self.assertIn("Memory index: .ciel/memory/catalog/index.okf", rendered)
+                self.assertNotIn(str(workspace.resolve()), rendered)
                 self.assertIn(MEMORY_REFERENCE_INSTRUCTION, rendered)
                 self.assertEqual(1, rendered.count(MEMORY_POINTER_BEGIN))
                 self.assertTrue(
@@ -679,7 +708,7 @@ class RemoteMemoryTests(unittest.TestCase):
             )
             self.assertEqual(previous_pointer, agents.read_text(encoding="utf-8"))
             self.assertIn(
-                f"Memory index: {(memory / 'old.okf').resolve()}",
+                "Memory index: .ciel/memory/old.okf",
                 service.current_prompt_text(),
             )
 
@@ -772,7 +801,7 @@ class RemoteMemoryTests(unittest.TestCase):
                 self.assertIn("remote-memory: updated", report[0])
                 self.assertEqual(1, rendered.count(MEMORY_POINTER_BEGIN))
                 self.assertIn(
-                    f"Memory root: {(workspace / '.ciel' / 'memory').resolve()}",
+                    "Memory root: .ciel/memory",
                     rendered,
                 )
                 self.assertTrue(
@@ -934,11 +963,11 @@ class RemoteMemoryTests(unittest.TestCase):
             config = {"remote_memory": {"enabled": True}}
 
             self.assertEqual(
-                str(index.resolve()),
+                ".ciel/memory/index.okf",
                 current_memory_index_address(state, config, workspace),
             )
             self.assertEqual(
-                str(index.parent.resolve()),
+                ".ciel/memory",
                 current_memory_root_address(state, config, workspace),
             )
             self.assertEqual(
@@ -1020,7 +1049,7 @@ class RemoteMemoryTests(unittest.TestCase):
             self.assertIn("# User rules", rendered)
             self.assertNotIn("index.md", rendered)
             self.assertEqual(1, rendered.count(MEMORY_POINTER_BEGIN))
-            self.assertIn(f"Memory root: {Path('.ciel/memory')}", rendered)
+            self.assertIn("Memory root: .ciel/memory", rendered)
             self.assertIn(MEMORY_REFERENCE_INSTRUCTION, rendered)
             self.assertTrue(rendered.rstrip().endswith("<!-- ciel-runtime:remote-memory:end -->"))
 

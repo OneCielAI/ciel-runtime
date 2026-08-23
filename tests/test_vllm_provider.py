@@ -220,7 +220,8 @@ class VllmProviderTests(unittest.TestCase):
         self.assertIn("Runtime state", system_text)
         self.assertIn("LATE_PROVIDER_CAP_CONTEXT", system_text)
         self.assertEqual(1, system_text.count("ciel-runtime:remote-memory:begin"))
-        self.assertIn(f"Memory root: {index.parent.resolve()}", system_text)
+        self.assertIn("Memory root: .ciel/memory", system_text)
+        self.assertNotIn(str(workspace.resolve()), system_text)
         self.assertTrue(
             upstream_body["system"][-1]["text"].endswith(
                 "<!-- ciel-runtime:remote-memory:end -->"

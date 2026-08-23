@@ -1,0 +1,79 @@
+okf_version: "1.0"
+knowledge:
+  task:
+    id: remote-memory-relative-prompt-paths-20260822
+    date: "2026-08-22"
+    objective: >-
+      Project remote-memory root and index locations into system context as
+      portable paths relative to the active workspace instead of machine-bound
+      absolute paths.
+
+  evidence:
+    before_change:
+      source: ciel_runtime_support/remote_memory.py
+      observed: >-
+        _current_memory_addresses validated the memory tree and returned
+        str(root) and str(path), causing Windows drive and user-profile paths to
+        be embedded in native instruction files and routed system context.
+    requested_example:
+      absolute_root: C:/Users/daniel.yun.WING/.ciel/memory
+      absolute_index: C:/Users/daniel.yun.WING/.ciel/memory/index.md
+
+  implementation:
+    validation: >-
+      The stored workspace, root, and index are still resolved to absolute
+      filesystem paths and rejected unless the directory and index exist below
+      the recorded active workspace.
+    projection:
+      root: .ciel/memory
+      index: .ciel/memory/index.md
+      format: portable POSIX-style workspace-relative path
+      guidance: >-
+        The model is explicitly told to resolve the paths from the current
+        workspace root before reading the index and related memory files.
+    configured_directory: >-
+      A CTR-configured directory such as agent-data/memory is preserved as
+      agent-data/memory and its nested index remains workspace-relative.
+    native_files: >-
+      Download-time projection and later pointer restoration both use the same
+      verified relative addresses, so copied CLAUDE.md, AGENTS.md, and GEMINI.md
+      files do not retain a source-machine user profile or drive letter.
+
+  verification:
+    status: passed
+    focused:
+      result: "37 tests run; all passed"
+      coverage:
+        - manifest download and native instruction projection
+        - protocol finalization and hard compaction
+        - custom memory directory projection
+    portability_assertions:
+      - "The prompt contains .ciel/memory and .ciel/memory/index.md."
+      - "The prompt does not contain the resolved active workspace path."
+      - "A custom agent-data/memory directory remains portable and relative."
+    full_suite:
+      total_run: 2691
+      passed: 2555
+      skipped_environment_dependent: 136
+      groups:
+        unit: "1148 run, 44 skipped"
+        router: "910 run"
+        channel: "381 run, 80 skipped"
+        runtime: "252 run, 12 skipped"
+    quality:
+      compileall: passed
+      ruff: passed
+      documentation_metadata: "passed; 22 Markdown files"
+      diff_check: passed
+      package_dry_run: "passed; 401 local entries"
+
+  deployment:
+    local:
+      status: passed
+      path: C:/Users/djlov/.local/share/ciel-runtime
+      evidence: >-
+        The installed remote_memory.py SHA-256 matched the tested source. An
+        installed-module execution projected agent-data/memory and its index,
+        included workspace-root guidance, and exposed no absolute workspace.
+    nightly:
+      mechanism: "git push origin HEAD:nightly triggers npm-publish.yml"

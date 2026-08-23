@@ -174,7 +174,8 @@ class RemoteInstructionCompactionTests(unittest.TestCase):
             for text in rendered:
                 self.assertEqual(1, text.count(MEMORY_POINTER_BEGIN))
                 self.assertNotIn("C:/stale", text)
-                self.assertIn(f"Memory root: {index.parent.resolve()}", text)
+                self.assertIn("Memory root: .ciel/memory", text)
+                self.assertNotIn(str(workspace.resolve()), text)
                 self.assertTrue(
                     text.rstrip().endswith(
                         "<!-- ciel-runtime:remote-memory:end -->"

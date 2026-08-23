@@ -117,8 +117,8 @@ class RemoteMemoryRuntimeIntegrationTests(unittest.TestCase):
             )
             prompt = (
                 "<!-- ciel-runtime:remote-memory:begin -->\n"
-                f"Memory root: {index.parent.resolve()}\n"
-                f"Memory index: {index.resolve()}\n"
+                "Memory root: .ciel/memory\n"
+                "Memory index: .ciel/memory/index.md\n"
                 f"{MEMORY_REFERENCE_INSTRUCTION}\n"
                 "<!-- ciel-runtime:remote-memory:end -->"
             )
@@ -147,6 +147,7 @@ class RemoteMemoryRuntimeIntegrationTests(unittest.TestCase):
         self.assertEqual("system", chat["messages"][0]["role"])
         self.assertEqual(prompt, chat["messages"][0]["content"])
         self.assertEqual(prompt, anthropic["system"][-1]["text"])
+        self.assertNotIn(str(workspace.resolve()), json.dumps(responses))
 
     def test_managed_memory_prompt_injection_is_idempotent(self):
         with tempfile.TemporaryDirectory() as td:
@@ -207,8 +208,8 @@ class RemoteMemoryRuntimeIntegrationTests(unittest.TestCase):
             )
             existing = (
                 "<!-- ciel-runtime:remote-memory:begin -->\n"
-                f"Memory root: {index.parent.resolve()}\n"
-                f"Memory index: {index.resolve()}\n"
+                "Memory root: .ciel/memory\n"
+                "Memory index: .ciel/memory/index.md\n"
                 f"{MEMORY_REFERENCE_INSTRUCTION}\n"
                 "<!-- ciel-runtime:remote-memory:end -->"
             )
@@ -336,7 +337,7 @@ class RemoteMemoryRuntimeIntegrationTests(unittest.TestCase):
             self.assertEqual(1, rendered.count(MEMORY_POINTER_BEGIN))
             self.assertNotIn("C:/stale/memory", rendered)
             self.assertIn(
-                f"Memory root: {index.parent.resolve()}",
+                "Memory root: .ciel/memory",
                 rendered.replace("\\\\", "\\"),
             )
         self.assertIn("DEV_TEXT_FALLBACK", responses[2]["input"][0]["text"])
@@ -515,7 +516,7 @@ class RemoteMemoryRuntimeIntegrationTests(unittest.TestCase):
             self.assertEqual(1, rendered.count(MEMORY_POINTER_BEGIN))
             self.assertNotIn("C:/stale/memory", rendered)
             self.assertIn(
-                f"Memory root: {index.parent.resolve()}",
+                "Memory root: .ciel/memory",
                 rendered.replace("\\\\", "\\"),
             )
         self.assertTrue(
@@ -583,7 +584,7 @@ class RemoteMemoryRuntimeIntegrationTests(unittest.TestCase):
             ]
             self.assertEqual(1, rendered.count(MEMORY_POINTER_BEGIN))
             self.assertIn(
-                f"Memory root: {index.parent.resolve()}",
+                "Memory root: .ciel/memory",
                 rendered.replace("\\\\", "\\"),
             )
             self.assertTrue(
@@ -669,8 +670,9 @@ class RemoteMemoryRuntimeIntegrationTests(unittest.TestCase):
         self.assertEqual("system", first["role"])
         self.assertTrue(first["content"].startswith("LONG_SYSTEM_PREFIX"))
         self.assertLess(len(first["content"]), 21_000)
-        self.assertIn(f"Memory root: {index.parent.resolve()}", first["content"])
-        self.assertIn(f"Memory index: {index.resolve()}", first["content"])
+        self.assertIn("Memory root: .ciel/memory", first["content"])
+        self.assertIn("Memory index: .ciel/memory/index.md", first["content"])
+        self.assertNotIn(str(workspace.resolve()), first["content"])
         self.assertIn(MEMORY_REFERENCE_INSTRUCTION, first["content"])
         self.assertEqual(1, first["content"].count("Memory root:"))
         self.assertEqual(1, first["content"].count("Memory index:"))

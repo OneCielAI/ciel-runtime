@@ -93,14 +93,15 @@ Anthropic Messages requests receive a managed prompt block like this:
 
 ```markdown
 <!-- ciel-runtime:remote-memory:begin -->
-Memory root: C:\work\project\.ciel\memory
-Memory index: C:\work\project\.ciel\memory\index.okf
-Memory guidance: Read the memory index first and use the relevant files under the memory root as context for your work.
+Memory root: .ciel/memory
+Memory index: .ciel/memory/index.okf
+Memory guidance: Resolve these paths from the current workspace root. Read the memory index first and use the relevant files under the memory root as context for your work.
 <!-- ciel-runtime:remote-memory:end -->
 ```
 
-The absolute address is verified to remain below the current launch workspace
-before projection. When the matching Remote Instructions download has a verified
+The resolved absolute address is verified to remain below the current launch
+workspace, but the projected prompt uses a portable workspace-relative path so
+the workspace can be moved or replicated. When the matching Remote Instructions download has a verified
 state and native file, Ciel appends the block idempotently to that downloaded
 `CLAUDE.md`, `AGENTS.md`, or `GEMINI.md` and restores it after an instruction
 refresh. Remote Memory by itself does not create a native instruction file or
