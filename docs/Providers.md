@@ -21,6 +21,7 @@
 | `nvidia-hosted` | Nvidia Hosted | OpenAI Chat | NVIDIA NIM Cloud |
 | `self-hosted-nim` | Self Hosted NIM | OpenAI Chat | 로컬 NIM |
 | `openrouter` | OpenRouter | OpenAI Chat | `https://openrouter.ai/api` |
+| `tabitoken` | TaBiAI (Tabitoken.com) | Anthropic Messages / OpenAI Chat | `https://tabitoken.com` |
 | `fireworks` | Fireworks.ai | OpenAI Chat | `https://api.fireworks.ai/inference` |
 | `xai` | xAI | OpenAI Responses / Chat | `https://api.x.ai/v1` |
 
@@ -216,6 +217,18 @@ Anthropic thinking 객체나 문서로 확인되지 않은 GLM-5.2 effort 문자
 
 - 단일 API로 다수 모델 접근.
 - OpenAI Chat 호환.
+
+## TaBiAI (Tabitoken.com)
+
+- 내부 ID: `tabitoken` (`tabi`, `tabiai`, `tabi-token` 별칭 지원).
+- 공식 공개 pricing catalog의 활성 모델 4개를 기본 catalog로 제공한다:
+  `claude-opus-4-8`, `claude-opus-4-8-thinking`, `claude-opus-5`,
+  `claude-opus-5-thinking`.
+- Claude 요청은 `POST /v1/messages`, Codex/OpenAI 요청은
+  `POST /v1/chat/completions`로 보낸다.
+- 모든 endpoint에 `Authorization: Bearer <TOKEN>`을 사용한다. 공식 API Detail에
+  표시된 `x-api-key`는 Anthropic 형식 endpoint가 추가로 허용하는 대체 인증이다.
+- `-thinking` 모델의 OpenAI Chat 요청에만 `reasoning_effort`를 전달한다.
 
 ---
 

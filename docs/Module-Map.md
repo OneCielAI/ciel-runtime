@@ -577,6 +577,10 @@ Ollama model-context cache 일치, dynamic `num_ctx` bucket, preset cap, option/
 
 OpenRouter 인증, OpenAI protocol capability와 hosted context 정책을 소유하는 독립 Adapter.
 
+### `ciel_runtime_support/providers/tabitoken.py`
+
+TaBiAI의 OpenAI Chat/Anthropic Messages 이중 endpoint, Bearer 인증, 공개 모델 fallback과 thinking 모델의 `reasoning_effort` 투영을 소유하는 독립 Adapter.
+
 ### `ciel_runtime_support/providers/lm_studio.py`
 
 LM Studio catalog 경로, local capability, loaded-model readiness와 context/status 정책을 소유하는 독립 Adapter.

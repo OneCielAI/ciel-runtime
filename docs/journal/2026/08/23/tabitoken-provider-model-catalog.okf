@@ -1,0 +1,85 @@
+okf_version: "1.0"
+knowledge:
+  task:
+    id: tabitoken-provider-model-catalog-20260823
+    date: "2026-08-23"
+    objective: >-
+      Determine whether ciel-runtime supports tabitoken.com and implement its
+      currently published provider endpoints and model catalog.
+    status: local_verified_pending_nightly
+
+  official_evidence:
+    pricing_page:
+      url: https://tabitoken.com/pricing
+      observed_enabled_models: 4
+      models:
+        - claude-opus-4-8
+        - claude-opus-4-8-thinking
+        - claude-opus-5
+        - claude-opus-5-thinking
+      endpoint_badges: [anthropic, openai]
+      displayed_context_tag: 1M
+    pricing_api:
+      url: https://tabitoken.com/api/pricing
+      status: 200
+      success: true
+      anthropic: "POST /v1/messages"
+      openai: "POST /v1/chat/completions"
+    api_detail:
+      base_url: https://tabitoken.com
+      authentication: "Authorization: Bearer <TOKEN> for all endpoints"
+      anthropic_alternative_authentication: x-api-key
+      thinking_models_parameter: reasoning_effort
+      thinking_models_default_effort: medium
+      non_thinking_models_parameter: temperature
+      shared_parameters_include: [stream, tools, tool_choice]
+
+  prior_support_audit:
+    repository_search: >-
+      A case-insensitive search for tabitoken and tabi-token returned no source,
+      test, documentation, alias, or provider registration match.
+    result: unsupported_before_this_change
+
+  implementation:
+    provider_id: tabitoken
+    aliases: [tabi, tabiai, tabi-token]
+    adapter: ciel_runtime_support/providers/tabitoken.py
+    protocols: [anthropic_messages, openai_chat]
+    authentication: bearer
+    context_window: 1000000
+    reasoning_scope: "Only model IDs ending in -thinking"
+    fallback_models_source: https://tabitoken.com/api/pricing
+
+  verification:
+    focused_tests: "57 passed"
+    full_suite:
+      total: "2704 passed, 136 skipped"
+      unit: "1148 passed, 44 skipped"
+      router: "923 passed"
+      channel: "381 passed, 80 skipped"
+      runtime: "252 passed, 12 skipped"
+    ruff: passed
+    documentation_metadata: "passed; 22 Markdown files"
+    package_dry_run: "passed; 406 entries"
+    live_unauthenticated_route_probe:
+      /v1/models: 403
+      /v1/chat/completions: 403
+      /v1/messages: 403
+      interpretation: >-
+        The public host protected all three configured routes. No Tabitoken API
+        key was available, so authenticated model inference was not performed.
+    runtime_projection:
+      normalized_alias: tabitoken
+      openai_url: https://tabitoken.com/v1/chat/completions
+      anthropic_url: https://tabitoken.com/v1/messages
+      models: 4
+
+  deployment:
+    local:
+      status: passed
+      path: C:/Users/djlov/.local/share/ciel-runtime
+      source_hash_matched: true
+      installed_models: 4
+      installed_openai_url: https://tabitoken.com/v1/chat/completions
+      installed_anthropic_url: https://tabitoken.com/v1/messages
+    nightly: pending

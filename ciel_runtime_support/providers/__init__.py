@@ -10,6 +10,7 @@ from .constants import PROVIDER_DEFAULT_BASE_URLS, ZAI_MODEL_FALLBACK_IDS
 from .native import AgyProviderAdapter, CodexProviderAdapter
 from .ollama import OllamaCloudProviderAdapter, OllamaProviderAdapter
 from .openrouter import OpenRouterProviderAdapter
+from .tabitoken import TabitokenProviderAdapter
 from .lm_studio import LMStudioProviderAdapter
 from .nim import SelfHostedNimProviderAdapter
 from .nvidia import NvidiaHostedProviderAdapter
@@ -56,6 +57,7 @@ __all__ = [
     "OllamaCloudProviderAdapter",
     "OllamaProviderAdapter",
     "OpenRouterProviderAdapter",
+    "TabitokenProviderAdapter",
     "LMStudioProviderAdapter",
     "NvidiaHostedProviderAdapter",
     "SelfHostedNimProviderAdapter",

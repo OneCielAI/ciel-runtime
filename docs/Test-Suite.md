@@ -32,6 +32,7 @@
 | `test_ollama_provider_options.py` | Ollama 옵션 처리 |
 | `test_opencode_provider.py` | OpenCode 제공자 |
 | `test_openrouter_provider.py` | OpenRouter 제공자 |
+| `test_tabitoken_provider.py` | TaBiAI (Tabitoken.com) 제공자 |
 | `test_vllm_provider.py` | vLLM 제공자 |
 | `test_zai_provider.py` | Z.AI 제공자 |
 

@@ -19,6 +19,7 @@ PROVIDER_DEFAULT_BASE_URLS: dict[str, str] = {
     "nvidia-hosted": "https://integrate.api.nvidia.com/v1",
     "self-hosted-nim": "http://127.0.0.1:8000",
     "openrouter": "https://openrouter.ai/api/v1",
+    "tabitoken": "https://tabitoken.com",
     "fireworks": "https://api.fireworks.ai/inference",
     "meta": "https://api.meta.ai/v1",
 }

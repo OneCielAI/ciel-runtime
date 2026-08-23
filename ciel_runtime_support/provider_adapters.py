@@ -19,6 +19,7 @@ from .providers.constants import PROVIDER_DEFAULT_BASE_URLS, ZAI_MODEL_FALLBACK_
 from .providers.native import AgyProviderAdapter, CodexProviderAdapter
 from .providers.ollama import OllamaCloudProviderAdapter, OllamaProviderAdapter
 from .providers.openrouter import OpenRouterProviderAdapter
+from .providers.tabitoken import TabitokenProviderAdapter
 from .providers.lm_studio import LMStudioProviderAdapter
 from .providers.nim import SelfHostedNimProviderAdapter
 from .providers.nvidia import NvidiaHostedProviderAdapter
@@ -64,6 +65,12 @@ PROVIDER_DESCRIPTORS = ProviderDescriptorRegistry(
         ProviderDescriptor("nvidia-hosted", "Nvidia Hosted", NvidiaHostedProviderAdapter),
         ProviderDescriptor("self-hosted-nim", "Self Hosted NIM", SelfHostedNimProviderAdapter),
         ProviderDescriptor("openrouter", "OpenRouter", OpenRouterProviderAdapter),
+        ProviderDescriptor(
+            "tabitoken",
+            "TaBiAI (Tabitoken.com)",
+            TabitokenProviderAdapter,
+            aliases=("tabi", "tabiai", "tabi-token"),
+        ),
         ProviderDescriptor("xai", "xAI", XaiProviderAdapter, aliases=("grok",)),
         ProviderDescriptor("fireworks", "Fireworks.ai", FireworksProviderAdapter),
         ProviderDescriptor(
