@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 
 from .base import provider_configuration
 from .constants import DEFAULT_REQUEST_TIMEOUT_MS, PROVIDER_DEFAULT_BASE_URLS
-from .opencode import OpenCodeProviderAdapter
+from .opencode import OPENCODE_GO_OX_ALPHA_FREE_MODEL, OpenCodeProviderAdapter
 
 
 @dataclass(frozen=True)
@@ -14,7 +14,7 @@ class OpenCodeGoProviderAdapter(OpenCodeProviderAdapter):
     configuration_defaults_value: dict = field(
         default_factory=lambda: provider_configuration(
             "qwen3.6-plus",
-            custom_models=("qwen3.6-plus",),
+            custom_models=("qwen3.6-plus", OPENCODE_GO_OX_ALPHA_FREE_MODEL),
             native_compat=True,
             context_window=1048576,
             max_output_tokens=8192,
@@ -25,7 +25,7 @@ class OpenCodeGoProviderAdapter(OpenCodeProviderAdapter):
             ip_family="ipv6-preferred",
             haiku_model="qwen3.5-plus",
             subagent_model="qwen3.6-plus",
-            model_endpoints={},
+            model_endpoints={OPENCODE_GO_OX_ALPHA_FREE_MODEL: "openai-chat"},
         )
     )
     api_key_display_name_value: str = "OpenCode Go"

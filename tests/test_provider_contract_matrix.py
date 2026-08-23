@@ -545,6 +545,7 @@ class ProviderContractMatrixTests(unittest.TestCase):
             "meta",
             "opencode",
             "opencode-go",
+            "openrouter",
             "self-hosted-nim",
             "vllm",
             "zai",

@@ -45,6 +45,8 @@ class OpenCodeProviderTests(unittest.TestCase):
         self.assertEqual("claude-haiku-4-5", pcfg["haiku_model"])
         self.assertEqual("claude-sonnet-4-6", pcfg["subagent_model"])
         self.assertIn("qwen3.6-plus-free", pcfg["custom_models"])
+        self.assertIn("x-preview-f-free", pcfg["custom_models"])
+        self.assertEqual("openai-chat", pcfg["model_endpoints"]["x-preview-f-free"])
         self.assertEqual("ipv6-preferred", pcfg["ip_family"])
         self.assertTrue(pcfg["native_compat"])
 
@@ -55,6 +57,8 @@ class OpenCodeProviderTests(unittest.TestCase):
         self.assertEqual("qwen3.5-plus", pcfg["haiku_model"])
         self.assertEqual("qwen3.6-plus", pcfg["subagent_model"])
         self.assertEqual(1048576, pcfg["context_window"])
+        self.assertIn("ox-alpha-free", pcfg["custom_models"])
+        self.assertEqual("openai-chat", pcfg["model_endpoints"]["ox-alpha-free"])
         self.assertEqual("ipv6-preferred", pcfg["ip_family"])
         self.assertTrue(pcfg["native_compat"])
 
@@ -554,6 +558,7 @@ class OpenCodeProviderTests(unittest.TestCase):
         self.assertEqual("openai-responses", ciel_runtime.opencode_zen_endpoint_kind("gpt-5.1"))
         self.assertEqual("google-generative", ciel_runtime.opencode_zen_endpoint_kind("gemini-3.1-pro"))
         self.assertEqual("openai-chat", ciel_runtime.opencode_zen_endpoint_kind("north-mini-code-free"))
+        self.assertEqual("openai-chat", ciel_runtime.opencode_zen_endpoint_kind("x-preview-f-free"))
         self.assertEqual("anthropic-messages", ciel_runtime.opencode_zen_endpoint_kind("new-custom-model"))
 
     def test_go_endpoint_family_mapping(self):
@@ -563,7 +568,33 @@ class OpenCodeProviderTests(unittest.TestCase):
         self.assertEqual("openai-chat", ciel_runtime.opencode_go_endpoint_kind("kimi-k2.6"))
         self.assertEqual("openai-chat", ciel_runtime.opencode_go_endpoint_kind("deepseek-v4-pro"))
         self.assertEqual("openai-chat", ciel_runtime.opencode_go_endpoint_kind("mimo-v2.5-pro"))
+        self.assertEqual("openai-chat", ciel_runtime.opencode_go_endpoint_kind("ox-alpha-free"))
         self.assertEqual("anthropic-messages", ciel_runtime.opencode_go_endpoint_kind("new-custom-model"))
+
+    def test_migration_adds_ox_alpha_free_routes_without_overwriting_user_routes(self):
+        cfg = {
+            "migrations": {},
+            "providers": {
+                "opencode": {
+                    "custom_models": ["private-zen-model"],
+                    "model_endpoints": {"x-preview-f-free": "responses"},
+                },
+                "opencode-go": {
+                    "custom_models": ["private-go-model"],
+                    "model_endpoints": {},
+                },
+            },
+        }
+        ciel_runtime.apply_config_migrations(cfg)
+        zen = cfg["providers"]["opencode"]
+        go = cfg["providers"]["opencode-go"]
+        self.assertIn("private-zen-model", zen["custom_models"])
+        self.assertIn("x-preview-f-free", zen["custom_models"])
+        self.assertEqual("responses", zen["model_endpoints"]["x-preview-f-free"])
+        self.assertIn("private-go-model", go["custom_models"])
+        self.assertIn("ox-alpha-free", go["custom_models"])
+        self.assertEqual("openai-chat", go["model_endpoints"]["ox-alpha-free"])
+        self.assertTrue(cfg["migrations"]["ox_alpha_provider_catalogs_20260823"])
 
     def test_native_compat_depends_on_zen_endpoint_family(self):
         claude_cfg = self.opencode_cfg(current_model="claude-sonnet-4-6")["providers"]["opencode"]

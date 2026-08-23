@@ -1,0 +1,86 @@
+okf_version: "1.0"
+knowledge:
+  task:
+    id: openrouter-opencode-ox-alpha-support-20260823
+    date: "2026-08-23"
+    objective: >-
+      Add verified Ox Alpha model identities and wire-protocol routing for
+      OpenRouter, OpenCode Zen, and OpenCode Go.
+
+  official_evidence:
+    openrouter:
+      model_id: stealth/ox-alpha
+      models_api: https://openrouter.ai/api/v1/models
+      context_window: 1048576
+      max_output_tokens: 131072
+      input_modalities: [text, image, video]
+      output_modalities: [text]
+      supported_parameters:
+        - reasoning
+        - reasoning_effort
+        - tool_choice
+        - tools
+      openai_sdk_base_url: https://openrouter.ai/api/v1
+      anthropic_sdk_base_url: https://openrouter.ai/api
+    opencode_zen:
+      models_api: https://opencode.ai/zen/v1/models
+      model_id: x-preview-f-free
+      endpoint: https://opencode.ai/zen/v1/chat/completions
+    opencode_go:
+      models_api: https://opencode.ai/zen/go/v1/models
+      model_id: ox-alpha-free
+      endpoint: https://opencode.ai/zen/go/v1/chat/completions
+
+  implementation:
+    openrouter:
+      behavior:
+        - Adds stealth/ox-alpha to the configured model fallback catalog.
+        - Uses OpenAI Chat Completions for OpenAI/Codex requests.
+        - Uses OpenRouter's Anthropic Messages compatibility endpoint for Claude requests.
+        - Applies the verified 1,048,576 context and 131,072 output profile on selection.
+    opencode:
+      behavior:
+        - Adds the exact public Zen and Go model IDs to each provider catalog.
+        - Routes both aliases through their documented Chat Completions endpoints.
+    migration:
+      behavior:
+        - Merges models into existing custom model lists.
+        - Preserves existing user-defined endpoint overrides.
+
+  verification:
+    public_model_api:
+      status: passed
+      observations:
+        - "OpenRouter returned HTTP 200 and contained stealth/ox-alpha."
+        - "OpenCode Zen returned HTTP 200 and contained x-preview-f-free."
+        - "OpenCode Go returned HTTP 200 and contained ox-alpha-free."
+    request_projection:
+      status: passed
+      openrouter_openai: https://openrouter.ai/api/v1/chat/completions
+      openrouter_anthropic: https://openrouter.ai/api/v1/messages
+      opencode_zen: https://opencode.ai/zen/v1/chat/completions
+      opencode_go: https://opencode.ai/zen/go/v1/chat/completions
+    focused_tests: "113 passed"
+    full_suite:
+      total: "2695 passed, 136 skipped"
+      unit: "1148 passed, 44 skipped"
+      router: "914 passed"
+      channel: "381 passed, 80 skipped"
+      runtime: "252 passed, 12 skipped"
+    quality:
+      ruff: passed
+      documentation_metadata: passed
+      diff_check: passed
+      package_dry_run: "passed; 403 entries"
+    local_install:
+      status: passed
+      path: C:/Users/djlov/.local/share/ciel-runtime
+      version_output: ciel-runtime 0.2.22
+      source_hashes_matched: true
+      installed_catalog_and_route_check: passed
+    live_generation:
+      status: not_run
+      reason: >-
+        No OpenRouter, OpenCode Zen, or OpenCode Go API key was configured in
+        the process environment or local ciel-runtime provider configuration.
+    nightly_publish: pending

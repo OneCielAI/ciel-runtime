@@ -31,6 +31,52 @@ class OpenRouterProviderTests(unittest.TestCase):
         self.assertEqual("nvidia/nemotron-3-ultra-550b-a55b:free", pcfg["current_model"])
         self.assertFalse(pcfg["native_compat"])
         self.assertEqual("https://openrouter.ai/api/v1", pcfg["base_url"])
+        self.assertIn("stealth/ox-alpha", pcfg["custom_models"])
+
+    def test_ox_alpha_supports_openai_and_anthropic_sdk_routes(self):
+        pcfg = self.openrouter_pcfg(current_model="stealth/ox-alpha")
+        self.assertEqual(
+            "openai_chat",
+            ciel_runtime.select_provider_protocol(
+                "openrouter", pcfg, "openai_responses", "stealth/ox-alpha"
+            ),
+        )
+        self.assertEqual(
+            "anthropic_messages",
+            ciel_runtime.select_provider_protocol(
+                "openrouter", pcfg, "anthropic_messages", "stealth/ox-alpha"
+            ),
+        )
+        self.assertEqual(
+            "https://openrouter.ai/api/v1/messages",
+            ciel_runtime.join_url(
+                ciel_runtime.native_anthropic_base_url("openrouter", pcfg),
+                "/v1/messages",
+            ),
+        )
+
+    def test_ox_alpha_official_model_profile(self):
+        pcfg = self.openrouter_pcfg(current_model="stealth/ox-alpha")
+        messages = ciel_runtime.apply_provider_model_profile("openrouter", pcfg)
+        self.assertEqual(1_048_576, pcfg["context_window"])
+        self.assertEqual(1_048_576, pcfg["max_model_len"])
+        self.assertEqual(131_072, pcfg["max_output_tokens"])
+        self.assertTrue(pcfg["supports_tool_choice"])
+        self.assertTrue(pcfg["supports_vision"])
+        self.assertEqual("openrouter-ox-alpha-1m", pcfg["model_profile"])
+        self.assertTrue(any("Ox Alpha profile applied" in message for message in messages))
+
+    def test_migration_adds_ox_alpha_without_removing_custom_models(self):
+        cfg = {
+            "migrations": {},
+            "providers": {
+                "openrouter": {"custom_models": ["private/model"]},
+            },
+        }
+        ciel_runtime.apply_config_migrations(cfg)
+        self.assertIn("private/model", cfg["providers"]["openrouter"]["custom_models"])
+        self.assertIn("stealth/ox-alpha", cfg["providers"]["openrouter"]["custom_models"])
+        self.assertTrue(cfg["migrations"]["ox_alpha_provider_catalogs_20260823"])
 
     def test_routes_via_openai_compatible_path(self):
         pcfg = self.openrouter_pcfg()

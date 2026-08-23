@@ -22,6 +22,10 @@ from .base import (
 from .constants import DEFAULT_REQUEST_TIMEOUT_MS, PROVIDER_DEFAULT_BASE_URLS
 
 
+OPENCODE_ZEN_OX_ALPHA_FREE_MODEL = "x-preview-f-free"
+OPENCODE_GO_OX_ALPHA_FREE_MODEL = "ox-alpha-free"
+
+
 @dataclass(frozen=True)
 class OpenCodeProviderAdapter(HttpBearerProviderAdapter):
     name: str = "opencode"
@@ -29,7 +33,11 @@ class OpenCodeProviderAdapter(HttpBearerProviderAdapter):
     configuration_defaults_value: dict = field(
         default_factory=lambda: provider_configuration(
             "claude-sonnet-4-6",
-            custom_models=("claude-sonnet-4-6", "qwen3.6-plus-free"),
+            custom_models=(
+                "claude-sonnet-4-6",
+                "qwen3.6-plus-free",
+                OPENCODE_ZEN_OX_ALPHA_FREE_MODEL,
+            ),
             native_compat=True,
             context_window=200000,
             max_output_tokens=8192,
@@ -40,7 +48,7 @@ class OpenCodeProviderAdapter(HttpBearerProviderAdapter):
             ip_family="ipv6-preferred",
             haiku_model="claude-haiku-4-5",
             subagent_model="claude-sonnet-4-6",
-            model_endpoints={},
+            model_endpoints={OPENCODE_ZEN_OX_ALPHA_FREE_MODEL: "openai-chat"},
         )
     )
     send_placeholder_key: bool = True
@@ -132,9 +140,13 @@ class OpenCodeProviderAdapter(HttpBearerProviderAdapter):
                 normalized = normalized[len(prefix) :]
                 break
         if self.name == "opencode-go":
+            if normalized == OPENCODE_GO_OX_ALPHA_FREE_MODEL:
+                return "openai_chat"
             if normalized.startswith(("glm-", "kimi-", "deepseek-", "mimo-", "hy3-")):
                 return "openai_chat"
             return "anthropic_messages"
+        if normalized == OPENCODE_ZEN_OX_ALPHA_FREE_MODEL:
+            return "openai_chat"
         if normalized.startswith("gpt-"):
             return "openai_responses"
         if normalized.startswith("gemini-"):
@@ -217,4 +229,8 @@ class OpenCodeProviderAdapter(HttpBearerProviderAdapter):
         return configuration_policy(supports_model_endpoint_overrides=True)
 
 
-__all__ = ["OpenCodeProviderAdapter"]
+__all__ = [
+    "OPENCODE_GO_OX_ALPHA_FREE_MODEL",
+    "OPENCODE_ZEN_OX_ALPHA_FREE_MODEL",
+    "OpenCodeProviderAdapter",
+]

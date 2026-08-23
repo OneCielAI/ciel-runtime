@@ -34,6 +34,37 @@ def apply_config_migrations(cfg: dict[str, Any], *, policy: ConfigMigrationPolic
         migrations = {}
         cfg["migrations"] = migrations
 
+    marker = "ox_alpha_provider_catalogs_20260823"
+    if not migrations.get(marker):
+        providers = cfg.get("providers") if isinstance(cfg.get("providers"), dict) else {}
+        additions = {
+            "openrouter": ("stealth/ox-alpha", None),
+            "opencode": ("x-preview-f-free", "openai-chat"),
+            "opencode-go": ("ox-alpha-free", "openai-chat"),
+        }
+        for provider_name, (model, endpoint) in additions.items():
+            pcfg = providers.get(provider_name)
+            if not isinstance(pcfg, dict):
+                continue
+            custom = pcfg.get("custom_models")
+            if not isinstance(custom, list):
+                custom = []
+                pcfg["custom_models"] = custom
+            known = {
+                normalize_model_id(provider_name, str(item))
+                for item in custom
+                if str(item).strip()
+            }
+            if normalize_model_id(provider_name, model) not in known:
+                custom.append(model)
+            if endpoint:
+                model_endpoints = pcfg.get("model_endpoints")
+                if not isinstance(model_endpoints, dict):
+                    model_endpoints = {}
+                    pcfg["model_endpoints"] = model_endpoints
+                model_endpoints.setdefault(model, endpoint)
+        migrations[marker] = True
+
     marker = "alibaba_provider_catalogs_20260806"
     if not migrations.get(marker):
         providers = cfg.get("providers") if isinstance(cfg.get("providers"), dict) else {}
