@@ -86,4 +86,12 @@ knowledge:
       installed_tools: [compact_session, send_message, send_file, llm_options]
       restart_required_for_existing_claude_session: true
     nightly:
-      status: pending
+      status: passed
+      source_commit: 45a9456ffaa554598e5196bae3df18a936f3c88b
+      version: 0.2.22-nightly.20260823-234610.45a9456
+      ci_run: 32674465612
+      publish_run: 32674465609
+      registry_git_head_matched: true
+      clean_registry_install_source_hash_matched: true
+      clean_registry_install_tools_status: 200
+      clean_registry_install_tools: [compact_session, send_message, send_file, llm_options]

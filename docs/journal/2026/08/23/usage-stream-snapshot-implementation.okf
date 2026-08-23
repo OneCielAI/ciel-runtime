@@ -114,4 +114,21 @@ knowledge:
       source_hash_matched: true
       installed_version: 0.2.22
     nightly:
-      status: pending
+      status: passed
+      source_commit: 45a9456ffaa554598e5196bae3df18a936f3c88b
+      version: 0.2.22-nightly.20260823-234610.45a9456
+      ci_run: 32674465612
+      publish_run: 32674465609
+      registry_git_head_matched: true
+      published_tarball_verified: true
+      clean_registry_install:
+        status: passed
+        installed_version: 0.2.22-nightly.20260823-234610.45a9456
+        source_hash_matched: true
+      first_publish_attempt:
+        run: 32674354694
+        status: failed
+        confirmed_cause: >-
+          A Windows-specific test fixture used drive-letter paths while the
+          Linux runner used ':' as os.pathsep, producing four parts instead of
+          two. The fixture now constructs platform-native paths.
