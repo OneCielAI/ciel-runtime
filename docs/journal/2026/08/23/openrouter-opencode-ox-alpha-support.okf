@@ -26,10 +26,13 @@ knowledge:
       models_api: https://opencode.ai/zen/v1/models
       model_id: x-preview-f-free
       endpoint: https://opencode.ai/zen/v1/chat/completions
+      live_catalog_count: 64
+      retired_managed_fallback: qwen3.6-plus-free
     opencode_go:
       models_api: https://opencode.ai/zen/go/v1/models
       model_id: ox-alpha-free
       endpoint: https://opencode.ai/zen/go/v1/chat/completions
+      live_catalog_count: 29
 
   implementation:
     openrouter:
@@ -42,6 +45,10 @@ knowledge:
       behavior:
         - Adds the exact public Zen and Go model IDs to each provider catalog.
         - Routes both aliases through their documented Chat Completions endpoints.
+        - Removes the retired qwen3.6-plus-free Zen fallback from new and migrated configs.
+        - Routes Zen GPT/Grok/Muse models through Responses and Gemini through Google Generative.
+        - Routes Zen DeepSeek/GLM/Hy3/Kimi/Laguna/MiMo/MiniMax/Nemotron models through Chat Completions.
+        - Routes Go GPT/Grok/Muse models through Responses, MiniMax/Qwen through Messages, and the remaining documented open models through Chat Completions.
     migration:
       behavior:
         - Merges models into existing custom model lists.
@@ -60,11 +67,16 @@ knowledge:
       openrouter_anthropic: https://openrouter.ai/api/v1/messages
       opencode_zen: https://opencode.ai/zen/v1/chat/completions
       opencode_go: https://opencode.ai/zen/go/v1/chat/completions
-    focused_tests: "113 passed"
+    live_catalog_route_matrix:
+      status: passed
+      opencode: "64 models checked; 0 protocol mismatches"
+      opencode_go: "29 models checked; 0 protocol mismatches"
+      retired_qwen_free_present: false
+    focused_tests: "114 passed"
     full_suite:
-      total: "2695 passed, 136 skipped"
+      total: "2696 passed, 136 skipped"
       unit: "1148 passed, 44 skipped"
-      router: "914 passed"
+      router: "915 passed"
       channel: "381 passed, 80 skipped"
       runtime: "252 passed, 12 skipped"
     quality:
@@ -78,6 +90,9 @@ knowledge:
       version_output: ciel-runtime 0.2.22
       source_hashes_matched: true
       installed_catalog_and_route_check: passed
+      installed_live_catalog_matrix:
+        opencode: "64 models checked; 0 protocol mismatches"
+        opencode_go: "29 models checked; 0 protocol mismatches"
     live_generation:
       status: not_run
       reason: >-

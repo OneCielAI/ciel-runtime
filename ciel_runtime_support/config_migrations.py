@@ -65,6 +65,21 @@ def apply_config_migrations(cfg: dict[str, Any], *, policy: ConfigMigrationPolic
                 model_endpoints.setdefault(model, endpoint)
         migrations[marker] = True
 
+    marker = "opencode_catalog_protocol_refresh_20260823"
+    if not migrations.get(marker):
+        providers = cfg.get("providers") if isinstance(cfg.get("providers"), dict) else {}
+        zen = providers.get("opencode")
+        if isinstance(zen, dict):
+            custom = zen.get("custom_models")
+            if isinstance(custom, list):
+                zen["custom_models"] = [
+                    model
+                    for model in custom
+                    if normalize_model_id("opencode", str(model))
+                    != "qwen3.6-plus-free"
+                ]
+        migrations[marker] = True
+
     marker = "alibaba_provider_catalogs_20260806"
     if not migrations.get(marker):
         providers = cfg.get("providers") if isinstance(cfg.get("providers"), dict) else {}
@@ -397,16 +412,6 @@ def apply_config_migrations(cfg: dict[str, Any], *, policy: ConfigMigrationPolic
 
     marker = "opencode_zen_qwen36_plus_free_model_20260614"
     if not migrations.get(marker):
-        providers = cfg.get("providers") if isinstance(cfg.get("providers"), dict) else {}
-        pcfg = providers.get("opencode")
-        if isinstance(pcfg, dict):
-            custom = pcfg.get("custom_models")
-            if not isinstance(custom, list):
-                custom = []
-                pcfg["custom_models"] = custom
-            normalized_custom = {normalize_model_id("opencode", str(mid)) for mid in custom if str(mid).strip()}
-            if "qwen3.6-plus-free" not in normalized_custom:
-                custom.append("qwen3.6-plus-free")
         migrations[marker] = True
 
     marker = "opencode_qwen36_plus_parameters_20260614"

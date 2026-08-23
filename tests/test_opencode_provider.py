@@ -44,7 +44,7 @@ class OpenCodeProviderTests(unittest.TestCase):
         self.assertEqual("claude-sonnet-4-6", pcfg["current_model"])
         self.assertEqual("claude-haiku-4-5", pcfg["haiku_model"])
         self.assertEqual("claude-sonnet-4-6", pcfg["subagent_model"])
-        self.assertIn("qwen3.6-plus-free", pcfg["custom_models"])
+        self.assertNotIn("qwen3.6-plus-free", pcfg["custom_models"])
         self.assertIn("x-preview-f-free", pcfg["custom_models"])
         self.assertEqual("openai-chat", pcfg["model_endpoints"]["x-preview-f-free"])
         self.assertEqual("ipv6-preferred", pcfg["ip_family"])
@@ -204,7 +204,7 @@ class OpenCodeProviderTests(unittest.TestCase):
         self.assertTrue(cfg["migrations"]["opencode_go_qwen36_plus_context_1m_20260530"])
         self.assertTrue(cfg["migrations"]["opencode_qwen36_plus_parameters_20260614"])
 
-    def test_migration_adds_zen_qwen36_plus_free_fallback_model(self):
+    def test_migration_does_not_restore_retired_zen_qwen36_plus_free_model(self):
         cfg = {
             "migrations": {},
             "providers": {
@@ -218,7 +218,7 @@ class OpenCodeProviderTests(unittest.TestCase):
 
         ciel_runtime.apply_config_migrations(cfg)
 
-        self.assertIn("qwen3.6-plus-free", cfg["providers"]["opencode"]["custom_models"])
+        self.assertNotIn("qwen3.6-plus-free", cfg["providers"]["opencode"]["custom_models"])
         self.assertEqual(200000, cfg["providers"]["opencode"]["context_window"])
         self.assertTrue(cfg["migrations"]["opencode_zen_qwen36_plus_free_model_20260614"])
 
@@ -242,7 +242,7 @@ class OpenCodeProviderTests(unittest.TestCase):
         self.assertEqual(1048576, pcfg["context_window"])
         self.assertEqual(16384, pcfg["context_reserve_tokens"])
         self.assertEqual(8192, pcfg["max_output_tokens"])
-        self.assertIn("qwen3.6-plus-free", pcfg["custom_models"])
+        self.assertNotIn("qwen3.6-plus-free", pcfg["custom_models"])
         self.assertTrue(cfg["migrations"]["opencode_qwen36_plus_parameters_20260614"])
 
     def test_migration_keeps_non_plus_qwen36_context(self):
@@ -559,6 +559,15 @@ class OpenCodeProviderTests(unittest.TestCase):
         self.assertEqual("google-generative", ciel_runtime.opencode_zen_endpoint_kind("gemini-3.1-pro"))
         self.assertEqual("openai-chat", ciel_runtime.opencode_zen_endpoint_kind("north-mini-code-free"))
         self.assertEqual("openai-chat", ciel_runtime.opencode_zen_endpoint_kind("x-preview-f-free"))
+        self.assertEqual("openai-chat", ciel_runtime.opencode_zen_endpoint_kind("deepseek-v4-flash-free"))
+        self.assertEqual("openai-chat", ciel_runtime.opencode_zen_endpoint_kind("hy3-free"))
+        self.assertEqual("openai-chat", ciel_runtime.opencode_zen_endpoint_kind("laguna-s-2.1-free"))
+        self.assertEqual("openai-responses", ciel_runtime.opencode_zen_endpoint_kind("grok-4.6"))
+        self.assertEqual("openai-responses", ciel_runtime.opencode_zen_endpoint_kind("muse-spark-1.2"))
+        self.assertEqual(
+            "openai-responses",
+            ciel_runtime.opencode_zen_endpoint_kind("muse-spark-1.2-contributor-free"),
+        )
         self.assertEqual("anthropic-messages", ciel_runtime.opencode_zen_endpoint_kind("new-custom-model"))
 
     def test_go_endpoint_family_mapping(self):
@@ -568,7 +577,16 @@ class OpenCodeProviderTests(unittest.TestCase):
         self.assertEqual("openai-chat", ciel_runtime.opencode_go_endpoint_kind("kimi-k2.6"))
         self.assertEqual("openai-chat", ciel_runtime.opencode_go_endpoint_kind("deepseek-v4-pro"))
         self.assertEqual("openai-chat", ciel_runtime.opencode_go_endpoint_kind("mimo-v2.5-pro"))
+        self.assertEqual("openai-chat", ciel_runtime.opencode_go_endpoint_kind("hy3"))
         self.assertEqual("openai-chat", ciel_runtime.opencode_go_endpoint_kind("ox-alpha-free"))
+        self.assertEqual("openai-chat", ciel_runtime.opencode_go_endpoint_kind("deepseek-v4-flash-vision-exp"))
+        self.assertEqual("openai-responses", ciel_runtime.opencode_go_endpoint_kind("grok-4.5"))
+        self.assertEqual("openai-responses", ciel_runtime.opencode_go_endpoint_kind("gpt-5.6-luna"))
+        self.assertEqual(
+            "openai-responses",
+            ciel_runtime.opencode_go_endpoint_kind("muse-spark-1.2-contributor"),
+        )
+        self.assertEqual("anthropic-messages", ciel_runtime.opencode_go_endpoint_kind("qwen3.8-max"))
         self.assertEqual("anthropic-messages", ciel_runtime.opencode_go_endpoint_kind("new-custom-model"))
 
     def test_migration_adds_ox_alpha_free_routes_without_overwriting_user_routes(self):
@@ -595,6 +613,28 @@ class OpenCodeProviderTests(unittest.TestCase):
         self.assertIn("ox-alpha-free", go["custom_models"])
         self.assertEqual("openai-chat", go["model_endpoints"]["ox-alpha-free"])
         self.assertTrue(cfg["migrations"]["ox_alpha_provider_catalogs_20260823"])
+
+    def test_migration_removes_retired_managed_zen_free_model_only(self):
+        cfg = {
+            "migrations": {},
+            "providers": {
+                "opencode": {
+                    "custom_models": [
+                        "qwen3.6-plus-free",
+                        "private-zen-model",
+                        "x-preview-f-free",
+                    ],
+                },
+            },
+        }
+        ciel_runtime.apply_config_migrations(cfg)
+        models = cfg["providers"]["opencode"]["custom_models"]
+        self.assertNotIn("qwen3.6-plus-free", models)
+        self.assertIn("private-zen-model", models)
+        self.assertIn("x-preview-f-free", models)
+        self.assertTrue(
+            cfg["migrations"]["opencode_catalog_protocol_refresh_20260823"]
+        )
 
     def test_native_compat_depends_on_zen_endpoint_family(self):
         claude_cfg = self.opencode_cfg(current_model="claude-sonnet-4-6")["providers"]["opencode"]

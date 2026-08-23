@@ -35,7 +35,6 @@ class OpenCodeProviderAdapter(HttpBearerProviderAdapter):
             "claude-sonnet-4-6",
             custom_models=(
                 "claude-sonnet-4-6",
-                "qwen3.6-plus-free",
                 OPENCODE_ZEN_OX_ALPHA_FREE_MODEL,
             ),
             native_compat=True,
@@ -140,25 +139,30 @@ class OpenCodeProviderAdapter(HttpBearerProviderAdapter):
                 normalized = normalized[len(prefix) :]
                 break
         if self.name == "opencode-go":
+            if normalized.startswith(("gpt-", "grok-", "muse-spark-")):
+                return "openai_responses"
             if normalized == OPENCODE_GO_OX_ALPHA_FREE_MODEL:
+                return "openai_chat"
+            if normalized == "hy3":
                 return "openai_chat"
             if normalized.startswith(("glm-", "kimi-", "deepseek-", "mimo-", "hy3-")):
                 return "openai_chat"
             return "anthropic_messages"
-        if normalized == OPENCODE_ZEN_OX_ALPHA_FREE_MODEL:
-            return "openai_chat"
-        if normalized.startswith("gpt-"):
+        if normalized.startswith(("gpt-", "grok-", "muse-spark-")):
             return "openai_responses"
         if normalized.startswith("gemini-"):
             return "google_generative"
+        if normalized == OPENCODE_ZEN_OX_ALPHA_FREE_MODEL:
+            return "openai_chat"
         if normalized.startswith(
             (
                 "minimax-",
                 "glm-",
                 "kimi-",
-                "grok-",
                 "big-pickle",
                 "deepseek-",
+                "hy3-",
+                "laguna-",
                 "mimo-",
                 "nemotron-",
                 "north-",
