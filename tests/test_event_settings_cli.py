@@ -224,6 +224,8 @@ class EventSettingsCliTests(unittest.TestCase):
     # -- usage events -----------------------------------------------------
 
     def test_usage_events_store_endpoint_audit_and_backfill_settings(self):
+        first_backfill = os.path.join(os.path.sep, "old", "usage.jsonl")
+        second_backfill = os.path.join(os.path.sep, "archive", "usage.jsonl")
         self.controller.usage_events(
             _args(
                 "endpoint_id=finance",
@@ -233,7 +235,7 @@ class EventSettingsCliTests(unittest.TestCase):
                 "audit_interval_seconds=86400",
                 "jsonl_enabled=false",
                 "start_mode=beginning",
-                f"backfill_paths=C:\\old\\usage.jsonl{os.pathsep}D:\\archive\\usage.jsonl",
+                f"backfill_paths={first_backfill}{os.pathsep}{second_backfill}",
             )
         )
 
