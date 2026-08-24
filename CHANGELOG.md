@@ -3,6 +3,21 @@
 This file records stable Ciel Runtime releases. Changes are grouped by user-visible
 capability, followed by the complete commit ledger merged into each release.
 
+## 0.2.30 — 2026-08-24
+
+- Enabled Z.AI Start Plan routed clients by acquiring a fresh request-scoped
+  verification value through the official Aliyun CAPTCHA browser SDK before
+  every upstream attempt; verification results return only to a state-bound
+  loopback receiver and are never persisted.
+- Refresh Start Plan CAPTCHA headers independently for retries, serialize
+  concurrent verification requests, and keep every other provider isolated
+  from the Start Plan-only headers.
+- Route Codex Responses through the Start Plan gateway's verified Anthropic
+  Messages endpoint; the advertised OpenAI base currently exposes no standard
+  Responses or Chat Completions route.
+- Accept both native Win32 and ConPTY/SSH VT arrow-key sequences in Windows
+  prelaunch menus, including the provider environment menu shown after OAuth.
+
 ## 0.2.29 — 2026-08-24
 
 - Split Z.AI general API, Coding Plan, and Start Plan into independent provider

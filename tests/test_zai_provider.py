@@ -51,6 +51,12 @@ class ZaiProviderTests(unittest.TestCase):
             "https://zcode.z.ai/api/v1/zcode-plan/anthropic",
             ciel_runtime.native_anthropic_base_url("zai-start-plan", start),
         )
+        self.assertEqual(
+            "anthropic_messages",
+            ciel_runtime.select_provider_protocol(
+                "zai-start-plan", start, "openai_responses", "glm-5.3"
+            ),
+        )
 
     def test_start_plan_headers_use_its_oauth_jwt_and_zcode_identity(self):
         pcfg = copy.deepcopy(ciel_runtime.DEFAULT_CONFIG["providers"]["zai-start-plan"])
@@ -67,7 +73,7 @@ class ZaiProviderTests(unittest.TestCase):
         ).launch_api_key_error(
             ciel_runtime.provider_contract_config("zai-start-plan", pcfg)
         )
-        self.assertIn("CAPTCHA runtime header", blocker)
+        self.assertIsNone(blocker)
 
     def test_default_config_matches_zai_claude_code_docs(self):
         pcfg = ciel_runtime.DEFAULT_CONFIG["providers"]["zai"]

@@ -289,6 +289,18 @@ class ZaiStartPlanProviderAdapter(ZaiCodingPlanProviderAdapter):
     name: str = "zai-start-plan"
     base_url: str = PROVIDER_DEFAULT_BASE_URLS["zai-start-plan"]
     include_x_api_key: bool = False
+    capabilities_value: ProviderCapabilities = field(
+        default_factory=lambda: ProviderCapabilities(
+            upstream_protocol="anthropic_messages",
+            supports_thinking=True,
+            requires_api_key=True,
+        )
+    )
+    request_policy_value: ProviderRequestPolicy = field(
+        default_factory=lambda: ProviderRequestPolicy(
+            chat_path="/v1/messages", models_path="/v1/models"
+        )
+    )
     configuration_defaults_value: dict = field(
         default_factory=lambda: {
             **ZaiProviderAdapter().configuration_defaults_value,
@@ -305,6 +317,21 @@ class ZaiStartPlanProviderAdapter(ZaiCodingPlanProviderAdapter):
     def anthropic_base_url(self, config: ProviderConfig) -> str:
         del config
         return "https://zcode.z.ai/api/v1/zcode-plan/anthropic"
+
+    def supported_protocols(
+        self, config: ProviderConfig, model: str | None = None
+    ) -> frozenset[MessageProtocol]:
+        del config, model
+        return frozenset({"anthropic_messages"})
+
+    def select_protocol(
+        self,
+        operation: MessageProtocol,
+        config: ProviderConfig,
+        model: str | None = None,
+    ) -> MessageProtocol:
+        del operation, config, model
+        return "anthropic_messages"
 
     def build_headers(
         self, config: ProviderConfig, api_key: str | None
@@ -330,12 +357,7 @@ class ZaiStartPlanProviderAdapter(ZaiCodingPlanProviderAdapter):
     def launch_api_key_error(self, config: ProviderConfig) -> str | None:
         if not config.api_keys:
             return self.api_key_launch_error_value
-        return (
-            "Launch blocked: Z.AI Start Plan requires a fresh Aliyun CAPTCHA "
-            "runtime header before each model request. The installed ZCode "
-            "runtime provides that private interactive flow; Ciel Runtime does "
-            "not bypass or fabricate it for routed clients."
-        )
+        return None
 
 
 __all__ = [

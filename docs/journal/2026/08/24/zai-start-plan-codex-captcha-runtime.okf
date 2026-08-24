@@ -1,0 +1,84 @@
+okf_version: "1.0"
+knowledge:
+  task:
+    id: zai-start-plan-codex-captcha-runtime-20260824
+    date: "2026-08-24"
+    objective: >-
+      Make Z.AI Start Plan launchable through routed Codex while preserving the
+      provider's official per-request Aliyun CAPTCHA flow, and restore Windows
+      menu arrow input for both native console and ConPTY/SSH terminals.
+    status: validation-in-progress
+
+  evidence:
+    installed_zcode:
+      version: 3.8.1
+      sdk_url: https://o.alicdn.com/captcha-frontend/aliyunCaptcha/AliyunCaptcha.js
+      request_headers:
+        - X-Aliyun-Captcha-Verify-Param
+        - X-Aliyun-Captcha-Verify-Region
+      refresh_scope: every model request
+    official_client_config:
+      url: https://zcode.z.ai/api/v1/client/configs
+      observed_platform: win32-x64
+      captcha_enabled: true
+      region: sgp
+      prefix: no8xfe
+      scene_id: 11xygtvd
+    live_endpoint_probe:
+      openai_paths:
+        /responses: 404
+        /v1/responses: 404
+        /chat/completions: 404
+        /v1/chat/completions: 404
+      anthropic_path: /api/v1/zcode-plan/anthropic/v1/messages
+      anthropic_invalid_jwt_status_after_captcha: 401
+    browser_runtime:
+      loopback_host: 127.0.0.1
+      official_sdk_loaded: true
+      traceless_verification_completed: true
+      result_length: 280
+      screenshot_captured: true
+    remote_credential_audit:
+      host: mia@100.95.132.58
+      current_provider: zai-start-plan
+      persisted_start_plan_secret_count: 0
+
+  implementation:
+    captcha:
+      receiver: state-bound loopback-only HTTP server
+      persistence: none
+      maximum_result_bytes: 65536
+      timeout_range_seconds: 15-600
+      concurrency: serialized
+      retry_behavior: fresh verification for each upstream attempt
+      provider_scope: zai-start-plan only
+      codex_protocol: anthropic_messages
+    terminal_input:
+      native_win32_arrows: supported
+      conpty_vt_arrows: supported
+      standalone_escape: preserved
+
+  validation:
+    targeted:
+      architecture_budget: passed
+      main_module_line_count: 4980
+      captcha_tests: 4_passed
+      terminal_primitive_tests: 7_passed
+      ruff_changed_files: passed
+    full_suite:
+      unit:
+        passed: 1177
+        skipped: 44
+      router:
+        passed: 951
+      channel:
+        passed: 381
+        skipped: 80
+      runtime:
+        passed: 255
+        skipped: 12
+    authenticated_model_request:
+      status: blocked
+      reason: no Start Plan OAuth secret exists in either inspected workspace
+    release:
+      status: pending

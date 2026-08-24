@@ -124,6 +124,7 @@ class UpstreamRetryKeys:
     provider_api_key_count: Callable[..., Any]
     provider_has_live_api_key: Callable[..., Any]
     provider_headers: Callable[..., Any]
+    prepare_runtime_headers: Callable[..., dict[str, str]]
     register_api_key_cooldown: Callable[..., Any]
 
 
@@ -180,6 +181,7 @@ def post_json_with_rate_retry(
     provider_api_key_count = keys.provider_api_key_count
     provider_has_live_api_key = keys.provider_has_live_api_key
     provider_headers = keys.provider_headers
+    prepare_runtime_headers = keys.prepare_runtime_headers
     register_api_key_cooldown = keys.register_api_key_cooldown
     learn_router_rate_limit_headers = rate_limit.learn_headers
     register_router_rate_limit_backoff = rate_limit.register_backoff
@@ -194,6 +196,7 @@ def post_json_with_rate_retry(
     byte_estimate = len(json.dumps(req_body, ensure_ascii=False).encode("utf-8"))
     for attempt in range(rate_limit_max_attempts):
         try:
+            headers = prepare_runtime_headers(provider, pcfg, headers)
             write_router_activity(
                 "request",
                 provider,
@@ -318,6 +321,7 @@ def open_provider_request_with_key_retry(
     provider_api_key_count = keys.provider_api_key_count
     provider_has_live_api_key = keys.provider_has_live_api_key
     provider_headers = keys.provider_headers
+    prepare_runtime_headers = keys.prepare_runtime_headers
     register_api_key_cooldown = keys.register_api_key_cooldown
     learn_router_rate_limit_headers = rate_limit.learn_headers
     register_router_rate_limit_backoff = rate_limit.register_backoff
@@ -334,6 +338,7 @@ def open_provider_request_with_key_retry(
     data_bytes = json.dumps(req_body).encode("utf-8")
     for attempt in range(rate_limit_max_attempts):
         try:
+            headers = prepare_runtime_headers(provider, pcfg, headers)
             write_router_activity(
                 "request",
                 provider,
@@ -460,6 +465,7 @@ def open_openai_stream_with_rate_retry(
     provider_api_key_count = keys.provider_api_key_count
     provider_has_live_api_key = keys.provider_has_live_api_key
     provider_headers = keys.provider_headers
+    prepare_runtime_headers = keys.prepare_runtime_headers
     register_api_key_cooldown = keys.register_api_key_cooldown
     learn_router_rate_limit_headers = rate_limit.learn_headers
     register_router_rate_limit_backoff = rate_limit.register_backoff
@@ -477,6 +483,7 @@ def open_openai_stream_with_rate_retry(
     data_bytes = json.dumps(req_body).encode("utf-8")
     for attempt in range(rate_limit_max_attempts):
         try:
+            headers = prepare_runtime_headers(provider, pcfg, headers)
             write_router_activity(
                 "request",
                 provider,

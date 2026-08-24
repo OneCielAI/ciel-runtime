@@ -21,6 +21,34 @@ class PrelaunchTerminalPrimitiveTests(unittest.TestCase):
         with mock.patch.object(prelaunch_terminal.sys.stdout, "isatty", return_value=False):
             self.assertEqual("Ciel", prelaunch_terminal.animated_ansi_text("Ciel", phase=0))
 
+    def test_windows_menu_key_accepts_win32_extended_arrow(self):
+        self.assertEqual(
+            "up",
+            prelaunch_terminal._windows_menu_key(
+                "\xe0", getwch=lambda: "H", kbhit=lambda: False
+            ),
+        )
+
+    def test_windows_menu_key_accepts_conpty_vt_arrow(self):
+        characters = iter(["[", "A"])
+        remaining = iter([True, True, True])
+        self.assertEqual(
+            "up",
+            prelaunch_terminal._windows_menu_key(
+                "\x1b",
+                getwch=lambda: next(characters),
+                kbhit=lambda: next(remaining),
+            ),
+        )
+
+    def test_windows_menu_key_preserves_standalone_escape(self):
+        self.assertEqual(
+            "esc",
+            prelaunch_terminal._windows_menu_key(
+                "\x1b", getwch=lambda: "", kbhit=lambda: False
+            ),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -171,6 +171,49 @@ def append_menu_key_debug_log(path: Path, line: str) -> None:
         pass
 
 
+def _windows_menu_key(
+    character: str,
+    *,
+    getwch: Callable[[], str],
+    kbhit: Callable[[], bool],
+) -> str:
+    """Decode both Win32 extended keys and ConPTY VT input sequences."""
+
+    if character in ("\x00", "\xe0"):
+        code = getwch()
+        return {"H": "up", "P": "down", "K": "left", "M": "right"}.get(code, "")
+    if character in ("\r", "\n"):
+        return "enter"
+    if character != "\x1b":
+        return character.lower()
+    # SSH/web terminals connected through Windows ConPTY can deliver arrows as
+    # ESC [ A instead of Win32's two-character extended-key representation.
+    time.sleep(0.01)
+    if not kbhit():
+        return "esc"
+    sequence = ""
+    while kbhit() and len(sequence) < 8:
+        sequence += getwch()
+        if sequence[-1:] in {"A", "B", "C", "D", "H", "F", "~"}:
+            break
+    return {
+        "[A": "up",
+        "[B": "down",
+        "[C": "right",
+        "[D": "left",
+        "[H": "home",
+        "[F": "end",
+        "[1~": "home",
+        "[4~": "end",
+        "[5~": "pageup",
+        "[6~": "pagedown",
+        "OA": "up",
+        "OB": "down",
+        "OC": "right",
+        "OD": "left",
+    }.get(sequence, "esc")
+
+
 def read_menu_key(
     fd: int | None = None,
     *,
@@ -179,15 +222,9 @@ def read_menu_key(
     if os.name == "nt":
         import msvcrt
 
-        character = msvcrt.getwch()
-        if character in ("\x00", "\xe0"):
-            code = msvcrt.getwch()
-            return {"H": "up", "P": "down", "K": "left", "M": "right"}.get(code, "")
-        if character in ("\r", "\n"):
-            return "enter"
-        if character == "\x1b":
-            return "esc"
-        return character.lower()
+        return _windows_menu_key(
+            msvcrt.getwch(), getwch=msvcrt.getwch, kbhit=msvcrt.kbhit
+        )
     descriptor = sys.stdin.fileno() if fd is None or fd < 0 else fd
     character = os.read(descriptor, 1)
     log = f"{time.time():.3f} first={character!r}"

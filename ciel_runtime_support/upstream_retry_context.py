@@ -43,6 +43,7 @@ class UpstreamRetryCredentialPorts:
     api_key_count: Callable[..., int]
     has_live_api_key: Callable[..., bool]
     headers: Callable[..., dict[str, str]]
+    prepare_runtime_headers: Callable[..., dict[str, str]]
     register_cooldown: Callable[..., Any]
 
 
@@ -111,6 +112,7 @@ class UpstreamRetryContext:
                 provider_api_key_count=self.credentials.api_key_count,
                 provider_has_live_api_key=self.credentials.has_live_api_key,
                 provider_headers=self.credentials.headers,
+                prepare_runtime_headers=self.credentials.prepare_runtime_headers,
                 register_api_key_cooldown=self.credentials.register_cooldown,
             ),
             rate_limit=UpstreamRetryRateLimit(

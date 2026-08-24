@@ -556,7 +556,7 @@ class ZaiOAuthRuntime:
         ]
         if profile == "start-plan":
             lines.append(
-                "Start Plan routed launch remains blocked because ZCode requires a fresh interactive CAPTCHA runtime header for model requests."
+                "Start Plan model requests will open the official Aliyun CAPTCHA verification page when a fresh runtime header is required."
             )
         return lines
 

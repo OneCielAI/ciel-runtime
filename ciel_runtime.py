@@ -170,6 +170,7 @@ from ciel_runtime_support.credentials import secret_fingerprint as project_secre
 from ciel_runtime_support.executable_discovery import ExecutableDiscovery
 from ciel_runtime_support.github_copilot_oauth_runtime import GitHubCopilotOAuthRuntime, GitHubCopilotOAuthRuntimePorts
 from ciel_runtime_support.zai_oauth import ZaiOAuthClient, ZaiOAuthHttp, ZaiOAuthRuntime, ZaiOAuthRuntimePorts, ZaiOAuthService
+from ciel_runtime_support.zai_start_plan_captcha import ZaiStartPlanRuntimeHeaderPreparer
 from ciel_runtime_support.headless_config import HeadlessConfigCommands, HeadlessConfigServices, HeadlessEnvFileLoader, apply_headless_config
 from ciel_runtime_support.http_response import ChannelDeliveryGuard, HttpResponseAdapter
 from ciel_runtime_support.kimi_runtime_context import KimiConfigurationPorts, KimiIdentityPorts, KimiLifecyclePorts, KimiProcessPorts, KimiRuntimeCompatibilityApi, KimiRuntimeContext
@@ -537,7 +538,6 @@ inject_pending_channel_context = channel_llm_context.inject_pending_channel_cont
 TERMINAL_INPUT_MODE_RESET = terminal_platform_io.TERMINAL_INPUT_MODE_RESET
 _terminal_winsize_from_fd = terminal_platform_io.terminal_winsize_from_fd
 _apply_pty_winsize = terminal_platform_io.apply_pty_winsize
-
 try:
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8")
@@ -1340,7 +1340,7 @@ provider_requires_streaming = _PROVIDER_REQUEST_ACCESS.requires_streaming
 key_from_request_headers = _PROVIDER_REQUEST_ACCESS.key_from_headers
 provider_headers = _PROVIDER_REQUEST_ACCESS.headers
 get_current_provider = _PROVIDER_REQUEST_ACCESS.current_provider
-
+prepare_provider_runtime_headers = ZaiStartPlanRuntimeHeaderPreparer(log=router_log)
 def materialize_runtime_command(
     runtime_name: str,
     executable: str,
@@ -2799,7 +2799,7 @@ def upstream_retry_context() -> UpstreamRetryContext:
         errors=UpstreamRetryErrorPorts(project_upstream_http_error_message, project_upstream_retry_message, first_header, parse_retry_after_seconds, format_duration_seconds),
         policy=UpstreamRetryPolicyPorts(project_configured_gateway_retries, retry_after_exceeds_request_timeout, project_retryable_upstream_exception,
                                         project_upstream_retry_wait_seconds, UPSTREAM_RETRY_HTTP_CODES, lambda: str(load_config().get("language") or "en")),
-        credentials=UpstreamRetryCredentialPorts(key_from_request_headers, provider_api_key_count, provider_has_live_api_key, provider_headers, register_api_key_cooldown),
+        credentials=UpstreamRetryCredentialPorts(key_from_request_headers, provider_api_key_count, provider_has_live_api_key, provider_headers, prepare_provider_runtime_headers, register_api_key_cooldown),
         rate_limit=UpstreamRetryRateLimitPorts(learn_router_rate_limit_headers, router_log, register_router_rate_limit_backoff, write_router_activity),
         transport=UpstreamRetryTransportPorts(estimate_tokens, provider_urlopen, set_upstream_stream_read_timeout, provider_stream_idle_timeout_seconds),
     )
