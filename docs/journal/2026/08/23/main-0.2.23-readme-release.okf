@@ -1,0 +1,81 @@
+okf_version: "1.0"
+knowledge:
+  task:
+    id: main-0.2.23-readme-release-20260823
+    date: "2026-08-23"
+    workspace: C:/Users/djlov/ciel-runtime
+    objective: >-
+      Audit every commit after 0.2.22, redesign the project README using
+      verified patterns from established CLI repositories, publish grouped
+      release notes, bump the version, and promote the result to main.
+    status: local-verification-complete
+
+  evidence:
+    release_base:
+      branch: origin/main
+      commit: b7ea3822a1e401d78d65000504cf02089df1a1fc
+      version: 0.2.22
+    candidate:
+      branch: origin/nightly
+      commit_before_release_work: 549e6a65e31e84cf48b68f34cb414c03204f5350
+      commits_audited: 41
+      files_changed: 110
+      insertions: 9990
+      deletions: 256
+      fast_forward_from_main: true
+    npm:
+      current_latest: 0.2.22
+      target_version: 0.2.23
+      target_existed_before_release: false
+
+  readme_research:
+    sources:
+      - repository: openai/codex
+        url: https://github.com/openai/codex
+        observed_structure: concise identity, immediate quickstart, compact documentation routing
+      - repository: ollama/ollama
+        url: https://github.com/ollama/ollama
+        observed_structure: platform installation, get-started examples, API and integration discovery
+      - repository: astral-sh/uv
+        url: https://github.com/astral-sh/uv
+        observed_structure: highlights, installation, grouped feature taxonomy, documentation links
+      - repository: cli/cli
+        url: https://github.com/cli/cli
+        observed_structure: short identity, documentation, installation by platform, contribution routing
+    applied_pattern: >-
+      Lead with product identity and an installable quickstart, then progressively
+      disclose runtime/provider architecture, capability summaries, operations,
+      release channels, documentation, development, and security.
+
+  artifacts:
+    readme: README.md
+    changelog: CHANGELOG.md
+    release_version_files:
+      - package.json
+      - ciel_runtime_support/runtime_constants.py
+
+  verification:
+    status: local-passed
+    documentation_metadata: "passed; 23 Markdown files"
+    lint: passed
+    diff_check: passed
+    complete_test_suite:
+      unit: "1164 passed, 44 skipped"
+      router: "923 passed"
+      channel: "381 passed, 80 skipped"
+      runtime: "252 passed, 12 skipped"
+      total_passed: 2720
+    npm_pack:
+      status: passed
+      version: 0.2.23
+      entries: 413
+      changelog_included: true
+    local_install:
+      status: passed
+      path: C:/Users/djlov/.local/share/ciel-runtime
+      reported_version: 0.2.23
+      source_hash_matches: 5
+    remaining:
+      - nightly publish and clean registry install
+      - main CI and stable npm publish
+      - rendered GitHub README screenshot
