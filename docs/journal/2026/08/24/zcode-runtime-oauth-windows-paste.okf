@@ -6,7 +6,7 @@ knowledge:
     objective: >-
       Register ZCode as a supported Ciel runtime, share Z.AI OAuth credentials
       across runtime clients, and repair leaked Windows bracketed-paste markers.
-    status: deployment-in-progress
+    status: complete
 
   evidence:
     source_code:
@@ -64,5 +64,20 @@ knowledge:
       - local install to C:/Users/djlov/.local/share/ciel-runtime
       - local launcher reports ciel-runtime 0.2.26
       - local ZCode launch reports zcode-runtime 0.16.3
-    pending:
-      - nightly publication
+    pending: []
+
+  deployment:
+    implementation_commit: 5e461f468ea78f82ac8b1ce531abec4401ee5a51
+    branches: [main, nightly]
+    local_version: 0.2.26
+    npm_latest: 0.2.26
+    npm_nightly: 0.2.26-nightly.20260824-051932.5e461f4
+    workflow_results:
+      main_ci: success
+      main_publish: success
+      nightly_ci: success
+      nightly_publish_and_tarball_verification: success
+    registry_execution:
+      ciel_runtime: 0.2.26
+      zcode_app_cli: 3.8.1-15
+      zcode_runtime: 0.16.3
