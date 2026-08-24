@@ -1,6 +1,7 @@
 """Z.AI provider adapter."""
 
 from dataclasses import dataclass, field
+from typing import Any, Mapping
 
 from ..architecture import (
     ProviderCapabilities,
@@ -21,23 +22,23 @@ class ZaiProviderAdapter(HttpBearerProviderAdapter):
     base_url: str = PROVIDER_DEFAULT_BASE_URLS["zai"]
     configuration_defaults_value: dict = field(
         default_factory=lambda: provider_configuration(
-            "glm-5.2[1m]",
+            "glm-5.3[1m]",
             custom_models=ZAI_MODEL_FALLBACK_IDS,
             native_compat=True,
             preserve_anthropic_thinking=True,
             claude_code_supported_capabilities=["effort", "thinking"],
             context_window=1000000,
             auto_compact_window=1000000,
-            max_output_tokens=8192,
-            context_reserve_tokens=8192,
+            max_output_tokens=131072,
+            context_reserve_tokens=131072,
             request_timeout_ms=3000000,
             stream_enabled=True,
             stream_word_chunking=False,
             effort_level="max",
-            opus_model="glm-5.2[1m]",
-            sonnet_model="glm-5.2[1m]",
+            opus_model="glm-5.3[1m]",
+            sonnet_model="glm-5.3[1m]",
             haiku_model="glm-4.7",
-            subagent_model="glm-5.2[1m]",
+            subagent_model="glm-5.3[1m]",
             managed_mcp=True,
         )
     )
@@ -79,6 +80,54 @@ class ZaiProviderAdapter(HttpBearerProviderAdapter):
             "opus_model": model_id,
             "sonnet_model": model_id,
         }
+
+    def model_configuration_profile(
+        self, config: ProviderConfig
+    ) -> tuple[Mapping[str, Any], str | None]:
+        model = self.normalize_model_id(config.model).split("[", 1)[0].lower()
+        if model != "glm-5.3":
+            return {}, None
+        return (
+            {
+                "context_window": 1_000_000,
+                "max_model_len": 1_000_000,
+                "auto_compact_window": 1_000_000,
+                "max_output_tokens": 131_072,
+                "context_reserve_tokens": 131_072,
+                "effort_level": "max",
+                "model_profile": "glm-5.3-1m",
+            },
+            "GLM-5.3 profile applied: 1M context, 128K maximum output, and max reasoning effort. Start a new session.",
+        )
+
+    def normalize_request_options(
+        self, config: ProviderConfig, request: Mapping[str, Any]
+    ) -> Mapping[str, Any]:
+        model = self.normalize_model_id(str(request.get("model") or config.model))
+        model = model.split("[", 1)[0].lower()
+        if model != "glm-5.3":
+            return request
+        normalized = dict(request)
+        thinking = request.get("thinking")
+        normalized["thinking"] = {
+            **(dict(thinking) if isinstance(thinking, Mapping) else {}),
+            "type": "enabled",
+        }
+        effort = str(
+            request.get("reasoning_effort")
+            or config.options.get("effort_level")
+            or "max"
+        ).strip().lower()
+        normalized["reasoning_effort"] = {
+            "none": "low",
+            "minimal": "low",
+            "medium": "high",
+            "xhigh": "max",
+            "ultra": "max",
+        }.get(effort, effort if effort in {"low", "high", "max"} else "max")
+        if "temperature" in normalized:
+            normalized["temperature"] = 1.0
+        return normalized
 
     def context_policy(self, config: ProviderConfig) -> ProviderContextPolicy:
         del config

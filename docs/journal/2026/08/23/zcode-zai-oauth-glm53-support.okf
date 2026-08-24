@@ -1,0 +1,62 @@
+{
+  "okf": "1.0",
+  "task": {
+    "id": "zcode-zai-oauth-glm53-support",
+    "date": "2026-08-23",
+    "request": "Analyze the ZCode CLI open-source implementation, add Z.AI OAuth login, and add GLM-5.3 support."
+  },
+  "evidence": {
+    "zcode_wrapper": {
+      "repository": "https://github.com/kingsword09/zcode-cli",
+      "revision": "ce2dcfbdeee3e5cca54095fbe1191fb2d03c10db",
+      "package_observed": "zcode-app-cli 3.8.1-15",
+      "status": "unofficial MIT wrapper around the bundled ZCode runtime",
+      "confirmed": [
+        "The wrapper authorization-code callback is zcode://zai-auth/callback.",
+        "The bundled runtime exposes a cross-platform oauth/cli/init and oauth/cli/poll flow.",
+        "The runtime resolves the OAuth access token into a Coding Plan API key and writes CLI configuration."
+      ]
+    },
+    "zai_official": {
+      "model_document": "https://docs.z.ai/guides/llm/glm-5.3",
+      "api_reference": "https://docs.z.ai/api-reference/llm/chat-completion",
+      "confirmed": [
+        "Model ID is glm-5.3.",
+        "Context window is 1,000,000 tokens and maximum output is 131,072 tokens.",
+        "Thinking is always enabled and reasoning_effort supports low, high, and max.",
+        "Anthropic base URL is https://api.z.ai/api/anthropic."
+      ]
+    },
+    "live_probe": {
+      "command_surface": "POST https://zcode.z.ai/api/v1/oauth/cli/init",
+      "observed_result": "HTTP 404 with an empty response on 2026-08-23 from this workstation",
+      "control": "The same result was reproduced by invoking the bundled zcode.cjs login command directly.",
+      "config_unchanged": true,
+      "conclusion": "The local implementation cannot claim a completed live login while the upstream initialization endpoint returns 404."
+    }
+  },
+  "implementation": {
+    "oauth": [
+      "Added bounded init/poll client and browser/no-browser service.",
+      "Added Coding Plan organization/project/API-key resolution.",
+      "Persists only the final API key after the complete flow succeeds.",
+      "A failed flow does not mutate configuration; logout does not remove manually configured keys."
+    ],
+    "glm_5_3": [
+      "Added catalog/default/context metadata.",
+      "Added mandatory thinking and reasoning effort normalization.",
+      "Added a 1M context and 128K output provider profile."
+    ]
+  },
+  "verification": {
+    "targeted": "33 passed",
+    "unit": "1165 passed, 44 skipped",
+    "router": "929 passed",
+    "channel": "381 passed, 80 skipped",
+    "runtime": "252 passed, 12 skipped",
+    "aggregate": "2727 passed, 136 skipped",
+    "package_dry_run": "oneciel-ai-ciel-runtime-0.2.24.tgz; 415 files; 947347 bytes packed; 4335786 bytes unpacked",
+    "local_deployment": "installed into C:\\Users\\djlov\\.local\\share\\ciel-runtime; installed wrapper reported 0.2.24 and zai-oauth status exited 0",
+    "live_oauth": "blocked by confirmed upstream HTTP 404; no local credential or config was changed"
+  }
+}

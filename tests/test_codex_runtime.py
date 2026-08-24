@@ -145,7 +145,7 @@ class CodexRuntimeTests(unittest.TestCase):
 
         run.assert_called_once()
         self.assertEqual("-c", args[0])
-        model = next(item for item in catalog["models"] if item["slug"] == "ciel-runtime-zai-glm-5.2-1m")
+        model = next(item for item in catalog["models"] if item["slug"] == "ciel-runtime-zai-glm-5.3-1m")
         self.assertEqual(1000000, model["context_window"])
         self.assertEqual(1000000, model["max_context_window"])
         self.assertEqual(900000, model["auto_compact_token_limit"])

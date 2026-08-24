@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any, Callable, Mapping
 
 CliHandler = Callable[[argparse.Namespace], Any]
 
@@ -52,7 +52,7 @@ class CliParserProvider:
     set_api_key: CliHandler
     set_api_keys: CliHandler
     base_url: CliHandler
-    copilot_oauth: CliHandler
+    oauth: Mapping[str, CliHandler]
 
 
 @dataclass(frozen=True)
@@ -136,7 +136,16 @@ def build_cli_parser(services: CliParserServices) -> argparse.ArgumentParser:
         choices=("login", "status", "logout"),
         default="status",
     )
-    copilot_oauth.set_defaults(func=services.provider.copilot_oauth)
+    copilot_oauth.set_defaults(func=services.provider.oauth["copilot"])
+    zai_oauth = commands.add_parser("zai-oauth")
+    zai_oauth.add_argument(
+        "action",
+        nargs="?",
+        choices=("login", "status", "logout"),
+        default="status",
+    )
+    zai_oauth.add_argument("--no-browser", action="store_true")
+    zai_oauth.set_defaults(func=services.provider.oauth["zai"])
     _add_values_command(commands, "model", services.models.model, argument_name="value")
     _add_values_command(commands, "advisor-model", services.models.advisor_model, argument_name="value")
     models = commands.add_parser("models")

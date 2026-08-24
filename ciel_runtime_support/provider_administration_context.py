@@ -21,6 +21,7 @@ class OAuthRuntime(Protocol):
 class ProviderAdministrationInfrastructure:
     nvidia_credentials: Callable[[], CredentialRepository]
     copilot_oauth: Callable[[], OAuthRuntime]
+    zai_oauth: Callable[[], OAuthRuntime]
     output: Callable[..., Any]
 
 
@@ -67,6 +68,19 @@ class ProviderAdministrationContext:
 
     def cmd_copilot_oauth(self, args: argparse.Namespace) -> None:
         for line in self.run_copilot_oauth_action(args.action):
+            self.infrastructure.output(line, flush=True)
+
+    def run_zai_oauth_action(self, action: str, *, no_browser: bool = False) -> list[str]:
+        return self.infrastructure.zai_oauth().action(action, no_browser=no_browser)
+
+    def cmd_zai_oauth(self, args: argparse.Namespace) -> None:
+        try:
+            lines = self.run_zai_oauth_action(
+                args.action, no_browser=bool(getattr(args, "no_browser", False))
+            )
+        except RuntimeError as exc:
+            raise SystemExit(f"Z.AI OAuth failed: {exc}") from exc
+        for line in lines:
             self.infrastructure.output(line, flush=True)
 
     def set_provider_config(self, provider: str) -> list[str]:
@@ -146,6 +160,12 @@ class ProviderAdministrationCompatibilityApi:
 
     def cmd_copilot_oauth(self, args: argparse.Namespace) -> None:
         self.context().cmd_copilot_oauth(args)
+
+    def run_zai_oauth_action(self, action: str, *, no_browser: bool = False) -> list[str]:
+        return self.context().run_zai_oauth_action(action, no_browser=no_browser)
+
+    def cmd_zai_oauth(self, args: argparse.Namespace) -> None:
+        self.context().cmd_zai_oauth(args)
 
     def set_provider_config(self, provider: str) -> list[str]:
         return self.context().set_provider_config(provider)

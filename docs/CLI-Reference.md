@@ -94,6 +94,20 @@ ciel-runtimectl base-url ollama http://remote-server:11434
 
 ### API 키 관리
 
+#### `zai-oauth`
+
+```bash
+ciel-runtimectl zai-oauth login
+ciel-runtimectl zai-oauth login --no-browser
+ciel-runtimectl zai-oauth status
+ciel-runtimectl zai-oauth logout
+```
+
+ZCode CLI의 Z.AI init/poll OAuth 흐름으로 로그인하고 Coding Plan API key를
+발급한다. `--no-browser`는 인증 URL만 출력한다. Ciel은 OAuth access token이나
+ZCode JWT를 디스크에 저장하지 않는다. `logout`은 OAuth로 만든 로컬 API key만
+지우며 원격 승인을 철회하지 않는다.
+
 #### `api-key`
 ```bash
 ciel-runtimectl api-key [PROVIDER] [KEY]

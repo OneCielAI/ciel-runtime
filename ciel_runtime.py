@@ -168,6 +168,7 @@ from ciel_runtime_support.credentials import resolve_anthropic_credentials
 from ciel_runtime_support.credentials import secret_fingerprint as project_secret_fingerprint
 from ciel_runtime_support.executable_discovery import ExecutableDiscovery
 from ciel_runtime_support.github_copilot_oauth_runtime import GitHubCopilotOAuthRuntime, GitHubCopilotOAuthRuntimePorts
+from ciel_runtime_support.zai_oauth import ZaiOAuthClient, ZaiOAuthHttp, ZaiOAuthRuntime, ZaiOAuthRuntimePorts, ZaiOAuthService
 from ciel_runtime_support.headless_config import HeadlessConfigCommands, HeadlessConfigServices, HeadlessEnvFileLoader, apply_headless_config
 from ciel_runtime_support.http_response import ChannelDeliveryGuard, HttpResponseAdapter
 from ciel_runtime_support.kimi_runtime_context import KimiConfigurationPorts, KimiIdentityPorts, KimiLifecyclePorts, KimiProcessPorts, KimiRuntimeCompatibilityApi, KimiRuntimeContext
@@ -3067,6 +3068,7 @@ def ensure_nvidia_hosted_base_url(pcfg: dict[str, Any]) -> bool:
 
 def nvidia_credential_repository() -> EnvCredentialRepository: return nvidia_env_credential_repository(NCP_ENV, read_env_file, parse_api_key_list, nvidia_upstream_base_url())
 def github_copilot_oauth_runtime() -> GitHubCopilotOAuthRuntime: return GitHubCopilotOAuthRuntime(CONFIG_DIR, GitHubCopilotOAuthRuntimePorts(clear_model_cache=clear_model_cache, log=router_log, provider_headers=provider_headers, network_open=provider_network.provider_urlopen))
+def zai_oauth_runtime() -> ZaiOAuthRuntime: return ZaiOAuthRuntime(ZaiOAuthService(ZaiOAuthClient(ZaiOAuthHttp())), ZaiOAuthRuntimePorts(load_config, save_config, clear_model_cache, mask_secret, secret_fingerprint, print))
 
 def provider_choice_controller() -> ProviderChoiceController:
     return ProviderChoiceController(
@@ -3185,7 +3187,7 @@ def provider_status_service() -> ProviderStatusService:
 
 def provider_administration_context() -> ProviderAdministrationContext:
     return ProviderAdministrationContext(
-        infrastructure=ProviderAdministrationInfrastructure(nvidia_credential_repository, github_copilot_oauth_runtime, print),
+        infrastructure=ProviderAdministrationInfrastructure(nvidia_credential_repository, github_copilot_oauth_runtime, zai_oauth_runtime, print),
         selection=ProviderAdministrationSelection(provider_choice_controller, provider_endpoint_service, model_selection_controller,
                                                    advisor_model_selection_controller),
         credentials=ProviderAdministrationCredentials(credential_management_service, credential_cli_controller, provider_config_api_keys,
@@ -3199,6 +3201,8 @@ clear_nvidia_api_key = _PROVIDER_ADMINISTRATION_API.clear_nvidia_api_key
 github_copilot_oauth_token = _PROVIDER_ADMINISTRATION_API.github_copilot_oauth_token
 cmd_copilot_oauth = _PROVIDER_ADMINISTRATION_API.cmd_copilot_oauth
 run_copilot_oauth_action = _PROVIDER_ADMINISTRATION_API.run_copilot_oauth_action
+cmd_zai_oauth = _PROVIDER_ADMINISTRATION_API.cmd_zai_oauth
+run_zai_oauth_action = _PROVIDER_ADMINISTRATION_API.run_zai_oauth_action
 set_provider_config = _PROVIDER_ADMINISTRATION_API.set_provider_config
 set_provider_choice_config = _PROVIDER_ADMINISTRATION_API.set_provider_choice_config
 set_base_url_config = _PROVIDER_ADMINISTRATION_API.set_base_url_config
@@ -3219,15 +3223,12 @@ def set_web_search_enabled(enabled: bool) -> None:
     cfg = load_config()
     cfg.setdefault("web_search", {})["auto_for_non_native"] = enabled
     save_config(cfg)
-
 def normalize_channel_delivery(value: Any) -> str:
     del value
     return "llm"
-
 def channel_delivery_mode(cfg: dict[str, Any] | None = None) -> str:
     del cfg
     return "llm"
-
 def channel_status_text(cfg: dict[str, Any] | None = None) -> str:
     del cfg
     return "Web Chat and explicit Ciel wake messages only"
@@ -4946,14 +4947,13 @@ def cli_services() -> cli_dispatch.CliServices:
         configuration=cli_dispatch.CliConfiguration(apply_auto_llm_options_config, apply_headless_env_config, set_advisor_model_config,
                                                     set_log_level_config, cmd_set_api_keys),
     ).services()
-
 def cli_parser_services() -> cli_parser.CliParserServices:
     return cli_assembly.CliParserAssembly(
             launch=cli_parser.CliParserLaunch(cmd_cli, cmd_launch, cmd_launch_codex, cmd_launch_codex_app_server, cmd_launch_agy, serve, cmd_launch_grok),
             runtime=cli_parser.CliParserRuntime(cmd_version, cmd_status, cmd_env, cmd_stop, cmd_test),
             settings=cli_parser.CliParserSettings(cmd_language, cmd_web_search, cmd_web_fetch, cmd_log_level, *event_settings_cli.handlers(event_settings_cli.EventSettingsCliPorts(load_config, save_config, external_event_receiver_service, lambda: set_remote_instruction_config('sync', ''), sync_all_remote_memories, print, lambda: USAGE_API_KEYS))),
             provider=cli_parser.CliParserProvider(cmd_ollama_native, cmd_ollama_options, cmd_provider_options, cmd_ollama_catalog, cmd_provider,
-                                                  cmd_api_key, cmd_set_api_key, cmd_set_api_keys, cmd_base_url, cmd_copilot_oauth),
+                                                  cmd_api_key, cmd_set_api_key, cmd_set_api_keys, cmd_base_url, {"copilot": cmd_copilot_oauth, "zai": cmd_zai_oauth}),
             models=cli_parser.CliParserModels(cmd_model, cmd_advisor_model, cmd_models),
     ).services()
 

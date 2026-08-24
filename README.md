@@ -163,6 +163,7 @@ Common commands:
 ciel-runtimectl provider [NAME]
 ciel-runtimectl models [PROVIDER]
 ciel-runtimectl model MODEL_ID
+ciel-runtimectl zai-oauth login
 ciel-runtimectl status
 ciel-runtimectl remote-memory
 ciel-runtimectl transcript-events

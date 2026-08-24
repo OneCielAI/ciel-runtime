@@ -37,9 +37,9 @@ KIMI_MODEL_FALLBACK_IDS = (
     KIMI_HIGHSPEED_MODEL,
 )
 ZAI_ANTHROPIC_BASE_URL = "https://api.z.ai/api/anthropic"
-ZAI_DEFAULT_MODEL = "glm-5.2[1m]"
+ZAI_DEFAULT_MODEL = "glm-5.3[1m]"
 ZAI_MODEL_CONTEXT_HINTS = (
-    ("glm-5.2", 1_000_000), ("glm-5-turbo", 200_000), ("glm-5.1", 200_000),
+    ("glm-5.3", 1_000_000), ("glm-5.2", 1_000_000), ("glm-5-turbo", 200_000), ("glm-5.1", 200_000),
     ("glm-5", 200_000), ("glm-4.7", 200_000), ("glm-4.6", 200_000),
     ("glm-4.5", 128_000), ("glm-4-32b-0414-128k", 128_000),
 )
@@ -87,7 +87,7 @@ OPENCODE_ENDPOINT_ALIASES = {
 }
 
 APP_NAME = "Ciel Runtime"
-VERSION = "0.2.23"
+VERSION = "0.2.24"
 CREDITS = "Credits: One Ciel LLC"
 PRELAUNCH_CANCEL = 10
 PRELAUNCH_LAUNCH_CODEX = 11
@@ -171,6 +171,8 @@ ROUTED_CODEX_COMPAT_PROMPT = (
 )
 LANGUAGES = {"en": "English", "ko": "한국어", "ja": "日本語", "zh": "中文"}
 MODEL_PRESETS: dict[str, dict[str, Any]] = {
+    "glm-5.3": {"compat_max_tokens": 64, "thinking": True, "num_ctx_min": 32768, "num_ctx_max": 1000000},
+    "glm-5.3:cloud": {"compat_max_tokens": 64, "thinking": True, "num_ctx_min": 32768, "num_ctx_max": 1000000},
     "deepseek-v4-flash:0731": {"compat_max_tokens": 64, "thinking": True, "num_ctx_min": 32768, "num_ctx_max": 1000000},
     "deepseek-v4-flash:0731-cloud": {"compat_max_tokens": 64, "thinking": True, "num_ctx_min": 32768, "num_ctx_max": 1000000},
     "glm-5.2": {"compat_max_tokens": 64, "thinking": True, "num_ctx_min": 32768, "num_ctx_max": 1000000},

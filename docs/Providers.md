@@ -182,12 +182,16 @@ Anthropic thinking 객체나 문서로 확인되지 않은 GLM-5.2 effort 문자
 ## ZAI (Z.AI GLM)
 
 - GLM 시리즈 모델 제공.
-- 기본 모델: `glm-5.2[1m]`
+- 기본 모델: `glm-5.3[1m]`
+- ZCode CLI와 동일한 init/poll OAuth 흐름: `ciel-runtimectl zai-oauth login`
+- OAuth access token과 ZCode JWT는 메모리에만 유지하고, 최종 Coding Plan API key만 기존 Ciel credential 규칙으로 저장한다.
+- GLM-5.3은 reasoning을 끌 수 없으며 `low`, `high`, `max` effort만 사용한다.
 - Managed MCP 서버 포함: `web-search-prime`, `web-reader`, `zread`
 - 컨텍스트 힌트:
 
 | 모델 접두사 | 컨텍스트 |
 |-----------|---------|
+| `glm-5.3` | 1,000,000 |
 | `glm-5.2` | 1,000,000 |
 | `glm-5-turbo` | 200,000 |
 | `glm-4.7` | 200,000 |

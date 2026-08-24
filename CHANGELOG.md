@@ -3,6 +3,16 @@
 This file records stable Ciel Runtime releases. Changes are grouped by user-visible
 capability, followed by the complete commit ledger merged into each release.
 
+## 0.2.24 — 2026-08-23
+
+- Added cross-platform Z.AI OAuth login through ZCode's CLI init/poll contract and
+  Coding Plan API-key resolution. Transient OAuth tokens remain in memory; Ciel
+  persists only the resolved API key through its existing credential store.
+- Added `ciel-runtimectl zai-oauth login|status|logout` with `--no-browser` support,
+  secret-free errors, and transaction-safe failure behavior.
+- Added official `glm-5.3` model metadata: 1M context, 128K maximum output, mandatory
+  thinking, and `low`/`high`/`max` reasoning-effort normalization.
+
 ## 0.2.23 — 2026-08-23
 
 This release promotes 41 commits developed and validated after `0.2.22`. The

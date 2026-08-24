@@ -31,12 +31,14 @@ class ZaiProviderTests(unittest.TestCase):
     def test_default_config_matches_zai_claude_code_docs(self):
         pcfg = ciel_runtime.DEFAULT_CONFIG["providers"]["zai"]
         self.assertEqual("https://api.z.ai/api/anthropic", pcfg["base_url"])
-        self.assertEqual("glm-5.2[1m]", pcfg["current_model"])
-        self.assertEqual("glm-5.2[1m]", pcfg["opus_model"])
-        self.assertEqual("glm-5.2[1m]", pcfg["sonnet_model"])
+        self.assertEqual("glm-5.3[1m]", pcfg["current_model"])
+        self.assertEqual("glm-5.3[1m]", pcfg["opus_model"])
+        self.assertEqual("glm-5.3[1m]", pcfg["sonnet_model"])
         self.assertEqual("glm-4.7", pcfg["haiku_model"])
         self.assertEqual(1000000, pcfg["context_window"])
         self.assertEqual(1000000, pcfg["auto_compact_window"])
+        self.assertEqual(131072, pcfg["max_output_tokens"])
+        self.assertEqual(131072, pcfg["context_reserve_tokens"])
         self.assertEqual(3000000, pcfg["request_timeout_ms"])
         self.assertTrue(pcfg["native_compat"])
         self.assertTrue(pcfg["preserve_anthropic_thinking"])
@@ -47,6 +49,25 @@ class ZaiProviderTests(unittest.TestCase):
         pcfg = self.zai_cfg(current_model="glm-5.2[1m]")["providers"]["zai"]
 
         self.assertEqual(1000000, ciel_runtime.provider_model_context_capacity("zai", pcfg))
+
+    def test_glm53_profile_and_request_options_follow_official_contract(self):
+        pcfg = self.zai_cfg(current_model="glm-5.3[1m]")["providers"]["zai"]
+        adapter = ciel_runtime.configured_provider_adapter("zai", pcfg)
+        profile, notice = adapter.model_configuration_profile(
+            ciel_runtime.provider_contract_config("zai", pcfg)
+        )
+        self.assertEqual(1_000_000, profile["context_window"])
+        self.assertEqual(131_072, profile["max_output_tokens"])
+        self.assertIn("1M context", notice)
+
+        normalized = ciel_runtime.apply_provider_adapter_request_policy(
+            "zai",
+            pcfg,
+            {"model": "glm-5.3", "thinking": {"type": "disabled"}, "reasoning_effort": "medium", "temperature": 0.2},
+        )
+        self.assertEqual({"type": "enabled"}, normalized["thinking"])
+        self.assertEqual("high", normalized["reasoning_effort"])
+        self.assertEqual(1.0, normalized["temperature"])
 
     def test_zai_turbo_suffix_does_not_claim_one_million_context(self):
         pcfg = self.zai_cfg(
@@ -126,6 +147,8 @@ class ZaiProviderTests(unittest.TestCase):
 
     def test_zai_documented_model_context_hints_cover_current_text_models(self):
         cases = {
+            "glm-5.3": 1000000,
+            "glm-5.3[1m]": 1000000,
             "glm-5.2": 1000000,
             "glm-5.2[1m]": 1000000,
             "glm-5.1": 200000,
@@ -156,10 +179,10 @@ class ZaiProviderTests(unittest.TestCase):
         self.assertEqual("sk-zai-test", env["ANTHROPIC_AUTH_TOKEN"])
         self.assertNotIn("ANTHROPIC_API_KEY", env)
         self.assertEqual("1000000", env["CLAUDE_CODE_AUTO_COMPACT_WINDOW"])
-        self.assertEqual("8192", env["CLAUDE_CODE_MAX_OUTPUT_TOKENS"])
+        self.assertEqual("131072", env["CLAUDE_CODE_MAX_OUTPUT_TOKENS"])
         self.assertEqual("ciel-runtime-zai-glm-4.7", env["ANTHROPIC_DEFAULT_HAIKU_MODEL"])
-        self.assertEqual("ciel-runtime-zai-glm-5.2-1m[1m]", env["ANTHROPIC_DEFAULT_OPUS_MODEL"])
-        self.assertEqual("ciel-runtime-zai-glm-5.2-1m[1m]", env["ANTHROPIC_DEFAULT_SONNET_MODEL"])
+        self.assertEqual("ciel-runtime-zai-glm-5.3-1m[1m]", env["ANTHROPIC_DEFAULT_OPUS_MODEL"])
+        self.assertEqual("ciel-runtime-zai-glm-5.3-1m[1m]", env["ANTHROPIC_DEFAULT_SONNET_MODEL"])
         self.assertIn("thinking", env["ANTHROPIC_CUSTOM_MODEL_OPTION_SUPPORTED_CAPABILITIES"])
 
     def test_zai_glm52_without_suffix_still_exposes_one_million_marker_to_claude_code(self):
@@ -215,7 +238,7 @@ class ZaiProviderTests(unittest.TestCase):
         cfg = self.zai_cfg(api_key="sk-zai-test")
         pcfg = cfg["providers"]["zai"]
 
-        self.assertEqual("glm-5.2[1m]", ciel_runtime.current_upstream_model_id("zai", pcfg))
+        self.assertEqual("glm-5.3[1m]", ciel_runtime.current_upstream_model_id("zai", pcfg))
         self.assertEqual(
             "glm-5.2",
             ciel_runtime.resolve_requested_model("zai", pcfg, "ciel-runtime-zai-glm-5.2-1m[1m]"),
@@ -247,9 +270,9 @@ class ZaiProviderTests(unittest.TestCase):
                 ciel_runtime._cmd_test(args)
 
         request_body = post_json.call_args.args[1]
-        self.assertEqual("glm-5.2", request_body["model"])
-        self.assertIn("Model: glm-5.2[1m]", stdout.getvalue())
-        self.assertIn("API model: glm-5.2", stdout.getvalue())
+        self.assertEqual("glm-5.3", request_body["model"])
+        self.assertIn("Model: glm-5.3[1m]", stdout.getvalue())
+        self.assertIn("API model: glm-5.3", stdout.getvalue())
 
     def test_zai_glm47_flash_compatibility_fails_fast_before_tool_timeout(self):
         cfg = self.zai_cfg(api_key="sk-zai-test", current_model="glm-4.7-flash")

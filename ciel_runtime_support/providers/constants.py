@@ -30,6 +30,8 @@ DEFAULT_REQUEST_TIMEOUT_MS = 300000
 OPENCODE_PROVIDER_NAMES = ("opencode", "opencode-go")
 
 ZAI_MODEL_FALLBACK_IDS: tuple[str, ...] = (
+    "glm-5.3[1m]",
+    "glm-5.3",
     "glm-5.2[1m]",
     "glm-5.2",
     "glm-5.1",

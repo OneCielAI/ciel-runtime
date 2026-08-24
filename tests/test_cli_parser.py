@@ -31,6 +31,13 @@ class CliParserTests(unittest.TestCase):
         self.assertEqual("status", args.action)
         self.assertIs(ciel_runtime.cmd_copilot_oauth, args.func)
 
+    def test_zai_oauth_command_supports_headless_login(self):
+        args = ciel_runtime.build_parser().parse_args(["zai-oauth", "login", "--no-browser"])
+
+        self.assertEqual("login", args.action)
+        self.assertTrue(args.no_browser)
+        self.assertIs(ciel_runtime.cmd_zai_oauth, args.func)
+
     def test_transcript_events_command_accepts_registered_destination_values(self):
         args = ciel_runtime.build_parser().parse_args(
             [
