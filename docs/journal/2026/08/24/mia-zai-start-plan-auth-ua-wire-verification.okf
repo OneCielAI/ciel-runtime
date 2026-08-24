@@ -7,7 +7,7 @@ knowledge:
       Verify from evidence whether Mia's Z.AI Start Plan routed requests carry
       the OAuth bearer credential and the exact ZCode CLI user agent, and make
       the required human CAPTCHA reachable from a remote operator browser.
-    status: in_progress
+    status: complete
 
   evidence:
     official_zcode_runtime:
@@ -61,6 +61,14 @@ knowledge:
       mia_observation: >-
         A consecutive request on configured port 42121 failed to bind with
         Linux errno 98 while the previous connection was in TIME_WAIT.
+    deployment:
+      source_commit: fb7c3598206c24ca22ab11df1bd7e234b6b02da3
+      stable_npm_version: 0.2.33
+      nightly_npm_version: 0.2.33-nightly.20260824-160320.fb7c359
+      main_ci: success
+      main_publish: success
+      nightly_ci: success
+      nightly_publish: success
 
   implementation:
     auth_and_ua_behavior_change: >-
@@ -99,6 +107,13 @@ knowledge:
       - exact Bearer plus x-api-key live request passed CAPTCHA and returned
         upstream HTTP 405 / code 3012
       - focused Z.AI regression tests: 55 passed
-    pending:
-      - establish the upstream reason for provider code 3012
-      - main, nightly, npm, and local deployment verification
+      - full regression suite: 2771 passed and 136 skipped
+      - local source deployment reports version 0.2.33 and produces
+        User-Agent ZCode/3.8.1 with matching Bearer and x-api-key credentials
+      - Mia nightly deployment reports version
+        0.2.33-nightly.20260824-160320.fb7c359 and produces the same verified
+        request identity without printing the credential
+      - main and nightly CI/publish workflows completed successfully
+    separate_unresolved_observation:
+      - provider code 3012 remains unexplained by available official material;
+        it is not represented as an authentication-header or User-Agent result
