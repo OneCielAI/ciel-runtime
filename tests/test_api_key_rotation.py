@@ -945,6 +945,11 @@ class ApiKeyRotationTests(unittest.TestCase):
 
         with (
             mock.patch.object(ciel_runtime.urllib.request, "urlopen", side_effect=error),
+            mock.patch.object(
+                ciel_runtime,
+                "prepare_provider_runtime_headers",
+                side_effect=lambda _provider, _config, headers: dict(headers),
+            ),
             mock.patch.object(ciel_runtime, "write_router_activity") as activity,
             mock.patch.object(ciel_runtime, "router_log") as router_log,
         ):

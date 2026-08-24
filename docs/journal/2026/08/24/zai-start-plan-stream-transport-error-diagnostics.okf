@@ -41,6 +41,17 @@ knowledge:
       api_key_rotation: "40 passed"
       openai_forwarding_endpoint: "1 passed"
       lint: passed
+    ci_portability:
+      first_publish_run: 32771205830
+      first_publish_result: failed
+      observed_failure: >-
+        The new transport test invoked the real Start Plan CAPTCHA preparer on
+        the headless Linux runner before reaching the mocked transport error.
+      correction: >-
+        The transport-focused test now replaces runtime-header preparation
+        with an identity projection, keeping CAPTCHA behavior outside this
+        test's scope.
+      corrected_focused_result: "40 passed"
     full_regression:
       unit: "1183 passed, 44 skipped"
       router: "965 passed"
