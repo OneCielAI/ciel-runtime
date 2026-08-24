@@ -57,4 +57,18 @@ knowledge:
       source_installed_sha256_match: true
       start_plan_credential_status: connected
     release:
-      status: pending
+      status: passed
+      commit: 47605a5b71a2fc7dd7ead93269f5cf93c56cf66c
+      branches:
+        main: pushed
+        nightly: pushed
+      github_actions:
+        main_ci: success
+        main_npm_publish: success
+        nightly_ci: success
+        nightly_npm_publish: success
+      npm:
+        latest: 0.2.31
+        nightly: 0.2.31-nightly.20260824-142935.47605a5
+        latest_npx_version_verified: true
+        nightly_npx_version_verified: true
