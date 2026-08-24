@@ -3,6 +3,13 @@
 This file records stable Ciel Runtime releases. Changes are grouped by user-visible
 capability, followed by the complete commit ledger merged into each release.
 
+## 0.2.35 — 2026-08-24
+
+- Finalize the state-bound Z.AI Start Plan CAPTCHA HTTP response before the
+  one-shot local receiver releases the paused model request, preventing the
+  browser from reporting `Failed to fetch` after Ciel Runtime accepted the
+  verification result.
+
 ## 0.2.34 — 2026-08-24
 
 - Match ZCode's request-time CAPTCHA interaction lifecycle: pause the active

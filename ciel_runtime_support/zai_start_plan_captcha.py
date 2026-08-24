@@ -128,11 +128,20 @@ class _CaptchaResultReceiver:
         receiver = self
 
         class Handler(BaseHTTPRequestHandler):
+            _ciel_result_accepted = False
+
             def do_GET(self) -> None:  # noqa: N802
                 receiver._handle_get(self)
 
             def do_POST(self) -> None:  # noqa: N802
-                receiver._handle_post(self)
+                self._ciel_result_accepted = receiver._handle_post(self)
+
+            def finish(self) -> None:
+                try:
+                    super().finish()
+                finally:
+                    if self._ciel_result_accepted:
+                        receiver._mark_result_response_finished()
 
             def log_message(self, _format: str, *_args: object) -> None:
                 return
@@ -185,31 +194,35 @@ class _CaptchaResultReceiver:
         body = self._page().encode("utf-8")
         self._respond(handler, 200, body, "text/html; charset=utf-8")
 
-    def _handle_post(self, handler: BaseHTTPRequestHandler) -> None:
+    def _handle_post(self, handler: BaseHTTPRequestHandler) -> bool:
         parsed = urllib.parse.urlsplit(handler.path)
         if parsed.path != _CAPTCHA_RESULT_PATH:
             self._respond(handler, 404, b"Not found", "text/plain; charset=utf-8")
-            return
+            return False
         if not self._valid_state(parsed.query):
             self._respond(handler, 403, b"Invalid CAPTCHA state", "text/plain; charset=utf-8")
-            return
+            return False
         try:
             length = int(handler.headers.get("Content-Length") or "0")
         except ValueError:
             length = 0
         if length <= 0 or length > _MAX_RESULT_BYTES:
             self._respond(handler, 413, b"Invalid result size", "text/plain; charset=utf-8")
-            return
+            return False
         value = handler.rfile.read(length).decode("utf-8", errors="strict").strip()
         if not value:
             self._respond(handler, 400, b"Empty result", "text/plain; charset=utf-8")
-            return
+            return False
         with self._lock:
             if self._result:
                 self._respond(handler, 409, b"Result already received", "text/plain; charset=utf-8")
-                return
+                return False
             self._result = value
         self._respond(handler, 204, b"", "text/plain; charset=utf-8")
+        return True
+
+    def _mark_result_response_finished(self) -> None:
+        """Release the model request only after the browser response is finalized."""
         self._ready.set()
 
     @staticmethod

@@ -1,0 +1,40 @@
+format: okf
+kind: task-journal
+date: 2026-08-24
+task:
+  title: Mia Z.AI Start Plan Failed to fetch diagnosis
+  environment:
+    host: mia@100.95.132.58
+    workspace: /home/mia
+    router_instance: 8800-9ab536464774
+  evidence:
+    interaction:
+      request_id: F4MhIXxW15rbO4K6IC7ZNaRryJxthsLTzxsLGbc70kA
+      created_at: 1787593198.7332804
+      completed_at: 1787593222.8708918
+      final_status: completed
+      browser_message: Failed to fetch
+    downstream:
+      observed_at: 1787593223.5630755
+      event: error
+      status_code: 404
+      message: 404 page not found
+    conclusion:
+      confirmed: The CAPTCHA result reached Ciel Runtime and released the model request.
+      boundary: The browser did not observe a completed fetch response before the one-shot receiver shut down.
+  implementation:
+    receiver:
+      before: The result wait event was set inside do_POST immediately after response headers were written.
+      after: The result wait event is set only after BaseHTTPRequestHandler.finish completes.
+    invariant:
+      - The one-time result remains state-bound.
+      - The result is not persisted.
+      - The model request cannot resume before the browser HTTP response lifecycle finishes.
+  verification:
+    automated:
+      unit_group:
+        tests: 1182
+        result: passed
+        skipped: 44
+      lint: passed
+    mia_runtime: pending

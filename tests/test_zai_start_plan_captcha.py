@@ -272,6 +272,39 @@ class ZaiStartPlanCaptchaTests(unittest.TestCase):
             with urllib.request.urlopen(second.url, timeout=2.0) as response:
                 self.assertEqual(200, response.status)
 
+    def test_receiver_waits_for_http_response_finalization_before_releasing_result(self):
+        receiver = _CaptchaResultReceiver(
+            ZaiStartPlanCaptchaConfig(True, "sgp", "prefix", "scene"),
+            "response-state",
+            15,
+        )
+
+        class Handler:
+            path = "/zai-start-plan-captcha/result?state=response-state"
+            headers = {"Content-Length": "14"}
+            rfile = io.BytesIO(b"verified-token")
+            wfile = io.BytesIO()
+            close_connection = False
+
+            def send_response(self, status):
+                self.status = status
+
+            def send_header(self, _name, _value):
+                return None
+
+            def end_headers(self):
+                return None
+
+        handler = Handler()
+        accepted = receiver._handle_post(handler)
+
+        self.assertTrue(accepted)
+        self.assertEqual(204, handler.status)
+        self.assertFalse(receiver._ready.is_set())
+        receiver._mark_result_response_finished()
+        self.assertTrue(receiver._ready.is_set())
+        self.assertEqual("verified-token", receiver.wait())
+
     def test_runtime_headers_are_applied_only_to_start_plan(self):
         class Broker:
             def headers(self, options):

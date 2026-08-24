@@ -1,0 +1,38 @@
+okf_version: "1.0"
+knowledge:
+  task:
+    id: zai-start-plan-base-url-identity-20260824
+    date: "2026-08-24"
+    objective: >-
+      Determine whether Mia's zai-start-plan provider is incorrectly using the
+      Z.AI Coding Plan endpoint.
+    status: verified
+
+  evidence:
+    installed_zcode_source:
+      provider_ids: >-
+        The official ZCode bundle defines distinct builtin provider identifiers
+        zai-coding-plan and zai-start-plan.
+      endpoint_builder: >-
+        The official ZCode bundle derives zcodePlanOpenAiBaseUrl as
+        https://zcode.z.ai/api/v1/zcode-plan and
+        zcodePlanAnthropicBaseUrl as
+        https://zcode.z.ai/api/v1/zcode-plan/anthropic.
+      runtime_headers: >-
+        The official bundle requests fresh runtime headers specifically for
+        zaiStartPlan before each model request.
+    ciel_runtime:
+      coding_plan_base_url: "https://api.z.ai/api/coding/paas/v4"
+      start_plan_display_base_url: "https://zcode.z.ai/api/v1/zcode-plan"
+      start_plan_anthropic_base_url: "https://zcode.z.ai/api/v1/zcode-plan/anthropic"
+      source_files:
+        - ciel_runtime_support/providers/constants.py
+        - ciel_runtime_support/providers/zai.py
+        - tests/test_zai_provider.py
+
+  conclusion:
+    confirmed: >-
+      The zcode-plan path is the ZCode gateway namespace used by the official
+      Start Plan implementation. It is not Ciel's Coding Plan endpoint. Ciel's
+      separate Coding Plan provider uses https://api.z.ai/api/coding/paas/v4.
+    code_change_required: false
