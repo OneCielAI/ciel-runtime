@@ -17,7 +17,12 @@ from .nvidia import NvidiaHostedProviderAdapter
 from .vllm import VllmProviderAdapter
 from .deepseek import DeepSeekProviderAdapter
 from .fireworks import FireworksProviderAdapter
-from .zai import ZaiProviderAdapter
+from .zai import (
+    ZaiApiProviderAdapter,
+    ZaiCodingPlanProviderAdapter,
+    ZaiProviderAdapter,
+    ZaiStartPlanProviderAdapter,
+)
 from .kimi import KimiProviderAdapter
 from .opencode import OpenCodeProviderAdapter
 from .opencode_go import OpenCodeGoProviderAdapter
@@ -65,6 +70,9 @@ __all__ = [
     "DeepSeekProviderAdapter",
     "FireworksProviderAdapter",
     "ZaiProviderAdapter",
+    "ZaiApiProviderAdapter",
+    "ZaiCodingPlanProviderAdapter",
+    "ZaiStartPlanProviderAdapter",
     "KimiProviderAdapter",
     "OpenCodeProviderAdapter",
     "OpenCodeGoProviderAdapter",

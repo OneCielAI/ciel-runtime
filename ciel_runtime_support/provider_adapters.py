@@ -25,7 +25,12 @@ from .providers.nim import SelfHostedNimProviderAdapter
 from .providers.nvidia import NvidiaHostedProviderAdapter
 from .providers.vllm import VllmProviderAdapter
 from .providers.deepseek import DeepSeekProviderAdapter
-from .providers.zai import ZaiProviderAdapter
+from .providers.zai import (
+    ZaiApiProviderAdapter,
+    ZaiCodingPlanProviderAdapter,
+    ZaiProviderAdapter,
+    ZaiStartPlanProviderAdapter,
+)
 from .providers.kimi import KimiProviderAdapter
 from .providers.fireworks import FireworksProviderAdapter
 from .providers.meta import MetaModelProviderAdapter
@@ -60,6 +65,24 @@ PROVIDER_DESCRIPTORS = ProviderDescriptorRegistry(
         ProviderDescriptor("opencode-go", "OpenCode Go", OpenCodeGoProviderAdapter),
         ProviderDescriptor("kimi", "Kimi.com", KimiProviderAdapter),
         ProviderDescriptor("zai", "Z.AI GLM", ZaiProviderAdapter),
+        ProviderDescriptor(
+            "zai-api",
+            "Z.AI Model API (API Key)",
+            ZaiApiProviderAdapter,
+            aliases=("zai-general", "zai-payg"),
+        ),
+        ProviderDescriptor(
+            "zai-coding-plan",
+            "Z.AI Coding Plan",
+            ZaiCodingPlanProviderAdapter,
+            aliases=("zai-coding",),
+        ),
+        ProviderDescriptor(
+            "zai-start-plan",
+            "Z.AI Start Plan",
+            ZaiStartPlanProviderAdapter,
+            aliases=("zai-start",),
+        ),
         ProviderDescriptor("vllm", "vLLM", VllmProviderAdapter),
         ProviderDescriptor("lm-studio", "LM Studio", LMStudioProviderAdapter),
         ProviderDescriptor("nvidia-hosted", "Nvidia Hosted", NvidiaHostedProviderAdapter),
@@ -192,5 +215,8 @@ __all__ = [
     "VllmProviderAdapter",
     "XaiProviderAdapter",
     "ZaiProviderAdapter",
+    "ZaiApiProviderAdapter",
+    "ZaiCodingPlanProviderAdapter",
+    "ZaiStartPlanProviderAdapter",
     "ZAI_MODEL_FALLBACK_IDS",
 ]

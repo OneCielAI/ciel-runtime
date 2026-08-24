@@ -154,6 +154,18 @@ PROVIDER_COMPATIBILITY = ProviderCompatibilityRegistry(
             auto_web_search=_zai_auto_web_search,
             tool_use_blocker=_zai_tool_use_blocker,
         ),
+        "zai-api": ProviderCompatibilityPolicy(
+            auto_web_search=_zai_auto_web_search,
+            tool_use_blocker=_zai_tool_use_blocker,
+        ),
+        "zai-coding-plan": ProviderCompatibilityPolicy(
+            auto_web_search=_zai_auto_web_search,
+            tool_use_blocker=_zai_tool_use_blocker,
+        ),
+        "zai-start-plan": ProviderCompatibilityPolicy(
+            auto_web_search=_zai_auto_web_search,
+            tool_use_blocker=_zai_tool_use_blocker,
+        ),
     }
 )
 

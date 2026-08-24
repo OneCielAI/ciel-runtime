@@ -222,7 +222,11 @@ class ClaudeModelAliasPolicy:
         ):
             selected = ""
             selected_from_config = False
-            configured = str(config.get(f"{family}_model") or "").strip() if provider == "zai" else ""
+            configured = (
+                str(config.get(f"{family}_model") or "").strip()
+                if provider in {"zai", "zai-api", "zai-coding-plan", "zai-start-plan"}
+                else ""
+            )
             if configured:
                 selected = self._ports.normalize_model_id(provider, configured)
                 selected_from_config = bool(selected)

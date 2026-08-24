@@ -144,7 +144,7 @@ def build_default_native_compatibility_policy(
             "deepseek": frozenset({"deepseek"}),
             "opencode": frozenset(OPENCODE_PROVIDER_NAMES),
             "kimi": frozenset({"kimi"}),
-            "zai": frozenset({"zai"}),
+            "zai": frozenset({"zai", "zai-coding-plan", "zai-start-plan"}),
             "fireworks": frozenset({"fireworks"}),
         },
     )

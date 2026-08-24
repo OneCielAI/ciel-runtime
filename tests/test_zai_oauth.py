@@ -137,7 +137,13 @@ class ZaiOAuthClientTests(unittest.TestCase):
 
 class ZaiOAuthRuntimeTests(unittest.TestCase):
     def config(self):
-        return {"current_provider": "deepseek", "providers": {"zai": copy.deepcopy(ciel_runtime.DEFAULT_CONFIG["providers"]["zai"])}}
+        return {
+            "current_provider": "deepseek",
+            "providers": {
+                name: copy.deepcopy(ciel_runtime.DEFAULT_CONFIG["providers"][name])
+                for name in ("zai", "zai-coding-plan", "zai-start-plan")
+            },
+        }
 
     def runtime(self, service, config, saved, output):
         return ZaiOAuthRuntime(service, ZaiOAuthRuntimePorts(
@@ -158,8 +164,8 @@ class ZaiOAuthRuntimeTests(unittest.TestCase):
                 return ZaiOAuthResult("key-id.key-secret", "user-1")
 
         messages = self.runtime(Service(), config, saved, output).action("login")
-        provider = config["providers"]["zai"]
-        self.assertEqual("zai", config["current_provider"])
+        provider = config["providers"]["zai-coding-plan"]
+        self.assertEqual("zai-coding-plan", config["current_provider"])
         self.assertEqual("key-id.key-secret", provider["api_key"])
         self.assertEqual("zai-oauth", provider["credential_source"])
         self.assertEqual("user-1", provider["oauth_user_id"])
@@ -178,7 +184,7 @@ class ZaiOAuthRuntimeTests(unittest.TestCase):
 
         rows, values = ciel_runtime.api_key_panel_rows("zai", provider)
 
-        self.assertIn("Z.AI OAuth: connected", rows)
+        self.assertIn("Z.AI OAuth Coding Plan: connected", rows)
         self.assertIn("zai-oauth-login", values)
         self.assertIn("zai-oauth-status", values)
         self.assertIn("zai-oauth-logout", values)
@@ -203,11 +209,11 @@ class ZaiOAuthRuntimeTests(unittest.TestCase):
             "zcode-shared-key", source="zcode"
         )
 
-        provider = config["providers"]["zai"]
+        provider = config["providers"]["zai-coding-plan"]
         self.assertEqual("zcode-shared-key", provider["api_key"])
         self.assertEqual("zai-oauth", provider["credential_source"])
         self.assertEqual("zcode", provider["oauth_import_source"])
-        self.assertEqual("zai", config["current_provider"])
+        self.assertEqual("zai-coding-plan", config["current_provider"])
         self.assertEqual(1, len(saved))
         self.assertNotIn("zcode-shared-key", "\n".join(messages))
 
@@ -218,6 +224,45 @@ class ZaiOAuthRuntimeTests(unittest.TestCase):
         self.assertEqual("manual-key", config["providers"]["zai"]["api_key"])
         self.assertEqual([], saved)
         self.assertIn("no OAuth-derived", messages[0])
+
+    def test_coding_plan_login_never_overwrites_legacy_manual_zai_key(self):
+        config, saved = self.config(), []
+        config["providers"]["zai"]["api_key"] = "manual-legacy-key"
+
+        class Service:
+            def login(self, **_kwargs):
+                return ZaiOAuthResult("coding-plan-key", "user-1")
+
+        self.runtime(Service(), config, saved, []).action("login")
+
+        self.assertEqual("manual-legacy-key", config["providers"]["zai"]["api_key"])
+        self.assertEqual(
+            "coding-plan-key",
+            config["providers"]["zai-coding-plan"]["api_key"],
+        )
+
+    def test_start_plan_login_uses_separate_jwt_profile(self):
+        config, saved = self.config(), []
+
+        class Service:
+            def login(self, **kwargs):
+                self.profile = kwargs["profile"]
+                return ZaiOAuthResult(
+                    "start-jwt", "user-1", "oauth-access", "start-jwt"
+                )
+
+        service = Service()
+        messages = self.runtime(service, config, saved, []).action(
+            "login", profile="start-plan"
+        )
+
+        provider = config["providers"]["zai-start-plan"]
+        self.assertEqual("start-plan", service.profile)
+        self.assertEqual("start-jwt", provider["api_key"])
+        self.assertNotIn("oauth_access_token", provider)
+        self.assertEqual("zai-start-plan", config["current_provider"])
+        self.assertIn("Start Plan", messages[0])
+        self.assertIn("CAPTCHA", messages[-1])
 
     def test_init_404_falls_back_to_verified_authorization_code_contract(self):
         http = FakeHttp([

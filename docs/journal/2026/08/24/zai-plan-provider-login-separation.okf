@@ -1,0 +1,96 @@
+okf_version: "1.0"
+knowledge:
+  task:
+    id: zai-plan-provider-login-separation-20260824
+    date: "2026-08-24"
+    objective: >-
+      Separate Z.AI general API, Coding Plan, and Start Plan provider and OAuth
+      state while preserving the existing manual Z.AI API-key profile.
+    status: release-pending
+
+  evidence:
+    official_model_docs:
+      glm_5_1:
+        url: https://docs.z.ai/guides/llm/glm-5.1
+        model_id: glm-5.1
+        general_openai_base_url: https://api.z.ai/api/paas/v4
+        context_tokens: 200000
+        maximum_output_tokens: 131072
+      glm_5_2:
+        url: https://docs.z.ai/guides/llm/glm-5.2
+        model_id: glm-5.2
+        general_openai_base_url: https://api.z.ai/api/paas/v4
+        context_tokens: 1000000
+        maximum_output_tokens: 131072
+      glm_5_3:
+        url: https://docs.z.ai/guides/llm/glm-5.3
+        model_id: glm-5.3
+        context_tokens: 1000000
+        maximum_output_tokens: 131072
+    official_coding_plan:
+      url: https://docs.z.ai/devpack/tool/others
+      openai_chat_base_url: https://api.z.ai/api/coding/paas/v4
+      openai_responses_base_url: https://api.z.ai/api/v1
+      anthropic_base_url: https://api.z.ai/api/anthropic
+    installed_zcode_3_8_1_15:
+      start_openai_base_url: https://zcode.z.ai/api/v1/zcode-plan
+      start_anthropic_base_url: https://zcode.z.ai/api/v1/zcode-plan/anthropic
+      start_credential_type: ZCode OAuth JWT
+      model_paths_exempt_from_client_signing: true
+    live_start_probe:
+      bearer_jwt_http_status: 400
+      bearer_jwt_provider_code: "3007"
+      bearer_jwt_provider_message: captcha verify failed
+      x_api_key_http_status: 401
+
+  implementation:
+    profiles:
+      legacy_manual: zai
+      general_api_key: zai-api
+      coding_plan: zai-coding-plan
+      start_plan: zai-start-plan
+    oauth:
+      default_profile: coding-plan
+      accepted_profiles:
+        - coding-plan
+        - start-plan
+      legacy_manual_key_overwritten: false
+      oauth_access_token_persisted: false
+    safety_boundary:
+      start_plan_routed_launch: blocked
+      reason: fresh Aliyun CAPTCHA runtime header is unavailable
+      bypass_or_fabrication_implemented: false
+
+  validation:
+    targeted_zai_tests:
+      status: passed
+      count: 44
+    full_test_suite:
+      status: passed
+      unit:
+        passed: 1174
+        skipped: 44
+      router:
+        passed: 947
+      channel:
+        passed: 381
+        skipped: 80
+      runtime:
+        passed: 255
+        skipped: 12
+    static_checks:
+      ruff: passed
+      project_metadata: passed
+      diff_check: passed
+      main_module_line_count: 4980
+    package:
+      dry_run_version: 0.2.29
+    local_deployment:
+      installed_home: C:\Users\djlov\.local\share\ciel-runtime
+      version: 0.2.29
+      cli_profile_help_verified: true
+      provider_catalog_verified:
+        - zai-api
+        - zai-coding-plan
+    remaining:
+      - stable and nightly release verification

@@ -11,6 +11,7 @@ from ..architecture import (
     ProviderOptionPresentationPolicy,
     ProviderRequestPolicy,
     ProviderStatusPolicy,
+    MessageProtocol,
 )
 from .base import HttpBearerProviderAdapter, provider_configuration
 from .constants import PROVIDER_DEFAULT_BASE_URLS, ZAI_MODEL_FALLBACK_IDS
@@ -85,19 +86,37 @@ class ZaiProviderAdapter(HttpBearerProviderAdapter):
         self, config: ProviderConfig
     ) -> tuple[Mapping[str, Any], str | None]:
         model = self.normalize_model_id(config.model).split("[", 1)[0].lower()
-        if model != "glm-5.3":
+        documented_profiles: dict[str, tuple[int, str]] = {
+            "glm-5.1": (200_000, "200K"),
+            "glm-5.2": (1_000_000, "1M"),
+            "glm-5.3": (1_000_000, "1M"),
+        }
+        documented = documented_profiles.get(model)
+        if documented is None:
             return {}, None
+        context_window, context_label = documented
+        profile: dict[str, Any] = {
+            "context_window": context_window,
+            "max_model_len": context_window,
+            "auto_compact_window": context_window,
+            "max_output_tokens": 131_072,
+            "context_reserve_tokens": 131_072,
+            "model_profile": f"{model}-{context_label.lower()}",
+        }
+        if model == "glm-5.3":
+            profile["effort_level"] = "max"
+            notice = (
+                "GLM-5.3 profile applied: 1M context, 128K maximum output, "
+                "and max reasoning effort. Start a new session."
+            )
+        else:
+            notice = (
+                f"{model.upper()} profile applied: {context_label} context and "
+                "128K maximum output. Start a new session."
+            )
         return (
-            {
-                "context_window": 1_000_000,
-                "max_model_len": 1_000_000,
-                "auto_compact_window": 1_000_000,
-                "max_output_tokens": 131_072,
-                "context_reserve_tokens": 131_072,
-                "effort_level": "max",
-                "model_profile": "glm-5.3-1m",
-            },
-            "GLM-5.3 profile applied: 1M context, 128K maximum output, and max reasoning effort. Start a new session.",
+            profile,
+            notice,
         )
 
     def normalize_request_options(
@@ -165,4 +184,163 @@ class ZaiProviderAdapter(HttpBearerProviderAdapter):
         )
 
 
-__all__ = ["ZaiProviderAdapter"]
+@dataclass(frozen=True)
+class ZaiApiProviderAdapter(ZaiProviderAdapter):
+    """General pay-as-you-go Z.AI API using the documented OpenAI surface."""
+
+    name: str = "zai-api"
+    base_url: str = PROVIDER_DEFAULT_BASE_URLS["zai-api"]
+    include_x_api_key: bool = False
+    capabilities_value: ProviderCapabilities = field(
+        default_factory=lambda: ProviderCapabilities(
+            upstream_protocol="openai_chat",
+            supports_thinking=True,
+            requires_api_key=True,
+        )
+    )
+    request_policy_value: ProviderRequestPolicy = field(
+        default_factory=lambda: ProviderRequestPolicy(
+            chat_path="/chat/completions", models_path="/models"
+        )
+    )
+    api_key_display_name_value: str = "Z.AI Model API"
+    api_key_launch_error_value: str = (
+        "Launch blocked: Z.AI Model API requires a pay-as-you-go API key."
+    )
+
+    def supported_protocols(
+        self, config: ProviderConfig, model: str | None = None
+    ) -> frozenset[MessageProtocol]:
+        del config, model
+        return frozenset({"openai_chat"})
+
+    def select_protocol(
+        self,
+        operation: MessageProtocol,
+        config: ProviderConfig,
+        model: str | None = None,
+    ) -> MessageProtocol:
+        del operation, config, model
+        return "openai_chat"
+
+    def router_native_anthropic_enabled(
+        self, config: ProviderConfig, model: str | None = None
+    ) -> bool:
+        del config, model
+        return False
+
+
+@dataclass(frozen=True)
+class ZaiCodingPlanProviderAdapter(ZaiApiProviderAdapter):
+    """Explicit Coding Plan profile with distinct OpenAI and Anthropic URLs."""
+
+    name: str = "zai-coding-plan"
+    base_url: str = PROVIDER_DEFAULT_BASE_URLS["zai-coding-plan"]
+    include_x_api_key: bool = True
+    configuration_defaults_value: dict = field(
+        default_factory=lambda: {
+            **ZaiProviderAdapter().configuration_defaults_value,
+            "native_compat": True,
+            "plan_type": "coding-plan",
+        }
+    )
+    api_key_display_name_value: str = "Z.AI Coding Plan"
+    api_key_launch_error_value: str = (
+        "Launch blocked: Z.AI Coding Plan requires a Coding Plan API key or OAuth login."
+    )
+
+    def supported_protocols(
+        self, config: ProviderConfig, model: str | None = None
+    ) -> frozenset[MessageProtocol]:
+        del model
+        protocols: set[MessageProtocol] = {"openai_chat"}
+        if bool(config.options.get("native_compat", True)):
+            protocols.add("anthropic_messages")
+        return frozenset(protocols)
+
+    def select_protocol(
+        self,
+        operation: MessageProtocol,
+        config: ProviderConfig,
+        model: str | None = None,
+    ) -> MessageProtocol:
+        return (
+            "anthropic_messages"
+            if operation == "anthropic_messages"
+            and "anthropic_messages" in self.supported_protocols(config, model)
+            else "openai_chat"
+        )
+
+    def anthropic_base_url(self, config: ProviderConfig) -> str:
+        del config
+        return PROVIDER_DEFAULT_BASE_URLS["zai"]
+
+    def router_native_anthropic_enabled(
+        self, config: ProviderConfig, model: str | None = None
+    ) -> bool:
+        del model
+        return bool(config.options.get("native_compat", True))
+
+
+@dataclass(frozen=True)
+class ZaiStartPlanProviderAdapter(ZaiCodingPlanProviderAdapter):
+    """ZCode Start Plan gateway profile backed by an OAuth JWT."""
+
+    name: str = "zai-start-plan"
+    base_url: str = PROVIDER_DEFAULT_BASE_URLS["zai-start-plan"]
+    include_x_api_key: bool = False
+    configuration_defaults_value: dict = field(
+        default_factory=lambda: {
+            **ZaiProviderAdapter().configuration_defaults_value,
+            "native_compat": True,
+            "plan_type": "start-plan",
+            "zcode_app_version": "3.8.1",
+        }
+    )
+    api_key_display_name_value: str = "Z.AI Start Plan OAuth"
+    api_key_launch_error_value: str = (
+        "Launch blocked: Z.AI Start Plan requires its own OAuth login."
+    )
+
+    def anthropic_base_url(self, config: ProviderConfig) -> str:
+        del config
+        return "https://zcode.z.ai/api/v1/zcode-plan/anthropic"
+
+    def build_headers(
+        self, config: ProviderConfig, api_key: str | None
+    ) -> Mapping[str, str]:
+        headers = dict(super().build_headers(config, api_key))
+        version = str(config.options.get("zcode_app_version") or "3.8.1").strip()
+        headers.update(
+            {
+                "User-Agent": f"ZCode/{version}",
+                "HTTP-Referer": "https://zcode.z.ai",
+                "X-ZCode-App-Version": version,
+                "X-ZCode-Agent": "glm",
+                "X-Title": "Z Code@cli",
+            }
+        )
+        return headers
+
+    def build_model_headers(
+        self, config: ProviderConfig, api_key: str | None
+    ) -> Mapping[str, str]:
+        return self.build_headers(config, api_key)
+
+    def launch_api_key_error(self, config: ProviderConfig) -> str | None:
+        if not config.api_keys:
+            return self.api_key_launch_error_value
+        return (
+            "Launch blocked: Z.AI Start Plan requires a fresh Aliyun CAPTCHA "
+            "runtime header before each model request. The installed ZCode "
+            "runtime provides that private interactive flow; Ciel Runtime does "
+            "not bypass or fabricate it for routed clients."
+        )
+
+
+__all__ = [
+    "ZaiApiProviderAdapter",
+    "ZaiCodingPlanProviderAdapter",
+    "ZaiProviderAdapter",
+    "ZaiStartPlanProviderAdapter",
+]

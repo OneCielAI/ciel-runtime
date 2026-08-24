@@ -28,6 +28,47 @@ class ZaiProviderTests(unittest.TestCase):
         self.assertEqual("Z.AI GLM", ciel_runtime.PROVIDER_LABELS["zai"])
         self.assertEqual(ciel_runtime.ZAI_ANTHROPIC_BASE_URL, ciel_runtime.default_base_url("zai"))
 
+    def test_plan_profiles_use_their_verified_protocol_endpoints(self):
+        self.assertEqual(
+            "https://api.z.ai/api/paas/v4",
+            ciel_runtime.default_base_url("zai-api"),
+        )
+        self.assertEqual(
+            "https://api.z.ai/api/coding/paas/v4",
+            ciel_runtime.default_base_url("zai-coding-plan"),
+        )
+        self.assertEqual(
+            "https://zcode.z.ai/api/v1/zcode-plan",
+            ciel_runtime.default_base_url("zai-start-plan"),
+        )
+        coding = ciel_runtime.DEFAULT_CONFIG["providers"]["zai-coding-plan"]
+        start = ciel_runtime.DEFAULT_CONFIG["providers"]["zai-start-plan"]
+        self.assertEqual(
+            "https://api.z.ai/api/anthropic",
+            ciel_runtime.native_anthropic_base_url("zai-coding-plan", coding),
+        )
+        self.assertEqual(
+            "https://zcode.z.ai/api/v1/zcode-plan/anthropic",
+            ciel_runtime.native_anthropic_base_url("zai-start-plan", start),
+        )
+
+    def test_start_plan_headers_use_its_oauth_jwt_and_zcode_identity(self):
+        pcfg = copy.deepcopy(ciel_runtime.DEFAULT_CONFIG["providers"]["zai-start-plan"])
+        pcfg["api_key"] = "oauth-jwt"
+
+        headers = ciel_runtime.provider_headers("zai-start-plan", pcfg)
+
+        self.assertEqual("Bearer oauth-jwt", headers["authorization"])
+        self.assertNotIn("x-api-key", headers)
+        self.assertEqual("ZCode/3.8.1", headers["User-Agent"])
+        self.assertEqual("https://zcode.z.ai", headers["HTTP-Referer"])
+        blocker = ciel_runtime.configured_provider_adapter(
+            "zai-start-plan", pcfg
+        ).launch_api_key_error(
+            ciel_runtime.provider_contract_config("zai-start-plan", pcfg)
+        )
+        self.assertIn("CAPTCHA runtime header", blocker)
+
     def test_default_config_matches_zai_claude_code_docs(self):
         pcfg = ciel_runtime.DEFAULT_CONFIG["providers"]["zai"]
         self.assertEqual("https://api.z.ai/api/anthropic", pcfg["base_url"])
@@ -68,6 +109,23 @@ class ZaiProviderTests(unittest.TestCase):
         self.assertEqual({"type": "enabled"}, normalized["thinking"])
         self.assertEqual("high", normalized["reasoning_effort"])
         self.assertEqual(1.0, normalized["temperature"])
+
+    def test_glm51_and_glm52_profiles_follow_official_context_and_output_limits(self):
+        cases = {
+            "glm-5.1": 200_000,
+            "glm-5.2": 1_000_000,
+        }
+        for model, context_window in cases.items():
+            with self.subTest(model=model):
+                pcfg = self.zai_cfg(current_model=model)["providers"]["zai"]
+                adapter = ciel_runtime.configured_provider_adapter("zai", pcfg)
+                profile, notice = adapter.model_configuration_profile(
+                    ciel_runtime.provider_contract_config("zai", pcfg)
+                )
+                self.assertEqual(context_window, profile["context_window"])
+                self.assertEqual(131_072, profile["max_output_tokens"])
+                self.assertNotIn("effort_level", profile)
+                self.assertIn("128K maximum output", notice)
 
     def test_zai_turbo_suffix_does_not_claim_one_million_context(self):
         pcfg = self.zai_cfg(

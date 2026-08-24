@@ -122,7 +122,31 @@ class ZcodeRuntimeTests(unittest.TestCase):
 
             context = self.context(Path(temp_dir), captured, oauth)
             self.assertEqual(0, context.launch(["login", "--oauth", "--no-browser"]))
-            self.assertEqual(("login", {"no_browser": True}), captured["oauth"])
+            self.assertEqual(
+                ("login", {"no_browser": True, "profile": "coding-plan"}),
+                captured["oauth"],
+            )
+            self.assertNotIn("command", captured)
+
+    def test_zcode_oauth_login_forwards_explicit_start_plan_profile(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            captured = {}
+
+            def oauth(action, **kwargs):
+                captured["oauth"] = (action, kwargs)
+                return ["Z.AI OAuth Start Plan login completed."]
+
+            context = self.context(Path(temp_dir), captured, oauth)
+            self.assertEqual(
+                0,
+                context.launch(
+                    ["login", "--oauth", "--profile", "start-plan", "--no-browser"]
+                ),
+            )
+            self.assertEqual(
+                ("login", {"no_browser": True, "profile": "start-plan"}),
+                captured["oauth"],
+            )
             self.assertNotIn("command", captured)
 
     def test_official_zcode_oauth_result_is_imported_after_tui_exit(self):

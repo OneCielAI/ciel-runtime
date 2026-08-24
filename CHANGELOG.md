@@ -3,6 +3,18 @@
 This file records stable Ciel Runtime releases. Changes are grouped by user-visible
 capability, followed by the complete commit ledger merged into each release.
 
+## 0.2.29 — 2026-08-24
+
+- Split Z.AI general API, Coding Plan, and Start Plan into independent provider
+  profiles so OAuth login never overwrites the legacy/manual `zai` API key.
+- Added the verified general API and Coding Plan OpenAI/Anthropic endpoints and
+  plan-scoped `zai-oauth --profile coding-plan|start-plan` credential handling.
+- Added official GLM-5.1, GLM-5.2, and GLM-5.3 context/output profiles.
+- Registered the installed ZCode Start Plan endpoints and JWT credential shape,
+  but fail launch explicitly because a live request proved that the private
+  runtime's fresh Aliyun CAPTCHA header is required; Ciel does not fabricate or
+  bypass it.
+
 ## 0.2.28 — 2026-08-24
 
 - Replaced manual `zcode://` callback pasting in the Z.AI authorization-code

@@ -383,6 +383,9 @@ class ProviderContractMatrixTests(unittest.TestCase):
             "openrouter",
             "tabitoken",
             "zai",
+            "zai-api",
+            "zai-coding-plan",
+            "zai-start-plan",
             "azure",
             "codebuddy-cn",
             "xai",
@@ -551,6 +554,8 @@ class ProviderContractMatrixTests(unittest.TestCase):
             "self-hosted-nim",
             "vllm",
             "zai",
+            "zai-coding-plan",
+            "zai-start-plan",
         }
         for provider in PROVIDER_ADAPTERS.names():
             adapter = PROVIDER_ADAPTERS.create(provider)

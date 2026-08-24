@@ -16,6 +16,9 @@
 | `opencode-go` | OpenCode Go | Anthropic Messages / OpenAI Chat | `https://opencode.ai/zen/go` |
 | `kimi` | Kimi.com | Anthropic Messages / OpenAI Chat | `https://api.kimi.com/coding` |
 | `zai` | Z.AI GLM | Anthropic Messages | `https://api.z.ai/api/anthropic` |
+| `zai-api` | Z.AI Model API (API Key) | OpenAI Chat | `https://api.z.ai/api/paas/v4` |
+| `zai-coding-plan` | Z.AI Coding Plan | Anthropic Messages / OpenAI Chat | `https://api.z.ai/api/coding/paas/v4` |
+| `zai-start-plan` | Z.AI Start Plan | 프로필 등록됨, routed launch 차단 | `https://zcode.z.ai/api/v1/zcode-plan` |
 | `vllm` | vLLM | OpenAI Chat | 로컬/원격 vLLM |
 | `lm-studio` | LM Studio | OpenAI Chat | 로컬 LM Studio |
 | `nvidia-hosted` | Nvidia Hosted | OpenAI Chat | NVIDIA NIM Cloud |
@@ -181,20 +184,48 @@ Anthropic thinking 객체나 문서로 확인되지 않은 GLM-5.2 effort 문자
 
 ## ZAI (Z.AI GLM)
 
-- GLM 시리즈 모델 제공.
-- 기본 모델: `glm-5.3[1m]`
-- ZCode CLI의 init/poll 및 localhost:9899 authorization-code fallback OAuth 흐름: `ciel-runtimectl zai-oauth login`
-- OAuth access token과 ZCode JWT는 메모리에만 유지하고, 최종 Coding Plan API key만 기존 Ciel credential 규칙으로 저장한다.
-- GLM-5.3은 reasoning을 끌 수 없으며 `low`, `high`, `max` effort만 사용한다.
-- Managed MCP 서버 포함: `web-search-prime`, `web-reader`, `zread`
-- 컨텍스트 힌트:
+Z.AI의 API key, Coding Plan, Start Plan을 서로 다른 provider profile로 보존한다.
+기존 `zai` provider와 그 수동 API key는 마이그레이션하거나 덮어쓰지 않는다.
 
-| 모델 접두사 | 컨텍스트 |
-|-----------|---------|
-| `glm-5.3` | 1,000,000 |
-| `glm-5.2` | 1,000,000 |
-| `glm-5-turbo` | 200,000 |
-| `glm-4.7` | 200,000 |
+| profile | 인증 | Ciel OpenAI 경로 | Anthropic 경로 |
+|---------|------|------------------|----------------|
+| `zai` | 기존 수동 API key | 해당 없음 | `https://api.z.ai/api/anthropic` |
+| `zai-api` | 일반 종량제 API key | `https://api.z.ai/api/paas/v4` | 공식 모델 문서에서 일반 API용 별도 Anthropic URL을 확인하지 못했으므로 사용하지 않음 |
+| `zai-coding-plan` | Coding Plan API key 또는 `--profile coding-plan` OAuth | `https://api.z.ai/api/coding/paas/v4` | `https://api.z.ai/api/anthropic` |
+| `zai-start-plan` | `--profile start-plan` OAuth JWT | `https://zcode.z.ai/api/v1/zcode-plan` | `https://zcode.z.ai/api/v1/zcode-plan/anthropic` |
+
+Coding Plan의 OpenAI Chat/Anthropic URL은 Z.AI 공식 Tool Integration 문서에
+기재된 값이다. Start Plan URL과 JWT 저장 형태는 설치된 ZCode 3.8.1-15 runtime의
+provider 설정에서 확인했다. 그러나 실제 Start Plan JWT 요청은 fresh
+`x-aliyun-captcha-verify-param`이 없으면 `400`, provider code `3007`,
+`captcha verify failed`로 거절됐다. 이 값은 ZCode의 대화형 private runtime이
+요청마다 갱신한다. Ciel은 CAPTCHA를 우회하거나 값을 위조하지 않으며, 따라서
+`zai-start-plan`을 routed client로 실행하려 하면 원인을 표시하고 launch를 차단한다.
+
+```bash
+ciel-runtimectl zai-oauth login --profile coding-plan
+ciel-runtimectl zai-oauth status --profile coding-plan
+ciel-runtimectl zai-oauth login --profile start-plan
+ciel-runtimectl zai-oauth status --profile start-plan
+```
+
+Coding Plan 로그인은 최종 plan API key만 `zai-coding-plan`에 저장한다. Start Plan
+로그인은 ZCode JWT만 `zai-start-plan`에 저장하며 OAuth access token은 저장하지
+않는다. 두 로그인 모두 기존 `zai` credential을 변경하지 않는다.
+
+- 기본 모델: `glm-5.3[1m]`
+- GLM-5.3은 reasoning을 끌 수 없으며 `low`, `high`, `max` effort만 사용한다.
+- `zai`, `zai-api`, `zai-coding-plan`은 Managed MCP 서버 `web-search-prime`,
+  `web-reader`, `zread`를 사용할 수 있다.
+- 공식 모델 한도:
+
+| 모델 접두사 | 컨텍스트 | 최대 출력 |
+|-----------|---------:|----------:|
+| `glm-5.3` | 1,000,000 | 131,072 |
+| `glm-5.2` | 1,000,000 | 131,072 |
+| `glm-5.1` | 200,000 | 131,072 |
+| `glm-5-turbo` | 200,000 | 모델별 동적 값 |
+| `glm-4.7` | 200,000 | 모델별 동적 값 |
 
 ---
 

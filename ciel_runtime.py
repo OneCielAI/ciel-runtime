@@ -3160,7 +3160,7 @@ portable_language_menu = _CONFIGURATION_CLI_API.portable_language_menu
 
 def credential_cli_controller() -> CredentialCliController:
     return CredentialCliController(
-        policy=CredentialCliPolicy(frozenset({"anthropic", "ollama-cloud", "deepseek", "opencode", "opencode-go", "kimi", "nvidia-hosted", "openrouter", "fireworks"})),
+        policy=CredentialCliPolicy(frozenset({"anthropic", "ollama-cloud", "deepseek", "opencode", "opencode-go", "kimi", "nvidia-hosted", "openrouter", "fireworks", "zai", "zai-api", "zai-coding-plan", "zai-start-plan"})),
         ports=CredentialCliPorts(normalize_provider, load_config, provider_api_key_count, provider_primary_api_key, mask_secret, secret_fingerprint,
                                  api_key_clear_requested, clear_api_key_config, store_api_key_input_config, store_api_keys_config),
         io=CredentialCliIO(sys.stdin.isatty, getpass.getpass, print),
@@ -3238,7 +3238,7 @@ def cmd_ollama_native(args: argparse.Namespace) -> None: provider_option_cli_con
 def provider_option_policy() -> ProviderOptionPolicy: return ProviderOptionPolicy(normalize_claude_code_supported_capabilities, normalize_ip_family, normalize_model_id, normalize_opencode_endpoint_kind, parse_bool, parse_config_value, positive_int, ProviderSamplingPolicy())
 def apply_ollama_option(pcfg: dict[str, Any], token: str) -> None: mutate_ollama_option(pcfg, token, policy=provider_option_policy())
 def cmd_ollama_options(args: argparse.Namespace) -> None: provider_option_cli_controller().ollama_options(args)
-PROVIDER_OPTION_PROVIDERS = ("anthropic", "agy", "codex", "vllm", "lm-studio", "nvidia-hosted", "self-hosted-nim", "ollama", "ollama-cloud", "deepseek", "opencode", "opencode-go", "kimi", "openrouter", "fireworks", "zai")
+PROVIDER_OPTION_PROVIDERS = ("anthropic", "agy", "codex", "vllm", "lm-studio", "nvidia-hosted", "self-hosted-nim", "ollama", "ollama-cloud", "deepseek", "opencode", "opencode-go", "kimi", "openrouter", "fireworks", "zai", "zai-api", "zai-coding-plan", "zai-start-plan")
 PROVIDER_SAMPLING_OPTION_PROVIDERS = ("vllm", "lm-studio", "nvidia-hosted", "self-hosted-nim", "openrouter")
 PROVIDER_SAMPLING_OPTIONS = ("temperature", "top_p", "top_k")
 def sampling_option_key(key: str) -> str | None: return ProviderSamplingPolicy().option_key(key)

@@ -577,8 +577,16 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                         panel_rows, panel_values = api_key_panel_rows(provider, pcfg)
                         panel_idx = 0
                     elif value.startswith("zai-oauth-"):
+                        oauth_value = value.removeprefix("zai-oauth-")
+                        profile = "start-plan" if oauth_value.startswith("start-plan-") else "coding-plan"
+                        action = oauth_value.removeprefix("start-plan-")
                         messages = guarded_zai_oauth_action(
-                            value.removeprefix("zai-oauth-"), zai_oauth_action
+                            action,
+                            (
+                                (lambda selected_action: zai_oauth_action(selected_action, profile=profile))
+                                if profile == "start-plan"
+                                else zai_oauth_action
+                            ),
                         )
                         refresh_checks()
                         cfg = load_config()

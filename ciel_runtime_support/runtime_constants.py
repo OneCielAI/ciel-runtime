@@ -87,7 +87,7 @@ OPENCODE_ENDPOINT_ALIASES = {
 }
 
 APP_NAME = "Ciel Runtime"
-VERSION = "0.2.28"
+VERSION = "0.2.29"
 CREDITS = "Credits: One Ciel LLC"
 PRELAUNCH_CANCEL = 10
 PRELAUNCH_LAUNCH_CODEX = 11
@@ -135,9 +135,19 @@ CODEX_OPENAI_COMPATIBLE_ROUTER_PROVIDERS = (
     *OPENAI_COMPATIBLE_ROUTER_PROVIDERS,
     "kimi",
     "fireworks",
+    "zai-api",
+    "zai-coding-plan",
+    "zai-start-plan",
 )
 AUTO_DETECT_NATIVE_COMPAT_PROVIDERS = ("vllm", "lm-studio", "self-hosted-nim")
-CLAUDE_ANTHROPIC_ENDPOINT_PROVIDERS = ("deepseek", "kimi", "zai", "fireworks")
+CLAUDE_ANTHROPIC_ENDPOINT_PROVIDERS = (
+    "deepseek",
+    "kimi",
+    "zai",
+    "zai-coding-plan",
+    "zai-start-plan",
+    "fireworks",
+)
 ROUTED_COMPAT_PROMPT = (
     "You are running inside Claude Code through the ciel-runtime router. Do not stop after announcing what you plan to do. "
     "When the user asks you to create, edit, or run code, immediately use the available Claude Code tools such as Write, Edit, Read, and Bash as appropriate, "

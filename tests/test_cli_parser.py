@@ -38,6 +38,13 @@ class CliParserTests(unittest.TestCase):
         self.assertTrue(args.no_browser)
         self.assertIs(ciel_runtime.cmd_zai_oauth, args.func)
 
+    def test_zai_oauth_command_separates_start_plan_profile(self):
+        args = ciel_runtime.build_parser().parse_args(
+            ["zai-oauth", "login", "--profile", "start-plan", "--no-browser"]
+        )
+        self.assertEqual("start-plan", args.profile)
+        self.assertTrue(args.no_browser)
+
     def test_transcript_events_command_accepts_registered_destination_values(self):
         args = ciel_runtime.build_parser().parse_args(
             [

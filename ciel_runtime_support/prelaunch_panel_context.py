@@ -247,29 +247,32 @@ class PrelaunchPanelContext:
     def api_key_panel_rows(
         self, provider: str, provider_config: dict[str, Any] | None = None
     ) -> PanelRows:
-        if provider == "zai":
+        if provider in {"zai", "zai-coding-plan", "zai-start-plan"}:
             config = provider_config or {}
             source = str(config.get("credential_source") or "").strip()
             configured = bool(self.configuration.api_key_count(provider, config))
             status = "connected" if configured and source == "zai-oauth" else (
                 "API key configured" if configured else "login required"
             )
+            profile = "start-plan" if provider == "zai-start-plan" else "coding-plan"
+            action_prefix = "zai-oauth-start-plan-" if profile == "start-plan" else "zai-oauth-"
+            label = "Start Plan" if profile == "start-plan" else "Coding Plan"
             rows, values = self.configuration_panel_projection().api_key_rows(
                 provider, provider_config
             )
             return (
                 [
-                    f"Z.AI OAuth: {status}",
-                    "Login with Z.AI OAuth (shared by all runtimes)",
-                    "Refresh Z.AI OAuth status",
-                    "Logout shared Z.AI OAuth credential",
+                    f"Z.AI OAuth {label}: {status}",
+                    f"Login with Z.AI OAuth ({label})",
+                    f"Refresh Z.AI OAuth {label} status",
+                    f"Logout Z.AI OAuth {label} credential",
                     *rows,
                 ],
                 [
                     "__info__",
-                    "zai-oauth-login",
-                    "zai-oauth-status",
-                    "zai-oauth-logout",
+                    f"{action_prefix}login",
+                    f"{action_prefix}status",
+                    f"{action_prefix}logout",
                     *values,
                 ],
             )

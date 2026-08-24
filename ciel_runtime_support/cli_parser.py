@@ -147,6 +147,11 @@ def build_cli_parser(services: CliParserServices) -> argparse.ArgumentParser:
         default="status",
     )
     zai_oauth.add_argument("--no-browser", action="store_true")
+    zai_oauth.add_argument(
+        "--profile",
+        choices=("coding-plan", "start-plan"),
+        default="coding-plan",
+    )
     zai_oauth.set_defaults(func=services.provider.oauth["zai"])
     _add_values_command(commands, "model", services.models.model, argument_name="value")
     _add_values_command(commands, "advisor-model", services.models.advisor_model, argument_name="value")

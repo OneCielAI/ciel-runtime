@@ -127,9 +127,13 @@ ciel-runtime zcode --continue
 
 ZCode가 없으면 `zcode-app-cli`를 npm으로 설치한다. 실행 시 워크스페이스별
 Ciel 관리 홈을 사용하고 선택된 provider/model을 로컬 Router로 연결한다.
-Z.AI OAuth는 `ciel-runtimectl zai-oauth login` 또는 `ciel-runtime zcode login
---oauth`로 등록하며, 최종 Coding Plan API key만 Ciel의 공용 provider 설정에
-저장되어 Claude, Codex, AGY, ZCode 등 routed client가 함께 사용한다.
+Z.AI Coding Plan OAuth는 `ciel-runtimectl zai-oauth login --profile coding-plan`
+또는 `ciel-runtime zcode login --oauth`로 등록한다. 최종 Coding Plan API key는
+별도 `zai-coding-plan` provider 설정에 저장되어 Claude, Codex, AGY, ZCode 등
+routed client가 함께 사용하며 기존 `zai` 수동 API key를 덮어쓰지 않는다.
+`--profile start-plan`은 별도 JWT를 저장하지만, Start Plan 모델 요청에 필요한
+fresh Aliyun CAPTCHA runtime header를 Ciel이 생성하지 않으므로 routed launch는
+명시적으로 차단한다.
 
 ---
 

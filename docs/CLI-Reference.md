@@ -44,13 +44,16 @@ Codex 런처는 `~/.codex/config.toml`을 수정하지 않는다. 실행 시점�
 ciel-runtime zcode
 ciel-runtime --ca-runtime zcode -- --continue
 ciel-runtimectl launch-zcode --prompt "작업 내용"
+ciel-runtime zcode login --oauth --profile coding-plan
+ciel-runtime zcode login --oauth --profile start-plan
 ```
 
 ZCode는 워크스페이스별 Ciel 관리 홈과 `ZCODE_STORAGE_DIR`을 사용한다. 선택된
 provider/model은 로컬 Anthropic Router 설정으로 투영되며 사용자의 일반
 `%USERPROFILE%\.zcode` 또는 `~/.zcode` 설정은 덮어쓰지 않는다. `ciel-runtime
-zcode login --oauth`와 API-key 패널의 Z.AI OAuth는 Ciel 공용 credential store에
-Coding Plan 키를 저장하므로 다른 런타임도 같은 키를 사용한다.
+zcode login --oauth`와 API-key 패널의 Z.AI OAuth는 별도 `zai-coding-plan`
+profile에 Coding Plan 키를 저장하므로 다른 routed runtime도 같은 키를 사용한다.
+기존 `zai` 수동 키는 변경하지 않는다.
 
 ---
 
@@ -112,21 +115,27 @@ ciel-runtimectl base-url ollama http://remote-server:11434
 #### `zai-oauth`
 
 ```bash
-ciel-runtimectl zai-oauth login
-ciel-runtimectl zai-oauth login --no-browser
-ciel-runtimectl zai-oauth status
-ciel-runtimectl zai-oauth logout
+ciel-runtimectl zai-oauth login --profile coding-plan
+ciel-runtimectl zai-oauth login --profile coding-plan --no-browser
+ciel-runtimectl zai-oauth status --profile coding-plan
+ciel-runtimectl zai-oauth logout --profile coding-plan
+ciel-runtimectl zai-oauth login --profile start-plan
+ciel-runtimectl zai-oauth status --profile start-plan
+ciel-runtimectl zai-oauth logout --profile start-plan
 ```
 
-ZCode CLI의 Z.AI init/poll OAuth 흐름으로 로그인하고 Coding Plan API key를
-발급한다. init endpoint가 404이면 공개 ZCode 래퍼와 동일한 authorization-code
+기본 profile은 `coding-plan`이다. ZCode CLI의 Z.AI init/poll OAuth 흐름으로
+로그인하고 Coding Plan API key를 발급한다. init endpoint가 404이면 확인된
+authorization-code
 계약으로 전환하며, `http://localhost:9899/callback`의 일회성 loopback listener가
 브라우저 콜백을 자동으로 수신한다. `--no-browser`는 브라우저를 자동으로 열지
 않지만 동일한 listener에서 기다린다. 브라우저와 Ciel Runtime이 서로 다른
 머신이면 먼저 `ssh -L 9899:127.0.0.1:9899 user@runtime-host`처럼 callback port를
-전달해야 한다. Ciel은 OAuth access token이나 ZCode JWT를 디스크에 저장하지
-않는다. `logout`은 OAuth로 만든 로컬 API key만 지우며 원격 승인을 철회하지
-않는다.
+전달해야 한다. Coding Plan은 최종 API key만 저장한다. Start Plan은 별도
+`zai-start-plan` profile에 ZCode JWT만 저장하고 OAuth access token은 저장하지
+않는다. Start Plan의 모델 요청은 fresh Aliyun CAPTCHA runtime header가 필요하다는
+실제 응답이 확인되어 routed launch가 차단된다. `logout`은 선택한 profile의 로컬
+credential만 지우며 원격 승인을 철회하지 않는다.
 
 #### `api-key`
 ```bash

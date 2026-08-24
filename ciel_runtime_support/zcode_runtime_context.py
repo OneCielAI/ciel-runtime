@@ -104,10 +104,21 @@ class ZcodeRuntimeContext:
             return "logout"
         return None
 
+    @staticmethod
+    def _shared_oauth_profile(argv: list[str]) -> str:
+        for index, value in enumerate(argv):
+            if value.startswith("--profile="):
+                return value.split("=", 1)[1].strip() or "coding-plan"
+            if value == "--profile" and index + 1 < len(argv):
+                return str(argv[index + 1]).strip() or "coding-plan"
+        return "coding-plan"
+
     def _run_shared_oauth(self, action: str, argv: list[str]) -> int:
         try:
             lines = self.lifecycle.oauth_action(
-                action, no_browser="--no-browser" in argv
+                action,
+                no_browser="--no-browser" in argv,
+                profile=self._shared_oauth_profile(argv),
             )
         except RuntimeError as exc:
             self.process.print_line(f"Z.AI OAuth failed: {exc}", flush=True)

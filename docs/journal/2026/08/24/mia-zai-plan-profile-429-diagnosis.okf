@@ -1,0 +1,101 @@
+okf_version: "1.0"
+knowledge:
+  task:
+    id: mia-zai-plan-profile-429-diagnosis-20260824
+    date: "2026-08-24"
+    objective: >-
+      Determine how Z.AI Start Plan, Coding Plan, and general API usage are
+      distinguished and identify the evidence-backed cause of Mia's OAuth-login
+      success followed by HTTP 429.
+    status: diagnosis-complete
+
+  observed_runtime:
+    host: mia@100.95.132.58
+    provider: zai
+    model: glm-5.3
+    request_endpoint: https://api.z.ai/api/anthropic
+    error:
+      http_status: 429
+      provider_code: "1113"
+      provider_message: Insufficient balance or no resource package. Please recharge.
+    credential_status_text: connected (Coding Plan API key)
+
+  provider_evidence:
+    official_zai:
+      coding_plan_anthropic_endpoint: https://api.z.ai/api/anthropic
+      coding_plan_openai_endpoint: https://api.z.ai/api/coding/paas/v4
+      general_api_endpoint: https://api.z.ai/api/paas/v4
+      quota_probe_endpoint: https://api.z.ai/api/monitor/usage/quota/limit
+      mia_quota_probe:
+        code: 500
+        message: 当前用户不存在coding plan
+        translated_fact: current user has no Coding Plan
+        limits: []
+    installed_zcode:
+      package: zcode-app-cli
+      version: 3.8.1-15
+      provider_ids:
+        start_plan: builtin:zai-start-plan
+        coding_plan: builtin:zai-coding-plan
+        general_api: builtin:zai
+      start_plan_anthropic_endpoint: https://zcode.z.ai/api/v1/zcode-plan/anthropic
+      coding_plan_openai_endpoint: https://api.z.ai/api/coding/paas/v4
+      general_api_openai_endpoint: https://api.z.ai/api/paas/v4
+      start_plan_runtime_requirements:
+        - provider runtime headers refreshed before each request
+        - fresh x-aliyun-captcha-verify-param request header
+        - dedicated zcode-plan routes
+      start_plan_model_paths_signing:
+        required: false
+        evidence: >-
+          Installed ZCode source explicitly excludes the Start Plan Anthropic
+          and OpenAI model paths from client signing.
+
+  ciel_implementation_evidence:
+    result_fields_retained:
+      - api_key
+      - user_id
+    oauth_resolution: >-
+      The OAuth access token is unconditionally converted to a business API key
+      named zcode-api-key.
+    stored_provider: zai
+    stored_credential_source: zai-oauth
+    plan_identity_persisted: false
+    start_plan_access_token_persisted: false
+    zcode_jwt_persisted: false
+    status_entitlement_probe: false
+
+  direct_start_plan_probe:
+    credential_type: ZCode JWT
+    endpoint: https://zcode.z.ai/api/v1/zcode-plan/anthropic/v1/messages
+    authorization_bearer_result:
+      http_status: 400
+      provider_code: "3007"
+      provider_message: captcha verify failed
+    x_api_key_result:
+      http_status: 401
+    confirmed_boundary: >-
+      A Start Plan JWT and endpoint are insufficient for routed requests. A
+      fresh Aliyun CAPTCHA verification header is required by the observed
+      gateway response.
+
+  conclusion:
+    confirmed: >-
+      Ciel Runtime currently cannot distinguish the authorization page's Start
+      Plan selection from Coding Plan. OAuth success proves identity
+      authorization only. The resulting API key is routed to the Coding Plan
+      endpoint, while Z.AI's quota API says the Mia credential has no Coding
+      Plan. This mismatch produced provider code 1113 and the observed HTTP 429.
+    not_claimed: >-
+      The available evidence does not identify a documented public API that maps
+      the authorization-page selection directly to a stable plan identifier.
+
+  implementation_follow_up:
+    provider_profiles:
+      - zai-api
+      - zai-coding-plan
+      - zai-start-plan
+    legacy_zai_credential_preserved: true
+    coding_plan_oauth_target: zai-coding-plan
+    start_plan_oauth_target: zai-start-plan
+    start_plan_routed_launch: blocked-with-evidence

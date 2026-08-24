@@ -70,13 +70,23 @@ class ProviderAdministrationContext:
         for line in self.run_copilot_oauth_action(args.action):
             self.infrastructure.output(line, flush=True)
 
-    def run_zai_oauth_action(self, action: str, *, no_browser: bool = False) -> list[str]:
-        return self.infrastructure.zai_oauth().action(action, no_browser=no_browser)
+    def run_zai_oauth_action(
+        self,
+        action: str,
+        *,
+        no_browser: bool = False,
+        profile: str = "coding-plan",
+    ) -> list[str]:
+        return self.infrastructure.zai_oauth().action(
+            action, no_browser=no_browser, profile=profile
+        )
 
     def cmd_zai_oauth(self, args: argparse.Namespace) -> None:
         try:
             lines = self.run_zai_oauth_action(
-                args.action, no_browser=bool(getattr(args, "no_browser", False))
+                args.action,
+                no_browser=bool(getattr(args, "no_browser", False)),
+                profile=str(getattr(args, "profile", "coding-plan")),
             )
         except RuntimeError as exc:
             raise SystemExit(f"Z.AI OAuth failed: {exc}") from exc
@@ -161,8 +171,16 @@ class ProviderAdministrationCompatibilityApi:
     def cmd_copilot_oauth(self, args: argparse.Namespace) -> None:
         self.context().cmd_copilot_oauth(args)
 
-    def run_zai_oauth_action(self, action: str, *, no_browser: bool = False) -> list[str]:
-        return self.context().run_zai_oauth_action(action, no_browser=no_browser)
+    def run_zai_oauth_action(
+        self,
+        action: str,
+        *,
+        no_browser: bool = False,
+        profile: str = "coding-plan",
+    ) -> list[str]:
+        return self.context().run_zai_oauth_action(
+            action, no_browser=no_browser, profile=profile
+        )
 
     def cmd_zai_oauth(self, args: argparse.Namespace) -> None:
         self.context().cmd_zai_oauth(args)

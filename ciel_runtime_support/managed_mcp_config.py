@@ -67,7 +67,7 @@ class ManagedMcpConfigService:
         return path
 
     def write_zai(self, provider: str, provider_config: dict[str, Any]) -> Path | None:
-        if provider != "zai" or not bool(provider_config.get("managed_mcp", True)):
+        if provider not in {"zai", "zai-api", "zai-coding-plan"} or not bool(provider_config.get("managed_mcp", True)):
             return None
         key = self.ports.primary_api_key(provider, provider_config)
         if not self.ports.meaningful_key(key):
@@ -93,7 +93,7 @@ class ManagedMcpConfigService:
         return self.paths.zai
 
     def reset_zai_if_inactive(self, provider: str) -> None:
-        if provider == "zai":
+        if provider in {"zai", "zai-api", "zai-coding-plan"}:
             return
         try:
             self.paths.zai.unlink()

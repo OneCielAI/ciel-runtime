@@ -1,8 +1,9 @@
-"""Z.AI CLI OAuth and Coding Plan API-key resolution.
+"""Z.AI CLI OAuth with plan-scoped credential storage.
 
 The wire contract mirrors the cross-platform init/poll flow exposed by the
-ZCode runtime.  Ciel stores only the final Coding Plan API key; transient OAuth
-access tokens and ZCode JWTs are deliberately kept in memory.
+ZCode runtime. Coding Plan stores its resolved API key, while Start Plan stores
+the ZCode JWT required by its separate gateway. Credentials are never written
+into the legacy/manual ``zai`` provider profile.
 """
 
 from __future__ import annotations
@@ -55,6 +56,8 @@ class ZaiOAuthInit:
 class ZaiOAuthResult:
     api_key: str
     user_id: str
+    access_token: str = ""
+    jwt_token: str = ""
 
 
 class ZaiOAuthHttp:
@@ -337,7 +340,13 @@ class ZaiOAuthService:
     random_token: Callable[[], str] = lambda: secrets.token_hex(32)
     timeout_seconds: float = ZAI_OAUTH_TIMEOUT_SECONDS
 
-    def login(self, *, no_browser: bool = False, on_authorize_url: Callable[[str], None]) -> ZaiOAuthResult:
+    def login(
+        self,
+        *,
+        no_browser: bool = False,
+        on_authorize_url: Callable[[str], None],
+        profile: str = "coding-plan",
+    ) -> ZaiOAuthResult:
         poll_token = self.random_token()
         try:
             initialized = self.client.initialize(poll_token)
@@ -348,6 +357,7 @@ class ZaiOAuthService:
                 state=poll_token,
                 no_browser=no_browser,
                 on_authorize_url=on_authorize_url,
+                profile=profile,
             )
         on_authorize_url(initialized.authorize_url)
         if not no_browser:
@@ -359,7 +369,7 @@ class ZaiOAuthService:
             if status == "failed":
                 raise ZaiOAuthError("Z.AI OAuth authorization was denied or failed.")
             if status == "ready":
-                return self._resolve_result(result)
+                return self._resolve_result(result, profile=profile)
             self.sleep(min(initialized.poll_interval_seconds, max(0.0, deadline - self.now())))
         raise ZaiOAuthError("Z.AI OAuth authorization timed out.")
 
@@ -369,6 +379,7 @@ class ZaiOAuthService:
         state: str,
         no_browser: bool,
         on_authorize_url: Callable[[str], None],
+        profile: str,
     ) -> ZaiOAuthResult:
         try:
             with self.callback_receiver_factory(state, self.timeout_seconds) as receiver:
@@ -385,10 +396,13 @@ class ZaiOAuthService:
                 callback_url,
                 state,
                 redirect_uri=redirect_uri,
-            )
+            ),
+            profile=profile,
         )
 
-    def _resolve_result(self, result: Mapping[str, Any]) -> ZaiOAuthResult:
+    def _resolve_result(
+        self, result: Mapping[str, Any], *, profile: str
+    ) -> ZaiOAuthResult:
         zai = result.get("zai")
         access_token = (
             str(zai.get("access_token") or "").strip()
@@ -401,12 +415,27 @@ class ZaiOAuthService:
             if isinstance(user, Mapping)
             else ""
         )
-        if not access_token or not user_id:
+        jwt_token = str(result.get("token") or "").strip()
+        if not access_token or not jwt_token or not user_id:
             raise ZaiOAuthError(
                 "Z.AI OAuth ready response is missing credentials or user identity."
             )
+        if profile == "start-plan":
+            return ZaiOAuthResult(
+                api_key=jwt_token,
+                user_id=user_id,
+                access_token=access_token,
+                jwt_token=jwt_token,
+            )
+        if profile != "coding-plan":
+            raise ZaiOAuthError(f"Unsupported Z.AI OAuth profile: {profile}")
         api_key = self.client.resolve_coding_plan_api_key(access_token)
-        return ZaiOAuthResult(api_key=api_key, user_id=user_id)
+        return ZaiOAuthResult(
+            api_key=api_key,
+            user_id=user_id,
+            access_token=access_token,
+            jwt_token=jwt_token,
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -424,19 +453,35 @@ class ZaiOAuthRuntime:
     service: ZaiOAuthService
     ports: ZaiOAuthRuntimePorts
 
-    def token(self) -> str:
+    @staticmethod
+    def _provider_id(profile: str) -> str:
+        normalized = str(profile or "coding-plan").strip().lower()
+        if normalized == "coding-plan":
+            return "zai-coding-plan"
+        if normalized == "start-plan":
+            return "zai-start-plan"
+        raise ZaiOAuthError(f"Unsupported Z.AI OAuth profile: {profile}")
+
+    def token(self, profile: str = "coding-plan") -> str:
         config = self.ports.load_config()
-        provider = config.get("providers", {}).get("zai", {})
+        provider = config.get("providers", {}).get(self._provider_id(profile), {})
         if provider.get("credential_source") != "zai-oauth":
             return ""
         return str(provider.get("api_key") or "").strip()
 
-    def import_api_key(self, api_key: str, *, source: str = "zcode") -> list[str]:
+    def import_api_key(
+        self,
+        api_key: str,
+        *,
+        source: str = "zcode",
+        profile: str = "coding-plan",
+    ) -> list[str]:
         key = str(api_key or "").strip()
         if not key:
             return ["Z.AI OAuth import skipped: no Coding Plan API key was found."]
         config = self.ports.load_config()
-        provider = config.setdefault("providers", {}).setdefault("zai", {})
+        provider_id = self._provider_id(profile)
+        provider = config.setdefault("providers", {}).setdefault(provider_id, {})
         if (
             str(provider.get("api_key") or "").strip() == key
             and provider.get("credential_source") == "zai-oauth"
@@ -447,7 +492,7 @@ class ZaiOAuthRuntime:
         provider["credential_source"] = "zai-oauth"
         provider["oauth_authenticated_at"] = datetime.now(timezone.utc).isoformat()
         provider["oauth_import_source"] = str(source or "zcode")
-        config["current_provider"] = "zai"
+        config["current_provider"] = provider_id
         self.ports.save_config(config)
         self.ports.clear_model_cache()
         return [
@@ -455,25 +500,34 @@ class ZaiOAuthRuntime:
             f"Credential: {self.ports.mask(key)}; fp {self.ports.fingerprint(key)}",
         ]
 
-    def action(self, action: str, *, no_browser: bool = False) -> list[str]:
+    def action(
+        self,
+        action: str,
+        *,
+        no_browser: bool = False,
+        profile: str = "coding-plan",
+    ) -> list[str]:
+        provider_id = self._provider_id(profile)
+        profile_label = "Coding Plan" if profile == "coding-plan" else "Start Plan"
         if action == "status":
-            token = self.token()
+            token = self.token(profile)
             if not token:
-                return ["Z.AI OAuth: not connected."]
+                return [f"Z.AI OAuth {profile_label}: not connected."]
             return [
-                "Z.AI OAuth: connected (Coding Plan API key).",
+                f"Z.AI OAuth {profile_label}: connected.",
                 f"Credential: {self.ports.mask(token)}; fp {self.ports.fingerprint(token)}",
             ]
         if action == "logout":
             config = self.ports.load_config()
-            provider = config.get("providers", {}).get("zai", {})
+            provider = config.get("providers", {}).get(provider_id, {})
             if provider.get("credential_source") != "zai-oauth":
-                return ["Z.AI OAuth: no OAuth-derived local credential to clear."]
+                return [f"Z.AI OAuth {profile_label}: no OAuth-derived local credential to clear."]
             provider.pop("api_key", None)
             provider.pop("api_keys", None)
             provider.pop("credential_source", None)
             provider.pop("oauth_authenticated_at", None)
             provider.pop("oauth_user_id", None)
+            provider.pop("oauth_access_token", None)
             self.ports.save_config(config)
             self.ports.clear_model_cache()
             return ["Z.AI OAuth-derived local credential cleared. Remote authorization was not revoked."]
@@ -481,24 +535,30 @@ class ZaiOAuthRuntime:
             return [f"Unsupported Z.AI OAuth action: {action}"]
         result = self.service.login(
             no_browser=no_browser,
+            profile=profile,
             on_authorize_url=lambda url: self.ports.output(
                 f"Open this URL to authorize Z.AI:\n{url}", flush=True
             ),
         )
         config = self.ports.load_config()
-        provider = config.setdefault("providers", {}).setdefault("zai", {})
+        provider = config.setdefault("providers", {}).setdefault(provider_id, {})
         provider["api_key"] = result.api_key
         provider.pop("api_keys", None)
         provider["credential_source"] = "zai-oauth"
         provider["oauth_authenticated_at"] = datetime.now(timezone.utc).isoformat()
         provider["oauth_user_id"] = result.user_id
-        config["current_provider"] = "zai"
+        config["current_provider"] = provider_id
         self.ports.save_config(config)
         self.ports.clear_model_cache()
-        return [
-            "Z.AI OAuth login completed; the resolved Coding Plan API key is active.",
+        lines = [
+            f"Z.AI OAuth login completed; the {profile_label} credential is active.",
             f"Credential: {self.ports.mask(result.api_key)}; fp {self.ports.fingerprint(result.api_key)}",
         ]
+        if profile == "start-plan":
+            lines.append(
+                "Start Plan routed launch remains blocked because ZCode requires a fresh interactive CAPTCHA runtime header for model requests."
+            )
+        return lines
 
 
 __all__ = [
