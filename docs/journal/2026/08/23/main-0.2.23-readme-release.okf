@@ -8,7 +8,7 @@ knowledge:
       Audit every commit after 0.2.22, redesign the project README using
       verified patterns from established CLI repositories, publish grouped
       release notes, bump the version, and promote the result to main.
-    status: local-verification-complete
+    status: complete
 
   evidence:
     release_base:
@@ -75,7 +75,28 @@ knowledge:
       path: C:/Users/djlov/.local/share/ciel-runtime
       reported_version: 0.2.23
       source_hash_matches: 5
-    remaining:
-      - nightly publish and clean registry install
-      - main CI and stable npm publish
-      - rendered GitHub README screenshot
+    nightly:
+      status: passed
+      version: 0.2.23-nightly.20260824-024159.9e69d66
+      source_commit: 9e69d66883d0d0f29280a774ec7c1706cdccd9d9
+      ci_run: 32683800367
+      publish_run: 32683800229
+      registry_git_head_matched: true
+      clean_install_reported_version: 0.2.23-nightly.20260824-024159.9e69d66
+      runtime_constants_difference: nightly version substitution only
+    stable:
+      status: passed
+      version: 0.2.23
+      source_commit: 9e69d66883d0d0f29280a774ec7c1706cdccd9d9
+      ci_run: 32683988165
+      publish_run: 32683988114
+      registry_git_head_matched: true
+      clean_install_reported_version: 0.2.23
+      source_hash_matches: 7
+    rendered_readme:
+      status: passed
+      url: https://github.com/OneCielAI/ciel-runtime?tab=readme-ov-file#readme
+      visible_sections: [hero, badges, navigation, why, install]
+      npm_badge: v0.2.23
+      ci_badge: passing
+      screenshot_captured: true
