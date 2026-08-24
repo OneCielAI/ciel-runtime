@@ -6,7 +6,7 @@ knowledge:
     objective: >-
       Restore Kevin's Codex startup and prevent Mia's Z.AI OAuth callback input
       error from terminating the Ciel prelaunch interface.
-    status: validation-in-progress
+    status: complete
 
   evidence:
     kevin:
@@ -23,6 +23,11 @@ knowledge:
         toml_valid: true
         codex_mcp_list_exit: 0
         ciel_runtime_codex_version_exit: 0
+        nightly_installed: 0.2.27-nightly.20260824-061806.8e24b2e
+      post_install_observation: >-
+        The first Ciel-routed Codex version probe encountered a transient router
+        port claim failure on 8802. The listener was absent immediately after the
+        failure, and the identical probe then exited 0 with codex-cli 0.149.1.
       backup: /home/kevin-codex/.codex/config.toml.ciel-repair-20260824T0555Z.bak
       attribution: >-
         The config and AI-Net managed artifacts were written in the same second,
@@ -33,6 +38,10 @@ knowledge:
       source_behavior: >-
         ZaiOAuthClient rejected the target with ZaiOAuthError and the prelaunch
         API-key panel invoked the action without a RuntimeError boundary.
+      nightly_installed: 0.2.27-nightly.20260824-061806.8e24b2e
+      installed_guard_probe:
+        exit: 0
+        result: authorize page rejected with completed callback guidance
 
   implementation:
     codex_preflight:
@@ -64,6 +73,10 @@ knowledge:
       - npm package dry run for version 0.2.27
       - local install reports ciel-runtime 0.2.27
       - local Ciel-routed Codex version exit 0
-    pending:
-      - main and nightly publication
-      - Kevin and Mia nightly installation verification
+      - npm latest reports 0.2.27
+      - npm nightly reports 0.2.27-nightly.20260824-061806.8e24b2e
+      - registry-installed nightly execution reports ciel-runtime 0.2.27
+      - main CI and npm publication workflows succeeded
+      - nightly CI and npm publication workflows succeeded
+      - Kevin nightly installation and Ciel-routed Codex version probe exited 0
+      - Mia nightly installation and installed OAuth guard probe exited 0
