@@ -511,7 +511,20 @@ def open_openai_stream_with_rate_retry(
     token_estimate = estimate_tokens(req_body)
     byte_estimate = len(json.dumps(req_body, ensure_ascii=False).encode("utf-8"))
     data_bytes = json.dumps(req_body).encode("utf-8")
+    endpoint = _upstream_endpoint_identity(url)
     for attempt in range(rate_limit_max_attempts):
+        write_router_activity(
+            "prepare",
+            provider,
+            model,
+            attempt=attempt + 1,
+            total=max_attempts,
+            tokens=token_estimate,
+            bytes=byte_estimate,
+            timeout=timeout,
+            stream=True,
+            endpoint=endpoint,
+        )
         try:
             headers = prepare_runtime_headers(provider, pcfg, headers)
             write_router_activity(
@@ -524,8 +537,9 @@ def open_openai_stream_with_rate_retry(
                 bytes=byte_estimate,
                 timeout=timeout,
                 stream=True,
+                endpoint=endpoint,
             )
-            router_log("INFO", f"upstream_stream_request provider={provider} model={model} attempt={attempt + 1}/{max_attempts} tokens={token_estimate} bytes={byte_estimate} timeout={timeout}")
+            router_log("INFO", f"upstream_stream_request provider={provider} model={model} endpoint={endpoint} attempt={attempt + 1}/{max_attempts} tokens={token_estimate} bytes={byte_estimate} timeout={timeout}")
             req = urllib.request.Request(url, data=data_bytes, headers=headers, method="POST")
             resp = provider_urlopen(req, timeout=timeout, provider=provider, pcfg=pcfg)
             set_upstream_stream_read_timeout(resp, provider_stream_idle_timeout_seconds(pcfg))
@@ -591,6 +605,9 @@ def open_openai_stream_with_rate_retry(
                 provider, model, exc, raw_bytes
             ) from exc
         except (urllib.error.URLError, OSError) as exc:
+            error_message = _http_error_log_message(
+                f"{type(exc).__name__}: {exc}"
+            )
             if retryable_upstream_exception(exc) and attempt + 1 < max_attempts:
                 retry_no = attempt + 1
                 write_router_activity("retry", provider, model, attempt=retry_no, total=gateway_retries, error=type(exc).__name__, tokens=token_estimate, bytes=byte_estimate, stream=True)
@@ -599,7 +616,23 @@ def open_openai_stream_with_rate_retry(
                     retry_notice(upstream_retry_message(retry_no, gateway_retries))
                 time.sleep(upstream_retry_wait_seconds(retry_no))
                 continue
-            write_router_activity("error", provider, model, error=type(exc).__name__, tokens=token_estimate, bytes=byte_estimate, stream=True)
+            write_router_activity(
+                "error",
+                provider,
+                model,
+                error=type(exc).__name__,
+                message=error_message,
+                tokens=token_estimate,
+                bytes=byte_estimate,
+                stream=True,
+                endpoint=endpoint,
+            )
+            router_log(
+                "WARN",
+                f"upstream_stream_transport_error provider={provider} model={model} "
+                f"endpoint={endpoint} error={error_message!r} "
+                f"tokens={token_estimate} bytes={byte_estimate}",
+            )
             raise RuntimeError(
                 f"upstream stream request failed provider={provider} model={model}: "
                 f"{type(exc).__name__}: {exc}"

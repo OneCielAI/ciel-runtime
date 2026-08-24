@@ -935,6 +935,50 @@ class ApiKeyRotationTests(unittest.TestCase):
             prepare_events[0].kwargs["endpoint"],
         )
 
+    def test_openai_stream_transport_error_records_endpoint_and_reason(self):
+        pcfg = self.provider_pcfg(
+            "zai-start-plan",
+            api_key="start-token",
+            gateway_retries=0,
+        )
+        error = urllib.error.URLError("remote end closed connection")
+
+        with (
+            mock.patch.object(ciel_runtime.urllib.request, "urlopen", side_effect=error),
+            mock.patch.object(ciel_runtime, "write_router_activity") as activity,
+            mock.patch.object(ciel_runtime, "router_log") as router_log,
+        ):
+            with self.assertRaisesRegex(RuntimeError, "remote end closed connection"):
+                ciel_runtime.open_openai_stream_with_rate_retry(
+                    "https://zcode.z.ai/api/v1/zcode-plan/chat/completions?secret=value#fragment",
+                    {"model": "glm-5.3", "messages": [], "stream": True},
+                    {"content-type": "application/json"},
+                    300.0,
+                    "zai-start-plan",
+                    pcfg,
+                    "glm-5.3",
+                )
+
+        error_events = [
+            call for call in activity.call_args_list
+            if call.args and call.args[0] == "error"
+        ]
+        self.assertEqual(1, len(error_events))
+        self.assertEqual(
+            "https://zcode.z.ai/api/v1/zcode-plan/chat/completions",
+            error_events[0].kwargs["endpoint"],
+        )
+        self.assertIn(
+            "remote end closed connection", error_events[0].kwargs["message"]
+        )
+        self.assertTrue(
+            any(
+                "upstream_stream_transport_error" in str(call)
+                and "remote end closed connection" in str(call)
+                for call in router_log.call_args_list
+            )
+        )
+
     def test_direct_anthropic_compatible_single_oauth_429_retries_same_headers(self):
         pcfg = self.provider_pcfg(
             "anthropic",

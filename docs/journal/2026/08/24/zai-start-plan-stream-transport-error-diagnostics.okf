@@ -1,0 +1,51 @@
+okf_version: "1.0"
+knowledge:
+  task:
+    id: zai-start-plan-stream-transport-error-diagnostics-20260824
+    date: "2026-08-24"
+    objective: >-
+      Preserve the exact endpoint and transport exception after Start Plan
+      CAPTCHA completion instead of reducing the failure to URLError.
+    status: deployment-testing
+
+  evidence:
+    mia_runtime:
+      installed_version: 0.2.36-nightly.20260824-193751.595e10d
+      router_instance: 8803-9ab536464774
+      captcha_request_id: 05C3Vc9UMJVhGxlxe-qEvnYIK15hentvBYvO-dii3hI
+      captcha_status: completed
+      captcha_elapsed_seconds: 15.902
+      request_started: true
+      terminal_activity:
+        event: error
+        error: URLError
+        tokens: 301907
+        bytes: 1269740
+        stream: true
+      bounded_conclusion: >-
+        The earlier 404 did not recur. The stream transport failed after
+        CAPTCHA completion, but the terminal branch discarded the exception
+        reason and endpoint, so the underlying cause is not yet established.
+
+  implementation:
+    scope: generic-openai-stream-transport-diagnostics
+    changes:
+      - record a query-free endpoint before runtime header preparation
+      - retain the endpoint on request and terminal transport-error activity
+      - retain a bounded transport exception message
+      - write the endpoint and exception to the router WARN log
+    user_specific_exception: false
+
+  verification:
+    focused:
+      api_key_rotation: "40 passed"
+      openai_forwarding_endpoint: "1 passed"
+      lint: passed
+    full_regression:
+      unit: "1183 passed, 44 skipped"
+      router: "965 passed"
+      channel: "382 passed, 80 skipped"
+      runtime: "255 passed, 12 skipped"
+    pending:
+      - local and nightly deployment
+      - Mia live reproduction with a fresh CAPTCHA
