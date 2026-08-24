@@ -81,6 +81,7 @@ class PrelaunchLaunchPolicy:
     launch_readiness_errors: Callable[..., Any]
     launch_kimi: Callable[..., Any]
     launch_grok: Callable[..., Any] = lambda *_args, **_kwargs: 0
+    launch_zcode: Callable[..., Any] = lambda *_args, **_kwargs: 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -135,6 +136,7 @@ class PrelaunchSecrets:
     store_api_keys_config: Callable[..., Any]
     copilot_oauth_action: Callable[..., Any]
     kimi_oauth_action: Callable[..., Any]
+    zai_oauth_action: Callable[..., Any] = lambda _action: []
 
 
 @dataclass(frozen=True, slots=True)
@@ -213,6 +215,7 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
     launch_readiness_errors = services.launch_policy.launch_readiness_errors
     launch_kimi = services.launch_policy.launch_kimi
     launch_grok = services.launch_policy.launch_grok
+    launch_zcode = services.launch_policy.launch_zcode
     llm_option_current_bool = services.options.llm_option_current_bool
     llm_option_panel_rows = services.panel_rows.llm_option_panel_rows
     llm_option_prompt_default = services.options.llm_option_prompt_default
@@ -247,6 +250,7 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
     store_api_keys_config = services.secrets.store_api_keys_config
     copilot_oauth_action = services.secrets.copilot_oauth_action
     kimi_oauth_action = services.secrets.kimi_oauth_action
+    zai_oauth_action = services.secrets.zai_oauth_action
     timeout_profile_panel_rows = services.options.timeout_profile_panel_rows
     web_backend_panel_rows = services.options.web_backend_panel_rows
     set_web_backend_config = services.options.set_web_backend_config
@@ -485,6 +489,10 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                         persist_launch_action(action)
                         launch_grok([])
                         return PRELAUNCH_CANCEL
+                    if action == "launch-zcode":
+                        persist_launch_action(action)
+                        launch_zcode([])
+                        return PRELAUNCH_CANCEL
                     continue
                 if panel == "language" and value:
                     cfg["language"] = value
@@ -556,6 +564,15 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                         close_panel()
                     elif value == "kimi-oauth-login":
                         messages = kimi_oauth_action("login")
+                        refresh_checks()
+                        cfg = load_config()
+                        provider, pcfg = get_current_provider(cfg)
+                        panel_rows, panel_values = api_key_panel_rows(provider, pcfg)
+                        panel_idx = 0
+                    elif value.startswith("zai-oauth-"):
+                        messages = zai_oauth_action(
+                            value.removeprefix("zai-oauth-")
+                        )
                         refresh_checks()
                         cfg = load_config()
                         provider, pcfg = get_current_provider(cfg)

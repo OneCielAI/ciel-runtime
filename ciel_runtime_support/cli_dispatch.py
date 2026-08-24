@@ -34,6 +34,7 @@ class CliRuntime:
     native_agy_enabled: Any
     native_codex_enabled: Any
     launch_grok: Any = lambda *_args, **_kwargs: 127
+    launch_zcode: Any = lambda *_args, **_kwargs: 127
 
 
 @dataclass(frozen=True)
@@ -119,6 +120,7 @@ def dispatch_cli(argv: list[str], services: CliServices) -> int:
     launch_codex = services.runtime.launch_codex
     launch_codex_app_server = services.runtime.launch_codex_app_server
     launch_grok = services.runtime.launch_grok
+    launch_zcode = services.runtime.launch_zcode
     load_config = services.core.load_config
     native_agy_enabled = services.runtime.native_agy_enabled
     native_codex_enabled = services.runtime.native_codex_enabled
@@ -142,6 +144,8 @@ def dispatch_cli(argv: list[str], services: CliServices) -> int:
             return launch_codex(rest)
         if head in ("grok", "grok-build", "launch-grok"):
             return launch_grok(rest)
+        if head in ("zcode", "launch-zcode"):
+            return launch_zcode(rest)
         if head in ("version", "--version", "-v"):
             print(f"ciel-runtime {VERSION}")
             return 0
@@ -295,8 +299,8 @@ def dispatch_cli(argv: list[str], services: CliServices) -> int:
             runtime = str(value or "").strip().lower()
             if runtime in ("codex-app", "codex-appserver"):
                 runtime = "codex-app-server"
-            if runtime not in ("claude", "codex", "codex-app-server", "agy", "grok", "last"):
-                raise SystemExit("--ca-runtime must be claude, codex, codex-app-server, agy, grok, or last")
+            if runtime not in ("claude", "codex", "codex-app-server", "agy", "grok", "zcode", "last"):
+                raise SystemExit("--ca-runtime must be claude, codex, codex-app-server, agy, grok, zcode, or last")
         elif arg in ("--ca-no-launch", "--ca-configure-only", "--ca-setup-only"):
             configure_only = True
             skip_menu = True
@@ -667,7 +671,7 @@ def dispatch_cli(argv: list[str], services: CliServices) -> int:
         return 0
     if runtime == "last":
         remembered_runtime = str(last_launch_runtime() or "").strip().lower()
-        runtime = remembered_runtime if remembered_runtime in {"claude", "codex", "agy", "grok"} else "claude"
+        runtime = remembered_runtime if remembered_runtime in {"claude", "codex", "agy", "grok", "zcode"} else "claude"
     if runtime == "agy":
         return launch_agy(
             passthrough,
@@ -694,6 +698,14 @@ def dispatch_cli(argv: list[str], services: CliServices) -> int:
         )
     if runtime == "grok":
         return launch_grok(
+            passthrough,
+            skip_menu=skip_menu,
+            force_menu=force_menu,
+            update_check=update_check,
+            self_update_check=self_update_check,
+        )
+    if runtime == "zcode":
+        return launch_zcode(
             passthrough,
             skip_menu=skip_menu,
             force_menu=force_menu,

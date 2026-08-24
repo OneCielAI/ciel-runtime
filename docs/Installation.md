@@ -118,6 +118,19 @@ Windows 설치 명령은 `irm https://x.ai/cli/install.ps1 | iex`이고 Linux/ma
 xAI API key, 선택 모델, reasoning effort를 launch process에만 투영한다. Grok의
 `~/.grok` 인증·세션·사용자 설정은 Ciel이 덮어쓰지 않는다.
 
+### ZCode 실행
+
+```bash
+ciel-runtime zcode
+ciel-runtime zcode --continue
+```
+
+ZCode가 없으면 `zcode-app-cli`를 npm으로 설치한다. 실행 시 워크스페이스별
+Ciel 관리 홈을 사용하고 선택된 provider/model을 로컬 Router로 연결한다.
+Z.AI OAuth는 `ciel-runtimectl zai-oauth login` 또는 `ciel-runtime zcode login
+--oauth`로 등록하며, 최종 Coding Plan API key만 Ciel의 공용 provider 설정에
+저장되어 Claude, Codex, AGY, ZCode 등 routed client가 함께 사용한다.
+
 ---
 
 ## Router 시작/중지

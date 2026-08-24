@@ -12,6 +12,9 @@ from ciel_runtime_support.terminal_platform_io import (
 
 
 class TerminalPlatformIoTests(unittest.TestCase):
+    def test_terminal_reset_disables_bracketed_paste_mode(self):
+        self.assertIn("\x1b[?2004l", TERMINAL_INPUT_MODE_RESET)
+
     def test_clipboard_adapter_returns_trimmed_first_successful_command(self):
         completed = mock.Mock(returncode=0, stdout=" copied value\n")
         with mock.patch("ciel_runtime_support.terminal_platform_io.os.name", "nt"), mock.patch(

@@ -1,0 +1,68 @@
+okf_version: "1.0"
+knowledge:
+  task:
+    id: zcode-runtime-oauth-windows-paste-20260824
+    date: "2026-08-24"
+    objective: >-
+      Register ZCode as a supported Ciel runtime, share Z.AI OAuth credentials
+      across runtime clients, and repair leaked Windows bracketed-paste markers.
+    status: deployment-in-progress
+
+  evidence:
+    source_code:
+      terminal_reset:
+        file: ciel_runtime_support/terminal_platform_io.py
+        observation: >-
+          The reset sequence disabled mouse and focus modes but omitted DECSET
+          bracketed-paste disable ESC[?2004l.
+      runtime_registry:
+        file: ciel_runtime_support/runtime_adapters.py
+        observation: ZCode had no registered runtime adapter.
+      oauth_storage:
+        file: ciel_runtime_support/zai_oauth.py
+        observation: >-
+          The resolved Coding Plan API key is stored under providers.zai.api_key,
+          which is the shared provider credential consumed by routed clients.
+    upstream_runtime:
+      package: zcode-app-cli@3.8.1-15
+      runtime: zcode-runtime@0.16.3
+      observations:
+        - The help advertises --settings, but the bundled runtime rejected it as Unknown option.
+        - The bundled code resolves ZCODE_STORAGE_DIR and workspace AGENTS.md.
+        - A workspace-isolated USERPROFILE/HOME loaded the generated Ciel provider config.
+
+  implementation:
+    runtime:
+      registration:
+        commands: [ciel-runtime-zcode, launch-zcode, ca-runtime-zcode]
+      storage:
+        scope: workspace
+        config: zcode-home/.zcode/cli/config.json
+      routing:
+        protocol: anthropic_messages
+        provider_id: zai
+        endpoint: ciel-runtime-loopback-router
+    authentication:
+      shared_store: providers.zai.api_key
+      entrypoints: [provider-api-key-panel, zai-oauth-cli, zcode-login-oauth]
+      reverse_import: official-zcode-oauth-config-after-exit
+    terminal:
+      cleanup_sequence_added: ESC[?2004l
+
+  verification:
+    completed:
+      - Python compilation
+      - focused ZCode runtime tests
+      - focused Z.AI OAuth tests
+      - focused remote-memory tests
+      - actual zcode doctor execution
+      - actual ZCode TUI model-status rendering through the Ciel router
+      - full regression suite: 2739 passed and 136 skipped
+      - documentation validation: 23 Markdown files passed
+      - lint and architecture checks
+      - npm package dry run for version 0.2.26
+      - local install to C:/Users/djlov/.local/share/ciel-runtime
+      - local launcher reports ciel-runtime 0.2.26
+      - local ZCode launch reports zcode-runtime 0.16.3
+    pending:
+      - nightly publication

@@ -13,7 +13,7 @@ from typing import Any
 
 TERMINAL_INPUT_MODE_RESET = (
     "\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1004l"
-    "\x1b[?1005l\x1b[?1006l\x1b[?1015l"
+    "\x1b[?1005l\x1b[?1006l\x1b[?1015l\x1b[?2004l"
 )
 
 

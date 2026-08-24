@@ -7,11 +7,12 @@
 
 ## ciel-runtime
 
-기본값은 Claude Code를 Router를 통해 실행한다. Codex 런타임은 명시적으로 선택한다.
+기본값은 Claude Code를 Router를 통해 실행한다. 다른 런타임은 명시적으로 선택한다.
 
 ```bash
 ciel-runtime [OPTIONS] [-- RUNTIME_ARGS...]
 ciel-runtime codex [CODEX_ARGS...]
+ciel-runtime zcode [ZCODE_ARGS...]
 ciel-runtime --ca-runtime codex -- exec "hello"
 ```
 
@@ -23,7 +24,7 @@ ciel-runtime --ca-runtime codex -- exec "hello"
 | `--ca-model <id>` | 현재 제공자 모델 설정 후 실행 |
 | `--ca-base-url <url>` | 현재 제공자 기본 URL 설정 후 실행 |
 | `--ca-api-key <key>` | 현재 제공자 API 키 설정 후 실행 |
-| `--ca-runtime claude\|codex` | 실행 런타임 선택 |
+| `--ca-runtime claude\|codex\|codex-app-server\|agy\|grok\|zcode` | 실행 런타임 선택 |
 | `--ca-no-launch` | 설정만 적용하고 런타임 실행 생략 |
 | `--` | 이후 인자를 선택된 런타임에 그대로 전달 |
 
@@ -36,6 +37,20 @@ ciel-runtime --ca-provider ollama --ca-runtime codex -- exec "작업 내용"
 ```
 
 Codex 런처는 `~/.codex/config.toml`을 수정하지 않는다. 실행 시점에 `-c model_providers.ciel-runtime...` 오버라이드를 붙여 로컬 Router를 OpenAI Responses provider로 등록한다.
+
+### ZCode 실행
+
+```bash
+ciel-runtime zcode
+ciel-runtime --ca-runtime zcode -- --continue
+ciel-runtimectl launch-zcode --prompt "작업 내용"
+```
+
+ZCode는 워크스페이스별 Ciel 관리 홈과 `ZCODE_STORAGE_DIR`을 사용한다. 선택된
+provider/model은 로컬 Anthropic Router 설정으로 투영되며 사용자의 일반
+`%USERPROFILE%\.zcode` 또는 `~/.zcode` 설정은 덮어쓰지 않는다. `ciel-runtime
+zcode login --oauth`와 API-key 패널의 Z.AI OAuth는 Ciel 공용 credential store에
+Coding Plan 키를 저장하므로 다른 런타임도 같은 키를 사용한다.
 
 ---
 

@@ -107,11 +107,21 @@ class GrokRuntimeAdapter(CliRuntimeAdapter):
         return RuntimeCommand(argv=tuple(argv), env=dict(self.environment), cwd=spec.cwd)
 
 
+class ZcodeRuntimeAdapter(CliRuntimeAdapter):
+    """ZCode command materialization for a launch-scoped storage root."""
+
+    def build_command(self, spec: LaunchSpec) -> RuntimeCommand:
+        argv = [str(spec.runtime.executable or self.executable)]
+        argv.extend(spec.passthrough)
+        return RuntimeCommand(argv=tuple(argv), env=dict(self.environment), cwd=spec.cwd)
+
+
 RUNTIME_ADAPTERS: AdapterRegistry[RuntimeAdapter] = AdapterRegistry()
 RUNTIME_ADAPTERS.register("claude", lambda **kwargs: ClaudeRuntimeAdapter(name="claude", **kwargs))
 RUNTIME_ADAPTERS.register("codex", lambda **kwargs: CodexRuntimeAdapter(name="codex", **kwargs))
 RUNTIME_ADAPTERS.register("agy", lambda **kwargs: AgyRuntimeAdapter(name="agy", **kwargs))
 RUNTIME_ADAPTERS.register("grok", lambda **kwargs: GrokRuntimeAdapter(name="grok", **kwargs))
+RUNTIME_ADAPTERS.register("zcode", lambda **kwargs: ZcodeRuntimeAdapter(name="zcode", **kwargs))
 
 
 __all__ = [
@@ -121,4 +131,5 @@ __all__ = [
     "CliRuntimeAdapter",
     "CodexRuntimeAdapter",
     "GrokRuntimeAdapter",
+    "ZcodeRuntimeAdapter",
 ]

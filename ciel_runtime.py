@@ -23,6 +23,7 @@ from ciel_runtime_support import channel_cursor_repository as channel_cursor_sto
 from ciel_runtime_support import channel_llm_context, claude_launch_assembly, cli_assembly, cli_dispatch, cli_parser, codex_launch_configuration, codex_turn_recovery, kimi_identity, llm_option_config, llm_presets, native_context_recovery
 from ciel_runtime_support import ollama_catalog as ollama_catalog_policy
 from ciel_runtime_support import prelaunch, prelaunch_assembly, provider_catalog_sources, provider_models, provider_network, rate_limit_policy, router_request_assembly, router_server_runtime, runtime_asset_assembly, runtime_launch, runtime_primitives, terminal_platform_io, windows_console_mode
+from ciel_runtime_support.prelaunch_launch_panel import launch_panel_rows as project_launch_panel_rows
 from ciel_runtime_support.advisor_client import AdvisorClient, AdvisorClientIO, AdvisorClientPolicy, ProviderChatExecutor, ProviderChatIO, ProviderChatPolicy
 from ciel_runtime_support.advisor_policy import AdvisorDecisionServices, AdvisorServices, AdvisorShortcutController, AdvisorShortcutPorts, AdvisorTextServices
 from ciel_runtime_support.advisor_policy import advisor_focus_for_message as project_advisor_focus
@@ -172,6 +173,7 @@ from ciel_runtime_support.zai_oauth import ZaiOAuthClient, ZaiOAuthHttp, ZaiOAut
 from ciel_runtime_support.headless_config import HeadlessConfigCommands, HeadlessConfigServices, HeadlessEnvFileLoader, apply_headless_config
 from ciel_runtime_support.http_response import ChannelDeliveryGuard, HttpResponseAdapter
 from ciel_runtime_support.kimi_runtime_context import KimiConfigurationPorts, KimiIdentityPorts, KimiLifecyclePorts, KimiProcessPorts, KimiRuntimeCompatibilityApi, KimiRuntimeContext
+from ciel_runtime_support.zcode_runtime_context import ZcodeConfigurationPorts, ZcodeLifecyclePorts, ZcodeProcessPorts, ZcodeRuntimeCompatibilityApi, ZcodeRuntimeContext
 from ciel_runtime_support.launch_diagnostics import LaunchCommandDiagnostics, StderrCaptureAdapter
 from ciel_runtime_support.launch_state import LaunchStateRepository
 from ciel_runtime_support.launch_state import current_launch_cwd_key as project_current_launch_cwd_key
@@ -4006,6 +4008,21 @@ run_kimi_oauth_login = _KIMI_RUNTIME_API.oauth_login
 run_kimi_oauth_action = _KIMI_RUNTIME_API.oauth_action
 launch_kimi = _KIMI_RUNTIME_API.launch
 launch_kimi = SynchronizedLaunch(launch_kimi, sync_remote_launch_assets, "kimi")
+
+def zcode_runtime_context() -> ZcodeRuntimeContext:
+    return ZcodeRuntimeContext(
+        process=ZcodeProcessPorts(find_executable, subprocess.run, subprocess.call, print, os.environ, path_with_ciel_runtime_user_dirs),
+        config=ZcodeConfigurationPorts(load_config, get_current_provider, current_alias, claude_code_router_auth_token, ROUTER_BASE, ZAI_ANTHROPIC_BASE_URL,
+                                       WORKSPACE_STATE_DIR / "zcode-home" / ".zcode" / "cli" / "config.json",
+                                       lambda path, data, purpose: json_artifact_repository(path).save(data, purpose), lambda key: zai_oauth_runtime().import_api_key(key, source="zcode")),
+        lifecycle=ZcodeLifecyclePorts(run_zai_oauth_action, start_router_if_needed, run_with_router_lifetime, materialize_runtime_command,
+                                      lambda provider, model: record_launch_state_for_cwd(current_launch_cwd_key(), provider, "zcode-routed", model)),
+    )
+
+_ZCODE_RUNTIME_API = ZcodeRuntimeCompatibilityApi(zcode_runtime_context)
+def install_zcode_if_missing() -> str: return _ZCODE_RUNTIME_API.install_if_missing()
+def launch_zcode(passthrough: list[str] | None = None, **_kwargs: Any) -> int: return _ZCODE_RUNTIME_API.launch(list(passthrough or []))
+launch_zcode = SynchronizedLaunch(launch_zcode, sync_remote_launch_assets, "zcode")
 enable_ansi = enable_terminal_ansi
 ansi = render_ansi
 animated_ansi_text = render_animated_ansi_text
@@ -4064,25 +4081,7 @@ prompt_menu_value = _PRELAUNCH_SHELL_API.prompt_menu_value
 _prompt_menu_multiline_value_raw = _PRELAUNCH_SHELL_API.prompt_menu_multiline_value_raw
 prompt_menu_multiline_value = _PRELAUNCH_SHELL_API.prompt_menu_multiline_value
 
-def launch_panel_rows(cfg: dict[str, Any]) -> tuple[list[str], list[str]]:
-    provider, pcfg = get_current_provider(cfg)
-    family = provider_menu_label(provider, pcfg)
-    claude_suffix = "" if claude_launch_enabled_for_provider(provider) else f" [disabled: {family} provider selected]"
-    codex_suffix = "" if codex_launch_enabled_for_provider(provider) else f" [disabled: {family} provider selected]"
-    agy_suffix = "" if agy_launch_enabled_for_provider(provider) else " [disabled: select AGY provider]"
-    kimi_suffix = "" if provider == "kimi" else " [disabled: select Kimi provider]"
-    return (
-        [
-            f"Claude{claude_suffix}",
-            f"Codex{codex_suffix}",
-            f"AGY{agy_suffix}",
-            f"Kimi{kimi_suffix}",
-            "Grok Build",
-            f"Codex app server{codex_suffix}",
-            "Back",
-        ],
-        ["launch", "launch-codex", "launch-agy", "launch-kimi", "launch-grok", "launch-codex-app-server", "back"],
-    )
+def launch_panel_rows(cfg: dict[str, Any]) -> tuple[list[str], list[str]]: return project_launch_panel_rows(cfg, current_provider=get_current_provider, provider_label=provider_menu_label, claude_enabled=claude_launch_enabled_for_provider, codex_enabled=codex_launch_enabled_for_provider, agy_enabled=agy_launch_enabled_for_provider)
 
 def request_limits_menu_service() -> RequestLimitsMenuService:
     return RequestLimitsMenuService(load_config, save_config, ROUTER_WORKSPACE, os.environ)
@@ -4136,14 +4135,14 @@ def portable_prelaunch_menu(passthrough: list[str] | None = None) -> int:
             config=prelaunch.PrelaunchConfig(clear_model_cache, current_provider_panel_choice, default_base_url, get_current_provider, load_config, preflight_lines,
                                               provider_menu_label, save_config, settings_ready_except_api_key, read_model_list_cache),
             launch_policy=prelaunch.PrelaunchLaunchPolicy(agy_launch_enabled_for_provider, claude_launch_enabled_for_provider, codex_launch_enabled_for_provider,
-                                                          launch_blockers_require_api_key, launch_readiness_errors, launch_kimi, launch_grok),
+                                                          launch_blockers_require_api_key, launch_readiness_errors, launch_kimi, launch_grok, launch_zcode),
             panel_rows=prelaunch.PrelaunchPanelRows(advisor_model_panel_rows, api_key_panel_rows, base_url_panel_rows, context_setup_panel_rows, language_panel_rows,
                                                     llm_option_panel_rows, llm_preset_panel_rows, log_level_panel_rows, model_panel_rows, provider_panel_rows),
             mutations=prelaunch.PrelaunchMutations(apply_context_setup_config, apply_llm_preset_config, apply_timeout_profile_to_provider,
                                                     set_advisor_model_config, set_base_url_config, set_llm_option_config, set_log_level_config,
                                                     set_model_config, set_provider_choice_config, request_limits_menu_service()),
             secrets=prelaunch.PrelaunchSecrets(clear_api_key_config, mask_secret, parse_api_key_list, secret_fingerprint, store_api_key_input_config,
-                                                store_api_keys_config, run_copilot_oauth_action, run_kimi_oauth_action),
+                                                store_api_keys_config, run_copilot_oauth_action, run_kimi_oauth_action, run_zai_oauth_action),
             options=prelaunch.PrelaunchOptions(llm_option_current_bool, llm_option_prompt_default, timeout_profile_panel_rows, web_backend_panel_rows,
                                                set_web_backend_config, external_event_panel_rows, set_external_event_config,
                                                launch_panel_rows, remote_instruction_panel_rows, set_remote_instruction_config,
@@ -4939,7 +4938,7 @@ def cli_services() -> cli_dispatch.CliServices:
         core=cli_dispatch.CliCore(VERSION, cli_usage, find_executable, get_current_provider, load_config, pop_headless_env_file_args,
                                   portable_provider_menu, run_external_menu, run_quiet_upgrade_and_exit),
         runtime=cli_dispatch.CliRuntime(agy_passthrough_has_command, codex_passthrough_has_command, last_launch_runtime, launch_agy, launch_claude,
-                                        launch_codex, launch_codex_app_server, native_agy_enabled, native_codex_enabled, launch_grok),
+                                        launch_codex, launch_codex_app_server, native_agy_enabled, native_codex_enabled, launch_grok, launch_zcode),
         provider_commands=cli_dispatch.CliProviderCommands(cmd_advisor_model, cmd_api_key, cmd_base_url, cmd_language, cmd_log_level, cmd_model,
                                                            cmd_models, cmd_provider, cmd_provider_options, cmd_set_api_key),
         special_commands=cli_dispatch.CliSpecialCommands(cmd_ollama_catalog, cmd_ollama_native, cmd_ollama_options, cmd_web_fetch, cmd_web_search),
@@ -4949,7 +4948,7 @@ def cli_services() -> cli_dispatch.CliServices:
     ).services()
 def cli_parser_services() -> cli_parser.CliParserServices:
     return cli_assembly.CliParserAssembly(
-            launch=cli_parser.CliParserLaunch(cmd_cli, cmd_launch, cmd_launch_codex, cmd_launch_codex_app_server, cmd_launch_agy, serve, cmd_launch_grok),
+            launch=cli_parser.CliParserLaunch(cmd_cli, cmd_launch, cmd_launch_codex, cmd_launch_codex_app_server, cmd_launch_agy, serve, cmd_launch_grok, cmd_launch_zcode),
             runtime=cli_parser.CliParserRuntime(cmd_version, cmd_status, cmd_env, cmd_stop, cmd_test),
             settings=cli_parser.CliParserSettings(cmd_language, cmd_web_search, cmd_web_fetch, cmd_log_level, *event_settings_cli.handlers(event_settings_cli.EventSettingsCliPorts(load_config, save_config, external_event_receiver_service, lambda: set_remote_instruction_config('sync', ''), sync_all_remote_memories, print, lambda: USAGE_API_KEYS))),
             provider=cli_parser.CliParserProvider(cmd_ollama_native, cmd_ollama_options, cmd_provider_options, cmd_ollama_catalog, cmd_provider,
@@ -4960,7 +4959,7 @@ def cli_parser_services() -> cli_parser.CliParserServices:
 def cli_application_context() -> CliApplicationContext:
     return CliApplicationContext(
         dispatch=CliApplicationDispatchPorts(dispatch_cli, cli_services, launch_claude, launch_codex, launch_codex_app_server,
-                                             launch_agy, launch_kimi, run_kimi_oauth_login, launch_grok),
+                                             launch_agy, launch_kimi, run_kimi_oauth_login, launch_grok, launch_zcode),
         presentation=CliApplicationPresentationPorts(build_cli_parser, cli_parser_services, VERSION, print, lambda: sys.argv),
     )
 
@@ -4973,6 +4972,7 @@ cmd_launch_codex = _CLI_APPLICATION_API.cmd_launch_codex
 cmd_launch_codex_app_server = _CLI_APPLICATION_API.cmd_launch_codex_app_server
 cmd_launch_agy = _CLI_APPLICATION_API.cmd_launch_agy
 cmd_launch_grok = _CLI_APPLICATION_API.cmd_launch_grok
+cmd_launch_zcode = _CLI_APPLICATION_API.cmd_launch_zcode
 cmd_version = _CLI_APPLICATION_API.cmd_version
 main = _CLI_APPLICATION_API.main
 

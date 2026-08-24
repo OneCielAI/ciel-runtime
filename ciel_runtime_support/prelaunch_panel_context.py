@@ -247,6 +247,32 @@ class PrelaunchPanelContext:
     def api_key_panel_rows(
         self, provider: str, provider_config: dict[str, Any] | None = None
     ) -> PanelRows:
+        if provider == "zai":
+            config = provider_config or {}
+            source = str(config.get("credential_source") or "").strip()
+            configured = bool(self.configuration.api_key_count(provider, config))
+            status = "connected" if configured and source == "zai-oauth" else (
+                "API key configured" if configured else "login required"
+            )
+            rows, values = self.configuration_panel_projection().api_key_rows(
+                provider, provider_config
+            )
+            return (
+                [
+                    f"Z.AI OAuth: {status}",
+                    "Login with Z.AI OAuth (shared by all runtimes)",
+                    "Refresh Z.AI OAuth status",
+                    "Logout shared Z.AI OAuth credential",
+                    *rows,
+                ],
+                [
+                    "__info__",
+                    "zai-oauth-login",
+                    "zai-oauth-status",
+                    "zai-oauth-logout",
+                    *values,
+                ],
+            )
         if provider == "kimi":
             status = (
                 "managed profile detected"

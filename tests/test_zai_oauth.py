@@ -114,6 +114,23 @@ class ZaiOAuthRuntimeTests(unittest.TestCase):
         self.assertIn("completed", messages[0])
         self.assertNotIn("key-id.key-secret", "\n".join(output + messages))
 
+        claude_env = ciel_runtime.env_vars(config)
+        self.assertEqual("key-id.key-secret", claude_env["ANTHROPIC_AUTH_TOKEN"])
+        headers = ciel_runtime.provider_headers("zai", provider)
+        self.assertEqual("Bearer key-id.key-secret", headers["authorization"])
+
+    def test_zai_api_key_panel_exposes_shared_oauth_and_manual_key_paths(self):
+        provider = copy.deepcopy(ciel_runtime.DEFAULT_CONFIG["providers"]["zai"])
+        provider.update({"api_key": "key-id.key-secret", "credential_source": "zai-oauth"})
+
+        rows, values = ciel_runtime.api_key_panel_rows("zai", provider)
+
+        self.assertIn("Z.AI OAuth: connected", rows)
+        self.assertIn("zai-oauth-login", values)
+        self.assertIn("zai-oauth-status", values)
+        self.assertIn("zai-oauth-logout", values)
+        self.assertIn("input", values)
+
     def test_failed_login_does_not_mutate_or_save_config(self):
         config, saved = self.config(), []
         before = copy.deepcopy(config)
@@ -126,6 +143,20 @@ class ZaiOAuthRuntimeTests(unittest.TestCase):
             self.runtime(Service(), config, saved, []).action("login")
         self.assertEqual(before, config)
         self.assertEqual([], saved)
+
+    def test_imported_zcode_oauth_key_becomes_the_shared_zai_credential(self):
+        config, saved = self.config(), []
+        messages = self.runtime(None, config, saved, []).import_api_key(
+            "zcode-shared-key", source="zcode"
+        )
+
+        provider = config["providers"]["zai"]
+        self.assertEqual("zcode-shared-key", provider["api_key"])
+        self.assertEqual("zai-oauth", provider["credential_source"])
+        self.assertEqual("zcode", provider["oauth_import_source"])
+        self.assertEqual("zai", config["current_provider"])
+        self.assertEqual(1, len(saved))
+        self.assertNotIn("zcode-shared-key", "\n".join(messages))
 
     def test_logout_does_not_clear_a_manually_configured_key(self):
         config, saved = self.config(), []

@@ -5,7 +5,7 @@
 **Run the coding agent you want on the model provider you choose.**
 
 Ciel Runtime is a cross-platform launcher, local protocol router, and workspace
-control plane for Claude Code, Codex, Codex App Server, AGY, Grok Build, and
+control plane for Claude Code, Codex, Codex App Server, AGY, Grok Build, ZCode, and
 compatible AI coding-agent CLIs.
 
 [![npm](https://img.shields.io/npm/v/@oneciel-ai/ciel-runtime?label=npm)](https://www.npmjs.com/package/@oneciel-ai/ciel-runtime)
@@ -76,6 +76,7 @@ Launch another runtime while preserving its remaining CLI arguments:
 ciel-runtime codex
 ciel-runtime agy
 ciel-runtime grok
+ciel-runtime zcode
 ciel-runtime --ca-runtime codex-app-server
 ```
 
@@ -91,7 +92,7 @@ ciel-runtimectl test
 
 | Capability | What it provides |
 |---|---|
-| Runtime launch | Claude Code, Codex, Codex App Server, AGY, and Grok Build from one entrypoint |
+| Runtime launch | Claude Code, Codex, Codex App Server, AGY, Grok Build, and ZCode from one entrypoint |
 | Provider routing | Native connections where supported; otherwise a loopback HTTP router with provider-owned endpoint and authentication rules |
 | Protocol adaptation | Anthropic Messages, OpenAI Chat, OpenAI Responses, Ollama Chat, tool calls, thinking blocks, and SSE streams |
 | Model control | Provider catalogs, context/output limits, reasoning effort, sampling options, API-key rotation, and rate-limit handling |

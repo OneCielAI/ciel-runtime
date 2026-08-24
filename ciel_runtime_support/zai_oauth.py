@@ -399,6 +399,30 @@ class ZaiOAuthRuntime:
             return ""
         return str(provider.get("api_key") or "").strip()
 
+    def import_api_key(self, api_key: str, *, source: str = "zcode") -> list[str]:
+        key = str(api_key or "").strip()
+        if not key:
+            return ["Z.AI OAuth import skipped: no Coding Plan API key was found."]
+        config = self.ports.load_config()
+        provider = config.setdefault("providers", {}).setdefault("zai", {})
+        if (
+            str(provider.get("api_key") or "").strip() == key
+            and provider.get("credential_source") == "zai-oauth"
+        ):
+            return ["Z.AI OAuth credential is already shared by all runtimes."]
+        provider["api_key"] = key
+        provider.pop("api_keys", None)
+        provider["credential_source"] = "zai-oauth"
+        provider["oauth_authenticated_at"] = datetime.now(timezone.utc).isoformat()
+        provider["oauth_import_source"] = str(source or "zcode")
+        config["current_provider"] = "zai"
+        self.ports.save_config(config)
+        self.ports.clear_model_cache()
+        return [
+            "Z.AI OAuth Coding Plan credential imported into Ciel Runtime for all clients.",
+            f"Credential: {self.ports.mask(key)}; fp {self.ports.fingerprint(key)}",
+        ]
+
     def action(self, action: str, *, no_browser: bool = False) -> list[str]:
         if action == "status":
             token = self.token()

@@ -18,6 +18,7 @@ class CliApplicationDispatchPorts:
     launch_kimi: Callable[[list[str]], int]
     kimi_login: Callable[[], int]
     launch_grok: Callable[[list[str]], int] = lambda _argv: 127
+    launch_zcode: Callable[[list[str]], int] = lambda _argv: 127
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,6 +61,9 @@ class CliApplicationContext:
     def cmd_launch_grok(self, args: argparse.Namespace) -> None:
         raise SystemExit(self.dispatch.launch_grok(args.argv))
 
+    def cmd_launch_zcode(self, args: argparse.Namespace) -> None:
+        raise SystemExit(self.dispatch.launch_zcode(args.argv))
+
     def cmd_version(self, _: argparse.Namespace) -> None:
         self.presentation.output(f"ciel-runtime {self.presentation.version}")
 
@@ -84,6 +88,8 @@ class CliApplicationContext:
             "grok": self.dispatch.launch_grok,
             "grok-build": self.dispatch.launch_grok,
             "launch-grok": self.dispatch.launch_grok,
+            "zcode": self.dispatch.launch_zcode,
+            "launch-zcode": self.dispatch.launch_zcode,
         }
         if len(arguments) >= 2 and arguments[1] in routes:
             raise SystemExit(routes[arguments[1]](arguments[2:]))
@@ -123,6 +129,9 @@ class CliApplicationCompatibilityApi:
 
     def cmd_launch_grok(self, args: argparse.Namespace) -> None:
         self.context().cmd_launch_grok(args)
+
+    def cmd_launch_zcode(self, args: argparse.Namespace) -> None:
+        self.context().cmd_launch_zcode(args)
 
     def cmd_version(self, args: argparse.Namespace) -> None:
         self.context().cmd_version(args)

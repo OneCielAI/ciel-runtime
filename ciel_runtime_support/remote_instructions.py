@@ -23,6 +23,8 @@ RUNTIME_FILES = {
     "kimi": "AGENTS.md",
     # Grok Build reads the AGENTS.md family, like Codex and Kimi.
     "grok": "AGENTS.md",
+    # ZCode discovers workspace instructions from AGENTS.md.
+    "zcode": "AGENTS.md",
 }
 URL_KEYS = {
     "claude": "claude_url",

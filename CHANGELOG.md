@@ -3,6 +3,19 @@
 This file records stable Ciel Runtime releases. Changes are grouped by user-visible
 capability, followed by the complete commit ledger merged into each release.
 
+## 0.2.26 — 2026-08-24
+
+- Added ZCode as a first-class launch client in the interactive menu,
+  `ciel-runtime zcode`, `ciel-runtimectl launch-zcode`, and `--ca-runtime zcode`.
+- Routes ZCode through the selected Ciel provider with a workspace-isolated
+  ZCode home and custom Anthropic-provider configuration, without overwriting
+  the user's normal ZCode configuration.
+- Shares Z.AI OAuth Coding Plan credentials across ZCode, Claude, Codex, AGY,
+  and other routed clients; ZCode TUI OAuth results are imported after exit.
+- Added Z.AI OAuth login/status/logout actions to the provider API-key panel.
+- Restores Windows bracketed-paste mode on runtime exit to prevent literal
+  `ESC[200~` / `ESC[201~` markers from leaking into the parent prompt.
+
 ## 0.2.25 — 2026-08-23
 
 - Added the ZCode wrapper's authorization-code contract as a cross-platform manual
