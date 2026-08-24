@@ -65,7 +65,7 @@ class ZaiProviderTests(unittest.TestCase):
             ),
         )
         self.assertEqual(
-            "openai_chat",
+            "anthropic_messages",
             ciel_runtime.select_provider_protocol(
                 "zai-start-plan", start, "openai_responses", "glm-5.3"
             ),
@@ -95,13 +95,13 @@ class ZaiProviderTests(unittest.TestCase):
         ):
             lines = ciel_runtime.apply_launch_endpoint_policy(cfg, "codex")
 
-        self.assertFalse(start["native_compat"])
-        self.assertFalse(
+        self.assertTrue(start["native_compat"])
+        self.assertTrue(
             ciel_runtime.provider_native_compat_enabled("zai-start-plan", start)
         )
-        self.assertTrue(any("OpenAI Chat" in line for line in lines))
-        save.assert_called_once_with(cfg)
-        clear_cache.assert_called_once()
+        self.assertEqual([], lines)
+        save.assert_not_called()
+        clear_cache.assert_not_called()
 
         with (
             mock.patch.object(ciel_runtime, "save_config") as save,
@@ -113,9 +113,9 @@ class ZaiProviderTests(unittest.TestCase):
         self.assertTrue(
             ciel_runtime.provider_native_compat_enabled("zai-start-plan", start)
         )
-        self.assertTrue(any("Anthropic Messages" in line for line in lines))
-        save.assert_called_once_with(cfg)
-        clear_cache.assert_called_once()
+        self.assertEqual([], lines)
+        save.assert_not_called()
+        clear_cache.assert_not_called()
 
     def test_start_plan_headers_use_its_oauth_jwt_and_zcode_identity(self):
         pcfg = copy.deepcopy(ciel_runtime.DEFAULT_CONFIG["providers"]["zai-start-plan"])

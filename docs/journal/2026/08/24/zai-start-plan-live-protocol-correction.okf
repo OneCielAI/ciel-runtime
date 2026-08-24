@@ -1,0 +1,74 @@
+okf_version: "1.0"
+knowledge:
+  task:
+    id: zai-start-plan-live-protocol-correction-20260824
+    date: "2026-08-24"
+    objective: >-
+      Diagnose and correct the upstream 404 returned by Mia's Codex session
+      after successful Z.AI Start Plan CAPTCHA verification.
+    status: regression-verified
+
+  evidence:
+    mia_live_gateway:
+      authenticated_probe:
+        openai_chat:
+          url: https://zcode.z.ai/api/v1/zcode-plan/chat/completions
+          app_versions_tested: ["3.8.1", "0.16.3"]
+          result: "HTTP 404, body: 404 page not found"
+        anthropic_messages:
+          url: https://zcode.z.ai/api/v1/zcode-plan/anthropic/v1/messages
+          app_versions_tested: ["3.8.1", "0.16.3"]
+          result: "HTTP 400, code 3007, msg: captcha verify failed"
+          interpretation: >-
+            The production gateway recognizes the Anthropic route and reaches
+            its CAPTCHA gate; the tested OpenAI Chat route is not registered.
+      endpoint_mapping:
+        url: https://zcode.z.ai/api/v1/agent/configs
+        status: 200
+        start_plan_mapping_count: 0
+        conclusion: >-
+          The official endpoint-routing mapping does not remap either Start
+          Plan model endpoint, so missing proxyEndpoint mapping is not the 404
+          cause.
+    source_trace:
+      previous_codex_protocol: openai_chat
+      previous_launch_native_compat: false
+      previous_upstream_url: >-
+        https://zcode.z.ai/api/v1/zcode-plan/chat/completions
+      available_translation_path: >-
+        OpenAI Responses input is already converted to an Anthropic Messages
+        request by response_collection when the provider selects
+        anthropic_messages.
+
+  implementation:
+    provider_contract:
+      provider: zai-start-plan
+      supported_protocols: [anthropic_messages]
+      selected_protocol: anthropic_messages
+      client_scope: all routed runtimes
+      user_specific_exception: false
+    launch_policy:
+      behavior: >-
+        The generic single-protocol rule keeps native_compat enabled for both
+        Codex and Claude because the provider advertises only Anthropic
+        Messages.
+
+  verification:
+    focused_tests:
+      command: >-
+        python -m unittest tests.test_zai_provider
+        tests.test_openai_forwarding_endpoint tests.test_zai_start_plan_captcha
+      result: "39 passed"
+    full_regression:
+      unit: "1183 passed, 44 skipped"
+      router: "965 passed"
+      channel: "382 passed, 80 skipped"
+      runtime: "255 passed, 12 skipped"
+      compile: passed
+      lint: passed
+      documentation_metadata: passed
+      npm_pack_dry_run: passed
+    pending:
+      - local package installation
+      - nightly publication and Mia installation
+      - post-CAPTCHA Mia model response

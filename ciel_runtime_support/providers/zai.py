@@ -346,7 +346,11 @@ class ZaiStartPlanProviderAdapter(ZaiCodingPlanProviderAdapter):
     def supported_protocols(
         self, config: ProviderConfig, model: str | None = None
     ) -> frozenset[MessageProtocol]:
-        return super().supported_protocols(config, model)
+        del config, model
+        # The production Start Plan gateway exposes its model route through
+        # Anthropic Messages.  Codex Responses requests are translated by the
+        # router before they reach this provider.
+        return frozenset({"anthropic_messages"})
 
     def select_protocol(
         self,
@@ -354,7 +358,8 @@ class ZaiStartPlanProviderAdapter(ZaiCodingPlanProviderAdapter):
         config: ProviderConfig,
         model: str | None = None,
     ) -> MessageProtocol:
-        return super().select_protocol(operation, config, model)
+        del operation, config, model
+        return "anthropic_messages"
 
     def router_native_anthropic_enabled(
         self, config: ProviderConfig, model: str | None = None
