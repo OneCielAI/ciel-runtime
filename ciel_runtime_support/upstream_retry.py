@@ -348,6 +348,23 @@ def open_provider_request_with_key_retry(
     data_bytes = json.dumps(req_body).encode("utf-8")
     endpoint = _upstream_endpoint_identity(url)
     for attempt in range(rate_limit_max_attempts):
+        # Runtime-scoped headers may require an interactive step (for example,
+        # a one-time CAPTCHA).  Record the already-resolved request target
+        # before that step so a timeout or abandoned interaction still leaves
+        # a query-free endpoint identity for diagnosis.  ``request`` remains
+        # reserved for attempts that actually proceed past header preparation.
+        write_router_activity(
+            "prepare",
+            provider,
+            model,
+            attempt=attempt + 1,
+            total=max_attempts,
+            tokens=token_estimate,
+            bytes=byte_estimate,
+            timeout=timeout,
+            stream=stream,
+            endpoint=endpoint,
+        )
         try:
             headers = prepare_runtime_headers(provider, pcfg, headers)
             write_router_activity(

@@ -898,6 +898,43 @@ class ApiKeyRotationTests(unittest.TestCase):
             )
         )
 
+    def test_direct_request_records_endpoint_before_runtime_header_preparation(self):
+        pcfg = self.provider_pcfg(
+            "zai-start-plan",
+            api_key="start-token",
+            gateway_retries=0,
+        )
+
+        with (
+            mock.patch.object(
+                ciel_runtime,
+                "prepare_provider_runtime_headers",
+                side_effect=RuntimeError("interactive verification timed out"),
+            ),
+            mock.patch.object(ciel_runtime, "write_router_activity") as activity,
+        ):
+            with self.assertRaisesRegex(RuntimeError, "interactive verification timed out"):
+                ciel_runtime.open_provider_request_with_key_retry(
+                    "https://zcode.z.ai/api/v1/zcode-plan/anthropic/v1/messages?secret=value#fragment",
+                    {"model": "glm-5.3", "messages": []},
+                    {"content-type": "application/json"},
+                    180.0,
+                    "zai-start-plan",
+                    pcfg,
+                    "glm-5.3",
+                    stream=True,
+                )
+
+        prepare_events = [
+            call for call in activity.call_args_list
+            if call.args and call.args[0] == "prepare"
+        ]
+        self.assertEqual(1, len(prepare_events))
+        self.assertEqual(
+            "https://zcode.z.ai/api/v1/zcode-plan/anthropic/v1/messages",
+            prepare_events[0].kwargs["endpoint"],
+        )
+
     def test_direct_anthropic_compatible_single_oauth_429_retries_same_headers(self):
         pcfg = self.provider_pcfg(
             "anthropic",

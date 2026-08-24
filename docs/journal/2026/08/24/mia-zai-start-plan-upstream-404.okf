@@ -22,6 +22,16 @@ task:
         url: https://zcode.z.ai/api/v1/zcode-plan/anthropic/v1/messages
         status: 400
         body: '{"code":3007,"msg":"captcha verify failed"}'
+      anthropic_size_control:
+        small:
+          request_bytes: 92
+          status: 400
+          body: '{"code":3007,"msg":"captcha verify failed"}'
+        large:
+          request_bytes: 1090084
+          status: 400
+          body: '{"code":3007,"msg":"captcha verify failed"}'
+        finding: Request size alone did not reproduce the routed 404.
     runtime_projection:
       protocol: anthropic_messages
       calculated_url: https://zcode.z.ai/api/v1/zcode-plan/anthropic/v1/messages
@@ -32,10 +42,15 @@ task:
   instrumentation:
     field: endpoint
     redaction: Query and fragment are removed before persistence.
-    scope: Native provider request and terminal HTTP error activity.
+    scope: Native provider preparation, request, and terminal HTTP error activity.
+    preparation_event:
+      reason: Runtime-scoped headers can pause for interactive verification before an HTTP request is opened.
+      invariant: The prepare event records a resolved target but does not claim that the request was sent.
   verification:
     automated:
-      focused: passed
+      focused:
+        tests: 39
+        result: passed
       unit_group:
         tests: 1182
         result: passed
