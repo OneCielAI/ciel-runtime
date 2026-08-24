@@ -161,6 +161,25 @@ class ZaiProviderTests(unittest.TestCase):
         )
         self.assertIsNone(blocker)
 
+    def test_codex_translation_adds_anthropic_version_for_start_plan(self):
+        pcfg = copy.deepcopy(
+            ciel_runtime.DEFAULT_CONFIG["providers"]["zai-start-plan"]
+        )
+        pcfg["api_key"] = "oauth-jwt"
+
+        headers = ciel_runtime.provider_headers(
+            "zai-start-plan",
+            pcfg,
+            {
+                "content-type": "application/json",
+                "accept": "text/event-stream",
+                "user-agent": "codex-cli/0.149.1",
+            },
+            "anthropic_messages",
+        )
+
+        self.assertEqual("2023-06-01", headers["anthropic-version"])
+
     def test_start_plan_wire_request_keeps_zcode_user_agent_and_bearer_token(self):
         received = {}
 

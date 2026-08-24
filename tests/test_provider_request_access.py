@@ -85,7 +85,7 @@ class ProviderRequestAccessServiceTests(unittest.TestCase):
         self.assertNotIn("host", headers)
         self.assertEqual("Bearer secret", headers["authorization"])
 
-    def test_present_anthropic_inbound_headers_only_add_missing_user_agent(self):
+    def test_anthropic_target_adds_missing_protocol_headers(self):
         headers = self.service().headers(
             "kimi", {}, {}, "anthropic_messages"
         )
@@ -93,10 +93,18 @@ class ProviderRequestAccessServiceTests(unittest.TestCase):
         self.assertEqual(
             {
                 "authorization": "Bearer secret",
+                "content-type": "application/json",
+                "anthropic-version": "2023-06-01",
                 "user-agent": "ciel",
             },
             headers,
         )
+
+    def test_openai_target_does_not_add_anthropic_protocol_headers(self):
+        headers = self.service().headers(
+            "kimi", {}, {}, "openai_responses"
+        )
+
         self.assertNotIn("content-type", headers)
         self.assertNotIn("anthropic-version", headers)
 

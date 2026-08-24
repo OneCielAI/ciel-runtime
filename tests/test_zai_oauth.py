@@ -295,8 +295,52 @@ class ZaiOAuthRuntimeTests(unittest.TestCase):
             http.calls[1][2]["body"]["redirect_uri"],
         )
 
-    def test_start_plan_always_uses_localhost_callback_instead_of_hosted_init(self):
+    def test_start_plan_prefers_hosted_cli_callback_when_available(self):
         http = FakeHttp([
+            {
+                "code": 0,
+                "data": {
+                    "flow_id": "flow-1",
+                    "poll_token": "server-copy",
+                    "authorize_url": "https://chat.z.ai/oauth/flow-1",
+                    "expires_at": 2000,
+                    "poll_interval_sec": 2,
+                },
+            },
+            {
+                "code": 0,
+                "data": {
+                    "status": "ready",
+                    "token": "start-jwt",
+                    "zai": {"access_token": "oauth-access"},
+                    "user": {"user_id": "user-1"},
+                },
+            },
+        ])
+        urls = []
+        service = ZaiOAuthService(
+            ZaiOAuthClient(http),
+            now=lambda: 1000.0,
+            open_url=lambda _url: self.fail("--no-browser must not open a browser"),
+            callback_receiver_factory=FakeLocalCallbackReceiver,
+            random_token=lambda: "state-1",
+        )
+
+        result = service.login(
+            no_browser=True,
+            on_authorize_url=urls.append,
+            profile="start-plan",
+        )
+
+        self.assertEqual("start-jwt", result.api_key)
+        self.assertEqual(2, len(http.calls))
+        self.assertTrue(http.calls[0][1].endswith("/oauth/cli/init"))
+        self.assertTrue(http.calls[1][1].endswith("/oauth/cli/poll/flow-1"))
+        self.assertEqual(["https://chat.z.ai/oauth/flow-1"], urls)
+
+    def test_start_plan_falls_back_to_localhost_when_hosted_init_is_missing(self):
+        http = FakeHttp([
+            ZaiOAuthError("init missing", http_status=404),
             {
                 "code": 0,
                 "data": {
@@ -321,8 +365,8 @@ class ZaiOAuthRuntimeTests(unittest.TestCase):
         )
 
         self.assertEqual("start-jwt", result.api_key)
-        self.assertEqual(1, len(http.calls))
-        self.assertTrue(http.calls[0][1].endswith("/oauth/token"))
+        self.assertEqual(2, len(http.calls))
+        self.assertTrue(http.calls[1][1].endswith("/oauth/token"))
         self.assertIn(
             "redirect_uri=http%3A%2F%2Flocalhost%3A9899%2Fcallback",
             urls[0],

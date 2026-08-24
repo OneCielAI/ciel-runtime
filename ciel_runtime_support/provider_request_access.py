@@ -120,6 +120,14 @@ class ProviderRequestAccessService:
                     provider, config, meaningful
                 )
             )
+        if protocol == "anthropic_messages":
+            normalized_names = {
+                str(name).casefold() for name in headers
+            }
+            if "content-type" not in normalized_names:
+                headers["content-type"] = "application/json"
+            if "anthropic-version" not in normalized_names:
+                headers["anthropic-version"] = "2023-06-01"
         return headers
 
     def current_provider(

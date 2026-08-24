@@ -45,6 +45,41 @@ knowledge:
         Codex's local client contract remains OpenAI Responses. Official ZCode
         evidence establishes a separate Anthropic Messages contract at the
         Start Plan provider boundary.
+    reproduced_failure_after_captcha:
+      resumed_request:
+        request_bytes: 1143237
+        estimated_tokens: 271734
+        result: "HTTP 405, code 3012, msg: method not allowed"
+      minimal_request:
+        input: "Reply only OK"
+        restored_session: false
+        result: "HTTP 405, code 3012, msg: method not allowed"
+      bounded_conclusion: >-
+        The response is independent of the resumed session and its large
+        context. Both requests reached the same Anthropic Messages endpoint.
+    protocol_header_capture:
+      codex_to_start_plan_before_fix:
+        target_protocol: anthropic_messages
+        anthropic_version_present: false
+      claude_to_start_plan_control:
+        target_protocol: anthropic_messages
+        anthropic_version_present: true
+      official_zcode_control: >-
+        The bundled ZCode runtime constructs the provider with the Anthropic
+        SDK, whose Messages request includes the Anthropic protocol version.
+      bounded_conclusion: >-
+        Ciel's cross-protocol request projection preserved Codex's inbound
+        headers but did not add the required target Anthropic protocol header.
+    hosted_cli_oauth:
+      live_init_result: "HTTP 200"
+      authorize_callback: >-
+        https://zcode.z.ai/api/v1/oauth/cli/callback/zai
+      fresh_jwt_length: 231
+      fresh_jwt_sha256_prefix: 4af0c0673fa2f6b0
+      note: >-
+        The hosted OAuth result did not by itself change the 3012 observation.
+        The localhost-only explanation was rejected. Hosted init/poll is still
+        the live CLI contract and localhost remains only a 404 fallback.
 
   implementation:
     client_boundary:
@@ -58,24 +93,77 @@ knowledge:
       adapter. Response collection, Claude forwarding, context compaction, and
       compatibility probing all consume that exact provider endpoint instead
       of reconstructing /v1/messages from a runtime preference flag.
+    target_protocol_headers: >-
+      When the selected upstream operation is anthropic_messages, add missing
+      Content-Type and anthropic-version defaults after inbound projection.
+      Existing Claude-provided values are preserved case-insensitively, and
+      OpenAI target operations are unchanged.
+    oauth_callback_rule: >-
+      Prefer the live ZCode hosted CLI init/poll flow for both Coding Plan and
+      Start Plan. Retain the localhost callback only when hosted init returns
+      HTTP 404.
     user_specific_exception: false
 
   verification:
     focused_tests:
-      zai_provider: "28 passed with final capability-location assertion"
+      zai_provider: "29 passed"
+      provider_request_access: "8 passed"
+      zai_oauth: "17 passed"
       context_compaction: "12 passed"
       compatibility_probe: "6 passed"
       provider_launch_endpoint: "7 passed"
     full_regression:
       unit: "1183 passed, 44 skipped"
-      router: "965 passed"
+      router: "968 passed"
       channel: "382 passed, 80 skipped"
       runtime: "255 passed, 12 skipped"
       lint: passed
       documentation_metadata: passed
       note: >-
-        The Z.AI focused and router groups were rerun after adding the final
-        capability-location assertion; the router rerun passed 965 tests.
-    local_install: pending
-    nightly_publish: pending
-    mia_live_request: pending
+        The complete suite was rerun after adding the target-protocol header
+        projection and hosted OAuth regression coverage.
+    protocol_header_fix_local_install:
+      result: passed
+      install_root: 'C:\Users\djlov\.local\share\ciel-runtime'
+      provider_request_access_sha256: >-
+        167235d7d73a563d93c5c8b9d78fa0506988bde4c99defaaf6820d4f3d924017
+      installed_provider_request_access_sha256: >-
+        167235d7d73a563d93c5c8b9d78fa0506988bde4c99defaaf6820d4f3d924017
+      zai_oauth_sha256: >-
+        7a2b3700d6a074f98a09e02adfc66a26aaddb538ede96343a5bd9350e9cd30a5
+      installed_zai_oauth_sha256: >-
+        7a2b3700d6a074f98a09e02adfc66a26aaddb538ede96343a5bd9350e9cd30a5
+    local_install:
+      result: passed
+      installed_version: "0.2.36"
+      source_sha256: >-
+        df5afc90da164ee45f09cfa26412dedb05de936d08dbb72cf6fb40a214c7ae64
+      installed_sha256: >-
+        df5afc90da164ee45f09cfa26412dedb05de936d08dbb72cf6fb40a214c7ae64
+    nightly_publish:
+      source_commit: 484bb194ab9da41265ec224b587e6308afdeab13
+      ci_run: 32777442279
+      ci_result: success
+      npm_run: 32777442292
+      npm_result: success
+      version: 0.2.36-nightly.20260824-210632.484bb19
+      npm_git_head: 484bb194ab9da41265ec224b587e6308afdeab13
+    mia_install:
+      version: 0.2.36-nightly.20260824-210632.484bb19
+      npm_source_sha256: >-
+        df5afc90da164ee45f09cfa26412dedb05de936d08dbb72cf6fb40a214c7ae64
+      local_install_sha256: >-
+        df5afc90da164ee45f09cfa26412dedb05de936d08dbb72cf6fb40a214c7ae64
+      codex_wire_api: responses
+    mia_live_request:
+      downstream_endpoint: http://127.0.0.1:8800/v1/responses
+      upstream_protocol: anthropic_messages
+      upstream_endpoint: >-
+        https://zcode.z.ai/api/v1/zcode-plan/anthropic/v1/messages
+      router_activity_event: prepare
+      captcha_request_id: Q4qeSD9S_EvZQ94XpkfRkNcpAOYlWv_W0k0H93x8Kbg
+      captcha_result: "failed: timed out after 180 seconds"
+      model_response_verified: false
+      remaining_requirement: >-
+        Deploy the protocol-header fix to Mia, submit the same minimal request,
+        and capture an actual model response plus router success activity.
