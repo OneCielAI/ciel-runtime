@@ -306,14 +306,14 @@ class ZaiStartPlanProviderAdapter(ZaiCodingPlanProviderAdapter):
     include_x_api_key: bool = True
     capabilities_value: ProviderCapabilities = field(
         default_factory=lambda: ProviderCapabilities(
-            upstream_protocol="anthropic_messages",
+            upstream_protocol="openai_chat",
             supports_thinking=True,
             requires_api_key=True,
         )
     )
     request_policy_value: ProviderRequestPolicy = field(
         default_factory=lambda: ProviderRequestPolicy(
-            chat_path="/v1/messages", models_path="/v1/models"
+            chat_path="/chat/completions", models_path="/models"
         )
     )
     configuration_defaults_value: dict = field(
@@ -333,11 +333,20 @@ class ZaiStartPlanProviderAdapter(ZaiCodingPlanProviderAdapter):
         del config
         return "https://zcode.z.ai/api/v1/zcode-plan/anthropic"
 
+    def resolve_endpoint(self, operation: str, config: ProviderConfig) -> str:
+        policy = self.request_policy(config)
+        paths = {
+            "chat": policy.chat_path,
+            "openai_chat": policy.chat_path,
+            "models": policy.models_path,
+            "anthropic_messages": "/anthropic/v1/messages",
+        }
+        return paths.get(operation) or super().resolve_endpoint(operation, config)
+
     def supported_protocols(
         self, config: ProviderConfig, model: str | None = None
     ) -> frozenset[MessageProtocol]:
-        del config, model
-        return frozenset({"anthropic_messages"})
+        return super().supported_protocols(config, model)
 
     def select_protocol(
         self,
@@ -345,17 +354,12 @@ class ZaiStartPlanProviderAdapter(ZaiCodingPlanProviderAdapter):
         config: ProviderConfig,
         model: str | None = None,
     ) -> MessageProtocol:
-        del operation, config, model
-        return "anthropic_messages"
+        return super().select_protocol(operation, config, model)
 
     def router_native_anthropic_enabled(
         self, config: ProviderConfig, model: str | None = None
     ) -> bool:
-        # The verified Start Plan gateway exposes only its Anthropic Messages
-        # route.  A persisted ``native_compat=false`` value from an older Codex
-        # launch must not redirect it to the non-existent /v1/messages route.
-        del config, model
-        return True
+        return super().router_native_anthropic_enabled(config, model)
 
     def build_headers(
         self, config: ProviderConfig, api_key: str | None

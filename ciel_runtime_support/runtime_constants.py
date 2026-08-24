@@ -137,6 +137,7 @@ CODEX_OPENAI_COMPATIBLE_ROUTER_PROVIDERS = (
     "fireworks",
     "zai-api",
     "zai-coding-plan",
+    "zai-start-plan",
 )
 AUTO_DETECT_NATIVE_COMPAT_PROVIDERS = ("vllm", "lm-studio", "self-hosted-nim")
 CLAUDE_ANTHROPIC_ENDPOINT_PROVIDERS = (

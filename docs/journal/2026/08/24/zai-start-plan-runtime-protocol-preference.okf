@@ -1,0 +1,80 @@
+okf_version: "1.0"
+knowledge:
+  task:
+    id: zai-start-plan-runtime-protocol-preference-20260824
+    date: "2026-08-24"
+    objective: >-
+      Restore runtime-specific Start Plan protocol selection after a Codex
+      session was incorrectly forced through the Anthropic Messages endpoint.
+    status: implementation-verified
+
+  evidence:
+    official_zcode_package:
+      package: zcode-app-cli@3.8.1-15
+      registry_tarball: https://registry.npmjs.org/zcode-app-cli/-/zcode-app-cli-3.8.1-15.tgz
+      shasum: 9026622809e3f813041c7e966a1dffbe8ea13a4e
+      observed_endpoint_paths:
+        openai_chat: /api/v1/zcode-plan/chat/completions
+        anthropic_messages: /api/v1/zcode-plan/anthropic/v1/messages
+      observed_provider_kinds:
+        openai_compatible: openai-chat-completions
+        anthropic: anthropic-messages
+    mia_runtime:
+      installed_version: 0.2.36-nightly.20260824-185847.cff002d
+      captcha_request_id: ReiFaIDk2l4tjcgcUvQbWrk62edKr9DNx1CsDzheC64
+      captcha_status: completed
+      forced_anthropic_endpoint: https://zcode.z.ai/api/v1/zcode-plan/anthropic/v1/messages
+      forced_anthropic_result:
+        http_status: 405
+        provider_code: 3012
+        message: method not allowed
+      billing_current_result:
+        method: GET
+        http_status: 405
+        provider_code: 3012
+      billing_balance_result:
+        method: GET
+        http_status: 405
+        provider_code: 3012
+      bounded_conclusion: >-
+        Mia's 3012 is not specific to the Anthropic model-request method because
+        both read-only billing endpoints return the same code. Available direct
+        evidence does not establish the account's exact entitlement state.
+
+  implementation:
+    provider: zai-start-plan
+    supported_protocols:
+      - openai_chat
+      - anthropic_messages
+    runtime_policy:
+      codex: openai_chat
+      codex_app_server: openai_chat
+      claude: anthropic_messages
+    endpoints:
+      openai_chat: https://zcode.z.ai/api/v1/zcode-plan/chat/completions
+      anthropic_messages: https://zcode.z.ai/api/v1/zcode-plan/anthropic/v1/messages
+    scope: >-
+      The change uses the existing provider launch policy and adapter contract;
+      it does not add a user-specific exception or alter unrelated providers.
+
+  verification:
+    focused_tests:
+      zai_provider: "28 passed"
+      provider_launch_endpoint: "7 passed"
+      api_key_rotation: "39 passed"
+    executable_projection:
+      codex_protocol: openai_chat
+      codex_endpoint: https://zcode.z.ai/api/v1/zcode-plan/chat/completions
+      claude_protocol: anthropic_messages
+      claude_endpoint: https://zcode.z.ai/api/v1/zcode-plan/anthropic/v1/messages
+    full_regression:
+      unit: "1182 passed, 44 skipped"
+      router: "964 passed"
+      channel: "382 passed, 80 skipped"
+      runtime: "255 passed, 12 skipped"
+      lint: passed
+      documentation_metadata: passed
+    pending:
+      - local deployment
+      - nightly publish
+      - post-deployment Mia endpoint activity verification

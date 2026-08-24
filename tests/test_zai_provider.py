@@ -55,27 +55,39 @@ class ZaiProviderTests(unittest.TestCase):
             ciel_runtime.native_anthropic_base_url("zai-start-plan", start),
         )
         self.assertEqual(
-            "anthropic_messages",
+            "https://zcode.z.ai/api/v1/zcode-plan/chat/completions",
+            ciel_runtime.provider_endpoint("zai-start-plan", start, "openai_chat"),
+        )
+        self.assertEqual(
+            "https://zcode.z.ai/api/v1/zcode-plan/anthropic/v1/messages",
+            ciel_runtime.provider_endpoint(
+                "zai-start-plan", start, "anthropic_messages"
+            ),
+        )
+        self.assertEqual(
+            "openai_chat",
             ciel_runtime.select_provider_protocol(
                 "zai-start-plan", start, "openai_responses", "glm-5.3"
             ),
         )
+        self.assertEqual(
+            "anthropic_messages",
+            ciel_runtime.select_provider_protocol(
+                "zai-start-plan", start, "anthropic_messages", "glm-5.3"
+            ),
+        )
 
-    def test_start_plan_repairs_legacy_codex_openai_compat_setting(self):
+    def test_start_plan_uses_runtime_preferred_protocol(self):
         start = copy.deepcopy(
             ciel_runtime.DEFAULT_CONFIG["providers"]["zai-start-plan"]
         )
-        start["native_compat"] = False
         cfg = {
             "current_provider": "zai-start-plan",
             "providers": {"zai-start-plan": start},
         }
 
-        self.assertNotIn(
+        self.assertIn(
             "zai-start-plan", ciel_runtime.CODEX_OPENAI_COMPATIBLE_ROUTER_PROVIDERS
-        )
-        self.assertTrue(
-            ciel_runtime.provider_native_compat_enabled("zai-start-plan", start)
         )
         with (
             mock.patch.object(ciel_runtime, "save_config") as save,
@@ -83,7 +95,24 @@ class ZaiProviderTests(unittest.TestCase):
         ):
             lines = ciel_runtime.apply_launch_endpoint_policy(cfg, "codex")
 
+        self.assertFalse(start["native_compat"])
+        self.assertFalse(
+            ciel_runtime.provider_native_compat_enabled("zai-start-plan", start)
+        )
+        self.assertTrue(any("OpenAI Chat" in line for line in lines))
+        save.assert_called_once_with(cfg)
+        clear_cache.assert_called_once()
+
+        with (
+            mock.patch.object(ciel_runtime, "save_config") as save,
+            mock.patch.object(ciel_runtime, "clear_model_cache") as clear_cache,
+        ):
+            lines = ciel_runtime.apply_launch_endpoint_policy(cfg, "claude")
+
         self.assertTrue(start["native_compat"])
+        self.assertTrue(
+            ciel_runtime.provider_native_compat_enabled("zai-start-plan", start)
+        )
         self.assertTrue(any("Anthropic Messages" in line for line in lines))
         save.assert_called_once_with(cfg)
         clear_cache.assert_called_once()

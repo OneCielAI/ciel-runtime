@@ -40,6 +40,7 @@ task:
     statement: The global provider config was native_compat=true, while the workspace-scoped config used by the routed launch was native_compat=false.
     resolved_by: Runtime preparation logging exposed the actual route selected from the workspace config.
   root_cause:
+    status: superseded-by-runtime-protocol-verification
     runtime_version: 0.2.36-nightly.20260824-184440.2bb06fc
     router_port: 8801
     workspace_id: 9ab536464774
@@ -53,9 +54,27 @@ task:
       - ZaiStartPlanProviderAdapter supports only anthropic_messages.
       - The measured Start Plan OpenAI path returned 404 while the Anthropic path existed.
   correction:
+    status: reverted-before-stable-release
     - Remove zai-start-plan from the Codex OpenAI-compatible provider group.
     - Make the Start Plan adapter enforce its Anthropic-only routing contract even when a legacy workspace setting is false.
     - Make launch policy repair native_compat for any provider whose adapter exposes only anthropic_messages.
+  later_contradicting_evidence:
+    official_zcode_package: zcode-app-cli@3.8.1-15
+    package_paths:
+      openai: /api/v1/zcode-plan/chat/completions
+      anthropic: /api/v1/zcode-plan/anthropic/v1/messages
+    provider_kinds:
+      - openai-compatible
+      - anthropic
+    mia_after_fresh_captcha:
+      endpoint: https://zcode.z.ai/api/v1/zcode-plan/anthropic/v1/messages
+      status: 405
+      body: '{"code":3012,"msg":"method not allowed"}'
+    conclusion: >-
+      The earlier OpenAI probe's 404 did not prove that Start Plan was
+      Anthropic-only. Forcing Codex onto Anthropic contradicted ZCode's dual
+      endpoint contract and was reverted in favor of runtime-specific protocol
+      selection.
   instrumentation:
     field: endpoint
     redaction: Query and fragment are removed before persistence.
