@@ -30,6 +30,7 @@ from ciel_runtime_support.runtime_interaction import (
     RuntimeInteractionDisplayState,
     RuntimeInteractionEvent,
     poll_runtime_interaction,
+    runtime_interaction_is_pending,
 )
 
 
@@ -122,11 +123,9 @@ def windows_wake_requires_body_fallback(
 
 def _runtime_interaction_bytes(notice: str) -> bytes:
     normalized = str(notice or "").replace("\r\n", "\n").replace("\r", "\n")
-    # The child TUI owns the live cursor. Preserve it while placing the notice
-    # in terminal scrollback so its next spinner redraw cannot overwrite the URL.
-    return (
-        "\x1b7\r\n" + normalized.replace("\n", "\r\n") + "\r\n\x1b8"
-    ).encode("utf-8", errors="replace")
+    return ("\r\n" + normalized.replace("\n", "\r\n") + "\r\n").encode(
+        "utf-8", errors="replace"
+    )
 
 
 def _display_windows_runtime_interaction(writer: Any, notice: str) -> None:
@@ -187,6 +186,7 @@ def run_windows_channel_terminal_proxy(
     pending_poll_state = ChannelPendingPollState(last_id=policy.initial_cursor())
     compact_poll_state = ChannelCompactPollState()
     interaction_display_state = RuntimeInteractionDisplayState()
+    interaction_pending = False
     channel_enter_bytes = policy.enter_bytes(synthetic_enter_bytes)
     channel_input_ready_at = time.time() + console.startup_grace_seconds()
     # ConPTY is a byte stream and supports VT bracketed paste. The compatibility
@@ -233,6 +233,17 @@ def run_windows_channel_terminal_proxy(
     try:
         while proc.poll() is None:
             now = time.time()
+            interaction = polling.runtime_interaction()
+            interaction_pending = runtime_interaction_is_pending(interaction, now)
+            set_output_paused = getattr(writer, "set_parent_output_paused", None)
+            if callable(set_output_paused):
+                set_output_paused(interaction_pending)
+            interaction_display_state = poll_runtime_interaction(
+                now,
+                interaction_display_state,
+                lambda: interaction,
+                lambda notice: _display_windows_runtime_interaction(writer, notice),
+            )
             if conpty is not None:
                 conpty.resize_if_needed()
             elif now - last_terminal_input_mode_reset >= terminal_input_mode_reset_interval:
@@ -321,12 +332,6 @@ def run_windows_channel_terminal_proxy(
                 pending_poll_services,
                 input_ready=now >= channel_input_ready_at,
             )
-            interaction_display_state = poll_runtime_interaction(
-                now,
-                interaction_display_state,
-                polling.runtime_interaction,
-                lambda notice: _display_windows_runtime_interaction(writer, notice),
-            )
             console.sleep(0.05)
         return proc.wait()
     finally:
@@ -391,6 +396,7 @@ def run_posix_channel_terminal_proxy(
     compact_poll_services = ChannelCompactPollServices(inject_pending=polling.inject_compact)
     compact_poll_state = ChannelCompactPollState()
     interaction_display_state = RuntimeInteractionDisplayState()
+    interaction_pending = False
     pending_injection_options = ChannelPendingInjectionOptions(
         enabled=inject_channel_messages,
         web_chat_only=inject_web_chat_only,
@@ -436,6 +442,17 @@ def run_posix_channel_terminal_proxy(
             policy.log("WARN", f"channel_sigwinch_install_failed error={type(exc).__name__}: {exc}")
         tty.setraw(stdin_fd)
         while proc.poll() is None:
+            now = time.time()
+            interaction = polling.runtime_interaction()
+            interaction_pending = runtime_interaction_is_pending(interaction, now)
+            interaction_display_state = poll_runtime_interaction(
+                now,
+                interaction_display_state,
+                lambda: interaction,
+                lambda notice: terminal.write_all(
+                    stdout_fd, _runtime_interaction_bytes(notice)
+                ),
+            )
             try:
                 readable, _, _ = select.select([stdin_fd, master_fd], [], [], 0.2)
             except OSError:
@@ -462,9 +479,8 @@ def run_posix_channel_terminal_proxy(
                     data = os.read(master_fd, 4096)
                 except OSError:
                     break
-                if data:
+                if data and not interaction_pending:
                     terminal.write_all(stdout_fd, data)
-            now = time.time()
             if pending_poll_state.inflight_message_id is not None:
                 inflight_update = advance_channel_inflight(
                     ChannelInflightSnapshot(
@@ -511,14 +527,6 @@ def run_posix_channel_terminal_proxy(
                 pending_injection_options,
                 pending_poll_policy,
                 pending_poll_services,
-            )
-            interaction_display_state = poll_runtime_interaction(
-                now,
-                interaction_display_state,
-                polling.runtime_interaction,
-                lambda notice: terminal.write_all(
-                    stdout_fd, _runtime_interaction_bytes(notice)
-                ),
             )
         while True:
             try:

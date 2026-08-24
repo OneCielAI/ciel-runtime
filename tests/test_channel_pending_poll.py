@@ -17,8 +17,8 @@ class ChannelPendingPollTests(unittest.TestCase):
     def test_runtime_interaction_notice_preserves_child_tui_cursor(self):
         rendered = _runtime_interaction_bytes("line one\nhttps://example.test/full")
 
-        self.assertTrue(rendered.startswith(b"\x1b7\r\n"))
-        self.assertTrue(rendered.endswith(b"\r\n\x1b8"))
+        self.assertTrue(rendered.startswith(b"\r\n"))
+        self.assertTrue(rendered.endswith(b"\r\n"))
         self.assertIn(b"line one\r\nhttps://example.test/full", rendered)
 
     def options(self, *, enabled=True):

@@ -8,10 +8,25 @@ from ciel_runtime_support.runtime_interaction import (
     RuntimeInteractionEvent,
     RuntimeInteractionRepository,
     poll_runtime_interaction,
+    runtime_interaction_is_pending,
 )
 
 
 class RuntimeInteractionTests(unittest.TestCase):
+    def test_pending_state_expires_at_its_authoritative_deadline(self):
+        event = RuntimeInteractionEvent(
+            request_id="request-1",
+            kind="zai-start-plan-captcha",
+            status="pending",
+            created_at=100.0,
+            updated_at=100.0,
+            expires_at=120.0,
+            url="http://example.test/captcha",
+        )
+
+        self.assertTrue(runtime_interaction_is_pending(event, 120.0))
+        self.assertFalse(runtime_interaction_is_pending(event, 120.001))
+
     def test_repository_publishes_pending_and_terminal_states_atomically(self):
         with tempfile.TemporaryDirectory() as directory:
             now = [100.0]

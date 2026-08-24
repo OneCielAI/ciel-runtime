@@ -62,6 +62,7 @@ class WindowsConPtySession:
         self._stdout_console_handle: Any = None
         self._output_decoder = codecs.getincrementaldecoder("utf-8")("replace")
         self._mirror_output = bool(mirror_output)
+        self._parent_output_paused = threading.Event()
         self._forward_stdin = bool(forward_stdin)
         self._write_lock = threading.Lock()
         self._mirror_lock = threading.Lock()
@@ -246,6 +247,18 @@ class WindowsConPtySession:
             view = memoryview(data)
             while view:
                 view = view[os.write(self._stdout_fd, view) :]
+
+    def set_parent_output_paused(self, paused: bool) -> None:
+        """Temporarily hide child redraws while a parent interaction is visible."""
+
+        event = getattr(self, "_parent_output_paused", None)
+        if event is None:
+            event = threading.Event()
+            self._parent_output_paused = event
+        if paused:
+            event.set()
+        else:
+            event.clear()
 
     def poll(self) -> int | None:
         if not self._process_handle or not self._kernel32:
@@ -681,7 +694,7 @@ class WindowsConPtySession:
                     self._output_tail.extend(data)
                     self._output_total_bytes += len(data)
                     del self._output_tail[: max(0, len(self._output_tail) - 64 * 1024)]
-                if self._mirror_output:
+                if self._mirror_output and not self._parent_output_paused.is_set():
                     self._mirror_bytes(data)
         except OSError:
             pass

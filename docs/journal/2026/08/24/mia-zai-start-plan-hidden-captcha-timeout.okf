@@ -119,9 +119,16 @@ knowledge:
         Codex spinner/status redraw bytes overwrote part of the first URL line,
         so the displayed URL was not reliably actionable.
       correction: >-
-        Wrap parent-owned notices with DEC save/restore-cursor sequences; this
-        preserves the child TUI cursor while the notice is placed in scrollback.
-      correction_test: "7 channel pending-poll tests passed; Ruff passed"
+        The first save/restore-cursor correction was insufficient: nightly
+        0.2.34-nightly.20260824-165821.edf3f4c still appended Codex status text
+        after the authoritative URL. The verified correction now treats the
+        CAPTCHA as a terminal interaction modal: child redraw bytes are
+        consumed but hidden while the state is pending, and normal forwarding
+        resumes after completion, failure, or expiry.
+      correction_test: >-
+        5 runtime-interaction tests, 7 channel pending-poll tests, 18 Windows
+        ConPTY tests, 261 architecture tests, and the 382-test channel group
+        passed; Ruff passed.
 
   conclusion:
     confirmed: >-

@@ -163,6 +163,17 @@ def runtime_interaction_notice(event: RuntimeInteractionEvent) -> str:
     return f"[ciel-runtime] Z.AI Start Plan verification failed{detail}"
 
 
+def runtime_interaction_is_pending(
+    event: RuntimeInteractionEvent | None,
+    now: float,
+) -> bool:
+    return bool(
+        event is not None
+        and event.status == "pending"
+        and (not event.expires_at or now <= event.expires_at)
+    )
+
+
 def poll_runtime_interaction(
     now: float,
     state: RuntimeInteractionDisplayState,
@@ -175,7 +186,7 @@ def poll_runtime_interaction(
     if event is None:
         return state
     revision = (event.request_id, event.status, event.updated_at)
-    if event.status == "pending" and event.expires_at and now > event.expires_at:
+    if event.status == "pending" and not runtime_interaction_is_pending(event, now):
         return state
     should_display = revision != state.last_revision
     if (
@@ -200,5 +211,6 @@ __all__ = [
     "RuntimeInteractionEvent",
     "RuntimeInteractionRepository",
     "poll_runtime_interaction",
+    "runtime_interaction_is_pending",
     "runtime_interaction_notice",
 ]
