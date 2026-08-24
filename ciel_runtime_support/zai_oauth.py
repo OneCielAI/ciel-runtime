@@ -19,11 +19,16 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Callable, Mapping
 
+from .zai_oauth_callback import (
+    ZAI_OAUTH_CALLBACK_REDIRECT_URI,
+    ZaiOAuthLocalCallbackReceiver,
+)
+
 
 ZCODE_OAUTH_BASE_URL = "https://zcode.z.ai/api/v1"
 ZAI_AUTHORIZE_ENDPOINT = "https://chat.z.ai/api/oauth/authorize"
 ZAI_OAUTH_CLIENT_ID = "client_P8X5CMWmlaRO9gyO-KSqtg"
-ZAI_OAUTH_REDIRECT_URI = "zcode://zai-auth/callback"
+ZAI_OAUTH_REDIRECT_URI = ZAI_OAUTH_CALLBACK_REDIRECT_URI
 ZAI_BUSINESS_BASE_URL = "https://api.z.ai"
 ZAI_OAUTH_PROVIDER = "zai"
 ZAI_CODING_PLAN_KEY_NAME = "zcode-api-key"
@@ -129,24 +134,42 @@ class ZaiOAuthClient:
         return data
 
     @staticmethod
-    def authorize_url(state: str) -> str:
+    def authorize_url(state: str, redirect_uri: str = ZAI_OAUTH_REDIRECT_URI) -> str:
         query = urllib.parse.urlencode(
             {
                 "client_id": ZAI_OAUTH_CLIENT_ID,
-                "redirect_uri": ZAI_OAUTH_REDIRECT_URI,
+                "redirect_uri": redirect_uri,
                 "response_type": "code",
                 "state": state,
             }
         )
         return f"{ZAI_AUTHORIZE_ENDPOINT}?{query}"
 
-    def exchange_callback(self, callback_url: str, expected_state: str) -> Mapping[str, Any]:
+    def exchange_callback(
+        self,
+        callback_url: str,
+        expected_state: str,
+        redirect_uri: str = ZAI_OAUTH_REDIRECT_URI,
+    ) -> Mapping[str, Any]:
         try:
             parsed = urllib.parse.urlparse(callback_url.strip())
         except ValueError as exc:
             raise ZaiOAuthError("Z.AI returned an invalid OAuth callback URL.") from exc
         path = f"/{parsed.path.strip('/')}"
-        if parsed.scheme != "zcode" or parsed.netloc != "zai-auth" or path != "/callback":
+        try:
+            expected = urllib.parse.urlparse(redirect_uri)
+            callback_target_matches = (
+                parsed.scheme.lower() == expected.scheme.lower()
+                and (parsed.hostname or "").lower() == (expected.hostname or "").lower()
+                and parsed.port == expected.port
+                and path == f"/{expected.path.strip('/')}"
+                and not parsed.username
+                and not parsed.password
+                and not parsed.fragment
+            )
+        except ValueError:
+            callback_target_matches = False
+        if not callback_target_matches:
             if (
                 parsed.scheme == "https"
                 and parsed.hostname == "chat.z.ai"
@@ -154,7 +177,7 @@ class ZaiOAuthClient:
             ):
                 raise ZaiOAuthError(
                     "The pasted URL is the authorization page, not the completed callback. "
-                    "Finish authorization and paste the complete zcode://zai-auth/callback URL."
+                    "Finish authorization in the browser and wait for the localhost callback."
                 )
             raise ZaiOAuthError("Z.AI returned an unexpected OAuth callback target.")
         query = urllib.parse.parse_qs(parsed.query)
@@ -175,7 +198,7 @@ class ZaiOAuthClient:
             body={
                 "provider": ZAI_OAUTH_PROVIDER,
                 "code": code,
-                "redirect_uri": ZAI_OAUTH_REDIRECT_URI,
+                "redirect_uri": redirect_uri,
                 "state": state,
             },
         )
@@ -310,7 +333,7 @@ class ZaiOAuthService:
     now: Callable[[], float] = time.time
     sleep: Callable[[float], None] = time.sleep
     open_url: Callable[[str], bool] = webbrowser.open
-    read_callback: Callable[[str], str] = input
+    callback_receiver_factory: Callable[[str, float], Any] = ZaiOAuthLocalCallbackReceiver
     random_token: Callable[[], str] = lambda: secrets.token_hex(32)
     timeout_seconds: float = ZAI_OAUTH_TIMEOUT_SECONDS
 
@@ -347,23 +370,23 @@ class ZaiOAuthService:
         no_browser: bool,
         on_authorize_url: Callable[[str], None],
     ) -> ZaiOAuthResult:
-        authorize_url = self.client.authorize_url(state)
-        on_authorize_url(authorize_url)
-        if not no_browser:
-            self.open_url(authorize_url)
         try:
-            callback_url = self.read_callback(
-                "Paste the complete zcode://zai-auth/callback URL here: "
-            ).strip()
-        except (EOFError, KeyboardInterrupt) as exc:
-            raise ZaiOAuthError(
-                "Z.AI OAuth callback URL was not provided; login was not changed."
-            ) from exc
-        if not callback_url:
-            raise ZaiOAuthError(
-                "Z.AI OAuth callback URL was not provided; login was not changed."
+            with self.callback_receiver_factory(state, self.timeout_seconds) as receiver:
+                redirect_uri = receiver.redirect_uri
+                authorize_url = self.client.authorize_url(state, redirect_uri)
+                on_authorize_url(authorize_url)
+                if not no_browser:
+                    self.open_url(authorize_url)
+                callback_url = receiver.wait()
+        except RuntimeError as exc:
+            raise ZaiOAuthError(str(exc)) from exc
+        return self._resolve_result(
+            self.client.exchange_callback(
+                callback_url,
+                state,
+                redirect_uri=redirect_uri,
             )
-        return self._resolve_result(self.client.exchange_callback(callback_url, state))
+        )
 
     def _resolve_result(self, result: Mapping[str, Any]) -> ZaiOAuthResult:
         zai = result.get("zai")

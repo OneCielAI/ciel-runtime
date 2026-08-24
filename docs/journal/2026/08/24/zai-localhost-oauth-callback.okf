@@ -1,0 +1,70 @@
+okf_version: "1.0"
+knowledge:
+  task:
+    id: zai-localhost-oauth-callback-20260824
+    date: "2026-08-24"
+    objective: >-
+      Replace manual Z.AI custom-scheme callback entry with an automatic,
+      state-bound localhost OAuth callback receiver.
+    status: verified
+
+  requirements:
+    redirect_uri: http://localhost:9899/callback
+    bind_address: 127.0.0.1
+    automatic_browser_callback: true
+    preserve_state_validation: true
+    token_exchange_redirect_must_match: true
+
+  implementation:
+    receiver: ciel_runtime_support/zai_oauth_callback.py
+    integration: ciel_runtime_support/zai_oauth.py
+    lifecycle:
+      - bind listener before presenting the authorization URL
+      - accept only the configured path and matching state
+      - return a secret-free browser completion page
+      - exchange the callback using the same redirect URI
+      - close the one-shot listener after success or timeout
+    remote_runtime: >-
+      Forward local port 9899 to runtime-host 127.0.0.1:9899 when the browser
+      and Ciel Runtime run on different machines.
+
+  evidence:
+    provider_browser_probe:
+      redirect_uri: http://localhost:9899/callback
+      provider_accepted_redirect_uri: true
+      callback_received: true
+      state_match: true
+      authorization_code_recorded: false
+    authorization_plan_screen:
+      observed_options:
+        - Start Plan
+        - Individual Plan
+        - API key
+      endpoint_urls_verified: false
+      conclusion: >-
+        The screen proves that three authorization choices are exposed. It does
+        not by itself prove that three different API endpoint URLs are used.
+    focused_tests:
+      status: passed
+      count: 18
+    final_verification:
+      status: passed
+      local_install_version: 0.2.28
+      callback_uri: http://localhost:9899/callback
+      callback_http_status: 200
+      callback_url_exact_match: true
+      browser_response_contains_authorization_code: false
+      listener_port_released_after_completion: true
+      full_test_groups:
+        unit:
+          tests: 1172
+          skipped: 44
+        router:
+          tests: 942
+        channel:
+          tests: 381
+          skipped: 80
+        runtime:
+          tests: 255
+          skipped: 12
+      full_test_exit_code: 0

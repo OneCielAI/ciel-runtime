@@ -120,10 +120,13 @@ ciel-runtimectl zai-oauth logout
 
 ZCode CLI의 Z.AI init/poll OAuth 흐름으로 로그인하고 Coding Plan API key를
 발급한다. init endpoint가 404이면 공개 ZCode 래퍼와 동일한 authorization-code
-계약으로 전환하며, 터미널에 완전한 `zcode://zai-auth/callback` URL을 붙여 넣어
-완료한다. `--no-browser`는 브라우저를 자동으로 열지 않는다. Ciel은 OAuth access
-token이나 ZCode JWT를 디스크에 저장하지 않는다. `logout`은 OAuth로 만든 로컬
-API key만 지우며 원격 승인을 철회하지 않는다.
+계약으로 전환하며, `http://localhost:9899/callback`의 일회성 loopback listener가
+브라우저 콜백을 자동으로 수신한다. `--no-browser`는 브라우저를 자동으로 열지
+않지만 동일한 listener에서 기다린다. 브라우저와 Ciel Runtime이 서로 다른
+머신이면 먼저 `ssh -L 9899:127.0.0.1:9899 user@runtime-host`처럼 callback port를
+전달해야 한다. Ciel은 OAuth access token이나 ZCode JWT를 디스크에 저장하지
+않는다. `logout`은 OAuth로 만든 로컬 API key만 지우며 원격 승인을 철회하지
+않는다.
 
 #### `api-key`
 ```bash

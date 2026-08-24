@@ -3,6 +3,17 @@
 This file records stable Ciel Runtime releases. Changes are grouped by user-visible
 capability, followed by the complete commit ledger merged into each release.
 
+## 0.2.28 — 2026-08-24
+
+- Replaced manual `zcode://` callback pasting in the Z.AI authorization-code
+  fallback with a one-shot, state-bound listener at
+  `http://localhost:9899/callback`.
+- Validate the exact callback host, port, path, and state before token exchange;
+  reject occupied ports, unrelated paths, oversized request targets, and stale
+  callbacks without changing the stored credential.
+- Use the same localhost redirect URI for authorization and token exchange, and
+  return a secret-free browser completion page.
+
 ## 0.2.27 — 2026-08-24
 
 - Repair Codex startup only when an invalid TOML file contains equivalent MCP

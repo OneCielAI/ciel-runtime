@@ -1,5 +1,6 @@
 import copy
 import unittest
+import urllib.parse
 
 import ciel_runtime
 from ciel_runtime_support.zai_oauth import (
@@ -24,6 +25,24 @@ class FakeHttp:
         if isinstance(response, Exception):
             raise response
         return response
+
+
+class FakeLocalCallbackReceiver:
+    def __init__(self, expected_state, _timeout_seconds):
+        self.expected_state = expected_state
+        self.redirect_uri = "http://localhost:9899/callback"
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_args):
+        return None
+
+    def wait(self):
+        return (
+            f"{self.redirect_uri}?code=auth-code"
+            f"&state={urllib.parse.quote(self.expected_state)}"
+        )
 
 
 class ZaiOAuthClientTests(unittest.TestCase):
@@ -67,18 +86,31 @@ class ZaiOAuthClientTests(unittest.TestCase):
         client = ZaiOAuthClient(http)
 
         result = client.exchange_callback(
-            "zcode://zai-auth/callback?code=auth-code&state=state-1", "state-1"
+            "http://localhost:9899/callback?code=auth-code&state=state-1", "state-1"
         )
 
         self.assertEqual("access", result["zai"]["access_token"])
         self.assertEqual("https://zcode.z.ai/api/v1/oauth/token", http.calls[0][1])
         self.assertEqual("auth-code", http.calls[0][2]["body"]["code"])
+        self.assertEqual(
+            "http://localhost:9899/callback",
+            http.calls[0][2]["body"]["redirect_uri"],
+        )
 
     def test_authorization_code_callback_rejects_wrong_state_before_network(self):
         http = FakeHttp([])
         with self.assertRaisesRegex(ZaiOAuthError, "state did not match"):
             ZaiOAuthClient(http).exchange_callback(
-                "zcode://zai-auth/callback?code=auth-code&state=wrong", "expected"
+                "http://localhost:9899/callback?code=auth-code&state=wrong", "expected"
+            )
+        self.assertEqual([], http.calls)
+
+    def test_authorization_code_callback_rejects_other_local_port_before_network(self):
+        http = FakeHttp([])
+        with self.assertRaisesRegex(ZaiOAuthError, "unexpected OAuth callback target"):
+            ZaiOAuthClient(http).exchange_callback(
+                "http://localhost:9900/callback?code=auth-code&state=expected",
+                "expected",
             )
         self.assertEqual([], http.calls)
 
@@ -86,7 +118,7 @@ class ZaiOAuthClientTests(unittest.TestCase):
         http = FakeHttp([])
         authorize_url = (
             "https://chat.z.ai/auth/oauth/authorize?response_type=code"
-            "&client_id=client-test&redirect_uri=zcode%3A%2F%2Fzai-auth%2Fcallback"
+            "&client_id=client-test&redirect_uri=http%3A%2F%2Flocalhost%3A9899%2Fcallback"
             "&state=state-1"
         )
         with self.assertRaisesRegex(ZaiOAuthError, "authorization page, not the completed callback"):
@@ -200,7 +232,7 @@ class ZaiOAuthRuntimeTests(unittest.TestCase):
         service = ZaiOAuthService(
             ZaiOAuthClient(http),
             open_url=lambda _url: self.fail("--no-browser must not open a browser"),
-            read_callback=lambda _prompt: "zcode://zai-auth/callback?code=auth-code&state=state-1",
+            callback_receiver_factory=FakeLocalCallbackReceiver,
             random_token=lambda: "state-1",
         )
 
@@ -209,6 +241,14 @@ class ZaiOAuthRuntimeTests(unittest.TestCase):
         self.assertEqual("key-id.key-secret", result.api_key)
         self.assertIn("client_id=client_P8X5CMWmlaRO9gyO-KSqtg", urls[0])
         self.assertIn("state=state-1", urls[0])
+        self.assertIn(
+            "redirect_uri=http%3A%2F%2Flocalhost%3A9899%2Fcallback",
+            urls[0],
+        )
+        self.assertEqual(
+            "http://localhost:9899/callback",
+            http.calls[1][2]["body"]["redirect_uri"],
+        )
 
 
 if __name__ == "__main__":

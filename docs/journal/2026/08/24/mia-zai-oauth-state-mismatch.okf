@@ -1,0 +1,74 @@
+okf_version: "1.0"
+knowledge:
+  task:
+    id: mia-zai-oauth-state-mismatch-20260824
+    date: "2026-08-24"
+    objective: >-
+      Diagnose Mia's Z.AI OAuth state mismatch without weakening the OAuth
+      request-to-callback binding.
+    status: diagnosis-complete
+
+  evidence:
+    supplied_values:
+      authorization_state_length: 64
+      callback_state_length: 64
+      states_equal: false
+      secrets_recorded: false
+    installed_runtime:
+      host: mia@100.95.132.58
+      version: 0.2.27-nightly.20260824-061806.8e24b2e
+    ciel_source:
+      comparison: hmac.compare_digest(callback_state, expected_state)
+      token_exchange_before_mismatch: false
+    zcode_source:
+      repository: https://github.com/kingsword09/zcode-cli.git
+      revision: ce2dcfbdeee3e5cca54095fbe1191fb2d03c10db
+      behavior: rejects callbacks whose state differs from the active login state
+    live_provider_probe:
+      initial_endpoint_status: 307
+      redirect_target: /auth
+      state_preserved: true
+      browser_authorization_page_state_preserved: true
+    mia_recovery_flow:
+      oauth_status: connected
+      stale_waiting_process: terminated
+      expected_callback: complete callback URL from the same authorization flow
+    localhost_callback_test:
+      redirect_uri: http://localhost:9899/callback
+      provider_accepted_redirect_uri: true
+      callback_received: true
+      authorization_code_present: true
+      state_match: true
+      authorization_code_recorded: false
+    post_login_provider_test:
+      ciel_route:
+        endpoint: https://api.z.ai/api/anthropic
+        model: glm-5.3
+        status: 429
+        provider_code: "1113"
+        provider_message: Insufficient balance or no resource package
+      official_zcode_direct:
+        client: zcode-app-cli 3.8.1-15
+        runtime: 0.16.3
+        endpoint: https://api.z.ai/api/anthropic
+        model: glm-5.3
+        same_oauth_resolved_key: true
+        status: 429
+        provider_code: "1113"
+        provider_message: Insufficient balance or no resource package
+
+  conclusion:
+    confirmed: >-
+      The callback supplied by the user was not bound to the active authorization
+      request. Accepting it would bypass the OAuth CSRF state check and is not a
+      valid fix.
+    code_change_required: false
+    provider_model: >-
+      Z.AI Direct API and Z.AI Coding Plan are distinct credential and
+      entitlement profiles. ZCode remains a client, not the upstream provider.
+    retry_cause_excluded:
+      - Ciel Runtime User-Agent difference
+      - Ciel Runtime request-shape difference
+    unresolved_external_state: >-
+      The OAuth-resolved Coding Plan key has no usable resource package on the
+      upstream account according to provider code 1113.
