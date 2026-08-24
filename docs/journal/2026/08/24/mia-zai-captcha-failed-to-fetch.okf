@@ -48,4 +48,8 @@ task:
       lint: passed
     mia_runtime:
       version_0_2_35: failed
-      version_0_2_36: pending
+      version_0_2_36:
+        installed: 0.2.36-nightly.20260824-181152.fc6cdbb
+        request_id: bt4w2i7oXluJWiWKOwAGvgtiaMGlcA2MI_Vi-VBK3VY
+        result: inconclusive
+        evidence: No browser POST arrived; the request timed out after 180 seconds.
