@@ -3,6 +3,13 @@
 This file records stable Ciel Runtime releases. Changes are grouped by user-visible
 capability, followed by the complete commit ledger merged into each release.
 
+## 0.2.36 — 2026-08-24
+
+- Align the Aliyun CAPTCHA page with the documented V3 callback contract:
+  submit `CaptchaVerifyParam` only from `success`, ignore later callbacks once
+  submission starts, and release the model request only after the accepted
+  result socket has completed `shutdown_request`.
+
 ## 0.2.35 — 2026-08-24
 
 - Finalize the state-bound Z.AI Start Plan CAPTCHA HTTP response before the

@@ -23,9 +23,18 @@ task:
       confirmed: The CAPTCHA result reached Ciel Runtime and released the model request.
       boundary: The browser did not observe a completed fetch response before the one-shot receiver shut down.
   implementation:
+    correction:
+      observed_version: 0.2.35-nightly.20260824-175226.414ed34
+      observed_request_id: 5DFvx5lz9YG_Ak7wZ76Yj0uoBFv8v7b0ROMmUbr4vag
+      result: Browser still displayed Failed to fetch while the server recorded completed.
+      contradiction: Waiting for BaseHTTPRequestHandler.finish was insufficient.
     receiver:
-      before: The result wait event was set inside do_POST immediately after response headers were written.
-      after: The result wait event is set only after BaseHTTPRequestHandler.finish completes.
+      before: The result wait event was set before ThreadingMixIn called shutdown_request for the accepted socket.
+      after: The result wait event is set only after shutdown_request completes for that exact socket.
+    browser_callback:
+      official_contract: success returns CaptchaVerifyParam; fail returns a failure code.
+      before: Both success and selected fail payloads could POST, with no in-flight submission guard.
+      after: Only success POSTs and later callbacks cannot submit again or replace the success state.
     invariant:
       - The one-time result remains state-bound.
       - The result is not persisted.
@@ -37,4 +46,6 @@ task:
         result: passed
         skipped: 44
       lint: passed
-    mia_runtime: pending
+    mia_runtime:
+      version_0_2_35: failed
+      version_0_2_36: pending

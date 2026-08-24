@@ -305,6 +305,22 @@ class ZaiStartPlanCaptchaTests(unittest.TestCase):
         self.assertTrue(receiver._ready.is_set())
         self.assertEqual("verified-token", receiver.wait())
 
+    def test_browser_page_submits_only_the_official_success_callback_once(self):
+        receiver = _CaptchaResultReceiver(
+            ZaiStartPlanCaptchaConfig(True, "sgp", "prefix", "scene"),
+            "state",
+            15,
+        )
+
+        page = receiver._page()
+
+        self.assertIn("let submission = null;", page)
+        self.assertIn("if (submission) return submission;", page)
+        self.assertIn("success: value => submit(value)", page)
+        self.assertIn("fail: () =>", page)
+        self.assertIn("if (submission) return;", page)
+        self.assertNotIn("const extractParam", page)
+
     def test_runtime_headers_are_applied_only_to_start_plan(self):
         class Broker:
             def headers(self, options):

@@ -73,6 +73,26 @@ class _LoopbackCaptchaServer(ThreadingHTTPServer):
     daemon_threads = True
     allow_reuse_address = True
 
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        self._accepted_result_requests: set[int] = set()
+        self._accepted_result_lock = threading.Lock()
+        self.result_response_finished: Callable[[], None] | None = None
+        super().__init__(*args, **kwargs)
+
+    def mark_result_request_accepted(self, request: Any) -> None:
+        with self._accepted_result_lock:
+            self._accepted_result_requests.add(id(request))
+
+    def shutdown_request(self, request: Any) -> None:
+        with self._accepted_result_lock:
+            accepted = id(request) in self._accepted_result_requests
+            self._accepted_result_requests.discard(id(request))
+        try:
+            super().shutdown_request(request)
+        finally:
+            if accepted and self.result_response_finished is not None:
+                self.result_response_finished()
+
 
 @dataclass(slots=True)
 class _CaptchaResultReceiver:
@@ -128,25 +148,18 @@ class _CaptchaResultReceiver:
         receiver = self
 
         class Handler(BaseHTTPRequestHandler):
-            _ciel_result_accepted = False
-
             def do_GET(self) -> None:  # noqa: N802
                 receiver._handle_get(self)
 
             def do_POST(self) -> None:  # noqa: N802
-                self._ciel_result_accepted = receiver._handle_post(self)
-
-            def finish(self) -> None:
-                try:
-                    super().finish()
-                finally:
-                    if self._ciel_result_accepted:
-                        receiver._mark_result_response_finished()
+                if receiver._handle_post(self) and receiver._server is not None:
+                    receiver._server.mark_result_request_accepted(self.request)
 
             def log_message(self, _format: str, *_args: object) -> None:
                 return
 
         self._server = _LoopbackCaptchaServer((self.host, self.port), Handler)
+        self._server.result_response_finished = self._mark_result_response_finished
         self._thread = threading.Thread(
             target=self._server.serve_forever,
             kwargs={"poll_interval": 0.05},
@@ -278,20 +291,23 @@ body{{font:16px system-ui,sans-serif;max-width:680px;margin:48px auto;padding:0 
   const button = document.getElementById('captcha-button');
   let instance = null;
   let interactiveShown = false;
+  let submission = null;
   const setStatus = value => {{ status.textContent = value; }};
-  const extractParam = value => value && typeof value === 'object'
-    ? String(value.captchaVerifyParam || value.CaptchaVerifyParam || '').trim() : '';
-  const submit = async value => {{
+  const submit = value => {{
     const param = String(value || '').trim();
     if (!param) throw new Error('CAPTCHA returned an empty verification result.');
-    const query = new URLSearchParams({{state: CIEL_CAPTCHA.state}});
-    const response = await fetch(`${{CIEL_CAPTCHA.resultPath}}?${{query}}`, {{
-      method: 'POST', headers: {{'Content-Type': 'text/plain;charset=UTF-8'}}, body: param
-    }});
-    if (!response.ok) throw new Error(`Ciel Runtime rejected the result (${{response.status}}).`);
-    setStatus('Verification complete. Returning to Ciel Runtime…');
-    button.hidden = true;
-    window.setTimeout(() => window.close(), 700);
+    if (submission) return submission;
+    submission = (async () => {{
+      const query = new URLSearchParams({{state: CIEL_CAPTCHA.state}});
+      const response = await fetch(`${{CIEL_CAPTCHA.resultPath}}?${{query}}`, {{
+        method: 'POST', headers: {{'Content-Type': 'text/plain;charset=UTF-8'}}, body: param
+      }});
+      if (!response.ok) throw new Error(`Ciel Runtime rejected the result (${{response.status}}).`);
+      setStatus('Verification complete. Returning to Ciel Runtime…');
+      button.hidden = true;
+      window.setTimeout(() => window.close(), 700);
+    }})();
+    return submission;
   }};
   const showInteractive = () => {{
     interactiveShown = true;
@@ -318,9 +334,8 @@ body{{font:16px system-ui,sans-serif;max-width:680px;margin:48px auto;padding:0 
       }}, 2000);
     }},
     success: value => submit(value).catch(error => setStatus(error.message)),
-    fail: value => {{
-      const param = extractParam(value);
-      if (param) {{ submit(param).catch(error => setStatus(error.message)); return; }}
+    fail: () => {{
+      if (submission) return;
       if (!interactiveShown) showInteractive();
       else setStatus('Verification was not accepted. Select Verify to try again.');
     }},
