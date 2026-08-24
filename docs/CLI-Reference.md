@@ -108,6 +108,23 @@ ciel-runtimectl base-url [PROVIDER] [URL]
 ciel-runtimectl base-url ollama http://remote-server:11434
 ```
 
+#### `provider-options` — Z.AI Start Plan remote CAPTCHA
+
+원격 Linux 호스트에서 Z.AI Start Plan의 사람 검증 페이지를 운영자 브라우저로
+열어야 할 때는 접근 가능한 인터페이스만 명시적으로 바인딩한다. 기본값은 계속
+`127.0.0.1`이며 외부에 공개되지 않는다.
+
+```bash
+ciel-runtimectl provider-options zai-start-plan \
+  captcha_bind_host=100.95.132.58 \
+  captcha_port=42119 \
+  'captcha_public_base_url=http://100.95.132.58:{port}'
+```
+
+`captcha_public_base_url`은 `http://` 또는 `https://` origin만 허용하며,
+`{port}`는 실제 CAPTCHA 수신 포트로 치환된다. URL에는 요청마다 새로 생성되는
+state 값이 추가된다.
+
 ---
 
 ### API 키 관리

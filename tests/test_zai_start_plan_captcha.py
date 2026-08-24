@@ -13,6 +13,7 @@ from ciel_runtime_support.zai_start_plan_captcha import (
     ALIYUN_CAPTCHA_SDK_URL,
     CAPTCHA_PARAM_HEADER,
     CAPTCHA_REGION_HEADER,
+    _CaptchaResultReceiver,
     ZaiStartPlanCaptchaBroker,
     ZaiStartPlanCaptchaConfig,
     apply_zai_start_plan_runtime_headers,
@@ -112,6 +113,80 @@ class ZaiStartPlanCaptchaTests(unittest.TestCase):
         self.assertEqual(1, len(opened))
         self.assertEqual('{"certifyId":"one-time"}', headers[CAPTCHA_PARAM_HEADER])
         self.assertEqual("sgp", headers[CAPTCHA_REGION_HEADER])
+
+    def test_remote_receiver_uses_configured_bind_host_port_and_public_url(self):
+        opened = []
+
+        def config_urlopen(_request, timeout):
+            self.assertEqual(15.0, timeout)
+            return _JsonResponse(
+                {
+                    "code": 0,
+                    "data": {
+                        "configs": {
+                            "captcha": {
+                                "enabled": True,
+                                "region": "sgp",
+                                "prefix": "no8xfe",
+                                "sceneId": "11xygtvd",
+                            }
+                        }
+                    },
+                }
+            )
+
+        def open_url(url):
+            opened.append(url)
+            parsed = urllib.parse.urlsplit(url)
+            state = urllib.parse.parse_qs(parsed.query)["state"][0]
+            local_url = urllib.parse.urlunsplit(
+                (
+                    "http",
+                    f"127.0.0.1:{parsed.port}",
+                    "/zai-start-plan-captcha/result",
+                    urllib.parse.urlencode({"state": state}),
+                    "",
+                )
+            )
+            request = urllib.request.Request(
+                local_url,
+                data=b"remote-browser-result",
+                method="POST",
+                headers={"Content-Type": "text/plain"},
+            )
+            with urllib.request.urlopen(request, timeout=2.0) as response:
+                self.assertEqual(204, response.status)
+            return False
+
+        broker = ZaiStartPlanCaptchaBroker(
+            open_url=open_url,
+            urlopen=config_urlopen,
+            random_state=lambda: "remote-state",
+        )
+        headers = broker.headers(
+            {
+                "zai_captcha_bind_host": "127.0.0.1",
+                "zai_captcha_port": 0,
+                "zai_captcha_public_base_url": "http://100.95.132.58:{port}",
+            }
+        )
+
+        self.assertRegex(
+            opened[0],
+            r"^http://100\.95\.132\.58:\d+/zai-start-plan-captcha\?state=remote-state$",
+        )
+        self.assertEqual("remote-browser-result", headers[CAPTCHA_PARAM_HEADER])
+
+    def test_remote_receiver_rejects_invalid_public_base_url(self):
+        receiver = _CaptchaResultReceiver(
+            ZaiStartPlanCaptchaConfig(True, "sgp", "prefix", "scene"),
+            "state",
+            15,
+            public_base_url="javascript:alert(1)",
+        )
+        with receiver:
+            with self.assertRaisesRegex(RuntimeError, "HTTP\\(S\\) origin"):
+                _ = receiver.url
 
     def test_runtime_headers_are_applied_only_to_start_plan(self):
         class Broker:

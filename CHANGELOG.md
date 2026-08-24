@@ -3,6 +3,17 @@
 This file records stable Ciel Runtime releases. Changes are grouped by user-visible
 capability, followed by the complete commit ledger merged into each release.
 
+## 0.2.32 — 2026-08-24
+
+- Keep Z.AI Start Plan wire identity aligned with the installed ZCode app:
+  `User-Agent: ZCode/3.8.1` and the OAuth JWT in `Authorization: Bearer`, without
+  adding `X-Api-Key`.
+- Add opt-in remote CAPTCHA callback settings for browserless hosts: bind host,
+  fixed/dynamic port, public HTTP(S) origin, and timeout are configurable through
+  `ciel-runtimectl provider-options` or environment variables.
+- Preserve loopback-only behavior by default and retain the state-bound,
+  one-request CAPTCHA result receiver when remote callback access is enabled.
+
 ## 0.2.31 — 2026-08-24
 
 - Force Z.AI Start Plan OAuth through the state-bound

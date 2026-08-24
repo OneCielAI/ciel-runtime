@@ -79,6 +79,7 @@ class _CaptchaResultReceiver:
     timeout_seconds: float
     host: str = "127.0.0.1"
     port: int = 0
+    public_base_url: str = ""
     _server: _LoopbackCaptchaServer | None = field(default=None, init=False)
     _thread: threading.Thread | None = field(default=None, init=False)
     _ready: threading.Event = field(default_factory=threading.Event, init=False)
@@ -90,7 +91,36 @@ class _CaptchaResultReceiver:
         if self._server is None:
             raise RuntimeError("Z.AI CAPTCHA receiver was not started.")
         query = urllib.parse.urlencode({"state": self.state})
-        return f"http://localhost:{self._server.server_port}{_CAPTCHA_PATH}?{query}"
+        base = self._resolved_public_base_url(self._server.server_port)
+        return f"{base}{_CAPTCHA_PATH}?{query}"
+
+    def _resolved_public_base_url(self, server_port: int) -> str:
+        configured = str(self.public_base_url or "").strip().rstrip("/")
+        if not configured:
+            return f"http://localhost:{server_port}"
+        candidate = configured.replace("{port}", str(server_port))
+        parsed = urllib.parse.urlsplit(candidate)
+        if (
+            parsed.scheme not in {"http", "https"}
+            or not parsed.hostname
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.query
+            or parsed.fragment
+            or parsed.path not in {"", "/"}
+        ):
+            raise RuntimeError(
+                "Z.AI CAPTCHA public base URL must be an HTTP(S) origin; "
+                "use {port} for the receiver port."
+            )
+        if "{port}" not in configured and parsed.port is None:
+            hostname = parsed.hostname
+            if ":" in hostname and not hostname.startswith("["):
+                hostname = f"[{hostname}]"
+            candidate = urllib.parse.urlunsplit(
+                (parsed.scheme, f"{hostname}:{server_port}", "", "", "")
+            )
+        return candidate.rstrip("/")
 
     def __enter__(self) -> "_CaptchaResultReceiver":
         receiver = self
@@ -314,13 +344,37 @@ class ZaiStartPlanCaptchaBroker:
     def headers(self, options: Mapping[str, Any]) -> dict[str, str]:
         app_version = str(options.get("zcode_app_version") or "3.8.1").strip()
         timeout = self._timeout(options)
+        bind_host = self._bind_host(options)
+        port = self._port(options)
+        public_base_url = self._public_base_url(options)
         with self._request_lock:
             config = self.fetch_config(app_version)
             state = self.random_state()
-            with self.receiver_factory(config, state, timeout) as receiver:
+            with self.receiver_factory(
+                config,
+                state,
+                timeout,
+                host=bind_host,
+                port=port,
+                public_base_url=public_base_url,
+            ) as receiver:
                 url = receiver.url
                 self.log("INFO", f"zai_start_plan_captcha_waiting url={url}")
-                if not self.open_url(url):
+                try:
+                    opened = self.open_url(url)
+                except Exception as exc:
+                    if not public_base_url:
+                        raise RuntimeError(
+                            "Could not open the Z.AI Start Plan verification page: "
+                            + url
+                        ) from exc
+                    opened = False
+                    self.log(
+                        "WARN",
+                        "zai_start_plan_captcha_browser_open_failed "
+                        f"url={url} error={type(exc).__name__}",
+                    )
+                if not opened and not public_base_url:
                     raise RuntimeError(
                         "Could not open the Z.AI Start Plan verification page: " + url
                     )
@@ -344,6 +398,35 @@ class ZaiStartPlanCaptchaBroker:
             return max(15.0, min(600.0, float(raw)))
         except (TypeError, ValueError):
             return 120.0
+
+    @staticmethod
+    def _bind_host(options: Mapping[str, Any]) -> str:
+        return str(
+            options.get("zai_captcha_bind_host")
+            or os.environ.get("CIEL_RUNTIME_ZAI_CAPTCHA_BIND_HOST")
+            or "127.0.0.1"
+        ).strip()
+
+    @staticmethod
+    def _port(options: Mapping[str, Any]) -> int:
+        raw = options.get("zai_captcha_port") or os.environ.get(
+            "CIEL_RUNTIME_ZAI_CAPTCHA_PORT", "0"
+        )
+        try:
+            port = int(raw)
+        except (TypeError, ValueError) as exc:
+            raise RuntimeError("Z.AI CAPTCHA port must be an integer.") from exc
+        if port < 0 or port > 65535:
+            raise RuntimeError("Z.AI CAPTCHA port must be between 0 and 65535.")
+        return port
+
+    @staticmethod
+    def _public_base_url(options: Mapping[str, Any]) -> str:
+        return str(
+            options.get("zai_captcha_public_base_url")
+            or os.environ.get("CIEL_RUNTIME_ZAI_CAPTCHA_PUBLIC_BASE_URL")
+            or ""
+        ).strip()
 
     @staticmethod
     def _platform_key() -> str:

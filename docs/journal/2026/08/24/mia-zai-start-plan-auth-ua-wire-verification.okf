@@ -5,8 +5,9 @@ knowledge:
     date: "2026-08-24"
     objective: >-
       Verify from evidence whether Mia's Z.AI Start Plan routed requests carry
-      the OAuth bearer credential and the exact ZCode CLI user agent.
-    status: complete
+      the OAuth bearer credential and the exact ZCode CLI user agent, and make
+      the required human CAPTCHA reachable from a remote operator browser.
+    status: in_progress
 
   evidence:
     official_zcode_runtime:
@@ -35,13 +36,25 @@ knowledge:
       conclusion: >-
         The observed Mia failure occurs before the Z.AI model request, so the
         verified Authorization and User-Agent headers are not its failing stage.
+    browser_runtime:
+      headless_shell_result: interactive CAPTCHA required and timed out
+      headed_chrome_xvfb_result: interactive CAPTCHA required and timed out
+      screenshot_observation: >-
+        The official Aliyun SDK displayed a human slider puzzle; changing UA or
+        running headed Chrome did not turn it into a traceless pass.
 
   implementation:
-    runtime_behavior_change: none
-    reason: >-
-      The installed code already emits the required OAuth and ZCode identity
-      headers. A behavior change without contrary wire evidence would violate
-      the evidence-only modification rule.
+    auth_and_ua_behavior_change: none
+    remote_captcha_callback:
+      default_bind_host: 127.0.0.1
+      configurable_fields:
+        - zai_captcha_bind_host
+        - zai_captcha_port
+        - zai_captcha_public_base_url
+        - zai_captcha_timeout_seconds
+      security: >-
+        External binding remains opt-in. The public URL must be an HTTP(S)
+        origin, and each request retains its random state-bound result URL.
     regression_coverage:
       file: tests/test_zai_provider.py
       assertion: >-
@@ -52,6 +65,11 @@ knowledge:
     completed:
       - Mia installed-package wire capture
       - ZCode CLI version comparison
-      - focused Z.AI regression tests: 29 passed
-      - full regression suite: 2766 passed and 136 skipped
-    pending: []
+      - focused Z.AI regression tests: 32 passed
+      - full regression suite: 2769 passed and 136 skipped
+      - remote callback GET 200 and state-bound result POST 204 from operator host
+      - operator Chrome traceless verification completed with a 280-byte result
+      - verification completion screenshot captured
+    pending:
+      - real Z.AI model response after CAPTCHA
+      - main, nightly, npm, and local deployment verification

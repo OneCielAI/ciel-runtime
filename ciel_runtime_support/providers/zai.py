@@ -5,6 +5,7 @@ from typing import Any, Mapping
 
 from ..architecture import (
     ProviderCapabilities,
+    ProviderConfigurationPolicy,
     ProviderConfig,
     ProviderContextPolicy,
     ProviderModelCatalogPolicy,
@@ -13,7 +14,7 @@ from ..architecture import (
     ProviderStatusPolicy,
     MessageProtocol,
 )
-from .base import HttpBearerProviderAdapter, provider_configuration
+from .base import HttpBearerProviderAdapter, configuration_policy, provider_configuration
 from .constants import PROVIDER_DEFAULT_BASE_URLS, ZAI_MODEL_FALLBACK_IDS
 
 
@@ -353,6 +354,26 @@ class ZaiStartPlanProviderAdapter(ZaiCodingPlanProviderAdapter):
         self, config: ProviderConfig, api_key: str | None
     ) -> Mapping[str, str]:
         return self.build_headers(config, api_key)
+
+    def configuration_policy(
+        self, config: ProviderConfig
+    ) -> ProviderConfigurationPolicy:
+        del config
+        return configuration_policy(
+            text_option_aliases={
+                "captcha_bind_host": "zai_captcha_bind_host",
+                "captcha_port": "zai_captcha_port",
+                "captcha_public_base_url": "zai_captcha_public_base_url",
+                "captcha_timeout_seconds": "zai_captcha_timeout_seconds",
+                "zai_captcha_bind_host": "zai_captcha_bind_host",
+                "zai_captcha_port": "zai_captcha_port",
+                "zai_captcha_public_base_url": "zai_captcha_public_base_url",
+                "zai_captcha_timeout_seconds": "zai_captcha_timeout_seconds",
+            },
+            strip_trailing_slash_fields=frozenset(
+                {"zai_captcha_public_base_url"}
+            ),
+        )
 
     def launch_api_key_error(self, config: ProviderConfig) -> str | None:
         if not config.api_keys:

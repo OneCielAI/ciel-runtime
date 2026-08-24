@@ -120,6 +120,26 @@ class ZaiProviderTests(unittest.TestCase):
         self.assertEqual("Bearer oauth-jwt", received["Authorization"])
         self.assertNotIn("X-Api-Key", received)
 
+    def test_start_plan_remote_captcha_options_are_ctl_mutable(self):
+        pcfg = copy.deepcopy(
+            ciel_runtime.DEFAULT_CONFIG["providers"]["zai-start-plan"]
+        )
+        adapter = ciel_runtime.configured_provider_adapter("zai-start-plan", pcfg)
+        policy = adapter.configuration_policy(
+            ciel_runtime.provider_contract_config("zai-start-plan", pcfg)
+        )
+
+        self.assertEqual(
+            "zai_captcha_bind_host", policy.text_option_aliases["captcha_bind_host"]
+        )
+        self.assertEqual(
+            "zai_captcha_port", policy.text_option_aliases["captcha_port"]
+        )
+        self.assertEqual(
+            "zai_captcha_public_base_url",
+            policy.text_option_aliases["captcha_public_base_url"],
+        )
+
     def test_default_config_matches_zai_claude_code_docs(self):
         pcfg = ciel_runtime.DEFAULT_CONFIG["providers"]["zai"]
         self.assertEqual("https://api.z.ai/api/anthropic", pcfg["base_url"])

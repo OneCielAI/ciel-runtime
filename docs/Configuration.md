@@ -408,6 +408,34 @@ ConPTY 생성이 불가능하거나 `CIEL_RUNTIME_WINDOWS_CONPTY=0`으로 명시
 ciel-runtimectl language ko
 ```
 
+### Z.AI Start Plan remote CAPTCHA callback
+
+Z.AI Start Plan은 모델 요청 전에 공식 Aliyun CAPTCHA의 일회성 결과가 필요할 수
+있습니다. 브라우저가 없는 원격 호스트에서는 `provider-options`로 운영자
+브라우저가 접근할 callback origin을 설정할 수 있습니다.
+
+```bash
+ciel-runtimectl provider-options zai-start-plan \
+  captcha_bind_host=100.95.132.58 \
+  captcha_port=42119 \
+  'captcha_public_base_url=http://100.95.132.58:{port}' \
+  captcha_timeout_seconds=120
+```
+
+- `captcha_bind_host`: 수신 서버가 바인딩할 로컬 인터페이스입니다. 기본값은
+  `127.0.0.1`입니다.
+- `captcha_port`: 고정 포트이며 `0`이면 운영체제가 빈 포트를 선택합니다.
+- `captcha_public_base_url`: 운영자 브라우저에 표시할 HTTP(S) origin입니다.
+  `{port}` 자리표시자를 사용할 수 있습니다.
+- `captcha_timeout_seconds`: 결과 대기 시간이며 15~600초로 제한됩니다.
+
+환경 변수 `CIEL_RUNTIME_ZAI_CAPTCHA_BIND_HOST`,
+`CIEL_RUNTIME_ZAI_CAPTCHA_PORT`,
+`CIEL_RUNTIME_ZAI_CAPTCHA_PUBLIC_BASE_URL`,
+`CIEL_RUNTIME_ZAI_CAPTCHA_TIMEOUT_SECONDS`도 같은 값을 제공합니다. 공개 callback은
+state-bound 일회성 URL을 사용하지만, 신뢰하는 사설 인터페이스에만 바인딩해야
+합니다.
+
 ---
 
 ## 관련 문서
