@@ -1,0 +1,125 @@
+okf_version: "1.0"
+knowledge:
+  task:
+    id: mia-zai-start-plan-hidden-captcha-timeout-20260824
+    date: "2026-08-24"
+    objective: >-
+      Determine from Mia session data why a Z.AI Start Plan Codex turn remains
+      in Working state, compare the installed ZCode interaction lifecycle, and
+      expose an actionable CAPTCHA interaction in the Ciel terminal.
+    status: implemented_locally
+
+  evidence:
+    runtime:
+      host: aap-pool-hera
+      ciel_runtime_version: 0.2.33-nightly.20260824-160320.fb7c359
+      provider: zai-start-plan
+      model: ciel-runtime-zai-start-plan-glm-5.3-1m
+      session_id: 01a02d19-baff-7410-9d91-dc7b932aee82
+    turn:
+      turn_id: 01a03495-cd1d-7e21-ba4a-98d8c3f6f407
+      task_started_at: "2026-08-24T16:23:47.746Z"
+      user_item_completed_at: "2026-08-24T16:23:49.171Z"
+      task_completed_at: "2026-08-24T16:26:50.135Z"
+      duration_ms: 182389
+      terminal_error: >-
+        We're currently experiencing high demand, which may cause temporary errors.
+    captcha_receiver:
+      configured_bind_host: 0.0.0.0
+      configured_port: 42121
+      configured_public_base_url: "http://100.95.132.58:{port}"
+      configured_timeout_seconds: 180
+      observation: >-
+        TCP port 42121 was listening while the turn was in Working state and
+        stopped listening when the 180-second wait ended.
+      browser_processes_during_wait: 0
+      terminal_verification_url_visible: false
+    transcript:
+      last_event_before_wait: >-
+        item_completed for the user text 계속 at 16:23:49.171Z
+      next_event: >-
+        task_complete at 16:26:50.135Z with internal_server_error
+      intermediate_model_or_tool_events: 0
+
+  source_correlation:
+    receiver_wait:
+      file: ciel_runtime_support/zai_start_plan_captcha.py
+      behavior: >-
+        _CaptchaResultReceiver.wait raises Z.AI Start Plan CAPTCHA timed out
+        after the configured timeout when no state-bound result is posted.
+    hidden_url:
+      file: ciel_runtime_support/zai_start_plan_captcha.py
+      behavior: >-
+        The broker records the verification URL through its INFO logger before
+        calling webbrowser.open, while Mia's Router starts with log level ERROR.
+    installed_zcode_3_8_1:
+      cli_package: zcode-app-cli 3.8.1-15
+      agent_runtime: zcode-runtime 0.16.3
+      request_rpc: interaction/requestProviderRuntimeHeaders
+      request_reason: model-request
+      host_behavior: >-
+        The agent pauses before each model attempt and waits for the desktop
+        host to return headersApplied and request-scoped runtime headers.
+      browser_behavior: >-
+        The renderer initializes the official Aliyun CAPTCHA SDK, calls
+        startTracelessVerification when available, invokes show() or the bound
+        button when an interactive challenge is required, then returns
+        X-Aliyun-Captcha-Verify-Param and X-Aliyun-Captcha-Verify-Region.
+      source_files:
+        - >-
+          installed zcode.cjs: refreshRuntimeHeadersBeforeAttempt and
+          interaction/requestProviderRuntimeHeaders
+        - >-
+          installed ZCode app.asar/out/host/index.js: request/response bridge
+          and provider runtime-header application
+        - >-
+          installed ZCode app.asar/out/renderer/assets/styles-EYJV2vbc.js:
+          Aliyun SDK traceless/interactive execution and header construction
+
+  implementation:
+    lifecycle:
+      - The router atomically publishes a workspace-router interaction record before waiting.
+      - The common Codex/Claude terminal proxy displays the state-bound URL without editing prompt input or synthesizing Enter.
+      - The pending notice repeats every 30 seconds until verification or timeout.
+      - A successful browser result marks the interaction complete and the same upstream request resumes.
+      - A timeout or browser failure marks the interaction failed with the exact local error.
+    files:
+      - ciel_runtime_support/runtime_interaction.py
+      - ciel_runtime_support/zai_start_plan_captcha.py
+      - ciel_runtime_support/channel_terminal_proxy.py
+      - ciel_runtime_support/windows_conpty.py
+      - ciel_runtime_support/runtime_paths.py
+    privacy: >-
+      The returned CAPTCHA verification value remains request-scoped and is not
+      written to the interaction record; only the one-time browser URL and
+      lifecycle status are exposed.
+
+  verification:
+    targeted:
+      runtime_interaction_tests: "4 passed"
+      zai_captcha_tests: "8 passed"
+      windows_conpty_tests: "18 passed"
+      architecture_contract_tests: "261 passed, 42 skipped"
+    regression_groups:
+      unit: "1181 passed, 44 skipped"
+      router: "959 passed"
+      channel: "381 passed, 80 skipped"
+      runtime: "255 passed, 12 skipped"
+    lint: "Ruff passed"
+    metadata: "23 Markdown files passed"
+    remaining: >-
+      Publish/install the nightly on Mia and capture the terminal URL plus the
+      browser completion response before changing status to verified.
+
+  conclusion:
+    confirmed: >-
+      The observed long wait was the request-scoped Z.AI Start Plan CAPTCHA
+      receiver waiting for an operator result, not a completed request waiting
+      on model generation. No CAPTCHA result arrived, so the turn ended after
+      the configured 180 seconds.
+    separate_observations:
+      - The terminal-facing error was generic and did not disclose the CAPTCHA timeout.
+      - MCP startup also reported independent HTTP 401 failures for codex_apps and webull.
+    code_changes: >-
+      Version 0.2.34 implements the ZCode-like request-time interaction bridge;
+      remote end-to-end evidence is still pending.

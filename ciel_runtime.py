@@ -170,7 +170,7 @@ from ciel_runtime_support.credentials import secret_fingerprint as project_secre
 from ciel_runtime_support.executable_discovery import ExecutableDiscovery
 from ciel_runtime_support.github_copilot_oauth_runtime import GitHubCopilotOAuthRuntime, GitHubCopilotOAuthRuntimePorts
 from ciel_runtime_support.zai_oauth import ZaiOAuthClient, ZaiOAuthHttp, ZaiOAuthRuntime, ZaiOAuthRuntimePorts, ZaiOAuthService
-from ciel_runtime_support.zai_start_plan_captcha import ZaiStartPlanRuntimeHeaderPreparer
+from ciel_runtime_support.zai_start_plan_captcha import RuntimeInteractionRepository, ZaiStartPlanRuntimeHeaderPreparer
 from ciel_runtime_support.headless_config import HeadlessConfigCommands, HeadlessConfigServices, HeadlessEnvFileLoader, apply_headless_config
 from ciel_runtime_support.http_response import ChannelDeliveryGuard, HttpResponseAdapter
 from ciel_runtime_support.kimi_runtime_context import KimiConfigurationPorts, KimiIdentityPorts, KimiLifecyclePorts, KimiProcessPorts, KimiRuntimeCompatibilityApi, KimiRuntimeContext
@@ -443,7 +443,7 @@ from ciel_runtime_support.runtime_paths import (CHANNEL_COMPACT_REQUEST_PATH,  #
                                                 RATE_LIMIT_STATE_PATH, REQUEST_DUMP_PATH, RESPONSE_DUMP_PATH,
                                                 ROUTER_ACTIVITY_PATH, ROUTER_BASE, ROUTER_CLIENTS_DIR,
                                                 MIGRATED_LEGACY_INSTANCE_ID, ROUTER_EXTERNAL_TOKEN_PATH, ROUTER_HOST,
-                                                ROUTER_INSTANCE_DIR, ROUTER_INSTANCE_ID, ROUTER_PORT,
+                                                ROUTER_INSTANCE_DIR, ROUTER_INSTANCE_ID, ROUTER_PORT, RUNTIME_INTERACTION_PATH,
                                                 ROUTER_WORKSPACE, ROUTER_WORKSPACE_ID, SSE_LAST_PATH,
                                                 WORKSPACE_CONFIG_PATH, WORKSPACE_STATE_DIR,
                                                 SSE_TRACE_PATH, TOOL_CALL_LOG_PATH, USAGE_EVENTS_PATH,
@@ -1340,7 +1340,7 @@ provider_requires_streaming = _PROVIDER_REQUEST_ACCESS.requires_streaming
 key_from_request_headers = _PROVIDER_REQUEST_ACCESS.key_from_headers
 provider_headers = _PROVIDER_REQUEST_ACCESS.headers
 get_current_provider = _PROVIDER_REQUEST_ACCESS.current_provider
-prepare_provider_runtime_headers = ZaiStartPlanRuntimeHeaderPreparer(log=router_log)
+prepare_provider_runtime_headers = ZaiStartPlanRuntimeHeaderPreparer(log=router_log, interactions=RuntimeInteractionRepository(RUNTIME_INTERACTION_PATH, log=router_log))
 def materialize_runtime_command(
     runtime_name: str,
     executable: str,
@@ -4614,7 +4614,7 @@ def channel_terminal_context() -> ChannelTerminalContext:
                                           _windows_channel_wake_max_attempts),
         polling=ChannelTerminalPollingPorts(_inject_pending_compact_request, _chat_messages_file_marker, _channel_stdin_should_check_pending,
                                             _channel_stdin_active_tool_call, _channel_stdin_active_turn, _inject_pending_channel_messages, _channel_stdin_wake_state, channel_inflight_effects,
-                                            _channel_stdin_mark_body_fallback),
+                                            _channel_stdin_mark_body_fallback, prepare_provider_runtime_headers.broker.interactions.read),
         io=ChannelTerminalIoPorts(_terminal_winsize_from_fd, _apply_pty_winsize, _write_fd_all, _TerminalMouseInputFilter,
                                   _channel_synthetic_enter_bytes_from_user_input, _write_terminal_input_mode_reset),
         windows=ChannelTerminalWindowsPorts(run_windows_channel_terminal_proxy, _write_terminal_input_mode_reset,

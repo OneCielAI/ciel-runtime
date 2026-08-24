@@ -64,6 +64,7 @@ class WindowsConPtySession:
         self._mirror_output = bool(mirror_output)
         self._forward_stdin = bool(forward_stdin)
         self._write_lock = threading.Lock()
+        self._mirror_lock = threading.Lock()
         self._output_lock = threading.Lock()
         self._output_tail = bytearray()
         self._output_total_bytes = 0
@@ -232,6 +233,19 @@ class WindowsConPtySession:
     def output_tail(self) -> bytes:
         with self._output_lock:
             return bytes(self._output_tail)
+
+    def write_parent_output(self, data: bytes) -> None:
+        """Display parent-owned interaction text beside the child TUI output."""
+
+        if not data or not self._mirror_output:
+            return
+        with self._parent_output_lock():
+            if self._stdout_console_handle is not None:
+                self._write_console_text(data.decode("utf-8", errors="replace"))
+                return
+            view = memoryview(data)
+            while view:
+                view = view[os.write(self._stdout_fd, view) :]
 
     def poll(self) -> int | None:
         if not self._process_handle or not self._kernel32:
@@ -676,16 +690,24 @@ class WindowsConPtySession:
                 self._mirror_bytes(b"", final=True)
 
     def _mirror_bytes(self, data: bytes, *, final: bool = False) -> None:
-        if self._stdout_console_handle is not None and self._output_decoder is not None:
-            text = self._output_decoder.decode(data, final=final)
-            if text:
-                self._write_console_text(text)
-            if final:
-                self._output_decoder = None
-            return
-        view = memoryview(data)
-        while view:
-            view = view[os.write(self._stdout_fd, view) :]
+        with self._parent_output_lock():
+            if self._stdout_console_handle is not None and self._output_decoder is not None:
+                text = self._output_decoder.decode(data, final=final)
+                if text:
+                    self._write_console_text(text)
+                if final:
+                    self._output_decoder = None
+                return
+            view = memoryview(data)
+            while view:
+                view = view[os.write(self._stdout_fd, view) :]
+
+    def _parent_output_lock(self) -> threading.Lock:
+        lock = getattr(self, "_mirror_lock", None)
+        if lock is None:
+            lock = threading.Lock()
+            self._mirror_lock = lock
+        return lock
 
     def _write_console_text(self, text: str) -> None:
         import ctypes

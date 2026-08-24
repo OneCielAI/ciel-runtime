@@ -5,6 +5,8 @@ import unittest
 import urllib.error
 import urllib.parse
 import urllib.request
+import tempfile
+from pathlib import Path
 from unittest import mock
 
 import ciel_runtime
@@ -18,6 +20,7 @@ from ciel_runtime_support.zai_start_plan_captcha import (
     ZaiStartPlanCaptchaConfig,
     apply_zai_start_plan_runtime_headers,
 )
+from ciel_runtime_support.runtime_interaction import RuntimeInteractionRepository
 
 
 class _JsonResponse:
@@ -176,6 +179,74 @@ class ZaiStartPlanCaptchaTests(unittest.TestCase):
             r"^http://100\.95\.132\.58:\d+/zai-start-plan-captcha\?state=remote-state$",
         )
         self.assertEqual("remote-browser-result", headers[CAPTCHA_PARAM_HEADER])
+
+    def test_broker_exposes_pending_url_then_marks_verification_completed(self):
+        observations = []
+
+        def config_urlopen(_request, timeout):
+            self.assertEqual(15.0, timeout)
+            return _JsonResponse(
+                {
+                    "code": 0,
+                    "data": {
+                        "configs": {
+                            "captcha": {
+                                "enabled": True,
+                                "region": "sgp",
+                                "prefix": "no8xfe",
+                                "sceneId": "11xygtvd",
+                            }
+                        }
+                    },
+                }
+            )
+
+        with tempfile.TemporaryDirectory() as directory:
+            interactions = RuntimeInteractionRepository(
+                Path(directory) / "runtime-interaction.json"
+            )
+
+            def open_url(url):
+                pending = interactions.read()
+                observations.append(pending)
+                self.assertIsNotNone(pending)
+                self.assertEqual("pending", pending.status)
+                self.assertEqual(url, pending.url)
+                parsed = urllib.parse.urlsplit(url)
+                state = urllib.parse.parse_qs(parsed.query)["state"][0]
+                result_url = urllib.parse.urlunsplit(
+                    (
+                        "http",
+                        f"localhost:{parsed.port}",
+                        "/zai-start-plan-captcha/result",
+                        urllib.parse.urlencode({"state": state}),
+                        "",
+                    )
+                )
+                request = urllib.request.Request(
+                    result_url,
+                    data=b"verified",
+                    method="POST",
+                    headers={"Content-Type": "text/plain"},
+                )
+                with urllib.request.urlopen(request, timeout=2.0) as response:
+                    self.assertEqual(204, response.status)
+                return True
+
+            broker = ZaiStartPlanCaptchaBroker(
+                open_url=open_url,
+                urlopen=config_urlopen,
+                random_state=lambda: "visible-state",
+                interactions=interactions,
+            )
+
+            headers = broker.headers({"zcode_app_version": "3.8.1"})
+
+            self.assertEqual("verified", headers[CAPTCHA_PARAM_HEADER])
+            self.assertEqual(1, len(observations))
+            completed = interactions.read()
+            self.assertEqual("completed", completed.status)
+            self.assertEqual("visible-state", completed.request_id)
 
     def test_remote_receiver_rejects_invalid_public_base_url(self):
         receiver = _CaptchaResultReceiver(

@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
+from .runtime_interaction import RuntimeInteractionEvent
+
 from .channel_terminal_dispatch import (
     ChannelDirectProcessPorts,
     ChannelTerminalDispatchService,
@@ -54,6 +56,7 @@ class ChannelTerminalPollingPorts:
     wake_state: Callable[[int], Any]
     inflight_effects: Callable[[], Any]
     mark_body_fallback: Callable[[int, str], None]
+    runtime_interaction: Callable[[], RuntimeInteractionEvent | None] = lambda: None
 
 
 @dataclass(frozen=True, slots=True)
@@ -132,6 +135,7 @@ class ChannelTerminalContext:
             wake_state=self.polling.wake_state,
             inflight_effects=self.polling.inflight_effects,
             mark_body_fallback=self.polling.mark_body_fallback,
+            runtime_interaction=self.polling.runtime_interaction,
         )
 
     def posix_services(self) -> ChannelTerminalServices:

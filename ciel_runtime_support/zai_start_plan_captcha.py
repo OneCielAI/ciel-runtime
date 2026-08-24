@@ -22,6 +22,8 @@ from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Callable, Mapping
 
+from .runtime_interaction import RuntimeInteractionEvent, RuntimeInteractionRepository
+
 
 ZCODE_CLIENT_CONFIG_URL = "https://zcode.z.ai/api/v1/client/configs"
 ALIYUN_CAPTCHA_SDK_URL = (
@@ -324,6 +326,7 @@ class ZaiStartPlanCaptchaBroker:
     random_state: Callable[[], str] = lambda: secrets.token_urlsafe(32)
     receiver_factory: Callable[..., Any] = _CaptchaResultReceiver
     log: Callable[[str, str], None] = lambda _level, _message: None
+    interactions: RuntimeInteractionRepository | None = None
     _request_lock: threading.Lock = field(default_factory=threading.Lock, init=False)
 
     def fetch_config(self, app_version: str) -> ZaiStartPlanCaptchaConfig:
@@ -360,25 +363,35 @@ class ZaiStartPlanCaptchaBroker:
             ) as receiver:
                 url = receiver.url
                 self.log("INFO", f"zai_start_plan_captcha_waiting url={url}")
+                interaction = self._publish_pending_interaction(
+                    state=state,
+                    url=url,
+                    timeout=timeout,
+                )
                 try:
-                    opened = self.open_url(url)
-                except Exception as exc:
-                    if not public_base_url:
+                    try:
+                        opened = self.open_url(url)
+                    except Exception as exc:
+                        if not public_base_url:
+                            raise RuntimeError(
+                                "Could not open the Z.AI Start Plan verification page: "
+                                + url
+                            ) from exc
+                        opened = False
+                        self.log(
+                            "WARN",
+                            "zai_start_plan_captcha_browser_open_failed "
+                            f"url={url} error={type(exc).__name__}",
+                        )
+                    if not opened and not public_base_url:
                         raise RuntimeError(
-                            "Could not open the Z.AI Start Plan verification page: "
-                            + url
-                        ) from exc
-                    opened = False
-                    self.log(
-                        "WARN",
-                        "zai_start_plan_captcha_browser_open_failed "
-                        f"url={url} error={type(exc).__name__}",
-                    )
-                if not opened and not public_base_url:
-                    raise RuntimeError(
-                        "Could not open the Z.AI Start Plan verification page: " + url
-                    )
-                result = receiver.wait()
+                            "Could not open the Z.AI Start Plan verification page: " + url
+                        )
+                    result = receiver.wait()
+                except Exception as exc:
+                    self._publish_interaction_status(interaction, "failed", str(exc))
+                    raise
+                self._publish_interaction_status(interaction, "completed")
         self.log(
             "INFO",
             "zai_start_plan_captcha_completed "
@@ -388,6 +401,32 @@ class ZaiStartPlanCaptchaBroker:
             CAPTCHA_PARAM_HEADER: result,
             CAPTCHA_REGION_HEADER: config.region,
         }
+
+    def _publish_pending_interaction(
+        self,
+        *,
+        state: str,
+        url: str,
+        timeout: float,
+    ) -> RuntimeInteractionEvent | None:
+        if self.interactions is None:
+            return None
+        return self.interactions.publish_pending(
+            request_id=state,
+            kind="zai-start-plan-captcha",
+            url=url,
+            timeout_seconds=timeout,
+            message="Complete the Aliyun CAPTCHA to continue the active model request.",
+        )
+
+    def _publish_interaction_status(
+        self,
+        event: RuntimeInteractionEvent | None,
+        status: str,
+        message: str = "",
+    ) -> None:
+        if self.interactions is not None and event is not None:
+            self.interactions.publish_status(event, status, message=message)
 
     @staticmethod
     def _timeout(options: Mapping[str, Any]) -> float:
@@ -443,10 +482,14 @@ class ZaiStartPlanRuntimeHeaderPreparer:
     """Reusable upstream callback backed by one serialized CAPTCHA broker."""
 
     log: Callable[[str, str], None] = lambda _level, _message: None
+    interactions: RuntimeInteractionRepository | None = None
     broker: ZaiStartPlanCaptchaBroker = field(init=False)
 
     def __post_init__(self) -> None:
-        self.broker = ZaiStartPlanCaptchaBroker(log=self.log)
+        self.broker = ZaiStartPlanCaptchaBroker(
+            log=self.log,
+            interactions=self.interactions,
+        )
 
     def __call__(
         self,

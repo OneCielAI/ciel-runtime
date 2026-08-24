@@ -26,6 +26,11 @@ from ciel_runtime_support.channel_pending_poll import (
     ChannelPendingPollState,
     poll_pending_channel_messages,
 )
+from ciel_runtime_support.runtime_interaction import (
+    RuntimeInteractionDisplayState,
+    RuntimeInteractionEvent,
+    poll_runtime_interaction,
+)
 
 
 @dataclass(frozen=True)
@@ -69,6 +74,7 @@ class ChannelTerminalPolling:
     wake_state: Callable[[int], Any]
     inflight_effects: Callable[[], Any]
     mark_body_fallback: Callable[[int, str], None]
+    runtime_interaction: Callable[[], RuntimeInteractionEvent | None] = lambda: None
 
     def input_busy(self) -> bool:
         """Whether terminal injection would be queued into an active turn."""
@@ -114,6 +120,28 @@ def windows_wake_requires_body_fallback(
     )
 
 
+def _runtime_interaction_bytes(notice: str) -> bytes:
+    normalized = str(notice or "").replace("\r\n", "\n").replace("\r", "\n")
+    return ("\r\n" + normalized.replace("\n", "\r\n") + "\r\n").encode(
+        "utf-8", errors="replace"
+    )
+
+
+def _display_windows_runtime_interaction(writer: Any, notice: str) -> None:
+    data = _runtime_interaction_bytes(notice)
+    display = getattr(writer, "write_parent_output", None)
+    if callable(display):
+        display(data)
+        return
+    stream = getattr(sys.stdout, "buffer", None)
+    if stream is not None:
+        stream.write(data)
+        stream.flush()
+        return
+    sys.stdout.write(data.decode("utf-8", errors="replace"))
+    sys.stdout.flush()
+
+
 def run_windows_channel_terminal_proxy(
     cmd: list[str],
     env: dict[str, str],
@@ -156,6 +184,7 @@ def run_windows_channel_terminal_proxy(
     process.write_child_record(tracked_child_pid_path, proc.pid, cmd)
     pending_poll_state = ChannelPendingPollState(last_id=policy.initial_cursor())
     compact_poll_state = ChannelCompactPollState()
+    interaction_display_state = RuntimeInteractionDisplayState()
     channel_enter_bytes = policy.enter_bytes(synthetic_enter_bytes)
     channel_input_ready_at = time.time() + console.startup_grace_seconds()
     # ConPTY is a byte stream and supports VT bracketed paste. The compatibility
@@ -290,6 +319,12 @@ def run_windows_channel_terminal_proxy(
                 pending_poll_services,
                 input_ready=now >= channel_input_ready_at,
             )
+            interaction_display_state = poll_runtime_interaction(
+                now,
+                interaction_display_state,
+                polling.runtime_interaction,
+                lambda notice: _display_windows_runtime_interaction(writer, notice),
+            )
             console.sleep(0.05)
         return proc.wait()
     finally:
@@ -353,6 +388,7 @@ def run_posix_channel_terminal_proxy(
     )
     compact_poll_services = ChannelCompactPollServices(inject_pending=polling.inject_compact)
     compact_poll_state = ChannelCompactPollState()
+    interaction_display_state = RuntimeInteractionDisplayState()
     pending_injection_options = ChannelPendingInjectionOptions(
         enabled=inject_channel_messages,
         web_chat_only=inject_web_chat_only,
@@ -473,6 +509,14 @@ def run_posix_channel_terminal_proxy(
                 pending_injection_options,
                 pending_poll_policy,
                 pending_poll_services,
+            )
+            interaction_display_state = poll_runtime_interaction(
+                now,
+                interaction_display_state,
+                polling.runtime_interaction,
+                lambda notice: terminal.write_all(
+                    stdout_fd, _runtime_interaction_bytes(notice)
+                ),
             )
         while True:
             try:

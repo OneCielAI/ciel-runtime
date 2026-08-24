@@ -3,6 +3,18 @@
 This file records stable Ciel Runtime releases. Changes are grouped by user-visible
 capability, followed by the complete commit ledger merged into each release.
 
+## 0.2.34 — 2026-08-24
+
+- Match ZCode's request-time CAPTCHA interaction lifecycle: pause the active
+  model request, expose the state-bound Aliyun verification URL in the attached
+  Codex/Claude terminal, and continue the same request after verification.
+- Keep CAPTCHA notices out of agent prompt input and channel wake submission;
+  the common terminal proxy displays request, completion, failure, and timed
+  reminders without synthesizing Enter.
+- Persist only the short-lived interaction state in the workspace router
+  instance and replace it atomically so remote/browserless hosts can surface a
+  pending challenge without persisting the returned CAPTCHA header.
+
 ## 0.2.33 — 2026-08-24
 
 - Send `User-Agent: ZCode/<configured app version>` for every Z.AI provider
