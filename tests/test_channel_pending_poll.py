@@ -7,10 +7,20 @@ from ciel_runtime_support.channel_pending_poll import (
     ChannelPendingPollState,
     poll_pending_channel_messages,
 )
-from ciel_runtime_support.channel_terminal_proxy import ChannelTerminalPolling
+from ciel_runtime_support.channel_terminal_proxy import (
+    ChannelTerminalPolling,
+    _runtime_interaction_bytes,
+)
 
 
 class ChannelPendingPollTests(unittest.TestCase):
+    def test_runtime_interaction_notice_preserves_child_tui_cursor(self):
+        rendered = _runtime_interaction_bytes("line one\nhttps://example.test/full")
+
+        self.assertTrue(rendered.startswith(b"\x1b7\r\n"))
+        self.assertTrue(rendered.endswith(b"\r\n\x1b8"))
+        self.assertIn(b"line one\r\nhttps://example.test/full", rendered)
+
     def options(self, *, enabled=True):
         return ChannelPendingInjectionOptions(
             enabled, False, True, True, 2, True, False, 0.1

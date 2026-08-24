@@ -110,6 +110,18 @@ knowledge:
     remaining: >-
       Publish/install the nightly on Mia and capture the terminal URL plus the
       browser completion response before changing status to verified.
+    first_mia_nightly_probe:
+      version: 0.2.34-nightly.20260824-165227.1eeb209
+      confirmed: >-
+        The pending CAPTCHA notice reached the attached Codex terminal while
+        the same model request remained in Working state.
+      defect_found: >-
+        Codex spinner/status redraw bytes overwrote part of the first URL line,
+        so the displayed URL was not reliably actionable.
+      correction: >-
+        Wrap parent-owned notices with DEC save/restore-cursor sequences; this
+        preserves the child TUI cursor while the notice is placed in scrollback.
+      correction_test: "7 channel pending-poll tests passed; Ruff passed"
 
   conclusion:
     confirmed: >-

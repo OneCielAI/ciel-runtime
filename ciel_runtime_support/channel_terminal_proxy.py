@@ -122,9 +122,11 @@ def windows_wake_requires_body_fallback(
 
 def _runtime_interaction_bytes(notice: str) -> bytes:
     normalized = str(notice or "").replace("\r\n", "\n").replace("\r", "\n")
-    return ("\r\n" + normalized.replace("\n", "\r\n") + "\r\n").encode(
-        "utf-8", errors="replace"
-    )
+    # The child TUI owns the live cursor. Preserve it while placing the notice
+    # in terminal scrollback so its next spinner redraw cannot overwrite the URL.
+    return (
+        "\x1b7\r\n" + normalized.replace("\n", "\r\n") + "\r\n\x1b8"
+    ).encode("utf-8", errors="replace")
 
 
 def _display_windows_runtime_interaction(writer: Any, notice: str) -> None:
