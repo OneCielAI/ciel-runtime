@@ -7,7 +7,7 @@ knowledge:
       Determine from Mia session data why a Z.AI Start Plan Codex turn remains
       in Working state, compare the installed ZCode interaction lifecycle, and
       expose an actionable CAPTCHA interaction in the Ciel terminal.
-    status: implemented_locally
+    status: verified_and_deployed
 
   evidence:
     runtime:
@@ -108,8 +108,8 @@ knowledge:
     lint: "Ruff passed"
     metadata: "23 Markdown files passed"
     remaining: >-
-      Publish/install the nightly on Mia and capture the terminal URL plus the
-      browser completion response before changing status to verified.
+      The CAPTCHA interaction task has no remaining verification step. The
+      post-verification provider HTTP 404 is recorded as a separate result.
     first_mia_nightly_probe:
       version: 0.2.34-nightly.20260824-165227.1eeb209
       confirmed: >-
@@ -133,6 +133,45 @@ knowledge:
         5 runtime-interaction tests, 7 channel pending-poll tests, 18 Windows
         ConPTY tests, 261 architecture tests, and the 382-test channel group
         passed; Ruff passed.
+    final_mia_roundtrip:
+      version: 0.2.34-nightly.20260824-171239.9ba14ff
+      git_head: 9ba14ff636ac7a65b9d971883f7aaee4e454b25a
+      terminal_request_id: nT5pfbYr9Pd6ojtXe9SvGTIUyXl7D8ZbPgfRY0vSyXg
+      terminal_observation: >-
+        The first terminal notice displayed the complete state-bound URL with
+        no stale Codex status columns appended. The URL matched the atomic
+        runtime-interaction record exactly.
+      browser_observation: >-
+        Chrome loaded the Ciel verification page titled Ciel Runtime · Z.AI
+        Start Plan verification. The official Aliyun SDK completed traceless
+        verification and the rendered page displayed Verification complete.
+        Returning to Ciel Runtime. A screenshot of this decisive frame was
+        captured in the task transcript.
+      lifecycle_observation: >-
+        The same runtime-interaction record changed from pending to completed
+        for the same request_id, and the paused request resumed immediately.
+      post_verification_upstream_result: >-
+        The resumed provider request returned HTTP 404 with body 404 page not
+        found. router-activity.json records event=error,
+        provider=zai-start-plan, model=glm-5.3, code=404. This is a separate
+        upstream request result and is not recorded as CAPTCHA success.
+    deployment:
+      local_install: >-
+        install.ps1 installed ciel-runtime 0.2.34 and the installed
+        channel_terminal_proxy.py contains the verified erase-line sequence.
+      nightly_npm: 0.2.34-nightly.20260824-171239.9ba14ff
+      nightly_git_head: 9ba14ff636ac7a65b9d971883f7aaee4e454b25a
+      nightly_publish_workflow: >-
+        GitHub Actions run 32755051280 completed successfully, including the
+        published-tarball verification step.
+      stable_npm: 0.2.34
+      stable_git_head: 9ba14ff636ac7a65b9d971883f7aaee4e454b25a
+      stable_publish_workflow: >-
+        GitHub Actions run 32755779318 completed successfully in 6m45s,
+        including the published-tarball verification step.
+      main_push: >-
+        origin/main advanced from 6f7bcf8 to 9ba14ff after the Mia browser
+        roundtrip succeeded.
 
   conclusion:
     confirmed: >-
@@ -145,4 +184,6 @@ knowledge:
       - MCP startup also reported independent HTTP 401 failures for codex_apps and webull.
     code_changes: >-
       Version 0.2.34 implements the ZCode-like request-time interaction bridge;
-      remote end-to-end evidence is still pending.
+      the terminal-to-browser-to-router lifecycle is verified on Mia. The
+      subsequent upstream HTTP 404 remains explicitly separate from the
+      verified CAPTCHA interaction lifecycle.
