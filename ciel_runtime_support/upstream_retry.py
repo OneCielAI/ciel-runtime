@@ -9,6 +9,7 @@ import json
 import time
 from typing import Any, Callable
 import urllib.error
+import urllib.parse
 import urllib.request
 
 from .upstream_error_policy import (
@@ -105,6 +106,15 @@ def _http_error_log_message(message: object, *, limit: int = 512) -> str:
     if len(compact) <= limit:
         return compact
     return compact[: max(0, limit - 1)] + "…"
+
+
+def _upstream_endpoint_identity(url: str) -> str:
+    """Return the request origin and path without query credentials or fragments."""
+
+    parsed = urllib.parse.urlsplit(str(url or ""))
+    return urllib.parse.urlunsplit(
+        (parsed.scheme, parsed.netloc, parsed.path, "", "")
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -336,6 +346,7 @@ def open_provider_request_with_key_retry(
     token_estimate = estimate_tokens(req_body)
     byte_estimate = len(json.dumps(req_body, ensure_ascii=False).encode("utf-8"))
     data_bytes = json.dumps(req_body).encode("utf-8")
+    endpoint = _upstream_endpoint_identity(url)
     for attempt in range(rate_limit_max_attempts):
         try:
             headers = prepare_runtime_headers(provider, pcfg, headers)
@@ -349,8 +360,9 @@ def open_provider_request_with_key_retry(
                 bytes=byte_estimate,
                 timeout=timeout,
                 stream=stream,
+                endpoint=endpoint,
             )
-            router_log("INFO", f"upstream_direct_request provider={provider} model={model} attempt={attempt + 1}/{max_attempts} tokens={token_estimate} bytes={byte_estimate} timeout={timeout}")
+            router_log("INFO", f"upstream_direct_request provider={provider} model={model} endpoint={endpoint} attempt={attempt + 1}/{max_attempts} tokens={token_estimate} bytes={byte_estimate} timeout={timeout}")
             req = urllib.request.Request(url, data=data_bytes, headers=headers, method="POST")
             resp = provider_urlopen(req, timeout=timeout, provider=provider, pcfg=pcfg)
             learn_router_rate_limit_headers(provider, pcfg, model, resp.headers)
@@ -415,11 +427,12 @@ def open_provider_request_with_key_retry(
                 tokens=token_estimate,
                 bytes=byte_estimate,
                 stream=stream,
+                endpoint=endpoint,
             )
             router_log(
                 "WARN",
                 f"upstream_direct_http_error provider={provider} model={model} "
-                f"code={exc.code} message={error_message!r} "
+                f"endpoint={endpoint} code={exc.code} message={error_message!r} "
                 f"tokens={token_estimate} bytes={byte_estimate}",
             )
             raise exc from original_exc

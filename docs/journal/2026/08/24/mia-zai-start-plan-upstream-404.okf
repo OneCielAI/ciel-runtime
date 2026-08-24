@@ -1,0 +1,44 @@
+format: okf
+kind: task-journal
+date: 2026-08-24
+task:
+  title: Mia Z.AI Start Plan upstream 404 diagnosis
+  evidence:
+    captcha:
+      request_id: 3Jocw762BuF5LYlliR0SbvlPxP6Zwo0jgzsTUx4dUwI
+      status: completed
+      browser: Verification complete. Returning to Ciel Runtime
+    routed_request:
+      provider: zai-start-plan
+      model: glm-5.3
+      status: 404
+      body: 404 page not found
+    direct_endpoint_probe:
+      openai:
+        url: https://zcode.z.ai/api/v1/zcode-plan/chat/completions
+        status: 404
+        body: 404 page not found
+      anthropic:
+        url: https://zcode.z.ai/api/v1/zcode-plan/anthropic/v1/messages
+        status: 400
+        body: '{"code":3007,"msg":"captcha verify failed"}'
+    runtime_projection:
+      protocol: anthropic_messages
+      calculated_url: https://zcode.z.ai/api/v1/zcode-plan/anthropic/v1/messages
+      query: empty
+  contradiction:
+    statement: The calculated Anthropic route exists, but the routed request returned the same 404 as the OpenAI route.
+    consequence: Do not change endpoint selection until the actual transmitted path is recorded.
+  instrumentation:
+    field: endpoint
+    redaction: Query and fragment are removed before persistence.
+    scope: Native provider request and terminal HTTP error activity.
+  verification:
+    automated:
+      focused: passed
+      unit_group:
+        tests: 1182
+        result: passed
+        skipped: 44
+      lint: passed
+    mia_runtime: pending

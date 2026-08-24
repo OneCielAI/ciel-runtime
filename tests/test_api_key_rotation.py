@@ -863,7 +863,7 @@ class ApiKeyRotationTests(unittest.TestCase):
         ):
             with self.assertRaises(urllib.error.HTTPError) as caught:
                 ciel_runtime.open_provider_request_with_key_retry(
-                    "https://api.anthropic.com/v1/messages",
+                    "https://api.anthropic.com/v1/messages?api_key=secret#fragment",
                     {"model": "claude-fable-5", "messages": [], "stream": True},
                     {"content-type": "application/json"},
                     300.0,
@@ -882,6 +882,10 @@ class ApiKeyRotationTests(unittest.TestCase):
         ]
         self.assertEqual(1, len(error_events))
         self.assertEqual(500, error_events[0].kwargs["code"])
+        self.assertEqual(
+            "https://api.anthropic.com/v1/messages",
+            error_events[0].kwargs["endpoint"],
+        )
         self.assertEqual(
             "api_error: Temporary upstream failure ref=req_123",
             error_events[0].kwargs["message"],
