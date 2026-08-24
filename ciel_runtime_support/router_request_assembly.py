@@ -203,10 +203,7 @@ class ClaudeRouterNormalizationPorts:
 
 @dataclass(frozen=True, slots=True)
 class ClaudeRouterTransportPorts:
-    native_base_url: Callback
-    native_compat_enabled: Callback
-    upstream_base: Callback
-    join_url: Callback
+    provider_endpoint: Callback
     upstream_query: Callback
     provider_headers: Callback
     apply_rate_limit: Callback
@@ -310,10 +307,7 @@ class ClaudeRouterAssembly:
                 strip_internal_metadata=self.normalization.strip_internal_metadata,
             ),
             transport=claude_router.ClaudeRouterTransport(
-                native_base_url=self.transport.native_base_url,
-                native_compat_enabled=self.transport.native_compat_enabled,
-                upstream_base=self.transport.upstream_base,
-                join_url=self.transport.join_url,
+                provider_endpoint=self.transport.provider_endpoint,
                 upstream_query=self.transport.upstream_query,
                 provider_headers=self.transport.provider_headers,
                 apply_rate_limit=self.transport.apply_rate_limit,

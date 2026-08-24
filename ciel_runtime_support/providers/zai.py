@@ -306,7 +306,7 @@ class ZaiStartPlanProviderAdapter(ZaiCodingPlanProviderAdapter):
     include_x_api_key: bool = True
     capabilities_value: ProviderCapabilities = field(
         default_factory=lambda: ProviderCapabilities(
-            upstream_protocol="openai_chat",
+            upstream_protocol="anthropic_messages",
             supports_thinking=True,
             requires_api_key=True,
         )
@@ -346,7 +346,8 @@ class ZaiStartPlanProviderAdapter(ZaiCodingPlanProviderAdapter):
     def supported_protocols(
         self, config: ProviderConfig, model: str | None = None
     ) -> frozenset[MessageProtocol]:
-        return super().supported_protocols(config, model)
+        del config, model
+        return frozenset({"anthropic_messages"})
 
     def select_protocol(
         self,
@@ -354,7 +355,8 @@ class ZaiStartPlanProviderAdapter(ZaiCodingPlanProviderAdapter):
         config: ProviderConfig,
         model: str | None = None,
     ) -> MessageProtocol:
-        return super().select_protocol(operation, config, model)
+        del operation, config, model
+        return "anthropic_messages"
 
     def router_native_anthropic_enabled(
         self, config: ProviderConfig, model: str | None = None

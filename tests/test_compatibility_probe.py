@@ -54,8 +54,6 @@ class CompatibilityApiKeyProbeBuilderTests(unittest.TestCase):
                 cap_body=lambda _p, _c, body: dict(body),
                 apply_options=lambda _p, _c, body: dict(body),
                 resolve_tool_models=lambda _p, _c, body: dict(body),
-                native_compat_enabled=lambda _p, _c: False,
-                native_base_url=lambda _p, _c: "https://native",
             ),
         )
 
@@ -92,7 +90,7 @@ class CompatibilityApiKeyProbeBuilderTests(unittest.TestCase):
 
         url, body, _headers = builder.build("provider", {}, "model", {"x": 1})
 
-        self.assertEqual("https://upstream/v1/messages", url)
+        self.assertEqual("https://route/anthropic_messages", url)
         self.assertEqual("resolved/model", body["model"])
 
 

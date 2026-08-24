@@ -100,8 +100,6 @@ class CompatibilityProbeAnthropicPorts:
         [str, ProviderConfig, RequestBody],
         RequestBody,
     ]
-    native_compat_enabled: Callable[[str, ProviderConfig], bool]
-    native_base_url: Callable[[str, ProviderConfig], str]
 
 
 @dataclass(frozen=True, slots=True)
@@ -187,11 +185,7 @@ class CompatibilityApiKeyProbeBuilder:
         body = dict(body)
         body["model"] = upstream_model
         body = self.anthropic.resolve_tool_models(provider, config, body)
-        if self.anthropic.native_compat_enabled(provider, config):
-            base = self.anthropic.native_base_url(provider, config)
-        else:
-            base = self.routing.request_base(provider, config)
-        return self.routing.join_url(base, "/v1/messages"), body, headers
+        return self.routing.endpoint(provider, config, "anthropic_messages"), body, headers
 
 
 @dataclass(frozen=True, slots=True)

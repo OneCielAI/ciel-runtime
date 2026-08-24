@@ -75,7 +75,8 @@ class ProviderLaunchEndpointPolicyTests(unittest.TestCase):
             "codex-app-server", "chat", {}
         )
         self.assertFalse(desired)
-        self.assertIn("OpenAI Chat compatible", reason)
+        self.assertIn("OpenAI Responses client protocol", reason)
+        self.assertIn("translation remains inside the router", reason)
 
     def test_anthropic_only_provider_overrides_runtime_preference(self):
         desired, reason = self.policy.preferred_native_compat(

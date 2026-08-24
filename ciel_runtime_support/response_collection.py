@@ -72,10 +72,7 @@ class AnthropicCollectionRequest:
 
 @dataclass(frozen=True, slots=True)
 class AnthropicCollectionTransport:
-    native_compat_enabled: Callable[..., bool]
-    native_base_url: Callable[..., str]
-    upstream_request_base: Callable[..., str]
-    join_url: Callable[..., str]
+    provider_endpoint: Callable[..., str]
     messages_query: Callable[..., str]
     provider_headers: Callable[..., dict[str, str]]
     apply_rate_limit: Callable[..., tuple[float, int, int]]
@@ -214,11 +211,7 @@ def collect_anthropic_message_for_responses(
     body = request.normalize_model_options(provider, pcfg, body, upstream_model)
     streaming = stream_collect is not None
     upstream_body = request.strip_internal_metadata({**body, "stream": streaming})
-    if transport.native_compat_enabled(provider, pcfg):
-        base = transport.native_base_url(provider, pcfg)
-    else:
-        base = transport.upstream_request_base(provider, pcfg)
-    url = transport.join_url(base, "/v1/messages")
+    url = transport.provider_endpoint(provider, pcfg, "anthropic_messages")
     upstream_query = transport.messages_query(pcfg, handler.path, provider)
     if upstream_query:
         url = f"{url}?{upstream_query}"

@@ -1,0 +1,81 @@
+okf_version: "1.0"
+knowledge:
+  task:
+    id: zai-start-plan-provider-runtime-boundary-20260824
+    date: "2026-08-24"
+    objective: >-
+      Preserve Codex's OpenAI Responses client protocol while routing Z.AI
+      Start Plan through the upstream protocol registered by official ZCode.
+    status: implementation-in-progress
+
+  evidence:
+    official_zcode_desktop:
+      version: "3.8.1"
+      source_url: >-
+        https://cdn-zcode.z.ai/zcode/electron/releases/3.8.1/linux-x64/ZCode-3.8.1-linux-x64.AppImage
+      appimage_sha256: >-
+        b420dea50961b77d5c75b08b924da41ab529c720a7ec32eacbe95a6d843199e0
+      bundled_runtime_sha256: >-
+        9318f60fb8c2c3bc83ce62da10220ebcdc9a99786df0a9abb1a4435ba66e4274
+      desktop_provider_registration: >-
+        The built-in zai-start-plan provider declares baseURL from
+        zcodePlanAnthropicBaseUrl, path /v1/messages, and only the anthropic
+        supported format for each registered model.
+      runtime_urls:
+        openai_base: https://zcode.z.ai/api/v1/zcode-plan
+        anthropic_base: https://zcode.z.ai/api/v1/zcode-plan/anthropic
+    mia_authenticated_probes:
+      openai_chat:
+        url: https://zcode.z.ai/api/v1/zcode-plan/chat/completions
+        result: "HTTP 404, body: 404 page not found"
+      anthropic_messages:
+        url: https://zcode.z.ai/api/v1/zcode-plan/anthropic/v1/messages
+        result: "HTTP 400, code 3007, msg: captcha verify failed"
+      identity_header_control: >-
+        The official ZCode header set and Ciel's existing ZCode identity subset
+        produced the same 404 at the OpenAI Chat route, rejecting missing
+        identity headers as the cause of that route result.
+      oauth_on_public_api_key_routes: >-
+        The Start Plan OAuth JWT returned HTTP 401 token expired or incorrect
+        on the documented Z.AI API-key OpenAI endpoints; those endpoints are
+        not established as OAuth Start Plan replacements.
+    codex_client:
+      observed_process_option: 'wire_api="responses"'
+      bounded_conclusion: >-
+        Codex's local client contract remains OpenAI Responses. Official ZCode
+        evidence establishes a separate Anthropic Messages contract at the
+        Start Plan provider boundary.
+
+  implementation:
+    client_boundary:
+      codex: openai_responses
+      changed: false
+    provider_boundary:
+      zai_start_plan: anthropic_messages
+      endpoint: https://zcode.z.ai/api/v1/zcode-plan/anthropic/v1/messages
+    routing_rule: >-
+      Protocol selection and endpoint resolution are owned by the provider
+      adapter. Response collection, Claude forwarding, context compaction, and
+      compatibility probing all consume that exact provider endpoint instead
+      of reconstructing /v1/messages from a runtime preference flag.
+    user_specific_exception: false
+
+  verification:
+    focused_tests:
+      zai_provider: "28 passed with final capability-location assertion"
+      context_compaction: "12 passed"
+      compatibility_probe: "6 passed"
+      provider_launch_endpoint: "7 passed"
+    full_regression:
+      unit: "1183 passed, 44 skipped"
+      router: "965 passed"
+      channel: "382 passed, 80 skipped"
+      runtime: "255 passed, 12 skipped"
+      lint: passed
+      documentation_metadata: passed
+      note: >-
+        The Z.AI focused and router groups were rerun after adding the final
+        capability-location assertion; the router rerun passed 965 tests.
+    local_install: pending
+    nightly_publish: pending
+    mia_live_request: pending

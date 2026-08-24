@@ -2204,8 +2204,7 @@ CONTEXT_COMPACT_MAP_SYSTEM_PROMPT = (
 def context_compaction_services() -> ContextCompactionServices:
     return ContextCompactionServices(
         transport=ContextCompactionTransport(context_compact_summary_output_tokens, provider_request_timeout_seconds, provider_endpoint,
-                                             post_json_with_rate_retry, provider_headers, context_compact_extract_text, provider_native_compat_enabled,
-                                             native_anthropic_base_url, provider_upstream_request_base, join_url),
+                                             post_json_with_rate_retry, provider_headers, context_compact_extract_text),
         workflow=ContextCompactionWorkflow(context_compact_segmented_mode, context_compaction_available, context_compact_instruction_index, anthropic_content_to_text,
                                            context_compact_chunk_target_tokens, split_messages_for_context_compact, context_compact_parallel_sessions,
                                            write_context_compact_activity, estimate_tokens, context_compact_request_summary),
@@ -2847,7 +2846,7 @@ def response_collection_context() -> ResponseCollectionContext:
             request=AnthropicCollectionRequest(normalize_thinking_for_non_anthropic_provider, normalize_anthropic_system_role_messages_for_provider, cap_anthropic_body_for_provider,
                                                apply_provider_request_options, rehydrate_suppressed_thinking_passback, resolve_requested_model, provider_upstream_model,
                                                resolve_tool_model_references, normalize_anthropic_model_request_options, finalized_anthropic_upstream_body),
-            transport=AnthropicCollectionTransport(provider_native_compat_enabled, native_anthropic_base_url, provider_upstream_request_base, join_url, upstream_messages_query,
+            transport=AnthropicCollectionTransport(provider_endpoint, upstream_messages_query,
                                                    provider_headers, apply_router_rate_limit, open_provider_request_with_key_retry, provider_request_timeout_seconds),
             projection=AnthropicCollectionProjection(normalize_response_thinking_for_non_anthropic_provider, append_synthetic_tasklist_to_message,
                                                      prepend_anthropic_text, rate_limit_notice),
@@ -2945,7 +2944,7 @@ def _router_request_context() -> RouterRequestContext:
         assembly.ClaudeRouterNormalizationPorts(normalize_request_for_provider_wire, normalize_thinking_for_non_anthropic_provider, normalize_anthropic_system_role_messages_for_provider,
                                                 cap_anthropic_body_for_provider, apply_provider_request_options, rehydrate_suppressed_thinking_passback, ncp_model_id_for_nvidia_hosted,
                                                 resolve_tool_model_references, normalize_anthropic_model_request_options, finalized_anthropic_upstream_body),
-        assembly.ClaudeRouterTransportPorts(native_anthropic_base_url, provider_native_compat_enabled, provider_upstream_request_base, join_url, upstream_messages_query,
+        assembly.ClaudeRouterTransportPorts(provider_endpoint, upstream_messages_query,
                                             provider_headers, apply_router_rate_limit, open_provider_request_with_key_retry, provider_request_timeout_seconds, provider_stream_idle_timeout_seconds),
         assembly.ClaudeRouterResponsePorts(_rebatch_anthropic_sse_text, preserves_anthropic_thinking_contract, should_normalize_anthropic_stream_tool_use,
                                            set_upstream_stream_read_timeout, normalize_response_thinking_for_non_anthropic_provider, append_synthetic_tasklist_to_message,
@@ -3631,8 +3630,7 @@ def compatibility_api_key_probe_request( provider: str, pcfg: dict[str, Any], mo
                                             provider_headers, provider_request_policy),
         CompatibilityProbeRoutingPorts(ollama_chat_request, openai_compatible_chat_request, provider_endpoint, opencode_endpoint_kind,
                                         provider_openai_router_enabled, provider_upstream_request_base, join_url, ncp_model_id_for_nvidia_hosted),
-        CompatibilityProbeAnthropicPorts(cap_anthropic_body_for_provider, apply_provider_request_options, resolve_tool_model_references,
-                                          provider_native_compat_enabled, native_anthropic_base_url),
+        CompatibilityProbeAnthropicPorts(cap_anthropic_body_for_provider, apply_provider_request_options, resolve_tool_model_references),
     ).build(provider, pcfg, model, request_body)
 
 def run_compatibility_api_key_probes(provider: str, pcfg: dict[str, Any], model: str, request_body: dict[str, Any], timeout: float) -> list[str]:
@@ -3788,10 +3786,11 @@ def provider_upstream_summary_for_launch(provider: str, pcfg: dict[str, Any]) ->
     try:
         if provider in ("ollama", "ollama-cloud"):
             return f"upstream={join_url(base, '/api/chat')}"
-        if provider_openai_router_enabled(provider, pcfg) or codex_openai_router_enabled(provider, pcfg):
-            return f"upstream={join_url(provider_upstream_request_base(provider, pcfg), '/v1/chat/completions')}"
-        native_base = native_anthropic_base_url(provider, pcfg) if provider_native_compat_enabled(provider, pcfg) else provider_upstream_request_base(provider, pcfg)
-        return f"upstream={join_url(native_base, '/v1/messages')}"
+        model = str(pcfg.get("current_model") or pcfg.get("model") or "")
+        protocol = select_provider_protocol(
+            provider, pcfg, "anthropic_messages", model
+        )
+        return f"upstream={provider_endpoint(provider, pcfg, protocol)}"
     except Exception:
         return f"upstream_base={base}"
 

@@ -89,10 +89,7 @@ class ClaudeRouterNativeNormalization:
 
 @dataclass(frozen=True, slots=True)
 class ClaudeRouterTransport:
-    native_base_url: Callable[..., Any]
-    native_compat_enabled: Callable[..., Any]
-    upstream_base: Callable[..., Any]
-    join_url: Callable[..., Any]
+    provider_endpoint: Callable[..., Any]
     upstream_query: Callable[..., Any]
     provider_headers: Callable[..., Any]
     apply_rate_limit: Callable[..., Any]
@@ -182,7 +179,6 @@ def handle_claude_messages_post(
     forward_ollama_api_chat = routing.forward_ollama
     forward_openai_compatible_chat = routing.forward_openai
     is_client_disconnect_error = delivery.is_client_disconnect
-    join_url = transport.join_url
     key_from_request_headers = response.key_from_headers
     mark_pending_channel_delivery_failed = delivery.mark_failed
     mark_pending_channel_delivery_success = delivery.mark_success
@@ -194,7 +190,6 @@ def handle_claude_messages_post(
     maybe_handle_plan_mode_tool_choice = shortcuts.plan_mode
     maybe_handle_router_debug_request = shortcuts.router_debug
     maybe_handle_version_request = shortcuts.version
-    native_anthropic_base_url = transport.native_base_url
     ncp_model_id_for_nvidia_hosted = normalization.ncp_model_id
     normalize_anthropic_model_request_options = normalization.normalize_model_options
     normalize_anthropic_system_role_messages = normalization.normalize_system_roles
@@ -207,11 +202,9 @@ def handle_claude_messages_post(
     preserves_anthropic_thinking_contract = response.preserves_thinking
     provider_headers = transport.provider_headers
     provider_labels = routing.provider_labels
-    provider_native_compat_enabled = transport.native_compat_enabled
     provider_request_policy = routing.request_policy
     provider_request_timeout_seconds = transport.request_timeout
     provider_stream_idle_timeout_seconds = transport.idle_timeout
-    provider_upstream_request_base = transport.upstream_base
     rate_limit_notice = response.rate_limit_notice
     register_api_key_cooldown = response.register_key_cooldown
     rehydrate_suppressed_thinking_passback = normalization.rehydrate_thinking
@@ -335,8 +328,7 @@ def handle_claude_messages_post(
         if not stream_enabled:
             body["stream"] = False
         upstream_body = body_without_ciel_runtime_internal_metadata(body)
-        base = native_anthropic_base_url(provider, pcfg) if provider_native_compat_enabled(provider, pcfg) else provider_upstream_request_base(provider, pcfg)
-        url = join_url(base, "/v1/messages")
+        url = transport.provider_endpoint(provider, pcfg, "anthropic_messages")
         upstream_query = upstream_messages_query(pcfg, self.path, provider)
         if upstream_query:
             url = f"{url}?{upstream_query}"

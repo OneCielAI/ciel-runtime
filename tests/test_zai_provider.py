@@ -46,6 +46,15 @@ class ZaiProviderTests(unittest.TestCase):
         )
         coding = ciel_runtime.DEFAULT_CONFIG["providers"]["zai-coding-plan"]
         start = ciel_runtime.DEFAULT_CONFIG["providers"]["zai-start-plan"]
+        start_adapter = ciel_runtime.configured_provider_adapter(
+            "zai-start-plan", start
+        )
+        self.assertEqual(
+            "anthropic_messages",
+            start_adapter.capabilities(
+                ciel_runtime.provider_contract_config("zai-start-plan", start)
+            ).upstream_protocol,
+        )
         self.assertEqual(
             "https://api.z.ai/api/anthropic",
             ciel_runtime.native_anthropic_base_url("zai-coding-plan", coding),
@@ -65,7 +74,7 @@ class ZaiProviderTests(unittest.TestCase):
             ),
         )
         self.assertEqual(
-            "openai_chat",
+            "anthropic_messages",
             ciel_runtime.select_provider_protocol(
                 "zai-start-plan", start, "openai_responses", "glm-5.3"
             ),
@@ -76,8 +85,14 @@ class ZaiProviderTests(unittest.TestCase):
                 "zai-start-plan", start, "anthropic_messages", "glm-5.3"
             ),
         )
+        self.assertEqual(
+            "upstream=https://zcode.z.ai/api/v1/zcode-plan/anthropic/v1/messages",
+            ciel_runtime.provider_upstream_summary_for_launch(
+                "zai-start-plan", start
+            ),
+        )
 
-    def test_start_plan_uses_runtime_preferred_protocol(self):
+    def test_start_plan_keeps_codex_client_protocol_separate_from_upstream(self):
         start = copy.deepcopy(
             ciel_runtime.DEFAULT_CONFIG["providers"]["zai-start-plan"]
         )
@@ -99,7 +114,19 @@ class ZaiProviderTests(unittest.TestCase):
         self.assertFalse(
             ciel_runtime.provider_native_compat_enabled("zai-start-plan", start)
         )
-        self.assertTrue(any("OpenAI Chat" in line for line in lines))
+        self.assertTrue(any("OpenAI Responses client protocol" in line for line in lines))
+        self.assertEqual(
+            "anthropic_messages",
+            ciel_runtime.select_provider_protocol(
+                "zai-start-plan", start, "openai_responses", "glm-5.3"
+            ),
+        )
+        self.assertEqual(
+            "https://zcode.z.ai/api/v1/zcode-plan/anthropic/v1/messages",
+            ciel_runtime.provider_endpoint(
+                "zai-start-plan", start, "anthropic_messages"
+            ),
+        )
         save.assert_called_once_with(cfg)
         clear_cache.assert_called_once()
 

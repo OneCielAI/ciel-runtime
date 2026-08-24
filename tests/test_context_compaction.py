@@ -21,7 +21,7 @@ from ciel_runtime_support.ollama_wire_projection import (
 
 
 class ContextCompactionTests(unittest.TestCase):
-    def services(self, *, available=True, native_compat=False, split_messages=None):
+    def services(self, *, available=True, split_messages=None):
         post_json = mock.Mock(return_value={})
         transport = ContextCompactionTransport(
             summary_output_tokens=lambda _config, _budget: 512,
@@ -30,10 +30,6 @@ class ContextCompactionTests(unittest.TestCase):
             post_json=post_json,
             headers=lambda _provider, _config: {"Authorization": "test"},
             extract_text=lambda _data, _wire: "summary",
-            native_compat_enabled=lambda _provider, _config: native_compat,
-            native_anthropic_base=lambda _provider, _config: "https://native",
-            upstream_base=lambda _provider, _config: "https://upstream",
-            join_url=lambda base, path: base + path,
         )
         workflow = ContextCompactionWorkflow(
             segmented_mode=lambda config, instruction: (
@@ -300,13 +296,13 @@ class ContextCompactionTests(unittest.TestCase):
         self.assertNotIn("options", request)
         self.assertEqual("300", request["keep_alive"])
 
-    def test_anthropic_summary_uses_native_messages_endpoint(self):
-        services = self.services(native_compat=True)
+    def test_anthropic_summary_uses_provider_messages_endpoint(self):
+        services = self.services()
         request_context_summary(
             "remote", "model", {}, "prompt", services, wire="anthropic", budget_tokens=1000
         )
         url, request = services.transport.post_json.call_args.args[:2]
-        self.assertEqual("https://native/v1/messages", url)
+        self.assertEqual("https://test/anthropic_messages", url)
         self.assertEqual("compact", request["system"])
         self.assertFalse(
             services.transport.post_json.call_args.kwargs["retry_rate_limits"]

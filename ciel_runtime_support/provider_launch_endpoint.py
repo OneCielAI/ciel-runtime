@@ -64,6 +64,26 @@ class ProviderLaunchEndpointPolicy:
         runtime = str(runtime or "").strip().casefold()
         if provider in self.groups.native_runtimes:
             return None, ""
+        if runtime in {"codex", "codex-app-server"}:
+            if provider in self.groups.model_specific:
+                endpoint = self.query.endpoint_kind(
+                    provider,
+                    str(config.get("current_model") or ""),
+                    config,
+                )
+                if endpoint == "openai-chat":
+                    return (
+                        False,
+                        "Codex prefers the model's OpenAI Chat compatible "
+                        "endpoint",
+                    )
+                return None, ""
+            if provider in self.groups.codex_openai:
+                return (
+                    False,
+                    "Codex keeps its OpenAI Responses client protocol; "
+                    "provider protocol translation remains inside the router",
+                )
         protocols = self.query.supported_protocols(provider, config)
         if protocols == frozenset({"anthropic_messages"}):
             return (
@@ -94,23 +114,4 @@ class ProviderLaunchEndpointPolicy:
                 if endpoint == "openai-chat":
                     return False, "selected model uses an OpenAI Chat endpoint"
             return None, ""
-        if runtime in {"codex", "codex-app-server"}:
-            if provider in self.groups.model_specific:
-                endpoint = self.query.endpoint_kind(
-                    provider,
-                    str(config.get("current_model") or ""),
-                    config,
-                )
-                if endpoint == "openai-chat":
-                    return (
-                        False,
-                        "Codex prefers the model's OpenAI Chat compatible "
-                        "endpoint",
-                    )
-                return None, ""
-            if provider in self.groups.codex_openai:
-                return (
-                    False,
-                    "Codex prefers OpenAI Chat compatible upstream routing",
-                )
         return None, ""

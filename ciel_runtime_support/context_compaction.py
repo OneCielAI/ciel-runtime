@@ -23,10 +23,6 @@ class ContextCompactionTransport:
     post_json: Callable[..., Any]
     headers: Callable[[str, dict[str, Any]], dict[str, str]]
     extract_text: Callable[[Any, str], str]
-    native_compat_enabled: Callable[[str, dict[str, Any]], bool]
-    native_anthropic_base: Callable[[str, dict[str, Any]], str]
-    upstream_base: Callable[[str, dict[str, Any]], str]
-    join_url: Callable[[str, str], str]
 
 
 @dataclass(frozen=True)
@@ -110,12 +106,7 @@ def request_context_summary(
             "max_tokens": max_tokens,
             "stream": False,
         }
-        base = (
-            transport.native_anthropic_base(provider, provider_config)
-            if transport.native_compat_enabled(provider, provider_config)
-            else transport.upstream_base(provider, provider_config)
-        )
-        url = transport.join_url(base, "/v1/messages")
+        url = transport.endpoint(provider, provider_config, "anthropic_messages")
         return _post_summary(
             provider, model, provider_config, request, url, "anthropic", timeout, services
         )
