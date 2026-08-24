@@ -348,6 +348,15 @@ class ZaiStartPlanProviderAdapter(ZaiCodingPlanProviderAdapter):
         del operation, config, model
         return "anthropic_messages"
 
+    def router_native_anthropic_enabled(
+        self, config: ProviderConfig, model: str | None = None
+    ) -> bool:
+        # The verified Start Plan gateway exposes only its Anthropic Messages
+        # route.  A persisted ``native_compat=false`` value from an older Codex
+        # launch must not redirect it to the non-existent /v1/messages route.
+        del config, model
+        return True
+
     def build_headers(
         self, config: ProviderConfig, api_key: str | None
     ) -> Mapping[str, str]:

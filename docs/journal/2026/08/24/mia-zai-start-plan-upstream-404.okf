@@ -37,8 +37,25 @@ task:
       calculated_url: https://zcode.z.ai/api/v1/zcode-plan/anthropic/v1/messages
       query: empty
   contradiction:
-    statement: The calculated Anthropic route exists, but the routed request returned the same 404 as the OpenAI route.
-    consequence: Do not change endpoint selection until the actual transmitted path is recorded.
+    statement: The global provider config was native_compat=true, while the workspace-scoped config used by the routed launch was native_compat=false.
+    resolved_by: Runtime preparation logging exposed the actual route selected from the workspace config.
+  root_cause:
+    runtime_version: 0.2.36-nightly.20260824-184440.2bb06fc
+    router_port: 8801
+    workspace_id: 9ab536464774
+    workspace_config: /home/mia/.config/ciel-runtime/workspaces/9ab536464774/config.json
+    workspace_native_compat: false
+    actual_prepared_endpoint: https://zcode.z.ai/api/v1/zcode-plan/v1/messages
+    expected_endpoint: https://zcode.z.ai/api/v1/zcode-plan/anthropic/v1/messages
+    code_evidence:
+      - zai-start-plan was listed in CODEX_OPENAI_COMPATIBLE_ROUTER_PROVIDERS.
+      - Codex launch policy persisted native_compat=false for that workspace.
+      - ZaiStartPlanProviderAdapter supports only anthropic_messages.
+      - The measured Start Plan OpenAI path returned 404 while the Anthropic path existed.
+  correction:
+    - Remove zai-start-plan from the Codex OpenAI-compatible provider group.
+    - Make the Start Plan adapter enforce its Anthropic-only routing contract even when a legacy workspace setting is false.
+    - Make launch policy repair native_compat for any provider whose adapter exposes only anthropic_messages.
   instrumentation:
     field: endpoint
     redaction: Query and fragment are removed before persistence.

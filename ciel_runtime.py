@@ -1556,7 +1556,7 @@ def preferred_native_compat_for_launch_runtime(runtime: str, provider: str, pcfg
     policy = build_default_provider_launch_endpoint_policy(
         query=ProviderLaunchEndpointQueries(
             detect_native_compat=auto_detect_native_compat_for_base_url,
-            endpoint_kind=opencode_endpoint_kind,
+            endpoint_kind=opencode_endpoint_kind, supported_protocols=lambda provider, config: configured_provider_adapter(provider, config).supported_protocols(provider_contract_config(provider, config), str(config.get("current_model") or "")),
         ),
     )
     return policy.preferred_native_compat(runtime, provider, pcfg)

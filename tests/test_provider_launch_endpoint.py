@@ -14,6 +14,9 @@ class ProviderLaunchEndpointPolicyTests(unittest.TestCase):
             ProviderLaunchEndpointQueries(
                 detect_native_compat=lambda _provider, _config: (None, ""),
                 endpoint_kind=lambda _provider, _model, _config: "openai-chat",
+                supported_protocols=lambda _provider, _config: frozenset(
+                    {"openai_chat"}
+                ),
             )
         )
         self.assertIn("ollama", policy.groups.native_runtimes)
@@ -35,6 +38,11 @@ class ProviderLaunchEndpointPolicyTests(unittest.TestCase):
                     "detected",
                 ),
                 endpoint_kind=lambda _provider, model, _config: model,
+                supported_protocols=lambda provider, _config: (
+                    frozenset({"anthropic_messages"})
+                    if provider == "messages-only"
+                    else frozenset({"openai_chat", "anthropic_messages"})
+                ),
             ),
         )
 
@@ -68,6 +76,13 @@ class ProviderLaunchEndpointPolicyTests(unittest.TestCase):
         )
         self.assertFalse(desired)
         self.assertIn("OpenAI Chat compatible", reason)
+
+    def test_anthropic_only_provider_overrides_runtime_preference(self):
+        desired, reason = self.policy.preferred_native_compat(
+            "codex", "messages-only", {"native_compat": False}
+        )
+        self.assertTrue(desired)
+        self.assertIn("only an Anthropic Messages", reason)
 
     def test_unrelated_runtime_has_no_preference(self):
         self.assertEqual(

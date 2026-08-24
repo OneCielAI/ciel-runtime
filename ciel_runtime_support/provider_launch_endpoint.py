@@ -29,6 +29,7 @@ class ProviderLaunchEndpointQueries:
         [str, dict[str, Any]], tuple[bool | None, str]
     ]
     endpoint_kind: Callable[[str, str, dict[str, Any]], str]
+    supported_protocols: Callable[[str, dict[str, Any]], frozenset[str]]
 
 
 def build_default_provider_launch_endpoint_policy(
@@ -63,6 +64,12 @@ class ProviderLaunchEndpointPolicy:
         runtime = str(runtime or "").strip().casefold()
         if provider in self.groups.native_runtimes:
             return None, ""
+        protocols = self.query.supported_protocols(provider, config)
+        if protocols == frozenset({"anthropic_messages"}):
+            return (
+                True,
+                "provider exposes only an Anthropic Messages compatible endpoint",
+            )
         if runtime == "claude":
             if provider in self.groups.auto_detect:
                 return self.query.detect_native_compat(provider, config)

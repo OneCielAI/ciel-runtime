@@ -61,6 +61,33 @@ class ZaiProviderTests(unittest.TestCase):
             ),
         )
 
+    def test_start_plan_repairs_legacy_codex_openai_compat_setting(self):
+        start = copy.deepcopy(
+            ciel_runtime.DEFAULT_CONFIG["providers"]["zai-start-plan"]
+        )
+        start["native_compat"] = False
+        cfg = {
+            "current_provider": "zai-start-plan",
+            "providers": {"zai-start-plan": start},
+        }
+
+        self.assertNotIn(
+            "zai-start-plan", ciel_runtime.CODEX_OPENAI_COMPATIBLE_ROUTER_PROVIDERS
+        )
+        self.assertTrue(
+            ciel_runtime.provider_native_compat_enabled("zai-start-plan", start)
+        )
+        with (
+            mock.patch.object(ciel_runtime, "save_config") as save,
+            mock.patch.object(ciel_runtime, "clear_model_cache") as clear_cache,
+        ):
+            lines = ciel_runtime.apply_launch_endpoint_policy(cfg, "codex")
+
+        self.assertTrue(start["native_compat"])
+        self.assertTrue(any("Anthropic Messages" in line for line in lines))
+        save.assert_called_once_with(cfg)
+        clear_cache.assert_called_once()
+
     def test_start_plan_headers_use_its_oauth_jwt_and_zcode_identity(self):
         pcfg = copy.deepcopy(ciel_runtime.DEFAULT_CONFIG["providers"]["zai-start-plan"])
         pcfg["api_key"] = "oauth-jwt"

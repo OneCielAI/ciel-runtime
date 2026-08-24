@@ -3198,7 +3198,7 @@ class ArchitectureContractTests(unittest.TestCase):
     def test_launch_endpoint_preference_is_owned_by_typed_policy(self):
         self.assertEqual(2, len(fields(ProviderLaunchEndpointPolicy)))
         self.assertEqual(5, len(fields(ProviderLaunchEndpointGroups)))
-        self.assertEqual(2, len(fields(ProviderLaunchEndpointQueries)))
+        self.assertEqual(3, len(fields(ProviderLaunchEndpointQueries)))
 
         root = Path(__file__).resolve().parents[1]
         source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
