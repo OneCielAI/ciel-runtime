@@ -74,7 +74,20 @@ knowledge:
       runtime: "255 passed, 12 skipped"
       lint: passed
       documentation_metadata: passed
+    deployment:
+      source_commit: 57fd0fff411e3c603669b76179281a1890e4b629
+      local_source_install: passed
+      nightly_ci_run: 32767435252
+      nightly_ci_result: success
+      nightly_publish_run: 32767435296
+      nightly_publish_result: success
+      nightly_version: 0.2.36-nightly.20260824-192133.57fd0ff
+      npm_git_head: 57fd0fff411e3c603669b76179281a1890e4b629
+      mia_installed_version: 0.2.36-nightly.20260824-192133.57fd0ff
+      mia_installed_projection:
+        codex_protocol: openai_chat
+        codex_endpoint: https://zcode.z.ai/api/v1/zcode-plan/chat/completions
+        claude_protocol: anthropic_messages
+        claude_endpoint: https://zcode.z.ai/api/v1/zcode-plan/anthropic/v1/messages
     pending:
-      - local deployment
-      - nightly publish
       - post-deployment Mia endpoint activity verification
