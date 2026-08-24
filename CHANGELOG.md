@@ -3,6 +3,13 @@
 This file records stable Ciel Runtime releases. Changes are grouped by user-visible
 capability, followed by the complete commit ledger merged into each release.
 
+## 0.2.31 — 2026-08-24
+
+- Force Z.AI Start Plan OAuth through the state-bound
+  `http://localhost:9899/callback` authorization-code flow even when ZCode's
+  hosted CLI init endpoint is available; Coding Plan keeps its hosted polling
+  flow and existing 404 fallback.
+
 ## 0.2.30 — 2026-08-24
 
 - Enabled Z.AI Start Plan routed clients by acquiring a fresh request-scoped

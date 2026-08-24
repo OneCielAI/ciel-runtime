@@ -348,6 +348,13 @@ class ZaiOAuthService:
         profile: str = "coding-plan",
     ) -> ZaiOAuthResult:
         poll_token = self.random_token()
+        if profile == "start-plan":
+            return self._authorization_code_login(
+                state=poll_token,
+                no_browser=no_browser,
+                on_authorize_url=on_authorize_url,
+                profile=profile,
+            )
         try:
             initialized = self.client.initialize(poll_token)
         except ZaiOAuthError as exc:

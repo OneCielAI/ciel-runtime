@@ -1,0 +1,61 @@
+okf_version: "1.0"
+knowledge:
+  task:
+    id: kevin-remote-assets-load-diagnosis-20260824
+    date: "2026-08-24"
+    objective: >-
+      Determine from Kevin's live machine and current Codex transcript whether
+      the remote system instructions and memory tree failed to download or load.
+    status: diagnosed
+
+  environment:
+    host: kevin-codex@100.95.132.58
+    workspace: /home/kevin-codex
+    workspace_digest: ea36accb7699
+    ciel_launch_utc: "2026-08-24T14:19:15Z"
+    codex_launch_utc: "2026-08-24T14:19:42Z"
+
+  evidence:
+    legacy_path:
+      path: /home/kevin-codex/.aap/system-prompt.txt
+      bytes: 0
+      modified_utc: "2026-06-24T07:30:10Z"
+      current_ciel_runtime_input: false
+    remote_instructions:
+      enabled: true
+      target: /home/kevin-codex/AGENTS.md
+      bytes: 6886
+      modified_utc: "2026-08-24T14:19:39Z"
+      state_reason: launch
+      normalized_sha256: c27ee5026c7e7bc9083593a9abf7a8bcf025359108c63b1d8dfa5a6e46edddc0
+    remote_memory:
+      enabled: true
+      root: /home/kevin-codex/.ciel/memory
+      index: /home/kevin-codex/.ciel/memory/index.md
+      index_bytes: 12499
+      file_count: 87
+      modified_utc: "2026-08-24T14:19:39Z"
+      state_reason: launch
+    native_pointer:
+      agents_begin_markers: 1
+      agents_end_markers: 1
+      memory_root: .ciel/memory
+      memory_index: .ciel/memory/index.md
+    codex_transcript:
+      session_id: 01a00b77-e165-75a3-8255-17f55de2ebcf
+      load_event_utc: "2026-08-24T14:19:47.293Z"
+      event_type: response_item
+      role: user
+      content_chars: 6453
+      agent_profile_marker_present: true
+      remote_memory_marker_present: true
+      memory_index_path_present: true
+
+  conclusion:
+    download_failure_observed: false
+    load_failure_observed_after_current_restart: false
+    confirmed_cause_of_report: >-
+      The 14:17 agent response inspected the obsolete zero-byte
+      .aap/system-prompt.txt path. The active workspace-scoped assets are
+      AGENTS.md and .ciel/memory, and the current 14:19 restart downloaded and
+      injected them before Codex began processing.

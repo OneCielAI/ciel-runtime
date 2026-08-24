@@ -1,0 +1,60 @@
+okf_version: "1.0"
+knowledge:
+  task:
+    id: zai-start-plan-localhost-oauth-routing-20260824
+    date: "2026-08-24"
+    objective: >-
+      Ensure Start Plan OAuth redirects to the Ciel Runtime localhost callback
+      instead of using ZCode's hosted CLI callback and polling flow.
+    status: validated
+
+  evidence:
+    hosted_init:
+      endpoint: https://zcode.z.ai/api/v1/oauth/cli/init
+      observed_status: 200
+      observed_redirect_uri: https://zcode.z.ai/api/v1/oauth/cli/callback/zai
+      prior_behavior: hosted polling selected because fallback ran only on 404
+    localhost_authorization:
+      authorize_endpoint: https://chat.z.ai/api/oauth/authorize
+      redirect_uri: http://localhost:9899/callback
+      browser_redirect_observed: true
+      callback_listener_received: true
+      token_exchange_observed: true
+      jwt_length_observed: 231
+      user_identity_present: true
+
+  implementation:
+    start_plan:
+      flow: localhost-authorization-code
+      hosted_init_called: false
+      callback_state_validation: required
+    coding_plan:
+      flow: hosted-init-poll
+      localhost_fallback_on_init_404: preserved
+
+  validation:
+    targeted_tests:
+      status: passed
+      results:
+        test_zai_oauth: 16
+        test_zai_oauth_callback: 5
+        test_zai_provider: 24
+    full_suite:
+      status: passed
+      results:
+        unit: "1177 passed, 44 skipped"
+        router: "952 passed"
+        channel: "381 passed, 80 skipped"
+        runtime: "255 passed, 12 skipped"
+    live_oauth:
+      source_cli_authorize_url_uses_localhost: true
+      browser_redirect_received: true
+      state_validation_passed: true
+      token_exchange_passed: true
+    local_deployment:
+      status: passed
+      installed_version: 0.2.31
+      source_installed_sha256_match: true
+      start_plan_credential_status: connected
+    release:
+      status: pending

@@ -295,6 +295,39 @@ class ZaiOAuthRuntimeTests(unittest.TestCase):
             http.calls[1][2]["body"]["redirect_uri"],
         )
 
+    def test_start_plan_always_uses_localhost_callback_instead_of_hosted_init(self):
+        http = FakeHttp([
+            {
+                "code": 0,
+                "data": {
+                    "token": "start-jwt",
+                    "zai": {"access_token": "oauth-access"},
+                    "user": {"user_id": "user-1"},
+                },
+            },
+        ])
+        urls = []
+        service = ZaiOAuthService(
+            ZaiOAuthClient(http),
+            open_url=lambda _url: self.fail("--no-browser must not open a browser"),
+            callback_receiver_factory=FakeLocalCallbackReceiver,
+            random_token=lambda: "state-1",
+        )
+
+        result = service.login(
+            no_browser=True,
+            on_authorize_url=urls.append,
+            profile="start-plan",
+        )
+
+        self.assertEqual("start-jwt", result.api_key)
+        self.assertEqual(1, len(http.calls))
+        self.assertTrue(http.calls[0][1].endswith("/oauth/token"))
+        self.assertIn(
+            "redirect_uri=http%3A%2F%2Flocalhost%3A9899%2Fcallback",
+            urls[0],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
