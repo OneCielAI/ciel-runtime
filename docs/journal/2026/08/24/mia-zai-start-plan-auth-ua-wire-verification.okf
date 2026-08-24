@@ -1,0 +1,57 @@
+okf_version: "1.0"
+knowledge:
+  task:
+    id: mia-zai-start-plan-auth-ua-wire-verification-20260824
+    date: "2026-08-24"
+    objective: >-
+      Verify from evidence whether Mia's Z.AI Start Plan routed requests carry
+      the OAuth bearer credential and the exact ZCode CLI user agent.
+    status: complete
+
+  evidence:
+    official_zcode_runtime:
+      installed_cli_package: zcode-app-cli@3.8.1-15
+      app_version: 3.8.1
+      header_builder_observation: >-
+        The bundled ZCode runtime constructs User-Agent as ZCode/<appVersion>.
+    mia_installed_ciel_runtime:
+      version: 0.2.31-nightly.20260824-143754.e0bf793
+      provider: zai-start-plan
+      model: ciel-runtime-zai-start-plan-glm-5.3-1m
+      wire_capture:
+        user_agent: ZCode/3.8.1
+        authorization_present: true
+        authorization_scheme: Bearer
+        authorization_token_matches_configured_credential: true
+        x_api_key_present: false
+      secret_handling: >-
+        The credential value was not printed; verification used equality and
+        scheme checks only.
+    connection_failure:
+      reproduced_stage: pre-request CAPTCHA header acquisition
+      elapsed_seconds: 0.759
+      browser_probe: Python webbrowser.get() could not locate a runnable browser
+      request_reached_zai_gateway: false
+      conclusion: >-
+        The observed Mia failure occurs before the Z.AI model request, so the
+        verified Authorization and User-Agent headers are not its failing stage.
+
+  implementation:
+    runtime_behavior_change: none
+    reason: >-
+      The installed code already emits the required OAuth and ZCode identity
+      headers. A behavior change without contrary wire evidence would violate
+      the evidence-only modification rule.
+    regression_coverage:
+      file: tests/test_zai_provider.py
+      assertion: >-
+        A real loopback HTTP request must retain User-Agent ZCode/3.8.1 and the
+        OAuth Bearer token and must not add X-Api-Key.
+
+  verification:
+    completed:
+      - Mia installed-package wire capture
+      - ZCode CLI version comparison
+      - focused Z.AI regression tests: 29 passed
+      - full regression suite: 2766 passed and 136 skipped
+    pending: []

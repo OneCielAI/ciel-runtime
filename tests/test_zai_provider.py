@@ -2,10 +2,13 @@ import copy
 import io
 import json
 import tempfile
+import threading
 import unittest
 from contextlib import redirect_stdout
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from unittest import mock
+import urllib.request
 
 import ciel_runtime
 
@@ -74,6 +77,48 @@ class ZaiProviderTests(unittest.TestCase):
             ciel_runtime.provider_contract_config("zai-start-plan", pcfg)
         )
         self.assertIsNone(blocker)
+
+    def test_start_plan_wire_request_keeps_zcode_user_agent_and_bearer_token(self):
+        received = {}
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_POST(self):  # noqa: N802
+                received.update(dict(self.headers.items()))
+                length = int(self.headers.get("Content-Length") or "0")
+                self.rfile.read(length)
+                body = b'{"ok":true}'
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, _format, *_args):
+                return
+
+        server = HTTPServer(("127.0.0.1", 0), Handler)
+        thread = threading.Thread(target=server.handle_request, daemon=True)
+        thread.start()
+        try:
+            pcfg = copy.deepcopy(
+                ciel_runtime.DEFAULT_CONFIG["providers"]["zai-start-plan"]
+            )
+            pcfg["api_key"] = "oauth-jwt"
+            request = urllib.request.Request(
+                f"http://127.0.0.1:{server.server_port}/v1/messages",
+                data=b"{}",
+                headers=ciel_runtime.provider_headers("zai-start-plan", pcfg),
+                method="POST",
+            )
+            with urllib.request.urlopen(request, timeout=2.0) as response:
+                self.assertEqual(200, response.status)
+        finally:
+            thread.join(timeout=2.0)
+            server.server_close()
+
+        self.assertEqual("ZCode/3.8.1", received["User-Agent"])
+        self.assertEqual("Bearer oauth-jwt", received["Authorization"])
+        self.assertNotIn("X-Api-Key", received)
 
     def test_default_config_matches_zai_claude_code_docs(self):
         pcfg = ciel_runtime.DEFAULT_CONFIG["providers"]["zai"]
