@@ -42,6 +42,7 @@ class ZaiProviderAdapter(HttpBearerProviderAdapter):
             haiku_model="glm-4.7",
             subagent_model="glm-5.3[1m]",
             managed_mcp=True,
+            zcode_app_version="3.8.1",
         )
     )
     send_placeholder_key: bool = True
@@ -69,6 +70,19 @@ class ZaiProviderAdapter(HttpBearerProviderAdapter):
 
     def normalize_model_id(self, model_id: str) -> str:
         return str(model_id or "").strip()
+
+    def build_headers(
+        self, config: ProviderConfig, api_key: str | None
+    ) -> Mapping[str, str]:
+        headers = dict(super().build_headers(config, api_key))
+        version = str(config.options.get("zcode_app_version") or "3.8.1").strip()
+        headers["User-Agent"] = f"ZCode/{version}"
+        return headers
+
+    def build_model_headers(
+        self, config: ProviderConfig, api_key: str | None
+    ) -> Mapping[str, str]:
+        return self.build_headers(config, api_key)
 
     def upstream_api_model_id(self, model_id: str) -> str:
         return super().normalize_model_id(model_id)
@@ -289,7 +303,7 @@ class ZaiStartPlanProviderAdapter(ZaiCodingPlanProviderAdapter):
 
     name: str = "zai-start-plan"
     base_url: str = PROVIDER_DEFAULT_BASE_URLS["zai-start-plan"]
-    include_x_api_key: bool = False
+    include_x_api_key: bool = True
     capabilities_value: ProviderCapabilities = field(
         default_factory=lambda: ProviderCapabilities(
             upstream_protocol="anthropic_messages",

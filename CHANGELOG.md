@@ -3,6 +3,15 @@
 This file records stable Ciel Runtime releases. Changes are grouped by user-visible
 capability, followed by the complete commit ledger merged into each release.
 
+## 0.2.33 — 2026-08-24
+
+- Send `User-Agent: ZCode/<configured app version>` for every Z.AI provider
+  profile, not only Start Plan.
+- Match ZCode's Anthropic Start Plan authentication wire contract by sending
+  the same credential in both `Authorization: Bearer` and `x-api-key`.
+- Allow an explicitly configured remote CAPTCHA receiver port to be reused by
+  consecutive model requests after the prior receiver shuts down.
+
 ## 0.2.32 — 2026-08-24
 
 - Keep Z.AI Start Plan wire identity aligned with the installed ZCode app:

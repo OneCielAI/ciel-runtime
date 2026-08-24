@@ -15,6 +15,10 @@ knowledge:
       app_version: 3.8.1
       header_builder_observation: >-
         The bundled ZCode runtime constructs User-Agent as ZCode/<appVersion>.
+      anthropic_auth_observation: >-
+        The bundled runtime's Anthropic factory adds Authorization: Bearer with
+        the provider credential and the Anthropic SDK also sends x-api-key with
+        that same credential.
     mia_installed_ciel_runtime:
       version: 0.2.31-nightly.20260824-143754.e0bf793
       provider: zai-start-plan
@@ -24,7 +28,7 @@ knowledge:
         authorization_present: true
         authorization_scheme: Bearer
         authorization_token_matches_configured_credential: true
-        x_api_key_present: false
+        x_api_key_present_before_0_2_33: false
       secret_handling: >-
         The credential value was not printed; verification used equality and
         scheme checks only.
@@ -42,9 +46,27 @@ knowledge:
       screenshot_observation: >-
         The official Aliyun SDK displayed a human slider puzzle; changing UA or
         running headed Chrome did not turn it into a traceless pass.
+    post_captcha_upstream:
+      endpoint: https://zcode.z.ai/api/v1/zcode-plan/anthropic/v1/messages
+      invalid_captcha_result: "HTTP 400, provider code 3007"
+      fresh_captcha_result: "HTTP 405, provider code 3012"
+      exact_zcode_identity_headers_tested: true
+      bearer_and_x_api_key_tested: true
+      model_tested: GLM-5.2
+      conclusion: >-
+        The remaining 3012 response occurs after CAPTCHA verification and is
+        not evidence of a missing User-Agent or missing credential header. Its
+        upstream cause is not yet established.
+    fixed_port_reuse:
+      mia_observation: >-
+        A consecutive request on configured port 42121 failed to bind with
+        Linux errno 98 while the previous connection was in TIME_WAIT.
 
   implementation:
-    auth_and_ua_behavior_change: none
+    auth_and_ua_behavior_change: >-
+      All Z.AI profiles now send User-Agent ZCode/<configured app version>.
+      Start Plan now sends its OAuth JWT in both Authorization: Bearer and
+      x-api-key, matching the installed ZCode Anthropic adapter.
     remote_captcha_callback:
       default_bind_host: 127.0.0.1
       configurable_fields:
@@ -59,7 +81,10 @@ knowledge:
       file: tests/test_zai_provider.py
       assertion: >-
         A real loopback HTTP request must retain User-Agent ZCode/3.8.1 and the
-        OAuth Bearer token and must not add X-Api-Key.
+        OAuth credential in both Authorization and X-Api-Key.
+    fixed_port_reuse_change: >-
+      The CAPTCHA HTTP server enables address reuse so an explicitly configured
+      port can serve consecutive request-scoped receivers.
 
   verification:
     completed:
@@ -70,6 +95,10 @@ knowledge:
       - remote callback GET 200 and state-bound result POST 204 from operator host
       - operator Chrome traceless verification completed with a 280-byte result
       - verification completion screenshot captured
+      - exact x-api-key-only live request returned HTTP 401
+      - exact Bearer plus x-api-key live request passed CAPTCHA and returned
+        upstream HTTP 405 / code 3012
+      - focused Z.AI regression tests: 55 passed
     pending:
-      - real Z.AI model response after CAPTCHA
+      - establish the upstream reason for provider code 3012
       - main, nightly, npm, and local deployment verification

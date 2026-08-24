@@ -414,6 +414,10 @@ Z.AI Start Plan은 모델 요청 전에 공식 Aliyun CAPTCHA의 일회성 결�
 있습니다. 브라우저가 없는 원격 호스트에서는 `provider-options`로 운영자
 브라우저가 접근할 callback origin을 설정할 수 있습니다.
 
+모든 Z.AI 프로필은 `zcode_app_version`에 맞춘
+`User-Agent: ZCode/<version>`을 전송합니다. Start Plan의 Anthropic 요청은 ZCode와
+동일하게 같은 OAuth JWT를 `Authorization: Bearer`와 `x-api-key`에 함께 넣습니다.
+
 ```bash
 ciel-runtimectl provider-options zai-start-plan \
   captcha_bind_host=100.95.132.58 \

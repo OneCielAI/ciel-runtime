@@ -69,7 +69,7 @@ class ZaiStartPlanCaptchaConfig:
 
 class _LoopbackCaptchaServer(ThreadingHTTPServer):
     daemon_threads = True
-    allow_reuse_address = False
+    allow_reuse_address = True
 
 
 @dataclass(slots=True)

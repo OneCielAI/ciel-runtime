@@ -188,6 +188,19 @@ class ZaiStartPlanCaptchaTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "HTTP\\(S\\) origin"):
                 _ = receiver.url
 
+    def test_receiver_fixed_port_can_be_reused_after_a_completed_http_request(self):
+        config = ZaiStartPlanCaptchaConfig(True, "sgp", "prefix", "scene")
+        first = _CaptchaResultReceiver(config, "first-state", 15)
+        with first:
+            port = first._server.server_port
+            with urllib.request.urlopen(first.url, timeout=2.0) as response:
+                self.assertEqual(200, response.status)
+
+        second = _CaptchaResultReceiver(config, "second-state", 15, port=port)
+        with second:
+            with urllib.request.urlopen(second.url, timeout=2.0) as response:
+                self.assertEqual(200, response.status)
+
     def test_runtime_headers_are_applied_only_to_start_plan(self):
         class Broker:
             def headers(self, options):

@@ -68,7 +68,7 @@ class ZaiProviderTests(unittest.TestCase):
         headers = ciel_runtime.provider_headers("zai-start-plan", pcfg)
 
         self.assertEqual("Bearer oauth-jwt", headers["authorization"])
-        self.assertNotIn("x-api-key", headers)
+        self.assertEqual("oauth-jwt", headers["x-api-key"])
         self.assertEqual("ZCode/3.8.1", headers["User-Agent"])
         self.assertEqual("https://zcode.z.ai", headers["HTTP-Referer"])
         blocker = ciel_runtime.configured_provider_adapter(
@@ -118,7 +118,17 @@ class ZaiProviderTests(unittest.TestCase):
 
         self.assertEqual("ZCode/3.8.1", received["User-Agent"])
         self.assertEqual("Bearer oauth-jwt", received["Authorization"])
-        self.assertNotIn("X-Api-Key", received)
+        self.assertEqual("oauth-jwt", received["X-Api-Key"])
+
+    def test_all_zai_profiles_use_the_configured_zcode_user_agent(self):
+        for provider in ("zai", "zai-api", "zai-coding-plan", "zai-start-plan"):
+            with self.subTest(provider=provider):
+                pcfg = copy.deepcopy(ciel_runtime.DEFAULT_CONFIG["providers"][provider])
+                pcfg.update({"api_key": "credential", "zcode_app_version": "3.8.1"})
+
+                headers = ciel_runtime.provider_headers(provider, pcfg)
+
+                self.assertEqual("ZCode/3.8.1", headers["User-Agent"])
 
     def test_start_plan_remote_captcha_options_are_ctl_mutable(self):
         pcfg = copy.deepcopy(
