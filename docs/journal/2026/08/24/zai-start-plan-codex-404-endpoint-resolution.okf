@@ -6,7 +6,7 @@ knowledge:
     objective: >-
       Identify and correct the 404 returned after successful Start Plan CAPTCHA
       completion in Mia's Codex session.
-    status: deployment-testing
+    status: awaiting-human-verification
 
   evidence:
     mia_runtime:
@@ -48,7 +48,26 @@ knowledge:
       runtime: "255 passed, 12 skipped"
       lint: passed
       documentation_metadata: passed
+    deployment:
+      source_commit: 595e10d670fec0c4352bdf4b256e2df31091a2b7
+      local_install: passed
+      local_endpoint_projection: https://zcode.z.ai/api/v1/zcode-plan/chat/completions
+      nightly_ci_run: 32769017701
+      nightly_ci_result: success
+      nightly_publish_run: 32769017726
+      nightly_publish_result: success
+      nightly_version: 0.2.36-nightly.20260824-193751.595e10d
+      npm_git_head: 595e10d670fec0c4352bdf4b256e2df31091a2b7
+      mia_installed_version: 0.2.36-nightly.20260824-193751.595e10d
+      mia_installed_endpoint_resolver_line: >-
+        url = request.provider_endpoint(provider, pcfg, "openai_chat")
+    mia_live_verification:
+      request_id: t8TDf35QCxSMM6nJKhCvRtuoAMziEWLzYFquCeJF5Mo
+      captcha_status: failed
+      failure: Z.AI Start Plan CAPTCHA timed out after 180 seconds.
+      reminder_behavior: >-
+        The same pending request URL was redisplayed every 30 seconds by the
+        intentional poll_runtime_interaction reminder policy. It was not a new
+        request or an upstream 404 retry.
     pending:
-      - local installation
-      - nightly publication
-      - Mia post-CAPTCHA model response
+      - Mia post-CAPTCHA upstream response after a human completes a fresh verification
