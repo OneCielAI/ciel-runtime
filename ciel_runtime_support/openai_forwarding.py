@@ -32,8 +32,7 @@ class OpenAIForwardRequest:
     provider_upstream_model: Callable[..., str]
     body_with_advisor_tool: Callable[..., Any]
     advisor_provider_supported: Callable[..., bool]
-    join_url: Callable[..., str]
-    upstream_request_base: Callable[..., str]
+    provider_endpoint: Callable[..., str]
     build_chat_request: Callable[..., Any]
     provider_headers: Callable[..., dict[str, str]]
 
@@ -132,7 +131,10 @@ def forward_openai_compatible_chat(
     model = request.provider_upstream_model(provider, pcfg, model)
     original_body = body
     upstream_body = request.body_with_advisor_tool(body, pcfg) if request.advisor_provider_supported(provider) else body
-    url = request.join_url(request.upstream_request_base(provider, pcfg), "/v1/chat/completions")
+    # Provider adapters own endpoint layout.  Building ``/v1/chat/completions``
+    # here duplicates version segments for plan-scoped bases such as
+    # ``.../api/v1/zcode-plan``.
+    url = request.provider_endpoint(provider, pcfg, "openai_chat")
     timeout = rate_limit.request_timeout_seconds(pcfg)
     headers = request.provider_headers(provider, pcfg, handler.headers, "openai_chat")
     waited, rpm_used, rpm_limit = rate_limit.apply(provider, pcfg, model)

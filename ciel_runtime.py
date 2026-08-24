@@ -2820,7 +2820,7 @@ def openai_forward_services() -> OpenAIForwardServices:
     return OpenAIForwardServices(
         policy=OpenAIForwardPolicy(COMPATIBILITY_TEST_HEADER, provider_requires_streaming),
         request=OpenAIForwardRequest(_update_tool_schema_registry, normalize_thinking_for_non_anthropic_provider, resolve_requested_model, provider_upstream_model,
-                                     body_with_advisor_tool, advisor_provider_supported, join_url, provider_upstream_request_base, openai_compatible_chat_request, provider_headers),
+                                     body_with_advisor_tool, advisor_provider_supported, provider_endpoint, openai_compatible_chat_request, provider_headers),
         rate_limit=OpenAIForwardRateLimit(apply_router_rate_limit, rate_limit_notice, estimate_tokens, provider_request_timeout_seconds),
         advisor=OpenAIForwardAdvisor(advisor_model_enabled, advisor_gate_possible_for_body, advisor_gate_reason_for_body, refine_message_with_advisor),
         streaming=OpenAIForwardStreaming(write_anthropic_open_stream_start, write_anthropic_stream_blocks, open_openai_stream_with_rate_retry,

@@ -1,0 +1,54 @@
+okf_version: "1.0"
+knowledge:
+  task:
+    id: zai-start-plan-codex-404-endpoint-resolution-20260824
+    date: "2026-08-24"
+    objective: >-
+      Identify and correct the 404 returned after successful Start Plan CAPTCHA
+      completion in Mia's Codex session.
+    status: deployment-testing
+
+  evidence:
+    mia_runtime:
+      provider: zai-start-plan
+      native_compat: false
+      configured_base_url: https://zcode.z.ai/api/v1/zcode-plan
+      captcha_status: completed
+      terminal_http_status: 404
+    official_zcode_package:
+      package: zcode-app-cli@3.8.1-15
+      openai_chat_path: /api/v1/zcode-plan/chat/completions
+    source_trace:
+      previous_forwarding_rule: >-
+        join_url(provider_upstream_request_base(provider, pcfg),
+        "/v1/chat/completions")
+      previous_resolved_url: >-
+        https://zcode.z.ai/api/v1/zcode-plan/v1/chat/completions
+      expected_resolver_url: >-
+        https://zcode.z.ai/api/v1/zcode-plan/chat/completions
+      defect: >-
+        The OpenAI forwarding service bypassed the provider adapter endpoint
+        resolver and appended a second /v1 segment to a plan-scoped base URL.
+
+  implementation:
+    scope: generic-provider-endpoint-resolution
+    change: >-
+      OpenAI-compatible forwarding now asks the provider endpoint contract for
+      the openai_chat URL instead of constructing a generic URL locally.
+    user_specific_exception: false
+
+  verification:
+    focused:
+      openai_forwarding_endpoint: "1 passed"
+      zai_provider: "28 passed"
+    full_regression:
+      unit: "1183 passed, 44 skipped"
+      router: "964 passed"
+      channel: "382 passed, 80 skipped"
+      runtime: "255 passed, 12 skipped"
+      lint: passed
+      documentation_metadata: passed
+    pending:
+      - local installation
+      - nightly publication
+      - Mia post-CAPTCHA model response
