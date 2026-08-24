@@ -68,3 +68,15 @@ knowledge:
           tests: 255
           skipped: 12
       full_test_exit_code: 0
+    deployment:
+      functional_commit: d4ce317d36eba4cc91a3b852a217fbea2852bffb
+      main_ci: success
+      nightly_ci: success
+      main_publish: success
+      nightly_publish: success
+      npm_latest: 0.2.28
+      npm_nightly: 0.2.28-nightly.20260824-070710.d4ce317
+      registry_package_smoke_version: 0.2.28
+      mia_installed_version: 0.2.28-nightly.20260824-070710.d4ce317
+      mia_callback_http_status: 200
+      mia_callback_uri: http://localhost:9899/callback
