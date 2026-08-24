@@ -6,7 +6,7 @@ knowledge:
     objective: >-
       Diagnose and correct the upstream 404 returned by Mia's Codex session
       after successful Z.AI Start Plan CAPTCHA verification.
-    status: regression-verified
+    status: retracted
 
   evidence:
     mia_live_gateway:
@@ -43,15 +43,19 @@ knowledge:
   implementation:
     provider_contract:
       provider: zai-start-plan
-      supported_protocols: [anthropic_messages]
-      selected_protocol: anthropic_messages
+      attempted_supported_protocols: [anthropic_messages]
+      attempted_selected_protocol: anthropic_messages
       client_scope: all routed runtimes
       user_specific_exception: false
+      disposition: reverted
+      violation: >-
+        The change incorrectly replaced Codex's preferred OpenAI upstream
+        protocol with Anthropic Messages based only on an observed 404. The
+        observation did not prove that Codex should change protocol families.
     launch_policy:
-      behavior: >-
-        The generic single-protocol rule keeps native_compat enabled for both
-        Codex and Claude because the provider advertises only Anthropic
-        Messages.
+      restored_behavior: >-
+        Codex selects OpenAI Chat upstream routing and Claude selects
+        Anthropic Messages upstream routing.
 
   verification:
     focused_tests:
@@ -69,6 +73,5 @@ knowledge:
       documentation_metadata: passed
       npm_pack_dry_run: passed
     pending:
-      - local package installation
-      - nightly publication and Mia installation
-      - post-CAPTCHA Mia model response
+      - publish the corrective revert locally and to nightly
+      - reproduce the official ZCode OpenAI request before any new behavior change
