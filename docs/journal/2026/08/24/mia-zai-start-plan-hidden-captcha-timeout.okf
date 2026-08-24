@@ -121,10 +121,14 @@ knowledge:
       correction: >-
         The first save/restore-cursor correction was insufficient: nightly
         0.2.34-nightly.20260824-165821.edf3f4c still appended Codex status text
-        after the authoritative URL. The verified correction now treats the
-        CAPTCHA as a terminal interaction modal: child redraw bytes are
-        consumed but hidden while the state is pending, and normal forwarding
-        resumes after completion, failure, or expiry.
+        after the authoritative URL. Nightly
+        0.2.34-nightly.20260824-170451.041e713 confirmed the modal suppression
+        stopped later redraws, but the first notice could retain columns from
+        the status line that already occupied the terminal row. The final
+        correction clears each target row and its remaining columns before
+        rendering, while child redraw bytes stay hidden during the pending
+        interaction. A direct Mia TTY probe using the same erase-line sequence
+        produced a complete, residue-free URL in tmux capture.
       correction_test: >-
         5 runtime-interaction tests, 7 channel pending-poll tests, 18 Windows
         ConPTY tests, 261 architecture tests, and the 382-test channel group

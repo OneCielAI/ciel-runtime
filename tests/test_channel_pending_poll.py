@@ -14,12 +14,12 @@ from ciel_runtime_support.channel_terminal_proxy import (
 
 
 class ChannelPendingPollTests(unittest.TestCase):
-    def test_runtime_interaction_notice_preserves_child_tui_cursor(self):
+    def test_runtime_interaction_notice_clears_stale_child_tui_columns(self):
         rendered = _runtime_interaction_bytes("line one\nhttps://example.test/full")
 
-        self.assertTrue(rendered.startswith(b"\r\n"))
-        self.assertTrue(rendered.endswith(b"\r\n"))
-        self.assertIn(b"line one\r\nhttps://example.test/full", rendered)
+        self.assertTrue(rendered.startswith(b"\r\n\x1b[2K\r"))
+        self.assertTrue(rendered.endswith(b"\r\n\x1b[2K\r"))
+        self.assertIn(b"line one\x1b[K\r\n\x1b[2K\rhttps://example.test/full\x1b[K", rendered)
 
     def options(self, *, enabled=True):
         return ChannelPendingInjectionOptions(

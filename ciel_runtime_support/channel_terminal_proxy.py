@@ -123,9 +123,11 @@ def windows_wake_requires_body_fallback(
 
 def _runtime_interaction_bytes(notice: str) -> bytes:
     normalized = str(notice or "").replace("\r\n", "\n").replace("\r", "\n")
-    return ("\r\n" + normalized.replace("\n", "\r\n") + "\r\n").encode(
-        "utf-8", errors="replace"
-    )
+    lines = normalized.split("\n")
+    rendered = "".join(
+        f"\r\n\x1b[2K\r{line}\x1b[K" for line in lines
+    ) + "\r\n\x1b[2K\r"
+    return rendered.encode("utf-8", errors="replace")
 
 
 def _display_windows_runtime_interaction(writer: Any, notice: str) -> None:
