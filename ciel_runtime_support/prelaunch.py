@@ -180,6 +180,13 @@ class PrelaunchServices:
     options: PrelaunchOptions
 
 
+def guarded_zai_oauth_action(action: str, operation: Callable[[str], list[str]]) -> list[str]:
+    try:
+        return operation(action)
+    except RuntimeError as exc:
+        return [f"Z.AI OAuth failed: {exc}"]
+
+
 def run_prelaunch_menu(passthrough: list[str] | None = None,
     *,
     services: PrelaunchServices,
@@ -570,8 +577,8 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                         panel_rows, panel_values = api_key_panel_rows(provider, pcfg)
                         panel_idx = 0
                     elif value.startswith("zai-oauth-"):
-                        messages = zai_oauth_action(
-                            value.removeprefix("zai-oauth-")
+                        messages = guarded_zai_oauth_action(
+                            value.removeprefix("zai-oauth-"), zai_oauth_action
                         )
                         refresh_checks()
                         cfg = load_config()
@@ -1082,5 +1089,6 @@ __all__ = [
     "PrelaunchSecrets",
     "PrelaunchServices",
     "PrelaunchTerminal",
+    "guarded_zai_oauth_action",
     "run_prelaunch_menu",
 ]

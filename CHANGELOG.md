@@ -3,6 +3,14 @@
 This file records stable Ciel Runtime releases. Changes are grouped by user-visible
 capability, followed by the complete commit ledger merged into each release.
 
+## 0.2.27 — 2026-08-24
+
+- Repair Codex startup only when an invalid TOML file contains equivalent MCP
+  `http_headers` in both a legacy child table and a managed inline table;
+  preserve a timestamped backup before the atomic rewrite.
+- Reject a pasted Z.AI authorization-page URL with explicit callback guidance
+  and keep the prelaunch API-key panel alive when OAuth validation fails.
+
 ## 0.2.26 — 2026-08-24
 
 - Added ZCode as a first-class launch client in the interactive menu,

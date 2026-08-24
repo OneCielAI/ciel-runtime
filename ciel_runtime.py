@@ -121,7 +121,7 @@ from ciel_runtime_support.codex_backend_context import CodexBackendChannelPorts,
 from ciel_runtime_support.codex_reasoning_rejects import RejectedReasoningStore
 from ciel_runtime_support.codex_cli import codex_passthrough_args_for_launch, codex_passthrough_has_command, codex_resume_picker_requested, codex_resume_with_session_id
 from ciel_runtime_support.codex_config import codex_alternate_screen_value_from_config_text  # noqa: F401
-from ciel_runtime_support.codex_config import codex_config_paths_for_launch  # noqa: F401 - compatibility export
+from ciel_runtime_support.codex_config import codex_config_paths_for_launch, repair_codex_mcp_header_collisions  # noqa: F401 - compatibility export
 from ciel_runtime_support.codex_config import codex_config_override_keys as _codex_config_override_keys  # noqa: F401
 from ciel_runtime_support.codex_config import toml_scalar_without_comment as _toml_scalar_without_comment  # noqa: F401
 from ciel_runtime_support.codex_config import toml_string
@@ -4890,7 +4890,7 @@ def runtime_launch_context() -> RuntimeLaunchContext:
 
 _RUNTIME_LAUNCH_API = RuntimeLaunchCompatibilityApi(runtime_launch_context)
 launch_claude = SynchronizedLaunch(_RUNTIME_LAUNCH_API.launch_claude, sync_remote_launch_assets, "claude")
-launch_codex = SynchronizedLaunch(_RUNTIME_LAUNCH_API.launch_codex, sync_remote_launch_assets, "codex")
+launch_codex = SynchronizedLaunch(_RUNTIME_LAUNCH_API.launch_codex, sync_remote_launch_assets, "codex", lambda passthrough=None, **_kwargs: repair_codex_mcp_header_collisions(codex_config_paths_for_launch(list(passthrough or [])), report=lambda message: router_log("WARN", message)))
 launch_codex_app_server = SynchronizedLaunch(_RUNTIME_LAUNCH_API.launch_codex_app_server, sync_remote_launch_assets, "codex-app-server")
 launch_agy = SynchronizedLaunch(_RUNTIME_LAUNCH_API.launch_agy, sync_remote_launch_assets, "agy")
 launch_grok = SynchronizedLaunch(launch_grok, sync_remote_launch_assets, "grok")

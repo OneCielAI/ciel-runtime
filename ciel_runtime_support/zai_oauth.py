@@ -147,6 +147,15 @@ class ZaiOAuthClient:
             raise ZaiOAuthError("Z.AI returned an invalid OAuth callback URL.") from exc
         path = f"/{parsed.path.strip('/')}"
         if parsed.scheme != "zcode" or parsed.netloc != "zai-auth" or path != "/callback":
+            if (
+                parsed.scheme == "https"
+                and parsed.hostname == "chat.z.ai"
+                and path.endswith("/oauth/authorize")
+            ):
+                raise ZaiOAuthError(
+                    "The pasted URL is the authorization page, not the completed callback. "
+                    "Finish authorization and paste the complete zcode://zai-auth/callback URL."
+                )
             raise ZaiOAuthError("Z.AI returned an unexpected OAuth callback target.")
         query = urllib.parse.parse_qs(parsed.query)
         state = str((query.get("state") or [""])[0])

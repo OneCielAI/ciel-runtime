@@ -1,0 +1,69 @@
+okf_version: "1.0"
+knowledge:
+  task:
+    id: kevin-codex-config-mia-zai-oauth-recovery-20260824
+    date: "2026-08-24"
+    objective: >-
+      Restore Kevin's Codex startup and prevent Mia's Z.AI OAuth callback input
+      error from terminating the Ciel prelaunch interface.
+    status: validation-in-progress
+
+  evidence:
+    kevin:
+      observed_error: /home/kevin-codex/.codex/config.toml:63:1 duplicate key
+      conflicting_forms:
+        - table: mcp_servers.ai-net.http_headers
+          lines_before_repair: 36-38
+        - inline_key: mcp_servers.ai-net.http_headers
+          line_before_repair: 63
+      comparison:
+        header_names_equal: true
+        header_values_equal: true
+      repaired_config:
+        toml_valid: true
+        codex_mcp_list_exit: 0
+        ciel_runtime_codex_version_exit: 0
+      backup: /home/kevin-codex/.codex/config.toml.ciel-repair-20260824T0555Z.bak
+      attribution: >-
+        The config and AI-Net managed artifacts were written in the same second,
+        but the writer source was not retained; causal attribution is unconfirmed.
+    mia:
+      supplied_input_kind: https authorization page
+      required_input_kind: zcode callback URL
+      source_behavior: >-
+        ZaiOAuthClient rejected the target with ZaiOAuthError and the prelaunch
+        API-key panel invoked the action without a RuntimeError boundary.
+
+  implementation:
+    codex_preflight:
+      scope: all Codex launch paths
+      mutation_gate:
+        - original TOML must be invalid
+        - legacy child-table and managed inline header maps must be identical
+        - candidate TOML must parse successfully
+      recovery: timestamped backup followed by atomic replacement
+      non_matching_invalid_files: unchanged
+    zai_oauth:
+      authorize_page: rejected with completed-callback guidance
+      prelaunch_error: rendered in panel without unwinding the menu
+
+  verification:
+    completed:
+      - Kevin remote TOML candidate parse
+      - Kevin remote config backup and minimal repair
+      - Kevin codex mcp list exit 0
+      - Kevin Ciel-routed Codex version exit 0
+      - focused Codex repair tests
+      - focused Z.AI OAuth tests
+      - focused synchronized-launch tests
+      - Python compilation
+      - focused Ruff validation
+      - full regression suite: 2744 passed and 136 skipped
+      - documentation metadata: 23 Markdown files passed
+      - full Ruff validation
+      - npm package dry run for version 0.2.27
+      - local install reports ciel-runtime 0.2.27
+      - local Ciel-routed Codex version exit 0
+    pending:
+      - main and nightly publication
+      - Kevin and Mia nightly installation verification

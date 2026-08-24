@@ -225,9 +225,13 @@ class RemoteInstructionTests(unittest.TestCase):
             lambda value: calls.append(("launch", value)) or 7,
             lambda runtime, **kwargs: calls.append(("sync", runtime, kwargs["reason"])),
             "codex",
+            lambda value: calls.append(("prepare", value)),
         )
         self.assertEqual(7, launch("now"))
-        self.assertEqual([("sync", "codex", "launch"), ("launch", "now")], calls)
+        self.assertEqual(
+            [("prepare", "now"), ("sync", "codex", "launch"), ("launch", "now")],
+            calls,
+        )
 
 
 if __name__ == "__main__":

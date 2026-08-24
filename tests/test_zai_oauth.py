@@ -10,6 +10,7 @@ from ciel_runtime_support.zai_oauth import (
     ZaiOAuthRuntimePorts,
     ZaiOAuthService,
 )
+from ciel_runtime_support.prelaunch import guarded_zai_oauth_action
 
 
 class FakeHttp:
@@ -80,6 +81,26 @@ class ZaiOAuthClientTests(unittest.TestCase):
                 "zcode://zai-auth/callback?code=auth-code&state=wrong", "expected"
             )
         self.assertEqual([], http.calls)
+
+    def test_authorization_page_url_is_rejected_with_callback_guidance(self):
+        http = FakeHttp([])
+        authorize_url = (
+            "https://chat.z.ai/auth/oauth/authorize?response_type=code"
+            "&client_id=client-test&redirect_uri=zcode%3A%2F%2Fzai-auth%2Fcallback"
+            "&state=state-1"
+        )
+        with self.assertRaisesRegex(ZaiOAuthError, "authorization page, not the completed callback"):
+            ZaiOAuthClient(http).exchange_callback(authorize_url, "state-1")
+        self.assertEqual([], http.calls)
+
+    def test_prelaunch_oauth_error_is_rendered_without_escaping_the_menu(self):
+        def fail(_action):
+            raise ZaiOAuthError("paste the complete callback URL")
+
+        self.assertEqual(
+            ["Z.AI OAuth failed: paste the complete callback URL"],
+            guarded_zai_oauth_action("login", fail),
+        )
 
 
 class ZaiOAuthRuntimeTests(unittest.TestCase):

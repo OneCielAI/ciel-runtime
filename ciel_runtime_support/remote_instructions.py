@@ -206,8 +206,11 @@ class SynchronizedLaunch:
     delegate: Callable[..., Any]
     synchronize: Callable[..., Any]
     runtime: str
+    prepare: Callable[..., Any] | None = None
 
     def __call__(self, *args: Any, **kwargs: Any) -> Any:
+        if self.prepare is not None:
+            self.prepare(*args, **kwargs)
         self.synchronize(self.runtime, reason="launch")
         return self.delegate(*args, **kwargs)
 
