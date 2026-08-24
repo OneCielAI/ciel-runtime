@@ -32,7 +32,14 @@
       "observed_result": "HTTP 404 with an empty response on 2026-08-23 from this workstation",
       "control": "The same result was reproduced by invoking the bundled zcode.cjs login command directly.",
       "config_unchanged": true,
-      "conclusion": "The local implementation cannot claim a completed live login while the upstream initialization endpoint returns 404."
+      "conclusion": "The init/poll path is currently unavailable and must trigger the authorization-code fallback."
+    },
+    "authorization_code_probe": {
+      "authorize_endpoint": "https://chat.z.ai/api/oauth/authorize",
+      "token_endpoint": "https://zcode.z.ai/api/v1/oauth/token",
+      "observed_result": "authorize returned HTTP 307 to /auth; token endpoint returned a structured code 2007 response for an intentionally invalid code",
+      "source_contract": "ZCode wrapper revision ce2dcfb and bundled zcode.cjs callback-stdin path",
+      "conclusion": "The authorization-code endpoints are live and can be used as the verified fallback contract; account authorization was not performed by the agent."
     }
   },
   "implementation": {
@@ -40,7 +47,8 @@
       "Added bounded init/poll client and browser/no-browser service.",
       "Added Coding Plan organization/project/API-key resolution.",
       "Persists only the final API key after the complete flow succeeds.",
-      "A failed flow does not mutate configuration; logout does not remove manually configured keys."
+      "A failed flow does not mutate configuration; logout does not remove manually configured keys.",
+      "Falls back on init HTTP 404 to a state-validated authorization-code callback pasted by the user."
     ],
     "glm_5_3": [
       "Added catalog/default/context metadata.",
@@ -51,12 +59,12 @@
   "verification": {
     "targeted": "33 passed",
     "unit": "1165 passed, 44 skipped",
-    "router": "929 passed",
+    "router": "932 passed",
     "channel": "381 passed, 80 skipped",
     "runtime": "252 passed, 12 skipped",
-    "aggregate": "2727 passed, 136 skipped",
-    "package_dry_run": "oneciel-ai-ciel-runtime-0.2.24.tgz; 415 files; 947347 bytes packed; 4335786 bytes unpacked",
-    "local_deployment": "installed into C:\\Users\\djlov\\.local\\share\\ciel-runtime; installed wrapper reported 0.2.24 and zai-oauth status exited 0",
-    "live_oauth": "blocked by confirmed upstream HTTP 404; no local credential or config was changed"
+    "aggregate": "2730 passed, 136 skipped",
+    "package_dry_run": "oneciel-ai-ciel-runtime-0.2.25.tgz; 415 files; 948640 bytes packed; 4341060 bytes unpacked",
+    "local_deployment": "installed into C:\\Users\\djlov\\.local\\share\\ciel-runtime; installed wrapper reported 0.2.25 and zai-oauth status exited 0",
+    "live_oauth": "init returned HTTP 404, the verified authorization URL was emitted, missing callback input cancelled with exit 1, and the config SHA-256 remained unchanged; successful account authorization was not performed"
   }
 }

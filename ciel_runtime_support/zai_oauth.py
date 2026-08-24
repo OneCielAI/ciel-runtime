@@ -8,6 +8,7 @@ access tokens and ZCode JWTs are deliberately kept in memory.
 from __future__ import annotations
 
 import json
+import hmac
 import secrets
 import time
 import urllib.error
@@ -20,6 +21,9 @@ from typing import Any, Callable, Mapping
 
 
 ZCODE_OAUTH_BASE_URL = "https://zcode.z.ai/api/v1"
+ZAI_AUTHORIZE_ENDPOINT = "https://chat.z.ai/api/oauth/authorize"
+ZAI_OAUTH_CLIENT_ID = "client_P8X5CMWmlaRO9gyO-KSqtg"
+ZAI_OAUTH_REDIRECT_URI = "zcode://zai-auth/callback"
 ZAI_BUSINESS_BASE_URL = "https://api.z.ai"
 ZAI_OAUTH_PROVIDER = "zai"
 ZAI_CODING_PLAN_KEY_NAME = "zcode-api-key"
@@ -28,6 +32,10 @@ ZAI_OAUTH_TIMEOUT_SECONDS = 300.0
 
 class ZaiOAuthError(RuntimeError):
     """A bounded, secret-free OAuth diagnostic."""
+
+    def __init__(self, message: str, *, http_status: int | None = None) -> None:
+        super().__init__(message)
+        self.http_status = http_status
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,7 +77,9 @@ class ZaiOAuthHttp:
             with urllib.request.urlopen(request, timeout=timeout) as response:
                 raw = response.read(1_048_577)
         except urllib.error.HTTPError as exc:
-            raise ZaiOAuthError(f"Z.AI OAuth HTTP {exc.code} at {url}") from exc
+            raise ZaiOAuthError(
+                f"Z.AI OAuth HTTP {exc.code} at {url}", http_status=exc.code
+            ) from exc
         except urllib.error.URLError as exc:
             reason = type(exc.reason).__name__ if exc.reason is not None else "network_error"
             raise ZaiOAuthError(f"Z.AI OAuth network error ({reason}) at {url}") from exc
@@ -117,6 +127,50 @@ class ZaiOAuthClient:
         if status not in {"pending", "failed", "ready"}:
             raise ZaiOAuthError("Z.AI OAuth poll returned an invalid status.")
         return data
+
+    @staticmethod
+    def authorize_url(state: str) -> str:
+        query = urllib.parse.urlencode(
+            {
+                "client_id": ZAI_OAUTH_CLIENT_ID,
+                "redirect_uri": ZAI_OAUTH_REDIRECT_URI,
+                "response_type": "code",
+                "state": state,
+            }
+        )
+        return f"{ZAI_AUTHORIZE_ENDPOINT}?{query}"
+
+    def exchange_callback(self, callback_url: str, expected_state: str) -> Mapping[str, Any]:
+        try:
+            parsed = urllib.parse.urlparse(callback_url.strip())
+        except ValueError as exc:
+            raise ZaiOAuthError("Z.AI returned an invalid OAuth callback URL.") from exc
+        path = f"/{parsed.path.strip('/')}"
+        if parsed.scheme != "zcode" or parsed.netloc != "zai-auth" or path != "/callback":
+            raise ZaiOAuthError("Z.AI returned an unexpected OAuth callback target.")
+        query = urllib.parse.parse_qs(parsed.query)
+        state = str((query.get("state") or [""])[0])
+        if not state or not hmac.compare_digest(state, expected_state):
+            raise ZaiOAuthError("Z.AI OAuth state did not match. Please retry login.")
+        error = str((query.get("error_description") or query.get("error") or [""])[0])
+        if error:
+            safe_error = " ".join(error.split())[:300]
+            raise ZaiOAuthError(f"Z.AI authorization failed: {safe_error}")
+        code = str((query.get("code") or query.get("authCode") or [""])[0])
+        if not code:
+            raise ZaiOAuthError("Z.AI OAuth callback did not include an authorization code.")
+        response = self.http.request(
+            "POST",
+            f"{self.oauth_base_url.rstrip('/')}/oauth/token",
+            headers={"Content-Type": "application/json", "Accept": "application/json"},
+            body={
+                "provider": ZAI_OAUTH_PROVIDER,
+                "code": code,
+                "redirect_uri": ZAI_OAUTH_REDIRECT_URI,
+                "state": state,
+            },
+        )
+        return self._envelope_data(response, "token exchange")
 
     def resolve_coding_plan_api_key(self, oauth_access_token: str) -> str:
         login = self._business_data(
@@ -247,11 +301,22 @@ class ZaiOAuthService:
     now: Callable[[], float] = time.time
     sleep: Callable[[float], None] = time.sleep
     open_url: Callable[[str], bool] = webbrowser.open
+    read_callback: Callable[[str], str] = input
+    random_token: Callable[[], str] = lambda: secrets.token_hex(32)
     timeout_seconds: float = ZAI_OAUTH_TIMEOUT_SECONDS
 
     def login(self, *, no_browser: bool = False, on_authorize_url: Callable[[str], None]) -> ZaiOAuthResult:
-        poll_token = secrets.token_hex(32)
-        initialized = self.client.initialize(poll_token)
+        poll_token = self.random_token()
+        try:
+            initialized = self.client.initialize(poll_token)
+        except ZaiOAuthError as exc:
+            if exc.http_status != 404:
+                raise
+            return self._authorization_code_login(
+                state=poll_token,
+                no_browser=no_browser,
+                on_authorize_url=on_authorize_url,
+            )
         on_authorize_url(initialized.authorize_url)
         if not no_browser:
             self.open_url(initialized.authorize_url)
@@ -262,24 +327,54 @@ class ZaiOAuthService:
             if status == "failed":
                 raise ZaiOAuthError("Z.AI OAuth authorization was denied or failed.")
             if status == "ready":
-                zai = result.get("zai")
-                access_token = (
-                    str(zai.get("access_token") or "").strip()
-                    if isinstance(zai, Mapping)
-                    else ""
-                )
-                user = result.get("user")
-                user_id = (
-                    str(user.get("user_id") or "").strip()
-                    if isinstance(user, Mapping)
-                    else ""
-                )
-                if not access_token or not user_id:
-                    raise ZaiOAuthError("Z.AI OAuth ready response is missing credentials or user identity.")
-                api_key = self.client.resolve_coding_plan_api_key(access_token)
-                return ZaiOAuthResult(api_key=api_key, user_id=user_id)
+                return self._resolve_result(result)
             self.sleep(min(initialized.poll_interval_seconds, max(0.0, deadline - self.now())))
         raise ZaiOAuthError("Z.AI OAuth authorization timed out.")
+
+    def _authorization_code_login(
+        self,
+        *,
+        state: str,
+        no_browser: bool,
+        on_authorize_url: Callable[[str], None],
+    ) -> ZaiOAuthResult:
+        authorize_url = self.client.authorize_url(state)
+        on_authorize_url(authorize_url)
+        if not no_browser:
+            self.open_url(authorize_url)
+        try:
+            callback_url = self.read_callback(
+                "Paste the complete zcode://zai-auth/callback URL here: "
+            ).strip()
+        except (EOFError, KeyboardInterrupt) as exc:
+            raise ZaiOAuthError(
+                "Z.AI OAuth callback URL was not provided; login was not changed."
+            ) from exc
+        if not callback_url:
+            raise ZaiOAuthError(
+                "Z.AI OAuth callback URL was not provided; login was not changed."
+            )
+        return self._resolve_result(self.client.exchange_callback(callback_url, state))
+
+    def _resolve_result(self, result: Mapping[str, Any]) -> ZaiOAuthResult:
+        zai = result.get("zai")
+        access_token = (
+            str(zai.get("access_token") or "").strip()
+            if isinstance(zai, Mapping)
+            else ""
+        )
+        user = result.get("user")
+        user_id = (
+            str(user.get("user_id") or "").strip()
+            if isinstance(user, Mapping)
+            else ""
+        )
+        if not access_token or not user_id:
+            raise ZaiOAuthError(
+                "Z.AI OAuth ready response is missing credentials or user identity."
+            )
+        api_key = self.client.resolve_coding_plan_api_key(access_token)
+        return ZaiOAuthResult(api_key=api_key, user_id=user_id)
 
 
 @dataclass(frozen=True, slots=True)

@@ -61,6 +61,26 @@ class ZaiOAuthClientTests(unittest.TestCase):
         self.assertNotIn("secret-token", str(raised.exception))
         self.assertNotIn("private-poll-token", str(raised.exception))
 
+    def test_authorization_code_callback_validates_state_and_exchanges_code(self):
+        http = FakeHttp([{"code": 0, "data": {"token": "jwt", "zai": {"access_token": "access"}, "user": {"user_id": "user-1"}}}])
+        client = ZaiOAuthClient(http)
+
+        result = client.exchange_callback(
+            "zcode://zai-auth/callback?code=auth-code&state=state-1", "state-1"
+        )
+
+        self.assertEqual("access", result["zai"]["access_token"])
+        self.assertEqual("https://zcode.z.ai/api/v1/oauth/token", http.calls[0][1])
+        self.assertEqual("auth-code", http.calls[0][2]["body"]["code"])
+
+    def test_authorization_code_callback_rejects_wrong_state_before_network(self):
+        http = FakeHttp([])
+        with self.assertRaisesRegex(ZaiOAuthError, "state did not match"):
+            ZaiOAuthClient(http).exchange_callback(
+                "zcode://zai-auth/callback?code=auth-code&state=wrong", "expected"
+            )
+        self.assertEqual([], http.calls)
+
 
 class ZaiOAuthRuntimeTests(unittest.TestCase):
     def config(self):
@@ -114,6 +134,29 @@ class ZaiOAuthRuntimeTests(unittest.TestCase):
         self.assertEqual("manual-key", config["providers"]["zai"]["api_key"])
         self.assertEqual([], saved)
         self.assertIn("no OAuth-derived", messages[0])
+
+    def test_init_404_falls_back_to_verified_authorization_code_contract(self):
+        http = FakeHttp([
+            ZaiOAuthError("init missing", http_status=404),
+            {"code": 0, "data": {"token": "jwt", "zai": {"access_token": "oauth-access"}, "user": {"user_id": "user-1"}}},
+            {"code": 0, "data": {"access_token": "business-token"}},
+            {"code": 0, "data": {"organizations": [{"organizationId": "org-1", "projects": [{"projectId": "project-1"}]}]}},
+            {"code": 0, "data": [{"name": "zcode-api-key", "apiKey": "key-id"}]},
+            {"code": 0, "data": {"secretKey": "key-secret"}},
+        ])
+        urls = []
+        service = ZaiOAuthService(
+            ZaiOAuthClient(http),
+            open_url=lambda _url: self.fail("--no-browser must not open a browser"),
+            read_callback=lambda _prompt: "zcode://zai-auth/callback?code=auth-code&state=state-1",
+            random_token=lambda: "state-1",
+        )
+
+        result = service.login(no_browser=True, on_authorize_url=urls.append)
+
+        self.assertEqual("key-id.key-secret", result.api_key)
+        self.assertIn("client_id=client_P8X5CMWmlaRO9gyO-KSqtg", urls[0])
+        self.assertIn("state=state-1", urls[0])
 
 
 if __name__ == "__main__":

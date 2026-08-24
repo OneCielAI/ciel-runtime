@@ -3,6 +3,13 @@
 This file records stable Ciel Runtime releases. Changes are grouped by user-visible
 capability, followed by the complete commit ledger merged into each release.
 
+## 0.2.25 — 2026-08-23
+
+- Added the ZCode wrapper's authorization-code contract as a cross-platform manual
+  callback fallback when the ZCode CLI init endpoint returns HTTP 404.
+- Validates the callback target and OAuth state before token exchange, retains
+  transient tokens in memory, and leaves configuration unchanged on cancellation.
+
 ## 0.2.24 — 2026-08-23
 
 - Added cross-platform Z.AI OAuth login through ZCode's CLI init/poll contract and
