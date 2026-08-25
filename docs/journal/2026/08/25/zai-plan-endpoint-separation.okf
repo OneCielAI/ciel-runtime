@@ -86,7 +86,7 @@ okf:
         model: GLM-5.3
         http_status: 405
         provider_code: 3012
-      fresh_credential_result: pending_new_captcha
+      fresh_credential_result: captcha_timeout_without_operator_submission
 
   contradiction_correction:
     previous_claim: >-
@@ -160,13 +160,21 @@ okf:
         pid: 2723135
         workspace: /tmp/ciel-start-plan-e2e-600e230/workspace
         user_session_router_8800_modified: false
-        live_request_status: waiting_for_captcha
+        live_request_status: client_timeout_after_360_seconds_without_captcha
     distribution:
       commit: 600e23041cdc32f14c504133c6c337a8a745df1d
       nightly: 0.2.36-nightly.20260825-064641.600e230
       origin_nightly_pushed: true
       local_installed: true
       mia_installed: true
+    shared_oauth_fix_distribution:
+      commit: 11afdb5c31c5cc98f04bf755a1fc218f588c2843
+      nightly: 0.2.36-nightly.20260825-085507.11afdb5
+      ci: success
+      npm_publish: success
+      published_tarball_verification: success
+      local_registry_artifact_installed: true
+      mia_registry_artifact_installed: true
     browser_render:
       url_scope: loopback state-bound test receiver
       sdk_loaded: official Aliyun CAPTCHA SDK
