@@ -4015,7 +4015,7 @@ def zcode_runtime_context() -> ZcodeRuntimeContext:
         config=ZcodeConfigurationPorts(load_config, get_current_provider, current_alias, claude_code_router_auth_token, ROUTER_BASE, ZAI_ANTHROPIC_BASE_URL,
                                        WORKSPACE_STATE_DIR / "zcode-home" / ".zcode" / "cli" / "config.json",
                                        lambda path, data, purpose: json_artifact_repository(path).save(data, purpose), lambda key: zai_oauth_runtime().import_api_key(key, source="zcode")),
-        lifecycle=ZcodeLifecyclePorts(run_zai_oauth_action, start_router_if_needed, run_with_router_lifetime, materialize_runtime_command,
+        lifecycle=ZcodeLifecyclePorts(run_zai_oauth_action, apply_launch_endpoint_policy, start_router_if_needed, run_with_router_lifetime, materialize_runtime_command,
                                       lambda provider, model: record_launch_state_for_cwd(current_launch_cwd_key(), provider, "zcode-routed", model)),
     )
 

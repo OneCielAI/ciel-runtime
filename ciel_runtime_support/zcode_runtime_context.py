@@ -56,6 +56,7 @@ class ZcodeConfigurationPorts:
 @dataclass(frozen=True, slots=True)
 class ZcodeLifecyclePorts:
     oauth_action: Callable[..., list[str]]
+    apply_endpoint_policy: Callable[[dict[str, Any], str], list[str]]
     start_router: Callable[[], Any]
     run_with_router: Callable[[Callable[[], int], bool], int]
     materialize_command: Callable[..., tuple[list[str], dict[str, str]]]
@@ -176,6 +177,8 @@ class ZcodeRuntimeContext:
             return self._run_shared_oauth(oauth_action, argv)
         executable = self.install_if_missing()
         config = self.config.load()
+        for line in self.lifecycle.apply_endpoint_policy(config, "zcode"):
+            self.process.print_line(line, flush=True)
         provider, provider_config = self.config.current_provider(config)
         settings_path = self.write_settings(config, provider, provider_config)
         env = self.process.environment.copy()

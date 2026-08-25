@@ -78,6 +78,14 @@ class ProviderLaunchEndpointPolicyTests(unittest.TestCase):
         self.assertIn("OpenAI Responses client protocol", reason)
         self.assertIn("translation remains inside the router", reason)
 
+    def test_zcode_prefers_declared_anthropic_group(self):
+        desired, reason = self.policy.preferred_native_compat(
+            "zcode", "messages", {"native_compat": False}
+        )
+        self.assertTrue(desired)
+        self.assertIn("ZCode uses", reason)
+        self.assertIn("Anthropic Messages", reason)
+
     def test_anthropic_only_provider_overrides_runtime_preference(self):
         desired, reason = self.policy.preferred_native_compat(
             "codex", "messages-only", {"native_compat": False}

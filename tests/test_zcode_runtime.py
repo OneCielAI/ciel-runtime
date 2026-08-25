@@ -56,7 +56,13 @@ class ZcodeRuntimeTests(unittest.TestCase):
     def context(self, root: Path, captured: dict, oauth_action=lambda *_args, **_kwargs: []):
         config = {
             "current_provider": "zai",
-            "providers": {"zai": {"api_key": "oauth-key", "current_model": "glm-5.3"}},
+            "providers": {
+                "zai": {
+                    "api_key": "oauth-key",
+                    "current_model": "glm-5.3",
+                    "native_compat": False,
+                }
+            },
         }
 
         def save_json(path, value, _purpose):
@@ -66,6 +72,11 @@ class ZcodeRuntimeTests(unittest.TestCase):
         def materialize(*args, **kwargs):
             captured["materialize"] = (args, kwargs)
             return ["zcode", *kwargs["passthrough"]], dict(args[2])
+
+        def apply_endpoint_policy(cfg, runtime):
+            captured["endpoint_policy"] = (cfg, runtime)
+            cfg["providers"]["zai"]["native_compat"] = True
+            return ["ZCode Anthropic endpoint selected."]
 
         return ZcodeRuntimeContext(
             process=ZcodeProcessPorts(
@@ -89,6 +100,7 @@ class ZcodeRuntimeTests(unittest.TestCase):
             ),
             lifecycle=ZcodeLifecyclePorts(
                 oauth_action=oauth_action,
+                apply_endpoint_policy=apply_endpoint_policy,
                 start_router=lambda: True,
                 run_with_router=lambda runner, managed: captured.update(managed=managed) or runner(),
                 materialize_command=materialize,
@@ -111,6 +123,10 @@ class ZcodeRuntimeTests(unittest.TestCase):
             self.assertEqual(str(Path(temp_dir) / "zcode-home" / ".zcode"), captured["child"]["env"]["ZCODE_STORAGE_DIR"])
             self.assertTrue(captured["managed"])
             self.assertEqual(("zai", "ciel-runtime-zai-glm-5.3"), captured["record"])
+            self.assertEqual("zcode", captured["endpoint_policy"][1])
+            self.assertIs(context.config.load(), captured["endpoint_policy"][0])
+            self.assertTrue(captured["materialize"][0][4]["native_compat"])
+            self.assertIn("ZCode Anthropic endpoint selected.", captured["output"])
 
     def test_zcode_oauth_login_uses_shared_ciel_credential_path(self):
         with tempfile.TemporaryDirectory() as temp_dir:

@@ -84,6 +84,11 @@ class ProviderLaunchEndpointPolicy:
                     "Codex keeps its OpenAI Responses client protocol; "
                     "provider protocol translation remains inside the router",
                 )
+        if runtime == "zcode" and provider in self.groups.claude_anthropic:
+            return (
+                True,
+                "ZCode uses the provider's Anthropic Messages compatible endpoint",
+            )
         protocols = self.query.supported_protocols(provider, config)
         if protocols == frozenset({"anthropic_messages"}):
             return (
