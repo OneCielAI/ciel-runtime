@@ -7,7 +7,7 @@ knowledge:
       Determine with official ZCode source and live controls why Mia's Z.AI
       Start Plan request is rejected after successful CAPTCHA, preserve the
       real provider failure for Codex, and avoid reporting it as capacity load.
-    status: external-provider-blocked
+    status: waiting-user-captcha
 
   evidence:
     ciel_live_request:
@@ -77,7 +77,11 @@ knowledge:
       glm_5_3_daily_grant: 3000000
       last_confirmed_balance_available: 3000000
       last_successful_balance_check_utc: "2026-08-24T07:00:20.820Z"
-      current_balance_control: "HTTP 405 / code 3012"
+      earlier_balance_control: "HTTP 405 / code 3012"
+      latest_balance_control: "HTTP 200 / business code 0"
+      latest_balance_server_time: 1787624657
+      latest_glm_5_3_available_units: 3000000
+      latest_balance_observed_at: "2026-08-25T02:24:17Z"
       conclusion: >-
         The plan-end timestamp is after the failing request, so plan expiry is
         contradicted by official account-state evidence and is not assigned as
@@ -153,10 +157,19 @@ knowledge:
       - Mia installed nightly projection executed with downstream 400,
         invalid_request_error, and observed upstream status 405
       - diagnostic router PID 2496169 on port 8897 was stopped after capture
+      - current balance recheck recovered to HTTP 200 with a new active daily
+        bucket and 3,000,000 GLM-5.3 units available
+      - nightly diagnostic router started with the Start Plan provider and
+        generated two new state-bound CAPTCHA requests
+      - both new requests timed out after 180 seconds without a completion
+        callback; neither reached the model endpoint
+      - diagnostic router PID 2534327 on port 8898 was stopped
+      - temporary credential config /tmp/ciel-zcode-router-config-7 was removed
     pending:
       - >-
-        A successful GLM-5.3 model response cannot be verified while Z.AI
-        returns 405 / code 3012 to both Ciel and official ZCode.
+        A successful GLM-5.3 model response still requires one freshly
+        generated CAPTCHA to be completed by the user before its 180-second
+        deadline. The two post-recovery CAPTCHA requests were not completed.
     unresolved:
       - >-
         Z.AI has not documented code 3012, and the provider currently rejects
