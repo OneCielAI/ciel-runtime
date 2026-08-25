@@ -1,6 +1,11 @@
 """Z.AI provider adapter."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
+import locale
+import platform
+import time
 from typing import Any, Mapping
 
 from ..architecture import (
@@ -16,6 +21,40 @@ from ..architecture import (
 )
 from .base import HttpBearerProviderAdapter, configuration_policy, provider_configuration
 from .constants import PROVIDER_DEFAULT_BASE_URLS, ZAI_MODEL_FALLBACK_IDS
+
+
+def _zcode_printable_header(value: object) -> str:
+    text = str(value or "").strip()
+    return text if text and all(" " <= char <= "~" for char in text) else "unknown"
+
+
+def _zcode_platform_headers() -> dict[str, str]:
+    system = {
+        "Windows": "win32",
+        "Darwin": "darwin",
+        "Linux": "linux",
+    }.get(platform.system(), platform.system().lower())
+    machine = platform.machine().lower()
+    architecture = "arm64" if machine in {"arm64", "aarch64"} else "x64"
+    os_category = {
+        "Windows": "windows",
+        "Darwin": "macos",
+    }.get(platform.system(), "linux")
+    locale_name = str(locale.getlocale()[0] or "").strip()
+    language = (
+        "en-US"
+        if locale_name.casefold() in {"", "c", "posix"}
+        else locale_name.replace("_", "-")
+    )
+    timezone = next((name for name in time.tzname if name), "unknown")
+    return {
+        "X-Release-Channel": "production",
+        "X-Client-Language": _zcode_printable_header(language),
+        "X-Client-Timezone": _zcode_printable_header(timezone),
+        "X-Platform": f"{_zcode_printable_header(system)}-{architecture}",
+        "X-Os-Category": os_category,
+        "X-Os-Version": _zcode_printable_header(platform.release()),
+    }
 
 
 @dataclass(frozen=True)
@@ -42,7 +81,7 @@ class ZaiProviderAdapter(HttpBearerProviderAdapter):
             haiku_model="glm-4.7",
             subagent_model="glm-5.3[1m]",
             managed_mcp=True,
-            zcode_app_version="3.8.1",
+            zcode_app_version="0.16.3",
         )
     )
     send_placeholder_key: bool = True
@@ -75,7 +114,7 @@ class ZaiProviderAdapter(HttpBearerProviderAdapter):
         self, config: ProviderConfig, api_key: str | None
     ) -> Mapping[str, str]:
         headers = dict(super().build_headers(config, api_key))
-        version = str(config.options.get("zcode_app_version") or "3.8.1").strip()
+        version = str(config.options.get("zcode_app_version") or "0.16.3").strip()
         headers["User-Agent"] = f"ZCode/{version}"
         return headers
 
@@ -321,7 +360,7 @@ class ZaiStartPlanProviderAdapter(ZaiCodingPlanProviderAdapter):
             **ZaiProviderAdapter().configuration_defaults_value,
             "native_compat": True,
             "plan_type": "start-plan",
-            "zcode_app_version": "3.8.1",
+            "zcode_app_version": "0.16.3",
         }
     )
     api_key_display_name_value: str = "Z.AI Start Plan OAuth"
@@ -358,6 +397,50 @@ class ZaiStartPlanProviderAdapter(ZaiCodingPlanProviderAdapter):
         del operation, config, model
         return "anthropic_messages"
 
+    def normalize_request_options_for_protocol(
+        self,
+        config: ProviderConfig,
+        request: Mapping[str, Any],
+        protocol: MessageProtocol | None,
+    ) -> Mapping[str, Any]:
+        if protocol != "anthropic_messages":
+            return super().normalize_request_options_for_protocol(
+                config, request, protocol
+            )
+        normalized = dict(request)
+        effort = str(
+            normalized.pop("reasoning_effort", None)
+            or config.options.get("effort_level")
+            or "max"
+        ).strip().lower()
+        effort = {
+            "none": "low",
+            "minimal": "low",
+            "medium": "high",
+            "xhigh": "max",
+            "ultra": "max",
+        }.get(effort, effort if effort in {"low", "high", "max"} else "max")
+        output_config = normalized.get("output_config")
+        normalized["output_config"] = {
+            **(dict(output_config) if isinstance(output_config, Mapping) else {}),
+            "effort": effort,
+        }
+        thinking = normalized.get("thinking")
+        if isinstance(thinking, Mapping) and str(thinking.get("type") or "") == "enabled":
+            normalized["thinking"] = {
+                **dict(thinking),
+                "budget_tokens": int(thinking.get("budget_tokens") or 32_000),
+            }
+        elif thinking is None and effort == "max":
+            normalized["thinking"] = {
+                "type": "enabled",
+                "budget_tokens": 32_000,
+            }
+        max_tokens = normalized.get("max_tokens")
+        if isinstance(max_tokens, int) and not isinstance(max_tokens, bool):
+            normalized["max_tokens"] = min(max_tokens, 128_000)
+        return normalized
+
     def router_native_anthropic_enabled(
         self, config: ProviderConfig, model: str | None = None
     ) -> bool:
@@ -367,14 +450,28 @@ class ZaiStartPlanProviderAdapter(ZaiCodingPlanProviderAdapter):
         self, config: ProviderConfig, api_key: str | None
     ) -> Mapping[str, str]:
         headers = dict(super().build_headers(config, api_key))
-        version = str(config.options.get("zcode_app_version") or "3.8.1").strip()
+        version = str(config.options.get("zcode_app_version") or "0.16.3").strip()
+        user_agent = str(
+            config.options.get("zcode_user_agent")
+            or (
+                f"ZCode/{version} ai-sdk/provider-utils/4.0.27 "
+                "runtime/node.js/22"
+            )
+        ).strip()
         headers.update(
             {
-                "User-Agent": f"ZCode/{version}",
+                # Captured from the official ZCode 0.16.3 Anthropic transport.
+                # Keep the complete transport identity: the bare ZCode prefix
+                # is not what the official CLI sends on the wire.
+                "User-Agent": user_agent,
+                "Accept": "*/*",
+                "Accept-Language": "*",
+                "Sec-Fetch-Mode": "cors",
                 "HTTP-Referer": "https://zcode.z.ai",
                 "X-ZCode-App-Version": version,
                 "X-ZCode-Agent": "glm",
                 "X-Title": "Z Code@cli",
+                **_zcode_platform_headers(),
             }
         )
         return headers

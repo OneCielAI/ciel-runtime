@@ -1,0 +1,31 @@
+{
+  "provider": {
+    "zai": {
+      "kind": "openai-compatible",
+      "name": "Ciel OpenAI wire capture",
+      "options": {
+        "apiKey": "ciel-runtime-key",
+        "apiKeyRequired": true,
+        "baseURL": "http://127.0.0.1:8894/v1"
+      },
+      "headers": {},
+      "models": {
+        "glm-5.3": {
+          "name": "GLM-5.3"
+        }
+      }
+    }
+  },
+  "model": {
+    "main": "zai/glm-5.3",
+    "lite": "zai/glm-5.3"
+  },
+  "features": {
+    "compact": false,
+    "rewind": false,
+    "subagent": false,
+    "memory": false,
+    "skill": false,
+    "mcp": false
+  }
+}

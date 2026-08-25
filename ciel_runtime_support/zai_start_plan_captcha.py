@@ -17,6 +17,7 @@ import secrets
 import threading
 import urllib.parse
 import urllib.request
+import uuid
 import webbrowser
 from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -373,7 +374,7 @@ class ZaiStartPlanCaptchaBroker:
         return ZaiStartPlanCaptchaConfig.from_envelope(envelope)
 
     def headers(self, options: Mapping[str, Any]) -> dict[str, str]:
-        app_version = str(options.get("zcode_app_version") or "3.8.1").strip()
+        app_version = str(options.get("zcode_app_version") or "0.16.3").strip()
         timeout = self._timeout(options)
         bind_host = self._bind_host(options)
         port = self._port(options)
@@ -548,6 +549,14 @@ def apply_zai_start_plan_runtime_headers(
     if str(provider or "").casefold() != "zai-start-plan":
         return projected
     projected.update(broker.headers(config))
+    projected.update(
+        {
+            "X-Request-Id": str(uuid.uuid4()),
+            "X-ZCode-Trace-Id": str(uuid.uuid4()),
+            "X-Query-Id": str(uuid.uuid4()),
+            "X-Session-Id": str(uuid.uuid4()),
+        }
+    )
     return projected
 
 

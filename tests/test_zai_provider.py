@@ -152,14 +152,107 @@ class ZaiProviderTests(unittest.TestCase):
 
         self.assertEqual("Bearer oauth-jwt", headers["authorization"])
         self.assertEqual("oauth-jwt", headers["x-api-key"])
-        self.assertEqual("ZCode/3.8.1", headers["User-Agent"])
+        self.assertEqual(
+            "ZCode/0.16.3 ai-sdk/provider-utils/4.0.27 runtime/node.js/22",
+            headers["User-Agent"],
+        )
+        self.assertEqual("*/*", headers["Accept"])
+        self.assertEqual("*", headers["Accept-Language"])
+        self.assertEqual("cors", headers["Sec-Fetch-Mode"])
         self.assertEqual("https://zcode.z.ai", headers["HTTP-Referer"])
+        self.assertEqual("production", headers["X-Release-Channel"])
+        self.assertTrue(headers["X-Client-Language"])
+        self.assertTrue(headers["X-Client-Timezone"])
+        self.assertTrue(headers["X-Platform"])
+        self.assertTrue(headers["X-Os-Category"])
+        self.assertTrue(headers["X-Os-Version"])
         blocker = ciel_runtime.configured_provider_adapter(
             "zai-start-plan", pcfg
         ).launch_api_key_error(
             ciel_runtime.provider_contract_config("zai-start-plan", pcfg)
         )
         self.assertIsNone(blocker)
+
+    def test_start_plan_allows_explicit_official_user_agent_override(self):
+        pcfg = copy.deepcopy(
+            ciel_runtime.DEFAULT_CONFIG["providers"]["zai-start-plan"]
+        )
+        pcfg["zcode_user_agent"] = "ZCode/future official-transport/1"
+
+        headers = ciel_runtime.provider_headers("zai-start-plan", pcfg)
+
+        self.assertEqual(
+            "ZCode/future official-transport/1", headers["User-Agent"]
+        )
+
+    def test_start_plan_anthropic_wire_matches_official_zcode_options(self):
+        pcfg = copy.deepcopy(
+            ciel_runtime.DEFAULT_CONFIG["providers"]["zai-start-plan"]
+        )
+        body = {
+            "model": "glm-5.3",
+            "messages": [{"role": "user", "content": "hi"}],
+            "max_tokens": 131072,
+            "reasoning_effort": "xhigh",
+            "thinking": {"type": "enabled"},
+        }
+
+        normalized = ciel_runtime.normalize_anthropic_model_request_options(
+            "zai-start-plan", pcfg, body, "glm-5.3"
+        )
+
+        self.assertNotIn("reasoning_effort", normalized)
+        self.assertEqual({"effort": "max"}, normalized["output_config"])
+        self.assertEqual(
+            {"type": "enabled", "budget_tokens": 32000},
+            normalized["thinking"],
+        )
+        self.assertEqual(128000, normalized["max_tokens"])
+
+    def test_start_plan_max_effort_adds_official_thinking_when_absent(self):
+        pcfg = copy.deepcopy(
+            ciel_runtime.DEFAULT_CONFIG["providers"]["zai-start-plan"]
+        )
+        body = {
+            "model": "glm-5.3",
+            "messages": [{"role": "user", "content": "hi"}],
+            "max_tokens": 131072,
+        }
+
+        normalized = ciel_runtime.normalize_anthropic_model_request_options(
+            "zai-start-plan", pcfg, body, "glm-5.3"
+        )
+
+        self.assertEqual({"effort": "max"}, normalized["output_config"])
+        self.assertEqual(
+            {"type": "enabled", "budget_tokens": 32000},
+            normalized["thinking"],
+        )
+
+    def test_zcode_wire_version_migration_updates_only_the_old_default(self):
+        cfg = {
+            "providers": {
+                "zai": {"zcode_app_version": "3.8.1"},
+                "zai-api": {"zcode_app_version": "custom-version"},
+                "zai-coding-plan": {"zcode_app_version": "3.8.1"},
+                "zai-start-plan": {"zcode_app_version": "3.8.1"},
+            },
+            "migrations": {},
+        }
+
+        ciel_runtime.apply_config_migrations(cfg)
+
+        self.assertEqual("0.16.3", cfg["providers"]["zai"]["zcode_app_version"])
+        self.assertEqual(
+            "custom-version", cfg["providers"]["zai-api"]["zcode_app_version"]
+        )
+        self.assertEqual(
+            "0.16.3", cfg["providers"]["zai-coding-plan"]["zcode_app_version"]
+        )
+        self.assertEqual(
+            "0.16.3", cfg["providers"]["zai-start-plan"]["zcode_app_version"]
+        )
+        self.assertTrue(cfg["migrations"]["zcode_wire_version_0163_20260824"])
 
     def test_codex_translation_adds_anthropic_version_for_start_plan(self):
         pcfg = copy.deepcopy(
@@ -218,7 +311,13 @@ class ZaiProviderTests(unittest.TestCase):
             thread.join(timeout=2.0)
             server.server_close()
 
-        self.assertEqual("ZCode/3.8.1", received["User-Agent"])
+        self.assertEqual(
+            "ZCode/0.16.3 ai-sdk/provider-utils/4.0.27 runtime/node.js/22",
+            received["User-Agent"],
+        )
+        self.assertEqual("*/*", received["Accept"])
+        self.assertEqual("*", received["Accept-Language"])
+        self.assertEqual("cors", received["Sec-Fetch-Mode"])
         self.assertEqual("Bearer oauth-jwt", received["Authorization"])
         self.assertEqual("oauth-jwt", received["X-Api-Key"])
 
@@ -230,7 +329,12 @@ class ZaiProviderTests(unittest.TestCase):
 
                 headers = ciel_runtime.provider_headers(provider, pcfg)
 
-                self.assertEqual("ZCode/3.8.1", headers["User-Agent"])
+                expected = (
+                    "ZCode/3.8.1 ai-sdk/provider-utils/4.0.27 runtime/node.js/22"
+                    if provider == "zai-start-plan"
+                    else "ZCode/3.8.1"
+                )
+                self.assertEqual(expected, headers["User-Agent"])
 
     def test_start_plan_remote_captcha_options_are_ctl_mutable(self):
         pcfg = copy.deepcopy(

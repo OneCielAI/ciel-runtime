@@ -5,6 +5,7 @@ import unittest
 import urllib.error
 import urllib.parse
 import urllib.request
+import uuid
 import tempfile
 from pathlib import Path
 from unittest import mock
@@ -346,7 +347,17 @@ class ZaiStartPlanCaptchaTests(unittest.TestCase):
         self.assertEqual("Bearer oauth", projected["authorization"])
         self.assertEqual("fresh", projected[CAPTCHA_PARAM_HEADER])
         self.assertEqual("sgp", projected[CAPTCHA_REGION_HEADER])
+        attribution = {
+            projected["X-Request-Id"],
+            projected["X-ZCode-Trace-Id"],
+            projected["X-Query-Id"],
+            projected["X-Session-Id"],
+        }
+        self.assertEqual(4, len(attribution))
+        for value in attribution:
+            self.assertEqual(value, str(uuid.UUID(value)))
         self.assertNotIn(CAPTCHA_PARAM_HEADER, other)
+        self.assertNotIn("X-Request-Id", other)
 
     def test_each_upstream_attempt_gets_a_fresh_captcha_header(self):
         class Broker:

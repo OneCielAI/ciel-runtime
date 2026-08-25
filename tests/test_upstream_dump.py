@@ -48,6 +48,28 @@ class UpstreamDumpTests(unittest.TestCase):
         self.assertEqual(1, len(logs))
         self.assertEqual("INFO", logs[0][0])
 
+    def test_header_metadata_preserves_contract_and_redacts_credentials(self):
+        with tempfile.TemporaryDirectory() as target:
+            written = dump_upstream_request(
+                "https://zcode.z.ai/api/v1/zcode-plan/anthropic/v1/messages",
+                b"{}",
+                lambda _level, _message: None,
+                env={DUMP_ENV_VAR: target}.get,
+                headers={
+                    "anthropic-version": "2023-06-01",
+                    "user-agent": "ZCode/0.16.3",
+                    "authorization": "Bearer private-value",
+                    "x-zai-captcha-param": "private-captcha-value",
+                },
+            )
+
+            meta_path = Path(str(written).replace("-body.json", "-meta.json"))
+            headers = json.loads(meta_path.read_text(encoding="utf-8"))["headers"]
+            self.assertEqual("2023-06-01", headers["anthropic-version"])
+            self.assertEqual("ZCode/0.16.3", headers["user-agent"])
+            self.assertEqual("<redacted len=20>", headers["authorization"])
+            self.assertEqual("<redacted len=21>", headers["x-zai-captcha-param"])
+
     def test_capture_failure_only_logs(self):
         logs = []
         with tempfile.TemporaryDirectory() as target:

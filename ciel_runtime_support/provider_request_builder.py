@@ -53,6 +53,9 @@ class ProviderOptionPorts:
     finalize_messages: Callable[[list[dict[str, Any]]], list[dict[str, Any]]] = (
         lambda messages: messages
     )
+    normalize_anthropic_request: Callable[
+        [str, dict[str, Any], dict[str, Any], str], dict[str, Any]
+    ] = lambda _provider, _config, body, _protocol: body
 
 
 class ProviderRequestBuilder:
@@ -130,27 +133,33 @@ class ProviderRequestBuilder:
     def normalize_anthropic_options(
         self,
         provider: str,
+        config: dict[str, Any],
         body: dict[str, Any],
         model_id: str,
     ) -> dict[str, Any]:
-        if provider != "anthropic":
-            return body
-        unsupported = self.options.anthropic_runtime_hints(model_id).get(
-            "unsupported_sampling_parameters"
-        )
-        if not isinstance(unsupported, list) or not unsupported:
-            return body
-        projected = dict(body)
-        removed = [key for key in unsupported if isinstance(key, str) and key in projected]
-        for key in removed:
-            projected.pop(key, None)
-        if removed:
-            self.options.log(
-                "INFO",
-                f"anthropic_request_options_removed model={model_id} "
-                f"keys={','.join(removed)}",
+        projected = body
+        if provider == "anthropic":
+            unsupported = self.options.anthropic_runtime_hints(model_id).get(
+                "unsupported_sampling_parameters"
             )
-        return projected
+            if isinstance(unsupported, list) and unsupported:
+                projected = dict(body)
+                removed = [
+                    key
+                    for key in unsupported
+                    if isinstance(key, str) and key in projected
+                ]
+                for key in removed:
+                    projected.pop(key, None)
+                if removed:
+                    self.options.log(
+                        "INFO",
+                        f"anthropic_request_options_removed model={model_id} "
+                        f"keys={','.join(removed)}",
+                    )
+        return self.options.normalize_anthropic_request(
+            provider, config, projected, "anthropic_messages"
+        )
 
     def ollama_chat(
         self,
@@ -286,7 +295,9 @@ class ProviderRequestCompatibilityApi:
         body: dict[str, Any],
         model_id: str,
     ) -> dict[str, Any]:
-        return self.builder().normalize_anthropic_options(provider, body, model_id)
+        return self.builder().normalize_anthropic_options(
+            provider, config, body, model_id
+        )
 
     def ollama_chat(
         self,

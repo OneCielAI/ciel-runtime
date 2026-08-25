@@ -22,11 +22,30 @@ import json
 import os
 import time
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Mapping
 
 DUMP_ENV_VAR = "CIEL_RUNTIME_DUMP_UPSTREAM"
 
 _sequence = itertools.count(1)
+
+
+def _sanitized_headers(headers: Mapping[str, Any]) -> dict[str, str]:
+    """Preserve wire header names while never persisting credentials."""
+
+    sanitized: dict[str, str] = {}
+    for raw_name, raw_value in headers.items():
+        name = str(raw_name)
+        value = str(raw_value)
+        folded = name.casefold()
+        sensitive = (
+            folded in {"authorization", "proxy-authorization", "cookie", "set-cookie"}
+            or any(
+                marker in folded
+                for marker in ("api-key", "apikey", "token", "secret", "credential", "captcha")
+            )
+        )
+        sanitized[name] = f"<redacted len={len(value)}>" if sensitive else value
+    return sanitized
 
 
 def upstream_dump_dir(env: Callable[[str], str | None] = os.environ.get) -> Path | None:
@@ -39,6 +58,8 @@ def dump_upstream_request(
     data: bytes,
     log: Callable[[str, str], Any],
     env: Callable[[str], str | None] = os.environ.get,
+    *,
+    headers: Mapping[str, Any] | None = None,
 ) -> Path | None:
     """Record ``data`` exactly as it will be sent to ``url``; never raise."""
 
@@ -51,9 +72,16 @@ def dump_upstream_request(
         stem = f"upstream-{stamp}-{next(_sequence):04d}"
         body_path = target / f"{stem}-body.json"
         body_path.write_bytes(data)
+        metadata: dict[str, Any] = {
+            "time": stamp,
+            "url": url,
+            "body_bytes": len(data),
+        }
+        if headers is not None:
+            metadata["headers"] = _sanitized_headers(headers)
         (target / f"{stem}-meta.json").write_text(
             json.dumps(
-                {"time": stamp, "url": url, "body_bytes": len(data)},
+                metadata,
                 ensure_ascii=False,
             ),
             encoding="utf-8",

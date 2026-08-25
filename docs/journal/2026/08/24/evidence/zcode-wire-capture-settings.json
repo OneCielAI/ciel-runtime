@@ -1,0 +1,39 @@
+{
+  "provider": {
+    "zai": {
+      "kind": "anthropic",
+      "name": "Ciel wire capture",
+      "options": {
+        "apiKey": "ciel-runtime-key",
+        "apiKeyRequired": true,
+        "baseURL": "http://127.0.0.1:8891"
+      },
+      "headers": {},
+      "models": {
+        "glm-5.3": {
+          "name": "GLM-5.3"
+        }
+      }
+    }
+  },
+  "model": {
+    "main": "zai/glm-5.3",
+    "lite": "zai/glm-5.3"
+  },
+  "storage": {
+    "dir": "/tmp/ciel-zcode-wire-capture/storage",
+    "sessionDbPath": "/tmp/ciel-zcode-wire-capture/storage/db.sqlite"
+  },
+  "features": {
+    "compact": false,
+    "rewind": false,
+    "subagent": false,
+    "memory": false,
+    "skill": false,
+    "mcp": false
+  },
+  "logging": {
+    "level": "debug",
+    "format": "text"
+  }
+}

@@ -1,0 +1,161 @@
+okf_version: "1.0"
+knowledge:
+  task:
+    id: mia-zai-start-plan-official-control-3012-20260824
+    date: "2026-08-24"
+    objective: >-
+      Determine with official ZCode source and live controls why Mia's Z.AI
+      Start Plan request is rejected after successful CAPTCHA, preserve the
+      real provider failure for Codex, and avoid reporting it as capacity load.
+    status: deployment-testing
+
+  evidence:
+    ciel_live_request:
+      host: mia@100.95.132.58
+      router_port: 8897
+      captcha_completed_at: "2026-08-25T01:39:38Z"
+      captcha_result_length: 280
+      endpoint: https://zcode.z.ai/api/v1/zcode-plan/anthropic/v1/messages
+      method: POST
+      response_http_status: 405
+      response_provider_code: 3012
+      response_message: method not allowed
+      bounded_conclusion: >-
+        CAPTCHA completed and the request reached the intended Anthropic
+        endpoint. The observed failure is not a CAPTCHA timeout or a 404/405
+        caused by Ciel's local /v1/responses route selection.
+
+    official_desktop_source:
+      installed_binary: C:/Users/djlov/AppData/Local/Programs/ZCode/ZCode.exe
+      desktop_version: 3.8.1.5310
+      extracted_asar: >-
+        C:/Users/djlov/AppData/Local/Temp/
+        zcode-official-desktop-3.8.1.5310-asar
+      start_plan_protocol: anthropic_messages
+      base_url: https://zcode.z.ai/api/v1/zcode-plan/anthropic
+      messages_path: /v1/messages
+      credential_source: zcodejwttoken
+      authorization_projection: "Authorization: Bearer <zcodejwttoken>"
+      balance_url: >-
+        https://zcode.z.ai/api/v1/zcode-plan/billing/balance?app_version=3.8.1
+      balance_method: GET
+      source_locations:
+        - out/host/index.formatted.js:55356-55380
+        - out/host/index.formatted.js:57036-57072
+        - out/host/index.formatted.js:57598-57626
+
+    official_cli_wire_capture:
+      package_version: zcode-runtime@0.16.3
+      request_path: /v1/messages
+      captured_metadata: /tmp/ciel-zcode-wire-capture/official-zcode-request-meta.json
+      user_agent: >-
+        ZCode/0.16.3 ai-sdk/provider-utils/4.0.27 runtime/node.js/22
+      source_headers:
+        accept: "*/*"
+        accept_language: "*"
+        sec_fetch_mode: cors
+        zcode_app_version: 0.16.3
+        zcode_agent: glm
+        zcode_title: Z Code@cli
+      request_identifiers:
+        - X-Request-Id
+        - X-ZCode-Trace-Id
+        - X-Query-Id
+        - X-Session-Id
+      secret_handling: >-
+        Authorization and x-api-key values were compared by presence and
+        fingerprint only and were never printed in evidence output.
+
+    official_account_state:
+      log_file: C:/Users/djlov/.zcode/v2/logs/2026-08-24.log
+      successful_balance_log_lines: [255, 266, 288, 309, 327, 346]
+      plan_id: zcode-v3-start-plan-0817
+      plan_name: ZCode Start Plan
+      plan_status: active
+      starts_at_utc: "2026-08-24T02:55:22Z"
+      ends_at_utc: "2026-08-28T15:59:59Z"
+      glm_5_3_daily_grant: 3000000
+      last_confirmed_balance_available: 3000000
+      last_successful_balance_check_utc: "2026-08-24T07:00:20.820Z"
+      current_balance_control: "HTTP 405 / code 3012"
+      conclusion: >-
+        The plan-end timestamp is after the failing request, so plan expiry is
+        contradicted by official account-state evidence and is not assigned as
+        the cause.
+
+    official_runtime_control:
+      runtime: official ZCode 0.16.3 on Mia
+      protocol: anthropic
+      model: glm-5.3
+      result: "HTTP 405 / code 3012"
+      conclusion: >-
+        The same provider rejection occurs outside Ciel's request conversion.
+        Ciel protocol, CAPTCHA completion, and bearer projection are therefore
+        not sufficient explanations for code 3012.
+
+    official_material:
+      configuration_docs: https://zcode.z.ai/en/docs/configuration
+      open_feedback_issue: https://github.com/zai-org/feedback/issues/126
+      working_endpoint_report: https://github.com/zai-org/feedback/issues/287
+      interpretation: >-
+        Official material confirms Start Plan and its trial model quotas, and
+        the feedback tracker contains an unresolved Start Plan availability
+        report. It does not define provider code 3012, so the upstream root
+        cause remains unproven.
+
+  implementation:
+    request_parity:
+      scope: zai-start-plan only
+      changes:
+        - Send the complete captured official Anthropic transport User-Agent.
+        - Send the captured Accept, Accept-Language, and Sec-Fetch-Mode values.
+        - Retain the captured ZCode platform and per-request UUID headers.
+        - Apply official GLM-5.3 Anthropic thinking and output configuration.
+      configurable_override: zcode_user_agent
+      user_specific_exception: false
+    diagnostics:
+      upstream_dump: >-
+        Opt-in request dumps include sanitized header names and non-secret
+        values after request-scoped headers are prepared; credentials and
+        CAPTCHA values are redacted.
+    error_projection:
+      match:
+        provider: zai-start-plan
+        http_status: 405
+        provider_code: 3012
+        provider_message: method not allowed
+      downstream_status: 400
+      downstream_type: invalid_request_error
+      behavior: >-
+        Preserve upstream HTTP 405 as diagnostic metadata and return the exact
+        provider rejection as a terminal request error, preventing Codex from
+        replacing it with the unrelated high-demand message.
+      non_matching_errors: preserved unchanged
+
+  verification:
+    completed:
+      - official ZCode Desktop source extraction and bounded source inspection
+      - official ZCode Anthropic wire capture with secret redaction
+      - official account balance and plan-period log inspection
+      - current balance call from both local and Mia credentials: 405 / 3012
+      - successful human CAPTCHA followed by live Ciel request: 405 / 3012
+      - official ZCode live control request: 405 / 3012
+      - focused tests: 92 passed
+      - static compilation, ruff, and git diff checks passed
+      - full regression: unit 1183 passed, 44 skipped
+      - full regression: router 977 passed
+      - full regression: channel 382 passed, 80 skipped
+      - full regression: runtime 255 passed, 12 skipped
+    pending:
+      - local package deployment verification
+      - nightly publish and registry verification
+      - Mia nightly install and terminal error-projection verification
+    unresolved:
+      - >-
+        Z.AI has not documented code 3012, and the provider currently rejects
+        the same request from official ZCode. No narrower upstream cause is
+        proven by available evidence.
+
+  deployment:
+    local: pending
+    nightly: pending

@@ -34,6 +34,22 @@ def apply_config_migrations(cfg: dict[str, Any], *, policy: ConfigMigrationPolic
         migrations = {}
         cfg["migrations"] = migrations
 
+    marker = "zcode_wire_version_0163_20260824"
+    if not migrations.get(marker):
+        providers = cfg.get("providers") if isinstance(cfg.get("providers"), dict) else {}
+        for provider_name in (
+            "zai",
+            "zai-api",
+            "zai-coding-plan",
+            "zai-start-plan",
+        ):
+            pcfg = providers.get(provider_name)
+            if not isinstance(pcfg, dict):
+                continue
+            if str(pcfg.get("zcode_app_version") or "").strip() == "3.8.1":
+                pcfg["zcode_app_version"] = "0.16.3"
+        migrations[marker] = True
+
     marker = "ox_alpha_provider_catalogs_20260823"
     if not migrations.get(marker):
         providers = cfg.get("providers") if isinstance(cfg.get("providers"), dict) else {}

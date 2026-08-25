@@ -935,6 +935,127 @@ class ApiKeyRotationTests(unittest.TestCase):
             prepare_events[0].kwargs["endpoint"],
         )
 
+    def test_direct_request_dumps_exact_body_and_sanitized_prepared_headers(self):
+        pcfg = self.provider_pcfg(
+            "zai-start-plan",
+            api_key="start-token",
+            gateway_retries=0,
+        )
+        body = {"model": "glm-5.3", "messages": [], "stream": True}
+
+        class FakeResponse:
+            headers = {}
+
+            def read(self):
+                return b""
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with (
+                mock.patch.dict(
+                    ciel_runtime.os.environ,
+                    {"CIEL_RUNTIME_DUMP_UPSTREAM": tmpdir},
+                    clear=False,
+                ),
+                mock.patch.object(
+                    ciel_runtime,
+                    "prepare_provider_runtime_headers",
+                    return_value={
+                        "content-type": "application/json",
+                        "anthropic-version": "2023-06-01",
+                        "authorization": "Bearer private-value",
+                        "x-zai-captcha-param": "private-captcha-value",
+                    },
+                ),
+                mock.patch.object(
+                    ciel_runtime.urllib.request,
+                    "urlopen",
+                    return_value=FakeResponse(),
+                ),
+                mock.patch.object(ciel_runtime, "write_router_activity"),
+                mock.patch.object(ciel_runtime, "learn_router_rate_limit_headers"),
+            ):
+                ciel_runtime.open_provider_request_with_key_retry(
+                    "https://zcode.z.ai/api/v1/zcode-plan/anthropic/v1/messages",
+                    body,
+                    {"content-type": "application/json"},
+                    180.0,
+                    "zai-start-plan",
+                    pcfg,
+                    "glm-5.3",
+                    stream=True,
+                )
+
+            body_path = next(Path(tmpdir).glob("*-body.json"))
+            meta_path = next(Path(tmpdir).glob("*-meta.json"))
+            self.assertEqual(json.dumps(body).encode("utf-8"), body_path.read_bytes())
+            metadata = json.loads(meta_path.read_text(encoding="utf-8"))
+            self.assertEqual("2023-06-01", metadata["headers"]["anthropic-version"])
+            self.assertEqual(
+                "<redacted len=20>", metadata["headers"]["authorization"]
+            )
+            self.assertEqual(
+                "<redacted len=21>",
+                metadata["headers"]["x-zai-captcha-param"],
+            )
+
+    def test_openai_stream_dumps_exact_body_and_sanitized_prepared_headers(self):
+        pcfg = self.provider_pcfg(
+            "zai-start-plan",
+            api_key="start-token",
+            gateway_retries=0,
+        )
+        body = {"model": "glm-5.3", "messages": [], "stream": True}
+
+        class FakeResponse:
+            headers = {}
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with (
+                mock.patch.dict(
+                    ciel_runtime.os.environ,
+                    {"CIEL_RUNTIME_DUMP_UPSTREAM": tmpdir},
+                    clear=False,
+                ),
+                mock.patch.object(
+                    ciel_runtime,
+                    "prepare_provider_runtime_headers",
+                    return_value={
+                        "content-type": "application/json",
+                        "authorization": "Bearer private-value",
+                        "x-aliyun-captcha-verify-param": "private-captcha-value",
+                    },
+                ),
+                mock.patch.object(
+                    ciel_runtime.urllib.request,
+                    "urlopen",
+                    return_value=FakeResponse(),
+                ),
+                mock.patch.object(ciel_runtime, "write_router_activity"),
+                mock.patch.object(ciel_runtime, "learn_router_rate_limit_headers"),
+                mock.patch.object(ciel_runtime, "set_upstream_stream_read_timeout"),
+            ):
+                ciel_runtime.open_openai_stream_with_rate_retry(
+                    "https://zcode.z.ai/api/v1/zcode-plan/chat/completions",
+                    body,
+                    {"content-type": "application/json"},
+                    180.0,
+                    "zai-start-plan",
+                    pcfg,
+                    "glm-5.3",
+                )
+
+            body_path = next(Path(tmpdir).glob("*-body.json"))
+            meta_path = next(Path(tmpdir).glob("*-meta.json"))
+            self.assertEqual(json.dumps(body).encode("utf-8"), body_path.read_bytes())
+            metadata = json.loads(meta_path.read_text(encoding="utf-8"))
+            self.assertEqual(
+                "<redacted len=20>", metadata["headers"]["authorization"]
+            )
+            self.assertEqual(
+                "<redacted len=21>",
+                metadata["headers"]["x-aliyun-captcha-verify-param"],
+            )
+
     def test_openai_stream_transport_error_records_endpoint_and_reason(self):
         pcfg = self.provider_pcfg(
             "zai-start-plan",
@@ -1129,6 +1250,92 @@ class ApiKeyRotationTests(unittest.TestCase):
         self.assertIn("Upstream Ollama rejected the request (HTTP 500)", body)
         self.assertIn("system message must be at the beginning", body)
         sleep.assert_not_called()
+
+    def test_zai_start_plan_3012_is_terminal_actionable_400(self):
+        pcfg = self.provider_pcfg(
+            "zai-start-plan", current_model="glm-5.3", gateway_retries=10
+        )
+        calls = []
+
+        def rejected(*args, **kwargs):
+            calls.append((args, kwargs))
+            raise urllib.error.HTTPError(
+                "https://zcode.z.ai/api/v1/zcode-plan/anthropic/v1/messages",
+                405,
+                "Method Not Allowed",
+                {},
+                io.BytesIO(b'{"code":3012,"msg":"method not allowed"}'),
+            )
+
+        with (
+            mock.patch.object(ciel_runtime.urllib.request, "urlopen", side_effect=rejected),
+            mock.patch.object(
+                ciel_runtime,
+                "prepare_provider_runtime_headers",
+                side_effect=lambda _provider, _config, headers: headers,
+            ),
+            mock.patch.object(ciel_runtime, "write_router_activity"),
+            mock.patch.object(ciel_runtime, "learn_router_rate_limit_headers"),
+            mock.patch.object(ciel_runtime.time, "sleep") as sleep,
+        ):
+            with self.assertRaises(urllib.error.HTTPError) as caught:
+                ciel_runtime.open_provider_request_with_key_retry(
+                    "https://zcode.z.ai/api/v1/zcode-plan/anthropic/v1/messages",
+                    {"model": "glm-5.3", "messages": [], "stream": True},
+                    {},
+                    120.0,
+                    "zai-start-plan",
+                    pcfg,
+                    "glm-5.3",
+                    stream=True,
+                )
+
+        self.assertEqual(1, len(calls))
+        self.assertEqual(400, caught.exception.code)
+        self.assertEqual(405, caught.exception.ciel_runtime_upstream_status)
+        body = json.loads(caught.exception.read().decode("utf-8"))
+        self.assertEqual("invalid_request_error", body["error"]["type"])
+        self.assertIn("provider code 3012", body["error"]["message"])
+        self.assertIn("not a high-demand/capacity response", body["error"]["message"])
+        sleep.assert_not_called()
+
+    def test_other_zai_start_plan_405_is_preserved(self):
+        pcfg = self.provider_pcfg(
+            "zai-start-plan", current_model="glm-5.3", gateway_retries=0
+        )
+        raw = b'{"code":9999,"msg":"method not allowed"}'
+        error = urllib.error.HTTPError(
+            "https://zcode.z.ai/api/v1/zcode-plan/anthropic/v1/messages",
+            405,
+            "Method Not Allowed",
+            {},
+            io.BytesIO(raw),
+        )
+
+        with (
+            mock.patch.object(ciel_runtime.urllib.request, "urlopen", side_effect=error),
+            mock.patch.object(
+                ciel_runtime,
+                "prepare_provider_runtime_headers",
+                side_effect=lambda _provider, _config, headers: headers,
+            ),
+            mock.patch.object(ciel_runtime, "write_router_activity"),
+            mock.patch.object(ciel_runtime, "learn_router_rate_limit_headers"),
+        ):
+            with self.assertRaises(urllib.error.HTTPError) as caught:
+                ciel_runtime.open_provider_request_with_key_retry(
+                    "https://zcode.z.ai/api/v1/zcode-plan/anthropic/v1/messages",
+                    {"model": "glm-5.3", "messages": [], "stream": True},
+                    {},
+                    120.0,
+                    "zai-start-plan",
+                    pcfg,
+                    "glm-5.3",
+                    stream=True,
+                )
+
+        self.assertEqual(405, caught.exception.code)
+        self.assertEqual(raw, caught.exception.read())
 
     def test_compatibility_api_key_probe_uses_provider_specific_routes(self):
         cases = [

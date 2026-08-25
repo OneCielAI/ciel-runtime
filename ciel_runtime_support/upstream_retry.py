@@ -17,6 +17,7 @@ from .upstream_error_policy import (
     ollama_request_validation_error,
     terminal_usage_limit_error,
 )
+from .upstream_dump import dump_upstream_request
 
 
 def _preserves_upstream_status(error: urllib.error.HTTPError) -> bool:
@@ -62,6 +63,41 @@ def _normalized_provider_http_error(
     raw_bytes: bytes,
 ) -> tuple[urllib.error.HTTPError, bytes]:
     """Normalize provider bugs that encode request validation as server load."""
+
+    if str(provider or "").casefold() == "zai-start-plan" and error.code == 405:
+        try:
+            payload = json.loads(raw_bytes.decode("utf-8", errors="replace"))
+        except (TypeError, ValueError):
+            payload = None
+        if (
+            isinstance(payload, dict)
+            and payload.get("code") == 3012
+            and str(payload.get("msg") or "").strip().casefold()
+            == "method not allowed"
+        ):
+            normalized_bytes = json.dumps(
+                {
+                    "error": {
+                        "type": "invalid_request_error",
+                        "message": (
+                            "Z.AI Start Plan gateway rejected the model request "
+                            "(upstream HTTP 405, provider code 3012: method not "
+                            "allowed). This is a terminal upstream rejection, "
+                            "not a high-demand/capacity response."
+                        ),
+                    }
+                }
+            ).encode("utf-8")
+            normalized = urllib.error.HTTPError(
+                error.url,
+                400,
+                "Z.AI Start Plan request rejected",
+                error.headers,
+                io.BytesIO(normalized_bytes),
+            )
+            normalized.ciel_runtime_upstream_status = error.code
+            normalized.ciel_runtime_body = normalized_bytes
+            return normalized, normalized_bytes
 
     if (
         str(provider or "").casefold() == "ollama"
@@ -380,6 +416,12 @@ def open_provider_request_with_key_retry(
                 endpoint=endpoint,
             )
             router_log("INFO", f"upstream_direct_request provider={provider} model={model} endpoint={endpoint} attempt={attempt + 1}/{max_attempts} tokens={token_estimate} bytes={byte_estimate} timeout={timeout}")
+            dump_upstream_request(
+                url,
+                data_bytes,
+                router_log,
+                headers=headers,
+            )
             req = urllib.request.Request(url, data=data_bytes, headers=headers, method="POST")
             resp = provider_urlopen(req, timeout=timeout, provider=provider, pcfg=pcfg)
             learn_router_rate_limit_headers(provider, pcfg, model, resp.headers)
@@ -540,6 +582,12 @@ def open_openai_stream_with_rate_retry(
                 endpoint=endpoint,
             )
             router_log("INFO", f"upstream_stream_request provider={provider} model={model} endpoint={endpoint} attempt={attempt + 1}/{max_attempts} tokens={token_estimate} bytes={byte_estimate} timeout={timeout}")
+            dump_upstream_request(
+                url,
+                data_bytes,
+                router_log,
+                headers=headers,
+            )
             req = urllib.request.Request(url, data=data_bytes, headers=headers, method="POST")
             resp = provider_urlopen(req, timeout=timeout, provider=provider, pcfg=pcfg)
             set_upstream_stream_read_timeout(resp, provider_stream_idle_timeout_seconds(pcfg))

@@ -2536,7 +2536,7 @@ def provider_request_builder() -> ProviderRequestBuilder:
             sampling_allowed=lambda provider, config: configured_provider_adapter(provider, config).allows_sampling_overrides(provider_contract_config(provider, config)),
             omit_tool_choice=should_omit_openai_chat_tool_choice, tool_choice=anthropic_tool_choice_to_openai, normalize_request=apply_provider_adapter_request_policy,
         ),
-        ProviderOptionPorts(frozenset(PROVIDER_SAMPLING_OPTION_PROVIDERS), tuple(PROVIDER_SAMPLING_OPTIONS), anthropic_model_runtime_hints, router_log, lambda messages: project_move_memory_pointer_to_system_end(messages, project_current_memory_prompt(WORKSPACE_STATE_DIR, load_config(), Path(ROUTER_WORKSPACE)))),
+        ProviderOptionPorts(frozenset(PROVIDER_SAMPLING_OPTION_PROVIDERS), tuple(PROVIDER_SAMPLING_OPTIONS), anthropic_model_runtime_hints, router_log, lambda messages: project_move_memory_pointer_to_system_end(messages, project_current_memory_prompt(WORKSPACE_STATE_DIR, load_config(), Path(ROUTER_WORKSPACE))), apply_provider_adapter_request_policy),
     )
 
 _PROVIDER_REQUEST_API = ProviderRequestCompatibilityApi(provider_request_builder)
