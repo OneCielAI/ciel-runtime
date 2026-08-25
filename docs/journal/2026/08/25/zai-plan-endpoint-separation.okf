@@ -165,6 +165,13 @@ okf:
         upstream_http_status: 405
         upstream_provider_code: 3012
         upstream_message: Your account has been flagged for unusual activity.
+        repeated_retest:
+          credential_sha256_prefix: 6ea3ad9709f1
+          runtime_interaction_status: completed
+          upstream_http_status: 405
+          upstream_provider_code: 3012
+          upstream_message: Your account has been flagged for unusual activity.
+          result: identical_account_restriction_reproduced
         conclusion: >-
           The refreshed official JWT, state-bound CAPTCHA, router request, and
           upstream response path all completed. Z.AI rejected the account after
