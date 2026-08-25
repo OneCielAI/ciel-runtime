@@ -38,6 +38,16 @@ class CliParserTests(unittest.TestCase):
         self.assertTrue(args.no_browser)
         self.assertIs(ciel_runtime.cmd_zai_oauth, args.func)
 
+    def test_zai_oauth_command_supports_native_config_import(self):
+        args = ciel_runtime.build_parser().parse_args(["zai-oauth", "import"])
+
+        self.assertEqual("import", args.action)
+        self.assertIs(ciel_runtime.cmd_zai_oauth, args.func)
+
+    def test_copilot_oauth_does_not_accept_zcode_import(self):
+        with self.assertRaises(SystemExit):
+            ciel_runtime.build_parser().parse_args(["copilot-oauth", "import"])
+
     def test_zai_oauth_command_separates_start_plan_profile(self):
         args = ciel_runtime.build_parser().parse_args(
             ["zai-oauth", "login", "--profile", "start-plan", "--no-browser"]
