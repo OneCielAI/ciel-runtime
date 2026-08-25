@@ -197,3 +197,32 @@ completion_boundary:
     was found in the exact public ZCode source or current official Z.AI Coding
     Plan documentation, so Ciel Runtime does not send stored credentials to the
     previously guessed gateway.
+
+post_deployment_user_reproduction:
+  observed_at_utc: 2026-08-25T06:07:00Z
+  zcode:
+    user_visible_result: Model request failed; Turn execution failed
+    router_request_at: 2026-08-25T01:07:47
+    endpoint: https://api.z.ai/api/anthropic/v1/messages
+    http_status: 429
+    provider_code: 1113
+    provider_message: Insufficient balance or no resource package. Please recharge.
+    conclusion: confirmed_provider_account_resource_rejection
+  codex:
+    user_visible_result: Quota exceeded. Check your plan and billing details.
+    rollout_turn_id: 01a03787-e00b-7d82-891c-57d7aa9820e2
+    rollout_error_info: usage_limit_exceeded
+    router_request_at: 2026-08-25T01:07:28
+    inbound_path: /v1/responses
+    downstream_http_status: 200
+    downstream_status_interpretation: >-
+      The HTTP status opened an SSE response; Codex recorded the terminal error
+      from the stream. It is not evidence of a successful model response.
+    exact_provider_code_for_this_turn: not_captured_at_info_log_level
+    comparison_evidence: >-
+      The earlier direct /v1/responses probe with the same installed profile and
+      credential returned HTTP 429 insufficient_quota. This supports an account
+      quota explanation but is not substituted for the missing raw provider code
+      of this exact Codex turn.
+  active_session_handling:
+    mia_codex_session_was_terminated: false
