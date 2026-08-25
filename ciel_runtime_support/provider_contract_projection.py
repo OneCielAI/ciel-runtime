@@ -30,7 +30,8 @@ class ProviderContractProjectionApi:
 
     def endpoint(self, provider: str, pcfg: dict[str, Any], operation: str) -> str:
         adapter, contract = self._parts(provider, pcfg)
-        return self.join_url(self.request_base(provider, pcfg), adapter.resolve_endpoint(operation, contract))
+        base_url = adapter.operation_base_url(operation, contract)
+        return self.join_url(base_url, adapter.resolve_endpoint(operation, contract))
 
     def model_paths(self, provider: str, pcfg: dict[str, Any]) -> tuple[str, ...]:
         adapter, contract = self._parts(provider, pcfg)

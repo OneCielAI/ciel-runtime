@@ -64,41 +64,6 @@ def _normalized_provider_http_error(
 ) -> tuple[urllib.error.HTTPError, bytes]:
     """Normalize provider bugs that encode request validation as server load."""
 
-    if str(provider or "").casefold() == "zai-start-plan" and error.code == 405:
-        try:
-            payload = json.loads(raw_bytes.decode("utf-8", errors="replace"))
-        except (TypeError, ValueError):
-            payload = None
-        if (
-            isinstance(payload, dict)
-            and payload.get("code") == 3012
-            and str(payload.get("msg") or "").strip().casefold()
-            == "method not allowed"
-        ):
-            normalized_bytes = json.dumps(
-                {
-                    "error": {
-                        "type": "invalid_request_error",
-                        "message": (
-                            "Z.AI Start Plan gateway rejected the model request "
-                            "(upstream HTTP 405, provider code 3012: method not "
-                            "allowed). This is a terminal upstream rejection, "
-                            "not a high-demand/capacity response."
-                        ),
-                    }
-                }
-            ).encode("utf-8")
-            normalized = urllib.error.HTTPError(
-                error.url,
-                400,
-                "Z.AI Start Plan request rejected",
-                error.headers,
-                io.BytesIO(normalized_bytes),
-            )
-            normalized.ciel_runtime_upstream_status = error.code
-            normalized.ciel_runtime_body = normalized_bytes
-            return normalized, normalized_bytes
-
     if (
         str(provider or "").casefold() == "ollama"
         and error.code == 500

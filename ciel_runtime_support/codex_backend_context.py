@@ -79,6 +79,7 @@ class ProviderPassthroughTransportPorts:
     timeout_seconds: Callable[..., float]
     copy_response_headers: Callable[..., None]
     write_activity: Callable[..., None]
+    endpoint: Callable[[str, dict[str, Any], str], str] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -283,6 +284,7 @@ class CodexBackendContext:
                 estimate_tokens=self.replay.estimate_tokens,
                 compact_responses=self.replay.compact_responses,
                 finalize_body=self.provider_projection.finalize_responses,
+                endpoint=self.provider_transport.endpoint,
             )
         )
 

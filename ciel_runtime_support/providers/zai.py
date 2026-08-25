@@ -3,14 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-import locale
-import platform
-import time
 from typing import Any, Mapping
 
 from ..architecture import (
     ProviderCapabilities,
-    ProviderConfigurationPolicy,
     ProviderConfig,
     ProviderContextPolicy,
     ProviderModelCatalogPolicy,
@@ -19,42 +15,8 @@ from ..architecture import (
     ProviderStatusPolicy,
     MessageProtocol,
 )
-from .base import HttpBearerProviderAdapter, configuration_policy, provider_configuration
+from .base import HttpBearerProviderAdapter, provider_configuration
 from .constants import PROVIDER_DEFAULT_BASE_URLS, ZAI_MODEL_FALLBACK_IDS
-
-
-def _zcode_printable_header(value: object) -> str:
-    text = str(value or "").strip()
-    return text if text and all(" " <= char <= "~" for char in text) else "unknown"
-
-
-def _zcode_platform_headers() -> dict[str, str]:
-    system = {
-        "Windows": "win32",
-        "Darwin": "darwin",
-        "Linux": "linux",
-    }.get(platform.system(), platform.system().lower())
-    machine = platform.machine().lower()
-    architecture = "arm64" if machine in {"arm64", "aarch64"} else "x64"
-    os_category = {
-        "Windows": "windows",
-        "Darwin": "macos",
-    }.get(platform.system(), "linux")
-    locale_name = str(locale.getlocale()[0] or "").strip()
-    language = (
-        "en-US"
-        if locale_name.casefold() in {"", "c", "posix"}
-        else locale_name.replace("_", "-")
-    )
-    timezone = next((name for name in time.tzname if name), "unknown")
-    return {
-        "X-Release-Channel": "production",
-        "X-Client-Language": _zcode_printable_header(language),
-        "X-Client-Timezone": _zcode_printable_header(timezone),
-        "X-Platform": f"{_zcode_printable_header(system)}-{architecture}",
-        "X-Os-Category": os_category,
-        "X-Os-Version": _zcode_printable_header(platform.release()),
-    }
 
 
 @dataclass(frozen=True)
@@ -262,6 +224,14 @@ class ZaiApiProviderAdapter(ZaiProviderAdapter):
         "Launch blocked: Z.AI Model API requires a pay-as-you-go API key."
     )
 
+    def resolve_endpoint(self, operation: str, config: ProviderConfig) -> str:
+        policy = self.request_policy(config)
+        if operation in {"chat", "openai_chat"}:
+            return policy.chat_path
+        if operation == "models":
+            return policy.models_path
+        return super().resolve_endpoint(operation, config)
+
     def supported_protocols(
         self, config: ProviderConfig, model: str | None = None
     ) -> frozenset[MessageProtocol]:
@@ -296,6 +266,8 @@ class ZaiCodingPlanProviderAdapter(ZaiApiProviderAdapter):
             **ZaiProviderAdapter().configuration_defaults_value,
             "native_compat": True,
             "plan_type": "coding-plan",
+            "anthropic_base_url": "https://api.z.ai/api/anthropic",
+            "openai_responses_base_url": "https://api.z.ai/api/v1",
         }
     )
     api_key_display_name_value: str = "Z.AI Coding Plan"
@@ -307,7 +279,7 @@ class ZaiCodingPlanProviderAdapter(ZaiApiProviderAdapter):
         self, config: ProviderConfig, model: str | None = None
     ) -> frozenset[MessageProtocol]:
         del model
-        protocols: set[MessageProtocol] = {"openai_chat"}
+        protocols: set[MessageProtocol] = {"openai_chat", "openai_responses"}
         if bool(config.options.get("native_compat", True)):
             protocols.add("anthropic_messages")
         return frozenset(protocols)
@@ -318,12 +290,21 @@ class ZaiCodingPlanProviderAdapter(ZaiApiProviderAdapter):
         config: ProviderConfig,
         model: str | None = None,
     ) -> MessageProtocol:
-        return (
-            "anthropic_messages"
-            if operation == "anthropic_messages"
-            and "anthropic_messages" in self.supported_protocols(config, model)
-            else "openai_chat"
-        )
+        supported = self.supported_protocols(config, model)
+        return operation if operation in supported else "openai_chat"
+
+    def operation_base_url(self, operation: str, config: ProviderConfig) -> str:
+        documented = {
+            "anthropic_messages": str(
+                config.options.get("anthropic_base_url")
+                or "https://api.z.ai/api/anthropic"
+            ),
+            "openai_responses": str(
+                config.options.get("openai_responses_base_url")
+                or "https://api.z.ai/api/v1"
+            ),
+        }
+        return documented.get(operation, config.base_url or self.default_base_url()).rstrip("/")
 
     def anthropic_base_url(self, config: ProviderConfig) -> str:
         del config
@@ -338,7 +319,13 @@ class ZaiCodingPlanProviderAdapter(ZaiApiProviderAdapter):
 
 @dataclass(frozen=True)
 class ZaiStartPlanProviderAdapter(ZaiCodingPlanProviderAdapter):
-    """ZCode Start Plan gateway profile backed by an OAuth JWT."""
+    """Retained configuration identity for an unverified Start Plan route.
+
+    The public ZCode CLI source does not expose a Start Plan model transport,
+    and Z.AI's public Coding Plan documentation does not publish one. Keep the
+    profile readable so existing configuration is not destroyed, but never
+    present its historical guessed gateway as launch-ready.
+    """
 
     name: str = "zai-start-plan"
     base_url: str = PROVIDER_DEFAULT_BASE_URLS["zai-start-plan"]
@@ -397,114 +384,23 @@ class ZaiStartPlanProviderAdapter(ZaiCodingPlanProviderAdapter):
         del operation, config, model
         return "anthropic_messages"
 
-    def normalize_request_options_for_protocol(
-        self,
-        config: ProviderConfig,
-        request: Mapping[str, Any],
-        protocol: MessageProtocol | None,
-    ) -> Mapping[str, Any]:
-        if protocol != "anthropic_messages":
-            return super().normalize_request_options_for_protocol(
-                config, request, protocol
-            )
-        normalized = dict(request)
-        effort = str(
-            normalized.pop("reasoning_effort", None)
-            or config.options.get("effort_level")
-            or "max"
-        ).strip().lower()
-        effort = {
-            "none": "low",
-            "minimal": "low",
-            "medium": "high",
-            "xhigh": "max",
-            "ultra": "max",
-        }.get(effort, effort if effort in {"low", "high", "max"} else "max")
-        output_config = normalized.get("output_config")
-        normalized["output_config"] = {
-            **(dict(output_config) if isinstance(output_config, Mapping) else {}),
-            "effort": effort,
-        }
-        thinking = normalized.get("thinking")
-        if isinstance(thinking, Mapping) and str(thinking.get("type") or "") == "enabled":
-            normalized["thinking"] = {
-                **dict(thinking),
-                "budget_tokens": int(thinking.get("budget_tokens") or 32_000),
-            }
-        elif thinking is None and effort == "max":
-            normalized["thinking"] = {
-                "type": "enabled",
-                "budget_tokens": 32_000,
-            }
-        max_tokens = normalized.get("max_tokens")
-        if isinstance(max_tokens, int) and not isinstance(max_tokens, bool):
-            normalized["max_tokens"] = min(max_tokens, 128_000)
-        return normalized
-
-    def router_native_anthropic_enabled(
-        self, config: ProviderConfig, model: str | None = None
-    ) -> bool:
-        return super().router_native_anthropic_enabled(config, model)
-
     def build_headers(
         self, config: ProviderConfig, api_key: str | None
     ) -> Mapping[str, str]:
-        headers = dict(super().build_headers(config, api_key))
-        version = str(config.options.get("zcode_app_version") or "0.16.3").strip()
-        user_agent = str(
-            config.options.get("zcode_user_agent")
-            or (
-                f"ZCode/{version} ai-sdk/provider-utils/4.0.27 "
-                "runtime/node.js/22"
-            )
-        ).strip()
-        headers.update(
-            {
-                # Captured from the official ZCode 0.16.3 Anthropic transport.
-                # Keep the complete transport identity: the bare ZCode prefix
-                # is not what the official CLI sends on the wire.
-                "User-Agent": user_agent,
-                "Accept": "*/*",
-                "Accept-Language": "*",
-                "Sec-Fetch-Mode": "cors",
-                "HTTP-Referer": "https://zcode.z.ai",
-                "X-ZCode-App-Version": version,
-                "X-ZCode-Agent": "glm",
-                "X-Title": "Z Code@cli",
-                **_zcode_platform_headers(),
-            }
-        )
-        return headers
-
-    def build_model_headers(
-        self, config: ProviderConfig, api_key: str | None
-    ) -> Mapping[str, str]:
-        return self.build_headers(config, api_key)
-
-    def configuration_policy(
-        self, config: ProviderConfig
-    ) -> ProviderConfigurationPolicy:
-        del config
-        return configuration_policy(
-            text_option_aliases={
-                "captcha_bind_host": "zai_captcha_bind_host",
-                "captcha_port": "zai_captcha_port",
-                "captcha_public_base_url": "zai_captcha_public_base_url",
-                "captcha_timeout_seconds": "zai_captcha_timeout_seconds",
-                "zai_captcha_bind_host": "zai_captcha_bind_host",
-                "zai_captcha_port": "zai_captcha_port",
-                "zai_captcha_public_base_url": "zai_captcha_public_base_url",
-                "zai_captcha_timeout_seconds": "zai_captcha_timeout_seconds",
-            },
-            strip_trailing_slash_fields=frozenset(
-                {"zai_captcha_public_base_url"}
-            ),
+        del config, api_key
+        raise RuntimeError(
+            "Z.AI Start Plan transport is blocked because no public model "
+            "endpoint contract has been verified."
         )
 
     def launch_api_key_error(self, config: ProviderConfig) -> str | None:
-        if not config.api_keys:
-            return self.api_key_launch_error_value
-        return None
+        del config
+        return (
+            "Launch blocked: no Start Plan model endpoint is published by the "
+            "public ZCode CLI source or Z.AI Coding Plan documentation. Existing "
+            "Start Plan credentials were preserved but will not be sent to an "
+            "unverified gateway."
+        )
 
 
 __all__ = [

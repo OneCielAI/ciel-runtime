@@ -94,6 +94,17 @@ class ZcodeRuntimeContext:
             )
         return executable
 
+    def native_oauth_login(self, no_browser: bool = False) -> int:
+        """Run the public ZCode OAuth launcher in the real user profile."""
+
+        executable = self.install_if_missing()
+        command = [executable, "login", "--oauth"]
+        if no_browser:
+            command.append("--no-browser")
+        env = self.process.environment.copy()
+        env["PATH"] = self.process.augment_path(env)
+        return self.process.call(command, env=env)
+
     @staticmethod
     def _shared_oauth_action(argv: list[str]) -> str | None:
         if not argv:
@@ -145,11 +156,16 @@ class ZcodeRuntimeContext:
             payload = json.loads(settings_path.read_text(encoding="utf-8"))
             provider = payload.get("provider", {}).get("zai", {})
             options = provider.get("options", {})
+            kind = str(provider.get("kind") or "").strip().lower()
             base_url = str(options.get("baseURL") or "").rstrip("/")
             key = str(options.get("apiKey") or "").strip()
         except (OSError, UnicodeError, json.JSONDecodeError, AttributeError):
             return []
-        if base_url != self.config.zai_anthropic_base_url.rstrip("/") or not key:
+        if (
+            kind != "anthropic"
+            or base_url != self.config.zai_anthropic_base_url.rstrip("/")
+            or not key
+        ):
             return []
         return self.config.import_oauth_api_key(key)
 

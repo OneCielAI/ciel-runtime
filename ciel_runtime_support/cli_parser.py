@@ -135,7 +135,7 @@ def build_cli_parser(services: CliParserServices) -> argparse.ArgumentParser:
     copilot_oauth.add_argument(
         "action",
         nargs="?",
-        choices=("login", "status", "logout"),
+        choices=("login", "import", "status", "logout"),
         default="status",
     )
     copilot_oauth.set_defaults(func=services.provider.oauth["copilot"])

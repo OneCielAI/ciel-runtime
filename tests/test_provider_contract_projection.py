@@ -17,6 +17,7 @@ class ProviderContractProjectionApiTests(unittest.TestCase):
         adapter = mock.create_autospec(ProviderAdapter, instance=True)
         contract = ProviderConfig("test", "https://example.test", "model")
         adapter.resolve_endpoint.return_value = "/v1/messages"
+        adapter.operation_base_url.return_value = "https://example.test"
         adapter.request_policy.return_value = ProviderRequestPolicy(
             "/v1/messages", "/v1/models"
         )

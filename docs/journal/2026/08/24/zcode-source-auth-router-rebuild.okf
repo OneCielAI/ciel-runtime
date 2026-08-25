@@ -1,0 +1,130 @@
+task:
+  id: zcode-source-auth-router-rebuild
+  date: 2026-08-24
+  status: in_progress
+  objective: >-
+    Rebuild ZCode authentication, Z.AI endpoint selection, GLM model parameters,
+    and Ciel Runtime router integration from verified source, official
+    documentation, and live execution evidence only.
+
+evidence:
+  upstream_source:
+    repository: https://github.com/kingsword09/zcode-cli.git
+    package: zcode-app-cli@3.8.1-15
+    tag: v3.8.1-15
+    commit: e6e110cba0b41d72bc1f7ee1e146facbe227d81a
+    bundled_runtime: 0.16.3
+    facts:
+      - src/zai-oauth.ts fixes the OAuth redirect URI to zcode://zai-auth/callback.
+      - scripts/sync-runtime.ts exchanges the callback at https://zcode.z.ai/api/v1/oauth/token.
+      - The returned OAuth access token is resolved to a Coding Plan API key and written to provider zai.
+      - The public CLI source contains no Start Plan routed-provider implementation.
+      - The public CLI documents browser OAuth as macOS-only and API-key/custom-provider access as cross-platform.
+  official_zai_docs:
+    tool_integration: https://docs.z.ai/devpack/tool/others
+    glm_5_3: https://docs.z.ai/guides/llm/glm-5.3
+    verified_coding_plan_base_urls:
+      anthropic_messages: https://api.z.ai/api/anthropic
+      openai_chat: https://api.z.ai/api/coding/paas/v4
+      openai_responses: https://api.z.ai/api/v1
+    verified_glm_5_3_contract:
+      context_tokens: 1000000
+      max_output_tokens: 128000
+      thinking_type: enabled
+      reasoning_effort: [low, high, max]
+      default_reasoning_effort: max
+  mia_control:
+    host: mia@100.95.132.58
+    installed_ciel: 0.2.36-nightly.20260825-022132.97b7e85
+    installed_zcode_app_cli: 3.8.1-15
+    installed_zcode_runtime: 0.16.3
+    native_zcode_config:
+      provider: zai
+      kind: anthropic
+      base_url: https://api.z.ai/api/anthropic
+      has_api_key: true
+    ciel_workspace_config:
+      selected_provider: zai-start-plan
+      coding_plan_has_api_key: false
+      start_plan_has_api_key: false
+    native_model_request:
+      result: rejected
+      http_status: 429
+      provider_code: 1113
+      provider_message: Insufficient balance or no resource package. Please recharge.
+      interpretation: >-
+        Authentication reached the Coding Plan provider and received a provider
+        business response, but the account credential had no usable Coding Plan
+        balance or resource package. This is not evidence that Start Plan quota
+        is available through the open-source CLI route.
+
+contradictions_found:
+  - >-
+    Ciel Runtime currently treats the OAuth JWT as a Start Plan model credential,
+    but the public CLI source stores that JWT as login state and resolves a
+    separate Coding Plan API key for model access.
+  - >-
+    Ciel Runtime currently tries undocumented oauth/cli/init and oauth/cli/poll
+    routes before the source-backed authorization-code flow.
+  - >-
+    Ciel Runtime currently registers Coding Plan as OpenAI Chat plus Anthropic,
+    while current official documentation also publishes an OpenAI Responses base URL.
+  - >-
+    Ciel Runtime's localhost OAuth redirect differs from the registered
+    zcode://zai-auth/callback URI in the exact public source tag.
+
+changes:
+  authentication:
+    - Removed Ciel-owned oauth/cli/init and oauth/cli/poll requests.
+    - Removed the localhost OAuth callback receiver.
+    - Delegated login to the installed public zcode-app-cli launcher.
+    - Validated and imported only provider.zai kind=anthropic with the documented Anthropic Coding Plan base URL.
+    - Shared the resolved Coding Plan API key through the zai-coding-plan profile for every runtime client.
+    - Rejected Start Plan JWT import as a routed model credential.
+  endpoints:
+    anthropic_messages: https://api.z.ai/api/anthropic/v1/messages
+    openai_chat: https://api.z.ai/api/coding/paas/v4/chat/completions
+    openai_responses: https://api.z.ai/api/v1/responses
+    implementation: provider operation base URL selection plus native Responses passthrough wiring
+  start_plan:
+    - Preserved existing stored profile values.
+    - Blocked launch and header generation because no public model endpoint contract was verified.
+    - Removed the speculative CAPTCHA, gateway header, and provider-3012 rewrite paths.
+  model_parameters:
+    glm_5_3:
+      context_tokens: 1000000
+      max_output_tokens: 131072
+      thinking_type: enabled
+      reasoning_effort: [low, high, max]
+      default_reasoning_effort: max
+      temperature_when_supplied: 1.0
+    glm_5_2:
+      context_tokens: 1000000
+      max_output_tokens: 131072
+    glm_5_1:
+      context_tokens: 200000
+      max_output_tokens: 131072
+
+verification:
+  source_checkout: passed
+  official_document_review: passed
+  mia_native_control: passed_with_provider_rejection
+  code_changes: passed
+  local_tests:
+    command: python -m unittest discover -s tests
+    result: passed
+    tests_run: 2746
+    skipped: 136
+    elapsed_seconds: 297.542
+  isolated_router_wire:
+    command: python docs/journal/2026/08/24/evidence/verify-zai-coding-plan-router.py
+    result: passed
+    downstream_status: completed
+    upstream_path: /v1/responses
+    authorization: bearer_present
+    x_api_key: present
+    normalized_model: glm-5.3
+    normalized_thinking: enabled
+    normalized_reasoning_effort: max
+    normalized_temperature: 1.0
+  live_routed_model_response: blocked_by_mia_account_provider_code_1113

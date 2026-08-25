@@ -40,6 +40,9 @@ class InstallScriptPathTests(unittest.TestCase):
             env = {
                 **os.environ,
                 "PREFIX": prefix,
+                "CIEL_RUNTIME_INSTALL_HOME": str(
+                    Path(prefix) / "share" / "ciel-runtime"
+                ),
                 "CIEL_RUNTIME_SKIP_PATH_REGISTRATION": "1",
             }
             try:

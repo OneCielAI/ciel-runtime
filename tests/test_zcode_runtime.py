@@ -134,11 +134,11 @@ class ZcodeRuntimeTests(unittest.TestCase):
 
             def oauth(action, **kwargs):
                 captured["oauth"] = (action, kwargs)
-                return ["Z.AI OAuth Start Plan login completed."]
+                raise RuntimeError("Start Plan OAuth is not exposed")
 
             context = self.context(Path(temp_dir), captured, oauth)
             self.assertEqual(
-                0,
+                1,
                 context.launch(
                     ["login", "--oauth", "--profile", "start-plan", "--no-browser"]
                 ),
@@ -148,6 +148,20 @@ class ZcodeRuntimeTests(unittest.TestCase):
                 captured["oauth"],
             )
             self.assertNotIn("command", captured)
+
+    def test_native_oauth_login_runs_public_launcher_in_real_environment(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            captured = {}
+            context = self.context(Path(temp_dir), captured)
+
+            self.assertEqual(0, context.native_oauth_login(no_browser=True))
+
+            self.assertEqual(
+                ["C:/bin/zcode.cmd", "login", "--oauth", "--no-browser"],
+                captured["command"],
+            )
+            self.assertEqual("augmented", captured["child"]["env"]["PATH"])
+            self.assertNotIn("ZCODE_STORAGE_DIR", captured["child"]["env"])
 
     def test_official_zcode_oauth_result_is_imported_after_tui_exit(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -160,6 +174,7 @@ class ZcodeRuntimeTests(unittest.TestCase):
                     {
                         "provider": {
                             "zai": {
+                                "kind": "anthropic",
                                 "options": {
                                     "baseURL": "https://api.z.ai/api/anthropic",
                                     "apiKey": "oauth-from-zcode",

@@ -470,6 +470,15 @@ class RemoteMemoryRuntimeIntegrationTests(unittest.TestCase):
                 mock.patch.object(ciel_runtime, "provider_upstream_model", return_value="model"),
                 mock.patch.object(ciel_runtime, "apply_provider_adapter_request_policy", side_effect=policy),
                 mock.patch.object(ciel_runtime, "provider_upstream_request_base", return_value="https://provider.example/v1"),
+                mock.patch.object(
+                    ciel_runtime,
+                    "provider_endpoint",
+                    side_effect=lambda _provider, _config, operation: (
+                        "https://provider.example/v1/responses"
+                        if operation == "openai_responses"
+                        else "https://provider.example/v1/chat/completions"
+                    ),
+                ),
                 mock.patch.object(ciel_runtime, "provider_headers", return_value={}),
                 mock.patch.object(ciel_runtime, "provider_chat_headers", return_value={}),
                 mock.patch.object(ciel_runtime, "provider_urlopen", side_effect=urlopen),

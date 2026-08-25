@@ -298,6 +298,16 @@ class ProviderAdapter(ABC):
         del config
         return self.default_base_url()
 
+    def operation_base_url(self, operation: str, config: ProviderConfig) -> str:
+        """Return the base URL for one wire operation.
+
+        Most providers expose every protocol below one base URL. Providers
+        that publish protocol-specific bases override this method.
+        """
+
+        del operation, config
+        return self.default_base_url()
+
     def normalize_base_url(self, value: str) -> str:
         """Normalize a user-supplied endpoint before it is persisted."""
 

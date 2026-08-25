@@ -45,6 +45,7 @@ class ProviderResponsesPassthroughPorts:
         lambda body, _budget, **_kwargs: body
     )
     finalize_body: Callable[[dict[str, Any]], dict[str, Any]] = lambda body: body
+    endpoint: Callable[[str, dict[str, Any], str], str] | None = None
 
 
 class ProviderResponsesPassthrough:
@@ -52,6 +53,24 @@ class ProviderResponsesPassthrough:
 
     def __init__(self, ports: ProviderResponsesPassthroughPorts) -> None:
         self._ports = ports
+
+    def _endpoint(
+        self, provider: str, config: dict[str, Any], operation: str
+    ) -> str:
+        if self._ports.endpoint is not None:
+            if operation == "openai_responses_compact":
+                return (
+                    self._ports.endpoint(provider, config, "openai_responses")
+                    .rstrip("/")
+                    + "/compact"
+                )
+            return self._ports.endpoint(provider, config, operation)
+        path = (
+            "/v1/responses/compact"
+            if operation == "openai_responses_compact"
+            else "/v1/responses"
+        )
+        return self._ports.join_url(self._ports.upstream_base(provider, config), path)
 
     def forward_compact(
         self,
@@ -68,10 +87,7 @@ class ProviderResponsesPassthrough:
         )
         upstream_body = self._ports.finalize_body(upstream_body)
         data = self._encode(upstream_body)
-        url = self._ports.join_url(
-            self._ports.upstream_base(provider, config),
-            "/v1/responses/compact",
-        )
+        url = self._endpoint(provider, config, "openai_responses_compact")
         dump_upstream_request(url, data, self._ports.log)
         request = urllib.request.Request(
             url,
@@ -285,10 +301,7 @@ class ProviderResponsesPassthrough:
         )
         upstream_body = self._ports.finalize_body(upstream_body)
         self._ports.begin_channel_delivery(handler, delivery_body)
-        url = self._ports.join_url(
-            self._ports.upstream_base(provider, config),
-            "/v1/responses",
-        )
+        url = self._endpoint(provider, config, "openai_responses")
         upstream_body, data = self._fit_provider_request(
             url,
             provider,

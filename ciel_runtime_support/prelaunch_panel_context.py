@@ -247,16 +247,23 @@ class PrelaunchPanelContext:
     def api_key_panel_rows(
         self, provider: str, provider_config: dict[str, Any] | None = None
     ) -> PanelRows:
-        if provider in {"zai", "zai-coding-plan", "zai-start-plan"}:
+        if provider == "zai-start-plan":
+            return (
+                [
+                    "Z.AI Start Plan: routed transport unavailable",
+                    "No public Start Plan model endpoint contract is verified.",
+                ],
+                ["__info__", "__info__"],
+            )
+        if provider in {"zai", "zai-coding-plan"}:
             config = provider_config or {}
             source = str(config.get("credential_source") or "").strip()
             configured = bool(self.configuration.api_key_count(provider, config))
             status = "connected" if configured and source == "zai-oauth" else (
                 "API key configured" if configured else "login required"
             )
-            profile = "start-plan" if provider == "zai-start-plan" else "coding-plan"
-            action_prefix = "zai-oauth-start-plan-" if profile == "start-plan" else "zai-oauth-"
-            label = "Start Plan" if profile == "start-plan" else "Coding Plan"
+            action_prefix = "zai-oauth-"
+            label = "Coding Plan"
             rows, values = self.configuration_panel_projection().api_key_rows(
                 provider, provider_config
             )

@@ -169,8 +169,8 @@ from ciel_runtime_support.credentials import resolve_anthropic_credentials
 from ciel_runtime_support.credentials import secret_fingerprint as project_secret_fingerprint
 from ciel_runtime_support.executable_discovery import ExecutableDiscovery
 from ciel_runtime_support.github_copilot_oauth_runtime import GitHubCopilotOAuthRuntime, GitHubCopilotOAuthRuntimePorts
-from ciel_runtime_support.zai_oauth import ZaiOAuthClient, ZaiOAuthHttp, ZaiOAuthRuntime, ZaiOAuthRuntimePorts, ZaiOAuthService
-from ciel_runtime_support.zai_start_plan_captcha import RuntimeInteractionRepository, ZaiStartPlanRuntimeHeaderPreparer
+from ciel_runtime_support.zai_oauth import ZaiOAuthRuntime, ZaiOAuthRuntimePorts
+from ciel_runtime_support.runtime_interaction import RuntimeInteractionRepository
 from ciel_runtime_support.headless_config import HeadlessConfigCommands, HeadlessConfigServices, HeadlessEnvFileLoader, apply_headless_config
 from ciel_runtime_support.http_response import ChannelDeliveryGuard, HttpResponseAdapter
 from ciel_runtime_support.kimi_runtime_context import KimiConfigurationPorts, KimiIdentityPorts, KimiLifecyclePorts, KimiProcessPorts, KimiRuntimeCompatibilityApi, KimiRuntimeContext
@@ -1340,7 +1340,7 @@ provider_requires_streaming = _PROVIDER_REQUEST_ACCESS.requires_streaming
 key_from_request_headers = _PROVIDER_REQUEST_ACCESS.key_from_headers
 provider_headers = _PROVIDER_REQUEST_ACCESS.headers
 get_current_provider = _PROVIDER_REQUEST_ACCESS.current_provider
-prepare_provider_runtime_headers = ZaiStartPlanRuntimeHeaderPreparer(log=router_log, interactions=RuntimeInteractionRepository(RUNTIME_INTERACTION_PATH, log=router_log))
+runtime_interactions, prepare_provider_runtime_headers = RuntimeInteractionRepository(RUNTIME_INTERACTION_PATH, log=router_log), lambda _provider, _config, headers: dict(headers)
 def materialize_runtime_command(
     runtime_name: str,
     executable: str,
@@ -2887,7 +2887,8 @@ def codex_backend_context() -> CodexBackendContext:
                                                                 lambda body: body_with_remote_memory_prompt(body, "openai_chat"), lambda body: body_with_remote_memory_prompt(body, "openai_responses")),
         provider_transport=ProviderPassthroughTransportPorts(provider_upstream_request_base, join_url, provider_urlopen,
                                                              provider_request_timeout_seconds,
-                                                             lambda *args, **kwargs: _copy_upstream_response_headers(*args, **kwargs), write_router_activity),
+                                                             lambda *args, **kwargs: _copy_upstream_response_headers(*args, **kwargs), write_router_activity,
+                                                             provider_endpoint),
     )
 
 _CODEX_BACKEND_API = CodexBackendCompatibilityApi(codex_backend_context)
@@ -3069,7 +3070,7 @@ def ensure_nvidia_hosted_base_url(pcfg: dict[str, Any]) -> bool:
 
 def nvidia_credential_repository() -> EnvCredentialRepository: return nvidia_env_credential_repository(NCP_ENV, read_env_file, parse_api_key_list, nvidia_upstream_base_url())
 def github_copilot_oauth_runtime() -> GitHubCopilotOAuthRuntime: return GitHubCopilotOAuthRuntime(CONFIG_DIR, GitHubCopilotOAuthRuntimePorts(clear_model_cache=clear_model_cache, log=router_log, provider_headers=provider_headers, network_open=provider_network.provider_urlopen))
-def zai_oauth_runtime() -> ZaiOAuthRuntime: return ZaiOAuthRuntime(ZaiOAuthService(ZaiOAuthClient(ZaiOAuthHttp())), ZaiOAuthRuntimePorts(load_config, save_config, clear_model_cache, mask_secret, secret_fingerprint, print))
+def zai_oauth_runtime() -> ZaiOAuthRuntime: return ZaiOAuthRuntime(ZaiOAuthRuntimePorts(load_config, save_config, clear_model_cache, mask_secret, secret_fingerprint, print, lambda no_browser: zcode_runtime_context().native_oauth_login(no_browser), Path.home() / ".zcode" / "cli" / "config.json"))
 
 def provider_choice_controller() -> ProviderChoiceController:
     return ProviderChoiceController(
@@ -4613,7 +4614,7 @@ def channel_terminal_context() -> ChannelTerminalContext:
                                           _windows_channel_wake_max_attempts),
         polling=ChannelTerminalPollingPorts(_inject_pending_compact_request, _chat_messages_file_marker, _channel_stdin_should_check_pending,
                                             _channel_stdin_active_tool_call, _channel_stdin_active_turn, _inject_pending_channel_messages, _channel_stdin_wake_state, channel_inflight_effects,
-                                            _channel_stdin_mark_body_fallback, prepare_provider_runtime_headers.broker.interactions.read),
+                                            _channel_stdin_mark_body_fallback, runtime_interactions.read),
         io=ChannelTerminalIoPorts(_terminal_winsize_from_fd, _apply_pty_winsize, _write_fd_all, _TerminalMouseInputFilter,
                                   _channel_synthetic_enter_bytes_from_user_input, _write_terminal_input_mode_reset),
         windows=ChannelTerminalWindowsPorts(run_windows_channel_terminal_proxy, _write_terminal_input_mode_reset,
