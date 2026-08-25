@@ -1,0 +1,104 @@
+okf:
+  version: "1.0"
+  kind: engineering-journal
+  task:
+    id: zai-plan-endpoint-separation-20260825
+    title: Z.AI Start Plan and Coding Plan endpoint separation
+    status: in_progress
+    objective: >-
+      Reconstruct and verify the Start Plan authentication, endpoint, request
+      headers, CAPTCHA lifecycle, and Ciel router integration from installed
+      official ZCode artifacts rather than general provider assumptions.
+
+  evidence:
+    official_zcode_desktop:
+      host: mia@100.95.132.58
+      application: /home/mia/Applications/ZCode-3.9.1-extracted/squashfs-root/zcode
+      version: 3.9.1
+      app_archive: /home/mia/Applications/ZCode-3.9.1-extracted/squashfs-root/resources/app.asar
+      runtime_bundle: /home/mia/Applications/ZCode-3.9.1-extracted/squashfs-root/resources/glm/zcode.cjs
+      runtime_sha256: 883c12ab99b790fadc5f3ec2f229acd269d8c5460654b4c279c1e18368c436d8
+    installed_profile:
+      source: /home/mia/.zcode/v2/config.json
+      selection_source: /home/mia/.zcode/v2/setting.json
+      selected_key: coding-plan:builtin:zai-start-plan
+      mode: oauth
+      provider_kind: anthropic
+      start_plan_base_url: https://zcode.z.ai/api/v1/zcode-plan/anthropic
+      coding_plan_base_url: https://api.z.ai/api/anthropic
+      credential_observation:
+        start_plan: desktop JWT, length 231, sha256_prefix fa47127c9e52
+        coding_plan: CLI API key, length 49, sha256_prefix d606cf0e506e
+        conclusion: credentials are distinct and are not interchangeable
+    installed_bundle_routes:
+      start_plan_anthropic: /api/v1/zcode-plan/anthropic/v1/messages
+      start_plan_openai_chat: /api/v1/zcode-plan/chat/completions
+      off_peak_anthropic: /api/v1/off-peak/anthropic/v1/messages
+    installed_bundle_captcha:
+      config_endpoint: https://zcode.z.ai/api/v1/client/configs
+      sdk: https://o.alicdn.com/captcha-frontend/aliyunCaptcha/AliyunCaptcha.js
+      result_header: X-Aliyun-Captcha-Verify-Param
+      region_header: X-Aliyun-Captcha-Verify-Region
+      observed_region: sgp
+    signature_feature_probe:
+      agent_config_status: 200
+      client_config_status: 200
+      codingPlanSignature_present: false
+      conclusion: >-
+        The installed runtime's signing feature gate is currently disabled by
+        server configuration. No signing implementation was inferred or added.
+
+  contradiction_correction:
+    previous_claim: >-
+      Start Plan had no verified route and Mia's provider rejection represented
+      unavailable quota.
+    conflicting_evidence: >-
+      Official ZCode Desktop 3.9.1 exposes a separate Start Plan provider,
+      endpoint, JWT, full Start Plan model balances, and request-time CAPTCHA
+      interaction logs. The earlier request used the Coding Plan endpoint.
+    corrected_fact: >-
+      Start Plan and Coding Plan are separate contracts. A Coding Plan quota
+      rejection does not describe Start Plan quota.
+
+  implementation:
+    provider_adapter:
+      start_plan_final_url: https://zcode.z.ai/api/v1/zcode-plan/anthropic/v1/messages
+      protocol: anthropic_messages
+      coding_plan_inheritance_removed_for_anthropic_base: true
+      zcode_source_headers_added: true
+    credentials:
+      coding_plan_source: ~/.zcode/cli/config.json
+      start_plan_source: ~/.zcode/v2/config.json plus ~/.zcode/v2/setting.json
+      profile_isolation: true
+    captcha:
+      request_scoped: true
+      state_bound_receiver: true
+      fresh_per_upstream_attempt: true
+      result_persisted: false
+
+  verification:
+    targeted:
+      zai_provider: 8 passed
+      zai_oauth: 7 passed
+      zai_start_plan_captcha: 4 passed
+      runtime_interaction: 5 passed
+      provider_launch_endpoint: 8 passed
+      provider_contract_matrix: 41 passed
+      architecture_budget: 2 passed
+    full_suite:
+      unit: 1186 passed, 44 skipped
+      router: 930 passed
+      channel: 382 passed, 80 skipped
+      runtime: 255 passed, 12 skipped
+      total: 2753 passed, 136 skipped
+    browser_render:
+      url_scope: loopback state-bound test receiver
+      sdk_loaded: official Aliyun CAPTCHA SDK
+      observed_terminal_text: Verification complete. Returning to Ciel Runtime…
+      local_receiver_result_accepted: true
+      screenshot_captured: true
+    pending:
+      - lint and package-content checks
+      - installed local artifact verification
+      - nightly publication verification
+      - live Mia Start Plan model response

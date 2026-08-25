@@ -118,16 +118,28 @@ class ZaiProviderTests(unittest.TestCase):
             self.assertEqual(expected, profile["context_window"])
             self.assertEqual(131_072, profile["max_output_tokens"])
 
-    def test_unpublished_start_plan_route_is_never_launch_ready(self):
+    def test_start_plan_uses_installed_zcode_anthropic_contract(self):
         config = copy.deepcopy(
             ciel_runtime.DEFAULT_CONFIG["providers"]["zai-start-plan"]
         )
         config["api_key"] = "preserved-existing-value"
         adapter = ciel_runtime.configured_provider_adapter("zai-start-plan", config)
+        contract = ciel_runtime.provider_contract_config("zai-start-plan", config)
         blocker = adapter.launch_api_key_error(
-            ciel_runtime.provider_contract_config("zai-start-plan", config)
+            contract
         )
-        self.assertIn("no Start Plan model endpoint is published", blocker)
+        self.assertIsNone(blocker)
+        self.assertEqual(
+            "https://zcode.z.ai/api/v1/zcode-plan/anthropic/v1/messages",
+            ciel_runtime.provider_endpoint(
+                "zai-start-plan", config, "anthropic_messages"
+            ),
+        )
+        headers = adapter.build_headers(contract, "start-plan-jwt")
+        self.assertEqual("Bearer start-plan-jwt", headers["authorization"])
+        self.assertEqual("start-plan-jwt", headers["x-api-key"])
+        self.assertEqual("https://zcode.z.ai", headers["HTTP-Referer"])
+        self.assertEqual("ZCode/3.9.1", headers["User-Agent"])
 
 
 if __name__ == "__main__":

@@ -23,7 +23,15 @@ class ZaiOAuthRuntimeTests(unittest.TestCase):
             },
         }
 
-    def runtime(self, config, saved, settings_path, native_login=None):
+    def runtime(
+        self,
+        config,
+        saved,
+        settings_path,
+        native_login=None,
+        native_v2_config_path=None,
+        native_v2_settings_path=None,
+    ):
         return ZaiOAuthRuntime(
             ZaiOAuthRuntimePorts(
                 load_config=lambda: config,
@@ -34,6 +42,8 @@ class ZaiOAuthRuntimeTests(unittest.TestCase):
                 output=lambda *_values, **_kwargs: None,
                 native_login=native_login,
                 native_settings_path=settings_path,
+                native_v2_config_path=native_v2_config_path,
+                native_v2_settings_path=native_v2_settings_path,
             )
         )
 
@@ -127,12 +137,55 @@ class ZaiOAuthRuntimeTests(unittest.TestCase):
         self.assertEqual(before, config)
         self.assertEqual([], saved)
 
-    def test_start_plan_jwt_import_is_blocked(self):
-        config = self.config()
-        with self.assertRaisesRegex(ZaiOAuthError, "not exposed"):
-            self.runtime(config, [], Path("unused")).action(
-                "login", profile="start-plan"
+    def test_start_plan_import_reads_selected_desktop_provider(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory) / ".zcode" / "v2"
+            root.mkdir(parents=True)
+            config_path = root / "config.json"
+            settings_path = root / "setting.json"
+            config_path.write_text(
+                json.dumps(
+                    {
+                        "provider": {
+                            "builtin:zai-start-plan": {
+                                "enabled": True,
+                                "kind": "anthropic",
+                                "options": {
+                                    "apiKey": "start-plan-jwt",
+                                    "baseURL": "https://zcode.z.ai/api/v1/zcode-plan/anthropic",
+                                },
+                            }
+                        }
+                    }
+                ),
+                encoding="utf-8",
             )
+            settings_path.write_text(
+                json.dumps(
+                    {
+                        "modelProviderFamilyModes": {"zai": "oauth"},
+                        "modelProviderFamilySelectedKeys": {
+                            "zai": "coding-plan:builtin:zai-start-plan"
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            config, saved = self.config(), []
+            messages = self.runtime(
+                config,
+                saved,
+                Path("unused"),
+                native_v2_config_path=config_path,
+                native_v2_settings_path=settings_path,
+            ).action("import", profile="start-plan")
+
+        self.assertIn("Start Plan credential imported", messages[0])
+        self.assertEqual(
+            "start-plan-jwt", config["providers"]["zai-start-plan"]["api_key"]
+        )
+        self.assertEqual("zai-start-plan", config["current_provider"])
+        self.assertEqual(1, len(saved))
 
     def test_manual_legacy_zai_key_is_never_overwritten(self):
         with TemporaryDirectory() as directory:

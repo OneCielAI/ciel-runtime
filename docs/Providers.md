@@ -18,7 +18,7 @@
 | `zai` | Z.AI GLM | Anthropic Messages | `https://api.z.ai/api/anthropic` |
 | `zai-api` | Z.AI Model API (API Key) | OpenAI Chat | `https://api.z.ai/api/paas/v4` |
 | `zai-coding-plan` | Z.AI Coding Plan | Anthropic Messages / OpenAI Chat | `https://api.z.ai/api/coding/paas/v4` |
-| `zai-start-plan` | Z.AI Start Plan | 프로필 등록됨, routed launch 차단 | `https://zcode.z.ai/api/v1/zcode-plan` |
+| `zai-start-plan` | Z.AI Start Plan | Anthropic Messages | `https://zcode.z.ai/api/v1/zcode-plan/anthropic` |
 | `vllm` | vLLM | OpenAI Chat | 로컬/원격 vLLM |
 | `lm-studio` | LM Studio | OpenAI Chat | 로컬 LM Studio |
 | `nvidia-hosted` | Nvidia Hosted | OpenAI Chat | NVIDIA NIM Cloud |
@@ -192,15 +192,17 @@ Z.AI의 API key, Coding Plan, Start Plan을 서로 다른 provider profile로 �
 | `zai` | 기존 수동 API key | 해당 없음 | `https://api.z.ai/api/anthropic` |
 | `zai-api` | 일반 종량제 API key | `https://api.z.ai/api/paas/v4` | 공식 모델 문서에서 일반 API용 별도 Anthropic URL을 확인하지 못했으므로 사용하지 않음 |
 | `zai-coding-plan` | Coding Plan API key 또는 `--profile coding-plan` OAuth | `https://api.z.ai/api/coding/paas/v4` | `https://api.z.ai/api/anthropic` |
-| `zai-start-plan` | `--profile start-plan` OAuth JWT | `https://zcode.z.ai/api/v1/zcode-plan` | `https://zcode.z.ai/api/v1/zcode-plan/anthropic` |
+| `zai-start-plan` | ZCode Desktop Start Plan JWT | 제공되지 않음 | `https://zcode.z.ai/api/v1/zcode-plan/anthropic` |
 
 Coding Plan의 OpenAI Chat/Anthropic URL은 Z.AI 공식 Tool Integration 문서에
-기재된 값이다. Start Plan URL과 JWT 저장 형태는 설치된 ZCode 3.8.1-15 runtime의
-provider 설정에서 확인했다. 그러나 실제 Start Plan JWT 요청은 fresh
-`x-aliyun-captcha-verify-param`이 없으면 `400`, provider code `3007`,
-`captcha verify failed`로 거절됐다. 이 값은 ZCode의 대화형 private runtime이
-요청마다 갱신한다. Ciel은 CAPTCHA를 우회하거나 값을 위조하지 않으며, 따라서
-`zai-start-plan`을 routed client로 실행하려 하면 원인을 표시하고 launch를 차단한다.
+기재된 값이다. Start Plan 계약은 Mia에 설치된 공식 ZCode Desktop 3.9.1의
+`~/.zcode/v2/config.json`, 배포 번들 및 실행 로그에서 확인했다. 이 프로필은 Coding
+Plan 주소를 상속하지 않으며 최종 요청은
+`https://zcode.z.ai/api/v1/zcode-plan/anthropic/v1/messages`로 전송한다. 모델 요청마다
+공식 Aliyun CAPTCHA SDK가 발급한 일회성 결과를
+`X-Aliyun-Captcha-Verify-Param`, region을
+`X-Aliyun-Captcha-Verify-Region`으로 전송한다. Ciel은 이 값을 우회하거나 위조하지
+않고, 요청을 일시 정지한 뒤 state-bound 검증 페이지에서 받은 결과만 사용한다.
 
 ```bash
 ciel-runtimectl zai-oauth login --profile coding-plan
@@ -209,9 +211,11 @@ ciel-runtimectl zai-oauth login --profile start-plan
 ciel-runtimectl zai-oauth status --profile start-plan
 ```
 
-Coding Plan 로그인은 최종 plan API key만 `zai-coding-plan`에 저장한다. Start Plan
-로그인은 ZCode JWT만 `zai-start-plan`에 저장하며 OAuth access token은 저장하지
-않는다. 두 로그인 모두 기존 `zai` credential을 변경하지 않는다.
+Coding Plan 로그인은 CLI의 최종 plan API key만 `zai-coding-plan`에 저장한다.
+Start Plan은 공식 ZCode Desktop에서 로그인하고 Start Plan을 선택한 다음
+`ciel-runtimectl zai-oauth import --profile start-plan`으로 현재 Desktop JWT를
+`zai-start-plan`에 가져온다. 두 프로필은 자격증명과 endpoint를 공유하지 않으며,
+기존 `zai` credential도 변경하지 않는다.
 
 - 기본 모델: `glm-5.3[1m]`
 - GLM-5.3은 reasoning을 끌 수 없으며 `low`, `high`, `max` effort만 사용한다.

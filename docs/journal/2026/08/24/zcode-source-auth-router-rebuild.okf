@@ -226,3 +226,14 @@ post_deployment_user_reproduction:
       of this exact Codex turn.
   active_session_handling:
     mia_codex_session_was_terminated: false
+
+superseded_on_2026_08_25:
+  status: corrected_by_new_official_desktop_evidence
+  correction_journal: docs/journal/2026/08/25/zai-plan-endpoint-separation.okf
+  correction: >-
+    The Start Plan unavailability and account-quota conclusions above do not
+    apply to Start Plan. They were based on the public CLI and a Coding Plan
+    request. Installed official ZCode Desktop 3.9.1 supplies a separate Start
+    Plan JWT and `https://zcode.z.ai/api/v1/zcode-plan/anthropic` endpoint, while
+    its UI and billing log show full Start Plan balances. Historical observations
+    remain recorded, but their interpretation is superseded.

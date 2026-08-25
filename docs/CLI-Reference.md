@@ -137,22 +137,18 @@ ciel-runtimectl zai-oauth login --profile coding-plan --no-browser
 ciel-runtimectl zai-oauth status --profile coding-plan
 ciel-runtimectl zai-oauth logout --profile coding-plan
 ciel-runtimectl zai-oauth login --profile start-plan
+ciel-runtimectl zai-oauth import --profile start-plan
 ciel-runtimectl zai-oauth status --profile start-plan
 ciel-runtimectl zai-oauth logout --profile start-plan
 ```
 
-기본 profile은 `coding-plan`이다. ZCode CLI의 Z.AI init/poll OAuth 흐름으로
-로그인하고 Coding Plan API key를 발급한다. init endpoint가 404이면 확인된
-authorization-code
-계약으로 전환하며, `http://localhost:9899/callback`의 일회성 loopback listener가
-브라우저 콜백을 자동으로 수신한다. `--no-browser`는 브라우저를 자동으로 열지
-않지만 동일한 listener에서 기다린다. 브라우저와 Ciel Runtime이 서로 다른
-머신이면 먼저 `ssh -L 9899:127.0.0.1:9899 user@runtime-host`처럼 callback port를
-전달해야 한다. Coding Plan은 최종 API key만 저장한다. Start Plan은 별도
-`zai-start-plan` profile에 ZCode JWT만 저장하고 OAuth access token은 저장하지
-않는다. Start Plan의 모델 요청은 fresh Aliyun CAPTCHA runtime header가 필요하다는
-실제 응답이 확인되어 routed launch가 차단된다. `logout`은 선택한 profile의 로컬
-credential만 지우며 원격 승인을 철회하지 않는다.
+기본 profile은 `coding-plan`이다. Coding Plan의 `login`은 설치된 ZCode CLI 로그인에
+위임한 뒤 CLI가 저장한 최종 Coding Plan API key를 가져온다. Start Plan 인증은 공식
+ZCode Desktop이 소유한다. Desktop에서 로그인하고 Start Plan을 선택한 다음
+`import --profile start-plan`을 실행하며, Start Plan의 JWT는 별도
+`zai-start-plan` profile에 저장된다. Start Plan 모델 요청은 요청별 Aliyun CAPTCHA
+결과를 받은 뒤 Start Plan 전용 Anthropic endpoint로 계속된다. `logout`은 선택한
+profile의 Ciel credential만 지우며 ZCode의 로그인이나 원격 승인을 철회하지 않는다.
 
 #### `api-key`
 ```bash

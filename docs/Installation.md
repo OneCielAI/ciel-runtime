@@ -131,9 +131,10 @@ Z.AI Coding Plan OAuth는 `ciel-runtimectl zai-oauth login --profile coding-plan
 또는 `ciel-runtime zcode login --oauth`로 등록한다. 최종 Coding Plan API key는
 별도 `zai-coding-plan` provider 설정에 저장되어 Claude, Codex, AGY, ZCode 등
 routed client가 함께 사용하며 기존 `zai` 수동 API key를 덮어쓰지 않는다.
-`--profile start-plan`은 별도 JWT를 저장하지만, Start Plan 모델 요청에 필요한
-fresh Aliyun CAPTCHA runtime header를 Ciel이 생성하지 않으므로 routed launch는
-명시적으로 차단한다.
+Start Plan은 공식 ZCode Desktop 로그인 상태와 별도 JWT를 사용한다. Desktop에서
+Start Plan을 선택한 뒤 `ciel-runtimectl zai-oauth import --profile start-plan`으로
+가져온다. routed 요청은 Start Plan 전용 Anthropic endpoint를 사용하며, 모델
+요청마다 공식 Aliyun CAPTCHA 페이지를 표시하고 검증 완료 후 같은 요청을 계속한다.
 
 ---
 

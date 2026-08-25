@@ -3,6 +3,18 @@
 This file records stable Ciel Runtime releases. Changes are grouped by user-visible
 capability, followed by the complete commit ledger merged into each release.
 
+## Unreleased
+
+- Separate Z.AI Start Plan from Coding Plan using the installed official ZCode
+  Desktop 3.9.1 contract. Start Plan imports its selected Desktop JWT and sends
+  Anthropic Messages to
+  `https://zcode.z.ai/api/v1/zcode-plan/anthropic/v1/messages`; Coding Plan keeps
+  its own CLI credential and documented `https://api.z.ai/api/anthropic` base.
+- Rebuild the request-scoped Start Plan verification flow from the installed
+  ZCode bundle: fetch the official client CAPTCHA configuration, use the
+  official Aliyun SDK, and attach fresh verification, region, and session
+  headers to each upstream attempt.
+
 ## 0.2.36 — 2026-08-24
 
 - Align the Aliyun CAPTCHA page with the documented V3 callback contract:

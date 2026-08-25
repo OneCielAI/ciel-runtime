@@ -170,7 +170,7 @@ from ciel_runtime_support.credentials import secret_fingerprint as project_secre
 from ciel_runtime_support.executable_discovery import ExecutableDiscovery
 from ciel_runtime_support.github_copilot_oauth_runtime import GitHubCopilotOAuthRuntime, GitHubCopilotOAuthRuntimePorts
 from ciel_runtime_support.zai_oauth import ZaiOAuthRuntime, ZaiOAuthRuntimePorts
-from ciel_runtime_support.runtime_interaction import RuntimeInteractionRepository
+from ciel_runtime_support.zai_start_plan_captcha import zai_start_plan_runtime_header_services
 from ciel_runtime_support.headless_config import HeadlessConfigCommands, HeadlessConfigServices, HeadlessEnvFileLoader, apply_headless_config
 from ciel_runtime_support.http_response import ChannelDeliveryGuard, HttpResponseAdapter
 from ciel_runtime_support.kimi_runtime_context import KimiConfigurationPorts, KimiIdentityPorts, KimiLifecyclePorts, KimiProcessPorts, KimiRuntimeCompatibilityApi, KimiRuntimeContext
@@ -1340,7 +1340,7 @@ provider_requires_streaming = _PROVIDER_REQUEST_ACCESS.requires_streaming
 key_from_request_headers = _PROVIDER_REQUEST_ACCESS.key_from_headers
 provider_headers = _PROVIDER_REQUEST_ACCESS.headers
 get_current_provider = _PROVIDER_REQUEST_ACCESS.current_provider
-runtime_interactions, prepare_provider_runtime_headers = RuntimeInteractionRepository(RUNTIME_INTERACTION_PATH, log=router_log), lambda _provider, _config, headers: dict(headers)
+runtime_interactions, prepare_provider_runtime_headers = zai_start_plan_runtime_header_services(RUNTIME_INTERACTION_PATH, router_log)
 def materialize_runtime_command(
     runtime_name: str,
     executable: str,
@@ -3070,8 +3070,7 @@ def ensure_nvidia_hosted_base_url(pcfg: dict[str, Any]) -> bool:
 
 def nvidia_credential_repository() -> EnvCredentialRepository: return nvidia_env_credential_repository(NCP_ENV, read_env_file, parse_api_key_list, nvidia_upstream_base_url())
 def github_copilot_oauth_runtime() -> GitHubCopilotOAuthRuntime: return GitHubCopilotOAuthRuntime(CONFIG_DIR, GitHubCopilotOAuthRuntimePorts(clear_model_cache=clear_model_cache, log=router_log, provider_headers=provider_headers, network_open=provider_network.provider_urlopen))
-def zai_oauth_runtime() -> ZaiOAuthRuntime: return ZaiOAuthRuntime(ZaiOAuthRuntimePorts(load_config, save_config, clear_model_cache, mask_secret, secret_fingerprint, print, lambda no_browser: zcode_runtime_context().native_oauth_login(no_browser), Path.home() / ".zcode" / "cli" / "config.json"))
-
+def zai_oauth_runtime() -> ZaiOAuthRuntime: return ZaiOAuthRuntime(ZaiOAuthRuntimePorts(load_config, save_config, clear_model_cache, mask_secret, secret_fingerprint, print, lambda no_browser: zcode_runtime_context().native_oauth_login(no_browser), Path.home() / ".zcode" / "cli" / "config.json", Path.home() / ".zcode" / "v2" / "config.json", Path.home() / ".zcode" / "v2" / "setting.json"))
 def provider_choice_controller() -> ProviderChoiceController:
     return ProviderChoiceController(
         ProviderChoicePorts(

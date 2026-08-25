@@ -3,10 +3,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import json
+import locale
+from pathlib import Path
+import platform
+import time
 from typing import Any, Mapping
 
 from ..architecture import (
     ProviderCapabilities,
+    ProviderConfigurationPolicy,
     ProviderConfig,
     ProviderContextPolicy,
     ProviderModelCatalogPolicy,
@@ -15,8 +21,65 @@ from ..architecture import (
     ProviderStatusPolicy,
     MessageProtocol,
 )
-from .base import HttpBearerProviderAdapter, provider_configuration
+from .base import HttpBearerProviderAdapter, configuration_policy, provider_configuration
 from .constants import PROVIDER_DEFAULT_BASE_URLS, ZAI_MODEL_FALLBACK_IDS
+
+
+def _zcode_printable_header(value: object) -> str:
+    text = str(value or "").strip()
+    return text if text and all(" " <= char <= "~" for char in text) else "unknown"
+
+
+def _zcode_device_mid() -> str:
+    """Read the device identifier written by the installed official ZCode app."""
+
+    path = Path.home() / ".zcode" / "v2" / "telemetry-state.json"
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, OSError, UnicodeError, json.JSONDecodeError):
+        return ""
+    if not isinstance(payload, Mapping):
+        return ""
+    value = str(payload.get("deviceMid") or "").strip()
+    return _zcode_printable_header(value) if value else ""
+
+
+def _zcode_source_headers(version: str) -> dict[str, str]:
+    system = {
+        "Windows": "win32",
+        "Darwin": "darwin",
+        "Linux": "linux",
+    }.get(platform.system(), platform.system().lower())
+    machine = platform.machine().lower()
+    architecture = "arm64" if machine in {"arm64", "aarch64"} else "x64"
+    os_category = {
+        "Windows": "windows",
+        "Darwin": "macos",
+    }.get(platform.system(), "linux")
+    locale_name = str(locale.getlocale()[0] or "").strip()
+    language = (
+        "en-US"
+        if locale_name.casefold() in {"", "c", "posix"}
+        else locale_name.replace("_", "-")
+    )
+    timezone = next((name for name in time.tzname if name), "unknown")
+    headers = {
+        "HTTP-Referer": "https://zcode.z.ai",
+        "User-Agent": f"ZCode/{version}",
+        "X-ZCode-App-Version": version,
+        "X-ZCode-Agent": "glm",
+        "X-Title": "Z Code@electron",
+        "X-Release-Channel": "stable",
+        "X-Client-Language": _zcode_printable_header(language),
+        "X-Client-Timezone": _zcode_printable_header(timezone),
+        "X-Platform": f"{_zcode_printable_header(system)}-{architecture}",
+        "X-Os-Category": os_category,
+        "X-Os-Version": _zcode_printable_header(platform.release()),
+    }
+    device_mid = _zcode_device_mid()
+    if device_mid:
+        headers["X-Device-Mid"] = device_mid
+    return headers
 
 
 @dataclass(frozen=True)
@@ -319,13 +382,7 @@ class ZaiCodingPlanProviderAdapter(ZaiApiProviderAdapter):
 
 @dataclass(frozen=True)
 class ZaiStartPlanProviderAdapter(ZaiCodingPlanProviderAdapter):
-    """Retained configuration identity for an unverified Start Plan route.
-
-    The public ZCode CLI source does not expose a Start Plan model transport,
-    and Z.AI's public Coding Plan documentation does not publish one. Keep the
-    profile readable so existing configuration is not destroyed, but never
-    present its historical guessed gateway as launch-ready.
-    """
+    """ZCode Start Plan profile reconstructed from the installed ZCode app."""
 
     name: str = "zai-start-plan"
     base_url: str = PROVIDER_DEFAULT_BASE_URLS["zai-start-plan"]
@@ -347,7 +404,8 @@ class ZaiStartPlanProviderAdapter(ZaiCodingPlanProviderAdapter):
             **ZaiProviderAdapter().configuration_defaults_value,
             "native_compat": True,
             "plan_type": "start-plan",
-            "zcode_app_version": "0.16.3",
+            "zcode_app_version": "3.9.1",
+            "anthropic_base_url": "https://zcode.z.ai/api/v1/zcode-plan/anthropic",
         }
     )
     api_key_display_name_value: str = "Z.AI Start Plan OAuth"
@@ -356,8 +414,15 @@ class ZaiStartPlanProviderAdapter(ZaiCodingPlanProviderAdapter):
     )
 
     def anthropic_base_url(self, config: ProviderConfig) -> str:
-        del config
-        return "https://zcode.z.ai/api/v1/zcode-plan/anthropic"
+        return str(
+            config.options.get("anthropic_base_url")
+            or "https://zcode.z.ai/api/v1/zcode-plan/anthropic"
+        ).rstrip("/")
+
+    def operation_base_url(self, operation: str, config: ProviderConfig) -> str:
+        if operation == "anthropic_messages":
+            return self.anthropic_base_url(config)
+        return config.base_url or self.default_base_url()
 
     def resolve_endpoint(self, operation: str, config: ProviderConfig) -> str:
         policy = self.request_policy(config)
@@ -365,7 +430,7 @@ class ZaiStartPlanProviderAdapter(ZaiCodingPlanProviderAdapter):
             "chat": policy.chat_path,
             "openai_chat": policy.chat_path,
             "models": policy.models_path,
-            "anthropic_messages": "/anthropic/v1/messages",
+            "anthropic_messages": "/v1/messages",
         }
         return paths.get(operation) or super().resolve_endpoint(operation, config)
 
@@ -387,20 +452,41 @@ class ZaiStartPlanProviderAdapter(ZaiCodingPlanProviderAdapter):
     def build_headers(
         self, config: ProviderConfig, api_key: str | None
     ) -> Mapping[str, str]:
-        del config, api_key
-        raise RuntimeError(
-            "Z.AI Start Plan transport is blocked because no public model "
-            "endpoint contract has been verified."
+        headers = dict(super().build_headers(config, api_key))
+        version = str(config.options.get("zcode_app_version") or "3.9.1").strip()
+        headers.update(
+            {
+                "Accept": "*/*",
+                "Accept-Language": "*",
+                "Sec-Fetch-Mode": "cors",
+                **_zcode_source_headers(version),
+            }
+        )
+        return headers
+
+    def configuration_policy(
+        self, config: ProviderConfig
+    ) -> ProviderConfigurationPolicy:
+        del config
+        return configuration_policy(
+            text_option_aliases={
+                "captcha_bind_host": "zai_captcha_bind_host",
+                "captcha_port": "zai_captcha_port",
+                "captcha_public_base_url": "zai_captcha_public_base_url",
+                "captcha_timeout_seconds": "zai_captcha_timeout_seconds",
+                "zai_captcha_bind_host": "zai_captcha_bind_host",
+                "zai_captcha_port": "zai_captcha_port",
+                "zai_captcha_public_base_url": "zai_captcha_public_base_url",
+                "zai_captcha_timeout_seconds": "zai_captcha_timeout_seconds",
+                "zcode_app_version": "zcode_app_version",
+            },
+            strip_trailing_slash_fields=frozenset({"zai_captcha_public_base_url"}),
         )
 
     def launch_api_key_error(self, config: ProviderConfig) -> str | None:
-        del config
-        return (
-            "Launch blocked: no Start Plan model endpoint is published by the "
-            "public ZCode CLI source or Z.AI Coding Plan documentation. Existing "
-            "Start Plan credentials were preserved but will not be sent to an "
-            "unverified gateway."
-        )
+        if not config.api_keys:
+            return self.api_key_launch_error_value
+        return None
 
 
 __all__ = [
