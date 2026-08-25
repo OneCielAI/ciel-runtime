@@ -1,7 +1,7 @@
 task:
   id: zcode-source-auth-router-rebuild
   date: 2026-08-24
-  status: in_progress
+  status: completed_with_external_account_blocker
   objective: >-
     Rebuild ZCode authentication, Z.AI endpoint selection, GLM model parameters,
     and Ciel Runtime router integration from verified source, official
@@ -58,7 +58,7 @@ evidence:
         balance or resource package. This is not evidence that Start Plan quota
         is available through the open-source CLI route.
 
-contradictions_found:
+contradictions_found_before_change:
   - >-
     Ciel Runtime currently treats the OAuth JWT as a Start Plan model credential,
     but the public CLI source stores that JWT as login state and resolves a
@@ -86,6 +86,13 @@ changes:
     openai_chat: https://api.z.ai/api/coding/paas/v4/chat/completions
     openai_responses: https://api.z.ai/api/v1/responses
     implementation: provider operation base URL selection plus native Responses passthrough wiring
+    runtime_preference:
+      zcode: anthropic_messages
+      codex: openai_responses
+      evidence: >-
+        ZCode and Codex now run the shared launch endpoint policy before the
+        routed process is materialized. A live Mia sequence changed
+        native_compat false -> true for ZCode, then true -> false for Codex.
   start_plan:
     - Preserved existing stored profile values.
     - Blocked launch and header generation because no public model endpoint contract was verified.
@@ -113,9 +120,9 @@ verification:
   local_tests:
     command: python -m unittest discover -s tests
     result: passed
-    tests_run: 2746
+    tests_run: 2749
     skipped: 136
-    elapsed_seconds: 297.542
+    elapsed_seconds: 300.487
   isolated_router_wire:
     command: python docs/journal/2026/08/24/evidence/verify-zai-coding-plan-router.py
     result: passed
@@ -128,3 +135,65 @@ verification:
     normalized_reasoning_effort: max
     normalized_temperature: 1.0
   live_routed_model_response: blocked_by_mia_account_provider_code_1113
+  deployment:
+    code_commits:
+      source_auth_endpoint_rebuild: bd9229fa0ffb2b33c844bc07097e13b8b1abc360
+      oauth_import_parser_fix: 18d619392dd7cf919fe8ba6bcad511f88862da1f
+      zcode_runtime_endpoint_preference: 855ff02a9c382b35053a02f3a1de80dd5c019e1e
+    local_install:
+      result: passed
+      reported_version: 0.2.36
+      zcode_runtime_context_sha256: 0ef52defb7db36b25a196a25756e3bb873498b5e8f9ddb427fbc90e862843bbd
+      source_hash_matches_install: true
+    nightly:
+      version: 0.2.36-nightly.20260825-051635.855ff02
+      git_head: 855ff02a9c382b35053a02f3a1de80dd5c019e1e
+      npm_publish_workflow: https://github.com/OneCielAI/ciel-runtime/actions/runs/32812031884
+      ci_workflow: https://github.com/OneCielAI/ciel-runtime/actions/runs/32812031898
+      publish_result: passed
+      ci_result: passed
+    mia_install:
+      result: passed
+      npm_version: 0.2.36-nightly.20260825-051635.855ff02
+      local_wrapper_version: 0.2.36-nightly.20260825-051635.855ff02
+      npm_and_local_source_sha256_match: true
+      imported_credential_fingerprint: d606cf0e506e
+  mia_live_router:
+    zcode:
+      pre_native_compat: false
+      post_native_compat: true
+      inbound_path: /v1/messages
+      upstream_endpoint: https://api.z.ai/api/anthropic/v1/messages
+      normalized_model: glm-5.3
+      result_http_status: 429
+      provider_code: 1113
+      provider_message: Insufficient balance or no resource package. Please recharge.
+    codex_responses:
+      policy_native_compat: false
+      inbound_path: /v1/responses
+      result_http_status: 429
+      response_message: Insufficient balance or no resource package. Please recharge.
+      upstream_endpoint_resolution: https://api.z.ai/api/v1/responses
+      note: >-
+        The Mia INFO log records the /v1/responses access status but does not
+        print the Responses upstream URL. The URL is therefore supported by
+        installed-code endpoint projection plus the isolated real-router wire
+        capture, not claimed as a Mia upstream log line.
+    process_cleanup:
+      mia_test_processes_remaining: false
+      kevin_guard_pids_preserved: [2596652, 2596837, 2596947]
+
+completion_boundary:
+  implementation: complete
+  local_router_execution: complete
+  nightly_and_mia_deployment: complete
+  provider_generation: >-
+    Not successful. Both native/routed evidence reached Z.AI, but Z.AI rejected
+    the Mia Coding Plan credential with HTTP 429/provider code 1113. A successful
+    model answer cannot be verified until that account has a usable balance or
+    Coding Plan resource package.
+  start_plan: >-
+    Intentionally unavailable. No public Start Plan model transport contract
+    was found in the exact public ZCode source or current official Z.AI Coding
+    Plan documentation, so Ciel Runtime does not send stored credentials to the
+    previously guessed gateway.
