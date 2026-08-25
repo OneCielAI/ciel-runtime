@@ -157,10 +157,19 @@ okf:
         sha256_prefix: 6ea3ad9709f1
       isolated_router:
         port: 8898
-        pid: 2723135
+        pid: 2860163
         workspace: /tmp/ciel-start-plan-e2e-600e230/workspace
         user_session_router_8800_modified: false
-        live_request_status: client_timeout_after_360_seconds_without_captcha
+        live_request_status: captcha_completed_upstream_rejected
+        runtime_interaction_status: completed
+        upstream_http_status: 405
+        upstream_provider_code: 3012
+        upstream_message: Your account has been flagged for unusual activity.
+        conclusion: >-
+          The refreshed official JWT, state-bound CAPTCHA, router request, and
+          upstream response path all completed. Z.AI rejected the account after
+          verification; this response is not a quota-exhaustion or Ciel
+          callback-state error.
     distribution:
       commit: 600e23041cdc32f14c504133c6c337a8a745df1d
       nightly: 0.2.36-nightly.20260825-064641.600e230
@@ -183,4 +192,4 @@ okf:
       screenshot_captured: true
     pending:
       - official ZCode 0.16.5 model response with the freshly issued JWT
-      - live Ciel Router model response after the official control result
+      - Z.AI account-side unusual-activity restriction resolution and live retry
