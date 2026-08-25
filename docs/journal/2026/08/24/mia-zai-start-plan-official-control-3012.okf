@@ -7,7 +7,7 @@ knowledge:
       Determine with official ZCode source and live controls why Mia's Z.AI
       Start Plan request is rejected after successful CAPTCHA, preserve the
       real provider failure for Codex, and avoid reporting it as capacity load.
-    status: waiting-user-captcha
+    status: external-provider-blocked
 
   evidence:
     ciel_live_request:
@@ -78,10 +78,12 @@ knowledge:
       last_confirmed_balance_available: 3000000
       last_successful_balance_check_utc: "2026-08-24T07:00:20.820Z"
       earlier_balance_control: "HTTP 405 / code 3012"
-      latest_balance_control: "HTTP 200 / business code 0"
-      latest_balance_server_time: 1787624657
-      latest_glm_5_3_available_units: 3000000
-      latest_balance_observed_at: "2026-08-25T02:24:17Z"
+      recovered_balance_control: "HTTP 200 / business code 0"
+      recovered_balance_server_time: 1787624657
+      recovered_glm_5_3_available_units: 3000000
+      recovered_balance_observed_at: "2026-08-25T02:24:17Z"
+      latest_balance_control: "HTTP 405 / code 3012"
+      latest_balance_observed_at: "2026-08-25T02:43:18Z"
       conclusion: >-
         The plan-end timestamp is after the failing request, so plan expiry is
         contradicted by official account-state evidence and is not assigned as
@@ -96,6 +98,22 @@ knowledge:
         The same provider rejection occurs outside Ciel's request conversion.
         Ciel protocol, CAPTCHA completion, and bearer projection are therefore
         not sufficient explanations for code 3012.
+
+    installed_nightly_live_control:
+      version: 0.2.36-nightly.20260825-022132.97b7e85
+      captcha_request_id: ZVmopNsgFwc-A434ttLQ3sztDBQdRwHo586ZUMrASCE
+      captcha_status: completed
+      captcha_completed_at: "2026-08-25T02:42:37.497879Z"
+      model_error_recorded_at: "2026-08-25T02:43:05.004808Z"
+      endpoint: https://zcode.z.ai/api/v1/zcode-plan/anthropic/v1/messages
+      upstream_http_status: 405
+      upstream_provider_code: 3012
+      downstream_http_status: 400
+      downstream_error_type: invalid_request_error
+      downstream_message_contains_high_demand: false
+      conclusion: >-
+        The deployed error projection works in an actual request after a
+        successful human CAPTCHA. The provider still rejects the model call.
 
     official_material:
       configuration_docs: https://zcode.z.ai/en/docs/configuration
@@ -165,11 +183,18 @@ knowledge:
         callback; neither reached the model endpoint
       - diagnostic router PID 2534327 on port 8898 was stopped
       - temporary credential config /tmp/ciel-zcode-router-config-7 was removed
+      - fresh user CAPTCHA ZVmopNsgFwc-A434ttLQ3sztDBQdRwHo586ZUMrASCE
+        completed successfully against the installed nightly
+      - live nightly request returned the exact invalid_request_error instead
+        of the former generic high-demand message
+      - immediate post-request balance recheck returned 405 / code 3012 again
+      - diagnostic router PID 2541384 on port 8898 was stopped
+      - temporary credential config /tmp/ciel-zcode-router-config-8 was removed
     pending:
       - >-
-        A successful GLM-5.3 model response still requires one freshly
-        generated CAPTCHA to be completed by the user before its 180-second
-        deadline. The two post-recovery CAPTCHA requests were not completed.
+        A successful GLM-5.3 response cannot be verified while the Z.AI
+        Start Plan gateway returns HTTP 405 / provider code 3012 to the model
+        endpoint and, intermittently, to its official balance endpoint.
     unresolved:
       - >-
         Z.AI has not documented code 3012, and the provider currently rejects
