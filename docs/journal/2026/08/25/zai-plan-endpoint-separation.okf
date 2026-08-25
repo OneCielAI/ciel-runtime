@@ -47,6 +47,46 @@ okf:
       conclusion: >-
         The installed runtime's signing feature gate is currently disabled by
         server configuration. No signing implementation was inferred or added.
+    official_cli_oauth_0165:
+      source_contract:
+        init: POST https://zcode.z.ai/api/v1/oauth/cli/init
+        poll: GET https://zcode.z.ai/api/v1/oauth/cli/poll/{flow_id}
+        callback_owner: Z.AI server
+      captured_2026_08_25:
+        init_http_status: 200
+        init_business_code: 0
+        poll_transition: pending -> ready
+        credential_written: true
+        fresh_start_plan_jwt_sha256_prefix: 6ea3ad9709f1
+      correction: >-
+        The failed browser callback screenshot did not prove a Ciel state
+        mismatch. A new flow executed by the installed official runtime reached
+        ready and wrote a different JWT.
+    fresh_credential_control:
+      jwt_claim_keys: [iat, sub, user_id]
+      exp_claim_present: false
+      billing_current:
+        http_status: 405
+        provider_code: 3012
+        message: method not allowed
+      billing_balance:
+        http_status: 405
+        provider_code: 3012
+        message: method not allowed
+      conclusion: >-
+        Refreshing the official OAuth credential did not clear the provider
+        rejection on the official Start Plan billing routes. Token expiry is
+        not established as the cause.
+    official_runtime_model_control:
+      old_credential_result:
+        endpoint: https://zcode.z.ai/api/v1/zcode-plan/anthropic/v1/messages
+        method: POST
+        captcha_headers_present: true
+        authorization_headers_present: true
+        model: GLM-5.3
+        http_status: 405
+        provider_code: 3012
+      fresh_credential_result: pending_new_captcha
 
   contradiction_correction:
     previous_claim: >-
@@ -75,22 +115,58 @@ okf:
       state_bound_receiver: true
       fresh_per_upstream_attempt: true
       result_persisted: false
+    oauth_shared_credential:
+      official_store: ~/.zcode/v2/credentials.json
+      key: zcodejwttoken
+      cipher: AES-256-GCM
+      serialized_prefix: "enc:v1:"
+      iv_bytes: 12
+      authentication_tag_bytes: 16
+      secret_derivation: >-
+        SHA-256 of ZCODE_CREDENTIAL_SECRET when set, otherwise the exact
+        official platform/home/username fallback string
+      plaintext_logged: false
+      desktop_config_fallback_retained: true
 
   verification:
     targeted:
       zai_provider: 8 passed
-      zai_oauth: 7 passed
+      zai_oauth: 8 passed
       zai_start_plan_captcha: 4 passed
       runtime_interaction: 5 passed
       provider_launch_endpoint: 8 passed
       provider_contract_matrix: 41 passed
       architecture_budget: 2 passed
+      zcode_runtime: 9 passed
     full_suite:
-      unit: 1186 passed, 44 skipped
-      router: 930 passed
+      unit: 1187 passed, 44 skipped
+      router: 931 passed
       channel: 382 passed, 80 skipped
       runtime: 255 passed, 12 skipped
-      total: 2753 passed, 136 skipped
+      total: 2755 passed, 136 skipped
+    mia_local_deployment:
+      official_oauth_poll_result: ready
+      shared_reader_result:
+        present: true
+        length: 231
+        sha256_prefix: 6ea3ad9709f1
+        claim_keys: [iat, sub, user_id]
+      ciel_import_result:
+        provider: zai-start-plan
+        credential_source: zai-oauth
+        sha256_prefix: 6ea3ad9709f1
+      isolated_router:
+        port: 8898
+        pid: 2723135
+        workspace: /tmp/ciel-start-plan-e2e-600e230/workspace
+        user_session_router_8800_modified: false
+        live_request_status: waiting_for_captcha
+    distribution:
+      commit: 600e23041cdc32f14c504133c6c337a8a745df1d
+      nightly: 0.2.36-nightly.20260825-064641.600e230
+      origin_nightly_pushed: true
+      local_installed: true
+      mia_installed: true
     browser_render:
       url_scope: loopback state-bound test receiver
       sdk_loaded: official Aliyun CAPTCHA SDK
@@ -98,7 +174,5 @@ okf:
       local_receiver_result_accepted: true
       screenshot_captured: true
     pending:
-      - lint and package-content checks
-      - installed local artifact verification
-      - nightly publication verification
-      - live Mia Start Plan model response
+      - official ZCode 0.16.5 model response with the freshly issued JWT
+      - live Ciel Router model response after the official control result

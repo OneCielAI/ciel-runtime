@@ -81,7 +81,9 @@ class ZcodeRuntimeTests(unittest.TestCase):
         return ZcodeRuntimeContext(
             process=ZcodeProcessPorts(
                 find_executable=lambda name: f"C:/bin/{name}.cmd",
-                run=lambda *_args, **_kwargs: SimpleNamespace(returncode=0),
+                run=lambda *_args, **_kwargs: captured.get(
+                    "run_result", SimpleNamespace(returncode=0)
+                ),
                 call=lambda command, **kwargs: captured.update(command=command, child=kwargs) or 0,
                 print_line=lambda *values, **_kwargs: captured.setdefault("output", []).append(" ".join(map(str, values))),
                 environment={"PATH": "original"},
@@ -178,6 +180,19 @@ class ZcodeRuntimeTests(unittest.TestCase):
             )
             self.assertEqual("augmented", captured["child"]["env"]["PATH"])
             self.assertNotIn("ZCODE_STORAGE_DIR", captured["child"]["env"])
+
+    def test_shared_oauth_jwt_reads_official_store_without_printing_value(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            captured = {
+                "run_result": SimpleNamespace(
+                    returncode=0,
+                    stdout=json.dumps({"value": "shared-start-plan-jwt"}),
+                    stderr="",
+                )
+            }
+            context = self.context(Path(temp_dir), captured)
+
+            self.assertEqual("shared-start-plan-jwt", context.shared_oauth_jwt())
 
     def test_official_zcode_oauth_result_is_imported_after_tui_exit(self):
         with tempfile.TemporaryDirectory() as temp_dir:

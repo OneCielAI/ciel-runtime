@@ -1,8 +1,9 @@
-"""Import native ZCode Coding Plan credentials into Ciel Runtime.
+"""Import native ZCode Coding Plan and Start Plan credentials into Ciel Runtime.
 
 The public ``zcode-app-cli`` launcher owns OAuth authorization, callback
-validation, token exchange, and Coding Plan key resolution. Ciel invokes that
-launcher and imports only the resulting documented ZCode provider entry.
+validation, token exchange, Coding Plan key resolution, and the encrypted
+shared Start Plan JWT. Ciel invokes that launcher and imports only the resulting
+official credentials.
 """
 
 from __future__ import annotations
@@ -36,6 +37,7 @@ class ZaiOAuthRuntimePorts:
     native_settings_path: Path | None = None
     native_v2_config_path: Path | None = None
     native_v2_settings_path: Path | None = None
+    native_shared_start_plan_key: Callable[[], str] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -122,6 +124,13 @@ class ZaiOAuthRuntime:
 
     def _native_key(self, profile: str) -> str:
         if str(profile or "coding-plan").strip().lower() == "start-plan":
+            if self.ports.native_shared_start_plan_key is not None:
+                try:
+                    key = str(self.ports.native_shared_start_plan_key() or "").strip()
+                except RuntimeError:
+                    key = ""
+                if key:
+                    return key
             return self._native_start_plan_key()
         return self._native_coding_plan_key()
 
@@ -216,18 +225,6 @@ class ZaiOAuthRuntime:
             )
         if action != "login":
             return [f"Unsupported Z.AI OAuth action: {action}"]
-        if str(profile).strip().lower() == "start-plan":
-            try:
-                return self.import_api_key(
-                    self._native_start_plan_key(),
-                    source="native-zcode-desktop-config",
-                    profile=profile,
-                )
-            except ZaiOAuthError as exc:
-                raise ZaiOAuthError(
-                    "Start Plan login is owned by the official ZCode Desktop app; "
-                    "sign in there, select Start Plan, then run import."
-                ) from exc
         if self.ports.native_login is None:
             raise ZaiOAuthError("The native ZCode login command is unavailable.")
         exit_code = int(self.ports.native_login(no_browser))
@@ -235,6 +232,21 @@ class ZaiOAuthRuntime:
             raise ZaiOAuthError(
                 f"Native ZCode OAuth login failed (exit {exit_code}); "
                 "no credential was imported."
+            )
+        if str(profile).strip().lower() == "start-plan":
+            if self.ports.native_shared_start_plan_key is None:
+                raise ZaiOAuthError(
+                    "The official ZCode shared OAuth credential reader is unavailable."
+                )
+            try:
+                key = str(self.ports.native_shared_start_plan_key() or "").strip()
+            except RuntimeError as exc:
+                raise ZaiOAuthError(
+                    "The official ZCode login completed but its Start Plan JWT "
+                    "could not be read."
+                ) from exc
+            return self.import_api_key(
+                key, source="native-zcode-oauth", profile=profile
             )
         return self.import_api_key(
             self._native_coding_plan_key(), source="native-zcode-oauth"

@@ -5,6 +5,10 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+- Import the fresh Start Plan JWT written by the official ZCode 0.16.5 OAuth
+  init/poll flow from its encrypted shared credential store. Start Plan login
+  now delegates to that official flow instead of reusing a stale Desktop
+  provider snapshot; the Desktop selection remains an import fallback.
 - Separate Z.AI Start Plan from Coding Plan using the installed official ZCode
   Desktop 3.9.1 contract. Start Plan imports its selected Desktop JWT and sends
   Anthropic Messages to

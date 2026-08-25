@@ -106,6 +106,36 @@ class ZcodeRuntimeContext:
         env["PATH"] = self.process.augment_path(env)
         return self.process.call(command, env=env)
 
+    def shared_oauth_jwt(self) -> str:
+        """Read the official ZCode shared JWT without logging its value."""
+
+        node = self.process.find_executable("node")
+        if not node:
+            raise RuntimeError("Node.js is required to read ZCode OAuth credentials.")
+        helper = Path(__file__).with_name("zcode_credential_reader.cjs")
+        credentials = Path.home() / ".zcode" / "v2" / "credentials.json"
+        env = self.process.environment.copy()
+        env["PATH"] = self.process.augment_path(env)
+        result = self.process.run(
+            [node, str(helper), str(credentials), "zcodejwttoken"],
+            check=False,
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        if result.returncode:
+            raise RuntimeError("Unable to read the official ZCode OAuth credential.")
+        try:
+            payload = json.loads(str(result.stdout or ""))
+            jwt = str(payload.get("value") or "").strip()
+        except (json.JSONDecodeError, AttributeError) as exc:
+            raise RuntimeError(
+                "The official ZCode OAuth credential response was invalid."
+            ) from exc
+        if not jwt:
+            raise RuntimeError("The official ZCode OAuth credential is missing.")
+        return jwt
+
     @staticmethod
     def _shared_oauth_action(argv: list[str]) -> str | None:
         if not argv:

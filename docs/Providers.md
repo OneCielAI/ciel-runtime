@@ -192,7 +192,7 @@ Z.AI의 API key, Coding Plan, Start Plan을 서로 다른 provider profile로 �
 | `zai` | 기존 수동 API key | 해당 없음 | `https://api.z.ai/api/anthropic` |
 | `zai-api` | 일반 종량제 API key | `https://api.z.ai/api/paas/v4` | 공식 모델 문서에서 일반 API용 별도 Anthropic URL을 확인하지 못했으므로 사용하지 않음 |
 | `zai-coding-plan` | Coding Plan API key 또는 `--profile coding-plan` OAuth | `https://api.z.ai/api/coding/paas/v4` | `https://api.z.ai/api/anthropic` |
-| `zai-start-plan` | ZCode Desktop Start Plan JWT | 제공되지 않음 | `https://zcode.z.ai/api/v1/zcode-plan/anthropic` |
+| `zai-start-plan` | ZCode OAuth shared Start Plan JWT | 제공되지 않음 | `https://zcode.z.ai/api/v1/zcode-plan/anthropic` |
 
 Coding Plan의 OpenAI Chat/Anthropic URL은 Z.AI 공식 Tool Integration 문서에
 기재된 값이다. Start Plan 계약은 Mia에 설치된 공식 ZCode Desktop 3.9.1의
@@ -212,10 +212,11 @@ ciel-runtimectl zai-oauth status --profile start-plan
 ```
 
 Coding Plan 로그인은 CLI의 최종 plan API key만 `zai-coding-plan`에 저장한다.
-Start Plan은 공식 ZCode Desktop에서 로그인하고 Start Plan을 선택한 다음
-`ciel-runtimectl zai-oauth import --profile start-plan`으로 현재 Desktop JWT를
-`zai-start-plan`에 가져온다. 두 프로필은 자격증명과 endpoint를 공유하지 않으며,
-기존 `zai` credential도 변경하지 않는다.
+Start Plan 로그인은 같은 공식 ZCode OAuth init/poll 흐름이 저장한 암호화
+`zcodejwttoken`을 `zai-start-plan`에 가져온다. 이미 로그인된 환경에서는
+`ciel-runtimectl zai-oauth import --profile start-plan`을 사용할 수 있으며, 이전
+ZCode 버전의 선택된 Desktop provider는 fallback으로만 읽는다. 두 프로필은
+자격증명과 endpoint를 공유하지 않으며, 기존 `zai` credential도 변경하지 않는다.
 
 - 기본 모델: `glm-5.3[1m]`
 - GLM-5.3은 reasoning을 끌 수 없으며 `low`, `high`, `max` effort만 사용한다.

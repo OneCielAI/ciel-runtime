@@ -31,6 +31,7 @@ class ZaiOAuthRuntimeTests(unittest.TestCase):
         native_login=None,
         native_v2_config_path=None,
         native_v2_settings_path=None,
+        native_shared_start_plan_key=None,
     ):
         return ZaiOAuthRuntime(
             ZaiOAuthRuntimePorts(
@@ -44,6 +45,7 @@ class ZaiOAuthRuntimeTests(unittest.TestCase):
                 native_settings_path=settings_path,
                 native_v2_config_path=native_v2_config_path,
                 native_v2_settings_path=native_v2_settings_path,
+                native_shared_start_plan_key=native_shared_start_plan_key,
             )
         )
 
@@ -186,6 +188,29 @@ class ZaiOAuthRuntimeTests(unittest.TestCase):
         )
         self.assertEqual("zai-start-plan", config["current_provider"])
         self.assertEqual(1, len(saved))
+
+    def test_start_plan_login_uses_official_shared_jwt_after_native_login(self):
+        with TemporaryDirectory() as directory:
+            config, saved, calls = self.config(), [], []
+            runtime = self.runtime(
+                config,
+                saved,
+                Path(directory) / "unused.json",
+                native_login=lambda no_browser: calls.append(no_browser) or 0,
+                native_shared_start_plan_key=lambda: "fresh-shared-jwt",
+            )
+
+            messages = runtime.action(
+                "login", no_browser=True, profile="start-plan"
+            )
+
+        self.assertEqual([True], calls)
+        provider = config["providers"]["zai-start-plan"]
+        self.assertEqual("fresh-shared-jwt", provider["api_key"])
+        self.assertEqual("native-zcode-oauth", provider["oauth_import_source"])
+        self.assertEqual("zai-start-plan", config["current_provider"])
+        self.assertEqual(1, len(saved))
+        self.assertNotIn("fresh-shared-jwt", "\n".join(messages))
 
     def test_manual_legacy_zai_key_is_never_overwritten(self):
         with TemporaryDirectory() as directory:

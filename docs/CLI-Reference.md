@@ -142,11 +142,12 @@ ciel-runtimectl zai-oauth status --profile start-plan
 ciel-runtimectl zai-oauth logout --profile start-plan
 ```
 
-기본 profile은 `coding-plan`이다. Coding Plan의 `login`은 설치된 ZCode CLI 로그인에
-위임한 뒤 CLI가 저장한 최종 Coding Plan API key를 가져온다. Start Plan 인증은 공식
-ZCode Desktop이 소유한다. Desktop에서 로그인하고 Start Plan을 선택한 다음
-`import --profile start-plan`을 실행하며, Start Plan의 JWT는 별도
-`zai-start-plan` profile에 저장된다. Start Plan 모델 요청은 요청별 Aliyun CAPTCHA
+기본 profile은 `coding-plan`이다. 두 profile의 `login`은 설치된 공식 ZCode CLI의
+OAuth init/poll 흐름에 위임한다. Coding Plan은 CLI가 생성한 provider API key를,
+Start Plan은 공식 공유 credential store의 `zcodejwttoken`을 각각 가져온다. 이미
+ZCode 로그인이 완료된 경우 `import --profile start-plan`은 같은 공유 JWT를
+`zai-start-plan` profile에 저장한다. Desktop의 선택된 Start Plan 설정은 이전
+ZCode 버전을 위한 import fallback으로 유지된다. Start Plan 모델 요청은 요청별 Aliyun CAPTCHA
 결과를 받은 뒤 Start Plan 전용 Anthropic endpoint로 계속된다. `logout`은 선택한
 profile의 Ciel credential만 지우며 ZCode의 로그인이나 원격 승인을 철회하지 않는다.
 

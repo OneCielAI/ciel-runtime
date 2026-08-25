@@ -2,20 +2,21 @@
 set -euo pipefail
 
 readonly config_path="/home/mia/.zcode/cli/config.json"
-readonly ciel_config_path="/home/mia/.config/ciel-runtime/config.json"
 readonly zcode_bin="/home/mia/.npm-global/bin/zcode"
 readonly ciel_python_root="/home/mia/.npm-global/lib/node_modules/@oneciel-ai/ciel-runtime"
+readonly credential_probe="/tmp/probe-official-zcode-start-plan-auth.cjs"
 readonly public_captcha_origin="http://100.95.132.58:42122"
 backup_path="$(mktemp /tmp/zcode-start-plan-control-backup.XXXXXX.json)"
 modified_path="$(mktemp /tmp/zcode-start-plan-control-config.XXXXXX.json)"
 captcha_path="$(mktemp /tmp/zcode-start-plan-control-captcha.XXXXXX.json)"
-readonly backup_path modified_path captcha_path
+jwt_path="$(mktemp /tmp/zcode-start-plan-control-jwt.XXXXXX)"
+readonly backup_path modified_path captcha_path jwt_path
 readonly original_sha256="$(sha256sum "$config_path" | awk '{print $1}')"
 
 restore_config() {
   install -m 600 "$backup_path" "$config_path"
   restored_sha256="$(sha256sum "$config_path" | awk '{print $1}')"
-  rm -f -- "$backup_path" "$modified_path" "$captcha_path"
+  rm -f -- "$backup_path" "$modified_path" "$captcha_path" "$jwt_path"
   printf 'RESTORE original_sha256=%s restored_sha256=%s\n' \
     "$original_sha256" "$restored_sha256"
   test "$original_sha256" = "$restored_sha256"
@@ -29,6 +30,9 @@ if pgrep -u "$(id -u)" -fa '/zcode\.cjs' >/dev/null; then
 fi
 
 install -m 600 "$config_path" "$backup_path"
+
+ZCODE_JWT_OUTPUT_PATH="$jwt_path" node "$credential_probe"
+chmod 600 "$jwt_path"
 
 PYTHONPATH="$ciel_python_root" \
 CAPTCHA_OUTPUT_PATH="$captcha_path" \
@@ -60,12 +64,12 @@ os.chmod(output_path, 0o600)
 print("CAPTCHA_CAPTURED", flush=True)
 PY
 
-jq --slurpfile ciel "$ciel_config_path" --slurpfile captcha "$captcha_path" \
+jq --rawfile jwt "$jwt_path" --slurpfile captcha "$captcha_path" \
   '.provider["builtin:zai-start-plan"] = {
      "kind": "anthropic",
      "name": "Z.AI Start Plan control",
      "options": {
-       "apiKey": $ciel[0].providers["zai-start-plan"].api_key,
+       "apiKey": ($jwt | gsub("[\\r\\n]+$"; "")),
        "apiKeyRequired": true,
        "baseURL": "https://zcode.z.ai/api/v1/zcode-plan/anthropic"
      },

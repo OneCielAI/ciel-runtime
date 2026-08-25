@@ -3070,7 +3070,7 @@ def ensure_nvidia_hosted_base_url(pcfg: dict[str, Any]) -> bool:
 
 def nvidia_credential_repository() -> EnvCredentialRepository: return nvidia_env_credential_repository(NCP_ENV, read_env_file, parse_api_key_list, nvidia_upstream_base_url())
 def github_copilot_oauth_runtime() -> GitHubCopilotOAuthRuntime: return GitHubCopilotOAuthRuntime(CONFIG_DIR, GitHubCopilotOAuthRuntimePorts(clear_model_cache=clear_model_cache, log=router_log, provider_headers=provider_headers, network_open=provider_network.provider_urlopen))
-def zai_oauth_runtime() -> ZaiOAuthRuntime: return ZaiOAuthRuntime(ZaiOAuthRuntimePorts(load_config, save_config, clear_model_cache, mask_secret, secret_fingerprint, print, lambda no_browser: zcode_runtime_context().native_oauth_login(no_browser), Path.home() / ".zcode" / "cli" / "config.json", Path.home() / ".zcode" / "v2" / "config.json", Path.home() / ".zcode" / "v2" / "setting.json"))
+def zai_oauth_runtime() -> ZaiOAuthRuntime: return ZaiOAuthRuntime(ZaiOAuthRuntimePorts(load_config, save_config, clear_model_cache, mask_secret, secret_fingerprint, print, lambda no_browser: zcode_runtime_context().native_oauth_login(no_browser), Path.home() / ".zcode" / "cli" / "config.json", Path.home() / ".zcode" / "v2" / "config.json", Path.home() / ".zcode" / "v2" / "setting.json", lambda: zcode_runtime_context().shared_oauth_jwt()))
 def provider_choice_controller() -> ProviderChoiceController:
     return ProviderChoiceController(
         ProviderChoicePorts(
