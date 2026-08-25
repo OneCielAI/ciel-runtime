@@ -7,7 +7,7 @@ knowledge:
       Determine with official ZCode source and live controls why Mia's Z.AI
       Start Plan request is rejected after successful CAPTCHA, preserve the
       real provider failure for Codex, and avoid reporting it as capacity load.
-    status: deployment-testing
+    status: external-provider-blocked
 
   evidence:
     ciel_live_request:
@@ -146,10 +146,17 @@ knowledge:
       - full regression: router 977 passed
       - full regression: channel 382 passed, 80 skipped
       - full regression: runtime 255 passed, 12 skipped
+      - local tarball installed as 0.2.36 and installed projection executed
+      - nightly CI run 32800945359 passed
+      - nightly npm publish run 32800945388 passed
+      - nightly registry tarball verification passed in the publish workflow
+      - Mia installed nightly projection executed with downstream 400,
+        invalid_request_error, and observed upstream status 405
+      - diagnostic router PID 2496169 on port 8897 was stopped after capture
     pending:
-      - local package deployment verification
-      - nightly publish and registry verification
-      - Mia nightly install and terminal error-projection verification
+      - >-
+        A successful GLM-5.3 model response cannot be verified while Z.AI
+        returns 405 / code 3012 to both Ciel and official ZCode.
     unresolved:
       - >-
         Z.AI has not documented code 3012, and the provider currently rejects
@@ -157,5 +164,20 @@ knowledge:
         proven by available evidence.
 
   deployment:
-    local: pending
-    nightly: pending
+    commit: 97b7e85a9c64b5e741b0dc08d32cdef5a329115e
+    local:
+      package_version: 0.2.36
+      installed_projection_status: 400
+      preserved_upstream_status: 405
+      installed_error_type: invalid_request_error
+    nightly:
+      branch_sha: 97b7e85a9c64b5e741b0dc08d32cdef5a329115e
+      package_version: 0.2.36-nightly.20260825-022132.97b7e85
+      registry_shasum: 72f9bec6f203d2f60186598de6f760b183b8d5fb
+      ci_run: 32800945359
+      publish_run: 32800945388
+    mia:
+      installed_version: 0.2.36-nightly.20260825-022132.97b7e85
+      installed_projection_status: 400
+      preserved_upstream_status: 405
+      installed_error_type: invalid_request_error
