@@ -44,14 +44,25 @@ deployment:
       config_think: false
       thinking_type: disabled
   nightly:
-    status: pushed_awaiting_publish
+    status: pushed_ci_pass_publish_blocked
     first_commit: 878578631dffbb0708f190ec12d815b82b796e01
+    deployment_state_commit: 3fa208adf690225453782e5e7a2b9f0cc26b14e6
     remote_ref_verified: true
     first_push_check_runs_observed: 0
     first_push_event_observed: false
     automatic_trigger_cause: unknown
     manual_ci_run: 32986621713
+    manual_ci_result: success
     npm_auth_local: unauthorized
+    publish_workflow_dispatch_result: "HTTP 422: workflow has no workflow_dispatch trigger"
+    alternate_github_account_push_result: "HTTP 403: account has no repository permission"
+    active_github_account_restored: OneCielAI
+    npm_nightly_before_and_after: "0.2.36-nightly.20260825-085507.11afdb5"
+    publish_blocker: >-
+      The push updated origin/nightly but GitHub did not create a push event or
+      check run. Local npm authentication is unavailable, and restarting the
+      publish workflow requires newly authorizing the OneCielAI OAuth token with
+      workflow scope or adding a workflow_dispatch trigger on the default branch.
 
 prepush_checks:
   ruff: pass
