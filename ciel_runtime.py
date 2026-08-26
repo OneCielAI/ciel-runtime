@@ -2915,7 +2915,7 @@ def body_with_codex_compat_instructions(cfg: dict[str, Any], provider: str, pcfg
     return body_with_remote_memory_prompt(body, "openai_responses")
 
 def _codex_turn_recovery_services() -> codex_turn_recovery.CodexTurnRecoveryServices:
-    return codex_turn_recovery.CodexTurnRecoveryServices(should_retry=should_retry_preamble_only_turn, collect_message=collect_provider_message_for_responses, log=router_log)
+    return codex_turn_recovery.CodexTurnRecoveryServices(should_retry=should_retry_preamble_only_turn, collect_message=collect_provider_message_for_responses, log=router_log, prepare_reasoning_budget_retry=lambda provider, pcfg, body: codex_turn_recovery.prepare_provider_reasoning_output_budget_retry(provider, pcfg, body, adapter_for=configured_provider_adapter, contract_for=provider_contract_config, resolve_model=resolve_requested_model, select_protocol=select_provider_protocol))
 
 def recover_codex_preamble_only_turn(handler: Any, provider: str, pcfg: dict[str, Any], body: dict[str, Any], message: dict[str, Any]) -> dict[str, Any]:
     return codex_turn_recovery.recover_preamble_only_turn(handler, provider, pcfg, body, message, _codex_turn_recovery_services())

@@ -76,6 +76,8 @@ class KimiProviderAdapter(HttpBearerProviderAdapter):
         default_factory=lambda: ProviderCapabilities(
             upstream_protocol="anthropic_messages",
             supports_thinking=True,
+            reasoning_output_recovery="minimum",
+            minimum_reasoning_effort="low",
             requires_api_key=True,
         )
     )
@@ -295,6 +297,23 @@ class KimiProviderAdapter(HttpBearerProviderAdapter):
         if requested is None:
             requested = config.options.get("effort_level")
         return self._reasoning_effort(requested)
+
+    def reasoning_output_recovery(
+        self,
+        config: ProviderConfig,
+        model: str,
+        protocol: MessageProtocol,
+        request: Mapping[str, Any],
+    ) -> tuple[str, str | None]:
+        minimum_request = {
+            **request,
+            "thinking": {"type": "enabled", "effort": "low"},
+        }
+        if protocol == "openai_chat" and self.openai_reasoning_effort(
+            config, model, minimum_request
+        ) == "low":
+            return "minimum", "low"
+        return "none", None
 
     def openai_reasoning_passback_enabled(
         self, config: ProviderConfig, model: str | None = None

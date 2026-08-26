@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import codecs
+import re
 import subprocess
 import sys
 import threading
@@ -19,6 +20,22 @@ _STILL_ACTIVE = 259
 _WAIT_TIMEOUT = 258
 _WAIT_OBJECT_0 = 0
 _INFINITE = 0xFFFFFFFF
+
+# Codex and Claude render different placeholders after accepting a long
+# bracketed paste. Claude draws spaces with CSI cursor-right commands, so its
+# marker is not contiguous in the captured ConPTY byte stream.
+_CODEX_COLLAPSED_PASTE_MARKER = b"[Pasted Content"
+_CLAUDE_COLLAPSED_PASTE_PATTERN = re.compile(
+    rb"\[Pasted(?:\x1b\[[0-?]*[ -/]*[@-~]|\s)+"
+    rb"text(?:\x1b\[[0-?]*[ -/]*[@-~]|\s)+#"
+)
+
+
+def _collapsed_paste_marker_count(output: bytes | str) -> int:
+    data = output.encode("utf-8", errors="replace") if isinstance(output, str) else bytes(output)
+    return data.count(_CODEX_COLLAPSED_PASTE_MARKER) + len(
+        _CLAUDE_COLLAPSED_PASTE_PATTERN.findall(data)
+    )
 
 
 def conpty_enabled(
@@ -179,7 +196,7 @@ class WindowsConPtySession:
         if not prompt:
             return bool(output)
         prefix = prompt[:48].encode("utf-8", errors="replace")
-        return bool(prefix and prefix in output) or b"[Pasted Content" in output
+        return bool(prefix and prefix in output) or _collapsed_paste_marker_count(output) > 0
 
     @staticmethod
     def _prompt_rendered_since(
@@ -193,8 +210,7 @@ class WindowsConPtySession:
         prefix = prompt[:48]
         if prefix and current.count(prefix) > baseline.count(prefix):
             return True
-        paste_marker = "[Pasted Content"
-        if prompt and current.count(paste_marker) > baseline.count(paste_marker):
+        if prompt and _collapsed_paste_marker_count(current) > _collapsed_paste_marker_count(baseline):
             return True
         return not prompt
 

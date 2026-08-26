@@ -2160,6 +2160,55 @@ class ChannelBridgeTests(unittest.TestCase):
         log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
         self.assertTrue(any("reason=not_web_chat" in item and "message_id=2" in item for item in log_messages))
 
+    def test_tty_web_chat_uses_private_reply_contract_in_mixed_channel_mode(self):
+        messages = [
+            {
+                "id": 12,
+                "channel": "web-chat-session",
+                "thread_id": "thread-12",
+                "sender_id": "web-user",
+                "message": "send the latest file",
+                "kind": "web_chat",
+                "meta": {
+                    "source": "ciel-runtime-web-chat",
+                    "reply_channel": "web-chat-session",
+                    "reply_parent_id": 12,
+                    "web_reply_token": "private-token-12",
+                    "input_mode": "text",
+                    "injection_mode": "structured",
+                    "input_transport": "tty",
+                    "response_mode": "web_chat",
+                },
+                "delivery": ["llm"],
+            }
+        ]
+        injected: list[int] = []
+        with (
+            mock.patch.object(ciel_runtime, "read_chat_messages", return_value=messages),
+            mock.patch.object(ciel_runtime, "_latest_claude_transcript_path", return_value=None),
+            mock.patch.object(ciel_runtime, "_write_fd_all") as write_all,
+            mock.patch.object(ciel_runtime, "_channel_wake_submit_delay_seconds", return_value=0),
+            mock.patch.object(ciel_runtime, "_commit_channel_llm_cursor_if_newer") as commit_cursor,
+            mock.patch.object(ciel_runtime, "router_log"),
+        ):
+            last_id = ciel_runtime._inject_pending_channel_messages(
+                99,
+                11,
+                web_chat_only=False,
+                wake_for_llm_delivery=True,
+                commit_cursor=False,
+                injected_message_ids=injected,
+            )
+
+        self.assertEqual(12, last_id)
+        self.assertEqual([12], injected)
+        commit_cursor.assert_not_called()
+        prompt = write_all.call_args_list[0].args[1].decode("utf-8")
+        self.assertIn("send the latest file", prompt)
+        self.assertIn('"parent_id":"12"', prompt)
+        self.assertIn('"reply_token":"private-token-12"', prompt)
+        self.assertIn("`send_message`", prompt)
+
     def test_inject_pending_channel_messages_never_replays_expired_web_command(self):
         now = time.time()
         messages = [

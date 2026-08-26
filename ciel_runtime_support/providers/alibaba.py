@@ -316,6 +316,22 @@ class AlibabaModelStudioProviderAdapter(HttpBearerProviderAdapter):
             return self._normalize_qwen38_effort(value)
         return value if value in _EFFORTS else "xhigh"
 
+    def reasoning_output_recovery(
+        self,
+        config: ProviderConfig,
+        model: str,
+        protocol: MessageProtocol,
+        request: Mapping[str, Any],
+    ) -> tuple[str, str | None]:
+        if protocol in {"openai_chat", "openai_responses"} and self._is_qwen38(model):
+            return "disable", None
+        minimum_request = {**request, "reasoning_effort": "low"}
+        if protocol == "openai_chat" and self.openai_reasoning_effort(
+            config, model, minimum_request
+        ) == "low":
+            return "minimum", "low"
+        return "none", None
+
     def openai_reasoning_passback_enabled(
         self, config: ProviderConfig, model: str | None = None
     ) -> bool:

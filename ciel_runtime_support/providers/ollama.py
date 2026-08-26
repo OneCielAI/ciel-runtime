@@ -6,6 +6,7 @@ from dataclasses import dataclass, field, replace
 from typing import Any, Mapping
 
 from ..architecture import (
+    MessageProtocol,
     ProviderCapabilities,
     ProviderConfigurationPolicy,
     ProviderConfig,
@@ -83,6 +84,39 @@ class OllamaProviderAdapter(HttpBearerProviderAdapter):
         self, config: ProviderConfig, model: str, request: Mapping[str, Any]
     ) -> bool | str | None:
         return OllamaThinkingPolicy().value(config.options, model, request)
+
+    def reasoning_output_recovery(
+        self,
+        config: ProviderConfig,
+        model: str,
+        protocol: MessageProtocol,
+        request: Mapping[str, Any],
+    ) -> tuple[str, str | None]:
+        """Choose only values accepted by the discovered Ollama architecture."""
+
+        if protocol != "ollama_chat":
+            return "none", None
+        policy = OllamaThinkingPolicy()
+        capabilities = {
+            str(item).strip().lower()
+            for item in config.options.get("ollama_model_capabilities") or []
+        }
+        if "thinking" not in capabilities and not policy.architecture(
+            config.options, model
+        ):
+            return "none", None
+        disabled_request = {**request, "thinking": {"type": "disabled"}}
+        disabled_value = policy.value(config.options, model, disabled_request)
+        if disabled_value is False:
+            return "disable", None
+        minimum_request = {
+            **request,
+            "thinking": {"type": "enabled", "effort": "low"},
+        }
+        minimum_value = policy.value(config.options, model, minimum_request)
+        if isinstance(minimum_value, str) and minimum_value:
+            return "minimum", minimum_value
+        return "none", None
 
     def reasoning_passback_enabled(
         self, config: ProviderConfig, model: str | None = None

@@ -195,6 +195,81 @@ class ChannelPromptInjectorTests(unittest.TestCase):
             any("channel_stdin_proxy_submit_confirmed attempt=2" in line for line in logs)
         )
 
+    def test_submit_returns_false_when_every_confirmed_attempt_leaves_prompt_unchanged(self) -> None:
+        transport = FakeWindowsTransport()
+        transport.supports_input_snapshot = False
+        transport.input_snapshot = lambda: "prompt-still-waiting"
+        logs: list[str] = []
+        injector = ChannelPromptInjector(
+            sleep=lambda _seconds: None,
+            retry_delay_seconds=lambda: 0.0,
+            snapshot=lambda: None,
+            log=lambda _level, message: logs.append(message),
+        )
+
+        submitted = injector.inject(
+            transport,
+            PromptInjection(
+                prompt="visible external message",
+                policy=RuntimeInjectionPolicy(
+                    runtime="claude",
+                    clear_input=b"\x15",
+                    submit_input=b"\r",
+                    submit_delay_seconds=0.0,
+                    submit_attempts=4,
+                    confirm_submission=True,
+                ),
+            ),
+        )
+
+        self.assertFalse(submitted)
+        self.assertEqual(4, transport.writes.count(b"\r"))
+        self.assertTrue(
+            any("channel_input_submit_unconfirmed attempts=4" in line for line in logs)
+        )
+
+    def test_final_submit_attempt_is_observed_before_success(self) -> None:
+        transport = FakeWindowsTransport()
+        transport.supports_input_snapshot = False
+        snapshots = iter(
+            (
+                "prompt-ready",
+                "prompt-ready",
+                "prompt-ready",
+                "prompt-ready",
+                "turn-started",
+            )
+        )
+        transport.input_snapshot = lambda: next(snapshots)
+        logs: list[str] = []
+        injector = ChannelPromptInjector(
+            sleep=lambda _seconds: None,
+            retry_delay_seconds=lambda: 0.0,
+            snapshot=lambda: None,
+            log=lambda _level, message: logs.append(message),
+        )
+
+        submitted = injector.inject(
+            transport,
+            PromptInjection(
+                prompt="visible external message",
+                policy=RuntimeInjectionPolicy(
+                    runtime="claude",
+                    clear_input=b"\x15",
+                    submit_input=b"\r",
+                    submit_delay_seconds=0.0,
+                    submit_attempts=4,
+                    confirm_submission=True,
+                ),
+            ),
+        )
+
+        self.assertTrue(submitted)
+        self.assertEqual(4, transport.writes.count(b"\r"))
+        self.assertTrue(
+            any("channel_stdin_proxy_submit_confirmed attempt=4" in line for line in logs)
+        )
+
     def test_conpty_waits_for_prompt_render_before_submitting(self) -> None:
         transport = FakeConPtyTransport()
         logs: list[str] = []

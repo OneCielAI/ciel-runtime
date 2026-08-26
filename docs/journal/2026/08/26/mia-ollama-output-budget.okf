@@ -1,0 +1,209 @@
+okf: 1
+task:
+  date: "2026-08-26"
+  scope: "Mia / Codex / local Ollama qwen3.8:27b"
+  symptom: >-
+    Ciel Runtime reported that the upstream model exhausted its output budget
+    during reasoning before producing text or a tool call.
+
+evidence:
+  session:
+    rollout: "/home/mia/.codex/sessions/2026/08/26/rollout-2026-08-26T02-26-10-01a03cf6-4f1d-76b1-8d25-94c658c572e3.jsonl"
+    failure_timestamp: "2026-08-26T14:41:28.407Z"
+    reasoning_effort: low
+    last_token_usage:
+      input_tokens: 222539
+      output_tokens: 4096
+      total_tokens: 226635
+      model_context_window: 249036
+      unused_context_tokens: 22401
+  runtime:
+    router_log: "/home/mia/.config/ciel-runtime/router-instances/8802-9ab536464774/router.log"
+    upstream_model: "qwen3.8:27b"
+    upstream_endpoint: "http://10.0.0.146:11434/api/chat"
+    response_classification: "ollama_reasoning_only_notice"
+  provider_config:
+    path: "/home/mia/.config/ciel-runtime/workspaces/9ab536464774/config.json"
+    max_model_len: 262144
+    num_ctx: auto
+    num_ctx_max: 262144
+    max_output_tokens: 4096
+    num_predict: 4096
+    output_tokens_explicit: true
+    think: false
+    think_explicit: absent
+    architecture: qwen35
+    capabilities: [completion, vision, tools, thinking]
+  ollama_runtime:
+    version: "0.33.0"
+    model_context_length: 262144
+    architecture: qwen35
+    parameter_size: "27.3B"
+    quantization: "Q4_K_M"
+
+source_trace:
+  notice_condition:
+    file: "ciel_runtime_support/protocols/ollama_chat.py"
+    rule: >-
+      A reasoning-only Ollama response with done_reason=length is projected as
+      the output-budget-exhausted notice.
+  effort_projection:
+    file: "ciel_runtime_support/ollama_thinking.py"
+    observed_result:
+      low: true
+      explicitly_disabled: false
+      no_effort: null
+    explanation: >-
+      qwen35 has no architecture-specific effort mapping. For a model reporting
+      the thinking capability, any non-empty effort including low maps to the
+      boolean Ollama think=true value. The stored think=false is not forced onto
+      the wire because think_explicit is absent.
+
+finding:
+  context_limit_exceeded: false
+  output_limit_exhausted: true
+  conclusion: >-
+    The failed turn did not exceed the effective context window. It stopped at
+    the configured 4096-token output limit, and those generated tokens contained
+    reasoning without visible text or a tool call.
+
+recovery_analysis:
+  first_failure: "2026-08-26T09:38:55 router local time"
+  automatic_retry_started: true
+  second_failure: "2026-08-26T09:41:28 router local time"
+  retry_changed_thinking_mode: false
+  confirmed_gap: >-
+    The existing bounded continuation retry changes only the conversation body.
+    It preserves the same provider configuration and reasoning request, so the
+    Qwen retry again runs with think=true and num_predict=4096.
+  immediate_operator_remediation:
+    command: >-
+      cd /home/mia && ~/.npm-global/bin/ciel-runtimectl provider-options ollama think=false
+    restart_required: false
+    basis: >-
+      The router loads workspace configuration at the beginning of every POST.
+      The provider-options mutation marks think_explicit=true, which overrides
+      Codex low effort for a generic boolean-thinking Ollama model.
+  runtime_remediation:
+    scope: >-
+      Only an Ollama reasoning-only response that ended with done_reason=length.
+    behavior: >-
+      Keep the first request unchanged. On the existing single bounded recovery
+      attempt, force thinking disabled for models whose Ollama thinking policy
+      accepts boolean disable, then ask for the required tool call or final text.
+    exclusions: >-
+      Do not create a user-, host-, or Qwen-specific exception. Architecture
+      policies that cannot disable thinking retain their supported native mode.
+    output_limit_change: false
+    reason: >-
+      Raising num_predict can reduce frequency but cannot guarantee visible
+      output; a bounded no-thinking recovery directly changes the repeated
+      failure condition.
+
+provider_scope:
+  exact_mia_failure:
+    provider: ollama
+    model: "qwen3.8:27b"
+    model_identity_note: >-
+      This local 27.3B qwen35 model is not the same deployment as Alibaba
+      Model Studio qwen3.8-max, whose official page describes a 2.4T MoE model.
+  exact_notice_projection:
+    ollama_chat: true
+    openai_chat_non_streaming: true
+    explanation: >-
+      The OpenAI Chat projection reuses the same response codec: a non-empty
+      reasoning_content plus finish_reason=length and no content/tool call is
+      normalized to the same reasoning-output-budget notice.
+  general_failure_class:
+    applies_to: >-
+      Any thinking-capable API where the configured total output ceiling includes
+      reasoning and the model reaches that ceiling before emitting answer text or
+      a tool call.
+    not_proven_for_every_provider: true
+  provider_controls:
+    ollama_generic_qwen:
+      control: "think boolean"
+      mia_mapping: "Codex low -> Ollama think=true"
+    alibaba_qwen38_responses:
+      control: "reasoning.effort including none"
+      official_max_output: 131072
+    alibaba_qwen38_openai_chat:
+      control: "max_completion_tokens covers reasoning plus answer"
+      terminal_signal: "finish_reason=length"
+    anthropic_compatible:
+      control: "provider-specific thinking/max_tokens contract"
+  conclusion: >-
+    The underlying budget-exhaustion class is cross-provider, but the Mia trigger
+    and the proposed think=false operator command are Ollama-specific. A permanent
+    runtime recovery must select the disable/lower control from the active wire
+    protocol and provider capability instead of hard-coding Ollama or Qwen.
+
+changes:
+  functional_code:
+    shared_detection:
+      file: "ciel_runtime_support/codex_turn_recovery.py"
+      behavior: >-
+        Distinguishes reasoning output-budget exhaustion from ordinary
+        reasoning-only end turns using the runtime notice or the combination of
+        reasoning content and stop_reason=max_tokens/length.
+      retry_bound: 1
+    provider_contract:
+      file: "ciel_runtime_support/architecture.py"
+      strategies: [none, omit, disable, minimum]
+      rule: >-
+        The shared recovery layer never invents provider parameters. The active
+        provider adapter declares the supported recovery strategy.
+    adapters:
+      ollama: >-
+        Uses discovered capabilities and architecture policy. Boolean-thinking
+        models disable thinking; non-disableable architectures use their native
+        minimum; models without thinking evidence receive no guessed control.
+      anthropic: "Omit the extended-thinking request on the bounded retry."
+      deepseek: "Use the adapter's explicit disabled thinking contract."
+      kimi: "Use low only when the K3 OpenAI Chat adapter validates it."
+      alibaba: >-
+        Qwen3.8 OpenAI endpoints use effort none; other Chat models only opt in
+        when the adapter validates low.
+      xai: "Use the documented adapter minimum low effort."
+      tabitoken: "Use low only for the registered thinking-model IDs."
+    safe_fallback: >-
+      Undeclared providers and adapter-projection failures retain the existing
+      prompt-only single retry. No provider control is guessed.
+  remote_state: none
+
+verification:
+  syntax:
+    command: >-
+      python -m py_compile ciel_runtime.py ciel_runtime_support/architecture.py
+      ciel_runtime_support/codex_turn_recovery.py and changed provider adapters
+    result: pass
+  focused_tests:
+    reasoning_output_recovery:
+      command: "PYTHONPATH=. python tests/test_reasoning_output_recovery.py"
+      result: "17 tests passed"
+    existing_codex_recovery:
+      command: "PYTHONPATH=. python tests/test_codex_turn_recovery.py"
+      result: "32 tests passed"
+    xai_provider:
+      command: "PYTHONPATH=. python tests/test_xai_provider.py"
+      result: "6 tests passed"
+  architecture_regression:
+    command: "PYTHONPATH=. python tests/test_architecture_contracts.py"
+    result: "261 tests passed; 42 skipped"
+  architecture_budget:
+    command: "PYTHONPATH=. python tests/test_architecture_budget.py"
+    result: "2 tests passed; ciel_runtime.py 4979/4980 lines"
+  full_suite:
+    command: "PYTHONPATH=. python -m unittest discover -s tests -p test_*.py"
+    result: "2776 tests passed; 136 skipped; 0 failures"
+    duration_seconds: 304.998
+  executed_wire_projection:
+    ollama:
+      strategy: disable
+      wire_think: false
+    openai_chat:
+      strategy: minimum
+      wire_reasoning_effort: low
+    anthropic_messages:
+      strategy: omit
+      thinking_present: false

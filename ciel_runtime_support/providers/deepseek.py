@@ -51,6 +51,7 @@ class DeepSeekProviderAdapter(HttpBearerProviderAdapter):
         default_factory=lambda: ProviderCapabilities(
             upstream_protocol="anthropic_messages",
             supports_thinking=True,
+            reasoning_output_recovery="disable",
             requires_api_key=True,
         )
     )

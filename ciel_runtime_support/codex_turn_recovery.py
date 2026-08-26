@@ -39,6 +39,10 @@ RUNTIME_REASONING_ONLY_NOTICE_PREFIXES = (
     "[ciel-runtime] Upstream model exhausted its output budget during reasoning",
 )
 
+RUNTIME_REASONING_OUTPUT_BUDGET_NOTICE_PREFIX = (
+    "[ciel-runtime] Upstream model exhausted its output budget during reasoning"
+)
+
 RUNTIME_EMPTY_END_TURN_NOTICE_PREFIX = (
     "[ciel-runtime] Upstream model returned an empty end_turn with no text or "
     "tool call."
@@ -94,6 +98,91 @@ def message_has_only_reasoning_notice(message: dict[str, Any]) -> bool:
         any(text.startswith(prefix) for prefix in RUNTIME_REASONING_ONLY_NOTICE_PREFIXES)
         for text in texts
     )
+
+
+def message_exhausted_reasoning_output_budget(message: dict[str, Any]) -> bool:
+    """Match only evidence that reasoning consumed the whole output budget."""
+
+    if not message_has_reasoning(message) or message_has_tool_use(message):
+        return False
+    texts = [
+        str(block.get("text") or "").strip()
+        for block in message.get("content") or []
+        if isinstance(block, dict)
+        and block.get("type") == "text"
+        and str(block.get("text") or "").strip()
+    ]
+    if texts and all(
+        text.startswith(RUNTIME_REASONING_OUTPUT_BUDGET_NOTICE_PREFIX)
+        for text in texts
+    ):
+        return True
+    return not texts and str(message.get("stop_reason") or "").strip().lower() in {
+        "length",
+        "max_tokens",
+    }
+
+
+def project_reasoning_output_budget_retry(
+    pcfg: dict[str, Any],
+    body: dict[str, Any],
+    strategy: str,
+    effort: str | None,
+) -> tuple[dict[str, Any], dict[str, Any], str]:
+    """Apply a provider-approved recovery without guessing wire parameters."""
+
+    recovery_config = dict(pcfg)
+    projected = dict(body)
+    metadata = projected.get("metadata")
+    projected_metadata = dict(metadata) if isinstance(metadata, dict) else {}
+    internal_key = "ciel_runtime_reasoning_effort"
+
+    if strategy == "omit":
+        projected.pop("thinking", None)
+        projected.pop("reasoning_effort", None)
+        projected_metadata.pop(internal_key, None)
+    elif strategy == "disable":
+        recovery_config["effort_level"] = "none"
+        recovery_config["think"] = False
+        recovery_config["think_explicit"] = True
+        projected["thinking"] = {"type": "disabled"}
+        projected["reasoning_effort"] = "none"
+        projected_metadata[internal_key] = "none"
+    elif strategy == "minimum" and effort:
+        recovery_config["effort_level"] = effort
+        projected["thinking"] = {"type": "enabled", "effort": effort}
+        projected["reasoning_effort"] = effort
+        projected_metadata[internal_key] = effort
+    else:
+        return recovery_config, projected, "prompt_only"
+
+    if projected_metadata:
+        projected["metadata"] = projected_metadata
+    elif "metadata" in projected:
+        projected.pop("metadata", None)
+    return recovery_config, projected, strategy
+
+
+def prepare_provider_reasoning_output_budget_retry(
+    provider: str,
+    pcfg: dict[str, Any],
+    body: dict[str, Any],
+    *,
+    adapter_for: Callable[[str, dict[str, Any]], Any],
+    contract_for: Callable[[str, dict[str, Any]], Any],
+    resolve_model: Callable[[str, dict[str, Any], Any], str],
+    select_protocol: Callable[[str, dict[str, Any], str, str], str],
+) -> tuple[dict[str, Any], dict[str, Any], str]:
+    """Resolve the active adapter contract and project its bounded retry."""
+
+    adapter = adapter_for(provider, pcfg)
+    contract = contract_for(provider, pcfg)
+    model = resolve_model(provider, pcfg, body.get("model"))
+    protocol = select_protocol(provider, pcfg, "openai_responses", model)
+    strategy, effort = adapter.reasoning_output_recovery(
+        contract, model, protocol, body
+    )
+    return project_reasoning_output_budget_retry(pcfg, body, strategy, effort)
 
 
 def message_has_only_empty_end_turn_notice(message: dict[str, Any]) -> bool:
@@ -224,6 +313,10 @@ class CodexTurnRecoveryServices:
     should_retry: Callable[[dict[str, Any], str, list[Any]], bool]
     collect_message: Callable[..., dict[str, Any]]
     log: Callable[[str, str], Any]
+    prepare_reasoning_budget_retry: Callable[
+        [str, dict[str, Any], dict[str, Any]],
+        tuple[dict[str, Any], dict[str, Any], str],
+    ] | None = None
 
 
 def recover_preamble_only_turn(
@@ -250,6 +343,9 @@ def recover_preamble_only_turn(
         message_has_reasoning(message)
         and (not text.strip() or message_has_only_reasoning_notice(message))
     )
+    reasoning_output_budget = (
+        reasoning_only and message_exhausted_reasoning_output_budget(message)
+    )
     kimi_promised_followup = (
         (provider or "").strip().lower() == "kimi"
         and kimi_message_promises_followup(message)
@@ -269,6 +365,8 @@ def recover_preamble_only_turn(
         if empty_end_turn
         else "repeated_tool_call"
         if repeated_tool_guard
+        else "reasoning_output_budget"
+        if reasoning_output_budget
         else "reasoning_only"
         if reasoning_only
         else "promised_followup"
@@ -292,22 +390,42 @@ def recover_preamble_only_turn(
         recovery_config = dict(pcfg)
         if (provider or "").strip().lower() == "kimi":
             recovery_config["gateway_retries"] = 0
+        retry_body = body_with_continuation_nudge(
+            body,
+            message_without_repeated_tool_notice(message)
+            if repeated_tool_guard
+            else message_without_empty_end_turn_notice(message)
+            if empty_end_turn
+            else message_without_reasoning_notice(message)
+            if reasoning_only
+            else message,
+            nudge,
+            control=(RUNTIME_REPEATED_TOOL_RECOVERY if repeated_tool_guard else None),
+        )
+        recovery_strategy = "prompt_only"
+        if reasoning_output_budget and services.prepare_reasoning_budget_retry:
+            try:
+                recovery_config, retry_body, recovery_strategy = (
+                    services.prepare_reasoning_budget_retry(
+                        provider, recovery_config, retry_body
+                    )
+                )
+            except Exception as exc:  # noqa: BLE001 - retain safe prompt-only retry
+                services.log(
+                    "WARN",
+                    "codex_reasoning_budget_recovery_projection_failed "
+                    f"provider={provider} error={type(exc).__name__}: {exc}",
+                )
+            services.log(
+                "WARN",
+                f"codex_reasoning_budget_recovery provider={provider} "
+                f"model={str(body.get('model') or '-')} strategy={recovery_strategy}",
+            )
         retried = services.collect_message(
             handler,
             provider,
             recovery_config,
-            body_with_continuation_nudge(
-                body,
-                message_without_repeated_tool_notice(message)
-                if repeated_tool_guard
-                else message_without_empty_end_turn_notice(message)
-                if empty_end_turn
-                else message_without_reasoning_notice(message)
-                if reasoning_only
-                else message,
-                nudge,
-                control=(RUNTIME_REPEATED_TOOL_RECOVERY if repeated_tool_guard else None),
-            ),
+            retry_body,
         )
     except Exception as exc:  # noqa: BLE001 - recovery must never fail the turn
         services.log(
@@ -348,10 +466,12 @@ __all__ = [
     "CODEX_EMPTY_REASONING_CONTINUATION_NUDGE",
     "CODEX_REPEATED_TOOL_CONTINUATION_NUDGE",
     "RUNTIME_EMPTY_END_TURN_NOTICE_PREFIX",
+    "RUNTIME_REASONING_OUTPUT_BUDGET_NOTICE_PREFIX",
     "CodexTurnRecoveryServices",
     "body_with_codex_compat_instructions",
     "body_with_continuation_nudge",
     "message_has_tool_use",
+    "message_exhausted_reasoning_output_budget",
     "message_has_reasoning",
     "message_has_only_reasoning_notice",
     "message_has_only_empty_end_turn_notice",
@@ -361,5 +481,7 @@ __all__ = [
     "message_without_repeated_tool_notice",
     "message_without_reasoning_notice",
     "message_text",
+    "project_reasoning_output_budget_retry",
+    "prepare_provider_reasoning_output_budget_retry",
     "recover_preamble_only_turn",
 ]

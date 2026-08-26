@@ -89,6 +89,8 @@ class XaiProviderAdapter(HttpBearerProviderAdapter):
         default_factory=lambda: ProviderCapabilities(
             upstream_protocol="openai_responses",
             supports_thinking=True,
+            reasoning_output_recovery="minimum",
+            minimum_reasoning_effort="low",
             requires_api_key=True,
         )
     )

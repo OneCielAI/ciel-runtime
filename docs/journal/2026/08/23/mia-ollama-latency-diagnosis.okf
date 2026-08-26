@@ -1,0 +1,57 @@
+okf: 1
+kind: task-journal
+task:
+  id: mia-ollama-local-latency-20260823
+  title: Mia local Ollama latency and timeout diagnosis
+  status: blocked_external_restart
+scope:
+  runtime_host: aap-pool-hera
+  runtime_user: mia
+  ollama_host: SAMA (10.0.0.146)
+  model: qwen3.8:27b
+  ollama_version: 0.32.12
+evidence:
+  ciel_runtime:
+    - "Workspace provider was ollama at http://10.0.0.146:11434."
+    - "Requests timed out at 300 seconds with router activity error=TimeoutError."
+    - "Observed timed-out request: tokens=35478, bytes=147655, stream=true."
+    - "Codex task_complete then displayed the generic high-demand message."
+  ollama:
+    - "Model card context length was 262144 and /api/ps reported context_length=262144."
+    - "Controlled 9017-token request at num_ctx=262144 spent 5.708 seconds in prompt evaluation but 165.015 seconds total, proving substantial pre-evaluation queue delay."
+    - "A num_ctx=32768 control spent 5.703 seconds in prompt evaluation; the smaller context did not improve prompt evaluation time in this measurement."
+    - "After the Mia process aborted, the Ollama server log continued prompt processing for the disconnected request."
+    - "Eight or more TCP connections from 10.0.0.220 remained established during the incident."
+  upstream:
+    - "Ollama issue #17131 documents streaming handler goroutine and runner semaphore leaks after client disconnect."
+    - "Ollama PR #17881 is still open and proposes cancellation-aware channel sends."
+changes:
+  mia_workspace_config:
+    stream_enabled: false
+    output_tokens_explicit: true
+    ollama_explicit_options:
+      - num_predict
+      - temperature
+      - top_k
+      - top_p
+    ollama_options:
+      num_predict: 4096
+      temperature: 0.7
+      top_k: 40
+      top_p: 0.8
+  rationale:
+    - "The stored options previously had no explicit provenance markers and were omitted from the Ollama wire payload."
+    - "Non-streaming upstream requests use Ollama's channel-draining path and avoid the documented streaming disconnect leak shape."
+recovery:
+  attempted:
+    - "Ollama official unload request with keep_alive=0 returned done_reason=unload."
+  result:
+    - "The active runner remained loaded and continued processing; unload did not clear the wedged state."
+  blocked:
+    - "Direct Ollama process restart was rejected by the execution policy before any process was stopped."
+verification:
+  complete: false
+  required_after_restart:
+    - "Restart the SAMA Ollama Desktop tray application."
+    - "Launch Mia from /home/mia and confirm the first request completes without a 300-second timeout."
+    - "Confirm no stale 10.0.0.220 streaming connections accumulate after aborting a test turn."

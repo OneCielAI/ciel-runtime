@@ -1,0 +1,96 @@
+okf:
+  version: "1.0"
+  kind: engineering-journal
+  task:
+    id: claude-web-chat-enter-submit-fix-20260825
+    title: Claude Web Chat prompt submit confirmation on Windows ConPTY
+    status: verified_and_locally_deployed
+    objective: >-
+      Prevent a Web Chat message injected into local Claude Code from remaining
+      as an unsubmitted collapsed paste at the interactive prompt.
+
+  evidence:
+    existing_failure:
+      log: C:/Users/djlov/AppData/Roaming/ciel-runtime/router-instances/9467-84a9f0d21381/router.log
+      lines: [10497, 10498, 10499]
+      observed:
+        - channel_input_prompt_ready result=timeout
+        - channel_input_submit_deferred reason=prompt_render_timeout
+        - channel_stdin_proxy_deferred message_ids=3 reason=prompt_not_submitted
+    isolated_reproduction:
+      workspace: C:/Users/djlov/AppData/Local/Temp/ciel-claude-enter-e2e
+      runtime: Claude Code 2.1.246
+      input_transport: Windows ConPTY
+      prompt_display: "[Pasted text #1]"
+      captured_bytes: "[Pasted\\x1b[1Ctext\\x1b[1C#1]"
+      result_before_fix: >-
+        The readiness check timed out and deliberately withheld Enter, leaving
+        the collapsed paste at the Claude prompt.
+
+  confirmed_cause:
+    file: ciel_runtime_support/windows_conpty.py
+    detail: >-
+      The readiness detector recognized the Codex collapsed-paste marker
+      "[Pasted Content" but did not recognize Claude's "[Pasted text #N]"
+      marker. In the actual ConPTY stream Claude rendered the spaces with CSI
+      cursor-right control sequences, so a plain contiguous substring check
+      was insufficient.
+
+  implementation:
+    claude_marker_detection:
+      file: ciel_runtime_support/windows_conpty.py
+      behavior: >-
+        Count both the Codex marker and the observed ANSI-interleaved Claude
+        marker when deciding whether the injected body has rendered.
+      scope: >-
+        The new pattern is limited to Claude's observed collapsed-paste label;
+        no generic prompt timeout or key timing was changed.
+    submit_confirmation_hardening:
+      file: ciel_runtime_support/channel_injection.py
+      behavior: >-
+        Observe the terminal snapshot after every Enter attempt, including the
+        final attempt. Return false and log channel_input_submit_unconfirmed
+        when all attempts leave the prompt unchanged.
+
+  verification:
+    regression_tests:
+      added:
+        - test_prompt_checkpoint_accepts_claude_collapsed_paste_marker
+        - test_submit_returns_false_when_every_confirmed_attempt_leaves_prompt_unchanged
+        - test_final_submit_attempt_is_observed_before_success
+      suite_command: >-
+        PYTHONPATH=<repository-root>;<repository-root>/tests python -m unittest
+        -v test_windows_conpty test_channel_injection
+        test_channel_injection_architecture test_channel_bridge
+      result:
+        total: 239
+        passed: 159
+        skipped: 80
+        failures: 0
+        errors: 0
+    live_claude_web_chat:
+      router: http://127.0.0.1:19491
+      instance: 19491-a09065402aa5
+      channel: web-chat-enter-e2e-final
+      request: "Respond exactly with ENTER_SUBMIT_OK, then send that reply back to this Web Chat."
+      router_log:
+        - "channel_input_prompt_ready result=observed"
+        - "channel_stdin_proxy_submit_confirmed attempt=1"
+        - "channel_stdin_proxy_injected count=1 message_ids=1 channels=web-chat-enter-e2e-final enter=crlf"
+      web_chat_status: reply received
+      exact_reply_visible: ENTER_SUBMIT_OK
+      screenshot: docs/journal/2026/08/25/evidence/claude-web-chat-enter-submit-fix.png
+
+  deployment:
+    local:
+      status: complete
+      command: ./install.ps1
+      version: 0.2.36
+      install_home: C:/Users/djlov/.local/share/ciel-runtime
+      source_installed_hash_match:
+        channel_injection.py: true
+        windows_conpty.py: true
+
+  security:
+    credentials_recorded: false
+    web_chat_reply_tokens_recorded: false

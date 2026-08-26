@@ -17,6 +17,13 @@ process.stdin.on('end', () => {
       present: value.length > 0,
       length: value.length,
       sha256_12: crypto.createHash('sha256').update(value).digest('hex').slice(0, 12),
+      iat: typeof claims.iat === 'number' ? claims.iat : null,
+      subject_sha256_12: claims.sub
+        ? crypto.createHash('sha256').update(String(claims.sub)).digest('hex').slice(0, 12)
+        : null,
+      user_id_sha256_12: claims.user_id
+        ? crypto.createHash('sha256').update(String(claims.user_id)).digest('hex').slice(0, 12)
+        : null,
       claim_keys: Object.keys(claims).sort(),
     }));
   } catch {

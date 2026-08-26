@@ -121,6 +121,8 @@ class ProviderCapabilities:
     local: bool = False
     blocks_default_tools: bool = True
     repairs_anthropic_tool_input: bool = False
+    reasoning_output_recovery: Literal["none", "omit", "disable", "minimum"] = "none"
+    minimum_reasoning_effort: str | None = None
 
     @property
     def supported_protocols(self) -> frozenset[MessageProtocol]:
@@ -746,6 +748,27 @@ class ProviderAdapter(ABC):
 
         del config, model, request
         return None
+
+    def reasoning_output_recovery(
+        self,
+        config: ProviderConfig,
+        model: str,
+        protocol: MessageProtocol,
+        request: Mapping[str, Any],
+    ) -> tuple[Literal["none", "omit", "disable", "minimum"], str | None]:
+        """Return a provider-validated recovery for reasoning-only exhaustion.
+
+        The shared router must not guess which reasoning controls an arbitrary
+        endpoint accepts.  Adapters opt in through capabilities or override
+        this method when the answer depends on discovered model metadata.
+        """
+
+        del model, protocol, request
+        capabilities = self.capabilities(config)
+        return (
+            capabilities.reasoning_output_recovery,
+            capabilities.minimum_reasoning_effort,
+        )
 
     def ollama_think_value(
         self, config: ProviderConfig, model: str, request: Mapping[str, Any]

@@ -1,0 +1,93 @@
+knowledge:
+  task:
+    id: mia-stale-standalone-nightly-repair-20260824
+    date: "2026-08-24"
+    objective: >-
+      Determine why Mia still exposed the unprojected Z.AI Start Plan HTTP 405
+      after the fixed npm nightly was installed, repair the active runtime, and
+      verify the running router identity and live response.
+    status: repaired-and-verified
+
+  evidence:
+    before_repair:
+      active_router_port: 8897
+      active_router_pid: 2545991
+      active_client_pid: 2545936
+      active_command: >-
+        python3 /home/mia/.local/share/ciel-runtime/ciel_runtime.py cli --continue
+      active_version: 0.2.36-nightly.20260824-214226.0bfb5f3
+      npm_version: 0.2.36-nightly.20260825-022132.97b7e85
+      standalone_launcher: /home/mia/.local/bin/ciel-runtime
+      npm_launcher: /home/mia/.npm-global/bin/ciel-runtime
+      confirmed_cause: >-
+        The active client and router were executing the older standalone copy,
+        not the newly installed npm package. The raw 405 screenshot therefore
+        did not exercise the deployed 3012 error projection.
+
+    repair:
+      installer: >-
+        /home/mia/.npm-global/lib/node_modules/@oneciel-ai/ciel-runtime/install.sh
+      install_home: /home/mia/.local/share/ciel-runtime
+      standalone_version_after_install: >-
+        0.2.36-nightly.20260825-022132.97b7e85
+      targeted_router_stop_pid: 2545991
+      first_supervisor_attempt: >-
+        Failed because port 8897 had not completed release; the supervisor
+        logged the exact collision and retried.
+      replacement_router_pid: 2549424
+      replacement_router_version: >-
+        0.2.36-nightly.20260825-022132.97b7e85
+      replacement_source_fingerprint: 6987c395cb7bb449
+      active_client_preserved: 2545936
+
+    live_check:
+      request_pid: 2550070
+      endpoint: http://127.0.0.1:8897/v1/responses
+      captcha_state: 3EczdqhGiIeOcqczUWsFqyJXC_6ufJ4MC6NYCFh_b10
+      status: ended-without-captured-final-response
+
+    user_restart_control:
+      router_port: 8800
+      router_pid: 2551908
+      router_version: 0.2.36-nightly.20260825-022132.97b7e85
+      source_fingerprint: 6987c395cb7bb449
+      active_client_pid: 2551698
+      captcha_completed_at: "2026-08-25T03:00:53Z"
+      captcha_region: sgp
+      captcha_result_length: 280
+      provider: zai-start-plan
+      model: glm-5.3
+      upstream_http_status: 405
+      upstream_provider_code: 3012
+      upstream_provider_message: method not allowed
+      downstream_http_status: 400
+      downstream_error_type: invalid_request_error
+      conclusion: >-
+        The restarted user session executed the repaired nightly. Ciel exposed
+        the actual terminal Z.AI rejection and did not misclassify it as a
+        high-demand response.
+
+  verification:
+    completed:
+      - Compared both installed launchers and their reported versions.
+      - Inspected the exact process tree for the active Codex session.
+      - Updated the standalone runtime with the packaged installer.
+      - Confirmed the installed standalone source contains the provider-code-3012 projection.
+      - Restarted only the router child and preserved the active Codex client.
+      - Confirmed /health reports the fixed nightly version and new source fingerprint.
+      - Started a real Responses API request on the repaired active router.
+      - Captured the restarted user session CAPTCHA completion and final projected error.
+    pending: []
+
+  final_remote_state:
+    standalone_version: 0.2.36-nightly.20260825-022132.97b7e85
+    npm_version: 0.2.36-nightly.20260825-022132.97b7e85
+    router_8897_listening: false
+    interpretation: >-
+      Both installed copies now match. Port 8897 is stopped and ready for a
+      clean user-controlled launch.
+
+  deployment:
+    repository_change: journal-only
+    remote_runtime_changed: true
+    user_configuration_changed: false

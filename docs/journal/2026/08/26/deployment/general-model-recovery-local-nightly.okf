@@ -1,0 +1,52 @@
+okf: 1
+task:
+  date: "2026-08-26"
+  request: "Deploy the accumulated verified workspace locally and push a nightly build."
+  workspace: "C:/Users/djlov/ciel-runtime"
+
+source:
+  branch: main
+  base_head: 6fab85e90a0b5ddb9f97877b8fec55abd8fed87a
+  remote_nightly_before: 6fab85e90a0b5ddb9f97877b8fec55abd8fed87a
+  package_base_version: 0.2.36
+  package_dry_run:
+    version: 0.2.36
+    entries: 470
+    size_bytes: 1434459
+    unpacked_size_bytes: 5092990
+    result: pass
+  credential_scan:
+    production_or_journal_matches: none
+    test_fixture_files_with_credential_like_patterns: 3
+
+verification_before_deployment:
+  full_suite:
+    command: "PYTHONPATH=. python -m unittest discover -s tests -p test_*.py"
+    passed: 2776
+    skipped: 136
+    failed: 0
+  wire_projection:
+    ollama: "strategy=disable, think=false"
+    openai_chat: "strategy=minimum, reasoning_effort=low"
+    anthropic_messages: "strategy=omit, thinking absent"
+  source_recovery_sha256: "2df16d41d11f1e1a3d509839008b454267fe230a1c0b54f7ee7a7d5744f94bc0"
+
+deployment:
+  local:
+    status: complete
+    target: "C:/Users/djlov/.local/share/ciel-runtime"
+    command: "powershell -NoProfile -ExecutionPolicy Bypass -File ./install.ps1"
+    installed_version: 0.2.36
+    installed_recovery_sha256: "2df16d41d11f1e1a3d509839008b454267fe230a1c0b54f7ee7a7d5744f94bc0"
+    source_hash_matches: true
+    installed_behavior:
+      strategy: disable
+      config_think: false
+      thinking_type: disabled
+  nightly:
+    status: pending
+
+prepush_checks:
+  ruff: pass
+  documentation_metadata: pass
+  git_diff_check: pass

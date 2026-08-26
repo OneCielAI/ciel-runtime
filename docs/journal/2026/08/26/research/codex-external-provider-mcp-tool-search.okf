@@ -1,0 +1,276 @@
+okf_version: "1.0"
+knowledge:
+  task:
+    id: codex-external-provider-mcp-tool-search-research-20260826
+    date: "2026-08-26"
+    mode: research_only
+    objective: >-
+      Determine whether missing direct MCP tools in a Ciel-routed Codex
+      session are limited to GPT-5.x versus one provider/model, and distinguish
+      Mia's local workaround from Ciel Runtime and Codex behavior.
+
+  constraints:
+    functional_code_modified: false
+    runtime_configuration_modified: false
+    remote_configuration_modified: false
+    deployment_performed: false
+
+  mia_local_workaround:
+    files:
+      - path: /home/mia/.ai-net/mcp-call.mjs
+        kind: new local JSON-RPC MCP client
+        observed_mtime_utc: "2026-08-26 07:39:50.941046698"
+      - path: /home/mia/.ai-net/readback.mjs
+        kind: new local readback helper
+    transcript_evidence: >-
+      Mia created mcp-call.mjs with apply_patch after the active Codex tool list
+      did not expose AI-Net tool calls, then used it to call the configured
+      AI-Net MCP HTTP endpoint directly.
+    scope_conclusion: >-
+      Successful helper calls confirm the MCP server and credentials worked.
+      They do not prove Codex exposed those MCP tools directly to the model.
+      Neither helper modifies Ciel Runtime, Codex configuration, or AI-Net
+      server code.
+
+  corrected_codex_mechanism:
+    codex_version: "0.149.1"
+    official_source_commit: ff29a44391deccde0aba0f8390337d7f3c319ea4
+    evidence:
+      - >-
+        codex-rs/core/src/tools/spec_plan.rs defines search_tool_enabled as
+        model_info.supports_search_tool AND provider namespace_tools support.
+      - >-
+        The same file supplies search_tool_enabled to MCP registration and
+        selects deferred exposure only when search is enabled; otherwise it
+        removes deferred exposure and retains direct exposure.
+      - >-
+        codex-rs/models-manager/src/model_info.rs gives unknown-model fallback
+        metadata supports_search_tool=false.
+    contradiction: >-
+      The earlier claim that the removed feature flag
+      ToolSearchAlwaysDeferMcpTools directly controls this behavior is
+      inconsistent with the official 0.149.1 source. The effective predicate
+      is model metadata plus provider capability, not that removed flag.
+
+  ciel_catalog_projection:
+    source_evidence:
+      - file: ciel_runtime_support/codex_model_catalog.py
+        lines: "60-72, 87-114"
+        observation: >-
+          Ciel selects bundled gpt-5.2 as the template, deep-copies the entire
+          model record, changes selected routing fields, and then applies only
+          explicitly supplied metadata overrides.
+      - file: ciel_runtime_support/codex_launch_configuration.py
+        lines: "177-237"
+        observation: >-
+          Every non-native routed launch with an alias and context window gets
+          a generated catalog. Native Codex launches skip this Ciel catalog.
+      - file: ciel_runtime_support/providers/alibaba.py
+        lines: "30-38, 248-258"
+        observation: >-
+          Qwen 3.8 supplies catalog overrides but does not override
+          supports_search_tool, so the GPT-5.2 template value remains.
+    confirmed_generated_catalogs_with_supports_search_tool_true:
+      local:
+        - deepseek/deepseek-v4-pro-1m
+        - deepseek/deepseek-v4-flash
+        - alitoken/qwen3.8-max
+        - ollama/qwen3
+        - zai/glm-5.2
+        - anthropic/claude-sonnet-4-6
+        - anthropic/claude-opus-5
+        - kimi/k3-1m
+      mia:
+        - ollama/qwen3.8-27b
+        - ollama-cloud/deepseek-v4-pro-0813
+        - openrouter/stealth-ox-alpha
+        - zai-coding-plan/glm-5.3-1m
+        - zai-start-plan/glm-5.3-1m
+        - zai/glm-5.3-1m
+
+  scope_conclusion:
+    confirmed: >-
+      The capability projection is common to Ciel-routed non-native Codex
+      models, not limited to Ollama Qwen or to one provider. The generated
+      catalogs listed above all advertise supports_search_tool=true.
+    excluded: >-
+      Direct native Codex/OpenAI launches skip Ciel's generated model catalog.
+    not_yet_proven: >-
+      This research does not establish that every listed provider fails at
+      runtime. Actual failure depends on whether that provider and Ciel's wire
+      adapter implement the Codex tool-search request/response contract. Each
+      provider requires an independent wire-level test before a failure claim.
+
+  live_toggle_evaluation:
+    stock_slash_command:
+      observed: >-
+        Codex 0.149.1 defines /mcp only for listing configured MCP tools, with
+        the single optional argument verbose. It has no direct/deferred mode
+        toggle.
+    disk_catalog_change:
+      restart_required: true
+      evidence: >-
+        Codex reads model_catalog_json while constructing Config, and a supplied
+        catalog creates a StaticModelsManager whose model vector is copied at
+        construction. Editing the JSON file does not mutate that manager.
+    preloaded_dual_model_alias:
+      restart_required_after_initial_launch: false
+      evidence: >-
+        TurnContext.with_model resolves fresh ModelInfo from the existing shared
+        models manager. Therefore two aliases preloaded in the initial catalog,
+        one supports_search_tool=false and one true, can be switched by the
+        built-in /model command for subsequent turns.
+      router_requirement: >-
+        Both aliases must resolve to the same intended upstream provider model;
+        this mapping does not exist in the current implementation and would
+        require implementation and validation.
+    custom_prompt_command_limit: >-
+      A Ciel-installed prompt/slash asset is expanded into model input. It can
+      change router-side state but cannot by itself replace the client-side
+      ModelInfo already held by Codex, so it cannot provide a no-restart live
+      MCP exposure toggle on the current single-alias design.
+
+  automatic_capability_resolution:
+    manual_model_database_required: false
+    limitation: >-
+      Generic OpenAI-compatible model discovery does not provide a portable
+      supports_search_tool capability contract. Model names and ordinary
+      function-call support are insufficient evidence of Tool Search support.
+    state_model:
+      values: [supported, unsupported, unknown]
+      resolution_order:
+        - Native authoritative model catalog metadata, when present.
+        - Explicit provider/profile capability supplied from official provider evidence.
+        - Cached result of an exact wire-level compatibility probe.
+        - Unknown falls back to direct MCP exposure.
+    probe_identity:
+      - provider id
+      - normalized upstream base URL or endpoint family
+      - wire protocol
+      - exact upstream model id
+      - provider or model revision when available
+      - probe contract version
+    probe_contract: >-
+      Send a minimal client-executed tool_search request. A protocol rejection
+      is evidence of unsupported. A valid tool_search_call followed by accepted
+      tool_search_output and a call to the loaded dummy function is evidence of
+      supported. A successful text response that does not perform the requested
+      search remains unknown rather than being classified unsupported.
+    persistence: >-
+      Store only automatically observed probe results with evidence, timestamp,
+      and TTL. This is a compatibility cache for encountered targets, not a
+      hand-maintained database of every model.
+    official_basis: >-
+      OpenAI Tool Search documentation defines tool_search, defer_loading,
+      tool_search_call, and tool_search_output as a distinct multi-step
+      protocol and states that only gpt-5.4 and later OpenAI models support it.
+
+  kimi_k3_example:
+    confirmed_official_contract: >-
+      Moonshot's Kimi K3 repository documents OpenAI- and
+      Anthropic-compatible APIs and ordinary tool_calls with preserved
+      reasoning_content across turns.
+    not_confirmed: >-
+      The inspected official Kimi materials do not establish support for the
+      distinct OpenAI Responses tool_search/tool_search_output protocol.
+    first_connection_resolution:
+      initial_state: unknown
+      catalog_value: "supports_search_tool=false"
+      mcp_exposure: direct
+      effect: >-
+        Codex receives the MCP tools directly as normal callable tool schemas;
+        no Tool Search capability is claimed merely from the kimi-k3 model id.
+    identity_warning: >-
+      Moonshot OpenAI-compatible, Moonshot Anthropic-compatible, OpenRouter,
+      and self-hosted vLLM routes for the same Kimi K3 weights are distinct
+      compatibility targets. Probe/cache identity must include endpoint and
+      wire protocol, not only the model name.
+    upgrade_rule: >-
+      Only an official provider capability declaration or a successful complete
+      probe for that exact route may promote the cached state to supported.
+
+  optimistic_true_fallback_evaluation:
+    possible_for_hard_failures: true
+    hard_failure_examples:
+      - upstream rejects the tool_search tool type
+      - upstream rejects defer_loading
+      - response protocol explicitly reports unsupported tool search
+    required_action_after_hard_failure: >-
+      Record unsupported for the exact route, rebuild Codex model metadata with
+      supports_search_tool=false, and make Codex construct a new request so MCP
+      schemas are exposed directly. Retrying the already-built deferred request
+      is insufficient.
+    current_architecture_restart_required: true
+    reason: >-
+      The running Codex process owns the static model catalog and decides MCP
+      exposure before the request reaches the Ciel router. Router-side state
+      cannot retroactively add direct MCP definitions to that request.
+    unsafe_failure_signals:
+      - model returns ordinary text without calling tool_search
+      - model returns an empty or reasoning-only turn
+      - request times out
+      - no MCP tool was needed for the task
+    conclusion: >-
+      Optimistic true may be combined with hard-failure fallback, but it cannot
+      be the only detector. Silent semantic non-use is ambiguous and must not be
+      automatically classified unsupported.
+
+  always_true_risk_evidence:
+    assumption_rejected: >-
+      An unsupported model does not harmlessly ignore Tool Search while keeping
+      direct MCP tools. Codex chooses deferred versus direct exposure before the
+      request reaches the model.
+    official_behavior: >-
+      Deferred MCP exposes only the server or namespace description initially;
+      individual tool definitions are loaded only through Tool Search.
+    mia_observation:
+      session: 01a03cf6-4f1d-76b1-8d25-94c658c572e3
+      evidence:
+        - AI-Net checkin and other direct MCP functions were absent from the model-visible tool list.
+        - The model attempted resources/read for uri checkin instead.
+        - AI-Net returned MCP -32601 Method not found.
+        - Mia created a direct JSON-RPC helper because the direct MCP calls were unavailable.
+      conclusion: >-
+        Always-true without a verified Tool Search path can remove functional
+        MCP access rather than merely add an unused capability.
+    security_note: >-
+      The inspected remote transcript contains an AI-Net API key in plaintext.
+      The value is intentionally omitted from this journal and should be treated
+      as exposed.
+
+  prompt_guided_self_recovery:
+    prompt_only_sufficient: false
+    confirmed_limit: >-
+      A system prompt can instruct a capable model to call tool_search, but it
+      cannot add a missing tool schema, implement unsupported wire item types,
+      or mutate the client-side Codex ModelInfo that selected deferred exposure.
+    useful_prompt_behavior:
+      - Use tool_search before list_mcp_resources or list_mcp_resource_templates when MCP functions are needed.
+      - Never treat MCP resources APIs as substitutes for MCP tool discovery.
+      - If tool_search is absent, rejected, or cannot load a required tool, emit a bounded structured recovery request rather than inventing a workaround.
+    required_recovery_surface: >-
+      Provide a Ciel recovery function or router-recognized structured marker
+      that is always direct and never deferred with MCP tools. The router can
+      then persist direct mode for the exact route and perform one controlled
+      resume/retry using supports_search_tool=false.
+    reliability_limit: >-
+      A prose-only marker remains model-dependent and may be omitted or emitted
+      incorrectly. A forced compatibility probe or an always-direct typed
+      recovery function is stronger evidence and should bound retries to one.
+
+  official_references:
+    codex_spec_plan: >-
+      https://github.com/openai/codex/blob/ff29a44391deccde0aba0f8390337d7f3c319ea4/codex-rs/core/src/tools/spec_plan.rs
+    codex_model_fallback: >-
+      https://github.com/openai/codex/blob/ff29a44391deccde0aba0f8390337d7f3c319ea4/codex-rs/models-manager/src/model_info.rs
+    openai_gpt_5_4_nano: >-
+      https://developers.openai.com/api/docs/models/gpt-5.4-nano
+    capability_distinction: >-
+      The official GPT-5.4 nano model page lists MCP as supported and Tool
+      search as not supported, proving these are distinct capabilities.
+
+  verification:
+    type: read_only_source_log_and_catalog_inspection
+    cli_evidence_collected: true
+    ui_screenshot_required: false
+    status: research_complete_no_fix_applied

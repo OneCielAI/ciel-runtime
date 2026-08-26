@@ -33,6 +33,7 @@ class AnthropicProviderAdapter(NoAuthProviderAdapter):
             upstream_protocol="anthropic_messages",
             supports_thinking=True,
             preserves_anthropic_thinking=True,
+            reasoning_output_recovery="omit",
             blocks_default_tools=False,
             repairs_anthropic_tool_input=True,
         )

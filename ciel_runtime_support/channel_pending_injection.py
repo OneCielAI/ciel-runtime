@@ -178,7 +178,10 @@ def inject_pending_channel_messages(
                     else prompts.llm_delivery
                 )
                 message_prompt = formatter([message])
-            elif web_chat_only and state.message_is_web_chat(message):
+            # web_chat_only filters the candidate queue; it must not select the
+            # prompt format. Mixed-channel TTY delivery still needs the private
+            # one-shot Web Chat reply contract.
+            elif state.message_is_web_chat(message):
                 message_prompt = prompts.web_chat([message])
             else:
                 message_prompt = prompts.standard([message])
@@ -241,7 +244,9 @@ def inject_pending_channel_messages(
                 else prompts.llm_delivery
             )
             prompt = formatter(pending)
-        elif web_chat_only and all(state.message_is_web_chat(message) for message in pending):
+        # Preserve the private reply contract even when the proxy accepts both
+        # Web Chat and ordinary external-channel messages.
+        elif all(state.message_is_web_chat(message) for message in pending):
             prompt = prompts.web_chat(pending)
         else:
             prompt = prompts.standard(pending)

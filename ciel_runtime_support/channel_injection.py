@@ -156,16 +156,20 @@ class ChannelPromptInjector:
                 )
             else:
                 transport.write(policy.submit_input)
-            if attempt >= policy.submit_attempts - 1 or not before:
-                break
+            if not before:
+                return True
             retry_delay = self._retry_delay_seconds()
             if retry_delay:
                 self._sleep(retry_delay)
             after = self._submission_snapshot(transport)
             if after and after != before:
                 self._log("INFO", f"channel_stdin_proxy_submit_confirmed attempt={attempt + 1}")
-                break
-        return True
+                return True
+        self._log(
+            "WARN",
+            f"channel_input_submit_unconfirmed attempts={policy.submit_attempts}",
+        )
+        return False
 
     def _submission_snapshot(self, transport: InputTransport) -> str | None:
         """Use the host snapshot when available, then the transport's own view."""

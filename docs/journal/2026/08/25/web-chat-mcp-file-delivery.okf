@@ -1,0 +1,176 @@
+okf:
+  version: "1.0"
+  kind: engineering-journal
+  task:
+    id: web-chat-mcp-file-delivery-20260825
+    title: Web Chat MCP file delivery, download, and preview verification
+    status: local_fix_prompt_path_verified
+    objective: >-
+      Allow an active LLM to send a local or inline file through the
+      ciel-runtime-router MCP server and let the Web Chat user download or
+      safely preview the resulting attachment.
+
+  provenance:
+    existing_implementation:
+      commit: 6ad3b330c6d15413ccd5423fbb52cdabcc11950d
+      subject: "feat: add visual Web Chat attachments"
+      contained_in_current_head: true
+      current_head: 6fab85e
+    duplicate_change_avoided: true
+
+  implementation:
+    reply_token_injection_fix:
+      file: ciel_runtime_support/channel_pending_injection.py
+      cause: >-
+        Mixed-channel TTY injection selected the generic external-channel
+        formatter whenever web_chat_only was false, even when every pending
+        message was Web Chat. The generic formatter omitted the private
+        one-shot reply contract and its reply_token.
+      correction: >-
+        Select the Web Chat formatter from the actual message kind, independently
+        of the web_chat_only queue-filter option.
+    mcp:
+      endpoint: POST /ca/mcp
+      server: ciel-runtime-router
+      tool: send_file
+      accepted_sources: [local_path, inline_text, inline_base64]
+      web_reply_correlation: [channel, thread_id, parent_id, reply_token]
+    storage:
+      repository: ciel_runtime_support/chat_files.py
+      workspace_scoped: true
+      maximum_size_source: chat_attachment_max_bytes
+      path_validation: safe_segment plus resolved-file containment
+      path_copy: bounded streaming with atomic temporary replacement
+    web:
+      download: GET /ca/chat/files/{stored_name}
+      inline_preview: GET /ca/chat/files/{stored_name}?inline=1
+      previews: [safe_raster_images, pdf, bounded_text]
+      active_content_policy: HTML and SVG are served as inert source text
+      response_headers: [X-Content-Type-Options, Content-Security-Policy]
+
+  verification:
+    failing_session_evidence:
+      runtime_input_ids: [3, 4]
+      private_inputs_contained_reply_token: true
+      transcript_received_private_contract: false
+      observed_tool_calls: [send_message, send_file]
+      observed_tool_calls_contained_reply_token: false
+      router_rejection: >-
+        web chat delivery requires reply_token from the current browser request
+    regression:
+      test: test_tty_web_chat_uses_private_reply_contract_in_mixed_channel_mode
+      exact_mode:
+        web_chat_only: false
+        injection_mode: structured
+        input_transport: tty
+        response_mode: web_chat
+      assertions:
+        - prompt contains parent_id
+        - prompt contains private reply_token
+        - prompt instructs send_message
+      focused_result: 1 passed
+      related_suite:
+        total: 265
+        passed: 185
+        skipped: 80
+        failures: 0
+    automated_tests:
+      channel_mcp: 15 passed
+      chat_files: 11 passed
+      web_chat_ui: 6 passed
+      web_endpoints: 17 passed
+      total: 49 passed
+    live_isolated_router:
+      address: http://127.0.0.1:19483
+      workspace: C:/Users/djlov/ciel-runtime
+      web_channel: web-chat-e2e-file
+      incoming_parent_id: 1
+      mcp_call_id: 101
+      generated_file: mcp-delivery-proof.txt
+      generated_bytes: 41
+      message_id: 2
+      download:
+        status: 200
+        content_type: application/octet-stream
+        disposition: attachment
+        bytes: 41
+      preview:
+        status: 200
+        content_type: text/plain
+        disposition: inline
+        rendered_text: Ciel Runtime MCP file delivery verified.
+    browser:
+      url: http://127.0.0.1:19483/ca/web/chat?session=e2e-file
+      attachment_card_visible: true
+      download_link_visible: true
+      inline_preview_visible: true
+      screenshot_captured_in_task_turn: true
+    installed_prompt_path:
+      address: http://127.0.0.1:19486
+      runtime: codex
+      input_transport: tty
+      web_chat_only: false
+      prompt_displayed_private_reply_contract: true
+      prompt_displayed_parent_id: true
+      prompt_displayed_reply_token: true
+      token_redacted_from_journal: true
+      limitation: >-
+        The configured Qwen model did not call send_message or send_file in this
+        disposable run. It repeatedly requested MCP resource listing instead.
+        This run therefore verifies the installed prompt-injection path, not an
+        additional model-driven attachment delivery.
+    post_fix_visual_route:
+      address: http://127.0.0.1:19487
+      workspace: C:/Users/djlov/AppData/Local/Temp/ciel-webchat-reply-e2e
+      incoming_parent_id: 6
+      private_reply_token_present: true
+      private_reply_token_length: 32
+      private_reply_token_recorded: false
+      mcp_call_id: 13
+      mcp_is_error: false
+      file: web-chat-reply-token-proof.txt
+      bytes: 105
+      web_chat_status: reply received
+      attachment_card_visible: true
+      download_link_visible: true
+      inline_preview_visible: true
+      screenshot: docs/journal/2026/08/25/evidence/web-chat-reply-token-fix.png
+      scope: >-
+        This direct routed MCP call verifies token validation, attachment
+        storage, Web Chat delivery, download UI, and preview UI after the fix.
+        Model-driven tool selection is covered separately by the installed
+        prompt-path observation and is not claimed by this visual route.
+
+  deployment:
+    local:
+      requested: true
+      status: complete
+      install_home: C:/Users/djlov/.local/share/ciel-runtime
+      command_version: 0.2.36
+      source_installed_hash_match:
+        channel_mcp_tools.py: true
+        chat_files.py: true
+        chat_http_controller.py: true
+        web_ui.py: true
+      installed_artifact_probe:
+        send_file_schema: true
+        attachment_renderer: true
+        download_ui: true
+      installed_live_router:
+        address: http://127.0.0.1:19484
+        mcp_call_id: 202
+        result_ok: true
+        message_id: 2
+        file: installed-mcp-proof.txt
+        bytes: 50
+        download_status: 200
+        download_disposition: attachment
+        preview_status: 200
+        preview_content_type: text/plain
+        preview_disposition: inline
+        preview_text: Installed Ciel Runtime MCP file delivery verified.
+      reply_token_fix:
+        deployed: true
+        source_installed_hash_match: true
+        sha256: D35FCD99AD59E52E26C03238E4062426E7283BD1583CA75AC630D431A0AA3FA0
+        version: 0.2.36

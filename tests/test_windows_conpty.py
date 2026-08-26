@@ -72,6 +72,24 @@ class WindowsConPtyPolicyTests(unittest.TestCase):
             )
         )
 
+    def test_prompt_checkpoint_accepts_claude_collapsed_paste_marker(self) -> None:
+        session = WindowsConPtySession.__new__(WindowsConPtySession)
+        session._output_lock = threading.Lock()
+        output = b"\x1b[?25l[Pasted\x1b[1Ctext\x1b[1C#1]"
+        session._output_tail = bytearray(output)
+        session._output_total_bytes = len(output)
+
+        self.assertTrue(
+            session.wait_until_prompt_ready(
+                0,
+                0.0,
+                expected_prompt=(
+                    "[ciel-runtime web reply required one-shot] "
+                    "Respond exactly with ENTER_SUBMIT_OK"
+                ),
+            )
+        )
+
     def test_prompt_ready_requires_the_injected_body_render(self) -> None:
         baseline = "Codex starting"
 
@@ -87,6 +105,13 @@ class WindowsConPtyPolicyTests(unittest.TestCase):
                 baseline,
                 baseline + "\n[Pasted Content 1048 chars]",
                 "[ciel-wake] pending_ids=1236 full event body",
+            )
+        )
+        self.assertTrue(
+            WindowsConPtySession._prompt_rendered_since(
+                baseline,
+                baseline + "\n[Pasted\x1b[1Ctext\x1b[1C#1]",
+                "[ciel-runtime web reply required one-shot] full event body",
             )
         )
 

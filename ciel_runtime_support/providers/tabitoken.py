@@ -122,6 +122,18 @@ class TabitokenProviderAdapter(OpenAICompatibleProviderAdapter):
         value = str(request.get("reasoning_effort") or hinted or "").strip().casefold()
         return value or None
 
+    def reasoning_output_recovery(
+        self,
+        config: ProviderConfig,
+        model: str,
+        protocol: MessageProtocol,
+        request: Mapping[str, Any],
+    ) -> tuple[str, str | None]:
+        del config, request
+        if protocol == "openai_chat" and self.normalize_model_id(model) in TABITOKEN_THINKING_MODELS:
+            return "minimum", "low"
+        return "none", None
+
 
 __all__ = [
     "TABITOKEN_MODELS",
