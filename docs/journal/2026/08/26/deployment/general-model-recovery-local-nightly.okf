@@ -44,7 +44,14 @@ deployment:
       config_think: false
       thinking_type: disabled
   nightly:
-    status: pending
+    status: pushed_awaiting_publish
+    first_commit: 878578631dffbb0708f190ec12d815b82b796e01
+    remote_ref_verified: true
+    first_push_check_runs_observed: 0
+    first_push_event_observed: false
+    automatic_trigger_cause: unknown
+    manual_ci_run: 32986621713
+    npm_auth_local: unauthorized
 
 prepush_checks:
   ruff: pass
