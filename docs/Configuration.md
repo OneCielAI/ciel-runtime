@@ -379,7 +379,15 @@ Authorization: Bearer <token>
 
 Windows 10 이상에서는 기본적으로 네이티브 ConPTY를 생성하고 Claude/Codex TUI와
 UTF-8 바이트 스트림으로 통신한다. 긴 프롬프트를 문자별 `KEY_EVENT`로 합성하지
-않으며, 사용자 키보드와 TUI 출력도 같은 pseudo-console 파이프를 통과한다.
+않으며, 사용자 키보드와 TUI 출력도 같은 pseudo-console 파이프를 통과한다. Ciel은
+이 입력 스트림에 Windows 전용 마우스 해석기를 적용하지 않으므로 F9의
+`ESC[20~`와 bracketed-paste의 `ESC[200~`/`ESC[201~`를 그대로 전달한다.
+
+ConPTY를 시작하기 전과 닫을 때는 부모 console host에 남은 DEC mouse, focus,
+bracketed-paste mode를 reset한다. reset은 부모 출력 handle에서
+`ENABLE_PROCESSED_OUTPUT`과 `ENABLE_VIRTUAL_TERMINAL_PROCESSING`을 활성화한 것이
+확인된 경우에만 `WriteConsoleW`로 기록하며, 같은 handle의 원래 mode를 복원한다.
+VT 활성화가 실패한 classic/legacy console에는 escape 문자열을 raw text로 쓰지 않는다.
 
 ConPTY 생성이 불가능하거나 `CIEL_RUNTIME_WINDOWS_CONPTY=0`으로 명시적으로 끈
 경우에만 기존 Windows Console 입력 큐 호환 경로를 사용한다. 이 호환 경로에서는
@@ -387,6 +395,11 @@ ConPTY 생성이 불가능하거나 `CIEL_RUNTIME_WINDOWS_CONPTY=0`으로 명시
 줄바꿈이 Enter 키로 해석되지 않도록 한 줄로 정규화한다. 완전한 wake prompt 전달
 확인이 반복해서 실패하면 같은 본문을 무한 재주입하지 않고 짧은 sentinel을 한 번
 제출한 뒤 실제 메시지를 request-body 경로로 전달한다.
+
+호환 경로는 실행 중 Win32 `ENABLE_MOUSE_INPUT` bit를 끄고 종료할 때 원래 입력
+mode를 복원한다. `CIEL_RUNTIME_WINDOWS_CONSOLE_MOUSE_FILTER=0`은 이 Win32 guard를,
+`CIEL_RUNTIME_TERMINAL_INPUT_MODE_RESET=0`은 안전한 VT mode reset을 각각 끈다.
+정확한 `ESC[20~`는 Microsoft VT 입력 표의 F9이므로 mouse report로 제거하지 않는다.
 
 `CIEL_RUNTIME_WINDOWS_CHANNEL_WAKE_MAX_ATTEMPTS`로 완전한 wake prompt 시도 상한을
 설정할 수 있다. 기본값은 `2`, 허용 범위는 `1`~`4`이다.

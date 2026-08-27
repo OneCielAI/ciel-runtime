@@ -29,6 +29,14 @@ class WindowsConsoleModeService:
             True,
         )
 
+    def terminal_reset_enabled(self) -> bool:
+        return self.ports.parse_bool(
+            self.ports.environment.get(
+                "CIEL_RUNTIME_TERMINAL_INPUT_MODE_RESET"
+            ),
+            True,
+        )
+
     def current(self) -> int | None:
         handle = self.ports.input_handle()
         if handle is None:
@@ -67,6 +75,85 @@ class WindowsConsoleModeService:
             return bool(
                 kernel32.SetConsoleMode(handle, wintypes.DWORD(int(mode)))
             )
+        except Exception:
+            return False
+
+    def reset_terminal_modes(self, sequence: str) -> bool:
+        """Safely ask a Windows console host to disable VT input modes."""
+
+        if not sequence or not self.terminal_reset_enabled():
+            return False
+        try:
+            import ctypes
+            from ctypes import wintypes
+
+            kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+            kernel32.GetStdHandle.argtypes = [wintypes.DWORD]
+            kernel32.GetStdHandle.restype = wintypes.HANDLE
+            kernel32.GetConsoleMode.argtypes = [
+                wintypes.HANDLE,
+                ctypes.POINTER(wintypes.DWORD),
+            ]
+            kernel32.GetConsoleMode.restype = wintypes.BOOL
+            kernel32.SetConsoleMode.argtypes = [
+                wintypes.HANDLE,
+                wintypes.DWORD,
+            ]
+            kernel32.SetConsoleMode.restype = wintypes.BOOL
+            kernel32.WriteConsoleW.argtypes = [
+                wintypes.HANDLE,
+                wintypes.LPCWSTR,
+                wintypes.DWORD,
+                ctypes.POINTER(wintypes.DWORD),
+                wintypes.LPVOID,
+            ]
+            kernel32.WriteConsoleW.restype = wintypes.BOOL
+
+            handle = kernel32.GetStdHandle(
+                wintypes.DWORD(-11 & 0xFFFFFFFF)
+            )
+            handle_value = (
+                int(handle)
+                if isinstance(handle, int)
+                else int(getattr(handle, "value", 0) or 0)
+            )
+            invalid_handle = int(ctypes.c_void_p(-1).value or -1)
+            if not handle_value or handle_value == invalid_handle:
+                return False
+
+            original = wintypes.DWORD(0)
+            if not kernel32.GetConsoleMode(handle, ctypes.byref(original)):
+                return False
+            original_mode = int(original.value)
+            enable_processed_output = 0x0001
+            enable_vt_processing = 0x0004
+            if not kernel32.SetConsoleMode(
+                handle,
+                wintypes.DWORD(
+                    original_mode
+                    | enable_processed_output
+                    | enable_vt_processing
+                ),
+            ):
+                return False
+            try:
+                buffer = ctypes.create_unicode_buffer(sequence)
+                units = len(sequence.encode("utf-16-le")) // 2
+                written = wintypes.DWORD(0)
+                if not kernel32.WriteConsoleW(
+                    handle,
+                    buffer,
+                    units,
+                    ctypes.byref(written),
+                    None,
+                ):
+                    return False
+                return int(written.value) == units
+            finally:
+                kernel32.SetConsoleMode(
+                    handle,
+                    wintypes.DWORD(original_mode),
+                )
         except Exception:
             return False
 

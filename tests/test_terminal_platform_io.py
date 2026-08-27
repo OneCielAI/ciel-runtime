@@ -4,6 +4,7 @@ from unittest import mock
 
 from ciel_runtime_support.terminal_platform_io import (
     TERMINAL_INPUT_MODE_RESET,
+    TERMINAL_MOUSE_MODE_RESET,
     TerminalInputModeResetPolicy,
     read_clipboard_text,
     apply_pty_winsize,
@@ -12,6 +13,32 @@ from ciel_runtime_support.terminal_platform_io import (
 
 
 class TerminalPlatformIoTests(unittest.TestCase):
+    def test_terminal_mouse_reset_covers_mouse_and_focus_modes(self):
+        expected_modes = (
+            9,
+            1000,
+            1001,
+            1002,
+            1003,
+            1004,
+            1005,
+            1006,
+            1015,
+            1016,
+        )
+
+        self.assertEqual(
+            "".join(f"\x1b[?{mode}l" for mode in expected_modes),
+            TERMINAL_MOUSE_MODE_RESET,
+        )
+
+    def test_bracketed_paste_reset_is_separate_from_mouse_reset(self):
+        self.assertNotIn("\x1b[?2004l", TERMINAL_MOUSE_MODE_RESET)
+        self.assertEqual(
+            TERMINAL_MOUSE_MODE_RESET + "\x1b[?2004l",
+            TERMINAL_INPUT_MODE_RESET,
+        )
+
     def test_terminal_reset_disables_bracketed_paste_mode(self):
         self.assertIn("\x1b[?2004l", TERMINAL_INPUT_MODE_RESET)
 

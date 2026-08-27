@@ -5,6 +5,11 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+- Neutralize stale Windows Console/ConPTY mouse, focus, and bracketed-paste
+  modes at safe startup/cleanup boundaries without filtering F9 or normal
+  bracketed-paste input. Legacy consoles receive no raw reset escape text when
+  VT output activation fails, and all child/console cleanup steps remain
+  best-effort after setup or runtime errors.
 - Import the fresh Start Plan JWT written by the official ZCode 0.16.5 OAuth
   init/poll flow from its encrypted shared credential store. Start Plan login
   now delegates to that official flow instead of reusing a stale Desktop

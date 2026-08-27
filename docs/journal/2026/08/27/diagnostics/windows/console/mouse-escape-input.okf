@@ -4,7 +4,7 @@ okf:
   task:
     id: windows-console-mouse-escape-input-20260827
     title: Classify escape text emitted by mouse clicks in a Windows 11 console
-    status: evidence-limited
+    status: superseded-by-verified-mitigation
 
   reported_observation:
     platform: Windows 11
@@ -58,7 +58,7 @@ okf:
       reported abbreviated text does not distinguish SGR mouse, bracketed
       paste, or a function-key sequence.
 
-  confirmed_defense_gaps:
+  confirmed_defense_gaps_before_fix:
     fallback_terminal_reset_default_on_windows: false
     reset_includes_x10_private_mode_9_disable: false
     conpty_setup_before_main_cleanup_finally: true
@@ -72,7 +72,18 @@ okf:
         A hard process termination cannot execute the normal ConPTY close
         cleanup.
 
-  verification:
+  implementation_followup:
+    journal: >-
+      ../../../implementation/windows/console/mouse-input-neutralization.okf
+    status: locally-verified
+    resolved_defense_gaps:
+      - Windows fallback uses a capability-gated WriteConsoleW reset by default
+      - reset sequence covers DEC modes 9, 1001, and 1016
+      - setup and runtime exceptions share best-effort lifecycle cleanup
+      - ConPTY resets before pumps start and again during serialized close cleanup
+    remote_causal_link_confirmed: false
+
+  diagnostic_baseline_verification:
     windows_console_mode_tests: 4 passed
     windows_conpty_tests: 19 passed
     terminal_platform_io_tests: 6 passed

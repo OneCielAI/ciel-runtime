@@ -166,73 +166,132 @@ def run_windows_channel_terminal_proxy(
     polling = services.polling
     console = services.console
     conpty = None
+    input_mode_guard = None
+    proc = None
+
+    def cleanup_step(event: str, action: Callable[[], Any]) -> None:
+        try:
+            action()
+        except BaseException as exc:
+            try:
+                policy.log(
+                    "WARN",
+                    "channel_windows_console_cleanup_failed "
+                    f"event={event} error={type(exc).__name__}: {exc}",
+                )
+            except BaseException:
+                pass
+
+    def cleanup_resources() -> None:
+        if proc is not None:
+            cleanup_step(
+                "terminate_child",
+                lambda: process.terminate_child(proc, "current Codex"),
+            )
+        if conpty is None:
+            cleanup_step("reset_input_mode", console.reset_input_mode)
+            if input_mode_guard is not None:
+                cleanup_step("restore_input_mode", input_mode_guard.restore)
+        elif proc is not None:
+            cleanup_step("close_conpty", conpty.close)
+        if proc is not None:
+            cleanup_step(
+                "release_child_record",
+                lambda: process.release_child_record(
+                    tracked_child_pid_path, proc.pid
+                ),
+            )
+
     try:
-        conpty = console.open_conpty(cmd, env, policy.log)
-    except Exception as exc:
-        policy.log(
-            "WARN",
-            "channel_windows_conpty_start_failed "
-            f"error={type(exc).__name__}: {exc}; using console-input compatibility transport",
+        try:
+            conpty = console.open_conpty(cmd, env, policy.log)
+        except Exception as exc:
+            policy.log(
+                "WARN",
+                "channel_windows_conpty_start_failed "
+                f"error={type(exc).__name__}: {exc}; "
+                "using console-input compatibility transport",
+            )
+        if conpty is None:
+            console.reset_input_mode()
+            input_mode_guard = console.mouse_guard()
+            input_mode_guard.apply()
+            proc = process.popen(cmd, env=env)
+            writer = console.input_writer()
+        else:
+            proc = conpty
+            writer = conpty
+        process.write_child_record(tracked_child_pid_path, proc.pid, cmd)
+    except BaseException:
+        cleanup_resources()
+        raise
+    try:
+        pending_poll_state = ChannelPendingPollState(
+            last_id=policy.initial_cursor()
         )
-    if conpty is None:
-        console.reset_input_mode()
-        input_mode_guard = console.mouse_guard()
-        input_mode_guard.apply()
-        proc = process.popen(cmd, env=env)
-        writer = console.input_writer()
-    else:
-        input_mode_guard = None
-        proc = conpty
-        writer = conpty
-    process.write_child_record(tracked_child_pid_path, proc.pid, cmd)
-    pending_poll_state = ChannelPendingPollState(last_id=policy.initial_cursor())
-    compact_poll_state = ChannelCompactPollState()
-    interaction_display_state = RuntimeInteractionDisplayState()
-    interaction_pending = False
-    channel_enter_bytes = policy.enter_bytes(synthetic_enter_bytes)
-    channel_input_ready_at = time.time() + console.startup_grace_seconds()
-    # ConPTY is a byte stream and supports VT bracketed paste. The compatibility
-    # transport consumes INPUT_RECORD events and must not receive its delimiters.
-    windows_bracketed_paste = bool(channel_wake_bracketed_paste and conpty is not None)
-    submit_retry_count = max(1, min(8, int(channel_wake_submit_retries or 1)))
-    compact_injection_options = ChannelCompactInjectionOptions(
-        submit_retry_count=submit_retry_count,
-        confirm_submit=channel_wake_confirm_submit,
-        bracketed_paste=windows_bracketed_paste,
-        submit_delay_seconds=channel_wake_submit_delay_seconds,
-    )
-    compact_poll_services = ChannelCompactPollServices(inject_pending=polling.inject_compact)
-    pending_injection_options = ChannelPendingInjectionOptions(
-        enabled=inject_channel_messages,
-        web_chat_only=inject_web_chat_only,
-        wake_for_llm_delivery=wake_for_llm_delivery,
-        display_llm_delivery_body=channel_wake_display_body,
-        submit_retry_count=submit_retry_count,
-        confirm_submit=channel_wake_confirm_submit,
-        bracketed_paste=windows_bracketed_paste,
-        submit_delay_seconds=channel_wake_submit_delay_seconds,
-    )
-    pending_poll_services = ChannelPendingPollServices(
-        file_marker=polling.file_marker,
-        should_check=polling.should_check,
-        active=lambda: polling.active_tool_call() or console.active_turn(),
-        ensure_cursor=policy.initial_cursor,
-        inject_pending=polling.inject_pending,
-        log=policy.log,
-    )
-    pending_poll_policy = ChannelPendingPollPolicy("channel_windows_console", "active_turn")
-    last_terminal_input_mode_reset = 0.0
-    terminal_input_mode_reset_interval = console.reset_interval_seconds(0.25)
-    policy.log(
-        "INFO",
-        "channel_windows_console_proxy_started "
-        f"pid={proc.pid} transport={'conpty' if conpty is not None else 'console-input'} "
-        f"enter={policy.enter_label(channel_enter_bytes)} "
-        f"submit_retries={submit_retry_count} confirm_submit={bool(channel_wake_confirm_submit)} "
-        f"bracketed_paste={windows_bracketed_paste} "
-        f"display_body={bool(channel_wake_display_body)}",
-    )
-    try:
+        compact_poll_state = ChannelCompactPollState()
+        interaction_display_state = RuntimeInteractionDisplayState()
+        interaction_pending = False
+        channel_enter_bytes = policy.enter_bytes(synthetic_enter_bytes)
+        channel_input_ready_at = time.time() + console.startup_grace_seconds()
+        # ConPTY is a byte stream and supports VT bracketed paste. The
+        # compatibility transport consumes INPUT_RECORD events and must not
+        # receive its delimiters.
+        windows_bracketed_paste = bool(
+            channel_wake_bracketed_paste and conpty is not None
+        )
+        submit_retry_count = max(
+            1,
+            min(8, int(channel_wake_submit_retries or 1)),
+        )
+        compact_injection_options = ChannelCompactInjectionOptions(
+            submit_retry_count=submit_retry_count,
+            confirm_submit=channel_wake_confirm_submit,
+            bracketed_paste=windows_bracketed_paste,
+            submit_delay_seconds=channel_wake_submit_delay_seconds,
+        )
+        compact_poll_services = ChannelCompactPollServices(
+            inject_pending=polling.inject_compact
+        )
+        pending_injection_options = ChannelPendingInjectionOptions(
+            enabled=inject_channel_messages,
+            web_chat_only=inject_web_chat_only,
+            wake_for_llm_delivery=wake_for_llm_delivery,
+            display_llm_delivery_body=channel_wake_display_body,
+            submit_retry_count=submit_retry_count,
+            confirm_submit=channel_wake_confirm_submit,
+            bracketed_paste=windows_bracketed_paste,
+            submit_delay_seconds=channel_wake_submit_delay_seconds,
+        )
+        pending_poll_services = ChannelPendingPollServices(
+            file_marker=polling.file_marker,
+            should_check=polling.should_check,
+            active=lambda: (
+                polling.active_tool_call() or console.active_turn()
+            ),
+            ensure_cursor=policy.initial_cursor,
+            inject_pending=polling.inject_pending,
+            log=policy.log,
+        )
+        pending_poll_policy = ChannelPendingPollPolicy(
+            "channel_windows_console",
+            "active_turn",
+        )
+        last_terminal_input_mode_reset = 0.0
+        terminal_input_mode_reset_interval = console.reset_interval_seconds(
+            0.25
+        )
+        policy.log(
+            "INFO",
+            "channel_windows_console_proxy_started "
+            f"pid={proc.pid} "
+            f"transport={'conpty' if conpty is not None else 'console-input'} "
+            f"enter={policy.enter_label(channel_enter_bytes)} "
+            f"submit_retries={submit_retry_count} "
+            f"confirm_submit={bool(channel_wake_confirm_submit)} "
+            f"bracketed_paste={windows_bracketed_paste} "
+            f"display_body={bool(channel_wake_display_body)}",
+        )
         while proc.poll() is None:
             now = time.time()
             interaction = polling.runtime_interaction()
@@ -337,14 +396,7 @@ def run_windows_channel_terminal_proxy(
             console.sleep(0.05)
         return proc.wait()
     finally:
-        if conpty is None:
-            console.reset_input_mode()
-            if input_mode_guard is not None:
-                input_mode_guard.restore()
-        process.terminate_child(proc, "current Codex")
-        process.release_child_record(tracked_child_pid_path, proc.pid)
-        if conpty is not None:
-            conpty.close()
+        cleanup_resources()
 
 
 def run_posix_channel_terminal_proxy(

@@ -4563,7 +4563,7 @@ def _windows_console_input_supported() -> bool: return windows_console_mode_serv
 def _windows_console_mouse_input_filter_enabled() -> bool: return windows_console_mode_service().mouse_filter_enabled()
 def _windows_console_input_mode() -> int | None: return windows_console_mode_service().current()
 def _set_windows_console_input_mode(mode: int) -> bool: return windows_console_mode_service().set(mode)
-
+def _reset_windows_terminal_input_modes() -> bool: return windows_console_mode_service().reset_terminal_modes(terminal_platform_io.TERMINAL_INPUT_MODE_RESET)
 class _WindowsConsoleMouseInputGuard(
     windows_console_mode.WindowsConsoleMouseInputGuard
 ):
@@ -4617,7 +4617,7 @@ def channel_terminal_context() -> ChannelTerminalContext:
                                             _channel_stdin_mark_body_fallback, runtime_interactions.read),
         io=ChannelTerminalIoPorts(_terminal_winsize_from_fd, _apply_pty_winsize, _write_fd_all, _TerminalMouseInputFilter,
                                   _channel_synthetic_enter_bytes_from_user_input, _write_terminal_input_mode_reset),
-        windows=ChannelTerminalWindowsPorts(run_windows_channel_terminal_proxy, _write_terminal_input_mode_reset,
+        windows=ChannelTerminalWindowsPorts(run_windows_channel_terminal_proxy, _reset_windows_terminal_input_modes,
                                             _WindowsConsoleMouseInputGuard, _WindowsConsoleInputWriter, _windows_channel_startup_grace_seconds,
                                             _terminal_input_mode_reset_interval_seconds, _channel_stdin_active_turn, _write_windows_channel_body_fallback, time.sleep,
                                             _open_windows_conpty),

@@ -195,7 +195,7 @@ Claude/Codex transcript의 queued-only wake를 찾아 LLM delivery cursor를 안
 
 ### `ciel_runtime_support/channel_terminal_proxy.py`
 
-POSIX PTY의 생성, 터미널 크기 동기화, 표준 입출력 전달, channel/compact polling과 자식 프로세스 정리를 조정하는 Channel Infrastructure Adapter. Process, Terminal I/O, Policy, Polling 포트를 각각 10필드 이하로 주입하며 메인 composition root는 플랫폼 선택과 실제 콜백 조립만 담당한다.
+POSIX PTY와 Windows ConPTY/Console transport의 생성, 터미널 크기 동기화, 표준 입출력 전달, channel/compact polling과 자식 프로세스 정리를 조정하는 Channel Infrastructure Adapter. Windows setup 또는 loop가 실패해도 자식 종료, terminal mode 복원, PID record 해제와 ConPTY close를 독립적인 best-effort 단계로 수행한다. Process, Terminal I/O, Policy, Polling 포트를 각각 10필드 이하로 주입하며 메인 composition root는 플랫폼 선택과 실제 콜백 조립만 담당한다.
 
 ### `ciel_runtime_support/channel_terminal_dispatch.py`
 
@@ -207,7 +207,11 @@ Windows Console/POSIX PTY/direct subprocess 선택과 tracked child-process reco
 
 ### `ciel_runtime_support/windows_console_mode.py`
 
-Windows `GetConsoleMode`/`SetConsoleMode`, console 지원 판정과 mouse-input bit 비활성화·복원 수명주기를 소유하는 Infrastructure Adapter. handle·boolean codec·environment는 3필드 port로 주입하고 Guard는 현재 mode callback을 명시적으로 받아 파사드나 전역 상태를 역참조하지 않는다.
+Windows `GetConsoleMode`/`SetConsoleMode`, console 지원 판정과 mouse-input bit 비활성화·복원 수명주기를 소유하는 Infrastructure Adapter. VT reset은 같은 output handle에서 processed/VT output 활성화가 성공한 경우에만 `WriteConsoleW`로 기록하고 원래 mode를 복원하므로 legacy console에 escape text를 노출하지 않는다. handle·boolean codec·environment는 3필드 port로 주입하고 Guard는 현재 mode callback을 명시적으로 받아 파사드나 전역 상태를 역참조하지 않는다.
+
+### `ciel_runtime_support/windows_conpty.py`
+
+Windows Pseudo Console 생성, UTF-8 input/output pipe, 부모 console mode와 크기, child process handle 수명주기를 소유하는 Infrastructure Adapter. 부모 VT output 활성화가 성공한 경우에만 pump 시작 전과 close 시 DEC mouse/focus/bracketed-paste mode를 reset하며, reset·mode 복원과 mirror output을 같은 lock 경계에서 직렬화해 늦은 child output이 정리된 mode를 다시 활성화하지 못하게 한다.
 
 ### `ciel_runtime_support/channel_transcript.py`
 

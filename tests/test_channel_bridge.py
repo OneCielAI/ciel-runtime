@@ -1420,6 +1420,30 @@ class ChannelBridgeTests(unittest.TestCase):
     def test_terminal_mouse_input_filter_preserves_arrow_keys(self):
         self.assertEqual(b"\x1b[A", ciel_runtime._strip_terminal_mouse_input_reports(b"\x1b[A"))
 
+    def test_terminal_mouse_filter_preserves_f9_and_bracketed_paste_at_every_split(self):
+        raw = (
+            b"a\x1b[<35;84;42M"
+            b"\x1b[20~"
+            b"\x1b[200~pasted text\x1b[201~"
+            b"\x1b[M !!"
+            b"\x1b[35;84;42M"
+            b"z"
+        )
+        expected = b"a\x1b[20~\x1b[200~pasted text\x1b[201~z"
+
+        for split in range(len(raw) + 1):
+            with self.subTest(split=split):
+                filt = ciel_runtime._TerminalMouseInputFilter()
+                actual = filt.feed(raw[:split]) + filt.feed(raw[split:])
+                actual += filt.flush()
+                self.assertEqual(expected, actual)
+
+    def test_terminal_mouse_filter_flushes_incomplete_non_mouse_csi_unchanged(self):
+        filt = ciel_runtime._TerminalMouseInputFilter()
+
+        self.assertEqual(b"prefix", filt.feed(b"prefix\x1b[20"))
+        self.assertEqual(b"\x1b[20", filt.flush())
+
     def test_terminal_mouse_input_filter_strips_x10_and_urxvt_reports(self):
         raw = b"a\x1b[M !!b\x1b[35;84;42Mc"
         self.assertEqual(b"abc", ciel_runtime._strip_terminal_mouse_input_reports(raw))
@@ -1541,6 +1565,159 @@ class ChannelBridgeTests(unittest.TestCase):
 
         self.assertIn("channel_wake_bracketed_paste and conpty is not None", source)
         self.assertIn("bracketed_paste=windows_bracketed_paste", source)
+
+    @staticmethod
+    def _windows_proxy_test_services(*, process, console, logs=None):
+        logs = [] if logs is None else logs
+        policy = SimpleNamespace(
+            initial_cursor=lambda: 0,
+            enter_bytes=lambda _value: b"\r",
+            enter_label=lambda _value: "cr",
+            enter_is_fixed=lambda: False,
+            unseen_retry_seconds=lambda: 1.0,
+            inflight_is_stale=lambda *_args, **_kwargs: False,
+            log=lambda level, message: logs.append((level, message)),
+            windows_wake_max_attempts=lambda: 1,
+        )
+        polling = SimpleNamespace(
+            inject_compact=lambda *_args, **_kwargs: None,
+            file_marker=lambda: None,
+            should_check=lambda *_args, **_kwargs: False,
+            active_tool_call=lambda: False,
+            active_turn=lambda: False,
+            inject_pending=lambda *_args, **_kwargs: None,
+            wake_state=lambda _message_id: None,
+            inflight_effects=lambda: None,
+            mark_body_fallback=lambda *_args, **_kwargs: None,
+            runtime_interaction=lambda: None,
+        )
+        return SimpleNamespace(
+            process=process,
+            policy=policy,
+            polling=polling,
+            console=console,
+        )
+
+    def test_windows_console_proxy_restores_setup_after_each_fallback_failure(self):
+        for failure in ("popen", "input_writer", "write_child_record"):
+            with self.subTest(failure=failure):
+                proc = SimpleNamespace(pid=71)
+                guard = mock.Mock()
+                popen = mock.Mock(return_value=proc)
+                input_writer = mock.Mock(return_value=mock.Mock())
+                write_record = mock.Mock()
+                if failure == "popen":
+                    popen.side_effect = RuntimeError("popen failed")
+                elif failure == "input_writer":
+                    input_writer.side_effect = RuntimeError("writer failed")
+                else:
+                    write_record.side_effect = RuntimeError("record failed")
+                process = SimpleNamespace(
+                    popen=popen,
+                    write_child_record=write_record,
+                    terminate_child=mock.Mock(),
+                    release_child_record=mock.Mock(),
+                )
+                console = SimpleNamespace(
+                    open_conpty=mock.Mock(return_value=None),
+                    reset_input_mode=mock.Mock(),
+                    mouse_guard=mock.Mock(return_value=guard),
+                    input_writer=input_writer,
+                )
+                services = self._windows_proxy_test_services(
+                    process=process,
+                    console=console,
+                )
+
+                with self.assertRaisesRegex(RuntimeError, "failed"):
+                    ciel_runtime.run_windows_channel_terminal_proxy(
+                        ["agent"], {}, services
+                    )
+
+                guard.restore.assert_called_once_with()
+                if failure == "popen":
+                    process.terminate_child.assert_not_called()
+                    process.release_child_record.assert_not_called()
+                else:
+                    process.terminate_child.assert_called_once_with(
+                        proc, "current Codex"
+                    )
+                    process.release_child_record.assert_called_once_with(
+                        None, proc.pid
+                    )
+
+    def test_windows_console_proxy_cleanup_is_best_effort(self):
+        proc = mock.Mock(pid=72)
+        proc.poll.return_value = 0
+        proc.wait.return_value = 0
+        guard = mock.Mock()
+        reset = mock.Mock(side_effect=[None, RuntimeError("reset failed")])
+        process = SimpleNamespace(
+            popen=mock.Mock(return_value=proc),
+            write_child_record=mock.Mock(),
+            terminate_child=mock.Mock(side_effect=RuntimeError("terminate failed")),
+            release_child_record=mock.Mock(),
+        )
+        console = SimpleNamespace(
+            open_conpty=mock.Mock(return_value=None),
+            reset_input_mode=reset,
+            mouse_guard=mock.Mock(return_value=guard),
+            input_writer=mock.Mock(return_value=mock.Mock()),
+            startup_grace_seconds=lambda: 0.0,
+            reset_interval_seconds=lambda default: default,
+            active_turn=lambda: False,
+            write_body_fallback=mock.Mock(),
+            sleep=lambda _seconds: None,
+        )
+        logs = []
+        services = self._windows_proxy_test_services(
+            process=process,
+            console=console,
+            logs=logs,
+        )
+
+        self.assertEqual(
+            0,
+            ciel_runtime.run_windows_channel_terminal_proxy(
+                ["agent"], {}, services
+            ),
+        )
+        guard.restore.assert_called_once_with()
+        process.release_child_record.assert_called_once_with(None, proc.pid)
+        self.assertEqual(2, reset.call_count)
+        self.assertEqual(2, sum("cleanup_failed" in message for _, message in logs))
+
+    def test_windows_conpty_cleanup_continues_after_terminate_failure(self):
+        conpty = mock.Mock(pid=73)
+        conpty.poll.return_value = 0
+        conpty.wait.return_value = 0
+        process = SimpleNamespace(
+            popen=mock.Mock(),
+            write_child_record=mock.Mock(),
+            terminate_child=mock.Mock(side_effect=RuntimeError("terminate failed")),
+            release_child_record=mock.Mock(),
+        )
+        console = SimpleNamespace(
+            open_conpty=mock.Mock(return_value=conpty),
+            startup_grace_seconds=lambda: 0.0,
+            reset_interval_seconds=lambda default: default,
+            active_turn=lambda: False,
+            write_body_fallback=mock.Mock(),
+            sleep=lambda _seconds: None,
+        )
+        services = self._windows_proxy_test_services(
+            process=process,
+            console=console,
+        )
+
+        self.assertEqual(
+            0,
+            ciel_runtime.run_windows_channel_terminal_proxy(
+                ["agent"], {}, services
+            ),
+        )
+        conpty.close.assert_called_once_with()
+        process.release_child_record.assert_called_once_with(None, conpty.pid)
 
     def test_windows_console_input_handle_falls_back_to_conin(self):
         source = inspect.getsource(ciel_runtime._resolve_windows_console_input_handle)

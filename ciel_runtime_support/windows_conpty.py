@@ -77,6 +77,7 @@ class WindowsConPtySession:
         self._stdin_fd = sys.stdin.fileno() if stdin_fd is None else int(stdin_fd)
         self._stdout_fd = sys.stdout.fileno() if stdout_fd is None else int(stdout_fd)
         self._stdout_console_handle: Any = None
+        self._parent_vt_output_ready = False
         self._output_decoder = codecs.getincrementaldecoder("utf-8")("replace")
         self._mirror_output = bool(mirror_output)
         self._parent_output_paused = threading.Event()
@@ -103,6 +104,7 @@ class WindowsConPtySession:
         try:
             self._create(cmd, env)
             self._configure_parent_console()
+            self._reset_parent_terminal_modes()
             self._start_pumps()
         except Exception:
             self.close()
@@ -257,6 +259,8 @@ class WindowsConPtySession:
         if not data or not self._mirror_output:
             return
         with self._parent_output_lock():
+            if not self._mirror_output:
+                return
             if self._stdout_console_handle is not None:
                 self._write_console_text(data.decode("utf-8", errors="replace"))
                 return
@@ -353,8 +357,7 @@ class WindowsConPtySession:
         # ``ESC[<35;29;23M`` into the parent shell on every mouse move.  The
         # Win32 console-mode restore below cannot clear emulator-owned DEC
         # state, so reset it explicitly while VT output is still enabled.
-        self._reset_parent_terminal_modes()
-        self._restore_parent_console()
+        self._reset_and_restore_parent_console()
         if self._output_handle and self._kernel32:
             try:
                 self._kernel32.CloseHandle(self._output_handle)
@@ -366,19 +369,38 @@ class WindowsConPtySession:
             self._process_handle = None
 
     def _reset_parent_terminal_modes(self) -> None:
-        if not self._mirror_output:
-            return
+        self._write_parent_terminal_modes(TERMINAL_INPUT_MODE_RESET)
+
+    def _reset_and_restore_parent_console(self) -> None:
+        with self._parent_output_lock():
+            self._write_parent_terminal_modes_unlocked(
+                TERMINAL_INPUT_MODE_RESET
+            )
+            self._mirror_output = False
+            self._restore_parent_console()
+
+    def _write_parent_terminal_modes(self, sequence: str) -> bool:
+        with self._parent_output_lock():
+            return self._write_parent_terminal_modes_unlocked(sequence)
+
+    def _write_parent_terminal_modes_unlocked(self, sequence: str) -> bool:
+        if (
+            not self._mirror_output
+            or not getattr(self, "_parent_vt_output_ready", False)
+        ):
+            return False
         try:
             if self._stdout_console_handle is not None:
-                self._write_console_text(TERMINAL_INPUT_MODE_RESET)
-                return
-            data = TERMINAL_INPUT_MODE_RESET.encode("ascii")
+                self._write_console_text(sequence)
+                return True
+            data = sequence.encode("ascii")
             view = memoryview(data)
             while view:
                 view = view[os.write(self._stdout_fd, view) :]
-        except (OSError, ValueError):
+            return True
+        except Exception:
             # Cleanup must never mask the child process's real exit status.
-            return
+            return False
 
     def _create(self, cmd: list[str], env: Mapping[str, str]) -> None:
         import ctypes
@@ -656,22 +678,36 @@ class WindowsConPtySession:
         output_handle = kernel32.GetStdHandle(-11 & 0xFFFFFFFF)
         output_mode = wintypes.DWORD(0)
         if kernel32.GetConsoleMode(output_handle, ctypes.byref(output_mode)):
-            self._stdout_console_handle = output_handle
-            self._old_output_mode = int(output_mode.value)
-            kernel32.SetConsoleMode(output_handle, self._old_output_mode | 0x0004)
+            old_output_mode = int(output_mode.value)
+            requested_output_mode = old_output_mode | 0x0001 | 0x0004
+            if kernel32.SetConsoleMode(output_handle, requested_output_mode):
+                self._old_output_mode = old_output_mode
+                self._stdout_console_handle = output_handle
+                self._parent_vt_output_ready = True
 
     def _restore_parent_console(self) -> None:
-        if not self._kernel32 or self._old_input_mode is None:
-            return
-        input_handle = self._kernel32.GetStdHandle(-10 & 0xFFFFFFFF)
-        self._kernel32.SetConsoleMode(input_handle, self._old_input_mode)
+        kernel32 = self._kernel32
+        input_handle = self._stdin_console_handle
+        old_input_mode = self._old_input_mode
+        output_handle = self._stdout_console_handle
+        old_output_mode = self._old_output_mode
         self._stdin_console_handle = None
         self._old_input_mode = None
-        if self._old_output_mode is not None:
-            output_handle = self._kernel32.GetStdHandle(-11 & 0xFFFFFFFF)
-            self._kernel32.SetConsoleMode(output_handle, self._old_output_mode)
-            self._old_output_mode = None
         self._stdout_console_handle = None
+        self._old_output_mode = None
+        self._parent_vt_output_ready = False
+        if not kernel32:
+            return
+        if old_input_mode is not None and input_handle is not None:
+            try:
+                kernel32.SetConsoleMode(input_handle, old_input_mode)
+            except Exception:
+                pass
+        if old_output_mode is not None and output_handle is not None:
+            try:
+                kernel32.SetConsoleMode(output_handle, old_output_mode)
+            except Exception:
+                pass
 
     def _start_pumps(self) -> None:
         self._output_thread = threading.Thread(
@@ -720,6 +756,8 @@ class WindowsConPtySession:
 
     def _mirror_bytes(self, data: bytes, *, final: bool = False) -> None:
         with self._parent_output_lock():
+            if not self._mirror_output:
+                return
             if self._stdout_console_handle is not None and self._output_decoder is not None:
                 text = self._output_decoder.decode(data, final=final)
                 if text:

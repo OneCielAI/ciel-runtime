@@ -1,0 +1,189 @@
+okf:
+  version: "1.0"
+  kind: engineering-journal
+  task:
+    id: windows-console-mouse-input-neutralization-20260827
+    title: Neutralize stale Windows terminal mouse modes without consuming keyboard VT input
+    status: verified-awaiting-publish
+    objective: >-
+      Do not implement a Windows mouse feature for the routed CLI. Disable
+      Win32 mouse records on the compatibility transport, clear stale
+      emulator-owned mouse/focus modes at safe lifecycle boundaries, and
+      preserve normal function-key and bracketed-paste input bytes.
+
+  source_control:
+    branch: feature/remote-runtime-bridge
+    starting_head: 1be19c92fb212ee759e3932f6b67470b9f7bb9a0
+    target_remote_branch: nightly
+
+  reported_observation:
+    platform: Windows 11
+    shell_description: classic CMD-like console
+    visible_text: "[20~ like marker"
+    complete_raw_bytes_available: false
+    terminal_host_identity_available: false
+    remote_reproduction_available: false
+
+  protocol_classification:
+    confirmed:
+      f9:
+        sequence: "ESC [ 20 ~"
+        source: Microsoft console VT input table
+      bracketed_paste:
+        begin: "ESC [ 200 ~"
+        end: "ESC [ 201 ~"
+      sgr_mouse:
+        shape: "ESC [ < button ; x ; y M or m"
+      win32_mouse_input:
+        representation: MOUSE_EVENT input records
+        relation_to_vt_reporting: separate mechanism
+    unresolved:
+      remote_visible_marker_exact_sequence: true
+      causal_link_to_ciel_runtime: false
+
+  implementation:
+    reset_sequences:
+      mouse_and_focus_modes:
+        - 9
+        - 1000
+        - 1001
+        - 1002
+        - 1003
+        - 1004
+        - 1005
+        - 1006
+        - 1015
+        - 1016
+      full_close_reset_adds_bracketed_paste_mode: 2004
+    compatibility_console:
+      input:
+        - clear ENABLE_MOUSE_INPUT while the child is active
+        - restore the exact original input mode on cleanup
+      output_reset:
+        - resolve STD_OUTPUT_HANDLE
+        - read and retain its original mode
+        - enable ENABLE_PROCESSED_OUTPUT and ENABLE_VIRTUAL_TERMINAL_PROCESSING
+        - call WriteConsoleW once only after SetConsoleMode succeeds
+        - restore the original mode on write success or failure
+        - never raw-write reset bytes when VT activation fails
+      opt_out_environment:
+        win32_mouse_guard: CIEL_RUNTIME_WINDOWS_CONSOLE_MOUSE_FILTER=0
+        terminal_mode_reset: CIEL_RUNTIME_TERMINAL_INPUT_MODE_RESET=0
+    conpty:
+      input_policy:
+        - no Ciel mouse parser is inserted in the Windows ConPTY byte path
+        - split F9 and bracketed-paste VT bytes remain unchanged
+      startup_order:
+        - create pseudo console
+        - configure exact parent input/output handles
+        - reset stale mouse/focus/bracketed-paste modes
+        - start input/output pumps
+      shutdown_order:
+        - stop or close the child pseudo console
+        - serialize final output and reset under the parent output lock
+        - disable further mirror output under the same lock
+        - independently restore saved input and output modes
+      capability_gate: >-
+        Reset output is allowed only when parent output VT activation was
+        observed to succeed; otherwise neither WriteConsoleW nor os.write is
+        called for the reset.
+    lifecycle_cleanup:
+      order:
+        - terminate child
+        - reset and restore fallback console, or close ConPTY
+        - release tracked child PID record
+      exception_policy: >-
+        Each cleanup step is best-effort and logged independently so one
+        cleanup exception cannot mask the original error or skip later steps.
+
+  verified_invariants:
+    keyboard_input:
+      esc_20_tilde_preserved: true
+      esc_200_tilde_preserved: true
+      esc_201_tilde_preserved: true
+    mouse_input:
+      sgr_removed_by_existing_posix_filter: true
+      x10_removed_by_existing_posix_filter: true
+      numeric_urxvt_removed_by_existing_posix_filter: true
+      windows_conpty_filter_added: false
+    output_safety:
+      legacy_vt_activation_failure_writes_reset_text: false
+      original_output_mode_restored_after_write_failure: true
+      late_conpty_mirror_after_close_reset: false
+
+  verification:
+    targeted_tests:
+      windows_console_mode: "8 passed"
+      terminal_platform_io: "8 passed"
+      windows_conpty: "25 passed, including native Windows ConPTY"
+      channel_bridge: "213 run, 80 skipped, 0 failed"
+      architecture_budget: "2 passed; ciel_runtime.py 4980/4980 lines"
+    native_windows_conpty:
+      child_mode: raw ENABLE_VIRTUAL_TERMINAL_INPUT
+      payload_contains:
+        - "ESC [ 20 ~"
+        - "ESC [ 200 ~"
+        - "ESC [ 201 ~"
+        - Korean UTF-8 text
+        - non-BMP UTF-8 text
+      assertion: SHA-256 of the exact child input matched the parent payload
+      process_exit: 0
+    native_windows_console_reset:
+      automation_stdout_probe:
+        get_console_mode: false
+        win32_last_error: 6
+        interpretation: automation stdout handle is not a console handle
+      conout_probe:
+        method: >-
+          Open CONOUT$, temporarily assign it as STD_OUTPUT_HANDLE, call the
+          production WindowsConsoleModeService reset, then inspect and restore
+          the console mode in the isolated child process.
+        result: >-
+          allocated=False reset_ok=True mode_before=0x7
+          mode_after_ok=True mode_after=0x7
+        exit_code: 0
+    static_checks:
+      ruff_changed_files: passed
+      compileall: passed
+      documentation_metadata: "passed, 24 Markdown files"
+      npm_pack_dry_run: "passed, 492 files, 1.6 MB tarball"
+      git_diff_check: passed
+      changed_okf_parse: "2 passed"
+      repository_okf_parse:
+        passed: 61
+        preexisting_failure: >-
+          docs/journal/2026/08/24/mia-zai-start-plan-upstream-404.okf
+          ParserError at the existing line 58 list indentation
+    full_npm_test:
+      status: passed
+      unit: "1330 passed, 44 skipped"
+      router: "1054 passed"
+      channel: "390 passed, 80 skipped"
+      runtime: "258 passed, 12 skipped"
+      total: "3032 passed, 136 skipped, 0 failed"
+    visual_evidence:
+      screenshot_collected: false
+      reason: >-
+        This is a CLI/Win32 input and mode-lifecycle change, so command output
+        and native API test logs are the functional evidence. The reported
+        remote user's physical console is not accessible from this workspace.
+
+  limitations:
+    - >-
+      The missing remote raw-byte capture prevents a factual claim that the
+      visible marker was exactly F9, bracketed paste, or an SGR mouse report.
+    - >-
+      The implementation clears stale modes at startup/cleanup and suppresses
+      Win32 mouse input in the fallback path. It does not forbid a running
+      child TUI from intentionally enabling its own mouse mode.
+    - >-
+      Remote symptom resolution must not be claimed until the affected host
+      runs the new build or supplies a complete input capture.
+
+  official_sources:
+    set_console_mode: https://learn.microsoft.com/en-us/windows/console/setconsolemode
+    console_vt_sequences: https://learn.microsoft.com/en-us/windows/console/console-virtual-terminal-sequences
+    write_console: https://learn.microsoft.com/en-us/windows/console/writeconsole
+    create_pseudo_console: https://learn.microsoft.com/en-us/windows/console/createpseudoconsole
+    terminal_mode_definitions: >-
+      https://github.com/microsoft/terminal/blob/8c0a234f056910776e56afa3f8a38d6ddc3db33c/src/terminal/adapter/DispatchTypes.hpp#L506-L540
