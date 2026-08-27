@@ -1,0 +1,125 @@
+okf_version: "1.0"
+knowledge:
+  task:
+    id: "samuel-sse-pty-wake-delivery-recovery-20260827"
+    date: "2026-08-27"
+    objective: >-
+      Determine why an AI-Net mention received by Samuel at 15:53 was not
+      processed until a human prompt was submitted at 16:40, verify the
+      relevant Ciel Runtime repair, and publish the verified repository state
+      to the nightly branch without restarting Samuel.
+
+  affected_runtime:
+    host: "aap-pool-1c892a28"
+    ssh_user: "ca-samuel"
+    workspace: "/home/ca-samuel"
+    tmux_session: "aap-agent-69"
+    active_runtime_version: "0.2.21-nightly.20260813-180122.25c3a57"
+    active_runtime_started_utc: "2026-08-24T07:05:41Z"
+    active_runtime_changed: false
+    active_runtime_restarted: false
+
+  incident_timeline:
+    ai_net_message:
+      sender: "Kevin"
+      recipient_mention: "Samuel"
+      room_id: "room_1r0jomg4ex13"
+      message_id: "msg_3sqt344yivki"
+      sequence: 125307
+      created_at_utc: "2026-08-27T20:53:09.427Z"
+      ui_time_cdt: "03:53 PM"
+    sse_receipt:
+      transport: "sse"
+      event_id: "1787863989433-0"
+      event_time_utc: "2026-08-27T20:53:09.433Z"
+      runtime_input_id: 3274
+      runtime_input_record_time_cdt: "2026-08-27T15:53:09"
+      observation: >-
+        runtime-inputs.jsonl recorded the mention in the same second that
+        AI-Net created it. This excludes a 48-minute AI-Net or SSE receive
+        delay for this incident.
+    first_model_transcript_delivery:
+      transcript: >-
+        /home/ca-samuel/.claude/projects/-home-ca-samuel/
+        13f94059-fe3e-4058-86dd-6d0c03a57a02.jsonl
+      line: 97027
+      timestamp_utc: "2026-08-27T21:40:44.722Z"
+      delay_from_sse_seconds: 2855.289
+      observation: >-
+        The external event was appended to the human prompt
+        "옵션에 관련된 ui들은 어디에있는거" instead of appearing as an
+        independent wake turn. The tmux buffer retained the combined prompt.
+    subsequent_delivery_control:
+      runtime_input_ids: [3275, 3276]
+      received_utc:
+        - "2026-08-27T21:41:33.163Z"
+        - "2026-08-27T21:41:43.375Z"
+      cursor_after: 3276
+      observation: >-
+        New mentions continued to arrive over SSE immediately. The failed
+        boundary was terminal wake submission, not the durable receiver.
+
+  source_evidence:
+    installed_old_behavior:
+      file: >-
+        /home/ca-samuel/.local/share/ciel-runtime/
+        ciel_runtime_support/channel_injection.py
+      observation: >-
+        Version 0.2.21 wrote the prompt and retried Enter, but
+        ChannelPromptInjector.inject returned no failure when all confirmed
+        attempts left the prompt waiting in the TUI. The caller could therefore
+        treat an unsubmitted prompt as delivered.
+    existing_repair:
+      commit: "878578631dffbb0708f190ec12d815b82b796e01"
+      title: "fix(runtime): recover stalled routed model turns"
+      behavior:
+        - >-
+          ChannelPromptInjector.inject returns false after every confirmed
+          submit attempt leaves the terminal snapshot unchanged.
+        - >-
+          Failed submission is reported as channel_input_submit_unconfirmed.
+        - >-
+          channel_pending_injection rolls back the wake claim and leaves the
+          cursor retryable when write_prompt returns false.
+      included_in_repository_head: true
+      repository_head_before_journal: "c8bef93078bf1b88790f424e2f61c78127c10bb6"
+      inclusion_check: "git merge-base --is-ancestor 8785786 HEAD exited 0"
+
+  verification:
+    local_targeted_tests:
+      command: >-
+        PYTHONPATH=.. python -m unittest
+        test_channel_injection.ChannelPromptInjectorTests.test_submit_returns_false_when_every_confirmed_attempt_leaves_prompt_unchanged
+        test_channel_injection.ChannelPromptInjectorTests.test_final_submit_attempt_is_observed_before_success
+        test_channel_bridge.ChannelBridgeTests.test_inject_pending_rolls_back_claim_when_submit_is_deferred
+      result: "3 tests passed in 0.018s"
+    remote_staging_package:
+      path: >-
+        /home/ca-samuel/.npm-global/lib/node_modules/
+        @oneciel-ai/ciel-runtime
+      version: "0.2.36-nightly.20260827-184757.83a03be"
+      active_install_path_unchanged: "/home/ca-samuel/.local/share/ciel-runtime"
+      stable_terminal_probe:
+        result: "REMOTE_NIGHTLY_PROBE_PASS"
+        exit_code: 0
+        submitted: false
+        enter_attempts: 4
+        diagnostic: "channel_input_submit_unconfirmed attempts=4"
+    live_post_upgrade_probe:
+      performed: false
+      reason: >-
+        The user explicitly chose to perform the runtime update. Samuel was
+        also processing an active turn with six delegated tasks, so this task
+        did not restart or replace the live runtime.
+
+  conclusion:
+    confirmed: >-
+      Kevin's message reached Samuel's durable SSE input immediately, but the
+      old PTY bridge failed to submit the synthetic Enter. The queued event was
+      first delivered only when a later human prompt caused a normal model
+      request. Repository HEAD already contains the failure-aware retry and
+      claim rollback repair that covers this observed failure shape.
+    not_claimed: >-
+      This journal does not claim that Samuel's live session has loaded the new
+      runtime or passed a post-upgrade mention test; the active installation was
+      intentionally left unchanged for the user-managed update.
