@@ -1,0 +1,79 @@
+okf_version: "1.0"
+knowledge:
+  task:
+    id: mia-ollama-request-timeout-20260826
+    date: "2026-08-26"
+    objective: >-
+      Determine which timeout terminates Mia's routed local Ollama requests and
+      increase only the applicable workspace-scoped timeout.
+    status: complete
+
+  evidence:
+    host: mia@100.95.132.58
+    workspace: /home/mia
+    router_log: /home/mia/.config/ciel-runtime/router-instances/8802-9ab536464774/router.log
+    upstream:
+      provider: ollama
+      model: qwen3.8:27b
+      endpoint: http://10.0.0.146:11434/api/chat
+      context_length: 262144
+      observed_request_tokens:
+        - 174391
+        - 174455
+        - 174464
+        - 174473
+      connectivity_probe:
+        http_status: 200
+        connect_seconds: 0.005644
+        start_transfer_seconds: 0.015658
+    exact_timeout_observations:
+      - start: "2026-08-26T09:30:11"
+        failure: "2026-08-26T09:35:11"
+        elapsed_seconds: 300
+        error: "TimeoutError: timed out"
+      - start: "2026-08-26T12:35:05"
+        failure: "2026-08-26T12:40:05"
+        elapsed_seconds: 300
+        error: "TimeoutError: timed out"
+    variable_completion_observation:
+      start: "2026-08-26T12:42:08"
+      downstream_http_200: "2026-08-26T12:44:24"
+      elapsed_seconds: 136
+
+  code_boundary:
+    request_timeout: >-
+      ollama_forwarding.py passes request_timeout_ms through
+      ollama_request_timeout_seconds to provider_urlopen. A timeout before
+      provider_urlopen returns is the response-open/first-response wait.
+    stream_idle_timeout: >-
+      After provider_urlopen returns, upstream_stream_io.py installs
+      stream_idle_timeout_ms on the response socket and applies it to each
+      subsequent stream read.
+    conclusion: >-
+      The observed failures reached the 300-second request timeout before the
+      response stream opened. They are not evidence that the separate stream
+      idle timeout fired.
+
+  change:
+    scope: /home/mia workspace, ollama provider only
+    command: >-
+      cd /home/mia && ~/.npm-global/bin/ciel-runtimectl provider-options
+      ollama request_timeout_ms=900000
+    before:
+      request_timeout_ms: 300000
+      stream_idle_timeout_ms: 300000
+    after:
+      request_timeout_ms: 900000
+      stream_idle_timeout_ms: 300000
+    global_provider_defaults_changed: false
+    source_code_changed: false
+
+  verification:
+    config_path: /home/mia/.config/ciel-runtime/workspaces/9ab536464774/config.json
+    persisted_request_timeout_ms: 900000
+    persisted_stream_idle_timeout_ms: 300000
+    first_live_request_after_change:
+      timestamp: "2026-08-26T12:45:30"
+      router_log_timeout_seconds: 900.0
+      model: qwen3.8:27b
+      request_tokens: 178567

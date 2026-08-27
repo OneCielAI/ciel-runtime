@@ -245,6 +245,8 @@ class RoutedRecoveryIntegrationTests(unittest.TestCase):
             "ollama_model_metadata_model": "qwen3.8:27b",
             "ollama_model_capabilities": ["completion", "thinking"],
             "think": True,
+            "max_output_tokens": 4096,
+            "ollama_options": {"num_predict": 4096, "temperature": 0.7},
         }
 
         def collect(_handler, provider, retry_config, retry_body):
@@ -272,10 +274,54 @@ class RoutedRecoveryIntegrationTests(unittest.TestCase):
         _, retry_config, retry_body = calls[0]
         self.assertFalse(retry_config["think"])
         self.assertTrue(retry_config["think_explicit"])
+        self.assertEqual(8192, retry_config["max_output_tokens"])
+        self.assertEqual(8192, retry_config["ollama_options"]["num_predict"])
+        self.assertEqual(0.7, retry_config["ollama_options"]["temperature"])
         self.assertEqual({"type": "disabled"}, retry_body["thinking"])
+        self.assertEqual(
+            8192,
+            retry_body["metadata"]["ciel_runtime_recovery_output_tokens"],
+        )
         self.assertTrue(
             any("strategy=disable" in message for _, message in logs), logs
         )
+
+    def test_reasoning_budget_retry_expands_existing_body_output_caps(self):
+        config = {
+            "current_model": "qwen3.8:27b",
+            "ollama_model_metadata_model": "qwen3.8:27b",
+            "ollama_model_capabilities": ["completion", "thinking"],
+            "max_output_tokens": 8192,
+            "ollama_options": {"num_predict": 8192},
+        }
+        body = {**work_body(), "max_tokens": 4096, "max_output_tokens": 4096}
+
+        retry_config, retry_body, strategy = (
+            codex_turn_recovery.prepare_provider_reasoning_output_budget_retry(
+                "ollama",
+                config,
+                body,
+                adapter_for=ciel_runtime.configured_provider_adapter,
+                contract_for=ciel_runtime.provider_contract_config,
+                resolve_model=ciel_runtime.resolve_requested_model,
+                select_protocol=ciel_runtime.select_provider_protocol,
+            )
+        )
+
+        self.assertEqual("disable", strategy)
+        self.assertEqual(8192, retry_config["max_output_tokens"])
+        self.assertEqual(8192, retry_config["ollama_options"]["num_predict"])
+        self.assertEqual(8192, retry_body["max_tokens"])
+        self.assertEqual(8192, retry_body["max_output_tokens"])
+        wire = ciel_runtime.ollama_chat_request(
+            "qwen3.8:27b",
+            retry_body,
+            retry_config,
+            stream=False,
+            provider="ollama",
+        )
+        self.assertFalse(wire["think"])
+        self.assertEqual(8192, wire["options"]["num_predict"])
 
     def test_unsupported_provider_keeps_safe_prompt_only_retry(self):
         config, body, strategy = codex_turn_recovery.project_reasoning_output_budget_retry(

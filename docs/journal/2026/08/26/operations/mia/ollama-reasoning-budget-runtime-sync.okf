@@ -1,0 +1,160 @@
+okf_version: "1.0"
+knowledge:
+  task:
+    id: mia-ollama-reasoning-budget-runtime-sync-20260826
+    date: "2026-08-26"
+    objective: >-
+      Diagnose Mia's visible reasoning-output-budget notice and restore the
+      already-published bounded recovery without terminating the Codex session.
+    status: in_progress
+
+  correction:
+    prior_completion_invalid: true
+    reason: >-
+      Installed-module projection and router health did not prove that a real
+      multi-turn Mia request completed. The first live retry after that claim
+      still ended with the runtime empty-end-turn notice.
+
+  observed_turn:
+    workspace: /home/mia
+    provider: ollama
+    model: qwen3.8:27b
+    max_output_tokens: 4096
+    first_response:
+      timestamp: "2026-08-26T19:23:50"
+      router_event: ollama_reasoning_only_notice
+      retry_log_reason: reasoning_only
+    bounded_retry:
+      timestamp: "2026-08-26T19:23:50"
+      request_tokens: 30158
+      request_timeout_seconds: 900.0
+    second_response:
+      timestamp: "2026-08-26T19:25:05"
+      router_event: ollama_reasoning_only_notice
+      downstream_status: 200
+    visible_notice: >-
+      [ciel-runtime] Upstream model exhausted its output budget during reasoning
+      before producing text or a tool call. Retry or lower reasoning effort.
+
+  message_evidence:
+    source_rule: >-
+      protocols/ollama_chat.py emits the output-budget notice only when the
+      decoded Ollama done_reason equals length.
+    required_shape: >-
+      The response contained native thinking but no visible text and no tool
+      call. The Anthropic projection maps done_reason=length to max_tokens.
+    conclusion: >-
+      The notice accurately described the upstream response. The defect was
+      the stale running recovery implementation, not the wording condition.
+
+  root_cause:
+    npm_package:
+      version: 0.2.36-nightly.20260826-162805.3fa208a
+      path: /home/mia/.npm-global/lib/node_modules/@oneciel-ai/ciel-runtime
+      budget_classifier_present: true
+      provider_recovery_present: true
+    running_copy_before_repair:
+      version: 0.2.36-nightly.20260825-085507.11afdb5
+      path: /home/mia/.local/share/ciel-runtime
+      copied_at: "2026-08-25T08:56"
+      budget_classifier_present: false
+      health_source_fingerprint: 821d1680958a8dce
+    consequence: >-
+      The stale router recognized a reasoning-only response and retried once,
+      but could not classify reasoning_output_budget or disable thinking for
+      the retry.
+
+  repair:
+    package_source: /home/mia/.npm-global/lib/node_modules/@oneciel-ai/ciel-runtime
+    deployed_target: /home/mia/.local/share/ciel-runtime
+    router_port: 8802
+    old_router_pid: 3639417
+    new_router_pid: 3921314
+    codex_session_terminated: false
+    codex_processes_preserved:
+      - 3639454
+      - 3639461
+    note: >-
+      The first immediate restart attempts were rejected while port 8802 had
+      TIME-WAIT sockets. After the port became bindable, the router restarted
+      on the same port so the active Codex configuration remained valid.
+
+  verification:
+    health:
+      ok: true
+      version: 0.2.36-nightly.20260826-162805.3fa208a
+      source_fingerprint: 69947989a0f73756
+      active_client_count: 1
+    installed_module_execution:
+      classified_output_budget: true
+      selected_retry_strategy: disable
+      retry_think: false
+      retry_effort_level: none
+      retry_body_thinking:
+        type: disabled
+      retry_body_reasoning_effort: none
+    remaining_boundary: superseded by the live reproduction below
+
+  live_reproduction:
+    session_id: 01a03cf6-4f1d-76b1-8d25-94c658c572e3
+    router_port: 8800
+    started_at_utc: "2026-08-27T01:15:38Z"
+    main_request:
+      upstream_tokens_estimated: 38966
+      messages: 107
+      tools: 12
+      initial_think: true
+      initial_num_predict: 4096
+      first_recovery_result: one exec_command tool call
+    next_turn:
+      initial_think: true
+      output_budget_exhausted: true
+      recovery_think: false
+      recovery_num_predict: 4096
+      final_visible_result: empty_end_turn_notice
+      total_turn_duration: "5m37s"
+
+  direct_upstream_measurements:
+    request_source: upstream-20260827T011936-0008-body.json
+    invariant_fields:
+      prompt_eval_count: 46828
+      model: qwen3.8:27b
+      think: false
+    at_4096:
+      http_status: 200
+      eval_count: 4096
+      done_reason: length
+      content_chars: 0
+      thinking_chars: 0
+      tool_calls: 0
+    at_8192:
+      http_status: 200
+      elapsed_seconds: 105
+      eval_count: 6508
+      done_reason: stop
+      tool_call: apply_patch
+    conclusion: >-
+      The retry's 4096 output cap was itself exhausted. Disabling visible
+      thinking was insufficient; the bounded retry also required a larger
+      output budget.
+
+  code_change:
+    file: ciel_runtime_support/codex_turn_recovery.py
+    behavior:
+      - Double the proven-exhausted effective output cap with an 8192 minimum.
+      - Project Ollama num_predict as a transient per-request option.
+      - Preserve provider request-builder context caps.
+      - Do not accept Ciel runtime stall notices as successful recovery text.
+
+  local_verification:
+    full_test_suite:
+      passed: 2778
+      skipped: 136
+    installed_path: C:\Users\djlov\.local\share\ciel-runtime
+    installed_projection:
+      strategy: disable
+      think: false
+      num_predict: 8192
+      recovery_output_tokens: 8192
+    nightly_publish: pending
+    mia_installed_verification: pending

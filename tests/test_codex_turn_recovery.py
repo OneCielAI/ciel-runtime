@@ -372,6 +372,39 @@ class RecoverPreambleOnlyTurnTests(unittest.TestCase):
         self.assertEqual(original, recovered)
         self.assertEqual(1, len(calls))
 
+    def test_reasoning_budget_retry_does_not_accept_runtime_empty_notice(self):
+        calls = []
+        original = {
+            "role": "assistant",
+            "stop_reason": "max_tokens",
+            "content": [
+                {"type": "thinking", "thinking": "private reasoning"},
+                {
+                    "type": "text",
+                    "text": (
+                        "[ciel-runtime] Upstream model exhausted its output budget "
+                        "during reasoning before producing text or a tool call."
+                    ),
+                },
+            ],
+        }
+        retried = text_message(
+            "[ciel-runtime] Upstream model returned an empty end_turn with no text "
+            "or tool call. No work was performed; please retry or ask me to continue."
+        )
+
+        recovered = codex_turn_recovery.recover_preamble_only_turn(
+            None,
+            "ollama-cloud",
+            {},
+            work_request_body(),
+            original,
+            self._services(retried, calls),
+        )
+
+        self.assertEqual(original, recovered)
+        self.assertEqual(1, len(calls))
+
     def test_kimi_reasoning_only_turn_retries_once_and_accepts_tool_work(self):
         calls = []
         recovered = codex_turn_recovery.recover_preamble_only_turn(

@@ -55,6 +55,8 @@ RUNTIME_REPEATED_TOOL_NOTICE_PREFIX = (
 RUNTIME_CONTROL_MESSAGE_KEY = "ciel_runtime_control"
 RUNTIME_REPEATED_TOOL_RECOVERY = "repeated_tool_call_recovery"
 
+_REASONING_RECOVERY_MIN_OUTPUT_TOKENS = 8192
+
 KIMI_FOLLOWUP_PROMISE_RE = re.compile(
     r"(?:겠습니다|할게요|해볼게요|하겠습니다|"
     r"i(?:'|’)ll\b[^\n]*|i\s+will\b[^\n]*|let\s+me\b[^\n]*)[.!?。！？]?\s*$",
@@ -163,6 +165,66 @@ def project_reasoning_output_budget_retry(
     return recovery_config, projected, strategy
 
 
+def _positive_int(value: Any) -> int | None:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError, OverflowError):
+        return None
+    return parsed if parsed > 0 else None
+
+
+def _expand_reasoning_recovery_output_budget(
+    provider: str,
+    config: dict[str, Any],
+    body: dict[str, Any],
+) -> tuple[dict[str, Any], dict[str, Any], int | None]:
+    """Temporarily raise a proven-exhausted output cap for the retry.
+
+    A reasoning-only ``length`` result is direct evidence that the active cap
+    was consumed. Raise every cap participating in the provider request so a
+    lower stale field cannot silently keep the retry at the exhausted value.
+    The ordinary request builder still caps the result against available model
+    context.
+    """
+
+    candidates = [
+        _positive_int(config.get("max_output_tokens")),
+        _positive_int(body.get("max_tokens")),
+        _positive_int(body.get("max_output_tokens")),
+    ]
+    ollama_options = config.get("ollama_options")
+    if isinstance(ollama_options, dict):
+        candidates.append(_positive_int(ollama_options.get("num_predict")))
+    current = min((value for value in candidates if value is not None), default=None)
+    if current is None:
+        return config, body, None
+
+    target = max(_REASONING_RECOVERY_MIN_OUTPUT_TOKENS, current * 2)
+    expanded_config = dict(config)
+    expanded_body = dict(body)
+    expanded_config["max_output_tokens"] = target
+    if "max_tokens" in expanded_body:
+        expanded_body["max_tokens"] = target
+    if "max_output_tokens" in expanded_body:
+        expanded_body["max_output_tokens"] = target
+    if (
+        str(provider or "").strip().casefold() in {"ollama", "ollama-cloud"}
+        or isinstance(ollama_options, dict)
+    ):
+        projected_options = dict(ollama_options or {})
+        projected_options["num_predict"] = target
+        expanded_config["ollama_options"] = projected_options
+        transient_options = [
+            str(item)
+            for item in expanded_config.get("ollama_transient_options") or []
+            if str(item).strip()
+        ]
+        if "num_predict" not in transient_options:
+            transient_options.append("num_predict")
+        expanded_config["ollama_transient_options"] = transient_options
+    return expanded_config, expanded_body, target
+
+
 def prepare_provider_reasoning_output_budget_retry(
     provider: str,
     pcfg: dict[str, Any],
@@ -182,7 +244,24 @@ def prepare_provider_reasoning_output_budget_retry(
     strategy, effort = adapter.reasoning_output_recovery(
         contract, model, protocol, body
     )
-    return project_reasoning_output_budget_retry(pcfg, body, strategy, effort)
+    recovery_config, projected, projected_strategy = (
+        project_reasoning_output_budget_retry(pcfg, body, strategy, effort)
+    )
+    recovery_config, projected, output_tokens = (
+        _expand_reasoning_recovery_output_budget(
+            provider, recovery_config, projected
+        )
+    )
+    if output_tokens is not None:
+        projected_metadata = projected.get("metadata")
+        projected_metadata = (
+            dict(projected_metadata)
+            if isinstance(projected_metadata, dict)
+            else {}
+        )
+        projected_metadata["ciel_runtime_recovery_output_tokens"] = output_tokens
+        projected["metadata"] = projected_metadata
+    return recovery_config, projected, projected_strategy
 
 
 def message_has_only_empty_end_turn_notice(message: dict[str, Any]) -> bool:
@@ -212,6 +291,16 @@ def message_has_only_repeated_tool_notice(message: dict[str, Any]) -> bool:
     ]
     return bool(texts) and all(
         text.startswith(RUNTIME_REPEATED_TOOL_NOTICE_PREFIX) for text in texts
+    )
+
+
+def message_has_only_runtime_stall_notice(message: dict[str, Any]) -> bool:
+    """Return whether visible text contains only Ciel's own stall notices."""
+
+    return (
+        message_has_only_reasoning_notice(message)
+        or message_has_only_empty_end_turn_notice(message)
+        or message_has_only_repeated_tool_notice(message)
     )
 
 
@@ -437,7 +526,7 @@ def recover_preamble_only_turn(
         return message
     if empty_end_turn or reasoning_only or repeated_tool_guard:
         if (
-            message_has_only_repeated_tool_notice(retried)
+            message_has_only_runtime_stall_notice(retried)
             or (not message_has_tool_use(retried) and not message_text(retried).strip())
         ):
             return message
@@ -476,6 +565,7 @@ __all__ = [
     "message_has_only_reasoning_notice",
     "message_has_only_empty_end_turn_notice",
     "message_has_only_repeated_tool_notice",
+    "message_has_only_runtime_stall_notice",
     "kimi_message_promises_followup",
     "message_without_empty_end_turn_notice",
     "message_without_repeated_tool_notice",
