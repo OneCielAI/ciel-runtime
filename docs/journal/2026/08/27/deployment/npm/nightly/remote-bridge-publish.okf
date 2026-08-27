@@ -1,0 +1,68 @@
+okf:
+  version: "1.0"
+  kind: deployment-journal
+  task:
+    id: remote-bridge-nightly-publish-20260827
+    title: Publish the remote LLM bridge as an npm nightly
+    status: complete
+    requested_actions:
+      - push the verified feature commit to the nightly branch
+      - report the npm nightly installation command
+
+  source:
+    branch: feature/remote-runtime-bridge
+    commit: ea4a266c55eea332c05edd927a92c3bb04117bf1
+    package: "@oneciel-ai/ciel-runtime"
+    base_version: 0.2.36
+    origin_nightly_before: bf419ceb6e571aa1645defd0062ec10ea48a6d98
+    fast_forward_verified: true
+    commits_advanced: 2
+
+  deployment:
+    command: git push origin HEAD:nightly
+    origin_nightly_after: ea4a266c55eea332c05edd927a92c3bb04117bf1
+    forced_update: false
+    publish_workflow:
+      run_id: 33090640163
+      result: success
+      completed_at_utc: 2026-08-27T15:59:55Z
+      url: https://github.com/OneCielAI/ciel-runtime/actions/runs/33090640163
+      npm_test: passed
+      npm_publish: passed
+      published_tarball_verification: passed
+    ci_workflow:
+      run_id: 33090640160
+      result: success
+      completed_at_utc: 2026-08-27T15:59:26Z
+      url: https://github.com/OneCielAI/ciel-runtime/actions/runs/33090640160
+
+  registry:
+    dist_tag: nightly
+    version: 0.2.36-nightly.20260827-155946.ea4a266
+    git_head: ea4a266c55eea332c05edd927a92c3bb04117bf1
+    tarball_dry_run:
+      result: passed
+      entry_count: 488
+      package_size_bytes: 1624601
+      unpacked_size_bytes: 5671386
+    isolated_cli_smoke:
+      command: >-
+        npm exec --yes
+        --package=@oneciel-ai/ciel-runtime@0.2.36-nightly.20260827-155946.ea4a266
+        -- ciel-runtime --version
+      exit_code: 0
+      output: ciel-runtime 0.2.36-nightly.20260827-155946.ea4a266
+
+  installation:
+    rolling_nightly: npm install -g @oneciel-ai/ciel-runtime@nightly
+    exact_version: >-
+      npm install -g
+      @oneciel-ai/ciel-runtime@0.2.36-nightly.20260827-155946.ea4a266
+    standalone_npm_run_nightly_script_present: false
+    existing_runtime_restart_required_to_load_new_code: true
+
+  evidence:
+    registry_version_matches_expected: true
+    registry_git_head_matches_origin_nightly: true
+    published_package_executes: true
+    worktree_was_clean_before_push: true

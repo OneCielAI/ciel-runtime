@@ -1,0 +1,107 @@
+okf:
+  version: "1.0"
+  kind: diagnostic-journal
+  task:
+    id: windows-console-mouse-escape-input-20260827
+    title: Classify escape text emitted by mouse clicks in a Windows 11 console
+    status: evidence-limited
+
+  reported_observation:
+    platform: Windows 11
+    shell_description: DOS console
+    visible_text: "[20~ like marker"
+    exact_bytes_available: false
+    click_button_available: false
+    terminal_host_available: false
+    installed_ciel_runtime_version_available: false
+
+  confirmed_windows_input_boundaries:
+    legacy_console:
+      transport: Win32 console input records
+      ciel_behavior:
+        - resolve and validate STD_INPUT_HANDLE or CONIN$
+        - clear ENABLE_MOUSE_INPUT while the compatibility proxy is active
+        - restore the original console mode on exit
+    conpty:
+      default_on_supported_windows: true
+      transport: UTF-8 VT byte stream through the pseudo-console pipes
+      ciel_behavior:
+        - clear processed, line, echo, window, and Win32 mouse input bits
+        - enable ENABLE_VIRTUAL_TERMINAL_INPUT
+        - reset DEC mouse, focus, and bracketed-paste modes on close
+    terminal_mouse_filter:
+      strips:
+        - SGR mouse reports
+        - X10 mouse reports
+        - numeric urxvt mouse reports
+      preserves:
+        - bracketed-paste markers
+        - function-key sequences
+
+  sequence_classification:
+    sgr_mouse:
+      wire_shape: "ESC [ < button ; x ; y M or m"
+      meaning: mouse press or release
+    bracketed_paste:
+      begin: "ESC [ 200 ~"
+      end: "ESC [ 201 ~"
+      meaning: pasted-content boundaries, not mouse coordinates
+    exact_esc_20_tilde:
+      wire_shape: "ESC [ 20 ~"
+      meaning: F9 according to the Microsoft VT input table
+
+  source_observation:
+    conpty_user_input_filter_before_forwarding: false
+    reason_not_classified_as_bug_without_capture: >-
+      ConPTY is designed to forward VT input to the child TUI. Removing all
+      mouse reports would also remove intentional TUI mouse interaction. The
+      reported abbreviated text does not distinguish SGR mouse, bracketed
+      paste, or a function-key sequence.
+
+  confirmed_defense_gaps:
+    fallback_terminal_reset_default_on_windows: false
+    reset_includes_x10_private_mode_9_disable: false
+    conpty_setup_before_main_cleanup_finally: true
+    causal_link_to_reported_machine_confirmed: false
+    notes:
+      - >-
+        The fallback guard clears the Win32 ENABLE_MOUSE_INPUT bit, but that
+        bit cannot clear an emulator-owned DEC mouse mode that was already
+        enabled.
+      - >-
+        A hard process termination cannot execute the normal ConPTY close
+        cleanup.
+
+  verification:
+    windows_console_mode_tests: 4 passed
+    windows_conpty_tests: 19 passed
+    terminal_platform_io_tests: 6 passed
+    channel_bridge_tests: 208 run, 80 skipped, 0 failed
+    filter_probe:
+      sgr_mouse_removed: true
+      numeric_mouse_removed: true
+      esc_200_tilde_preserved: true
+      esc_20_tilde_preserved: true
+
+  conclusion:
+    windows_specific_handling_exists: true
+    root_cause_confirmed: false
+    if_exact_200_and_right_click: >-
+      The observation is consistent with right-click paste and an unconsumed
+      bracketed-paste marker, but this remains conditional on the missing raw
+      sequence and click-button evidence.
+    if_all_clicks: >-
+      Capture the complete input bytes and terminal host before assigning a
+      cause; the current report is insufficient.
+
+  official_sources:
+    set_console_mode: https://learn.microsoft.com/en-us/windows/console/setconsolemode
+    create_pseudo_console: https://learn.microsoft.com/en-us/windows/console/createpseudoconsole
+    microsoft_terminal_sgr_mouse: >-
+      https://github.com/microsoft/terminal/blob/main/src/terminal/input/mouseInput.cpp#L468-L473
+    microsoft_terminal_bracketed_paste: >-
+      https://github.com/microsoft/terminal/blob/main/src/interactivity/win32/Clipboard.cpp#L248-L313
+    windows_terminal_mouse_interaction: >-
+      https://learn.microsoft.com/en-us/windows/terminal/tips-and-tricks#mouse-interaction
+    windows_vt_function_keys: >-
+      https://learn.microsoft.com/en-us/windows/console/console-virtual-terminal-sequences#numpad--function-keys
