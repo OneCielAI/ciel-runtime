@@ -75,7 +75,8 @@ okf:
   implementation_followup:
     journal: >-
       ../../../implementation/windows/console/mouse-input-neutralization.okf
-    status: locally-verified
+    status: published-nightly
+    nightly_version: 0.2.36-nightly.20260827-184757.83a03be
     resolved_defense_gaps:
       - Windows fallback uses a capability-gated WriteConsoleW reset by default
       - reset sequence covers DEC modes 9, 1001, and 1016

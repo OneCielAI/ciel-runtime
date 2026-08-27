@@ -4,7 +4,7 @@ okf:
   task:
     id: windows-console-mouse-input-neutralization-20260827
     title: Neutralize stale Windows terminal mouse modes without consuming keyboard VT input
-    status: verified-awaiting-publish
+    status: complete
     objective: >-
       Do not implement a Windows mouse feature for the routed CLI. Disable
       Win32 mouse records on the compatibility transport, clear stale
@@ -15,6 +15,9 @@ okf:
     branch: feature/remote-runtime-bridge
     starting_head: 1be19c92fb212ee759e3932f6b67470b9f7bb9a0
     target_remote_branch: nightly
+    implementation_commit: 83a03be0ad03ca05e496674b83f04e225f6be179
+    feature_branch_pushed: true
+    nightly_branch_head: 83a03be0ad03ca05e496674b83f04e225f6be179
 
   reported_observation:
     platform: Windows 11
@@ -161,6 +164,28 @@ okf:
       channel: "390 passed, 80 skipped"
       runtime: "258 passed, 12 skipped"
       total: "3032 passed, 136 skipped, 0 failed"
+    github_actions:
+      ci:
+        run_id: 33105046026
+        conclusion: success
+        url: https://github.com/OneCielAI/ciel-runtime/actions/runs/33105046026
+      publish:
+        run_id: 33105045996
+        conclusion: success
+        url: https://github.com/OneCielAI/ciel-runtime/actions/runs/33105045996
+    npm_nightly:
+      dist_tag: nightly
+      version: 0.2.36-nightly.20260827-184757.83a03be
+      git_head: 83a03be0ad03ca05e496674b83f04e225f6be179
+      tarball: >-
+        https://registry.npmjs.org/@oneciel-ai/ciel-runtime/-/ciel-runtime-0.2.36-nightly.20260827-184757.83a03be.tgz
+      isolated_exec:
+        command: >-
+          npm exec --yes
+          --package=@oneciel-ai/ciel-runtime@0.2.36-nightly.20260827-184757.83a03be
+          -- ciel-runtime --version
+        output: "ciel-runtime 0.2.36-nightly.20260827-184757.83a03be"
+        exit_code: 0
     visual_evidence:
       screenshot_collected: false
       reason: >-
