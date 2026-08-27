@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable
 
+from ..remote_bridge import REMOTE_BRIDGE_CONFIG_MARKER
+
 
 @dataclass(frozen=True, slots=True)
 class OllamaResponseText:
@@ -61,6 +63,10 @@ def project_ollama_response(
     source_body: dict[str, Any] | None,
     services: OllamaResponseServices,
 ) -> dict[str, Any]:
+    remote_bridge = bool(
+        isinstance(source_body, dict)
+        and source_body.get(REMOTE_BRIDGE_CONFIG_MARKER)
+    )
     decoded = services.text.decode(data)
     content: list[dict[str, Any]] = []
     thinking_block = services.text.thinking_to_block(decoded.thinking)
@@ -99,11 +105,20 @@ def project_ollama_response(
         )
         content.append({"type": "text", "text": text})
     recovered = None
-    if thinking_block is None and not repeated_completed_tool_dropped[0]:
+    if (
+        not remote_bridge
+        and thinking_block is None
+        and not repeated_completed_tool_dropped[0]
+    ):
         recovered = _recover_response(model, source_body, text, emitted, content, tool_id_prefix, services)
     if recovered is not None:
         return recovered
-    if source_body is not None and not text.strip() and not emitted:
+    if (
+        not remote_bridge
+        and source_body is not None
+        and not text.strip()
+        and not emitted
+    ):
         text = (
             services.text.reasoning_only_notice(decoded.done_reason)
             if thinking_block is not None
@@ -233,30 +248,49 @@ def _project_tool_call(
         return None
     raw_name = str(function["name"])
     name = services.tools.resolve_name(raw_name, source_body)
+    emitted_name = name
     raw_arguments = function.get("arguments")
     normalized = services.tools.normalize_arguments(name, raw_arguments)
-    tool_input = services.tools.validate_input(name, normalized)
-    if source_body is not None:
+    remote_bridge = bool(
+        isinstance(source_body, dict)
+        and source_body.get(REMOTE_BRIDGE_CONFIG_MARKER)
+    )
+    tool_input = (
+        normalized
+        if remote_bridge
+        else services.tools.validate_input(name, normalized, source_body)
+    )
+    if source_body is not None and not remote_bridge:
         name, tool_input = services.tools.plan_mode_name(source_body, name, tool_input)
         if name is None:
             return None
-    tool_input = services.tools.cap_notification_wait(name, tool_input)
-    if services.tools.should_drop(name, tool_input, raw_name, source_body):
-        return None
-    if services.tools.should_drop_duplicate(name, tool_input, raw_name, source_body):
-        repeated_completed_tool_dropped[0] = True
-        return None
-    services.tools.append_log(
-        "ollama_nonstream_tool_call",
-        {
-            "model": model,
-            "raw_name": raw_name,
-            "matched_name": name,
-            "raw_arguments": raw_arguments,
-            "normalized_arguments": normalized,
-            "emitted_input": tool_input,
-        },
-    )
+    if not remote_bridge:
+        tool_input = services.tools.cap_notification_wait(name, tool_input)
+        supplied_input = normalized if name == emitted_name else None
+        if services.tools.should_drop(
+            name,
+            tool_input,
+            raw_name,
+            source_body,
+            supplied_input,
+        ):
+            return None
+        if services.tools.should_drop_duplicate(
+            name, tool_input, raw_name, source_body
+        ):
+            repeated_completed_tool_dropped[0] = True
+            return None
+        services.tools.append_log(
+            "ollama_nonstream_tool_call",
+            {
+                "model": model,
+                "raw_name": raw_name,
+                "matched_name": name,
+                "raw_arguments": raw_arguments,
+                "normalized_arguments": normalized,
+                "emitted_input": tool_input,
+            },
+        )
     return {"type": "tool_use", "id": f"{id_prefix}_{index}", "name": name, "input": tool_input}
 
 

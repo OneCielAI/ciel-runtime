@@ -86,7 +86,19 @@ class AnthropicResponseWriter:
             "message_start",
             {
                 "type": "message_start",
-                "message": {**message, "content": [], "stop_reason": None},
+                "message": {
+                    **message,
+                    "content": [],
+                    "stop_reason": None,
+                    "usage": {
+                        **(
+                            message.get("usage")
+                            if isinstance(message.get("usage"), dict)
+                            else {}
+                        ),
+                        "output_tokens": 0,
+                    },
+                },
             },
         )
         self.blocks(handler, message.get("content") or [], flush=False)

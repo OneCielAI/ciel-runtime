@@ -8,6 +8,15 @@ from typing import Any
 
 from ciel_runtime_support.architecture import MessageProtocol, ProviderRequestPolicy
 from ciel_runtime_support.header_forwarding import project_end_to_end_request_headers
+from ciel_runtime_support.remote_bridge import (
+    REMOTE_BRIDGE_CONFIG_MARKER,
+    REQUEST_API_KEY_MARKER,
+)
+
+
+_HOST_CREDENTIAL_SCOPE_HEADERS = frozenset(
+    {"openai-organization", "openai-project"}
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,12 +94,20 @@ class ProviderRequestAccessService:
             and inbound_headers is not None
         )
         if passthrough:
-            headers = self.effects.user_agent_headers(
-                project_end_to_end_request_headers(
-                    inbound_headers,
-                    replace_credentials=True,
-                )
+            projected_headers = project_end_to_end_request_headers(
+                inbound_headers,
+                replace_credentials=True,
             )
+            if (
+                config.get(REMOTE_BRIDGE_CONFIG_MARKER) is True
+                and config.get(REQUEST_API_KEY_MARKER) is not True
+            ):
+                projected_headers = {
+                    name: value
+                    for name, value in projected_headers.items()
+                    if str(name).casefold() not in _HOST_CREDENTIAL_SCOPE_HEADERS
+                }
+            headers = self.effects.user_agent_headers(projected_headers)
         else:
             headers = self.effects.user_agent_headers(
                 {

@@ -83,6 +83,15 @@ class CliParserTests(unittest.TestCase):
             ["issue", "name=auditor", "scopes=read,stream"], key.values
         )
 
+    def test_remote_bridge_command_supports_serve_host(self):
+        args = ciel_runtime.build_parser().parse_args(
+            ["bridge", "serve", "--host", "0.0.0.0"]
+        )
+
+        self.assertEqual("serve", args.action)
+        self.assertEqual("0.0.0.0", args.host)
+        self.assertIs(ciel_runtime.cmd_remote_bridge, args.func)
+
 
 if __name__ == "__main__":
     unittest.main()

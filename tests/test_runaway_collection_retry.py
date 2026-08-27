@@ -5,6 +5,7 @@ import os
 import ssl
 import unittest
 from http.client import IncompleteRead
+from types import SimpleNamespace
 from unittest import mock
 
 from ciel_runtime_support.ollama_stream_collection import collect_ollama_chat_stream
@@ -12,6 +13,10 @@ from ciel_runtime_support.ollama_thinking import INTERNAL_REASONING_EFFORT_KEY
 from ciel_runtime_support.response_collection_context import (
     ResponseCollectionContext,
     ResponseCollectionStreamPorts,
+)
+from ciel_runtime_support.remote_bridge import (
+    REMOTE_BRIDGE_CONFIG_MARKER,
+    REMOTE_BRIDGE_CONTEXT_ATTRIBUTE,
 )
 from ciel_runtime_support.runaway_output_guard import NOTICE_MARKER
 from ciel_runtime_support.sse_stream_collection import UpstreamSseError
@@ -50,6 +55,57 @@ class CountingStream:
 
 
 class OllamaStreamCollectionTests(unittest.TestCase):
+    def test_strict_mode_rejects_clean_eof_before_done(self):
+        with self.assertRaisesRegex(RuntimeError, "done=true"):
+            collect_ollama_chat_stream(
+                ndjson({"message": {"content": "partial"}, "done": False}),
+                strict=True,
+            )
+
+    def test_strict_mode_rejects_malformed_json(self):
+        with self.assertRaisesRegex(RuntimeError, "malformed JSON"):
+            collect_ollama_chat_stream([b"{broken\n"], strict=True)
+
+    def test_strict_mode_accepts_done_true(self):
+        collected = collect_ollama_chat_stream(
+            ndjson({"message": {"content": "ok"}, "done": True}),
+            strict=True,
+        )
+
+        self.assertEqual("ok", collected.response["message"]["content"])
+
+    def test_strict_mode_rejects_done_without_a_message(self):
+        with self.assertRaisesRegex(RuntimeError, "no message"):
+            collect_ollama_chat_stream(ndjson({"done": True}), strict=True)
+
+    def test_strict_mode_rejects_malformed_tool_arguments(self):
+        with self.assertRaisesRegex(RuntimeError, "malformed arguments"):
+            collect_ollama_chat_stream(
+                ndjson(
+                    {
+                        "message": {
+                            "tool_calls": [
+                                {
+                                    "function": {
+                                        "name": "delete_file",
+                                        "arguments": '{"path":',
+                                    }
+                                }
+                            ]
+                        },
+                        "done": True,
+                    }
+                ),
+                strict=True,
+            )
+
+    def test_strict_mode_rejects_invalid_utf8(self):
+        with self.assertRaisesRegex(RuntimeError, "invalid UTF-8"):
+            collect_ollama_chat_stream(
+                [b'{"done":true,"message":{}}' + bytes([0xFF]) + b"\n"],
+                strict=True,
+            )
+
     def test_loop_is_cut_off_mid_generation(self):
         stream = CountingStream(loop_lines())
 
@@ -141,6 +197,26 @@ class OpenedStreamCollectorTests(unittest.TestCase):
 
         self.assertEqual([], logs)
 
+    def test_remote_bridge_collector_enables_strict_parsing(self):
+        stream = CountingStream([])
+        parse = mock.Mock(
+            return_value=SimpleNamespace(response={"ok": True}, verdict=None, chunks=0)
+        )
+        collect = self.context(stream, []).opened_stream_collector(parse, "test")
+
+        response = collect(
+            "url",
+            {},
+            {},
+            30.0,
+            "provider",
+            {REMOTE_BRIDGE_CONFIG_MARKER: True},
+            "model",
+        )
+
+        self.assertEqual({"ok": True}, response)
+        self.assertTrue(parse.call_args.kwargs["strict"])
+
     def test_the_transport_escape_hatch_falls_back_to_the_blocking_post(self):
         context = self.context(CountingStream([]), [])
 
@@ -150,6 +226,14 @@ class OpenedStreamCollectorTests(unittest.TestCase):
                 context.opened_stream_collector(collect_ollama_chat_stream, "ollama")
             )
             self.assertIsNone(context.anthropic_stream_collector())
+            self.assertIsNotNone(
+                context.opened_stream_collector(
+                    collect_ollama_chat_stream,
+                    "ollama",
+                    force=True,
+                )
+            )
+            self.assertIsNotNone(context.anthropic_stream_collector(force=True))
 
     def test_no_open_stream_port_means_no_streaming(self):
         context = ResponseCollectionContext(
@@ -204,6 +288,48 @@ class OpenedStreamCollectorTests(unittest.TestCase):
         self.assertEqual([2.0, 4.0], waits)
         self.assertTrue(all(stream.closed for stream in streams))
         self.assertIn("attempt=2/10", logs[-1][1])
+
+    def test_remote_kimi_capacity_error_is_never_replayed(self):
+        stream = CountingStream([])
+        calls = []
+        context = ResponseCollectionContext(
+            shared=None,
+            anthropic=None,
+            strategies=None,
+            routing=None,
+            stream=ResponseCollectionStreamPorts(
+                open_stream=lambda *_args, **_kwargs: calls.append(True) or stream,
+            ),
+        )
+
+        def rejected(_response, _policy, *, strict=False):
+            self.assertTrue(strict)
+            raise UpstreamSseError(
+                "internal_server_error",
+                "We're currently experiencing high demand.",
+            )
+
+        collect = context.opened_stream_collector(rejected, "openai_chat")
+        with mock.patch(
+            "ciel_runtime_support.response_collection_context.time.sleep"
+        ) as sleep:
+            with self.assertRaises(UpstreamSseError):
+                collect(
+                    "url",
+                    {},
+                    {},
+                    30.0,
+                    "kimi",
+                    {
+                        "gateway_retries": 10,
+                        REMOTE_BRIDGE_CONFIG_MARKER: True,
+                    },
+                    "k3",
+                )
+
+        self.assertEqual(1, len(calls))
+        self.assertTrue(stream.closed)
+        sleep.assert_not_called()
 
     def test_kimi_capacity_error_after_output_is_not_retried(self):
         stream = CountingStream([])
@@ -392,6 +518,39 @@ class OpenedStreamCollectorTests(unittest.TestCase):
         self.assertIn("openai_chat_stream_truncated_retry", logs[0][1])
         self.assertIn("bytes=16", logs[0][1])
 
+    def test_remote_non_kimi_truncated_stream_is_never_replayed(self):
+        stream = CountingStream([])
+        calls = []
+        context = ResponseCollectionContext(
+            shared=None,
+            anthropic=None,
+            strategies=None,
+            routing=None,
+            stream=ResponseCollectionStreamPorts(
+                open_stream=lambda *_args, **_kwargs: calls.append(True) or stream,
+            ),
+        )
+
+        def truncated(_response, _policy, *, strict=False):
+            self.assertTrue(strict)
+            raise IncompleteRead(b"partial-response")
+
+        collect = context.opened_stream_collector(truncated, "openai_chat")
+        with self.assertRaises(UpstreamStreamReadError) as caught:
+            collect(
+                "url",
+                {},
+                {},
+                30.0,
+                "alitoken",
+                {REMOTE_BRIDGE_CONFIG_MARKER: True},
+                "qwen3.8-max",
+            )
+
+        self.assertEqual(1, len(calls))
+        self.assertEqual(1, caught.exception.attempts)
+        self.assertTrue(stream.closed)
+
     def test_non_kimi_truncated_stream_stops_after_one_retry(self):
         streams = [CountingStream([]), CountingStream([])]
         calls = []
@@ -536,6 +695,45 @@ class CollectionRetryTests(unittest.TestCase):
 
         self.assertIs(expected, message)
         self.assertEqual(1, len(seen))
+
+    def test_remote_bridge_collection_bypasses_host_runaway_retries(self):
+        expected = looping_message()
+        routing = SimpleNamespace(
+            resolve_model=lambda *_args: "remote-model",
+            select_protocol=lambda *_args: "ollama_chat",
+            provider_labels={},
+        )
+        context = ResponseCollectionContext(
+            shared=None,
+            anthropic=None,
+            strategies=None,
+            routing=routing,
+        )
+        handler = SimpleNamespace()
+        setattr(handler, REMOTE_BRIDGE_CONTEXT_ATTRIBUTE, True)
+
+        with (
+            mock.patch.object(
+                ResponseCollectionContext,
+                "collect_ollama",
+                return_value=expected,
+            ) as collect_ollama,
+            mock.patch.object(
+                ResponseCollectionContext,
+                "collect_without_runaway",
+                side_effect=AssertionError("remote request entered host retry policy"),
+            ) as guarded,
+        ):
+            message = context.collect(
+                handler,
+                "ollama-cloud",
+                {},
+                {"model": "remote-model", "messages": []},
+            )
+
+        self.assertIs(expected, message)
+        collect_ollama.assert_called_once()
+        guarded.assert_not_called()
 
 
 if __name__ == "__main__":

@@ -43,25 +43,82 @@ class UpstreamSseError(RuntimeError):
         super().__init__(self.message)
 
 
+def _parse_sse_data(
+    parts: list[str], *, strict: bool
+) -> tuple[str, dict[str, Any] | None] | None:
+    body = "\n".join(parts)
+    if not body:
+        return None
+    if body.strip() == "[DONE]":
+        return "done", None
+    try:
+        payload = json.loads(body)
+    except ValueError as exc:
+        if strict:
+            raise UpstreamSseError(
+                "invalid_stream",
+                "upstream SSE contained malformed JSON",
+            ) from exc
+        return None
+    if isinstance(payload, dict):
+        return "payload", payload
+    if strict:
+        raise UpstreamSseError(
+            "invalid_stream",
+            "upstream SSE data must contain a JSON object",
+        )
+    return None
+
+
+def _iter_sse_records(
+    lines: Iterable[Any], *, strict: bool
+) -> Iterable[tuple[str, dict[str, Any] | None]]:
+    pending: list[str] = []
+    for raw in lines:
+        if isinstance(raw, (bytes, bytearray)):
+            try:
+                decoded = raw.decode(
+                    "utf-8", errors="strict" if strict else "ignore"
+                )
+            except UnicodeDecodeError as exc:
+                raise UpstreamSseError(
+                    "invalid_stream",
+                    "upstream SSE contained invalid UTF-8",
+                ) from exc
+        else:
+            decoded = str(raw)
+        physical_lines = decoded.splitlines() or [""]
+        for line in physical_lines:
+            if not line:
+                record = _parse_sse_data(pending, strict=strict)
+                pending.clear()
+                if record is not None:
+                    yield record
+                continue
+            field, separator, value = line.partition(":")
+            if field != "data":
+                continue
+            if separator and value.startswith(" "):
+                value = value[1:]
+            if pending:
+                # A few compatible APIs omit the SSE blank separator. Preserve
+                # that established single-line framing while still joining a
+                # standards-compliant multi-line data event until its blank line.
+                previous = _parse_sse_data(pending, strict=False)
+                if previous is not None:
+                    yield previous
+                    pending.clear()
+            pending.append(value)
+    record = _parse_sse_data(pending, strict=strict)
+    if record is not None:
+        yield record
+
+
 def iter_sse_payloads(lines: Iterable[Any]) -> Iterable[dict[str, Any]]:
     """Yield decoded ``data:`` payloads, ignoring framing and keepalives."""
 
-    for raw in lines:
-        line = (
-            raw.decode("utf-8", errors="ignore")
-            if isinstance(raw, (bytes, bytearray))
-            else str(raw)
-        ).strip()
-        if not line or not line.startswith("data:"):
-            continue
-        body = line[5:].strip()
-        if not body or body == "[DONE]":
-            continue
-        try:
-            payload = json.loads(body)
-        except ValueError:
-            continue
-        if isinstance(payload, dict):
+    for kind, payload in _iter_sse_records(lines, strict=False):
+        if kind == "payload" and payload is not None:
             yield payload
 
 
@@ -73,7 +130,10 @@ class _ToolFragment:
 
 
 def collect_openai_chat_stream(
-    lines: Iterable[Any], policy: RunawayOutputPolicy | None = None
+    lines: Iterable[Any],
+    policy: RunawayOutputPolicy | None = None,
+    *,
+    strict: bool = False,
 ) -> SseStreamCollection:
     """Merge OpenAI chat-completion chunks into one non-streaming response."""
 
@@ -87,7 +147,13 @@ def collect_openai_chat_stream(
     usage: dict[str, Any] = {}
     envelope: dict[str, Any] = {}
     chunks = 0
-    for payload in iter_sse_payloads(lines):
+    terminal_received = False
+    choice_received = False
+    for kind, payload in _iter_sse_records(lines, strict=strict):
+        if kind == "done":
+            terminal_received = True
+            break
+        assert payload is not None
         chunks += 1
         error = payload.get("error")
         if error is None and str(payload.get("type") or "") == "response.failed":
@@ -116,8 +182,11 @@ def collect_openai_chat_stream(
             usage = payload["usage"]
         choices = payload.get("choices")
         choice = choices[0] if isinstance(choices, list) and choices and isinstance(choices[0], dict) else {}
+        if choice:
+            choice_received = True
         if choice.get("finish_reason"):
             finish_reason = str(choice["finish_reason"])
+            terminal_received = True
         delta = choice.get("delta") if isinstance(choice.get("delta"), dict) else {}
         reasoning_chunk = str(delta.get("reasoning_content") or "")
         if reasoning_chunk:
@@ -144,6 +213,46 @@ def collect_openai_chat_stream(
                 fragment.arguments += str(function["arguments"])
         if verdict is not None:
             break
+    if strict and verdict is None and not terminal_received:
+        raise UpstreamSseError(
+            "incomplete_stream",
+            "upstream OpenAI Chat stream ended before a terminal event",
+            output_started=bool(content or reasoning or fragments),
+        )
+    if strict and verdict is None and not choice_received:
+        raise UpstreamSseError(
+            "invalid_stream",
+            "upstream OpenAI Chat stream contained no choice",
+            output_started=bool(content or reasoning or fragments),
+        )
+    if strict and verdict is None:
+        for index, fragment in fragments.items():
+            if not fragment.call_id or not fragment.name:
+                raise UpstreamSseError(
+                    "invalid_stream",
+                    f"upstream Chat tool call {index} requires id and function name",
+                    output_started=True,
+                )
+            try:
+                arguments = json.loads(fragment.arguments)
+            except ValueError as exc:
+                raise UpstreamSseError(
+                    "invalid_stream",
+                    f"upstream Chat tool call {index} contained malformed arguments",
+                    output_started=True,
+                ) from exc
+            if not isinstance(arguments, dict):
+                raise UpstreamSseError(
+                    "invalid_stream",
+                    f"upstream Chat tool call {index} arguments must be a JSON object",
+                    output_started=True,
+                )
+        if bool(fragments) != (finish_reason == "tool_calls"):
+            raise UpstreamSseError(
+                "invalid_stream",
+                "upstream Chat finish_reason is inconsistent with tool calls",
+                output_started=bool(content or reasoning or fragments),
+            )
     message: dict[str, Any] = {"role": "assistant", "content": "".join(content)}
     if reasoning:
         message["reasoning_content"] = "".join(reasoning)
@@ -173,7 +282,7 @@ class _ContentBlock:
     signature: str = ""
     partial_json: str = ""
 
-    def finish(self) -> dict[str, Any]:
+    def finish(self, *, strict: bool = False) -> dict[str, Any]:
         block = dict(self.block)
         kind = str(block.get("type") or "")
         if kind == "text":
@@ -182,17 +291,37 @@ class _ContentBlock:
             block["thinking"] = str(block.get("thinking") or "") + "".join(self.thinking)
             if self.signature:
                 block["signature"] = self.signature
-        elif kind == "tool_use" and self.partial_json:
-            try:
-                parsed = json.loads(self.partial_json)
-            except ValueError:
-                parsed = None
+        elif kind == "tool_use":
+            parsed = block.get("input")
+            if self.partial_json:
+                try:
+                    parsed = json.loads(self.partial_json)
+                except ValueError as exc:
+                    if strict:
+                        raise UpstreamSseError(
+                            "invalid_stream",
+                            "upstream Anthropic tool input contained malformed JSON",
+                            output_started=True,
+                        ) from exc
+            if strict and (
+                not str(block.get("id") or "").strip()
+                or not str(block.get("name") or "").strip()
+                or not isinstance(parsed, dict)
+            ):
+                raise UpstreamSseError(
+                    "invalid_stream",
+                    "upstream Anthropic tool call requires id, name, and object input",
+                    output_started=True,
+                )
             block["input"] = parsed if isinstance(parsed, dict) else block.get("input") or {}
         return block
 
 
 def collect_anthropic_message_stream(
-    lines: Iterable[Any], policy: RunawayOutputPolicy | None = None
+    lines: Iterable[Any],
+    policy: RunawayOutputPolicy | None = None,
+    *,
+    strict: bool = False,
 ) -> SseStreamCollection:
     """Merge Anthropic Messages SSE events into one non-streaming message."""
 
@@ -207,7 +336,12 @@ def collect_anthropic_message_stream(
     }
     blocks: dict[int, _ContentBlock] = {}
     chunks = 0
-    for payload in iter_sse_payloads(lines):
+    terminal_received = False
+    message_started = False
+    for kind, payload in _iter_sse_records(lines, strict=strict):
+        if kind == "done":
+            continue
+        assert payload is not None
         chunks += 1
         event_type = str(payload.get("type") or "")
         if event_type == "error":
@@ -222,7 +356,11 @@ def collect_anthropic_message_stream(
                 str(error.get("message") or error.get("detail") or "upstream stream error"),
                 output_started=bool(blocks),
             )
+        if event_type == "message_stop":
+            terminal_received = True
+            continue
         if event_type == "message_start":
+            message_started = True
             started = payload.get("message")
             if isinstance(started, dict):
                 message.update({key: value for key, value in started.items() if key != "content"})
@@ -264,7 +402,36 @@ def collect_anthropic_message_stream(
             if isinstance(usage, dict):
                 message["usage"] = {**(message.get("usage") or {}), **usage}
             continue
-    message["content"] = [state.finish() for _index, state in sorted(blocks.items())]
+    if strict and verdict is None and not terminal_received:
+        raise UpstreamSseError(
+            "incomplete_stream",
+            "upstream Anthropic stream ended before message_stop",
+            output_started=bool(blocks),
+        )
+    if strict and verdict is None and (
+        not message_started or not str(message.get("stop_reason") or "")
+    ):
+        raise UpstreamSseError(
+            "invalid_stream",
+            "upstream Anthropic stream requires message_start and stop_reason",
+            output_started=bool(blocks),
+        )
+    finished_content = [
+        state.finish(strict=strict) for _index, state in sorted(blocks.items())
+    ]
+    if strict and verdict is None:
+        has_tool_use = any(
+            block.get("type") == "tool_use"
+            for block in finished_content
+            if isinstance(block, dict)
+        )
+        if has_tool_use != (message.get("stop_reason") == "tool_use"):
+            raise UpstreamSseError(
+                "invalid_stream",
+                "upstream Anthropic stop_reason is inconsistent with tool_use blocks",
+                output_started=bool(blocks),
+            )
+    message["content"] = finished_content
     if verdict is not None and not message.get("stop_reason"):
         message["stop_reason"] = "max_tokens"
     return SseStreamCollection(response=message, verdict=verdict, chunks=chunks)

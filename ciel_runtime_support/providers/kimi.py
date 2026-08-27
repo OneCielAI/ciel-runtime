@@ -21,6 +21,7 @@ from .base import HttpBearerProviderAdapter, provider_configuration
 from .constants import PROVIDER_DEFAULT_BASE_URLS
 from ..runtime_constants import KIMI_MODEL_FALLBACK_IDS
 from ..kimi_identity import identity_headers, oauth_access_token
+from ..remote_bridge import REMOTE_BRIDGE_CONFIG_MARKER
 
 
 @dataclass(frozen=True)
@@ -292,10 +293,22 @@ class KimiProviderAdapter(HttpBearerProviderAdapter):
     ) -> str | None:
         if self.normalize_model_id(model) not in {"k3", "k3[1m]"}:
             return None
+        requested = request.get("reasoning_effort")
+        output_config = request.get("output_config")
+        if requested is None and isinstance(output_config, Mapping):
+            requested = output_config.get("effort")
         thinking = request.get("thinking")
-        requested = thinking.get("effort") if isinstance(thinking, Mapping) else None
+        if requested is None and isinstance(thinking, Mapping):
+            requested = thinking.get("effort")
         if requested is None:
             requested = config.options.get("effort_level")
+        if config.options.get(REMOTE_BRIDGE_CONFIG_MARKER) and str(
+            requested or ""
+        ).strip().lower() in {"minimal", "none"}:
+            raise ValueError(
+                "Kimi K3 does not support remote reasoning effort "
+                f"{str(requested).strip().lower()!r}"
+            )
         return self._reasoning_effort(requested)
 
     def reasoning_output_recovery(

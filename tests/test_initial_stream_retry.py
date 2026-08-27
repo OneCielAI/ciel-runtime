@@ -2,6 +2,7 @@ import unittest
 from unittest import mock
 
 from ciel_runtime_support.initial_stream_retry import InitialStreamRetry
+from ciel_runtime_support.remote_bridge import REMOTE_BRIDGE_CONFIG_MARKER
 from ciel_runtime_support.upstream_error_policy import (
     initial_stream_retries,
     retryable_exception,
@@ -79,6 +80,17 @@ class InitialStreamRetryTests(unittest.TestCase):
         self.assertEqual(0, initial_stream_retries({"stream_initial_retries": -1}))
         self.assertEqual(5, initial_stream_retries({"stream_initial_retries": 99}))
         self.assertEqual(2, initial_stream_retries({"stream_initial_retries": "bad"}))
+
+    def test_remote_bridge_disables_initial_stream_reconnects(self):
+        self.assertEqual(
+            0,
+            initial_stream_retries(
+                {
+                    "stream_initial_retries": 5,
+                    REMOTE_BRIDGE_CONFIG_MARKER: True,
+                }
+            ),
+        )
 
 
 if __name__ == "__main__":

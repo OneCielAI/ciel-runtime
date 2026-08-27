@@ -12,6 +12,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+from .remote_bridge import REMOTE_BRIDGE_CONFIG_MARKER
 from .upstream_error_policy import (
     UpstreamFailure,
     ollama_request_validation_error,
@@ -113,8 +114,16 @@ def _upstream_endpoint_identity(url: str) -> str:
     """Return the request origin and path without query credentials or fragments."""
 
     parsed = urllib.parse.urlsplit(str(url or ""))
+    hostname = str(parsed.hostname or "")
+    if ":" in hostname and not hostname.startswith("["):
+        hostname = f"[{hostname}]"
+    try:
+        port = parsed.port
+    except ValueError:
+        port = None
+    authority = f"{hostname}:{port}" if port is not None else hostname
     return urllib.parse.urlunsplit(
-        (parsed.scheme, parsed.netloc, parsed.path, "", "")
+        (parsed.scheme, authority, parsed.path, "", "")
     )
 
 
@@ -200,9 +209,14 @@ def post_json_with_rate_retry(
     write_router_activity = rate_limit.write_activity
     estimate_tokens = http.estimate_tokens
     provider_urlopen = http.provider_urlopen
-    gateway_retries = configured_gateway_retries(pcfg)
+    remote_bridge = pcfg.get(REMOTE_BRIDGE_CONFIG_MARKER) is True
+    gateway_retries = 0 if remote_bridge else configured_gateway_retries(pcfg)
     max_attempts = max(1, gateway_retries + 1)
-    rate_limit_max_attempts = max(max_attempts, provider_api_key_count(provider, pcfg))
+    rate_limit_max_attempts = (
+        max_attempts
+        if remote_bridge
+        else max(max_attempts, provider_api_key_count(provider, pcfg))
+    )
     token_estimate = estimate_tokens(req_body)
     byte_estimate = len(json.dumps(req_body, ensure_ascii=False).encode("utf-8"))
     for attempt in range(rate_limit_max_attempts):
@@ -341,9 +355,14 @@ def open_provider_request_with_key_retry(
     estimate_tokens = http.estimate_tokens
     provider_urlopen = http.provider_urlopen
     upstream_http_error_message = http.upstream_http_error_message
-    gateway_retries = configured_gateway_retries(pcfg)
+    remote_bridge = pcfg.get(REMOTE_BRIDGE_CONFIG_MARKER) is True
+    gateway_retries = 0 if remote_bridge else configured_gateway_retries(pcfg)
     max_attempts = max(1, gateway_retries + 1)
-    rate_limit_max_attempts = max(max_attempts, provider_api_key_count(provider, pcfg))
+    rate_limit_max_attempts = (
+        max_attempts
+        if remote_bridge
+        else max(max_attempts, provider_api_key_count(provider, pcfg))
+    )
     token_estimate = estimate_tokens(req_body)
     byte_estimate = len(json.dumps(req_body, ensure_ascii=False).encode("utf-8"))
     data_bytes = json.dumps(req_body).encode("utf-8")
@@ -512,9 +531,14 @@ def open_openai_stream_with_rate_retry(
     provider_stream_idle_timeout_seconds = http.stream_idle_timeout_seconds
     provider_urlopen = http.provider_urlopen
     set_upstream_stream_read_timeout = http.set_stream_read_timeout
-    gateway_retries = configured_gateway_retries(pcfg)
+    remote_bridge = pcfg.get(REMOTE_BRIDGE_CONFIG_MARKER) is True
+    gateway_retries = 0 if remote_bridge else configured_gateway_retries(pcfg)
     max_attempts = max(1, gateway_retries + 1)
-    rate_limit_max_attempts = max(max_attempts, provider_api_key_count(provider, pcfg))
+    rate_limit_max_attempts = (
+        max_attempts
+        if remote_bridge
+        else max(max_attempts, provider_api_key_count(provider, pcfg))
+    )
     token_estimate = estimate_tokens(req_body)
     byte_estimate = len(json.dumps(req_body, ensure_ascii=False).encode("utf-8"))
     data_bytes = json.dumps(req_body).encode("utf-8")

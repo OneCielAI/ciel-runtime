@@ -2,6 +2,8 @@ import tempfile
 import unittest
 import urllib.error
 import urllib.request
+from dataclasses import replace
+from io import BytesIO
 from pathlib import Path
 from unittest import mock
 
@@ -22,6 +24,12 @@ from ciel_runtime_support.github_copilot_oauth_runtime import (
 )
 from ciel_runtime_support.providers.github_copilot_oauth import (
     GITHUB_COPILOT_MODELS,
+    GITHUB_COPILOT_PUBLIC_MODEL_IDS,
+    GITHUB_COPILOT_RESPONSES_ONLY_MODELS,
+)
+from ciel_runtime_support.remote_bridge import (
+    PUBLIC_MODEL_ID_METADATA_KEY,
+    REMOTE_BRIDGE_CONFIG_MARKER,
 )
 
 
@@ -84,6 +92,22 @@ class GitHubCopilotOAuthProviderTests(unittest.TestCase):
                 "openai_responses", contract, "gemini-3.1-pro-preview"
             ),
         )
+        self.assertEqual(
+            "/chat/completions",
+            adapter.resolve_endpoint("openai_chat", contract),
+        )
+        self.assertEqual(
+            "/responses",
+            adapter.resolve_endpoint("openai_responses", contract),
+        )
+        self.assertEqual(
+            "https://api.githubcopilot.com/responses",
+            ciel_runtime.provider_endpoint(
+                "github-copilot-oauth",
+                config,
+                "openai_responses",
+            ),
+        )
 
     def test_oauth_provider_ignores_regular_api_key_field(self):
         config = self.provider_config()
@@ -99,6 +123,221 @@ class GitHubCopilotOAuthProviderTests(unittest.TestCase):
             )
 
         self.assertEqual(["oauth-copilot-token"], keys)
+
+    def test_copilot_endpoint_metadata_selects_the_supported_wire(self):
+        config = self.provider_config()
+        adapter = ciel_runtime.configured_provider_adapter(
+            "github-copilot-oauth", config
+        )
+        contract = ciel_runtime.project_provider_contract_config(
+            "github-copilot-oauth", config, ["copilot-token"]
+        )
+
+        responses_only = replace(
+            contract,
+            options={
+                **contract.options,
+                "_ciel_model_metadata": {
+                    "supported_endpoints": ["/responses", "ws:/responses"]
+                },
+            },
+        )
+        dual = replace(
+            contract,
+            options={
+                **contract.options,
+                "_ciel_model_metadata": {
+                    "supported_endpoints": [
+                        "/responses",
+                        "/chat/completions",
+                    ]
+                },
+            },
+        )
+        anthropic_and_chat = replace(
+            contract,
+            options={
+                **contract.options,
+                "_ciel_model_metadata": {
+                    "supported_endpoints": [
+                        "/v1/messages",
+                        "/chat/completions",
+                    ]
+                },
+            },
+        )
+
+        self.assertEqual(
+            "openai_responses",
+            adapter.select_protocol(
+                "openai_chat", responses_only, "gpt-5.6-luna"
+            ),
+        )
+        self.assertEqual(
+            "openai_chat",
+            adapter.select_protocol("openai_chat", dual, "gpt-5.4"),
+        )
+        self.assertEqual(
+            "openai_responses",
+            adapter.select_protocol("openai_responses", dual, "gpt-5.4"),
+        )
+        self.assertEqual(
+            "openai_chat",
+            adapter.select_protocol(
+                "openai_chat", anthropic_and_chat, "claude-sonnet-4.6"
+            ),
+        )
+        self.assertEqual(
+            "anthropic_messages",
+            adapter.select_protocol(
+                "anthropic_messages",
+                anthropic_and_chat,
+                "claude-sonnet-4.6",
+            ),
+        )
+
+    def test_copilot_responses_only_fallback_and_catalog_projection(self):
+        config = self.provider_config()
+        adapter = ciel_runtime.configured_provider_adapter(
+            "github-copilot-oauth", config
+        )
+        contract = ciel_runtime.project_provider_contract_config(
+            "github-copilot-oauth", config, ["copilot-token"]
+        )
+
+        for model in GITHUB_COPILOT_RESPONSES_ONLY_MODELS:
+            with self.subTest(model=model):
+                self.assertEqual(
+                    "openai_responses",
+                    adapter.select_protocol("openai_chat", contract, model),
+                )
+        raw_metadata = {
+            "id": "gpt-5.6-sol",
+            "name": "GPT-5.6 Sol",
+            "vendor": "OpenAI",
+            "version": "5.6",
+            "preview": False,
+            "model_picker_enabled": True,
+            "model_picker_category": "powerful",
+            "policy": {"terms": "copilot"},
+            "supported_endpoints": [
+                "/responses",
+                "",
+                "ws:/responses",
+            ],
+            "capabilities": {
+                "supports": {
+                    "reasoning_effort": [
+                        "none",
+                        "low",
+                        "medium",
+                        "high",
+                        "xhigh",
+                        "max",
+                    ],
+                    "tools": True,
+                },
+                "limits": {
+                    "max_context_window_tokens": 400_000,
+                    "max_prompt_tokens": 272_000,
+                    "max_output_tokens": 128_000,
+                },
+            },
+        }
+
+        projected = adapter.project_model_metadata(raw_metadata)
+
+        self.assertEqual(
+            ["/responses", "ws:/responses"], projected["supported_endpoints"]
+        )
+        self.assertEqual("GPT-5.6 Sol", projected["name"])
+        self.assertEqual("OpenAI", projected["vendor"])
+        self.assertEqual("5.6", projected["version"])
+        self.assertFalse(projected["preview"])
+        self.assertTrue(projected["model_picker_enabled"])
+        self.assertEqual("powerful", projected["model_picker_category"])
+        self.assertEqual({"terms": "copilot"}, projected["policy"])
+        self.assertEqual(raw_metadata["capabilities"], projected["capabilities"])
+        self.assertEqual(400_000, projected["max_model_len"])
+        self.assertEqual(128_000, projected["max_output_tokens"])
+
+        raw_metadata["capabilities"]["limits"]["max_output_tokens"] = 1
+        self.assertEqual(
+            128_000,
+            projected["capabilities"]["limits"]["max_output_tokens"],
+        )
+
+        mai_picker = adapter.project_model_metadata(
+            {
+                "id": "mai-code-1-flash-picker",
+                "model_picker_enabled": True,
+                "supported_endpoints": ["/responses"],
+            }
+        )
+        mai_hidden_wire_alias = adapter.project_model_metadata(
+            {
+                "id": "mai-code-1-flash",
+                "model_picker_enabled": False,
+                "supported_endpoints": ["/responses"],
+            }
+        )
+        self.assertEqual(
+            {"mai-code-1-flash-picker": "mai-code-1-flash"},
+            GITHUB_COPILOT_PUBLIC_MODEL_IDS,
+        )
+        self.assertEqual(
+            "mai-code-1-flash",
+            mai_picker[PUBLIC_MODEL_ID_METADATA_KEY],
+        )
+        self.assertNotIn(
+            PUBLIC_MODEL_ID_METADATA_KEY,
+            mai_hidden_wire_alias,
+        )
+
+    def test_openai_chat_passthrough_uses_copilot_contract_path(self):
+        config = self.provider_config()
+        captured = {}
+
+        class Response:
+            status = 200
+            headers = {}
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+            def read(self, _size):
+                return b""
+
+        def urlopen(request, **_kwargs):
+            captured["url"] = request.full_url
+            return Response()
+
+        handler = mock.Mock()
+        handler.headers = {}
+        handler.wfile = BytesIO()
+        with (
+            mock.patch.object(
+                ciel_runtime,
+                "github_copilot_oauth_token",
+                return_value="copilot-token",
+            ),
+            mock.patch.object(ciel_runtime, "provider_urlopen", side_effect=urlopen),
+            mock.patch.object(ciel_runtime, "_copy_upstream_response_headers"),
+        ):
+            ciel_runtime.forward_provider_chat(
+                handler,
+                "github-copilot-oauth",
+                config,
+                {"model": "gemini-3.1-pro-preview", "messages": []},
+            )
+
+        self.assertEqual(
+            "https://api.githubcopilot.com/chat/completions",
+            captured["url"],
+        )
 
     def test_current_fallback_catalog_excludes_retired_models(self):
         self.assertEqual("gpt-5.6-sol", GITHUB_COPILOT_MODELS[0])
@@ -252,6 +491,52 @@ class GitHubCopilotOAuthProviderTests(unittest.TestCase):
         self.assertEqual(
             "Bearer fresh-token", retry.get_header("Authorization")
         )
+
+    def test_remote_upstream_401_refreshes_token_without_replaying_generation(self):
+        error = urllib.error.HTTPError(
+            "https://api.githubcopilot.com/chat/completions",
+            401,
+            "Unauthorized",
+            {},
+            None,
+        )
+        request = urllib.request.Request(
+            "https://api.githubcopilot.com/chat/completions",
+            data=b"{}",
+            headers={"Authorization": "Bearer stale"},
+            method="POST",
+        )
+        open_request = mock.Mock(side_effect=error)
+        runtime = GitHubCopilotOAuthRuntime(
+            Path(tempfile.gettempdir()),
+            GitHubCopilotOAuthRuntimePorts(
+                clear_model_cache=mock.Mock(),
+                log=mock.Mock(),
+                provider_headers=mock.Mock(),
+                network_open=open_request,
+            ),
+        )
+        config = self.provider_config()
+        config[REMOTE_BRIDGE_CONFIG_MARKER] = True
+
+        with (
+            mock.patch.object(
+                GitHubCopilotOAuthRuntime,
+                "force_refresh",
+                return_value="fresh-token",
+            ) as refresh,
+            self.assertRaises(urllib.error.HTTPError) as caught,
+        ):
+            runtime.open(
+                request,
+                30.0,
+                "github-copilot-oauth",
+                config,
+            )
+
+        self.assertEqual(401, caught.exception.code)
+        self.assertEqual(1, open_request.call_count)
+        refresh.assert_called_once_with()
 
 
 class GitHubCopilotOAuthServiceTests(unittest.TestCase):

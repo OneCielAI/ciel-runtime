@@ -8,6 +8,8 @@ from http.client import IncompleteRead
 from collections.abc import Callable, Mapping
 from typing import Any
 
+from .remote_bridge import REMOTE_BRIDGE_CONFIG_MARKER
+
 
 _TERMINAL_USAGE_LIMIT_MARKERS = (
     "session usage limit",
@@ -567,6 +569,8 @@ def retryable_exception(error: BaseException) -> bool:
 def initial_stream_retries(config: dict[str, Any]) -> int:
     """Bound reconnects before an upstream stream yields its first byte."""
 
+    if config.get(REMOTE_BRIDGE_CONFIG_MARKER) is True:
+        return 0
     value = config.get("stream_initial_retries", 2)
     try:
         return max(0, min(5, int(value)))
@@ -575,6 +579,8 @@ def initial_stream_retries(config: dict[str, Any]) -> int:
 
 
 def configured_gateway_retries(config: dict[str, Any]) -> int:
+    if config.get(REMOTE_BRIDGE_CONFIG_MARKER) is True:
+        return 0
     value = config.get("gateway_retries")
     if value is None:
         # Generation requests are not idempotent.  If an upstream completed a

@@ -65,6 +65,7 @@ class CliOperations:
     cmd_status: Any
     cmd_stop: Any
     cmd_test: Any
+    cmd_remote_bridge: Any = lambda _args: 0
 
 
 @dataclass(frozen=True)
@@ -109,6 +110,7 @@ def dispatch_cli(argv: list[str], services: CliServices) -> int:
     cmd_status = services.operations.cmd_status
     cmd_stop = services.operations.cmd_stop
     cmd_test = services.operations.cmd_test
+    cmd_remote_bridge = services.operations.cmd_remote_bridge
     cmd_web_fetch = services.special_commands.cmd_web_fetch
     cmd_web_search = services.special_commands.cmd_web_search
     codex_passthrough_has_command = services.runtime.codex_passthrough_has_command
@@ -241,6 +243,29 @@ def dispatch_cli(argv: list[str], services: CliServices) -> int:
         if head == "status":
             cmd_status(argparse.Namespace())
             return 0
+        if head in ("bridge", "remote-bridge"):
+            action = "status"
+            host = None
+            index = 0
+            if rest and not rest[0].startswith("--"):
+                action = rest[0]
+                index = 1
+            while index < len(rest):
+                item = rest[index]
+                if item.startswith("--host="):
+                    host = item.split("=", 1)[1]
+                    index += 1
+                    continue
+                if item == "--host" and index + 1 < len(rest):
+                    host = rest[index + 1]
+                    index += 2
+                    continue
+                raise SystemExit(
+                    "Usage: ciel-runtime bridge [status|enable|disable|token|serve] [--host HOST]"
+                )
+            return int(
+                cmd_remote_bridge(argparse.Namespace(action=action, host=host)) or 0
+            )
         if head == "stop":
             cmd_stop(argparse.Namespace())
             ncp = find_executable("ncp")

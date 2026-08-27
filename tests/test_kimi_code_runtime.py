@@ -1,6 +1,7 @@
 import os
 import tempfile
 import unittest
+import urllib.error
 from io import BytesIO
 from pathlib import Path
 from unittest.mock import Mock, patch
@@ -71,6 +72,38 @@ class KimiCodeRuntimeTests(unittest.TestCase):
         self.assertEqual("Bearer actual-kimi-key", request.headers["Authorization"])
         self.assertEqual(response_bytes, handler.wfile.getvalue())
         self.assertEqual(60.0, captured["kwargs"]["timeout"])
+
+    def test_chat_passthrough_preserves_upstream_http_error(self):
+        error_body = b'{"error":{"message":"invalid provider credential"}}'
+        error = urllib.error.HTTPError(
+            "https://api.kimi.com/coding/v1/chat/completions",
+            401,
+            "Unauthorized",
+            {"content-type": "application/json"},
+            BytesIO(error_body),
+        )
+        handler = Mock()
+        handler.headers = {}
+        handler.wfile = BytesIO()
+
+        with (
+            patch.object(
+                ciel_runtime,
+                "provider_urlopen",
+                side_effect=error,
+            ),
+            patch.object(ciel_runtime, "_copy_upstream_response_headers"),
+        ):
+            ciel_runtime.forward_provider_chat(
+                handler,
+                "kimi",
+                {},
+                {"model": "kimi-for-coding", "messages": [], "stream": False},
+            )
+
+        handler.send_response.assert_called_once_with(401)
+        handler.end_headers.assert_called_once_with()
+        self.assertEqual(error_body, handler.wfile.getvalue())
 
     def test_native_api_key_panel_exposes_official_oauth_login(self):
         with patch.object(ciel_runtime, "kimi_oauth_configured", return_value=False):

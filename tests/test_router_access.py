@@ -71,6 +71,40 @@ class RouterAccessTests(unittest.TestCase):
         }
         self.assertEqual("100.64.1.2", self.policy(config=config).bind_host())
 
+    def test_remote_bridge_enables_external_auth_and_uses_bridge_host(self):
+        config = {
+            "remote_bridge": {"enabled": True, "host": "100.64.1.9"},
+        }
+        policy = self.policy(config=config)
+        self.assertTrue(policy.external_access_enabled())
+        self.assertEqual("100.64.1.9", policy.bind_host())
+
+    def test_bridge_environment_off_does_not_disable_existing_web_access(self):
+        config = {
+            "remote_bridge": {"enabled": True, "host": "100.64.1.9"},
+            "web_backend": {"enabled": True, "host": "100.64.1.10"},
+        }
+        policy = self.policy(
+            environment={"CIEL_RUNTIME_REMOTE_BRIDGE": "0"},
+            config=config,
+        )
+
+        self.assertTrue(policy.external_access_enabled())
+        self.assertEqual("100.64.1.10", policy.bind_host())
+
+    def test_invalid_bridge_environment_override_fails_closed(self):
+        config = {
+            "remote_bridge": {"enabled": True, "host": "100.64.1.9"},
+        }
+        policy = self.policy(
+            environment={"CIEL_RUNTIME_REMOTE_BRIDGE": "invalid"},
+            config=config,
+        )
+
+        self.assertFalse(policy.remote_bridge_enabled(config))
+        self.assertFalse(policy.external_access_enabled())
+        self.assertEqual("127.0.0.1", policy.bind_host())
+
     def test_request_auth_allows_loopback_and_compares_external_token(self):
         config = {
             "router_debug_external_access": True,
@@ -83,10 +117,131 @@ class RouterAccessTests(unittest.TestCase):
             headers={"Authorization": "Bearer expected"},
         )
         self.assertTrue(is_loopback_address("localhost"))
-        self.assertTrue(policy.request_allowed(local, config, lambda: ""))
+        self.assertTrue(policy.request_allowed(local, config, lambda: "", lambda: ""))
         self.assertEqual("expected", router_request_bearer_token(remote))
-        self.assertTrue(policy.request_allowed(remote, config, lambda: "expected"))
-        self.assertFalse(policy.request_allowed(remote, config, lambda: "wrong"))
+        self.assertTrue(
+            policy.request_allowed(remote, config, lambda: "expected", lambda: "bridge")
+        )
+        self.assertFalse(
+            policy.request_allowed(remote, config, lambda: "wrong", lambda: "bridge")
+        )
+
+    def test_bridge_request_context_preserves_local_routing_without_bridge_token(self):
+        config = {"remote_bridge": {"enabled": True, "host": "0.0.0.0"}}
+        policy = self.policy(config=config)
+        local = SimpleNamespace(client_address=("127.0.0.1", 1), headers={})
+        proxied = SimpleNamespace(
+            client_address=("127.0.0.1", 1),
+            headers={"Authorization": "Bearer bridge-token"},
+        )
+        remote = SimpleNamespace(client_address=("192.0.2.9", 1), headers={})
+
+        self.assertFalse(
+            policy.remote_bridge_request(local, config, lambda: "bridge-token")
+        )
+        self.assertTrue(
+            policy.remote_bridge_request(proxied, config, lambda: "bridge-token")
+        )
+        self.assertTrue(
+            policy.remote_bridge_request(remote, config, lambda: "bridge-token")
+        )
+
+    def test_bridge_only_token_is_scoped_to_bridge_paths(self):
+        config = {"remote_bridge": {"enabled": True, "host": "0.0.0.0"}}
+        policy = self.policy(config=config)
+        remote = SimpleNamespace(
+            client_address=("192.0.2.9", 1),
+            path="/v1/messages",
+            headers={"x-api-key": "bridge-token"},
+        )
+
+        self.assertEqual("bridge-token", router_request_bearer_token(remote))
+        self.assertTrue(
+            policy.request_allowed(
+                remote,
+                config,
+                lambda: "admin-token",
+                lambda: "bridge-token",
+            )
+        )
+        remote.path = "/ca/config/llm"
+        self.assertFalse(
+            policy.request_allowed(
+                remote,
+                config,
+                lambda: "admin-token",
+                lambda: "bridge-token",
+            )
+        )
+        remote.path = "/health"
+        self.assertFalse(
+            policy.request_allowed(
+                remote,
+                config,
+                lambda: "admin-token",
+                lambda: "bridge-token",
+            )
+        )
+
+    def test_explicit_debug_external_access_retains_admin_paths(self):
+        config = {
+            "remote_bridge": {"enabled": True, "host": "0.0.0.0"},
+            "router_debug_external_access": True,
+            "router_debug_external_access_confirmed": True,
+        }
+        remote = SimpleNamespace(
+            client_address=("192.0.2.9", 1),
+            path="/ca/config/llm",
+            headers={"Authorization": "Bearer admin-token"},
+        )
+
+        self.assertTrue(
+            self.policy(config=config).request_allowed(
+                remote,
+                config,
+                lambda: "admin-token",
+                lambda: "bridge-token",
+            )
+        )
+        remote.headers = {"Authorization": "Bearer bridge-token"}
+        self.assertFalse(
+            self.policy(config=config).request_allowed(
+                remote,
+                config,
+                lambda: "admin-token",
+                lambda: "bridge-token",
+            )
+        )
+        remote.path = "/v1/messages"
+        self.assertTrue(
+            self.policy(config=config).request_allowed(
+                remote,
+                config,
+                lambda: "admin-token",
+                lambda: "bridge-token",
+            )
+        )
+
+    def test_equal_bridge_and_admin_tokens_fail_closed_for_admin_paths(self):
+        config = {
+            "remote_bridge": {"enabled": True, "host": "0.0.0.0"},
+            "router_debug_external_access": True,
+            "router_debug_external_access_confirmed": True,
+        }
+        remote = SimpleNamespace(
+            client_address=("192.0.2.9", 1),
+            path="/ca/config/llm",
+            headers={"Authorization": "Bearer duplicated-token"},
+        )
+
+        self.assertFalse(
+            self.policy(config=config).request_allowed(
+                remote,
+                config,
+                lambda: "duplicated-token",
+                lambda: "duplicated-token",
+            )
+        )
 
     def test_token_repository_prefers_environment_and_persists_generated_token(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -104,6 +259,35 @@ class RouterAccessTests(unittest.TestCase):
             token = repository.ensure()
             self.assertTrue(token)
             self.assertEqual(token, repository.get())
+
+    def test_token_repository_creates_nested_token_parent(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            repository = RouterExternalTokenRepository(
+                path=root / "router-instances" / "instance" / "router.token",
+                config_dir=root,
+                environ={},
+            )
+
+            token = repository.ensure()
+
+            self.assertTrue(token)
+            self.assertEqual(token, repository.get())
+
+    def test_token_repository_supports_distinct_bridge_environment_variable(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            repository = RouterExternalTokenRepository(
+                path=root / "bridge.token",
+                config_dir=root,
+                environ={
+                    "CIEL_RUNTIME_ROUTER_EXTERNAL_TOKEN": "admin-token",
+                    "CIEL_RUNTIME_REMOTE_BRIDGE_TOKEN": "bridge-token",
+                },
+                env_name="CIEL_RUNTIME_REMOTE_BRIDGE_TOKEN",
+            )
+
+            self.assertEqual("bridge-token", repository.get())
 
     def test_config_service_persists_both_guard_flags(self):
         config = {}

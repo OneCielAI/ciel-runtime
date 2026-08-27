@@ -9,6 +9,7 @@ import urllib.error
 from typing import Any, Callable
 
 from .initial_stream_retry import InitialStreamRetry
+from .remote_bridge import REMOTE_BRIDGE_CONFIG_MARKER, is_remote_bridge_request
 from .upstream_error_policy import (
     UpstreamFailure,
     upstream_failure_in_payload,
@@ -124,13 +125,31 @@ def forward_openai_compatible_chat(
     advisor = services.advisor
     streaming = services.streaming
     response = services.response
+    remote_bridge = is_remote_bridge_request(handler)
 
-    request.update_tool_schema_registry(body.get("tools"))
+    def mark_delivery_success(reason: str) -> None:
+        if not remote_bridge:
+            response.mark_delivery_success(handler, reason)
+
+    def mark_delivery_failed(reason: str) -> None:
+        if not remote_bridge:
+            response.mark_delivery_failed(handler, reason)
+
+    if not remote_bridge:
+        request.update_tool_schema_registry(body.get("tools"))
     body = request.normalize_thinking(provider, pcfg, body)
     model = request.resolve_model(provider, pcfg, body.get("model"))
     model = request.provider_upstream_model(provider, pcfg, model)
     original_body = body
-    upstream_body = request.body_with_advisor_tool(body, pcfg) if request.advisor_provider_supported(provider) else body
+    projection_body = (
+        {**body, REMOTE_BRIDGE_CONFIG_MARKER: True}
+        if remote_bridge
+        else body
+    )
+    local_advisor = (
+        not remote_bridge and request.advisor_provider_supported(provider)
+    )
+    upstream_body = request.body_with_advisor_tool(body, pcfg) if local_advisor else body
     # Provider adapters own endpoint layout.  Building ``/v1/chat/completions``
     # here duplicates version segments for plan-scoped bases such as
     # ``.../api/v1/zcode-plan``.
@@ -139,23 +158,34 @@ def forward_openai_compatible_chat(
     headers = request.provider_headers(provider, pcfg, handler.headers, "openai_chat")
     waited, rpm_used, rpm_limit = rate_limit.apply(provider, pcfg, model)
     compatibility_test = str(handler.headers.get(policy.compatibility_test_header) or "").strip().lower() in ("1", "true", "yes", "on")
-    stream_enabled = bool(pcfg.get("stream_enabled", True))
+    stream_enabled = True if remote_bridge else bool(pcfg.get("stream_enabled", True))
     stream = policy.provider_requires_streaming(provider, pcfg) or (bool(body.get("stream", stream_enabled)) and stream_enabled)
     collected_request = request.build_chat_request(provider, model, upstream_body, pcfg, stream=False)
-    collected_request, hosted_state = services.hosted_tools.prepare(
-        provider, pcfg, collected_request, headers, timeout
-    )
-    if hosted_state.enabled and stream:
+    hosted_state = None
+    if not remote_bridge:
+        collected_request, hosted_state = services.hosted_tools.prepare(
+            provider, pcfg, collected_request, headers, timeout
+        )
+    if hosted_state is not None and hosted_state.enabled and stream:
         stream = False
         services.log("INFO", f"provider-hosted tools enabled for {provider}; collecting tool rounds internally")
-    if stream and advisor.model_enabled(pcfg) and request.advisor_provider_supported(provider):
+    if stream and advisor.model_enabled(pcfg) and local_advisor:
         stream = False
         services.log("INFO", f"advisor tool enabled for {provider}; collecting this turn so advisor tool calls can be resolved internally")
-    if stream and advisor.gate_possible_for_body(provider, pcfg, body):
+    if (
+        stream
+        and not remote_bridge
+        and advisor.gate_possible_for_body(provider, pcfg, body)
+    ):
         gate_reason = advisor.gate_reason_for_body(provider, pcfg, body)
         stream = False
         services.log("INFO", f"advisor gate enabled for {provider} reason={gate_reason}; collecting this turn before returning it to Claude Code")
-    notice = rate_limit.notice(waited, rpm_used, rpm_limit, bool(pcfg.get("rate_limit_status", False)))
+    notice = "" if remote_bridge else rate_limit.notice(
+        waited,
+        rpm_used,
+        rpm_limit,
+        bool(pcfg.get("rate_limit_status", False)),
+    )
     if stream:
         req_body = request.build_chat_request(provider, model, upstream_body, pcfg, stream=True)
         req_tokens = rate_limit.estimate_tokens(req_body)
@@ -253,16 +283,16 @@ def forward_openai_compatible_chat(
                 upstream_response,
                 model,
                 provider,
-                source_body=original_body,
+                source_body=projection_body,
                 start_index=index,
                 word_chunking=bool(pcfg.get("stream_word_chunking", False)),
                 input_tokens=req_tokens,
                 input_bytes=req_bytes,
             )
             if stream_ok:
-                response.mark_delivery_success(handler, "openai_stream_message_stop")
+                mark_delivery_success("openai_stream_message_stop")
             else:
-                response.mark_delivery_failed(handler, "openai_stream_error")
+                mark_delivery_failed("openai_stream_error")
         except urllib.error.HTTPError as exc:
             # Every upstream status is an error, including 429.  Writing one
             # as ordinary assistant text used to hand Claude a 200 whose only
@@ -271,9 +301,7 @@ def forward_openai_compatible_chat(
             failure = _http_error_failure(
                 provider, model, exc, output_started=stream_started
             )
-            response.mark_delivery_failed(
-                handler, f"openai_stream_http_error:{exc.code}"
-            )
+            mark_delivery_failed(f"openai_stream_http_error:{exc.code}")
             response.write_activity(
                 "error", provider, model, code=exc.code, stream=True
             )
@@ -287,8 +315,8 @@ def forward_openai_compatible_chat(
         except UpstreamFailure as exc:
             # The provider status and message are known here, so this answers
             # as an error even though the failure arrived as an exception.
-            response.mark_delivery_failed(
-                handler, f"openai_stream_upstream_failure:{exc.category}"
+            mark_delivery_failed(
+                f"openai_stream_upstream_failure:{exc.category}"
             )
             response.write_activity(
                 "error", provider, model, code=exc.status_code, stream=True
@@ -301,15 +329,49 @@ def forward_openai_compatible_chat(
                 )
             return
         except RuntimeError as exc:
-            response.mark_delivery_failed(handler, f"openai_stream_runtime_error:{type(exc).__name__}")
+            mark_delivery_failed(
+                f"openai_stream_runtime_error:{type(exc).__name__}"
+            )
+            if remote_bridge:
+                payload = {
+                    "type": "error",
+                    "error": {
+                        "type": "api_error",
+                        "message": (
+                            "Upstream OpenAI Chat stream failed before completion."
+                        ),
+                    },
+                }
+                if stream_started:
+                    _write_stream_error(handler, payload)
+                else:
+                    response.write_json(handler, payload, 502)
+                return
             start_stream()
             streaming.write_blocks(handler, [{"type": "text", "text": f"Upstream error: {exc}"}], index)
             streaming.write_open_stop(handler)
             return
         except Exception as exc:
             message = f"{type(exc).__name__}: {exc}"
-            response.mark_delivery_failed(handler, f"openai_stream_error:{type(exc).__name__}")
+            mark_delivery_failed(
+                f"openai_stream_error:{type(exc).__name__}"
+            )
             response.write_activity("error", provider, model, error=type(exc).__name__, stream=True)
+            if remote_bridge:
+                payload = {
+                    "type": "error",
+                    "error": {
+                        "type": "api_error",
+                        "message": (
+                            "Upstream OpenAI Chat stream failed before completion."
+                        ),
+                    },
+                }
+                if stream_started:
+                    _write_stream_error(handler, payload)
+                else:
+                    response.write_json(handler, payload, 502)
+                return
             start_stream()
             streaming.write_blocks(handler, [{"type": "text", "text": f"Upstream error: {message}"}], index)
             streaming.write_open_stop(handler)
@@ -329,26 +391,27 @@ def forward_openai_compatible_chat(
             None,
             retry_rate_limits=not compatibility_test,
         )
-        data = services.hosted_tools.resolve(
-            hosted_state,
-            req_body,
-            data,
-            lambda next_body: streaming.post_json_with_retry(
-                url,
-                next_body,
-                headers,
+        if hosted_state is not None:
+            data = services.hosted_tools.resolve(
+                hosted_state,
+                req_body,
+                data,
+                lambda next_body: streaming.post_json_with_retry(
+                    url,
+                    next_body,
+                    headers,
+                    timeout,
+                    provider,
+                    pcfg,
+                    model,
+                    None,
+                    retry_rate_limits=not compatibility_test,
+                ),
                 timeout,
-                provider,
-                pcfg,
-                model,
-                None,
-                retry_rate_limits=not compatibility_test,
-            ),
-            timeout,
-        )
+            )
     except urllib.error.HTTPError as exc:
         failure = _http_error_failure(provider, model, exc, output_started=False)
-        response.mark_delivery_failed(handler, f"openai_http_error:{exc.code}")
+        mark_delivery_failed(f"openai_http_error:{exc.code}")
         response.write_activity(
             "error", provider, model, code=exc.code, stream=False
         )
@@ -360,7 +423,7 @@ def forward_openai_compatible_chat(
         # The transport already read the provider status, type and message.
         # Reporting all of it as a local 500 is what made a rejected request
         # look like a provider outage.
-        response.mark_delivery_failed(handler, f"openai_upstream_failure:{exc.category}")
+        mark_delivery_failed(f"openai_upstream_failure:{exc.category}")
         response.write_json(handler, exc.anthropic_payload(), exc.status_code)
         return
     except RuntimeError as exc:
@@ -372,7 +435,7 @@ def forward_openai_compatible_chat(
         # object.  Decoding it for choices produced an empty `end_turn`, so
         # the CLI reported a turn that did nothing instead of the quota or
         # request error that actually stopped it.
-        response.mark_delivery_failed(handler, f"openai_payload_failure:{failure.category}")
+        mark_delivery_failed(f"openai_payload_failure:{failure.category}")
         response.write_activity(
             "error", provider, model, code=failure.status_code, stream=False
         )
@@ -380,9 +443,14 @@ def forward_openai_compatible_chat(
             handler, failure.anthropic_payload(), failure.status_code
         )
         return
-    message = response.chat_to_anthropic(data, model, source_body=original_body)
-    message = advisor.refine_message(provider, pcfg, original_body, message, model)
-    response.remember_tool_uses(original_body, message)
+    message = response.chat_to_anthropic(
+        data, model, source_body=projection_body
+    )
+    if not remote_bridge:
+        message = advisor.refine_message(
+            provider, pcfg, original_body, message, model
+        )
+        response.remember_tool_uses(original_body, message)
     message = response.prepend_text(message, notice)
     response.write_message(handler, message, stream)
-    response.mark_delivery_success(handler, "openai_json")
+    mark_delivery_success("openai_json")

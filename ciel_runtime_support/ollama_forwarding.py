@@ -9,6 +9,7 @@ from typing import Any, Callable
 import urllib.error
 import urllib.request
 
+from .remote_bridge import REMOTE_BRIDGE_CONFIG_MARKER, is_remote_bridge_request
 from .upstream_error_policy import terminal_usage_limit_error
 
 
@@ -144,19 +145,31 @@ def forward_ollama_api_chat(
     remember_channel_injected_tool_uses = response.remember_injected_tool_uses
     upstream_http_error_message = response.upstream_http_error_message
     write_json = response.write_json
-    _update_tool_schema_registry(body.get("tools"))
+    remote_bridge = is_remote_bridge_request(handler)
+    if not remote_bridge:
+        _update_tool_schema_registry(body.get("tools"))
     body = normalize_thinking_for_non_anthropic_provider(provider, pcfg, body)
     model = resolve_requested_model(provider, pcfg, body.get("model"))
     compatibility_test = str(handler.headers.get(COMPATIBILITY_TEST_HEADER) or "").strip().lower() in ("1", "true", "yes", "on")
     original_body = body
-    upstream_body = body_with_advisor_tool(body, pcfg) if advisor_provider_supported(provider) else body
+    projection_body = (
+        {**body, REMOTE_BRIDGE_CONFIG_MARKER: True}
+        if remote_bridge
+        else body
+    )
+    local_advisor = not remote_bridge and advisor_provider_supported(provider)
+    upstream_body = body_with_advisor_tool(body, pcfg) if local_advisor else body
     stream_requested = body.get("stream", True)
-    if not bool(pcfg.get("stream_enabled", True)):
+    if not remote_bridge and not bool(pcfg.get("stream_enabled", True)):
         stream_requested = False
-    if stream_requested and advisor_model_enabled(pcfg) and advisor_provider_supported(provider):
+    if stream_requested and advisor_model_enabled(pcfg) and local_advisor:
         stream_requested = False
         router_log("INFO", "advisor tool enabled; collecting this turn so advisor tool calls can be resolved internally")
-    if stream_requested and advisor_gate_possible_for_body(provider, pcfg, body):
+    if (
+        stream_requested
+        and not remote_bridge
+        and advisor_gate_possible_for_body(provider, pcfg, body)
+    ):
         gate_reason = advisor_gate_reason_for_body(provider, pcfg, body)
         stream_requested = False
         router_log("INFO", f"advisor gate enabled reason={gate_reason}; collecting this turn before returning it to Claude Code")
@@ -205,7 +218,12 @@ def forward_ollama_api_chat(
                 raw = exc.read().decode("utf-8", errors="ignore")
                 learn_router_rate_limit_headers(provider, pcfg, model, exc.headers)
                 context_limit = ollama_context_error_limit(raw)
-                if exc.code == 400 and context_limit and not context_retry_used:
+                if (
+                    not remote_bridge
+                    and exc.code == 400
+                    and context_limit
+                    and not context_retry_used
+                ):
                     context_retry_used = True
                     retry_pcfg = ollama_context_retry_config(pcfg, context_limit)
                     req_body = ollama_chat_request(model, upstream_body, retry_pcfg, stream=stream_requested, provider=provider)
@@ -292,7 +310,7 @@ def forward_ollama_api_chat(
         # Check if Claude Code requested SSE streaming
         accept = handler.headers.get("accept", "")
         if "text/event-stream" in accept or stream_requested:
-            _ollama_stream_to_anthropic_sse(handler, resp, model, word_chunking=word_chunking, provider=provider, source_body=original_body, idle_timeout=stream_idle_timeout)
+            _ollama_stream_to_anthropic_sse(handler, resp, model, word_chunking=word_chunking, provider=provider, source_body=projection_body, idle_timeout=stream_idle_timeout)
         else:
             # Non-SSE client but streaming from Ollama: collect full response
             chunks = []
@@ -322,12 +340,23 @@ def forward_ollama_api_chat(
                     continue
             if data is None:
                 data = {"message": {"content": ""}, "done": True, "done_reason": "end_turn"}
-            message = ollama_chat_to_anthropic(data, model, source_body=original_body)
-            message = refine_message_with_advisor(provider, pcfg, original_body, message, model)
-            remember_channel_injected_tool_uses(original_body, message)
-            message = prepend_anthropic_text(message, rate_limit_notice(waited, rpm_used, rpm_limit, rpm_status))
+            message = ollama_chat_to_anthropic(
+                data, model, source_body=projection_body
+            )
+            if not remote_bridge:
+                message = refine_message_with_advisor(
+                    provider, pcfg, original_body, message, model
+                )
+                remember_channel_injected_tool_uses(original_body, message)
+                message = prepend_anthropic_text(
+                    message,
+                    rate_limit_notice(waited, rpm_used, rpm_limit, rpm_status),
+                )
             write_json(handler, message)
-            mark_pending_channel_delivery_success(handler, "ollama_collected_json")
+            if not remote_bridge:
+                mark_pending_channel_delivery_success(
+                    handler, "ollama_collected_json"
+                )
         return
     # Non-streaming fallback
     data_bytes = json.dumps(req_body).encode("utf-8")
@@ -360,7 +389,12 @@ def forward_ollama_api_chat(
             raw = exc.read().decode("utf-8", errors="ignore")
             learn_router_rate_limit_headers(provider, pcfg, model, exc.headers)
             context_limit = ollama_context_error_limit(raw)
-            if exc.code == 400 and context_limit and not context_retry_used:
+            if (
+                not remote_bridge
+                and exc.code == 400
+                and context_limit
+                and not context_retry_used
+            ):
                 context_retry_used = True
                 retry_pcfg = ollama_context_retry_config(pcfg, context_limit)
                 req_body = ollama_chat_request(model, upstream_body, retry_pcfg, stream=stream_requested, provider=provider)
@@ -443,9 +477,18 @@ def forward_ollama_api_chat(
             504,
         )
         return
-    message = ollama_chat_to_anthropic(data, model, source_body=original_body)
-    message = refine_message_with_advisor(provider, pcfg, original_body, message, model)
-    remember_channel_injected_tool_uses(original_body, message)
-    message = prepend_anthropic_text(message, rate_limit_notice(waited, rpm_used, rpm_limit, rpm_status))
+    message = ollama_chat_to_anthropic(
+        data, model, source_body=projection_body
+    )
+    if not remote_bridge:
+        message = refine_message_with_advisor(
+            provider, pcfg, original_body, message, model
+        )
+        remember_channel_injected_tool_uses(original_body, message)
+        message = prepend_anthropic_text(
+            message,
+            rate_limit_notice(waited, rpm_used, rpm_limit, rpm_status),
+        )
     write_json(handler, message)
-    mark_pending_channel_delivery_success(handler, "ollama_json")
+    if not remote_bridge:
+        mark_pending_channel_delivery_success(handler, "ollama_json")

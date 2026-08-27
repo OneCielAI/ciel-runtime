@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from .context_compaction import AutomaticContextCompactionCompleted
+from .remote_bridge import REMOTE_BRIDGE_CONFIG_MARKER, is_remote_bridge_request
 from .upstream_error_policy import (
     UpstreamFailure,
     UpstreamStreamReadError,
@@ -91,6 +92,18 @@ def _responses_error_type(status: int) -> str:
     return anthropic_error_type_for_status(status)
 
 
+def _complete_local_delivery(
+    handler: Any,
+    delivery: OpenAIResponsesDelivery,
+    body: dict[str, Any],
+    reason: str,
+) -> None:
+    if is_remote_bridge_request(handler):
+        return
+    delivery.mark_success(handler, reason)
+    delivery.commit(body, handler)
+
+
 def handle_openai_responses_request(
     handler: Any,
     cfg: dict[str, Any],
@@ -108,9 +121,37 @@ def handle_openai_responses_request(
     # instruction has to ride along in the request itself. Do this before the
     # conversion so it reaches both the translated path and a native Responses
     # provider; the native Codex backend is excluded inside the port.
-    body = routing.apply_codex_compat_instructions(cfg, provider, pcfg, body)
-    anthropic_body = conversion.to_anthropic(body, conversion.current_alias(cfg))
-    if routing.maybe_import_session(
+    remote_bridge = is_remote_bridge_request(handler)
+    if not remote_bridge:
+        body = routing.apply_codex_compat_instructions(cfg, provider, pcfg, body)
+    if (
+        remote_bridge
+        and routing.select_protocol(
+            provider,
+            pcfg,
+            "openai_responses",
+            str(body.get("model") or ""),
+        )
+        == "openai_responses"
+    ):
+        _handle_provider_responses_route(
+            handler,
+            provider,
+            pcfg,
+            body,
+            services,
+        )
+        return
+    conversion_body = (
+        {**body, REMOTE_BRIDGE_CONFIG_MARKER: True}
+        if remote_bridge
+        else body
+    )
+    anthropic_body = conversion.to_anthropic(
+        conversion_body,
+        conversion.current_alias(cfg),
+    )
+    if not remote_bridge and routing.maybe_import_session(
         handler,
         anthropic_body,
         client_runtime="codex",
@@ -140,7 +181,8 @@ def handle_openai_responses_request(
         return
 
     stream = bool(body.get("stream", True))
-    conversion.update_tool_schema(anthropic_body.get("tools"))
+    if not remote_bridge:
+        conversion.update_tool_schema(anthropic_body.get("tools"))
     anthropic_body = conversion.normalize_thinking(provider, pcfg, anthropic_body)
     request_id = core.request_id()
     core.event_bus.publish(
@@ -158,15 +200,24 @@ def handle_openai_responses_request(
         },
     )
     routing.dump_request(provider, "/v1/responses", body)
-    anthropic_body = conversion.filter_blocked_tools(provider, pcfg, anthropic_body)
-    anthropic_body = conversion.normalize_tool_choice(provider, pcfg, anthropic_body)
-    conversion.write_context_usage(provider, pcfg, anthropic_body, "responses")
-    anthropic_body = conversion.strip_advisor_tools(provider, anthropic_body)
-    anthropic_body = conversion.inject_channel_context(anthropic_body)
-    anthropic_body = conversion.inject_tool_result_context(anthropic_body)
-    delivery.begin(handler, anthropic_body)
+    if not remote_bridge:
+        anthropic_body = conversion.filter_blocked_tools(
+            provider, pcfg, anthropic_body
+        )
+        anthropic_body = conversion.normalize_tool_choice(
+            provider, pcfg, anthropic_body
+        )
+        conversion.write_context_usage(provider, pcfg, anthropic_body, "responses")
+        anthropic_body = conversion.strip_advisor_tools(provider, anthropic_body)
+    if not remote_bridge:
+        anthropic_body = conversion.inject_channel_context(anthropic_body)
+        anthropic_body = conversion.inject_tool_result_context(anthropic_body)
+        delivery.begin(handler, anthropic_body)
     try:
-        anthropic_body = routing.normalize_provider_wire(provider, pcfg, anthropic_body)
+        if not remote_bridge:
+            anthropic_body = routing.normalize_provider_wire(
+                provider, pcfg, anthropic_body
+            )
     except AutomaticContextCompactionCompleted as completed:
         _complete_local_compaction(
             handler, provider, body, anthropic_body, completed, services
@@ -179,12 +230,24 @@ def handle_openai_responses_request(
     )
     try:
         message = routing.collect_message(handler, provider, pcfg, anthropic_body)
-        message = routing.recover_preamble_only_turn(
-            handler, provider, pcfg, anthropic_body, message
+        if not remote_bridge:
+            message = routing.recover_preamble_only_turn(
+                handler, provider, pcfg, anthropic_body, message
+            )
+        projection_body = (
+            {**body, REMOTE_BRIDGE_CONFIG_MARKER: True}
+            if remote_bridge
+            else body
         )
-        output.write_response(handler, message, source_body=body, stream=stream)
-        delivery.mark_success(handler, "responses_json")
-        delivery.commit(anthropic_body, handler)
+        output.write_response(
+            handler,
+            message,
+            source_body=projection_body,
+            stream=stream,
+        )
+        _complete_local_delivery(
+            handler, delivery, anthropic_body, "responses_json"
+        )
     except AutomaticContextCompactionCompleted as completed:
         _complete_local_compaction(
             handler, provider, body, anthropic_body, completed, services
@@ -283,8 +346,12 @@ def _complete_local_compaction(
         source_body=body,
         stream=bool(body.get("stream", True)),
     )
-    services.delivery.mark_success(handler, "responses_local_compaction")
-    services.delivery.commit(anthropic_body, handler)
+    _complete_local_delivery(
+        handler,
+        services.delivery,
+        anthropic_body,
+        "responses_local_compaction",
+    )
 
 
 def _handle_codex_route(
@@ -382,8 +449,12 @@ def _handle_provider_responses_route(
             pcfg,
             body,
         )
-        delivery.mark_success(handler, "provider_responses_proxy")
-        delivery.commit(delivery_body, handler)
+        _complete_local_delivery(
+            handler,
+            delivery,
+            delivery_body,
+            "provider_responses_proxy",
+        )
     except urllib.error.HTTPError as exc:
         raw = exc.read().decode("utf-8", errors="ignore")
         delivery.mark_failed(

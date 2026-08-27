@@ -2,9 +2,36 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any
+
+from .remote_bridge import REMOTE_BRIDGE_CONFIG_MARKER
+
+
+def _remote_client_reasoning_effort(body: Mapping[str, Any]) -> str | None:
+    candidates: list[Any] = []
+    if "reasoning_effort" in body:
+        candidates.append(body.get("reasoning_effort"))
+    for field in ("reasoning", "output_config", "thinking"):
+        value = body.get(field)
+        if isinstance(value, Mapping) and "effort" in value:
+            candidates.append(value.get("effort"))
+    thinking = body.get("thinking")
+    if (
+        isinstance(thinking, Mapping)
+        and str(thinking.get("type") or "").strip().lower() == "disabled"
+    ):
+        candidates.append("none")
+    normalized: list[str] = []
+    for value in candidates:
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError("remote reasoning effort must be a non-empty string")
+        normalized.append(value.strip().lower())
+    unique = list(dict.fromkeys(normalized))
+    if len(unique) > 1:
+        raise ValueError("remote reasoning effort fields conflict")
+    return unique[0] if unique else None
 
 
 @dataclass(frozen=True, slots=True)
@@ -75,7 +102,13 @@ class ProviderRequestBuilder:
         self, provider: str, config: dict[str, Any], body: dict[str, Any]
     ) -> dict[str, Any]:
         capped = dict(body)
+        if config.get(REMOTE_BRIDGE_CONFIG_MARKER):
+            # A network client owns its prompt and output budget.  Host-local
+            # compaction both mutates that request and records local activity,
+            # so let the selected upstream return its normal context error.
+            return capped
         compact_kind = self.budget.compact_kind(capped)
+        local_compact_refresh = bool(compact_kind)
         # Anthropic/Claude owns persistent compaction for its native Messages
         # protocol.  The JSON-size estimator below is only a provider-neutral
         # fallback and must never rewrite an ordinary native Claude turn.
@@ -105,8 +138,8 @@ class ProviderRequestBuilder:
             provider=provider,
             pcfg=config,
             model=str(capped.get("model") or config.get("current_model") or ""),
-            full_compact_request=compact_kind is not None,
-            compact_runtime=compact_kind,
+            full_compact_request=local_compact_refresh,
+            compact_runtime=compact_kind if local_compact_refresh else None,
         )
         output_tokens = self.budget.cap_output(
             config,
@@ -122,6 +155,8 @@ class ProviderRequestBuilder:
     def apply_options(
         self, provider: str, config: dict[str, Any], body: dict[str, Any]
     ) -> dict[str, Any]:
+        if config.get(REMOTE_BRIDGE_CONFIG_MARKER):
+            return body
         if provider not in self.options.sampling_providers:
             return body
         projected = dict(body)
@@ -170,27 +205,36 @@ class ProviderRequestBuilder:
         stream: bool = True,
         provider: str = "ollama",
     ) -> dict[str, Any]:
-        messages = self.ollama.messages(body)
+        remote_bridge = bool(config.get(REMOTE_BRIDGE_CONFIG_MARKER))
+        include_memory = not remote_bridge
+        messages = self.ollama.messages(body, include_memory=include_memory)
         tools = self.ollama.tools(body.get("tools"))
         context_limit = self.ollama.context_limit(config)
-        configured = self.budget.configured_output(config, body, "num_predict")
+        configured = (
+            self.budget.positive_int(body.get("max_tokens"))
+            if remote_bridge
+            else self.budget.configured_output(config, body, "num_predict")
+        )
         reserve = self.budget.reserve(config, context_limit)
         output_reserve = configured or self.budget.positive_int(body.get("max_tokens")) or 4096
         compact_kind = self.budget.compact_kind(body)
+        local_compact_refresh = bool(compact_kind)
         payload = {"messages": messages, "tools": tools}
-        messages = self.budget.compact_messages(
-            messages,
-            tools,
-            max(8192, context_limit - output_reserve - reserve),
-            provider=provider,
-            model=model,
-            pcfg=config,
-            full_compact_request=compact_kind is not None,
-            compact_runtime=compact_kind,
-            wire="ollama",
-        )
+        if not remote_bridge:
+            messages = self.budget.compact_messages(
+                messages,
+                tools,
+                max(8192, context_limit - output_reserve - reserve),
+                provider=provider,
+                model=model,
+                pcfg=config,
+                full_compact_request=local_compact_refresh,
+                compact_runtime=compact_kind if local_compact_refresh else None,
+                wire="ollama",
+            )
         payload["messages"] = messages
-        self.budget.write_usage(provider, config, payload, "ollama_upstream")
+        if not remote_bridge:
+            self.budget.write_usage(provider, config, payload, "ollama_upstream")
         request: dict[str, Any] = {
             "model": model,
             "messages": messages,
@@ -202,23 +246,53 @@ class ProviderRequestBuilder:
         num_ctx = self.ollama.num_ctx(config, payload, _token_cache=token_cache)
         if not num_ctx:
             num_ctx = self.ollama.context_limit(config)
-        num_predict = self.budget.cap_output(
-            config,
-            body,
-            payload,
-            num_ctx,
-            configured,
-            _token_cache=token_cache,
-        )
+        num_predict = configured
+        if not remote_bridge:
+            num_predict = self.budget.cap_output(
+                config,
+                body,
+                payload,
+                num_ctx,
+                configured,
+                _token_cache=token_cache,
+            )
+        wire_config = config
+        if remote_bridge:
+            wire_config = dict(config)
+            wire_config.pop("max_output_tokens", None)
+            wire_config.pop("num_predict", None)
+            raw_options = config.get("ollama_options")
+            wire_config["ollama_options"] = {
+                key: value
+                for key, value in (
+                    raw_options.items() if isinstance(raw_options, dict) else ()
+                )
+                if key != "num_predict"
+            }
+            for marker in (
+                "ollama_explicit_options",
+                "ollama_transient_options",
+            ):
+                raw_markers = config.get(marker)
+                if isinstance(raw_markers, (list, tuple, set)):
+                    wire_config[marker] = [
+                        value
+                        for value in raw_markers
+                        if str(value) != "num_predict"
+                    ]
+            wire_config["output_tokens_explicit"] = bool(configured)
         request = self.ollama.apply_optional(
             request,
             provider,
             model,
-            config,
+            wire_config,
             body,
             output_limit=num_predict,
         )
-        request["messages"] = self.options.finalize_messages(request["messages"])
+        if not remote_bridge:
+            request["messages"] = self.options.finalize_messages(
+                request["messages"]
+            )
         return request
 
     def openai_chat(
@@ -230,30 +304,60 @@ class ProviderRequestBuilder:
         *,
         stream: bool = False,
     ) -> dict[str, Any]:
+        remote_bridge = bool(config.get(REMOTE_BRIDGE_CONFIG_MARKER))
         passback = self.openai.reasoning_passback(provider, model, config)
-        messages = self.openai.messages(body, reasoning_passback=passback)
+        include_memory = not remote_bridge
+        messages = self.openai.messages(
+            body,
+            reasoning_passback=passback,
+            include_memory=include_memory,
+        )
         tools = self.openai.tools(body.get("tools"))
         context_limit = self.openai.context_limit(provider, config)
-        configured = self.budget.configured_output(config, body)
+        configured = (
+            self.budget.positive_int(body.get("max_tokens"))
+            if remote_bridge
+            else self.budget.configured_output(config, body)
+        )
         reserve = self.budget.reserve(config, context_limit)
         output_reserve = configured or self.budget.positive_int(body.get("max_tokens")) or 4096
         compact_kind = self.budget.compact_kind(body)
-        messages = self.budget.compact_messages(
-            messages,
-            tools,
-            max(8192, context_limit - output_reserve - reserve),
-            provider=provider,
-            model=model,
-            pcfg=config,
-            full_compact_request=compact_kind is not None,
-            compact_runtime=compact_kind,
-            wire="openai",
-        )
-        messages = self.openai.repair_tools(messages)
+        local_compact_refresh = bool(compact_kind)
+        if not remote_bridge:
+            messages = self.budget.compact_messages(
+                messages,
+                tools,
+                max(8192, context_limit - output_reserve - reserve),
+                provider=provider,
+                model=model,
+                pcfg=config,
+                full_compact_request=local_compact_refresh,
+                compact_runtime=compact_kind if local_compact_refresh else None,
+                wire="openai",
+            )
+            messages = self.openai.repair_tools(messages)
         request: dict[str, Any] = {"model": model, "messages": messages, "stream": stream}
-        reasoning_effort = self.openai.reasoning_effort(
-            provider, model, body, config
-        )
+        if remote_bridge:
+            client_effort = _remote_client_reasoning_effort(body)
+            if client_effort is None:
+                reasoning_effort = None
+            else:
+                effort_body = dict(body)
+                effort_body["reasoning_effort"] = client_effort
+                metadata = body.get("metadata")
+                effort_body["metadata"] = {
+                    **(dict(metadata) if isinstance(metadata, Mapping) else {}),
+                    "ciel_runtime_reasoning_effort": client_effort,
+                }
+                effort_config = dict(config)
+                effort_config.pop("effort_level", None)
+                reasoning_effort = self.openai.reasoning_effort(
+                    provider, model, effort_body, effort_config
+                ) or client_effort
+        else:
+            reasoning_effort = self.openai.reasoning_effort(
+                provider, model, body, config
+            )
         if reasoning_effort:
             request["reasoning_effort"] = reasoning_effort
         if tools:
@@ -267,10 +371,18 @@ class ProviderRequestBuilder:
         if isinstance(body.get("response_format"), dict):
             request["response_format"] = dict(body["response_format"])
         for key in ("temperature", "top_p"):
-            if self.openai.sampling_allowed(provider, config) and config.get(key) is not None:
-                request[key] = config[key]
+            value = (
+                body.get(key)
+                if remote_bridge
+                else config.get(key)
+            )
+            if self.openai.sampling_allowed(provider, config) and value is not None:
+                request[key] = value
         normalized = self.openai.normalize_request(provider, config, request)
-        normalized["messages"] = self.options.finalize_messages(normalized["messages"])
+        if not remote_bridge:
+            normalized["messages"] = self.options.finalize_messages(
+                normalized["messages"]
+            )
         return normalized
 
 

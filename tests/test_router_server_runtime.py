@@ -41,8 +41,10 @@ class RouterServerRuntimeTests(unittest.TestCase):
                     current_log_level=lambda: 20,
                     current_pid=lambda: 123,
                     env_value=lambda name: "debug" if name == "CIEL_RUNTIME_LOG_LEVEL" else None,
-                    external_access_enabled=lambda _config: True,
-                    ensure_external_token=lambda: events.append("token") or "token",
+                    administrative_external_access_enabled=lambda _config: True,
+                    remote_bridge_enabled=lambda _config: True,
+                    ensure_administrative_token=lambda: events.append("admin-token") or "admin-token",
+                    ensure_bridge_token=lambda: events.append("bridge-token") or "bridge-token",
                 ),
                 RouterServerEffects(
                     chmod=lambda path, mode: events.append(("chmod", path, mode)),
@@ -58,8 +60,63 @@ class RouterServerRuntimeTests(unittest.TestCase):
 
             self.assertFalse(pid_path.exists())
             self.assertIn("source=env", stderr.getvalue())
-            self.assertIn("token", events)
+            self.assertIn("admin-token", events)
+            self.assertIn("bridge-token", events)
             self.assertIn("serve", events)
+
+    def test_run_generates_only_tokens_for_enabled_external_modes(self):
+        scenarios = (
+            ({"remote_bridge": True}, ["bridge-token"]),
+            ({"router_admin": True}, ["admin-token"]),
+        )
+        for config, expected in scenarios:
+            with self.subTest(config=config), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                events = []
+
+                class Server:
+                    def serve_forever(self):
+                        raise RuntimeError("stop")
+
+                runtime = RouterServerRuntime(
+                    RouterServerConfig(
+                        root,
+                        root / "router.pid",
+                        8787,
+                        "http://127.0.0.1:8787",
+                        root / "missing-level",
+                        {},
+                        object(),
+                    ),
+                    RouterServerStatePorts(
+                        load_config=lambda: config,
+                        reset_api_key_cooldowns=lambda: None,
+                        bind_host=lambda _config: "127.0.0.1",
+                        current_log_level=lambda: 20,
+                        current_pid=lambda: 123,
+                        env_value=lambda _name: None,
+                        administrative_external_access_enabled=lambda source: bool(
+                            source.get("router_admin")
+                        ),
+                        remote_bridge_enabled=lambda source: bool(
+                            source.get("remote_bridge")
+                        ),
+                        ensure_administrative_token=lambda: events.append("admin-token") or "",
+                        ensure_bridge_token=lambda: events.append("bridge-token") or "",
+                    ),
+                    RouterServerEffects(
+                        chmod=lambda _path, _mode: None,
+                        stderr=io.StringIO(),
+                        server_factory=lambda _address, _handler: Server(),
+                        start_watchdog=lambda _server: None,
+                        configure_web_endpoints=lambda _host: [],
+                    ),
+                )
+
+                with self.assertRaisesRegex(RuntimeError, "stop"):
+                    runtime.run()
+
+                self.assertEqual(expected, events)
 
     def test_log_level_file_takes_precedence_over_environment(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -70,7 +127,7 @@ class RouterServerRuntimeTests(unittest.TestCase):
                 RouterServerStatePorts(
                     lambda: {}, lambda: None, lambda _config: "host", lambda: 20,
                     lambda: 1, lambda _name: "debug", lambda _config: False,
-                    lambda: "",
+                    lambda _config: False, lambda: "", lambda: "",
                 ),
                 RouterServerEffects(
                     lambda _path, _mode: None, io.StringIO(), lambda *_args: None,

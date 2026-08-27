@@ -160,6 +160,43 @@ def sealed_body():
 
 
 class MissingItemRetryTests(unittest.TestCase):
+    def test_response_headers_allow_diagnostics_but_strip_credentials(self):
+        class HeaderHandler:
+            def __init__(self):
+                self.headers = []
+
+            def send_header(self, name, value):
+                self.headers.append((name.lower(), value))
+
+        handler = HeaderHandler()
+
+        CodexBackendHttpAdapter.copy_response_headers(
+            handler,
+            {
+                "Content-Type": "text/event-stream",
+                "X-Request-Id": "req_1",
+                "X-RateLimit-Remaining": "7",
+                "Anthropic-RateLimit-Tokens-Remaining": "99",
+                "Authorization": "Bearer upstream-secret",
+                "X-Api-Key": "upstream-secret",
+                "Set-Cookie": "session=upstream-secret",
+                "WWW-Authenticate": "Bearer realm=upstream",
+            },
+        )
+
+        forwarded = dict(handler.headers)
+        self.assertEqual("text/event-stream", forwarded["content-type"])
+        self.assertEqual("req_1", forwarded["x-request-id"])
+        self.assertEqual("7", forwarded["x-ratelimit-remaining"])
+        self.assertEqual(
+            "99", forwarded["anthropic-ratelimit-tokens-remaining"]
+        )
+        self.assertEqual("close", forwarded["connection"])
+        self.assertNotIn("authorization", forwarded)
+        self.assertNotIn("x-api-key", forwarded)
+        self.assertNotIn("set-cookie", forwarded)
+        self.assertNotIn("www-authenticate", forwarded)
+
     def test_upstream_missing_tool_output_verdict_drops_exact_pair_and_retries(self):
         rejected = "call_aul297D4jWf5nUXpEmbine7E"
         body = {

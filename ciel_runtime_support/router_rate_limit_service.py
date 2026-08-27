@@ -23,6 +23,7 @@ from .provider_limits import (
     register_rate_limit_backoff,
 )
 from .rate_limit_repository import RateLimitRepository
+from .remote_bridge import REQUEST_API_KEY_MARKER
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,11 +49,19 @@ class RouterRateLimitService:
     repository: RateLimitRepository
     ports: RouterRateLimitPorts
 
+    @staticmethod
+    def request_scoped(config: dict[str, Any]) -> bool:
+        """Return whether this config contains a one-request remote BYOK credential."""
+
+        return config.get(REQUEST_API_KEY_MARKER) is True
+
     def legacy_key(self, provider: str, config: dict[str, Any], model: str | None) -> str:
         return f"{provider}:{model or self.ports.current_model_id(provider, config)}"
 
     def configured_rpm(self, provider: str, config: dict[str, Any]) -> int | None:
         del provider
+        if self.request_scoped(config):
+            return None
         return rate_limit_policy.configured_rpm(config, self.ports.positive_int)
 
     def rpm(self, provider: str, config: dict[str, Any]) -> int | None:
@@ -61,12 +70,16 @@ class RouterRateLimitService:
 
     @staticmethod
     def key(provider: str, config: dict[str, Any], model: str | None = None) -> str:
-        del config, model
+        del model
+        if config.get(REQUEST_API_KEY_MARKER) is True:
+            return f"{provider}:__request_scoped__"
         return f"{provider}:__global__"
 
     def state_entry(
         self, provider: str, config: dict[str, Any], model: str | None = None
     ) -> dict[str, Any]:
+        if self.request_scoped(config):
+            return {}
         return self.repository.entry(
             self.key(provider, config, model), self.legacy_key(provider, config, model)
         )
@@ -74,6 +87,8 @@ class RouterRateLimitService:
     def effective_rpm(
         self, provider: str, config: dict[str, Any], model: str | None = None
     ) -> int | None:
+        if self.request_scoped(config):
+            return None
         return self.repository.effective_rpm(
             self.key(provider, config, model),
             self.legacy_key(provider, config, model),
@@ -95,6 +110,8 @@ class RouterRateLimitService:
     def usage(
         self, provider: str, config: dict[str, Any], model: str | None = None
     ) -> tuple[int, int | None]:
+        if self.request_scoped(config):
+            return 0, None
         return self.repository.usage(
             self.key(provider, config, model),
             self.legacy_key(provider, config, model),
@@ -109,6 +126,8 @@ class RouterRateLimitService:
         model: str | None,
         rpm: int | None,
     ) -> tuple[int, int | None]:
+        if self.request_scoped(config):
+            return 0, None
         return self.repository.record_usage(
             self.key(provider, config, model),
             self.legacy_key(provider, config, model),
@@ -127,6 +146,8 @@ class RouterRateLimitService:
     def learn_headers(
         self, provider: str, config: dict[str, Any], model: str | None, headers: Any
     ) -> None:
+        if self.request_scoped(config):
+            return
         learn_rate_limit_headers(
             provider,
             config,
@@ -154,6 +175,17 @@ class RouterRateLimitService:
         model: str | None,
         retry_after: str | None = None,
     ) -> float:
+        if self.request_scoped(config):
+            wait = rate_limit_policy.retry_after_seconds(retry_after, self.ports.now)
+            if wait is None:
+                wait = 60.0
+            wait = max(1.0, min(300.0, wait))
+            self.ports.log(
+                "WARN",
+                f"rate_limit_429_backoff provider={provider} model={model or ''} "
+                f"wait={wait:.2f}s request_scoped_no_persist=1",
+            )
+            return wait
         return register_rate_limit_backoff(
             provider,
             config,
@@ -177,6 +209,8 @@ class RouterRateLimitService:
     def apply(
         self, provider: str, config: dict[str, Any], model: str | None = None
     ) -> tuple[float, int, int | None]:
+        if self.request_scoped(config):
+            return 0.0, 0, None
         return apply_rate_limit(
             provider,
             config,
@@ -203,6 +237,8 @@ class RouterRateLimitService:
         model: str | None,
         rpm: int | None,
     ) -> float:
+        if self.request_scoped(config):
+            return 0.0
         multi_key = self.ports.api_key_count(provider, config) > 1
         waited = 0.0
         while True:

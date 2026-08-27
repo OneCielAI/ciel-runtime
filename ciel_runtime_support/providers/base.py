@@ -175,6 +175,11 @@ class NoAuthProviderAdapter(HttpBearerProviderAdapter):
 class OpenAICompatibleProviderAdapter(HttpBearerProviderAdapter):
     """Base for providers that implement the OpenAI Chat/Models wire surface."""
 
+    def resolve_endpoint(self, operation: str, config: ProviderConfig) -> str:
+        if operation in {"chat", "openai_chat"}:
+            return self.request_policy(config).chat_path
+        return super().resolve_endpoint(operation, config)
+
     def context_policy(self, config: ProviderConfig) -> ProviderContextPolicy:
         del config
         return ProviderContextPolicy(

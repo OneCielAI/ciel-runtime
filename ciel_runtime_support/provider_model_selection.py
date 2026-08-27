@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable
 
+from .remote_bridge import REMOTE_BRIDGE_CONFIG_MARKER
+
 
 @dataclass(frozen=True, slots=True)
 class ModelIdentityPorts:
@@ -309,7 +311,11 @@ class ProviderModelSelection:
         requested = self.identity.strip_context_suffix(requested)
         fallback = self.identity.normalize(provider, config.get("current_model") or "model")
         adapter = self.selection.adapter(provider, config)
-        model_map = self.identity.model_map(provider, config)
+        model_map = self.identity.model_map(
+            provider,
+            config,
+            fetch=not bool(config.get(REMOTE_BRIDGE_CONFIG_MARKER)),
+        )
         if not requested:
             return self.identity.api_model_id(provider, fallback)
         resolved = self.identity.unslug(provider, requested, model_map)

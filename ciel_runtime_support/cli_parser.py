@@ -15,6 +15,7 @@ class CliParserLaunch:
     launch_codex_app_server: CliHandler
     launch_agy: CliHandler
     serve: CliHandler
+    remote_bridge: CliHandler
     launch_grok: CliHandler = lambda _args: None
     launch_zcode: CliHandler = lambda _args: None
 
@@ -87,6 +88,15 @@ def build_cli_parser(services: CliParserServices) -> argparse.ArgumentParser:
     _add_remainder_command(commands, "launch-grok", services.launch.launch_grok)
     _add_remainder_command(commands, "launch-zcode", services.launch.launch_zcode)
     commands.add_parser("serve").set_defaults(func=services.launch.serve)
+    bridge = commands.add_parser("bridge")
+    bridge.add_argument(
+        "action",
+        nargs="?",
+        choices=("status", "enable", "disable", "token", "serve"),
+        default="status",
+    )
+    bridge.add_argument("--host")
+    bridge.set_defaults(func=services.launch.remote_bridge)
     commands.add_parser("version").set_defaults(func=services.runtime.version)
     commands.add_parser("status").set_defaults(func=services.runtime.status)
     commands.add_parser("env").set_defaults(func=services.runtime.env)

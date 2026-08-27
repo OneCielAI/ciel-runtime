@@ -36,6 +36,7 @@ class RouterRequestPorts:
 class RuntimeRouterPorts:
     codex_routed_enabled: Callable[..., bool]
     forward_provider_chat: Callable[..., Any]
+    forward_compatible_chat: Callable[..., Any]
     claude_services: ClaudeRouterServices
 
 
@@ -194,7 +195,17 @@ class RouterRequestContext:
                     self.handle_codex_backend_passthrough_get
                 ),
             ),
-            OpenAIChatRouter(self.runtime.forward_provider_chat),
+            OpenAIChatRouter(
+                self.runtime.forward_provider_chat,
+                self.request.openai_responses.routing.select_protocol,
+                self.request.write_json,
+                lambda provider, config: bool(
+                    self.runtime.claude_services.routing.request_policy(
+                        provider, config
+                    ).stream_required
+                ),
+                self.runtime.forward_compatible_chat,
+            ),
             ClaudeRouter(services=self.runtime.claude_services),
         )
 

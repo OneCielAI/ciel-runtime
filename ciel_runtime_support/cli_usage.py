@@ -35,6 +35,8 @@ Control plane, runs before Claude Code and does not require LLM connectivity:
   ciel-runtime ollama-catalog          Download Ollama model/context catalog
   ciel-runtime test [seconds] [mode]   Test compatibility; mode is auto, quick, smoke, or full
   ciel-runtime stop                    Stop router
+  ciel-runtimectl bridge [status|enable|disable|token|serve] [--host HOST]
+                                      Operate the network-facing LLM bridge
 
 Headless setup flags, namespaced to avoid Claude CLI collisions:
   ciel-runtime --ca-web-address HOST  Bind the web/router server to HOST for this launch

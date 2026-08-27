@@ -34,7 +34,10 @@ class OllamaStreamCollection:
 
 
 def collect_ollama_chat_stream(
-    lines: Iterable[Any], policy: RunawayOutputPolicy | None = None
+    lines: Iterable[Any],
+    policy: RunawayOutputPolicy | None = None,
+    *,
+    strict: bool = False,
 ) -> OllamaStreamCollection:
     """Merge Ollama NDJSON chunks into one response envelope.
 
@@ -50,17 +53,39 @@ def collect_ollama_chat_stream(
     tool_calls: list[dict[str, Any]] = []
     response: dict[str, Any] = {}
     chunks = 0
+    terminal_received = False
+    message_received = False
     for raw in lines:
-        line = raw.decode("utf-8", errors="ignore").strip() if isinstance(raw, bytes) else str(raw).strip()
+        if isinstance(raw, bytes):
+            try:
+                line = raw.decode(
+                    "utf-8", errors="strict" if strict else "ignore"
+                ).strip()
+            except UnicodeDecodeError as exc:
+                raise RuntimeError(
+                    "upstream Ollama stream contained invalid UTF-8"
+                ) from exc
+        else:
+            line = str(raw).strip()
         if not line:
             continue
         try:
             chunk = json.loads(line)
-        except ValueError:
+        except ValueError as exc:
+            if strict:
+                raise RuntimeError(
+                    "upstream Ollama stream contained malformed JSON"
+                ) from exc
             continue
         if not isinstance(chunk, dict):
+            if strict:
+                raise RuntimeError(
+                    "upstream Ollama stream data must contain a JSON object"
+                )
             continue
         chunks += 1
+        if chunk.get("done") is True:
+            terminal_received = True
         for key in ("model", "created_at", "done", "done_reason"):
             if chunk.get(key) is not None:
                 response[key] = chunk[key]
@@ -74,6 +99,7 @@ def collect_ollama_chat_stream(
         message = chunk.get("message")
         if not isinstance(message, dict):
             continue
+        message_received = True
         text_chunk = str(message.get("content") or "")
         thinking_chunk = str(message.get("thinking") or "")
         if text_chunk:
@@ -84,9 +110,37 @@ def collect_ollama_chat_stream(
             verdict = verdict or thinking_runaway.feed(thinking_chunk)
         for call in message.get("tool_calls") or []:
             if isinstance(call, dict):
+                if strict:
+                    function = (
+                        call.get("function")
+                        if isinstance(call.get("function"), dict)
+                        else {}
+                    )
+                    name = str(function.get("name") or "").strip()
+                    arguments = function.get("arguments")
+                    if isinstance(arguments, str):
+                        try:
+                            arguments = json.loads(arguments)
+                        except ValueError as exc:
+                            raise RuntimeError(
+                                "upstream Ollama tool call contained malformed arguments"
+                            ) from exc
+                    if not name or not isinstance(arguments, dict):
+                        raise RuntimeError(
+                            "upstream Ollama tool call requires a function name and "
+                            "object arguments"
+                        )
                 tool_calls.append(call)
         if verdict is not None:
             break
+        if terminal_received:
+            break
+    if strict and verdict is None and not terminal_received:
+        raise RuntimeError(
+            "upstream Ollama stream ended before done=true"
+        )
+    if strict and verdict is None and not message_received:
+        raise RuntimeError("upstream Ollama stream contained no message")
     collected: dict[str, Any] = {"role": "assistant", "content": "".join(content)}
     if thinking:
         collected["thinking"] = "".join(thinking)

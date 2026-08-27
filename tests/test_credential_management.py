@@ -2,6 +2,7 @@ import threading
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from ciel_runtime_support.credential_management import (
     CredentialManagementService,
@@ -231,6 +232,25 @@ class CredentialErrorTextGuardTest(unittest.TestCase):
                 "kimi", {"api_key": "sk-k...NhY7"}
             ),
         )
+
+    def test_remote_nvidia_request_key_precedes_host_supplemental_key(self):
+        import ciel_runtime
+
+        with mock.patch.object(
+            ciel_runtime,
+            "nvidia_api_key",
+            return_value="host-ncp-key",
+        ):
+            keys = ciel_runtime.provider_config_api_keys(
+                "nvidia-hosted",
+                {
+                    "api_key": "remote-request-key",
+                    "api_keys": ["remote-request-key"],
+                    "_ciel_remote_request_api_key": True,
+                },
+            )
+
+        self.assertEqual(["remote-request-key"], keys)
 
 
 if __name__ == "__main__":

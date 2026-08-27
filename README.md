@@ -14,7 +14,7 @@ compatible AI coding-agent CLIs.
 [![Node.js 18+](https://img.shields.io/badge/node-%3E%3D18-339933?logo=node.js&logoColor=white)](package.json)
 [![Python 3.10+](https://img.shields.io/badge/python-%3E%3D3.10-3776AB?logo=python&logoColor=white)](docs/Installation.md)
 
-[Install](#install) · [Quickstart](#quickstart) · [Capabilities](#what-ciel-runtime-does) · [Providers](docs/Providers.md) · [CLI reference](docs/CLI-Reference.md) · [Changelog](CHANGELOG.md)
+[Install](#install) · [Quickstart](#quickstart) · [Capabilities](#what-ciel-runtime-does) · [Providers](docs/Providers.md) · [Remote Bridge](docs/Remote-Bridge.md) · [CLI reference](docs/CLI-Reference.md) · [Changelog](CHANGELOG.md)
 
 </div>
 
@@ -94,6 +94,7 @@ ciel-runtimectl test
 |---|---|
 | Runtime launch | Claude Code, Codex, Codex App Server, AGY, Grok Build, and ZCode from one entrypoint |
 | Provider routing | Native connections where supported; otherwise a loopback HTTP router with provider-owned endpoint and authentication rules |
+| Remote Runtime Bridge | One authenticated OpenAI/Anthropic-compatible network endpoint with per-request provider/model routing, protocol projection, Router-host OAuth, and isolated request keys where allowed |
 | Protocol adaptation | Anthropic Messages, OpenAI Chat, OpenAI Responses, Ollama Chat, tool calls, thinking blocks, and SSE streams |
 | Model control | Provider catalogs, context/output limits, reasoning effort, sampling options, API-key rotation, and rate-limit handling |
 | Workspace context | Remote instructions plus atomic, workspace-scoped OKF/Markdown/JSON/YAML/TOML/text memory trees |
@@ -105,12 +106,13 @@ ciel-runtimectl test
 ## Runtimes and providers
 
 Ciel separates the **runtime** (the coding-agent CLI) from the **provider** (the
-model API). A runtime/provider pair can use one of three launch modes:
+model API). A runtime/provider pair can use one of four launch modes:
 
 ```text
 native  -> the CLI connects directly to its supported provider endpoint
 routed  -> the CLI connects to Ciel's loopback router, which adapts the wire protocol
-router  -> Ciel runs only the local router for an external client
+router  -> Ciel runs only the local router for a loopback client
+bridge  -> Ciel Router and the agent CLI run on separate networked machines
 ```
 
 Dedicated adapters cover Anthropic, Ollama and Ollama Cloud, DeepSeek, OpenCode
@@ -119,8 +121,12 @@ NVIDIA NIM, vLLM, and LM Studio. A declarative catalog adds other
 OpenAI-compatible services and private gateways. The authoritative list,
 endpoint rules, and model constraints are in [Providers](docs/Providers.md).
 
-The router binds to `127.0.0.1` by default. External access is an explicit
-debugging/operations feature and requires the configured administration token.
+The router binds to `127.0.0.1` by default. Remote Bridge is an explicit mode
+and requires its dedicated bearer token for non-loopback bridge endpoint
+requests. It can present Chat Completions, Responses, or Anthropic Messages to
+a remote client while selecting a compatible upstream provider protocol.
+Router-managed OAuth credentials such as GitHub Copilot stay on the Router
+host. See [Remote Runtime Bridge](docs/Remote-Bridge.md).
 
 ## Workspace context and memory
 
@@ -198,7 +204,7 @@ commit ledger included in each stable release.
 |---|---|
 | Install and unattended setup | [Installation](docs/Installation.md) · [Setup modes](docs/install.md) |
 | Commands and settings | [CLI reference](docs/CLI-Reference.md) · [Configuration](docs/Configuration.md) |
-| Providers and model routing | [Providers](docs/Providers.md) · [Router](docs/Router.md) |
+| Providers and model routing | [Providers](docs/Providers.md) · [Router](docs/Router.md) · [Remote Bridge](docs/Remote-Bridge.md) |
 | Runtime design | [Architecture](docs/Architecture.md) · [Module map](docs/Module-Map.md) |
 | Memory and messaging | [Remote Memory](docs/Remote-Memory.md) · [MCP and channels](docs/MCP-Channels.md) |
 | Operations | [Observability](docs/Observability.md) · [Usage observability](docs/usage-observability.md) |

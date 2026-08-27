@@ -6,6 +6,10 @@ from ciel_runtime_support.provider_request_access import (
     ProviderRequestAccessPorts,
     ProviderRequestAccessService,
 )
+from ciel_runtime_support.remote_bridge import (
+    REMOTE_BRIDGE_CONFIG_MARKER,
+    REQUEST_API_KEY_MARKER,
+)
 
 
 class ProviderRequestAccessServiceTests(unittest.TestCase):
@@ -107,6 +111,41 @@ class ProviderRequestAccessServiceTests(unittest.TestCase):
 
         self.assertNotIn("content-type", headers)
         self.assertNotIn("anthropic-version", headers)
+
+    def test_remote_host_key_cannot_inherit_client_openai_account_scope(self):
+        headers = self.service().headers(
+            "openai",
+            {REMOTE_BRIDGE_CONFIG_MARKER: True},
+            {
+                "Authorization": "Bearer bridge-token",
+                "OpenAI-Organization": "org_remote_selected",
+                "OpenAI-Project": "proj_remote_selected",
+            },
+            "openai_responses",
+        )
+
+        folded = {name.casefold(): value for name, value in headers.items()}
+        self.assertNotIn("openai-organization", folded)
+        self.assertNotIn("openai-project", folded)
+        self.assertEqual("Bearer secret", folded["authorization"])
+
+    def test_remote_request_key_may_keep_its_openai_account_scope(self):
+        headers = self.service().headers(
+            "openai",
+            {
+                REMOTE_BRIDGE_CONFIG_MARKER: True,
+                REQUEST_API_KEY_MARKER: True,
+            },
+            {
+                "OpenAI-Organization": "org_request_key",
+                "OpenAI-Project": "proj_request_key",
+            },
+            "openai_responses",
+        )
+
+        folded = {name.casefold(): value for name, value in headers.items()}
+        self.assertEqual("org_request_key", folded["openai-organization"])
+        self.assertEqual("proj_request_key", folded["openai-project"])
 
     def test_protocol_not_provider_default_controls_passthrough(self):
         inbound = {

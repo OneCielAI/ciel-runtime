@@ -1,0 +1,592 @@
+okf:
+  version: "1.0"
+  kind: engineering-journal
+  task:
+    id: remote-runtime-bridge-20260827
+    title: Network-separated Ciel Router and agent CLI bridge
+    status: complete
+    objective: >-
+      Run Ciel Router and the actual agent CLI on separate network hosts while
+      exposing one authenticated OpenAI/Anthropic-compatible endpoint with
+      request-scoped provider and model routing. Keep OAuth credentials such as
+      GitHub Copilot on the Router host.
+
+  source_control:
+    prerequisite_main_commit: b9e30271b27efb21c026c90191081e816b2fcd4c
+    prerequisite_main_pushed: true
+    branch: feature/remote-runtime-bridge
+    branch_base: b9e30271b27efb21c026c90191081e816b2fcd4c
+
+  implementation:
+    mode:
+      config_key: remote_bridge.enabled
+      default_host: 0.0.0.0
+      commands:
+        - ciel-runtimectl bridge status
+        - ciel-runtimectl bridge enable --host HOST
+        - ciel-runtimectl bridge token
+        - ciel-runtimectl bridge serve --host HOST
+        - ciel-runtimectl bridge disable
+    client_authentication:
+      schemes:
+        - Authorization Bearer bridge token
+        - x-api-key bridge token for Anthropic clients
+        - X-Ciel-Runtime-Token bridge token
+      loopback_policy: existing loopback trust retained
+      non_loopback_bridge_endpoint_policy: bridge token required
+      bridge_only_path_scope:
+        - LLM protocol endpoints
+        - model discovery
+        - bridge status
+      health_endpoint_access: false
+      router_admin_api_access: false
+      token_separation:
+        bridge_file: remote-bridge-token
+        bridge_environment: CIEL_RUNTIME_REMOTE_BRIDGE_TOKEN
+        admin_file: router-external-token
+        admin_environment: CIEL_RUNTIME_ROUTER_EXTERNAL_TOKEN
+        bridge_token_grants_admin_when_admin_mode_enabled: false
+        equal_token_values_fail_closed_for_admin_paths: true
+      bridge_auth_and_control_headers_scrubbed_before_upstream_projection: true
+      token_values_logged_in_journal: false
+    endpoints:
+      port_source: effective ROUTER_PORT reported by bridge status
+      separate_fixed_bridge_port: false
+      openai_chat: /v1/chat/completions
+      openai_responses: /v1/responses
+      openai_compaction: /v1/responses/compact
+      anthropic_messages: /v1/messages
+      anthropic_count_tokens: /v1/messages/count_tokens
+      models: /v1/models
+      status: /ca/bridge
+    routing:
+      portable_model_syntax: provider/model
+      headers:
+        provider: X-Ciel-Runtime-Provider
+        model: X-Ciel-Runtime-Model
+        request_provider_key: X-Ciel-Runtime-API-Key
+      private_body_object: ciel
+      persisted_config_mutated_by_request: false
+      private_controls_forwarded_upstream: false
+    protocol_projection:
+      openai_chat:
+        native_openai_chat: provider-owned path passthrough
+        openai_responses: collected and projected to Chat completion
+        anthropic_messages: collected and projected to Chat completion
+        ollama_chat: collected and projected to Chat completion
+        converted_stream: completed response synthesized as Chat SSE
+        unsupported_lossy_options: HTTP 400
+      anthropic_messages:
+        openai_responses: projected to Anthropic JSON or Anthropic SSE
+      effort_fields:
+        openai_chat: reasoning_effort
+        openai_responses: reasoning.effort
+        anthropic_messages: output_config.effort
+      remote_stream_terminal_marker_required: true
+    request_scoped_key_state:
+      provider_configuration_persisted: false
+      shared_rate_usage_read_or_written: false
+      learned_rate_headers_persisted: false
+      shared_backoff_penalty_persisted: false
+      per_key_cooldown_persisted: false
+      bounded_current_request_retry_delay_allowed: true
+    copilot_oauth_boundary:
+      provider: github-copilot-oauth
+      credential_owner: router_host
+      credential_file: CONFIG_DIR/github-copilot-oauth.json
+      remote_client_supplies_oauth: false
+      remote_credential_override_result: HTTP 400
+      upstream_401_403_policy: router host refreshes and retries once
+      status_projection: router_host_oauth
+    copilot_public_catalog:
+      authority: router-host OAuth GET https://api.githubcopilot.com/models
+      selection_metadata: model_picker_enabled
+      metadata_false_exposed: false
+      metadata_false_direct_request_allowed: false
+      metadata_absent_fallback_catalog_retained: true
+      public_alias:
+        client_model_id: mai-code-1-flash
+        upstream_wire_model_id: mai-code-1-flash-picker
+    native_oauth_passthrough_boundary:
+      codex_routed_remote_bridge: rejected
+      reason: client-local ChatGPT OAuth cannot be reused as bridge authentication
+    incompatible_provider_boundaries:
+      agy: client-local runtime authentication
+      codex: client-local runtime authentication and ChatGPT OAuth passthrough
+      zai-start-plan: host-side browser/CAPTCHA and shared runtime-interaction state
+      excluded_from_status_and_model_discovery: true
+      direct_selection_result: HTTP 400
+    request_key_priority:
+      nvidia_host_supplemental_key_precedes_remote_request: false
+
+  corrections:
+    token_repository_parent:
+      observed_failure: >-
+        bridge enable attempted token persistence before the per-instance token
+        directory existed and raised FileNotFoundError.
+      correction: token repository now creates the exact token parent directory
+      regression_test_added: true
+    bridge_health_scope:
+      observed_exposure_fields:
+        - user
+        - home
+        - config_dir
+        - workspace
+        - pid
+        - active_client_pids
+      correction: /health and /healthz removed from bridge-token path scope
+      regression_test_added: true
+    bridge_admin_token_boundary:
+      observed_failure: >-
+        The single external token became an administrator credential whenever
+        Remote Bridge and Router debug/Web external access were both enabled.
+      correction: >-
+        Bridge and administrator tokens now use separate files, environment
+        variables, startup provisioning, CLI injection, and path authorization.
+      bridge_token_admin_access_with_both_modes_enabled: false
+      regression_tests_added: true
+    debug_external_state_projection:
+      observed_failure: >-
+        Combined bridge-or-admin external state was displayed as Router debug
+        external state, so bridge-only mode appeared to enable administration.
+      correction: >-
+        HTTP rejection uses combined external state while the debug shortcut
+        and option panel use the administrative-only predicate.
+      regression_test_added: true
+    local_routing_coexistence:
+      observed_failure: >-
+        Enabling bridge mode applied remote route resolution and credential
+        scrubbing to every loopback LLM request.
+      correction: >-
+        Non-loopback authenticated requests use bridge routing; loopback
+        requests use it only when they present the bridge token.
+      local_routed_oauth_without_bridge_token_preserved: true
+      regression_test_added: true
+    openai_chat_provider_contract:
+      observed_failure: >-
+        Native Chat passthrough hard-coded /v1/chat/completions and ignored a
+        provider-owned path such as GitHub Copilot /chat/completions.
+      correction: >-
+        Native Chat passthrough resolves the provider contract's chat endpoint.
+        Remote non-Chat selections use the already-selected Responses,
+        Anthropic Messages, or Ollama protocol collector and project the
+        completed result to Chat JSON or synthesized Chat SSE. Local non-bridge
+        requests retain the HTTP 501 unsupported-wire boundary.
+      regression_test_added: true
+    openai_chat_lossless_boundary:
+      observed_failure: >-
+        A generic Chat projection could silently discard unsupported fields or
+        reselect a different protocol while collecting a model response.
+      correction: >-
+        The projection rejects unsupported or lossy options with HTTP 400 and
+        calls the collector for the protocol selected before projection.
+        Tool choice none removes tools rather than changing their semantics.
+      converted_stream_is_buffered_sse: true
+      upstream_projection_failure_result: HTTP 502
+      response_started_write_failure_sends_second_http_response: false
+      regression_tests_added: true
+    request_key_rate_state_boundary:
+      observed_failure: >-
+        A request-scoped remote provider key could otherwise share learned rate,
+        penalty, and hashed per-key cooldown records with Router-host keys.
+      correction: >-
+        Marker-bearing request configurations bypass shared rate-limit reads,
+        writes, header learning, penalty persistence, and key-cooldown
+        persistence while retaining a bounded delay for the current retry flow.
+      regression_tests_added: true
+    zai_start_plan_remote_interaction_boundary:
+      observed_failure: >-
+        Remote selection could enter a Router-host CAPTCHA/browser flow and
+        mutate shared runtime-interaction state.
+      correction: >-
+        zai-start-plan is an incompatible Remote Bridge provider and is omitted
+        from status, model discovery, and route resolution.
+      regression_test_added: true
+    codex_cli_fixture:
+      first_attempt_exit_code: 1
+      first_attempt_router_requests: 0
+      observed_failure: temporary CODEX_HOME directory did not exist
+      correction: create the isolated CODEX_HOME before launching Codex
+      corrected_attempt_exit_code: 0
+    bridge_projection_error_mapping:
+      observed_failure: >-
+        A request validation ValueError on a Remote Bridge Responses request
+        reached the generic HTTP 500 path, so Codex displayed a misleading
+        high-demand error instead of the rejected field.
+      correction: >-
+        A pre-response ValueError is mapped to HTTP 400 invalid_request_error
+        only for an authenticated Remote Bridge request. Local requests and
+        failures after a response starts retain the existing error path.
+      actual_codex_error_after_fix: >-
+        Responses hosted tool cannot be projected to Anthropic:
+        tools[6].type='tool_search'
+      generic_high_demand_after_fix: false
+      regression_test_added: true
+    architecture_ratchets:
+      observed_failures:
+        - ciel_runtime.py exceeded its 4980-line budget
+        - RouterHttpCore exceeded its 10-field dependency limit
+      correction: >-
+        Bridge runtime assembly moved to remote_bridge_runtime.py and the three
+        HTTP callbacks were grouped behind RouterHttpRemoteBridge.
+      final_ciel_runtime_lines: 4980
+      dependency_contract_test: passed
+    final_protocol_audit:
+      custom_lark_contract:
+        observed_failure: >-
+          An arbitrary or malformed Lark definition and a returned payload that
+          violated its declared grammar were not independently rejected.
+        correction: >-
+          Non-native Anthropic projection accepts only the exact official Codex
+          0.150.1 apply_patch.lark base/optional-Environment-ID definitions and
+          code-mode exec definition after LF/CRLF source-line-ending
+          normalization and validates every returned raw input before restoring
+          a custom_tool_call.
+      namespace_identity:
+        observed_failure: >-
+          An upstream tool_use could attach toolset_name to a plain tool or name
+          a different namespace than the source Responses declaration.
+        correction: >-
+          Strict Remote Bridge restoration requires toolset_name to exactly
+          match a unique source namespace identity and rejects plain-tool spoofing.
+      tool_identity_normalization:
+        observed_failure: >-
+          Strict Responses projection accepted padded names and case/padded type
+          discriminators, emitted normalized identities, then failed to match the
+          unnormalized source declaration while restoring the response.
+        correction: >-
+          Strict projection requires exact lowercase function/custom/namespace
+          discriminators and rejects leading or trailing whitespace in every
+          top-level, namespace, and member tool name.
+      anthropic_identity_normalization:
+        observed_failure: >-
+          Adapted Anthropic tools, tool choice, tool_use, and tool_result fields
+          could be case-folded or trimmed before Responses projection.
+        correction: >-
+          Strict projection accepts only exact client-tool discriminators and
+          rejects padded tool names, tool-choice identities, tool-use IDs/names,
+          toolset names, and result tool_use_id values.
+      upstream_responses_tool_identity:
+        observed_failure: >-
+          A Responses upstream function/custom tool call could supply numeric or
+          padded call_id/name values that were stringified or trimmed on the
+          adapted Anthropic response.
+        correction: >-
+          Strict response projection requires non-empty unpadded string call_id
+          and name values for both function and custom tool calls.
+      openai_chat_schema:
+        observed_failure: >-
+          A non-object function.parameters value was widened to an empty object
+          schema and message.name could be discarded by adapted Chat projection.
+        correction: >-
+          Non-object function.parameters and every non-null message.name are
+          rejected before projection.
+      targeted_regression:
+        anthropic_responses_bridge: 60 passed
+        openai_chat_compatibility_bridge: 22 passed
+        ruff: passed
+        python_compile: passed
+
+  evidence:
+    scope:
+      status: final
+      latest_code_loaded_by_router: true
+      non_loopback_network_path_verified: true
+      physical_second_host_verified: false
+      physical_second_host_limitation: >-
+        No second device was available. The actual CLI processes and Router ran
+        on the same workstation, while all client requests used the workstation's
+        Tailscale IPv4 instead of loopback.
+      screenshot_captured: false
+      screenshot_limitation: >-
+        The in-app browser returned ERR_BLOCKED_BY_CLIENT for private HTTP.
+        CLI JSON events, HTTP responses, Router logs, and mock upstream captures
+        are the retained execution evidence.
+    final_environment:
+      router_bind: 0.0.0.0:19468
+      client_base: http://100.121.174.7:19468
+      mock_upstream: 127.0.0.1:19469
+      network_transport: Tailscale private IPv4
+      router_and_mock_stopped_after_verification: true
+      router_port_listeners_after_cleanup: 0
+      mock_port_listeners_after_cleanup: 0
+    live_status:
+      mode: remote_bridge
+      enabled: true
+      default_route: vllm/e2e-model
+      default_route_available: true
+      configured_bridge_providers: 64
+      openai_model_data_records: 254
+      codex_models_overlay_records: 0
+    external_authentication:
+      probe_endpoint: /ca/bridge
+      without_bridge_token: HTTP 401
+      with_bridge_token: HTTP 200
+      bridge_token_to_health: HTTP 401
+      bridge_token_to_admin_config: HTTP 401
+      client_address_non_loopback: true
+    protocol_results:
+      openai_chat:
+        selected_route: vllm/e2e-model
+        response_text: E2E_OK
+        usage_total_tokens: 7
+        effort: high
+      openai_responses:
+        selected_route: vllm/e2e-model
+        status: completed
+        response_text: E2E_OK
+        usage_total_tokens: 7
+        effort: low
+      anthropic_messages:
+        selected_route: vllm/e2e-model
+        stop_reason: end_turn
+        response_text: E2E_OK
+        usage_input_tokens: 5
+        usage_output_tokens: 2
+        effort: medium
+      anthropic_count_tokens:
+        input_tokens: 23
+      request_scoped_byok:
+        response_text: E2E_OK
+        upstream_auth_kind: request-key
+    actual_clients:
+      codex_gpt_5_5:
+        version: codex-cli 0.150.1
+        model: vllm/gpt-5.5
+        config: features.multi_agent=false
+        exit_code: 0
+        agent_message: E2E_OK
+        usage_input_tokens: 5
+        usage_output_tokens: 2
+        upstream_effort: low
+        upstream_auth_kind: host-key
+      codex_responses_lite:
+        version: codex-cli 0.150.1
+        model: gpt-5.6-luna
+        multi_agent_disabled: false
+        exit_code: 0
+        agent_message: E2E_OK
+        usage_input_tokens: 5
+        usage_output_tokens: 2
+        upstream_effort: low
+        upstream_auth_kind: host-key
+      claude_code:
+        version: 2.1.247
+        model: vllm/e2e-model
+        exit_code: 0
+        result: E2E_OK
+        stop_reason: end_turn
+        usage_input_tokens: 5
+        usage_output_tokens: 2
+        upstream_effort: high
+        upstream_auth_kind: host-key
+    copilot_router_host_credential:
+      live_oauth_status: connected
+      live_oauth_account: OneCielAI
+      live_token_expiry: 2026-08-28 02:14:45 Central Daylight Time
+      live_upstream_model_count: 57
+      remote_client_supplied_oauth: false
+      oauth_token_value_printed: false
+    copilot_public_catalog_live_projection:
+      upstream_models: 57
+      public_models: 29
+      kimi_k3_present: true
+      mai_code_1_flash_present: true
+      internal_picker_secondary_4th_name_matches: 0
+      mai_upstream_wire_id: mai-code-1-flash-picker
+    upstream_privacy_capture:
+      total_records: 44
+      host_key_records: 41
+      request_key_records: 3
+      bridge_token_records: 0
+      bridge_control_header_records: 0
+      observed_models:
+        - e2e-model
+        - gpt-5.5
+        - gpt-5.6-luna
+      observed_efforts:
+        - high
+        - low
+        - medium
+    retained_execution_artifacts:
+      location: .tmp/remote-bridge-e2e
+      tracked_by_git: false
+      contains_real_token_values_in_journal: false
+
+  verification:
+    stage: complete
+    targeted_bridge:
+      bridge_pattern: 345 run, 80 skipped, 0 failed
+      responses_anthropic_stream: 21 run, 0 failed
+      openai_responses_stream: 6 run, 0 failed
+      combined: 372 run, 80 skipped, 0 failed
+      remote_bridge_http: 10 run, 0 failed
+    architecture:
+      budget: 2 run, 0 failed
+      contracts: 261 run, 42 skipped, 0 failed
+    static:
+      python_compileall: 349 Python files passed
+      ruff: 0.15.22 passed
+      documentation_metadata: 24 Markdown files passed
+      diff_check: passed
+    final_post_change_full_suite:
+      unit: 1318 run, 44 skipped, 0 failed
+      router: 1054 run, 0 failed
+      channel: 385 run, 80 skipped, 0 failed
+      runtime: 258 run, 12 skipped, 0 failed
+      total: 3015 run, 136 skipped, 0 failed, 0 errors
+      status: passed
+
+  security:
+    real_credentials_committed: false
+    bridge_token_committed: false
+    exact_live_oauth_values_added_to_diff: 0
+    exact_bridge_token_values_added_to_diff: 0
+    exact_runtime_api_key_values_added_to_diff: 0
+    generic_secret_pattern_added_line_matches: 0
+    router_host_copilot_oauth_file_modified: false
+    test_credentials: isolated fake host and request keys
+    ignored_execution_logs_retained: true
+    verification_ports_listening_after_cleanup: 0
+    status_endpoint_exposes_secret_values: false
+    plaintext_http_limitation_documented: true
+    independent_read_only_audit:
+      relevant_tests: 114 passed
+      blocker_high_medium_low_findings: 0
+    loopback_proxy_boundary:
+      router_trusts_direct_loopback_peer: true
+      on_host_tls_proxy_must_validate_bridge_token: true
+      router_plaintext_port_must_not_be_externally_reachable: true
+
+  codex_0150_freeform_apply_patch:
+    status: targeted_verified
+    official_source:
+      version: codex-cli 0.150.1
+      tool_spec: >-
+        https://github.com/openai/codex/blob/rust-v0.150.1/codex-rs/core/src/tools/handlers/apply_patch_spec.rs
+      grammar: >-
+        https://raw.githubusercontent.com/openai/codex/refs/tags/rust-v0.150.1/codex-rs/core/src/tools/handlers/apply_patch.lark
+    observed_pre_fix_failure: >-
+      Responses custom tool grammar cannot be projected to Anthropic
+    projection:
+      supported_format:
+        type: grammar
+        syntax: lark
+        definition: >-
+          exact official Codex 0.150.1 apply_patch.lark base text or the
+          apply_patch_spec.rs optional-Environment-ID replacement
+      anthropic_wire: >-
+        The exact JSON-encoded Responses format contract is included in the
+        standard Anthropic tool description, and input_schema requires exactly
+        one string field named input for the complete raw payload.
+      unsupported_formats: fail_closed
+      other_lark_definitions: fail_closed
+      malformed_return_envelope: fail_closed
+      returned_patch_grammar_validation: required
+      environment_id_position_and_cardinality_validation: required
+      restored_item_type: custom_tool_call
+      raw_input_roundtrip: exact
+    regression:
+      anthropic_responses_bridge: 60 passed
+      codex_runtime: 69 passed, 12 skipped
+      openai_responses_stream: 6 passed
+      python_compile: passed
+      diff_check: passed
+    actual_codex_gpt_5_5_e2e:
+      status: passed
+      model: vllm/gpt-5.5
+      required_isolated_config: features.multi_agent=false
+      exit_code: 0
+      agent_message: E2E_OK
+      upstream_effort: low
+    secrets_printed: false
+
+  codex_0150_code_mode_exec:
+    status: actual_client_verified
+    official_source: >-
+      https://github.com/openai/codex/blob/rust-v0.150.1/codex-rs/core/src/tools/code_mode/execute_spec.rs
+    actual_client_capture:
+      model: gpt-5.6-luna
+      placement: Responses Lite additional_tools namespace functions member exec
+      grammar_normalized_length: 177
+      grammar_normalized_sha256: 8eead048e20069c17fcd0b6fe5ee9ed29364868723f8e08889de146a2b4b7a8e
+      exact_official_literal_match: true
+    projection:
+      allowed_definition: exact official Codex 0.150.1 code-mode exec grammar
+      other_lark_definitions: fail_closed
+      returned_input_validation: non-empty SOURCE required
+      restored_item_type: custom_tool_call
+      namespace_restored: functions
+      member_name_restored: exec
+    actual_codex_e2e:
+      exit_code: 0
+      agent_message: E2E_OK
+      usage_input_tokens: 5
+      usage_output_tokens: 2
+      upstream_effort: low
+
+  codex_0150_responses_lite:
+    status: actual_client_verified
+    accepted_fields:
+      reasoning_context: all_turns
+      leading_input_item: additional_tools
+      reasoning_summary_delivery: sequential_cutoff
+      internal_metadata:
+        - turn_id
+        - create_time
+        - content_item_kinds
+    fail_closed:
+      - duplicate or misplaced additional_tools
+      - conflicting top-level tools
+      - unsupported reasoning context
+      - unsupported summary delivery mode
+      - unknown or invalid internal metadata
+    actual_client:
+      model: gpt-5.6-luna
+      exit_code: 0
+      agent_message: E2E_OK
+      usage_input_tokens: 5
+      usage_output_tokens: 2
+      upstream_effort: low
+
+  codex_0150_tool_search_boundary:
+    status: verified
+    official_source:
+      model_catalog: >-
+        https://github.com/openai/codex/blob/rust-v0.150.1/codex-rs/models-manager/models.json
+      search_gate: >-
+        https://github.com/openai/codex/blob/rust-v0.150.1/codex-rs/core/src/tools/spec_plan.rs
+      removed_feature_parser: >-
+        https://github.com/openai/codex/blob/rust-v0.150.1/codex-rs/features/src/lib.rs
+    confirmed_conditions:
+      bundled_gpt_5_5_supports_search_tool: true
+      custom_provider_namespace_tools_default: true
+      default_multi_agent_tools_deferred_when_search_enabled: true
+      features_tool_search_false_effective: false
+    non_native_route_policy: fail_closed
+    actual_without_multi_agent_override:
+      exit_code: 1
+      http_status: 400
+      generic_high_demand_message: false
+      exact_tool_search_reason_reached_codex: true
+    actual_with_multi_agent_false:
+      exit_code: 0
+      agent_message: E2E_OK
+      caveat: other deferred tool sources can still add tool_search
+
+  final_protocol_audit:
+    status: passed
+    remaining_blockers: 0
+    verified_boundaries:
+      - exact official Codex 0.150.1 custom-tool grammar allowlist
+      - LF/CRLF definition normalization and bare-CR rejection
+      - apply_patch base and optional Environment-ID payload validation
+      - code-mode exec payload validation
+      - namespace and toolset spoof rejection
+      - Responses and Anthropic bidirectional exact tool identity
+      - OpenAI Chat schema and message-name loss rejection
+    focused_regression:
+      anthropic_responses_bridge: 60 passed
+      openai_chat_compatibility_bridge: 22 passed
+      codex_runtime: 69 run, 12 skipped, 0 failed
+      ruff: passed

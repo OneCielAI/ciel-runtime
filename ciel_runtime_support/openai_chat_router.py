@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Callable
 
 from .agent_router import COMMON_RUNTIME_ROUTER_CAPABILITIES, RouterCapability
+from .remote_bridge import is_remote_bridge_request
 
 
 class OpenAIChatRouter:
@@ -17,6 +18,7 @@ class OpenAIChatRouter:
         for name, description in (
             ("auth_forwarding", "Provider authentication replaces the local CLI placeholder key."),
             ("sse_stream_proxy", "Chat Completions SSE bytes are streamed without protocol conversion."),
+            ("protocol_translation", "Remote non-Chat models are collected and projected onto Chat Completions."),
             ("channel_context_injection", "Native Chat Completions message context is preserved."),
             ("pending_delivery_ack", "Requests without pending channel delivery require no acknowledgement."),
             ("request_observability", "Requests use the shared runtime HTTP request/error boundary."),
@@ -24,8 +26,19 @@ class OpenAIChatRouter:
         )
     )
 
-    def __init__(self, forward: Callable[..., None]) -> None:
+    def __init__(
+        self,
+        forward: Callable[..., None],
+        select_protocol: Callable[..., str] = lambda *_args: "openai_chat",
+        write_json: Callable[..., Any] = lambda *_args, **_kwargs: None,
+        requires_streaming: Callable[..., bool] = lambda *_args: False,
+        forward_compatible: Callable[..., Any] | None = None,
+    ) -> None:
         self._forward = forward
+        self._select_protocol = select_protocol
+        self._write_json = write_json
+        self._requires_streaming = requires_streaming
+        self._forward_compatible = forward_compatible
 
     def can_handle_get(self, path: str, provider: str, config: dict[str, Any]) -> bool:
         del path, provider, config
@@ -51,6 +64,58 @@ class OpenAIChatRouter:
         del config_root
         if path not in self.request_paths:
             return False
+        model = str(body.get("model") or config.get("current_model") or "")
+        selected_protocol = self._select_protocol(
+            provider, config, "openai_chat", model
+        )
+        if selected_protocol != "openai_chat":
+            if (
+                is_remote_bridge_request(handler)
+                and self._forward_compatible is not None
+            ):
+                self._forward_compatible(
+                    handler,
+                    provider,
+                    config,
+                    body,
+                    selected_protocol,
+                )
+                return True
+            self._write_json(
+                handler,
+                {
+                    "error": {
+                        "message": (
+                            f"Provider '{provider}' does not support the "
+                            "OpenAI Chat Completions wire protocol for this model"
+                        ),
+                        "type": "unsupported_feature",
+                        "param": "model",
+                        "code": "unsupported_feature",
+                    }
+                },
+                status=501,
+            )
+            return True
+        if self._requires_streaming(provider, config) and not bool(
+            body.get("stream", False)
+        ):
+            self._write_json(
+                handler,
+                {
+                    "error": {
+                        "message": (
+                            f"Provider '{provider}' requires streaming; use "
+                            "/v1/responses for a non-streaming compatible response"
+                        ),
+                        "type": "unsupported_feature",
+                        "param": "stream",
+                        "code": "unsupported_feature",
+                    }
+                },
+                status=501,
+            )
+            return True
         self._forward(handler, provider, config, body)
         return True
 

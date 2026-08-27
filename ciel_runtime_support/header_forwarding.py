@@ -27,7 +27,14 @@ HOP_BY_HOP_REQUEST_HEADERS = frozenset(
     }
 )
 CONFIGURED_PROVIDER_CREDENTIAL_HEADERS = frozenset(
-    {"authorization", "cookie", "set-cookie", "x-api-key"}
+    {
+        "api-key",
+        "authorization",
+        "cookie",
+        "set-cookie",
+        "x-api-key",
+        "x-goog-api-key",
+    }
 )
 
 

@@ -13,6 +13,7 @@ from typing import Any, Callable, Mapping
 
 from .responses_usage_observer import ResponsesUsageObserver
 from .responses_input_compatibility import repair_replayed_response_items
+from .remote_bridge import is_remote_bridge_request
 from .upstream_dump import dump_upstream_request
 from .upstream_error_policy import UpstreamStreamReadError
 
@@ -85,7 +86,8 @@ class ProviderResponsesPassthrough:
         upstream_body["model"] = self._ports.normalize_model(
             provider, config, str(body.get("model") or "")
         )
-        upstream_body = self._ports.finalize_body(upstream_body)
+        if not is_remote_bridge_request(handler):
+            upstream_body = self._ports.finalize_body(upstream_body)
         data = self._encode(upstream_body)
         url = self._endpoint(provider, config, "openai_responses_compact")
         dump_upstream_request(url, data, self._ports.log)
@@ -122,6 +124,8 @@ class ProviderResponsesPassthrough:
         provider: str,
         config: dict[str, Any],
         body: dict[str, Any],
+        *,
+        remote_bridge: bool = False,
     ) -> tuple[dict[str, Any], bytes]:
         data = self._encode(body)
         configured_limit = self._ports.request_max_bytes(provider, config)
@@ -129,6 +133,25 @@ class ProviderResponsesPassthrough:
             return body, data
         hard_limit = max(1, int(configured_limit))
         target = max(1, (hard_limit * 9) // 10)
+        if remote_bridge:
+            if len(data) <= hard_limit:
+                return body, data
+            message = (
+                "Remote Bridge provider request body exceeds the configured maximum "
+                "and was not compacted: "
+                f"{len(data)} bytes; maximum is {hard_limit} bytes"
+            )
+            payload = json.dumps(
+                {"error": {"type": "request_too_large", "message": message}},
+                separators=(",", ":"),
+            ).encode("utf-8")
+            raise urllib.error.HTTPError(
+                url,
+                413,
+                "Payload Too Large",
+                {"content-type": "application/json"},
+                io.BytesIO(payload),
+            )
         if len(data) <= target:
             return body, data
 
@@ -144,8 +167,10 @@ class ProviderResponsesPassthrough:
                 budget,
                 provider=provider,
                 model=str(current.get("model") or ""),
+                remote_bridge=remote_bridge,
             )
-            compacted = self._ports.finalize_body(compacted)
+            if not remote_bridge:
+                compacted = self._ports.finalize_body(compacted)
             compacted_data = self._encode(compacted)
             self._ports.log(
                 "WARN",
@@ -289,24 +314,31 @@ class ProviderResponsesPassthrough:
         config: dict[str, Any],
         body: dict[str, Any],
     ) -> dict[str, Any]:
-        upstream_body = dict(repair_replayed_response_items(body))
+        remote_bridge = is_remote_bridge_request(handler)
+        upstream_body = dict(
+            body if remote_bridge else repair_replayed_response_items(body)
+        )
         upstream_body["model"] = self._ports.normalize_model(
             provider, config, str(body.get("model") or "")
         )
         upstream_body = dict(
             self._ports.normalize_request(provider, config, upstream_body)
         )
-        upstream_body, delivery_body = self._ports.project_channel_context(
-            upstream_body
-        )
-        upstream_body = self._ports.finalize_body(upstream_body)
-        self._ports.begin_channel_delivery(handler, delivery_body)
+        if remote_bridge:
+            delivery_body = {}
+        else:
+            upstream_body, delivery_body = self._ports.project_channel_context(
+                upstream_body
+            )
+            upstream_body = self._ports.finalize_body(upstream_body)
+            self._ports.begin_channel_delivery(handler, delivery_body)
         url = self._endpoint(provider, config, "openai_responses")
         upstream_body, data = self._fit_provider_request(
             url,
             provider,
             config,
             upstream_body,
+            remote_bridge=remote_bridge,
         )
         dump_upstream_request(url, data, self._ports.log)
         request = urllib.request.Request(
@@ -315,7 +347,7 @@ class ProviderResponsesPassthrough:
             headers=self._ports.headers(provider, config, handler.headers),
             method="POST",
         )
-        if self._stream_truncation_retries(config):
+        if not remote_bridge and self._stream_truncation_retries(config):
             self._forward_buffered_stream(
                 handler,
                 request,
@@ -389,7 +421,7 @@ class ProviderResponsesPassthrough:
                     response_id=usage.response_id,
                     received_bytes=received_bytes,
                 ) from error
-            if observed:
+            if observed and not remote_bridge:
                 self._ports.record_usage(
                     provider,
                     str(upstream_body.get("model") or ""),

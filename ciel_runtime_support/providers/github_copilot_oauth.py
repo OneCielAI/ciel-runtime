@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any, Mapping
 
@@ -21,6 +22,7 @@ from ..github_copilot_oauth import (
     COPILOT_USER_AGENT,
     COPILOT_VSCODE_VERSION,
 )
+from ..remote_bridge import PUBLIC_MODEL_ID_METADATA_KEY
 from .base import HttpBearerProviderAdapter, provider_configuration
 
 
@@ -32,13 +34,13 @@ GITHUB_COPILOT_MODELS = (
     "gpt-5.5",
     "gpt-5.4",
     "gpt-5.4-mini",
-    "gpt-5.4-nano",
     "gpt-5.3-codex",
     "gpt-5-mini",
     "claude-fable-5",
     "claude-sonnet-5",
     "claude-opus-5",
     "claude-opus-4.8",
+    "claude-opus-4.8-fast",
     "claude-opus-4.7",
     "claude-sonnet-4.6",
     "claude-opus-4.6",
@@ -46,13 +48,36 @@ GITHUB_COPILOT_MODELS = (
     "claude-opus-4.5",
     "claude-haiku-4.5",
     "gemini-3.6-flash",
+    "gemini-3.7-flash",
     "gemini-3.5-flash",
     "gemini-3.1-pro-preview",
     "kimi-k2.7-code",
+    "kimi-k3",
+    "mai-code-1.1-flash",
     "mai-code-1-flash",
-    "raptor-mini",
+    "grok-4.6",
     "grok-4.5",
 )
+
+# Fallback for a cold model cache. The Copilot /models response is
+# authoritative when its supported_endpoints metadata is available.
+GITHUB_COPILOT_RESPONSES_ONLY_MODELS = frozenset(
+    {
+        "gpt-5.3-codex",
+        "gpt-5.4-mini",
+        "gpt-5.5",
+        "gpt-5.6-luna",
+        "gpt-5.6-sol",
+        "gpt-5.6-terra",
+        "grok-4.5",
+        "grok-4.6",
+        "mai-code-1-flash",
+        "mai-code-1.1-flash",
+    }
+)
+GITHUB_COPILOT_PUBLIC_MODEL_IDS = {
+    "mai-code-1-flash-picker": "mai-code-1-flash",
+}
 
 
 @dataclass(frozen=True)
@@ -132,6 +157,13 @@ class GitHubCopilotOAuthProviderAdapter(HttpBearerProviderAdapter):
     ) -> Mapping[str, str]:
         return self.build_headers(config, api_key)
 
+    def resolve_endpoint(self, operation: str, config: ProviderConfig) -> str:
+        if operation in {"chat", "openai_chat"}:
+            return self.request_policy(config).chat_path
+        if operation == "openai_responses":
+            return "/responses"
+        return super().resolve_endpoint(operation, config)
+
     def context_policy(self, config: ProviderConfig) -> ProviderContextPolicy:
         del config
         return ProviderContextPolicy(
@@ -156,8 +188,40 @@ class GitHubCopilotOAuthProviderAdapter(HttpBearerProviderAdapter):
         config: ProviderConfig,
         model: str | None = None,
     ) -> MessageProtocol:
-        del config
         normalized = str(model or "").lower()
+        metadata = config.options.get("_ciel_model_metadata")
+        endpoints = {
+            str(endpoint).strip()
+            for endpoint in (
+                metadata.get("supported_endpoints", [])
+                if isinstance(metadata, Mapping)
+                else []
+            )
+            if str(endpoint).strip()
+        }
+        if endpoints:
+            if operation == "openai_chat":
+                if "/chat/completions" in endpoints:
+                    return "openai_chat"
+                if "/responses" in endpoints:
+                    return "openai_responses"
+                if "/v1/messages" in endpoints:
+                    return "anthropic_messages"
+            if operation == "anthropic_messages":
+                if "/v1/messages" in endpoints:
+                    return "anthropic_messages"
+                if "/chat/completions" in endpoints:
+                    return "openai_chat"
+                if "/responses" in endpoints:
+                    return "openai_responses"
+            if "/responses" in endpoints:
+                return "openai_responses"
+            if "/v1/messages" in endpoints:
+                return "anthropic_messages"
+            if "/chat/completions" in endpoints:
+                return "openai_chat"
+        if normalized in GITHUB_COPILOT_RESPONSES_ONLY_MODELS:
+            return "openai_responses"
         if "claude" in normalized:
             return "anthropic_messages"
         if operation == "openai_responses" and not any(
@@ -165,6 +229,45 @@ class GitHubCopilotOAuthProviderAdapter(HttpBearerProviderAdapter):
         ):
             return "openai_responses"
         return "openai_chat"
+
+    def project_model_metadata(
+        self, raw: Mapping[str, Any]
+    ) -> Mapping[str, Any]:
+        metadata = dict(super().project_model_metadata(raw))
+        for key in (
+            "capabilities",
+            "model_picker_category",
+            "model_picker_enabled",
+            "name",
+            "policy",
+            "preview",
+            "vendor",
+            "version",
+        ):
+            if raw.get(key) is not None:
+                metadata[key] = deepcopy(raw[key])
+        endpoints = raw.get("supported_endpoints")
+        if isinstance(endpoints, list):
+            metadata["supported_endpoints"] = [
+                str(endpoint).strip()
+                for endpoint in endpoints
+                if str(endpoint).strip()
+            ]
+        capabilities = raw.get("capabilities")
+        limits = (
+            capabilities.get("limits")
+            if isinstance(capabilities, Mapping)
+            and isinstance(capabilities.get("limits"), Mapping)
+            else {}
+        )
+        if limits.get("max_context_window_tokens") is not None:
+            metadata["max_model_len"] = limits["max_context_window_tokens"]
+        if limits.get("max_output_tokens") is not None:
+            metadata["max_output_tokens"] = limits["max_output_tokens"]
+        raw_model_id = str(raw.get("id") or "").strip()
+        if public_model_id := GITHUB_COPILOT_PUBLIC_MODEL_IDS.get(raw_model_id):
+            metadata[PUBLIC_MODEL_ID_METADATA_KEY] = public_model_id
+        return metadata
 
     def router_native_anthropic_enabled(
         self,
@@ -216,5 +319,7 @@ class GitHubCopilotOAuthProviderAdapter(HttpBearerProviderAdapter):
 __all__ = [
     "GITHUB_COPILOT_BASE_URL",
     "GITHUB_COPILOT_MODELS",
+    "GITHUB_COPILOT_PUBLIC_MODEL_IDS",
+    "GITHUB_COPILOT_RESPONSES_ONLY_MODELS",
     "GitHubCopilotOAuthProviderAdapter",
 ]

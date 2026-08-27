@@ -14,6 +14,7 @@ from .runaway_output_guard import (
     policy_from_env,
     trim_runaway_message_content,
 )
+from .remote_bridge import REMOTE_BRIDGE_CONFIG_MARKER, is_remote_bridge_request
 from .ollama_thinking import INTERNAL_REASONING_EFFORT_KEY
 from .ollama_stream_collection import collect_ollama_chat_stream
 from .sse_stream_collection import (
@@ -82,12 +83,23 @@ class ResponseCollectionContext:
         raw = str(os.environ.get("CIEL_RUNTIME_COLLECT_STREAM") or "").strip().lower()
         return raw not in {"0", "off", "false", "no", "disable", "disabled"}
 
+    def collection_policy(self, pcfg: dict[str, Any]) -> RunawayOutputPolicy:
+        if pcfg.get(REMOTE_BRIDGE_CONFIG_MARKER):
+            return RunawayOutputPolicy(enabled=False, recover=False)
+        return self.stream.policy()
+
     def opened_stream_collector(
-        self, parse: Callable[..., Any], operation: str
+        self,
+        parse: Callable[..., Any],
+        operation: str,
+        *,
+        force: bool = False,
     ) -> Callable[..., dict[str, Any]] | None:
         """A drop-in replacement for the collection path's blocking POST."""
 
-        if not self.streaming_collection_enabled():
+        if not force and not self.streaming_collection_enabled():
+            return None
+        if self.stream.open_stream is None:
             return None
 
         def collect(
@@ -101,13 +113,16 @@ class ResponseCollectionContext:
             *,
             retry_rate_limits: bool = True,
         ) -> dict[str, Any]:
+            remote_bridge = pcfg.get(REMOTE_BRIDGE_CONFIG_MARKER) is True
             capacity_retries = self.kimi_capacity_retry_limit(provider, pcfg)
             # Collection completes before any bytes are sent back to Codex.  A
             # truncated upstream HTTP body can therefore be reopened once
             # safely.  Keep this independent from provider capacity retries:
             # repeating a full generation ten times would multiply cost and
             # cannot repair a persistently broken stream.
-            truncation_retries = 1 if provider != "kimi" else 0
+            truncation_retries = (
+                0 if remote_bridge else (1 if provider != "kimi" else 0)
+            )
             retries = max(capacity_retries, truncation_retries)
             for attempt in range(retries + 1):
                 resp = self.stream.open_stream(
@@ -115,7 +130,11 @@ class ResponseCollectionContext:
                     retry_rate_limits=retry_rate_limits,
                 )
                 try:
-                    collection = parse(resp, self.stream.policy())
+                    policy = self.collection_policy(pcfg)
+                    if pcfg.get(REMOTE_BRIDGE_CONFIG_MARKER):
+                        collection = parse(resp, policy, strict=True)
+                    else:
+                        collection = parse(resp, policy)
                 except UpstreamSseError as exc:
                     if not self.retryable_kimi_capacity_error(provider, exc):
                         raise
@@ -191,7 +210,10 @@ class ResponseCollectionContext:
 
     @staticmethod
     def kimi_capacity_retry_limit(provider: str, pcfg: dict[str, Any]) -> int:
-        if provider != "kimi":
+        if (
+            provider != "kimi"
+            or pcfg.get(REMOTE_BRIDGE_CONFIG_MARKER) is True
+        ):
             return 0
         try:
             return max(0, min(10, int(pcfg.get("gateway_retries", 10))))
@@ -237,15 +259,27 @@ class ResponseCollectionContext:
             )
         return collection.response
 
-    def anthropic_stream_collector(self) -> Callable[..., dict[str, Any]] | None:
+    def anthropic_stream_collector(
+        self,
+        policy: RunawayOutputPolicy | None = None,
+        *,
+        strict: bool = False,
+        force: bool = False,
+    ) -> Callable[..., dict[str, Any]] | None:
         """The Anthropic collector opens its own request, so it hands one back."""
 
-        if not self.streaming_collection_enabled():
+        if not force and not self.streaming_collection_enabled():
+            return None
+        if self.stream.open_stream is None:
             return None
 
         def collect(resp: Any, provider: str, model: str) -> dict[str, Any]:
             return self.report_collected(
-                collect_anthropic_message_stream(resp, self.stream.policy()),
+                collect_anthropic_message_stream(
+                    resp,
+                    policy or self.stream.policy(),
+                    strict=strict,
+                ),
                 "anthropic",
                 provider,
                 model,
@@ -294,7 +328,9 @@ class ResponseCollectionContext:
             normalize_upstream_model=self.identity_upstream_model,
             skip_rate_limit_during_compatibility_test=True,
             stream_collect=self.opened_stream_collector(
-                collect_ollama_chat_stream, "ollama"
+                collect_ollama_chat_stream,
+                "ollama",
+                force=is_remote_bridge_request(handler),
             ),
         )
         return collect_chat_message_for_responses(
@@ -320,7 +356,9 @@ class ResponseCollectionContext:
             request_timeout_seconds=self.strategies.openai_timeout,
             normalize_upstream_model=self.strategies.upstream_model,
             stream_collect=self.opened_stream_collector(
-                collect_openai_chat_stream, "openai_chat"
+                collect_openai_chat_stream,
+                "openai_chat",
+                force=is_remote_bridge_request(handler),
             ),
         )
         return collect_chat_message_for_responses(
@@ -339,13 +377,23 @@ class ResponseCollectionContext:
         pcfg: dict[str, Any],
         body: dict[str, Any],
     ) -> dict[str, Any]:
+        remote_bridge = is_remote_bridge_request(handler)
+        policy = (
+            RunawayOutputPolicy(enabled=False, recover=False)
+            if remote_bridge
+            else None
+        )
         return collect_anthropic_message_for_responses(
             handler,
             provider,
             pcfg,
             body,
             services=self.anthropic,
-            stream_collect=self.anthropic_stream_collector(),
+            stream_collect=self.anthropic_stream_collector(
+                policy,
+                strict=remote_bridge,
+                force=remote_bridge,
+            ),
         )
 
     def collect(
@@ -378,6 +426,8 @@ class ResponseCollectionContext:
                 f"{endpoint_family} endpoint family. ciel-runtime currently routes "
                 f"{provider_label} /v1/messages and /v1/chat/completions models."
             )
+        if is_remote_bridge_request(handler):
+            return collector(handler, provider, pcfg, body)
         return self.collect_without_runaway(
             collector, handler, provider, pcfg, body, upstream_model
         )

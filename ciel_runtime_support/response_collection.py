@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 import json
 from typing import Any, Callable
+
+from .remote_bridge import REMOTE_BRIDGE_CONFIG_MARKER, is_remote_bridge_request
 from .upstream_error_policy import upstream_failure_in_payload
 
 
@@ -110,19 +112,30 @@ def collect_chat_message_for_responses(
     request = services.request
     rate_limit = services.rate_limit
     projection = services.projection
+    remote_bridge = is_remote_bridge_request(handler)
     body = request.normalize_thinking(provider, pcfg, body)
     model = request.resolve_model(provider, pcfg, body.get("model"))
     model = strategy.normalize_upstream_model(provider, pcfg, model)
     original_body = body
-    upstream_body = request.body_with_advisor_tool(body, pcfg) if request.advisor_provider_supported(provider) else body
+    projection_body = (
+        {**body, REMOTE_BRIDGE_CONFIG_MARKER: True}
+        if remote_bridge
+        else body
+    )
+    local_advisor = (
+        not remote_bridge and request.advisor_provider_supported(provider)
+    )
+    upstream_body = request.body_with_advisor_tool(body, pcfg) if local_advisor else body
     streaming = strategy.stream_collect is not None
     req_body = strategy.build_request(provider, model, upstream_body, pcfg, stream=streaming)
     url = request.provider_endpoint(provider, pcfg, strategy.operation)
     timeout = strategy.request_timeout_seconds(pcfg)
     headers = request.provider_headers(provider, pcfg, handler.headers, strategy.operation)
-    req_body, hosted_state = services.hosted_tools.prepare(
-        provider, pcfg, req_body, headers, timeout
-    )
+    hosted_state = None
+    if not remote_bridge:
+        req_body, hosted_state = services.hosted_tools.prepare(
+            provider, pcfg, req_body, headers, timeout
+        )
     compatibility_test = str(handler.headers.get(services.compatibility_test_header) or "").strip().lower() in ("1", "true", "yes", "on")
     if compatibility_test and strategy.skip_rate_limit_during_compatibility_test:
         waited, rpm_used, rpm_limit = 0.0, 0, rate_limit.effective_rpm(provider, pcfg, model)
@@ -153,30 +166,41 @@ def collect_chat_message_for_responses(
         )
     # Hosted-tool follow-ups are plain request/response, so they keep using the
     # blocking POST regardless of how the first turn was read.
-    data = services.hosted_tools.resolve(
-        hosted_state,
-        {**req_body, "stream": False} if streaming else req_body,
-        data,
-        lambda next_body: services.post_json_with_retry(
-            url,
-            next_body,
-            headers,
+    if hosted_state is not None:
+        data = services.hosted_tools.resolve(
+            hosted_state,
+            {**req_body, "stream": False} if streaming else req_body,
+            data,
+            lambda next_body: services.post_json_with_retry(
+                url,
+                next_body,
+                headers,
+                timeout,
+                provider,
+                pcfg,
+                model,
+                None,
+                retry_rate_limits=not compatibility_test,
+            ),
             timeout,
-            provider,
-            pcfg,
-            model,
-            None,
-            retry_rate_limits=not compatibility_test,
-        ),
-        timeout,
-    )
+        )
     failure = upstream_failure_in_payload(provider, model, data)
     if failure is not None:
         raise failure
-    message = strategy.decode_response(data, model, source_body=original_body)
-    message = projection.refine_with_advisor(provider, pcfg, original_body, message, model)
-    projection.remember_tool_uses(original_body, message)
-    notice = rate_limit.notice(waited, rpm_used, rpm_limit, bool(pcfg.get("rate_limit_status", False)))
+    message = strategy.decode_response(
+        data, model, source_body=projection_body
+    )
+    if not remote_bridge:
+        message = projection.refine_with_advisor(
+            provider, pcfg, original_body, message, model
+        )
+        projection.remember_tool_uses(original_body, message)
+    notice = "" if remote_bridge else rate_limit.notice(
+        waited,
+        rpm_used,
+        rpm_limit,
+        bool(pcfg.get("rate_limit_status", False)),
+    )
     return projection.prepend_text(message, notice)
 
 
@@ -199,11 +223,13 @@ def collect_anthropic_message_for_responses(
     request = services.request
     transport = services.transport
     projection = services.projection
+    remote_bridge = is_remote_bridge_request(handler)
     body = request.normalize_thinking(provider, pcfg, body)
     body = request.normalize_system_roles(provider, pcfg, body)
     body = request.cap_body(provider, pcfg, body)
     body = request.apply_options(provider, pcfg, body)
-    body = request.rehydrate_thinking(provider, pcfg, body)
+    if not remote_bridge:
+        body = request.rehydrate_thinking(provider, pcfg, body)
     upstream_model = request.resolve_model(provider, pcfg, body.get("model"))
     upstream_model = request.normalize_upstream_model(provider, pcfg, upstream_model)
     body["model"] = upstream_model
@@ -237,15 +263,32 @@ def collect_anthropic_message_for_responses(
             payload = stream_collect(upstream_response, provider, upstream_model)
         else:
             raw_response = upstream_response.read()
-            payload = json.loads(raw_response.decode("utf-8", errors="replace"))
+            try:
+                decoded_response = raw_response.decode(
+                    "utf-8", errors="strict" if remote_bridge else "replace"
+                )
+            except UnicodeDecodeError as exc:
+                raise RuntimeError(
+                    "upstream Anthropic response contained invalid UTF-8"
+                ) from exc
+            payload = json.loads(decoded_response)
         if not isinstance(payload, dict):
             raise RuntimeError("upstream returned non-object JSON")
         failure = upstream_failure_in_payload(provider, upstream_model, payload)
         if failure is not None:
             raise failure
-        payload = projection.normalize_response_thinking(provider, pcfg, payload, upstream_model)
-        payload = projection.append_synthetic_tasklist(payload, upstream_model, body, "native_json", provider=provider)
-        notice = projection.rate_limit_notice(
+        if not remote_bridge:
+            payload = projection.normalize_response_thinking(
+                provider, pcfg, payload, upstream_model
+            )
+            payload = projection.append_synthetic_tasklist(
+                payload,
+                upstream_model,
+                body,
+                "native_json",
+                provider=provider,
+            )
+        notice = "" if remote_bridge else projection.rate_limit_notice(
             waited,
             rpm_used,
             rpm_limit,

@@ -68,6 +68,27 @@ class OpenAIResponsesStreamTests(unittest.TestCase):
         write_openai_responses(handler, response, None, stream=False, services=self.services(writes))
         self.assertEqual((handler, response), writes[0])
 
+    def test_incomplete_stream_uses_matching_terminal_event(self):
+        handler = _Handler()
+        response = {
+            "id": "resp_limited",
+            "status": "incomplete",
+            "incomplete_details": {"reason": "max_output_tokens"},
+            "output": [],
+        }
+
+        write_openai_responses(
+            handler,
+            response,
+            None,
+            stream=True,
+            services=self.services(),
+        )
+        text = handler.wfile.getvalue().decode()
+
+        self.assertIn("event: response.incomplete", text)
+        self.assertNotIn("event: response.completed", text)
+
     def test_stream_error_uses_requested_status(self):
         handler = _Handler()
         write_openai_responses_error(

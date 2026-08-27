@@ -3,6 +3,7 @@ import urllib.error
 import ssl
 from http.client import IncompleteRead
 
+from ciel_runtime_support.remote_bridge import REMOTE_BRIDGE_CONFIG_MARKER
 from ciel_runtime_support.upstream_error_policy import (
     configured_gateway_retries,
     retryable_exception,
@@ -52,6 +53,17 @@ class UpstreamErrorPolicyTests(unittest.TestCase):
     def test_generation_retries_remain_explicit_opt_in(self):
         self.assertEqual(2, configured_gateway_retries({"gateway_retries": 2}))
         self.assertEqual(0, configured_gateway_retries({"gateway_retries": -1}))
+
+    def test_remote_bridge_disables_explicit_generation_retries(self):
+        self.assertEqual(
+            0,
+            configured_gateway_retries(
+                {
+                    "gateway_retries": 10,
+                    REMOTE_BRIDGE_CONFIG_MARKER: True,
+                }
+            ),
+        )
 
 
 if __name__ == "__main__":

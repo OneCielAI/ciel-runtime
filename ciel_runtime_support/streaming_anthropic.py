@@ -13,10 +13,109 @@ from typing import Any, Callable, Iterable
 from .runaway_output_guard import (
     STOPPED,
     RunawayOutputDetector,
+    RunawayOutputPolicy,
     RunawayVerdict,
     policy_from_env,
     recent_runaway_notices,
 )
+from .remote_bridge import is_remote_bridge_request
+
+
+def _remote_noop(*_args: Any, **_kwargs: Any) -> None:
+    return None
+
+
+def _remote_false(*_args: Any, **_kwargs: Any) -> bool:
+    return False
+
+
+def _remote_tool_name(
+    _body: Any, name: str, tool_input: dict[str, Any]
+) -> tuple[str, dict[str, Any]]:
+    return name, tool_input
+
+
+def _remote_tool_input(_body: Any, tool_input: dict[str, Any]) -> dict[str, Any]:
+    return tool_input
+
+
+def _remote_tool_validation(
+    _name: str,
+    tool_input: dict[str, Any],
+    _source_body: Any,
+) -> dict[str, Any]:
+    return tool_input
+
+
+def _stream_runaway_policy(handler: Any) -> RunawayOutputPolicy:
+    if is_remote_bridge_request(handler):
+        return RunawayOutputPolicy(enabled=False, recover=False)
+    return policy_from_env(os.environ.get)
+
+
+def _remote_empty_list(*_args: Any, **_kwargs: Any) -> list[Any]:
+    return []
+
+
+def _complete_sse_data(parts: list[str]) -> bool:
+    body = "\n".join(parts).strip()
+    if not body:
+        return False
+    if body == "[DONE]":
+        return True
+    try:
+        json.loads(body)
+    except ValueError:
+        return False
+    return True
+
+
+def _iter_openai_chat_sse_data(
+    lines: Iterable[Any], *, strict_utf8: bool
+) -> Iterable[str]:
+    """Yield complete OpenAI-compatible SSE data records.
+
+    Standards-compliant SSE joins multiple ``data:`` fields with newlines and
+    ends the record at a blank line. Some compatible servers omit that blank
+    separator, so a complete JSON value also closes the preceding record when
+    the next ``data:`` field arrives.
+    """
+
+    pending: list[str] = []
+    for raw in lines:
+        if isinstance(raw, (bytes, bytearray)):
+            decoded = raw.decode(
+                "utf-8", errors="strict" if strict_utf8 else "ignore"
+            )
+        else:
+            decoded = str(raw)
+        for line in decoded.splitlines() or [""]:
+            if not line:
+                if pending:
+                    yield "\n".join(pending)
+                    pending.clear()
+                continue
+            if line.startswith(":"):
+                continue
+            field, separator, value = line.partition(":")
+            if field == "data":
+                if separator and value.startswith(" "):
+                    value = value[1:]
+                if pending and _complete_sse_data(pending):
+                    yield "\n".join(pending)
+                    pending.clear()
+                pending.append(value)
+                continue
+            if field in {"event", "id", "retry"}:
+                continue
+            # Preserve compatibility with providers that stream bare JSON
+            # records despite advertising an SSE content type.
+            if pending:
+                yield "\n".join(pending)
+                pending.clear()
+            yield line
+    if pending:
+        yield "\n".join(pending)
 
 
 @dataclass(frozen=True, slots=True)
@@ -138,6 +237,23 @@ def rebatch_anthropic_sse_text(
     should_keep_work_alive_with_tasklist = services.continuation.should_keep_work_alive_with_tasklist
     should_recover_empty_end_turn_with_tasklist = services.continuation.should_recover_empty_end_turn_with_tasklist
     should_synthesize_tasklist_for_provider = services.continuation.should_synthesize_tasklist_for_provider
+    if is_remote_bridge_request(handler):
+        mark_pending_channel_delivery_failed = _remote_noop
+        mark_pending_channel_delivery_success = _remote_noop
+        remember_suppressed_thinking_passback = _remote_noop
+        _remember_channel_injected_tool_use = _remote_noop
+        append_tool_call_log = _remote_noop
+        plan_mode_tool_name_for_emit = _remote_tool_name
+        _validate_and_fix_tool_input = _remote_tool_validation
+        should_drop_duplicate_side_effect_tool_call = _remote_false
+        should_drop_emitted_tool_call = _remote_false
+        should_repair_anthropic_passthrough_tool_input = _remote_false
+        backfill_exit_plan_mode_allowed_prompts = _remote_tool_input
+        should_auto_continue_choice_question_with_tasklist = _remote_false
+        should_auto_exit_plan_mode = _remote_false
+        should_keep_work_alive_with_tasklist = _remote_false
+        should_recover_empty_end_turn_with_tasklist = _remote_false
+        should_synthesize_tasklist_for_provider = _remote_false
     text_buffers: dict[int, str] = {}
     pending_event_type: str | None = None
     pending_event_lines: list[str] = []
@@ -165,7 +281,7 @@ def rebatch_anthropic_sse_text(
         and (has_tool(source_body, "Workflow") or body_ultracode_runtime_enabled(source_body))
     )
     visible_tool_call_artifact_filters: dict[int, VisibleToolCallArtifactFilter] = {}
-    runaway_policy = policy_from_env(os.environ.get)
+    runaway_policy = _stream_runaway_policy(handler)
     text_runaway = RunawayOutputDetector(runaway_policy)
     thinking_runaway = RunawayOutputDetector(runaway_policy)
     runaway_verdict: RunawayVerdict | None = None
@@ -1108,6 +1224,7 @@ def ollama_stream_to_anthropic_sse(
 ) -> None:
     """Stream Ollama NDJSON /api/chat response as Anthropic SSE /v1/messages format."""
 
+    remote_bridge = is_remote_bridge_request(handler)
     UpstreamClientDisconnected = services.io.UpstreamClientDisconnected
     VisibleThinkingMarkupFilter = services.io.VisibleThinkingMarkupFilter
     _split_word_buffer = services.io._split_word_buffer
@@ -1136,6 +1253,19 @@ def ollama_stream_to_anthropic_sse(
     should_auto_enter_plan_mode = services.continuation.should_auto_enter_plan_mode
     should_keep_work_alive_with_tasklist = services.continuation.should_keep_work_alive_with_tasklist
     should_recover_empty_end_turn_with_tasklist = services.continuation.should_recover_empty_end_turn_with_tasklist
+    if remote_bridge:
+        mark_pending_channel_delivery_failed = _remote_noop
+        mark_pending_channel_delivery_success = _remote_noop
+        _remember_channel_injected_tool_use = _remote_noop
+        append_tool_call_log = _remote_noop
+        plan_mode_tool_name_for_emit = _remote_tool_name
+        _validate_and_fix_tool_input = _remote_tool_validation
+        should_drop_duplicate_side_effect_tool_call = _remote_false
+        should_drop_emitted_tool_call = _remote_false
+        should_auto_continue_choice_question_with_tasklist = _remote_false
+        should_auto_enter_plan_mode = _remote_false
+        should_keep_work_alive_with_tasklist = _remote_false
+        should_recover_empty_end_turn_with_tasklist = _remote_false
     handler.send_response(200)
     handler.send_header("content-type", "text/event-stream")
     handler.send_header("cache-control", "no-cache")
@@ -1166,13 +1296,14 @@ def ollama_stream_to_anthropic_sse(
     thinking_markup_filter = VisibleThinkingMarkupFilter()
     thinking_markup_suppressed = False
     repeated_completed_tool_dropped = False
-    runaway_policy = policy_from_env(os.environ.get)
+    runaway_policy = _stream_runaway_policy(handler)
     text_runaway = RunawayOutputDetector(runaway_policy)
     thinking_runaway = RunawayOutputDetector(runaway_policy)
     runaway_verdict: RunawayVerdict | None = None
     sse_trace = make_outgoing_sse_trace(provider, model, "ollama_stream", source_body)
     sse_trace_outcome = "started"
     sse_trace_error: str | None = None
+    terminal_received = False
 
     def emit(event_name: str, payload: dict[str, Any]) -> None:
         try:
@@ -1411,16 +1542,35 @@ def ollama_stream_to_anthropic_sse(
     try:
         for line in iter_upstream_lines_until_client_disconnect(handler, resp, idle_timeout):
             chunks_seen += 1
-            line = line.decode("utf-8", errors="ignore").strip()
+            line = line.decode(
+                "utf-8", errors="strict" if remote_bridge else "ignore"
+            ).strip()
             if not line:
                 continue
             try:
                 chunk = json.loads(line)
-            except Exception:
+            except Exception as exc:
+                if remote_bridge:
+                    raise RuntimeError(
+                        "invalid upstream Ollama stream payload"
+                    ) from exc
                 continue
             if not isinstance(chunk, dict):
+                if remote_bridge:
+                    raise RuntimeError(
+                        "invalid upstream Ollama stream payload"
+                    )
                 continue
-            message = chunk.get("message") if isinstance(chunk.get("message"), dict) else {}
+            if remote_bridge and chunk.get("error") is not None:
+                raise RuntimeError("upstream Ollama stream reported an error")
+            if chunk.get("done") is True:
+                terminal_received = True
+            raw_message = chunk.get("message")
+            if remote_bridge and not isinstance(raw_message, dict):
+                raise RuntimeError(
+                    "upstream Ollama stream payload requires a message object"
+                )
+            message = raw_message if isinstance(raw_message, dict) else {}
             input_tokens = max(input_tokens, int(chunk.get("prompt_eval_count") or 0))
             output_tokens = max(output_tokens, int(chunk.get("eval_count") or 0))
             if not started:
@@ -1435,16 +1585,54 @@ def ollama_stream_to_anthropic_sse(
             if text_chunk:
                 handle_text_chunk(text_chunk)
             # Handle tool calls
-            for call in message.get("tool_calls") or []:
-                fn = call.get("function") if isinstance(call.get("function"), dict) else {}
-                if not isinstance(fn, dict) or not fn.get("name"):
+            raw_tool_calls = message.get("tool_calls")
+            if (
+                remote_bridge
+                and raw_tool_calls is not None
+                and not isinstance(raw_tool_calls, list)
+            ):
+                raise RuntimeError(
+                    "upstream Ollama tool_calls must be an array"
+                )
+            for call in raw_tool_calls or []:
+                if not isinstance(call, dict):
+                    if remote_bridge:
+                        raise RuntimeError(
+                            "upstream Ollama tool call must be an object"
+                        )
+                    continue
+                raw_function = call.get("function")
+                if remote_bridge and not isinstance(raw_function, dict):
+                    raise RuntimeError(
+                        "upstream Ollama tool call requires a function object"
+                    )
+                fn = raw_function if isinstance(raw_function, dict) else {}
+                raw_function_name = fn.get("name")
+                if remote_bridge and (
+                    not isinstance(raw_function_name, str)
+                    or not raw_function_name.strip()
+                ):
+                    raise RuntimeError(
+                        "upstream Ollama tool call requires a function name"
+                    )
+                if not fn.get("name"):
                     continue
                 raw_name = str(fn["name"])
                 matched_name = resolve_emitted_tool_name(raw_name, source_body)
                 raw_args = fn.get("arguments")
-                normalized_args = normalize_tool_arguments(matched_name, raw_args)
+                if remote_bridge and not isinstance(raw_args, dict):
+                    raise RuntimeError(
+                        "upstream Ollama tool call arguments must be an object"
+                    )
+                normalized_args = (
+                    dict(raw_args)
+                    if remote_bridge
+                    else normalize_tool_arguments(matched_name, raw_args)
+                )
                 emitted_name = matched_name
-                fixed_input = _validate_and_fix_tool_input(matched_name, normalized_args)
+                fixed_input = _validate_and_fix_tool_input(
+                    matched_name, normalized_args, source_body
+                )
                 if source_body is not None:
                     matched_name, fixed_input = plan_mode_tool_name_for_emit(source_body, matched_name, fixed_input)
                     if matched_name is None:
@@ -1491,6 +1679,12 @@ def ollama_stream_to_anthropic_sse(
                     "error", provider, model, error="runaway_repetition", stream=True
                 )
                 break
+            if terminal_received:
+                break
+        if remote_bridge and not terminal_received:
+            raise RuntimeError(
+                "upstream Ollama stream ended before a terminal event"
+            )
         runaway_stopped = runaway_verdict is not None
         trailing_text = thinking_markup_filter.finish()
         if trailing_text and not runaway_stopped:
@@ -1505,6 +1699,10 @@ def ollama_stream_to_anthropic_sse(
                 "The previous result is already in context; choose a different action or finish the turn."
             )
         reasoning_only = thinking_started and not text_so_far.strip() and not tool_calls and not runaway_stopped
+        if remote_bridge and (reasoning_only or (not text_started and not tool_calls)):
+            raise RuntimeError(
+                "upstream Ollama stream completed without assistant content or a tool call"
+            )
         # A looping turn must not be continued for the model. Every synthesis
         # below exists to keep work moving, which is the opposite of what a
         # runaway needs, so they are all skipped once the guard has fired.
@@ -1669,28 +1867,48 @@ def ollama_stream_to_anthropic_sse(
         router_log("ERROR", f"ollama_stream_error provider={provider} model={model} error={type(exc).__name__}: {exc}")
         write_router_activity("error", provider, model, error=type(exc).__name__, stream=True)
         try:
-            ensure_message_started()
-            if thinking_block_open:
-                close_thinking_block()
-            if text_block_open:
-                close_text_block()
-            if not text_started and not tool_indices:
-                error_index = next_content_index
-                next_content_index += 1
-                emit_text_block(error_index, f"Upstream stream error: {type(exc).__name__}: {exc}")
-            for tool_index in tool_indices:
-                if tool_index not in stopped_tool_indices:
-                    emit("content_block_stop", {"type": "content_block_stop", "index": tool_index})
-                    stopped_tool_indices.add(tool_index)
-            emit(
-                "message_delta",
-                {
-                    "type": "message_delta",
-                    "delta": {"stop_reason": "end_turn", "stop_sequence": None},
-                    "usage": {"output_tokens": output_tokens or 1},
-                },
-            )
-            emit("message_stop", {"type": "message_stop"})
+            if remote_bridge:
+                if thinking_block_open:
+                    close_thinking_block()
+                if text_block_open:
+                    close_text_block()
+                for tool_index in tool_indices:
+                    if tool_index not in stopped_tool_indices:
+                        emit("content_block_stop", {"type": "content_block_stop", "index": tool_index})
+                        stopped_tool_indices.add(tool_index)
+                emit(
+                    "error",
+                    {
+                        "type": "error",
+                        "error": {
+                            "type": "api_error",
+                            "message": "Upstream Ollama stream failed before completion.",
+                        },
+                    },
+                )
+            else:
+                ensure_message_started()
+                if thinking_block_open:
+                    close_thinking_block()
+                if text_block_open:
+                    close_text_block()
+                if not text_started and not tool_indices:
+                    error_index = next_content_index
+                    next_content_index += 1
+                    emit_text_block(error_index, f"Upstream stream error: {type(exc).__name__}: {exc}")
+                for tool_index in tool_indices:
+                    if tool_index not in stopped_tool_indices:
+                        emit("content_block_stop", {"type": "content_block_stop", "index": tool_index})
+                        stopped_tool_indices.add(tool_index)
+                emit(
+                    "message_delta",
+                    {
+                        "type": "message_delta",
+                        "delta": {"stop_reason": "end_turn", "stop_sequence": None},
+                        "usage": {"output_tokens": output_tokens or 1},
+                    },
+                )
+                emit("message_stop", {"type": "message_stop"})
         except Exception as exc:
             router_log("WARN", f"ollama_stream_fallback_emit_failed model={model} error={type(exc).__name__}: {exc}")
     finally:
@@ -1779,6 +1997,7 @@ def forward_openai_chat_to_anthropic_sse(
     services: OpenAIChatStreamServices,
 ) -> bool:
 
+    remote_bridge = is_remote_bridge_request(handler)
     PSEUDO_TOOL_END = services.io.PSEUDO_TOOL_END
     PSEUDO_TOOL_START = services.io.PSEUDO_TOOL_START
     _split_word_buffer = services.io._split_word_buffer
@@ -1802,6 +2021,18 @@ def forward_openai_chat_to_anthropic_sse(
     should_auto_enter_plan_mode = services.continuation.should_auto_enter_plan_mode
     should_keep_work_alive_with_tasklist = services.continuation.should_keep_work_alive_with_tasklist
     should_recover_empty_end_turn_with_tasklist = services.continuation.should_recover_empty_end_turn_with_tasklist
+    if remote_bridge:
+        _remember_channel_injected_tool_use = _remote_noop
+        append_tool_call_log = _remote_noop
+        plan_mode_tool_name_for_emit = _remote_tool_name
+        _validate_and_fix_tool_input = _remote_tool_validation
+        should_drop_duplicate_side_effect_tool_call = _remote_false
+        should_drop_emitted_tool_call = _remote_false
+        latest_user_tool_result_names = _remote_empty_list
+        should_auto_continue_choice_question_with_tasklist = _remote_false
+        should_auto_enter_plan_mode = _remote_false
+        should_keep_work_alive_with_tasklist = _remote_false
+        should_recover_empty_end_turn_with_tasklist = _remote_false
     next_content_index = start_index
     text_started = False
     text_suppressed_for_plan = False
@@ -1821,9 +2052,10 @@ def forward_openai_chat_to_anthropic_sse(
     cache_read_tokens = 0
     cache_creation_tokens = 0
     finish_reason = "stop"
+    terminal_received = False
     chunks_seen = 0
     last_activity_update = 0.0
-    runaway_policy = policy_from_env(os.environ.get)
+    runaway_policy = _stream_runaway_policy(handler)
     text_runaway = RunawayOutputDetector(runaway_policy)
     reasoning_runaway = RunawayOutputDetector(runaway_policy)
     runaway_verdict: RunawayVerdict | None = None
@@ -1921,21 +2153,36 @@ def forward_openai_chat_to_anthropic_sse(
         )
 
     try:
-        for raw_line in resp:
+        for line in _iter_openai_chat_sse_data(
+            resp, strict_utf8=remote_bridge
+        ):
             chunks_seen += 1
-            line = raw_line.decode("utf-8", errors="ignore").strip()
-            if not line or line.startswith(":"):
+            line = line.strip()
+            if not line:
                 continue
-            if line.startswith("data:"):
-                line = line[5:].strip()
-            if not line or line == "[DONE]":
+            if line == "[DONE]":
+                if not remote_bridge:
+                    terminal_received = True
                 break
             try:
                 event = json.loads(line)
-            except Exception:
+            except Exception as exc:
+                if remote_bridge:
+                    raise RuntimeError(
+                        "invalid upstream OpenAI Chat stream payload"
+                    ) from exc
                 continue
             if not isinstance(event, dict):
+                if remote_bridge:
+                    raise RuntimeError(
+                        "invalid upstream OpenAI Chat stream payload"
+                    )
                 continue
+            if remote_bridge and (
+                event.get("error") is not None
+                or str(event.get("type") or "").lower() == "error"
+            ):
+                raise RuntimeError("upstream OpenAI Chat stream reported an error")
             usage = event.get("usage")
             if isinstance(usage, dict):
                 output_tokens = max(output_tokens, positive_int(usage.get("completion_tokens")) or 0)
@@ -1984,6 +2231,7 @@ def forward_openai_chat_to_anthropic_sse(
                     reported_input_tokens = max(0, prompt_tokens - cache_read_tokens)
             if choice.get("finish_reason"):
                 finish_reason = str(choice.get("finish_reason"))
+                terminal_received = True
             delta = choice.get("delta") if isinstance(choice.get("delta"), dict) else {}
             reasoning_chunk = delta.get("reasoning_content") or ""
             if reasoning_chunk:
@@ -2044,8 +2292,21 @@ def forward_openai_chat_to_anthropic_sse(
                 else:
                     emit_text_delta(text_chunk)
                 update_stream_activity()
-            for call in delta.get("tool_calls") or []:
+            raw_tool_calls = delta.get("tool_calls")
+            if (
+                remote_bridge
+                and raw_tool_calls is not None
+                and not isinstance(raw_tool_calls, list)
+            ):
+                raise RuntimeError(
+                    "upstream OpenAI Chat tool_calls must be an array"
+                )
+            for call in raw_tool_calls or []:
                 if not isinstance(call, dict):
+                    if remote_bridge:
+                        raise RuntimeError(
+                            "upstream OpenAI Chat tool call must be an object"
+                        )
                     continue
                 try:
                     call_index = int(call.get("index"))
@@ -2053,13 +2314,36 @@ def forward_openai_chat_to_anthropic_sse(
                     call_index = len(tool_fragments)
                 slot = tool_fragments.setdefault(call_index, {"id": "", "name": "", "arguments": ""})
                 if call.get("id"):
+                    if remote_bridge and not isinstance(call.get("id"), str):
+                        raise RuntimeError(
+                            "upstream OpenAI Chat tool call id must be a string"
+                        )
                     slot["id"] = str(call.get("id"))
-                fn = call.get("function") if isinstance(call.get("function"), dict) else {}
+                raw_function = call.get("function")
+                if remote_bridge and not isinstance(raw_function, dict):
+                    raise RuntimeError(
+                        "upstream OpenAI Chat tool call requires a function object"
+                    )
+                fn = raw_function if isinstance(raw_function, dict) else {}
                 if fn.get("name"):
+                    if remote_bridge and not isinstance(fn.get("name"), str):
+                        raise RuntimeError(
+                            "upstream OpenAI Chat tool call name must be a string"
+                        )
                     slot["name"] += str(fn.get("name"))
                 if fn.get("arguments"):
+                    if remote_bridge and not isinstance(fn.get("arguments"), str):
+                        raise RuntimeError(
+                            "upstream OpenAI Chat tool call arguments must be a string"
+                        )
                     slot["arguments"] += str(fn.get("arguments"))
                 update_stream_activity()
+            if remote_bridge and terminal_received:
+                break
+        if remote_bridge and not terminal_received:
+            raise RuntimeError(
+                "upstream OpenAI Chat stream ended before a terminal event"
+            )
         update_stream_activity(force=True)
         if word_chunking and text_buffer:
             to_flush, text_buffer = _split_word_buffer(text_buffer, force=True)
@@ -2076,14 +2360,61 @@ def forward_openai_chat_to_anthropic_sse(
                     "name": str(fn.get("name") or ""),
                     "arguments": json.dumps(fn.get("arguments") or {}, ensure_ascii=False),
                 })
-        for _, fragment in sorted(tool_fragments.items()):
+        remote_tool_inputs: dict[int, dict[str, Any]] = {}
+        if remote_bridge:
+            if finish_reason == "content_filter":
+                raise RuntimeError(
+                    "upstream OpenAI Chat stream was stopped by content filtering"
+                )
+            if bool(tool_fragments) != (finish_reason == "tool_calls"):
+                raise RuntimeError(
+                    "upstream OpenAI Chat finish_reason is inconsistent with tool calls"
+                )
+            for fragment_index, fragment in sorted(tool_fragments.items()):
+                if not str(fragment.get("id") or "").strip():
+                    raise RuntimeError(
+                        f"upstream OpenAI Chat tool call {fragment_index} requires an id"
+                    )
+                if not str(fragment.get("name") or "").strip():
+                    raise RuntimeError(
+                        "upstream OpenAI Chat tool call "
+                        f"{fragment_index} requires a function name"
+                    )
+                try:
+                    parsed_arguments = json.loads(
+                        str(fragment.get("arguments") or "")
+                    )
+                except ValueError as exc:
+                    raise RuntimeError(
+                        "upstream OpenAI Chat tool call "
+                        f"{fragment_index} contained malformed arguments"
+                    ) from exc
+                if not isinstance(parsed_arguments, dict):
+                    raise RuntimeError(
+                        "upstream OpenAI Chat tool call "
+                        f"{fragment_index} arguments must be a JSON object"
+                    )
+                remote_tool_inputs[fragment_index] = parsed_arguments
+            if not text_started and not tool_fragments:
+                raise RuntimeError(
+                    "upstream OpenAI Chat stream completed without assistant content or a tool call"
+                )
+        for fragment_index, fragment in sorted(tool_fragments.items()):
             raw_name = str(fragment.get("name") or "")
             if not raw_name:
                 continue
             matched_name = resolve_emitted_tool_name(raw_name, source_body)
-            normalized_args = normalize_tool_arguments(matched_name, fragment.get("arguments") or {})
+            normalized_args = (
+                remote_tool_inputs[fragment_index]
+                if remote_bridge
+                else normalize_tool_arguments(
+                    matched_name, fragment.get("arguments") or {}
+                )
+            )
             emitted_name = matched_name
-            fixed_input = _validate_and_fix_tool_input(matched_name, normalized_args)
+            fixed_input = _validate_and_fix_tool_input(
+                matched_name, normalized_args, source_body
+            )
             if source_body is not None:
                 matched_name, fixed_input = plan_mode_tool_name_for_emit(source_body, matched_name, fixed_input)
                 if matched_name is None:
@@ -2275,15 +2606,29 @@ def forward_openai_chat_to_anthropic_sse(
             if word_chunking and text_buffer:
                 to_flush, text_buffer = _split_word_buffer(text_buffer, force=True)
                 emit_text_delta(to_flush)
-            if not text_started:
+            if not remote_bridge and not text_started:
                 emit_text_delta(f"Upstream stream error: {type(exc).__name__}: {exc}")
+            if reasoning_started and not reasoning_stopped:
+                close_reasoning_block()
             if text_started and text_index is not None and not text_stopped:
                 emit("content_block_stop", {"type": "content_block_stop", "index": text_index})
                 text_stopped = True
-            write_anthropic_open_stream_stop(
-                handler,
-                {"stop_reason": "end_turn", "usage": {"output_tokens": output_tokens or max(1, len(text_so_far) // 4)}},
-            )
+            if remote_bridge:
+                emit(
+                    "error",
+                    {
+                        "type": "error",
+                        "error": {
+                            "type": "api_error",
+                            "message": "Upstream OpenAI Chat stream failed before completion.",
+                        },
+                    },
+                )
+            else:
+                write_anthropic_open_stream_stop(
+                    handler,
+                    {"stop_reason": "end_turn", "usage": {"output_tokens": output_tokens or max(1, len(text_so_far) // 4)}},
+                )
         except Exception as exc:
             router_log("WARN", f"openai_stream_fallback_emit_failed provider={provider} model={model} error={type(exc).__name__}: {exc}")
         return False

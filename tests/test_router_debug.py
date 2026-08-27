@@ -145,6 +145,27 @@ class RouterDebugTests(unittest.TestCase):
         with patch.object(ciel_runtime, "router_external_access_token", return_value="expected-token"):
             self.assertFalse(ciel_runtime.router_request_allowed(handler, {}))
 
+    def test_remote_bridge_cli_uses_dedicated_token_repository(self):
+        controller = ciel_runtime.cmd_remote_bridge.__self__
+
+        self.assertIs(
+            controller.ports.ensure_token.__self__,
+            ciel_runtime._REMOTE_BRIDGE_TOKEN_REPOSITORY,
+        )
+        self.assertIsNot(
+            controller.ports.ensure_token.__self__,
+            ciel_runtime._ROUTER_EXTERNAL_TOKEN_REPOSITORY,
+        )
+
+    def test_bridge_mode_does_not_project_as_router_debug_external_access(self):
+        config = {"remote_bridge": {"enabled": True, "host": "0.0.0.0"}}
+
+        self.assertTrue(ciel_runtime.router_external_access_enabled(config))
+        self.assertFalse(ciel_runtime.router_debug_external_access_enabled(config))
+        self.assertFalse(
+            ciel_runtime.router_shortcut_controller().debug.external_enabled(config)
+        )
+
     def test_router_debug_slash_value_parsing(self):
         body = {
             "messages": [

@@ -3,6 +3,7 @@ import unittest
 from unittest import mock
 
 import ciel_runtime
+from ciel_runtime_support.remote_bridge import REMOTE_BRIDGE_CONFIG_MARKER
 
 
 class OpenRouterProviderTests(unittest.TestCase):
@@ -98,6 +99,35 @@ class OpenRouterProviderTests(unittest.TestCase):
         )
 
         self.assertEqual("high", request["reasoning_effort"])
+
+    def test_remote_request_sampling_is_not_overwritten_by_router_config(self):
+        pcfg = self.openrouter_pcfg(
+            current_model="stealth/ox-alpha",
+            temperature=1.0,
+            top_p=0.1,
+        )
+        pcfg[REMOTE_BRIDGE_CONFIG_MARKER] = True
+        body = {
+            "model": "stealth/ox-alpha",
+            "messages": [{"role": "user", "content": "inspect"}],
+            "temperature": 0.2,
+            "top_p": 0.8,
+        }
+
+        normalized = ciel_runtime.apply_provider_request_options(
+            "openrouter", pcfg, body
+        )
+        request = ciel_runtime.openai_compatible_chat_request(
+            "openrouter",
+            "stealth/ox-alpha",
+            normalized,
+            pcfg,
+            stream=False,
+        )
+
+        self.assertIs(body, normalized)
+        self.assertEqual(0.2, request["temperature"])
+        self.assertEqual(0.8, request["top_p"])
 
     def test_migration_adds_ox_alpha_without_removing_custom_models(self):
         cfg = {

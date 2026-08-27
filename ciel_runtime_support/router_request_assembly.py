@@ -180,6 +180,7 @@ class ClaudeRouterDeliveryPorts:
 class ClaudeRouterRoutingPorts:
     forward_ollama: Callback
     forward_openai: Callback
+    forward_responses: Callback
     select_protocol: Callback
     request_policy: Callback
     resolve_model: Callback
@@ -288,6 +289,7 @@ class ClaudeRouterAssembly:
             routing=claude_router.ClaudeRouterRouting(
                 forward_ollama=self.routing.forward_ollama,
                 forward_openai=self.routing.forward_openai,
+                forward_responses=self.routing.forward_responses,
                 select_protocol=self.routing.select_protocol,
                 request_policy=self.routing.request_policy,
                 resolve_model=self.routing.resolve_model,
@@ -349,6 +351,7 @@ class RouterRequestAssembly:
     outer: RouterRequestOuterPorts
     codex_routed_enabled: Callback
     forward_provider_chat: Callback
+    forward_compatible_chat: Callback
     claude: ClaudeRouterAssembly
 
     def context(self) -> RouterRequestContext:
@@ -365,6 +368,7 @@ class RouterRequestAssembly:
             runtime=RuntimeRouterPorts(
                 codex_routed_enabled=self.codex_routed_enabled,
                 forward_provider_chat=self.forward_provider_chat,
+                forward_compatible_chat=self.forward_compatible_chat,
                 claude_services=self.claude.services(),
             ),
         )

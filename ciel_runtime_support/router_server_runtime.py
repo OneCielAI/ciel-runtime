@@ -26,8 +26,10 @@ class RouterServerStatePorts:
     current_log_level: Callable[[], Any]
     current_pid: Callable[[], int]
     env_value: Callable[[str], str | None]
-    external_access_enabled: Callable[[dict[str, Any]], bool]
-    ensure_external_token: Callable[[], str]
+    administrative_external_access_enabled: Callable[[dict[str, Any]], bool]
+    remote_bridge_enabled: Callable[[dict[str, Any]], bool]
+    ensure_administrative_token: Callable[[], str]
+    ensure_bridge_token: Callable[[], str]
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,8 +54,10 @@ class RouterServerRuntime:
         runtime_config = self.state.load_config()
         self.state.reset_api_key_cooldowns()
         bind_host = self.state.bind_host(runtime_config)
-        if self.state.external_access_enabled(runtime_config):
-            self.state.ensure_external_token()
+        if self.state.administrative_external_access_enabled(runtime_config):
+            self.state.ensure_administrative_token()
+        if self.state.remote_bridge_enabled(runtime_config):
+            self.state.ensure_bridge_token()
         self.config.pid_path.write_text(str(self.state.current_pid()))
         self.effects.chmod(self.config.pid_path, 0o600)
         level = self.state.current_log_level()

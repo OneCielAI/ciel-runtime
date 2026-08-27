@@ -147,12 +147,24 @@ class DeepSeekProviderAdapter(HttpBearerProviderAdapter):
             ):
                 normalized.pop(key, None)
         output_config = request.get("output_config")
+        metadata = request.get("metadata")
+        hinted_effort = (
+            metadata.get("ciel_runtime_reasoning_effort")
+            if isinstance(metadata, Mapping)
+            else None
+        )
         if thinking_disabled:
             normalized.pop("output_config", None)
             output_config = None
         elif not isinstance(output_config, Mapping) and isinstance(thinking, Mapping):
             if thinking.get("effort") is not None:
                 output_config = {"effort": thinking.get("effort")}
+        if (
+            not thinking_disabled
+            and not isinstance(output_config, Mapping)
+            and hinted_effort is not None
+        ):
+            output_config = {"effort": hinted_effort}
         if isinstance(output_config, Mapping) and output_config.get("effort") is not None:
             normalized["output_config"] = {
                 **output_config,

@@ -253,6 +253,7 @@ class CodexBackendContext:
                 timeout_seconds=self.provider_transport.timeout_seconds,
                 copy_response_headers=self.provider_transport.copy_response_headers,
                 finalize_body=self.provider_projection.finalize_chat,
+                endpoint=self.provider_transport.endpoint,
             )
         )
 

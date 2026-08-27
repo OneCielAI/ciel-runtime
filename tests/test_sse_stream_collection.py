@@ -47,6 +47,115 @@ class SsePayloadTests(unittest.TestCase):
 
 
 class OpenAIChatStreamCollectionTests(unittest.TestCase):
+    def test_strict_mode_rejects_clean_eof_before_terminal_event(self):
+        lines = sse({"choices": [{"delta": {"content": "partial"}}]})
+
+        with self.assertRaises(UpstreamSseError) as caught:
+            collect_openai_chat_stream(lines, strict=True)
+
+        self.assertEqual("incomplete_stream", caught.exception.code)
+        self.assertTrue(caught.exception.output_started)
+
+    def test_strict_mode_rejects_malformed_json(self):
+        with self.assertRaises(UpstreamSseError) as caught:
+            collect_openai_chat_stream([b"data: {broken\n"], strict=True)
+
+        self.assertEqual("invalid_stream", caught.exception.code)
+
+    def test_strict_mode_accepts_done_sentinel(self):
+        lines = sse({"choices": [{"delta": {"content": "ok"}}]})
+        lines.append(b"data: [DONE]\n")
+
+        collected = collect_openai_chat_stream(lines, strict=True)
+
+        self.assertEqual(
+            "ok", collected.response["choices"][0]["message"]["content"]
+        )
+
+    def test_strict_mode_accepts_multiline_data_event(self):
+        lines = [
+            b'data: {"choices":[{"delta":{"content":\n',
+            b'data: "ok"},"finish_reason":"stop"}]}\n',
+            b"\n",
+        ]
+
+        collected = collect_openai_chat_stream(lines, strict=True)
+
+        self.assertEqual(
+            "ok", collected.response["choices"][0]["message"]["content"]
+        )
+
+    def test_strict_mode_rejects_done_without_a_choice(self):
+        with self.assertRaisesRegex(UpstreamSseError, "no choice"):
+            collect_openai_chat_stream([b"data: [DONE]\n"], strict=True)
+
+    def test_strict_mode_rejects_malformed_tool_arguments(self):
+        lines = sse(
+            {
+                "choices": [
+                    {
+                        "delta": {
+                            "tool_calls": [
+                                {
+                                    "index": 0,
+                                    "id": "call_1",
+                                    "function": {
+                                        "name": "delete_file",
+                                        "arguments": '{"path":',
+                                    },
+                                }
+                            ]
+                        },
+                        "finish_reason": "tool_calls",
+                    }
+                ]
+            }
+        )
+        lines.append(b"data: [DONE]\n")
+
+        with self.assertRaisesRegex(UpstreamSseError, "malformed arguments"):
+            collect_openai_chat_stream(lines, strict=True)
+
+    def test_strict_mode_rejects_tool_calls_with_non_tool_finish_reason(self):
+        lines = sse(
+            {
+                "choices": [
+                    {
+                        "delta": {
+                            "tool_calls": [
+                                {
+                                    "index": 0,
+                                    "id": "call_1",
+                                    "function": {
+                                        "name": "read_file",
+                                        "arguments": "{}",
+                                    },
+                                }
+                            ]
+                        },
+                        "finish_reason": "stop",
+                    }
+                ]
+            }
+        )
+
+        with self.assertRaisesRegex(UpstreamSseError, "inconsistent"):
+            collect_openai_chat_stream(lines, strict=True)
+
+    def test_strict_mode_rejects_tool_finish_reason_without_tool_calls(self):
+        lines = sse(
+            {"choices": [{"delta": {"content": "done"}, "finish_reason": "tool_calls"}]}
+        )
+
+        with self.assertRaisesRegex(UpstreamSseError, "inconsistent"):
+            collect_openai_chat_stream(lines, strict=True)
+
+    def test_strict_mode_rejects_invalid_utf8(self):
+        with self.assertRaisesRegex(UpstreamSseError, "invalid UTF-8"):
+            collect_openai_chat_stream(
+                [b'data: {"choices":[]}' + bytes([0xFF]) + b"\n"], strict=True
+            )
+
     def test_surfaces_an_error_event_instead_of_returning_an_empty_answer(self):
         lines = sse({"error": {"type": "internal_server_error", "message": "We're currently experiencing high demand, which may cause temporary errors."}})
 
@@ -160,6 +269,143 @@ class AnthropicMessageStreamCollectionTests(unittest.TestCase):
         self.assertEqual({"path": "x"}, message["content"][2]["input"])
         self.assertEqual(7, message["usage"]["input_tokens"])
         self.assertEqual(42, message["usage"]["output_tokens"])
+
+    def test_strict_mode_rejects_clean_eof_before_message_stop(self):
+        lines = self.message_lines(
+            {
+                "type": "content_block_start",
+                "index": 0,
+                "content_block": {"type": "text", "text": "partial"},
+            }
+        )
+
+        with self.assertRaises(UpstreamSseError) as caught:
+            collect_anthropic_message_stream(lines, strict=True)
+
+        self.assertEqual("incomplete_stream", caught.exception.code)
+        self.assertTrue(caught.exception.output_started)
+
+    def test_strict_mode_rejects_malformed_json(self):
+        with self.assertRaises(UpstreamSseError) as caught:
+            collect_anthropic_message_stream([b"data: {broken\n"], strict=True)
+
+        self.assertEqual("invalid_stream", caught.exception.code)
+
+    def test_strict_mode_accepts_message_stop(self):
+        collected = collect_anthropic_message_stream(
+            self.message_lines(
+                {"type": "message_delta", "delta": {"stop_reason": "end_turn"}},
+                {"type": "message_stop"},
+            ),
+            strict=True,
+        )
+
+        self.assertEqual("msg_1", collected.response["id"])
+
+    def test_strict_mode_accepts_multiline_data_event(self):
+        lines = [
+            b'data: {"type":"message_start",\n',
+            b'data: "message":{"id":"msg_1","type":"message","role":"assistant",'
+            b'"model":"x","content":[]}}\n',
+            b"\n",
+            b'data: {"type":"message_delta","delta":{"stop_reason":"end_turn"}}\n',
+            b"\n",
+            b'data: {"type":"message_stop"}\n',
+            b"\n",
+        ]
+
+        collected = collect_anthropic_message_stream(lines, strict=True)
+
+        self.assertEqual("msg_1", collected.response["id"])
+
+    def test_strict_mode_rejects_terminal_only_stream(self):
+        with self.assertRaisesRegex(UpstreamSseError, "message_start"):
+            collect_anthropic_message_stream(
+                sse({"type": "message_stop"}), strict=True
+            )
+
+    def test_strict_mode_rejects_malformed_tool_input(self):
+        lines = self.message_lines(
+            {
+                "type": "content_block_start",
+                "index": 0,
+                "content_block": {
+                    "type": "tool_use",
+                    "id": "call_1",
+                    "name": "delete_file",
+                    "input": {},
+                },
+            },
+            {
+                "type": "content_block_delta",
+                "index": 0,
+                "delta": {"type": "input_json_delta", "partial_json": '{"path":'},
+            },
+            {"type": "message_delta", "delta": {"stop_reason": "tool_use"}},
+            {"type": "message_stop"},
+        )
+
+        with self.assertRaisesRegex(UpstreamSseError, "malformed JSON"):
+            collect_anthropic_message_stream(lines, strict=True)
+
+    def test_strict_mode_rejects_non_object_tool_input(self):
+        lines = self.message_lines(
+            {
+                "type": "content_block_start",
+                "index": 0,
+                "content_block": {
+                    "type": "tool_use",
+                    "id": "call_1",
+                    "name": "delete_file",
+                    "input": "bad",
+                },
+            },
+            {"type": "message_delta", "delta": {"stop_reason": "tool_use"}},
+            {"type": "message_stop"},
+        )
+
+        with self.assertRaisesRegex(UpstreamSseError, "object input"):
+            collect_anthropic_message_stream(lines, strict=True)
+
+    def test_strict_mode_rejects_tool_use_with_end_turn(self):
+        lines = self.message_lines(
+            {
+                "type": "content_block_start",
+                "index": 0,
+                "content_block": {
+                    "type": "tool_use",
+                    "id": "call_1",
+                    "name": "read_file",
+                    "input": {},
+                },
+            },
+            {"type": "message_delta", "delta": {"stop_reason": "end_turn"}},
+            {"type": "message_stop"},
+        )
+
+        with self.assertRaisesRegex(UpstreamSseError, "inconsistent"):
+            collect_anthropic_message_stream(lines, strict=True)
+
+    def test_strict_mode_rejects_tool_stop_reason_without_tool_use(self):
+        lines = self.message_lines(
+            {
+                "type": "content_block_start",
+                "index": 0,
+                "content_block": {"type": "text", "text": "done"},
+            },
+            {"type": "message_delta", "delta": {"stop_reason": "tool_use"}},
+            {"type": "message_stop"},
+        )
+
+        with self.assertRaisesRegex(UpstreamSseError, "inconsistent"):
+            collect_anthropic_message_stream(lines, strict=True)
+
+    def test_strict_mode_rejects_invalid_utf8(self):
+        with self.assertRaisesRegex(UpstreamSseError, "invalid UTF-8"):
+            collect_anthropic_message_stream(
+                [b'data: {"type":"message_stop"}' + bytes([0xFF]) + b"\n"],
+                strict=True,
+            )
 
     def test_unparsable_tool_input_keeps_the_started_block(self):
         lines = self.message_lines(

@@ -22,7 +22,7 @@ from ciel_runtime_support import anthropic_model_policy
 from ciel_runtime_support import channel_cursor_repository as channel_cursor_storage, hosted_formula_tools
 from ciel_runtime_support import channel_llm_context, claude_launch_assembly, cli_assembly, cli_dispatch, cli_parser, codex_launch_configuration, codex_turn_recovery, kimi_identity, llm_option_config, llm_presets, native_context_recovery
 from ciel_runtime_support import ollama_catalog as ollama_catalog_policy
-from ciel_runtime_support import prelaunch, prelaunch_assembly, provider_catalog_sources, provider_models, provider_network, rate_limit_policy, router_request_assembly, router_server_runtime, runtime_asset_assembly, runtime_launch, runtime_primitives, terminal_platform_io, windows_console_mode
+from ciel_runtime_support import openai_chat_compatibility_bridge, prelaunch, prelaunch_assembly, provider_catalog_sources, provider_models, provider_network, rate_limit_policy, router_request_assembly, router_server_runtime, runtime_asset_assembly, runtime_launch, runtime_primitives, terminal_platform_io, windows_console_mode
 from ciel_runtime_support.prelaunch_launch_panel import launch_panel_rows as project_launch_panel_rows
 from ciel_runtime_support.advisor_client import AdvisorClient, AdvisorClientIO, AdvisorClientPolicy, ProviderChatExecutor, ProviderChatIO, ProviderChatPolicy
 from ciel_runtime_support.advisor_policy import AdvisorDecisionServices, AdvisorServices, AdvisorShortcutController, AdvisorShortcutPorts, AdvisorTextServices
@@ -46,6 +46,7 @@ from ciel_runtime_support.agy_installer import AgyInstaller
 from ciel_runtime_support.anthropic_response_writer import AnthropicResponseWriter
 from ciel_runtime_support.anthropic_response_writer import anthropic_text_response as project_anthropic_text_response
 from ciel_runtime_support.anthropic_response_writer import prepend_anthropic_text as project_prepend_anthropic_text
+from ciel_runtime_support.anthropic_responses_bridge import AnthropicResponsesBridge, AnthropicResponsesBridgePorts, AnthropicResponsesOutputPorts, AnthropicResponsesProjectionPorts, AnthropicResponsesTransportPorts
 from ciel_runtime_support.anthropic_tool_turns import AnthropicToolTurnServices, normalize_historical_anthropic_tool_turns, sanitize_invalid_anthropic_tool_history
 from ciel_runtime_support.api_key_cooldown import API_KEY_COOLDOWN_DEFAULT_SECONDS  # noqa: F401 - compatibility export
 from ciel_runtime_support.api_key_cooldown import API_KEY_COOLDOWN_MAX_SECONDS  # noqa: F401 - compatibility export
@@ -280,6 +281,8 @@ from ciel_runtime_support.protocols.conversation_turn_policy import Conversation
 from ciel_runtime_support.protocols.ollama_chat import anthropic_system_to_ollama_messages, anthropic_tools_to_ollama, decode_ollama_chat_response, encode_anthropic_message, ollama_claude_code_reminder, ollama_reasoning_only_notice, ollama_thinking_to_anthropic_block
 from ciel_runtime_support.protocols.ollama_response import project_ollama_response, project_openai_chat_response
 from ciel_runtime_support.protocols.openai_reasoning import OpenAiReasoningPolicy, anthropic_tool_choice_to_openai, openai_reasoning_to_anthropic_thinking_block
+from ciel_runtime_support.protocols.openai_chat_compat import anthropic_message_to_openai_chat_completion, openai_chat_to_anthropic_messages
+from ciel_runtime_support.protocols.openai_responses import anthropic_messages_to_openai_responses, openai_response_to_anthropic_message
 from ciel_runtime_support.protocols.pseudo_tool_history import PseudoToolHistoryServices, find_pseudo_xml_tool_start, parse_xml_pseudo_tool_calls, sanitize_assistant_pseudo_tool_history
 from ciel_runtime_support.protocols.tool_result_projection import ToolResultProjectionServices, project_tool_result
 from ciel_runtime_support.provider_adapters import PROVIDER_ADAPTERS, PROVIDER_ALIASES, PROVIDER_LABELS, provider_default_configurations
@@ -361,12 +364,14 @@ from ciel_runtime_support.request_trace import truncate_for_dump as _truncate_fo
 from ciel_runtime_support.response_collection import AnthropicCollectionProjection, AnthropicCollectionRequest, AnthropicCollectionServices, AnthropicCollectionTransport, ResponseCollectionProjection, ResponseCollectionRateLimit, ResponseCollectionRequest, ResponseCollectionServices
 from ciel_runtime_support.response_collection_context import ResponseCollectionCompatibilityApi, ResponseCollectionContext, ResponseCollectionRoutingPorts, ResponseCollectionStrategyPorts, ResponseCollectionStreamPorts
 from ciel_runtime_support.response_stream_context import ResponseStreamAlgorithms, ResponseStreamCompatibilityApi, ResponseStreamContext, ResponseStreamConversationPorts, ResponseStreamIoPorts, ResponseStreamRecoveryPorts, ResponseStreamRuntimePorts, ResponseStreamTextPorts, ResponseStreamToolPorts, ResponseStreamTracePorts, ResponseStreamTypes
+from ciel_runtime_support.responses_anthropic_stream import ResponsesAnthropicStreamWriter
 from ciel_runtime_support.router_access import is_loopback_address  # noqa: F401 - compatibility export
 from ciel_runtime_support.router_access import router_request_bearer_token  # noqa: F401 - compatibility export
 from ciel_runtime_support.router_access import RouterAccessConfigService, RouterAccessHttpController, RouterAccessMutationPorts, RouterAccessPolicy, RouterExternalTokenRepository
 from ciel_runtime_support.router_client_lifecycle import ManagedRouterLifetime, ManagedRouterLifetimePorts, RoutedLaunchDiagnosticPorts, RoutedLaunchDiagnostics, RouterClientRegistry, RouterClientRegistryPorts, RouterClientSupervisor, RouterClientSupervisorPorts, RouterLifetimeRunner, RouterLifetimeRunnerPorts
 from ciel_runtime_support.router_health_policy import RouterHealthPolicy
-from ciel_runtime_support.router_http import EventHttpAdapter, EventHttpPorts, RouterHttpCore, RouterHttpErrors, RouterHttpGetEndpoints, RouterHttpHandler, RouterHttpPostEndpoints, RouterHttpPresentation, RouterHttpServices
+from ciel_runtime_support.router_http import EventHttpAdapter, EventHttpPorts, RouterHttpCore, RouterHttpErrors, RouterHttpGetEndpoints, RouterHttpHandler, RouterHttpPostEndpoints, RouterHttpPresentation, RouterHttpRemoteBridge, RouterHttpServices
+from ciel_runtime_support.remote_bridge_runtime import RemoteBridgeRuntimeApi
 from ciel_runtime_support.router_observability_context import RequestTraceConfiguration
 from ciel_runtime_support.router_observability_context import RequestTracePorts as RouterRequestTracePorts
 from ciel_runtime_support.router_observability_context import RouterObservabilityCompatibilityApi, RouterObservabilityContext, RouterPreviewPorts, SseObservabilityPorts, SseTraceConfiguration
@@ -442,7 +447,7 @@ from ciel_runtime_support.runtime_paths import (CHANNEL_COMPACT_REQUEST_PATH,  #
                                                 OLLAMA_MODEL_CATALOG_PATH, PID_PATH, PLAN_ARTIFACTS_DIR,
                                                 RATE_LIMIT_STATE_PATH, REQUEST_DUMP_PATH, RESPONSE_DUMP_PATH,
                                                 ROUTER_ACTIVITY_PATH, ROUTER_BASE, ROUTER_CLIENTS_DIR,
-                                                MIGRATED_LEGACY_INSTANCE_ID, ROUTER_EXTERNAL_TOKEN_PATH, ROUTER_HOST,
+                                                MIGRATED_LEGACY_INSTANCE_ID, REMOTE_BRIDGE_TOKEN_PATH, ROUTER_EXTERNAL_TOKEN_PATH, ROUTER_HOST,
                                                 ROUTER_INSTANCE_DIR, ROUTER_INSTANCE_ID, ROUTER_PORT, RUNTIME_INTERACTION_PATH,
                                                 ROUTER_WORKSPACE, ROUTER_WORKSPACE_ID, SSE_LAST_PATH,
                                                 WORKSPACE_CONFIG_PATH, WORKSPACE_STATE_DIR,
@@ -896,7 +901,7 @@ def provider_config_api_keys(provider: str, pcfg: dict[str, Any]) -> list[str]:
     if provider == "github-copilot-oauth":
         token = github_copilot_oauth_token()
         return [token] if token else []
-    supplemental = nvidia_api_key() if provider == "nvidia-hosted" else ""
+    supplemental = nvidia_api_key() if provider == "nvidia-hosted" and not pcfg.get("_ciel_remote_request_api_key") else ""
     return [
         key
         for key in project_provider_config_api_keys(pcfg, supplemental)
@@ -1625,7 +1630,7 @@ def mark_pending_channel_delivery_failed(handler: BaseHTTPRequestHandler | None,
 def pending_channel_delivery_confirmed(handler: BaseHTTPRequestHandler | None) -> bool: return channel_delivery_guard().confirmed(handler)
 def write_empty_response(handler: BaseHTTPRequestHandler, status: int = 202) -> None: http_response_adapter().write_empty(handler, status)
 def write_accepted_response(handler: BaseHTTPRequestHandler) -> None: http_response_adapter().write_accepted(handler)
-def reject_external_router_request(handler: BaseHTTPRequestHandler, cfg: dict[str, Any] | None = None) -> bool: return RouterAccessHttpController(request_allowed=router_request_allowed, external_access_enabled=router_debug_external_access_enabled).reject_external_request(handler, cfg)
+def reject_external_router_request(handler: BaseHTTPRequestHandler, cfg: dict[str, Any] | None = None) -> bool: return RouterAccessHttpController(request_allowed=router_request_allowed, external_access_enabled=router_external_access_enabled).reject_external_request(handler, cfg)
 
 def runtime_activity_repository() -> RuntimeActivityRepository:
     return RuntimeActivityRepository(
@@ -1950,7 +1955,7 @@ def set_external_event_config(key: str, value: Any) -> list[str]:
 def remote_instruction_synchronizer() -> RemoteInstructionSynchronizer: return RemoteInstructionSynchronizer(load_config=load_config, workspace=lambda: Path(ROUTER_WORKSPACE), state_dir=WORKSPACE_STATE_DIR, log=router_log)
 def remote_memory_synchronizer() -> RemoteMemorySynchronizer: return RemoteMemorySynchronizer(load_config=load_config, workspace=lambda: Path(ROUTER_WORKSPACE), state_dir=WORKSPACE_STATE_DIR, log=router_log)
 def body_with_remote_memory_prompt(body: dict[str, Any], protocol: MessageProtocol) -> dict[str, Any]: return project_inject_current_memory_prompt(body, protocol, WORKSPACE_STATE_DIR, load_config(), Path(ROUTER_WORKSPACE))
-def finalized_anthropic_upstream_body(body: dict[str, Any]) -> dict[str, Any]: return body_without_ciel_runtime_internal_metadata(body_with_remote_memory_prompt(body, "anthropic_messages"))
+def finalized_anthropic_upstream_body(body: dict[str, Any], remote_bridge: bool = False) -> dict[str, Any]: return body_without_ciel_runtime_internal_metadata(body if remote_bridge else body_with_remote_memory_prompt(body, "anthropic_messages"))
 def sync_remote_instruction(runtime: str, *, reason: str) -> RemoteInstructionResult: return project_sync_instruction_with_memory_pointer(runtime, reason=reason, instruction_synchronizer=remote_instruction_synchronizer, memory_synchronizer=remote_memory_synchronizer, log=router_log)
 def sync_remote_memory(runtime: str, *, reason: str) -> RemoteMemoryResult: return remote_memory_synchronizer().sync(runtime, reason=reason)
 def sync_remote_launch_assets(runtime: str, *, reason: str) -> RemoteMemoryResult: return project_sync_launch_assets(runtime, reason=reason, instruction_sync=sync_remote_instruction, memory_sync=sync_remote_memory)
@@ -2064,11 +2069,12 @@ def _refresh_chat_compact_messages(messages: list[dict[str, Any]], runtime: str 
     return project_move_memory_pointer_to_system_end(updated, project_current_memory_prompt(WORKSPACE_STATE_DIR, load_config(), Path(ROUTER_WORKSPACE)))
 
 def compact_responses_with_remote_instruction(body: dict[str, Any], budget: int, **kwargs: Any) -> dict[str, Any]:
-    instruction = _latest_remote_instruction("codex", reason="pre-compact")
+    remote_bridge = bool(kwargs.pop("remote_bridge", False))
     updated = dict(body)
-    if instruction:
+    if not remote_bridge and (instruction := _latest_remote_instruction("codex", reason="pre-compact")):
         updated["instructions"] = _with_latest_instruction_text(body.get("instructions"), instruction)
-    return body_with_remote_memory_prompt(run_responses_prompt_compaction(updated, budget, services=prompt_compaction_services(), **kwargs), "openai_responses")
+    compacted = run_responses_prompt_compaction(updated, budget, services=prompt_compaction_services(), **kwargs)
+    return compacted if remote_bridge else body_with_remote_memory_prompt(compacted, "openai_responses")
 
 def _channel_compact_request_ttl_seconds() -> float: return compact_request_ttl(os.environ.get('CIEL_RUNTIME_CHANNEL_COMPACT_REQUEST_TTL_SECONDS'))
 
@@ -2411,8 +2417,8 @@ def chat_projection_services() -> ChatProjectionServices:
         ),
     )
 
-def anthropic_messages_to_ollama(body: dict[str, Any]) -> list[dict[str, Any]]: return project_move_memory_pointer_to_system_end(project_anthropic_messages_to_ollama(body, services=chat_projection_services()), project_current_memory_prompt(WORKSPACE_STATE_DIR, load_config(), Path(ROUTER_WORKSPACE)))
-def anthropic_messages_to_openai(body: dict[str, Any], reasoning_passback: bool = False) -> list[dict[str, Any]]: return project_move_memory_pointer_to_system_end(project_anthropic_messages_to_openai(body, reasoning_passback, services=chat_projection_services()), project_current_memory_prompt(WORKSPACE_STATE_DIR, load_config(), Path(ROUTER_WORKSPACE)))
+def anthropic_messages_to_ollama(body: dict[str, Any], *, include_memory: bool = True) -> list[dict[str, Any]]: return project_move_memory_pointer_to_system_end(project_anthropic_messages_to_ollama(body, services=chat_projection_services()), project_current_memory_prompt(WORKSPACE_STATE_DIR, load_config(), Path(ROUTER_WORKSPACE))) if include_memory else project_anthropic_messages_to_ollama(body, services=chat_projection_services())
+def anthropic_messages_to_openai(body: dict[str, Any], reasoning_passback: bool = False, *, include_memory: bool = True) -> list[dict[str, Any]]: return project_move_memory_pointer_to_system_end(project_anthropic_messages_to_openai(body, reasoning_passback, services=chat_projection_services()), project_current_memory_prompt(WORKSPACE_STATE_DIR, load_config(), Path(ROUTER_WORKSPACE))) if include_memory else project_anthropic_messages_to_openai(body, reasoning_passback, services=chat_projection_services())
 missing_openai_tool_result_message = project_missing_openai_tool_result_message
 orphan_openai_tool_message_to_user = project_orphan_openai_tool_message_to_user
 def repair_openai_tool_call_adjacency(messages: list[dict[str, Any]]) -> list[dict[str, Any]]: return project_repair_openai_tool_call_adjacency(messages, OpenAiHistoryServices(log=router_log))
@@ -2421,15 +2427,15 @@ openai_chat_reasoning_passback_enabled = _OPENAI_REASONING_POLICY.passback_enabl
 openai_chat_reasoning_passback_enabled_for_body = _OPENAI_REASONING_POLICY.passback_enabled_for_body
 should_omit_openai_chat_tool_choice = _OPENAI_REASONING_POLICY.should_omit_tool_choice
 _ROUTER_ACCESS_POLICY = RouterAccessPolicy(environ=os.environ, parse_bool=parse_bool, parse_env_bool=env_bool, load_config=load_config)
-_ROUTER_EXTERNAL_TOKEN_REPOSITORY = RouterExternalTokenRepository(path=ROUTER_EXTERNAL_TOKEN_PATH, config_dir=CONFIG_DIR, environ=os.environ)
-router_debug_external_access_enabled = _ROUTER_ACCESS_POLICY.external_access_enabled
+_ROUTER_EXTERNAL_TOKEN_REPOSITORY, _REMOTE_BRIDGE_TOKEN_REPOSITORY = RouterExternalTokenRepository(path=ROUTER_EXTERNAL_TOKEN_PATH, config_dir=CONFIG_DIR, environ=os.environ), RouterExternalTokenRepository(path=REMOTE_BRIDGE_TOKEN_PATH, config_dir=CONFIG_DIR, environ=os.environ, env_name="CIEL_RUNTIME_REMOTE_BRIDGE_TOKEN")
+router_external_access_enabled, router_debug_external_access_enabled = _ROUTER_ACCESS_POLICY.external_access_enabled, _ROUTER_ACCESS_POLICY.administrative_external_access_enabled
 router_bind_host = _ROUTER_ACCESS_POLICY.bind_host
-router_external_access_token = _ROUTER_EXTERNAL_TOKEN_REPOSITORY.get
-ensure_router_external_access_token = _ROUTER_EXTERNAL_TOKEN_REPOSITORY.ensure
-def router_request_allowed(handler: BaseHTTPRequestHandler, cfg: dict[str, Any] | None = None) -> bool: return _ROUTER_ACCESS_POLICY.request_allowed(handler, cfg, router_external_access_token)
+router_external_access_token, ensure_router_external_access_token = _ROUTER_EXTERNAL_TOKEN_REPOSITORY.get, _ROUTER_EXTERNAL_TOKEN_REPOSITORY.ensure
+remote_bridge_access_token, ensure_remote_bridge_access_token = _REMOTE_BRIDGE_TOKEN_REPOSITORY.get, _REMOTE_BRIDGE_TOKEN_REPOSITORY.ensure
+_REMOTE_BRIDGE = RemoteBridgeRuntimeApi(normalize_provider, parse_bool, os.environ, PROVIDER_LABELS, cached_or_configured_model_ids, model_object, alias_for, get_current_provider, provider_has_api_key, read_model_info_cache)
+def router_request_allowed(handler: BaseHTTPRequestHandler, cfg: dict[str, Any] | None = None) -> bool: return _ROUTER_ACCESS_POLICY.request_allowed(handler, cfg, router_external_access_token, remote_bridge_access_token)
 def set_router_debug_external_access_config(value: Any) -> list[str]: return RouterAccessConfigService(policy=_ROUTER_ACCESS_POLICY, ports=RouterAccessMutationPorts(load_config=load_config, save_config=save_config, clear_model_cache=clear_model_cache, ensure_token=ensure_router_external_access_token)).set_external_access(value)
 def schedule_router_process_restart(delay: float = 0.8) -> None: schedule_router_restart(delay, Path(__file__).resolve(), router_log)
-
 _OLLAMA_CONTEXT_POLICY = OllamaRequestContextPolicy(
     environ=os.environ,
     positive_int=positive_int,
@@ -2909,17 +2915,15 @@ forward_codex_backend_json = _CODEX_BACKEND_API.forward_json
 codex_capacity_retry_limit = _CODEX_BACKEND_API.capacity_retry_limit
 forward_codex_backend_get = _CODEX_BACKEND_API.forward_get
 forward_codex_responses = _CODEX_BACKEND_API.forward_responses
-
 def body_with_codex_compat_instructions(cfg: dict[str, Any], provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> dict[str, Any]:
     body = codex_turn_recovery.body_with_codex_compat_instructions(body, ROUTED_CODEX_COMPAT_PROMPT, is_native_codex=codex_routed_enabled(provider, pcfg), compat_enabled=should_append_compat_prompt(provider, pcfg, cfg))
     return body_with_remote_memory_prompt(body, "openai_responses")
-
 def _codex_turn_recovery_services() -> codex_turn_recovery.CodexTurnRecoveryServices:
     return codex_turn_recovery.CodexTurnRecoveryServices(should_retry=should_retry_preamble_only_turn, collect_message=collect_provider_message_for_responses, log=router_log, prepare_reasoning_budget_retry=lambda provider, pcfg, body: codex_turn_recovery.prepare_provider_reasoning_output_budget_retry(provider, pcfg, body, adapter_for=configured_provider_adapter, contract_for=provider_contract_config, resolve_model=resolve_requested_model, select_protocol=select_provider_protocol))
-
 def recover_codex_preamble_only_turn(handler: Any, provider: str, pcfg: dict[str, Any], body: dict[str, Any], message: dict[str, Any]) -> dict[str, Any]:
     return codex_turn_recovery.recover_preamble_only_turn(handler, provider, pcfg, body, message, _codex_turn_recovery_services())
-
+def forward_anthropic_via_responses(handler: Any, provider: str, pcfg: dict[str, Any], body: dict[str, Any], model: str) -> None: AnthropicResponsesBridge(AnthropicResponsesBridgePorts(AnthropicResponsesProjectionPorts(anthropic_messages_to_openai_responses, openai_response_to_anthropic_message, provider_upstream_model, apply_provider_adapter_request_policy), AnthropicResponsesTransportPorts(provider_endpoint, provider_headers, post_json_with_rate_retry, open_provider_request_with_key_retry, provider_request_timeout_seconds), AnthropicResponsesOutputPorts(write_anthropic_message_response, write_json, ResponsesAnthropicStreamWriter(openai_response_to_anthropic_message).forward))).forward(handler, provider, pcfg, body, model)
+def forward_openai_chat_compatible(handler: Any, provider: str, pcfg: dict[str, Any], body: dict[str, Any], protocol: str) -> None: openai_chat_compatibility_bridge.OpenAIChatCompatibilityBridge(openai_chat_compatibility_bridge.OpenAIChatCompatibilityPorts(openai_chat_compatibility_bridge.OpenAIChatCompatibilityProjection(openai_chat_to_anthropic_messages, anthropic_message_to_openai_chat_completion, anthropic_messages_to_openai_responses, openai_response_to_anthropic_message), openai_chat_compatibility_bridge.OpenAIChatCompatibilityRouting(collect_anthropic_message_for_responses, collect_ollama_message_for_responses, provider_upstream_model, apply_provider_adapter_request_policy), openai_chat_compatibility_bridge.OpenAIChatCompatibilityTransport(provider_endpoint, provider_headers, post_json_with_rate_retry, provider_request_timeout_seconds), openai_chat_compatibility_bridge.OpenAIChatCompatibilityOutput(write_json))).forward(handler, provider, pcfg, body, protocol)
 def _router_request_context() -> RouterRequestContext:
     assembly = router_request_assembly
     openai = assembly.OpenAIResponseAssembly(
@@ -2941,7 +2945,7 @@ def _router_request_context() -> RouterRequestContext:
                                            maybe_handle_import_session_request, maybe_handle_live_llm_options_request, maybe_handle_live_api_keys_request, maybe_handle_advisor_request),
         assembly.ClaudeRouterDeliveryPorts(begin_pending_channel_delivery, commit_pending_channel_delivery_cursors, mark_pending_channel_delivery_failed,
                                            mark_pending_channel_delivery_success, is_client_disconnect_error, write_router_activity),
-        assembly.ClaudeRouterRoutingPorts(forward_ollama_api_chat, forward_openai_compatible_chat, select_provider_protocol, provider_request_policy, resolve_requested_model, PROVIDER_LABELS, write_json),
+        assembly.ClaudeRouterRoutingPorts(forward_ollama_api_chat, forward_openai_compatible_chat, forward_anthropic_via_responses, select_provider_protocol, provider_request_policy, resolve_requested_model, PROVIDER_LABELS, write_json),
         assembly.ClaudeRouterNormalizationPorts(normalize_request_for_provider_wire, normalize_thinking_for_non_anthropic_provider, normalize_anthropic_system_role_messages_for_provider,
                                                 cap_anthropic_body_for_provider, apply_provider_request_options, rehydrate_suppressed_thinking_passback, ncp_model_id_for_nvidia_hosted,
                                                 resolve_tool_model_references, normalize_anthropic_model_request_options, finalized_anthropic_upstream_body),
@@ -2954,7 +2958,7 @@ def _router_request_context() -> RouterRequestContext:
     )
     return assembly.RouterRequestAssembly(
         openai, assembly.RouterRequestOuterPorts(forward_codex_backend_json, forward_codex_backend_get, write_openai_responses_error, try_write_json,
-                                                 upstream_http_error_message, is_client_disconnect_error), codex_routed_enabled, forward_provider_chat, claude,
+                                                 upstream_http_error_message, is_client_disconnect_error), codex_routed_enabled, forward_provider_chat, forward_openai_chat_compatible, claude,
     ).context()
 
 _ROUTER_REQUEST_API = RouterRequestCompatibilityApi(_router_request_context)
@@ -2987,20 +2991,18 @@ def _router_server_context() -> RouterServerContext:
         usage_services.stop()
         external_event_receiver_service().stop()
     http_services = RouterHttpServices(
-        core=RouterHttpCore(load_config, reject_external_router_request, get_current_provider, parse_json_body, is_client_disconnect_error, router_log, observe_tui_runtime_response, router_request_body_policy()),
+        core=RouterHttpCore(load_config, reject_external_router_request, get_current_provider, parse_json_body, is_client_disconnect_error, router_log, observe_tui_runtime_response, router_request_body_policy(), RouterHttpRemoteBridge(_REMOTE_BRIDGE.enabled, _REMOTE_BRIDGE.resolve, _REMOTE_BRIDGE.status_payload, lambda handler, cfg: _ROUTER_ACCESS_POLICY.remote_bridge_request(handler, cfg, remote_bridge_access_token))),
         get=RouterHttpGetEndpoints(handle_tui_observation_get, handle_observability_get, handle_llm_config_get, lambda _handler, _path: False, handle_web_get,
                                    lambda handler, path: speech_http_controller().get(handler, path), handle_chat_get, handle_plan_get, route_runtime_get,
                                    handle_external_event_get),
         post=RouterHttpPostEndpoints(lambda handler, path, raw, content_type: speech_http_controller().post(handler, path, raw, content_type), handle_llm_config_post, handle_channel_mcp_post, handle_chat_post,
                                      handle_plan_post, route_runtime_post, handle_external_event_raw_post, handle_external_event_config_post, handle_usage_post),
-        presentation=RouterHttpPresentation(render_router_home_html, router_health_payload, write_text_response, write_json, list_model_objects_for_request,
-                                            resolve_requested_model, model_object),
+        presentation=RouterHttpPresentation(render_router_home_html, router_health_payload, write_text_response, write_json, list_model_objects_for_request, resolve_requested_model, model_object, _REMOTE_BRIDGE.model_objects),
         errors=RouterHttpErrors(write_openai_responses_error, try_write_json),
     )
     server_runtime = router_server_runtime.RouterServerRuntime(
         router_server_runtime.RouterServerConfig(ROUTER_INSTANCE_DIR, PID_PATH, ROUTER_PORT, ROUTER_BASE, LOG_LEVEL_PATH, LOG_LEVEL_NAMES, RouterHandler),
-        router_server_runtime.RouterServerStatePorts(load_config, reset_api_key_cooldowns_for_router_start, router_bind_host, current_log_level,
-                                                     os.getpid, os.environ.get, router_debug_external_access_enabled, ensure_router_external_access_token),
+        router_server_runtime.RouterServerStatePorts(load_config, reset_api_key_cooldowns_for_router_start, router_bind_host, current_log_level, os.getpid, os.environ.get, _ROUTER_ACCESS_POLICY.administrative_external_access_enabled, _REMOTE_BRIDGE.enabled, ensure_router_external_access_token, ensure_remote_bridge_access_token),
         router_server_runtime.RouterServerEffects(os.chmod, sys.stderr, ThreadingHTTPServer, start_managed_router_lifetime_watchdog,
                                                   lambda bind_host: configure_requested_web_endpoints(ROUTER_PORT, ROUTER_HOST, bind_host,
                                                                                                        config=load_config()),
@@ -3012,7 +3014,6 @@ def _router_server_context() -> RouterServerContext:
         http_services=http_services,
         server_runtime=server_runtime,
     )
-
 _ROUTER_SERVER_API = RouterServerCompatibilityApi(_router_server_context)
 router_health_payload = _ROUTER_SERVER_API.health_payload
 build_router_http_services = _ROUTER_SERVER_API.build_http_services
@@ -3021,7 +3022,7 @@ class RouterHandler(RouterHttpHandler):
     services_factory = staticmethod(build_router_http_services)
 
 serve = _ROUTER_SERVER_API.serve
-
+cmd_remote_bridge = _REMOTE_BRIDGE.bind_cli(load_config, save_config, ensure_remote_bridge_access_token, remote_bridge_access_token, serve, lambda message: print(message, flush=True), ROUTER_PORT)
 def router_health_timeout_seconds() -> float:
     try:
         value = float(os.environ.get("CIEL_RUNTIME_ROUTER_HEALTH_TIMEOUT_SECONDS", "5"))
@@ -4941,13 +4942,13 @@ def cli_services() -> cli_dispatch.CliServices:
         provider_commands=cli_dispatch.CliProviderCommands(cmd_advisor_model, cmd_api_key, cmd_base_url, cmd_language, cmd_log_level, cmd_model,
                                                            cmd_models, cmd_provider, cmd_provider_options, cmd_set_api_key),
         special_commands=cli_dispatch.CliSpecialCommands(cmd_ollama_catalog, cmd_ollama_native, cmd_ollama_options, cmd_web_fetch, cmd_web_search),
-        operations=cli_dispatch.CliOperations(cmd_status, cmd_stop, cmd_test),
+        operations=cli_dispatch.CliOperations(cmd_status, cmd_stop, cmd_test, cmd_remote_bridge),
         configuration=cli_dispatch.CliConfiguration(apply_auto_llm_options_config, apply_headless_env_config, set_advisor_model_config,
                                                     set_log_level_config, cmd_set_api_keys),
     ).services()
 def cli_parser_services() -> cli_parser.CliParserServices:
     return cli_assembly.CliParserAssembly(
-            launch=cli_parser.CliParserLaunch(cmd_cli, cmd_launch, cmd_launch_codex, cmd_launch_codex_app_server, cmd_launch_agy, serve, cmd_launch_grok, cmd_launch_zcode),
+            launch=cli_parser.CliParserLaunch(cmd_cli, cmd_launch, cmd_launch_codex, cmd_launch_codex_app_server, cmd_launch_agy, serve, cmd_remote_bridge, cmd_launch_grok, cmd_launch_zcode),
             runtime=cli_parser.CliParserRuntime(cmd_version, cmd_status, cmd_env, cmd_stop, cmd_test),
             settings=cli_parser.CliParserSettings(cmd_language, cmd_web_search, cmd_web_fetch, cmd_log_level, *event_settings_cli.handlers(event_settings_cli.EventSettingsCliPorts(load_config, save_config, external_event_receiver_service, lambda: set_remote_instruction_config('sync', ''), sync_all_remote_memories, print, lambda: USAGE_API_KEYS))),
             provider=cli_parser.CliParserProvider(cmd_ollama_native, cmd_ollama_options, cmd_provider_options, cmd_ollama_catalog, cmd_provider,

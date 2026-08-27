@@ -172,6 +172,89 @@ ciel-runtimectl api-keys [PROVIDER] [KEY1] [KEY2] ...
 
 ### Router 관리
 
+#### `bridge`
+
+Router가 실행되는 호스트와 실제 Claude Code/Codex CLI가 실행되는 호스트를
+네트워크로 분리한다. 원격 클라이언트는 하나의 인증된 OpenAI/Anthropic 호환
+endpoint를 사용한다. 요청마다 구성된 bridge-compatible provider와 upstream model
+ID를 선택하며, 허용하는 provider에 한해 request-scoped API key를 지정할 수 있다.
+
+```bash
+ciel-runtimectl bridge status
+ciel-runtimectl bridge enable --host 0.0.0.0
+ciel-runtimectl bridge token
+ciel-runtimectl bridge serve --host 0.0.0.0
+ciel-runtimectl bridge disable
+```
+
+`enable`과 `serve`는 클라이언트 설정을 위해 token 값을 출력한다. `status`는
+값을 출력하지 않고 존재 여부만 표시하며, `token`은 값을 명시적으로 출력한다.
+Bridge는 별도 고정 포트를 사용하지 않으므로 `status`의 `Listen:`에 표시되는
+현재 `ROUTER_PORT`를 클라이언트 base URL에 사용한다.
+
+Bridge token은 Router debug/Web 관리자 token과 분리되어 있고 관리자 API를
+승인하지 않으며 `CIEL_RUNTIME_REMOTE_BRIDGE_TOKEN`으로 재정의할 수 있다. 관리자
+외부 접근을 별도로 활성화한 경우 관리자 token은 bridge endpoint에도 접근할 수
+있는 더 넓은 권한이므로 원격 LLM 클라이언트에 배포하지 않는다.
+
+OpenAI Chat 요청은 선택 모델의 실제 protocol이 Responses, Anthropic Messages,
+Ollama Chat이어도 호환 변환할 수 있다. 변환된 `stream: true` Chat 응답은 upstream
+완료 결과를 수집한 뒤 합성하는 SSE다. Effort는 Chat의 `reasoning_effort`,
+Responses의 `reasoning.effort`, Anthropic Messages의 `output_config.effort`로
+지정한다.
+
+Codex CLI 0.150.1에서 `vllm`의 Chat wire처럼 Responses가 아닌 upstream으로
+변환하는 route를 사용할 때는 hosted `web_search`를 해당 실행에서 꺼야 한다.
+이 도구는 대상 wire에 손실 없이 투영할 수 없으므로 Bridge가 조용히 제거하지 않고
+요청을 거부한다.
+
+```bash
+codex -c 'web_search="disabled"' --model vllm/my-model
+```
+
+이는 non-native Responses 변환 route에만 해당한다. Native Responses upstream을
+선택한 route는 hosted `web_search`를 유지할 수 있다. Codex `namespace` tool은
+비-Responses wire로 보낼 때 namespace/member 기반의 충돌 방지 이름으로 flatten되며,
+동일한 투영 이름이 생기면 요청을 거부한다. 반환된 tool call은 원래 Responses의
+`namespace`와 member `name`으로 복원한다. 반환값에 `toolset_name`이 있으면 원래
+요청의 namespace와 정확히 일치해야 하며, 일반 tool에 임의 namespace를 만들 수 없다.
+Strict bridge route는 tool type을 exact lowercase discriminator로 요구하고 top-level,
+namespace, member 이름의 leading/trailing whitespace를 정규화하지 않고 거부한다.
+Adapted Anthropic 요청도 client tool·tool choice·tool-use/result identity를 trim/case
+정규화하지 않고 strict 경계에서 거부한다.
+
+Codex 0.150.1의 bundled `gpt-5.5` metadata는 native search tool을 지원한다.
+기본 multi-agent 도구가 deferred 상태이면 `web_search`와 별개인 hosted
+`tool_search`가 추가되며, non-native route는 이 도구도 fail-closed로 거부한다.
+다른 deferred MCP/plugin/app/dynamic tool이 없는 실행의 검증된 최소 설정은 다음과
+같다. `features.tool_search=false`는 0.150.1에서 제거되어 무시되는 설정이다.
+
+```bash
+codex -c 'web_search="disabled"' \
+  -c 'features.multi_agent=false' \
+  -c 'model_reasoning_effort="low"' \
+  --model vllm/gpt-5.5
+```
+
+Responses Lite의 선행 `additional_tools`, `reasoning.context=all_turns`, streaming
+summary 순서 옵션과 Codex 내부 turn metadata는 검증 후 변환한다. Non-native
+Anthropic route의 freeform custom tool은 Codex 0.150.1 공식 `apply_patch.lark`
+(기본/optional Environment-ID 변형) 또는 code-mode `exec` grammar와 정확히
+일치할 때만(LF/CRLF source line ending은 정규화)
+Anthropic 표준 tool로 투영한다. 반환된 raw input도 해당 문법으로 검증한 뒤
+`custom_tool_call`로 복원하며 다른 Lark definition과 잘못된·빈 payload는 거부한다.
+Adapted Chat route는 object가 아닌 `function.parameters`와 non-null `message.name`을
+손실 변환하지 않고 거부한다.
+
+Request-scoped provider key는 저장하지 않으며 Router-host key의 rate-limit 사용량,
+학습된 header, backoff penalty, per-key cooldown 상태와 분리한다. GitHub Copilot
+OAuth는 Router 호스트에서만 로그인·갱신하고 원격 key override를 거부한다. Copilot
+모델 목록은 `model_picker_enabled: true`만 공개하며 `mai-code-1-flash`를 공개 ID로
+사용한다. `codex`, `agy`, `zai-start-plan`은 client-local 인증 또는 host-side
+브라우저/CAPTCHA 상태에 의존하므로 Remote Bridge에서 제외한다. 전체
+endpoint, route header, Codex 및 Claude Code 설정은
+[Remote Runtime Bridge](Remote-Bridge.md)를 참고한다.
+
 #### `transcript-events`
 
 ```bash

@@ -4,6 +4,7 @@ import unittest
 from unittest import mock
 
 import ciel_runtime
+from ciel_runtime_support.remote_bridge import REMOTE_BRIDGE_CONFIG_MARKER
 
 
 class KimiProviderTests(unittest.TestCase):
@@ -212,6 +213,42 @@ class KimiProviderTests(unittest.TestCase):
         pcfg["effort_level"] = "xhigh"
         request = ciel_runtime.openai_compatible_chat_request("kimi", "k3", body, pcfg)
         self.assertEqual("max", request["reasoning_effort"])
+
+    def test_remote_k3_uses_only_client_reasoning_effort(self):
+        pcfg = self.kimi_cfg(
+            current_model="k3",
+            effort_level="low",
+        )["providers"]["kimi"]
+        pcfg[REMOTE_BRIDGE_CONFIG_MARKER] = True
+        body = {
+            "messages": [{"role": "user", "content": "hello"}],
+            "thinking": {"type": "adaptive", "display": "omitted"},
+            "output_config": {"effort": "high"},
+        }
+
+        explicit = ciel_runtime.openai_compatible_chat_request(
+            "kimi", "k3", body, pcfg
+        )
+        omitted = ciel_runtime.openai_compatible_chat_request(
+            "kimi",
+            "k3",
+            {"messages": [{"role": "user", "content": "hello"}]},
+            pcfg,
+        )
+
+        self.assertEqual("high", explicit["reasoning_effort"])
+        self.assertNotIn("reasoning_effort", omitted)
+
+        with self.assertRaisesRegex(ValueError, "does not support"):
+            ciel_runtime.openai_compatible_chat_request(
+                "kimi",
+                "k3",
+                {
+                    "messages": [{"role": "user", "content": "hello"}],
+                    "reasoning_effort": "none",
+                },
+                pcfg,
+            )
 
     def test_kimi_openai_history_preserves_reasoning_partial_and_json_mode(self):
         pcfg = self.kimi_cfg(current_model="k3")["providers"]["kimi"]

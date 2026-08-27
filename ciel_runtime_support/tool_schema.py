@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from typing import Any, Callable
 
 
@@ -59,6 +62,9 @@ TASK_UPDATE_STATUS_ALIASES = {
 }
 
 _TOOL_SCHEMA_REGISTRY: dict[str, dict[str, Any]] = {}
+_REQUEST_TOOL_SCHEMA_REGISTRY: ContextVar[
+    dict[str, dict[str, Any]] | None
+] = ContextVar("ciel_request_tool_schema_registry", default=None)
 
 _BUILTIN_TOOL_SCHEMAS: dict[str, dict[str, Any]] = {
     "shell_command": {
@@ -191,13 +197,31 @@ def _update_tool_schema_registry(tools: Any) -> None:
         name = tool.get("name")
         if not name:
             continue
-        _TOOL_SCHEMA_REGISTRY[name] = tool.get("input_schema") or {}
+        _active_tool_schema_registry()[name] = tool.get("input_schema") or {}
+
+
+def _active_tool_schema_registry() -> dict[str, dict[str, Any]]:
+    scoped = _REQUEST_TOOL_SCHEMA_REGISTRY.get()
+    return scoped if scoped is not None else _TOOL_SCHEMA_REGISTRY
+
+
+@contextmanager
+def request_tool_schema_scope(tools: Any = None) -> Iterator[None]:
+    """Keep remote-client schemas request-local instead of process-global."""
+
+    token = _REQUEST_TOOL_SCHEMA_REGISTRY.set({})
+    try:
+        _update_tool_schema_registry(tools)
+        yield
+    finally:
+        _REQUEST_TOOL_SCHEMA_REGISTRY.reset(token)
 
 
 def _lookup_tool_schema(tool_name: str) -> dict[str, Any] | None:
     """Look up a tool schema by name, checking registry then builtins."""
-    if tool_name in _TOOL_SCHEMA_REGISTRY:
-        return _TOOL_SCHEMA_REGISTRY[tool_name]
+    registry = _active_tool_schema_registry()
+    if tool_name in registry:
+        return registry[tool_name]
     if tool_name in _BUILTIN_TOOL_SCHEMAS:
         return _BUILTIN_TOOL_SCHEMAS[tool_name]
     return None
@@ -206,7 +230,9 @@ def _lookup_tool_schema(tool_name: str) -> dict[str, Any] | None:
 def _fuzzy_match_tool_name(name: str) -> str | None:
     """Fuzzy match a tool name against known schemas (case-insensitive, prefix)."""
     low = name.lower()
-    candidates = list(_TOOL_SCHEMA_REGISTRY.keys()) + list(_BUILTIN_TOOL_SCHEMAS.keys())
+    candidates = list(_active_tool_schema_registry()) + list(
+        _BUILTIN_TOOL_SCHEMAS
+    )
     # Exact match first
     for c in candidates:
         if c == name:
@@ -516,6 +542,7 @@ __all__ = [
     "_lookup_tool_schema",
     "_missing_required_tool_fields",
     "_update_tool_schema_registry",
+    "request_tool_schema_scope",
     "_validate_and_fix_tool_input",
     "normalize_task_update_status",
 ]

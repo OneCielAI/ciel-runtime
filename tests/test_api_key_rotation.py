@@ -4,10 +4,16 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from types import SimpleNamespace
 from unittest import mock
 import urllib.error
 
 import ciel_runtime
+from ciel_runtime_support.remote_bridge import (
+    REMOTE_BRIDGE_CONFIG_MARKER,
+    REMOTE_BRIDGE_CONTEXT_ATTRIBUTE,
+)
+from ciel_runtime_support.upstream_retry import _upstream_endpoint_identity
 
 
 class ApiKeyRotationTests(unittest.TestCase):
@@ -24,6 +30,21 @@ class ApiKeyRotationTests(unittest.TestCase):
         pcfg = copy.deepcopy(ciel_runtime.DEFAULT_CONFIG["providers"][provider])
         pcfg.update(overrides)
         return pcfg
+
+    def test_upstream_endpoint_identity_strips_userinfo_query_and_fragment(self):
+        self.assertEqual(
+            "https://provider.example:8443/v1/messages",
+            _upstream_endpoint_identity(
+                "https://client:secret@provider.example:8443/v1/messages"
+                "?api_key=query-secret#fragment"
+            ),
+        )
+        self.assertEqual(
+            "https://[2001:db8::1]:9443/responses",
+            _upstream_endpoint_identity(
+                "https://client:secret@[2001:db8::1]:9443/responses?token=secret"
+            ),
+        )
 
     def test_parse_api_key_list_filters_placeholders_and_dedupes(self):
         keys = ciel_runtime.parse_api_key_list("sk-a, dummy\nsk-b;sk-a\nnot-used")
@@ -602,6 +623,168 @@ class ApiKeyRotationTests(unittest.TestCase):
         self.assertEqual([], notices)
         sleep.assert_not_called()
         backoff.assert_not_called()
+
+    def test_remote_generation_transports_never_retry_or_rotate_keys(self):
+        pcfg = self.provider_pcfg(
+            "deepseek",
+            api_key="",
+            api_keys=["sk-one", "sk-two", "sk-three"],
+            current_model="deepseek-v4-pro",
+            gateway_retries=10,
+        )
+        pcfg[REMOTE_BRIDGE_CONFIG_MARKER] = True
+        url = "https://api.deepseek.com/chat/completions"
+        body = {"model": "deepseek-v4-pro", "messages": []}
+
+        operations = {
+            "post_json": lambda headers: ciel_runtime.post_json_with_rate_retry(
+                url,
+                body,
+                headers,
+                30.0,
+                "deepseek",
+                pcfg,
+                "deepseek-v4-pro",
+            ),
+            "direct": lambda headers: ciel_runtime.open_provider_request_with_key_retry(
+                url,
+                body,
+                headers,
+                30.0,
+                "deepseek",
+                pcfg,
+                "deepseek-v4-pro",
+                stream=True,
+            ),
+            "openai_stream": lambda headers: ciel_runtime.open_openai_stream_with_rate_retry(
+                url,
+                {**body, "stream": True},
+                headers,
+                30.0,
+                "deepseek",
+                pcfg,
+                "deepseek-v4-pro",
+            ),
+        }
+
+        for name, invoke in operations.items():
+            calls = []
+
+            def rejected(req, timeout):
+                calls.append((req, timeout))
+                raise urllib.error.HTTPError(
+                    url,
+                    429,
+                    "Too Many Requests",
+                    {"Retry-After": "1"},
+                    io.BytesIO(
+                        b'{"error":{"type":"rate_limit_error",'
+                        b'"message":"Rate limited"}}'
+                    ),
+                )
+
+            with self.subTest(transport=name):
+                with (
+                    mock.patch.object(
+                        ciel_runtime.urllib.request,
+                        "urlopen",
+                        side_effect=rejected,
+                    ),
+                    mock.patch.object(ciel_runtime, "write_router_activity"),
+                    mock.patch.object(ciel_runtime, "learn_router_rate_limit_headers"),
+                    mock.patch.object(ciel_runtime, "register_api_key_cooldown"),
+                    mock.patch.object(
+                        ciel_runtime,
+                        "register_router_rate_limit_backoff",
+                    ) as backoff,
+                    mock.patch.object(ciel_runtime.time, "sleep") as sleep,
+                ):
+                    with self.assertRaises(urllib.error.HTTPError) as caught:
+                        invoke(ciel_runtime.provider_headers("deepseek", pcfg))
+
+                self.assertEqual(429, caught.exception.code)
+                self.assertEqual(1, len(calls))
+                backoff.assert_not_called()
+                sleep.assert_not_called()
+
+    def test_remote_ollama_context_error_is_not_rebuilt_and_replayed(self):
+        pcfg = self.provider_pcfg(
+            "ollama-cloud",
+            api_key="ollama-secret",
+            current_model="deepseek-v4-flash:0731",
+            gateway_retries=10,
+        )
+        pcfg[REMOTE_BRIDGE_CONFIG_MARKER] = True
+        raw = (
+            b'{"error":"request (58940 tokens) exceeds the available '
+            b'context size (32768 tokens), try increasing the context length",'
+            b'"n_ctx":32768}'
+        )
+
+        for stream in (False, True):
+            calls = []
+
+            def rejected(req, timeout):
+                calls.append((req, timeout))
+                raise urllib.error.HTTPError(
+                    "https://ollama.com/api/chat",
+                    400,
+                    "Bad Request",
+                    {"content-type": "application/json"},
+                    io.BytesIO(raw),
+                )
+
+            handler = SimpleNamespace(headers={}, wfile=io.BytesIO())
+            setattr(handler, REMOTE_BRIDGE_CONTEXT_ATTRIBUTE, True)
+            with self.subTest(stream=stream):
+                with (
+                    mock.patch.object(
+                        ciel_runtime.urllib.request,
+                        "urlopen",
+                        side_effect=rejected,
+                    ),
+                    mock.patch.object(
+                        ciel_runtime,
+                        "apply_router_rate_limit",
+                        return_value=(0.0, 0, 0),
+                    ),
+                    mock.patch.object(
+                        ciel_runtime,
+                        "learn_router_rate_limit_headers",
+                    ),
+                    mock.patch.object(
+                        ciel_runtime,
+                        "ollama_context_retry_config",
+                        side_effect=AssertionError(
+                            "remote request entered context retry"
+                        ),
+                    ) as context_retry,
+                    mock.patch.object(
+                        ciel_runtime,
+                        "router_client_connection_closed",
+                        return_value=False,
+                    ),
+                    mock.patch.object(ciel_runtime, "write_router_activity"),
+                    mock.patch.object(ciel_runtime, "write_json") as write_json,
+                    mock.patch.object(ciel_runtime.time, "sleep") as sleep,
+                ):
+                    ciel_runtime.forward_ollama_api_chat(
+                        handler,
+                        "ollama-cloud",
+                        pcfg,
+                        {
+                            "model": "deepseek-v4-flash:0731",
+                            "messages": [
+                                {"role": "user", "content": "hello"}
+                            ],
+                            "stream": stream,
+                        },
+                    )
+
+                self.assertEqual(1, len(calls))
+                context_retry.assert_not_called()
+                sleep.assert_not_called()
+                self.assertEqual(400, write_json.call_args.args[2])
 
     def test_stream_connection_reset_retries_then_surfaces_upstream_error(self):
         pcfg = self.provider_pcfg(

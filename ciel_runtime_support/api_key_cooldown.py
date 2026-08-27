@@ -10,6 +10,7 @@ from typing import Any
 
 from . import rate_limit_policy
 from .rate_limit_repository import RateLimitRepository
+from .remote_bridge import REQUEST_API_KEY_MARKER
 
 
 RATE_LIMIT_RESET_HEADER_NAMES = (
@@ -38,7 +39,13 @@ class ApiKeyCooldownPorts:
 class ApiKeyCooldownService:
     ports: ApiKeyCooldownPorts
 
+    @staticmethod
+    def request_scoped(config: dict[str, Any]) -> bool:
+        return config.get(REQUEST_API_KEY_MARKER) is True
+
     def state_key(self, provider: str, config: dict[str, Any], key: str) -> str:
+        if self.request_scoped(config):
+            return f"{self.ports.rotation_name(provider, config)}:__request_scoped__"
         digest = hashlib.sha256(str(key).encode("utf-8")).hexdigest()[:12]
         return f"{self.ports.rotation_name(provider, config)}:__key__:{digest}"
 
@@ -65,6 +72,13 @@ class ApiKeyCooldownService:
         if not self.ports.meaningful_key(key):
             return 0.0
         reset = self.reset_seconds(headers)
+        if self.request_scoped(config):
+            self.ports.log(
+                "WARN",
+                f"api_key_cooldown provider={provider} rest={reset:.0f}s "
+                "request_scoped_no_persist=1",
+            )
+            return reset
         state_key = self.state_key(provider, config, key)
         self.ports.repository.register_cooldown(state_key, reset)
         self.ports.log(
@@ -76,6 +90,8 @@ class ApiKeyCooldownService:
 
     def cooldown_until(self, provider: str, config: dict[str, Any], key: str) -> float:
         if not self.ports.meaningful_key(key):
+            return 0.0
+        if self.request_scoped(config):
             return 0.0
         return self.ports.repository.cooldown_until(self.state_key(provider, config, key))
 

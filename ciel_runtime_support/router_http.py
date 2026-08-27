@@ -35,6 +35,12 @@ from ciel_runtime_support.request_body_policy import (
     RequestBodyTooLarge,
     RouterRequestBodyPolicy,
 )
+from ciel_runtime_support.remote_bridge import (
+    REMOTE_BRIDGE_CONTEXT_ATTRIBUTE,
+    REMOTE_LLM_PATHS,
+    RemoteBridgeRouteError,
+)
+from ciel_runtime_support.tool_schema import request_tool_schema_scope
 from ciel_runtime_support.upstream_dump import dump_upstream_request
 
 # Upper bound on verdict-driven repairs of one replayed turn. The sealed
@@ -91,6 +97,15 @@ class RouterHttpCore:
     log: Callable[[str, str], Any]
     observe_runtime: Callable[..., Any]
     request_body_policy: RouterRequestBodyPolicy
+    remote_bridge: RouterHttpRemoteBridge | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class RouterHttpRemoteBridge:
+    enabled: Callable[[dict[str, Any]], bool] = lambda _config: False
+    resolve_route: Callable[..., Any] | None = None
+    status: Callable[[dict[str, Any]], dict[str, Any]] | None = None
+    is_request: Callable[[Any, dict[str, Any]], bool] = lambda _handler, _config: False
 
 
 @dataclass(frozen=True, slots=True)
@@ -129,6 +144,7 @@ class RouterHttpPresentation:
     list_models: Callable[..., list[dict[str, Any]]]
     resolve_model: Callable[..., str]
     model_object: Callable[..., dict[str, Any]]
+    list_remote_bridge_models: Callable[..., list[dict[str, Any]]] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -197,7 +213,15 @@ class CodexBackendHttpAdapter:
 
     @staticmethod
     def copy_response_headers(handler: BaseHTTPRequestHandler, headers: Any) -> None:
-        skipped = {"connection", "content-length", "transfer-encoding", "content-encoding"}
+        allowed = {
+            "cache-control",
+            "content-type",
+            "openai-request-id",
+            "request-id",
+            "retry-after",
+            "x-github-request-id",
+            "x-request-id",
+        }
         try:
             items = headers.items()
         except (AttributeError, TypeError):
@@ -205,7 +229,11 @@ class CodexBackendHttpAdapter:
         wrote_content_type = False
         for key, value in items:
             lowered = str(key).lower()
-            if lowered in skipped:
+            if (
+                lowered not in allowed
+                and not lowered.startswith("anthropic-ratelimit-")
+                and not lowered.startswith("x-ratelimit-")
+            ):
                 continue
             wrote_content_type = wrote_content_type or lowered == "content-type"
             handler.send_header(str(key), str(value))
@@ -692,6 +720,7 @@ class RouterHttpHandler(BaseHTTPRequestHandler):
             sys.stderr.write(f"ciel-runtime router log failure: {type(exc).__name__}: {exc}\n")
 
     def do_HEAD(self) -> None:
+        self._ciel_runtime_response_status = None
         services = self._services()
         cfg = services.core.load_config()
         if services.core.reject_external(self, cfg):
@@ -707,6 +736,7 @@ class RouterHttpHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self) -> None:
+        self._ciel_runtime_response_status = None
         services = self._services()
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
@@ -735,6 +765,16 @@ class RouterHttpHandler(BaseHTTPRequestHandler):
             return
         provider, pcfg = services.core.get_current_provider(cfg)
         presentation = services.presentation
+        bridge = services.core.remote_bridge or RouterHttpRemoteBridge()
+        bridge_enabled = bridge.enabled(cfg)
+        bridge_request = bridge_enabled and bridge.is_request(self, cfg)
+        if (
+            path == "/ca/bridge"
+            and bridge_enabled
+            and bridge.status is not None
+        ):
+            presentation.write_json(self, bridge.status(cfg))
+            return
         if path == "/":
             presentation.write_text(
                 self,
@@ -748,13 +788,106 @@ class RouterHttpHandler(BaseHTTPRequestHandler):
         if endpoints.runtime(self, path, provider, pcfg):
             return
         if path == "/v1/models":
-            data = presentation.list_models(provider, pcfg, self.headers)
-            presentation.write_json(self, {"object": "list", "data": data, "has_more": False})
+            if bridge_request and presentation.list_remote_bridge_models is not None:
+                data = presentation.list_remote_bridge_models(cfg, self.headers)
+            else:
+                data = presentation.list_models(provider, pcfg, self.headers)
+            # OpenAI-compatible clients consume ``data``. Codex 0.150.1 instead
+            # deserializes this endpoint as ``ModelsResponse { models }``. Keep
+            # the OpenAI catalog authoritative and advertise an empty Codex
+            # metadata overlay: Codex then retains its bundled/fallback model
+            # metadata without mistaking OpenAI model objects for ModelInfo.
+            presentation.write_json(
+                self,
+                {
+                    "object": "list",
+                    "data": data,
+                    "has_more": False,
+                    "models": [],
+                },
+            )
             return
         if path.startswith("/v1/models/"):
             model_id = urllib.parse.unquote(path[len("/v1/models/"):])
+            if bridge_request and bridge.resolve_route is not None:
+                try:
+                    route = bridge.resolve_route(
+                        cfg,
+                        self.headers,
+                        {"model": model_id},
+                        path,
+                    )
+                except RemoteBridgeRouteError as exc:
+                    if path.startswith("/v1/models/"):
+                        presentation.write_json(
+                            self,
+                            {
+                                "error": {
+                                    "message": (
+                                        f"The model '{model_id}' does not exist"
+                                    ),
+                                    "type": "invalid_request_error",
+                                    "param": "model",
+                                    "code": "model_not_found",
+                                }
+                            },
+                            404,
+                        )
+                        return
+                    presentation.write_json(
+                        self,
+                        {
+                            "error": {
+                                "message": str(exc),
+                                "type": "invalid_request_error",
+                                "code": "invalid_request_error",
+                            }
+                        },
+                        400,
+                    )
+                    return
+                provider = route.provider
+                pcfg = route.provider_config
+                model_id = str(route.body.get("model") or "")
+                if presentation.list_remote_bridge_models is not None:
+                    canonical_id = f"{provider}/{model_id}"
+                    known_model = next(
+                        (
+                            item
+                            for item in presentation.list_remote_bridge_models(
+                                cfg, self.headers
+                            )
+                            if isinstance(item, dict)
+                            and str(item.get("id") or "") == canonical_id
+                        ),
+                        None,
+                    )
+                    if known_model is None:
+                        presentation.write_json(
+                            self,
+                            {
+                                "error": {
+                                    "message": (
+                                        f"The model '{canonical_id}' does not exist"
+                                    ),
+                                    "type": "invalid_request_error",
+                                    "param": "model",
+                                    "code": "model_not_found",
+                                }
+                            },
+                            404,
+                        )
+                        return
+                    presentation.write_json(self, dict(known_model))
+                    return
             resolved = presentation.resolve_model(provider, pcfg, model_id)
-            presentation.write_json(self, presentation.model_object(provider, resolved))
+            if bridge_request:
+                obj = presentation.model_object(provider, resolved, pcfg)
+                obj = dict(obj)
+                obj["id"] = f"{provider}/{resolved}"
+            else:
+                obj = presentation.model_object(provider, resolved)
+            presentation.write_json(self, obj)
             return
         presentation.write_json(self, {"type": "error", "error": {"type": "not_found_error", "message": path}}, 404)
 
@@ -919,6 +1052,7 @@ class RouterHttpHandler(BaseHTTPRequestHandler):
         return None
 
     def do_POST(self) -> None:
+        self._ciel_runtime_response_status = None
         services = self._services()
         path = urllib.parse.urlparse(self.path).path
         body: dict[str, Any] = {}
@@ -978,10 +1112,78 @@ class RouterHttpHandler(BaseHTTPRequestHandler):
                     if endpoints.chat(self, path, body) or endpoints.plan(self, path, body):
                         return
                     provider, pcfg = services.core.get_current_provider(cfg)
-                    model = str(body.get("model") or pcfg.get("current_model") or "")
-                    with services.core.observe_runtime(self, path, provider, model, body):
-                        if endpoints.runtime(self, cfg, provider, pcfg, path, body):
+                    bridge = services.core.remote_bridge or RouterHttpRemoteBridge()
+                    bridge_request = (
+                        path in REMOTE_LLM_PATHS
+                        and bridge.enabled(cfg)
+                        and bridge.is_request(self, cfg)
+                    )
+                    if bridge_request and bridge.resolve_route is not None:
+                        try:
+                            route = bridge.resolve_route(
+                                cfg,
+                                self.headers,
+                                body,
+                                path,
+                            )
+                        except RemoteBridgeRouteError as exc:
+                            self._write_request_error(
+                                path,
+                                services,
+                                status=400,
+                                error_type="invalid_request_error",
+                                message=str(exc),
+                            )
                             return
+                        provider = route.provider
+                        pcfg = route.provider_config
+                        body = route.body
+                    model = str(body.get("model") or pcfg.get("current_model") or "")
+                    inbound_headers = self.headers
+                    setattr(
+                        self,
+                        REMOTE_BRIDGE_CONTEXT_ATTRIBUTE,
+                        bridge_request,
+                    )
+                    if bridge_request:
+                        self.headers = project_end_to_end_request_headers(
+                            self.headers,
+                            replace_credentials=True,
+                        )
+                    try:
+                        if bridge_request:
+                            with request_tool_schema_scope(body.get("tools")):
+                                with services.core.observe_runtime(
+                                    self, path, provider, model, body
+                                ):
+                                    if endpoints.runtime(
+                                        self, cfg, provider, pcfg, path, body
+                                    ):
+                                        return
+                        else:
+                            with services.core.observe_runtime(
+                                self, path, provider, model, body
+                            ):
+                                if endpoints.runtime(
+                                    self, cfg, provider, pcfg, path, body
+                                ):
+                                    return
+                    except ValueError as exc:
+                        if (
+                            not bridge_request
+                            or self._ciel_runtime_response_status is not None
+                        ):
+                            raise
+                        self._write_request_error(
+                            path,
+                            services,
+                            status=400,
+                            error_type="invalid_request_error",
+                            message=str(exc),
+                        )
+                        return
+                    finally:
+                        self.headers = inbound_headers
                     services.presentation.write_json(
                         self,
                         {"type": "error", "error": {"type": "not_found_error", "message": path}},
@@ -1034,6 +1236,15 @@ class RouterHttpHandler(BaseHTTPRequestHandler):
             return
         trace = traceback.format_exc(limit=20).replace("\n", "\\n")
         services.core.log("ERROR", f"router_post_uncaught path={path} error={type(exc).__name__}: {exc} trace={trace}")
+        if self._ciel_runtime_response_status is not None:
+            self.close_connection = True
+            services.core.log(
+                "ERROR",
+                "router_post_uncaught_after_response_started "
+                f"path={path} status={self._ciel_runtime_response_status} "
+                f"error={type(exc).__name__}: {exc}",
+            )
+            return
         message = f"Ciel Runtime router error: {type(exc).__name__}: {exc}"
         stream = bool(body.get("stream", True))
         try:
@@ -1063,6 +1274,7 @@ class RouterHttpHandler(BaseHTTPRequestHandler):
                 )
 
     def do_DELETE(self) -> None:
+        self._ciel_runtime_response_status = None
         services = self._services()
         path = urllib.parse.urlparse(self.path).path
         cfg = services.core.load_config()

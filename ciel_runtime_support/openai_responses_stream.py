@@ -29,7 +29,16 @@ def write_openai_responses(
     _emit(handler, "response.created", {"type": "response.created", "response": {**response, "status": "in_progress", "output": []}})
     for output_index, item in enumerate(response.get("output") or []):
         _emit_output_item(handler, response, output_index, item)
-    _emit(handler, "response.completed", {"type": "response.completed", "response": response})
+    terminal_event = (
+        "response.incomplete"
+        if response.get("status") == "incomplete"
+        else "response.completed"
+    )
+    _emit(
+        handler,
+        terminal_event,
+        {"type": terminal_event, "response": response},
+    )
     handler.wfile.flush()
 
 

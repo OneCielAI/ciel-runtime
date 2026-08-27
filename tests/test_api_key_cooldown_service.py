@@ -5,6 +5,7 @@ from ciel_runtime_support.api_key_cooldown import (
     ApiKeyCooldownPorts,
     ApiKeyCooldownService,
 )
+from ciel_runtime_support.remote_bridge import REQUEST_API_KEY_MARKER
 
 
 class ApiKeyCooldownServiceTests(unittest.TestCase):
@@ -50,6 +51,38 @@ class ApiKeyCooldownServiceTests(unittest.TestCase):
         repository.cooldown_until.side_effect = [0.0, 150.0, 99.0]
         service = self.service(repository=repository, keys=["a", "b", "c"])
         self.assertEqual(2, service.live_key_count("provider", {}))
+
+    def test_request_scoped_key_cooldown_is_never_persisted_or_read(self):
+        repository = mock.Mock()
+        logs = []
+        service = self.service(
+            repository=repository,
+            keys=["request-secret"],
+            logs=logs,
+        )
+        config = {REQUEST_API_KEY_MARKER: True}
+
+        self.assertEqual(
+            30.0,
+            service.register(
+                "openrouter",
+                config,
+                "request-secret",
+                {"Retry-After": "30"},
+            ),
+        )
+        self.assertEqual(
+            "openrouter:endpoint:__request_scoped__",
+            service.state_key("openrouter", config, "request-secret"),
+        )
+        self.assertEqual(
+            0.0,
+            service.cooldown_until("openrouter", config, "request-secret"),
+        )
+        self.assertEqual(1, service.live_key_count("openrouter", config))
+        repository.register_cooldown.assert_not_called()
+        repository.cooldown_until.assert_not_called()
+        self.assertTrue(any("request_scoped_no_persist=1" in line for _, line in logs))
 
 
 if __name__ == "__main__":

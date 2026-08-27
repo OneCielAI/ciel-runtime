@@ -12,6 +12,9 @@ from unittest import mock
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import ciel_runtime
+from ciel_runtime_support.protocols.openai_responses import (
+    _CODEX_0150_APPLY_PATCH_LARK,
+)
 
 
 class FakeSSEHandler:
@@ -362,12 +365,19 @@ class CodexRuntimeTests(unittest.TestCase):
                 "input_tokens": 3,
                 "input_tokens_details": {"cached_tokens": 0, "cache_write_tokens": 0},
                 "output_tokens": 5,
+                "output_tokens_details": {"reasoning_tokens": 0},
                 "total_tokens": 8,
             },
             response["usage"],
         )
 
     def test_custom_tool_roundtrip_uses_required_string_envelope_upstream(self):
+        patch = (
+            "*** Begin Patch\n"
+            "*** Add File: proof.txt\n"
+            "+proof\n"
+            "*** End Patch\n"
+        )
         body = {
             "model": "ciel-runtime-kimi-k3-1m",
             "input": [
@@ -375,7 +385,7 @@ class CodexRuntimeTests(unittest.TestCase):
                     "type": "custom_tool_call",
                     "call_id": "call_patch_1",
                     "name": "apply_patch",
-                    "input": "*** Begin Patch\n*** End Patch",
+                    "input": patch,
                 },
                 {
                     "type": "custom_tool_call_output",
@@ -388,7 +398,11 @@ class CodexRuntimeTests(unittest.TestCase):
                     "type": "custom",
                     "name": "apply_patch",
                     "description": "Apply a patch",
-                    "format": {"type": "grammar", "syntax": "lark", "definition": "start: /.+/"},
+                    "format": {
+                        "type": "grammar",
+                        "syntax": "lark",
+                        "definition": _CODEX_0150_APPLY_PATCH_LARK,
+                    },
                 }
             ],
         }
@@ -401,7 +415,7 @@ class CodexRuntimeTests(unittest.TestCase):
         self.assertEqual(["input"], schema["required"])
         self.assertFalse(schema["additionalProperties"])
         self.assertEqual(
-            {"input": "*** Begin Patch\n*** End Patch"},
+            {"input": patch},
             anthropic["messages"][0]["content"][0]["input"],
         )
         self.assertEqual("tool_result", anthropic["messages"][1]["content"][0]["type"])
@@ -414,7 +428,7 @@ class CodexRuntimeTests(unittest.TestCase):
                         "type": "tool_use",
                         "id": "call_patch_2",
                         "name": "apply_patch",
-                        "input": {"input": "*** Begin Patch\n*** End Patch"},
+                        "input": {"input": patch},
                     }
                 ],
             },
@@ -424,7 +438,7 @@ class CodexRuntimeTests(unittest.TestCase):
         item = response["output"][0]
         self.assertEqual("custom_tool_call", item["type"])
         self.assertEqual("apply_patch", item["name"])
-        self.assertEqual("*** Begin Patch\n*** End Patch", item["input"])
+        self.assertEqual(patch, item["input"])
 
     def test_responses_roundtrip_preserves_reasoning_before_tool_call(self):
         message = {

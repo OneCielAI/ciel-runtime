@@ -18,6 +18,7 @@ from .github_copilot_oauth import (
     GitHubCopilotOAuthRepository,
     GitHubCopilotOAuthService,
 )
+from .remote_bridge import REMOTE_BRIDGE_CONFIG_MARKER
 
 
 @dataclass(frozen=True, slots=True)
@@ -95,6 +96,13 @@ class GitHubCopilotOAuthRuntime:
             ):
                 raise
             if not self.force_refresh():
+                raise
+            if config.get(REMOTE_BRIDGE_CONFIG_MARKER) is True:
+                self._ports.log(
+                    "INFO",
+                    "github_copilot_oauth_token_refreshed_after_auth_error "
+                    f"status={exc.code} remote_replay=false",
+                )
                 raise
             headers = dict(request.header_items())
             headers.update(self._ports.provider_headers(provider, config))

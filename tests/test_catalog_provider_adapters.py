@@ -61,6 +61,20 @@ class CatalogProviderAdapterTests(unittest.TestCase):
         )
         self.assertEqual("https://gateway.example/v1", adapter.default_base_url())
 
+    def test_openai_chat_uses_each_catalog_provider_contract_path(self):
+        adapter = PROVIDER_ADAPTERS.create("byteplus")
+        config = ProviderConfig(
+            name="byteplus",
+            base_url=adapter.default_base_url(),
+            api_keys=("secret",),
+            model="seed-2-0-code-preview-260328",
+        )
+
+        self.assertEqual(
+            "/chat/completions",
+            adapter.resolve_endpoint("openai_chat", config),
+        )
+
     def test_alibaba_coding_plan_uses_native_anthropic_endpoint_for_claude(self):
         adapter = PROVIDER_ADAPTERS.create("alicode-intl")
         config = ProviderConfig(

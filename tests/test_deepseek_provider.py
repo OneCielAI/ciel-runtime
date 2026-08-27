@@ -247,6 +247,28 @@ class DeepSeekProviderTests(unittest.TestCase):
         self.assertEqual({"type": "enabled"}, normalized["thinking"])
         self.assertEqual({"effort": "max"}, normalized["output_config"])
 
+    def test_router_thinking_normalization_preserves_deepseek_effort_hint(self):
+        pcfg = self.deepseek_cfg()["providers"]["deepseek"]
+        body = {
+            "model": "deepseek-v4-pro",
+            "messages": [{"role": "user", "content": "work"}],
+            "thinking": {"type": "enabled", "effort": "xhigh"},
+        }
+
+        projected = ciel_runtime.normalize_thinking_for_non_anthropic_provider(
+            "deepseek", pcfg, body
+        )
+        normalized = ciel_runtime.apply_provider_adapter_request_policy(
+            "deepseek", pcfg, projected
+        )
+
+        self.assertNotIn("thinking", projected)
+        self.assertEqual(
+            "xhigh",
+            projected["metadata"]["ciel_runtime_reasoning_effort"],
+        )
+        self.assertEqual({"effort": "max"}, normalized["output_config"])
+
     def test_codex_none_effort_disables_deepseek_thinking(self):
         pcfg = self.deepseek_cfg()["providers"]["deepseek"]
         body = ciel_runtime.openai_responses_to_anthropic_messages(

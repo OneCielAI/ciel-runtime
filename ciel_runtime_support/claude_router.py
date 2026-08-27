@@ -11,6 +11,8 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from .agent_router import COMMON_RUNTIME_ROUTER_CAPABILITIES, RouterCapability
+from .protocols.openai_responses import strip_openai_responses_reasoning_envelopes
+from .remote_bridge import is_remote_bridge_request
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,6 +68,7 @@ class ClaudeRouterDelivery:
 class ClaudeRouterRouting:
     forward_ollama: Callable[..., Any]
     forward_openai: Callable[..., Any]
+    forward_responses: Callable[..., Any]
     select_protocol: Callable[..., Any]
     request_policy: Callable[..., Any]
     resolve_model: Callable[..., Any]
@@ -178,6 +181,7 @@ def handle_claude_messages_post(
     filter_blocked_tools = pipeline.filter_blocked_tools
     forward_ollama_api_chat = routing.forward_ollama
     forward_openai_compatible_chat = routing.forward_openai
+    forward_anthropic_via_responses = routing.forward_responses
     is_client_disconnect_error = delivery.is_client_disconnect
     key_from_request_headers = response.key_from_headers
     mark_pending_channel_delivery_failed = delivery.mark_failed
@@ -223,8 +227,9 @@ def handle_claude_messages_post(
     write_router_activity = delivery.write_activity
 
     self = handler
-    _update_tool_schema_registry(body.get("tools"))
-    body = normalize_thinking_for_non_anthropic_provider(provider, pcfg, body)
+    local_request = not is_remote_bridge_request(handler)
+    if local_request:
+        _update_tool_schema_registry(body.get("tools"))
     request_id = f"{os.getpid()}-{time.time_ns()}"
     event_bus.publish(
         level="info",
@@ -241,49 +246,91 @@ def handle_claude_messages_post(
         },
     )
     dump_request_for_trace(provider, path, body)
-    if maybe_handle_plan_mode_tool_choice(self, provider, pcfg, body):
+    if local_request and maybe_handle_plan_mode_tool_choice(self, provider, pcfg, body):
         event_bus.publish(level="info", category="plan_mode.short_circuit", message="plan mode tool choice handled locally", request_id=request_id, provider=provider, model=str(body.get("model") or ""))
         return
-    body = filter_blocked_tools(provider, pcfg, body)
-    body = normalize_tool_choice_for_provider(provider, pcfg, body)
-    write_context_usage(provider, pcfg, body, "messages")
-    if maybe_handle_router_debug_request(self, body):
+    if local_request:
+        body = filter_blocked_tools(provider, pcfg, body)
+        body = normalize_tool_choice_for_provider(provider, pcfg, body)
+        write_context_usage(provider, pcfg, body, "messages")
+    if local_request and maybe_handle_router_debug_request(self, body):
         event_bus.publish(level="info", category="router_debug.short_circuit", message="router debug request handled locally", request_id=request_id, provider=provider, model=str(body.get("model") or ""))
         return
-    if maybe_handle_version_request(self, body):
+    if local_request and maybe_handle_version_request(self, body):
         event_bus.publish(level="info", category="version.short_circuit", message="version request handled locally", request_id=request_id, provider=provider, model=str(body.get("model") or ""))
         return
-    if maybe_handle_channel_clear_request(self, body):
+    if local_request and maybe_handle_channel_clear_request(self, body):
         event_bus.publish(level="info", category="channel_clear.short_circuit", message="channel backlog clear request handled locally", request_id=request_id, provider=provider, model=str(body.get("model") or ""))
         return
-    if maybe_handle_import_session_request(self, body, client_runtime="claude"):
+    if local_request and maybe_handle_import_session_request(self, body, client_runtime="claude"):
         event_bus.publish(level="info", category="import_session.short_circuit", message="ImportSession request handled locally", request_id=request_id, provider=provider, model=str(body.get("model") or ""))
         return
-    if maybe_handle_live_llm_options_request(self, body):
+    if local_request and maybe_handle_live_llm_options_request(self, body):
         event_bus.publish(level="info", category="llm_options.short_circuit", message="live LLM options request handled locally", request_id=request_id, provider=provider, model=str(body.get("model") or ""))
         return
-    if maybe_handle_live_api_keys_request(self, body):
+    if local_request and maybe_handle_live_api_keys_request(self, body):
         event_bus.publish(level="info", category="api_keys.short_circuit", message="live API key request handled locally", request_id=request_id, provider=provider, model=str(body.get("model") or ""))
         return
-    if maybe_handle_advisor_request(self, provider, pcfg, body):
+    if local_request and maybe_handle_advisor_request(self, provider, pcfg, body):
         event_bus.publish(level="info", category="advisor.short_circuit", message="advisor request handled locally", request_id=request_id, provider=provider, model=str(body.get("model") or ""))
         return
-    body = strip_autonomous_advisor_server_tools(provider, body)
-    body = body_with_pending_channel_messages(body)
-    body = body_with_channel_tool_result_context(body)
-    begin_pending_channel_delivery(self, body)
-    body = normalize_request_for_provider_wire(provider, pcfg, body)
-    router_log("DEBUG", f"POST {path} provider={provider} model={body.get('model')} tools={len(body.get('tools') or [])} msgs={len(body.get('messages') or [])}")
+    if local_request:
+        body = strip_autonomous_advisor_server_tools(provider, body)
+    if local_request:
+        body = body_with_pending_channel_messages(body)
+        body = body_with_channel_tool_result_context(body)
+        begin_pending_channel_delivery(self, body)
+    responses_projection_body = body
     try:
         upstream_model = resolve_requested_model(provider, pcfg, body.get("model"))
         selected_protocol = select_provider_protocol(provider, pcfg, "anthropic_messages", upstream_model)
         provider_label = provider_labels.get(provider, provider)
+        if selected_protocol == "openai_responses" and not local_request:
+            event_bus.publish(
+                level="info",
+                category="upstream.request",
+                message=f"forwarding to {provider_label} Responses provider",
+                request_id=request_id,
+                provider=provider,
+                model=upstream_model,
+            )
+            forward_anthropic_via_responses(
+                self,
+                provider,
+                pcfg,
+                responses_projection_body,
+                upstream_model,
+            )
+            return
+        body = strip_openai_responses_reasoning_envelopes(body)
+        if local_request:
+            body = normalize_request_for_provider_wire(provider, pcfg, body)
+        router_log("DEBUG", f"POST {path} provider={provider} model={body.get('model')} tools={len(body.get('tools') or [])} msgs={len(body.get('messages') or [])}")
         if selected_protocol == "ollama_chat":
             event_bus.publish(level="info", category="upstream.request", message="forwarding to Ollama-compatible provider", request_id=request_id, provider=provider, model=upstream_model)
             forward_ollama_api_chat(self, provider, pcfg, body)
-            commit_pending_channel_delivery_cursors(body, self)
+            if local_request:
+                commit_pending_channel_delivery_cursors(body, self)
             return
         if selected_protocol == "openai_chat":
+            if provider_request_policy(provider, pcfg).stream_required and not bool(
+                body.get("stream", False)
+            ):
+                write_json(
+                    self,
+                    {
+                        "type": "error",
+                        "error": {
+                            "type": "unsupported_feature",
+                            "message": (
+                                f"{provider_label} requires upstream streaming; "
+                                "use /v1/responses for a non-streaming compatible response"
+                            ),
+                        },
+                    },
+                    status=501,
+                )
+                return
             event_bus.publish(
                 level="info",
                 category="upstream.request",
@@ -293,7 +340,8 @@ def handle_claude_messages_post(
                 model=upstream_model,
             )
             forward_openai_compatible_chat(self, provider, pcfg, body)
-            commit_pending_channel_delivery_cursors(body, self)
+            if local_request:
+                commit_pending_channel_delivery_cursors(body, self)
             return
         if selected_protocol != "anthropic_messages":
             endpoint = str(selected_protocol).replace("_", "-")
@@ -305,7 +353,7 @@ def handle_claude_messages_post(
                         "type": "unsupported_model_endpoint",
                         "message": (
                             f"{provider_label} model {upstream_model!r} uses the {endpoint} endpoint family. "
-                            f"ciel-runtime currently routes Anthropic Messages and OpenAI Chat models."
+                            f"ciel-runtime cannot project that endpoint family onto this request."
                         ),
                     },
                 },
@@ -316,7 +364,8 @@ def handle_claude_messages_post(
         body = normalize_anthropic_system_role_messages(provider, pcfg, body)
         body = cap_anthropic_body_for_provider(provider, pcfg, body)
         body = apply_provider_request_options(provider, pcfg, body)
-        body = rehydrate_suppressed_thinking_passback(provider, pcfg, body)
+        if local_request:
+            body = rehydrate_suppressed_thinking_passback(provider, pcfg, body)
         upstream_model = resolve_requested_model(provider, pcfg, body.get("model"))
         if provider_request_policy(provider, pcfg).model_alias_strategy == "ncp":
             upstream_model = ncp_model_id_for_nvidia_hosted(upstream_model)
@@ -325,9 +374,12 @@ def handle_claude_messages_post(
         body = normalize_anthropic_model_request_options(provider, pcfg, body, upstream_model)
         stream_enabled = bool(pcfg.get("stream_enabled", True))
         word_chunking = bool(pcfg.get("stream_word_chunking", False))
-        if not stream_enabled:
+        if local_request and not stream_enabled:
             body["stream"] = False
-        upstream_body = body_without_ciel_runtime_internal_metadata(body)
+        upstream_body = body_without_ciel_runtime_internal_metadata(
+            body,
+            remote_bridge=not local_request,
+        )
         url = transport.provider_endpoint(provider, pcfg, "anthropic_messages")
         upstream_query = upstream_messages_query(pcfg, self.path, provider)
         if upstream_query:
@@ -355,7 +407,7 @@ def handle_claude_messages_post(
                     context_recovery.recover_output_budget(
                         upstream_body, raw_error, pcfg
                     )
-                    if initial_error.code == 400
+                    if local_request and initial_error.code == 400
                     else None
                 )
                 if recovered_body is None:
@@ -392,6 +444,14 @@ def handle_claude_messages_post(
                 set_upstream_stream_read_timeout(resp, provider_stream_idle_timeout_seconds(pcfg))
             status = getattr(resp, "status", 200)
             ctype = resp.headers.get("content-type", "application/json")
+            if not local_request:
+                self.send_response(status)
+                self.send_header("content-type", ctype)
+                self.end_headers()
+                while chunk := resp.read(65_536):
+                    self.wfile.write(chunk)
+                    self.wfile.flush()
+                return
             if stream_enabled and "text/event-stream" in ctype:
                 self.send_response(status)
                 self.send_header("content-type", ctype)
@@ -432,7 +492,8 @@ def handle_claude_messages_post(
                 self.wfile.write(raw_resp)
                 self.wfile.flush()
                 mark_pending_channel_delivery_success(self, "anthropic_json")
-            commit_pending_channel_delivery_cursors(body, self)
+            if local_request:
+                commit_pending_channel_delivery_cursors(body, self)
         except urllib.error.HTTPError as e:
             err = getattr(e, "ciel_runtime_body", None)
             if err is None:
@@ -446,7 +507,10 @@ def handle_claude_messages_post(
             self.wfile.write(err)
     except Exception as exc:
         if is_client_disconnect_error(exc):
-            mark_pending_channel_delivery_failed(self, f"client_disconnected:{type(exc).__name__}")
+            if local_request:
+                mark_pending_channel_delivery_failed(
+                    self, f"client_disconnected:{type(exc).__name__}"
+                )
             write_router_activity(
                 "cancel",
                 provider,
@@ -468,6 +532,16 @@ def handle_claude_messages_post(
             )
             return
         event_bus.publish(level="error", category="router.error", message=str(exc), request_id=request_id, provider=provider, model=str(body.get("model") or ""), data={"error_type": type(exc).__name__})
+        response_status = getattr(self, "_ciel_runtime_response_status", None)
+        if isinstance(response_status, int):
+            self.close_connection = True
+            router_log(
+                "ERROR",
+                "anthropic_route_error_after_response_started "
+                f"provider={provider} model={body.get('model')} "
+                f"status={response_status} error={type(exc).__name__}: {exc}",
+            )
+            return
         try_write_json(self, {"type": "error", "error": {"type": "api_error", "message": str(exc)}}, 500)
 
 

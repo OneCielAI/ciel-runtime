@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
 
+from .remote_bridge import remote_bridge_path_allowed
 from .web_endpoints import current_web_workspace, web_backend_settings
 
 
@@ -46,7 +47,11 @@ def router_request_bearer_token(handler: RouterRequest) -> str:
         )
         if authorization.lower().startswith("bearer "):
             return authorization[7:].strip()
-        return str(handler.headers.get("x-ciel-runtime-token") or "").strip()
+        return str(
+            handler.headers.get("x-ciel-runtime-token")
+            or handler.headers.get("x-api-key")
+            or ""
+        ).strip()
     except Exception:
         return ""
 
@@ -58,13 +63,34 @@ class RouterAccessPolicy:
     parse_env_bool: Callable[[str | None, bool | None], bool | None]
     load_config: Callable[[], dict[str, Any]]
 
+    def remote_bridge_enabled(self, config: Mapping[str, Any]) -> bool:
+        override = str(
+            self.environ.get("CIEL_RUNTIME_REMOTE_BRIDGE") or ""
+        ).strip()
+        if override:
+            return self.parse_bool(override, False)
+        bridge = config.get("remote_bridge")
+        return bool(
+            isinstance(bridge, Mapping)
+            and self.parse_bool(bridge.get("enabled"), False)
+        )
+
     def external_access_enabled(self, config: dict[str, Any] | None = None) -> bool:
+        current = self.load_config() if config is None else config
+        if self.remote_bridge_enabled(current):
+            return True
+        return self.administrative_external_access_enabled(current)
+
+    def administrative_external_access_enabled(
+        self,
+        config: dict[str, Any] | None = None,
+    ) -> bool:
+        current = self.load_config() if config is None else config
         configured = self.parse_env_bool(
             self.environ.get("CIEL_RUNTIME_ROUTER_DEBUG_EXTERNAL"), None
         )
         if configured is not None:
             return configured
-        current = self.load_config() if config is None else config
         settings = web_backend_settings(
             current,
             current_web_workspace(dict(self.environ)),
@@ -86,6 +112,18 @@ class RouterAccessPolicy:
         if override:
             return override
         current = self.load_config() if config is None else config
+        bridge = current.get("remote_bridge")
+        bridge_host = (
+            str(bridge.get("host") or "").strip()
+            if isinstance(bridge, Mapping)
+            else ""
+        )
+        if (
+            isinstance(bridge, Mapping)
+            and self.remote_bridge_enabled(current)
+            and bridge_host
+        ):
+            return bridge_host
         saved_host = web_backend_settings(
             current,
             current_web_workspace(dict(self.environ)),
@@ -95,22 +133,65 @@ class RouterAccessPolicy:
             return saved_host
         return "0.0.0.0" if external else "127.0.0.1"
 
+    def remote_bridge_request(
+        self,
+        handler: RouterRequest,
+        config: dict[str, Any],
+        bridge_token_provider: Callable[[], str],
+    ) -> bool:
+        if not self.remote_bridge_enabled(config):
+            return False
+        try:
+            if not is_loopback_address(str(handler.client_address[0])):
+                return True
+        except Exception:
+            return False
+        expected = bridge_token_provider()
+        supplied = router_request_bearer_token(handler)
+        return bool(
+            expected and supplied and hmac.compare_digest(expected, supplied)
+        )
+
     def request_allowed(
         self,
         handler: RouterRequest,
         config: dict[str, Any] | None,
-        token_provider: Callable[[], str],
+        administrative_token_provider: Callable[[], str],
+        bridge_token_provider: Callable[[], str],
     ) -> bool:
         try:
             if is_loopback_address(str(handler.client_address[0])):
                 return True
         except Exception:
             return False
-        if not self.external_access_enabled(config):
+        current = self.load_config() if config is None else config
+        if not self.external_access_enabled(current):
             return False
-        expected = token_provider()
         supplied = router_request_bearer_token(handler)
-        return bool(expected and supplied and hmac.compare_digest(expected, supplied))
+        bridge_enabled = self.remote_bridge_enabled(current)
+        bridge_expected = bridge_token_provider() if bridge_enabled else ""
+        if (
+            bridge_enabled
+            and remote_bridge_path_allowed(str(getattr(handler, "path", "")))
+        ):
+            if (
+                bridge_expected
+                and supplied
+                and hmac.compare_digest(bridge_expected, supplied)
+            ):
+                return True
+        if self.administrative_external_access_enabled(current):
+            expected = administrative_token_provider()
+            if (
+                expected
+                and bridge_expected
+                and hmac.compare_digest(expected, bridge_expected)
+            ):
+                return False
+            return bool(
+                expected and supplied and hmac.compare_digest(expected, supplied)
+            )
+        return False
 
 
 @dataclass(frozen=True, slots=True)
@@ -118,9 +199,10 @@ class RouterExternalTokenRepository:
     path: Path
     config_dir: Path
     environ: MutableMapping[str, str]
+    env_name: str = "CIEL_RUNTIME_ROUTER_EXTERNAL_TOKEN"
 
     def get(self) -> str:
-        configured = str(self.environ.get("CIEL_RUNTIME_ROUTER_EXTERNAL_TOKEN") or "").strip()
+        configured = str(self.environ.get(self.env_name) or "").strip()
         if configured:
             return configured
         try:
@@ -133,6 +215,7 @@ class RouterExternalTokenRepository:
         if existing:
             return existing
         self.config_dir.mkdir(parents=True, exist_ok=True)
+        self.path.parent.mkdir(parents=True, exist_ok=True)
         token = secrets.token_urlsafe(32)
         temporary = self.path.with_name(
             f"{self.path.name}.{os.getpid()}.{time.time_ns()}.tmp"
