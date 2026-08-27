@@ -1,0 +1,84 @@
+okf: 1
+task:
+  date: "2026-08-26"
+  request: "Find and recover the Codex session that crashed and no longer loads."
+  workspace: "C:/Users/djlov/ciel-runtime"
+
+target:
+  session_id: "01a0200f-2245-7cc1-8219-85d745a719a8"
+  title: "전에 작업중이던"
+  rollout: "C:/Users/djlov/.codex/sessions/2026/08/20/rollout-2026-08-20T11-44-17-01a0200f-2245-7cc1-8219-85d745a719a8.jsonl"
+  size_before_bytes: 569328391
+  last_record_before:
+    ordinal: 58407
+    timestamp_utc: "2026-08-27T02:04:18Z"
+    type: "response_item/custom_tool_call"
+
+diagnosis:
+  database_quick_check:
+    state_5_sqlite: pass
+    thread_history_1_sqlite: pass
+  duplicate:
+    first_line: 46449
+    second_line: 46450
+    ordinal: 46448
+    first_event: token_count
+    second_event: thread_settings_applied
+    second_record_byte_offset: 435496140
+  second_duplicate:
+    first_line: 46994
+    second_line: 46995
+    ordinal: 46992
+    first_event: token_count
+    second_event: thread_settings_applied
+  projection_state:
+    next_rollout_byte_offset: 435496140
+    next_rollout_ordinal: 46449
+  confirmed_log_error: "thread history projection expected ordinal 46449, got 46448"
+  conclusion: >-
+    The durable rollout contains two distinct adjacent records with ordinal 46448.
+    The history projection stopped at the second record because it expected 46449.
+
+recovery:
+  status: complete
+  method: >-
+    Preserve the original rollout, set each record ordinal to its zero-based JSONL
+    line index, verify full ordinal continuity and JSONL integrity, then load the
+    repaired session through the documented Codex resume command.
+  backup:
+    path: "C:/Users/djlov/.codex/recovery/2026-08-26/01a0200f-2245-7cc1-8219-85d745a719a8/original-rollout.jsonl"
+    bytes: 569328391
+    sha256: "bb66a2fc8f0cf4832793059d71620fb15859b25a02d2a1fd841ee9625b5146fd"
+    source_hash_matched_before_repair: true
+  repaired:
+    bytes: 569328391
+    records: 58410
+    last_ordinal: 58409
+    changed_records: 11961
+    correction_transitions:
+      - line: 46450
+        add: 1
+      - line: 46995
+        add: 2
+    sha256: "48e255cfa767c6198fb2e471b5fff0bff6577c16690a284104b05bdb86259b5d"
+
+verification:
+  ordinal_continuity: pass
+  jsonl_parse:
+    result: pass
+    records_parsed: 58410
+  codex_resume:
+    command: "codex --no-alt-screen resume 01a0200f-2245-7cc1-8219-85d745a719a8"
+    result: pass
+    observed: >-
+      Codex 0.150.1 displayed the saved transcript, the interrupted final turn,
+      prior Ollama diagnostics, and an active input prompt.
+  projection_caught_up:
+    result: pass
+    next_rollout_byte_offset: 569328391
+    rollout_file_bytes: 569328391
+    next_rollout_ordinal: 58410
+  mismatch_warnings_after_resume: 0
+  cli_shutdown:
+    exit_code: 0
+    continuation_message: "To continue this session, run codex resume 01a0200f-2245-7cc1-8219-85d745a719a8"

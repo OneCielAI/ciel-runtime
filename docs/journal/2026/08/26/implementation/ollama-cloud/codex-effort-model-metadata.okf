@@ -1,0 +1,158 @@
+okf_version: "1.0"
+knowledge:
+  task:
+    id: "ollama-cloud-codex-effort-model-metadata-20260826"
+    date: "2026-08-26"
+    mode: "implementation_and_live_verification"
+    objective: >-
+      Re-audit the live Ollama Cloud catalog against authenticated model
+      metadata and official model cards, reapply the metadata to Ciel, and
+      preserve Codex reasoning-effort selection through the Ollama Cloud wire
+      request.
+
+  official_sources:
+    ollama_thinking: "https://docs.ollama.com/capabilities/thinking"
+    ollama_library: "https://ollama.com/library"
+    kimi_k3_card: "https://ollama.com/library/kimi-k3"
+    kimi_k3_upstream_usage: "https://github.com/MoonshotAI/Kimi-K3#6-model-usage"
+    codex_cli: "https://developers.openai.com/codex/cli/reference"
+    codex_config: "https://developers.openai.com/codex/config-reference"
+
+  discovery:
+    live_catalog_command: ".\\ciel-runtimectl.ps1 models ollama-cloud"
+    model_count: 20
+    authenticated_show_endpoint: "https://ollama.com/api/show"
+    models:
+      - {name: "deepseek-v4-flash:0731", architecture: "deepseek4", context: 1048576, capabilities: [completion, tools, thinking]}
+      - {name: "deepseek-v4-flash:preview", architecture: "deepseek4", context: 1048576, capabilities: [completion, tools, thinking]}
+      - {name: "deepseek-v4-pro:0813", architecture: "deepseek4", context: 1048576, capabilities: [completion, tools, thinking]}
+      - {name: "deepseek-v4-pro:preview", architecture: "deepseek4", context: 524288, capabilities: [completion, tools, thinking]}
+      - {name: "gemma4:31b", architecture: "gemma4", context: 262144, capabilities: [completion, thinking, tools, vision]}
+      - {name: "glm-5.1", architecture: "glm5.1", context: 202752, capabilities: [thinking, completion, tools]}
+      - {name: "glm-5.2", architecture: "glm5.2", context: 1048576, capabilities: [thinking, completion, tools]}
+      - {name: "glm-5.3-flash", architecture: "glm5_next", context: 1048576, capabilities: [completion, thinking, tools, vision]}
+      - {name: "gpt-oss:120b", architecture: "gptoss", context: 131072, capabilities: [completion, tools, thinking]}
+      - {name: "gpt-oss:20b", architecture: "gptoss", context: 131072, capabilities: [completion, tools, thinking]}
+      - {name: "kimi-k2.6", architecture: "kimi-k2", context: 262144, capabilities: [vision, thinking, completion, tools]}
+      - {name: "kimi-k2.7-code", architecture: "kimi-k2", context: 262144, capabilities: [vision, thinking, completion, tools]}
+      - {name: "kimi-k3", architecture: "kimi-k3", context: 1048576, capabilities: [vision, thinking, completion, tools]}
+      - {name: "minimax-m2.7", architecture: "minimax-m2", context: 196608, capabilities: [completion, tools, thinking]}
+      - {name: "minimax-m3", architecture: "minimax-m3", context: 524288, capabilities: [completion, tools, thinking, vision]}
+      - {name: "mistral-large-3:675b", architecture: "mistral3", context: 262144, capabilities: [completion, tools, vision]}
+      - {name: "nemotron-3-nano:30b", architecture: "nemotron-3-nano", context: 262144, capabilities: [completion, tools, thinking]}
+      - {name: "nemotron-3-super", architecture: "nemotron_h_moe", context: 262144, capabilities: [completion, thinking, tools]}
+      - {name: "nemotron-3-ultra", architecture: null, context: 262144, capabilities: [completion, thinking, tools]}
+      - {name: "qwen3.5:397b", architecture: "qwen3.5", context: 262144, capabilities: [completion, thinking, tools, vision]}
+    authority_rule: >-
+      Authenticated /api/show metadata is used for the exact selected runtime
+      route. The official model card is retained as descriptive provenance.
+    observed_conflicts: >-
+      Some model-card display contexts differ from the authenticated exact
+      route metadata. Examples include nemotron-3-nano and
+      deepseek-v4-pro:preview. No unsupported reconciliation was inferred.
+
+  reasoning_contracts:
+    kimi_k3:
+      upstream_values: [low, high, max]
+      upstream_default: max
+      always_thinking: true
+      codex_levels: [low, high, xhigh]
+      projection: {low: low, high: high, xhigh: max}
+    gpt_oss:
+      ollama_values: [low, medium, high]
+      projection: {low: low, medium: medium, high: high, xhigh: high}
+    glm_5_2:
+      ollama_values: [high, max]
+      projection: {high: high, xhigh: max}
+    glm_5_3_flash:
+      ollama_values: [low, high, max]
+      always_thinking: true
+      projection: {low: low, high: high, xhigh: max}
+    direct_acceptance_probe:
+      endpoint: "https://ollama.com/api/chat"
+      limit: "num_predict=1"
+      result: >-
+        All 19 models whose authenticated metadata advertises thinking
+        accepted both think=low and think=max. Kimi K3 also accepted
+        low, high, and max. Acceptance does not establish semantic quality or
+        relative compute expenditure.
+
+  implementation:
+    files:
+      - "ciel_runtime_support/ollama_thinking.py"
+      - "ciel_runtime_support/ollama_context_sync.py"
+      - "ciel_runtime_support/providers/ollama.py"
+      - "ciel_runtime_support/codex_model_catalog.py"
+      - "tests/test_ollama_provider_options.py"
+      - "tests/test_codex_model_catalog.py"
+    behavior: >-
+      Ollama Cloud profiles now carry official card provenance, exact
+      capabilities/modalities/context from discovery, explicit supported
+      reasoning levels, and model-specific Codex-to-Ollama effort projection.
+      Explicit provider effort metadata now replaces copied Codex template
+      values instead of being merged with inherited GPT metadata.
+    local_install:
+      destination: "C:\\Users\\djlov\\.local\\share\\ciel-runtime"
+      version: "0.2.36"
+      changed_production_file_hashes_match_source: true
+
+  applied_workspace:
+    name: "Mia"
+    config: "C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\workspaces\\d167f30b8fa4\\config.json"
+    provider: "ollama-cloud"
+    upstream_model: "kimi-k3"
+    architecture: "kimi-k3"
+    context: 1048576
+    capabilities: [vision, thinking, completion, tools]
+    ollama_levels: [low, high, max]
+    ollama_default: max
+    codex_levels: [low, high, xhigh]
+    codex_default: xhigh
+    modalities: [text, image]
+    supports_search_tool: false
+
+  verification:
+    generated_catalog:
+      path: "C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\codex-model-catalogs\\a2c4369363a683fbb6b1a574393c24d42501f82fdca0746ae78f49804afbcc24.json"
+      slug: "ciel-runtime-ollama-cloud-kimi-k3"
+      context: 1048576
+      default_reasoning_level: xhigh
+      supported_reasoning_levels: [low, high, xhigh]
+      modalities: [text, image]
+      codex_debug_models_accepted: true
+    user_global_codex_config:
+      observed_model_reasoning_effort: high
+      consequence: >-
+        The existing user-level high setting overrides the catalog default
+        xhigh for a normal launch. This was confirmed in the Codex TUI.
+    codex_tui:
+      version: "0.150.1"
+      explicit_low_displayed: true
+      explicit_xhigh_displayed: true
+      model_command_documented: >-
+        /model selects the active model and reasoning effort when available.
+    installed_live_wire:
+      low: {ollama_think: low, accepted: true, elapsed_seconds: 1.203}
+      high: {ollama_think: high, accepted: true, elapsed_seconds: 2.047}
+      xhigh: {ollama_think: max, accepted: true, elapsed_seconds: 1.078}
+      limit: >-
+        These one-token requests verify projection and endpoint acceptance,
+        not comparative speed or model quality.
+    automated_tests:
+      full_suite: {passed: 2782, skipped: 136, failed: 0, elapsed_seconds: 316.323}
+      architecture_budget: {passed: 2, failed: 0}
+      ruff_changed_files: passed
+      git_diff_check: passed
+    ui:
+      url: "http://127.0.0.1:9467/"
+      observed: >-
+        LLM Settings showed provider ollama-cloud, model kimi-k3, context
+        1,048,576, and Think [max].
+      screenshot: "docs/journal/2026/08/26/verification/mia/kimi-k3-llm-settings.png"
+
+  completion:
+    functional_code_modified: true
+    local_runtime_installed: true
+    mia_metadata_reapplied: true
+    remote_or_nightly_deployment_performed: false
+    status: "verified_complete"

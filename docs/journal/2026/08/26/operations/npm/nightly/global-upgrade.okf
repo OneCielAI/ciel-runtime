@@ -1,0 +1,62 @@
+okf_version: "1.0"
+knowledge:
+  task:
+    id: "npm-nightly-global-upgrade-20260826"
+    date: "2026-08-26"
+    objective: >-
+      Verify the Ciel Runtime npm upgrade and nightly-version mechanism, then
+      upgrade the workstation's global npm package to the registry nightly tag.
+
+  confirmed_registry_state:
+    package: "@oneciel-ai/ciel-runtime"
+    registry: "https://registry.npmjs.org/"
+    latest: "0.2.34"
+    nightly: "0.2.36-nightly.20260827-014004.bf419ce"
+    nightly_tarball_dry_run: passed
+    nightly_tarball_size_bytes: 1430740
+    nightly_tarball_unpacked_bytes: 5089513
+
+  upgrade:
+    command: "npm install -g @oneciel-ai/ciel-runtime@nightly"
+    exit_code: 0
+    npm_result: "changed 1 package"
+    previous_global_version: "0.2.36-nightly.20260825-085507.11afdb5"
+    installed_global_version: "0.2.36-nightly.20260827-014004.bf419ce"
+    installed_package_path: >-
+      C:\Users\djlov\AppData\Roaming\npm\node_modules\@oneciel-ai\ciel-runtime
+    direct_installed_cli_probe: "ciel-runtime 0.2.36-nightly.20260827-014004.bf419ce"
+
+  nightly_generation:
+    implementation: ".github/workflows/npm-publish.yml"
+    trigger: "push to nightly branch"
+    algorithm: >-
+      Read package.json base version, append
+      -nightly.<UTC YYYYMMDD-HHMMSS>.<7-character GITHUB_SHA>, apply the
+      generated value to package.json and runtime_constants.py inside the
+      workflow, then npm publish with the nightly dist-tag.
+    standalone_local_version_script_present: false
+    workflow_dispatch_present: false
+
+  workspace_runtime_precedence:
+    ciel_runtime_home: "C:\\Users\\djlov\\.local\\share\\ciel-runtime"
+    resolved_launcher: "C:\\Users\\djlov\\.local\\bin\\ciel-runtime.ps1"
+    resolved_local_source_version: "0.2.36"
+    consequence: >-
+      The global npm package is upgraded, but the current shell's explicit
+      CIEL_RUNTIME_HOME continues to select the locally installed source copy.
+
+  publication_boundary:
+    current_head: "bf419ceb6e571aa1645defd0062ec10ea48a6d98"
+    origin_nightly: "bf419ceb6e571aa1645defd0062ec10ea48a6d98"
+    uncommitted_ollama_codex_changes_in_registry_nightly: false
+    npm_local_auth: unauthorized
+    note: >-
+      The current Ollama Cloud/Codex effort changes are only in the dirty
+      workspace and local source installation. They cannot be present in the
+      already published bf419ce nightly artifact.
+
+  verification:
+    registry_dist_tag_rechecked: true
+    installed_manifest_rechecked: true
+    direct_cli_version_checked: true
+    status: "global_npm_nightly_upgrade_complete"

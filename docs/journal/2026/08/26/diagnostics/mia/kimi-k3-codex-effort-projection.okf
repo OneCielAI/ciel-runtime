@@ -1,0 +1,136 @@
+okf_version: "1.0"
+knowledge:
+  task:
+    id: "mia-kimi-k3-codex-effort-projection-20260826"
+    date: "2026-08-26"
+    mode: "read_only_diagnosis"
+    objective: >-
+      Verify whether Codex can change reasoning effort in Mia's Kimi K3
+      session, whether Ciel's model metadata is authoritative, and what value
+      reaches Ollama Cloud.
+
+  scope:
+    workspace: "Mia"
+    cwd: "C:\\Users\\djlov"
+    provider: "ollama-cloud"
+    upstream_model: "kimi-k3"
+    codex_alias: "ciel-runtime-ollama-cloud-kimi-k3"
+    thread_id: "01a03fec-5672-7fe1-95c0-40a4f557e305"
+
+  confirmed_evidence:
+    codex_official_controls:
+      interactive: >-
+        The official Codex CLI reference documents /model as selecting the
+        active model and reasoning effort when available.
+      configuration_key: "model_reasoning_effort"
+      supported_documented_values: [minimal, low, medium, high, xhigh]
+      limitation: "Responses API only; xhigh is model-dependent."
+      references:
+        - "https://developers.openai.com/codex/cli/reference"
+        - "https://developers.openai.com/codex/config-reference"
+
+    launch_snapshot:
+      descriptor: >-
+        C:\Users\djlov\AppData\Roaming\ciel-runtime\router-instances\19485-d167f30b8fa4\codex-processes\82432-client.json
+      model_reasoning_effort_override_present: false
+      model_catalog: >-
+        C:\Users\djlov\AppData\Roaming\ciel-runtime\codex-model-catalogs\2df30ab886bf3869cbf1d9d8b63c16a193ba4f6e4ea3d3c5671c609fe94d3043.json
+
+    generated_catalog:
+      default_reasoning_level: medium
+      supported_reasoning_levels: [low, medium, high, xhigh]
+      context_window: 1048576
+      provenance: >-
+        ciel_runtime_support/codex_model_catalog.py deep-copies bundled
+        gpt-5.2 metadata and changes only routed fields and explicit
+        provider metadata. The Ollama Cloud Kimi configuration supplies no
+        Kimi-specific reasoning-level metadata.
+
+    actual_thread:
+      database: "C:\\Users\\djlov\\.codex\\state_5.sqlite"
+      stored_reasoning_effort: high
+      tokens_used: 1384424
+      rollout: >-
+        C:\Users\djlov\.codex\sessions\2026\08\26\rollout-2026-08-26T16-14-08-01a03fec-5672-7fe1-95c0-40a4f557e305.jsonl
+      rollout_observation: >-
+        Both turn_context records and thread_settings_applied record
+        reasoning_effort=high. The inspected Mia Kimi K3 session was not
+        running at low effort.
+
+    upstream_activity:
+      path: >-
+        C:\Users\djlov\AppData\Roaming\ciel-runtime\router-instances\19485-d167f30b8fa4\router-activity.json
+      endpoint: "https://ollama.com/api/chat"
+      last_request_tokens: 64992
+      last_request_bytes: 272109
+      timeout_seconds: 300
+      stream: true
+      first_turn_duration_seconds: 546.049
+      second_turn_duration_seconds: 19.312
+      causality_limit: >-
+        Whole-turn duration includes multiple model and tool cycles. The
+        available evidence does not prove that effort alone caused the first
+        turn's latency.
+
+    effort_projection:
+      implementation: "ciel_runtime_support/ollama_thinking.py"
+      discovered_architecture: "kimi-k3"
+      discovered_capabilities: [vision, thinking, completion, tools]
+      executed_policy_results:
+        low: true
+        medium: true
+        high: true
+        xhigh: true
+        max: true
+      conclusion: >-
+        Kimi K3 is not one of Ciel's architecture-specific string-level
+        branches. Every non-empty Codex effort is collapsed to boolean
+        Ollama think=true, so the selected level is not preserved on the
+        Ollama Cloud wire request.
+
+  official_model_contracts:
+    moonshot_kimi_k3:
+      always_thinking: true
+      top_level_field: "reasoning_effort"
+      valid_values: [low, high, max]
+      default: max
+      reference: "https://github.com/MoonshotAI/Kimi-K3#6-model-usage"
+    ollama_thinking_api:
+      field: "think"
+      documented_values: [true, false, low, medium, high, max]
+      note: >-
+        Ollama documents level strings for most models and a special
+        low/medium/high contract for GPT-OSS.
+      reference: "https://docs.ollama.com/capabilities/thinking"
+    ollama_kimi_k3:
+      model_exists: true
+      capabilities: [vision, tools, thinking, cloud]
+      context: "1M"
+      reference: "https://ollama.com/library/kimi-k3"
+
+  finding:
+    codex_can_change_effort: true
+    current_mia_thread_is_low: false
+    current_mia_thread_effort: high
+    ciel_catalog_authoritative_for_kimi_levels: false
+    wire_level_effort_preserved: false
+    conclusion: >-
+      Codex exposes an effort control, but the current Ciel Ollama Cloud Kimi
+      integration does not preserve that control. Ciel's generated Kimi entry
+      inherits generic GPT-5.2 effort metadata and then maps every selected
+      effort to the same boolean think=true request.
+
+  changes:
+    functional_code_modified: false
+    runtime_configuration_modified: false
+    remote_configuration_modified: false
+    deployment_performed: false
+
+  verification:
+    type: >-
+      Official documentation fetch, live launch descriptor and generated
+      catalog inspection, Codex state database and rollout inspection, router
+      activity inspection, and direct execution of OllamaThinkingPolicy.
+    screenshot_required: false
+    reason: "No UI or functional implementation was changed."
+    status: "diagnosis_complete"

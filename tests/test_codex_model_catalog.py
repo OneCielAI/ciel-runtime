@@ -88,6 +88,60 @@ class CodexModelCatalogServiceTests(unittest.TestCase):
             self.assertTrue(paths[0].exists())
             self.assertEqual([], list(paths[0].parent.glob("*.tmp")))
 
+    def test_explicit_provider_reasoning_metadata_replaces_template_levels(self):
+        bundled = {
+            "models": [
+                {
+                    "slug": "gpt-5.2",
+                    "display_name": "GPT",
+                    "default_reasoning_level": "medium",
+                    "supported_reasoning_levels": [
+                        {"effort": "low", "description": "Low"},
+                        {"effort": "medium", "description": "Medium"},
+                        {"effort": "high", "description": "High"},
+                        {"effort": "xhigh", "description": "Extra high"},
+                    ],
+                }
+            ]
+        }
+
+        def run(*_args, **_kwargs):
+            return SimpleNamespace(returncode=0, stdout=json.dumps(bundled), stderr="")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            service = CodexModelCatalogService(
+                Path(tmp), run, lambda _level, _message: None
+            )
+            path = service.write(
+                "codex",
+                CodexModelCatalogSpec(
+                    alias="ciel-runtime-ollama-cloud-kimi-k3",
+                    provider_label="Ollama Cloud",
+                    context_window=1_048_576,
+                    effort="max",
+                    metadata={
+                        "default_reasoning_level": "xhigh",
+                        "supported_reasoning_levels": [
+                            {"effort": "low", "description": "Low"},
+                            {"effort": "high", "description": "High"},
+                            {"effort": "xhigh", "description": "Maximum"},
+                        ],
+                    },
+                ),
+                {},
+            )
+            model = next(
+                item
+                for item in json.loads(path.read_text(encoding="utf-8"))["models"]
+                if item["slug"] == "ciel-runtime-ollama-cloud-kimi-k3"
+            )
+
+        self.assertEqual("xhigh", model["default_reasoning_level"])
+        self.assertEqual(
+            ["low", "high", "xhigh"],
+            [item["effort"] for item in model["supported_reasoning_levels"]],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

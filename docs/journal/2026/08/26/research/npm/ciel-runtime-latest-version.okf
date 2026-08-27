@@ -1,0 +1,18 @@
+okf: 1
+task:
+  date: "2026-08-26"
+  request: "Verify whether Ciel Runtime v0.2.36-nightly.20260827-014004.bf419ce is the latest version."
+  workspace: "C:/Users/djlov/ciel-runtime"
+
+registry:
+  package: "@oneciel-ai/ciel-runtime"
+  queried_via: "npm view"
+  dist_tags:
+    latest: "0.2.34"
+    nightly: "0.2.36-nightly.20260827-014004.bf419ce"
+  newest_published_version: "0.2.36-nightly.20260827-014004.bf419ce"
+  published_at_utc: "2026-08-27T01:40:07.921Z"
+
+conclusion:
+  latest_nightly: true
+  latest_stable: false

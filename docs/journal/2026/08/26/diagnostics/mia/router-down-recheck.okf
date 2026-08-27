@@ -1,0 +1,21 @@
+okf: 1
+task:
+  date: "2026-08-26"
+  request: "Recheck whether the Mia session failure was temporary."
+  workspace: "C:/Users/djlov/ciel-runtime"
+
+observation:
+  checked_at: "2026-08-26T21:20:35-05:00"
+  configured_provider: zai-start-plan
+  configured_model: "glm-5.3[1m]"
+  router_url: "http://127.0.0.1:6971"
+  runtimectl_status: down
+  tcp_listener_6971: absent
+  http_probe: "connection actively refused"
+  matching_router_process: absent
+
+conclusion:
+  status: confirmed_down
+  statement: >-
+    The observation does not support a recovered or merely transient failure at
+    check time. No restart or configuration mutation was performed.

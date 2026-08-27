@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable
 
+from .ollama_thinking import ollama_cloud_model_config_updates
+
 
 @dataclass(frozen=True, slots=True)
 class OllamaContextSources:
@@ -50,14 +52,28 @@ def sync_ollama_context_limit(
     source_url = "/api/show" if limit else ""
     architecture = str(api_specs.get("architecture") or "").strip().lower()
     capabilities = api_specs.get("capabilities")
+    previous_metadata_model = str(config.get("ollama_model_metadata_model") or "")
+    normalized_model = policy.normalize_model_id(provider, model_id)
     if architecture or isinstance(capabilities, list):
-        config["ollama_model_metadata_model"] = policy.normalize_model_id(
-            provider, model_id
-        )
+        config["ollama_model_metadata_model"] = normalized_model
         if architecture:
             config["ollama_model_architecture"] = architecture
         if isinstance(capabilities, list):
             config["ollama_model_capabilities"] = list(capabilities)
+    if provider == "ollama-cloud" and isinstance(capabilities, list):
+        model_changed = not policy.context_model_matches(
+            normalized_model, previous_metadata_model
+        )
+        metadata_updates = ollama_cloud_model_config_updates(
+            model_id,
+            architecture=architecture,
+            capabilities=capabilities,
+            context_window=limit,
+        )
+        for key, value in metadata_updates.items():
+            if key == "effort_level" and not model_changed and config.get(key):
+                continue
+            config[key] = value
     if not limit:
         catalog = sources.load_catalog()
         if sources.catalog_is_stale(catalog):

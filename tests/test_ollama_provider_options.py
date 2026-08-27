@@ -462,6 +462,70 @@ class OllamaProviderOptionTests(unittest.TestCase):
                 )
             self.assertEqual(expected, request["think"])
 
+    def test_kimi_k3_preserves_codex_effort_as_ollama_native_level(self):
+        pcfg = {
+            "current_model": "kimi-k3",
+            "think": True,
+            "effort_level": "max",
+            "ollama_model_metadata_model": "kimi-k3",
+            "ollama_model_architecture": "kimi-k3",
+            "ollama_model_capabilities": ["completion", "thinking", "tools", "vision"],
+            "ollama_think_levels": ["low", "high", "max"],
+            "ollama_thinking_always_on": True,
+            "num_ctx": "auto",
+            "num_ctx_max": 1048576,
+            "ollama_options": {},
+        }
+        for effort, expected in (
+            ("low", "low"),
+            ("high", "high"),
+            ("xhigh", "max"),
+            ("max", "max"),
+        ):
+            body = {
+                "thinking": {"type": "enabled", "effort": effort},
+                "messages": [{"role": "user", "content": "hello"}],
+                "tools": [],
+            }
+            normalized = ciel_runtime.normalize_thinking_for_non_anthropic_provider(
+                "ollama-cloud", pcfg, body
+            )
+            with mock.patch.object(ciel_runtime, "write_context_usage"):
+                request = ciel_runtime.ollama_chat_request(
+                    "kimi-k3",
+                    normalized,
+                    pcfg,
+                    stream=False,
+                    provider="ollama-cloud",
+                )
+            self.assertEqual(expected, request["think"])
+
+    def test_generic_cloud_thinking_model_preserves_documented_levels(self):
+        pcfg = {
+            "current_model": "minimax-m3",
+            "think": True,
+            "effort_level": "medium",
+            "ollama_model_metadata_model": "minimax-m3",
+            "ollama_model_architecture": "minimax-m3",
+            "ollama_model_capabilities": ["completion", "thinking", "tools", "vision"],
+            "ollama_think_levels": ["low", "medium", "high", "max"],
+            "num_ctx": "auto",
+            "num_ctx_max": 524288,
+            "ollama_options": {},
+        }
+        expected = {"low": "low", "medium": "medium", "high": "high", "xhigh": "max"}
+        for effort, think_value in expected.items():
+            body = {
+                "thinking": {"type": "enabled", "effort": effort},
+                "messages": [{"role": "user", "content": "hello"}],
+                "tools": [],
+            }
+            with mock.patch.object(ciel_runtime, "write_context_usage"):
+                request = ciel_runtime.ollama_chat_request(
+                    "minimax-m3", body, pcfg, stream=False, provider="ollama-cloud"
+                )
+            self.assertEqual(think_value, request["think"])
+
     def test_sync_ollama_context_persists_discovered_thinking_metadata(self):
         pcfg = {
             "current_model": "future-model",
@@ -484,6 +548,47 @@ class OllamaProviderOptionTests(unittest.TestCase):
         self.assertEqual("future-model", pcfg["ollama_model_metadata_model"])
         self.assertEqual("gptoss", pcfg["ollama_model_architecture"])
         self.assertIn("thinking", pcfg["ollama_model_capabilities"])
+        self.assertEqual(["low", "medium", "high"], pcfg["ollama_think_levels"])
+        self.assertEqual(
+            ["low", "medium", "high"],
+            [
+                item["effort"]
+                for item in pcfg["codex_model_catalog"]["supported_reasoning_levels"]
+            ],
+        )
+
+    def test_sync_kimi_k3_reapplies_official_cloud_metadata(self):
+        pcfg = {
+            "current_model": "kimi-k3",
+            "num_ctx": "auto",
+            "num_ctx_max": 131072,
+        }
+        specs = {
+            "max_model_len": 1048576,
+            "architecture": "kimi-k3",
+            "capabilities": ["vision", "thinking", "completion", "tools"],
+        }
+
+        with mock.patch.object(
+            ciel_runtime, "fetch_ollama_api_model_specs", return_value=specs
+        ):
+            ciel_runtime.sync_ollama_library_context_limit(
+                "ollama-cloud", pcfg, "kimi-k3"
+            )
+
+        self.assertEqual(1048576, pcfg["model_context_max"])
+        self.assertEqual("max", pcfg["effort_level"])
+        self.assertEqual(["low", "high", "max"], pcfg["ollama_think_levels"])
+        self.assertTrue(pcfg["ollama_thinking_always_on"])
+        catalog = pcfg["codex_model_catalog"]
+        self.assertEqual("xhigh", catalog["default_reasoning_level"])
+        self.assertEqual(
+            ["low", "high", "xhigh"],
+            [item["effort"] for item in catalog["supported_reasoning_levels"]],
+        )
+        self.assertEqual(["text", "image"], catalog["input_modalities"])
+        self.assertFalse(catalog["supports_search_tool"])
+        self.assertIn("https://ollama.com/library/kimi-k3", catalog["description"])
 
     def test_deepseek_v4_flash_0731_selection_profile_defaults(self):
         pcfg = {"current_model": "glm-5.1"}

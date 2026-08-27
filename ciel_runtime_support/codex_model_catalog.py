@@ -110,10 +110,17 @@ class CodexModelCatalogService:
                 ),
             }
         )
+        metadata_has_default = bool(
+            spec.metadata and "default_reasoning_level" in spec.metadata
+        )
+        metadata_has_levels = bool(
+            spec.metadata and "supported_reasoning_levels" in spec.metadata
+        )
         if spec.metadata:
             routed.update(json.loads(json.dumps(dict(spec.metadata))))
-        if spec.effort:
+        if spec.effort and not metadata_has_default:
             routed["default_reasoning_level"] = spec.effort
+        if spec.effort and not metadata_has_levels:
             supported = routed.get("supported_reasoning_levels")
             if not isinstance(supported, list):
                 supported = []

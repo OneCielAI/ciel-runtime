@@ -18,7 +18,11 @@ from ..architecture import (
 )
 from .base import HttpBearerProviderAdapter, provider_configuration
 from .constants import DEFAULT_REQUEST_TIMEOUT_MS, PROVIDER_DEFAULT_BASE_URLS
-from ..ollama_thinking import OllamaThinkingPolicy, normalized_model_id
+from ..ollama_thinking import (
+    OllamaThinkingPolicy,
+    normalized_model_id,
+    ollama_cloud_model_config_updates,
+)
 
 
 @dataclass(frozen=True)
@@ -229,16 +233,17 @@ class OllamaCloudProviderAdapter(OllamaProviderAdapter):
     def model_selection_config_updates(
         self, config: ProviderConfig, model_id: str
     ) -> Mapping[str, Any]:
-        if not self._is_deepseek_v4_flash_0731(model_id):
-            return super().model_selection_config_updates(config, model_id)
-        return {
-            "think": True,
-            "effort_level": "max",
-            "haiku_model": model_id,
-            "opus_model": model_id,
-            "sonnet_model": model_id,
-            "subagent_model": model_id,
-        }
+        del config
+        updates = ollama_cloud_model_config_updates(model_id)
+        updates.update(
+            {
+                "haiku_model": model_id,
+                "opus_model": model_id,
+                "sonnet_model": model_id,
+                "subagent_model": model_id,
+            }
+        )
+        return updates
 
     def launch_model_strategy(self, config: ProviderConfig) -> str:
         del config
