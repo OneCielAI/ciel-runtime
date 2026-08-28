@@ -1,0 +1,218 @@
+okf_version: "1.0"
+knowledge:
+  task:
+    id: "kevin-codex-graceful-shutdown-diagnosis-20260828"
+    date: "2026-08-28"
+    status: "revised_diagnosis_local_observability_fix_verified_remote_deployment_pending"
+    objective: >-
+      Determine from Kevin's live host, tmux state, Codex rollout, Codex internal
+      logs, Ciel input state, and matching official Codex source why Codex has
+      repeatedly returned silently to the shell, and stop Ciel from hiding an
+      abnormal POSIX child exit as success.
+
+  remote_scope:
+    host: "kevin-codex@100.95.132.58"
+    hostname: "aap-pool-hera"
+    tmux_session: "aap-agent-89"
+    workspace: "/home/kevin-codex"
+    ciel_version: "0.2.36-nightly.20260827-215619.23ae8b0"
+    codex_version: "0.150.1"
+    codex_thread: "01a03716-9bb1-77e2-8771-4329c3b0338f"
+    first_codex_binary_pid: 548668
+    second_codex_binary_pid: 605210
+    monitored_restart_codex_binary_pid: 611122
+
+  conclusion:
+    classification: >-
+      Two different exit signatures were observed. The 17:13 event used Codex
+      ShutdownFirst, but the raw trigger and its human/system provenance are not
+      recorded. The 17:31 event ended without ShutdownFirst or EOF logging and
+      Ciel returned shell status 0, so it must not be classified as a confirmed
+      human-requested shutdown.
+    first_event:
+      shutdown_started_utc: "2026-08-28T17:13:24.017Z"
+      codex_internal_classification: "ShutdownFirst / ExitReason::UserRequested"
+      provenance: "unknown; the enum name is not evidence that a person requested it"
+    second_event:
+      started_utc: "2026-08-28T17:26:05Z"
+      last_codex_log_utc: "2026-08-28T17:31:05Z"
+      ciel_shell_exit_status: 0
+      signature: >-
+        Codex logs stopped during active main and subagent work. There was no
+        app-server shutdown, Op::Shutdown, terminal-input-EOF, or cleanup tail.
+    common_evidence:
+      - >-
+        The first shutdown record clears the active main-thread listener during
+        app-server shutdown while had_active_turn=true.
+      - >-
+        Codex then submitted Op::Shutdown to the main thread and all three
+        subagent threads and logged Shutting down Codex instance for each.
+      - >-
+        The rollout recorded a developer turn_aborted item at 17:13:24.339Z and
+        a turn_aborted event with reason=interrupted at 17:13:24.398Z.
+      - >-
+        Codex sent final analytics successfully at 17:13:24 and 17:13:25,
+        showing the process was still executing its shutdown cleanup path.
+      - >-
+        No terminal input stream closed warning exists in the Codex log DB, so
+        the official EOF-triggered ShutdownFirst branch was not observed.
+      - >-
+        Equivalent app-server shutdown batches also occurred on August 24 and
+        twice on August 27, confirming repetition but not the triggering input.
+
+  excluded_causes:
+    host_reboot:
+      excluded: true
+      evidence: "host uptime was 115 days; boot time 2026-05-05T02:24 local observation"
+    memory_pressure_and_oom:
+      confirmed_environment_condition: true
+      evidence: >-
+        The cgroup memory.events file reported cumulative oom_kill=16 and
+        /proc/vmstat reported oom_kill=245. Swap was nearly exhausted. A
+        diagnostic Python process that read whole rollout files was directly
+        observed as Killed. The active main rollout is approximately 1.158 GB
+        and another stored rollout is approximately 1.710 GB.
+      incident_specific_limit: >-
+        Kernel logs are not readable by this account and coredumpctl is absent,
+        so no retained record names PID 605210 as an OOM victim. OOM is a
+        supported hypothesis for the second event, not a proven PID-specific cause.
+    context_limit:
+      excluded: true
+      evidence: >-
+        Final Codex token log reported full_context_window_limit_reached=false
+        and token_limit_reached=false.
+    upstream_request_failure:
+      excluded: true
+      evidence: >-
+        Immediately before shutdown, the main exec tool completed normally and
+        Codex reported model_needs_follow_up=true.
+    mcp_warnings:
+      causal: false
+      evidence: >-
+        MCP OAuth/401/keyring warnings were logged after app-server shutdown
+        began and explicitly say during shutdown; they are cleanup effects.
+    ciel_external_message_injection:
+      observed_at_either_20260828_exit: false
+      evidence: >-
+        runtime-inputs.jsonl last changed at 14:55:26Z and the wake-claims file
+        at 14:49:36Z. No input arrived near either 17:13 or 17:31. The 17:26
+        launch floor and cursor were both set to the existing maximum ID 9817.
+        All 1,658 decoded stored inputs and the retained claim prompt were
+        scanned; none contained C0 control characters other than tab/newline/CR.
+      boundary: >-
+        This excludes a stored Ciel router message as the observed trigger. It
+        does not identify raw keyboard bytes received from the attached tmux client.
+    ciel_synthetic_ctrl_c:
+      observed: false
+      evidence: >-
+        Repository search in the installed Ciel Runtime package found no Ctrl-C,
+        SIGINT, killpg, send_signal, or byte-0x03 emission reference.
+
+  exact_trigger_boundary:
+    first_event_confirmed: >-
+      Codex TUI generated ShutdownFirst while the main turn and three subagent
+      turns were active. The source of that TUI event is not recorded.
+    not_recorded: >-
+      Codex does not log the raw terminal key or slash command that created the
+      Exit event, and tmux has no retained raw key history. Therefore the
+      available evidence cannot distinguish Ctrl+C, Ctrl+D, /quit, /exit,
+      /logout, the running-task exit UI action, or another internal producer.
+    most_relevant_runtime_state: >-
+      A long-lived background unified-exec wait and three live subagents were
+      active. Official Codex source supports a running-task Exit action that
+      interrupts the turn and then emits ExitMode::ShutdownFirst.
+    tmux_clients:
+      count: 2
+      active_client_pid: 600758
+      active_client_last_activity_epoch: 1787937215
+      note: >-
+        Client activity occurred near the incident, but tmux exposes only the
+        latest activity time, not the triggering key, so this is not causal proof.
+
+  confirmed_ciel_observability_defect:
+    source: "ciel_runtime_support/channel_terminal_proxy.py"
+    behavior: >-
+      POSIX select/master-read OSError branches silently broke the proxy loop.
+      The return expression used proc.returncode without polling again and
+      substituted 0 while it was still None. The finally block could then
+      terminate a still-running Codex process. Thus SIGKILL/proxy failures could
+      be presented to the shell as success with no diagnostic record.
+    local_fix:
+      - "retry select/master-read EINTR"
+      - "record select versus master_read, errno, and child state"
+      - "poll the child after loop exit"
+      - "map negative subprocess signals to conventional shell status (SIGKILL => 137)"
+      - "return status 1, not 0, if proxy I/O failed while the child remains alive"
+      - >-
+        audit only physical-terminal Ctrl-C and Ctrl-D byte counts, without
+        recording ordinary keys or input content
+    verification:
+      test_command: >-
+        uv run --with pytest python -m pytest tests/test_channel_injection.py
+        tests/test_architecture_contracts.py -q
+      result: "232 passed, 42 skipped, 739 subtests passed"
+      channel_group: "396 tests passed, 80 skipped"
+      full_project_suite: >-
+        npm test passed: unit 1,342 tests (44 skipped), router 1,056 tests,
+        channel 396 tests (80 skipped), runtime 258 tests (12 skipped)
+      static_checks: "compileall passed; ruff passed"
+    deployment: >-
+      Not deployed to Kevin during this task. The user stated that remote
+      updating will be performed separately, so the installed nightly remains
+      unchanged and cannot yet emit the new exit evidence.
+
+  monitored_restart:
+    launched_utc: "2026-08-28T17:37:52Z"
+    observed_through_utc: "2026-08-28T18:14:36Z"
+    result: "alive"
+    rss_range: "approximately 189-216 MiB"
+    oom_kill_counter: >-
+      Increased from 16 to 17 while this Codex PID remained alive. This proves
+      continuing host-level OOM activity and also proves the cgroup counter is
+      contextual rather than PID-specific evidence.
+
+  shutdown_side_effects:
+    - "active main turn aborted"
+    - "three subagent turns shut down"
+    - "two background terminal tasks recorded status=failed during cleanup"
+    - >-
+      rollout flushes after thread removal failed with thread not found and
+      closed-channel messages; these happened after shutdown began.
+
+  preserved_live_processes:
+    observed_at_utc: "2026-08-28T17:20:27Z"
+    processes:
+      - "598632 node scripts/zec-local-position-monitor.mjs --live"
+      - "598753 node scripts/zec-local-harness.mjs --live"
+      - "598754 node scripts/zec-operator-live-three-family.mjs --live --continuous"
+      - "598755 node scripts/zec-stair-step-midline-daemon.mjs --live"
+    note: "All four were reparented to PID 1 and remained alive after Codex exit."
+
+  official_source_evidence:
+    repository: "https://github.com/openai/codex"
+    tag: "rust-v0.150.1"
+    commit: "90854393966b21e9ebfd21b122334eb09a20c93d"
+    files:
+      - >-
+        codex-rs/tui/src/chatwidget.rs: request_quit_without_confirmation emits
+        AppEvent::Exit(ExitMode::ShutdownFirst); documented callers include
+        explicit quit commands and Ctrl-C/Ctrl-D quit shortcuts.
+      - >-
+        codex-rs/tui/src/chatwidget/interaction.rs: Ctrl-C interrupt/quit and
+        Ctrl-D quit routing.
+      - >-
+        codex-rs/tui/src/chatwidget/slash_dispatch.rs: /quit and /exit emit the
+        same shutdown-first event; /logout also exits through shutdown-first.
+      - >-
+        codex-rs/tui/src/app/event_dispatch.rs: ShutdownFirst calls thread
+        shutdown and returns ExitReason::UserRequested.
+      - >-
+        codex-rs/tui/src/app/startup.rs: terminal input stream EOF logs a warning
+        before taking ShutdownFirst; that warning is absent from Kevin's DB.
+
+  remote_evidence_files:
+    - "/home/kevin-codex/.codex/logs_2.sqlite"
+    - "/home/kevin-codex/.codex/sessions/2026/08/24/rollout-2026-08-24T23-03-43-01a03716-9bb1-77e2-8771-4329c3b0338f.jsonl"
+    - "/home/kevin-codex/.config/ciel-runtime/launch-state.json"
+    - "/home/kevin-codex/.config/ciel-runtime/router-instances/8804-ea36accb7699/codex-processes/548552-client.json"
+    - "/home/kevin-codex/.config/ciel-runtime/workspaces/ea36accb7699/runtime-inputs.jsonl"

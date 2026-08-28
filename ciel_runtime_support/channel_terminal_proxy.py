@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import errno
 import os
 import signal
 import sys
@@ -118,6 +119,61 @@ def windows_wake_requires_body_fallback(
     return bool(
         action in {"unseen_retry", "stale"}
         and attempts >= max(1, int(maximum_attempts))
+    )
+
+
+def resolve_posix_child_exit_status(
+    proc: Any,
+    log: Callable[[str, str], None],
+    *,
+    io_failure: tuple[str, OSError] | None = None,
+) -> int:
+    """Resolve a PTY child result without masking signals or proxy failures."""
+
+    returncode = proc.poll()
+    if returncode is None:
+        if io_failure is None:
+            log(
+                "ERROR",
+                "channel_stdin_proxy_exit_unresolved child_running=true exit_status=1",
+            )
+        else:
+            stage, exc = io_failure
+            log(
+                "ERROR",
+                "channel_stdin_proxy_io_failed "
+                f"stage={stage} errno={exc.errno if exc.errno is not None else '-'} "
+                f"error={type(exc).__name__} child_running=true exit_status=1",
+            )
+        return 1
+
+    exit_status = 128 + abs(returncode) if returncode < 0 else returncode
+    if io_failure is None:
+        log(
+            "INFO",
+            "channel_stdin_proxy_child_exit "
+            f"returncode={returncode} exit_status={exit_status}",
+        )
+    else:
+        stage, exc = io_failure
+        log(
+            "WARN",
+            "channel_stdin_proxy_child_exit_after_io_error "
+            f"stage={stage} errno={exc.errno if exc.errno is not None else '-'} "
+            f"error={type(exc).__name__} returncode={returncode} "
+            f"exit_status={exit_status}",
+        )
+    return exit_status
+
+
+def terminal_exit_control_summary(data: bytes) -> str:
+    """Summarize only terminal controls that can request a Codex TUI exit."""
+
+    labels = ((3, "ctrl_c"), (4, "ctrl_d"))
+    return ",".join(
+        f"{label}:{count}"
+        for value, label in labels
+        if (count := data.count(value)) > 0
     )
 
 
@@ -487,6 +543,7 @@ def run_posix_channel_terminal_proxy(
         if callable(old_sigwinch):
             old_sigwinch(signum, frame)
 
+    io_failure: tuple[str, OSError] | None = None
     try:
         try:
             old_sigwinch = signal.getsignal(signal.SIGWINCH)
@@ -509,11 +566,21 @@ def run_posix_channel_terminal_proxy(
             )
             try:
                 readable, _, _ = select.select([stdin_fd, master_fd], [], [], 0.2)
-            except OSError:
+            except OSError as exc:
+                if exc.errno == errno.EINTR:
+                    continue
+                io_failure = ("select", exc)
                 break
             if stdin_fd in readable:
                 data = os.read(stdin_fd, 4096)
                 if data:
+                    exit_controls = terminal_exit_control_summary(data)
+                    if exit_controls:
+                        policy.log(
+                            "WARN",
+                            "channel_stdin_proxy_exit_control_input "
+                            f"source=terminal controls={exit_controls}",
+                        )
                     filtered_data = mouse_input_filter.feed(data)
                     if filtered_data:
                         observed_enter = terminal.observed_enter(
@@ -531,7 +598,10 @@ def run_posix_channel_terminal_proxy(
             if master_fd in readable:
                 try:
                     data = os.read(master_fd, 4096)
-                except OSError:
+                except OSError as exc:
+                    if exc.errno == errno.EINTR:
+                        continue
+                    io_failure = ("master_read", exc)
                     break
                 if data and not interaction_pending:
                     terminal.write_all(stdout_fd, data)
@@ -593,7 +663,11 @@ def run_posix_channel_terminal_proxy(
                 terminal.write_all(stdout_fd, data)
             except OSError:
                 break
-        return proc.returncode if proc.returncode is not None else 0
+        return resolve_posix_child_exit_status(
+            proc,
+            policy.log,
+            io_failure=io_failure,
+        )
     finally:
         if sigwinch_installed:
             try:

@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import Mock
 
 from ciel_runtime_support.channel_injection import (
     ChannelPromptInjector,
@@ -6,6 +7,8 @@ from ciel_runtime_support.channel_injection import (
     RuntimeInjectionPolicy,
 )
 from ciel_runtime_support.channel_terminal_proxy import (
+    resolve_posix_child_exit_status,
+    terminal_exit_control_summary,
     windows_wake_requires_body_fallback,
 )
 
@@ -86,6 +89,75 @@ class FakeConPtyTransport:
 
 
 class ChannelPromptInjectorTests(unittest.TestCase):
+    def test_terminal_exit_control_summary_omits_normal_input(self) -> None:
+        self.assertEqual("", terminal_exit_control_summary(b"hello\r\n\x15"))
+
+    def test_terminal_exit_control_summary_reports_only_exit_controls(self) -> None:
+        self.assertEqual(
+            "ctrl_c:2,ctrl_d:1",
+            terminal_exit_control_summary(b"a\x03b\x04\x03\x1b[20~"),
+        )
+
+    def test_posix_child_signal_is_reported_as_shell_exit_status(self) -> None:
+        proc = Mock()
+        proc.poll.return_value = -9
+        logs: list[tuple[str, str]] = []
+
+        exit_status = resolve_posix_child_exit_status(
+            proc,
+            lambda level, message: logs.append((level, message)),
+            io_failure=("master_read", OSError(5, "pty closed")),
+        )
+
+        self.assertEqual(137, exit_status)
+        self.assertEqual(1, proc.poll.call_count)
+        self.assertTrue(
+            any(
+                level == "WARN"
+                and "stage=master_read" in message
+                and "returncode=-9" in message
+                and "exit_status=137" in message
+                for level, message in logs
+            )
+        )
+
+    def test_posix_proxy_failure_while_child_is_alive_is_not_success(self) -> None:
+        proc = Mock()
+        proc.poll.return_value = None
+        logs: list[tuple[str, str]] = []
+
+        exit_status = resolve_posix_child_exit_status(
+            proc,
+            lambda level, message: logs.append((level, message)),
+            io_failure=("select", OSError(9, "bad descriptor")),
+        )
+
+        self.assertEqual(1, exit_status)
+        self.assertTrue(
+            any(
+                level == "ERROR"
+                and "stage=select" in message
+                and "child_running=true" in message
+                for level, message in logs
+            )
+        )
+
+    def test_posix_clean_child_exit_remains_success(self) -> None:
+        proc = Mock()
+        proc.poll.return_value = 0
+        logs: list[tuple[str, str]] = []
+
+        exit_status = resolve_posix_child_exit_status(
+            proc,
+            lambda level, message: logs.append((level, message)),
+        )
+
+        self.assertEqual(0, exit_status)
+        self.assertIn(
+            ("INFO", "channel_stdin_proxy_child_exit returncode=0 exit_status=0"),
+            logs,
+        )
+
     def test_windows_stages_clear_body_and_submit_and_flattens_newlines(self) -> None:
         transport = FakeWindowsTransport()
         logs: list[str] = []
