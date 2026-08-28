@@ -1,0 +1,98 @@
+okf:
+  version: "1.0"
+  kind: engineering-journal
+  task:
+    id: windows-tui-first-character-draft-guard-20260828
+    title: Preserve the first manually typed TUI character during external wake injection
+    status: verified
+
+  reported_observation:
+    platform: Windows 11
+    symptom: The first character typed into the routed TUI repeatedly disappears
+    affected_existing_session: true
+    exact_raw_input_capture_available: false
+
+  installed_runtime_evidence:
+    version: 0.2.36
+    running_entrypoint: C:/Users/djlov/.local/share/ciel-runtime/ciel_runtime.py
+    installed_windows_conpty_blob: 0a6fc958ef7945f2de82137669475e85b1c295af
+    matching_repository_revision: 8785786
+    latest_worktree_windows_conpty_blob: 72bdaa02424e3436f66cf0dabc480bba1f9dc220
+    conclusion: >-
+      The running installation predates commit 83a03be. Its new startup terminal
+      reset therefore cannot be the cause of the observed running-session symptom.
+
+  direct_reproduction:
+    fresh_claude_tui:
+      claude_version: 2.1.250
+      installed_runtime_result: CLAUDE_FIRST_INPUT_OK
+      worktree_runtime_result: CLAUDE_FIRST_INPUT_OK
+    post_local_command_transition:
+      command: /help then Escape
+      result: CLAUDE_FIRST_INPUT_OK
+    native_parent_console_transport:
+      method: >-
+        Write X, Y, and Z as Win32 KEY_EVENT records into the parent console,
+        let the production ReadConsoleW pump forward them to a raw ConPTY child,
+        and require the child to exit zero only on the exact XYZ bytes.
+      observed_parent_read: "b'XYZ'"
+      child_exit: 0
+    conclusion: >-
+      A fresh TUI, a local command state transition, and the base parent-console
+      transport did not reproduce a dropped first byte.
+
+  confirmed_code_hazard:
+    external_wake_clear_sequence: Ctrl+U
+    previous_guard_for_manual_draft: false
+    behavior: >-
+      ChannelPromptInjector could write Ctrl+U plus an external wake prompt while
+      an operator draft was already present. That operation deterministically
+      clears the draft, including its first character.
+    causal_link_to_reported_existing_session: unconfirmed
+    reason: >-
+      The current durable channel cursor was at the latest message and wake claims
+      were empty when inspected, so no historical log proves that a wake collision
+      occurred at the exact reported keystroke.
+
+  implementation:
+    parent_input_tracking:
+      source: ciel_runtime_support/windows_conpty.py
+      states:
+        - unsubmitted printable text
+        - VT escape sequence parsing
+        - bracketed-paste boundaries
+        - submit and clear controls
+      public_signal: manual_input_active
+    injection_guard:
+      source: ciel_runtime_support/channel_injection.py
+      behavior: >-
+        Return false before writing Ctrl+U, prompt bytes, or Enter whenever the
+        ConPTY reports an unsubmitted manual draft. Existing pending-message
+        rollback and polling then defer delivery without destroying user input.
+
+  verification:
+    channel_injection_tests: "14 passed"
+    windows_conpty_tests: "28 passed, including native Windows ConPTY"
+    ruff_changed_files: passed
+    full_npm_test:
+      unit: "1345 passed, 44 skipped"
+      router: "1056 passed"
+      channel: "397 passed, 80 skipped"
+      runtime: "258 passed, 12 skipped"
+      total: "3056 passed, 136 skipped, 0 failed"
+    native_draft_guard_probe:
+      parent_read: "b'XYZ'"
+      manual_draft_active: true
+      external_submission: false
+      log: channel_input_injection_deferred reason=parent_input_draft
+      child_exit: 0
+    claude_post_command_probe: CLAUDE_FIRST_INPUT_OK
+
+  limitations:
+    - >-
+      The original existing-session keystroke stream was not recorded, so this
+      journal does not claim that external Ctrl+U injection was the proven cause.
+    - >-
+      The guard applies to the native Windows ConPTY transport, which was confirmed
+      in the running process tree. The legacy console-input fallback has no parent
+      read pump from which to observe a manual draft.

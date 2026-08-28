@@ -46,9 +46,13 @@ class FakeConPtyTransport:
     def __init__(self) -> None:
         self.writes: list[bytes] = []
         self.snapshot = "idle"
+        self.manual_draft = False
         self.ready_previous: str | None = None
         self.readiness_checkpoint = 17
         self.submit_count = 0
+
+    def manual_input_active(self) -> bool:
+        return self.manual_draft
 
     def write(self, data: bytes) -> None:
         self.writes.append(data)
@@ -89,6 +93,37 @@ class FakeConPtyTransport:
 
 
 class ChannelPromptInjectorTests(unittest.TestCase):
+    def test_conpty_manual_draft_defers_before_ctrl_u_can_erase_first_character(self) -> None:
+        transport = FakeConPtyTransport()
+        transport.manual_draft = True
+        logs: list[str] = []
+        injector = ChannelPromptInjector(
+            sleep=lambda _seconds: None,
+            retry_delay_seconds=lambda: 0.0,
+            snapshot=lambda: None,
+            log=lambda _level, message: logs.append(message),
+        )
+
+        submitted = injector.inject(
+            transport,
+            PromptInjection(
+                prompt="external message",
+                policy=RuntimeInjectionPolicy(
+                    runtime="claude",
+                    clear_input=b"\x15",
+                    submit_input=b"\r",
+                    submit_delay_seconds=0.0,
+                ),
+            ),
+        )
+
+        self.assertFalse(submitted)
+        self.assertEqual([], transport.writes)
+        self.assertIn(
+            "channel_input_injection_deferred reason=parent_input_draft",
+            logs,
+        )
+
     def test_terminal_exit_control_summary_omits_normal_input(self) -> None:
         self.assertEqual("", terminal_exit_control_summary(b"hello\r\n\x15"))
 

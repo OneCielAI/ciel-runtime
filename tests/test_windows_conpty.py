@@ -492,6 +492,33 @@ class WindowsConPtyPolicyTests(unittest.TestCase):
             b"".join(call.args[0] for call in session.write.call_args_list),
         )
 
+    def test_parent_text_draft_stays_active_until_submit(self):
+        session = object.__new__(WindowsConPtySession)
+
+        session._observe_parent_input("첫".encode("utf-8")[:1])
+        session._observe_parent_input("첫".encode("utf-8")[1:])
+
+        self.assertTrue(session.manual_input_active())
+        session._observe_parent_input(b"\r")
+        self.assertFalse(session.manual_input_active())
+
+    def test_parent_function_key_does_not_create_manual_draft(self):
+        session = object.__new__(WindowsConPtySession)
+
+        session._observe_parent_input(b"\x1b[")
+        session._observe_parent_input(b"20~")
+
+        self.assertFalse(session.manual_input_active())
+
+    def test_bracketed_paste_newline_remains_a_draft_until_submit(self):
+        session = object.__new__(WindowsConPtySession)
+
+        session._observe_parent_input(b"\x1b[200~first\r\nsecond\x1b[201~")
+
+        self.assertTrue(session.manual_input_active())
+        session._observe_parent_input(b"\r")
+        self.assertFalse(session.manual_input_active())
+
     def test_explicit_redirect_keeps_raw_bytes(self):
         session = object.__new__(WindowsConPtySession)
         session._mirror_output = True

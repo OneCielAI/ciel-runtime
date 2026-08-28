@@ -85,6 +85,13 @@ class ChannelPromptInjector:
 
     def inject(self, transport: InputTransport, request: PromptInjection) -> bool:
         policy = request.policy
+        manual_input_active = getattr(transport, "manual_input_active", None)
+        if callable(manual_input_active) and manual_input_active():
+            self._log(
+                "INFO",
+                "channel_input_injection_deferred reason=parent_input_draft",
+            )
+            return False
         prompt_ready_wait = bool(
             getattr(transport, "supports_prompt_ready_wait", False)
         )

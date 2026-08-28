@@ -83,6 +83,11 @@ class WindowsConPtySession:
         self._parent_output_paused = threading.Event()
         self._forward_stdin = bool(forward_stdin)
         self._write_lock = threading.Lock()
+        self._parent_input_state_lock = threading.Lock()
+        self._parent_input_draft = False
+        self._parent_input_escape = bytearray()
+        self._parent_input_bracketed_paste = False
+        self._parent_input_decoder = codecs.getincrementaldecoder("utf-8")("ignore")
         self._mirror_lock = threading.Lock()
         self._output_lock = threading.Lock()
         self._output_tail = bytearray()
@@ -823,12 +828,80 @@ class WindowsConPtySession:
         raw = ctypes.string_at(ctypes.addressof(buffer), units * ctypes.sizeof(ctypes.c_uint16))
         return raw.decode("utf-16-le").encode("utf-8")
 
+    def manual_input_active(self) -> bool:
+        """Return whether the operator has an unsubmitted parent-console draft."""
+
+        lock = getattr(self, "_parent_input_state_lock", None)
+        if lock is None:
+            return bool(getattr(self, "_parent_input_draft", False))
+        with lock:
+            return bool(self._parent_input_draft)
+
+    def _observe_parent_input(self, data: bytes) -> None:
+        """Track manual text so an external wake cannot erase it with Ctrl+U."""
+
+        lock = getattr(self, "_parent_input_state_lock", None)
+        if lock is None:
+            lock = threading.Lock()
+            self._parent_input_state_lock = lock
+        with lock:
+            escape = getattr(self, "_parent_input_escape", bytearray())
+            decoder = getattr(
+                self,
+                "_parent_input_decoder",
+                codecs.getincrementaldecoder("utf-8")("ignore"),
+            )
+            bracketed_paste = bool(
+                getattr(self, "_parent_input_bracketed_paste", False)
+            )
+            draft = bool(getattr(self, "_parent_input_draft", False))
+            text_bytes = bytearray()
+
+            def observe_text() -> None:
+                nonlocal draft
+                if text_bytes and decoder.decode(bytes(text_bytes), final=False):
+                    draft = True
+                text_bytes.clear()
+
+            for byte in data:
+                if escape:
+                    escape.append(byte)
+                    if len(escape) == 2 and byte not in (ord("["), ord("O")):
+                        escape.clear()
+                    elif len(escape) >= 3 and 0x40 <= byte <= 0x7E:
+                        sequence = bytes(escape)
+                        if sequence == b"\x1b[200~":
+                            bracketed_paste = True
+                        elif sequence == b"\x1b[201~":
+                            bracketed_paste = False
+                        escape.clear()
+                    continue
+                if byte == 0x1B:
+                    observe_text()
+                    escape.append(byte)
+                elif byte in (0x03, 0x04, 0x15):
+                    observe_text()
+                    draft = False
+                    decoder.reset()
+                elif byte in (0x0A, 0x0D) and not bracketed_paste:
+                    observe_text()
+                    draft = False
+                    decoder.reset()
+                elif byte >= 0x20 and byte != 0x7F:
+                    text_bytes.append(byte)
+            observe_text()
+            self._parent_input_escape = escape
+            self._parent_input_decoder = decoder
+            self._parent_input_bracketed_paste = bracketed_paste
+            self._parent_input_draft = draft
+
     def _pump_input(self) -> None:
         while not self._stop.is_set():
             try:
                 data = self._read_input_bytes()
                 if not data:
                     return
+                self._observe_parent_input(data)
                 self.write(data)
             except OSError:
                 return

@@ -389,6 +389,10 @@ bracketed-paste mode를 reset한다. reset은 부모 출력 handle에서
 확인된 경우에만 `WriteConsoleW`로 기록하며, 같은 handle의 원래 mode를 복원한다.
 VT 활성화가 실패한 classic/legacy console에는 escape 문자열을 raw text로 쓰지 않는다.
 
+부모 콘솔에서 사용자가 입력한 미제출 draft가 있으면 외부 channel wake 주입을
+연기한다. 따라서 wake 주입 앞의 `Ctrl+U`가 사용자가 먼저 입력한 글자를 지우지
+않으며, 사용자가 Enter로 draft를 제출한 뒤 기존 polling 절차가 다시 진행된다.
+
 ConPTY 생성이 불가능하거나 `CIEL_RUNTIME_WINDOWS_CONPTY=0`으로 명시적으로 끈
 경우에만 기존 Windows Console 입력 큐 호환 경로를 사용한다. 이 호환 경로에서는
 `clear → body → submit`을 각각 큐가 소비한 뒤 진행하고, 여러 줄의 외부 메시지는
