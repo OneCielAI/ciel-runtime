@@ -482,7 +482,10 @@ class ChannelWakeContext:
         path = self.transcript_policy.latest_transcript()
         if path is None:
             return bool(self.transcript.scope.get("turn_active"))
-        text = self.transcript_repository().read_turn_updates(path)
+        text = self.transcript_repository().read_turn_updates(
+            path,
+            log=self.transcript_policy.log,
+        )
         if not text:
             return bool(self.transcript.scope.get("turn_active"))
         active = bool(

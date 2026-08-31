@@ -11,6 +11,10 @@ import re
 from typing import Any
 
 
+TURN_UPDATE_MAX_BYTES = 4 * 1024 * 1024
+TURN_UPDATE_SKIP_SCAN_BYTES = 64 * 1024
+
+
 @dataclass(frozen=True, slots=True)
 class ChannelTranscriptRepository:
     home: Path
@@ -44,6 +48,8 @@ class ChannelTranscriptRepository:
         self.scope["turn_active"] = False
         self.scope["turn_scan_path"] = None
         self.scope["turn_scan_offset"] = 0
+        self.scope["turn_scan_skipping_record"] = False
+        self.scope["turn_scan_skipped_bytes"] = 0
         self._capture_turn_scan_boundary()
 
     def _capture_turn_scan_boundary(self) -> None:
@@ -61,14 +67,29 @@ class ChannelTranscriptRepository:
         self.cache.clear()
         self.cache.update({"checked_at": 0.0, "path": None})
 
-    def read_turn_updates(self, path: Path) -> str:
+    def read_turn_updates(
+        self,
+        path: Path,
+        max_bytes: int = TURN_UPDATE_MAX_BYTES,
+        log: Callable[[str, str], None] | None = None,
+    ) -> str:
         """Read complete JSONL records appended since this console launched.
 
         Active turns can emit more than the bounded diagnostic tail before they
         finish. Keeping an incremental offset preserves the opening lifecycle
         event without repeatedly reading a large resumed-session transcript.
+
+        One poll is deliberately bounded. If a single JSONL record exceeds the
+        bound, scan to its newline in small chunks and discard that record. Tool
+        output can be arbitrarily large, while lifecycle records are small; the
+        proxy must never materialize a multi-gigabyte transcript suffix merely
+        to decide whether a turn is active.
         """
 
+        try:
+            limit = max(4096, min(16 * 1024 * 1024, int(max_bytes)))
+        except (TypeError, ValueError):
+            limit = TURN_UPDATE_MAX_BYTES
         scan_path = self.scope.get("turn_scan_path")
         if scan_path is None:
             self.scope["turn_scan_path"] = path
@@ -76,25 +97,79 @@ class ChannelTranscriptRepository:
             self.scope["turn_scan_path"] = path
             self.scope["turn_scan_offset"] = 0
             self.scope["turn_active"] = False
+            self.scope["turn_scan_skipping_record"] = False
+            self.scope["turn_scan_skipped_bytes"] = 0
         try:
             size = path.stat().st_size
             offset = max(0, int(self.scope.get("turn_scan_offset") or 0))
+            remaining = limit
             if size < offset:
                 offset = 0
                 self.scope["turn_active"] = False
+                self.scope["turn_scan_skipping_record"] = False
+                self.scope["turn_scan_skipped_bytes"] = 0
             if size <= offset:
                 return ""
             with path.open("rb") as stream:
-                stream.seek(offset)
-                data = stream.read()
+                while offset < size and remaining > 0:
+                    if bool(self.scope.get("turn_scan_skipping_record")):
+                        stream.seek(offset)
+                        chunk = stream.read(
+                            min(
+                                TURN_UPDATE_SKIP_SCAN_BYTES,
+                                size - offset,
+                                remaining,
+                            )
+                        )
+                        if not chunk:
+                            break
+                        remaining -= len(chunk)
+                        newline = chunk.find(b"\n")
+                        consumed = len(chunk) if newline < 0 else newline + 1
+                        offset += consumed
+                        self.scope["turn_scan_offset"] = offset
+                        self.scope["turn_scan_skipped_bytes"] = (
+                            max(0, int(self.scope.get("turn_scan_skipped_bytes") or 0))
+                            + consumed
+                        )
+                        if newline < 0:
+                            continue
+                        self.scope["turn_scan_skipping_record"] = False
+                        self.scope["turn_scan_skipped_bytes"] = 0
+                        continue
+
+                    stream.seek(offset)
+                    data = stream.read(min(remaining, size - offset))
+                    if not data:
+                        break
+                    remaining -= len(data)
+                    complete_end = data.rfind(b"\n")
+                    if complete_end >= 0:
+                        consumed = complete_end + 1
+                        self.scope["turn_scan_offset"] = offset + consumed
+                        payload = data if consumed == len(data) else data[:consumed]
+                        return payload.decode("utf-8", errors="replace")
+                    if len(data) < limit:
+                        # A normal record is still being appended. Keep its
+                        # boundary so the next poll can parse it when complete.
+                        return ""
+
+                    # The first unread physical record alone exceeds the
+                    # memory bound. Do not retain or repeatedly reread it.
+                    self.scope["turn_scan_skipping_record"] = True
+                    self.scope["turn_scan_skipped_bytes"] = len(data)
+                    offset += len(data)
+                    self.scope["turn_scan_offset"] = offset
+                    if log is not None:
+                        log(
+                            "WARN",
+                            "channel_turn_record_exceeds_memory_limit "
+                            f"path={path.name} offset={offset - len(data)} "
+                            f"limit_bytes={limit}",
+                        )
         except (OSError, TypeError, ValueError):
             return ""
-        complete_end = data.rfind(b"\n")
-        if complete_end < 0:
-            return ""
-        consumed = complete_end + 1
-        self.scope["turn_scan_offset"] = offset + consumed
-        return data[:consumed].decode("utf-8", errors="replace")
+        return ""
 
     def roots(self) -> tuple[tuple[Path, str], ...]:
         runtime = str(self.scope.get("runtime") or "").strip().casefold()

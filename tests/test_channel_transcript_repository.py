@@ -360,6 +360,141 @@ class ChannelTranscriptRepositoryTests(unittest.TestCase):
                 )
             self.assertIn('"task_complete"', repository.read_turn_updates(transcript))
 
+    def test_turn_updates_process_large_backlog_in_bounded_batches(self):
+        with tempfile.TemporaryDirectory() as raw_dir:
+            path = Path(raw_dir) / "backlog.jsonl"
+            records = [
+                json.dumps(
+                    {
+                        "type": "event_msg",
+                        "payload": {"type": "task_started"},
+                    }
+                )
+            ]
+            records.extend(
+                json.dumps(
+                    {
+                        "type": "response_item",
+                        "payload": {"type": "reasoning", "text": "x" * 900},
+                    }
+                )
+                for _ in range(40)
+            )
+            records.append(
+                json.dumps(
+                    {
+                        "type": "event_msg",
+                        "payload": {"type": "task_complete"},
+                    }
+                )
+            )
+            path.write_text("\n".join(records) + "\n", encoding="utf-8")
+            scope = {
+                "turn_scan_path": path,
+                "turn_scan_offset": 0,
+                "turn_active": False,
+            }
+            repository = self.repository(Path(raw_dir), scope=scope)
+
+            batches = []
+            while int(scope.get("turn_scan_offset") or 0) < path.stat().st_size:
+                batch = repository.read_turn_updates(path, max_bytes=4096)
+                self.assertTrue(batch)
+                self.assertLessEqual(len(batch.encode("utf-8")), 4096)
+                batches.append(batch)
+
+            self.assertGreater(len(batches), 1)
+            self.assertIn('"task_started"', batches[0])
+            self.assertIn('"task_complete"', batches[-1])
+
+    def test_turn_updates_skip_one_oversized_record_and_reach_lifecycle(self):
+        with tempfile.TemporaryDirectory() as raw_dir:
+            path = Path(raw_dir) / "oversized.jsonl"
+            path.write_text(
+                json.dumps(
+                    {
+                        "type": "response_item",
+                        "payload": {"type": "reasoning", "text": "x" * 12000},
+                    }
+                )
+                + "\n"
+                + json.dumps(
+                    {
+                        "type": "event_msg",
+                        "payload": {"type": "task_complete"},
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            scope = {
+                "turn_scan_path": path,
+                "turn_scan_offset": 0,
+                "turn_active": True,
+            }
+            logs = []
+            repository = ChannelTranscriptRepository(
+                home=Path(raw_dir),
+                cache={},
+                scope=scope,
+                now=lambda: 300.0,
+            )
+
+            updates = ""
+            while int(scope.get("turn_scan_offset") or 0) < path.stat().st_size:
+                updates = repository.read_turn_updates(
+                    path,
+                    max_bytes=4096,
+                    log=lambda level, message: logs.append((level, message)),
+                )
+                if updates:
+                    break
+
+            self.assertIn('"task_complete"', updates)
+            self.assertEqual(path.stat().st_size, scope["turn_scan_offset"])
+            self.assertFalse(scope["turn_scan_skipping_record"])
+            self.assertTrue(
+                any("channel_turn_record_exceeds_memory_limit" in message for _, message in logs)
+            )
+
+    def test_turn_updates_continue_discarding_oversized_record_after_append(self):
+        with tempfile.TemporaryDirectory() as raw_dir:
+            path = Path(raw_dir) / "growing-oversized.jsonl"
+            path.write_bytes(b"x" * 5000)
+            scope = {
+                "turn_scan_path": path,
+                "turn_scan_offset": 0,
+                "turn_active": True,
+            }
+            repository = self.repository(Path(raw_dir), scope=scope)
+
+            self.assertEqual("", repository.read_turn_updates(path, max_bytes=4096))
+            self.assertEqual(4096, scope["turn_scan_offset"])
+            self.assertTrue(scope["turn_scan_skipping_record"])
+
+            with path.open("ab") as stream:
+                stream.write(b"y" * 5000 + b"\n")
+                stream.write(
+                    (
+                        json.dumps(
+                            {
+                                "type": "event_msg",
+                                "payload": {"type": "task_complete"},
+                            }
+                        )
+                        + "\n"
+                    ).encode("utf-8")
+                )
+
+            updates = ""
+            while int(scope.get("turn_scan_offset") or 0) < path.stat().st_size:
+                updates = repository.read_turn_updates(path, max_bytes=4096)
+                if updates:
+                    break
+            self.assertIn('"task_complete"', updates)
+            self.assertEqual(path.stat().st_size, scope["turn_scan_offset"])
+            self.assertFalse(scope["turn_scan_skipping_record"])
+
 
 if __name__ == "__main__":
     unittest.main()

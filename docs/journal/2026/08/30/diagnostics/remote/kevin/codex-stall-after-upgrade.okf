@@ -1,0 +1,157 @@
+okf_version: "1.0"
+knowledge:
+  task:
+    id: "kevin-codex-stall-after-upgrade-20260830"
+    date: "2026-08-30"
+    status: "diagnosed_live_resource_stall_exact_allocator_origin_unconfirmed"
+    objective: >-
+      Inspect Kevin's live Ciel Runtime and Codex session after reports that
+      Codex pauses for a long time following the recent nightly upgrade.
+
+  remote_scope:
+    host: "kevin-codex@100.95.132.58"
+    hostname: "aap-pool-hera"
+    tmux_session: "aap-agent-89"
+    workspace: "/home/kevin-codex"
+    observed_utc: "2026-08-31T01:16:18Z through 2026-08-31T01:23Z"
+    ciel_version: "0.2.36-nightly.20260828-200425.98ea93f"
+    codex_version: "0.151.0"
+    codex_thread: "01a03716-9bb1-77e2-8771-4329c3b0338f"
+    ciel_cli_pid: 2166378
+    router_pid: 2168063
+    codex_pid: 2168133
+
+  confirmed_observations:
+    user_provided_post_termination_measurement:
+      screenshot: >-
+        C:\Users\djlov\AppData\Local\Temp\codex-clipboard-aO0tdc.png
+      measurements:
+        - >-
+          The report attributes 10.36 GiB to python3 ciel_runtime.py cli after
+          approximately one hour, versus 0.49 GiB to Codex itself.
+        - >-
+          It reports total Kevin-codex memory falling from 17.78 GiB to 6.01 GiB
+          after terminating that Ciel process, a reduction of 11.88 GiB.
+        - >-
+          It also reports swap-in falling from approximately 200,000 KiB/s to
+          1,596 KiB/s, free RAM rising from 226 MiB to 2,826 MiB, and load falling
+          from 15.66 to 6.88.
+      evidence_boundary: >-
+        This is direct process-attribution evidence that the Ciel CLI allocation
+        caused the machine pressure and apparent input stall. A before/after
+        termination snapshot alone does not distinguish monotonically unreachable
+        objects (a classical leak) from one oversized transcript allocation whose
+        freed arenas remain reserved by the Python/glibc allocator.
+    process_liveness:
+      - "tmux pane aap-agent-89:0.0 remained alive and attached."
+      - >-
+        Codex PID 2168133 remained alive, retained established local router and
+        upstream TLS sockets, and changed its TUI from Working (4m) to later
+        tool activity and finally a completed Korean result during observation.
+      - >-
+        Therefore the observed pause was not a confirmed Codex exit, router
+        disconnect, or permanently dead turn.
+    active_rollout:
+      path: >-
+        /home/kevin-codex/.codex/sessions/2026/08/24/
+        rollout-2026-08-24T23-03-43-01a03716-9bb1-77e2-8771-4329c3b0338f.jsonl
+      size_bytes_samples:
+        - 1912566037
+        - 1913714178
+        - 1913915284
+      identity: >-
+        The first session_meta record names the same resumed thread ID and cwd
+        /home/kevin-codex.
+    ciel_parent_memory:
+      - >-
+        Ciel CLI PID 2166378 was repeatedly observed at approximately 3.3 GiB
+        through 6.5 GiB RSS, with earlier /proc status showing 6.3 GiB of swap
+        and VmPeak 14,854,516 KiB.
+      - >-
+        smaps_rollup showed 4,492,012 KiB anonymous private dirty memory in one
+        sample. pmap showed two dominant anonymous mappings, approximately
+        3,445,780 KiB and 7,475,388 KiB virtual size.
+      - >-
+        The same process alternated between runnable state and uninterruptible
+        D state at folio_wait_bit_common.
+      - >-
+        Its /proc I/O counters showed rchar fixed at 14,290,753,604 bytes while
+        read_bytes rose from 44,797,825,024 to 46,433,374,208 in 20 seconds.
+        During a later idle TUI interval, read_bytes rose from 52,806,254,592
+        to 54,489,292,800 while rchar changed by only 2,578 bytes. This is
+        direct evidence of storage reads without equivalent userspace file
+        reads, consistent with faulting anonymous pages back from swap.
+      - >-
+        PID 2166378 accumulated 1,776,955 major faults by 01:22Z.
+    host_pressure:
+      - "Memory was 13 GiB used of 14 GiB with only 209-268 MiB free in samples."
+      - "Swap was 25 GiB used of 27 GiB in multiple samples."
+      - >-
+        vmstat samples showed roughly 70-93 MiB/s swap-in and 89-162 MiB/s
+        swap-out with CPU idle at zero during the strongest pressure sample.
+      - >-
+        PSI reported memory some avg10=16.59%, memory full avg10=9.88%, I/O
+        some avg10=31.75%, and I/O full avg10=9.10%.
+      - >-
+        cgroup memory.events remained at cumulative oom_kill=21 during this
+        inspection; no new incident-specific OOM kill was observed.
+    version_diff:
+      - >-
+        The installed Ciel commit is 98ea93f. The two commits after Kevin's
+        previously observed 23ae8b0 build are 0b3daa2 (POSIX child-exit
+        evidence) and 98ea93f (Windows manual TUI draft preservation).
+      - >-
+        git diff 23ae8b0..98ea93f contains no change to Codex session selection,
+        transcript incremental reading, or Linux memory allocation. This does
+        not support a confirmed direct causal claim that either recent Ciel
+        patch introduced the large heap.
+
+  diagnosis:
+    confirmed_current_stall_mechanism: >-
+      Kevin's long apparent Codex pauses coincide with severe host memory and
+      I/O pressure. The largest process is the Ciel CLI parent, not Codex. It
+      repeatedly faults gigabytes of anonymous memory through swap and enters
+      folio_wait_bit_common, while the Codex child remains alive and eventually
+      completes the turn.
+    upgrade_causality: >-
+      Not established. The upgrade did restart Ciel and resume the 1.91 GB
+      thread, but the inspected Ciel commit diff does not modify the relevant
+      Linux transcript/memory paths. Temporal ordering alone is not evidence
+      that the two recent patches caused the allocation.
+    exact_allocation_origin: >-
+      Unconfirmed. The running host has no gdb, py-spy, strace, perf, pstack,
+      or readable /proc PID stack, so the live Python allocation stack could
+      not be captured without installing or injecting a profiler.
+
+  source_risk_found:
+    file: "ciel_runtime_support/channel_transcript_repository.py"
+    lines: "64-97"
+    confirmed_behavior: >-
+      read_turn_updates seeks to its stored offset and then calls unbounded
+      stream.read(), followed by bytes slicing, UTF-8 decode, and splitlines in
+      active_turn_from_text. If the offset is zero or reset for a large resumed
+      transcript, this path can materialize the entire unread suffix.
+    evidence_boundary: >-
+      This is a verified code-level memory hazard and it matches the shape of
+      the giant anonymous mappings, but the live Python allocation stack was
+      unavailable. It is therefore a leading candidate, not a proven origin of
+      PID 2166378's current heap.
+    history: >-
+      The unbounded incremental-read implementation was introduced in commit
+      a6b8c58 on 2026-08-20, not in the two most recent commits installed by
+      Kevin.
+    resolution: >-
+      Locally replaced on 2026-08-30 with a 4 MiB per-poll incremental reader,
+      bounded oversized-record discard state, and lazy physical-line iteration.
+      Controlled RSS and full-project tests passed; Kevin deployment remains pending.
+
+  remote_mutations:
+    performed: false
+    note: >-
+      No process was killed or restarted, no package was updated, and no
+      remote file or configuration was changed during this diagnosis.
+
+  local_mutations:
+    - >-
+      Added this required diagnostic journal only. Existing unrelated working
+      tree modifications were left untouched.

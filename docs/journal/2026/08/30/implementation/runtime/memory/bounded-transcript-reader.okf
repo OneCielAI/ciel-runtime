@@ -1,0 +1,132 @@
+okf_version: "1.0"
+knowledge:
+  task:
+    id: "ciel-runtime-bounded-transcript-memory-20260830"
+    date: "2026-08-30"
+    status: "implemented_verified_and_selected_for_nightly_release"
+    objective: >-
+      Re-audit Ciel Runtime CLI memory ownership after Kevin's Ciel parent
+      reached more than 10 GiB, identify the allocation path with measured
+      evidence, and prevent large Codex or Claude transcripts from creating
+      multi-gigabyte Python allocations.
+
+  confirmed_root_path:
+    files:
+      - "ciel_runtime_support/channel_transcript_repository.py"
+      - "ciel_runtime_support/channel_transcript.py"
+      - "ciel_runtime_support/channel_wake_context.py"
+    behavior_before:
+      - >-
+        ChannelTranscriptRepository.read_turn_updates sought to the stored
+        transcript offset and called stream.read() with no byte limit.
+      - >-
+        The returned bytes were sliced and decoded into a second large object.
+        active_turn_from_text then called splitlines(), allocating a complete
+        list and per-line strings for the same payload.
+      - >-
+        If the incremental offset was zero, reset, or behind a large resumed
+        transcript, one 0.2-second terminal-proxy poll could materialize the
+        entire unread suffix.
+    live_alignment:
+      - >-
+        Kevin's active rollout was approximately 1.91 GB. The Ciel CLI parent
+        showed 3.3-6.5 GiB RSS during direct observation, 14,854,516 KiB VmPeak,
+        and giant anonymous mappings while the Codex child stayed near 0.13 GiB.
+      - >-
+        A user-provided before/after termination report measured the Ciel CLI
+        at 10.36 GiB and total memory falling by 11.88 GiB after it exited.
+
+  controlled_reproduction_before:
+    input: "128 MiB JSONL transcript suffix with normal approximately 4 KiB records"
+    baseline_rss_bytes: 22376448
+    peak_rss_bytes: 303030272
+    after_parse_rss_bytes: 157085696
+    result: >-
+      The unbounded production method reproduced a 280,653,824-byte RSS rise
+      from only 128 MiB of transcript input. This directly confirms the source
+      path's memory amplification, independent of Kevin's host pressure.
+
+  implementation:
+    bounded_batches:
+      limit_bytes: 4194304
+      behavior: >-
+        Each active-turn poll reads at most 4 MiB and advances only through
+        complete JSONL records. A backlog is processed incrementally across
+        polls instead of being materialized to EOF.
+    oversized_record_state:
+      scan_chunk_bytes: 65536
+      behavior: >-
+        A physical JSONL record larger than 4 MiB is discarded incrementally
+        under the same per-poll byte budget. The offset and discard state are
+        persisted so an incomplete growing record is not reread from its start.
+        A warning records only path name, offset, and the limit; record content
+        is not logged. Subsequent lifecycle records remain readable.
+    line_iteration:
+      behavior: >-
+        Transcript parsers now iterate physical newline boundaries lazily and
+        no longer allocate splitlines()'s complete list.
+    preserved_contracts:
+      - "ChannelTranscriptRepository remains a four-field repository object."
+      - "Existing incremental active-turn state remains persistent across batches."
+      - "task_started, task_complete, and growing oversized-record behavior are covered."
+
+  controlled_verification_after:
+    regular_records:
+      input_bytes: 134216473
+      baseline_rss_bytes: 22351872
+      peak_rss_bytes: 39309312
+      peak_delta_bytes: 16957440
+      batches: 33
+      largest_returned_batch_bytes: 4191180
+      final_active_state: false
+      final_offset: 134216473
+    oversized_single_record:
+      input_bytes: 67109027
+      baseline_rss_bytes: 22728704
+      peak_rss_bytes: 24449024
+      peak_delta_bytes: 1720320
+      batches: 17
+      returned_lifecycle_bytes: 97
+      warning_count: 1
+      final_active_state: false
+      final_offset: 67109027
+      discard_state_after: false
+    conclusion: >-
+      The final implementation processed both inputs to EOF, observed the final
+      task_complete, and kept peak RSS far below the input size. The normal
+      128 MiB case fell from a 303.0 MiB peak before the fix to a 39.3 MiB peak.
+
+  verification:
+    targeted:
+      command: >-
+        uv run --with pytest python -m pytest
+        tests/test_channel_transcript_repository.py
+        tests/test_channel_transcript.py tests/test_channel_bridge.py
+        tests/test_architecture_contracts.py -q
+      result: "382 passed, 122 skipped, 802 subtests passed"
+    static:
+      ruff: "passed"
+      compileall: "passed as part of npm test"
+      git_diff_check: "passed"
+    full_project:
+      command: "npm test"
+      unit: "1345 passed, 44 skipped"
+      router: "1056 passed"
+      channel: "400 passed, 80 skipped"
+      runtime: "258 passed, 12 skipped"
+
+  deployment:
+    local_code_complete: true
+    kevin_updated: false
+    release_target: "origin/nightly"
+    release_changeset: >-
+      This journal is committed atomically with the bounded transcript reader;
+      the resulting commit and npm workflow evidence are reported in the task handoff.
+    note: >-
+      No Kevin process, package, or configuration was changed. Kevin remains
+      on the previously installed build until the user performs the update.
+
+  worktree_safety:
+    note: >-
+      Existing unrelated OTLP, router, speech, gateway, and journal changes
+      were preserved and not modified by this task.

@@ -141,6 +141,22 @@ class ChannelWakeStateReader:
         )
 
 
+def _text_lines(text: str) -> Iterator[str]:
+    """Yield physical lines without allocating splitlines()'s full list."""
+
+    start = 0
+    length = len(text)
+    while start < length:
+        end = text.find("\n", start)
+        if end < 0:
+            line = text[start:]
+            yield line[:-1] if line.endswith("\r") else line
+            return
+        line = text[start:end]
+        yield line[:-1] if line.endswith("\r") else line
+        start = end + 1
+
+
 def record_timestamp_seconds(record: dict[str, Any]) -> float | None:
     raw = record.get("timestamp")
     if raw is None and isinstance(record.get("attachment"), dict):
@@ -323,7 +339,7 @@ def active_tool_call_from_text(text: str, *, not_before: float | None = None) ->
 
     pending_tool_ids: set[str] = set()
     unknown_tool_active = False
-    for raw_line in text.splitlines():
+    for raw_line in _text_lines(text):
         try:
             record = json.loads(raw_line)
         except (TypeError, ValueError):
@@ -414,7 +430,7 @@ def active_turn_from_text(
     """
 
     active = bool(initial_active)
-    for raw_line in text.splitlines():
+    for raw_line in _text_lines(text):
         try:
             record = json.loads(raw_line)
         except (TypeError, ValueError):
@@ -629,7 +645,7 @@ def queued_command_ids_from_text(
 
 
 def _jsonl_records(text: str) -> Iterator[dict[str, Any]]:
-    for raw_line in text.splitlines():
+    for raw_line in _text_lines(text):
         try:
             record = json.loads(raw_line)
         except (TypeError, ValueError):
