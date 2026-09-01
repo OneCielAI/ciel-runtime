@@ -181,5 +181,61 @@ class RuntimeInputGateway:
             }
         )
 
+    def submit_telemetry_notice(
+        self,
+        ranges: list[dict[str, Any]],
+        record_count: int,
+    ) -> dict[str, Any]:
+        """Notify the runtime about durable logs without embedding log bodies."""
+
+        compact_ranges = [
+            {
+                key: item.get(key)
+                for key in (
+                    "file",
+                    "segment",
+                    "line_start",
+                    "line_end",
+                    "offset_start",
+                    "offset_end",
+                    "records",
+                )
+            }
+            for item in ranges
+            if isinstance(item, dict)
+        ]
+        locations = "; ".join(
+            f"{item.get('file')}#segment={item.get('segment')} "
+            f"lines={item.get('line_start')}-{item.get('line_end')} "
+            f"offsets={item.get('offset_start')}-{item.get('offset_end')}"
+            for item in compact_ranges
+        )
+        message = (
+            f"{int(record_count)} new OpenTelemetry log record(s) were stored locally. "
+            "Use the telemetry_logs tool with the supplied file/segment/offset or line cursor "
+            "to read only the needed range. This is input-only telemetry; no acknowledgement "
+            f"or response is required. Stored ranges: {locations}"
+        )
+        return self.append(
+            {
+                "channel": "telemetry",
+                "sender_id": "otlp",
+                "recipients": ["all"],
+                "kind": "telemetry_notice",
+                "message": message,
+                "meta": {
+                    "source": "ciel-runtime-otlp-logs",
+                    "source_kind": "telemetry_notice",
+                    "record_count": int(record_count),
+                    "ranges": compact_ranges,
+                    "ack_required": False,
+                    "response_expected": False,
+                    "logs_embedded": False,
+                },
+                "delivery": ["llm"],
+                "visibility": "private_runtime",
+            }
+        )
+
 
 __all__ = ["RuntimeInputGateway"]

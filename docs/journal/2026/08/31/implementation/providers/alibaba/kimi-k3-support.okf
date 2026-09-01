@@ -1,0 +1,197 @@
+okf_version: "1.0"
+knowledge:
+  task:
+    id: "alibaba-kimi-k3-support-20260831"
+    date: "2026-08-31"
+    mode: "implementation_and_upstream_readiness_verification"
+    objective: >-
+      Add Alibaba Model Studio Kimi K3 support to the general Singapore
+      provider and Token Plan readiness catalog without advertising it through
+      the unsupported Coding Plan endpoint.
+
+  official_sources:
+    model_card: "https://docs.modelstudio.console.alibabacloud.com/en/model-studio/kimi-k3"
+    kimi_api: "https://www.alibabacloud.com/help/en/model-studio/kimi-api"
+    context_cache: "https://docs.modelstudio.console.alibabacloud.com/en/model-studio/context-cache"
+    coding_plan: "https://www.alibabacloud.com/help/en/model-studio/coding-plan"
+    token_plan_team: "https://docs.modelstudio.console.alibabacloud.com/en/model-studio/token-plan-team-overview"
+    token_plan_personal: "https://docs.modelstudio.console.alibabacloud.com/en/model-studio/token-plan-personal-overview"
+
+  confirmed_contract:
+    model_id: "kimi-k3"
+    regions:
+      singapore: supported
+    modalities:
+      input: [text, image]
+      output: [text]
+    capabilities:
+      function_calling: supported
+      structured_output: supported
+      web_search: supported
+      context_cache: supported
+    limits:
+      context_window: 1048576
+      max_input: 1048576
+      max_output: 1048576
+      max_thinking_input: 1048576
+      max_thinking_output: 1048576
+      max_chain_of_thought: 1048576
+    reasoning:
+      thinking_only: true
+      disable_supported: false
+      thinking_budget_supported: false
+      variable_effort_documented: false
+      preserved_thinking: true
+    protocols:
+      openai_chat_completions: supported
+      openai_responses: unsupported_as_of_check
+      native_anthropic_messages: supported
+    coding_plan:
+      supported: false
+      evidence: >-
+        The official 2026-08-26 model list says models not listed are
+        unsupported, and kimi-k3 is not listed.
+
+  observed_token_plan_state:
+    checked_at: "2026-08-31 America/Chicago"
+    credential_source: "existing local alitoken configuration"
+    credential_value_printed: false
+    models_request:
+      endpoint: "/models"
+      http_status: 200
+      returned_model_count: 12
+      kimi_k3_present: false
+    minimal_chat_request:
+      model: "kimi-k3"
+      endpoint: "/chat/completions"
+      http_status: 404
+      error_code: "model_not_found"
+      message: "Model not exist."
+    conclusion: >-
+      This Token Plan account has not exposed Kimi K3. The implementation is
+      therefore readiness support, not evidence of a successful Token Plan K3
+      inference call.
+
+  follow_up_console_scope_diagnosis:
+    checked_at: "2026-08-31 America/Chicago"
+    supplied_model_card:
+      url: >-
+        https://modelstudio.console.alibabacloud.com/ap-southeast-1?tab=doc#/doc/?type=model&url=2840914_2&modelId=kimi-k3&serviceSite=international
+      active_top_tab: "Docs"
+      displayed_model: "kimi-k3"
+      displayed_pricing: "$3 input / $15 output per 1M tokens"
+      displayed_free_quota: "1,000,000 / 1,000,000"
+      code_sample_key: "DASHSCOPE_API_KEY"
+      code_sample_base_url_kind: "Singapore workspace compatible-mode URL"
+      token_plan_base_url_used: false
+      interpretation: >-
+        This is the general Model Studio model card. The Token Plan text in the
+        header is part of global Subscription navigation and the Token Plan
+        entries in the sidebar are documentation navigation.
+    actual_personal_subscription:
+      console_path: "Subscription / My Subscriptions / Personal Pro"
+      heading: "Available Models"
+      scope_notice: "Your current plan only supports the following models"
+      kimi_k3_present: false
+      kimi_family_present: false
+      secret_values_recorded: false
+    api_corroboration:
+      authenticated_models_status: 200
+      authenticated_models_kimi_k3_present: false
+      kimi_k3_chat_status: 404
+      error_code: "model_not_found"
+    confirmed_cause_boundary: >-
+      The exact model ID is valid for general Model Studio, while this Personal
+      Token Plan allowlist does not contain it. Alibaba's reason or future
+      rollout schedule for excluding it is not published and remains unknown.
+
+  implementation:
+    files:
+      - "ciel_runtime_support/providers/alibaba.py"
+      - "ciel_runtime_support/config_migrations.py"
+      - "tests/test_alibaba_provider.py"
+      - "docs/Providers.md"
+    provider_scope:
+      model_studio_international: added
+      token_plan_singapore_readiness_fallback: added
+      coding_plan: not_added
+      legacy_individual_coding_endpoint: not_added
+    catalog_authority: >-
+      A successful authenticated upstream /models response remains
+      authoritative. The fallback catalog cannot force kimi-k3 into an account
+      whose live catalog does not expose it.
+    protocol_projection:
+      codex_responses_input: projected_to_openai_chat
+      claude_messages_input: sent_to_native_anthropic_messages
+    request_policy:
+      enable_thinking: true
+      removed_unsupported_fields:
+        - thinking_budget
+        - reasoning_effort
+        - reasoning
+        - preserve_thinking
+      reasoning_history_passback: enabled
+      tool_choice_required: preserved
+    runtime_profile:
+      context_window: 1048576
+      official_hard_max_output: 1048576
+      default_interactive_output: 131072
+      compaction_window: 900000
+      reasoning_selector_levels: [xhigh]
+      default_output_rationale: >-
+        Ciel's request builder reserves max_output_tokens inside the context
+        window. Using the entire official hard output limit as the default
+        would leave no practical input-history budget, so the hard limit is
+        recorded while the interactive default remains 131072.
+
+  correction:
+    attempted_shared_migration_constant: "ConfigMigrationPolicy.kimi_k3_model"
+    observed_value_for_alibaba_migration: "k3"
+    regression_result: "2 of 39 focused tests failed"
+    resolution: >-
+      Keep Alibaba's exact documented model ID kimi-k3 independent from the
+      existing Kimi-provider normalization constant.
+    post_resolution_focused_tests: "39 passed, 0 failed"
+
+  verification:
+    focused_alibaba_tests:
+      run: 39
+      failed: 0
+      status: passed
+    actual_request_projection:
+      protocol: "openai_chat"
+      user_text_preserved: "hello"
+      request_message_count: 2
+      max_tokens: 131072
+      enable_thinking: true
+      reasoning_effort_present: false
+      status: passed
+    static:
+      changed_file_ruff: passed
+      changed_file_diff_check: passed
+      documentation_metadata: "25 Markdown files passed"
+      repository_wide_ruff: failed_on_unrelated_dirty_file
+      repository_wide_ruff_existing_findings:
+        file: "ciel_runtime.py"
+        lines: [2990, 2992]
+        code: "E702"
+        count: 4
+        changed_by_this_task: false
+    full_repository_tests:
+      unit: {run: 1345, skipped: 44, failed: 0}
+      router: {run: 1061, skipped: 0, failed: 0}
+      channel: {run: 400, skipped: 80, failed: 0}
+      runtime: {run: 258, skipped: 12, failed: 0}
+      total: {run: 3064, skipped: 136, failed: 0}
+      exit_code: 0
+    upstream_inference:
+      model_studio_pay_as_you_go: not_run_no_configured_key
+      token_plan: rejected_by_upstream_model_not_found
+      successful_kimi_k3_response_verified: false
+    secrets_added_to_diff: false
+
+  completion:
+    code_support: implemented
+    local_projection: verified
+    successful_live_upstream_inference: blocked_by_current_account_catalog
+    status: "implemented_with_upstream_rollout_limitation"

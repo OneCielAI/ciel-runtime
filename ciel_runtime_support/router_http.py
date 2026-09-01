@@ -133,6 +133,7 @@ class RouterHttpPostEndpoints:
     external_events_raw: Callable[[Any, str, bytes], bool] | None = None
     external_events_config: Callable[[Any, str, dict[str, Any]], bool] | None = None
     usage: Callable[[Any, str, dict[str, Any]], bool] | None = None
+    telemetry_raw: Callable[[Any, str, bytes, str], bool] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -1060,7 +1061,8 @@ class RouterHttpHandler(BaseHTTPRequestHandler):
             cfg = services.core.load_config()
             endpoints = services.post
             is_webhook = path.startswith("/ca/events/webhooks/")
-            if not is_webhook and services.core.reject_external(self, cfg):
+            has_endpoint_auth = is_webhook or path == "/v1/logs"
+            if not has_endpoint_auth and services.core.reject_external(self, cfg):
                 self.close_connection = True
                 return
             length = self._validated_content_length(path, services)
@@ -1087,6 +1089,16 @@ class RouterHttpHandler(BaseHTTPRequestHandler):
                             {"ok": False, "error": "receiver_not_available"},
                             404,
                         )
+                        return
+                    if (
+                        endpoints.telemetry_raw is not None
+                        and endpoints.telemetry_raw(
+                            self,
+                            path,
+                            raw,
+                            str(self.headers.get("content-type") or "application/json"),
+                        )
+                    ):
                         return
                     if endpoints.speech(
                         self,

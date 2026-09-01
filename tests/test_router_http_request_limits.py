@@ -18,6 +18,7 @@ from ciel_runtime_support.request_body_policy import (
     SPEECH_REFERENCE_REQUEST_MAX_BYTES,
     WEBHOOK_REQUEST_MAX_BYTES,
 )
+from ciel_runtime_support.otlp_logs import OTLP_LOG_REQUEST_MAX_BYTES
 from ciel_runtime_support.router_http import (
     RouterHttpCore,
     RouterHttpErrors,
@@ -66,7 +67,7 @@ class _TrackedReader(io.BytesIO):
 
 
 class _RouterFixture:
-    def __init__(self, policy=None):
+    def __init__(self, policy=None, reject_external=None):
         self.policy = policy or RouterRequestBodyPolicy(environment={})
         self.responses = []
         self.runtime_calls = []
@@ -83,6 +84,12 @@ class _RouterFixture:
         def external_raw(*_args, **_kwargs):
             self.endpoint_calls.append("external_raw")
             return False
+
+        def telemetry_raw(_handler, path, raw, content_type):
+            if path != "/v1/logs":
+                return False
+            self.endpoint_calls.append(("telemetry_raw", raw, content_type))
+            return True
 
         def runtime_post(_handler, _cfg, provider, _pcfg, path, body):
             self.runtime_calls.append((provider, path, body))
@@ -114,7 +121,7 @@ class _RouterFixture:
         self.services = RouterHttpServices(
             core=RouterHttpCore(
                 load_config=lambda: {},
-                reject_external=lambda *_args: False,
+                reject_external=reject_external or (lambda *_args: False),
                 get_current_provider=lambda _cfg: (
                     "kimi",
                     {"current_model": "k3"},
@@ -145,6 +152,7 @@ class _RouterFixture:
                 runtime=runtime_post,
                 external_events_raw=external_raw,
                 external_events_config=false_post,
+                telemetry_raw=telemetry_raw,
             ),
             presentation=RouterHttpPresentation(
                 home_html=lambda *_args: "",
@@ -188,6 +196,37 @@ class _RouterFixture:
 
 
 class RouterHttpRequestLimitTests(unittest.TestCase):
+    def test_otlp_logs_route_uses_telemetry_raw_handler_before_json_parsing(self):
+        fixture = _RouterFixture()
+        raw = b"not parsed by router core"
+        handler = fixture.handler(
+            "/v1/logs",
+            {"content-length": str(len(raw)), "content-type": "application/json"},
+            _TrackedReader(raw),
+        )
+
+        handler.do_POST()
+
+        self.assertEqual(
+            [("telemetry_raw", raw, "application/json")],
+            fixture.endpoint_calls,
+        )
+        self.assertEqual([], fixture.runtime_calls)
+        self.assertEqual(OTLP_LOG_REQUEST_MAX_BYTES, fixture.policy.limit_for("/v1/logs"))
+
+    def test_otlp_route_uses_its_dedicated_auth_instead_of_router_admin_auth(self):
+        fixture = _RouterFixture(reject_external=lambda *_args: True)
+        raw = b"{}"
+        handler = fixture.handler(
+            "/v1/logs",
+            {"content-length": str(len(raw)), "content-type": "application/json"},
+            _TrackedReader(raw),
+        )
+
+        handler.do_POST()
+
+        self.assertEqual([("telemetry_raw", raw, "application/json")], fixture.endpoint_calls)
+
     def test_model_request_larger_than_legacy_four_mib_reaches_runtime(self):
         fixture = _RouterFixture()
         raw = json.dumps(

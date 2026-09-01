@@ -191,6 +191,26 @@ def apply_config_migrations(cfg: dict[str, Any], *, policy: ConfigMigrationPolic
                 pcfg["max_model_len"] = 1_000_000
         migrations[marker] = True
 
+    marker = "alibaba_kimi_k3_20260831"
+    if not migrations.get(marker):
+        providers = cfg.get("providers") if isinstance(cfg.get("providers"), dict) else {}
+        for provider_name in ("alims-intl", "alitoken"):
+            pcfg = providers.get(provider_name)
+            if not isinstance(pcfg, dict):
+                continue
+            custom = pcfg.get("custom_models")
+            if not isinstance(custom, list):
+                custom = []
+                pcfg["custom_models"] = custom
+            known = {
+                normalize_model_id(provider_name, str(model))
+                for model in custom
+                if str(model).strip()
+            }
+            if normalize_model_id(provider_name, "kimi-k3") not in known:
+                custom.append("kimi-k3")
+        migrations[marker] = True
+
     marker = "alibaba_token_plan_singapore_20260806"
     if not migrations.get(marker):
         providers = cfg.get("providers") if isinstance(cfg.get("providers"), dict) else {}

@@ -1,0 +1,238 @@
+okf_version: "1.0"
+knowledge:
+  task:
+    id: "external-message-injection-endpoints-20260828"
+    date: "2026-08-28"
+    status: "investigation_complete"
+    objective: >-
+      Enumerate every current Web Chat, HTTP, SSE, WebSocket, MCP, and remote
+      LLM surface that could be mistaken for an external message-injection
+      endpoint, then trace authentication, persistence, and active-runtime
+      delivery from source code.
+
+  verified_scope:
+    repository: "C:/Users/djlov/ciel-runtime"
+    branch: "feature/remote-runtime-bridge"
+    head: "23ae8b0"
+    runtime_version_command: "ciel-runtime --version"
+    runtime_version_observed: "0.2.36"
+    codex_version_command: "codex --version"
+    codex_version_observed: "codex-cli 0.150.1"
+
+  conclusions:
+    ciel_router_websocket_message_endpoint:
+      exists: false
+      evidence: >-
+        A repository-wide WebSocket search found no WebSocket server or route
+        in the Ciel HTTP router. The only runtime ws:// listener construction is
+        the separately launched Codex App Server.
+
+    active_runtime_input_surfaces:
+      - family: "Web Chat / channel message"
+        endpoints:
+          - "POST /ca/chat/messages"
+          - "POST /ca/channel/messages"
+        default_contract:
+          input_mode: "structured"
+          input_transport: "tty"
+          response_mode: "web_chat"
+        accepted_input_modes: ["structured", "tty"]
+        accepted_input_transports: ["tty", "router"]
+        accepted_response_modes: ["web_chat", "tty", "mcp"]
+        message_body_fields:
+          primary: "message"
+          accepted_by_repository: ["message", "text"]
+        admission:
+          structured: >-
+            The public chat record is written first. Unless delivery explicitly
+            excludes llm, a private_runtime copy with delivery=[llm] is appended
+            to runtime-inputs.jsonl.
+          tty: >-
+            A private tty_input record is appended directly. A public record is
+            also written only when response_mode=web_chat.
+        external_authentication: >-
+          Non-loopback requests require administrative external access and the
+          administrative router token. A Remote Bridge token alone is not valid
+          for /ca/chat paths.
+
+      - family: "Explicit notification"
+        endpoints:
+          - "POST /ca/chat/notify"
+          - "POST /ca/channel/notify"
+        admission: >-
+          Appends a notification directly to the private runtime input queue
+          with delivery=[llm] and visibility=private_runtime. It is not first
+          published to Web Chat.
+        external_authentication: >-
+          Same administrative router access policy as /ca/chat/messages.
+
+      - family: "CloudEvents webhook receiver"
+        endpoint: "POST /ca/events/webhooks/<receiver-id>"
+        prerequisite: >-
+          The named receiver must exist, be enabled, use transport=webhook, and
+          have a configured webhook_secret.
+        payload: >-
+          UTF-8 CloudEvents 1.0 structured JSON with non-empty id, source, and
+          type fields.
+        authentication: >-
+          Standard Webhooks HMAC-SHA256 headers webhook-id,
+          webhook-timestamp, and webhook-signature are verified against the
+          receiver secret. This route deliberately bypasses the general router
+          Bearer-token gate and performs receiver-specific verification.
+        admission: >-
+          The exact decoded JSON text is appended to the private runtime input
+          queue as kind=external_event, channel=external:<receiver-id>,
+          delivery=[llm], visibility=private_runtime.
+
+      - family: "Configured external SSE receiver"
+        inbound_ciel_http_endpoint: false
+        configuration_endpoints:
+          - "GET /ca/events/receivers"
+          - "POST /ca/events/receivers/<receiver-id>"
+        transport_direction: "Ciel Runtime -> external SSE URL"
+        prerequisite: "enabled receiver with transport=sse and a non-empty url"
+        external_authentication: >-
+          Ciel optionally sends the configured receiver authorization value as
+          an Authorization header. Receiver management endpoints themselves use
+          the administrative router access policy for non-loopback callers.
+        reconnect: >-
+          The receiver persists a cursor and reconnects with Last-Event-ID, or
+          with a configured cursor query parameter.
+        admission: >-
+          Each SSE data frame must contain a valid structured CloudEvent. The
+          exact frame data is admitted through the same private external_event
+          path as a webhook.
+
+  delivery_mechanics:
+    persistence:
+      public_web_transcript: "chat-messages.jsonl"
+      private_runtime_queue: "runtime-inputs.jsonl"
+    polling:
+      normal_interval_seconds: 0.5
+      safety_rescan_interval_seconds: 5.0
+      active_turn_behavior: "defer while an active turn or tool call is detected"
+    tty_transport: >-
+      The pending input is formatted as a terminal prompt and written to the
+      launched CLI's PTY/ConPTY or Windows console-input compatibility writer.
+    router_transport: >-
+      The proxy still writes a short [ciel-wake] pending_ids=... marker to the
+      CLI terminal. On the resulting routed LLM request, Ciel removes the wake
+      marker and appends the queued message body as a user message in the
+      request body. Therefore router transport is not a PTY-free injection
+      mechanism; it still depends on terminal wake submission.
+
+  observation_only_surfaces:
+    - endpoint: "GET /ca/chat/stream"
+      alias: "GET /ca/channel/stream"
+      protocol: "SSE"
+      purpose: "public chat transcript observation"
+    - endpoint: "GET /ca/chat/wait"
+      alias: "GET /ca/channel/wait"
+      protocol: "long-poll JSON"
+      purpose: "public chat transcript observation"
+    - endpoint: "GET /ca/events/stream"
+      protocol: "SSE"
+      purpose: "router operational event observation"
+    - endpoint: "GET /ca/tui/stream"
+      protocol: "SSE"
+      purpose: "TUI observation"
+    note: "None of these GET streams admits an external message."
+
+  adjacent_but_not_active_session_message_injection:
+    remote_llm_bridge:
+      endpoints:
+        - "POST /v1/chat/completions"
+        - "POST /v1/responses"
+        - "POST /v1/responses/compact"
+        - "POST /v1/messages"
+        - "POST /v1/messages/count_tokens"
+        - "GET /v1/models"
+        - "GET /v1/models/<model>"
+        - "GET /ca/bridge"
+      authentication: "dedicated Remote Bridge token on non-loopback requests"
+      classification: >-
+        These execute an isolated routed LLM API request. Remote-bridge routing
+        explicitly skips host session shortcuts and pending-channel context, so
+        they do not inject into the active CLI session.
+
+    built_in_mcp:
+      endpoint: "POST /ca/mcp"
+      transport: "stateless Streamable HTTP"
+      classification: >-
+        send_message and send_file are reply/output tools. Their default
+        delivery is [web], and source=ciel-runtime-router-tool is filtered from
+        pending model input. The endpoint has no MCP GET stream, SSE session,
+        notification subscription, or sleeping-TUI wake path.
+
+    uploads_and_plan_announcements:
+      endpoints:
+        - "POST /ca/chat/files"
+        - "POST /ca/channel/files"
+        - "POST /ca/plan/artifacts"
+      classification: >-
+        These can append public transcript announcements but do not mirror
+        those announcements into the private runtime input queue.
+
+    speech_proxy:
+      endpoints:
+        - "POST /v1/audio/transcriptions"
+        - "POST /v1/audio/translations"
+        - "POST /v1/audio/speech"
+      classification: >-
+        ASR/TTS proxy calls only. Web UI code may use an ASR result in a later
+        chat POST, but these endpoints do not themselves enqueue a message.
+
+    codex_app_server_websocket:
+      owner: "separate codex app-server process"
+      ciel_default_listen: "ws://127.0.0.1:<ROUTER_PORT+20>"
+      configurable_environment: "CIEL_RUNTIME_CODEX_APP_SERVER_LISTEN"
+      installed_cli_help_observation: >-
+        codex 0.150.1 reports --listen support for stdio://, unix://, ws://IP:PORT,
+        and off, plus --ws-auth and token/JWT options for non-loopback listeners.
+      relevant_json_rpc_methods_in_ciel_client_module:
+        - "turn/start"
+        - "turn/steer"
+        - "thread/inject_items"
+      classification: >-
+        This is a direct Codex App Server endpoint, not a /ca route and not
+        connected to Ciel's runtime-inputs.jsonl polling path. Ciel currently
+        launches the process but does not expose a WebSocket-to-Web-Chat bridge.
+
+  verification:
+    passing_test_run_1:
+      command: >-
+        PYTHONPATH=.. python -m unittest test_chat_http_injection_mode
+        test_runtime_input_gateway test_external_event_receiver
+        test_external_mcp_ownership test_remote_bridge_http test_router_access
+        test_codex_app_server
+      result: "63 tests run, 0 failures, 0 errors"
+    passing_test_run_2:
+      modules:
+        - "test_channel_injection: 8 tests"
+        - "test_channel_pending_poll: 7 tests"
+        - "test_channel_mcp_http_controller: 7 tests"
+        - "test_channel_mcp_tools: 8 tests"
+      result: "30 tests run, 0 failures, 0 errors"
+    excluded_run:
+      command: >-
+        PYTHONPATH=.. python -m unittest test_runtime_routers.RuntimeRouterTests...
+      result: >-
+        The process produced no test result within 30 seconds and was
+        interrupted. It is not counted as passing evidence.
+
+  source_evidence:
+    - "ciel_runtime_support/chat_http_controller.py"
+    - "ciel_runtime_support/runtime_input_gateway.py"
+    - "ciel_runtime_support/channel_pending_injection.py"
+    - "ciel_runtime_support/channel_pending_poll.py"
+    - "ciel_runtime_support/channel_llm_context.py"
+    - "ciel_runtime_support/channel_message_prompt.py"
+    - "ciel_runtime_support/external_event_receiver.py"
+    - "ciel_runtime_support/router_http.py"
+    - "ciel_runtime_support/router_access.py"
+    - "ciel_runtime_support/remote_bridge.py"
+    - "ciel_runtime_support/channel_mcp_http_controller.py"
+    - "ciel_runtime_support/channel_mcp_tools.py"
+    - "ciel_runtime_support/codex_app_server.py"
+    - "ciel_runtime_support/runtime_launch.py"
+    - "ciel_runtime.py"

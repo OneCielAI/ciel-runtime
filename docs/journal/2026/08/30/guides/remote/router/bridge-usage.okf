@@ -1,0 +1,73 @@
+okf:
+  version: "1.0"
+  kind: usage-journal
+  task:
+    id: remote-router-bridge-usage-20260830
+    title: Verify how to start and consume the Remote Runtime Bridge
+    status: verified
+
+  local_installation:
+    path_precedence:
+      first: C:/Users/djlov/.local/bin/ciel-runtimectl.ps1
+      second: C:/Users/djlov/AppData/Roaming/npm/ciel-runtimectl.ps1
+    first_version: 0.2.36
+    npm_global_version: 0.2.36-nightly.20260827-014004.bf419ce
+    bridge_command_in_first: false
+    bridge_command_in_npm_global: false
+
+  registry:
+    package: "@oneciel-ai/ciel-runtime"
+    nightly_version: 0.2.36-nightly.20260828-200425.98ea93f
+    git_head: 98ea93f4a49bc590a05ff8c0e3655329a44f0a68
+    bridge_command_present_in_source: true
+
+  host_commands:
+    install: npm install -g @oneciel-ai/ciel-runtime@nightly
+    enable: ciel-runtimectl bridge enable --host 0.0.0.0
+    token: ciel-runtimectl bridge token
+    serve: ciel-runtimectl bridge serve --host 0.0.0.0
+    status: ciel-runtimectl bridge status
+
+  endpoints:
+    openai_base: http://ROUTER_HOST:ROUTER_PORT/v1
+    anthropic_base: http://ROUTER_HOST:ROUTER_PORT
+    models: GET /v1/models
+    bridge_status: GET /ca/bridge
+    authentication: "Authorization: Bearer BRIDGE_TOKEN"
+
+  verified_constraints:
+    - The bridge uses the effective workspace ROUTER_PORT shown by bridge status
+    - GitHub Copilot OAuth login and token refresh remain on the Router host
+    - Provider/model routing uses provider/model in the standard model field
+    - The bridge token does not authorize Router administration endpoints
+    - Plain HTTP must be carried over a trusted or encrypted network path
+
+  authentication_matrix:
+    remote_client_to_router:
+      supported: true
+      credential: dedicated Remote Bridge bearer token
+    router_to_api_key_provider:
+      supported: true
+      credential_source:
+        - Router-host stored provider API key
+        - Request-scoped provider key where the provider permits it
+    router_to_github_copilot:
+      supported: true
+      credential_source: Router-host OAuth login and refresh
+      remote_override_allowed: false
+    native_codex_chatgpt_oauth:
+      supported: false
+      reason: The codex provider depends on client-local runtime authentication
+    native_claude_subscription_oauth:
+      supported: false
+      alternative: Use the Anthropic-compatible bridge with a Router-host API credential
+    incompatible_remote_bridge_providers:
+      - codex
+      - agy
+      - zai-start-plan
+
+  source:
+    documentation: docs/Remote-Bridge.md
+    cli_parser: ciel_runtime_support/cli_parser.py
+    cli_controller: ciel_runtime_support/remote_bridge_cli.py
+    access_policy: ciel_runtime_support/router_access.py

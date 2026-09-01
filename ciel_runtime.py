@@ -22,7 +22,7 @@ from ciel_runtime_support import anthropic_model_policy
 from ciel_runtime_support import channel_cursor_repository as channel_cursor_storage, hosted_formula_tools
 from ciel_runtime_support import channel_llm_context, claude_launch_assembly, cli_assembly, cli_dispatch, cli_parser, codex_launch_configuration, codex_turn_recovery, kimi_identity, llm_option_config, llm_presets, native_context_recovery
 from ciel_runtime_support import ollama_catalog as ollama_catalog_policy
-from ciel_runtime_support import openai_chat_compatibility_bridge, prelaunch, prelaunch_assembly, provider_catalog_sources, provider_models, provider_network, rate_limit_policy, router_request_assembly, router_server_runtime, runtime_asset_assembly, runtime_launch, runtime_primitives, terminal_platform_io, windows_console_mode
+from ciel_runtime_support import openai_chat_compatibility_bridge, otlp_logs, prelaunch, prelaunch_assembly, provider_catalog_sources, provider_models, provider_network, rate_limit_policy, router_request_assembly, router_server_runtime, runtime_asset_assembly, runtime_launch, runtime_primitives, terminal_platform_io, windows_console_mode
 from ciel_runtime_support.prelaunch_launch_panel import launch_panel_rows as project_launch_panel_rows
 from ciel_runtime_support.advisor_client import AdvisorClient, AdvisorClientIO, AdvisorClientPolicy, ProviderChatExecutor, ProviderChatIO, ProviderChatPolicy
 from ciel_runtime_support.advisor_policy import AdvisorDecisionServices, AdvisorServices, AdvisorShortcutController, AdvisorShortcutPorts, AdvisorTextServices
@@ -576,6 +576,7 @@ _CHAT_NEXT_ID: int | None = None
 _RUNTIME_INPUT_CONDITION = threading.Condition()
 _RUNTIME_INPUT_NEXT_ID: int | None = None
 _EXTERNAL_EVENT_RECEIVER_SERVICE: ExternalEventReceiverService | None = None
+_TELEMETRY_LOG_RUNTIME = otlp_logs.TelemetryLogRuntime(WORKSPACE_STATE_DIR / "telemetry-logs", lambda ranges, count: runtime_input_gateway().submit_telemetry_notice(ranges, count), lambda handler, obj, status=200: write_json(handler, obj, status), lambda level, message: router_log(level, message))
 _CHANNEL_LLM_CURSOR_LOCK = threading.Lock()
 _CHANNEL_LLM_CURSOR_LAST_ID: int | None = None
 _CHANNEL_STDIN_WAKE_LOCK = threading.Lock()
@@ -2108,6 +2109,7 @@ def _channel_mcp_tool_call_response(request_id: Any, params: dict[str, Any]) -> 
             file_message_text=chat_file_message_text,
             handle_llm_options=handle_live_llm_options_action,
             read_runtime_inputs=read_runtime_inputs,
+            telemetry_logs=_TELEMETRY_LOG_RUNTIME.tool,
         ),
     )
 
@@ -2985,18 +2987,16 @@ def router_request_body_policy() -> RouterRequestBodyPolicy:
 def _router_server_context() -> RouterServerContext:
     usage_services = UsageRuntimeServices(USAGE_LEDGER, USAGE_API_KEYS, UsagePushDeliveryService(USAGE_LEDGER, load_config, os.environ, router_log), CONFIG_DIR, WORKSPACE_STATE_DIR, ROUTER_WORKSPACE_ID, USAGE_EVENTS_PATH, router_log)
     def start_router_services() -> None:
-        external_event_receiver_service().start()
-        usage_services.start()
+        external_event_receiver_service().start(), _TELEMETRY_LOG_RUNTIME.start(), usage_services.start()
     def stop_router_services() -> None:
-        usage_services.stop()
-        external_event_receiver_service().stop()
+        usage_services.stop(), _TELEMETRY_LOG_RUNTIME.stop(), external_event_receiver_service().stop()
     http_services = RouterHttpServices(
         core=RouterHttpCore(load_config, reject_external_router_request, get_current_provider, parse_json_body, is_client_disconnect_error, router_log, observe_tui_runtime_response, router_request_body_policy(), RouterHttpRemoteBridge(_REMOTE_BRIDGE.enabled, _REMOTE_BRIDGE.resolve, _REMOTE_BRIDGE.status_payload, lambda handler, cfg: _ROUTER_ACCESS_POLICY.remote_bridge_request(handler, cfg, remote_bridge_access_token))),
         get=RouterHttpGetEndpoints(handle_tui_observation_get, handle_observability_get, handle_llm_config_get, lambda _handler, _path: False, handle_web_get,
                                    lambda handler, path: speech_http_controller().get(handler, path), handle_chat_get, handle_plan_get, route_runtime_get,
                                    handle_external_event_get),
         post=RouterHttpPostEndpoints(lambda handler, path, raw, content_type: speech_http_controller().post(handler, path, raw, content_type), handle_llm_config_post, handle_channel_mcp_post, handle_chat_post,
-                                     handle_plan_post, route_runtime_post, handle_external_event_raw_post, handle_external_event_config_post, handle_usage_post),
+                                     handle_plan_post, route_runtime_post, handle_external_event_raw_post, handle_external_event_config_post, handle_usage_post, telemetry_raw=_TELEMETRY_LOG_RUNTIME.http.post),
         presentation=RouterHttpPresentation(render_router_home_html, router_health_payload, write_text_response, write_json, list_model_objects_for_request, resolve_requested_model, model_object, _REMOTE_BRIDGE.model_objects),
         errors=RouterHttpErrors(write_openai_responses_error, try_write_json),
     )

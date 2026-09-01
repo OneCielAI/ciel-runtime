@@ -462,6 +462,14 @@ def _message_source_header(message: dict[str, Any]) -> str:
 
 
 def message_llm_display_text(message: dict[str, Any]) -> str:
+    meta = _metadata(message)
+    if str(meta.get("source_kind") or "").strip().lower() == "telemetry_notice":
+        return (
+            "[ciel-runtime input-only telemetry notice; do not acknowledge or respond "
+            "unless the stored logs require an explicit action]\n"
+            + str(message.get("message") if message.get("message") is not None else "")
+            + "\n[ciel-runtime end telemetry notice]"
+        )
     if message_is_external_event(message):
         # The event body is deliberately not parsed, normalized, summarized, or
         # re-serialized. Protocol framing is outside the exact admitted text.
@@ -475,7 +483,6 @@ def message_llm_display_text(message: dict[str, Any]) -> str:
             + raw
             + "\n[ciel-runtime end external event]"
         )
-    meta = _metadata(message)
     for key in ("mcp_json", "sse_json"):
         value = meta.get(key)
         if isinstance(value, (dict, list)):

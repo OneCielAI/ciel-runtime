@@ -18,6 +18,7 @@ from .request_limits_config import (
     base64_json_wire_max_bytes,
     resolve_workspace_request_limits,
 )
+from .otlp_logs import OTLP_LOG_REQUEST_MAX_BYTES, OTLP_LOGS_PATH
 
 
 # This is a transport circuit breaker, not a model/context limit.  Providers
@@ -152,6 +153,8 @@ class RouterRequestBodyPolicy:
         self._lock = threading.Lock()
 
     def limit_for(self, path: str, content_type: str = "application/json") -> int:
+        if path == OTLP_LOGS_PATH:
+            return OTLP_LOG_REQUEST_MAX_BYTES
         if path.startswith("/ca/events/webhooks/"):
             return WEBHOOK_REQUEST_MAX_BYTES
         if (

@@ -67,6 +67,19 @@ https://{WorkspaceId}.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1
 `/apps/anthropic`으로 파생된다. `alitoken`은 별도 구독·과금 계약의 Singapore Token
 Plan endpoint를 계속 사용하므로 일반 `alims-intl` workspace URL과 혼용하지 않는다.
 
+`kimi-k3`는 `alims-intl`과 `alitoken`의 준비 카탈로그에 포함된다. 공식 hard limit은
+context와 최대 출력 모두 1,048,576 tokens다. Ciel의 기본 대화 출력 예산은 입력
+history 공간을 보존하도록 131,072로 설정하며 사용자가 명시적으로 조정할 수 있다.
+OpenAI Responses 요청도 upstream에는 Chat Completions로 변환한다. K3는 thinking-only이므로
+`enable_thinking=true`와 thinking history 보존을 적용하고, 지원하지 않는
+`thinking_budget` 및 가변 reasoning effort는 upstream에 보내지 않는다. Anthropic
+Messages 요청은 공식 `/apps/anthropic` 계약을 그대로 사용한다.
+
+Token Plan에서 인증된 `/models` 조회가 성공하면 그 계정별 결과가 준비 카탈로그보다
+우선한다. 따라서 Alibaba가 해당 구독/계정에 K3를 실제 배포하기 전에는 Ciel이 모델을
+강제로 노출하지 않는다. Coding Plan의 2026-08-26 공식 목록에는 K3가 없으므로
+`alicode`와 `alicode-intl`에는 추가하지 않는다.
+
 ### Anthropic Messages 호환 제공자
 
 `minimax`와 `minimax-cn`은 OpenAI 변환을 거치지 않고 Anthropic Messages 계약,

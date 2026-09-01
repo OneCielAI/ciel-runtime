@@ -19,6 +19,7 @@ class ChannelMcpToolServices:
     file_message_text: Callable[[str, list[dict[str, Any]]], str]
     handle_llm_options: Callable[[str, str], tuple[list[str], bool]]
     read_runtime_inputs: Callable[..., list[dict[str, Any]]] | None = None
+    telemetry_logs: Callable[[str, dict[str, Any]], dict[str, Any]] | None = None
 
 
 def channel_mcp_tool_schemas() -> list[dict[str, Any]]:
@@ -148,6 +149,40 @@ def channel_mcp_tool_schemas() -> list[dict[str, Any]]:
                 },
             },
         },
+        {
+            "name": "telemetry_logs",
+            "description": (
+                "Inspect cursor-addressable OpenTelemetry logs stored by Ciel Runtime without loading "
+                "whole telemetry batches into model context. Actions: list, read, configure, roll, delete."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["list", "read", "configure", "roll", "delete"],
+                    },
+                    "file": {"type": "string", "description": "Logical log.file.name."},
+                    "segment": {"type": "integer", "minimum": 1},
+                    "offset": {"type": "integer", "minimum": 0},
+                    "max_bytes": {"type": "integer", "minimum": 1, "maximum": 1048576},
+                    "line_start": {"type": "integer", "minimum": 1},
+                    "line_end": {"type": "integer", "minimum": 1},
+                    "segment_max_bytes": {"type": "integer", "minimum": 65536},
+                    "max_segments": {"type": "integer", "minimum": 1, "maximum": 1024},
+                    "ttl_seconds": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "description": "0 disables TTL deletion; non-zero values must be at least 60.",
+                    },
+                    "confirm": {
+                        "type": "boolean",
+                        "description": "Required for destructive delete actions.",
+                    },
+                },
+                "required": ["action"],
+            },
+        },
     ]
 
 
@@ -188,7 +223,30 @@ def dispatch_channel_mcp_tool(
             str(args.get("preset") or ""),
         )
         return _json_response(request_id, {"ok": True, "changed": changed, "lines": lines})
+    if name == "telemetry_logs":
+        return _telemetry_logs(request_id, args, services)
     return channel_mcp_tool_response(request_id, f"Unknown ciel-runtime-router tool: {name}", True)
+
+
+def _telemetry_logs(
+    request_id: Any,
+    args: dict[str, Any],
+    services: ChannelMcpToolServices,
+) -> dict[str, Any]:
+    if services.telemetry_logs is None:
+        return channel_mcp_tool_response(request_id, "telemetry log storage is unavailable", True)
+    action = str(args.get("action") or "list").strip().lower()
+    if action not in {"list", "read", "configure", "roll", "delete"}:
+        return channel_mcp_tool_response(request_id, f"unsupported telemetry_logs action: {action}", True)
+    if action in {"read", "configure", "roll", "delete"} and not str(args.get("file") or "").strip():
+        return channel_mcp_tool_response(request_id, f"telemetry_logs {action} requires file", True)
+    if action == "delete" and args.get("confirm") is not True:
+        return channel_mcp_tool_response(request_id, "telemetry_logs delete requires confirm=true", True)
+    try:
+        result = services.telemetry_logs(action, args)
+    except (FileNotFoundError, OSError, ValueError) as exc:
+        return channel_mcp_tool_response(request_id, str(exc), True)
+    return _json_response(request_id, {"ok": True, **result})
 
 
 def _send_message(

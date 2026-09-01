@@ -66,6 +66,8 @@ class RouterServerContext:
             "plan": "/ca/plan/artifacts",
             "events": "/ca/events",
             "external_event_receivers": "/ca/events/receivers",
+            "otlp_logs": "/v1/logs",
+            "telemetry_logs_tool": "POST /ca/mcp tools/call telemetry_logs",
             "tui": "/ca/tui",
             "tui_status": "/ca/tui/status",
             "tui_stream": "/ca/tui/stream",

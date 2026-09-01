@@ -48,6 +48,28 @@ QWEN38_CODEX_CATALOG = {
 QWEN37_MAX_MODEL = "qwen3.7-max"
 QWEN37_CONTEXT_WINDOW = 1_000_000
 QWEN37_MAX_OUTPUT = 65_536
+KIMI_K3_MODEL = "kimi-k3"
+KIMI_K3_CONTEXT_WINDOW = 1_048_576
+KIMI_K3_MAX_OUTPUT = 1_048_576
+KIMI_K3_DEFAULT_OUTPUT = 131_072
+KIMI_K3_CODEX_CATALOG = {
+    "context_window": KIMI_K3_CONTEXT_WINDOW,
+    "max_context_window": KIMI_K3_CONTEXT_WINDOW,
+    "supports_parallel_tool_calls": False,
+    "supports_image_detail_original": True,
+    "input_modalities": ["text", "image"],
+    "shell_type": "default",
+    "support_verbosity": False,
+    "supports_reasoning_summaries": False,
+    "experimental_supported_tools": [],
+    "supported_reasoning_levels": [
+        {
+            "effort": "xhigh",
+            "description": "Always-on provider-managed reasoning; effort is not adjustable",
+        }
+    ],
+    "default_reasoning_level": "xhigh",
+}
 ALIBABA_CODING_PLAN_MODELS = (
     "qwen3.7-plus",
     "qwen3.6-plus",
@@ -72,6 +94,7 @@ ALIBABA_MODEL_STUDIO_MODELS = (
     "deepseek-v4-pro",
     "deepseek-v4-flash",
     "glm-5.2",
+    KIMI_K3_MODEL,
     "kimi-k2.7-code",
     "MiniMax-M2.5",
 )
@@ -84,6 +107,7 @@ ALIBABA_TOKEN_PLAN_MODELS = (
     "deepseek-v4-pro",
     "deepseek-v4-flash",
     "deepseek-v3.2",
+    KIMI_K3_MODEL,
     "kimi-k2.7-code",
     "kimi-k2.6",
     "kimi-k2.5",
@@ -91,6 +115,9 @@ ALIBABA_TOKEN_PLAN_MODELS = (
     "glm-5.1",
     "glm-5",
     "MiniMax-M2.5",
+)
+ALIBABA_INDIVIDUAL_TOKEN_PLAN_MODELS = tuple(
+    model for model in ALIBABA_TOKEN_PLAN_MODELS if model != KIMI_K3_MODEL
 )
 _RESPONSES_MODEL_PREFIXES = (
     "qwen3.8-max",
@@ -110,6 +137,7 @@ _CHAT_SEARCH_MODEL_PREFIXES = (
     "qwen3.6-flash",
     "qwen3.5-plus",
     "qwen3.5-flash",
+    KIMI_K3_MODEL,
 )
 _WEB_SEARCH_NAMES = frozenset({"websearch", "web_search"})
 _WEB_FETCH_NAMES = frozenset({"webfetch", "web_fetch"})
@@ -223,12 +251,31 @@ class AlibabaModelStudioProviderAdapter(HttpBearerProviderAdapter):
             return f"{base[:-len(suffix)]}/apps/anthropic"
         return base
 
+    def operation_base_url(self, operation: str, config: ProviderConfig) -> str:
+        if operation == "anthropic_messages":
+            return self.anthropic_base_url(config)
+        return config.base_url or self.default_base_url()
+
     def supports_server_web_tools(self, config: ProviderConfig) -> bool:
         return self._supports_chat_search(config.model)
 
     def model_configuration_profile(
         self, config: ProviderConfig
     ) -> tuple[Mapping[str, Any], str | None]:
+        if self._is_kimi_k3(config.model):
+            return (
+                {
+                    "context_window": KIMI_K3_CONTEXT_WINDOW,
+                    "max_model_len": KIMI_K3_CONTEXT_WINDOW,
+                    "max_output_tokens": KIMI_K3_DEFAULT_OUTPUT,
+                    "auto_compact_window": QWEN38_AUTO_COMPACT,
+                    "codex_auto_compact_window": QWEN38_AUTO_COMPACT,
+                    "effort_level": "xhigh",
+                    "model_profile": "alibaba-kimi-k3-1m",
+                    "codex_model_catalog": deepcopy(KIMI_K3_CODEX_CATALOG),
+                },
+                "Alibaba Kimi K3 profile applied: 1,048,576-token context, 131,072-token interactive output budget, always-on provider-managed reasoning, and 900K compaction.",
+            )
         if not self._is_qwen38(config.model):
             if QWEN37_MAX_MODEL not in self._clean_model(config.model):
                 return {}, None
@@ -299,7 +346,11 @@ class AlibabaModelStudioProviderAdapter(HttpBearerProviderAdapter):
             # body directly. In particular, max_tokens and thinking must not be
             # rewritten as OpenAI Chat fields merely because both formats use a
             # top-level messages array.
-            return deepcopy(request)
+            normalized = deepcopy(request)
+            model = str(normalized.get("model") or config.model)
+            if self._is_kimi_k3(model):
+                normalized.pop("thinking_budget", None)
+            return normalized
         return self.normalize_request_options(config, request)
 
     def openai_reasoning_effort(
@@ -323,7 +374,9 @@ class AlibabaModelStudioProviderAdapter(HttpBearerProviderAdapter):
         protocol: MessageProtocol,
         request: Mapping[str, Any],
     ) -> tuple[str, str | None]:
-        if protocol in {"openai_chat", "openai_responses"} and self._is_qwen38(model):
+        if protocol in {"openai_chat", "openai_responses"} and (
+            self._is_qwen38(model) or self._is_kimi_k3(model)
+        ):
             return "disable", None
         minimum_request = {**request, "reasoning_effort": "low"}
         if protocol == "openai_chat" and self.openai_reasoning_effort(
@@ -336,7 +389,7 @@ class AlibabaModelStudioProviderAdapter(HttpBearerProviderAdapter):
         self, config: ProviderConfig, model: str | None = None
     ) -> bool:
         del config
-        return self._is_qwen38(model)
+        return self._is_qwen38(model) or self._is_kimi_k3(model)
 
     def allows_sampling_overrides(self, config: ProviderConfig) -> bool:
         del config
@@ -428,6 +481,16 @@ class AlibabaModelStudioProviderAdapter(HttpBearerProviderAdapter):
                 request.pop("thinking_budget", None)
             if "max_tokens" in request and "max_completion_tokens" not in request:
                 request["max_completion_tokens"] = request.pop("max_tokens")
+        elif cls._is_kimi_k3(model):
+            # Kimi K3 is thinking-only on Alibaba Model Studio. Its Chat
+            # Completions contract has no adjustable reasoning effort or
+            # thinking budget. Preserved thinking is handled by reasoning
+            # history passback instead of an undocumented request override.
+            request["enable_thinking"] = True
+            request.pop("thinking_budget", None)
+            request.pop("reasoning_effort", None)
+            request.pop("reasoning", None)
+            request.pop("preserve_thinking", None)
 
     @staticmethod
     def _normalize_qwen38_effort(value: Any) -> str:
@@ -540,6 +603,10 @@ class AlibabaModelStudioProviderAdapter(HttpBearerProviderAdapter):
         return cls._clean_model(model) == QWEN38_MAX_MODEL
 
     @classmethod
+    def _is_kimi_k3(cls, model: str | None) -> bool:
+        return cls._clean_model(str(model or "")) == KIMI_K3_MODEL
+
+    @classmethod
     def _supports_responses(cls, model: str | None) -> bool:
         clean = cls._clean_model(str(model or ""))
         return any(prefix in clean for prefix in _RESPONSES_MODEL_PREFIXES)
@@ -555,6 +622,8 @@ class AlibabaModelStudioProviderAdapter(HttpBearerProviderAdapter):
         model: str | None,
         request: Mapping[str, Any],
     ) -> bool:
+        if self._is_kimi_k3(model or config.model):
+            return self.supports_tool_choice(config, model)
         if self._thinking_enabled(config, request):
             return False
         return self.supports_tool_choice(config, model)
@@ -589,7 +658,11 @@ class AlibabaModelStudioProviderAdapter(HttpBearerProviderAdapter):
     @staticmethod
     def _clean_model(model: str) -> str:
         value = str(model or "").strip().lower()
-        return QWEN38_MAX_MODEL if QWEN38_MAX_MODEL in value else value
+        if QWEN38_MAX_MODEL in value:
+            return QWEN38_MAX_MODEL
+        if KIMI_K3_MODEL in value:
+            return KIMI_K3_MODEL
+        return value
 
 
 @dataclass(frozen=True)
@@ -648,10 +721,18 @@ class AlibabaIndividualTokenPlanProviderAdapter(AlibabaTokenPlanProviderAdapter)
     name: str = "alitoken-individual"
     base_url: str = "https://coding.dashscope.aliyuncs.com/v1"
     api_key_display_name_value: str = "Alibaba Token Plan Individual"
+    configuration_defaults_value: dict = field(
+        default_factory=lambda: {
+            **deepcopy(
+                AlibabaTokenPlanProviderAdapter().configuration_defaults_value
+            ),
+            "custom_models": list(ALIBABA_INDIVIDUAL_TOKEN_PLAN_MODELS),
+        }
+    )
     model_catalog_policy_value: ProviderModelCatalogPolicy = field(
         default_factory=lambda: ProviderModelCatalogPolicy(
             kind="openai",
-            fallback_models=ALIBABA_TOKEN_PLAN_MODELS,
+            fallback_models=ALIBABA_INDIVIDUAL_TOKEN_PLAN_MODELS,
             allow_configured_fallback=True,
             authoritative_upstream_catalog=True,
         )
@@ -669,11 +750,17 @@ class AlibabaIndividualTokenPlanProviderAdapter(AlibabaTokenPlanProviderAdapter)
 __all__ = [
     "ALIBABA_TOKEN_PLAN_RESPONSES_MAX_BYTES",
     "ALIBABA_CODING_PLAN_MODELS",
+    "ALIBABA_INDIVIDUAL_TOKEN_PLAN_MODELS",
     "ALIBABA_MODEL_STUDIO_MODELS",
     "ALIBABA_TOKEN_PLAN_MODELS",
     "AlibabaModelStudioProviderAdapter",
     "AlibabaIndividualTokenPlanProviderAdapter",
     "AlibabaTokenPlanProviderAdapter",
+    "KIMI_K3_CODEX_CATALOG",
+    "KIMI_K3_CONTEXT_WINDOW",
+    "KIMI_K3_DEFAULT_OUTPUT",
+    "KIMI_K3_MAX_OUTPUT",
+    "KIMI_K3_MODEL",
     "QWEN38_AUTO_COMPACT",
     "QWEN38_CONTEXT_WINDOW",
     "QWEN38_MAX_INPUT",

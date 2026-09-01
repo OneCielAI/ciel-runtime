@@ -1,0 +1,22 @@
+okf_version: "1.0"
+knowledge:
+  task:
+    id: "npm-nightly-install-syntax-20260901"
+    date: "2026-09-01"
+    objective: "Diagnose the Windows npm ENOENT produced by the nightly install command."
+  observed:
+    command: "npm install -g @oneciel-ai/ciel-runtime:nightly"
+    result: "ENOENT while opening a package.json under the current directory"
+  cause:
+    confirmed: true
+    detail: >-
+      npm package tags use the package-spec separator @. The colon form was
+      parsed as a local package path instead of the scoped package's nightly
+      dist-tag.
+  corrected_command: "npm install -g @oneciel-ai/ciel-runtime@nightly"
+  registry_verification:
+    command: "npm view @oneciel-ai/ciel-runtime dist-tags --json"
+    exit_code: 0
+    latest: "0.2.36"
+    nightly: "0.2.36-nightly.20260831-022956.8ea4d49"
+  status: "diagnosed"

@@ -85,10 +85,7 @@ class AlibabaProviderTests(unittest.TestCase):
         )
         self.assertEqual(
             "https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic/v1/messages",
-            ciel_runtime.join_url(
-                ciel_runtime.native_anthropic_base_url("alitoken", config),
-                "/v1/messages",
-            ),
+            ciel_runtime.provider_endpoint("alitoken", config, "anthropic_messages"),
         )
         self.assertEqual(
             10 * 1024 * 1024,
@@ -99,7 +96,133 @@ class AlibabaProviderTests(unittest.TestCase):
             ),
         )
 
-    def test_individual_token_plan_has_separate_endpoint_and_same_harness_catalog(self):
+    def test_kimi_k3_uses_chat_for_codex_and_native_anthropic_for_claude(self):
+        config = self.token_config(current_model="kimi-k3")
+
+        self.assertEqual(
+            "openai_chat",
+            ciel_runtime.select_provider_protocol(
+                "alitoken", config, "openai_responses", "kimi-k3"
+            ),
+        )
+        self.assertEqual(
+            "anthropic_messages",
+            ciel_runtime.select_provider_protocol(
+                "alitoken", config, "anthropic_messages", "kimi-k3"
+            ),
+        )
+
+    def test_kimi_k3_chat_enforces_documented_thinking_contract(self):
+        config = self.token_config(current_model="kimi-k3")
+        body = {
+            "model": "kimi-k3",
+            "messages": [{"role": "user", "content": "test"}],
+            "enable_thinking": False,
+            "preserve_thinking": False,
+            "thinking_budget": 8192,
+            "reasoning_effort": "low",
+            "reasoning": {"effort": "low"},
+            "tools": [
+                {
+                    "type": "function",
+                    "function": {"name": "search_tools", "parameters": {}},
+                }
+            ],
+            "tool_choice": "required",
+        }
+
+        normalized = ciel_runtime.apply_provider_adapter_request_policy(
+            "alitoken", config, body, "openai_chat"
+        )
+
+        self.assertTrue(normalized["enable_thinking"])
+        self.assertNotIn("preserve_thinking", normalized)
+        self.assertNotIn("thinking_budget", normalized)
+        self.assertNotIn("reasoning_effort", normalized)
+        self.assertNotIn("reasoning", normalized)
+        self.assertTrue(
+            ciel_runtime.provider_supports_tool_choice("alitoken", config, body)
+        )
+        self.assertEqual(
+            "required",
+            ciel_runtime.normalize_tool_choice_for_provider(
+                "alitoken", config, body
+            )["tool_choice"],
+        )
+
+    def test_kimi_k3_native_anthropic_preserves_body_except_unsupported_budget(self):
+        config = self.token_config(current_model="kimi-k3")
+        body = {
+            "model": "kimi-k3",
+            "max_tokens": 4096,
+            "thinking_budget": 8192,
+            "messages": [{"role": "user", "content": "test"}],
+        }
+
+        normalized = ciel_runtime.apply_provider_adapter_request_policy(
+            "alitoken", config, body, "anthropic_messages"
+        )
+
+        self.assertEqual(4096, normalized["max_tokens"])
+        self.assertEqual(body["messages"], normalized["messages"])
+        self.assertNotIn("thinking_budget", normalized)
+
+    def test_kimi_k3_profile_uses_official_limits_and_fixed_reasoning_display(self):
+        config = self.token_config(current_model="kimi-k3")
+
+        messages = ciel_runtime.apply_provider_model_profile("alitoken", config)
+
+        self.assertEqual(1_048_576, config["context_window"])
+        self.assertEqual(1_048_576, config["max_model_len"])
+        self.assertEqual(131_072, config["max_output_tokens"])
+        self.assertEqual("alibaba-kimi-k3-1m", config["model_profile"])
+        self.assertEqual(
+            ["xhigh"],
+            [
+                item["effort"]
+                for item in config["codex_model_catalog"]["supported_reasoning_levels"]
+            ],
+        )
+        self.assertIn("provider-managed reasoning", messages[0])
+        self.assertTrue(
+            ciel_runtime.openai_chat_reasoning_passback_enabled(
+                "alitoken", "kimi-k3", config
+            )
+        )
+
+    def test_kimi_k3_codex_responses_turn_projects_to_chat_without_losing_input(self):
+        config = self.token_config(current_model="kimi-k3")
+        ciel_runtime.apply_provider_model_profile("alitoken", config)
+        responses_body = {
+            "model": "kimi-k3",
+            "input": [
+                {
+                    "role": "user",
+                    "content": [{"type": "input_text", "text": "hello"}],
+                }
+            ],
+            "reasoning": {"effort": "low"},
+        }
+
+        anthropic_body = ciel_runtime.openai_responses_to_anthropic_messages(
+            responses_body, "kimi-k3"
+        )
+        wire_body = ciel_runtime.normalize_request_for_provider_wire(
+            "alitoken", config, anthropic_body
+        )
+        request = ciel_runtime.openai_compatible_chat_request(
+            "alitoken", "kimi-k3", wire_body, config
+        )
+
+        self.assertEqual("openai_chat", ciel_runtime.select_provider_protocol(
+            "alitoken", config, "openai_responses", "kimi-k3"
+        ))
+        self.assertEqual("hello", request["messages"][-1]["content"][0]["text"])
+        self.assertEqual(131_072, request["max_tokens"])
+        self.assertTrue(request["enable_thinking"])
+        self.assertNotIn("reasoning_effort", request)
+
+    def test_individual_token_plan_has_separate_endpoint_without_kimi_k3(self):
         config = copy.deepcopy(
             ciel_runtime.DEFAULT_CONFIG["providers"]["alitoken-individual"]
         )
@@ -108,6 +231,7 @@ class AlibabaProviderTests(unittest.TestCase):
             "https://coding.dashscope.aliyuncs.com/v1", config["base_url"]
         )
         self.assertEqual("qwen3.8-max", config["current_model"])
+        self.assertNotIn("kimi-k3", config["custom_models"])
         self.assertEqual(
             "https://coding.dashscope.aliyuncs.com/apps/anthropic",
             ciel_runtime.native_anthropic_base_url("alitoken-individual", config),
@@ -567,6 +691,7 @@ class AlibabaProviderTests(unittest.TestCase):
                 "qwen3.7-plus",
                 "qwen3.6-flash",
                 "deepseek-v4-pro",
+                "kimi-k3",
                 "kimi-k2.7-code",
                 "legacy-custom",
             }.issubset(models)
@@ -580,6 +705,7 @@ class AlibabaProviderTests(unittest.TestCase):
                 "qwen3.8-max",
                 "qwen3.7-max",
                 "deepseek-v4-pro",
+                "kimi-k3",
                 "kimi-k2.7-code",
                 "glm-5.2",
             }.issubset(token_models)
@@ -605,11 +731,14 @@ class AlibabaProviderTests(unittest.TestCase):
         self.assertIn("legacy-custom", cfg["providers"]["alims-intl"]["custom_models"])
         self.assertIn("qwen3.8-max", cfg["providers"]["alims-intl"]["custom_models"])
         self.assertIn("qwen3.7-max", cfg["providers"]["alims-intl"]["custom_models"])
+        self.assertIn("kimi-k3", cfg["providers"]["alims-intl"]["custom_models"])
         self.assertIn("private-token-model", cfg["providers"]["alitoken"]["custom_models"])
         self.assertIn("qwen3.8-max", cfg["providers"]["alitoken"]["custom_models"])
+        self.assertIn("kimi-k3", cfg["providers"]["alitoken"]["custom_models"])
         self.assertEqual("ap-southeast-1", cfg["providers"]["alitoken"]["region"])
         self.assertTrue(cfg["migrations"]["alibaba_provider_catalogs_20260806"])
         self.assertTrue(cfg["migrations"]["alibaba_qwen38_singapore_20260821"])
+        self.assertTrue(cfg["migrations"]["alibaba_kimi_k3_20260831"])
         self.assertTrue(cfg["migrations"]["alibaba_token_plan_singapore_20260806"])
         self.assertTrue(cfg["migrations"]["alibaba_native_anthropic_routes_20260806"])
         self.assertTrue(cfg["migrations"]["alibaba_token_plan_individual_20260806"])

@@ -114,6 +114,33 @@ class RuntimeInputGatewayTests(unittest.TestCase):
         self.assertTrue(prompt.startswith("raw request\n\n"))
         self.assertIn("web reply required", prompt)
 
+    def test_telemetry_notice_contains_cursor_but_not_log_body_and_requires_no_ack(self):
+        gateway = RuntimeInputGateway(lambda value: {"id": 13, **value})
+
+        saved = gateway.submit_telemetry_notice(
+            [
+                {
+                    "file": "server.log",
+                    "segment": 4,
+                    "line_start": 11,
+                    "line_end": 15,
+                    "offset_start": 100,
+                    "offset_end": 180,
+                    "records": 5,
+                }
+            ],
+            5,
+        )
+
+        self.assertEqual("telemetry_notice", saved["kind"])
+        self.assertFalse(saved["meta"]["ack_required"])
+        self.assertFalse(saved["meta"]["response_expected"])
+        self.assertFalse(saved["meta"]["logs_embedded"])
+        self.assertIn("offsets=100-180", saved["message"])
+        self.assertEqual("private_runtime", saved["visibility"])
+        prompt = format_llm_batch_prompt([saved])
+        self.assertIn("do not acknowledge or respond", prompt)
+
 
 if __name__ == "__main__":
     unittest.main()

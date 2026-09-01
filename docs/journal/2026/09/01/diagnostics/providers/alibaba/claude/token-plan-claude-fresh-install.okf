@@ -1,0 +1,97 @@
+okf_version: "1.0"
+knowledge:
+  task:
+    id: "alibaba-token-plan-claude-fresh-install-20260901"
+    date: "2026-09-01"
+    status: "fixed_and_verified"
+    objective: >-
+      Diagnose and fix why Alibaba Singapore Token Plan works through Codex but
+      fails through Claude Code.
+
+  official_contract:
+    source: "https://docs.modelstudio.console.alibabacloud.com/en/model-studio/claude-code"
+    anthropic_base_url: "https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic"
+    auth_variable: "ANTHROPIC_AUTH_TOKEN"
+    documented_main_model: "qwen3.8-max"
+
+  reproduction:
+    runtime: "Claude Code 2.1.252 through the Ciel local router"
+    command: >-
+      ciel-runtime --ca-runtime claude --ca-no-self-update-check
+      --ca-no-update-check -- --print --output-format json --tools ""
+      --no-session-persistence "Reply with exactly E2E_OK"
+    observed_result:
+      exit_code: 1
+      claude_api_error_status: 404
+      router_endpoint: "https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1/messages"
+      router_log_event: "upstream_direct_http_error"
+
+  confirmed_root_cause:
+    component: "AlibabaModelStudioProviderAdapter"
+    defect: >-
+      anthropic_base_url() returned the documented /apps/anthropic base, but the
+      adapter did not connect it to operation_base_url("anthropic_messages").
+      ProviderContractProjectionApi.endpoint() therefore combined the default
+      OpenAI-compatible base with /v1/messages.
+    why_existing_probe_passed: >-
+      The compatibility probe called native_anthropic_base_url() directly and
+      reached /apps/anthropic/v1/messages, while the actual Claude router called
+      provider_endpoint() and reached /compatible-mode/v1/messages.
+    excluded_by_execution:
+      - "Alibaba Token Plan lacking Anthropic/Claude support"
+      - "qwen3.8-max unavailable to the configured account"
+      - "API-key authentication failure"
+      - "fresh-install onboarding as the cause of this reproduced 404"
+
+  fix:
+    file: "ciel_runtime_support/providers/alibaba.py"
+    change: >-
+      Route anthropic_messages through anthropic_base_url(); keep all other
+      operations on the configured OpenAI-compatible base.
+    regression_test:
+      file: "tests/test_alibaba_provider.py"
+      assertion: >-
+        provider_endpoint("alitoken", config, "anthropic_messages") equals
+        https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic/v1/messages
+
+  verification:
+    focused_tests:
+      command: "python -m unittest discover -s tests -p test_alibaba_provider.py -v"
+      result: "39 tests passed"
+    full_tests:
+      command: "npm test"
+      result: "3064 tests passed; 136 skipped; exit code 0"
+    lint:
+      command: >-
+        python -m ruff check ciel_runtime_support/providers/alibaba.py
+        tests/test_alibaba_provider.py
+      result: "All checks passed"
+    actual_claude_e2e:
+      local_source_forced: true
+      exit_code: 0
+      result: "E2E_OK"
+      api_error_status: null
+      upstream_endpoint: "https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic/v1/messages"
+
+  kimi_k3_account_evidence:
+    credential_type: "Token Plan key with sk-sp- prefix"
+    live_models_request:
+      endpoint: "https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1/models"
+      count: 12
+      includes_kimi_k3: false
+    actual_claude_request:
+      upstream_model: "kimi-k3"
+      endpoint: "https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic/v1/messages"
+      result: "HTTP 400 InvalidParameter: Model not exist."
+    actual_codex_request:
+      upstream_model: "kimi-k3"
+      endpoint: "https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1/chat/completions"
+      result: "Model not exist; Ciel returned HTTP 404 to Codex"
+    restored_model:
+      model: "qwen3.8-max"
+      restore_exit_code: 0
+    conclusion: >-
+      The current Token Plan credential is not provisioned for kimi-k3 on either
+      protocol. The Alibaba console/documentation showing kimi-k3 and the live
+      allowlist for this credential disagree; the reason for that upstream
+      account/rollout mismatch is not observable from Ciel Runtime.

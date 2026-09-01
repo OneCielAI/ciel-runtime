@@ -21,6 +21,7 @@ class ChannelMcpToolsTests(unittest.TestCase):
             store_file_upload=lambda body: {"name": body["name"]},
             file_message_text=lambda message, uploads: f"{message} [{uploads[0]['name']}]",
             handle_llm_options=lambda action, preset: ([action, preset], action == "apply"),
+            telemetry_logs=lambda action, args: {"action": action, "file": args.get("file")},
         )
 
     def _queue_compact(self, source, reason):
@@ -42,7 +43,10 @@ class ChannelMcpToolsTests(unittest.TestCase):
 
     def test_catalog_exposes_only_supported_tools(self):
         names = {tool["name"] for tool in channel_mcp_tool_schemas()}
-        self.assertEqual({"compact_session", "send_message", "send_file", "llm_options"}, names)
+        self.assertEqual(
+            {"compact_session", "send_message", "send_file", "llm_options", "telemetry_logs"},
+            names,
+        )
 
     def test_send_message_builds_default_web_delivery(self):
         response = dispatch_channel_mcp_tool(
@@ -178,6 +182,25 @@ class ChannelMcpToolsTests(unittest.TestCase):
         self.assertEqual([("ciel-runtime-router-tool", "large")], self.compactions)
         self.assertEqual("compact-1", json.loads(compact["result"]["content"][0]["text"])["request_id"])
         self.assertTrue(json.loads(options["result"]["content"][0]["text"])["changed"])
+
+    def test_telemetry_logs_read_dispatches_cursor_and_delete_requires_confirmation(self):
+        read = dispatch_channel_mcp_tool(
+            15,
+            {
+                "name": "telemetry_logs",
+                "arguments": {"action": "read", "file": "agent.log", "segment": 2, "offset": 10},
+            },
+            self.services,
+        )
+        denied = dispatch_channel_mcp_tool(
+            16,
+            {"name": "telemetry_logs", "arguments": {"action": "delete", "file": "agent.log"}},
+            self.services,
+        )
+
+        self.assertEqual("read", json.loads(read["result"]["content"][0]["text"])["action"])
+        self.assertTrue(denied["result"]["isError"])
+        self.assertIn("confirm=true", denied["result"]["content"][0]["text"])
 
 
 if __name__ == "__main__":

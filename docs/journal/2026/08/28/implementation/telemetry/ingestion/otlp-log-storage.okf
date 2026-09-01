@@ -1,0 +1,189 @@
+okf_version: "1.0"
+knowledge:
+  task:
+    id: "otlp-log-storage-cursors-retention-20260828"
+    date: "2026-08-28"
+    status: "implemented_and_functionally_verified"
+    objective: >-
+      Add a standardized input-only log channel that persists high-volume log
+      bodies locally, appends sender-selected logical filenames, notifies the
+      active agent with exact cursors instead of bodies, exposes bounded reads,
+      and applies rolling and TTL policies per logical file.
+
+  standards_basis:
+    protocol: "OpenTelemetry OTLP/HTTP Logs JSON"
+    endpoint: "POST /v1/logs"
+    accepted_content_type: "application/json"
+    accepted_content_encoding: ["identity", "gzip"]
+    explicitly_not_implemented: ["OTLP/HTTP binary Protobuf", "OTLP/gRPC"]
+    official_sources:
+      - "https://opentelemetry.io/docs/specs/otlp/"
+      - "https://opentelemetry.io/docs/specs/otel/logs/data-model/"
+      - "https://opentelemetry.io/docs/specs/semconv/general/logs/"
+      - "https://github.com/open-telemetry/opentelemetry-proto/blob/main/opentelemetry/proto/collector/logs/v1/logs_service.proto"
+
+  security:
+    ingestion_authentication:
+      required_for: ["loopback requests", "remote requests"]
+      bearer_header: "Authorization: Bearer <token>"
+      alternate_header: "X-Ciel-Telemetry-Token: <token>"
+      explicit_environment: "CIEL_RUNTIME_OTLP_LOG_TOKEN"
+      generated_token_path: "<workspace-state>/telemetry-logs/ingest-token"
+      comparison: "constant-time hmac.compare_digest"
+      router_admin_token_required_for_ingest: false
+      rationale: >-
+        The OTLP endpoint owns its authentication boundary so a telemetry
+        sender is not granted broader Router administrative authority.
+    read_boundary: >-
+      No public log read endpoint exists. Reads use the built-in telemetry_logs
+      MCP tool under the existing /ca/mcp Router authentication boundary.
+    local_boundary: >-
+      The generated ingest token is written with mode 0600 where POSIX file
+      modes are enforced. Same-account local filesystem access remains an OS
+      account boundary rather than an HTTP boundary.
+
+  storage:
+    root: "<workspace-state>/telemetry-logs"
+    manifest: "manifest.json"
+    segment_format: "zero-padded immutable numbered .log segments"
+    logical_filename_precedence:
+      - "LogRecord log.file.name"
+      - "LogRecord log.file.path basename"
+      - "Resource log.file.name"
+      - "Resource log.file.path basename"
+      - "<service.name>.log"
+      - "otlp.log"
+    record_text_precedence:
+      - "log.record.original"
+      - "rendered timestamp, severity, and OTLP body"
+    append_contract: >-
+      Repeated exports using the same normalized logical filename append to the
+      active segment until its per-file size policy rolls it.
+
+  per_file_policy:
+    segment_max_bytes:
+      attribute: "ciel.log.roll.max_bytes"
+      default: 8388608
+      minimum: 65536
+      maximum: 1073741824
+    max_segments:
+      attribute: "ciel.log.retention.max_segments"
+      default: 8
+      minimum: 1
+      maximum: 1024
+    ttl_seconds:
+      attribute: "ciel.log.retention.ttl_seconds"
+      default: 604800
+      disabled_value: 0
+      minimum_nonzero: 60
+      maximum: 31536000
+    precedence: "LogRecord attributes override Resource attributes"
+    enforcement:
+      - "size rolling during append"
+      - "maximum retained segments during append/configure/roll"
+      - "TTL cleanup by a 60-second Router background worker"
+
+  notification:
+    kind: "telemetry_notice"
+    delivery: ["llm"]
+    visibility: "private_runtime"
+    log_bodies_embedded: false
+    acknowledgement_required: false
+    response_expected: false
+    cursor_fields:
+      - "file"
+      - "segment"
+      - "line_start"
+      - "line_end"
+      - "offset_start"
+      - "offset_end"
+      - "records"
+
+  agent_tool:
+    name: "telemetry_logs"
+    endpoint: "POST /ca/mcp"
+    actions: ["list", "read", "configure", "roll", "delete"]
+    fastest_read_cursor: "file + segment + byte offset + max_bytes"
+    alternate_read_cursor: "file + segment + line_start + line_end"
+    destructive_guard: "delete requires confirm=true"
+
+  functional_verification:
+    server:
+      command: "python ciel_runtime.py serve"
+      bind: "127.0.0.1:56322"
+      isolated_config: "%TEMP%/ciel-otlp-auth-final-20260828-56322"
+    unauthorized_export:
+      token_supplied: false
+      observed_status: 401
+      observed_body: '{"code": 16, "message": "OTLP log ingestion authentication is required"}'
+      observed_www_authenticate: 'Bearer realm="ciel-runtime-otlp"'
+      contract_reverification_server: "127.0.0.1:56323"
+    authorized_exports:
+      requests: 2
+      headers_exercised:
+        - "Authorization: Bearer <token>"
+        - "X-Ciel-Telemetry-Token: <token>"
+      observed_statuses: [200, 200]
+      observed_bodies: ["{}", "{}"]
+      logical_file: "secure.log"
+      physical_segment: "00000001.log"
+      observed_content: "secure first\nsecure second\n"
+      observed_bytes: 27
+      observed_lines: 2
+      observed_records: 2
+      observed_policy:
+        segment_max_bytes: 65536
+        max_segments: 4
+        ttl_seconds: 3600
+    runtime_notices:
+      first_cursor: "secure.log#segment=1 lines=1-1 offsets=0-13"
+      second_cursor: "secure.log#segment=1 lines=2-2 offsets=13-27"
+      observed_flags:
+        ack_required: false
+        response_expected: false
+        logs_embedded: false
+    mcp_read:
+      observed_status: 200
+      request_cursor: "secure.log#segment=1 offset=0 max_bytes=65536"
+      returned_content: "secure first\nsecure second\n"
+      returned_next_offset: 27
+      eof: true
+
+  verification:
+    targeted:
+      command: >-
+        PYTHONPATH=.. python -m unittest test_otlp_logs
+        test_router_http_request_limits test_architecture_budget
+        test_runtime_input_gateway test_channel_mcp_tools
+      result: "47 tests run, 0 failures, 0 errors"
+    complete_unit_group:
+      command: "python scripts/run_test_group.py unit"
+      result: "1342 tests run, 0 failures, 0 errors, 44 skipped"
+    compile:
+      command: "python -m compileall -q ciel_runtime.py ciel_runtime_support"
+      result: "passed"
+    lint:
+      command: "python -m ruff check <changed Python files>"
+      result: "passed"
+    documentation:
+      command: "npm run check:docs"
+      result: "passed; 25 Markdown files checked"
+    architecture_budget:
+      observed: "ciel_runtime.py 4980 lines"
+      budget: "4980 lines"
+
+  source_evidence:
+    - "ciel_runtime_support/otlp_logs.py"
+    - "ciel_runtime_support/runtime_input_gateway.py"
+    - "ciel_runtime_support/channel_message_prompt.py"
+    - "ciel_runtime_support/channel_mcp_tools.py"
+    - "ciel_runtime_support/router_http.py"
+    - "ciel_runtime_support/request_body_policy.py"
+    - "ciel_runtime_support/router_server_context.py"
+    - "ciel_runtime_support/speech_http_controller.py"
+    - "ciel_runtime.py"
+    - "tests/test_otlp_logs.py"
+    - "tests/test_runtime_input_gateway.py"
+    - "tests/test_channel_mcp_tools.py"
+    - "tests/test_router_http_request_limits.py"
+    - "docs/OTLP-Logs.md"
