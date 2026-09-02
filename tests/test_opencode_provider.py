@@ -666,6 +666,10 @@ class OpenCodeProviderTests(unittest.TestCase):
 
     def test_model_object_reports_zen_endpoint_metadata(self):
         obj = ciel_runtime.model_object("opencode", "gpt-5.1")
+        self.assertEqual(
+            "Routed through Ciel Runtime provider 'opencode'.",
+            obj["description"],
+        )
         self.assertEqual("openai-responses", obj["ciel_runtime"]["opencode_endpoint"])
         self.assertFalse(obj["ciel_runtime"]["router_supported"])
 

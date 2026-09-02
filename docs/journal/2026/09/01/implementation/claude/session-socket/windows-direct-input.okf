@@ -1,0 +1,105 @@
+okf: 1
+record:
+  title: Claude Code Windows peer-socket compatibility audit
+  date: 2026-09-01
+  scope:
+    runtime: ciel-runtime
+    branch: nightly
+    feature:
+      family: external-input
+      transport: claude-cross-session-socket
+      platforms:
+        - windows-named-pipe
+        - unix-domain-socket
+  evidence:
+    official:
+      changelog: https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md
+      channels: https://code.claude.com/docs/en/channels
+      observations:
+        - Claude Code 2.1.239 added Windows cross-session messaging.
+        - Claude Code 2.1.243 requires a complete input line within 30 seconds.
+        - Claude Code 2.1.257 accepts gateway-supplied model descriptions.
+        - Claude Code 2.1.258 is the npm latest version measured for this task.
+    local_package:
+      version: 2.1.258
+      build_sha: b3cd543a1f6fcdf4d8fabc0f5e5538d2ee7f38e1
+      protocol:
+        peer_protocol: 1
+        first_line:
+          type: auth
+          credential: socket-bound peerToken
+        second_line:
+          type: user
+          message_role: user
+        framing: newline-delimited JSON
+        windows_path_shape: '\\.\pipe\LOCAL\cc-msg-<nonce>'
+    live_windows_probe:
+      claude_version: 2.1.258
+      session_name: ciel-socket-probe
+      node_client_result: CIEL_SOCKET_PROBE_OK
+      python_named_pipe_result: CIEL_PY_PIPE_OK
+      observed_ui_provenance: Another Claude session sent a message
+    semantic_probe:
+      result: rejected-for-web-chat
+      observation: Raw socket user frames are classified as ordinary peer messages.
+      side_effect_observed: The target attempted SendMessage to an unrelated live Claude peer.
+      containment: Probe sessions were stopped; the unrelated recipient held the benign probe for approval.
+      binary_source_evidence:
+        socket_user_handler: Constructs peer origin without hostInjected.
+        host_injected_path: Exists only for locally prepended stdin cross-session envelopes.
+        unknown_fields: Ignored by the socket user handler.
+      conclusion: The published peer socket cannot preserve Web Chat or remote-human reply semantics.
+  implementation:
+    safety:
+      socket_first_web_chat: not-enabled
+      retained_input_path: existing terminal and request-body delivery
+      reason: Direct peer delivery can redirect the answer through SendMessage.
+    catalog:
+      gateway_discovery_enabled: true
+      description_field: provider route description
+    subagent_model:
+      configured_source: provider.subagent_model
+      routed_alias: true
+      force_environment: CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1
+      fallback_without_configured_model: main model without force
+  verification:
+    gateway_catalog_http:
+      endpoint: http://127.0.0.1:6971/v1/models
+      status: 200
+      returned_models: 17
+      description_observed: Routed through Ciel Runtime provider 'zai-start-plan'.
+    claude_2_1_258_isolated_subagent:
+      server: local Anthropic-compatible capture server
+      exit_code: 0
+      expected_result_received: true
+      main_model: ciel-runtime-deepseek-deepseek-v4-pro-1m
+      subagent_model: ciel-runtime-deepseek-deepseek-v4-flash
+      request_model_order:
+        - ciel-runtime-deepseek-deepseek-v4-pro-1m
+        - ciel-runtime-deepseek-deepseek-v4-flash
+        - ciel-runtime-deepseek-deepseek-v4-pro-1m
+        - ciel-runtime-deepseek-deepseek-v4-pro-1m
+    external_provider_probe:
+      claude_version: 2.1.258
+      startup: succeeded
+      request_result: '405 code 3012: request blocked due to unusual activity'
+      interpretation: External account response, not used as implementation evidence.
+    full_repository:
+      compile: pass
+      unit:
+        passed: 1302
+        skipped: 44
+      router:
+        passed: 1061
+      channel:
+        passed: 320
+        skipped: 80
+      runtime:
+        passed: 246
+        skipped: 12
+      total_passed: 2929
+      total_skipped: 136
+    quality:
+      ruff: pass
+      documentation_metadata: pass
+      npm_pack_dry_run: pass

@@ -37,6 +37,7 @@ CLAUDE_PROJECTED_ENV_KEYS = (
     "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTS",
     "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTED_CAPABILITIES",
     "CLAUDE_CODE_SUBAGENT_MODEL",
+    "CLAUDE_CODE_SUBAGENT_MODEL_FORCE",
     "CIEL_RUNTIME_MODEL_ALIAS",
     "CIEL_RUNTIME_PROVIDER",
 )
@@ -201,6 +202,28 @@ class ClaudeModelAliasPolicy:
         if not normalized or family not in ("opus", "sonnet", "haiku"):
             return False
         return bool(re.search(rf"(?:^|[-_./]){re.escape(family)}(?:[-_./]|$)", normalized))
+
+    def routed_model_alias(
+        self,
+        provider: str,
+        config: dict[str, Any],
+        model: str,
+        *,
+        context_limit: int | None = None,
+    ) -> str:
+        upstream = self._ports.normalize_model_id(provider, model)
+        alias = self._ports.alias_for(provider, upstream)
+        current_upstream = self._ports.normalize_model_id(
+            provider,
+            self._ports.current_upstream_model(provider, config),
+        )
+        return self.context_model_alias(
+            provider,
+            config,
+            alias,
+            None if upstream == current_upstream else upstream,
+            context_limit=context_limit,
+        )
 
     def default_model_aliases(
         self,
@@ -413,6 +436,17 @@ class ClaudeEnvironmentProjection:
             claude_model,
             context_limit=context_limit,
         )
+        configured_subagent = str(provider_config.get("subagent_model") or "").strip()
+        subagent_model = (
+            self._aliases.routed_model_alias(
+                provider,
+                provider_config,
+                configured_subagent,
+                context_limit=context_limit,
+            )
+            if configured_subagent
+            else claude_model
+        )
         env = {
             "CIEL_RUNTIME_PROVIDER": provider,
             "ANTHROPIC_BASE_URL": self._router_base,
@@ -423,10 +457,12 @@ class ClaudeEnvironmentProjection:
             "ANTHROPIC_DEFAULT_HAIKU_MODEL": defaults["ANTHROPIC_DEFAULT_HAIKU_MODEL"],
             "ANTHROPIC_DEFAULT_OPUS_MODEL": defaults["ANTHROPIC_DEFAULT_OPUS_MODEL"],
             "ANTHROPIC_DEFAULT_SONNET_MODEL": defaults["ANTHROPIC_DEFAULT_SONNET_MODEL"],
-            "CLAUDE_CODE_SUBAGENT_MODEL": claude_model,
+            "CLAUDE_CODE_SUBAGENT_MODEL": subagent_model,
             "CIEL_RUNTIME_MODEL_ALIAS": claude_model,
             "CIEL_RUNTIME_BYPASS_PERMISSIONS": "1",
         }
+        if configured_subagent:
+            env["CLAUDE_CODE_SUBAGENT_MODEL_FORCE"] = "1"
         auth_token = self._features.router_auth_token(provider, provider_config)
         if auth_token:
             env["ANTHROPIC_AUTH_TOKEN"] = auth_token

@@ -98,6 +98,21 @@ remains supported and maps to the old paired behavior. Unknown modes and an MCP
 response without `response_mcp.server` return HTTP 400; they never silently fall
 back to another route.
 
+### Claude Code cross-session socket boundary
+
+Claude Code 2.1.239 and later publishes its cross-session peer inbox on Windows
+as well as macOS and Linux. Ciel does not use that peer inbox for Web Chat,
+remote-human, or external-event input. A live Claude Code 2.1.258 probe and its
+packaged socket handler both classify a socket `user` frame as a message from
+another Claude session. That origin can cause the answer to be sent with
+Claude's `SendMessage` tool instead of being returned to the Web Chat or remote
+stream that supplied the input.
+
+Those inputs therefore retain Ciel's host-owned terminal or routed request-body
+delivery. Direct peer-socket delivery is safe only when both ends are real
+Claude sessions and the sender exposes a valid reply inbox; Ciel does not
+silently reinterpret an external user as such a peer.
+
 Web Chat attachments are uploaded through `POST /ca/channel/files`. The public
 chat transcript contains only download metadata; the private Runtime Input
 projection adds a validated workspace-local path so the active Claude or Codex

@@ -871,6 +871,7 @@ def model_object(provider: str, model_id: str, pcfg: dict[str, Any] | None = Non
         "id": alias,
         "type": "model",
         "display_name": display_name(provider, model_id),
+        "description": f"Routed through Ciel Runtime provider '{provider}'.",
         "created_at": 1700000000,
         "object": "model",
         "created": 1700000000,
@@ -883,7 +884,6 @@ def model_object(provider: str, model_id: str, pcfg: dict[str, Any] | None = Non
         )
     )
     return obj
-
 join_url = runtime_primitives.join_url
 def inbound_query_has_beta_flag(request_path: str) -> bool: return provider_query_policy().inbound_has_beta(request_path)
 def provider_query_policy() -> ProviderQueryPolicy: return ProviderQueryPolicy(normalize_provider=normalize_provider, propagates_inbound_beta=lambda provider, config: configured_provider_adapter(provider, config).propagates_inbound_beta_query(provider_contract_config(provider, config)))

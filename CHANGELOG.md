@@ -5,6 +5,11 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+- Advertise provider descriptions in the gateway model catalog for Claude Code
+  2.1.257 and later model-picker discovery.
+- Apply each routed provider's configured subagent model to every Claude Code
+  2.1.257+ subagent with the new force-model environment switch.
+
 ## 0.2.37 — 2026-09-01
 
 - Add the authenticated remote runtime bridge with shared OpenAI-compatible and

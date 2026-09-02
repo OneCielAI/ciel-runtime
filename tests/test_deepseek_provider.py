@@ -49,7 +49,16 @@ class DeepSeekProviderTests(unittest.TestCase):
         self.assertEqual(expected_model, env["ANTHROPIC_DEFAULT_OPUS_MODEL"])
         self.assertEqual(expected_model, env["ANTHROPIC_DEFAULT_SONNET_MODEL"])
         self.assertEqual(expected_model, env["ANTHROPIC_DEFAULT_HAIKU_MODEL"])
-        self.assertEqual(expected_model, env["CLAUDE_CODE_SUBAGENT_MODEL"])
+        self.assertEqual(
+            ciel_runtime.claude_code_context_model_alias(
+                "deepseek",
+                pcfg,
+                ciel_runtime.alias_for("deepseek", "deepseek-v4-flash"),
+                "deepseek-v4-flash",
+            ),
+            env["CLAUDE_CODE_SUBAGENT_MODEL"],
+        )
+        self.assertEqual("1", env["CLAUDE_CODE_SUBAGENT_MODEL_FORCE"])
         self.assertEqual("8192", env["CLAUDE_CODE_MAX_OUTPUT_TOKENS"])
         self.assertEqual(
             "effort,max_effort,thinking,interleaved_thinking",

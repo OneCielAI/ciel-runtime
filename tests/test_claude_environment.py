@@ -89,6 +89,16 @@ class ClaudeEnvironmentPolicyTests(unittest.TestCase):
         self.assertEqual("token", env["ANTHROPIC_AUTH_TOKEN"])
         self.assertEqual("1024", env["CLAUDE_CODE_MAX_OUTPUT_TOKENS"])
         self.assertEqual("1", env["CLAUDE_CODE_DISABLE_TERMINAL_TITLE"])
+        self.assertNotIn("CLAUDE_CODE_SUBAGENT_MODEL_FORCE", env)
+
+    def test_configured_subagent_model_is_routed_and_forced(self):
+        projection = self._projection(native=False, key="")
+        env = projection.build(
+            {"provider": "test", "subagent_model": "worker-model"}
+        )
+
+        self.assertEqual("worker-model", env["CLAUDE_CODE_SUBAGENT_MODEL"])
+        self.assertEqual("1", env["CLAUDE_CODE_SUBAGENT_MODEL_FORCE"])
 
     def test_runtime_settings_respect_explicit_passthrough(self):
         messages = []
@@ -109,6 +119,7 @@ class ClaudeEnvironmentPolicyTests(unittest.TestCase):
         lines = ClaudeEnvironmentShellRenderer.lines({"ANTHROPIC_BASE_URL": "http://router"})
         self.assertEqual('export ANTHROPIC_BASE_URL="http://router"', lines[0])
         self.assertIn("unset ANTHROPIC_API_KEY", lines)
+        self.assertIn("unset CLAUDE_CODE_SUBAGENT_MODEL_FORCE", lines)
         self.assertIn("unset CIEL_RUNTIME_PROVIDER", lines)
 
     @staticmethod
@@ -144,7 +155,10 @@ class ClaudeEnvironmentPolicyTests(unittest.TestCase):
             self._model_policy(),
             ClaudeEnvironmentSourcePorts(
                 load_config=lambda: {"provider": "test"},
-                current_provider=lambda config: (config["provider"], {"max_output_tokens": 1024}),
+                current_provider=lambda config: (
+                    config["provider"],
+                    {**config, "max_output_tokens": 1024},
+                ),
                 direct_native=lambda _provider, _config: native,
                 primary_api_key=lambda _provider, _config: key,
                 meaningful_key=bool,
