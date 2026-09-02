@@ -1,0 +1,36 @@
+task:
+  id: main-merge-local-deploy-20260902
+  request:
+    - Merge the Claude session-socket nightly into main.
+    - Deploy the merged source locally.
+    - Return to the nightly branch.
+  status: complete
+
+source_control:
+  previous_main: 6ecdc61
+  merged_nightly: 04fd5f7
+  merge_mode: fast-forward
+  feature_commit: 60846f9
+
+verification:
+  full_test_suite:
+    command: npm test
+    exit_code: 0
+    groups:
+      unit: "1358 tests; OK; 45 skipped"
+      router: "1064 tests; OK"
+      channel: "403 tests; OK; 80 skipped"
+      runtime: "258 tests; OK; 12 skipped"
+  local_deployment:
+    command: .\\install.ps1
+    target: C:\\Users\\djlov\\.local\\share\\ciel-runtime
+    executable: C:\\Users\\djlov\\.local\\bin\\ciel-runtime.ps1
+    reported_version: 0.2.37
+    module_import: ok
+    windows_pipe_prefix_probe: true
+    source_module_sha256: F7774A5A0405A6016A152D78A81D5CFBD4EC75DF3122F1D4A05A921FCE5427E6
+    installed_module_sha256: F7774A5A0405A6016A152D78A81D5CFBD4EC75DF3122F1D4A05A921FCE5427E6
+
+result:
+  main_contains_claude_socket_feature: true
+  local_deployment_matches_source: true
