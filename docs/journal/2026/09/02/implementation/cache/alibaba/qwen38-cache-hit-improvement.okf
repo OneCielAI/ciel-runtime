@@ -1,0 +1,104 @@
+task:
+  id: qwen38-cache-hit-improvement-20260902
+  request: >-
+    Continue from cache research through implementation and verified
+    improvement for Codex using Alibaba Singapore Token Plan alitoken.
+  status: verified
+
+implementation:
+  stateless_cache_policy:
+    source: ciel_runtime_support/provider_responses_passthrough.py
+    behavior: >-
+      When an alitoken Responses request has no previous_response_id, remove
+      x-dashscope-session-cache from the final upstream headers. This leaves
+      qwen3.8-max on Alibaba's automatic implicit prefix cache. Preserve the
+      configured header when a linked previous_response_id is present.
+    provider_default:
+      responses_session_cache_requires_previous_response_id: true
+  prefix_stable_compaction:
+    source: ciel_runtime_support/prompt_compaction.py
+    behavior: >-
+      Round the omitted-history boundary forward to a deterministic 24-item
+      checkpoint, then advance only as needed to avoid orphaning a function
+      output from its call. Appended turns reuse the same summary until the
+      next checkpoint instead of rewriting item zero on every sliding step.
+    provider_default:
+      responses_cache_checkpoint_items: 24
+  scope:
+    enabled_provider: alitoken
+    other_provider_defaults_changed: false
+
+live_verification:
+  method: >-
+    Forked an existing inactive Codex history into a new session and ran it
+    through source-built Ciel Runtime on isolated port 9490. The production
+    router on port 9479 was not stopped or reconfigured.
+  workspace: C:/Users/djlov/ciel-runtime/.tmp/cache-hit-live-verify
+  session_id: 01a0637b-6c5c-70d3-a419-c10ed1854cc2
+  provider: alitoken
+  model: qwen3.8-max
+  protocol: openai_responses
+  before_stateless_policy:
+    header: {x-dashscope-session-cache: enable}
+    calls:
+      - {input_tokens: 115314, cached_input_tokens: 0, hit_percent: 0.000}
+      - {input_tokens: 115565, cached_input_tokens: 0, hit_percent: 0.000}
+    weighted_hit_percent: 0.000
+  after_stateless_policy:
+    header: deferred_missing_previous_response_id
+    calls:
+      - {phase: implicit_warmup, input_tokens: 115604, cached_input_tokens: 1024, hit_percent: 0.886}
+      - {phase: warmed, input_tokens: 115643, cached_input_tokens: 115072, hit_percent: 99.506}
+      - {phase: repeated_warmed, input_tokens: 115682, cached_input_tokens: 115072, hit_percent: 99.473}
+    warmed_calls_weighted_hit_percent: 99.489
+  upstream_evidence:
+    activity_file: C:/Users/djlov/AppData/Roaming/ciel-runtime/router-instances/9490-8b364f9629ac/router-activity.json
+    log_file: C:/Users/djlov/AppData/Roaming/ciel-runtime/router-instances/9490-8b364f9629ac/router.log
+    observed_log_marker: provider_responses_session_cache_deferred provider=alitoken reason=missing_previous_response_id
+
+prefix_verification:
+  input_change: 633_to_636_items
+  budget_tokens: 2240633
+  first_compacted_items: 274
+  second_compacted_items: 277
+  first_wire_bytes: 8220013
+  second_wire_bytes: 8310319
+  common_prefix_bytes: 8220011
+  common_prefix_percent_of_first: 99.999976
+  first_summary_equal: true
+
+automated_verification:
+  full_suite:
+    command: npm test
+    result: passed
+    groups:
+      - {name: unit, tests: 1361, skipped: 45}
+      - {name: router, tests: 1076, skipped: 0}
+      - {name: channel, tests: 403, skipped: 80}
+      - {name: runtime, tests: 258, skipped: 12}
+    total_tests: 3098
+  lint:
+    command: npm run lint
+    result: passed
+  screenshot:
+    path: C:/Users/djlov/ciel-runtime/docs/journal/2026/09/02/implementation/cache/alibaba/qwen38-cache-hit-improvement.png
+    visible_fact: isolated router 9490 reported upstream success for alitoken qwen3.8-max
+
+cleanup:
+  isolated_router_9490_reachable_after_stop: false
+  production_router_9479_reachable_after_cleanup: true
+  production_router_restarted: false
+  production_session_interrupted: false
+
+evidence_boundaries:
+  confirmed:
+    - Two warmed implicit-cache calls reported more than 99.47 percent cached input.
+    - The same isolated session's preceding two forced-session-cache calls reported zero cached input.
+    - Checkpointed compaction preserved 99.999976 percent of the first serialized wire in the representative oversized case.
+  not_claimed:
+    - Alibaba documents that implicit cache hits are not guaranteed, so every future request is not guaranteed to hit.
+    - The live session did not exceed the ten-MiB wire limit; it verifies the header policy but not live upstream behavior after checkpoint compaction.
+    - Server scheduling is not observable, so the A/B sequence is evidence of improvement, not proof that every difference has one exclusive cause.
+    - previous_response_id stateful continuation was not implemented in this change.
+
+credentials_recorded: false

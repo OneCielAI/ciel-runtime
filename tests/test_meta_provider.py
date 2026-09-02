@@ -362,12 +362,125 @@ class ProviderResponsesPassthroughTests(unittest.TestCase):
             ],
         }
 
-        service.forward(self._passthrough_handler(), "alitoken", {}, source)
+        service.forward(
+            self._passthrough_handler(),
+            "alitoken",
+            {"responses_cache_checkpoint_items": 24},
+            source,
+        )
 
         self.assertTrue(compact_calls)
+        self.assertEqual(
+            24, compact_calls[0][1]["stable_prefix_checkpoint_items"]
+        )
         self.assertEqual(source["input"][-1:], captured["body"]["input"])
         self.assertLessEqual(len(captured["data"]), 1080)
         self.assertNotIn(b'": "', captured["data"])
+
+    def test_stateless_alibaba_request_defers_session_cache_header(self):
+        captured = {}
+
+        class Response:
+            status = 200
+            headers = {"content-type": "application/json"}
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+            def read(self, _size):
+                return b""
+
+        def urlopen(request, **_kwargs):
+            captured["headers"] = {
+                name.casefold(): value for name, value in request.header_items()
+            }
+            return Response()
+
+        service = ProviderResponsesPassthrough(
+            ProviderResponsesPassthroughPorts(
+                project_channel_context=lambda body: (body, {}),
+                begin_channel_delivery=mock.Mock(),
+                normalize_model=lambda _provider, _config, model: model,
+                normalize_request=lambda _provider, _config, body: body,
+                upstream_base=lambda _provider, _config: "https://example.test/v1",
+                join_url=ciel_runtime.join_url,
+                headers=lambda *_args: {
+                    "x-dashscope-session-cache": "enable",
+                    "authorization": "Bearer test",
+                },
+                urlopen=urlopen,
+                timeout_seconds=lambda _config: 30.0,
+                copy_response_headers=lambda _handler, _headers: None,
+            )
+        )
+
+        service.forward(
+            self._passthrough_handler(),
+            "alitoken",
+            {"responses_session_cache_requires_previous_response_id": True},
+            {"model": "qwen3.8-max", "input": [], "stream": False},
+        )
+
+        self.assertNotIn("x-dashscope-session-cache", captured["headers"])
+        self.assertIn("authorization", captured["headers"])
+
+    def test_linked_alibaba_request_keeps_session_cache_header(self):
+        captured = {}
+
+        class Response:
+            status = 200
+            headers = {"content-type": "application/json"}
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+            def read(self, _size):
+                return b""
+
+        def urlopen(request, **_kwargs):
+            captured["headers"] = {
+                name.casefold(): value for name, value in request.header_items()
+            }
+            return Response()
+
+        service = ProviderResponsesPassthrough(
+            ProviderResponsesPassthroughPorts(
+                project_channel_context=lambda body: (body, {}),
+                begin_channel_delivery=mock.Mock(),
+                normalize_model=lambda _provider, _config, model: model,
+                normalize_request=lambda _provider, _config, body: body,
+                upstream_base=lambda _provider, _config: "https://example.test/v1",
+                join_url=ciel_runtime.join_url,
+                headers=lambda *_args: {
+                    "x-dashscope-session-cache": "enable"
+                },
+                urlopen=urlopen,
+                timeout_seconds=lambda _config: 30.0,
+                copy_response_headers=lambda _handler, _headers: None,
+            )
+        )
+
+        service.forward(
+            self._passthrough_handler(),
+            "alitoken",
+            {"responses_session_cache_requires_previous_response_id": True},
+            {
+                "model": "qwen3.8-max",
+                "previous_response_id": "resp_123",
+                "input": [],
+                "stream": False,
+            },
+        )
+
+        self.assertEqual(
+            "enable", captured["headers"]["x-dashscope-session-cache"]
+        )
 
     def test_unshrinkable_provider_body_fails_before_upstream(self):
         urlopen = mock.Mock()

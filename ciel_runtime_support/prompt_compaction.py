@@ -228,12 +228,42 @@ def responses_tail_is_safe(items: list[dict[str, Any]], start: int) -> bool:
     )
 
 
+def responses_stable_checkpoint_start(
+    items: list[dict[str, Any]], start: int, checkpoint_items: int
+) -> int:
+    """Move an omitted-prefix boundary onto a stable, pair-safe checkpoint.
+
+    A Responses cache reuses an exact prefix.  Advancing the ordinary sliding
+    boundary by a few items on every turn regenerates the summary at item zero
+    and invalidates that prefix.  Rounding the boundary forward means appended
+    turns reuse the same summary until they cross the next checkpoint.
+
+    Moving forward is conservative for the wire budget: it summarizes more old
+    input and retains less verbatim history.  The final item is always retained,
+    and a checkpoint never leaves a tool output without its matching call.
+    """
+
+    try:
+        width = max(0, int(checkpoint_items or 0))
+    except (TypeError, ValueError):
+        width = 0
+    if width <= 1 or start <= 0 or start >= len(items):
+        return start
+    checkpoint = ((start + width - 1) // width) * width
+    if checkpoint >= len(items):
+        return start
+    while checkpoint < len(items) and not responses_tail_is_safe(items, checkpoint):
+        checkpoint += 1
+    return checkpoint if checkpoint < len(items) else start
+
+
 def compact_responses_input_for_budget(
     body: dict[str, Any],
     budget_tokens: int,
     *,
     provider: str = "",
     model: str = "",
+    stable_prefix_checkpoint_items: int = 0,
     services: PromptCompactionServices,
 ) -> dict[str, Any]:
     """Fit a Responses ``input`` array inside the target model's budget.
@@ -278,6 +308,9 @@ def compact_responses_input_for_budget(
         tail_start = len(typed) - 1
         while tail_start > 0 and not responses_tail_is_safe(typed, tail_start):
             tail_start -= 1
+    tail_start = responses_stable_checkpoint_start(
+        typed, tail_start, stable_prefix_checkpoint_items
+    )
 
     def projected(omitted: list[dict[str, Any]]) -> dict[str, Any]:
         summary = text.build_summary(
@@ -299,6 +332,12 @@ def compact_responses_input_for_budget(
         if not tail:
             tail = [typed[-1]]
             break
+        next_start = responses_stable_checkpoint_start(
+            typed,
+            len(typed) - len(tail),
+            stable_prefix_checkpoint_items,
+        )
+        tail = typed[next_start:]
         out["input"] = [projected(typed[: len(typed) - len(tail)]), *tail]
     final_tokens = runtime.estimate_tokens(out)
     runtime.log(

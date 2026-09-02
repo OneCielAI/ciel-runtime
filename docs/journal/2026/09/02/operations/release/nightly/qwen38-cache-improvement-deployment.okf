@@ -1,0 +1,72 @@
+okf: 1
+task:
+  date: "2026-09-02"
+  request: >-
+    Deploy the verified Alibaba Token Plan cache improvement locally and push
+    the verified source to the nightly branch.
+  workspace: C:/Users/djlov/ciel-runtime
+
+source_control_before_release:
+  branch: nightly
+  origin_divergence: {behind: 0, ahead: 0}
+  force_push_authorized: false
+  nightly_trigger: push_to_nightly
+  publish_workflow: .github/workflows/npm-publish.yml
+  nightly_version_rule: "0.2.37-nightly.<UTC timestamp>.<7-character commit sha>"
+
+verification_before_deployment:
+  full_suite:
+    command: npm test
+    result: passed
+    total_tests: 3098
+    groups:
+      - {name: unit, tests: 1361, skipped: 45}
+      - {name: router, tests: 1076, skipped: 0}
+      - {name: channel, tests: 403, skipped: 80}
+      - {name: runtime, tests: 258, skipped: 12}
+  lint: {command: npm run lint, result: passed}
+  documentation: {command: npm run check:docs, result: passed}
+  package:
+    command: npm pack --dry-run --json
+    result: passed
+    version: 0.2.37
+    entry_count: 526
+    packed_size_bytes: 1739943
+    unpacked_size_bytes: 6004414
+  live_alibaba_probe:
+    provider: alitoken
+    model: qwen3.8-max
+    warmed_weighted_cache_hit_percent: 99.489
+    isolated_router_port: 9490
+    isolated_router_stopped_after_capture: true
+    evidence: >-
+      docs/journal/2026/09/02/implementation/cache/alibaba/qwen38-cache-hit-improvement.okf
+
+local_deployment:
+  command: powershell -NoProfile -ExecutionPolicy Bypass -File .\\install.ps1
+  result: passed
+  target: C:/Users/djlov/.local/share/ciel-runtime
+  launcher: C:/Users/djlov/.local/bin/ciel-runtime.ps1
+  reported_version: 0.2.37
+  installed_provider_projection:
+    model: qwen3.8-max
+    responses_session_cache_requires_previous_response_id: true
+    responses_cache_checkpoint_items: 24
+  source_installed_sha256_matches:
+    ciel_runtime.py: true
+    ciel_runtime_support/providers/alibaba.py: true
+    ciel_runtime_support/provider_responses_passthrough.py: true
+    ciel_runtime_support/prompt_compaction.py: true
+  installed_code_tests:
+    - {file: tests/test_alibaba_provider.py, tests: 42, result: passed}
+    - {file: tests/test_responses_prompt_compaction.py, tests: 11, result: passed}
+    - {file: tests/test_meta_provider.py, tests: 23, result: passed}
+
+runtime_boundary:
+  router_9479_before_install: unreachable
+  router_started_or_restarted_by_deployment: false
+  note: >-
+    The local source installation was replaced without launching a router.
+    A future normal runtime launch will load the installed files.
+
+credentials_recorded: false

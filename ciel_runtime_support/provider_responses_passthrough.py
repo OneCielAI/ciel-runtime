@@ -73,6 +73,31 @@ class ProviderResponsesPassthrough:
         )
         return self._ports.join_url(self._ports.upstream_base(provider, config), path)
 
+    def _request_headers(
+        self,
+        provider: str,
+        config: dict[str, Any],
+        inbound_headers: Any,
+        body: Mapping[str, Any],
+    ) -> dict[str, str]:
+        headers = self._ports.headers(provider, config, inbound_headers)
+        if not config.get("responses_session_cache_requires_previous_response_id"):
+            return headers
+        if str(body.get("previous_response_id") or "").strip():
+            return headers
+        filtered = {
+            name: value
+            for name, value in headers.items()
+            if str(name).casefold() != "x-dashscope-session-cache"
+        }
+        if len(filtered) != len(headers):
+            self._ports.log(
+                "INFO",
+                "provider_responses_session_cache_deferred "
+                f"provider={provider} reason=missing_previous_response_id",
+            )
+        return filtered
+
     def forward_compact(
         self,
         handler: Any,
@@ -90,8 +115,8 @@ class ProviderResponsesPassthrough:
             upstream_body = self._ports.finalize_body(upstream_body)
         data = self._encode(upstream_body)
         url = self._endpoint(provider, config, "openai_responses_compact")
-        request_headers = self._ports.headers(
-            provider, config, handler.headers
+        request_headers = self._request_headers(
+            provider, config, handler.headers, upstream_body
         )
         dump_upstream_request(
             url, data, self._ports.log, headers=request_headers
@@ -173,6 +198,9 @@ class ProviderResponsesPassthrough:
                 provider=provider,
                 model=str(current.get("model") or ""),
                 remote_bridge=remote_bridge,
+                stable_prefix_checkpoint_items=config.get(
+                    "responses_cache_checkpoint_items", 0
+                ),
             )
             if not remote_bridge:
                 compacted = self._ports.finalize_body(compacted)
@@ -345,8 +373,8 @@ class ProviderResponsesPassthrough:
             upstream_body,
             remote_bridge=remote_bridge,
         )
-        request_headers = self._ports.headers(
-            provider, config, handler.headers
+        request_headers = self._request_headers(
+            provider, config, handler.headers, upstream_body
         )
         dump_upstream_request(
             url, data, self._ports.log, headers=request_headers

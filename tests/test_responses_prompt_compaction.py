@@ -9,6 +9,7 @@ from ciel_runtime_support.prompt_compaction import (
     PromptCompactionText,
     compact_responses_input_for_budget,
     responses_item_as_message,
+    responses_stable_checkpoint_start,
     responses_tail_is_safe,
 )
 
@@ -72,6 +73,15 @@ class ResponsesTailSafetyTests(unittest.TestCase):
         self.assertEqual("assistant", responses_item_as_message(call)["role"])
         self.assertIn("shell", responses_item_as_message(call)["content"])
         self.assertEqual("tool", responses_item_as_message(output)["role"])
+
+    def test_a_stable_checkpoint_never_orphans_a_tool_output(self):
+        items = [block for index in range(12) for block in turn(index, 10)]
+
+        start = responses_stable_checkpoint_start(items, 14, 8)
+
+        self.assertGreaterEqual(start, 14)
+        self.assertTrue(responses_tail_is_safe(items, start))
+        self.assertLess(start, len(items))
 
 
 class CompactResponsesInputTests(unittest.TestCase):
@@ -141,6 +151,52 @@ class CompactResponsesInputTests(unittest.TestCase):
 
         self.assertTrue(compacted["input"])
         self.assertEqual("message", compacted["input"][0]["type"])
+
+    def test_checkpointed_compaction_reuses_summary_across_appended_turns(self):
+        items = [block for index in range(50) for block in turn(index, 20_000)]
+        appended = [*items, *turn(50, 20_000)]
+
+        first = compact_responses_input_for_budget(
+            {"model": "qwen3.8-max", "input": items},
+            20_000,
+            stable_prefix_checkpoint_items=24,
+            services=services(),
+        )
+        second = compact_responses_input_for_budget(
+            {"model": "qwen3.8-max", "input": appended},
+            20_000,
+            stable_prefix_checkpoint_items=24,
+            services=services(),
+        )
+
+        self.assertEqual(first["input"][0], second["input"][0])
+        self.assertLessEqual(estimate_tokens(first), 20_000)
+        self.assertLessEqual(estimate_tokens(second), 20_000)
+        first_wire = json.dumps(
+            first, ensure_ascii=False, separators=(",", ":")
+        ).encode()
+        second_wire = json.dumps(
+            second, ensure_ascii=False, separators=(",", ":")
+        ).encode()
+        common = 0
+        for left, right in zip(first_wire, second_wire):
+            if left != right:
+                break
+            common += 1
+        self.assertGreater(common / len(first_wire), 0.95)
+
+    def test_default_compaction_keeps_the_sliding_boundary_contract(self):
+        items = [block for index in range(40) for block in turn(index, 20_000)]
+        appended = [*items, *turn(40, 20_000)]
+
+        first = compact_responses_input_for_budget(
+            {"model": "qwen3.8-max", "input": items}, 20_000, services=services()
+        )
+        second = compact_responses_input_for_budget(
+            {"model": "qwen3.8-max", "input": appended}, 20_000, services=services()
+        )
+
+        self.assertNotEqual(first["input"][0], second["input"][0])
 
 
 if __name__ == "__main__":

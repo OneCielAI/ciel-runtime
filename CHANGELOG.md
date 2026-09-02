@@ -5,6 +5,10 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+- Improve Alibaba Singapore Token Plan cache reuse for Codex: stateless
+  full-history Responses requests now use Qwen's implicit prefix cache instead
+  of forcing the response-ID session-cache header, while oversized requests
+  align their summarized prefix to pair-safe 24-item checkpoints.
 - Deliver Web Chat, configured external event streams/webhooks, and Ciel MCP
   `submit_input` calls to interactive Claude Code sessions through Claude's
   authenticated session socket by default. Windows named pipes and Unix

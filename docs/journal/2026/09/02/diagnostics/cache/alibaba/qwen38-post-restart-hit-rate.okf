@@ -1,0 +1,107 @@
+task:
+  id: qwen38-post-restart-cache-hit-rate-20260902
+  request: >-
+    Measure the Alibaba Singapore Token Plan qwen3.8-max cache hit rate after
+    restarting Ciel Runtime, compare it with the immediately preceding calls,
+    and verify whether cache hits benefit Token Plan usage.
+  status: measured
+
+runtime:
+  workspace: C:/Users/djlov/cielarvis
+  router: http://127.0.0.1:9479
+  router_pid: 77820
+  router_started_at_utc: 2026-09-02T18:14:11Z
+  provider: alitoken
+  model: qwen3.8-max
+  protocol: openai_responses
+  session_id: 01a01dff-f0f0-7ef3-8cde-1d9916510f35
+
+observations:
+  before_restart_last_14_calls:
+    input_tokens: 1932589
+    cached_input_tokens: 614400
+    uncached_input_tokens: 1318189
+    weighted_cache_hit_percent: 31.790
+  after_restart_first_5_calls:
+    input_tokens: 723907
+    cached_input_tokens: 0
+    uncached_input_tokens: 723907
+    weighted_cache_hit_percent: 0.000
+    calls:
+      - {time_utc: 2026-09-02T18:15:18.060Z, input: 142849, cached: 0}
+      - {time_utc: 2026-09-02T18:15:46.264Z, input: 143198, cached: 0}
+      - {time_utc: 2026-09-02T18:18:09.654Z, input: 145653, cached: 0}
+      - {time_utc: 2026-09-02T18:19:00.252Z, input: 145963, cached: 0}
+      - {time_utc: 2026-09-02T18:19:49.739Z, input: 146244, cached: 0}
+  after_restart_latest_15_calls:
+    measured_through_utc: 2026-09-02T18:35:53.849Z
+    input_tokens: 2281369
+    cached_input_tokens: 291885
+    uncached_input_tokens: 1989484
+    weighted_cache_hit_percent: 12.794
+    zero_cache_calls: 13
+    high_cache_calls: 2
+    high_cache_call_details:
+      - {time_utc: 2026-09-02T18:23:56.109Z, input: 146623, cached: 145647, percent: 99.334}
+      - {time_utc: 2026-09-02T18:26:11.480Z, input: 149785, cached: 146238, percent: 97.632}
+  change_percentage_points_latest_15_vs_before_14: -18.998
+  result: cache_hit_rate_partially_recovered_but_remained_below_pre_restart_window
+
+configuration_and_wire_evidence:
+  workspace_protocol_header:
+    x-dashscope-session-cache: enable
+  projected_wire_header:
+    x-dashscope-session-cache: enable
+  codex_request_shape:
+    sends_full_input_history: true
+    previous_response_id_observed: false
+
+official_contract:
+  responses_session_cache:
+    url: https://www.alibabacloud.com/help/en/model-studio/compatibility-with-openai-responses-api
+    facts:
+      - session cache is enabled by x-dashscope-session-cache=enable
+      - qwen3.8-max uses explicit cache when session cache is enabled
+      - the documented multi-turn flow links requests with previous_response_id
+  context_cache:
+    url: https://www.alibabacloud.com/help/en/model-studio/context-cache
+    facts:
+      - implicit cache is automatic for supported models
+      - cache hits are not guaranteed even with an identical prefix
+      - cached tokens remain a subset of input tokens in OpenAI-compatible usage
+      - qwen3.8-max cache discount is model-specific and must be checked in the console
+  token_plan:
+    url: https://docs.modelstudio.console.alibabacloud.com/en/model-studio/token-plan-personal-faq
+    facts:
+      - Token Plan Credits deduction is lower for cache hits than misses
+      - official usage analysis is the source of truth for Credits consumption
+
+conclusion:
+  confirmed: >-
+    The first five completed requests after restart reported zero cached tokens.
+    By the fifteenth request, two high-cache responses raised the weighted rate
+    to 12.794%, which was still 18.998 percentage points below the 31.792%
+    weighted rate across the immediately preceding fourteen calls.
+  causal_boundary: >-
+    The header is present and the current Codex full-history request does not
+    use previous_response_id. This differs from Alibaba's documented Responses
+    session-cache flow, but Alibaba did not return a cache-miss reason. The
+    header alone is therefore not recorded as the proven cause of the misses.
+  correction: >-
+    The earlier journal statement that the missing session-cache opt-in header
+    was the confirmed persistent cause is contradicted by this post-restart
+    production measurement and must not be treated as established fact.
+  usage_effect: >-
+    A successful cache hit lowers Token Plan Credits deduction, but the API's
+    total input_tokens value still includes cached tokens; cached tokens are
+    reported as a subset rather than removed from the input count.
+  measurement_correction: >-
+    The first-five-call result remains a valid time-bounded observation but is
+    not the final post-restart rate. This journal now includes the later fifteen-
+    call snapshot so the initial 0% result is not misread as persistent.
+
+evidence:
+  router_activity: C:/Users/djlov/AppData/Roaming/ciel-runtime/router-instances/9479-a3a719fc6552/router-activity.json
+  router_log: C:/Users/djlov/AppData/Roaming/ciel-runtime/router-instances/9479-a3a719fc6552/router.log
+  codex_session: C:/Users/djlov/.codex/sessions/2026/08/20/rollout-2026-08-20T02-08-27-01a01dff-f0f0-7ef3-8cde-1d9916510f35.jsonl
+  credentials_recorded: false

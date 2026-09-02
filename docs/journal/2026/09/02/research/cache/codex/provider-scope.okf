@@ -1,0 +1,77 @@
+task:
+  id: codex-cache-provider-scope-20260902
+  request: >-
+    Determine whether the cache behavior found with Alibaba Singapore Token
+    Plan applies equally to every provider used through Codex.
+  status: answered
+
+confirmed_scope:
+  ciel_prefix_breaking_wire_compaction:
+    common_to_all_providers: false
+    call_path:
+      - openai_responses_router._handle_provider_responses_route
+      - ProviderResponsesPassthrough.forward
+      - ProviderResponsesPassthrough._fit_provider_request
+      - compact_responses_input_for_budget
+    activation_conditions:
+      - selected upstream protocol is openai_responses
+      - provider returns a non-null responses_request_max_bytes
+      - encoded request exceeds ninety percent of that limit
+    provider_overrides_found:
+      alitoken: non_null_limit
+      alitoken_individual: null
+      all_other_adapters: inherited_null
+    conclusion: >-
+      The exact summary-regeneration and prefix-destruction mechanism measured
+      in the qwen3.8-max Singapore Token Plan session currently activates only
+      for the alitoken adapter's oversized native Responses requests.
+
+  codex_request_shape:
+    observed:
+      full_input_history_replayed: true
+      store: false
+      prompt_cache_key_present: true
+      previous_response_id_present: false
+    passthrough_behavior: >-
+      ProviderResponsesPassthrough copies and normalizes the incoming body but
+      does not synthesize previous_response_id. Native Responses providers can
+      therefore receive this same stateless full-history shape.
+    conclusion: >-
+      This is a shared exposure for native Responses routes, not proof of a
+      shared cache defect. A provider may cache repeated prefixes without
+      previous_response_id, may offer a different state mechanism, or may not
+      expose prompt caching at all.
+
+route_classes:
+  native_responses:
+    exact_alitoken_compactor_issue: conditional_as_above
+    stateful_continuation_opportunity: provider_contract_dependent
+  translated_openai_chat_or_anthropic:
+    exact_alitoken_compactor_issue: false
+    reason: >-
+      These routes convert the Codex Responses body before provider transport
+      and do not call ProviderResponsesPassthrough._fit_provider_request.
+    cache_behavior: provider_specific
+  native_codex_backend:
+    exact_alitoken_compactor_issue: false
+    reason: >-
+      The codex-routed branch uses the Codex backend adapter rather than the
+      provider Responses passthrough.
+
+causal_boundary:
+  confirmed:
+    - The alitoken wire-size compactor can change the reusable prefix.
+    - The compactor is not globally enabled for every provider.
+    - Native Responses passthrough does not add previous_response_id.
+  not_confirmed:
+    - Other providers have not been measured to show Alibaba's 12.794 percent hit rate.
+    - Absence of previous_response_id does not by itself prove cache misses.
+    - A single cache strategy is not valid for every provider without checking its official contract.
+
+source_evidence:
+  router_dispatch: C:/Users/djlov/ciel-runtime/ciel_runtime_support/openai_responses_router.py
+  native_passthrough: C:/Users/djlov/ciel-runtime/ciel_runtime_support/provider_responses_passthrough.py
+  compactor: C:/Users/djlov/ciel-runtime/ciel_runtime_support/prompt_compaction.py
+  provider_default: C:/Users/djlov/ciel-runtime/ciel_runtime_support/architecture.py
+  alibaba_override: C:/Users/djlov/ciel-runtime/ciel_runtime_support/providers/alibaba.py
+  code_changed: false

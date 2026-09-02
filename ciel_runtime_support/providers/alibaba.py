@@ -707,6 +707,13 @@ class AlibabaTokenPlanProviderAdapter(AlibabaModelStudioProviderAdapter):
             codex_auto_compact_window=QWEN38_AUTO_COMPACT,
             request_timeout_ms=DEFAULT_REQUEST_TIMEOUT_MS,
             responses_stream_truncation_retries=1,
+            # Alibaba documents this header together with a response-id-linked
+            # session. Stateless Codex replay uses the model's implicit prefix
+            # cache until Ciel has a validated previous_response_id chain.
+            responses_session_cache_requires_previous_response_id=True,
+            # Keep the summarized Responses prefix byte-stable across several
+            # appended Codex tool turns so Alibaba can reuse its session cache.
+            responses_cache_checkpoint_items=24,
             stream_enabled=True,
             stream_word_chunking=False,
             effort_level="xhigh",

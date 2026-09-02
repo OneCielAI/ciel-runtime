@@ -47,6 +47,10 @@ class AlibabaProviderTests(unittest.TestCase):
             ],
         )
         self.assertEqual(1, config["responses_stream_truncation_retries"])
+        self.assertTrue(
+            config["responses_session_cache_requires_previous_response_id"]
+        )
+        self.assertEqual(24, config["responses_cache_checkpoint_items"])
         self.assertEqual("alims-intl", ciel_runtime.PROVIDER_ALIASES["dashscope-intl"])
         self.assertEqual("alitoken", ciel_runtime.PROVIDER_ALIASES["alibaba-token-plan"])
         self.assertEqual(
