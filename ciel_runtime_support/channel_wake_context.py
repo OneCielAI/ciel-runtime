@@ -149,6 +149,7 @@ class ChannelPendingIoPorts:
     compact_clear: Callable[[], None]
     messages_path: Path
     log: Callable[[str, str], None]
+    write_session_socket: Callable[[str, list[dict[str, Any]]], bool] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -558,6 +559,7 @@ class ChannelWakeContext:
                 read_messages=self.pending_io.read_messages,
                 write_prompt=self.pending_io.write_prompt,
                 log=self.pending_io.log,
+                write_session_socket=self.pending_io.write_session_socket,
             ),
             policy=ChannelInjectionPolicy(
                 wake_batch_limit=self.pending_policy.wake_batch_limit,

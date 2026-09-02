@@ -112,6 +112,10 @@ class SpeechHttpControllerTests(unittest.TestCase):
         self.assertEqual("ciel-asr", public["colab"]["asr_session"])
         self.assertEqual("POST /v1/audio/transcriptions", public["endpoints"]["asr"])
         self.assertEqual("POST /v1/audio/speech", public["endpoints"]["tts"])
+        self.assertEqual(
+            ["session_socket", "tty", "router"],
+            public["endpoints"]["chat_message_processing"]["input_transport"]["allowed"],
+        )
 
     def test_json_asr_request_is_converted_to_openai_multipart(self):
         handler = _Handler()

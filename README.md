@@ -146,7 +146,9 @@ See [Remote Memory](docs/Remote-Memory.md) and [Configuration](docs/Configuratio
 Ciel's router exposes separate interfaces for inbound work and outbound
 observability:
 
-- external events and Web Chat messages can wake an active routed session;
+- external events, Web Chat, and Ciel MCP inputs use Claude Code's authenticated
+  session socket by default while an interactive Claude session is active, with
+  Windows named-pipe and Unix AF_UNIX support;
 - transcript webhooks emit only new deltas and retain a retry cursor;
 - routed token usage is stored per workspace without prompt or credential bodies;
 - authenticated consumers can read immutable usage events, resume an SSE stream,

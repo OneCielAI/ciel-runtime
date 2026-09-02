@@ -16,7 +16,7 @@ from typing import Any, Callable
 
 CHAT_FILE_STREAM_CHUNK_BYTES = 1024 * 1024
 CHAT_INPUT_MODES = frozenset({"structured", "tty"})
-CHAT_INPUT_TRANSPORTS = frozenset({"tty", "router"})
+CHAT_INPUT_TRANSPORTS = frozenset({"session_socket", "tty", "router"})
 CHAT_RESPONSE_MODES = frozenset({"web_chat", "tty", "mcp"})
 MCP_HINT_FIELD_LIMITS = {"server": 160, "tool": 240, "hint": 1200}
 
@@ -56,6 +56,7 @@ class ChatHttpWriteServices:
     submit_message: Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]] | None = None
     submit_notify: Callable[[dict[str, Any]], dict[str, Any]] | None = None
     submit_tty: Callable[..., dict[str, Any]] | None = None
+    default_input_transport: Callable[[], str] = lambda: "tty"
 
 
 @dataclass(frozen=True, slots=True)
@@ -108,10 +109,16 @@ class ChatHttpController:
 
         requested_transport = body.get("input_transport")
         if requested_transport is None:
-            requested_transport = self._first(params, "input_transport", "") or "tty"
+            requested_transport = (
+                self._first(params, "input_transport", "")
+                or self.writes.default_input_transport()
+            )
         input_transport = self._normalized_mode(
             requested_transport,
             {
+                "socket": "session_socket",
+                "claude_socket": "session_socket",
+                "messaging_socket": "session_socket",
                 "llm": "router",
                 "context": "router",
                 "inband": "router",

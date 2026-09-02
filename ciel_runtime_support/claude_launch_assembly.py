@@ -95,6 +95,8 @@ class ClaudeLaunchDeliveryPorts:
     wake_submit_delay_seconds: Callback
     wake_submit_retries: Callback
     set_transcript_scope: Callback
+    prepare_session_socket: Callback
+    configure_session_socket: Callback
 
 
 @dataclass(frozen=True, slots=True)
@@ -189,6 +191,8 @@ class ClaudeLaunchAssembly:
                 channel_wake_submit_delay_seconds=self.delivery.wake_submit_delay_seconds,
                 channel_wake_submit_retries=self.delivery.wake_submit_retries,
                 set_channel_transcript_scope=self.delivery.set_transcript_scope,
+                prepare_session_socket=self.delivery.prepare_session_socket,
+                configure_session_socket=self.delivery.configure_session_socket,
             ),
             mcp_config=runtime_launch.ClaudeLaunchMcpConfig(
                 write_duckduckgo_mcp_config=self.mcp_config.write_duckduckgo,

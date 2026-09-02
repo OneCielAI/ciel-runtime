@@ -151,6 +151,8 @@ class ClaudeLaunchChannelDelivery:
     channel_wake_submit_delay_seconds: Callable[..., Any]
     channel_wake_submit_retries: Callable[..., Any]
     set_channel_transcript_scope: Callable[..., Any]
+    prepare_session_socket: Callable[..., str]
+    configure_session_socket: Callable[[str | None], None]
 
 
 @dataclass(frozen=True, slots=True)
@@ -245,6 +247,8 @@ def run_claude(
     channel_wake_submit_delay_seconds = services.channel_delivery.channel_wake_submit_delay_seconds
     channel_wake_submit_retries = services.channel_delivery.channel_wake_submit_retries
     set_channel_transcript_scope = services.channel_delivery.set_channel_transcript_scope
+    prepare_session_socket = services.channel_delivery.prepare_session_socket
+    configure_session_socket = services.channel_delivery.configure_session_socket
     start_router_if_needed = services.routing.start_router_if_needed
     subprocess_call_with_channel_wake_proxy = services.process.subprocess_call_with_channel_wake_proxy
     subprocess_call_with_child_pid_record = services.process.subprocess_call_with_child_pid_record
@@ -330,6 +334,11 @@ def run_claude(
     if use_native_anthropic and web_backend_start_requested(cfg):
         llm_channel_delivery = True
         stdin_channel_proxy = not has_noninteractive_claude_args(launch_passthrough)
+    session_socket_target = (
+        prepare_session_socket(cfg, launch_passthrough)
+        if stdin_channel_proxy
+        else ""
+    )
     manage_router_lifetime = False
     if use_router_mode or llm_channel_delivery:
         manage_router_lifetime = bool(start_router_if_needed())
@@ -472,7 +481,15 @@ def run_claude(
         extra_args.extend(["--mcp-config", *mcp_config_paths])
     if should_append_compat_prompt(provider, pcfg, cfg) and not has_passthrough_option(launch_passthrough, "--system-prompt"):
         extra_args.extend(["--append-system-prompt", ROUTED_COMPAT_PROMPT])
-    append_claude_code_runtime_settings_args(extra_args, launch_passthrough, provider, pcfg)
+    if session_socket_target and not has_passthrough_option(
+        launch_passthrough, "--messaging-socket-path"
+    ):
+        extra_args.extend(["--messaging-socket-path", session_socket_target])
+    runtime_settings_config = dict(pcfg)
+    runtime_settings_config["_ciel_session_socket_enabled"] = bool(session_socket_target)
+    append_claude_code_runtime_settings_args(
+        extra_args, launch_passthrough, provider, runtime_settings_config
+    )
     if fork_native_session:
         session_id = str(uuid.uuid4())
         extra_args.extend(["--session-id", session_id])
@@ -538,6 +555,7 @@ def run_claude(
     def run_claude_process() -> int:
         rc = 1
         try:
+            configure_session_socket(session_socket_target or None)
             set_channel_transcript_scope(
                 "claude",
                 cwd=Path.cwd(),
@@ -573,6 +591,7 @@ def run_claude(
                 rc = subprocess.call(cmd, env=env)
             return rc
         finally:
+            configure_session_socket(None)
             if use_router_mode:
                 print_routed_claude_exit_diagnostics(rc, provider, pcfg, log_offset=launch_log_offset)
 

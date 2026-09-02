@@ -1,0 +1,133 @@
+okf: 1
+record:
+  title: Claude session socket default delivery for all Ciel input paths
+  date: 2026-09-01
+  scope:
+    branch: nightly
+    runtime: claude-code
+    claude_version_tested: 2.1.258
+    platforms:
+      windows: named-pipe
+      linux: AF_UNIX
+
+  evidence:
+    packaged_claude_protocol:
+      socket_argument: --messaging-socket-path
+      framing: newline-delimited JSON
+      authentication:
+        first_frame: '{"type":"auth","token":"<peerToken>"}'
+        key_location: ~/.claude/sessions/<pid>.<sha256-canonical-socket-path>.key
+      input_frame:
+        type: user
+        message_role: user
+        peer_from_field: omitted
+      windows_canonicalization: ASCII-lowercased local named-pipe path
+    live_windows_web_chat_probe:
+      executable: isolated Claude Code 2.1.258 native Windows binary
+      upstream: local Anthropic-compatible SSE capture server
+      http_route: POST /ca/chat/messages
+      http_status: 200
+      public_selected_transport: session_socket
+      private_gateway_transport: session_socket
+      socket_send: true
+      upstream_request_count_before: 1
+      upstream_request_count_after: 2
+      injected_marker_present_in_second_request: CIEL_ACTUAL_SOCKET_MESSAGE_7F31
+      claude_exit_code: 0
+      debug_turns_observed: 2
+    live_unix_transport_probe:
+      environment: WSL2 Ubuntu 26.04
+      transport: real AF_UNIX SOCK_STREAM server and client
+      authentication_frame_received: true
+      user_frame_received: true
+      unicode_safe_json: true
+      result: pass
+
+  implementation:
+    launch:
+      generated_path:
+        windows: '\\.\pipe\LOCAL\cc-msg-<32-hex>'
+        unix: /tmp/cc-socks-<uid>/ciel-<32-hex>.sock
+      claude_argument: --messaging-socket-path
+      generated_setting: 'crossSessionInbound: accept'
+      lifecycle:
+        configure_before_child: true
+        clear_after_child: true
+      disable_config: claude_code.session_socket_input=false
+    admission:
+      shared_gateway: ciel_runtime_support/runtime_input_gateway.py
+      runtime_default:
+        active_ciel_claude_socket: session_socket
+        otherwise: tty
+      explicit_overrides: [session_socket, tty, router]
+      routes:
+        web_chat_rest:
+          - POST /ca/chat/messages
+          - POST /ca/channel/messages
+        notification_rest:
+          - POST /ca/chat/notify
+          - POST /ca/channel/notify
+        external_events:
+          - POST /ca/events/webhooks/<receiver-id>
+          - configured SSE receiver
+        mcp_streamable:
+          endpoint: POST /ca/mcp
+          tool: submit_input
+        telemetry_notice:
+          source: OTLP durable log notification
+    delivery:
+      durable_queue_retained_until_socket_send: true
+      active_turn_delivery: true
+      active_tool_call_delivery: true
+      missing_key_or_socket:
+        cursor_committed: false
+        delivery_mark_rolled_back: true
+        retry: bounded polling of the durable queue
+      reply_contract: existing Ciel Web Chat or MCP response contract
+    receiver_option:
+      values: [auto, session_socket, tty, router]
+      auto_behavior: active Claude socket else TTY
+
+  verification:
+    focused:
+      windows_protocol_and_hash: pass
+      unix_AF_UNIX_real_socket: pass
+      ciel_launch_argument_and_lifecycle: pass
+      web_chat_rest_default_and_alias: pass
+      active_turn_socket_delivery: pass
+      external_event_socket_delivery: pass
+      mcp_submit_input_socket_delivery: pass
+      external_receiver_transport_option: pass
+      runtime_gateway_all_sources: pass
+    repository:
+      unit:
+        passed: 1358
+        skipped: 45
+      router:
+        passed: 1064
+      channel:
+        passed: 403
+        skipped: 80
+      runtime:
+        passed: 258
+        skipped: 12
+      npm_test:
+        result: pass
+        total_passed: 3083
+        total_skipped: 137
+      ruff: pass
+      architecture_budget:
+        result: pass
+        ciel_runtime_lines: 4936
+        maximum: 4980
+      metadata: pass
+      git_diff_check: pass
+      npm_pack_dry_run:
+        result: pass
+        package_version: 0.2.37
+        packed_bytes: 1685026
+    deployment:
+      commit: ready-after-full-verification
+      nightly_push: ready-after-full-verification
+      github_actions: pending
+      npm_nightly: pending

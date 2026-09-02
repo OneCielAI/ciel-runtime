@@ -16,7 +16,7 @@ class Handler:
 
 
 class ChatHttpInjectionModeTests(unittest.TestCase):
-    def controller(self, calls, responses):
+    def controller(self, calls, responses, default_transport="tty"):
         temp_dir = tempfile.TemporaryDirectory()
         self.addCleanup(temp_dir.cleanup)
 
@@ -43,7 +43,47 @@ class ChatHttpInjectionModeTests(unittest.TestCase):
                 submit_message=record("web"),
                 submit_notify=record("notify"),
                 submit_tty=record("tty"),
+                default_input_transport=lambda: default_transport,
             ),
+        )
+
+    def test_claude_default_uses_session_socket_and_allows_tty_override(self):
+        calls = []
+        responses = []
+        controller = self.controller(calls, responses, "session_socket")
+
+        self.assertTrue(
+            controller.post(
+                Handler(), "/ca/chat/messages", {"message": "socket default"}
+            )
+        )
+        self.assertEqual(
+            "session_socket", calls[0][1][0]["meta"]["input_transport"]
+        )
+        self.assertEqual("session_socket", responses[0][1]["input_transport"])
+
+        calls.clear()
+        responses.clear()
+        self.assertTrue(
+            controller.post(
+                Handler(),
+                "/ca/chat/messages",
+                {"message": "tty override", "input_transport": "tty"},
+            )
+        )
+        self.assertEqual("tty", calls[0][1][0]["meta"]["input_transport"])
+
+        calls.clear()
+        responses.clear()
+        self.assertTrue(
+            controller.post(
+                Handler("/ca/channel/messages"),
+                "/ca/channel/messages",
+                {"message": "socket default through channel alias"},
+            )
+        )
+        self.assertEqual(
+            "session_socket", calls[0][1][0]["meta"]["input_transport"]
         )
 
     def test_tty_body_parameter_bypasses_public_web_chat(self):

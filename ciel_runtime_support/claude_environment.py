@@ -511,7 +511,12 @@ class ClaudeRuntimeSettingsPolicy:
         self._ports = ports
 
     def settings(self, provider: str, config: dict[str, Any]) -> dict[str, Any]:
-        return {"ultracode": True} if self._ports.ultracode_enabled(provider, config) else {}
+        settings: dict[str, Any] = {}
+        if self._ports.ultracode_enabled(provider, config):
+            settings["ultracode"] = True
+        if config.get("_ciel_session_socket_enabled") is True:
+            settings["crossSessionInbound"] = "accept"
+        return settings
 
     def append_args(
         self,

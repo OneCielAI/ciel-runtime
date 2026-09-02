@@ -115,6 +115,20 @@ class ClaudeEnvironmentPolicyTests(unittest.TestCase):
         policy.append_args(extra_args, ["--settings", "{}"], "test", {})
         self.assertEqual("WARN", messages[0][0])
 
+    def test_runtime_settings_accept_cross_session_input_for_ciel_socket(self):
+        policy = ClaudeRuntimeSettingsPolicy(
+            ClaudeRuntimeSettingsPorts(
+                ultracode_enabled=lambda _provider, _config: False,
+                has_passthrough_option=lambda args, option: option in args,
+                log=lambda _level, _message: None,
+            )
+        )
+
+        self.assertEqual(
+            {"crossSessionInbound": "accept"},
+            policy.settings("test", {"_ciel_session_socket_enabled": True}),
+        )
+
     def test_shell_renderer_quotes_values_and_unsets_missing_keys(self):
         lines = ClaudeEnvironmentShellRenderer.lines({"ANTHROPIC_BASE_URL": "http://router"})
         self.assertEqual('export ANTHROPIC_BASE_URL="http://router"', lines[0])

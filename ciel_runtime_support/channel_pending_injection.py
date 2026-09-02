@@ -57,6 +57,7 @@ class ChannelInjectionIO:
     read_messages: Callable[..., list[dict[str, Any]]]
     write_prompt: Callable[..., Any]
     log: Callable[[str, str], Any]
+    write_session_socket: Callable[[str, list[dict[str, Any]]], bool] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,12 +104,8 @@ def inject_pending_channel_messages(
     wake_store = services.wake_store
     io = services.io
     with io.inject_lock:
-        if state.active_tool_call():
-            io.log("INFO", f"channel_stdin_proxy_deferred cursor={last_id} reason=active_tool_call")
-            return last_id
-        if state.active_turn():
-            io.log("INFO", f"channel_stdin_proxy_deferred cursor={last_id} reason=active_turn")
-            return last_id
+        active_tool_call = state.active_tool_call()
+        active_turn = state.active_turn()
         if not web_chat_only:
             last_id = state.recover_cursor(last_id)
         pending: list[dict[str, Any]] = []
@@ -118,6 +115,7 @@ def inject_pending_channel_messages(
         batch_limit = services.policy.wake_batch_limit() if wake_for_llm_delivery else 1
         pending_batch_key: tuple[str, str, str] | None = None
         pending_uses_router = False
+        pending_uses_session_socket = False
         seen_event_keys: set[tuple[str, ...]] = set()
         for message in candidates:
             previous_last_id = last_id
@@ -138,11 +136,28 @@ def inject_pending_channel_messages(
                 )
                 continue
             metadata = message.get("meta") if isinstance(message.get("meta"), dict) else {}
+            input_transport = message_input_transport(message)
+            requested_session_socket = input_transport == "session_socket"
             requested_router = (
-                message_input_transport(message) == "router"
+                input_transport == "router"
                 if "input_transport" in metadata
                 else wake_for_llm_delivery
             )
+            if requested_session_socket and io.write_session_socket is None:
+                io.log(
+                    "WARN",
+                    f"channel_stdin_proxy_deferred cursor={previous_last_id} message_id={message_id} "
+                    f"channel={channel} reason=session_socket_transport_unavailable",
+                )
+                if pending:
+                    break
+                return previous_last_id
+            if not requested_session_socket and (active_tool_call or active_turn):
+                reason = "active_tool_call" if active_tool_call else "active_turn"
+                io.log("INFO", f"channel_stdin_proxy_deferred cursor={previous_last_id} reason={reason}")
+                if pending:
+                    break
+                return previous_last_id
             if requested_router and not wake_for_llm_delivery:
                 io.log(
                     "WARN",
@@ -219,7 +234,12 @@ def inject_pending_channel_messages(
                 if message_is_external_event(message)
                 else ("channel", "")
             )
-            batch_key = (batch_key_base[0], batch_key_base[1], "router" if candidate_uses_router else "tty")
+            transport_key = (
+                "session_socket"
+                if requested_session_socket
+                else "router" if candidate_uses_router else "tty"
+            )
+            batch_key = (batch_key_base[0], batch_key_base[1], transport_key)
             if pending and pending_batch_key != batch_key:
                 break
             if not candidate_uses_router and not wake_store.mark_delivered(message_id):
@@ -228,6 +248,7 @@ def inject_pending_channel_messages(
             pending.append(message)
             pending_batch_key = batch_key
             pending_uses_router = candidate_uses_router
+            pending_uses_session_socket = requested_session_socket
             if event_key:
                 seen_event_keys.add(event_key)
             if candidate_uses_router and len(pending) == 1:
@@ -262,15 +283,18 @@ def inject_pending_channel_messages(
                 claimed_ids.append(claim_id)
         submit_bytes = prompts.enter_bytes(enter_bytes)
         try:
-            submitted = io.write_prompt(
-                master_fd,
-                prompt,
-                submit_bytes,
-                submit_retry_count=submit_retry_count,
-                confirm_submit=confirm_submit,
-                bracketed_paste=bracketed_paste,
-                submit_delay_seconds=submit_delay_seconds,
-            )
+            if pending_uses_session_socket:
+                submitted = bool(io.write_session_socket and io.write_session_socket(prompt, pending))
+            else:
+                submitted = io.write_prompt(
+                    master_fd,
+                    prompt,
+                    submit_bytes,
+                    submit_retry_count=submit_retry_count,
+                    confirm_submit=confirm_submit,
+                    bracketed_paste=bracketed_paste,
+                    submit_delay_seconds=submit_delay_seconds,
+                )
             if submitted is False:
                 wake_store.rollback(pending, claimed_ids)
                 ids = ",".join(str(message.get("id") or "") for message in pending)
@@ -295,6 +319,7 @@ def inject_pending_channel_messages(
             "INFO",
             f"channel_stdin_proxy_injected count={len(pending)} message_ids={ids} "
             f"channels={channels} enter={prompts.enter_label(submit_bytes)} "
+            f"transport={'session_socket' if pending_uses_session_socket else 'router' if pending_uses_router else 'tty'} "
             f"commit_cursor={commit_cursor} "
             f"display_body={bool(pending_uses_router and display_llm_delivery_body)}",
         )

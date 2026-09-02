@@ -5,6 +5,10 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+- Deliver Web Chat, configured external event streams/webhooks, and Ciel MCP
+  `submit_input` calls to interactive Claude Code sessions through Claude's
+  authenticated session socket by default. Windows named pipes and Unix
+  AF_UNIX sockets are supported; explicit TTY and router overrides remain.
 - Add Claude Fable 5.1 to the Anthropic catalog and model policy.
 - Keep Anthropic routed sessions on standard 200K context unless the selected
   model explicitly includes `[1m]`, avoiding an unintended usage-credit beta.

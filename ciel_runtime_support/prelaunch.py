@@ -770,6 +770,13 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                         continue
                     if value in {"enabled", "transport"}:
                         messages = set_external_event_config(value, "toggle")
+                    elif value == "input_transport":
+                        entered = prompt_menu_value(
+                            "Runtime input transport (auto/session_socket/tty/router)",
+                            restore_tty=restore_line_mode,
+                            raw_tty=restore_raw_mode,
+                        )
+                        messages = set_external_event_config(value, entered or "auto")
                     elif value == "url":
                         entered = prompt_menu_value(
                             "SSE URL (blank for webhook mode)",

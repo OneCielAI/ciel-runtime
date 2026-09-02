@@ -2,6 +2,13 @@ okf: 1
 record:
   title: Claude Code Windows peer-socket compatibility audit
   date: 2026-09-01
+  supersession:
+    status: superseded-by-host-owned-socket-delivery
+    record: implementation/claude/session-socket/all-input-paths/default-delivery.okf
+    note: >-
+      The later implementation omits the peer from address and preserves Ciel's
+      explicit Web Chat/MCP reply contract, removing the reply-routing condition
+      that blocked socket-first delivery in this audit.
   scope:
     runtime: ciel-runtime
     branch: nightly

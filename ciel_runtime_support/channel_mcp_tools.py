@@ -20,10 +20,37 @@ class ChannelMcpToolServices:
     handle_llm_options: Callable[[str, str], tuple[list[str], bool]]
     read_runtime_inputs: Callable[..., list[dict[str, Any]]] | None = None
     telemetry_logs: Callable[[str, dict[str, Any]], dict[str, Any]] | None = None
+    submit_input: Callable[[dict[str, Any]], dict[str, Any]] | None = None
 
 
 def channel_mcp_tool_schemas() -> list[dict[str, Any]]:
     return [
+        {
+            "name": "submit_input",
+            "description": (
+                "Submit an external message to the active Ciel Runtime session. "
+                "Claude sessions use their authenticated session socket by default; "
+                "callers may explicitly select session_socket, tty, or router."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "message": {"type": "string"},
+                    "channel": {"type": "string"},
+                    "sender_id": {"type": "string"},
+                    "thread_id": {"type": "string"},
+                    "input_transport": {
+                        "type": "string",
+                        "enum": ["session_socket", "tty", "router"],
+                    },
+                    "response_mode": {
+                        "type": "string",
+                        "enum": ["web_chat", "tty", "mcp"],
+                    },
+                },
+                "required": ["message"],
+            },
+        },
         {
             "name": "compact_session",
             "description": (
@@ -213,6 +240,13 @@ def dispatch_channel_mcp_tool(
                 "expires_at": request.get("expires_at"),
             },
         )
+    if name == "submit_input":
+        if services.submit_input is None:
+            return channel_mcp_tool_response(request_id, "runtime input submission is unavailable", True)
+        if not str(args.get("message") or args.get("content") or args.get("text") or "").strip():
+            return channel_mcp_tool_response(request_id, "submit_input requires message", True)
+        saved = services.submit_input(args)
+        return _json_response(request_id, {"ok": True, "message": saved})
     if name == "send_message":
         return _send_message(request_id, args, services)
     if name == "send_file":

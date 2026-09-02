@@ -242,6 +242,7 @@ class ExternalEventReceiverTests(unittest.TestCase):
                     "authorization": "${TEST_EVENT_SSE_AUTH}",
                     "cursor_json_pointer": "/data/stream_id",
                     "cursor_query_parameter": "after",
+                    "input_transport": "session_socket",
                 })
                 public = service.list_public()[0]
                 self.assertEqual(
@@ -265,6 +266,7 @@ class ExternalEventReceiverTests(unittest.TestCase):
             self.assertEqual("Bearer secret-token", request.get_header("Authorization"))
             self.assertIsNone(request.get_header("Last-event-id"))
             self.assertEqual(event_text, admitted[0][0])
+            self.assertEqual("session_socket", admitted[0][1]["input_transport"])
             self.assertEqual("11-1", json.loads(cursor_path.read_text(encoding="utf-8"))["default"])
 
     def test_standard_sse_cursor_uses_last_event_id_header(self):

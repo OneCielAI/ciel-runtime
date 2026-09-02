@@ -6,6 +6,29 @@ from ciel_runtime_support.runtime_input_gateway import RuntimeInputGateway
 
 
 class RuntimeInputGatewayTests(unittest.TestCase):
+    def test_claude_default_transport_is_stamped_on_all_external_inputs(self):
+        gateway = RuntimeInputGateway(
+            lambda value: value,
+            default_input_transport=lambda: "session_socket",
+        )
+
+        web = gateway.submit_web_chat({"id": 1, "message": "web"})
+        event = gateway.submit_external_event(
+            '{"specversion":"1.0"}',
+            receiver_id="default",
+            transport="sse",
+            event_id="evt-1",
+            event_type="example.created",
+            event_source="example",
+        )
+        mcp = gateway.submit_stream_input({"message": "mcp"})
+        notification = gateway.submit_notification({"message": "notification"})
+        tty = gateway.submit_tty({"message": "plain input"})
+        telemetry = gateway.submit_telemetry_notice([], 1)
+
+        for admitted in (web, event, mcp, notification, tty, telemetry):
+            self.assertEqual("session_socket", admitted["meta"]["input_transport"])
+
     def test_web_chat_keeps_local_attachment_projection_private(self):
         admitted = []
         public_message = {

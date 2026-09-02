@@ -33,8 +33,20 @@ class ChannelBridgeTests(unittest.TestCase):
             self.skipTest("retired Ciel-owned external MCP transport")
         ciel_runtime._CHANNEL_STDIN_WAKE_DELIVERED.clear()
         ciel_runtime._CHANNEL_STDIN_WAKE_PROMPTS.clear()
+        ciel_runtime._CHANNEL_STDIN_WAKE_BATCHES.clear()
         ciel_runtime._CHANNEL_TRANSCRIPT_CACHE.clear()
         ciel_runtime._CHANNEL_TRANSCRIPT_CACHE.update({"checked_at": 0.0, "path": None})
+        ciel_runtime._CHANNEL_TRANSCRIPT_SCOPE.update(
+            {
+                "runtime": "",
+                "started_at": 0.0,
+                "codex_home": None,
+                "cwd": None,
+                "session_id": "",
+                "bound_path": None,
+                "turn_active": False,
+            }
+        )
         self._home_tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self._home_tmp.cleanup)
         self._home_patch = mock.patch.object(ciel_runtime, "HOME", Path(self._home_tmp.name))
@@ -2279,6 +2291,106 @@ class ChannelBridgeTests(unittest.TestCase):
         ):
             ciel_runtime._inject_pending_channel_messages(99, 1, b"\r")
         self.assertEqual(b"\r", write_all_cr.call_args_list[1].args[1])
+
+    def test_claude_session_socket_injects_while_turn_is_active(self):
+        messages = [
+            {
+                "id": 42001,
+                "channel": "web-chat-session",
+                "thread_id": "thread-socket",
+                "sender_id": "web-user",
+                "message": "deliver over the Claude socket",
+                "kind": "web_chat",
+                "meta": {
+                    "source": "ciel-runtime-web-chat",
+                    "reply_channel": "web-chat-session",
+                    "reply_parent_id": 42001,
+                    "web_reply_token": "socket-token",
+                    "input_transport": "session_socket",
+                    "response_mode": "web_chat",
+                },
+                "delivery": ["llm"],
+            }
+        ]
+        with (
+            mock.patch.object(ciel_runtime, "read_chat_messages", return_value=messages),
+            mock.patch.object(ciel_runtime, "_latest_claude_transcript_path", return_value=None),
+            mock.patch.object(ciel_runtime, "_channel_stdin_active_turn", return_value=True),
+            mock.patch.object(ciel_runtime, "_channel_stdin_active_tool_call", return_value=True),
+            mock.patch.object(ciel_runtime._CLAUDE_SESSION_SOCKET, "send", return_value=True) as send,
+            mock.patch.object(ciel_runtime, "_write_fd_all") as write_all,
+            mock.patch.object(ciel_runtime, "_commit_channel_llm_cursor_if_newer"),
+            mock.patch.object(ciel_runtime, "router_log"),
+        ):
+            last_id = ciel_runtime._inject_pending_channel_messages(
+                99,
+                42000,
+                web_chat_only=True,
+                commit_cursor=False,
+            )
+
+        self.assertEqual(42001, last_id)
+        send.assert_called_once()
+        self.assertIn("deliver over the Claude socket", send.call_args.args[0])
+        write_all.assert_not_called()
+
+    def test_external_source_inputs_use_claude_session_socket(self):
+        cases = (
+            (
+                42002,
+                {
+                    "channel": "external:default",
+                    "kind": "external_event",
+                    "message": "external stream event",
+                    "meta": {
+                        "receiver_id": "default",
+                        "input_transport": "session_socket",
+                    },
+                },
+            ),
+            (
+                42003,
+                {
+                    "channel": "mcp-streamable",
+                    "kind": "mcp_streamable_input",
+                    "message": "streamable MCP input",
+                    "meta": {
+                        "source": "ciel-runtime-mcp-streamable",
+                        "input_transport": "session_socket",
+                    },
+                },
+            ),
+        )
+        for message_id, body in cases:
+            with self.subTest(kind=body["kind"]):
+                message = {
+                    "id": message_id,
+                    "sender_id": "external-client",
+                    "delivery": ["llm"],
+                    **body,
+                }
+                with (
+                    mock.patch.object(ciel_runtime, "read_chat_messages", return_value=[message]),
+                    mock.patch.object(ciel_runtime, "_channel_stdin_recover_cursor_from_queued_only", return_value=message_id - 1),
+                    mock.patch.object(ciel_runtime, "_channel_stdin_active_turn", return_value=True),
+                    mock.patch.object(ciel_runtime, "_channel_stdin_active_tool_call", return_value=True),
+                    mock.patch.object(ciel_runtime._CLAUDE_SESSION_SOCKET, "send", return_value=True) as send,
+                    mock.patch.object(ciel_runtime, "_write_fd_all") as write_all,
+                    mock.patch.object(ciel_runtime, "router_log"),
+                ):
+                    last_id = ciel_runtime._inject_pending_channel_messages(
+                        99,
+                        message_id - 1,
+                        commit_cursor=False,
+                    )
+
+                self.assertEqual(message_id, last_id)
+                send.assert_called_once()
+                self.assertIn(body["message"], send.call_args.args[0])
+                write_all.assert_not_called()
+                ciel_runtime._CHANNEL_STDIN_WAKE_DELIVERED.discard(message_id)
+                ciel_runtime._CHANNEL_STDIN_WAKE_PROMPTS.pop(message_id, None)
+                ciel_runtime._CHANNEL_STDIN_WAKE_BATCHES.pop(message_id, None)
 
     def test_inject_pending_channel_messages_batches_and_ignores_connection_noise(self):
         messages = [

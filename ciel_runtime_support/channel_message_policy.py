@@ -130,8 +130,10 @@ def message_input_transport(message: dict[str, Any]) -> str:
 
     # Messages admitted before input_transport existed followed the router
     # delivery policy selected at launch. Preserve that persisted compatibility;
-    # the HTTP API now always stamps its explicit default (tty).
+    # current input APIs always stamp their runtime-selected transport.
     value = str(_metadata(message).get("input_transport") or "router").strip().lower().replace("-", "_")
+    if value in {"session_socket", "socket", "claude_socket", "messaging_socket"}:
+        return "session_socket"
     if value in {"router", "llm", "context", "inband", "in_band"}:
         return "router"
     return "tty"

@@ -17,6 +17,21 @@ from typing import Any, Callable
 class RuntimeInputGateway:
     append: Callable[[dict[str, Any]], dict[str, Any]]
     project_attachment: Callable[[dict[str, Any]], dict[str, Any]] | None = None
+    default_input_transport: Callable[[], str] = lambda: "tty"
+
+    def _transport(self, value: Any = None) -> str:
+        transport = str(value or self.default_input_transport() or "tty").strip().lower().replace("-", "_")
+        aliases = {
+            "socket": "session_socket",
+            "claude_socket": "session_socket",
+            "messaging_socket": "session_socket",
+            "llm": "router",
+            "context": "router",
+            "terminal": "tty",
+            "stdin": "tty",
+        }
+        transport = aliases.get(transport, transport)
+        return transport if transport in {"session_socket", "router", "tty"} else "tty"
 
     def submit_web_chat(
         self,
@@ -30,6 +45,10 @@ class RuntimeInputGateway:
         meta.setdefault("source", "ciel-runtime-web-chat")
         meta.setdefault("source_kind", "web_chat")
         meta.setdefault("injection_mode", "structured")
+        meta.setdefault(
+            "input_transport",
+            self._transport(inbound.get("input_transport") or meta.get("input_transport")),
+        )
         meta.setdefault("response_mode", "web_chat")
         if meta["response_mode"] == "web_chat":
             meta["reply_parent_id"] = public_message.get("id")
@@ -94,6 +113,9 @@ class RuntimeInputGateway:
         meta["source"] = "ciel-runtime-api-tty"
         meta["source_kind"] = "tty_input"
         meta["injection_mode"] = "tty"
+        meta["input_transport"] = self._transport(
+            meta.get("input_transport") or body.get("input_transport")
+        )
         meta["response_mode"] = response_mode
 
         content: Any = params.get("content")
@@ -126,6 +148,10 @@ class RuntimeInputGateway:
         meta = dict(meta_value) if isinstance(meta_value, dict) else {}
         meta.setdefault("source", "ciel-runtime-notify")
         meta.setdefault("source_kind", "notification")
+        meta.setdefault(
+            "input_transport",
+            self._transport(body.get("input_transport") or meta.get("input_transport")),
+        )
         content = params.get("content")
         if content is None:
             content = body.get("content", body.get("message", body.get("text", "")))
@@ -144,6 +170,36 @@ class RuntimeInputGateway:
             }
         )
 
+    def submit_stream_input(self, body: dict[str, Any]) -> dict[str, Any]:
+        """Admit an external Streamable HTTP/MCP input into the runtime queue."""
+
+        meta = dict(body.get("meta") or {}) if isinstance(body.get("meta"), dict) else {}
+        meta.setdefault("source", "ciel-runtime-mcp-streamable")
+        meta.setdefault("source_kind", "mcp_streamable_input")
+        meta.setdefault("injection_mode", "structured")
+        meta["input_transport"] = self._transport(
+            body.get("input_transport") or meta.get("input_transport")
+        )
+        meta.setdefault("response_mode", str(body.get("response_mode") or "tty"))
+        content = body.get("message", body.get("content", body.get("text", "")))
+        if isinstance(content, (dict, list)):
+            content = json.dumps(content, ensure_ascii=False, separators=(",", ":"))
+            meta["content_type"] = "application/json"
+        return self.append(
+            {
+                "channel": body.get("channel") or "mcp-streamable",
+                "sender_id": body.get("sender_id") or body.get("sender") or "mcp-client",
+                "recipients": body.get("recipients", "all"),
+                "thread_id": body.get("thread_id"),
+                "parent_id": body.get("parent_id"),
+                "kind": body.get("kind") or "mcp_streamable_input",
+                "message": content if content is not None else "",
+                "meta": meta,
+                "delivery": ["llm"],
+                "visibility": "private_runtime",
+            }
+        )
+
     def submit_external_event(
         self,
         raw_event: str,
@@ -154,6 +210,7 @@ class RuntimeInputGateway:
         event_type: str,
         event_source: str,
         transport_event_id: str = "",
+        input_transport: str = "",
     ) -> dict[str, Any]:
         """Admit exact decoded event text; never normalize or re-serialize it."""
 
@@ -174,6 +231,7 @@ class RuntimeInputGateway:
                     "event_type": event_type,
                     "event_source": event_source,
                     "transport_event_id": transport_event_id,
+                    "input_transport": self._transport(input_transport),
                     "raw_preserved": True,
                 },
                 "delivery": ["llm"],
@@ -231,6 +289,7 @@ class RuntimeInputGateway:
                     "ack_required": False,
                     "response_expected": False,
                     "logs_embedded": False,
+                    "input_transport": self._transport(),
                 },
                 "delivery": ["llm"],
                 "visibility": "private_runtime",

@@ -57,8 +57,13 @@ how a request enters the active TUI and how the answer should leave it:
   projection, voice/text hint, and request metadata. `input_mode=tty` puts the
   caller's message text directly on the private terminal-input path without the
   Web Chat input envelope.
-- `input_transport=tty` (default) submits the selected input format through the
-  active CLI terminal. `input_transport=router` keeps the full message in the
+- `input_transport=session_socket` is selected automatically while an interactive
+  Claude Code session launched by Ciel has its authenticated messaging socket
+  active. It sends the selected input without typing into the terminal and can
+  deliver while Claude is processing another turn. Other runtimes default to
+  `input_transport=tty`, which submits through the active CLI terminal. An
+  explicit `input_transport=tty` always retains terminal delivery.
+- `input_transport=router` keeps the full message in the
   Runtime Input Gateway: while a model turn is already active, its next request
   consumes the message without a console wake; while the CLI is idle, Ciel types
   a correlated wake turn and replaces that entire turn with the full pending
@@ -67,7 +72,8 @@ how a request enters the active TUI and how the answer should leave it:
   short marker-only wake because their terminal turn behavior is different. In
   both cases the model request receives the queued message exactly once. Router
   transport therefore requires the active model session to use Ciel Router.
-  Aliases `llm`, `context`, and `inband` are accepted.
+  Aliases `llm`, `context`, and `inband` are accepted. Socket aliases `socket`,
+  `claude_socket`, and `messaging_socket` select `session_socket`.
 - `response_mode=web_chat` (alias `ai_net`, default) uses the normal correlated Web
   Chat reply contract. `response_mode=tty` leaves the model's ordinary terminal
   output as-is and does not require a Web Chat tool reply. `response_mode=mcp`
@@ -100,18 +106,23 @@ back to another route.
 
 ### Claude Code cross-session socket boundary
 
-Claude Code 2.1.239 and later publishes its cross-session peer inbox on Windows
-as well as macOS and Linux. Ciel does not use that peer inbox for Web Chat,
-remote-human, or external-event input. A live Claude Code 2.1.258 probe and its
-packaged socket handler both classify a socket `user` frame as a message from
-another Claude session. That origin can cause the answer to be sent with
-Claude's `SendMessage` tool instead of being returned to the Web Chat or remote
-stream that supplied the input.
+Claude Code 2.1.239 and later publishes its cross-session messaging socket on
+Windows as well as macOS and Linux. For an interactive Claude session, Ciel now
+creates an explicit per-launch socket path, passes it with
+`--messaging-socket-path`, and enables `crossSessionInbound=accept` in Ciel's
+generated runtime settings. Windows uses a local named pipe; Unix platforms use
+an AF_UNIX socket.
 
-Those inputs therefore retain Ciel's host-owned terminal or routed request-body
-delivery. Direct peer-socket delivery is safe only when both ends are real
-Claude sessions and the sender exposes a valid reply inbox; Ciel does not
-silently reinterpret an external user as such a peer.
+Each connection authenticates first with the `peerToken` from Claude's
+user-private `~/.claude/sessions/<pid>.<socket-hash>.key` file and then submits a
+newline-delimited `user` frame. Ciel deliberately omits a peer `from` address:
+the existing private Web Chat/MCP response contract remains authoritative, so a
+socket input does not invent a second Claude peer as its reply destination.
+If the key or socket is not ready, the durable Runtime Input record is retained
+and retried; it is not acknowledged or cursor-committed as delivered.
+
+Set `claude_code.session_socket_input=false` to disable automatic socket setup
+for a launch, or choose `input_transport=tty|router` on an individual input.
 
 Web Chat attachments are uploaded through `POST /ca/channel/files`. The public
 chat transcript contains only download metadata; the private Runtime Input
@@ -135,7 +146,12 @@ POST /ca/events/receivers/<receiver-id>
 POST /ca/events/webhooks/<receiver-id>
 ```
 
-The configuration POST accepts `enabled`, `transport` (`webhook` or `sse`), `url` for SSE, an optional `event_types` allow-list, and either `webhook_secret` or `authorization`. Secrets are stored in the local encrypted workspace vault and are never returned by the GET response.
+The configuration POST accepts `enabled`, `transport` (`webhook` or `sse`), `url`
+for SSE, an optional `event_types` allow-list, and either `webhook_secret` or
+`authorization`. `input_transport=auto|session_socket|tty|router` controls how
+admitted events reach the active runtime; `auto` selects the Claude socket only
+while it is active and otherwise selects TTY. Secrets are stored in the local
+encrypted workspace vault and are never returned by the GET response.
 
 Webhook bodies use CloudEvents 1.0 structured JSON and Standard Webhooks `webhook-id`, `webhook-timestamp`, and `webhook-signature` headers. SSE requests negotiate the same structured representation with `Accept: text/event-stream, application/cloudevents+json`; each `data` frame must contain one CloudEvent 1.0 structured JSON object. Ciel validates framing, signatures, replay windows, type filters, and duplicate identities, but preserves the admitted event text exactly for the LLM.
 
@@ -155,7 +171,12 @@ When Web Chat or an explicit Ciel integration needs response tools, the CLI may 
 POST /ca/mcp
 ```
 
-It exposes only Ciel-owned tools such as `send_message`, `send_file`, `compact_session`, and `llm_options`. The endpoint is stateless and has no MCP GET stream, `/ca/mcp/sse`, session registry, replay cursor, or external notification subscription.
+It exposes only Ciel-owned tools such as `submit_input`, `send_message`,
+`send_file`, `compact_session`, and `llm_options`. External Streamable HTTP MCP
+clients can call `submit_input`; its default transport follows the same active
+Claude socket policy and accepts an explicit `session_socket|tty|router`
+override. The endpoint is stateless and has no MCP GET stream, `/ca/mcp/sse`,
+session registry, replay cursor, or external notification subscription.
 
 ## MCP 2026-07-28
 

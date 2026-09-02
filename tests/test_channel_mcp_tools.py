@@ -44,9 +44,32 @@ class ChannelMcpToolsTests(unittest.TestCase):
     def test_catalog_exposes_only_supported_tools(self):
         names = {tool["name"] for tool in channel_mcp_tool_schemas()}
         self.assertEqual(
-            {"compact_session", "send_message", "send_file", "llm_options", "telemetry_logs"},
+            {"submit_input", "compact_session", "send_message", "send_file", "llm_options", "telemetry_logs"},
             names,
         )
+
+    def test_submit_input_uses_shared_runtime_gateway(self):
+        admitted = []
+        services = replace(
+            self.services,
+            submit_input=lambda body: admitted.append(body) or {"id": 41, **body},
+        )
+
+        response = dispatch_channel_mcp_tool(
+            7,
+            {
+                "name": "submit_input",
+                "arguments": {
+                    "message": "from streamable MCP",
+                    "input_transport": "session_socket",
+                },
+            },
+            services,
+        )
+
+        self.assertEqual("from streamable MCP", admitted[0]["message"])
+        self.assertEqual("session_socket", admitted[0]["input_transport"])
+        self.assertFalse(response["result"]["isError"])
 
     def test_send_message_builds_default_web_delivery(self):
         response = dispatch_channel_mcp_tool(

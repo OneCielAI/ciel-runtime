@@ -114,7 +114,9 @@ from ciel_runtime_support.chat_files import ChatFilePorts, ChatFileRepository
 from ciel_runtime_support.chat_http_controller import ChatHttpController, ChatHttpReadServices, ChatHttpWriteServices
 from ciel_runtime_support.runtime_input_gateway import RuntimeInputGateway
 from ciel_runtime_support.external_event_receiver import EventReceiverSecretVault, ExternalEventReceiverService
+from ciel_runtime_support.external_event_menu import panel_rows as project_external_event_panel_rows, update_config as project_set_external_event_config
 from ciel_runtime_support.claude_environment import ClaudeEnvironmentFeaturePorts, ClaudeEnvironmentProjection, ClaudeEnvironmentShellRenderer, ClaudeEnvironmentSourcePorts, ClaudeLimitPolicy, ClaudeLimitPorts, ClaudeModelAliasCompatibilityApi, ClaudeModelAliasPolicy, ClaudeModelPorts, ClaudeRuntimeSettingsPolicy, ClaudeRuntimeSettingsPorts
+from ciel_runtime_support.claude_session_socket import ClaudeSessionSocketClient, prepared_socket_path
 from ciel_runtime_support.cli_application_context import CliApplicationCompatibilityApi, CliApplicationContext, CliApplicationDispatchPorts, CliApplicationPresentationPorts
 from ciel_runtime_support.cli_usage import cli_usage_text
 from ciel_runtime_support.codex_app_server import codex_app_server_launch_args
@@ -1860,6 +1862,7 @@ def runtime_input_gateway() -> RuntimeInputGateway:
     return RuntimeInputGateway(
         append_runtime_input,
         chat_file_repository().runtime_attachment,
+        _default_channel_input_transport,
     )
 
 def external_event_receiver_service() -> ExternalEventReceiverService:
@@ -1895,63 +1898,10 @@ def handle_external_event_raw_post(handler: BaseHTTPRequestHandler, path: str, r
     return external_event_receiver_service().handle_raw_post(handler, path, raw)
 
 def external_event_panel_rows(_cfg: dict[str, Any]) -> tuple[list[str], list[str]]:
-    service = external_event_receiver_service()
-    receiver = service.receiver_configs().get("default", {})
-    public_receiver = service.public_receiver("default", receiver)
-    environment_references = public_receiver.get("environment_references", {})
-    enabled = bool(receiver.get("enabled", False))
-    transport = str(receiver.get("transport") or "webhook")
-    event_types = receiver.get("event_types") if isinstance(receiver.get("event_types"), list) else []
-    secret_status = service.vault.status("default")
-    def secret_source(field_name: str, stored_key: str) -> str:
-        reference = environment_references.get(field_name, {})
-        if isinstance(reference, dict) and reference.get("name"):
-            availability = "available" if reference.get("available") else "missing"
-            return f"env:{reference['name']} {availability}"
-        return "stored" if secret_status[stored_key] else "unset"
-    rows = [
-        f"Enabled  [{'on' if enabled else 'off'}]",
-        f"Transport  [{transport}]",
-        f"SSE URL  [{str(receiver.get('url') or 'unset')}]",
-        "SSE content mode  [CloudEvents 1.0 structured JSON]",
-        f"Allowed CloudEvent types  [{', '.join(str(value) for value in event_types) if event_types else 'all'}]",
-        f"Cursor JSON pointer  [{str(receiver.get('cursor_json_pointer') or 'SSE id field')}]",
-        f"Reconnect query parameter  [{str(receiver.get('cursor_query_parameter') or 'Last-Event-ID header')}]",
-        f"Webhook signing secret  [{secret_source('webhook_secret', 'stored_webhook_secret')}]",
-        f"SSE authorization  [{secret_source('authorization', 'stored_authorization')}]",
-        f"Webhook endpoint  [{ROUTER_BASE}/ca/events/webhooks/default]",
-        "Back",
-    ]
-    return rows, ["enabled", "transport", "url", "__info__", "event_types", "cursor_json_pointer", "cursor_query_parameter",
-                  "webhook_secret", "authorization", "__info__", "back"]
+    return project_external_event_panel_rows(external_event_receiver_service(), ROUTER_BASE)
 
 def set_external_event_config(key: str, value: Any) -> list[str]:
-    service = external_event_receiver_service()
-    current = service.receiver_configs().get("default", {})
-    body: dict[str, Any] = {
-        "enabled": bool(current.get("enabled", False)),
-        "transport": str(current.get("transport") or "webhook"),
-        "url": str(current.get("url") or ""),
-        "event_types": current.get("event_types") if isinstance(current.get("event_types"), list) else [],
-        "cursor_json_pointer": str(current.get("cursor_json_pointer") or ""),
-        "cursor_query_parameter": str(current.get("cursor_query_parameter") or ""),
-    }
-    if key == "enabled":
-        body["enabled"] = not body["enabled"]
-    elif key == "transport":
-        body["transport"] = "sse" if body["transport"] == "webhook" else "webhook"
-    elif key == "event_types":
-        body["event_types"] = [part.strip() for part in str(value or "").split(",") if part.strip()]
-    elif key in {"url", "cursor_json_pointer", "cursor_query_parameter", "webhook_secret", "authorization"}:
-        body[key] = str(value or "")
-    else:
-        raise ValueError(f"unsupported external event option: {key}")
-    updated = service.save_receiver("default", body)
-    return [
-        f"External event receiver updated: enabled={updated.get('enabled')} transport={updated.get('transport')}.",
-        "The router owns receiver connections; the prelaunch configuration process does not open a duplicate stream.",
-        "External events use the private Runtime Input Gateway and are never published to Web Chat.",
-    ]
+    return project_set_external_event_config(external_event_receiver_service(), key, value)
 
 def remote_instruction_synchronizer() -> RemoteInstructionSynchronizer: return RemoteInstructionSynchronizer(load_config=load_config, workspace=lambda: Path(ROUTER_WORKSPACE), state_dir=WORKSPACE_STATE_DIR, log=router_log)
 def remote_memory_synchronizer() -> RemoteMemorySynchronizer: return RemoteMemorySynchronizer(load_config=load_config, workspace=lambda: Path(ROUTER_WORKSPACE), state_dir=WORKSPACE_STATE_DIR, log=router_log)
@@ -2110,6 +2060,7 @@ def _channel_mcp_tool_call_response(request_id: Any, params: dict[str, Any]) -> 
             handle_llm_options=handle_live_llm_options_action,
             read_runtime_inputs=read_runtime_inputs,
             telemetry_logs=_TELEMETRY_LOG_RUNTIME.tool,
+            submit_input=runtime_input_gateway().submit_stream_input,
         ),
     )
 
@@ -2141,6 +2092,7 @@ def chat_http_controller() -> ChatHttpController:
             runtime_input_gateway().submit_web_chat,
             runtime_input_gateway().submit_notification,
             runtime_input_gateway().submit_tty,
+            _default_channel_input_transport,
         ),
     )
 
@@ -4342,6 +4294,8 @@ def should_use_channel_stdin_proxy(use_router_mode: bool, passthrough: list[str]
         return False
     claude_config = cfg.get("claude_code") if isinstance(cfg, dict) else {}
     return not (isinstance(claude_config, dict) and claude_config.get("web_chat_session_bridge") is False)
+_CLAUDE_SESSION_SOCKET = ClaudeSessionSocketClient(HOME, router_log)
+def _default_channel_input_transport() -> str: return "session_socket" if str(_CHANNEL_TRANSCRIPT_SCOPE.get("runtime") or "").lower() == "claude" and _CLAUDE_SESSION_SOCKET.available() else "tty"
 def _channel_pending_scan_limit() -> int: return channel_runtime_environment_policy().pending_scan_limit()
 def _channel_stdin_wake_batch_limit() -> int: return channel_runtime_environment_policy().wake_batch_limit()
 _CHANNEL_LLM_TOOL_CONTEXT_LOCK = threading.Lock()
@@ -4419,7 +4373,7 @@ def channel_wake_context() -> ChannelWakeContext:
         pending_delivery=ChannelPendingDeliveryPorts(format_channel_llm_delivery_wake_prompt, format_channel_visible_llm_delivery_wake_prompt, format_channel_web_chat_wake_batch_prompt, format_channel_wake_batch_prompt, _channel_enter_label,
                                                      _channel_wake_store_release_stale, _CHANNEL_WAKE_DELIVERY_REPOSITORY.mark_delivered, _channel_wake_store_record_prompts,
                                                      _channel_wake_store_rollback, _commit_channel_llm_cursor_if_newer),
-        pending_io=ChannelPendingIoPorts(_CHANNEL_STDIN_INJECT_LOCK, read_runtime_inputs, _write_channel_wake_prompt, _read_channel_compact_request, _clear_channel_compact_request, _runtime_input_storage_path(), router_log),
+        pending_io=ChannelPendingIoPorts(_CHANNEL_STDIN_INJECT_LOCK, read_runtime_inputs, _write_channel_wake_prompt, _read_channel_compact_request, _clear_channel_compact_request, _runtime_input_storage_path(), router_log, _CLAUDE_SESSION_SOCKET.send),
         pending_policy=ChannelPendingPolicyPorts(_channel_stdin_wake_batch_limit, time.time, lambda: channel_runtime_environment_policy().web_chat_replay_ttl_seconds(),
                                                  lambda message: runtime_input_repository().timestamp_seconds(message), _channel_message_is_web_chat_request),
     )
@@ -4738,6 +4692,8 @@ def claude_launch_services() -> runtime_launch.ClaudeLaunchServices:
             _codex_channel_wake_submit_delay_seconds,
             _codex_channel_wake_submit_retries,
             _set_channel_transcript_scope,
+            prepared_socket_path,
+            _CLAUDE_SESSION_SOCKET.configure,
         ),
         mcp_config=assembly.ClaudeLaunchMcpConfigPorts(
             write_duckduckgo_mcp_config,

@@ -418,6 +418,18 @@ class ExternalEventReceiverService:
         cursor_query_parameter = str(body.get("cursor_query_parameter") or "").strip()
         if len(cursor_query_parameter) > 80 or any(char in cursor_query_parameter for char in "&=?#/"):
             raise ValueError("cursor_query_parameter must be a single URL query parameter name")
+        input_transport = str(body.get("input_transport") or "auto").strip().lower().replace("-", "_")
+        input_transport = {
+            "socket": "session_socket",
+            "claude_socket": "session_socket",
+            "messaging_socket": "session_socket",
+            "terminal": "tty",
+            "stdin": "tty",
+            "llm": "router",
+            "context": "router",
+        }.get(input_transport, input_transport)
+        if input_transport not in {"auto", "session_socket", "tty", "router"}:
+            raise ValueError("input_transport must be auto, session_socket, tty, or router")
         cfg = self.load_config()
         root = cfg.setdefault("external_event_receivers", {})
         workspace = root.get(self.workspace_key)
@@ -433,6 +445,7 @@ class ExternalEventReceiverService:
                 "event_types": [str(value) for value in event_types if str(value)],
                 "cursor_json_pointer": cursor_json_pointer,
                 "cursor_query_parameter": cursor_query_parameter,
+                "input_transport": input_transport,
             }
         )
         workspace[receiver_id] = current
@@ -525,7 +538,8 @@ class ExternalEventReceiverService:
         return True
 
     def _admit(self, receiver_id: str, transport: str, raw_text: str, event: dict[str, str], transport_event_id: str = "") -> dict[str, Any]:
-        allowed = self.receiver_configs().get(receiver_id, {}).get("event_types", [])
+        receiver = self.receiver_configs().get(receiver_id, {})
+        allowed = receiver.get("event_types", [])
         if allowed and event["type"] not in allowed:
             raise ValueError("CloudEvent type is not admitted by this receiver")
         result = self.submit_event(
@@ -536,6 +550,10 @@ class ExternalEventReceiverService:
             event_type=event["type"],
             event_source=event["source"],
             transport_event_id=transport_event_id,
+            input_transport=(
+                "" if str(receiver.get("input_transport") or "auto") == "auto"
+                else str(receiver.get("input_transport") or "")
+            ),
         )
         self._set_status(receiver_id, state="connected", last_event_id=event["id"], last_event_at=time.time(), error="")
         return result

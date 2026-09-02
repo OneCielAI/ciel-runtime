@@ -151,8 +151,9 @@ class SpeechHttpController:
                 "chat_message_processing": {
                     "input_mode": {"default": "structured", "allowed": ["structured", "tty"]},
                     "input_transport": {
-                        "default": "tty",
-                        "allowed": ["tty", "router"],
+                        "default": "session_socket for active Claude; tty otherwise",
+                        "allowed": ["session_socket", "tty", "router"],
+                        "session_socket_requires": "an active Claude session launched with its Ciel-owned messaging socket",
                         "router_requires": "an active model session routed through Ciel Router",
                     },
                     "response_mode": {"default": "web_chat", "allowed": ["web_chat", "tty", "mcp"]},
