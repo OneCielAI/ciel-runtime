@@ -19,6 +19,7 @@ from .base import HttpBearerProviderAdapter, provider_configuration
 
 
 QWEN38_MAX_MODEL = "qwen3.8-max"
+QWEN38_MAX_SNAPSHOT_MODEL = "qwen3.8-max-0902"
 QWEN38_MAX_PREVIEW_MODEL = "qwen3.8-max-preview"
 QWEN38_CONTEXT_WINDOW = 1_000_000
 QWEN38_MAX_INPUT = 991_808
@@ -40,10 +41,15 @@ QWEN38_CODEX_CATALOG = {
     "experimental_supported_tools": [],
     "truncation_policy": {"mode": "bytes", "limit": 10_000},
     "supported_reasoning_levels": [
+        {"effort": "none", "description": "Disable reasoning"},
+        {"effort": "minimal", "description": "Minimal reasoning for fastest responses"},
         {"effort": "low", "description": "Fast responses with lighter reasoning"},
         {"effort": "medium", "description": "Greater reasoning depth for complex problems"},
+        {"effort": "high", "description": "High reasoning depth for complex problems"},
         {"effort": "xhigh", "description": "Extra high reasoning depth for complex problems"},
+        {"effort": "max", "description": "Maximum reasoning depth"},
     ],
+    "default_reasoning_level": "xhigh",
 }
 QWEN37_MAX_MODEL = "qwen3.7-max"
 QWEN37_CONTEXT_WINDOW = 1_000_000
@@ -84,6 +90,7 @@ ALIBABA_CODING_PLAN_MODELS = (
 )
 ALIBABA_MODEL_STUDIO_MODELS = (
     QWEN38_MAX_MODEL,
+    QWEN38_MAX_SNAPSHOT_MODEL,
     QWEN37_MAX_MODEL,
     "qwen3.7-plus",
     "qwen3.6-plus",
@@ -173,6 +180,11 @@ class AlibabaModelStudioProviderAdapter(HttpBearerProviderAdapter):
             effort_level="xhigh",
             explicit_cache=True,
             explicit_cache_markers=4,
+            protocol_headers={
+                "openai_responses": {
+                    "x-dashscope-session-cache": "enable",
+                },
+            },
             haiku_model="qwen3.6-flash",
             opus_model=QWEN38_MAX_MODEL,
             sonnet_model="qwen3.7-plus",
@@ -204,6 +216,9 @@ class AlibabaModelStudioProviderAdapter(HttpBearerProviderAdapter):
             fallback_models=ALIBABA_MODEL_STUDIO_MODELS,
             allow_configured_fallback=True,
             authoritative_upstream_catalog=True,
+            supplemental_model_aliases=(
+                (QWEN38_MAX_MODEL, QWEN38_MAX_SNAPSHOT_MODEL),
+            ),
         )
     )
 
@@ -402,7 +417,7 @@ class AlibabaModelStudioProviderAdapter(HttpBearerProviderAdapter):
             projected = dict(reasoning)
             effort = str(projected.get("effort") or "xhigh").strip().lower()
             projected["effort"] = (
-                cls._normalize_qwen38_effort(effort)
+                cls._normalize_qwen38_responses_effort(effort)
                 if cls._is_qwen38(model)
                 else effort if effort in _EFFORTS else "xhigh"
             )
@@ -504,6 +519,11 @@ class AlibabaModelStudioProviderAdapter(HttpBearerProviderAdapter):
         if effort == "none":
             return "none"
         return "xhigh"
+
+    @staticmethod
+    def _normalize_qwen38_responses_effort(value: Any) -> str:
+        effort = str(value or "xhigh").strip().lower()
+        return effort if effort in _EFFORTS else "xhigh"
 
     @classmethod
     def _apply_explicit_cache_markers(
@@ -692,6 +712,11 @@ class AlibabaTokenPlanProviderAdapter(AlibabaModelStudioProviderAdapter):
             effort_level="xhigh",
             explicit_cache=True,
             explicit_cache_markers=4,
+            protocol_headers={
+                "openai_responses": {
+                    "x-dashscope-session-cache": "enable",
+                },
+            },
             haiku_model="qwen3.6-flash",
             opus_model=QWEN38_MAX_MODEL,
             sonnet_model="qwen3.7-plus",
@@ -765,6 +790,7 @@ __all__ = [
     "QWEN38_CONTEXT_WINDOW",
     "QWEN38_MAX_INPUT",
     "QWEN38_MAX_MODEL",
+    "QWEN38_MAX_SNAPSHOT_MODEL",
     "QWEN38_MAX_OUTPUT",
     "QWEN38_MAX_REASONING",
     "QWEN38_THINKING_MAX_INPUT",

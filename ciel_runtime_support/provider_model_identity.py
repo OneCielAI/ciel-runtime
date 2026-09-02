@@ -64,9 +64,17 @@ class ProviderModelIdentityService:
         return self.adapters.create(provider).upstream_api_model_id(str(model_id or ""))
 
     def alias_for(self, provider: str, model_id: str) -> str:
-        if self.adapters.create(provider).preserves_claude_model_alias(model_id):
+        adapter = self.adapters.create(provider)
+        if adapter.preserves_claude_model_alias(model_id):
             return model_id
-        return f"ciel-runtime-{provider}-{self.slug(model_id)}"
+        one_million = adapter.preserves_claude_context_suffix_in_alias() and bool(
+            re.search(r"\[1m\]\s*$", str(model_id or ""), re.IGNORECASE)
+        )
+        base_model_id = (
+            self.strip_claude_context_suffix(model_id) if one_million else model_id
+        )
+        alias = f"ciel-runtime-{provider}-{self.slug(base_model_id)}"
+        return f"{alias}[1m]" if one_million else alias
 
     def unslug_alias(
         self,

@@ -12,7 +12,16 @@ ANTHROPIC_MODEL_DOCS_URLS = (
     ANTHROPIC_MODEL_DOCS_URL,
     "https://platform.claude.com/docs/en/about-claude/models/overview",
 )
+ANTHROPIC_ONE_MILLION_MODEL_IDS: tuple[str, ...] = (
+    "claude-fable-5-1[1m]",
+    "claude-fable-5[1m]",
+    "claude-opus-5[1m]",
+    "claude-opus-4-8[1m]",
+    "claude-sonnet-5[1m]",
+    "claude-sonnet-4-6[1m]",
+)
 ANTHROPIC_PUBLIC_MODEL_FALLBACK_IDS: tuple[str, ...] = (
+    *ANTHROPIC_ONE_MILLION_MODEL_IDS,
     "claude-fable-5-1",
     "claude-fable-5",
     "claude-opus-5",

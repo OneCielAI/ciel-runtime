@@ -7,7 +7,11 @@ from dataclasses import dataclass
 from typing import Any
 
 from ciel_runtime_support.architecture import MessageProtocol, ProviderRequestPolicy
-from ciel_runtime_support.header_forwarding import project_end_to_end_request_headers
+from ciel_runtime_support.header_forwarding import (
+    CONFIGURED_PROVIDER_CREDENTIAL_HEADERS,
+    HOP_BY_HOP_REQUEST_HEADERS,
+    project_end_to_end_request_headers,
+)
 from ciel_runtime_support.remote_bridge import (
     REMOTE_BRIDGE_CONFIG_MARKER,
     REQUEST_API_KEY_MARKER,
@@ -16,6 +20,9 @@ from ciel_runtime_support.remote_bridge import (
 
 _HOST_CREDENTIAL_SCOPE_HEADERS = frozenset(
     {"openai-organization", "openai-project"}
+)
+_CONFIGURED_PROTOCOL_HEADER_EXCLUSIONS = (
+    CONFIGURED_PROVIDER_CREDENTIAL_HEADERS | HOP_BY_HOP_REQUEST_HEADERS
 )
 
 
@@ -45,6 +52,39 @@ class ProviderRequestAccessEffects:
 class ProviderRequestAccessService:
     ports: ProviderRequestAccessPorts
     effects: ProviderRequestAccessEffects
+
+    @staticmethod
+    def _configured_protocol_headers(
+        config: dict[str, Any], protocol: MessageProtocol | None
+    ) -> dict[str, str]:
+        """Project safe, protocol-specific provider headers from configuration.
+
+        Credentials and connection-owned headers stay under the existing
+        adapter/transport policies.  This hook is for provider protocol
+        switches such as Alibaba's Responses session cache header.
+        """
+
+        if protocol is None:
+            return {}
+        configured = config.get("protocol_headers")
+        if not isinstance(configured, Mapping):
+            return {}
+        selected = configured.get(protocol)
+        if not isinstance(selected, Mapping):
+            return {}
+        projected: dict[str, str] = {}
+        for raw_name, raw_value in selected.items():
+            name = str(raw_name).strip()
+            folded = name.casefold()
+            if (
+                not name
+                or raw_value is None
+                or folded in _CONFIGURED_PROTOCOL_HEADER_EXCLUSIONS
+                or folded.startswith("x-ciel-runtime-")
+            ):
+                continue
+            projected[name] = str(raw_value)
+        return projected
 
     def upstream_model(
         self, provider: str, config: dict[str, Any], model: str
@@ -137,6 +177,19 @@ class ProviderRequestAccessService:
                     provider, config, meaningful
                 )
             )
+        configured_protocol_headers = self._configured_protocol_headers(
+            config, protocol
+        )
+        if configured_protocol_headers:
+            configured_names = {
+                name.casefold() for name in configured_protocol_headers
+            }
+            headers = {
+                name: value
+                for name, value in headers.items()
+                if name.casefold() not in configured_names
+            }
+            headers.update(configured_protocol_headers)
         if protocol == "anthropic_messages":
             normalized_names = {
                 str(name).casefold() for name in headers

@@ -235,6 +235,13 @@ Alibaba Model Studio Token Plan(`alitoken`)의 native Responses endpoint는 실�
 10 MiB를 넘는 단일 비축약 항목은 upstream으로 보내거나 재시도하지 않고 로컬 413으로 종료한다.
 `alitoken-individual`과 다른 provider에는 이 wire 정책을 적용하지 않는다.
 
+Alibaba의 Responses session cache는 요청 header가 없으면 기본적으로 비활성화된다.
+`alims-intl`과 `alitoken`의 `openai_responses` 요청에는
+`x-dashscope-session-cache: enable`을 기본 전송한다. 이 값은 provider의
+`protocol_headers.openai_responses` 설정으로 관리되며 Chat/Anthropic wire에는 복사하지
+않는다. 이 범용 protocol header 설정은 `authorization`, API key, cookie, host,
+content-length 및 hop-by-hop header를 덮어쓸 수 없다.
+
 ---
 
 ## 원격 시스템 지침

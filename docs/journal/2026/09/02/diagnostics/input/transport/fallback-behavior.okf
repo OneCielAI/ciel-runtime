@@ -1,0 +1,31 @@
+task:
+  id: input-transport-fallback-behavior-20260902
+  request: Determine whether unsupported session_socket input automatically changes to tty.
+  status: diagnosed
+
+evidence:
+  advertised_allowed:
+    source: ciel_runtime_support/speech_http_controller.py
+    values: [session_socket, tty, router]
+    meaning: globally accepted request values, not active-runtime capabilities
+  omitted_transport:
+    source: ciel_runtime.py:_default_channel_input_transport
+    result: >-
+      session_socket only when the active runtime is Claude and the Ciel-owned
+      Claude socket is configured; tty otherwise.
+  explicit_session_socket:
+    sources:
+      - ciel_runtime_support/chat_http_controller.py:_message_modes
+      - ciel_runtime_support/channel_pending_injection.py:inject_pending_channel_messages
+      - ciel_runtime_support/claude_session_socket.py:ClaudeSessionSocketClient.send
+    result: >-
+      The request is accepted and stamped session_socket. If no socket target is
+      configured or submission fails, delivery is deferred and the cursor is not
+      advanced. No tty fallback occurs.
+  explicit_router:
+    result: no tty fallback when router transport is unavailable
+
+conclusion:
+  automatic_for_omitted_transport: true
+  fallback_for_explicit_session_socket: false
+  capability_specific_allowed_list: false

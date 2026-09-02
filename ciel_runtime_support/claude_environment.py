@@ -13,6 +13,7 @@ import re
 from typing import Any, Callable
 
 from .architecture import ProviderRuntimeCompactionPolicy
+from .anthropic_model_policy import defaults_to_one_million_context
 
 
 CLAUDE_PROJECTED_ENV_KEYS = (
@@ -286,7 +287,21 @@ class ClaudeModelAliasPolicy:
             if not selected and self.matches_family(current_upstream, family):
                 selected = current_upstream
             if not selected:
-                selected = next((item for item in candidates if self.matches_family(item, family)), "")
+                family_candidates = [
+                    item for item in candidates if self.matches_family(item, family)
+                ]
+                if provider == "anthropic":
+                    selected = next(
+                        (
+                            item
+                            for item in family_candidates
+                            if "[1m]" in item.lower()
+                            and defaults_to_one_million_context(item)
+                        ),
+                        "",
+                    )
+                if not selected:
+                    selected = next(iter(family_candidates), "")
             alias = self._ports.alias_for(provider, selected) if selected else current_model_alias
             result[key] = self.context_model_alias(
                 provider,

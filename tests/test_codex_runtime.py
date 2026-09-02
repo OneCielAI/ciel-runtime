@@ -181,9 +181,10 @@ class CodexRuntimeTests(unittest.TestCase):
         self.assertEqual(95, model["effective_context_window_percent"])
         self.assertFalse(model["supports_parallel_tool_calls"])
         self.assertEqual(
-            ["low", "medium", "xhigh"],
+            ["none", "minimal", "low", "medium", "high", "xhigh", "max"],
             [item["effort"] for item in model["supported_reasoning_levels"]],
         )
+        self.assertEqual("xhigh", model["default_reasoning_level"])
 
     def setUp(self):
         super().setUp()

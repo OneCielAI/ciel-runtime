@@ -25,6 +25,15 @@ def model_family(model_id: str) -> str:
     return "claude"
 
 
+def defaults_to_one_million_context(model_id: str) -> bool:
+    """Return whether Anthropic documents 1M as this model's default context."""
+
+    model = re.sub(r"\[1m\]$", "", (model_id or "").strip().lower())
+    return bool(
+        re.search(r"(?:^|-)(?:fable-5(?:-1)?|opus-(?:5|4-[78])|sonnet-5)(?:-|$)", model)
+    )
+
+
 def limit_hints(model_id: str) -> dict[str, Any]:
     model = re.sub(r"\[1m\]$", "", (model_id or "").strip().lower())
     family = model_family(model)

@@ -112,6 +112,58 @@ class ProviderRequestAccessServiceTests(unittest.TestCase):
         self.assertNotIn("content-type", headers)
         self.assertNotIn("anthropic-version", headers)
 
+    def test_configured_protocol_headers_apply_only_to_the_selected_wire(self):
+        config = {
+            "protocol_headers": {
+                "openai_responses": {
+                    "x-dashscope-session-cache": "enable",
+                }
+            }
+        }
+
+        responses = self.service().headers(
+            "alitoken",
+            config,
+            {"X-DashScope-Session-Cache": "disable"},
+            "openai_responses",
+        )
+        chat = self.service().headers(
+            "alitoken", config, {}, "openai_chat"
+        )
+
+        folded = {name.casefold(): value for name, value in responses.items()}
+        self.assertEqual("enable", folded["x-dashscope-session-cache"])
+        self.assertEqual(
+            1,
+            sum(
+                name.casefold() == "x-dashscope-session-cache"
+                for name in responses
+            ),
+        )
+        self.assertNotIn("x-dashscope-session-cache", chat)
+
+    def test_configured_protocol_headers_cannot_replace_credentials_or_transport(self):
+        headers = self.service().headers(
+            "alitoken",
+            {
+                "protocol_headers": {
+                    "openai_responses": {
+                        "authorization": "Bearer attacker",
+                        "host": "attacker.invalid",
+                        "content-length": "999",
+                        "x-ciel-runtime-internal": "unsafe",
+                    }
+                }
+            },
+            {},
+            "openai_responses",
+        )
+
+        self.assertEqual("Bearer secret", headers["authorization"])
+        self.assertNotIn("host", headers)
+        self.assertNotIn("content-length", headers)
+        self.assertNotIn("x-ciel-runtime-internal", headers)
+
     def test_remote_host_key_cannot_inherit_client_openai_account_scope(self):
         headers = self.service().headers(
             "openai",

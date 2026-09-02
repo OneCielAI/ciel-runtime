@@ -1,0 +1,92 @@
+task:
+  id: cielarvis-qwen38-vs-gpt56-latency-20260902
+  request: >-
+    Compare Qwen3.8-Max Singapore Token Plan latency with GPT-5.6-sol in the
+    same C:/Users/djlov/cielarvis Codex session and determine whether the
+    observed performance is abnormally slower despite the 1M context capacity.
+  status: diagnosed
+
+comparison_scope:
+  workspace: C:/Users/djlov/cielarvis
+  codex_session: 01a01dff-f0f0-7ef3-8cde-1d9916510f35
+  date: 2026-09-02
+  comparable_input_range_tokens: [60000, 110000]
+  qwen_sample_count: 47
+  gpt_sample_count: 55
+  credentials_recorded: false
+
+measurements:
+  qwen3_8_max:
+    provider: alitoken
+    median_seconds: 28
+    average_seconds: 56.5
+    p90_seconds: 120
+    average_input_tokens: 81547
+    average_cached_input_tokens: 23271
+    average_uncached_input_tokens: 58276
+    cache_hit_percent: 28.5
+    average_output_tokens: 1530
+    average_reasoning_tokens: 1302
+    timing_source: >-
+      Exact router interval from provider_responses_wire_compact completion to
+      the matching POST /v1/responses HTTP 200 completion.
+  gpt_5_6_sol:
+    provider: codex
+    median_seconds: 3.0
+    average_seconds: 3.7
+    p90_seconds: 6.1
+    average_input_tokens: 83959
+    average_cached_input_tokens: 81310
+    average_uncached_input_tokens: 2649
+    cache_hit_percent: 96.8
+    average_output_tokens: 374
+    average_reasoning_tokens: 158
+    timing_source: >-
+      Inferred request interval from the preceding Codex token-count boundary
+      to the matching POST /backend-api/codex/responses HTTP 200 completion.
+
+ratios:
+  qwen_to_gpt_median_latency: 9.3
+  qwen_to_gpt_average_latency: 15.3
+  qwen_to_gpt_reasoning_tokens: 8.2
+  qwen_to_gpt_output_tokens: 4.1
+  qwen_to_gpt_uncached_input_tokens: 22.0
+
+additional_checks:
+  qwen_small_prompt_same_endpoint:
+    input_tokens_range: [212, 248]
+    response_seconds_range: [2.30, 3.07]
+    result: completed
+  parallel_alitoken_session:
+    workspace: G:/OneCielDMSUI
+    last_activity: 2026-09-02T10:57:24-05:00
+    sustained_overlap_with_comparison_window: false
+  qwen_errors:
+    http_429: 0
+    timeout: 0
+    completed_status: http_200
+
+official_evidence:
+  qwen_responses_api:
+    url: https://www.alibabacloud.com/help/en/model-studio/qwen-api-via-openai-responses
+    fact: >-
+      A 1M context value is an accepted-capacity limit. The documentation says
+      lower reasoning effort accelerates responses and reduces inference tokens.
+  token_plan_faq:
+    url: https://docs.modelstudio.console.alibabacloud.com/en/model-studio/token-plan-personal-faq
+    facts:
+      - Peak-hour queuing can occur for Personal Edition.
+      - Exact TPM, TPS, and RPM thresholds are dynamically adjusted and not public.
+      - Trimming context is the documented performance optimization.
+
+diagnosis:
+  objectively_slower_than_gpt_5_6_sol: true
+  one_million_context_implies_low_latency: false
+  confirmed_contributors:
+    - Qwen reused only 28.5 percent of comparable input versus GPT's 96.8 percent.
+    - Qwen generated 8.2 times more reasoning tokens per comparable request.
+    - The running pre-update router maps the Codex high effort to Qwen xhigh.
+  unresolved_split: >-
+    Current router logs measure the total Alibaba upstream phase but do not
+    expose time-to-first-token, provider queue time, and model inference time
+    separately. Peak-hour queue contribution therefore remains unmeasured.

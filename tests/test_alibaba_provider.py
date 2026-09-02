@@ -26,11 +26,13 @@ class AlibabaProviderTests(unittest.TestCase):
         self.assertEqual(131_072, config["max_output_tokens"])
         self.assertEqual("xhigh", config["effort_level"])
         self.assertIn("qwen3.8-max", config["custom_models"])
+        self.assertIn("qwen3.8-max-0902", config["custom_models"])
 
     def test_token_plan_qwen38_defaults_match_live_catalog_and_model_limits(self):
         config = self.token_config()
 
         self.assertEqual("qwen3.8-max", config["current_model"])
+        self.assertNotIn("qwen3.8-max-0902", config["custom_models"])
         self.assertEqual(1_000_000, config["context_window"])
         self.assertEqual(1_000_000, config["max_model_len"])
         self.assertEqual(131_072, config["max_output_tokens"])
@@ -38,6 +40,12 @@ class AlibabaProviderTests(unittest.TestCase):
         self.assertEqual("xhigh", config["effort_level"])
         self.assertTrue(config["explicit_cache"])
         self.assertEqual(4, config["explicit_cache_markers"])
+        self.assertEqual(
+            "enable",
+            config["protocol_headers"]["openai_responses"][
+                "x-dashscope-session-cache"
+            ],
+        )
         self.assertEqual(1, config["responses_stream_truncation_retries"])
         self.assertEqual("alims-intl", ciel_runtime.PROVIDER_ALIASES["dashscope-intl"])
         self.assertEqual("alitoken", ciel_runtime.PROVIDER_ALIASES["alibaba-token-plan"])
@@ -46,6 +54,19 @@ class AlibabaProviderTests(unittest.TestCase):
             ciel_runtime.PROVIDER_ALIASES["alibaba-token-individual"],
         )
         self.assertEqual("ap-southeast-1", config["region"])
+
+    def test_token_plan_enables_session_cache_only_on_responses_requests(self):
+        config = self.token_config(api_key="sk-test")
+
+        responses = ciel_runtime.provider_headers(
+            "alitoken", config, {}, "openai_responses"
+        )
+        chat = ciel_runtime.provider_headers(
+            "alitoken", config, {}, "openai_chat"
+        )
+
+        self.assertEqual("enable", responses["x-dashscope-session-cache"])
+        self.assertNotIn("x-dashscope-session-cache", chat)
 
     def test_model_studio_workspace_url_derives_official_anthropic_route(self):
         config = self.config(
@@ -474,11 +495,11 @@ class AlibabaProviderTests(unittest.TestCase):
     def test_qwen38_reasoning_effort_matches_documented_values(self):
         config = self.token_config()
         expected = {
-            "max": "xhigh",
-            "high": "xhigh",
+            "max": "max",
+            "high": "high",
             "xhigh": "xhigh",
             "medium": "medium",
-            "minimal": "low",
+            "minimal": "minimal",
             "low": "low",
             "none": "none",
         }
@@ -571,9 +592,20 @@ class AlibabaProviderTests(unittest.TestCase):
         self.assertEqual(95, catalog["effective_context_window_percent"])
         self.assertFalse(catalog["supports_parallel_tool_calls"])
         self.assertEqual(
-            ["low", "medium", "xhigh"],
+            ["none", "minimal", "low", "medium", "high", "xhigh", "max"],
             [item["effort"] for item in catalog["supported_reasoning_levels"]],
         )
+        self.assertEqual("xhigh", catalog["default_reasoning_level"])
+
+    def test_qwen38_snapshot_uses_same_official_model_profile(self):
+        config = self.config(current_model="qwen3.8-max-0902")
+
+        messages = ciel_runtime.apply_provider_model_profile("alims-intl", config)
+
+        self.assertEqual(1_000_000, config["context_window"])
+        self.assertEqual(131_072, config["max_output_tokens"])
+        self.assertEqual("xhigh", config["effort_level"])
+        self.assertIn("Qwen3.8-Max profile applied", messages[0])
 
     def test_qwen38_preserves_reasoning_content_for_multi_turn_cache(self):
         config = self.token_config()
@@ -688,6 +720,7 @@ class AlibabaProviderTests(unittest.TestCase):
             {
                 "qwen3.7-max",
                 "qwen3.8-max",
+                "qwen3.8-max-0902",
                 "qwen3.7-plus",
                 "qwen3.6-flash",
                 "deepseek-v4-pro",
@@ -730,6 +763,9 @@ class AlibabaProviderTests(unittest.TestCase):
         self.assertIn("qwen3-coder-plus", cfg["providers"]["alicode-intl"]["custom_models"])
         self.assertIn("legacy-custom", cfg["providers"]["alims-intl"]["custom_models"])
         self.assertIn("qwen3.8-max", cfg["providers"]["alims-intl"]["custom_models"])
+        self.assertIn(
+            "qwen3.8-max-0902", cfg["providers"]["alims-intl"]["custom_models"]
+        )
         self.assertIn("qwen3.7-max", cfg["providers"]["alims-intl"]["custom_models"])
         self.assertIn("kimi-k3", cfg["providers"]["alims-intl"]["custom_models"])
         self.assertIn("private-token-model", cfg["providers"]["alitoken"]["custom_models"])
@@ -738,6 +774,7 @@ class AlibabaProviderTests(unittest.TestCase):
         self.assertEqual("ap-southeast-1", cfg["providers"]["alitoken"]["region"])
         self.assertTrue(cfg["migrations"]["alibaba_provider_catalogs_20260806"])
         self.assertTrue(cfg["migrations"]["alibaba_qwen38_singapore_20260821"])
+        self.assertTrue(cfg["migrations"]["alibaba_qwen38_0902_catalog_20260902"])
         self.assertTrue(cfg["migrations"]["alibaba_kimi_k3_20260831"])
         self.assertTrue(cfg["migrations"]["alibaba_token_plan_singapore_20260806"])
         self.assertTrue(cfg["migrations"]["alibaba_native_anthropic_routes_20260806"])
@@ -785,6 +822,7 @@ class AlibabaProviderTests(unittest.TestCase):
         self.assertEqual("ap-southeast-1", model_studio["region"])
         self.assertIn("private-model", model_studio["custom_models"])
         self.assertIn("qwen3.8-max", model_studio["custom_models"])
+        self.assertIn("qwen3.8-max-0902", model_studio["custom_models"])
         self.assertEqual(1_000_000, cfg["providers"]["alitoken"]["context_window"])
         self.assertEqual(1_000_000, cfg["providers"]["alitoken"]["max_model_len"])
         self.assertEqual(
@@ -860,6 +898,37 @@ class AlibabaProviderTests(unittest.TestCase):
         self.assertEqual(
             metadata["model_info"]["qwen3.8-max"],
             metadata["model_info"]["qwen3.8-max-preview"],
+        )
+
+    def test_model_studio_catalog_adds_official_0902_snapshot(self):
+        config = self.config(api_key="test-key", custom_models=[])
+        write_cache = mock.Mock()
+        with (
+            mock.patch.object(ciel_runtime, "read_model_list_cache", return_value=None),
+            mock.patch.object(ciel_runtime, "write_model_list_cache", write_cache),
+            mock.patch.object(ciel_runtime, "write_model_registry"),
+            mock.patch.object(
+                ciel_runtime,
+                "http_json",
+                return_value={
+                    "data": [
+                        {
+                            "id": "qwen3.8-max",
+                            "max_context_length": 1_000_000,
+                        }
+                    ]
+                },
+            ),
+        ):
+            models = ciel_runtime.upstream_model_ids(
+                "alims-intl", config, force_refresh=True
+            )
+
+        self.assertEqual(["qwen3.8-max", "qwen3.8-max-0902"], models)
+        metadata = write_cache.call_args.args[3]
+        self.assertEqual(
+            metadata["model_info"]["qwen3.8-max"],
+            metadata["model_info"]["qwen3.8-max-0902"],
         )
 
     def test_token_plan_cached_catalog_is_backfilled_with_preview_alias(self):

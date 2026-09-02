@@ -1,0 +1,44 @@
+task:
+  id: codex-statusline-cache-metrics-20260902
+  request: >-
+    Determine whether Codex can display a Claude-like cache hit rate in its TUI
+    status line.
+  status: investigated
+
+local_evidence:
+  installed_version: codex-cli 0.152.1
+  executable: C:/Users/djlov/AppData/Local/Programs/OpenAI/Codex/bin/codex.exe
+  existing_ciel_statusline:
+    source: ciel_runtime_support/statusline_script.py
+    cache_metrics_supported: true
+    integration_target: Claude Code statusLine command settings
+    codex_integration_present: false
+
+official_source_evidence:
+  status_line_enum:
+    url: https://github.com/openai/codex/blob/main/codex-rs/tui/src/bottom_pane/status_line_setup.rs
+    available_token_items:
+      - used-tokens
+      - total-input-tokens
+      - total-output-tokens
+      - context-remaining
+      - context-used
+      - context-window-size
+    cached_tokens_item_present: false
+    cache_hit_rate_item_present: false
+  status_line_renderer:
+    url: https://github.com/openai/codex/blob/main/codex-rs/tui/src/chatwidget/status_surfaces.rs
+    cached_usage_render_branch_present: false
+  external_command_request:
+    url: https://github.com/openai/codex/issues/20043
+    state: closed_as_duplicate_feature_request
+    implemented_contract_confirmed: false
+
+conclusion:
+  current_official_codex_support: false
+  statement: >-
+    Codex 0.152.1 can show cumulative token and context metrics through fixed
+    built-in status-line items, but it cannot show cached_tokens or cache hit
+    percentage, and it cannot attach Ciel's Claude-style external statusLine
+    command. Adding the metric requires an upstream Codex implementation or a
+    maintained Codex fork; no Ciel configuration-only implementation exists.

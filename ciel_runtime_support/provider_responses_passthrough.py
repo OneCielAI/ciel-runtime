@@ -90,11 +90,16 @@ class ProviderResponsesPassthrough:
             upstream_body = self._ports.finalize_body(upstream_body)
         data = self._encode(upstream_body)
         url = self._endpoint(provider, config, "openai_responses_compact")
-        dump_upstream_request(url, data, self._ports.log)
+        request_headers = self._ports.headers(
+            provider, config, handler.headers
+        )
+        dump_upstream_request(
+            url, data, self._ports.log, headers=request_headers
+        )
         request = urllib.request.Request(
             url,
             data=data,
-            headers=self._ports.headers(provider, config, handler.headers),
+            headers=request_headers,
             method="POST",
         )
         with self._ports.urlopen(
@@ -340,11 +345,16 @@ class ProviderResponsesPassthrough:
             upstream_body,
             remote_bridge=remote_bridge,
         )
-        dump_upstream_request(url, data, self._ports.log)
+        request_headers = self._ports.headers(
+            provider, config, handler.headers
+        )
+        dump_upstream_request(
+            url, data, self._ports.log, headers=request_headers
+        )
         request = urllib.request.Request(
             url,
             data=data,
-            headers=self._ports.headers(provider, config, handler.headers),
+            headers=request_headers,
             method="POST",
         )
         if not remote_bridge and self._stream_truncation_retries(config):

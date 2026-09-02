@@ -745,6 +745,7 @@ def apply_config_migrations(cfg: dict[str, Any]) -> None:
     run_config_migrations(
         cfg,
         policy=ConfigMigrationPolicy(
+            anthropic_defaults_to_one_million_context=anthropic_model_policy.defaults_to_one_million_context,
             default_request_timeout_ms=DEFAULT_REQUEST_TIMEOUT_MS,
             kimi_k3_model=KIMI_K3_MODEL,
             opencode_provider_names=OPENCODE_PROVIDER_NAMES,

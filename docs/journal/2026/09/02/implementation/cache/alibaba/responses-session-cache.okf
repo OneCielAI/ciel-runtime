@@ -1,0 +1,97 @@
+task:
+  id: alibaba-responses-session-cache-20260902
+  request: >-
+    Fix the Qwen3.8-Max Responses reasoning-effort projection bug, identify the
+    measured cache miss cause, and increase cache reuse for Alibaba Singapore
+    Token Plan Codex sessions.
+  status: implemented_and_live_verified
+
+confirmed_problem:
+  workspace: C:/Users/djlov/cielarvis
+  provider: alitoken
+  model: qwen3.8-max
+  protocol: openai_responses
+  old_live_router_port: 9469
+  observations:
+    - latest old-session input was approximately 100K tokens with only 8,192 cached tokens
+    - repeated request bodies were compacted below the service's 10 MiB wire limit
+    - exact reconstructed consecutive compacted inputs retained a 7,966,060-byte common prefix
+    - Ciel did not send x-dashscope-session-cache before this change
+  correction: >-
+    The initial hypothesis that deterministic wire compaction changed the first
+    input item on every request was contradicted by exact reconstruction of the
+    latest consecutive inputs. The compressed prefix was stable in that range.
+    The missing session-cache opt-in header is the confirmed persistent cause.
+
+official_contract:
+  responses_api:
+    url: https://www.alibabacloud.com/help/en/model-studio/compatibility-with-openai-responses-api
+    header: x-dashscope-session-cache
+    enabled_value: enable
+    default_value: disable
+  context_cache:
+    url: https://docs.modelstudio.console.alibabacloud.com/en/model-studio/context-cache
+    prefix_requirement_tokens: 1024
+    placement_rule: repeated content first and unique content last
+
+implementation:
+  provider_defaults:
+    providers: [alims-intl, alitoken, alitoken-individual]
+    protocol: openai_responses
+    header: {x-dashscope-session-cache: enable}
+  generic_header_projection:
+    source: ciel_runtime_support/provider_request_access.py
+    safety_exclusions:
+      - credentials and API keys
+      - cookies
+      - host and content-length
+      - hop-by-hop headers
+      - x-ciel-runtime internal headers
+  effort_fix:
+    source: ciel_runtime_support/providers/alibaba.py
+    responses_values_preserved: [none, minimal, low, medium, high, xhigh, max]
+    chat_mapping_unchanged: true
+  evidence_capture:
+    source: ciel_runtime_support/provider_responses_passthrough.py
+    behavior: upstream dump metadata records sanitized final header names and values
+
+verification:
+  focused_unit_tests:
+    result: 83_passed
+    suites:
+      - {file: tests/test_provider_request_access.py, tests: 12}
+      - {file: tests/test_responses_prompt_compaction.py, tests: 8}
+      - {file: tests/test_alibaba_provider.py, tests: 42}
+      - {file: tests/test_meta_provider.py, tests: 21}
+  isolated_live_router:
+    workspace: C:/Users/djlov/cielarvis
+    port: 9479
+    production_router_modified: false
+    stopped_after_test: true
+    stopped_port_state: closed
+  upstream_wire:
+    request_1_body_bytes: 225933
+    request_2_body_bytes: 226262
+    endpoint: https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1/responses
+    session_cache_header_request_1: enable
+    session_cache_header_request_2: enable
+  provider_reported_second_request_usage:
+    input_tokens: 53934
+    cached_tokens: 53895
+    uncached_tokens: 39
+    cache_hit_percent: 99.9277
+  full_project_checks:
+    compileall: passed
+    unit: {tests: 1358, skipped: 45, result: passed}
+    router: {tests: 1074, result: passed}
+    channel: {tests: 403, skipped: 80, result: passed}
+    runtime: {tests: 258, skipped: 12, result: passed}
+    ruff: passed
+    documentation_metadata: passed
+    npm_pack_dry_run: passed
+  credentials_recorded: false
+
+evidence_locations:
+  sanitized_upstream_metadata: C:/Users/djlov/AppData/Roaming/ciel-runtime/verification/qwen-cache-20260902
+  isolated_router_activity: C:/Users/djlov/AppData/Roaming/ciel-runtime/router-instances/9479-a3a719fc6552/router-activity.json
+  old_router_log: C:/Users/djlov/AppData/Roaming/ciel-runtime/router-instances/9469-a3a719fc6552/router.log

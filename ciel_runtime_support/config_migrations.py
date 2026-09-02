@@ -8,6 +8,7 @@ from typing import Any, Callable
 
 @dataclass(frozen=True, slots=True)
 class ConfigMigrationPolicy:
+    anthropic_defaults_to_one_million_context: Callable[..., Any]
     default_request_timeout_ms: int
     kimi_k3_model: str
     opencode_provider_names: tuple[str, ...]
@@ -20,6 +21,9 @@ class ConfigMigrationPolicy:
 
 
 def apply_config_migrations(cfg: dict[str, Any], *, policy: ConfigMigrationPolicy) -> None:
+    anthropic_defaults_to_one_million_context = (
+        policy.anthropic_defaults_to_one_million_context
+    )
     DEFAULT_REQUEST_TIMEOUT_MS = policy.default_request_timeout_ms
     KIMI_K3_MODEL = policy.kimi_k3_model
     OPENCODE_PROVIDER_NAMES = policy.opencode_provider_names
@@ -33,6 +37,35 @@ def apply_config_migrations(cfg: dict[str, Any], *, policy: ConfigMigrationPolic
     if not isinstance(migrations, dict):
         migrations = {}
         cfg["migrations"] = migrations
+
+    marker = "anthropic_default_1m_model_ids_20260902"
+    if not migrations.get(marker):
+        providers = cfg.get("providers") if isinstance(cfg.get("providers"), dict) else {}
+        pcfg = providers.get("anthropic")
+        if isinstance(pcfg, dict):
+            current = str(pcfg.get("current_model") or "").strip()
+            if (
+                current
+                and "[1m]" not in current.lower()
+                and anthropic_defaults_to_one_million_context(current)
+            ):
+                pcfg["current_model"] = f"{current}[1m]"
+            custom = pcfg.get("custom_models")
+            if not isinstance(custom, list):
+                custom = []
+                pcfg["custom_models"] = custom
+            known = {str(model).strip().casefold() for model in custom}
+            for model in (
+                "claude-fable-5-1[1m]",
+                "claude-fable-5[1m]",
+                "claude-opus-5[1m]",
+                "claude-opus-4-8[1m]",
+                "claude-sonnet-5[1m]",
+                "claude-sonnet-4-6[1m]",
+            ):
+                if model.casefold() not in known:
+                    custom.append(model)
+        migrations[marker] = True
 
     marker = "zcode_wire_version_0163_20260824"
     if not migrations.get(marker):
@@ -189,6 +222,25 @@ def apply_config_migrations(cfg: dict[str, Any], *, policy: ConfigMigrationPolic
                 pcfg["context_window"] = 1_000_000
             if (positive_int(pcfg.get("max_model_len")) or 0) == 1_048_576:
                 pcfg["max_model_len"] = 1_000_000
+        migrations[marker] = True
+
+    marker = "alibaba_qwen38_0902_catalog_20260902"
+    if not migrations.get(marker):
+        providers = cfg.get("providers") if isinstance(cfg.get("providers"), dict) else {}
+        model_studio = providers.get("alims-intl")
+        if isinstance(model_studio, dict):
+            custom = model_studio.get("custom_models")
+            if not isinstance(custom, list):
+                custom = []
+                model_studio["custom_models"] = custom
+            known = {
+                normalize_model_id("alims-intl", str(model))
+                for model in custom
+                if str(model).strip()
+            }
+            snapshot = "qwen3.8-max-0902"
+            if normalize_model_id("alims-intl", snapshot) not in known:
+                custom.insert(1 if custom else 0, snapshot)
         migrations[marker] = True
 
     marker = "alibaba_kimi_k3_20260831"

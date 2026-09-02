@@ -50,7 +50,14 @@ token은 Bearer header로 전송하며, 사용자 지정 `base_url`로 사설 ga
 
 ### Alibaba Model Studio Singapore
 
-`alims-intl`의 기본 모델은 Singapore International scope의 `qwen3.8-max`다.
+`alims-intl`의 기본 모델은 Singapore International scope의 rolling alias
+`qwen3.8-max`다. 고정 스냅샷 `qwen3.8-max-0902`도 모델 목록에서 선택할 수 있다.
+Token Plan은 공식 지원 ID인 rolling alias `qwen3.8-max`를 사용하며, Responses
+API에서는 `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max` reasoning
+effort를 그대로 전달한다. Chat Completions의 축약 effort 매핑과 혼용하지 않는다.
+Alibaba Responses session cache의 공식 opt-in 계약에 따라
+`x-dashscope-session-cache: enable`을 Responses 요청에 기본 전송한다. Chat과
+Anthropic Messages 요청에는 이 header를 추가하지 않는다.
 공식 한도에 맞춰 context window는 1,000,000, 최대 입력은 일반 모드 991,808,
 thinking 모드 983,616, 최대 출력은 131,072로 취급한다. Codex에는 thinking 모드의
 안전한 입력 상한인 983,616을 model catalog context로 제공한다.
