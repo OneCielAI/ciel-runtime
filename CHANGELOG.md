@@ -5,6 +5,18 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+## 0.2.37 — 2026-09-01
+
+- Add the authenticated remote runtime bridge with shared OpenAI-compatible and
+  Anthropic-compatible endpoints, router-host credential ownership, streaming
+  conversion, and remote provider/model selection.
+- Add durable OTLP log ingestion with appendable named files, cursor-based
+  reads, rolling/TTL retention, and lightweight agent notifications.
+- Harden external message delivery, Windows console input cleanup, Codex exit
+  diagnostics, transcript memory bounds, and routed stream recovery.
+- Add Alibaba Model Studio Kimi K3 metadata and correct Token Plan native
+  Anthropic routing to `/apps/anthropic/v1/messages`.
+
 - Neutralize stale Windows Console/ConPTY mouse, focus, and bracketed-paste
   modes at safe startup/cleanup boundaries without filtering F9 or normal
   bracketed-paste input. Legacy consoles receive no raw reset escape text when

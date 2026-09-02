@@ -1,0 +1,39 @@
+okf_version: "1.0"
+knowledge:
+  task:
+    id: "main-0.2.37-promotion-20260901"
+    date: "2026-09-01"
+    objective: >-
+      Promote the verified nightly history to main as stable 0.2.37 and start
+      the next nightly branch from the released main commit.
+    status: "release_candidate_verified"
+
+  ancestry:
+    previous_main: "b9e3027"
+    verified_nightly: "3a9ac2d"
+    merge_strategy: "fast-forward"
+    conflicts: false
+
+  version:
+    previous_stable: "0.2.36"
+    release: "0.2.37"
+    package_and_runtime_constants_aligned: true
+    reason: >-
+      npm latest already contained 0.2.36, so an unchanged version would make
+      the publish workflow skip the stable artifact.
+
+  pre_release_evidence:
+    nightly_publish_run: 33564427619
+    nightly_ci_run: 33564427640
+    nightly_artifact: "0.2.36-nightly.20260901-220712.3a9ac2d"
+    local_tests:
+      passed: 3064
+      skipped: 136
+    lint: "passed"
+    documentation_metadata: "passed"
+    published_tarball_verification: "passed"
+
+  post_push_expectation:
+    main_channel: "npm latest"
+    next_development_branch: "nightly"
+    next_branch_base: "the 0.2.37 release commit"
