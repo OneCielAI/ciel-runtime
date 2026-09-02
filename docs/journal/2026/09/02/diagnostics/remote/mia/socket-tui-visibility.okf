@@ -1,0 +1,47 @@
+task:
+  id: mia-socket-tui-visibility-20260902
+  request: Determine whether Mia hides socket-delivered AI Net messages because of an old runtime version.
+  status: diagnosed
+
+evidence:
+  remote:
+    host: mia@100.95.132.58
+    hostname: aap-pool-hera
+    tmux_session: aap-agent-86
+  versions:
+    installed_ciel: 0.2.37-nightly.20260902-033557.60846f9
+    npm_nightly_tag: 0.2.37-nightly.20260902-033557.60846f9
+    active_cli: codex-cli 0.152.1
+    installed_claude_npm_package: 2.1.245
+    installed_claude_native_binary: unavailable
+  active_process:
+    ciel_pid: 220324
+    cli_pid: 220566
+    cli_kind: codex
+    codex_router_flag: supports_websockets=false
+    claude_messaging_socket_active: false
+  observed_ai_net_delivery:
+    runtime_input_id: 1241
+    event_id: 1788324452627-0
+    event_type: net.ai-net.room.mentioned
+    event_time_utc: 2026-09-02T04:47:32.627Z
+    receiver: default
+    transport: sse
+    terminal_evidence: >-
+      tmux capture-pane contains the exact event between
+      '[ciel-runtime untrusted external event receiver=default transport=sse]'
+      and '[ciel-runtime end external event]'.
+  local_claude_control:
+    version: 2.1.258
+    frame: Ciel ClaudeSessionSocketClient user frame without from
+    result: >-
+      The live TUI rendered a Held peer message notice and the exact probe body;
+      socket input was not inherently invisible.
+
+conclusion:
+  version_mismatch_caused_mia_visibility: false
+  details: >-
+    Mia runs the current Ciel nightly and its active session is Codex, so Claude
+    cross-session socket rendering is not involved. AI Net SSE input has been
+    observed in the active Codex pane. A separate AI Net listener owned by
+    kevin-codex launches 'claude -p --continue' out of band and is not Mia's TUI.
