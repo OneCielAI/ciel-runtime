@@ -1,0 +1,70 @@
+okf: 1
+record:
+  title: Anthropic routed 1M usage-credit regression and Fable 5.1 support
+  date: 2026-09-01
+  scope:
+    runtime: ciel-runtime
+    branch: nightly
+    claude_code: 2.1.258
+    provider: anthropic
+    mode: routed
+  evidence:
+    user_observation:
+      direct_claude: works
+      routed_claude: 'API Error: Usage credits required for 1M context'
+    official_changelog:
+      url: https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md
+      version: 2.1.257
+      fable_model: claude-fable-5-1
+      context_tokens: 1000000
+      input_price_per_million_tokens_usd: 10
+      output_price_per_million_tokens_usd: 50
+      cache_read_price_per_million_tokens_usd: 0.25
+    local_environment_comparison:
+      direct_anthropic_model: unset
+      routed_anthropic_model_before: ciel-runtime-anthropic-claude-fable-5[1m]
+      routed_context_before: 1048576
+    claude_binary_capture_before:
+      automatic_1m_beta: context-1m-2025-08-07
+      same_alias_without_suffix_has_1m_beta: false
+      conclusion: The automatic suffix selected Claude Code's usage-credit 1M request path.
+  implementation:
+    catalog:
+      added: claude-fable-5-1
+      retained: claude-fable-5
+      model_family: fable
+      context_metadata: 1048576
+      max_output_tokens_metadata: 128000
+      thinking_mode: adaptive
+    routed_context:
+      implicit_selection: standard-200k
+      explicit_one_million_selection: model-id-with-[1m]
+      direct_native_mode_changed: false
+      non_anthropic_providers_changed: false
+  verification:
+    claude_2_1_258_live_capture:
+      exit_code: 0
+      expected_response_received: true
+      environment_model: ciel-runtime-anthropic-claude-fable-5-1
+      request_model: ciel-runtime-anthropic-claude-fable-5-1
+      context_tokens: 200000
+      compact_window_tokens: 200000
+      context_1m_beta_present: false
+    full_repository:
+      compile: pass
+      unit:
+        passed: 1302
+        skipped: 44
+      router:
+        passed: 1064
+      channel:
+        passed: 320
+        skipped: 80
+      runtime:
+        passed: 246
+        skipped: 12
+      total_passed: 2932
+      total_skipped: 136
+    quality:
+      ruff: pass
+      documentation_metadata: pass

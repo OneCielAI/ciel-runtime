@@ -40,12 +40,22 @@ class AnthropicPresetOutputTokensTests(unittest.TestCase):
         env = ciel_runtime.env_vars(cfg)
         self.assertEqual("120000", env.get("CLAUDE_CODE_MAX_OUTPUT_TOKENS"))
 
-    def test_routed_one_million_model_exposes_context_to_claude_code(self):
+    def test_routed_model_defaults_to_standard_context_without_credit_beta(self):
         cfg = _anthropic_cfg(current_model="claude-opus-4-8")
 
         env = ciel_runtime.env_vars(cfg)
 
+        self.assertEqual("200000", env.get("CLAUDE_CODE_AUTO_COMPACT_WINDOW"))
+        self.assertEqual("200000", env.get("CLAUDE_CODE_MAX_CONTEXT_TOKENS"))
+        self.assertEqual("ciel-runtime-anthropic-claude-opus-4-8", env.get("ANTHROPIC_MODEL"))
+
+    def test_routed_explicit_one_million_model_retains_credit_beta_marker(self):
+        cfg = _anthropic_cfg(current_model="claude-opus-4-8[1m]")
+
+        env = ciel_runtime.env_vars(cfg)
+
         self.assertEqual("1000000", env.get("CLAUDE_CODE_AUTO_COMPACT_WINDOW"))
+        self.assertEqual("1048576", env.get("CLAUDE_CODE_MAX_CONTEXT_TOKENS"))
         self.assertEqual("ciel-runtime-anthropic-claude-opus-4-8[1m]", env.get("ANTHROPIC_MODEL"))
 
     def test_routed_haiku_uses_its_smaller_context_without_one_million_marker(self):

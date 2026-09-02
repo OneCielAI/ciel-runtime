@@ -13,6 +13,7 @@ ANTHROPIC_MODEL_DOCS_URLS = (
     "https://platform.claude.com/docs/en/about-claude/models/overview",
 )
 ANTHROPIC_PUBLIC_MODEL_FALLBACK_IDS: tuple[str, ...] = (
+    "claude-fable-5-1",
     "claude-fable-5",
     "claude-opus-5",
     "claude-opus-4-8",

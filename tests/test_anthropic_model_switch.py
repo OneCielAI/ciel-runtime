@@ -5,6 +5,7 @@ import ciel_runtime
 
 
 ANTHROPIC_MODELS = [
+    "claude-fable-5-1",
     "claude-fable-5",
     "claude-opus-4-8",
     "claude-sonnet-4-6",
@@ -32,6 +33,9 @@ class AnthropicModelSwitchTests(unittest.TestCase):
 
     def test_native_fable_resolves_to_itself(self):
         self.assertEqual("claude-fable-5", _resolve("claude-fable-5"))
+
+    def test_native_fable_5_1_resolves_to_itself(self):
+        self.assertEqual("claude-fable-5-1", _resolve("claude-fable-5-1"))
 
     def test_native_id_equal_to_current_model(self):
         self.assertEqual("claude-sonnet-4-6", _resolve("claude-sonnet-4-6"))
@@ -86,11 +90,11 @@ class AnthropicModelSwitchTests(unittest.TestCase):
             )
 
         self.assertEqual(
-            "ciel-runtime-anthropic-claude-opus-4-8[1m]",
+            "ciel-runtime-anthropic-claude-opus-4-8",
             aliases["ANTHROPIC_DEFAULT_OPUS_MODEL"],
         )
         self.assertEqual(
-            "ciel-runtime-anthropic-claude-sonnet-4-6[1m]",
+            "ciel-runtime-anthropic-claude-sonnet-4-6",
             aliases["ANTHROPIC_DEFAULT_SONNET_MODEL"],
         )
         self.assertEqual(

@@ -137,8 +137,10 @@ Imagine image/video, Voice, STT/TTS 모델 ID는 text LLM 선택 메뉴에 섞�
 
 - **Native 모드**: Claude Code가 직접 Anthropic API 호출. Router가 중계하지 않음.
 - **Routed 모드**: Router가 중계하며 `ROUTED_COMPAT_PROMPT`를 시스템 프롬프트에 주입.
+- Routed 모드는 기본적으로 표준 200K 컨텍스트를 사용한다. 1M 사용 크레딧
+  beta를 명시적으로 사용할 때만 모델 ID에 `[1m]`을 붙인다.
 - 공개 모델 ID 목록 (`ANTHROPIC_PUBLIC_MODEL_DEFAULT_IDS`):
-  - `claude-fable-5`, `claude-opus-4-8`, `claude-sonnet-4-6`, `claude-haiku-4-5-20251001`, `claude-haiku-4-5`
+  - `claude-fable-5-1`, `claude-fable-5`, `claude-opus-4-8`, `claude-sonnet-4-6`, `claude-haiku-4-5-20251001`, `claude-haiku-4-5`
 - 제한 접근 모델 (`ANTHROPIC_LIMITED_ACCESS_MODEL_IDS`):
   - `claude-mythos-5`, `claude-mythos-preview`
 

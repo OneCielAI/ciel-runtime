@@ -42,6 +42,25 @@ CLAUDE_PROJECTED_ENV_KEYS = (
     "CIEL_RUNTIME_PROVIDER",
 )
 CLAUDE_AUTO_COMPACT_WINDOW_MAX = 1_000_000
+ANTHROPIC_STANDARD_CONTEXT_TOKENS = 200_000
+
+
+def anthropic_routed_mode(
+    provider: str,
+    config: dict[str, Any],
+) -> bool:
+    routed = config.get("route_through_router") is True or str(
+        config.get("route_through_router") or ""
+    ).strip().lower() in {"1", "true", "yes", "on"}
+    return provider == "anthropic" and routed
+
+
+def anthropic_routed_standard_context(
+    provider: str,
+    config: dict[str, Any],
+) -> bool:
+    model = str(config.get("current_model") or "").strip().lower()
+    return anthropic_routed_mode(provider, config) and "[1m]" not in model
 
 
 @dataclass(frozen=True)
@@ -90,6 +109,8 @@ class ClaudeLimitPolicy:
     ) -> ClaudeCompactionSnapshot:
         configured = self._ports.positive_int(config.get("auto_compact_window"))
         limit = self._ports.context_limit(provider, config)
+        if anthropic_routed_standard_context(provider, config):
+            limit = min(limit or ANTHROPIC_STANDARD_CONTEXT_TOKENS, ANTHROPIC_STANDARD_CONTEXT_TOKENS)
         if configured:
             window = min(
                 configured,
@@ -182,7 +203,16 @@ class ClaudeModelAliasPolicy:
         *,
         context_limit: int | None = None,
     ) -> str:
+        original_model = str(model or "")
+        original_upstream = str(upstream_model or "")
         model = self._ports.strip_context_suffix(model)
+        if anthropic_routed_mode(provider, config):
+            explicit_one_million = "[1m]" in original_model.lower() or "[1m]" in original_upstream.lower()
+            if upstream_model is None:
+                explicit_one_million = explicit_one_million or "[1m]" in str(
+                    config.get("current_model") or ""
+                ).lower()
+            return f"{model}[1m]" if explicit_one_million else model
         probe_model = upstream_model if upstream_model is not None else model
         include_current = upstream_model is None
         claims_one_million = self.claims_one_million_context(

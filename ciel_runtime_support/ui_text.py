@@ -256,6 +256,7 @@ PROVIDER_NOTES = {
 
 DEFAULT_ADVISOR_MODELS: tuple[str, ...] = (
     "",
+    "claude-fable-5-1",
     "claude-fable-5",
     "claude-opus-5",
     "claude-opus-4-8",

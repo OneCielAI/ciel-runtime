@@ -649,7 +649,8 @@ class NativeSessionBoundaryTests(unittest.TestCase):
 class NativeModelListTests(unittest.TestCase):
     def test_public_docs_parser_extracts_current_claude_models_without_footnotes(self):
         html = """
-        Claude Fable 5 (`claude-fable-5`) is Anthropic's most capable widely released model.
+        Claude Fable 5.1 (`claude-fable-5-1`) is the current Fable model.
+        Claude Fable 5 (`claude-fable-5`) remains available.
         Claude Mythos 5 (`claude-mythos-5`) joins the invitation-only Claude Mythos Preview (`claude-mythos-preview`).
         Claude API ID
         <span>claude-opus-4-8</span><span>claude-sonnet-4-6</span>
@@ -665,6 +666,7 @@ class NativeModelListTests(unittest.TestCase):
 
         self.assertEqual(
             [
+                "claude-fable-5-1",
                 "claude-fable-5",
                 "claude-mythos-5",
                 "claude-mythos-preview",
@@ -690,6 +692,7 @@ class NativeModelListTests(unittest.TestCase):
     def test_public_docs_fetch_filters_limited_and_legacy_models_from_default_picker(self):
         ids = ciel_runtime.filter_anthropic_default_model_ids(
             [
+                "claude-fable-5-1",
                 "claude-fable-5",
                 "claude-mythos-5",
                 "claude-mythos-preview",
@@ -704,6 +707,7 @@ class NativeModelListTests(unittest.TestCase):
 
         self.assertEqual(
             [
+                "claude-fable-5-1",
                 "claude-fable-5",
                 "claude-opus-4-8",
                 "claude-sonnet-4-6",
@@ -850,6 +854,17 @@ class NativeModelListTests(unittest.TestCase):
         self.assertNotIn("top_k", out)
         self.assertEqual(4096, out["max_tokens"])
         self.assertIn("temperature", body)
+
+    def test_fable_5_1_uses_published_context_and_runtime_capabilities(self):
+        limits = ciel_runtime.anthropic_model_limit_hints("claude-fable-5-1")
+        runtime = ciel_runtime.anthropic_model_runtime_hints("claude-fable-5-1")
+
+        self.assertEqual(1048576, limits["context_window"])
+        self.assertEqual(128000, limits["max_output_tokens"])
+        self.assertEqual("high", runtime["claude_code_default_effort"])
+        self.assertEqual("xhigh", runtime["claude_code_max_effort"])
+        self.assertEqual("adaptive", runtime["thinking_mode"])
+        self.assertTrue(runtime["adaptive_thinking_always_on"])
 
     def test_non_anthropic_request_options_are_not_stripped_by_anthropic_model_hints(self):
         body = {

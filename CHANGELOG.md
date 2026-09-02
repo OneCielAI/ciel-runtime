@@ -5,6 +5,9 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+- Add Claude Fable 5.1 to the Anthropic catalog and model policy.
+- Keep Anthropic routed sessions on standard 200K context unless the selected
+  model explicitly includes `[1m]`, avoiding an unintended usage-credit beta.
 - Advertise provider descriptions in the gateway model catalog for Claude Code
   2.1.257 and later model-picker discovery.
 - Apply each routed provider's configured subagent model to every Claude Code

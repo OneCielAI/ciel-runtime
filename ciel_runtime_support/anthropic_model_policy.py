@@ -18,7 +18,7 @@ SUPPORTED_CAPABILITIES = (
 
 
 def model_family(model_id: str) -> str:
-    model = (model_id or "").strip().lower()
+    model = re.sub(r"\[1m\]$", "", (model_id or "").strip().lower())
     for family in ("fable", "mythos", "opus", "sonnet", "haiku"):
         if re.search(rf"(?:^|-)claude-(?:\d+(?:-\d+){{0,2}}-)?{family}(?:-|$)", model) or f"-{family}-" in model:
             return family
@@ -26,7 +26,7 @@ def model_family(model_id: str) -> str:
 
 
 def limit_hints(model_id: str) -> dict[str, Any]:
-    model = (model_id or "").strip().lower()
+    model = re.sub(r"\[1m\]$", "", (model_id or "").strip().lower())
     family = model_family(model)
     if family in ("fable", "mythos") or (
         family == "opus" and re.search(r"(?:^|-)opus-(?:5|4-[678])(?:-|$)", model)
@@ -58,7 +58,7 @@ def limit_hints(model_id: str) -> dict[str, Any]:
 
 
 def runtime_hints(model_id: str) -> dict[str, Any]:
-    model = (model_id or "").strip().lower()
+    model = re.sub(r"\[1m\]$", "", (model_id or "").strip().lower())
     if model_family(model) in ("fable", "mythos"):
         return {
             "claude_code_default_effort": "high",
