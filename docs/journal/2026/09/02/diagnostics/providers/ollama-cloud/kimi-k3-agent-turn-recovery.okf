@@ -1,0 +1,125 @@
+task:
+  id: ollama-cloud-kimi-k3-agent-turn-recovery-20260902
+  request: >-
+    Diagnose Kimi K3 stopping after a progress sentence in routed Codex, compare
+    Ollama Desktop's official implementation, and apply the relevant behavior.
+  observed_at: 2026-09-02T19:05:11-05:00
+  status: verified_and_locally_deployed
+
+live_failure_evidence:
+  workspace: G:/OneCielDMSUI
+  router_instance: 9465-60524a4bf5eb
+  codex_session: 019fcac4-4538-7a53-91d1-565cd21a8c5e
+  sequence:
+    - at: 2026-09-02T18:38:20-05:00
+      observed: two exec_command tool calls completed
+    - at: 2026-09-02T18:39:06-05:00
+      assistant_text: >-
+        번역 계획(plan) 생성 지점과 메일함 설정 디코더, 이벤트 종류,
+        미리보기 조회를 확인합니다.
+      tool_calls: 0
+      codex_event: task_complete
+  router_log:
+    first_recovery_at: 2026-09-02T18:38:59-05:00
+    first_recovery_reason: preamble_only
+    recovery_attempts_before_patch: 1
+    outcome: >-
+      The one recovery response also contained no tool call. The old code then
+      returned the original announcement and Codex completed the task.
+
+official_ollama_desktop_reference:
+  repository: https://github.com/ollama/ollama
+  commit: b79067b0db7417f20108363bc22adb97f35c966a
+  file: app/ui/ui.go
+  relevant_lines:
+    - 952-955: buffer complete assistant tool-call state
+    - 959-993: run an agent pass loop
+    - 1017-1103: detect and execute tool calls
+    - 1200-1275: persist assistant content and thinking
+    - 1287-1293: continue while tools were executed
+  official_tool_loop_documentation: >-
+    https://github.com/ollama/ollama/blob/main/docs/capabilities/tool-calling.mdx
+  confirmed_difference: >-
+    Ollama Desktop retains the assistant response, including thinking and tool
+    calls, before the next pass. Ciel's internal preamble recovery retained only
+    visible text and discarded thinking.
+
+root_cause:
+  confirmed:
+    - >-
+      Ciel bounded preamble recovery to exactly one retry. The live trace shows
+      that one retry was insufficient for this Kimi K3 turn.
+    - >-
+      body_with_continuation_nudge reconstructed the assistant message from text
+      only, dropping its thinking blocks before the recovery request.
+    - >-
+      A substantive no-tool completion returned by recovery was discarded by
+      the old branch because only a tool call could replace the announcement.
+  not_claimed:
+    - >-
+      The trace does not prove why Kimi K3 chose an announcement instead of a
+      tool call. GitHub Copilot's same-model behavior is a user observation; its
+      private request prompt was not available for direct comparison.
+
+implementation:
+  file: ciel_runtime_support/codex_turn_recovery.py
+  changes:
+    - Preserve the complete assistant content block list in continuation history.
+    - Recognize Kimi K3 through ollama and ollama-cloud routes.
+    - Allow up to three bounded no-tool continuation attempts for Kimi K3.
+    - Accept a concrete non-retryable no-tool completion from recovery.
+    - Disable nested gateway retries inside the bounded recovery loop.
+    - Log attempt number, retryability, and returned visible character count.
+
+verification:
+  focused_tests:
+    command: py -3.14 -m unittest tests.test_codex_turn_recovery -v
+    tests: 36
+    result: passed
+  related_regression_tests:
+    tests: 86
+    skipped: 12
+    result: passed
+  full_suite:
+    unit: {tests: 1363, skipped: 45, result: passed}
+    router: {tests: 1076, result: passed}
+    channel: {tests: 403, skipped: 80, result: passed}
+    runtime: {tests: 261, skipped: 12, result: passed}
+    total_tests: 3103
+  ruff:
+    result: passed
+  direct_ollama_agent_loop:
+    model: kimi-k3
+    think: low
+    pass_1: {tool: inspect_workspace, done_reason: stop}
+    pass_2: {tool: inspect_file, done_reason: stop}
+    pass_3: {content: DONE, done_reason: stop}
+    result: passed
+  installed_router_repeated_preamble_probe:
+    port: 9491
+    input_behavior: two progress-only responses before a required tool call
+    router_log:
+      - {attempt: 1, retryable: true, visible_chars: 20}
+      - {attempt: 2, tool: inspect_workspace}
+    http_status: 200
+    responses_status: completed
+    output_types: [message, reasoning, function_call]
+    result: passed
+  isolated_router_after_probe: stopped
+
+local_deployment:
+  command: powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
+  result: passed
+  target: C:/Users/djlov/.local/share/ciel-runtime
+  source_installed_sha256_match: true
+  installed_behavior_probe:
+    attempts: 2
+    tool_recovered: true
+    thinking_preserved: true
+    nested_gateway_retries: 0
+  active_session_boundary: >-
+    Routers 9465 and 9479 were already running before deployment and retain the
+    old imported Python module until those sessions are restarted. They were not
+    interrupted by this verification.
+
+credentials_recorded: false

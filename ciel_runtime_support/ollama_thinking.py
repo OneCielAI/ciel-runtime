@@ -25,22 +25,6 @@ class OllamaReasoningProfile:
     always_on: bool = False
 
 
-_GENERIC_CLOUD_LEVEL_MODELS = frozenset(
-    {
-        "gemma4:31b",
-        "glm-5.1",
-        "kimi-k2.6",
-        "kimi-k2.7-code",
-        "minimax-m2.7",
-        "minimax-m3",
-        "nemotron-3-nano:30b",
-        "nemotron-3-super",
-        "nemotron-3-ultra",
-        "qwen3.5:397b",
-    }
-)
-
-
 def _codex_level_description(level: str) -> str:
     return {
         "low": "Low reasoning effort",
@@ -107,6 +91,14 @@ def ollama_cloud_reasoning_profile(
             default_codex="high",
             always_on=True,
         )
+    if discovered == "glm_dsa_moe" or model == "glm-5.3":
+        return OllamaReasoningProfile(
+            native_levels=("low", "high", "max"),
+            codex_levels=("low", "high", "xhigh"),
+            default_native="max",
+            default_codex="xhigh",
+            always_on=True,
+        )
     if discovered == "kimi-k3" or model == "kimi-k3":
         return OllamaReasoningProfile(
             native_levels=("low", "high", "max"),
@@ -123,13 +115,6 @@ def ollama_cloud_reasoning_profile(
             codex_levels=codex_levels,
             default_native=native_default,
             default_codex="xhigh" if native_default == "max" else native_default,
-        )
-    if model in _GENERIC_CLOUD_LEVEL_MODELS:
-        return OllamaReasoningProfile(
-            native_levels=("low", "medium", "high", "max"),
-            codex_levels=("low", "medium", "high", "xhigh"),
-            default_native="medium",
-            default_codex="medium",
         )
     return None
 
@@ -185,7 +170,7 @@ def ollama_cloud_model_config_updates(
         ),
     }
     return {
-        "think": profile is not None,
+        "think": profile is not None or "thinking" in normalized_capabilities,
         "effort_level": profile.default_native if profile else "",
         "ollama_think_levels": list(profile.native_levels) if profile else [],
         "ollama_thinking_always_on": bool(profile and profile.always_on),
@@ -246,6 +231,8 @@ class OllamaThinkingPolicy:
             return "gptoss"
         if model in {"glm-5.2", "glm-5.2:cloud"}:
             return "glm5.2"
+        if model in {"glm-5.3", "glm-5.3:cloud"}:
+            return "glm_dsa_moe"
         return ""
 
     def value(
@@ -342,8 +329,7 @@ class OllamaThinkingPolicy:
         if "thinking" in capabilities:
             if thinking_disabled(request):
                 return False
-            if effort:
-                return True
+            return True
         return None
 
 

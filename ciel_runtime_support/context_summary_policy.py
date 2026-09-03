@@ -161,6 +161,25 @@ class ContextSummaryPolicy:
             if (start := (index * count) // chunks) < (end := ((index + 1) * count) // chunks)
         ]
 
+    @staticmethod
+    def cache_stable_summary_budget(budget_tokens: int) -> int:
+        """Bucket a wire-fit budget before it can shape a cached summary.
+
+        Provider request fitting recalculates ``budget_tokens`` from the exact
+        serialized byte count.  Appending one turn can therefore move that
+        value by a few tokens even when the omitted history is unchanged.  A
+        prompt cache requires an exact prefix, so embedding or otherwise using
+        that per-request value would regenerate the first compacted item.
+
+        Keep the real budget in the compactor's final fit checks.  The summary
+        projection only needs a conservative, stable size class; rounding down
+        to the compactor's minimum quantum makes nearby fits byte-identical and
+        never grants the summary a larger budget than the request has.
+        """
+
+        normalized = max(8192, int(budget_tokens))
+        return max(8192, (normalized // 8192) * 8192)
+
     def guard_chunk_count(
         self,
         omitted_messages: list[dict[str, Any]],
@@ -185,13 +204,14 @@ class ContextSummaryPolicy:
         if count <= 0:
             return (
                 "[ciel-runtime context guard: older conversation history was compacted because "
-                f"the provider context budget is {budget_tokens} tokens.]"
+                "the provider context budget was exceeded.]"
             )
-        max_tokens = max(1024, min(24576, max(1, budget_tokens) // 10))
+        summary_budget = self.cache_stable_summary_budget(budget_tokens)
+        max_tokens = max(1024, min(24576, summary_budget // 10))
         max_chars = max_tokens * 4
-        chunks = self.guard_chunk_count(omitted_messages, budget_tokens)
+        chunks = self.guard_chunk_count(omitted_messages, summary_budget)
         lines = [
-            f"[ciel-runtime context guard: compacted {count} older messages, approx {tokens} tokens, because the provider context budget is {budget_tokens} tokens.]",
+            f"[ciel-runtime context guard: compacted {count} older messages, approx {tokens} tokens, because the provider context budget was exceeded.]",
             "The recent tail is preserved verbatim. Older history is represented below as deterministic chunk summaries; use file reads or MCP queries if exact old content is needed.",
         ]
         for number, (start, end) in enumerate(self.chunk_ranges(count, chunks), start=1):

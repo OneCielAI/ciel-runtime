@@ -1,0 +1,91 @@
+task:
+  id: ollama-cloud-kimi-k3-codex-cache-observation-20260902
+  request: >-
+    Inspect the live Ollama Cloud kimi-k3 Codex sessions and determine whether
+    their prompt-cache hit rate is high.
+  observed_at: 2026-09-02T17:08:32-05:00
+  status: measured_client_metric_but_upstream_cache_hit_rate_not_observable
+
+live_sessions:
+  - router_port: 9465
+    router_pid: 101436
+    workspace: G:/onecieldmsui
+    provider: ollama-cloud
+    model: kimi-k3
+    codex_session: 019fcac4-4538-7a53-91d1-565cd21a8c5e
+    rollout: C:/Users/djlov/.codex/sessions/2026/08/03/rollout-2026-08-03T22-14-48-019fcac4-4538-7a53-91d1-565cd21a8c5e.jsonl
+    completed_usage_samples:
+      - {timestamp: 2026-09-02T22:05:56.843Z, input_tokens: 826809, cached_input_tokens: 0, output_tokens: 354}
+      - {timestamp: 2026-09-02T22:06:12.900Z, input_tokens: 831304, cached_input_tokens: 0, output_tokens: 393}
+    aggregate: {samples: 2, input_tokens: 1658113, cached_input_tokens: 0, reported_weighted_hit_percent: 0.000}
+  - router_port: 9479
+    router_pid: 32968
+    workspace: C:/Users/djlov/cielarvis
+    provider: ollama-cloud
+    model: kimi-k3
+    codex_session: 01a01dff-f0f0-7ef3-8cde-1d9916510f35
+    rollout: C:/Users/djlov/.codex/sessions/2026/08/20/rollout-2026-08-20T02-08-27-01a01dff-f0f0-7ef3-8cde-1d9916510f35.jsonl
+    completed_usage_samples:
+      - {timestamp: 2026-09-02T22:06:55.315Z, input_tokens: 607328, cached_input_tokens: 0, output_tokens: 754}
+      - {timestamp: 2026-09-02T22:07:07.182Z, input_tokens: 610473, cached_input_tokens: 0, output_tokens: 507}
+      - {timestamp: 2026-09-02T22:07:23.556Z, input_tokens: 611608, cached_input_tokens: 0, output_tokens: 271}
+    aggregate: {samples: 3, input_tokens: 1829409, cached_input_tokens: 0, reported_weighted_hit_percent: 0.000}
+combined_reported_aggregate:
+  samples: 5
+  input_tokens: 3487522
+  cached_input_tokens: 0
+  reported_weighted_hit_percent: 0.000
+
+wire_evidence:
+  endpoint: https://ollama.com/api/chat
+  port_9465_prompt_estimates: [809165, 809265, 813789, 813876, 815525, 815606]
+  port_9479_prompt_estimates: [575538, 575630, 578584, 579517, 579614]
+  note: >-
+    These are Ciel request-side token estimates, not upstream cache accounting.
+
+source_evidence:
+  response_decoder: ciel_runtime_support/protocols/ollama_chat.py
+  decoder_behavior: >-
+    decode_ollama_chat_response reads prompt_eval_count and eval_count only.
+  usage_encoder: ciel_runtime_support/protocols/ollama_chat.py
+  encoder_behavior: >-
+    encode_anthropic_message emits usage.input_tokens and usage.output_tokens;
+    it does not emit cache_read_input_tokens or cache_creation_input_tokens.
+  codex_projection: ciel_runtime_support/protocols/openai_responses.py
+  projection_behavior: >-
+    Missing Anthropic cache fields become input_tokens_details.cached_tokens=0
+    and cache_write_tokens=0 in the Responses result consumed by Codex.
+  stream_collector: ciel_runtime_support/ollama_stream_collection.py
+  collector_behavior: >-
+    The collector retains prompt_eval_count, eval_count, and total_duration but
+    currently does not retain prompt_eval_duration from the terminal chunk.
+
+official_contract:
+  chat_api: https://docs.ollama.com/api/chat
+  usage_api: https://docs.ollama.com/api/usage
+  documented_usage_fields:
+    - total_duration
+    - load_duration
+    - prompt_eval_count
+    - prompt_eval_duration
+    - eval_count
+    - eval_duration
+  cache_token_field_documented: false
+  anthropic_compatibility: https://docs.ollama.com/api/anthropic-compatibility
+  anthropic_prompt_caching_documented_as_supported: false
+
+conclusion:
+  confirmed:
+    - The five current Codex usage samples report zero cached input tokens.
+    - Ciel cannot receive a cache-token count from the documented Ollama chat response schema.
+    - Ciel therefore projects zero cached tokens to Codex for this route.
+  not_confirmed:
+    - The Ollama Cloud server actually missed its internal prefix or KV cache.
+    - The actual upstream cache-hit percentage is zero.
+    - Codex has a worse upstream cache hit rate than Claude for the same model, prompt, and endpoint.
+  measurement_limit: >-
+    The current zero-percent Codex display is an observability result, not a
+    validated Ollama Cloud cache-hit measurement. A same-provider Claude sample
+    with a cache field was not present in the active routers for comparison.
+
+credentials_recorded: false

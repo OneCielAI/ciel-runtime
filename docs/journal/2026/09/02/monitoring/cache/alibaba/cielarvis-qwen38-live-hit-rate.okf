@@ -1,0 +1,858 @@
+okf: 1
+task:
+  date: "2026-09-02"
+  request: >-
+    Track cache hits for the locally restarted Ciel Runtime session operating
+    in C:/Users/djlov/cielarvis with Alibaba Token Plan qwen3.8-max.
+  status: active
+
+runtime_identity:
+  workspace: C:/Users/djlov/cielarvis
+  router_port: 9479
+  router_pid: 48472
+  router_started_at_local: "2026-09-02T15:04:48"
+  runtime_source: C:/Users/djlov/.local/share/ciel-runtime/ciel_runtime.py
+  health_version: 0.2.37
+  provider: alitoken
+  model: qwen3.8-max
+  codex_session: 01a01dff-f0f0-7ef3-8cde-1d9916510f35
+  new_policy_marker_observed: >-
+    provider_responses_session_cache_deferred provider=alitoken
+    reason=missing_previous_response_id
+
+evidence:
+  activity: >-
+    C:/Users/djlov/AppData/Roaming/ciel-runtime/router-instances/9479-a3a719fc6552/router-activity.json
+  log: >-
+    C:/Users/djlov/AppData/Roaming/ciel-runtime/router-instances/9479-a3a719fc6552/router.log
+  rollout: >-
+    C:/Users/djlov/.codex/sessions/2026/08/20/rollout-2026-08-20T02-08-27-01a01dff-f0f0-7ef3-8cde-1d9916510f35.jsonl
+  usage_extraction:
+    boundary: "token_count event ordinal >= 5139"
+    file_open_mode: FileShare.ReadWrite_and_Delete
+    cross_check: >-
+      The first 21 extracted last_token_usage events exactly matched the
+      manually polled router-activity samples. This provides a non-lossy source
+      while the active Codex process continues appending to the rollout.
+
+samples:
+  - time: "2026-09-02T15:06:54"
+    input_tokens: 157983
+    cached_input_tokens: 0
+    uncached_input_tokens: 157983
+    cache_hit_percent: 0.000
+  - time: "2026-09-02T15:07:57"
+    input_tokens: 161692
+    cached_input_tokens: 8192
+    uncached_input_tokens: 153500
+    cache_hit_percent: 5.066
+  - time: "2026-09-02T15:09:35"
+    input_tokens: 163466
+    cached_input_tokens: 162816
+    uncached_input_tokens: 650
+    cache_hit_percent: 99.602
+  - time: "2026-09-02T15:11:05"
+    input_tokens: 164366
+    cached_input_tokens: 8192
+    uncached_input_tokens: 156174
+    cache_hit_percent: 4.984
+  - time: "2026-09-02T15:12:25"
+    input_tokens: 164859
+    cached_input_tokens: 8192
+    uncached_input_tokens: 156667
+    cache_hit_percent: 4.969
+  - time: "2026-09-02T15:13:00"
+    input_tokens: 166204
+    cached_input_tokens: 8192
+    uncached_input_tokens: 158012
+    cache_hit_percent: 4.929
+  - time: "2026-09-02T15:13:42"
+    input_tokens: 166687
+    cached_input_tokens: 8192
+    uncached_input_tokens: 158495
+    cache_hit_percent: 4.914
+  - time: "2026-09-02T15:14:39"
+    input_tokens: 167676
+    cached_input_tokens: 8192
+    uncached_input_tokens: 159484
+    cache_hit_percent: 4.886
+  - time: "2026-09-02T15:15:13"
+    input_tokens: 168419
+    cached_input_tokens: 8192
+    uncached_input_tokens: 160227
+    cache_hit_percent: 4.864
+  - time: "2026-09-02T15:16:26"
+    input_tokens: 169766
+    cached_input_tokens: 8192
+    uncached_input_tokens: 161574
+    cache_hit_percent: 4.825
+  - time: "2026-09-02T15:17:00"
+    input_tokens: 170531
+    cached_input_tokens: 8192
+    uncached_input_tokens: 162339
+    cache_hit_percent: 4.804
+  - time: "2026-09-02T15:17:38"
+    input_tokens: 171568
+    cached_input_tokens: 160768
+    uncached_input_tokens: 10800
+    cache_hit_percent: 93.705
+  - time: "2026-09-02T15:18:11"
+    input_tokens: 171971
+    cached_input_tokens: 8192
+    uncached_input_tokens: 163779
+    cache_hit_percent: 4.764
+  - time: "2026-09-02T15:18:41"
+    input_tokens: 172294
+    cached_input_tokens: 8192
+    uncached_input_tokens: 164102
+    cache_hit_percent: 4.755
+  - time: "2026-09-02T15:19:15"
+    input_tokens: 172705
+    cached_input_tokens: 8192
+    uncached_input_tokens: 164513
+    cache_hit_percent: 4.743
+  - time: "2026-09-02T15:20:14"
+    input_tokens: 173651
+    cached_input_tokens: 163840
+    uncached_input_tokens: 9811
+    cache_hit_percent: 94.350
+  - time: "2026-09-02T15:20:47"
+    input_tokens: 174005
+    cached_input_tokens: 163840
+    uncached_input_tokens: 10165
+    cache_hit_percent: 94.158
+  - time: "2026-09-02T15:21:26"
+    input_tokens: 174831
+    cached_input_tokens: 8192
+    uncached_input_tokens: 166639
+    cache_hit_percent: 4.686
+  - time: "2026-09-02T15:22:00"
+    input_tokens: 175091
+    cached_input_tokens: 8192
+    uncached_input_tokens: 166899
+    cache_hit_percent: 4.679
+  - time: "2026-09-02T15:22:29"
+    input_tokens: 175288
+    cached_input_tokens: 8192
+    uncached_input_tokens: 167096
+    cache_hit_percent: 4.673
+  - time: "2026-09-02T15:22:58"
+    input_tokens: 175815
+    cached_input_tokens: 8192
+    uncached_input_tokens: 167623
+    cache_hit_percent: 4.659
+  - time: "2026-09-02T15:23:29"
+    input_tokens: 176098
+    cached_input_tokens: 8192
+    uncached_input_tokens: 167906
+    cache_hit_percent: 4.652
+  - time: "2026-09-02T15:24:01"
+    input_tokens: 176291
+    cached_input_tokens: 8192
+    uncached_input_tokens: 168099
+    cache_hit_percent: 4.647
+  - time: "2026-09-02T15:24:34"
+    input_tokens: 176515
+    cached_input_tokens: 8192
+    uncached_input_tokens: 168323
+    cache_hit_percent: 4.641
+  - time: "2026-09-02T15:25:26"
+    input_tokens: 177020
+    cached_input_tokens: 8192
+    uncached_input_tokens: 168828
+    cache_hit_percent: 4.628
+  - time: "2026-09-02T15:25:58"
+    input_tokens: 177375
+    cached_input_tokens: 8192
+    uncached_input_tokens: 169183
+    cache_hit_percent: 4.618
+  - time: "2026-09-02T15:27:43"
+    input_tokens: 177550
+    cached_input_tokens: 8192
+    uncached_input_tokens: 169358
+    cache_hit_percent: 4.614
+  - time: "2026-09-02T15:28:47"
+    input_tokens: 178623
+    cached_input_tokens: 8192
+    uncached_input_tokens: 170431
+    cache_hit_percent: 4.586
+  - time: "2026-09-02T15:30:27"
+    input_tokens: 179178
+    cached_input_tokens: 8192
+    uncached_input_tokens: 170986
+    cache_hit_percent: 4.572
+  - time: "2026-09-02T15:32:03"
+    input_tokens: 179566
+    cached_input_tokens: 8192
+    uncached_input_tokens: 171374
+    cache_hit_percent: 4.562
+  - time: "2026-09-02T15:32:52"
+    input_tokens: 180979
+    cached_input_tokens: 178176
+    uncached_input_tokens: 2803
+    cache_hit_percent: 98.451
+  - time: "2026-09-02T15:34:11"
+    input_tokens: 181873
+    cached_input_tokens: 8192
+    uncached_input_tokens: 173681
+    cache_hit_percent: 4.504
+  - time: "2026-09-02T15:35:07"
+    input_tokens: 182433
+    cached_input_tokens: 179200
+    uncached_input_tokens: 3233
+    cache_hit_percent: 98.228
+  - time: "2026-09-02T15:38:14"
+    input_tokens: 182869
+    cached_input_tokens: 8192
+    uncached_input_tokens: 174677
+    cache_hit_percent: 4.480
+  - time: "2026-09-02T15:38:45"
+    input_tokens: 183794
+    cached_input_tokens: 8192
+    uncached_input_tokens: 175602
+    cache_hit_percent: 4.457
+  - time: "2026-09-02T15:39:19"
+    input_tokens: 184338
+    cached_input_tokens: 8192
+    uncached_input_tokens: 176146
+    cache_hit_percent: 4.444
+  - time: "2026-09-02T15:39:44"
+    input_tokens: 184499
+    cached_input_tokens: 183296
+    uncached_input_tokens: 1203
+    cache_hit_percent: 99.348
+  - time: "2026-09-02T15:40:34"
+    input_tokens: 184655
+    cached_input_tokens: 184320
+    uncached_input_tokens: 335
+    cache_hit_percent: 99.819
+  - time: "2026-09-02T15:42:20"
+    input_tokens: 185102
+    cached_input_tokens: 8192
+    uncached_input_tokens: 176910
+    cache_hit_percent: 4.426
+  - time: "2026-09-02T15:43:23"
+    input_tokens: 186034
+    cached_input_tokens: 184320
+    uncached_input_tokens: 1714
+    cache_hit_percent: 99.079
+  - time: "2026-09-02T15:44:15"
+    input_tokens: 186896
+    cached_input_tokens: 178176
+    uncached_input_tokens: 8720
+    cache_hit_percent: 95.334
+  - time: "2026-09-02T15:45:01"
+    input_tokens: 187843
+    cached_input_tokens: 185344
+    uncached_input_tokens: 2499
+    cache_hit_percent: 98.670
+  - time: "2026-09-02T15:45:35"
+    input_tokens: 188685
+    cached_input_tokens: 8192
+    uncached_input_tokens: 180493
+    cache_hit_percent: 4.342
+  - time: "2026-09-02T15:46:06"
+    input_tokens: 188965
+    cached_input_tokens: 186368
+    uncached_input_tokens: 2597
+    cache_hit_percent: 98.626
+  - time: "2026-09-02T15:46:56"
+    input_tokens: 189235
+    cached_input_tokens: 181248
+    uncached_input_tokens: 7987
+    cache_hit_percent: 95.779
+  - time: "2026-09-02T15:47:29"
+    input_tokens: 189514
+    cached_input_tokens: 188416
+    uncached_input_tokens: 1098
+    cache_hit_percent: 99.421
+  - time: "2026-09-02T15:48:31"
+    input_tokens: 189828
+    cached_input_tokens: 182272
+    uncached_input_tokens: 7556
+    cache_hit_percent: 96.020
+  - time: "2026-09-02T15:50:38"
+    input_tokens: 190130
+    cached_input_tokens: 8192
+    uncached_input_tokens: 181938
+    cache_hit_percent: 4.309
+  - time: "2026-09-02T15:51:19"
+    input_tokens: 190674
+    cached_input_tokens: 8192
+    uncached_input_tokens: 182482
+    cache_hit_percent: 4.296
+  - time: "2026-09-02T15:52:41"
+    input_tokens: 190932
+    cached_input_tokens: 184320
+    uncached_input_tokens: 6612
+    cache_hit_percent: 96.537
+  - time: "2026-09-02T15:53:12"
+    input_tokens: 191234
+    cached_input_tokens: 184320
+    uncached_input_tokens: 6914
+    cache_hit_percent: 96.385
+  - time: "2026-09-02T15:53:49"
+    input_tokens: 191445
+    cached_input_tokens: 8192
+    uncached_input_tokens: 183253
+    cache_hit_percent: 4.279
+  - time: "2026-09-02T15:54:42"
+    input_tokens: 192403
+    cached_input_tokens: 190464
+    uncached_input_tokens: 1939
+    cache_hit_percent: 98.992
+  - time: "2026-09-02T15:55:29"
+    input_tokens: 192667
+    cached_input_tokens: 189440
+    uncached_input_tokens: 3227
+    cache_hit_percent: 98.325
+  - time: "2026-09-02T15:57:10"
+    input_tokens: 193161
+    cached_input_tokens: 8192
+    uncached_input_tokens: 184969
+    cache_hit_percent: 4.241
+  - time: "2026-09-02T15:58:03"
+    input_tokens: 194201
+    cached_input_tokens: 190464
+    uncached_input_tokens: 3737
+    cache_hit_percent: 98.076
+  - time: "2026-09-02T15:59:06"
+    input_tokens: 194861
+    cached_input_tokens: 190464
+    uncached_input_tokens: 4397
+    cache_hit_percent: 97.744
+  - time: "2026-09-02T15:59:49"
+    input_tokens: 195139
+    cached_input_tokens: 194560
+    uncached_input_tokens: 579
+    cache_hit_percent: 99.703
+  - time: "2026-09-02T16:00:40"
+    input_tokens: 195352
+    cached_input_tokens: 190464
+    uncached_input_tokens: 4888
+    cache_hit_percent: 97.498
+  - time: "2026-09-02T16:01:18"
+    input_tokens: 195610
+    cached_input_tokens: 194560
+    uncached_input_tokens: 1050
+    cache_hit_percent: 99.463
+  - time: "2026-09-02T16:01:56"
+    input_tokens: 195967
+    cached_input_tokens: 8192
+    uncached_input_tokens: 187775
+    cache_hit_percent: 4.180
+  - time: "2026-09-02T16:03:00"
+    input_tokens: 196633
+    cached_input_tokens: 8192
+    uncached_input_tokens: 188441
+    cache_hit_percent: 4.166
+  - time: "2026-09-02T16:04:07"
+    input_tokens: 197353
+    cached_input_tokens: 194560
+    uncached_input_tokens: 2793
+    cache_hit_percent: 98.585
+  - time: "2026-09-02T16:05:16"
+    input_tokens: 197597
+    cached_input_tokens: 196608
+    uncached_input_tokens: 989
+    cache_hit_percent: 99.499
+  - time: "2026-09-02T16:06:16"
+    input_tokens: 198586
+    cached_input_tokens: 195584
+    uncached_input_tokens: 3002
+    cache_hit_percent: 98.488
+  - time: "2026-09-02T16:07:12"
+    input_tokens: 198916
+    cached_input_tokens: 8192
+    uncached_input_tokens: 190724
+    cache_hit_percent: 4.118
+  - time: "2026-09-02T16:08:05"
+    input_tokens: 199585
+    cached_input_tokens: 8192
+    uncached_input_tokens: 191393
+    cache_hit_percent: 4.105
+  - time: "2026-09-02T16:08:39"
+    input_tokens: 199726
+    cached_input_tokens: 8192
+    uncached_input_tokens: 191534
+    cache_hit_percent: 4.102
+  - time: "2026-09-02T16:09:27"
+    input_tokens: 199968
+    cached_input_tokens: 198656
+    uncached_input_tokens: 1312
+    cache_hit_percent: 99.344
+  - time: "2026-09-02T16:10:00"
+    input_tokens: 200177
+    cached_input_tokens: 8192
+    uncached_input_tokens: 191985
+    cache_hit_percent: 4.092
+  - time: "2026-09-02T16:10:42"
+    input_tokens: 200361
+    cached_input_tokens: 8192
+    uncached_input_tokens: 192169
+    cache_hit_percent: 4.089
+  - time: "2026-09-02T16:11:36"
+    input_tokens: 200565
+    cached_input_tokens: 199680
+    uncached_input_tokens: 885
+    cache_hit_percent: 99.559
+  - time: "2026-09-02T16:12:15"
+    input_tokens: 200797
+    cached_input_tokens: 199680
+    uncached_input_tokens: 1117
+    cache_hit_percent: 99.444
+  - time: "2026-09-02T16:12:48"
+    input_tokens: 201246
+    cached_input_tokens: 8192
+    uncached_input_tokens: 193054
+    cache_hit_percent: 4.071
+  - time: "2026-09-02T16:13:29"
+    input_tokens: 202136
+    cached_input_tokens: 8192
+    uncached_input_tokens: 193944
+    cache_hit_percent: 4.053
+  - time: "2026-09-02T16:13:59"
+    input_tokens: 202587
+    cached_input_tokens: 200704
+    uncached_input_tokens: 1883
+    cache_hit_percent: 99.071
+  - time: "2026-09-02T16:14:47"
+    input_tokens: 202937
+    cached_input_tokens: 201728
+    uncached_input_tokens: 1209
+    cache_hit_percent: 99.404
+  - time: "2026-09-02T16:15:19"
+    input_tokens: 203531
+    cached_input_tokens: 8192
+    uncached_input_tokens: 195339
+    cache_hit_percent: 4.025
+  - time: "2026-09-02T16:15:51"
+    input_tokens: 204024
+    cached_input_tokens: 202752
+    uncached_input_tokens: 1272
+    cache_hit_percent: 99.377
+  - time: "2026-09-02T16:16:29"
+    input_tokens: 204156
+    cached_input_tokens: 201728
+    uncached_input_tokens: 2428
+    cache_hit_percent: 98.811
+  - time: "2026-09-02T16:16:57"
+    input_tokens: 204762
+    cached_input_tokens: 203776
+    uncached_input_tokens: 986
+    cache_hit_percent: 99.518
+  - time: "2026-09-02T16:17:46"
+    input_tokens: 205706
+    cached_input_tokens: 202752
+    uncached_input_tokens: 2954
+    cache_hit_percent: 98.564
+  - time: "2026-09-02T16:18:41"
+    input_tokens: 206334
+    cached_input_tokens: 199680
+    uncached_input_tokens: 6654
+    cache_hit_percent: 96.775
+  - time: "2026-09-02T16:19:07"
+    input_tokens: 206537
+    cached_input_tokens: 203776
+    uncached_input_tokens: 2761
+    cache_hit_percent: 98.663
+  - time: "2026-09-02T16:20:04"
+    input_tokens: 206694
+    cached_input_tokens: 203776
+    uncached_input_tokens: 2918
+    cache_hit_percent: 98.588
+  - time: "2026-09-02T16:20:30"
+    input_tokens: 206979
+    cached_input_tokens: 204800
+    uncached_input_tokens: 2179
+    cache_hit_percent: 98.947
+  - time: "2026-09-02T16:21:06"
+    input_tokens: 207192
+    cached_input_tokens: 8192
+    uncached_input_tokens: 199000
+    cache_hit_percent: 3.954
+  - time: "2026-09-02T16:22:02"
+    input_tokens: 207988
+    cached_input_tokens: 206848
+    uncached_input_tokens: 1140
+    cache_hit_percent: 99.452
+  - time: "2026-09-02T16:22:35"
+    input_tokens: 208231
+    cached_input_tokens: 200704
+    uncached_input_tokens: 7527
+    cache_hit_percent: 96.385
+  - time: "2026-09-02T16:23:27"
+    input_tokens: 208368
+    cached_input_tokens: 8192
+    uncached_input_tokens: 200176
+    cache_hit_percent: 3.932
+  - time: "2026-09-02T16:24:19"
+    input_tokens: 208715
+    cached_input_tokens: 8192
+    uncached_input_tokens: 200523
+    cache_hit_percent: 3.925
+  - time: "2026-09-02T16:24:55"
+    input_tokens: 208910
+    cached_input_tokens: 8192
+    uncached_input_tokens: 200718
+    cache_hit_percent: 3.921
+  - time: "2026-09-02T16:25:34"
+    input_tokens: 209458
+    cached_input_tokens: 8192
+    uncached_input_tokens: 201266
+    cache_hit_percent: 3.911
+  - time: "2026-09-02T16:26:22"
+    input_tokens: 209800
+    cached_input_tokens: 8192
+    uncached_input_tokens: 201608
+    cache_hit_percent: 3.905
+  - time: "2026-09-02T16:26:53"
+    input_tokens: 210115
+    cached_input_tokens: 208896
+    uncached_input_tokens: 1219
+    cache_hit_percent: 99.420
+  - time: "2026-09-02T16:27:29"
+    input_tokens: 210404
+    cached_input_tokens: 8192
+    uncached_input_tokens: 202212
+    cache_hit_percent: 3.893
+  - time: "2026-09-02T16:28:04"
+    input_tokens: 210809
+    cached_input_tokens: 209920
+    uncached_input_tokens: 889
+    cache_hit_percent: 99.578
+  - time: "2026-09-02T16:28:31"
+    input_tokens: 211211
+    cached_input_tokens: 209920
+    uncached_input_tokens: 1291
+    cache_hit_percent: 99.389
+  - time: "2026-09-02T16:29:58"
+    input_tokens: 211494
+    cached_input_tokens: 8192
+    uncached_input_tokens: 203302
+    cache_hit_percent: 3.873
+  - time: "2026-09-02T16:30:33"
+    input_tokens: 211676
+    cached_input_tokens: 8192
+    uncached_input_tokens: 203484
+    cache_hit_percent: 3.870
+  - time: "2026-09-02T16:31:38"
+    input_tokens: 211888
+    cached_input_tokens: 8192
+    uncached_input_tokens: 203696
+    cache_hit_percent: 3.866
+  - time: "2026-09-02T16:32:20"
+    input_tokens: 212137
+    cached_input_tokens: 8192
+    uncached_input_tokens: 203945
+    cache_hit_percent: 3.862
+  - time: "2026-09-02T16:33:28"
+    input_tokens: 212274
+    cached_input_tokens: 8192
+    uncached_input_tokens: 204082
+    cache_hit_percent: 3.859
+  - time: "2026-09-02T16:34:31"
+    input_tokens: 212603
+    cached_input_tokens: 8192
+    uncached_input_tokens: 204411
+    cache_hit_percent: 3.853
+  - time: "2026-09-02T16:35:26"
+    input_tokens: 213110
+    cached_input_tokens: 8192
+    uncached_input_tokens: 204918
+    cache_hit_percent: 3.844
+  - time: "2026-09-02T16:36:23"
+    input_tokens: 214346
+    cached_input_tokens: 8192
+    uncached_input_tokens: 206154
+    cache_hit_percent: 3.822
+  - time: "2026-09-02T16:37:18"
+    input_tokens: 215571
+    cached_input_tokens: 8192
+    uncached_input_tokens: 207379
+    cache_hit_percent: 3.800
+  - time: "2026-09-02T16:38:17"
+    input_tokens: 216803
+    cached_input_tokens: 8192
+    uncached_input_tokens: 208611
+    cache_hit_percent: 3.779
+  - time: "2026-09-02T16:39:13"
+    input_tokens: 217993
+    cached_input_tokens: 8192
+    uncached_input_tokens: 209801
+    cache_hit_percent: 3.758
+  - time: "2026-09-02T16:40:08"
+    input_tokens: 219174
+    cached_input_tokens: 8192
+    uncached_input_tokens: 210982
+    cache_hit_percent: 3.738
+  - time: "2026-09-02T16:41:06"
+    input_tokens: 220413
+    cached_input_tokens: 8192
+    uncached_input_tokens: 212221
+    cache_hit_percent: 3.717
+  - time: "2026-09-02T16:42:11"
+    input_tokens: 221595
+    cached_input_tokens: 8192
+    uncached_input_tokens: 213403
+    cache_hit_percent: 3.697
+  - time: "2026-09-02T16:43:00"
+    input_tokens: 221722
+    cached_input_tokens: 8192
+    uncached_input_tokens: 213530
+    cache_hit_percent: 3.695
+  - time: "2026-09-02T16:44:02"
+    input_tokens: 221851
+    cached_input_tokens: 8192
+    uncached_input_tokens: 213659
+    cache_hit_percent: 3.693
+  - time: "2026-09-02T16:45:07"
+    input_tokens: 223054
+    cached_input_tokens: 8192
+    uncached_input_tokens: 214862
+    cache_hit_percent: 3.673
+  - time: "2026-09-02T16:46:01"
+    input_tokens: 224279
+    cached_input_tokens: 8192
+    uncached_input_tokens: 216087
+    cache_hit_percent: 3.653
+
+aggregate_at_16_46_01:
+  sample_count: 116
+  input_tokens: 22479479
+  cached_input_tokens: 9191424
+  weighted_cache_hit_percent: 40.888
+  post_first_request:
+    input_tokens: 22321496
+    cached_input_tokens: 9191424
+    weighted_cache_hit_percent: 41.177
+  high_hit_requests: 45
+  cold_or_near_8192_requests: 71
+
+current_finding:
+  confirmed: >-
+    The restarted local session is executing the new stateless-cache policy,
+    and one live request reached 99.602 percent cached input. The next request
+    fell to 4.984 percent and the next seven requests remained between 4.804
+    and 4.969 percent. The twelfth request then reached 93.705 percent. High
+    hits are intermittent rather than persistent; the two requests after the
+    second high hit returned to the 4.7 percent range for three requests. The
+    sixteenth and seventeenth requests then reached 94.350 and 94.158 percent
+    before the eighteenth and nineteenth returned to 4.686 and 4.679 percent.
+    Forty-five of one hundred sixteen requests are high hits; the other seventy-one are
+    either cold or near 8192 cached tokens. Every completed repeated-budget
+    occurrence is a high hit, while new-budget requests continue to return near
+    8192 cached tokens except for one early outlier.
+  compaction_boundary: >-
+    All 116 compaction records inspected through 16:45:15 logged a constant
+    omitted prefix of 288 source items (output count equals input count minus
+    287 because one summary item replaces the omitted prefix). There are 116
+    completed usage samples and no in-flight request at this checkpoint.
+    The observed low-hit runs therefore did not coincide with a moving
+    compaction boundary.
+  summary_budget_identity_correlation:
+    confirmed_source_behavior: >-
+      compact_responses_input_for_budget passes its per-request wire-fit
+      budget_tokens into build_summary. ContextSummaryPolicy.guard_summary
+      serializes that exact integer into the first summary line.
+    deterministic_reproduction:
+      omitted_messages: 288
+      budgets_tested: [2240027, 2240028, 2240032, 2240035, 2240056]
+      distinct_summary_sha256_count: 5
+      same_budget_repeat_equal: true
+      first_2240027_vs_2240028_difference_character_index: 124
+    live_repeated_budget_pairs:
+      - {budget: 2240027, first_request: 2, first_hit_percent: 5.066, repeat_request: 12, repeat_hit_percent: 93.705}
+      - {budget: 2240032, first_request: 4, first_hit_percent: 4.984, repeat_request: 16, repeat_hit_percent: 94.350}
+      - {budget: 2240035, first_request: 5, first_hit_percent: 4.969, repeat_request: 17, repeat_hit_percent: 94.158}
+      - {budget: 2240056, first_request: 28, first_hit_percent: 4.586, repeat_request: 31, repeat_hit_percent: 98.451}
+      - {budget: 2240061, first_request: 30, first_hit_percent: 4.562, repeat_requests: "33,47", repeat_hit_percent: "98.228,96.020"}
+      - {budget: 2240065, first_request: 35, first_hit_percent: 4.457, repeat_requests: "37,38,50,56", repeat_hit_percent: "99.348,99.819,96.537,98.076"}
+      - {budget: 2240060, first_request: 39, first_hit_percent: 4.426, repeat_requests: "40,42", repeat_hit_percent: "99.079,98.670"}
+      - {budget: 2240058, first_request: 29, first_hit_percent: 4.572, repeat_requests: "41,44", repeat_hit_percent: "95.334,98.626"}
+      - {budget: 2240059, first_request: 32, first_hit_percent: 4.504, repeat_requests: "45,46", repeat_hit_percent: "95.779,99.421"}
+      - {budget: 2240067, first_request: 36, first_hit_percent: 4.444, repeat_requests: "51,57,58,63", repeat_hit_percent: "96.385,97.744,99.703,98.585"}
+      - {budget: 2240066, first_request: 49, first_hit_percent: 4.296, repeat_request: 53, repeat_hit_percent: 98.992}
+      - {budget: 2240064, first_request: 48, first_hit_percent: 4.309, repeat_request: 54, repeat_hit_percent: 98.325}
+      - {budget: 2240069, first_request: 52, first_hit_percent: 4.279, repeat_requests: "59,60", repeat_hit_percent: "97.498,99.463"}
+      - {budget: 2240070, first_request: 62, first_hit_percent: 4.166, repeat_request: 64, repeat_hit_percent: 99.499}
+      - {budget: 2240072, first_request: 61, first_hit_percent: 4.180, repeat_request: 65, repeat_hit_percent: 98.488}
+      - {budget: 2240077, first_request: 67, first_hit_percent: 4.105, repeat_request: 69, repeat_hit_percent: 99.344}
+      - {budget: 2240078, first_request: 70, first_hit_percent: 4.092, repeat_request: 72, repeat_hit_percent: 99.559}
+      - {budget: 2240080, first_request: 71, first_hit_percent: 4.089, repeat_requests: "73,76,77,82,86", repeat_hit_percent: "99.444,99.071,99.404,98.564,98.947"}
+      - {budget: 2240079, first_request: 78, first_hit_percent: 4.025, repeat_requests: "79,84", repeat_hit_percent: "99.377,98.663"}
+      - {budget: 2240081, first_request: 75, first_hit_percent: 4.053, repeat_requests: "80,81,85", repeat_hit_percent: "98.811,99.518,98.588"}
+      - {budget: 2240082, first_request: 87, first_hit_percent: 3.954, repeat_request: 88, repeat_hit_percent: 99.452}
+      - {budget: 2240083, first_request: 74, first_hit_percent: 4.071, repeat_request: 89, repeat_hit_percent: 96.385}
+      - {budget: 2240090, first_request: 94, first_hit_percent: 3.905, repeat_request: 95, repeat_hit_percent: 99.420}
+      - {budget: 2240091, first_request: 96, first_hit_percent: 3.893, repeat_requests: "97,98", repeat_hit_percent: "99.578,99.389"}
+    observed_rates:
+      repeated_budget_occurrences: {high_hits: 44, total: 44}
+      first_seen_budget_occurrences: {high_hits: 1, total: 72}
+      prospective_check: >-
+        Requests 33, 37, 40, 41, 45, 47, and 50 were classified from the live
+        log as repeated-budget requests before their usage was read. They
+        subsequently returned between 95.334 and 99.348 percent. First-seen
+        requests 39 and 48 were classified before completion and returned
+        4.426 and 4.309 percent. Request 56 was classified as a repeated
+        budget request while its usage was still absent; it subsequently
+        returned 98.076 percent. Request 57 was likewise classified as a
+        repeated budget request before usage and returned 97.744 percent.
+        Request 60 was classified as repeated before usage and returned
+        99.463 percent. Request 63 was classified as repeated before usage and
+        returned 98.585 percent. Request 66 was classified as first-seen before
+        usage and returned 4.118 percent. Request 67 was classified as
+        first-seen before usage and returned 4.105 percent. Request 68 was
+        classified as first-seen before usage and returned 4.102 percent.
+        Request 71 was classified as first-seen before usage and returned
+        4.089 percent. Request 72 was classified as repeated before usage and
+        returned 99.559 percent. Request 73 was classified as repeated before
+        usage and returned 99.444 percent. Requests 82, 83, and 84 were each
+        classified as repeated before usage and returned 98.564, 96.775, and
+        98.663 percent respectively. Request 85 was classified as repeated
+        before usage and returned 98.588 percent. Request 88 was classified as
+        repeated before usage and returned 99.452 percent. Request 89 was
+        classified as repeated before usage and returned 96.385 percent.
+        Request 90 was classified as first-seen before usage and returned
+        3.932 percent. Request 96 was classified as first-seen before usage
+        and returned 3.893 percent. Request 97 was classified as repeated
+        before usage and returned 99.578 percent. Request 98 was classified as
+        repeated before usage and returned 99.389 percent.
+        Request 99 was classified as first-seen before usage and returned
+        3.873 percent. Request 101 was classified as first-seen before usage
+        and returned 3.866 percent. Request 102 was classified as first-seen
+        before usage and returned 3.862 percent. Requests 103 and 104 were
+        classified as first-seen before usage and returned 3.859 and 3.853
+        percent respectively. Request 105 was classified as first-seen before
+        usage and returned 3.844 percent.
+        Requests 106 and 107 were classified as first-seen before usage and
+        returned 3.822 and 3.800 percent respectively. Request 108 was
+        classified as first-seen before usage and returned 3.779 percent.
+        Requests 109, 111, and 112 were classified as first-seen before usage
+        and returned 3.758, 3.717, and 3.697 percent respectively. Requests 113
+        and 115 were classified as first-seen before usage and returned 3.695
+        and 3.673 percent respectively. Request 116 was classified as
+        first-seen before usage and returned 3.653 percent.
+      in_flight_prospective: null
+    budget_sequence_discontinuity:
+      transitions:
+        - {from_request: 105, to_request: 106, from_budget: 2240100, to_budget: 2240009, delta_tokens: -91}
+        - {from_request: 106, to_request: 107, from_budget: 2240009, to_budget: 2239918, delta_tokens: -91}
+        - {from_request: 107, to_request: 108, from_budget: 2239918, to_budget: 2239827, delta_tokens: -91}
+        - {from_request: 108, to_request: 109, from_budget: 2239827, to_budget: 2239737, delta_tokens: -90}
+        - {from_request: 109, to_request: 110, from_budget: 2239737, to_budget: 2239644, delta_tokens: -93}
+        - {from_request: 110, to_request: 111, from_budget: 2239644, to_budget: 2239552, delta_tokens: -92}
+        - {from_request: 111, to_request: 112, from_budget: 2239552, to_budget: 2239460, delta_tokens: -92}
+        - {from_request: 112, to_request: 113, from_budget: 2239460, to_budget: 2239458, delta_tokens: -2}
+        - {from_request: 113, to_request: 114, from_budget: 2239458, to_budget: 2239456, delta_tokens: -2}
+        - {from_request: 114, to_request: 115, from_budget: 2239456, to_budget: 2239367, delta_tokens: -89}
+        - {from_request: 115, to_request: 116, from_budget: 2239367, to_budget: 2239270, delta_tokens: -97}
+      new_budget_first_occurrences_confirmed_by_log_search: true
+      compaction_items:
+        request_106: "1051->764"
+        request_107: "1053->766"
+        request_108: "1056->769"
+        request_109: "1059->772"
+        request_110: "1062->775"
+        request_111: "1065->778"
+        request_112: "1068->781"
+        request_113: "1071->784"
+        request_114: "1074->787"
+        request_115: "1077->790"
+        request_116: "1080->793"
+      omitted_source_items: 288
+      interpretation: >-
+        This confirms a variable decreasing budget sequence whose recent
+        deltas include minus 2, minus 89, and minus 97 while the omitted-item
+        boundary remains unchanged. It is an observation, not evidence of a
+        runtime error or a confirmed cause.
+    malformed_log_record:
+      line: 2207
+      observed: >-
+        The request-40 compacted-payload record is missing its timestamp, level,
+        and leading message text on disk. The following complete wire-compaction
+        line preserves its budget and byte counts, and rollout ordinal 5434
+        preserves usage. Budget joins therefore use complete wire-compaction
+        records; omitted-boundary counting accepts the surviving items pattern.
+    evidence_boundary: >-
+      This is direct proof that the current variable budget changes the summary
+      prefix, plus a perfect 44-of-44 correlation for repeated budgets in this
+      observed segment. It does not prove that this is Alibaba's only cache
+      selection input or the exclusive cause of every miss.
+  unresolved: >-
+    The available router activity reports Alibaba's returned usage but does not
+    expose the provider-side cache shard or eviction decision. More consecutive
+    samples are required before attributing the observed oscillation.
+
+verified_waits:
+  - started_at_local: "2026-09-02T16:49:04"
+    ended_at_local: "2026-09-02T16:51:05"
+    checks_with_unchanged_state: 4
+    wire_requests: 116
+    completed_usage_samples: 116
+    last_rollout_ordinal: 5970
+    live_process_count: 3
+    outcome: no_new_request_while_processes_remained_live
+  - started_at_local: "2026-09-02T16:52:27"
+    ended_at_local: "2026-09-02T16:54:28"
+    checks_with_unchanged_state: 4
+    wire_requests: 116
+    completed_usage_samples: 116
+    last_rollout_ordinal: 5970
+    live_process_count: 3
+    outcome: no_new_request_while_processes_remained_live
+  - started_at_local: "2026-09-02T16:55:40"
+    ended_at_local: "2026-09-02T16:57:42"
+    checks_with_unchanged_state: 4
+    wire_requests: 116
+    completed_usage_samples: 116
+    last_rollout_ordinal: 5970
+    live_process_count: 3
+    outcome: no_new_request_while_processes_remained_live
+
+terminal_observation:
+  inspected_at_local: "2026-09-02T21:43:04"
+  qwen_last_upstream_request_at_local: "2026-09-02T16:59:22"
+  qwen_last_client_response_at_local: "2026-09-02T16:59:28"
+  later_provider_launch:
+    at_local: "2026-09-02T17:04:55"
+    provider: ollama-cloud
+    model: kimi-k3
+  current_router_health:
+    port: 9479
+    pid: 75108
+    provider: ollama-cloud
+    model: ciel-runtime-ollama-cloud-kimi-k3
+    active_client_count: 1
+  added_qwen_usage_samples:
+    - time: "2026-09-02T16:58:37"
+      input_tokens: 225068
+      cached_input_tokens: 8192
+      cache_hit_percent: 3.640
+      summary_budget: 2239188
+    - time: "2026-09-02T16:59:13"
+      input_tokens: 225118
+      cached_input_tokens: 8192
+      cache_hit_percent: 3.639
+      summary_budget: 2239190
+  final_qwen_segment:
+    wire_requests: 119
+    unique_completed_usage_samples: 118
+    high_hit_samples: 45
+    cold_or_low_hit_samples: 73
+    input_tokens: 22929665
+    cached_input_tokens: 9207808
+    weighted_cache_hit_percent: 40.157
+    last_request_usage_boundary: >-
+      The 16:59:22 request completed at the HTTP layer, but the rollout emitted
+      a duplicate token_count event with unchanged cumulative and last-request
+      usage. It is counted as a wire request, not as a new usage sample.
+  confirmed_state: >-
+    No qwen3.8-max request occurred after 16:59:22. The CielArvis router was
+    subsequently relaunched for Ollama Cloud Kimi K3, so there is no live Qwen
+    process to poll at this observation point.
+  evidence_boundary: >-
+    Logs prove the provider switch and the final Qwen cache measurements. They
+    do not expose or prove the user's Alibaba account quota state.
+
+credentials_recorded: false

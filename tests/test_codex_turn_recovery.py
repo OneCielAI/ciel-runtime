@@ -204,6 +204,83 @@ class RecoverPreambleOnlyTurnTests(unittest.TestCase):
 
         self.assertEqual(original, recovered)
 
+    def test_retry_accepts_a_substantive_no_tool_completion(self):
+        calls = []
+        original = text_message("이제 실제 조회를 시작합니다.")
+        completed = text_message(
+            "검사를 마쳤습니다. "
+            + "확인된 결과와 변경 사항을 구체적으로 기록했습니다. " * 30
+        )
+        recovered = codex_turn_recovery.recover_preamble_only_turn(
+            None,
+            "deepseek",
+            {},
+            work_request_body(),
+            original,
+            self._services(completed, calls),
+        )
+
+        self.assertEqual(completed, recovered)
+        self.assertEqual(1, len(calls))
+
+    def test_continuation_nudge_preserves_complete_assistant_thinking(self):
+        original = reasoning_promise_message("이제 파일을 확인하겠습니다.")
+
+        replayed = codex_turn_recovery.body_with_continuation_nudge(
+            work_request_body(), original
+        )
+
+        assistant = replayed["messages"][-2]
+        self.assertEqual("assistant", assistant["role"])
+        self.assertEqual(original["content"], assistant["content"])
+        self.assertIsNot(original["content"], assistant["content"])
+        self.assertEqual("thinking", assistant["content"][0]["type"])
+
+    def test_ollama_cloud_kimi_k3_retries_repeated_preamble_until_tool(self):
+        calls = []
+        results = [
+            reasoning_promise_message("계약 파일을 다시 확인하겠습니다."),
+            tool_message("계약을 확인합니다."),
+        ]
+
+        def collect(_handler, _provider, pcfg, body):
+            calls.append((pcfg, body))
+            return results[len(calls) - 1]
+
+        original = reasoning_promise_message(
+            "번역 계획 생성 지점을 확인하겠습니다."
+        )
+        recovered = codex_turn_recovery.recover_preamble_only_turn(
+            None,
+            "ollama-cloud",
+            {"gateway_retries": 10},
+            work_request_body(model="ciel-runtime-ollama-cloud-kimi-k3"),
+            original,
+            codex_turn_recovery.CodexTurnRecoveryServices(
+                should_retry=ciel_runtime.should_retry_preamble_only_turn,
+                collect_message=collect,
+                log=lambda *_: None,
+            ),
+        )
+
+        self.assertTrue(codex_turn_recovery.message_has_tool_use(recovered))
+        self.assertEqual(2, len(calls))
+        self.assertEqual(0, calls[0][0]["gateway_retries"])
+        replayed_assistant_blocks = [
+            block
+            for message in calls[1][1]["messages"]
+            if message.get("role") == "assistant"
+            for block in message.get("content") or []
+            if isinstance(block, dict)
+        ]
+        self.assertTrue(
+            any(
+                block.get("type") == "thinking"
+                and block.get("thinking") == "I should run another measurement."
+                for block in replayed_assistant_blocks
+            )
+        )
+
     def test_turn_that_already_called_a_tool_is_untouched(self):
         calls = []
         original = tool_message("진행합니다.")

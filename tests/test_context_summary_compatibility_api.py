@@ -58,6 +58,30 @@ class ContextSummaryCompatibilityApiTests(unittest.TestCase):
         )
         self.assertIn("summary", reduced)
 
+    def test_guard_summary_is_stable_across_observed_wire_fit_budget_drift(self):
+        policy = self.policy()
+        omitted = [
+            {"role": "user", "content": f"old message {index}"}
+            for index in range(288)
+        ]
+        observed_budgets = [2_240_027, 2_240_028, 2_240_032, 2_240_035, 2_240_056]
+
+        summaries = [policy.guard_summary(omitted, budget) for budget in observed_budgets]
+
+        self.assertEqual(1, len(set(summaries)))
+        self.assertNotIn("2240027", summaries[0])
+        self.assertIn("provider context budget was exceeded", summaries[0])
+
+    def test_guard_summary_budget_bucket_is_conservative_and_stable(self):
+        policy = self.policy()
+
+        self.assertEqual(2_236_416, policy.cache_stable_summary_budget(2_239_270))
+        self.assertEqual(2_236_416, policy.cache_stable_summary_budget(2_240_100))
+        self.assertLessEqual(
+            policy.cache_stable_summary_budget(20_001),
+            20_001,
+        )
+
     def test_codex_0147_checkpoint_prompt_is_detected_from_latest_user(self):
         api = self.api(marker=CODEX_CONTEXT_CHECKPOINT_PROMPT)
 

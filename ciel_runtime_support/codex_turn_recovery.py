@@ -10,6 +10,7 @@ same protection without synthesizing a tool call the Codex client never offered.
 
 from __future__ import annotations
 
+import copy
 import re
 from dataclasses import dataclass
 from typing import Any, Callable
@@ -56,6 +57,7 @@ RUNTIME_CONTROL_MESSAGE_KEY = "ciel_runtime_control"
 RUNTIME_REPEATED_TOOL_RECOVERY = "repeated_tool_call_recovery"
 
 _REASONING_RECOVERY_MIN_OUTPUT_TOKENS = 8192
+_KIMI_CONTINUATION_MAX_ATTEMPTS = 3
 
 KIMI_FOLLOWUP_PROMISE_RE = re.compile(
     r"(?:겠습니다|할게요|해볼게요|하겠습니다|"
@@ -312,6 +314,18 @@ def kimi_message_promises_followup(message: dict[str, Any]) -> bool:
     return bool(KIMI_FOLLOWUP_PROMISE_RE.search(message_text(message).strip()))
 
 
+def _is_kimi_turn(provider: str, body: dict[str, Any]) -> bool:
+    """Identify Kimi across its native and Ollama Cloud provider routes."""
+
+    provider_name = str(provider or "").strip().casefold()
+    if provider_name == "kimi":
+        return True
+    if provider_name not in {"ollama", "ollama-cloud"}:
+        return False
+    model = str(body.get("model") or "").strip().casefold()
+    return "kimi-k3" in model
+
+
 def message_without_reasoning_notice(message: dict[str, Any]) -> dict[str, Any]:
     if not message_has_only_reasoning_notice(message):
         return message
@@ -358,9 +372,26 @@ def body_with_continuation_nudge(
     """Replay the request with the stalled reply and an explicit continue turn."""
 
     messages = list(body.get("messages") or [])
-    assistant_text = message_text(message).strip()
-    if assistant_text:
-        messages.append({"role": "assistant", "content": [{"type": "text", "text": assistant_text}]})
+    assistant_content = message.get("content")
+    if isinstance(assistant_content, list) and assistant_content:
+        # Ollama Desktop retains the complete assistant response before the
+        # next agent-loop pass. Kimi K3 likewise requires preserved thinking
+        # history, so do not reduce a stalled response to visible text only.
+        messages.append(
+            {
+                "role": "assistant",
+                "content": copy.deepcopy(assistant_content),
+            }
+        )
+    else:
+        assistant_text = message_text(message).strip()
+        if assistant_text:
+            messages.append(
+                {
+                    "role": "assistant",
+                    "content": [{"type": "text", "text": assistant_text}],
+                }
+            )
     continuation = {"role": "user", "content": [{"type": "text", "text": nudge}]}
     if control:
         continuation[RUNTIME_CONTROL_MESSAGE_KEY] = control
@@ -435,8 +466,9 @@ def recover_preamble_only_turn(
     reasoning_output_budget = (
         reasoning_only and message_exhausted_reasoning_output_budget(message)
     )
+    kimi_turn = _is_kimi_turn(provider, body)
     kimi_promised_followup = (
-        (provider or "").strip().lower() == "kimi"
+        kimi_turn
         and kimi_message_promises_followup(message)
         and services.should_retry(body, text.replace("`", ""), [])
     )
@@ -467,73 +499,115 @@ def recover_preamble_only_turn(
         f"codex_turn_retry provider={provider} reason={reason} "
         f"model={str(body.get('model') or '-')} chars={len(text.strip())}",
     )
-    try:
-        nudge = (
-            CODEX_REPEATED_TOOL_CONTINUATION_NUDGE
-            if repeated_tool_guard
-            else
-            CODEX_EMPTY_REASONING_CONTINUATION_NUDGE
-            if empty_end_turn or reasoning_only
-            else CODEX_CONTINUATION_NUDGE
-        )
-        recovery_config = dict(pcfg)
-        if (provider or "").strip().lower() == "kimi":
-            recovery_config["gateway_retries"] = 0
-        retry_body = body_with_continuation_nudge(
-            body,
-            message_without_repeated_tool_notice(message)
-            if repeated_tool_guard
-            else message_without_empty_end_turn_notice(message)
-            if empty_end_turn
-            else message_without_reasoning_notice(message)
-            if reasoning_only
-            else message,
-            nudge,
-            control=(RUNTIME_REPEATED_TOOL_RECOVERY if repeated_tool_guard else None),
-        )
-        recovery_strategy = "prompt_only"
-        if reasoning_output_budget and services.prepare_reasoning_budget_retry:
-            try:
-                recovery_config, retry_body, recovery_strategy = (
-                    services.prepare_reasoning_budget_retry(
-                        provider, recovery_config, retry_body
+    nudge = (
+        CODEX_REPEATED_TOOL_CONTINUATION_NUDGE
+        if repeated_tool_guard
+        else CODEX_EMPTY_REASONING_CONTINUATION_NUDGE
+        if empty_end_turn or reasoning_only
+        else CODEX_CONTINUATION_NUDGE
+    )
+    recovery_config = dict(pcfg)
+    if kimi_turn:
+        recovery_config["gateway_retries"] = 0
+    replay_body = body
+    replay_message = (
+        message_without_repeated_tool_notice(message)
+        if repeated_tool_guard
+        else message_without_empty_end_turn_notice(message)
+        if empty_end_turn
+        else message_without_reasoning_notice(message)
+        if reasoning_only
+        else message
+    )
+    # Ollama Desktop keeps looping while agent work is active. Codex itself
+    # owns tool execution, so Ciel can only continue no-tool announcements.
+    # Kimi K3 gets a small bounded loop because one retry is observably not
+    # enough when it emits another progress announcement.
+    max_attempts = (
+        _KIMI_CONTINUATION_MAX_ATTEMPTS
+        if kimi_turn and not (empty_end_turn or reasoning_only or repeated_tool_guard)
+        else 1
+    )
+
+    for attempt in range(1, max_attempts + 1):
+        try:
+            retry_body = body_with_continuation_nudge(
+                replay_body,
+                replay_message,
+                nudge,
+                control=(
+                    RUNTIME_REPEATED_TOOL_RECOVERY if repeated_tool_guard else None
+                ),
+            )
+            recovery_strategy = "prompt_only"
+            if (
+                attempt == 1
+                and reasoning_output_budget
+                and services.prepare_reasoning_budget_retry
+            ):
+                try:
+                    recovery_config, retry_body, recovery_strategy = (
+                        services.prepare_reasoning_budget_retry(
+                            provider, recovery_config, retry_body
+                        )
                     )
-                )
-            except Exception as exc:  # noqa: BLE001 - retain safe prompt-only retry
+                except Exception as exc:  # noqa: BLE001 - retain safe prompt-only retry
+                    services.log(
+                        "WARN",
+                        "codex_reasoning_budget_recovery_projection_failed "
+                        f"provider={provider} error={type(exc).__name__}: {exc}",
+                    )
                 services.log(
                     "WARN",
-                    "codex_reasoning_budget_recovery_projection_failed "
-                    f"provider={provider} error={type(exc).__name__}: {exc}",
+                    f"codex_reasoning_budget_recovery provider={provider} "
+                    f"model={str(body.get('model') or '-')} strategy={recovery_strategy}",
                 )
+            retried = services.collect_message(
+                handler,
+                provider,
+                recovery_config,
+                retry_body,
+            )
+        except Exception as exc:  # noqa: BLE001 - recovery must never fail the turn
             services.log(
                 "WARN",
-                f"codex_reasoning_budget_recovery provider={provider} "
-                f"model={str(body.get('model') or '-')} strategy={recovery_strategy}",
+                f"codex_preamble_only_turn_retry_failed attempt={attempt}/{max_attempts} "
+                f"error={type(exc).__name__}: {exc}",
             )
-        retried = services.collect_message(
-            handler,
-            provider,
-            recovery_config,
-            retry_body,
-        )
-    except Exception as exc:  # noqa: BLE001 - recovery must never fail the turn
-        services.log(
-            "WARN",
-            f"codex_preamble_only_turn_retry_failed error={type(exc).__name__}: {exc}",
-        )
-        return message
-    if not isinstance(retried, dict):
-        return message
-    if empty_end_turn or reasoning_only or repeated_tool_guard:
-        if (
-            message_has_only_runtime_stall_notice(retried)
-            or (not message_has_tool_use(retried) and not message_text(retried).strip())
-        ):
             return message
-        return retried
-    if not message_has_tool_use(retried):
-        return message
-    return _merged(message, retried)
+        if not isinstance(retried, dict):
+            return message
+        if empty_end_turn or reasoning_only or repeated_tool_guard:
+            if (
+                message_has_only_runtime_stall_notice(retried)
+                or (
+                    not message_has_tool_use(retried)
+                    and not message_text(retried).strip()
+                )
+            ):
+                return message
+            return retried
+        if message_has_tool_use(retried):
+            return _merged(message, retried)
+
+        retried_text = message_text(retried)
+        retryable = services.should_retry(retry_body, retried_text, [])
+        services.log(
+            "WARN" if retryable else "INFO",
+            f"codex_turn_retry_result provider={provider} "
+            f"attempt={attempt}/{max_attempts} retryable={str(retryable).lower()} "
+            f"chars={len(retried_text.strip())}",
+        )
+        if not retryable and retried_text.strip():
+            # A concrete no-tool answer is a valid completion. The old path
+            # discarded it and exposed the original announcement instead.
+            return retried
+        if attempt == max_attempts:
+            return message
+        replay_body = retry_body
+        replay_message = retried
+
+    return message
 
 
 def _merged(original: dict[str, Any], retried: dict[str, Any]) -> dict[str, Any]:

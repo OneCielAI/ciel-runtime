@@ -500,21 +500,18 @@ class OllamaProviderOptionTests(unittest.TestCase):
                 )
             self.assertEqual(expected, request["think"])
 
-    def test_generic_cloud_thinking_model_preserves_documented_levels(self):
+    def test_capability_only_cloud_thinking_model_uses_documented_boolean(self):
         pcfg = {
             "current_model": "minimax-m3",
             "think": True,
-            "effort_level": "medium",
             "ollama_model_metadata_model": "minimax-m3",
             "ollama_model_architecture": "minimax-m3",
             "ollama_model_capabilities": ["completion", "thinking", "tools", "vision"],
-            "ollama_think_levels": ["low", "medium", "high", "max"],
             "num_ctx": "auto",
             "num_ctx_max": 524288,
             "ollama_options": {},
         }
-        expected = {"low": "low", "medium": "medium", "high": "high", "xhigh": "max"}
-        for effort, think_value in expected.items():
+        for effort in ("low", "medium", "high", "xhigh"):
             body = {
                 "thinking": {"type": "enabled", "effort": effort},
                 "messages": [{"role": "user", "content": "hello"}],
@@ -524,7 +521,37 @@ class OllamaProviderOptionTests(unittest.TestCase):
                 request = ciel_runtime.ollama_chat_request(
                     "minimax-m3", body, pcfg, stream=False, provider="ollama-cloud"
                 )
-            self.assertEqual(think_value, request["think"])
+            self.assertIs(True, request["think"])
+
+    def test_glm_53_cloud_uses_official_reasoning_levels_and_default(self):
+        pcfg = {
+            "current_model": "glm-5.3",
+            "num_ctx": "auto",
+            "num_ctx_max": 131072,
+        }
+        specs = {
+            "max_model_len": 1048576,
+            "architecture": "glm_dsa_moe",
+            "capabilities": ["completion", "thinking", "tools"],
+        }
+
+        with mock.patch.object(
+            ciel_runtime, "fetch_ollama_api_model_specs", return_value=specs
+        ):
+            ciel_runtime.sync_ollama_library_context_limit(
+                "ollama-cloud", pcfg, "glm-5.3"
+            )
+
+        self.assertEqual(1048576, pcfg["model_context_max"])
+        self.assertEqual("max", pcfg["effort_level"])
+        self.assertEqual(["low", "high", "max"], pcfg["ollama_think_levels"])
+        self.assertTrue(pcfg["ollama_thinking_always_on"])
+        catalog = pcfg["codex_model_catalog"]
+        self.assertEqual("xhigh", catalog["default_reasoning_level"])
+        self.assertEqual(
+            ["low", "high", "xhigh"],
+            [item["effort"] for item in catalog["supported_reasoning_levels"]],
+        )
 
     def test_sync_ollama_context_persists_discovered_thinking_metadata(self):
         pcfg = {
