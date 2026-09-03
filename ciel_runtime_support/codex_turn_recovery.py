@@ -73,6 +73,15 @@ KIMI_FOLLOWUP_PROMISE_RE = re.compile(
     re.IGNORECASE,
 )
 
+KIMI_SEQUENCED_ACTION_RE = re.compile(
+    r"(?:^|[\n.!?。！？])\s*(?:먼저|이제|다음(?:으로)?|계속(?:해서)?|추가로|바로)\s+"
+    r"[^\n]{0,240}"
+    r"(?:확인|검사|조회|실행|수정|적용|테스트|검증|살펴보|찾아보|열어보|"
+    r"읽어보|측정|캡처|구현|추적)(?:하겠습니다|하겠어요|합니다|해봅니다|"
+    r"해보겠습니다|겠습니다)[.!?。！？]?\s*$",
+    re.IGNORECASE,
+)
+
 
 def message_text(message: dict[str, Any]) -> str:
     parts: list[str] = []
@@ -319,7 +328,11 @@ def kimi_message_promises_followup(message: dict[str, Any]) -> bool:
 
     if not message_has_reasoning(message) or message_has_tool_use(message):
         return False
-    return bool(KIMI_FOLLOWUP_PROMISE_RE.search(message_text(message).strip()))
+    text = message_text(message).strip()
+    return bool(
+        KIMI_FOLLOWUP_PROMISE_RE.search(text)
+        or KIMI_SEQUENCED_ACTION_RE.search(text)
+    )
 
 
 def _is_kimi_turn(provider: str, body: dict[str, Any]) -> bool:
@@ -479,7 +492,6 @@ def recover_preamble_only_turn(
     kimi_promised_followup = (
         kimi_turn
         and kimi_message_promises_followup(message)
-        and services.should_retry(body, text.replace("`", ""), [])
     )
     if (
         not empty_end_turn
@@ -611,7 +623,9 @@ def recover_preamble_only_turn(
             return _merged(message, retried)
 
         retried_text = message_text(retried)
-        retryable = services.should_retry(retry_body, retried_text, [])
+        retryable = services.should_retry(retry_body, retried_text, []) or (
+            kimi_turn and kimi_message_promises_followup(retried)
+        )
         services.log(
             "WARN" if retryable else "INFO",
             f"codex_turn_retry_result provider={provider} "

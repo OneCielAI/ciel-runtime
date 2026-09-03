@@ -596,6 +596,74 @@ class RecoverPreambleOnlyTurnTests(unittest.TestCase):
         self.assertTrue(codex_turn_recovery.message_has_tool_use(recovered))
         self.assertEqual(1, len(calls))
 
+    def test_kimi_substantive_answer_with_sequenced_action_retries(self):
+        calls = []
+        original = reasoning_promise_message(
+            "원인을 찾았습니다. 화면 notice는 WebView에서 getUserMedia가 "
+            "없다고 말합니다. 녹음이 시작되지 않은 직접 증거입니다.\n\n"
+            "먼저 네이티브 쪽에 마이크 모듈이 있는지 확인합니다."
+        )
+        body = work_request_body(model="ciel-runtime-ollama-cloud-kimi-k3")
+
+        self.assertFalse(
+            ciel_runtime.should_retry_preamble_only_turn(
+                body, codex_turn_recovery.message_text(original), []
+            ),
+            "the generic policy treats the substantive prefix as a completion",
+        )
+
+        recovered = codex_turn_recovery.recover_preamble_only_turn(
+            None,
+            "ollama-cloud",
+            {},
+            body,
+            original,
+            self._services(tool_message("네이티브 모듈을 확인합니다."), calls),
+        )
+
+        self.assertTrue(codex_turn_recovery.message_has_tool_use(recovered))
+        self.assertEqual(1, len(calls))
+        self.assertTrue(
+            codex_turn_recovery.kimi_message_promises_followup(
+                reasoning_promise_message(
+                    "원인을 확인했습니다. 먼저 네이티브 모듈을 확인합니다."
+                )
+            )
+        )
+
+    def test_kimi_retries_repeated_substantive_sequenced_actions(self):
+        calls = []
+        results = [
+            reasoning_promise_message(
+                "첫 검사에서 모듈 목록을 좁혔습니다.\n\n"
+                "다음으로 Cargo 기능 선언을 확인합니다."
+            ),
+            tool_message("Cargo 기능을 확인합니다."),
+        ]
+
+        def collect(_handler, _provider, _pcfg, body):
+            calls.append(body)
+            return results[len(calls) - 1]
+
+        recovered = codex_turn_recovery.recover_preamble_only_turn(
+            None,
+            "ollama-cloud",
+            {},
+            work_request_body(model="ciel-runtime-ollama-cloud-kimi-k3"),
+            reasoning_promise_message(
+                "WebView 오류를 확인했습니다.\n\n"
+                "먼저 네이티브 쪽에 마이크 모듈이 있는지 확인합니다."
+            ),
+            codex_turn_recovery.CodexTurnRecoveryServices(
+                should_retry=ciel_runtime.should_retry_preamble_only_turn,
+                collect_message=collect,
+                log=lambda *_: None,
+            ),
+        )
+
+        self.assertTrue(codex_turn_recovery.message_has_tool_use(recovered))
+        self.assertEqual(2, len(calls))
+
     def test_kimi_promise_recovery_disables_nested_gateway_retries(self):
         captured = []
 
