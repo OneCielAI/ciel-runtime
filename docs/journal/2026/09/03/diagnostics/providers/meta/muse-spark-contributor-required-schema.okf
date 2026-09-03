@@ -1,0 +1,127 @@
+task:
+  id: meta-muse-spark-contributor-required-schema-20260903
+  request: >-
+    Diagnose the Muse Spark 1.3 Contributor failure in G:/OneCielDMSUI and make
+    the real Codex request acceptable to Meta's Responses endpoint.
+  workspace: G:/OneCielDMSUI
+  runtime_workspace_id: 60524a4bf5eb
+  router_instance: 9491-60524a4bf5eb
+  codex_session: 019fcac4-4538-7a53-91d1-565cd21a8c5e
+  status: verified
+
+observed_failure:
+  rollout_path: C:/Users/djlov/.codex/sessions/2026/08/03/rollout-2026-08-03T22-14-48-019fcac4-4538-7a53-91d1-565cd21a8c5e.jsonl
+  occurrences:
+    - line: 7811
+      at: 2026-09-03T04:55:29.475Z
+    - line: 7817
+      at: 2026-09-03T04:57:30.700Z
+  response:
+    type: invalid_request_error
+    message: >-
+      'required' is required to be supplied and to be an array including every
+      key in properties. Missing 'limit'.
+  router_log:
+    path: C:/Users/djlov/AppData/Roaming/ciel-runtime/router-instances/9491-60524a4bf5eb/router.log
+    first_status: POST /v1/responses HTTP/1.1 400
+
+confirmed_cause:
+  - >-
+    Ciel's Meta Responses normalization preserved Codex function schemas without
+    converting optional properties to Meta's required-all-properties contract.
+  - >-
+    The upstream error names the omitted property limit and rejects the request
+    before model inference.
+  - >-
+    A TRACE capture of the actual Codex 0.152.1 request identified the named
+    limit property at tools[12], type tool_search, parameters.limit. The first
+    implementation normalized function tools only and therefore did not cover
+    this hosted tool schema.
+  - >-
+    After the required-all schema fix, the actual Codex request reached Meta's
+    next validator and was rejected because tools[7] was Codex's custom
+    apply_patch tool; Meta returned `custom` tools are not supported.
+  - >-
+    After custom-tool projection, an actual Codex run showed Meta serializing
+    exec_command.max_output_tokens and yield_time_ms as 1000.0 and 10000.0.
+    Codex 0.152.1 rejected those values as floats while deserializing usize.
+
+live_contract_probes:
+  endpoint: https://api.meta.ai/v1/responses via local router 9491
+  model: muse-spark-1.3-contributor
+  all_required_nonnullable:
+    schema: required [query, limit], additionalProperties false, strict true
+    http_status: 200
+    output_arguments: {query: status, limit: 1}
+  all_required_nullable_optional:
+    schema: required [query, limit], limit type [integer, 'null']
+    http_status: 200
+    output_arguments: {query: status, limit: null}
+  conclusion: >-
+    Meta accepts a required-all-properties schema and accepts null as the
+    representation of an originally optional property.
+
+official_documentation:
+  url: https://dev.meta.ai/docs/api-reference/responses/create-response
+  access_result: login_required
+  note: >-
+    The public fetch cannot read the authenticated page. No undocumented field
+    is inferred: the implementation follows the exact upstream validation error
+    and the two successful live API probes above.
+
+implementation:
+  files:
+    - ciel_runtime_support/providers/meta.py
+    - ciel_runtime_support/provider_responses_passthrough.py
+    - ciel_runtime_support/responses_custom_tool_bridge.py
+    - tests/test_meta_provider.py
+  behavior:
+    - Apply to top-level parameters schemas on Meta's OpenAI Responses tools.
+    - Preserve hosted-tool identity and fields while normalizing its parameters schema.
+    - Attach strict true only to function tools, not hosted tools.
+    - Recursively include every object property in required.
+    - Set additionalProperties false and strict true.
+    - Make formerly optional properties nullable so their optional meaning is retained.
+    - Deep-copy tool declarations so the client request is not mutated.
+    - Project Codex custom tools to strict Meta function tools with one raw input string.
+    - Restore function calls and streamed argument events to Codex custom-tool events.
+    - Project replayed custom tool call/output items to Meta function call/output items.
+    - Normalize whole-number JSON floats in Meta tool arguments to integer JSON values.
+    - Remove stale Content-Length whenever a response body is projected.
+
+verification:
+  focused_tests:
+    command: python -m unittest discover -s tests -p test_meta_provider.py -q
+    tests: 39
+    result: passed
+  lint:
+    command: python -m ruff check on changed Python source and tests
+    result: passed
+  actual_codex:
+    version: 0.152.1
+    router_port: 9605
+    workspace: G:/OneCielDMSUI
+    model: muse-spark-1.3-contributor
+    session: 01a065bf-c640-7981-a8b1-f78a02a1f551
+    actions:
+      - apply_patch created .ciel-runtime-muse-probe.txt
+      - exec_command read the created file in 138ms
+      - final response reported MUSE_CUSTOM_TOOL_OK followed by a newline
+    exit_code: 0
+    cleanup: diagnostic file deleted
+  full_suite:
+    command: npm test
+    passed: 3125
+    groups:
+      - {name: unit, passed: 1366, skipped: 45}
+      - {name: router, passed: 1093, skipped: 0}
+      - {name: channel, passed: 403, skipped: 80}
+      - {name: runtime, passed: 263, skipped: 12}
+    result: passed
+  local_deployment:
+    command: powershell -NoProfile -ExecutionPolicy Bypass -File ./install.ps1
+    installed_version: 0.2.37
+    destination: C:/Users/djlov/.local/share/ciel-runtime
+    changed_source_hashes_match: true
+
+credentials_recorded: false

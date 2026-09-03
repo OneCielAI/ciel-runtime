@@ -18,7 +18,23 @@ PSEUDO_CALL_END = "<|tool_call_end|>"
 
 def normalize_tool_arguments(tool_name: str, arguments: Any) -> dict[str, Any]:
     if isinstance(arguments, dict):
-        return arguments
+        normalized = dict(arguments)
+        # Kimi occasionally abbreviates Codex's ``exec_command`` tool to
+        # ``exec`` and emits the shell payload under a generic ``input`` (or
+        # OpenAI-style ``command``/``script``) key.  Name canonicalization has
+        # already resolved the tool before this function runs, so repair only
+        # non-empty string aliases whose semantics are still a shell command.
+        # A ``js`` field is deliberately not repaired: JavaScript intended for
+        # a Node REPL is not a valid PowerShell command.
+        if str(tool_name or "").casefold() == "exec_command":
+            cmd = normalized.get("cmd")
+            if not isinstance(cmd, str) or not cmd.strip():
+                for alias in ("command", "script", "input"):
+                    value = normalized.get(alias)
+                    if isinstance(value, str) and value.strip():
+                        normalized["cmd"] = value
+                        break
+        return normalized
     if isinstance(arguments, str):
         text = arguments.strip()
         if not text:

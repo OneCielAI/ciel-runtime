@@ -55,6 +55,7 @@ class MetaProviderTests(unittest.TestCase):
         self.assertEqual(900_000, pcfg["auto_compact_window"])
         self.assertEqual("high", pcfg["effort_level"])
         self.assertTrue(pcfg["enable_tool_search"])
+        self.assertTrue(pcfg["responses_custom_tools_as_functions"])
         self.assertNotIn("max_output_tokens", pcfg)
         self.assertIn("xhigh_effort", pcfg["claude_code_supported_capabilities"])
         self.assertEqual(
@@ -290,10 +291,143 @@ class MetaProviderTests(unittest.TestCase):
             "meta", pcfg, body
         )
 
-        self.assertEqual(tools, normalized["tools"])
+        self.assertEqual(tools[:2], normalized["tools"][:2])
+        self.assertEqual("lookup_issue", normalized["tools"][2]["name"])
+        self.assertTrue(normalized["tools"][2]["strict"])
+        self.assertEqual(
+            ["id"], normalized["tools"][2]["parameters"]["required"]
+        )
         self.assertIn("web_search_call.results", normalized["include"])
         self.assertIn("reasoning.encrypted_content", normalized["include"])
         self.assertEqual(tools, body["tools"])
+
+    def test_responses_strictifies_optional_function_tool_properties(self):
+        pcfg = self.meta_cfg()
+        tools = [
+            {
+                "type": "function",
+                "name": "search_files",
+                "description": "Search files",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string"},
+                        "limit": {"type": "integer"},
+                        "filters": {
+                            "type": "object",
+                            "properties": {
+                                "path": {"type": "string"},
+                                "hidden": {"type": "boolean"},
+                            },
+                            "required": ["path"],
+                        },
+                    },
+                    "required": ["query"],
+                },
+            }
+        ]
+        body = {
+            "model": "muse-spark-1.3-contributor",
+            "input": "search",
+            "tools": tools,
+        }
+
+        normalized = ciel_runtime.apply_provider_adapter_request_policy(
+            "meta", pcfg, body, "openai_responses"
+        )
+
+        projected = normalized["tools"][0]
+        parameters = projected["parameters"]
+        self.assertTrue(projected["strict"])
+        self.assertEqual(["query", "limit", "filters"], parameters["required"])
+        self.assertFalse(parameters["additionalProperties"])
+        self.assertEqual(["integer", "null"], parameters["properties"]["limit"]["type"])
+        filters = parameters["properties"]["filters"]
+        self.assertEqual(["object", "null"], filters["type"])
+        self.assertEqual(["path", "hidden"], filters["required"])
+        self.assertEqual(["boolean", "null"], filters["properties"]["hidden"]["type"])
+        self.assertEqual(tools, body["tools"])
+
+    def test_responses_strictifies_hosted_tool_search_parameters(self):
+        tool = {
+            "type": "tool_search",
+            "execution": "server",
+            "description": "Search deferred tools",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "limit": {"type": "integer"},
+                    "query": {"type": "string"},
+                },
+                "required": ["query"],
+            },
+        }
+        body = {
+            "model": "muse-spark-1.3-contributor",
+            "input": "find a tool",
+            "tools": [tool],
+        }
+
+        normalized = ciel_runtime.apply_provider_adapter_request_policy(
+            "meta", self.meta_cfg(), body, "openai_responses"
+        )
+
+        projected = normalized["tools"][0]
+        self.assertEqual("tool_search", projected["type"])
+        self.assertNotIn("strict", projected)
+        self.assertEqual(["limit", "query"], projected["parameters"]["required"])
+        self.assertEqual(
+            ["integer", "null"],
+            projected["parameters"]["properties"]["limit"]["type"],
+        )
+        self.assertFalse(projected["parameters"]["additionalProperties"])
+        self.assertEqual(tool, body["tools"][0])
+
+    def test_responses_projects_custom_tool_and_replayed_items_to_functions(self):
+        custom_tool = {
+            "type": "custom",
+            "name": "apply_patch",
+            "description": "Apply a raw patch",
+            "format": {
+                "type": "grammar",
+                "syntax": "lark",
+                "definition": 'start: "*** Begin Patch"',
+            },
+        }
+        body = {
+            "model": "muse-spark-1.3-contributor",
+            "tools": [custom_tool],
+            "input": [
+                {
+                    "type": "custom_tool_call",
+                    "call_id": "call_patch",
+                    "name": "apply_patch",
+                    "input": "*** Begin Patch",
+                },
+                {
+                    "type": "custom_tool_call_output",
+                    "call_id": "call_patch",
+                    "output": "Done!",
+                },
+            ],
+        }
+
+        normalized = ciel_runtime.apply_provider_adapter_request_policy(
+            "meta", self.meta_cfg(), body, "openai_responses"
+        )
+
+        tool = normalized["tools"][0]
+        self.assertEqual("function", tool["type"])
+        self.assertTrue(tool["strict"])
+        self.assertEqual(["input"], tool["parameters"]["required"])
+        self.assertIn("Raw input must satisfy this grammar", tool["description"])
+        self.assertEqual("function_call", normalized["input"][0]["type"])
+        self.assertEqual(
+            {"input": "*** Begin Patch"},
+            json.loads(normalized["input"][0]["arguments"]),
+        )
+        self.assertEqual("function_call_output", normalized["input"][1]["type"])
+        self.assertEqual(custom_tool, body["tools"][0])
 
     def test_native_meta_requests_preserve_document_image_video_and_audio_blocks(self):
         pcfg = self.meta_cfg()
@@ -655,6 +789,190 @@ class ProviderResponsesPassthroughTests(unittest.TestCase):
                 "uncached_input_tokens": 200,
             },
         )
+
+    def test_meta_custom_function_envelope_is_restored_in_stream(self):
+        function_item = {
+            "id": "fc_patch",
+            "type": "function_call",
+            "status": "completed",
+            "call_id": "call_patch",
+            "name": "apply_patch",
+            "arguments": '{"input":"*** Begin Patch\\n*** End Patch"}',
+        }
+        exec_item = {
+            "id": "fc_exec",
+            "type": "function_call",
+            "status": "completed",
+            "call_id": "call_exec",
+            "name": "exec_command",
+            "arguments": '{"cmd":"Get-Content probe.txt","yield_time_ms":10000.0}',
+        }
+        events = [
+            {
+                "type": "response.output_item.added",
+                "output_index": 0,
+                "item": {**function_item, "status": "in_progress", "arguments": ""},
+            },
+            {
+                "type": "response.function_call_arguments.delta",
+                "item_id": "fc_patch",
+                "output_index": 0,
+                "delta": '{"input":"*** Begin',
+            },
+            {
+                "type": "response.function_call_arguments.done",
+                "item_id": "fc_patch",
+                "output_index": 0,
+                "arguments": function_item["arguments"],
+            },
+            {
+                "type": "response.output_item.done",
+                "output_index": 0,
+                "item": function_item,
+            },
+            {
+                "type": "response.output_item.added",
+                "output_index": 1,
+                "item": {**exec_item, "status": "in_progress", "arguments": ""},
+            },
+            {
+                "type": "response.function_call_arguments.delta",
+                "item_id": "fc_exec",
+                "output_index": 1,
+                "delta": exec_item["arguments"],
+            },
+            {
+                "type": "response.function_call_arguments.done",
+                "item_id": "fc_exec",
+                "output_index": 1,
+                "arguments": exec_item["arguments"],
+            },
+            {
+                "type": "response.output_item.done",
+                "output_index": 1,
+                "item": exec_item,
+            },
+            {
+                "type": "response.completed",
+                "response": {
+                    "id": "resp_patch",
+                    "status": "completed",
+                    "output": [function_item, exec_item],
+                    "usage": {"input_tokens": 10, "output_tokens": 5},
+                },
+            },
+        ]
+        payload = b"".join(
+            (
+                f"event: {event['type']}\n"
+                f"data: {json.dumps(event, separators=(',', ':'))}\n\n"
+            ).encode()
+            for event in events
+        )
+        captured = {}
+
+        class Response:
+            status = 200
+            headers = {
+                "content-type": "text/event-stream",
+                "content-length": str(len(payload)),
+            }
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+            def read(self, _size):
+                if captured.get("read"):
+                    return b""
+                captured["read"] = True
+                return payload
+
+        copied_headers = {}
+        service = ProviderResponsesPassthrough(
+            ProviderResponsesPassthroughPorts(
+                project_channel_context=lambda body: (body, {}),
+                begin_channel_delivery=mock.Mock(),
+                normalize_model=lambda _provider, _config, model: model,
+                normalize_request=lambda _provider, config, body: (
+                    ciel_runtime.apply_provider_adapter_request_policy(
+                        "meta", config, body, "openai_responses"
+                    )
+                ),
+                upstream_base=lambda _provider, _config: "https://api.meta.ai/v1",
+                join_url=ciel_runtime.join_url,
+                headers=lambda _provider, _config, _inbound: {},
+                urlopen=lambda *_args, **_kwargs: Response(),
+                timeout_seconds=lambda _config: 30.0,
+                copy_response_headers=lambda _handler, headers: copied_headers.update(headers),
+            )
+        )
+        handler = self._passthrough_handler()
+        config = copy.deepcopy(ciel_runtime.DEFAULT_CONFIG["providers"]["meta"])
+        source = {
+            "model": "muse-spark-1.3-contributor",
+            "stream": True,
+            "input": "Apply the patch",
+            "tools": [
+                {
+                    "type": "custom",
+                    "name": "apply_patch",
+                    "description": "Apply raw patch",
+                    "format": {
+                        "type": "grammar",
+                        "syntax": "lark",
+                        "definition": "start: /.+/",
+                    },
+                },
+                {
+                    "type": "function",
+                    "name": "exec_command",
+                    "description": "Run a command",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "cmd": {"type": "string"},
+                            "yield_time_ms": {"type": "number"},
+                        },
+                        "required": ["cmd"],
+                    },
+                },
+            ],
+        }
+
+        service.forward(handler, "meta", config, source)
+
+        output = handler.wfile.getvalue().decode()
+        self.assertIn("response.custom_tool_call_input.delta", output)
+        self.assertIn("response.custom_tool_call_input.done", output)
+        self.assertNotIn("10000.0", output)
+        decoded = [
+            json.loads(line[6:])
+            for line in output.splitlines()
+            if line.startswith("data: ")
+        ]
+        added = next(
+            item
+            for item in decoded
+            if item["type"] == "response.output_item.added"
+        )
+        completed = next(
+            item for item in decoded if item["type"] == "response.completed"
+        )
+        self.assertEqual("custom_tool_call", added["item"]["type"])
+        self.assertEqual(
+            "*** Begin Patch\n*** End Patch",
+            completed["response"]["output"][0]["input"],
+        )
+        self.assertEqual(
+            10000,
+            json.loads(completed["response"]["output"][1]["arguments"])[
+                "yield_time_ms"
+            ],
+        )
+        self.assertNotIn("content-length", copied_headers)
 
     def test_provider_wire_limit_compacts_before_upstream_request(self):
         captured = {}

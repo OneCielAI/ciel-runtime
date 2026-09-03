@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any, Mapping
@@ -80,6 +81,7 @@ class MetaModelProviderAdapter(HttpBearerProviderAdapter):
             stream_word_chunking=False,
             effort_level="high",
             enable_tool_search=True,
+            responses_custom_tools_as_functions=True,
             haiku_model=MUSE_SPARK_MODEL,
             opus_model=MUSE_SPARK_MODEL,
             sonnet_model=MUSE_SPARK_MODEL,
@@ -283,6 +285,145 @@ class MetaModelProviderAdapter(HttpBearerProviderAdapter):
             # reasoning summary while encrypted_content carries replay state.
             projected.setdefault("summary", "auto")
             request["reasoning"] = projected
+        tools = request.get("tools")
+        if isinstance(tools, list):
+            request["tools"] = [cls._normalize_responses_tool(tool) for tool in tools]
+        raw_input = request.get("input")
+        if isinstance(raw_input, list):
+            request["input"] = [cls._normalize_responses_input(item) for item in raw_input]
+
+    @classmethod
+    def _normalize_responses_tool(cls, tool: Any) -> Any:
+        """Project tool parameters to Meta's strict Responses schema contract."""
+
+        if not isinstance(tool, Mapping):
+            return deepcopy(tool)
+        projected = deepcopy(dict(tool))
+        if str(projected.get("type") or "") == "custom":
+            description = str(projected.get("description") or "").strip()
+            format_value = projected.get("format")
+            if isinstance(format_value, Mapping):
+                definition = str(format_value.get("definition") or "").strip()
+                if definition:
+                    description = "\n\n".join(
+                        part
+                        for part in (
+                            description,
+                            "Raw input must satisfy this grammar:\n" + definition,
+                        )
+                        if part
+                    )
+            projected = {
+                "type": "function",
+                "name": str(projected.get("name") or ""),
+                "description": description,
+                "parameters": {
+                    "type": "object",
+                    "properties": {"input": {"type": "string"}},
+                    "required": ["input"],
+                    "additionalProperties": False,
+                },
+                "strict": True,
+            }
+        parameters = projected.get("parameters")
+        if isinstance(parameters, Mapping):
+            projected["parameters"] = cls._strict_responses_schema(parameters)
+        if (
+            str(tool.get("type") or "") == "function"
+            and isinstance(parameters, Mapping)
+        ):
+            projected["strict"] = True
+        return projected
+
+    @staticmethod
+    def _normalize_responses_input(item: Any) -> Any:
+        if not isinstance(item, Mapping):
+            return deepcopy(item)
+        projected = deepcopy(dict(item))
+        item_type = str(projected.get("type") or "")
+        if item_type == "custom_tool_call":
+            projected["type"] = "function_call"
+            projected["arguments"] = json.dumps(
+                {"input": str(projected.pop("input", ""))},
+                ensure_ascii=False,
+                separators=(",", ":"),
+            )
+        elif item_type == "custom_tool_call_output":
+            projected["type"] = "function_call_output"
+        return projected
+
+    @classmethod
+    def _strict_responses_schema(cls, schema: Mapping[str, Any]) -> dict[str, Any]:
+        """Require every object property while keeping former optionals nullable."""
+
+        projected = deepcopy(dict(schema))
+        properties = projected.get("properties")
+        if isinstance(properties, Mapping):
+            originally_required = {
+                str(name)
+                for name in projected.get("required") or []
+                if isinstance(name, str)
+            }
+            strict_properties: dict[str, Any] = {}
+            for raw_name, raw_property in properties.items():
+                name = str(raw_name)
+                if isinstance(raw_property, Mapping):
+                    normalized_property = cls._strict_responses_schema(raw_property)
+                    if name not in originally_required:
+                        normalized_property = cls._nullable_schema(normalized_property)
+                    strict_properties[name] = normalized_property
+                else:
+                    strict_properties[name] = deepcopy(raw_property)
+            projected["properties"] = strict_properties
+            projected["required"] = list(strict_properties)
+            projected["additionalProperties"] = False
+
+        items = projected.get("items")
+        if isinstance(items, Mapping):
+            projected["items"] = cls._strict_responses_schema(items)
+        for keyword in ("anyOf", "oneOf", "allOf"):
+            variants = projected.get(keyword)
+            if isinstance(variants, list):
+                projected[keyword] = [
+                    cls._strict_responses_schema(item)
+                    if isinstance(item, Mapping)
+                    else deepcopy(item)
+                    for item in variants
+                ]
+        definitions = projected.get("$defs")
+        if isinstance(definitions, Mapping):
+            projected["$defs"] = {
+                str(name): cls._strict_responses_schema(value)
+                if isinstance(value, Mapping)
+                else deepcopy(value)
+                for name, value in definitions.items()
+            }
+        return projected
+
+    @staticmethod
+    def _nullable_schema(schema: Mapping[str, Any]) -> dict[str, Any]:
+        projected = deepcopy(dict(schema))
+        raw_type = projected.get("type")
+        if isinstance(raw_type, str):
+            if raw_type != "null":
+                projected["type"] = [raw_type, "null"]
+        elif isinstance(raw_type, list):
+            if "null" not in raw_type:
+                projected["type"] = [*raw_type, "null"]
+        elif isinstance(projected.get("anyOf"), list):
+            variants = list(projected["anyOf"])
+            if not any(
+                isinstance(item, Mapping) and item.get("type") == "null"
+                for item in variants
+            ):
+                variants.append({"type": "null"})
+            projected["anyOf"] = variants
+        else:
+            projected = {"anyOf": [projected, {"type": "null"}]}
+        enum = projected.get("enum")
+        if isinstance(enum, list) and None not in enum:
+            projected["enum"] = [*enum, None]
+        return projected
 
     @classmethod
     def _normalize_messages_request(cls, request: dict[str, Any]) -> None:

@@ -13,6 +13,11 @@ from typing import Any, Callable, Mapping
 
 from .responses_usage_observer import ResponsesUsageObserver
 from .responses_input_compatibility import repair_replayed_response_items
+from .responses_custom_tool_bridge import (
+    ResponsesCustomToolStreamProjector,
+    project_response_payload,
+    tool_definitions,
+)
 from .remote_bridge import is_remote_bridge_request
 from .upstream_dump import dump_upstream_request
 from .upstream_error_policy import UpstreamStreamReadError
@@ -97,6 +102,19 @@ class ProviderResponsesPassthrough:
                 f"provider={provider} reason=missing_previous_response_id",
             )
         return filtered
+
+    @staticmethod
+    def _response_headers(headers: Any, *, transformed: bool) -> Any:
+        if not transformed:
+            return headers
+        try:
+            return {
+                key: value
+                for key, value in headers.items()
+                if str(key).casefold() != "content-length"
+            }
+        except (AttributeError, TypeError):
+            return headers
 
     def forward_compact(
         self,
@@ -261,6 +279,7 @@ class ProviderResponsesPassthrough:
         provider: str,
         config: dict[str, Any],
         upstream_body: dict[str, Any],
+        response_tools: Mapping[str, Mapping[str, Any]],
     ) -> None:
         """Validate a native Responses stream before exposing it downstream."""
 
@@ -330,12 +349,29 @@ class ProviderResponsesPassthrough:
                     ) from failure
 
                 handler.send_response(getattr(response, "status", 200))
-                self._ports.copy_response_headers(handler, response.headers)
+                self._ports.copy_response_headers(
+                    handler,
+                    self._response_headers(
+                        response.headers, transformed=bool(response_tools)
+                    ),
+                )
                 handler.end_headers()
                 spool.seek(0)
+                projector = (
+                    ResponsesCustomToolStreamProjector(response_tools)
+                    if response_tools
+                    else None
+                )
                 while chunk := spool.read(65_536):
-                    handler.wfile.write(chunk)
-                    handler.wfile.flush()
+                    output = projector.feed(chunk) if projector is not None else chunk
+                    if output:
+                        handler.wfile.write(output)
+                        handler.wfile.flush()
+                if projector is not None:
+                    tail = projector.finish()
+                    if tail:
+                        handler.wfile.write(tail)
+                        handler.wfile.flush()
                 if observed:
                     self._ports.record_usage(provider, model, observed)
                 return
@@ -350,6 +386,11 @@ class ProviderResponsesPassthrough:
         remote_bridge = is_remote_bridge_request(handler)
         upstream_body = dict(
             body if remote_bridge else repair_replayed_response_items(body)
+        )
+        response_tools = (
+            tool_definitions(upstream_body)
+            if config.get("responses_custom_tools_as_functions")
+            else {}
         )
         upstream_body["model"] = self._ports.normalize_model(
             provider, config, str(body.get("model") or "")
@@ -392,6 +433,7 @@ class ProviderResponsesPassthrough:
                 provider,
                 config,
                 upstream_body,
+                response_tools,
             )
             return delivery_body
         with self._ports.urlopen(
@@ -403,21 +445,46 @@ class ProviderResponsesPassthrough:
             usage = ResponsesUsageObserver()
             received_bytes = 0
             handler.send_response(getattr(response, "status", 200))
-            self._ports.copy_response_headers(handler, response.headers)
+            self._ports.copy_response_headers(
+                handler,
+                self._response_headers(
+                    response.headers, transformed=bool(response_tools)
+                ),
+            )
             handler.end_headers()
+            projector = (
+                ResponsesCustomToolStreamProjector(response_tools)
+                if response_tools and bool(upstream_body.get("stream", True))
+                else None
+            )
+            response_body = bytearray()
             try:
                 while chunk := response.read(65_536):
                     received_bytes += len(chunk)
                     usage.feed(chunk)
-                    handler.wfile.write(chunk)
-                    handler.wfile.flush()
+                    if response_tools and projector is None:
+                        response_body.extend(chunk)
+                        continue
+                    output = projector.feed(chunk) if projector is not None else chunk
+                    if output:
+                        handler.wfile.write(output)
+                        handler.wfile.flush()
             except IncompleteRead as exc:
                 partial = bytes(exc.partial or b"")
                 if partial:
                     received_bytes += len(partial)
                     usage.feed(partial)
-                    handler.wfile.write(partial)
-                    handler.wfile.flush()
+                    if response_tools and projector is None:
+                        response_body.extend(partial)
+                    else:
+                        output = (
+                            projector.feed(partial)
+                            if projector is not None
+                            else partial
+                        )
+                        if output:
+                            handler.wfile.write(output)
+                            handler.wfile.flush()
                 usage.finish()
                 if usage.terminal_event is None:
                     self._ports.log(
@@ -441,6 +508,20 @@ class ProviderResponsesPassthrough:
                     f"provider={provider} model={upstream_body.get('model')} "
                     f"terminal={usage.terminal_event} bytes={received_bytes}",
                 )
+            if projector is not None:
+                tail = projector.finish()
+                if tail:
+                    handler.wfile.write(tail)
+                    handler.wfile.flush()
+            elif response_tools:
+                try:
+                    decoded = json.loads(response_body)
+                    projected_body = project_response_payload(decoded, response_tools)
+                    handler.wfile.write(self._encode(projected_body))
+                    handler.wfile.flush()
+                except (UnicodeDecodeError, ValueError, TypeError):
+                    handler.wfile.write(response_body)
+                    handler.wfile.flush()
             observed = usage.finish()
             if bool(upstream_body.get("stream", True)) and usage.terminal_event is None:
                 error = EOFError("upstream Responses stream ended without a terminal event")

@@ -57,7 +57,15 @@ RUNTIME_CONTROL_MESSAGE_KEY = "ciel_runtime_control"
 RUNTIME_REPEATED_TOOL_RECOVERY = "repeated_tool_call_recovery"
 
 _REASONING_RECOVERY_MIN_OUTPUT_TOKENS = 8192
-_KIMI_CONTINUATION_MAX_ATTEMPTS = 3
+_KIMI_CONTINUATION_MAX_ATTEMPTS = 6
+_KIMI_STRICT_CONTINUATION_AFTER_ATTEMPT = 3
+
+CODEX_STRICT_CONTINUATION_NUDGE = (
+    "Your prior continuation replies still only announced another action. Do not "
+    "write another progress sentence. Return the next actual tool call now, using "
+    "an exact tool name and every required field from the supplied schema. If the "
+    "work is genuinely finished, return the concrete final result instead."
+)
 
 KIMI_FOLLOWUP_PROMISE_RE = re.compile(
     r"(?:겠습니다|할게요|해볼게요|하겠습니다|"
@@ -447,11 +455,12 @@ def recover_preamble_only_turn(
     message: dict[str, Any],
     services: CodexTurnRecoveryServices,
 ) -> dict[str, Any]:
-    """Retry once when the model announced work but called no tool.
+    """Retry when the model announced work but called no tool.
 
-    Bounded to a single extra upstream call. The retry only wins if it produces
-    a tool call; prose answers keep the original reply so a model that legitimately
-    responds without tools is never overridden or duplicated.
+    Ordinary providers get one extra upstream call. Kimi gets a bounded series
+    because observed routed Codex turns can return several consecutive progress
+    announcements. A retry wins if it produces a tool call or a substantive
+    concrete answer; repeated announcements do not replace the original reply.
     """
 
     if not isinstance(message, dict) or message_has_tool_use(message):
@@ -509,6 +518,10 @@ def recover_preamble_only_turn(
     recovery_config = dict(pcfg)
     if kimi_turn:
         recovery_config["gateway_retries"] = 0
+    # Keep the original request as the stable prefix for every retry.  Only the
+    # latest stalled assistant response is replayed below; accumulating every
+    # failed announcement teaches the same bad pattern back to the model and
+    # grows an already-large Codex request on every attempt.
     replay_body = body
     replay_message = (
         message_without_repeated_tool_notice(message)
@@ -531,10 +544,17 @@ def recover_preamble_only_turn(
 
     for attempt in range(1, max_attempts + 1):
         try:
+            attempt_nudge = (
+                CODEX_STRICT_CONTINUATION_NUDGE
+                if kimi_turn
+                and attempt > _KIMI_STRICT_CONTINUATION_AFTER_ATTEMPT
+                and not (empty_end_turn or reasoning_only or repeated_tool_guard)
+                else nudge
+            )
             retry_body = body_with_continuation_nudge(
                 replay_body,
                 replay_message,
-                nudge,
+                attempt_nudge,
                 control=(
                     RUNTIME_REPEATED_TOOL_RECOVERY if repeated_tool_guard else None
                 ),
@@ -604,7 +624,6 @@ def recover_preamble_only_turn(
             return retried
         if attempt == max_attempts:
             return message
-        replay_body = retry_body
         replay_message = retried
 
     return message

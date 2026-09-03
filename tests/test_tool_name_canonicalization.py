@@ -114,6 +114,77 @@ class ToolNameCanonicalizationTests(unittest.TestCase):
         self.assertEqual("WebSearch", out["content"][0]["name"])
         self.assertEqual({"query": "2026 technology trends"}, out["content"][0]["input"])
 
+    def test_ollama_nonstream_repairs_exec_input_alias_to_cmd(self):
+        source_body = {
+            "model": "ciel-runtime-ollama-cloud-kimi-k3",
+            "tools": [
+                {
+                    "name": "exec_command",
+                    "input_schema": {
+                        "type": "object",
+                        "properties": {"cmd": {"type": "string"}},
+                        "required": ["cmd"],
+                    },
+                }
+            ],
+            "messages": [{"role": "user", "content": "inspect the repository"}],
+        }
+        data = {
+            "message": {
+                "role": "assistant",
+                "tool_calls": [
+                    {
+                        "function": {
+                            "name": "exec",
+                            "arguments": {"input": "git status --short"},
+                        }
+                    }
+                ],
+            }
+        }
+
+        out = ciel_runtime.ollama_chat_to_anthropic(data, "kimi-k3", source_body)
+
+        self.assertEqual("tool_use", out["stop_reason"])
+        self.assertEqual("exec_command", out["content"][0]["name"])
+        self.assertEqual("git status --short", out["content"][0]["input"]["cmd"])
+
+    def test_ollama_nonstream_does_not_treat_node_js_as_shell_command(self):
+        source_body = {
+            "model": "ciel-runtime-ollama-cloud-kimi-k3",
+            "tools": [
+                {
+                    "name": "exec_command",
+                    "input_schema": {
+                        "type": "object",
+                        "properties": {"cmd": {"type": "string"}},
+                        "required": ["cmd"],
+                    },
+                }
+            ],
+            "messages": [{"role": "user", "content": "inspect the repository"}],
+        }
+        data = {
+            "message": {
+                "role": "assistant",
+                "tool_calls": [
+                    {
+                        "function": {
+                            "name": "exec",
+                            "arguments": {"js": "await inspectWorkspace()"},
+                        }
+                    }
+                ],
+            }
+        }
+
+        out = ciel_runtime.ollama_chat_to_anthropic(data, "kimi-k3", source_body)
+
+        self.assertEqual("end_turn", out["stop_reason"])
+        self.assertFalse(
+            any(block.get("type") == "tool_use" for block in out["content"])
+        )
+
     def test_ollama_nonstream_emits_available_mcp_tool_name(self):
         source_body = {
             "model": "ciel-runtime-ollama-gemma4-12b",

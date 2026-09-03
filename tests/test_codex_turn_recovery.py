@@ -281,6 +281,69 @@ class RecoverPreambleOnlyTurnTests(unittest.TestCase):
             )
         )
 
+    def test_ollama_cloud_kimi_k3_recovers_after_three_preamble_replies(self):
+        calls = []
+        results = [
+            reasoning_promise_message(f"다음 확인을 진행하겠습니다 {index}.")
+            for index in range(1, 4)
+        ] + [tool_message("실제 확인을 시작합니다.")]
+
+        def collect(_handler, _provider, pcfg, body):
+            calls.append((pcfg, body))
+            return results[len(calls) - 1]
+
+        recovered = codex_turn_recovery.recover_preamble_only_turn(
+            None,
+            "ollama-cloud",
+            {},
+            work_request_body(model="ciel-runtime-ollama-cloud-kimi-k3"),
+            reasoning_promise_message("이제 확인하겠습니다."),
+            codex_turn_recovery.CodexTurnRecoveryServices(
+                should_retry=ciel_runtime.should_retry_preamble_only_turn,
+                collect_message=collect,
+                log=lambda *_: None,
+            ),
+        )
+
+        self.assertTrue(codex_turn_recovery.message_has_tool_use(recovered))
+        self.assertEqual(4, len(calls))
+        self.assertIn(
+            codex_turn_recovery.CODEX_STRICT_CONTINUATION_NUDGE,
+            calls[3][1]["messages"][-1]["content"][0]["text"],
+        )
+
+    def test_kimi_retries_keep_a_stable_base_and_only_latest_stall(self):
+        calls = []
+        results = [
+            reasoning_promise_message("두 번째 예고입니다."),
+            tool_message("실행합니다."),
+        ]
+
+        def collect(_handler, _provider, pcfg, body):
+            calls.append((pcfg, body))
+            return results[len(calls) - 1]
+
+        original_body = work_request_body(model="ciel-runtime-ollama-cloud-kimi-k3")
+        codex_turn_recovery.recover_preamble_only_turn(
+            None,
+            "ollama-cloud",
+            {},
+            original_body,
+            reasoning_promise_message("첫 번째 예고입니다."),
+            codex_turn_recovery.CodexTurnRecoveryServices(
+                should_retry=ciel_runtime.should_retry_preamble_only_turn,
+                collect_message=collect,
+                log=lambda *_: None,
+            ),
+        )
+
+        self.assertEqual(len(original_body["messages"]) + 2, len(calls[0][1]["messages"]))
+        self.assertEqual(len(original_body["messages"]) + 2, len(calls[1][1]["messages"]))
+        self.assertIn(
+            "두 번째 예고입니다.",
+            codex_turn_recovery.message_text(calls[1][1]["messages"][-2]),
+        )
+
     def test_turn_that_already_called_a_tool_is_untouched(self):
         calls = []
         original = tool_message("진행합니다.")
