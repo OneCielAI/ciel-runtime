@@ -134,6 +134,7 @@ class MuseRuntimeAdapter(CliRuntimeAdapter):
             return RuntimeCommand(argv=tuple(argv), env=dict(self.environment), cwd=spec.cwd)
         if subcommand in {"exec", "resume"}:
             argv.append(passthrough.pop(0))
+        argv.extend(str(value) for value in options.get("yolo_args", ()))
         model = str(options.get("model") or "").strip()
         if model:
             argv.extend(("--model", model))

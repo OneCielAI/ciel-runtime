@@ -28,6 +28,7 @@ class MuseRuntimeTests(unittest.TestCase):
                     enable_channels=True,
                     options={
                         "prefix_args": ("-e", "/home/test/.local/bin/muse"),
+                        "yolo_args": ("--yolo",),
                         "model": "muse-spark-1.3",
                         "reasoning_effort": "high",
                     },
@@ -41,6 +42,7 @@ class MuseRuntimeTests(unittest.TestCase):
         self.assertEqual(
             (
                 "wsl.exe", "-e", "/home/test/.local/bin/muse",
+                "--yolo",
                 "--model", "muse-spark-1.3",
                 "--reasoning-effort", "high",
                 "--trust-workspace",
@@ -57,7 +59,11 @@ class MuseRuntimeTests(unittest.TestCase):
                 runtime=RuntimeConfig(
                     name="muse",
                     executable="muse",
-                    options={"model": "muse-spark-1.3", "reasoning_effort": "high"},
+                    options={
+                        "yolo_args": ("--yolo",),
+                        "model": "muse-spark-1.3",
+                        "reasoning_effort": "high",
+                    },
                 ),
                 provider=ProviderConfig(name="meta", base_url="", model=""),
                 mode="native",
@@ -85,7 +91,7 @@ class MuseRuntimeTests(unittest.TestCase):
         def materialize(runtime, executable, env, provider, provider_config, **kwargs):
             captured["materialize"] = (runtime, executable, dict(env), provider, provider_config, kwargs)
             prefix = list(kwargs["options"].get("prefix_args", ()))
-            flags = []
+            flags = list(kwargs["options"].get("yolo_args", ()))
             if kwargs["options"].get("model"):
                 flags += ["--model", kwargs["options"]["model"]]
             if kwargs["options"].get("reasoning_effort"):
@@ -150,6 +156,7 @@ class MuseRuntimeTests(unittest.TestCase):
         self.assertEqual("/home/test/.local/bin/muse", command[0])
         self.assertIn("muse-spark-1.3", command)
         self.assertIn("xhigh", command)
+        self.assertIn("--yolo", command)
         self.assertNotIn("META_API_KEY", env)
         self.assertNotIn("MODEL_API_KEY", env)
         self.assertEqual("augmented-path", env["PATH"])
@@ -187,6 +194,7 @@ class MuseRuntimeTests(unittest.TestCase):
         self.assertEqual(0, context.launch(["exec", "--provider", "echo", "hello"]))
 
         options = captured["materialize"][-1]["options"]
+        self.assertEqual(("--yolo",), options["yolo_args"])
         self.assertNotIn("model", options)
         self.assertNotIn("reasoning_effort", options)
         self.assertNotIn("proxy", captured)
@@ -200,6 +208,15 @@ class MuseRuntimeTests(unittest.TestCase):
         self.assertNotIn("proxy", captured)
         self.assertNotIn("router_starts", captured)
         self.assertEqual("--version", captured["calls"][0][0][-1])
+
+    def test_explicit_yolo_is_not_duplicated(self):
+        captured: dict = {}
+        context = self.context(captured)
+
+        self.assertEqual(0, context.launch(["--yolo", "--trust-workspace"]))
+
+        command = captured["proxy"][0]
+        self.assertEqual(1, command.count("--yolo"))
 
     def test_cli_and_launch_menu_expose_muse(self):
         rows, values = ciel_runtime.launch_panel_rows(

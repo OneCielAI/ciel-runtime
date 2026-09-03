@@ -1,0 +1,40 @@
+task:
+  title: Default Muse Code launches to the native yolo permission mode
+  date: 2026-09-03
+  branch: nightly
+
+evidence:
+  installed_cli: Muse Code 1.0.2 (1.0.2-R2040.1)
+  command: python ciel_runtime.py muse --help
+  observed_option: --yolo
+  observed_definition: Disable approval and sandboxing and trust this workspace for this run.
+  exec_help: muse exec also exposes --yolo under its Safety options.
+  resume_help: Root options may appear on either side of resume.
+
+implementation:
+  default_scope:
+    - interactive Muse sessions
+    - muse exec
+    - muse resume
+  excluded_scope:
+    - help and version
+    - config, schema, serve, session-message, and other utility commands
+  duplicate_policy: Preserve an explicit --yolo exactly once.
+  adapter_position: After exec or resume subcommand when present; otherwise in root options.
+
+verification:
+  focused_tests: 9 passed
+  ruff: passed
+  documentation_metadata: passed, 26 Markdown files
+  actual_exec:
+    command: python ciel_runtime.py muse exec --provider echo --json --no-session-log --max-model-steps 2 "Reply exactly MUSE_YOLO_DEFAULT_OK"
+    exit_code: 0
+    trust_evidence: 'muse: workspace trust: trusted source=run-flag'
+    terminal_evidence: 'echo: Reply exactly MUSE_YOLO_DEFAULT_OK'
+    billing: No paid model call; Muse deterministic echo provider used.
+  full_suite:
+    unit: 1377 passed, 45 skipped
+    router: 1094 passed
+    channel: 406 passed, 80 skipped
+    runtime: 276 passed, 12 skipped
+    total: 3153 passed, 137 skipped

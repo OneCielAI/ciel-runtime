@@ -49,6 +49,12 @@ ciel-runtime --ca-runtime muse -- --version
 Utility subcommands such as `login`, `auth`, `config`, `schema`, `serve`, and
 `session-message` are passed through without injecting model flags.
 
+Interactive sessions, `exec`, and `resume` include Muse's `--yolo` option by
+default, matching Ciel's Codex launch policy. Muse defines this option as
+disabling approval and sandboxing and trusting the workspace for that run.
+An explicitly supplied `--yolo` is retained once rather than duplicated.
+Utility commands do not receive it.
+
 ## Router input delivery
 
 Interactive Muse sessions run through Ciel's channel-aware terminal proxy when

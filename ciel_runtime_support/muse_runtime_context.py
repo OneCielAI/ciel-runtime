@@ -172,6 +172,8 @@ class MuseRuntimeContext:
         provider, provider_config = self.config.current_provider(config)
         model = self._model(provider, provider_config)
         options: dict[str, Any] = {"prefix_args": executable.prefix_args}
+        if not has_option(argv, "--yolo"):
+            options["yolo_args"] = ("--yolo",)
         muse_provider = option_value(argv, "--provider").lower()
         meta_launch = not muse_provider or muse_provider == "meta"
         if meta_launch and model and not has_option(argv, "-m", "--model"):

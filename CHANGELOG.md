@@ -11,6 +11,8 @@ capability, followed by the complete commit ledger merged into each release.
   AGENTS.md synchronization. Native launches remove `META_API_KEY` and
   `MODEL_API_KEY` so Muse browser sign-in remains eligible for Muse Code
   subscription billing instead of silently switching to API pay-as-you-go.
+  Normal Muse sessions now include the CLI's native `--yolo` option by default,
+  while utility subcommands remain side-effect-free passthrough commands.
 - Make `session_socket` the explicit default for Web Chat and every Runtime
   Input Gateway source. When a runtime has no usable Claude messaging socket,
   idle delivery now falls back to TTY; an active turn retains the durable input
