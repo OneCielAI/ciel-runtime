@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any, Mapping
 
@@ -19,9 +20,31 @@ from .base import HttpBearerProviderAdapter, provider_configuration
 from .constants import DEFAULT_REQUEST_TIMEOUT_MS, PROVIDER_DEFAULT_BASE_URLS
 
 
-MUSE_SPARK_MODEL = "muse-spark-1.1"
+MUSE_SPARK_MODEL = "muse-spark-1.3"
+MUSE_SPARK_MODELS = (
+    MUSE_SPARK_MODEL,
+    "muse-spark-1.3-contributor",
+    "muse-spark-1.2",
+    "muse-spark-1.2-contributor",
+    "muse-spark-1.1",
+)
 MUSE_SPARK_CONTEXT_WINDOW = 1_048_576
 MUSE_SPARK_AUTO_COMPACT_LIMIT = 900_000
+MUSE_SPARK_CODEX_CATALOG = {
+    "context_window": MUSE_SPARK_CONTEXT_WINDOW,
+    "max_context_window": MUSE_SPARK_CONTEXT_WINDOW,
+    "input_modalities": ["text", "image"],
+    "support_verbosity": False,
+    "supports_reasoning_summaries": True,
+    "supported_reasoning_levels": [
+        {"effort": "minimal", "description": "Shortest reasoning pass"},
+        {"effort": "low", "description": "Light reasoning"},
+        {"effort": "medium", "description": "Moderate reasoning depth"},
+        {"effort": "high", "description": "Deep reasoning"},
+        {"effort": "xhigh", "description": "Maximum reasoning depth"},
+    ],
+    "default_reasoning_level": "high",
+}
 
 
 @dataclass(frozen=True)
@@ -33,16 +56,22 @@ class MetaModelProviderAdapter(HttpBearerProviderAdapter):
     configuration_defaults_value: dict = field(
         default_factory=lambda: provider_configuration(
             MUSE_SPARK_MODEL,
-            custom_models=(MUSE_SPARK_MODEL,),
+            custom_models=MUSE_SPARK_MODELS,
             native_compat=True,
             preserve_anthropic_thinking=True,
             normalize_anthropic_tool_use=True,
             supports_tool_choice=True,
-            claude_code_supported_capabilities=["effort", "thinking"],
+            claude_code_supported_capabilities=[
+                "effort",
+                "xhigh_effort",
+                "thinking",
+                "adaptive_thinking",
+            ],
             context_window=MUSE_SPARK_CONTEXT_WINDOW,
             max_model_len=MUSE_SPARK_CONTEXT_WINDOW,
             auto_compact_window=MUSE_SPARK_AUTO_COMPACT_LIMIT,
             codex_auto_compact_window=MUSE_SPARK_AUTO_COMPACT_LIMIT,
+            codex_model_catalog=deepcopy(MUSE_SPARK_CODEX_CATALOG),
             request_timeout_ms=DEFAULT_REQUEST_TIMEOUT_MS,
             stream_enabled=True,
             stream_word_chunking=False,
@@ -78,7 +107,7 @@ class MetaModelProviderAdapter(HttpBearerProviderAdapter):
     model_catalog_policy_value: ProviderModelCatalogPolicy = field(
         default_factory=lambda: ProviderModelCatalogPolicy(
             kind="openai",
-            fallback_models=(MUSE_SPARK_MODEL,),
+            fallback_models=MUSE_SPARK_MODELS,
             allow_configured_fallback=True,
         )
     )
@@ -119,19 +148,26 @@ class MetaModelProviderAdapter(HttpBearerProviderAdapter):
     def model_configuration_profile(
         self, config: ProviderConfig
     ) -> tuple[Mapping[str, Any], str | None]:
-        if self.normalize_model_id(config.model) != MUSE_SPARK_MODEL:
+        model = self.normalize_model_id(config.model)
+        if model not in MUSE_SPARK_MODELS:
             return {}, None
+        contributor_notice = (
+            " Contributor tier permits Meta to train on prompts and completions."
+            if model.endswith("-contributor")
+            else ""
+        )
         return (
             {
                 "context_window": MUSE_SPARK_CONTEXT_WINDOW,
                 "max_model_len": MUSE_SPARK_CONTEXT_WINDOW,
                 "auto_compact_window": MUSE_SPARK_AUTO_COMPACT_LIMIT,
                 "effort_level": "high",
-                "model_profile": "muse-spark-1.1-1m",
+                "codex_model_catalog": deepcopy(MUSE_SPARK_CODEX_CATALOG),
+                "model_profile": f"{model}-1m",
             },
-            "Muse Spark 1.1 profile applied: 1M context, high reasoning effort, "
+            f"{model} profile applied: 1M context, high reasoning effort, "
             "and 900K automatic compaction. Start a new session after changing "
-            "model, context, or reasoning effort.",
+            f"model, context, or reasoning effort.{contributor_notice}",
         )
 
     def model_selection_config_updates(
@@ -251,7 +287,9 @@ class MetaModelProviderAdapter(HttpBearerProviderAdapter):
 
 __all__ = [
     "MUSE_SPARK_AUTO_COMPACT_LIMIT",
+    "MUSE_SPARK_CODEX_CATALOG",
     "MUSE_SPARK_CONTEXT_WINDOW",
     "MUSE_SPARK_MODEL",
+    "MUSE_SPARK_MODELS",
     "MetaModelProviderAdapter",
 ]

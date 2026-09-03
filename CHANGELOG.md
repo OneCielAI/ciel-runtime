@@ -5,6 +5,10 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+- Add Meta Muse Spark 1.3 and `muse-spark-1.3-contributor` as first-class
+  Meta Model API models. New configurations default to 1.3, existing catalogs
+  are migrated without overwriting the selected model, and Codex/Claude receive
+  the documented 1M context and `minimal` through `xhigh` reasoning controls.
 - Improve Alibaba Singapore Token Plan cache reuse for Codex: stateless
   full-history Responses requests now use Qwen's implicit prefix cache instead
   of forcing the response-ID session-cache header, while oversized requests

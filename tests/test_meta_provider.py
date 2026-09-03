@@ -31,13 +31,73 @@ class MetaProviderTests(unittest.TestCase):
         self.assertEqual("meta", ciel_runtime.PROVIDER_ALIASES["muse-spark"])
         self.assertEqual("Meta Model API", ciel_runtime.PROVIDER_LABELS["meta"])
         self.assertEqual("https://api.meta.ai/v1", pcfg["base_url"])
-        self.assertEqual("muse-spark-1.1", pcfg["current_model"])
+        self.assertEqual("muse-spark-1.3", pcfg["current_model"])
+        self.assertEqual(
+            [
+                "muse-spark-1.3",
+                "muse-spark-1.3-contributor",
+                "muse-spark-1.2",
+                "muse-spark-1.2-contributor",
+                "muse-spark-1.1",
+            ],
+            pcfg["custom_models"],
+        )
         self.assertEqual(1_048_576, pcfg["context_window"])
         self.assertEqual(1_048_576, pcfg["max_model_len"])
         self.assertEqual(900_000, pcfg["auto_compact_window"])
         self.assertEqual("high", pcfg["effort_level"])
         self.assertTrue(pcfg["enable_tool_search"])
         self.assertNotIn("max_output_tokens", pcfg)
+        self.assertIn("xhigh_effort", pcfg["claude_code_supported_capabilities"])
+        self.assertEqual(
+            ["minimal", "low", "medium", "high", "xhigh"],
+            [
+                item["effort"]
+                for item in pcfg["codex_model_catalog"]["supported_reasoning_levels"]
+            ],
+        )
+
+    def test_contributor_profile_preserves_model_and_warns_about_training(self):
+        pcfg = self.meta_cfg(current_model="muse-spark-1.3-contributor")
+
+        messages = ciel_runtime.apply_provider_model_profile("meta", pcfg)
+
+        self.assertEqual("muse-spark-1.3-contributor-1m", pcfg["model_profile"])
+        self.assertEqual(1_048_576, pcfg["context_window"])
+        self.assertTrue(any("permits Meta to train" in message for message in messages))
+
+    def test_new_model_aliases_resolve_to_exact_meta_api_ids(self):
+        for model in ("muse-spark-1.3", "muse-spark-1.3-contributor"):
+            with self.subTest(model=model):
+                pcfg = self.meta_cfg(current_model=model)
+                alias = ciel_runtime.alias_for("meta", model)
+                self.assertEqual(
+                    model,
+                    ciel_runtime.resolve_requested_model(
+                        "meta", pcfg, f"{alias}[1m]"
+                    ),
+                )
+
+    def test_config_migration_adds_current_official_muse_spark_catalog(self):
+        cfg = {
+            "providers": {
+                "meta": {
+                    "current_model": "muse-spark-1.1",
+                    "custom_models": ["muse-spark-1.1", "private-model"],
+                }
+            },
+            "migrations": {},
+        }
+
+        ciel_runtime.apply_config_migrations(cfg)
+
+        models = cfg["providers"]["meta"]["custom_models"]
+        self.assertEqual(1, models.count("muse-spark-1.1"))
+        self.assertIn("muse-spark-1.3", models)
+        self.assertIn("muse-spark-1.3-contributor", models)
+        self.assertIn("private-model", models)
+        self.assertEqual("muse-spark-1.1", cfg["providers"]["meta"]["current_model"])
+        self.assertTrue(cfg["migrations"]["meta_muse_spark_13_catalog_20260902"])
 
     def test_protocol_selection_preserves_each_native_wire_format(self):
         pcfg = self.meta_cfg()
@@ -149,12 +209,16 @@ class MetaProviderTests(unittest.TestCase):
 
         self.assertEqual(ciel_runtime.ROUTER_BASE, env["ANTHROPIC_BASE_URL"])
         self.assertEqual("meta-test-key", env["ANTHROPIC_AUTH_TOKEN"])
-        self.assertIn("muse-spark-1.1", env["ANTHROPIC_MODEL"])
+        self.assertIn("muse-spark-1.3", env["ANTHROPIC_MODEL"])
         self.assertIn("[1m]", env["ANTHROPIC_MODEL"])
         self.assertEqual(env["ANTHROPIC_MODEL"], env["CLAUDE_CODE_SUBAGENT_MODEL"])
         self.assertEqual("900000", env["CLAUDE_CODE_AUTO_COMPACT_WINDOW"])
         self.assertEqual("high", env["CLAUDE_CODE_EFFORT_LEVEL"])
         self.assertEqual("true", env["ENABLE_TOOL_SEARCH"])
+
+    def test_meta_is_exposed_by_credential_and_provider_option_clis(self):
+        self.assertIn("meta", ciel_runtime.credential_cli_controller().policy.required_providers)
+        self.assertIn("meta", ciel_runtime.PROVIDER_OPTION_PROVIDERS)
 
 
 class ProviderResponsesPassthroughTests(unittest.TestCase):

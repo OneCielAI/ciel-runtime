@@ -1,0 +1,53 @@
+okf: 1
+kind: implementation-journal
+task: meta-muse-spark-1.3-support
+date: 2026-09-02
+status: in-progress
+scope:
+  provider: meta
+  models:
+    - muse-spark-1.3
+    - muse-spark-1.3-contributor
+evidence:
+  official_models_page: https://dev.meta.ai/docs/models/
+  official_release: https://research.meta.ai/blog/introducing-muse-spark-1-3
+  confirmed:
+    - muse-spark-1.3 is the recommended default for new work
+    - muse-spark-1.3-contributor is the Contributor tier model ID
+    - both models have a 1,048,576 token context window
+    - both are available through Responses, Chat Completions, and Messages APIs
+    - Contributor tier permits training on prompts and completions
+    - supported reasoning efforts are minimal, low, medium, high, and xhigh
+changes:
+  - changed fresh Meta provider default from muse-spark-1.1 to muse-spark-1.3
+  - added the current official Muse Spark catalog and retained older model IDs
+  - added model-specific 1M profiles for standard and contributor variants
+  - exposed all official reasoning levels to Codex and xhigh capability to Claude Code
+  - added a persistent migration for existing configuration catalogs
+  - corrected Meta API key status and provider-option CLI coverage
+verification:
+  status: source-verified
+  commands:
+    - command: python -m unittest discover -s tests -p "test_meta_provider.py" -v
+      result: 27 tests passed
+    - command: python -m unittest discover -s tests -q
+      result: 3107 tests passed; 137 skipped
+    - command: python -m compileall -q ciel_runtime.py ciel_runtime_support tests
+      result: passed
+    - command: python -m ruff check ciel_runtime.py ciel_runtime_support/config_migrations.py ciel_runtime_support/provider_option_cli.py ciel_runtime_support/providers/meta.py tests/test_meta_provider.py
+      result: passed
+    - command: python ciel_runtime.py models meta
+      result: five official models listed, including both 1.3 IDs
+    - command: in-memory Claude and Codex projection probe
+      result: both 1.3 IDs resolved exactly with 1M context and five reasoning levels
+  live_inference:
+    result: not-run
+    reason: no Meta MODEL_API_KEY is configured in the shared or workspace Ciel configurations
+deployment:
+  local:
+    command: powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
+    target: C:/Users/djlov/.local/share/ciel-runtime
+    result: passed
+    installed_cli_models: five official models, including both 1.3 IDs
+    source_installed_hash_match: true
+  nightly: pending

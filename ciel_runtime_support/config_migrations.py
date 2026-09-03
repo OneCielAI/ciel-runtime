@@ -38,6 +38,33 @@ def apply_config_migrations(cfg: dict[str, Any], *, policy: ConfigMigrationPolic
         migrations = {}
         cfg["migrations"] = migrations
 
+    marker = "meta_muse_spark_13_catalog_20260902"
+    if not migrations.get(marker):
+        providers = cfg.get("providers") if isinstance(cfg.get("providers"), dict) else {}
+        pcfg = providers.get("meta")
+        if isinstance(pcfg, dict):
+            custom = pcfg.get("custom_models")
+            if not isinstance(custom, list):
+                custom = []
+                pcfg["custom_models"] = custom
+            known = {
+                normalize_model_id("meta", str(model))
+                for model in custom
+                if str(model).strip()
+            }
+            for model in (
+                "muse-spark-1.3",
+                "muse-spark-1.3-contributor",
+                "muse-spark-1.2",
+                "muse-spark-1.2-contributor",
+                "muse-spark-1.1",
+            ):
+                normalized = normalize_model_id("meta", model)
+                if normalized not in known:
+                    custom.append(model)
+                    known.add(normalized)
+        migrations[marker] = True
+
     marker = "anthropic_default_1m_model_ids_20260902"
     if not migrations.get(marker):
         providers = cfg.get("providers") if isinstance(cfg.get("providers"), dict) else {}
