@@ -60,26 +60,13 @@ _REASONING_RECOVERY_MIN_OUTPUT_TOKENS = 8192
 _KIMI_CONTINUATION_MAX_ATTEMPTS = 6
 _KIMI_STRICT_CONTINUATION_AFTER_ATTEMPT = 3
 
+CODEX_COMPLETION_CONFIRMED = "<ciel_runtime_completion_confirmed/>"
+
 CODEX_STRICT_CONTINUATION_NUDGE = (
-    "Your prior continuation replies still only announced another action. Do not "
-    "write another progress sentence. Return the next actual tool call now, using "
-    "an exact tool name and every required field from the supplied schema. If the "
-    "work is genuinely finished, return the concrete final result instead."
-)
-
-KIMI_FOLLOWUP_PROMISE_RE = re.compile(
-    r"(?:겠습니다|할게요|해볼게요|하겠습니다|"
-    r"i(?:'|’)ll\b[^\n]*|i\s+will\b[^\n]*|let\s+me\b[^\n]*)[.!?。！？]?\s*$",
-    re.IGNORECASE,
-)
-
-KIMI_SEQUENCED_ACTION_RE = re.compile(
-    r"(?:^|[\n.!?。！？])\s*(?:먼저|이제|다음(?:으로)?|계속(?:해서)?|추가로|바로)\s+"
-    r"[^\n]{0,240}"
-    r"(?:확인|검사|조회|실행|수정|적용|테스트|검증|살펴보|찾아보|열어보|"
-    r"읽어보|측정|캡처|구현|추적)(?:하겠습니다|하겠어요|합니다|해봅니다|"
-    r"해보겠습니다|겠습니다)[.!?。！？]?\s*$",
-    re.IGNORECASE,
+    "This is a runtime completion check. If every requested action is complete, "
+    f"return exactly {CODEX_COMPLETION_CONFIRMED} and no other visible text. "
+    "Otherwise return the next actual tool call now, using an exact tool name and "
+    "every required field from the supplied schema."
 )
 
 
@@ -323,15 +310,25 @@ def message_has_only_runtime_stall_notice(message: dict[str, Any]) -> bool:
     )
 
 
-def kimi_message_promises_followup(message: dict[str, Any]) -> bool:
-    """Recognize Kimi ending a reasoning turn with an unperformed next action."""
+def message_confirms_completion(message: dict[str, Any]) -> bool:
+    """Recognize the private, language-independent completion handshake."""
 
-    if not message_has_reasoning(message) or message_has_tool_use(message):
-        return False
-    text = message_text(message).strip()
+    return (
+        not message_has_tool_use(message)
+        and message_text(message).strip() == CODEX_COMPLETION_CONFIRMED
+    )
+
+
+def message_requires_completion_check(
+    body: dict[str, Any], message: dict[str, Any]
+) -> bool:
+    """Gate a no-tool reasoning response without inspecting natural language."""
+
     return bool(
-        KIMI_FOLLOWUP_PROMISE_RE.search(text)
-        or KIMI_SEQUENCED_ACTION_RE.search(text)
+        body.get("tools")
+        and message_has_reasoning(message)
+        and not message_has_tool_use(message)
+        and message_text(message).strip()
     )
 
 
@@ -432,12 +429,13 @@ def body_with_codex_compat_instructions(
     """Append the routed Codex compatibility instruction to a Responses request.
 
     Codex rejects ``--append-system-prompt`` as a Claude-only flag, so the
-    instruction has to travel in the request body. The native Codex backend is
-    excluded: it serves OpenAI's own models, which do not need the nudge, and
-    rewriting instructions there would only invalidate the cached prefix.
+    instruction has to travel in the request body.  The text is constant and
+    appended only once to keep the upstream cached prefix stable.
     """
 
-    if not isinstance(body, dict) or is_native_codex or not compat_enabled:
+    # Native Codex needs the same pre-completion contract. Its separate SSE
+    # completion gate validates the response structure after generation.
+    if not isinstance(body, dict) or (not is_native_codex and not compat_enabled):
         return body
     existing = str(body.get("instructions") or "")
     if compat_prompt in existing:
@@ -489,15 +487,12 @@ def recover_preamble_only_turn(
         reasoning_only and message_exhausted_reasoning_output_budget(message)
     )
     kimi_turn = _is_kimi_turn(provider, body)
-    kimi_promised_followup = (
-        kimi_turn
-        and kimi_message_promises_followup(message)
-    )
+    completion_check = message_requires_completion_check(body, message)
     if (
         not empty_end_turn
         and not repeated_tool_guard
         and not reasoning_only
-        and not kimi_promised_followup
+        and not completion_check
         and not services.should_retry(body, text, [])
     ):
         return message
@@ -511,8 +506,8 @@ def recover_preamble_only_turn(
         if reasoning_output_budget
         else "reasoning_only"
         if reasoning_only
-        else "promised_followup"
-        if kimi_promised_followup
+        else "completion_check"
+        if completion_check
         else "preamble_only"
     )
     services.log(
@@ -525,6 +520,8 @@ def recover_preamble_only_turn(
         if repeated_tool_guard
         else CODEX_EMPTY_REASONING_CONTINUATION_NUDGE
         if empty_end_turn or reasoning_only
+        else CODEX_STRICT_CONTINUATION_NUDGE
+        if completion_check
         else CODEX_CONTINUATION_NUDGE
     )
     recovery_config = dict(pcfg)
@@ -610,6 +607,8 @@ def recover_preamble_only_turn(
         if not isinstance(retried, dict):
             return message
         if empty_end_turn or reasoning_only or repeated_tool_guard:
+            if message_confirms_completion(retried):
+                return message
             if (
                 message_has_only_runtime_stall_notice(retried)
                 or (
@@ -619,12 +618,19 @@ def recover_preamble_only_turn(
             ):
                 return message
             return retried
+        if message_confirms_completion(retried):
+            services.log(
+                "INFO",
+                f"codex_completion_confirmed provider={provider} "
+                f"attempt={attempt}/{max_attempts}",
+            )
+            return message
         if message_has_tool_use(retried):
             return _merged(message, retried)
 
         retried_text = message_text(retried)
         retryable = services.should_retry(retry_body, retried_text, []) or (
-            kimi_turn and kimi_message_promises_followup(retried)
+            kimi_turn and message_requires_completion_check(retry_body, retried)
         )
         services.log(
             "WARN" if retryable else "INFO",
@@ -659,6 +665,7 @@ def _merged(original: dict[str, Any], retried: dict[str, Any]) -> dict[str, Any]
 
 __all__ = [
     "CODEX_CONTINUATION_NUDGE",
+    "CODEX_COMPLETION_CONFIRMED",
     "CODEX_EMPTY_REASONING_CONTINUATION_NUDGE",
     "CODEX_REPEATED_TOOL_CONTINUATION_NUDGE",
     "RUNTIME_EMPTY_END_TURN_NOTICE_PREFIX",
@@ -673,7 +680,8 @@ __all__ = [
     "message_has_only_empty_end_turn_notice",
     "message_has_only_repeated_tool_notice",
     "message_has_only_runtime_stall_notice",
-    "kimi_message_promises_followup",
+    "message_confirms_completion",
+    "message_requires_completion_check",
     "message_without_empty_end_turn_notice",
     "message_without_repeated_tool_notice",
     "message_without_reasoning_notice",

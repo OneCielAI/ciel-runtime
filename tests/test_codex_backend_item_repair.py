@@ -5,6 +5,8 @@ import json
 import unittest
 import urllib.error
 
+from ciel_runtime_support.codex_router import read_codex_response_preamble
+from ciel_runtime_support.codex_turn_recovery import CODEX_COMPLETION_CONFIRMED
 from ciel_runtime_support.router_http import (
     CodexBackendHttpAdapter,
     CodexBackendRequestPorts,
@@ -92,6 +94,26 @@ class FakeResponse:
         return False
 
 
+class StreamResponse:
+    status = 200
+    headers = {"content-type": "text/event-stream"}
+
+    def __init__(self, payload):
+        self._buffer = io.BytesIO(payload)
+
+    def readline(self, limit=-1):
+        return self._buffer.readline(limit)
+
+    def read(self, size=-1):
+        return self._buffer.read(size)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_exc):
+        return False
+
+
 class SseFailure:
     """A 200 response whose control preamble carries the refusal."""
 
@@ -140,6 +162,169 @@ def adapter_for(upstream, logs, *, transport_retries=0, classify_transport=lambd
             sleep=lambda _seconds: None,
         ),
     )
+
+
+def _sse(event_type, payload):
+    return (
+        f"event: {event_type}\n"
+        f"data: {json.dumps(payload)}\n\n"
+    ).encode("utf-8")
+
+
+def _completed_response(output, response_id):
+    return b"".join(
+        [
+            _sse(
+                "response.output_item.done",
+                {
+                    "type": "response.output_item.done",
+                    "output_index": index,
+                    "item": item,
+                },
+            )
+            for index, item in enumerate(output)
+        ]
+        + [
+            _sse(
+                "response.completed",
+                {
+                    "type": "response.completed",
+                    "response": {
+                        "id": response_id,
+                        "status": "completed",
+                        "output": output,
+                    },
+                },
+            )
+        ]
+    )
+
+
+class CompletionGateUpstream:
+    def __init__(self, payloads):
+        self.payloads = list(payloads)
+        self.bodies = []
+
+    def __call__(self, request, **_kwargs):
+        self.bodies.append(json.loads(request.data.decode("utf-8")))
+        return StreamResponse(self.payloads.pop(0))
+
+
+def completion_gate_adapter(upstream, logs):
+    return CodexBackendHttpAdapter(
+        "https://api.openai.com/backend-api/codex",
+        CodexBackendRequestPorts(
+            body_with_channel_context=lambda body: (body, None),
+            begin_channel_delivery=lambda _handler, _body: None,
+            upstream_headers=lambda _config, _headers: {"authorization": "Bearer t"},
+            urlopen=upstream,
+            request_timeout=lambda _config: 30.0,
+        ),
+        CodexBackendRetryPorts(
+            retry_limit=lambda: 0,
+            read_preamble=read_codex_response_preamble,
+            retry_wait=lambda _attempt: 0.0,
+            log=lambda level, message: logs.append((level, message)),
+            publish=lambda **_kwargs: None,
+            sleep=lambda _seconds: None,
+        ),
+    )
+
+
+class NativeCodexCompletionGateTests(unittest.TestCase):
+    @staticmethod
+    def body():
+        return {
+            "model": "gpt-5.6-terra",
+            "store": False,
+            "stream": True,
+            "input": [
+                {"type": "message", "role": "user", "content": "perform work"}
+            ],
+            "tools": [{"type": "function", "name": "shell", "parameters": {}}],
+        }
+
+    @staticmethod
+    def candidate_output(text="candidate"):
+        return [
+            {"type": "reasoning", "encrypted_content": "sealed"},
+            {
+                "type": "message",
+                "role": "assistant",
+                "content": [{"type": "output_text", "text": text}],
+            },
+        ]
+
+    def test_no_tool_reasoning_is_replaced_by_validator_tool_call(self):
+        original = _completed_response(self.candidate_output("unperformed"), "resp_1")
+        action = [
+            {"type": "reasoning", "encrypted_content": "sealed-2"},
+            {
+                "type": "function_call",
+                "call_id": "call_1",
+                "name": "shell",
+                "arguments": "{}",
+            },
+        ]
+        validated = _completed_response(action, "resp_2")
+        upstream = CompletionGateUpstream([original, validated])
+        handler = FakeHandler()
+        logs = []
+
+        completion_gate_adapter(upstream, logs).forward_json(
+            handler, "codex", {}, self.body(), mutate_responses=True
+        )
+
+        self.assertEqual(2, len(upstream.bodies))
+        self.assertIn(CODEX_COMPLETION_CONFIRMED, json.dumps(upstream.bodies[1]))
+        self.assertIn(b'"type": "function_call"', handler.wfile.written)
+        self.assertNotIn(b"unperformed", handler.wfile.written)
+        self.assertTrue(
+            any("codex_completion_gate_continued" in message for _, message in logs)
+        )
+
+    def test_private_confirmation_relays_original_without_token(self):
+        original = _completed_response(self.candidate_output("finished result"), "resp_1")
+        confirmation = _completed_response(
+            [
+                {
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [
+                        {"type": "output_text", "text": CODEX_COMPLETION_CONFIRMED}
+                    ],
+                }
+            ],
+            "resp_2",
+        )
+        upstream = CompletionGateUpstream([original, confirmation])
+        handler = FakeHandler()
+
+        completion_gate_adapter(upstream, []).forward_json(
+            handler, "codex", {}, self.body(), mutate_responses=True
+        )
+
+        self.assertEqual(2, len(upstream.bodies))
+        self.assertIn(b"finished result", handler.wfile.written)
+        self.assertNotIn(CODEX_COMPLETION_CONFIRMED.encode(), handler.wfile.written)
+
+    def test_tool_response_is_streamed_without_validator_request(self):
+        action = [
+            {"type": "reasoning", "encrypted_content": "sealed"},
+            {
+                "type": "future_action_type",
+                "id": "action_1",
+            },
+        ]
+        upstream = CompletionGateUpstream([_completed_response(action, "resp_1")])
+        handler = FakeHandler()
+
+        completion_gate_adapter(upstream, []).forward_json(
+            handler, "codex", {}, self.body(), mutate_responses=True
+        )
+
+        self.assertEqual(1, len(upstream.bodies))
+        self.assertIn(b"future_action_type", handler.wfile.written)
 
 
 def sealed_body():

@@ -1,0 +1,148 @@
+okf_version: "1.0"
+knowledge:
+  task:
+    id: "kevin-codex-gpt-early-turn-completion-20260903"
+    date: "2026-09-03"
+    status: "implemented_and_live_kimi_verified"
+    objective: >-
+      Diagnose repeated Codex turn completion while requested work remains and
+      replace language-specific recovery with a protocol-level completion gate.
+
+  live_evidence:
+    kevin:
+      host: "kevin-codex@100.95.132.58"
+      hostname: "aap-pool-hera"
+      codex_thread: "01a03716-9bb1-77e2-8771-4329c3b0338f"
+      router_port: 8804
+      active_model_display: "gpt-5.6-terra medium fast"
+      transport: "/backend-api/codex"
+      observed_turn:
+        turn_id: "01a065ec-2ea7-7db0-8d56-e0329a0cfb0c"
+        final_at_utc: "2026-09-03T06:19:58.496Z"
+        completed_at_utc: "2026-09-03T06:19:58.608Z"
+        result: >-
+          The assistant output named another audit action, then the native
+          Responses stream emitted task_complete. Ciel and Codex processes
+          remained alive, so the horizontal line was a completed model turn,
+          not a crash.
+      goal_evidence:
+        at_utc: "2026-09-02T18:53:20.946Z"
+        call: 'tools.update_goal({status:"blocked"})'
+        later_state: "Goal stalled (/goal resume)"
+    cielarvis:
+      workspace: "C:\\Users\\djlov\\cielarvis"
+      provider: "ollama-cloud"
+      model: "kimi-k3"
+      codex_thread: "01a01dff-f0f0-7ef3-8cde-1d9916510f35"
+      missed_completed_turns_utc:
+        - "2026-09-03T06:13:24Z"
+        - "2026-09-03T06:14:23Z"
+        - "2026-09-03T06:18:12Z"
+        - "2026-09-03T06:32:36Z"
+      result: >-
+        Each response contained reasoning and visible status text but no tool
+        item, after which Codex recorded task_complete.
+
+  patch_history_findings:
+    confirmed:
+      - >-
+        Native GPT requests never entered recover_preamble_only_turn; the
+        backend adapter relayed their SSE after reading only a small error
+        preamble. Therefore Kimi recovery commits cannot be the direct cause of
+        Kevin's native GPT completed turn.
+      - >-
+        Commit 57fb375 added a provider-specific bounded Kimi continuation loop,
+        517d07a raised it to six attempts, and f9062db expanded Korean/English
+        regular-expression matching. Those recent changes were language
+        dependent and still missed observed wording.
+      - >-
+        The exact frequency increase cannot be attributed to a specific commit
+        from the collected evidence. The native gap predates the recent Kimi
+        commits, while the Kimi implementation itself did change recently.
+
+  rejected_implementation:
+    description: >-
+      An initial local change expanded Korean action words and applied the
+      expression to additional providers.
+    disposition: >-
+      Deleted before commit at the user's direction. No natural-language word,
+      phrase, language, task domain, or action-name matcher remains in the new
+      completion decision.
+
+  implementation:
+    translated_provider_gate:
+      trigger: >-
+        The request supplies tools, and the returned message structurally
+        contains reasoning plus visible text but no tool_use item.
+      handshake: >-
+        A private follow-up requires either the exact
+        <ciel_runtime_completion_confirmed/> control token when all requested
+        actions are complete, or the next real tool call when work remains.
+      delivery: >-
+        Confirmation retains the original answer and hides the control token;
+        a real tool call replaces/continues the candidate completed response.
+    native_codex_gate:
+      trigger: >-
+        A completed OpenAI Responses SSE has tools in the request, a reasoning
+        output item, visible assistant text, and no protocol action item.
+      buffering: >-
+        The response is spooled to disk after 1 MiB rather than retained in an
+        unbounded byte array. SSE events larger than 8 MiB disable validation
+        and preserve the original response.
+      state_replay: >-
+        Stored responses use previous_response_id; stateless responses replay
+        the returned output items, including encrypted reasoning. This follows
+        the official Responses state fields.
+      fallback: >-
+        Any parse, context, capacity, transport, or validator-protocol failure
+        relays the untouched original response.
+    native_prompt:
+      result: >-
+        The stable Codex compatibility instruction is now also present on the
+        native route and includes persistent-monitoring goal behavior.
+
+  verification:
+    focused_tests:
+      commands:
+        - "python tests/test_codex_completion_gate.py"
+        - "python tests/test_codex_backend_item_repair.py"
+        - "python tests/test_codex_turn_recovery.py"
+      result: "5 + 21 + 43 tests passed"
+    full_suite:
+      command: "npm test"
+      result:
+        unit: "1366 passed, 45 skipped"
+        router: "1093 passed"
+        channel: "403 passed, 80 skipped"
+        runtime: "276 passed, 12 skipped"
+        exit_code: 0
+    lint:
+      result: "passed"
+    packaging:
+      command: "npm pack --dry-run --json"
+      result: >-
+        Passed; 542 entries and ciel_runtime_support/codex_completion_gate.py
+        included.
+    live_ollama_cloud_kimi:
+      isolated_router_port: 9610
+      initial_response: >-
+        Protocol test acknowledged; standing by for the runtime completion check.
+      router_log: >-
+        codex_turn_retry provider=ollama-cloud reason=completion_check
+        model=ciel-runtime-ollama-cloud-kimi-k3 chars=73
+      delivered_action: 'function_call inspect_workspace {"scope":"all"}'
+      http_status: 200
+      cleanup: "The isolated router was stopped after verification."
+    native_openai:
+      result: >-
+        Native SSE buffering, private confirmation, action replacement, and
+        unknown future action types are covered by the router integration tests.
+        A live native OpenAI call has not yet been made with this uninstalled
+        source revision.
+
+  official_reference:
+    url: "https://developers.openai.com/api/reference/cli/resources/responses/methods/create"
+    confirmed_contract: >-
+      The Responses API defines previous_response_id for multi-turn state,
+      accepts prior response output items as input, and exposes encrypted
+      reasoning for stateless replay.

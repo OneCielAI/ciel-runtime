@@ -5,6 +5,7 @@ from __future__ import annotations
 import io
 import json
 import sys
+import tempfile
 import traceback
 import urllib.error
 import urllib.parse
@@ -30,6 +31,11 @@ from ciel_runtime_support.responses_input_compatibility import (
     repair_replayed_response_items,
 )
 from ciel_runtime_support.channel_llm_context import ChannelLlmInjectionDeferred
+from ciel_runtime_support.codex_completion_gate import (
+    ResponsesCompletionObservation,
+    completion_check_body,
+    request_requires_completion_check,
+)
 from ciel_runtime_support.request_body_policy import (
     RequestBodyCapacityExceeded,
     RequestBodyTooLarge,
@@ -61,6 +67,17 @@ class UpstreamContextExceeded(Exception):
         super().__init__(code)
         self.code = code
         self.payload = payload
+
+
+@dataclass(slots=True)
+class _BufferedCodexResponse:
+    status: int
+    headers: Any
+    stream: Any
+    observation: ResponsesCompletionObservation
+
+    def close(self) -> None:
+        self.stream.close()
 
 
 @dataclass(frozen=True, slots=True)
@@ -536,8 +553,120 @@ class CodexBackendHttpAdapter:
                     )
                     self._retry.sleep(wait)
                     continue
-                self._write_response(handler, response, preamble)
+                if mutate_responses and upstream_body.get("tools"):
+                    buffered = self._buffer_codex_response(response, preamble)
+                    chosen = buffered
+                    try:
+                        if request_requires_completion_check(
+                            upstream_body, buffered.observation
+                        ):
+                            validated = self._validate_codex_completion(
+                                provider,
+                                config,
+                                url,
+                                headers,
+                                upstream_body,
+                                buffered.observation,
+                            )
+                            if validated is not None:
+                                if (
+                                    validated.observation.status == "completed"
+                                    and validated.observation.has_action
+                                ):
+                                    chosen = validated
+                                    self._retry.log(
+                                        "WARN",
+                                        "codex_completion_gate_continued "
+                                        f"model={str(upstream_body.get('model') or '-')}",
+                                    )
+                                elif validated.observation.completion_confirmed:
+                                    self._retry.log(
+                                        "INFO",
+                                        "codex_completion_gate_confirmed "
+                                        f"model={str(upstream_body.get('model') or '-')}",
+                                    )
+                            self._write_buffered_response(handler, chosen)
+                            if validated is not None and validated is not chosen:
+                                validated.close()
+                        else:
+                            self._write_buffered_response(handler, chosen)
+                    finally:
+                        if chosen is not buffered:
+                            chosen.close()
+                        buffered.close()
+                else:
+                    self._write_response(handler, response, preamble)
                 break
+
+    def _buffer_codex_response(
+        self, response: Any, preamble: Any
+    ) -> _BufferedCodexResponse:
+        stream = tempfile.SpooledTemporaryFile(max_size=1024 * 1024)
+        observation = ResponsesCompletionObservation()
+        initial = bytes(getattr(preamble, "payload", b"") or b"")
+        if initial:
+            stream.write(initial)
+            observation.feed(initial)
+        while chunk := response.read(65_536):
+            stream.write(chunk)
+            observation.feed(chunk)
+        observation.finish()
+        stream.seek(0)
+        return _BufferedCodexResponse(
+            status=int(getattr(response, "status", 200)),
+            headers=response.headers,
+            stream=stream,
+            observation=observation,
+        )
+
+    def _validate_codex_completion(
+        self,
+        provider: str,
+        config: dict[str, Any],
+        url: str,
+        headers: dict[str, str],
+        upstream_body: dict[str, Any],
+        observation: ResponsesCompletionObservation,
+    ) -> _BufferedCodexResponse | None:
+        validation_body = completion_check_body(upstream_body, observation)
+        validation_data = json.dumps(validation_body).encode("utf-8")
+        dump_upstream_request(url, validation_data, self._retry.log)
+        request = urllib.request.Request(
+            url, data=validation_data, headers=headers, method="POST"
+        )
+        try:
+            with self._open_with_transport_retry(
+                request,
+                provider,
+                config,
+                str(upstream_body.get("model") or ""),
+                "completion_check",
+            ) as response:
+                preamble = self._retry.read_preamble(response)
+                if preamble is not None and (
+                    preamble.capacity_error_code
+                    or getattr(preamble, "context_error_code", None)
+                ):
+                    return None
+                return self._buffer_codex_response(response, preamble)
+        except Exception as exc:  # noqa: BLE001 - preserve the original response
+            self._retry.log(
+                "WARN",
+                "codex_completion_gate_failed "
+                f"error={type(exc).__name__}: {exc}",
+            )
+            return None
+
+    def _write_buffered_response(
+        self, handler: BaseHTTPRequestHandler, response: _BufferedCodexResponse
+    ) -> None:
+        handler.send_response(response.status)
+        self.copy_response_headers(handler, response.headers)
+        handler.end_headers()
+        response.stream.seek(0)
+        while chunk := response.stream.read(65_536):
+            handler.wfile.write(chunk)
+            handler.wfile.flush()
 
     def _open_with_transport_retry(
         self,

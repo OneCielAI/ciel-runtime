@@ -19,6 +19,13 @@ def work_request_body(**extra):
 
     body = {
         "model": "ciel-runtime-deepseek-deepseek-v4-flash",
+        "tools": [
+            {
+                "name": "exec_command",
+                "description": "Run a command",
+                "input_schema": {"type": "object", "properties": {}},
+            }
+        ],
         "messages": [
             {
                 "role": "user",
@@ -221,6 +228,56 @@ class RecoverPreambleOnlyTurnTests(unittest.TestCase):
         )
 
         self.assertEqual(completed, recovered)
+        self.assertEqual(1, len(calls))
+
+    def test_reasoning_without_tool_uses_structural_completion_check(self):
+        calls = []
+        original = reasoning_promise_message(
+            "확인된 worker 네 개는 모두 실행 중이고 현재 broker position은 없습니다. "
+            + "관측된 상태와 검증 결과를 구체적으로 기록했습니다. " * 20
+            + "즉 다음 지속 감사의 첫 대상은 이 사례입니다. 분 단위 경로로 판정하겠습니다."
+        )
+        self.assertFalse(
+            ciel_runtime.should_retry_preamble_only_turn(
+                work_request_body(), codex_turn_recovery.message_text(original), []
+            )
+        )
+
+        recovered = codex_turn_recovery.recover_preamble_only_turn(
+            None,
+            "openai",
+            {},
+            work_request_body(model="gpt-5.6-terra"),
+            original,
+            self._services(tool_message("다음 감사를 실행합니다."), calls),
+        )
+
+        self.assertTrue(codex_turn_recovery.message_has_tool_use(recovered))
+        self.assertEqual(1, len(calls))
+        self.assertIn(
+            codex_turn_recovery.CODEX_COMPLETION_CONFIRMED,
+            calls[0]["messages"][-1]["content"][0]["text"],
+        )
+
+    def test_completion_handshake_keeps_original_answer_private(self):
+        calls = []
+        original = reasoning_promise_message("arbitrary completed response")
+        confirmation = text_message(codex_turn_recovery.CODEX_COMPLETION_CONFIRMED)
+
+        recovered = codex_turn_recovery.recover_preamble_only_turn(
+            None,
+            "deepseek",
+            {},
+            work_request_body(),
+            original,
+            self._services(confirmation, calls),
+        )
+
+        self.assertEqual(original, recovered)
+        self.assertNotIn(
+            codex_turn_recovery.CODEX_COMPLETION_CONFIRMED,
+            codex_turn_recovery.message_text(recovered),
+        )
         self.assertEqual(1, len(calls))
 
     def test_continuation_nudge_preserves_complete_assistant_thinking(self):
@@ -596,7 +653,7 @@ class RecoverPreambleOnlyTurnTests(unittest.TestCase):
         self.assertTrue(codex_turn_recovery.message_has_tool_use(recovered))
         self.assertEqual(1, len(calls))
 
-    def test_kimi_substantive_answer_with_sequenced_action_retries(self):
+    def test_kimi_substantive_reasoning_answer_is_checked_without_word_matching(self):
         calls = []
         original = reasoning_promise_message(
             "원인을 찾았습니다. 화면 notice는 WebView에서 getUserMedia가 "
@@ -623,15 +680,48 @@ class RecoverPreambleOnlyTurnTests(unittest.TestCase):
 
         self.assertTrue(codex_turn_recovery.message_has_tool_use(recovered))
         self.assertEqual(1, len(calls))
+        opaque = reasoning_promise_message("任意の完了していない応答")
         self.assertTrue(
-            codex_turn_recovery.kimi_message_promises_followup(
-                reasoning_promise_message(
-                    "원인을 확인했습니다. 먼저 네이티브 모듈을 확인합니다."
-                )
-            )
+            codex_turn_recovery.message_requires_completion_check(body, opaque)
         )
 
-    def test_kimi_retries_repeated_substantive_sequenced_actions(self):
+    def test_cielarvis_live_kimi_reasoning_endings_are_retried_structurally(self):
+        observed = [
+            (
+                "그 방향으로 가겠습니다. 먼저 두 가지를 확인하고:\n\n"
+                "1. ciel-runtime 웹챗의 발화 시작을 외부에서 트리거할 API가 있는지\n"
+                "2. CIELARVIS의 TTS 재생 경로가 지금 어떻게 생겼는지\n\n"
+                "그다음 설정 창과 TTS 스트리밍 큐를 구현합니다."
+            ),
+            (
+                "WebView2의 origin을 secure로 인식하게 해서 기존 경로를 통하게 합니다. "
+                "이제 main.rs를 봅니다."
+            ),
+            (
+                "증거 취합 완료. 실제 경로를 확인했고, 이제 구현합니다.\n\n"
+                "먼저 Rust 측을 구축합니다."
+            ),
+            (
+                "Ciel Chat 버튼이 첫 단계에서 멈추는 것을 확인했습니다. "
+                "그 방향으로 구현합니다."
+            ),
+        ]
+
+        for text in observed:
+            with self.subTest(text=text):
+                calls = []
+                recovered = codex_turn_recovery.recover_preamble_only_turn(
+                    None,
+                    "ollama-cloud",
+                    {},
+                    work_request_body(model="ciel-runtime-ollama-cloud-kimi-k3"),
+                    reasoning_promise_message(text),
+                    self._services(tool_message("구현 도구를 실행합니다."), calls),
+                )
+                self.assertTrue(codex_turn_recovery.message_has_tool_use(recovered))
+                self.assertEqual(1, len(calls))
+
+    def test_kimi_retries_repeated_no_tool_reasoning_responses(self):
         calls = []
         results = [
             reasoning_promise_message(
@@ -686,7 +776,7 @@ class RecoverPreambleOnlyTurnTests(unittest.TestCase):
 
         self.assertEqual(0, captured[0]["gateway_retries"])
 
-    def test_promised_followup_match_is_kimi_only(self):
+    def test_structural_completion_check_recovers_other_reasoning_models_once(self):
         calls = []
         original = reasoning_promise_message(
             "17초는 순수 `to_tsvector` 계산에서도 발생했습니다. 조인 컬럼마다 "
@@ -703,8 +793,8 @@ class RecoverPreambleOnlyTurnTests(unittest.TestCase):
             self._services(tool_message(), calls),
         )
 
-        self.assertEqual(original, recovered)
-        self.assertEqual([], calls)
+        self.assertTrue(codex_turn_recovery.message_has_tool_use(recovered))
+        self.assertEqual(1, len(calls))
 
     def test_kimi_projected_reasoning_notice_retries_without_replaying_notice(self):
         calls = []
@@ -811,14 +901,16 @@ class CodexCompatInstructionTests(unittest.TestCase):
         self.assertEqual(once["instructions"], twice["instructions"])
         self.assertIs(once, twice)
 
-    def test_native_codex_backend_is_left_alone(self):
+    def test_native_codex_backend_receives_persistent_work_guard(self):
         original = {"instructions": "Base codex instructions."}
         with mock.patch.object(ciel_runtime, "codex_routed_enabled", return_value=True):
             body = ciel_runtime.body_with_codex_compat_instructions(
                 self.CFG, "openai", {}, original
             )
 
-        self.assertIs(original, body)
+        self.assertIsNot(original, body)
+        self.assertIn(ROUTED_CODEX_COMPAT_PROMPT, body["instructions"])
+        self.assertIn("unchanged external state is a verified wait", body["instructions"])
 
     def test_disabled_by_the_same_switch_as_the_claude_prompt(self):
         original = {"instructions": "Base."}
