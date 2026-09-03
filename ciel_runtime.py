@@ -177,6 +177,7 @@ from ciel_runtime_support.zai_start_plan_captcha import zai_start_plan_runtime_h
 from ciel_runtime_support.headless_config import HeadlessConfigCommands, HeadlessConfigServices, HeadlessEnvFileLoader, apply_headless_config
 from ciel_runtime_support.http_response import ChannelDeliveryGuard, HttpResponseAdapter
 from ciel_runtime_support.kimi_runtime_context import KimiConfigurationPorts, KimiIdentityPorts, KimiLifecyclePorts, KimiProcessPorts, KimiRuntimeCompatibilityApi, KimiRuntimeContext
+from ciel_runtime_support.muse_runtime_context import MuseConfigurationPorts, MuseLifecyclePorts, MuseProcessPorts, MuseRuntimeCompatibilityApi, MuseRuntimeContext
 from ciel_runtime_support.zcode_runtime_context import ZcodeConfigurationPorts, ZcodeLifecyclePorts, ZcodeProcessPorts, ZcodeRuntimeCompatibilityApi, ZcodeRuntimeContext
 from ciel_runtime_support.launch_diagnostics import LaunchCommandDiagnostics, StderrCaptureAdapter
 from ciel_runtime_support.launch_state import LaunchStateRepository
@@ -1930,7 +1931,7 @@ def set_remote_instruction_config(key: str, value: Any) -> list[str]:
             remote[key] = max(1, min(30, int(str(value).strip())))
         except ValueError:
             return ["HTTP timeout must be a whole number from 1 to 30 seconds."]
-    elif key in {"claude_url", "codex_url", "agy_url", "kimi_url", "grok_url"}:
+    elif key in {"claude_url", "codex_url", "agy_url", "kimi_url", "grok_url", "muse_url"}:
         url = str(value or "").strip()
         if url:
             parsed = urllib.parse.urlparse(url)
@@ -1942,7 +1943,7 @@ def set_remote_instruction_config(key: str, value: Any) -> list[str]:
     elif key == "sync":
         results = [
             sync_remote_instruction(runtime, reason="manual")
-            for runtime in ("claude", "codex", "agy", "kimi", "grok")
+            for runtime in ("claude", "codex", "agy", "kimi", "grok", "muse")
         ]
         visible = [result for result in results if result.status != "not-configured"]
         return [
@@ -3995,6 +3996,27 @@ _ZCODE_RUNTIME_API = ZcodeRuntimeCompatibilityApi(zcode_runtime_context)
 def install_zcode_if_missing() -> str: return _ZCODE_RUNTIME_API.install_if_missing()
 def launch_zcode(passthrough: list[str] | None = None, **_kwargs: Any) -> int: return _ZCODE_RUNTIME_API.launch(list(passthrough or []))
 launch_zcode = SynchronizedLaunch(launch_zcode, sync_remote_launch_assets, "zcode")
+
+def muse_runtime_context() -> MuseRuntimeContext:
+    return MuseRuntimeContext(
+        process=MuseProcessPorts(find_executable, subprocess.run, subprocess.call, print, os.environ, path_with_ciel_runtime_user_dirs, os.name),
+        config=MuseConfigurationPorts(load_config, get_current_provider),
+        lifecycle=MuseLifecyclePorts(
+            materialize_runtime_command,
+            start_router_if_needed,
+            run_with_router_lifetime,
+            subprocess_call_with_channel_wake_proxy,
+            channel_delivery_mode,
+            runtime_launch.web_backend_start_requested,
+            lambda provider, model: record_launch_state_for_cwd(current_launch_cwd_key(), provider, "muse-native-subscription", model),
+            _set_channel_transcript_scope,
+        ),
+    )
+
+_MUSE_RUNTIME_API = MuseRuntimeCompatibilityApi(muse_runtime_context)
+def install_muse_if_missing(): return _MUSE_RUNTIME_API.install_if_missing()
+def launch_muse(passthrough: list[str] | None = None, **_kwargs: Any) -> int: return _MUSE_RUNTIME_API.launch(list(passthrough or []))
+launch_muse = SynchronizedLaunch(launch_muse, sync_remote_launch_assets, "muse")
 enable_ansi = enable_terminal_ansi
 ansi = render_ansi
 animated_ansi_text = render_animated_ansi_text
@@ -4107,7 +4129,7 @@ def portable_prelaunch_menu(passthrough: list[str] | None = None) -> int:
             config=prelaunch.PrelaunchConfig(clear_model_cache, current_provider_panel_choice, default_base_url, get_current_provider, load_config, preflight_lines,
                                               provider_menu_label, save_config, settings_ready_except_api_key, read_model_list_cache),
             launch_policy=prelaunch.PrelaunchLaunchPolicy(agy_launch_enabled_for_provider, claude_launch_enabled_for_provider, codex_launch_enabled_for_provider,
-                                                          launch_blockers_require_api_key, launch_readiness_errors, launch_kimi, launch_grok, launch_zcode),
+                                                          launch_blockers_require_api_key, launch_readiness_errors, launch_kimi, launch_grok, launch_zcode, launch_muse),
             panel_rows=prelaunch.PrelaunchPanelRows(advisor_model_panel_rows, api_key_panel_rows, base_url_panel_rows, context_setup_panel_rows, language_panel_rows,
                                                     llm_option_panel_rows, llm_preset_panel_rows, log_level_panel_rows, model_panel_rows, provider_panel_rows),
             mutations=prelaunch.PrelaunchMutations(apply_context_setup_config, apply_llm_preset_config, apply_timeout_profile_to_provider,
@@ -4914,7 +4936,7 @@ def cli_services() -> cli_dispatch.CliServices:
         core=cli_dispatch.CliCore(VERSION, cli_usage, find_executable, get_current_provider, load_config, pop_headless_env_file_args,
                                   portable_provider_menu, run_external_menu, run_quiet_upgrade_and_exit),
         runtime=cli_dispatch.CliRuntime(agy_passthrough_has_command, codex_passthrough_has_command, last_launch_runtime, launch_agy, launch_claude,
-                                        launch_codex, launch_codex_app_server, native_agy_enabled, native_codex_enabled, launch_grok, launch_zcode),
+                                        launch_codex, launch_codex_app_server, native_agy_enabled, native_codex_enabled, launch_grok, launch_zcode, launch_muse),
         provider_commands=cli_dispatch.CliProviderCommands(cmd_advisor_model, cmd_api_key, cmd_base_url, cmd_language, cmd_log_level, cmd_model,
                                                            cmd_models, cmd_provider, cmd_provider_options, cmd_set_api_key),
         special_commands=cli_dispatch.CliSpecialCommands(cmd_ollama_catalog, cmd_ollama_native, cmd_ollama_options, cmd_web_fetch, cmd_web_search),
@@ -4924,7 +4946,7 @@ def cli_services() -> cli_dispatch.CliServices:
     ).services()
 def cli_parser_services() -> cli_parser.CliParserServices:
     return cli_assembly.CliParserAssembly(
-            launch=cli_parser.CliParserLaunch(cmd_cli, cmd_launch, cmd_launch_codex, cmd_launch_codex_app_server, cmd_launch_agy, serve, cmd_remote_bridge, cmd_launch_grok, cmd_launch_zcode),
+            launch=cli_parser.CliParserLaunch(cmd_cli, cmd_launch, cmd_launch_codex, cmd_launch_codex_app_server, cmd_launch_agy, serve, cmd_remote_bridge, cmd_launch_grok, cmd_launch_zcode, cmd_launch_muse),
             runtime=cli_parser.CliParserRuntime(cmd_version, cmd_status, cmd_env, cmd_stop, cmd_test),
             settings=cli_parser.CliParserSettings(cmd_language, cmd_web_search, cmd_web_fetch, cmd_log_level, *event_settings_cli.handlers(event_settings_cli.EventSettingsCliPorts(load_config, save_config, external_event_receiver_service, lambda: set_remote_instruction_config('sync', ''), sync_all_remote_memories, print, lambda: USAGE_API_KEYS))),
             provider=cli_parser.CliParserProvider(cmd_ollama_native, cmd_ollama_options, cmd_provider_options, cmd_ollama_catalog, cmd_provider,
@@ -4935,7 +4957,8 @@ def cli_parser_services() -> cli_parser.CliParserServices:
 def cli_application_context() -> CliApplicationContext:
     return CliApplicationContext(
         dispatch=CliApplicationDispatchPorts(dispatch_cli, cli_services, launch_claude, launch_codex, launch_codex_app_server,
-                                             launch_agy, launch_kimi, run_kimi_oauth_login, launch_grok, launch_zcode),
+                                             launch_agy, launch_kimi, run_kimi_oauth_login,
+                                             {"grok": launch_grok, "zcode": launch_zcode, "muse": launch_muse}),
         presentation=CliApplicationPresentationPorts(build_cli_parser, cli_parser_services, VERSION, print, lambda: sys.argv),
     )
 
@@ -4949,6 +4972,7 @@ cmd_launch_codex_app_server = _CLI_APPLICATION_API.cmd_launch_codex_app_server
 cmd_launch_agy = _CLI_APPLICATION_API.cmd_launch_agy
 cmd_launch_grok = _CLI_APPLICATION_API.cmd_launch_grok
 cmd_launch_zcode = _CLI_APPLICATION_API.cmd_launch_zcode
+cmd_launch_muse = _CLI_APPLICATION_API.cmd_launch_muse
 cmd_version = _CLI_APPLICATION_API.cmd_version
 main = _CLI_APPLICATION_API.main
 

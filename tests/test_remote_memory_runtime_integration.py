@@ -69,6 +69,8 @@ class RemoteMemoryRuntimeIntegrationTests(unittest.TestCase):
             "launch_agy",
             "launch_kimi",
             "launch_grok",
+            "launch_zcode",
+            "launch_muse",
         ):
             with self.subTest(name=name):
                 launch = getattr(ciel_runtime, name)

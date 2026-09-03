@@ -18,6 +18,7 @@ class CliParserLaunch:
     remote_bridge: CliHandler
     launch_grok: CliHandler = lambda _args: None
     launch_zcode: CliHandler = lambda _args: None
+    launch_muse: CliHandler = lambda _args: None
 
 
 @dataclass(frozen=True)
@@ -87,6 +88,7 @@ def build_cli_parser(services: CliParserServices) -> argparse.ArgumentParser:
     _add_remainder_command(commands, "launch-agy", services.launch.launch_agy)
     _add_remainder_command(commands, "launch-grok", services.launch.launch_grok)
     _add_remainder_command(commands, "launch-zcode", services.launch.launch_zcode)
+    _add_remainder_command(commands, "launch-muse", services.launch.launch_muse)
     commands.add_parser("serve").set_defaults(func=services.launch.serve)
     bridge = commands.add_parser("bridge")
     bridge.add_argument(

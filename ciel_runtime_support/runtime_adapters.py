@@ -116,12 +116,41 @@ class ZcodeRuntimeAdapter(CliRuntimeAdapter):
         return RuntimeCommand(argv=tuple(argv), env=dict(self.environment), cwd=spec.cwd)
 
 
+class MuseRuntimeAdapter(CliRuntimeAdapter):
+    """Official Muse Code CLI with optional WSL command prefix."""
+
+    def build_command(self, spec: LaunchSpec) -> RuntimeCommand:
+        options = spec.runtime.options
+        argv = [str(spec.runtime.executable or self.executable)]
+        argv.extend(str(value) for value in options.get("prefix_args", ()))
+        passthrough = list(spec.passthrough)
+        subcommand = passthrough[0] if passthrough else ""
+        utility_commands = {
+            "config", "export", "trace", "skills", "sandbox", "schema", "serve",
+            "session-message", "auth", "login", "logout", "init", "help", "version",
+        }
+        if subcommand in utility_commands or subcommand in {"--help", "-h", "--version", "-V", "-v"}:
+            argv.extend(passthrough)
+            return RuntimeCommand(argv=tuple(argv), env=dict(self.environment), cwd=spec.cwd)
+        if subcommand in {"exec", "resume"}:
+            argv.append(passthrough.pop(0))
+        model = str(options.get("model") or "").strip()
+        if model:
+            argv.extend(("--model", model))
+        effort = str(options.get("reasoning_effort") or "").strip()
+        if effort:
+            argv.extend(("--reasoning-effort", effort))
+        argv.extend(passthrough)
+        return RuntimeCommand(argv=tuple(argv), env=dict(self.environment), cwd=spec.cwd)
+
+
 RUNTIME_ADAPTERS: AdapterRegistry[RuntimeAdapter] = AdapterRegistry()
 RUNTIME_ADAPTERS.register("claude", lambda **kwargs: ClaudeRuntimeAdapter(name="claude", **kwargs))
 RUNTIME_ADAPTERS.register("codex", lambda **kwargs: CodexRuntimeAdapter(name="codex", **kwargs))
 RUNTIME_ADAPTERS.register("agy", lambda **kwargs: AgyRuntimeAdapter(name="agy", **kwargs))
 RUNTIME_ADAPTERS.register("grok", lambda **kwargs: GrokRuntimeAdapter(name="grok", **kwargs))
 RUNTIME_ADAPTERS.register("zcode", lambda **kwargs: ZcodeRuntimeAdapter(name="zcode", **kwargs))
+RUNTIME_ADAPTERS.register("muse", lambda **kwargs: MuseRuntimeAdapter(name="muse", **kwargs))
 
 
 __all__ = [
@@ -131,5 +160,6 @@ __all__ = [
     "CliRuntimeAdapter",
     "CodexRuntimeAdapter",
     "GrokRuntimeAdapter",
+    "MuseRuntimeAdapter",
     "ZcodeRuntimeAdapter",
 ]

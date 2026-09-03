@@ -993,7 +993,7 @@ def sync_all_memory_pointers(
     """Download once and project the verified pointer for every runtime."""
 
     result = synchronizer.sync("codex", reason="manual")
-    for runtime in ("codex-app-server", "claude", "agy", "kimi", "grok"):
+    for runtime in ("codex-app-server", "claude", "agy", "kimi", "grok", "muse"):
         try:
             synchronizer.project_current_pointer(runtime)
         except (OSError, UnicodeError, ValueError) as exc:

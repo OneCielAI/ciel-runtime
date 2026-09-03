@@ -21,9 +21,9 @@ class ChannelPendingPollTests(unittest.TestCase):
         self.assertTrue(rendered.endswith(b"\r\n\x1b[2K\r"))
         self.assertIn(b"line one\x1b[K\r\n\x1b[2K\rhttps://example.test/full\x1b[K", rendered)
 
-    def options(self, *, enabled=True):
+    def options(self, *, enabled=True, confirm_submit=True):
         return ChannelPendingInjectionOptions(
-            enabled, False, True, True, 2, True, False, 0.1
+            enabled, False, True, True, 2, confirm_submit, False, 0.1
         )
 
     def services(self, *, active=False, inject=None, logs=None):
@@ -111,6 +111,29 @@ class ChannelPendingPollTests(unittest.TestCase):
         self.assertEqual(10, state.last_id)
         self.assertEqual(21, state.inflight_message_id)
         self.assertEqual(21, state.inflight_cursor)
+
+    def test_unconfirmed_single_write_commits_without_inflight_replay(self):
+        observed = []
+
+        def inject(*args, **kwargs):
+            observed.append(kwargs)
+            kwargs["injected_message_ids"].append(20)
+            return 20
+
+        state = ChannelPendingPollState(last_id=10)
+        poll_pending_channel_messages(
+            1.0,
+            1,
+            b"\r",
+            state,
+            self.options(confirm_submit=False),
+            self.policy(),
+            self.services(inject=inject),
+        )
+
+        self.assertEqual(20, state.last_id)
+        self.assertIsNone(state.inflight_message_id)
+        self.assertTrue(observed[0]["commit_cursor"])
 
     def test_periodic_safety_rescan_recovers_when_file_marker_was_missed(self):
         calls = []
