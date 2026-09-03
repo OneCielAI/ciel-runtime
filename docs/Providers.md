@@ -256,6 +256,24 @@ ZCode 버전의 선택된 Desktop provider는 fallback으로만 읽는다. 두 �
 
 ---
 
+## Meta Model API / Muse Spark
+
+- `muse-spark-1.3`과 `muse-spark-1.3-contributor`를 기본 1.3 계열로 제공한다.
+- Responses, Chat Completions, Messages를 각각 네이티브 프로토콜로 전달한다.
+- Responses의 `web_search`, `tool_search`, `defer_loading` 서버 도구와 검색
+  결과·URL citation을 보존한다.
+- 이미지, MP4 비디오, WAV/MP3 오디오, PDF/텍스트/JSON 문서 블록을 프로토콜별
+  원형으로 전달한다. Muse Spark 1.3 오디오는 Meta가 제한적 지원으로 명시하므로
+  고품질 오디오 작업에는 1.2 또는 Muse Voice Transcribe를 사용한다.
+- 인라인 파일은 최대 50,000,000 bytes이며, `/v1/files`는 파일당 1 GiB와 팀당
+  100 GiB를 지원한다. 추론용 업로드 purpose는 `user_data`이다.
+- PDF는 텍스트 기준 처음 100페이지와 페이지 이미지 기준 처음 50페이지를 처리한다.
+- Files API 업로드·목록·내용 조회·삭제는 로컬 라우터와 인증된 Remote Bridge에서
+  Meta 자격 증명으로 전달된다. 대용량 multipart 업로드는 메모리에 통째로 적재하지
+  않고 스트리밍된다.
+
+---
+
 ## vLLM / LM Studio
 
 - OpenAI 호환 로컬 서버.

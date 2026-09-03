@@ -41,7 +41,10 @@ MUSE_SPARK_CODEX_CATALOG = {
         {"effort": "low", "description": "Light reasoning"},
         {"effort": "medium", "description": "Moderate reasoning depth"},
         {"effort": "high", "description": "Deep reasoning"},
-        {"effort": "xhigh", "description": "Maximum reasoning depth"},
+        {
+            "effort": "xhigh",
+            "description": "Accepted alias; currently the same strength as high",
+        },
     ],
     "default_reasoning_level": "high",
 }
@@ -126,11 +129,17 @@ class MetaModelProviderAdapter(HttpBearerProviderAdapter):
         del model
         return bool(config.options.get("native_compat", True))
 
+    def supports_server_web_tools(self, config: ProviderConfig) -> bool:
+        del config
+        return True
+
     def supported_protocols(
         self, config: ProviderConfig, model: str | None = None
     ) -> frozenset[MessageProtocol]:
         del config, model
-        return frozenset({"anthropic_messages", "openai_responses"})
+        return frozenset(
+            {"anthropic_messages", "openai_chat", "openai_responses"}
+        )
 
     def select_protocol(
         self,
@@ -138,12 +147,9 @@ class MetaModelProviderAdapter(HttpBearerProviderAdapter):
         config: ProviderConfig,
         model: str | None = None,
     ) -> MessageProtocol:
-        del config, model
-        return (
-            "openai_responses"
-            if operation == "openai_responses"
-            else "anthropic_messages"
-        )
+        if operation in self.supported_protocols(config, model):
+            return operation
+        return "anthropic_messages"
 
     def model_configuration_profile(
         self, config: ProviderConfig
@@ -213,6 +219,26 @@ class MetaModelProviderAdapter(HttpBearerProviderAdapter):
             self._normalize_messages_request(normalized)
         return normalized
 
+    def normalize_request_options_for_protocol(
+        self,
+        config: ProviderConfig,
+        request: Mapping[str, Any],
+        protocol: MessageProtocol | None,
+    ) -> Mapping[str, Any]:
+        del config
+        normalized = dict(request)
+        if protocol == "openai_responses":
+            self._normalize_responses_request(normalized)
+        elif protocol == "openai_chat":
+            self._normalize_chat_request(normalized)
+        elif protocol == "anthropic_messages":
+            self._normalize_messages_request(normalized)
+        elif "input" in normalized and "messages" not in normalized:
+            self._normalize_responses_request(normalized)
+        else:
+            self._normalize_messages_request(normalized)
+        return normalized
+
     def normalize_tool_choice(
         self, config: ProviderConfig, model: str, tool_choice: Any
     ) -> Any:
@@ -252,7 +278,10 @@ class MetaModelProviderAdapter(HttpBearerProviderAdapter):
         reasoning = request.get("reasoning")
         if isinstance(reasoning, Mapping):
             projected = dict(reasoning)
-            projected["effort"] = cls._effort(projected.get("effort"))
+            projected["effort"] = cls._responses_effort(projected.get("effort"))
+            # Match the official OpenCode Meta path: keep a concise visible
+            # reasoning summary while encrypted_content carries replay state.
+            projected.setdefault("summary", "auto")
             request["reasoning"] = projected
 
     @classmethod
@@ -270,11 +299,22 @@ class MetaModelProviderAdapter(HttpBearerProviderAdapter):
         output_config = request.get("output_config")
         if isinstance(output_config, Mapping) and output_config.get("effort") is not None:
             projected_output = dict(output_config)
-            projected_output["effort"] = cls._effort(projected_output.get("effort"))
+            projected_output["effort"] = cls._messages_effort(
+                projected_output.get("effort")
+            )
             request["output_config"] = projected_output
 
     @staticmethod
-    def _effort(value: Any) -> str:
+    def _normalize_chat_request(request: dict[str, Any]) -> None:
+        # Meta Chat Completions documents only the automatic tool-selection
+        # mode. OpenAI clients can send a named function choice object; retain
+        # the tools but project that unsupported selector to Meta's auto mode.
+        tool_choice = request.get("tool_choice")
+        if isinstance(tool_choice, Mapping):
+            request["tool_choice"] = "auto"
+
+    @staticmethod
+    def _responses_effort(value: Any) -> str:
         effort = str(value or "high").strip().lower()
         if effort in {"none", "minimal"}:
             return "minimal"
@@ -283,6 +323,11 @@ class MetaModelProviderAdapter(HttpBearerProviderAdapter):
         if effort in {"max", "ultra"}:
             return "xhigh"
         return "high"
+
+    @classmethod
+    def _messages_effort(cls, value: Any) -> str:
+        effort = cls._responses_effort(value)
+        return "low" if effort == "minimal" else effort
 
 
 __all__ = [

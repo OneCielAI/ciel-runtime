@@ -20,6 +20,7 @@ REMOTE_LLM_PATHS = frozenset(
 REMOTE_GENERATION_PATHS = frozenset(
     {"/v1/chat/completions", "/v1/messages", "/v1/responses"}
 )
+REMOTE_FILES_PATH = "/v1/files"
 
 PROVIDER_HEADER = "x-ciel-runtime-provider"
 MODEL_HEADER = "x-ciel-runtime-model"
@@ -200,6 +201,8 @@ def remote_bridge_path_allowed(path: str) -> bool:
         normalized in REMOTE_LLM_PATHS
         or normalized in {"/ca/bridge", "/v1/models"}
         or normalized.startswith("/v1/models/")
+        or normalized == REMOTE_FILES_PATH
+        or normalized.startswith(REMOTE_FILES_PATH + "/")
     )
 
 
@@ -218,6 +221,7 @@ __all__ = [
     "REQUEST_API_KEY_MARKER",
     "REMOTE_BRIDGE_INCOMPATIBLE_PROVIDERS",
     "REMOTE_GENERATION_PATHS",
+    "REMOTE_FILES_PATH",
     "REMOTE_LLM_PATHS",
     "ROUTER_MANAGED_CREDENTIAL_PROVIDERS",
     "RemoteBridgeRoute",

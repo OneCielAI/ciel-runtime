@@ -373,6 +373,8 @@ from ciel_runtime_support.router_access import RouterAccessConfigService, Router
 from ciel_runtime_support.router_client_lifecycle import ManagedRouterLifetime, ManagedRouterLifetimePorts, RoutedLaunchDiagnosticPorts, RoutedLaunchDiagnostics, RouterClientRegistry, RouterClientRegistryPorts, RouterClientSupervisor, RouterClientSupervisorPorts, RouterLifetimeRunner, RouterLifetimeRunnerPorts
 from ciel_runtime_support.router_health_policy import RouterHealthPolicy
 from ciel_runtime_support.router_http import EventHttpAdapter, EventHttpPorts, RouterHttpCore, RouterHttpErrors, RouterHttpGetEndpoints, RouterHttpHandler, RouterHttpPostEndpoints, RouterHttpPresentation, RouterHttpRemoteBridge, RouterHttpServices
+from ciel_runtime_support.router_http import RouterHttpFileEndpoints
+from ciel_runtime_support.provider_files_proxy import ProviderFilesProxy, ProviderFilesProxyPorts
 from ciel_runtime_support.remote_bridge_runtime import RemoteBridgeRuntimeApi
 from ciel_runtime_support.router_observability_context import RequestTraceConfiguration
 from ciel_runtime_support.router_observability_context import RequestTracePorts as RouterRequestTracePorts
@@ -2943,6 +2945,22 @@ def _router_server_context() -> RouterServerContext:
         external_event_receiver_service().start(), _TELEMETRY_LOG_RUNTIME.start(), usage_services.start()
     def stop_router_services() -> None:
         usage_services.stop(), _TELEMETRY_LOG_RUNTIME.stop(), external_event_receiver_service().stop()
+    provider_files = ProviderFilesProxy(
+        ProviderFilesProxyPorts(
+            current_provider=get_current_provider,
+            bridge_enabled=_REMOTE_BRIDGE.enabled,
+            bridge_is_request=lambda handler, cfg: _ROUTER_ACCESS_POLICY.remote_bridge_request(handler, cfg, remote_bridge_access_token),
+            bridge_resolve=_REMOTE_BRIDGE.resolve,
+            upstream_base=provider_upstream_request_base,
+            join_url=join_url,
+            headers=provider_headers,
+            urlopen=provider_urlopen,
+            timeout_seconds=provider_request_timeout_seconds,
+            copy_response_headers=_copy_upstream_response_headers,
+            write_json=write_json,
+            log=router_log,
+        )
+    )
     http_services = RouterHttpServices(
         core=RouterHttpCore(load_config, reject_external_router_request, get_current_provider, parse_json_body, is_client_disconnect_error, router_log, observe_tui_runtime_response, router_request_body_policy(), RouterHttpRemoteBridge(_REMOTE_BRIDGE.enabled, _REMOTE_BRIDGE.resolve, _REMOTE_BRIDGE.status_payload, lambda handler, cfg: _ROUTER_ACCESS_POLICY.remote_bridge_request(handler, cfg, remote_bridge_access_token))),
         get=RouterHttpGetEndpoints(handle_tui_observation_get, handle_observability_get, handle_llm_config_get, lambda _handler, _path: False, handle_web_get,
@@ -2952,6 +2970,7 @@ def _router_server_context() -> RouterServerContext:
                                      handle_plan_post, route_runtime_post, handle_external_event_raw_post, handle_external_event_config_post, handle_usage_post, telemetry_raw=_TELEMETRY_LOG_RUNTIME.http.post),
         presentation=RouterHttpPresentation(render_router_home_html, router_health_payload, write_text_response, write_json, list_model_objects_for_request, resolve_requested_model, model_object, _REMOTE_BRIDGE.model_objects),
         errors=RouterHttpErrors(write_openai_responses_error, try_write_json),
+        files=RouterHttpFileEndpoints(provider_files.get, provider_files.post, provider_files.delete),
     )
     server_runtime = router_server_runtime.RouterServerRuntime(
         router_server_runtime.RouterServerConfig(ROUTER_INSTANCE_DIR, PID_PATH, ROUTER_PORT, ROUTER_BASE, LOG_LEVEL_PATH, LOG_LEVEL_NAMES, RouterHandler),

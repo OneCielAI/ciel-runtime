@@ -427,7 +427,7 @@ class RemoteMemoryRuntimeIntegrationTests(unittest.TestCase):
                 def read(self, size=-1):
                     return self.stream.read(size)
 
-            def policy(_provider, _pcfg, body):
+            def policy(_provider, _pcfg, body, _protocol=None):
                 projected = dict(body)
                 if "messages" in projected:
                     projected["messages"] = [

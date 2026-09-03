@@ -1,0 +1,140 @@
+okf: 1
+kind: implementation-journal
+task: meta-muse-spark-contributor-native-tools-and-files
+date: 2026-09-02
+status: implementation-verified
+scope:
+  provider: meta
+  model: muse-spark-1.3-contributor
+  surfaces:
+    - OpenAI Responses
+    - OpenAI Chat Completions
+    - Anthropic Messages
+    - OpenAI Files
+sources:
+  official:
+    - https://dev.meta.ai/docs/models/
+    - https://dev.meta.ai/docs/getting-started/cookbook
+    - https://github.com/meta-models/meta-model-cookbook
+  implementation_references:
+    - repository: https://github.com/meta-models/muse-code-sdk
+      adopted:
+        - preserve reasoning effort and reasoning-token accounting across turns
+    - repository: https://github.com/anomalyco/opencode
+      adopted:
+        - use native provider wire protocols
+        - request automatic reasoning summaries
+        - include encrypted reasoning for stateless replay
+        - leave sufficient output capacity for reasoning before tool emission
+confirmed_contract:
+  protocols:
+    - Responses, Chat Completions, and Messages are all supported by Muse Spark
+    - Responses web search uses a web_search server tool
+    - Responses tool search uses one tool_search server tool and deferred function tools
+  files:
+    inline_limit_bytes: 50000000
+    files_api_file_limit_bytes: 1073741824
+    team_storage_limit_bytes: 107374182400
+    inference_purpose: user_data
+    expiry_seconds_range: 3600..2592000
+    delete_route: DELETE /v1/files/{file_id}
+    mime_types:
+      image:
+        - image/png
+        - image/jpeg
+        - image/jpg
+        - image/gif
+        - image/webp
+        - image/x-icon
+      video:
+        - video/mp4
+      audio:
+        - audio/mpeg
+        - audio/wav
+      documents:
+        - application/pdf
+        - text/plain
+        - application/json
+        - application/jsonl
+    pdf_processing:
+      text_pages: first 100
+      rendered_page_images: first 50
+    audio_note: Muse Spark 1.3 accepts audio but Meta documents degraded support and recommends 1.2 or Muse Voice Transcribe for audio work
+observed_before_change:
+  compatibility_probe:
+    max_tokens: 128
+    result: stop_reason=max_tokens with no tool_use block
+  same_messages_tool_request:
+    max_tokens: 4096
+    result: tool_use compat_echo returned
+changes:
+  - added Muse model presets with 4096 compatibility output tokens and 1,048,576-token context
+  - made Chat Completions a native Meta protocol instead of routing it through Messages conversion
+  - declared native Meta server web-tool support
+  - preserved web_search, tool_search, defer_loading, result-inclusion, and multimedia blocks
+  - separated Responses minimal effort from Messages, where live Meta rejected minimal and low is the minimum
+  - matched OpenCode's Meta reasoning summary and encrypted reasoning replay options
+  - added streaming Files API forwarding so uploads do not accumulate in router memory
+  - authenticated /v1/files routes with the same Remote Bridge bearer boundary as model routes
+  - forwarded file response metadata and implemented list, content, and delete resource paths
+live_verification:
+  contributor_compatibility:
+    command: python ciel_runtime.py test 120 full
+    result: text, tool_use, and tool_result all passed
+  responses_web_search:
+    http_status: 200
+    output:
+      web_search_calls: 2
+      included_results: 12
+      url_citations: 1
+  responses_tool_search:
+    http_status: 200
+    output_types:
+      - reasoning
+      - message
+      - tool_search_call
+      - tool_search_output
+      - function_call
+    selected_function: lookup_issue
+  chat_tool_call:
+    automatic_choice_status: 200
+    named_choice_projected_to_auto_status: 200
+    finish_reason: tool_calls
+    selected_function: lookup_issue
+  files_pdf_round_trip:
+    upload_status: 200
+    uploaded_pdf_bytes: 13264
+    inference_status: 200
+    extracted_text: Dummy PDF file
+    delete_status: 200
+    deleted: true
+  messages_effort:
+    minimal_before_normalization: HTTP 400 unsupported output_config.effort
+    low_after_normalization: HTTP 200
+verification:
+  targeted:
+    - 35 Meta provider tests passed
+    - 12 remote-memory runtime integration tests passed
+    - 55 Remote Bridge tests passed
+    - 20 router request-limit tests passed
+    - Ruff passed
+  full_suite:
+    command: npm test
+    result: 3117 tests passed; 137 skipped; 0 failures
+  package:
+    - documentation metadata checks passed
+    - npm pack dry run included provider_files_proxy.py and this journal
+deployment:
+  local:
+    command: powershell -NoProfile -ExecutionPolicy Bypass -File ./install.ps1
+    result: passed
+    installed_version: 0.2.37
+    source_hash_match:
+      - ciel_runtime.py
+      - ciel_runtime_support/providers/meta.py
+      - ciel_runtime_support/provider_files_proxy.py
+    restored_current_provider: zai-start-plan
+  nightly: scheduled-on-nightly-push
+security:
+  - contributor API key was loaded from Ciel credential storage and never printed or written to this journal
+  - uploaded verification PDF was deleted from Meta Files after inference

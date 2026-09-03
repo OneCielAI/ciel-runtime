@@ -191,6 +191,15 @@ ROUTED_CODEX_COMPAT_PROMPT = (
 )
 LANGUAGES = {"en": "English", "ko": "한국어", "ja": "日本語", "zh": "中文"}
 MODEL_PRESETS: dict[str, dict[str, Any]] = {
+    # Muse Spark reasoning tokens consume the output budget.  A live
+    # contributor probe exhausted 128 tokens before it could emit tool_use;
+    # 4096 completed the same request and is also the documented minimum used
+    # by Meta's long-media examples.
+    "muse-spark-1.3": {"compat_max_tokens": 4096, "thinking": True, "num_ctx_min": 32768, "num_ctx_max": 1048576},
+    "muse-spark-1.3-contributor": {"compat_max_tokens": 4096, "thinking": True, "num_ctx_min": 32768, "num_ctx_max": 1048576},
+    "muse-spark-1.2": {"compat_max_tokens": 4096, "thinking": True, "num_ctx_min": 32768, "num_ctx_max": 1048576},
+    "muse-spark-1.2-contributor": {"compat_max_tokens": 4096, "thinking": True, "num_ctx_min": 32768, "num_ctx_max": 1048576},
+    "muse-spark-1.1": {"compat_max_tokens": 4096, "thinking": True, "num_ctx_min": 32768, "num_ctx_max": 1048576},
     "glm-5.3": {"compat_max_tokens": 64, "thinking": True, "num_ctx_min": 32768, "num_ctx_max": 1000000},
     "glm-5.3:cloud": {"compat_max_tokens": 64, "thinking": True, "num_ctx_min": 32768, "num_ctx_max": 1000000},
     "deepseek-v4-flash:0731": {"compat_max_tokens": 64, "thinking": True, "num_ctx_min": 32768, "num_ctx_max": 1000000},

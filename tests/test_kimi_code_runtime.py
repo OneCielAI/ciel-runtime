@@ -54,7 +54,11 @@ class KimiCodeRuntimeTests(unittest.TestCase):
             patch.object(ciel_runtime, "provider_upstream_request_base", return_value="https://api.kimi.com/coding"),
             patch.object(ciel_runtime, "resolve_requested_model", return_value="kimi-for-coding"),
             patch.object(ciel_runtime, "provider_upstream_model", return_value="kimi-for-coding"),
-            patch.object(ciel_runtime, "apply_provider_adapter_request_policy", side_effect=lambda _p, _c, body: body),
+            patch.object(
+                ciel_runtime,
+                "apply_provider_adapter_request_policy",
+                side_effect=lambda _p, _c, body, _protocol=None: body,
+            ),
             patch.object(ciel_runtime, "provider_chat_headers", return_value={"authorization": "Bearer actual-kimi-key"}),
             patch.object(ciel_runtime, "provider_urlopen", side_effect=urlopen),
             patch.object(ciel_runtime, "provider_request_timeout_seconds", return_value=60.0),

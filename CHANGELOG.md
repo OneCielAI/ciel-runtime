@@ -5,6 +5,11 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+- Complete Meta Muse Spark's native agent surface across Responses, Chat
+  Completions, and Messages. Hosted `web_search`/`tool_search`, deferred tools,
+  multimodal request blocks, and streaming `/v1/files` upload/list/download/
+  delete routes now pass through without lossy protocol conversion; Muse
+  compatibility probes reserve enough output budget for reasoning tool calls.
 - Add Meta Muse Spark 1.3 and `muse-spark-1.3-contributor` as first-class
   Meta Model API models. New configurations default to 1.3, existing catalogs
   are migrated without overwriting the selected model, and Codex/Claude receive

@@ -155,12 +155,20 @@ class RouterHttpErrors:
 
 
 @dataclass(frozen=True, slots=True)
+class RouterHttpFileEndpoints:
+    get: Callable[[Any, str, dict[str, Any]], bool]
+    post: Callable[[Any, str, int, str, dict[str, Any]], bool]
+    delete: Callable[[Any, str, dict[str, Any]], bool]
+
+
+@dataclass(frozen=True, slots=True)
 class RouterHttpServices:
     core: RouterHttpCore
     get: RouterHttpGetEndpoints
     post: RouterHttpPostEndpoints
     presentation: RouterHttpPresentation
     errors: RouterHttpErrors
+    files: RouterHttpFileEndpoints | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -216,7 +224,11 @@ class CodexBackendHttpAdapter:
     def copy_response_headers(handler: BaseHTTPRequestHandler, headers: Any) -> None:
         allowed = {
             "cache-control",
+            "content-disposition",
+            "content-length",
             "content-type",
+            "etag",
+            "last-modified",
             "openai-request-id",
             "request-id",
             "retry-after",
@@ -747,6 +759,8 @@ class RouterHttpHandler(BaseHTTPRequestHandler):
             return
         if services.core.reject_external(self, cfg):
             return
+        if services.files is not None and services.files.get(self, path, cfg):
+            return
         endpoints = services.get
         if endpoints.tui(self, path, query):
             return
@@ -1068,11 +1082,19 @@ class RouterHttpHandler(BaseHTTPRequestHandler):
             length = self._validated_content_length(path, services)
             if length is None:
                 return
+            content_type = str(
+                self.headers.get("content-type") or "application/json"
+            )
+            if (
+                services.files is not None
+                and services.files.post(self, path, length, content_type, cfg)
+            ):
+                return
             try:
                 admission = services.core.request_body_policy.admit(
                     path,
                     length,
-                    str(self.headers.get("content-type") or "application/json"),
+                    content_type,
                 )
                 with admission:
                     raw = self._read_request_body(path, services, length)
@@ -1291,6 +1313,8 @@ class RouterHttpHandler(BaseHTTPRequestHandler):
         path = urllib.parse.urlparse(self.path).path
         cfg = services.core.load_config()
         if services.core.reject_external(self, cfg):
+            return
+        if services.files is not None and services.files.delete(self, path, cfg):
             return
         services.presentation.write_json(
             self,

@@ -51,7 +51,10 @@ class CompatibilityProtocolCodec:
     def tool_request(self, model: str) -> dict[str, Any]:
         return {
             "model": model,
-            "max_tokens": 128,
+            # Reasoning models spend from the same output-token budget before
+            # emitting a tool call.  Keep the historical floor for compact
+            # models, while allowing model presets to reserve enough room.
+            "max_tokens": max(128, self.ports.max_tokens_for_model(model)),
             "stream": False,
             "messages": [
                 {
@@ -76,7 +79,7 @@ class CompatibilityProtocolCodec:
         )
         return {
             "model": model,
-            "max_tokens": 64,
+            "max_tokens": max(64, self.ports.max_tokens_for_model(model)),
             "stream": False,
             "messages": [
                 {

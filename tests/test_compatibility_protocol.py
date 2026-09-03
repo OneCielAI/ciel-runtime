@@ -28,9 +28,29 @@ class CompatibilityProtocolCodecTests(unittest.TestCase):
         tool = self.codec.tool_request("model")
 
         self.assertEqual(64, text["max_tokens"])
+        self.assertEqual(128, tool["max_tokens"])
         self.assertFalse(text["stream"])
         self.assertEqual("compat_echo", tool["tools"][0]["name"])
         self.assertEqual({"type": "tool", "name": "compat_echo"}, tool["tool_choice"])
+
+    def test_reasoning_model_budget_applies_to_tool_and_result_turns(self):
+        codec = CompatibilityProtocolCodec(
+            "compat_echo",
+            CompatibilityProtocolPorts(
+                max_tokens_for_model=lambda _model: 4096,
+                first_header=lambda _headers, _names: None,
+                parse_retry_after=lambda _value: None,
+                format_duration=str,
+            ),
+        )
+
+        self.assertEqual(4096, codec.tool_request("reasoning-model")["max_tokens"])
+        self.assertEqual(
+            4096,
+            codec.tool_result_request(
+                "reasoning-model", {"id": "tool-1", "input": {"text": "ping"}}
+            )["max_tokens"],
+        )
 
     def test_tool_result_request_preserves_tool_identity_and_input(self):
         request = self.codec.tool_result_request(
