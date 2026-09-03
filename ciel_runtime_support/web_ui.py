@@ -1756,6 +1756,7 @@ def render_web_chat_page(
             sender_id: 'web-user',
             recipients: ['all'],
             delivery: ['llm', 'native'],
+            input_transport: 'session_socket',
             thread_id: sessionId,
             kind: 'web_chat',
             message: outboundText,

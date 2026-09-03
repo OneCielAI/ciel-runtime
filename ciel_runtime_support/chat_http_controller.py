@@ -56,7 +56,7 @@ class ChatHttpWriteServices:
     submit_message: Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]] | None = None
     submit_notify: Callable[[dict[str, Any]], dict[str, Any]] | None = None
     submit_tty: Callable[..., dict[str, Any]] | None = None
-    default_input_transport: Callable[[], str] = lambda: "tty"
+    default_input_transport: Callable[[], str] = lambda: "session_socket"
 
 
 @dataclass(frozen=True, slots=True)

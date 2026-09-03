@@ -2334,6 +2334,94 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertIn("deliver over the Claude socket", send.call_args.args[0])
         write_all.assert_not_called()
 
+    def test_session_socket_failure_falls_back_to_tty_while_idle(self):
+        messages = [
+            {
+                "id": 42004,
+                "channel": "web-chat-session",
+                "thread_id": "thread-socket-fallback",
+                "sender_id": "web-user",
+                "message": "fall back without losing this request",
+                "kind": "web_chat",
+                "meta": {
+                    "source": "ciel-runtime-web-chat",
+                    "reply_channel": "web-chat-session",
+                    "reply_parent_id": 42004,
+                    "web_reply_token": "socket-fallback-token",
+                    "input_transport": "session_socket",
+                    "response_mode": "web_chat",
+                },
+                "delivery": ["llm"],
+            }
+        ]
+        with (
+            mock.patch.object(ciel_runtime, "read_chat_messages", return_value=messages),
+            mock.patch.object(ciel_runtime, "_latest_claude_transcript_path", return_value=None),
+            mock.patch.object(ciel_runtime, "_channel_stdin_active_turn", return_value=False),
+            mock.patch.object(ciel_runtime, "_channel_stdin_active_tool_call", return_value=False),
+            mock.patch.object(ciel_runtime._CLAUDE_SESSION_SOCKET, "send", return_value=False) as send,
+            mock.patch.object(ciel_runtime, "_write_fd_all") as write_all,
+            mock.patch.object(ciel_runtime, "_channel_wake_submit_delay_seconds", return_value=0),
+            mock.patch.object(ciel_runtime, "_commit_channel_llm_cursor_if_newer"),
+            mock.patch.object(ciel_runtime, "router_log") as router_log,
+        ):
+            last_id = ciel_runtime._inject_pending_channel_messages(
+                99,
+                42003,
+                web_chat_only=True,
+                commit_cursor=False,
+            )
+
+        self.assertEqual(42004, last_id)
+        send.assert_called_once()
+        self.assertTrue(write_all.called)
+        tty_prompt = write_all.call_args_list[0].args[1]
+        self.assertIn(b"fall back without losing this request", tty_prompt)
+        self.assertTrue(
+            any(
+                "requested=session_socket fallback=tty" in str(call.args[1])
+                for call in router_log.call_args_list
+                if len(call.args) > 1
+            )
+        )
+
+    def test_session_socket_failure_does_not_type_into_active_turn(self):
+        messages = [
+            {
+                "id": 42005,
+                "channel": "web-chat-session",
+                "sender_id": "web-user",
+                "message": "retain until the active turn is safe",
+                "kind": "web_chat",
+                "meta": {
+                    "source": "ciel-runtime-web-chat",
+                    "input_transport": "session_socket",
+                    "response_mode": "web_chat",
+                },
+                "delivery": ["llm"],
+            }
+        ]
+        with (
+            mock.patch.object(ciel_runtime, "read_chat_messages", return_value=messages),
+            mock.patch.object(ciel_runtime, "_latest_claude_transcript_path", return_value=None),
+            mock.patch.object(ciel_runtime, "_channel_stdin_active_turn", return_value=True),
+            mock.patch.object(ciel_runtime, "_channel_stdin_active_tool_call", return_value=False),
+            mock.patch.object(ciel_runtime._CLAUDE_SESSION_SOCKET, "send", return_value=False) as send,
+            mock.patch.object(ciel_runtime, "_write_fd_all") as write_all,
+            mock.patch.object(ciel_runtime, "_commit_channel_llm_cursor_if_newer"),
+            mock.patch.object(ciel_runtime, "router_log"),
+        ):
+            last_id = ciel_runtime._inject_pending_channel_messages(
+                99,
+                42004,
+                web_chat_only=True,
+                commit_cursor=False,
+            )
+
+        self.assertEqual(42004, last_id)
+        send.assert_called_once()
+        write_all.assert_not_called()
+
     def test_external_source_inputs_use_claude_session_socket(self):
         cases = (
             (

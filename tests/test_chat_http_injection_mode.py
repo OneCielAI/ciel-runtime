@@ -16,7 +16,7 @@ class Handler:
 
 
 class ChatHttpInjectionModeTests(unittest.TestCase):
-    def controller(self, calls, responses, default_transport="tty"):
+    def controller(self, calls, responses, default_transport="session_socket"):
         temp_dir = tempfile.TemporaryDirectory()
         self.addCleanup(temp_dir.cleanup)
 
@@ -47,7 +47,7 @@ class ChatHttpInjectionModeTests(unittest.TestCase):
             ),
         )
 
-    def test_claude_default_uses_session_socket_and_allows_tty_override(self):
+    def test_default_prefers_session_socket_and_allows_tty_override(self):
         calls = []
         responses = []
         controller = self.controller(calls, responses, "session_socket")
@@ -156,7 +156,7 @@ class ChatHttpInjectionModeTests(unittest.TestCase):
         self.assertEqual("structured", admitted["meta"]["injection_mode"])
         self.assertEqual("tty", admitted["meta"]["response_mode"])
         self.assertEqual("structured", responses[0][1]["input_mode"])
-        self.assertEqual("tty", responses[0][1]["input_transport"])
+        self.assertEqual("session_socket", responses[0][1]["input_transport"])
         self.assertEqual("tty", responses[0][1]["response_mode"])
 
     def test_router_input_transport_is_stored_independently_from_format(self):

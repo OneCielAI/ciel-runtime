@@ -4315,7 +4315,7 @@ def should_use_channel_stdin_proxy(use_router_mode: bool, passthrough: list[str]
     claude_config = cfg.get("claude_code") if isinstance(cfg, dict) else {}
     return not (isinstance(claude_config, dict) and claude_config.get("web_chat_session_bridge") is False)
 _CLAUDE_SESSION_SOCKET = ClaudeSessionSocketClient(HOME, router_log)
-def _default_channel_input_transport() -> str: return "session_socket" if str(_CHANNEL_TRANSCRIPT_SCOPE.get("runtime") or "").lower() == "claude" and _CLAUDE_SESSION_SOCKET.available() else "tty"
+def _default_channel_input_transport() -> str: return "session_socket"
 def _channel_pending_scan_limit() -> int: return channel_runtime_environment_policy().pending_scan_limit()
 def _channel_stdin_wake_batch_limit() -> int: return channel_runtime_environment_policy().wake_batch_limit()
 _CHANNEL_LLM_TOOL_CONTEXT_LOCK = threading.Lock()

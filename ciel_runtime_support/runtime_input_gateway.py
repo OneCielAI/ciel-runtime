@@ -17,10 +17,10 @@ from typing import Any, Callable
 class RuntimeInputGateway:
     append: Callable[[dict[str, Any]], dict[str, Any]]
     project_attachment: Callable[[dict[str, Any]], dict[str, Any]] | None = None
-    default_input_transport: Callable[[], str] = lambda: "tty"
+    default_input_transport: Callable[[], str] = lambda: "session_socket"
 
     def _transport(self, value: Any = None) -> str:
-        transport = str(value or self.default_input_transport() or "tty").strip().lower().replace("-", "_")
+        transport = str(value or self.default_input_transport() or "session_socket").strip().lower().replace("-", "_")
         aliases = {
             "socket": "session_socket",
             "claude_socket": "session_socket",

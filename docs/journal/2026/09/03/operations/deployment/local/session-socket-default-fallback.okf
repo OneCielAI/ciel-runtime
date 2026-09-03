@@ -1,0 +1,41 @@
+task:
+  title: Local deployment of session-socket-first Web Chat transport
+  date: 2026-09-03
+  workspace: C:/Users/djlov/ciel-runtime
+
+source_verification:
+  full_suite:
+    unit: {passed: 1368, skipped: 45}
+    router: {passed: 1094, skipped: 0}
+    channel: {passed: 405, skipped: 80}
+    runtime: {passed: 276, skipped: 12}
+    total_passed: 3143
+    total_skipped: 137
+  ruff: passed
+  compileall: passed
+  git_diff_check: passed
+
+deployment:
+  command: .\\install.ps1
+  result: passed
+  target: C:/Users/djlov/.local/share/ciel-runtime
+  launcher: C:/Users/djlov/.local/bin/ciel-runtime.ps1
+  reported_version: 0.2.37
+  path_priority: Local launcher is resolved before the AppData npm launcher.
+
+installed_evidence:
+  source_sha256_matches:
+    ciel_runtime.py: true
+    ciel_runtime_support/web_ui.py: true
+    ciel_runtime_support/channel_pending_injection.py: true
+    ciel_runtime_support/runtime_input_gateway.py: true
+    ciel_runtime_support/chat_http_controller.py: true
+  confirmed_markers:
+    - Built-in Web Chat sends top-level input_transport session_socket.
+    - Runtime Input Gateway default is session_socket.
+    - HTTP controller default is session_socket.
+    - Installed pending injection contains session_socket-to-TTY fallback paths.
+
+runtime_boundary:
+  active_processes_restarted: false
+  reason: Local deployment replaces the installation for future launches; restarting multiple active user sessions was not authorized.

@@ -146,12 +146,12 @@ def inject_pending_channel_messages(
             if requested_session_socket and io.write_session_socket is None:
                 io.log(
                     "WARN",
-                    f"channel_stdin_proxy_deferred cursor={previous_last_id} message_id={message_id} "
-                    f"channel={channel} reason=session_socket_transport_unavailable",
+                    f"channel_stdin_proxy_transport_fallback cursor={previous_last_id} "
+                    f"message_id={message_id} channel={channel} "
+                    "requested=session_socket fallback=tty "
+                    "reason=session_socket_transport_unavailable",
                 )
-                if pending:
-                    break
-                return previous_last_id
+                requested_session_socket = False
             if not requested_session_socket and (active_tool_call or active_turn):
                 reason = "active_tool_call" if active_tool_call else "active_turn"
                 io.log("INFO", f"channel_stdin_proxy_deferred cursor={previous_last_id} reason={reason}")
@@ -285,6 +285,25 @@ def inject_pending_channel_messages(
         try:
             if pending_uses_session_socket:
                 submitted = bool(io.write_session_socket and io.write_session_socket(prompt, pending))
+                if submitted is False and not (active_tool_call or active_turn):
+                    ids = ",".join(str(message.get("id") or "") for message in pending)
+                    io.log(
+                        "WARN",
+                        "channel_stdin_proxy_transport_fallback "
+                        f"message_ids={ids} requested=session_socket fallback=tty "
+                        "reason=session_socket_submit_failed",
+                    )
+                    submitted = io.write_prompt(
+                        master_fd,
+                        prompt,
+                        submit_bytes,
+                        submit_retry_count=submit_retry_count,
+                        confirm_submit=confirm_submit,
+                        bracketed_paste=bracketed_paste,
+                        submit_delay_seconds=submit_delay_seconds,
+                    )
+                    if submitted is not False:
+                        pending_uses_session_socket = False
             else:
                 submitted = io.write_prompt(
                     master_fd,

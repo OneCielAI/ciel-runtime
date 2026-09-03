@@ -5,6 +5,10 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+- Make `session_socket` the explicit default for Web Chat and every Runtime
+  Input Gateway source. When a runtime has no usable Claude messaging socket,
+  idle delivery now falls back to TTY; an active turn retains the durable input
+  until terminal injection is safe. Explicit TTY and router selections remain.
 - Improve Meta Muse Spark cache reuse for Codex Responses sessions by adding
   the provider-documented `24h` retention hint when Codex supplies a stable
   `prompt_cache_key`. Cache activity now records privacy-safe request-shape
