@@ -73,6 +73,20 @@ def tool_message(text=""):
     return {"role": "assistant", "content": content}
 
 
+def completion_message():
+    return {
+        "role": "assistant",
+        "content": [
+            {
+                "type": "tool_use",
+                "id": "toolu_complete",
+                "name": codex_turn_recovery.CODEX_COMPLETION_TOOL_NAME,
+                "input": {},
+            }
+        ],
+    }
+
+
 def reasoning_message(text="private reasoning"):
     return {"role": "assistant", "content": [{"type": "thinking", "thinking": text}]}
 
@@ -255,14 +269,15 @@ class RecoverPreambleOnlyTurnTests(unittest.TestCase):
         self.assertTrue(codex_turn_recovery.message_has_tool_use(recovered))
         self.assertEqual(1, len(calls))
         self.assertIn(
-            codex_turn_recovery.CODEX_COMPLETION_CONFIRMED,
-            calls[0]["messages"][-1]["content"][0]["text"],
+            codex_turn_recovery.CODEX_COMPLETION_TOOL_NAME,
+            [tool["name"] for tool in calls[0]["tools"]],
         )
+        self.assertEqual({"type": "any"}, calls[0]["tool_choice"])
 
-    def test_completion_handshake_keeps_original_answer_private(self):
+    def test_completion_tool_keeps_original_answer_private(self):
         calls = []
         original = reasoning_promise_message("arbitrary completed response")
-        confirmation = text_message(codex_turn_recovery.CODEX_COMPLETION_CONFIRMED)
+        confirmation = completion_message()
 
         recovered = codex_turn_recovery.recover_preamble_only_turn(
             None,
@@ -275,7 +290,7 @@ class RecoverPreambleOnlyTurnTests(unittest.TestCase):
 
         self.assertEqual(original, recovered)
         self.assertNotIn(
-            codex_turn_recovery.CODEX_COMPLETION_CONFIRMED,
+            codex_turn_recovery.CODEX_COMPLETION_TOOL_NAME,
             codex_turn_recovery.message_text(recovered),
         )
         self.assertEqual(1, len(calls))

@@ -68,6 +68,11 @@ knowledge:
       Deleted before commit at the user's direction. No natural-language word,
       phrase, language, task domain, or action-name matcher remains in the new
       completion decision.
+    token_handshake: >-
+      The first protocol revision used a fixed text confirmation token. An
+      installed-runtime probe showed that a validator could repeat that token
+      inside its reasoning summary. The text token was therefore removed and
+      replaced by a typed runtime-only tool call before final deployment.
 
   implementation:
     translated_provider_gate:
@@ -75,11 +80,11 @@ knowledge:
         The request supplies tools, and the returned message structurally
         contains reasoning plus visible text but no tool_use item.
       handshake: >-
-        A private follow-up requires either the exact
-        <ciel_runtime_completion_confirmed/> control token when all requested
-        actions are complete, or the next real tool call when work remains.
+        A private follow-up requires either the runtime-owned
+        ciel_runtime_confirm_completion tool when all requested actions are
+        complete, or the next real work tool call when work remains.
       delivery: >-
-        Confirmation retains the original answer and hides the control token;
+        Confirmation retains the original answer and hides the control tool;
         a real tool call replaces/continues the candidate completed response.
     native_codex_gate:
       trigger: >-
@@ -133,6 +138,15 @@ knowledge:
       delivered_action: 'function_call inspect_workspace {"scope":"all"}'
       http_status: 200
       cleanup: "The isolated router was stopped after verification."
+      completion_tool_revision:
+        unfinished_case: >-
+          A 399-character arbitrary response with reasoning and no tool was
+          classified as completion_check and delivered inspect_workspace with
+          scope all.
+        finished_case: >-
+          A 2+2 request logged codex_completion_confirmed attempt=1/6 and
+          returned visible text 4 with zero function calls and no completion
+          tool identifier in the delivered response.
     native_openai:
       result: >-
         Native SSE buffering, private confirmation, action replacement, and

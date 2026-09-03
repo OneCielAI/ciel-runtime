@@ -6,7 +6,7 @@ import unittest
 import urllib.error
 
 from ciel_runtime_support.codex_router import read_codex_response_preamble
-from ciel_runtime_support.codex_turn_recovery import CODEX_COMPLETION_CONFIRMED
+from ciel_runtime_support.codex_turn_recovery import CODEX_COMPLETION_TOOL_NAME
 from ciel_runtime_support.router_http import (
     CodexBackendHttpAdapter,
     CodexBackendRequestPorts,
@@ -276,23 +276,23 @@ class NativeCodexCompletionGateTests(unittest.TestCase):
         )
 
         self.assertEqual(2, len(upstream.bodies))
-        self.assertIn(CODEX_COMPLETION_CONFIRMED, json.dumps(upstream.bodies[1]))
+        self.assertEqual("required", upstream.bodies[1]["tool_choice"])
+        self.assertEqual(CODEX_COMPLETION_TOOL_NAME, upstream.bodies[1]["tools"][-1]["name"])
         self.assertIn(b'"type": "function_call"', handler.wfile.written)
         self.assertNotIn(b"unperformed", handler.wfile.written)
         self.assertTrue(
             any("codex_completion_gate_continued" in message for _, message in logs)
         )
 
-    def test_private_confirmation_relays_original_without_token(self):
+    def test_private_confirmation_tool_relays_original_without_exposing_it(self):
         original = _completed_response(self.candidate_output("finished result"), "resp_1")
         confirmation = _completed_response(
             [
                 {
-                    "type": "message",
-                    "role": "assistant",
-                    "content": [
-                        {"type": "output_text", "text": CODEX_COMPLETION_CONFIRMED}
-                    ],
+                    "type": "function_call",
+                    "call_id": "call_complete",
+                    "name": CODEX_COMPLETION_TOOL_NAME,
+                    "arguments": "{}",
                 }
             ],
             "resp_2",
@@ -306,7 +306,7 @@ class NativeCodexCompletionGateTests(unittest.TestCase):
 
         self.assertEqual(2, len(upstream.bodies))
         self.assertIn(b"finished result", handler.wfile.written)
-        self.assertNotIn(CODEX_COMPLETION_CONFIRMED.encode(), handler.wfile.written)
+        self.assertNotIn(CODEX_COMPLETION_TOOL_NAME.encode(), handler.wfile.written)
 
     def test_tool_response_is_streamed_without_validator_request(self):
         action = [

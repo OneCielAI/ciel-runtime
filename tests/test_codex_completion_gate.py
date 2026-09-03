@@ -2,7 +2,7 @@ import json
 import unittest
 
 from ciel_runtime_support import codex_completion_gate
-from ciel_runtime_support.codex_turn_recovery import CODEX_COMPLETION_CONFIRMED
+from ciel_runtime_support.codex_turn_recovery import CODEX_COMPLETION_TOOL_NAME
 
 
 def event(event_type, payload):
@@ -82,14 +82,13 @@ class ResponsesCompletionObservationTests(unittest.TestCase):
             )
         )
 
-    def test_exact_private_token_confirms_completion(self):
+    def test_private_completion_tool_confirms_completion(self):
         output = [
             {
-                "type": "message",
-                "role": "assistant",
-                "content": [
-                    {"type": "output_text", "text": CODEX_COMPLETION_CONFIRMED}
-                ],
+                "type": "function_call",
+                "call_id": "call_complete",
+                "name": CODEX_COMPLETION_TOOL_NAME,
+                "arguments": "{}",
             }
         ]
         self.assertTrue(observe(completed_sse(output)).completion_confirmed)
@@ -117,7 +116,8 @@ class ResponsesCompletionObservationTests(unittest.TestCase):
         self.assertEqual("stable", projected["instructions"])
         self.assertEqual("sealed", projected["input"][-3]["encrypted_content"])
         self.assertEqual("user", projected["input"][-1]["role"])
-        self.assertIn(CODEX_COMPLETION_CONFIRMED, projected["input"][-1]["content"][0]["text"])
+        self.assertEqual("required", projected["tool_choice"])
+        self.assertEqual(CODEX_COMPLETION_TOOL_NAME, projected["tools"][-1]["name"])
         self.assertEqual(1, len(original["input"]))
 
     def test_stored_check_uses_previous_response_id(self):

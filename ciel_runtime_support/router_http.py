@@ -569,7 +569,13 @@ class CodexBackendHttpAdapter:
                                 buffered.observation,
                             )
                             if validated is not None:
-                                if (
+                                if validated.observation.completion_confirmed:
+                                    self._retry.log(
+                                        "INFO",
+                                        "codex_completion_gate_confirmed "
+                                        f"model={str(upstream_body.get('model') or '-')}",
+                                    )
+                                elif (
                                     validated.observation.status == "completed"
                                     and validated.observation.has_action
                                 ):
@@ -577,12 +583,6 @@ class CodexBackendHttpAdapter:
                                     self._retry.log(
                                         "WARN",
                                         "codex_completion_gate_continued "
-                                        f"model={str(upstream_body.get('model') or '-')}",
-                                    )
-                                elif validated.observation.completion_confirmed:
-                                    self._retry.log(
-                                        "INFO",
-                                        "codex_completion_gate_confirmed "
                                         f"model={str(upstream_body.get('model') or '-')}",
                                     )
                             self._write_buffered_response(handler, chosen)

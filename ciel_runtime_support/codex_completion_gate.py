@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .codex_turn_recovery import (
-    CODEX_COMPLETION_CONFIRMED,
+    CODEX_COMPLETION_TOOL_NAME,
     CODEX_STRICT_CONTINUATION_NUDGE,
 )
 
@@ -126,7 +126,12 @@ class ResponsesCompletionObservation:
 
     @property
     def completion_confirmed(self) -> bool:
-        return not self.has_action and self.visible_text.strip() == CODEX_COMPLETION_CONFIRMED
+        actions = [
+            item for item in self.output if item.get("type") not in {"message", "reasoning"}
+        ]
+        return bool(actions) and all(
+            item.get("name") == CODEX_COMPLETION_TOOL_NAME for item in actions
+        )
 
 
 def request_requires_completion_check(
@@ -166,6 +171,23 @@ def completion_check_body(
         items = list(current) if isinstance(current, list) else ([current] if current else [])
         projected["input"] = [*items, *copy.deepcopy(observation.output), prompt]
     projected["stream"] = True
+    tools = list(projected.get("tools") or [])
+    tools.append(
+        {
+            "type": "function",
+            "name": CODEX_COMPLETION_TOOL_NAME,
+            "description": "Confirm that every action requested by the user is complete.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": [],
+                "additionalProperties": False,
+            },
+            "strict": True,
+        }
+    )
+    projected["tools"] = tools
+    projected["tool_choice"] = "required"
     return projected
 
 

@@ -60,13 +60,13 @@ _REASONING_RECOVERY_MIN_OUTPUT_TOKENS = 8192
 _KIMI_CONTINUATION_MAX_ATTEMPTS = 6
 _KIMI_STRICT_CONTINUATION_AFTER_ATTEMPT = 3
 
-CODEX_COMPLETION_CONFIRMED = "<ciel_runtime_completion_confirmed/>"
+CODEX_COMPLETION_TOOL_NAME = "ciel_runtime_confirm_completion"
 
 CODEX_STRICT_CONTINUATION_NUDGE = (
-    "This is a runtime completion check. If every requested action is complete, "
-    f"return exactly {CODEX_COMPLETION_CONFIRMED} and no other visible text. "
-    "Otherwise return the next actual tool call now, using an exact tool name and "
-    "every required field from the supplied schema."
+    "This is a runtime completion check. Call the supplied "
+    f"{CODEX_COMPLETION_TOOL_NAME} tool only if every requested action is complete. "
+    "Otherwise call the next actual work tool now, using an exact tool name and "
+    "every required field from the supplied schema. Do not answer with text."
 )
 
 
@@ -311,11 +311,13 @@ def message_has_only_runtime_stall_notice(message: dict[str, Any]) -> bool:
 
 
 def message_confirms_completion(message: dict[str, Any]) -> bool:
-    """Recognize the private, language-independent completion handshake."""
+    """Recognize the private, language-independent completion tool call."""
 
-    return (
-        not message_has_tool_use(message)
-        and message_text(message).strip() == CODEX_COMPLETION_CONFIRMED
+    return any(
+        isinstance(block, dict)
+        and block.get("type") == "tool_use"
+        and block.get("name") == CODEX_COMPLETION_TOOL_NAME
+        for block in message.get("content") or []
     )
 
 
@@ -419,6 +421,36 @@ def body_with_continuation_nudge(
     return retried
 
 
+def body_with_completion_check(
+    body: dict[str, Any], message: dict[str, Any]
+) -> dict[str, Any]:
+    """Offer a runtime-owned completion tool only to the private check call."""
+
+    projected = body_with_continuation_nudge(
+        body, message, CODEX_STRICT_CONTINUATION_NUDGE
+    )
+    tools = copy.deepcopy(list(projected.get("tools") or []))
+    if not any(
+        isinstance(tool, dict) and tool.get("name") == CODEX_COMPLETION_TOOL_NAME
+        for tool in tools
+    ):
+        tools.append(
+            {
+                "name": CODEX_COMPLETION_TOOL_NAME,
+                "description": "Confirm that every action requested by the user is complete.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {},
+                    "required": [],
+                    "additionalProperties": False,
+                },
+            }
+        )
+    projected["tools"] = tools
+    projected["tool_choice"] = {"type": "any"}
+    return projected
+
+
 def body_with_codex_compat_instructions(
     body: dict[str, Any],
     compat_prompt: str,
@@ -487,7 +519,12 @@ def recover_preamble_only_turn(
         reasoning_only and message_exhausted_reasoning_output_budget(message)
     )
     kimi_turn = _is_kimi_turn(provider, body)
-    completion_check = message_requires_completion_check(body, message)
+    completion_check = (
+        not empty_end_turn
+        and not repeated_tool_guard
+        and not reasoning_only
+        and message_requires_completion_check(body, message)
+    )
     if (
         not empty_end_turn
         and not repeated_tool_guard
@@ -560,13 +597,17 @@ def recover_preamble_only_turn(
                 and not (empty_end_turn or reasoning_only or repeated_tool_guard)
                 else nudge
             )
-            retry_body = body_with_continuation_nudge(
-                replay_body,
-                replay_message,
-                attempt_nudge,
-                control=(
-                    RUNTIME_REPEATED_TOOL_RECOVERY if repeated_tool_guard else None
-                ),
+            retry_body = (
+                body_with_completion_check(replay_body, replay_message)
+                if completion_check
+                else body_with_continuation_nudge(
+                    replay_body,
+                    replay_message,
+                    attempt_nudge,
+                    control=(
+                        RUNTIME_REPEATED_TOOL_RECOVERY if repeated_tool_guard else None
+                    ),
+                )
             )
             recovery_strategy = "prompt_only"
             if (
@@ -665,13 +706,14 @@ def _merged(original: dict[str, Any], retried: dict[str, Any]) -> dict[str, Any]
 
 __all__ = [
     "CODEX_CONTINUATION_NUDGE",
-    "CODEX_COMPLETION_CONFIRMED",
+    "CODEX_COMPLETION_TOOL_NAME",
     "CODEX_EMPTY_REASONING_CONTINUATION_NUDGE",
     "CODEX_REPEATED_TOOL_CONTINUATION_NUDGE",
     "RUNTIME_EMPTY_END_TURN_NOTICE_PREFIX",
     "RUNTIME_REASONING_OUTPUT_BUDGET_NOTICE_PREFIX",
     "CodexTurnRecoveryServices",
     "body_with_codex_compat_instructions",
+    "body_with_completion_check",
     "body_with_continuation_nudge",
     "message_has_tool_use",
     "message_exhausted_reasoning_output_budget",
