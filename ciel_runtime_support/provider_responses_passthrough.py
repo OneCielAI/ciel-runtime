@@ -12,6 +12,11 @@ from http.client import IncompleteRead
 from typing import Any, Callable, Mapping
 
 from .responses_usage_observer import ResponsesUsageObserver
+from .responses_cache_diagnostics import (
+    cache_trace,
+    request_cache_profile,
+    usage_with_cache_profile,
+)
 from .responses_input_compatibility import repair_replayed_response_items
 from .responses_custom_tool_bridge import (
     ResponsesCustomToolStreamProjector,
@@ -39,7 +44,7 @@ class ProviderResponsesPassthroughPorts:
     urlopen: Callable[..., Any]
     timeout_seconds: Callable[[dict[str, Any]], float]
     copy_response_headers: Callable[[Any, Any], None]
-    record_usage: Callable[[str, str, dict[str, int]], None] = (
+    record_usage: Callable[[str, str, dict[str, Any]], None] = (
         lambda _provider, _model, _usage: None
     )
     log: Callable[[str, str], Any] = lambda _level, _message: None
@@ -280,6 +285,7 @@ class ProviderResponsesPassthrough:
         config: dict[str, Any],
         upstream_body: dict[str, Any],
         response_tools: Mapping[str, Mapping[str, Any]],
+        cache_profile: Mapping[str, Any],
     ) -> None:
         """Validate a native Responses stream before exposing it downstream."""
 
@@ -373,7 +379,9 @@ class ProviderResponsesPassthrough:
                         handler.wfile.write(tail)
                         handler.wfile.flush()
                 if observed:
-                    self._ports.record_usage(provider, model, observed)
+                    observation = usage_with_cache_profile(observed, cache_profile)
+                    self._ports.record_usage(provider, model, observation)
+                    self._ports.log(*cache_trace(provider, model, observation))
                 return
 
     def forward(
@@ -414,6 +422,7 @@ class ProviderResponsesPassthrough:
             upstream_body,
             remote_bridge=remote_bridge,
         )
+        cache_profile = request_cache_profile(upstream_body, len(data))
         request_headers = self._request_headers(
             provider, config, handler.headers, upstream_body
         )
@@ -434,6 +443,7 @@ class ProviderResponsesPassthrough:
                 config,
                 upstream_body,
                 response_tools,
+                cache_profile,
             )
             return delivery_body
         with self._ports.urlopen(
@@ -541,10 +551,18 @@ class ProviderResponsesPassthrough:
                     received_bytes=received_bytes,
                 ) from error
             if observed and not remote_bridge:
+                observation = usage_with_cache_profile(observed, cache_profile)
                 self._ports.record_usage(
                     provider,
                     str(upstream_body.get("model") or ""),
-                    observed,
+                    observation,
+                )
+                self._ports.log(
+                    *cache_trace(
+                        provider,
+                        str(upstream_body.get("model") or ""),
+                        observation,
+                    )
                 )
         return delivery_body
 

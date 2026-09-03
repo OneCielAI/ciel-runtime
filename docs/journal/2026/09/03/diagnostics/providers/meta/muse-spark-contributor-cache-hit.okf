@@ -1,0 +1,148 @@
+task:
+  title: Muse Spark 1.3 Contributor cache-hit diagnosis
+  date: 2026-09-03
+  scope:
+    workspace: G:/OneCielDMSUI
+    router_port: 9605
+    router_pid: 90340
+    provider: meta
+    model: muse-spark-1.3-contributor
+    codex_session: 019fcac4-4538-7a53-91d1-565cd21a8c5e
+
+correction:
+  discarded_instance:
+    port: 9471
+    workspace: C:/Users/djlov/cielarvis/mind-core-sand-box
+    reason: It is a separate active Claude/Anthropic instance and is not evidence for DMSUI.
+  authoritative_instance:
+    port: 9605
+    workspace: G:/OneCielDMSUI
+    runtime: Codex 0.152.1
+
+observations:
+  rollout_measurement:
+    recent_40:
+      interval: 2026-09-03T07:30:25-2026-09-03T08:06:34
+      weighted_cache_hit_percent: 85.454
+      zero_hit_requests: 5
+      below_90_percent_requests: 7
+    recent_100:
+      interval: 2026-09-03T06:53:20-2026-09-03T08:06:34
+      weighted_cache_hit_percent: 89.037
+      zero_hit_requests: 10
+      below_90_percent_requests: 12
+    pattern: Most requests hit 99 percent or more, with intermittent complete or partial misses.
+    mid_task_evidence:
+      task: 52
+      complete_misses:
+        - {time: 2026-09-03T07:56:48, call: 24, input_tokens: 587410, cached_tokens: 0}
+        - {time: 2026-09-03T07:58:42, call: 26, input_tokens: 588396, cached_tokens: 0}
+      partial_miss: {time: 2026-09-03T07:59:28, call: 27, input_tokens: 590307, cached_tokens: 217329}
+      implication: New user-turn startup alone cannot account for every observed miss.
+
+  codex_wire_probe:
+    method: Codex 0.152.1 was connected to an isolated loopback HTTP capture server.
+    requests: 3
+    confirmed:
+      prompt_cache_key_present: true
+      prompt_cache_key_stable_across_requests: true
+      prompt_cache_retention_present: false
+      instructions_fingerprint_stable: true
+      tool_fingerprint:
+        request_1: ee2c774b9ead15c5
+        request_2: 6f65d7083e8fd376
+        request_3: 6f65d7083e8fd376
+      tool_change_scope: Initial asynchronous app namespace discovery changed five tool namespace payloads once; requests 2 and 3 were stable.
+
+  live_meta_probe:
+    endpoint: http://127.0.0.1:9605/v1/responses
+    upstream: https://api.meta.ai/v1
+    request:
+      prompt_tokens: 7674
+      prompt_cache_key: stable probe key
+      prompt_cache_retention: 24h
+    results:
+      first: {http_status: 200, cached_tokens: 0, elapsed_seconds: 1.78}
+      second: {http_status: 200, cached_tokens: 7665, elapsed_seconds: 2.39}
+      second_hit_percent: 99.88
+    confirmed: Meta accepted the Responses retention field and reused the stable prefix.
+
+official_sources:
+  meta_prompt_caching:
+    url: https://github.com/meta-models/meta-model-cookbook/blob/main/01_api_fundamentals/05_prompt_caching.ipynb
+    confirmed_contract:
+      - Cache matching requires an identical leading token sequence.
+      - A stable prompt_cache_key routes matching prefixes together at scale.
+      - prompt_cache_retention 24h keeps bursty traffic warm across idle gaps.
+      - Retention is a hint and not a guarantee.
+
+implementation:
+  meta_adapter:
+    file: ciel_runtime_support/providers/meta.py
+    behavior:
+      - Default prompt_cache_retention is 24h.
+      - It is injected only for Responses requests carrying prompt_cache_key.
+      - An explicit client value such as in_memory is preserved.
+  diagnostics:
+    files:
+      - ciel_runtime_support/responses_cache_diagnostics.py
+      - ciel_runtime_support/provider_responses_passthrough.py
+    recorded_fields:
+      - cache_hit_percent
+      - prompt_cache_key_fingerprint
+      - prompt_cache_retention
+      - request_instructions_fingerprint
+      - request_tools_fingerprint
+      - request_input_head_fingerprint
+      - request_input_items
+      - request_tools
+      - request_bytes
+      - request_uses_previous_response_id
+    privacy: Raw prompt text, tool definitions, and cache keys are not recorded.
+
+verification:
+  focused:
+    command: python -m unittest test_meta_provider test_responses_cache_diagnostics test_responses_usage_observer test_statusline
+    result: 55 tests passed
+  full_suite:
+    command: npm test
+    groups:
+      unit: {run: 1368, skipped: 45, failures: 0}
+      router: {run: 1094, skipped: 0, failures: 0}
+      channel: {run: 403, skipped: 80, failures: 0}
+      runtime: {run: 276, skipped: 12, failures: 0}
+    total: {run: 3141, skipped: 137, failures: 0}
+  static:
+    ruff: passed
+    compileall: passed
+    git_diff_check: passed
+  merged_workspace_config_probe:
+    provider: meta
+    model: muse-spark-1.3-contributor
+    merged_default_retention: 24h
+    normalized_request_retention: 24h
+    source_request_mutated: false
+    discarded_check: A raw config-file-only probe returned null because it bypassed the runtime default merge; it is not runtime-equivalent evidence.
+
+limits:
+  confirmed_not_proven:
+    - The missing retention hint is a verified client gap and the live fix path is verified.
+    - It does not by itself prove the cause of complete misses occurring less than one minute apart.
+    - The new fingerprints are required after restart to distinguish request-prefix mutation from provider-side best-effort cache loss for those events.
+
+deployment:
+  local:
+    command: powershell -NoProfile -ExecutionPolicy Bypass -File ./install.ps1
+    target: C:/Users/djlov/.local/share/ciel-runtime
+    result: installed
+    hash_matches:
+      - ciel_runtime_support/providers/meta.py
+      - ciel_runtime_support/provider_responses_passthrough.py
+      - ciel_runtime_support/responses_cache_diagnostics.py
+    executable_version: 0.2.37
+    active_dmsui_router_restarted: false
+    activation: The existing PID 90340 remains on its already-loaded modules; the next DMSUI runtime start loads this deployment.
+  nightly:
+    branch: nightly
+    target: origin/nightly
+    mechanism: A push to nightly triggers the npm nightly publication workflow.

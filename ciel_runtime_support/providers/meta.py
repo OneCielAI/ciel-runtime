@@ -82,6 +82,7 @@ class MetaModelProviderAdapter(HttpBearerProviderAdapter):
             effort_level="high",
             enable_tool_search=True,
             responses_custom_tools_as_functions=True,
+            prompt_cache_retention="24h",
             haiku_model=MUSE_SPARK_MODEL,
             opus_model=MUSE_SPARK_MODEL,
             sonnet_model=MUSE_SPARK_MODEL,
@@ -213,10 +214,9 @@ class MetaModelProviderAdapter(HttpBearerProviderAdapter):
     def normalize_request_options(
         self, config: ProviderConfig, request: Mapping[str, Any]
     ) -> Mapping[str, Any]:
-        del config
         normalized = dict(request)
         if "input" in normalized and "messages" not in normalized:
-            self._normalize_responses_request(normalized)
+            self._normalize_responses_request(normalized, config)
         else:
             self._normalize_messages_request(normalized)
         return normalized
@@ -227,16 +227,15 @@ class MetaModelProviderAdapter(HttpBearerProviderAdapter):
         request: Mapping[str, Any],
         protocol: MessageProtocol | None,
     ) -> Mapping[str, Any]:
-        del config
         normalized = dict(request)
         if protocol == "openai_responses":
-            self._normalize_responses_request(normalized)
+            self._normalize_responses_request(normalized, config)
         elif protocol == "openai_chat":
             self._normalize_chat_request(normalized)
         elif protocol == "anthropic_messages":
             self._normalize_messages_request(normalized)
         elif "input" in normalized and "messages" not in normalized:
-            self._normalize_responses_request(normalized)
+            self._normalize_responses_request(normalized, config)
         else:
             self._normalize_messages_request(normalized)
         return normalized
@@ -256,7 +255,15 @@ class MetaModelProviderAdapter(HttpBearerProviderAdapter):
         return False
 
     @classmethod
-    def _normalize_responses_request(cls, request: dict[str, Any]) -> None:
+    def _normalize_responses_request(
+        cls, request: dict[str, Any], config: ProviderConfig
+    ) -> None:
+        if "prompt_cache_retention" not in request and request.get("prompt_cache_key"):
+            retention = str(
+                config.options.get("prompt_cache_retention") or ""
+            ).strip()
+            if retention in {"in_memory", "24h"}:
+                request["prompt_cache_retention"] = retention
         include = request.get("include")
         if request.get("previous_response_id"):
             if isinstance(include, list):

@@ -5,6 +5,11 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+- Improve Meta Muse Spark cache reuse for Codex Responses sessions by adding
+  the provider-documented `24h` retention hint when Codex supplies a stable
+  `prompt_cache_key`. Cache activity now records privacy-safe request-shape
+  fingerprints so intermittent misses can be distinguished from prefix/tool
+  changes without logging prompt contents.
 - Complete Meta Muse Spark's native agent surface across Responses, Chat
   Completions, and Messages. Hosted `web_search`/`tool_search`, deferred tools,
   multimodal request blocks, and streaming `/v1/files` upload/list/download/

@@ -56,6 +56,7 @@ class MetaProviderTests(unittest.TestCase):
         self.assertEqual("high", pcfg["effort_level"])
         self.assertTrue(pcfg["enable_tool_search"])
         self.assertTrue(pcfg["responses_custom_tools_as_functions"])
+        self.assertEqual("24h", pcfg["prompt_cache_retention"])
         self.assertNotIn("max_output_tokens", pcfg)
         self.assertIn("xhigh_effort", pcfg["claude_code_supported_capabilities"])
         self.assertEqual(
@@ -205,6 +206,41 @@ class MetaProviderTests(unittest.TestCase):
         self.assertEqual(
             {"effort": "minimal", "summary": "auto"}, fresh["reasoning"]
         )
+
+    def test_responses_adds_configured_retention_for_codex_cache_key(self):
+        body = {
+            "model": "muse-spark-1.3-contributor",
+            "input": "hello",
+            "prompt_cache_key": "stable-thread-key",
+        }
+
+        normalized = ciel_runtime.apply_provider_adapter_request_policy(
+            "meta", self.meta_cfg(), body, "openai_responses"
+        )
+
+        self.assertEqual("24h", normalized["prompt_cache_retention"])
+        self.assertNotIn("prompt_cache_retention", body)
+
+        explicit = ciel_runtime.apply_provider_adapter_request_policy(
+            "meta",
+            self.meta_cfg(),
+            {**body, "prompt_cache_retention": "in_memory"},
+            "openai_responses",
+        )
+        self.assertEqual("in_memory", explicit["prompt_cache_retention"])
+
+        without_key = ciel_runtime.apply_provider_adapter_request_policy(
+            "meta", self.meta_cfg(), {"input": "hello"}, "openai_responses"
+        )
+        self.assertNotIn("prompt_cache_retention", without_key)
+
+        disabled = ciel_runtime.apply_provider_adapter_request_policy(
+            "meta",
+            self.meta_cfg(prompt_cache_retention=""),
+            body,
+            "openai_responses",
+        )
+        self.assertNotIn("prompt_cache_retention", disabled)
 
     def test_codex_catalog_uses_meta_documented_compaction_limit(self):
         captured = {}
@@ -778,17 +814,15 @@ class ProviderResponsesPassthroughTests(unittest.TestCase):
         )
         self.assertEqual(payload, handler.wfile.getvalue())
         self.assertEqual({"delivery": True}, delivery)
-        record_usage.assert_called_once_with(
-            "meta",
-            "muse-spark-1.1",
-            {
-                "input_tokens": 1000,
-                "output_tokens": 25,
-                "cache_read_tokens": 800,
-                "cache_creation_tokens": 0,
-                "uncached_input_tokens": 200,
-            },
-        )
+        record_usage.assert_called_once()
+        usage_args = record_usage.call_args.args
+        self.assertEqual(("meta", "muse-spark-1.1"), usage_args[:2])
+        self.assertEqual(1000, usage_args[2]["input_tokens"])
+        self.assertEqual(25, usage_args[2]["output_tokens"])
+        self.assertEqual(800, usage_args[2]["cache_read_tokens"])
+        self.assertEqual(200, usage_args[2]["uncached_input_tokens"])
+        self.assertEqual(80.0, usage_args[2]["cache_hit_percent"])
+        self.assertEqual(16, len(usage_args[2]["prompt_cache_key_fingerprint"]))
 
     def test_meta_custom_function_envelope_is_restored_in_stream(self):
         function_item = {
