@@ -13,6 +13,7 @@ Claude Code의 Anthropic Messages 요청과 Codex의 OpenAI Responses 요청을 
 POST /v1/messages          → 모델 라우팅 (핵심 엔드포인트)
 POST /v1/responses         → Codex / OpenAI Responses 라우팅
 GET  /ca/events/stream     → SSE 이벤트 스트림
+GET  /ca/events/ws         → WebSocket 이벤트 스트림
 GET  /ca/events/recent     → 최근 이벤트 JSON
 GET  /ca/health            → 라우터 상태 확인
 GET  /v1/models            → 사용 가능한 모델 목록

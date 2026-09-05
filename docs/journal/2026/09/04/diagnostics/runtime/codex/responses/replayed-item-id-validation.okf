@@ -1,0 +1,74 @@
+task:
+  title: Repair invalid replayed Responses item IDs in a resumed Codex session
+  date: 2026-09-04
+  workspace: C:\Users\djlov\cielarvis
+
+observed:
+  runtime_endpoint: http://127.0.0.1:9610/backend-api/codex/responses
+  session_id: 01a01dff-f0f0-7ef3-8cde-1d9916510f35
+  http_status: 400
+  rejected_index: 160
+  rejected_item_type: reasoning
+  rejected_id_shape: 'rs_<token>:rs_<token>'
+  upstream_rule: IDs may contain only letters, numbers, underscores, or dashes
+  persisted_at: C:\Users\djlov\.codex\sessions\2026\08\20\rollout-2026-08-20T02-08-27-01a01dff-f0f0-7ef3-8cde-1d9916510f35.jsonl:13943
+
+cause:
+  boundary: ciel_runtime_support.responses_input_compatibility.repair_replayed_response_items
+  confirmed_behavior: Existing validation checked the type prefix but not the complete character set.
+  reproduction_before_fix: The observed colon-delimited ID was returned unchanged.
+  provenance:
+    ciel_colon_composition_found: false
+    ciel_backend_response_rewrite: false
+    codex_version: 0.153.0
+    codex_release_tag: rust-v0.153.0
+    codex_response_item_behavior: ResponseItemId.from_server preserves the server value without validation.
+    session_behavior: The composite ID was already persisted as a response_item.reasoning before the failing replay.
+    conclusion: The upstream response supplied the composite ID; Ciel's missing character validation allowed it back into a later request.
+  repeat_failure: Every retry replayed the same invalid history item at input index 160.
+
+repair:
+  policy: Validate every non-empty Responses item ID against the upstream character contract.
+  allowed_characters: ASCII letters, digits, underscore, dash
+  invalid_reasoning_with_encrypted_content: Initially removed only the ID; superseded by the cross-workspace finding below.
+  invalid_reasoning_without_encrypted_content: Retain the existing policy of dropping the foreign summary-only item.
+  specificity: No session ID, provider name, or trigger-word special case in production code.
+
+verification:
+  status: passed
+  focused:
+    responses_input_compatibility: 19 passed
+    codex_backend_item_repair: 21 passed
+  observed_record_replay:
+    forwarded_id_present: false
+    encrypted_content_preserved: true
+    source_record_unchanged: true
+  documentation_metadata: 26 Markdown files passed
+  ruff: passed
+  diff_check: passed
+  full_suite:
+    unit: 1378 passed, 45 skipped
+    router: 1094 passed
+    channel: 406 passed, 80 skipped
+    runtime: 276 passed, 12 skipped
+    total: 3154 passed, 137 skipped
+  local_deployment:
+    install_path: C:\Users\djlov\.local\share\ciel-runtime
+    source_installed_sha256: B1AD0EB9798B2DFFF768C29AA8BD8AEB069A1958F10126E35BDC1FBF64A50103
+    installed_module_loaded_in_fresh_process: true
+    observed_record_forwarded_id_present: false
+    observed_record_encrypted_content_preserved: true
+    active_predeployment_processes_restarted: false
+
+follow_up_2026_09_04:
+  evidence_source: G:\OneCielDMSUI session 019fcac4-4538-7a53-91d1-565cd21a8c5e
+  finding: The same colon-ID reasoning records were rejected next for unverifiable encrypted content after their IDs were removed.
+  correlated_rejections:
+    logged_distinct_verdicts: 110
+    matched_session_records_before_repair: 118
+    matched_session_records_after_repair: 0
+  revised_policy:
+    forbidden_character_reasoning: Drop the whole hidden reasoning item.
+    router_synthesized_reasoning: Drop the whole hidden reasoning item.
+    legal_but_type_mismatched_reasoning: Preserve encrypted content and omit only its ID.
+    visible_messages_and_tool_history: Preserve and balance independently.

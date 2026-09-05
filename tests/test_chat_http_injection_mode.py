@@ -123,6 +123,42 @@ class ChatHttpInjectionModeTests(unittest.TestCase):
         self.assertEqual("web", calls[1][0])
         self.assertEqual("web_chat", responses[0][1]["injection_mode"])
 
+    def test_raw_injection_is_admitted_as_an_explicit_orthogonal_option(self):
+        calls = []
+        responses = []
+        controller = self.controller(calls, responses)
+        body = {
+            "message": "  exact text\nwith spacing  ",
+            "raw_injection": True,
+            "input_transport": "session_socket",
+            "response_mode": "web_chat",
+        }
+
+        self.assertTrue(controller.post(Handler(), "/ca/chat/messages", body))
+
+        admitted = calls[0][1][0]
+        self.assertIs(admitted["meta"]["raw_injection"], True)
+        self.assertEqual("session_socket", admitted["meta"]["input_transport"])
+        self.assertEqual("web_chat", admitted["meta"]["response_mode"])
+        self.assertIs(responses[0][1]["raw_injection"], True)
+
+    def test_invalid_raw_injection_is_rejected_before_admission(self):
+        calls = []
+        responses = []
+        controller = self.controller(calls, responses)
+
+        self.assertTrue(
+            controller.post(
+                Handler(),
+                "/ca/chat/messages",
+                {"message": "reject", "raw_injection": "sometimes"},
+            )
+        )
+
+        self.assertEqual([], calls)
+        self.assertEqual(400, responses[0][0])
+        self.assertEqual("invalid_raw_injection", responses[0][1]["error"])
+
     def test_invalid_mode_is_rejected_without_admission(self):
         calls = []
         responses = []

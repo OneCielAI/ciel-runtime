@@ -108,6 +108,27 @@ GET /ca/events/stream
 Server-Sent Events로 실시간 이벤트 전송.  
 쿼리 파라미터: `?level=debug&category=router`
 
+### WebSocket 스트림
+```
+GET /ca/events/ws
+```
+RFC 6455 WebSocket text frame으로 같은 이벤트 JSON을 실시간 전송한다.
+`after`, `level`, `category` 쿼리 파라미터를 SSE와 동일하게 지원하며,
+원격 연결은 라우터의 기존 외부 접근 토큰 검사를 그대로 거친다.
+
+CLI 툴콜만 구독:
+```
+ws://127.0.0.1:<port>/ca/events/ws?category=tool.call
+```
+
+`tool.call` 이벤트는 라우터 변환 스트림과 Claude/Codex/Muse Code 세션
+transcript의 구조화된 툴 시작 레코드에서 생성된다. Windows에서 실행되는
+Muse WSL 세션도 `wslpath`로 확인한 세션 저장소를 직접 추적한다. `data`에는 `call_id`, `name`,
+`call_type`, `arguments`, `runtime`, `model`이 가능한 범위에서 포함된다.
+동일한 `call_id`가 라우터와 transcript 양쪽에서 관측되면 한 번만 전달한다.
+`tool_call_events.include_arguments=false`로 설정하면 모든 `tool.call` 이벤트의
+인자 값을 제외할 수 있다.
+
 ### 최근 이벤트 JSON
 ```
 GET /ca/events/recent

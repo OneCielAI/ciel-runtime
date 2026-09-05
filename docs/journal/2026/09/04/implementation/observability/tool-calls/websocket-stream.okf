@@ -1,0 +1,49 @@
+schema: okf/1
+kind: task-journal
+title: CLI tool-call event WebSocket stream
+date: 2026-09-04
+
+request:
+  requirement: push each CLI runtime tool call to an externally consumable realtime stream
+
+change:
+  normalized_event_category: tool.call
+  sources:
+    - routed Anthropic-compatible stream tool calls
+    - routed Ollama stream tool calls
+    - routed OpenAI-compatible stream tool calls
+    - Claude CLI structured transcript tool_use records
+    - Codex CLI function_call, custom_tool_call, and local_shell_call records
+    - Muse Code runtime.session tool_calls records, including Windows WSL sessions
+  endpoint: GET /ca/events/ws?category=tool.call
+  protocol: RFC 6455 JSON text frames
+  access_control: existing router external-access authentication
+  cursor: after query parameter
+  duplicate_policy: suppress the transcript copy when the routed event has the same call_id
+
+verification:
+  focused_tests: 37 passed
+  live_websocket:
+    handshake: HTTP/1.1 101 Switching Protocols
+    frame_opcode: 1
+    published_count: 1
+    category: tool.call
+    source: cli-transcript
+    provider: codex
+    session_id: proof-session
+    call_id: call-live-proof
+    name: exec_command
+    arguments: '{"cmd":"rg TODO"}'
+  live_muse_transcript:
+    muse_version: 1.0.2
+    transcript_found: true
+    schema: runtime.session tool_calls
+    projected_call_type: muse_tool_call
+    projected_tool_name: bash
+  full_suite: 3167 passed; 137 skipped; 0 failed
+  lint: passed
+  local_install:
+    path: C:\Users\djlov\.local\share\ciel-runtime
+    verified_source_hashes: 18
+    hash_mismatches: 0
+  status: behavior_verified

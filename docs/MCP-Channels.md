@@ -80,6 +80,23 @@ how a request enters the active TUI and how the answer should leave it:
   Chat reply contract. `response_mode=tty` leaves the model's ordinary terminal
   output as-is and does not require a Web Chat tool reply. `response_mode=mcp`
   supplies a one-request MCP routing hint from `response_mcp`.
+- `raw_injection=true` makes the model-facing input exactly equal to the
+  `message` string. Ciel does not add a Web Chat envelope, voice/text marker,
+  attachment description, ACK/reply contract, MCP response hint, correlation
+  marker, or batch separator. It is independent of `input_transport` and
+  `response_mode`; callers selecting a non-terminal response destination must
+  arrange that response behavior outside the injected prompt.
+
+Exact-input example:
+
+```json
+{
+  "message": "Run the queued operation exactly once.",
+  "raw_injection": true,
+  "input_transport": "session_socket",
+  "response_mode": "tty"
+}
+```
 
 The MCP hint is declarative; Ciel does not call the named server itself:
 

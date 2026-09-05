@@ -174,6 +174,94 @@ class TranscriptDeltaDeliveryTests(unittest.TestCase):
             self.assertTrue(event["data"]["rotated"])
             self.assertEqual(0, event["data"]["start_offset"])
 
+    def test_tool_call_records_publish_normalized_realtime_events(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            transcript = root / "session.jsonl"
+            transcript.write_text('{"old":1}\n', encoding="utf-8")
+            config = {"tool_call_events": {"enabled": True, "start_mode": "tail"}}
+            events = []
+            service = TranscriptDeltaDeliveryService(
+                root / "cursors.json",
+                "workspace-1",
+                TranscriptDeliveryPorts(
+                    load_config=lambda: config,
+                    latest_transcript=lambda: transcript,
+                    scope=lambda: {
+                        "runtime": "codex",
+                        "session_id": "session-1",
+                        "turn_scan_path": transcript,
+                        "turn_scan_offset": len(b'{"old":1}\n'),
+                    },
+                    log=lambda *_args: None,
+                    event_publish=lambda **event: events.append(event),
+                ),
+            )
+
+            self.assertEqual(0, service.poll_tool_call_events())
+            with transcript.open("a", encoding="utf-8") as stream:
+                stream.write(
+                    json.dumps(
+                        {
+                            "type": "response_item",
+                            "payload": {
+                                "type": "function_call",
+                                "call_id": "call-live",
+                                "name": "shell_command",
+                                "arguments": '{"cmd":"pwd"}',
+                            },
+                        }
+                    )
+                    + "\n"
+                )
+
+            self.assertEqual(1, service.poll_tool_call_events())
+            self.assertEqual(0, service.poll_tool_call_events())
+            self.assertEqual("tool.call", events[0]["category"])
+            self.assertEqual("cli-transcript", events[0]["source"])
+            self.assertEqual("call-live", events[0]["data"]["call_id"])
+            self.assertEqual({"cmd": "pwd"}, events[0]["data"]["arguments"])
+
+    def test_new_transcript_after_launch_is_scanned_from_the_beginning(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            transcript = root / "new-session.jsonl"
+            transcript.write_text(
+                json.dumps(
+                    {
+                        "type": "response_item",
+                        "payload": {
+                            "type": "function_call",
+                            "call_id": "first-call",
+                            "name": "read_file",
+                            "arguments": "{}",
+                        },
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            events = []
+            service = TranscriptDeltaDeliveryService(
+                root / "cursors.json",
+                "workspace-1",
+                TranscriptDeliveryPorts(
+                    load_config=lambda: {"tool_call_events": {"enabled": True}},
+                    latest_transcript=lambda: transcript,
+                    scope=lambda: {
+                        "runtime": "codex",
+                        "session_id": "new-session",
+                        "started_at": transcript.stat().st_mtime,
+                        "turn_scan_path": None,
+                    },
+                    log=lambda *_args: None,
+                    event_publish=lambda **event: events.append(event),
+                ),
+            )
+
+            self.assertEqual(1, service.poll_tool_call_events())
+            self.assertEqual("first-call", events[0]["data"]["call_id"])
+
 
 if __name__ == "__main__":
     unittest.main()

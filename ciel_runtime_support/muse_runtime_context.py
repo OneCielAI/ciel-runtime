@@ -33,6 +33,7 @@ class MuseExecutable:
     prefix_args: tuple[str, ...] = ()
     platform: str = "native"
     muse_path: str = ""
+    transcript_root: Path | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,7 +74,13 @@ class MuseRuntimeContext:
     def _native_executable(self) -> MuseExecutable | None:
         executable = self.process.find_executable("muse")
         if executable:
-            return MuseExecutable(str(executable), muse_path=str(executable))
+            path = Path(str(executable)).expanduser()
+            home = path.parents[2] if len(path.parents) >= 3 else Path.home()
+            return MuseExecutable(
+                str(executable),
+                muse_path=str(executable),
+                transcript_root=home / ".local" / "share" / "muse",
+            )
         return None
 
     def _wsl_executable(self) -> MuseExecutable | None:
@@ -96,6 +103,18 @@ class MuseRuntimeContext:
         path = muse_path[-1].strip()
         if not path.startswith("/"):
             return None
+        root_result = self.process.run(
+            [wsl, "-e", "sh", "-lc", 'wslpath -w "$HOME/.local/share/muse"'],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        root_lines = str(root_result.stdout or "").strip().splitlines()
+        transcript_root = (
+            Path(root_lines[-1].strip())
+            if root_result.returncode == 0 and root_lines
+            else None
+        )
         return MuseExecutable(
             str(wsl),
             (
@@ -109,6 +128,7 @@ class MuseRuntimeContext:
             ),
             "wsl",
             path,
+            transcript_root,
         )
 
     def discover(self) -> MuseExecutable | None:
@@ -209,10 +229,11 @@ class MuseRuntimeContext:
         if is_session:
             self.lifecycle.record_launch(provider, model)
         if interactive_session:
-            # Channel turn state is runtime-scoped. Resetting it here prevents
-            # a transcript from another CLI from classifying an idle Muse TUI
-            # as permanently busy and starving external input delivery.
-            self.lifecycle.set_transcript_scope("muse", cwd=Path.cwd())
+            self.lifecycle.set_transcript_scope(
+                "muse",
+                cwd=Path.cwd(),
+                muse_home=executable.transcript_root,
+            )
         manage_router = bool(
             interactive_session
             and (
@@ -231,9 +252,9 @@ class MuseRuntimeContext:
                 wake_for_llm_delivery=False,
                 synthetic_enter_bytes=None,
                 normalize_bare_cr_for_synthetic_enter=False,
-                # Muse does not publish its TUI turns in Claude/Codex JSONL.
-                # Transcript-based confirmation would therefore retry a
-                # successfully typed prompt and duplicate the user message.
+                # Muse's session JSONL uses a different schema from the
+                # Claude/Codex turn-confirmation reader. Keep delivery
+                # fire-and-forget while the tool-event observer tails it.
                 channel_wake_submit_retries=1,
                 channel_wake_confirm_submit=False,
                 channel_wake_bracketed_paste=True,

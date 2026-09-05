@@ -30,7 +30,15 @@ def defaults_to_one_million_context(model_id: str) -> bool:
 
     model = re.sub(r"\[1m\]$", "", (model_id or "").strip().lower())
     return bool(
-        re.search(r"(?:^|-)(?:fable-5(?:-1)?|opus-(?:5|4-[78])|sonnet-5)(?:-|$)", model)
+        re.search(
+            r"(?:^|-)(?:"
+            r"fable-5(?:-1)?|"
+            r"mythos-(?:5(?:-1)?|preview)|"
+            r"opus-(?:5|4-[678])|"
+            r"sonnet-(?:5|4-6)"
+            r")(?:-|$)",
+            model,
+        )
     )
 
 

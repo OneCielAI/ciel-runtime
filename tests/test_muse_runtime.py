@@ -86,6 +86,11 @@ class MuseRuntimeTests(unittest.TestCase):
             captured.setdefault("runs", []).append((command, kwargs))
             if "command -v muse" in command:
                 return SimpleNamespace(returncode=0, stdout="/home/test/.local/bin/muse\n")
+            if 'wslpath -w "$HOME/.local/share/muse"' in command:
+                return SimpleNamespace(
+                    returncode=0,
+                    stdout="\\\\wsl.localhost\\Ubuntu\\home\\test\\.local\\share\\muse\n",
+                )
             return SimpleNamespace(returncode=0, stdout="")
 
         def materialize(runtime, executable, env, provider, provider_config, **kwargs):
@@ -181,6 +186,10 @@ class MuseRuntimeTests(unittest.TestCase):
                 "/home/test/.local/bin/muse",
             ),
             discovered.prefix_args,
+        )
+        self.assertEqual(
+            "\\\\wsl.localhost\\Ubuntu\\home\\test\\.local\\share\\muse",
+            str(discovered.transcript_root),
         )
 
     def test_effort_is_meta_only_and_maps_ciel_max_to_muse_ultra(self):

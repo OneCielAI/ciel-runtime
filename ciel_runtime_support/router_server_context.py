@@ -65,6 +65,7 @@ class RouterServerContext:
             "chat": "/ca/chat/health",
             "plan": "/ca/plan/artifacts",
             "events": "/ca/events",
+            "events_websocket": "/ca/events/ws",
             "external_event_receivers": "/ca/events/receivers",
             "otlp_logs": "/v1/logs",
             "telemetry_logs_tool": "POST /ca/mcp tools/call telemetry_logs",

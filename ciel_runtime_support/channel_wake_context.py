@@ -377,6 +377,7 @@ class ChannelWakeContext:
         *,
         started_at: float | None = None,
         codex_home: Path | None = None,
+        muse_home: Path | None = None,
         cwd: Path | None = None,
         session_id: str | None = None,
     ) -> None:
@@ -384,6 +385,7 @@ class ChannelWakeContext:
             runtime,
             started_at=started_at,
             codex_home=codex_home,
+            muse_home=muse_home,
             cwd=cwd,
             session_id=session_id,
         )

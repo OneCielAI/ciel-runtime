@@ -5,6 +5,20 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+- Add `raw_injection=true` to the Web Chat message APIs so a caller can inject
+  only the exact `message` text without an envelope, attachment projection, or
+  response-routing instruction, independently of input transport and response
+  destination.
+- Publish normalized Claude, Codex, Muse Code, and routed-provider tool-call
+  starts as `tool.call` observability events, with incremental transcript cursors and
+  duplicate call-ID suppression. Add authenticated WebSocket event streaming at
+  `/ca/events/ws`, including `after`, `level`, and `category` filters.
+
+- Repair resumed Codex Responses history whose item IDs contain characters the
+  OpenAI backend rejects, and discard projected encrypted reasoning that the
+  destination backend cannot authenticate instead of rejecting it one item per
+  retry.
+
 - Add Muse Code as a native Ciel runtime through `ciel-runtime muse`, including
   official installer discovery, Windows WSL2 execution, Muse 1.3 model and
   reasoning flags, launch-menu/CLI selection, channel-proxy input, and remote
@@ -40,8 +54,13 @@ capability, followed by the complete commit ledger merged into each release.
   authenticated session socket by default. Windows named pipes and Unix
   AF_UNIX sockets are supported; explicit TTY and router overrides remain.
 - Add Claude Fable 5.1 to the Anthropic catalog and model policy.
-- Keep Anthropic routed sessions on standard 200K context unless the selected
-  model explicitly includes `[1m]`, avoiding an unintended usage-credit beta.
+- Stop forcing current Anthropic 1M-default models down to a 200K Claude Code
+  auto-compaction window when their configured model ID has no legacy `[1m]`
+  marker. Routed Opus 4.6+ / Opus 5, Sonnet 4.6+ / Sonnet 5, and current
+  Fable/Mythos models now follow Anthropic's documented default 1M capacity;
+  their Claude-facing gateway aliases carry the local `[1m]` context hint even
+  when the selected upstream ID does not. Legacy models such as Sonnet 4.5 and
+  Haiku 4.5 remain at 200K.
 - Advertise provider descriptions in the gateway model catalog for Claude Code
   2.1.257 and later model-picker discovery.
 - Apply each routed provider's configured subagent model to every Claude Code

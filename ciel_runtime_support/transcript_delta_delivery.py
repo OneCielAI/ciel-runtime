@@ -15,6 +15,7 @@ import urllib.error
 import urllib.request
 
 from .remote_instructions import expand_environment_references
+from .tool_call_events import project_transcript_tool_calls
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,12 +51,42 @@ class TranscriptDeliverySettings:
 
 
 @dataclass(frozen=True, slots=True)
+class ToolCallEventSettings:
+    enabled: bool
+    poll_interval_seconds: float
+    max_batch_bytes: int
+    start_mode: str
+    include_arguments: bool
+
+    @classmethod
+    def from_config(cls, config: dict[str, Any]) -> "ToolCallEventSettings":
+        raw = config.get("tool_call_events")
+        values = raw if isinstance(raw, dict) else {}
+        start_mode = str(values.get("start_mode") or "tail").strip().lower()
+        if start_mode not in {"tail", "beginning"}:
+            start_mode = "tail"
+        return cls(
+            enabled=bool(values.get("enabled", True)),
+            poll_interval_seconds=max(
+                0.1, min(60.0, float(values.get("poll_interval_ms") or 500) / 1000.0)
+            ),
+            max_batch_bytes=max(
+                1024, min(16_777_216, int(values.get("max_batch_bytes") or 1_048_576))
+            ),
+            start_mode=start_mode,
+            include_arguments=bool(values.get("include_arguments", True)),
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class TranscriptDeliveryPorts:
     load_config: Callable[[], dict[str, Any]]
     latest_transcript: Callable[[], Path | None]
     scope: Callable[[], dict[str, Any]]
     log: Callable[[str, str], None]
     epoch: Callable[[], float] = time.time
+    event_publish: Callable[..., Any] = lambda **_kwargs: None
+    event_recent: Callable[..., list[dict[str, Any]]] = lambda **_kwargs: []
 
 
 class TranscriptDeltaDeliveryService:
@@ -153,6 +184,71 @@ class TranscriptDeltaDeliveryService:
         self._last_error = ""
         return True
 
+    def poll_tool_call_events(self) -> int:
+        settings = ToolCallEventSettings.from_config(self.ports.load_config())
+        if not settings.enabled:
+            return 0
+        path = self.ports.latest_transcript()
+        if path is None:
+            return 0
+        try:
+            path = path.resolve()
+            size = path.stat().st_size
+        except OSError:
+            return 0
+        scope = self.ports.scope()
+        runtime = str(scope.get("runtime") or "runtime")
+        session_id = str(scope.get("session_id") or path.stem)
+        source_key = hashlib.sha256(f"tool-call\0{path}".encode("utf-8")).hexdigest()
+        cursors = self._load_cursors()
+        sources = cursors.setdefault("tool_call_sources", {})
+        current = sources.get(source_key)
+        if not isinstance(current, dict):
+            offset = self._initial_tool_call_offset(settings, scope, path, size)
+            sources[source_key] = self._cursor_record(path, offset)
+            self._save_cursors(cursors)
+            if offset >= size:
+                return 0
+            current = sources[source_key]
+        offset = max(0, int(current.get("offset") or 0))
+        if size < offset:
+            offset = 0
+        payload = self._read_complete_batch(path, offset, settings.max_batch_bytes)
+        if not payload:
+            return 0
+        count = 0
+        for raw_line in payload.decode("utf-8", errors="replace").splitlines():
+            try:
+                record = json.loads(raw_line)
+            except (TypeError, ValueError):
+                continue
+            if not isinstance(record, dict):
+                continue
+            for call in project_transcript_tool_calls(record, runtime):
+                call_id = str(call.get("call_id") or "")
+                if call_id and any(
+                    str((event.get("data") or {}).get("call_id") or "") == call_id
+                    for event in self.ports.event_recent(limit=200, category="tool.call")
+                ):
+                    continue
+                data = dict(call)
+                if not settings.include_arguments:
+                    data.pop("arguments", None)
+                self.ports.event_publish(
+                    level="info",
+                    category="tool.call",
+                    message=f"{runtime} tool call: {call['name']}",
+                    source="cli-transcript",
+                    session_id=session_id,
+                    provider=runtime,
+                    model=str(call.get("model") or ""),
+                    data={**data, "transcript_name": path.name},
+                )
+                count += 1
+        sources[source_key] = self._cursor_record(path, offset + len(payload))
+        self._save_cursors(cursors)
+        return count
+
     @staticmethod
     def _initial_offset(
         settings: TranscriptDeliverySettings, scope: dict[str, Any], path: Path
@@ -175,7 +271,10 @@ class TranscriptDeltaDeliveryService:
             try:
                 config = self.ports.load_config()
                 settings = TranscriptDeliverySettings.from_config(config)
-                interval = settings.poll_interval_seconds
+                tool_settings = ToolCallEventSettings.from_config(config)
+                interval = min(settings.poll_interval_seconds, tool_settings.poll_interval_seconds)
+                if tool_settings.enabled:
+                    self.poll_tool_call_events()
                 if settings.enabled and settings.url:
                     self.poll_once()
             except Exception as exc:
@@ -191,8 +290,35 @@ class TranscriptDeltaDeliveryService:
             value = {}
         if not isinstance(value.get("destinations"), dict):
             value["destinations"] = {}
+        if not isinstance(value.get("tool_call_sources"), dict):
+            value["tool_call_sources"] = {}
         value["version"] = 1
         return value
+
+    @staticmethod
+    def _initial_tool_call_offset(
+        settings: ToolCallEventSettings,
+        scope: dict[str, Any],
+        path: Path,
+        size: int,
+    ) -> int:
+        if settings.start_mode == "beginning":
+            return 0
+        boundary_path = scope.get("turn_scan_path")
+        if boundary_path is not None:
+            try:
+                if Path(boundary_path).resolve() == path:
+                    return max(0, int(scope.get("turn_scan_offset") or 0))
+            except (OSError, TypeError, ValueError):
+                pass
+        started_at = float(scope.get("started_at") or 0)
+        if started_at > 0:
+            try:
+                if path.stat().st_mtime >= started_at - 1.0:
+                    return 0
+            except OSError:
+                pass
+        return size
 
     def _save_cursors(self, cursors: dict[str, Any]) -> None:
         self.cursor_path.parent.mkdir(parents=True, exist_ok=True)
@@ -330,4 +456,5 @@ __all__ = [
     "TranscriptDeliveryPorts",
     "TranscriptDeliverySettings",
     "TranscriptDeltaDeliveryService",
+    "ToolCallEventSettings",
 ]

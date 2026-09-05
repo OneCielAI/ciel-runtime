@@ -86,6 +86,29 @@ class ChatHttpController:
         mode = str(value or "").strip().lower().replace("-", "_")
         return aliases.get(mode, mode)
 
+    def _raw_injection(
+        self,
+        handler: BaseHTTPRequestHandler,
+        body: dict[str, Any],
+    ) -> tuple[bool, dict[str, Any] | None]:
+        value = body.get("raw_injection")
+        if value is None:
+            value = self._first(self._params(handler), "raw_injection", "")
+        if value in (None, ""):
+            return False, None
+        if isinstance(value, bool):
+            return value, None
+        normalized = str(value).strip().lower()
+        if normalized in {"1", "true", "yes", "on"}:
+            return True, None
+        if normalized in {"0", "false", "no", "off"}:
+            return False, None
+        return False, {
+            "ok": False,
+            "error": "invalid_raw_injection",
+            "allowed": [True, False],
+        }
+
     def _message_modes(
         self,
         handler: BaseHTTPRequestHandler,
@@ -339,6 +362,10 @@ class ChatHttpController:
         if path == "/ca/chat/notify":
             return self._notify(handler, body)
         if path == "/ca/chat/messages":
+            raw_injection, raw_error = self._raw_injection(handler, body)
+            if raw_error is not None:
+                self.writes.write_json(handler, raw_error, 400)
+                return True
             input_mode, input_transport, response_mode, response_mcp, error = self._message_modes(
                 handler, body
             )
@@ -354,6 +381,7 @@ class ChatHttpController:
             meta["injection_mode"] = input_mode
             meta["input_transport"] = input_transport
             meta["response_mode"] = response_mode
+            meta["raw_injection"] = raw_injection
             if response_mode == "web_chat":
                 admitted_body.setdefault("channel", "default")
                 admitted_body.setdefault("thread_id", admitted_body["channel"])
@@ -391,6 +419,7 @@ class ChatHttpController:
                         "input_mode": "tty",
                         "input_transport": input_transport,
                         "response_mode": response_mode,
+                        "raw_injection": raw_injection,
                         "injection_mode": "tty",
                         "message": public_message or message,
                     },
@@ -406,6 +435,7 @@ class ChatHttpController:
                     "input_mode": "structured",
                     "input_transport": input_transport,
                     "response_mode": response_mode,
+                    "raw_injection": raw_injection,
                     "injection_mode": "web_chat",
                     "message": message,
                 },

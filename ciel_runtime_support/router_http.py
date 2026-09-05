@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import io
+import base64
+import hashlib
 import json
 import sys
 import tempfile
@@ -754,6 +756,8 @@ class EventHttpPorts:
 
 
 class EventHttpAdapter:
+    _WEBSOCKET_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+
     def __init__(self, ports: EventHttpPorts) -> None:
         self._ports = ports
 
@@ -791,6 +795,8 @@ class EventHttpAdapter:
                 },
             )
             return True
+        if path == "/ca/events/ws":
+            return self._handle_websocket(handler, query)
         if path != "/ca/events/stream":
             return False
         last_id = self.query_int(query, "after", 0)
@@ -800,11 +806,30 @@ class EventHttpAdapter:
         handler.send_header("connection", "close")
         handler.end_headers()
         try:
-            last_id = self._write_events(handler, self._ports.recent(limit=200, min_id=last_id), last_id)
+            level = (query.get("level") or [None])[0]
+            category = (query.get("category") or [None])[0]
+            last_id = self._write_events(
+                handler,
+                self._ports.recent(
+                    limit=200,
+                    min_id=last_id,
+                    level=level,
+                    category=category,
+                ),
+                last_id,
+            )
             while True:
-                events = self._ports.wait_after(last_id, timeout=15.0)
+                observed = self._ports.wait_after(last_id, timeout=15.0)
+                observed_last_id = self._max_event_id(observed, last_id)
+                events = self._filtered(
+                    observed,
+                    level=level,
+                    category=category,
+                )
                 if events:
                     last_id = self._write_events(handler, events, last_id)
+                if observed:
+                    last_id = max(last_id, observed_last_id)
                 else:
                     handler.wfile.write(b": keepalive\n\n")
                     handler.wfile.flush()
@@ -813,6 +838,125 @@ class EventHttpAdapter:
         except Exception as exc:
             self._ports.log("DEBUG", f"events stream closed: {type(exc).__name__}: {exc}")
         return True
+
+    def _handle_websocket(
+        self,
+        handler: BaseHTTPRequestHandler,
+        query: dict[str, list[str]],
+    ) -> bool:
+        upgrade = str(handler.headers.get("upgrade") or "").strip().lower()
+        key = str(handler.headers.get("sec-websocket-key") or "").strip()
+        version = str(handler.headers.get("sec-websocket-version") or "13").strip()
+        if upgrade != "websocket" or not key or version != "13":
+            self._ports.write_json(
+                handler,
+                {
+                    "ok": False,
+                    "error": "websocket_upgrade_required",
+                    "required_version": "13",
+                },
+                400,
+            )
+            return True
+        accept = base64.b64encode(
+            hashlib.sha1((key + self._WEBSOCKET_GUID).encode("ascii")).digest()
+        ).decode("ascii")
+        handler.protocol_version = "HTTP/1.1"
+        handler.send_response(101)
+        handler.send_header("upgrade", "websocket")
+        handler.send_header("connection", "Upgrade")
+        handler.send_header("sec-websocket-accept", accept)
+        handler.end_headers()
+        handler.close_connection = True
+        last_id = self.query_int(query, "after", 0)
+        level = (query.get("level") or [None])[0]
+        category = (query.get("category") or [None])[0]
+        try:
+            last_id = self._write_ws_events(
+                handler,
+                self._ports.recent(
+                    limit=200,
+                    min_id=last_id,
+                    level=level,
+                    category=category,
+                ),
+                last_id,
+            )
+            while True:
+                observed = self._ports.wait_after(last_id, timeout=15.0)
+                observed_last_id = self._max_event_id(observed, last_id)
+                events = self._filtered(
+                    observed,
+                    level=level,
+                    category=category,
+                )
+                if events:
+                    last_id = self._write_ws_events(handler, events, last_id)
+                if observed:
+                    last_id = max(last_id, observed_last_id)
+                else:
+                    handler.wfile.write(self._websocket_frame(b"", opcode=0x9))
+                    handler.wfile.flush()
+        except (BrokenPipeError, ConnectionResetError):
+            return True
+        except Exception as exc:
+            self._ports.log("DEBUG", f"events websocket closed: {type(exc).__name__}: {exc}")
+        return True
+
+    @staticmethod
+    def _max_event_id(events: list[dict[str, Any]], default: int) -> int:
+        return max(
+            (int(event.get("id") or 0) for event in events),
+            default=default,
+        )
+
+    @staticmethod
+    def _filtered(
+        events: list[dict[str, Any]],
+        *,
+        level: str | None,
+        category: str | None,
+    ) -> list[dict[str, Any]]:
+        if level:
+            ranks = {"trace": 10, "debug": 20, "info": 30, "warn": 40, "error": 50, "fatal": 60}
+            threshold = ranks.get(str(level).lower(), 30)
+            events = [
+                event
+                for event in events
+                if ranks.get(str(event.get("level") or "info").lower(), 30) >= threshold
+            ]
+        if category:
+            events = [
+                event
+                for event in events
+                if str(event.get("category") or "").startswith(category)
+            ]
+        return events
+
+    @staticmethod
+    def _websocket_frame(payload: bytes, *, opcode: int = 0x1) -> bytes:
+        size = len(payload)
+        head = bytes([0x80 | (opcode & 0x0F)])
+        if size < 126:
+            return head + bytes([size]) + payload
+        if size <= 0xFFFF:
+            return head + bytes([126]) + size.to_bytes(2, "big") + payload
+        return head + bytes([127]) + size.to_bytes(8, "big") + payload
+
+    def _write_ws_events(
+        self,
+        handler: BaseHTTPRequestHandler,
+        events: list[dict[str, Any]],
+        last_id: int,
+    ) -> int:
+        for event in events:
+            last_id = max(last_id, int(event.get("id") or 0))
+            payload = json.dumps(event, ensure_ascii=False, separators=(",", ":")).encode(
+                "utf-8"
+            )
+            handler.wfile.write(self._websocket_frame(payload))
+        handler.wfile.flush()
+        return last_id
 
     @staticmethod
     def _write_events(

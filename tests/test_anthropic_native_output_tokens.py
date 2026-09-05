@@ -61,14 +61,37 @@ class AnthropicPresetOutputTokensTests(unittest.TestCase):
         env = ciel_runtime.env_vars(cfg)
         self.assertEqual("120000", env.get("CLAUDE_CODE_MAX_OUTPUT_TOKENS"))
 
-    def test_routed_model_defaults_to_standard_context_without_credit_beta(self):
-        cfg = _anthropic_cfg(current_model="claude-opus-4-8")
+    def test_routed_legacy_model_defaults_to_standard_context_without_marker(self):
+        cfg = _anthropic_cfg(current_model="claude-sonnet-4-5")
 
         env = ciel_runtime.env_vars(cfg)
 
         self.assertEqual("200000", env.get("CLAUDE_CODE_AUTO_COMPACT_WINDOW"))
         self.assertEqual("200000", env.get("CLAUDE_CODE_MAX_CONTEXT_TOKENS"))
-        self.assertEqual("ciel-runtime-anthropic-claude-opus-4-8", env.get("ANTHROPIC_MODEL"))
+        self.assertEqual("ciel-runtime-anthropic-claude-sonnet-4-5", env.get("ANTHROPIC_MODEL"))
+
+    def test_routed_current_models_use_documented_one_million_default_without_marker(self):
+        for model in (
+            "claude-fable-5-1",
+            "claude-fable-5",
+            "claude-mythos-5",
+            "claude-mythos-preview",
+            "claude-opus-5",
+            "claude-opus-4-8",
+            "claude-opus-4-7",
+            "claude-opus-4-6",
+            "claude-sonnet-5",
+            "claude-sonnet-4-6",
+        ):
+            with self.subTest(model=model):
+                env = ciel_runtime.env_vars(_anthropic_cfg(current_model=model))
+
+                self.assertEqual("1000000", env.get("CLAUDE_CODE_AUTO_COMPACT_WINDOW"))
+                self.assertEqual("1048576", env.get("CLAUDE_CODE_MAX_CONTEXT_TOKENS"))
+                self.assertEqual(
+                    f"ciel-runtime-anthropic-{model}[1m]",
+                    env.get("ANTHROPIC_MODEL"),
+                )
 
     def test_routed_explicit_one_million_model_retains_credit_beta_marker(self):
         cfg = _anthropic_cfg(current_model="claude-opus-4-8[1m]")
@@ -145,7 +168,10 @@ class AnthropicOutputTokensMigrationTests(unittest.TestCase):
             "claude-fable-5",
             "claude-opus-5",
             "claude-opus-4-8",
+            "claude-opus-4-7",
+            "claude-opus-4-6",
             "claude-sonnet-5",
+            "claude-sonnet-4-6",
         ):
             with self.subTest(model=model):
                 pcfg = self._migrate({"current_model": model, "custom_models": []})
@@ -153,11 +179,10 @@ class AnthropicOutputTokensMigrationTests(unittest.TestCase):
                 self.assertIn("claude-opus-5[1m]", pcfg["custom_models"])
                 self.assertIn("claude-sonnet-4-6[1m]", pcfg["custom_models"])
 
-    def test_migration_keeps_opt_in_and_haiku_models_at_standard_context(self):
-        for model in ("claude-sonnet-4-6", "claude-haiku-4-5"):
-            with self.subTest(model=model):
-                pcfg = self._migrate({"current_model": model, "custom_models": []})
-                self.assertEqual(model, pcfg["current_model"])
+    def test_migration_keeps_haiku_at_standard_context(self):
+        model = "claude-haiku-4-5"
+        pcfg = self._migrate({"current_model": model, "custom_models": []})
+        self.assertEqual(model, pcfg["current_model"])
 
 
 class NonAnthropicUnaffectedTests(unittest.TestCase):

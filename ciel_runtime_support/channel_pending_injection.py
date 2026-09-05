@@ -10,6 +10,7 @@ from ciel_runtime_support.channel_message_policy import (
     message_is_external_event,
     message_response_mcp,
     message_response_mode,
+    message_raw_injection,
     web_chat_input_mode,
 )
 
@@ -228,6 +229,9 @@ def inject_pending_channel_messages(
                 + ":".join(response_mcp.get(key, "") for key in ("server", "tool", "hint"))
             )
             batch_key_base = (
+                ("raw", str(message_id))
+                if message_raw_injection(message)
+                else
                 ("web_chat", web_chat_input_mode(message) + ":" + response_key)
                 if state.message_is_web_chat(message)
                 else ("external_event", str((message.get("meta") or {}).get("receiver_id") or ""))

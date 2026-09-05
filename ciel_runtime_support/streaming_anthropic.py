@@ -716,6 +716,7 @@ def rebatch_anthropic_sse_text(
             "anthropic_stream_tool_call",
             {
                 "model": model,
+                "tool_id": tool_id,
                 "raw_name": raw_name,
                 "matched_name": matched_name,
                 "raw_arguments": raw_args,
@@ -1656,6 +1657,7 @@ def ollama_stream_to_anthropic_sse(
                     "ollama_stream_tool_call",
                     {
                         "model": model,
+                        "tool_id": tool_id,
                         "raw_name": raw_name,
                         "matched_name": matched_name,
                         "raw_arguments": raw_args,
@@ -2434,6 +2436,7 @@ def forward_openai_chat_to_anthropic_sse(
                 "openai_stream_tool_call",
                 {
                     "model": model,
+                    "tool_id": tool_id,
                     "raw_name": raw_name,
                     "matched_name": matched_name,
                     "raw_arguments": fragment.get("arguments"),

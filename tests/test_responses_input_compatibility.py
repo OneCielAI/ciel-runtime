@@ -127,6 +127,26 @@ class ResponsesInputCompatibilityTests(unittest.TestCase):
         )
         self.assertEqual("msg_wrong", body["input"][0]["id"])
 
+    def test_drops_reasoning_with_forbidden_id_characters(self):
+        observed_id = (
+            "rs_6a99dcbe7e8a91cae38545b0:"
+            "rs_01a069064b3877d39c6ea89c7386e5aa"
+        )
+        body = {
+            "input": [
+                {
+                    "type": "reasoning",
+                    "id": observed_id,
+                    "encrypted_content": "ciphertext",
+                }
+            ]
+        }
+
+        repaired = repair_replayed_response_items(body)
+
+        self.assertEqual([], repaired["input"])
+        self.assertEqual(observed_id, body["input"][0]["id"])
+
     def test_omits_foreign_function_call_id_without_breaking_call_pair(self):
         body = {
             "input": [
@@ -393,6 +413,27 @@ class RouterSynthesizedItemIdTests(unittest.TestCase):
             ["msg_019fd64e-1892-7f33-99c0-9e1c5087a5be"],
             [item["id"] for item in repaired["input"]],
         )
+
+    def test_drops_replayed_router_minted_encrypted_reasoning(self):
+        body = {
+            "input": [
+                {
+                    "type": "reasoning",
+                    "id": "rs_e50d87c9_0",
+                    "summary": [],
+                    "encrypted_content": "foreign-envelope",
+                },
+                {"type": "message", "id": "msg_upstream", "role": "assistant"},
+            ]
+        }
+
+        repaired = repair_replayed_response_items(body)
+
+        self.assertEqual(
+            [{"type": "message", "id": "msg_upstream", "role": "assistant"}],
+            repaired["input"],
+        )
+        self.assertEqual(2, len(body["input"]))
 
     def test_drops_router_minted_tool_call_when_output_is_missing(self):
         body = {
