@@ -9,7 +9,6 @@ from ciel_runtime_support.channel_injection import (
 from ciel_runtime_support.channel_terminal_proxy import (
     resolve_posix_child_exit_status,
     terminal_exit_control_summary,
-    windows_wake_requires_body_fallback,
 )
 
 
@@ -226,12 +225,6 @@ class ChannelPromptInjectorTests(unittest.TestCase):
         self.assertTrue(any("stage=body" in line for line in logs))
         self.assertTrue(any("stage=submit-1" in line for line in logs))
 
-    def test_windows_full_prompt_attempts_have_a_hard_body_fallback_boundary(self) -> None:
-        self.assertFalse(windows_wake_requires_body_fallback("unseen_retry", 1, 2))
-        self.assertTrue(windows_wake_requires_body_fallback("unseen_retry", 2, 2))
-        self.assertTrue(windows_wake_requires_body_fallback("stale", 2, 2))
-        self.assertFalse(windows_wake_requires_body_fallback("completed", 99, 2))
-
     def test_missing_prompt_head_is_cleared_and_fully_rewritten_before_submit(self) -> None:
         transport = FakeWindowsTransport()
         snapshots = iter(("tail without prompt head", "first line second line"))
@@ -414,6 +407,7 @@ class ChannelPromptInjectorTests(unittest.TestCase):
     def test_conpty_does_not_submit_when_injected_prompt_was_not_rendered(self) -> None:
         transport = FakeConPtyTransport()
         transport.wait_until_prompt_ready = lambda *_args, **_kwargs: False
+        transport.clear_unsubmitted_prompt = Mock(return_value=False)
         logs: list[str] = []
         injector = ChannelPromptInjector(
             sleep=lambda _seconds: None,
@@ -440,9 +434,13 @@ class ChannelPromptInjectorTests(unittest.TestCase):
 
         body = b"\x1b[200~cold-start external message\x1b[201~"
         self.assertEqual([b"\x15" + body], transport.writes)
+        transport.clear_unsubmitted_prompt.assert_called_once_with(
+            b"\x15", "cold-start external message", 2.0
+        )
         self.assertFalse(submitted)
         self.assertTrue(any("result=timeout" in line for line in logs))
         self.assertTrue(any("reason=prompt_render_timeout" in line for line in logs))
+        self.assertTrue(any("draft_clear=unverified retry=disabled" in line for line in logs))
 
 
 if __name__ == "__main__":

@@ -59,7 +59,7 @@ class ChannelInflightStateMachineTests(unittest.TestCase):
             self.effects,
         )
 
-        self.assertEqual("unseen_retry", update.action)
+        self.assertEqual("failed", update.action)
         self.assertEqual(77, update.last_id)
         self.assertEqual([12], self.released)
 
@@ -70,7 +70,7 @@ class ChannelInflightStateMachineTests(unittest.TestCase):
             self.effects,
         )
 
-        self.assertEqual("stale", update.action)
+        self.assertEqual("failed", update.action)
         self.assertEqual([11], self.committed)
         self.assertEqual([12], self.released)
 

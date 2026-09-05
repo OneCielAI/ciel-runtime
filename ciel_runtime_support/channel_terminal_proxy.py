@@ -62,7 +62,6 @@ class ChannelTerminalPolicy:
     unseen_retry_seconds: Callable[[], float]
     inflight_is_stale: Callable[..., bool]
     log: Callable[[str, str], None]
-    windows_wake_max_attempts: Callable[[], int]
 
 
 @dataclass(frozen=True)
@@ -75,7 +74,6 @@ class ChannelTerminalPolling:
     inject_pending: Callable[..., Any]
     wake_state: Callable[[int], Any]
     inflight_effects: Callable[[], Any]
-    mark_body_fallback: Callable[[int, str], None]
     runtime_interaction: Callable[[], RuntimeInteractionEvent | None] = lambda: None
 
     def input_busy(self) -> bool:
@@ -100,7 +98,6 @@ class ChannelWindowsConsole:
     startup_grace_seconds: Callable[[], float]
     reset_interval_seconds: Callable[[float], float]
     active_turn: Callable[[], bool]
-    write_body_fallback: Callable[[Any, int, bytes], None]
     sleep: Callable[[float], None]
     open_conpty: Callable[[list[str], dict[str, str], Callable[[str, str], None]], Any | None]
 
@@ -111,15 +108,6 @@ class ChannelWindowsServices:
     policy: ChannelTerminalPolicy
     polling: ChannelTerminalPolling
     console: ChannelWindowsConsole
-
-
-def windows_wake_requires_body_fallback(
-    action: str, attempts: int, maximum_attempts: int
-) -> bool:
-    return bool(
-        action in {"unseen_retry", "stale"}
-        and attempts >= max(1, int(maximum_attempts))
-    )
 
 
 def resolve_posix_child_exit_status(
@@ -400,35 +388,8 @@ def run_windows_channel_terminal_proxy(
                 pending_poll_state.last_id = inflight_update.last_id
                 if inflight_update.action == "completed":
                     pending_poll_state.inflight.attempts = 0
-                elif inflight_update.action in {"unseen_retry", "stale"}:
-                    attempts = max(1, pending_poll_state.inflight.attempts)
-                    if windows_wake_requires_body_fallback(
-                        inflight_update.action,
-                        attempts,
-                        policy.windows_wake_max_attempts(),
-                    ):
-                        polling.mark_body_fallback(
-                            inflight_message_id,
-                            f"windows_console_{inflight_update.action}",
-                        )
-                        pending_poll_state.inflight.attempts = 0
-                        policy.log(
-                            "ERROR",
-                            "channel_windows_console_body_fallback "
-                            f"message_id={inflight_message_id} attempts={attempts} "
-                            f"reason={inflight_update.action}",
-                        )
-                        try:
-                            console.write_body_fallback(
-                                writer, inflight_message_id, channel_enter_bytes
-                            )
-                        except Exception as exc:
-                            policy.log(
-                                "ERROR",
-                                "channel_windows_console_body_fallback_wake_failed "
-                                f"message_id={inflight_message_id} "
-                                f"error={type(exc).__name__}: {exc}",
-                            )
+                elif inflight_update.action == "failed":
+                    pending_poll_state.inflight.attempts = 0
             compact_poll_state = poll_pending_compaction(
                 now,
                 writer,
@@ -620,7 +581,7 @@ def run_posix_channel_terminal_proxy(
                         unseen_retry_seconds=policy.unseen_retry_seconds(),
                         waiting_log_interval=30.0,
                         is_stale=policy.inflight_is_stale,
-                        commit_cursor_on_stale=True,
+                        commit_cursor_on_stale=False,
                         log_namespace="channel_stdin_proxy",
                         stale_event="stale_inflight_skipped",
                     ),

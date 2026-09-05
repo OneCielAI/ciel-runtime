@@ -46,6 +46,8 @@ class ChatHttpReadServices:
     condition: Condition
     safe_segment: Callable[[str, str], str]
     files_dir: Path
+    request_status: Callable[[int], dict[str, Any] | None] = lambda _request_id: None
+    request_statuses: Callable[..., list[dict[str, Any]]] = lambda **_kwargs: []
 
 
 @dataclass(frozen=True, slots=True)
@@ -218,8 +220,39 @@ class ChatHttpController:
                     "wait": "/ca/channel/wait" if channel_alias else "/ca/chat/wait",
                     "stream": "/ca/channel/stream" if channel_alias else "/ca/chat/stream",
                     "notify": "/ca/channel/notify",
+                    "request_status": "/ca/channel/requests/{request_id}" if channel_alias else "/ca/chat/requests/{request_id}",
+                    "request_status_events": "/ca/events/stream?category=runtime_input.status",
                     "ownership_note": "External MCP servers are configured and owned by the active CLI.",
                 },
+            )
+            return True
+        if path == "/ca/chat/requests":
+            params = self._params(handler)
+            try:
+                after = max(0, int(self._first(params, "after", "0") or 0))
+                limit = max(1, min(500, int(self._first(params, "limit", "100") or 100)))
+            except ValueError:
+                self.writes.write_json(handler, {"ok": False, "error": "invalid_request_status_query"}, 400)
+                return True
+            rows = self.reads.request_statuses(
+                after_request_id=after,
+                status=self._first(params, "status", ""),
+                limit=limit,
+            )
+            self.writes.write_json(handler, {"ok": True, "requests": rows})
+            return True
+        if path.startswith("/ca/chat/requests/"):
+            raw_id = path[len("/ca/chat/requests/") :]
+            try:
+                request_id = int(raw_id)
+            except ValueError:
+                self.writes.write_json(handler, {"ok": False, "error": "invalid_request_id"}, 400)
+                return True
+            status = self.reads.request_status(request_id)
+            self.writes.write_json(
+                handler,
+                {"ok": status is not None, "request": status},
+                200 if status is not None else 404,
             )
             return True
         if path in ("/ca/chat/messages", "/ca/chat/wait"):
@@ -407,7 +440,7 @@ class ChatHttpController:
                     if response_mode == "web_chat"
                     else None
                 )
-                message = (
+                runtime_message = (
                     self.writes.submit_tty(admitted_body, public_message)
                     if public_message is not None
                     else self.writes.submit_tty(admitted_body)
@@ -421,13 +454,17 @@ class ChatHttpController:
                         "response_mode": response_mode,
                         "raw_injection": raw_injection,
                         "injection_mode": "tty",
-                        "message": public_message or message,
+                        "message": public_message or runtime_message,
+                        "request_id": runtime_message.get("id"),
+                        "request": self.reads.request_status(int(runtime_message.get("id") or 0))
+                        or {"request_id": runtime_message.get("id"), "status": "queued"},
                     },
                 )
                 return True
             message = self.writes.append_message(admitted_body)
+            runtime_message = None
             if self.writes.submit_message is not None and _delivery_requests_llm(admitted_body):
-                self.writes.submit_message(message, admitted_body)
+                runtime_message = self.writes.submit_message(message, admitted_body)
             self.writes.write_json(
                 handler,
                 {
@@ -438,6 +475,15 @@ class ChatHttpController:
                     "raw_injection": raw_injection,
                     "injection_mode": "web_chat",
                     "message": message,
+                    **(
+                        {
+                            "request_id": runtime_message.get("id"),
+                            "request": self.reads.request_status(int(runtime_message.get("id") or 0))
+                            or {"request_id": runtime_message.get("id"), "status": "queued"},
+                        }
+                        if isinstance(runtime_message, dict)
+                        else {}
+                    ),
                 },
             )
             return True

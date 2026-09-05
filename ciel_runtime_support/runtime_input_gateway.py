@@ -18,6 +18,27 @@ class RuntimeInputGateway:
     append: Callable[[dict[str, Any]], dict[str, Any]]
     project_attachment: Callable[[dict[str, Any]], dict[str, Any]] | None = None
     default_input_transport: Callable[[], str] = lambda: "session_socket"
+    status: Any = None
+
+    def _append(self, payload: dict[str, Any]) -> dict[str, Any]:
+        message = self.append(payload)
+        request_id = int(message.get("id") or 0)
+        if (
+            request_id > 0
+            and not message.get("_ciel_runtime_duplicate")
+            and self.status is not None
+        ):
+            self.status.transition(
+                request_id,
+                "queued",
+                data={
+                    "channel": str(message.get("channel") or "default"),
+                    "input_transport": str(
+                        (message.get("meta") or {}).get("input_transport") or ""
+                    ),
+                },
+            )
+        return message
 
     def _transport(self, value: Any = None) -> str:
         transport = str(value or self.default_input_transport() or "session_socket").strip().lower().replace("-", "_")
@@ -77,7 +98,7 @@ class RuntimeInputGateway:
             "delivery": ["llm"],
             "visibility": "private_runtime",
         }
-        return self.append(payload)
+        return self._append(payload)
 
     def submit_tty(
         self,
@@ -125,7 +146,7 @@ class RuntimeInputGateway:
             content = json.dumps(content, ensure_ascii=False, separators=(",", ":"))
             meta["content_type"] = "application/json"
 
-        return self.append(
+        return self._append(
             {
                 "channel": body.get("channel") or meta.get("channel") or "default",
                 "sender_id": body.get("sender_id") or body.get("sender") or "api-user",
@@ -155,7 +176,7 @@ class RuntimeInputGateway:
         content = params.get("content")
         if content is None:
             content = body.get("content", body.get("message", body.get("text", "")))
-        return self.append(
+        return self._append(
             {
                 "channel": body.get("channel") or meta.get("channel") or "default",
                 "sender_id": body.get("sender_id") or body.get("sender") or body.get("server") or meta.get("source") or "channel",
@@ -185,7 +206,7 @@ class RuntimeInputGateway:
         if isinstance(content, (dict, list)):
             content = json.dumps(content, ensure_ascii=False, separators=(",", ":"))
             meta["content_type"] = "application/json"
-        return self.append(
+        return self._append(
             {
                 "channel": body.get("channel") or "mcp-streamable",
                 "sender_id": body.get("sender_id") or body.get("sender") or "mcp-client",
@@ -214,7 +235,7 @@ class RuntimeInputGateway:
     ) -> dict[str, Any]:
         """Admit exact decoded event text; never normalize or re-serialize it."""
 
-        return self.append(
+        return self._append(
             {
                 "channel": f"external:{receiver_id}",
                 "sender_id": event_source or receiver_id,
@@ -274,7 +295,7 @@ class RuntimeInputGateway:
             "to read only the needed range. This is input-only telemetry; no acknowledgement "
             f"or response is required. Stored ranges: {locations}"
         )
-        return self.append(
+        return self._append(
             {
                 "channel": "telemetry",
                 "sender_id": "otlp",

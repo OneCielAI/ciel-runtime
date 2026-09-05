@@ -16,7 +16,7 @@ class Handler:
 
 
 class ChatHttpInjectionModeTests(unittest.TestCase):
-    def controller(self, calls, responses, default_transport="session_socket"):
+    def controller(self, calls, responses, default_transport="session_socket", statuses=None):
         temp_dir = tempfile.TemporaryDirectory()
         self.addCleanup(temp_dir.cleanup)
 
@@ -35,6 +35,8 @@ class ChatHttpInjectionModeTests(unittest.TestCase):
                 condition=Condition(),
                 safe_segment=lambda value, _label: value,
                 files_dir=Path(temp_dir.name),
+                request_status=lambda request_id: (statuses or {}).get(request_id),
+                request_statuses=lambda **_kwargs: list((statuses or {}).values()),
             ),
             writes=ChatHttpWriteServices(
                 write_json=lambda _handler, payload, status=200: responses.append((status, payload)),
@@ -122,6 +124,24 @@ class ChatHttpInjectionModeTests(unittest.TestCase):
         self.assertEqual("append", calls[0][0])
         self.assertEqual("web", calls[1][0])
         self.assertEqual("web_chat", responses[0][1]["injection_mode"])
+        self.assertEqual(9, responses[0][1]["request_id"])
+        self.assertEqual("queued", responses[0][1]["request"]["status"])
+
+    def test_request_status_is_queryable_through_channel_alias(self):
+        calls = []
+        responses = []
+        status = {"request_id": 9, "status": "submitted"}
+        controller = self.controller(calls, responses, statuses={9: status})
+
+        self.assertTrue(
+            controller.get(
+                Handler("/ca/channel/requests/9"),
+                "/ca/channel/requests/9",
+            )
+        )
+
+        self.assertEqual(200, responses[0][0])
+        self.assertEqual(status, responses[0][1]["request"])
 
     def test_raw_injection_is_admitted_as_an_explicit_orthogonal_option(self):
         calls = []

@@ -1,4 +1,5 @@
 import unittest
+from unittest import mock
 
 from ciel_runtime_support.channel_message_policy import message_is_web_chat_request
 from ciel_runtime_support.channel_message_prompt import format_llm_batch_prompt
@@ -6,6 +7,22 @@ from ciel_runtime_support.runtime_input_gateway import RuntimeInputGateway
 
 
 class RuntimeInputGatewayTests(unittest.TestCase):
+    def test_admission_records_queued_lifecycle_on_private_request_id(self):
+        status = mock.Mock()
+        gateway = RuntimeInputGateway(
+            lambda value: {"id": 27, **value},
+            status=status,
+        )
+
+        saved = gateway.submit_tty({"message": "한 번만 제출"})
+
+        self.assertEqual(27, saved["id"])
+        status.transition.assert_called_once_with(
+            27,
+            "queued",
+            data={"channel": "default", "input_transport": "session_socket"},
+        )
+
     def test_claude_default_transport_is_stamped_on_all_external_inputs(self):
         gateway = RuntimeInputGateway(
             lambda value: value,

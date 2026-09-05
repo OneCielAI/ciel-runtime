@@ -29,6 +29,10 @@ _CLAUDE_COLLAPSED_PASTE_PATTERN = re.compile(
     rb"\[Pasted(?:\x1b\[[0-?]*[ -/]*[@-~]|\s)+"
     rb"text(?:\x1b\[[0-?]*[ -/]*[@-~]|\s)+#"
 )
+_VT_OSC_PATTERN = re.compile(rb"\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)")
+_VT_CURSOR_RIGHT_PATTERN = re.compile(rb"\x1b\[([0-9]*)(?:C|a)")
+_VT_CSI_PATTERN = re.compile(rb"\x1b\[[0-?]*[ -/]*[@-~]")
+_VT_SINGLE_ESCAPE_PATTERN = re.compile(rb"\x1b[@-_]")
 
 
 def _collapsed_paste_marker_count(output: bytes | str) -> int:
@@ -36,6 +40,21 @@ def _collapsed_paste_marker_count(output: bytes | str) -> int:
     return data.count(_CODEX_COLLAPSED_PASTE_MARKER) + len(
         _CLAUDE_COLLAPSED_PASTE_PATTERN.findall(data)
     )
+
+
+def _visible_terminal_text(output: bytes | str) -> str:
+    """Project ConPTY output to comparable visible text without mutating input."""
+
+    data = output.encode("utf-8", errors="replace") if isinstance(output, str) else bytes(output)
+    data = _VT_OSC_PATTERN.sub(b"", data)
+    data = _VT_CURSOR_RIGHT_PATTERN.sub(
+        lambda match: b" " * max(1, min(4096, int(match.group(1) or b"1"))),
+        data,
+    )
+    data = _VT_CSI_PATTERN.sub(b"", data)
+    data = _VT_SINGLE_ESCAPE_PATTERN.sub(b"", data)
+    text = data.decode("utf-8", errors="replace")
+    return " ".join(text.replace("\x00", "").split())
 
 
 def conpty_enabled(
@@ -202,8 +221,9 @@ class WindowsConPtySession:
         prompt = WindowsConPtySession.normalize_prompt(str(expected_prompt or ""))
         if not prompt:
             return bool(output)
-        prefix = prompt[:48].encode("utf-8", errors="replace")
-        return bool(prefix and prefix in output) or _collapsed_paste_marker_count(output) > 0
+        prefix = _visible_terminal_text(prompt)[:48]
+        visible = _visible_terminal_text(output)
+        return bool(prefix and prefix in visible) or _collapsed_paste_marker_count(output) > 0
 
     @staticmethod
     def _prompt_rendered_since(
@@ -214,12 +234,43 @@ class WindowsConPtySession:
         if current == baseline:
             return False
         prompt = WindowsConPtySession.normalize_prompt(str(expected_prompt or ""))
-        prefix = prompt[:48]
-        if prefix and current.count(prefix) > baseline.count(prefix):
+        prefix = _visible_terminal_text(prompt)[:48]
+        current_visible = _visible_terminal_text(current)
+        baseline_visible = _visible_terminal_text(baseline)
+        if prefix and current_visible.count(prefix) > baseline_visible.count(prefix):
             return True
         if prompt and _collapsed_paste_marker_count(current) > _collapsed_paste_marker_count(baseline):
             return True
         return not prompt
+
+    def clear_unsubmitted_prompt(
+        self,
+        clear_input: bytes,
+        expected_prompt: str,
+        timeout_seconds: float = 2.0,
+    ) -> bool:
+        """Clear a draft and require a settled child redraw before it is retry-safe."""
+
+        checkpoint = self.prompt_readiness_checkpoint()
+        self.write(clear_input)
+        cursor = checkpoint
+        observed = bytearray()
+        stable_since: float | None = None
+        deadline = time.monotonic() + max(0.0, float(timeout_seconds))
+        prefix = _visible_terminal_text(self.normalize_prompt(expected_prompt))[:48]
+        while True:
+            now = time.monotonic()
+            chunk, cursor = self._output_since(cursor)
+            if chunk:
+                observed.extend(chunk)
+                del observed[: max(0, len(observed) - 64 * 1024)]
+                stable_since = now
+            if observed and stable_since is not None and now - stable_since >= 0.25:
+                visible = _visible_terminal_text(bytes(observed))
+                return bool(visible) and (not prefix or prefix not in visible)
+            if now >= deadline:
+                return False
+            time.sleep(0.02)
 
     @staticmethod
     def pending_input_events() -> None:
@@ -320,16 +371,49 @@ class WindowsConPtySession:
     def kill(self) -> None:
         self.terminate()
 
-    def resize_if_needed(self) -> None:
+    def resize_if_needed(self) -> bool:
         if not self._hpc or not self._kernel32:
-            return
+            return False
         size = self._terminal_size()
         if size == self._last_size:
-            return
+            return False
+        checkpoint = self.prompt_readiness_checkpoint()
         coord = self._coord_type(size[0], size[1])
-        result = int(self._kernel32.ResizePseudoConsole(self._hpc, coord))
+        try:
+            result = int(self._kernel32.ResizePseudoConsole(self._hpc, coord))
+        except Exception as exc:
+            self._log(
+                "ERROR",
+                "channel_windows_conpty_resize_failed "
+                f"cols={size[0]} rows={size[1]} error={type(exc).__name__}: {exc}",
+            )
+            return False
         if result == 0:
             self._last_size = size
+            redrawn = self._wait_for_output_change(checkpoint, 0.75)
+            self._log(
+                "INFO" if redrawn else "WARN",
+                "channel_windows_conpty_resize "
+                f"cols={size[0]} rows={size[1]} "
+                f"redraw={'observed' if redrawn else 'timeout'}",
+            )
+            return True
+        self._log(
+            "ERROR",
+            "channel_windows_conpty_resize_failed "
+            f"cols={size[0]} rows={size[1]} hresult=0x{result & 0xFFFFFFFF:08X}",
+        )
+        return False
+
+    def _wait_for_output_change(self, checkpoint: int, timeout_seconds: float) -> bool:
+        deadline = time.monotonic() + max(0.0, float(timeout_seconds))
+        while True:
+            chunk, _cursor = self._output_since(checkpoint)
+            if chunk:
+                return True
+            if time.monotonic() >= deadline:
+                return False
+            time.sleep(0.02)
 
     def close(self) -> None:
         if self._closed:

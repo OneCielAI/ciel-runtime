@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Literal
 
 
-InflightAction = Literal["none", "completed", "unseen_retry", "stale", "waiting"]
+InflightAction = Literal["none", "completed", "failed", "waiting"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -71,9 +71,9 @@ def advance_channel_inflight(
         effects.release_wake(message_id)
         effects.log(
             "WARN",
-            f"{policy.log_namespace}_unseen_retry message_id={message_id} age={age:.1f}s",
+            f"{policy.log_namespace}_unseen_failed message_id={message_id} age={age:.1f}s",
         )
-        return _reset("unseen_retry", snapshot, last_id=effects.ensure_cursor(), logged_at=snapshot.now)
+        return _reset("failed", snapshot, last_id=effects.ensure_cursor(), logged_at=snapshot.now)
     if policy.is_stale(state, snapshot.started_at, snapshot.now):
         if policy.commit_cursor_on_stale and snapshot.cursor is not None:
             effects.commit_cursor(snapshot.cursor)
@@ -83,7 +83,7 @@ def advance_channel_inflight(
             f"{policy.log_namespace}_{policy.stale_event} message_id={message_id} state={state} "
             f"age={age:.1f}s cursor={snapshot.cursor or '-'}",
         )
-        return _reset("stale", snapshot, last_id=effects.ensure_cursor(), logged_at=snapshot.now)
+        return _reset("failed", snapshot, last_id=effects.ensure_cursor(), logged_at=snapshot.now)
     if snapshot.now - snapshot.logged_at >= policy.waiting_log_interval:
         effects.log(
             "INFO",

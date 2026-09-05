@@ -8,6 +8,7 @@ from typing import Any, Callable
 from dataclasses import dataclass
 
 from ciel_runtime_support.claude_environment import CLAUDE_PROJECTED_ENV_KEYS
+from ciel_runtime_support.managed_tool_injection import should_inject_tool
 from ciel_runtime_support.runtime_constants import (
     CLAUDE_SERVER_SIDE_WEB_TOOLS,
     CODEX_RUNTIME_API_KEY_ENV,
@@ -463,7 +464,7 @@ def run_claude(
     zai_mcp_config = write_zai_mcp_config(provider, pcfg)
     if zai_mcp_config:
         mcp_config_paths.append(str(zai_mcp_config))
-    if should_attach_web_search(provider, cfg, web_search_override):
+    if should_inject_tool(native=provider == "anthropic", mode="non_native") and should_attach_web_search(provider, cfg, web_search_override):
         mcp_config_paths.append(str(write_duckduckgo_mcp_config(cfg)))
     workspace_mcp_launch = (
         workspace_mcp.prepare(
@@ -472,6 +473,7 @@ def run_claude(
                 "transport": "streamable_http", "url": f"{ROUTER_BASE}/ca/mcp",
                 "runtimes": ["claude"],
             }} if llm_channel_delivery and web_backend_start_requested(cfg) else None,
+            native=provider == "anthropic",
         ) if workspace_mcp is not None else None
     )
     if workspace_mcp_launch is not None:
@@ -921,7 +923,7 @@ def run_codex(
         ),
     )
     workspace_mcp_launch = (
-        workspace_mcp.prepare("codex", cfg, env) if workspace_mcp is not None else None
+        workspace_mcp.prepare("codex", cfg, env, native=native_codex_enabled(provider)) if workspace_mcp is not None else None
     )
     if workspace_mcp_launch is not None:
         codex_mcp_compat_args.extend(workspace_mcp_launch.codex_args)
@@ -1251,7 +1253,7 @@ def run_codex_app_server(
         ),
     )
     workspace_mcp_launch = (
-        workspace_mcp.prepare("codex-app-server", cfg, env)
+        workspace_mcp.prepare("codex-app-server", cfg, env, native=native_codex_enabled(provider))
         if workspace_mcp is not None else None
     )
     try:

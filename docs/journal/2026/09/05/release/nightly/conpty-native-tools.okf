@@ -1,0 +1,13 @@
+title: Local and nightly release of ConPTY delivery and managed tool policies
+date: 2026-09-05
+authorization: User requested local and nightly deployment.
+scope:
+  changes: Previously implemented ConPTY input lifecycle and native tool injection changes, with regression tests and diagnostic probes.
+verification:
+  static: Ruff, documentation metadata and git diff whitespace checks passed.
+  cli_probe: Installed Claude draft output reproduces old detector failure and working-tree detector success without submitting a model request.
+deployment:
+  local_target: C:/Users/djlov/.local/share/ciel-runtime
+  remote_branch: nightly
+  mechanism: Repository Windows installer; GitHub npm publish workflow.
+  active_sessions: Do not terminate or restart user sessions; loaded Python code requires runtime restart.

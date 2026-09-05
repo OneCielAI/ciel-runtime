@@ -98,6 +98,21 @@ Exact-input example:
 }
 ```
 
+Every admitted private Runtime Input has an independent lifecycle identifier.
+The message POST response includes `request_id` and a `request` object whose
+initial state is `queued`; HTTP success does not claim that the TUI accepted the
+input. Query one request with `GET /ca/channel/requests/{request_id}` or list
+latest states with `GET /ca/channel/requests?after=0&status=submitted&limit=100`.
+The `/ca/chat/requests/...` aliases are equivalent. State transitions are
+`queued -> submitted -> replied` or `queued|submitted -> failed`. They are also
+published through `/ca/events/stream?category=runtime_input.status` and
+`/ca/events/ws?category=runtime_input.status`.
+
+The lifecycle store is `runtime-input-status.jsonl`; the delivery queue and its
+cursor both use the private `runtime-inputs.jsonl` ID domain. Public
+`chat-messages.jsonl` IDs are never used to calculate the pending Runtime Input
+count.
+
 The MCP hint is declarative; Ciel does not call the named server itself:
 
 ```json
@@ -137,9 +152,11 @@ user-private `~/.claude/sessions/<pid>.<socket-hash>.key` file and then submits 
 newline-delimited `user` frame. Ciel deliberately omits a peer `from` address:
 the existing private Web Chat/MCP response contract remains authoritative, so a
 socket input does not invent a second Claude peer as its reply destination.
-If the key or socket is not ready during an active turn, the durable Runtime Input
-record is retained and retried; it is not acknowledged or cursor-committed as
-delivered. While the TUI is idle, a failed socket submission falls back to TTY.
+If the socket is not available before delivery during an active turn, the durable
+Runtime Input remains queued. Once a delivery attempt begins, an unconfirmed
+socket or TTY submission becomes `failed` and is not typed again automatically.
+While the TUI is idle, a failed socket attempt may try TTY once; if that attempt
+is not confirmed, the request remains failed.
 
 Set `claude_code.session_socket_input=false` to disable automatic socket setup
 for a launch, or choose `input_transport=tty|router` on an individual input.
@@ -175,7 +192,7 @@ encrypted workspace vault and are never returned by the GET response.
 
 Webhook bodies use CloudEvents 1.0 structured JSON and Standard Webhooks `webhook-id`, `webhook-timestamp`, and `webhook-signature` headers. SSE requests negotiate the same structured representation with `Accept: text/event-stream, application/cloudevents+json`; each `data` frame must contain one CloudEvent 1.0 structured JSON object. Ciel validates framing, signatures, replay windows, type filters, and duplicate identities, but preserves the admitted event text exactly for the LLM.
 
-Reconnects use the SSE `id` field and `Last-Event-ID` by default. Streams that carry a cursor inside the CloudEvent can set `cursor_json_pointer` to an RFC 6901 pointer such as `/data/stream_id`. If the producer expects its cursor in the reconnect URL instead of `Last-Event-ID`, set the provider-neutral `cursor_query_parameter` to that query parameter's name. Ciel persists the projected cursor per workspace and receiver; no product-specific event schema is built into the runtime.
+Reconnects use the SSE `id` field and `Last-Event-ID` by default. Streams that carry a cursor inside the CloudEvent can set `cursor_json_pointer` to an RFC 6901 pointer such as `/data/stream_id`. If the producer expects its cursor in the reconnect URL instead of `Last-Event-ID`, set the provider-neutral `cursor_query_parameter` to that query parameter's name. Ciel persists the projected cursor per workspace and receiver; no product-specific event schema is built into the runtime. A failed earlier request blocks later requests, preserving input order and preventing two requests from sharing one unresolved TUI draft.
 
 The workspace router is the sole owner of each outbound SSE subscription. The prelaunch settings process only persists receiver configuration, preventing duplicate connections and duplicate deliveries. The terminal bridge also performs a bounded periodic safety rescan of its durable private input queue so a missed filesystem notification cannot strand an admitted event.
 

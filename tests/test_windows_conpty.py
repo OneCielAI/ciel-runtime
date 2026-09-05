@@ -8,6 +8,11 @@ import time
 import unittest
 from unittest import mock
 
+from ciel_runtime_support.channel_injection import (
+    ChannelPromptInjector,
+    PromptInjection,
+    RuntimeInjectionPolicy,
+)
 from ciel_runtime_support.terminal_platform_io import TERMINAL_INPUT_MODE_RESET
 from ciel_runtime_support.windows_conpty import WindowsConPtySession, conpty_enabled
 
@@ -130,6 +135,63 @@ class WindowsConPtyPolicyTests(unittest.TestCase):
             )
         )
 
+    def test_prompt_ready_detects_korean_split_by_ansi_sequences(self) -> None:
+        prompt = "한글 ANSI 입력을 감지합니다"
+        rendered = (
+            b"\x1b[31m" + "한".encode("utf-8") + b"\x1b[0m"
+            + "글".encode("utf-8") + b"\x1b[2CANSI "
+            + "입력을 감지합니다".encode("utf-8")
+        )
+
+        self.assertTrue(
+            WindowsConPtySession._prompt_rendered_in_output(rendered, prompt)
+        )
+
+    def test_resize_failure_is_logged_with_hresult(self) -> None:
+        session = WindowsConPtySession.__new__(WindowsConPtySession)
+        session._hpc = 7
+        session._kernel32 = mock.Mock()
+        session._kernel32.ResizePseudoConsole.return_value = -2147024809
+        session._last_size = (80, 25)
+        session._terminal_size = lambda: (120, 40)
+        session._coord_type = lambda cols, rows: (cols, rows)
+        session._output_lock = threading.Lock()
+        session._output_total_bytes = 0
+        logs = []
+        session._log = lambda level, message: logs.append((level, message))
+
+        self.assertFalse(session.resize_if_needed())
+        self.assertEqual((80, 25), session._last_size)
+        self.assertTrue(
+            any(
+                level == "ERROR"
+                and "channel_windows_conpty_resize_failed" in message
+                and "hresult=0x80070057" in message
+                for level, message in logs
+            )
+        )
+
+    def test_resize_success_records_tui_redraw_observation(self) -> None:
+        session = WindowsConPtySession.__new__(WindowsConPtySession)
+        session._hpc = 7
+        session._kernel32 = mock.Mock()
+        session._kernel32.ResizePseudoConsole.return_value = 0
+        session._last_size = (80, 25)
+        session._terminal_size = lambda: (120, 40)
+        session._coord_type = lambda cols, rows: (cols, rows)
+        session._output_lock = threading.Lock()
+        session._output_total_bytes = 15
+        session._wait_for_output_change = mock.Mock(return_value=True)
+        logs = []
+        session._log = lambda level, message: logs.append((level, message))
+
+        self.assertTrue(session.resize_if_needed())
+        self.assertEqual((120, 40), session._last_size)
+        session._wait_for_output_change.assert_called_once_with(15, 0.75)
+        self.assertIn(
+            ("INFO", "channel_windows_conpty_resize cols=120 rows=40 redraw=observed"),
+            logs,
+        )
     def test_enabled_by_default_only_on_windows(self):
         self.assertTrue(conpty_enabled({}, platform_name="nt"))
         self.assertFalse(conpty_enabled({}, platform_name="posix"))
@@ -530,6 +592,107 @@ class WindowsConPtyPolicyTests(unittest.TestCase):
             session._mirror_bytes(b"abc")
 
         write.assert_called_once_with(91, memoryview(b"abc"))
+
+    @unittest.skipUnless(os.name == "nt", "requires Windows ConPTY")
+    def test_native_conpty_detects_ansi_fragmented_korean_prompt_and_submits(self):
+        prompt = "한글 ANSI 입력 감지"
+        child = (
+            "import ctypes,sys; from ctypes import wintypes; "
+            "k=ctypes.WinDLL('kernel32'); h=k.GetStdHandle(-10); "
+            "m=wintypes.DWORD(); k.GetConsoleMode(h,ctypes.byref(m)); "
+            "k.SetConsoleMode(h,(m.value & ~0x1f) | 0x200); print('READY',flush=True); data=b''; "
+            "\nwhile not data.endswith(b'\\x1b[201~'):\n data+=sys.stdin.buffer.read(1)\n"
+            "start=data.find(b'\\x1b[200~'); text=data[start+6:-6].decode('utf-8'); "
+            "sys.stdout.write(''.join('\\x1b[31m'+c+'\\x1b[0m' for c in text)); sys.stdout.flush(); "
+            "key=sys.stdin.buffer.read(1); print('\\nTURN_STARTED',flush=True); "
+            "raise SystemExit(0 if key in (b'\\r',b'\\n') else 8)"
+        )
+        logs = []
+        session = WindowsConPtySession(
+            [sys.executable, "-c", child],
+            dict(os.environ),
+            log=lambda level, message: logs.append((level, message)),
+            mirror_output=False,
+            forward_stdin=False,
+        )
+        try:
+            deadline = time.monotonic() + 5
+            while b"READY" not in session.output_tail() and time.monotonic() < deadline:
+                time.sleep(0.01)
+            self.assertIn(b"READY", session.output_tail())
+            submitted = ChannelPromptInjector(
+                sleep=time.sleep,
+                retry_delay_seconds=lambda: 0.05,
+                snapshot=lambda: None,
+                log=lambda level, message: logs.append((level, message)),
+            ).inject(
+                session,
+                PromptInjection(
+                    prompt=prompt,
+                    policy=RuntimeInjectionPolicy(
+                        runtime="codex",
+                        clear_input=b"\x15",
+                        submit_input=b"\r",
+                        submit_delay_seconds=0.0,
+                        submit_attempts=2,
+                        confirm_submission=True,
+                        bracketed_paste=True,
+                        prompt_render_timeout_seconds=5.0,
+                    ),
+                ),
+            )
+            self.assertTrue(submitted, session.output_tail())
+            self.assertEqual(0, session.wait(timeout=5))
+            self.assertIn(b"TURN_STARTED", session.output_tail())
+            self.assertTrue(
+                any("channel_input_prompt_ready result=observed" in message for _level, message in logs)
+            )
+        finally:
+            session.close()
+
+    @unittest.skipUnless(os.name == "nt", "requires Windows ConPTY")
+    def test_native_conpty_resize_is_observed_as_child_redraw(self):
+        logs = []
+        child = (
+            "import os,time; "
+            "last=os.get_terminal_size(1); print(f'READY {last.columns}x{last.lines}',flush=True); "
+            "deadline=time.time()+8; "
+            "\nwhile time.time()<deadline:\n"
+            " current=os.get_terminal_size(1)\n"
+            " if current!=last:\n"
+            "  print(f'REDRAW {current.columns}x{current.lines}',flush=True); last=current\n"
+            " time.sleep(0.02)\n"
+        )
+        session = WindowsConPtySession(
+            [sys.executable, "-c", child],
+            dict(os.environ),
+            log=lambda level, message: logs.append((level, message)),
+            mirror_output=False,
+            forward_stdin=False,
+        )
+        try:
+            deadline = time.monotonic() + 5
+            while b"READY" not in session.output_tail() and time.monotonic() < deadline:
+                time.sleep(0.01)
+            self.assertIn(b"READY", session.output_tail())
+            old_cols, old_rows = session._last_size
+            new_size = (old_cols + 3, old_rows + 2)
+            session._terminal_size = lambda: new_size
+
+            self.assertTrue(session.resize_if_needed())
+            deadline = time.monotonic() + 3
+            expected_redraw = f"REDRAW {new_size[0]}x{new_size[1]}".encode()
+            while expected_redraw not in session.output_tail() and time.monotonic() < deadline:
+                time.sleep(0.01)
+            self.assertIn(
+                expected_redraw,
+                session.output_tail(),
+            )
+            self.assertTrue(
+                any("channel_windows_conpty_resize" in message and "redraw=observed" in message for _level, message in logs)
+            )
+        finally:
+            session.close()
 
     @unittest.skipUnless(os.name == "nt", "requires Windows ConPTY")
     def test_native_conpty_transports_bytes_and_reaps_child(self):

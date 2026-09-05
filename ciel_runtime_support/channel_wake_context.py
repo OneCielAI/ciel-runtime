@@ -134,9 +134,7 @@ class ChannelPendingDeliveryPorts:
     format_standard: Callable[[list[dict[str, Any]]], str]
     enter_label: Callable[[bytes], str]
     release_stale: Callable[[int, bool], None]
-    mark_delivered: Callable[[int], None]
-    record_prompts: Callable[[list[dict[str, Any]], str], None]
-    rollback: Callable[[list[dict[str, Any]], list[int]], None]
+    lifecycle: ChannelWakeDeliveryRepository
     commit_cursor: Callable[[int | None], None]
 
 
@@ -195,12 +193,6 @@ class ChannelWakeContext:
 
     def clear_wake_claim(self, message_id: int) -> None:
         self.claim_repository().clear(message_id)
-
-    def wake_uses_body_fallback(self, message_id: int) -> bool:
-        return self.claim_repository().body_fallback(message_id)
-
-    def mark_wake_body_fallback(self, message_id: int, reason: str) -> None:
-        self.claim_repository().mark_body_fallback(message_id, reason)
 
     def prompt_references_message_id(
         self,
@@ -550,11 +542,8 @@ class ChannelWakeContext:
                 claim_prompt=self.claim_wake_prompt,
                 clear_claim=self.clear_wake_claim,
                 release_stale=self.pending_delivery.release_stale,
-                mark_delivered=self.pending_delivery.mark_delivered,
-                record_prompts=self.pending_delivery.record_prompts,
-                rollback=self.pending_delivery.rollback,
+                lifecycle=self.pending_delivery.lifecycle,
                 commit_cursor=self.pending_delivery.commit_cursor,
-                body_fallback=self.wake_uses_body_fallback,
             ),
             io=ChannelInjectionIO(
                 inject_lock=self.pending_io.inject_lock,

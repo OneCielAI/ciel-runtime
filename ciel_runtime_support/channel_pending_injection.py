@@ -45,11 +45,8 @@ class ChannelInjectionWakeStore:
     claim_prompt: Callable[[int, str], bool]
     clear_claim: Callable[[int], Any]
     release_stale: Callable[[int, bool], Any]
-    mark_delivered: Callable[[int], bool]
-    record_prompts: Callable[[list[dict[str, Any]], str], Any]
-    rollback: Callable[[list[dict[str, Any]], list[int]], Any]
+    lifecycle: Any
     commit_cursor: Callable[[int], Any]
-    body_fallback: Callable[[int], bool] = lambda _message_id: False
 
 
 @dataclass(frozen=True, slots=True)
@@ -125,6 +122,17 @@ def inject_pending_channel_messages(
                 continue
             last_id = max(last_id, message_id)
             channel = message.get("channel")
+            failure_reason = wake_store.lifecycle.failure_reason(message_id)
+            if failure_reason:
+                io.log(
+                    "ERROR",
+                    "channel_stdin_proxy_blocked "
+                    f"cursor={previous_last_id} message_id={message_id} "
+                    f"reason=prior_submission_failed detail={failure_reason}",
+                )
+                if pending:
+                    break
+                return previous_last_id
             if web_chat_only and not state.message_is_web_chat(message):
                 io.log("INFO", f"channel_stdin_proxy_skipped_noise message_id={message_id} channel={channel} reason=not_web_chat")
                 continue
@@ -169,13 +177,6 @@ def inject_pending_channel_messages(
                     break
                 return previous_last_id
             candidate_uses_router = requested_router
-            if candidate_uses_router and wake_store.body_fallback(message_id):
-                io.log(
-                    "INFO",
-                    f"channel_stdin_proxy_skipped_noise message_id={message_id} "
-                    f"channel={channel} reason=stdin_wake_body_fallback",
-                )
-                continue
             skip_reason = state.message_skip_reason(message)
             if skip_reason:
                 io.log("INFO", f"channel_stdin_proxy_skipped_noise message_id={message_id} channel={channel} reason={skip_reason}")
@@ -246,7 +247,7 @@ def inject_pending_channel_messages(
             batch_key = (batch_key_base[0], batch_key_base[1], transport_key)
             if pending and pending_batch_key != batch_key:
                 break
-            if not candidate_uses_router and not wake_store.mark_delivered(message_id):
+            if not candidate_uses_router and not wake_store.lifecycle.mark_delivered(message_id):
                 io.log("INFO", f"channel_stdin_proxy_skipped_noise message_id={message_id} channel={channel} reason=stdin_wake_delivered")
                 continue
             pending.append(message)
@@ -259,6 +260,11 @@ def inject_pending_channel_messages(
                 return_last_id = previous_last_id
             last_id = message_id
             if len(pending) >= batch_limit:
+                break
+            if not candidate_uses_router:
+                # A TUI/session-socket draft carries exactly one request. This
+                # prevents a later request from being appended to an earlier,
+                # not-yet-confirmed draft.
                 break
         if not pending:
             return last_id
@@ -319,7 +325,7 @@ def inject_pending_channel_messages(
                     submit_delay_seconds=submit_delay_seconds,
                 )
             if submitted is False:
-                wake_store.rollback(pending, claimed_ids)
+                wake_store.lifecycle.fail(pending, claimed_ids, "prompt_not_submitted")
                 ids = ",".join(str(message.get("id") or "") for message in pending)
                 io.log(
                     "WARN",
@@ -327,9 +333,9 @@ def inject_pending_channel_messages(
                     f"message_ids={ids} reason=prompt_not_submitted",
                 )
                 return return_last_id if pending_uses_router else previous_last_id
-            wake_store.record_prompts(pending, prompt)
+            wake_store.lifecycle.record_prompts(pending, prompt)
         except Exception:
-            wake_store.rollback(pending, claimed_ids)
+            wake_store.lifecycle.fail(pending, claimed_ids, "submission_exception")
             raise
         if not web_chat_only:
             if commit_cursor:

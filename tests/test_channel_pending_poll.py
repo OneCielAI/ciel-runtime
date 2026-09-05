@@ -49,7 +49,6 @@ class ChannelPendingPollTests(unittest.TestCase):
             inject_pending=lambda *args, **kwargs: args[1],
             wake_state=lambda _message_id: "missing",
             inflight_effects=lambda: None,
-            mark_body_fallback=lambda _message_id, _reason: None,
         )
 
     def test_terminal_input_busy_covers_active_turn_between_tool_calls(self):

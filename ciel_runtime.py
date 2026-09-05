@@ -113,6 +113,7 @@ from ciel_runtime_support.channel_wake_delivery_repository import ChannelWakeDel
 from ciel_runtime_support.chat_files import ChatFilePorts, ChatFileRepository
 from ciel_runtime_support.chat_http_controller import ChatHttpController, ChatHttpReadServices, ChatHttpWriteServices
 from ciel_runtime_support.runtime_input_gateway import RuntimeInputGateway
+from ciel_runtime_support.runtime_input_status import RuntimeInputStatusRepository
 from ciel_runtime_support.external_event_receiver import EventReceiverSecretVault, ExternalEventReceiverService
 from ciel_runtime_support.external_event_menu import panel_rows as project_external_event_panel_rows, update_config as project_set_external_event_config
 from ciel_runtime_support.claude_environment import ClaudeEnvironmentFeaturePorts, ClaudeEnvironmentProjection, ClaudeEnvironmentShellRenderer, ClaudeEnvironmentSourcePorts, ClaudeLimitPolicy, ClaudeLimitPorts, ClaudeModelAliasCompatibilityApi, ClaudeModelAliasPolicy, ClaudeModelPorts, ClaudeRuntimeSettingsPolicy, ClaudeRuntimeSettingsPorts
@@ -441,7 +442,7 @@ from ciel_runtime_support.runtime_maintenance_services import MaintenanceAgyPort
 from ciel_runtime_support.runtime_paths import (CHANNEL_COMPACT_REQUEST_PATH,  # noqa: F401
                                                 CHANNEL_LLM_CLEAR_FLOOR_PATH, CHANNEL_LLM_CURSOR_PATH,
                                                 CHANNEL_LLM_LAUNCH_GUARD_PATH,
-                                                CHANNEL_STDIN_WAKE_CLAIMS_PATH, CHAT_FILES_DIR, CHAT_MESSAGES_PATH, RUNTIME_INPUTS_PATH,
+                                                CHANNEL_STDIN_WAKE_CLAIMS_PATH, CHAT_FILES_DIR, CHAT_MESSAGES_PATH, RUNTIME_INPUTS_PATH, RUNTIME_INPUT_STATUS_PATH,
                                                 CIEL_RUNTIME_STATUSLINE_PATH, CLAUDE_COMMANDS_DIR, CLAUDE_GATEWAY_CACHE,
                                                 CLAUDE_SETTINGS_PATH, CODEX_PROCESS_DIR,
                                                 CODEX_PROMPTS_DIR_NAME, CONFIG_DIR, CONFIG_PATH, LEGACY_CONFIG_PATH,
@@ -589,19 +590,26 @@ _CHANNEL_STDIN_INJECT_LOCK = threading.Lock()
 _CHANNEL_STDIN_WAKE_DELIVERED: set[int] = set()
 _CHANNEL_STDIN_WAKE_PROMPTS: dict[int, str] = {}
 _CHANNEL_STDIN_WAKE_BATCHES: dict[int, frozenset[int]] = {}
+_CHANNEL_STDIN_WAKE_FAILED: dict[int, str] = {}
+EVENT_BUS, TUI_OBSERVATION_BUS = EventBus(), TuiObservationBus()
+_RUNTIME_INPUT_STATUS_REPOSITORY = RuntimeInputStatusRepository(
+    RUNTIME_INPUT_STATUS_PATH, EVENT_BUS.publish,
+    lambda level, message: router_log(level, message), threading.RLock(),
+)
 _CHANNEL_WAKE_DELIVERY_REPOSITORY = ChannelWakeDeliveryRepository(
     lock=_CHANNEL_STDIN_WAKE_LOCK,
     delivered=_CHANNEL_STDIN_WAKE_DELIVERED,
     prompts=_CHANNEL_STDIN_WAKE_PROMPTS,
     batches=_CHANNEL_STDIN_WAKE_BATCHES,
+    failed=_CHANNEL_STDIN_WAKE_FAILED,
     clear_claim=lambda message_id: _channel_stdin_clear_wake_claim(message_id),
     commit_cursor=lambda message_id: _commit_channel_llm_cursor_if_newer(message_id),
+    status=_RUNTIME_INPUT_STATUS_REPOSITORY,
 )
 _CHANNEL_COMPACT_REQUEST_LOCK = threading.Lock()
 _TOOL_SIDE_EFFECT_DEDUP_TTL_SECONDS = 10 * 60.0
 _TOOL_SIDE_EFFECT_DEDUP_LOCK = threading.Lock()
 _TOOL_SIDE_EFFECT_DEDUP_RECENT: dict[str, float] = {}
-EVENT_BUS, TUI_OBSERVATION_BUS = EventBus(), TuiObservationBus()
 USAGE_API_KEYS = UsageApiKeyRepository(USAGE_LEDGER := SqliteUsageLedger(WORKSPACE_STATE_DIR / "usage" / "usage.sqlite3", ROUTER_WORKSPACE_ID), WORKSPACE_STATE_DIR / "usage" / "api-key.pepper", os.environ)
 USAGE_EVENT_SINK = CompositeUsageEventSink(JsonlUsageEventSink(USAGE_EVENTS_PATH, enabled=lambda: usage_jsonl_enabled(load_config(), os.environ)), USAGE_LEDGER)
 # Tools Claude Code injects into every model's tool list that misfire when called
@@ -1867,6 +1875,7 @@ def runtime_input_gateway() -> RuntimeInputGateway:
         append_runtime_input,
         chat_file_repository().runtime_attachment,
         _default_channel_input_transport,
+        _RUNTIME_INPUT_STATUS_REPOSITORY,
     )
 
 def external_event_receiver_service() -> ExternalEventReceiverService:
@@ -2088,7 +2097,15 @@ def _first_param(params: dict[str, list[str]], name: str, default: str = "") -> 
 def chat_http_controller() -> ChatHttpController:
     return ChatHttpController(
         router_base=ROUTER_BASE,
-        reads=ChatHttpReadServices(read_chat_messages, read_chat_messages_before, _CHAT_CONDITION, _safe_segment, CHAT_FILES_DIR),
+        reads=ChatHttpReadServices(
+            read_chat_messages,
+            read_chat_messages_before,
+            _CHAT_CONDITION,
+            _safe_segment,
+            CHAT_FILES_DIR,
+            _RUNTIME_INPUT_STATUS_REPOSITORY.get,
+            _RUNTIME_INPUT_STATUS_REPOSITORY.list_latest,
+        ),
         writes=ChatHttpWriteServices(
             write_json,
             append_chat_message,
@@ -4413,8 +4430,8 @@ def channel_wake_context() -> ChannelWakeContext:
                                                _channel_superseded_message_ids, _channel_message_is_web_chat_request, _channel_llm_message_skip_reason, _channel_message_event_identity_key,
                                                _channel_stdin_wake_state_for_message, _channel_stdin_wake_queued_is_stale_for_message),
         pending_delivery=ChannelPendingDeliveryPorts(format_channel_llm_delivery_wake_prompt, format_channel_visible_llm_delivery_wake_prompt, format_channel_web_chat_wake_batch_prompt, format_channel_wake_batch_prompt, _channel_enter_label,
-                                                     _channel_wake_store_release_stale, _CHANNEL_WAKE_DELIVERY_REPOSITORY.mark_delivered, _channel_wake_store_record_prompts,
-                                                     _channel_wake_store_rollback, _commit_channel_llm_cursor_if_newer),
+                                                     _channel_wake_store_release_stale, _CHANNEL_WAKE_DELIVERY_REPOSITORY,
+                                                     _commit_channel_llm_cursor_if_newer),
         pending_io=ChannelPendingIoPorts(_CHANNEL_STDIN_INJECT_LOCK, read_runtime_inputs, _write_channel_wake_prompt, _read_channel_compact_request, _clear_channel_compact_request, _runtime_input_storage_path(), router_log, _CLAUDE_SESSION_SOCKET.send),
         pending_policy=ChannelPendingPolicyPorts(_channel_stdin_wake_batch_limit, time.time, lambda: channel_runtime_environment_policy().web_chat_replay_ttl_seconds(),
                                                  lambda message: runtime_input_repository().timestamp_seconds(message), _channel_message_is_web_chat_request),
@@ -4424,7 +4441,6 @@ def channel_wake_claim_repository() -> ChannelWakeClaimRepository: return channe
 def _channel_stdin_wake_claim_prompt(message_id: int) -> str: return channel_wake_context().claim_prompt(message_id)
 def _channel_stdin_claim_wake_prompt(message_id: int, prompt: str) -> bool: return channel_wake_context().claim_wake_prompt(message_id, prompt)
 def _channel_stdin_clear_wake_claim(message_id: int) -> None: channel_wake_context().clear_wake_claim(message_id)
-def _channel_stdin_mark_body_fallback(message_id: int, reason: str) -> None: channel_wake_context().mark_wake_body_fallback(message_id, reason)
 def _channel_prompt_references_message_id(text: str, message_id: int, prompt_texts: list[str] | tuple[str, ...] | None = None) -> bool: return channel_wake_context().prompt_references_message_id(text, message_id, prompt_texts)
 def _channel_message_ids_already_in_request(body: dict[str, Any]) -> set[int]: return channel_wake_context().message_ids_already_in_request(body)
 def _channel_llm_commit_cursor_locked(last_id: int) -> None: channel_wake_context().commit_cursor(last_id)
@@ -4440,9 +4456,6 @@ def _codex_channel_wake_submit_delay_seconds() -> float: return channel_runtime_
 def _windows_channel_startup_grace_seconds() -> float:
     """Allow an interactive Windows TUI to begin reading console input."""
     return channel_runtime_environment_policy().windows_startup_grace_seconds()
-
-def _windows_channel_wake_max_attempts() -> int:
-    return channel_runtime_environment_policy().windows_wake_max_attempts()
 
 def _write_channel_wake_prompt( master_fd: int, prompt: str, enter_bytes: bytes | None = None, *, submit_retry_count: int = 1, confirm_submit: bool = False, bracketed_paste: bool = False, submit_delay_seconds: float | None = None, ) -> bool:
     return channel_wake_context().write_prompt(
@@ -4588,34 +4601,19 @@ def _open_windows_conpty(
         return None
     return WindowsConPtySession(cmd, env, log=log)
 
-def _write_windows_channel_body_fallback(writer: Any, message_id: int, enter_bytes: bytes) -> None:
-    prompt = f"[ciel-runtime pending request-body input] id={int(message_id)}"
-    channel_wake_context().write_prompt(
-        writer,
-        prompt,
-        enter_bytes,
-        submit_retry_count=1,
-        confirm_submit=False,
-        bracketed_paste=False,
-        submit_delay_seconds=_channel_wake_submit_delay_seconds(),
-        write_all=_write_fd_all,
-        snapshot=_channel_current_tmux_pane_text,
-    )
-
 def channel_terminal_context() -> ChannelTerminalContext:
     return ChannelTerminalContext(
         process=ChannelTerminalProcessPorts(subprocess.Popen, _write_codex_child_process_record, _terminate_recorded_child_process, _release_codex_child_process_record),
         policy=ChannelTerminalPolicyPorts(ensure_channel_llm_delivery_cursor_initialized, _channel_wake_enter_bytes, _channel_enter_label,
-                                          _channel_wake_enter_env_is_fixed, _channel_stdin_unseen_retry_seconds, _channel_stdin_inflight_is_stale, router_log,
-                                          _windows_channel_wake_max_attempts),
+                                          _channel_wake_enter_env_is_fixed, _channel_stdin_unseen_retry_seconds, _channel_stdin_inflight_is_stale, router_log),
         polling=ChannelTerminalPollingPorts(_inject_pending_compact_request, _chat_messages_file_marker, _channel_stdin_should_check_pending,
                                             _channel_stdin_active_tool_call, _channel_stdin_active_turn, _inject_pending_channel_messages, _channel_stdin_wake_state, channel_inflight_effects,
-                                            _channel_stdin_mark_body_fallback, runtime_interactions.read),
+                                            runtime_interactions.read),
         io=ChannelTerminalIoPorts(_terminal_winsize_from_fd, _apply_pty_winsize, _write_fd_all, _TerminalMouseInputFilter,
                                   _channel_synthetic_enter_bytes_from_user_input, _write_terminal_input_mode_reset),
         windows=ChannelTerminalWindowsPorts(run_windows_channel_terminal_proxy, _reset_windows_terminal_input_modes,
                                             _WindowsConsoleMouseInputGuard, _WindowsConsoleInputWriter, _windows_channel_startup_grace_seconds,
-                                            _terminal_input_mode_reset_interval_seconds, _channel_stdin_active_turn, _write_windows_channel_body_fallback, time.sleep,
+                                            _terminal_input_mode_reset_interval_seconds, _channel_stdin_active_turn, time.sleep,
                                             _open_windows_conpty),
         dispatch_ports=ChannelTerminalDispatchPorts(os.name, sys.stdin.isatty, sys.stdout.isatty, subprocess.call,
                                                     lambda *args, **kwargs: subprocess_call_with_windows_console_wake_proxy(*args, **kwargs),

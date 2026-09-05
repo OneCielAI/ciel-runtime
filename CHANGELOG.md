@@ -5,6 +5,15 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+- Select Ciel-managed MCP tools by native/non-native launch mode without
+  filtering user MCP definitions. Keep generated DuckDuckGo/fetch tools out
+  of Anthropic launches even when Ciel web search is explicitly enabled.
+- Make Windows ConPTY prompt-render detection ANSI- and UTF-8-aware, and make
+  unconfirmed TUI delivery fail closed without retyping, ASCII sentinel wakes,
+  or automatic router fallback. Runtime Input requests now expose durable
+  `queued -> submitted -> replied|failed` status queries and real-time events;
+  unresolved earlier requests block later TUI drafts. ConPTY resize failures
+  and post-resize redraw observations are logged explicitly.
 - Add `raw_injection=true` to the Web Chat message APIs so a caller can inject
   only the exact `message` text without an envelope, attachment projection, or
   response-routing instruction, independently of input transport and response

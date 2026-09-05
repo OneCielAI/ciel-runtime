@@ -35,6 +35,8 @@
 | `model-registry.json` | 모델 레지스트리 |
 | `ollama-model-catalog.json` | Ollama 모델 카탈로그 캐시 (TTL: 24시간) |
 | `chat-messages.jsonl` | 채팅 메시지 (최대 20MB) |
+| `workspaces/<workspace-id>/runtime-inputs.jsonl` | TUI/세션 소켓으로 전달할 private 입력 큐 |
+| `workspaces/<workspace-id>/runtime-input-status.jsonl` | private 입력의 queued/submitted/replied/failed 상태 이력 |
 | `channel-probe-cache.json` | 채널 프로브 캐시 |
 | `launch-state.json` | 실행 상태 |
 | `tts-reference-audio/*.bin` | 업로드한 TTS reference의 private binary sidecar (`0600` 시도) |
@@ -400,20 +402,27 @@ VT 활성화가 실패한 classic/legacy console에는 escape 문자열을 raw t
 연기한다. 따라서 wake 주입 앞의 `Ctrl+U`가 사용자가 먼저 입력한 글자를 지우지
 않으며, 사용자가 Enter로 draft를 제출한 뒤 기존 polling 절차가 다시 진행된다.
 
+ConPTY prompt-render detector는 캡처된 UTF-8 출력을 기준으로 ANSI CSI/OSC/SGR을
+가시 텍스트로 투영한 뒤 원문 prefix를 비교한다. 따라서 한글 바이트와 ANSI 색상·
+cursor 이동 시퀀스가 섞여도 화면에 표시된 원문을 감지한다. 이 투영은 감지에만
+사용하며 실제 입력 원문에는 표식이나 다른 문자를 추가하지 않는다.
+
 ConPTY 생성이 불가능하거나 `CIEL_RUNTIME_WINDOWS_CONPTY=0`으로 명시적으로 끈
 경우에만 기존 Windows Console 입력 큐 호환 경로를 사용한다. 이 호환 경로에서는
 `clear → body → submit`을 각각 큐가 소비한 뒤 진행하고, 여러 줄의 외부 메시지는
 줄바꿈이 Enter 키로 해석되지 않도록 한 줄로 정규화한다. 완전한 wake prompt 전달
-확인이 반복해서 실패하면 같은 본문을 무한 재주입하지 않고 짧은 sentinel을 한 번
-제출한 뒤 실제 메시지를 request-body 경로로 전달한다.
+확인에 실패하면 `Ctrl+U`로 해당 draft 제거를 한 번 요청하고 ConPTY redraw로 제거를
+확인한다. 제거 여부와 관계없이 같은 원문을 자동 재입력하지 않으며 요청 상태를
+`failed`로 유지한다. 앞선 실패 요청은 다음 입력을 차단한다. ASCII sentinel을
+추가하거나 router request-body 전송으로 자동 변경하지 않는다.
 
 호환 경로는 실행 중 Win32 `ENABLE_MOUSE_INPUT` bit를 끄고 종료할 때 원래 입력
 mode를 복원한다. `CIEL_RUNTIME_WINDOWS_CONSOLE_MOUSE_FILTER=0`은 이 Win32 guard를,
 `CIEL_RUNTIME_TERMINAL_INPUT_MODE_RESET=0`은 안전한 VT mode reset을 각각 끈다.
 정확한 `ESC[20~`는 Microsoft VT 입력 표의 F9이므로 mouse report로 제거하지 않는다.
 
-`CIEL_RUNTIME_WINDOWS_CHANNEL_WAKE_MAX_ATTEMPTS`로 완전한 wake prompt 시도 상한을
-설정할 수 있다. 기본값은 `2`, 허용 범위는 `1`~`4`이다.
+ConPTY resize 실패는 요청 크기와 HRESULT/예외를 router 로그에 기록한다. 성공한
+resize 뒤에는 child output 발생 여부를 확인해 `redraw=observed|timeout`을 남긴다.
 
 ---
 

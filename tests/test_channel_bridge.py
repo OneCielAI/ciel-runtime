@@ -1589,7 +1589,6 @@ class ChannelBridgeTests(unittest.TestCase):
             unseen_retry_seconds=lambda: 1.0,
             inflight_is_stale=lambda *_args, **_kwargs: False,
             log=lambda level, message: logs.append((level, message)),
-            windows_wake_max_attempts=lambda: 1,
         )
         polling = SimpleNamespace(
             inject_compact=lambda *_args, **_kwargs: None,
@@ -1600,7 +1599,6 @@ class ChannelBridgeTests(unittest.TestCase):
             inject_pending=lambda *_args, **_kwargs: None,
             wake_state=lambda _message_id: None,
             inflight_effects=lambda: None,
-            mark_body_fallback=lambda *_args, **_kwargs: None,
             runtime_interaction=lambda: None,
         )
         return SimpleNamespace(
@@ -1678,7 +1676,6 @@ class ChannelBridgeTests(unittest.TestCase):
             startup_grace_seconds=lambda: 0.0,
             reset_interval_seconds=lambda default: default,
             active_turn=lambda: False,
-            write_body_fallback=mock.Mock(),
             sleep=lambda _seconds: None,
         )
         logs = []
@@ -1714,7 +1711,6 @@ class ChannelBridgeTests(unittest.TestCase):
             startup_grace_seconds=lambda: 0.0,
             reset_interval_seconds=lambda default: default,
             active_turn=lambda: False,
-            write_body_fallback=mock.Mock(),
             sleep=lambda _seconds: None,
         )
         services = self._windows_proxy_test_services(
@@ -1807,34 +1803,8 @@ class ChannelBridgeTests(unittest.TestCase):
             ciel_runtime.run_windows_channel_terminal_proxy
         )
         self.assertNotIn("retry_submit", proxy_source)
-        self.assertIn("write_body_fallback", proxy_source)
-
-    def test_windows_console_body_fallback_uses_one_short_single_line_wake(self):
-        class Writer:
-            def __init__(self):
-                self.data = bytearray()
-
-            separate_input_stages = True
-
-            def write(self, data):
-                self.data.extend(data)
-
-            def wait_until_input_consumed(self, _timeout=2.0):
-                return True
-
-            def normalize_prompt(self, prompt):
-                return ciel_runtime._WindowsConsoleInputWriter.normalize_prompt(prompt)
-
-            def pending_input_events(self):
-                return 0
-
-        writer = Writer()
-        with mock.patch.object(ciel_runtime, "_channel_wake_submit_delay_seconds", return_value=0):
-            ciel_runtime._write_windows_channel_body_fallback(writer, 64, b"\r")
-
-        self.assertEqual(1, bytes(writer.data).count(b"\r"))
-        self.assertIn(b"pending request-body input", bytes(writer.data))
-        self.assertNotIn(b"\n", bytes(writer.data))
+        self.assertNotIn("write_body_fallback", proxy_source)
+        self.assertNotIn("pending request-body input", inspect.getsource(ciel_runtime))
 
     def test_channel_active_turn_tracks_codex_start_complete_and_abort(self):
         started = '\n'.join([
@@ -2689,7 +2659,7 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertEqual([8], injected)
         commit_cursor.assert_not_called()
 
-    def test_inject_pending_rolls_back_claim_when_submit_is_deferred(self):
+    def test_inject_pending_failure_is_sticky_and_never_retypes_same_request(self):
         messages = [
             {
                 "id": 9,
@@ -2703,7 +2673,8 @@ class ChannelBridgeTests(unittest.TestCase):
         injected: list[int] = []
         with tempfile.TemporaryDirectory() as td:
             claims_path = Path(td) / "claims.json"
-            with (
+            try:
+                with (
                 mock.patch.object(
                     ciel_runtime, "CHANNEL_STDIN_WAKE_CLAIMS_PATH", claims_path
                 ),
@@ -2712,21 +2683,32 @@ class ChannelBridgeTests(unittest.TestCase):
                 ),
                 mock.patch.object(
                     ciel_runtime, "_write_channel_wake_prompt", return_value=False
-                ),
+                ) as write_prompt,
                 mock.patch.object(
                     ciel_runtime, "_commit_channel_llm_cursor_if_newer"
                 ) as commit_cursor,
                 mock.patch.object(ciel_runtime, "router_log") as router_log,
-            ):
-                last_id = ciel_runtime._inject_pending_channel_messages(
-                    99,
-                    8,
-                    wake_for_llm_delivery=True,
-                    commit_cursor=False,
-                    injected_message_ids=injected,
-                )
+                ):
+                    last_id = ciel_runtime._inject_pending_channel_messages(
+                        99,
+                        8,
+                        wake_for_llm_delivery=True,
+                        commit_cursor=False,
+                        injected_message_ids=injected,
+                    )
+                    repeated_last_id = ciel_runtime._inject_pending_channel_messages(
+                        99,
+                        8,
+                        wake_for_llm_delivery=True,
+                        commit_cursor=False,
+                        injected_message_ids=injected,
+                    )
+                    self.assertEqual(1, write_prompt.call_count)
+            finally:
+                ciel_runtime._CHANNEL_STDIN_WAKE_FAILED.pop(9, None)
 
         self.assertEqual(8, last_id)
+        self.assertEqual(8, repeated_last_id)
         self.assertEqual([], injected)
         self.assertNotIn(9, ciel_runtime._CHANNEL_STDIN_WAKE_DELIVERED)
         self.assertNotIn(9, ciel_runtime._CHANNEL_STDIN_WAKE_PROMPTS)
@@ -3353,43 +3335,6 @@ class ChannelBridgeTests(unittest.TestCase):
         commit_cursor.assert_not_called()
         log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
         self.assertTrue(any("reason=stdin_wake_claimed" in item and "message_id=368" in item for item in log_messages))
-
-    def test_windows_body_fallback_stops_tty_reclaim_and_reopens_body_delivery(self):
-        messages = [
-            {
-                "id": 369,
-                "channel": "cielarvis",
-                "sender_id": "web",
-                "message": "deliver through request body",
-                "meta": {},
-            }
-        ]
-        with tempfile.TemporaryDirectory() as td:
-            claims_path = Path(td) / "claims.json"
-            with (
-                mock.patch.object(ciel_runtime, "CHANNEL_STDIN_WAKE_CLAIMS_PATH", claims_path),
-                mock.patch.object(ciel_runtime, "read_chat_messages", return_value=messages),
-                mock.patch.object(ciel_runtime, "_latest_claude_transcript_path", return_value=None),
-                mock.patch.object(ciel_runtime, "_write_fd_all") as write_all,
-                mock.patch.object(ciel_runtime, "router_log") as router_log,
-            ):
-                ciel_runtime._channel_stdin_mark_body_fallback(
-                    369, "windows_console_unseen_retry"
-                )
-                last_id = ciel_runtime._inject_pending_channel_messages(
-                    99, 368, wake_for_llm_delivery=True
-                )
-                body_skip_reason = ciel_runtime._channel_llm_stdin_skip_reason(369)
-
-        self.assertEqual(369, last_id)
-        self.assertEqual("", body_skip_reason)
-        write_all.assert_not_called()
-        log_messages = [
-            str(call.args[1])
-            for call in router_log.call_args_list
-            if len(call.args) > 1
-        ]
-        self.assertTrue(any("reason=stdin_wake_body_fallback" in item for item in log_messages))
 
     def test_inject_pending_channel_messages_continues_past_queued_wake_when_nonblocking(self):
         queued_prompt = (
@@ -4212,6 +4157,18 @@ class ChannelBridgeTests(unittest.TestCase):
             self.assertTrue(
                 any("clear_floor_queue_generation_reset" in call.args[1] for call in log.call_args_list)
             )
+
+    def test_channel_backlog_count_uses_private_runtime_input_id_domain(self):
+        with (
+            mock.patch.object(ciel_runtime, "_runtime_input_scan_max_id", return_value=7) as private_tail,
+            mock.patch.object(ciel_runtime, "_chat_scan_max_id", return_value=900) as public_tail,
+            mock.patch.object(ciel_runtime, "_channel_llm_read_cursor_locked", return_value=4),
+        ):
+            status = ciel_runtime.channel_backlog_status()
+
+        self.assertEqual({"chat_tail": 7, "pending_llm": 3}, status)
+        private_tail.assert_called_once_with()
+        public_tail.assert_not_called()
 
     def test_prepare_channel_llm_delivery_for_launch_preserves_recent_messages(self):
         with tempfile.TemporaryDirectory(prefix="ca-channel-launch-") as td:

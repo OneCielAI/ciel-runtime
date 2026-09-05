@@ -1,0 +1,19 @@
+title: Native versus non-native Ciel tool injection
+date: 2026-09-05
+scope:
+  ownership: Ciel-generated definitions only; user MCP configuration unchanged.
+  policy:
+    injection_mode: always | native | non_native
+    default: always (channel/runtime integration remains available)
+  launches:
+    claude: Anthropic direct and routed launches exclude generated DDG/fetch even with a search override.
+    codex: Native provider classification passed to workspace MCP projection, including app-server.
+    existing_codex_search: No automatic DDG generator call exists in the inspected Codex launch path.
+  verification:
+    method: Execute tests and read actual temporary MCP JSON/argument projections across non-native/native/non-native launches.
+    boundary: No live authenticated model query or deployment requested/performed.
+    results:
+      workspace_mcp: 18 tests passed; actual generated JSON/argument projections verified.
+      policy: 2 tests passed.
+      claude_launch: 1 test passed, including native/non-native explicit-search command assembly.
+      codex_full_suite: Interrupted; opened an interactive resume picker. Only the identified test process tree was terminated. Not claimed as passing.
