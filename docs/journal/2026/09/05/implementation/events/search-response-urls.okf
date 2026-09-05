@@ -1,0 +1,23 @@
+title: Web search response URLs over the existing tool.call event stream
+evidence:
+  claude:
+    source: Local Claude transcript 81b0504c-4826-42ef-91f5-397369ca6aef
+    call: toolu_018Firb4ystzFgqgJ73msgF8
+    format: tool_use WebSearch -> tool_result content string with JSON Links list
+  codex:
+    source: https://raw.githubusercontent.com/openai/codex/main/codex-rs/protocol/src/models.rs
+    finding: WebSearchCall can contain only id/status/action; Search action has query/queries, not result URLs.
+    api_source: https://developers.openai.com/api/docs/guides/tools-web-search
+    supported: Structured sources/results/citations when retained; correlated search function outputs.
+    limitation: No fabricated result URLs for metadata-only native rollouts.
+implementation:
+  transport: Existing event bus and /ca/events/ws?category=tool.call, SSE and recent
+  data: phase=result, call_id, name, runtime, urls; no query/title/body
+  persistence: Per-transcript cursor with bounded 512-call and result-hash state
+verification:
+  live_loopback:
+    command: python scripts/probe_web_search_result_stream.py <transcript> <call_id>
+    observed: HTTP/1.1 101 Switching Protocols; nine real Claude result URLs received in a WS text frame.
+    safety: Isolated EventBus and loopback port; no writes to live user transcripts or external destinations.
+  tests: Parser, restart/partial-line integration, transcript delivery, existing WS adapter and tool-call projection.
+  deployment: Not requested in this turn; no deployment or push performed.

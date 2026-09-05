@@ -5,6 +5,9 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+- Emit URL-only web search result events over the existing `tool.call` event
+  stream, parsing Claude search result links and available Codex response
+  sources. Persist bounded call correlation and result deduplication state.
 - Select Ciel-managed MCP tools by native/non-native launch mode without
   filtering user MCP definitions. Keep generated DuckDuckGo/fetch tools out
   of Anthropic launches even when Ciel web search is explicitly enabled.

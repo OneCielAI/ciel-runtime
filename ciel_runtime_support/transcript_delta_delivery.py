@@ -16,6 +16,7 @@ import urllib.request
 
 from .remote_instructions import expand_environment_references
 from .tool_call_events import project_transcript_tool_calls
+from .web_search_result_events import project_web_search_results
 
 
 @dataclass(frozen=True, slots=True)
@@ -213,10 +214,12 @@ class TranscriptDeltaDeliveryService:
         offset = max(0, int(current.get("offset") or 0))
         if size < offset:
             offset = 0
+            current.pop("web_search_results", None)
         payload = self._read_complete_batch(path, offset, settings.max_batch_bytes)
         if not payload:
             return 0
         count = 0
+        search_state = current.setdefault("web_search_results", {})
         for raw_line in payload.decode("utf-8", errors="replace").splitlines():
             try:
                 record = json.loads(raw_line)
@@ -224,10 +227,18 @@ class TranscriptDeltaDeliveryService:
                 continue
             if not isinstance(record, dict):
                 continue
+            for result in project_web_search_results(record, runtime, search_state):
+                self.ports.event_publish(
+                    level="info", category="tool.call", message=f"{runtime} web search result URLs",
+                    source="cli-transcript", session_id=session_id, provider=runtime,
+                    data=result,
+                )
+                count += 1
             for call in project_transcript_tool_calls(record, runtime):
                 call_id = str(call.get("call_id") or "")
                 if call_id and any(
                     str((event.get("data") or {}).get("call_id") or "") == call_id
+                    and (event.get("data") or {}).get("phase") != "result"
                     for event in self.ports.event_recent(limit=200, category="tool.call")
                 ):
                     continue
@@ -246,6 +257,7 @@ class TranscriptDeltaDeliveryService:
                 )
                 count += 1
         sources[source_key] = self._cursor_record(path, offset + len(payload))
+        sources[source_key]["web_search_results"] = search_state
         self._save_cursors(cursors)
         return count
 

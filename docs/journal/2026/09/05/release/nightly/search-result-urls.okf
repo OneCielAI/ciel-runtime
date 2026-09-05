@@ -1,0 +1,14 @@
+title: Local and nightly deployment of URL-only search result events
+date: 2026-09-05
+authorization: User requested local and nightly deployment.
+scope:
+  endpoint: Existing /ca/events/ws?category=tool.call plus SSE/recent
+  payload: phase=result and urls with call correlation; no search response prose
+  limitation: Codex metadata-only rollouts cannot supply absent result URLs.
+verification:
+  preflight: Ruff, documentation metadata and whitespace checks passed.
+  functionality: Real Claude search replay produced nine URLs over a loopback WebSocket; 23 targeted tests passed.
+deployment:
+  local_target: C:/Users/djlov/.local/share/ciel-runtime
+  remote: nightly branch through the repository npm publish workflow
+  sessions: User processes remain running; restart required for already-loaded modules.
