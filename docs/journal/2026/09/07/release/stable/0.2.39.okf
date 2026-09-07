@@ -1,0 +1,10 @@
+title: Publish native Codex transport regression fix as stable 0.2.39
+date: 2026-09-07
+authorization: User requested continuing through main branch deployment.
+version: 0.2.39
+scope: Commit verified fix and version increment, push main, verify CI and npm latest package.
+verification_plan:
+  local: Lint, isolated runtime tests, real Codex config-loader regression checks.
+  remote: Publish workflow runs all test groups before publishing.
+  artifact: Download published package and verify runtime version and fixed helper behavior.
+exclusions: No user configuration edits or active session restart.

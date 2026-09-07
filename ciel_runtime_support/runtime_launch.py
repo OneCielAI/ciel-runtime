@@ -927,7 +927,11 @@ def run_codex(
     )
     if workspace_mcp_launch is not None:
         codex_mcp_compat_args.extend(workspace_mcp_launch.codex_args)
-    codex_mcp_compat_args.extend(codex_native_web_tool_overrides(native=native_codex_enabled(provider)))
+    codex_mcp_compat_args.extend(codex_native_web_tool_overrides(
+        native=native_codex_enabled(provider),
+        codex=codex,
+        passthrough=[*codex_passthrough, *codex_mcp_compat_args], env=env, cwd=launch_cwd,
+    ))
     codex_yolo_args = codex_yolo_launch_args(codex_passthrough)
     if not use_native_codex and not use_codex_routed:
         env[CODEX_RUNTIME_API_KEY_ENV] = env.get(CODEX_RUNTIME_API_KEY_ENV) or "ciel-runtime-router-local-key"
@@ -1260,7 +1264,11 @@ def run_codex_app_server(
     try:
         if workspace_mcp_launch is not None:
             codex_mcp_compat_args.extend(workspace_mcp_launch.codex_args)
-        codex_mcp_compat_args.extend(codex_native_web_tool_overrides(native=native_codex_enabled(provider)))
+        codex_mcp_compat_args.extend(codex_native_web_tool_overrides(
+            native=native_codex_enabled(provider),
+            codex=codex,
+            passthrough=[*passthrough, *config_args, *codex_mcp_compat_args], env=env, cwd=launch_cwd,
+        ))
         config_args = [*config_args, *codex_mcp_compat_args]
         listen_url = codex_app_server_default_listen_url()
         app_server_args = codex_app_server_launch_args(

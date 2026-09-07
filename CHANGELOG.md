@@ -5,6 +5,13 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+## 0.2.39 — 2026-09-07
+
+- Fix native Codex startup failing with `invalid transport` when DuckDuckGo or
+  web_fetch is not registered. Inspect the effective workspace configuration
+  before adding process-only disabling overrides; never modify global or
+  workspace TOML. Concurrent non-native sessions retain their MCP settings.
+
 ## 0.2.38 — 2026-09-07
 
 - Disable inherited DuckDuckGo and web_fetch MCP servers with per-launch

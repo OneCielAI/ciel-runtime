@@ -188,6 +188,12 @@ class CodexRuntimeTests(unittest.TestCase):
 
     def setUp(self):
         super().setUp()
+        config_patcher = mock.patch(
+            "ciel_runtime_support.managed_tool_injection.run_codex_config_probe",
+            return_value=mock.Mock(returncode=0, stdout='[{"name":"duckduckgo"},{"name":"web_fetch"}]'),
+        )
+        config_patcher.start()
+        self.addCleanup(config_patcher.stop)
         retired_external_mcp_markers = (
             "_mcp_",
             "channel_capable",

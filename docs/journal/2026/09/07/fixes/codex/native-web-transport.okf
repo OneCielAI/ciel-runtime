@@ -1,0 +1,39 @@
+title: Codex native web MCP overrides without cross-session configuration writes
+date: 2026-09-07
+status: source fixed and locally verified; not installed or published
+request:
+  symptom: Codex 0.153.4 fails with invalid transport in mcp_servers.duckduckgo.
+  isolation: Do not change global TOML; isolate workspace/provider sessions.
+evidence:
+  reproduction:
+    environment: Real Windows codex-cli 0.153.4 with temporary empty CODEX_HOME.
+    arguments: -c mcp_servers.duckduckgo.enabled=false mcp list --json
+    exit_code: 1
+    stderr: "Error: failed to load bootstrap configuration; invalid transport in mcp_servers.duckduckgo"
+  cause: The unconditional native override creates an enabled-only server table without command or URL when the server is absent.
+  official_documentation: https://learn.chatgpt.com/docs/extend/mcp?surface=cli
+  documented_constraints: STDIO requires command; HTTP requires url; project configuration applies only to trusted projects.
+implementation:
+  discovery: Run the same Codex executable's mcp list --json with the launch environment, cwd, and configuration arguments.
+  isolation: Apply enabled=false only in this process's arguments, only for servers in the effective list; no TOML writes.
+  workspace: Codex resolves workspace trust/configuration itself; no independent TOML parser or global edits.
+  native: Disable existing duckduckgo and web_fetch entries for CLI and app-server launches.
+  nonnative: No discovery process and no disabling overrides.
+  failure_policy: Five-second bounded probe; if unavailable/invalid, log a credential-free warning and skip overrides.
+  limitation: If discovery fails, replacement MCPs may remain enabled; this must not be described as successful suppression.
+verification:
+  real_cli_command: "$env:CIEL_TEST_CODEX_EXE='C:/Users/djlov/AppData/Local/Programs/OpenAI/Codex/bin/codex.exe'; python -m unittest discover -s tests -p test_codex_native_web_cli.py -v"
+  real_cli_output: "Ran 4 tests in 0.667s; OK"
+  real_cli_cases:
+    empty_home: No overrides; mcp list exits 0 instead of invalid transport.
+    concurrent_shared_home_different_workspaces: native false/false; nonnative true/true for duckduckgo/web_fetch.
+    concurrent_shared_home_same_workspace: native false/false; nonnative true/true for duckduckgo/web_fetch.
+    file_integrity: Shared test config SHA256 unchanged; no workspace config created by override logic.
+    project_configuration: Trusted and untrusted project cases match Codex's effective server list; project TOML bytes unchanged.
+    generated_transport: Native disabled; nonnative enabled; no MCP connection needed.
+  policy_tests: "python -m unittest discover -s tests -p test_managed_tool_injection.py -v: Ran 9 tests; OK"
+  runtime_group: "python scripts/run_test_group.py runtime: Ran 280 tests; OK (skipped=12), real CLI checks enabled"
+  static_checks: py_compile successful; ruff All checks passed; git diff --check clean.
+boundaries:
+  unchanged: Real user global/project TOML, active sessions, installation, npm registry, git remotes.
+  tested: Configuration loading and launch argument policy, not a paid model inference or remote user's TUI.
