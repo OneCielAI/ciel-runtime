@@ -1,0 +1,26 @@
+title: Codex LAN client authentication and Windows paste framing
+date: 2026-09-07
+version: 0.2.41
+authorization: User requested handling paste corruption and internal Codex router authentication failure; continuing requested main release workflow.
+causes:
+  auth: Previous patch authenticated health only; native model Authorization cannot double as Ciel administrative token.
+  paste_reproduction: Real Windows Codex 0.153.4 rendered [200~1660377[201~ when ESC and remaining delimiter bytes were written 20ms apart.
+changes:
+  auth: Model and builtin Ciel MCP receive x-ciel-runtime-token from process environment, loaded from this instance token repository; no user TOML edits.
+  scope: Exact router origin only; later URL overrides excluded; native OpenAI Authorization retained.
+  upstream: Existing x-ciel-runtime header exclusion verified; router credential not forwarded to OpenAI.
+  builtin: Reserved openai provider uses a per-launch custom provider retaining requires_openai_auth, verified with actual Codex config loader.
+  paste: Frame CSI/SS3 boundaries across parent reads without stripping or rewriting payload; single Escape flushed after 100ms idle.
+verification:
+  actual_codex_paste: Replayed split input through corrected pump; 1660377 visible, neither delimiter visible; no prompt submitted.
+  actual_codex_http: Local test server received Ciel token on MCP and model requests; native Authorization also present on model requests. Server intentionally returns 400 without inference or forwarding.
+  auth_tests: 5 passed, including real CLI and overridden destination protection.
+  conpty: 33 passed.
+  framing: 3 passed, covering every split, Korean, literal marker text, standalone Escape, arrows and F9.
+  runtime_group: 285 passed with 12 skips before additional URL-override test.
+  router_debug: 25 passed.
+  static: Ruff and architecture budget passed.
+limitations:
+  remote: Original mouse gesture on remote machine not directly replayed; reproduced matching corruption with fragmented native Codex input locally.
+  idle: Incomplete sequences exceeding 100ms idle are flushed unchanged to preserve standalone Escape.
+  deployment: Main workflow and published package verification follow commit.

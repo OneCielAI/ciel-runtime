@@ -201,9 +201,11 @@ class RouterAccessPolicy:
                 and hmac.compare_digest(expected, bridge_expected)
             ):
                 return False
-            return bool(
-                expected and supplied and hmac.compare_digest(expected, supplied)
-            )
+            local_token = str(handler.headers.get("x-ciel-runtime-token") or "").strip()
+            return bool(expected and (
+                (supplied and hmac.compare_digest(expected, supplied))
+                or (local_token and hmac.compare_digest(expected, local_token))
+            ))
         return False
 
 

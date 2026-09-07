@@ -1,0 +1,14 @@
+title: Attempt remote web backend log capture for Windows paste-marker issue
+date: 2026-09-07
+target: http://10.0.0.238:9683
+authorization: User requested backend log capture and console/mouse diagnostics.
+request: GET /health without credentials
+response:
+  timestamp: Mon, 07 Sep 2026 18:02:22 GMT
+  status: HTTP/1.0 401 Unauthorized
+  challenge: Bearer realm="ciel-runtime"
+  message: ciel-runtime router external authentication is required.
+conclusion: Backend reachable; administrative authentication required before logs or TUI diagnostics can be retrieved.
+limitation: Remote runtime version, logs, and console state not retrieved; no assertion that paste issue is diagnosed.
+next_requirement: User-provided administrative external access token for this remote backend.
+changes: No remote writes, input injection, configuration changes, or authentication bypass attempted.

@@ -1,0 +1,36 @@
+title: Authenticated remote backend console investigation
+date: 2026-09-07
+target: http://10.0.0.238:9683
+credentials: Omitted; user-provided token used only for authenticated requests.
+captures:
+  health:
+    ok: true
+    version: 0.2.40
+    source_fingerprint: 3bc950932f5d1691
+    pid: 21824
+    workspace: c:\users\1347817
+    router_port: 9683
+    instance_id: 9683-a2f58d1342e0
+    active_client_count: 1
+    active_client_pids: [29116]
+    provider: codex
+  chat_health:
+    ok: true
+    base: http://10.0.0.238:9683
+  tui_status:
+    ok: true
+    enabled: true
+    active_count: 0
+    latest_event_id: 0
+    capture_scope: routed runtime traffic
+    excluded: hidden thinking, tool arguments, native traffic that bypasses this router, terminal pixels
+  tui_recent: '{"ok":true,"events":[],"last_id":0,"active":[]}'
+  events_recent: '{"ok":true,"events":[]}'
+source_audit:
+  router_http: Authenticated GET dispatches TUI/events/config/web/chat/runtime APIs; no raw router.log download handler found.
+  tui: Observation API explicitly excludes terminal pixels and native bypass traffic.
+conclusion:
+  confirmed: Remote 0.2.40 is running and reachable on LAN with authentication; one active client recorded.
+  not_confirmed: Clipboard delimiter corruption location, actual ConPTY/fallback selection, mouse state, live terminal input bytes.
+blocker: Existing backend does not expose the raw log and console input/output evidence required for this native-terminal issue.
+remote_changes: None; no input injection, model request, log-level change, or session restart.

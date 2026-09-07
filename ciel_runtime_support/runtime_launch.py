@@ -9,6 +9,7 @@ from dataclasses import dataclass
 
 from ciel_runtime_support.claude_environment import CLAUDE_PROJECTED_ENV_KEYS
 from ciel_runtime_support.managed_tool_injection import should_inject_tool, codex_native_web_tool_overrides
+from ciel_runtime_support.codex_router_auth import authenticated_codex_command
 from ciel_runtime_support.runtime_constants import (
     CLAUDE_SERVER_SIDE_WEB_TOOLS,
     CODEX_RUNTIME_API_KEY_ENV,
@@ -973,6 +974,7 @@ def run_codex(
         if workspace_mcp is not None and workspace_mcp_launch is not None:
             workspace_mcp.finish(workspace_mcp_launch)
         raise
+    cmd = authenticated_codex_command(cmd, env, ROUTER_BASE)
     _log_codex_command_for_diagnostics(cmd, env)
     record_launch_state_for_cwd(
         current_launch_cwd_key(),
@@ -1287,6 +1289,7 @@ def run_codex_app_server(
             print(f"Codex App Server listen: {cmd[cmd.index('--listen') + 1]}", flush=True)
         except Exception:
             pass
+    cmd = authenticated_codex_command(cmd, env, ROUTER_BASE)
     _log_codex_app_server_command_for_diagnostics(cmd, env)
     record_launch_state_for_cwd(
         current_launch_cwd_key(),

@@ -546,7 +546,7 @@ class WindowsConPtyPolicyTests(unittest.TestCase):
         session._pump_input()
 
         self.assertEqual(
-            [mock.call(b"\x1b["), mock.call(b"20~")],
+            [mock.call(b"\x1b[20~")],
             session.write.call_args_list,
         )
         self.assertEqual(

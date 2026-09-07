@@ -5,6 +5,15 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+## 0.2.41 — 2026-09-07
+
+- Automatically authenticate Codex model and Ciel MCP requests to LAN-bound
+  routers using a separate process-local header. Preserve native OpenAI
+  authorization and strip Ciel credentials before forwarding upstream.
+- Reassemble fragmented Windows console VT input sequences before forwarding
+  them to ConPTY, preventing split paste boundaries from entering the Codex
+  draft as text. Preserve literal text and standalone Escape (100ms idle bound).
+
 ## 0.2.40 — 2026-09-07
 
 - Authenticate internal router health checks when the web backend uses a

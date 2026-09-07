@@ -13,6 +13,7 @@ from collections.abc import Mapping
 from typing import Any, Callable
 
 from .terminal_platform_io import TERMINAL_INPUT_MODE_RESET
+from .terminal_input_frames import TerminalInputFrames
 from .windows_command_line import command_line_for_create_process
 
 
@@ -980,15 +981,19 @@ class WindowsConPtySession:
             self._parent_input_draft = draft
 
     def _pump_input(self) -> None:
-        while not self._stop.is_set():
-            try:
-                data = self._read_input_bytes()
-                if not data:
+        frames = TerminalInputFrames(self.write)
+        try:
+            while not self._stop.is_set():
+                try:
+                    data = self._read_input_bytes()
+                    if not data:
+                        return
+                    self._observe_parent_input(data)
+                    frames.feed(data)
+                except OSError:
                     return
-                self._observe_parent_input(data)
-                self.write(data)
-            except OSError:
-                return
+        finally:
+            frames.close()
 
 
 __all__ = ["WindowsConPtySession", "conpty_enabled"]
