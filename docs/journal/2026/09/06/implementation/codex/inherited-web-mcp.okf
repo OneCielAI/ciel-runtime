@@ -1,0 +1,22 @@
+title: Disable inherited replacement web MCPs for native Codex launches
+date: 2026-09-06
+scope:
+  requested: Implement native-only overrides and deploy locally.
+  project: G:/ciel-bridge-service
+  cause: Global Codex config declares duckduckgo and web_fetch; prior Ciel injection filtering did not suppress inherited entries.
+changes:
+  cli: Append enabled=false overrides after workspace MCP projection.
+  app_server: Apply identical overrides for native providers, direct or routed.
+  non_native: No override emitted.
+verification:
+  actual_cli:
+    command: codex [-c mcp_servers.duckduckgo.enabled=false -c mcp_servers.web_fetch.enabled=false] mcp get <server> --json
+    cwd: G:/ciel-bridge-service
+    baseline: Both enabled=true.
+    native_override: Both enabled=false.
+    global_config_hash: Unchanged before/after inspection.
+  tests: Runtime group 276 tests completed successfully with 12 skipped; policy tests passed.
+deployment:
+  target: C:/Users/djlov/.local/share/ciel-runtime
+  sessions: No existing user process terminated; restart required.
+  nightly: Not requested for this turn.

@@ -9,6 +9,16 @@ def should_inject_tool(*, native: bool, mode: str = "always") -> bool:
     return mode == "always" or (mode == "native") == native
 
 
+def codex_native_web_tool_overrides(*, native: bool) -> list[str]:
+    """Disable inherited replacement web MCPs for this launch, not on disk."""
+    if not native:
+        return []
+    return [
+        "-c", "mcp_servers.duckduckgo.enabled=false",
+        "-c", "mcp_servers.web_fetch.enabled=false",
+    ]
+
+
 def select_managed_tools(
     servers: Mapping[str, Any], *, native: bool,
 ) -> dict[str, Any]:

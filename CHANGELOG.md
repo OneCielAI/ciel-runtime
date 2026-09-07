@@ -5,6 +5,9 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+- Disable inherited DuckDuckGo and web_fetch MCP servers with per-launch
+  overrides for native Codex (direct/routed and app-server), without editing
+  global settings or changing non-native provider launches.
 - Emit URL-only web search result events over the existing `tool.call` event
   stream, parsing Claude search result links and available Codex response
   sources. Persist bounded call correlation and result deduplication state.

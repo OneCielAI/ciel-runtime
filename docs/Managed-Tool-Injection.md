@@ -16,3 +16,10 @@ Selection happens for each launch, without deleting shared files or changing
 another running instance. This does not dynamically reconfigure an already
 running CLI after a provider switch. It does not change the CLI's own search
 settings, install a fallback after an error, or remove user-installed tools.
+
+Codex native launches (direct or routed), including app-server, additionally
+override `mcp_servers.duckduckgo.enabled=false` and
+`mcp_servers.web_fetch.enabled=false` after workspace MCP projection. This
+suppresses replacement web tools inherited from Codex's global configuration
+for this child process only. Non-native launches receive neither override.
+The original global/project configuration files remain unchanged.

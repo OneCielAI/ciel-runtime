@@ -8,7 +8,7 @@ from typing import Any, Callable
 from dataclasses import dataclass
 
 from ciel_runtime_support.claude_environment import CLAUDE_PROJECTED_ENV_KEYS
-from ciel_runtime_support.managed_tool_injection import should_inject_tool
+from ciel_runtime_support.managed_tool_injection import should_inject_tool, codex_native_web_tool_overrides
 from ciel_runtime_support.runtime_constants import (
     CLAUDE_SERVER_SIDE_WEB_TOOLS,
     CODEX_RUNTIME_API_KEY_ENV,
@@ -927,6 +927,7 @@ def run_codex(
     )
     if workspace_mcp_launch is not None:
         codex_mcp_compat_args.extend(workspace_mcp_launch.codex_args)
+    codex_mcp_compat_args.extend(codex_native_web_tool_overrides(native=native_codex_enabled(provider)))
     codex_yolo_args = codex_yolo_launch_args(codex_passthrough)
     if not use_native_codex and not use_codex_routed:
         env[CODEX_RUNTIME_API_KEY_ENV] = env.get(CODEX_RUNTIME_API_KEY_ENV) or "ciel-runtime-router-local-key"
@@ -1259,6 +1260,7 @@ def run_codex_app_server(
     try:
         if workspace_mcp_launch is not None:
             codex_mcp_compat_args.extend(workspace_mcp_launch.codex_args)
+        codex_mcp_compat_args.extend(codex_native_web_tool_overrides(native=native_codex_enabled(provider)))
         config_args = [*config_args, *codex_mcp_compat_args]
         listen_url = codex_app_server_default_listen_url()
         app_server_args = codex_app_server_launch_args(
