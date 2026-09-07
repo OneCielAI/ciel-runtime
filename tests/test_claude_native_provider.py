@@ -1388,6 +1388,7 @@ class RouterLifetimeTests(unittest.TestCase):
 
         get.assert_called_once_with(
             f"{ciel_runtime.ROUTER_BASE}/health",
+            headers={},
             timeout=5.0,
         )
 
