@@ -1,0 +1,42 @@
+schema: okf/1
+kind: task-journal
+title: Exact-message Web Chat injection
+date: 2026-09-04
+
+request:
+  endpoint:
+    - POST /ca/chat/messages
+    - POST /ca/channel/messages
+  requirement: inject only the supplied message without descriptive or response instructions
+
+change:
+  option: raw_injection=true
+  guarantees:
+    - model input equals the admitted message string
+    - no web envelope or correlation marker
+    - no attachment projection
+    - no web ACK/reply contract
+    - no MCP response hint
+    - raw messages are isolated from batching
+  independent_axes:
+    - input_transport
+    - response_mode
+
+verification:
+  focused_tests: 31 passed
+  live_http:
+    endpoint: POST /ca/channel/messages
+    status: 200
+    runtime_queue_recorded: true
+    expected_characters: 38
+    web_chat_prompt_exact: true
+    router_body_exact: true
+    expected_sha256: 2630b5fd9533735276f479f424f07db99aabb7d755b856d9c5e16f1de8b9f7da
+    actual_sha256: 2630b5fd9533735276f479f424f07db99aabb7d755b856d9c5e16f1de8b9f7da
+  full_suite: 3167 passed; 137 skipped; 0 failed
+  lint: passed
+  local_install:
+    path: C:\Users\djlov\.local\share\ciel-runtime
+    verified_source_hashes: 18
+    hash_mismatches: 0
+  status: behavior_verified

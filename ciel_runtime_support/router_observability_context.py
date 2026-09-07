@@ -71,6 +71,7 @@ class SseObservabilityPorts:
     current_log_level: Callable[[], int]
     truncate: Callable[[str, int], str]
     log: Callable[[str, str], None]
+    event_publish: Callable[..., Any]
 
 
 @dataclass(frozen=True, slots=True)
@@ -185,6 +186,31 @@ class RouterObservabilityContext:
 
     def append_tool_call(self, *args: Any, **kwargs: Any) -> None:
         self.sse_repository().append_tool_call(*args, **kwargs)
+        event = str(args[0] if args else kwargs.get("event") or "tool_call")
+        payload = args[1] if len(args) > 1 else kwargs.get("payload")
+        payload = payload if isinstance(payload, dict) else {}
+        provider = event.removesuffix("_stream_tool_call").replace("_", "-")
+        name = str(payload.get("matched_name") or payload.get("raw_name") or "tool").strip()
+        config = self.preview.load_config()
+        tool_event_config = config.get("tool_call_events")
+        tool_event_config = tool_event_config if isinstance(tool_event_config, dict) else {}
+        data = {
+            "call_id": str(payload.get("tool_id") or ""),
+            "name": name,
+            "call_type": event,
+            "sse_index": payload.get("sse_index"),
+        }
+        if bool(tool_event_config.get("include_arguments", True)):
+            data["arguments"] = payload.get("emitted_input")
+        self.sse.event_publish(
+            level="info",
+            category="tool.call",
+            message=f"{provider} tool call: {name}",
+            source="router-stream",
+            provider=provider,
+            model=str(payload.get("model") or ""),
+            data=data,
+        )
 
 
 @dataclass(frozen=True, slots=True)

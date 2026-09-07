@@ -33,6 +33,13 @@ class InputTransport(Protocol):
         expected_prompt: str | None = None,
     ) -> bool | None: ...
 
+    def clear_unsubmitted_prompt(
+        self,
+        clear_input: bytes,
+        expected_prompt: str,
+        timeout_seconds: float = 2.0,
+    ) -> bool: ...
+
 
 @dataclass(frozen=True)
 class RuntimeInjectionPolicy:
@@ -139,9 +146,16 @@ class ChannelPromptInjector:
                 policy,
             )
             if prompt_ready is False:
+                cleared = self._clear_unsubmitted_prompt(
+                    transport,
+                    policy.clear_input,
+                    prompt_text,
+                    policy.input_drain_timeout_seconds,
+                )
                 self._log(
                     "WARN",
-                    "channel_input_submit_deferred reason=prompt_render_timeout",
+                    "channel_input_submit_failed reason=prompt_render_timeout "
+                    f"draft_clear={'confirmed' if cleared else 'unverified'} retry=disabled",
                 )
                 return False
 
@@ -177,6 +191,36 @@ class ChannelPromptInjector:
             f"channel_input_submit_unconfirmed attempts={policy.submit_attempts}",
         )
         return False
+
+    def _clear_unsubmitted_prompt(
+        self,
+        transport: InputTransport,
+        clear_input: bytes,
+        prompt: str,
+        timeout_seconds: float,
+    ) -> bool:
+        clear = getattr(transport, "clear_unsubmitted_prompt", None)
+        if not callable(clear):
+            self._log(
+                "WARN",
+                "channel_input_draft_clear result=unavailable retry=disabled",
+            )
+            return False
+        try:
+            cleared = bool(clear(clear_input, prompt, timeout_seconds))
+        except Exception as exc:
+            self._log(
+                "ERROR",
+                "channel_input_draft_clear result=error retry=disabled "
+                f"error={type(exc).__name__}: {exc}",
+            )
+            return False
+        self._log(
+            "INFO" if cleared else "WARN",
+            "channel_input_draft_clear "
+            f"result={'confirmed' if cleared else 'unverified'} retry=disabled",
+        )
+        return cleared
 
     def _submission_snapshot(self, transport: InputTransport) -> str | None:
         """Use the host snapshot when available, then the transport's own view."""
@@ -333,6 +377,17 @@ class CallableInputTransport:
                 expected_prompt=expected_prompt,
             )
         )
+
+    def clear_unsubmitted_prompt(
+        self,
+        clear_input: bytes,
+        expected_prompt: str,
+        timeout_seconds: float = 2.0,
+    ) -> bool:
+        clear = getattr(self._target, "clear_unsubmitted_prompt", None)
+        if not callable(clear):
+            return False
+        return bool(clear(clear_input, expected_prompt, timeout_seconds))
 
 
 __all__ = [

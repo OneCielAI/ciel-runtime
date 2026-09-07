@@ -41,6 +41,19 @@ class ChannelTranscriptRepositoryTests(unittest.TestCase):
                 cache,
             )
 
+    def test_runtime_scope_selects_muse_session_jsonl_root(self):
+        with tempfile.TemporaryDirectory() as raw_dir:
+            home = Path(raw_dir)
+            muse_home = home / "muse-data"
+            repository = self.repository(home)
+
+            repository.set_scope("muse", started_at=200, muse_home=muse_home)
+
+            self.assertEqual(
+                ((muse_home / "sessions", "*/*/*/*/session.jsonl"),),
+                repository.roots(),
+            )
+
     def test_latest_ignores_transcripts_older_than_scope(self):
         with tempfile.TemporaryDirectory() as raw_dir:
             home = Path(raw_dir)

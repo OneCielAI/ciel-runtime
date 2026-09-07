@@ -1,0 +1,100 @@
+task:
+  title: Diagnose Codex replay stalls in OneCielDMSUI
+  date: 2026-09-04
+  workspace: G:\OneCielDMSUI
+
+runtime:
+  ciel_cli_pid: 45892
+  ciel_server_pid: 67612
+  codex_pid: 71872
+  router_port: 9605
+  model: gpt-5.6-sol
+  session_id: 019fcac4-4538-7a53-91d1-565cd21a8c5e
+  codex_version: 0.153.0
+  process_started_local: 2026-09-04T01:43:12-05:00
+
+observed:
+  invalid_id_http_error_in_session: false
+  successful_latest_task_completions: 3
+  replayed_reasoning_items: 1700
+  forbidden_character_reasoning_ids: 257
+  router_synthesized_reasoning_ids: 14
+  router_log:
+    symptom: The upstream rejected encrypted reasoning one record at a time and the router retried after each verdict.
+    prefiltered_known_rejections_at_02_15: 105
+    concurrent_transport_failures:
+      - WinError 10054 connection reset
+      - WinError 10053 local connection abort
+      - SSLV3_ALERT_BAD_RECORD_MAC
+    confirmed_http_500_examples:
+      - 2026-09-04T02:05:59-05:00
+      - 2026-09-04T02:07:14-05:00
+
+correlation:
+  logged_verdicts_sampled_initially: 115
+  verdicts_matching_forbidden_character_ids: 101
+  verdicts_matching_router_synthesized_ids: 14
+  conclusion: The current stall is an encrypted-reasoning replay loop, not a recorded invalid-ID 400.
+
+repair:
+  boundary: ciel_runtime_support.responses_input_compatibility.repair_replayed_response_items
+  behavior: Drop hidden reasoning at replay when its ID is illegal or router-synthesized; retain visible messages and paired tool history.
+  hardcoded_session_or_model: false
+  source_session_mutated: false
+
+verification:
+  focused_tests:
+    responses_input_compatibility: 20 passed
+    codex_reasoning_rejects: 12 passed
+    codex_backend_item_repair: 21 passed
+  ruff: passed
+  actual_session_projection:
+    reasoning_before: 1700
+    forbidden_id_before: 257
+    router_synthesized_before: 14
+    forbidden_id_after: 0
+    router_synthesized_after: 0
+  actual_router_verdict_projection:
+    distinct_logged_verdicts_initial: 110
+    matched_records_before_initial: 118
+    matched_records_after: 0
+  full_suite:
+    unit: 1379 passed, 45 skipped
+    router: 1094 passed
+    channel: 406 passed, 80 skipped
+    runtime: 276 passed, 12 skipped
+    total: 3155 passed, 137 skipped
+  documentation_metadata: 26 Markdown files passed
+  local_deployment:
+    install_path: C:\Users\djlov\.local\share\ciel-runtime
+    source_installed_sha256: C2A3C308B8D518999A8C5BAA0FC1B8CC6F013DA58C5640D15D3A670A3B85DF03
+    installed_module_loaded_in_fresh_process: true
+    matched_rejected_before_at_final_check: 127
+    matched_rejected_after: 0
+    active_process_restarted: false
+  live_process_restarted_during_initial_verification: false
+
+recovery:
+  provider_transition_confirmed:
+    prior_turn_model: ciel-runtime-meta-muse-spark-1.3-contributor
+    resumed_model: gpt-5.6-sol
+    forbidden_id_records_attributed_to_prior_model: 257
+    evidence: Session turn_context records changed from Muse Spark Contributor to a Codex-routed GPT launch, and Codex displayed the same transition warning.
+  old_loop_exit_local: 2026-09-04T02:30:52-05:00
+  verified_resume:
+    selected_session_id: 019fcac4-4538-7a53-91d1-565cd21a8c5e
+    cwd: G:\OneCielDMSUI
+    model: gpt-5.6-sol high
+    prompt: State-free recovery marker request
+    router_http_status: 200
+    response: SESSION_RECOVERY_OK
+    unverifiable_reasoning_retries_after_restart: 0
+    invalid_id_errors_after_restart: 0
+  user_visible_runtime:
+    started_local: 2026-09-04T02:37:58-05:00
+    cmd_pid: 53748
+    ciel_cli_pid: 72436
+    ciel_server_pid: 80056
+    codex_pid: 41604
+    session_id: 019fcac4-4538-7a53-91d1-565cd21a8c5e
+    status: running

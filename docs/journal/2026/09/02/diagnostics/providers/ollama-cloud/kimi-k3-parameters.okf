@@ -1,0 +1,128 @@
+task:
+  id: ollama-cloud-kimi-k3-parameter-verification-20260902
+  request: >-
+    Verify the parameters Ollama publishes for kimi-k3 and compare them with
+    the Ciel Runtime settings and request projection used by the live Codex sessions.
+  observed_at: 2026-09-02T18:41:26-05:00
+  status: verified
+
+official_api_show:
+  request:
+    endpoint: https://ollama.com/api/show
+    model: kimi-k3
+    authenticated: true
+  result: success
+  modified_at: 2026-07-27T10:00:00-05:00
+  details:
+    parent_model: kimi-k3
+    family: kimi-k3
+    parameter_size: 2812000000000
+    quantization_level: MXFP4
+  capabilities: [vision, thinking, completion, tools]
+  model_info:
+    general.architecture: kimi-k3
+    general.parameter_count: 2812000000000
+    kimi-k3.context_length: 1048576
+    kimi-k3.embedding_length: 7168
+  parameters: null
+  meaning: >-
+    The provider did not publish fixed temperature, top_p, top_k, seed,
+    repeat_penalty, num_ctx, or num_predict values through /api/show.
+
+official_model_card:
+  url: https://ollama.com/library/kimi-k3
+  variant: kimi-k3:cloud
+  context_tokens: 1048576
+  advertised_capabilities: [vision, tools, thinking, cloud]
+  pricing_per_million_tokens:
+    input_usd: 3.00
+    cached_input_usd: 0.30
+    output_usd: 15.00
+
+official_request_contract:
+  ollama_chat_api: https://docs.ollama.com/api/chat
+  ollama_think_values: [true, false, low, medium, high, max]
+  kimi_vendor_source: https://github.com/MoonshotAI/Kimi-K3/blob/main/README.md
+  kimi_thinking_always_on: true
+  kimi_reasoning_effort_values: [low, high, max]
+  kimi_default_reasoning_effort: max
+  benchmark_only_sampling_values:
+    temperature: 1.0
+    top_p_single_step: 0.95
+    top_p_agentic: 1.0
+  benchmark_only_note: >-
+    Moonshot reports these sampling values for its published evaluations. The
+    README does not state that Ollama Cloud uses them as hidden defaults.
+
+workspace_configuration:
+  workspaces:
+    - {hash: a3a719fc6552, path: C:/Users/djlov/cielarvis}
+    - {hash: 60524a4bf5eb, path: G:/OneCielDMSUI}
+  provider: ollama-cloud
+  current_model: kimi-k3
+  base_url: https://ollama.com
+  num_ctx: auto
+  num_ctx_min: 32768
+  num_ctx_max: 1048576
+  think: true
+  ollama_options: {}
+  request_timeout_ms: 300000
+  discovered_metadata:
+    model: kimi-k3
+    architecture: kimi-k3
+    capabilities: [vision, thinking, completion, tools]
+    thinking_levels: [low, high, max]
+    thinking_always_on: true
+
+wire_projection:
+  required_fields:
+    model: kimi-k3
+    stream: true
+    messages: present
+    tools: present_when_client_supplies_tools
+  omitted_provider_owned_defaults:
+    - options.num_ctx
+    - options.num_predict
+    - options.temperature
+    - options.top_p
+    - options.top_k
+    - options.seed
+    - options.repeat_penalty
+    - keep_alive
+  omission_reason: >-
+    num_ctx is auto, output tokens and keep_alive were not explicitly selected,
+    and ollama_options is empty. Ciel therefore leaves those values to Ollama.
+  verified_reasoning_mapping:
+    low: {think: low}
+    high: {think: high}
+    xhigh: {think: max}
+  active_codex_reasoning_effort: high
+  active_wire_think: high
+
+connection_evidence:
+  api_show_authenticated: success
+  router_9465:
+    request_started: 2026-09-02T18:33:59-05:00
+    request_estimated_tokens: 816014
+    first_responses_200: 2026-09-02T18:36:12-05:00
+    later_responses_200_through: 2026-09-02T18:37:48-05:00
+  router_9479:
+    request_started: 2026-09-02T18:34:15-05:00
+    request_estimated_tokens: 579783
+    first_responses_200: 2026-09-02T18:35:45-05:00
+    later_responses_200_through: 2026-09-02T18:38:09-05:00
+  upstream_error_in_examined_window: false
+  conclusion: >-
+    The provider connection and model lookup succeeded. The first observed
+    responses took about 133 seconds and 90 seconds respectively, so a client
+    could appear disconnected while waiting, but the logs do not show a
+    connection failure in this interval.
+
+source_evidence:
+  provider_adapter: ciel_runtime_support/providers/ollama.py
+  thinking_policy: ciel_runtime_support/ollama_thinking.py
+  request_builder: ciel_runtime_support/provider_request_builder.py
+  wire_projection: ciel_runtime_support/ollama_wire_projection.py
+  context_policy: ciel_runtime_support/providers/ollama_context.py
+
+credentials_recorded: false

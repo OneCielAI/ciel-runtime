@@ -1,0 +1,94 @@
+task:
+  id: ollama-cloud-kimi-k3-substantive-dangling-action-20260903
+  request: >-
+    Diagnose why the active Cielarvis Kimi K3 Codex session still terminates
+    before performing the next announced action.
+  workspace: C:/Users/djlov/cielarvis
+  runtime_workspace_id: a3a719fc6552
+  router_instance: 9599-a3a719fc6552
+  codex_session: 01a01dff-f0f0-7ef3-8cde-1d9916510f35
+  status: verified
+
+observed_runtime:
+  health:
+    version: 0.2.37
+    source_fingerprint: 2486fa4d14d56174
+    pid: 105292
+    installed_source: C:/Users/djlov/.local/share/ciel-runtime/ciel_runtime.py
+  installed_recovery_sha256: 1EF46C9E4D94B94EBE595B2F8C55175A8C54CE06DA4C1042CA17922B5D6D8587
+  repository_recovery_sha256: 1EF46C9E4D94B94EBE595B2F8C55175A8C54CE06DA4C1042CA17922B5D6D8587
+  conclusion: The previous Kimi recovery patch was loaded in the active router.
+
+observed_failure:
+  rollout_path: C:/Users/djlov/.codex/sessions/2026/08/20/rollout-2026-08-20T02-08-27-01a01dff-f0f0-7ef3-8cde-1d9916510f35.jsonl
+  turn_id: 01a065d3-2083-7021-898d-ead2b90238d3
+  sequence:
+    - {ordinal: 6615, type: function_call, name: view_image}
+    - {ordinal: 6617, type: function_call_output}
+    - ordinal: 6622
+      type: assistant_message
+      normalized_characters: 305
+      ending: 먼저 네이티브 쪽에 마이크 모듈이 있는지 확인합니다.
+      next_tool_calls: 0
+    - {ordinal: 6624, type: task_complete}
+  router_log:
+    response_started_at: 2026-09-03T00:54:02-05:00
+    response_completed_at: 2026-09-03T00:54:17-05:00
+    http_status: 200
+    recovery_log_present: false
+
+confirmed_cause:
+  - >-
+    The existing Kimi follow-up expression recognizes Korean future endings
+    such as 확인하겠습니다 but not a sequenced present-form action such as
+    먼저 ... 확인합니다.
+  - >-
+    The generic preamble policy rejects this 305-character response because it
+    contains a substantive diagnosis after a completed tool result, so the
+    Kimi-specific detector must independently preserve an explicit final
+    sequenced action.
+
+implementation:
+  files:
+    - ciel_runtime_support/codex_turn_recovery.py
+    - tests/test_codex_turn_recovery.py
+  behavior:
+    - Detect a final Korean sequenced action beginning with 먼저, 이제, 다음으로, 계속, 추가로, or 바로.
+    - Limit the rule to Kimi messages that include reasoning and no tool call.
+    - Apply the same detector to every bounded continuation result.
+
+verification:
+  focused_tests:
+    command: python -m unittest discover -s tests -p test_codex_turn_recovery.py -q
+    passed: 40
+  lint:
+    command: python -m ruff check ciel_runtime_support/codex_turn_recovery.py tests/test_codex_turn_recovery.py
+    result: passed
+  live_isolated_cielarvis_router:
+    port: 9607
+    provider: ollama-cloud
+    model: kimi-k3
+    initial_visible_characters: 438
+    initial_ending: 먼저 현재 작업공간을 확인합니다.
+    router_log: codex_turn_retry provider=ollama-cloud reason=promised_followup chars=438
+    continuation_output: function_call inspect_workspace {scope: all}
+    http_status: 200
+    responses_status: completed
+  full_suite:
+    command: npm test
+    passed: 3127
+    groups:
+      - {name: unit, passed: 1366, skipped: 45}
+      - {name: router, passed: 1093, skipped: 0}
+      - {name: channel, passed: 403, skipped: 80}
+      - {name: runtime, passed: 265, skipped: 12}
+    result: passed
+  local_deployment:
+    command: powershell -NoProfile -ExecutionPolicy Bypass -File ./install.ps1
+    destination: C:/Users/djlov/.local/share/ciel-runtime
+    installed_version: 0.2.37
+    source_sha256: C74699E14121542C214E3CB9CC61D793964826C6B9D103B0E359F23B20D6FF97
+    installed_sha256: C74699E14121542C214E3CB9CC61D793964826C6B9D103B0E359F23B20D6FF97
+    hashes_match: true
+
+credentials_recorded: false

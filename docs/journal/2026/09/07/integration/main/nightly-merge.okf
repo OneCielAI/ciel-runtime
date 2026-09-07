@@ -1,0 +1,13 @@
+title: Merge current nightly development into local main
+date: 2026-09-07
+authorization: User requested merging the current version into main.
+scope:
+  source: nightly, including the previously uncommitted native Codex MCP suppression fix
+  target: local main
+  excluded: Unrelated Ciel Bridge discussion; no bridge code changes
+verification:
+  remote_preflight: Local main matches origin/main after fetch.
+  checks: Ruff and documentation metadata passed; runtime group completed 276 tests with 12 skipped.
+  git: Verify source is an ancestor of main and merged tree matches source.
+publication:
+  policy: No remote push or npm publication; main push triggers stable publish.

@@ -236,16 +236,19 @@ class CodexBackendContext:
         provider: str,
         pcfg: dict[str, Any],
         body: dict[str, Any],
+        protocol: str | None = None,
     ) -> dict[str, Any]:
         return self.provider_projection.apply_request_policy(
-            provider, pcfg, dict(body)
+            provider, pcfg, dict(body), protocol
         )
 
     def chat_passthrough(self) -> OpenAIChatPassthrough:
         return OpenAIChatPassthrough(
             OpenAIChatPassthroughPorts(
                 normalize_model=self.normalize_model,
-                normalize_request=self.normalize_request,
+                normalize_request=lambda provider, pcfg, body: self.normalize_request(
+                    provider, pcfg, body, "openai_chat"
+                ),
                 upstream_base=self.provider_transport.upstream_base,
                 join_url=self.provider_transport.join_url,
                 headers=self.provider_projection.chat_headers,
@@ -266,7 +269,9 @@ class CodexBackendContext:
                 project_channel_context=self.project_channel_context,
                 begin_channel_delivery=self.channel.begin_delivery,
                 normalize_model=self.normalize_model,
-                normalize_request=self.normalize_request,
+                normalize_request=lambda provider, pcfg, body: self.normalize_request(
+                    provider, pcfg, body, "openai_responses"
+                ),
                 upstream_base=self.provider_transport.upstream_base,
                 join_url=self.provider_transport.join_url,
                 headers=self.provider_projection.responses_headers,

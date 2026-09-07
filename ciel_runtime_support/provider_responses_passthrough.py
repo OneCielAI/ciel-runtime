@@ -12,7 +12,17 @@ from http.client import IncompleteRead
 from typing import Any, Callable, Mapping
 
 from .responses_usage_observer import ResponsesUsageObserver
+from .responses_cache_diagnostics import (
+    cache_trace,
+    request_cache_profile,
+    usage_with_cache_profile,
+)
 from .responses_input_compatibility import repair_replayed_response_items
+from .responses_custom_tool_bridge import (
+    ResponsesCustomToolStreamProjector,
+    project_response_payload,
+    tool_definitions,
+)
 from .remote_bridge import is_remote_bridge_request
 from .upstream_dump import dump_upstream_request
 from .upstream_error_policy import UpstreamStreamReadError
@@ -34,7 +44,7 @@ class ProviderResponsesPassthroughPorts:
     urlopen: Callable[..., Any]
     timeout_seconds: Callable[[dict[str, Any]], float]
     copy_response_headers: Callable[[Any, Any], None]
-    record_usage: Callable[[str, str, dict[str, int]], None] = (
+    record_usage: Callable[[str, str, dict[str, Any]], None] = (
         lambda _provider, _model, _usage: None
     )
     log: Callable[[str, str], Any] = lambda _level, _message: None
@@ -73,6 +83,44 @@ class ProviderResponsesPassthrough:
         )
         return self._ports.join_url(self._ports.upstream_base(provider, config), path)
 
+    def _request_headers(
+        self,
+        provider: str,
+        config: dict[str, Any],
+        inbound_headers: Any,
+        body: Mapping[str, Any],
+    ) -> dict[str, str]:
+        headers = self._ports.headers(provider, config, inbound_headers)
+        if not config.get("responses_session_cache_requires_previous_response_id"):
+            return headers
+        if str(body.get("previous_response_id") or "").strip():
+            return headers
+        filtered = {
+            name: value
+            for name, value in headers.items()
+            if str(name).casefold() != "x-dashscope-session-cache"
+        }
+        if len(filtered) != len(headers):
+            self._ports.log(
+                "INFO",
+                "provider_responses_session_cache_deferred "
+                f"provider={provider} reason=missing_previous_response_id",
+            )
+        return filtered
+
+    @staticmethod
+    def _response_headers(headers: Any, *, transformed: bool) -> Any:
+        if not transformed:
+            return headers
+        try:
+            return {
+                key: value
+                for key, value in headers.items()
+                if str(key).casefold() != "content-length"
+            }
+        except (AttributeError, TypeError):
+            return headers
+
     def forward_compact(
         self,
         handler: Any,
@@ -90,11 +138,16 @@ class ProviderResponsesPassthrough:
             upstream_body = self._ports.finalize_body(upstream_body)
         data = self._encode(upstream_body)
         url = self._endpoint(provider, config, "openai_responses_compact")
-        dump_upstream_request(url, data, self._ports.log)
+        request_headers = self._request_headers(
+            provider, config, handler.headers, upstream_body
+        )
+        dump_upstream_request(
+            url, data, self._ports.log, headers=request_headers
+        )
         request = urllib.request.Request(
             url,
             data=data,
-            headers=self._ports.headers(provider, config, handler.headers),
+            headers=request_headers,
             method="POST",
         )
         with self._ports.urlopen(
@@ -168,6 +221,9 @@ class ProviderResponsesPassthrough:
                 provider=provider,
                 model=str(current.get("model") or ""),
                 remote_bridge=remote_bridge,
+                stable_prefix_checkpoint_items=config.get(
+                    "responses_cache_checkpoint_items", 0
+                ),
             )
             if not remote_bridge:
                 compacted = self._ports.finalize_body(compacted)
@@ -228,6 +284,8 @@ class ProviderResponsesPassthrough:
         provider: str,
         config: dict[str, Any],
         upstream_body: dict[str, Any],
+        response_tools: Mapping[str, Mapping[str, Any]],
+        cache_profile: Mapping[str, Any],
     ) -> None:
         """Validate a native Responses stream before exposing it downstream."""
 
@@ -297,14 +355,33 @@ class ProviderResponsesPassthrough:
                     ) from failure
 
                 handler.send_response(getattr(response, "status", 200))
-                self._ports.copy_response_headers(handler, response.headers)
+                self._ports.copy_response_headers(
+                    handler,
+                    self._response_headers(
+                        response.headers, transformed=bool(response_tools)
+                    ),
+                )
                 handler.end_headers()
                 spool.seek(0)
+                projector = (
+                    ResponsesCustomToolStreamProjector(response_tools)
+                    if response_tools
+                    else None
+                )
                 while chunk := spool.read(65_536):
-                    handler.wfile.write(chunk)
-                    handler.wfile.flush()
+                    output = projector.feed(chunk) if projector is not None else chunk
+                    if output:
+                        handler.wfile.write(output)
+                        handler.wfile.flush()
+                if projector is not None:
+                    tail = projector.finish()
+                    if tail:
+                        handler.wfile.write(tail)
+                        handler.wfile.flush()
                 if observed:
-                    self._ports.record_usage(provider, model, observed)
+                    observation = usage_with_cache_profile(observed, cache_profile)
+                    self._ports.record_usage(provider, model, observation)
+                    self._ports.log(*cache_trace(provider, model, observation))
                 return
 
     def forward(
@@ -317,6 +394,11 @@ class ProviderResponsesPassthrough:
         remote_bridge = is_remote_bridge_request(handler)
         upstream_body = dict(
             body if remote_bridge else repair_replayed_response_items(body)
+        )
+        response_tools = (
+            tool_definitions(upstream_body)
+            if config.get("responses_custom_tools_as_functions")
+            else {}
         )
         upstream_body["model"] = self._ports.normalize_model(
             provider, config, str(body.get("model") or "")
@@ -340,11 +422,17 @@ class ProviderResponsesPassthrough:
             upstream_body,
             remote_bridge=remote_bridge,
         )
-        dump_upstream_request(url, data, self._ports.log)
+        cache_profile = request_cache_profile(upstream_body, len(data))
+        request_headers = self._request_headers(
+            provider, config, handler.headers, upstream_body
+        )
+        dump_upstream_request(
+            url, data, self._ports.log, headers=request_headers
+        )
         request = urllib.request.Request(
             url,
             data=data,
-            headers=self._ports.headers(provider, config, handler.headers),
+            headers=request_headers,
             method="POST",
         )
         if not remote_bridge and self._stream_truncation_retries(config):
@@ -354,6 +442,8 @@ class ProviderResponsesPassthrough:
                 provider,
                 config,
                 upstream_body,
+                response_tools,
+                cache_profile,
             )
             return delivery_body
         with self._ports.urlopen(
@@ -365,21 +455,46 @@ class ProviderResponsesPassthrough:
             usage = ResponsesUsageObserver()
             received_bytes = 0
             handler.send_response(getattr(response, "status", 200))
-            self._ports.copy_response_headers(handler, response.headers)
+            self._ports.copy_response_headers(
+                handler,
+                self._response_headers(
+                    response.headers, transformed=bool(response_tools)
+                ),
+            )
             handler.end_headers()
+            projector = (
+                ResponsesCustomToolStreamProjector(response_tools)
+                if response_tools and bool(upstream_body.get("stream", True))
+                else None
+            )
+            response_body = bytearray()
             try:
                 while chunk := response.read(65_536):
                     received_bytes += len(chunk)
                     usage.feed(chunk)
-                    handler.wfile.write(chunk)
-                    handler.wfile.flush()
+                    if response_tools and projector is None:
+                        response_body.extend(chunk)
+                        continue
+                    output = projector.feed(chunk) if projector is not None else chunk
+                    if output:
+                        handler.wfile.write(output)
+                        handler.wfile.flush()
             except IncompleteRead as exc:
                 partial = bytes(exc.partial or b"")
                 if partial:
                     received_bytes += len(partial)
                     usage.feed(partial)
-                    handler.wfile.write(partial)
-                    handler.wfile.flush()
+                    if response_tools and projector is None:
+                        response_body.extend(partial)
+                    else:
+                        output = (
+                            projector.feed(partial)
+                            if projector is not None
+                            else partial
+                        )
+                        if output:
+                            handler.wfile.write(output)
+                            handler.wfile.flush()
                 usage.finish()
                 if usage.terminal_event is None:
                     self._ports.log(
@@ -403,6 +518,20 @@ class ProviderResponsesPassthrough:
                     f"provider={provider} model={upstream_body.get('model')} "
                     f"terminal={usage.terminal_event} bytes={received_bytes}",
                 )
+            if projector is not None:
+                tail = projector.finish()
+                if tail:
+                    handler.wfile.write(tail)
+                    handler.wfile.flush()
+            elif response_tools:
+                try:
+                    decoded = json.loads(response_body)
+                    projected_body = project_response_payload(decoded, response_tools)
+                    handler.wfile.write(self._encode(projected_body))
+                    handler.wfile.flush()
+                except (UnicodeDecodeError, ValueError, TypeError):
+                    handler.wfile.write(response_body)
+                    handler.wfile.flush()
             observed = usage.finish()
             if bool(upstream_body.get("stream", True)) and usage.terminal_event is None:
                 error = EOFError("upstream Responses stream ended without a terminal event")
@@ -422,10 +551,18 @@ class ProviderResponsesPassthrough:
                     received_bytes=received_bytes,
                 ) from error
             if observed and not remote_bridge:
+                observation = usage_with_cache_profile(observed, cache_profile)
                 self._ports.record_usage(
                     provider,
                     str(upstream_body.get("model") or ""),
-                    observed,
+                    observation,
+                )
+                self._ports.log(
+                    *cache_trace(
+                        provider,
+                        str(upstream_body.get("model") or ""),
+                        observation,
+                    )
                 )
         return delivery_body
 

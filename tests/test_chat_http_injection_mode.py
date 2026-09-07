@@ -16,7 +16,7 @@ class Handler:
 
 
 class ChatHttpInjectionModeTests(unittest.TestCase):
-    def controller(self, calls, responses, default_transport="tty"):
+    def controller(self, calls, responses, default_transport="session_socket", statuses=None):
         temp_dir = tempfile.TemporaryDirectory()
         self.addCleanup(temp_dir.cleanup)
 
@@ -35,6 +35,8 @@ class ChatHttpInjectionModeTests(unittest.TestCase):
                 condition=Condition(),
                 safe_segment=lambda value, _label: value,
                 files_dir=Path(temp_dir.name),
+                request_status=lambda request_id: (statuses or {}).get(request_id),
+                request_statuses=lambda **_kwargs: list((statuses or {}).values()),
             ),
             writes=ChatHttpWriteServices(
                 write_json=lambda _handler, payload, status=200: responses.append((status, payload)),
@@ -47,7 +49,7 @@ class ChatHttpInjectionModeTests(unittest.TestCase):
             ),
         )
 
-    def test_claude_default_uses_session_socket_and_allows_tty_override(self):
+    def test_default_prefers_session_socket_and_allows_tty_override(self):
         calls = []
         responses = []
         controller = self.controller(calls, responses, "session_socket")
@@ -122,6 +124,60 @@ class ChatHttpInjectionModeTests(unittest.TestCase):
         self.assertEqual("append", calls[0][0])
         self.assertEqual("web", calls[1][0])
         self.assertEqual("web_chat", responses[0][1]["injection_mode"])
+        self.assertEqual(9, responses[0][1]["request_id"])
+        self.assertEqual("queued", responses[0][1]["request"]["status"])
+
+    def test_request_status_is_queryable_through_channel_alias(self):
+        calls = []
+        responses = []
+        status = {"request_id": 9, "status": "submitted"}
+        controller = self.controller(calls, responses, statuses={9: status})
+
+        self.assertTrue(
+            controller.get(
+                Handler("/ca/channel/requests/9"),
+                "/ca/channel/requests/9",
+            )
+        )
+
+        self.assertEqual(200, responses[0][0])
+        self.assertEqual(status, responses[0][1]["request"])
+
+    def test_raw_injection_is_admitted_as_an_explicit_orthogonal_option(self):
+        calls = []
+        responses = []
+        controller = self.controller(calls, responses)
+        body = {
+            "message": "  exact text\nwith spacing  ",
+            "raw_injection": True,
+            "input_transport": "session_socket",
+            "response_mode": "web_chat",
+        }
+
+        self.assertTrue(controller.post(Handler(), "/ca/chat/messages", body))
+
+        admitted = calls[0][1][0]
+        self.assertIs(admitted["meta"]["raw_injection"], True)
+        self.assertEqual("session_socket", admitted["meta"]["input_transport"])
+        self.assertEqual("web_chat", admitted["meta"]["response_mode"])
+        self.assertIs(responses[0][1]["raw_injection"], True)
+
+    def test_invalid_raw_injection_is_rejected_before_admission(self):
+        calls = []
+        responses = []
+        controller = self.controller(calls, responses)
+
+        self.assertTrue(
+            controller.post(
+                Handler(),
+                "/ca/chat/messages",
+                {"message": "reject", "raw_injection": "sometimes"},
+            )
+        )
+
+        self.assertEqual([], calls)
+        self.assertEqual(400, responses[0][0])
+        self.assertEqual("invalid_raw_injection", responses[0][1]["error"])
 
     def test_invalid_mode_is_rejected_without_admission(self):
         calls = []
@@ -156,7 +212,7 @@ class ChatHttpInjectionModeTests(unittest.TestCase):
         self.assertEqual("structured", admitted["meta"]["injection_mode"])
         self.assertEqual("tty", admitted["meta"]["response_mode"])
         self.assertEqual("structured", responses[0][1]["input_mode"])
-        self.assertEqual("tty", responses[0][1]["input_transport"])
+        self.assertEqual("session_socket", responses[0][1]["input_transport"])
         self.assertEqual("tty", responses[0][1]["response_mode"])
 
     def test_router_input_transport_is_stored_independently_from_format(self):

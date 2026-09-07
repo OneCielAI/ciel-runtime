@@ -1,0 +1,54 @@
+task:
+  id: local-nightly-cache-deployment-20260902
+  request:
+    - Deploy the verified source tree to the local Ciel Runtime installation.
+    - Commit the verified provider, context, transport, and cache corrections on nightly.
+    - Push nightly so the npm publication workflows can consume it.
+  recorded_phase: release_candidate_verified_before_push
+
+source_control:
+  branch: nightly
+  starting_head: 8f9d8b9
+  origin_nightly_before: 8f9d8b9
+  fetch_before_deployment: passed
+  force_push_authorized: false
+  intended_push: git push origin nightly
+
+verification_before_deployment:
+  full_test_suite:
+    unit: {tests: 1358, skipped: 45, result: passed}
+    router: {tests: 1074, result: passed}
+    channel: {tests: 403, skipped: 80, result: passed}
+    runtime: {tests: 258, skipped: 12, result: passed}
+  ruff: passed
+  documentation_metadata: passed
+  npm_pack_dry_run: passed
+  live_alibaba_cache_probe:
+    provider: alitoken
+    input_tokens: 53934
+    cached_tokens: 53895
+    uncached_tokens: 39
+    cache_hit_percent: 99.9277
+
+local_deployment:
+  command: .\\install.ps1
+  result: passed
+  target: C:/Users/djlov/.local/share/ciel-runtime
+  launcher: C:/Users/djlov/.local/bin/ciel-runtime.ps1
+  reported_version: 0.2.37
+  installed_projection_probe:
+    responses_session_cache: enable
+    chat_session_cache: null
+    configured_effort: xhigh
+  source_installed_sha256_matches:
+    ciel_runtime.py: true
+    ciel_runtime_support/providers/alibaba.py: true
+    ciel_runtime_support/provider_request_access.py: true
+    ciel_runtime_support/provider_responses_passthrough.py: true
+
+runtime_boundary:
+  active_router_restarted: false
+  reason: >-
+    Local installation replacement is complete. Existing Python router
+    processes retain already-loaded modules until their next restart; the
+    active user session was not interrupted for release deployment.

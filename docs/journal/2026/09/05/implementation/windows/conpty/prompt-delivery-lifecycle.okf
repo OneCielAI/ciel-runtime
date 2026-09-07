@@ -1,0 +1,43 @@
+knowledge:
+  task:
+    title: Windows ConPTY prompt delivery lifecycle hardening
+    date: 2026-09-05
+    scope:
+      - ANSI and Korean prompt-render observation
+      - no-repeat submission failure behavior
+      - runtime input lifecycle API and events
+      - strict delivery ordering
+      - private queue cursor accounting
+      - resize failure and redraw observation
+  evidence:
+    source:
+      prompt_detection: ciel_runtime_support/windows_conpty.py
+      injection_policy: ciel_runtime_support/channel_injection.py
+      ordering: ciel_runtime_support/channel_pending_injection.py
+      lifecycle: ciel_runtime_support/runtime_input_status.py
+      api: ciel_runtime_support/chat_http_controller.py
+    confirmed_behavior:
+      - ANSI CSI, OSC, SGR, and cursor-right output is projected only for detection; input text is not decorated or rewritten.
+      - prompt-render timeout requests one draft clear, records whether redraw confirmed it, then disables automatic retyping.
+      - an unconfirmed submission is sticky failed state and blocks later private inputs at the same cursor.
+      - TTY and session-socket drafts are limited to one request; router-body batching remains independent of TUI drafts.
+      - backlog scan_tail is composed with _runtime_input_scan_max_id, not the public chat repository.
+      - ConPTY resize logs HRESULT or exception on failure and redraw observed or timeout after success.
+      - no ASCII sentinel or automatic router-body fallback remains in the Windows terminal proxy.
+  verification:
+    focused:
+      windows_conpty: 33 passed
+      channel_injection: 13 passed
+      runtime_input_status: 2 passed
+      channel_bridge: 216 passed, 80 skipped
+    native_windows:
+      transport: real CreatePseudoConsole child process
+      utf8: ANSI-fragmented Korean prompt observed and submitted; child returned TURN_STARTED
+      resize_redraw: Claude 2783 bytes and Codex 2233 bytes after 120x30 to 123x32 resize; both logged redraw=observed
+    http_probe: POST returned queued for request 73; GET returned replied; events were queued, submitted, replied
+    full_suite: 3174 passed, 137 skipped, 0 failed
+    lint: passed
+    docs: passed
+    diff_check: passed
+    local_deployment: not requested in this task
+    nightly_push: not requested in this task

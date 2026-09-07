@@ -1,0 +1,135 @@
+task:
+  title: Web Chat voice-message instruction format audit
+  date: 2026-09-03
+  scope:
+    workspace: C:/Users/djlov/ciel-runtime
+    feature: Web Chat live voice input and runtime prompt injection
+
+confirmed_flow:
+  capture:
+    source: ciel_runtime_support/web_ui.py
+    behavior:
+      - Browser microphone PCM is encoded as WAV.
+      - JSON is posted to /v1/audio/transcriptions with audio_base64, filename, content_type, model, and language.
+      - The ASR text is normalized and passed to sendMessage with inputMode voice.
+  channel_request:
+    endpoint: POST /ca/channel/messages
+    body_fields:
+      - channel
+      - sender_id
+      - recipients
+      - delivery
+      - thread_id
+      - kind
+      - message
+      - meta.source
+      - meta.web_chat_session
+      - meta.input_mode
+      - meta.reply_channel
+      - meta.reply_recipient
+      - meta.response_contract
+      - meta.reply_instruction
+      - meta.attachments
+    voice_marker: meta.input_mode = voice
+    message_content: ASR transcript text
+  runtime_prompt:
+    source: ciel_runtime_support/channel_message_prompt.py
+    transcript_label: asr_transcript
+    framing: one physical line
+    trusted_instruction:
+      - Route replies through ciel-runtime-router.send_message.
+      - Send kind ack immediately and exactly one kind reply after work.
+      - response fields are spoken, overview, and optional details.
+      - The browser speaks only response.spoken.
+      - Do not claim completion in the acknowledgement.
+
+channel_semantics:
+  definition: A logical message namespace and reply-routing address; it is not the network transport.
+  web_chat_value: web-chat-<sessionId>
+  session_id_source:
+    priority:
+      - URL query parameter session or s
+      - browser localStorage
+      - newly generated UUID or timestamp-random fallback
+  uses:
+    - Filters Web Chat history reads to the current logical conversation.
+    - Filters the SSE message stream to the current logical conversation.
+    - Tells the agent which channel to target when returning ack and reply messages.
+  related_fields:
+    thread_id: Groups the conversation thread; Web Chat currently uses sessionId.
+    parent_id: Associates an ack or reply with the specific inbound message.
+    recipients: Controls which consumer can see the message; browser reads as recipient web.
+    input_transport: Selects session_socket, router, or tty independently from channel.
+
+delivery_semantics:
+  confirmed:
+    delivery_llm: Causes a structured inbound message to be mirrored into the private model-input queue.
+    delivery_native: Makes the message eligible for native channel notification projection; it does not select the Claude messaging socket.
+    delivery_web: Outbound browser-only ack or reply; it is not mirrored back into model input unless an LLM route is also present.
+  claude_session_socket_selection:
+    controlling_field: input_transport
+    default: session_socket for every admitted input.
+    fallback: If socket delivery is unavailable or fails, use TTY while idle; retain the durable queued input during an active turn and retry until fallback is safe.
+    explicit_override: POST input_transport can select session_socket, tty, or router.
+    conclusion: delivery native alone does not select the socket; input_transport does.
+  verification:
+    chat_input_mode_tests: 13 passed
+    claude_session_socket_focused_tests: 4 passed
+
+correction_2026_09_03:
+  prior_behavior:
+    source_commit: 60846f9
+    admission_default: Active Claude socket selected session_socket; every other runtime selected tty before admission.
+    socket_failure: Durable queue rollback and retry without transport fallback.
+  mismatch: This did not implement the requested session-socket-first default with unsupported-runtime fallback.
+  implementation:
+    - Built-in Web Chat now explicitly sends top-level input_transport session_socket.
+    - HTTP and Runtime Input Gateway defaults now select session_socket.
+    - Missing socket transport and idle socket-send failure fall back to TTY.
+    - Socket-send failure during an active turn does not type into the terminal; the input remains queued.
+    - Explicit router and tty overrides remain supported.
+  verification:
+    focused:
+      web_chat_and_gateway: 25 passed
+      claude_socket_paths: 4 passed
+      speech_http: 23 passed
+      channel_bridge: {passed: 217, skipped: 80}
+      ruff: passed
+      compileall: passed
+    full_suite:
+      unit: {passed: 1368, skipped: 45}
+      router: {passed: 1094, skipped: 0}
+      channel: {passed: 405, skipped: 80}
+      runtime: {passed: 276, skipped: 12}
+      total_passed: 3143
+      total_skipped: 137
+
+security_boundary:
+  observation: The browser-supplied meta.reply_instruction value is not copied into the generated runtime prompt.
+  verification: A generated prompt containing a sentinel CLIENT_SIDE_TEXT in meta.reply_instruction did not contain the sentinel.
+  result: Actual reply instructions are generated server-side from admitted message routing data.
+
+verification:
+  generated_prompt_probe:
+    result:
+      newline_count: 0
+      client_reply_instruction_present: false
+      voice_label_present: true
+      asr_transcript_present: true
+  tests:
+    commands:
+      - PYTHONPATH=<workspace> python tests/test_channel_message_prompt.py
+      - PYTHONPATH=<workspace> python tests/test_web_chat_ui.py
+    result: 21 tests passed
+  note: An initial direct unittest module invocation failed because tests is not a Python package; direct file execution with workspace PYTHONPATH succeeded.
+
+references:
+  - ciel_runtime_support/web_ui.py:1287
+  - ciel_runtime_support/web_ui.py:1455
+  - ciel_runtime_support/web_ui.py:1742
+  - ciel_runtime_support/channel_message_prompt.py:137
+  - ciel_runtime_support/channel_message_prompt.py:203
+  - ciel_runtime_support/channel_message_prompt.py:323
+  - tests/test_channel_message_prompt.py:85
+  - tests/test_channel_message_prompt.py:118
+  - tests/test_web_chat_ui.py:80

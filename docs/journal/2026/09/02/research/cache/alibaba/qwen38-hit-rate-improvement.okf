@@ -1,0 +1,233 @@
+task:
+  id: qwen38-cache-hit-rate-improvement-research-20260902
+  request: >-
+    Research evidence-backed ways to increase cache reuse for Codex using
+    Alibaba Singapore Token Plan qwen3.8-max through Ciel Runtime.
+  scope: research_only
+  status: completed
+
+environment:
+  runtime_repository: C:/Users/djlov/ciel-runtime
+  observed_workspace: C:/Users/djlov/cielarvis
+  router: http://127.0.0.1:9479
+  router_pid: 77820
+  router_started_at_utc: 2026-09-02T18:14:11Z
+  provider: alitoken
+  model: qwen3.8-max
+  protocol: openai_responses
+  codex_session_id: 01a01dff-f0f0-7ef3-8cde-1d9916510f35
+  production_mutated: false
+
+measured_state:
+  pre_restart_last_14:
+    input_tokens: 1932589
+    cached_input_tokens: 614400
+    weighted_cache_hit_percent: 31.792
+  post_restart_latest_15:
+    measured_through_utc: 2026-09-02T18:35:53.849Z
+    input_tokens: 2281369
+    cached_input_tokens: 291885
+    weighted_cache_hit_percent: 12.794
+    zero_cache_calls: 13
+    high_cache_calls: 2
+  change_percentage_points: -18.998
+  accounting_cross_check: >-
+    Router activity cache_read_tokens and Codex last_token_usage.cached_input_tokens
+    report the same upstream values. The observed misses are not created by a
+    separate Ciel display-only calculation.
+
+wire_evidence:
+  request_headers:
+    configured: {x-dashscope-session-cache: enable}
+    projected_on_openai_responses: {x-dashscope-session-cache: enable}
+  captured_codex_request:
+    body_keys:
+      - client_metadata
+      - include
+      - input
+      - instructions
+      - model
+      - parallel_tool_calls
+      - prompt_cache_key
+      - reasoning
+      - store
+      - stream
+      - tool_choice
+      - tools
+    prompt_cache_key: 01a06337-93d7-7cb0-9fba-895f0daa2c44
+    store: false
+    previous_response_id_present: false
+    full_input_history_replayed: true
+  isolated_prior_probe:
+    condition: two compact stable-prefix requests with session-cache header enabled
+    second_input_tokens: 53934
+    second_cached_input_tokens: 53895
+    second_weighted_cache_hit_percent: 99.928
+    interpretation: >-
+      The header and upstream cache can produce a near-complete hit. This does
+      not prove that the header alone is sufficient for a long changing Codex
+      transcript.
+
+official_contracts:
+  alibaba_responses_session_cache:
+    url: https://www.alibabacloud.com/help/en/model-studio/compatibility-with-openai-responses-api
+    confirmed:
+      - Session cache is opted into with x-dashscope-session-cache=enable.
+      - qwen3.8-max uses explicit cache for Responses session cache.
+      - The documented multi-turn flow sends only new input and links it with previous_response_id.
+      - A response ID remains valid for seven days.
+    not_documented:
+      - Alibaba does not document prompt_cache_key as its Responses cache control.
+      - The page does not document Responses cache_control markers.
+  alibaba_context_cache:
+    url: https://www.alibabacloud.com/help/en/model-studio/context-cache
+    confirmed:
+      - Implicit caching is automatic for supported models but hits are not guaranteed.
+      - Cacheable repeated content must be a prefix and unique content should follow it.
+      - Explicit and implicit caching cannot be used together on one request.
+      - Explicit cache requires at least 1024 tokens, has a five-minute TTL reset on hit, and supports at most four markers.
+  qwen38_model:
+    url: https://docs.modelstudio.console.alibabacloud.com/en/model-studio/qwen3-8-max
+    confirmed:
+      - The model supports a one-million-token context and context caching.
+      - Singapore International input price is USD 2.00 per million tokens.
+      - Implicit cache read is USD 0.25 per million tokens, 12.5 percent of normal input.
+      - Explicit cache creation is USD 2.50 per million tokens, 125 percent of normal input.
+      - Explicit cache read is USD 0.17 per million tokens, 8.5 percent of normal input.
+  token_plan:
+    url: https://docs.modelstudio.console.alibabacloud.com/en/model-studio/token-plan-personal-faq
+    confirmed:
+      - Cache hits deduct fewer Token Plan Credits than cache misses.
+      - Usage Analysis is the official source of truth for actual Credits deduction.
+  openai_responses:
+    url: https://developers.openai.com/api/reference/cli/resources/responses/methods/create
+    confirmed:
+      - previous_response_id is the Responses multi-turn state link.
+      - Instructions from a prior response are not automatically carried into the next request.
+      - prompt_cache_key is documented as an OpenAI cache bucketing key.
+
+local_root_cause_evidence:
+  current_compactor:
+    source: C:/Users/djlov/ciel-runtime/ciel_runtime_support/prompt_compaction.py
+    behavior: >-
+      compact_responses_input_for_budget finds a newest tail that fits and
+      regenerates the first summary item from every omitted item on each call.
+    confirmed_consequence: >-
+      When tail_start changes, the summary input set changes. The first wire item
+      can therefore change even though the conversation only appended new items.
+  live_router_sequence:
+    examples:
+      - {items_before: 633, items_after: 400, omitted: 233}
+      - {items_before: 636, items_after: 403, omitted: 233}
+      - {items_before: 669, items_after: 436, omitted: 233}
+    conclusion: >-
+      During this segment the omitted count and summary input prefix remained
+      fixed while reported cache results still alternated between zero and
+      near-complete hits. Moving compaction boundaries are therefore a proven
+      cache-breaking mechanism, but not a complete explanation for every miss.
+  synthetic_prefix_measurement:
+    representative_input:
+      first_items: 633
+      next_items: 636
+      repeated_item_chars: 30000
+      compaction_budget_tokens: 2240633
+    current_compactor:
+      first_body_bytes: 8837551
+      next_body_bytes: 8837557
+      common_prefix_bytes: 19163
+      common_prefix_percent: 0.2168
+      first_summary_equal: false
+    deterministic_per_item_cap_prototype:
+      cap_chars_per_item: 12000
+      first_body_bytes: 7629029
+      next_body_bytes: 7665098
+      common_prefix_bytes: 7628972
+      common_prefix_percent: 99.9993
+    boundary: >-
+      The prototype only proves that prefix-stable reduction is technically
+      possible. It does not prove acceptable semantic quality and was not
+      applied to production.
+
+ranked_improvement_paths:
+  - rank: 1
+    name: stateful_alibaba_responses_continuation
+    evidence_strength: official_contract_match_plus_local_wire_gap
+    design:
+      - Correlate a local session using provider, model, credential fingerprint, prompt_cache_key, and semantic configuration hashes.
+      - Capture a completed upstream response ID and persist it with hashes of represented input and output items.
+      - On an exact append-only next turn, send only the delta with previous_response_id.
+      - Resend the current instructions because Responses does not carry prior instructions forward.
+      - Fall back to full replay on divergence, incomplete response, concurrent turn, configuration change, or expiry.
+    expected_effect: >-
+      Matches Alibaba's documented session-cache flow and removes repeated
+      multi-megabyte full-history transport from steady-state turns.
+    unverified:
+      - Whether Alibaba accepts continuation when the incoming Codex body has store=false.
+      - Whether Ciel should opt in to upstream state by forcing store=true; that changes privacy and persistence semantics.
+      - Live hit rate, latency, and Credits improvement in the target Token Plan session.
+  - rank: 2
+    name: prefix_stable_wire_compaction
+    evidence_strength: source_inspection_plus_synthetic_reproduction
+    design:
+      - Keep a persistent compaction checkpoint per prompt_cache_key instead of regenerating the entire first summary every append.
+      - Roll the checkpoint only at fixed boundaries and retain append-only stable chunks.
+      - Preserve function-call and output pairs and validate semantic loss before release.
+    expected_effect: >-
+      Keeps the largest reusable prefix byte-identical and benefits Alibaba
+      implicit caching even without server-side response state.
+    unverified:
+      - End-to-end task quality with checkpointed summaries.
+      - Production hit-rate increase under Alibaba scheduling.
+  - rank: 3
+    name: conditional_session_cache_header
+    evidence_strength: official_flow_differs_from_current_wire
+    design: >-
+      Treat x-dashscope-session-cache as a stateful Responses feature: enable it
+      for requests carrying a validated previous_response_id, or retain an
+      explicit user opt-in until the stateful bridge is proven.
+    boundary: >-
+      Current data proves that the header alone is insufficient for consistent
+      hits. It does not prove that the header causes the misses.
+  - rank: 4
+    name: chat_completions_explicit_cache_fallback
+    evidence_strength: existing_adapter_support_plus_official_chat_cache_contract
+    design: >-
+      Ciel already places up to four explicit cache_control markers on Alibaba
+      Chat Completions messages. A Responses-to-Chat route could use them.
+    risk: >-
+      Translation can lose native Responses tool and reasoning semantics, so it
+      is a fallback rather than the preferred qwen3.8-max Codex path.
+
+non_solutions_or_unproven_claims:
+  prompt_cache_key_alone: >-
+    Codex already sends a stable value. OpenAI documents its cache bucketing use,
+    but the Alibaba pages reviewed do not promise that it controls Alibaba cache.
+  header_alone: >-
+    Near-complete hits and complete misses were both observed while the header
+    was present, so no deterministic improvement claim is supported.
+  smaller_context_only: >-
+    Clearing or shrinking history can reduce billed input but is not itself a
+    cache-hit mechanism and discards context.
+
+implementation_boundary:
+  code_changed: false
+  live_router_restarted: false
+  live_session_interrupted: false
+  next_validation_required_before_claiming_improvement:
+    - Prototype previous_response_id continuation against Alibaba using a Ciel-isolated session without violating Token Plan direct-API restrictions.
+    - Compare identical workloads for weighted cached_input_tokens, first-token latency, total latency, and Usage Analysis Credits.
+    - Property-test append-only prefix stability and call/output pair integrity for checkpointed compaction.
+
+follow_up:
+  status: implemented_and_isolated_live_verified
+  journal: C:/Users/djlov/ciel-runtime/docs/journal/2026/09/02/implementation/cache/alibaba/qwen38-cache-hit-improvement.okf
+  note: >-
+    This research-only snapshot preceded the implementation. The follow-up
+    applies stateless implicit-cache routing plus pair-safe prefix checkpoints;
+    consult the implementation journal for measured results and boundaries.
+
+evidence_paths:
+  router_activity: C:/Users/djlov/AppData/Roaming/ciel-runtime/router-instances/9479-a3a719fc6552/router-activity.json
+  router_log: C:/Users/djlov/AppData/Roaming/ciel-runtime/router-instances/9479-a3a719fc6552/router.log
+  codex_session: C:/Users/djlov/.codex/sessions/2026/08/20/rollout-2026-08-20T02-08-27-01a01dff-f0f0-7ef3-8cde-1d9916510f35.jsonl
+  credentials_recorded: false

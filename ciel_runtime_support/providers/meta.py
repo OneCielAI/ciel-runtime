@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any, Mapping
 
@@ -19,9 +21,34 @@ from .base import HttpBearerProviderAdapter, provider_configuration
 from .constants import DEFAULT_REQUEST_TIMEOUT_MS, PROVIDER_DEFAULT_BASE_URLS
 
 
-MUSE_SPARK_MODEL = "muse-spark-1.1"
+MUSE_SPARK_MODEL = "muse-spark-1.3"
+MUSE_SPARK_MODELS = (
+    MUSE_SPARK_MODEL,
+    "muse-spark-1.3-contributor",
+    "muse-spark-1.2",
+    "muse-spark-1.2-contributor",
+    "muse-spark-1.1",
+)
 MUSE_SPARK_CONTEXT_WINDOW = 1_048_576
 MUSE_SPARK_AUTO_COMPACT_LIMIT = 900_000
+MUSE_SPARK_CODEX_CATALOG = {
+    "context_window": MUSE_SPARK_CONTEXT_WINDOW,
+    "max_context_window": MUSE_SPARK_CONTEXT_WINDOW,
+    "input_modalities": ["text", "image"],
+    "support_verbosity": False,
+    "supports_reasoning_summaries": True,
+    "supported_reasoning_levels": [
+        {"effort": "minimal", "description": "Shortest reasoning pass"},
+        {"effort": "low", "description": "Light reasoning"},
+        {"effort": "medium", "description": "Moderate reasoning depth"},
+        {"effort": "high", "description": "Deep reasoning"},
+        {
+            "effort": "xhigh",
+            "description": "Accepted alias; currently the same strength as high",
+        },
+    ],
+    "default_reasoning_level": "high",
+}
 
 
 @dataclass(frozen=True)
@@ -33,21 +60,29 @@ class MetaModelProviderAdapter(HttpBearerProviderAdapter):
     configuration_defaults_value: dict = field(
         default_factory=lambda: provider_configuration(
             MUSE_SPARK_MODEL,
-            custom_models=(MUSE_SPARK_MODEL,),
+            custom_models=MUSE_SPARK_MODELS,
             native_compat=True,
             preserve_anthropic_thinking=True,
             normalize_anthropic_tool_use=True,
             supports_tool_choice=True,
-            claude_code_supported_capabilities=["effort", "thinking"],
+            claude_code_supported_capabilities=[
+                "effort",
+                "xhigh_effort",
+                "thinking",
+                "adaptive_thinking",
+            ],
             context_window=MUSE_SPARK_CONTEXT_WINDOW,
             max_model_len=MUSE_SPARK_CONTEXT_WINDOW,
             auto_compact_window=MUSE_SPARK_AUTO_COMPACT_LIMIT,
             codex_auto_compact_window=MUSE_SPARK_AUTO_COMPACT_LIMIT,
+            codex_model_catalog=deepcopy(MUSE_SPARK_CODEX_CATALOG),
             request_timeout_ms=DEFAULT_REQUEST_TIMEOUT_MS,
             stream_enabled=True,
             stream_word_chunking=False,
             effort_level="high",
             enable_tool_search=True,
+            responses_custom_tools_as_functions=True,
+            prompt_cache_retention="24h",
             haiku_model=MUSE_SPARK_MODEL,
             opus_model=MUSE_SPARK_MODEL,
             sonnet_model=MUSE_SPARK_MODEL,
@@ -78,7 +113,7 @@ class MetaModelProviderAdapter(HttpBearerProviderAdapter):
     model_catalog_policy_value: ProviderModelCatalogPolicy = field(
         default_factory=lambda: ProviderModelCatalogPolicy(
             kind="openai",
-            fallback_models=(MUSE_SPARK_MODEL,),
+            fallback_models=MUSE_SPARK_MODELS,
             allow_configured_fallback=True,
         )
     )
@@ -97,11 +132,17 @@ class MetaModelProviderAdapter(HttpBearerProviderAdapter):
         del model
         return bool(config.options.get("native_compat", True))
 
+    def supports_server_web_tools(self, config: ProviderConfig) -> bool:
+        del config
+        return True
+
     def supported_protocols(
         self, config: ProviderConfig, model: str | None = None
     ) -> frozenset[MessageProtocol]:
         del config, model
-        return frozenset({"anthropic_messages", "openai_responses"})
+        return frozenset(
+            {"anthropic_messages", "openai_chat", "openai_responses"}
+        )
 
     def select_protocol(
         self,
@@ -109,29 +150,33 @@ class MetaModelProviderAdapter(HttpBearerProviderAdapter):
         config: ProviderConfig,
         model: str | None = None,
     ) -> MessageProtocol:
-        del config, model
-        return (
-            "openai_responses"
-            if operation == "openai_responses"
-            else "anthropic_messages"
-        )
+        if operation in self.supported_protocols(config, model):
+            return operation
+        return "anthropic_messages"
 
     def model_configuration_profile(
         self, config: ProviderConfig
     ) -> tuple[Mapping[str, Any], str | None]:
-        if self.normalize_model_id(config.model) != MUSE_SPARK_MODEL:
+        model = self.normalize_model_id(config.model)
+        if model not in MUSE_SPARK_MODELS:
             return {}, None
+        contributor_notice = (
+            " Contributor tier permits Meta to train on prompts and completions."
+            if model.endswith("-contributor")
+            else ""
+        )
         return (
             {
                 "context_window": MUSE_SPARK_CONTEXT_WINDOW,
                 "max_model_len": MUSE_SPARK_CONTEXT_WINDOW,
                 "auto_compact_window": MUSE_SPARK_AUTO_COMPACT_LIMIT,
                 "effort_level": "high",
-                "model_profile": "muse-spark-1.1-1m",
+                "codex_model_catalog": deepcopy(MUSE_SPARK_CODEX_CATALOG),
+                "model_profile": f"{model}-1m",
             },
-            "Muse Spark 1.1 profile applied: 1M context, high reasoning effort, "
+            f"{model} profile applied: 1M context, high reasoning effort, "
             "and 900K automatic compaction. Start a new session after changing "
-            "model, context, or reasoning effort.",
+            f"model, context, or reasoning effort.{contributor_notice}",
         )
 
     def model_selection_config_updates(
@@ -169,10 +214,28 @@ class MetaModelProviderAdapter(HttpBearerProviderAdapter):
     def normalize_request_options(
         self, config: ProviderConfig, request: Mapping[str, Any]
     ) -> Mapping[str, Any]:
-        del config
         normalized = dict(request)
         if "input" in normalized and "messages" not in normalized:
-            self._normalize_responses_request(normalized)
+            self._normalize_responses_request(normalized, config)
+        else:
+            self._normalize_messages_request(normalized)
+        return normalized
+
+    def normalize_request_options_for_protocol(
+        self,
+        config: ProviderConfig,
+        request: Mapping[str, Any],
+        protocol: MessageProtocol | None,
+    ) -> Mapping[str, Any]:
+        normalized = dict(request)
+        if protocol == "openai_responses":
+            self._normalize_responses_request(normalized, config)
+        elif protocol == "openai_chat":
+            self._normalize_chat_request(normalized)
+        elif protocol == "anthropic_messages":
+            self._normalize_messages_request(normalized)
+        elif "input" in normalized and "messages" not in normalized:
+            self._normalize_responses_request(normalized, config)
         else:
             self._normalize_messages_request(normalized)
         return normalized
@@ -192,7 +255,15 @@ class MetaModelProviderAdapter(HttpBearerProviderAdapter):
         return False
 
     @classmethod
-    def _normalize_responses_request(cls, request: dict[str, Any]) -> None:
+    def _normalize_responses_request(
+        cls, request: dict[str, Any], config: ProviderConfig
+    ) -> None:
+        if "prompt_cache_retention" not in request and request.get("prompt_cache_key"):
+            retention = str(
+                config.options.get("prompt_cache_retention") or ""
+            ).strip()
+            if retention in {"in_memory", "24h"}:
+                request["prompt_cache_retention"] = retention
         include = request.get("include")
         if request.get("previous_response_id"):
             if isinstance(include, list):
@@ -216,8 +287,150 @@ class MetaModelProviderAdapter(HttpBearerProviderAdapter):
         reasoning = request.get("reasoning")
         if isinstance(reasoning, Mapping):
             projected = dict(reasoning)
-            projected["effort"] = cls._effort(projected.get("effort"))
+            projected["effort"] = cls._responses_effort(projected.get("effort"))
+            # Match the official OpenCode Meta path: keep a concise visible
+            # reasoning summary while encrypted_content carries replay state.
+            projected.setdefault("summary", "auto")
             request["reasoning"] = projected
+        tools = request.get("tools")
+        if isinstance(tools, list):
+            request["tools"] = [cls._normalize_responses_tool(tool) for tool in tools]
+        raw_input = request.get("input")
+        if isinstance(raw_input, list):
+            request["input"] = [cls._normalize_responses_input(item) for item in raw_input]
+
+    @classmethod
+    def _normalize_responses_tool(cls, tool: Any) -> Any:
+        """Project tool parameters to Meta's strict Responses schema contract."""
+
+        if not isinstance(tool, Mapping):
+            return deepcopy(tool)
+        projected = deepcopy(dict(tool))
+        if str(projected.get("type") or "") == "custom":
+            description = str(projected.get("description") or "").strip()
+            format_value = projected.get("format")
+            if isinstance(format_value, Mapping):
+                definition = str(format_value.get("definition") or "").strip()
+                if definition:
+                    description = "\n\n".join(
+                        part
+                        for part in (
+                            description,
+                            "Raw input must satisfy this grammar:\n" + definition,
+                        )
+                        if part
+                    )
+            projected = {
+                "type": "function",
+                "name": str(projected.get("name") or ""),
+                "description": description,
+                "parameters": {
+                    "type": "object",
+                    "properties": {"input": {"type": "string"}},
+                    "required": ["input"],
+                    "additionalProperties": False,
+                },
+                "strict": True,
+            }
+        parameters = projected.get("parameters")
+        if isinstance(parameters, Mapping):
+            projected["parameters"] = cls._strict_responses_schema(parameters)
+        if (
+            str(tool.get("type") or "") == "function"
+            and isinstance(parameters, Mapping)
+        ):
+            projected["strict"] = True
+        return projected
+
+    @staticmethod
+    def _normalize_responses_input(item: Any) -> Any:
+        if not isinstance(item, Mapping):
+            return deepcopy(item)
+        projected = deepcopy(dict(item))
+        item_type = str(projected.get("type") or "")
+        if item_type == "custom_tool_call":
+            projected["type"] = "function_call"
+            projected["arguments"] = json.dumps(
+                {"input": str(projected.pop("input", ""))},
+                ensure_ascii=False,
+                separators=(",", ":"),
+            )
+        elif item_type == "custom_tool_call_output":
+            projected["type"] = "function_call_output"
+        return projected
+
+    @classmethod
+    def _strict_responses_schema(cls, schema: Mapping[str, Any]) -> dict[str, Any]:
+        """Require every object property while keeping former optionals nullable."""
+
+        projected = deepcopy(dict(schema))
+        properties = projected.get("properties")
+        if isinstance(properties, Mapping):
+            originally_required = {
+                str(name)
+                for name in projected.get("required") or []
+                if isinstance(name, str)
+            }
+            strict_properties: dict[str, Any] = {}
+            for raw_name, raw_property in properties.items():
+                name = str(raw_name)
+                if isinstance(raw_property, Mapping):
+                    normalized_property = cls._strict_responses_schema(raw_property)
+                    if name not in originally_required:
+                        normalized_property = cls._nullable_schema(normalized_property)
+                    strict_properties[name] = normalized_property
+                else:
+                    strict_properties[name] = deepcopy(raw_property)
+            projected["properties"] = strict_properties
+            projected["required"] = list(strict_properties)
+            projected["additionalProperties"] = False
+
+        items = projected.get("items")
+        if isinstance(items, Mapping):
+            projected["items"] = cls._strict_responses_schema(items)
+        for keyword in ("anyOf", "oneOf", "allOf"):
+            variants = projected.get(keyword)
+            if isinstance(variants, list):
+                projected[keyword] = [
+                    cls._strict_responses_schema(item)
+                    if isinstance(item, Mapping)
+                    else deepcopy(item)
+                    for item in variants
+                ]
+        definitions = projected.get("$defs")
+        if isinstance(definitions, Mapping):
+            projected["$defs"] = {
+                str(name): cls._strict_responses_schema(value)
+                if isinstance(value, Mapping)
+                else deepcopy(value)
+                for name, value in definitions.items()
+            }
+        return projected
+
+    @staticmethod
+    def _nullable_schema(schema: Mapping[str, Any]) -> dict[str, Any]:
+        projected = deepcopy(dict(schema))
+        raw_type = projected.get("type")
+        if isinstance(raw_type, str):
+            if raw_type != "null":
+                projected["type"] = [raw_type, "null"]
+        elif isinstance(raw_type, list):
+            if "null" not in raw_type:
+                projected["type"] = [*raw_type, "null"]
+        elif isinstance(projected.get("anyOf"), list):
+            variants = list(projected["anyOf"])
+            if not any(
+                isinstance(item, Mapping) and item.get("type") == "null"
+                for item in variants
+            ):
+                variants.append({"type": "null"})
+            projected["anyOf"] = variants
+        else:
+            projected = {"anyOf": [projected, {"type": "null"}]}
+        enum = projected.get("enum")
+        if isinstance(enum, list) and None not in enum:
+            projected["enum"] = [*enum, None]
+        return projected
 
     @classmethod
     def _normalize_messages_request(cls, request: dict[str, Any]) -> None:
@@ -234,11 +447,22 @@ class MetaModelProviderAdapter(HttpBearerProviderAdapter):
         output_config = request.get("output_config")
         if isinstance(output_config, Mapping) and output_config.get("effort") is not None:
             projected_output = dict(output_config)
-            projected_output["effort"] = cls._effort(projected_output.get("effort"))
+            projected_output["effort"] = cls._messages_effort(
+                projected_output.get("effort")
+            )
             request["output_config"] = projected_output
 
     @staticmethod
-    def _effort(value: Any) -> str:
+    def _normalize_chat_request(request: dict[str, Any]) -> None:
+        # Meta Chat Completions documents only the automatic tool-selection
+        # mode. OpenAI clients can send a named function choice object; retain
+        # the tools but project that unsupported selector to Meta's auto mode.
+        tool_choice = request.get("tool_choice")
+        if isinstance(tool_choice, Mapping):
+            request["tool_choice"] = "auto"
+
+    @staticmethod
+    def _responses_effort(value: Any) -> str:
         effort = str(value or "high").strip().lower()
         if effort in {"none", "minimal"}:
             return "minimal"
@@ -248,10 +472,17 @@ class MetaModelProviderAdapter(HttpBearerProviderAdapter):
             return "xhigh"
         return "high"
 
+    @classmethod
+    def _messages_effort(cls, value: Any) -> str:
+        effort = cls._responses_effort(value)
+        return "low" if effort == "minimal" else effort
+
 
 __all__ = [
     "MUSE_SPARK_AUTO_COMPACT_LIMIT",
+    "MUSE_SPARK_CODEX_CATALOG",
     "MUSE_SPARK_CONTEXT_WINDOW",
     "MUSE_SPARK_MODEL",
+    "MUSE_SPARK_MODELS",
     "MetaModelProviderAdapter",
 ]

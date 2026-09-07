@@ -1,0 +1,159 @@
+task:
+  id: ollama-cloud-desktop-model-exhaustive-audit-20260902
+  request: >-
+    Deploy Ciel Runtime locally and exhaustively inspect every Ollama Cloud
+    model discoverable by Ollama Desktop.
+  observed_at: 2026-09-02T20:02:00-05:00
+  status: verified_and_locally_deployed
+
+scope_and_sources:
+  official_desktop_repository:
+    url: https://github.com/ollama/ollama
+    commit: b79067b0db7417f20108363bc22adb97f35c966a
+    model_discovery:
+      file: app/ui/app/src/api.ts
+      lines: 199-293
+      behavior:
+        - Read local models with ollama.list.
+        - Read cloud models through the Desktop cloud-model endpoint.
+        - Remove only BERT-only families from the selectable chat list.
+        - Read selected-model capabilities with ollama.show.
+    request_projection:
+      file: app/ui/ui.go
+      lines: 893-911,1847-1939
+      behavior:
+        - Use the show response's thinking capability as the default.
+        - Send true for capability-only thinking models.
+        - Send a string only when the Desktop UI explicitly supplies one.
+        - Preserve assistant thinking and tool calls in conversation history.
+  official_cloud_docs: https://docs.ollama.com/cloud
+  official_thinking_docs: https://docs.ollama.com/capabilities/thinking
+  official_model_cards:
+    - https://ollama.com/library/deepseek-v4-flash
+    - https://ollama.com/library/deepseek-v4-pro
+    - https://ollama.com/library/glm-5.2
+    - https://ollama.com/library/glm-5.3
+    - https://ollama.com/library/glm-5.3-flash
+    - https://ollama.com/library/gpt-oss
+    - https://ollama.com/library/kimi-k3
+
+discovery_evidence:
+  endpoint: GET https://ollama.com/api/tags
+  authenticated: true
+  discovered_models: 19
+  installed_ciel_models: 19
+  set_difference: []
+  credentials_recorded: false
+  show_probe:
+    endpoint: POST https://ollama.com/api/show
+    success: 19/19
+    parameters_field_null: 19/19
+    conclusion: >-
+      Ollama Cloud did not publish fixed sampling parameters for any of the 19
+      models through /api/show. Ciel therefore must not invent temperature,
+      top_p, top_k, or num_predict defaults for the wire request.
+
+model_inventory:
+  columns: [model, context_tokens, capabilities, modalities, verified_think_contract, tool_probe_seconds]
+  rows:
+    - [deepseek-v4-flash:0731, 1048576, completion|tools|thinking, text, high|max_default, 1.11]
+    - [deepseek-v4-pro:0813, 1048576, completion|tools|thinking, text, high_default|max, 0.96]
+    - [gemma4:31b, 262144, completion|thinking|tools|vision, text|image, boolean, 0.53]
+    - [glm-5.1, 202752, thinking|completion|tools, text, boolean, 1.40]
+    - [glm-5.2, 1048576, thinking|completion|tools, text, high_default|max, 1.52]
+    - [glm-5.3, 1048576, completion|thinking|tools, text, low|high|max_default, 1.22]
+    - [glm-5.3-flash, 1048576, completion|thinking|tools|vision, text|image, low|high_default|max, 0.76]
+    - [gpt-oss:120b, 131072, completion|tools|thinking, text, low|medium_default|high, 0.56]
+    - [gpt-oss:20b, 131072, completion|tools|thinking, text, low|medium_default|high, 0.99]
+    - [kimi-k2.6, 262144, vision|thinking|completion|tools, text|image, boolean, 2.33]
+    - [kimi-k2.7-code, 262144, vision|thinking|completion|tools, text|image, boolean, 2.67]
+    - [kimi-k3, 1048576, vision|thinking|completion|tools, text|image, low|high|max_default, 1.27]
+    - [minimax-m2.7, 196608, completion|tools|thinking, text, boolean, 1.60]
+    - [minimax-m3, 512000, completion|tools|thinking|vision, text|image, boolean, 3.05]
+    - [mistral-large-3:675b, 262144, completion|tools|vision, text|image, none, 1.18]
+    - [nemotron-3-nano:30b, 262144, completion|tools|thinking, text, boolean, 0.63]
+    - [nemotron-3-super, 262144, completion|thinking|tools, text, boolean, 3.38]
+    - [nemotron-3-ultra, 262144, completion|thinking|tools, text, boolean, 22.85]
+    - [qwen3.5:397b, 262144, completion|thinking|tools|vision, text|image, boolean, 1.65]
+
+live_inference_verification:
+  endpoint: POST https://ollama.com/api/chat
+  request:
+    stream: false
+    task: Call ping exactly once with value ok and no text answer.
+    thinking: >-
+      false for ordinary models and low for GPT-OSS, solely to keep the health
+      probe small; this probe did not attempt to benchmark reasoning quality.
+  results:
+    http_200: 19/19
+    tool_name_ping: 19/19
+    tool_argument_ok: 19/19
+    minimum_seconds: 0.53
+    maximum_seconds: 22.85
+    maximum_model: nemotron-3-ultra
+  limits:
+    - A successful minimal tool call proves availability and schema execution.
+    - It does not prove sustained-agent quality or normal workload latency.
+
+confirmed_defects:
+  - id: glm-5.3-effort-profile-missing
+    evidence: >-
+      /api/show reports architecture glm_dsa_moe and the official model card
+      documents low, high, and max with max as default. Ciel had no handler for
+      glm_dsa_moe, so its Codex reasoning-level list was empty.
+    correction: >-
+      Add the glm_dsa_moe/glm-5.3 profile; expose low, high, xhigh to Codex and
+      map xhigh to Ollama max, with xhigh as the default.
+  - id: unverified-generic-string-effort
+    evidence: >-
+      Ollama's official generic thinking documentation says most models use a
+      boolean and identifies GPT-OSS as the generic exception requiring
+      low/medium/high strings. Ollama Desktop likewise only exposes the
+      low/medium/high selector for GPT-OSS. Several Ciel model names had been
+      assigned low/medium/high/max without a published model-specific contract.
+    correction: >-
+      Remove the name-based generic string levels. Capability-only thinking
+      models now send boolean true, matching Desktop. Explicit model contracts
+      remain for DeepSeek V4, GLM-5.2, GLM-5.3, GLM-5.3 Flash, GPT-OSS, and Kimi K3.
+
+verification:
+  focused_ollama_suite:
+    command: python -m unittest discover -s tests -p "test_ollama*.py" -v
+    tests: 76
+    result: passed
+  ruff:
+    command: python -m ruff check ciel_runtime_support/ollama_thinking.py tests/test_ollama_provider_options.py
+    result: passed
+  full_suite:
+    command: npm test
+    unit: {tests: 1363, skipped: 45, result: passed}
+    router: {tests: 1077, result: passed}
+    channel: {tests: 403, skipped: 80, result: passed}
+    runtime: {tests: 261, skipped: 12, result: passed}
+    total_tests: 3104
+  installed_policy_probe:
+    glm-5.3:
+      native_levels: [low, high, max]
+      codex_levels: [low, high, xhigh]
+      default_native: max
+      codex_xhigh_wire_value: max
+    minimax-m3:
+      native_contract: boolean
+      codex_xhigh_wire_value: true
+    mistral-large-3:675b:
+      think: false
+      modalities: [text, image]
+
+local_deployment:
+  command: powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
+  result: passed
+  target: C:/Users/djlov/.local/share/ciel-runtime
+  changed_file_sha256: 0B970B89AD6AD2CC5DAAAC680669C8E7860672BA0DD7B641CD457E1D5AA09F63
+  source_installed_sha256_match: true
+  installed_model_command:
+    command: ciel-runtimectl models ollama-cloud
+    models: 19
+    result: passed
+  active_process_boundary: >-
+    The files are locally deployed. Any Ciel router process that imported the
+    previous module before this deployment must be restarted to load this code.

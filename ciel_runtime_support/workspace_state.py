@@ -10,6 +10,7 @@ from pathlib import Path
 WORKSPACE_FILES = (
     "chat-messages.jsonl",
     "runtime-inputs.jsonl",
+    "runtime-input-status.jsonl",
     "channel-llm-cursor.json",
     "channel-llm-clear-floor.json",
     "channel-llm-launch-guard.json",

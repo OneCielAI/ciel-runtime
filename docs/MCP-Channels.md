@@ -57,12 +57,14 @@ how a request enters the active TUI and how the answer should leave it:
   projection, voice/text hint, and request metadata. `input_mode=tty` puts the
   caller's message text directly on the private terminal-input path without the
   Web Chat input envelope.
-- `input_transport=session_socket` is selected automatically while an interactive
-  Claude Code session launched by Ciel has its authenticated messaging socket
-  active. It sends the selected input without typing into the terminal and can
-  deliver while Claude is processing another turn. Other runtimes default to
-  `input_transport=tty`, which submits through the active CLI terminal. An
-  explicit `input_transport=tty` always retains terminal delivery.
+- `input_transport=session_socket` is the default preference for every admitted
+  input. An interactive Claude Code session launched by Ciel receives it through
+  its authenticated messaging socket without terminal typing, including while
+  Claude is processing another turn. If the active runtime does not expose a
+  usable session socket, Ciel falls back to `input_transport=tty` while the TUI is
+  idle; during an active turn the durable input remains queued until terminal
+  injection is safe. An explicit `input_transport=tty` always retains terminal
+  delivery.
 - `input_transport=router` keeps the full message in the
   Runtime Input Gateway: while a model turn is already active, its next request
   consumes the message without a console wake; while the CLI is idle, Ciel types
@@ -78,6 +80,38 @@ how a request enters the active TUI and how the answer should leave it:
   Chat reply contract. `response_mode=tty` leaves the model's ordinary terminal
   output as-is and does not require a Web Chat tool reply. `response_mode=mcp`
   supplies a one-request MCP routing hint from `response_mcp`.
+- `raw_injection=true` makes the model-facing input exactly equal to the
+  `message` string. Ciel does not add a Web Chat envelope, voice/text marker,
+  attachment description, ACK/reply contract, MCP response hint, correlation
+  marker, or batch separator. It is independent of `input_transport` and
+  `response_mode`; callers selecting a non-terminal response destination must
+  arrange that response behavior outside the injected prompt.
+
+Exact-input example:
+
+```json
+{
+  "message": "Run the queued operation exactly once.",
+  "raw_injection": true,
+  "input_transport": "session_socket",
+  "response_mode": "tty"
+}
+```
+
+Every admitted private Runtime Input has an independent lifecycle identifier.
+The message POST response includes `request_id` and a `request` object whose
+initial state is `queued`; HTTP success does not claim that the TUI accepted the
+input. Query one request with `GET /ca/channel/requests/{request_id}` or list
+latest states with `GET /ca/channel/requests?after=0&status=submitted&limit=100`.
+The `/ca/chat/requests/...` aliases are equivalent. State transitions are
+`queued -> submitted -> replied` or `queued|submitted -> failed`. They are also
+published through `/ca/events/stream?category=runtime_input.status` and
+`/ca/events/ws?category=runtime_input.status`.
+
+The lifecycle store is `runtime-input-status.jsonl`; the delivery queue and its
+cursor both use the private `runtime-inputs.jsonl` ID domain. Public
+`chat-messages.jsonl` IDs are never used to calculate the pending Runtime Input
+count.
 
 The MCP hint is declarative; Ciel does not call the named server itself:
 
@@ -118,8 +152,11 @@ user-private `~/.claude/sessions/<pid>.<socket-hash>.key` file and then submits 
 newline-delimited `user` frame. Ciel deliberately omits a peer `from` address:
 the existing private Web Chat/MCP response contract remains authoritative, so a
 socket input does not invent a second Claude peer as its reply destination.
-If the key or socket is not ready, the durable Runtime Input record is retained
-and retried; it is not acknowledged or cursor-committed as delivered.
+If the socket is not available before delivery during an active turn, the durable
+Runtime Input remains queued. Once a delivery attempt begins, an unconfirmed
+socket or TTY submission becomes `failed` and is not typed again automatically.
+While the TUI is idle, a failed socket attempt may try TTY once; if that attempt
+is not confirmed, the request remains failed.
 
 Set `claude_code.session_socket_input=false` to disable automatic socket setup
 for a launch, or choose `input_transport=tty|router` on an individual input.
@@ -149,13 +186,13 @@ POST /ca/events/webhooks/<receiver-id>
 The configuration POST accepts `enabled`, `transport` (`webhook` or `sse`), `url`
 for SSE, an optional `event_types` allow-list, and either `webhook_secret` or
 `authorization`. `input_transport=auto|session_socket|tty|router` controls how
-admitted events reach the active runtime; `auto` selects the Claude socket only
-while it is active and otherwise selects TTY. Secrets are stored in the local
+admitted events reach the active runtime; `auto` prefers the session socket and
+uses the same safe TTY fallback. Secrets are stored in the local
 encrypted workspace vault and are never returned by the GET response.
 
 Webhook bodies use CloudEvents 1.0 structured JSON and Standard Webhooks `webhook-id`, `webhook-timestamp`, and `webhook-signature` headers. SSE requests negotiate the same structured representation with `Accept: text/event-stream, application/cloudevents+json`; each `data` frame must contain one CloudEvent 1.0 structured JSON object. Ciel validates framing, signatures, replay windows, type filters, and duplicate identities, but preserves the admitted event text exactly for the LLM.
 
-Reconnects use the SSE `id` field and `Last-Event-ID` by default. Streams that carry a cursor inside the CloudEvent can set `cursor_json_pointer` to an RFC 6901 pointer such as `/data/stream_id`. If the producer expects its cursor in the reconnect URL instead of `Last-Event-ID`, set the provider-neutral `cursor_query_parameter` to that query parameter's name. Ciel persists the projected cursor per workspace and receiver; no product-specific event schema is built into the runtime.
+Reconnects use the SSE `id` field and `Last-Event-ID` by default. Streams that carry a cursor inside the CloudEvent can set `cursor_json_pointer` to an RFC 6901 pointer such as `/data/stream_id`. If the producer expects its cursor in the reconnect URL instead of `Last-Event-ID`, set the provider-neutral `cursor_query_parameter` to that query parameter's name. Ciel persists the projected cursor per workspace and receiver; no product-specific event schema is built into the runtime. A failed earlier request blocks later requests, preserving input order and preventing two requests from sharing one unresolved TUI draft.
 
 The workspace router is the sole owner of each outbound SSE subscription. The prelaunch settings process only persists receiver configuration, preventing duplicate connections and duplicate deliveries. The terminal bridge also performs a bounded periodic safety rescan of its durable private input queue so a missed filesystem notification cannot strand an admitted event.
 
@@ -173,8 +210,8 @@ POST /ca/mcp
 
 It exposes only Ciel-owned tools such as `submit_input`, `send_message`,
 `send_file`, `compact_session`, and `llm_options`. External Streamable HTTP MCP
-clients can call `submit_input`; its default transport follows the same active
-Claude socket policy and accepts an explicit `session_socket|tty|router`
+clients can call `submit_input`; its default transport follows the same
+session-socket-first policy and accepts an explicit `session_socket|tty|router`
 override. The endpoint is stateless and has no MCP GET stream, `/ca/mcp/sse`,
 session registry, replay cursor, or external notification subscription.
 

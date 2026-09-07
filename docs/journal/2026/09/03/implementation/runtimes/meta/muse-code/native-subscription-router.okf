@@ -1,0 +1,86 @@
+task:
+  title: Native Muse Code subscription runtime in Ciel Router control plane
+  date: 2026-09-03
+  branch: nightly
+
+official_evidence:
+  overview: https://dev.meta.ai/docs/muse-code
+  subscriptions: https://dev.meta.ai/docs/muse-code/subscriptions
+  configuration: https://dev.meta.ai/docs/muse-code/configuration
+  session_messaging: https://dev.meta.ai/docs/muse-code/session-messaging
+  confirmed:
+    - Muse Code is a native terminal and CI agent.
+    - Browser sign-in and its onboarding credential are the subscription path.
+    - Additional API keys are pay-as-you-go and take precedence over browser sign-in.
+    - Native installation is documented for macOS and Linux.
+    - The CLI accepts model and reasoning-effort options and loads AGENTS.md.
+
+installed_binary_evidence:
+  platform: Windows 11 with WSL2 Ubuntu 26.04
+  install_source: https://dev.meta.ai/install.sh
+  installed_path: /home/djlov/.local/bin/muse
+  version_output: Muse Code 1.0.2 (1.0.2-R2040.1)
+  interfaces:
+    - muse exec with JSONL output
+    - muse session-message list and send
+    - muse serve MSP host over stdio
+    - exact MSP schema export from the installed binary
+
+implementation:
+  runtime_command: ciel-runtime muse
+  aliases: [muse-code, launch-muse]
+  model_default: muse-spark-1.3
+  effort_mapping: {max: ultra}
+  authentication_guard:
+    removed_child_environment: [META_API_KEY, MODEL_API_KEY]
+    purpose: Preserve Muse browser sign-in subscription eligibility.
+  windows:
+    transport: wsl.exe
+    discovery: command -v muse in the default WSL2 distribution
+    installer_shell: bash
+  router_control_plane:
+    interactive_input: Ciel channel-aware terminal proxy
+    unsupported_claude_socket_fallback: tty
+    transcript_scope: muse
+    tty_delivery:
+      writes_per_message: 1
+      cursor_commit: immediate and durable
+      rationale: Muse has no Claude/Codex-compatible transcript confirmation signal.
+    model_request_path: Direct Muse Code native connection, not Ciel Model API proxy
+  project_context:
+    instruction_file: AGENTS.md
+    remote_instruction_key: muse_url
+
+verification:
+  focused_tests:
+    muse_runtime: 8 passed
+    architecture_contracts: 219 passed, 42 skipped
+    ruff: passed
+    diff_check: passed
+  full_suite:
+    unit: 1376 passed, 45 skipped
+    router: 1094 passed
+    channel: 406 passed, 80 skipped
+    runtime: 276 passed, 12 skipped
+    total: 3152 passed, 137 skipped
+  cli_version:
+    command: python ciel_runtime.py muse --version
+    result: Muse Code 1.0.2 (1.0.2-R2040.1)
+  utility_passthrough:
+    command: python ciel_runtime.py muse session-message --help
+    result: exit 0; list and send commands displayed
+  real_headless_turn:
+    command: python ciel_runtime.py muse exec --provider echo --json --no-session-log --max-model-steps 2 "Reply exactly MUSE_ROUTER_READY"
+    result: exit 0; run.output.delta and run.terminal.completed contained echo MUSE_ROUTER_READY
+    billing: No paid model call; official deterministic echo provider used.
+  router_tty_end_to_end:
+    runtime: Interactive Muse Code 1.0.2 through WSL2 with provider echo
+    endpoint: POST http://127.0.0.1:9611/ca/channel/messages
+    accepted_message_ids: [4, 5]
+    injection_log:
+      - channel_stdin_proxy_injected count=1 message_ids=4 transport=tty commit_cursor=True
+      - channel_stdin_proxy_injected count=1 message_ids=5 transport=tty commit_cursor=True
+    persisted_cursor: '{"last_id":5}'
+    duplicates_after_fix: 0
+  transient_schema_artifacts:
+    removed: true

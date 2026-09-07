@@ -13,6 +13,7 @@ import re
 from typing import Any, Callable
 
 from .architecture import ProviderRuntimeCompactionPolicy
+from .anthropic_model_policy import defaults_to_one_million_context
 
 
 CLAUDE_PROJECTED_ENV_KEYS = (
@@ -60,7 +61,11 @@ def anthropic_routed_standard_context(
     config: dict[str, Any],
 ) -> bool:
     model = str(config.get("current_model") or "").strip().lower()
-    return anthropic_routed_mode(provider, config) and "[1m]" not in model
+    return (
+        anthropic_routed_mode(provider, config)
+        and "[1m]" not in model
+        and not defaults_to_one_million_context(model)
+    )
 
 
 @dataclass(frozen=True)
@@ -207,12 +212,19 @@ class ClaudeModelAliasPolicy:
         original_upstream = str(upstream_model or "")
         model = self._ports.strip_context_suffix(model)
         if anthropic_routed_mode(provider, config):
-            explicit_one_million = "[1m]" in original_model.lower() or "[1m]" in original_upstream.lower()
+            current_model = str(config.get("current_model") or "")
+            context_candidates = [original_model, original_upstream]
             if upstream_model is None:
-                explicit_one_million = explicit_one_million or "[1m]" in str(
-                    config.get("current_model") or ""
-                ).lower()
-            return f"{model}[1m]" if explicit_one_million else model
+                context_candidates.append(current_model)
+            explicit_one_million = any(
+                "[1m]" in candidate.lower() for candidate in context_candidates
+            )
+            documented_one_million = any(
+                defaults_to_one_million_context(candidate)
+                for candidate in context_candidates
+                if candidate
+            )
+            return f"{model}[1m]" if explicit_one_million or documented_one_million else model
         probe_model = upstream_model if upstream_model is not None else model
         include_current = upstream_model is None
         claims_one_million = self.claims_one_million_context(
@@ -286,7 +298,21 @@ class ClaudeModelAliasPolicy:
             if not selected and self.matches_family(current_upstream, family):
                 selected = current_upstream
             if not selected:
-                selected = next((item for item in candidates if self.matches_family(item, family)), "")
+                family_candidates = [
+                    item for item in candidates if self.matches_family(item, family)
+                ]
+                if provider == "anthropic":
+                    selected = next(
+                        (
+                            item
+                            for item in family_candidates
+                            if "[1m]" in item.lower()
+                            and defaults_to_one_million_context(item)
+                        ),
+                        "",
+                    )
+                if not selected:
+                    selected = next(iter(family_candidates), "")
             alias = self._ports.alias_for(provider, selected) if selected else current_model_alias
             result[key] = self.context_model_alias(
                 provider,

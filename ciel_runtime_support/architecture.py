@@ -510,6 +510,11 @@ class ProviderAdapter(ABC):
         del model_id
         return False
 
+    def preserves_claude_context_suffix_in_alias(self) -> bool:
+        """Whether ``[1m]`` remains a Claude-facing suffix after aliasing."""
+
+        return False
+
     def display_model_name(self, model_id: str, provider_label: str) -> str:
         """Project a provider model id into the shared human-readable label."""
 

@@ -108,6 +108,45 @@ GET /ca/events/stream
 Server-Sent Events로 실시간 이벤트 전송.  
 쿼리 파라미터: `?level=debug&category=router`
 
+### WebSocket 스트림
+```
+GET /ca/events/ws
+```
+RFC 6455 WebSocket text frame으로 같은 이벤트 JSON을 실시간 전송한다.
+`after`, `level`, `category` 쿼리 파라미터를 SSE와 동일하게 지원하며,
+원격 연결은 라우터의 기존 외부 접근 토큰 검사를 그대로 거친다.
+
+CLI 툴콜만 구독:
+```
+ws://127.0.0.1:<port>/ca/events/ws?category=tool.call
+```
+
+`tool.call` 이벤트는 라우터 변환 스트림과 Claude/Codex/Muse Code 세션
+transcript의 구조화된 툴 시작 레코드에서 생성된다. Windows에서 실행되는
+Muse WSL 세션도 `wslpath`로 확인한 세션 저장소를 직접 추적한다. `data`에는 `call_id`, `name`,
+`call_type`, `arguments`, `runtime`, `model`이 가능한 범위에서 포함된다.
+동일한 `call_id`가 라우터와 transcript 양쪽에서 관측되면 한 번만 전달한다.
+`tool_call_events.include_arguments=false`로 설정하면 모든 `tool.call` 이벤트의
+인자 값을 제외할 수 있다.
+
+검색 응답의 URL도 같은 `tool.call` 카테고리와 기존 WS/SSE/recent 경로로
+전달한다. 결과는 `data.phase == "result"`로 구분하며 다음 형태다.
+
+```json
+{"call_id":"toolu_...","name":"WebSearch","runtime":"claude","phase":"result","urls":["https://example.org/article"]}
+```
+
+검색어·제목·요약·응답 본문은 이 결과 이벤트에 포함하지 않는다. 기존 호출 시작
+이벤트는 유지되므로 결과 URL만 필요한 소비자는 `phase`를 필터링한다.
+Claude Code는 호출 ID에 연결된 `tool_result.content`의 JSON `Links` 목록,
+Anthropic 서버 도구는 `web_search_tool_result`의 URL을 읽는다. Codex는 검색
+호출에 연결된 function/custom output, 완료된 `web_search_call`의 `action.sources`
+및 `results`, assistant의 구조화된 `url_citation`을 지원한다.
+단, Codex 네이티브 rollout은 검색어/상태만 저장하고 결과 URL을 생략할 수 있다.
+그 경우 이 수집기는 URL을 생성하거나 검색어/페이지 열기 입력을 결과로 대신하지 않는다.
+URL 없는 응답은 이벤트를 발행하지 않는다. 호출 연결과 중복 방지 상태는
+transcript cursor와 함께 저장하며 최근 512개로 제한한다.
+
 ### 최근 이벤트 JSON
 ```
 GET /ca/events/recent

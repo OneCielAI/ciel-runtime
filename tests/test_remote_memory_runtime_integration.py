@@ -69,6 +69,8 @@ class RemoteMemoryRuntimeIntegrationTests(unittest.TestCase):
             "launch_agy",
             "launch_kimi",
             "launch_grok",
+            "launch_zcode",
+            "launch_muse",
         ):
             with self.subTest(name=name):
                 launch = getattr(ciel_runtime, name)
@@ -427,7 +429,7 @@ class RemoteMemoryRuntimeIntegrationTests(unittest.TestCase):
                 def read(self, size=-1):
                     return self.stream.read(size)
 
-            def policy(_provider, _pcfg, body):
+            def policy(_provider, _pcfg, body, _protocol=None):
                 projected = dict(body)
                 if "messages" in projected:
                     projected["messages"] = [

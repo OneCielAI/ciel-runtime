@@ -203,6 +203,27 @@ class ChannelMessagePromptTests(unittest.TestCase):
         self.assertIn('"tool":"send_message"', prompt)
         self.assertIn("one-shot", prompt)
 
+    def test_raw_injection_returns_only_the_exact_message_bytes_as_text(self):
+        expected = "  keep leading spaces\nkeep this blank line\n\nend  "
+        message = {
+            "id": 143,
+            "channel": "web-chat-session",
+            "kind": "web_chat",
+            "message": expected,
+            "meta": {
+                "source": "ciel-runtime-web-chat",
+                "reply_channel": "web-chat-session",
+                "input_mode": "voice",
+                "injection_mode": "structured",
+                "response_mode": "web_chat",
+                "response_mcp": {"server": "ai-net", "tool": "send_message"},
+                "raw_injection": True,
+                "runtime_attachments": [{"name": "ignored.png", "local_path": "x"}],
+            },
+        }
+
+        self.assertEqual(expected, format_web_chat_wake_batch_prompt([message]))
+
     def test_cielarvis_internal_capability_prompt_is_tty_safe_and_correlated(self):
         prompt = format_web_chat_wake_batch_prompt(
             [{

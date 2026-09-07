@@ -1,0 +1,160 @@
+task:
+  id: ollama-cloud-kimi-k3-resumed-session-stall-20260903
+  request: >-
+    Diagnose and improve the Cielarvis Codex session that repeatedly stops after
+    a Kimi K3 progress announcement even though it includes the earlier recovery.
+  workspace: C:/Users/djlov/cielarvis
+  runtime_workspace_id: a3a719fc6552
+  router_instance: 9479-a3a719fc6552
+  codex_session: 01a01dff-f0f0-7ef3-8cde-1d9916510f35
+  status: verified_in_isolated_router
+
+scope:
+  included:
+    - ollama-cloud/kimi-k3 routed Codex traffic on port 9479
+    - Codex rollout JSONL for the identified Cielarvis session
+    - Ciel Kimi continuation recovery and Ollama tool argument projection
+  excluded:
+    - Claude Opus sessions
+    - unrelated Cielarvis application behavior
+
+observed_failure:
+  local_window: 2026-09-02T23:37:47-05:00 through 2026-09-02T23:38:16-05:00
+  rollout_evidence:
+    path: C:/Users/djlov/.codex/sessions/2026/08/20/rollout-2026-08-20T02-08-27-01a01dff-f0f0-7ef3-8cde-1d9916510f35.jsonl
+    sequence:
+      - line: 6588
+        action: view_image
+      - line: 6590
+        result: tool output returned
+      - line: 6595
+        assistant_text: >-
+          현재 notice 영역을 정확히 보겠습니다 — 채팅 창 하단 상태바 부분을
+          새 캡처로 읽습니다.
+        followup_tool_calls: 0
+      - line: 6597
+        event: task_complete
+  usage_evidence:
+    last_requests:
+      - {input_tokens: 679087, cached_input_tokens: 0}
+      - {input_tokens: 682635, cached_input_tokens: 0}
+      - {input_tokens: 682885, cached_input_tokens: 0}
+      - {input_tokens: 684307, cached_input_tokens: 0}
+      - {input_tokens: 684564, cached_input_tokens: 0}
+    note: >-
+      These values prove request size and reported cache usage. They do not by
+      themselves prove that context size or cache behavior caused the stall.
+
+router_evidence:
+  path: C:/Users/djlov/AppData/Roaming/ciel-runtime/router-instances/9479-a3a719fc6552/router.log
+  loaded_recovery_confirmed:
+    - "codex_turn_retry provider=ollama-cloud reason=preamble_only"
+    - "codex_turn_retry_result provider=ollama-cloud attempt=1/3 retryable=true chars=34"
+    - "codex_turn_retry_result provider=ollama-cloud attempt=2/3 retryable=true chars=17"
+    - "codex_turn_retry_result provider=ollama-cloud attempt=3/3 retryable=true chars=52"
+  conclusion: >-
+    The earlier Kimi patch was loaded and active. Its three-attempt bound was
+    exhausted by three more progress-only replies, after which Codex received
+    the original announcement and recorded task_complete.
+  malformed_tool_path:
+    - at: 2026-09-02T23:37:13-05:00
+      raw_name: exec
+      matched_name: exec_command
+      missing: cmd
+      emitted_key: js
+      disposition: dropped
+    - at: 2026-09-02T23:37:25-05:00
+      raw_name: exec
+      matched_name: exec_command
+      missing: cmd
+      emitted_key: input
+      disposition: dropped
+    source: C:/Users/djlov/AppData/Roaming/ciel-runtime/router-instances/9479-a3a719fc6552/tool-calls.jsonl
+
+confirmed_causes:
+  - >-
+    The fixed three-attempt Kimi continuation limit is insufficient for the
+    captured turn: all three retries were classified retryable and no tool call
+    survived projection.
+  - >-
+    exec name canonicalization occurred before argument validation, but the
+    generic input alias was not converted to exec_command.cmd, so a non-empty
+    model-supplied command was discarded.
+  - >-
+    Each failed retry was appended to the next retry body. The router token
+    estimates increased from 643708 to 643788 to 643865 during that sequence.
+    This proves cumulative request growth; it does not prove model causation.
+
+not_claimed:
+  - The 1M Kimi context declaration is not itself a guarantee of equal behavior at every context length.
+  - The observed 684K-token context is not claimed as the cause of the stop.
+  - Cache misses are not claimed as the cause of the stop.
+  - JavaScript intended for a Node REPL is not assumed to be a valid shell command.
+
+official_reference:
+  ollama_model_card:
+    url: https://ollama.com/library/kimi-k3
+    confirmed: Kimi K3 is marked tools, thinking, cloud, and 1M context.
+  ollama_tool_calling:
+    url: https://docs.ollama.com/capabilities/tool-calling
+    confirmed: >-
+      The documented agent loop preserves assistant tool-call messages and tool
+      results across subsequent model calls.
+  ollama_responses_tool_choice:
+    url: https://github.com/ollama/ollama/blob/main/openai/responses.go
+    confirmed: >-
+      Ollama's Responses conversion states that tool_choice required is not
+      generally supported, so the recovery cannot rely on forcing tool_choice.
+
+implementation:
+  files:
+    - ciel_runtime_support/codex_turn_recovery.py
+    - ciel_runtime_support/pseudo_tool_parser.py
+    - tests/test_codex_turn_recovery.py
+    - tests/test_tool_name_canonicalization.py
+  behavior:
+    - Increase Kimi progress-only recovery from three to six bounded attempts.
+    - Use a stricter continuation instruction after the third failed reply.
+    - Keep the original request as a stable base and replay only the latest stalled assistant response.
+    - Repair non-empty command, script, or input aliases to exec_command.cmd.
+    - Do not reinterpret a js argument as a shell command.
+
+verification:
+  focused_tests:
+    command: py -3.14 -m unittest tests.test_codex_turn_recovery tests.test_tool_name_canonicalization -v
+    tests: 47
+    result: passed
+  live_isolated_router:
+    port: 9599
+    source_fingerprint: 2486fa4d14d56174
+    provider: ollama-cloud
+    model: kimi-k3
+    simple_tool_probe:
+      http_status: 200
+      responses_status: completed
+      output: function_call inspect_workspace {scope: all}
+      elapsed_seconds: 2.7
+      result: passed
+  lint:
+    command: python -m ruff check on changed Python source and tests
+    result: passed
+  full_suite:
+    command: npm test
+    passed: 3125
+    groups:
+      - {name: unit, passed: 1366, skipped: 45}
+      - {name: router, passed: 1093, skipped: 0}
+      - {name: channel, passed: 403, skipped: 80}
+      - {name: runtime, passed: 263, skipped: 12}
+    result: passed
+  limitation: >-
+    A live Kimi response did not deterministically reproduce four consecutive
+    preamble-only replies, so the exact fourth-retry branch is covered by unit
+    tests rather than claimed as a live reproduction.
+  local_deployment:
+    command: powershell -NoProfile -ExecutionPolicy Bypass -File ./install.ps1
+    installed_version: 0.2.37
+    destination: C:/Users/djlov/.local/share/ciel-runtime
+    changed_source_hashes_match: true
+
+credentials_recorded: false

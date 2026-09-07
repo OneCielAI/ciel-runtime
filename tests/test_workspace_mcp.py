@@ -216,6 +216,30 @@ class WorkspaceMcpLeaseTests(unittest.TestCase):
         )
         self.assertEqual({}, state["workspace_mcp"]["servers"])
 
+    def test_managed_launch_modes_preserve_user_servers_across_restarts(self):
+        definitions = {
+            name: {"command": "tool", "injection_mode": mode}
+            for name, mode in {
+                "replacement-search": "non_native",
+                "native-helper": "native",
+                "channel": "always",
+            }.items()
+        }
+        for runtime in ("claude", "codex", "codex-app-server"):
+            with self.subTest(runtime=runtime), tempfile.TemporaryDirectory() as directory:
+                service = self.service(Path(directory), {11}, [])
+                for native in (False, True, False):
+                    launch = service.prepare(runtime, sample_config(), injected_servers=definitions, native=native)
+                    names = json.loads(launch.manifest_path.read_text(encoding="utf-8"))["server_names"]
+                    self.assertIn("local-tools", names)
+                    self.assertIn("channel", names)
+                    self.assertEqual(not native, "replacement-search" in names)
+                    self.assertEqual(native, "native-helper" in names)
+                    projection = (launch.directory / ("claude-mcp.json" if runtime == "claude" else "codex-mcp.json")).read_text(encoding="utf-8")
+                    self.assertNotIn("injection_mode", projection)
+                    service.finish(launch)
+        self.assertEqual("non_native", definitions["replacement-search"]["injection_mode"])
+
     def test_prepare_and_normal_finish_remove_ephemeral_artifacts(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary) / "mcp-launches"

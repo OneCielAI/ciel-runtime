@@ -1,0 +1,97 @@
+task:
+  id: alibaba-qwen38-0902-parameter-alignment-20260902
+  request: >-
+    Verify the updated Qwen3.8-Max version across Singapore Token Plan and
+    other Alibaba providers, then align model parameters with official docs.
+  status: verified
+
+official_evidence:
+  model_page:
+    url: https://docs.modelstudio.console.alibabacloud.com/en/model-studio/qwen3-8-max
+    context_window: 1000000
+    max_input: 991808
+    thinking_max_input: 983616
+    max_output: 131072
+    max_reasoning: 262144
+  responses_api:
+    url: https://www.alibabacloud.com/help/en/model-studio/qwen-api-via-openai-responses
+    efforts: [none, minimal, low, medium, high, xhigh, max]
+    default_effort: xhigh
+    singapore_supports: [xhigh, max]
+    conflict_rule: reasoning.effort takes precedence over enable_thinking
+  chat_api:
+    url: https://www.alibabacloud.com/help/en/model-studio/qwen-api-via-openai-chat-completions
+    native_efforts: [low, medium, xhigh]
+    mappings: {minimal: low, high: xhigh, max: xhigh, none: enable_thinking_false}
+    mutual_exclusion: reasoning_effort and thinking_budget cannot both be sent
+  snapshot:
+    documented_id: qwen3.8-max-0902
+    unsupported_claim_checked: qwen3.8-max-0920 was not found in official docs
+  token_plan:
+    url: https://docs.modelstudio.console.alibabacloud.com/en/model-studio/token-plan-personal-overview
+    supported_id: qwen3.8-max
+    preview_behavior: qwen3.8-max-preview routes to qwen3.8-max
+
+live_evidence:
+  provider: alitoken
+  region: ap-southeast-1
+  credentials_printed: false
+  model_catalog:
+    live_count: 13
+    qwen_ids: [qwen3.8-max, qwen3.8-max-preview]
+  model_id_probes:
+    qwen3.8-max: {http: 200, status: completed}
+    qwen3.8-max-preview: {http: 200, status: completed}
+    qwen3.8-max-0902: {http: 404, error: MODEL_NOT_FOUND}
+    qwen3.8-max-0920: {http: 404, error: MODEL_NOT_FOUND}
+  responses_effort_probes:
+    accepted: [none, minimal, low, medium, high, xhigh, max]
+    http_status: 200
+    none_reasoning_tokens: 0
+    note: >-
+      The 16-token probes for thinking efforts ended incomplete by design but
+      proved that the endpoint accepted each distinct effort value.
+
+implementation:
+  model_catalog:
+    alims_intl:
+      rolling_default: qwen3.8-max
+      selectable_snapshot: qwen3.8-max-0902
+    alitoken:
+      rolling_default: qwen3.8-max
+      snapshot_added: false
+      reason: live Token Plan returned MODEL_NOT_FOUND for snapshot IDs
+    alitoken_individual:
+      rolling_default: qwen3.8-max
+      snapshot_added: false
+    coding_plan:
+      changed: false
+      reason: official Coding Plan list does not include Qwen3.8-Max
+  parameter_projection:
+    responses: preserve all seven official effort levels
+    chat: retain documented three-level mapping
+    conflicting_thinking_budget_removed: true
+    codex_default_effort: xhigh
+    codex_supported_efforts: [none, minimal, low, medium, high, xhigh, max]
+  migration:
+    marker: alibaba_qwen38_0902_catalog_20260902
+    scope: add qwen3.8-max-0902 only to alims-intl catalogs
+
+verification:
+  focused_tests:
+    total: 151
+    result: passed
+  full_tests:
+    command: npm test
+    unit: {total: 1358, skipped: 45}
+    router: {total: 1071, skipped: 0}
+    channel: {total: 403, skipped: 80}
+    runtime: {total: 258, skipped: 12}
+    result: passed
+  lint:
+    command: npm run lint
+    result: passed
+  local_deployment:
+    command: .\\install.ps1
+    module: C:/Users/djlov/.local/share/ciel-runtime/ciel_runtime.py
+    installed_projection_verified: true

@@ -1,5 +1,7 @@
 import json
 import unittest
+from dataclasses import replace
+from unittest.mock import Mock
 
 from ciel_runtime_support import runtime_launch
 
@@ -131,6 +133,21 @@ class ClaudeSessionSocketLaunchTests(unittest.TestCase):
         self.assertIn("--messaging-socket-path", launched[0])
         self.assertEqual(target, launched[0][launched[0].index("--messaging-socket-path") + 1])
         self.assertIn("--settings", launched[0])
+
+        # Even explicit Ciel search enablement must not duplicate the native
+        # provider's web tools. Exercise the real launch command assembly.
+        writer = Mock(return_value="generated-web-tools.json")
+        for provider in ("anthropic", "test"):
+            writer.reset_mock()
+            selected = replace(
+                services,
+                config=replace(services.config, get_current_provider=lambda _cfg, p=provider: (p, {"current_model": "test-model"})),
+                policy=replace(services.policy, should_attach_web_search=lambda *_args: True),
+                mcp_config=replace(services.mcp_config, write_duckduckgo_mcp_config=writer),
+            )
+            runtime_launch.run_claude([], skip_menu=True, update_check=False, self_update_check=False, web_search_override=True, services=selected)
+            self.assertEqual(provider != "anthropic", writer.called)
+            self.assertEqual(provider != "anthropic", "generated-web-tools.json" in launched[-1])
 
 
 if __name__ == "__main__":

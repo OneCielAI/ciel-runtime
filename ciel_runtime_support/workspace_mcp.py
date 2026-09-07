@@ -14,6 +14,8 @@ import time
 import uuid
 from typing import Any, Callable
 
+from .managed_tool_injection import select_managed_tools
+
 
 _SERVER_ID = re.compile(r"^[A-Za-z0-9_-]{1,80}$")
 _RUNTIMES = frozenset({"claude", "codex", "codex-app-server"})
@@ -247,13 +249,14 @@ class WorkspaceMcpLaunchService:
         config: dict[str, Any],
         environment: Mapping[str, str] | None = None,
         injected_servers: Mapping[str, Any] | None = None,
+        *, native: bool = False,
     ) -> WorkspaceMcpLaunch:
         if runtime not in _RUNTIMES:
             raise ValueError(f"Unsupported workspace MCP runtime: {runtime}")
         self.recover_stale()
         servers = workspace_mcp_servers(config, runtime)
         if injected_servers:
-            injected = {"workspace_mcp": {"servers": dict(injected_servers)}}
+            injected = {"workspace_mcp": {"servers": select_managed_tools(injected_servers, native=native)}}
             servers.update(workspace_mcp_servers(injected, runtime))
         if not servers:
             return WorkspaceMcpLaunch()

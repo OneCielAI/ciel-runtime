@@ -1,0 +1,75 @@
+schema: okf/1
+kind: task-journal
+title: Claude routed session early auto-compaction at an apparent 16.6 percent
+date: 2026-09-04
+workspace: G:\ciel-bridge-service
+
+observation:
+  screenshot:
+    claude_native_notice: Compacting conversation
+    claude_native_remaining: 1 percent until auto-compact
+    ciel_status_context: 165666/1000000 tokens (16.6 percent)
+  process:
+    claude_code_version: 2.1.260
+    configured_provider: anthropic
+    configured_model: claude-opus-5
+    routed: true
+  launch_log:
+    model_alias: ciel-runtime-anthropic-claude-opus-5
+    projected_context: 200000
+    projected_auto_compact_window: 200000
+
+root_cause:
+  confirmed:
+    - Ciel's suffix-only compatibility rule classified every routed Anthropic
+      model without `[1m]` as 200K.
+    - The rule overrode the model metadata capacity of 1048576 and projected
+      CLAUDE_CODE_MAX_CONTEXT_TOKENS=200000 plus
+      CLAUDE_CODE_AUTO_COMPACT_WINDOW=200000.
+    - Claude Code's status input still described Opus 5 as a 1M model, so the
+      Ciel status line divided usage by 1000000 while Claude compacted against
+      the Ciel-imposed 200000 window.
+  official_reference:
+    - https://platform.claude.com/docs/en/build-with-claude/context-windows
+    - The current Anthropic table states that current Fable/Mythos, Opus 4.6+
+      and Opus 5, and Sonnet 4.6+ and Sonnet 5 use 1M by default without a beta
+      header.
+
+change:
+  policy:
+    - Apply the 200K routed fallback only when the selected model is not in the
+      documented 1M-default model set.
+    - Expand that set to include Mythos 5/preview, Opus 4.6, and Sonnet 4.6.
+    - Preserve `[1m]` as a backwards-compatible local marker, not a requirement
+      for current 1M-default Anthropic models.
+  regression_tests:
+    - All documented current 1M-default IDs project a 1000000 auto-compact
+      window and 1048576 maximum context without the marker.
+    - Sonnet 4.5 and Haiku 4.5 remain on the 200000 path.
+
+verification:
+  focused:
+    command: python tests/test_anthropic_native_output_tokens.py && python tests/test_claude_native_provider.py
+    result: 115 passed
+  full_suite:
+    command: npm test
+    result:
+      passed: 3156
+      skipped: 137
+      failed: 0
+  local_install:
+    path: C:\Users\djlov\.local\share\ciel-runtime
+    source_install_hash_match:
+      claude_environment.py: true
+      anthropic_model_policy.py: true
+  target_config_projection:
+    configured_model: claude-opus-5
+    anthropic_model: ciel-runtime-anthropic-claude-opus-5
+    max_context_tokens: 1048576
+    auto_compact_window: 1000000
+  isolated_live_launch:
+    claude_code_version: 2.1.260
+    exit_code: 0
+    launch_snapshot: provider=anthropic model=claude-opus-5 context=1048576 window=1000000
+    router_lifetime: stopped cleanly after Claude --version
+  status: verified

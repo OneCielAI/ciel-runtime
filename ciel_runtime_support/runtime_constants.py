@@ -12,7 +12,16 @@ ANTHROPIC_MODEL_DOCS_URLS = (
     ANTHROPIC_MODEL_DOCS_URL,
     "https://platform.claude.com/docs/en/about-claude/models/overview",
 )
+ANTHROPIC_ONE_MILLION_MODEL_IDS: tuple[str, ...] = (
+    "claude-fable-5-1[1m]",
+    "claude-fable-5[1m]",
+    "claude-opus-5[1m]",
+    "claude-opus-4-8[1m]",
+    "claude-sonnet-5[1m]",
+    "claude-sonnet-4-6[1m]",
+)
 ANTHROPIC_PUBLIC_MODEL_FALLBACK_IDS: tuple[str, ...] = (
+    *ANTHROPIC_ONE_MILLION_MODEL_IDS,
     "claude-fable-5-1",
     "claude-fable-5",
     "claude-opus-5",
@@ -176,12 +185,24 @@ ROUTED_CODEX_COMPAT_PROMPT = (
     "You are running inside Codex CLI through the ciel-runtime router. Do not stop after announcing what you plan to do. "
     "When the user asks you to inspect, create, edit, or run code, call the tools available in this turn and report the concrete result. "
     "Never end a turn with only a statement of intent such as saying you will now start; perform the work in the same turn. "
+    "If you identify a concrete next action in a progress report, call the next tool before returning a final answer. "
+    "For a persistent monitoring goal, unchanged external state is a verified wait, not a blocker: do not mark the goal blocked merely because the next market, job, or service event has not occurred. "
+    "Poll a confirmed-live handle or use the available recurring monitor or wait mechanism, and leave the goal active while safe in-scope monitoring work remains. "
     "If the task has several reasonable in-scope parts, do all of them; do not ask which part to start unless the user explicitly asked for a choice. "
     "If you decide not to use tools, give the complete answer in the same turn. "
     "Use exactly the tool schema provided and do not invent extra fields, and never write pseudo tool calls or partial JSON where a real tool call is required."
 )
 LANGUAGES = {"en": "English", "ko": "한국어", "ja": "日本語", "zh": "中文"}
 MODEL_PRESETS: dict[str, dict[str, Any]] = {
+    # Muse Spark reasoning tokens consume the output budget.  A live
+    # contributor probe exhausted 128 tokens before it could emit tool_use;
+    # 4096 completed the same request and is also the documented minimum used
+    # by Meta's long-media examples.
+    "muse-spark-1.3": {"compat_max_tokens": 4096, "thinking": True, "num_ctx_min": 32768, "num_ctx_max": 1048576},
+    "muse-spark-1.3-contributor": {"compat_max_tokens": 4096, "thinking": True, "num_ctx_min": 32768, "num_ctx_max": 1048576},
+    "muse-spark-1.2": {"compat_max_tokens": 4096, "thinking": True, "num_ctx_min": 32768, "num_ctx_max": 1048576},
+    "muse-spark-1.2-contributor": {"compat_max_tokens": 4096, "thinking": True, "num_ctx_min": 32768, "num_ctx_max": 1048576},
+    "muse-spark-1.1": {"compat_max_tokens": 4096, "thinking": True, "num_ctx_min": 32768, "num_ctx_max": 1048576},
     "glm-5.3": {"compat_max_tokens": 64, "thinking": True, "num_ctx_min": 32768, "num_ctx_max": 1000000},
     "glm-5.3:cloud": {"compat_max_tokens": 64, "thinking": True, "num_ctx_min": 32768, "num_ctx_max": 1000000},
     "deepseek-v4-flash:0731": {"compat_max_tokens": 64, "thinking": True, "num_ctx_min": 32768, "num_ctx_max": 1000000},

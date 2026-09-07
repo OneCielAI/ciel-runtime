@@ -14,6 +14,7 @@ from ciel_runtime_support.channel_message_policy import (
     message_is_web_chat_request,
     message_is_external_event,
     message_meta_sources,
+    message_raw_injection,
     message_response_mcp,
     message_response_mode,
     string_list,
@@ -172,6 +173,8 @@ def _web_chat_reply_routes(
     routes: list[dict[str, str]] = []
     seen: set[tuple[str, str, str]] = set()
     for message in messages:
+        if message_raw_injection(message):
+            continue
         if not message_is_web_chat_request(message):
             continue
         if message_response_mode(message) != "web_chat":
@@ -257,6 +260,8 @@ def _mcp_reply_instruction(messages: list[dict[str, Any]]) -> str:
     instructions: list[str] = []
     seen: set[tuple[str, str, str]] = set()
     for message in messages:
+        if message_raw_injection(message):
+            continue
         if message_response_mode(message) != "mcp":
             continue
         hint = message_response_mcp(message)
@@ -321,6 +326,12 @@ def _format_cielarvis_internal_prompt(messages: list[dict[str, Any]]) -> str | N
 
 
 def format_web_chat_wake_batch_prompt(messages: list[dict[str, Any]]) -> str:
+    if len(messages) == 1 and message_raw_injection(messages[0]):
+        return str(
+            messages[0].get("message")
+            if messages[0].get("message") is not None
+            else ""
+        )
     if compact := _format_cielarvis_internal_prompt(messages):
         return compact
     if messages and all(
@@ -406,6 +417,12 @@ def wake_message_is_noise(message: dict[str, Any]) -> bool:
 
 
 def format_wake_batch_prompt(messages: list[dict[str, Any]]) -> str:
+    if len(messages) == 1 and message_raw_injection(messages[0]):
+        return str(
+            messages[0].get("message")
+            if messages[0].get("message") is not None
+            else ""
+        )
     if len(messages) == 1:
         return format_wake_prompt(messages[0])
     parts: list[str] = []
@@ -493,6 +510,12 @@ def message_llm_display_text(message: dict[str, Any]) -> str:
 
 
 def format_llm_batch_prompt(messages: list[dict[str, Any]]) -> str:
+    if len(messages) == 1 and message_raw_injection(messages[0]):
+        return str(
+            messages[0].get("message")
+            if messages[0].get("message") is not None
+            else ""
+        )
     prompt = "\n\n".join(message_llm_display_text(message) for message in messages)
     instruction = _response_instruction(messages)
     return f"{prompt}\n\n{instruction}" if instruction else prompt

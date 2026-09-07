@@ -43,6 +43,7 @@ class WebChatUiTests(unittest.TestCase):
         self.assertIn("configured tools and MCP servers remain available", html)
         self.assertIn("ciel-runtime-router send_message tool", html)
         self.assertIn("delivery: ['llm', 'native']", html)
+        self.assertIn("input_transport: 'session_socket'", html)
         self.assertNotIn("TEXT_ONLY_SYSTEM_PROMPT", html)
         self.assertNotIn("system: TEXT_ONLY_SYSTEM_PROMPT", html)
         self.assertIn(model, html)

@@ -116,6 +116,10 @@ class SpeechHttpControllerTests(unittest.TestCase):
             ["session_socket", "tty", "router"],
             public["endpoints"]["chat_message_processing"]["input_transport"]["allowed"],
         )
+        self.assertEqual(
+            "session_socket; tty fallback when the active runtime has no usable session socket",
+            public["endpoints"]["chat_message_processing"]["input_transport"]["default"],
+        )
 
     def test_json_asr_request_is_converted_to_openai_multipart(self):
         handler = _Handler()

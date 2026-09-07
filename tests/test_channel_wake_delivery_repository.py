@@ -1,5 +1,6 @@
 import threading
 import unittest
+from types import SimpleNamespace
 
 from ciel_runtime_support.channel_wake_delivery_repository import (
     ChannelWakeDeliveryRepository,
@@ -91,6 +92,24 @@ class ChannelWakeDeliveryRepositoryTests(unittest.TestCase):
 
         self.assertEqual([20, 21], cleared)
         self.assertEqual("same prompt", repository.prompt(30))
+
+    def test_failed_submission_is_sticky_and_emits_terminal_status(self):
+        transitions = []
+        repository, cleared, _committed = self.repository()
+        repository.status = SimpleNamespace(
+            transition=lambda request_id, status, **kwargs: transitions.append(
+                (request_id, status, kwargs)
+            ),
+            get=lambda _request_id: None,
+        )
+
+        repository.mark_delivered(41)
+        repository.fail([{"id": 41}], [41], "prompt_not_submitted")
+
+        self.assertEqual("prompt_not_submitted", repository.failure_reason(41))
+        self.assertFalse(repository.is_delivered(41))
+        self.assertEqual((41, "failed"), transitions[-1][:2])
+        self.assertIn(41, cleared)
 
 
 if __name__ == "__main__":

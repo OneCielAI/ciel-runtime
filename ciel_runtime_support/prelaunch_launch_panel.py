@@ -28,10 +28,11 @@ def launch_panel_rows(
             f"Kimi{kimi_suffix}",
             "Grok Build",
             "ZCode",
+            "Muse Code (subscription)",
             f"Codex app server{codex_suffix}",
             "Back",
         ],
-        ["launch", "launch-codex", "launch-agy", "launch-kimi", "launch-grok", "launch-zcode", "launch-codex-app-server", "back"],
+        ["launch", "launch-codex", "launch-agy", "launch-kimi", "launch-grok", "launch-zcode", "launch-muse", "launch-codex-app-server", "back"],
     )
 
 

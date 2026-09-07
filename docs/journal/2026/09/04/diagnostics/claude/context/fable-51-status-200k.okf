@@ -1,0 +1,54 @@
+schema: okf/1
+kind: task-journal
+title: Fable 5.1 status line remained at 200K after the context-window fix
+date: 2026-09-04
+workspace: G:\ciel-bridge-service
+
+observation:
+  screenshot:
+    model: Fable 5.1
+    context: 351812/200000 tokens (175.9 percent)
+  process:
+    ciel_pid: 59272
+    claude_pid: 30032
+    claude_model_argument: ciel-runtime-anthropic-claude-fable-5-1
+  config:
+    current_model: claude-fable-5-1
+    route_through_router: true
+    context_override: absent
+  launch_log:
+    time: 2026-09-04T15:23:54
+    context: 1048576
+    auto_compact_window: 1000000
+
+root_cause:
+  confirmed:
+    - Ciel projected the corrected 1M environment values for Fable 5.1.
+    - The Claude-facing custom gateway alias omitted `[1m]`.
+    - Claude Code 2.1.260 consequently supplied a 200000 context-window size to
+      the status line despite Ciel's 1M launch snapshot.
+
+change:
+  - Append `[1m]` to Claude-facing routed Anthropic aliases for every model in
+    the documented 1M-default set, even when the configured upstream ID has no
+    marker.
+  - Continue stripping the local marker at the Anthropic upstream boundary.
+  - Preserve 200K aliases for models outside the documented 1M set.
+
+verification:
+  focused:
+    result: 115 passed; lint passed
+  local_install:
+    path: C:\Users\djlov\.local\share\ciel-runtime
+  launch:
+    claude_code_version: 2.1.261
+    model_alias: ciel-runtime-anthropic-claude-fable-5-1[1m]
+    context: 1048576
+    auto_compact_window: 1000000
+    exit_code: 0
+  interactive_tui:
+    observed_status: ctx est 89/1,048,576 tok (0.0 percent)
+    test_session_exit_code: 0
+  full_suite:
+    result: 3156 passed; 137 skipped; 0 failed
+  status: behavior_verified

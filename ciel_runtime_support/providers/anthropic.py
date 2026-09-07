@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import re
 from typing import Any, Mapping
 
 from ..architecture import (
@@ -17,6 +18,7 @@ from ..architecture import (
 )
 from .base import NoAuthProviderAdapter, provider_configuration
 from .constants import PROVIDER_DEFAULT_BASE_URLS
+from ..runtime_constants import ANTHROPIC_ONE_MILLION_MODEL_IDS
 
 
 @dataclass(frozen=True)
@@ -25,7 +27,9 @@ class AnthropicProviderAdapter(NoAuthProviderAdapter):
     base_url: str = PROVIDER_DEFAULT_BASE_URLS["anthropic"]
     configuration_defaults_value: dict = field(
         default_factory=lambda: provider_configuration(
-            "claude-sonnet-4-6", route_through_router=False
+            "claude-opus-5[1m]",
+            custom_models=ANTHROPIC_ONE_MILLION_MODEL_IDS,
+            route_through_router=False,
         )
     )
     capabilities_value: ProviderCapabilities = field(
@@ -49,6 +53,19 @@ class AnthropicProviderAdapter(NoAuthProviderAdapter):
     model_catalog_policy_value: ProviderModelCatalogPolicy = field(
         default_factory=lambda: ProviderModelCatalogPolicy(kind="anthropic")
     )
+
+    def normalize_model_id(self, model_id: str) -> str:
+        text = str(model_id or "").strip()
+        base = re.sub(r"\[1m\]\s*$", "", text, flags=re.IGNORECASE).strip()
+        return f"{base}[1m]" if base and re.search(r"\[1m\]\s*$", text, re.IGNORECASE) else base
+
+    def upstream_api_model_id(self, model_id: str) -> str:
+        return re.sub(
+            r"\[1m\]\s*$", "", str(model_id or "").strip(), flags=re.IGNORECASE
+        ).strip()
+
+    def preserves_claude_context_suffix_in_alias(self) -> bool:
+        return True
 
     def advisor_panel_notice(
         self, config: ProviderConfig

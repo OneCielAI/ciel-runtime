@@ -215,9 +215,10 @@ class RemoteInstructionTests(unittest.TestCase):
     def test_panel_offers_every_launchable_runtime(self):
         rows, values = panel_rows({"remote_instructions": {}})
 
-        for key in ("claude_url", "codex_url", "agy_url", "kimi_url", "grok_url"):
+        for key in ("claude_url", "codex_url", "agy_url", "kimi_url", "grok_url", "muse_url"):
             self.assertIn(key, values)
         self.assertTrue(any("Grok URL → AGENTS.md" in row for row in rows))
+        self.assertTrue(any("Muse URL → AGENTS.md" in row for row in rows))
 
     def test_launch_adapter_synchronizes_before_delegate(self):
         calls = []

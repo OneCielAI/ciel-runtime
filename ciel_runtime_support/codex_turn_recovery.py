@@ -10,6 +10,7 @@ same protection without synthesizing a tool call the Codex client never offered.
 
 from __future__ import annotations
 
+import copy
 import re
 from dataclasses import dataclass
 from typing import Any, Callable
@@ -56,11 +57,16 @@ RUNTIME_CONTROL_MESSAGE_KEY = "ciel_runtime_control"
 RUNTIME_REPEATED_TOOL_RECOVERY = "repeated_tool_call_recovery"
 
 _REASONING_RECOVERY_MIN_OUTPUT_TOKENS = 8192
+_KIMI_CONTINUATION_MAX_ATTEMPTS = 6
+_KIMI_STRICT_CONTINUATION_AFTER_ATTEMPT = 3
 
-KIMI_FOLLOWUP_PROMISE_RE = re.compile(
-    r"(?:겠습니다|할게요|해볼게요|하겠습니다|"
-    r"i(?:'|’)ll\b[^\n]*|i\s+will\b[^\n]*|let\s+me\b[^\n]*)[.!?。！？]?\s*$",
-    re.IGNORECASE,
+CODEX_COMPLETION_TOOL_NAME = "ciel_runtime_confirm_completion"
+
+CODEX_STRICT_CONTINUATION_NUDGE = (
+    "This is a runtime completion check. Call the supplied "
+    f"{CODEX_COMPLETION_TOOL_NAME} tool only if every requested action is complete. "
+    "Otherwise call the next actual work tool now, using an exact tool name and "
+    "every required field from the supplied schema. Do not answer with text."
 )
 
 
@@ -304,12 +310,40 @@ def message_has_only_runtime_stall_notice(message: dict[str, Any]) -> bool:
     )
 
 
-def kimi_message_promises_followup(message: dict[str, Any]) -> bool:
-    """Recognize Kimi ending a reasoning turn with an unperformed next action."""
+def message_confirms_completion(message: dict[str, Any]) -> bool:
+    """Recognize the private, language-independent completion tool call."""
 
-    if not message_has_reasoning(message) or message_has_tool_use(message):
+    return any(
+        isinstance(block, dict)
+        and block.get("type") == "tool_use"
+        and block.get("name") == CODEX_COMPLETION_TOOL_NAME
+        for block in message.get("content") or []
+    )
+
+
+def message_requires_completion_check(
+    body: dict[str, Any], message: dict[str, Any]
+) -> bool:
+    """Gate a no-tool reasoning response without inspecting natural language."""
+
+    return bool(
+        body.get("tools")
+        and message_has_reasoning(message)
+        and not message_has_tool_use(message)
+        and message_text(message).strip()
+    )
+
+
+def _is_kimi_turn(provider: str, body: dict[str, Any]) -> bool:
+    """Identify Kimi across its native and Ollama Cloud provider routes."""
+
+    provider_name = str(provider or "").strip().casefold()
+    if provider_name == "kimi":
+        return True
+    if provider_name not in {"ollama", "ollama-cloud"}:
         return False
-    return bool(KIMI_FOLLOWUP_PROMISE_RE.search(message_text(message).strip()))
+    model = str(body.get("model") or "").strip().casefold()
+    return "kimi-k3" in model
 
 
 def message_without_reasoning_notice(message: dict[str, Any]) -> dict[str, Any]:
@@ -358,9 +392,26 @@ def body_with_continuation_nudge(
     """Replay the request with the stalled reply and an explicit continue turn."""
 
     messages = list(body.get("messages") or [])
-    assistant_text = message_text(message).strip()
-    if assistant_text:
-        messages.append({"role": "assistant", "content": [{"type": "text", "text": assistant_text}]})
+    assistant_content = message.get("content")
+    if isinstance(assistant_content, list) and assistant_content:
+        # Ollama Desktop retains the complete assistant response before the
+        # next agent-loop pass. Kimi K3 likewise requires preserved thinking
+        # history, so do not reduce a stalled response to visible text only.
+        messages.append(
+            {
+                "role": "assistant",
+                "content": copy.deepcopy(assistant_content),
+            }
+        )
+    else:
+        assistant_text = message_text(message).strip()
+        if assistant_text:
+            messages.append(
+                {
+                    "role": "assistant",
+                    "content": [{"type": "text", "text": assistant_text}],
+                }
+            )
     continuation = {"role": "user", "content": [{"type": "text", "text": nudge}]}
     if control:
         continuation[RUNTIME_CONTROL_MESSAGE_KEY] = control
@@ -368,6 +419,36 @@ def body_with_continuation_nudge(
     retried = dict(body)
     retried["messages"] = messages
     return retried
+
+
+def body_with_completion_check(
+    body: dict[str, Any], message: dict[str, Any]
+) -> dict[str, Any]:
+    """Offer a runtime-owned completion tool only to the private check call."""
+
+    projected = body_with_continuation_nudge(
+        body, message, CODEX_STRICT_CONTINUATION_NUDGE
+    )
+    tools = copy.deepcopy(list(projected.get("tools") or []))
+    if not any(
+        isinstance(tool, dict) and tool.get("name") == CODEX_COMPLETION_TOOL_NAME
+        for tool in tools
+    ):
+        tools.append(
+            {
+                "name": CODEX_COMPLETION_TOOL_NAME,
+                "description": "Confirm that every action requested by the user is complete.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {},
+                    "required": [],
+                    "additionalProperties": False,
+                },
+            }
+        )
+    projected["tools"] = tools
+    projected["tool_choice"] = {"type": "any"}
+    return projected
 
 
 def body_with_codex_compat_instructions(
@@ -380,12 +461,13 @@ def body_with_codex_compat_instructions(
     """Append the routed Codex compatibility instruction to a Responses request.
 
     Codex rejects ``--append-system-prompt`` as a Claude-only flag, so the
-    instruction has to travel in the request body. The native Codex backend is
-    excluded: it serves OpenAI's own models, which do not need the nudge, and
-    rewriting instructions there would only invalidate the cached prefix.
+    instruction has to travel in the request body.  The text is constant and
+    appended only once to keep the upstream cached prefix stable.
     """
 
-    if not isinstance(body, dict) or is_native_codex or not compat_enabled:
+    # Native Codex needs the same pre-completion contract. Its separate SSE
+    # completion gate validates the response structure after generation.
+    if not isinstance(body, dict) or (not is_native_codex and not compat_enabled):
         return body
     existing = str(body.get("instructions") or "")
     if compat_prompt in existing:
@@ -416,11 +498,12 @@ def recover_preamble_only_turn(
     message: dict[str, Any],
     services: CodexTurnRecoveryServices,
 ) -> dict[str, Any]:
-    """Retry once when the model announced work but called no tool.
+    """Retry when the model announced work but called no tool.
 
-    Bounded to a single extra upstream call. The retry only wins if it produces
-    a tool call; prose answers keep the original reply so a model that legitimately
-    responds without tools is never overridden or duplicated.
+    Ordinary providers get one extra upstream call. Kimi gets a bounded series
+    because observed routed Codex turns can return several consecutive progress
+    announcements. A retry wins if it produces a tool call or a substantive
+    concrete answer; repeated announcements do not replace the original reply.
     """
 
     if not isinstance(message, dict) or message_has_tool_use(message):
@@ -435,16 +518,18 @@ def recover_preamble_only_turn(
     reasoning_output_budget = (
         reasoning_only and message_exhausted_reasoning_output_budget(message)
     )
-    kimi_promised_followup = (
-        (provider or "").strip().lower() == "kimi"
-        and kimi_message_promises_followup(message)
-        and services.should_retry(body, text.replace("`", ""), [])
+    kimi_turn = _is_kimi_turn(provider, body)
+    completion_check = (
+        not empty_end_turn
+        and not repeated_tool_guard
+        and not reasoning_only
+        and message_requires_completion_check(body, message)
     )
     if (
         not empty_end_turn
         and not repeated_tool_guard
         and not reasoning_only
-        and not kimi_promised_followup
+        and not completion_check
         and not services.should_retry(body, text, [])
     ):
         return message
@@ -458,8 +543,8 @@ def recover_preamble_only_turn(
         if reasoning_output_budget
         else "reasoning_only"
         if reasoning_only
-        else "promised_followup"
-        if kimi_promised_followup
+        else "completion_check"
+        if completion_check
         else "preamble_only"
     )
     services.log(
@@ -467,73 +552,142 @@ def recover_preamble_only_turn(
         f"codex_turn_retry provider={provider} reason={reason} "
         f"model={str(body.get('model') or '-')} chars={len(text.strip())}",
     )
-    try:
-        nudge = (
-            CODEX_REPEATED_TOOL_CONTINUATION_NUDGE
-            if repeated_tool_guard
-            else
-            CODEX_EMPTY_REASONING_CONTINUATION_NUDGE
-            if empty_end_turn or reasoning_only
-            else CODEX_CONTINUATION_NUDGE
-        )
-        recovery_config = dict(pcfg)
-        if (provider or "").strip().lower() == "kimi":
-            recovery_config["gateway_retries"] = 0
-        retry_body = body_with_continuation_nudge(
-            body,
-            message_without_repeated_tool_notice(message)
-            if repeated_tool_guard
-            else message_without_empty_end_turn_notice(message)
-            if empty_end_turn
-            else message_without_reasoning_notice(message)
-            if reasoning_only
-            else message,
-            nudge,
-            control=(RUNTIME_REPEATED_TOOL_RECOVERY if repeated_tool_guard else None),
-        )
-        recovery_strategy = "prompt_only"
-        if reasoning_output_budget and services.prepare_reasoning_budget_retry:
-            try:
-                recovery_config, retry_body, recovery_strategy = (
-                    services.prepare_reasoning_budget_retry(
-                        provider, recovery_config, retry_body
-                    )
+    nudge = (
+        CODEX_REPEATED_TOOL_CONTINUATION_NUDGE
+        if repeated_tool_guard
+        else CODEX_EMPTY_REASONING_CONTINUATION_NUDGE
+        if empty_end_turn or reasoning_only
+        else CODEX_STRICT_CONTINUATION_NUDGE
+        if completion_check
+        else CODEX_CONTINUATION_NUDGE
+    )
+    recovery_config = dict(pcfg)
+    if kimi_turn:
+        recovery_config["gateway_retries"] = 0
+    # Keep the original request as the stable prefix for every retry.  Only the
+    # latest stalled assistant response is replayed below; accumulating every
+    # failed announcement teaches the same bad pattern back to the model and
+    # grows an already-large Codex request on every attempt.
+    replay_body = body
+    replay_message = (
+        message_without_repeated_tool_notice(message)
+        if repeated_tool_guard
+        else message_without_empty_end_turn_notice(message)
+        if empty_end_turn
+        else message_without_reasoning_notice(message)
+        if reasoning_only
+        else message
+    )
+    # Ollama Desktop keeps looping while agent work is active. Codex itself
+    # owns tool execution, so Ciel can only continue no-tool announcements.
+    # Kimi K3 gets a small bounded loop because one retry is observably not
+    # enough when it emits another progress announcement.
+    max_attempts = (
+        _KIMI_CONTINUATION_MAX_ATTEMPTS
+        if kimi_turn and not (empty_end_turn or reasoning_only or repeated_tool_guard)
+        else 1
+    )
+
+    for attempt in range(1, max_attempts + 1):
+        try:
+            attempt_nudge = (
+                CODEX_STRICT_CONTINUATION_NUDGE
+                if kimi_turn
+                and attempt > _KIMI_STRICT_CONTINUATION_AFTER_ATTEMPT
+                and not (empty_end_turn or reasoning_only or repeated_tool_guard)
+                else nudge
+            )
+            retry_body = (
+                body_with_completion_check(replay_body, replay_message)
+                if completion_check
+                else body_with_continuation_nudge(
+                    replay_body,
+                    replay_message,
+                    attempt_nudge,
+                    control=(
+                        RUNTIME_REPEATED_TOOL_RECOVERY if repeated_tool_guard else None
+                    ),
                 )
-            except Exception as exc:  # noqa: BLE001 - retain safe prompt-only retry
+            )
+            recovery_strategy = "prompt_only"
+            if (
+                attempt == 1
+                and reasoning_output_budget
+                and services.prepare_reasoning_budget_retry
+            ):
+                try:
+                    recovery_config, retry_body, recovery_strategy = (
+                        services.prepare_reasoning_budget_retry(
+                            provider, recovery_config, retry_body
+                        )
+                    )
+                except Exception as exc:  # noqa: BLE001 - retain safe prompt-only retry
+                    services.log(
+                        "WARN",
+                        "codex_reasoning_budget_recovery_projection_failed "
+                        f"provider={provider} error={type(exc).__name__}: {exc}",
+                    )
                 services.log(
                     "WARN",
-                    "codex_reasoning_budget_recovery_projection_failed "
-                    f"provider={provider} error={type(exc).__name__}: {exc}",
+                    f"codex_reasoning_budget_recovery provider={provider} "
+                    f"model={str(body.get('model') or '-')} strategy={recovery_strategy}",
                 )
+            retried = services.collect_message(
+                handler,
+                provider,
+                recovery_config,
+                retry_body,
+            )
+        except Exception as exc:  # noqa: BLE001 - recovery must never fail the turn
             services.log(
                 "WARN",
-                f"codex_reasoning_budget_recovery provider={provider} "
-                f"model={str(body.get('model') or '-')} strategy={recovery_strategy}",
+                f"codex_preamble_only_turn_retry_failed attempt={attempt}/{max_attempts} "
+                f"error={type(exc).__name__}: {exc}",
             )
-        retried = services.collect_message(
-            handler,
-            provider,
-            recovery_config,
-            retry_body,
-        )
-    except Exception as exc:  # noqa: BLE001 - recovery must never fail the turn
-        services.log(
-            "WARN",
-            f"codex_preamble_only_turn_retry_failed error={type(exc).__name__}: {exc}",
-        )
-        return message
-    if not isinstance(retried, dict):
-        return message
-    if empty_end_turn or reasoning_only or repeated_tool_guard:
-        if (
-            message_has_only_runtime_stall_notice(retried)
-            or (not message_has_tool_use(retried) and not message_text(retried).strip())
-        ):
             return message
-        return retried
-    if not message_has_tool_use(retried):
-        return message
-    return _merged(message, retried)
+        if not isinstance(retried, dict):
+            return message
+        if empty_end_turn or reasoning_only or repeated_tool_guard:
+            if message_confirms_completion(retried):
+                return message
+            if (
+                message_has_only_runtime_stall_notice(retried)
+                or (
+                    not message_has_tool_use(retried)
+                    and not message_text(retried).strip()
+                )
+            ):
+                return message
+            return retried
+        if message_confirms_completion(retried):
+            services.log(
+                "INFO",
+                f"codex_completion_confirmed provider={provider} "
+                f"attempt={attempt}/{max_attempts}",
+            )
+            return message
+        if message_has_tool_use(retried):
+            return _merged(message, retried)
+
+        retried_text = message_text(retried)
+        retryable = services.should_retry(retry_body, retried_text, []) or (
+            kimi_turn and message_requires_completion_check(retry_body, retried)
+        )
+        services.log(
+            "WARN" if retryable else "INFO",
+            f"codex_turn_retry_result provider={provider} "
+            f"attempt={attempt}/{max_attempts} retryable={str(retryable).lower()} "
+            f"chars={len(retried_text.strip())}",
+        )
+        if not retryable and retried_text.strip():
+            # A concrete no-tool answer is a valid completion. The old path
+            # discarded it and exposed the original announcement instead.
+            return retried
+        if attempt == max_attempts:
+            return message
+        replay_message = retried
+
+    return message
 
 
 def _merged(original: dict[str, Any], retried: dict[str, Any]) -> dict[str, Any]:
@@ -552,12 +706,14 @@ def _merged(original: dict[str, Any], retried: dict[str, Any]) -> dict[str, Any]
 
 __all__ = [
     "CODEX_CONTINUATION_NUDGE",
+    "CODEX_COMPLETION_TOOL_NAME",
     "CODEX_EMPTY_REASONING_CONTINUATION_NUDGE",
     "CODEX_REPEATED_TOOL_CONTINUATION_NUDGE",
     "RUNTIME_EMPTY_END_TURN_NOTICE_PREFIX",
     "RUNTIME_REASONING_OUTPUT_BUDGET_NOTICE_PREFIX",
     "CodexTurnRecoveryServices",
     "body_with_codex_compat_instructions",
+    "body_with_completion_check",
     "body_with_continuation_nudge",
     "message_has_tool_use",
     "message_exhausted_reasoning_output_budget",
@@ -566,7 +722,8 @@ __all__ = [
     "message_has_only_empty_end_turn_notice",
     "message_has_only_repeated_tool_notice",
     "message_has_only_runtime_stall_notice",
-    "kimi_message_promises_followup",
+    "message_confirms_completion",
+    "message_requires_completion_check",
     "message_without_empty_end_turn_notice",
     "message_without_repeated_tool_notice",
     "message_without_reasoning_notice",

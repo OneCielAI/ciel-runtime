@@ -113,6 +113,7 @@ from ciel_runtime_support.channel_wake_delivery_repository import ChannelWakeDel
 from ciel_runtime_support.chat_files import ChatFilePorts, ChatFileRepository
 from ciel_runtime_support.chat_http_controller import ChatHttpController, ChatHttpReadServices, ChatHttpWriteServices
 from ciel_runtime_support.runtime_input_gateway import RuntimeInputGateway
+from ciel_runtime_support.runtime_input_status import RuntimeInputStatusRepository
 from ciel_runtime_support.external_event_receiver import EventReceiverSecretVault, ExternalEventReceiverService
 from ciel_runtime_support.external_event_menu import panel_rows as project_external_event_panel_rows, update_config as project_set_external_event_config
 from ciel_runtime_support.claude_environment import ClaudeEnvironmentFeaturePorts, ClaudeEnvironmentProjection, ClaudeEnvironmentShellRenderer, ClaudeEnvironmentSourcePorts, ClaudeLimitPolicy, ClaudeLimitPorts, ClaudeModelAliasCompatibilityApi, ClaudeModelAliasPolicy, ClaudeModelPorts, ClaudeRuntimeSettingsPolicy, ClaudeRuntimeSettingsPorts
@@ -177,6 +178,7 @@ from ciel_runtime_support.zai_start_plan_captcha import zai_start_plan_runtime_h
 from ciel_runtime_support.headless_config import HeadlessConfigCommands, HeadlessConfigServices, HeadlessEnvFileLoader, apply_headless_config
 from ciel_runtime_support.http_response import ChannelDeliveryGuard, HttpResponseAdapter
 from ciel_runtime_support.kimi_runtime_context import KimiConfigurationPorts, KimiIdentityPorts, KimiLifecyclePorts, KimiProcessPorts, KimiRuntimeCompatibilityApi, KimiRuntimeContext
+from ciel_runtime_support.muse_runtime_context import MuseConfigurationPorts, MuseLifecyclePorts, MuseProcessPorts, MuseRuntimeCompatibilityApi, MuseRuntimeContext
 from ciel_runtime_support.zcode_runtime_context import ZcodeConfigurationPorts, ZcodeLifecyclePorts, ZcodeProcessPorts, ZcodeRuntimeCompatibilityApi, ZcodeRuntimeContext
 from ciel_runtime_support.launch_diagnostics import LaunchCommandDiagnostics, StderrCaptureAdapter
 from ciel_runtime_support.launch_state import LaunchStateRepository
@@ -373,6 +375,8 @@ from ciel_runtime_support.router_access import RouterAccessConfigService, Router
 from ciel_runtime_support.router_client_lifecycle import ManagedRouterLifetime, ManagedRouterLifetimePorts, RoutedLaunchDiagnosticPorts, RoutedLaunchDiagnostics, RouterClientRegistry, RouterClientRegistryPorts, RouterClientSupervisor, RouterClientSupervisorPorts, RouterLifetimeRunner, RouterLifetimeRunnerPorts
 from ciel_runtime_support.router_health_policy import RouterHealthPolicy
 from ciel_runtime_support.router_http import EventHttpAdapter, EventHttpPorts, RouterHttpCore, RouterHttpErrors, RouterHttpGetEndpoints, RouterHttpHandler, RouterHttpPostEndpoints, RouterHttpPresentation, RouterHttpRemoteBridge, RouterHttpServices
+from ciel_runtime_support.router_http import RouterHttpFileEndpoints
+from ciel_runtime_support.provider_files_proxy import ProviderFilesProxy, ProviderFilesProxyPorts
 from ciel_runtime_support.remote_bridge_runtime import RemoteBridgeRuntimeApi
 from ciel_runtime_support.router_observability_context import RequestTraceConfiguration
 from ciel_runtime_support.router_observability_context import RequestTracePorts as RouterRequestTracePorts
@@ -438,7 +442,7 @@ from ciel_runtime_support.runtime_maintenance_services import MaintenanceAgyPort
 from ciel_runtime_support.runtime_paths import (CHANNEL_COMPACT_REQUEST_PATH,  # noqa: F401
                                                 CHANNEL_LLM_CLEAR_FLOOR_PATH, CHANNEL_LLM_CURSOR_PATH,
                                                 CHANNEL_LLM_LAUNCH_GUARD_PATH,
-                                                CHANNEL_STDIN_WAKE_CLAIMS_PATH, CHAT_FILES_DIR, CHAT_MESSAGES_PATH, RUNTIME_INPUTS_PATH,
+                                                CHANNEL_STDIN_WAKE_CLAIMS_PATH, CHAT_FILES_DIR, CHAT_MESSAGES_PATH, RUNTIME_INPUTS_PATH, RUNTIME_INPUT_STATUS_PATH,
                                                 CIEL_RUNTIME_STATUSLINE_PATH, CLAUDE_COMMANDS_DIR, CLAUDE_GATEWAY_CACHE,
                                                 CLAUDE_SETTINGS_PATH, CODEX_PROCESS_DIR,
                                                 CODEX_PROMPTS_DIR_NAME, CONFIG_DIR, CONFIG_PATH, LEGACY_CONFIG_PATH,
@@ -586,19 +590,26 @@ _CHANNEL_STDIN_INJECT_LOCK = threading.Lock()
 _CHANNEL_STDIN_WAKE_DELIVERED: set[int] = set()
 _CHANNEL_STDIN_WAKE_PROMPTS: dict[int, str] = {}
 _CHANNEL_STDIN_WAKE_BATCHES: dict[int, frozenset[int]] = {}
+_CHANNEL_STDIN_WAKE_FAILED: dict[int, str] = {}
+EVENT_BUS, TUI_OBSERVATION_BUS = EventBus(), TuiObservationBus()
+_RUNTIME_INPUT_STATUS_REPOSITORY = RuntimeInputStatusRepository(
+    RUNTIME_INPUT_STATUS_PATH, EVENT_BUS.publish,
+    lambda level, message: router_log(level, message), threading.RLock(),
+)
 _CHANNEL_WAKE_DELIVERY_REPOSITORY = ChannelWakeDeliveryRepository(
     lock=_CHANNEL_STDIN_WAKE_LOCK,
     delivered=_CHANNEL_STDIN_WAKE_DELIVERED,
     prompts=_CHANNEL_STDIN_WAKE_PROMPTS,
     batches=_CHANNEL_STDIN_WAKE_BATCHES,
+    failed=_CHANNEL_STDIN_WAKE_FAILED,
     clear_claim=lambda message_id: _channel_stdin_clear_wake_claim(message_id),
     commit_cursor=lambda message_id: _commit_channel_llm_cursor_if_newer(message_id),
+    status=_RUNTIME_INPUT_STATUS_REPOSITORY,
 )
 _CHANNEL_COMPACT_REQUEST_LOCK = threading.Lock()
 _TOOL_SIDE_EFFECT_DEDUP_TTL_SECONDS = 10 * 60.0
 _TOOL_SIDE_EFFECT_DEDUP_LOCK = threading.Lock()
 _TOOL_SIDE_EFFECT_DEDUP_RECENT: dict[str, float] = {}
-EVENT_BUS, TUI_OBSERVATION_BUS = EventBus(), TuiObservationBus()
 USAGE_API_KEYS = UsageApiKeyRepository(USAGE_LEDGER := SqliteUsageLedger(WORKSPACE_STATE_DIR / "usage" / "usage.sqlite3", ROUTER_WORKSPACE_ID), WORKSPACE_STATE_DIR / "usage" / "api-key.pepper", os.environ)
 USAGE_EVENT_SINK = CompositeUsageEventSink(JsonlUsageEventSink(USAGE_EVENTS_PATH, enabled=lambda: usage_jsonl_enabled(load_config(), os.environ)), USAGE_LEDGER)
 # Tools Claude Code injects into every model's tool list that misfire when called
@@ -745,6 +756,7 @@ def apply_config_migrations(cfg: dict[str, Any]) -> None:
     run_config_migrations(
         cfg,
         policy=ConfigMigrationPolicy(
+            anthropic_defaults_to_one_million_context=anthropic_model_policy.defaults_to_one_million_context,
             default_request_timeout_ms=DEFAULT_REQUEST_TIMEOUT_MS,
             kimi_k3_model=KIMI_K3_MODEL,
             opencode_provider_names=OPENCODE_PROVIDER_NAMES,
@@ -1137,7 +1149,7 @@ def router_observability_context() -> RouterObservabilityContext:
                                         anthropic_tool_continuation_block_count, router_log, USAGE_EVENT_SINK.record, EVENT_BUS.publish),
         sse_config=SseTraceConfiguration(CONFIG_DIR, SSE_LAST_PATH, SSE_TRACE_PATH, TOOL_CALL_LOG_PATH, SSE_TRACE_EVENT_LIMIT,
                                          SSE_TRACE_PAYLOAD_LIMIT, SSE_TRACE_MAX_BYTES, LOG_LEVELS["TRACE"]),
-        sse=SseObservabilityPorts(os.environ, current_log_level, _truncate_for_dump, router_log),
+        sse=SseObservabilityPorts(os.environ, current_log_level, _truncate_for_dump, router_log, EVENT_BUS.publish),
     )
 
 _ROUTER_OBSERVABILITY_API = RouterObservabilityCompatibilityApi(router_observability_context)
@@ -1863,6 +1875,7 @@ def runtime_input_gateway() -> RuntimeInputGateway:
         append_runtime_input,
         chat_file_repository().runtime_attachment,
         _default_channel_input_transport,
+        _RUNTIME_INPUT_STATUS_REPOSITORY,
     )
 
 def external_event_receiver_service() -> ExternalEventReceiverService:
@@ -1927,7 +1940,7 @@ def set_remote_instruction_config(key: str, value: Any) -> list[str]:
             remote[key] = max(1, min(30, int(str(value).strip())))
         except ValueError:
             return ["HTTP timeout must be a whole number from 1 to 30 seconds."]
-    elif key in {"claude_url", "codex_url", "agy_url", "kimi_url", "grok_url"}:
+    elif key in {"claude_url", "codex_url", "agy_url", "kimi_url", "grok_url", "muse_url"}:
         url = str(value or "").strip()
         if url:
             parsed = urllib.parse.urlparse(url)
@@ -1939,7 +1952,7 @@ def set_remote_instruction_config(key: str, value: Any) -> list[str]:
     elif key == "sync":
         results = [
             sync_remote_instruction(runtime, reason="manual")
-            for runtime in ("claude", "codex", "agy", "kimi", "grok")
+            for runtime in ("claude", "codex", "agy", "kimi", "grok", "muse")
         ]
         visible = [result for result in results if result.status != "not-configured"]
         return [
@@ -2084,7 +2097,15 @@ def _first_param(params: dict[str, list[str]], name: str, default: str = "") -> 
 def chat_http_controller() -> ChatHttpController:
     return ChatHttpController(
         router_base=ROUTER_BASE,
-        reads=ChatHttpReadServices(read_chat_messages, read_chat_messages_before, _CHAT_CONDITION, _safe_segment, CHAT_FILES_DIR),
+        reads=ChatHttpReadServices(
+            read_chat_messages,
+            read_chat_messages_before,
+            _CHAT_CONDITION,
+            _safe_segment,
+            CHAT_FILES_DIR,
+            _RUNTIME_INPUT_STATUS_REPOSITORY.get,
+            _RUNTIME_INPUT_STATUS_REPOSITORY.list_latest,
+        ),
         writes=ChatHttpWriteServices(
             write_json,
             append_chat_message,
@@ -2942,6 +2963,22 @@ def _router_server_context() -> RouterServerContext:
         external_event_receiver_service().start(), _TELEMETRY_LOG_RUNTIME.start(), usage_services.start()
     def stop_router_services() -> None:
         usage_services.stop(), _TELEMETRY_LOG_RUNTIME.stop(), external_event_receiver_service().stop()
+    provider_files = ProviderFilesProxy(
+        ProviderFilesProxyPorts(
+            current_provider=get_current_provider,
+            bridge_enabled=_REMOTE_BRIDGE.enabled,
+            bridge_is_request=lambda handler, cfg: _ROUTER_ACCESS_POLICY.remote_bridge_request(handler, cfg, remote_bridge_access_token),
+            bridge_resolve=_REMOTE_BRIDGE.resolve,
+            upstream_base=provider_upstream_request_base,
+            join_url=join_url,
+            headers=provider_headers,
+            urlopen=provider_urlopen,
+            timeout_seconds=provider_request_timeout_seconds,
+            copy_response_headers=_copy_upstream_response_headers,
+            write_json=write_json,
+            log=router_log,
+        )
+    )
     http_services = RouterHttpServices(
         core=RouterHttpCore(load_config, reject_external_router_request, get_current_provider, parse_json_body, is_client_disconnect_error, router_log, observe_tui_runtime_response, router_request_body_policy(), RouterHttpRemoteBridge(_REMOTE_BRIDGE.enabled, _REMOTE_BRIDGE.resolve, _REMOTE_BRIDGE.status_payload, lambda handler, cfg: _ROUTER_ACCESS_POLICY.remote_bridge_request(handler, cfg, remote_bridge_access_token))),
         get=RouterHttpGetEndpoints(handle_tui_observation_get, handle_observability_get, handle_llm_config_get, lambda _handler, _path: False, handle_web_get,
@@ -2951,6 +2988,7 @@ def _router_server_context() -> RouterServerContext:
                                      handle_plan_post, route_runtime_post, handle_external_event_raw_post, handle_external_event_config_post, handle_usage_post, telemetry_raw=_TELEMETRY_LOG_RUNTIME.http.post),
         presentation=RouterHttpPresentation(render_router_home_html, router_health_payload, write_text_response, write_json, list_model_objects_for_request, resolve_requested_model, model_object, _REMOTE_BRIDGE.model_objects),
         errors=RouterHttpErrors(write_openai_responses_error, try_write_json),
+        files=RouterHttpFileEndpoints(provider_files.get, provider_files.post, provider_files.delete),
     )
     server_runtime = router_server_runtime.RouterServerRuntime(
         router_server_runtime.RouterServerConfig(ROUTER_INSTANCE_DIR, PID_PATH, ROUTER_PORT, ROUTER_BASE, LOG_LEVEL_PATH, LOG_LEVEL_NAMES, RouterHandler),
@@ -3112,7 +3150,7 @@ portable_language_menu = _CONFIGURATION_CLI_API.portable_language_menu
 
 def credential_cli_controller() -> CredentialCliController:
     return CredentialCliController(
-        policy=CredentialCliPolicy(frozenset({"anthropic", "ollama-cloud", "deepseek", "opencode", "opencode-go", "kimi", "nvidia-hosted", "openrouter", "fireworks", "zai", "zai-api", "zai-coding-plan", "zai-start-plan"})),
+        policy=CredentialCliPolicy(frozenset({"anthropic", "ollama-cloud", "deepseek", "opencode", "opencode-go", "kimi", "meta", "nvidia-hosted", "openrouter", "fireworks", "zai", "zai-api", "zai-coding-plan", "zai-start-plan"})),
         ports=CredentialCliPorts(normalize_provider, load_config, provider_api_key_count, provider_primary_api_key, mask_secret, secret_fingerprint,
                                  api_key_clear_requested, clear_api_key_config, store_api_key_input_config, store_api_keys_config),
         io=CredentialCliIO(sys.stdin.isatty, getpass.getpass, print),
@@ -3190,7 +3228,7 @@ def cmd_ollama_native(args: argparse.Namespace) -> None: provider_option_cli_con
 def provider_option_policy() -> ProviderOptionPolicy: return ProviderOptionPolicy(normalize_claude_code_supported_capabilities, normalize_ip_family, normalize_model_id, normalize_opencode_endpoint_kind, parse_bool, parse_config_value, positive_int, ProviderSamplingPolicy())
 def apply_ollama_option(pcfg: dict[str, Any], token: str) -> None: mutate_ollama_option(pcfg, token, policy=provider_option_policy())
 def cmd_ollama_options(args: argparse.Namespace) -> None: provider_option_cli_controller().ollama_options(args)
-PROVIDER_OPTION_PROVIDERS = ("anthropic", "agy", "codex", "vllm", "lm-studio", "nvidia-hosted", "self-hosted-nim", "ollama", "ollama-cloud", "deepseek", "opencode", "opencode-go", "kimi", "openrouter", "fireworks", "zai", "zai-api", "zai-coding-plan", "zai-start-plan")
+PROVIDER_OPTION_PROVIDERS = ("anthropic", "agy", "codex", "vllm", "lm-studio", "nvidia-hosted", "self-hosted-nim", "ollama", "ollama-cloud", "deepseek", "opencode", "opencode-go", "kimi", "meta", "openrouter", "fireworks", "zai", "zai-api", "zai-coding-plan", "zai-start-plan")
 PROVIDER_SAMPLING_OPTION_PROVIDERS = ("vllm", "lm-studio", "nvidia-hosted", "self-hosted-nim", "openrouter")
 PROVIDER_SAMPLING_OPTIONS = ("temperature", "top_p", "top_k")
 def sampling_option_key(key: str) -> str | None: return ProviderSamplingPolicy().option_key(key)
@@ -3975,6 +4013,27 @@ _ZCODE_RUNTIME_API = ZcodeRuntimeCompatibilityApi(zcode_runtime_context)
 def install_zcode_if_missing() -> str: return _ZCODE_RUNTIME_API.install_if_missing()
 def launch_zcode(passthrough: list[str] | None = None, **_kwargs: Any) -> int: return _ZCODE_RUNTIME_API.launch(list(passthrough or []))
 launch_zcode = SynchronizedLaunch(launch_zcode, sync_remote_launch_assets, "zcode")
+
+def muse_runtime_context() -> MuseRuntimeContext:
+    return MuseRuntimeContext(
+        process=MuseProcessPorts(find_executable, subprocess.run, subprocess.call, print, os.environ, path_with_ciel_runtime_user_dirs, os.name),
+        config=MuseConfigurationPorts(load_config, get_current_provider),
+        lifecycle=MuseLifecyclePorts(
+            materialize_runtime_command,
+            start_router_if_needed,
+            run_with_router_lifetime,
+            subprocess_call_with_channel_wake_proxy,
+            channel_delivery_mode,
+            runtime_launch.web_backend_start_requested,
+            lambda provider, model: record_launch_state_for_cwd(current_launch_cwd_key(), provider, "muse-native-subscription", model),
+            _set_channel_transcript_scope,
+        ),
+    )
+
+_MUSE_RUNTIME_API = MuseRuntimeCompatibilityApi(muse_runtime_context)
+def install_muse_if_missing(): return _MUSE_RUNTIME_API.install_if_missing()
+def launch_muse(passthrough: list[str] | None = None, **_kwargs: Any) -> int: return _MUSE_RUNTIME_API.launch(list(passthrough or []))
+launch_muse = SynchronizedLaunch(launch_muse, sync_remote_launch_assets, "muse")
 enable_ansi = enable_terminal_ansi
 ansi = render_ansi
 animated_ansi_text = render_animated_ansi_text
@@ -4087,7 +4146,7 @@ def portable_prelaunch_menu(passthrough: list[str] | None = None) -> int:
             config=prelaunch.PrelaunchConfig(clear_model_cache, current_provider_panel_choice, default_base_url, get_current_provider, load_config, preflight_lines,
                                               provider_menu_label, save_config, settings_ready_except_api_key, read_model_list_cache),
             launch_policy=prelaunch.PrelaunchLaunchPolicy(agy_launch_enabled_for_provider, claude_launch_enabled_for_provider, codex_launch_enabled_for_provider,
-                                                          launch_blockers_require_api_key, launch_readiness_errors, launch_kimi, launch_grok, launch_zcode),
+                                                          launch_blockers_require_api_key, launch_readiness_errors, launch_kimi, launch_grok, launch_zcode, launch_muse),
             panel_rows=prelaunch.PrelaunchPanelRows(advisor_model_panel_rows, api_key_panel_rows, base_url_panel_rows, context_setup_panel_rows, language_panel_rows,
                                                     llm_option_panel_rows, llm_preset_panel_rows, log_level_panel_rows, model_panel_rows, provider_panel_rows),
             mutations=prelaunch.PrelaunchMutations(apply_context_setup_config, apply_llm_preset_config, apply_timeout_profile_to_provider,
@@ -4295,7 +4354,7 @@ def should_use_channel_stdin_proxy(use_router_mode: bool, passthrough: list[str]
     claude_config = cfg.get("claude_code") if isinstance(cfg, dict) else {}
     return not (isinstance(claude_config, dict) and claude_config.get("web_chat_session_bridge") is False)
 _CLAUDE_SESSION_SOCKET = ClaudeSessionSocketClient(HOME, router_log)
-def _default_channel_input_transport() -> str: return "session_socket" if str(_CHANNEL_TRANSCRIPT_SCOPE.get("runtime") or "").lower() == "claude" and _CLAUDE_SESSION_SOCKET.available() else "tty"
+def _default_channel_input_transport() -> str: return "session_socket"
 def _channel_pending_scan_limit() -> int: return channel_runtime_environment_policy().pending_scan_limit()
 def _channel_stdin_wake_batch_limit() -> int: return channel_runtime_environment_policy().wake_batch_limit()
 _CHANNEL_LLM_TOOL_CONTEXT_LOCK = threading.Lock()
@@ -4371,8 +4430,8 @@ def channel_wake_context() -> ChannelWakeContext:
                                                _channel_superseded_message_ids, _channel_message_is_web_chat_request, _channel_llm_message_skip_reason, _channel_message_event_identity_key,
                                                _channel_stdin_wake_state_for_message, _channel_stdin_wake_queued_is_stale_for_message),
         pending_delivery=ChannelPendingDeliveryPorts(format_channel_llm_delivery_wake_prompt, format_channel_visible_llm_delivery_wake_prompt, format_channel_web_chat_wake_batch_prompt, format_channel_wake_batch_prompt, _channel_enter_label,
-                                                     _channel_wake_store_release_stale, _CHANNEL_WAKE_DELIVERY_REPOSITORY.mark_delivered, _channel_wake_store_record_prompts,
-                                                     _channel_wake_store_rollback, _commit_channel_llm_cursor_if_newer),
+                                                     _channel_wake_store_release_stale, _CHANNEL_WAKE_DELIVERY_REPOSITORY,
+                                                     _commit_channel_llm_cursor_if_newer),
         pending_io=ChannelPendingIoPorts(_CHANNEL_STDIN_INJECT_LOCK, read_runtime_inputs, _write_channel_wake_prompt, _read_channel_compact_request, _clear_channel_compact_request, _runtime_input_storage_path(), router_log, _CLAUDE_SESSION_SOCKET.send),
         pending_policy=ChannelPendingPolicyPorts(_channel_stdin_wake_batch_limit, time.time, lambda: channel_runtime_environment_policy().web_chat_replay_ttl_seconds(),
                                                  lambda message: runtime_input_repository().timestamp_seconds(message), _channel_message_is_web_chat_request),
@@ -4382,7 +4441,6 @@ def channel_wake_claim_repository() -> ChannelWakeClaimRepository: return channe
 def _channel_stdin_wake_claim_prompt(message_id: int) -> str: return channel_wake_context().claim_prompt(message_id)
 def _channel_stdin_claim_wake_prompt(message_id: int, prompt: str) -> bool: return channel_wake_context().claim_wake_prompt(message_id, prompt)
 def _channel_stdin_clear_wake_claim(message_id: int) -> None: channel_wake_context().clear_wake_claim(message_id)
-def _channel_stdin_mark_body_fallback(message_id: int, reason: str) -> None: channel_wake_context().mark_wake_body_fallback(message_id, reason)
 def _channel_prompt_references_message_id(text: str, message_id: int, prompt_texts: list[str] | tuple[str, ...] | None = None) -> bool: return channel_wake_context().prompt_references_message_id(text, message_id, prompt_texts)
 def _channel_message_ids_already_in_request(body: dict[str, Any]) -> set[int]: return channel_wake_context().message_ids_already_in_request(body)
 def _channel_llm_commit_cursor_locked(last_id: int) -> None: channel_wake_context().commit_cursor(last_id)
@@ -4399,9 +4457,6 @@ def _windows_channel_startup_grace_seconds() -> float:
     """Allow an interactive Windows TUI to begin reading console input."""
     return channel_runtime_environment_policy().windows_startup_grace_seconds()
 
-def _windows_channel_wake_max_attempts() -> int:
-    return channel_runtime_environment_policy().windows_wake_max_attempts()
-
 def _write_channel_wake_prompt( master_fd: int, prompt: str, enter_bytes: bytes | None = None, *, submit_retry_count: int = 1, confirm_submit: bool = False, bracketed_paste: bool = False, submit_delay_seconds: float | None = None, ) -> bool:
     return channel_wake_context().write_prompt(
         master_fd, prompt, enter_bytes, submit_retry_count=submit_retry_count,
@@ -4413,12 +4468,12 @@ def _write_channel_wake_prompt( master_fd: int, prompt: str, enter_bytes: bytes 
 _CHANNEL_TRANSCRIPT_CACHE: dict[str, Any] = {"checked_at": 0.0, "path": None}
 _CHANNEL_TRANSCRIPT_SCOPE: dict[str, Any] = {
     'runtime': '', 'started_at': 0.0, 'codex_home': None, 'cwd': None,
-    'session_id': '', 'bound_path': None,
+    'muse_home': None, 'session_id': '', 'bound_path': None,
 }
 _CHANNEL_STDIN_RECOVERY_CACHE: dict[str, Any] = {'checked_at': 0.0, 'last_id': None, 'marker': None, 'recovered_last_id': None}
-_TRANSCRIPT_DELIVERY_SERVICE = TranscriptDeltaDeliveryService(WORKSPACE_STATE_DIR / "transcript-event-cursors.json", ROUTER_WORKSPACE_ID, TranscriptDeliveryPorts(load_config, lambda: _latest_claude_transcript_path(ttl_seconds=0.5), lambda: dict(_CHANNEL_TRANSCRIPT_SCOPE), router_log))
+_TRANSCRIPT_DELIVERY_SERVICE = TranscriptDeltaDeliveryService(WORKSPACE_STATE_DIR / "transcript-event-cursors.json", ROUTER_WORKSPACE_ID, TranscriptDeliveryPorts(load_config, lambda: _latest_claude_transcript_path(ttl_seconds=0.5), lambda: dict(_CHANNEL_TRANSCRIPT_SCOPE), router_log, event_publish=EVENT_BUS.publish, event_recent=EVENT_BUS.recent))
 def channel_transcript_repository() -> ChannelTranscriptRepository: return channel_wake_context().transcript_repository()
-def _set_channel_transcript_scope(runtime: str, *, started_at: float | None = None, codex_home: Path | None = None, cwd: Path | None = None, session_id: str | None = None) -> None: return (channel_wake_context().set_transcript_scope(runtime, started_at=started_at, codex_home=codex_home, cwd=cwd, session_id=session_id), _TRANSCRIPT_DELIVERY_SERVICE.start())[1]
+def _set_channel_transcript_scope(runtime: str, *, started_at: float | None = None, codex_home: Path | None = None, muse_home: Path | None = None, cwd: Path | None = None, session_id: str | None = None) -> None: return (channel_wake_context().set_transcript_scope(runtime, started_at=started_at, codex_home=codex_home, muse_home=muse_home, cwd=cwd, session_id=session_id), _TRANSCRIPT_DELIVERY_SERVICE.start())[1]
 def _channel_transcript_roots() -> tuple[tuple[Path, str], ...]: return channel_wake_context().transcript_roots()
 def _latest_claude_transcript_path(ttl_seconds: float = 2.0) -> Path | None: return channel_wake_context().latest_transcript_path(ttl_seconds)
 _read_file_tail_text = ChannelTranscriptRepository.read_tail_text
@@ -4546,34 +4601,19 @@ def _open_windows_conpty(
         return None
     return WindowsConPtySession(cmd, env, log=log)
 
-def _write_windows_channel_body_fallback(writer: Any, message_id: int, enter_bytes: bytes) -> None:
-    prompt = f"[ciel-runtime pending request-body input] id={int(message_id)}"
-    channel_wake_context().write_prompt(
-        writer,
-        prompt,
-        enter_bytes,
-        submit_retry_count=1,
-        confirm_submit=False,
-        bracketed_paste=False,
-        submit_delay_seconds=_channel_wake_submit_delay_seconds(),
-        write_all=_write_fd_all,
-        snapshot=_channel_current_tmux_pane_text,
-    )
-
 def channel_terminal_context() -> ChannelTerminalContext:
     return ChannelTerminalContext(
         process=ChannelTerminalProcessPorts(subprocess.Popen, _write_codex_child_process_record, _terminate_recorded_child_process, _release_codex_child_process_record),
         policy=ChannelTerminalPolicyPorts(ensure_channel_llm_delivery_cursor_initialized, _channel_wake_enter_bytes, _channel_enter_label,
-                                          _channel_wake_enter_env_is_fixed, _channel_stdin_unseen_retry_seconds, _channel_stdin_inflight_is_stale, router_log,
-                                          _windows_channel_wake_max_attempts),
+                                          _channel_wake_enter_env_is_fixed, _channel_stdin_unseen_retry_seconds, _channel_stdin_inflight_is_stale, router_log),
         polling=ChannelTerminalPollingPorts(_inject_pending_compact_request, _chat_messages_file_marker, _channel_stdin_should_check_pending,
                                             _channel_stdin_active_tool_call, _channel_stdin_active_turn, _inject_pending_channel_messages, _channel_stdin_wake_state, channel_inflight_effects,
-                                            _channel_stdin_mark_body_fallback, runtime_interactions.read),
+                                            runtime_interactions.read),
         io=ChannelTerminalIoPorts(_terminal_winsize_from_fd, _apply_pty_winsize, _write_fd_all, _TerminalMouseInputFilter,
                                   _channel_synthetic_enter_bytes_from_user_input, _write_terminal_input_mode_reset),
         windows=ChannelTerminalWindowsPorts(run_windows_channel_terminal_proxy, _reset_windows_terminal_input_modes,
                                             _WindowsConsoleMouseInputGuard, _WindowsConsoleInputWriter, _windows_channel_startup_grace_seconds,
-                                            _terminal_input_mode_reset_interval_seconds, _channel_stdin_active_turn, _write_windows_channel_body_fallback, time.sleep,
+                                            _terminal_input_mode_reset_interval_seconds, _channel_stdin_active_turn, time.sleep,
                                             _open_windows_conpty),
         dispatch_ports=ChannelTerminalDispatchPorts(os.name, sys.stdin.isatty, sys.stdout.isatty, subprocess.call,
                                                     lambda *args, **kwargs: subprocess_call_with_windows_console_wake_proxy(*args, **kwargs),
@@ -4894,7 +4934,7 @@ def cli_services() -> cli_dispatch.CliServices:
         core=cli_dispatch.CliCore(VERSION, cli_usage, find_executable, get_current_provider, load_config, pop_headless_env_file_args,
                                   portable_provider_menu, run_external_menu, run_quiet_upgrade_and_exit),
         runtime=cli_dispatch.CliRuntime(agy_passthrough_has_command, codex_passthrough_has_command, last_launch_runtime, launch_agy, launch_claude,
-                                        launch_codex, launch_codex_app_server, native_agy_enabled, native_codex_enabled, launch_grok, launch_zcode),
+                                        launch_codex, launch_codex_app_server, native_agy_enabled, native_codex_enabled, launch_grok, launch_zcode, launch_muse),
         provider_commands=cli_dispatch.CliProviderCommands(cmd_advisor_model, cmd_api_key, cmd_base_url, cmd_language, cmd_log_level, cmd_model,
                                                            cmd_models, cmd_provider, cmd_provider_options, cmd_set_api_key),
         special_commands=cli_dispatch.CliSpecialCommands(cmd_ollama_catalog, cmd_ollama_native, cmd_ollama_options, cmd_web_fetch, cmd_web_search),
@@ -4904,7 +4944,7 @@ def cli_services() -> cli_dispatch.CliServices:
     ).services()
 def cli_parser_services() -> cli_parser.CliParserServices:
     return cli_assembly.CliParserAssembly(
-            launch=cli_parser.CliParserLaunch(cmd_cli, cmd_launch, cmd_launch_codex, cmd_launch_codex_app_server, cmd_launch_agy, serve, cmd_remote_bridge, cmd_launch_grok, cmd_launch_zcode),
+            launch=cli_parser.CliParserLaunch(cmd_cli, cmd_launch, cmd_launch_codex, cmd_launch_codex_app_server, cmd_launch_agy, serve, cmd_remote_bridge, cmd_launch_grok, cmd_launch_zcode, cmd_launch_muse),
             runtime=cli_parser.CliParserRuntime(cmd_version, cmd_status, cmd_env, cmd_stop, cmd_test),
             settings=cli_parser.CliParserSettings(cmd_language, cmd_web_search, cmd_web_fetch, cmd_log_level, *event_settings_cli.handlers(event_settings_cli.EventSettingsCliPorts(load_config, save_config, external_event_receiver_service, lambda: set_remote_instruction_config('sync', ''), sync_all_remote_memories, print, lambda: USAGE_API_KEYS))),
             provider=cli_parser.CliParserProvider(cmd_ollama_native, cmd_ollama_options, cmd_provider_options, cmd_ollama_catalog, cmd_provider,
@@ -4915,7 +4955,8 @@ def cli_parser_services() -> cli_parser.CliParserServices:
 def cli_application_context() -> CliApplicationContext:
     return CliApplicationContext(
         dispatch=CliApplicationDispatchPorts(dispatch_cli, cli_services, launch_claude, launch_codex, launch_codex_app_server,
-                                             launch_agy, launch_kimi, run_kimi_oauth_login, launch_grok, launch_zcode),
+                                             launch_agy, launch_kimi, run_kimi_oauth_login,
+                                             {"grok": launch_grok, "zcode": launch_zcode, "muse": launch_muse}),
         presentation=CliApplicationPresentationPorts(build_cli_parser, cli_parser_services, VERSION, print, lambda: sys.argv),
     )
 
@@ -4929,6 +4970,7 @@ cmd_launch_codex_app_server = _CLI_APPLICATION_API.cmd_launch_codex_app_server
 cmd_launch_agy = _CLI_APPLICATION_API.cmd_launch_agy
 cmd_launch_grok = _CLI_APPLICATION_API.cmd_launch_grok
 cmd_launch_zcode = _CLI_APPLICATION_API.cmd_launch_zcode
+cmd_launch_muse = _CLI_APPLICATION_API.cmd_launch_muse
 cmd_version = _CLI_APPLICATION_API.cmd_version
 main = _CLI_APPLICATION_API.main
 

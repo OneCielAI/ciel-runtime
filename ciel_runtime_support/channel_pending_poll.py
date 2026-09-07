@@ -140,7 +140,11 @@ def poll_pending_channel_messages(
         web_chat_only=options.web_chat_only,
         wake_for_llm_delivery=options.wake_for_llm_delivery,
         display_llm_delivery_body=options.display_llm_delivery_body,
-        commit_cursor=False,
+        # A runtime without transcript confirmation (for example Muse Code)
+        # uses a single fire-and-forget TTY write. Persist its cursor in that
+        # same operation; otherwise the generic inflight verifier sees every
+        # successful delivery as "missing" and replays it.
+        commit_cursor=not options.confirm_submit,
         injected_message_ids=injected_ids,
         submit_retry_count=options.submit_retry_count,
         confirm_submit=options.confirm_submit,
@@ -148,7 +152,7 @@ def poll_pending_channel_messages(
         submit_delay_seconds=options.submit_delay_seconds,
         skip_blocking_wake_states=state.inflight_message_id is not None,
     )
-    if injected_ids:
+    if injected_ids and options.confirm_submit:
         state.inflight_message_id = injected_ids[-1]
         state.inflight.attempts += 1
         # The injector deliberately returns the cursor preceding an LLM-delivery

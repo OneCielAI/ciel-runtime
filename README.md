@@ -77,6 +77,7 @@ ciel-runtime codex
 ciel-runtime agy
 ciel-runtime grok
 ciel-runtime zcode
+ciel-runtime muse
 ciel-runtime --ca-runtime codex-app-server
 ```
 
@@ -92,7 +93,7 @@ ciel-runtimectl test
 
 | Capability | What it provides |
 |---|---|
-| Runtime launch | Claude Code, Codex, Codex App Server, AGY, Grok Build, and ZCode from one entrypoint |
+| Runtime launch | Claude Code, Codex, Codex App Server, AGY, Grok Build, ZCode, and Muse Code from one entrypoint |
 | Provider routing | Native connections where supported; otherwise a loopback HTTP router with provider-owned endpoint and authentication rules |
 | Remote Runtime Bridge | One authenticated OpenAI/Anthropic-compatible network endpoint with per-request provider/model routing, protocol projection, Router-host OAuth, and isolated request keys where allowed |
 | Protocol adaptation | Anthropic Messages, OpenAI Chat, OpenAI Responses, Ollama Chat, tool calls, thinking blocks, and SSE streams |

@@ -185,6 +185,10 @@ Claude/Codex transcript의 queued-only wake를 찾아 LLM delivery cursor를 안
 
 대기 중인 channel 메시지의 필터링, 중복 제거, wake claim, prompt 생성 및 터미널 주입을 조정하는 Channel Application Service. 상태 판정, prompt 전략, wake 저장소, I/O를 각각 10필드 이하 포트로 분리한다.
 
+### `ciel_runtime_support/runtime_input_status.py`
+
+private Runtime Input의 `queued -> submitted -> replied|failed` 전이를 JSONL로 보존하고 요청별 조회 및 `runtime_input.status` 실시간 이벤트를 제공하는 lifecycle repository다. terminal 상태에서 이전 상태로 되돌아가는 전이는 거부한다.
+
 ### `ciel_runtime_support/channel_tool_context.py`
 
 외부 채널에서 시작된 tool-use의 원문 context를 bounded, thread-safe 저장소에 보관하고 대응하는 tool-result 후속 요청에 한 번만 주입하는 Channel Application Service. 저장소가 lock·eviction·consume-on-read를 소유하며 메시지 projection과 시간·텍스트·로그 효과는 typed ports로 분리한다.

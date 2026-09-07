@@ -25,6 +25,8 @@ RUNTIME_FILES = {
     "grok": "AGENTS.md",
     # ZCode discovers workspace instructions from AGENTS.md.
     "zcode": "AGENTS.md",
+    # Muse Code loads AGENTS.md before other project instruction files.
+    "muse": "AGENTS.md",
 }
 URL_KEYS = {
     "claude": "claude_url",
@@ -33,6 +35,7 @@ URL_KEYS = {
     "agy": "agy_url",
     "kimi": "kimi_url",
     "grok": "grok_url",
+    "muse": "muse_url",
 }
 
 _ENV_REFERENCE = re.compile(r"%([A-Za-z_][A-Za-z0-9_]*)%|\$\{([A-Za-z_][A-Za-z0-9_]*)\}|\{([A-Za-z_][A-Za-z0-9_]*)\}")
@@ -229,6 +232,7 @@ def panel_rows(config: dict[str, Any]) -> tuple[list[str], list[str]]:
             f"AGY URL → GEMINI.md  [{compact(current.get('agy_url') or 'unset')}]",
             f"Kimi URL → AGENTS.md  [{compact(current.get('kimi_url') or 'unset')}]",
             f"Grok URL → AGENTS.md  [{compact(current.get('grok_url') or 'unset')}]",
+            f"Muse URL → AGENTS.md  [{compact(current.get('muse_url') or 'unset')}]",
             f"Authorization header  [{'configured' if current.get('authorization') else 'unset'}]",
             f"HTTP timeout seconds  [{current.get('timeout_seconds') or 5}]",
             "Sync configured instruction files now",
@@ -241,6 +245,7 @@ def panel_rows(config: dict[str, Any]) -> tuple[list[str], list[str]]:
             "agy_url",
             "kimi_url",
             "grok_url",
+            "muse_url",
             "authorization",
             "timeout_seconds",
             "sync",

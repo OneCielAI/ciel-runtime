@@ -1,0 +1,58 @@
+task:
+  id: ollama-kimi-recovery-model-audit-nightly-deployment-20260902
+  request: >-
+    Deploy all currently verified Ciel Runtime changes locally and publish them
+    through the nightly branch.
+  recorded_at: 2026-09-02T21:45:00-05:00
+  status: ready_for_nightly_push
+
+release_scope:
+  runtime_changes:
+    - Preserve complete assistant content, including thinking, during Kimi K3 continuation recovery.
+    - Apply a bounded three-attempt continuation loop for Ollama Cloud Kimi K3 progress-only turns.
+    - Keep compacted summary metadata byte-stable across small per-request budget changes.
+    - Add the documented GLM-5.3 low/high/max reasoning profile.
+    - Use boolean thinking for Ollama models without a documented string-level contract.
+  tests:
+    - tests/test_codex_turn_recovery.py
+    - tests/test_context_summary_compatibility_api.py
+    - tests/test_ollama_provider_options.py
+  evidence_journals:
+    - docs/journal/2026/09/02/diagnostics/providers/ollama-cloud/kimi-k3-agent-turn-recovery.okf
+    - docs/journal/2026/09/02/diagnostics/providers/ollama-cloud/kimi-k3-parameters.okf
+    - docs/journal/2026/09/02/diagnostics/cache/ollama-cloud/kimi-k3-codex-hit-rate.okf
+    - docs/journal/2026/09/02/research/providers/ollama-cloud/desktop-model-exhaustive-audit.okf
+    - docs/journal/2026/09/02/monitoring/cache/alibaba/cielarvis-qwen38-live-hit-rate.okf
+
+verification_before_push:
+  full_suite:
+    command: npm test
+    unit: {tests: 1363, skipped: 45, result: passed}
+    router: {tests: 1077, result: passed}
+    channel: {tests: 403, skipped: 80, result: passed}
+    runtime: {tests: 261, skipped: 12, result: passed}
+    total_tests: 3104
+  ollama_focused_suite: {tests: 76, result: passed}
+  ruff_changed_files: passed
+  ollama_cloud_live_tool_probe: {models: 19, http_200: 19, correct_tool_calls: 19}
+  okf_parse_validation: {files: 21, errors: 0, result: passed}
+  credential_pattern_scan: {matching_files: 0}
+
+local_deployment:
+  command: powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
+  target: C:/Users/djlov/.local/share/ciel-runtime
+  runtime_source_installed_hash_match: true
+  result: passed
+
+nightly_delivery:
+  branch: nightly
+  base_commit: d56c4f7
+  workflow: .github/workflows/npm-publish.yml
+  package_base_version: 0.2.37
+  trigger: push_to_nightly
+  commit: pending
+  github_workflow_run: pending
+  published_version: pending
+  registry_verification: pending
+
+credentials_recorded: false

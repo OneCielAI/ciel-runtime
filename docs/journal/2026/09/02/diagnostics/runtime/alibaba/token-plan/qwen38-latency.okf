@@ -1,0 +1,108 @@
+task:
+  id: cielarvis-qwen38-token-plan-latency-20260902
+  request: >-
+    Diagnose whether the nearly stalled Qwen3.8-Max run in C:/Users/djlov/cielarvis
+    is caused by Ciel parameter projection or by the Singapore service.
+  status: diagnosed
+  mutations_to_live_session: none
+
+runtime_identity:
+  workspace: C:/Users/djlov/cielarvis
+  workspace_id: a3a719fc6552
+  router: http://127.0.0.1:9469
+  router_pid: 93732
+  codex_pid: 96776
+  provider: alitoken
+  upstream_base_url: https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1
+  model: qwen3.8-max
+  protocol: openai_responses
+  note: >-
+    The configured endpoint is Alibaba Token Plan, not the separately isolated
+    Coding Plan endpoint at https://coding-intl.dashscope.aliyuncs.com/v1.
+
+confirmed_findings:
+  process_health:
+    router_responding: true
+    codex_responding: true
+    router_working_set_mb: 125.3
+    codex_working_set_mb: 264.9
+    qwen_request_errors_after_launch: 0
+    completed_requests_returned_http_200: true
+  effort_projection:
+    workspace_config_effort: xhigh
+    codex_turn_effort: high
+    launch_catalog_default: xhigh
+    launch_catalog_supported: [low, medium, xhigh]
+    live_router_started_at: 2026-09-02T10:55:03-05:00
+    updated_runtime_installed_at: 2026-09-02T11:02:29-05:00
+    live_projection: high_to_xhigh
+    evidence: >-
+      The launch-time implementation normalized Qwen3.8 Responses effort with
+      _normalize_qwen38_effort, whose documented mapping sends high to xhigh.
+      The already-running Python process predates the later local deployment.
+  live_workload:
+    resumed_session_file_mb: 68.06
+    latest_input_tokens: 99803
+    latest_cache_read_tokens: 8192
+    latest_uncached_input_tokens: 91611
+    wire_payload_before_compaction_bytes: 20681971
+    wire_payload_after_compaction_bytes: 8409549
+    note: >-
+      The resumed session repeatedly sends a large context. Cache reuse varies;
+      the latest observed call had only 8,192 cached tokens.
+  observed_upstream_phase:
+    matched_requests: 47
+    average_seconds: 64.7
+    minimum_seconds: 16
+    maximum_seconds: 197
+    examples:
+      - {seconds: 197, input_tokens: 182055, output_tokens: 6587, reasoning_tokens: 5888}
+      - {seconds: 180, input_tokens: 88987, output_tokens: 6658, reasoning_tokens: 6222}
+      - {seconds: 20, input_tokens: 93151, output_tokens: 86, reasoning_tokens: 17}
+      - {seconds: 16, input_tokens: 92404, output_tokens: 76, reasoning_tokens: 7}
+    interpretation: >-
+      Longer completed calls coincide with thousands of reasoning tokens. Even
+      short-output calls retain a 16-20 second floor at roughly 92K input tokens.
+  controlled_same_endpoint_probe:
+    prompt: Reply with exactly OK.
+    max_output_tokens: 32
+    results:
+      none: {seconds: 3.07, status: completed, input_tokens: 212, output_tokens: 2, reasoning_tokens: 0}
+      low: {seconds: 2.30, status: completed, input_tokens: 236, output_tokens: 23, reasoning_tokens: 18}
+      high: {seconds: 2.35, status: completed, input_tokens: 248, output_tokens: 29, reasoning_tokens: 25}
+      xhigh: {seconds: 2.32, status: completed, input_tokens: 248, output_tokens: 24, reasoning_tokens: 21}
+    conclusion: >-
+      The Singapore Token Plan endpoint was responsive for small requests during
+      the incident; the measurements do not support a general endpoint outage.
+
+official_evidence:
+  token_plan_quick_start:
+    url: https://docs.modelstudio.console.alibabacloud.com/en/model-studio/token-plan-personal-quick-start
+    base_url: https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1
+  responses_api:
+    url: https://www.alibabacloud.com/help/en/model-studio/qwen-api-via-openai-responses
+    default_effort: xhigh
+    supported_efforts: [none, minimal, low, medium, high, xhigh, max]
+    documented_effect: Lower effort accelerates responses and reduces inference tokens.
+  chat_api:
+    url: https://www.alibabacloud.com/help/en/model-studio/qwen-api-via-openai-chat-completions
+    high_mapping: xhigh
+    xhigh_thinking_budget: 262144
+
+diagnosis:
+  general_singapore_service_outage_supported: false
+  parameter_contribution_supported: true
+  workload_contribution_supported: true
+  conclusion: >-
+    The observed delay is dominated by the old resumed session's large, often
+    mostly uncached context plus high being projected to xhigh reasoning. Alibaba
+    performs the slow upstream phase, but the endpoint itself is not generally
+    slow for small requests. Current logs do not expose queue time versus model
+    inference time, so that finer split remains unmeasured.
+
+evidence_locations:
+  config: C:/Users/djlov/AppData/Roaming/ciel-runtime/workspaces/a3a719fc6552/config.json
+  router_log: C:/Users/djlov/AppData/Roaming/ciel-runtime/router-instances/9469-a3a719fc6552/router.log
+  router_activity: C:/Users/djlov/AppData/Roaming/ciel-runtime/router-instances/9469-a3a719fc6552/router-activity.json
+  codex_session: C:/Users/djlov/.codex/sessions/2026/08/20/rollout-2026-08-20T02-08-27-01a01dff-f0f0-7ef3-8cde-1d9916510f35.jsonl
+  credentials_recorded: false

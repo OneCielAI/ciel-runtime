@@ -125,6 +125,13 @@ def build_default_config(provider_defaults: dict[str, Any]) -> dict[str, Any]:
             "max_batch_bytes": 1048576,
             "start_mode": "tail",
         },
+        "tool_call_events": {
+            "enabled": True,
+            "poll_interval_ms": 500,
+            "max_batch_bytes": 1048576,
+            "start_mode": "tail",
+            "include_arguments": True,
+        },
         "remote_instructions": {
             "enabled": False,
             "claude_url": "",

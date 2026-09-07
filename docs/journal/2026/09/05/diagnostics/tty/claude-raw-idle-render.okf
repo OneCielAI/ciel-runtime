@@ -1,0 +1,25 @@
+title: Claude idle raw TTY prompt render timeout
+date: 2026-09-05
+evidence:
+  instance:
+    router: 9471-81e6fa259d15
+    request: 278
+    accepted: 2026-09-05T13:18:48
+    timeout: 2026-09-05T13:19:18
+    error: prompt_render_timeout -> prompt_not_submitted
+    later: 2026-09-05T13:19:47 submit_confirmed attempt=1
+  installed:
+    path: C:/Users/djlov/.local/share/ciel-runtime/ciel_runtime_support/windows_conpty.py
+    algorithm: prompt[:48] UTF-8 bytes searched directly in VT output
+  reproduction:
+    command: python scripts/probe_claude_raw_prompt_render.py
+    isolated_cli: Installed Claude; draft-only input; no Enter or API request
+    bytes: 187
+    observed: Claude draws spaces using ESC[1C cursor movement
+    installed_detected: false
+    working_tree_detected: true
+conclusion:
+  confirmed_defect: VT output cannot be compared directly with plain prompt bytes. The readiness gate returns before sending Enter.
+  existing_fix: Working tree normalizes VT text; it is absent from the inspected installation.
+  scope: Demonstrates this failure path, not every reported wakeup failure.
+  deployment: Not performed; active user sessions unchanged.

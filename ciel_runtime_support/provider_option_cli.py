@@ -94,7 +94,7 @@ DEFAULT_PROVIDER_NOTES: Mapping[str, Sequence[str]] = {
 }
 DEFAULT_UNSUPPORTED_MESSAGE = (
     "Provider options are available for anthropic, ollama, ollama-cloud, "
-    "deepseek, opencode, opencode-go, kimi, z.ai, fireworks, vllm, "
+    "deepseek, opencode, opencode-go, kimi, meta, z.ai, fireworks, vllm, "
     "lm-studio, nvidia-hosted, self-hosted-nim, and openrouter."
 )
 

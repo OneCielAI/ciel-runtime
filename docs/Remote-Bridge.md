@@ -70,6 +70,10 @@ Use `http://ROUTER_HOST:ROUTER_PORT/v1` as an OpenAI base URL and
 | Anthropic token count | `POST /v1/messages/count_tokens` |
 | OpenAI model list | `GET /v1/models` |
 | OpenAI model detail | `GET /v1/models/{provider}/{model}` |
+| Provider file upload | `POST /v1/files` |
+| Provider file list | `GET /v1/files` |
+| Provider file metadata/content | `GET /v1/files/{file_id}` and `GET /v1/files/{file_id}/content` |
+| Provider file deletion | `DELETE /v1/files/{file_id}` |
 | Bridge status | `GET /ca/bridge` |
 
 `GET /v1/models` preserves the OpenAI-compatible `object`, `data`, and
@@ -115,6 +119,14 @@ An explicit `stream: true` remains unchanged.
 Providers that require upstream streaming reject non-streaming Chat or
 Anthropic Messages requests with HTTP 501; use `/v1/responses` when Ciel must
 collect that stream into a non-streaming compatible response.
+
+The Files routes are currently exposed for Meta Model API. Because a multipart
+file upload has no `model` JSON field, select a non-default Meta route with
+`X-Ciel-Runtime-Provider: meta`. Ciel replaces the bridge credential with the
+Meta credential stored on the Router host and streams the multipart body
+upstream without retaining the complete upload in router memory. Meta remains
+authoritative for the `purpose=user_data`, MIME-type, expiry, per-file, and
+team-storage validation rules.
 
 ## Select a provider, model, and provider credential
 

@@ -50,7 +50,14 @@ token은 Bearer header로 전송하며, 사용자 지정 `base_url`로 사설 ga
 
 ### Alibaba Model Studio Singapore
 
-`alims-intl`의 기본 모델은 Singapore International scope의 `qwen3.8-max`다.
+`alims-intl`의 기본 모델은 Singapore International scope의 rolling alias
+`qwen3.8-max`다. 고정 스냅샷 `qwen3.8-max-0902`도 모델 목록에서 선택할 수 있다.
+Token Plan은 공식 지원 ID인 rolling alias `qwen3.8-max`를 사용하며, Responses
+API에서는 `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max` reasoning
+effort를 그대로 전달한다. Chat Completions의 축약 effort 매핑과 혼용하지 않는다.
+Alibaba Responses session cache의 공식 opt-in 계약에 따라
+`x-dashscope-session-cache: enable`을 Responses 요청에 기본 전송한다. Chat과
+Anthropic Messages 요청에는 이 header를 추가하지 않는다.
 공식 한도에 맞춰 context window는 1,000,000, 최대 입력은 일반 모드 991,808,
 thinking 모드 983,616, 최대 출력은 131,072로 취급한다. Codex에는 thinking 모드의
 안전한 입력 상한인 983,616을 model catalog context로 제공한다.
@@ -246,6 +253,24 @@ ZCode 버전의 선택된 Desktop provider는 fallback으로만 읽는다. 두 �
 | `glm-5.1` | 200,000 | 131,072 |
 | `glm-5-turbo` | 200,000 | 모델별 동적 값 |
 | `glm-4.7` | 200,000 | 모델별 동적 값 |
+
+---
+
+## Meta Model API / Muse Spark
+
+- `muse-spark-1.3`과 `muse-spark-1.3-contributor`를 기본 1.3 계열로 제공한다.
+- Responses, Chat Completions, Messages를 각각 네이티브 프로토콜로 전달한다.
+- Responses의 `web_search`, `tool_search`, `defer_loading` 서버 도구와 검색
+  결과·URL citation을 보존한다.
+- 이미지, MP4 비디오, WAV/MP3 오디오, PDF/텍스트/JSON 문서 블록을 프로토콜별
+  원형으로 전달한다. Muse Spark 1.3 오디오는 Meta가 제한적 지원으로 명시하므로
+  고품질 오디오 작업에는 1.2 또는 Muse Voice Transcribe를 사용한다.
+- 인라인 파일은 최대 50,000,000 bytes이며, `/v1/files`는 파일당 1 GiB와 팀당
+  100 GiB를 지원한다. 추론용 업로드 purpose는 `user_data`이다.
+- PDF는 텍스트 기준 처음 100페이지와 페이지 이미지 기준 처음 50페이지를 처리한다.
+- Files API 업로드·목록·내용 조회·삭제는 로컬 라우터와 인증된 Remote Bridge에서
+  Meta 자격 증명으로 전달된다. 대용량 multipart 업로드는 메모리에 통째로 적재하지
+  않고 스트리밍된다.
 
 ---
 

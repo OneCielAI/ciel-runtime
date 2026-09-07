@@ -5,13 +5,77 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+- Disable inherited DuckDuckGo and web_fetch MCP servers with per-launch
+  overrides for native Codex (direct/routed and app-server), without editing
+  global settings or changing non-native provider launches.
+- Emit URL-only web search result events over the existing `tool.call` event
+  stream, parsing Claude search result links and available Codex response
+  sources. Persist bounded call correlation and result deduplication state.
+- Select Ciel-managed MCP tools by native/non-native launch mode without
+  filtering user MCP definitions. Keep generated DuckDuckGo/fetch tools out
+  of Anthropic launches even when Ciel web search is explicitly enabled.
+- Make Windows ConPTY prompt-render detection ANSI- and UTF-8-aware, and make
+  unconfirmed TUI delivery fail closed without retyping, ASCII sentinel wakes,
+  or automatic router fallback. Runtime Input requests now expose durable
+  `queued -> submitted -> replied|failed` status queries and real-time events;
+  unresolved earlier requests block later TUI drafts. ConPTY resize failures
+  and post-resize redraw observations are logged explicitly.
+- Add `raw_injection=true` to the Web Chat message APIs so a caller can inject
+  only the exact `message` text without an envelope, attachment projection, or
+  response-routing instruction, independently of input transport and response
+  destination.
+- Publish normalized Claude, Codex, Muse Code, and routed-provider tool-call
+  starts as `tool.call` observability events, with incremental transcript cursors and
+  duplicate call-ID suppression. Add authenticated WebSocket event streaming at
+  `/ca/events/ws`, including `after`, `level`, and `category` filters.
+
+- Repair resumed Codex Responses history whose item IDs contain characters the
+  OpenAI backend rejects, and discard projected encrypted reasoning that the
+  destination backend cannot authenticate instead of rejecting it one item per
+  retry.
+
+- Add Muse Code as a native Ciel runtime through `ciel-runtime muse`, including
+  official installer discovery, Windows WSL2 execution, Muse 1.3 model and
+  reasoning flags, launch-menu/CLI selection, channel-proxy input, and remote
+  AGENTS.md synchronization. Native launches remove `META_API_KEY` and
+  `MODEL_API_KEY` so Muse browser sign-in remains eligible for Muse Code
+  subscription billing instead of silently switching to API pay-as-you-go.
+  Normal Muse sessions now include the CLI's native `--yolo` option by default,
+  while utility subcommands remain side-effect-free passthrough commands.
+- Make `session_socket` the explicit default for Web Chat and every Runtime
+  Input Gateway source. When a runtime has no usable Claude messaging socket,
+  idle delivery now falls back to TTY; an active turn retains the durable input
+  until terminal injection is safe. Explicit TTY and router selections remain.
+- Improve Meta Muse Spark cache reuse for Codex Responses sessions by adding
+  the provider-documented `24h` retention hint when Codex supplies a stable
+  `prompt_cache_key`. Cache activity now records privacy-safe request-shape
+  fingerprints so intermittent misses can be distinguished from prefix/tool
+  changes without logging prompt contents.
+- Complete Meta Muse Spark's native agent surface across Responses, Chat
+  Completions, and Messages. Hosted `web_search`/`tool_search`, deferred tools,
+  multimodal request blocks, and streaming `/v1/files` upload/list/download/
+  delete routes now pass through without lossy protocol conversion; Muse
+  compatibility probes reserve enough output budget for reasoning tool calls.
+- Add Meta Muse Spark 1.3 and `muse-spark-1.3-contributor` as first-class
+  Meta Model API models. New configurations default to 1.3, existing catalogs
+  are migrated without overwriting the selected model, and Codex/Claude receive
+  the documented 1M context and `minimal` through `xhigh` reasoning controls.
+- Improve Alibaba Singapore Token Plan cache reuse for Codex: stateless
+  full-history Responses requests now use Qwen's implicit prefix cache instead
+  of forcing the response-ID session-cache header, while oversized requests
+  align their summarized prefix to pair-safe 24-item checkpoints.
 - Deliver Web Chat, configured external event streams/webhooks, and Ciel MCP
   `submit_input` calls to interactive Claude Code sessions through Claude's
   authenticated session socket by default. Windows named pipes and Unix
   AF_UNIX sockets are supported; explicit TTY and router overrides remain.
 - Add Claude Fable 5.1 to the Anthropic catalog and model policy.
-- Keep Anthropic routed sessions on standard 200K context unless the selected
-  model explicitly includes `[1m]`, avoiding an unintended usage-credit beta.
+- Stop forcing current Anthropic 1M-default models down to a 200K Claude Code
+  auto-compaction window when their configured model ID has no legacy `[1m]`
+  marker. Routed Opus 4.6+ / Opus 5, Sonnet 4.6+ / Sonnet 5, and current
+  Fable/Mythos models now follow Anthropic's documented default 1M capacity;
+  their Claude-facing gateway aliases carry the local `[1m]` context hint even
+  when the selected upstream ID does not. Legacy models such as Sonnet 4.5 and
+  Haiku 4.5 remain at 200K.
 - Advertise provider descriptions in the gateway model catalog for Claude Code
   2.1.257 and later model-picker discovery.
 - Apply each routed provider's configured subagent model to every Claude Code

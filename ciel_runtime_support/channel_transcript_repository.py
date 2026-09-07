@@ -28,6 +28,7 @@ class ChannelTranscriptRepository:
         *,
         started_at: float | None = None,
         codex_home: Path | None = None,
+        muse_home: Path | None = None,
         cwd: Path | None = None,
         session_id: str | None = None,
     ) -> None:
@@ -38,6 +39,11 @@ class ChannelTranscriptRepository:
         self.scope["codex_home"] = (
             Path(codex_home).expanduser()
             if codex_home is not None
+            else None
+        )
+        self.scope["muse_home"] = (
+            Path(muse_home).expanduser()
+            if muse_home is not None
             else None
         )
         self.scope["cwd"] = Path(cwd).expanduser() if cwd is not None else None
@@ -182,6 +188,13 @@ class ChannelTranscriptRepository:
             else self.home / ".codex"
         )
         codex_root = (codex_home / "sessions", "**/*.jsonl")
+        configured_muse_home = self.scope.get("muse_home")
+        muse_home = (
+            Path(configured_muse_home)
+            if isinstance(configured_muse_home, Path)
+            else self.home / ".local" / "share" / "muse"
+        )
+        muse_root = (muse_home / "sessions", "*/*/*/*/session.jsonl")
         if runtime == "codex":
             return (codex_root,)
         if runtime == "claude":
@@ -191,7 +204,9 @@ class ChannelTranscriptRepository:
                 if project_dir.is_dir():
                     return ((project_dir, "*.jsonl"),)
             return (claude_root,)
-        return claude_root, codex_root
+        if runtime == "muse":
+            return (muse_root,)
+        return claude_root, codex_root, muse_root
 
     def latest(self, ttl_seconds: float = 2.0) -> Path | None:
         now = self.now()

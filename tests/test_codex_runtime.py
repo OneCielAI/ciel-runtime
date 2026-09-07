@@ -181,9 +181,10 @@ class CodexRuntimeTests(unittest.TestCase):
         self.assertEqual(95, model["effective_context_window_percent"])
         self.assertFalse(model["supports_parallel_tool_calls"])
         self.assertEqual(
-            ["low", "medium", "xhigh"],
+            ["none", "minimal", "low", "medium", "high", "xhigh", "max"],
             [item["effort"] for item in model["supported_reasoning_levels"]],
         )
+        self.assertEqual("xhigh", model["default_reasoning_level"])
 
     def setUp(self):
         super().setUp()
@@ -663,7 +664,7 @@ class CodexRuntimeTests(unittest.TestCase):
 
         self.assertEqual(0, rc)
         prelaunch.assert_called_once_with(["resume"], skip_menu=True, force_menu=False)
-        self.assertEqual(["codex", "--yolo", "resume"], captured["cmd"])
+        self.assertEqual(["codex", "--yolo", "-c", "mcp_servers.duckduckgo.enabled=false", "-c", "mcp_servers.web_fetch.enabled=false", "resume"], captured["cmd"])
         self.assertTrue(captured["wake_for_llm_delivery"])
 
     def test_launch_codex_builds_command_with_router_provider(self):
@@ -838,7 +839,7 @@ class CodexRuntimeTests(unittest.TestCase):
         self.assertFalse(captured["manage_router"])
         start_router.assert_not_called()
         terminate_clients.assert_not_called()
-        self.assertEqual(["codex", "--yolo", "exec", "hello"], captured["cmd"])
+        self.assertEqual(["codex", "--yolo", "-c", "mcp_servers.duckduckgo.enabled=false", "-c", "mcp_servers.web_fetch.enabled=false", "exec", "hello"], captured["cmd"])
         self.assertNotIn("CIEL_RUNTIME_CODEX_API_KEY", captured["env"])
         self.assertTrue(captured["wake_for_llm_delivery"])
         self.assertEqual(4, captured["channel_wake_submit_retries"])
@@ -895,6 +896,8 @@ class CodexRuntimeTests(unittest.TestCase):
         self.assertIn(f"model_providers.ciel-runtime-codex.base_url=\"{ciel_runtime.ROUTER_BASE}/backend-api/codex\"", captured["cmd"])
         self.assertIn("model_providers.ciel-runtime-codex.requires_openai_auth=true", captured["cmd"])
         self.assertIn("model_providers.ciel-runtime-codex.supports_websockets=false", captured["cmd"])
+        self.assertIn("mcp_servers.duckduckgo.enabled=false", captured["cmd"])
+        self.assertIn("mcp_servers.web_fetch.enabled=false", captured["cmd"])
         self.assertNotIn("CIEL_RUNTIME_CODEX_API_KEY", captured["env"])
         self.assertNotIn("-m", captured["cmd"])
         self.assertTrue(captured["wake_for_llm_delivery"])
@@ -1020,6 +1023,8 @@ class CodexRuntimeTests(unittest.TestCase):
         self.assertIn(f"model_providers.ciel-runtime-codex.base_url=\"{ciel_runtime.ROUTER_BASE}/backend-api/codex\"", captured["cmd"])
         self.assertIn("model_providers.ciel-runtime-codex.requires_openai_auth=true", captured["cmd"])
         self.assertIn("--listen", captured["cmd"])
+        self.assertIn("mcp_servers.duckduckgo.enabled=false", captured["cmd"])
+        self.assertIn("mcp_servers.web_fetch.enabled=false", captured["cmd"])
         self.assertIn("ws://127.0.0.1:8899", captured["cmd"])
         self.assertNotIn("CIEL_RUNTIME_CODEX_API_KEY", captured["env"])
         self.assertIn("app-server", str(captured["pid_path"]))
@@ -1171,6 +1176,8 @@ class CodexRuntimeTests(unittest.TestCase):
         self.assertIn("model_provider=\"ciel-runtime\"", captured["cmd"])
         self.assertIn(f"model_providers.ciel-runtime.base_url=\"{ciel_runtime.ROUTER_BASE}/v1\"", captured["cmd"])
         self.assertIn("model_providers.ciel-runtime.wire_api=\"responses\"", captured["cmd"])
+        self.assertNotIn("mcp_servers.duckduckgo.enabled=false", captured["cmd"])
+        self.assertNotIn("mcp_servers.web_fetch.enabled=false", captured["cmd"])
         self.assertIn("-c", captured["cmd"])
         self.assertIn('model="ciel-runtime-zai-glm-5.2[1m]"', captured["cmd"])
         self.assertEqual("ciel-runtime-router-local-key", captured["env"]["CIEL_RUNTIME_CODEX_API_KEY"])
@@ -1213,7 +1220,7 @@ class CodexRuntimeTests(unittest.TestCase):
         self.assertEqual(0, rc)
         self.assertFalse(captured["manage_router"])
         start_router.assert_not_called()
-        self.assertEqual(["codex", "app-server", "--listen", "ws://127.0.0.1:8899"], captured["cmd"])
+        self.assertEqual(["codex", "app-server", "-c", "mcp_servers.duckduckgo.enabled=false", "-c", "mcp_servers.web_fetch.enabled=false", "--listen", "ws://127.0.0.1:8899"], captured["cmd"])
         self.assertNotIn("CIEL_RUNTIME_CODEX_API_KEY", captured["env"])
         self.assertIn("app-server", str(captured["pid_path"]))
 
@@ -1417,7 +1424,7 @@ class CodexRuntimeTests(unittest.TestCase):
         self.assertEqual(0, rc)
         self.assertFalse(captured["manage_router"])
         start_router.assert_not_called()
-        self.assertEqual(["codex", "--yolo", "exec", "hello"], captured["cmd"])
+        self.assertEqual(["codex", "-c", "mcp_servers.duckduckgo.enabled=false", "-c", "mcp_servers.web_fetch.enabled=false", "--yolo", "exec", "hello"], captured["cmd"])
         self.assertTrue(captured["wake_for_llm_delivery"])
 
     def test_terminate_tracked_codex_processes_kills_recorded_child(self):
