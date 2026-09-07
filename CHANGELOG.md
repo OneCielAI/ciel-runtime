@@ -5,6 +5,8 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+## 0.2.38 — 2026-09-07
+
 - Disable inherited DuckDuckGo and web_fetch MCP servers with per-launch
   overrides for native Codex (direct/routed and app-server), without editing
   global settings or changing non-native provider launches.

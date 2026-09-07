@@ -1,0 +1,10 @@
+title: Publish stable 0.2.38 so existing clients can detect the update
+date: 2026-09-07
+authorization: User requested deployment after identifying unchanged published version.
+cause:
+  previous: main advanced but package version stayed at already-published 0.2.37.
+  correction: Synchronize npm package and Python runtime versions at 0.2.38.
+deployment:
+  channel: npm latest through main branch publish workflow
+  verification: Check CI, publish result, npm latest version/gitHead, and downloadable package.
+  exclusions: No user session restart or configuration changes.
