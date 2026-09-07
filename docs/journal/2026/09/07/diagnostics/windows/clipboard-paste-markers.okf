@@ -1,0 +1,18 @@
+title: Remote Windows clipboard paste exposes delimiter-like text
+date: 2026-09-07
+status: investigated; remote cause not established
+observation: User screenshot shows [20~ before a pasted URL and [201~ after it.
+interpretation: Consistent with exposed bracketed-paste delimiters; not evidence of mouse reporting.
+reference: https://github.com/microsoft/terminal/issues/12385
+protocol: Bracketed paste wraps text in ESC[200~ and ESC[201~.
+source_checks:
+  parent_input: windows_conpty._read_input_bytes uses ReadConsoleW then UTF-8 encoding.
+  pump: _pump_input observes draft state then writes input bytes without textual marker replacement.
+  transport: write loops until all bytes have been written to ConPTY.
+verification:
+  command: python -m unittest discover -s tests -p test_windows_conpty.py -v
+  result: 33 tests passed in 0.361s on local Windows.
+  coverage: Includes real ConPTY bracketed-paste/large Korean payload byte integrity and submission tests.
+  limitation: Does not reproduce the remote user's clipboard, outer terminal, or Codex TUI input path.
+next_evidence: Remote machine access or exact terminal/runtime versions and relevant transport startup logs.
+changes: No runtime code changes or deployment; do not strip literal marker-like text from user messages.

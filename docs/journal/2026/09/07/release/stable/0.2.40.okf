@@ -1,0 +1,19 @@
+title: Authenticate LAN-bound managed router health checks
+date: 2026-09-07
+version: 0.2.40
+authorization: User explicitly requested fix and new-version main deployment.
+evidence:
+  remote_log: Listener and client base both use 10.0.0.238:9683.
+  observed_http: Earlier external health request returned 401.
+  source: router_health omitted authentication; non-loopback requests require authentication.
+change:
+  health: Read existing administrative token for non-loopback health checks when administrative external access is enabled.
+  preserved: Bind address, port, global/workspace configuration, external authentication rules, active sessions.
+  secrets: No token generation or token logging in the health probe.
+verification:
+  real_http: Isolated HTTP server with production access policy: missing token fails, correct token makes router_up true, wrong token fails.
+  limitations: Test socket is loopback with simulated LAN peer policy; remote user's final restart not yet verified.
+  targeted: 2 tests passed in 0.513s.
+  runtime: 280 tests passed with 16 skips.
+  static: ruff and py_compile passed.
+deployment: main push triggers full-test npm latest publishing; registry and downloaded artifact checked after publishing.

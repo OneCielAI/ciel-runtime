@@ -5,6 +5,12 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+## 0.2.40 — 2026-09-07
+
+- Authenticate internal router health checks when the web backend uses a
+  specific LAN address. Preserve the external listener and authentication
+  requirements instead of reporting an authenticated running server as down.
+
 ## 0.2.39 — 2026-09-07
 
 - Fix native Codex startup failing with `invalid transport` when DuckDuckGo or

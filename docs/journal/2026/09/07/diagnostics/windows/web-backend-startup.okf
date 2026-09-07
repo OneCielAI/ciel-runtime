@@ -1,0 +1,12 @@
+title: Router startup timeout after remote Windows web backend configuration
+date: 2026-09-07
+status: conditional configuration bug reproduced; remote root cause unconfirmed
+evidence:
+  traceback: router_process_lifecycle.start_router_if_needed exhausted 30-second router_up polling.
+  remote_initial: http://10.0.0.238:9683/health returned 401 external authentication required.
+  remote_later: Connection timed out after 3015 milliseconds.
+  source: WebBackendSettings.client_host preserves specific LAN addresses; router_health sends no authentication; RouterAccessPolicy permits unauthenticated loopback only.
+  local_policy_reproduction: client_host=10.0.0.238; LAN health without token allowed=False; loopback health allowed=True.
+limitations: No remote router.log or configured bind host available; startup process crash and bind errors remain possible.
+changes: No runtime configuration or code modified.
+required_evidence: Remote router.log or authenticated backend access after service recovery.
