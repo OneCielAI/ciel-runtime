@@ -50,7 +50,7 @@ class RouterHealthAuthTests(unittest.TestCase):
         try:
             with (
                 patch.object(ciel_runtime, 'ROUTER_BASE', f'http://127.0.0.1:{server.server_port}'),
-                patch.object(ciel_runtime, 'is_loopback_address', return_value=False),
+                patch('ciel_runtime_support.router_access.is_loopback_address', return_value=False),
                 patch.object(ciel_runtime, 'load_config', return_value=config),
                 patch.object(ciel_runtime, 'router_external_access_token', return_value='') as token,
             ):

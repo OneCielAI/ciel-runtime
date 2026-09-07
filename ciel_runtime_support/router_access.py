@@ -7,6 +7,7 @@ import json
 import os
 import secrets
 import time
+import urllib.parse
 from collections.abc import Callable, Mapping, MutableMapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -62,6 +63,18 @@ class RouterAccessPolicy:
     parse_bool: Callable[[Any, bool], bool]
     parse_env_bool: Callable[[str | None, bool | None], bool | None]
     load_config: Callable[[], dict[str, Any]]
+
+    def health_headers(
+        self, base: str, config: dict[str, Any], token_provider: Callable[[], str],
+    ) -> dict[str, str]:
+        # Specific LAN binds are also used as the internal client address;
+        # those requests must satisfy external authentication just like peers.
+        if is_loopback_address(urllib.parse.urlparse(base).hostname):
+            return {}
+        if not self.administrative_external_access_enabled(config):
+            return {}
+        token = token_provider()
+        return {"Authorization": f"Bearer {token}"} if token else {}
 
     def remote_bridge_enabled(self, config: Mapping[str, Any]) -> bool:
         override = str(

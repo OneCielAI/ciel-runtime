@@ -3022,21 +3022,9 @@ def router_health_timeout_seconds() -> float:
 
 def router_health() -> dict[str, Any] | None:
     try:
-        headers: dict[str, str] = {}
-        if not is_loopback_address(urllib.parse.urlparse(ROUTER_BASE).hostname):
-            # A specific LAN bind address is also the local client address.
-            # Such requests still pass through external authentication.
-            config = load_config()
-            token = (
-                router_external_access_token()
-                if _ROUTER_ACCESS_POLICY.administrative_external_access_enabled(config)
-                else ""
-            )
-            if token:
-                headers["Authorization"] = f"Bearer {token}"
         data = http_json(
             f"{ROUTER_BASE}/health",
-            headers=headers,
+            headers=_ROUTER_ACCESS_POLICY.health_headers(ROUTER_BASE, load_config(), router_external_access_token),
             timeout=router_health_timeout_seconds(),
         )
         return data if isinstance(data, dict) else None
