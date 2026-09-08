@@ -1,0 +1,33 @@
+# Windows parent-terminal input protocol isolation
+
+## Evidence
+- User screenshot: after Codex exits, cmd receives ESC[9;15;9;0;32;1_ and similar records.
+- Microsoft protocol/issues: https://github.com/microsoft/terminal/issues/19576
+- Double encoded mouse reproduction: https://github.com/microsoft/terminal/issues/17851
+- Prior windows_conpty._mirror_bytes forwarded child DECSET without filtering.
+- Prior TERMINAL_INPUT_MODE_RESET omitted DEC private mode 9001.
+- These establish an output-boundary/cleanup defect, not the remote process crash cause.
+
+## Changes
+- New streaming WindowsTerminalModeFilter blocks child enabling Win32 input mode9001
+  and mouse reporting on the parent terminal; keeps display, paste, focus and Unicode.
+- Parses across read boundaries; streams control strings without accumulating bodies.
+- Parent startup/shutdown reset now includes 9001l; close failure still restores console.
+- User input is not pattern stripped, rewritten, or redirected to router transport.
+
+## Executed verification
+- test_windows_terminal_modes.py: 5/5 passed on native Windows.
+- Real ConPTY child exited7, raw output contained9001h; parent mirror did not;
+  final parent output ended with9001l. Parent output captured, not a real clicked UI.
+- test_windows_conpty.py: 33/33 passed including native transport and resize tests.
+- test_codex_paste_frames.py: 2/2 passed using locally installed actual Codex executable.
+  Split paste and OSC palette replies did not enter the Codex prompt as marker text.
+- test_terminal_input_frames.py: 6/6 passed. Architecture budget: 2/2 passed.
+- Replacing the filter with prior passthrough behavior: same native child test
+  failed exactly once, confirming the regression test detects the original leak.
+- Runtime group: 287 tests, OK (19 skipped); ruff repository check passed.
+
+## Limits
+- Remote Windows Terminal mouse clicks and the reported process crash have not been
+  reproduced directly. Do not report the remote crash as resolved by these tests.
+- This journal contains no authentication tokens or unrelated session content.

@@ -13,7 +13,9 @@ from ciel_runtime_support.channel_injection import (
     PromptInjection,
     RuntimeInjectionPolicy,
 )
-from ciel_runtime_support.terminal_platform_io import TERMINAL_INPUT_MODE_RESET
+from ciel_runtime_support.windows_terminal_modes import (
+    WINDOWS_TERMINAL_INPUT_MODE_RESET as TERMINAL_INPUT_MODE_RESET,
+)
 from ciel_runtime_support.windows_conpty import WindowsConPtySession, conpty_enabled
 
 
@@ -436,6 +438,7 @@ class WindowsConPtyPolicyTests(unittest.TestCase):
         self.assertEqual(TERMINAL_INPUT_MODE_RESET, reset)
         self.assertIn("\x1b[?1003l", reset)
         self.assertIn("\x1b[?1006l", reset)
+        self.assertIn("\x1b[?9001l", reset)
 
     def test_headless_conpty_does_not_write_terminal_reset(self):
         session = object.__new__(WindowsConPtySession)

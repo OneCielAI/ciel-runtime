@@ -5,6 +5,13 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+## 0.2.43 — 2026-09-08
+
+- Isolate child ConPTY Win32-input and mouse-reporting modes from the parent
+  Windows terminal. Preserve display controls, bracketed paste and Unicode.
+- Explicitly reset Win32-input mode on startup/shutdown and restore the parent
+  console even if closing the pseudo-console fails.
+
 ## 0.2.42 — 2026-09-08
 
 - Preserve fragmented OSC palette responses and other VT control strings as

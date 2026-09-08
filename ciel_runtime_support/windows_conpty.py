@@ -12,7 +12,10 @@ import time
 from collections.abc import Mapping
 from typing import Any, Callable
 
-from .terminal_platform_io import TERMINAL_INPUT_MODE_RESET
+from .windows_terminal_modes import (
+    WINDOWS_TERMINAL_INPUT_MODE_RESET,
+    WindowsTerminalModeFilter,
+)
 from .terminal_input_frames import TerminalInputFrames
 from .windows_command_line import command_line_for_create_process
 
@@ -435,19 +438,18 @@ class WindowsConPtySession:
             self._input_handle = None
         # Keep the output reader alive while ClosePseudoConsole asks its host
         # to flush and exit. Closing the output pipe first can deadlock conhost.
-        if self._hpc and self._kernel32:
-            self._kernel32.ClosePseudoConsole(self._hpc)
-            self._hpc = None
-        if self._output_thread is not None:
-            self._output_thread.join(timeout=1.0)
-        self._stop.set()
-        # Interactive TUIs enable DEC mouse/focus reporting in the terminal
-        # emulator.  A normal CLI shutdown disables those modes itself, but a
-        # crash leaves Windows Terminal sending sequences such as
-        # ``ESC[<35;29;23M`` into the parent shell on every mouse move.  The
-        # Win32 console-mode restore below cannot clear emulator-owned DEC
-        # state, so reset it explicitly while VT output is still enabled.
-        self._reset_and_restore_parent_console()
+        try:
+            if self._hpc and self._kernel32:
+                self._kernel32.ClosePseudoConsole(self._hpc)
+                self._hpc = None
+            if self._output_thread is not None:
+                self._output_thread.join(timeout=1.0)
+        finally:
+            self._stop.set()
+            # Win32 SetConsoleMode cannot clear emulator-owned DEC state.
+            # Reset even when closing conhost fails, then prevent late output
+            # from re-enabling modes after the parent console is restored.
+            self._reset_and_restore_parent_console()
         if self._output_handle and self._kernel32:
             try:
                 self._kernel32.CloseHandle(self._output_handle)
@@ -459,12 +461,12 @@ class WindowsConPtySession:
             self._process_handle = None
 
     def _reset_parent_terminal_modes(self) -> None:
-        self._write_parent_terminal_modes(TERMINAL_INPUT_MODE_RESET)
+        self._write_parent_terminal_modes(WINDOWS_TERMINAL_INPUT_MODE_RESET)
 
     def _reset_and_restore_parent_console(self) -> None:
         with self._parent_output_lock():
             self._write_parent_terminal_modes_unlocked(
-                TERMINAL_INPUT_MODE_RESET
+                WINDOWS_TERMINAL_INPUT_MODE_RESET
             )
             self._mirror_output = False
             self._restore_parent_console()
@@ -848,6 +850,10 @@ class WindowsConPtySession:
         with self._parent_output_lock():
             if not self._mirror_output:
                 return
+            mode_filter = getattr(self, "_parent_mode_filter", None)
+            if mode_filter is None:
+                mode_filter = self._parent_mode_filter = WindowsTerminalModeFilter()
+            data = mode_filter.feed(data, final=final)
             if self._stdout_console_handle is not None and self._output_decoder is not None:
                 text = self._output_decoder.decode(data, final=final)
                 if text:
