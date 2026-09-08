@@ -6,7 +6,7 @@ from collections.abc import Callable
 
 
 class TerminalInputFrames:
-    """Do not expose a partial CSI to a child's keyboard-event parser.
+    """Do not expose a partial VT sequence to a child's keyboard parser.
 
     A bounded idle timer preserves a standalone Escape key. Nothing is
     stripped or rewritten, including literal text resembling paste markers.
@@ -32,13 +32,24 @@ class TerminalInputFrames:
                         ready.append(byte)
                     continue
                 self.pending.append(byte)
-                # CSI/SS3 sequences end with a final byte; other ESC keys
-                # (including Alt+key) are complete after the next byte.
-                complete = (
-                    len(self.pending) == 2 and byte not in (ord('['), ord('O'))
-                ) or (
-                    len(self.pending) >= 3 and 0x40 <= byte <= 0x7e
-                ) or len(self.pending) >= 64
+                introducer = self.pending[1]
+                # OSC (including palette replies) and other control strings
+                # end at ST, not at their first printable byte. OSC also
+                # accepts BEL. An ESC ending one read may start ST in the next.
+                if introducer in b']PX^_':
+                    complete = (
+                        self.pending.endswith(b'\x1b\\')
+                        or (introducer == ord(']') and byte == 0x07)
+                        or byte in (0x18, 0x1a)  # CAN/SUB cancel the sequence.
+                        or len(self.pending) >= 4096
+                    )
+                else:
+                    # CSI/SS3 final byte, or a two-byte ESC/Alt key.
+                    complete = (
+                        len(self.pending) == 2 and introducer not in b'[O'
+                    ) or (
+                        len(self.pending) >= 3 and 0x40 <= byte <= 0x7e
+                    ) or len(self.pending) >= 64
                 if complete:
                     ready.extend(self.pending)
                     self.pending.clear()

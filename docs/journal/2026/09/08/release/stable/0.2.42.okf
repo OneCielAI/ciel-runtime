@@ -1,0 +1,18 @@
+title: Windows OSC palette response framing regression
+date: 2026-09-08
+version: 0.2.42
+request: Continue handling user-reported OSC 4 palette strings exposed in console input.
+cause:
+  source: TerminalInputFrames treated ESC ] as a complete two-byte key, forwarding the subsequent OSC body separately.
+  actual_cli_before: Codex rendered 4;0;rgb:0c0c/0c0c/0c0c followed by the test paste.
+change:
+  protocol: Keep OSC, DCS, SOS, PM and APC strings until ST; OSC also accepts BEL; CAN/SUB cancel.
+  safety: Never remove literal text; 4096-byte bound and existing 100ms idle flush retained.
+verification:
+  actual_cli_after: Both palette and paste tests passed; palette text absent and 1660377 still visible. No model prompt submitted.
+  frames: Six tests passed including every control-string split, BEL/ST, plain literal RGB text, bounded malformed strings, standalone Esc and paste.
+  static: Ruff passed.
+reference: https://invisible-island.net/xterm/ctlseqs/ctlseqs.html
+limitations: Remote user's terminal not directly manipulated; local real Codex reproduction uses simulated split parent-console reads.
+deployment: Continue main stable release workflow; validate npm artifact after publishing.
+excluded: No Kevin AI Net authentication changes or session restart.

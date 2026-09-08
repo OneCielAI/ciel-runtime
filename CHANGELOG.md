@@ -5,6 +5,12 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+## 0.2.42 — 2026-09-08
+
+- Preserve fragmented OSC palette responses and other VT control strings as
+  complete frames in the Windows input bridge. Prevent RGB palette replies
+  from appearing in the Codex draft; retain literal text and bounded buffering.
+
 ## 0.2.41 — 2026-09-07
 
 - Automatically authenticate Codex model and Ciel MCP requests to LAN-bound

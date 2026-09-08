@@ -5,6 +5,36 @@ from ciel_runtime_support.terminal_input_frames import TerminalInputFrames
 
 
 class TerminalInputFramesTests(unittest.TestCase):
+    def test_control_strings_are_atomic_at_every_split(self):
+        for payload in (b'\x1b]4;0;rgb:0c0c/0c0c/0c0c\x1b\\',
+                        b'\x1b]10;rgb:ffff/ffff/ffff\x07',
+                        b'\x1bP1$r0m\x1b\\', b'\x1b_hidden\x1b\\'):
+            for split in range(len(payload) + 1):
+                writes = []
+                frames = TerminalInputFrames(writes.append, idle_seconds=10)
+                try:
+                    frames.feed(payload[:split])
+                    frames.feed(payload[split:])
+                finally:
+                    frames.close()
+                self.assertEqual([payload], writes, (payload, split))
+
+    def test_literal_palette_text_is_not_filtered(self):
+        writes = []
+        frames = TerminalInputFrames(writes.append)
+        frames.feed(b']4;0;rgb:0c0c/0c0c/0c0c\\')
+        frames.close()
+        self.assertEqual([b']4;0;rgb:0c0c/0c0c/0c0c\\'], writes)
+
+    def test_unterminated_control_string_is_bounded_and_lossless(self):
+        writes = []
+        frames = TerminalInputFrames(writes.append, idle_seconds=10)
+        payload = b'\x1b]' + b'x' * 5000
+        frames.feed(payload)
+        self.assertLessEqual(len(frames.pending), 4096)
+        frames.close()
+        self.assertEqual(payload, b''.join(writes))
+
     def test_every_paste_split_preserves_payload_and_complete_markers(self):
         payload = b'\x1b[200~' + '1660377 한글 [20~ literal'.encode() + b'\x1b[201~'
         for split in range(len(payload) + 1):
