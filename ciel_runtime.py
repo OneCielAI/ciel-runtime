@@ -591,7 +591,8 @@ _CHANNEL_STDIN_WAKE_DELIVERED: set[int] = set()
 _CHANNEL_STDIN_WAKE_PROMPTS: dict[int, str] = {}
 _CHANNEL_STDIN_WAKE_BATCHES: dict[int, frozenset[int]] = {}
 _CHANNEL_STDIN_WAKE_FAILED: dict[int, str] = {}
-EVENT_BUS, TUI_OBSERVATION_BUS = EventBus(), TuiObservationBus()
+EVENT_BUS = EventBus()
+TUI_OBSERVATION_BUS = TuiObservationBus(error_publish=EVENT_BUS.publish)
 _RUNTIME_INPUT_STATUS_REPOSITORY = RuntimeInputStatusRepository(
     RUNTIME_INPUT_STATUS_PATH, EVENT_BUS.publish,
     lambda level, message: router_log(level, message), threading.RLock(),

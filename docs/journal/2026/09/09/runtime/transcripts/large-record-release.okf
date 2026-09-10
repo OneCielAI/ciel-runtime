@@ -1,0 +1,15 @@
+okf_version: "1.0"
+request: Fix oversized transcript record stall; deploy locally and nightly.
+implementation:
+  batch_limit: Soft target; first oversized JSONL record delivered whole.
+  record_limit: transcript_events.max_record_bytes, default16MiB, configurable up to64MiB, at least batch size.
+  safety: Incomplete records await newline; failed HTTP delivery retains cursor and stable idempotency key; over-hard-limit records remain blocked with explicit diagnostic.
+verification:
+  real_session: Read-only local 01a0752d-8db2-7952-a68d-7f703c31aa15.
+  exact_record_match: true
+  record_bytes: 1154262
+  offset_before: 520361
+  offset_after: 1674623
+  next_batch_bytes: 1048522
+  tests: Large-record2 and existing transcript6 passed; ruff passed.
+release_scope: Oversized record fix plus previously requested tested runtime-error events and webchat display. Unfinished Windows console guard excluded.

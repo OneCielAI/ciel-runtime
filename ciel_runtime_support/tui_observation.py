@@ -52,7 +52,8 @@ def _now() -> tuple[float, str]:
 class TuiObservationBus:
     """Bounded in-memory event bus with active-turn state and long polling."""
 
-    def __init__(self, *, enabled: bool | None = None, capacity: int | None = None) -> None:
+    def __init__(self, *, enabled: bool | None = None, capacity: int | None = None, error_publish=None) -> None:
+        self._error_publish = error_publish
         self.enabled = _env_bool("CIEL_RUNTIME_TUI_OBSERVATION", True) if enabled is None else enabled
         self.capacity = capacity or _env_int(
             "CIEL_RUNTIME_TUI_OBSERVATION_BUFFER", DEFAULT_OBSERVATION_BUFFER, 100, 20_000
@@ -142,7 +143,13 @@ class TuiObservationBus:
             self._next_id += 1
             self._events.append(event)
             self._condition.notify_all()
-            return event
+        if kind in {"output.error", "turn.error"} and self._error_publish is not None:
+            self._error_publish(
+                level="error", category="runtime.error", message=str(text or "Runtime request failed"),
+                source="router-response", request_id=request_id, provider=provider, model=model,
+                data={"phase": "error", "kind": kind, **dict(data or {})},
+            )
+        return event
 
     def publish_text(self, *, text: str, **fields: Any) -> None:
         value = str(text or "")

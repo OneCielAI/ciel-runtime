@@ -375,6 +375,9 @@ def render_web_chat_page(
     const scopedLastIdKey = LAST_ID_KEY + ':' + sessionId;
     let lastId = Number(localStorage.getItem(scopedLastIdKey) || '0') || 0;
     let eventSource = null;
+    let runtimeErrorSource = null;
+    let lastRuntimeErrorId = 0;
+    const runtimeErrorIds = new Set();
     let selectedFiles = [];
     let speechConfig = {{asr: {{enabled: false}}, tts: {{enabled: false, auto_speak: false}}}};
     let mediaStream = null;
@@ -749,6 +752,8 @@ def render_web_chat_page(
       instanceIdentityBlocked = detail;
       if (eventSource) eventSource.close();
       eventSource = null;
+      if (runtimeErrorSource) runtimeErrorSource.close();
+      runtimeErrorSource = null;
       sendButton.disabled = true;
       attachButton.disabled = true;
       micButton.disabled = true;
@@ -1723,6 +1728,7 @@ def render_web_chat_page(
     }}
     async function startChannelStream() {{
       if (!await verifyRuntimeIdentity()) return;
+      startRuntimeErrorStream();
       if (eventSource) eventSource.close();
       const url = `/ca/channel/stream?channel=${{encodeURIComponent(channel)}}&recipient=web&after=${{lastId}}&timeout=3600`;
       eventSource = new EventSource(url);
@@ -1738,6 +1744,29 @@ def render_web_chat_page(
         setState('reconnecting');
         setTimeout(startChannelStream, 1200);
       }};
+    }}
+    function startRuntimeErrorStream() {{
+      if (runtimeErrorSource) return;
+      runtimeErrorSource = new EventSource(`/ca/events/stream?category=runtime.error&after=${{lastRuntimeErrorId}}`);
+      runtimeErrorSource.addEventListener('event', ev => {{
+        if (instanceIdentityBlocked) return;
+        let event;
+        try {{ event = JSON.parse(ev.data); }} catch {{ return; }}
+        if (event.category !== 'runtime.error') return;
+        const id = String(event.id || ev.lastEventId || '');
+        if (id && runtimeErrorIds.has(id)) return;
+        if (id) {{
+          runtimeErrorIds.add(id);
+          if (runtimeErrorIds.size > 1000) runtimeErrorIds.delete(runtimeErrorIds.values().next().value);
+        }}
+        lastRuntimeErrorId = Math.max(lastRuntimeErrorId, Number(event.id) || 0);
+        const data = event.data || {{}};
+        const title = data.retrying ? 'Runtime error (retrying)' : 'Runtime error';
+        const origin = event.provider || data.runtime || '';
+        addBubble('system', title + (origin ? ' · ' + origin : '') + '\\n' + String(event.message || data.message || 'Request failed.'));
+      }});
+      // EventSource reconnects using Last-Event-ID; rendering is display-only.
+      // Never send these events back through sendMessage or the CLI input queue.
     }}
     async function sendMessage(text, files = [], options = {{}}) {{
       if (!await verifyRuntimeIdentity()) return;

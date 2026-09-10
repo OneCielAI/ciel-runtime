@@ -17,6 +17,7 @@ import urllib.request
 from .remote_instructions import expand_environment_references
 from .tool_call_events import project_transcript_tool_calls
 from .web_search_result_events import project_web_search_results
+from .runtime_error_events import project_runtime_errors
 
 
 @dataclass(frozen=True, slots=True)
@@ -186,8 +187,10 @@ class TranscriptDeltaDeliveryService:
         return True
 
     def poll_tool_call_events(self) -> int:
-        settings = ToolCallEventSettings.from_config(self.ports.load_config())
-        if not settings.enabled:
+        config = self.ports.load_config()
+        settings = ToolCallEventSettings.from_config(config)
+        errors_enabled = (config.get("runtime_error_events") or {}).get("enabled", True)
+        if not settings.enabled and not errors_enabled:
             return 0
         path = self.ports.latest_transcript()
         if path is None:
@@ -226,6 +229,16 @@ class TranscriptDeltaDeliveryService:
             except (TypeError, ValueError):
                 continue
             if not isinstance(record, dict):
+                continue
+            if errors_enabled:
+                for error in project_runtime_errors(record, runtime):
+                    self.ports.event_publish(
+                        level="error", category="runtime.error", message=error["message"],
+                        source="cli-transcript", session_id=session_id, provider=runtime,
+                        data={**error, "transcript_name": path.name},
+                    )
+                    count += 1
+            if not settings.enabled:
                 continue
             for result in project_web_search_results(record, runtime, search_state):
                 self.ports.event_publish(
@@ -285,7 +298,7 @@ class TranscriptDeltaDeliveryService:
                 settings = TranscriptDeliverySettings.from_config(config)
                 tool_settings = ToolCallEventSettings.from_config(config)
                 interval = min(settings.poll_interval_seconds, tool_settings.poll_interval_seconds)
-                if tool_settings.enabled:
+                if tool_settings.enabled or (config.get("runtime_error_events") or {}).get("enabled", True):
                     self.poll_tool_call_events()
                 if settings.enabled and settings.url:
                     self.poll_once()
@@ -355,24 +368,33 @@ class TranscriptDeltaDeliveryService:
         return hashlib.sha256(f"{url}\0{path}".encode("utf-8")).hexdigest()
 
     def _read_complete_batch(self, path: Path, offset: int, limit: int) -> bytes:
+        # Batch size is a throughput target, not a maximum JSONL record size.
+        # Read a larger first record atomically, with a separate memory bound.
+        config = self.ports.load_config()
+        raw = config.get("transcript_events")
+        values = raw if isinstance(raw, dict) else {}
+        record_limit = max(limit, min(64 * 1024 * 1024, max(1024,
+            int(values.get("max_record_bytes") or 16 * 1024 * 1024))))
         try:
             with path.open("rb") as stream:
                 stream.seek(offset)
-                data = stream.read(limit + 1)
+                data = stream.read(limit)
+                complete_end = data.rfind(b"\n")
+                if complete_end >= 0:
+                    return data[: complete_end + 1]
+                if len(data) < limit:
+                    return b""  # Writer has not finished the record yet.
+                remainder = stream.readline(record_limit - len(data) + 1)
+                data += remainder
         except OSError as exc:
             self._report_error(f"read {type(exc).__name__}: {exc}")
             return b""
-        if not data:
+        if len(data) > record_limit:
+            self._report_error(
+                f"record exceeds max_record_bytes={record_limit} path={path.name} offset={offset}"
+            )
             return b""
-        bounded = data[:limit]
-        complete_end = bounded.rfind(b"\n")
-        if complete_end < 0:
-            if len(data) > limit:
-                self._report_error(
-                    f"record exceeds max_batch_bytes={limit} path={path.name} offset={offset}"
-                )
-            return b""
-        return bounded[: complete_end + 1]
+        return data if data.endswith(b"\n") else b""
 
     def _cloud_event(
         self,

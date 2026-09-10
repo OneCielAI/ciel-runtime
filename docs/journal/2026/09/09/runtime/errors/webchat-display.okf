@@ -1,0 +1,16 @@
+okf_version: "1.0"
+request: Display received runtime errors in webchat while retaining independent app stream.
+branch: nightly
+implementation:
+  - Web Chat subscribes to runtime.error on existing authenticated EventSource path after instance identity check.
+  - Renders errors as system text bubbles; retrying flag shown; no markup execution.
+  - Bounded ID deduplication; stops error stream if runtime identity changes.
+  - Does not invoke sendMessage or POST to channel input; external event consumers unchanged.
+verification:
+  - Actual installed Chrome, headless Playwright, production rendered HTML and controlled SSE responses.
+  - Duplicate error frames produced one bubble; outgoing POST count0; script markup remained literal text.
+  - Screenshot inspected: C:/Users/djlov/AppData/Local/Temp/ciel-webchat-runtime-error.png
+  - Browser2, runtime287 (19 skipped), architecture2 tests passed; targeted ruff passed.
+limits:
+  - UI bubbles are not stored in channel history; recent event retention remains bounded in-memory.
+  - No remote deployment or push performed.

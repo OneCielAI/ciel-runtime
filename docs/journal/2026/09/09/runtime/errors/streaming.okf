@@ -1,0 +1,26 @@
+okf_version: "1.0"
+task: Forward CLI errors to existing outbound event stream for webchat clients.
+branch: nightly (already existed); unrelated Windows console recovery changes preserved.
+before:
+  routed_errors: TUI observation output.error and turn.error existed.
+  cli_transcripts: Tool calls/search results projected to shared events; no runtime error projection.
+changes:
+  category: runtime.error
+  sources: [cli-transcript, router-response]
+  transports: Existing /ca/events/stream SSE and /ca/events/ws WebSocket via shared EventBus.
+  readback: /ca/events/recent?category=runtime.error
+  default: Enabled; runtime_error_events.enabled=false disables transcript error projection.
+  parser: Explicit Codex error/stream_error and Claude API-error/retry/result envelopes; no natural-language keyword detection.
+  cursor: Existing bounded incremental transcript reader; errors work even when tool events disabled.
+  metadata: Session identifier for transcript, request identifier for routed response, runtime/error code/retry metadata when supplied.
+validation:
+  focused: Runtime error4, transcript6, TUI9, architecture2 tests passed.
+  actual_http: ThreadingHTTPServer with production EventHttpAdapter; urllib SSE received runtime.error request_id=request-test message=upstream unavailable.
+limits:
+  - No automatic mapping of a CLI error to a specific webchat message ID; session/request scope preserved without guessing.
+  - Terminal-only errors not emitted in structured transcripts and not passing through router remain unobserved.
+  - Existing generic event stream selected; no new chat bubble or new webhook destination created.
+  - No release or remote deployment requested/performed.
+references:
+  - https://raw.githubusercontent.com/openai/codex/main/codex-rs/protocol/src/protocol.rs
+  - https://github.com/anthropics/claude-agent-sdk-python/issues/1146

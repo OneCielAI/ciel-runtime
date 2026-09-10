@@ -5,6 +5,11 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+- Allow complete transcript records larger than the batch target (separate
+  max_record_bytes memory bound, default 16 MiB, configurable up to 64 MiB).
+- Forward structured runtime errors to the shared event stream and display
+  received errors in Web Chat without feeding them back into CLI input.
+
 ## 0.2.43 — 2026-09-08
 
 - Isolate child ConPTY Win32-input and mouse-reporting modes from the parent
