@@ -331,11 +331,27 @@ class ChannelWakeContext:
             if submit_delay_seconds is None
             else max(0.0, float(submit_delay_seconds))
         )
+        submission_receipt = None
+        if confirm_submit and getattr(master_fd, "supports_prompt_ready_wait", False):
+            from .submission_receipt import TranscriptSubmissionReceipt
+
+            def submission_receipt() -> bool:
+                return False
+
+            path = self.transcript_policy.latest_transcript()
+            if path is not None:
+                try:
+                    submission_receipt = TranscriptSubmissionReceipt(path, prompt)
+                except OSError:
+                    self.input.log("WARN", "channel_input_receipt unavailable=transcript_unreadable confirmation=fail_closed")
+            else:
+                self.input.log("WARN", "channel_input_receipt unavailable=transcript_missing confirmation=fail_closed")
         injector = channel_injection.ChannelPromptInjector(
             sleep=self.input.sleep,
             retry_delay_seconds=self.input.retry_delay_seconds,
             snapshot=snapshot or self.current_tmux_pane_text,
             log=self.input.log,
+            submission_receipt=submission_receipt,
         )
         return injector.inject(
             channel_injection.CallableInputTransport(

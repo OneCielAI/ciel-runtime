@@ -84,11 +84,13 @@ class ChannelPromptInjector:
         retry_delay_seconds: Callable[[], float],
         snapshot: Callable[[], str | None],
         log: Callable[[str, str], None],
+        submission_receipt: Callable[[], bool] | None = None,
     ) -> None:
         self._sleep = sleep
         self._retry_delay_seconds = retry_delay_seconds
         self._snapshot = snapshot
         self._log = log
+        self._submission_receipt = submission_receipt
 
     def inject(self, transport: InputTransport, request: PromptInjection) -> bool:
         policy = request.policy
@@ -146,6 +148,8 @@ class ChannelPromptInjector:
                 policy,
             )
             if prompt_ready is False:
+                if self._submission_receipt is not None and self._submission_receipt():
+                    return True
                 cleared = self._clear_unsubmitted_prompt(
                     transport,
                     policy.clear_input,
@@ -168,6 +172,8 @@ class ChannelPromptInjector:
             else None
         )
         for attempt in range(policy.submit_attempts):
+            if self._submission_receipt is not None and self._submission_receipt():
+                return True
             if bool(getattr(transport, "separate_input_stages", False)):
                 self._write_stage(
                     transport,
@@ -177,13 +183,14 @@ class ChannelPromptInjector:
                 )
             else:
                 transport.write(policy.submit_input)
-            if not before:
+            if not before and self._submission_receipt is None:
                 return True
             retry_delay = self._retry_delay_seconds()
             if retry_delay:
                 self._sleep(retry_delay)
             after = self._submission_snapshot(transport)
-            if after and after != before:
+            accepted = self._submission_receipt() if self._submission_receipt is not None else bool(after and after != before)
+            if accepted:
                 self._log("INFO", f"channel_stdin_proxy_submit_confirmed attempt={attempt + 1}")
                 return True
         self._log(

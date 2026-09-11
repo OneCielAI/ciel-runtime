@@ -1,0 +1,7 @@
+okf_version: "1.0"
+request: Deploy verified wakeup changes locally and to nightly.
+base_version: 0.2.45
+scope: ANSI and soft-wrap prompt detection, structured transcript submission receipts, regression tests.
+excluded: Unfinished Windows console guard and child-exit logging changes remain in working tree.
+verification_before_release: Receipt 5 tests; injection 13 tests; runtime 287 run with 19 skipped; channel 406 run with 80 skipped. Isolated native Codex 0.154.0 detected long Korean paste in 0.578s without submitting.
+live_session_policy: No running project restarted and no live input injected. Target-session end-to-end automatic submission remains unverified.
