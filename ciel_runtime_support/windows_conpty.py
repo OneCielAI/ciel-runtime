@@ -40,7 +40,7 @@ _VT_SINGLE_ESCAPE_PATTERN = re.compile(rb"\x1b[@-_]")
 
 
 def _collapsed_paste_marker_count(output: bytes | str) -> int:
-    data = output.encode("utf-8", errors="replace") if isinstance(output, str) else bytes(output)
+    data = _visible_terminal_text(output).encode("utf-8")
     return data.count(_CODEX_COLLAPSED_PASTE_MARKER) + len(
         _CLAUDE_COLLAPSED_PASTE_PATTERN.findall(data)
     )
@@ -227,7 +227,10 @@ class WindowsConPtySession:
             return bool(output)
         prefix = _visible_terminal_text(prompt)[:48]
         visible = _visible_terminal_text(output)
-        return bool(prefix and prefix in visible) or _collapsed_paste_marker_count(output) > 0
+        # A soft wrap may split a word, and cursor movements may insert spaces.
+        # Compare display text only; the bytes written to the CLI stay unchanged.
+        compact_prefix = "".join(prefix.split())
+        return bool(compact_prefix and compact_prefix in "".join(visible.split())) or _collapsed_paste_marker_count(output) > 0
 
     @staticmethod
     def _prompt_rendered_since(
