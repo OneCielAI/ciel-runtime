@@ -1,0 +1,18 @@
+okf_version: "1.0"
+request: Check and add OpenCode Zen and Go models.
+sources:
+  zen: https://opencode.ai/docs/zen/
+  go: https://opencode.ai/docs/go/
+evidence:
+  official_endpoint_rows: Zen 69, Go 28, fetched live and parsed from official HTML tables.
+  models_api: Unauthenticated Zen models request returned HTTP 403; documentation used as fallback evidence, not a claim of account availability.
+changes:
+  - Versioned provider-owned endpoint snapshot, with per-plan fallback model choices.
+  - Exact documented model protocol lookup before legacy family fallback; explicit user endpoint overrides still win.
+  - Correct longcat-2.0 and hy4-preview Go and ling-3.0-flash-fin-free Zen to chat/completions.
+  - Preserve MiniMax Zen chat versus Go messages distinction.
+limits:
+  - No paid generation or live session changes performed.
+  - No fabricated context/output/sampling values; provider metadata discovery remains in use.
+  - Existing Responses/Gemini unsupported metadata flags were not changed; catalog presence is not proof of full inference support.
+  - No deployment or branch merge requested in this turn; changes remain on nightly working tree.

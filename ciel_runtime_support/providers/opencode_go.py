@@ -1,10 +1,14 @@
 """OpenCode Go provider adapter."""
 
 from dataclasses import dataclass, field
+from typing import Mapping
+
+from ..architecture import MessageProtocol
 
 from .base import provider_configuration
 from .constants import DEFAULT_REQUEST_TIMEOUT_MS, PROVIDER_DEFAULT_BASE_URLS
 from .opencode import OPENCODE_GO_OX_ALPHA_FREE_MODEL, OpenCodeProviderAdapter
+from .opencode_catalog import OPENCODE_GO_MODEL_PROTOCOLS
 
 
 @dataclass(frozen=True)
@@ -14,7 +18,8 @@ class OpenCodeGoProviderAdapter(OpenCodeProviderAdapter):
     configuration_defaults_value: dict = field(
         default_factory=lambda: provider_configuration(
             "qwen3.6-plus",
-            custom_models=("qwen3.6-plus", OPENCODE_GO_OX_ALPHA_FREE_MODEL),
+            custom_models=("qwen3.6-plus", OPENCODE_GO_OX_ALPHA_FREE_MODEL,
+                           *(model for model in OPENCODE_GO_MODEL_PROTOCOLS if model != "qwen3.6-plus")),
             native_compat=True,
             context_window=1048576,
             max_output_tokens=8192,
@@ -29,6 +34,10 @@ class OpenCodeGoProviderAdapter(OpenCodeProviderAdapter):
         )
     )
     api_key_display_name_value: str = "OpenCode Go"
+
+    def documented_model_protocols(self) -> Mapping[str, MessageProtocol]:
+        return OPENCODE_GO_MODEL_PROTOCOLS
+
     api_key_launch_error_value: str = (
         "Launch blocked: OpenCode Go requires a OpenCode Go API key."
     )

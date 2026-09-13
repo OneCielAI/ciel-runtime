@@ -20,6 +20,7 @@ from .base import (
     provider_configuration,
 )
 from .constants import DEFAULT_REQUEST_TIMEOUT_MS, PROVIDER_DEFAULT_BASE_URLS
+from .opencode_catalog import OPENCODE_ZEN_MODEL_PROTOCOLS
 
 
 OPENCODE_ZEN_OX_ALPHA_FREE_MODEL = "x-preview-f-free"
@@ -36,6 +37,7 @@ class OpenCodeProviderAdapter(HttpBearerProviderAdapter):
             custom_models=(
                 "claude-sonnet-4-6",
                 OPENCODE_ZEN_OX_ALPHA_FREE_MODEL,
+                *(model for model in OPENCODE_ZEN_MODEL_PROTOCOLS if model != "claude-sonnet-4-6"),
             ),
             native_compat=True,
             context_window=200000,
@@ -138,6 +140,9 @@ class OpenCodeProviderAdapter(HttpBearerProviderAdapter):
             if normalized.startswith(prefix):
                 normalized = normalized[len(prefix) :]
                 break
+        documented = self.documented_model_protocols().get(normalized)
+        if documented is not None:
+            return documented
         if self.name == "opencode-go":
             if normalized.startswith(("gpt-", "grok-", "muse-spark-")):
                 return "openai_responses"
@@ -170,6 +175,9 @@ class OpenCodeProviderAdapter(HttpBearerProviderAdapter):
         ):
             return "openai_chat"
         return "anthropic_messages"
+
+    def documented_model_protocols(self) -> Mapping[str, MessageProtocol]:
+        return OPENCODE_ZEN_MODEL_PROTOCOLS
 
     def supported_protocols(
         self, config: ProviderConfig, model: str | None = None

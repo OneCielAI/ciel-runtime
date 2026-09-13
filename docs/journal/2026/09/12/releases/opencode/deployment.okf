@@ -1,0 +1,7 @@
+okf_version: "1.0"
+request: Merge OpenCode changes to main, deploy stable, create a new nightly branch and deploy nightly.
+version: 0.2.46
+scope: OpenCode Zen/Go documented model catalogs and protocol selection.
+excluded: Unfinished Windows console guard and child-exit diagnostic working-tree changes.
+verification: 57 OpenCode tests passed; live official endpoint tables matched 69 Zen and 28 Go models; no paid inference validation.
+branch_policy: New work branch nightly-0.2.46; deployment tracking branch nightly retained because npm workflow is triggered only by main/nightly.

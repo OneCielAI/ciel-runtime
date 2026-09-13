@@ -276,6 +276,8 @@ class OpenCodeProviderTests(unittest.TestCase):
         cfg = self.opencode_cfg(
             api_key="sk-opencode-test",
             current_model="deepseek-v4-flash-free",
+            # Test the supplied provider catalog, not the offline snapshot.
+            custom_models=[],
         )
         pcfg = cfg["providers"]["opencode"]
         models = [
