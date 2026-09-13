@@ -1,4 +1,5 @@
 import io
+import json
 import unittest
 
 from ciel_runtime_support.openai_responses_stream import (
@@ -25,6 +26,46 @@ class _Handler:
 
 
 class OpenAIResponsesStreamTests(unittest.TestCase):
+    def test_upstream_401_is_dependency_failure_not_client_login_failure(self):
+        for stream in (True, False):
+            with self.subTest(stream=stream):
+                writes = []
+                handler = _Handler()
+                write_openai_responses_error(
+                    handler, "invalid credentials", stream=stream, status=401,
+                    error_type="authentication_error", upstream_provider="test-provider",
+                    services=self.services(writes),
+                )
+                _, payload, status = writes[0]
+                self.assertEqual(424, status)
+                self.assertEqual(401, payload["error"]["upstream_status"])
+                self.assertEqual("test-provider", payload["error"]["upstream_provider"])
+                self.assertEqual("upstream_authentication_error", payload["error"]["code"])
+                self.assertIn("invalid credentials", payload["error"]["message"])
+                self.assertEqual(b"", handler.wfile.getvalue())
+
+    def test_native_auth_401_is_not_rewritten(self):
+        handler = _Handler()
+        write_openai_responses_error(handler, "login required", stream=True, status=401,
+                                     services=self.services())
+        self.assertEqual(401, handler.status)
+
+    def test_started_upstream_auth_failure_preserves_stream_and_metadata(self):
+        handler = _Handler()
+        handler.status = 200
+        write_openai_responses_error(
+            handler, "invalid credentials", stream=True, status=401,
+            upstream_provider="test-provider", response_started=True,
+            response_id="resp_test", services=self.services(),
+        )
+        self.assertEqual(200, handler.status)
+        self.assertEqual([], handler.headers)
+        data = next(line[6:] for line in handler.wfile.getvalue().decode().splitlines()
+                    if line.startswith("data: "))
+        payload = json.loads(data)
+        self.assertEqual("response.failed", payload["type"])
+        self.assertEqual(401, payload["response"]["error"]["upstream_status"])
+
     def services(self, writes=None):
         return OpenAIResponsesStreamServices(
             to_response=lambda message, source_body=None: message,

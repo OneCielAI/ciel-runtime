@@ -5,6 +5,16 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+## 0.2.47 — 2026-09-12
+
+- Report non-native upstream authentication failures on Responses routes as
+  HTTP 424 dependency failures, preserving the provider, upstream HTTP 401,
+  error type and message. Prevent Codex from hiding these failures behind an
+  unrelated ChatGPT token refresh. Native OpenAI and router access authentication
+  retain their original HTTP semantics.
+
+## Earlier unreleased changes
+
 - Allow complete transcript records larger than the batch target (separate
   max_record_bytes memory bound, default 16 MiB, configurable up to 64 MiB).
 - Forward structured runtime errors to the shared event stream and display

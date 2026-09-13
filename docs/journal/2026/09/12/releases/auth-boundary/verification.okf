@@ -1,0 +1,16 @@
+title: Responses upstream authentication isolation, 0.2.47
+scope: Non-native upstream HTTP 401 only; native OpenAI and router access policy unchanged.
+implementation:
+  transport: Upstream failure projected to HTTP 424 with JSON even for requested streaming when headers are not sent. Already-started streams emit response.failed without new headers.
+  metadata: error.upstream_status=401, upstream_provider, code=upstream_authentication_error, original error type and original message retained within prefixed message.
+  routes: Translated Responses and provider-native Responses, HTTPError and structured UpstreamFailure. Native Codex route deliberately excluded.
+verification:
+  unit: python -m unittest discover -s tests -p test_openai_responses_stream.py; 9 tests passed.
+  boundary: python -m unittest discover -s tests -p test_responses_provider_auth_boundary.py; native/non-native and raw/structured matrix passed.
+  runtime_binary: codex-cli 0.154.0
+  runtime_harness: Isolated CODEX_HOME, synthetic provider and ChatGPT credentials, loopback server and refresh endpoint; actual production write_openai_responses_error used by server.
+  before: Two /v1/responses attempts followed by /oauth/token; user-visible refresh token revoked error.
+  after: One /v1/responses request with correct synthetic provider key, no /oauth/token; turn.failed displays unexpected status 424 Failed Dependency: Upstream provider diagnostic-provider rejected authentication (HTTP 401): invalid credentials.
+  assertions: Original message present, unrelated refresh message absent, no retry, no OAuth request; PASS.
+  static: Modified-source Ruff checks and documentation metadata checks passed.
+limitations: Does not make an invalid upstream API key valid. Remote Ollama account identity check rejected currently stored key with HTTP 401 invalid credentials. No remote credentials or processes changed.

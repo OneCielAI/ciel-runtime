@@ -261,6 +261,7 @@ def handle_openai_responses_request(
             stream=stream,
             status=exc.code,
             error_type=_responses_error_type(exc.code),
+            **({"upstream_provider": provider} if exc.code == 401 else {}),
         )
     except UpstreamFailure as exc:
         # The upstream status, type and message were all read before this was
@@ -273,6 +274,7 @@ def handle_openai_responses_request(
             stream=stream,
             status=exc.status_code,
             error_type=exc.anthropic_error_type,
+            **({"upstream_provider": provider} if exc.status_code == 401 else {}),
         )
     except UpstreamStreamReadError as exc:
         core.event_bus.publish(
@@ -467,6 +469,7 @@ def _handle_provider_responses_route(
             stream=bool(body.get("stream", True)),
             status=exc.code,
             error_type=_responses_error_type(exc.code),
+            **({"upstream_provider": provider} if exc.code == 401 else {}),
         )
     except UpstreamFailure as exc:
         delivery.mark_failed(
@@ -478,6 +481,7 @@ def _handle_provider_responses_route(
             stream=bool(body.get("stream", True)),
             status=exc.status_code,
             error_type=exc.anthropic_error_type,
+            **({"upstream_provider": provider} if exc.status_code == 401 else {}),
             response_started=exc.output_started,
             response_id=exc.response_id,
         )

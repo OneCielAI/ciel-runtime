@@ -51,26 +51,37 @@ def write_openai_responses_error(
     error_type: str = "api_error",
     response_started: bool = False,
     response_id: str | None = None,
+    upstream_provider: str | None = None,
     services: OpenAIResponsesStreamServices,
 ) -> None:
+    error = {"type": error_type, "message": message}
+    if upstream_provider is not None and status == 401:
+        # The client authenticated to this router; a different credential at
+        # the upstream dependency failed. HTTP 401 here makes Codex refresh
+        # its unrelated OpenAI login, hiding the actual provider failure.
+        error.update(
+            code="upstream_authentication_error",
+            upstream_status=status,
+            upstream_provider=upstream_provider,
+            message=f"Upstream provider {upstream_provider} rejected authentication (HTTP {status}): {message}",
+        )
+        status = 424
+        if not response_started:
+            stream = False
     if response_started:
         failed = {
             "type": "response.failed",
             "response": {
                 "id": str(response_id or "resp_ciel_upstream_failure"),
                 "status": "failed",
-                "error": {
-                    "type": error_type,
-                    "code": error_type,
-                    "message": message,
-                },
+                "error": {"code": error_type, **error},
             },
         }
         handler.wfile.write(b"\n\n")
         _emit(handler, "response.failed", failed)
         handler.wfile.flush()
         return
-    payload = {"type": "error", "error": {"type": error_type, "message": message}}
+    payload = {"type": "error", "error": error}
     if not stream:
         services.write_json(handler, payload, status)
         return
