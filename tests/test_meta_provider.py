@@ -1614,7 +1614,7 @@ class ProviderResponsesPassthroughTests(unittest.TestCase):
             error_type="request_too_large",
         )
 
-    def test_router_preserves_upstream_401_as_authentication_error(self):
+    def test_router_preserves_upstream_401_with_provider_auth_boundary(self):
         error_body = (
             b'{"error":{"type":"invalid_authentication_error",'
             b'"message":"The API Key appears to be invalid or may have expired"}}'
@@ -1682,6 +1682,7 @@ class ProviderResponsesPassthroughTests(unittest.TestCase):
             stream=False,
             status=401,
             error_type="authentication_error",
+            upstream_provider="kimi",
         )
 
     def test_router_returns_local_compaction_as_success_without_upstream_retry(self):
