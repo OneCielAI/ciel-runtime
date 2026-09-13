@@ -1,0 +1,21 @@
+okf_version: "1.0"
+request: Add new Ollama Cloud models, merge into main, return to nightly.
+sources:
+  catalog: https://ollama.com/api/tags
+  metadata: POST https://ollama.com/api/show with model deepseek-v4.1-flash
+  card: https://ollama.com/library/deepseek-v4.1-flash
+verified_live:
+  model_count: 20 (previous audit 19)
+  added_model: deepseek-v4.1-flash
+  architecture: deepseek_v41
+  context_tokens: 1048576
+  capabilities: completion, thinking, tools, vision
+  sampling_parameters: Not published; no invented sampling defaults.
+changes:
+  - Add new model to cloud provider fallback/custom defaults without changing selected model.
+  - Preserve dynamic official API discovery and show-based context/vision metadata.
+  - Regression tests cover discoverable image inputs and boolean thinking fallback, without assuming V4 effort contract applies to V4.1.
+validation:
+  - Executed existing catalog refresh against live unauthenticated official tags API into memory; new model present among 20.
+  - Projected real show metadata through runtime model configuration function; context and image modality assertions passed.
+limits: No paid inference or live session switch performed. Fine-grained Ollama think levels for new architecture remain unverified.

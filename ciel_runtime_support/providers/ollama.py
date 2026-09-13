@@ -169,7 +169,7 @@ class OllamaCloudProviderAdapter(OllamaProviderAdapter):
     configuration_defaults_value: dict = field(
         default_factory=lambda: provider_configuration(
             "glm-5.1",
-            custom_models=("glm-5.1", "deepseek-v4-flash:0731"),
+            custom_models=("glm-5.1", "deepseek-v4-flash:0731", "deepseek-v4.1-flash"),
             rate_limit_rpm=0,
             rate_limit_status=False,
             num_ctx="auto",
