@@ -324,12 +324,29 @@ def message_confirms_completion(message: dict[str, Any]) -> bool:
 def message_requires_completion_check(
     body: dict[str, Any], message: dict[str, Any]
 ) -> bool:
-    """Check a tool-backed final turn without inspecting natural language.
+    """Check a text-only final turn without inspecting natural language.
 
-    Some upstreams omit reasoning blocks. A visible no-tool reply immediately
-    after tool results is still ambiguous: it may be the completed answer or
-    merely a progress update. Let the model confirm through the private tool.
+    While tools are available a visible no-tool reply is ambiguous: it may be
+    the completed answer or merely a progress update. Observed turns ended on
+    such updates after tool results, straight after the user's message, and
+    after compaction, with and without reasoning blocks, on unrelated
+    providers. Let the model confirm through the private tool.
     """
+
+    tool_choice = body.get("tool_choice")
+    tools_forbidden = (
+        tool_choice.get("type") if isinstance(tool_choice, dict) else tool_choice
+    ) == "none"
+    return bool(
+        body.get("tools")
+        and not tools_forbidden
+        and not message_has_tool_use(message)
+        and message_text(message).strip()
+    )
+
+
+def _retry_still_unfinished(body: dict[str, Any], message: dict[str, Any]) -> bool:
+    """Bound Kimi's loop by structure: reasoning or a trailing tool result."""
 
     latest_user = next(
         (
@@ -690,7 +707,7 @@ def recover_preamble_only_turn(
 
         retried_text = message_text(retried)
         retryable = services.should_retry(retry_body, retried_text, []) or (
-            kimi_turn and message_requires_completion_check(retry_body, retried)
+            kimi_turn and _retry_still_unfinished(retry_body, retried)
         )
         services.log(
             "WARN" if retryable else "INFO",

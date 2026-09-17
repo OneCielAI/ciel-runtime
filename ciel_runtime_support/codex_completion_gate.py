@@ -134,27 +134,29 @@ class ResponsesCompletionObservation:
         )
 
 
+def request_allows_completion_check(body: dict[str, Any]) -> bool:
+    """Return whether the client let the model act in this request at all."""
+
+    return bool(body.get("tools")) and body.get("tool_choice") != "none"
+
+
 def request_requires_completion_check(
     body: dict[str, Any], observation: ResponsesCompletionObservation
 ) -> bool:
-    """Use response structure only; never classify natural-language wording."""
+    """Use response structure only; never classify natural-language wording.
 
-    input_items = body.get("input")
-    last_input = (
-        next((item for item in reversed(input_items) if isinstance(item, dict)), {})
-        if isinstance(input_items, list)
-        else {}
-    )
-    follows_tool_result = last_input.get("type") in {
-        "function_call_output",
-        "custom_tool_call_output",
-    }
+    Any text-only final is ambiguous while tools are available: observed turns
+    ended on a progress announcement after a tool result, straight after the
+    user's message, and after Codex's mid-turn compaction, with and without a
+    reasoning item, across unrelated providers and models. What came before
+    the reply therefore decides nothing; the model confirms through the
+    private tool or does the work.
+    """
 
     return bool(
-        body.get("tools")
+        request_allows_completion_check(body)
         and observation.parseable
         and observation.status == "completed"
-        and (observation.has_reasoning or follows_tool_result)
         and not observation.has_action
         and observation.visible_text.strip()
         and observation.output
@@ -205,5 +207,6 @@ def completion_check_body(
 __all__ = [
     "ResponsesCompletionObservation",
     "completion_check_body",
+    "request_allows_completion_check",
     "request_requires_completion_check",
 ]

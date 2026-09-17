@@ -207,6 +207,20 @@ class MetaProviderTests(unittest.TestCase):
             {"effort": "minimal", "summary": "auto"}, fresh["reasoning"]
         )
 
+    def test_responses_projects_unsupported_tool_choice_to_auto(self):
+        # Live 400: only "auto" is supported for tool_choice on Meta Responses.
+        named = {"type": "function", "name": "lookup_issue"}
+        for tool_choice, expected in (("required", "auto"), (named, "auto"), ("auto", "auto")):
+            with self.subTest(tool_choice=tool_choice):
+                body = {"model": "muse-spark-1.3-contributor", "input": "hello", "tool_choice": tool_choice}
+
+                normalized = ciel_runtime.apply_provider_adapter_request_policy(
+                    "meta", self.meta_cfg(), body, "openai_responses"
+                )
+
+                self.assertEqual(expected, normalized["tool_choice"])
+                self.assertEqual(tool_choice, body["tool_choice"])
+
     def test_responses_adds_configured_retention_for_codex_cache_key(self):
         body = {
             "model": "muse-spark-1.3-contributor",

@@ -295,6 +295,11 @@ class MetaModelProviderAdapter(HttpBearerProviderAdapter):
         tools = request.get("tools")
         if isinstance(tools, list):
             request["tools"] = [cls._normalize_responses_tool(tool) for tool in tools]
+        # Meta Responses answers 400 "only "auto" is supported for tool_choice"
+        # to "required" and to named function choices; keep the tools usable.
+        tool_choice = request.get("tool_choice")
+        if tool_choice == "required" or isinstance(tool_choice, Mapping):
+            request["tool_choice"] = "auto"
         raw_input = request.get("input")
         if isinstance(raw_input, list):
             request["input"] = [cls._normalize_responses_input(item) for item in raw_input]

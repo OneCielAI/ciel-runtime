@@ -88,10 +88,53 @@ class ResponsesCompletionObservationTests(unittest.TestCase):
         self.assertTrue(
             codex_completion_gate.request_requires_completion_check(body, observation)
         )
-        body["input"].append({"type": "message", "role": "user", "content": "new question"})
-        self.assertFalse(
-            codex_completion_gate.request_requires_completion_check(body, observation)
-        )
+
+    def test_text_only_final_is_checked_whatever_preceded_it(self):
+        output = [
+            {
+                "type": "message",
+                "role": "assistant",
+                "content": [{"type": "output_text", "text": "任意 응답 arbitrary"}],
+            }
+        ]
+        observation = observe(completed_sse(output))
+        tools = [{"type": "function", "name": "shell"}]
+        preceding = {
+            "user message": {"type": "message", "role": "user", "content": "do it"},
+            "compaction summary": {
+                "type": "message",
+                "role": "user",
+                "content": [{"type": "input_text", "text": "Another language model…"}],
+            },
+            "tool output": {"type": "custom_tool_call_output", "call_id": "c", "output": ""},
+        }
+
+        for name, item in preceding.items():
+            with self.subTest(name):
+                self.assertTrue(
+                    codex_completion_gate.request_requires_completion_check(
+                        {"tools": tools, "input": [item]}, observation
+                    )
+                )
+
+    def test_request_that_cannot_act_is_never_checked(self):
+        output = [
+            {
+                "type": "message",
+                "role": "assistant",
+                "content": [{"type": "output_text", "text": "summary"}],
+            }
+        ]
+        observation = observe(completed_sse(output))
+        tools = [{"type": "function", "name": "shell"}]
+
+        for body in ({"input": []}, {"tools": [], "input": []}, {"tools": tools, "tool_choice": "none"}):
+            with self.subTest(body=body):
+                self.assertFalse(
+                    codex_completion_gate.request_requires_completion_check(
+                        body, observation
+                    )
+                )
 
     def test_protocol_action_skips_check_without_tool_name_lists(self):
         output = [

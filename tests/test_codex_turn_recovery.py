@@ -324,13 +324,28 @@ class RecoverPreambleOnlyTurnTests(unittest.TestCase):
         self.assertEqual(original, recovered)
         self.assertEqual(1, len(calls))
 
-    def test_no_tool_answer_without_prior_tool_result_needs_no_completion_check(self):
+    def test_no_tool_answer_without_prior_tool_result_is_checked_too(self):
         body = work_request_body()
         body["messages"] = body["messages"][:1]
-        self.assertFalse(
+        self.assertTrue(
             codex_turn_recovery.message_requires_completion_check(
-                body, text_message("검사 결과입니다.")
+                body, text_message("공식 문서 3개를 확인하겠습니다.")
             )
+        )
+
+    def test_request_that_forbids_tools_needs_no_completion_check(self):
+        answer = text_message("검사 결과입니다.")
+        for tool_choice in ("none", {"type": "none"}):
+            with self.subTest(tool_choice=tool_choice):
+                body = work_request_body()
+                body["tool_choice"] = tool_choice
+                self.assertFalse(
+                    codex_turn_recovery.message_requires_completion_check(body, answer)
+                )
+        body = work_request_body()
+        body["tools"] = []
+        self.assertFalse(
+            codex_turn_recovery.message_requires_completion_check(body, answer)
         )
 
     def test_plan_mode_skips_no_reasoning_completion_check(self):
