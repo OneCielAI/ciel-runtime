@@ -324,24 +324,41 @@ def message_confirms_completion(message: dict[str, Any]) -> bool:
 def message_requires_completion_check(
     body: dict[str, Any], message: dict[str, Any]
 ) -> bool:
-    """Gate a no-tool reasoning response without inspecting natural language."""
+    """Check a tool-backed final turn without inspecting natural language.
+
+    Some upstreams omit reasoning blocks. A visible no-tool reply immediately
+    after tool results is still ambiguous: it may be the completed answer or
+    merely a progress update. Let the model confirm through the private tool.
+    """
+
+    latest_user = next(
+        (
+            item
+            for item in reversed(body.get("messages") or [])
+            if isinstance(item, dict) and item.get("role") == "user"
+        ),
+        {},
+    )
+    latest_content = latest_user.get("content") or []
+    follows_tool_result = isinstance(latest_content, list) and any(
+        isinstance(block, dict) and block.get("type") == "tool_result"
+        for block in latest_content
+    )
 
     return bool(
         body.get("tools")
-        and message_has_reasoning(message)
+        and (message_has_reasoning(message) or follows_tool_result)
         and not message_has_tool_use(message)
         and message_text(message).strip()
     )
 
 
 def _is_kimi_turn(provider: str, body: dict[str, Any]) -> bool:
-    """Identify Kimi across its native and Ollama Cloud provider routes."""
+    """Identify Kimi by model identity across provider transports."""
 
     provider_name = str(provider or "").strip().casefold()
     if provider_name == "kimi":
         return True
-    if provider_name not in {"ollama", "ollama-cloud"}:
-        return False
     model = str(body.get("model") or "").strip().casefold()
     return "kimi-k3" in model
 
@@ -484,6 +501,7 @@ class CodexTurnRecoveryServices:
     should_retry: Callable[[dict[str, Any], str, list[Any]], bool]
     collect_message: Callable[..., dict[str, Any]]
     log: Callable[[str, str], Any]
+    is_plan_mode: Callable[[dict[str, Any]], bool] | None = None
     prepare_reasoning_budget_retry: Callable[
         [str, dict[str, Any], dict[str, Any]],
         tuple[dict[str, Any], dict[str, Any], str],
@@ -523,6 +541,7 @@ def recover_preamble_only_turn(
         not empty_end_turn
         and not repeated_tool_guard
         and not reasoning_only
+        and not (services.is_plan_mode and services.is_plan_mode(body))
         and message_requires_completion_check(body, message)
     )
     if (

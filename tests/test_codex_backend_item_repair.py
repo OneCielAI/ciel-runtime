@@ -284,6 +284,44 @@ class NativeCodexCompletionGateTests(unittest.TestCase):
             any("codex_completion_gate_continued" in message for _, message in logs)
         )
 
+    def test_no_reasoning_after_tool_result_is_replaced_by_work_tool_call(self):
+        original = _completed_response(
+            [
+                {
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [{"type": "output_text", "text": "candidate"}],
+                }
+            ],
+            "resp_1",
+        )
+        validated = _completed_response(
+            [{"type": "function_call", "call_id": "call_2", "name": "shell", "arguments": "{}"}],
+            "resp_2",
+        )
+        upstream = CompletionGateUpstream([original, validated])
+        handler = FakeHandler()
+        logs = []
+        body = self.body()
+        body["input"].extend(
+            [
+                {"type": "function_call", "call_id": "call_1", "name": "shell", "arguments": "{}"},
+                {"type": "function_call_output", "call_id": "call_1", "output": "inspection only"},
+            ]
+        )
+
+        completion_gate_adapter(upstream, logs).forward_json(
+            handler, "codex", {}, body, mutate_responses=True
+        )
+
+        self.assertEqual(2, len(upstream.bodies))
+        self.assertEqual("required", upstream.bodies[1]["tool_choice"])
+        self.assertIn(b'"type": "function_call"', handler.wfile.written)
+        self.assertNotIn(b"candidate", handler.wfile.written)
+        self.assertTrue(
+            any("codex_completion_gate_continued" in message for _, message in logs)
+        )
+
     def test_private_confirmation_tool_relays_original_without_exposing_it(self):
         original = _completed_response(self.candidate_output("finished result"), "resp_1")
         confirmation = _completed_response(

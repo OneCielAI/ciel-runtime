@@ -1,0 +1,21 @@
+okf_version: "1.0"
+task: "Prevent tool-backed Codex turns from silently ending with an unconfirmed text reply across routed and native Responses paths."
+evidence:
+  live_transcript: "YETI-01 E:\\ciel-qb-mcp Codex session emitted task_complete after a progress reply without the promised work tool call."
+  route: "Router activity showed provider=opencode-go, model=kimi-k3, endpoint=https://opencode.ai/zen/go/v1/chat/completions."
+  code_gap: "Completion check previously required a reasoning block; the observed final replies had no reasoning block. Kimi's bounded retry did not recognize the opencode-go route."
+  cross_provider_gap: "Native OpenAI Responses completion gate also required a reasoning output item, so a text-only candidate after function_call_output skipped its independent confirmation path. This source-level condition is provider-independent; the upstream cause of text-only endings remains unverified."
+  corroborating_report: "OpenAI Codex GitHub issue #45096 reports a similar custom Responses premature completion; issue #43329 reports premature completion on a stock OpenAI backend. These are independent user reports, not proof of the cause in our sessions."
+changes:
+  - "A visible no-tool reply after a tool_result now enters the private completion check regardless of reasoning-block presence."
+  - "Kimi K3 model identity enables the existing bounded retry across provider transports."
+  - "Plan Mode remains excluded through the existing policy callback."
+  - "Native OpenAI Responses gate now checks a text-only candidate when the current input ends with a function/custom tool output, even without a reasoning item."
+verification:
+  regression_tests: "151 targeted tests passed: 47 turn recovery, 22 backend item repair, 6 completion gate, 18 reasoning-output recovery, and 58 OpenCode provider. Python compileall and git diff --check passed."
+  isolated_full_suite: "The repository's npm test command passed all four isolated groups on 2026-09-17: unit 1,444 (46 skipped), router 1,108, channel 406 (80 skipped), runtime 293 (19 skipped); 3,251 tests total."
+  provider_probe: "From YETI-01, authenticated OpenCode Go kimi-k3 Chat Completions with x-opencode-session and required tool choice returned HTTP 200, finish_reason=tool_calls, one ciel_runtime_confirm_completion tool call."
+  preliminary_full_suite: "Earlier direct unittest discovery was interrupted after unrelated launch tests opened an interactive Codex resume TUI. The supported isolated npm test subsequently passed."
+  limitation: "The updated local runtime has not been installed into the active YETI-01 Codex process; its 187 MB live session was not replayed end-to-end."
+  causal_limit: "No captured raw upstream terminal frame from an affected routed or native turn; no conclusion about a recent provider/model regression or Codex CLI change."
+scope: "Local code and tests only; no remote installation or release push."

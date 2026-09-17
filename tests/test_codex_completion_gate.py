@@ -68,6 +68,31 @@ class ResponsesCompletionObservationTests(unittest.TestCase):
             )
         )
 
+    def test_tool_result_followed_by_no_reasoning_text_requires_check(self):
+        output = [
+            {
+                "type": "message",
+                "role": "assistant",
+                "content": [{"type": "output_text", "text": "任意 응답 arbitrary"}],
+            }
+        ]
+        observation = observe(completed_sse(output))
+        body = {
+            "tools": [{"type": "function", "name": "shell"}],
+            "input": [
+                {"type": "function_call_output", "call_id": "call_1", "output": "ok"}
+            ],
+        }
+
+        self.assertFalse(observation.has_reasoning)
+        self.assertTrue(
+            codex_completion_gate.request_requires_completion_check(body, observation)
+        )
+        body["input"].append({"type": "message", "role": "user", "content": "new question"})
+        self.assertFalse(
+            codex_completion_gate.request_requires_completion_check(body, observation)
+        )
+
     def test_protocol_action_skips_check_without_tool_name_lists(self):
         output = [
             {"type": "reasoning", "summary": []},

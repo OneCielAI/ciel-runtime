@@ -211,7 +211,7 @@ class RecoverPreambleOnlyTurnTests(unittest.TestCase):
         self.assertEqual("assistant", replayed[-2]["role"])
         self.assertEqual("user", replayed[-1]["role"])
         self.assertIn(
-            codex_turn_recovery.CODEX_CONTINUATION_NUDGE,
+            codex_turn_recovery.CODEX_STRICT_CONTINUATION_NUDGE,
             replayed[-1]["content"][0]["text"],
         )
 
@@ -273,6 +273,85 @@ class RecoverPreambleOnlyTurnTests(unittest.TestCase):
             [tool["name"] for tool in calls[0]["tools"]],
         )
         self.assertEqual({"type": "any"}, calls[0]["tool_choice"])
+
+    def test_opencode_go_kimi_no_reasoning_progress_after_tool_result_is_checked(self):
+        body = work_request_body(model="ciel-runtime-opencode-go-kimi-k3")
+        original = text_message(
+            "화면에서 방해 창이 뜨는 지점을 확인했습니다. "
+            "현재 `ui_state` 검사 결과와 이벤트 순서를 토대로 "
+            "방해 창을 감지하고 처리하는 로직을 추가하겠습니다. "
+            "관련 경로를 다시 확인하고 구현과 검증을 이어가겠습니다."
+        )
+        calls = []
+
+        self.assertFalse(
+            ciel_runtime.should_retry_preamble_only_turn(
+                body, codex_turn_recovery.message_text(original), []
+            )
+        )
+        self.assertTrue(codex_turn_recovery._is_kimi_turn("opencode-go", body))
+        self.assertTrue(
+            codex_turn_recovery.message_requires_completion_check(body, original)
+        )
+
+        recovered = codex_turn_recovery.recover_preamble_only_turn(
+            None,
+            "opencode-go",
+            {},
+            body,
+            original,
+            self._services(tool_message("실제 작업 도구 실행"), calls),
+        )
+
+        self.assertTrue(codex_turn_recovery.message_has_tool_use(recovered))
+        self.assertEqual(1, len(calls))
+        self.assertEqual({"type": "any"}, calls[0]["tool_choice"])
+        self.assertEqual(
+            codex_turn_recovery.CODEX_COMPLETION_TOOL_NAME,
+            calls[0]["tools"][-1]["name"],
+        )
+
+    def test_no_tool_answer_after_tool_result_can_confirm_completion_privately(self):
+        body = work_request_body(model="ciel-runtime-opencode-go-kimi-k3")
+        original = text_message("검사 결과를 정리했습니다.")
+        calls = []
+
+        recovered = codex_turn_recovery.recover_preamble_only_turn(
+            None, "opencode-go", {}, body, original,
+            self._services(completion_message(), calls),
+        )
+
+        self.assertEqual(original, recovered)
+        self.assertEqual(1, len(calls))
+
+    def test_no_tool_answer_without_prior_tool_result_needs_no_completion_check(self):
+        body = work_request_body()
+        body["messages"] = body["messages"][:1]
+        self.assertFalse(
+            codex_turn_recovery.message_requires_completion_check(
+                body, text_message("검사 결과입니다.")
+            )
+        )
+
+    def test_plan_mode_skips_no_reasoning_completion_check(self):
+        body = work_request_body()
+        body["messages"][0]["attachment"] = {"type": "plan_mode"}
+        calls = []
+        original = text_message("계획을 정리했습니다.")
+        services = self._services(tool_message(), calls)
+        services = codex_turn_recovery.CodexTurnRecoveryServices(
+            should_retry=services.should_retry,
+            collect_message=services.collect_message,
+            log=services.log,
+            is_plan_mode=ciel_runtime.plan_mode_active,
+        )
+
+        recovered = codex_turn_recovery.recover_preamble_only_turn(
+            None, "opencode-go", {}, body, original, services
+        )
+
+        self.assertEqual(original, recovered)
+        self.assertEqual([], calls)
 
     def test_completion_tool_keeps_original_answer_private(self):
         calls = []

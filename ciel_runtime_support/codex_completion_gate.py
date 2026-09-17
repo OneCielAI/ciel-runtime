@@ -139,11 +139,22 @@ def request_requires_completion_check(
 ) -> bool:
     """Use response structure only; never classify natural-language wording."""
 
+    input_items = body.get("input")
+    last_input = (
+        next((item for item in reversed(input_items) if isinstance(item, dict)), {})
+        if isinstance(input_items, list)
+        else {}
+    )
+    follows_tool_result = last_input.get("type") in {
+        "function_call_output",
+        "custom_tool_call_output",
+    }
+
     return bool(
         body.get("tools")
         and observation.parseable
         and observation.status == "completed"
-        and observation.has_reasoning
+        and (observation.has_reasoning or follows_tool_result)
         and not observation.has_action
         and observation.visible_text.strip()
         and observation.output
