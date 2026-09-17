@@ -1,0 +1,34 @@
+title: OpenCode Zen and Go Union Alpha model card and runtime profile
+sources:
+  zen: https://opencode.ai/docs/ko/zen/ (Union Alpha Free endpoint and price)
+  go: https://opencode.ai/docs/ko/go/ (Union Alpha Free endpoint and price)
+  card: https://models.dev/api.json (opencode and opencode-go union-alpha entries)
+  catalog_origin: https://github.com/anomalyco/models.dev/blob/dev/README.md (OpenCode uses this catalog internally)
+verified_metadata:
+  model_id: union-alpha
+  zen_endpoint: https://opencode.ai/zen/v1/messages
+  go_endpoint: https://opencode.ai/zen/go/v1/messages
+  protocol: anthropic_messages for both plans
+  name: Union Alpha Free
+  description: Stealth model built for agentic coding
+  context_window_tokens: 262144
+  max_output_tokens: 131072
+  input_modalities: text, image
+  output_modalities: text
+  reasoning: true
+  tool_call: true
+  reasoning_options: [] (no documented effort levels)
+  open_weights: false
+  catalog_release_date: 2026-09-16
+  price: free on both plans at time of verification
+implementation:
+  catalog: Exact official model ID and Messages routing for both provider catalogs.
+  profile: Selected Union Alpha applies model-specific context, output, and vision support to both plans.
+  scope: No inferred effort levels or sampling parameters. Other models retain their prior profiles.
+verification:
+  command: python -m unittest discover -s tests -p test_opencode*.py
+  result: 60 OpenCode tests passed.
+  regression: Both plans expose union-alpha; client operations and runtime-prefixed aliases select Anthropic Messages; other models unchanged.
+  runtime_capture: apply_provider_model_profile on current_model=union-alpha yields context_window=262144, max_model_len=262144, max_output_tokens=131072, supports_vision=true for both plans; repeated application is idempotent.
+  static: Ruff on changed Python files and git diff --check passed.
+limitations: Real hosted generation not exercised. No credentials, live sessions, installed runtime, git remotes or published packages changed.

@@ -20,7 +20,11 @@ from .base import (
     provider_configuration,
 )
 from .constants import DEFAULT_REQUEST_TIMEOUT_MS, PROVIDER_DEFAULT_BASE_URLS
-from .opencode_catalog import OPENCODE_ZEN_MODEL_PROTOCOLS
+from .opencode_catalog import (
+    OPENCODE_UNION_ALPHA_CONTEXT_WINDOW,
+    OPENCODE_UNION_ALPHA_MAX_OUTPUT_TOKENS,
+    OPENCODE_ZEN_MODEL_PROTOCOLS,
+)
 
 
 OPENCODE_ZEN_OX_ALPHA_FREE_MODEL = "x-preview-f-free"
@@ -85,6 +89,23 @@ class OpenCodeProviderAdapter(HttpBearerProviderAdapter):
             capacity_strategy="configured_first",
             settings_strategy="standard",
             hosted_timeout=True,
+        )
+
+    def model_configuration_profile(
+        self, config: ProviderConfig
+    ) -> tuple[Mapping[str, object], str | None]:
+        if self.normalize_model_id(config.model).casefold() != "union-alpha":
+            return {}, None
+        return (
+            {
+                "context_window": OPENCODE_UNION_ALPHA_CONTEXT_WINDOW,
+                "max_model_len": OPENCODE_UNION_ALPHA_CONTEXT_WINDOW,
+                "max_output_tokens": OPENCODE_UNION_ALPHA_MAX_OUTPUT_TOKENS,
+                "supports_vision": True,
+                "model_profile": "opencode-union-alpha-262k",
+            },
+            "OpenCode Union Alpha profile applied: 262,144-token context and "
+            "131,072-token maximum output.",
         )
 
     def router_native_anthropic_enabled(

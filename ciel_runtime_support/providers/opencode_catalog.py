@@ -1,4 +1,4 @@
-"""Official OpenCode endpoint snapshot (2026-09-12).
+"""Official OpenCode endpoint snapshot (Union Alpha verified 2026-09-16).
 
 Sources: https://opencode.ai/docs/zen/ and https://opencode.ai/docs/go/.
 Live model discovery remains authoritative for availability; this snapshot
@@ -6,7 +6,13 @@ provides offline choices and exact per-plan protocol routing. No model capacity
 or sampling parameters are inferred from model names.
 """
 
+# OpenCode's models.dev catalog publishes the same Union Alpha limits for
+# opencode and opencode-go: https://models.dev/api.json
+OPENCODE_UNION_ALPHA_CONTEXT_WINDOW = 262144
+OPENCODE_UNION_ALPHA_MAX_OUTPUT_TOKENS = 131072
+
 OPENCODE_ZEN_MODEL_PROTOCOLS = {
+    "union-alpha": "anthropic_messages",
     "gpt-6-astra": "openai_responses",
     "gpt-5.6-sol": "openai_responses",
     "gpt-5.6-terra": "openai_responses",
@@ -79,6 +85,7 @@ OPENCODE_ZEN_MODEL_PROTOCOLS = {
 }
 
 OPENCODE_GO_MODEL_PROTOCOLS = {
+    "union-alpha": "anthropic_messages",
     "grok-4.6": "openai_responses",
     "gpt-5.6-luna": "openai_responses",
     "glm-5.3-flash": "openai_chat",
@@ -108,4 +115,3 @@ OPENCODE_GO_MODEL_PROTOCOLS = {
     "hy4-preview": "openai_chat",
     "hy3": "openai_chat",
 }
-
