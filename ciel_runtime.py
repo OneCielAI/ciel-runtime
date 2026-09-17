@@ -3659,7 +3659,7 @@ def compatibility_test_services() -> CompatibilityTestServices:
                                    provider_native_compat_enabled, upstream_api_model_id, vllm_native_compat_enabled, vllm_tool_parser_hint),
         request=CompatibilityTestRequest(compatibility_endpoint_probe_lines, compatibility_failure_diagnosis, compatibility_http_error_message,
                                          post_json, provider_headers, provider_ip_family_probe_lines, run_compatibility_api_key_probes,
-                                         start_router_if_needed, stop_router_processes),
+                                         start_router_if_needed, stop_router_processes, lambda p, c: configured_provider_adapter(p, c).compatibility_headers(provider_contract_config(p, c))),
         protocol=CompatibilityTestProtocol(compatibility_text_request, compatibility_tool_request, compatibility_tool_result_request,
                                            find_compat_tool_use, known_compatibility_tool_use_blocker, normalize_thinking_for_non_anthropic_provider,
                                            normalize_tool_choice_for_provider, ollama_chat_request, resolve_requested_model, response_text_preview),

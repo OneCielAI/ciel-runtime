@@ -334,6 +334,12 @@ class ProviderAdapter(ABC):
     def build_headers(self, config: ProviderConfig, api_key: str | None) -> Mapping[str, str]:
         """Build upstream HTTP headers for this provider."""
 
+    def compatibility_headers(self, config: ProviderConfig) -> Mapping[str, str]:
+        """Return headers scoped to one provider compatibility-test conversation."""
+
+        del config
+        return {}
+
     def parse_rate_limit(self, response_or_error: Any) -> RateLimitState | None:
         """Return a rate-limit observation when the provider exposes one."""
 

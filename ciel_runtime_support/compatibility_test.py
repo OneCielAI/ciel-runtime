@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 from dataclasses import dataclass
 import sys
-from typing import Any, Callable
+from typing import Any, Callable, Mapping
 import urllib.error
 
 
@@ -57,6 +57,7 @@ class CompatibilityTestRequest:
     run_api_key_probes: Callable[..., Any]
     start_router: Callable[..., Any]
     stop_router: Callable[..., Any]
+    compatibility_headers: Callable[[str, dict[str, Any]], Mapping[str, str]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -190,6 +191,7 @@ def run_compatibility_test(
     url = join_url(base, "/v1/messages")
     headers = provider_headers(provider, pcfg)
     headers[COMPATIBILITY_TEST_HEADER] = "1"
+    headers.update(request.compatibility_headers(provider, pcfg))
     if ollama_native:
         headers = {
             "content-type": "application/json",
@@ -367,4 +369,3 @@ def run_compatibility_test(
 
     set_compatibility_cache(cfg, provider, model, True, 200, "text/tool_use/tool_result OK", "")
     print("Compatibility: OK")
-

@@ -1,12 +1,87 @@
 import copy
 import io
 import unittest
+from argparse import Namespace
+from contextlib import redirect_stdout
+from dataclasses import replace
 from unittest import mock
+from uuid import UUID
 
 import ciel_runtime
+from ciel_runtime_support.compatibility_test import run_compatibility_test
 
 
 class OpenCodeProviderTests(unittest.TestCase):
+    def test_go_routed_codex_session_header_is_preserved(self):
+        go = self.opencode_go_cfg()["providers"]["opencode-go"]
+        headers = ciel_runtime.provider_headers(
+            "opencode-go",
+            go,
+            {"x-codex-session-id": "codex-session-1", "user-agent": "codex-cli/1"},
+            "openai_responses",
+        )
+
+        self.assertEqual("codex-session-1", headers["x-codex-session-id"])
+        self.assertEqual("codex-cli/1", headers["user-agent"])
+        self.assertNotIn("x-opencode-session", headers)
+
+    def test_go_full_compatibility_reuses_one_session_header(self):
+        cfg = self.opencode_go_cfg(current_model="union-alpha", api_key="test-key")
+        calls = []
+
+        def fake_post(_url, body, *, headers, **_kwargs):
+            calls.append(dict(headers))
+            if body.get("tools") and not any(
+                message.get("role") == "assistant" for message in body["messages"]
+            ):
+                return {
+                    "content": [{"type": "tool_use", "id": "tool-1", "name": "compat_echo", "input": {"text": "ping"}}]
+                }
+            return {"content": [{"type": "text", "text": "FINAL_OK"}]}
+
+        original = ciel_runtime.compatibility_test_services()
+        services = replace(
+            original,
+            config=replace(
+                original.config,
+                load_config=lambda: cfg,
+                ensure_current_model=lambda _provider, _config: (True, []),
+                save_config=lambda _config: None,
+            ),
+            request=replace(
+                original.request,
+                post_json=fake_post,
+                compatibility_endpoint_probe_lines=lambda *_args, **_kwargs: [],
+                provider_ip_family_probe_lines=lambda *_args, **_kwargs: [],
+                run_api_key_probes=lambda *_args, **_kwargs: [],
+            ),
+            output=replace(
+                original.output,
+                set_compatibility_cache=lambda *_args: None,
+            ),
+        )
+        output = io.StringIO()
+        with redirect_stdout(output):
+            run_compatibility_test(Namespace(mode="full", timeout=1.5), services=services)
+
+        self.assertIn("Compatibility: OK", output.getvalue())
+        self.assertEqual(3, len(calls))
+        self.assertEqual(1, len({headers["x-opencode-session"] for headers in calls}))
+        self.assertTrue(all(headers["user-agent"].startswith("ciel-runtime/") for headers in calls))
+
+    def test_go_compatibility_uses_one_provider_session_per_probe(self):
+        request = ciel_runtime.compatibility_test_services().request
+        go = self.opencode_go_cfg()["providers"]["opencode-go"]
+        first = request.compatibility_headers("opencode-go", go)
+        second = request.compatibility_headers("opencode-go", go)
+
+        self.assertEqual(str(UUID(first["x-opencode-session"])), first["x-opencode-session"])
+        self.assertNotEqual(first["x-opencode-session"], second["x-opencode-session"])
+        self.assertTrue(first["user-agent"].startswith("ciel-runtime/"))
+        self.assertEqual(
+            {}, request.compatibility_headers("opencode", self.opencode_cfg()["providers"]["opencode"])
+        )
+
     def opencode_cfg(self, **overrides):
         pcfg = copy.deepcopy(ciel_runtime.DEFAULT_CONFIG["providers"]["opencode"])
         pcfg.update(overrides)

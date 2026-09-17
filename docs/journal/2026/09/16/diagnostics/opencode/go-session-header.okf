@@ -1,0 +1,26 @@
+okf_version: "1.0"
+task: Diagnose OpenCode Go Union Alpha 400 and 503 reports after nightly deployment.
+user_observations:
+  compatibility: HTTP 400 MissingSessionID from Console Go during Text response.
+  codex: HTTP 503 overloaded_error, Console Go Upstream request failed: Endpoint is unavailable, via local router /v1/responses on port 9407.
+official_source: https://opencode.ai/docs/ko/go/ (client requirements: distinct user agent and stable x-opencode-session per conversation; Codex native session header is recognized when forwarded)
+source_evidence:
+  compatibility_test: ciel_runtime_support/compatibility_test.py creates provider_headers(provider, pcfg) without inbound headers or session ID before text/tool phases.
+  provider_request_access: No-inbound path creates content-type, anthropic-version, user-agent, and provider credentials, but no session header.
+  header_forwarding: Inbound end-to-end session headers are preserved by the generic forwarding policy when provided.
+  synthetic_capture: Compatibility header names contain no session header; a synthetic x-codex-session-id survives normal openai_responses header projection.
+  local_reachability: No listener on 127.0.0.1:9407 from this computer at inspection time, so the user's 503 request was not directly captured.
+confirmed: The current compatibility test fails OpenCode Go's documented session-header requirement; the reported 400 is consistent with this confirmed omission.
+unconfirmed: The 503 response has a different upstream error body. No evidence yet that it shares the MissingSessionID cause; upstream endpoint availability or a request-specific routing failure remain possibilities.
+implementation:
+  adapter_contract: ProviderAdapter compatibility_headers defaults to empty.
+  go_adapter: OpenCodeGoProviderAdapter supplies one UUID x-opencode-session and Ciel Runtime user-agent for each compatibility-test run.
+  test_pipeline: The test creates the provider headers once and reuses them across text, tool-use, and tool-result phases.
+  production_proxy: Existing end-to-end forwarding of native Codex/Claude session headers is unchanged.
+verification:
+  simulated_full_probe: Three test phases received the same x-opencode-session and completed with Compatibility OK.
+  regressions: OpenCode 63 tests and architecture-budget tests passed.
+  full_suite: npm test passed; unit 1444 (46 skipped), router 1108, channel 406 (80 skipped), runtime 287 (19 skipped).
+  static: Changed Python files pass Ruff; documentation metadata and git diff --check pass.
+  live_hosted: Not exercised because no OpenCode Go credential is configured on this computer.
+  503: No change claims to repair upstream Endpoint is unavailable; requires separate live request evidence.

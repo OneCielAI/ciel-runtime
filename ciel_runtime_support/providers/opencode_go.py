@@ -2,8 +2,10 @@
 
 from dataclasses import dataclass, field
 from typing import Mapping
+from uuid import uuid4
 
-from ..architecture import MessageProtocol
+from ..architecture import MessageProtocol, ProviderConfig
+from ..runtime_constants import VERSION
 
 from .base import provider_configuration
 from .constants import DEFAULT_REQUEST_TIMEOUT_MS, PROVIDER_DEFAULT_BASE_URLS
@@ -37,6 +39,13 @@ class OpenCodeGoProviderAdapter(OpenCodeProviderAdapter):
 
     def documented_model_protocols(self) -> Mapping[str, MessageProtocol]:
         return OPENCODE_GO_MODEL_PROTOCOLS
+
+    def compatibility_headers(self, config: ProviderConfig) -> Mapping[str, str]:
+        del config
+        return {
+            "x-opencode-session": str(uuid4()),
+            "user-agent": f"ciel-runtime/{VERSION}",
+        }
 
     api_key_launch_error_value: str = (
         "Launch blocked: OpenCode Go requires a OpenCode Go API key."
