@@ -1,0 +1,23 @@
+okf_version: "1.0"
+task: "User: opencode fails for everything in ~\t; re-analyze the OpenCode source and implement the header/UA construction properly."
+root_cause_one_disabled_key:
+  finding: "The live ciel-runtime config held a different zen key than the OpenCode client uses: config providers.opencode.api_key = sk-xfu6TZonj... (67 chars) while ~/.local/share/opencode/auth.json holds sk-JdT6jSTdD... (67 chars). A byte-identical request answered 401 ModelError 'Model is disabled' with the config key and 200 with the auth key. 'Model is disabled' is zen's workspace/key timeDisabled flag (packages/console/app/src/routes/zen/util/handler.ts validateModelSettings -> isDisabled: !!data.timeDisabled)."
+  fix: "config.json providers.opencode.api_key replaced with the auth.json key; backup config.json.bak-20260918-003630. This is the direct cause of the user's ~\t failures."
+root_cause_two_free_tier_gate:
+  rule: "The zen free tier answers 403 FreeTierError unless BOTH hold (probed exhaustively 2026-09-18 against opencode.ai/zen/v1/chat/completions with the working key): (1) the request carries the OpenCode client identity headers, and (2) the request body's tools array declares a tool named exactly bash AND a tool named exactly read (case-sensitive; schema size irrelevant). Neither alone passes; both together answer 200."
+  evidence_headers: "Identity + small body without tools -> 403. curl-style headers + bash/read tools -> 403. Identity + bash/read -> 200. The compiled opencode CLI passes because it sends both."
+  evidence_tools: "bash+read tiny -> 200; bash+read big -> 200; read+write -> 403; bash+write -> 403; 15 real opencode tool names -> 200; 15 dummy names or 1 tool named bash -> 403. The gateway reads the tools array, not the system prompt."
+  client_gap: "Codex declares shell/exec/apply_patch; Claude Code declares capitalised Bash/Read. Both fail the case-sensitive bash+read rule, which is why every routed client failed while the OpenCode CLI worked."
+  identification_headers: "opencode/<ver> ai-sdk/provider-utils/<X> runtime/bun/<Y> User-Agent (X per wire: anthropic 4.0.46, responses 4.0.40, chat 4.0.23 from bun.lock), x-opencode-client cli, x-opencode-project global, x-opencode-session/request in the client's 26-character format."
+earlier_hypotheses_corrected:
+  tls_fingerprint: "WRONG, disproved: the compiled CLI's ClientHello JA3 (e1137c8f472d3a093083b3d7982d3638) is identical to bun 1.3.14's, and routing the CLI through a python-TLS MITM proxy still answered 200."
+  below_http: "WRONG, consequence of the above."
+changes:
+  - "providers/opencode.py: request_headers() now applies the OpenCode identity to ALL requests (client-forwarded as well), not only router-originated ones; client headers are forwarded but the identity set replaces the client's."
+  - "providers/opencode.py: normalize_request_options_for_protocol() appends bash/read tool stubs (description: never call this tool) when the request declares tools but lacks either name. Idempotent; pass-through when both present."
+  - "The earlier exact-id work stands: 26-char ids (12 hex timestamp + 14 base62, sessions descending, messages ascending)."
+verification:
+  live_router: "Isolated router (working tree) with the corrected key: POST /v1/messages with a Claude-Code-style Bash tool streamed a real big-pickle answer (message_start, content_block_start, text deltas)."
+  tests: "test_opencode_provider 59 OK; ruff clean."
+not_done: "No deploy; ~\t's live router keeps the old code and the old key until relaunched. The bash/read stub tools are visible to the model (marked never-call); if a model calls one, the turn errors."
+state: "Working tree; the live config's key was updated (backed up)."

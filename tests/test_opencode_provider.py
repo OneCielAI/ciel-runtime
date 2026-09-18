@@ -21,9 +21,14 @@ class OpenCodeProviderTests(unittest.TestCase):
             "openai_responses",
         )
 
+        # Client headers are forwarded, but every request to the gateway
+        # carries the OpenCode identity: the zen free tier answers 403 to a
+        # request without it (probed 2026-09-18).
         self.assertEqual("codex-session-1", headers["x-codex-session-id"])
-        self.assertEqual("codex-cli/1", headers["user-agent"])
-        self.assertNotIn("x-opencode-session", headers)
+        self.assertTrue(
+            headers["user-agent"].startswith(f"opencode/{OPENCODE_CLIENT_VERSION} ai-sdk/")
+        )
+        self.assertEqual("cli", headers["x-opencode-client"])
 
     def test_router_originated_requests_present_the_opencode_client_identity(self):
         # Live: a Go request without any session header is answered with

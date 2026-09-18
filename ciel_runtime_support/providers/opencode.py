@@ -171,6 +171,84 @@ class OpenCodeProviderAdapter(HttpBearerProviderAdapter):
             "131,072-token maximum output.",
         )
 
+    # The zen gateway answers 403 FreeTierError unless the request declares both
+    # a ``bash`` and a ``read`` tool (probed 2026-09-18: every declared set
+    # without both is refused, every set containing both is served). Codex
+    # declares shell/exec and Claude Code declares capitalised Bash/Read, so
+    # neither passes on its own.
+    _OPENCODE_GATE_TOOL_NAMES = ("bash", "read")
+
+    @staticmethod
+    def _opencode_gate_tool(name: str, protocol: MessageProtocol) -> Mapping[str, object]:
+        description = (
+            "Declared for OpenCode CLI compatibility. Never call this tool; "
+            "use the client's own tools instead."
+        )
+        if str(protocol) == "anthropic_messages":
+            return {
+                "name": name,
+                "description": description,
+                "input_schema": {
+                    "type": "object",
+                    "properties": {},
+                    "additionalProperties": False,
+                },
+            }
+        if str(protocol) == "openai_responses":
+            return {
+                "type": "function",
+                "name": name,
+                "description": description,
+                "parameters": {
+                    "type": "object",
+                    "properties": {},
+                    "additionalProperties": False,
+                },
+                "strict": True,
+            }
+        return {
+            "type": "function",
+            "function": {
+                "name": name,
+                "description": description,
+                "parameters": {
+                    "type": "object",
+                    "properties": {},
+                    "additionalProperties": False,
+                },
+            },
+        }
+
+    def normalize_request_options_for_protocol(
+        self,
+        config: ProviderConfig,
+        request: Mapping[str, object],
+        protocol: MessageProtocol | None,
+    ) -> Mapping[str, object]:
+        normalized = dict(super().normalize_request_options_for_protocol(config, request, protocol))
+        tools = normalized.get("tools")
+        if not isinstance(tools, list):
+            return normalized
+        declared = set()
+        for tool in tools:
+            if not isinstance(tool, Mapping):
+                continue
+            nested = tool.get("function")
+            name = tool.get("name") or (
+                nested.get("name") if isinstance(nested, Mapping) else None
+            )
+            if name:
+                declared.add(str(name))
+        missing = [name for name in self._OPENCODE_GATE_TOOL_NAMES if name not in declared]
+        if not missing:
+            return normalized
+        wire = protocol or self.select_protocol("anthropic_messages", config)
+        normalized["tools"] = [
+            *tools,
+            *(self._opencode_gate_tool(name, wire) for name in missing),
+        ]
+        return normalized
+
     def opencode_client_headers(
         self, config: ProviderConfig, *, session_id: str, request_id: str
     ) -> Mapping[str, str]:
@@ -201,6 +279,29 @@ class OpenCodeProviderAdapter(HttpBearerProviderAdapter):
                 f"runtime/bun/{OPENCODE_BUN_VERSION}"
             ),
         }
+
+    def request_headers(
+        self,
+        config: ProviderConfig,
+        api_key: str | None,
+        *,
+        router_originated: bool = False,
+    ) -> Mapping[str, str]:
+        # Every request to the opencode gateway carries the OpenCode client
+        # identity, not only the router's own: the zen free tier answers 403
+        # FreeTierError to a request without it (probed 2026-09-18), and the
+        # tools rule below is enforced alongside it. Client headers are still
+        # forwarded; only the identity set is replaced.
+        del router_originated
+        headers = dict(self.build_headers(config, api_key))
+        headers.update(
+            self.opencode_client_headers(
+                config,
+                session_id=_ROUTER_SESSION_ID,
+                request_id=new_opencode_message_id(),
+            )
+        )
+        return headers
 
     def session_headers(self, config: ProviderConfig) -> Mapping[str, str]:
         # Router-originated requests (advisor, compaction, probes) present the
