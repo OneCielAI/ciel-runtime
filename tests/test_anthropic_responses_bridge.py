@@ -3330,5 +3330,67 @@ class AnthropicResponsesBridgeTests(unittest.TestCase):
         self.assertEqual("monthly quota exhausted", payload["error"]["message"])
 
 
+class TranslatedAdditionalToolsTests(unittest.TestCase):
+    """Codex's newer catalogue rides in an `additional_tools` input item.
+
+    Translated routes (opencode, ollama) read tools from the responses ->
+    anthropic conversion, so without lifting the item every client tool
+    disappeared and the model answered with none (live 2026-09-18).
+    """
+
+    def body(self):
+        return {
+            "model": "big-pickle",
+            "input": [
+                {
+                    "type": "additional_tools",
+                    "id": "at_1",
+                    "role": "developer",
+                    "tools": [
+                        {
+                            "type": "namespace",
+                            "name": "functions",
+                            "tools": [
+                                {
+                                    "type": "function",
+                                    "name": "exec",
+                                    "description": "run code",
+                                    "parameters": {
+                                        "type": "object",
+                                        "properties": {"input": {"type": "string"}},
+                                        "required": ["input"],
+                                    },
+                                }
+                            ],
+                        }
+                    ],
+                },
+                {"type": "message", "role": "user", "content": [{"type": "input_text", "text": "hi"}]},
+            ],
+        }
+
+    def test_namespaced_tools_survive_the_translation(self):
+        converted = openai_responses_to_anthropic_messages(self.body(), "big-pickle")
+
+        self.assertEqual(
+            ["functions__exec"],
+            [tool["name"] for tool in converted.get("tools") or []],
+        )
+        self.assertEqual(
+            ["input"],
+            converted["tools"][0]["input_schema"]["required"],
+        )
+
+    def test_tools_still_come_from_the_top_level_when_present(self):
+        body = self.body()
+        body["tools"] = [
+            {"type": "function", "name": "plain", "parameters": {"type": "object"}}
+        ]
+
+        converted = openai_responses_to_anthropic_messages(body, "big-pickle")
+
+        self.assertEqual(["plain"], [tool["name"] for tool in converted.get("tools") or []])
+
+
 if __name__ == "__main__":
     unittest.main()

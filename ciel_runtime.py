@@ -1077,9 +1077,14 @@ def resolve_emitted_tool_name(raw_name: str, source_body: dict[str, Any] | None)
     # free-tier check. When the client's body names its equivalent differently
     # (Codex: exec/shell), a call to the declared name belongs to that tool
     # (probed 2026-09-18).
-    for candidate in _GATE_TOOL_CLIENT_EQUIVALENTS.get(str(raw_name or "").lower(), ()):
+    equivalents = _GATE_TOOL_CLIENT_EQUIVALENTS.get(str(raw_name or "").lower(), ())
+    for candidate in equivalents:
         if candidate in available:
             return candidate
+    for candidate in equivalents:
+        for name in available:
+            if name.rsplit("__", 1)[-1] == candidate:
+                return name
     return _fuzzy_match_tool_name(raw_name) or raw_name
 
 ANTHROPIC_PASSTHROUGH_TOOL_INPUT_REPAIR_TOOLS = {"AskUserQuestion"}

@@ -292,16 +292,22 @@ class OpenCodeProviderAdapter(HttpBearerProviderAdapter):
             return normalized
 
         by_name = {name_of(tool): tool for tool in projected if name_of(tool)}
+
+        def alias_source(candidates: tuple[str, ...]) -> object | None:
+            # Exact names first, then a namespace member such as
+            # ``functions__exec`` produced by the Responses tool projection.
+            for candidate in candidates:
+                if candidate in by_name:
+                    return by_name[candidate]
+            for candidate in candidates:
+                for name, tool in by_name.items():
+                    if name.rsplit("__", 1)[-1] == candidate:
+                        return tool
+            return None
+
         wire = protocol or self.select_protocol("anthropic_messages", config)
         for gate_name in missing:
-            source = next(
-                (
-                    by_name[candidate]
-                    for candidate in self._OPENCODE_GATE_TOOL_SOURCES[gate_name]
-                    if candidate in by_name
-                ),
-                None,
-            )
+            source = alias_source(self._OPENCODE_GATE_TOOL_SOURCES[gate_name])
             if isinstance(source, Mapping):
                 # Alias the client's own tool: same schema, gate name, so a
                 # call carries arguments the client can execute.

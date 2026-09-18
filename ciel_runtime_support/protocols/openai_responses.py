@@ -421,6 +421,9 @@ def _tools_to_anthropic(
             continue
         if not name:
             continue
+        if str(tool.get("type") or "").strip().lower() == "namespace":
+            out.extend(_namespace_members_to_anthropic(tool))
+            continue
         is_custom = str(tool.get("type") or "").strip().lower() == "custom"
         if is_custom:
             description = _custom_tool_description_for_anthropic(
@@ -464,6 +467,42 @@ def _tools_to_anthropic(
                 "projection"
             )
     return out
+
+
+def _namespace_members_to_anthropic(namespace_tool: dict[str, Any]) -> list[dict[str, Any]]:
+    """Project one Responses namespace tool into its aliased members.
+
+    Codex's newer tool catalogue puts every tool inside namespaces carried by
+    an ``additional_tools`` input item. Translated routes (opencode, ollama,
+    ...) read tools from this projection, so without flattening here every
+    client tool disappears and the model answers with no tools at all
+    (observed live 2026-09-18).
+    """
+
+    namespace = str(namespace_tool.get("name") or "").strip()
+    members = namespace_tool.get("tools")
+    if not namespace or not isinstance(members, list):
+        return []
+    renamed = [
+        {
+            **member,
+            "name": _namespace_tool_alias(
+                namespace, str(member.get("name") or "").strip()
+            ),
+        }
+        for member in members
+        if isinstance(member, dict) and str(member.get("name") or "").strip()
+    ]
+    projected = _tools_to_anthropic(renamed)
+    description = str(namespace_tool.get("description") or "").strip()
+    if not description:
+        return projected
+    for member in projected:
+        member_description = str(member.get("description") or "").strip()
+        member["description"] = "\n\n".join(
+            part for part in (description, member_description) if part
+        )
+    return projected
 
 
 def _custom_tool_names(tools: Any) -> set[str]:
@@ -3236,7 +3275,7 @@ def openai_responses_to_anthropic_messages(body: dict[str, Any], fallback_model:
         "messages": messages,
         "stream": bool(body.get("stream", True)),
     }
-    tools = _tools_to_anthropic(body.get("tools"))
+    tools = _tools_to_anthropic(_responses_source_tools(body))
     if tools:
         out["tools"] = tools
     tool_choice = _tool_choice_to_anthropic(body.get("tool_choice"))
