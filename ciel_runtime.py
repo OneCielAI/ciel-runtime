@@ -3828,8 +3828,19 @@ def process_tree_controller() -> ProcessTreeController: return ProcessTreeContro
 def descendant_pids(pid: int) -> list[int]: return process_tree_controller().descendant_pids(pid)
 def parent_pid_and_command(pid: int) -> tuple[int, str] | None: return process_tree_controller().parent_pid_and_command(pid)
 def ciel_runtime_client_wrapper_parent_pids(pid: int) -> list[int]: return process_tree_controller().client_wrapper_parent_pids(pid)
-def terminate_pid_tree(pid: int, label: str, quiet: bool = False) -> bool: return process_tree_controller().terminate_tree(pid, label, quiet=quiet)
-def terminate_active_router_clients(reason: str, active_clients: list[int] | None = None, quiet: bool = True) -> bool: return router_client_registry().terminate_active(reason, active_clients, quiet=quiet)
+def terminate_pid_tree(pid: int, label: str, quiet: bool = False) -> bool:
+    if _unisolated_test_process() and pid != os.getpid() and pid != os.getppid():
+        router_log("WARN", f"process_tree_terminate_skipped_unisolated_test label={label!r} pid={pid}")
+        return False
+    return process_tree_controller().terminate_tree(pid, label, quiet=quiet)
+def terminate_active_router_clients(reason: str, active_clients: list[int] | None = None, quiet: bool = True) -> bool:
+    # The router-startup path reaches this directly, without the launch-time
+    # guard, so an un-isolated test run could kill the client that owns the
+    # running session (observed 2026-09-18 as the CLI exiting mid-sweep).
+    if _unisolated_test_process():
+        router_log("WARN", f"router_client_termination_skipped_unisolated_test reason={reason}")
+        return False
+    return router_client_registry().terminate_active(reason, active_clients, quiet=quiet)
 
 def _unisolated_test_process() -> bool:
     """Return True when a test runner could touch the user's live state.
@@ -3846,7 +3857,24 @@ def _unisolated_test_process() -> bool:
         return True
     if "unittest" in sys.modules or "pytest" in sys.modules:
         return True
-    return any(Path(str(argument)).name.startswith("test_") for argument in sys.argv[1:])
+    return _test_runner_arguments([str(argument) for argument in sys.argv[1:]])
+
+def _test_runner_arguments(arguments: list[str]) -> bool:
+    """Report whether command arguments are a loose test-runner invocation.
+
+    ``python -m unittest discover -s tests`` passes no ``test_*`` argument, so
+    the discovery shape has to be recognized too. Keep this narrow: an ordinary
+    launch may legitimately carry a directory or prompt argument.
+    """
+
+    if any(Path(argument).name.startswith("test_") for argument in arguments):
+        return True
+    if arguments and arguments[0] in {"discover", "unittest"}:
+        return True
+    return any(
+        argument.replace("\\", "/").startswith(("tests/", "tests."))
+        for argument in arguments
+    )
 
 def terminate_existing_router_clients_for_launch(reason: str, quiet: bool = True) -> bool:
     if _unisolated_test_process():
