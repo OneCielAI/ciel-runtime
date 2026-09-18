@@ -227,7 +227,11 @@ class OpenCodeProviderAdapter(HttpBearerProviderAdapter):
     ) -> Mapping[str, object]:
         normalized = dict(super().normalize_request_options_for_protocol(config, request, protocol))
         tools = normalized.get("tools")
-        if not isinstance(tools, list):
+        if tools is None:
+            # Requests without a tools array (title generation, compaction
+            # helpers) still have to declare the gate's two tools.
+            tools = []
+        elif not isinstance(tools, list):
             return normalized
         declared = set()
         for tool in tools:
