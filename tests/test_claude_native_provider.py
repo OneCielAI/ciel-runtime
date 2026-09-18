@@ -1218,6 +1218,15 @@ class StopRouterGuaranteeTests(unittest.TestCase):
                 mock.patch.object(ciel_runtime, "LOG_PATH", log_path),
                 mock.patch.object(ciel_runtime, "router_health", return_value=health),
                 mock.patch.object(ciel_runtime, "ensure_router_port_available_for_spawn") as ensure,
+                # This suite runs against the developer's live instance
+                # directory, so every termination port below is replaced:
+                # otherwise the prelaunch path kills the router and the client
+                # the running session is using (observed 2026-09-18 as the CLI
+                # exiting mid-sweep).
+                mock.patch.object(ciel_runtime, "active_router_client_pids", return_value=[]),
+                mock.patch.object(ciel_runtime, "terminate_active_router_clients"),
+                mock.patch.object(ciel_runtime, "stop_router_processes"),
+                mock.patch.object(ciel_runtime, "terminate_router_health_pid"),
                 mock.patch.object(ciel_runtime, "router_up", return_value=True),
                 mock.patch.object(ciel_runtime.subprocess, "Popen") as popen,
                 mock.patch.object(ciel_runtime, "router_log"),
@@ -1277,6 +1286,10 @@ class StopRouterGuaranteeTests(unittest.TestCase):
                 mock.patch.object(ciel_runtime, "active_router_client_pids", return_value=[999999]),
                 mock.patch.object(ciel_runtime, "terminate_active_router_clients") as terminate_clients,
                 mock.patch.object(ciel_runtime, "ensure_router_port_available_for_spawn") as ensure,
+                # See the note above: this path terminates real pids unless the
+                # termination ports are replaced.
+                mock.patch.object(ciel_runtime, "stop_router_processes"),
+                mock.patch.object(ciel_runtime, "terminate_router_health_pid"),
                 mock.patch.object(ciel_runtime, "router_up", return_value=True),
                 mock.patch.object(ciel_runtime.subprocess, "Popen") as popen,
                 mock.patch.object(ciel_runtime, "router_log"),
