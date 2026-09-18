@@ -39,11 +39,20 @@ class OpenCodeProviderTests(unittest.TestCase):
                 first = ciel_runtime.provider_headers(provider, pcfg)
                 second = ciel_runtime.provider_headers(provider, pcfg)
 
-                self.assertTrue(first["x-opencode-session"].startswith("ses_"))
+                # The client mints 26-character ids: twelve hex digits from
+                # the millisecond timestamp, then fourteen base62 characters.
+                self.assertRegex(
+                    first["x-opencode-session"], r"^ses_[0-9a-f]{12}[0-9A-Za-z]{14}$"
+                )
                 self.assertEqual(first["x-opencode-session"], second["x-opencode-session"])
-                self.assertTrue(first["x-opencode-request"].startswith("msg_"))
+                self.assertRegex(
+                    first["x-opencode-request"], r"^msg_[0-9a-f]{12}[0-9A-Za-z]{14}$"
+                )
                 self.assertEqual("cli", first["x-opencode-client"])
-                self.assertEqual(f"opencode/{OPENCODE_CLIENT_VERSION}", first["user-agent"])
+                self.assertEqual("global", first["x-opencode-project"])
+                self.assertTrue(
+                    first["user-agent"].startswith(f"opencode/{OPENCODE_CLIENT_VERSION} ai-sdk/")
+                )
                 self.assertEqual(1, sum(name.lower() == "user-agent" for name in first))
 
     def test_go_full_compatibility_reuses_one_session_header(self):
@@ -102,14 +111,19 @@ class OpenCodeProviderTests(unittest.TestCase):
                 first = request.compatibility_headers(provider, cfg)
                 second = request.compatibility_headers(provider, cfg)
 
-                self.assertTrue(first["x-opencode-session"].startswith("ses_"))
+                self.assertRegex(
+                    first["x-opencode-session"], r"^ses_[0-9a-f]{12}[0-9A-Za-z]{14}$"
+                )
                 self.assertNotEqual(
                     first["x-opencode-session"], second["x-opencode-session"]
                 )
-                self.assertTrue(first["x-opencode-request"].startswith("msg_"))
+                self.assertRegex(
+                    first["x-opencode-request"], r"^msg_[0-9a-f]{12}[0-9A-Za-z]{14}$"
+                )
                 self.assertEqual("cli", first["x-opencode-client"])
-                self.assertEqual(
-                    f"opencode/{OPENCODE_CLIENT_VERSION}", first["user-agent"]
+                self.assertEqual("global", first["x-opencode-project"])
+                self.assertTrue(
+                    first["user-agent"].startswith(f"opencode/{OPENCODE_CLIENT_VERSION} ai-sdk/")
                 )
 
     def opencode_cfg(self, **overrides):
@@ -647,7 +661,9 @@ class OpenCodeProviderTests(unittest.TestCase):
         self.assertEqual("Bearer sk-opencode-test", headers["authorization"])
         self.assertEqual("sk-opencode-test", headers["x-api-key"])
         self.assertEqual("2023-06-01", headers["anthropic-version"])
-        self.assertEqual(f"opencode/{OPENCODE_CLIENT_VERSION}", headers["user-agent"])
+        self.assertTrue(
+            headers["user-agent"].startswith(f"opencode/{OPENCODE_CLIENT_VERSION} ai-sdk/")
+        )
 
     def test_provider_headers_include_opencode_go_api_key(self):
         pcfg = self.opencode_go_cfg(api_key="sk-opencode-test")["providers"]["opencode-go"]
@@ -655,7 +671,9 @@ class OpenCodeProviderTests(unittest.TestCase):
         self.assertEqual("Bearer sk-opencode-test", headers["authorization"])
         self.assertEqual("sk-opencode-test", headers["x-api-key"])
         self.assertEqual("2023-06-01", headers["anthropic-version"])
-        self.assertEqual(f"opencode/{OPENCODE_CLIENT_VERSION}", headers["user-agent"])
+        self.assertTrue(
+            headers["user-agent"].startswith(f"opencode/{OPENCODE_CLIENT_VERSION} ai-sdk/")
+        )
 
     def test_zen_endpoint_family_mapping(self):
         self.assertEqual("anthropic-messages", ciel_runtime.opencode_zen_endpoint_kind("claude-sonnet-4-6"))

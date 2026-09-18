@@ -1,0 +1,31 @@
+okf_version: "1.0"
+task: "User: opencode now fails for everything in ~\t; re-analyze the OpenCode source and implement the header/UA construction properly."
+observed_state_this_machine:
+  errors_in_tilde_t: "FreeTierError 'free tier can only be used from within OpenCode' (03:35Z, 04:05Z), 'Model is unavailable' for deepseek-v4-flash-free (the model that router selects; models.dev now marks it deprecated), DataPolicyError for opencode-go muse-spark (needs a training opt-in in the workspace), ModelError 'Model is disabled'."
+  live_clients: "opencode-ai 1.18.31 (npm global) still answers on zen big-pickle from this machine; the official desktop app also runs (zen big-pickle), and got DataPolicyError on opencode-go muse-spark just like the CLI."
+gate_is_new_and_vendor_side:
+  github: "anomalyco/opencode issues opened 2026-09-17: #49433 (Linux, opencode 1.3.17, any model, open), #49595, #49596 (official macOS desktop app, closed as not planned). A maintainer-shaped message in the thread: 'If you believe this was flagged incorrectly, please let a maintainer know.'"
+  community: "LinkedIn post 2026-09-17: 'OpenCode's free tier stopped working outside OpenCode today ... Guessing they added a check to the public key. One less free reverse proxy.'"
+  public_code: "The message string is not in the public repo; the public console handler (packages/console/app/src/routes/zen/util/handler.ts) forwards x-opencode-* headers to a newer inference service for console/inf providers, which owns the check. The server code therefore cannot be read."
+source_analysis_header_construction:
+  request_headers: "packages/opencode/src/session/llm/request.ts: for provider ids starting with 'opencode' the client sends x-opencode-project (project.id), x-opencode-session (sessionID), x-opencode-request (the user message id), x-opencode-client (RuntimeFlags client, OPENCODE_CLIENT env, default 'cli') and User-Agent opencode/<InstallationVersion>. The ai-sdk transport decorates the UA: 'opencode/<ver> ai-sdk/provider-utils/<X> runtime/bun/<Y>'."
+  identifier: "packages/schema/src/identifier.ts: length 26; six timestamp bytes rendered as hex then 14 characters of '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'; current = timestamp*0x1000 + per-millisecond counter; descending is the bitwise complement. Sessions: 'ses_' + descending() (packages/schema/src/session-id.ts). Messages: 'msg_' + ascending() (session-message.ts)."
+  verification: "The live client's own IDs reproduce exactly: ses_f4d3dcf6effeJN16oXX8aeVgrv and ses_f4ed90377ffewHkWNWhcgfBGP7 both match timestamp*0x1000+1 complemented. The previous implementation (24 random base62 characters, no timestamp) was wrong on length and structure."
+live_captures_2026_09_18:
+  capture_server: "opencode-ai 1.18.31 pointed at a local capture server through provider.<id>.options.baseURL. Captured: UA 'opencode/1.18.31 ai-sdk/provider-utils/4.0.40 runtime/bun/1.3.14' on /v1/responses, '.../4.0.23...' on /v1/chat/completions; x-opencode-client cli; x-opencode-project global; x-opencode-session/request in the 26-character format."
+  mitm: "A CONNECT proxy with a locally-trusted cert (NODE_EXTRA_CA_CERTS) forwarded the CLI's requests to the real host: the header set is identical, no extra headers are added for the real domain. Accept-Encoding is bun's default."
+  sdk_versions: "bun.lock pins @ai-sdk/anthropic 3.0.111 -> provider-utils 4.0.46, @ai-sdk/openai 3.0.88 -> 4.0.40, @ai-sdk/openai-compatible 2.0.41 -> 4.0.23; captures agree."
+replication_attempts_all_failed:
+  - "Identical header set (UA with ai-sdk suffix, project/session/request, same key) via curl, python urllib, bun 1.3.13 and bun 1.3.14 (the CLI's own runtime version) -> HTTP 403 FreeTierError every time."
+  - "Replay using the exact session id the CLI had just used successfully -> 403."
+  - "Replay with the captured body shape -> 403."
+  - "The compiled opencode.exe on the same machine, same minute -> 200."
+conclusion: "The free-tier check does not depend on the HTTP request bytes. By elimination it sits below HTTP (transport-level, e.g. the TLS ClientHello fingerprint of the compiled client). This was not verified by packet capture. It follows that no header/UA construction can pass it, and that the identity work is correct-per-source but cannot unlock free models for the router. Free models on zen also cannot be used by paid-key clients at all under the new rule; the user's account has no zen balance for paid models (Insufficient balance for gpt-5.4-nano)."
+changes:
+  - "providers/opencode.py: _new_opencode_id reproduces packages/schema/src/identifier.ts exactly (12 hex timestamp digits + 14 base62, descending sessions, ascending messages, per-millisecond counter, thread-safe). opencode_client_headers() returns x-opencode-session/request/client/project plus the per-wire ai-sdk User-Agent; session_headers and compatibility_headers both use it. OPENCODE_BUN_VERSION and _OPENCODE_PROVIDER_UTILS_BY_PROTOCOL added."
+  - "tests/test_opencode_provider.py: id format asserted with regexes, x-opencode-project asserted, UA asserted to carry the ai-sdk suffix."
+verification:
+  tests: "test_opencode_provider 59 OK, test_opencode_catalog_snapshot 5 OK, ruff clean."
+  live: "A request built from the new provider_headers (byte-faithful identity) against the real zen endpoint still returns 403 FreeTierError, as predicted by the replication experiments."
+not_done: "No TLS-level impersonation; nothing deployed. The router keeps forwarding client headers verbatim for client traffic; only its own requests carry this identity."
+state: "Working tree only."

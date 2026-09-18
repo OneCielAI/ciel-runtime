@@ -1,6 +1,8 @@
 """OpenCode Zen provider adapter."""
 
 import secrets
+import threading
+import time
 from dataclasses import dataclass, field
 from typing import Mapping
 
@@ -30,25 +32,61 @@ from .opencode_catalog import (
 
 OPENCODE_ZEN_OX_ALPHA_FREE_MODEL = "x-preview-f-free"
 OPENCODE_GO_OX_ALPHA_FREE_MODEL = "ox-alpha-free"
-# Latest OpenCode CLI release (2026-09-17, GitHub tag v1.18.31), used only to
-# present the same User-Agent the OpenCode client sends to the opencode
-# gateway (packages/opencode/src/session/llm/request.ts).
+# Latest OpenCode CLI release (2026-09-17, GitHub tag v1.18.31) and the Bun
+# runtime it embeds. Together with the bundled ai-sdk version these form the
+# User-Agent the OpenCode client sends (captured 2026-09-18 from
+# opencode 1.18.31), e.g.
+#   opencode/1.18.31 ai-sdk/provider-utils/4.0.46 runtime/bun/1.3.14
 OPENCODE_CLIENT_VERSION = "1.18.31"
-_BASE62 = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+OPENCODE_BUN_VERSION = "1.3.14"
+# One @ai-sdk/provider-utils version per wire, from the ai-sdk packages the
+# client bundles (bun.lock: @ai-sdk/anthropic 3.0.111, @ai-sdk/openai 3.0.88,
+# @ai-sdk/openai-compatible 2.0.41); both live captures agree.
+_OPENCODE_PROVIDER_UTILS_BY_PROTOCOL = {
+    "anthropic_messages": "4.0.46",
+    "openai_responses": "4.0.40",
+    "openai_chat": "4.0.23",
+}
+
+# packages/schema/src/identifier.ts: 26 characters, six timestamp-derived bytes
+# rendered as hex followed by fourteen characters of this alphabet. Sessions
+# are created with descending() and messages with ascending(); the raw IDs
+# recorded on this machine (ses_f4ed90377ffe..., msg_0b126fcdb001a...)
+# reproduce exactly with the same millisecond timestamp and a per-millisecond
+# counter starting at one.
+_OPENCODE_ID_MASK = (1 << 48) - 1
+_OPENCODE_ID_ALPHABET = (
+    "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+)
+_OPENCODE_ID_LOCK = threading.Lock()
+_OPENCODE_ID_STATE = {"timestamp": 0, "counter": 0}
 
 
-def _new_opencode_id(prefix: str) -> str:
-    # OpenCode ID shape as stored by the client itself (session: ses_...,
-    # message: msg_...), 24 base62 characters after the prefix.
-    return prefix + "".join(secrets.choice(_BASE62) for _ in range(24))
+def _new_opencode_id(prefix: str, *, descending: bool) -> str:
+    timestamp = int(time.time() * 1000)
+    with _OPENCODE_ID_LOCK:
+        if timestamp != _OPENCODE_ID_STATE["timestamp"]:
+            _OPENCODE_ID_STATE["timestamp"] = timestamp
+            _OPENCODE_ID_STATE["counter"] = 0
+        _OPENCODE_ID_STATE["counter"] += 1
+        counter = _OPENCODE_ID_STATE["counter"]
+    current = timestamp * 0x1000 + counter
+    if descending:
+        current = (~current) & _OPENCODE_ID_MASK
+    else:
+        current = current & _OPENCODE_ID_MASK
+    random_part = "".join(
+        _OPENCODE_ID_ALPHABET[byte % 62] for byte in secrets.token_bytes(14)
+    )
+    return f"{prefix}{current:012x}{random_part}"
 
 
 def new_opencode_session_id() -> str:
-    return _new_opencode_id("ses_")
+    return _new_opencode_id("ses_", descending=True)
 
 
 def new_opencode_message_id() -> str:
-    return _new_opencode_id("msg_")
+    return _new_opencode_id("msg_", descending=False)
 
 
 # One router process serves one workspace conversation, so its own requests
@@ -133,31 +171,56 @@ class OpenCodeProviderAdapter(HttpBearerProviderAdapter):
             "131,072-token maximum output.",
         )
 
-    def session_headers(self, config: ProviderConfig) -> Mapping[str, str]:
-        # Present the OpenCode CLI identity to the opencode gateway (Go and
-        # Zen): the client sends User-Agent opencode/<version>,
-        # x-opencode-client, a stable x-opencode-session per conversation and a
-        # per-message x-opencode-request id (packages/opencode/src/session/
-        # llm/request.ts). Without the session Go answers 400 MissingSessionID.
-        del config
+    def opencode_client_headers(
+        self, config: ProviderConfig, *, session_id: str, request_id: str
+    ) -> Mapping[str, str]:
+        """Return the identity header set the OpenCode client sends.
+
+        packages/opencode/src/session/llm/request.ts builds these for every
+        provider whose id starts with opencode: User-Agent
+        opencode/<version> decorated by the ai-sdk transport, the client flag
+        (OPENCODE_CLIENT, default cli), the project id, a session id and a
+        per-message request id.
+        """
+
+        protocol = self.select_protocol("anthropic_messages", config)
+        provider_utils = _OPENCODE_PROVIDER_UTILS_BY_PROTOCOL.get(
+            str(protocol), "4.0.46"
+        )
         return {
-            "x-opencode-session": _ROUTER_SESSION_ID,
-            "x-opencode-request": new_opencode_message_id(),
+            "x-opencode-session": session_id,
+            "x-opencode-request": request_id,
             "x-opencode-client": "cli",
-            "user-agent": f"opencode/{OPENCODE_CLIENT_VERSION}",
+            # Non-repository workspaces get the literal project id global
+            # (packages/core/src/project.ts); that is the shape the client
+            # sends from a directory that is not a repository.
+            "x-opencode-project": "global",
+            "user-agent": (
+                f"opencode/{OPENCODE_CLIENT_VERSION} "
+                f"ai-sdk/provider-utils/{provider_utils} "
+                f"runtime/bun/{OPENCODE_BUN_VERSION}"
+            ),
         }
+
+    def session_headers(self, config: ProviderConfig) -> Mapping[str, str]:
+        # Router-originated requests (advisor, compaction, probes) present the
+        # OpenCode CLI identity with the router's own stable session. Without
+        # the session header Go answers 400 MissingSessionID.
+        return self.opencode_client_headers(
+            config,
+            session_id=_ROUTER_SESSION_ID,
+            request_id=new_opencode_message_id(),
+        )
 
     def compatibility_headers(self, config: ProviderConfig) -> Mapping[str, str]:
         # A compatibility probe is its own short conversation, so it gets a
         # fresh session rather than the router's; Zen and Go both route through
         # the same gateway and expect the same client identity.
-        del config
-        return {
-            "x-opencode-session": new_opencode_session_id(),
-            "x-opencode-request": new_opencode_message_id(),
-            "x-opencode-client": "cli",
-            "user-agent": f"opencode/{OPENCODE_CLIENT_VERSION}",
-        }
+        return self.opencode_client_headers(
+            config,
+            session_id=new_opencode_session_id(),
+            request_id=new_opencode_message_id(),
+        )
 
     def router_native_anthropic_enabled(
         self, config: ProviderConfig, model: str | None = None
@@ -314,6 +377,7 @@ class OpenCodeProviderAdapter(HttpBearerProviderAdapter):
 
 
 __all__ = [
+    "OPENCODE_BUN_VERSION",
     "OPENCODE_CLIENT_VERSION",
     "OPENCODE_GO_OX_ALPHA_FREE_MODEL",
     "OPENCODE_ZEN_OX_ALPHA_FREE_MODEL",
