@@ -5,6 +5,22 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+- Restart the active CLI session with its session-continue argument:
+  `ciel-runtime restart-session` and the `restart_session` tool on the
+  `ciel-runtime-router` MCP server queue a request that the launcher owning the
+  CLI child consumes - it terminates the CLI and relaunches it with
+  `--continue` (Claude Code) or `resume --last` (Codex), so the conversation
+  resumes instead of starting over. Routed launches attach the router MCP
+  server by default so a session can restart itself
+  (`claude_code.router_mcp=false` restores the previous behavior).
+- Refresh the Alibaba Model Studio Singapore plan catalogs with
+  `qwen3.8-flash`, `deepseek-v4.1-flash`, `deepseek-v4-pro-0813`,
+  `deepseek-v4-flash-0731` and `glm-5.3`, and merge them into existing
+  configurations (`alims-intl`, `alitoken`, `alitoken-individual`).
+- Fix `install.sh` ignoring `$PREFIX` for Windows-style `CIEL_RUNTIME_HOME`
+  paths: the snapshot guard now strips backslash separators, so an install no
+  longer overwrites the pinned snapshot directory a running session uses.
+
 ## 0.2.47 — 2026-09-12
 
 - Report non-native upstream authentication failures on Responses routes as
