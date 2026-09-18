@@ -1,0 +1,21 @@
+okf_version: "1.0"
+task: "User: 로컬배포 (local deploy) of the session-restart feature, the installer fix and the Alibaba Singapore plan catalog."
+commits:
+  - "c53d12e feat(runtime): restart the CLI session with --continue"
+  - "1808bc4 fix(install): honour $PREFIX for Windows-style CIEL_RUNTIME_HOME"
+  - "c5e97b6 fix(tests): drop the live session environment from statusline probes"
+  - "325f2bb feat(catalog): Alibaba Singapore plan model list 2026-09-18"
+  - "d9edeb3 docs: changelog for session restart, installer and plan catalog"
+branch: "nightly-0.2.50 (no push, no npm publish - local only)"
+install:
+  snapshot: "C:\\Users\\djlov\\.local\\share\\ciel-runtime-d9edeb31fc6af28646f477d4d90314b093e08e2b"
+  command: "install.ps1 from the repo working tree with CIEL_RUNTIME_INSTALL_HOME=<snapshot> and PREFIX=$HOME\\.local"
+  pin: "User environment variable CIEL_RUNTIME_HOME = the new snapshot (was ciel-runtime-984e05f...); ~/.local/bin entry scripts refreshed"
+verification:
+  content: "snapshot contains ciel_runtime_support/runtime_session_restart.py, channel_mcp_tools.py declares the restart_session tool, providers/alibaba.py declares qwen3.8-flash and glm-5.3."
+  entrypoint: "~/.local/bin/ciel-runtimectl.ps1 version -> 'ciel-runtime 0.2.51' resolved through the registered snapshot home."
+  command: "isolated run of the deployed snapshot: `python <snapshot>/ciel_runtime.py restart-session` with CIEL_RUNTIME_TEST_ISOLATED=1 and a scratch config prints 'no active CLI session is running through ciel-runtime' (exit 2), and restart-session appears in the command list."
+  live_session_untouched: "The running session (pid 50788, launched from ciel-runtime-984e05f...) is untouched: its install directory still hashes to the 984e05f content (deepseek.py 653bb544...)."
+not_applied_to_running_sessions: "A session launched before this deploy keeps its old build, and the old build has no restart poll, so restart_session requests against it expire after the TTL. The feature applies to sessions launched from the new snapshot. The CLI command in the new snapshot can be run from another terminal (same workspace) and takes effect only for new-build sessions."
+next_launch: "New terminals/launches resolve the registered CIEL_RUNTIME_HOME (the new snapshot); the stale CIEL_RUNTIME_HOME in already-open shells does not win over the registered value."
+not_done: "No version bump (0.2.51 still), no push to main/nightly, no npm publish."
