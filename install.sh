@@ -5,7 +5,13 @@ SOURCE_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 PREFIX="${PREFIX:-"$HOME/.local"}"
 DEFAULT_SHARE_DIR="$PREFIX/share/ciel-runtime"
 RUNTIME_HOME="${CIEL_RUNTIME_HOME:-}"
-case "${RUNTIME_HOME##*/}" in
+# A Windows path has no "/" for ${var##*/} to split on, so strip the last
+# backslash as well: Git Bash otherwise keeps the whole path and the snapshot
+# guard below never fires, making an install overwrite the pinned snapshot
+# directory that a running session was launched from (observed 2026-09-18).
+RUNTIME_HOME_BASE="${RUNTIME_HOME##*/}"
+RUNTIME_HOME_BASE="${RUNTIME_HOME_BASE##*\\}"
+case "$RUNTIME_HOME_BASE" in
   ciel-runtime-[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]*)
     printf '%s\n' "Warning: ignoring snapshot CIEL_RUNTIME_HOME during install: $RUNTIME_HOME" >&2
     RUNTIME_HOME=""
