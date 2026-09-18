@@ -179,6 +179,49 @@ class OpenCodeProviderTests(unittest.TestCase):
             ciel_runtime.resolve_emitted_tool_name("bash", {"tools": [{"name": "Bash"}]}),
         )
 
+    def test_responses_wire_projects_custom_tools_and_tool_choice(self):
+        # The zen Responses family answers "custom tools are not supported on
+        # this endpoint" and "only `auto` is supported for `tool_choice`"
+        # (live 2026-09-18), which broke the completion check's follow-up.
+        pcfg = self.opencode_cfg(api_key="test-key")["providers"]["opencode"]
+        body = {
+            "tools": [
+                {"type": "function", "name": "bash", "parameters": {"type": "object", "properties": {}}},
+                {"type": "function", "name": "read", "parameters": {"type": "object", "properties": {}}},
+                {"type": "custom", "name": "exec", "description": "run code"},
+            ],
+            "tool_choice": "required",
+        }
+
+        out = ciel_runtime.apply_provider_adapter_request_policy(
+            "opencode", pcfg, body, "openai_responses"
+        )
+
+        self.assertEqual("auto", out["tool_choice"])
+        self.assertTrue(all(tool["type"] == "function" for tool in out["tools"]))
+        exec_tool = next(tool for tool in out["tools"] if tool["name"] == "exec")
+        self.assertEqual(["input"], exec_tool["parameters"]["required"])
+
+    def test_chat_wire_keeps_custom_tools_and_named_choice(self):
+        pcfg = self.opencode_cfg(api_key="test-key")["providers"]["opencode"]
+        body = {
+            "tools": [
+                {"type": "function", "name": "bash", "parameters": {"type": "object", "properties": {}}},
+                {"type": "function", "name": "read", "parameters": {"type": "object", "properties": {}}},
+                {"type": "custom", "name": "exec", "description": "run code"},
+            ],
+            "tool_choice": {"type": "tool", "name": "exec"},
+        }
+
+        out = ciel_runtime.apply_provider_adapter_request_policy(
+            "opencode", pcfg, body, "openai_chat"
+        )
+
+        self.assertEqual(
+            {"type": "tool", "name": "exec"}, out["tool_choice"]
+        )
+        self.assertIn("custom", [tool["type"] for tool in out["tools"]])
+
     def opencode_cfg(self, **overrides):
         pcfg = copy.deepcopy(ciel_runtime.DEFAULT_CONFIG["providers"]["opencode"])
         pcfg.update(overrides)

@@ -107,6 +107,11 @@ class OpenCodeProviderAdapter(HttpBearerProviderAdapter):
                 *(model for model in OPENCODE_ZEN_MODEL_PROTOCOLS if model != "claude-sonnet-4-6"),
             ),
             native_compat=True,
+            # The zen Responses family answers "custom tools are not supported
+            # on this endpoint" (live 2026-09-18), so a client custom tool is
+            # declared as an ordinary function and its calls are projected back
+            # onto the client's custom tool on the way out.
+            responses_custom_tools_as_functions=True,
             context_window=200000,
             max_output_tokens=8192,
             context_reserve_tokens=8192,
@@ -262,6 +267,17 @@ class OpenCodeProviderAdapter(HttpBearerProviderAdapter):
         elif not isinstance(tools, list):
             return normalized
 
+        if str(protocol or "") == "openai_responses":
+            # The zen Responses family refuses type: custom tools and answers
+            # 400 "only `auto` is supported for `tool_choice`" (live
+            # 2026-09-18); both killed the completion check's follow-up until
+            # they were projected. This runs before the gate-name check so a
+            # request that already declares bash/read is covered too.
+            tools = [self._opencode_responses_tool(tool) for tool in tools]
+            choice = normalized.get("tool_choice")
+            if choice == "required" or isinstance(choice, Mapping):
+                normalized["tool_choice"] = "auto"
+
         name_of = self._opencode_tool_name
         declared = {name_of(tool) for tool in tools} - {""}
         projected: list[object] = []
@@ -285,11 +301,6 @@ class OpenCodeProviderAdapter(HttpBearerProviderAdapter):
             projected.append(tool)
 
         missing = [name for name in self._OPENCODE_GATE_TOOL_NAMES if name not in declared]
-        if not missing:
-            if projected != list(tools):
-                # Renames alone satisfied the gate; keep them.
-                normalized["tools"] = projected
-            return normalized
 
         by_name = {name_of(tool): tool for tool in projected if name_of(tool)}
 
@@ -316,6 +327,48 @@ class OpenCodeProviderAdapter(HttpBearerProviderAdapter):
                 projected.append(self._opencode_gate_tool(gate_name, wire))
         normalized["tools"] = projected
         return normalized
+
+    @staticmethod
+    def _opencode_responses_tool(tool: object) -> object:
+        """Project a Responses tool onto the gateway's schema.
+
+        The zen/go Responses endpoints answer ``custom tools are not supported
+        on this endpoint`` to a ``type: custom`` declaration (live 2026-09-18,
+        muse-spark-1.3-contributor-free). Codex sends every non-function tool
+        that way, so a custom declaration becomes an ordinary function taking
+        the raw input as one string; the response projection maps a call to it
+        back onto the client's custom tool.
+        """
+
+        if not isinstance(tool, Mapping):
+            return tool
+        if str(tool.get("type") or "") != "custom":
+            return tool
+        description = str(tool.get("description") or "").strip()
+        format_value = tool.get("format")
+        if isinstance(format_value, Mapping):
+            definition = str(format_value.get("definition") or "").strip()
+            if definition:
+                description = "\n\n".join(
+                    part
+                    for part in (
+                        description,
+                        "Raw input must satisfy this grammar:\n" + definition,
+                    )
+                    if part
+                )
+        return {
+            "type": "function",
+            "name": str(tool.get("name") or ""),
+            "description": description,
+            "parameters": {
+                "type": "object",
+                "properties": {"input": {"type": "string"}},
+                "required": ["input"],
+                "additionalProperties": False,
+            },
+            "strict": True,
+        }
 
     def opencode_client_headers(
         self, config: ProviderConfig, *, session_id: str, request_id: str

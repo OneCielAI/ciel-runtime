@@ -56,6 +56,17 @@ def apply_config_migrations(cfg: dict[str, Any], *, policy: ConfigMigrationPolic
                 custom.append("stealth/union-alpha")
         migrations[marker] = True
 
+    marker = "opencode_custom_tools_as_functions_20260918"
+    if not migrations.get(marker):
+        providers = cfg.get("providers") if isinstance(cfg.get("providers"), dict) else {}
+        for name in ("opencode", "opencode-go"):
+            pcfg = providers.get(name)
+            if isinstance(pcfg, dict) and pcfg.get("responses_custom_tools_as_functions") is None:
+                # The zen Responses family refuses type: custom tools; the
+                # bridge declares them as functions and maps calls back.
+                pcfg["responses_custom_tools_as_functions"] = True
+        migrations[marker] = True
+
     marker = "openrouter_pareto_catalog_20260917"
     if not migrations.get(marker):
         providers = cfg.get("providers") if isinstance(cfg.get("providers"), dict) else {}

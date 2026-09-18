@@ -285,7 +285,12 @@ def handle_claude_messages_post(
         upstream_model = resolve_requested_model(provider, pcfg, body.get("model"))
         selected_protocol = select_provider_protocol(provider, pcfg, "anthropic_messages", upstream_model)
         provider_label = provider_labels.get(provider, provider)
-        if selected_protocol == "openai_responses" and not local_request:
+        # Responses-family models (zen muse-spark, ...) have no Anthropic
+        # endpoint of their own, so a Claude Code request is converted to the
+        # Responses wire and its answer back to Anthropic instead of being
+        # refused (user request, 2026-09-18). Providers that do expose an
+        # Anthropic endpoint still select it in select_provider_protocol.
+        if selected_protocol == "openai_responses":
             event_bus.publish(
                 level="info",
                 category="upstream.request",

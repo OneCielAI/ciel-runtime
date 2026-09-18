@@ -21,6 +21,9 @@ class OpenCodeGoProviderAdapter(OpenCodeProviderAdapter):
             custom_models=("qwen3.6-plus", OPENCODE_GO_OX_ALPHA_FREE_MODEL,
                            *(model for model in OPENCODE_GO_MODEL_PROTOCOLS if model != "qwen3.6-plus")),
             native_compat=True,
+            # The zen Responses family answers "custom tools are not supported
+            # on this endpoint" (live 2026-09-18); see the Zen adapter.
+            responses_custom_tools_as_functions=True,
             context_window=1048576,
             max_output_tokens=8192,
             context_reserve_tokens=8192,
