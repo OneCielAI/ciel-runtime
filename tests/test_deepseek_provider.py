@@ -1,6 +1,8 @@
 import copy
+import json
 import unittest
 from contextlib import ExitStack
+from pathlib import Path
 from unittest import mock
 
 import ciel_runtime
@@ -77,6 +79,19 @@ class DeepSeekProviderTests(unittest.TestCase):
         self.assertEqual("ciel-runtime-deepseek-deepseek-v4-flash[1m]", env["ANTHROPIC_MODEL"])
         self.assertEqual("524288", env["CLAUDE_CODE_AUTO_COMPACT_WINDOW"])
 
+    def _capture_router_mcp_config(self, cmd, env, **kwargs):
+        """Read the projected MCP config the launcher passed to the CLI child."""
+
+        del env, kwargs
+        self.captured_mcp_servers = []
+        for index, item in enumerate(cmd):
+            if item != "--mcp-config":
+                continue
+            config_path = Path(cmd[index + 1])
+            payload = json.loads(config_path.read_text(encoding="utf-8"))
+            self.captured_mcp_servers.extend(sorted(payload.get("mcpServers") or {}))
+        return 0
+
     def test_launch_removes_inherited_anthropic_api_key_for_deepseek(self):
         cfg = self.deepseek_cfg(api_key="sk-deepseek-test")
         with ExitStack() as stack:
@@ -113,7 +128,13 @@ class DeepSeekProviderTests(unittest.TestCase):
             stack.enter_context(mock.patch.object(ciel_runtime, "should_attach_web_search", return_value=False))
             stack.enter_context(mock.patch.object(ciel_runtime, "should_append_compat_prompt", return_value=False))
             stack.enter_context(mock.patch.object(ciel_runtime, "prepare_channel_llm_delivery_for_launch"))
-            proxy = stack.enter_context(mock.patch.object(ciel_runtime, "subprocess_call_with_channel_wake_proxy", return_value=0))
+            proxy = stack.enter_context(
+                mock.patch.object(
+                    ciel_runtime,
+                    "subprocess_call_with_channel_wake_proxy",
+                    side_effect=self._capture_router_mcp_config,
+                )
+            )
             call = stack.enter_context(mock.patch.object(ciel_runtime.subprocess, "call", return_value=0))
             rc = ciel_runtime.launch_claude([], update_check=False, self_update_check=False)
 
@@ -121,7 +142,10 @@ class DeepSeekProviderTests(unittest.TestCase):
         proxy.assert_called_once()
         launch_cmd = proxy.call_args.args[0]
         self.assertIn("--dangerously-skip-permissions", launch_cmd)
-        self.assertNotIn("--mcp-config", launch_cmd)
+        # A routed launch attaches only the router's own session-control MCP
+        # server (restart_session, compact_session, llm_options); no web-tools
+        # or native-provider MCP config leaks into a DeepSeek launch.
+        self.assertEqual(["ciel-runtime-router"], self.captured_mcp_servers)
         self.assertTrue(proxy.call_args.kwargs["wake_for_llm_delivery"])
         mode_idx = launch_cmd.index("--permission-mode")
         self.assertEqual("bypassPermissions", launch_cmd[mode_idx + 1])

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -55,6 +56,8 @@ class ChannelTerminalDispatchService:
         channel_wake_bracketed_paste: bool = False,
         channel_wake_submit_delay_seconds: float | None = None,
         tracked_child_pid_path: Path | None = None,
+        restart_poll: Callable[[], Any] | None = None,
+        restart_state: Any = None,
     ) -> int:
         options = {
             "inject_channel_messages": inject_channel_messages,
@@ -72,6 +75,8 @@ class ChannelTerminalDispatchService:
                 channel_wake_submit_delay_seconds
             ),
             "tracked_child_pid_path": tracked_child_pid_path,
+            "restart_poll": restart_poll,
+            "restart_state": restart_state,
         }
         if self.settings.platform_name == "nt" and self.proxy.windows_supported():
             try:
@@ -92,7 +97,13 @@ class ChannelTerminalDispatchService:
                 "INFO",
                 "channel_stdin_proxy_unavailable; using direct subprocess call",
             )
-            return self.call_direct(cmd, env, tracked_child_pid_path)
+            return self.call_direct(
+                cmd,
+                env,
+                tracked_child_pid_path,
+                restart_poll=restart_poll,
+                restart_state=restart_state,
+            )
         return self.proxy.run_posix(
             cmd,
             env,
@@ -105,13 +116,40 @@ class ChannelTerminalDispatchService:
         cmd: list[str],
         env: dict[str, str],
         pid_path: Path | None = None,
+        *,
+        restart_poll: Callable[[], Any] | None = None,
+        restart_state: Any = None,
     ) -> int:
-        if pid_path is None:
+        if pid_path is None and restart_poll is None:
             return self.direct.call(cmd, env=env)
         proc = self.direct.popen(cmd, env=env)
         self.direct.write_record(pid_path, proc.pid, cmd)
         try:
-            return proc.wait()
+            return self._await_child(proc, restart_poll, restart_state)
         finally:
             self.direct.terminate(proc, "current Codex")
             self.direct.release_record(pid_path, proc.pid)
+
+    def _await_child(
+        self,
+        proc: Any,
+        restart_poll: Callable[[], Any] | None,
+        restart_state: Any,
+    ) -> int:
+        if restart_poll is None:
+            return proc.wait()
+        while True:
+            returncode = proc.poll()
+            if returncode is not None:
+                return returncode
+            request = restart_poll()
+            if request is not None:
+                if restart_state is not None:
+                    restart_state.mark(request)
+                self.log(
+                    "INFO",
+                    "runtime_session_restart_requested transport=direct",
+                )
+                self.direct.terminate(proc, "cli session restart")
+                return proc.wait()
+            time.sleep(0.5)

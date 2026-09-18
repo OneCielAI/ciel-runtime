@@ -57,6 +57,7 @@ class CodexLaunchSharedRoutingPorts:
     launch_enabled: Callback
     run_with_router_lifetime: Callback
     start_router: Callback
+    log: Callback = lambda *_args, **_kwargs: None
 
 
 @dataclass(frozen=True, slots=True)
@@ -79,6 +80,11 @@ class CodexAppServerLaunchPorts:
 
 
 @dataclass(frozen=True, slots=True)
+class CodexLaunchSharedRestartPorts:
+    control: Callback
+
+
+@dataclass(frozen=True, slots=True)
 class CodexLaunchAssembly:
     config: CodexLaunchSharedConfigPorts
     installation: CodexLaunchSharedInstallationPorts
@@ -87,6 +93,7 @@ class CodexLaunchAssembly:
     channel: CodexLaunchSharedChannelPorts
     cli: CodexCliLaunchPorts
     app_server: CodexAppServerLaunchPorts
+    restart: CodexLaunchSharedRestartPorts | None = None
 
     def cli_services(self) -> runtime_launch.CodexLaunchServices:
         return runtime_launch.CodexLaunchServices(
@@ -130,11 +137,17 @@ class CodexLaunchAssembly:
                 native_codex_enabled=self.routing.native_enabled,
                 run_with_router_lifetime=self.routing.run_with_router_lifetime,
                 start_router_if_needed=self.routing.start_router,
+                router_log=self.routing.log,
             ),
             channel=runtime_launch.CodexLaunchChannel(
                 channel_delivery_mode=self.channel.delivery_mode,
                 codex_mcp_native_http_compat_args=self.channel.native_http_args,
                 select_codex_resume_session=self.channel.select_resume_session,
+            ),
+            restart=(
+                runtime_launch.SessionRestartPorts(self.restart.control)
+                if self.restart is not None
+                else runtime_launch.SessionRestartPorts()
             ),
         )
 
@@ -193,5 +206,6 @@ __all__ = [
     "CodexLaunchSharedConfigPorts",
     "CodexLaunchSharedDispatchPorts",
     "CodexLaunchSharedInstallationPorts",
+    "CodexLaunchSharedRestartPorts",
     "CodexLaunchSharedRoutingPorts",
 ]

@@ -67,6 +67,7 @@ class CliOperations:
     cmd_stop: Any
     cmd_test: Any
     cmd_remote_bridge: Any = lambda _args: 0
+    cmd_restart_session: Any = lambda _args: None
 
 
 @dataclass(frozen=True)
@@ -112,6 +113,7 @@ def dispatch_cli(argv: list[str], services: CliServices) -> int:
     cmd_stop = services.operations.cmd_stop
     cmd_test = services.operations.cmd_test
     cmd_remote_bridge = services.operations.cmd_remote_bridge
+    cmd_restart_session = services.operations.cmd_restart_session
     cmd_web_fetch = services.special_commands.cmd_web_fetch
     cmd_web_search = services.special_commands.cmd_web_search
     codex_passthrough_has_command = services.runtime.codex_passthrough_has_command
@@ -275,6 +277,68 @@ def dispatch_cli(argv: list[str], services: CliServices) -> int:
             ncp = find_executable("ncp")
             if ncp:
                 subprocess.run([ncp, "kill"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            return 0
+        if head in ("restart-session", "restart"):
+            reason = ""
+            runtime = ""
+            workspace = ""
+            pid = 0
+            resume = True
+            index = 0
+            while index < len(rest):
+                item = rest[index]
+                if item == "--reason" and index + 1 < len(rest):
+                    reason = rest[index + 1]
+                    index += 2
+                    continue
+                if item.startswith("--reason="):
+                    reason = item.split("=", 1)[1]
+                    index += 1
+                    continue
+                if item == "--runtime" and index + 1 < len(rest):
+                    runtime = rest[index + 1]
+                    index += 2
+                    continue
+                if item.startswith("--runtime="):
+                    runtime = item.split("=", 1)[1]
+                    index += 1
+                    continue
+                if item == "--workspace" and index + 1 < len(rest):
+                    workspace = rest[index + 1]
+                    index += 2
+                    continue
+                if item.startswith("--workspace="):
+                    workspace = item.split("=", 1)[1]
+                    index += 1
+                    continue
+                if item == "--pid" and index + 1 < len(rest):
+                    try:
+                        pid = int(rest[index + 1])
+                    except ValueError:
+                        raise SystemExit("Usage: ciel-runtime restart-session [--pid N] [--workspace PATH] [--runtime NAME] [--reason TEXT] [--no-resume]")
+                    index += 2
+                    continue
+                if item.startswith("--pid="):
+                    try:
+                        pid = int(item.split("=", 1)[1])
+                    except ValueError:
+                        raise SystemExit("Usage: ciel-runtime restart-session [--pid N] [--workspace PATH] [--runtime NAME] [--reason TEXT] [--no-resume]")
+                    index += 1
+                    continue
+                if item == "--no-resume":
+                    resume = False
+                    index += 1
+                    continue
+                raise SystemExit("Usage: ciel-runtime restart-session [--pid N] [--workspace PATH] [--runtime NAME] [--reason TEXT] [--no-resume]")
+            cmd_restart_session(
+                argparse.Namespace(
+                    reason=reason,
+                    runtime=runtime,
+                    workspace=workspace,
+                    pid=pid,
+                    no_resume=not resume,
+                )
+            )
             return 0
         if argv[0] == "resume":
             runtime = last_launch_runtime()

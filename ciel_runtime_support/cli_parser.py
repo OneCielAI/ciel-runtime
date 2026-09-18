@@ -28,6 +28,7 @@ class CliParserRuntime:
     env: CliHandler
     stop: CliHandler
     test: CliHandler
+    restart_session: CliHandler = lambda _args: None
 
 
 @dataclass(frozen=True)
@@ -103,6 +104,13 @@ def build_cli_parser(services: CliParserServices) -> argparse.ArgumentParser:
     commands.add_parser("status").set_defaults(func=services.runtime.status)
     commands.add_parser("env").set_defaults(func=services.runtime.env)
     commands.add_parser("stop").set_defaults(func=services.runtime.stop)
+    restart_session = commands.add_parser("restart-session")
+    restart_session.add_argument("--reason", default="")
+    restart_session.add_argument("--runtime", default="")
+    restart_session.add_argument("--pid", type=int, default=0)
+    restart_session.add_argument("--workspace", default="")
+    restart_session.add_argument("--no-resume", action="store_true")
+    restart_session.set_defaults(func=services.runtime.restart_session)
     _add_optional_value_command(commands, "language", services.settings.language)
     _add_optional_value_command(commands, "web-search", services.settings.web_search)
     _add_optional_value_command(commands, "web-fetch", services.settings.web_fetch)

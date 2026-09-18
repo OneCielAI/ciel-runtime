@@ -21,6 +21,10 @@ from ciel_runtime_support.runtime_constants import (
     ROUTED_COMPAT_PROMPT,
 )
 from ciel_runtime_support.runtime_paths import CONFIG_DIR, LOG_PATH, ROUTER_BASE, ROUTER_INSTANCE_DIR, WORKSPACE_STATE_DIR
+from ciel_runtime_support.runtime_session_restart import (
+    SessionRestartPorts,
+    runtime_resume_command,
+)
 from ciel_runtime_support.web_endpoints import (
     current_web_workspace,
     web_backend_owned_by_workspace,
@@ -41,6 +45,23 @@ def web_backend_start_requested(config: dict[str, Any]) -> bool:
         settings,
         current_web_workspace(),
     )
+
+
+def router_mcp_enabled_for_launch(config: dict[str, Any], *, native: bool) -> bool:
+    """Whether this launch attaches the router's own MCP server.
+
+    The router MCP server carries the session control tools - restart_session
+    (relaunch the CLI with --continue), compact_session, submit_input and
+    llm_options - so routed launches attach it by default.  Native launches
+    leave Claude Code's own backend untouched and keep the previous behavior;
+    ``claude_code.router_mcp`` overrides either default.
+    """
+
+    section = config.get("claude_code")
+    configured = section.get("router_mcp") if isinstance(section, dict) else None
+    if configured is None:
+        return not native
+    return bool(configured)
 
 
 @dataclass(frozen=True, slots=True)
@@ -175,6 +196,7 @@ class ClaudeLaunchServices:
     policy: ClaudeLaunchPolicy
     channel_delivery: ClaudeLaunchChannelDelivery
     mcp_config: ClaudeLaunchMcpConfig
+    restart: SessionRestartPorts = SessionRestartPorts()
 
 
 def run_claude(
@@ -232,6 +254,7 @@ def run_claude(
     provider_menu_label = services.config.provider_menu_label
     record_launch_state_for_cwd = services.routing.record_launch_state_for_cwd
     reset_zai_mcp_config_if_inactive = services.routing.reset_zai_mcp_config_if_inactive
+    restart_control = services.restart.new_control()
     router_health_summary = services.routing.router_health_summary
     router_log = services.routing.router_log
     run_ciel_runtime_update_check = services.dispatch.run_ciel_runtime_update_check
@@ -473,7 +496,10 @@ def run_claude(
             injected_servers={"ciel-runtime-router": {
                 "transport": "streamable_http", "url": f"{ROUTER_BASE}/ca/mcp",
                 "runtimes": ["claude"],
-            }} if llm_channel_delivery and web_backend_start_requested(cfg) else None,
+            }} if (
+                (llm_channel_delivery and web_backend_start_requested(cfg))
+                or router_mcp_enabled_for_launch(cfg, native=use_native_anthropic)
+            ) else None,
             native=provider == "anthropic",
         ) if workspace_mcp is not None else None
     )
@@ -583,23 +609,60 @@ def run_claude(
                         workspace_mcp_launch.child_record_path
                         if workspace_mcp_launch is not None else None
                     ),
+                    restart_poll=restart_control.incoming,
+                    restart_state=restart_control,
                 )
             elif workspace_mcp_launch is not None and workspace_mcp_launch.active:
                 rc = subprocess_call_with_child_pid_record(
-                    cmd, env, workspace_mcp_launch.child_record_path
+                    cmd,
+                    env,
+                    workspace_mcp_launch.child_record_path,
+                    restart_poll=restart_control.incoming,
+                    restart_state=restart_control,
                 )
             elif capture_stderr:
                 rc = _subprocess_call_capturing_stderr(cmd, env)
-            else:
+            elif has_noninteractive_claude_args(launch_passthrough):
+                # A one-shot print run (-p/--print) has no session to restart.
                 rc = subprocess.call(cmd, env=env)
+            else:
+                rc = subprocess_call_with_child_pid_record(
+                    cmd,
+                    env,
+                    None,
+                    restart_poll=restart_control.incoming,
+                    restart_state=restart_control,
+                )
             return rc
         finally:
             configure_session_socket(None)
             if use_router_mode:
                 print_routed_claude_exit_diagnostics(rc, provider, pcfg, log_offset=launch_log_offset)
 
+    def run_claude_session() -> int:
+        handled: set[str] = set()
+        while True:
+            restart_control.reset()
+            rc = run_claude_process()
+            request = restart_control.request
+            if request is None or request.id in handled:
+                return rc
+            handled.add(request.id)
+            if request.resume:
+                cmd[:] = runtime_resume_command(cmd, "claude")
+            print(
+                "Ciel Runtime: restarting Claude Code "
+                f"source={request.source or '-'} reason={request.reason or '-'}",
+                flush=True,
+            )
+            router_log(
+                "INFO",
+                f"claude_session_restart exit_code={rc} source={request.source or '-'} "
+                f"reason={request.reason or '-'} resumed={str(bool(request.resume)).lower()}",
+            )
+
     try:
-        return run_with_router_lifetime(run_claude_process, manage_router_lifetime)
+        return run_with_router_lifetime(run_claude_session, manage_router_lifetime)
     finally:
         if workspace_mcp is not None and workspace_mcp_launch is not None:
             workspace_mcp.finish(workspace_mcp_launch)
@@ -702,6 +765,7 @@ class CodexLaunchRouting:
     native_codex_enabled: Callable[..., Any]
     run_with_router_lifetime: Callable[..., Any]
     start_router_if_needed: Callable[..., Any]
+    router_log: Callable[..., Any] = lambda *_args, **_kwargs: None
 
 
 @dataclass(frozen=True, slots=True)
@@ -721,6 +785,7 @@ class CodexLaunchServices:
     dispatch: CodexLaunchDispatch
     routing: CodexLaunchRouting
     channel: CodexLaunchChannel
+    restart: SessionRestartPorts = SessionRestartPorts()
 
 
 def _codex_explicit_resume_session_id(passthrough: list[str]) -> str:
@@ -766,11 +831,13 @@ def run_codex(
     codex_passthrough_args_for_launch = services.cli_policy.codex_passthrough_args_for_launch
     codex_passthrough_has_command = services.cli_policy.codex_passthrough_has_command
     codex_process_record_path = services.process.codex_process_record_path
+    codex_restart_control = services.restart.new_control()
     codex_resume_picker_requested = services.cli_policy.codex_resume_picker_requested
     codex_resume_with_session_id = services.cli_policy.codex_resume_with_session_id
     codex_routed_enabled = services.routing.codex_routed_enabled
     codex_runtime_config_args = services.cli_policy.codex_runtime_config_args
     codex_runtime_model_catalog_args = services.config.codex_runtime_model_catalog_args
+    router_log = services.routing.router_log
     workspace_mcp = services.config.workspace_mcp
     codex_yolo_launch_args = services.cli_policy.codex_yolo_launch_args
     current_alias = services.config.current_alias
@@ -920,7 +987,8 @@ def run_codex(
     codex_mcp_compat_args = codex_mcp_native_http_compat_args(
         None,
         include_builtin_channel=(
-            channel_delivery_mode(cfg) == "llm" and web_backend_start_requested(cfg)
+            (channel_delivery_mode(cfg) == "llm" and web_backend_start_requested(cfg))
+            or router_mcp_enabled_for_launch(cfg, native=use_native_codex)
         ),
     )
     workspace_mcp_launch = (
@@ -1007,10 +1075,34 @@ def run_codex(
                 if workspace_mcp_launch is not None and workspace_mcp_launch.active
                 else codex_process_record_path("client")
             ),
+            restart_poll=codex_restart_control.incoming,
+            restart_state=codex_restart_control,
         )
 
+    def run_codex_session() -> int:
+        handled: set[str] = set()
+        while True:
+            codex_restart_control.reset()
+            rc = run_codex_process()
+            request = codex_restart_control.request
+            if request is None or request.id in handled:
+                return rc
+            handled.add(request.id)
+            if request.resume:
+                cmd[:] = runtime_resume_command(cmd, "codex")
+            print(
+                "Ciel Runtime: restarting Codex "
+                f"source={request.source or '-'} reason={request.reason or '-'}",
+                flush=True,
+            )
+            router_log(
+                "INFO",
+                f"codex_session_restart exit_code={rc} source={request.source or '-'} "
+                f"reason={request.reason or '-'} resumed={str(bool(request.resume)).lower()}",
+            )
+
     try:
-        return run_with_router_lifetime(run_codex_process, manage_router_lifetime)
+        return run_with_router_lifetime(run_codex_session, manage_router_lifetime)
     finally:
         if workspace_mcp is not None and workspace_mcp_launch is not None:
             workspace_mcp.finish(workspace_mcp_launch)

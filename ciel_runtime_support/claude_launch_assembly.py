@@ -107,6 +107,11 @@ class ClaudeLaunchMcpConfigPorts:
 
 
 @dataclass(frozen=True, slots=True)
+class ClaudeLaunchRestartPorts:
+    control: Callback
+
+
+@dataclass(frozen=True, slots=True)
 class ClaudeLaunchAssembly:
     process: ClaudeLaunchProcessPorts
     installation: ClaudeLaunchInstallationPorts
@@ -116,6 +121,7 @@ class ClaudeLaunchAssembly:
     policy: ClaudeLaunchPolicyPorts
     delivery: ClaudeLaunchDeliveryPorts
     mcp_config: ClaudeLaunchMcpConfigPorts
+    restart: ClaudeLaunchRestartPorts | None = None
 
     def services(self) -> runtime_launch.ClaudeLaunchServices:
         return runtime_launch.ClaudeLaunchServices(
@@ -199,6 +205,11 @@ class ClaudeLaunchAssembly:
                 write_zai_mcp_config=self.mcp_config.write_zai,
                 workspace_mcp=self.mcp_config.workspace,
             ),
+            restart=(
+                runtime_launch.SessionRestartPorts(self.restart.control)
+                if self.restart is not None
+                else runtime_launch.SessionRestartPorts()
+            ),
         )
 
 
@@ -211,5 +222,6 @@ __all__ = [
     "ClaudeLaunchMcpConfigPorts",
     "ClaudeLaunchPolicyPorts",
     "ClaudeLaunchProcessPorts",
+    "ClaudeLaunchRestartPorts",
     "ClaudeLaunchRoutingPorts",
 ]

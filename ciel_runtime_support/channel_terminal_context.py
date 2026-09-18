@@ -218,6 +218,8 @@ class ChannelTerminalContext:
         channel_wake_bracketed_paste: bool = False,
         channel_wake_submit_delay_seconds: float | None = None,
         tracked_child_pid_path: Path | None = None,
+        restart_poll: Callable[[], Any] | None = None,
+        restart_state: Any = None,
     ) -> int:
         if inject_channel_messages:
             self.dispatch_ports.prepare_delivery()
@@ -237,6 +239,8 @@ class ChannelTerminalContext:
             channel_wake_bracketed_paste=channel_wake_bracketed_paste,
             channel_wake_submit_delay_seconds=channel_wake_submit_delay_seconds,
             tracked_child_pid_path=tracked_child_pid_path,
+            restart_poll=restart_poll,
+            restart_state=restart_state,
         )
 
     def call_direct(
@@ -244,8 +248,17 @@ class ChannelTerminalContext:
         cmd: list[str],
         env: dict[str, str],
         pid_path: Path | None = None,
+        *,
+        restart_poll: Callable[[], Any] | None = None,
+        restart_state: Any = None,
     ) -> int:
-        return self.dispatch_service().call_direct(cmd, env, pid_path)
+        return self.dispatch_service().call_direct(
+            cmd,
+            env,
+            pid_path,
+            restart_poll=restart_poll,
+            restart_state=restart_state,
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -286,6 +299,8 @@ class ChannelTerminalCompatibilityApi:
         channel_wake_bracketed_paste: bool = False,
         channel_wake_submit_delay_seconds: float | None = None,
         tracked_child_pid_path: Path | None = None,
+        restart_poll: Callable[[], Any] | None = None,
+        restart_state: Any = None,
     ) -> int:
         return self.context().run_windows(
             cmd,
@@ -303,6 +318,8 @@ class ChannelTerminalCompatibilityApi:
             channel_wake_bracketed_paste=channel_wake_bracketed_paste,
             channel_wake_submit_delay_seconds=channel_wake_submit_delay_seconds,
             tracked_child_pid_path=tracked_child_pid_path,
+            restart_poll=restart_poll,
+            restart_state=restart_state,
         )
 
     def dispatch(
@@ -321,6 +338,8 @@ class ChannelTerminalCompatibilityApi:
         channel_wake_bracketed_paste: bool = False,
         channel_wake_submit_delay_seconds: float | None = None,
         tracked_child_pid_path: Path | None = None,
+        restart_poll: Callable[[], Any] | None = None,
+        restart_state: Any = None,
     ) -> int:
         return self.context().dispatch(
             cmd,
@@ -338,6 +357,8 @@ class ChannelTerminalCompatibilityApi:
             channel_wake_bracketed_paste=channel_wake_bracketed_paste,
             channel_wake_submit_delay_seconds=channel_wake_submit_delay_seconds,
             tracked_child_pid_path=tracked_child_pid_path,
+            restart_poll=restart_poll,
+            restart_state=restart_state,
         )
 
     def call_direct(
@@ -345,8 +366,17 @@ class ChannelTerminalCompatibilityApi:
         cmd: list[str],
         env: dict[str, str],
         pid_path: Path | None = None,
+        *,
+        restart_poll: Callable[[], Any] | None = None,
+        restart_state: Any = None,
     ) -> int:
-        return self.context().call_direct(cmd, env, pid_path)
+        return self.context().call_direct(
+            cmd,
+            env,
+            pid_path,
+            restart_poll=restart_poll,
+            restart_state=restart_state,
+        )
 
 
 __all__ = [

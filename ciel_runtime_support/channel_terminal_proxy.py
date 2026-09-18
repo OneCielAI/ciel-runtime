@@ -189,6 +189,33 @@ def _display_windows_runtime_interaction(writer: Any, notice: str) -> None:
     sys.stdout.flush()
 
 
+def _runtime_session_restart_requested(
+    log: Callable[[str, str], None],
+    restart_poll: Callable[[], Any] | None,
+    restart_state: Any,
+    *,
+    transport: str,
+    pid: int,
+) -> bool:
+    """Whether a router-side restart request wants this CLI child replaced."""
+
+    if restart_poll is None:
+        return False
+    request = restart_poll()
+    if request is None:
+        return False
+    if restart_state is not None:
+        restart_state.mark(request)
+    summary = getattr(request, "summary", None)
+    log(
+        "INFO",
+        "channel_console_restart_requested "
+        f"transport={transport} pid={pid} "
+        f"{summary() if callable(summary) else ''}".rstrip(),
+    )
+    return True
+
+
 def run_windows_channel_terminal_proxy(
     cmd: list[str],
     env: dict[str, str],
@@ -204,6 +231,8 @@ def run_windows_channel_terminal_proxy(
     channel_wake_submit_delay_seconds: float | None = None,
     channel_wake_bracketed_paste: bool = False,
     tracked_child_pid_path: Path | None = None,
+    restart_poll: Callable[[], Any] | None = None,
+    restart_state: Any = None,
 ) -> int:
     process = services.process
     policy = services.policy
@@ -349,6 +378,16 @@ def run_windows_channel_terminal_proxy(
                 lambda: interaction,
                 lambda notice: _display_windows_runtime_interaction(writer, notice),
             )
+            if _runtime_session_restart_requested(
+                policy.log,
+                restart_poll,
+                restart_state,
+                transport="conpty" if conpty is not None else "console-input",
+                pid=proc.pid,
+            ):
+                process.terminate_child(proc, "cli session restart")
+                console.sleep(0.05)
+                continue
             if conpty is not None:
                 conpty.resize_if_needed()
             elif now - last_terminal_input_mode_reset >= terminal_input_mode_reset_interval:
@@ -437,6 +476,8 @@ def run_posix_channel_terminal_proxy(
     channel_wake_bracketed_paste: bool = False,
     channel_wake_submit_delay_seconds: float | None = None,
     tracked_child_pid_path: Path | None = None,
+    restart_poll: Callable[[], Any] | None = None,
+    restart_state: Any = None,
 ) -> int:
     import pty
     import select
@@ -530,6 +571,15 @@ def run_posix_channel_terminal_proxy(
                     stdout_fd, _runtime_interaction_bytes(notice)
                 ),
             )
+            if _runtime_session_restart_requested(
+                policy.log,
+                restart_poll,
+                restart_state,
+                transport="pty",
+                pid=proc.pid,
+            ):
+                process.terminate_child(proc, "cli session restart")
+                continue
             try:
                 readable, _, _ = select.select([stdin_fd, master_fd], [], [], 0.2)
             except OSError as exc:

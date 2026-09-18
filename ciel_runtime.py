@@ -69,7 +69,7 @@ from ciel_runtime_support.channel_event_projection import notification_semantic_
 from ciel_runtime_support.channel_event_projection import pretty_json_value as _pretty_json_value  # noqa: F401 - compatibility export
 from ciel_runtime_support.channel_inflight import ChannelInflightEffects
 from ciel_runtime_support.channel_mcp_context import ChannelMcpCompatibilityApi, ChannelMcpContext, ChannelMcpRpcPorts, ChannelMcpRuntimePorts
-from ciel_runtime_support.channel_mcp_tools import ChannelMcpToolServices, channel_mcp_tool_response, channel_mcp_tool_schemas, dispatch_channel_mcp_tool
+from ciel_runtime_support.channel_mcp_tools import ChannelMcpRuntimeServices, ChannelMcpToolServices, channel_mcp_tool_response, channel_mcp_tool_schemas, dispatch_channel_mcp_tool
 from ciel_runtime_support.channel_message_context import ChannelMessageCachePorts, ChannelMessageCompatibilityApi, ChannelMessageContext, ChannelMessageIdentityPorts, ChannelMessageLaunchPorts, ChannelMessageStoragePorts
 from ciel_runtime_support.channel_message_policy import message_has_external_provenance as _channel_message_has_external_provenance  # noqa: F401 - compatibility export
 from ciel_runtime_support.channel_message_policy import message_is_web_chat_request as _channel_message_is_web_chat_request
@@ -130,7 +130,7 @@ from ciel_runtime_support.codex_config import codex_config_override_keys as _cod
 from ciel_runtime_support.codex_config import toml_scalar_without_comment as _toml_scalar_without_comment  # noqa: F401
 from ciel_runtime_support.codex_config import toml_string
 from ciel_runtime_support.codex_config import unquote_toml_string as _unquote_toml_string  # noqa: F401
-from ciel_runtime_support.codex_launch_assembly import CodexAppServerLaunchPorts, CodexCliLaunchPorts, CodexLaunchAssembly, CodexLaunchSharedChannelPorts, CodexLaunchSharedConfigPorts, CodexLaunchSharedDispatchPorts, CodexLaunchSharedInstallationPorts, CodexLaunchSharedRoutingPorts
+from ciel_runtime_support.codex_launch_assembly import CodexAppServerLaunchPorts, CodexCliLaunchPorts, CodexLaunchAssembly, CodexLaunchSharedChannelPorts, CodexLaunchSharedConfigPorts, CodexLaunchSharedDispatchPorts, CodexLaunchSharedInstallationPorts, CodexLaunchSharedRestartPorts, CodexLaunchSharedRoutingPorts
 from ciel_runtime_support.codex_launch_policy import current_model_args as project_codex_current_model_args
 from ciel_runtime_support.codex_launch_policy import help_requested as project_codex_help_requested
 from ciel_runtime_support.codex_launch_policy import native_routed_config_args as project_codex_native_routed_config_args
@@ -384,7 +384,7 @@ from ciel_runtime_support.router_observability_context import RouterObservabilit
 from ciel_runtime_support.router_process_context import RouterListenerPorts, RouterProcessCompatibilityApi, RouterProcessCompatibilityPorts, RouterProcessContext, RouterProcessEffects
 from ciel_runtime_support.router_process_lifecycle import RouterProcessConfig, RouterSpawnPorts, RouterStartupIdentity, RouterStartupStatePorts, RouterStatePorts, schedule_router_restart
 from ciel_runtime_support.router_process_lifecycle import start_router_if_needed as start_project_router_if_needed
-from ciel_runtime_support.workspace_router_selection import workspace_identity
+from ciel_runtime_support.workspace_router_selection import workspace_digest, workspace_identity
 from ciel_runtime_support.workspace_mcp import (
     WorkspaceMcpLaunchPorts,
     WorkspaceMcpLaunchService,
@@ -464,6 +464,7 @@ from ciel_runtime_support.runtime_paths import (CHANNEL_COMPACT_REQUEST_PATH,  #
                                                 windows_appdata_root, windows_local_appdata_root)
 from ciel_runtime_support.runtime_restart import forced_upgrade_environment
 from ciel_runtime_support.runtime_restart import running_from_npm_package as detect_running_from_npm_package
+from ciel_runtime_support.runtime_session_restart import RuntimeSessionRestartServicePorts, local_runtime_session_restart
 from ciel_runtime_support.secure_json_repository import SecureJsonEffects, SecureJsonRepository
 from ciel_runtime_support.colab_speech_jobs import colab_speech_credential_status, colab_speech_job_status, launch_colab_speech_job
 from ciel_runtime_support.speech_http_controller import SpeechHttpController, SpeechHttpPorts
@@ -2068,6 +2069,7 @@ def _channel_compact_request_payload(source: str, reason: str) -> dict[str, Any]
 def _write_channel_compact_request(source: str = "mcp", reason: str = "") -> dict[str, Any]: return channel_compact_request_repository().queue(source, reason)
 def _read_channel_compact_request() -> dict[str, Any] | None: return channel_compact_request_repository().read()
 def _clear_channel_compact_request(request_id: str | None = None) -> bool: return channel_compact_request_repository().clear(request_id)
+runtime_session_restart_service = local_runtime_session_restart(lambda: RuntimeSessionRestartServicePorts(ROUTER_INSTANCE_DIR, CONFIG_DIR / "router-instances", pid_is_running, router_log, lambda path: workspace_digest(workspace_identity(path)), unisolated_test=_unisolated_test_process))
 _channel_mcp_tool_schemas = channel_mcp_tool_schemas
 _channel_mcp_tool_response = channel_mcp_tool_response
 
@@ -2078,13 +2080,12 @@ def _channel_mcp_tool_call_response(request_id: Any, params: dict[str, Any]) -> 
         ChannelMcpToolServices(
             queue_compact=_write_channel_compact_request,
             append_message=append_chat_message, read_messages=read_chat_messages,
-            store_file_path=store_chat_file_from_path,
-            store_file_upload=store_chat_file_upload,
-            file_message_text=chat_file_message_text,
-            handle_llm_options=handle_live_llm_options_action,
-            read_runtime_inputs=read_runtime_inputs,
-            telemetry_logs=_TELEMETRY_LOG_RUNTIME.tool,
-            submit_input=runtime_input_gateway().submit_stream_input,
+            store_file_path=store_chat_file_from_path, store_file_upload=store_chat_file_upload,
+            file_message_text=chat_file_message_text, handle_llm_options=handle_live_llm_options_action,
+            runtime=ChannelMcpRuntimeServices(
+                submit_input=runtime_input_gateway().submit_stream_input, read_runtime_inputs=read_runtime_inputs,
+                telemetry_logs=_TELEMETRY_LOG_RUNTIME.tool, restart_session=runtime_session_restart_service().queue_tool,
+            ),
         ),
     )
 
@@ -4737,6 +4738,7 @@ def claude_launch_services() -> runtime_launch.ClaudeLaunchServices:
             write_zai_mcp_config,
             workspace_mcp_launch_service(),
         ),
+        restart=assembly.ClaudeLaunchRestartPorts(lambda: runtime_session_restart_service().control()),
     ).services()
 
 CODEX_ROUTED_UPSTREAM_BASE = "https://chatgpt.com/backend-api/codex"
@@ -4808,7 +4810,7 @@ def codex_launch_assembly() -> CodexLaunchAssembly:
         dispatch=CodexLaunchSharedDispatchPorts(launch_agy, launch_claude, launch_codex, launch_codex_app_server, materialize_runtime_command,
                                                 run_ciel_runtime_update_check, run_codex_update_check, run_prelaunch_menu, log_codex_passthrough_mapping),
         routing=CodexLaunchSharedRoutingPorts(cleanup_managed_services_for_provider, codex_routed_enabled, direct_native_codex_enabled, launch_readiness_errors,
-                                              native_codex_enabled, codex_launch_enabled_for_provider, run_with_router_lifetime, start_router_if_needed),
+                                              native_codex_enabled, codex_launch_enabled_for_provider, run_with_router_lifetime, start_router_if_needed, router_log),
         channel=CodexLaunchSharedChannelPorts(channel_delivery_mode, codex_builtin_mcp_args, select_codex_resume_session),
         cli=CodexCliLaunchPorts(
             process=runtime_launch.CodexLaunchProcess(_channel_wake_enter_env_is_fixed, _codex_channel_wake_submit_delay_seconds, _codex_channel_wake_submit_retries,
@@ -4826,6 +4828,7 @@ def codex_launch_assembly() -> CodexLaunchAssembly:
             policy=runtime_launch.CodexAppServerCliPolicy(codex_app_server_default_listen_url, codex_app_server_launch_args, codex_current_model_config_args,
                                                           codex_native_routed_config_args, codex_passthrough_has_model_override, codex_runtime_config_args, toml_string),
         ),
+        restart=CodexLaunchSharedRestartPorts(lambda: runtime_session_restart_service().control()),
     )
 
 def codex_launch_services() -> runtime_launch.CodexLaunchServices: return codex_launch_assembly().cli_services()
@@ -4935,14 +4938,14 @@ def cli_services() -> cli_dispatch.CliServices:
         provider_commands=cli_dispatch.CliProviderCommands(cmd_advisor_model, cmd_api_key, cmd_base_url, cmd_language, cmd_log_level, cmd_model,
                                                            cmd_models, cmd_provider, cmd_provider_options, cmd_set_api_key),
         special_commands=cli_dispatch.CliSpecialCommands(cmd_ollama_catalog, cmd_ollama_native, cmd_ollama_options, cmd_web_fetch, cmd_web_search),
-        operations=cli_dispatch.CliOperations(cmd_status, cmd_stop, cmd_test, cmd_remote_bridge),
+        operations=cli_dispatch.CliOperations(cmd_status, cmd_stop, cmd_test, cmd_remote_bridge, runtime_session_restart_service().command),
         configuration=cli_dispatch.CliConfiguration(apply_auto_llm_options_config, apply_headless_env_config, set_advisor_model_config,
                                                     set_log_level_config, cmd_set_api_keys),
     ).services()
 def cli_parser_services() -> cli_parser.CliParserServices:
     return cli_assembly.CliParserAssembly(
             launch=cli_parser.CliParserLaunch(cmd_cli, cmd_launch, cmd_launch_codex, cmd_launch_codex_app_server, cmd_launch_agy, serve, cmd_remote_bridge, cmd_launch_grok, cmd_launch_zcode, cmd_launch_muse),
-            runtime=cli_parser.CliParserRuntime(cmd_version, cmd_status, cmd_env, cmd_stop, cmd_test),
+            runtime=cli_parser.CliParserRuntime(cmd_version, cmd_status, cmd_env, cmd_stop, cmd_test, runtime_session_restart_service().command),
             settings=cli_parser.CliParserSettings(cmd_language, cmd_web_search, cmd_web_fetch, cmd_log_level, *event_settings_cli.handlers(event_settings_cli.EventSettingsCliPorts(load_config, save_config, external_event_receiver_service, lambda: set_remote_instruction_config('sync', ''), sync_all_remote_memories, print, lambda: USAGE_API_KEYS))),
             provider=cli_parser.CliParserProvider(cmd_ollama_native, cmd_ollama_options, cmd_provider_options, cmd_ollama_catalog, cmd_provider,
                                                   cmd_api_key, cmd_set_api_key, cmd_set_api_keys, cmd_base_url, {"copilot": cmd_copilot_oauth, "zai": cmd_zai_oauth}),

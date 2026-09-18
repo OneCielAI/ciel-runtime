@@ -3,6 +3,7 @@ import unittest
 from dataclasses import replace
 
 from ciel_runtime_support.channel_mcp_tools import (
+    ChannelMcpRuntimeServices,
     ChannelMcpToolServices,
     channel_mcp_tool_schemas,
     dispatch_channel_mcp_tool,
@@ -21,7 +22,9 @@ class ChannelMcpToolsTests(unittest.TestCase):
             store_file_upload=lambda body: {"name": body["name"]},
             file_message_text=lambda message, uploads: f"{message} [{uploads[0]['name']}]",
             handle_llm_options=lambda action, preset: ([action, preset], action == "apply"),
-            telemetry_logs=lambda action, args: {"action": action, "file": args.get("file")},
+            runtime=ChannelMcpRuntimeServices(
+                telemetry_logs=lambda action, args: {"action": action, "file": args.get("file")},
+            ),
         )
 
     def _queue_compact(self, source, reason):
@@ -44,7 +47,15 @@ class ChannelMcpToolsTests(unittest.TestCase):
     def test_catalog_exposes_only_supported_tools(self):
         names = {tool["name"] for tool in channel_mcp_tool_schemas()}
         self.assertEqual(
-            {"submit_input", "compact_session", "send_message", "send_file", "llm_options", "telemetry_logs"},
+            {
+                "submit_input",
+                "compact_session",
+                "send_message",
+                "send_file",
+                "llm_options",
+                "restart_session",
+                "telemetry_logs",
+            },
             names,
         )
 
@@ -52,7 +63,10 @@ class ChannelMcpToolsTests(unittest.TestCase):
         admitted = []
         services = replace(
             self.services,
-            submit_input=lambda body: admitted.append(body) or {"id": 41, **body},
+            runtime=replace(
+                self.services.runtime,
+                submit_input=lambda body: admitted.append(body) or {"id": 41, **body},
+            ),
         )
 
         response = dispatch_channel_mcp_tool(

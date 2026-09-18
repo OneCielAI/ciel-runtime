@@ -10,6 +10,16 @@ from ciel_runtime_support.channel_message_policy import message_is_web_chat_requ
 
 
 @dataclass(frozen=True, slots=True)
+class ChannelMcpRuntimeServices:
+    """Optional runtime integrations the session control tools reach for."""
+
+    submit_input: Callable[[dict[str, Any]], dict[str, Any]] | None = None
+    read_runtime_inputs: Callable[..., list[dict[str, Any]]] | None = None
+    telemetry_logs: Callable[[str, dict[str, Any]], dict[str, Any]] | None = None
+    restart_session: Callable[..., dict[str, Any]] | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class ChannelMcpToolServices:
     queue_compact: Callable[[str, str], dict[str, Any]]
     append_message: Callable[[dict[str, Any]], dict[str, Any]]
@@ -18,9 +28,7 @@ class ChannelMcpToolServices:
     store_file_upload: Callable[[dict[str, Any]], dict[str, Any]]
     file_message_text: Callable[[str, list[dict[str, Any]]], str]
     handle_llm_options: Callable[[str, str], tuple[list[str], bool]]
-    read_runtime_inputs: Callable[..., list[dict[str, Any]]] | None = None
-    telemetry_logs: Callable[[str, dict[str, Any]], dict[str, Any]] | None = None
-    submit_input: Callable[[dict[str, Any]], dict[str, Any]] | None = None
+    runtime: ChannelMcpRuntimeServices
 
 
 def channel_mcp_tool_schemas() -> list[dict[str, Any]]:
@@ -177,6 +185,44 @@ def channel_mcp_tool_schemas() -> list[dict[str, Any]]:
             },
         },
         {
+            "name": "restart_session",
+            "description": (
+                "Restart the CLI session (Claude Code, Codex, AGY, ...) that is currently running "
+                "through this Ciel Runtime router. The launcher that owns the CLI terminates it and "
+                "relaunches it with the runtime's session-continue argument (--continue for Claude "
+                "Code, resume --last for Codex), so the conversation resumes instead of starting over. "
+                "Use this after deploying a new runtime build, or to recover a wedged CLI. The caller "
+                "is disconnected when the session restarts."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "reason": {
+                        "type": "string",
+                        "description": "Optional short reason recorded in the Ciel Runtime logs.",
+                    },
+                    "runtime": {
+                        "type": "string",
+                        "description": "Optional runtime label for the notice, for example claude or codex.",
+                    },
+                    "client_pid": {
+                        "type": "integer",
+                        "description": (
+                            "Optional launcher pid from a previous restart_session result. Defaults to "
+                            "the most recently started active client of this router instance."
+                        ),
+                    },
+                    "resume": {
+                        "type": "boolean",
+                        "description": (
+                            "Add the runtime's session-continue argument when the current command line "
+                            "has none. Defaults to true."
+                        ),
+                    },
+                },
+            },
+        },
+        {
             "name": "telemetry_logs",
             "description": (
                 "Inspect cursor-addressable OpenTelemetry logs stored by Ciel Runtime without loading "
@@ -241,12 +287,14 @@ def dispatch_channel_mcp_tool(
             },
         )
     if name == "submit_input":
-        if services.submit_input is None:
+        if services.runtime.submit_input is None:
             return channel_mcp_tool_response(request_id, "runtime input submission is unavailable", True)
         if not str(args.get("message") or args.get("content") or args.get("text") or "").strip():
             return channel_mcp_tool_response(request_id, "submit_input requires message", True)
-        saved = services.submit_input(args)
+        saved = services.runtime.submit_input(args)
         return _json_response(request_id, {"ok": True, "message": saved})
+    if name == "restart_session":
+        return _restart_session(request_id, args, services)
     if name == "send_message":
         return _send_message(request_id, args, services)
     if name == "send_file":
@@ -262,12 +310,37 @@ def dispatch_channel_mcp_tool(
     return channel_mcp_tool_response(request_id, f"Unknown ciel-runtime-router tool: {name}", True)
 
 
+def _restart_session(
+    request_id: Any,
+    args: dict[str, Any],
+    services: ChannelMcpToolServices,
+) -> dict[str, Any]:
+    if services.runtime.restart_session is None:
+        return channel_mcp_tool_response(request_id, "session restart is unavailable", True)
+    try:
+        client_pid = int(args.get("client_pid") or 0)
+    except (TypeError, ValueError):
+        return channel_mcp_tool_response(request_id, "client_pid must be an integer", True)
+    try:
+        result = services.runtime.restart_session(
+            reason=str(args.get("reason") or ""),
+            runtime=str(args.get("runtime") or ""),
+            client_pid=max(0, client_pid),
+            resume=args.get("resume") is not False,
+        )
+    except (OSError, ValueError) as exc:
+        return channel_mcp_tool_response(request_id, str(exc), True)
+    if not result.get("ok"):
+        return channel_mcp_tool_response(request_id, json.dumps(result, ensure_ascii=False), True)
+    return _json_response(request_id, result)
+
+
 def _telemetry_logs(
     request_id: Any,
     args: dict[str, Any],
     services: ChannelMcpToolServices,
 ) -> dict[str, Any]:
-    if services.telemetry_logs is None:
+    if services.runtime.telemetry_logs is None:
         return channel_mcp_tool_response(request_id, "telemetry log storage is unavailable", True)
     action = str(args.get("action") or "list").strip().lower()
     if action not in {"list", "read", "configure", "roll", "delete"}:
@@ -277,7 +350,7 @@ def _telemetry_logs(
     if action == "delete" and args.get("confirm") is not True:
         return channel_mcp_tool_response(request_id, "telemetry_logs delete requires confirm=true", True)
     try:
-        result = services.telemetry_logs(action, args)
+        result = services.runtime.telemetry_logs(action, args)
     except (FileNotFoundError, OSError, ValueError) as exc:
         return channel_mcp_tool_response(request_id, str(exc), True)
     return _json_response(request_id, {"ok": True, **result})
@@ -369,11 +442,11 @@ def _web_reply_correlation_error(
         return "web chat parent_id is invalid"
     if parent_id <= 0:
         return "web chat parent_id is invalid"
-    if services.read_runtime_inputs is not None:
+    if services.runtime.read_runtime_inputs is not None:
         supplied_token = str(args.get("reply_token") or "").strip()
         if not supplied_token:
             return "web chat delivery requires reply_token from the current browser request"
-        private_matches = services.read_runtime_inputs(0, None, None, 10000)
+        private_matches = services.runtime.read_runtime_inputs(0, None, None, 10000)
         token_match = False
         for private_message in private_matches:
             private_meta = private_message.get("meta") if isinstance(private_message.get("meta"), dict) else {}
