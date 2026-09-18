@@ -1,0 +1,19 @@
+okf_version: "1.0"
+task: "User: update the model list available on the Alibaba plan (Singapore) from the plan console page they pasted (2026-09-18)."
+source_of_truth: "The pasted console list: Qwen qwen3.8-max / qwen3.8-flash / qwen3.7-plus / qwen3.7-max / qwen3.6-flash; DeepSeek deepseek-v4.1-flash / deepseek-v4-pro-0813 / deepseek-v4-pro / deepseek-v4-flash-0731; Zhipu glm-5.3 / glm-5.2; plus media models (qwen-audio-3.0-asr-flash, qwen-audio-3.0-realtime-plus, qwen-audio-3.0-tts-plus, qwen-image-3.0-pro, wan2.7-image, wan2.7-image-pro, happyhorse-1.1-r2v/t2v/i2v)."
+provider_mapping: "'Alibaba plan Singapore' = the Singapore Token Plan: provider alitoken (base_url token-plan.ap-southeast-1.maas.aliyuncs.com) with variants alitoken-individual and alims-intl. This machine's saved workspace configs select alitoken (7 workspaces); alims-intl is unused here."
+changes:
+  - "providers/alibaba.py: new ALIBABA_SINGAPORE_PLAN_TEXT_MODELS (the 11 text/vision/reasoning models from the page, newest first, QWEN38_FLASH_MODEL added as a constant)."
+  - "ALIBABA_MODEL_STUDIO_MODELS and ALIBABA_TOKEN_PLAN_MODELS now start from that list; ALIBABA_INDIVIDUAL_TOKEN_PLAN_MODELS derives as before."
+  - "qwen3.8-flash added to _RESPONSES_MODEL_PREFIXES so it can use the Responses wire (Codex) like every other Qwen chat model in that list."
+  - "config_migrations.py: marker alibaba_singapore_plan_catalog_20260918 appends qwen3.8-flash, deepseek-v4.1-flash, deepseek-v4-pro-0813, deepseek-v4-flash-0731 and glm-5.3 to the saved custom_models of alims-intl/alitoken/alitoken-individual."
+decisions:
+  media_models_excluded: "Audio/image/video ids from the page are not chat- or Responses-capable, so they are not added to the CLI catalog (they would appear in the model picker and fail on launch). Stated in a comment next to the constant."
+  no_pruning: "Older entries the page no longer shows (qwen3.6-plus, qwen3.5-plus, qwen3-coder-*, deepseek-v4-flash, deepseek-v3.2, kimi-k3/k2.x, glm-5.1/5, MiniMax-M2.5) were kept. Reason: this provider treats the live /models listing as authoritative (authoritative_upstream_catalog=True), so the constant is only the offline fallback, and every previous Alibaba catalog migration in this repo merges rather than removes. Pruning is a one-line follow-up if the user confirms the page is complete."
+  qwen38_flash_profile: "No context/output profile is defined for qwen3.8-flash (the adapter returns no profile), exactly like qwen3.6-flash and qwen3.7-plus today, so it inherits the provider defaults (1M / 131K). No profile was invented."
+  defaults_unchanged: "current_model qwen3.8-max, opus/sonnet qwen3.8-max/qwen3.7-plus, haiku qwen3.6-flash all remain present on the page, so no default was changed."
+verification:
+  tests: "test_alibaba_provider.py 44 OK (new: every plan text model is declared for alims-intl/alitoken/alitoken-individual, media ids absent, qwen3.8-flash selects openai_responses and anthropic_messages; new: migration adds each model exactly once and is idempotent). router group 1135 OK, unit group 1491 OK, ruff clean."
+  real_config_simulation: "apply_config_migrations on a copy of the saved workspace config 830623b94617: alitoken custom_models 15 -> 21, added kimi-k3 (older pending migration) + qwen3.8-flash, deepseek-v4.1-flash, deepseek-v4-pro-0813, deepseek-v4-flash-0731, glm-5.3; current_model still qwen3.8-max. The file itself was not modified."
+not_verified: "No live /models call: no Alibaba API key is present in the saved configs or the environment on this machine, and model-list-cache.json holds only the anthropic listing. The page text is the only source used."
+state: "Working tree; no deploy."

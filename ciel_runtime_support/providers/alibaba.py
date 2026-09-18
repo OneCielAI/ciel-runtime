@@ -19,6 +19,7 @@ from .base import HttpBearerProviderAdapter, provider_configuration
 
 
 QWEN38_MAX_MODEL = "qwen3.8-max"
+QWEN38_FLASH_MODEL = "qwen3.8-flash"
 QWEN38_MAX_SNAPSHOT_MODEL = "qwen3.8-max-0902"
 QWEN38_MAX_PREVIEW_MODEL = "qwen3.8-max-preview"
 QWEN38_CONTEXT_WINDOW = 1_000_000
@@ -76,6 +77,27 @@ KIMI_K3_CODEX_CATALOG = {
     ],
     "default_reasoning_level": "xhigh",
 }
+# Models the Alibaba Model Studio Singapore plan console lists on 2026-09-18,
+# newest first.  The same page also lists media models (qwen-audio-3.0-asr-flash,
+# qwen-audio-3.0-realtime-plus, qwen-audio-3.0-tts-plus, qwen-image-3.0-pro,
+# wan2.7-image, wan2.7-image-pro, happyhorse-1.1-r2v/t2v/i2v); they are not
+# chat or Responses capable, so the CLI catalogs below keep them out.
+ALIBABA_SINGAPORE_PLAN_TEXT_MODELS = (
+    QWEN38_MAX_MODEL,
+    "qwen3.8-flash",
+    "qwen3.7-plus",
+    QWEN37_MAX_MODEL,
+    "qwen3.6-flash",
+    "deepseek-v4.1-flash",
+    "deepseek-v4-pro-0813",
+    "deepseek-v4-pro",
+    "deepseek-v4-flash-0731",
+    "glm-5.3",
+    "glm-5.2",
+)
+# Catalog entries kept from earlier plan pages.  They stay in the fallback list
+# because the live /models listing is authoritative for this provider and a
+# model that is still served must remain selectable when no listing is cached.
 ALIBABA_CODING_PLAN_MODELS = (
     "qwen3.7-plus",
     "qwen3.6-plus",
@@ -89,36 +111,27 @@ ALIBABA_CODING_PLAN_MODELS = (
     "glm-4.7",
 )
 ALIBABA_MODEL_STUDIO_MODELS = (
-    QWEN38_MAX_MODEL,
+    *ALIBABA_SINGAPORE_PLAN_TEXT_MODELS,
     QWEN38_MAX_SNAPSHOT_MODEL,
-    QWEN37_MAX_MODEL,
-    "qwen3.7-plus",
     "qwen3.6-plus",
-    "qwen3.6-flash",
     "qwen3.5-plus",
     "qwen3-coder-plus",
     "qwen3-coder-flash",
-    "deepseek-v4-pro",
     "deepseek-v4-flash",
-    "glm-5.2",
+    "deepseek-v3.2",
     KIMI_K3_MODEL,
     "kimi-k2.7-code",
     "MiniMax-M2.5",
 )
 ALIBABA_TOKEN_PLAN_MODELS = (
-    QWEN38_MAX_MODEL,
-    QWEN37_MAX_MODEL,
-    "qwen3.7-plus",
+    *ALIBABA_SINGAPORE_PLAN_TEXT_MODELS,
     "qwen3.6-plus",
-    "qwen3.6-flash",
-    "deepseek-v4-pro",
     "deepseek-v4-flash",
     "deepseek-v3.2",
     KIMI_K3_MODEL,
     "kimi-k2.7-code",
     "kimi-k2.6",
     "kimi-k2.5",
-    "glm-5.2",
     "glm-5.1",
     "glm-5",
     "MiniMax-M2.5",
@@ -128,6 +141,7 @@ ALIBABA_INDIVIDUAL_TOKEN_PLAN_MODELS = tuple(
 )
 _RESPONSES_MODEL_PREFIXES = (
     "qwen3.8-max",
+    "qwen3.8-flash",
     "qwen3.7-max",
     "qwen3.7-plus",
     "qwen3.6-plus",
@@ -782,6 +796,7 @@ class AlibabaIndividualTokenPlanProviderAdapter(AlibabaTokenPlanProviderAdapter)
 __all__ = [
     "ALIBABA_TOKEN_PLAN_RESPONSES_MAX_BYTES",
     "ALIBABA_CODING_PLAN_MODELS",
+    "ALIBABA_SINGAPORE_PLAN_TEXT_MODELS",
     "ALIBABA_INDIVIDUAL_TOKEN_PLAN_MODELS",
     "ALIBABA_MODEL_STUDIO_MODELS",
     "ALIBABA_TOKEN_PLAN_MODELS",
@@ -795,6 +810,7 @@ __all__ = [
     "KIMI_K3_MODEL",
     "QWEN38_AUTO_COMPACT",
     "QWEN38_CONTEXT_WINDOW",
+    "QWEN38_FLASH_MODEL",
     "QWEN38_MAX_INPUT",
     "QWEN38_MAX_MODEL",
     "QWEN38_MAX_SNAPSHOT_MODEL",

@@ -375,6 +375,38 @@ def apply_config_migrations(cfg: dict[str, Any], *, policy: ConfigMigrationPolic
                 custom.append("kimi-k3")
         migrations[marker] = True
 
+    marker = "alibaba_singapore_plan_catalog_20260918"
+    if not migrations.get(marker):
+        providers = cfg.get("providers") if isinstance(cfg.get("providers"), dict) else {}
+        # The Singapore plan page lists qwen3.8-flash, deepseek-v4.1-flash,
+        # the dated DeepSeek V4 snapshots and glm-5.3 as of 2026-09-18.
+        models = (
+            "qwen3.8-flash",
+            "deepseek-v4.1-flash",
+            "deepseek-v4-pro-0813",
+            "deepseek-v4-flash-0731",
+            "glm-5.3",
+        )
+        for provider_name in ("alims-intl", "alitoken", "alitoken-individual"):
+            pcfg = providers.get(provider_name)
+            if not isinstance(pcfg, dict):
+                continue
+            custom = pcfg.get("custom_models")
+            if not isinstance(custom, list):
+                custom = []
+                pcfg["custom_models"] = custom
+            known = {
+                normalize_model_id(provider_name, str(model))
+                for model in custom
+                if str(model).strip()
+            }
+            custom.extend(
+                model
+                for model in models
+                if normalize_model_id(provider_name, model) not in known
+            )
+        migrations[marker] = True
+
     marker = "alibaba_token_plan_singapore_20260806"
     if not migrations.get(marker):
         providers = cfg.get("providers") if isinstance(cfg.get("providers"), dict) else {}

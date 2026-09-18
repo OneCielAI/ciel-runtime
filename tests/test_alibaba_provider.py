@@ -699,6 +699,74 @@ class AlibabaProviderTests(unittest.TestCase):
             ),
         )
 
+    def test_singapore_plan_models_are_declared_and_served_on_the_responses_wire(self):
+        # The Singapore plan page lists these on 2026-09-18.
+        expected = {
+            "qwen3.8-max",
+            "qwen3.8-flash",
+            "qwen3.7-plus",
+            "qwen3.7-max",
+            "qwen3.6-flash",
+            "deepseek-v4.1-flash",
+            "deepseek-v4-pro-0813",
+            "deepseek-v4-pro",
+            "deepseek-v4-flash-0731",
+            "glm-5.3",
+            "glm-5.2",
+        }
+        for provider in ("alims-intl", "alitoken", "alitoken-individual"):
+            config = copy.deepcopy(ciel_runtime.DEFAULT_CONFIG["providers"][provider])
+            self.assertTrue(expected.issubset(set(config["custom_models"])), provider)
+
+        # The media models on the same page are not chat-capable and stay out.
+        for provider in ("alims-intl", "alitoken"):
+            config = copy.deepcopy(ciel_runtime.DEFAULT_CONFIG["providers"][provider])
+            models = set(config["custom_models"])
+            for media in ("qwen-audio-3.0-asr-flash", "qwen-image-3.0-pro", "wan2.7-image", "happyhorse-1.1-t2v"):
+                self.assertNotIn(media, models, provider)
+
+        for provider in ("alims-intl", "alitoken"):
+            config = copy.deepcopy(ciel_runtime.DEFAULT_CONFIG["providers"][provider])
+            config["current_model"] = "qwen3.8-flash"
+            self.assertEqual(
+                "openai_responses",
+                ciel_runtime.select_provider_protocol(
+                    provider, config, "openai_responses", "qwen3.8-flash"
+                ),
+            )
+            self.assertEqual(
+                "anthropic_messages",
+                ciel_runtime.select_provider_protocol(
+                    provider, config, "anthropic_messages", "qwen3.8-flash"
+                ),
+            )
+
+    def test_migration_adds_new_singapore_plan_models_once(self):
+        cfg = {
+            "migrations": {},
+            "providers": {
+                "alims-intl": {"custom_models": ["legacy-custom"]},
+                "alitoken": {"custom_models": ["private-token-model"]},
+                "alitoken-individual": {"custom_models": []},
+            },
+        }
+        ciel_runtime.apply_config_migrations(cfg)
+        ciel_runtime.apply_config_migrations(cfg)
+
+        for provider in ("alims-intl", "alitoken", "alitoken-individual"):
+            custom = cfg["providers"][provider]["custom_models"]
+            for model in (
+                "qwen3.8-flash",
+                "deepseek-v4.1-flash",
+                "deepseek-v4-pro-0813",
+                "deepseek-v4-flash-0731",
+                "glm-5.3",
+            ):
+                self.assertEqual(1, custom.count(model), provider)
+        self.assertIn("legacy-custom", cfg["providers"]["alims-intl"]["custom_models"])
+        self.assertIn("private-token-model", cfg["providers"]["alitoken"]["custom_models"])
+        self.assertTrue(cfg["migrations"]["alibaba_singapore_plan_catalog_20260918"])
+
     def test_all_alibaba_catalogs_include_current_provider_models(self):
         expected_coding = {
             "qwen3.7-plus",
