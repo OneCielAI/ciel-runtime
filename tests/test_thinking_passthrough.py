@@ -157,7 +157,7 @@ class ThinkingPassthroughTests(unittest.TestCase):
         }
 
         out = ciel_runtime.normalize_thinking_for_non_anthropic_native_provider(
-            "deepseek",
+            "self-hosted-nim",
             {"native_compat": True},
             body,
         )
@@ -190,7 +190,7 @@ class ThinkingPassthroughTests(unittest.TestCase):
         }
 
         out = ciel_runtime.normalize_thinking_for_non_anthropic_native_provider(
-            "deepseek",
+            "self-hosted-nim",
             {"native_compat": True},
             body,
         )
@@ -229,7 +229,7 @@ class ThinkingPassthroughTests(unittest.TestCase):
         }
 
         out = ciel_runtime.normalize_thinking_for_non_anthropic_native_provider(
-            "deepseek",
+            "self-hosted-nim",
             {"native_compat": True},
             body,
         )
@@ -329,7 +329,7 @@ class ThinkingPassthroughTests(unittest.TestCase):
 
     def test_rehydrate_suppressed_thinking_passback_for_non_anthropic_provider(self):
         ciel_runtime.remember_suppressed_thinking_passback(
-            "deepseek",
+            "self-hosted-nim",
             "model",
             [{"type": "thinking", "thinking": "private reasoning", "signature": "sig"}],
         )
@@ -341,7 +341,7 @@ class ThinkingPassthroughTests(unittest.TestCase):
         }
 
         out = ciel_runtime.rehydrate_suppressed_thinking_passback(
-            "deepseek",
+            "self-hosted-nim",
             {"native_compat": True},
             body,
         )
@@ -357,7 +357,7 @@ class ThinkingPassthroughTests(unittest.TestCase):
         try:
             for index in range(32):
                 ciel_runtime.remember_suppressed_thinking_passback(
-                    "deepseek",
+                    "self-hosted-nim",
                     "model",
                     [{"type": "thinking", "thinking": f"private reasoning {index}", "signature": f"sig-{index}"}],
                 )
@@ -369,7 +369,7 @@ class ThinkingPassthroughTests(unittest.TestCase):
             }
 
             out = ciel_runtime.rehydrate_suppressed_thinking_passback(
-                "deepseek",
+                "self-hosted-nim",
                 {"native_compat": True},
                 body,
             )
@@ -379,6 +379,35 @@ class ThinkingPassthroughTests(unittest.TestCase):
             self.assertEqual("private reasoning 31", out["messages"][-1]["content"][0]["thinking"])
         finally:
             ciel_runtime.SUPPRESSED_THINKING_PASSBACK_MAX = old_limit
+
+    def test_deepseek_keeps_thinking_blocks_and_the_thinking_request(self):
+        # DeepSeek's Anthropic-compatible endpoint refuses a thinking-mode
+        # request whose assistant history lost its thinking blocks ("The
+        # `content[].thinking` in the thinking mode must be passed back to the
+        # API", live 2026-09-18), so the adapter preserves the contract.
+        body = {
+            "thinking": {"type": "enabled", "budget_tokens": 1024},
+            "messages": [
+                {"role": "user", "content": [{"type": "text", "text": "hello"}]},
+                {
+                    "role": "assistant",
+                    "content": [
+                        {"type": "thinking", "thinking": "hidden", "signature": "sig"},
+                        {"type": "text", "text": "answer"},
+                    ],
+                },
+            ],
+        }
+
+        out = ciel_runtime.normalize_thinking_for_non_anthropic_provider(
+            "deepseek",
+            {"native_compat": True},
+            body,
+        )
+
+        self.assertIs(out, body)
+        self.assertIn("thinking", out)
+        self.assertEqual(1, ciel_runtime.anthropic_thinking_block_count(out))
 
     def test_do_not_rehydrate_suppressed_thinking_passback_for_anthropic_provider(self):
         ciel_runtime.remember_suppressed_thinking_passback(
@@ -439,7 +468,7 @@ class ThinkingPassthroughTests(unittest.TestCase):
             "model",
             word_chunking=False,
             preserve_thinking=False,
-            provider="deepseek",
+            provider="self-hosted-nim",
         )
 
         output = handler.wfile.getvalue().decode("utf-8")
@@ -449,7 +478,7 @@ class ThinkingPassthroughTests(unittest.TestCase):
         self.assertIn('"index": 0', output)
         self.assertNotIn('"index": 1', output)
         rehydrated = ciel_runtime.rehydrate_suppressed_thinking_passback(
-            "deepseek",
+            "self-hosted-nim",
             {"native_compat": True},
             {"messages": [{"role": "assistant", "content": [{"type": "text", "text": "visible answer"}]}]},
         )
