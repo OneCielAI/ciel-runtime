@@ -1,0 +1,18 @@
+okf_version: "1.0"
+release: 0.2.51
+commit: 81a72a94f4f1e3455c141a1842df307eed3e4493
+reason: "0.2.50 was already published, so the workflow's publish-check skipped every later main push; the stable tag kept pointing at 984e05f and none of the day's fixes reached `latest`. The version had to move."
+contents:
+  - "DeepSeek thinking passback: the Anthropic-compatible endpoint refuses a thinking-mode request whose assistant history lost its thinking blocks; the adapter declares preserves_anthropic_thinking so the blocks and the request field are forwarded (live: text, tool-call and replay turns all answer 200)."
+  - "Client safety: a launcher whose build differs from the running router no longer terminates the live client ('version_mismatch_replace_active_clients' killed the session on every deploy); the mismatch now raises the explanatory error instead."
+  - "Catalog: stealth/ox-alpha retired upstream (404 -> z-ai/glm-5.3-flash) and the NVIDIA default qwen3-coder-480b reached end of life (410 -> z-ai/glm-5.3); a migration repoints existing configs."
+  - "Test isolation: CIEL_RUNTIME_STATE_DIR no longer overrides CIEL_RUNTIME_TEST_ISOLATED, and destructive cleanup fails closed under an un-isolated test runner (the cause of the CLI exiting mid-sweep)."
+provider_sweep_20260918:
+  method: "For every configured provider with a key, a minimal request built by the runtime's own endpoint/headers/normalize and POSTed, plus a thinking-mode variant for reasoning families."
+  result: "deepseek 200/200, meta 200, ollama-cloud 200/200, opencode-go 200/200, openrouter nemotron+pareto 200; opencode (zen) 401 insufficient balance (no zen credit on this account); nvidia-hosted 401 because this machine stores only the placeholder key."
+verification:
+  ci: "CI and Publish to npm both success on 81a72a9 (main) and on the nightly branch."
+  npm: "latest = 0.2.51 (gitHead 81a72a94...), nightly = 0.2.51-nightly.20260918-150827.81a72a9."
+  tarball: "Published 0.2.51 unpacked and checked: deepseek preserves flag, z-ai/glm-5.3-flash in the openrouter defaults, the retirement migration, the isolation guard, VERSION 0.2.51."
+  local: "Installed at ~/.local/share/ciel-runtime-81a72a94f4f1e3455c141a1842df307eed3e4493 (CIEL_RUNTIME_HOME repinned); installed files match the repo modulo CRLF; import check passes."
+live: "Routers 9611 and 9465 keep their previous build until relaunched; they were not restarted."
