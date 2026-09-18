@@ -1,0 +1,25 @@
+okf_version: "1.0"
+task: "User: muse-spark does not work on 10.0.0.238:9683; suspects the last git patch; then 'most models do not work'."
+remote_access:
+  reachability: "10.0.0.238 pings (3 ms); TCP 9683/445/3389/80 open, 22 closed. GET /health and POST /v1/messages both answer 401 'ciel-runtime router external authentication is required' (administrative external auth enabled, no token on this computer; same state as docs/journal/2026/09/07/diagnostics/windows/remote-backend-log-access.okf)."
+  consequence: "Remote version, provider, model and router.log could not be read. No SSH path (port 22 closed; the aap_* keys are for other hosts)."
+suspect_patch_review:
+  commits_since_main: "923989f..bd13b0c: 173864b/1c0bb27 opencode catalog+session, 6fee3e8/7c48409 codex completion gate (adds a gate to the provider Responses passthrough for every provider on the Responses route; Meta tool_choice required/named -> auto), bff7596 opencode identity + openrouter, 3d132dc/0fde800 console guard, bf9d480 openrouter pareto, bd13b0c 0.2.48."
+  cross_provider_code_paths_changed: "provider_request_access adapter_headers now passes router_originated (default session_headers is {} for every non-opencode adapter); provider_responses_passthrough completion gate (7c48409, already published 16:03 KST and installed here since then)."
+direct_meta_probe:
+  text: "POST https://api.meta.ai/v1/responses muse-spark-1.3: non-stream 200 completed (reasoning+message); stream 200 completed."
+  tools: "tools + tool_choice auto: max_output_tokens 128 -> response.incomplete (reason max_output_tokens, 128 output tokens = reasoning ate the budget); 4096 or unset -> completed with reasoning+message; 'run echo hi' -> completed with function_call shell. muse-spark-1.3-contributor same."
+  tool_choice: "required / named -> HTTP 400 'only \"auto\" is supported for tool_choice' — exactly the case 7c48409's meta.py projection to auto handles; through the router this never reaches Meta."
+end_to_end_on_this_computer:
+  harness: "scratchpad e2e_provider.py: isolated config dir + own port, router = chosen build, real `claude -p` (2.1.275, Bash tool) and `codex exec` (responses wire), prompt asks for a shell tool call and the output. Keys copied from the live config into the throw-away config only."
+  bd13b0c_0_2_48: "meta/muse-spark-1.3: Claude exit 0 'hello-from-tool' (2 turns, 8 s), Codex exit 0 'hello-from-tool' (20 s), router log provider_responses_completion_gate_kept confirmed=True. meta/muse-spark-1.3-contributor Codex exit 0 (33 s, gate kept). deepseek/deepseek-v4-pro Claude+Codex exit 0. ollama-cloud/glm-5.1 Claude+Codex exit 0. openrouter/unbiased-pareto Claude+Codex exit 0. nvidia-hosted/qwen3-coder-480b: Claude exit 1 + Codex exit 1, both HTTP 410."
+  ab_7c48409: "Same Codex run on the previous build (0.2.47-nightly.20260917-160314.7c48409, backup dir): meta/muse-spark-1.3 exit 0 'hello-from-tool' (42 s, gate kept); nvidia-hosted same 410 on both builds."
+  nvidia_410: "Direct upstream POST with the live key, no router: 410 Gone 'The model qwen/qwen3-coder-480b-a35b-instruct has reached its end of life on 2026-06-11 and is no longer available' — upstream EOL, not the patch (the model is still this computer's nvidia-hosted current_model)."
+conclusion:
+  patch_not_reproduced: "On this computer the last patches (7c48409 through bd13b0c) do not break muse-spark or the other keyed providers; every route that fails does so identically on the previous build and directly upstream."
+  remote_unknown: "Whether 10.0.0.238 runs the same build, which provider/model its router selects, and what its router.log says remain unverified because of the auth gate. 'Most models do not work' there is therefore not attributable yet."
+next_requirement: "From the user or that machine: the administrative external access token for 10.0.0.238:9683 (or its router.log / the exact error text and `ciel-runtimectl version` output there)."
+side_findings:
+  - "nvidia-hosted default/current model qwen/qwen3-coder-480b-a35b-instruct is EOL upstream since 2026-06-11 (410); catalog needs a replacement — not changed today."
+  - "ollama-cloud glm-5.3-flash: router log repeats WARN ollama_stream_trace_finalize_failed TypeError ResponseTraceController.write() got an unexpected keyword argument 'text_so_far' (live router 9611, 21:17-21:18 KST) — not investigated today."
+  - "The pre-gate 6fee3e8 backup lives under ciel-runtime-local-before-general-gate-7c48409-111434/share/ciel-runtime (bin/share layout); the first A/B attempt pointed at the parent dir and failed to import."
