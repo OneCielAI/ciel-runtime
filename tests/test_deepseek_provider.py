@@ -271,11 +271,13 @@ class DeepSeekProviderTests(unittest.TestCase):
             "deepseek", pcfg, projected
         )
 
-        self.assertNotIn("thinking", projected)
-        self.assertEqual(
-            "xhigh",
-            projected["metadata"]["ciel_runtime_reasoning_effort"],
-        )
+        # DeepSeek's Anthropic-compatible endpoint requires the thinking
+        # blocks and the thinking mode to be passed back (live 2026-09-18), so
+        # the router keeps the field instead of stripping it for a
+        # "non-Anthropic" provider; the effort hint still projects.
+        self.assertEqual({"type": "enabled", "effort": "xhigh"}, projected["thinking"])
+        # The effort now rides on the thinking field itself, so no separate
+        # metadata hint is needed for the adapter to project it.
         self.assertEqual({"effort": "max"}, normalized["output_config"])
 
     def test_codex_none_effort_disables_deepseek_thinking(self):

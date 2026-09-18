@@ -51,6 +51,12 @@ class DeepSeekProviderAdapter(HttpBearerProviderAdapter):
         default_factory=lambda: ProviderCapabilities(
             upstream_protocol="anthropic_messages",
             supports_thinking=True,
+            # DeepSeek's Anthropic-compatible endpoint refuses a thinking-mode
+            # request whose assistant history lost its thinking blocks
+            # ("The `content[].thinking` in the thinking mode must be passed
+            # back to the API", live 2026-09-18), so they are forwarded as-is
+            # instead of being stripped for a "non-Anthropic" provider.
+            preserves_anthropic_thinking=True,
             reasoning_output_recovery="disable",
             requires_api_key=True,
         )

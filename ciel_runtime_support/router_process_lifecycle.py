@@ -190,7 +190,9 @@ def start_router_if_needed(
             )
             return True
         elif state.health_config_matches_current(health) and active_clients:
-            if replace_active_clients:
+            if replace_active_clients and not runtime_version_is_newer(
+                identity.version, health.get("version")
+            ):
                 state.log(
                     "WARN",
                     "router_version_mismatch_replace_active_clients "
