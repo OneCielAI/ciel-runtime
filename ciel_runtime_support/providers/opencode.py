@@ -147,6 +147,18 @@ class OpenCodeProviderAdapter(HttpBearerProviderAdapter):
             "user-agent": f"opencode/{OPENCODE_CLIENT_VERSION}",
         }
 
+    def compatibility_headers(self, config: ProviderConfig) -> Mapping[str, str]:
+        # A compatibility probe is its own short conversation, so it gets a
+        # fresh session rather than the router's; Zen and Go both route through
+        # the same gateway and expect the same client identity.
+        del config
+        return {
+            "x-opencode-session": new_opencode_session_id(),
+            "x-opencode-request": new_opencode_message_id(),
+            "x-opencode-client": "cli",
+            "user-agent": f"opencode/{OPENCODE_CLIENT_VERSION}",
+        }
+
     def router_native_anthropic_enabled(
         self, config: ProviderConfig, model: str | None = None
     ) -> bool:

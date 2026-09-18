@@ -5,6 +5,7 @@ from ciel_runtime_support.protocols.openai_responses import (
 )
 from ciel_runtime_support.responses_input_compatibility import (
     drop_rejected_tool_pair,
+    hoist_additional_tools,
     is_router_synthesized_item_id,
     parse_missing_tool_output_call_id,
     repair_replayed_response_items,
@@ -459,6 +460,73 @@ class RouterSynthesizedItemIdTests(unittest.TestCase):
         body = {"input": [{"type": "reasoning", "id": self.UPSTREAM_ISSUED[0]}]}
 
         self.assertIs(body, repair_replayed_response_items(body))
+
+
+class HoistAdditionalToolsTests(unittest.TestCase):
+    """Codex sends its tool catalogue as an `additional_tools` input item.
+
+    Live: forwarding it to Meta Responses answers 400 ```input[0]` did not
+    match any supported type``; removing the item answers 200.
+    """
+
+    def body(self):
+        return {
+            "input": [
+                {
+                    "type": "additional_tools",
+                    "id": "at_1",
+                    "role": "developer",
+                    "tools": [
+                        {
+                            "type": "namespace",
+                            "name": "functions",
+                            "tools": [
+                                {"type": "custom", "name": "exec", "description": "run"},
+                                {"type": "function", "name": "sleep", "parameters": {}},
+                            ],
+                        },
+                        {
+                            "type": "namespace",
+                            "name": "clock",
+                            "tools": [{"type": "function", "name": "wait"}],
+                        },
+                    ],
+                },
+                {"type": "message", "role": "user", "content": []},
+            ],
+            "tools": [],
+        }
+
+    def test_tools_move_out_of_the_input_item(self):
+        projected = hoist_additional_tools(self.body())
+
+        self.assertEqual(
+            ["message"], [item["type"] for item in projected["input"]]
+        )
+        self.assertEqual(
+            ["exec", "sleep", "wait"],
+            [tool["name"] for tool in projected["tools"]],
+        )
+
+    def test_existing_tools_and_their_names_win(self):
+        body = self.body()
+        body["tools"] = [{"type": "function", "name": "exec", "parameters": {}}]
+
+        projected = hoist_additional_tools(body)
+
+        self.assertEqual(
+            ["exec", "sleep", "wait"],
+            [tool["name"] for tool in projected["tools"]],
+        )
+        self.assertEqual({}, projected["tools"][0]["parameters"])
+
+    def test_requests_without_the_item_are_returned_unchanged(self):
+        body = {"input": [{"type": "message", "role": "user", "content": []}]}
+
+        self.assertIs(body, hoist_additional_tools(body))
+        plain = {"input": "plain string"}
+        self.assertIs(plain, hoist_additional_tools(plain))
+
 
 
 if __name__ == "__main__":

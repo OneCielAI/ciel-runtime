@@ -1,0 +1,32 @@
+okf_version: "1.0"
+task: "User: muse-spark stops working, most models fail, 'it was fine before this patch'. Find the cause instead of dismissing the report."
+symptom: "Codex turns end immediately with `event: error {\"type\":\"invalid_request_error\",\"message\":\"invalid_request_error: `input[0]` did not match any supported type\"}`. Observed in G:\ciel-bridge-service (02:15:33Z, 02:59:52Z) and C:\Users\djlov\t (03:24:45Z), all on ciel-runtime-meta-muse-spark-1.3-contributor."
+investigation:
+  error_origin: "Reproduced the exact wording by POSTing to https://api.meta.ai/v1/responses: a string, an unknown item type, or an empty object at input[0] each answer `input[0]` did not match any supported type. Orphan tool calls, reasoning items and developer messages produce different messages, so the union-mismatch wording pins the shape."
+  false_starts: "Replaying the failing sessions (text and the exact pasted image) through the current build succeeded, and the persisted rollout items all answer 200 when sent directly, so reconstruction from the rollout could not reproduce it. The Responses passthrough logs no upstream line at INFO, so the live router.log holds only `POST /v1/responses 400` and the real body was unrecoverable."
+  capture: "Ran the Codex TUI through ciel-runtime's own ConPTY launcher in C:\Users\djlov\t against an isolated router with CIEL_RUNTIME_DUMP_UPSTREAM set. The dumped body reproduced the 400."
+root_cause: "Codex now sends its tool catalogue as an `additional_tools` input item ({type: additional_tools, role: developer, tools: [{type: namespace, name: functions|clock|collaboration|mcp__cua_repl, tools: [...]}]}) and leaves top-level `tools` empty. Only the OpenAI backend accepts that item type; Meta Responses rejects it outright. The router forwarded it unchanged. `codex exec` still uses the old shape, which is why it kept working while the TUI failed in the same folder, on the same build, one minute apart."
+evidence:
+  captured_as_is: "HTTP 400 `input[0]` did not match any supported type."
+  item_removed: "HTTP 200."
+  side_effect_elsewhere: "On the translated (non-Responses) route the item is dropped instead, so the model loses every tool; the ollama turn at 03:11 answered with a raw <tool_call> text blob for that reason."
+fix:
+  - "responses_input_compatibility.py: hoist_additional_tools() lifts the namespaced definitions into top-level `tools`, keeping client names so tool calls still map back, first definition wins on a duplicate name, and drops the item."
+  - "provider_responses_passthrough.py: forward() applies it after repair_replayed_response_items and before provider normalisation, so every provider on this route benefits and each provider's own tool projection still runs."
+verification:
+  live_tui: "Codex TUI in C:\Users\djlov\t through the working tree: before the fix POST /v1/responses 400 twice; after it 7 requests all 200, input carries no additional_tools item, 13 tools hoisted, and the model really called `exec` (function_call replayed on later requests)."
+  tests: "test_responses_input_compatibility 23 OK (3 new), test_provider_responses_completion_gate 8 OK; sweep of 28 files touching opencode or the changed modules: 799 tests, 2 pre-existing environment failures only (see below). ruff clean."
+opencode_scope_audit:
+  question: "User: the previous patch was meant to reproduce the OpenCode UA and session headers only for the opencode provider — re-check it was not implemented wrongly."
+  method: "Computed provider_headers for all 67 default providers on the pre-patch build (0.2.47-nightly.20260917-050538.6fee3e8) and the working tree, for router-originated and client-forwarded requests, and diffed."
+  result: "Only opencode and opencode-go differ, and only on the router-originated side: +x-opencode-session, +x-opencode-request, +x-opencode-client and user-agent claude-cli -> opencode/1.18.31. Client-forwarded headers are byte-identical for every provider. No leak."
+  gap_found_and_fixed: "compatibility_headers carried the identity on OpenCodeGoProviderAdapter only, so OpenCode Zen probes sent {}. Moved the override to the shared OpenCodeProviderAdapter: Zen and Go now both mint a fresh ses_/msg_ pair with x-opencode-client cli and the opencode user agent per probe. Live `ciel_runtime.py test` on opencode-go still reports Compatibility: OK."
+unrelated_same_day_failures:
+  - "OpenRouter stealth/union-alpha retired upstream (404 pointing at unbiased/pareto); catalog swapped in bf9d480."
+  - "OpenCode union-alpha unavailable upstream (Go 403 API access paused, Zen 400 Model is unavailable) for every identity, while other models on the same key answer 200."
+  - "nvidia-hosted qwen/qwen3-coder-480b-a35b-instruct reached end of life 2026-06-11 and answers 410 directly upstream; it is still that provider's configured model."
+pre_existing_test_failures:
+  - "test_statusline.py: 6 failures. They reproduce on origin/main (923989f) and pass in CI, and every case reads the same stale numbers (401,121 tok / compact 1 chunks), so the statusline state lookup is not fully redirected by CIEL_RUNTIME_CONFIG_DIR on a machine with live routers."
+  - "test_claude_native_provider.test_start_router_replaces_matching_router_by_default: stash-proven pre-existing; the test patches subprocess.Popen globally while an un-mocked prelaunch taskkill path runs."
+measured_cost_note: "The completion gate from 7c48409 applies to every provider on the Responses route, not just opencode. Measured on captured dumps: 2 of 4 requests in a two-turn run were gate follow-ups carrying full context (72,808 + 73,588 bytes; 48,706 + 49,524 bytes), so a normal text answer costs roughly one extra full-context call. Not changed today; flagged for a decision."
+state: "Working tree; not committed or deployed at the time of writing."

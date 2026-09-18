@@ -90,19 +90,27 @@ class OpenCodeProviderTests(unittest.TestCase):
         self.assertEqual(1, len({headers["x-opencode-session"] for headers in calls}))
         self.assertTrue(all(headers["user-agent"].startswith("opencode/") for headers in calls))
 
-    def test_go_compatibility_uses_one_provider_session_per_probe(self):
+    def test_both_opencode_plans_use_one_provider_session_per_probe(self):
+        # Zen and Go share one gateway, so a compatibility probe on either one
+        # carries the same client identity with its own fresh session.
         request = ciel_runtime.compatibility_test_services().request
-        go = self.opencode_go_cfg()["providers"]["opencode-go"]
-        first = request.compatibility_headers("opencode-go", go)
-        second = request.compatibility_headers("opencode-go", go)
+        for provider, cfg in (
+            ("opencode-go", self.opencode_go_cfg()["providers"]["opencode-go"]),
+            ("opencode", self.opencode_cfg()["providers"]["opencode"]),
+        ):
+            with self.subTest(provider=provider):
+                first = request.compatibility_headers(provider, cfg)
+                second = request.compatibility_headers(provider, cfg)
 
-        self.assertTrue(first["x-opencode-session"].startswith("ses_"))
-        self.assertNotEqual(first["x-opencode-session"], second["x-opencode-session"])
-        self.assertEqual(f"opencode/{OPENCODE_CLIENT_VERSION}", first["user-agent"])
-        self.assertEqual("cli", first["x-opencode-client"])
-        self.assertEqual(
-            {}, request.compatibility_headers("opencode", self.opencode_cfg()["providers"]["opencode"])
-        )
+                self.assertTrue(first["x-opencode-session"].startswith("ses_"))
+                self.assertNotEqual(
+                    first["x-opencode-session"], second["x-opencode-session"]
+                )
+                self.assertTrue(first["x-opencode-request"].startswith("msg_"))
+                self.assertEqual("cli", first["x-opencode-client"])
+                self.assertEqual(
+                    f"opencode/{OPENCODE_CLIENT_VERSION}", first["user-agent"]
+                )
 
     def opencode_cfg(self, **overrides):
         pcfg = copy.deepcopy(ciel_runtime.DEFAULT_CONFIG["providers"]["opencode"])

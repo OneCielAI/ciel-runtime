@@ -237,3 +237,68 @@ __all__ = [
     "repair_replayed_response_items",
     "router_synthesized_item_id",
 ]
+
+
+ADDITIONAL_TOOLS_ITEM_TYPE = "additional_tools"
+
+
+def _flatten_tool_namespace(entry: Any) -> list[dict[str, Any]]:
+    """Return the concrete tool definitions inside one namespace entry."""
+
+    if not isinstance(entry, dict):
+        return []
+    if str(entry.get("type") or "") == "namespace":
+        flattened: list[dict[str, Any]] = []
+        for nested in entry.get("tools") or []:
+            flattened.extend(_flatten_tool_namespace(nested))
+        return flattened
+    return [dict(entry)] if entry.get("name") else []
+
+
+def hoist_additional_tools(body: dict[str, Any]) -> dict[str, Any]:
+    """Move Codex ``additional_tools`` input items into the request's tools.
+
+    Codex sends its tool catalogue as an ``additional_tools`` input item that
+    carries namespaces of tool definitions, leaving the top-level ``tools``
+    array empty. Only the OpenAI backend accepts that item: the Meta Responses
+    API answers ``400 `input[0]` did not match any supported type`` and other
+    providers drop it, which silently strips every tool from the turn.
+
+    Lift the definitions into ``tools`` so each provider's own tool
+    normalisation sees them, and drop the item. Names are kept as the client
+    sent them so tool calls still map back; a duplicate name keeps its first
+    definition.
+    """
+
+    items = body.get("input")
+    if not isinstance(items, list):
+        return body
+    hoisted: list[dict[str, Any]] = []
+    kept: list[Any] = []
+    for item in items:
+        if (
+            isinstance(item, dict)
+            and str(item.get("type") or "") == ADDITIONAL_TOOLS_ITEM_TYPE
+        ):
+            for entry in item.get("tools") or []:
+                hoisted.extend(_flatten_tool_namespace(entry))
+            continue
+        kept.append(item)
+    if not hoisted:
+        return body
+    existing = list(body.get("tools") or [])
+    seen = {
+        str(tool.get("name"))
+        for tool in existing
+        if isinstance(tool, dict) and tool.get("name")
+    }
+    for tool in hoisted:
+        name = str(tool.get("name") or "")
+        if not name or name in seen:
+            continue
+        seen.add(name)
+        existing.append(tool)
+    projected = dict(body)
+    projected["input"] = kept
+    projected["tools"] = existing
+    return projected

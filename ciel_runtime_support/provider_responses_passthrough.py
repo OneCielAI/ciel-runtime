@@ -24,7 +24,10 @@ from .responses_cache_diagnostics import (
     request_cache_profile,
     usage_with_cache_profile,
 )
-from .responses_input_compatibility import repair_replayed_response_items
+from .responses_input_compatibility import (
+    hoist_additional_tools,
+    repair_replayed_response_items,
+)
 from .responses_custom_tool_bridge import (
     ResponsesCustomToolStreamProjector,
     project_response_payload,
@@ -523,8 +526,13 @@ class ProviderResponsesPassthrough:
         body: dict[str, Any],
     ) -> dict[str, Any]:
         remote_bridge = is_remote_bridge_request(handler)
+        # Codex carries its tool catalogue in an `additional_tools` input item;
+        # only the OpenAI backend accepts that item, so lift it into `tools`
+        # before the provider's own normalisation runs.
         upstream_body = dict(
-            body if remote_bridge else repair_replayed_response_items(body)
+            body
+            if remote_bridge
+            else hoist_additional_tools(repair_replayed_response_items(body))
         )
         response_tools = (
             tool_definitions(upstream_body)
