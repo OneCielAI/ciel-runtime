@@ -784,9 +784,15 @@ class WindowsConPtySession:
                 self._old_output_mode = old_output_mode
                 self._stdout_console_handle = output_handle
                 self._parent_vt_output_ready = True
-                self._console_guard = start_console_guard(
-                    self._old_input_mode, self._old_output_mode
-                )
+                # The guard only restores console modes if this process dies
+                # before its own restore path runs; a failed start must not
+                # take the whole ConPTY session down with it.
+                try:
+                    self._console_guard = start_console_guard(
+                        self._old_input_mode, self._old_output_mode
+                    )
+                except OSError:
+                    self._console_guard = None
 
     def _restore_parent_console(self) -> None:
         kernel32 = self._kernel32

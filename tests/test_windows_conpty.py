@@ -266,7 +266,15 @@ class WindowsConPtyPolicyTests(unittest.TestCase):
         session._old_output_mode = None
         session._parent_vt_output_ready = False
 
-        session._configure_parent_console()
+        guard = mock.MagicMock(name="console_guard")
+        with mock.patch(
+            "ciel_runtime_support.windows_conpty.start_console_guard",
+            return_value=guard,
+        ) as start_guard:
+            session._configure_parent_console()
+
+        start_guard.assert_called_once_with(old_input_mode, old_output_mode)
+        self.assertIs(guard, session._console_guard)
 
         self.assertEqual(input_handle, session._stdin_console_handle)
         self.assertEqual(output_handle, session._stdout_console_handle)
