@@ -1,0 +1,21 @@
+okf_version: "1.0"
+task: "Deploy the accumulated working-tree changes (OpenCode client identity, OpenRouter Union Alpha catalog, codex turn gates from earlier today) to the local nightly install."
+commit: bff7596b27978c97a280dc5bba909222d5c87538
+deployed_version: "0.2.47-nightly.20260918-004001.bff7596"
+procedure:
+  - "Local commit bff7596 on nightly-0.2.47 (no push — user asked for a local deploy only; push to the nightly ref would trigger the npm Publish workflow)."
+  - "Mirrored the CI nightly stamping (npm-publish.yml 'Compute and apply nightly version') on the packed tree: VERSION = \"0.2.47-nightly.20260918-004001.bff7596\" in runtime_constants.py and package.json, stamped after the commit and reverted in the working tree afterwards (same as CI, which never commits the stamp)."
+  - "npm pack of the stamped working tree -> untar into a temp dir -> verified the stamp inside the tarball."
+  - "Backed up the previous install to %TEMP%\\ciel-local-backup-before-20260918-004001.bff7596."
+  - "Ran the package's install.ps1 without CIEL_RUNTIME_INSTALL_HOME, so it upgraded the existing home C:\\Users\\djlov\\.local\\share\\ciel-runtime in place (CIEL_RUNTIME_HOME user env unchanged, still that path)."
+verification:
+  launcher: "ciel-runtimectl.ps1 version -> ciel-runtime 0.2.47-nightly.20260918-004001.bff7596."
+  hashes: "SHA256 of ciel_runtime.py, providers/opencode.py, providers/opencode_go.py, providers/openrouter.py, provider_request_access.py, architecture.py match between working tree and installed copy."
+  functional: "Imported ciel_runtime from the installed dir: VERSION matches, provider_headers('opencode-go') returns user-agent opencode/1.18.31, x-opencode-client cli, ses_/msg_ 24-char ids; openrouter default catalog contains stealth/union-alpha."
+  pre_checks: "compileall OK, check_project_metadata OK (28 files), ruff clean on all changed files (2 remaining errors are pre-existing in old docs/journal/2026/09/12 diagnostic scripts)."
+tests:
+  scope: "Full npm test groups were NOT run: three live routers (pids 51576, 70192, 87028) and several cli sessions were serving during the deploy, and the standing rule forbids full test groups while a real router serves."
+  evidence_instead: "Isolated per-file sweep earlier in the session: 20 files, 718 tests, 717 OK; the single failure (test_claude_native_provider.StopRouterGuaranteeTests.test_start_router_replaces_matching_router_by_default) was stash-proven pre-existing and environment-dependent (test patches subprocess.Popen globally while an un-mocked prelaunch taskkill path runs)."
+live_processes:
+  state: "Routers 51576/70192/87028 and the cli processes keep running the previous snapshot (0.2.47-nightly.20260917-160314.7c48409) until each is relaunched; per standing rule the live sessions were not restarted or sent input."
+state: "Installed locally; commit bff7596 is local only (not pushed, not published to npm)."
