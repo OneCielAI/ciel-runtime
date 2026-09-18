@@ -222,6 +222,82 @@ class OpenCodeProviderTests(unittest.TestCase):
         )
         self.assertIn("custom", [tool["type"] for tool in out["tools"]])
 
+    def test_gate_alias_resolves_to_the_clients_namespaced_tool(self):
+        # Codex declares its catalogue inside the additional_tools item, so the
+        # top-level scan finds nothing; a call to the injected bash alias used
+        # to be resolved against the builtin Claude Code schemas and reached
+        # Codex as an undeclared name ("unsupported call", live 2026-09-18).
+        source_body = {
+            "model": "ciel-runtime-opencode-go-glm-5.3-flash",
+            "input": [
+                {
+                    "type": "additional_tools",
+                    "id": "at_1",
+                    "role": "developer",
+                    "tools": [
+                        {
+                            "type": "namespace",
+                            "name": "functions",
+                            "tools": [
+                                {"type": "custom", "name": "exec", "description": "run code"},
+                            ],
+                        }
+                    ],
+                }
+            ],
+        }
+
+        self.assertEqual(
+            "functions__exec",
+            ciel_runtime.resolve_emitted_tool_name("bash", source_body),
+        )
+        self.assertEqual(
+            "functions__exec",
+            ciel_runtime.resolve_emitted_tool_name("exec", source_body),
+        )
+        self.assertEqual(
+            "unknown", ciel_runtime.resolve_emitted_tool_name("unknown", source_body)
+        )
+
+    def test_resolved_alias_emits_the_clients_custom_tool_call(self):
+        source_body = {
+            "model": "m",
+            "input": [
+                {
+                    "type": "additional_tools",
+                    "id": "at_1",
+                    "role": "developer",
+                    "tools": [
+                        {
+                            "type": "namespace",
+                            "name": "functions",
+                            "tools": [
+                                {"type": "custom", "name": "exec", "description": "run code"},
+                            ],
+                        }
+                    ],
+                }
+            ],
+        }
+        message = {
+            "id": "msg_1",
+            "model": "m",
+            "stop_reason": "tool_use",
+            "content": [
+                {"type": "tool_use", "id": "toolu_1", "name": "functions__exec", "input": {"input": "echo hi"}}
+            ],
+            "usage": {"input_tokens": 1, "output_tokens": 1},
+        }
+
+        out = ciel_runtime.anthropic_message_to_openai_response(
+            message, source_body=source_body
+        )
+
+        calls = [item for item in out.get("output") or [] if item.get("type") == "custom_tool_call"]
+        self.assertEqual(1, len(calls))
+        self.assertEqual("exec", calls[0]["name"])
+        self.assertEqual("echo hi", calls[0]["input"])
+
     def opencode_cfg(self, **overrides):
         pcfg = copy.deepcopy(ciel_runtime.DEFAULT_CONFIG["providers"]["opencode"])
         pcfg.update(overrides)

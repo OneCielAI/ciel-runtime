@@ -205,6 +205,38 @@ def _responses_source_tools(body: dict[str, Any] | None) -> Any:
     return declarations[0] if len(declarations) == 1 else None
 
 
+def responses_client_tool_names(body: dict[str, Any] | None) -> set[str]:
+    """Tool names a Responses request makes callable, in projected spelling.
+
+    Codex carries its catalogue either at the top level or inside the
+    ``additional_tools`` input item, whose namespace members are callable under
+    the aliased ``namespace__member`` name. The response projection emits calls
+    under those same names, so this is the vocabulary a replayed call can use.
+    """
+
+    if not isinstance(body, dict):
+        return set()
+    names: set[str] = set()
+    tools = _responses_source_tools(body)
+    if not isinstance(tools, list):
+        return names
+    for tool in tools:
+        if not isinstance(tool, dict):
+            continue
+        name = str(tool.get("name") or "").strip()
+        if not name:
+            continue
+        if str(tool.get("type") or "") == "namespace":
+            for member in tool.get("tools") or []:
+                if isinstance(member, dict) and member.get("name"):
+                    names.add(
+                        _namespace_tool_alias(name, str(member["name"]).strip())
+                    )
+        else:
+            names.add(name)
+    return names
+
+
 def _tools_to_anthropic(
     tools: Any,
     *,
@@ -3796,6 +3828,7 @@ class OpenAIResponsesProtocolAdapter(MessageProtocolAdapter):
 
 
 __all__ = [
+    "responses_client_tool_names",
     "OpenAIResponsesProtocolAdapter",
     "anthropic_messages_to_openai_responses",
     "anthropic_message_to_openai_response",

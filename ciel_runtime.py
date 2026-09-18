@@ -286,7 +286,7 @@ from ciel_runtime_support.protocols.ollama_chat import anthropic_system_to_ollam
 from ciel_runtime_support.protocols.ollama_response import project_ollama_response, project_openai_chat_response
 from ciel_runtime_support.protocols.openai_reasoning import OpenAiReasoningPolicy, anthropic_tool_choice_to_openai, openai_reasoning_to_anthropic_thinking_block
 from ciel_runtime_support.protocols.openai_chat_compat import anthropic_message_to_openai_chat_completion, openai_chat_to_anthropic_messages
-from ciel_runtime_support.protocols.openai_responses import anthropic_messages_to_openai_responses, openai_response_to_anthropic_message
+from ciel_runtime_support.protocols.openai_responses import anthropic_messages_to_openai_responses, openai_response_to_anthropic_message, responses_client_tool_names
 from ciel_runtime_support.protocols.pseudo_tool_history import PseudoToolHistoryServices, find_pseudo_xml_tool_start, parse_xml_pseudo_tool_calls, sanitize_assistant_pseudo_tool_history
 from ciel_runtime_support.protocols.tool_result_projection import ToolResultProjectionServices, project_tool_result
 from ciel_runtime_support.provider_adapters import PROVIDER_ADAPTERS, PROVIDER_ALIASES, PROVIDER_LABELS, provider_default_configurations
@@ -1070,6 +1070,12 @@ _GATE_TOOL_CLIENT_EQUIVALENTS = {
 }
 def resolve_emitted_tool_name(raw_name: str, source_body: dict[str, Any] | None) -> str:
     available = tool_names_in_body(source_body or {}) if isinstance(source_body, dict) else set()
+    if isinstance(source_body, dict):
+        # Codex carries its tools in the additional_tools item, so the plain
+        # top-level scan finds nothing and a gate alias used to be resolved
+        # against the builtin Claude Code schemas instead of the client's own
+        # tool (observed live 2026-09-18: Codex answered "unsupported call").
+        available |= responses_client_tool_names(source_body)
     matched = _match_available_tool_name(raw_name, available)
     if matched:
         return matched
@@ -1085,6 +1091,9 @@ def resolve_emitted_tool_name(raw_name: str, source_body: dict[str, Any] | None)
         for name in available:
             if name.rsplit("__", 1)[-1] == candidate:
                 return name
+    if available:
+        # Never invent a name the client did not declare.
+        return raw_name
     return _fuzzy_match_tool_name(raw_name) or raw_name
 
 ANTHROPIC_PASSTHROUGH_TOOL_INPUT_REPAIR_TOOLS = {"AskUserQuestion"}
