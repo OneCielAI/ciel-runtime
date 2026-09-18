@@ -5,10 +5,10 @@ from argparse import Namespace
 from contextlib import redirect_stdout
 from dataclasses import replace
 from unittest import mock
-from uuid import UUID
 
 import ciel_runtime
 from ciel_runtime_support.compatibility_test import run_compatibility_test
+from ciel_runtime_support.providers.opencode import OPENCODE_CLIENT_VERSION
 
 
 class OpenCodeProviderTests(unittest.TestCase):
@@ -24,6 +24,27 @@ class OpenCodeProviderTests(unittest.TestCase):
         self.assertEqual("codex-session-1", headers["x-codex-session-id"])
         self.assertEqual("codex-cli/1", headers["user-agent"])
         self.assertNotIn("x-opencode-session", headers)
+
+    def test_router_originated_requests_present_the_opencode_client_identity(self):
+        # Live: a Go request without any session header is answered with
+        # 400 MissingSessionID ("Request is missing x-opencode-session"). The
+        # identity set mirrors the OpenCode CLI (opencode/<version>,
+        # x-opencode-client, ses_/msg_ ids, stable session per conversation).
+        for provider, cfg in (
+            ("opencode-go", self.opencode_go_cfg(api_key="test-key")),
+            ("opencode", self.opencode_cfg(api_key="test-key")),
+        ):
+            with self.subTest(provider=provider):
+                pcfg = cfg["providers"][provider]
+                first = ciel_runtime.provider_headers(provider, pcfg)
+                second = ciel_runtime.provider_headers(provider, pcfg)
+
+                self.assertTrue(first["x-opencode-session"].startswith("ses_"))
+                self.assertEqual(first["x-opencode-session"], second["x-opencode-session"])
+                self.assertTrue(first["x-opencode-request"].startswith("msg_"))
+                self.assertEqual("cli", first["x-opencode-client"])
+                self.assertEqual(f"opencode/{OPENCODE_CLIENT_VERSION}", first["user-agent"])
+                self.assertEqual(1, sum(name.lower() == "user-agent" for name in first))
 
     def test_go_full_compatibility_reuses_one_session_header(self):
         cfg = self.opencode_go_cfg(current_model="union-alpha", api_key="test-key")
@@ -67,7 +88,7 @@ class OpenCodeProviderTests(unittest.TestCase):
         self.assertIn("Compatibility: OK", output.getvalue())
         self.assertEqual(3, len(calls))
         self.assertEqual(1, len({headers["x-opencode-session"] for headers in calls}))
-        self.assertTrue(all(headers["user-agent"].startswith("ciel-runtime/") for headers in calls))
+        self.assertTrue(all(headers["user-agent"].startswith("opencode/") for headers in calls))
 
     def test_go_compatibility_uses_one_provider_session_per_probe(self):
         request = ciel_runtime.compatibility_test_services().request
@@ -75,9 +96,10 @@ class OpenCodeProviderTests(unittest.TestCase):
         first = request.compatibility_headers("opencode-go", go)
         second = request.compatibility_headers("opencode-go", go)
 
-        self.assertEqual(str(UUID(first["x-opencode-session"])), first["x-opencode-session"])
+        self.assertTrue(first["x-opencode-session"].startswith("ses_"))
         self.assertNotEqual(first["x-opencode-session"], second["x-opencode-session"])
-        self.assertTrue(first["user-agent"].startswith("ciel-runtime/"))
+        self.assertEqual(f"opencode/{OPENCODE_CLIENT_VERSION}", first["user-agent"])
+        self.assertEqual("cli", first["x-opencode-client"])
         self.assertEqual(
             {}, request.compatibility_headers("opencode", self.opencode_cfg()["providers"]["opencode"])
         )
@@ -617,7 +639,7 @@ class OpenCodeProviderTests(unittest.TestCase):
         self.assertEqual("Bearer sk-opencode-test", headers["authorization"])
         self.assertEqual("sk-opencode-test", headers["x-api-key"])
         self.assertEqual("2023-06-01", headers["anthropic-version"])
-        self.assertEqual("claude-cli", headers["user-agent"])
+        self.assertEqual(f"opencode/{OPENCODE_CLIENT_VERSION}", headers["user-agent"])
 
     def test_provider_headers_include_opencode_go_api_key(self):
         pcfg = self.opencode_go_cfg(api_key="sk-opencode-test")["providers"]["opencode-go"]
@@ -625,7 +647,7 @@ class OpenCodeProviderTests(unittest.TestCase):
         self.assertEqual("Bearer sk-opencode-test", headers["authorization"])
         self.assertEqual("sk-opencode-test", headers["x-api-key"])
         self.assertEqual("2023-06-01", headers["anthropic-version"])
-        self.assertEqual("claude-cli", headers["user-agent"])
+        self.assertEqual(f"opencode/{OPENCODE_CLIENT_VERSION}", headers["user-agent"])
 
     def test_zen_endpoint_family_mapping(self):
         self.assertEqual("anthropic-messages", ciel_runtime.opencode_zen_endpoint_kind("claude-sonnet-4-6"))

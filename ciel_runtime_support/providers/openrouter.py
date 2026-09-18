@@ -16,6 +16,12 @@ from .constants import DEFAULT_REQUEST_TIMEOUT_MS, PROVIDER_DEFAULT_BASE_URLS
 OPENROUTER_OX_ALPHA_MODEL = "stealth/ox-alpha"
 OPENROUTER_OX_ALPHA_CONTEXT_WINDOW = 1_048_576
 OPENROUTER_OX_ALPHA_MAX_OUTPUT_TOKENS = 131_072
+# Values from GET /api/v1/models/stealth/union-alpha/endpoints (2026-09-17):
+# one "Stealth" endpoint, text+image input, tools and tool_choice supported.
+# Only Chat Completions is documented for it, so it stays on openai_chat.
+OPENROUTER_UNION_ALPHA_MODEL = "stealth/union-alpha"
+OPENROUTER_UNION_ALPHA_CONTEXT_WINDOW = 262_144
+OPENROUTER_UNION_ALPHA_MAX_OUTPUT_TOKENS = 131_072
 
 
 @dataclass(frozen=True)
@@ -25,7 +31,7 @@ class OpenRouterProviderAdapter(OpenAICompatibleProviderAdapter):
     configuration_defaults_value: dict = field(
         default_factory=lambda: provider_configuration(
             "nvidia/nemotron-3-ultra-550b-a55b:free",
-            custom_models=(OPENROUTER_OX_ALPHA_MODEL,),
+            custom_models=(OPENROUTER_OX_ALPHA_MODEL, OPENROUTER_UNION_ALPHA_MODEL),
             native_compat=False,
             rate_limit_rpm=0,
             rate_limit_status=False,
@@ -91,7 +97,20 @@ class OpenRouterProviderAdapter(OpenAICompatibleProviderAdapter):
     def model_configuration_profile(
         self, config: ProviderConfig
     ) -> tuple[Mapping[str, Any], str | None]:
-        if self.normalize_model_id(config.model) != OPENROUTER_OX_ALPHA_MODEL:
+        selected = self.normalize_model_id(config.model)
+        if selected == OPENROUTER_UNION_ALPHA_MODEL:
+            return (
+                {
+                    "context_window": OPENROUTER_UNION_ALPHA_CONTEXT_WINDOW,
+                    "max_model_len": OPENROUTER_UNION_ALPHA_CONTEXT_WINDOW,
+                    "max_output_tokens": OPENROUTER_UNION_ALPHA_MAX_OUTPUT_TOKENS,
+                    "model_profile": "openrouter-union-alpha-262k",
+                    "supports_tool_choice": True,
+                    "supports_vision": True,
+                },
+                "OpenRouter Union Alpha profile applied: 262,144-token context and 131,072-token maximum output.",
+            )
+        if selected != OPENROUTER_OX_ALPHA_MODEL:
             return {}, None
         return (
             {
@@ -126,5 +145,8 @@ __all__ = [
     "OPENROUTER_OX_ALPHA_CONTEXT_WINDOW",
     "OPENROUTER_OX_ALPHA_MAX_OUTPUT_TOKENS",
     "OPENROUTER_OX_ALPHA_MODEL",
+    "OPENROUTER_UNION_ALPHA_CONTEXT_WINDOW",
+    "OPENROUTER_UNION_ALPHA_MAX_OUTPUT_TOKENS",
+    "OPENROUTER_UNION_ALPHA_MODEL",
     "OpenRouterProviderAdapter",
 ]

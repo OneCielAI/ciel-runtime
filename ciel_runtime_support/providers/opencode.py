@@ -1,5 +1,6 @@
 """OpenCode Zen provider adapter."""
 
+import secrets
 from dataclasses import dataclass, field
 from typing import Mapping
 
@@ -29,6 +30,30 @@ from .opencode_catalog import (
 
 OPENCODE_ZEN_OX_ALPHA_FREE_MODEL = "x-preview-f-free"
 OPENCODE_GO_OX_ALPHA_FREE_MODEL = "ox-alpha-free"
+# Latest OpenCode CLI release (2026-09-17, GitHub tag v1.18.31), used only to
+# present the same User-Agent the OpenCode client sends to the opencode
+# gateway (packages/opencode/src/session/llm/request.ts).
+OPENCODE_CLIENT_VERSION = "1.18.31"
+_BASE62 = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+
+def _new_opencode_id(prefix: str) -> str:
+    # OpenCode ID shape as stored by the client itself (session: ses_...,
+    # message: msg_...), 24 base62 characters after the prefix.
+    return prefix + "".join(secrets.choice(_BASE62) for _ in range(24))
+
+
+def new_opencode_session_id() -> str:
+    return _new_opencode_id("ses_")
+
+
+def new_opencode_message_id() -> str:
+    return _new_opencode_id("msg_")
+
+
+# One router process serves one workspace conversation, so its own requests
+# (advisor, compaction, probes) share one stable session for routing/caching.
+_ROUTER_SESSION_ID = new_opencode_session_id()
 
 
 @dataclass(frozen=True)
@@ -107,6 +132,20 @@ class OpenCodeProviderAdapter(HttpBearerProviderAdapter):
             "OpenCode Union Alpha profile applied: 262,144-token context and "
             "131,072-token maximum output.",
         )
+
+    def session_headers(self, config: ProviderConfig) -> Mapping[str, str]:
+        # Present the OpenCode CLI identity to the opencode gateway (Go and
+        # Zen): the client sends User-Agent opencode/<version>,
+        # x-opencode-client, a stable x-opencode-session per conversation and a
+        # per-message x-opencode-request id (packages/opencode/src/session/
+        # llm/request.ts). Without the session Go answers 400 MissingSessionID.
+        del config
+        return {
+            "x-opencode-session": _ROUTER_SESSION_ID,
+            "x-opencode-request": new_opencode_message_id(),
+            "x-opencode-client": "cli",
+            "user-agent": f"opencode/{OPENCODE_CLIENT_VERSION}",
+        }
 
     def router_native_anthropic_enabled(
         self, config: ProviderConfig, model: str | None = None
@@ -263,7 +302,10 @@ class OpenCodeProviderAdapter(HttpBearerProviderAdapter):
 
 
 __all__ = [
+    "OPENCODE_CLIENT_VERSION",
     "OPENCODE_GO_OX_ALPHA_FREE_MODEL",
     "OPENCODE_ZEN_OX_ALPHA_FREE_MODEL",
     "OpenCodeProviderAdapter",
+    "new_opencode_message_id",
+    "new_opencode_session_id",
 ]

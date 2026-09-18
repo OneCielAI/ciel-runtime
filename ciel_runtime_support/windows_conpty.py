@@ -17,6 +17,7 @@ from .windows_terminal_modes import (
     WindowsTerminalModeFilter,
 )
 from .terminal_input_frames import TerminalInputFrames
+from .windows_console_guard import start_console_guard, stop_console_guard
 from .windows_command_line import command_line_for_create_process
 
 
@@ -473,6 +474,10 @@ class WindowsConPtySession:
             )
             self._mirror_output = False
             self._restore_parent_console()
+            guard = getattr(self, "_console_guard", None)
+            if guard is not None:
+                stop_console_guard(guard)
+                self._console_guard = None
 
     def _write_parent_terminal_modes(self, sequence: str) -> bool:
         with self._parent_output_lock():
@@ -779,6 +784,9 @@ class WindowsConPtySession:
                 self._old_output_mode = old_output_mode
                 self._stdout_console_handle = output_handle
                 self._parent_vt_output_ready = True
+                self._console_guard = start_console_guard(
+                    self._old_input_mode, self._old_output_mode
+                )
 
     def _restore_parent_console(self) -> None:
         kernel32 = self._kernel32

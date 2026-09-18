@@ -31,8 +31,9 @@ class ProviderRequestAccessServiceTests(unittest.TestCase):
                 ),
                 select_api_key=lambda _provider, _config: "secret",
                 meaningful_key=lambda key: key != "not-used",
-                adapter_headers=lambda _provider, _config, key: {
-                    "authorization": f"Bearer {key}"
+                adapter_headers=lambda _provider, _config, key, router_originated=False: {
+                    "authorization": f"Bearer {key}",
+                    **({"x-provider-session": "router"} if router_originated else {}),
                 },
                 inbound_credentials=lambda _key, _headers: inbound,
             ),
@@ -54,6 +55,18 @@ class ProviderRequestAccessServiceTests(unittest.TestCase):
         headers = self.service().headers("deepseek", {})
         self.assertEqual("Bearer secret", headers["authorization"])
         self.assertEqual("ciel", headers["user-agent"])
+
+    def test_only_router_originated_requests_get_adapter_session_headers(self):
+        service = self.service()
+        self.assertEqual("router", service.headers("opencode-go", {})["x-provider-session"])
+        forwarded = service.headers(
+            "opencode-go", {}, {"x-claude-code-session-id": "client"}, "anthropic_messages"
+        )
+        self.assertNotIn("x-provider-session", forwarded)
+        self.assertEqual("client", forwarded["x-claude-code-session-id"])
+        retried = service.headers("opencode-go", {}, {"x-opencode-session": "kept"}, None, True)
+        self.assertEqual("kept", retried["x-opencode-session"])
+        self.assertNotIn("x-provider-session", retried)
 
     def test_inbound_credentials_are_selected_by_adapter_policy(self):
         headers = self.service(

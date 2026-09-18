@@ -1,0 +1,27 @@
+okf_version: "1.0"
+task: "Deploy tool-backed Codex completion-gate fix locally, to YETI-01, and as an npm nightly."
+source_commit: "6fee3e8045c174b064446a1f7955341e7bc0b132"
+scope: "Routed Codex recovery, native Responses completion gate, three test files, and fix journal."
+excluded: "Existing uncommitted ConPTY/channel files and unrelated journals were not committed or published."
+nightly:
+  branches: "origin/nightly and origin/nightly-0.2.47 both point to 6fee3e8."
+  version: "0.2.47-nightly.20260917-050538.6fee3e8"
+  npm_tag: "nightly resolves to that exact version and gitHead 6fee3e8."
+  tarball: "npm pack --dry-run of the exact published version succeeded; both changed recovery modules are present."
+  ci: "https://github.com/OneCielAI/ciel-runtime/actions/runs/35184223716 succeeded."
+  publish: "https://github.com/OneCielAI/ciel-runtime/actions/runs/35184223667 succeeded, including published tarball verification."
+local:
+  npm_package: "C:/Users/djlov/AppData/Roaming/npm/node_modules/@oneciel-ai/ciel-runtime"
+  launcher_home: "C:/Users/djlov/.local/share/ciel-runtime"
+  backups:
+    - "C:/Users/djlov/AppData/Local/Temp/ciel-runtime-npm-before-turn-gate-6fee3e8 (886 files matched)."
+    - "C:/Users/djlov/AppData/Local/Temp/ciel-runtime-local-before-turn-gate-6fee3e8 (1,059 files matched)."
+  verification: "Global npm package and launcher report the exact nightly; runtime, version constants, and both recovery modules match SHA256 hashes. Installed routed and native completion-gate probes both returned True."
+yeti_01:
+  installed_package: "C:/Users/YETI-01/AppData/Roaming/npm/node_modules/@oneciel-ai/ciel-runtime"
+  backup: "C:/Users/YETI-01/AppData/Roaming/ciel-runtime/deployment-backups/before-6fee3e8 (946 files matched)."
+  install: "Explicit npm global prefix for YETI-01, pinned to the exact published version; npm reported one changed package. The package version read immediately before that command was already the new version; the installer nevertheless ran and was rechecked."
+  verification: "YETI-01 launcher reports the exact nightly. Four core SHA256 hashes match the local published package. Installed routed and native completion-gate probes both returned True."
+tests: "npm test passed all isolated groups: unit 1,444, router 1,108, channel 406, runtime 293; 3,251 tests total. Targeted ruff and git diff checks passed."
+limitation: "No active YETI-01 Codex/Router process was restarted, and the affected long-running session was not replayed end-to-end. Existing processes may retain loaded old code until restarted."
+runtime_probe: "YETI-01 localhost:9407 /health was not reachable at verification time, so no active-router behavior or version was asserted."

@@ -1,0 +1,29 @@
+okf_version: "1.0"
+task: "YETI-01 E:\\ciel-qb-mcp: check whether (1) the LLM's closing text being shown twice and (2) 'says it will proceed, then stops' are caused by the ciel-runtime router."
+scope: "Read-only over SSH (100.64.0.10:1004, user YETI-01). No file written, no process touched on YETI-01. Scripts were passed as base64 to python -c. No source change locally."
+target_state:
+  router: "127.0.0.1:9407 /health: version 0.2.47-nightly.20260917-050538.6fee3e8, pid 7132, workspace e:\\ciel-qb-mcp, provider github-copilot-oauth, model gpt-5.6-sol, one client pid 5532."
+  client: "pid 5532 = ciel_runtime.py cli --continue; child = codex --yolo ... wire_api=responses base_url=http://127.0.0.1:9407/v1 ... resume 01a09e13-3a25-7262-90d6-b19c054e9a15."
+  transcript: "C:\\Users\\YETI-01\\.codex\\sessions\\2026\\09\\13\\rollout-2026-09-13T21-00-55-01a09e13-...jsonl (294,947,345 bytes); last write 2026-09-17 07:53:59 local (14:53:59Z)."
+  provider_config: "workspaces/51db24129583/config.json providers.github-copilot-oauth: responses_custom_tools_as_functions unset, responses_stream_truncation_retries unset, stream_enabled true."
+  log_level: "INFO. Instance dir has router.log(+.1), tool-calls.jsonl; no requests.jsonl / responses.jsonl / router-sse-trace.jsonl."
+observed_stall:
+  last_turn: "task_started 14:09:30Z (user: '검증 진행'), task_complete 14:53:59Z, duration_ms 2,669,667, one turn_id 01a0afb3-7a82-7132-ac26-58dbadbdc6a4."
+  compactions_inside_turn: "compacted records at 14:10:16, 14:21:34, 14:33:30, 14:43:39, 14:53:55 (window_number 62/63/64 seen for the last three). Each is immediately preceded by an assistant message phase=final_answer ('## Handoff', '## 진행 상태', '## 현재 상태', '### 현재 진행 상태') whose first 200 chars are contained in the compacted.message. Router log for the 14:53:55 one: request_tools=0, request_input_items=379, request_bytes=847187, input_tokens=107040."
+  after_compaction: "14:10:25, 14:21:44, 14:33:48, 14:43:45: assistant message phase=commentary ('…이어서 진행하겠습니다…') followed by tool calls; work continued. 14:53:59: assistant message phase=final_answer, 146 chars ('검증을 이어서 진행하겠습니다. …'), no tool call in that response, then task_complete with the same text. Router log for that request: request_tools=14, request_input_items=206, input_tokens=45719."
+router_path_for_these_requests:
+  route: "provider Responses passthrough (log event provider_responses_cache, emitted by ProviderResponsesPassthrough). With both config flags unset, forward() writes each upstream chunk to the client unchanged (provider_responses_passthrough.py:449-481, projector None)."
+  no_gate_on_this_route: "codex_completion_gate is referenced only from router_http.py (:565 _validate_codex_completion in the Codex backend adapter). recover_preamble_only_turn is called only on the translated route (openai_responses_router.py:234). _handle_provider_responses_route (openai_responses_router.py:417-448) calls neither."
+  phase_field: "ciel_runtime_support never assigns phase='final_answer'; it only validates the value (protocols/openai_responses.py:2049-2050, 2886-2888; responses_anthropic_stream.py:629-630)."
+  log_histogram: "Whole router.log + router.log.1: no codex_completion_gate_*, no recovery/nudge events. Events present: transcript_delta_delivered 2104, channel_windows_console_deferred 890, provider_responses_cache 813, external_event_sse_disconnected 19, transcript_delta_delivery_failed 12, others <=4."
+observed_duplication_checks:
+  transcript_items: "In the last 120 MB of the rollout, assistant response_item texts that occur more than once: two short commentary strings on 2026-09-16 (21:59:01/22:01:08 and 23:14:55/23:17:20), minutes apart, each followed by its own tool call, item ids rs_01a0… . No turn-ending message is recorded twice as a response_item."
+  router_stream: "GET /ca/tui/recent (last 200 events): final request tui-7132-1789656835427761900 has 48 output.text.delta events totalling 146 chars = length of the transcript message. No repeated half."
+  codex_record_shape: "Each turn end is written by Codex as response_item(message) and then event_msg task_complete.last_agent_message with the same text (hash b76f7ff2 for both at 14:53:59). Each assistant message is also preceded by an event_msg item_completed(AgentMessage)."
+  transcript_webhook: "transcript_delta_delivery posts raw JSONL byte ranges. 2104 deliveries, 0 offset rewinds, 2 forward gaps, 12 failures (7 TimeoutError, 5 HTTP 502); a failed batch is re-sent from the same offset."
+not_verified:
+  - "What surface the user sees the doubled text on (Codex TUI through ConPTY, Web Chat, or a Walkie transcript consumer). The console screen of pid 5532 cannot be read over SSH."
+  - "Whether the Codex TUI rendering through the Windows ConPTY proxy shows the closing message twice. No evidence for or against was collected."
+  - "Whether the receiver processed any of the 12 failed transcript batches before the retry."
+  - "Raw upstream SSE for the 14:53:57 request is not persisted; that upstream sent phase=final_answer is inferred from the unchanged-bytes passthrough code path plus the transcript, not from a byte capture."
+assessment: "Stall: verified that the turn ended because the first post-compaction response was a no-tool message marked final_answer; on this route the router forwards bytes unchanged and has no completion check, so it neither produced nor prevented it. Duplication: not found in the model output, in the router's observed stream, or in successful transcript deliveries; the only always-at-turn-end identical pair found is Codex's own response_item + task_complete record."

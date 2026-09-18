@@ -1346,8 +1346,8 @@ _PROVIDER_REQUEST_ACCESS = ProviderRequestAccessService(
         request_policy=lambda provider, pcfg: provider_request_policy(provider, pcfg),
         select_api_key=lambda provider, pcfg: select_provider_api_key(provider, pcfg),
         meaningful_key=project_meaningful_key_value,
-        adapter_headers=lambda provider, pcfg, key: configured_provider_adapter(provider, pcfg).build_headers(
-            provider_contract_config(provider, pcfg), key),
+        adapter_headers=lambda provider, pcfg, key, router_originated=False: configured_provider_adapter(provider, pcfg).request_headers(
+            provider_contract_config(provider, pcfg), key, router_originated=router_originated),
         inbound_credentials=lambda key, inbound: credential.headers if (credential := resolve_anthropic_credentials(key, inbound)) is not None else None,
     ),
     effects=ProviderRequestAccessEffects(

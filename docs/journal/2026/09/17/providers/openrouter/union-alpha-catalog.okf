@@ -1,0 +1,21 @@
+okf_version: "1.0"
+task: "Cross-check OpenRouter's stealth models against the openrouter provider defaults and fill in what is missing (user pointed at https://openrouter.ai/stealth/union-alpha#providers)."
+sources:
+  models_api: "GET https://openrouter.ai/api/v1/models on 2026-09-17: 445 models; ids starting with 'stealth/': only stealth/union-alpha. No other id contains 'alpha', 'union' or 'ox-'."
+  union_alpha_endpoints: "GET /api/v1/models/stealth/union-alpha/endpoints -> 200: name 'Union Alpha', created 1789569723, modality text+image->text, one endpoint provider_name 'Stealth', context_length 262144, max_completion_tokens 131072, pricing prompt 0 / completion 0, supported_parameters max_tokens, temperature, top_p, tools, tool_choice, response_format, quantization unknown."
+  union_alpha_page: "https://openrouter.ai/stealth/union-alpha documents POST /api/v1/chat/completions only; no Anthropic Messages or reasoning parameter is mentioned."
+  ox_alpha: "GET /api/v1/models/stealth/ox-alpha/endpoints -> 200 with name 'Ox Alpha' (created 1787256295, text+image+video->text) but an empty endpoint list, and the id is absent from /api/v1/models."
+  default_model: "nvidia/nemotron-3-ultra-550b-a55b:free (the adapter's default) is present in /api/v1/models."
+gap: "providers/openrouter.py shipped custom_models=('stealth/ox-alpha',) and a model profile only for Ox Alpha. stealth/union-alpha had no default entry and no profile, so selecting it kept the generic max_output_tokens=8192."
+changes:
+  - "providers/openrouter.py: OPENROUTER_UNION_ALPHA_MODEL/_CONTEXT_WINDOW/_MAX_OUTPUT_TOKENS; added to default custom_models; model_configuration_profile applies context_window and max_model_len 262144, max_output_tokens 131072, supports_tool_choice, supports_vision, model_profile 'openrouter-union-alpha-262k'. Protocol selection unchanged: Union Alpha stays on openai_chat."
+  - "config_migrations.py: marker openrouter_union_alpha_catalog_20260917 appends stealth/union-alpha to an existing openrouter custom_models list once."
+  - "tests/test_openrouter_provider.py: +3 tests (default + profile, chat-only protocol, idempotent migration)."
+verification:
+  cli: "Isolated config dir, real entrypoint: `ciel_runtime.py provider openrouter` then `model stealth/union-alpha` stored current_model stealth/union-alpha, context_window/max_model_len 262144, max_output_tokens 131072, model_profile openrouter-union-alpha-262k, supports_vision and supports_tool_choice true, migration marker true; `models openrouter` lists ciel-runtime-openrouter-stealth-union-alpha."
+  tests: "Isolated per-file runs: test_openrouter_provider 24, test_opencode_provider 58, test_opencode_catalog_snapshot 5, architecture_contracts 261 (42 skipped), architecture_budget 2, plus every test file that calls apply_config_migrations or reads the openrouter defaults (10 files, 305 tests) — all OK. ruff clean on changed files. Live router pid 51576 unchanged."
+not_verified:
+  - "No OpenRouter API key on this computer, so no generation request was sent to stealth/union-alpha; tool calling and image input are taken from the endpoint metadata, not exercised."
+  - "Whether OpenRouter's Anthropic-compatible /api/v1/messages route serves Union Alpha; it is not documented on the model page, so it was not enabled."
+not_changed: "stealth/ox-alpha stays in the defaults and keeps its profile although OpenRouter currently lists no endpoint for it; removing it was not requested."
+state: "Working tree only; not committed, pushed, or deployed."

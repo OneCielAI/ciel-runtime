@@ -38,6 +38,24 @@ def apply_config_migrations(cfg: dict[str, Any], *, policy: ConfigMigrationPolic
         migrations = {}
         cfg["migrations"] = migrations
 
+    marker = "openrouter_union_alpha_catalog_20260917"
+    if not migrations.get(marker):
+        providers = cfg.get("providers") if isinstance(cfg.get("providers"), dict) else {}
+        pcfg = providers.get("openrouter")
+        if isinstance(pcfg, dict):
+            custom = pcfg.get("custom_models")
+            if not isinstance(custom, list):
+                custom = []
+                pcfg["custom_models"] = custom
+            known = {
+                normalize_model_id("openrouter", str(model))
+                for model in custom
+                if str(model).strip()
+            }
+            if normalize_model_id("openrouter", "stealth/union-alpha") not in known:
+                custom.append("stealth/union-alpha")
+        migrations[marker] = True
+
     marker = "meta_muse_spark_13_catalog_20260902"
     if not migrations.get(marker):
         providers = cfg.get("providers") if isinstance(cfg.get("providers"), dict) else {}

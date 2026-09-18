@@ -67,6 +67,44 @@ class OpenRouterProviderTests(unittest.TestCase):
         self.assertEqual("openrouter-ox-alpha-1m", pcfg["model_profile"])
         self.assertTrue(any("Ox Alpha profile applied" in message for message in messages))
 
+    def test_union_alpha_is_a_default_model_with_its_official_profile(self):
+        self.assertIn(
+            "stealth/union-alpha",
+            ciel_runtime.DEFAULT_CONFIG["providers"]["openrouter"]["custom_models"],
+        )
+        pcfg = self.openrouter_pcfg(current_model="stealth/union-alpha")
+        messages = ciel_runtime.apply_provider_model_profile("openrouter", pcfg)
+        self.assertEqual(262_144, pcfg["context_window"])
+        self.assertEqual(262_144, pcfg["max_model_len"])
+        self.assertEqual(131_072, pcfg["max_output_tokens"])
+        self.assertTrue(pcfg["supports_tool_choice"])
+        self.assertTrue(pcfg["supports_vision"])
+        self.assertEqual("openrouter-union-alpha-262k", pcfg["model_profile"])
+        self.assertTrue(any("Union Alpha profile applied" in message for message in messages))
+
+    def test_union_alpha_stays_on_the_documented_chat_completions_route(self):
+        pcfg = self.openrouter_pcfg(current_model="stealth/union-alpha")
+        for operation in ("anthropic_messages", "openai_responses", "openai_chat"):
+            with self.subTest(operation=operation):
+                self.assertEqual(
+                    "openai_chat",
+                    ciel_runtime.select_provider_protocol(
+                        "openrouter", pcfg, operation, "stealth/union-alpha"
+                    ),
+                )
+
+    def test_migration_adds_union_alpha_once_without_removing_custom_models(self):
+        cfg = {
+            "migrations": {},
+            "providers": {"openrouter": {"custom_models": ["private/model"]}},
+        }
+        ciel_runtime.apply_config_migrations(cfg)
+        ciel_runtime.apply_config_migrations(cfg)
+        custom = cfg["providers"]["openrouter"]["custom_models"]
+        self.assertIn("private/model", custom)
+        self.assertEqual(1, custom.count("stealth/union-alpha"))
+        self.assertTrue(cfg["migrations"]["openrouter_union_alpha_catalog_20260917"])
+
     def test_reasoning_effort_is_forwarded_from_codex_metadata(self):
         pcfg = self.openrouter_pcfg(current_model="stealth/ox-alpha")
         request = ciel_runtime.openai_compatible_chat_request(

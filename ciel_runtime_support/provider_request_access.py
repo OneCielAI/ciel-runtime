@@ -33,9 +33,8 @@ class ProviderRequestAccessPorts:
     ]
     select_api_key: Callable[[str, dict[str, Any]], str | None]
     meaningful_key: Callable[[str], bool]
-    adapter_headers: Callable[
-        [str, dict[str, Any], str | None], Mapping[str, str]
-    ]
+    # Called as (provider, config, key, router_originated=<bool>).
+    adapter_headers: Callable[..., Mapping[str, str]]
     inbound_credentials: Callable[
         [str, Any | None], Mapping[str, str] | None
     ]
@@ -174,7 +173,7 @@ class ProviderRequestAccessService:
         else:
             headers.update(
                 self.ports.adapter_headers(
-                    provider, config, meaningful
+                    provider, config, meaningful, router_originated=not passthrough
                 )
             )
         configured_protocol_headers = self._configured_protocol_headers(

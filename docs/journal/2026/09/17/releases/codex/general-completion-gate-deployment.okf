@@ -1,0 +1,24 @@
+okf_version: "1.0"
+task: "Deploy the generalised Codex completion check as an npm nightly and to this computer."
+source_commit: "7c484099e244ed8a31f350aebda6d8e776a1a837"
+scope: "codex_completion_gate.py, codex_turn_recovery.py, provider_responses_passthrough.py, providers/meta.py, four test files, and the fix journal docs/journal/2026/09/17/fixes/codex/passthrough-compaction-completion-gate.okf."
+excluded: "Uncommitted ConPTY/channel work (channel_terminal_proxy.py, windows_conpty.py, untracked windows_console_guard.py) and all other untracked journals were not committed or published."
+nightly:
+  branches: "origin/nightly-0.2.47 and origin/nightly both moved 6fee3e8 -> 7c48409."
+  version: "0.2.47-nightly.20260917-160314.7c48409"
+  npm_tag: "npm view @oneciel-ai/ciel-runtime@nightly returns that version with gitHead 7c484099e244ed8a31f350aebda6d8e776a1a837."
+  ci: "https://github.com/OneCielAI/ciel-runtime/actions/runs/35243871166 succeeded: quality, test (unit), test (router), test (channel), test (runtime), python-minimum."
+  publish: "https://github.com/OneCielAI/ciel-runtime/actions/runs/35243871101 succeeded, including its npm test gate and the published-tarball verification step."
+  tarball: "npm pack of the exact version downloaded and extracted locally (600 files); runtime_constants VERSION matches; provider_responses_passthrough.py contains _completion_continuation."
+local:
+  launcher_home: "C:/Users/djlov/.local/share/ciel-runtime, installed with the tarball's install.ps1 (CIEL_RUNTIME_INSTALL_HOME set to that path, PREFIX=~/.local). User env CIEL_RUNTIME_HOME unchanged at that path."
+  npm_package: "C:/Users/djlov/AppData/Roaming/npm/node_modules/@oneciel-ai/ciel-runtime, npm install -g pinned to the exact version (6fee3e8 build -> 7c48409 build)."
+  backups:
+    - "C:/Users/djlov/AppData/Local/Temp/ciel-runtime-local-before-general-gate-7c48409-111434 (722 files, count matched source)."
+    - "C:/Users/djlov/AppData/Local/Temp/ciel-runtime-npm-before-general-gate-7c48409-111520 (947 files, count matched source)."
+  verification:
+    versions: "~/.local/bin/ciel-runtimectl.ps1 version and %APPDATA%/npm/ciel-runtimectl.cmd version both print ciel-runtime 0.2.47-nightly.20260917-160314.7c48409."
+    hashes: "SHA256 of ciel_runtime.py, runtime_constants.py, codex_completion_gate.py, codex_turn_recovery.py, provider_responses_passthrough.py and providers/meta.py equal the tarball in both installed copies; support .py count 354 = tarball."
+    behaviour: "Offline check importing each installed copy by path: a text-only reply to a tool-bearing request straight after a user message triggers one follow-up, the client receives the follow-up's function_call bytes, the follow-up headers carry no inherited Content-length, the translated-route predicate checks a reply after a plain user message, and tool_choice none is skipped. All true for both copies."
+tests_before_push: "Local: 20 affected test files, 720 tests, isolated config dir, all OK. Full groups were not run locally because a live router (pid 51576, port 9469) was serving; the full four groups ran in CI and in the publish workflow's npm test gate, both green."
+limitation: "The live router pid 51576 on port 9469 (workspace g:/ciel-walkie) and its client were not restarted; /health still reports 0.2.47-nightly.20260917-050538.6fee3e8, so running sessions keep the old code until relaunched. YETI-01 was not touched and still runs the 6fee3e8 build."

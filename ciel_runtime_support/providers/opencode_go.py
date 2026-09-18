@@ -2,14 +2,18 @@
 
 from dataclasses import dataclass, field
 from typing import Mapping
-from uuid import uuid4
 
 from ..architecture import MessageProtocol, ProviderConfig
-from ..runtime_constants import VERSION
 
 from .base import provider_configuration
 from .constants import DEFAULT_REQUEST_TIMEOUT_MS, PROVIDER_DEFAULT_BASE_URLS
-from .opencode import OPENCODE_GO_OX_ALPHA_FREE_MODEL, OpenCodeProviderAdapter
+from .opencode import (
+    OPENCODE_CLIENT_VERSION,
+    OPENCODE_GO_OX_ALPHA_FREE_MODEL,
+    OpenCodeProviderAdapter,
+    new_opencode_message_id,
+    new_opencode_session_id,
+)
 from .opencode_catalog import OPENCODE_GO_MODEL_PROTOCOLS
 
 
@@ -41,10 +45,15 @@ class OpenCodeGoProviderAdapter(OpenCodeProviderAdapter):
         return OPENCODE_GO_MODEL_PROTOCOLS
 
     def compatibility_headers(self, config: ProviderConfig) -> Mapping[str, str]:
+        # Each compatibility probe is one fresh OpenCode conversation; the
+        # identity headers mirror the OpenCode CLI (see OpenCodeProviderAdapter
+        # .session_headers).
         del config
         return {
-            "x-opencode-session": str(uuid4()),
-            "user-agent": f"ciel-runtime/{VERSION}",
+            "x-opencode-session": new_opencode_session_id(),
+            "x-opencode-request": new_opencode_message_id(),
+            "x-opencode-client": "cli",
+            "user-agent": f"opencode/{OPENCODE_CLIENT_VERSION}",
         }
 
     api_key_launch_error_value: str = (

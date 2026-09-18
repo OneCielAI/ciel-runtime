@@ -340,6 +340,28 @@ class ProviderAdapter(ABC):
         del config
         return {}
 
+    def session_headers(self, config: ProviderConfig) -> Mapping[str, str]:
+        """Return identity headers for requests the router originates itself.
+
+        Client traffic forwards the client's own headers verbatim; advisor,
+        compaction and probe requests have none to forward.
+        """
+
+        del config
+        return {}
+
+    def request_headers(
+        self,
+        config: ProviderConfig,
+        api_key: str | None,
+        *,
+        router_originated: bool = False,
+    ) -> Mapping[str, str]:
+        headers = dict(self.build_headers(config, api_key))
+        if router_originated:
+            headers.update(self.session_headers(config))
+        return headers
+
     def parse_rate_limit(self, response_or_error: Any) -> RateLimitState | None:
         """Return a rate-limit observation when the provider exposes one."""
 

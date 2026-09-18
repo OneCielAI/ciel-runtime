@@ -1,0 +1,15 @@
+okf_version: "1.0"
+task: "Interpret screenshot of run_wsg.bat failure without assuming a causal link to Ciel Runtime deployment."
+observed_screenshot:
+  command: "PowerShell at D:/ProgramData/Riskonnect/Batch executing ./run_wsg.bat."
+  application_stack: "metadataLoad_console.FileSynchronizer.SynchronizeCustomTable and metadataLoad_console.Program.run."
+  errors:
+    - "[NRTDMS][GetObjectBySID] No object for moniker"
+    - "RK write-back for 1 row(s): NotFound=1"
+    - "The system cannot find the file specified."
+    - "Access is denied for several files under D:/Program Files/iManage/Cloud Workspace Generator, including Analytics.dll and AutoDocPreview.ocx."
+checks:
+  local_windows: "D: drive exists, but the shown batch and iManage paths do not exist on this computer."
+  yeti_01: "SSH read-only check confirmed D:/ProgramData/Riskonnect/Batch/run_wsg.bat and the generator directory are absent on YETI-01."
+assessment: "The screenshot does not identify the host, the first exception line, or a causal relationship to Ciel Runtime. Root cause remains undetermined."
+scope: "No files or services on the screenshot host were changed."

@@ -411,7 +411,12 @@ def run_windows_channel_terminal_proxy(
                 input_ready=now >= channel_input_ready_at,
             )
             console.sleep(0.05)
-        return proc.wait()
+        returncode = proc.wait()
+        policy.log("INFO", f"channel_windows_console_child_exit pid={proc.pid} returncode={returncode}")
+        return returncode
+    except BaseException as exc:
+        policy.log("ERROR", f"channel_windows_console_proxy_exception type={type(exc).__name__}")
+        raise
     finally:
         cleanup_resources()
 
