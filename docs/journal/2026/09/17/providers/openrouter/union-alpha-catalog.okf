@@ -18,4 +18,12 @@ not_verified:
   - "No OpenRouter API key on this computer, so no generation request was sent to stealth/union-alpha; tool calling and image input are taken from the endpoint metadata, not exercised."
   - "Whether OpenRouter's Anthropic-compatible /api/v1/messages route serves Union Alpha; it is not documented on the model page, so it was not enabled."
 not_changed: "stealth/ox-alpha stays in the defaults and keeps its profile although OpenRouter currently lists no endpoint for it; removing it was not requested."
-state: "Working tree only; not committed, pushed, or deployed."
+state: "Committed bff7596, published as 0.2.47-nightly.20260918-005041.0fde800 on the npm nightly tag."
+pareto_retirement_20260918:
+  finding: "Hours after the catalog entry shipped, POST /api/v1/chat/completions with model stealth/union-alpha returns 404: 'Thank you for participating in the Stealth Union Alpha testing period. This model was Unbiased's Pareto. Use it now: https://openrouter.ai/unbiased/pareto' (observed 2026-09-18 ~01:0x UTC with the user's key). GET /api/v1/models no longer lists it; it lists unbiased/pareto (name 'Pareto', context_length 262144, prompt pricing 0.0000025 — now paid)."
+  live_probe: "unbiased/pareto answered HTTP 200 'OK' (prompt 31 tokens incl. 7 cached, completion 5, cost 9.925e-05)."
+  changes:
+    - "providers/openrouter.py: OPENROUTER_PARETO_MODEL/_CONTEXT_WINDOW/_MAX_OUTPUT_TOKENS replace the UNION_ALPHA constants; default custom_models now ('stealth/ox-alpha', 'unbiased/pareto'); model_profile 'openrouter-pareto-262k' with the same 262144/131072 numbers; protocol stays openai_chat."
+    - "config_migrations.py: marker openrouter_pareto_catalog_20260917 removes stealth/union-alpha from existing custom_models and appends unbiased/pareto once (runs after the union-alpha marker, so both fresh and older configs converge)."
+    - "tests/test_openrouter_provider.py: default-model/profile and protocol tests renamed to pareto (asserts stealth/union-alpha is gone from the defaults); migration test asserts the swap preserves private models and both markers; new test covers configs that never received the union-alpha entry."
+  verification: "test_openrouter_provider 25 OK, ruff clean; live generation probe 200. Committed bf9d480, pushed to nightly; publish run pending/monitored."
