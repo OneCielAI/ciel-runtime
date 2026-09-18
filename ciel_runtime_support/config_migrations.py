@@ -56,6 +56,32 @@ def apply_config_migrations(cfg: dict[str, Any], *, policy: ConfigMigrationPolic
                 custom.append("stealth/union-alpha")
         migrations[marker] = True
 
+    marker = "openrouter_pareto_catalog_20260917"
+    if not migrations.get(marker):
+        providers = cfg.get("providers") if isinstance(cfg.get("providers"), dict) else {}
+        pcfg = providers.get("openrouter")
+        if isinstance(pcfg, dict):
+            custom = pcfg.get("custom_models")
+            if not isinstance(custom, list):
+                custom = []
+                pcfg["custom_models"] = custom
+            # stealth/union-alpha ended its testing period (404 with a pointer
+            # to unbiased/pareto); replace it in existing catalogs.
+            custom[:] = [
+                model
+                for model in custom
+                if normalize_model_id("openrouter", str(model))
+                != normalize_model_id("openrouter", "stealth/union-alpha")
+            ]
+            known = {
+                normalize_model_id("openrouter", str(model))
+                for model in custom
+                if str(model).strip()
+            }
+            if normalize_model_id("openrouter", "unbiased/pareto") not in known:
+                custom.append("unbiased/pareto")
+        migrations[marker] = True
+
     marker = "meta_muse_spark_13_catalog_20260902"
     if not migrations.get(marker):
         providers = cfg.get("providers") if isinstance(cfg.get("providers"), dict) else {}

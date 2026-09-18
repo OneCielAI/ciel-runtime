@@ -67,43 +67,61 @@ class OpenRouterProviderTests(unittest.TestCase):
         self.assertEqual("openrouter-ox-alpha-1m", pcfg["model_profile"])
         self.assertTrue(any("Ox Alpha profile applied" in message for message in messages))
 
-    def test_union_alpha_is_a_default_model_with_its_official_profile(self):
-        self.assertIn(
+    def test_pareto_is_a_default_model_with_its_official_profile(self):
+        # stealth/union-alpha ended its testing period (404 pointing at
+        # unbiased/pareto); the default catalog carries the successor.
+        self.assertNotIn(
             "stealth/union-alpha",
             ciel_runtime.DEFAULT_CONFIG["providers"]["openrouter"]["custom_models"],
         )
-        pcfg = self.openrouter_pcfg(current_model="stealth/union-alpha")
+        self.assertIn(
+            "unbiased/pareto",
+            ciel_runtime.DEFAULT_CONFIG["providers"]["openrouter"]["custom_models"],
+        )
+        pcfg = self.openrouter_pcfg(current_model="unbiased/pareto")
         messages = ciel_runtime.apply_provider_model_profile("openrouter", pcfg)
         self.assertEqual(262_144, pcfg["context_window"])
         self.assertEqual(262_144, pcfg["max_model_len"])
         self.assertEqual(131_072, pcfg["max_output_tokens"])
         self.assertTrue(pcfg["supports_tool_choice"])
         self.assertTrue(pcfg["supports_vision"])
-        self.assertEqual("openrouter-union-alpha-262k", pcfg["model_profile"])
-        self.assertTrue(any("Union Alpha profile applied" in message for message in messages))
+        self.assertEqual("openrouter-pareto-262k", pcfg["model_profile"])
+        self.assertTrue(any("Pareto profile applied" in message for message in messages))
 
-    def test_union_alpha_stays_on_the_documented_chat_completions_route(self):
-        pcfg = self.openrouter_pcfg(current_model="stealth/union-alpha")
+    def test_pareto_stays_on_the_documented_chat_completions_route(self):
+        pcfg = self.openrouter_pcfg(current_model="unbiased/pareto")
         for operation in ("anthropic_messages", "openai_responses", "openai_chat"):
             with self.subTest(operation=operation):
                 self.assertEqual(
                     "openai_chat",
                     ciel_runtime.select_provider_protocol(
-                        "openrouter", pcfg, operation, "stealth/union-alpha"
+                        "openrouter", pcfg, operation, "unbiased/pareto"
                     ),
                 )
 
-    def test_migration_adds_union_alpha_once_without_removing_custom_models(self):
+    def test_migration_swaps_union_alpha_for_pareto_once_without_removing_custom_models(self):
         cfg = {
             "migrations": {},
-            "providers": {"openrouter": {"custom_models": ["private/model"]}},
+            "providers": {"openrouter": {"custom_models": ["private/model", "stealth/union-alpha"]}},
         }
         ciel_runtime.apply_config_migrations(cfg)
         ciel_runtime.apply_config_migrations(cfg)
         custom = cfg["providers"]["openrouter"]["custom_models"]
         self.assertIn("private/model", custom)
-        self.assertEqual(1, custom.count("stealth/union-alpha"))
+        self.assertNotIn("stealth/union-alpha", custom)
+        self.assertEqual(1, custom.count("unbiased/pareto"))
         self.assertTrue(cfg["migrations"]["openrouter_union_alpha_catalog_20260917"])
+        self.assertTrue(cfg["migrations"]["openrouter_pareto_catalog_20260917"])
+
+    def test_migration_adds_pareto_when_union_alpha_was_never_added(self):
+        cfg = {
+            "migrations": {"openrouter_union_alpha_catalog_20260917": True},
+            "providers": {"openrouter": {"custom_models": ["private/model"]}},
+        }
+        ciel_runtime.apply_config_migrations(cfg)
+        custom = cfg["providers"]["openrouter"]["custom_models"]
+        self.assertIn("private/model", custom)
+        self.assertEqual(1, custom.count("unbiased/pareto"))
 
     def test_reasoning_effort_is_forwarded_from_codex_metadata(self):
         pcfg = self.openrouter_pcfg(current_model="stealth/ox-alpha")
