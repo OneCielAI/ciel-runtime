@@ -131,6 +131,54 @@ class OpenCodeProviderTests(unittest.TestCase):
                     first["user-agent"].startswith(f"opencode/{OPENCODE_CLIENT_VERSION} ai-sdk/")
                 )
 
+    def test_case_variant_client_tools_are_renamed_not_shadowed(self):
+        # Claude Code sends Bash/Read. Declaring a second, untyped bash stub
+        # made models call it and lose their arguments (live 2026-09-18), so
+        # the client's own definition is renamed instead.
+        pcfg = self.opencode_cfg(api_key="test-key")["providers"]["opencode"]
+        body = {
+            "tools": [
+                {"name": "Bash", "description": "run shell",
+                 "input_schema": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}},
+                {"name": "Read", "description": "read file",
+                 "input_schema": {"type": "object", "properties": {"file_path": {"type": "string"}}, "required": ["file_path"]}},
+                {"name": "WebSearch", "description": "search", "input_schema": {"type": "object", "properties": {}}},
+            ]
+        }
+        out = ciel_runtime.apply_provider_adapter_request_policy("opencode", pcfg, body, "anthropic_messages")
+        names = [tool["name"] for tool in out["tools"]]
+
+        self.assertEqual(["bash", "read", "WebSearch"], names)
+        renamed = next(tool for tool in out["tools"] if tool["name"] == "bash")
+        self.assertEqual(["command"], renamed["input_schema"]["required"])
+        self.assertEqual("run shell", renamed["description"])
+
+    def test_gate_tools_alias_the_clients_own_tool(self):
+        # Codex declares exec, not bash: the injected gate name copies the
+        # client's definition so a call to it carries executable arguments.
+        pcfg = self.opencode_cfg(api_key="test-key")["providers"]["opencode"]
+        body = {
+            "tools": [
+                {"type": "function", "name": "exec", "description": "run code",
+                 "parameters": {"type": "object", "properties": {"input": {"type": "string"}}, "required": ["input"]}},
+            ]
+        }
+        out = ciel_runtime.apply_provider_adapter_request_policy("opencode", pcfg, body, "openai_responses")
+        alias = next(tool for tool in out["tools"] if tool["name"] == "bash")
+
+        self.assertEqual({"input"}, set(alias["parameters"]["properties"]))
+        self.assertEqual(["input"], alias["parameters"]["required"])
+        self.assertIn("read", [tool["name"] for tool in out["tools"]])
+
+    def test_gate_alias_calls_resolve_to_the_clients_tool(self):
+        body = {"tools": [{"type": "function", "name": "exec"}]}
+
+        self.assertEqual("exec", ciel_runtime.resolve_emitted_tool_name("bash", body))
+        self.assertEqual(
+            "Bash",
+            ciel_runtime.resolve_emitted_tool_name("bash", {"tools": [{"name": "Bash"}]}),
+        )
+
     def opencode_cfg(self, **overrides):
         pcfg = copy.deepcopy(ciel_runtime.DEFAULT_CONFIG["providers"]["opencode"])
         pcfg.update(overrides)

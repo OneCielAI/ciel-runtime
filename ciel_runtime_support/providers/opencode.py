@@ -177,6 +177,34 @@ class OpenCodeProviderAdapter(HttpBearerProviderAdapter):
     # declares shell/exec and Claude Code declares capitalised Bash/Read, so
     # neither passes on its own.
     _OPENCODE_GATE_TOOL_NAMES = ("bash", "read")
+    # Client tools an injected gate name may stand in for, most specific first.
+    # An alias copies the client tool's own definition so a call to the alias
+    # carries arguments its real tool accepts; the response path emits the
+    # client's name again (see resolve_emitted_tool_name).
+    _OPENCODE_GATE_TOOL_SOURCES = {
+        "bash": ("bash", "shell", "exec", "execute", "run_command"),
+        "read": ("read", "Read", "read_file", "view_file", "view"),
+    }
+
+    @staticmethod
+    def _opencode_tool_name(tool: object) -> str:
+        if not isinstance(tool, Mapping):
+            return ""
+        nested = tool.get("function")
+        name = tool.get("name") or (
+            nested.get("name") if isinstance(nested, Mapping) else None
+        )
+        return str(name) if name else ""
+
+    @staticmethod
+    def _opencode_tool_renamed(tool: Mapping, name: str) -> Mapping:
+        updated = dict(tool)
+        if "name" in updated:
+            updated["name"] = name
+        nested = updated.get("function")
+        if isinstance(nested, Mapping):
+            updated["function"] = {**nested, "name": name}
+        return updated
 
     @staticmethod
     def _opencode_gate_tool(name: str, protocol: MessageProtocol) -> Mapping[str, object]:
@@ -233,24 +261,54 @@ class OpenCodeProviderAdapter(HttpBearerProviderAdapter):
             tools = []
         elif not isinstance(tools, list):
             return normalized
-        declared = set()
+
+        name_of = self._opencode_tool_name
+        declared = {name_of(tool) for tool in tools} - {""}
+        projected: list[object] = []
         for tool in tools:
-            if not isinstance(tool, Mapping):
-                continue
-            nested = tool.get("function")
-            name = tool.get("name") or (
-                nested.get("name") if isinstance(nested, Mapping) else None
-            )
-            if name:
-                declared.add(str(name))
+            name = name_of(tool)
+            lower = name.lower()
+            # A client tool that only differs in case (Claude Code's Bash)
+            # becomes the gate's name itself. Declaring the same tool twice
+            # under two names makes models call the untyped copy and lose
+            # their arguments, so the client's own definition is renamed in
+            # place instead of shadowed.
+            if (
+                isinstance(tool, Mapping)
+                and name
+                and name != lower
+                and lower in self._OPENCODE_GATE_TOOL_NAMES
+                and lower not in declared
+            ):
+                tool = self._opencode_tool_renamed(tool, lower)
+                declared.add(lower)
+            projected.append(tool)
+
         missing = [name for name in self._OPENCODE_GATE_TOOL_NAMES if name not in declared]
         if not missing:
+            if projected != list(tools):
+                # Renames alone satisfied the gate; keep them.
+                normalized["tools"] = projected
             return normalized
+
+        by_name = {name_of(tool): tool for tool in projected if name_of(tool)}
         wire = protocol or self.select_protocol("anthropic_messages", config)
-        normalized["tools"] = [
-            *tools,
-            *(self._opencode_gate_tool(name, wire) for name in missing),
-        ]
+        for gate_name in missing:
+            source = next(
+                (
+                    by_name[candidate]
+                    for candidate in self._OPENCODE_GATE_TOOL_SOURCES[gate_name]
+                    if candidate in by_name
+                ),
+                None,
+            )
+            if isinstance(source, Mapping):
+                # Alias the client's own tool: same schema, gate name, so a
+                # call carries arguments the client can execute.
+                projected.append(self._opencode_tool_renamed(source, gate_name))
+            else:
+                projected.append(self._opencode_gate_tool(gate_name, wire))
+        normalized["tools"] = projected
         return normalized
 
     def opencode_client_headers(

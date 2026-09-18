@@ -1064,9 +1064,23 @@ def provider_tool_policy() -> ProviderToolPolicy: return ProviderToolPolicy(conf
 def resolve_blocked_tools(provider: str, pcfg: dict[str, Any]) -> set[str]: return provider_tool_policy().blocked_tools(provider, pcfg)
 _mcp_tool_name_server_normalized_key = mcp_server_normalized_key
 
+_GATE_TOOL_CLIENT_EQUIVALENTS = {
+    "bash": ("exec", "shell", "execute", "run_command"),
+    "read": ("read_file", "view_file", "view", "Read"),
+}
 def resolve_emitted_tool_name(raw_name: str, source_body: dict[str, Any] | None) -> str:
     available = tool_names_in_body(source_body or {}) if isinstance(source_body, dict) else set()
-    return _match_available_tool_name(raw_name, available) or _fuzzy_match_tool_name(raw_name) or raw_name
+    matched = _match_available_tool_name(raw_name, available)
+    if matched:
+        return matched
+    # The opencode adapter declares lower-case bash/read for the zen gateway's
+    # free-tier check. When the client's body names its equivalent differently
+    # (Codex: exec/shell), a call to the declared name belongs to that tool
+    # (probed 2026-09-18).
+    for candidate in _GATE_TOOL_CLIENT_EQUIVALENTS.get(str(raw_name or "").lower(), ()):
+        if candidate in available:
+            return candidate
+    return _fuzzy_match_tool_name(raw_name) or raw_name
 
 ANTHROPIC_PASSTHROUGH_TOOL_INPUT_REPAIR_TOOLS = {"AskUserQuestion"}
 def should_repair_anthropic_passthrough_tool_input(provider: str, raw_name: str, source_body: dict[str, Any] | None) -> bool: return provider_tool_policy().should_repair_passthrough_input(provider, {}, raw_name, source_body)
