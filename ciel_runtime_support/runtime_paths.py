@@ -137,7 +137,17 @@ ROUTER_PORT = select_workspace_router_port(
 )
 ROUTER_BASE = f"http://{ROUTER_HOST}:{ROUTER_PORT}"
 ROUTER_INSTANCE_ID = f"{ROUTER_PORT}-{_WORKSPACE_DIGEST}"
-_STATE_DIR_OVERRIDE = str(os.environ.get("CIEL_RUNTIME_STATE_DIR") or "").strip()
+# A launching router exports CIEL_RUNTIME_STATE_DIR so its client shares the
+# instance directory. Test isolation has to win over it: an isolated run that
+# inherits this variable from the developer's live session otherwise points at
+# the live instance and a lifecycle test terminates the router and the client
+# the running session is using (observed 2026-09-18, the CLI exiting when
+# `run_test_group.py unit` ran inside such a session).
+_STATE_DIR_OVERRIDE = (
+    ""
+    if _TEST_STATE_ISOLATED
+    else str(os.environ.get("CIEL_RUNTIME_STATE_DIR") or "").strip()
+)
 ROUTER_INSTANCE_DIR = (
     Path(_STATE_DIR_OVERRIDE)
     if _STATE_DIR_OVERRIDE

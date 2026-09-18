@@ -499,6 +499,8 @@ from ciel_runtime_support.synthetic_tool_policy import ForcedPlanModeController,
 from ciel_runtime_support.timeout_profile import TimeoutProfileApi, TimeoutProfilePorts, TimeoutProfileService, TimeoutProfileSettings
 from ciel_runtime_support.tool_dialects import TOOL_DIALECTS
 from ciel_runtime_support.tool_dialects import match_available_tool_name as _match_available_tool_name
+from ciel_runtime_support.tool_dialects import match_gate_tool_equivalent as _match_gate_tool_equivalent
+from ciel_runtime_support import test_isolation_guard
 from ciel_runtime_support.tool_dialects import mcp_server_normalized_key
 from ciel_runtime_support.tool_exposure_policy import ToolExposurePolicy, ToolExposurePorts
 from ciel_runtime_support.tool_guard_hooks import TOOL_GUARD_EVENTS_WITH_TOOL_MATCHER  # noqa: F401 - compatibility export
@@ -1064,37 +1066,17 @@ def provider_tool_policy() -> ProviderToolPolicy: return ProviderToolPolicy(conf
 def resolve_blocked_tools(provider: str, pcfg: dict[str, Any]) -> set[str]: return provider_tool_policy().blocked_tools(provider, pcfg)
 _mcp_tool_name_server_normalized_key = mcp_server_normalized_key
 
-_GATE_TOOL_CLIENT_EQUIVALENTS = {
-    "bash": ("exec", "shell", "execute", "run_command"),
-    "read": ("read_file", "view_file", "view", "Read"),
-}
 def resolve_emitted_tool_name(raw_name: str, source_body: dict[str, Any] | None) -> str:
     available = tool_names_in_body(source_body or {}) if isinstance(source_body, dict) else set()
     if isinstance(source_body, dict):
-        # Codex carries its tools in the additional_tools item, so the plain
-        # top-level scan finds nothing and a gate alias used to be resolved
-        # against the builtin Claude Code schemas instead of the client's own
-        # tool (observed live 2026-09-18: Codex answered "unsupported call").
+        # Codex carries its tools in additional_tools, so the plain top-level
+        # scan sees nothing (see responses_client_tool_names).
         available |= responses_client_tool_names(source_body)
-    matched = _match_available_tool_name(raw_name, available)
-    if matched:
-        return matched
-    # The opencode adapter declares lower-case bash/read for the zen gateway's
-    # free-tier check. When the client's body names its equivalent differently
-    # (Codex: exec/shell), a call to the declared name belongs to that tool
-    # (probed 2026-09-18).
-    equivalents = _GATE_TOOL_CLIENT_EQUIVALENTS.get(str(raw_name or "").lower(), ())
-    for candidate in equivalents:
-        if candidate in available:
-            return candidate
-    for candidate in equivalents:
-        for name in available:
-            if name.rsplit("__", 1)[-1] == candidate:
-                return name
+    matched = _match_available_tool_name(raw_name, available) or _match_gate_tool_equivalent(raw_name, available)
     if available:
         # Never invent a name the client did not declare.
-        return raw_name
-    return _fuzzy_match_tool_name(raw_name) or raw_name
+        return matched or raw_name
+    return matched or _fuzzy_match_tool_name(raw_name) or raw_name
 
 ANTHROPIC_PASSTHROUGH_TOOL_INPUT_REPAIR_TOOLS = {"AskUserQuestion"}
 def should_repair_anthropic_passthrough_tool_input(provider: str, raw_name: str, source_body: dict[str, Any] | None) -> bool: return provider_tool_policy().should_repair_passthrough_input(provider, {}, raw_name, source_body)
@@ -3828,54 +3810,11 @@ def process_tree_controller() -> ProcessTreeController: return ProcessTreeContro
 def descendant_pids(pid: int) -> list[int]: return process_tree_controller().descendant_pids(pid)
 def parent_pid_and_command(pid: int) -> tuple[int, str] | None: return process_tree_controller().parent_pid_and_command(pid)
 def ciel_runtime_client_wrapper_parent_pids(pid: int) -> list[int]: return process_tree_controller().client_wrapper_parent_pids(pid)
-def terminate_pid_tree(pid: int, label: str, quiet: bool = False) -> bool:
-    if _unisolated_test_process() and pid != os.getpid() and pid != os.getppid():
-        router_log("WARN", f"process_tree_terminate_skipped_unisolated_test label={label!r} pid={pid}")
-        return False
-    return process_tree_controller().terminate_tree(pid, label, quiet=quiet)
-def terminate_active_router_clients(reason: str, active_clients: list[int] | None = None, quiet: bool = True) -> bool:
-    # The router-startup path reaches this directly, without the launch-time
-    # guard, so an un-isolated test run could kill the client that owns the
-    # running session (observed 2026-09-18 as the CLI exiting mid-sweep).
-    if _unisolated_test_process():
-        router_log("WARN", f"router_client_termination_skipped_unisolated_test reason={reason}")
-        return False
-    return router_client_registry().terminate_active(reason, active_clients, quiet=quiet)
+def terminate_pid_tree(pid: int, label: str, quiet: bool = False) -> bool: return test_isolation_guard.terminate_tree(pid, label, terminate=lambda tree_pid, tree_label, quiet=False: process_tree_controller().terminate_tree(tree_pid, tree_label, quiet=quiet), unisolated=_unisolated_test_process, log=router_log, quiet=quiet)
+def terminate_active_router_clients(reason: str, active_clients: list[int] | None = None, quiet: bool = True) -> bool: return test_isolation_guard.terminate_clients(reason, active_clients, terminate=lambda r, c, quiet=True: router_client_registry().terminate_active(r, c, quiet=quiet), unisolated=_unisolated_test_process, log=router_log, quiet=quiet)
 
-def _unisolated_test_process() -> bool:
-    """Return True when a test runner could touch the user's live state.
-
-    The supported test entrypoint sets ``CIEL_RUNTIME_TEST_ISOLATED`` before
-    importing this module.  Direct unittest/pytest discovery previously bound
-    CONFIG_DIR to the user's real profile and a launch test terminated an
-    active CIELARVIS Runtime client.  Destructive process cleanup must fail
-    closed even when a developer invokes the lower-level test command.
-    """
-    if parse_bool(os.environ.get("CIEL_RUNTIME_TEST_ISOLATED"), False):
-        return False
-    if os.environ.get("PYTEST_CURRENT_TEST"):
-        return True
-    if "unittest" in sys.modules or "pytest" in sys.modules:
-        return True
-    return _test_runner_arguments([str(argument) for argument in sys.argv[1:]])
-
-def _test_runner_arguments(arguments: list[str]) -> bool:
-    """Report whether command arguments are a loose test-runner invocation.
-
-    ``python -m unittest discover -s tests`` passes no ``test_*`` argument, so
-    the discovery shape has to be recognized too. Keep this narrow: an ordinary
-    launch may legitimately carry a directory or prompt argument.
-    """
-
-    if any(Path(argument).name.startswith("test_") for argument in arguments):
-        return True
-    if arguments and arguments[0] in {"discover", "unittest"}:
-        return True
-    return any(
-        argument.replace("\\", "/").startswith(("tests/", "tests."))
-        for argument in arguments
-    )
-
+def _unisolated_test_process() -> bool: return test_isolation_guard.unisolated_test_process()
+def _test_runner_arguments(arguments: list[str]) -> bool: return test_isolation_guard.test_runner_arguments(arguments)
 def terminate_existing_router_clients_for_launch(reason: str, quiet: bool = True) -> bool:
     if _unisolated_test_process():
         return False

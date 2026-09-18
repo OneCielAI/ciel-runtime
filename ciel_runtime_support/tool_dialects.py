@@ -48,6 +48,30 @@ def match_available_tool_name(name: str, available: set[str]) -> str | None:
     return sorted(substring_matches)[0] if substring_matches else None
 
 
+# The opencode adapter declares lower-case bash/read for the zen gateway's
+# free-tier check. When a client names its equivalent differently (Codex:
+# exec/shell), a call to the declared name belongs to that tool
+# (probed 2026-09-18).
+GATE_TOOL_CLIENT_EQUIVALENTS = {
+    "bash": ("exec", "shell", "execute", "run_command"),
+    "read": ("read_file", "view_file", "view", "Read"),
+}
+
+
+def match_gate_tool_equivalent(raw_name: str, available: set[str]) -> str | None:
+    """Return the client tool a gate alias stands in for, if the client has one."""
+
+    equivalents = GATE_TOOL_CLIENT_EQUIVALENTS.get(str(raw_name or "").lower(), ())
+    for candidate in equivalents:
+        if candidate in available:
+            return candidate
+    for candidate in equivalents:
+        for name in available:
+            if name.rsplit("__", 1)[-1] == candidate:
+                return name
+    return None
+
+
 class ClaudeToolDialect(ToolDialect):
     name = "claude"
 
