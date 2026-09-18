@@ -11,12 +11,27 @@ from pathlib import Path
 import ciel_runtime
 
 
+def statusline_probe_env() -> dict[str, str]:
+    """A clean probe environment: the statusline reads CIEL_RUNTIME_* state.
+
+    A test sweep started inside a live ciel-runtime session otherwise inherits
+    that session's config/state directories and fails against the live
+    context-usage files (observed 2026-09-18).
+    """
+
+    return {
+        key: value
+        for key, value in os.environ.items()
+        if not key.startswith("CIEL_RUNTIME_")
+    }
+
+
 class StatuslineTests(unittest.TestCase):
     def run_statusline(self, env_extra: dict[str, str] | None = None) -> str:
         with tempfile.TemporaryDirectory() as tmp:
             script = Path(tmp) / "statusline.py"
             script.write_text(ciel_runtime.STATUSLINE_SCRIPT, encoding="utf-8")
-            env = os.environ.copy()
+            env = statusline_probe_env()
             env.pop("CIEL_RUNTIME_PROVIDER", None)
             env.pop("CIEL_RUNTIME_MODEL_ALIAS", None)
             env.pop("CIEL_RUNTIME_STATUSLINE_FORCE", None)
@@ -52,7 +67,7 @@ class StatuslineTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             script = Path(tmp) / "statusline.py"
             script.write_text(ciel_runtime.STATUSLINE_SCRIPT, encoding="utf-8")
-            env = os.environ.copy()
+            env = statusline_probe_env()
             env.update(
                 {
                     "CIEL_RUNTIME_CONFIG_DIR": tmp,
@@ -89,7 +104,7 @@ class StatuslineTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             script = Path(tmp) / "statusline.py"
             script.write_text(ciel_runtime.STATUSLINE_SCRIPT, encoding="utf-8")
-            env = os.environ.copy()
+            env = statusline_probe_env()
             env.update(
                 {
                     "CIEL_RUNTIME_CONFIG_DIR": tmp,
@@ -141,7 +156,7 @@ class StatuslineTests(unittest.TestCase):
                 ),
                 encoding="utf-8",
             )
-            env = os.environ.copy()
+            env = statusline_probe_env()
             env.update(
                 {
                     "CIEL_RUNTIME_CONFIG_DIR": tmp,
@@ -198,7 +213,7 @@ class StatuslineTests(unittest.TestCase):
                 ),
                 encoding="utf-8",
             )
-            env = os.environ.copy()
+            env = statusline_probe_env()
             env.update(
                 {
                     "CIEL_RUNTIME_CONFIG_DIR": tmp,
@@ -265,7 +280,7 @@ class StatuslineTests(unittest.TestCase):
                 ),
                 encoding="utf-8",
             )
-            env = os.environ.copy()
+            env = statusline_probe_env()
             env.update(
                 {
                     "CIEL_RUNTIME_CONFIG_DIR": tmp,
@@ -311,7 +326,7 @@ class StatuslineTests(unittest.TestCase):
                 "\n".join(json.dumps(item) for item in messages) + "\n",
                 encoding="utf-8",
             )
-            env = os.environ.copy()
+            env = statusline_probe_env()
             env.update(
                 {
                     "CIEL_RUNTIME_CONFIG_DIR": tmp,
@@ -374,7 +389,7 @@ class StatuslineTests(unittest.TestCase):
                 },
             }
             (config_dir / "rate-limit-state.json").write_text(json.dumps(state), encoding="utf-8")
-            env = os.environ.copy()
+            env = statusline_probe_env()
             env.update(
                 {
                     "CIEL_RUNTIME_CONFIG_DIR": tmp,
@@ -429,7 +444,7 @@ class StatuslineTests(unittest.TestCase):
                 ),
                 encoding="utf-8",
             )
-            env = os.environ.copy()
+            env = statusline_probe_env()
             env.update(
                 {
                     "CIEL_RUNTIME_CONFIG_DIR": tmp,
@@ -476,7 +491,7 @@ class StatuslineTests(unittest.TestCase):
                 ),
                 encoding="utf-8",
             )
-            env = os.environ.copy()
+            env = statusline_probe_env()
             env.update(
                 {
                     "CIEL_RUNTIME_CONFIG_DIR": tmp,

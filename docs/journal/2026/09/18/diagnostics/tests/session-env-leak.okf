@@ -1,0 +1,8 @@
+okf_version: "1.0"
+task: "Explaining the pre-existing runtime-group failures (7 x test_statusline) seen when the suite runs inside a live ciel-runtime session."
+finding: "The statusline tests copied os.environ and only overrode CIEL_RUNTIME_CONFIG_DIR, so CIEL_RUNTIME_STATE_DIR / CIEL_RUNTIME_WORKSPACE_STATE_DIR / CIEL_RUNTIME_LAUNCH_CWD / CIEL_RUNTIME_MODEL_ALIAS from the developer's live session reached the statusline subprocess, which then rendered the live context-usage and rate-limit state instead of the fixture (observed output 'ctx 542,019/1,048,576 tok' against an expected 200,000 limit, and a live model alias prefix)."
+evidence: "Same 7 failures on a clean worktree of HEAD e37c51c (pre-existing, not caused by the restart work); stripping the CIEL_RUNTIME_* variables from the environment makes all 11 tests pass (env -u ... python -m unittest discover -s tests -p test_statusline.py -> OK)."
+fix: "tests/test_statusline.py builds its probe environment with statusline_probe_env(), which drops every CIEL_RUNTIME_* variable before the test's own values are applied (10 call sites)."
+related: "Same class as the installer failure fixed in fixes/installer/snapshot-home-guard-windows.okf: test runs inheriting the live session's runtime environment. The project runner sets CIEL_RUNTIME_CONFIG_DIR/ROUTER_PORT/TEST_ISOLATED but leaves the rest of the inherited CIEL_RUNTIME_* surface in place."
+verification: "runtime group 296 OK (previously 7 failures) inside the live session; unit/router/channel groups unchanged."
+state: "Working tree."
