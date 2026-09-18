@@ -1,0 +1,17 @@
+okf_version: "1.0"
+task: "User: 'the program keeps silently terminating' during this session, repeatedly. Find the cause."
+symptom: "The Claude Code CLI exits by itself mid-turn. Session transcripts show a ~20-minute gap, then a 'Continue from where you left off' turn answered with the literal string 'No response requested.' (stop_reason stop_sequence, 0 input and 0 output tokens — a client-local message, no upstream call)."
+fingerprint: "router-instances/<port>-*/router.log gains a fresh `router_spawned` line right after a test sweep, and /health reports a new pid."
+root_cause:
+  chain: "start_router_if_needed() -> ensure_router_port_available_for_spawn() -> stop_router_processes() reads the REAL ROUTER_INSTANCE_DIR pid file, and terminate_active_router_clients() reads the live client pids; both then terminate. test_claude_native_provider.py::test_start_router_replaces_matching_router_by_default reached that path because it mocked router_health but not the termination ports."
+  exposure: "The suite runs against the developer's live instance directory unless the supported entrypoint sets CIEL_RUNTIME_TEST_ISOLATED=1. A bare `python -m unittest discover -s tests -p <file>` runs un-isolated."
+  evidence: "Live pid checks around the runs: router 94408 -> new pid after a sweep; the transcript gap at 09:02:56Z (1257 s) matches a sweep; the router log shows `router_spawned` at 04:28:26 local immediately after the launch that followed."
+  guard_gap: "`_unisolated_test_process()` existed and gated terminate_existing_router_clients_for_launch, but the router-startup path calls terminate_active_router_clients directly, which had no guard. The guard also missed the `discover -s tests` argv shape (no test_* argument present)."
+fixes:
+  - "test_claude_native_provider.py: both prelaunch tests seed active_router_client_pids=[] and replace terminate_active_router_clients, stop_router_processes and terminate_router_health_pid."
+  - "ciel_runtime.py: terminate_active_router_clients and terminate_pid_tree refuse foreign pids while _unisolated_test_process() is true (own/child pids stay allowed); the argv judgement moved to _test_runner_arguments, which recognizes discover/unittest, test_* names and tests/ or tests. module paths without mistaking `codex tests` or a prompt mentioning tests."
+verification:
+  live: "test_claude_native_provider.py 95 OK, test_router_client_lifecycle 7 OK, test_router_process_startup 7 OK, test_router_workspace_lifecycle 4 OK, test_architecture_contracts 261 OK (42 skipped) — the live router's pid was identical before and after the whole run."
+  guard_tests: "tests/test_unisolated_test_guard.py (new): argv shapes both ways, termination fails closed, own-child pids still allowed."
+  both_directions: "serve / cli / codex<tests> argv shapes are not treated as test runs."
+state: "0.2.50 committed (5b2a134), pushed to nightly and main; local install 0.2.49-nightly.20260918-093146.3677be5. Live routers keep their old code until relaunched."
