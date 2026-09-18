@@ -13,9 +13,13 @@ from .base import OpenAICompatibleProviderAdapter, provider_configuration
 from .constants import DEFAULT_REQUEST_TIMEOUT_MS, PROVIDER_DEFAULT_BASE_URLS
 
 
-OPENROUTER_OX_ALPHA_MODEL = "stealth/ox-alpha"
-OPENROUTER_OX_ALPHA_CONTEXT_WINDOW = 1_048_576
-OPENROUTER_OX_ALPHA_MAX_OUTPUT_TOKENS = 131_072
+# stealth/ox-alpha ended its testing period on 2026-09-18 (POST replies 404
+# "This model was ZAI's GLM-5.3 Flash. Use it now:
+# https://openrouter.ai/z-ai/glm-5.3-flash"); the same model continues under
+# its own name. Context and output caps from GET /api/v1/models.
+OPENROUTER_GLM_FLASH_MODEL = "z-ai/glm-5.3-flash"
+OPENROUTER_GLM_FLASH_CONTEXT_WINDOW = 1_310_720
+OPENROUTER_GLM_FLASH_MAX_OUTPUT_TOKENS = 131_072
 # stealth/union-alpha ended its testing period on 2026-09-17 (POST replies
 # 404 "This model was Unbiased's Pareto. Use it now:
 # https://openrouter.ai/unbiased/pareto"); the same model continues as
@@ -33,7 +37,7 @@ class OpenRouterProviderAdapter(OpenAICompatibleProviderAdapter):
     configuration_defaults_value: dict = field(
         default_factory=lambda: provider_configuration(
             "nvidia/nemotron-3-ultra-550b-a55b:free",
-            custom_models=(OPENROUTER_OX_ALPHA_MODEL, OPENROUTER_PARETO_MODEL),
+            custom_models=(OPENROUTER_GLM_FLASH_MODEL, OPENROUTER_PARETO_MODEL),
             native_compat=False,
             rate_limit_rpm=0,
             rate_limit_status=False,
@@ -78,7 +82,7 @@ class OpenRouterProviderAdapter(OpenAICompatibleProviderAdapter):
         protocols: set[MessageProtocol] = {"openai_chat"}
         selected = self.normalize_model_id(str(model or config.model or ""))
         native = config.options.get("native_compat")
-        if selected == OPENROUTER_OX_ALPHA_MODEL or native is True or str(
+        if selected == OPENROUTER_GLM_FLASH_MODEL or native is True or str(
             native
         ).strip().lower() in {"1", "true", "yes", "on"}:
             protocols.add("anthropic_messages")
@@ -112,18 +116,18 @@ class OpenRouterProviderAdapter(OpenAICompatibleProviderAdapter):
                 },
                 "OpenRouter Pareto profile applied: 262,144-token context and 131,072-token maximum output.",
             )
-        if selected != OPENROUTER_OX_ALPHA_MODEL:
+        if selected != OPENROUTER_GLM_FLASH_MODEL:
             return {}, None
         return (
             {
-                "context_window": OPENROUTER_OX_ALPHA_CONTEXT_WINDOW,
-                "max_model_len": OPENROUTER_OX_ALPHA_CONTEXT_WINDOW,
-                "max_output_tokens": OPENROUTER_OX_ALPHA_MAX_OUTPUT_TOKENS,
-                "model_profile": "openrouter-ox-alpha-1m",
+                "context_window": OPENROUTER_GLM_FLASH_CONTEXT_WINDOW,
+                "max_model_len": OPENROUTER_GLM_FLASH_CONTEXT_WINDOW,
+                "max_output_tokens": OPENROUTER_GLM_FLASH_MAX_OUTPUT_TOKENS,
+                "model_profile": "openrouter-glm-5.3-flash-1.3m",
                 "supports_tool_choice": True,
                 "supports_vision": True,
             },
-            "OpenRouter Ox Alpha profile applied: 1,048,576-token context and 131,072-token maximum output.",
+            "OpenRouter GLM 5.3 Flash profile applied: 1,310,720-token context and 131,072-token maximum output.",
         )
 
     def openai_reasoning_effort(
@@ -144,9 +148,9 @@ class OpenRouterProviderAdapter(OpenAICompatibleProviderAdapter):
 
 
 __all__ = [
-    "OPENROUTER_OX_ALPHA_CONTEXT_WINDOW",
-    "OPENROUTER_OX_ALPHA_MAX_OUTPUT_TOKENS",
-    "OPENROUTER_OX_ALPHA_MODEL",
+    "OPENROUTER_GLM_FLASH_CONTEXT_WINDOW",
+    "OPENROUTER_GLM_FLASH_MAX_OUTPUT_TOKENS",
+    "OPENROUTER_GLM_FLASH_MODEL",
     "OPENROUTER_PARETO_CONTEXT_WINDOW",
     "OPENROUTER_PARETO_MAX_OUTPUT_TOKENS",
     "OPENROUTER_PARETO_MODEL",

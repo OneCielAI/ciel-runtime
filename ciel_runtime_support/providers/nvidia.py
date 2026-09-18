@@ -37,7 +37,10 @@ class NvidiaHostedProviderAdapter(OpenAICompatibleProviderAdapter):
     base_url: str = PROVIDER_DEFAULT_BASE_URLS["nvidia-hosted"]
     configuration_defaults_value: dict = field(
         default_factory=lambda: provider_configuration(
-            "qwen/qwen3-coder-480b-a35b-instruct",
+            # The catalog's former default reached end of life on
+            # 2026-06-11 ("no longer available", live 2026-09-18); GLM 5.3 is
+            # in the live /v1/models listing.
+            "z-ai/glm-5.3",
             api_key="not-used",
             native_compat=False,
             rate_limit_rpm=0,

@@ -32,20 +32,20 @@ class OpenRouterProviderTests(unittest.TestCase):
         self.assertEqual("nvidia/nemotron-3-ultra-550b-a55b:free", pcfg["current_model"])
         self.assertFalse(pcfg["native_compat"])
         self.assertEqual("https://openrouter.ai/api/v1", pcfg["base_url"])
-        self.assertIn("stealth/ox-alpha", pcfg["custom_models"])
+        self.assertIn("z-ai/glm-5.3-flash", pcfg["custom_models"])
 
-    def test_ox_alpha_supports_openai_and_anthropic_sdk_routes(self):
-        pcfg = self.openrouter_pcfg(current_model="stealth/ox-alpha")
+    def test_glm_flash_supports_openai_and_anthropic_sdk_routes(self):
+        pcfg = self.openrouter_pcfg(current_model="z-ai/glm-5.3-flash")
         self.assertEqual(
             "openai_chat",
             ciel_runtime.select_provider_protocol(
-                "openrouter", pcfg, "openai_responses", "stealth/ox-alpha"
+                "openrouter", pcfg, "openai_responses", "z-ai/glm-5.3-flash"
             ),
         )
         self.assertEqual(
             "anthropic_messages",
             ciel_runtime.select_provider_protocol(
-                "openrouter", pcfg, "anthropic_messages", "stealth/ox-alpha"
+                "openrouter", pcfg, "anthropic_messages", "z-ai/glm-5.3-flash"
             ),
         )
         self.assertEqual(
@@ -56,16 +56,16 @@ class OpenRouterProviderTests(unittest.TestCase):
             ),
         )
 
-    def test_ox_alpha_official_model_profile(self):
-        pcfg = self.openrouter_pcfg(current_model="stealth/ox-alpha")
+    def test_glm_flash_official_model_profile(self):
+        pcfg = self.openrouter_pcfg(current_model="z-ai/glm-5.3-flash")
         messages = ciel_runtime.apply_provider_model_profile("openrouter", pcfg)
-        self.assertEqual(1_048_576, pcfg["context_window"])
-        self.assertEqual(1_048_576, pcfg["max_model_len"])
+        self.assertEqual(1_310_720, pcfg["context_window"])
+        self.assertEqual(1_310_720, pcfg["max_model_len"])
         self.assertEqual(131_072, pcfg["max_output_tokens"])
         self.assertTrue(pcfg["supports_tool_choice"])
         self.assertTrue(pcfg["supports_vision"])
-        self.assertEqual("openrouter-ox-alpha-1m", pcfg["model_profile"])
-        self.assertTrue(any("Ox Alpha profile applied" in message for message in messages))
+        self.assertEqual("openrouter-glm-5.3-flash-1.3m", pcfg["model_profile"])
+        self.assertTrue(any("GLM 5.3 Flash profile applied" in message for message in messages))
 
     def test_pareto_is_a_default_model_with_its_official_profile(self):
         # stealth/union-alpha ended its testing period (404 pointing at
@@ -124,12 +124,12 @@ class OpenRouterProviderTests(unittest.TestCase):
         self.assertEqual(1, custom.count("unbiased/pareto"))
 
     def test_reasoning_effort_is_forwarded_from_codex_metadata(self):
-        pcfg = self.openrouter_pcfg(current_model="stealth/ox-alpha")
+        pcfg = self.openrouter_pcfg(current_model="z-ai/glm-5.3-flash")
         request = ciel_runtime.openai_compatible_chat_request(
             "openrouter",
-            "stealth/ox-alpha",
+            "z-ai/glm-5.3-flash",
             {
-                "model": "stealth/ox-alpha",
+                "model": "z-ai/glm-5.3-flash",
                 "messages": [{"role": "user", "content": "inspect"}],
                 "metadata": {"ciel_runtime_reasoning_effort": "low"},
             },
@@ -140,12 +140,12 @@ class OpenRouterProviderTests(unittest.TestCase):
         self.assertEqual("low", request["reasoning_effort"])
 
     def test_explicit_reasoning_effort_takes_precedence(self):
-        pcfg = self.openrouter_pcfg(current_model="stealth/ox-alpha")
+        pcfg = self.openrouter_pcfg(current_model="z-ai/glm-5.3-flash")
         request = ciel_runtime.openai_compatible_chat_request(
             "openrouter",
-            "stealth/ox-alpha",
+            "z-ai/glm-5.3-flash",
             {
-                "model": "stealth/ox-alpha",
+                "model": "z-ai/glm-5.3-flash",
                 "messages": [{"role": "user", "content": "inspect"}],
                 "reasoning_effort": "HIGH",
                 "metadata": {"ciel_runtime_reasoning_effort": "low"},
@@ -158,13 +158,13 @@ class OpenRouterProviderTests(unittest.TestCase):
 
     def test_remote_request_sampling_is_not_overwritten_by_router_config(self):
         pcfg = self.openrouter_pcfg(
-            current_model="stealth/ox-alpha",
+            current_model="z-ai/glm-5.3-flash",
             temperature=1.0,
             top_p=0.1,
         )
         pcfg[REMOTE_BRIDGE_CONFIG_MARKER] = True
         body = {
-            "model": "stealth/ox-alpha",
+            "model": "z-ai/glm-5.3-flash",
             "messages": [{"role": "user", "content": "inspect"}],
             "temperature": 0.2,
             "top_p": 0.8,
@@ -175,7 +175,7 @@ class OpenRouterProviderTests(unittest.TestCase):
         )
         request = ciel_runtime.openai_compatible_chat_request(
             "openrouter",
-            "stealth/ox-alpha",
+            "z-ai/glm-5.3-flash",
             normalized,
             pcfg,
             stream=False,
@@ -184,6 +184,24 @@ class OpenRouterProviderTests(unittest.TestCase):
         self.assertIs(body, normalized)
         self.assertEqual(0.2, request["temperature"])
         self.assertEqual(0.8, request["top_p"])
+
+    def test_migration_swaps_the_retired_stealth_model(self):
+        cfg = {
+            "migrations": {},
+            "providers": {
+                "openrouter": {"custom_models": ["private/model", "stealth/ox-alpha"]},
+                "nvidia-hosted": {"current_model": "qwen/qwen3-coder-480b-a35b-instruct"},
+            },
+        }
+        ciel_runtime.apply_config_migrations(cfg)
+        ciel_runtime.apply_config_migrations(cfg)
+
+        custom = cfg["providers"]["openrouter"]["custom_models"]
+        self.assertIn("private/model", custom)
+        self.assertNotIn("stealth/ox-alpha", custom)
+        self.assertEqual(1, custom.count("z-ai/glm-5.3-flash"))
+        self.assertEqual("z-ai/glm-5.3", cfg["providers"]["nvidia-hosted"]["current_model"])
+        self.assertTrue(cfg["migrations"]["retired_stealth_and_eol_defaults_20260918"])
 
     def test_migration_adds_ox_alpha_without_removing_custom_models(self):
         cfg = {
@@ -194,7 +212,7 @@ class OpenRouterProviderTests(unittest.TestCase):
         }
         ciel_runtime.apply_config_migrations(cfg)
         self.assertIn("private/model", cfg["providers"]["openrouter"]["custom_models"])
-        self.assertIn("stealth/ox-alpha", cfg["providers"]["openrouter"]["custom_models"])
+        self.assertIn("z-ai/glm-5.3-flash", cfg["providers"]["openrouter"]["custom_models"])
         self.assertTrue(cfg["migrations"]["ox_alpha_provider_catalogs_20260823"])
 
     def test_routes_via_openai_compatible_path(self):

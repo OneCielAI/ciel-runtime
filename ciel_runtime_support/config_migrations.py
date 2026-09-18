@@ -56,6 +56,36 @@ def apply_config_migrations(cfg: dict[str, Any], *, policy: ConfigMigrationPolic
                 custom.append("stealth/union-alpha")
         migrations[marker] = True
 
+    marker = "retired_stealth_and_eol_defaults_20260918"
+    if not migrations.get(marker):
+        providers = cfg.get("providers") if isinstance(cfg.get("providers"), dict) else {}
+        pcfg = providers.get("openrouter")
+        if isinstance(pcfg, dict):
+            custom = pcfg.get("custom_models")
+            if isinstance(custom, list):
+                # stealth/ox-alpha ended its testing period (404 pointing at
+                # z-ai/glm-5.3-flash, live 2026-09-18).
+                custom[:] = [
+                    model
+                    for model in custom
+                    if normalize_model_id("openrouter", str(model))
+                    != normalize_model_id("openrouter", "stealth/ox-alpha")
+                ]
+                known = {
+                    normalize_model_id("openrouter", str(model))
+                    for model in custom
+                    if str(model).strip()
+                }
+                if normalize_model_id("openrouter", "z-ai/glm-5.3-flash") not in known:
+                    custom.append("z-ai/glm-5.3-flash")
+        nvidia = providers.get("nvidia-hosted")
+        if isinstance(nvidia, dict) and str(nvidia.get("current_model") or "").strip() == (
+            "qwen/qwen3-coder-480b-a35b-instruct"
+        ):
+            # The model reached end of life on 2026-06-11 and answers 410.
+            nvidia["current_model"] = "z-ai/glm-5.3"
+        migrations[marker] = True
+
     marker = "opencode_custom_tools_as_functions_20260918"
     if not migrations.get(marker):
         providers = cfg.get("providers") if isinstance(cfg.get("providers"), dict) else {}
@@ -169,7 +199,7 @@ def apply_config_migrations(cfg: dict[str, Any], *, policy: ConfigMigrationPolic
     if not migrations.get(marker):
         providers = cfg.get("providers") if isinstance(cfg.get("providers"), dict) else {}
         additions = {
-            "openrouter": ("stealth/ox-alpha", None),
+            "openrouter": ("z-ai/glm-5.3-flash", None),
             "opencode": ("x-preview-f-free", "openai-chat"),
             "opencode-go": ("ox-alpha-free", "openai-chat"),
         }
