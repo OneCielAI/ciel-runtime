@@ -1,0 +1,15 @@
+okf_version: "1.0"
+task: "muse-spark turns kept dying with `input[0]` 400 in G:\\ciel-bridge-service - capture the real upstream body and fix the cause."
+symptom: "Codex turns end immediately with `event: error {\"type\":\"invalid_request_error\",\"message\":\"invalid_request_error: `input[0]` did not match any supported type\"}` on ciel-runtime-meta-muse-spark-1.3-contributor; reproduced 12:18:23, 12:28:48 and 13:24:29 on the first turn after each resume."
+investigation:
+  isolation: "Built an isolated live replay: the repo tree's own ConPTY launcher (ciel_runtime.py codex resume 01a08e99-...), a scratch workspace cwd, an isolated config dir (merged global+workspace providers so the meta key is present), an isolated CODEX_HOME holding a copy of the failing session's 285 MB rollout, port 9899 (CIEL_RUNTIME_ROUTER_PORT) and CIEL_RUNTIME_DUMP_UPSTREAM set. Nothing touched G:\\ciel-bridge-service, its router 9465, ~/.codex or the live session file."
+  capture: "First request after resume: dump upstream-20260919T183437-0001-body.json (1,066,128 bytes) -> access `POST /v1/responses` 400, the same error as the live session."
+  root_cause: "input[0] was {\"type\": \"additional_tools\", \"id\": \"at_6345678f-...\", \"role\": \"developer\", \"tools\": []} with no top-level `tools` key, i.e. an EMPTY catalogue item. hoist_additional_tools() only removed the item when it had definitions to hoist (`if not hoisted: return body`), so the empty item was forwarded untouched and Meta rejects the `additional_tools` item type itself."
+fix: "responses_input_compatibility.py: the item is removed whenever it is present; definitions are hoisted into `tools` as before when they exist; an empty catalogue simply leaves the request without a tools key."
+verification:
+  live_replay_after_fix: "Same replay on the fixed tree: first request 200 with input[0] = developer message and zero additional_tools items; 5 requests total, all 200, and the follow-up requests carry the real 5-tool catalogue hoisted to top-level `tools`."
+  tests: "2 new tests (empty item dropped, existing tools kept); unit 1570 OK (skipped=45), router 1139 OK; ruff clean; live router 9465 healthy before and after."
+  capture_artifacts: "C:\\Users\\djlov\\ciel-runtime\\.tmp\\input0-empty-catalogue-capture\\ (pre-fix body+meta, post-fix bodies 1-5)."
+not_done:
+  - "Why Codex sent an empty catalogue on the first request after resume is a client-side state question; later requests in the same run carry the 5-tool catalogue, so it is not blocking."
+  - "forward_compact (the opaque /v1/responses/compact contract) still forwards bodies verbatim by design; no evidence of an additional_tools item on that route."

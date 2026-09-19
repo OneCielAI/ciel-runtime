@@ -1,0 +1,17 @@
+okf_version: "1.0"
+task: "Local deploy of 38f2d46 (an empty additional_tools input item is dropped instead of forwarded)."
+commit: "38f2d4603dd0aba580a9b1d4cbf27aa7360b1db7"
+branch: "nightly-0.2.51 (local only; no push, no npm publish, no version bump)"
+install:
+  snapshot: "C:\\Users\\djlov\\.local\\share\\ciel-runtime-38f2d4603dd0aba580a9b1d4cbf27aa7360b1db7"
+  supersedes: "C:\\Users\\djlov\\.local\\share\\ciel-runtime-5ffd769104edb76c328993ff72f7e28980ca67d4"
+  command: "install.ps1 from the repo working tree with CIEL_RUNTIME_INSTALL_HOME=<snapshot> and PREFIX=$HOME\\.local"
+  pin: "User environment variable CIEL_RUNTIME_HOME = the new snapshot (verified after the second run)."
+accident:
+  what: "The first install attempt used `$home` as the PowerShell variable name. `$home` is read-only, the assignment silently failed, and CIEL_RUNTIME_INSTALL_HOME resolved to C:\\Users\\djlov. install.ps1 therefore copied ciel_runtime.py, ciel_runtime_support\\ and scripts\\ into the home root and set user CIEL_RUNTIME_HOME=C:\\Users\\djlov, breaking the pin."
+  repair: "Re-ran install.ps1 with the correct CIEL_RUNTIME_INSTALL_HOME (pin now the 38f2d46 snapshot); removed the three stray copies from C:\\Users\\djlov."
+  data_loss_check: "No trace of a pre-existing personal ~/scripts folder was found: user PATH, .bashrc/.bash_profile/.profile/.gitconfig, PowerShell profile files and PSReadLine history all lack any reference to C:\\Users\\djlov\\scripts, and the folder's contents before removal were exactly a copy of the repo scripts dir. A pre-existing folder therefore cannot be proven absent, but nothing points to one."
+verification:
+  content: "Snapshot ciel_runtime_support/responses_input_compatibility.py is cmp-identical to the repo tree."
+  behaviour: "Importing the deployed module and calling hoist_additional_tools on a body whose input[0] is {type: additional_tools, tools: []} returns input types ['message'] with no tools key."
+live_sessions_untouched: "The running Codex session in G:\\ciel-bridge-service keeps its old router (9465, pre-fix code) until it is relaunched; a new launch resolves the new pin."

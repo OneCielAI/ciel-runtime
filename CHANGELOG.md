@@ -39,6 +39,11 @@ capability, followed by the complete commit ledger merged into each release.
   client. Without this, a model echoing the history reached Codex as a plain
   function_call — "tool exec invoked with incompatible payload" for the
   code-mode tool and "unsupported call" for every other namespace member.
+- Drop Codex's `additional_tools` input item before it reaches a provider even
+  when the catalogue is empty: a resumed Codex turn can send `tools: []` at
+  `input[0]`, and Meta rejects the item type itself, so the whole request
+  answered 400 ``input[0]` did not match any supported type`. Definitions are
+  still hoisted into `tools` when present.
 - Keep DeepSeek thinking-mode requests valid when the replayed history holds
   an assistant turn without a `thinking` block (a cross-provider turn, or a
   turn the router itself retried with thinking disabled): the adapter inserts
