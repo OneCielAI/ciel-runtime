@@ -406,6 +406,20 @@ class ResumeCommandTests(unittest.TestCase):
         self.assertEqual(argv, runtime_resume_command(argv, "codex"))
         self.assertTrue(runtime_session_control_present(argv, "codex"))
 
+    def test_muse_appends_resume_last_when_absent(self):
+        argv = ["muse", "--yolo", "--model", "muse-spark-1.3"]
+
+        self.assertEqual(
+            [*argv, "resume", "--last"],
+            runtime_resume_command(argv, "muse"),
+        )
+
+    def test_muse_keeps_an_existing_resume_subcommand(self):
+        argv = ["muse", "--yolo", "resume", "--last"]
+
+        self.assertEqual(argv, runtime_resume_command(argv, "muse"))
+        self.assertTrue(runtime_session_control_present(argv, "muse"))
+
     def test_codex_config_override_is_not_continue(self):
         argv = ["codex.exe", "-c", "model=x"]
 

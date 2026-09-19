@@ -372,6 +372,32 @@ class MuseRuntimeTests(unittest.TestCase):
             command.argv,
         )
 
+    def test_continue_is_translated_into_the_resume_subcommand(self):
+        captured: dict = {}
+        context = self.context(captured)
+
+        code = self.launch_with_mcp_capture(context, captured, ["--continue"])
+
+        command = captured["proxy"][0]
+        self.assertEqual(0, code)
+        self.assertIn("resume", command)
+        self.assertIn("--last", command)
+        self.assertNotIn("--continue", command)
+        self.assertTrue(
+            any("muse_passthrough_mapping" in line for line in captured.get("logs", [])),
+            captured.get("logs"),
+        )
+
+    def test_continue_with_an_existing_command_is_dropped(self):
+        captured: dict = {}
+        context = self.context(captured)
+
+        self.launch_with_mcp_capture(context, captured, ["--continue", "exec", "hi"])
+
+        command = captured["calls"][-1][0] if captured.get("calls") else captured["proxy"][0]
+        self.assertIn("exec", command)
+        self.assertNotIn("--continue", command)
+
     def test_native_launch_attaches_the_router_mcp_entry(self):
         captured: dict = {}
         context = self.context(captured)

@@ -60,8 +60,21 @@ class PrelaunchLaunchPreferenceTests(unittest.TestCase):
         self.assertEqual("launch-kimi", config["last_launch_action"])
         self.assertTrue(remember_launch_action(config, "launch-grok"))
         self.assertEqual("launch-grok", config["last_launch_action"])
+        self.assertTrue(remember_launch_action(config, "launch-muse"))
+        self.assertEqual("launch-muse", config["last_launch_action"])
         self.assertFalse(remember_launch_action(config, "back"))
-        self.assertEqual("launch-grok", config["last_launch_action"])
+        self.assertEqual("launch-muse", config["last_launch_action"])
+
+    def test_restores_the_remembered_muse_choice(self):
+        selected = preferred_launch_action(
+            {"last_launch_action": "launch-muse"},
+            "meta",
+            fallback=lambda _provider: "launch",
+            supports_claude=lambda _provider: True,
+            supports_codex=lambda _provider: True,
+        )
+
+        self.assertEqual("launch-muse", selected)
 
     def test_restores_preferred_action_as_combined_launch_menu_cursor(self):
         actions = [

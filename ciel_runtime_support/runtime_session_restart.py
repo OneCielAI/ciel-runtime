@@ -47,7 +47,7 @@ RESUME_COMMANDS: dict[str, tuple[str, ...]] = {
     "agy": ("--continue",),
     "grok": ("--continue",),
     "zcode": ("--continue",),
-    "muse": ("resume",),
+    "muse": ("resume", "--last"),
 }
 
 
@@ -60,6 +60,9 @@ def runtime_session_control_present(argv: Sequence[str], runtime: str) -> bool:
 
     mode = str(runtime or "").strip().lower()
     arguments = [str(item) for item in argv]
+    if mode == "muse":
+        # Muse resumes through its own subcommand rather than a flag.
+        return "resume" in arguments[1:]
     if mode == "codex":
         if "resume" in arguments[1:]:
             return True

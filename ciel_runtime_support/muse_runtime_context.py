@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Callable, Mapping
 
 
+from .muse_cli import muse_passthrough_mapping
 from .muse_mcp import (
     router_mcp_decision,
     router_mcp_entry,
@@ -271,6 +272,12 @@ class MuseRuntimeContext:
         routed = has_option(argv, MUSE_ROUTER_FLAG)
         router_token = MUSE_ROUTER_AUTH_TOKEN
         argv = without_option(argv, MUSE_ROUTER_FLAG)
+        # Claude-style session flags mean nothing to Muse: translate them into
+        # its own `resume` subcommand before anything else reads the argv.
+        argv, mapping_notes = muse_passthrough_mapping(argv)
+        if mapping_notes:
+            log = self.lifecycle.log or (lambda _level, _message: None)
+            log("INFO", "muse_passthrough_mapping " + "; ".join(mapping_notes))
         executable = self.install_if_missing()
         if executable is None:
             return 127
