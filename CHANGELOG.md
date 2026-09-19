@@ -5,6 +5,12 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+- Keep DeepSeek thinking-mode requests valid when the replayed history holds
+  an assistant turn without a `thinking` block (a cross-provider turn, or a
+  turn the router itself retried with thinking disabled): the adapter inserts
+  a content-stable placeholder block instead of letting the upstream answer
+  `The `content[].thinking` in the thinking mode must be passed back to the
+  API` and kill the turn.
 - Route Muse Code model traffic through the Ciel Router with
   `ciel-runtime muse --ca-router`: Muse receives `--base-url <router>/v1`
   (it posts OpenAI Responses to `/v1/responses`) plus the router's local token,

@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest import mock
 
 import ciel_runtime
+from ciel_runtime_support.providers.deepseek import THINKING_PASSTHROUGH_PLACEHOLDER
 
 
 class DeepSeekProviderTests(unittest.TestCase):
@@ -317,6 +318,102 @@ class DeepSeekProviderTests(unittest.TestCase):
 
         self.assertEqual({"type": "disabled"}, normalized["thinking"])
         self.assertNotIn("output_config", normalized)
+
+    def test_thinking_request_restores_missing_assistant_thinking_blocks(self):
+        pcfg = self.deepseek_cfg()["providers"]["deepseek"]
+        body = {
+            "model": "deepseek-v4-flash",
+            "thinking": {"type": "enabled"},
+            "messages": [
+                {"role": "user", "content": "work"},
+                {
+                    "role": "assistant",
+                    "content": [{"type": "text", "text": "answer from another model"}],
+                },
+                {
+                    "role": "assistant",
+                    "content": [
+                        {"type": "thinking", "thinking": "kept", "signature": "sig"},
+                        {"type": "text", "text": "answer"},
+                    ],
+                },
+            ],
+        }
+
+        normalized = ciel_runtime.apply_provider_adapter_request_policy(
+            "deepseek", pcfg, body
+        )
+
+        # A thinking-mode request with an assistant turn that lost its thinking
+        # block is refused live ("The `content[].thinking` in the thinking mode
+        # must be passed back to the API"), whichever model produced the turn.
+        restored = normalized["messages"][1]
+        self.assertEqual("thinking", restored["content"][0]["type"])
+        self.assertEqual(
+            THINKING_PASSTHROUGH_PLACEHOLDER,
+            restored["content"][0]["thinking"],
+        )
+        self.assertTrue(restored["content"][0]["signature"])
+        self.assertEqual("answer from another model", restored["content"][1]["text"])
+        # Messages that already carry thinking, and user turns, stay untouched.
+        self.assertEqual(body["messages"][2], normalized["messages"][2])
+        self.assertEqual(body["messages"][0], normalized["messages"][0])
+
+    def test_thinking_passthrough_placeholder_is_stable_across_requests(self):
+        pcfg = self.deepseek_cfg()["providers"]["deepseek"]
+        body = {
+            "model": "deepseek-v4-flash",
+            "thinking": {"type": "enabled"},
+            "messages": [
+                {"role": "assistant", "content": [{"type": "text", "text": "answer"}]},
+            ],
+        }
+
+        first = ciel_runtime.apply_provider_adapter_request_policy(
+            "deepseek", pcfg, copy.deepcopy(body)
+        )
+        second = ciel_runtime.apply_provider_adapter_request_policy(
+            "deepseek", pcfg, copy.deepcopy(body)
+        )
+
+        # The replayed prefix must stay byte-stable for provider-side caching.
+        self.assertEqual(
+            first["messages"][0]["content"][0]["signature"],
+            second["messages"][0]["content"][0]["signature"],
+        )
+
+    def test_request_without_a_thinking_field_keeps_assistant_messages_untouched(self):
+        pcfg = self.deepseek_cfg()["providers"]["deepseek"]
+        body = {
+            "model": "deepseek-v4-flash",
+            "messages": [
+                {"role": "assistant", "content": "answer"},
+            ],
+        }
+
+        normalized = ciel_runtime.apply_provider_adapter_request_policy(
+            "deepseek", pcfg, body
+        )
+
+        # OpenAI-chat bodies reach the same hook; only an explicit Anthropic
+        # thinking mode carries the passthrough contract.
+        self.assertEqual(body["messages"], normalized["messages"])
+
+    def test_thinking_disabled_request_keeps_assistant_messages_untouched(self):
+        pcfg = self.deepseek_cfg()["providers"]["deepseek"]
+        body = {
+            "model": "deepseek-v4-flash",
+            "thinking": {"type": "disabled"},
+            "messages": [
+                {"role": "assistant", "content": [{"type": "text", "text": "answer"}]},
+            ],
+        }
+
+        normalized = ciel_runtime.apply_provider_adapter_request_policy(
+            "deepseek", pcfg, body
+        )
+
+        self.assertEqual(body["messages"], normalized["messages"])
 
     def test_openai_tool_history_preserves_reasoning_content_for_v4(self):
         pcfg = self.deepseek_cfg(native_compat=False)["providers"]["deepseek"]

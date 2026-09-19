@@ -1,5 +1,8 @@
 """DeepSeek provider adapter."""
 
+import hashlib
+import json
+import uuid
 from dataclasses import dataclass, field
 from typing import Any, Mapping
 
@@ -14,6 +17,11 @@ from ..architecture import (
 )
 from .base import HttpBearerProviderAdapter, provider_configuration
 from .constants import DEFAULT_REQUEST_TIMEOUT_MS, PROVIDER_DEFAULT_BASE_URLS
+
+
+THINKING_PASSTHROUGH_PLACEHOLDER = (
+    "(no reasoning content was recorded for this turn)"
+)
 
 
 @dataclass(frozen=True)
@@ -132,6 +140,68 @@ class DeepSeekProviderAdapter(HttpBearerProviderAdapter):
             return "max"
         return "high"
 
+    @staticmethod
+    def _with_thinking_passthrough(messages: Any) -> Any:
+        """Restore the thinking blocks DeepSeek demands from replayed history.
+
+        A thinking-mode request whose assistant history holds a message without
+        a ``thinking`` block is refused with "The `content[].thinking` in the
+        thinking mode must be passed back to the API", whichever model produced
+        that turn. Two live sources of such turns: a replayed cross-provider
+        transcript, and a turn this router itself retried with thinking
+        disabled (``codex_reasoning_budget_recovery``). DeepSeek does not
+        validate the signature -- a synthesized placeholder answers 200
+        (verified against the live API, 2026-09-18) -- so the turn is kept and
+        given one. The signature is derived from the message content so a
+        replayed prefix stays byte-stable for provider-side prompt caching.
+        """
+
+        if not isinstance(messages, list):
+            return messages
+        projected: list[Any] = []
+        changed = False
+        for message in messages:
+            if (
+                not isinstance(message, Mapping)
+                or str(message.get("role") or "") != "assistant"
+            ):
+                projected.append(message)
+                continue
+            content = message.get("content")
+            if isinstance(content, str):
+                content = [{"type": "text", "text": content}]
+            if not isinstance(content, list) or any(
+                isinstance(block, Mapping) and block.get("type") == "thinking"
+                for block in content
+            ):
+                projected.append(message)
+                continue
+            digest = hashlib.sha1(
+                json.dumps(
+                    message, ensure_ascii=False, sort_keys=True, default=str
+                ).encode("utf-8", "replace")
+            ).hexdigest()
+            projected.append(
+                {
+                    **message,
+                    "content": [
+                        {
+                            "type": "thinking",
+                            "thinking": THINKING_PASSTHROUGH_PLACEHOLDER,
+                            "signature": str(
+                                uuid.uuid5(
+                                    uuid.NAMESPACE_URL,
+                                    f"ciel-runtime:deepseek:{digest}",
+                                )
+                            ),
+                        },
+                        *content,
+                    ],
+                }
+            )
+            changed = True
+        return projected if changed else messages
+
     def normalize_request_options(
         self, config: ProviderConfig, request: Mapping[str, Any]
     ) -> Mapping[str, Any]:
@@ -152,6 +222,13 @@ class DeepSeekProviderAdapter(HttpBearerProviderAdapter):
                 "frequency_penalty",
             ):
                 normalized.pop(key, None)
+        # Only an explicitly enabled thinking mode carries the passthrough
+        # contract; a body without the field is not an Anthropic Messages
+        # thinking request (an OpenAI chat body reaches this hook too).
+        if isinstance(thinking, Mapping) and not thinking_disabled:
+            normalized["messages"] = self._with_thinking_passthrough(
+                normalized.get("messages")
+            )
         output_config = request.get("output_config")
         metadata = request.get("metadata")
         hinted_effort = (
