@@ -1,0 +1,16 @@
+okf_version: "1.0"
+task: "User: `--continue` in /mnt/f/omini-router did not bring back their session and ran an empty one. Make --continue resume the session the user was actually in."
+symptom: "`ciel-runtime muse --continue` in F:\\omini-router (Muse footer: muse-spark-1.3 - high - /mnt/f/omini-router) opened a brand-new empty session."
+diagnosis:
+  muse_side: "Muse resolves `resume --last` through its session index. The index row for the real session (01a0b860-89c9-7110-a9a6-2c8b63fba897, workspace /mnt/f/omini-router, 15 MB transcript) reads `status=missing_metadata, workspace_root=NULL, updated_at=NULL`, so `muse export --last` answers `export failed: no retained sessions found for this workspace`. The session itself is intact: `muse export --session 01a0b860-...` wrote a 26 MB export."
+  not_index_size_or_build: "The file's metadata record is present at line 2 with `workspace_root=/mnt/f/omini-router` (both the old build sha 02a9f9c81f and current 3c572bc734 sessions in that workspace fail to index, while aap.ezonebot and a fresh scratch workspace index fine) - the index failure is Muse-side and not explained by file shape, size, or build."
+  our_side: "Live run of the first fix attempt exposed a second bug: the TUI-history read used subprocess text mode without an encoding, so the Korean history crashed the reader thread with UnicodeDecodeError, the resolver silently returned nothing, and Muse fell back to its broken `--last`."
+fix:
+  - "muse_runtime_context: when the translated argv asks for `resume --last`, read Muse's own TUI history (tail of ~/.local/share/muse/tui-history.jsonl; the TUI appends `{\"project\": ..., \"session\": ...}` on every submitted prompt) and resume the session it names for this workspace. Falls back to `--last` when nothing matches; the id must match the UUID shape before it enters argv."
+  - "The history read (and the WSL settings sync) decode as UTF-8 with replacement; probes stay bounded and cwd-neutral."
+verification:
+  live: "Isolated `muse --continue` launch from F:\\omini-router on the fixed tree: the Muse process runs `muse-bin-1.3.0-R3401.1 resume --yolo --model muse-spark-1.3 --reasoning-effort high 01a0b860-89c9-7110-a9a6-2c8b63fba897` - the exact session, no `--last`, TUI alive on it."
+  tests: "History parser (last matching project wins, non-UUID rejected), cwd mapping, launch rewrite, fallback; unit 1577 OK (skipped=45); ruff clean."
+cleanup: "The probe sessions this investigation created in the user's Muse store (5 echo sessions in /mnt/f/ciel-muse-index-test and /mnt/f/omini-router) were removed together with their index rows and the scratch workspace; ~/.config/muse/settings.json restored byte-identical; the user's own Muse sessions were never touched."
+not_done:
+  - "Muse's picker (`muse resume` with no argument) still cannot see that session - the index repair is Muse-side. The `--continue` path no longer depends on it."

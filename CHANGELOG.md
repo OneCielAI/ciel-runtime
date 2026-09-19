@@ -23,6 +23,14 @@ capability, followed by the complete commit ledger merged into each release.
   The prelaunch menu persists a Muse Code launch as the remembered choice, so
   the runtime used last stays the default selection, and the session-restart
   relaunch resumes Muse with `resume --last`.
+- Resume the right session for Muse Code's `--continue`: Muse resolves
+  `resume --last` through its session index, which can leave a real session
+  invisible (`status=missing_metadata`), so the launch opened an empty session
+  instead. The launcher now reads Muse's own TUI history (the
+  `{"project": ..., "session": ...}` record the TUI writes on every submitted
+  prompt) and resumes the session it names for this workspace, falling back to
+  `--last`; history and settings reads decode as UTF-8 (the cp1252 default
+  crashed the resolver on non-ASCII histories).
 - Support the several ways a message can be injected into Muse Code instead of
   a single terminal paste: an MSP session host (`muse serve`) the runtime owns,
   the interactive console proxy, headless `muse exec`, and Muse's cross-session

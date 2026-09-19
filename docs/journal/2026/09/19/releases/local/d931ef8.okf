@@ -1,0 +1,13 @@
+okf_version: "1.0"
+task: "Local deploy of d931ef8 (--continue resolves through the Muse TUI history; UTF-8 history/settings reads)."
+commit: "d931ef8c1725295857b053453f1ef71bc5a6db87"
+branch: "nightly (local only; no push, no npm publish, no version bump)"
+install:
+  snapshot: "C:\\Users\\djlov\\.local\\share\\ciel-runtime-d931ef8c1725295857b053453f1ef71bc5a6db87"
+  supersedes: "C:\\Users\\djlov\\.local\\share\\ciel-runtime-19592b07799e99f1f80789be4aa7b8026bb2fd33"
+  command: "install.ps1 from the repo working tree with CIEL_RUNTIME_INSTALL_HOME=<snapshot> and PREFIX=$HOME\\.local"
+  pin: "User environment variable CIEL_RUNTIME_HOME = the new snapshot (verified)."
+verification:
+  content: "Snapshot muse_runtime_context.py and muse_mcp.py are cmp-identical to the repo tree."
+  behaviour: "Importing the deployed modules: latest_tui_history_session resolves the omini-router history line to 01a0b860-... and wsl_workspace_path('F:\\omini-router') -> /mnt/f/omini-router."
+  live: "See fixes/runtime/muse-continue-tui-history.okf - the real workspace launch resumed the exact session id."
