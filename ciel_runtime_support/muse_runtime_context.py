@@ -4,8 +4,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Mapping
 
+
+from .muse_mcp import (
+    router_mcp_decision,
+    router_mcp_entry,
+    settings_store_for,
+)
 
 MUSE_INSTALL_URL = "https://dev.meta.ai/install.sh"
 MUSE_SUBSCRIPTION_ENV_KEYS = ("META_API_KEY", "MODEL_API_KEY")
@@ -101,6 +107,7 @@ class MuseLifecyclePorts:
     # placeholder for a loopback router and the router's external-access token
     # once the router is bound to an address outside loopback (Windows + WSL).
     router_endpoint: Callable[[], tuple[str, str]] = lambda: ("", MUSE_ROUTER_AUTH_TOKEN)
+    log: Callable[[str, str], Any] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -108,6 +115,44 @@ class MuseRuntimeContext:
     process: MuseProcessPorts
     config: MuseConfigurationPorts
     lifecycle: MuseLifecyclePorts
+
+    def _sync_router_mcp(
+        self,
+        executable: MuseExecutable,
+        config: dict[str, Any],
+        *,
+        manage_router: bool,
+    ) -> None:
+        """Attach - or clear - the router entry Muse reads from settings.json.
+
+        This is what lets a Muse session restart itself: Muse has no
+        ``--mcp-config`` flag, so the router server has to be merged into
+        ``~/.config/muse/settings.json`` (inside WSL on Windows). A launch with
+        no router behind it removes the entry again.
+        """
+
+        log = self.lifecycle.log or (lambda _level, _message: None)
+        section = config.get("muse")
+        enabled = True
+        if isinstance(section, Mapping) and section.get("router_mcp") is not None:
+            enabled = bool(section.get("router_mcp"))
+        base_url, token = self.lifecycle.router_endpoint()
+        wsl = str(executable.platform or "").lower() == "wsl"
+        decision = router_mcp_decision(
+            enabled=enabled,
+            manage_router=manage_router,
+            base_url=base_url,
+            token=token,
+            wsl=wsl,
+            loopback=router_host_is_loopback(base_url),
+        )
+        if not decision.attach:
+            log("INFO", f"muse_router_mcp_skipped reason={decision.reason}")
+        entry = (
+            router_mcp_entry(base_url, token) if decision.attach else None
+        )
+        store = settings_store_for(wsl=wsl, run=self.process.run, log=log)
+        store.sync(entry)
 
     def _native_executable(self) -> MuseExecutable | None:
         executable = self.process.find_executable("muse")
@@ -337,6 +382,8 @@ class MuseRuntimeContext:
             )
             and self.lifecycle.start_router()
         )
+        if interactive_session:
+            self._sync_router_mcp(executable, config, manage_router=manage_router)
 
         def run() -> int:
             if not interactive_session:

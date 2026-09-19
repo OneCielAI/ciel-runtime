@@ -4026,6 +4026,7 @@ def muse_runtime_context() -> MuseRuntimeContext:
             lambda provider, model, mode="": record_launch_state_for_cwd(current_launch_cwd_key(), provider, mode or "muse-native-subscription", model),
             _set_channel_transcript_scope,
             lambda: (ROUTER_BASE, MUSE_ROUTER_AUTH_TOKEN if router_host_is_loopback(ROUTER_BASE) else ensure_router_external_access_token() if router_debug_external_access_enabled(load_config()) else ""),
+            router_log,
         ),
     )
 

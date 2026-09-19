@@ -113,6 +113,42 @@ stdio and `muse session-message` for peer sessions. Ciel preserves these command
 as native passthrough surfaces; it does not claim MSP lifecycle ownership for an
 ordinary interactive TUI launch.
 
+## Router MCP attach (restart and channel tools)
+
+Muse Code reads MCP servers from `mcpServers` in `~/.config/muse/settings.json`
+and offers no per-launch flag for them, so a Ciel launch merges one entry into
+that file:
+
+```json
+{
+  "ciel-runtime-router": {
+    "type": "streamable-http",
+    "url": "http://<router>/ca/mcp",
+    "headers": {"Authorization": "Bearer <router token>"},
+    "mode": "optional"
+  }
+}
+```
+
+Everything else in the file (other servers, provider, model) is preserved, and
+a launch without a managed router removes the entry again so Muse never shows a
+dead server. With the entry in place the session can call `restart_session`
+(relaunch itself with `resume`), `submit_input`, `llm_options`, `send_message`
+and `telemetry_logs`.
+
+Address rules, because Muse runs inside WSL on Windows:
+
+- Router on loopback → the local placeholder token is attached (native Muse).
+- Muse in WSL → the router must be bound to a WSL-reachable address
+  (`ciel-runtime muse --ca-web-address <windows-wsl-ip>`) and the router must
+  accept external clients (`router_debug_external_access`); the entry then
+  carries that URL and the router's external token.
+- When the entry cannot be attached (WSL plus a loopback router, or external
+  access off) the launch still proceeds and the router log names the remedy:
+  `muse_router_mcp_skipped reason=…`.
+
+`muse.router_mcp=false` in the workspace config disables the attach.
+
 ## Message injection paths
 
 Channel delivery into Muse is not one fixed mechanism. Ciel Runtime models the

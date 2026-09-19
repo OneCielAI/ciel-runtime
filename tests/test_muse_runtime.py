@@ -74,7 +74,13 @@ class MuseRuntimeTests(unittest.TestCase):
         self.assertEqual(("muse", "session-message", "--help"), command.argv)
 
     @staticmethod
-    def context(captured: dict, *, platform_name: str = "posix", web: bool = True):
+    def context(
+        captured: dict,
+        *,
+        platform_name: str = "posix",
+        web: bool = True,
+        router_mcp: bool | None = None,
+    ):
         def find(name: str):
             if name == "muse" and platform_name != "nt":
                 return "/home/test/.local/bin/muse"
@@ -138,6 +144,11 @@ class MuseRuntimeTests(unittest.TestCase):
                 lambda: {
                     "current_provider": "meta",
                     "providers": {"meta": {"current_model": "muse-spark-1.3", "effort_level": "xhigh"}},
+                    **(
+                        {"muse": {"router_mcp": router_mcp}}
+                        if router_mcp is not None
+                        else {}
+                    ),
                 },
                 lambda config: ("meta", config["providers"]["meta"]),
             ),
@@ -156,8 +167,26 @@ class MuseRuntimeTests(unittest.TestCase):
                     captured.get("router_base", "http://127.0.0.1:9611"),
                     captured.get("router_token", "ciel-runtime-router-local-key"),
                 ),
+                lambda level, message: captured.setdefault("logs", []).append(
+                    f"{level} {message}"
+                ),
             ),
         )
+
+    def launch_with_mcp_capture(self, context, captured, passthrough):
+        """Launch while recording what the router MCP sync was asked to write."""
+
+        entries: list[object] = []
+        store = SimpleNamespace(
+            sync=lambda entry, name=None: entries.append(entry) or "updated"
+        )
+        with mock.patch(
+            "ciel_runtime_support.muse_runtime_context.settings_store_for",
+            return_value=store,
+        ):
+            code = context.launch(passthrough)
+        captured["mcp_entries"] = entries
+        return code
 
     def test_native_launch_preserves_browser_subscription_and_uses_channel_proxy(self):
         captured: dict = {}
@@ -342,6 +371,76 @@ class MuseRuntimeTests(unittest.TestCase):
             ),
             command.argv,
         )
+
+    def test_native_launch_attaches_the_router_mcp_entry(self):
+        captured: dict = {}
+        context = self.context(captured)
+
+        code = self.launch_with_mcp_capture(context, captured, ["--trust-workspace"])
+
+        self.assertEqual(0, code)
+        self.assertEqual(
+            [
+                {
+                    "type": "streamable-http",
+                    "url": "http://127.0.0.1:9611/ca/mcp",
+                    "headers": {"Authorization": "Bearer ciel-runtime-router-local-key"},
+                    "mode": "optional",
+                }
+            ],
+            captured["mcp_entries"],
+        )
+
+    def test_wsl_launch_skips_the_router_mcp_for_a_loopback_router(self):
+        captured: dict = {}
+        context = self.context(captured, platform_name="nt")
+
+        code = self.launch_with_mcp_capture(context, captured, ["--trust-workspace"])
+
+        self.assertEqual(0, code)
+        self.assertEqual([None], captured["mcp_entries"])
+        self.assertTrue(
+            any("WSL cannot reach" in line for line in captured.get("logs", [])),
+            captured.get("logs"),
+        )
+
+    def test_wsl_launch_attaches_when_the_router_host_is_reachable(self):
+        captured: dict = {
+            "router_base": "http://172.29.112.1:9491",
+            "router_token": "external-token",
+        }
+        context = self.context(captured, platform_name="nt")
+
+        self.launch_with_mcp_capture(context, captured, ["--trust-workspace"])
+
+        self.assertEqual(
+            "http://172.29.112.1:9491/ca/mcp",
+            captured["mcp_entries"][0]["url"],
+        )
+        self.assertEqual(
+            {"Authorization": "Bearer external-token"},
+            captured["mcp_entries"][0]["headers"],
+        )
+
+    def test_router_mcp_can_be_disabled_by_config(self):
+        captured: dict = {}
+        context = self.context(captured, router_mcp=False)
+
+        self.launch_with_mcp_capture(context, captured, ["--trust-workspace"])
+
+        self.assertEqual([None], captured["mcp_entries"])
+        self.assertTrue(
+            any("muse.router_mcp" in line for line in captured.get("logs", [])),
+            captured.get("logs"),
+        )
+
+    def test_utility_command_does_not_touch_the_muse_settings(self):
+        captured: dict = {}
+        context = self.context(captured)
+
+        self.launch_with_mcp_capture(context, captured, ["--version"])
+
+        self.assertEqual([], captured["mcp_entries"])
 
     def test_cli_and_launch_menu_expose_muse(self):
         rows, values = ciel_runtime.launch_panel_rows(

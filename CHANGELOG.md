@@ -5,6 +5,16 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+- Attach the router's MCP server to Muse Code launches so a Muse session can
+  restart itself (`restart_session`), read channel inputs (`submit_input`) and
+  report telemetry like a routed Claude/Codex launch does. Muse has no
+  `--mcp-config` flag, so the launcher merges a `ciel-runtime-router` entry
+  into `~/.config/muse/settings.json` - through WSL when Muse runs there - and
+  removes it again on launches without a managed router. A loopback router uses
+  the local token; a Muse session in WSL needs the router bound to a
+  WSL-reachable address (`--ca-web-address`) and the launch log prints that
+  remedy when the entry cannot be attached. `muse.router_mcp=false` disables
+  the attach.
 - Support the several ways a message can be injected into Muse Code instead of
   a single terminal paste: an MSP session host (`muse serve`) the runtime owns,
   the interactive console proxy, headless `muse exec`, and Muse's cross-session
