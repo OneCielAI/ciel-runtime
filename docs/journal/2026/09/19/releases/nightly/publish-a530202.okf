@@ -1,0 +1,23 @@
+okf_version: "1.0"
+task: "Nightly push and publish of the Muse launch/MSP work: main and nightly fast-forwarded c3a76f4 -> a530202, npm nightly 0.2.51-nightly.20260919-180457.a530202 published, and the machine's global npm install moved onto it."
+commits:
+  - "a530202 docs: journal the local 5ffd769 deploy and changelog the Muse launch fixes"
+  - "5ffd769 fix(muse): translate --continue and remember the Muse launch choice"
+  - "a9ac82b feat(muse): attach the router MCP server to Muse launches"
+pushed:
+  main: "c3a76f4 -> a530202 (fast-forward, origin/main)"
+  nightly: "c3a76f4 -> a530202 (fast-forward, origin/nightly)"
+workflows:
+  publish_nightly: "35459954843 'Publish to npm [nightly] a530202' success in 7m5s; ruff, npm test, 'Compute and apply nightly version', npm publish --tag nightly and the published-tarball verification all green."
+  ci_nightly: "35459954764 CI [nightly] a530202 success."
+  ci_main: "35459953612 CI [main] a530202 success."
+  publish_main: "35459953609 'Publish to npm [main] a530202' success; log line 'Package @oneciel-ai/ciel-runtime@0.2.51 is already published; skipping npm publish.' - stable 0.2.51 untouched."
+artifact:
+  dist_tag: "npm dist-tags: nightly = 0.2.51-nightly.20260919-180457.a530202 (latest stays 0.2.51)."
+  tarball: "https://registry.npmjs.org/@oneciel-ai/ciel-runtime/-/ciel-runtime-0.2.51-nightly.20260919-180457.a530202.tgz shasum 6bf8831f3bb32f28ec475307556096900c9793ca; npm pack --dry-run OK (637 files, 6.6 MB unpacked)."
+  content: "Tarball carries ciel_runtime_support/muse_cli.py and muse_mcp.py; runtime_constants.py VERSION = 0.2.51-nightly.20260919-180457.a530202."
+machine:
+  npm_global: "npm i -g @oneciel-ai/ciel-runtime@nightly: 0.2.51-nightly.20260919-070852.c3a76f4 -> 0.2.51-nightly.20260919-180457.a530202; the installed tree carries muse_cli.py, muse_injection.py, muse_mcp.py, muse_msp.py and the matching VERSION. This is the copy a WSL-launched Muse resolves."
+  local_pin: "Unchanged: user CIEL_RUNTIME_HOME still points at the local snapshot ciel-runtime-5ffd769... (releases/local/5ffd769.okf)."
+not_done:
+  - "The published nightly was not exercised from WSL in this task (no Muse launch was started); the router-MCP attach and the --continue mapping are covered by tests and by the deploy-time module runs."
