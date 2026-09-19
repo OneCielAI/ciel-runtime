@@ -1,0 +1,20 @@
+okf_version: "1.0"
+task: "Local deploy of the Muse injection-paths work (MSP client, option model, probe) so a relaunched session resolves it."
+commits:
+  - "23daa8a feat(muse): inject through the paths and parameters Muse actually offers"
+branch: "nightly-0.2.50 (local only; no push, no npm publish, no version bump)"
+install:
+  snapshot: "C:\\Users\\djlov\\.local\\share\\ciel-runtime-23daa8a1f1e079cd0e73d727f7132098ba88bdc6"
+  supersedes: "C:\\Users\\djlov\\.local\\share\\ciel-runtime-29f6d3070b0ffdd44cf4480739265e9662f966c6"
+  command: "install.ps1 from the repo working tree with CIEL_RUNTIME_INSTALL_HOME=<snapshot> and PREFIX=$HOME\\.local"
+  pin: "User environment variable CIEL_RUNTIME_HOME = the new snapshot."
+verification:
+  content: "Snapshot support tree carries muse_msp.py (MSP_APPROVAL_MODES, the serve-host client) and muse_injection.py (MUSE_INJECTION_TRANSPORTS, the option model)."
+  behaviour: "Ran the deployed snapshot's own modules against the real Muse Code host in WSL (echo provider): session/start answered a session id and the steer delivery returned {\"method\":\"turn/start\",\"status\":\"accepted\",\"disposition\":\"started\"}; host exited cleanly (returncode 0)."
+  entrypoint: "~/.local/bin/ciel-runtimectl.ps1 version -> 'ciel-runtime 0.2.51' through the registered snapshot home."
+test_note: "One unit-group run reported test_log_level.test_headless_flag_sets_log_level_without_launch_when_configure_only as an error; the same tree passed that test standalone, passed the group twice afterwards, and passed at HEAD in a throwaway worktree, so the single failure was order/timing flake - not reproduced."
+live_sessions_untouched: "Running sessions keep the snapshot they were launched from; the injection paths apply to code that calls them (the probe, and future launch wiring), not to the running TUI."
+not_done:
+  - "The interactive launch still uses the console proxy; selecting the MSP host as the session owner is a separate change."
+  - "view/subscribe and view/page answered methodNotFound on this build, so live item streaming through our client is unverified."
+  - "session-message cannot be exercised here (ingress closed; Windows unsupported per Muse docs)."
