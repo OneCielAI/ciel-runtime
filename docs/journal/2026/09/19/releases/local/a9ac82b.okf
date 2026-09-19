@@ -1,0 +1,20 @@
+okf_version: "1.0"
+task: "Local deploy of the Muse router-MCP attach (plus the CLI path that makes restart_session reachable from WSL)."
+commits:
+  - "a9ac82b feat(muse): attach the router MCP server to Muse launches"
+  - "d2f0f90 docs: journal the Muse router MCP attach"
+branch: "nightly-0.2.51 (local only; no push, no npm publish, no version bump)"
+install:
+  snapshot: "C:\Users\djlov\.local\share\ciel-runtime-a9ac82b882d6ef4a02ab0b317861737c67fcf1a5"
+  supersedes: "C:\Users\djlov\.local\share\ciel-runtime-23daa8a1f1e079cd0e73d727f7132098ba88bdc6"
+  pin: "User environment variable CIEL_RUNTIME_HOME = the new snapshot; entry scripts resolve it."
+machine_changes:
+  npm_global: "npm i -g @oneciel-ai/ciel-runtime@nightly -> 0.2.51-nightly.20260919-070852.c3a76f4 (the prefix %APPDATA%\npm that WSL reaches through /mnt/c). `ciel-runtimectl restart-session --help` verified from WSL afterwards."
+  workspace_config: "workspaces/08c021f4fb95: web_backend.host=172.29.112.1 + enabled, router_debug_external_access and its confirmation set to true (backup config.json.bak-20260919-121239)."
+verification:
+  content: "Snapshot carries muse_mcp.py (MUSE_ROUTER_SERVER_NAME and the decision policy) and the launch wiring in muse_runtime_context.py."
+  reachability: "Router bound to 172.29.112.1 with external access served /ca/mcp; a WSL curl with the external token returned tools/list including restart_session."
+  settings_merge: "Merged and removed the entry in the real ~/.config/muse/settings.json through the WSL bridge; the file returned to its original content (json-equal to the backup)."
+  entrypoint: "~/.local/bin/ciel-runtimectl.ps1 version -> 'ciel-runtime 0.2.51' through the new snapshot home."
+next_launch: "A Muse launch in F:\aap.ezonebot from this snapshot binds the router to 172.29.112.1, attaches the router MCP entry and exposes restart_session to the session. Launching Muse from the WSL npm shim would use the published nightly (c3a76f4), which predates the attach logic."
+not_done: "No push, no npm publish of a9ac82b, no version bump; the native-Windows Muse settings path is untested; the WSL gateway address can change across distributions restarts."
