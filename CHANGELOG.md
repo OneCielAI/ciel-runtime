@@ -31,6 +31,17 @@ capability, followed by the complete commit ledger merged into each release.
   prompt) and resumes the session it names for this workspace, falling back to
   `--last`; history and settings reads decode as UTF-8 (the cp1252 default
   crashed the resolver on non-ASCII histories).
+- Clear stale Muse Code session locks before a resume launch, resolve the
+  session through the newest history entry whose directory still exists, and
+  resolve a bare `muse resume` the same way. Muse answers a resume of a
+  session whose `.session.lock` still names a pid that has died with "that
+  session is already open in another window — pick another session" (live
+  2026-09-19: after the WSL restart every killed session carried such a lock,
+  so `--continue` could not restore the 15 MB omini-router session and landed
+  in the empty session picker, which lists nothing on this host). The sweep
+  removes locks whose pid is gone and whose host is this machine, and leaves
+  locks held by a live pid alone; the history resolver skips session
+  directories that no longer exist instead of resuming a dead reference.
 - Support the several ways a message can be injected into Muse Code instead of
   a single terminal paste: an MSP session host (`muse serve`) the runtime owns,
   the interactive console proxy, headless `muse exec`, and Muse's cross-session

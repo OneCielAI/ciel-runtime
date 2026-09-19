@@ -12,12 +12,15 @@ from unittest import mock
 import ciel_runtime
 from ciel_runtime_support.architecture import LaunchSpec, ProviderConfig, RuntimeConfig
 from ciel_runtime_support.muse_runtime_context import (
+    MUSE_STALE_LOCK_SWEEP,
     MuseConfigurationPorts,
     MuseLifecyclePorts,
     MuseProcessPorts,
     MuseRuntimeContext,
     WSL_PROBE_TIMEOUT_SECONDS,
     latest_tui_history_session,
+    session_exists_script,
+    tui_history_sessions,
     wsl_workspace_path,
 )
 from ciel_runtime_support.runtime_adapters import RUNTIME_ADAPTERS
@@ -642,6 +645,156 @@ class MuseContinueResolutionTests(unittest.TestCase):
 
         passthrough = captured["materialize"][5]["passthrough"]
         self.assertEqual(["resume", "--last"], list(passthrough))
+
+    def test_history_sessions_come_back_newest_first_without_duplicates(self):
+        older = "01a0b860-89c9-7110-a9a6-2c8b63fba897"
+        newer = "01a0bb7e-4f99-7bc1-aaf4-7d9eddaacdfa"
+        history = "\n".join(
+            [
+                json.dumps({"project": "/mnt/f/omini-router", "session": older}),
+                json.dumps({"project": "/mnt/f/omini-router", "session": older}),
+                json.dumps({"project": "/mnt/f/other", "session": newer}),
+                json.dumps({"project": "/mnt/f/omini-router", "session": newer}),
+                json.dumps({"project": "/mnt/f/omini-router", "session": "junk"}),
+            ]
+        )
+
+        self.assertEqual(
+            [newer, older], tui_history_sessions(history, "/mnt/f/omini-router")
+        )
+        self.assertEqual([], tui_history_sessions(history, "/mnt/f/absent"))
+
+    def test_existence_probe_script_checks_candidate_directories(self):
+        script = session_exists_script(["aaaa", "bbbb"])
+
+        self.assertIn("for id in aaaa bbbb", script)
+        self.assertIn(".local/share/muse/sessions/*/*/*/", script)
+        self.assertIn('echo "$id"', script)
+
+    def test_picker_launch_resolves_to_an_existing_history_session(self):
+        captured = {}
+        dead = "01a0bb7e-4f99-7bc1-aaf4-7d9eddaacdfa"
+        alive = self.SESSION
+        base = MuseRuntimeTests.context(captured, platform_name="nt")
+        workspace = wsl_workspace_path(Path.cwd())
+
+        def run(command, **kwargs):
+            captured.setdefault("runs", []).append((command, kwargs))
+            joined = " ".join(command)
+            if "tui-history.jsonl" in joined:
+                return SimpleNamespace(
+                    returncode=0,
+                    stdout="\n".join(
+                        [
+                            json.dumps({"project": workspace, "session": alive}),
+                            json.dumps({"project": workspace, "session": dead}),
+                        ]
+                    ),
+                )
+            if "command -v muse" in joined:
+                return SimpleNamespace(
+                    returncode=0, stdout="/home/test/.local/bin/muse\n"
+                )
+            if 'wslpath -w "$HOME/.local/share/muse"' in joined:
+                return SimpleNamespace(
+                    returncode=0,
+                    stdout="\\\\wsl.localhost\\Ubuntu\\home\\test\\.local\\share\\muse\n",
+                )
+            if "for id in " in joined:
+                # The newest candidate (dead) has no directory; the older one
+                # does, so the probe answers with it.
+                return SimpleNamespace(returncode=0, stdout=f"{alive}\n")
+            return SimpleNamespace(returncode=0, stdout="")
+
+        context = dataclasses.replace(
+            base, process=dataclasses.replace(base.process, run=run)
+        )
+
+        self.assertEqual(0, context.launch(["resume"]))
+
+        passthrough = captured["materialize"][5]["passthrough"]
+        self.assertEqual(["resume", alive], list(passthrough))
+        probe = [
+            command
+            for command, _ in captured["runs"]
+            if "for id in " in " ".join(command)
+        ]
+        self.assertTrue(probe, "existence probe did not run")
+        self.assertIn(dead, probe[0][-1])
+        self.assertIn(alive, probe[0][-1])
+
+    def test_resume_with_an_explicit_reference_is_left_alone(self):
+        captured = {}
+        base = MuseRuntimeTests.context(captured, platform_name="nt")
+
+        self.assertEqual(0, base.launch(["resume", "brown-procyon"]))
+
+        passthrough = captured["materialize"][5]["passthrough"]
+        self.assertEqual(["resume", "brown-procyon"], list(passthrough))
+        self.assertFalse(
+            any(
+                "tui-history.jsonl" in " ".join(command)
+                for command, _ in captured.get("runs", [])
+            )
+        )
+
+    def test_resume_falls_back_to_the_newest_history_session(self):
+        captured = {}
+        base = MuseRuntimeTests.context(captured, platform_name="nt")
+        workspace = wsl_workspace_path(Path.cwd())
+
+        def run(command, **kwargs):
+            captured.setdefault("runs", []).append((command, kwargs))
+            joined = " ".join(command)
+            if "tui-history.jsonl" in joined:
+                return SimpleNamespace(
+                    returncode=0,
+                    stdout=json.dumps({"project": workspace, "session": self.SESSION}),
+                )
+            if "command -v muse" in joined:
+                return SimpleNamespace(
+                    returncode=0, stdout="/home/test/.local/bin/muse\n"
+                )
+            if 'wslpath -w "$HOME/.local/share/muse"' in joined:
+                return SimpleNamespace(
+                    returncode=0,
+                    stdout="\\\\wsl.localhost\\Ubuntu\\home\\test\\.local\\share\\muse\n",
+                )
+            return SimpleNamespace(returncode=0, stdout="")
+
+        context = dataclasses.replace(
+            base, process=dataclasses.replace(base.process, run=run)
+        )
+
+        self.assertEqual(0, context.launch(["--resume"]))
+
+        passthrough = captured["materialize"][5]["passthrough"]
+        self.assertEqual(["resume", self.SESSION], list(passthrough))
+
+    def test_stale_lock_sweep_runs_for_resume_launches_only(self):
+        captured = {}
+        base = MuseRuntimeTests.context(captured, platform_name="nt")
+
+        self.assertEqual(0, base.launch(["--continue"]))
+
+        sweeps = [
+            command
+            for command, _ in captured.get("runs", [])
+            if command and command[-1] == MUSE_STALE_LOCK_SWEEP
+        ]
+        self.assertEqual(1, len(sweeps))
+        logs = " ".join(str(entry) for entry in captured.get("logs", []))
+        self.assertIn("muse_stale_lock_sweep", logs)
+
+        captured.clear()
+        self.assertEqual(0, base.launch(["exec", "hi"]))
+
+        sweeps = [
+            command
+            for command, _ in captured.get("runs", [])
+            if command and command[-1] == MUSE_STALE_LOCK_SWEEP
+        ]
+        self.assertEqual([], sweeps)
 
 
 if __name__ == "__main__":

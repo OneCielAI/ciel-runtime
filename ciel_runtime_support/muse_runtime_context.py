@@ -32,6 +32,43 @@ MUSE_TUI_HISTORY_TAIL_BYTES = 65536
 MUSE_SESSION_ID_RE = re.compile(
     r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
 )
+# Muse refuses to resume a session whose `.session.lock` looks held ("that
+# session is already open in another window - pick another session") and its
+# staleness check did not clear the F:\ workspace after the 2026-09-19 WSL
+# restart: the lock kept a dead pid, and every later resume of the 15 MB
+# omini-router session was refused, leaving the user in the empty session
+# picker. The launcher removes locks whose pid is gone (and whose host is not
+# this machine) before a resume launch; a lock held by a live pid is left
+# alone. The sweep prints the number of removed locks.
+MUSE_STALE_LOCK_SWEEP = (
+    "removed=0; "
+    'for lock in "$HOME"/.local/share/muse/sessions/*/*/*/*/.session.lock; do '
+    '[ -e "$lock" ] || continue; '
+    'pid=$(sed -n "s/^pid=\\([0-9][0-9]*\\).*/\\1/p" "$lock" | head -n 1); '
+    'if [ -n "$pid" ] && [ -d "/proc/$pid" ]; then continue; fi; '
+    'host=$(sed -n "s/^host=//p" "$lock" | head -n 1); '
+    'if [ -n "$host" ] && [ "$host" != "$(hostname)" ]; then continue; fi; '
+    'rm -f "$lock" && removed=$((removed + 1)); '
+    'done; echo "$removed"'
+)
+
+
+def session_exists_script(candidates: list[str]) -> str:
+    """A shell probe that echoes the first candidate with a session dir.
+
+    Muse's TUI history can name a session whose directory is gone (live
+    2026-09-19: the omini-router history ended with a session that has no
+    directory, so `--continue` resolved to a dead reference). Candidate ids
+    are UUID-shape checked before they reach this script.
+    """
+
+    return (
+        "for id in " + " ".join(candidates) + "; do "
+        'for d in "$HOME"/.local/share/muse/sessions/*/*/*/"$id" '
+        '"$HOME"/.local/share/muse/sessions/"$id"; do '
+        '[ -d "$d" ] && { echo "$id"; exit 0; }; '
+        "done; done; exit 1"
+    )
 
 
 def wsl_workspace_path(cwd: Path) -> str:
@@ -44,16 +81,18 @@ def wsl_workspace_path(cwd: Path) -> str:
     return f"/mnt/{drive[0].lower()}" + (f"/{rest}" if rest else "")
 
 
-def latest_tui_history_session(history: str, workspace: str) -> str:
-    """The last session Muse's TUI recorded for ``workspace``.
+def tui_history_sessions(history: str, workspace: str, limit: int = 5) -> list[str]:
+    """Session ids Muse's TUI recorded for ``workspace``, newest first.
 
     Muse's TUI appends ``{"project": <workspace>, "session": <id>}`` whenever a
     prompt is submitted, which makes it a reliable "what did the user actually
     use here last" record - unlike the session index, which can leave a real
-    session invisible (``missing_metadata``).
+    session invisible (``missing_metadata``). Duplicates collapse and the most
+    recent ``limit`` ids come back so the caller can skip entries whose
+    session directory no longer exists.
     """
 
-    latest = ""
+    found: list[str] = []
     for line in str(history or "").splitlines():
         text = line.strip()
         if not text.startswith("{"):
@@ -66,8 +105,22 @@ def latest_tui_history_session(history: str, workspace: str) -> str:
             continue
         session = str(entry.get("session") or "").strip()
         if MUSE_SESSION_ID_RE.fullmatch(session):
-            latest = session
-    return latest
+            found.append(session)
+    ordered: list[str] = []
+    for session in reversed(found):
+        if session not in ordered:
+            ordered.append(session)
+        if len(ordered) >= max(1, limit):
+            break
+    return ordered
+
+
+def latest_tui_history_session(history: str, workspace: str) -> str:
+    """The last session Muse's TUI recorded for ``workspace``."""
+
+    ordered = tui_history_sessions(history, workspace, limit=1)
+    return ordered[0] if ordered else ""
+
 # Routed mode points Muse Code at the Ciel Router instead of Meta's Model API.
 # `muse --base-url <URL>` overrides the Meta provider base and Muse then calls
 # `<URL>/responses`, so the URL carries the router's `/v1` prefix (captured from
@@ -383,20 +436,74 @@ class MuseRuntimeContext:
             return ""
         return text[-MUSE_TUI_HISTORY_TAIL_BYTES:]
 
+    def _existing_session(
+        self, executable: MuseExecutable, candidates: list[str]
+    ) -> str:
+        """The first candidate whose session directory exists, else ``""``."""
+
+        if not candidates:
+            return ""
+        if executable.platform != "wsl":
+            store = Path.home() / ".local/share/muse/sessions"
+            for candidate in candidates:
+                if any(store.glob(f"*/*/*/{candidate}")) or (store / candidate).is_dir():
+                    return candidate
+            return ""
+        wsl = str(executable.command or "")
+        if not wsl:
+            return ""
+        result = self._wsl_run(
+            [wsl, "-e", "sh", "-lc", session_exists_script(candidates)]
+        )
+        if result is None or result.returncode:
+            return ""
+        lines = str(getattr(result, "stdout", "") or "").strip().splitlines()
+        return lines[-1].strip() if lines else ""
+
+    def _sweep_stale_session_locks(self, executable: MuseExecutable) -> None:
+        """Drop session locks whose pid is gone before a resume launch.
+
+        Muse answers a resume of a lock-carrying session with "that session is
+        already open in another window - pick another session" even after the
+        holding process died (live 2026-09-19 after the WSL restart), and the
+        empty session picker is where that lands the user. Only locks whose pid
+        is absent (and whose host is this machine) are removed.
+        """
+
+        log = self.lifecycle.log or (lambda _level, _message: None)
+        wsl = str(executable.command or "")
+        if executable.platform != "wsl" or not wsl:
+            return
+        result = self._wsl_run([wsl, "-e", "sh", "-lc", MUSE_STALE_LOCK_SWEEP])
+        if result is None:
+            log("WARN", "muse_stale_lock_sweep failed=timeout")
+            return
+        lines = str(getattr(result, "stdout", "") or "").strip().splitlines()
+        count = lines[-1].strip() if lines else ""
+        log("INFO", f"muse_stale_lock_sweep removed={count or 'unknown'}")
+
     def _resolve_continue(
         self, argv: list[str], executable: MuseExecutable
     ) -> tuple[list[str], str]:
-        """Point a translated ``resume --last`` at the session the user used last.
+        """Point a ``resume`` at the session the user actually used last.
 
-        Muse resolves ``--last`` through its session index, which can leave a
-        real session invisible (``status=missing_metadata``; live 2026-09-19:
-        the F:\\omini-router session could not be resumed with ``--last`` and
-        Muse started an empty session, while ``resume <id>`` restored it).
-        Muse's TUI history names the last session per workspace, so prefer it
-        and keep ``--last`` only when the history has nothing to say.
+        Two live failures on 2026-09-19 drive this: ``resume --last`` resolves
+        through Muse's session index, which can leave a real session invisible
+        (``status=missing_metadata`` - the F:\\omini-router session started an
+        empty one while ``resume <id>`` restored it), and the bare
+        ``muse resume`` picker lists nothing at all on this host, so a picker
+        launch is a dead end. Muse's TUI history names the sessions the user
+        used per workspace; resume through the newest one whose directory still
+        exists, and leave Muse's own behaviour alone when the history has
+        nothing to say or the argv already names a session.
         """
 
-        if "resume" not in argv or "--last" not in argv:
+        if "resume" not in argv:
+            return argv, ""
+        index = argv.index("resume")
+        rest = argv[index + 1 :]
+        has_ref = any(not str(value).startswith("-") for value in rest)
+        if "--last" not in argv and has_ref:
             return argv, ""
         workspace = (
             wsl_workspace_path(Path.cwd())
@@ -405,13 +512,18 @@ class MuseRuntimeContext:
         )
         if not workspace:
             return argv, ""
-        session = latest_tui_history_session(
+        candidates = tui_history_sessions(
             self._read_tui_history(executable), workspace
         )
-        if not session:
+        if not candidates:
             return argv, ""
-        resolved = [session if value == "--last" else value for value in argv]
+        session = self._existing_session(executable, candidates) or candidates[0]
+        if "--last" in argv:
+            resolved = [session if value == "--last" else value for value in argv]
+        else:
+            resolved = argv[: index + 1] + [session] + argv[index + 1 :]
         return resolved, f"session={session} workspace={workspace}"
+
 
     @staticmethod
     def _model(provider: str, provider_config: dict[str, Any]) -> str:
@@ -450,6 +562,8 @@ class MuseRuntimeContext:
             log("INFO", "muse_continue_resolved " + continue_notes)
         if executable.platform == "wsl" and not self._workspace_reachable(executable):
             return 2
+        if "resume" in argv:
+            self._sweep_stale_session_locks(executable)
         config = self.config.load()
         provider, provider_config = self.config.current_provider(config)
         model = self._model(provider, provider_config)
@@ -597,6 +711,7 @@ class MuseRuntimeCompatibilityApi:
 
 __all__ = [
     "MUSE_INSTALL_URL",
+    "MUSE_STALE_LOCK_SWEEP",
     "MUSE_SUBSCRIPTION_ENV_KEYS",
     "MuseConfigurationPorts",
     "MuseExecutable",
@@ -605,5 +720,9 @@ __all__ = [
     "MuseRuntimeCompatibilityApi",
     "MuseRuntimeContext",
     "has_option",
+    "latest_tui_history_session",
     "option_value",
+    "session_exists_script",
+    "tui_history_sessions",
+    "wsl_workspace_path",
 ]
