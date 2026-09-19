@@ -268,6 +268,12 @@ def hoist_additional_tools(body: dict[str, Any]) -> dict[str, Any]:
     normalisation sees them, and drop the item. Names are kept as the client
     sent them so tool calls still map back; a duplicate name keeps its first
     definition.
+
+    The item is dropped even when it carries no definitions at all: Meta
+    rejects the type itself, so an empty catalogue left in place still fails
+    the whole request (live capture 2026-09-19: ``{"type": "additional_tools",
+    "tools": []}`` at ``input[0]`` answered that same 400 on a resumed Codex
+    turn).
     """
 
     items = body.get("input")
@@ -275,17 +281,23 @@ def hoist_additional_tools(body: dict[str, Any]) -> dict[str, Any]:
         return body
     hoisted: list[dict[str, Any]] = []
     kept: list[Any] = []
+    dropped = False
     for item in items:
         if (
             isinstance(item, dict)
             and str(item.get("type") or "") == ADDITIONAL_TOOLS_ITEM_TYPE
         ):
+            dropped = True
             for entry in item.get("tools") or []:
                 hoisted.extend(_flatten_tool_namespace(entry))
             continue
         kept.append(item)
-    if not hoisted:
+    if not dropped:
         return body
+    projected = dict(body)
+    projected["input"] = kept
+    if not hoisted:
+        return projected
     existing = list(body.get("tools") or [])
     seen = {
         str(tool.get("name"))
@@ -298,7 +310,5 @@ def hoist_additional_tools(body: dict[str, Any]) -> dict[str, Any]:
             continue
         seen.add(name)
         existing.append(tool)
-    projected = dict(body)
-    projected["input"] = kept
     projected["tools"] = existing
     return projected
