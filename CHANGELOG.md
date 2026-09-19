@@ -5,6 +5,15 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+- Support the several ways a message can be injected into Muse Code instead of
+  a single terminal paste: an MSP session host (`muse serve`) the runtime owns,
+  the interactive console proxy, headless `muse exec`, and Muse's cross-session
+  message bus. Each path carries the parameters it can honour - busy
+  disposition (`queue`/`steer`/`replace`), display-only text, reasoning effort,
+  idempotent command ids, approval and user-input answers, prompt files, target
+  sessions - and a path that cannot honour an option says so instead of
+  degrading silently. Options come from `muse.injection` in the workspace
+  config and can be overridden per message.
 - Keep Responses Lite tool calls runnable end to end: a replayed call stored
   under its bare member name (`exec`) is now sent upstream under the aliased
   name the request declares (`functions__exec`), and a call that still comes

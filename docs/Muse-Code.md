@@ -112,3 +112,69 @@ Muse Code 1.0.2 also exposes `muse serve` for the Muse Session Protocol (MSP) ov
 stdio and `muse session-message` for peer sessions. Ciel preserves these commands
 as native passthrough surfaces; it does not claim MSP lifecycle ownership for an
 ordinary interactive TUI launch.
+
+## Message injection paths
+
+Channel delivery into Muse is not one fixed mechanism. Ciel Runtime models the
+options once and maps them onto the path the caller selects, and refuses with a
+reason when a path cannot honour an option instead of silently degrading it.
+The implementation lives in `muse_injection.py` (options, capability rules, argv
+builders) and `muse_msp.py` (the MSP client).
+
+| Path | Transport | Parameters it carries |
+| --- | --- | --- |
+| `msp` | `muse serve` host the runtime owns, Muse Session Protocol over stdio (newline-delimited JSON-RPC 2.0) | `ifBusy=queue\|steer\|replace`, `displayText`, `reasoningEffort`, idempotent `commandId`, `turn/steer` with `expectedTurnId`, `turn/interrupt`, `approval/decide`, `userInput/answer` |
+| `console` | The interactive TUI through the terminal proxy (today's default launch) | bracketed paste, submit retries, submit confirmation, wake on delivery |
+| `exec` | Headless `muse exec --prompt-file … --json` (starts a new session) | prompt file, provider/model/base-url, permission profile, workspace, JSONL events |
+| `session-message` | Muse's cross-session bus (`muse session-message send --target …`) | target session name/uuid, in-reply-to token, steer/queue/notify requested in the body, 8 KiB limit |
+
+Delivery intentions map onto the path's own vocabulary:
+
+| Intent | MSP `ifBusy` | session-message body | console |
+| --- | --- | --- | --- |
+| `queue` | `queue` (wire default) | "Queue this for your next turn:" | paste when idle |
+| `steer` | `steer`, or `turn/steer` with the live turn id | "Steer the active turn with this message:" | paste now |
+| `replace` | `replace` | not expressible | not expressible |
+| `notify` (display only) | refused — the turn API has no display-only submission | "Notify only - do not add this to your model context:" | refused |
+
+Options can be declared per workspace under `muse.injection` and overridden per
+call (`options_from_config`), so one channel message may travel as a queued
+turn, a steer into the running turn, or a peer message.
+
+### Live-verified behaviour (Muse Code 1.3.0-R3233.1, 2026-09-19)
+
+`python scripts/probe_muse_msp_injection.py` opens a real host
+(`wsl -e …/muse serve --no-session-log --disable-shell --disable-write`), starts
+an `echo`-provider session, and delivers one message per intent:
+
+```
+initialize      -> muse 1.3.0, schema fingerprint sha256:ab69549a…, durability ephemeral
+session/start   -> session 01a0b82c-…, provider echo
+queue           -> turn/start accepted, disposition=started
+steer           -> turn/start accepted, disposition=steered (same turn id)
+replace         -> accepted (host answered disposition=queued: the turn had already finished)
+redelivery      -> command id rotated, no command_id_conflict
+notification    -> session/started
+```
+
+Protocol facts learned live, which the client encodes:
+
+- The handshake is gated: `initialize` must be answered and the `initialized`
+  notification sent before any session request, and `clientInfo.name` must match
+  `^[a-z0-9_]+$`.
+- Approval modes spell differently on the wire
+  (`allowAll|promptUnmatched|onRequest|denyUnmatched`) than on the CLI, and a
+  mode may not exceed the one the host's startup posture sealed.
+- `workspaceRoot` must be an absolute path as the host sees it, which matters
+  across the Windows/WSL boundary.
+- An applied `commandId` may not be reused for a new command
+  (`-32030 command_id_conflict`); the service rotates the id after an
+  acknowledged delivery and only retries with the same id when an attempt was
+  never acknowledged.
+- `muse schema generate-json-schema --out DIR` exports the exact wire contract
+  of the installed binary (47 methods, an error table, and a method index).
+
+Not yet wired: the launch path still runs the TUI through the console proxy, and
+`view/subscribe`/`view/page` returned `methodNotFound` to the minimal client on
+this build, so live item streaming through our own client is unverified while
+the official `@muse-code/sdk` facade documents it.
