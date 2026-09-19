@@ -1,0 +1,20 @@
+okf_version: "1.0"
+task: "Nightly push and publish of the additional_tools and transcript-relay fixes (merge 7c60db0), and the machine's global npm install moved onto the published nightly."
+commits:
+  - "7c60db0 Merge the additional_tools and transcript-relay fixes into nightly"
+  - "f409c0d fix(transcripts): never block a caller on a wedged transcript relay"
+  - "38f2d46 fix(responses): drop an empty additional_tools item instead of forwarding it"
+pushed:
+  nightly: "4cc51c9 -> 7c60db0 (merge commit; the dev branch had diverged from the 4cc51c9 journal commit, so a fast-forward was impossible and the merge keeps the deployed commit shas intact)"
+  main: "4cc51c9 -> 7c60db0 (fast-forward from nightly)"
+workflows:
+  publish_nightly: "35463499435 'Publish to npm [nightly] 7c60db0' success."
+  ci_nightly: "35463499483 CI [nightly] success."
+  ci_main: "35463500143 CI [main] success."
+  publish_main: "35463500256 success; log line 'Package @oneciel-ai/ciel-runtime@0.2.51 is already published; skipping npm publish.' - stable 0.2.51 untouched."
+artifact:
+  dist_tag: "npm dist-tags: nightly = 0.2.51-nightly.20260919-191255.7c60db0 (latest stays 0.2.51)."
+  tarball: "shasum 91e00b300f48a77872a522ec083fac19870d7d45; the packed tree carries TRANSCRIPT_SCAN_DEADLINE_SECONDS and the empty-catalogue hoist (dropped=True); runtime_constants VERSION matches."
+machine:
+  npm_global: "npm i -g @oneciel-ai/ciel-runtime@nightly -> 0.2.51-nightly.20260919-191255.7c60db0; the installed tree carries both fixes. This is the copy a WSL-launched CLI resolves."
+  local_pin: "Unchanged: user CIEL_RUNTIME_HOME = the local snapshot ciel-runtime-f409c0d... (releases/local/f409c0d.okf)."
