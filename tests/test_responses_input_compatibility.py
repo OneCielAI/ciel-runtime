@@ -529,6 +529,42 @@ class HoistAdditionalToolsTests(unittest.TestCase):
         plain = {"input": "plain string"}
         self.assertIs(plain, hoist_additional_tools(plain))
 
+    def test_empty_catalogue_item_is_still_removed(self):
+        """A resumed Codex turn can carry ``tools: []``; Meta rejects the type
+        itself, so leaving the empty item in place fails the whole request
+        (live capture 2026-09-19)."""
+
+        body = {
+            "input": [
+                {
+                    "type": "additional_tools",
+                    "id": "at_1",
+                    "role": "developer",
+                    "tools": [],
+                },
+                {"type": "message", "role": "user", "content": []},
+            ]
+        }
+
+        projected = hoist_additional_tools(body)
+
+        self.assertEqual(["message"], [item["type"] for item in projected["input"]])
+        self.assertNotIn("tools", projected)
+
+    def test_empty_catalogue_item_keeps_existing_tools(self):
+        body = {
+            "input": [
+                {"type": "additional_tools", "role": "developer", "tools": []},
+                {"type": "message", "role": "user", "content": []},
+            ],
+            "tools": [{"type": "function", "name": "exec", "parameters": {}}],
+        }
+
+        projected = hoist_additional_tools(body)
+
+        self.assertEqual(["message"], [item["type"] for item in projected["input"]])
+        self.assertEqual(["exec"], [tool["name"] for tool in projected["tools"]])
+
 
 class LiteCatalogueToolIdentityTests(unittest.TestCase):
     """Replayed bare tool names must keep their catalogue identity.

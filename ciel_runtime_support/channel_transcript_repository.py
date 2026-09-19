@@ -8,11 +8,79 @@ from datetime import datetime
 import json
 from pathlib import Path
 import re
+import threading
 from typing import Any
 
 
 TURN_UPDATE_MAX_BYTES = 4 * 1024 * 1024
 TURN_UPDATE_SKIP_SCAN_BYTES = 64 * 1024
+# A transcript store can sit on a network share or a WSL UNC path whose relay
+# stalls a stat call for minutes; no caller thread may own that wait (live:
+# 2026-09-19 a `muse --continue` session froze at launch - the boundary scan -
+# and again in the console-proxy poll loop, both stuck in
+# `\\wsl.localhost\Ubuntu-26.04\home\...\muse\sessions` while the WSL 9p relay
+# was wedged). Scans therefore run on one background worker under this
+# deadline; callers that miss it serve their cached view instead.
+BOUNDARY_SCAN_TIMEOUT_SECONDS = 2.5
+TRANSCRIPT_SCAN_DEADLINE_SECONDS = 2.5
+
+
+class _TranscriptScanWorker:
+    """One daemon thread runs transcript filesystem scans.
+
+    ``run`` executes its job on that thread and returns ``(result, completed)``.
+    While a job is in flight (for example a stat stuck on a wedged relay) later
+    submissions return ``(fallback, False)`` immediately instead of queueing
+    behind it, so no caller thread ever blocks on the filesystem.
+    """
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._busy = False
+        self._thread: threading.Thread | None = None
+        self._job: tuple[Callable[[], Any], list[Any], threading.Event] | None = None
+        self._wake = threading.Event()
+
+    def run(
+        self, job: Callable[[], Any], deadline: float, fallback: Any
+    ) -> tuple[Any, bool]:
+        box: list[Any] = []
+        done = threading.Event()
+        with self._lock:
+            if self._busy:
+                return fallback, False
+            self._busy = True
+            self._job = (job, box, done)
+            if self._thread is None or not self._thread.is_alive():
+                self._thread = threading.Thread(
+                    target=self._loop, name="transcript-scan", daemon=True
+                )
+                self._thread.start()
+        self._wake.set()
+        if not done.wait(deadline):
+            return fallback, False
+        return (box[0] if box else fallback), True
+
+    def _loop(self) -> None:
+        while True:
+            self._wake.wait()
+            self._wake.clear()
+            with self._lock:
+                pending = self._job
+            if pending is None:
+                continue
+            job, box, done = pending
+            try:
+                box.append(job())
+            except Exception:
+                box.append(None)
+            with self._lock:
+                self._job = None
+                self._busy = False
+            done.set()
+
+
+_TRANSCRIPT_SCAN_WORKER = _TranscriptScanWorker()
 
 
 @dataclass(frozen=True, slots=True)
@@ -59,19 +127,43 @@ class ChannelTranscriptRepository:
         self._capture_turn_scan_boundary()
 
     def _capture_turn_scan_boundary(self) -> None:
-        """Remember where this console launch begins in an existing transcript."""
+        """Remember where this console launch begins in an existing transcript.
 
-        path = self.latest(ttl_seconds=0)
-        if path is not None:
-            try:
-                self.scope["turn_scan_path"] = path
-                self.scope["turn_scan_offset"] = path.stat().st_size
-            except OSError:
-                self.scope["turn_scan_path"] = None
-                self.scope["turn_scan_offset"] = 0
+        The scan is bounded by ``BOUNDARY_SCAN_TIMEOUT_SECONDS``: a transcript
+        store on a stalled relay must not hold the launch hostage. A scan that
+        misses the deadline leaves the boundary unset; the delivery loop
+        establishes it on a later poll.
+        """
+
+        boundary = self._bounded_turn_scan_boundary()
+        if boundary is not None:
+            path, size = boundary
+            self.scope["turn_scan_path"] = path
+            self.scope["turn_scan_offset"] = size
         # Boundary discovery must not pin the ordinary latest-path TTL cache.
         self.cache.clear()
         self.cache.update({"checked_at": 0.0, "path": None})
+
+    def _bounded_turn_scan_boundary(self) -> tuple[Path, int] | None:
+        """Run the boundary scan on a worker thread with a hard deadline."""
+
+        result: list[tuple[Path, int] | None] = []
+
+        def scan() -> None:
+            try:
+                path = self.latest(ttl_seconds=0)
+                result.append((path, path.stat().st_size) if path is not None else None)
+            except OSError:
+                result.append(None)
+
+        worker = threading.Thread(
+            target=scan, name="transcript-boundary-scan", daemon=True
+        )
+        worker.start()
+        worker.join(BOUNDARY_SCAN_TIMEOUT_SECONDS)
+        if not result:
+            return None
+        return result[0]
 
     def read_turn_updates(
         self,
@@ -209,11 +301,33 @@ class ChannelTranscriptRepository:
         return claude_root, codex_root, muse_root
 
     def latest(self, ttl_seconds: float = 2.0) -> Path | None:
+        """Newest transcript for the current scope, never blocking the caller.
+
+        The filesystem scan runs on the shared scan worker under a deadline;
+        when a scan is already stuck (or this one misses its deadline) the
+        cached view is served instead, so the console-proxy poll loop and the
+        launch path stay responsive while a relay is wedged.
+        """
+
         now = self.now()
         cached_at = float(self.cache.get("checked_at") or 0.0)
         cached_path = self.cache.get("path")
+        cached = cached_path if isinstance(cached_path, Path) else None
         if now - cached_at < ttl_seconds:
-            return cached_path if isinstance(cached_path, Path) else None
+            return cached
+        result, completed = _TRANSCRIPT_SCAN_WORKER.run(
+            lambda: self._scan_latest(now),
+            TRANSCRIPT_SCAN_DEADLINE_SECONDS,
+            None,
+        )
+        if not completed:
+            # Retry no sooner than the TTL so a wedged scan is not queued anew
+            # on every poll.
+            self.cache["checked_at"] = now
+            return cached
+        return result if isinstance(result, Path) else None
+
+    def _scan_latest(self, now: float) -> Path | None:
         latest: Path | None = None
         latest_mtime = -1.0
         scope_started_at = float(self.scope.get("started_at") or 0.0)
@@ -229,7 +343,10 @@ class ChannelTranscriptRepository:
                 pass
         for root, pattern in self.roots():
             try:
-                paths = root.glob(pattern)
+                # ``Path.glob`` is lazy: stat errors during iteration (a wedged
+                # WSL/UNC relay answers WinError 995) must be tolerated here,
+                # so materialize the matches inside the guard.
+                paths = list(root.glob(pattern))
             except Exception:
                 continue
             for path in paths:

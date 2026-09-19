@@ -2,7 +2,10 @@ import os
 import json
 from pathlib import Path
 import tempfile
+import threading
+import time
 import unittest
+from unittest import mock
 
 from ciel_runtime_support.channel_transcript_repository import (
     ChannelTranscriptRepository,
@@ -507,6 +510,122 @@ class ChannelTranscriptRepositoryTests(unittest.TestCase):
             self.assertIn('"task_complete"', updates)
             self.assertEqual(path.stat().st_size, scope["turn_scan_offset"])
             self.assertFalse(scope["turn_scan_skipping_record"])
+
+
+class BoundaryScanDeadlineTests(unittest.TestCase):
+    """A stalled transcript relay must not freeze a launch.
+
+    Live 2026-09-19: a `muse --continue` launch froze at
+    `\\wsl.localhost\\...\\muse\\sessions` while the WSL 9p relay was wedged -
+    the synchronous boundary scan blocks in stat() with no deadline, and a
+    relay error surfaces as WinError 995 (OSError) from inside the lazy glob.
+    """
+
+    def repository(self, home):
+        return ChannelTranscriptRepository(
+            home=home, cache={}, scope={}, now=lambda: 300.0
+        )
+
+    def test_glob_errors_during_iteration_are_tolerated(self):
+        class ExplodingRoot:
+            def glob(self, _pattern):
+                def iterator():
+                    raise OSError(
+                        "[WinError 995] The I/O operation has been aborted"
+                    )
+                    yield Path("unreachable")  # pragma: no cover
+
+                return iterator()
+
+        with tempfile.TemporaryDirectory() as raw_dir:
+            repository = self.repository(Path(raw_dir))
+            with mock.patch.object(
+                ChannelTranscriptRepository,
+                "roots",
+                return_value=((ExplodingRoot(), "*/*"),),
+            ):
+                self.assertIsNone(repository.latest(ttl_seconds=0))
+
+    def test_wedged_boundary_scan_returns_at_the_deadline(self):
+        release = threading.Event()
+
+        def wedged(_repository_self, ttl_seconds=0.0):
+            release.wait(10.0)
+            return None
+
+        with tempfile.TemporaryDirectory() as raw_dir:
+            repository = self.repository(Path(raw_dir))
+            started = time.monotonic()
+            with mock.patch.object(
+                ChannelTranscriptRepository, "latest", wedged
+            ), mock.patch(
+                "ciel_runtime_support.channel_transcript_repository."
+                "BOUNDARY_SCAN_TIMEOUT_SECONDS",
+                0.2,
+            ):
+                repository.set_scope(
+                    "muse", started_at=200, muse_home=Path(raw_dir) / "muse"
+                )
+            elapsed = time.monotonic() - started
+            release.set()
+
+        self.assertLess(elapsed, 5.0)
+        self.assertIsNone(repository.scope.get("turn_scan_path"))
+
+    def test_healthy_boundary_scan_still_pins_offset(self):
+        with tempfile.TemporaryDirectory() as raw_dir:
+            home = Path(raw_dir)
+            muse_home = home / "muse-data"
+            session = muse_home / "sessions" / "2026" / "09" / "19" / "abc" / "session.jsonl"
+            session.parent.mkdir(parents=True)
+            session.write_text('{"type": "session"}\n', encoding="utf-8")
+            repository = self.repository(home)
+
+            repository.set_scope("muse", started_at=200, muse_home=muse_home)
+
+            self.assertEqual(session, repository.scope.get("turn_scan_path"))
+            self.assertEqual(session.stat().st_size, repository.scope.get("turn_scan_offset"))
+
+    def test_latest_serves_the_cached_view_while_a_scan_is_wedged(self):
+        release = threading.Event()
+
+        def wedged_scan(_repository_self, _now):
+            release.wait(10.0)
+            return None
+
+        with tempfile.TemporaryDirectory() as raw_dir:
+            home = Path(raw_dir)
+            sessions = home / ".codex" / "sessions" / "2026"
+            sessions.mkdir(parents=True)
+            current = sessions / "current.jsonl"
+            current.write_text("current", encoding="utf-8")
+            repository = ChannelTranscriptRepository(
+                home=home,
+                cache={},
+                scope={"runtime": "codex", "started_at": 200},
+                now=lambda: 300.0,
+            )
+            self.assertEqual(current, repository.latest(ttl_seconds=0))
+
+            with mock.patch.object(
+                ChannelTranscriptRepository, "_scan_latest", wedged_scan
+            ), mock.patch(
+                "ciel_runtime_support.channel_transcript_repository."
+                "TRANSCRIPT_SCAN_DEADLINE_SECONDS",
+                0.1,
+            ):
+                started = time.monotonic()
+                first = repository.latest(ttl_seconds=0)
+                first_elapsed = time.monotonic() - started
+                started = time.monotonic()
+                second = repository.latest(ttl_seconds=0)
+                second_elapsed = time.monotonic() - started
+            release.set()
+
+        self.assertEqual(current, first)
+        self.assertEqual(current, second)
+        self.assertLess(first_elapsed, 5.0)
+        self.assertLess(second_elapsed, 0.5)
 
 
 if __name__ == "__main__":
