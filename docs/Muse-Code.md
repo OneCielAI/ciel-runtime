@@ -11,7 +11,48 @@ This is a native runtime integration. Muse Code sends its model traffic directly
 with the browser-authenticated credential created by its own onboarding. The Ciel
 Router remains the local control plane for Web Chat, external inputs, remote
 instructions, and workspace memory; it does not proxy the subscription model
-request through the pay-as-you-go Model API.
+request through the pay-as-you-go Model API. Add `--ca-router` for the routed
+Model API mode described below.
+
+## Routed mode (Meta Model API through the Ciel Router)
+
+```sh
+ciel-runtime muse --ca-router
+```
+
+Routed mode launches the same Muse Code CLI but points its Meta provider at the
+Ciel Router instead of `https://api.meta.ai/v1`. Muse was captured sending
+`POST <base>/responses` (OpenAI Responses, streaming) with
+`Authorization: Bearer <META_API_KEY>` and a `GET /muse-code/models` catalog
+probe, so the router receives its familiar `/v1/responses` route and relays to
+the configured `meta` provider - the same path a routed Codex launch uses.
+
+What changes:
+
+- `--base-url {ROUTER_BASE}/v1` and an explicit `--provider meta` are passed to
+  Muse; a `--provider echo` request is refused because it would bypass the
+  router.
+- Muse advertises the router's local placeholder token; the router holds the
+  Meta Model API key, so this is the pay-as-you-go Model API path, not the
+  subscription. Configure the key with `ciel-runtime api-key meta`.
+- The launcher owns the router for the whole session, including headless
+  `muse exec` runs, and records the launch mode as `muse-router`.
+- Everything the router adds applies: channel delivery, Web Chat, remote
+  instructions, telemetry, live LLM options and the advisor.
+
+Platform note (Windows): Muse Code runs inside WSL while the router runs on
+Windows, and WSL cannot reach the Windows loopback. Routed mode therefore
+refuses to start while the router is bound to `127.0.0.1` and prints the
+command to fix it:
+
+```sh
+ciel-runtime muse --ca-router --ca-web-address <windows-wsl-ip>
+```
+
+`--ca-web-address` binds the router to that address and enables router debug
+external access; routed mode then hands Muse the router's external-access token
+instead of the local placeholder. If debug external access is off, the launch
+stops with instructions rather than letting every model call fail.
 
 ## Authentication and billing boundary
 
