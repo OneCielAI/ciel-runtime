@@ -1,0 +1,17 @@
+okf_version: "1.0"
+task: "User: 로컬배포 (local deploy) of the DeepSeek thinking-passthrough fix and the Muse routed-mode documentation."
+commits:
+  - "d2046d2 fix(deepseek): keep thinking mode valid across replayed turns"
+  - "80840a8 docs(muse): describe the routed Meta Model API mode"
+branch: "nightly-0.2.50 (local only; no push, no npm publish)"
+install:
+  snapshot: "C:\\Users\\djlov\\.local\\share\\ciel-runtime-80840a89cdd47c91918a89cd7456105bf2a25627"
+  command: "install.ps1 from the repo working tree with CIEL_RUNTIME_INSTALL_HOME=<snapshot> and PREFIX=$HOME\\.local"
+  pin: "User environment variable CIEL_RUNTIME_HOME = the new snapshot (was ciel-runtime-d9edeb31fc6af28646f477d4d90314b093e08e2b); ~/.local/bin entry scripts resolve the registered value and were left unchanged in content."
+verification:
+  content: "The snapshot support tree is byte-identical to the working tree (diff -rq clean, __pycache__ excluded). providers/deepseek.py carries THINKING_PASSTHROUGH_PLACEHOLDER and _with_thinking_passthrough, muse_runtime_context.py carries MUSE_ROUTER_FLAG, channel_mcp_tools.py declares restart_session."
+  transform: "Isolated run of the deployed snapshot: DeepSeekProviderAdapter._with_thinking_passthrough() on an assistant message without thinking returns a thinking block with the placeholder text and a deterministic signature (bef10834-...)."
+  entrypoint: "~/.local/bin/ciel-runtimectl.ps1 version -> 'ciel-runtime 0.2.51', resolved through the registered snapshot home."
+  live_sessions_untouched: "The running client (pid 98964) and its router (pid 28160) still execute ciel-runtime-d9edeb3...; that snapshot has zero occurrences of THINKING_PASSTHROUGH_PLACEHOLDER, so the live G:\\ciel-bridge-service session keeps the old build until it is relaunched."
+next_launch: "New terminals and launches resolve the registered CIEL_RUNTIME_HOME; relaunching the session (ciel-runtime codex resume ...) moves it and its workspace router onto the new snapshot, which is when the DeepSeek thinking fix applies."
+not_done: "No version bump (0.2.51), no push, no npm publish. The muse-spark `input[0]` capture is still open (see docs/journal/2026/09/18/fixes/providers/deepseek-thinking-passthrough.okf)."
