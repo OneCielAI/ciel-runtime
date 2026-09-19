@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Mapping
@@ -16,6 +17,14 @@ from .muse_mcp import (
 
 MUSE_INSTALL_URL = "https://dev.meta.ai/install.sh"
 MUSE_SUBSCRIPTION_ENV_KEYS = ("META_API_KEY", "MODEL_API_KEY")
+# Launcher-side WSL probes must answer within this deadline. A wedged drvfs
+# mount hangs `wsl.exe` while it translates an inherited workspace cwd on that
+# drive (live 2026-09-19: `wsl -e sh -lc "command -v muse"` from
+# F:\aap.ezonebot never returned while the F: 9p mount was wedged, and the
+# launch sat there for 46 minutes with no log output). Probes therefore run
+# from the user's home directory - which needs no translation - and under this
+# deadline, so a broken WSL surfaces as an error instead of a silent freeze.
+WSL_PROBE_TIMEOUT_SECONDS = 20.0
 # Routed mode points Muse Code at the Ciel Router instead of Meta's Model API.
 # `muse --base-url <URL>` overrides the Meta provider base and Muse then calls
 # `<URL>/responses`, so the URL carries the router's `/v1` prefix (captured from
@@ -167,19 +176,34 @@ class MuseRuntimeContext:
             )
         return None
 
+    def _wsl_run(self, argv: list[str]) -> Any:
+        """Run a launcher-side WSL probe under a deadline.
+
+        The probe runs from the user's home directory so ``wsl.exe`` never has
+        to translate a workspace cwd on a possibly wedged drive, and returns
+        ``None`` when WSL does not answer in time (or cannot be started).
+        """
+
+        try:
+            return self.process.run(
+                argv,
+                check=False,
+                capture_output=True,
+                text=True,
+                cwd=str(Path.home()),
+                timeout=WSL_PROBE_TIMEOUT_SECONDS,
+            )
+        except (subprocess.TimeoutExpired, OSError):
+            return None
+
     def _wsl_executable(self) -> MuseExecutable | None:
         if self.process.platform_name != "nt":
             return None
         wsl = self.process.find_executable("wsl.exe") or self.process.find_executable("wsl")
         if not wsl:
             return None
-        result = self.process.run(
-            [wsl, "-e", "sh", "-lc", "command -v muse"],
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-        if result.returncode:
+        result = self._wsl_run([wsl, "-e", "sh", "-lc", "command -v muse"])
+        if result is None or result.returncode:
             return None
         muse_path = str(result.stdout or "").strip().splitlines()
         if not muse_path:
@@ -187,16 +211,17 @@ class MuseRuntimeContext:
         path = muse_path[-1].strip()
         if not path.startswith("/"):
             return None
-        root_result = self.process.run(
-            [wsl, "-e", "sh", "-lc", 'wslpath -w "$HOME/.local/share/muse"'],
-            check=False,
-            capture_output=True,
-            text=True,
+        root_result = self._wsl_run(
+            [wsl, "-e", "sh", "-lc", 'wslpath -w "$HOME/.local/share/muse"']
         )
-        root_lines = str(root_result.stdout or "").strip().splitlines()
+        root_lines = (
+            str(root_result.stdout or "").strip().splitlines()
+            if root_result is not None
+            else []
+        )
         transcript_root = (
             Path(root_lines[-1].strip())
-            if root_result.returncode == 0 and root_lines
+            if root_result is not None and root_result.returncode == 0 and root_lines
             else None
         )
         return MuseExecutable(
@@ -233,6 +258,15 @@ class MuseRuntimeContext:
                     flush=True,
                 )
                 return None
+            if self._wsl_run([wsl, "-e", "true"]) is None:
+                self.process.print_line(
+                    "WSL did not answer within "
+                    f"{WSL_PROBE_TIMEOUT_SECONDS:.0f}s, so Muse Code cannot be "
+                    "located or installed. Run `wsl --shutdown` in a terminal, "
+                    "then launch again.",
+                    flush=True,
+                )
+                return None
             install_command = [wsl, "-e", "bash", "-lc", command]
         elif shell:
             install_command = [shell, "-lc", command]
@@ -249,6 +283,36 @@ class MuseRuntimeContext:
             )
             return None
         return self.discover()
+
+    def _workspace_reachable(self, executable: MuseExecutable) -> bool:
+        """Whether WSL can enter the workspace directory right now.
+
+        Spawning the TUI with a cwd on a wedged drvfs mount hangs inside
+        ``wsl.exe`` while it translates that cwd, and the user sees a frozen
+        window with no output (live 2026-09-19: F:\\aap.ezonebot while the F:
+        9p mount was wedged). Probe first and fail with instructions instead.
+        Only a probe timeout blocks the launch - a "path not found" answer is
+        left to Muse, which may still handle its own cwd.
+        """
+
+        cwd = Path.cwd()
+        drive = str(getattr(cwd, "drive", "") or "")
+        if len(drive) != 2 or drive[1] != ":":
+            return True
+        rest = str(cwd)[len(drive) :].replace("\\", "/").lstrip("/")
+        linux = f"/mnt/{drive[0].lower()}" + (f"/{rest}" if rest else "")
+        wsl = str(executable.command or "")
+        if not wsl:
+            return True
+        if self._wsl_run([wsl, "--cd", linux, "-e", "true"]) is not None:
+            return True
+        self.process.print_line(
+            f"WSL did not answer within {WSL_PROBE_TIMEOUT_SECONDS:.0f}s while "
+            f"checking {cwd}. The drive mount may be wedged; run "
+            "`wsl --shutdown` in a terminal, then launch again.",
+            flush=True,
+        )
+        return False
 
     @staticmethod
     def _model(provider: str, provider_config: dict[str, Any]) -> str:
@@ -281,6 +345,8 @@ class MuseRuntimeContext:
         executable = self.install_if_missing()
         if executable is None:
             return 127
+        if executable.platform == "wsl" and not self._workspace_reachable(executable):
+            return 2
         config = self.config.load()
         provider, provider_config = self.config.current_provider(config)
         model = self._model(provider, provider_config)

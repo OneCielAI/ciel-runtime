@@ -25,6 +25,13 @@ MUSE_ROUTER_SERVER_NAME = "ciel-runtime-router"
 MUSE_SETTINGS_RELATIVE = ".config/muse/settings.json"
 MUSE_MCP_MODE = "optional"
 MUSE_MCP_TYPE = "streamable-http"
+# Launcher-side WSL calls must not hang on a wedged mount: `wsl.exe` translates
+# an inherited workspace cwd before running anything, and that translation can
+# stall indefinitely (live 2026-09-19: F: drvfs wedged, `wsl -e` from
+# F:\aap.ezonebot never returned). Run from the user's home and under a
+# deadline; a timeout surfaces as a failed sync, which the store already logs
+# without breaking the launch.
+WSL_SETTINGS_TIMEOUT_SECONDS = 20.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -192,6 +199,8 @@ def wsl_settings_store(
             check=False,
             capture_output=True,
             text=True,
+            cwd=str(Path.home()),
+            timeout=WSL_SETTINGS_TIMEOUT_SECONDS,
         )
         return str(getattr(result, "stdout", "") or "") or None
 
@@ -209,6 +218,8 @@ def wsl_settings_store(
             capture_output=True,
             text=True,
             input=text,
+            cwd=str(Path.home()),
+            timeout=WSL_SETTINGS_TIMEOUT_SECONDS,
         )
 
     return MuseSettingsStore(read=read, write=write, log=log)

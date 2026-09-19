@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import dataclasses
+import subprocess
+import sys
 from types import SimpleNamespace
 import unittest
 from unittest import mock
@@ -11,6 +14,7 @@ from ciel_runtime_support.muse_runtime_context import (
     MuseLifecyclePorts,
     MuseProcessPorts,
     MuseRuntimeContext,
+    WSL_PROBE_TIMEOUT_SECONDS,
 )
 from ciel_runtime_support.runtime_adapters import RUNTIME_ADAPTERS
 
@@ -483,6 +487,79 @@ class MuseRuntimeTests(unittest.TestCase):
             ["--version"], skip_menu=True, force_menu=False,
             update_check=True, self_update_check=True,
         )
+
+
+class MuseWslProbeDeadlineTests(unittest.TestCase):
+    """A wedged WSL must fail a Muse launch fast instead of freezing it.
+
+    Live 2026-09-19: `wsl -e sh -lc "command -v muse"` from F:\\aap.ezonebot
+    never returned while the F: 9p mount was wedged; the launch sat at that
+    probe for 46 minutes with no log output. Probes now run from the user's
+    home directory (no cwd translation) under WSL_PROBE_TIMEOUT_SECONDS.
+    """
+
+    @staticmethod
+    def hardened(captured, run):
+        base = MuseRuntimeTests.context(captured, platform_name="nt")
+        return dataclasses.replace(
+            base, process=dataclasses.replace(base.process, run=run)
+        )
+
+    def test_discovery_probe_runs_from_home_under_a_deadline(self):
+        captured = {}
+        context = MuseRuntimeTests.context(captured, platform_name="nt")
+
+        executable = context.discover()
+
+        self.assertIsNotNone(executable)
+        command, kwargs = captured["runs"][0]
+        self.assertEqual("command -v muse", command[-1])
+        self.assertEqual(WSL_PROBE_TIMEOUT_SECONDS, kwargs["timeout"])
+        self.assertTrue(kwargs["cwd"])
+
+    def test_install_is_skipped_with_a_message_when_wsl_is_wedged(self):
+        captured = {}
+
+        def run(command, **kwargs):
+            captured.setdefault("runs", []).append((command, kwargs))
+            raise subprocess.TimeoutExpired(command, kwargs.get("timeout") or 0.0)
+
+        context = self.hardened(captured, run)
+
+        self.assertIsNone(context.install_if_missing())
+
+        printed = " ".join(str(entry) for entry in captured.get("prints", []))
+        self.assertIn("WSL did not answer", printed)
+        self.assertFalse(
+            any("install.sh" in " ".join(command) for command, _ in captured["runs"])
+        )
+
+    @unittest.skipUnless(sys.platform == "win32", "needs a Windows cwd drive")
+    def test_launch_stops_with_a_message_when_the_workspace_cwd_hangs(self):
+        captured = {}
+
+        def run(command, **kwargs):
+            captured.setdefault("runs", []).append((command, kwargs))
+            if "--cd" in command:
+                raise subprocess.TimeoutExpired(command, kwargs.get("timeout") or 0.0)
+            if "command -v muse" in command:
+                return SimpleNamespace(
+                    returncode=0, stdout="/home/test/.local/bin/muse\n"
+                )
+            if 'wslpath -w "$HOME/.local/share/muse"' in command:
+                return SimpleNamespace(
+                    returncode=0,
+                    stdout="\\\\wsl.localhost\\Ubuntu\\home\\test\\.local\\share\\muse\n",
+                )
+            return SimpleNamespace(returncode=0, stdout="")
+
+        context = self.hardened(captured, run)
+
+        self.assertEqual(2, context.launch(["--continue"]))
+
+        printed = " ".join(str(entry) for entry in captured.get("prints", []))
+        self.assertIn("WSL did not answer", printed)
+        self.assertNotIn("proxy", captured)
 
 
 if __name__ == "__main__":
