@@ -3,10 +3,16 @@
 A sweep that discovers tests outside the supported entrypoint used to reach
 the real instance directory and terminate the router and the client the
 running session was using (observed 2026-09-18: the CLI exiting mid-sweep).
+The same class of leak emptied the user's ~/.claude/commands during the unit
+group, so the CLI profile surface is isolated too.
 """
 
 import os
+import subprocess
+import sys
+import tempfile
 import unittest
+from pathlib import Path
 from unittest import mock
 
 import ciel_runtime
@@ -64,6 +70,100 @@ class UnisolatedTestGuardTests(unittest.TestCase):
             self.assertTrue(ciel_runtime.terminate_pid_tree(4242, "own child"))
 
         controller.terminate_tree.assert_called_once_with(4242, "own child", quiet=False)
+
+
+class IsolatedCliAssetTests(unittest.TestCase):
+    """An isolated run must not rewrite the user's CLI profile.
+
+    On 2026-09-18 the unit group ran a native-launch path that deleted every
+    Ciel slash command from the real ~/.claude/commands (ImportSession.md
+    included), because only some state directories were isolated.
+    """
+
+    def probe(self, body: str, config_dir: str, *, isolated: bool) -> str:
+        root = Path(__file__).resolve().parents[1]
+        env = dict(os.environ)
+        env["CIEL_RUNTIME_CONFIG_DIR"] = config_dir
+        if isolated:
+            env["CIEL_RUNTIME_TEST_ISOLATED"] = "1"
+        else:
+            env.pop("CIEL_RUNTIME_TEST_ISOLATED", None)
+        result = subprocess.run(
+            [sys.executable, "-c", body],
+            cwd=str(root),
+            env=env,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return result.stdout.strip()
+
+    def test_cli_asset_paths_follow_isolation(self):
+        body = "\n".join(
+            (
+                "import ciel_runtime",
+                "print(ciel_runtime.CLAUDE_COMMANDS_DIR)",
+                "print(ciel_runtime.CLAUDE_SETTINGS_PATH)",
+                "print(ciel_runtime.CIEL_RUNTIME_STATUSLINE_PATH)",
+                "print(ciel_runtime.codex_prompts_dir({}))",
+            )
+        )
+        with tempfile.TemporaryDirectory() as config_dir:
+            isolated = self.probe(body, config_dir, isolated=True).splitlines()
+            plain = self.probe(body, config_dir, isolated=False).splitlines()
+
+        for path in isolated:
+            self.assertTrue(
+                Path(path).is_relative_to(Path(config_dir)),
+                f"{path} escaped the isolated config directory",
+            )
+        self.assertEqual(
+            str(Path.home() / ".claude" / "commands"), plain[0]
+        )
+        self.assertEqual(
+            str(Path.home() / ".codex" / "prompts"), plain[3]
+        )
+
+    def test_isolated_slash_command_install_stays_inside_the_isolated_dir(self):
+        body = "\n".join(
+            (
+                "import ciel_runtime",
+                "ciel_runtime.install_ciel_runtime_slash_commands()",
+                "ciel_runtime.install_ciel_runtime_codex_prompts({})",
+            )
+        )
+        with tempfile.TemporaryDirectory() as config_dir:
+            self.probe(body, config_dir, isolated=True)
+            commands = sorted(
+                path.name
+                for path in (Path(config_dir) / ".claude" / "commands").glob("*.md")
+            )
+            prompts = sorted(
+                path.name
+                for path in (Path(config_dir) / ".codex" / "prompts").glob("*.md")
+            )
+
+        self.assertIn("ImportSession.md", commands)
+        self.assertIn("llm-options.md", commands)
+        self.assertIn("ImportSession.md", prompts)
+
+    def test_native_cleanup_under_isolation_leaves_foreign_commands_alone(self):
+        body = "\n".join(
+            (
+                "import ciel_runtime",
+                "ciel_runtime.disable_ciel_runtime_slash_commands_for_native()",
+                "ciel_runtime.disable_ciel_runtime_codex_prompts_for_native({})",
+            )
+        )
+        with tempfile.TemporaryDirectory() as config_dir:
+            with tempfile.TemporaryDirectory() as foreign:
+                foreign_commands = Path(foreign) / ".claude" / "commands"
+                foreign_commands.mkdir(parents=True)
+                (foreign_commands / "ImportSession.md").write_text("keep", encoding="utf-8")
+                self.probe(body, config_dir, isolated=True)
+                kept = (foreign_commands / "ImportSession.md").read_text(encoding="utf-8")
+
+        self.assertEqual("keep", kept)
 
 
 if __name__ == "__main__":

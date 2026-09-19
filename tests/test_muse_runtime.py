@@ -97,6 +97,10 @@ class MuseRuntimeTests(unittest.TestCase):
             captured["materialize"] = (runtime, executable, dict(env), provider, provider_config, kwargs)
             prefix = list(kwargs["options"].get("prefix_args", ()))
             flags = list(kwargs["options"].get("yolo_args", ()))
+            if kwargs["options"].get("provider"):
+                flags += ["--provider", kwargs["options"]["provider"]]
+            if kwargs["options"].get("base_url"):
+                flags += ["--base-url", kwargs["options"]["base_url"]]
             if kwargs["options"].get("model"):
                 flags += ["--model", kwargs["options"]["model"]]
             if kwargs["options"].get("reasoning_effort"):
@@ -144,9 +148,13 @@ class MuseRuntimeTests(unittest.TestCase):
                 proxy,
                 lambda _config: "native",
                 lambda _config: web,
-                lambda provider, model: captured.setdefault("launch", (provider, model)),
+                lambda provider, model, mode="": captured.setdefault("launch", (provider, model, mode)),
                 lambda runtime, **kwargs: captured.setdefault(
                     "transcript_scope", (runtime, kwargs)
+                ),
+                lambda: (
+                    captured.get("router_base", "http://127.0.0.1:9611"),
+                    captured.get("router_token", "ciel-runtime-router-local-key"),
                 ),
             ),
         )
@@ -168,7 +176,7 @@ class MuseRuntimeTests(unittest.TestCase):
         self.assertFalse(proxy_options["channel_wake_confirm_submit"])
         self.assertEqual(1, proxy_options["channel_wake_submit_retries"])
         self.assertTrue(captured["router_managed"])
-        self.assertEqual(("meta", "muse-spark-1.3"), captured["launch"])
+        self.assertEqual(("meta", "muse-spark-1.3", ""), captured["launch"])
         self.assertEqual("muse", captured["transcript_scope"][0])
 
     def test_windows_launch_uses_wsl_and_unsets_linux_api_key_environment(self):
@@ -226,6 +234,114 @@ class MuseRuntimeTests(unittest.TestCase):
 
         command = captured["proxy"][0]
         self.assertEqual(1, command.count("--yolo"))
+
+    def test_routed_launch_points_muse_at_the_router_responses_route(self):
+        captured: dict = {}
+        context = self.context(captured, web=False)
+
+        self.assertEqual(0, context.launch(["--ca-router", "exec", "say hi"]))
+
+        command = captured["calls"][0][0]
+        env = captured["materialize"][2]
+        self.assertNotIn("--ca-router", command)
+        self.assertEqual(["exec", "say hi"], command[-2:])
+        self.assertEqual(
+            ["--base-url", "http://127.0.0.1:9611/v1"],
+            command[command.index("--base-url") - 0:command.index("--base-url") + 2],
+        )
+        self.assertIn("--provider", command)
+        self.assertEqual("meta", command[command.index("--provider") + 1])
+        self.assertEqual("say hi", command[-1])
+        # The router owns the Model API key; Muse receives the local placeholder.
+        self.assertEqual("ciel-runtime-router-local-key", env["META_API_KEY"])
+        self.assertEqual("ciel-runtime-router-local-key", env["MODEL_API_KEY"])
+        self.assertEqual("routed", captured["materialize"][5]["mode"])
+        self.assertEqual("native", captured["materialize"][5]["protocol"])
+        self.assertEqual(
+            "http://127.0.0.1:9611/v1", captured["materialize"][5]["options"]["base_url"]
+        )
+        # A headless routed run still needs the router for every model call.
+        self.assertTrue(captured["router_managed"])
+        self.assertEqual(1, captured["router_starts"])
+        self.assertEqual(("meta", "muse-spark-1.3", "muse-router"), captured["launch"])
+
+    def test_routed_launch_requires_the_meta_provider(self):
+        captured: dict = {}
+        context = self.context(captured)
+
+        self.assertEqual(
+            2, context.launch(["--ca-router", "exec", "--provider", "echo", "hello"])
+        )
+
+        self.assertNotIn("materialize", captured)
+        self.assertIn("requires the meta provider", captured["prints"][0][0][0])
+
+    def test_routed_wsl_launch_refuses_a_loopback_router(self):
+        captured: dict = {}
+        context = self.context(captured, platform_name="nt")
+
+        result = context.launch(["--ca-router", "exec", "hi"])
+
+        # The nt harness discovers Muse through WSL, so a loopback router base
+        # must be refused with the fix instead of a connection error per call.
+        self.assertEqual(2, result)
+        self.assertNotIn("materialize", captured)
+        self.assertIn("cannot reach the Ciel Router", captured["prints"][0][0][0])
+
+    def test_routed_wsl_launch_uses_a_reachable_router_host(self):
+        captured: dict = {"router_base": "http://172.29.112.1:9611"}
+        context = self.context(captured, platform_name="nt")
+
+        self.assertEqual(0, context.launch(["--ca-router", "exec", "hi"]))
+
+        command = captured["calls"][0][0]
+        self.assertIn("http://172.29.112.1:9611/v1", command)
+
+    def test_routed_flag_is_stripped_from_native_launches(self):
+        captured: dict = {}
+        context = self.context(captured)
+
+        self.assertEqual(0, context.launch(["exec", "hello"]))
+
+        command = captured["calls"][0][0]
+        env = captured["materialize"][2]
+        self.assertNotIn("--base-url", command)
+        self.assertNotIn("--provider", command)
+        self.assertNotIn("META_API_KEY", env)
+        self.assertNotIn("MODEL_API_KEY", env)
+        self.assertFalse(captured["router_managed"])
+
+    def test_adapter_places_router_flags_after_the_exec_subcommand(self):
+        adapter = RUNTIME_ADAPTERS.create(
+            "muse", executable="muse", environment={}, channel_injection=True
+        )
+        command = adapter.build_command(
+            LaunchSpec(
+                runtime=RuntimeConfig(
+                    name="muse",
+                    executable="muse",
+                    options={
+                        "yolo_args": ("--yolo",),
+                        "provider": "meta",
+                        "base_url": "http://127.0.0.1:9611/v1",
+                        "model": "muse-spark-1.3",
+                    },
+                ),
+                provider=ProviderConfig(name="meta", base_url="", model=""),
+                mode="routed",
+                protocol="native",
+                passthrough=("exec", "say hi"),
+            )
+        )
+
+        self.assertEqual(
+            (
+                "muse", "exec", "--yolo", "--provider", "meta",
+                "--base-url", "http://127.0.0.1:9611/v1",
+                "--model", "muse-spark-1.3", "say hi",
+            ),
+            command.argv,
+        )
 
     def test_cli_and_launch_menu_expose_muse(self):
         rows, values = ciel_runtime.launch_panel_rows(

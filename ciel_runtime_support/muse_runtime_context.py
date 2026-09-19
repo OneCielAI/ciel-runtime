@@ -9,6 +9,17 @@ from typing import Any, Callable
 
 MUSE_INSTALL_URL = "https://dev.meta.ai/install.sh"
 MUSE_SUBSCRIPTION_ENV_KEYS = ("META_API_KEY", "MODEL_API_KEY")
+# Routed mode points Muse Code at the Ciel Router instead of Meta's Model API.
+# `muse --base-url <URL>` overrides the Meta provider base and Muse then calls
+# `<URL>/responses`, so the URL carries the router's `/v1` prefix (captured from
+# a real `muse exec` run on 2026-09-18: GET /muse-code/models and
+# POST /v1/responses with `Authorization: Bearer <META_API_KEY>`).
+MUSE_ROUTER_BASE_PATH = "/v1"
+MUSE_ROUTER_FLAG = "--ca-router"
+# Local placeholder the router accepts from its own clients (the same value a
+# routed Codex launch uses); the router holds the real Model API key.
+MUSE_ROUTER_AUTH_TOKEN = "ciel-runtime-router-local-key"
+MUSE_ROUTER_AUTH_ENV_KEYS = MUSE_SUBSCRIPTION_ENV_KEYS
 
 
 def has_option(argv: list[str], *names: str) -> bool:
@@ -16,6 +27,29 @@ def has_option(argv: list[str], *names: str) -> bool:
         value in names or any(value.startswith(f"{name}=") for name in names)
         for value in argv
     )
+
+
+def without_option(argv: list[str], *names: str) -> list[str]:
+    """Drop a Ciel-namespaced flag so the runtime CLI never sees it."""
+
+    return [
+        value
+        for value in argv
+        if value not in names
+        and not any(value.startswith(f"{name}=") for name in names)
+    ]
+
+
+def router_host_is_loopback(base_url: str) -> bool:
+    """Whether a router base URL points at a loopback address."""
+
+    from urllib.parse import urlsplit
+
+    try:
+        host = str(urlsplit(str(base_url)).hostname or "").strip().lower()
+    except ValueError:
+        return False
+    return host in {"127.0.0.1", "localhost", "::1", "[::1]", ""} or host.startswith("127.")
 
 
 def option_value(argv: list[str], name: str) -> str:
@@ -61,8 +95,12 @@ class MuseLifecyclePorts:
     call_with_channel_proxy: Callable[..., int]
     channel_delivery_mode: Callable[[dict[str, Any]], str]
     web_backend_requested: Callable[[dict[str, Any]], bool]
-    record_launch: Callable[[str, str], None]
+    record_launch: Callable[..., None]
     set_transcript_scope: Callable[..., None]
+    # (base URL, bearer token Muse must send); the token is the local
+    # placeholder for a loopback router and the router's external-access token
+    # once the router is bound to an address outside loopback (Windows + WSL).
+    router_endpoint: Callable[[], tuple[str, str]] = lambda: ("", MUSE_ROUTER_AUTH_TOKEN)
 
 
 @dataclass(frozen=True, slots=True)
@@ -185,6 +223,9 @@ class MuseRuntimeContext:
 
     def launch(self, passthrough: list[str]) -> int:
         argv = list(passthrough)
+        routed = has_option(argv, MUSE_ROUTER_FLAG)
+        router_token = MUSE_ROUTER_AUTH_TOKEN
+        argv = without_option(argv, MUSE_ROUTER_FLAG)
         executable = self.install_if_missing()
         if executable is None:
             return 127
@@ -196,6 +237,47 @@ class MuseRuntimeContext:
             options["yolo_args"] = ("--yolo",)
         muse_provider = option_value(argv, "--provider").lower()
         meta_launch = not muse_provider or muse_provider == "meta"
+        if routed:
+            # Routed mode reaches Meta through the router, so it must stay on
+            # the Meta provider; echo would bypass the router entirely.
+            if muse_provider and muse_provider != "meta":
+                self.process.print_line(
+                    f"Muse Code routed mode requires the meta provider "
+                    f"(got --provider {muse_provider}).",
+                    flush=True,
+                )
+                return 2
+            meta_launch = True
+            if not muse_provider:
+                options["provider"] = "meta"
+            router_base, router_token = self.lifecycle.router_endpoint()
+            router_base = str(router_base or "").rstrip("/")
+            if executable.platform == "wsl" and router_host_is_loopback(router_base):
+                # The WSL distro cannot reach the Windows loopback, so a router
+                # bound to 127.0.0.1 is invisible to Muse Code. Refuse instead
+                # of letting every model call fail with a connection error.
+                self.process.print_line(
+                    "Muse Code runs inside WSL and cannot reach the Ciel Router at "
+                    f"{router_base}. Start the router on an address WSL can reach:\n"
+                    "  ciel-runtime muse --ca-router --ca-web-address <windows-wsl-ip>\n"
+                    "Find the address with: wsl -e sh -lc \"ip route show default | "
+                    "awk '{print $3}'\"",
+                    flush=True,
+                )
+                return 2
+            if not str(router_token or "").strip():
+                # A router outside loopback only accepts external clients when
+                # debug external access is enabled; refuse rather than let
+                # every model call fail with 401.
+                self.process.print_line(
+                    "Muse Code routed mode needs the Ciel Router to accept clients "
+                    f"from {router_base}, which is outside its loopback. Enable "
+                    "router debug external access (ciel-runtime menu -> router debug "
+                    "external access) and retry.",
+                    flush=True,
+                )
+                return 2
+            options["base_url"] = f"{router_base}{MUSE_ROUTER_BASE_PATH}"
         if meta_launch and model and not has_option(argv, "-m", "--model"):
             options["model"] = model
         effort = self._effort(provider, provider_config)
@@ -206,13 +288,18 @@ class MuseRuntimeContext:
         env["PATH"] = self.process.augment_path(env)
         for name in MUSE_SUBSCRIPTION_ENV_KEYS:
             env.pop(name, None)
+        if routed:
+            # The router authenticates its own clients with the resolved token
+            # and uses the configured Model API key upstream.
+            for name in MUSE_ROUTER_AUTH_ENV_KEYS:
+                env[name] = router_token
         command, child_env = self.lifecycle.materialize_command(
             "muse",
             executable.command,
             env,
             provider,
             provider_config,
-            mode="native",
+            mode="routed" if routed else "native",
             protocol="native",
             cwd=Path.cwd(),
             enable_channels=True,
@@ -227,17 +314,25 @@ class MuseRuntimeContext:
         is_session = not argv or argv[0] not in non_session_commands
         interactive_session = is_session and (not argv or argv[0] != "exec")
         if is_session:
-            self.lifecycle.record_launch(provider, model)
+            self.lifecycle.record_launch(
+                provider,
+                model,
+                "muse-router" if routed else "",
+            )
         if interactive_session:
             self.lifecycle.set_transcript_scope(
                 "muse",
                 cwd=Path.cwd(),
                 muse_home=executable.transcript_root,
             )
+        # A routed session must keep its router alive for the whole session,
+        # including headless `muse exec` runs, because every model call goes
+        # through it.
         manage_router = bool(
-            interactive_session
+            (interactive_session or routed)
             and (
-                self.lifecycle.channel_delivery_mode(config) == "llm"
+                routed
+                or self.lifecycle.channel_delivery_mode(config) == "llm"
                 or self.lifecycle.web_backend_requested(config)
             )
             and self.lifecycle.start_router()

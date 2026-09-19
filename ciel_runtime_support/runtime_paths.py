@@ -199,10 +199,21 @@ CHANNEL_LLM_LAUNCH_GUARD_PATH = WORKSPACE_STATE_DIR / "channel-llm-launch-guard.
 CHANNEL_COMPACT_REQUEST_PATH = ROUTER_INSTANCE_DIR / "channel-compact-request.json"
 RUNTIME_INTERACTION_PATH = ROUTER_INSTANCE_DIR / "runtime-interaction.json"
 CHANNEL_STDIN_WAKE_CLAIMS_PATH = WORKSPACE_STATE_DIR / "channel-stdin-wake-claims.json"
-CLAUDE_GATEWAY_CACHE = HOME / ".claude" / "cache" / "gateway-models.json"
-CLAUDE_SETTINGS_PATH = HOME / ".claude" / "settings.json"
-CLAUDE_COMMANDS_DIR = HOME / ".claude" / "commands"
-CIEL_RUNTIME_STATUSLINE_PATH = ciel_runtime_user_bin_dir() / "ciel-runtime-statusline.py"
+# CLI-side assets (slash commands, Codex prompts, settings, statusline) live in
+# the user's CLI profile.  An isolated test run must never rewrite or delete
+# them: on 2026-09-18 the unit group ran a native-launch path that emptied
+# ~/.claude/commands and removed every Ciel slash command, /import-session
+# included, from the live profile.  Isolation therefore redirects the whole
+# CLI profile surface into the isolated config directory.
+CLI_ASSET_HOME = CONFIG_DIR if _TEST_STATE_ISOLATED else HOME
+CLAUDE_GATEWAY_CACHE = CLI_ASSET_HOME / ".claude" / "cache" / "gateway-models.json"
+CLAUDE_SETTINGS_PATH = CLI_ASSET_HOME / ".claude" / "settings.json"
+CLAUDE_COMMANDS_DIR = CLI_ASSET_HOME / ".claude" / "commands"
+CIEL_RUNTIME_STATUSLINE_PATH = (
+    CONFIG_DIR / "ciel-runtime-statusline.py"
+    if _TEST_STATE_ISOLATED
+    else ciel_runtime_user_bin_dir() / "ciel-runtime-statusline.py"
+)
 NCP_ENV = platform_config_dir("nvd-claude-proxy") / ".env"
 NCP_LOG = platform_config_dir("nvd-claude-proxy") / "proxy.log"
 

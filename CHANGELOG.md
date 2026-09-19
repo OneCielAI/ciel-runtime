@@ -5,6 +5,19 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+- Route Muse Code model traffic through the Ciel Router with
+  `ciel-runtime muse --ca-router`: Muse receives `--base-url <router>/v1`
+  (it posts OpenAI Responses to `/v1/responses`) plus the router's local token,
+  so channel delivery, Web Chat, telemetry, live LLM options and the advisor
+  apply to Muse sessions. This is the Model API (pay-as-you-go) path and needs
+  a `meta` provider API key. On Windows, where Muse runs in WSL, the launch
+  requires the router to be bound to a WSL-reachable address
+  (`--ca-web-address`) and refuses with instructions otherwise.
+- Keep the CLI profile out of isolated test runs: `CLAUDE_COMMANDS_DIR`,
+  `CLAUDE_SETTINGS_PATH`, the gateway cache, the statusline script and the
+  Codex prompts directory now resolve inside the isolated config directory, so
+  a test sweep can no longer delete the user's slash commands (the unit group
+  emptied ~/.claude/commands, /import-session included, on 2026-09-18).
 - Restart the active CLI session with its session-continue argument:
   `ciel-runtime restart-session` and the `restart_session` tool on the
   `ciel-runtime-router` MCP server queue a request that the launcher owning the

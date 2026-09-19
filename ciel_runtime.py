@@ -178,7 +178,7 @@ from ciel_runtime_support.zai_start_plan_captcha import zai_start_plan_runtime_h
 from ciel_runtime_support.headless_config import HeadlessConfigCommands, HeadlessConfigServices, HeadlessEnvFileLoader, apply_headless_config
 from ciel_runtime_support.http_response import ChannelDeliveryGuard, HttpResponseAdapter
 from ciel_runtime_support.kimi_runtime_context import KimiConfigurationPorts, KimiIdentityPorts, KimiLifecyclePorts, KimiProcessPorts, KimiRuntimeCompatibilityApi, KimiRuntimeContext
-from ciel_runtime_support.muse_runtime_context import MuseConfigurationPorts, MuseLifecyclePorts, MuseProcessPorts, MuseRuntimeCompatibilityApi, MuseRuntimeContext
+from ciel_runtime_support.muse_runtime_context import MUSE_ROUTER_AUTH_TOKEN, MuseConfigurationPorts, MuseLifecyclePorts, MuseProcessPorts, MuseRuntimeCompatibilityApi, MuseRuntimeContext, router_host_is_loopback
 from ciel_runtime_support.zcode_runtime_context import ZcodeConfigurationPorts, ZcodeLifecyclePorts, ZcodeProcessPorts, ZcodeRuntimeCompatibilityApi, ZcodeRuntimeContext
 from ciel_runtime_support.launch_diagnostics import LaunchCommandDiagnostics, StderrCaptureAdapter
 from ciel_runtime_support.launch_state import LaunchStateRepository
@@ -443,7 +443,7 @@ from ciel_runtime_support.runtime_paths import (CHANNEL_COMPACT_REQUEST_PATH,  #
                                                 CHANNEL_LLM_CLEAR_FLOOR_PATH, CHANNEL_LLM_CURSOR_PATH,
                                                 CHANNEL_LLM_LAUNCH_GUARD_PATH,
                                                 CHANNEL_STDIN_WAKE_CLAIMS_PATH, CHAT_FILES_DIR, CHAT_MESSAGES_PATH, RUNTIME_INPUTS_PATH, RUNTIME_INPUT_STATUS_PATH,
-                                                CIEL_RUNTIME_STATUSLINE_PATH, CLAUDE_COMMANDS_DIR, CLAUDE_GATEWAY_CACHE,
+                                                CLI_ASSET_HOME, CIEL_RUNTIME_STATUSLINE_PATH, CLAUDE_COMMANDS_DIR, CLAUDE_GATEWAY_CACHE,
                                                 CLAUDE_SETTINGS_PATH, CODEX_PROCESS_DIR,
                                                 CODEX_PROMPTS_DIR_NAME, CONFIG_DIR, CONFIG_PATH, LEGACY_CONFIG_PATH,
                                                 CONTEXT_COMPACT_ACTIVITY_PATH, CONTEXT_USAGE_PATH,
@@ -1005,7 +1005,7 @@ command_file_is_ciel_runtime_owned = is_owned_command_file
 def runtime_asset_context() -> RuntimeAssetContext:
     return runtime_asset_assembly.build_runtime_asset_context(
         runtime_asset_assembly.RuntimeAssetAssemblyPorts(
-            runtime_asset_assembly.RuntimeAssetPathBindings(HOME, Path(__file__), CLAUDE_SETTINGS_PATH, CIEL_RUNTIME_STATUSLINE_PATH,
+            runtime_asset_assembly.RuntimeAssetPathBindings(CLI_ASSET_HOME, Path(__file__), CLAUDE_SETTINGS_PATH, CIEL_RUNTIME_STATUSLINE_PATH,
                                                             CLAUDE_COMMANDS_DIR, CODEX_PROMPTS_DIR_NAME, platform_path,
                                                             ciel_runtime_user_bin_dir, agy_user_bin_dir),
             sys.executable, os.chmod, os.environ, router_log,
@@ -4023,8 +4023,9 @@ def muse_runtime_context() -> MuseRuntimeContext:
             subprocess_call_with_channel_wake_proxy,
             channel_delivery_mode,
             runtime_launch.web_backend_start_requested,
-            lambda provider, model: record_launch_state_for_cwd(current_launch_cwd_key(), provider, "muse-native-subscription", model),
+            lambda provider, model, mode="": record_launch_state_for_cwd(current_launch_cwd_key(), provider, mode or "muse-native-subscription", model),
             _set_channel_transcript_scope,
+            lambda: (ROUTER_BASE, MUSE_ROUTER_AUTH_TOKEN if router_host_is_loopback(ROUTER_BASE) else ensure_router_external_access_token() if router_debug_external_access_enabled(load_config()) else ""),
         ),
     )
 

@@ -1,0 +1,23 @@
+okf_version: "1.0"
+task: "User: Meta API 외에도 Meta API routed 모드를 만들어서 Muse code를 사용할때 ciel router와 통신하게 할 수 있어? (add a Meta API routed mode so Muse Code talks to the Ciel Router)"
+answer: "Yes. Muse Code exposes `--base-url <URL>` ('Override the Meta provider base URL') and speaks the OpenAI Responses wire, which is exactly the route the router already serves for the meta provider."
+evidence_capture:
+  method: "Real `muse exec --provider meta --base-url http://127.0.0.1:8791/v1 'say hi'` against a local capture listener, WSL, 2026-09-18."
+  requests:
+    - "GET /muse-code/models - Authorization: Bearer <META_API_KEY>, x-client-id: tbh:exec, user-agent: muse-build/1.3.0"
+    - "POST /v1/responses - OpenAI Responses body {model: muse-spark-1.3, input: [{type: message, role: developer|user, ...}]}, Accept: text/event-stream, plus x-tbh-session-id / x-meta-ai-gateway-session-id / traceparent."
+  path_composition: "Muse appends /responses to the base URL, so --base-url must carry the router's /v1 prefix."
+  binary_evidence: "strings of muse-bin-1.3.0-R3233.1: 'api.meta.ai/v1' + '/responses' adjacent in the string table; base_url/api_base/BASE_URL keys present; META_API_KEY (20x)."
+router_acceptance: "Isolated router (provider meta, dummy key) answered POST /v1/responses with the Muse body: HTTP 424 upstream_authentication_error, upstream_status 401, upstream_provider meta - i.e. the router accepted the local placeholder token, selected the meta provider and reached Meta's API, which rejected only the dummy key."
+implementation:
+  flag: "ciel-runtime muse --ca-router (namespaced; stripped before Muse sees the argv)."
+  launch_changes: "muse_runtime_context.launch(): forces --provider meta (refuses echo), passes --base-url {router}/v1, sets META_API_KEY/MODEL_API_KEY to the resolved router token, keeps the router for the whole session (headless exec included), records launch mode muse-router; runtime_adapters.MuseRuntimeAdapter emits --provider/--base-url after the exec/resume subcommand."
+  token_resolution: "Loopback router -> local placeholder ciel-runtime-router-local-key; router bound outside loopback -> the router's external-access token (router_endpoint port); external access disabled -> refuse with instructions."
+  wsl_guard: "On Windows Muse runs in WSL and cannot reach the Windows loopback (verified: WSL 127.0.0.1:9611 and 172.29.112.1:9611 both unreachable; router binds 127.0.0.1 only). Routed mode refuses with the exact remedy: ciel-runtime muse --ca-router --ca-web-address <windows-wsl-ip>."
+prerequisites:
+  meta_model_api_key: "Not present on this machine - all 30 saved workspace configs have providers.meta with no api_key and the environment has no META_API_KEY, so the upstream leg could only be verified against a dummy key (401 from Meta)."
+  external_access: "No workspace has router_debug_external_access enabled, so the WSL path additionally needs that toggle (the router treats non-loopback clients as external)."
+verification:
+  tests: "tests/test_muse_runtime.py 15 OK (routed argv/token/env, echo refusal, WSL loopback refusal, reachable-host pass, adapter flag placement)."
+  groups: "unit 1500, router 1135, channel 406, runtime 296 - all OK; ruff clean."
+not_done: "No live Muse routed session end to end (needs a Meta Model API key). Not deployed to the local snapshot."

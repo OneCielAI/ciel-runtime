@@ -9,6 +9,9 @@ def cli_usage_text() -> str:
   ciel-runtime grok [args...]          Launch the official Grok Build CLI
   ciel-runtime zcode [args...]         Launch ZCode through ciel-runtime router
   ciel-runtime muse [args...]          Launch Muse Code with its subscription login
+  ciel-runtime muse --ca-router [args...]
+                                      Route Muse Code model traffic through the Ciel Router
+                                      (Meta Model API key required; see docs/Muse-Code.md)
   ciel-runtime resume                  Resume Codex/AGY when that runtime provider is selected
 
 Control plane, runs before Claude Code and does not require LLM connectivity:

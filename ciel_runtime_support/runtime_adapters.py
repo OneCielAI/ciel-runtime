@@ -135,6 +135,14 @@ class MuseRuntimeAdapter(CliRuntimeAdapter):
         if subcommand in {"exec", "resume"}:
             argv.append(passthrough.pop(0))
         argv.extend(str(value) for value in options.get("yolo_args", ()))
+        provider = str(options.get("provider") or "").strip()
+        if provider:
+            argv.extend(("--provider", provider))
+        # Routed mode points Meta's provider base at the Ciel Router; Muse then
+        # appends /responses to it.
+        base_url = str(options.get("base_url") or "").strip()
+        if base_url:
+            argv.extend(("--base-url", base_url))
         model = str(options.get("model") or "").strip()
         if model:
             argv.extend(("--model", model))
