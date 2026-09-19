@@ -1,0 +1,59 @@
+okf_version: "1.0"
+task: "User: `vs code에 통합되어있는 copilot을 ciel router가 지원할수있는방법에 대한 리서치` - how can the Ciel Runtime router support the Copilot integrated in VS Code."
+machine_state:
+  vscode: "VS Code 1.135.0 x64 (C:\\Program Files\\Microsoft VS Code, payload dir 08d4889f9e). Copilot Chat is present as the bundled extension `copilot` (package.json: name=copilot-chat, displayName=GitHub Copilot, version 0.63.0, engines.vscode ^1.135.0) under resources/app/extensions - bundled extensions are invisible to `code --list-extensions`, which lists anthropic.claude-code, continue.continue, openai.chatgpt, ms-python.*, ms-vscode-remote.*."
+  chat_language_models_json: "C:\\Users\\djlov\\AppData\\Roaming\\Code\\User\\chatLanguageModels.json exists and contains `[]` (no BYOK models configured yet)."
+  router_client_surface: "ciel_runtime_support/remote_bridge.py REMOTE_LLM_PATHS: /v1/chat/completions, /v1/messages, /v1/messages/count_tokens, /v1/responses, /v1/responses/compact (+ /v1/files); provider/model selection per request via x-ciel-runtime-provider / x-ciel-runtime-model headers. Loopback clients are allowed without any token (router_access.py request_allowed: `if is_loopback_address(client_address): return True`); bearer / x-ciel-runtime-token / x-api-key are only consulted for non-loopback clients."
+  router_uses_copilot_today: "The opposite direction is already implemented: the router consumes Copilot as an upstream provider (github_copilot_oauth.py device-flow OAuth + copilot_internal token, providers/github_copilot_oauth.py -> https://api.githubcopilot.com with /chat/completions, /responses or /v1/messages picked from the model's supported_endpoints)."
+directions:
+  copilot_as_router_client: "The routes below make Copilot Chat's model calls land on the Ciel Router (the ask)."
+  copilot_as_upstream_provider: "Already exists (see machine_state.router_uses_copilot_today)."
+routes:
+  A_byok_custom_endpoint:
+    status: "official and documented (VS Code docs 2026-09-16); works without a GitHub account and without a Copilot plan"
+    how: "Model picker -> Manage Language Models -> Add Models -> Custom Endpoint; VS Code writes chatLanguageModels.json. vendor must be `customendpoint`; apiType (provider-level or per model) is `chat-completions`, `responses`, or `messages`; a provider-level `url` switches to automatic model discovery (request shape is not documented), so configure the `models` array explicitly. Unknown fields are ignored; auth header is inferred (Messages -> x-api-key, Azure URLs -> api-key, otherwise Authorization: Bearer) and can be overridden with requestHeaders, which also supports the `${apiKey}` token."
+    router_fit: "The router already serves all three API types on loopback and a loopback client needs no token, so the URL can point straight at a running router. Agent mode requires `toolCalling: true` on the model entry; edit application strategies come from the optional `editTools` list (find-replace, multi-find-replace, apply-patch, code-rewrite)."
+    example_config: |
+      [ { "name": "Ciel", "vendor": "customendpoint", "apiKey": "unused-on-loopback",
+          "apiType": "chat-completions",
+          "models": [ { "id": "<router model alias>", "name": "Ciel <alias>",
+                        "url": "http://127.0.0.1:<router-port>/v1/chat/completions",
+                        "toolCalling": true, "vision": false,
+                        "maxInputTokens": <n>, "maxOutputTokens": <n> } ] } ]
+    gaps_to_verify:
+      - "Model-discovery request/response shape used when the provider-level `url` is set (docs: 'VS Code queries the endpoint for the list of available models'); until verified, use the explicit models array (no discovery is needed)."
+      - "Reasoning effort pass-through through the router for chat completions (VS Code sends top-level `reasoning_effort` for reasoningEffortFormat chat-completions); whether the router forwards or maps it per provider adapter is unverified."
+      - "Which port to use: router ports are per workspace (workspace-router-ports.json, e.g. F:\\omini-router -> 9489) and only a running router answers; the bundled copilot-chat 0.63.0 UI on this machine has not been exercised yet."
+      - "Known cosmetic issue: customendpoint models can render the id instead of the name (microsoft/vscode#318748)."
+  B_extension_language_model_provider:
+    status: "official extension API (Language Model Chat Provider API)"
+    how: "An extension declares contributes.languageModelChatProviders (unique vendor id + displayName, optional managementCommand) and calls vscode.lm.registerLanguageModelChatProvider; its models then appear in the chat model picker. The extension implements provideLanguageModelChatInformation (id/name/family/version/max tokens/capabilities imageInput+toolCalling), provideLanguageModelChatResponse (streams LanguageModelTextPart / ToolCallPart / ToolResultPart via progress) and provideTokenCount itself."
+    router_fit: "Gives full control over model naming and discovery without chatLanguageModels.json, but requires shipping and installing a small VSIX that proxies to the router; same BYOK scope and admin-policy caveat; inline suggestions are out of scope (extensions use a separate InlineCompletionItemProvider API)."
+  C_override_proxy_url:
+    status: "community / unsupported"
+    how: "github.copilot.advanced.debug.overrideProxyUrl plus overrideCapiUrl / chatOverrideProxyUrl redirect the Copilot extension's own service traffic to a local proxy; used by linux-do/override (VSCode settings + per-OS scripts) and by agentgateway's Copilot client guide (proxy URL http://localhost:3000/v1)."
+    caveats:
+      - "Version-fragile: microsoft/vscode-copilot-release#7802 reports extension 0.26.3 not observing overrideProxyUrl."
+      - "linux-do/override additionally patches the extension bundle (maxPromptCompletionTokens) and the patch must be re-applied after every Copilot update."
+      - "The linux-do setup also repoints the auth provider (github.copilot.advanced.authProvider=github-enterprise + github-enterprise.uri), i.e. it replaces the Copilot service rather than adding a model."
+      - "agentgateway's page states custom proxy endpoints require Copilot Business/Enterprise; VS Code's own docs state BYOK works without a Copilot plan - the two notes describe different mechanisms (service override vs user-added models)."
+adjacent_clients:
+  - "GitHub docs list local BYOK for VS Code, JetBrains, Xcode, Copilot CLI, the GitHub Copilot app and the Copilot SDK; Copilot CLI BYOK explicitly accepts OpenAI-compatible endpoints, Azure OpenAI and Anthropic (incl. local Ollama), so the same router URL would serve those clients."
+  - "Enterprise BYOK (public preview) is org-level and server-side: enterprise owners add custom models that Copilot serves to Business/Enterprise users; it requires a Copilot licence and is not a router-side integration."
+constraints:
+  - "BYOK covers chat and utility tasks only; inline suggestions (code completions), semantic search and embeddings stay with the Copilot service (VS Code FAQ)."
+  - "Copilot Business/Enterprise administrators can disable local BYOK (Bring Your Own Language Model Key policy)."
+  - "A model without toolCalling: true is not offered when using agents in chat."
+sources:
+  - "https://code.visualstudio.com/docs/copilot/customization/language-models (fetched 2026-09-19): Custom Endpoint provider, chatLanguageModels.json reference, reasoningEffortFormat, BYOK scope, utility model settings, FAQ, Ollama deprecation."
+  - "https://code.visualstudio.com/api/extension-guides/ai/language-model-chat-provider (fetched 2026-09-19)."
+  - "https://docs.github.com/en/copilot/concepts/models/bring-your-own-key (fetched 2026-09-19): local vs enterprise BYOK, client list, policy note."
+  - "https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/use-byok-models (search result)."
+  - "https://github.com/linux-do/override (README)."
+  - "https://agentgateway.dev/docs/standalone/latest/integrations/llm/clients/github-copilot/."
+  - "https://github.com/microsoft/vscode-copilot-release/issues/7802."
+  - "Local evidence: bundled extension package.json (copilot-chat 0.63.0), chatLanguageModels.json = [], ciel_runtime_support/remote_bridge.py, ciel_runtime_support/router_access.py, ciel_runtime_support/providers/github_copilot_oauth.py."
+open_questions:
+  - "Discovery endpoint shape for the Custom Endpoint provider (provider-level url)."
+  - "Does the router honour a client-sent `model` id on /v1/chat/completions, or does it always use the workspace provider/model (per-adapter detail, unverified)?"
+  - "Behaviour of the bundled copilot-chat 0.63.0 Manage Language Models UI against VS Code 1.135.0 (docs dated 2026-09-16 are newer than the bundled build)."
