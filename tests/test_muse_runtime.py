@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import dataclasses
+import json
 import subprocess
 import sys
+from pathlib import Path
 from types import SimpleNamespace
 import unittest
 from unittest import mock
@@ -15,6 +17,8 @@ from ciel_runtime_support.muse_runtime_context import (
     MuseProcessPorts,
     MuseRuntimeContext,
     WSL_PROBE_TIMEOUT_SECONDS,
+    latest_tui_history_session,
+    wsl_workspace_path,
 )
 from ciel_runtime_support.runtime_adapters import RUNTIME_ADAPTERS
 
@@ -560,6 +564,84 @@ class MuseWslProbeDeadlineTests(unittest.TestCase):
         printed = " ".join(str(entry) for entry in captured.get("prints", []))
         self.assertIn("WSL did not answer", printed)
         self.assertNotIn("proxy", captured)
+
+
+class MuseContinueResolutionTests(unittest.TestCase):
+    """`--continue` must resume the session the user actually used last.
+
+    Muse resolves `resume --last` through its session index; live 2026-09-19 a
+    real F:\\omini-router session was indexed as `missing_metadata`, so
+    `--last` started an empty session while `resume <id>` restored it. The TUI
+    history (project -> last session) decides instead.
+    """
+
+    SESSION = "01a0b860-89c9-7110-a9a6-2c8b63fba897"
+
+    def test_latest_history_entry_for_the_workspace_wins(self):
+        history = "\n".join(
+            [
+                json.dumps({"project": "/mnt/f/other", "session": self.SESSION}),
+                "some prompt text",
+                json.dumps({"project": "/mnt/f/omini-router", "session": "01a0b860-89c9-7110-a9a6-2c8b63fba897"}),
+                json.dumps({"project": "/mnt/f/omini-router", "session": "01a0bb5d-cbe8-7082-8bff-c12a73f45c78"}),
+                json.dumps({"project": "/mnt/f/omini-router", "session": "not-a-uuid"}),
+            ]
+        )
+
+        self.assertEqual(
+            "01a0bb5d-cbe8-7082-8bff-c12a73f45c78",
+            latest_tui_history_session(history, "/mnt/f/omini-router"),
+        )
+        self.assertEqual("", latest_tui_history_session(history, "/mnt/f/absent"))
+
+    def test_windows_cwd_maps_to_the_wsl_path(self):
+        self.assertEqual(
+            "/mnt/f/omini-router", wsl_workspace_path(Path(r"F:\omini-router"))
+        )
+        self.assertEqual("", wsl_workspace_path(Path("/home/test")))
+
+    def test_launch_rewrites_continue_to_the_history_session(self):
+        captured = {}
+        session = self.SESSION
+        base = MuseRuntimeTests.context(captured, platform_name="nt")
+        workspace = wsl_workspace_path(Path.cwd())
+
+        def run(command, **kwargs):
+            captured.setdefault("runs", []).append((command, kwargs))
+            if "tui-history.jsonl" in " ".join(command):
+                return SimpleNamespace(
+                    returncode=0,
+                    stdout=json.dumps({"project": workspace, "session": session}),
+                )
+            if "command -v muse" in command:
+                return SimpleNamespace(
+                    returncode=0, stdout="/home/test/.local/bin/muse\n"
+                )
+            if 'wslpath -w "$HOME/.local/share/muse"' in command:
+                return SimpleNamespace(
+                    returncode=0,
+                    stdout="\\\\wsl.localhost\\Ubuntu\\home\\test\\.local\\share\\muse\n",
+                )
+            return SimpleNamespace(returncode=0, stdout="")
+
+        context = dataclasses.replace(
+            base, process=dataclasses.replace(base.process, run=run)
+        )
+
+        self.assertEqual(0, context.launch(["--continue"]))
+
+        passthrough = captured["materialize"][5]["passthrough"]
+        self.assertEqual(["resume", session], list(passthrough))
+
+    def test_launch_keeps_last_when_the_history_has_nothing(self):
+        captured = {}
+        base = MuseRuntimeTests.context(captured, platform_name="nt")
+
+        context = base
+        self.assertEqual(0, context.launch(["--continue"]))
+
+        passthrough = captured["materialize"][5]["passthrough"]
+        self.assertEqual(["resume", "--last"], list(passthrough))
 
 
 if __name__ == "__main__":

@@ -199,6 +199,8 @@ def wsl_settings_store(
             check=False,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             cwd=str(Path.home()),
             timeout=WSL_SETTINGS_TIMEOUT_SECONDS,
         )
@@ -217,6 +219,7 @@ def wsl_settings_store(
             check=True,
             capture_output=True,
             text=True,
+            encoding="utf-8",
             input=text,
             cwd=str(Path.home()),
             timeout=WSL_SETTINGS_TIMEOUT_SECONDS,

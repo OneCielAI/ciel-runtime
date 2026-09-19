@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import re
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -25,6 +27,47 @@ MUSE_SUBSCRIPTION_ENV_KEYS = ("META_API_KEY", "MODEL_API_KEY")
 # from the user's home directory - which needs no translation - and under this
 # deadline, so a broken WSL surfaces as an error instead of a silent freeze.
 WSL_PROBE_TIMEOUT_SECONDS = 20.0
+MUSE_TUI_HISTORY = "$HOME/.local/share/muse/tui-history.jsonl"
+MUSE_TUI_HISTORY_TAIL_BYTES = 65536
+MUSE_SESSION_ID_RE = re.compile(
+    r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+)
+
+
+def wsl_workspace_path(cwd: Path) -> str:
+    """Map a Windows working directory to its ``/mnt/<drive>`` WSL path."""
+
+    drive = str(getattr(cwd, "drive", "") or "")
+    if len(drive) != 2 or drive[1] != ":":
+        return ""
+    rest = str(cwd)[len(drive) :].replace("\\", "/").lstrip("/")
+    return f"/mnt/{drive[0].lower()}" + (f"/{rest}" if rest else "")
+
+
+def latest_tui_history_session(history: str, workspace: str) -> str:
+    """The last session Muse's TUI recorded for ``workspace``.
+
+    Muse's TUI appends ``{"project": <workspace>, "session": <id>}`` whenever a
+    prompt is submitted, which makes it a reliable "what did the user actually
+    use here last" record - unlike the session index, which can leave a real
+    session invisible (``missing_metadata``).
+    """
+
+    latest = ""
+    for line in str(history or "").splitlines():
+        text = line.strip()
+        if not text.startswith("{"):
+            continue
+        try:
+            entry = json.loads(text)
+        except ValueError:
+            continue
+        if not isinstance(entry, dict) or entry.get("project") != workspace:
+            continue
+        session = str(entry.get("session") or "").strip()
+        if MUSE_SESSION_ID_RE.fullmatch(session):
+            latest = session
+    return latest
 # Routed mode points Muse Code at the Ciel Router instead of Meta's Model API.
 # `muse --base-url <URL>` overrides the Meta provider base and Muse then calls
 # `<URL>/responses`, so the URL carries the router's `/v1` prefix (captured from
@@ -190,6 +233,8 @@ class MuseRuntimeContext:
                 check=False,
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 cwd=str(Path.home()),
                 timeout=WSL_PROBE_TIMEOUT_SECONDS,
             )
@@ -296,11 +341,9 @@ class MuseRuntimeContext:
         """
 
         cwd = Path.cwd()
-        drive = str(getattr(cwd, "drive", "") or "")
-        if len(drive) != 2 or drive[1] != ":":
+        linux = wsl_workspace_path(cwd)
+        if not linux:
             return True
-        rest = str(cwd)[len(drive) :].replace("\\", "/").lstrip("/")
-        linux = f"/mnt/{drive[0].lower()}" + (f"/{rest}" if rest else "")
         wsl = str(executable.command or "")
         if not wsl:
             return True
@@ -313,6 +356,62 @@ class MuseRuntimeContext:
             flush=True,
         )
         return False
+
+    def _read_tui_history(self, executable: MuseExecutable) -> str:
+        """Read the tail of Muse's TUI history, through WSL when needed."""
+
+        if executable.platform == "wsl":
+            wsl = str(executable.command or "")
+            if not wsl:
+                return ""
+            result = self._wsl_run(
+                [
+                    wsl,
+                    "-e",
+                    "sh",
+                    "-lc",
+                    f"tail -c {MUSE_TUI_HISTORY_TAIL_BYTES} {MUSE_TUI_HISTORY} "
+                    "2>/dev/null || true",
+                ]
+            )
+            return str(getattr(result, "stdout", "") or "") if result is not None else ""
+        try:
+            text = (Path.home() / ".local/share/muse/tui-history.jsonl").read_text(
+                encoding="utf-8", errors="replace"
+            )
+        except OSError:
+            return ""
+        return text[-MUSE_TUI_HISTORY_TAIL_BYTES:]
+
+    def _resolve_continue(
+        self, argv: list[str], executable: MuseExecutable
+    ) -> tuple[list[str], str]:
+        """Point a translated ``resume --last`` at the session the user used last.
+
+        Muse resolves ``--last`` through its session index, which can leave a
+        real session invisible (``status=missing_metadata``; live 2026-09-19:
+        the F:\\omini-router session could not be resumed with ``--last`` and
+        Muse started an empty session, while ``resume <id>`` restored it).
+        Muse's TUI history names the last session per workspace, so prefer it
+        and keep ``--last`` only when the history has nothing to say.
+        """
+
+        if "resume" not in argv or "--last" not in argv:
+            return argv, ""
+        workspace = (
+            wsl_workspace_path(Path.cwd())
+            if executable.platform == "wsl"
+            else str(Path.cwd())
+        )
+        if not workspace:
+            return argv, ""
+        session = latest_tui_history_session(
+            self._read_tui_history(executable), workspace
+        )
+        if not session:
+            return argv, ""
+        resolved = [session if value == "--last" else value for value in argv]
+        return resolved, f"session={session} workspace={workspace}"
 
     @staticmethod
     def _model(provider: str, provider_config: dict[str, Any]) -> str:
@@ -345,6 +444,10 @@ class MuseRuntimeContext:
         executable = self.install_if_missing()
         if executable is None:
             return 127
+        argv, continue_notes = self._resolve_continue(argv, executable)
+        if continue_notes:
+            log = self.lifecycle.log or (lambda _level, _message: None)
+            log("INFO", "muse_continue_resolved " + continue_notes)
         if executable.platform == "wsl" and not self._workspace_reachable(executable):
             return 2
         config = self.config.load()
