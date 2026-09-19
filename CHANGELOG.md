@@ -44,6 +44,14 @@ capability, followed by the complete commit ledger merged into each release.
   `input[0]`, and Meta rejects the item type itself, so the whole request
   answered 400 ``input[0]` did not match any supported type`. Definitions are
   still hoisted into `tools` when present.
+- Stop transcript discovery from freezing a launch or the console proxy when
+  the transcript store sits on a stalled relay: transcript scans (a WSL Muse's
+  sessions live under `\\wsl.localhost\...` on Windows) run on one shared
+  worker under a deadline and callers serve their cached view while a scan is
+  stuck, and a relay error during glob iteration (WinError 995) is tolerated.
+  A wedged WSL 9p relay made a `muse --continue` launch freeze right after the
+  remote-instructions sync and, once launched, blocked the proxy poll loop in
+  the same call.
 - Keep DeepSeek thinking-mode requests valid when the replayed history holds
   an assistant turn without a `thinking` block (a cross-provider turn, or a
   turn the router itself retried with thinking disabled): the adapter inserts

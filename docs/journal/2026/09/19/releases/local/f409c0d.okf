@@ -1,0 +1,13 @@
+okf_version: "1.0"
+task: "Local deploy of f409c0d (transcript scans run under a deadline; no caller blocks on a wedged relay)."
+commit: "f409c0d3dd59eacec5baea39798d00e35cb9a321"
+branch: "nightly-0.2.51 (local only; no push, no npm publish, no version bump)"
+install:
+  snapshot: "C:\\Users\\djlov\\.local\\share\\ciel-runtime-f409c0d3dd59eacec5baea39798d00e35cb9a321"
+  supersedes: "C:\\Users\\djlov\\.local\\share\\ciel-runtime-38f2d4603dd0aba580a9b1d4cbf27aa7360b1db7"
+  command: "install.ps1 from the repo working tree with CIEL_RUNTIME_INSTALL_HOME=<snapshot> and PREFIX=$HOME\\.local (variable named $snapHome this time; the earlier run's `$home` mistake is recorded in releases/local/38f2d46.okf)"
+  pin: "User environment variable CIEL_RUNTIME_HOME = the new snapshot (verified)."
+verification:
+  content: "Snapshot ciel_runtime_support/channel_transcript_repository.py is cmp-identical to the repo tree; importing the deployed module shows TRANSCRIPT_SCAN_DEADLINE_SECONDS=2.5 and _TranscriptScanWorker."
+  behaviour: "Under the still-wedged `\\\\wsl.localhost` relay, an isolated `muse --continue` launch on this tree reaches the console proxy and the Muse TUI runs with the mapped `resume --last` argv; proxy stacks stay in the normal poll loop."
+live_sessions_untouched: "Running sessions keep their routers until relaunched; a new launch resolves the new pin."
