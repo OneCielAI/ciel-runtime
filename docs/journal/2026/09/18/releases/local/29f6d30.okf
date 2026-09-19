@@ -1,0 +1,18 @@
+okf_version: "1.0"
+task: "Local deploy of the Responses Lite tool-identity fix (and the DeepSeek thinking fix committed earlier the same day) so a relaunched session can use them."
+commits:
+  - "d2046d2 fix(deepseek): keep thinking mode valid across replayed turns"
+  - "80840a8 docs(muse): describe the routed Meta Model API mode"
+  - "29f6d30 fix(responses): keep Responses Lite tool calls runnable end to end"
+branch: "nightly-0.2.50 (local only; no push, no npm publish, no version bump)"
+install:
+  snapshot: "C:\\Users\\djlov\\.local\\share\\ciel-runtime-29f6d3070b0ffdd44cf4480739265e9662f966c6"
+  supersedes: "C:\\Users\\djlov\\.local\\share\\ciel-runtime-80840a89cdd47c91918a89cd7456105bf2a25627 (the earlier deploy of the same day, which lacked the tool-identity fix)"
+  command: "install.ps1 from the repo working tree with CIEL_RUNTIME_INSTALL_HOME=<snapshot> and PREFIX=$HOME\\.local"
+  pin: "User environment variable CIEL_RUNTIME_HOME = the new snapshot; ~/.local/bin entry scripts resolve the registered value."
+verification:
+  content: "Snapshot support tree is byte-identical to the working tree (diff -rq clean, __pycache__ excluded). protocols/openai_responses.py carries _replayed_tool_call_name and _namespace_member_identity; providers/deepseek.py carries THINKING_PASSTHROUGH_PLACEHOLDER."
+  behaviour: "Isolated run of the deployed snapshot: anthropic_message_to_openai_response with the lite catalogue resolves a bare upstream name to its member identity ({\"name\": \"sleep\", \"namespace\": \"clock\"})."
+  entrypoint: "~/.local/bin/ciel-runtimectl.ps1 version -> 'ciel-runtime 0.2.51' through the registered snapshot home."
+live_sessions_untouched: "The running client (pid 98964) and its workspace router (pid 28160) still execute ciel-runtime-d9edeb3...; both fixes take effect when that session is relaunched (ciel-runtime codex resume ...), which restarts its router on the new snapshot."
+not_done: "No push, no npm publish, no version bump. The muse-spark `input[0]` 400 remains open (no captured failing body yet; see docs/journal/2026/09/18/fixes/providers/deepseek-thinking-passthrough.okf)."
