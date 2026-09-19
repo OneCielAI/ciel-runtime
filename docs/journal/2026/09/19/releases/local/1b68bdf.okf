@@ -1,0 +1,14 @@
+okf_version: "1.0"
+task: "Local deploy of 1b68bdf (Muse stale-lock sweep + resume resolution through existing sessions)."
+commit: "1b68bdfc97dc39115d317411d405065225dfdd4b"
+branch: "nightly (local only; no push, no npm publish, no version bump)"
+install:
+  snapshot: "C:\\Users\\djlov\\.local\\share\\ciel-runtime-1b68bdfc97dc39115d317411d405065225dfdd4b"
+  supersedes: "C:\\Users\\djlov\\.local\\share\\ciel-runtime-d931ef8c1725295857b053453f1ef71bc5a6db87"
+  command: "install.ps1 from the repo working tree with CIEL_RUNTIME_INSTALL_HOME=<snapshot> and PREFIX=$HOME\\.local"
+  pin: "User environment variable CIEL_RUNTIME_HOME = the new snapshot (verified)."
+  mishap: "A first run passed CIEL_RUNTIME_HOME instead of CIEL_RUNTIME_INSTALL_HOME: the installer ignored it as ephemeral, installed into the legacy C:\\Users\\djlov\\.local\\share\\ciel-runtime (present since 2026-08-09) and pinned that path. Re-running with CIEL_RUNTIME_INSTALL_HOME restored the snapshot pin; the legacy directory now holds a copy of the new tree."
+verification:
+  content: "Snapshot ciel_runtime_support/muse_runtime_context.py is byte-identical to the repo tree (cmp); tests/ and CHANGELOG.md are not part of an install."
+  behaviour: "The deployed module's own `muse_stale_lock_sweep`/`session_exists_script` ran live against the store: the sweep removed the stale lock left by a prior resume and the resolver answered `resume 01a0b860-...` for omini-router, skipping the dead history id and leaving `resume brown-procyon` untouched."
+  live: "See fixes/runtime/muse-stale-lock-blocks-resume.okf - two launcher cycles from F:\\omini-router (sweep removed=0, then removed=1 with the killed session's lock) each resumed 01a0b860 with the conversation restored."
