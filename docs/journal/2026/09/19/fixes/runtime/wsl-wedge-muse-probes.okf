@@ -1,0 +1,23 @@
+okf_version: "1.0"
+task: "User: Muse Code with --continue still freezes in F:\\aap.ezonebot (and: 'WSL is the reason - it worked until a moment ago'). Diagnose, unblock the machine, and keep the launch from freezing that way again."
+symptom: "A launch started at 14:10:14 stayed frozen with no output. The workspace log (9491, F:\\aap.ezonebot) stops after `remote_instructions_unchanged runtime=muse reason=launch` (14:10:21) - no router, no console-proxy lines."
+diagnosis:
+  live_process: "The launch was still running 46 minutes later: pid 83824 (`ciel_runtime.py cli --continue`, the f409c0d snapshot, cwd F:\\aap.ezonebot) with one child, pid 49084: `wsl.exe -e sh -lc \"command -v muse\"`, also 46 minutes old. So the freeze was the WSL discovery probe, not the transcript path."
+  control_experiment: "`wsl -e sh -lc \"command -v muse\"` answered in 0.22s from C:\\... but hung >15s from F:\\aap.ezonebot; the same command from F: with `wsl --cd /` answered in 0.23s. Inside WSL, `ls /mnt/f`, `ls -d /mnt/f/aap.ezonebot` and even stat'ing one entry hung, while /mnt/c worked. Conclusion: the F: drvfs (9p) mount was wedged, and `wsl.exe` stalls translating an inherited cwd on the wedged drive before it runs anything. The earlier `\\\\wsl.localhost\\...` relay hang is the same wedged transport in the other direction - one environment failure, several surfaces."
+  user_confirmation: "The user reported independently that WSL itself was not working ('worked until a moment ago, then stopped')."
+recovery:
+  wsl_restart: "`wsl --terminate Ubuntu-26.04` (narrower than `wsl --shutdown`; docker-desktop stays up). Cold start 2.07s; `/mnt/f`, `/mnt/f/aap.ezonebot` and the previously hung probe from F: all answer in ~0.16s again."
+  frozen_launch: "Killed pid 83824 and its tree; it could not have proceeded while the mount was wedged."
+  side_effects: "The user's long-running Muse session (pid 36399) and the two D-state orphan repro TUIs died with the distro restart - Muse sessions persist on disk and resume with `muse resume --last`."
+code_fix:
+  - "muse_runtime_context: launcher-side WSL probes (`command -v muse`, the install liveness check, and a new pre-spawn workspace-reachability probe) run from the user's home directory - which needs no cwd translation - under WSL_PROBE_TIMEOUT_SECONDS (20s)."
+  - "install_if_missing: a WSL that does not answer prints the `wsl --shutdown` remedy instead of trying to install Muse over a broken WSL."
+  - "launch: when the workspace cwd cannot be entered (probe timeout), the launch stops with that message instead of spawning a TUI that would hang on the same translation. A non-timeout answer (e.g. path-not-found) still proceeds."
+  - "muse_mcp.wsl_settings_store: settings read/write also run from the home directory under a deadline; a timeout becomes a logged failed sync, not a hang."
+verification:
+  live: "Isolated launch from an F: cwd (F:\\ciel-muse-verify, scratch) after the fix: router spawned, `channel_windows_console_proxy_started`, and the Muse TUI itself ran `resume --last` and answered 'no retained sessions found for this workspace' (expected - the scratch dir has none). Nothing hung."
+  tests: "3 new (probe cwd+deadline, wedged discovery skips the installer with the message, wedged workspace probe stops the launch); unit 1573 OK (skipped=45); ruff clean."
+  cleanup: "Scratch dir removed; ~/.config/muse/settings.json restored byte-identical from the pre-test backup after the isolated runs' sync removed the router entry."
+not_done:
+  - "The user's real F:\\aap.ezonebot launch was not run from here (it opens their interactive session); the same path is covered by the F:-cwd isolated launch."
+  - "19592b0 is local only (committed, deployed as a pinned snapshot); no push/nightly yet."

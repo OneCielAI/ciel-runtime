@@ -1,0 +1,13 @@
+okf_version: "1.0"
+task: "Local deploy of 19592b0 (bounded, cwd-neutral WSL probes in the Muse launch path)."
+commit: "19592b07799e99f1f80789be4aa7b8026bb2fd33"
+branch: "nightly (committed on the nightly line; no push, no npm publish, no version bump)"
+install:
+  snapshot: "C:\\Users\\djlov\\.local\\share\\ciel-runtime-19592b07799e99f1f80789be4aa7b8026bb2fd33"
+  supersedes: "C:\\Users\\djlov\\.local\\share\\ciel-runtime-f409c0d3dd59eacec5baea39798d00e35cb9a321"
+  command: "install.ps1 from the repo working tree with CIEL_RUNTIME_INSTALL_HOME=<snapshot> and PREFIX=$HOME\\.local"
+  pin: "User environment variable CIEL_RUNTIME_HOME = the new snapshot (verified)."
+verification:
+  content: "Snapshot muse_runtime_context.py and muse_mcp.py are cmp-identical to the repo tree."
+  behaviour: "Importing the deployed modules shows WSL_PROBE_TIMEOUT_SECONDS=20.0, WSL_SETTINGS_TIMEOUT_SECONDS=20.0 and MuseRuntimeContext._workspace_reachable present."
+  live: "Isolated `muse --continue` launch from an F: cwd reaches the console proxy and the TUI after the fix (see fixes/runtime/wsl-wedge-muse-probes.okf)."

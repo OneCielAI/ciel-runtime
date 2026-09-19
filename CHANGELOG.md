@@ -52,6 +52,14 @@ capability, followed by the complete commit ledger merged into each release.
   A wedged WSL 9p relay made a `muse --continue` launch freeze right after the
   remote-instructions sync and, once launched, blocked the proxy poll loop in
   the same call.
+- Bound the launcher's WSL probes so a wedged WSL mount fails fast instead of
+  freezing a launch: `wsl.exe` translates the inherited workspace cwd before
+  running anything, and that translation stalls indefinitely when a drvfs/9p
+  mount is wedged (live: a `muse --continue` launch from `F:\aap.ezonebot` sat
+  silently in `wsl -e sh -lc "command -v muse"` for 46 minutes). Muse
+  discovery, the install check, a new pre-spawn workspace probe and the Muse
+  settings sync now run from the user's home directory under a 20s deadline
+  and report the `wsl --shutdown` remedy when WSL does not answer.
 - Keep DeepSeek thinking-mode requests valid when the replayed history holds
   an assistant turn without a `thinking` block (a cross-provider turn, or a
   turn the router itself retried with thinking disabled): the adapter inserts
