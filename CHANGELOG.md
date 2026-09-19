@@ -15,6 +15,14 @@ capability, followed by the complete commit ledger merged into each release.
   WSL-reachable address (`--ca-web-address`) and the launch log prints that
   remedy when the entry cannot be attached. `muse.router_mcp=false` disables
   the attach.
+- Translate Claude-style session flags for Muse Code launches instead of
+  handing them to Muse verbatim: `--continue`/bare `-c` becomes
+  `muse resume --last`, `--resume`/`-r`/`--session-id <ref>` carry the
+  reference into `resume <session-ref>`, and an argv that already names a
+  subcommand keeps it and drops the flag; the launch log records the mapping.
+  The prelaunch menu persists a Muse Code launch as the remembered choice, so
+  the runtime used last stays the default selection, and the session-restart
+  relaunch resumes Muse with `resume --last`.
 - Support the several ways a message can be injected into Muse Code instead of
   a single terminal paste: an MSP session host (`muse serve`) the runtime owns,
   the interactive console proxy, headless `muse exec`, and Muse's cross-session

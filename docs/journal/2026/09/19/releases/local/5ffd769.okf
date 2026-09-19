@@ -1,0 +1,16 @@
+okf_version: "1.0"
+task: "Local deploy of the Muse launch fixes (--continue translation, remembered launch choice, restart resume --last) so a relaunched session resolves them."
+commits:
+  - "5ffd769 fix(muse): translate --continue and remember the Muse launch choice"
+branch: "nightly-0.2.51 (local only; no push, no npm publish, no version bump)"
+install:
+  snapshot: "C:\\Users\\djlov\\.local\\share\\ciel-runtime-5ffd769104edb76c328993ff72f7e28980ca67d4"
+  pin: "User environment variable CIEL_RUNTIME_HOME points at the snapshot (re-verified at deploy time before the nightly push)."
+verification:
+  snapshot_matches_head: "cmp of every source file 5ffd769 touches (muse_cli.py, muse_runtime_context.py, prelaunch_launch_preference.py, prelaunch_shell_context.py, runtime_session_restart.py) against the repo working tree at HEAD: all identical."
+  behaviour: "Ran the deployed snapshot's own modules with the system Python 3.14: muse_passthrough_mapping(['--yolo','--continue']) -> ['--yolo','resume','--last'] with note '--continue -> resume --last'; muse_passthrough_mapping(['--resume','01a0b8']) -> ['resume','01a0b8']; RESUME_COMMANDS['muse'] == ('resume','--last'); 'launch-muse' in REMEMBERED_LAUNCH_ACTIONS."
+  entrypoint: "~/.local/bin/ciel-runtimectl.ps1 version -> 'ciel-runtime 0.2.51'."
+test_note: "Commit-time groups for 5ffd769: unit 1568 OK, router 1139 OK, runtime 296 OK; ruff clean (recorded in the commit message)."
+live_sessions_untouched: "Running sessions keep the snapshot they were launched from; the argv mapping and menu memory apply to launches that start after this pin."
+not_done:
+  - "A real Muse TUI relaunch through the new mapping is not exercised here; the argv contract is covered by tests and by the deployed modules."
