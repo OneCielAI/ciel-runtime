@@ -5,6 +5,13 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+- Keep Responses Lite tool calls runnable end to end: a replayed call stored
+  under its bare member name (`exec`) is now sent upstream under the aliased
+  name the request declares (`functions__exec`), and a call that still comes
+  back bare restores its namespace and custom-tool contract on the way to the
+  client. Without this, a model echoing the history reached Codex as a plain
+  function_call — "tool exec invoked with incompatible payload" for the
+  code-mode tool and "unsupported call" for every other namespace member.
 - Keep DeepSeek thinking-mode requests valid when the replayed history holds
   an assistant turn without a `thinking` block (a cross-provider turn, or a
   turn the router itself retried with thinking disabled): the adapter inserts

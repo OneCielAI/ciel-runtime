@@ -1,7 +1,9 @@
 import unittest
 
 from ciel_runtime_support.protocols.openai_responses import (
+    _CODEX_0150_CODE_MODE_EXEC_LARK,
     anthropic_message_to_openai_response,
+    openai_responses_to_anthropic_messages,
 )
 from ciel_runtime_support.responses_input_compatibility import (
     drop_rejected_tool_pair,
@@ -527,6 +529,140 @@ class HoistAdditionalToolsTests(unittest.TestCase):
         plain = {"input": "plain string"}
         self.assertIs(plain, hoist_additional_tools(plain))
 
+
+class LiteCatalogueToolIdentityTests(unittest.TestCase):
+    """Replayed bare tool names must keep their catalogue identity.
+
+    Codex's Responses Lite catalogue declares namespace members under aliased
+    wire names (``functions__exec``), while the history it replays holds calls
+    under the name the client was originally given (bare ``exec``). A model
+    echoing that history calls the bare name, and the router used to hand the
+    client a plain function_call: the client answers ``Fatal error: tool exec
+    invoked with incompatible payload`` for the code-mode custom tool and
+    ``unsupported call`` for a member of any other namespace (observed live
+    2026-09-18).
+    """
+
+    def catalogue_body(self):
+        return {
+            "model": "ciel-runtime-deepseek-deepseek-v4-flash",
+            "input": [
+                {
+                    "type": "additional_tools",
+                    "role": "developer",
+                    "tools": [
+                        {
+                            "type": "namespace",
+                            "name": "functions",
+                            "tools": [
+                                {
+                                    "type": "custom",
+                                    "name": "exec",
+                                    "format": {
+                                        "type": "grammar",
+                                        "syntax": "lark",
+                                        "definition": _CODEX_0150_CODE_MODE_EXEC_LARK,
+                                    },
+                                },
+                                {"type": "function", "name": "wait", "parameters": {}},
+                            ],
+                        },
+                        {
+                            "type": "namespace",
+                            "name": "clock",
+                            "tools": [{"type": "function", "name": "sleep", "parameters": {}}],
+                        },
+                    ],
+                }
+            ],
+        }
+
+    def project(self, name, payload):
+        return anthropic_message_to_openai_response(
+            {
+                "model": "deepseek-v4-flash",
+                "content": [
+                    {"type": "tool_use", "id": "call_1", "name": name, "input": payload}
+                ],
+            },
+            self.catalogue_body(),
+        )["output"][0]
+
+    def test_bare_custom_member_projects_as_the_custom_tool_call(self):
+        item = self.project("exec", {"input": "// @exec: {}\n1+1"})
+
+        self.assertEqual("custom_tool_call", item["type"])
+        self.assertEqual("exec", item["name"])
+        self.assertEqual("functions", item["namespace"])
+        self.assertEqual("// @exec: {}\n1+1", item["input"])
+
+    def test_bare_member_of_another_namespace_keeps_its_namespace(self):
+        item = self.project("sleep", {"duration_ms": 5})
+
+        self.assertEqual("function_call", item["type"])
+        self.assertEqual("sleep", item["name"])
+        self.assertEqual("clock", item["namespace"])
+
+    def test_aliased_member_projection_is_unchanged(self):
+        item = self.project("functions__exec", {"input": "1+1"})
+
+        self.assertEqual("custom_tool_call", item["type"])
+        self.assertEqual("exec", item["name"])
+        self.assertEqual("functions", item["namespace"])
+
+    def test_undeclared_bare_name_is_left_alone(self):
+        item = self.project("js_reset", {})
+
+        self.assertEqual("function_call", item["type"])
+        self.assertEqual("js_reset", item["name"])
+        self.assertNotIn("namespace", item)
+
+    def test_replayed_bare_calls_convert_to_the_declared_wire_name(self):
+        body = self.catalogue_body()
+        body["input"] += [
+            {"type": "function_call", "name": "exec", "arguments": "{}", "call_id": "call_1"},
+            {"type": "function_call", "name": "sleep", "arguments": "{}", "call_id": "call_2"},
+            {"type": "function_call", "name": "js_reset", "arguments": "{}", "call_id": "call_3"},
+        ]
+
+        converted = openai_responses_to_anthropic_messages(body, "model")
+        names = [
+            block["name"]
+            for message in converted["messages"]
+            if isinstance(message.get("content"), list)
+            for block in message["content"]
+            if isinstance(block, dict) and block.get("type") == "tool_use"
+        ]
+
+        self.assertEqual(["functions__exec", "clock__sleep", "js_reset"], names)
+        self.assertEqual(
+            ["functions__exec", "functions__wait", "clock__sleep"],
+            [tool["name"] for tool in converted["tools"]],
+        )
+
+    def test_replayed_namespaced_call_uses_that_namespace(self):
+        body = self.catalogue_body()
+        body["input"].append(
+            {
+                "type": "function_call",
+                "name": "sleep",
+                "namespace": "clock",
+                "arguments": "{}",
+                "call_id": "call_1",
+            }
+        )
+
+        converted = openai_responses_to_anthropic_messages(body, "model")
+
+        names = [
+            block["name"]
+            for message in converted["messages"]
+            if isinstance(message.get("content"), list)
+            for block in message["content"]
+            if isinstance(block, dict) and block.get("type") == "tool_use"
+        ]
+
+        self.assertEqual(["clock__sleep"], names)
 
 
 if __name__ == "__main__":

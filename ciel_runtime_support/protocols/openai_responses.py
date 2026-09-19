@@ -180,6 +180,71 @@ def _namespace_tool_identity(
     return matches[0] if len(matches) == 1 else None
 
 
+def _namespace_member_identity(
+    tools: Any,
+    member_name: str,
+    *,
+    namespace: str | None = None,
+) -> tuple[str, str, str] | None:
+    """Resolve an unaliased member name to its catalogue namespace.
+
+    A replayed tool call carries the name the client was given when it was
+    recorded. Calls stored before the catalogue was namespaced carry the bare
+    member name (``exec``), and a model echoing its history calls that name
+    while the declaration says ``functions__exec``. ``namespace`` pins the
+    lookup when the item carries one; otherwise the name must match exactly
+    one namespace member.
+    """
+
+    if not isinstance(tools, list):
+        return None
+    matches: list[tuple[str, str, str]] = []
+    for tool in tools:
+        if not isinstance(tool, dict) or tool.get("type") != "namespace":
+            continue
+        declared_namespace = tool.get("name")
+        members = tool.get("tools")
+        if not isinstance(declared_namespace, str) or not isinstance(members, list):
+            continue
+        if namespace is not None and declared_namespace != namespace:
+            continue
+        for member in members:
+            if not isinstance(member, dict):
+                continue
+            member_type = member.get("type")
+            if (
+                member_type in {"function", "custom"}
+                and str(member.get("name") or "") == member_name
+            ):
+                matches.append((declared_namespace, member_name, member_type))
+    return matches[0] if len(matches) == 1 else None
+
+
+def _replayed_tool_call_name(
+    item: dict[str, Any], source_tools: Any
+) -> str:
+    """Name a replayed tool call the way the current request declares it.
+
+    The history holds calls stored under the client's own spelling (a bare
+    ``exec`` from before the catalogue was namespaced, or ``js`` with its
+    namespace field). The request declares namespace members under their
+    aliased wire name, so a history entry left bare makes the model answer
+    with the bare name while the declaration says something else (observed
+    live 2026-09-18: 46 replayed ``exec`` calls against a ``functions__exec``
+    declaration). Alias the call when the catalogue declares that member;
+    leave anything else exactly as the client recorded it.
+    """
+
+    name = str(item.get("name") or "tool")
+    namespace = item.get("namespace")
+    identity = _namespace_member_identity(
+        source_tools,
+        name,
+        namespace=namespace if isinstance(namespace, str) and namespace else None,
+    )
+    return _namespace_tool_alias(identity[0], name) if identity else name
+
+
 def _responses_source_tools(body: dict[str, Any] | None) -> Any:
     """Return the tool declaration carried by a Responses request.
 
@@ -571,6 +636,30 @@ def _custom_tool_source(tools: Any, emitted_name: str) -> dict[str, Any] | None:
                 and member.get("type") == "custom"
                 and isinstance(member.get("name"), str)
                 and _namespace_tool_alias(namespace, member["name"]) == emitted_name
+            ):
+                matches.append(member)
+    return matches[0] if len(matches) == 1 else None
+
+
+def _custom_member_source(tools: Any, member_name: str) -> dict[str, Any] | None:
+    """Return the unique custom namespace member declared as ``member_name``.
+
+    The bare-name counterpart of :func:`_custom_tool_source`: a model echoing a
+    replayed call under the member's bare name still needs the custom-tool
+    contract (raw input, grammar check) restored.
+    """
+
+    if not isinstance(tools, list):
+        return None
+    matches: list[dict[str, Any]] = []
+    for tool in tools:
+        if not isinstance(tool, dict) or tool.get("type") != "namespace":
+            continue
+        for member in tool.get("tools") or []:
+            if (
+                isinstance(member, dict)
+                and member.get("type") == "custom"
+                and str(member.get("name") or "") == member_name
             ):
                 matches.append(member)
     return matches[0] if len(matches) == 1 else None
@@ -3215,6 +3304,7 @@ def openai_responses_to_anthropic_messages(body: dict[str, Any], fallback_model:
     saw_conversation_item = False
     pending_reasoning: list[dict[str, Any]] = []
     pending_tool_role = ""
+    source_tools = _responses_source_tools(body)
     for item in raw_input:
         if not isinstance(item, dict):
             continue
@@ -3240,7 +3330,7 @@ def openai_responses_to_anthropic_messages(body: dict[str, Any], fallback_model:
                 {
                     "type": "tool_use",
                     "id": call_id,
-                    "name": str(item.get("name") or "tool"),
+                    "name": _replayed_tool_call_name(item, source_tools),
                     "input": (
                         _custom_tool_input(item.get("input"))
                         if item_type == "custom_tool_call"
@@ -3644,9 +3734,13 @@ def anthropic_message_to_openai_response(
                 )
             call_id = str(call_id_value or f"call_{index + 1}")
             name = str(name_value or "tool")
+            # The upstream echoes the history; a call recorded before the
+            # catalogue was namespaced comes back bare ("exec") while the
+            # declaration says "functions__exec". Restore the same identity
+            # the aliased spelling would resolve to.
             namespace_identity = _namespace_tool_identity(
                 source_tools, name
-            )
+            ) or _namespace_member_identity(source_tools, name)
             if strict and toolset_name is not None and (
                 namespace_identity is None
                 or toolset_name != namespace_identity[0]
@@ -3656,7 +3750,9 @@ def anthropic_message_to_openai_response(
                     "the source Responses namespace declaration"
                 )
             output_name = namespace_identity[1] if namespace_identity else name
-            custom_source = _custom_tool_source(source_tools, name)
+            custom_source = _custom_tool_source(
+                source_tools, name
+            ) or _custom_member_source(source_tools, output_name)
             is_custom = (
                 namespace_identity is not None
                 and namespace_identity[2] == "custom"
