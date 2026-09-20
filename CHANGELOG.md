@@ -5,6 +5,17 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+- Keep Claude Code's bypass permissions mode working for the Claude-in-Chrome
+  MCP tools. Claude Code 2.1.278 gives that server a classifier "floor": in a
+  bypassPermissions/auto session its tools are re-routed to the auto-mode
+  classifier even though the session bypasses prompts, and when the classifier
+  model cannot answer the call is denied fail-closed ("<model> is temporarily
+  unavailable (rate-limited), so auto mode cannot determine the safety of
+  mcp__claude-in-chrome__...", `toolDenialKind=automode-unavailable` — live
+  2026-09-20 in G:\\ciel-Walkie, classifier model rate-limited through the
+  router). The launcher now exports `CLAUDE_CHROME_CLASSIFIER_FLOOR=0` on every
+  Claude Code launch (routed and Claude Native), since it always launches with
+  `--dangerously-skip-permissions`; other MCP servers were never affected.
 - Attach the router's MCP server to Muse Code launches so a Muse session can
   restart itself (`restart_session`), read channel inputs (`submit_input`) and
   report telemetry like a routed Claude/Codex launch does. Muse has no

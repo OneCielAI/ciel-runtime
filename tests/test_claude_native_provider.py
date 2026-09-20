@@ -2,9 +2,9 @@
 - PROVIDER_LABELS exposes the "Claude Native" label.
 - PROVIDER_ALIASES accepts claude-native / native / claude-code synonyms.
 - env_vars() for native mode injects only the minimal marker (and
-  ANTHROPIC_API_KEY when stored), so all Anthropic backend, model, advisor,
-  output-token, auto-compact and similar settings revert to Claude Code's
-  own defaults.
+  ANTHROPIC_API_KEY when stored, plus the CLAUDE_CHROME_CLASSIFIER_FLOOR=0
+  bypass guard), so all Anthropic backend, model, advisor, output-token,
+  auto-compact and similar settings revert to Claude Code's own defaults.
 - stop_router_with_guarantee() polls router_up() and raises if the router
   can't be brought down.
 - cleanup_managed_services_for_provider() always kills the router for native,

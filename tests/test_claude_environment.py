@@ -74,10 +74,14 @@ class ClaudeEnvironmentPolicyTests(unittest.TestCase):
         self.assertEqual(1_000_000, snapshot.auto_compact_window)
         self.assertEqual(89, snapshot.auto_compact_percent)
 
-    def test_native_projection_only_sets_marker_and_meaningful_key(self):
+    def test_native_projection_only_sets_marker_key_and_chrome_floor_off(self):
         projection = self._projection(native=True, key="secret")
         self.assertEqual(
-            {"CIEL_RUNTIME_PROVIDER": "anthropic", "ANTHROPIC_API_KEY": "secret"},
+            {
+                "CIEL_RUNTIME_PROVIDER": "anthropic",
+                "ANTHROPIC_API_KEY": "secret",
+                "CLAUDE_CHROME_CLASSIFIER_FLOOR": "0",
+            },
             projection.build({"provider": "anthropic"}),
         )
 
@@ -90,6 +94,19 @@ class ClaudeEnvironmentPolicyTests(unittest.TestCase):
         self.assertEqual("1024", env["CLAUDE_CODE_MAX_OUTPUT_TOKENS"])
         self.assertEqual("1", env["CLAUDE_CODE_DISABLE_TERMINAL_TITLE"])
         self.assertNotIn("CLAUDE_CODE_SUBAGENT_MODEL_FORCE", env)
+
+    def test_chrome_classifier_floor_is_disabled_for_every_claude_launch(self):
+        # Claude Code 2.1.278 re-routes Claude-in-Chrome MCP tools to its
+        # auto-mode classifier even under bypassPermissions unless this triBool
+        # env var disables the floor; ciel-runtime always launches Claude Code
+        # with --dangerously-skip-permissions, so every projection must carry it.
+        for native in (True, False):
+            env = self._projection(native=native, key="").build({"provider": "anthropic"})
+            self.assertEqual(
+                "0",
+                env["CLAUDE_CHROME_CLASSIFIER_FLOOR"],
+                f"native={native}",
+            )
 
     def test_configured_subagent_model_is_routed_and_forced(self):
         projection = self._projection(native=False, key="")
@@ -135,6 +152,7 @@ class ClaudeEnvironmentPolicyTests(unittest.TestCase):
         self.assertIn("unset ANTHROPIC_API_KEY", lines)
         self.assertIn("unset CLAUDE_CODE_SUBAGENT_MODEL_FORCE", lines)
         self.assertIn("unset CIEL_RUNTIME_PROVIDER", lines)
+        self.assertIn("unset CLAUDE_CHROME_CLASSIFIER_FLOOR", lines)
 
     @staticmethod
     def _model_policy():

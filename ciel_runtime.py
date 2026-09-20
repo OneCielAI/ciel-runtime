@@ -3728,10 +3728,10 @@ def env_vars(cfg: dict[str, Any] | None = None) -> dict[str, str]:
     Anthropic, ciel-runtime MUST NOT inject anything that would alter Claude
     Code's default model selection, backend URL, advisor flow, output-token
     cap, auto-compact window, or any other Claude-Code-visible behavior.
-    The only override is an optional ``ANTHROPIC_API_KEY`` if the user has
-    one stored in ciel-runtime's config (Claude Code's OAuth credentials win
-    otherwise). ``CIEL_RUNTIME_PROVIDER=anthropic`` is set purely as a marker
-    for ciel-runtime's own helpers (statusline, hooks) so they can self-suppress.
+    The only overrides are an optional ``ANTHROPIC_API_KEY`` (Claude Code's
+    OAuth wins) and ``CLAUDE_CHROME_CLASSIFIER_FLOOR=0``, which stops the
+    Claude-in-Chrome classifier floor from overriding the bypass mode.
+    ``CIEL_RUNTIME_PROVIDER=anthropic`` marks ciel-runtime's own helpers only.
     """
     return claude_environment_projection().build(cfg)
 

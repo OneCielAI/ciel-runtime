@@ -45,6 +45,22 @@ CLAUDE_PROJECTED_ENV_KEYS = (
 CLAUDE_AUTO_COMPACT_WINDOW_MAX = 1_000_000
 ANTHROPIC_STANDARD_CONTEXT_TOKENS = 200_000
 
+# Claude Code >= 2.1.278 gives the built-in Claude-in-Chrome MCP server a
+# classifier "floor": in a bypassPermissions (or auto) session its tools are
+# re-routed to the auto-mode classifier, which is fail-closed when the
+# classifier model cannot answer - observed live 2026-09-20 in G:\ciel-Walkie:
+# "<model> is temporarily unavailable (rate-limited), so auto mode cannot
+# determine the safety of mcp__claude-in-chrome__tabs_context_mcp right now"
+# (toolDenialKind=automode-unavailable) while a different MCP server's tool ran
+# normally.  Ciel Runtime always launches Claude Code with
+# --dangerously-skip-permissions, so without this the "bypass" launch silently
+# runs the browser tools in auto mode.  Claude Code parses the variable as a
+# triBool: 0/false/no/off disable the floor, 1/true/yes/on force it, and an
+# unset value falls back to Anthropic's `tengu_cowork_chrome_automode_default`
+# feature flag.
+CLAUDE_CHROME_CLASSIFIER_FLOOR_ENV = "CLAUDE_CHROME_CLASSIFIER_FLOOR"
+CLAUDE_CHROME_CLASSIFIER_FLOOR_OFF = "0"
+
 
 def anthropic_routed_mode(
     provider: str,
@@ -474,7 +490,10 @@ class ClaudeEnvironmentProjection:
         config = config or self._sources.load_config()
         provider, provider_config = self._sources.current_provider(config)
         if self._sources.direct_native(provider, provider_config):
-            env = {"CIEL_RUNTIME_PROVIDER": provider}
+            env = {
+                "CIEL_RUNTIME_PROVIDER": provider,
+                CLAUDE_CHROME_CLASSIFIER_FLOOR_ENV: CLAUDE_CHROME_CLASSIFIER_FLOOR_OFF,
+            }
             key = self._sources.primary_api_key(provider, provider_config)
             if self._sources.meaningful_key(key):
                 env["ANTHROPIC_API_KEY"] = str(key)
@@ -516,6 +535,7 @@ class ClaudeEnvironmentProjection:
             "CLAUDE_CODE_SUBAGENT_MODEL": subagent_model,
             "CIEL_RUNTIME_MODEL_ALIAS": claude_model,
             "CIEL_RUNTIME_BYPASS_PERMISSIONS": "1",
+            CLAUDE_CHROME_CLASSIFIER_FLOOR_ENV: CLAUDE_CHROME_CLASSIFIER_FLOOR_OFF,
         }
         if configured_subagent:
             env["CLAUDE_CODE_SUBAGENT_MODEL_FORCE"] = "1"
@@ -562,7 +582,7 @@ class ClaudeRuntimeSettingsPolicy:
 
 class ClaudeEnvironmentShellRenderer:
     OPTIONAL_KEYS = ("ANTHROPIC_BASE_URL", "ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN")
-    PROJECTED_KEYS = CLAUDE_PROJECTED_ENV_KEYS
+    PROJECTED_KEYS = (*CLAUDE_PROJECTED_ENV_KEYS, CLAUDE_CHROME_CLASSIFIER_FLOOR_ENV)
 
     @classmethod
     def lines(cls, env: dict[str, str]) -> list[str]:
@@ -574,6 +594,8 @@ class ClaudeEnvironmentShellRenderer:
 
 __all__ = [
     "CLAUDE_AUTO_COMPACT_WINDOW_MAX",
+    "CLAUDE_CHROME_CLASSIFIER_FLOOR_ENV",
+    "CLAUDE_CHROME_CLASSIFIER_FLOOR_OFF",
     "CLAUDE_PROJECTED_ENV_KEYS",
     "ClaudeCompactionSnapshot",
     "ClaudeEnvironmentFeaturePorts",
