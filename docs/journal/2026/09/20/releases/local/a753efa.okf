@@ -1,0 +1,19 @@
+okf_version: "1.0"
+task: "Local deploy of a753efa (CLAUDE_CHROME_CLASSIFIER_FLOOR=0 on every Claude Code launch so bypass stays bypass for the Claude-in-chrome MCP tools)."
+commit: "a753efa90a05dbb9b42647ec47587e6c09ed4278"
+branch: "nightly (local only; no push, no npm publish, no version bump)"
+install:
+  snapshot: "C:\\Users\\djlov\\.local\\share\\ciel-runtime-a753efa90a05dbb9b42647ec47587e6c09ed4278"
+  supersedes: "C:\\Users\\djlov\\.local\\share\\ciel-runtime-1b68bdfc97dc39115d317411d405065225dfdd4b"
+  command: "install.ps1 from the repo working tree with CIEL_RUNTIME_INSTALL_HOME=<snapshot> and PREFIX=C:\\Users\\djlov\\.local (no CIEL_RUNTIME_HOME mishap this time)"
+  pin: "User environment variable CIEL_RUNTIME_HOME = the new snapshot (verified via [Environment]::GetEnvironmentVariable('CIEL_RUNTIME_HOME','User'))."
+  side_effects: "install.ps1 only copies the tree into the snapshot, rewrites the User pin/PATH and broadcasts the environment change; it touches no running router or session."
+verification:
+  content: "Snapshot ciel_runtime.py and ciel_runtime_support/claude_environment.py are byte-identical to the repo tree (cmp). tests/, CHANGELOG.md and docs/ are not part of an install."
+  env_surface: "Deployed CLI run with the G:\\ciel-Walkie workspace as cwd (`python <snapshot>/ciel_runtime.py env`; host CIEL_RUNTIME_LAUNCH_CWD/STATE_DIR/WORKSPACE_STATE_DIR cleared so the host session cannot leak in) prints export CLAUDE_CHROME_CLASSIFIER_FLOOR=\"0\" together with the same ANTHROPIC_BASE_URL=http://127.0.0.1:9469 / ANTHROPIC_MODEL=ciel-runtime-anthropic-claude-opus-5[1m] pair the failing session ran with."
+  behaviour: "See fixes/runtime/claude-chrome-classifier-floor-overrides-bypass.okf - Claude Code's own f0()/triBool code, extracted verbatim from claude.exe 2.1.278 and executed under Node, yields 'auto' for a bypass session's claude-in-chrome tool with the floor unset and 'bypassPermissions' for 0/false/no/off."
+  tests: "unit group 1584 OK (skipped=45); router group 1139 OK; ruff check (CI rule set) clean; architecture budget ratchet unchanged."
+  live_not_rerun: "Not repeated against the live G:\\ciel-Walkie session: its launch environment is fixed at spawn time, so the running session keeps the old env until restarted, and a fresh interactive session was not started from here (the workspace's live router and session were left untouched)."
+not_done:
+  - "No npm publish / version bump (nightly branch is local-only, same as the Muse fix deploy)."
+  - "The session the user was in when reporting the bug must be restarted to pick the fix up."

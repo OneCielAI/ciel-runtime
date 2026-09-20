@@ -1,0 +1,47 @@
+okf_version: "1.0"
+task: "User: `G:\\ciel-Walkie 에서 실행중인 llm이 ciel-runtime이 권한실행모드를 bypass 모드임에도 auto로 강제하고있다고 보고했어 확인하고 수정해줘 bypass일땐 bypass모드를 사용할수있도록해야한느데` - the Claude Code session running in G:\\ciel-Walkie could not use its Claude-in-Chrome MCP tools while its footer showed `bypass permissions on`. Verify what forces auto mode and make a bypass launch actually run in bypass."
+reporter: "Claude Code 2.1.278 session 417ef30b-1289-47a5-8921-a4d45eb93f2e in G:\\ciel-Walkie (launched through the router instance 9469-aae7db361c7f)."
+symptom:
+  error: "`ciel-runtime-anthropic-claude-opus-5[1m] is temporarily unavailable (rate-limited), so auto mode cannot determine the safety of mcp__claude-in-chrome__tabs_context_mcp right now` - recorded with `toolDenialKind: automode-unavailable` and permissionMode `bypassPermissions` on the same transcript records."
+  scope: "Only `mcp__claude-in-chrome__*` calls. `mcp__ciel-runtime-router__telemetry_logs`, Bash, PowerShell, Write all ran normally in the same session."
+  volume: "~30 attempts between 2026-09-20T17:35Z and 21:08Z, plus 80 upstream 429s for model claude-opus-5 in the router log that day."
+  session_report: "The session's own diagnosis blamed 'Ciel Runtime auto mode / the tool guard'; the user relayed that report. Both parts of it are wrong (see diagnosis.not_the_guard, diagnosis.whose_auto_mode)."
+diagnosis:
+  not_the_router: "Router instance logs (router-instances/9469-aae7db361c7f/router.log) show the failing requests as classifier calls (`model=ciel-runtime-anthropic-claude-opus-5 tools=0 msgs=2` -> `upstream_direct_request ... model=claude-opus-5 endpoint=https://api.anthropic.com/v1/messages` -> `code=429 rate_limit_error`). The router forwarded them and mapped the alias; permission modes are not a router concept."
+  not_the_guard: "ciel-runtime-tool-guard.py returns before any logic for MCP tools (`if tool.startswith(\"mcp__\"): return`, ciel-runtime-tool-guard.py:646) and never calls a model - it cannot classify browser tool calls."
+  whose_auto_mode: "claude.exe 2.1.278 itself. Claude Code has a permission mode `auto` (`Auto mode is now Claude Code's default permission mode` in the binary) whose classifier answers per tool call, and it also has a per-MCP-server override that runs *instead of* bypass for two server families."
+  mechanism: |
+    Verbatim from C:\\Users\\djlov\\.local\\bin\\claude.exe (version string 2.1.278; extracted byte-exact by .tmp/chrome-floor-repro/build_floor_harness.py):
+
+      var v2e=new Set(["Claude Preview","Claude Browser"]),
+          Wo=new Set(["claude-in-chrome","Claude in Chrome"]),
+          Yl="remote-devices", Go=["Claude_Browser__"], Vo=["claude-in-chrome__","Claude_in_Chrome__"];
+      function Jl(e){return e!==void 0&&v2e.has(e.serverName)||Yo(e,Go)}
+      function Xl(e){return e!==void 0&&Wo.has(e.serverName)||Yo(e,Vo)}
+      function f0(e,n){let s=e?.mcpInfo?.serverName, r=s!==void 0?n.mcpPermissionModeOverrides?.[s]:void 0,
+        i=n.mode==="bypassPermissions"||n.mode==="auto"||CF(n.mode,n.isBypassPermissionsModeAvailable);
+        if(r!==void 0&&i)return r;
+        if(i&&(Jl(e?.mcpInfo)||Xl(e?.mcpInfo)&&n.chromeClassifierFloorEnabled===!0))return n.canAutoClassifierRun===!0?"auto":"default";
+        return n.mode}
+
+    `chromeClassifierFloorEnabled` is built as `a.CLAUDE_CHROME_CLASSIFIER_FLOOR ?? x("tengu_cowork_chrome_automode_default",!1)`, and the env value is parsed by Claude Code's triBool helper (`function De`/`function vo` + `triBool:()=>m(...)`: "0"/"false"/"no"/"off" -> false, "1"/"true"/"yes"/"on" -> true, anything else -> undefined).
+  conclusion: "In a bypassPermissions session the built-in Claude-in-chrome MCP server is re-routed to the auto-mode classifier whenever the floor is on (server flag `tengu_cowork_chrome_automode_default` here; no env var was set in the session), which is exactly the reported 'bypass forced to auto'. When that classifier's model call fails (the router's upstream key was rate-limited for claude-opus-5), Claude Code fails closed and the browser tool never runs."
+  why_only_chrome_tools: "The predicate is name-based on the MCP server ('claude-in-chrome'), so every other MCP server stayed on bypass - matching the observed split."
+fix:
+  commit: "a753efa90a05dbb9b42647ec47587e6c09ed4278 (nightly, local only - no push, no publish, no version bump)"
+  change: "ciel_runtime_support/claude_environment.py now exports CLAUDE_CHROME_CLASSIFIER_FLOOR=0 on every Claude Code launch it projects - the routed env dict and the Claude Native early-return - since the launcher always passes --dangerously-skip-permissions (runtime_adapters.py:47). ClaudeEnvironmentShellRenderer renders the same key so `ciel-runtime env` matches the launch environment. Nothing else in the launch changes."
+  not_changed: "The router, the tool guard, and the permission-mode plumbing are untouched - none of them caused this."
+verification:
+  logic: "Executed Claude Code's own f0/Xl/Yo/Jl and triBool code (extracted verbatim from the binary, byte offsets recorded by build_floor_harness.py) under Node: bypassPermissions + serverName 'claude-in-chrome' + server flag on + floor unset -> 'auto' (the live bug); with env value 0/false/no/off -> 'bypassPermissions' under both readings of the shipped `??` expression (raw string and triBool-parsed), even with the server flag on; a non-chrome MCP server -> 'bypassPermissions' in every row. Full table: .tmp/chrome-floor-repro/floor_harness.out.json."
+  tests: "tests/test_claude_environment.py (native + routed projection carry the key, renderer renders it) and tests/test_claude_native_provider.py docstring updated; unit group 1584 OK (skipped=45); router group 1139 OK; ruff check (CI rule set E4,E7,E9,F) clean; architecture budget ratchet unchanged (ciel_runtime.py 4980 lines)."
+  live_binary: "Attempted a hermetic end-to-end first: a stub stdio MCP server plus a fake Messages endpoint that 429s classifier-shaped calls. Both candidate server names are reserved inside Claude Code ('claude-in-chrome' and 'remote-devices' are refused by --mcp-config: `\"...\" is a reserved MCP server name and was not loaded`), and the built-in Claude-in-Chrome server only connects with the user's OAuth scopes (`[Claude in Chrome] Disabled: OAuth token has no scope accepted by /api/oauth/validate (needs user:profile, user:office, or user:ccr_inference)`), so the built-in path is not reproducible hermetically; the verbatim-code harness above is the substitute, and the live session itself is the real-world reproduction (bypass session + toolDenialKind=automode-unavailable on chrome tools only)."
+  deploy: "Install snapshot C:\\Users\\djlov\\.local\\share\\ciel-runtime-a753efa90a05dbb9b42647ec47587e6c09ed4278 (User env CIEL_RUNTIME_HOME pinned to it, verified); deployed ciel_runtime.py and ciel_runtime_support/claude_environment.py are byte-identical to the repo tree (cmp). Running the deployed CLI as the G:\\ciel-Walkie workspace (`ciel_runtime.py env` with that cwd, host CIEL_RUNTIME_LAUNCH_CWD/STATE_DIR/WORKSPACE_STATE_DIR cleared) prints the exact launch environment that produced the bug plus the new line: ANTHROPIC_BASE_URL=http://127.0.0.1:9469, ANTHROPIC_MODEL=ciel-runtime-anthropic-claude-opus-5[1m], export CLAUDE_CHROME_CLASSIFIER_FLOOR=\"0\". The env dict from env_vars() is what the adapter hands to the spawned process (runtime_command_factory.py materialize -> ClaudeRuntimeAdapter -> RuntimeCommand.env), and the live session's own env (CIEL_RUNTIME_MODEL_ALIAS from the same dict) shows those keys reach the child. See releases/local/a753efa.okf."
+not_done:
+  - "The session in G:\\ciel-Walkie keeps its launch environment until it is restarted; the fix applies to launches started after the new pin."
+  - "Direct-native Claude launches now also carry the guard; the 'Claude Native' contract note and tests were updated on purpose (the launcher always requests bypass, so a native launch has the same defect). If the user wants Claude Native to keep the stock Chrome floor, drop the key from the native branch only."
+  - "The classifier model for chrome tools stays whatever Claude Code derives from the session model; with the floor off it is no longer consulted for bypass sessions, but an *auto-mode* session (the new Claude Code default) would still classify browser tools and would still fail closed on a rate-limited classifier model."
+sources:
+  - "C:\\Users\\djlov\\.local\\bin\\claude.exe (2.1.278, sha/size 237232800 bytes, mtime 2026-09-18) - decompiled fragments above."
+  - "C:\\Users\\djlov\\.claude\\projects\\G--ciel-Walkie\\417ef30b-1289-47a5-8921-a4d45eb93f2e.jsonl - tool results with toolDenialKind automode-unavailable."
+  - "C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\router-instances\\9469-aae7db361c7f\\router.log + rate-limit-state.json - classifier requests and upstream 429s."
+  - "Repository: ciel_runtime_support/claude_environment.py, ciel_runtime_support/runtime_adapters.py:47, ciel-runtime-tool-guard.py:646, ciel_runtime_support/runtime_launch.py:385-466."
