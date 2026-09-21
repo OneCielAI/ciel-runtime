@@ -12,6 +12,7 @@ from typing import Any, Callable, Mapping
 
 from .muse_cli import muse_passthrough_mapping
 from .muse_mcp import (
+    router_endpoint_transport,
     router_mcp_decision,
     router_mcp_entry,
     settings_store_for,
@@ -134,6 +135,42 @@ MUSE_ROUTER_AUTH_TOKEN = "ciel-runtime-router-local-key"
 MUSE_ROUTER_AUTH_ENV_KEYS = MUSE_SUBSCRIPTION_ENV_KEYS
 
 
+def wsl_env_prefix(
+    *, platform: str, muse_path: str, strip_subscription_keys: bool
+) -> tuple[str, ...]:
+    """The ``wsl.exe`` argument prefix that runs Muse inside the distribution.
+
+    The default prefix wraps the call in ``env -u META_API_KEY -u MODEL_API_KEY``
+    so a stale distro-side credential cannot leak into a subscription launch. A
+    launch that *injects* a credential drops that wrapper, because ``env -u``
+    would delete the value WSL just translated in.
+    """
+
+    if str(platform or "").lower() != "wsl" or not muse_path:
+        return ()
+    if strip_subscription_keys:
+        return ("-e", "env", "-u", "META_API_KEY", "-u", "MODEL_API_KEY", muse_path)
+    return ("-e", muse_path)
+
+
+def with_wsl_env_names(current: str, names: tuple[str, ...]) -> str:
+    """Add variable names to ``WSLENV`` so WSL translates them into the distro.
+
+    Measured 2026-09-21: a variable in the Windows process environment does not
+    appear in a ``wsl -e`` process unless ``WSLENV`` lists its name; a plain
+    listing is enough (no ``/u`` flag). Existing entries and their flags are
+    preserved.
+    """
+
+    entries = [part for part in str(current or "").split(":") if part]
+    known = {part.split("/", 1)[0] for part in entries}
+    for name in names:
+        if name not in known:
+            entries.append(name)
+            known.add(name)
+    return ":".join(entries)
+
+
 def has_option(argv: list[str], *names: str) -> bool:
     return any(
         value in names or any(value.startswith(f"{name}=") for name in names)
@@ -213,6 +250,9 @@ class MuseLifecyclePorts:
     # placeholder for a loopback router and the router's external-access token
     # once the router is bound to an address outside loopback (Windows + WSL).
     router_endpoint: Callable[[], tuple[str, str]] = lambda: ("", MUSE_ROUTER_AUTH_TOKEN)
+    # The Meta Model API key for a native launch: Muse uses it ahead of the
+    # stored Meta-account login (Meta bills those calls pay-as-you-go).
+    meta_api_key: Callable[[dict[str, Any]], str] = lambda _config: ""
     log: Callable[[str, str], Any] | None = None
 
 
@@ -222,19 +262,30 @@ class MuseRuntimeContext:
     config: MuseConfigurationPorts
     lifecycle: MuseLifecyclePorts
 
-    def _sync_router_mcp(
+    def _sync_settings(
         self,
         executable: MuseExecutable,
         config: dict[str, Any],
         *,
+        attach_mcp: bool,
         manage_router: bool,
+        routed: bool,
+        router_base: str,
+        router_token: str,
     ) -> None:
-        """Attach - or clear - the router entry Muse reads from settings.json.
+        """Write the router settings - or reset them for a native launch.
 
-        This is what lets a Muse session restart itself: Muse has no
-        ``--mcp-config`` flag, so the router server has to be merged into
-        ``~/.config/muse/settings.json`` (inside WSL on Windows). A launch with
-        no router behind it removes the entry again.
+        Two members are managed in ``~/.config/muse/settings.json`` (inside WSL
+        on Windows; Muse reads it at startup):
+
+        ``mcpServers.ciel-runtime-router``
+            Attached for an interactive launch that owns a router, so the
+            session can restart itself and read channel inputs.
+        ``endpoint_transport``
+            The pin Muse requires before it sends the Meta bearer to a base
+            URL off its sanctioned front door, written for a routed launch. A
+            native launch removes this pin (the launcher's own item only) so
+            Muse starts from its factory transport again.
         """
 
         log = self.lifecycle.log or (lambda _level, _message: None)
@@ -242,23 +293,29 @@ class MuseRuntimeContext:
         enabled = True
         if isinstance(section, Mapping) and section.get("router_mcp") is not None:
             enabled = bool(section.get("router_mcp"))
-        base_url, token = self.lifecycle.router_endpoint()
         wsl = str(executable.platform or "").lower() == "wsl"
         decision = router_mcp_decision(
             enabled=enabled,
             manage_router=manage_router,
-            base_url=base_url,
-            token=token,
+            base_url=router_base,
+            token=router_token,
             wsl=wsl,
-            loopback=router_host_is_loopback(base_url),
+            loopback=router_host_is_loopback(router_base),
         )
-        if not decision.attach:
+        if attach_mcp and not decision.attach:
             log("INFO", f"muse_router_mcp_skipped reason={decision.reason}")
         entry = (
-            router_mcp_entry(base_url, token) if decision.attach else None
+            router_mcp_entry(router_base, router_token)
+            if attach_mcp and decision.attach
+            else None
+        )
+        transport = (
+            router_endpoint_transport(f"{router_base}{MUSE_ROUTER_BASE_PATH}")
+            if routed and router_base
+            else None
         )
         store = settings_store_for(wsl=wsl, run=self.process.run, log=log)
-        store.sync(entry)
+        store.sync(entry, endpoint_transport=transport)
 
     def _native_executable(self) -> MuseExecutable | None:
         executable = self.process.find_executable("muse")
@@ -324,14 +381,8 @@ class MuseRuntimeContext:
         )
         return MuseExecutable(
             str(wsl),
-            (
-                "-e",
-                "env",
-                "-u",
-                "META_API_KEY",
-                "-u",
-                "MODEL_API_KEY",
-                path,
+            wsl_env_prefix(
+                platform="wsl", muse_path=path, strip_subscription_keys=True
             ),
             "wsl",
             path,
@@ -544,7 +595,7 @@ class MuseRuntimeContext:
 
     def launch(self, passthrough: list[str]) -> int:
         argv = list(passthrough)
-        routed = has_option(argv, MUSE_ROUTER_FLAG)
+        routed_flag = has_option(argv, MUSE_ROUTER_FLAG)
         router_token = MUSE_ROUTER_AUTH_TOKEN
         argv = without_option(argv, MUSE_ROUTER_FLAG)
         # Claude-style session flags mean nothing to Muse: translate them into
@@ -566,12 +617,25 @@ class MuseRuntimeContext:
             self._sweep_stale_session_locks(executable)
         config = self.config.load()
         provider, provider_config = self.config.current_provider(config)
+        # Routed mode is the provider's routing choice (Muse Native / Muse
+        # Routed in the provider menu) or the explicit --ca-router flag; both
+        # need the meta provider, because the router sends Muse's requests to
+        # the selected provider and Muse only speaks Meta's wire.
+        routed = bool(routed_flag or provider_config.get("route_through_router"))
+        if routed and provider != "meta":
+            self.process.print_line(
+                "Muse Code routed mode requires the Muse Native or Muse Routed "
+                f"provider (meta); the current provider is {provider}.",
+                flush=True,
+            )
+            return 2
         model = self._model(provider, provider_config)
         options: dict[str, Any] = {"prefix_args": executable.prefix_args}
         if not has_option(argv, "--yolo"):
             options["yolo_args"] = ("--yolo",)
         muse_provider = option_value(argv, "--provider").lower()
         meta_launch = not muse_provider or muse_provider == "meta"
+        router_base = ""
         if routed:
             # Routed mode reaches Meta through the router, so it must stay on
             # the Meta provider; echo would bypass the router entirely.
@@ -623,11 +687,36 @@ class MuseRuntimeContext:
         env["PATH"] = self.process.augment_path(env)
         for name in MUSE_SUBSCRIPTION_ENV_KEYS:
             env.pop(name, None)
-        if routed:
-            # The router authenticates its own clients with the resolved token
-            # and uses the configured Model API key upstream.
+        # The credential Muse must send: the router token in routed mode (the
+        # router authenticates its clients and holds the Model API key), the
+        # configured Meta Model API key in native mode - Meta documents that an
+        # API key takes priority over the stored account login and bills those
+        # calls pay-as-you-go. No credential means the account login is used.
+        credential = (
+            router_token if routed else self.lifecycle.meta_api_key(config)
+        )
+        credential = str(credential or "").strip()
+        if credential:
             for name in MUSE_ROUTER_AUTH_ENV_KEYS:
-                env[name] = router_token
+                env[name] = credential
+            if str(executable.platform or "").lower() == "wsl":
+                # WSL translates Windows variables into the distribution only
+                # when WSLENV lists them, and the `env -u` wrapper has to go:
+                # it would delete the very value WSL just translated in.
+                env["WSLENV"] = with_wsl_env_names(
+                    env.get("WSLENV", ""), MUSE_ROUTER_AUTH_ENV_KEYS
+                )
+                options["prefix_args"] = wsl_env_prefix(
+                    platform=executable.platform,
+                    muse_path=str(executable.muse_path or ""),
+                    strip_subscription_keys=False,
+                )
+            log = self.lifecycle.log or (lambda _level, _message: None)
+            log(
+                "INFO",
+                "muse_credential_injected source="
+                + ("router" if routed else "meta-api-key"),
+            )
         command, child_env = self.lifecycle.materialize_command(
             "muse",
             executable.command,
@@ -672,8 +761,26 @@ class MuseRuntimeContext:
             )
             and self.lifecycle.start_router()
         )
-        if interactive_session:
-            self._sync_router_mcp(executable, config, manage_router=manage_router)
+        if is_session:
+            # Session launches own the settings file: the router entry is
+            # attached when this launch manages a router (interactive runs),
+            # and the endpoint pin follows the routed/native mode. A native
+            # launch resets the launcher's own pin, so Muse starts from its
+            # factory transport again.
+            sync_base, sync_token = (
+                (router_base, router_token)
+                if routed
+                else self.lifecycle.router_endpoint()
+            )
+            self._sync_settings(
+                executable,
+                config,
+                attach_mcp=interactive_session,
+                manage_router=manage_router,
+                routed=routed,
+                router_base=str(sync_base or "").rstrip("/"),
+                router_token=str(sync_token or ""),
+            )
 
         def run() -> int:
             if not interactive_session:
@@ -724,5 +831,7 @@ __all__ = [
     "option_value",
     "session_exists_script",
     "tui_history_sessions",
+    "with_wsl_env_names",
+    "wsl_env_prefix",
     "wsl_workspace_path",
 ]

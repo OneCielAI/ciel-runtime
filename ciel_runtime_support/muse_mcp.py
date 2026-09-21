@@ -20,11 +20,21 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Mapping
+from urllib.parse import urlsplit
 
 MUSE_ROUTER_SERVER_NAME = "ciel-runtime-router"
 MUSE_SETTINGS_RELATIVE = ".config/muse/settings.json"
 MUSE_MCP_MODE = "optional"
 MUSE_MCP_TYPE = "streamable-http"
+# Muse 1.3.0 withholds its Meta bearer from any base URL that is "off the
+# sanctioned front door" unless the URL is pinned in settings
+# ``endpoint_transport`` with ``auth = "bearer"`` (its own message names the
+# rule; a ``--base-url`` flag alone cannot be vouched). The routed launch
+# therefore writes that pin and - per the user's Native definition - removes it
+# again on a native launch, keeping every other setting untouched.
+MUSE_ENDPOINT_TRANSPORT_KEY = "endpoint_transport"
+MUSE_ENDPOINT_TRANSPORT_AUTH = "bearer"
+MUSE_SANCTIONED_TRANSPORT_HOSTS = ("api.meta.ai",)
 # Launcher-side WSL calls must not hang on a wedged mount: `wsl.exe` translates
 # an inherited workspace cwd before running anything, and that translation can
 # stall indefinitely (live 2026-09-19: F: drvfs wedged, `wsl -e` from
@@ -86,6 +96,68 @@ def router_mcp_decision(
     return MuseRouterMcpDecision(True, "attached")
 
 
+def router_endpoint_transport(base_url: str) -> dict[str, Any]:
+    """The ``endpoint_transport`` pin that vouches a router base URL.
+
+    Muse withholds its Meta bearer from a base URL it does not sanction; the
+    pin (base URL + ``auth = "bearer"``) is what lets a routed launch send it.
+    """
+
+    return {"base_url": str(base_url).rstrip("/"), "auth": MUSE_ENDPOINT_TRANSPORT_AUTH}
+
+
+def is_ciel_endpoint_transport(value: Any) -> bool:
+    """Whether an ``endpoint_transport`` value is the pin this launcher writes."""
+
+    if not isinstance(value, Mapping):
+        return False
+    if str(value.get("auth") or "").strip() != MUSE_ENDPOINT_TRANSPORT_AUTH:
+        return False
+    base = str(value.get("base_url") or "").strip()
+    if not base.startswith(("http://", "https://")):
+        return False
+    host = str(urlsplit(base).hostname or "").strip().lower()
+    return bool(host) and host not in MUSE_SANCTIONED_TRANSPORT_HOSTS
+
+
+def sync_endpoint_transport_text(
+    text: str | None, value: Mapping[str, Any] | None
+) -> tuple[str, str]:
+    """Set (``value``) or reset (``None``) the ``endpoint_transport`` pin.
+
+    A value wins over whatever is stored, merging its other fields so a pinned
+    proxy or certificate setting survives. ``None`` - a native launch - removes
+    the key only when its value is the launcher's own pin; anything else is
+    kept and reported as ``kept`` so a user's own transport setting is never
+    deleted. Return ``(new text, action)``.
+    """
+
+    normalized = str(text or "").strip()
+    settings: dict[str, Any] = {}
+    if normalized:
+        try:
+            parsed = json.loads(normalized)
+        except ValueError:
+            return (str(text or ""), "unreadable")
+        if not isinstance(parsed, dict):
+            return (str(text or ""), "unreadable")
+        settings = parsed
+    current = settings.get(MUSE_ENDPOINT_TRANSPORT_KEY)
+    if value is not None:
+        merged = dict(current) if isinstance(current, Mapping) else {}
+        merged.update(value)
+        if current == merged:
+            return (str(text or ""), "unchanged")
+        settings[MUSE_ENDPOINT_TRANSPORT_KEY] = merged
+        return (json.dumps(settings, ensure_ascii=False, indent=2) + "\n", "updated")
+    if current is None:
+        return (str(text or ""), "absent" if not normalized else "unchanged")
+    if not is_ciel_endpoint_transport(current):
+        return (str(text or ""), "kept")
+    settings.pop(MUSE_ENDPOINT_TRANSPORT_KEY, None)
+    return (json.dumps(settings, ensure_ascii=False, indent=2) + "\n", "removed")
+
+
 def sync_settings_text(
     text: str | None,
     entry: Mapping[str, Any] | None,
@@ -137,14 +209,25 @@ class MuseSettingsStore:
         entry: Mapping[str, Any] | None,
         *,
         name: str = MUSE_ROUTER_SERVER_NAME,
+        endpoint_transport: Mapping[str, Any] | None = None,
     ) -> str:
+        """Apply both managed members in one read-write pass.
+
+        The router MCP entry and the ``endpoint_transport`` pin live in the same
+        file, so they are merged in memory and written once - two passes would
+        race each other. The returned action describes the MCP entry when it
+        changed and the transport pin otherwise.
+        """
+
         try:
             current = self.read()
         except Exception as exc:  # noqa: BLE001 - settings IO must never break a launch
             self.log("WARN", f"muse_mcp_settings_read_failed error={type(exc).__name__}")
             return "failed"
         updated, action = sync_settings_text(current, entry, name=name)
-        if action in {"updated", "removed"}:
+        updated, transport_action = sync_endpoint_transport_text(updated, endpoint_transport)
+        changed = action in {"updated", "removed"} or transport_action in {"updated", "removed"}
+        if changed:
             try:
                 self.write(updated)
             except Exception as exc:  # noqa: BLE001
@@ -153,6 +236,9 @@ class MuseSettingsStore:
                 )
                 return "failed"
         self.log("INFO", f"muse_router_mcp_{action} server={name}")
+        self.log("INFO", f"muse_endpoint_transport_{transport_action}")
+        if action not in {"updated", "removed"} and transport_action in {"updated", "removed"}:
+            return transport_action
         return action
 
 
@@ -207,6 +293,8 @@ def wsl_settings_store(
         return str(getattr(result, "stdout", "") or "") or None
 
     def write(text: str) -> None:
+        # Bytes, not text mode: Windows text mode would translate the newlines
+        # to CRLF and leave a Linux config file with Windows line endings.
         run(
             [
                 wsl_command,
@@ -218,9 +306,7 @@ def wsl_settings_store(
             ],
             check=True,
             capture_output=True,
-            text=True,
-            encoding="utf-8",
-            input=text,
+            input=str(text).encode("utf-8"),
             cwd=str(Path.home()),
             timeout=WSL_SETTINGS_TIMEOUT_SECONDS,
         )
@@ -242,16 +328,22 @@ def settings_store_for(
 
 
 __all__ = [
+    "MUSE_ENDPOINT_TRANSPORT_AUTH",
+    "MUSE_ENDPOINT_TRANSPORT_KEY",
     "MUSE_MCP_MODE",
     "MUSE_MCP_TYPE",
     "MUSE_ROUTER_SERVER_NAME",
+    "MUSE_SANCTIONED_TRANSPORT_HOSTS",
     "MUSE_SETTINGS_RELATIVE",
     "MuseRouterMcpDecision",
     "MuseSettingsStore",
+    "is_ciel_endpoint_transport",
     "native_settings_store",
+    "router_endpoint_transport",
     "router_mcp_decision",
     "router_mcp_entry",
     "settings_store_for",
+    "sync_endpoint_transport_text",
     "sync_settings_text",
     "wsl_settings_store",
 ]

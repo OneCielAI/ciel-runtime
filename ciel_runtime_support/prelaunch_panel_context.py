@@ -100,6 +100,7 @@ class ModelPanelPresentationPorts:
 class AuthPanelPorts:
     kimi_oauth_configured: Callable[[], bool]
     copilot_panel_rows: Callable[[str], PanelRows | None]
+    muse_oauth_status: Callable[[], str] = lambda: "unknown"
 
 
 @dataclass(frozen=True, slots=True)
@@ -280,6 +281,26 @@ class PrelaunchPanelContext:
                     f"{action_prefix}login",
                     f"{action_prefix}status",
                     f"{action_prefix}logout",
+                    *values,
+                ],
+            )
+        if provider == "meta":
+            rows, values = self.configuration_panel_projection().api_key_rows(
+                provider, provider_config
+            )
+            return (
+                [
+                    f"Muse account login: {self.auth.muse_oauth_status()}",
+                    "Login with Muse OAuth (device code in the browser)",
+                    "Refresh Muse OAuth status",
+                    "Logout the saved Muse credential",
+                    *rows,
+                ],
+                [
+                    "__info__",
+                    "muse-oauth-login",
+                    "muse-oauth-status",
+                    "muse-oauth-logout",
                     *values,
                 ],
             )

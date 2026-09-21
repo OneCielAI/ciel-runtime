@@ -11,7 +11,7 @@ import urllib.parse
 from collections.abc import MutableMapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from .workspace_router_selection import workspace_digest, workspace_identity
 
@@ -223,11 +223,14 @@ def update_web_backend_config(
 def apply_startup_web_options(
     argv: list[str],
     environ: MutableMapping[str, str],
+    *,
+    wsl_host: Callable[[], str] | None = None,
 ) -> list[str]:
     """Consume Ciel-owned web flags before runtime path constants are imported."""
     output = [argv[0]] if argv else []
     index = 1
     passthrough = False
+    web_host_applied = False
     while index < len(argv):
         argument = argv[index]
         if passthrough:
@@ -244,6 +247,7 @@ def apply_startup_web_options(
             value, index = _option_value(argv, index, inline_value if separator else "", name)
             host, embedded_port = _normalize_web_address(value)
             _apply_web_host(host, environ)
+            web_host_applied = True
             environ["CIEL_RUNTIME_WEB_START_REQUESTED"] = "1"
             if embedded_port is not None:
                 environ["CIEL_RUNTIME_ROUTER_PORT"] = str(embedded_port)
@@ -264,7 +268,62 @@ def apply_startup_web_options(
             continue
         output.append(argument)
         index += 1
+    if not web_host_applied and _muse_launch_requested(output):
+        # A Muse session on Windows runs inside WSL, which cannot reach the
+        # Windows loopback; bind this launch's router to the address the
+        # distribution sees as its host (its default gateway) instead of
+        # refusing a routed launch. Measured 2026-09-21: `wsl -e sh -lc "ip
+        # route show default"` answers with that address.
+        host = (wsl_host or wsl_host_address)()
+        if host:
+            _apply_web_host(host, environ)
+            environ["CIEL_RUNTIME_WEB_START_REQUESTED"] = "1"
     return output
+
+
+MUSE_LAUNCH_MARKERS = frozenset({"muse", "muse-code", "launch-muse"})
+
+
+def _muse_launch_requested(argv: Sequence[str]) -> bool:
+    """Whether this invocation launches Muse Code (any mode).
+
+    ``--ca-router`` and the Muse Native / Muse Routed provider choices all end
+    in a Muse process inside WSL; the first positional words name the runtime
+    (``ciel-runtime muse``, ``ciel-runtime --ca-runtime muse``).
+    """
+
+    return "--ca-router" in argv or any(
+        token in MUSE_LAUNCH_MARKERS for token in argv[:4]
+    )
+
+
+def wsl_host_address(timeout: float = 10.0) -> str:
+    """The Windows host address a WSL distribution can reach; ``""`` when none.
+
+    The probe runs from the user's home directory under a deadline, matching the
+    launcher's other WSL calls: a wedged drvfs mount must not stall startup.
+    """
+
+    try:
+        result = subprocess.run(
+            ["wsl", "-e", "sh", "-lc", "ip route show default | awk '{print $3}'"],
+            check=False,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            cwd=str(Path.home()),
+            timeout=timeout,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    lines = str(getattr(result, "stdout", "") or "").strip().splitlines()
+    host = lines[-1].strip() if lines else ""
+    try:
+        address = ipaddress.ip_address(host)
+    except ValueError:
+        return ""
+    return host if not address.is_loopback else ""
 
 
 def _option_value(
@@ -576,4 +635,5 @@ __all__ = [
     "web_backend_owned_by_workspace",
     "web_backend_settings",
     "web_backend_summary",
+    "wsl_host_address",
 ]

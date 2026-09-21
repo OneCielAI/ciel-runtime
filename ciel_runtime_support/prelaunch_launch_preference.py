@@ -17,6 +17,7 @@ REMEMBERED_LAUNCH_ACTIONS = frozenset(
         "launch-grok",
         "launch-zcode",
         "launch-muse",
+        "launch-muse-routed",
     }
 )
 
@@ -35,7 +36,7 @@ def preferred_launch_action(
         return remembered
     if remembered in {"launch-codex", "launch-codex-app-server"} and supports_codex(provider):
         return remembered
-    if remembered in {"launch-grok", "launch-zcode", "launch-muse"}:
+    if remembered in {"launch-grok", "launch-zcode", "launch-muse", "launch-muse-routed"}:
         return remembered
     return fallback(provider)
 

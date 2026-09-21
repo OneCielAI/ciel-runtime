@@ -5,6 +5,25 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+- Muse Code now offers the same Native and Routed modes as Claude and Codex, and
+  the launcher can inject credentials into the Muse process again. Select "Muse
+  Native" or "Muse Routed" in the provider menu (`meta:native` / `meta:routed`)
+  or use the launch menu's two Muse rows; routed mode is also the explicit
+  `--ca-router` flag. Native launches hand Muse the configured Meta Model API
+  key (Meta bills an API key ahead of the account login - pay-as-you-go), and a
+  workspace without a key keeps the subscription login. Routed launches give
+  Muse the router's token and pin the router base URL in Muse's settings
+  (`endpoint_transport`, `auth = "bearer"`), because Muse 1.3.0 withholds its
+  Meta bearer from a base URL that is off its sanctioned front door - a
+  `--base-url` flag alone cannot be vouched, its own message says so. Native
+  launches reset that pin again (the launcher's own entry only; every other
+  setting, including the user's own MCP servers, is preserved). Credentials
+  reach the Muse process inside WSL through `WSLENV` (Windows variables are
+  otherwise invisible to `wsl -e`), and a Muse launch without `--ca-web-address`
+  binds the router to the WSL-facing host address automatically. The API-key
+  menu for the Meta provider also offers `muse login` (device code), status and
+  logout, so the account token can be stored before the first session.
+
 - Keep Claude Code's bypass permissions mode working for the Claude-in-Chrome
   MCP tools. Claude Code 2.1.278 gives that server a classifier "floor": in a
   bypassPermissions/auto session its tools are re-routed to the auto-mode

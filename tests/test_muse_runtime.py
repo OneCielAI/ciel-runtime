@@ -178,6 +178,7 @@ class MuseRuntimeTests(unittest.TestCase):
                     captured.get("router_base", "http://127.0.0.1:9611"),
                     captured.get("router_token", "ciel-runtime-router-local-key"),
                 ),
+                lambda _config: captured.get("meta_api_key", ""),
                 lambda level, message: captured.setdefault("logs", []).append(
                     f"{level} {message}"
                 ),
@@ -188,15 +189,21 @@ class MuseRuntimeTests(unittest.TestCase):
         """Launch while recording what the router MCP sync was asked to write."""
 
         entries: list[object] = []
-        store = SimpleNamespace(
-            sync=lambda entry, name=None: entries.append(entry) or "updated"
-        )
+        transports: list[object] = []
+
+        def sync(entry, name=None, endpoint_transport=None):
+            entries.append(entry)
+            transports.append(endpoint_transport)
+            return "updated"
+
+        store = SimpleNamespace(sync=sync)
         with mock.patch(
             "ciel_runtime_support.muse_runtime_context.settings_store_for",
             return_value=store,
         ):
             code = context.launch(passthrough)
         captured["mcp_entries"] = entries
+        captured["endpoint_transports"] = transports
         return code
 
     def test_native_launch_preserves_browser_subscription_and_uses_channel_proxy(self):
@@ -336,6 +343,115 @@ class MuseRuntimeTests(unittest.TestCase):
 
         command = captured["calls"][0][0]
         self.assertIn("http://172.29.112.1:9611/v1", command)
+
+    def test_native_launch_injects_the_meta_model_api_key(self):
+        captured: dict = {"meta_api_key": "LLM_example_key"}
+        context = self.context(captured)
+
+        self.assertEqual(0, context.launch(["exec", "say hi"]))
+
+        env = captured["materialize"][2]
+        self.assertEqual("LLM_example_key", env["META_API_KEY"])
+        self.assertEqual("LLM_example_key", env["MODEL_API_KEY"])
+        logs = " ".join(str(entry) for entry in captured.get("logs", []))
+        self.assertIn("muse_credential_injected source=meta-api-key", logs)
+
+    def test_wsl_injection_forwards_credentials_through_wslenv(self):
+        captured: dict = {"meta_api_key": "LLM_example_key"}
+        context = self.context(captured, platform_name="nt")
+
+        self.assertEqual(0, context.launch(["exec", "say hi"]))
+
+        env = captured["materialize"][2]
+        command = captured["calls"][0][0]
+        # WSL only translates listed names into the distribution, and the
+        # `env -u` wrapper has to go or it deletes the value again.
+        self.assertEqual("META_API_KEY:MODEL_API_KEY", env["WSLENV"])
+        self.assertEqual(
+            ["-e", "/home/test/.local/bin/muse"], command[1:3]
+        )
+
+    def test_native_launch_without_a_key_keeps_stripping_it(self):
+        captured: dict = {}
+        context = self.context(captured, platform_name="nt")
+
+        self.assertEqual(0, context.launch(["exec", "say hi"]))
+
+        env = captured["materialize"][2]
+        command = captured["calls"][0][0]
+        self.assertNotIn("META_API_KEY", env)
+        self.assertNotIn("WSLENV", env)
+        self.assertEqual(
+            [
+                "-e", "env", "-u", "META_API_KEY", "-u", "MODEL_API_KEY",
+                "/home/test/.local/bin/muse",
+            ],
+            command[1:8],
+        )
+
+    def test_routed_launch_pins_the_endpoint_transport(self):
+        captured: dict = {}
+        context = self.context(captured, web=False)
+
+        self.launch_with_mcp_capture(context, captured, ["--ca-router", "exec", "say hi"])
+
+        self.assertEqual(
+            [{"base_url": "http://127.0.0.1:9611/v1", "auth": "bearer"}],
+            captured["endpoint_transports"],
+        )
+
+    def test_native_launch_resets_the_endpoint_transport(self):
+        captured: dict = {}
+        context = self.context(captured)
+
+        self.launch_with_mcp_capture(context, captured, ["exec", "say hi"])
+
+        self.assertEqual([None], captured["endpoint_transports"])
+
+    def test_utility_commands_never_touch_the_settings(self):
+        captured: dict = {}
+        context = self.context(captured)
+
+        self.assertEqual(0, context.launch(["--version"]))
+
+        self.assertNotIn("endpoint_transports", captured)
+
+    def test_routed_mode_follows_the_provider_routing_choice(self):
+        captured: dict = {}
+        context = self.context(captured)
+        # A Muse Routed provider choice (route_through_router) starts routed
+        # mode without the explicit flag.
+        base = context.config.load()
+
+        def routed_config() -> dict:
+            return {**base, "providers": {"meta": {**base["providers"]["meta"], "route_through_router": True}}}
+
+        context = dataclasses.replace(
+            context, config=dataclasses.replace(context.config, load=routed_config)
+        )
+
+        self.launch_with_mcp_capture(context, captured, ["exec", "say hi"])
+
+        command = captured["calls"][0][0]
+        self.assertIn("--base-url", command)
+        self.assertEqual("routed", captured["materialize"][5]["mode"])
+
+    def test_routed_mode_refuses_another_provider(self):
+        captured: dict = {}
+        base_context = self.context(captured)
+
+        def other_provider(config: dict):
+            return ("nvidia-hosted", {"current_model": "nvidia/nemotron"})
+
+        context = dataclasses.replace(
+            base_context,
+            config=dataclasses.replace(base_context.config, current_provider=other_provider),
+        )
+
+        self.assertEqual(2, context.launch(["--ca-router", "exec", "hi"]))
+
+        self.assertNotIn("materialize", captured)
+        self.assertIn("requires the Muse Native or Muse Routed", captured["prints"][0][0][0])
 
     def test_routed_flag_is_stripped_from_native_launches(self):
         captured: dict = {}

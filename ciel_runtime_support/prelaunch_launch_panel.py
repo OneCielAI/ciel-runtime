@@ -20,6 +20,7 @@ def launch_panel_rows(
     codex_suffix = "" if codex_enabled(provider) else f" [disabled: {family} provider selected]"
     agy_suffix = "" if agy_enabled(provider) else " [disabled: select AGY provider]"
     kimi_suffix = "" if provider == "kimi" else " [disabled: select Kimi provider]"
+    muse_routed_suffix = "" if provider == "meta" else " [disabled: select Muse Native or Muse Routed provider]"
     return (
         [
             f"Claude{claude_suffix}",
@@ -29,10 +30,11 @@ def launch_panel_rows(
             "Grok Build",
             "ZCode",
             "Muse Code (subscription)",
+            f"Muse Code (routed through the Ciel Router){muse_routed_suffix}",
             f"Codex app server{codex_suffix}",
             "Back",
         ],
-        ["launch", "launch-codex", "launch-agy", "launch-kimi", "launch-grok", "launch-zcode", "launch-muse", "launch-codex-app-server", "back"],
+        ["launch", "launch-codex", "launch-agy", "launch-kimi", "launch-grok", "launch-zcode", "launch-muse", "launch-muse-routed", "launch-codex-app-server", "back"],
     )
 
 

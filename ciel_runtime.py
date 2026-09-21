@@ -21,7 +21,7 @@ from typing import Any, Callable, Iterable
 from ciel_runtime_support import anthropic_model_policy
 from ciel_runtime_support import channel_cursor_repository as channel_cursor_storage, hosted_formula_tools
 from ciel_runtime_support import channel_llm_context, claude_launch_assembly, cli_assembly, cli_dispatch, cli_parser, codex_launch_configuration, codex_turn_recovery, kimi_identity, llm_option_config, llm_presets, native_context_recovery
-from ciel_runtime_support import ollama_catalog as ollama_catalog_policy
+from ciel_runtime_support import muse_oauth, ollama_catalog as ollama_catalog_policy
 from ciel_runtime_support import openai_chat_compatibility_bridge, otlp_logs, prelaunch, prelaunch_assembly, provider_catalog_sources, provider_models, provider_network, rate_limit_policy, router_request_assembly, router_server_runtime, runtime_asset_assembly, runtime_launch, runtime_primitives, terminal_platform_io, windows_console_mode
 from ciel_runtime_support.prelaunch_launch_panel import launch_panel_rows as project_launch_panel_rows
 from ciel_runtime_support.advisor_client import AdvisorClient, AdvisorClientIO, AdvisorClientPolicy, ProviderChatExecutor, ProviderChatIO, ProviderChatPolicy
@@ -4014,23 +4014,23 @@ launch_zcode = SynchronizedLaunch(launch_zcode, sync_remote_launch_assets, "zcod
 
 def muse_runtime_context() -> MuseRuntimeContext:
     return MuseRuntimeContext(
-        process=MuseProcessPorts(find_executable, subprocess.run, subprocess.call, print, os.environ, path_with_ciel_runtime_user_dirs, os.name),
-        config=MuseConfigurationPorts(load_config, get_current_provider),
+        process=MuseProcessPorts(find_executable, subprocess.run, subprocess.call, print, os.environ, path_with_ciel_runtime_user_dirs, os.name), config=MuseConfigurationPorts(load_config, get_current_provider),
         lifecycle=MuseLifecyclePorts(
-            materialize_runtime_command,
-            start_router_if_needed,
-            run_with_router_lifetime,
-            subprocess_call_with_channel_wake_proxy,
-            channel_delivery_mode,
-            runtime_launch.web_backend_start_requested,
+            materialize_runtime_command, start_router_if_needed, run_with_router_lifetime,
+            subprocess_call_with_channel_wake_proxy, channel_delivery_mode, runtime_launch.web_backend_start_requested,
             lambda provider, model, mode="": record_launch_state_for_cwd(current_launch_cwd_key(), provider, mode or "muse-native-subscription", model),
             _set_channel_transcript_scope,
             lambda: (ROUTER_BASE, MUSE_ROUTER_AUTH_TOKEN if router_host_is_loopback(ROUTER_BASE) else ensure_router_external_access_token() if router_debug_external_access_enabled(load_config()) else ""),
-            router_log,
+            lambda config: provider_primary_api_key("meta", ((config.get("providers") or {}).get("meta") or {})), router_log,
         ),
     )
 
 _MUSE_RUNTIME_API = MuseRuntimeCompatibilityApi(muse_runtime_context)
+def muse_oauth_status() -> str:
+    executable = _MUSE_RUNTIME_API.context().discover()
+    return "Muse Code not found" if executable is None else muse_oauth.credential_status_from_text(muse_oauth.read_credential_text(executable, run=subprocess.run)).label()
+def run_muse_oauth_action(action: str) -> list[str]:
+    return muse_oauth.muse_oauth_action(action, discover=lambda: _MUSE_RUNTIME_API.context().discover(), run=subprocess.run, call=subprocess.call, print_line=print)
 def install_muse_if_missing(): return _MUSE_RUNTIME_API.install_if_missing()
 def launch_muse(passthrough: list[str] | None = None, **_kwargs: Any) -> int: return _MUSE_RUNTIME_API.launch(list(passthrough or []))
 launch_muse = SynchronizedLaunch(launch_muse, sync_remote_launch_assets, "muse")
@@ -4118,7 +4118,7 @@ def prelaunch_panel_context() -> PrelaunchPanelContext:
         model_catalog=ModelPanelCatalogPorts(alias_for, cached_or_configured_model_ids, read_model_info_cache, read_model_list_cache, unique_model_ids, upstream_model_ids),
         model_presentation=ModelPanelPresentationPorts(provider_advisor_model_badge, provider_advisor_panel_notice, format_context_tokens,
                                                        format_parameter_count, provider_model_panel_badge, normalize_model_id, positive_int),
-        auth=AuthPanelPorts(kimi_oauth_configured, lambda provider: github_copilot_oauth_runtime().panel_rows(provider)),
+        auth=AuthPanelPorts(kimi_oauth_configured, lambda provider: github_copilot_oauth_runtime().panel_rows(provider), muse_oauth_status),
     )
 
 _PRELAUNCH_PANEL_API = PrelaunchPanelCompatibilityApi(prelaunch_panel_context)
@@ -4153,7 +4153,7 @@ def portable_prelaunch_menu(passthrough: list[str] | None = None) -> int:
                                                     set_advisor_model_config, set_base_url_config, set_llm_option_config, set_log_level_config,
                                                     set_model_config, set_provider_choice_config, request_limits_menu_service()),
             secrets=prelaunch.PrelaunchSecrets(clear_api_key_config, mask_secret, parse_api_key_list, secret_fingerprint, store_api_key_input_config,
-                                                store_api_keys_config, run_copilot_oauth_action, run_kimi_oauth_action, run_zai_oauth_action),
+                                                store_api_keys_config, run_copilot_oauth_action, run_kimi_oauth_action, run_zai_oauth_action, run_muse_oauth_action),
             options=prelaunch.PrelaunchOptions(llm_option_current_bool, llm_option_prompt_default, timeout_profile_panel_rows, web_backend_panel_rows,
                                                set_web_backend_config, external_event_panel_rows, set_external_event_config,
                                                launch_panel_rows, remote_instruction_panel_rows, set_remote_instruction_config,

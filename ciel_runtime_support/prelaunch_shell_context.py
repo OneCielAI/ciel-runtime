@@ -155,6 +155,7 @@ class PrelaunchShellContext:
             "launch-grok",
             "launch-zcode",
             "launch-muse",
+            "launch-muse-routed",
         }:
             return str(config.get("last_launch_action")).strip()
         if provider == "kimi":
@@ -173,7 +174,7 @@ class PrelaunchShellContext:
         )
 
     def prelaunch_action_index(self, action: str) -> int:
-        if action in {"launch", "launch-codex", "launch-codex-app-server", "launch-agy", "launch-kimi", "launch-grok", "launch-zcode", "launch-muse"}:
+        if action in {"launch", "launch-codex", "launch-codex-app-server", "launch-agy", "launch-kimi", "launch-grok", "launch-zcode", "launch-muse", "launch-muse-routed"}:
             action = "launch-menu"
         try:
             return self.main_menu_actions.index(action)

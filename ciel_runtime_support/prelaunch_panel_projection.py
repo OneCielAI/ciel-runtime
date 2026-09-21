@@ -156,6 +156,15 @@ class ProviderPanelProjection:
                 routed = self.ports.codex_routed(key, provider_config)
                 entries.extend(self._codex_rows(current, routed))
                 continue
+            if key == "meta":
+                routed = bool(provider_config.get("route_through_router"))
+                entries.extend(
+                    (
+                        ("Muse Native", f"{'*' if current == key and not routed else ' '} {'Muse Native':<16} {'meta:native':<15} direct to Meta", "meta:native"),
+                        ("Muse Routed", f"{'*' if current == key and routed else ' '} {'Muse Routed':<16} {'meta:routed':<15} via ciel-runtime", "meta:routed"),
+                    )
+                )
+                continue
             if key == "kimi":
                 routed = bool(provider_config.get("route_through_router"))
                 entries.extend(

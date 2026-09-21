@@ -12,9 +12,11 @@ from ciel_runtime_support.muse_mcp import (
     MUSE_ROUTER_SERVER_NAME,
     MuseSettingsStore,
     native_settings_store,
+    router_endpoint_transport,
     router_mcp_decision,
     router_mcp_entry,
     settings_store_for,
+    sync_endpoint_transport_text,
     sync_settings_text,
     wsl_settings_store,
 )
@@ -139,6 +141,124 @@ class SettingsMergeTests(unittest.TestCase):
 
         self.assertEqual("unreadable", action)
         self.assertEqual("not json", updated)
+
+
+class EndpointTransportTests(unittest.TestCase):
+    """The settings pin Muse requires before it sends the Meta bearer.
+
+    Muse 1.3.0 withholds its bearer from a base URL off its sanctioned front
+    door unless ``endpoint_transport`` pins the URL with ``auth = "bearer"``
+    (its own message; a ``--base-url`` flag cannot be vouched). Measured
+    2026-09-21 on this machine.
+    """
+
+    def test_pin_is_written_refreshed_and_left_untouched_when_equal(self):
+        pin = router_endpoint_transport("http://172.29.112.1:9494/v1")
+
+        text, action = sync_endpoint_transport_text(None, pin)
+        same, again = sync_endpoint_transport_text(text, pin)
+        refreshed, refreshed_action = sync_endpoint_transport_text(
+            text, router_endpoint_transport("http://172.29.112.1:9500/v1")
+        )
+
+        self.assertEqual("updated", action)
+        self.assertEqual(
+            {"base_url": "http://172.29.112.1:9494/v1", "auth": "bearer"},
+            json.loads(text)["endpoint_transport"],
+        )
+        self.assertIs(same, text)
+        self.assertEqual("unchanged", again)
+        self.assertEqual("updated", refreshed_action)
+        self.assertIn(":9500/v1", refreshed)
+
+    def test_native_reset_removes_only_the_launchers_own_pin(self):
+        pre_pin, _action = sync_endpoint_transport_text(
+            json.dumps(WALKIE_SETTINGS), router_endpoint_transport("http://172.29.112.1:9494/v1")
+        )
+
+        reset, action = sync_endpoint_transport_text(pre_pin, None)
+
+        self.assertEqual("removed", action)
+        parsed = json.loads(reset)
+        self.assertNotIn("endpoint_transport", parsed)
+        self.assertIn("walkie_http", parsed["mcpServers"])
+        self.assertEqual("muse-spark-1.3", parsed["model"])
+
+    def test_a_foreign_transport_setting_is_kept(self):
+        foreign = {
+            "provider": "meta",
+            "endpoint_transport": {"base_url": "https://proxy.example/v1", "auth": "oauth"},
+        }
+
+        kept, action = sync_endpoint_transport_text(json.dumps(foreign), None)
+
+        self.assertEqual("kept", action)
+        self.assertEqual(foreign["endpoint_transport"], json.loads(kept)["endpoint_transport"])
+
+    def test_unrelated_transport_fields_survive_a_pin(self):
+        current = {
+            "endpoint_transport": {"proxy": "http://proxy:8080"},
+        }
+
+        pinned, action = sync_endpoint_transport_text(
+            json.dumps(current), router_endpoint_transport("http://127.0.0.1:9611/v1")
+        )
+
+        self.assertEqual("updated", action)
+        self.assertEqual(
+            {
+                "proxy": "http://proxy:8080",
+                "base_url": "http://127.0.0.1:9611/v1",
+                "auth": "bearer",
+            },
+            json.loads(pinned)["endpoint_transport"],
+        )
+
+    def test_store_writes_entry_and_pin_in_one_pass(self):
+        state = {"text": None}
+        written: list[str] = []
+
+        def write(text: str) -> None:
+            written.append(text)
+            state["text"] = text
+
+        store = MuseSettingsStore(read=lambda: state["text"], write=write)
+
+        action = store.sync(
+            router_mcp_entry("http://172.29.112.1:9494", "tok"),
+            endpoint_transport=router_endpoint_transport("http://172.29.112.1:9494/v1"),
+        )
+        payload = json.loads(written[-1])
+
+        self.assertEqual("updated", action)
+        self.assertEqual(1, len(written))
+        self.assertIn(MUSE_ROUTER_SERVER_NAME, payload["mcpServers"])
+        self.assertEqual("bearer", payload["endpoint_transport"]["auth"])
+
+    def test_store_reports_a_reset_that_only_changed_the_pin(self):
+        state = {
+            "text": json.dumps(
+                {
+                    "provider": "meta",
+                    "endpoint_transport": {
+                        "base_url": "http://172.29.112.1:9494/v1",
+                        "auth": "bearer",
+                    },
+                }
+            )
+        }
+        logs: list[str] = []
+        store = MuseSettingsStore(
+            read=lambda: state["text"],
+            write=lambda text: state.__setitem__("text", text),
+            log=lambda level, message: logs.append(f"{level} {message}"),
+        )
+
+        action = store.sync(None)
+
+        self.assertEqual("removed", action)
+        self.assertNotIn("endpoint_transport", json.loads(state["text"]))
+        self.assertTrue(any("muse_endpoint_transport_removed" in line for line in logs))
 
 
 class SettingsStoreTests(unittest.TestCase):

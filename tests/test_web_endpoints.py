@@ -196,6 +196,55 @@ class WebEndpointTests(unittest.TestCase):
         self.assertEqual("1", environment["CIEL_RUNTIME_TAILSCALE_HTTPS"])
         self.assertEqual("9443", environment["CIEL_RUNTIME_TAILSCALE_HTTPS_PORT"])
 
+    def test_muse_launch_binds_the_wsl_reachable_host(self):
+        """A Muse launch without a web address binds the WSL-facing host.
+
+        Measured 2026-09-21: WSL cannot reach the Windows loopback, so a Muse
+        process inside the distribution needs the router on the host address
+        its default gateway names (172.29.112.1 on this machine).
+        """
+
+        environment: dict[str, str] = {}
+        calls: list[str] = []
+
+        def detect() -> str:
+            calls.append("probe")
+            return "172.29.112.1"
+
+        argv = apply_startup_web_options(
+            ["ciel_runtime.py", "cli", "muse", "exec", "hello"],
+            environment,
+            wsl_host=detect,
+        )
+
+        self.assertEqual(["ciel_runtime.py", "cli", "muse", "exec", "hello"], argv)
+        self.assertEqual(["probe"], calls)
+        self.assertEqual("172.29.112.1", environment["CIEL_RUNTIME_ROUTER_BIND_HOST"])
+        self.assertEqual("172.29.112.1", environment["CIEL_RUNTIME_ROUTER_CLIENT_HOST"])
+        self.assertEqual("1", environment["CIEL_RUNTIME_ROUTER_DEBUG_EXTERNAL"])
+
+    def test_other_launches_do_not_probe_wsl(self):
+        environment: dict[str, str] = {}
+        calls: list[str] = []
+
+        def detect() -> str:
+            calls.append("probe")
+            return "172.29.112.1"
+
+        apply_startup_web_options(
+            ["ciel_runtime.py", "cli", "provider", "meta:routed"],
+            environment,
+            wsl_host=detect,
+        )
+        apply_startup_web_options(
+            ["ciel_runtime.py", "cli", "muse", "--ca-web-address", "127.0.0.1"],
+            environment,
+            wsl_host=detect,
+        )
+
+        self.assertEqual([], calls)
+        self.assertEqual("127.0.0.1", environment["CIEL_RUNTIME_ROUTER_BIND_HOST"])
+
     def test_invalid_port_is_rejected(self):
         with self.assertRaisesRegex(SystemExit, "between 1 and 65535"):
             apply_startup_web_options(

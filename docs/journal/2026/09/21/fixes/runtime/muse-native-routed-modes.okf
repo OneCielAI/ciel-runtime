@@ -1,0 +1,27 @@
+okf_version: "1.0"
+task: "User: `muse도 codex나 claude와 동일하게, Native모두와 Routed를 제공해야함.. api key 주입할수있어야함.` + `Native 모드의 정의는 원래 factory 상태의 설정파일로 리셋해주는것이 목적임` + `muse api key 설정메뉴에 Oauth 로그인 방법도 제공해서 토큰저장도 사전에할수있도록지원` - give Muse the same Native/Routed split Claude and Codex have, make the API key injectable, make Native reset the launcher's own settings entries, and add a Muse OAuth login to the API-key menu."
+answer: "Implemented and live-verified on this machine. Decision (user): Native removes only the launcher's own entries (the endpoint pin and the router MCP entry) and preserves everything else; a configured Meta Model API key is injected in Native mode (pay-as-you-go), with the account login as the fallback when no key is configured."
+diagnosis_recap:
+  bearer_policy: "Muse 1.3.0-R3401.1 withholds its Meta bearer from a base URL that is off its sanctioned front door unless settings `endpoint_transport` pins the URL with `auth = \"bearer\"`; a `--base-url` flag cannot be vouched (the binary's own message). Measured 2026-09-21 - see diagnostics/muse/routed-mode-bearer-withheld.okf."
+  env_boundary: "Windows environment variables do not enter WSL; only names listed in WSLENV are translated (measured: plain `wsl -e sh -lc 'echo $META_API_KEY'` sees nothing, `WSLENV=META_API_KEY` makes it visible with and without /u)."
+changes:
+  muse_mcp.py: "endpoint_transport management: `router_endpoint_transport()` writes the pin (base URL + auth=bearer, merging other transport fields), `sync_endpoint_transport_text()` resets only a launcher-written pin on a native launch (a foreign value reports `kept`), and `MuseSettingsStore.sync()` now applies the MCP entry and the pin in one read-write pass. The WSL writer sends bytes so the file keeps LF endings."
+  muse_runtime_context.py: "routed = --ca-router OR the provider's route_through_router (Muse Routed); a routed launch with another provider stops with instructions. The credential to inject is the router token (routed) or the configured Meta Model API key (native, port `meta_api_key`); it is set in the child env and translated into WSL through WSLENV, and the `env -u` prefix is dropped only for launches that inject. Settings sync runs for every session launch: the MCP entry for interactive launches that own a router, the endpoint pin for routed, a reset for native."
+  menu_change: "Provider menu gains Muse Native (`meta:native`) and Muse Routed (`meta:routed`); the launch menu gains `Muse Code (routed through the Ciel Router)` and gates it on the meta provider (the subscription row stays available). The API-key menu for the Meta provider gains `Login with Muse OAuth (device code)`, status and logout (muse_oauth.py runs `muse login|logout` through the launcher prefix and reads `~/.config/muse/auth.json`)."
+  web_endpoints.py: "A Muse launch without `--ca-web-address` binds this launch's router to the address the distribution sees as its host (`wsl -e sh -lc \"ip route show default\"`), which is what makes routed mode work without flags; other launches never probe WSL."
+verification:
+  routed_live: "`python ciel_runtime.py cli muse exec \"reply with the single word: pong\"` from a scratch workspace (provider meta:routed): returned `pong`, exit 0. Router log: `muse_credential_injected source=router`, `muse_endpoint_transport_updated`, `POST /v1/responses provider=meta model=muse-spark-1.3` -> 200, `provider_responses_completion_gate_kept confirmed=True status=completed`, router started on 172.29.112.1:9494 automatically and stopped on exit."
+  native_live: "Same command after `provider meta:native`: returned `pong`, exit 0, with `muse_credential_injected source=meta-api-key` and `muse_endpoint_transport_removed`; Muse talked to Meta directly with the injected Model API key (its documented precedence over the account login)."
+  settings_reset: "After the native run the settings file is semantically identical to the user's original (provider/model/reasoning_effort/mcpServers.walkie_http, no endpoint_transport) and was restored byte-exactly from the backup afterwards (sha256 95198f35...). The two live Muse sessions (pid 748, 359611) kept running throughout."
+  tests: "unit 1598 OK (skipped=45), router 1139 OK, runtime 296 OK (skipped=19), ruff (CI rule set) clean; architecture budget unchanged (ciel_runtime.py 4980/4980)."
+  known_gap: "The router answers Matrix `GET /muse-code/models` with 404 - Muse logs it and continues; the routed answer above proves the model path works."
+leftovers:
+  - "Evidence and probe scripts: %TEMP%\\muse-router-probe-20260921 (capture listeners, logs)."
+  - "Scratch workspace state: workspaces/47bd9338be61/config.json (meta:native, a copy of the Model API key), router-instances/9494-47bd9338be61, a workspace-router-ports entry - test-only, left in place."
+  - "WSL: /tmp/muse-settings.backup.json (the pre-test settings), probe session records under ~/.local/share/muse/sessions for /home/djlov/muse-router-probe."
+not_done:
+  - "No push / npm publish / version bump (nightly branch is local-only)."
+  - "Deployment to the local snapshot happens after this journal entry (releases/local/<sha>.okf)."
+sources:
+  - "ciel_runtime_support/{muse_mcp,muse_runtime_context,muse_oauth,web_endpoints,provider_choice,prelaunch_launch_panel,prelaunch_panel_projection,prelaunch}.py, ciel_runtime.py, tests/test_muse_{mcp,runtime}.py, tests/test_web_endpoints.py."
+  - "router-instances/9494-47bd9338be61/router.log (routed + native runs), WSL ~/.config/muse/settings.json diff vs backup."

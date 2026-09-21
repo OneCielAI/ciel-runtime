@@ -7,18 +7,33 @@ Code subscription authentication:
 ciel-runtime muse
 ```
 
-This is a native runtime integration. Muse Code sends its model traffic directly
-with the browser-authenticated credential created by its own onboarding. The Ciel
-Router remains the local control plane for Web Chat, external inputs, remote
-instructions, and workspace memory; it does not proxy the subscription model
-request through the pay-as-you-go Model API. Add `--ca-router` for the routed
-Model API mode described below.
+Muse Code runs in one of two modes, chosen like Claude's and Codex's:
+
+- **Muse Native** - `ciel-runtime muse`, or select *Muse Native* (`meta:native`)
+  in the provider menu. Muse talks to Meta directly. When the workspace's `meta`
+  provider has a Model API key (`ciel-runtime api-key meta`), the launcher hands
+  it to Muse as `META_API_KEY`; Meta documents that an API key takes priority
+  over the stored account login and bills those calls pay-as-you-go. Without a
+  key, Muse keeps using its own account login. A native launch also resets the
+  launcher's routerspin in Muse's settings (see below) so Muse starts from its
+  factory transport again.
+- **Muse Routed** - `ciel-runtime muse --ca-router`, select *Muse Routed*
+  (`meta:routed`) in the provider menu, or use the launch menu's routed row.
+  Muse's model traffic goes through the Ciel Router, which holds the Model API
+  key and serves the `/v1/responses` route Muse speaks.
+
+The Ciel Router remains the local control plane for Web Chat, external inputs,
+remote instructions, and workspace memory in both modes.
 
 ## Routed mode (Meta Model API through the Ciel Router)
 
 ```sh
 ciel-runtime muse --ca-router
 ```
+
+Routed mode needs the `meta` provider selected (Muse Native or Muse Routed); a
+launch with another provider stops with that instruction, because the router
+sends Muse's requests to the selected provider and Muse only speaks Meta's wire.
 
 Routed mode launches the same Muse Code CLI but points its Meta provider at the
 Ciel Router instead of `https://api.meta.ai/v1`. Muse was captured sending
@@ -32,34 +47,52 @@ What changes:
 - `--base-url {ROUTER_BASE}/v1` and an explicit `--provider meta` are passed to
   Muse; a `--provider echo` request is refused because it would bypass the
   router.
-- Muse advertises the router's local placeholder token; the router holds the
-  Meta Model API key, so this is the pay-as-you-go Model API path, not the
-  subscription. Configure the key with `ciel-runtime api-key meta`.
-- The launcher owns the router for the whole session, including headless
+- Muse advertises the router's token; the router holds the Meta Model API key,
+  so this is the pay-as-you-go Model API path, not the subscription. Configure
+  the key with `ciel-runtime api-key meta`.
+- The launcher pins the router base URL in Muse's settings as
+  `endpoint_transport = {"base_url": "<router>/v1", "auth": "bearer"}`. Muse
+  1.3.0 withholds its Meta bearer from a base URL that is "off the sanctioned
+  front door" and only accepts the pin (its own message: a settings pin does
+  not vouch for a `--base-url` flag, so the pin is written even though the flag
+  is passed). A native launch removes the pin again; a pin the launcher did not
+  write is left alone.
+- The launch owns the router for the whole session, including headless
   `muse exec` runs, and records the launch mode as `muse-router`.
 - Everything the router adds applies: channel delivery, Web Chat, remote
   instructions, telemetry, live LLM options and the advisor.
 
 Platform note (Windows): Muse Code runs inside WSL while the router runs on
-Windows, and WSL cannot reach the Windows loopback. Routed mode therefore
-refuses to start while the router is bound to `127.0.0.1` and prints the
-command to fix it:
+Windows, and WSL cannot reach the Windows loopback. A Muse launch therefore
+binds this launch's router to the address the distribution sees as its host
+(its default gateway, printed by `wsl -e sh -lc "ip route show default"`)
+automatically; `--ca-web-address <host>` still overrides it. That address is
+outside loopback, so the router needs external access (the automatic bind
+enables it for the launch) and Muse receives the router's external-access
+token. Without a WSL host address the launch stops with the instructions
+instead of letting every model call fail.
 
-```sh
-ciel-runtime muse --ca-router --ca-web-address <windows-wsl-ip>
-```
-
-`--ca-web-address` binds the router to that address and enables router debug
-external access; routed mode then hands Muse the router's external-access token
-instead of the local placeholder. If debug external access is off, the launch
-stops with instructions rather than letting every model call fail.
+Credentials travel into the distribution through `WSLENV`: a Windows process
+variable is invisible to a `wsl -e` process unless WSLENV lists its name, so
+the launcher adds `META_API_KEY`/`MODEL_API_KEY` to it and drops the
+`env -u META_API_KEY -u MODEL_API_KEY` wrapper it uses for subscription
+launches (that wrapper would delete the injected value again).
 
 ## Authentication and billing boundary
 
-Native Muse launches remove `META_API_KEY` and `MODEL_API_KEY` from the child
-environment. Meta documents that API-key authentication takes precedence over a
-stored browser session and that additional API keys are billed pay-as-you-go.
-Run `ciel-runtime muse`, then use Muse's `/login` command when sign-in is needed.
+Meta documents that API-key authentication takes precedence over a stored
+browser session and that additional API keys are billed pay-as-you-go, so the
+boundary is explicit:
+
+- The workspace's `meta` provider key (`ciel-runtime api-key meta`) is injected
+  into a **native** launch; remove it (`ciel-runtime api-key meta --clear`) to
+  fall back to the account login.
+- Muse's own account token lives in `~/.config/muse/auth.json` (inside WSL on
+  Windows). The API-key menu for the Meta provider now offers
+  `Login with Muse OAuth (device code)`, a status line and a logout entry, so
+  the token can be stored before the first session instead of during it. The
+  login runs `muse login` through the same launcher prefix; it never sees the
+  injected key.
 
 Use the existing Ciel `meta` provider with Claude or Codex when direct Model API
 pay-as-you-go routing is desired. That is a separate path from Muse Code

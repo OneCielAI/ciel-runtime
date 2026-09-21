@@ -138,6 +138,7 @@ class PrelaunchSecrets:
     copilot_oauth_action: Callable[..., Any]
     kimi_oauth_action: Callable[..., Any]
     zai_oauth_action: Callable[..., Any] = lambda _action: []
+    muse_oauth_action: Callable[..., Any] = lambda _action: []
 
 
 @dataclass(frozen=True, slots=True)
@@ -260,6 +261,7 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
     copilot_oauth_action = services.secrets.copilot_oauth_action
     kimi_oauth_action = services.secrets.kimi_oauth_action
     zai_oauth_action = services.secrets.zai_oauth_action
+    muse_oauth_action = services.secrets.muse_oauth_action
     timeout_profile_panel_rows = services.options.timeout_profile_panel_rows
     web_backend_panel_rows = services.options.web_backend_panel_rows
     set_web_backend_config = services.options.set_web_backend_config
@@ -506,6 +508,13 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                         persist_launch_action(action)
                         launch_muse([])
                         return PRELAUNCH_CANCEL
+                    if action == "launch-muse-routed":
+                        if provider != "meta":
+                            messages = ["Muse Code routed mode is disabled until Muse Native or Muse Routed provider is selected."]
+                            continue
+                        persist_launch_action(action)
+                        launch_muse(["--ca-router"])
+                        return PRELAUNCH_CANCEL
                     continue
                 if panel == "language" and value:
                     cfg["language"] = value
@@ -594,6 +603,13 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                                 else zai_oauth_action
                             ),
                         )
+                        refresh_checks()
+                        cfg = load_config()
+                        provider, pcfg = get_current_provider(cfg)
+                        panel_rows, panel_values = api_key_panel_rows(provider, pcfg)
+                        panel_idx = 0
+                    elif value.startswith("muse-oauth-"):
+                        messages = muse_oauth_action(value.removeprefix("muse-oauth-"))
                         refresh_checks()
                         cfg = load_config()
                         provider, pcfg = get_current_provider(cfg)

@@ -16,6 +16,8 @@ CODEX_NATIVE_PROVIDER_CHOICE = "codex:native"
 CODEX_ROUTED_PROVIDER_CHOICE = "codex:routed"
 KIMI_NATIVE_PROVIDER_CHOICE = "kimi:native"
 KIMI_ROUTED_PROVIDER_CHOICE = "kimi:routed"
+META_NATIVE_PROVIDER_CHOICE = "meta:native"
+META_ROUTED_PROVIDER_CHOICE = "meta:routed"
 
 
 CHOICE_ALIASES = {
@@ -47,6 +49,14 @@ CHOICE_ALIASES = {
     "kimi-code": KIMI_NATIVE_PROVIDER_CHOICE,
     "kimi-routed": KIMI_ROUTED_PROVIDER_CHOICE,
     "kimi-router": KIMI_ROUTED_PROVIDER_CHOICE,
+    "muse": META_NATIVE_PROVIDER_CHOICE,
+    "muse-native": META_NATIVE_PROVIDER_CHOICE,
+    "meta-native": META_NATIVE_PROVIDER_CHOICE,
+    "native-meta": META_NATIVE_PROVIDER_CHOICE,
+    "muse-routed": META_ROUTED_PROVIDER_CHOICE,
+    "muse-router": META_ROUTED_PROVIDER_CHOICE,
+    "meta-routed": META_ROUTED_PROVIDER_CHOICE,
+    "meta-router": META_ROUTED_PROVIDER_CHOICE,
 }
 
 
@@ -122,6 +132,23 @@ CHOICE_STRATEGIES = {
         status_lines=("Provider set to kimi (Kimi Routed).", "mode: kimi-routed", "Kimi Code requests are routed through ciel-runtime."),
         missing_api_key_line="Kimi Routed requires Kimi OAuth login or a Kimi API key; open API key setup to authenticate.",
     ),
+    META_NATIVE_PROVIDER_CHOICE: ProviderChoiceStrategy(
+        provider="meta", routed=False,
+        status_lines=(
+            "Provider set to meta (Muse Native).",
+            "mode: meta-native",
+            "Muse Code talks to Meta directly - its stored account login, or the configured Model API key (pay-as-you-go).",
+        ),
+    ),
+    META_ROUTED_PROVIDER_CHOICE: ProviderChoiceStrategy(
+        provider="meta", routed=True,
+        status_lines=(
+            "Provider set to meta (Muse Routed).",
+            "mode: meta-routed",
+            "Muse Code model traffic is routed through ciel-runtime, which holds the Model API key.",
+        ),
+        missing_api_key_line="Muse Routed needs a Meta Model API key (ciel-runtime api-key meta) or a Muse account login.",
+    ),
 }
 
 
@@ -194,6 +221,8 @@ __all__ = [
     "CODEX_ROUTED_PROVIDER_CHOICE",
     "KIMI_NATIVE_PROVIDER_CHOICE",
     "KIMI_ROUTED_PROVIDER_CHOICE",
+    "META_NATIVE_PROVIDER_CHOICE",
+    "META_ROUTED_PROVIDER_CHOICE",
     "ProviderChoiceController",
     "ProviderChoicePorts",
     "ProviderChoiceStrategy",
