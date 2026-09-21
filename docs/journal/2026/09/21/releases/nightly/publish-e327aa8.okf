@@ -1,0 +1,31 @@
+okf_version: "1.0"
+task: "Nightly push and publish of the Muse Native/Routed work and the meta tool-pattern repair: main and nightly dc893f7 -> e327aa8, npm nightly 0.2.51-nightly.20260921-215446.e327aa8 published, and the machine's global npm install moved onto it."
+commits:
+  - "e327aa8 test(muse): run the --continue resolution tests only on Windows"
+  - "8211d2f ci(release): allow dispatching the npm publish workflow"
+  - "335dcd8 fix(meta): repair tool patterns Meta's regex engine refuses"
+  - "5eaae7f feat(muse): native and routed modes with injectable credentials"
+  - "a753efa fix(claude): keep bypass permissions for the Claude-in-chrome MCP tools"
+  - "plus the journal commits for those fixes and their local deploys"
+pushed:
+  main: "dc893f7 -> e327aa8 (fast-forward, origin/main)"
+  nightly: "dc893f7 -> e327aa8 (fast-forward, origin/nightly)"
+blockers:
+  first_publish_attempt: "Publish to npm for 8211d2f failed at `npm test`: four Muse tests added by d931ef8/1b68bdf (tests/test_muse_runtime.py MuseContinueResolutionTests: test_windows_cwd_maps_to_the_wsl_path, test_launch_rewrites_continue_to_the_history_session, test_picker_launch_resolves_to_an_existing_history_session, test_resume_falls_back_to_the_newest_history_session) encode Windows drive paths and fail on the Linux runner (`['resume', <session>] != ['resume', '--last']`, `'/mnt/f/omini-router' != ''`). Fixed in e327aa8 with the same skipUnless(sys.platform == 'win32') marker the sibling probe test already uses; a Linux-shaped test run (sys.platform patched before import) skips exactly those four."
+  actions_incident: "GitHub Actions was degraded today: the first pushes (f8119b3, da8b0a5, 10c1a3d) created no workflow runs at all and the repository's PushEvents were missing, while workflow_dispatch ran; a dispatched CI run and a later dispatched Publish run were therefore used/cancelled. Pushes from 8211d2f onwards triggered normally again. npm-publish.yml gained a workflow_dispatch trigger (8211d2f) so a publish never depends on the push event alone."
+workflows:
+  publish_nightly: "35659611032 'Publish to npm [nightly] e327aa8' success; ruff, npm test, 'Compute and apply nightly version' (Nightly version: 0.2.51-nightly.20260921-215446.e327aa8), npm publish --access public --tag nightly and the published-tarball verification all green."
+  ci_nightly: "35659610830 CI [nightly] e327aa8 success."
+  ci_main: "35659599925 CI [main] e327aa8 success."
+  publish_main: "35659599890 'Publish to npm [main] e327aa8' success; 'Package @oneciel-ai/ciel-runtime@0.2.51 is already published; skipping npm publish.' - stable 0.2.51 untouched."
+  failed_and_cancelled: "35659301506/35659599890 failed on the unfixed tests; 35659317920 (dispatch) and 35659243219 (superseded) cancelled."
+artifact:
+  dist_tag: "npm dist-tags: nightly = 0.2.51-nightly.20260921-215446.e327aa8 (latest stays 0.2.51)."
+  tarball: "https://registry.npmjs.org/@oneciel-ai/ciel-runtime/-/ciel-runtime-0.2.51-nightly.20260921-215446.e327aa8.tgz shasum abd5ff67dfa19b4266c8232740e3ef3ead5405c2."
+  content: "Tarball carries ciel_runtime_support/muse_oauth.py, providers/meta.py (the pattern repair), muse_runtime_context.py and runtime_constants.py VERSION = 0.2.51-nightly.20260921-215446.e327aa8."
+machine:
+  npm_global: "npm i -g @oneciel-ai/ciel-runtime@nightly -> 0.2.51-nightly.20260921-215446.e327aa8; the installed tree carries muse_oauth.py and the meta pattern repair. This is the copy a WSL-launched Muse resolves."
+  local_pin: "Unchanged: user CIEL_RUNTIME_HOME still points at the local snapshot ciel-runtime-335dcd8819f84d... (releases/local/335dcd8.okf)."
+not_done:
+  - "The published nightly was not exercised from WSL in this task; the Muse routed/native paths were verified earlier today against the repo CLI and the local snapshot."
+  - "The running G:\\ciel-Walkie session keeps the router code it started with until that session or its router restarts."
