@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any, Mapping
@@ -29,6 +30,13 @@ MUSE_SPARK_MODELS = (
     "muse-spark-1.2-contributor",
     "muse-spark-1.1",
 )
+# Meta compiles every tool ``pattern`` with its own regex engine and rejects
+# the whole request when an escape does not compile. Claude Code's Artifact
+# tool ships ``"pattern": "^[^\0]*$"`` (a NUL escape in ``file_paths``), and
+# Meta answers HTTP 400 ``Invalid JSON schema: "^[^\0]*$" is not a "regex"``
+# (measured 2026-09-21 against api.meta.ai/v1/messages; the same class written
+# as ``\x00`` is accepted). Rewrite the NUL escape for Meta.
+_META_UNSUPPORTED_NUL_ESCAPE = re.compile(r"\\0(?![0-9])")
 MUSE_SPARK_CONTEXT_WINDOW = 1_048_576
 MUSE_SPARK_AUTO_COMPACT_LIMIT = 900_000
 MUSE_SPARK_CODEX_CATALOG = {
@@ -255,6 +263,41 @@ class MetaModelProviderAdapter(HttpBearerProviderAdapter):
         return False
 
     @classmethod
+    def _repair_schema_patterns(cls, schema: Any) -> Any:
+        """Rewrite regex escapes Meta's validator cannot compile.
+
+        Only ``pattern`` strings are touched; every other schema keyword and
+        value is returned as-is, and a schema that needs no repair keeps its
+        values unchanged.
+        """
+
+        if isinstance(schema, Mapping):
+            return {
+                key: (
+                    _META_UNSUPPORTED_NUL_ESCAPE.sub(lambda _match: r"\x00", value)
+                    if key == "pattern" and isinstance(value, str)
+                    else cls._repair_schema_patterns(value)
+                )
+                for key, value in schema.items()
+            }
+        if isinstance(schema, list):
+            return [cls._repair_schema_patterns(item) for item in schema]
+        return schema
+
+    @classmethod
+    def _repair_tool_schemas(cls, tools: Any, schema_key: str) -> Any:
+        """Apply :meth:`_repair_schema_patterns` to each tool's schema field."""
+
+        if not isinstance(tools, list):
+            return tools
+        repaired: list[Any] = []
+        for tool in tools:
+            if isinstance(tool, Mapping) and isinstance(tool.get(schema_key), Mapping):
+                tool = {**dict(tool), schema_key: cls._repair_schema_patterns(tool[schema_key])}
+            repaired.append(tool)
+        return repaired
+
+    @classmethod
     def _normalize_responses_request(
         cls, request: dict[str, Any], config: ProviderConfig
     ) -> None:
@@ -295,6 +338,7 @@ class MetaModelProviderAdapter(HttpBearerProviderAdapter):
         tools = request.get("tools")
         if isinstance(tools, list):
             request["tools"] = [cls._normalize_responses_tool(tool) for tool in tools]
+            request["tools"] = cls._repair_tool_schemas(request["tools"], "parameters")
         # Meta Responses answers 400 "only "auto" is supported for tool_choice"
         # to "required" and to named function choices; keep the tools usable.
         tool_choice = request.get("tool_choice")
@@ -456,6 +500,8 @@ class MetaModelProviderAdapter(HttpBearerProviderAdapter):
                 projected_output.get("effort")
             )
             request["output_config"] = projected_output
+        if isinstance(request.get("tools"), list):
+            request["tools"] = cls._repair_tool_schemas(request["tools"], "input_schema")
 
     @staticmethod
     def _normalize_chat_request(request: dict[str, Any]) -> None:

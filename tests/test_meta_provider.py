@@ -17,6 +17,7 @@ from ciel_runtime_support.provider_responses_passthrough import (
     ProviderResponsesPassthroughPorts,
 )
 from ciel_runtime_support.upstream_error_policy import UpstreamStreamReadError
+from ciel_runtime_support.providers.meta import MetaModelProviderAdapter
 from ciel_runtime_support.provider_files_proxy import (
     META_FILE_UPLOAD_MAX_BYTES,
     META_FILE_UPLOAD_WIRE_MAX_BYTES,
@@ -1841,6 +1842,122 @@ class ProviderResponsesPassthroughTests(unittest.TestCase):
         mark_failed.assert_not_called()
         mark_success.assert_called_once_with(handler, "responses_local_compaction")
         commit.assert_called_once_with(anthropic_body, handler)
+
+
+class MetaToolPatternRepairTests(unittest.TestCase):
+    """Meta refuses a tool ``pattern`` its regex engine cannot compile.
+
+    Live 2026-09-21 in G:\\ciel-Walkie: switching a Claude Code session to the
+    meta provider failed every call with
+    ``Invalid JSON schema: {"maxLength":1024,"minLength":1,"pattern":"^[^\\0]*$",
+    "type":"string"} is not valid under any of the schemas listed in the
+    'anyOf' keyword``, because Claude Code's Artifact tool ships that NUL
+    escape in ``file_paths``. Writing the same class as ``\\x00`` is accepted
+    (both measured against api.meta.ai/v1/messages).
+    """
+
+    NUL_PATTERN = "^[^\\0]*$"
+    REPAIRED_PATTERN = "^[^\\x00]*$"
+
+    @staticmethod
+    def artifact_like_body() -> dict:
+        return {
+            "model": "muse-spark-1.3",
+            "max_tokens": 64,
+            "messages": [{"role": "user", "content": "hi"}],
+            "tools": [
+                {
+                    "name": "Artifact",
+                    "description": "publish",
+                    "input_schema": {
+                        "type": "object",
+                        "properties": {
+                            "file_paths": {
+                                "type": "array",
+                                "minItems": 1,
+                                "maxItems": 25,
+                                "items": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 1024,
+                                    "pattern": MetaToolPatternRepairTests.NUL_PATTERN,
+                                },
+                            },
+                            "reply_to": {"type": "string", "pattern": "^[1-9]\\d{0,17}$"},
+                        },
+                    },
+                }
+            ],
+        }
+
+    def setUp(self):
+        self.pcfg = copy.deepcopy(ciel_runtime.DEFAULT_CONFIG["providers"]["meta"])
+
+    def test_messages_wire_repairs_the_nul_escape(self):
+        body = self.artifact_like_body()
+
+        normalized = ciel_runtime.apply_provider_adapter_request_policy(
+            "meta", self.pcfg, body, "anthropic_messages"
+        )
+
+        schema = normalized["tools"][0]["input_schema"]
+        self.assertEqual(
+            self.REPAIRED_PATTERN, schema["properties"]["file_paths"]["items"]["pattern"]
+        )
+        self.assertEqual(
+            "^[1-9]\\d{0,17}$", schema["properties"]["reply_to"]["pattern"]
+        )
+        self.assertEqual(1024, schema["properties"]["file_paths"]["items"]["maxLength"])
+        # The caller's body is never mutated.
+        self.assertEqual(
+            self.NUL_PATTERN,
+            body["tools"][0]["input_schema"]["properties"]["file_paths"]["items"]["pattern"],
+        )
+
+    def test_responses_wire_repairs_the_nul_escape(self):
+        body = {
+            "model": "muse-spark-1.3",
+            "input": [{"type": "message", "role": "user", "content": "hi"}],
+            "tools": [
+                {
+                    "type": "function",
+                    "name": "probe",
+                    "description": "probe",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "file_paths": {
+                                "type": "array",
+                                "items": {"type": "string", "pattern": self.NUL_PATTERN},
+                            }
+                        },
+                    },
+                }
+            ],
+        }
+
+        normalized = ciel_runtime.apply_provider_adapter_request_policy(
+            "meta", self.pcfg, body, "openai_responses"
+        )
+
+        parameters = normalized["tools"][0]["parameters"]
+        self.assertEqual(
+            self.REPAIRED_PATTERN, parameters["properties"]["file_paths"]["items"]["pattern"]
+        )
+
+    def test_a_pattern_without_the_escape_is_left_alone(self):
+        schema = {"type": "string", "pattern": "^[\\w-]+$", "minLength": 1}
+
+        repaired = MetaModelProviderAdapter._repair_schema_patterns(schema)
+
+        self.assertEqual(schema, repaired)
+
+    def test_octal_like_escapes_are_not_rewritten(self):
+        schema = {"type": "string", "pattern": "^[\\012]*$"}
+
+        repaired = MetaModelProviderAdapter._repair_schema_patterns(schema)
+
+        self.assertEqual("^[\\012]*$", repaired["pattern"])
 
 
 if __name__ == "__main__":

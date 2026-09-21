@@ -1,0 +1,25 @@
+okf_version: "1.0"
+task: "User: `c:/ciel walkie에서 claude fable을 사용하다가 meta api로 변경해서 사용하려고할때 에러가남..` then `그럼 어떻게 바꿔야할까? 말해봐. 그냥 간결하게 말해봐. 해봐.` - find why a Claude Code session in G:\\ciel-Walkie fails on every call after switching the provider to the Meta API, and fix it."
+symptom:
+  error: "Every routed call answered HTTP 400 from https://api.meta.ai/v1/messages: `invalid_request_error: Invalid JSON schema: {\"maxLength\":1024,\"minLength\":1,\"pattern\":\"^[^\\\\0]*$\",\"type\":\"string\"} is not valid under any of the schemas listed in the 'anyOf' keyword` (router log 2026-09-21T13:09:47/54, model muse-spark-1.3-contributor, session 417ef30b-...)."
+  scope: "Only the meta provider; the same session on the anthropic provider worked."
+diagnosis:
+  offending_tool: "Claude Code's built-in Artifact tool ships `file_paths.items` with `\"pattern\":\"^[^\\0]*$\"` (a NUL escape) - found verbatim in the G:\\ciel-Walkie transcript (417ef30b-...jsonl, 5 occurrences). The Artifact tool is absent from headless `-p` sessions, which is why a plain reproduction with 32 tools passed."
+  direct_bisect: "Against api.meta.ai/v1/messages with the real Model API key (max_tokens>=16): (A) the exact fragment -> 400 with the same message; (B) same fragment without `pattern` -> 200; (C) items with only the pattern -> 400; (D) a plain string property with the same pattern -> 400 `\"^[^\\0]*$\" is not a \"regex\"`; (E) the same character class written `^[^\\x00]*$` -> 200; (F) a control pattern `^[^a]*$` -> 200. So Meta compiles each tool `pattern` with its own regex engine and refuses the NUL escape."
+  end_to_end_repro: "A scratch workspace MCP stub publishing one tool with that schema (`pattern_mcp.py`), run as `claude -p hi` through the router with the meta provider: HTTP 400 with the identical message (router log 13:37:43, exit 1) - reproduced without touching G:\\ciel-Walkie."
+fix:
+  change: "ciel_runtime_support/providers/meta.py rewrites the NUL escape in tool schema patterns before the request goes out: `_repair_schema_patterns` (only `pattern` strings, recursive, returns the original tree untouched where nothing matches; an octal-looking `\\0` followed by a digit is left alone) and `_repair_tool_schemas` applied on both wires - `input_schema` (anthropic_messages, from `_normalize_messages_request`) and `parameters` (openai_responses, after `_normalize_responses_tool`). It runs inside the adapter normalization the router already calls for local requests (`normalize_request_for_provider_wire`), so Claude Code, Codex and Muse routed paths all get it."
+  not_changed: "The tool list is untouched (no tool is filtered or dropped) and no other provider's wire is affected - the rewrite lives in the meta adapter only."
+verification:
+  live_after_fix: "Same reproduction after the change: exit 0, Claude printed `Hi.`, router log `POST /v1/messages?beta=true HTTP/1.1` 200, and the dumped upstream body (CIEL_RUNTIME_DUMP_UPSTREAM) carries `\"pattern\":\"^[^\\x00]*$\"` for `mcp__pattern_probe__probe_pattern` - 4 patterns in the outgoing tools, 0 still carrying `\\0`."
+  tests: "tests/test_meta_provider.py gains MetaToolPatternRepairTests (messages wire, responses wire, untouched non-escape pattern, octal-like escape kept); unit group 1600 OK (skipped=45), router group 1143 OK; ruff (CI rule set) clean; ciel_runtime.py line budget unchanged (4980)."
+not_done:
+  - "No push / npm publish / version bump (nightly branch is local-only); local deploy follows in releases/local/<sha>.okf."
+  - "G:\\ciel-Walkie's running router (instance 9495, pid 108124) keeps the old code until that session or its router restarts; the next launch picks the fix up."
+leftovers:
+  - "Probe tooling: %TEMP%\\muse-router-probe-20260921\\pattern_mcp.py (stdio MCP stub with the offending schema), repro_claude_meta.py, upstream dumps before/after."
+  - "The scratch workspace config registered the pattern_probe MCP server for the reproduction; removed again afterwards."
+sources:
+  - "ciel_runtime_support/providers/meta.py (repair helpers), provider_policy.py:78-107 (normalize_provider_request -> adapter normalization), ciel_runtime.py:2292 normalize_request_for_provider_wire."
+  - "router-instances/9469-aae7db361c7f/router.log (13:09:47) and 9494-47bd9338be61/router.log (13:37:43 failing, 13:40:17 fixed)."
+  - "C:\\Users\\djlov\\.claude\\projects\\G--ciel-Walkie\\417ef30b-1289-47a5-8921-a4d45eb93f2e.jsonl - the Artifact tool schema."
