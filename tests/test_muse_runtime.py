@@ -713,12 +713,14 @@ class MuseContinueResolutionTests(unittest.TestCase):
         )
         self.assertEqual("", latest_tui_history_session(history, "/mnt/f/absent"))
 
+    @unittest.skipUnless(sys.platform == "win32", "needs a Windows cwd drive")
     def test_windows_cwd_maps_to_the_wsl_path(self):
         self.assertEqual(
             "/mnt/f/omini-router", wsl_workspace_path(Path(r"F:\omini-router"))
         )
         self.assertEqual("", wsl_workspace_path(Path("/home/test")))
 
+    @unittest.skipUnless(sys.platform == "win32", "needs a Windows cwd drive")
     def test_launch_rewrites_continue_to_the_history_session(self):
         captured = {}
         session = self.SESSION
@@ -787,6 +789,7 @@ class MuseContinueResolutionTests(unittest.TestCase):
         self.assertIn(".local/share/muse/sessions/*/*/*/", script)
         self.assertIn('echo "$id"', script)
 
+    @unittest.skipUnless(sys.platform == "win32", "needs a Windows cwd drive")
     def test_picker_launch_resolves_to_an_existing_history_session(self):
         captured = {}
         dead = "01a0bb7e-4f99-7bc1-aaf4-7d9eddaacdfa"
@@ -854,6 +857,7 @@ class MuseContinueResolutionTests(unittest.TestCase):
             )
         )
 
+    @unittest.skipUnless(sys.platform == "win32", "needs a Windows cwd drive")
     def test_resume_falls_back_to_the_newest_history_session(self):
         captured = {}
         base = MuseRuntimeTests.context(captured, platform_name="nt")
