@@ -186,6 +186,7 @@ class EndpointTransportTests(unittest.TestCase):
 
     def test_a_foreign_transport_setting_is_kept(self):
         foreign = {
+            "schema_version": 1,
             "provider": "meta",
             "endpoint_transport": {"base_url": "https://proxy.example/v1", "auth": "oauth"},
         }
@@ -214,6 +215,39 @@ class EndpointTransportTests(unittest.TestCase):
             json.loads(pinned)["endpoint_transport"],
         )
 
+    def test_every_write_carries_schema_version(self):
+        """Muse refuses to run when its settings document lacks schema_version.
+
+        Live 2026-09-21 on a fresh pool machine: the launcher wrote
+        ``{mcpServers, endpoint_transport}`` and Muse answered
+        ``malformed settings file ... missing field `schema_version```
+        (`muse exec` exit 1, `muse config status`
+        ``enterprise_status_settings_unavailable``).
+        """
+
+        fresh, action = sync_settings_text(None, router_mcp_entry("http://127.0.0.1:9611", "tok"))
+        self.assertEqual("updated", action)
+        self.assertEqual(1, json.loads(fresh)["schema_version"])
+
+        pinned, transport_action = sync_endpoint_transport_text(
+            fresh, router_endpoint_transport("http://127.0.0.1:9611/v1")
+        )
+        self.assertEqual("updated", transport_action)
+        self.assertEqual(1, json.loads(pinned)["schema_version"])
+
+    def test_a_settings_file_that_lost_schema_version_is_repaired(self):
+        without = json.dumps({"endpoint_transport": {"base_url": "http://x/v1", "auth": "bearer"}})
+
+        repaired, action = sync_endpoint_transport_text(without, None)
+        still_repaired, unchanged_action = sync_settings_text(repaired, None)
+
+        # The pin is the launcher's own and goes away; the repair rides along.
+        self.assertEqual("removed", action)
+        self.assertEqual(1, json.loads(repaired)["schema_version"])
+        self.assertNotIn("endpoint_transport", json.loads(repaired))
+        self.assertEqual("unchanged", unchanged_action)
+        self.assertEqual(1, json.loads(still_repaired)["schema_version"])
+
     def test_store_writes_entry_and_pin_in_one_pass(self):
         state = {"text": None}
         written: list[str] = []
@@ -239,6 +273,7 @@ class EndpointTransportTests(unittest.TestCase):
         state = {
             "text": json.dumps(
                 {
+                    "schema_version": 1,
                     "provider": "meta",
                     "endpoint_transport": {
                         "base_url": "http://172.29.112.1:9494/v1",

@@ -32,6 +32,12 @@ MUSE_MCP_TYPE = "streamable-http"
 # rule; a ``--base-url`` flag alone cannot be vouched). The routed launch
 # therefore writes that pin and - per the user's Native definition - removes it
 # again on a native launch, keeping every other setting untouched.
+# Muse refuses to run when its settings document lacks ``schema_version``
+# ("malformed settings file ... missing field `schema_version```; ``muse config
+# status`` answers ``enterprise_status_settings_unavailable``) - Maze Code
+# 1.3.0-R3401.1, measured 2026-09-21. The launcher writes this file on a
+# machine where Muse has not written one yet, so every write carries the field.
+MUSE_SETTINGS_SCHEMA_VERSION = 1
 MUSE_ENDPOINT_TRANSPORT_KEY = "endpoint_transport"
 MUSE_ENDPOINT_TRANSPORT_AUTH = "bearer"
 MUSE_SANCTIONED_TRANSPORT_HOSTS = ("api.meta.ai",)
@@ -120,6 +126,26 @@ def is_ciel_endpoint_transport(value: Any) -> bool:
     return bool(host) and host not in MUSE_SANCTIONED_TRANSPORT_HOSTS
 
 
+def _ensure_schema_version(settings: dict[str, Any]) -> tuple[dict[str, Any], bool]:
+    """Return ``(settings, repaired)`` with ``schema_version`` guaranteed present.
+
+    Muse refuses to run when the document lacks it: ``muse exec`` answers
+    ``malformed settings file ... missing field `schema_version``` and
+    ``muse config status`` answers ``enterprise_status_settings_unavailable``
+    (Muse Code 1.3.0-R3401.1, measured 2026-09-21). A machine where Muse has
+    not written its own settings file yet gets ours first, so every write
+    carries the field - and repairs a file that lost it.
+    """
+
+    if "schema_version" in settings:
+        return settings, False
+    return {"schema_version": MUSE_SETTINGS_SCHEMA_VERSION, **settings}, True
+
+
+def _dump_settings(settings: dict[str, Any]) -> str:
+    return json.dumps(settings, ensure_ascii=False, indent=2) + "\n"
+
+
 def sync_endpoint_transport_text(
     text: str | None, value: Mapping[str, Any] | None
 ) -> tuple[str, str]:
@@ -142,20 +168,23 @@ def sync_endpoint_transport_text(
         if not isinstance(parsed, dict):
             return (str(text or ""), "unreadable")
         settings = parsed
+    settings, repaired = _ensure_schema_version(settings)
     current = settings.get(MUSE_ENDPOINT_TRANSPORT_KEY)
     if value is not None:
         merged = dict(current) if isinstance(current, Mapping) else {}
         merged.update(value)
         if current == merged:
-            return (str(text or ""), "unchanged")
+            return (_dump_settings(settings), "updated") if repaired else (str(text or ""), "unchanged")
         settings[MUSE_ENDPOINT_TRANSPORT_KEY] = merged
-        return (json.dumps(settings, ensure_ascii=False, indent=2) + "\n", "updated")
+        return (_dump_settings(settings), "updated")
     if current is None:
+        if repaired:
+            return (_dump_settings(settings), "updated")
         return (str(text or ""), "absent" if not normalized else "unchanged")
     if not is_ciel_endpoint_transport(current):
-        return (str(text or ""), "kept")
+        return (_dump_settings(settings), "updated") if repaired else (str(text or ""), "kept")
     settings.pop(MUSE_ENDPOINT_TRANSPORT_KEY, None)
-    return (json.dumps(settings, ensure_ascii=False, indent=2) + "\n", "removed")
+    return (_dump_settings(settings), "removed")
 
 
 def sync_settings_text(
@@ -179,21 +208,24 @@ def sync_settings_text(
     servers = settings.get("mcpServers")
     if not isinstance(servers, dict):
         servers = {}
+    settings, repaired = _ensure_schema_version(settings)
     if entry is None:
         if name not in servers:
+            if repaired:
+                return (_dump_settings(settings), "updated")
             return (str(text or ""), "absent" if not normalized else "unchanged")
         remaining = {key: value for key, value in servers.items() if key != name}
         if remaining:
             settings["mcpServers"] = remaining
         else:
             settings.pop("mcpServers", None)
-        return (json.dumps(settings, ensure_ascii=False, indent=2) + "\n", "removed")
+        return (_dump_settings(settings), "removed")
     current = servers.get(name)
     if current == entry:
-        return (str(text or ""), "unchanged")
+        return (_dump_settings(settings), "updated") if repaired else (str(text or ""), "unchanged")
     servers = {**servers, name: dict(entry)}
     settings["mcpServers"] = servers
-    return (json.dumps(settings, ensure_ascii=False, indent=2) + "\n", "updated")
+    return (_dump_settings(settings), "updated")
 
 
 @dataclass(frozen=True, slots=True)
@@ -334,6 +366,7 @@ __all__ = [
     "MUSE_MCP_TYPE",
     "MUSE_ROUTER_SERVER_NAME",
     "MUSE_SANCTIONED_TRANSPORT_HOSTS",
+    "MUSE_SETTINGS_SCHEMA_VERSION",
     "MUSE_SETTINGS_RELATIVE",
     "MuseRouterMcpDecision",
     "MuseSettingsStore",
