@@ -1,0 +1,18 @@
+okf_version: "1.0"
+task: "Local deploy of 335dcd8 (meta provider repairs tool patterns Meta's regex engine refuses)."
+commit: "335dcd8819f84da98f7c3ef7029689cbccf12e82"
+branch: "nightly (local only; no push, no npm publish, no version bump)"
+install:
+  snapshot: "C:\\Users\\djlov\\.local\\share\\ciel-runtime-335dcd8819f84da98f7c3ef7029689cbccf12e82"
+  supersedes: "C:\\Users\\djlov\\.local\\share\\ciel-runtime-5eaae7f010c69f54fa8a34e29f54e56e22c9cd8a"
+  command: "install.ps1 from the repo working tree with CIEL_RUNTIME_INSTALL_HOME=<snapshot> and PREFIX=C:\\Users\\djlov\\.local"
+  pin: "User environment variable CIEL_RUNTIME_HOME = the new snapshot (verified via [Environment]::GetEnvironmentVariable)."
+  side_effects: "install.ps1 copies the tree into the snapshot, rewrites the User pin/PATH and broadcasts the environment change; it touches no running router or session."
+verification:
+  content: "Snapshot ciel_runtime_support/providers/meta.py is SHA256-identical to the repo tree."
+  behaviour: "Deployed CLI smoke test: with a workspace MCP tool carrying the offending schema (`\"pattern\": \"^[^\\\\0]*$\"`), `ciel-runtime.cmd --ca-runtime claude -- -p hi` in the scratch workspace answered HTTP 200 through the router (`POST /v1/messages provider=meta ... 200`, 33 tools) - the same setup answered 400 with the repo CLI before the fix."
+  tests: "unit group 1600 OK (skipped=45), router group 1143 OK; ruff (CI rule set) clean; ciel_runtime.py line budget unchanged (4980)."
+not_done:
+  - "No push / npm publish / version bump (nightly branch is local-only)."
+  - "The running G:\\ciel-Walkie session (router instance 9495, pid 108124) keeps the old code until that session or its router restarts; its next launch uses this pin."
+  - "Probe leftovers: %TEMP%\\muse-router-probe-20260921 (pattern_mcp.py, up/downstream dumps); the scratch workspace MCP registration was removed again."
