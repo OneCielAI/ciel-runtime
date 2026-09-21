@@ -1,0 +1,19 @@
+okf_version: "1.0"
+task: "Local deploy of 5eaae7f (Muse Native/Routed modes, credential injection, settings pin/reset, Muse OAuth menu entry)."
+commit: "5eaae7f010c69f54fa8a34e29f54e56e22c9cd8a"
+branch: "nightly (local only; no push, no npm publish, no version bump)"
+install:
+  snapshot: "C:\\Users\\djlov\\.local\\share\\ciel-runtime-5eaae7f010c69f54fa8a34e29f54e56e22c9cd8a"
+  supersedes: "C:\\Users\\djlov\\.local\\share\\ciel-runtime-a753efa90a05dbb9b42647ec47587e6c09ed4278"
+  command: "install.ps1 from the repo working tree with CIEL_RUNTIME_INSTALL_HOME=<snapshot> and PREFIX=C:\\Users\\djlov\\.local"
+  pin: "User environment variable CIEL_RUNTIME_HOME = the new snapshot (verified via [Environment]::GetEnvironmentVariable)."
+  side_effects: "install.ps1 copies the tree into the snapshot, rewrites the User pin/PATH and broadcasts the environment change; it touches no running router or session."
+verification:
+  content: "Snapshot ciel_runtime.py, ciel_runtime_support/{muse_mcp,muse_runtime_context,muse_oauth,web_endpoints,provider_choice}.py are SHA256-identical to the repo tree."
+  behaviour: "Deployed CLI smoke test from the scratch workspace (%TEMP%\\muse-router-probe-20260921, provider meta:routed): `ciel-runtime.cmd muse exec \"reply with the single word: pong\"` returned `pong`, exit 0 - the router started on the auto-detected WSL host address, the token was injected through WSLENV, the endpoint pin was written, and Meta answered through the router."
+  tests: "unit 1598 OK (skipped=45), router 1139 OK, channel 410 OK (skipped=80), runtime 296 OK (skipped=19); ruff check (CI rule set) clean; architecture budget unchanged (ciel_runtime.py 4980)."
+  state_restored: "The user's WSL ~/.config/muse/settings.json was restored byte-exactly after the probes (sha256 95198f35...); the two live Muse sessions (pid 748, 359611) kept running."
+not_done:
+  - "No push / npm publish / version bump (nightly branch is local-only)."
+  - "The scratch test workspace config (workspaces/47bd9338be61) held a copy of the Model API key and was deleted after the run; its router instance dir and logs stay as evidence."
+  - "Muse prints a warning that /mnt/c/Users/djlov/.claude/CLAUDE.md is shadowed by Users/djlov/CLAUDE.md in that directory - pre-existing, unrelated."
