@@ -3,6 +3,9 @@ name: Publish to npm
 on:
   push:
     branches: [main, nightly]
+  # Manual publish for the branch's tip; the job reads the dispatching ref, so
+  # `gh workflow run "Publish to npm" --ref nightly` publishes a nightly.
+  workflow_dispatch:
 
 jobs:
   publish:
