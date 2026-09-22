@@ -304,13 +304,32 @@ COMPATIBLE_PROVIDER_SPECS: tuple[CompatibleProviderSpec, ...] = (
     ),
     CompatibleProviderSpec(
         "xiaomi-mimo", "Xiaomi MiMo", "https://api.xiaomimimo.com/v1",
-        ("mimo-v2.5-pro", "mimo-v2.5", "mimo-v2-omni", "mimo-v2-flash"),
+        (
+            # MiMo-V2.6 (2026-09-21): Pro, Pro-UltraSpeed and Flash on the same
+            # host; the ids match the ones Xiaomi's own clients send (see
+            # sdcb/xiaomimimo-for-copilot against api.xiaomimimo.com/v1).
+            "mimo-v2.6-pro",
+            "mimo-v2.6-pro-ultraspeed",
+            "mimo-v2.6-flash",
+            "mimo-v2.5-pro",
+            "mimo-v2.5",
+            "mimo-v2-omni",
+            "mimo-v2-flash",
+        ),
         ("mimo",),
     ),
     CompatibleProviderSpec(
         "xiaomi-tokenplan", "Xiaomi MiMo Token Plan",
         "https://token-plan-sgp.xiaomimimo.com/v1",
-        ("mimo-v2.5-pro", "mimo-v2.5-pro-claude", "mimo-v2.5", "mimo-v2-pro"),
+        (
+            "mimo-v2.6-pro",
+            "mimo-v2.6-pro-ultraspeed",
+            "mimo-v2.6-flash",
+            "mimo-v2.5-pro",
+            "mimo-v2.5-pro-claude",
+            "mimo-v2.5",
+            "mimo-v2-pro",
+        ),
         ("xmtp", "xiaomi-token-plan"),
     ),
 )

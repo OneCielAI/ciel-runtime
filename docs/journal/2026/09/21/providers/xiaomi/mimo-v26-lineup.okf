@@ -1,0 +1,26 @@
+okf_version: "1.0"
+task: "User: `Xiaomi MiMo 2.6 pro. 모델 지원하는지 확인해서 추가.` then `또 xiamoi 모든모델 추가` - check whether MiMo V2.6 Pro is supported and add it, plus the rest of the Xiaomi line-up."
+answer: "Partially supported before this change: the `xiaomi-mimo`/`xiaomi-tokenplan` providers existed with the V2.5 ids only, so V2.6 was not selectable. Now both providers bundle `mimo-v2.6-pro`, `mimo-v2.6-pro-ultraspeed` and `mimo-v2.6-flash`, with `mimo-v2.6-pro` first (the model a fresh provider selection starts on)."
+evidence:
+  model_ids: "`mimo-v2.6-pro`, `mimo-v2.6-pro-ultraspeed`, `mimo-v2.6-flash` - the ids three independent consumers of the same API send: sdcb/xiaomimimo-for-copilot (`src/consts.ts`, base URL `https://api.xiaomimimo.com/v1` in `src/config.ts`), LiteLLM's `model_prices_and_context_window.json` (`xiaomi_mimo/mimo-v2.6-pro`, `xiaomi_mimo/mimo-v2.6-flash`, 1,048,576 context, 131,072 output, vision + tool calling), and OpenRouter's `xiaomi/mimo-v2.6-{pro,pro-ultraspeed,flash}` (1,048,576 context)."
+  vendor_page: "mimo.mi.com news page: the MiMo-V2.6 series is Pro and Flash (both natively omnimodal), released 2026-09-21, same API pricing as V2.5; MiMo-V2.6-Pro also offers the UltraSpeed mode on the Open Platform. llmreference.com (refreshed the same day) names `mimo-v2.6-pro` as the product/API id."
+  not_checkable_here: "The platform's own /v1/models needs an API key and this machine has none for either Xiaomi provider (`providers.xiaomi-mimo.api_key` and `xiaomi-tokenplan.api_key` are both empty), so the V2.6 ids could not be confirmed against the live catalog - see confirmed_vs_inferred."
+changes:
+  catalog: "ciel_runtime_support/providers/catalog.py: `xiaomi-mimo` gains the V2.6 trio ahead of the V2.5 ids (mimo-v2.6-pro, mimo-v2.6-pro-ultraspeed, mimo-v2.6-flash, mimo-v2.5-pro, mimo-v2.5, mimo-v2-omni, mimo-v2-flash) and `xiaomi-tokenplan` mirrors it (keeping mimo-v2.5-pro-claude and mimo-v2-pro). The first entry is the adapter's default model, so a fresh Xiaomi provider selection now starts on mimo-v2.6-pro."
+  migration: "config_migrations.py marker `xiaomi_mimo_v26_catalog_20260921`: existing `xiaomi-mimo`/`xiaomi-tokenplan` configs get the three ids appended to `custom_models`; `current_model` is left exactly as the user selected it."
+  untouched: "The free gateways `mimo-free`/`mmf` keep their single `mimo-v2-flash` entry; nothing indicates the free-ai endpoint serves V2.6."
+verification:
+  cli: "Repo CLI against a temp config dir seeded with the machine's real config: `ciel-runtime models xiaomi-mimo` lists 7 models including the three V2.6 ids (picker aliases `ciel-runtime-xiaomi-mimo-mimo-v2.6-pro` etc.), and `ciel-runtime models xiaomi-tokenplan` the same."
+  migration_live: "`ciel-runtime provider xiaomi-mimo` in that temp dir then shows the persisted config: custom_models = [... 'mimo-v2.6-pro', 'mimo-v2.6-pro-ultraspeed', 'mimo-v2.6-flash'], current_model still 'mimo-v2.5-pro', `migrations.xiaomi_mimo_v26_catalog_20260921` = true. The live config was not modified (the run used a copy)."
+  tests: "tests/test_catalog_provider_adapters.py::XiaomiMimoCatalogTests (spec + adapter fallback list, flagship leads the default, migration keeps the selected model and appends the trio); catalog provider adapter group 14 OK."
+confirmed_vs_inferred:
+  confirmed: "The provider/adapter/migration wiring works on this machine (CLI output above); OpenRouter's catalog carries the three V2.6 ids today (fetched live); LiteLLM and a third-party VS Code client both name the same ids for the direct Xiaomi API."
+  inferred: "That the V2.6 ids resolve on `api.xiaomimimo.com/v1` and on the token-plan host - no key is available here to call either catalog, so this rests on the three external sources above, not on a call from this machine."
+not_done:
+  - "No live chat completion against Xiaomi (no API key on this machine)."
+  - "No push/publish in this entry; the nightly publish of the release commit follows."
+sources:
+  - "https://raw.githubusercontent.com/sdcb/xiaomimimo-for-copilot/HEAD/src/consts.ts and src/config.ts"
+  - "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json (entries xiaomi_mimo/*, openrouter/xiaomi/*)"
+  - "https://openrouter.ai/api/v1/models (xiaomi/mimo-v2.6-*), https://mimo.mi.com/docs/en-US/news/latest/v2-6, https://www.llmreference.com/model/mimo-v2-6-pro"
+  - "ciel_runtime_support/providers/catalog.py, ciel_runtime_support/config_migrations.py, tests/test_catalog_provider_adapters.py"

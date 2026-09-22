@@ -150,6 +150,33 @@ def apply_config_migrations(cfg: dict[str, Any], *, policy: ConfigMigrationPolic
                     known.add(normalized)
         migrations[marker] = True
 
+    marker = "xiaomi_mimo_v26_catalog_20260921"
+    if not migrations.get(marker):
+        providers = cfg.get("providers") if isinstance(cfg.get("providers"), dict) else {}
+        for name in ("xiaomi-mimo", "xiaomi-tokenplan"):
+            pcfg = providers.get(name)
+            if not isinstance(pcfg, dict):
+                continue
+            custom = pcfg.get("custom_models")
+            if not isinstance(custom, list):
+                custom = []
+                pcfg["custom_models"] = custom
+            known = {
+                normalize_model_id(name, str(model))
+                for model in custom
+                if str(model).strip()
+            }
+            for model in (
+                "mimo-v2.6-pro",
+                "mimo-v2.6-pro-ultraspeed",
+                "mimo-v2.6-flash",
+            ):
+                normalized = normalize_model_id(name, model)
+                if normalized not in known:
+                    custom.append(model)
+                    known.add(normalized)
+        migrations[marker] = True
+
     marker = "anthropic_default_1m_model_ids_20260902"
     if not migrations.get(marker):
         providers = cfg.get("providers") if isinstance(cfg.get("providers"), dict) else {}

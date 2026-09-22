@@ -160,3 +160,68 @@ class CatalogProviderAdapterTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class XiaomiMimoCatalogTests(unittest.TestCase):
+    """MiMo-V2.6 (2026-09-21) is part of both Xiaomi provider lineups.
+
+    Ids verified against two clients that talk to api.xiaomimimo.com/v1
+    (sdcb/xiaomimimo-for-copilot and LiteLLM's xiaomi_mimo provider), plus
+    OpenRouter's xiaomi/mimo-v2.6-* catalog.
+    """
+
+    V26 = ("mimo-v2.6-pro", "mimo-v2.6-pro-ultraspeed", "mimo-v2.6-flash")
+
+    def test_both_xiaomi_specs_carry_the_v26_lineup(self):
+        specs = {spec.name: spec for spec in COMPATIBLE_PROVIDER_SPECS}
+
+        for name in ("xiaomi-mimo", "xiaomi-tokenplan"):
+            with self.subTest(provider=name):
+                spec = specs[name]
+                self.assertEqual(name, spec.name)
+                for model in self.V26:
+                    self.assertIn(model, spec.models)
+                # The adapter's picker fallback offers the same list.
+                adapter = PROVIDER_ADAPTERS.create(name)
+                config = ProviderConfig(
+                    name=name, base_url=adapter.default_base_url(), api_keys=("k",), model=""
+                )
+                fallback = adapter.model_catalog_policy(config).fallback_models
+                for model in self.V26:
+                    self.assertIn(model, fallback)
+
+    def test_the_new_flagship_leads_the_default_model(self):
+        specs = {spec.name: spec for spec in COMPATIBLE_PROVIDER_SPECS}
+
+        self.assertEqual("mimo-v2.6-pro", specs["xiaomi-mimo"].models[0])
+        self.assertEqual("mimo-v2.6-pro", specs["xiaomi-tokenplan"].models[0])
+
+    def test_existing_configs_gain_the_models_without_losing_their_choice(self):
+        import ciel_runtime
+
+        cfg = {
+            "providers": {
+                "xiaomi-mimo": {
+                    "current_model": "mimo-v2.5-pro",
+                    "custom_models": ["mimo-v2.5-pro", "mimo-v2.5"],
+                },
+                "xiaomi-tokenplan": {
+                    "current_model": "mimo-v2.5-pro-claude",
+                    "custom_models": ["mimo-v2.5-pro-claude"],
+                },
+            },
+            "migrations": {},
+        }
+
+        ciel_runtime.apply_config_migrations(cfg)
+
+        mimo = cfg["providers"]["xiaomi-mimo"]
+        self.assertEqual("mimo-v2.5-pro", mimo["current_model"])
+        for model in self.V26:
+            self.assertIn(model, mimo["custom_models"])
+        self.assertEqual(1, mimo["custom_models"].count("mimo-v2.5-pro"))
+        tokenplan = cfg["providers"]["xiaomi-tokenplan"]
+        self.assertEqual("mimo-v2.5-pro-claude", tokenplan["current_model"])
+        for model in self.V26:
+            self.assertIn(model, tokenplan["custom_models"])
+        self.assertTrue(cfg["migrations"]["xiaomi_mimo_v26_catalog_20260921"])
