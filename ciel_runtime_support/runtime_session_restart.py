@@ -342,14 +342,50 @@ class RuntimeSessionRestartControl:
 
 @dataclass(frozen=True, slots=True)
 class SessionRestartPorts:
-    """Launch-service port that mints one restart control per CLI launch."""
+    """Launch-service ports that mint one restart control per CLI launch."""
 
     control: Callable[[], RuntimeSessionRestartControl] = lambda: RuntimeSessionRestartControl(
         poll=lambda: None
     )
+    # Queues the "restart complete" notice the resumed session receives.  The
+    # launcher calls it while it relaunches the CLI; the notice travels the
+    # ordinary runtime-input path, so the session's own proxy injects it after
+    # the startup grace instead of the caller polling for readiness.
+    notice: Callable[[dict[str, Any]], Any] = lambda _body: None
 
     def new_control(self) -> RuntimeSessionRestartControl:
         return self.control()
+
+
+def restart_notice_body(
+    runtime: str,
+    *,
+    source: str = "",
+    reason: str = "",
+    resumed: bool = True,
+) -> dict[str, Any]:
+    """Payload for one restart-complete notice injected into the session."""
+
+    mode = str(runtime or "").strip().lower() or "runtime"
+    text = (
+        f"[ciel-runtime] 재부팅 완료 — {mode} 런타임이 재시작되었고 이 세션은 "
+        f"{'이어졌습니다' if resumed else '새로 시작되었습니다'} "
+        f"(source={source or '-'}, reason={reason or '-'})"
+    )
+    return {
+        "channel": "restart",
+        "sender_id": "ciel-runtime",
+        "kind": "restart_notice",
+        "message": text,
+        "meta": {
+            "source": "ciel-runtime-restart",
+            "source_kind": "restart_notice",
+            "runtime": mode,
+            "restart_source": str(source or ""),
+            "restart_reason": str(reason or ""),
+            "resumed": bool(resumed),
+        },
+    }
 
 
 def session_restart_clients(
@@ -725,6 +761,7 @@ __all__ = [
     "SessionRestartPorts",
     "local_runtime_session_restart",
     "queue_session_restart",
+    "restart_notice_body",
     "runtime_resume_command",
     "runtime_session_control_present",
     "runtime_uses_resume_commands",

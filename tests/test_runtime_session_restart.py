@@ -26,6 +26,7 @@ from ciel_runtime_support.runtime_session_restart import (
     RuntimeSessionRestartRequest,
     RuntimeSessionRestartService,
     RuntimeSessionRestartServicePorts,
+    restart_notice_body,
     runtime_resume_command,
     runtime_session_control_present,
 )
@@ -34,7 +35,7 @@ from ciel_runtime_support.runtime_session_restart import (
 class ClaudeSessionRestartLoopTests(unittest.TestCase):
     """Drive the real run_claude loop with a restart requested mid-session."""
 
-    def claude_services(self, launched, control, capture):
+    def claude_services(self, launched, control, capture, notice=None):
         def no_op(*_args, **_kwargs):
             return None
 
@@ -136,7 +137,7 @@ class ClaudeSessionRestartLoopTests(unittest.TestCase):
                 no_op,
             ),
             mcp_config=runtime_launch.ClaudeLaunchMcpConfig(no_op, no_op),
-            restart=runtime_launch.SessionRestartPorts(lambda: control),
+            restart=runtime_launch.SessionRestartPorts(lambda: control, notice or (lambda _body: None)),
         )
 
     def test_restart_request_relaunches_the_cli_with_continue(self):
@@ -171,6 +172,43 @@ class ClaudeSessionRestartLoopTests(unittest.TestCase):
         self.assertEqual("--continue", launched[1][-1])
         self.assertTrue(control.requested)
 
+    def test_restart_queues_the_completion_notice_for_the_resumed_session(self):
+        launched: list[list[str]] = []
+        notices: list[dict] = []
+        request = RuntimeSessionRestartRequest(
+            id="restart-notice",
+            source="ciel-runtime-router-tool",
+            reason="deploy",
+            runtime="claude",
+            target_pid=os.getpid(),
+            resume=True,
+            requested_at=time.time(),
+            expires_at=time.time() + 60,
+        )
+        control = RuntimeSessionRestartControl(poll=lambda: request)
+        services = self.claude_services(
+            launched, control, [], notice=lambda body: notices.append(body) or {"id": 41}
+        )
+
+        runtime_launch.run_claude(
+            [],
+            skip_menu=True,
+            update_check=False,
+            self_update_check=False,
+            services=services,
+        )
+
+        # One notice per honoured restart, queued before the relaunch so the
+        # resumed session's own proxy injects it after the startup grace.
+        self.assertEqual(1, len(notices))
+        notice = notices[0]
+        self.assertEqual("restart", notice["channel"])
+        self.assertIn("재부팅 완료", notice["message"])
+        self.assertIn("claude", notice["message"])
+        self.assertIn("source=ciel-runtime-router-tool", notice["message"])
+        self.assertEqual("restart_notice", notice["meta"]["source_kind"])
+        self.assertTrue(notice["meta"]["resumed"])
+
     def test_launch_without_a_request_runs_once(self):
         launched: list[list[str]] = []
         control = RuntimeSessionRestartControl(poll=lambda: None)
@@ -187,6 +225,24 @@ class ClaudeSessionRestartLoopTests(unittest.TestCase):
         self.assertEqual(7, result)
         self.assertEqual(1, len(launched))
         self.assertFalse(control.requested)
+
+
+class RestartNoticeBodyTests(unittest.TestCase):
+    def test_notice_names_the_runtime_and_the_resume_outcome(self):
+        body = restart_notice_body(
+            "codex",
+            source="ciel-runtime-router-tool",
+            reason="deploy",
+            resumed=False,
+        )
+
+        self.assertEqual("restart", body["channel"])
+        self.assertEqual("restart_notice", body["kind"])
+        self.assertIn("재부팅 완료", body["message"])
+        self.assertIn("codex", body["message"])
+        self.assertIn("새로 시작되었습니다", body["message"])
+        self.assertEqual("ciel-runtime-restart", body["meta"]["source"])
+        self.assertFalse(body["meta"]["resumed"])
 
 
 class CodexSessionRestartLoopTests(unittest.TestCase):

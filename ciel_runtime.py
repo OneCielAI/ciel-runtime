@@ -4740,7 +4740,7 @@ def claude_launch_services() -> runtime_launch.ClaudeLaunchServices:
             write_zai_mcp_config,
             workspace_mcp_launch_service(),
         ),
-        restart=assembly.ClaudeLaunchRestartPorts(lambda: runtime_session_restart_service().control()),
+        restart=assembly.ClaudeLaunchRestartPorts(lambda: runtime_session_restart_service().control(), runtime_input_gateway().submit_notification),
     ).services()
 
 CODEX_ROUTED_UPSTREAM_BASE = "https://chatgpt.com/backend-api/codex"
@@ -4830,7 +4830,7 @@ def codex_launch_assembly() -> CodexLaunchAssembly:
             policy=runtime_launch.CodexAppServerCliPolicy(codex_app_server_default_listen_url, codex_app_server_launch_args, codex_current_model_config_args,
                                                           codex_native_routed_config_args, codex_passthrough_has_model_override, codex_runtime_config_args, toml_string),
         ),
-        restart=CodexLaunchSharedRestartPorts(lambda: runtime_session_restart_service().control()),
+        restart=CodexLaunchSharedRestartPorts(lambda: runtime_session_restart_service().control(), runtime_input_gateway().submit_notification),
     )
 
 def codex_launch_services() -> runtime_launch.CodexLaunchServices: return codex_launch_assembly().cli_services()

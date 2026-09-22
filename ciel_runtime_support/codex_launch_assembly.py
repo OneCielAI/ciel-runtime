@@ -82,6 +82,7 @@ class CodexAppServerLaunchPorts:
 @dataclass(frozen=True, slots=True)
 class CodexLaunchSharedRestartPorts:
     control: Callback
+    notice: Callback = lambda _body: None
 
 
 @dataclass(frozen=True, slots=True)
@@ -145,7 +146,7 @@ class CodexLaunchAssembly:
                 select_codex_resume_session=self.channel.select_resume_session,
             ),
             restart=(
-                runtime_launch.SessionRestartPorts(self.restart.control)
+                runtime_launch.SessionRestartPorts(self.restart.control, self.restart.notice)
                 if self.restart is not None
                 else runtime_launch.SessionRestartPorts()
             ),

@@ -109,6 +109,7 @@ class ClaudeLaunchMcpConfigPorts:
 @dataclass(frozen=True, slots=True)
 class ClaudeLaunchRestartPorts:
     control: Callback
+    notice: Callback = lambda _body: None
 
 
 @dataclass(frozen=True, slots=True)
@@ -206,7 +207,7 @@ class ClaudeLaunchAssembly:
                 workspace_mcp=self.mcp_config.workspace,
             ),
             restart=(
-                runtime_launch.SessionRestartPorts(self.restart.control)
+                runtime_launch.SessionRestartPorts(self.restart.control, self.restart.notice)
                 if self.restart is not None
                 else runtime_launch.SessionRestartPorts()
             ),

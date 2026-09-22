@@ -23,6 +23,7 @@ from ciel_runtime_support.runtime_constants import (
 from ciel_runtime_support.runtime_paths import CONFIG_DIR, LOG_PATH, ROUTER_BASE, ROUTER_INSTANCE_DIR, WORKSPACE_STATE_DIR
 from ciel_runtime_support.runtime_session_restart import (
     SessionRestartPorts,
+    restart_notice_body,
     runtime_resume_command,
 )
 from ciel_runtime_support.web_endpoints import (
@@ -62,6 +63,43 @@ def router_mcp_enabled_for_launch(config: dict[str, Any], *, native: bool) -> bo
     if configured is None:
         return not native
     return bool(configured)
+
+
+def queue_restart_notice(
+    restart: SessionRestartPorts,
+    runtime: str,
+    request: Any,
+    log: Callable[[str, str], None],
+) -> int:
+    """Queue the restart-complete notice the resumed session will receive.
+
+    The notice travels the ordinary runtime-input path, so the relaunched
+    session's own console proxy injects it once the process is up - a
+    self-restart does not depend on the caller polling for readiness.
+    """
+
+    try:
+        notice = restart.notice(
+            restart_notice_body(
+                runtime,
+                source=str(getattr(request, "source", "") or ""),
+                reason=str(getattr(request, "reason", "") or ""),
+                resumed=bool(getattr(request, "resume", True)),
+            )
+        )
+    except Exception as exc:
+        log(
+            "WARN",
+            f"{runtime}_session_restart_notice_failed "
+            f"error={type(exc).__name__}: {exc}",
+        )
+        return 0
+    notice_id = int((notice or {}).get("id") or 0)
+    log(
+        "INFO",
+        f"{runtime}_session_restart_notice_queued request_id={notice_id or '-'}",
+    )
+    return notice_id
 
 
 @dataclass(frozen=True, slots=True)
@@ -650,6 +688,7 @@ def run_claude(
             handled.add(request.id)
             if request.resume:
                 cmd[:] = runtime_resume_command(cmd, "claude")
+            queue_restart_notice(services.restart, "claude", request, router_log)
             print(
                 "Ciel Runtime: restarting Claude Code "
                 f"source={request.source or '-'} reason={request.reason or '-'}",
@@ -1090,6 +1129,7 @@ def run_codex(
             handled.add(request.id)
             if request.resume:
                 cmd[:] = runtime_resume_command(cmd, "codex")
+            queue_restart_notice(services.restart, "codex", request, router_log)
             print(
                 "Ciel Runtime: restarting Codex "
                 f"source={request.source or '-'} reason={request.reason or '-'}",
