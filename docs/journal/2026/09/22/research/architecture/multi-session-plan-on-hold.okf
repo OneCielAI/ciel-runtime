@@ -1,0 +1,10 @@
+okf_version: "1.0"
+task: "User: '일단계회긱보류' (일단 계획은 보류) - park the multi-session plan for now."
+status: "On hold by user decision. No implementation was started, so there is nothing to roll back: the three entries below are research only."
+background:
+  - "docs/journal/2026/09/21/research/architecture/multi-session-cloning.okf - what already exists (N-client registry, stateless router) and the single-slot management structures; same-directory collision survey in the shared_directory_collisions section."
+  - "docs/journal/2026/09/22/research/ecosystem/multi-session-cloning-solutions.okf - off-the-shelf solutions (Claude Code agent view/daemon//fork/worktrees, Codex fork/app-server, OpenHands Agent Server, claude-squad, Conductor; agentapi and Vibe Kanban deprecated/sunsetting)."
+  - "docs/journal/2026/09/22/research/architecture/router-multi-session-concurrency.okf - what is concurrency-safe vs instance-shared in the router today."
+resume_pointer: "If work resumes, the change surface is: launch policy (router_process_lifecycle.py:151-211), the single-slot structures listed in the 09/21 entry, the instance-shared provider/model and rate-limit state, and the same-directory (workspace config / transcript dir / user-global CLI settings) collisions."
+not_done:
+  - "Nothing else pending on this topic; no code, tests, or config were touched."
