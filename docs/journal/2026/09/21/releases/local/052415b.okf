@@ -1,0 +1,16 @@
+okf_version: "1.0"
+task: "Local deploy of 052415b (Xiaomi MiMo-V2.6 line-up bundled for xiaomi-mimo and xiaomi-tokenplan)."
+commit: "052415b4815d94fd1388728b07644c93957059f7"
+branch: "nightly (pushed to origin/main and origin/nightly; npm nightly publish runs from the push)"
+install:
+  snapshot: "C:\\Users\\djlov\\.local\\share\\ciel-runtime-052415b4815d94fd1388728b07644c93957059f7"
+  supersedes: "C:\\Users\\djlov\\.local\\share\\ciel-runtime-335dcd8819f84da98f7c3ef7029689cbccf12e82"
+  command: "install.ps1 from the repo working tree with CIEL_RUNTIME_INSTALL_HOME=<snapshot> and PREFIX=C:\\Users\\djlov\\.local"
+  pin: "User environment variable CIEL_RUNTIME_HOME = the new snapshot (verified via [Environment]::GetEnvironmentVariable)."
+verification:
+  content: "Snapshot ciel_runtime_support/providers/catalog.py is SHA256-identical to the repo tree."
+  behaviour: "Deployed CLI against a temp config dir seeded with this machine's config: `ciel-runtime.cmd models xiaomi-mimo` lists 7 models including mimo-v2.6-pro, mimo-v2.6-pro-ultraspeed and mimo-v2.6-flash."
+  tests: "unit group 1606 OK (skipped=45); ruff (CI rule set) clean on the touched files."
+not_done:
+  - "No live Xiaomi completion (no API key on this machine)."
+  - "The npm nightly publish for 052415b was still running when this entry was written; the published version is recorded in the nightly journal entry once it completes."
