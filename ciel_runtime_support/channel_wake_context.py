@@ -32,6 +32,7 @@ from .channel_transcript import (
     ChannelWakeStateReaderPorts,
     ChannelWakeTranscriptServices,
     WakeStateEvidence,
+    queued_dropped_from_text as queued_dropped_evidence,
 )
 from .channel_transcript_repository import ChannelTranscriptRepository
 from .channel_wake_claim_repository import ChannelWakeClaimRepository
@@ -430,6 +431,22 @@ class ChannelWakeContext:
             not_before=not_before,
         )
 
+    def queued_dropped_from_text(
+        self,
+        message_id: int,
+        text: str,
+        prompt_texts: list[str] | tuple[str, ...] | None = None,
+        *,
+        not_before: float | None = None,
+    ) -> bool:
+        return queued_dropped_evidence(
+            message_id,
+            text,
+            prompt_texts,
+            self.transcript_services(),
+            not_before=not_before,
+        )
+
     def wake_state_from_text(
         self,
         message_id: int,
@@ -465,6 +482,7 @@ class ChannelWakeContext:
                 self.transcript.read_tail,
                 self.wake_state_evidence_from_text,
                 self.queued_age_seconds_from_text,
+                self.queued_dropped_from_text,
                 self.transcript_policy.inflight_stale_seconds,
                 self.transcript_policy.log,
             )

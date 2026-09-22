@@ -30,6 +30,7 @@ class ChannelWakeStateReaderPorts:
     read_tail_text: Callable[[Any], str]
     wake_state_evidence_from_text: Callable[..., WakeStateEvidence]
     queued_age_from_text: Callable[..., float | None]
+    queued_dropped_from_text: Callable[..., bool]
     stale_seconds: Callable[[], float]
     log: Callable[[str, str], None]
 
@@ -106,6 +107,16 @@ class ChannelWakeStateReader:
     def queued_is_stale(
         self, message: dict[str, Any], prompt: str | None = None
     ) -> bool:
+        """Whether a queued command is stale *because the CLI dropped it*.
+
+        A command the CLI still holds is in flight, not failed: live
+        2026-09-22 a busy session's channel messages were released as
+        stale after the age threshold while the CLI simply had not reached
+        the turn boundary yet, so delivered messages were recorded failed.
+        Only a queued command the transcript shows was removed from the
+        queue (and never became a turn) is stale.
+        """
+
         message_id = self.message_id(message)
         if message_id <= 0:
             return False
@@ -118,7 +129,14 @@ class ChannelWakeStateReader:
             self.prompt_candidates(message, prompt),
             not_before=self.message_not_before(message),
         )
-        return age is not None and age >= self._ports.stale_seconds()
+        if age is None or age < self._ports.stale_seconds():
+            return False
+        return self._ports.queued_dropped_from_text(
+            message_id,
+            text,
+            self.prompt_candidates(message, prompt),
+            not_before=self.message_not_before(message),
+        )
 
     def _latest_text(self) -> tuple[Any, str]:
         path = self._ports.latest_transcript()
@@ -523,6 +541,63 @@ def queued_age_seconds_from_text(
     return max(0.0, current - latest_queued_at)
 
 
+def queued_dropped_from_text(
+    message_id: int,
+    text: str,
+    prompt_texts: list[str] | tuple[str, ...] | None,
+    services: ChannelWakeTranscriptServices,
+    *,
+    not_before: float | None = None,
+) -> bool:
+    """Whether the CLI removed this message from its input queue.
+
+    Claude Code records ``queue-operation`` with ``operation=enqueue`` when
+    a submitted prompt waits behind a running turn and ``operation=remove``
+    when it drops that prompt instead of running it (observed 2026-09-22:
+    enqueue then remove ~15 s later, no user record ever). A command with
+    no such removal is still in flight and must keep waiting.
+    """
+
+    if message_id <= 0:
+        return False
+    prompts = [str(item) for item in (prompt_texts or ()) if str(item or "").strip()]
+    claimed = services.claim_prompt(message_id)
+    if claimed:
+        prompts.append(claimed)
+    queued = False
+    dropped = False
+    for record in _jsonl_records(text):
+        record_type = str(record.get("type") or "")
+        if record_type == "queue-operation":
+            operation = str(record.get("operation") or "")
+            raw = record.get("content")
+            candidate = raw if isinstance(raw, str) else ""
+            matches = bool(candidate) and services.prompt_references_message_id(
+                candidate, message_id, prompts
+            )
+            if operation == "enqueue" and matches:
+                queued = True
+                dropped = False
+            elif operation == "remove" and matches:
+                dropped = True
+            continue
+        if record_type == "attachment":
+            attachment = record.get("attachment")
+            if isinstance(attachment, dict) and attachment.get("type") == "queued_command":
+                raw = attachment.get("prompt")
+                if isinstance(raw, str) and services.prompt_references_message_id(
+                    raw, message_id, prompts
+                ):
+                    queued = True
+            continue
+        actual_user_text = _evidence_user_text(record, not_before)
+        if actual_user_text and services.prompt_references_message_id(
+            actual_user_text, message_id, prompts
+        ):
+            return False
+    return bool(queued and dropped)
+
+
 def wake_state_from_text(
     message_id: int,
     text: str,
@@ -664,6 +739,7 @@ __all__ = [
     "record_timestamp_seconds",
     "queued_age_seconds_from_text",
     "queued_command_ids_from_text",
+    "queued_dropped_from_text",
     "tool_call_id",
     "tool_result_ids",
     "tool_use_ids",

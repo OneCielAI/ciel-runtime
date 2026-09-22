@@ -39,12 +39,21 @@ class RuntimeInputStatusRepository:
         with self.lock:
             current = self.get(request_id, _locked=True)
             current_status = str((current or {}).get("status") or "")
-            if current_status in _TERMINAL_STATES or current_status == status:
+            if current_status == status:
+                return current or self._record(request_id, status, reason, data)
+            late_completion = current_status == "failed" and status == "replied"
+            if current_status in _TERMINAL_STATES and not late_completion:
                 return current or self._record(request_id, status, reason, data)
             allowed = {
                 "": {"queued"},
                 "queued": {"submitted", "failed"},
                 "submitted": {"replied", "failed"},
+                # A late completion corrects a failed record: the failure only
+                # said the confirmation window expired, while the wake evidence
+                # now proves the message ran (2026-09-22: message 6450 was
+                # injected 12 minutes late and recorded failed while the session
+                # had already run it).
+                "failed": {"replied"},
             }
             if status not in allowed.get(current_status, set()):
                 self.log(

@@ -120,8 +120,14 @@ class ChannelRuntimeEnvironmentPolicy:
         current_time: float,
         stale_seconds: float,
     ) -> bool:
+        # "queued" is deliberately NOT stale by age: a command the CLI holds
+        # behind a running turn is in flight, and failing it flipped delivered
+        # messages to failed/stale_unconfirmed while the turn was still going
+        # (2026-09-22, instance 9469).  A queued command the CLI actually drops
+        # is released by the transcript removal evidence instead
+        # (channel_transcript.queued_dropped_from_text).
         return bool(
-            state in {"queued", "unknown"}
+            state in {"unknown"}
             and started_at > 0
             and current_time - started_at >= stale_seconds
         )

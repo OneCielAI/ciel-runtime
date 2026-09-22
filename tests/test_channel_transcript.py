@@ -32,6 +32,7 @@ class ChannelTranscriptTests(unittest.TestCase):
                 queued_age_from_text=lambda message_id, text, prompts, **_kwargs: (
                     calls.append((message_id, text, prompts)) or 31.0
                 ),
+                queued_dropped_from_text=lambda message_id, text, prompts, **_kwargs: True,
                 stale_seconds=lambda: 30.0,
                 log=lambda *_args: None,
             )
@@ -42,6 +43,21 @@ class ChannelTranscriptTests(unittest.TestCase):
         self.assertTrue(reader.queued_is_stale(message, "rendered"))
         self.assertEqual(("rendered", "body"), calls[0][2])
 
+    def test_queued_command_without_removal_evidence_is_not_stale(self):
+        reader = ChannelWakeStateReader(
+            ChannelWakeStateReaderPorts(
+                latest_transcript=lambda: "transcript.jsonl",
+                read_tail_text=lambda _path: "tail",
+                wake_state_evidence_from_text=lambda *_args, **_kwargs: WakeStateEvidence("queued"),
+                queued_age_from_text=lambda *_args, **_kwargs: 3600.0,
+                queued_dropped_from_text=lambda *_args, **_kwargs: False,
+                stale_seconds=lambda: 30.0,
+                log=lambda *_args: None,
+            )
+        )
+
+        self.assertFalse(reader.queued_is_stale({"id": 7, "message": "body"}, "rendered"))
+
     def test_wake_state_reader_handles_invalid_ids_and_missing_transcript(self):
         reader = ChannelWakeStateReader(
             ChannelWakeStateReaderPorts(
@@ -49,6 +65,7 @@ class ChannelTranscriptTests(unittest.TestCase):
                 read_tail_text=lambda _path: self.fail("missing transcript must not be read"),
                 wake_state_evidence_from_text=lambda *_args: self.fail("missing transcript must not be parsed"),
                 queued_age_from_text=lambda *_args: self.fail("missing transcript must not be parsed"),
+                queued_dropped_from_text=lambda *_args: self.fail("missing transcript must not be parsed"),
                 stale_seconds=lambda: 30.0,
                 log=lambda *_args: None,
             )
@@ -242,6 +259,7 @@ class ChannelTranscriptTests(unittest.TestCase):
                     message_id, text, prompts, self.wake_services()
                 ),
                 queued_age_from_text=lambda *_args: None,
+                queued_dropped_from_text=lambda *_args: False,
                 stale_seconds=lambda: 30.0,
                 log=lambda level, message: logs.append((level, message)),
             )

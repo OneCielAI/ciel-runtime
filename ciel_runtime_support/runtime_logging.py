@@ -153,9 +153,33 @@ class RouterFileLogger:
             return
         try:
             self.config_dir.mkdir(parents=True, exist_ok=True)
-            if self.path.exists() and self.path.stat().st_size > self.max_bytes:
-                self.path.replace(self.path.with_suffix(".log.1"))
+            self._rotate_if_needed()
             with self.path.open("a", encoding="utf-8") as handle:
                 handle.write(f"{time.strftime('%Y-%m-%dT%H:%M:%S')} [{level}] {message}\n")
         except Exception:
             pass
+
+    def _rotate_if_needed(self) -> None:
+        """Rotate over the cap; keep the line when rotation is impossible.
+
+        ``Path.replace`` fails on Windows while another process holds either
+        file open, and swallowing that used to drop every later line: on
+        2026-09-22 instance 9469 went silent at 1,000,046 bytes for hours,
+        exactly while the evidence was needed.  A failed rotation now leaves
+        the file in place so the record survives.
+        """
+
+        try:
+            if not self.path.exists() or self.path.stat().st_size <= self.max_bytes:
+                return
+        except OSError:
+            return
+        try:
+            self.path.replace(self.path.with_suffix(".log.1"))
+            return
+        except OSError:
+            pass
+        try:
+            self.path.replace(self.path.with_name(f"{self.path.name}.{int(time.time())}.1"))
+        except OSError:
+            return

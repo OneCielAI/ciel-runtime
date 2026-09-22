@@ -2708,7 +2708,10 @@ class ChannelBridgeTests(unittest.TestCase):
                 ciel_runtime._CHANNEL_STDIN_WAKE_FAILED.pop(9, None)
 
         self.assertEqual(8, last_id)
-        self.assertEqual(8, repeated_last_id)
+        # A failed record is terminal, so the next scan skips past it instead
+        # of stalling every later message behind it (2026-09-10, instance
+        # 9481, where one failed message blocked the queue for minutes).
+        self.assertEqual(9, repeated_last_id)
         self.assertEqual([], injected)
         self.assertNotIn(9, ciel_runtime._CHANNEL_STDIN_WAKE_DELIVERED)
         self.assertNotIn(9, ciel_runtime._CHANNEL_STDIN_WAKE_PROMPTS)
@@ -2716,6 +2719,12 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertTrue(
             any(
                 "message_ids=9 reason=prompt_not_submitted" in str(call.args[1])
+                for call in router_log.call_args_list
+            )
+        )
+        self.assertTrue(
+            any(
+                "message_id=9" in str(call.args[1]) and "action=skipped" in str(call.args[1])
                 for call in router_log.call_args_list
             )
         )
@@ -3460,6 +3469,19 @@ class ChannelBridgeTests(unittest.TestCase):
                         "content": "\x15" + stale_prompt,
                     }
                 )
+                + "\n"
+                # The CLI removed the queued command instead of running it:
+                # that removal is the evidence a queued wake is stale.  A
+                # command the CLI still holds stays in flight (see
+                # test_inject_pending_channel_messages_keeps_held_queued_wake_waiting).
+                + json.dumps(
+                    {
+                        "type": "queue-operation",
+                        "operation": "remove",
+                        "timestamp": "2026-06-28T07:12:21.900Z",
+                        "content": "\x15" + stale_prompt,
+                    }
+                )
                 + "\n",
                 encoding="utf-8",
             )
@@ -3492,6 +3514,74 @@ class ChannelBridgeTests(unittest.TestCase):
         commit_cursor.assert_called_with(368)
         log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
         self.assertTrue(any("reason=stale_queued_wake" in item and "message_id=368" in item for item in log_messages))
+
+    def test_inject_pending_channel_messages_keeps_held_queued_wake_waiting(self):
+        """A queued command the CLI still holds is in flight, not stale.
+
+        Live 2026-09-22: a busy session held channel commands in its input
+        queue for 12+ minutes; releasing them as stale marked delivered
+        messages failed and committed the cursor past them.
+        """
+
+        held_prompt = "[AI-Net new messages]\n• [DM] DM-Robert: 1 new (Joy)"
+        messages = [
+            {
+                "id": 368,
+                "channel": "ai-net-http",
+                "sender_id": "ai-net-http",
+                "message": held_prompt,
+                "meta": {
+                    "mcp_server": "ai-net-http",
+                    "mcp_method": "notifications/claude/channel",
+                    "kind": "digest",
+                },
+            }
+        ]
+        with tempfile.TemporaryDirectory() as td:
+            transcript = Path(td) / "session.jsonl"
+            transcript.write_text(
+                json.dumps(
+                    {
+                        "type": "queue-operation",
+                        "operation": "enqueue",
+                        "timestamp": "2026-06-28T07:12:06.900Z",
+                        "content": "\x15" + held_prompt,
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            claims_path = Path(td) / "claims.json"
+            injected: list[int] = []
+            with (
+                mock.patch.object(ciel_runtime, "CHANNEL_STDIN_WAKE_CLAIMS_PATH", claims_path),
+                mock.patch.object(ciel_runtime, "read_chat_messages", return_value=messages),
+                mock.patch.object(ciel_runtime, "_latest_claude_transcript_path", return_value=transcript),
+                mock.patch.object(ciel_runtime, "_channel_stdin_inflight_stale_seconds", return_value=180.0),
+                mock.patch.object(ciel_runtime.time, "time", return_value=1782631318.0),
+                mock.patch.object(ciel_runtime, "_write_fd_all") as write_all,
+                mock.patch.object(ciel_runtime, "_commit_channel_llm_cursor_if_newer") as commit_cursor,
+                mock.patch.object(ciel_runtime, "router_log") as router_log,
+            ):
+                last_id = ciel_runtime._inject_pending_channel_messages(
+                    99,
+                    367,
+                    wake_for_llm_delivery=True,
+                    commit_cursor=False,
+                    injected_message_ids=injected,
+                )
+
+        self.assertEqual(367, last_id)
+        self.assertEqual([], injected)
+        write_all.assert_not_called()
+        commit_cursor.assert_not_called()
+        log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
+        self.assertTrue(
+            any(
+                "waiting_for_turn_completion" in item and "message_id=368" in item
+                for item in log_messages
+            )
+        )
 
     def test_channel_stdin_wake_completed_requires_assistant_after_prompt(self):
         with tempfile.TemporaryDirectory() as td:
@@ -3582,11 +3672,14 @@ class ChannelBridgeTests(unittest.TestCase):
 
         self.assertEqual("completed", ciel_runtime._channel_stdin_wake_state_from_text(367, transcript, [raw_prompt]))
 
-    def test_channel_stdin_inflight_stale_only_expires_queued_or_unknown(self):
+    def test_channel_stdin_inflight_stale_only_expires_unresolved_states(self):
         with mock.patch.object(ciel_runtime, "_channel_stdin_inflight_stale_seconds", return_value=60.0):
-            self.assertTrue(ciel_runtime._channel_stdin_inflight_is_stale("queued", 100.0, 161.0))
+            # Queued means the CLI holds the command behind a running turn:
+            # in flight, not failed (see channel_transcript.queued_dropped_from_text
+            # for the removal evidence that releases a genuinely dropped one).
+            self.assertFalse(ciel_runtime._channel_stdin_inflight_is_stale("queued", 100.0, 161.0))
             self.assertTrue(ciel_runtime._channel_stdin_inflight_is_stale("unknown", 100.0, 161.0))
-            self.assertFalse(ciel_runtime._channel_stdin_inflight_is_stale("queued", 100.0, 120.0))
+            self.assertFalse(ciel_runtime._channel_stdin_inflight_is_stale("unknown", 100.0, 120.0))
             self.assertFalse(ciel_runtime._channel_stdin_inflight_is_stale("pending", 100.0, 1000.0))
             self.assertFalse(ciel_runtime._channel_stdin_inflight_is_stale("missing", 100.0, 1000.0))
             self.assertFalse(ciel_runtime._channel_stdin_inflight_is_stale("completed", 100.0, 1000.0))

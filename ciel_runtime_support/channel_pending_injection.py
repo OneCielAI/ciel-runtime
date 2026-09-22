@@ -80,6 +80,35 @@ def _message_id(message: dict[str, Any]) -> int:
         return 0
 
 
+class _DeferralFloor:
+    """Lowest message id this scan left undelivered.
+
+    The cursor may only move past messages that are consumed (delivered, or
+    skipped because they need no delivery).  A message skipped while it still
+    has to be delivered - claimed for a later scan, held pending a turn
+    boundary - must stay at or above the cursor, otherwise a later successful
+    injection commits the advanced id and the skipped messages are never
+    scanned again (live: 2026-09-22, 32 Walkie messages stuck behind cursor
+    533 while the durable cursor kept moving).
+    """
+
+    __slots__ = ("_lowest",)
+
+    def __init__(self) -> None:
+        self._lowest: int | None = None
+
+    def mark(self, message_id: int) -> None:
+        if message_id <= 0:
+            return
+        if self._lowest is None or message_id < self._lowest:
+            self._lowest = message_id
+
+    def clamp(self, last_id: int) -> int:
+        if self._lowest is None:
+            return last_id
+        return min(last_id, self._lowest - 1)
+
+
 def inject_pending_channel_messages(
     master_fd: int,
     last_id: int,
@@ -108,6 +137,7 @@ def inject_pending_channel_messages(
             last_id = state.recover_cursor(last_id)
         pending: list[dict[str, Any]] = []
         return_last_id = last_id
+        deferred = _DeferralFloor()
         candidates = io.read_messages(last_id, None, None, state.pending_scan_limit())
         superseded_ids = state.superseded_ids(candidates)
         batch_limit = services.policy.wake_batch_limit() if wake_for_llm_delivery else 1
@@ -124,15 +154,19 @@ def inject_pending_channel_messages(
             channel = message.get("channel")
             failure_reason = wake_store.lifecycle.failure_reason(message_id)
             if failure_reason:
+                # A failed record is terminal - it is never retried - so holding
+                # the scan at it only stalls every later message behind it
+                # (2026-09-10, instance 9481: one message blocked the queue for
+                # minutes).  Record it and move on; the failure stays visible in
+                # the runtime-input status store and in this log.
                 io.log(
                     "ERROR",
                     "channel_stdin_proxy_blocked "
                     f"cursor={previous_last_id} message_id={message_id} "
-                    f"reason=prior_submission_failed detail={failure_reason}",
+                    f"reason=prior_submission_failed detail={failure_reason} "
+                    "action=skipped",
                 )
-                if pending:
-                    break
-                return previous_last_id
+                continue
             if web_chat_only and not state.message_is_web_chat(message):
                 io.log("INFO", f"channel_stdin_proxy_skipped_noise message_id={message_id} channel={channel} reason=not_web_chat")
                 continue
@@ -207,6 +241,7 @@ def inject_pending_channel_messages(
                 io.log("INFO", f"channel_stdin_proxy_skipped_noise message_id={message_id} channel={channel} reason=stdin_wake_completed")
                 continue
             if skip_blocking_wake_states and wake_state == "missing" and wake_store.claim_for_nonblocking_scan(message_id):
+                deferred.mark(message_id)
                 io.log("INFO", f"channel_stdin_proxy_skipped_noise message_id={message_id} channel={channel} reason=stdin_wake_claimed_continue")
                 continue
             if wake_state in {"pending", "queued"}:
@@ -215,6 +250,7 @@ def inject_pending_channel_messages(
                     io.log("WARN", f"channel_stdin_proxy_skipped_noise message_id={message_id} channel={channel} reason=stale_queued_wake")
                     continue
                 if skip_blocking_wake_states:
+                    deferred.mark(message_id)
                     io.log("INFO", f"channel_stdin_proxy_skipped_noise message_id={message_id} channel={channel} reason=stdin_wake_{wake_state}_continue")
                     continue
                 io.log("INFO", f"channel_stdin_proxy_waiting_for_turn_completion message_id={message_id} channel={channel} state={wake_state}")
@@ -267,7 +303,7 @@ def inject_pending_channel_messages(
                 # not-yet-confirmed draft.
                 break
         if not pending:
-            return last_id
+            return deferred.clamp(last_id)
         if pending_uses_router:
             formatter = (
                 prompts.visible_llm_delivery
@@ -339,7 +375,7 @@ def inject_pending_channel_messages(
             raise
         if not web_chat_only:
             if commit_cursor:
-                wake_store.commit_cursor(last_id)
+                wake_store.commit_cursor(deferred.clamp(last_id))
             if injected_message_ids is not None:
                 injected_message_ids.extend(message_id for message in pending if (message_id := _message_id(message)) > 0)
         ids = ",".join(str(message.get("id") or "") for message in pending)
@@ -352,4 +388,4 @@ def inject_pending_channel_messages(
             f"commit_cursor={commit_cursor} "
             f"display_body={bool(pending_uses_router and display_llm_delivery_body)}",
         )
-        return return_last_id if pending_uses_router else last_id
+        return return_last_id if pending_uses_router else deferred.clamp(last_id)

@@ -70,9 +70,22 @@ class ChannelRuntimeEnvironmentPolicyTests(unittest.TestCase):
         self.assertEqual(500, invalid.pending_scan_limit())
 
     def test_inflight_staleness_only_applies_to_unresolved_states(self):
-        self.assertTrue(
+        # A queued command is held by the CLI behind a running turn: it is in
+        # flight, not failed (2026-09-22: failing it recorded delivered
+        # messages as failed/stale_unconfirmed).  Only an unresolved state
+        # expires on age; a queued command the CLI drops is released from the
+        # transcript removal evidence instead.
+        self.assertFalse(
             ChannelRuntimeEnvironmentPolicy.inflight_is_stale(
                 "queued",
+                100.0,
+                161.0,
+                60.0,
+            )
+        )
+        self.assertTrue(
+            ChannelRuntimeEnvironmentPolicy.inflight_is_stale(
+                "unknown",
                 100.0,
                 161.0,
                 60.0,
