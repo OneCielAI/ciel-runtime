@@ -1,0 +1,29 @@
+okf_version: "1.0"
+task: "User question (no code change requested): can one ciel-runtime serve multiple CLI sessions - clone the session a running CLI agent is using into a second identical session, and/or instantiate a new session from a template transcript - and how large would the structural change be?"
+answer_short: "The HTTP front door already carries several clients at once and the router itself holds no session state, but the launch policy deliberately enforces one router and one active runtime per workspace folder and terminates the previous client. Session 'fork' exists as a CLI-side capability that the launcher already translates for Claude and Codex; transcript-to-session cloning exists only at the content level (ImportSession), never as a native session. The change surface for true multi-session is the management layer's single-slot structures, not the transport."
+evidence:
+  router_is_stateless_per_request: "ciel_runtime_support/router_http.py has no matches for session/thread_id/conversation/previous_response_id - requests are transformed and forwarded per request; the conversation lives in the CLI's own transcript."
+  server_is_threaded: "ciel_runtime.py:17 imports ThreadingHTTPServer; ciel_runtime_support/router_server_runtime.py:71-80 constructs it and serve_forever()."
+  client_registry_holds_n: "ciel_runtime_support/router_client_lifecycle.py: RouterClientRegistry.register() writes router-clients/<pid>.json; active_pids() returns every live pid (stale files swept); ManagedRouterLifetime (line 130) keeps the router alive while any client is active."
+  instance_identity: "ciel_runtime_support/runtime_paths.py:139 ROUTER_INSTANCE_ID = '<port>-<workspace digest>'; ROUTER_CLIENTS_DIR = <instance>/router-clients (line 187)."
+  one_active_runtime_policy: "ciel_runtime.py:4192 start_router_if_needed docstring 'Enforce one router and one active runtime per workspace folder'; ciel_runtime_support/router_process_lifecycle.py:138-211 with replace_active_clients=True (the Claude-launch default, runtime_launch.py:368-373) terminates the active clients ('prelaunch_active_clients' / 'version_mismatch_active_clients') and takes the port. The mismatch branch raises: 'Stop the other Claude Code session or launch this instance with a different CIEL_RUNTIME_ROUTER_PORT.'"
+  codex_prelaunch_termination: "ciel_runtime.py:3819 terminate_existing_router_clients_for_launch; called from runtime_launch.py:978 ('codex_prelaunch_active_clients') and :1323 ('codex_app_server_prelaunch_active_clients')."
+  fork_primitives: "Claude: --fork-session is mirrored in the session-control lists (ciel_runtime_support/launch_state.py:109, runtime_session_restart.py:33-41) and passed through. Codex: ciel_runtime_support/codex_cli.py:255-264 maps '--fork-session [--session-id=X]' to 'codex fork X' / 'codex fork --last'. AGY: agy_cli.py:233-238 ignores --fork-session."
+  ciel_own_fork_is_a_new_session: "runtime_launch.py:522-528 - on a mode switch ciel-runtime adds '--session-id <new uuid>' (a fresh, empty session), not a copy of the previous transcript."
+  content_level_clone: "ciel_runtime_support/session_import.py - /ImportSession Codex|Claude [path] reads a transcript (or the latest) and injects it as text context; Claude->Claude is blocked (line 226) and the target session is not resumed from it."
+  no_native_transcript_creation: "Only reads of ~/.claude/projects exist (channel_transcript_repository.py:274, session_import.py:49); nothing in the tree writes a CLI transcript to mint a session."
+  single_slot_structures:
+    transcript_scope: "ciel_runtime.py:4471 _CHANNEL_TRANSCRIPT_SCOPE - one dict; channel_wake_context.set_transcript_scope overwrites it (channel_transcript_repository.py:93-127); set from launch paths (runtime_launch.py:1055, muse_runtime_context.py:747)."
+    transcript_delivery: "ciel_runtime.py:4474 one TranscriptDeltaDeliveryService; transcript_delta_delivery.py:1 'Incremental transcript delivery to one configured outbound HTTP endpoint'."
+    restart_slot: "runtime_session_restart.py: a single runtime-session-restart.json per instance; queue() overwrites it (line 236) and targets one pid (queue_session_restart line 414-469, default = latest client)."
+    submit_input: "The ciel-runtime-router MCP tool submits input to 'the active Ciel Runtime session' (tool contract)."
+    session_socket: "ciel_runtime_support/claude_session_socket.py:78,86-94 - one target path per client."
+probe:
+  script: "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-multisession-probe-20260921\\probe_multi_client_registry.py (temp instance dir; no live router or session touched)"
+  output: "registry.active_pids() = [100236, 114312]; session_restart_clients() listed both pids for instance '8799-deadbeef'; the dead pid 999999999 was swept from disk."
+confirmed_vs_inferred:
+  confirmed: "N concurrent client records per instance are real (probe above); the router keeps no per-session state (code search); the one-active-runtime launch policy, the fork translations, the single-slot scope/restart/delivery structures (file:line above)."
+  inferred: "That multi-session serving would need no transport change but per-session keying of the listed management structures - read off those structures, not built or tested."
+  unknown: "Whether Claude Code or Codex accept a fabricated/copied transcript as a resumable session (no code here writes one, and no external check was run); whether Muse offers a fork equivalent (RESUME_COMMANDS has only 'resume [--last]')."
+not_done:
+  - "No code change, no push: the question was answered from the tree plus the probe; nothing was committed except this journal entry."
