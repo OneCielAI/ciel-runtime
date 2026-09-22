@@ -21,6 +21,14 @@ evidence:
 probe:
   script: "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-multisession-probe-20260921\\probe_multi_client_registry.py (temp instance dir; no live router or session touched)"
   output: "registry.active_pids() = [100236, 114312]; session_restart_clients() listed both pids for instance '8799-deadbeef'; the dead pid 999999999 was swept from disk."
+shared_directory_collisions:
+  user_point: "Follow-up: 'same directory is used, so there would be a problem' - correct. Multi-session in one workspace collides on state that is keyed by workspace or by user, not by session."
+  workspace_config: "WORKSPACE_STATE_DIR/<digest>/config.json (runtime_paths.py:116-122) is read per request by the router (router_http.py:111 load_config, :113 get_current_provider), so a provider/model switch in one session changes the other session's next turn; rate-limit-state.json cooldowns are shared too."
+  instance_singletons: "Per instance: router-activity.json, context-compact-activity.json, context-usage.json, runtime-interaction.json, channel-compact-request.json, rate-limit-state.json, requests.jsonl/responses.jsonl, and the workspace-level transcript-event-cursors.json / channel-llm-cursor.json / channel-stdin-wake-claims.json."
+  launch_state: "launch-state.json (per-cwd previous launch mode) is overwritten by each launch; should_fork_native_session (launch_state.py:88-131) reads it - two sessions in one cwd overwrite each other's entry."
+  same_transcript_dir: "One cwd -> one ~/.claude/projects/<slug>/; the runtime picks the newest mtime as 'the' transcript (channel_transcript_repository.py:344-401) and binds one bound_path per scope (:119, :338-343, :399-400), so wake/turn-detection/submission-receipt logic can follow the wrong session's file."
+  user_global_cli_files: "~/.claude/settings.json is edited by the tool-guard and statusline installers (tool_guard_hooks.py:126+, statusline_settings.py, runtime_paths.py:210). Muse's ~/.config/muse/settings.json (muse_mcp.py:26) holds the routed endpoint_transport pin, which a native launch removes - two Muse sessions of different modes overwrite each other's settings."
+  explicit_same_cwd_termination: "runtime_launch.py:976 terminate_existing_codex_processes_for_launch('codex_prelaunch_processes', cwd=launch_cwd) kills existing managed Codex processes for the same cwd; :978 additionally terminates the instance's router clients. Codex launches therefore already forbid a second session in the same directory."
 confirmed_vs_inferred:
   confirmed: "N concurrent client records per instance are real (probe above); the router keeps no per-session state (code search); the one-active-runtime launch policy, the fork translations, the single-slot scope/restart/delivery structures (file:line above)."
   inferred: "That multi-session serving would need no transport change but per-session keying of the listed management structures - read off those structures, not built or tested."
