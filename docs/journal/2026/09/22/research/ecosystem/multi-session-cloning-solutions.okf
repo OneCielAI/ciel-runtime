@@ -1,0 +1,27 @@
+okf_version: "1.0"
+task: "User: '그런것을 지원하는 이미 나와있는 쓸만한 솔류션은' - which already-released, usable solutions support multi-session serving of CLI agents, session cloning (live session -> identical second session), and new sessions from a template transcript."
+answer: "Both capabilities exist off the shelf. Claude Code and Codex ship them natively (background sessions + supervisor daemon, session fork, worktree isolation, cross-session messaging), and a third-party layer of servers/orchestrators does the same across agents (OpenHands Agent Server, claude-squad, Conductor). 'Template transcript -> new session' as a first-class feature was not found anywhere; the closest is SDK-level fork (a copy of the original history). Two widely-cited tools are deprecated: agentapi (archived 2026-09-13) and Vibe Kanban (sunsetting)."
+evidence_official:
+  claude_code_agents: "https://code.claude.com/docs/en/agents - five parallel approaches (subagents, agent view, agent teams [experimental, off by default], projects/threads in the cloud, dynamic workflows); worktrees and cross-session messaging are the supporting tools; 'To copy the whole session into a new background session that runs alongside it, use /fork.'"
+  claude_code_cli_reference: "https://code.claude.com/docs/en/cli-reference - claude agents (agent view; --json prints active sessions), claude attach <id>, claude logs/stop/respawn/rm <id>, claude daemon status|stop (background-session supervisor, worker count), --bg/--background, --worktree/-w, --cloud, claude remote-control (server mode; sessions can be brought back after the server stops), claude self-hosted-runner (hosts cloud sessions on own infrastructure, orchestrator spawns runners)."
+  claude_code_worktrees: "https://code.claude.com/docs/en/worktrees - 'Pass --worktree or -w with a name to create an isolated worktree and start Claude in it'; agent-view sessions move into a worktree before editing; EnterWorktree tool; .worktreeinclude."
+  agent_sdk_sessions: "https://code.claude.com/docs/en/agent-sdk/sessions - continue / resume / fork options; 'Fork ... creates a new session that starts with a copy of the original's history. The original stays unchanged.'"
+  codex_cli_reference: "https://developers.openai.com/codex/cli/reference.md - 'codex fork' ('Fork a previous interactive session into a new chat', picker or --last), 'codex resume' (scopes --last to cwd unless --all), archive/unarchive/delete, 'codex app-server' with --listen stdio://|ws://IP:PORT|unix:// (TUI attaches with codex --remote; 'shared by every thread in the app-server process'), 'codex remote-control start|stop|pair', 'codex doctor' checks thread inventory; 'codex mcp-server' removed in favour of app-server."
+  openhands: "https://docs.openhands.dev/sdk/arch/agent-server - the openhands-agent-server package runs the software agent SDK behind HTTP + WebSocket so a client can start conversations, stream events, and run file/command ops; deepwiki summary: 'create and manage multiple concurrent conversations'."
+  claude_squad: "https://github.com/smtg-ai/claude-squad - 8.5k stars; terminal app managing multiple Claude Code/Codex/Gemini/Aider/OpenCode/Amp sessions 'in separate workspaces'; each task gets its own isolated git workspace; tmux + gh prerequisites."
+  conductor: "https://www.conductor.build/docs/guides/parallel-agents/run-multiple-claude-code-sessions - macOS app for parallel Claude Code sessions; companion worktree guide."
+  goose: "https://goose-docs.ai/docs/guides/cli-providers/ - CLI providers add session management/persistence over Claude Code/Codex CLIs, but the page marks them 'Deprecated - Use ACP Providers' (claude-acp, codex-acp)."
+deprecated_or_sunsetting:
+  agentapi: "https://github.com/coder/agentapi - archived 2026-09-13, 'AgentAPI is deprecated and no longer maintained. We recommend using Coder Agents ... or the modules in the Coder Registry'."
+  vibe_kanban: "https://github.com/BloopAI/vibe-kanban - 28.2k stars but the README opens with 'Vibe Kanban is sunsetting. Read the announcement.'"
+not_found:
+  template_transcript_sessions: "No public tool was found whose first-class feature is minting a native CLI session from a template transcript file. The nearest equivalents are SDK/CLI fork (start from a copy of a real session) and checkpoint-fork designs in graph frameworks (LangGraph-style; not verified from primary docs here)."
+third_party_unverified:
+  - "Crystal, AgentsRoom, Terragon, omnara/happy and similar parallel-session managers appear only in comparison posts and vendor pages found via search; their claims were not checked against primary docs."
+  - "Muse Code session fork/resume beyond 'resume [--last]': no public material found."
+confirmed_vs_inferred:
+  confirmed: "Every vendor claim above is from the official docs/README fetched during this task (URLs listed); claude-squad/Conductor/Vibe Kanban/agentapi status from their repositories."
+  inferred: "None asserted about behaviour not in those pages; no tool was installed or run in this task."
+not_done:
+  - "Nothing was installed or executed; the answer rests on documentation, not on running the tools."
+  - "No push of this entry yet."
