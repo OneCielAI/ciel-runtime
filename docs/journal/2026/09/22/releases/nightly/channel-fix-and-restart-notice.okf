@@ -1,0 +1,22 @@
+okf_version: "1.0"
+task: "Deploy the channel wake fixes and the restart-complete notice to npm nightly and to this machine's local snapshot."
+commits:
+  fix: "2297021 fix(channel): keep undelivered messages at the cursor and stop failing queued wakes"
+  feature: "d467f7b feat(restart): inject a restart-complete notice into the resumed session"
+  changelog: "89c4a21 docs: changelog the channel wake fixes and the restart notice"
+nightly:
+  pushes: "origin/nightly and origin/main carry all three commits. Push triggers were intermittent: no workflow run was created for 2297021 or d467f7b (verified with actions/runs?head_sha=), so the publishes were dispatched by hand; the 89c4a21 push did trigger runs."
+  published:
+    - "0.2.51-nightly.20260922-172429.d3b83ce (run 35760245847, dispatched) - branch tip covering 2297021."
+    - "0.2.51-nightly.20260922-173724.d467f7b (run 35761597459) - restart notice."
+    - "0.2.51-nightly.20260922-175108.89c4a21 (run 35763025001) - changelog text. latest stays 0.2.51; the main-branch run for 89c4a21 skipped ('already published')."
+  machine: "npm i -g @oneciel-ai/ciel-runtime@nightly -> 0.2.51-nightly.20260922-175108.89c4a21; `ciel-runtime version` prints it; the installed tree carries restart_notice_body and _DeferralFloor."
+local:
+  snapshots:
+    - "C:\\Users\\djlov\\.local\\share\\ciel-runtime-2297021473b2117daf4270469bb3cd8af113ffaf (channel fixes)"
+    - "C:\\Users\\djlov\\.local\\share\\ciel-runtime-d467f7b7ed4e6da30035a5f8bfabd48e96d4003a (restart notice)"
+    - "C:\\Users\\djlov\\.local\\share\\ciel-runtime-89c4a21a7956425628bea93c16689ff42da7facb (current, changelog commit)"
+  pin: "CIEL_RUNTIME_HOME (User) = the 89c4a21 snapshot; sha256 of runtime_session_restart.py and channel_pending_injection.py match the repo tree. install.ps1 does not copy CHANGELOG.md, so it is absent from the snapshot by design."
+not_done:
+  - "No live restart was exercised: every running session still uses an older snapshot (335dcd8 for G:\\ciel-Walkie, 052415b for this session, etc.), and a restart relaunches the same command line, so the notice only appears for a session started from the new snapshot."
+  - "The 32 messages already stranded behind the live cursor are not replayed by these fixes."
