@@ -508,13 +508,6 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                         persist_launch_action(action)
                         launch_muse([])
                         return PRELAUNCH_CANCEL
-                    if action == "launch-muse-routed":
-                        if provider != "meta":
-                            messages = ["Muse Code routed mode is disabled until Muse Native or Muse Routed provider is selected."]
-                            continue
-                        persist_launch_action(action)
-                        launch_muse(["--ca-router"])
-                        return PRELAUNCH_CANCEL
                     continue
                 if panel == "language" and value:
                     cfg["language"] = value

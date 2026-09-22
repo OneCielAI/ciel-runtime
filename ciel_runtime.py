@@ -21,7 +21,7 @@ from typing import Any, Callable, Iterable
 from ciel_runtime_support import anthropic_model_policy
 from ciel_runtime_support import channel_cursor_repository as channel_cursor_storage, hosted_formula_tools
 from ciel_runtime_support import channel_llm_context, claude_launch_assembly, cli_assembly, cli_dispatch, cli_parser, codex_launch_configuration, codex_turn_recovery, kimi_identity, llm_option_config, llm_presets, native_context_recovery
-from ciel_runtime_support import muse_oauth, ollama_catalog as ollama_catalog_policy
+from ciel_runtime_support import muse_catalog, muse_oauth, ollama_catalog as ollama_catalog_policy
 from ciel_runtime_support import openai_chat_compatibility_bridge, otlp_logs, prelaunch, prelaunch_assembly, provider_catalog_sources, provider_models, provider_network, rate_limit_policy, router_request_assembly, router_server_runtime, runtime_asset_assembly, runtime_launch, runtime_primitives, terminal_platform_io, windows_console_mode
 from ciel_runtime_support.prelaunch_launch_panel import launch_panel_rows as project_launch_panel_rows
 from ciel_runtime_support.advisor_client import AdvisorClient, AdvisorClientIO, AdvisorClientPolicy, ProviderChatExecutor, ProviderChatIO, ProviderChatPolicy
@@ -2998,7 +2998,7 @@ def _router_server_context() -> RouterServerContext:
                                    handle_external_event_get),
         post=RouterHttpPostEndpoints(lambda handler, path, raw, content_type: speech_http_controller().post(handler, path, raw, content_type), handle_llm_config_post, handle_channel_mcp_post, handle_chat_post,
                                      handle_plan_post, route_runtime_post, handle_external_event_raw_post, handle_external_event_config_post, handle_usage_post, telemetry_raw=_TELEMETRY_LOG_RUNTIME.http.post),
-        presentation=RouterHttpPresentation(render_router_home_html, router_health_payload, write_text_response, write_json, list_model_objects_for_request, resolve_requested_model, model_object, _REMOTE_BRIDGE.model_objects),
+        presentation=RouterHttpPresentation(render_router_home_html, router_health_payload, write_text_response, write_json, list_model_objects_for_request, resolve_requested_model, model_object, _REMOTE_BRIDGE.model_objects, muse_catalog.muse_model_catalog),
         errors=RouterHttpErrors(write_openai_responses_error, try_write_json),
         files=RouterHttpFileEndpoints(provider_files.get, provider_files.post, provider_files.delete),
     )

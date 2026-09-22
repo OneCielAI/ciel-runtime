@@ -599,7 +599,7 @@ class MuseRuntimeTests(unittest.TestCase):
         rows, values = ciel_runtime.launch_panel_rows(
             {"current_provider": "meta", "providers": {"meta": {}}}
         )
-        self.assertIn("Muse Code (subscription)", rows)
+        self.assertIn("Muse Code", rows)
         self.assertIn("launch-muse", values)
         with (
             mock.patch.object(ciel_runtime, "apply_headless_env_config", return_value=(True, None, None, None, False)),

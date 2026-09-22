@@ -8,6 +8,7 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 
+from ciel_runtime_support import muse_catalog
 from ciel_runtime_support.muse_mcp import (
     MUSE_ROUTER_SERVER_NAME,
     MuseSettingsStore,
@@ -369,3 +370,77 @@ class SettingsStoreTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class MuseCatalogRelayTests(unittest.TestCase):
+    """Muse asks its base host for /muse-code/models; the router relays Meta's.
+
+    Live 2026-09-21 on a pool machine: a routed Muse answered
+    ``failed to fetch model catalog: API error 404: /muse-code/models`` because
+    the router had no such route.
+    """
+
+    CONFIG = {
+        "providers": {
+            "meta": {"base_url": "https://api.meta.ai/v1", "api_key": "k", "current_model": "muse-spark-1.3"}
+        }
+    }
+
+    def test_url_uses_the_meta_host_not_the_v1_path(self):
+        self.assertEqual(
+            "https://api.meta.ai/muse-code/models",
+            muse_catalog.muse_catalog_url("https://api.meta.ai/v1"),
+        )
+        self.assertEqual(
+            "http://172.29.112.1:9494/muse-code/models",
+            muse_catalog.muse_catalog_url("http://172.29.112.1:9494/v1"),
+        )
+
+    def test_upstream_catalog_is_relayed_verbatim(self):
+        payload = {"object": "list", "data": [{"id": "muse-spark-1.3", "object": "model"}]}
+
+        class Response:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_exc):
+                return False
+
+            def read(self):
+                return json.dumps(payload).encode("utf-8")
+
+        seen: dict = {}
+
+        def urlopen(request, timeout=None):
+            seen["url"] = request.full_url
+            seen["authorization"] = request.headers.get("Authorization")
+            return Response()
+
+        result = muse_catalog.muse_model_catalog(self.CONFIG, "meta", {}, urlopen=urlopen)
+
+        self.assertEqual(payload, result)
+        self.assertEqual("https://api.meta.ai/muse-code/models", seen["url"])
+        self.assertIn("Bearer k", seen["authorization"])
+
+    def test_missing_key_falls_back_to_the_configured_model(self):
+        logs: list[str] = []
+
+        result = muse_catalog.muse_model_catalog(
+            {"providers": {"meta": {"current_model": "muse-spark-1.3-contributor"}}},
+            "meta",
+            {},
+            log=lambda level, message: logs.append(f"{level} {message}"),
+        )
+
+        self.assertEqual("muse-spark-1.3-contributor", result["data"][0]["id"])
+        self.assertEqual("missing_meta_api_key", result["muse_catalog_fallback"])
+        self.assertTrue(any("muse_model_catalog_fallback" in line for line in logs))
+
+    def test_upstream_failure_still_returns_a_catalog(self):
+        def urlopen(_request, timeout=None):
+            raise OSError("boom")
+
+        result = muse_catalog.muse_model_catalog(self.CONFIG, "meta", {}, urlopen=urlopen)
+
+        self.assertEqual("muse-spark-1.3", result["data"][0]["id"])
+        self.assertTrue(str(result["muse_catalog_fallback"]).startswith("upstream_"))

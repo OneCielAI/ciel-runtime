@@ -165,6 +165,9 @@ class RouterHttpPresentation:
     resolve_model: Callable[..., str]
     model_object: Callable[..., dict[str, Any]]
     list_remote_bridge_models: Callable[..., list[dict[str, Any]]] | None = None
+    # Muse asks its base host for /muse-code/models; a routed Muse asks
+    # this router, which relays Meta's catalog for it.
+    muse_model_catalog: Callable[..., dict[str, Any]] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -1074,6 +1077,12 @@ class RouterHttpHandler(BaseHTTPRequestHandler):
             presentation.write_json(self, presentation.health_payload(cfg, provider, pcfg))
             return
         if endpoints.runtime(self, path, provider, pcfg):
+            return
+        if path == "/muse-code/models" and presentation.muse_model_catalog is not None:
+            presentation.write_json(
+                self,
+                presentation.muse_model_catalog(cfg, provider, pcfg, headers=self.headers),
+            )
             return
         if path == "/v1/models":
             if bridge_request and presentation.list_remote_bridge_models is not None:
