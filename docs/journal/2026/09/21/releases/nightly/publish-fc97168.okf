@@ -1,0 +1,22 @@
+okf_version: "1.0"
+task: "Nightly push and publish of the Xiaomi MiMo-V2.6 line-up (052415b, journal tip fc97168): npm nightly 0.2.51-nightly.20260922-020901.052415b published, machine's global npm install moved onto it."
+commits:
+  - "fc97168 docs: journal the Xiaomi V2.6 local deploy [skip ci]"
+  - "052415b feat(providers): bundle Xiaomi's MiMo-V2.6 line-up"
+pushed:
+  main: "5ea9e24 -> fc97168 (origin/main; the journal commit carries [skip ci])"
+  nightly: "5ea9e24 -> fc97168 (origin/nightly)"
+workflows:
+  publish_nightly: "35678242509 'Publish to npm [nightly] 052415b' success; step log 'Nightly version: 0.2.51-nightly.20260922-020901.052415b', npm publish --tag nightly and the published-tarball verification green."
+  ci_nightly: "35678242590 CI [nightly] 052415b success."
+  ci_main: "35678243652 CI [main] 052415b success."
+  publish_main: "35678243745 'Publish to npm [main] 052415b' success; stable 0.2.51 untouched ('already published' skip)."
+artifact:
+  dist_tag: "npm dist-tags: nightly = 0.2.51-nightly.20260922-020901.052415b (latest stays 0.2.51)."
+  tarball: "shasum 0573493f00f9980a6990499cecce02a603e36b95."
+  content: "Installed tree carries six 'mimo-v2.6' hits in ciel_runtime_support/providers/catalog.py and VERSION = 0.2.51-nightly.20260922-020901.052415b."
+machine:
+  npm_global: "npm i -g @oneciel-ai/ciel-runtime@nightly -> 0.2.51-nightly.20260922-020901.052415b; `ciel-runtime version` prints it. This is the copy a WSL-launched Muse resolves."
+  local_pin: "User CIEL_RUNTIME_HOME points at the local snapshot ciel-runtime-052415b4815d... (releases/local/052415b.okf)."
+not_done:
+  - "No live Xiaomi completion (no API key on this machine); the model ids rest on the external sources listed in providers/xiaomi/mimo-v26-lineup.okf."
