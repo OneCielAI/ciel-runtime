@@ -1,0 +1,18 @@
+okf_version: "1.0"
+task: "Root-cause fix for the Walkie channel injection failures (Andy Ai's report, 2026-09-22)."
+commit: "2297021 fix(channel): keep undelivered messages at the cursor and stop failing queued wakes"
+status: "Implemented and verified by the four test groups; NOT deployed - the live sessions still run the older snapshot, and deployment/restart is a separate step."
+changes:
+  deferral_floor: "channel_pending_injection.py - _DeferralFloor records the lowest message a scan left undelivered (claimed for a later scan, or skipped while an in-flight wake holds the terminal). The commit and the returned cursor are clamped to one below it, so a later successful injection can no longer commit the cursor past messages that still have to be delivered. Live: this is what put 32 messages behind cursor 533 forever."
+  failed_no_longer_stalls: "The prior_submission_failed branch logs 'action=skipped' and continues instead of returning the previous cursor: a failed record is terminal, so stalling at it only blocked every later message (9481, 2026-09-10)."
+  queued_is_not_stale: "channel_runtime_environment.inflight_is_stale no longer treats 'queued' as stale by age - a command the CLI holds behind a running turn is in flight (12-minute delays measured). channel_transcript.queued_dropped_from_text releases a queued wake only when the transcript shows queue-operation remove for it and no later user record; ChannelWakeStateReader.queued_is_stale requires that evidence."
+  late_completion: "runtime_input_status allows failed -> replied so wake evidence that arrives after the confirm window corrects the record (6450 was delivered 12 minutes late and recorded failed)."
+  log_rotation: "runtime_logging.RouterFileLogger rotates through a helper that falls back to a unique name and, when both renames fail, keeps writing to the current file - a locked rotation target used to drop every later line (instance 9469 went silent at 1,000,046 bytes from 08:38:50)."
+tests:
+  new: "tests/test_channel_pending_injection.py - deferral floor (commit and return), failed record skipping, queued-not-stale policy, removal evidence, late completion, rotation fallback."
+  updated: "tests/test_channel_bridge.py (held-queued waits; stale release now requires removal evidence; sticky-failure test asserts the skip), tests/test_channel_transcript.py (new reader port), tests/test_channel_runtime_environment.py (queued not stale)."
+  result: "channel 423 OK (skipped=80), unit 1606 OK (skipped=45), router 1146 OK, runtime 296 OK (skipped=19); ruff clean on every touched file."
+not_done:
+  - "No deploy: the fix reaches a session only after a new snapshot/nightly install and a session relaunch. Andy's session runs C:\\Users\\djlov\\.local\\share\\ciel-runtime-335dcd88... today."
+  - "The 32 messages already behind the live cursor cannot be replayed by this fix (no supported rewind path); they stay queued unless re-sent."
+  - "No live two-session verification of the new behaviour yet."
