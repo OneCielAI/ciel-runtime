@@ -26,6 +26,11 @@ third_pass_delay_measured:
   active_turn_semantics: "channel_transcript.py:453-458 - a Claude turn stays active until an end_turn response or a turn_duration record; the comment states that typing a wake prompt while Claude works makes Claude queue or truncate it and the verifier retries it as unseen."
   ruled_out: "channel_turn_record_exceeds_memory_limit (oversized-record skipping that could hide an end_turn) appears 0 times in 9469/9495/9481 router logs."
   still_unknown: "Why 498/499 produced no transcript record while 500 did (both same-thread supersede rules and the dead router log are candidates); the router.log has been frozen since 08:38:50 so the injector's own lines for this window do not exist."
+bob_machine_unreachable:
+  user_report: "'bob도 메시지를 알림을 못받고잇어' with the ssh line 'ssh -i %USERPROFILE%\\.ssh\\aap_bob -o StrictHostKeyChecking=accept-new bob@100.64.0.6'."
+  attempts: "ssh 100.64.0.6:22 and :1004 -> 'kex_exchange_identification: read: Connection reset by peer' (ssh -v: local 'SSH-2.0-OpenSSH_10.0' sent, peer reset before any server banner). Test-NetConnection: TcpTestSucceeded=True on both ports, PingSucceeded=False."
+  peer_lookup: "tailscale status lists no host at 100.64.0.6 and no 'bob'/'aap-pool-bob' peer (other aap-pool-* peers are offline 7+ days); 'tailscale ping 100.64.0.6' -> 'no matching peer'. The 100.64.0.x hosts are reached over the LAN (netstat shows 10.0.0.146 -> 100.64.0.9:8787 TIME_WAIT entries), and 100.64.0.9:8787 answers 401 to an unregistered consumer_id."
+  outcome: "Bob's state could not be inspected from this machine; the user must supply another route (different address/port or jump host) or run the diagnostics on bob."
 inferred_not_confirmed:
   - "Why Claude Code removes a queued command is not established from the logs - only that the remove lands right after a user/tool_result record. Claude Code's queue policy is not visible from outside."
   - "Whether the 50 'absent, no failure' messages were folded into an LLM-delivery request (channel_llm_inject_skipped reason=already_in_request), superseded, or skipped is not classified."
