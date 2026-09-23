@@ -141,6 +141,10 @@ def inject_pending_channel_messages(
         candidates = io.read_messages(last_id, None, None, state.pending_scan_limit())
         superseded_ids = state.superseded_ids(candidates)
         batch_limit = services.policy.wake_batch_limit() if wake_for_llm_delivery else 1
+        # A session-socket submission is one whole user message, not a TUI
+        # draft, so everything deferred behind a busy turn goes in together
+        # (Walkie 2026-09-23: every injection was count=1, one turn each).
+        socket_batch_limit = services.policy.wake_batch_limit()
         pending_batch_key: tuple[str, str, str] | None = None
         pending_uses_router = False
         pending_uses_session_socket = False
@@ -217,10 +221,12 @@ def inject_pending_channel_messages(
                 continue
             if message_id in superseded_ids:
                 io.log("INFO", f"channel_stdin_proxy_skipped_noise message_id={message_id} channel={channel} reason=superseded_channel_notice")
+                wake_store.lifecycle.skip(message_id, "superseded_channel_notice")
                 continue
             event_key = state.event_identity_key(message)
             if event_key and event_key in seen_event_keys:
                 io.log("INFO", f"channel_stdin_proxy_skipped_noise message_id={message_id} channel={channel} reason=duplicate_channel_event")
+                wake_store.lifecycle.skip(message_id, "duplicate_channel_event")
                 continue
             if candidate_uses_router:
                 formatter = (
@@ -295,11 +301,11 @@ def inject_pending_channel_messages(
             if candidate_uses_router and len(pending) == 1:
                 return_last_id = previous_last_id
             last_id = message_id
-            if len(pending) >= batch_limit:
+            if len(pending) >= (socket_batch_limit if requested_session_socket else batch_limit):
                 break
-            if not candidate_uses_router:
-                # A TUI/session-socket draft carries exactly one request. This
-                # prevents a later request from being appended to an earlier,
+            if not candidate_uses_router and not requested_session_socket:
+                # A TUI draft carries exactly one request. This prevents a
+                # later request from being appended to an earlier,
                 # not-yet-confirmed draft.
                 break
         if not pending:

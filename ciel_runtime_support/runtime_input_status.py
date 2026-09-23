@@ -11,8 +11,11 @@ import time
 from typing import Any, Callable
 
 
-RUNTIME_INPUT_STATES = frozenset({"queued", "submitted", "replied", "failed"})
-_TERMINAL_STATES = frozenset({"replied", "failed"})
+RUNTIME_INPUT_STATES = frozenset({"queued", "submitted", "replied", "failed", "skipped"})
+# skipped: the scan consumed the input without delivering it (for example a
+# notice superseded by a newer one); a queued record would otherwise look
+# pending forever.
+_TERMINAL_STATES = frozenset({"replied", "failed", "skipped"})
 
 
 @dataclass(slots=True)
@@ -41,12 +44,16 @@ class RuntimeInputStatusRepository:
             current_status = str((current or {}).get("status") or "")
             if current_status == status:
                 return current or self._record(request_id, status, reason, data)
+            if status == "skipped" and not current_status:
+                # Only queued runtime inputs carry a status; a skipped message
+                # that never had one needs no record.
+                return {}
             late_completion = current_status == "failed" and status == "replied"
             if current_status in _TERMINAL_STATES and not late_completion:
                 return current or self._record(request_id, status, reason, data)
             allowed = {
                 "": {"queued"},
-                "queued": {"submitted", "failed"},
+                "queued": {"submitted", "failed", "skipped"},
                 "submitted": {"replied", "failed"},
                 # A late completion corrects a failed record: the failure only
                 # said the confirmation window expired, while the wake evidence

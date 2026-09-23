@@ -121,6 +121,10 @@ class ChannelWakeDeliveryRepository:
         for message_id in sorted(set(message_ids)):
             self._transition(message_id, "failed", reason=reason)
 
+    def skip(self, message_id: int, reason: str) -> None:
+        if message_id > 0:
+            self._transition(message_id, "skipped", reason=reason)
+
     def _transition(self, message_id: int, state: str, **kwargs: Any) -> None:
         if self.status is not None:
             self.status.transition(message_id, state, **kwargs)

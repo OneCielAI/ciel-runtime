@@ -75,6 +75,7 @@ class ChannelTerminalPolling:
     wake_state: Callable[[int], Any]
     inflight_effects: Callable[[], Any]
     runtime_interaction: Callable[[], RuntimeInteractionEvent | None] = lambda: None
+    session_socket_ready: Callable[[], bool] = lambda: False
 
     def input_busy(self) -> bool:
         """Whether terminal injection would be queued into an active turn."""
@@ -345,6 +346,7 @@ def run_windows_channel_terminal_proxy(
             ensure_cursor=policy.initial_cursor,
             inject_pending=polling.inject_pending,
             log=policy.log,
+            session_socket_ready=getattr(polling, "session_socket_ready", lambda: False),
         )
         pending_poll_policy = ChannelPendingPollPolicy(
             "channel_windows_console",
@@ -531,6 +533,7 @@ def run_posix_channel_terminal_proxy(
         ensure_cursor=policy.initial_cursor,
         inject_pending=polling.inject_pending,
         log=policy.log,
+        session_socket_ready=getattr(polling, "session_socket_ready", lambda: False),
     )
     pending_poll_policy = ChannelPendingPollPolicy("channel_stdin_proxy", "active_turn")
     policy.log(

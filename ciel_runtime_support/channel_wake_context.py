@@ -270,6 +270,7 @@ class ChannelWakeContext:
                     commit_cursor=self.commit_cursor,
                     read_messages=self.messages.read_messages,
                     superseded_ids=self.messages.superseded_ids,
+                    mark_skipped=self.pending_delivery.lifecycle.skip,
                 ),
                 projection=channel_llm_context.ChannelLlmContextProjection(
                     remove_wake_prompt=self.messages.remove_wake_prompt,

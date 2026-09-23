@@ -191,6 +191,8 @@ class CodexDesktopChannelInjector:
             skip = llm_message_skip_reason(message) or ("superseded_channel_notice" if message_id in superseded else "")
             if skip:
                 self._ports.log("INFO", f"codex_desktop_channel_skipped message_id={message_id} reason={skip}")
+                if skip == "superseded_channel_notice":
+                    self._ports.status.transition(message_id, "skipped", reason=skip)
                 self._ports.commit_cursor(message_id)
                 cursor = message_id
                 continue

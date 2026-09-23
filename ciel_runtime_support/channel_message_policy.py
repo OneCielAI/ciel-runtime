@@ -272,6 +272,12 @@ def message_coalesce_key(message: dict[str, Any]) -> tuple[str, str, str, str, s
         return None
     if message_is_web_chat_request(message) or message_has_unique_reference(message):
         return None
+    if message_is_external_event(message) and str(_metadata(message).get("event_id") or "").strip():
+        # An external event id names one event, not a slot that later events
+        # overwrite.  Without this every Walkie message shared one key
+        # (source, channel, event_type) and only the newest of a busy
+        # period was injected (2026-09-23, instance 9469: 138 skipped).
+        return None
     source = message_source_key(message)
     if not source or message_order_value(message) is None:
         return None

@@ -14,6 +14,10 @@ class ChannelPendingInflightState:
     logged_at: float = 0.0
     started_at: float = 0.0
     attempts: int = 0
+    # Earlier injections still awaiting confirmation.  A socket input can go
+    # in during a turn and another one right after it; tracking only the
+    # newest left the earlier ones at "submitted" forever.
+    backlog: list[int] = field(default_factory=list)
 
 
 @dataclass(slots=True)
@@ -90,6 +94,7 @@ class ChannelPendingPollServices:
     ensure_cursor: Callable[[], int]
     inject_pending: Callable[..., int]
     log: Callable[[str, str], Any]
+    session_socket_ready: Callable[[], bool] = lambda: False
 
 
 def poll_pending_channel_messages(
@@ -103,6 +108,11 @@ def poll_pending_channel_messages(
     *,
     input_ready: bool = True,
 ) -> ChannelPendingPollState:
+    if state.inflight_message_id is None and state.inflight.backlog:
+        state.inflight_message_id = state.inflight.backlog.pop(0)
+        state.inflight_cursor = None
+        state.inflight_started_at = now
+        state.inflight_logged_at = now
     if not input_ready or now - state.last_poll_at < policy.poll_interval_seconds:
         return state
     state.last_poll_at = now
@@ -117,19 +127,34 @@ def poll_pending_channel_messages(
     if not options.enabled or not (marker_requires_scan or safety_rescan_due):
         return state
 
-    if services.active():
+    busy = services.active()
+    if busy:
         state.pending_recheck = True
-        if now - state.defer_logged_at >= policy.defer_log_interval_seconds:
-            state.defer_logged_at = now
-            services.log(
-                "INFO",
-                f"{policy.log_namespace}_deferred cursor={state.last_id} reason={policy.active_reason}",
-            )
-        return state
+        # Only terminal typing must wait for the turn boundary.  A
+        # session-socket input goes into the CLI's own queue, which holds it
+        # until the turn ends (measured with Claude Code 2.1.278: enqueue
+        # during the turn, dequeue and delivery right after it).  This gate
+        # predates the socket transport and used to hold every input until
+        # the turn ended (Walkie 2026-09-23).  inject_pending still defers
+        # TTY inputs itself, so scan only when new input or the safety
+        # rescan calls for it rather than on every poll.
+        socket_scan = services.session_socket_ready() and (
+            marker != state.last_marker or safety_rescan_due
+        )
+        if not socket_scan:
+            if now - state.defer_logged_at >= policy.defer_log_interval_seconds:
+                state.defer_logged_at = now
+                services.log(
+                    "INFO",
+                    f"{policy.log_namespace}_deferred cursor={state.last_id} reason={policy.active_reason}",
+                )
+            return state
 
     if marker != state.last_marker:
         state.last_marker = marker
-    state.pending_recheck = False
+    # A scan during a turn may have left TTY inputs behind; look again once
+    # the turn ends.
+    state.pending_recheck = busy
     state.last_scan_at = now
     state.last_id = max(state.last_id, services.ensure_cursor())
     injected_ids: list[int] = []
@@ -153,6 +178,8 @@ def poll_pending_channel_messages(
         skip_blocking_wake_states=state.inflight_message_id is not None,
     )
     if injected_ids and options.confirm_submit:
+        if state.inflight_message_id is not None:
+            state.inflight.backlog.append(state.inflight_message_id)
         state.inflight_message_id = injected_ids[-1]
         state.inflight.attempts += 1
         # The injector deliberately returns the cursor preceding an LLM-delivery

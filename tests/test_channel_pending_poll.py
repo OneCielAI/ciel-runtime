@@ -158,6 +158,68 @@ class ChannelPendingPollTests(unittest.TestCase):
         self.assertEqual([12], calls)
         self.assertEqual(6.1, state.last_scan_at)
 
+    def test_active_turn_scans_new_input_when_the_session_socket_is_ready(self):
+        # Walkie 2026-09-23: the gate held session-socket input until the turn
+        # ended, although Claude Code queues a socket frame sent mid-turn.
+        calls = []
+        base = self.services(active=True, inject=lambda *args, **kwargs: calls.append(args[1]) or args[1])
+        services = ChannelPendingPollServices(
+            file_marker=base.file_marker,
+            should_check=base.should_check,
+            active=base.active,
+            ensure_cursor=base.ensure_cursor,
+            inject_pending=base.inject_pending,
+            log=base.log,
+            session_socket_ready=lambda: True,
+        )
+        state = ChannelPendingPollState(last_id=10, last_scan_at=1.0)
+
+        poll_pending_channel_messages(2.0, 1, b"\r", state, self.options(), self.policy(), services)
+        self.assertEqual([12], calls)
+        self.assertTrue(state.pending_recheck)
+        self.assertEqual((2.0, 100), state.last_marker)
+
+        # Same marker, safety rescan not due: no rescan on every poll mid-turn.
+        poll_pending_channel_messages(3.0, 1, b"\r", state, self.options(), self.policy(), services)
+        self.assertEqual([12], calls)
+        # The safety rescan still runs.
+        poll_pending_channel_messages(7.5, 1, b"\r", state, self.options(), self.policy(), services)
+        self.assertEqual([12, 12], calls)
+
+    def test_active_turn_without_a_session_socket_still_waits(self):
+        calls = []
+        state = ChannelPendingPollState(last_id=10, last_scan_at=1.0)
+        poll_pending_channel_messages(
+            2.0, 1, b"\r", state, self.options(), self.policy(),
+            self.services(active=True, inject=lambda *args, **kwargs: calls.append(args[1]) or args[1]),
+        )
+        self.assertEqual([], calls)
+        self.assertTrue(state.pending_recheck)
+
+    def test_injection_during_an_unconfirmed_one_keeps_both_awaiting_confirmation(self):
+        # E2E 2026-09-23: ids 4, 5, 6 went in one by one during a turn; only 6
+        # was tracked, so 4 and 5 never left "submitted".
+        next_ids = [[4], [5]]
+
+        def inject(*args, **kwargs):
+            ids = next_ids.pop(0)
+            kwargs["injected_message_ids"].extend(ids)
+            return ids[-1]
+
+        state = ChannelPendingPollState(last_id=3)
+        services = self.services(inject=inject)
+        poll_pending_channel_messages(1.0, 1, b"\r", state, self.options(), self.policy(), services)
+        poll_pending_channel_messages(2.0, 1, b"\r", state, self.options(), self.policy(), services)
+        self.assertEqual(5, state.inflight_message_id)
+        self.assertEqual([4], state.inflight.backlog)
+
+        state.inflight_message_id = None  # 5 confirmed by the inflight loop
+        poll_pending_channel_messages(2.1, 1, b"\r", state, self.options(), self.policy(), services)
+        self.assertEqual(4, state.inflight_message_id)
+        self.assertEqual(2.1, state.inflight_started_at)
+        self.assertIsNone(state.inflight_cursor)
+        self.assertEqual([], state.inflight.backlog)
+
 
 if __name__ == "__main__":
     unittest.main()

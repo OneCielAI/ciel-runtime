@@ -55,6 +55,7 @@ class ChannelTerminalPollingPorts:
     wake_state: Callable[[int], Any]
     inflight_effects: Callable[[], Any]
     runtime_interaction: Callable[[], RuntimeInteractionEvent | None] = lambda: None
+    session_socket_ready: Callable[[], bool] = lambda: False
 
 
 @dataclass(frozen=True, slots=True)
@@ -131,6 +132,7 @@ class ChannelTerminalContext:
             wake_state=self.polling.wake_state,
             inflight_effects=self.polling.inflight_effects,
             runtime_interaction=self.polling.runtime_interaction,
+            session_socket_ready=self.polling.session_socket_ready,
         )
 
     def posix_services(self) -> ChannelTerminalServices:

@@ -56,6 +56,7 @@ class ChannelLlmContextRepository:
     commit_cursor: Callable[[int], None]
     read_messages: Callable[[int, int], list[dict[str, Any]]]
     superseded_ids: Callable[[list[dict[str, Any]]], set[int]]
+    mark_skipped: Callable[[int, str], Any] = lambda _message_id, _reason: None
 
 
 @dataclass(frozen=True, slots=True)
@@ -113,6 +114,8 @@ def inject_pending_channel_context(
             if reason:
                 if reason not in {"stdin_wake_delivered", "stdin_wake_claimed"}:
                     max_seen = max(max_seen, message_id)
+                if reason == "superseded_channel_notice":
+                    repository.mark_skipped(message_id, reason)
                 services.log(
                     "INFO",
                     f"channel_llm_inject_skipped message_id={message.get('id')} "

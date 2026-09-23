@@ -262,6 +262,13 @@ def is_non_turn_user_record(record: dict[str, Any]) -> bool:
     message bodies verbatim).
     """
 
+    origin = record.get("origin")
+    if isinstance(origin, dict) and origin.get("kind") == "peer":
+        # Session-socket input is persisted as isMeta with a peer origin, yet
+        # it opens a real model turn.  Classing it as bookkeeping left every
+        # session-socket delivery unconfirmed (stale_unconfirmed) although
+        # the session answered it (2026-09-23, messages 660/669/714).
+        return False
     if (
         record.get("isCompactSummary") is True
         or record.get("isMeta") is True
@@ -589,6 +596,10 @@ def queued_dropped_from_text(
                     raw, message_id, prompts
                 ):
                     queued = True
+                    # The attachment written after a remove is the hand-off
+                    # into the running turn, not a drop (message 714,
+                    # 2026-09-23, was answered yet released as stale).
+                    dropped = False
             continue
         actual_user_text = _evidence_user_text(record, not_before)
         if actual_user_text and services.prompt_references_message_id(
@@ -626,6 +637,7 @@ def wake_state_evidence_from_text(
     if claimed:
         prompts.append(claimed)
     seen_queued_prompt = False
+    seen_dequeued = False
     seen_real_prompt = False
     prompt_record: int | None = None
     queued_record: int | None = None
@@ -641,19 +653,33 @@ def wake_state_evidence_from_text(
                 session_id=prompt_metadata.get("session_id", ""),
                 timestamp=prompt_metadata.get("timestamp", ""),
             )
-        if record_type == "queue-operation" and record.get("operation") == "enqueue":
+        if record_type == "queue-operation" and record.get("operation") in {"enqueue", "remove"}:
             raw = record.get("content")
             if isinstance(raw, str) and services.prompt_references_message_id(raw, message_id, prompts):
                 seen_queued_prompt = True
                 queued_record = record_index
+                seen_dequeued = seen_dequeued or record.get("operation") == "remove"
             continue
         if record_type == "attachment":
             attachment = record.get("attachment")
             if isinstance(attachment, dict) and attachment.get("type") == "queued_command":
                 raw = attachment.get("prompt")
                 if isinstance(raw, str) and services.prompt_references_message_id(raw, message_id, prompts):
-                    seen_queued_prompt = True
-                    queued_record = record_index
+                    # After the queue "remove", Claude Code writes this
+                    # attachment as it hands the input to the running turn,
+                    # so it is delivery, not waiting: in the Walkie
+                    # transcript all 216 followed a remove and were answered,
+                    # while treating them as queued failed message 714 as
+                    # stale_unconfirmed (2026-09-23).
+                    timestamp = record_timestamp_seconds(record)
+                    if seen_dequeued and (not_before is None or (timestamp is not None and timestamp >= not_before)):
+                        seen_real_prompt = True
+                        prompt_record = record_index
+                        prompt_metadata = {
+                            "record_type": record_type,
+                            "session_id": str(record.get("sessionId") or ""),
+                            "timestamp": str(record.get("timestamp") or ""),
+                        }
             continue
         record_user_text = _evidence_user_text(record, not_before)
         # Delivery confirmation follows the original (pre-45f4c60) semantics:
