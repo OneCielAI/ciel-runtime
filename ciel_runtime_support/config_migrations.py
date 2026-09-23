@@ -206,6 +206,20 @@ def apply_config_migrations(cfg: dict[str, Any], *, policy: ConfigMigrationPolic
                     custom.append(model)
         migrations[marker] = True
 
+    marker = "anthropic_opus_5_5_1m_model_id_20260922"
+    if not migrations.get(marker):
+        providers = cfg.get("providers") if isinstance(cfg.get("providers"), dict) else {}
+        pcfg = providers.get("anthropic")
+        if isinstance(pcfg, dict):
+            custom = pcfg.get("custom_models")
+            if not isinstance(custom, list):
+                custom = []
+                pcfg["custom_models"] = custom
+            known = {str(model).strip().casefold() for model in custom}
+            if "claude-opus-5-5[1m]" not in known:
+                custom.append("claude-opus-5-5[1m]")
+        migrations[marker] = True
+
     marker = "zcode_wire_version_0163_20260824"
     if not migrations.get(marker):
         providers = cfg.get("providers") if isinstance(cfg.get("providers"), dict) else {}

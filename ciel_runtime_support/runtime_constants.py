@@ -12,9 +12,13 @@ ANTHROPIC_MODEL_DOCS_URLS = (
     ANTHROPIC_MODEL_DOCS_URL,
     "https://platform.claude.com/docs/en/about-claude/models/overview",
 )
+# Claude Opus 5.5 shipped 2026-09-22 and the allow-list below is what the docs
+# fetch is filtered against, so a missing id keeps the model out of the picker
+# even when Anthropic's overview page already lists it.
 ANTHROPIC_ONE_MILLION_MODEL_IDS: tuple[str, ...] = (
     "claude-fable-5-1[1m]",
     "claude-fable-5[1m]",
+    "claude-opus-5-5[1m]",
     "claude-opus-5[1m]",
     "claude-opus-4-8[1m]",
     "claude-sonnet-5[1m]",
@@ -24,6 +28,7 @@ ANTHROPIC_PUBLIC_MODEL_FALLBACK_IDS: tuple[str, ...] = (
     *ANTHROPIC_ONE_MILLION_MODEL_IDS,
     "claude-fable-5-1",
     "claude-fable-5",
+    "claude-opus-5-5",
     "claude-opus-5",
     "claude-opus-4-8",
     "claude-sonnet-5",

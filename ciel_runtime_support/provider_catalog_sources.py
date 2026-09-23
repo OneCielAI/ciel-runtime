@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import html
+import json
 import re
 import urllib.parse
 import urllib.request
@@ -238,9 +239,29 @@ class ProviderCatalogSourceService:
             ids.append(model_id)
         return ids
 
-    def filter_anthropic_default_model_ids(self, ids: list[str]) -> list[str]:
-        allowed = set(self.anthropic.default_ids)
+    def anthropic_lineup_model_ids_from_docs_text(self, text: str) -> list[str]:
+        """Model ids the overview page's embedded catalog marks as the lineup."""
+        return anthropic_docs_lineup_model_ids(html.unescape(text or ""))
+
+    def filter_anthropic_default_model_ids(
+        self, ids: list[str], *, lineup_ids: list[str] = ()
+    ) -> list[str]:
+        """Keep the allow-listed models plus whatever the page calls current.
+
+        The allow-list in runtime constants is hand-maintained, so a model
+        Anthropic publishes before the constants are edited was dropped here:
+        claude-opus-5-5 was on the overview page (released 2026-09-22) while
+        every panel and registry list still ended at claude-opus-5.  The
+        lineup ids come from the page's own catalog payload, so they stay
+        current without a release; the allow-list still carries models that
+        left the lineup but should remain selectable.
+        """
         limited = set(self.anthropic.limited_ids)
+        current = {
+            self.projection.normalize_model_id("anthropic", raw)
+            for raw in lineup_ids
+        }
+        allowed = set(self.anthropic.default_ids) | (current - limited)
         out: list[str] = []
         seen: set[str] = set()
         for raw in ids:
@@ -254,15 +275,21 @@ class ProviderCatalogSourceService:
 
     def fetch_anthropic_public_model_ids(self, timeout: float = 8.0) -> list[str]:
         ids: list[str] = []
+        lineup_ids: list[str] = []
         errors: list[str] = []
         for url in self.anthropic.docs_urls:
             try:
                 text = self.fetch_text_url(url, timeout=timeout)
                 ids.extend(self.anthropic_model_ids_from_docs_text(text))
+                lineup_ids.extend(self.anthropic_lineup_model_ids_from_docs_text(text))
             except Exception as exc:
                 errors.append(f"{url}: {type(exc).__name__}: {exc}")
-        unique = self.policy.unique_model_ids("anthropic", ids)
-        out = self.filter_anthropic_default_model_ids(unique)
+        # The lineup ids join the scan: a family name the public pattern does
+        # not cover yet (a new prefix, not a new generation) is still a model
+        # the page calls current.
+        unique = self.policy.unique_model_ids("anthropic", [*ids, *lineup_ids])
+        lineup = self.policy.unique_model_ids("anthropic", lineup_ids)
+        out = self.filter_anthropic_default_model_ids(unique, lineup_ids=lineup)
         if out:
             return out
         if errors:
@@ -298,6 +325,59 @@ class ProviderCatalogSourceService:
                 "DEBUG", "anthropic model API fetch failed: " + " ; ".join(errors)
             )
         return [], ""
+
+
+# The overview page ships its current-model table as JSON inside the page
+# payload ({"models": [{...}]}) with per-model lifecycle data.  The marker is
+# the escaped form, because the payload embeds the array in a JS string.
+ANTHROPIC_DOCS_CATALOG_MARKER = '\\"models\\":['
+ANTHROPIC_DOCS_CATALOG_MARKER_LENGTH = len('\\"models\\":')
+
+_ANTHROPIC_DOCS_UNESCAPE = (('\\"', '"'), ("\\n", "\n"))
+
+
+def anthropic_docs_lineup_model_ids(text: str) -> list[str]:
+    """Ids the overview page's embedded catalog lists as the current lineup.
+
+    Returns [] whenever the payload is absent or malformed: the fetch then
+    falls back to the public id pattern and the hand-maintained allow-list.
+    """
+    start = text.find(ANTHROPIC_DOCS_CATALOG_MARKER)
+    if start < 0:
+        return []
+    segment = text[start + ANTHROPIC_DOCS_CATALOG_MARKER_LENGTH :]
+    depth = 0
+    end = -1
+    for index, char in enumerate(segment):
+        if char == "[":
+            depth += 1
+        elif char == "]":
+            depth -= 1
+            if depth == 0:
+                end = index
+                break
+    if end < 0:
+        return []
+    payload = segment[: end + 1]
+    for escaped, plain in _ANTHROPIC_DOCS_UNESCAPE:
+        payload = payload.replace(escaped, plain)
+    try:
+        models = json.loads(payload)
+    except Exception:
+        return []
+    if not isinstance(models, list):
+        return []
+    ids: list[str] = []
+    for item in models:
+        if not isinstance(item, dict) or item.get("legacy"):
+            continue
+        lifecycle = str(item.get("lifecycle") or "").strip().lower()
+        if lifecycle and lifecycle != "active":
+            continue
+        model_id = str(item.get("id") or "").strip()
+        if model_id:
+            ids.append(model_id)
+    return ids
 
 
 ANTHROPIC_PUBLIC_MODEL_ID_RE = re.compile(

@@ -28,6 +28,14 @@ class RuntimeConstantsTest(unittest.TestCase):
             "claude-opus-5[1m]",
             runtime_constants.ANTHROPIC_ONE_MILLION_MODEL_IDS,
         )
+        self.assertIn(
+            "claude-opus-5-5[1m]",
+            runtime_constants.ANTHROPIC_ONE_MILLION_MODEL_IDS,
+        )
+        self.assertIn(
+            "claude-opus-5-5",
+            runtime_constants.ANTHROPIC_PUBLIC_MODEL_FALLBACK_IDS,
+        )
         self.assertIn("kimi-for-coding", runtime_constants.KIMI_MODEL_FALLBACK_IDS)
         self.assertIn("kimi-for-coding-highspeed", runtime_constants.KIMI_MODEL_FALLBACK_IDS)
 

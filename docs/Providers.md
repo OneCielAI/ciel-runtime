@@ -147,7 +147,14 @@ Imagine image/video, Voice, STT/TTS 모델 ID는 text LLM 선택 메뉴에 섞�
 - Routed 모드는 기본적으로 표준 200K 컨텍스트를 사용한다. 1M 사용 크레딧
   beta를 명시적으로 사용할 때만 모델 ID에 `[1m]`을 붙인다.
 - 공개 모델 ID 목록 (`ANTHROPIC_PUBLIC_MODEL_DEFAULT_IDS`):
-  - `claude-fable-5-1`, `claude-fable-5`, `claude-opus-4-8`, `claude-sonnet-4-6`, `claude-haiku-4-5-20251001`, `claude-haiku-4-5`
+  - `claude-fable-5-1`, `claude-fable-5`, `claude-opus-5-5`, `claude-opus-5`,
+    `claude-opus-4-8`, `claude-sonnet-5`, `claude-sonnet-4-6`,
+    `claude-haiku-4-5-20251001`, `claude-haiku-4-5`
+  - 이 목록은 docs 페이지 스크랩 결과와의 **허용 목록**으로만 쓰인다. 페이지에
+    내장된 카탈로그(`{"models":[...]}`, `lifecycle: active`)가 현재 라인업으로
+    표시하는 모델은 허용 목록에 아직 없더라도 함께 통과한다 — 2026-09-22
+    `claude-opus-5-5` 출시 당일, 페이지에는 있었지만 허용 목록이 뒤처져
+    피커·레지스트리·`/v1/models` 어디에도 나타나지 않았다.
 - 제한 접근 모델 (`ANTHROPIC_LIMITED_ACCESS_MODEL_IDS`):
   - `claude-mythos-5`, `claude-mythos-preview`
 

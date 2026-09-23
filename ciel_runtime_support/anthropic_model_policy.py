@@ -86,6 +86,19 @@ def runtime_hints(model_id: str) -> dict[str, Any]:
             "unsupported_sampling_parameters": ["temperature", "top_p", "top_k"],
             "source": "anthropic-models-overview-current-table",
         }
+    if re.search(r"(?:^|-)opus-5-5(?:-|$)", model):
+        # Overview-page catalog, 2026-09-22: defaultEffort "medium" with
+        # adaptive thinking always on; Claude Code's own served catalog lists
+        # no fast mode for 5.5 although Opus 5 and Opus 4.8 both carry one.
+        return {
+            "claude_code_default_effort": "medium",
+            "claude_code_max_effort": "xhigh",
+            "thinking_mode": "adaptive",
+            "adaptive_thinking_default_on": True,
+            "extended_thinking": False,
+            "unsupported_sampling_parameters": ["temperature", "top_p", "top_k"],
+            "source": "anthropic-models-overview-current-table",
+        }
     if re.search(r"(?:^|-)opus-5(?:-|$)", model):
         return {
             "claude_code_default_effort": "high",
