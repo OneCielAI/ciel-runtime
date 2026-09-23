@@ -1,0 +1,24 @@
+okf_version: "1.0"
+task: "Deploy the Anthropic model-list fix (Claude Opus 5.5) to npm nightly and to this machine's local snapshot."
+reported: "User, 2026-09-22: 'ciel-runtime을이용해서 claude를실행시키면 새로나온 모델 opus 5.5등이 안보임' then '여전히 claude 단독으로 실행할때는 잘동작하나, ciel runtime으로 실행할때는 opus 5.5 안나옴'"
+commits:
+  fix: "36526e4 fix(models): show newly released Anthropic models in the model list"
+  journal: "7b68413 docs: journal the Claude Opus 5.5 model-list fix [skip ci]"
+nightly:
+  pushes: "origin/nightly and origin/main both at 7b68413."
+  trigger_note: "The push produced no workflow run: the tip commit carried [skip ci], which suppresses the whole push event, so neither CI nor Publish to npm started. Earlier missing runs for 2297021/d467f7b are the same shape (a [skip ci] journal commit as the push tip). Dispatch by hand: `gh workflow run \"Publish to npm\" --ref nightly`."
+  run: "35804041124 - completed success. The workflow gates the publish on ruff, py_compile, `npm test` (unit+router+channel+runtime) and verifies the tarball with npm pack, so the four groups ran server-side too."
+  published: "0.2.51-nightly.20260923-005652.7b68413 (dist-tags.nightly; registry modified 2026-09-23T00:59:34Z; run line 'latest' stays 0.2.51)."
+  machine: "npm i -g @oneciel-ai/ciel-runtime@nightly -> 0.2.51-nightly.20260923-005652.7b68413; `ciel-runtime version` prints it; the installed tree carries claude-opus-5-5 in runtime_constants, anthropic_docs_lineup_model_ids in provider_catalog_sources, and the anthropic_opus_5_5_1m_model_id_20260922 migration. The first install attempt failed with ETARGET for the exact new version because the local npm packument was stale - `--prefer-online` resolved it; the tag itself was already correct."
+local:
+  snapshot: "C:\\Users\\djlov\\.local\\share\\ciel-runtime-7b6841323403e9cc24d13fdc8437564eea273283"
+  pin: "CIEL_RUNTIME_HOME (User) = that snapshot. sha256 of runtime_constants.py, provider_catalog_sources.py, anthropic_model_policy.py and config_migrations.py match the repo tree."
+  deployed_run: "The snapshot's own code, pointed at the live config, returned 16 ids including claude-opus-5-5 and claude-opus-5-5[1m] (`ciel-runtime models anthropic`)."
+  registry_refresh: "%APPDATA%\\ciel-runtime\\model-registry.json anthropic entry rewritten 2026-09-22 20:00:30 with the same 16 models. No manual cache surgery was needed: the migration adds claude-opus-5-5[1m] to custom_models, which changes the cache key, so the stored row stopped matching and the panel/list refetched on its own."
+  stale_env_trap: "A shell that still exports the previous snapshot's CIEL_RUNTIME_HOME keeps running the old code - the same command then lists 14 models with no opus-5-5. Fresh terminals read the User pin."
+user_observation:
+  fact: "Standalone Claude Code (2.1.278) shows Opus 5.5; a ciel-runtime launch did not."
+  reading: "Consistent with the allow-list gate: standalone Claude Code never consults ciel-runtime's list. It also disproves the earlier hypothesis (mine) that Claude Code hides the catalog entry because its min_claude_code_version is 2.1.280 - the installed 2.1.278 renders Opus 5.5 standalone, so that field does not block it."
+not_done:
+  - "No live in-session verification: the running Claude sessions and their routers still use older snapshots, so the model list only changes after a relaunch from the new snapshot."
+  - "The provider model panel and CLI list are verified from the deployed snapshot; a routed Claude session's own /model list was not exercised end to end."
