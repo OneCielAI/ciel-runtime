@@ -24,7 +24,7 @@ ciel-runtime --ca-runtime codex -- exec "hello"
 | `--ca-model <id>` | 현재 제공자 모델 설정 후 실행 |
 | `--ca-base-url <url>` | 현재 제공자 기본 URL 설정 후 실행 |
 | `--ca-api-key <key>` | 현재 제공자 API 키 설정 후 실행 |
-| `--ca-runtime claude\|codex\|codex-app-server\|agy\|grok\|zcode` | 실행 런타임 선택 |
+| `--ca-runtime claude\|codex\|codex-app-server\|codex-desktop\|agy\|grok\|zcode\|muse` | 실행 런타임 선택 (`codex-desktop`: [Codex-Desktop.md](Codex-Desktop.md)) |
 | `--ca-no-launch` | 설정만 적용하고 런타임 실행 생략 |
 | `--` | 이후 인자를 선택된 런타임에 그대로 전달 |
 

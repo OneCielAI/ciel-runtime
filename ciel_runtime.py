@@ -124,12 +124,10 @@ from ciel_runtime_support.codex_app_server import codex_app_server_launch_args
 from ciel_runtime_support.codex_backend_context import CodexBackendChannelPorts, CodexBackendCompatibilityApi, CodexBackendContext, CodexBackendReplayPorts, CodexBackendTransportPorts, ProviderPassthroughProjectionPorts, ProviderPassthroughTransportPorts
 from ciel_runtime_support.codex_reasoning_rejects import RejectedReasoningStore
 from ciel_runtime_support.codex_cli import codex_passthrough_args_for_launch, codex_passthrough_has_command, codex_resume_picker_requested, codex_resume_with_session_id
-from ciel_runtime_support.codex_config import codex_alternate_screen_value_from_config_text  # noqa: F401
+from ciel_runtime_support.codex_config import codex_alternate_screen_value_from_config_text, codex_config_override_keys as _codex_config_override_keys, toml_scalar_without_comment as _toml_scalar_without_comment  # noqa: F401
 from ciel_runtime_support.codex_config import codex_config_paths_for_launch, repair_codex_mcp_header_collisions  # noqa: F401 - compatibility export
-from ciel_runtime_support.codex_config import codex_config_override_keys as _codex_config_override_keys  # noqa: F401
-from ciel_runtime_support.codex_config import toml_scalar_without_comment as _toml_scalar_without_comment  # noqa: F401
-from ciel_runtime_support.codex_config import toml_string
-from ciel_runtime_support.codex_config import unquote_toml_string as _unquote_toml_string  # noqa: F401
+from ciel_runtime_support.codex_desktop_runtime import CodexDesktopChannelPorts, CodexDesktopPorts, CodexDesktopSession
+from ciel_runtime_support.codex_config import toml_string, unquote_toml_string as _unquote_toml_string  # noqa: F401
 from ciel_runtime_support.codex_launch_assembly import CodexAppServerLaunchPorts, CodexCliLaunchPorts, CodexLaunchAssembly, CodexLaunchSharedChannelPorts, CodexLaunchSharedConfigPorts, CodexLaunchSharedDispatchPorts, CodexLaunchSharedInstallationPorts, CodexLaunchSharedRestartPorts, CodexLaunchSharedRoutingPorts
 from ciel_runtime_support.codex_launch_policy import current_model_args as project_codex_current_model_args
 from ciel_runtime_support.codex_launch_policy import help_requested as project_codex_help_requested
@@ -4146,7 +4144,7 @@ def portable_prelaunch_menu(passthrough: list[str] | None = None) -> int:
             config=prelaunch.PrelaunchConfig(clear_model_cache, current_provider_panel_choice, default_base_url, get_current_provider, load_config, preflight_lines,
                                               provider_menu_label, save_config, settings_ready_except_api_key, read_model_list_cache),
             launch_policy=prelaunch.PrelaunchLaunchPolicy(agy_launch_enabled_for_provider, claude_launch_enabled_for_provider, codex_launch_enabled_for_provider,
-                                                          launch_blockers_require_api_key, launch_readiness_errors, launch_kimi, launch_grok, launch_zcode, launch_muse),
+                                                          launch_blockers_require_api_key, launch_readiness_errors, launch_kimi, launch_grok, launch_zcode, launch_muse, lambda argv: launch_codex_desktop(argv)),
             panel_rows=prelaunch.PrelaunchPanelRows(advisor_model_panel_rows, api_key_panel_rows, base_url_panel_rows, context_setup_panel_rows, language_panel_rows,
                                                     llm_option_panel_rows, llm_preset_panel_rows, log_level_panel_rows, model_panel_rows, provider_panel_rows),
             mutations=prelaunch.PrelaunchMutations(apply_context_setup_config, apply_llm_preset_config, apply_timeout_profile_to_provider,
@@ -4890,6 +4888,8 @@ _RUNTIME_LAUNCH_API = RuntimeLaunchCompatibilityApi(runtime_launch_context)
 launch_claude = SynchronizedLaunch(_RUNTIME_LAUNCH_API.launch_claude, sync_remote_launch_assets, "claude")
 launch_codex = SynchronizedLaunch(_RUNTIME_LAUNCH_API.launch_codex, sync_remote_launch_assets, "codex", lambda passthrough=None, **_kwargs: repair_codex_mcp_header_collisions(codex_config_paths_for_launch(list(passthrough or [])), report=lambda message: router_log("WARN", message)))
 launch_codex_app_server = SynchronizedLaunch(_RUNTIME_LAUNCH_API.launch_codex_app_server, sync_remote_launch_assets, "codex-app-server")
+launch_codex_desktop = SynchronizedLaunch(lambda passthrough=None, **kwargs: runtime_launch.run_codex_app_server(list(passthrough or []), **kwargs, services=codex_app_server_launch_services(), desktop=CodexDesktopSession(CodexDesktopPorts(
+    CONFIG_DIR, ROUTER_WORKSPACE_ID, Path(os.environ.get("CODEX_HOME") or HOME / ".codex"), VERSION, router_log, lambda pid: terminate_pid(pid, "codex-desktop", quiet=True), CodexDesktopChannelPorts(lambda last_id, limit: read_runtime_inputs(last_id, None, None, limit), ensure_channel_llm_delivery_cursor_initialized, _commit_channel_llm_cursor_if_newer, _RUNTIME_INPUT_STATUS_REPOSITORY, router_log)))), sync_remote_launch_assets, "codex-app-server")
 launch_agy = SynchronizedLaunch(_RUNTIME_LAUNCH_API.launch_agy, sync_remote_launch_assets, "agy")
 launch_grok = SynchronizedLaunch(launch_grok, sync_remote_launch_assets, "grok")
 CLAUDE_CODE_STDERR_LOG = CONFIG_DIR / "claude-code-stderr.log"
@@ -4936,7 +4936,7 @@ def cli_services() -> cli_dispatch.CliServices:
         core=cli_dispatch.CliCore(VERSION, cli_usage, find_executable, get_current_provider, load_config, pop_headless_env_file_args,
                                   portable_provider_menu, run_external_menu, run_quiet_upgrade_and_exit),
         runtime=cli_dispatch.CliRuntime(agy_passthrough_has_command, codex_passthrough_has_command, last_launch_runtime, launch_agy, launch_claude,
-                                        launch_codex, launch_codex_app_server, native_agy_enabled, native_codex_enabled, launch_grok, launch_zcode, launch_muse),
+                                        launch_codex, launch_codex_app_server, native_agy_enabled, native_codex_enabled, launch_grok, launch_zcode, launch_muse, launch_codex_desktop),
         provider_commands=cli_dispatch.CliProviderCommands(cmd_advisor_model, cmd_api_key, cmd_base_url, cmd_language, cmd_log_level, cmd_model,
                                                            cmd_models, cmd_provider, cmd_provider_options, cmd_set_api_key),
         special_commands=cli_dispatch.CliSpecialCommands(cmd_ollama_catalog, cmd_ollama_native, cmd_ollama_options, cmd_web_fetch, cmd_web_search),
@@ -4958,7 +4958,7 @@ def cli_application_context() -> CliApplicationContext:
     return CliApplicationContext(
         dispatch=CliApplicationDispatchPorts(dispatch_cli, cli_services, launch_claude, launch_codex, launch_codex_app_server,
                                              launch_agy, launch_kimi, run_kimi_oauth_login,
-                                             {"grok": launch_grok, "zcode": launch_zcode, "muse": launch_muse}),
+                                             {"grok": launch_grok, "zcode": launch_zcode, "muse": launch_muse, "codex-desktop": launch_codex_desktop}),
         presentation=CliApplicationPresentationPorts(build_cli_parser, cli_parser_services, VERSION, print, lambda: sys.argv),
     )
 

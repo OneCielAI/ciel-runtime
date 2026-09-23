@@ -13,6 +13,7 @@ REMEMBERED_LAUNCH_ACTIONS = frozenset(
         "launch-agy",
         "launch-codex",
         "launch-codex-app-server",
+        "launch-codex-desktop",
         "launch-kimi",
         "launch-grok",
         "launch-zcode",
@@ -33,7 +34,7 @@ def preferred_launch_action(
     remembered = str(config.get(LAST_LAUNCH_ACTION_KEY) or "").strip()
     if remembered == "launch" and supports_claude(provider):
         return remembered
-    if remembered in {"launch-codex", "launch-codex-app-server"} and supports_codex(provider):
+    if remembered in {"launch-codex", "launch-codex-app-server", "launch-codex-desktop"} and supports_codex(provider):
         return remembered
     if remembered in {"launch-grok", "launch-zcode", "launch-muse"}:
         return remembered

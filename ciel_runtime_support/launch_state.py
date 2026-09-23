@@ -92,6 +92,8 @@ def last_launch_runtime(repository: LaunchStateRepository, cwd_key: str) -> str:
         candidate = state.get("last")
         item = candidate if isinstance(candidate, dict) else {}
     mode = str(item.get("mode") or "").strip().lower()
+    if mode.startswith("codex-desktop"):
+        return "codex-desktop"
     if mode.startswith("codex"):
         return "codex"
     if mode.startswith("agy"):

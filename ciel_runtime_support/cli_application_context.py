@@ -95,6 +95,9 @@ class CliApplicationContext:
             "muse": self.dispatch.extra_launchers["muse"],
             "muse-code": self.dispatch.extra_launchers["muse"],
             "launch-muse": self.dispatch.extra_launchers["muse"],
+            "codex-desktop": self.dispatch.extra_launchers["codex-desktop"],
+            "codex-desktop-app": self.dispatch.extra_launchers["codex-desktop"],
+            "launch-codex-desktop": self.dispatch.extra_launchers["codex-desktop"],
         }
         if len(arguments) >= 2 and arguments[1] in routes:
             raise SystemExit(routes[arguments[1]](arguments[2:]))

@@ -83,6 +83,7 @@ class PrelaunchLaunchPolicy:
     launch_grok: Callable[..., Any] = lambda *_args, **_kwargs: 0
     launch_zcode: Callable[..., Any] = lambda *_args, **_kwargs: 0
     launch_muse: Callable[..., Any] = lambda *_args, **_kwargs: 0
+    launch_codex_desktop: Callable[..., Any] = lambda *_args, **_kwargs: 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -226,6 +227,7 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
     launch_grok = services.launch_policy.launch_grok
     launch_zcode = services.launch_policy.launch_zcode
     launch_muse = services.launch_policy.launch_muse
+    launch_codex_desktop = services.launch_policy.launch_codex_desktop
     llm_option_current_bool = services.options.llm_option_current_bool
     llm_option_panel_rows = services.panel_rows.llm_option_panel_rows
     llm_option_prompt_default = services.options.llm_option_prompt_default
@@ -507,6 +509,17 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                     if action == "launch-muse":
                         persist_launch_action(action)
                         launch_muse([])
+                        return PRELAUNCH_CANCEL
+                    if action == "launch-codex-desktop":
+                        if not codex_launch_enabled_for_provider(provider):
+                            messages = [f"Launch Codex desktop app is disabled while {provider_menu_label(provider, pcfg)} provider is selected."]
+                            continue
+                        blockers = launch_readiness_errors()
+                        if blockers:
+                            messages = blockers
+                            continue
+                        persist_launch_action(action)
+                        launch_codex_desktop([])
                         return PRELAUNCH_CANCEL
                     continue
                 if panel == "language" and value:

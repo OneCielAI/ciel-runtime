@@ -30,9 +30,10 @@ def launch_panel_rows(
             "ZCode",
             "Muse Code",
             f"Codex app server{codex_suffix}",
+            f"Codex desktop app{codex_suffix}",
             "Back",
         ],
-        ["launch", "launch-codex", "launch-agy", "launch-kimi", "launch-grok", "launch-zcode", "launch-muse", "launch-codex-app-server", "back"],
+        ["launch", "launch-codex", "launch-agy", "launch-kimi", "launch-grok", "launch-zcode", "launch-muse", "launch-codex-app-server", "launch-codex-desktop", "back"],
     )
 
 

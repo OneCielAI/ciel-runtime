@@ -173,7 +173,7 @@ class PrelaunchShellContext:
         )
 
     def prelaunch_action_index(self, action: str) -> int:
-        if action in {"launch", "launch-codex", "launch-codex-app-server", "launch-agy", "launch-kimi", "launch-grok", "launch-zcode", "launch-muse"}:
+        if action in {"launch", "launch-codex", "launch-codex-app-server", "launch-codex-desktop", "launch-agy", "launch-kimi", "launch-grok", "launch-zcode", "launch-muse"}:
             action = "launch-menu"
         try:
             return self.main_menu_actions.index(action)

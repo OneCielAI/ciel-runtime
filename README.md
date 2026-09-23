@@ -5,7 +5,7 @@
 **Run the coding agent you want on the model provider you choose.**
 
 Ciel Runtime is a cross-platform launcher, local protocol router, and workspace
-control plane for Claude Code, Codex, Codex App Server, AGY, Grok Build, ZCode, and
+control plane for Claude Code, Codex, Codex App Server, the Codex desktop app, AGY, Grok Build, ZCode, and
 compatible AI coding-agent CLIs.
 
 [![npm](https://img.shields.io/npm/v/@oneciel-ai/ciel-runtime?label=npm)](https://www.npmjs.com/package/@oneciel-ai/ciel-runtime)
@@ -79,6 +79,7 @@ ciel-runtime grok
 ciel-runtime zcode
 ciel-runtime muse
 ciel-runtime --ca-runtime codex-app-server
+ciel-runtime codex-desktop      # Windows Codex desktop app, see docs/Codex-Desktop.md
 ```
 
 Check the effective configuration and upstream compatibility:
@@ -93,7 +94,7 @@ ciel-runtimectl test
 
 | Capability | What it provides |
 |---|---|
-| Runtime launch | Claude Code, Codex, Codex App Server, AGY, Grok Build, ZCode, and Muse Code from one entrypoint |
+| Runtime launch | Claude Code, Codex, Codex App Server, the Codex desktop app, AGY, Grok Build, ZCode, and Muse Code from one entrypoint |
 | Provider routing | Native connections where supported; otherwise a loopback HTTP router with provider-owned endpoint and authentication rules |
 | Remote Runtime Bridge | One authenticated OpenAI/Anthropic-compatible network endpoint with per-request provider/model routing, protocol projection, Router-host OAuth, and isolated request keys where allowed |
 | Protocol adaptation | Anthropic Messages, OpenAI Chat, OpenAI Responses, Ollama Chat, tool calls, thinking blocks, and SSE streams |

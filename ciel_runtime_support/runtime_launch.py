@@ -1239,7 +1239,9 @@ def run_codex_app_server(
     self_update_check: bool = True,
     *,
     services: CodexAppServerLaunchServices,
+    desktop: Callable[[list[str], dict[str, str], Path], int] | None = None,
 ) -> int:
+    """Run app-server; with ``desktop`` the Codex desktop app attaches to it."""
     CODEX_RUNTIME_API_KEY_ENV = services.constants.CODEX_RUNTIME_API_KEY_ENV
     CONFIG_DIR = services.constants.CONFIG_DIR
     PRELAUNCH_CANCEL = services.constants.PRELAUNCH_CANCEL
@@ -1415,7 +1417,7 @@ def run_codex_app_server(
         if workspace_mcp is not None and workspace_mcp_launch is not None:
             workspace_mcp.finish(workspace_mcp_launch)
         raise
-    print("Launching Codex App Server through Ciel Runtime.", flush=True)
+    print(f"Launching Codex {'desktop app' if desktop is not None else 'App Server'} through Ciel Runtime.", flush=True)
     if "--listen" in cmd:
         try:
             print(f"Codex App Server listen: {cmd[cmd.index('--listen') + 1]}", flush=True)
@@ -1426,11 +1428,14 @@ def run_codex_app_server(
     record_launch_state_for_cwd(
         current_launch_cwd_key(),
         provider,
-        provider_mode_label(provider, pcfg) if native_codex_enabled(provider) else "codex-app-server-router",
+        "codex-desktop-router" if desktop is not None
+        else provider_mode_label(provider, pcfg) if native_codex_enabled(provider) else "codex-app-server-router",
         str(pcfg.get("current_model") or ("" if native_codex_enabled(provider) else current_alias(cfg)) or ""),
     )
 
     def run_codex_app_server_process() -> int:
+        if desktop is not None:
+            return desktop(cmd, env, launch_cwd)
         return subprocess_call_with_child_pid_record(
             cmd,
             env,
