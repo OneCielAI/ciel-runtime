@@ -1,0 +1,19 @@
+okf_version: "1.0"
+task: "Deploy the Walkie channel fixes and the codex-desktop runtime to npm nightly and to this machine's local snapshot."
+reported: "User, 2026-09-23: '로컬및 나이트리 푸시'"
+commits:
+  journal: "d60adad docs: journal the Walkie channel fixes and the Codex desktop runtime [skip ci]"
+  feature: "52aabaa feat(runtime): run the Codex desktop app behind the router (checked alone in a worktree: import ok, runtime group OK skipped=19)"
+  fix: "4cccb27 fix(channel): stop losing and mis-recording external channel messages"
+nightly:
+  push: "origin/nightly 41cd656 -> 4cccb27. origin/main not pushed (still 41cd656); the request named nightly only."
+  runs: "CI 35905885797 success; Publish to npm 35905885800 success (push-triggered - the tip carried no [skip ci])."
+  published: "0.2.51-nightly.20260923-185827.4cccb27, dist-tags.nightly, gitHead 4cccb27fb95564245cc3ce1507617cacf99d4f62; latest stays 0.2.51."
+  machine: "npm i -g @oneciel-ai/ciel-runtime@nightly --prefer-online -> 0.2.51-nightly.20260923-185827.4cccb27; the installed tree has session_socket_ready in channel_pending_poll.py and the event_id exclusion in channel_message_policy.py."
+local:
+  snapshot: "C:\Users\djlov\.local\share\ciel-runtime-4cccb27fb95564245cc3ce1507617cacf99d4f62 via install.ps1 (CIEL_RUNTIME_INSTALL_HOME=<snapshot>, PREFIX=C:\Users\djlov\.local, every inherited CIEL_RUNTIME_* removed first)."
+  pin: "CIEL_RUNTIME_HOME (User) = that snapshot. sha256 of ciel_runtime.py, channel_pending_poll.py, channel_message_policy.py, channel_transcript.py, codex_desktop_runtime.py match the repo tree."
+  deployed_run: "The snapshot's channel_message_policy over the live Walkie queue (749 rows): 0 superseded. ciel-runtime.cmd version from a fresh env with the User pin: 'ciel-runtime 0.2.51' (package version string)."
+not_done:
+  - "Running sessions keep their old snapshot until relaunched: the G:\ciel-Walkie session (router 9469) still runs the 0.2.51 code it started with, so its channel behaviour changes only after a restart from the new pin."
+  - "Pre-existing untracked journals from 09-08..09-19 were left out of the commits (not produced in this session)."
