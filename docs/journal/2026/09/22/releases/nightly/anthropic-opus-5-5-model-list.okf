@@ -6,7 +6,7 @@ commits:
   journal: "7b68413 docs: journal the Claude Opus 5.5 model-list fix [skip ci]"
 nightly:
   pushes: "origin/nightly and origin/main both at 7b68413."
-  trigger_note: "The push produced no workflow run: the tip commit carried [skip ci], which suppresses the whole push event, so neither CI nor Publish to npm started. Earlier missing runs for 2297021/d467f7b are the same shape (a [skip ci] journal commit as the push tip). Dispatch by hand: `gh workflow run \"Publish to npm\" --ref nightly`."
+  trigger_note: "The push produced no workflow run: the tip commit carried [skip ci], which suppresses the push event, so neither CI nor Publish to npm started. Dispatch by hand: `gh workflow run \"Publish to npm\" --ref nightly`. Not established: whether the earlier missing runs (2297021, d467f7b) had the same cause - their push tips carried no recorded [skip ci] marker, so that remains unexplained."
   run: "35804041124 - completed success. The workflow gates the publish on ruff, py_compile, `npm test` (unit+router+channel+runtime) and verifies the tarball with npm pack, so the four groups ran server-side too."
   published: "0.2.51-nightly.20260923-005652.7b68413 (dist-tags.nightly; registry modified 2026-09-23T00:59:34Z; run line 'latest' stays 0.2.51)."
   machine: "npm i -g @oneciel-ai/ciel-runtime@nightly -> 0.2.51-nightly.20260923-005652.7b68413; `ciel-runtime version` prints it; the installed tree carries claude-opus-5-5 in runtime_constants, anthropic_docs_lineup_model_ids in provider_catalog_sources, and the anthropic_opus_5_5_1m_model_id_20260922 migration. The first install attempt failed with ETARGET for the exact new version because the local npm packument was stale - `--prefer-online` resolved it; the tag itself was already correct."
