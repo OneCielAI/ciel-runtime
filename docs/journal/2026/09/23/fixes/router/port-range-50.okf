@@ -8,5 +8,9 @@ change: "workspace_router_selection.ROUTER_PORT_SCAN_SIZE = 50 (was the literal 
 tests: "New test: 32 reserved ports -> a new workspace gets 9496; the error names 9464-9513. unit 1608 OK (skipped=45), router 1154 OK, channel 434 OK (skipped=80), runtime 320 OK (skipped=19); ruff clean."
 real_check: "On a copy of the live registry with real health/port probes, F:/greenland selects 9496. The live registry was not modified."
 not_done:
-  - "Not committed, pushed or deployed at the time of writing."
+  - "Deployment recorded below."
   - "Reservation release (stale temp/test workspaces) not changed; not instructed."
+deployment:
+  commits: "b364151 journal [skip ci]; ae32250 fix(router): widen the workspace router port range to 50"
+  nightly: "origin/nightly 130a154 -> ae32250 (main not pushed). CI 35939038937 success; Publish to npm 35939039105 success; published 0.2.51-nightly.20260924-003723.ae32250 (gitHead ae32250); npm i -g @nightly installed it, ROUTER_PORT_SCAN_SIZE = 50 in the installed tree."
+  local: "Snapshot C:\Users\djlov\.local\share\ciel-runtime-ae32250e99d47a47d9c288ad9b01dd381b125e2c via install.ps1; CIEL_RUNTIME_HOME (User) pinned to it; sha256 of ciel_runtime.py, workspace_router_selection.py, channel_pending_poll.py match the repo. The snapshot's code on a copy of the live registry selects 9496 for F:/greenland."
