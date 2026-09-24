@@ -49,6 +49,13 @@ def port_is_free(port: int) -> bool:
         probe.close()
 
 
+# Every workspace keeps its registry reservation between launches, so the
+# range fills with reservations rather than live routers: on 2026-09-23 all 32
+# ports (9464-9495) were reserved while only 6 were listening, and a new
+# workspace could not start.
+ROUTER_PORT_SCAN_SIZE = 50
+
+
 def select_workspace_router_port(
     base_port: int,
     workspace: Path,
@@ -56,7 +63,7 @@ def select_workspace_router_port(
     *,
     health: Callable[[int], dict[str, Any] | None] = probe_router_health,
     available: Callable[[int], bool] = port_is_free,
-    scan_size: int = 32,
+    scan_size: int = ROUTER_PORT_SCAN_SIZE,
     registry_path: Path | None = None,
 ) -> int:
     """Select one stable, isolated port for a workspace.

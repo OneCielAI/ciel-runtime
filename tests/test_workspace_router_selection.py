@@ -2,6 +2,8 @@ import unittest
 from pathlib import Path
 import tempfile
 
+import json
+
 from ciel_runtime_support.workspace_router_selection import select_workspace_router_port
 
 
@@ -125,6 +127,41 @@ class WorkspaceRouterSelectionTests(unittest.TestCase):
                 )
 
         self.assertEqual(19464, first)
+
+    def test_a_new_workspace_finds_a_port_past_32_reserved_ones(self):
+        # 2026-09-23: 9464-9495 were all reserved by other workspaces (only 6
+        # listening) and F:\greenland could not start.
+        with tempfile.TemporaryDirectory() as directory:
+            registry = Path(directory) / "workspace-router-ports.json"
+            registry.write_text(
+                json.dumps(
+                    {
+                        "version": 1,
+                        "workspaces": {
+                            f"w{index:02d}": {"workspace": f"c:\work\{index}", "port": 9464 + index}
+                            for index in range(32)
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            selected = select_workspace_router_port(
+                9464,
+                Path("F:/greenland"),
+                {},
+                health=lambda port: None,
+                available=lambda port: True,
+                registry_path=registry,
+            )
+            self.assertEqual(9496, selected)
+            with self.assertRaisesRegex(RuntimeError, "9464-9513"):
+                select_workspace_router_port(
+                    9464,
+                    Path("F:/other"),
+                    {},
+                    health=lambda port: None,
+                    available=lambda port: False,
+                )
 
 
 if __name__ == "__main__":
