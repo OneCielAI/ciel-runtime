@@ -1,0 +1,12 @@
+okf_version: "1.0"
+task: "Widen the workspace router port range to about 50."
+reported: "User, 2026-09-23, launching from F:\greenland: 'RuntimeError: no free ciel-runtime router port found in 9464-9495' / '포트 레인지를 좀더 크게 50개정도 확보'"
+observed:
+  listening: "Only 6 ports in 9464-9520 were listening (9465, 9467 tailscaled, 9469, 9485, 9489, 9493)."
+  registry: "%APPDATA%\ciel-runtime\workspace-router-ports.json held 42 workspace reservations, covering every port 9464-9495 (many temp/test folders: .tmp\npm-nightly-smoke, AppData\Local\Temp\..., ciel-runtime\tests, c:\windows\temp). _select_port skips reserved ports even when nothing listens, and reservations are never released, so the range fills with reservations."
+change: "workspace_router_selection.ROUTER_PORT_SCAN_SIZE = 50 (was the literal default 32): range 9464-9513. The only derived port, the Codex app-server at router+20, already overlapped the router range at 32, so this adds no new kind of collision."
+tests: "New test: 32 reserved ports -> a new workspace gets 9496; the error names 9464-9513. unit 1608 OK (skipped=45), router 1154 OK, channel 434 OK (skipped=80), runtime 320 OK (skipped=19); ruff clean."
+real_check: "On a copy of the live registry with real health/port probes, F:/greenland selects 9496. The live registry was not modified."
+not_done:
+  - "Not committed, pushed or deployed at the time of writing."
+  - "Reservation release (stale temp/test workspaces) not changed; not instructed."
