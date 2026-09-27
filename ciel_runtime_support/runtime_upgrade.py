@@ -6,6 +6,8 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
+from .npm_runtime import runtime_package_spec
+
 
 @dataclass(frozen=True, slots=True)
 class RuntimeUpgradeSettings:
@@ -48,7 +50,7 @@ class RuntimeUpgradeService:
         if not npm:
             self.output("Ciel Runtime update skipped: npm was not found.")
             return 1
-        package_spec = "@oneciel-ai/ciel-runtime@latest"
+        package_spec = runtime_package_spec(self.settings.runtime_version)
         latest = self.npm.latest_version(npm, package_spec)
         if latest and not self.npm.version_newer(
             latest, self.settings.runtime_version

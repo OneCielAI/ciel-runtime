@@ -9,6 +9,8 @@ from pathlib import Path
 import subprocess
 from typing import Callable
 
+from .npm_runtime import runtime_package_spec
+
 
 def windows_executable_image_running(executable_name: str) -> bool:
     """Return whether Windows currently has the executable image loaded.
@@ -175,11 +177,10 @@ class SelfUpdatePorts:
 
 
 class SelfUpdateLifecycle:
-    PACKAGE_SPEC = "@oneciel-ai/ciel-runtime@latest"
-
     def __init__(self, current_version: str, ports: SelfUpdatePorts) -> None:
         self._current_version = current_version
         self._ports = ports
+        self.package_spec = runtime_package_spec(current_version)
 
     def run(self, enabled: bool = True) -> bool:
         if not enabled or os.environ.get("CIEL_RUNTIME_SKIP_SELF_UPDATE") == "1":
@@ -192,7 +193,7 @@ class SelfUpdateLifecycle:
         npm = self._ports.find_executable("npm")
         if not npm:
             return False
-        latest = self._ports.latest_version(npm, self.PACKAGE_SPEC)
+        latest = self._ports.latest_version(npm, self.package_spec)
         if not latest or not self._ports.version_newer(latest, self._current_version):
             return False
         self._print(
@@ -200,7 +201,7 @@ class SelfUpdateLifecycle:
         )
         package_root = self._ports.package_root()
         prefix = self._ports.prefix_from_root(package_root) if package_root else None
-        command = self._ports.install_command(npm, self.PACKAGE_SPEC, prefix)
+        command = self._ports.install_command(npm, self.package_spec, prefix)
         if prefix is not None:
             self._print(f"Updating current Ciel Runtime install prefix: {prefix}")
         try:

@@ -1,0 +1,13 @@
+okf_version: "1.0"
+task: "Diagnose 'Incorrect API key provided: sk-svcac...' 401 in every Codex session (Hyundai 9464, F:\qb 9498) that should run on Codex ChatGPT OAuth."
+reported: "User, 2026-09-25: C:\Users\djlov\source\repos\Hyundai 401 via http://127.0.0.1:9464/backend-api/codex/responses; then 'F:\qb 에서도 동일한문제 발생 모든 codex를 사용하는세션에서 문제발생'"
+confirmed:
+  codex_auth: "Codex feedback_tags in ~/.codex/logs_2.sqlite for pids 50444 (Hyundai), 65552 (F:\qb), 72080, 72040: auth_mode=Chatgpt, auth_header_attached=true, auth_env_openai_api_key_present=false, auth_env_codex_api_key_present=false. ~/.codex/auth.json auth_mode=chatgpt, OPENAI_API_KEY empty. No OPENAI_API_KEY/CODEX_API_KEY in Process/User/Machine env, PowerShell profiles, Hyundai root .env/scripts; running codex.exe 72040 env has none."
+  router: "Codex routed mode forwards the Codex CLI Authorization header unchanged (router_http.CodexRoutedHeaderPolicy.project, replace_credentials=False) to https://chatgpt.com/backend-api/codex; it adds no key. 'sk-svcac' is not present in any ciel config (global, workspace)."
+  onset: "Router 9498 (F:\qb): 200 at 17:36:01, first 401 at 17:36:08, one 200 after Codex's token refresh at 17:36:12, then 401s. Router 9464 (Hyundai): all codex/responses 401 from 17:3x. Codex logs show the managed recovery (reload, refresh_token) followed by 401 again."
+  direct_repro: "codex exec (no ciel, CIEL_RUNTIME_* and OPENAI_* unset, default ~/.codex) at 22:51Z: 'unexpected status 401 Unauthorized: Incorrect API key provided: sk-svcac.... url: https://chatgpt.com/backend-api/codex/responses, cf-ray: a40d983f0a3ecca3-ORD, request id: 15dab48d-f4eb-4db7-b504-a8abec94fb1d'."
+  status_page: "status.openai.com at the time: no incident; Codex components operational."
+conclusion: "The 401 and the sk-svcac key text come from the ChatGPT Codex backend response, not from ciel-runtime and not from a key stored on this machine; it reproduces without ciel."
+unknown: "Why the backend answers the ChatGPT OAuth token with a service-account-key error (account/workspace side vs. OpenAI side) is not determined."
+actions: "Read-only investigation plus one direct codex exec request; no code or config changed."
+recovery: "Router logs afterwards: 9498 (F:\qb) 200 x7 in 18:4x and x8 in 18:5x; 9464 (Hyundai) 200 in 18:5x; no 401 after. Last sk-svcac entry in ~/.codex/logs_2.sqlite 17:49:57; the direct codex exec still failed at 17:51. So the failure window is about 17:36-17:51 at least, recovered by 18:4x without any local change."

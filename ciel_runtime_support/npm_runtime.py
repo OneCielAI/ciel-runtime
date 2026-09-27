@@ -22,6 +22,21 @@ def version_newer(latest: str, current: str) -> bool:
     return tuple(left) > tuple(right)
 
 
+RUNTIME_PACKAGE_NAME = "@oneciel-ai/ciel-runtime"
+
+
+def runtime_package_spec(current_version: str) -> str:
+    """npm spec for updating this install, keeping it on its release channel.
+
+    Nightly builds are published as ``X.Y.Z-nightly.<stamp>.<sha>`` under the
+    ``nightly`` dist-tag; following ``latest`` from one would swap it for the
+    stable release.
+    """
+
+    tag = "nightly" if "-nightly." in str(current_version or "") else "latest"
+    return f"{RUNTIME_PACKAGE_NAME}@{tag}"
+
+
 def npm_latest_package_version(
     npm: str, package_spec: str, timeout: float = 8.0
 ) -> str:
@@ -187,5 +202,6 @@ __all__ = [
     "package_root_from_installed_path",
     "parse_version_tuple",
     "run_upgrade_command",
+    "runtime_package_spec",
     "version_newer",
 ]

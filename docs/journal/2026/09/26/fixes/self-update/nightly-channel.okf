@@ -1,0 +1,14 @@
+okf_version: "1.0"
+task: "Nightly installs auto-update to the latest nightly on every start instead of being replaced by the stable release."
+reported: "User, 2026-09-26: '정식버전은 매번 시작할때마다 자동업그레이드가 되는데 나이트리버전은 자꾸 정식버전으로 업그레이드하고해. 나이트리버전도 매번시작할때마다 나이트리 버전으로 자동업그레이드하도록 변경'"
+confirmed:
+  cause: "package_lifecycle.SelfUpdateLifecycle.PACKAGE_SPEC and runtime_upgrade.RuntimeUpgradeService.ciel_runtime hard-coded '@oneciel-ai/ciel-runtime@latest'; a nightly install therefore compared against and installed the stable dist-tag."
+  installed_version: "Installed package.json version is '0.2.51-nightly.20260924-003723.ae32250'; npm dist-tags latest=0.2.51, nightly=0.2.51-nightly.20260924-003723.ae32250."
+change:
+  - "npm_runtime.runtime_package_spec(current_version): '@nightly' when the version contains '-nightly.', else '@latest'."
+  - "SelfUpdateLifecycle and RuntimeUpgradeService use it instead of the fixed @latest spec."
+verification:
+  tests: "tests/test_package_lifecycle.py +3 (nightly self-update queries and installs @nightly; nightly ordering; spec per channel). run_test_group.py unit: Ran 1611 OK (skipped=45); runtime: Ran 320 OK (skipped=19); ruff clean on changed files."
+  registry: "Real npm: current 0.2.51-nightly.20260923-185827.4cccb27 -> @nightly = 0.2.51-nightly.20260924-003723.ae32250, upgrade=True; current = that nightly -> upgrade=False; current 0.2.50 -> @latest = 0.2.51, upgrade=True."
+note: "Installed nightlies built before this change still carry the @latest logic; they switch behaviour once they update to a nightly that contains this fix."
+status: "Not committed or pushed (not requested)."
