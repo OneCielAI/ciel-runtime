@@ -11,4 +11,10 @@ verification:
   tests: "tests/test_package_lifecycle.py +3 (nightly self-update queries and installs @nightly; nightly ordering; spec per channel). run_test_group.py unit: Ran 1611 OK (skipped=45); runtime: Ran 320 OK (skipped=19); ruff clean on changed files."
   registry: "Real npm: current 0.2.51-nightly.20260923-185827.4cccb27 -> @nightly = 0.2.51-nightly.20260924-003723.ae32250, upgrade=True; current = that nightly -> upgrade=False; current 0.2.50 -> @latest = 0.2.51, upgrade=True."
 note: "Installed nightlies built before this change still carry the @latest logic; they switch behaviour once they update to a nightly that contains this fix."
-status: "Not committed or pushed (not requested)."
+
+deployment:
+  commit: "0fff1c6 fix(update): keep nightly installs on the nightly channel; pushed origin/nightly 387ceb2 -> 0fff1c6 (main not pushed)."
+  ci: "CI 36285278421 success."
+  npm: "Publish to npm 36285278420 FAILED at 'npm publish --access public --tag nightly' for 0.2.51-nightly.20260927-012401.0fff1c6: 'E404 Not Found - PUT https://registry.npmjs.org/@oneciel-ai%2fciel-runtime'. dist-tags unchanged (nightly still ...ae32250)."
+  npm_token_observation: "gh secret list: NPM_TOKEN updated 2026-06-26T06:28:03Z. Last successful publish 2026-09-24T00:37 (ae32250). GitHub changelog 2025-09-29/11-05: write-enabled granular tokens are capped at 90 days. 06-26 + 90 days = 09-24. Token expiry is the likely cause but not confirmed (the token itself was not inspected)."
+  local: "Snapshot C:\Users\djlov\.local\share\ciel-runtime-0fff1c68712f10f0ed8516d52c3032f2174b49d4 via install.ps1; CIEL_RUNTIME_HOME (User) pinned to it; sha256 of ciel_runtime.py, npm_runtime.py, package_lifecycle.py, runtime_upgrade.py match the repo."
