@@ -1270,6 +1270,38 @@ Router home metric view-model, web-chat view-model 및 `/ca/web/chat` GET 흐름
 
 ---
 
+### `ciel_runtime_support/oauth_token_store.py`
+
+워크스페이스별 OAuth 토큰 관리소 저장 계층. `oauth-tokens.vault.json`에 access/refresh/id 토큰을 인증된 로컬 암호화(`COV1`, 워크스페이스 키)로, `oauth-tokens.state.json`에 라벨·관측 사용량·한도·갱신 상태·대화 고정을 둔다. 모든 읽기-수정-쓰기는 `exclusive_file_lock` 아래에서 원자적으로 교체한다. 자격 증명 필드가 공용 `config.json`으로 옮겨지는 설정 저장소를 피하려고 별도 파일을 쓴다.
+
+### `ciel_runtime_support/oauth_usage_signals.py`
+
+Codex(`x-codex-{primary,secondary}-*`, 429 `usage_limit_reached`/`resets_at`)와 Claude(`anthropic-ratelimit-unified-*`, `status: rejected`) 응답을 사용률 창·한도·리셋 시각의 `UsageObservation`으로 바꾼다. 헤더 이름과 단위는 설치된 codex.exe/claude.exe에서 확인한 값이다.
+
+### `ciel_runtime_support/oauth_token_pool.py`
+
+토큰 선택 정책. 대화는 사용량이 남는 동안 같은 토큰을 유지하고, 임계치에 닿은 토큰(draining)은 다음 사용자 턴에서만 떠나며, 사용 한도로 거부된 토큰은 리셋까지 빠졌다가 복구된다. 새 대화는 저장 순서로 채운다.
+
+### `ciel_runtime_support/oauth_token_endpoints.py`
+
+Codex·Claude OAuth 상수(client, authorize/token URL, scope), 토큰 요청(Codex 폼, Claude JSON), JWT 클레임, Codex `auth.json`·Claude `.credentials.json` 가져오기. `CIEL_RUNTIME_OAUTH_TOKEN_URL_<PROVIDER>`로 토큰 엔드포인트를 옮길 수 있다.
+
+### `ciel_runtime_support/oauth_token_refresh.py`
+
+토큰별 잠금 파일 안에서 자격 증명을 다시 읽은 뒤 갱신해 1회용 refresh 토큰의 중복 사용을 막는 `OAuthTokenRefresher`와, 60초마다 한도 복구·만료 임박 갱신을 하는 라우터 감시 스레드 `OAuthTokenWatcher`.
+
+### `ciel_runtime_support/oauth_login.py`
+
+브라우저 PKCE 로그인(`prompt=login`, loopback 콜백, state 검증)으로 CLI와 갱신 계보가 분리된 토큰을 관리소에 추가한다.
+
+### `ciel_runtime_support/oauth_token_cli.py`
+
+`ciel-runtime tokens list|login|import|refresh|enable|disable|remove`.
+
+### `ciel_runtime_support/oauth_routing.py`
+
+Codex routed(`router_http.forward_json`)와 Anthropic routed(`claude_router`) 요청 경로 연결부. 요청마다 토큰을 고르고 `Authorization`/`ChatGPT-Account-ID`(Claude는 Bearer와 `oauth-2025-04-20` 베타)를 바꾸며, 응답 사용량을 기록하고, 출력 전에 사용 한도 429는 다음 토큰으로, 401은 한 번 갱신 후 재시도한다. 최종 401은 424로 돌려 CLI의 자체 재로그인을 막는다. 라우터 서비스 그래프가 요청마다 다시 만들어지므로 관리소와 감시 스레드는 프로세스 단위로 캐시하고 첫 사용 때 시작한다.
+
 ## 관련 문서
 - [[Architecture]] — 아키텍처 상세
 - [[Router]] — RouterHandler 상세

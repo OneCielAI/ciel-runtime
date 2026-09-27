@@ -4741,7 +4741,7 @@ def claude_launch_services() -> runtime_launch.ClaudeLaunchServices:
         restart=assembly.ClaudeLaunchRestartPorts(lambda: runtime_session_restart_service().control(), runtime_input_gateway().submit_notification),
     ).services()
 
-CODEX_ROUTED_UPSTREAM_BASE = "https://chatgpt.com/backend-api/codex"
+CODEX_ROUTED_UPSTREAM_BASE = os.environ.get("CIEL_RUNTIME_CODEX_ROUTED_UPSTREAM") or "https://chatgpt.com/backend-api/codex"
 def codex_builtin_mcp_args(
     config_path: Path | None = None,
     *,

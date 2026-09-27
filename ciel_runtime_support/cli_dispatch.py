@@ -146,6 +146,11 @@ def dispatch_cli(argv: list[str], services: CliServices) -> int:
         return run_quiet_upgrade_and_exit()
     if argv:
         head, rest = argv[0], argv[1:]
+        if head == "tokens":
+            from ciel_runtime_support.oauth_token_cli import run_tokens_command
+            from ciel_runtime_support.runtime_paths import WORKSPACE_STATE_DIR
+
+            return run_tokens_command(rest, WORKSPACE_STATE_DIR)
         if head in ("agy", "launch-agy", "antigravity"):
             return launch_agy(rest)
         if head in ("codex", "launch-codex"):

@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from .agent_router import COMMON_RUNTIME_ROUTER_CAPABILITIES, RouterCapability
+from .oauth_routing import anthropic_request_run, open_with_oauth
 from .protocols.openai_responses import strip_openai_responses_reasoning_envelopes
 from .remote_bridge import is_remote_bridge_request
 
@@ -392,19 +393,26 @@ def handle_claude_messages_post(
         headers = provider_headers(
             provider, pcfg, self.headers, "anthropic_messages"
         )
+        # Anthropic routed mode with stored Claude OAuth tokens: pick, rotate
+        # and refresh them per request (oauth_routing).
+        oauth_run = anthropic_request_run(provider, headers, self.headers, upstream_body, router_log)
         waited, rpm_used, rpm_limit = apply_router_rate_limit(provider, pcfg, upstream_model)
         try:
             event_bus.publish(level="info", category="upstream.request", message="forwarding to Anthropic-compatible provider", request_id=request_id, provider=provider, model=upstream_model, data={"url": url, "stream": bool(body.get("stream", stream_enabled))})
             try:
-                resp = open_provider_request_with_key_retry(
-                    url,
-                    upstream_body,
+                resp = open_with_oauth(
+                    oauth_run,
                     headers,
-                    provider_request_timeout_seconds(pcfg),
-                    provider,
-                    pcfg,
-                    upstream_model,
-                    stream=bool(body.get("stream", stream_enabled)),
+                    lambda attempt_headers: open_provider_request_with_key_retry(
+                        url,
+                        upstream_body,
+                        attempt_headers,
+                        provider_request_timeout_seconds(pcfg),
+                        provider,
+                        pcfg,
+                        upstream_model,
+                        stream=bool(body.get("stream", stream_enabled)),
+                    ),
                 )
             except urllib.error.HTTPError as initial_error:
                 raw_error = initial_error.read()
@@ -435,15 +443,19 @@ def handle_claude_messages_post(
                     reason="context_output_budget",
                     max_tokens=recovered_body["max_tokens"],
                 )
-                resp = open_provider_request_with_key_retry(
-                    url,
-                    upstream_body,
+                resp = open_with_oauth(
+                    oauth_run,
                     headers,
-                    provider_request_timeout_seconds(pcfg),
-                    provider,
-                    pcfg,
-                    upstream_model,
-                    stream=bool(body.get("stream", stream_enabled)),
+                    lambda attempt_headers: open_provider_request_with_key_retry(
+                        url,
+                        upstream_body,
+                        attempt_headers,
+                        provider_request_timeout_seconds(pcfg),
+                        provider,
+                        pcfg,
+                        upstream_model,
+                        stream=bool(body.get("stream", stream_enabled)),
+                    ),
                 )
             if bool(body.get("stream", stream_enabled)):
                 set_upstream_stream_read_timeout(resp, provider_stream_idle_timeout_seconds(pcfg))

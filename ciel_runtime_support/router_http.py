@@ -48,6 +48,7 @@ from ciel_runtime_support.remote_bridge import (
     REMOTE_LLM_PATHS,
     RemoteBridgeRouteError,
 )
+from ciel_runtime_support.oauth_routing import codex_request_run
 from ciel_runtime_support.tool_schema import request_tool_schema_scope
 from ciel_runtime_support.upstream_dump import dump_upstream_request
 
@@ -301,6 +302,15 @@ class CodexBackendHttpAdapter:
         parsed = urllib.parse.urlparse(handler.path)
         url = self.upstream_url(parsed.path, parsed.query)
         headers = self._request.upstream_headers(config, handler.headers)
+        # Codex routed mode with stored ChatGPT OAuth tokens: the store picks
+        # the account; limits and 401s move the request to another token
+        # before anything reaches the CLI (oauth_routing).
+        oauth_run = codex_request_run(url, handler.headers, upstream_body, self._retry.log)
+        base_headers = headers
+        if oauth_run is not None:
+            headers = oauth_run.headers(base_headers) or base_headers
+            if oauth_run.lease is None:
+                oauth_run = None
         data = json.dumps(upstream_body).encode("utf-8")
         dump_upstream_request(url, data, self._retry.log)
         # Every pass costs a full upstream round trip while the client sees
@@ -315,6 +325,7 @@ class CodexBackendHttpAdapter:
                 self._send_codex_request(
                     handler, provider, config, url, headers, data, upstream_body,
                     mutate_responses=mutate_responses,
+                    observe=oauth_run.observe_response if oauth_run is not None else None,
                 )
                 return delivery_body
             except UpstreamContextExceeded as exc:
@@ -329,6 +340,12 @@ class CodexBackendHttpAdapter:
                 data = json.dumps(upstream_body).encode("utf-8")
                 dump_upstream_request(url, data, self._retry.log)
             except urllib.error.HTTPError as exc:
+                if oauth_run is not None and exc.code in (401, 429):
+                    retry, relay = oauth_run.retry_headers(exc, base_headers)
+                    if retry is None:
+                        raise relay from None
+                    headers = retry
+                    continue
                 if exc.code not in (400, 404):
                     raise
                 raw = exc.read()
@@ -520,6 +537,7 @@ class CodexBackendHttpAdapter:
         upstream_body: dict[str, Any],
         *,
         mutate_responses: bool,
+        observe: Callable[..., None] | None = None,
     ) -> None:
         max_retries = self._retry.retry_limit() if mutate_responses else 0
         for attempt in range(max_retries + 1):
@@ -527,6 +545,8 @@ class CodexBackendHttpAdapter:
             with self._open_with_transport_retry(
                 request, provider, config, str(upstream_body.get("model") or ""), "responses"
             ) as response:
+                if observe is not None:
+                    observe(response.headers, int(getattr(response, "status", 200)))
                 preamble = self._retry.read_preamble(response) if mutate_responses else None
                 if preamble is not None and getattr(preamble, "context_error_code", None):
                     # Nothing has been written to the client yet, so the turn can

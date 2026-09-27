@@ -1,0 +1,25 @@
+okf_version: "1.0"
+task: "Per-workspace OAuth token store for Codex and Claude: rotate to the next token before usage runs out, restore tokens when their limit resets, avoid switching mid-use, and keep tokens refreshed."
+requested: "User, 2026-09-27: 'F:\omini-router 라우터 프로젝트를 분석후에, 참조해서, codex 와 claude의 oauth 토큰을 별도로 저장후에, 토큰의 사용량이 끝나면 다음토큰으로 로테이션 ... 토큰 사용해제기 풀리면 다시 사용가능 ... 사용중에는 토큰 을변경하지 않아 ... 토큰 갱신도 감시 ... 워크스페이스별로.' Then: '토큰 소진을 감지하면 사전에 토큰 로테이션'."
+decisions:
+  token_source: "User: both browser sign-in (PKCE) and file import; import warns about refresh conflicts with the CLI."
+  switch_boundary: "User: turn level, but keep the same token across turns while it has usage left."
+  scope: "User: only in Anthropic routed mode and Codex routed mode; no automatic mode switch."
+reference:
+  omini_router: "F:\omini-router read only (no writes). Global SQLite store, usage polling + text matching; does not parse x-codex-primary/secondary or anthropic-ratelimit-unified reset headers; session affinity off by default."
+confirmed_constants:
+  codex: "codex.exe strings: x-codex-{primary,secondary}-{used-percent,window-minutes,reset-at}, x-codex-rate-limit-reached-type, usage error body code/type/plan_type/resets_at; client app_EMoamEEZ73f0CkXaXp7hrann; token URL https://auth.openai.com/oauth/token; code exchange form-encoded."
+  claude: "claude.exe strings: anthropic-ratelimit-unified-{5h,7d}-{utilization,reset}, -status, -reset; utilization is a fraction (Math.floor(utilization*100)); CLIENT_ID 9d1c250a-e61b-44d9-88ed-5944d1962f5e, CLAUDE_AI_AUTHORIZE_URL https://claude.com/cai/oauth/authorize, TOKEN_URL https://platform.claude.com/v1/oauth/token, JSON exchange with state, JSON refresh with scope, localhost:<port>/callback redirect."
+change:
+  modules: "oauth_token_store (encrypted vault + state, file lock), oauth_usage_signals, oauth_token_pool (selection rules), oauth_token_endpoints, oauth_token_refresh (per-token refresh lock, watcher thread), oauth_login (PKCE loopback), oauth_token_cli (`ciel-runtime tokens`), oauth_routing (request-path integration)."
+  wiring: "router_http.forward_json/_send_codex_request (Codex routed, upstream chatgpt.com/backend-api/codex), claude_router (provider anthropic, only when no x-api-key), cli_dispatch `tokens`. ciel_runtime.py stays at 4980 lines (one line made CODEX_ROUTED_UPSTREAM_BASE env-overridable for E2E)."
+  env: "CIEL_RUNTIME_OAUTH_ROTATE_PERCENT (default 95), CIEL_RUNTIME_CODEX_ROUTED_UPSTREAM and CIEL_RUNTIME_OAUTH_TOKEN_URL_{CODEX,CLAUDE} (test/E2E endpoints)."
+verification:
+  unit: "tests/test_oauth_token_pool.py, test_oauth_token_refresh.py, test_oauth_routing.py: 35 OK. run_test_group: unit 1651 OK (skipped 47), router 1154 OK, channel 434 OK (skipped 80), runtime 320 OK (skipped 19); ruff clean."
+  router_e2e: "Real router process (`ciel_runtime.py serve`, isolated config, temp workspace, fake upstream + fake token endpoint), tokens added with the real `ciel_runtime.py cli tokens import`: 12/12 PASS — vault has no plaintext; fill-first A; tool loop stays on A at 96%; next turn moves to B; new conversation avoids A; B usage limit retried on A inside one request; tokens list shows 'limited, back in'; B restored after its reset; all limited relays 429; watcher refreshed the expiring token E with its refresh token; Claude stored token used with oauth-2025-04-20; Claude rejected status retried on the next token. evidence/router-e2e.log"
+  codex_cli_e2e: "Real codex exec (isolated CODEX_HOME with a fake ChatGPT sign-in) -> real router -> fake upstream that answers with a tool call first: 5/5 PASS — both requests of the turn used stored A (acct-A), the function_call_output request stayed on draining A, output 'DONE via A' reached the CLI, a new conversation started on B, the CLI's own token never reached the upstream. Real Codex sent no session_id header and a prompt_cache_key conversation UUID, which is the session key used. evidence/codex-cli-e2e.log"
+not_verified:
+  - "Real chatgpt.com / api.anthropic.com traffic with real stored tokens, real browser sign-in, and real refresh against auth.openai.com / platform.claude.com: needs the user's accounts."
+  - "Real Claude Code CLI end to end (Anthropic path verified with HTTP requests shaped like Claude Code)."
+  - "Codex GET passthrough (e.g. model list) still uses the CLI's own token."
+status: "Not committed."

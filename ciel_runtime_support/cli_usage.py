@@ -32,6 +32,8 @@ Control plane, runs before Claude Code and does not require LLM connectivity:
   ciel-runtime web-search [on|off]     Auto-attach DuckDuckGo MCP for non-native providers
   ciel-runtime web-fetch [on|off]      Auto-attach fetch MCP for web page content
   ciel-runtime log-level [LEVEL]       Show or set router log level
+  ciel-runtime tokens [list|login|import|refresh|enable|disable|remove]
+                                       Workspace Codex/Claude OAuth tokens that routed modes rotate
   ciel-runtime ollama-native [on|off]  Use Ollama's official Claude Code env path
   ciel-runtime ollama-options [provider] [key=value ...]
                                       Set Ollama num_ctx/options/keep_alive/think

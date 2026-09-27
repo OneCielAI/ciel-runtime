@@ -168,6 +168,31 @@ ciel-runtimectl api-keys [PROVIDER] [KEY1] [KEY2] ...
 ```
 다중 API 키 설정 (로테이션용).
 
+#### `tokens`
+```bash
+ciel-runtime tokens list [--json]
+ciel-runtime tokens login codex|claude [--label L]
+ciel-runtime tokens import codex|claude [--from PATH] [--label L]
+ciel-runtime tokens refresh ID
+ciel-runtime tokens enable ID | disable ID | remove ID
+```
+워크스페이스별 OAuth 토큰 관리소. Codex routed 모드와 Anthropic routed 모드에서만 쓰인다.
+저장소는 `workspaces/<id>/oauth-tokens.vault.json`(암호화, 키 `oauth-tokens.vault.key` 또는
+`CIEL_RUNTIME_SECRET_MASTER_KEY`)과 `oauth-tokens.state.json`(사용량·상태·대화 고정)이다.
+
+- `login`: 브라우저 PKCE 로그인으로 계정마다 새 세션을 받는다(`prompt=login`). CLI 자신의 로그인과 갱신 계보가
+  분리된다. Codex는 `localhost:1455`, Claude는 빈 포트의 `localhost` 콜백을 쓴다.
+- `import`: `~/.codex/auth.json`(`CODEX_HOME`) 또는 `~/.claude/.credentials.json`(`CLAUDE_CONFIG_DIR`)을 가져온다.
+  CLI가 같은 토큰을 계속 갱신하므로 한쪽이 무효화될 수 있다(Codex refresh 토큰은 1회용).
+- 선택 규칙: 대화(Codex `prompt_cache_key`, Claude `x-claude-code-session-id`)는 사용량이 남아 있는 동안 같은 토큰을
+  유지한다. 응답 헤더(`x-codex-*-used-percent`, `anthropic-ratelimit-unified-*-utilization`)의 사용률이
+  `CIEL_RUNTIME_OAUTH_ROTATE_PERCENT`(기본 95)에 닿으면 다음 사용자 턴에서 다른 토큰으로 넘어가고, 도구 루프 안에서는
+  바꾸지 않는다. 사용 한도 429는 출력 전에 다음 토큰으로 재시도하고, 그 토큰은 응답의 리셋 시각까지 빠졌다가 복구된다.
+  새 대화는 저장 순서대로 한도에 닿지 않은 첫 토큰을 쓴다.
+- 갱신: 라우터 감시 스레드(60초)가 만료 10분 전에 갱신하고, 401을 받으면 한 번 갱신 후 재시도한다. 끝내 거부되면
+  CLI에는 401 대신 424를 돌려준다. refresh 토큰이 폐기되면 `refresh_failed`가 되어 다시 로그인해야 한다.
+- Anthropic에 API 키가 설정돼 있으면(`x-api-key`) 그 키를 그대로 쓰고 관리소 토큰은 쓰지 않는다.
+
 ---
 
 ### Router 관리
