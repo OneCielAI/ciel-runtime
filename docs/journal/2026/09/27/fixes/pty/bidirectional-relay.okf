@@ -1,0 +1,14 @@
+okf_version: "1.0"
+task: "Fix the Robert session input/output freeze reported from robert-ai@100.64.0.63 (report: robert-pty-freeze-technical-report.ko.md)."
+reported: "User, 2026-09-27: 'ssh -p 1004 ... robert-ai@100.64.0.63 에서 문제가 보고되었어 ... 문제를 찾아서 해결해'. Report evidence: runtime pid 2038371 in write(fd 3 -> /dev/pts/ptmx, 5031) wait_woken; Codex UI thread 2193466 in write(fd 1 -> /dev/pts/6, 1024) wait_woken; TIOCINQ 4095 on both PTYs; IXON off."
+confirmed:
+  code: "run_posix_channel_terminal_proxy wrote child input with ChannelWakeContext.write_all (blocking os.write loop) on the blocking PTY master; the loop only reads the master after the write returns. Channel prompts and compaction were passed the raw master fd and used the same blocking write_all."
+  source_of_5031: "Not determined. stdin reads are capped at 4096 bytes per write, so a single 5031-byte request fits a channel/compaction prompt remainder better than typed input, but this was not proven."
+  repro_before: "WSL Ubuntu-26.04, real pty, real run_posix_channel_terminal_proxy with a synthetic single-thread TUI child that keeps writing 1 KiB lines and reads 64 bytes between writes. Paste 64 KiB: STALLED after 30 s, proxy syscall=1 fd=4->/dev/ptmx count=4095 wchan=wait_woken, child syscall=1 fd=1->/dev/pts/3 count=1024 wchan=wait_woken. Channel inject 20000 bytes: STALLED, proxy write count=20000 wait_woken. Same signature as the report."
+change:
+  - "New ciel_runtime_support/pty_master_writer.PtyMasterWriter: sets the master non-blocking; write() retries partial writes and, while the input queue is full, select()s read+write on the master and forwards child output; stops (logged, no content) if the child exits or the master reaches EOF/EIO; logs pty_input_backpressure once after 5 s with pending byte count."
+  - "channel_terminal_proxy: typed input, master reads, the final drain, and the writer passed to poll_pending_compaction/poll_pending_channel_messages all go through PtyMasterWriter, so every PTY input path shares it."
+verification:
+  repro_after: "Same harness after the fix: paste 64 KiB COMPLETED (received=65536), inject 20000 COMPLETED via writer=PtyMasterWriter."
+  tests: "tests/test_pty_master_writer.py (5: 3 fake-fd, 2 real-pty incl. the full proxy with a flooding child and sha256 of delivered input). WSL: 5 OK; the proxy test against the pre-fix proxy FAILED after 20 s. Windows run_test_group: unit 1616 OK (skipped 47), channel 434 OK (skipped 80), runtime 320 OK (skipped 19), router 1154 OK; ruff clean."
+not_verified: "Real Codex under the fixed runtime (no Linux Codex/auth here); the fix is not deployed to robert-ai; the currently stuck robert session is untouched."

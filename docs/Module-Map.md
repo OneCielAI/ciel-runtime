@@ -201,6 +201,10 @@ private Runtime Input의 `queued -> submitted -> replied|failed` 전이를 JSONL
 
 POSIX PTY와 Windows ConPTY/Console transport의 생성, 터미널 크기 동기화, 표준 입출력 전달, channel/compact polling과 자식 프로세스 정리를 조정하는 Channel Infrastructure Adapter. Windows setup 또는 loop가 실패해도 자식 종료, terminal mode 복원, PID record 해제와 ConPTY close를 독립적인 best-effort 단계로 수행한다. Process, Terminal I/O, Policy, Polling 포트를 각각 10필드 이하로 주입하며 메인 composition root는 플랫폼 선택과 실제 콜백 조립만 담당한다.
 
+### `ciel_runtime_support/pty_master_writer.py`
+
+POSIX PTY master의 입력 쪽 Infrastructure Adapter. master를 non-blocking으로 두고, 자식 입력 큐가 가득 차 쓰기가 막히면 자식 출력을 읽어 전달하면서 기다린다. 사용자 키 입력·채널 프롬프트·compaction·synthetic Enter가 모두 이 `write`를 거치므로, 입력 쓰기와 자식의 출력 쓰기가 서로를 기다리는 교착(2026-09-27 robert-ai)이 생기지 않는다. 5초 넘게 막히면 입력 본문 없이 대기 바이트 수만 로그로 남긴다.
+
 ### `ciel_runtime_support/channel_terminal_dispatch.py`
 
 Windows Console/POSIX PTY/direct subprocess 선택과 tracked child-process record 수명주기를 소유하는 Application Service. 플랫폼·TTY 설정, proxy adapter, direct process 효과를 각각 최대 5필드 typed port로 분리하며 Windows Adapter 실패 시 명시적으로 direct 실행으로 복구한다.

@@ -27,6 +27,7 @@ from ciel_runtime_support.channel_pending_poll import (
     ChannelPendingPollState,
     poll_pending_channel_messages,
 )
+from ciel_runtime_support.pty_master_writer import PtyMasterWriter
 from ciel_runtime_support.runtime_interaction import (
     RuntimeInteractionDisplayState,
     RuntimeInteractionEvent,
@@ -553,8 +554,17 @@ def run_posix_channel_terminal_proxy(
         if callable(old_sigwinch):
             old_sigwinch(signum, frame)
 
+    def forward_child_output(data: bytes) -> None:
+        if data and not interaction_pending:
+            terminal.write_all(stdout_fd, data)
+
     io_failure: tuple[str, OSError] | None = None
     try:
+        # Every input path writes through this so a full child input queue
+        # never stops the child's output from being drained (robert PTY freeze).
+        child_input = PtyMasterWriter(
+            master_fd, forward_child_output, lambda: proc.poll() is None, policy.log
+        )
         try:
             old_sigwinch = signal.getsignal(signal.SIGWINCH)
             signal.signal(signal.SIGWINCH, handle_terminal_resize)
@@ -613,17 +623,14 @@ def run_posix_channel_terminal_proxy(
                                     f"channel_stdin_proxy_enter_observed enter={policy.enter_label(observed_enter)}",
                                 )
                             channel_enter_bytes = observed_enter
-                        terminal.write_all(master_fd, filtered_data)
+                        child_input.write(filtered_data)
             if master_fd in readable:
                 try:
-                    data = os.read(master_fd, 4096)
+                    data = child_input.read_output()
                 except OSError as exc:
-                    if exc.errno == errno.EINTR:
-                        continue
                     io_failure = ("master_read", exc)
                     break
-                if data and not interaction_pending:
-                    terminal.write_all(stdout_fd, data)
+                forward_child_output(data or b"")
             if pending_poll_state.inflight_message_id is not None:
                 inflight_update = advance_channel_inflight(
                     ChannelInflightSnapshot(
@@ -655,7 +662,7 @@ def run_posix_channel_terminal_proxy(
                 pending_poll_state.last_id = inflight_update.last_id
             compact_poll_state = poll_pending_compaction(
                 now,
-                master_fd,
+                child_input,
                 channel_enter_bytes,
                 pending_poll_state.inflight_message_id,
                 compact_poll_state,
@@ -664,7 +671,7 @@ def run_posix_channel_terminal_proxy(
             )
             pending_poll_state = poll_pending_channel_messages(
                 now,
-                master_fd,
+                child_input,
                 channel_enter_bytes,
                 pending_poll_state,
                 pending_injection_options,
@@ -676,7 +683,7 @@ def run_posix_channel_terminal_proxy(
                 readable, _, _ = select.select([master_fd], [], [], 0)
                 if master_fd not in readable:
                     break
-                data = os.read(master_fd, 4096)
+                data = child_input.read_output()
                 if not data:
                     break
                 terminal.write_all(stdout_fd, data)
