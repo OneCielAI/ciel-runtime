@@ -12,3 +12,9 @@ verification:
   repro_after: "Same harness after the fix: paste 64 KiB COMPLETED (received=65536), inject 20000 COMPLETED via writer=PtyMasterWriter."
   tests: "tests/test_pty_master_writer.py (5: 3 fake-fd, 2 real-pty incl. the full proxy with a flooding child and sha256 of delivered input). WSL: 5 OK; the proxy test against the pre-fix proxy FAILED after 20 s. Windows run_test_group: unit 1616 OK (skipped 47), channel 434 OK (skipped 80), runtime 320 OK (skipped 19), router 1154 OK; ruff clean."
 not_verified: "Real Codex under the fixed runtime (no Linux Codex/auth here); the fix is not deployed to robert-ai; the currently stuck robert session is untouched."
+deployment:
+  commits: "6635d48 fix(pty) and f91af10 feat(oauth) pushed to origin/nightly (main not pushed). npm publish is still blocked (NPM_TOKEN), so the package was installed by hand."
+  package: "npm pack of f91af10 with the CI nightly version rule: 0.2.51-nightly.20260927-220710.f91af10 (package.json and runtime_constants.VERSION)."
+  hosts: "robert-ai, cindy-ai, sarah-ai @100.64.0.63:1004 (container aap-pool-5c2d9059): no ciel-runtime process running (checked before replacing); ~/.npm-global/lib/node_modules/@oneciel-ai/ciel-runtime replaced; previous 0.2.51-nightly.20260924-003723.ae32250 kept in ~/.ciel-runtime-backup/; import check and `ciel-runtime tokens --help` through the real npm bin succeeded on each."
+  on_target_verification: "robert-ai container (Linux 7.0.0-31-generic, Python 3.12.3): tests/test_pty_master_writer.py against the installed code, 5/5 OK including the full relay with a flooding child."
+  not_reached: "bob@100.64.0.55: ssh port 22 and 1004 timed out, ping 100% loss; not installed."
