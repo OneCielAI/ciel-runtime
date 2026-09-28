@@ -28,6 +28,7 @@ from ciel_runtime_support.channel_pending_poll import (
     poll_pending_channel_messages,
 )
 from ciel_runtime_support.pty_master_writer import PtyMasterWriter
+from ciel_runtime_support.terminal_modal_guard import TerminalModalGuard
 from ciel_runtime_support.runtime_interaction import (
     RuntimeInteractionDisplayState,
     RuntimeInteractionEvent,
@@ -554,11 +555,17 @@ def run_posix_channel_terminal_proxy(
         if callable(old_sigwinch):
             old_sigwinch(signum, frame)
 
+    # Channel input waits while the CLI shows a dialog: typed into Claude
+    # Code's folder trust dialog, the prompt's Enter picks "No, exit".
+    modal_guard = TerminalModalGuard()
+
     def forward_child_output(data: bytes) -> None:
+        modal_guard.feed(data)
         if data and not interaction_pending:
             terminal.write_all(stdout_fd, data)
 
     io_failure: tuple[str, OSError] | None = None
+    dialog_logged = False
     try:
         # Every input path writes through this so a full child input queue
         # never stops the child's output from being drained (robert PTY freeze).
@@ -660,6 +667,15 @@ def run_posix_channel_terminal_proxy(
                     pending_poll_state.pending_recheck or inflight_update.pending_recheck
                 )
                 pending_poll_state.last_id = inflight_update.last_id
+            dialog_open = modal_guard.blocking
+            if dialog_open != dialog_logged:
+                dialog_logged = dialog_open
+                policy.log(
+                    "INFO",
+                    "channel_stdin_proxy_input_held reason=cli_dialog"
+                    if dialog_open
+                    else "channel_stdin_proxy_input_released reason=cli_dialog_closed",
+                )
             compact_poll_state = poll_pending_compaction(
                 now,
                 child_input,
@@ -668,6 +684,7 @@ def run_posix_channel_terminal_proxy(
                 compact_poll_state,
                 compact_injection_options,
                 compact_poll_services,
+                input_ready=not dialog_open,
             )
             pending_poll_state = poll_pending_channel_messages(
                 now,
@@ -677,6 +694,7 @@ def run_posix_channel_terminal_proxy(
                 pending_injection_options,
                 pending_poll_policy,
                 pending_poll_services,
+                input_ready=not dialog_open,
             )
         while True:
             try:

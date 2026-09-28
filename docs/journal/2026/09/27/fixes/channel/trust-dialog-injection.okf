@@ -1,0 +1,17 @@
+okf_version: "1.0"
+task: "Unknown error on sarah-ai: Claude Code exited with code 1 right after launch."
+reported: "User, 2026-09-27: 'sarah-ai@100.64.0.63 사라 마신에서 알수 없는 에러' with the ciel diagnostic 'Claude Code exited with code 1 while routed through http://127.0.0.1:8804' and channel_stdin_proxy_blocked lines."
+confirmed:
+  screen: "tmux aap-agent-8: Claude Code 2.1.283 folder trust dialog for /home/sarah-ai ('Quick safety check', '❯ No, exit', 'Yes, I trust this folder', 'Enter to confirm · Esc to cancel'), then the exit diagnostic."
+  trust_state: "~/.claude.json projects['/home/sarah-ai'].hasTrustDialogAccepted = False, numStartups 2: the dialog shows on every start."
+  channel_backlog: "runtime-inputs 183..229 (Walkie com.ciel.walkie.support.message) queued at 20:23:11-13 local."
+  timeline: "Launch 1 (router 8805): batch 183-190 written ~6.5 s after the messages arrived, recorded failed prompt_not_submitted. Launch 2 (router 8804, launch-state time 1790558692.97): batch 191-198 recorded failed prompt_not_submitted 4.43 s after launch; Claude exited with code 1."
+  repro_on_host: "sarah-ai, temp untrusted dir, real claude under a python pty: trust dialog 1.1 s after start; writing text then Enter -> exit status 1."
+  cause: "The POSIX channel relay injected prompts (text + Enter) with no check that the CLI was at its input screen; in the trust dialog the Enter selected the default 'No, exit'."
+change:
+  - "New ciel_runtime_support/terminal_modal_guard.TerminalModalGuard: strips ANSI and whitespace from the child's output and reports a dialog while the last dialog marker (claude.exe: Quick safety check, Yes, I trust this folder, Enter to confirm; codex.exe: Do you trust the contents of this directory?, Press enter to continue) is newer than the last input-screen marker (for shortcuts, to interrupt, shift+tab to cycle)."
+  - "channel_terminal_proxy (POSIX): feeds every child output chunk to the guard and passes input_ready=not dialog to poll_pending_compaction / poll_pending_channel_messages; logs channel_stdin_proxy_input_held / _released."
+verification:
+  tests: "tests/test_terminal_modal_guard.py: 4 guard tests (real-shaped Claude trust screen with cursor-move spacing, 7-byte/5-byte split reads, Codex prompt, no false hold) + 1 real-PTY relay test with a Claude-like child that exits 1 on any key during its trust dialog. WSL: 5 OK. The relay test against the pre-fix relay (HEAD 1550aa7) FAILS with 'exit: No' / CHILD_EXIT=1 HELD=False, i.e. the sarah symptom."
+  groups: "run_test_group unit 1656 OK (skipped 48), channel 434 OK (skipped 80), runtime 320 OK (skipped 19), router 1154 OK; ruff clean."
+not_verified: "Windows ConPTY relay has no such guard yet (not changed)."

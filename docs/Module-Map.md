@@ -205,6 +205,10 @@ POSIX PTY와 Windows ConPTY/Console transport의 생성, 터미널 크기 동기
 
 POSIX PTY master의 입력 쪽 Infrastructure Adapter. master를 non-blocking으로 두고, 자식 입력 큐가 가득 차 쓰기가 막히면 자식 출력을 읽어 전달하면서 기다린다. 사용자 키 입력·채널 프롬프트·compaction·synthetic Enter가 모두 이 `write`를 거치므로, 입력 쓰기와 자식의 출력 쓰기가 서로를 기다리는 교착(2026-09-27 robert-ai)이 생기지 않는다. 5초 넘게 막히면 입력 본문 없이 대기 바이트 수만 로그로 남긴다.
 
+### `ciel_runtime_support/terminal_modal_guard.py`
+
+POSIX PTY 중계에서 자식 CLI의 화면 출력(ANSI·공백 제거)을 보고 시작·확인 대화상자가 떠 있는지 판단한다. 마지막 대화상자 표식(Claude `Quick safety check`, `Enter to confirm`, Codex `Do you trust the contents of this directory?` 등)이 입력 화면 표식(`for shortcuts`, `to interrupt`)보다 나중이면 채널·compaction 입력을 보류한다. Claude Code 신뢰 대화상자의 기본값이 `No, exit`라서 주입된 Enter가 CLI를 종료시키던 문제(sarah-ai 2026-09-27)를 막는다.
+
 ### `ciel_runtime_support/channel_terminal_dispatch.py`
 
 Windows Console/POSIX PTY/direct subprocess 선택과 tracked child-process record 수명주기를 소유하는 Application Service. 플랫폼·TTY 설정, proxy adapter, direct process 효과를 각각 최대 5필드 typed port로 분리하며 Windows Adapter 실패 시 명시적으로 direct 실행으로 복구한다.
