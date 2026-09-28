@@ -1,0 +1,25 @@
+okf_version: "1.0"
+task: "Check whether Codex 0.158.0 (auto-upgrade from 0.157.1) conflicts with the current ciel-runtime (nightly 95c5cc6)."
+requested: "User, 2026-09-28: 'Codex update available: 0.157.1 -> 0.158.0; upgrading automatically. 코덱스가 업그레이드되고있는데 최신버전과 현재 ciel runtime과 충돌이있을만한부분이있는지확인'"
+sources:
+  release_notes: "gh release view rust-v0.158.0 -R openai/codex (published 2026-09-28T05:07Z; changelog covers 0.157.0..0.158.0)."
+  binaries: "npm @openai/codex@0.157.1 and @0.158.0 installed into scratch prefixes (win32-x64), and the linux-x64 packages extracted in WSL. The user's global codex (0.155.1) was not touched."
+  inventory: "Explore agent listed ciel's Codex dependencies (CLI flags and -c keys, app-server methods, rollout fields, router request/headers, TUI markers, catalog)."
+checked_no_change:
+  cli: "codex --help, exec --help, resume --help identical; app-server --help differs only in one description line (--ws-auth)."
+  app_server_protocol: "generate-json-schema diff: CodexErrorInfo + flexUnavailable, PlanType + promax, plugin extension definitions removed. ciel's client (initialize, thread/start, turn/start, turn/steer, turn/started|completed) uses none of the changed parts."
+  routed_e2e: "Real codex exec through a real ciel router (routed provider ciel-runtime-codex, stored OAuth tokens, fake upstream): 0.157.1 5/5 and 0.158.0 5/5 (tool loop kept on the draining token, new conversation moved to the next token, CLI token never forwarded)."
+  requests: "Captured upstream requests: same header keys, same body keys, same tools, identical instructions; no content-encoding or transfer-encoding; reasoning {'effort':'medium'}."
+  grammars: "apply_patch Lark from 0.158.0 equals ciel's _CODEX_0150_APPLY_PATCH_LARK after CRLF normalization (the raw text differs only in CRLF); openai_responses_to_anthropic_messages accepts the captured 0.157.1/0.158.0 requests. _CODEX_0150_CODE_MODE_EXEC_LARK and the apply_patch grammar are present verbatim in the 0.158.0 binary."
+  v1_router_mode: "codex exec with ciel's router-mode args (model_provider ciel-runtime, …/v1, wire_api responses, env_key) against a fake server: one HTTP POST /v1/responses in both versions, no WebSocket upgrade attempt, same body keys."
+  model_catalog: "debug models --bundled: 0.158.0 drops gpt-5.4; gpt-5.2 (ciel's preferred template) is absent in both versions, so ciel uses the first model (gpt-6-astra), whose entry is identical in both. Efforts: low, medium, high, xhigh, max, ultra (same in both)."
+existing_issue_found:
+  what: "Codex 0.157.1 and 0.158.0 show a new startup trust screen ('Folder access … Trust this folder? › 1. Trust and continue 2. Back to Agent Command Center · enter continue · esc back') drawn over the input screen, which already shows '? for shortcuts'. ciel's TerminalModalGuard only knows the 0.155.1 text ('Do you trust the contents of this directory?', present in the 0.155.1 binary, absent in 0.157.1/0.158.0), so guard.blocking stays False on this screen (WSL pty capture, both versions)."
+  effect_0_158_0: "WSL pty, isolated CODEX_HOME, untrusted dir: typing '[walkie] hello' + CR into the trust screen -> Codex stays running, writes [projects.\"<dir>\"] trust_level = \"trusted\" to config.toml, and the typed text is gone from the input screen."
+  scope: "Not new in 0.158.0 (same screen in 0.157.1). Affects channel injection into a Codex TUI started in a folder without a trust entry; ciel does not pre-trust Codex projects."
+  changed: "Nothing (no instruction)."
+not_verified:
+  - "Windows ConPTY relay with the new trust screen (the Windows relay has no modal guard at all)."
+  - "Real chatgpt.com upstream with 0.158.0 (a fake upstream was used)."
+  - "#47927 (Codex login redirect now 127.0.0.1): whether auth.openai.com still accepts ciel's own login redirect http://localhost:1455/auth/callback."
+  - "Codex desktop runtime / app-server over WebSocket with 0.158.0."
