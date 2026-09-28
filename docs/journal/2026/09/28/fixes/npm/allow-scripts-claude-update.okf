@@ -1,0 +1,17 @@
+okf_version: "1.0"
+task: "sarah-ai: Claude Code launch failed after the automatic Claude Code update (OSError: [Errno 8] Exec format error: '/home/sarah-ai/.npm-global/bin/claude')."
+reported: "User, 2026-09-28: '사라 계정에서 무제' with the launch output: update 2.1.283 -> 2.1.284 into /home/sarah-ai/.npm-global, npm warn install-scripts '@anthropic-ai/claude-code@2.1.284 (postinstall: node install.cjs)' blocked, 'Claude Code exited with code 1', traceback ending in Exec format error."
+confirmed:
+  npm: "sarah-ai, robert-ai, cindy-ai: npm 12.1.0, node v24.21.0. `npm config ls -l`: allow-scripts = [\"\"] (nothing allowed)."
+  placeholder: "~/.npm-global/lib/node_modules/@anthropic-ai/claude-code/bin/claude.exe was a 500-byte shell script without a shebang ('Error: claude native binary not installed. Either postinstall did not run ...'); execve of it gives ENOEXEC. install.cjs copies or hardlinks the native binary from the optional dependency @anthropic-ai/claude-code-linux-x64 over it."
+  cindy: "cindy-ai ~/.npm-global claude-code 2.1.283 (installed 2026-09-26 15:41) is the same placeholder; no claude process was running there."
+  robert: "robert-ai has no ~/.npm-global/bin/claude."
+  working_copy: "/usr/local/bin/claude (root-owned, 2.1.283) works on sarah."
+  npm11: "This PC, npm 11.12.1: `npm install -g --allow-scripts=... --dry-run` -> 'npm warn Unknown cli config \"--allow-scripts\". This will stop working in the next major version of npm.' and the install still succeeds."
+  docs: "docs.npmjs.com/cli/v12/using-npm/config: allow-scripts = comma-separated packages whose install-time lifecycle scripts may run; applies to npm install -g, npm exec, npx; default empty."
+  other_packages: "@openai/codex 0.158.0 and @oneciel-ai/ciel-runtime have no install scripts."
+change:
+  - "npm_runtime.npm_global_install_command (used by every global install/update: Claude Code, Codex, ciel-runtime) adds --allow-scripts=<package name> when the spec is a registry name and `npm --version` is 12 or newer (npm_major_version, cached per npm path; injectable). registry_package_name strips @tag/@version and returns None for paths and URLs."
+verification:
+  on_npm_12: "sarah-ai (no ciel/claude running): the exact command the new code builds, `npm install -g --prefer-online --prefix /home/sarah-ai/.npm-global --allow-scripts=@anthropic-ai/claude-code @anthropic-ai/claude-code@latest` -> exit 0; claude.exe 500 bytes -> 243059896 bytes ELF; ~/.npm-global/bin/claude --version -> 2.1.284 (Claude Code). This also repaired sarah's install."
+  tests: "tests/test_npm_runtime.py: npm 12 adds --allow-scripts for the package, npm 11 / unknown npm / path / URL / git specs do not, tag and version stripping. Existing command tests pin npm_major."

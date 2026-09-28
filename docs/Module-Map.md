@@ -733,7 +733,7 @@ provider model registry와 단기 model-list cache의 key 호환, TTL, metadata 
 
 ### `ciel_runtime_support/npm_runtime.py`
 
-npm 조회·global install command, semantic-like 버전 비교, CLI executable 버전 탐지와 설치 package-root/prefix 계산을 소유하는 Infrastructure Adapter. 메인 facade는 동일 공개 이름을 직접 re-export한다.
+npm 조회·global install command, semantic-like 버전 비교, CLI executable 버전 탐지와 설치 package-root/prefix 계산을 소유하는 Infrastructure Adapter. 메인 facade는 동일 공개 이름을 직접 re-export한다. npm 12 이상에서는 global install command가 설치 대상 registry package 이름을 `--allow-scripts`로 넘긴다(npm 12는 목록에 없는 package의 install script를 건너뛰어 Claude Code postinstall이 native binary를 놓지 못한다: sarah-ai 2026-09-28).
 
 ### `ciel_runtime_support/install_diagnostics.py`
 

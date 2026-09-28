@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import re
 import subprocess
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from pathlib import Path
 
 
@@ -99,20 +99,58 @@ def npm_prefix_from_package_root(package_root: Path) -> Path | None:
     return None
 
 
+# npm 12 skips a package's install scripts unless the package is listed in
+# allow-scripts (docs.npmjs.com/cli/v12/using-npm/config#allow-scripts). Claude
+# Code's postinstall puts its native binary over bin/claude.exe; skipped, it
+# leaves a shebang-less placeholder that fails with "Exec format error"
+# (sarah-ai 2026-09-28, npm 12.1.0, Claude Code 2.1.284). npm 11 does not know
+# the flag and warns "Unknown cli config", so it is only passed to npm 12+.
+ALLOW_SCRIPTS_MIN_NPM_MAJOR = 12
+_REGISTRY_PACKAGE_SPEC = re.compile(
+    r"^((?:@[a-z0-9][a-z0-9._~-]*/)?[a-z0-9][a-z0-9._~-]*)(?:@[^/\\\s]+)?$"
+)
+_NPM_MAJOR_VERSIONS: dict[str, int | None] = {}
+
+
+def npm_major_version(npm: str) -> int | None:
+    if npm not in _NPM_MAJOR_VERSIONS:
+        version = parse_version_tuple(executable_version(npm, timeout=15.0))
+        _NPM_MAJOR_VERSIONS[npm] = version[0] if version else None
+    return _NPM_MAJOR_VERSIONS[npm]
+
+
+def registry_package_name(package_spec: str) -> str | None:
+    """Package name of a registry spec (``@scope/name@tag`` -> ``@scope/name``); None for paths and URLs."""
+
+    match = _REGISTRY_PACKAGE_SPEC.match(str(package_spec or "").strip())
+    return match.group(1) if match else None
+
+
 def npm_global_install_command(
-    npm: str, package_spec: str, prefix: Path | None = None
+    npm: str,
+    package_spec: str,
+    prefix: Path | None = None,
+    *,
+    npm_major: Callable[[str], int | None] = npm_major_version,
 ) -> list[str]:
     command = [npm, "install", "-g"]
     if prefix is not None:
         command.extend(["--prefix", str(prefix)])
+    package_name = registry_package_name(package_spec)
+    if package_name and (npm_major(npm) or 0) >= ALLOW_SCRIPTS_MIN_NPM_MAJOR:
+        command.append(f"--allow-scripts={package_name}")
     command.append(package_spec)
     return command
 
 
 def npm_install_runtime_command(
-    npm: str, package_spec: str, prefix: Path | None = None
+    npm: str,
+    package_spec: str,
+    prefix: Path | None = None,
+    *,
+    npm_major: Callable[[str], int | None] = npm_major_version,
 ) -> list[str]:
-    command = npm_global_install_command(npm, package_spec, prefix)
+    command = npm_global_install_command(npm, package_spec, prefix, npm_major=npm_major)
     command.insert(3, "--prefer-online")
     return command
 
@@ -198,9 +236,11 @@ __all__ = [
     "npm_global_package_root",
     "npm_install_runtime_command",
     "npm_latest_package_version",
+    "npm_major_version",
     "npm_prefix_from_package_root",
     "package_root_from_installed_path",
     "parse_version_tuple",
+    "registry_package_name",
     "run_upgrade_command",
     "runtime_package_spec",
     "version_newer",

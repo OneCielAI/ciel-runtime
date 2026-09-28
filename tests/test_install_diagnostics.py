@@ -63,7 +63,7 @@ class InstallDiagnosticsTests(unittest.TestCase):
         self.assertEqual(
             ["npm", "install", "-g", "--prefix", str(Path("/home/user/.local")), "@oneciel-ai/ciel-runtime@latest"],
             ciel_runtime.npm_global_install_command(
-                "npm", "@oneciel-ai/ciel-runtime@latest", Path("/home/user/.local")
+                "npm", "@oneciel-ai/ciel-runtime@latest", Path("/home/user/.local"), npm_major=lambda _npm: 11
             ),
         )
 
