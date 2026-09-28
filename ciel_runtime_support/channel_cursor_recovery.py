@@ -17,7 +17,10 @@ class ChannelCursorRecoveryPorts:
     latest_transcript: Callable[[], Path | None]
     read_tail: Callable[..., str]
     queued_command_ids: Callable[[str], set[int]]
-    wake_state: Callable[[int, str], str]
+    # States of many ids from one read of the text (see
+    # channel_transcript.wake_states_from_text); a per-id scan runs inside
+    # the PTY relay loop and took 24 s for 283 ids on sarah-ai (2026-09-28).
+    wake_states: Callable[[list[int], str], dict[int, str]]
     clamp_to_clear_floor: Callable[[int], int]
     now: Callable[[], float]
     log: Callable[[str, str], None]
@@ -73,8 +76,12 @@ class ChannelCursorRecoveryService:
     def _recover_from_text(self, last_id: int, text: str) -> int:
         if not text:
             return last_id
-        for message_id in sorted(self.ports.queued_command_ids(text)):
-            if message_id <= last_id and self.ports.wake_state(message_id, text) == "missing":
+        candidates = sorted(
+            message_id for message_id in self.ports.queued_command_ids(text) if message_id <= last_id
+        )
+        states = self.ports.wake_states(candidates, text) if candidates else {}
+        for message_id in candidates:
+            if states.get(message_id) == "missing":
                 recovered = max(0, message_id - 1)
                 self.ports.log(
                     "WARN",

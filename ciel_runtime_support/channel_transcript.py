@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from bisect import bisect_right
 from datetime import datetime
 from dataclasses import dataclass
 import json
-from typing import Any, Callable, Iterator
+from typing import Any, Callable, Iterable, Iterator
 
 
 @dataclass(frozen=True)
@@ -712,6 +713,74 @@ def wake_state_evidence_from_text(
     return WakeStateEvidence("missing")
 
 
+def wake_states_from_text(
+    message_ids: Iterable[int],
+    text: str,
+    services: ChannelWakeTranscriptServices,
+) -> dict[int, str]:
+    """wake_state_from_text(id, text, None, services) for many ids in one pass.
+
+    Cursor recovery asks for the state of every queued id in the transcript
+    tail. One wake_state_from_text call per id re-read every record for every
+    id (sarah-ai 2026-09-28: 283 ids over an 8 MiB tail took 24 s, inside the
+    PTY relay loop). Here the records are read once and each record's id
+    references are filed per id. Without a claimed prompt a reference is
+    exactly an id in prompt_message_ids; an id with a claimed prompt also
+    matches by prompt text, so it keeps the per-id scan.
+    """
+
+    wanted: set[int] = set()
+    states: dict[int, str] = {}
+    for message_id in message_ids:
+        if message_id <= 0:
+            states[message_id] = "completed"
+        elif services.claim_prompt(message_id):
+            states[message_id] = wake_state_from_text(message_id, text, None, services)
+        else:
+            wanted.add(message_id)
+    if not wanted:
+        return states
+    events: dict[int, list[tuple[int, str]]] = {message_id: [] for message_id in wanted}
+    assistant_records: list[int] = []
+
+    def file_references(raw: Any, record_index: int, kind: str) -> None:
+        if isinstance(raw, str) and raw:
+            for message_id in services.prompt_message_ids(raw) & wanted:
+                events[message_id].append((record_index, kind))
+
+    for record_index, record in enumerate(_jsonl_records(text), start=1):
+        if is_assistant_message(record):
+            assistant_records.append(record_index)
+        record_type = str(record.get("type") or "")
+        if record_type == "queue-operation" and record.get("operation") in {"enqueue", "remove"}:
+            file_references(record.get("content"), record_index, str(record.get("operation")))
+            continue
+        if record_type == "attachment":
+            attachment = record.get("attachment")
+            if isinstance(attachment, dict) and attachment.get("type") == "queued_command":
+                file_references(attachment.get("prompt"), record_index, "handed_over")
+            continue
+        file_references(_evidence_user_text(record, None), record_index, "prompt")
+    for message_id in wanted:
+        queued = dequeued = False
+        prompt_record: int | None = None
+        for record_index, kind in events[message_id]:
+            # Same order rules as wake_state_evidence_from_text: a handed-over
+            # queued command counts as the prompt only after its "remove".
+            if kind == "prompt" or (kind == "handed_over" and dequeued):
+                prompt_record = record_index
+                break
+            if kind in {"enqueue", "remove"}:
+                queued = True
+                dequeued = dequeued or kind == "remove"
+        if prompt_record is not None:
+            answered = bisect_right(assistant_records, prompt_record) < len(assistant_records)
+            states[message_id] = "completed" if answered else "pending"
+        else:
+            states[message_id] = "queued" if queued else "missing"
+    return states
+
+
 def _evidence_user_text(record: dict[str, Any], not_before: float | None) -> str:
     """User text admissible as delivery evidence: typed prompts only, and —
     when an evidence horizon is given — records no older than the message
@@ -772,5 +841,6 @@ __all__ = [
     "user_text",
     "wake_state_from_text",
     "wake_state_evidence_from_text",
+    "wake_states_from_text",
     "WakeStateEvidence",
 ]

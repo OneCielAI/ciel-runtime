@@ -15,6 +15,7 @@ from ciel_runtime_support.channel_transcript import (
     user_text,
     wake_state_from_text,
     wake_state_evidence_from_text,
+    wake_states_from_text,
 )
 
 
@@ -376,6 +377,74 @@ class ChannelTranscriptTests(unittest.TestCase):
             995.0, ChannelWakeStateReader.message_not_before({"created_at_epoch": 1000.0})
         )
         self.assertIsNone(ChannelWakeStateReader.message_not_before({"id": 5}))
+
+    def batch_transcript(self) -> str:
+        def queue(operation, ids):
+            return {"type": "queue-operation", "operation": operation, "content": f"[walkie] ids={ids} body"}
+
+        def handed_over(ids):
+            return {"type": "attachment", "attachment": {"type": "queued_command", "prompt": f"[walkie] ids={ids} body"}}
+
+        def typed(content, **extra):
+            return {"type": "user", "message": {"role": "user", "content": content}, **extra}
+
+        assistant = {"type": "assistant", "message": {"role": "assistant", "content": "ok"}}
+        records = [
+            assistant,
+            queue("enqueue", "1"), queue("remove", "1"), handed_over("1"), assistant,  # completed
+            queue("enqueue", "2"),  # queued, never taken
+            handed_over("3"), assistant,  # handed over without a remove: missing
+            typed("[walkie] id=5 hello"), assistant,  # completed
+            queue("enqueue", "8,9"), queue("remove", "8,9"), handed_over("8,9"), assistant,  # completed
+            {"type": "queue-operation", "operation": "popAll", "content": "[walkie] id=10"},  # not evidence
+            typed([{"type": "tool_result", "tool_use_id": "t", "content": "log: id=6 id=12"}]), assistant,
+            typed("summary mentions id=12", isCompactSummary=True), assistant,
+            "not json",
+            typed("raw tty prompt for eleven"), assistant,  # 11 completes only through its claimed prompt
+            queue("enqueue", "13"), typed("[walkie] id=13 again"),  # pending: no answer yet
+            queue("enqueue", "4"), queue("remove", "4"),  # queued (removed, never handed over)
+        ]
+        return "\n".join(item if isinstance(item, str) else json.dumps(item) for item in records)
+
+    def test_batch_wake_states_equal_the_per_id_states(self):
+        from ciel_runtime_support.channel_wake_claim_repository import (
+            prompt_message_ids,
+            prompt_references_message_id,
+        )
+
+        text = self.batch_transcript()
+        services = ChannelWakeTranscriptServices(
+            claim_prompt=lambda message_id: "raw tty prompt for eleven" if message_id == 11 else "",
+            prompt_references_message_id=prompt_references_message_id,
+            prompt_message_ids=prompt_message_ids,
+            now=lambda: 100.0,
+        )
+        ids = [0, 1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 99]
+
+        batch = wake_states_from_text(ids, text, services)
+
+        self.assertEqual({message_id: wake_state_from_text(message_id, text, None, services) for message_id in ids}, batch)
+        self.assertEqual(
+            {0: "completed", 1: "completed", 2: "queued", 3: "missing", 4: "queued", 5: "completed", 6: "missing",
+             8: "completed", 9: "completed", 10: "missing", 11: "completed", 12: "missing", 13: "pending", 99: "missing"},
+            batch,
+        )
+
+    def test_batch_wake_states_read_each_record_once(self):
+        from ciel_runtime_support.channel_wake_claim_repository import prompt_message_ids
+
+        calls = []
+        services = ChannelWakeTranscriptServices(
+            claim_prompt=lambda _message_id: "",
+            prompt_references_message_id=lambda *_args: self.fail("per-id matching must not run"),
+            prompt_message_ids=lambda text: calls.append(text) or prompt_message_ids(text),
+            now=lambda: 100.0,
+        )
+        text = self.batch_transcript()
+
+        wake_states_from_text(list(range(1, 300)), text, services)
+
+        self.assertLessEqual(len(calls), text.count("\n") + 1)
 
     def test_prompt_candidates_prevent_incidental_id_from_completing_wake(self):
         transcript = "\n".join(

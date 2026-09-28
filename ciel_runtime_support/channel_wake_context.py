@@ -33,6 +33,7 @@ from .channel_transcript import (
     ChannelWakeTranscriptServices,
     WakeStateEvidence,
     queued_dropped_from_text as queued_dropped_evidence,
+    wake_states_from_text,
 )
 from .channel_transcript_repository import ChannelTranscriptRepository
 from .channel_wake_claim_repository import ChannelWakeClaimRepository
@@ -533,6 +534,9 @@ class ChannelWakeContext:
             text, self.transcript_services()
         )
 
+    def wake_states_from_text(self, message_ids: list[int], text: str) -> dict[int, str]:
+        return wake_states_from_text(message_ids, text, self.transcript_services())
+
     def cursor_recovery_service(self) -> ChannelCursorRecoveryService:
         return ChannelCursorRecoveryService(
             cache=self.transcript.recovery_cache,
@@ -541,7 +545,7 @@ class ChannelWakeContext:
                 latest_transcript=self.transcript_policy.latest_transcript,
                 read_tail=self.transcript.read_tail,
                 queued_command_ids=self.queued_command_ids_from_text,
-                wake_state=self.wake_state_from_text,
+                wake_states=self.wake_states_from_text,
                 clamp_to_clear_floor=self.cursor.clamp_to_clear_floor,
                 now=self.transcript.now,
                 log=self.transcript_policy.log,

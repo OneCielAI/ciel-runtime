@@ -175,7 +175,7 @@ Transient chat tail을 기준으로 LLM/MCP cursor, clear floor, recovery cache�
 
 ### `ciel_runtime_support/channel_cursor_recovery.py`
 
-Claude/Codex transcript의 queued-only wake를 찾아 LLM delivery cursor를 안전하게 되돌리는 Channel Recovery Service. transcript marker 기반 TTL cache, 최대 read 범위, clear-floor clamp 및 관측 로그를 typed policy/ports로 분리한다.
+Claude/Codex transcript의 queued-only wake를 찾아 LLM delivery cursor를 안전하게 되돌리는 Channel Recovery Service. transcript marker 기반 TTL cache, 최대 read 범위, clear-floor clamp 및 관측 로그를 typed policy/ports로 분리한다. 커서 이하의 queued id 상태는 `wake_states` port로 한 번에 읽는다(id마다 transcript 전체를 다시 읽으면 PTY relay 루프가 멈춘다: sarah-ai 2026-09-28, 283 ids에 24초).
 
 ### `ciel_runtime_support/channel_panel.py`
 
@@ -227,7 +227,7 @@ Windows Pseudo Console 생성, UTF-8 input/output pipe, 부모 console mode와 �
 
 ### `ciel_runtime_support/channel_transcript.py`
 
-Claude/Codex JSONL transcript의 사용자 텍스트, assistant turn, tool call/result 및 활성 turn 상태를 해석하는 순수 Channel 도메인 서비스. `ChannelWakeStateReader`는 최신 transcript repository와 파서를 조합해 message별 wake 상태와 queued staleness를 판정하며 facade 전역에 의존하지 않는다.
+Claude/Codex JSONL transcript의 사용자 텍스트, assistant turn, tool call/result 및 활성 turn 상태를 해석하는 순수 Channel 도메인 서비스. `ChannelWakeStateReader`는 최신 transcript repository와 파서를 조합해 message별 wake 상태와 queued staleness를 판정하며 facade 전역에 의존하지 않는다. `wake_states_from_text`는 여러 id의 wake 상태를 record 한 번 순회로 구하며, 결과는 id별 `wake_state_from_text`와 같다(claim된 prompt가 있는 id는 id별 판정을 그대로 쓴다).
 
 ### `ciel_runtime_support/channel_transcript_repository.py`
 

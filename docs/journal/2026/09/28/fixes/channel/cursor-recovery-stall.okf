@@ -1,0 +1,15 @@
+okf_version: "1.0"
+task: "Problem on sarah-ai: the terminal session lagged; another session's diagnosis pointed at channel_cursor_recovery.py re-parsing the transcript per message id on the relay thread."
+reported: "User, 2026-09-28: screenshot of another session's analysis ('channel_cursor_recovery.py가 문제 지점 … 메시지 ID마다 대화 기록을 반복 분석 … channel_terminal_proxy.py와 같은 스레드') + '사라머신에서 문제발생'. Treated as a lead and measured."
+confirmed:
+  process: "sarah-ai 18:05 UTC: `ciel_runtime.py cli --continue` (PTY relay, pid 130109, 95c5cc6) at 91.4% CPU over 2 h 03 min; its main thread used 2.14 s CPU in a 5 s window."
+  stack_sampling: "Not possible: ptrace_scope=1 and CapEff=0, py-spy/gdb absent; py-spy was not run."
+  code_path: "Relay loop -> poll_pending_channel_messages -> inject_pending (under inject_lock) -> recover_cursor -> ChannelCursorRecoveryService.recover: reads the transcript tail (8 MiB), then for each queued id <= cursor calls wake_state(id, text), which re-parses and re-scans the whole tail. Safety rescan every 5 s; the cache (5 s TTL, keyed on transcript mtime/size) misses while the session writes."
+  measured_live_env: "Installed code, live session environment, real transcript (10.1 MB, 8 MiB tail, 2326 records): recover(356) cold = 24.23 s; 283 queued ids; wake_state(356) = 118 ms, wake_state(27) = 0.9 ms (cost grows with the record position). With the JSON parse reused, all 286 states still took 11.2 s: per-record user-text extraction and id matching repeated per id dominate."
+change:
+  - "channel_transcript.wake_states_from_text(ids, text, services): one pass over the records, filing each record's id references per id (queue enqueue/remove, handed-over queued_command, typed prompt) plus assistant record positions; the per-id order rules of wake_state_evidence_from_text are applied to those events. An id with a claimed prompt (matched by prompt text too) keeps the per-id scan."
+  - "ChannelCursorRecoveryPorts.wake_state -> wake_states; recover asks for all queued ids <= cursor in one call. ChannelWakeContext.wake_states_from_text wires it (no ciel_runtime.py change)."
+verification:
+  equivalence_real_data: "sarah-ai, real transcript after the session stopped (10.26 MB, 284 queued ids 30..360): installed per-id states 25.83 s, new batch 188 ms, identical for all 284 ids (all completed)."
+  tests: "tests/test_channel_transcript.py: batch == per-id for 14 ids covering completed/pending/queued/missing, claimed-prompt fallback, tool-result echo, compact summary, handed-over without remove, multi-id prompt, non-enqueue queue op, invalid line; and one prompt_message_ids call per record at most. tests/test_channel_cursor_recovery.py: one batched state read for ids <= cursor; no read without candidates."
+remaining_cost: "Per recovery after the change: tail read ~30-80 ms + queued_command_ids ~75 ms + batch ~190 ms on sarah's data, instead of 24 s."
