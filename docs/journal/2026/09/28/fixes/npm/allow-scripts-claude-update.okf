@@ -15,3 +15,8 @@ change:
 verification:
   on_npm_12: "sarah-ai (no ciel/claude running): the exact command the new code builds, `npm install -g --prefer-online --prefix /home/sarah-ai/.npm-global --allow-scripts=@anthropic-ai/claude-code @anthropic-ai/claude-code@latest` -> exit 0; claude.exe 500 bytes -> 243059896 bytes ELF; ~/.npm-global/bin/claude --version -> 2.1.284 (Claude Code). This also repaired sarah's install."
   tests: "tests/test_npm_runtime.py: npm 12 adds --allow-scripts for the package, npm 11 / unknown npm / path / URL / git specs do not, tag and version stripping. Existing command tests pin npm_major."
+groups: "run_test_group unit 1660 OK (skipped 48), channel 437 OK (skipped 80), runtime 320 OK (skipped 19), router 1154 OK; ruff clean (ciel_runtime_support, tests, ciel_runtime.py)."
+deployment:
+  commit: "31a90c9 pushed to origin/nightly; npm pack 0.2.51-nightly.20260928-184050.31a90c9 installed by hand (npm publish still blocked)."
+  hosts: "sarah-ai (no ciel running), robert-ai and cindy-ai (cli + serve running, FORCE=1: files replaced, applies on restart). 8816777 kept in ~/.ciel-runtime-backup/ on each. Import check OK; on each host the installed npm_install_runtime_command with the real npm (major 12) builds '--allow-scripts=@anthropic-ai/claude-code'; update check @nightly -> ae32250, would upgrade False."
+  state_after: "sarah ~/.npm-global claude 2.1.284 (repaired above). cindy ~/.npm-global claude is still the placeholder from 2026-09-26 (not touched); robert has none. Their next launch runs the Claude Code update check with the new command."
