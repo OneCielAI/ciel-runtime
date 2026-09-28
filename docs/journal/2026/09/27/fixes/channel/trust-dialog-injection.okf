@@ -15,3 +15,8 @@ verification:
   tests: "tests/test_terminal_modal_guard.py: 4 guard tests (real-shaped Claude trust screen with cursor-move spacing, 7-byte/5-byte split reads, Codex prompt, no false hold) + 1 real-PTY relay test with a Claude-like child that exits 1 on any key during its trust dialog. WSL: 5 OK. The relay test against the pre-fix relay (HEAD 1550aa7) FAILS with 'exit: No' / CHILD_EXIT=1 HELD=False, i.e. the sarah symptom."
   groups: "run_test_group unit 1656 OK (skipped 48), channel 434 OK (skipped 80), runtime 320 OK (skipped 19), router 1154 OK; ruff clean."
 not_verified: "Windows ConPTY relay has no such guard yet (not changed)."
+follow_up:
+  gap: "Real claude on sarah-ai through the installed 5678c0d relay (temp untrusted dir, injection attempted at once): Claude stayed up 15 s and the relay logged input_held, but the injection attempt (t+0.20 s) came before the dialog was drawn (held at t+0.53 s): input written before the first screen was not guarded."
+  change: "TerminalModalGuard also holds until the CLI's first input screen (a ready marker), for at most CIEL_RUNTIME_CHANNEL_STARTUP_HOLD_SECONDS (default 15 s) when no dialog is shown, so runtimes without these markers (agy, muse, ...) still get input. The synthetic-child PTY test sets the hold to 0."
+  tests: "WSL tests.test_terminal_modal_guard + tests.test_pty_master_writer: 11 OK in 3.7 s. run_test_group unit 1657 OK (skipped 48), channel 434 OK (skipped 80), runtime 320 OK (skipped 19), router 1154 OK."
+  self_update_check: "Installed code on robert-ai (f91af10) and sarah-ai (5678c0d): update check queries @nightly -> 0.2.51-nightly.20260924-003723.ae32250, would upgrade False (no downgrade on restart)."

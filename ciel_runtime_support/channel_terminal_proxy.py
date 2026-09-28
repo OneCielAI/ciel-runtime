@@ -28,7 +28,7 @@ from ciel_runtime_support.channel_pending_poll import (
     poll_pending_channel_messages,
 )
 from ciel_runtime_support.pty_master_writer import PtyMasterWriter
-from ciel_runtime_support.terminal_modal_guard import TerminalModalGuard
+from ciel_runtime_support.terminal_modal_guard import STARTUP_HOLD_SECONDS, TerminalModalGuard
 from ciel_runtime_support.runtime_interaction import (
     RuntimeInteractionDisplayState,
     RuntimeInteractionEvent,
@@ -557,7 +557,11 @@ def run_posix_channel_terminal_proxy(
 
     # Channel input waits while the CLI shows a dialog: typed into Claude
     # Code's folder trust dialog, the prompt's Enter picks "No, exit".
-    modal_guard = TerminalModalGuard()
+    try:
+        startup_hold = float(os.environ.get("CIEL_RUNTIME_CHANNEL_STARTUP_HOLD_SECONDS") or STARTUP_HOLD_SECONDS)
+    except ValueError:
+        startup_hold = STARTUP_HOLD_SECONDS
+    modal_guard = TerminalModalGuard(startup_hold_seconds=max(0.0, startup_hold))
 
     def forward_child_output(data: bytes) -> None:
         modal_guard.feed(data)

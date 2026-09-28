@@ -17,6 +17,8 @@ from __future__ import annotations
 
 import codecs
 import re
+import time
+from typing import Callable
 
 DIALOG_MARKERS = (
     # Claude Code: folder trust dialog and the footer of its selection dialogs.
@@ -43,10 +45,15 @@ _SEQUENCE = (
 _COMPLETE_SEQUENCE = re.compile(_SEQUENCE)
 _ESCAPE = re.compile(_SEQUENCE + r"|[\x00-\x08\x0b-\x1f\x7f]")
 _LONGEST = max(len(marker) for marker in DIALOG_MARKERS + READY_MARKERS)
+# Before the first input screen the CLI may still be starting or about to show
+# a dialog; CLIs without these markers (agy, muse, ...) get input after this.
+STARTUP_HOLD_SECONDS = 15.0
 
 
 class TerminalModalGuard:
-    def __init__(self) -> None:
+    def __init__(self, *, clock: Callable[[], float] = time.monotonic, startup_hold_seconds: float = STARTUP_HOLD_SECONDS) -> None:
+        self._clock = clock
+        self._hold_until = clock() + startup_hold_seconds
         self._decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
         self._pending = ""  # an escape sequence cut by a read boundary
         self._text = ""  # compacted tail kept for markers split across reads
@@ -56,7 +63,9 @@ class TerminalModalGuard:
 
     @property
     def blocking(self) -> bool:
-        return self._last_dialog > self._last_ready
+        if self._last_dialog > self._last_ready:
+            return True
+        return self._last_ready < 0 and self._clock() < self._hold_until
 
     def feed(self, data: bytes) -> None:
         if not data:

@@ -24,8 +24,21 @@ MAIN_SCREEN = b"\x1b[2J\x1b7 \xe2\x9d\xaf Try \"how does <filepath> work?\"\r\n 
 
 
 class TerminalModalGuardTests(unittest.TestCase):
+    def test_startup_holds_until_the_first_input_screen_or_the_hold_ends(self) -> None:
+        now = [100.0]
+        guard = TerminalModalGuard(clock=lambda: now[0], startup_hold_seconds=15.0)
+        self.assertTrue(guard.blocking)  # nothing drawn yet
+        guard.feed(MAIN_SCREEN)
+        self.assertFalse(guard.blocking)
+
+        quiet = TerminalModalGuard(clock=lambda: now[0], startup_hold_seconds=15.0)
+        quiet.feed(b"$ some other runtime prompt> ")
+        self.assertTrue(quiet.blocking)
+        now[0] += 15.1
+        self.assertFalse(quiet.blocking)  # a CLI without known markers still gets input
+
     def test_startup_trust_dialog_holds_until_the_input_screen_is_drawn(self) -> None:
-        guard = TerminalModalGuard()
+        guard = TerminalModalGuard(startup_hold_seconds=0.0)
         self.assertFalse(guard.blocking)
 
         guard.feed(TRUST_DIALOG)
@@ -35,7 +48,7 @@ class TerminalModalGuardTests(unittest.TestCase):
         self.assertFalse(guard.blocking)
 
     def test_markers_and_escapes_cut_by_read_boundaries(self) -> None:
-        guard = TerminalModalGuard()
+        guard = TerminalModalGuard(startup_hold_seconds=0.0)
         data = TRUST_DIALOG
         for start in range(0, len(data), 7):  # 7-byte reads split words, escapes and UTF-8
             guard.feed(data[start : start + 7])
@@ -45,14 +58,14 @@ class TerminalModalGuardTests(unittest.TestCase):
         self.assertFalse(guard.blocking)
 
     def test_codex_trust_prompt_and_busy_footer(self) -> None:
-        guard = TerminalModalGuard()
+        guard = TerminalModalGuard(startup_hold_seconds=0.0)
         guard.feed(b"> Do you trust the contents of this directory? Working with untrusted contents\r\n")
         self.assertTrue(guard.blocking)
         guard.feed(b"\x1b[2K Working (3s \xe2\x80\xa2 esc to interrupt)")
         self.assertFalse(guard.blocking)
 
     def test_long_output_without_markers_does_not_block(self) -> None:
-        guard = TerminalModalGuard()
+        guard = TerminalModalGuard(startup_hold_seconds=0.0)
         guard.feed(MAIN_SCREEN)
         for _ in range(200):
             guard.feed(b"\x1b[32mline of model output with confirm and trust words\x1b[0m\r\n")

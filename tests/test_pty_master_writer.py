@@ -152,8 +152,10 @@ class PtyMasterWriterTests(unittest.TestCase):
 class PosixChannelTerminalProxyDeadlockTests(unittest.TestCase):
     RUNNER = textwrap.dedent(
         """
-        import subprocess, sys, time
+        import os, subprocess, sys, time
         sys.path.insert(0, sys.argv[1])
+        # The synthetic child draws no CLI input screen; do not wait the startup hold.
+        os.environ["CIEL_RUNTIME_CHANNEL_STARTUP_HOLD_SECONDS"] = "0"
         from ciel_runtime_support.channel_terminal_proxy import (
             ChannelTerminalIO, ChannelTerminalPolicy, ChannelTerminalPolling, ChannelTerminalProcess,
             ChannelTerminalServices, run_posix_channel_terminal_proxy)
