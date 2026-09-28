@@ -13,3 +13,9 @@ verification:
   equivalence_real_data: "sarah-ai, real transcript after the session stopped (10.26 MB, 284 queued ids 30..360): installed per-id states 25.83 s, new batch 188 ms, identical for all 284 ids (all completed)."
   tests: "tests/test_channel_transcript.py: batch == per-id for 14 ids covering completed/pending/queued/missing, claimed-prompt fallback, tool-result echo, compact summary, handed-over without remove, multi-id prompt, non-enqueue queue op, invalid line; and one prompt_message_ids call per record at most. tests/test_channel_cursor_recovery.py: one batched state read for ids <= cursor; no read without candidates."
 remaining_cost: "Per recovery after the change: tail read ~30-80 ms + queued_command_ids ~75 ms + batch ~190 ms on sarah's data, instead of 24 s."
+tests: "run_test_group unit 1657 OK (skipped 48), channel 437 OK (skipped 80), runtime 320 OK (skipped 19), router 1154 OK; ruff clean on the changed files (the repo-wide 58 findings are all in pre-existing docs/journal evidence scripts)."
+deployment:
+  commits: "8cebcfa (journals, [skip ci]) and 8816777 (fix) pushed to origin/nightly. npm publish is still blocked (NPM_TOKEN), so the npm pack of 8816777 (0.2.51-nightly.20260928-181805.8816777) was installed by hand."
+  sarah_ai: "User stopped the session ('내가 종료했어 업데이트 푸시해'); no ciel-runtime process, normal install script; 95c5cc6 kept in ~/.ciel-runtime-backup/. Import check and `ciel-runtime tokens --help` OK."
+  on_target_verification: "sarah-ai with the installed code: tests/test_channel_transcript.py + tests/test_channel_cursor_recovery.py 22 OK; real transcript 284 ids: batch 196 ms vs per-id 25.26 s, identical; installed recover(last_id=360) with a cold cache 293 ms and 233 ms (was 24.23 s); update check @nightly -> ae32250, would upgrade False."
+  not_installed: "robert-ai and cindy-ai stay on 95c5cc6."
