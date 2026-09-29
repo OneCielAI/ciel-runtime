@@ -9,7 +9,9 @@ import urllib.error
 from ciel_runtime_support.remote_instructions import (
     RemoteInstructionSynchronizer,
     SynchronizedLaunch,
+    configured_url,
     expand_environment_references,
+    launch_instruction_runtimes,
     normalized_instruction_sha256,
     panel_rows,
 )
@@ -73,6 +75,49 @@ class RemoteInstructionTests(unittest.TestCase):
                 normalized_instruction_sha256("# Managed instructions\n"),
                 state["normalized_sha256"],
             )
+
+    def test_claude_url_alone_also_produces_agents_md(self):
+        # cindy-ai 2026-09-28: only claude_url was configured, so a Codex
+        # launch never wrote AGENTS.md from the injected system prompt.
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            requests = []
+
+            def opener(request, **_kwargs):
+                requests.append(request.full_url)
+                return _Response(b"# Injected system prompt\n")
+
+            config = {"remote_instructions": {
+                "enabled": True,
+                "claude_url": "https://config.example/prompt",
+            }}
+
+            result = self._service(root, config, opener).sync("codex")
+
+            self.assertEqual("updated", result.status)
+            self.assertEqual(["https://config.example/prompt"], requests)
+            self.assertEqual(
+                "# Injected system prompt\n",
+                (root / "workspace" / "AGENTS.md").read_text(encoding="utf-8"),
+            )
+
+    def test_each_file_keeps_its_own_url_when_both_are_configured(self):
+        config = {"remote_instructions": {
+            "claude_url": "https://config.example/claude",
+            "codex_url": "https://config.example/codex",
+        }}
+        self.assertEqual("https://config.example/claude", configured_url(config, "claude"))
+        self.assertEqual("https://config.example/codex", configured_url(config, "codex"))
+        only_codex = {"remote_instructions": {"codex_url": "https://config.example/codex"}}
+        self.assertEqual("https://config.example/codex", configured_url(only_codex, "claude"))
+        self.assertEqual("", configured_url(only_codex, "kimi"))
+
+    def test_every_launch_covers_claude_md_and_agents_md(self):
+        self.assertEqual(("claude", "codex"), launch_instruction_runtimes("claude"))
+        self.assertEqual(("codex", "claude"), launch_instruction_runtimes("codex"))
+        self.assertEqual(("codex-app-server", "claude"), launch_instruction_runtimes("codex-app-server"))
+        self.assertEqual(("kimi", "claude"), launch_instruction_runtimes("kimi"))
+        self.assertEqual(("agy", "claude", "codex"), launch_instruction_runtimes("agy"))
 
     def test_normalized_instruction_sha_is_platform_line_ending_independent(self):
         self.assertEqual(

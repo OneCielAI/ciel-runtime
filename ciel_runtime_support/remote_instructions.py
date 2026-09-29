@@ -58,9 +58,39 @@ def settings(config: dict[str, Any]) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
 
 
+# One externally supplied prompt serves both native files: a workspace given
+# only claude_url or only codex_url still gets CLAUDE.md and AGENTS.md
+# (cindy-ai 2026-09-28 had claude_url alone and a stale AGENTS.md).
+_SHARED_URL_FALLBACK = {"claude_url": "codex_url", "codex_url": "claude_url"}
+# Every launch refreshes both files, whichever runtime starts, so a workspace
+# used by Claude Code and Codex never leaves one of them behind (sarah-ai
+# 2026-09-28: a Claude launch rewrote CLAUDE.md while AGENTS.md stayed old).
+LAUNCH_COMPANION_RUNTIMES = ("claude", "codex")
+
+
 def configured_url(config: dict[str, Any], runtime: str) -> str:
     key = URL_KEYS.get(runtime, "")
-    return str(settings(config).get(key) or "").strip() if key else ""
+    if not key:
+        return ""
+    remote = settings(config)
+    url = str(remote.get(key) or "").strip()
+    fallback = _SHARED_URL_FALLBACK.get(key)
+    if not url and fallback:
+        url = str(remote.get(fallback) or "").strip()
+    return url
+
+
+def launch_instruction_runtimes(runtime: str) -> tuple[str, ...]:
+    """The launched runtime plus one runtime per companion instruction file."""
+
+    runtimes = [runtime]
+    files = {RUNTIME_FILES.get(runtime)}
+    for companion in LAUNCH_COMPANION_RUNTIMES:
+        filename = RUNTIME_FILES[companion]
+        if filename not in files:
+            runtimes.append(companion)
+            files.add(filename)
+    return tuple(runtimes)
 
 
 def target_file(workspace: Path, runtime: str) -> Path:
@@ -259,6 +289,7 @@ __all__ = [
     "RemoteInstructionSynchronizer",
     "SynchronizedLaunch",
     "configured_url",
+    "launch_instruction_runtimes",
     "expand_environment_references",
     "normalized_instruction_sha256",
     "panel_rows",

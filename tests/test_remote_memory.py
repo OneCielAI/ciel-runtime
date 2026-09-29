@@ -214,6 +214,7 @@ class RemoteMemoryTests(unittest.TestCase):
                     reason="launch",
                     instruction_sync=instructions.sync,
                     memory_sync=memory.sync,
+                    pointer_sync=memory.project_current_pointer,
                 )
 
                 self.assertEqual("updated", result.status)
@@ -222,8 +223,11 @@ class RemoteMemoryTests(unittest.TestCase):
                     "# Current memory\n",
                     (root / "workspace" / ".ciel" / "memory" / "journal" / "current.md").read_text(),
                 )
+                # A Codex launch refreshes CLAUDE.md too; with only codex_url
+                # configured it comes from the same URL.
                 self.assertEqual(
                     [
+                        ("/instructions.md", None),
                         ("/instructions.md", None),
                         ("/manifest.json", "Bearer local-test"),
                         ("/files/index.okf", "Bearer local-test"),
@@ -232,6 +236,10 @@ class RemoteMemoryTests(unittest.TestCase):
                     requests,
                 )
                 workspace = root / "workspace"
+                companion = (workspace / "CLAUDE.md").read_text(encoding="utf-8")
+                self.assertIn("# Remote instructions", companion)
+                self.assertIn("Memory index: .ciel/memory/index.okf", companion)
+                self.assertEqual(1, companion.count(MEMORY_POINTER_BEGIN))
                 rendered = (workspace / "AGENTS.md").read_text(encoding="utf-8")
                 self.assertIn("# Remote instructions", rendered)
                 self.assertIn("Second line", rendered)

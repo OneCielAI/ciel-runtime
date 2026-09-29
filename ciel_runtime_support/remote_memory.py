@@ -20,6 +20,7 @@ from .prompt_injection import PromptInjector, append_anthropic_system_texts
 from .remote_instructions import (
     RUNTIME_FILES,
     configured_url as configured_instruction_url,
+    launch_instruction_runtimes,
     expand_environment_references,
     normalized_instruction_sha256,
     settings as instruction_settings,
@@ -974,17 +975,46 @@ def sync_instruction_with_memory_pointer(
     return result
 
 
+def project_current_pointer_logged(
+    runtime: str,
+    *,
+    memory_synchronizer: Callable[[], RemoteMemorySynchronizer],
+    log: Callable[[str, str], Any],
+) -> None:
+    """Restore the memory pointer in one runtime's file; a failure is only logged."""
+
+    try:
+        memory_synchronizer().project_current_pointer(runtime)
+    except (OSError, UnicodeError, ValueError) as exc:
+        log(
+            "WARN",
+            f"remote_memory_pointer_failed runtime={runtime} "
+            f"error={type(exc).__name__}: {exc}",
+        )
+
+
 def sync_launch_assets(
     runtime: str,
     *,
     reason: str,
     instruction_sync: Callable[..., Any],
     memory_sync: Callable[..., RemoteMemoryResult],
+    pointer_sync: Callable[[str], Any] | None = None,
 ) -> RemoteMemoryResult:
-    """Synchronize instructions before replacing launch-time memory."""
+    """Synchronize instructions before replacing launch-time memory.
 
-    instruction_sync(runtime, reason=reason)
-    return memory_sync(runtime, reason=reason)
+    CLAUDE.md and AGENTS.md are refreshed together on every launch; the
+    companion files get the pointer to the memory this launch downloaded.
+    """
+
+    runtimes = launch_instruction_runtimes(runtime)
+    for name in runtimes:
+        instruction_sync(name, reason=reason)
+    result = memory_sync(runtime, reason=reason)
+    if pointer_sync is not None:
+        for name in runtimes[1:]:
+            pointer_sync(name)
+    return result
 
 
 def sync_all_memory_pointers(
@@ -1033,6 +1063,7 @@ __all__ = [
     "settings",
     "sync_all_memory_pointers",
     "sync_instruction_with_memory_pointer",
+    "project_current_pointer_logged",
     "sync_launch_assets",
     "update_memory_pointer",
     "without_memory_pointer",

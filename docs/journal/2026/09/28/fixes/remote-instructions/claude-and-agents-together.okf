@@ -1,0 +1,16 @@
+okf_version: "1.0"
+task: "Externally injected system prompt: CLAUDE.md is written at launch, AGENTS.md is not. Both must be written together."
+reported: "User, 2026-09-28: '런터임 시작시에 외부에서 주입되는 시스템 프롬프트가 claude.md파일은 잘생성이되는데 agent.md파일은 생성이 안됨. 두개를 동시에 해야함.' Fallback policy chosen by the user: 'claude_url로 AGENTS.md도 생성'."
+confirmed:
+  launch_path: "SynchronizedLaunch(..., sync_remote_launch_assets, '<runtime>') -> sync_launch_assets(runtime) synced only RUNTIME_FILES[runtime]: CLAUDE.md for claude, AGENTS.md for codex. The manual 'remote-instructions sync' loops every runtime; launch did not."
+  sarah: "sarah-ai (Claude Code, claude_url and codex_url both set): CLAUDE.md 09-28 18:10 (launch), AGENTS.md 09-27 20:23 left stale."
+  cindy: "cindy-ai (Codex): remote_instructions has claude_url only, codex_url empty; AGENTS.md is an 880-byte file from 09-26, CLAUDE.md 09-28 12:04."
+  robert: "robert-ai: both files exist only because it launched Claude (01:54, CLAUDE.md) and then Codex (02:04, AGENTS.md)."
+change:
+  - "remote_instructions.configured_url: claude_url and codex_url fall back to each other, so one injected prompt yields both files; other runtimes' keys are unchanged."
+  - "remote_instructions.launch_instruction_runtimes(runtime): the launched runtime plus claude/codex for whichever of CLAUDE.md/AGENTS.md it does not already cover."
+  - "remote_memory.sync_launch_assets: syncs instructions for all of them, then memory for the launched runtime, then projects the memory pointer into the companion files (pointer_sync, wired to RemoteMemorySynchronizer.project_current_pointer)."
+verification:
+  real_launch_function: "ciel_runtime.sync_remote_launch_assets in a temp config/workspace with only claude_url -> local HTTP server. Old code (HEAD archive): claude launch wrote CLAUDE.md, AGENTS.md MISSING; codex launch wrote neither. New code: claude and codex launches both write CLAUDE.md and AGENTS.md with the injected text."
+  tests: "New: claude_url alone produces AGENTS.md; each file keeps its own URL when both are set; launch_instruction_runtimes for claude/codex/codex-app-server/kimi/agy; the real-HTTP launch test now expects the companion request and a CLAUDE.md with the memory pointer; the runtime integration test pins the order instruction(codex), instruction(claude), memory(codex), pointer(claude). Remote tests 48 OK, ruff clean."
+  groups: "WSL Ubuntu: unit 1666 OK (skipped 55), router 1158 OK, channel 438 OK (skipped 80), runtime 320 OK (skipped 19). The logged pointer helper lives in remote_memory (project_current_pointer_logged) so ciel_runtime.py stays at its 4980-line budget."

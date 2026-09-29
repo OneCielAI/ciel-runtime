@@ -707,18 +707,35 @@ class RemoteMemoryRuntimeIntegrationTests(unittest.TestCase):
             mock.patch.object(
                 ciel_runtime,
                 "sync_remote_instruction",
-                side_effect=lambda *_args, **_kwargs: calls.append("instruction"),
+                side_effect=lambda runtime, **_kwargs: calls.append(("instruction", runtime)),
             ),
             mock.patch.object(
                 ciel_runtime,
                 "sync_remote_memory",
-                side_effect=lambda *_args, **_kwargs: calls.append("memory") or memory,
+                side_effect=lambda runtime, **_kwargs: calls.append(("memory", runtime)) or memory,
+            ),
+            mock.patch.object(
+                ciel_runtime,
+                "remote_memory_synchronizer",
+                return_value=mock.Mock(
+                    project_current_pointer=lambda runtime: calls.append(("pointer", runtime))
+                ),
             ),
         ):
             result = ciel_runtime.sync_remote_launch_assets("codex", reason="launch")
 
         self.assertIs(memory, result)
-        self.assertEqual(["instruction", "memory"], calls)
+        # AGENTS.md and CLAUDE.md are refreshed together; the companion file
+        # gets the pointer to the memory this launch downloaded.
+        self.assertEqual(
+            [
+                ("instruction", "codex"),
+                ("instruction", "claude"),
+                ("memory", "codex"),
+                ("pointer", "claude"),
+            ],
+            calls,
+        )
 
 
 if __name__ == "__main__":
