@@ -1,0 +1,20 @@
+okf_version: "1.0"
+task: "robert-ai: Codex session turns stop; Walkie inputs recorded as prompt_not_submitted."
+reported: "User, 2026-09-28: 'robert의 세션에서 턴이 끊기는 문제 발셩' with robert's Codex analysis (active_count 0, prompt_not_submitted, prior_submission_failed). Then: '지금은 멈춰있으니 감시를 걸어봐야의미없고 지난코드를봐야지'."
+confirmed:
+  status_store: "robert-ai workspace 51c584b37985 runtime-input-status.jsonl, 2026-09-26..28: 618 inputs, 0 ever 'submitted'; 523 failed prompt_not_submitted, 95 queued never attempted. All stamped input_transport session_socket."
+  comparison: "cindy-ai (Codex): 201 rows, 0 submitted, 91 prompt_not_submitted. sarah-ai (Claude Code, session socket): 377 submitted, 244 replied."
+  delivered_anyway: "Codex rollout 01a0e057 user messages vs runtime-inputs event_ids: 495 of the failed inputs were in Codex's conversation. Delivery vs failure record: median +0.2 s, range -4.4 s..+200 s; 613: delivered 20:09:27, failed 20:09:30 (-3.6 s = 4 submit attempts x 0.9 s retry delay)."
+  path: "Codex has no Claude session socket, so the session_socket request falls back to the PTY write; Codex launches with confirm_submit=True, 4 attempts, bracketed paste. robert runs inside tmux (TMUX_PANE=%0), so the injector confirms by comparing tmux pane captures before/after Enter."
+  cause: "Injection runs synchronously inside run_posix_channel_terminal_proxy's relay loop. PtyMasterWriter only forwards child output while the input queue is full, and the injector slept between steps, so nothing the child drew after Enter reached the terminal: the pane never changed, all 4 attempts were 'unconfirmed', write_prompt returned False and the batch was marked failed. The child could also block writing to its full output buffer and read the Enter only after the relay resumed (the +200 s deliveries)."
+  lost: "28 inputs never reached Codex (4 batches, each 5-6 s after task_complete: 09-27 06:22, 16:30, 18:55 and 09-28 22:13 = 615-618). Their mechanism is not established from the records; timing, batch size and the previous turn's origin do not separate them from delivered batches."
+reproduction:
+  harness: "WSL Ubuntu, tmux 3.6: real ChannelPromptInjector + PtyMasterWriter + TmuxPaneSnapshot with a fake echo TUI: old code -> child got the prompt, inject False after 3.87 s, channel_input_submit_unconfirmed attempts=4."
+  real_codex: "Codex 0.158.0 (robert's version) against a local Responses stub, relay loop like the proxy, 12 KB 8-event batch: old code False in idle / 5 s after a turn / during a turn, each time the stub received the batch. New code True with submit_confirmed attempt=1 in all three, batch received once."
+change:
+  - "PtyMasterWriter.pause(seconds): waits while forwarding the child's output."
+  - "CallableInputTransport.pause delegates to the target; ChannelPromptInjector uses transport.pause for the submit delay and the retry delay, falling back to sleep (Windows ConPTY and console transports unchanged)."
+verification:
+  tests: "New: pause forwards output / stops at EOF; injector waits through transport.pause; real-pty relay test (echo TUI) - fails on the old code with 'channel_input_submit_unconfirmed attempts=4', passes on the new. Windows targeted run 281 OK (83 skipped); WSL targeted 37 OK."
+  groups: "WSL Ubuntu (Linux, separate HOME, no live router): unit 1663 OK (skipped 55), router 1158 OK, channel 438 OK (skipped 80), runtime 320 OK (skipped 19). Not run on Windows: the live router on 9611 was serving this session. ruff clean."
+  diagnostics_left: "robert log-level was raised to INFO at 22:51 and the file removed again at 22:53; no restart."

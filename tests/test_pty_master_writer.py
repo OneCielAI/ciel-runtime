@@ -36,6 +36,35 @@ FLOODING_CHILD = textwrap.dedent(
     """
 )
 
+# A TUI that echoes its draft, drops bracketed-paste markers and logs each
+# submitted line on CR, the way Codex shows a prompt it has taken.
+ECHO_TUI_CHILD = textwrap.dedent(
+    """
+    import os, sys, tty
+    tty.setraw(0)
+    os.write(1, b"ready\\r\\n> ")
+    draft = b""
+    while True:
+        data = os.read(0, 4096)
+        if not data:
+            break
+        data = data.replace(b"\\x1b[200~", b"").replace(b"\\x1b[201~", b"")
+        for byte in data:
+            ch = bytes([byte])
+            if ch == b"\\x15":
+                draft = b""
+            elif ch == b"\\r":
+                if draft:
+                    with open(sys.argv[1], "ab") as log:
+                        log.write(draft + b"\\n")
+                    os.write(1, b"\\r\\n[SUBMITTED] " + draft + b"\\r\\n> ")
+                    draft = b""
+            else:
+                draft += ch
+                os.write(1, ch)
+    """
+)
+
 
 class PtyMasterWriterTests(unittest.TestCase):
     def _writer(self, *, alive=lambda: True, clock=None, stall_log_seconds=5.0):
@@ -110,6 +139,100 @@ class PtyMasterWriterTests(unittest.TestCase):
         self.assertIn("pending_bytes=6", stalls[0])
         self.assertTrue(all("secret" not in message for _level, message in logs))
         self.assertTrue(any("pty_input_backpressure_cleared" in message for _level, message in logs))
+
+    def test_pause_forwards_child_output_until_the_deadline(self):
+        now = [10.0]
+
+        def clock():
+            now[0] += 0.1
+            return now[0]
+
+        writer, forwarded, _logs = self._writer(clock=clock)
+        reads = iter([b"frame-1", BlockingIOError(), b"frame-2"])
+
+        def fake_read(_fd, _n):
+            result = next(reads, b"")
+            if isinstance(result, BaseException):
+                raise result
+            return result
+
+        with mock.patch("ciel_runtime_support.pty_master_writer.os.read", side_effect=fake_read):
+            writer.pause(0.5)
+
+        self.assertEqual([b"frame-1", b"frame-2"], forwarded)
+
+    def test_pause_stops_at_child_eof(self):
+        writer, forwarded, _logs = self._writer()
+        with mock.patch("ciel_runtime_support.pty_master_writer.os.read", return_value=b""):
+            writer.pause(30.0)
+
+        self.assertEqual([], forwarded)
+
+    @unittest.skipUnless(POSIX_PTY, "needs a POSIX pty")
+    def test_confirmed_injection_sees_the_child_react_through_the_relay(self):
+        # robert-ai 2026-09-28: the injector slept inside the relay loop, so
+        # the terminal (tmux pane) never showed Codex taking the prompt and
+        # 495 accepted Walkie inputs were recorded as prompt_not_submitted.
+        from ciel_runtime_support import channel_injection as ci
+
+        with tempfile.TemporaryDirectory() as tmp:
+            child = Path(tmp) / "child.py"
+            submitted = Path(tmp) / "submitted.log"
+            child.write_text(ECHO_TUI_CHILD, encoding="utf-8")
+            master, slave = os.openpty()
+            proc = subprocess.Popen(
+                [sys.executable, str(child), str(submitted)],
+                stdin=slave,
+                stdout=slave,
+                stderr=slave,
+                close_fds=True,
+            )
+            os.close(slave)
+            screen = bytearray()
+            logs: list[str] = []
+            try:
+                writer = PtyMasterWriter(master, screen.extend, lambda: proc.poll() is None, lambda *_a: None)
+                def pump(seconds):
+                    end = time.time() + seconds
+                    while time.time() < end:
+                        if select.select([master], [], [], 0.05)[0]:
+                            screen.extend(writer.read_output() or b"")
+
+                deadline = time.time() + 10
+                while b"ready" not in screen and time.time() < deadline:
+                    pump(0.1)
+                injector = ci.ChannelPromptInjector(
+                    sleep=time.sleep,
+                    retry_delay_seconds=lambda: 0.3,
+                    snapshot=lambda: bytes(screen).decode("utf-8", "replace"),
+                    log=lambda _level, message: logs.append(message),
+                )
+                accepted = injector.inject(
+                    ci.CallableInputTransport(writer, lambda target, data: target.write(data)),
+                    ci.PromptInjection(
+                        prompt="walkie message 613",
+                        policy=ci.RuntimeInjectionPolicy(
+                            runtime="interactive-cli",
+                            clear_input=b"\x15",
+                            submit_input=b"\r",
+                            submit_delay_seconds=0.1,
+                            submit_attempts=4,
+                            confirm_submission=True,
+                            bracketed_paste=True,
+                        ),
+                    ),
+                )
+                pump(0.3)
+            finally:
+                if proc.poll() is None:
+                    proc.kill()
+                proc.wait(timeout=5)
+                os.close(master)
+            received = submitted.read_text(encoding="utf-8").splitlines()
+
+        self.assertTrue(accepted, logs)
+        self.assertIn("channel_stdin_proxy_submit_confirmed attempt=1", logs)
+        self.assertEqual(["walkie message 613"], received)
 
     @unittest.skipUnless(POSIX_PTY, "needs a POSIX pty")
     def test_real_pty_input_larger_than_the_queue_reaches_a_flooding_child(self):

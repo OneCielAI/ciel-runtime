@@ -106,5 +106,35 @@ class PtyMasterWriter:
         if stall_logged and stalled_at is not None:
             self._log("INFO", f"pty_input_backpressure_cleared waited={self._clock() - stalled_at:.1f}s")
 
+    def pause(self, seconds: float) -> None:
+        """Wait ``seconds`` while forwarding whatever the child draws meanwhile.
+
+        Channel injection runs inside the relay loop, so a plain sleep there
+        keeps the child's reaction to the prompt out of the terminal; a
+        submission check that compares tmux pane snapshots then never sees
+        the TUI change and reports a prompt the child did accept as not
+        submitted (robert-ai 2026-09-28: 495 of 618 Walkie inputs).
+        """
+
+        deadline = self._clock() + max(0.0, float(seconds))
+        while True:
+            remaining = deadline - self._clock()
+            if remaining <= 0:
+                return
+            try:
+                readable, _, _ = self._wait([self._fd], [], [], min(0.2, remaining))
+            except InterruptedError:
+                continue
+            if self._fd not in readable:
+                continue
+            try:
+                output = self.read_output()
+            except OSError:
+                return
+            if output is None:
+                return
+            if output:
+                self._forward_output(output)
+
 
 __all__ = ["PtyMasterWriter"]

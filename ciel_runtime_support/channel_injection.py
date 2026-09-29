@@ -164,7 +164,7 @@ class ChannelPromptInjector:
                 return False
 
         if policy.submit_delay_seconds:
-            self._sleep(policy.submit_delay_seconds)
+            self._pause(transport, policy.submit_delay_seconds)
 
         before = (
             self._submission_snapshot(transport)
@@ -187,7 +187,7 @@ class ChannelPromptInjector:
                 return True
             retry_delay = self._retry_delay_seconds()
             if retry_delay:
-                self._sleep(retry_delay)
+                self._pause(transport, retry_delay)
             after = self._submission_snapshot(transport)
             accepted = self._submission_receipt() if self._submission_receipt is not None else bool(after and after != before)
             if accepted:
@@ -198,6 +198,18 @@ class ChannelPromptInjector:
             f"channel_input_submit_unconfirmed attempts={policy.submit_attempts}",
         )
         return False
+
+    def _pause(self, transport: InputTransport, seconds: float) -> None:
+        """Wait between input steps without freezing the child's display.
+
+        A snapshot comparison can only see the child react when its output
+        keeps reaching the terminal during the wait.
+        """
+
+        pause = getattr(transport, "pause", None)
+        if callable(pause) and pause(seconds):
+            return
+        self._sleep(seconds)
 
     def _clear_unsubmitted_prompt(
         self,
@@ -347,6 +359,15 @@ class CallableInputTransport:
     def normalize_prompt(self, prompt: str) -> str:
         normalize = getattr(self._target, "normalize_prompt", None)
         return str(normalize(prompt)) if callable(normalize) else prompt
+
+    def pause(self, seconds: float) -> bool:
+        """Let the target wait while it keeps the child's output flowing."""
+
+        pause = getattr(self._target, "pause", None)
+        if not callable(pause):
+            return False
+        pause(seconds)
+        return True
 
     def pending_input_events(self) -> int | None:
         pending = getattr(self._target, "pending_input_events", None)

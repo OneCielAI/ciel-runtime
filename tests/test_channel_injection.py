@@ -328,6 +328,54 @@ class ChannelPromptInjectorTests(unittest.TestCase):
             any("channel_input_submit_unconfirmed attempts=4" in line for line in logs)
         )
 
+    def test_waits_go_through_the_transport_pause_so_the_child_can_render(self) -> None:
+        # A POSIX relay injects inside its own loop; sleeping there keeps the
+        # child's reaction off the terminal the snapshot reads.
+        transport = FakeWindowsTransport()
+        transport.supports_input_snapshot = False
+        screen = ["prompt-drafted"]
+        pauses: list[float] = []
+
+        def pause(seconds: float) -> bool:
+            pauses.append(seconds)
+            if transport.writes and transport.writes[-1] == b"\r":
+                screen[0] = "turn-started"
+            return True
+
+        transport.pause = pause
+        transport.input_snapshot = lambda: screen[0]
+        sleeps: list[float] = []
+        logs: list[str] = []
+        injector = ChannelPromptInjector(
+            sleep=sleeps.append,
+            retry_delay_seconds=lambda: 0.9,
+            snapshot=lambda: None,
+            log=lambda _level, message: logs.append(message),
+        )
+
+        submitted = injector.inject(
+            transport,
+            PromptInjection(
+                prompt="visible external message",
+                policy=RuntimeInjectionPolicy(
+                    runtime="codex",
+                    clear_input=b"\x15",
+                    submit_input=b"\r",
+                    submit_delay_seconds=0.25,
+                    submit_attempts=4,
+                    confirm_submission=True,
+                ),
+            ),
+        )
+
+        self.assertTrue(submitted)
+        self.assertEqual([0.25, 0.9], pauses)
+        self.assertEqual([], sleeps)
+        self.assertEqual(1, transport.writes.count(b"\r"))
+        self.assertTrue(
+            any("channel_stdin_proxy_submit_confirmed attempt=1" in line for line in logs)
+        )
+
     def test_final_submit_attempt_is_observed_before_success(self) -> None:
         transport = FakeWindowsTransport()
         transport.supports_input_snapshot = False
