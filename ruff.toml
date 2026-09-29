@@ -1,0 +1,2 @@
+# Journal evidence scripts are kept exactly as they ran; lint covers the product.
+extend-exclude = ["docs/journal"]
