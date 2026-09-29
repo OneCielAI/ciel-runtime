@@ -112,6 +112,21 @@ def runtime_hints(model_id: str) -> dict[str, Any]:
             "unsupported_sampling_parameters": ["temperature", "top_p", "top_k"],
             "source": "anthropic-opus-5-launch-notes",
         }
+    if re.search(r"(?:^|-)sonnet-5-5(?:-|$)", model):
+        # Sonnet 5.5 page, 2026-09-28: adaptive thinking on by default (not
+        # always on), 400 on non-default sampling, 512-token cache minimum.
+        # The API default effort is high, but Claude Code's served catalog
+        # sets medium for 5.5 (thinking_by_model) and high for Sonnet 5.
+        return {
+            "claude_code_default_effort": "medium",
+            "claude_code_max_effort": "xhigh",
+            "thinking_mode": "adaptive",
+            "adaptive_thinking_default_on": True,
+            "extended_thinking": False,
+            "prompt_cache_min_tokens": 512,
+            "unsupported_sampling_parameters": ["temperature", "top_p", "top_k"],
+            "source": "anthropic-models-overview-current-table",
+        }
     if re.search(r"(?:^|-)sonnet-5(?:-|$)", model):
         return {
             "claude_code_default_effort": "high",

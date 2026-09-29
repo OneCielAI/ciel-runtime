@@ -1019,6 +1019,57 @@ class NativeModelListTests(unittest.TestCase):
         self.assertIn("temperature", runtime["unsupported_sampling_parameters"])
         self.assertEqual("high", ciel_runtime.anthropic_model_runtime_hints("claude-opus-5")["claude_code_default_effort"])
 
+    def test_sonnet_5_5_is_offered_in_the_public_model_fallback_catalog(self):
+        self.assertIn("claude-sonnet-5-5", ciel_runtime.ANTHROPIC_PUBLIC_MODEL_FALLBACK_IDS)
+        self.assertIn("claude-sonnet-5-5[1m]", ciel_runtime.ANTHROPIC_PUBLIC_MODEL_FALLBACK_IDS)
+
+    def test_migration_adds_the_sonnet_5_5_million_alias_once(self):
+        cfg = {
+            "migrations": {
+                "anthropic_default_1m_model_ids_20260902": True,
+                "anthropic_opus_5_5_1m_model_id_20260922": True,
+            },
+            "providers": {
+                "anthropic": {
+                    "current_model": "claude-opus-5-5[1m]",
+                    "custom_models": ["claude-opus-5-5[1m]", "team-private-model"],
+                }
+            },
+        }
+
+        ciel_runtime.apply_config_migrations(cfg)
+        ciel_runtime.apply_config_migrations(cfg)
+
+        anthropic = cfg["providers"]["anthropic"]
+        self.assertEqual("claude-opus-5-5[1m]", anthropic["current_model"])
+        self.assertEqual(1, anthropic["custom_models"].count("claude-sonnet-5-5[1m]"))
+        self.assertIn("team-private-model", anthropic["custom_models"])
+
+    def test_sonnet_5_5_reuses_the_million_context_table_row(self):
+        limits = ciel_runtime.anthropic_model_limit_hints("claude-sonnet-5-5[1m]")
+        capabilities = ciel_runtime.infer_claude_code_supported_capabilities_from_model(
+            "claude-sonnet-5-5"
+        )
+
+        self.assertEqual(1048576, limits["context_window"])
+        self.assertEqual(128000, limits["max_output_tokens"])
+        self.assertIn("adaptive_thinking", capabilities)
+
+    def test_sonnet_5_5_runtime_hints_follow_its_own_catalog_rows(self):
+        # Sonnet 5.5 page (2026-09-28): adaptive on by default, sampling
+        # parameters rejected, 512-token cache minimum.  Claude Code's served
+        # catalog picks medium for 5.5 and keeps high for Sonnet 5.
+        runtime = ciel_runtime.anthropic_model_runtime_hints("claude-sonnet-5-5")
+
+        self.assertEqual("medium", runtime["claude_code_default_effort"])
+        self.assertEqual("xhigh", runtime["claude_code_max_effort"])
+        self.assertEqual("adaptive", runtime["thinking_mode"])
+        self.assertTrue(runtime["adaptive_thinking_default_on"])
+        self.assertEqual(512, runtime["prompt_cache_min_tokens"])
+        self.assertNotIn("fast_mode", runtime)
+        self.assertIn("temperature", runtime["unsupported_sampling_parameters"])
+        self.assertEqual("high", ciel_runtime.anthropic_model_runtime_hints("claude-sonnet-5")["claude_code_default_effort"])
+
     def test_opus_4_7_strips_unsupported_sampling_request_options(self):
         body = {
             "model": "claude-opus-4-7",

@@ -1,0 +1,16 @@
+okf_version: "1.0"
+task: "Add Claude Sonnet 5.5 (released 2026-09-28) to the Anthropic model list."
+reported: "User, 2026-09-28: 'sonnet 5.5출시했기때문에 .claude에 새모델 추가해야하고'."
+confirmed:
+  docs: "platform.claude.com/docs/en/models/sonnet-5-5/overview: id claude-sonnet-5-5, released September 28, 2026, 1M context, 128K max output, adaptive thinking on by default (lowest setting between_tools), API default effort high, non-default temperature/top_p/top_k -> 400, minimum cacheable prompt 512 tokens."
+  claude_code_catalog: "~/.claude/cache/model-catalog/*-cc.json (Claude Code 2.1.284) lists claude-sonnet-5-5 with no min_claude_code_version; thinking_by_model effort medium for claude-sonnet-5-5, high for claude-sonnet-5."
+  live_fetch_before: "fetch_anthropic_public_model_ids() on the unchanged tree already returned claude-sonnet-5-5 through the embedded-lineup path (36526e4); missing were the [1m] alias, the offline fallback entry, 5.5-specific runtime hints and the config migration."
+change:
+  - "runtime_constants: claude-sonnet-5-5 and claude-sonnet-5-5[1m] in the fallback/1M tuples."
+  - "anthropic_model_policy.runtime_hints: sonnet-5-5 branch - claude_code_default_effort medium, max xhigh, adaptive default on, prompt_cache_min_tokens 512, sampling parameters unsupported. Limits reuse the sonnet-5 1M/128K row."
+  - "config_migrations: anthropic_sonnet_5_5_1m_model_id_20260928 appends claude-sonnet-5-5[1m] to anthropic custom_models once, current model untouched."
+verification:
+  tests: "Isolated run (run_test_group.isolate_runtime_state) of test_runtime_constants, test_claude_native_provider, test_provider_catalog_sources, test_config_migrations: 114 OK. ruff clean. Full groups not run: the live router on 9611 was serving this session."
+  panel: "Isolated config, model_panel_rows('anthropic', fetch=True, force_refresh=True) lists claude-sonnet-5-5 and claude-sonnet-5-5[1m]; migration added the alias once."
+  end_to_end: "Working-tree router on 127.0.0.1:59131 (temp config, provider anthropic): GET /v1/models lists ciel-runtime-anthropic-claude-sonnet-5-5 and [1m]; `claude -p 'Reply with exactly: SONNET55_OK' --model ciel-runtime-anthropic-claude-sonnet-5-5[1m]` via ANTHROPIC_BASE_URL -> result SONNET55_OK, is_error false. Isolated routers stopped; live router 9611 (pid 25252) unchanged before and after."
+not_done: "The live router on 9611 still serves the old snapshot and its /v1/models has no sonnet-5-5 until the new build is installed and the session relaunched."
