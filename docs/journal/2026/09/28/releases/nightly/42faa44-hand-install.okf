@@ -1,0 +1,17 @@
+okf_version: "1.0"
+task: "Deploy the 2026-09-28 fixes (Sonnet 5.5 model list 41ffc25, PTY submit confirmation 5927f89, ruff exclude 608663c, CLAUDE.md+AGENTS.md launch sync 42faa44) to local and every reachable SSH client."
+reported: "User, 2026-09-28: '로컬이랑 로버트 및 나머지 ssh로 접근가능한 클라이언트들 배포'."
+package:
+  version: "0.2.51-nightly.20260929-044037.42faa44 (git archive of 42faa44, nightly version applied the way npm-publish.yml does, npm pack in WSL). sha256 prefix 195409d7d19d49f5, identical on every host."
+  why_by_hand: "Publish to npm now passes ruff and npm test, but `npm publish` returns E404 Not Found on PUT @oneciel-ai/ciel-runtime (registry refuses the write with the NPM_TOKEN secret; cause not verified here)."
+reachability:
+  reached: "robert-ai, sarah-ai, cindy-ai @100.64.0.63:1004 (container aap-pool-5c2d9059)."
+  not_reached: "mia, kevin, kevin-codex @100.95.132.58:22; bob @100.64.0.55:1004 and @100.64.0.6:1004; ca-samuel @100.127.112.68:22 - connection timed out. Keys agent, ca-joy, ca-sarah, ca-sarah-opencode, frank, joy, robert-any, sarah: no recorded host; publickey denied on 100.64.0.63:1004."
+installs:
+  procedure: "Per user home: cp -a the current package to ~/.ciel-runtime-backup/<old version>, npm install -g --prefix ~/.npm-global <tgz>, import assertions (PtyMasterWriter.pause, launch_instruction_runtimes('claude') == ('claude','codex'), claude-sonnet-5-5 in the fallback ids), `ciel-runtime tokens --help`."
+  robert_ai: "31a90c9 -> 42faa44, checks OK. No ciel process was running: the pane shows the session was ended with Ctrl+C (KeyboardInterrupt in terminate_pid) before the install; router.log last line 23:08:35."
+  sarah_ai: "31a90c9 -> 42faa44, checks OK; live cli/serve pids 269779 269824 unchanged (new code applies on restart)."
+  cindy_ai: "31a90c9 -> 42faa44, checks OK; live pids 151711 152460 unchanged (applies on restart)."
+  first_attempt: "The three accounts share /tmp: copying to /tmp in parallel left sarah/cindy reading robert's partially written tgz (npm Z_BUF_ERROR). Their packages were verified intact (31a90c9, 386 .py files, import OK) and the install was redone from each home directory."
+  local: "install.ps1 with CIEL_RUNTIME_INSTALL_HOME=~/.local/share/ciel-runtime-42faa445eba76fd4c0aec95d49e0ae3a34d8a362, PREFIX=~/.local; CIEL_RUNTIME_HOME (User) now points there; `ciel-runtimectl.ps1 version` -> 0.2.51-nightly.20260929-044037.42faa44; import checks OK. The live router 9611 (pid 25252) keeps the old snapshot until relaunched."
+cleanup: "Removed the tgz and script copies from /tmp and the homes; stopped a leftover `tail -F router.log` (pid 366144) that an earlier monitor had left on robert-ai."
