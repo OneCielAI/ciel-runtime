@@ -36,7 +36,6 @@ from ciel_runtime_support.channel_llm_context import ChannelLlmInjectionDeferred
 from ciel_runtime_support.codex_completion_gate import (
     ResponsesCompletionObservation,
     completion_check_body,
-    request_offers_tools,
     request_requires_completion_check,
 )
 from ciel_runtime_support.request_body_policy import (
@@ -579,7 +578,7 @@ class CodexBackendHttpAdapter:
                     )
                     self._retry.sleep(wait)
                     continue
-                if mutate_responses and request_offers_tools(upstream_body):
+                if mutate_responses and upstream_body.get("tools"):
                     buffered = self._buffer_codex_response(response, preamble)
                     chosen = buffered
                     try:

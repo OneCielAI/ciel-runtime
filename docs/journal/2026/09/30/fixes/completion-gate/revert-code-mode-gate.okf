@@ -1,0 +1,9 @@
+okf_version: "1.0"
+task: "Stop robert-ai's Codex from looping: revert the code-mode completion gate (7b880e1)."
+reported: "User, 2026-09-30: '로버트가 알수없는 행동을 계속 반복하고있어'."
+evidence:
+  router_log: "robert-ai router 8805 (010ed3d, relaunched 2026-09-29 23:36 CDT): 255 codex_completion_gate_continued lines, 0 codex_completion_gate_confirmed; one every ~20-60 s through 02:53 CDT."
+  rollout: "2026-09-30T07:51:53Z the user interrupted and asked '뭐하는짓이야'; the model answered only with read-only exec calls (git diff --check && git status --short, sed -n ...) in a loop and no text reply reached the user."
+  mechanism: "Every text-only final (including the answer to the user's question) went through the completion check with tool_choice=required; gpt-6-astra in code mode never chose ciel_runtime_confirm_completion and instead issued another exec call, which the gate relayed as 'continued'. The E2E before deploy used a stub upstream that answered the check with the confirm tool, so it did not show how the real model behaves."
+change: "git revert of 7b880e1 for ciel_runtime_support/codex_completion_gate.py, router_http.py and their tests only; the diagnosis/plan journals stay. The gate is back to requiring top-level tools, i.e. it does not run for code-mode (additional_tools) requests, as before 7b880e1. The GPT-6 model list (010ed3d) and the OAuth tokens menu (cde9790) are kept."
+lesson: "A completion gate that forces a tool call must be verified against the real model before deploy; a stub that answers with the confirm tool proves only the plumbing."

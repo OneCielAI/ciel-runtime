@@ -365,55 +365,6 @@ class NativeCodexCompletionGateTests(unittest.TestCase):
         self.assertIn(b"future_action_type", handler.wfile.written)
 
 
-    def test_code_mode_request_without_top_level_tools_is_checked(self):
-        # gpt-6 family through codex-routed: tools arrive only as an
-        # additional_tools input item (robert-ai, 2026-09-29: every request
-        # logged tools=0 and the gate never ran).
-        body = self.body()
-        del body["tools"]
-        body["input"].insert(
-            0,
-            {
-                "type": "additional_tools",
-                "role": "developer",
-                "tools": [
-                    {
-                        "type": "namespace",
-                        "name": "functions",
-                        "tools": [{"type": "custom", "name": "exec"}],
-                    }
-                ],
-            },
-        )
-        original = _completed_response(self.candidate_output("work remains"), "resp_1")
-        action = [
-            {"type": "custom_tool_call", "call_id": "call_1", "name": "exec", "input": "text(1)"}
-        ]
-        upstream = CompletionGateUpstream(
-            [original, _completed_response(action, "resp_2")]
-        )
-        handler = FakeHandler()
-        logs = []
-
-        completion_gate_adapter(upstream, logs).forward_json(
-            handler, "codex", {}, body, mutate_responses=True
-        )
-
-        self.assertEqual(2, len(upstream.bodies))
-        check = upstream.bodies[1]
-        self.assertEqual("required", check["tool_choice"])
-        self.assertNotIn("tools", check)
-        self.assertEqual(
-            ["exec", CODEX_COMPLETION_TOOL_NAME],
-            [tool["name"] for tool in check["input"][0]["tools"][0]["tools"]],
-        )
-        self.assertIn(b"custom_tool_call", handler.wfile.written)
-        self.assertNotIn(b"work remains", handler.wfile.written)
-        self.assertTrue(
-            any("codex_completion_gate_continued" in message for _, message in logs)
-        )
-
-
 def sealed_body():
     """A replayed turn whose reasoning item the upstream never stored."""
 

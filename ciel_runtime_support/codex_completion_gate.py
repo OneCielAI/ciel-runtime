@@ -134,39 +134,10 @@ class ResponsesCompletionObservation:
         )
 
 
-_ADDITIONAL_TOOLS_ITEM_TYPE = "additional_tools"
-_DEFAULT_TOOL_NAMESPACE = "functions"
-
-
-def _additional_tools_items(body: dict[str, Any]) -> list[dict[str, Any]]:
-    items = body.get("input")
-    if not isinstance(items, list):
-        return []
-    return [
-        item
-        for item in items
-        if isinstance(item, dict)
-        and item.get("type") == _ADDITIONAL_TOOLS_ITEM_TYPE
-        and item.get("tools")
-    ]
-
-
-def request_offers_tools(body: dict[str, Any]) -> bool:
-    """Return whether the request carries a tool catalogue in either shape.
-
-    Codex sends models whose catalogue entry has ``tool_mode:
-    "code_mode_only"`` (the gpt-6 and gpt-5.6 families) their tools as an
-    ``additional_tools`` input item and omits the top-level ``tools`` array
-    (captured from codex-cli 0.150.0, 0.157.1 and 0.159.2, 2026-09-29).
-    """
-
-    return bool(body.get("tools")) or bool(_additional_tools_items(body))
-
-
 def request_allows_completion_check(body: dict[str, Any]) -> bool:
     """Return whether the client let the model act in this request at all."""
 
-    return request_offers_tools(body) and body.get("tool_choice") != "none"
+    return bool(body.get("tools")) and body.get("tool_choice") != "none"
 
 
 def request_requires_completion_check(
@@ -203,72 +174,39 @@ def completion_check_body(
         "role": "user",
         "content": [{"type": "input_text", "text": CODEX_STRICT_CONTINUATION_NUDGE}],
     }
-    # A catalogue carried in `additional_tools` gets the private tool inside
-    # that item, beside the tools the model already calls; replacing the
-    # input below must then keep the item.
-    catalogue = None if projected.get("tools") else next(
-        iter(_additional_tools_items(projected)), None
-    )
-    if catalogue is not None:
-        _add_to_default_namespace(catalogue, _completion_tool())
-    kept = [catalogue] if catalogue is not None else []
     if projected.get("conversation"):
-        projected["input"] = [*kept, prompt]
+        projected["input"] = [prompt]
     elif bool(projected.get("store")) and observation.response_id:
         projected["previous_response_id"] = observation.response_id
-        projected["input"] = [*kept, prompt]
+        projected["input"] = [prompt]
     else:
         current = projected.get("input")
         items = list(current) if isinstance(current, list) else ([current] if current else [])
         projected["input"] = [*items, *copy.deepcopy(observation.output), prompt]
     projected["stream"] = True
-    if catalogue is None:
-        projected["tools"] = [*(projected.get("tools") or []), _completion_tool()]
+    tools = list(projected.get("tools") or [])
+    tools.append(
+        {
+            "type": "function",
+            "name": CODEX_COMPLETION_TOOL_NAME,
+            "description": "Confirm that every action requested by the user is complete.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": [],
+                "additionalProperties": False,
+            },
+            "strict": True,
+        }
+    )
+    projected["tools"] = tools
     projected["tool_choice"] = "required"
     return projected
-
-
-def _completion_tool() -> dict[str, Any]:
-    return {
-        "type": "function",
-        "name": CODEX_COMPLETION_TOOL_NAME,
-        "description": "Confirm that every action requested by the user is complete.",
-        "parameters": {
-            "type": "object",
-            "properties": {},
-            "required": [],
-            "additionalProperties": False,
-        },
-        "strict": True,
-    }
-
-
-def _add_to_default_namespace(catalogue: dict[str, Any], tool: dict[str, Any]) -> None:
-    """Place ``tool`` where Codex's own unqualified tools live.
-
-    Calls to tools in the ``functions`` namespace come back without a
-    ``namespace`` field (robert-ai rollout: ``wait`` 111 times), so the
-    confirmation is recognised by name like on the top-level route.
-    """
-
-    entries = list(catalogue.get("tools") or [])
-    for index, entry in enumerate(entries):
-        if (
-            isinstance(entry, dict)
-            and entry.get("type") == "namespace"
-            and entry.get("name") == _DEFAULT_TOOL_NAMESPACE
-        ):
-            entries[index] = {**entry, "tools": [*(entry.get("tools") or []), tool]}
-            break
-    else:
-        entries.append(tool)
-    catalogue["tools"] = entries
 
 
 __all__ = [
     "ResponsesCompletionObservation",
     "completion_check_body",
     "request_allows_completion_check",
-    "request_offers_tools",
     "request_requires_completion_check",
 ]
