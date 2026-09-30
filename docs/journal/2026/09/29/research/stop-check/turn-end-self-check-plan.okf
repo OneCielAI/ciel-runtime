@@ -1,0 +1,75 @@
+okf_version: "1.0"
+task: "Research Stop-hook support across the agent CLIs ciel-runtime launches, and plan a structure that makes each agent check once for remaining work before it ends a turn."
+reported: "User, 2026-09-29: '턴이 종료되기전에 강제로 남은 일거리가 없는지 확인했느냐.. 라고 물어서 ... 한번쯤 더생각하게 하는방법은??' then '연달아 두번 안물어보는것을 조건으로 하면 무한루프가 안돌지 않을까?' then 'codex, codex app, claude, 등의 에이전트들에 대해서 보다 깊히 웹리서치를 한번더하고 구조를 계획'."
+trigger_case: "robert-ai Codex, 2026-09-29 04:48:18 task_complete: the final message itself said work remained ('아직 미배포이며 ... 남아 있습니다') and the session then sat idle until 08:43:43."
+status: "plan only; nothing implemented"
+
+research_confirmed:
+  codex_cli:
+    source: "openai/codex rust-v0.159.2 source (codex-rs/hooks/src/events/stop.rs, core/src/session/turn.rs, protocol/src/items.rs, config/src/hook_config.rs, hooks/src/engine/discovery.rs) and learn.chatgpt.com/docs/hooks"
+    availability: "Stop added 0.114.0 (experimental), continuation + stop_hook_active 0.115.0, stable 0.124.0, per-hook trust 0.129.0, --dangerously-bypass-hook-trust 0.131.0. Feature key 'hooks', stable, default on. robert-ai runs 0.159.2 and 'codex features list' shows 'hooks stable true'."
+    input: "cwd, hook_event_name=Stop, last_assistant_message, model, permission_mode, session_id, stop_hook_active, transcript_path, turn_id"
+    output: "stdout JSON {decision:'block', reason} (reason required), or exit 2 with the prompt on stderr. continue:false wins over block across hooks. Async hooks cannot block."
+    delivery: "reason becomes a role=user message '<hook_prompt hook_run_id=...>REASON</hook_prompt>' in the same turn (same turn_id)."
+    loop_guard: "stop_hook_active starts false per turn, becomes true after the first block and stays true for the rest of the turn. There is NO block cap (issues #37937, #34477 report runaway loops). The hook itself must pass when stop_hook_active is true."
+    config_sources: "~/.codex/hooks.json, ~/.codex/config.toml [hooks], <repo>/.codex/* (only when the project is trusted), and -c overrides (SessionFlags layer, inline TOML only). All layers add; none replace."
+    trust: "Non-managed hooks (user, project, SessionFlags) run only with a matching hooks.state.<key>.trusted_hash, or with --dangerously-bypass-hook-trust for that invocation."
+  codex_app_server:
+    protocol: "turn/start, turn/steer (expectedTurnId precondition), turn/completed, hook/started, hook/completed (sync hooks only). thread/start config becomes SessionFlags; a 'bypass_hook_trust' key is honoured."
+    risk: "Open issue #38213: app-server did not dispatch Stop after turn/completed (0.147.0-alpha, unconfirmed by maintainers). Desktop/IDE reports #42959, #47607 (trusted hooks run; newly trusted hooks skipped in a running task)."
+  claude_code:
+    source: "code.claude.com/docs hooks, hooks-guide, settings, agent-sdk; GitHub issues"
+    stop: "input stop_hook_active, last_assistant_message; output decision:'block' + reason, or exit 2; reason is fed back and Claude keeps working. Built-in override after 8 consecutive blocks without progress (CLAUDE_CODE_STOP_HOOK_BLOCK_CAP). Does not fire on user interrupt; API errors fire StopFailure (cannot block)."
+    types: "command, http, mcp_tool, prompt (ok/reason, default 30 s), agent (experimental)."
+    settings: "--settings merges above user/project/local; lists merge. Issue #54360: stop_hook_active reported staying false in one configuration."
+  others:
+    agy: "Antigravity Stop hook, decision 'continue' re-enters the loop (.agents/hooks.json, ~/.gemini/config/hooks.json); forum report of Stop not firing on Windows IDE 1.107.0. Captured via summarizer."
+    kimi: "kimi-cli Stop with stop_hook_active, 're-trigger once' built in (~/.kimi/config.toml [[hooks]]); kimi-code has Stop + Interrupt (~/.kimi-code/config.toml). Which one ciel launches: not checked."
+    zcode: "Stop with stop_hook_active and last_assistant_message; block continues the loop, at most 3 in a row (~/.zcode/cli/config.json, hooks.enabled)."
+    grok: "Official docs: PreToolUse is the only blocking event. A changelog snippet claims Stop continuation in v0.2.107; changelog returned 403. Unconfirmed."
+    muse: "Stop listed; blocking semantics conflicting across fetches. Unknown."
+
+codebase_confirmed:
+  claude_hooks: "tool_guard_hooks.py installs every event (Stop included) into ~/.claude/settings.json for routed Claude only (runtime_launch.py:505-512); ciel-runtime-tool-guard.py handle_stop (:535-553) blocks only for the plan-mode idle case and never reads stop_hook_active; the script is gated on CIEL_RUNTIME_PROVIDER / CIEL_RUNTIME_BYPASS_PERMISSIONS (:872-878)."
+  codex_hooks: "none. ciel never writes hooks.json/[hooks]; Codex settings go in as -c flags (codex_launch_configuration.runtime_config_args :145-167, codex_launch_policy.native_routed_config_args :9-31)."
+  app_server: "plain codex-app-server: ciel only spawns it (--listen ws), not a client. codex-desktop: CodexDesktopChannelInjector is a second JSON-RPC client using thread/start, turn/start, turn/steer (codex_desktop_runtime.py:243-250)."
+  zcode_home: "zcode already gets a launch-scoped config.json written by ciel (zcode_runtime_context.py:172-183)."
+  router_completion_gate: "codex_completion_gate.request_requires_completion_check + router_http.py:581-621 re-asks the model with a private confirm tool when a completed reply is text-only and tools were offered. robert-ai (mode codex-routed, provider codex) reaches it by code path: /backend-api/codex/responses -> _handle_codex_route -> forward_codex_responses -> forward_json(mutate_responses=True)."
+  robert_gate_observation: "robert router.log at INFO, 2026-09-29 19:51-22:34 (robert local): 0 lines of codex_completion_gate_* while 42 channel_wake_completed_evidence lines exist. Why the gate never logged is NOT determined."
+  budget: "ciel_runtime.py is 4980/4980 lines; new code must live in ciel_runtime_support modules."
+
+planned_structure:
+  core:
+    module: "ciel_runtime_support/stop_check.py (new): pure policy, no I/O."
+    decide: "decide(event, settings) -> block reason or None. Block only when: stop-check enabled for this runtime AND stop_hook_active is false AND the session is ciel-launched. Everything else passes (empty stdout, exit 0)."
+    once_per_turn: "relies on stop_hook_active, which Codex resets per turn (turn.rs) and Claude/kimi/zcode also expose; no own state file."
+    prompt: "one configurable text; default asks the model to re-read the original request, list anything unfinished, continue if something remains, otherwise end in one line."
+    settings: "config key stop_check: {enabled, runtimes, prompt}."
+  claude:
+    where: "existing Stop entry; ciel-runtime-tool-guard.py handle_stop calls the stop-check decision after the plan guard (plan guard keeps precedence; a single JSON decision is emitted)."
+    install: "no new installer; the Stop handler already exists in ~/.claude/settings.json for routed launches."
+  codex_tui:
+    where: "per-launch -c hooks.Stop=[{hooks=[{type='command', command=..., timeout=...}]}] appended in the existing -c assembly (codex_launch_configuration / codex_launch_policy); no user file edits."
+    command: "the same tool-guard script with a codex mode flag, or a small stop-check entry script; must print JSON only (Codex rejects plain text)."
+    trust: "OPEN: SessionFlags hooks need trust. Options: --dangerously-bypass-hook-trust (also runs the user's own untrusted hooks) or a computed hooks.state.<key>.trusted_hash via -c (hash algorithm version_for_toml not yet reproduced)."
+  codex_app_server:
+    codex_desktop: "hook via thread/start config (SessionFlags). Because of #38213, fallback in CodexDesktopChannelInjector: on turn/completed with no hook/completed for that turn, send one turn/start with the same prompt."
+    plain_app_server: "only the launch -c args apply; ciel is not a client there."
+  other_runtimes:
+    zcode: "add hooks to the launch-scoped config.json ciel already writes."
+    kimi_agy: "need a launch-scoped config route first (ciel writes nothing for them today); check which kimi binary ciel launches."
+    grok_muse: "not supported until blocking Stop is confirmed."
+  router_gate_relation: "OPEN: find out why codex_completion_gate never logged on robert before deciding whether the Stop hook replaces it or both run."
+
+decisions_made:
+  native_launches: "User, 2026-09-29: 'native 오퍼레이션인 있는 그대로 유지.' Native (non-routed) launches stay exactly as they are; stop-check applies to ciel-routed launches only (Claude: the tool guard's existing routed-only gate; Codex: only launches that go through the ciel router, i.e. codex-routed (native_routed_config_args, robert-ai's mode) and router mode (runtime_config_args); a plain native Codex launch gets no hook)."
+
+decisions_needed_from_user:
+  - "Codex trust handling: bypass flag vs computed trusted_hash (after a spike)."
+  - "Relationship with the existing router completion gate."
+  - "First-phase runtime scope."
+
+verification_plan:
+  codex: "WSL Ubuntu, real codex 0.159.2 TUI against the local stub Responses server (scratchpad ptyrepro/stub_responses.py): capture the hook stdin, confirm the <hook_prompt> user message in the next request, stop_hook_active true on the second stop and the turn ends, a new turn resets to false."
+  claude: "isolated CLAUDE_CONFIG_DIR/HOME run through the routed path; confirm one extra pass and no second block."
+  deploy: "only after both pass; robert-ai first."

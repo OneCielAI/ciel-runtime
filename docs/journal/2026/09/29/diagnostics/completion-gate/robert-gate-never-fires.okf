@@ -1,0 +1,32 @@
+okf_version: "1.0"
+task: "Find why the router's Codex completion gate never ran on robert-ai while Codex ended turns text-only with work still open."
+reported: "User, 2026-09-29: '지금도 로버트는 멈추지 말아야할곳에 멈춰잇느거같은데' then '원인을 조사해. 지금 딱증거도 있는상황이니가'."
+status: "cause confirmed; no code changed"
+
+incident:
+  turns: "robert-ai rollout 2026-09-30T03:43:08Z '오래걸리네?' -> text-only reply, task_complete 03:43:18; 03:43:50Z '그래서? 언제 끝나는건데' -> text-only reply ('설치·rollback 구현과 greenland 실검증이 남아 있어'), task_complete 03:43:58. No tool call in either turn; session idle afterwards (checked 22:52 CDT)."
+  gate_log: "router.log at INFO 19:51-22:34+ CDT: 0 lines matching codex_completion_gate / provider_responses_completion_gate / completion_check."
+
+evidence:
+  route: "robert workspace config providers.codex.route_through_router=true, launch mode codex-routed; POST /backend-api/codex/responses -> _handle_codex_route -> forward_codex_responses -> RouterHttp.forward_json(mutate_responses=True). Installed and running build 0.2.51-nightly...42faa44 contains the gate (router_http.py:585)."
+  streamed_not_buffered: "/ca/tui/recent turn.completed 22:43:58.48 duration 7693 ms while the access line was written 22:43:54: headers went out before the body finished, i.e. the unbuffered _write_response branch, not the buffered gate branch."
+  tools_zero: "/ca/events/recent 'Codex Responses request received' for every request 22:15-22:43: model gpt-6-astra, tools: 0 (input_items 268-333) although the same turns ran 35 custom_tool_call 'exec' items."
+  codex_capture: "WSL, real codex-cli 0.158.0, model gpt-6-astra with robert's models_cache.json as model_catalog_json, stub Responses server: body keys = client_metadata, include, input, model, parallel_tool_calls, prompt_cache_key, reasoning, store, stream, text, tool_choice. No 'tools' key. input[0] = {type:'additional_tools', role:'developer', tools:[{type:'namespace', name:'functions', tools:[{type:'custom', name:'exec', ...}]}]}."
+  gate_itself_works: "WSL, 42faa44 router serve (isolated config, CIEL_RUNTIME_CODEX_ROUTED_UPSTREAM stub) with a body that has top-level tools and a text-only upstream reply: buffered, second upstream request with tool_choice=required and ciel_runtime_confirm_completion, log 'codex_completion_gate_confirmed model=gpt-5.5'."
+
+cause: "codex_completion_gate.request_allows_completion_check returns bool(body.get('tools')) and tool_choice != 'none'. Codex sends its tool catalogue as an input[] 'additional_tools' item and omits top-level tools, so the precondition is false; router_http.py:581 ('if mutate_responses and upstream_body.get(\"tools\")') also skips buffering. The gate therefore never runs on this route. hoist_additional_tools (responses_input_compatibility.py:258, commits 181eda3/7db07f4) handles the same shape only for translated/provider routes, not for the native codex-routed gate."
+
+codex_upgrade_hypothesis:
+  asked: "User, 2026-09-29: '최근 코덱스가 패치된뒤로 심해진것을 봐서는 우리의 변화가 아니라 코덱스 자체 업그레이드후 화환성문제인거가틍넫'."
+  robert_timeline: "Codex 0.159.2 installed 2026-09-29 20:54 CDT (package mtime, npm log 2026-09-30T01_54_12Z). Current session created on 0.157.1 at 2026-09-27T00:50Z; its models since then: gpt-6-astra, gpt-6-luna, gpt-6-sol (only gpt-6 family)."
+  version_matrix: "WSL capture, same robert models_cache.json, stub server. gpt-6-astra, gpt-6-luna, gpt-6-sol on 0.150.0, 0.157.1, 0.159.2: top-level tools=0, one additional_tools item. gpt-5.5 on the same three versions: top-level tools=10-11, no additional_tools. 0.140.0 could not read the current catalog (missing field base_instructions)."
+  deciding_field: "robert's catalog (fetched 2026-09-30T03:56Z by 0.159.2): tool_mode='code_mode_only' for every gpt-6*/gpt-5.6*/gpt-reserve/codex-auto-review entry, null for gpt-5.5. The catalog is served by the ChatGPT backend models endpoint."
+  finding: "Not caused by ciel-runtime and not by the 0.157.1 -> 0.159.2 CLI upgrade: the tool placement is identical across 0.150.0-0.159.2 and follows the model's tool_mode. The gate has been unable to run for every gpt-6 turn of this session since 2026-09-27."
+  tool_set_difference: "Observed only: the additional_tools names differ by version (0.150.0 has send_user_message_async and interrupt_agent; 0.157.1/0.159.2 have request_user_input_async and sleep). Effect on turn-ending behaviour not examined."
+
+not_determined:
+  - "Whether the ChatGPT backend accepts the gate's follow-up (completion_check_body adds the confirm tool to top-level tools with tool_choice=required) while the real catalogue stays in additional_tools."
+  - "Since which Codex version / model family the top-level tools array is omitted on the ChatGPT backend route."
+  - "gpt-6-astra's catalog entry carries model_messages.persistent_instructions (Codex 'persistent mode'); robert's rollout has no 'persistent mode' text, so it is not active there. Not investigated further."
+
+artifacts: "scratchpad gatecheck/ (run.sh router repro, capture.sh Codex body capture, stub.py, capture_stub.py, models_cache.json copied from robert-ai)."
