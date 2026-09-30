@@ -42,6 +42,7 @@ class PrelaunchPanelProjectionTests(unittest.TestCase):
         self.assertIn("12. Workspace MCP modules", rows[12])
         self.assertIn("13. Request/file limits", rows[13])
         self.assertIn("14. Web Backend", rows[14])
+        self.assertIn("15. OAuth tokens", rows[15])
 
     def test_provider_panel_projects_native_and_routed_choices(self):
         projection = ProviderPanelProjection(

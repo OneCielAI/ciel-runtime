@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from ciel_runtime_support.llm_presentation_data import LLM_OPTION_TOGGLE_KEYS
+from ciel_runtime_support import oauth_token_menu
 from ciel_runtime_support.prelaunch_launch_preference import (
     preferred_launch_panel_index,
     remember_launch_action,
@@ -40,8 +41,15 @@ MAIN_MENU_ACTIONS: tuple[str, ...] = (
     "workspace-mcp",
     "request-limits",
     "web-backend",
+    "oauth-tokens",
     "quit",
 )
+
+
+def _workspace_state_dir():
+    from ciel_runtime_support.runtime_paths import WORKSPACE_STATE_DIR
+
+    return WORKSPACE_STATE_DIR
 
 
 @dataclass(frozen=True, slots=True)
@@ -354,6 +362,8 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
             panel_rows, panel_values = workspace_mcp.panel_rows(cfg) if workspace_mcp else (["Back"], ["back"])
         elif name == "request-limits":
             panel_rows, panel_values = request_limit_panel_rows(cfg)
+        elif name == "oauth-tokens":
+            panel_rows, panel_values = oauth_token_menu.panel_rows(_workspace_state_dir())
         if panel_rows:
             panel_idx = max(0, min(panel_idx, len(panel_rows) - 1))
 
@@ -997,6 +1007,28 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                         messages = [f"Request limit update failed: {type(exc).__name__}: {exc}"]
                     cfg = load_config()
                     panel_rows, panel_values = request_limit_panel_rows(cfg)
+                    panel_idx = max(0, min(panel_idx, len(panel_rows) - 1))
+                elif panel == "oauth-tokens":
+                    if value == "back":
+                        close_panel()
+                        continue
+                    if value == "__info__":
+                        continue
+                    restore_line_mode()
+                    try:
+                        messages = oauth_token_menu.apply(
+                            value,
+                            _workspace_state_dir(),
+                            lambda label, default: prompt_menu_value(
+                                label,
+                                default,
+                                restore_tty=restore_line_mode,
+                                raw_tty=restore_raw_mode,
+                            ),
+                        )
+                    finally:
+                        restore_raw_mode()
+                    panel_rows, panel_values = oauth_token_menu.panel_rows(_workspace_state_dir())
                     panel_idx = max(0, min(panel_idx, len(panel_rows) - 1))
                 elif panel == "options":
                     if value == "back":

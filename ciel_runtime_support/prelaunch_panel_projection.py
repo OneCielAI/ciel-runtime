@@ -8,6 +8,16 @@ from typing import Any, Callable, Mapping, Protocol
 from ciel_runtime_support.web_endpoints import web_backend_summary
 
 
+def oauth_tokens_summary() -> str:
+    """Stored token count for this workspace's rotating Codex/Claude sign-ins."""
+
+    from ciel_runtime_support.oauth_token_menu import token_count
+    from ciel_runtime_support.runtime_paths import WORKSPACE_STATE_DIR
+
+    count = token_count(WORKSPACE_STATE_DIR)
+    return f"{count} stored · Codex/Claude rotation" if count else "none · Codex/Claude rotation"
+
+
 ProviderConfig = dict[str, Any]
 RuntimeConfig = dict[str, Any]
 
@@ -90,6 +100,7 @@ class MainMenuProjection:
             "13. Request/file limits  [workspace scoped]",
             f"14. {self.ports.ui_text('web_backend', language)}  "
             f"[{web_backend_summary(config, 0)}]",
+            f"15. OAuth tokens  [{oauth_tokens_summary()}]",
             self.ports.ui_text("quit", language),
         ]
 
