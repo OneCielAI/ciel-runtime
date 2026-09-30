@@ -12,3 +12,8 @@ change:
 verification:
   models_command: "`ciel_runtime.py models` with an isolated config (current_provider codex, current_model gpt-6-astra, custom_models []): old code 'codex: 1 models' (gpt-6-astra); new code 'codex: 4 models' gpt-6-astra, gpt-6-luna, gpt-6-sol, gpt-6.1-sol. This is the command the menu's model submenu runs (ciel-runtime-menu.py get_models_for_current_provider)."
   tests: "tests/test_codex_provider_models.py: fresh defaults, migration once with user entries kept, upstream_model_ids shows the models. Fails on the old code (ImportError for CODEX_OPENAI_MODEL_IDS). WSL groups: unit 1666 OK, router 1158 OK, channel 438 OK, runtime 327 OK."
+deploy:
+  package: "0.2.51-nightly.20260930-043439.010ed3d (git archive of 010ed3d, npm pack in WSL), sha256 prefix f776c81bcb9bb8b7. Carries both the gate fix (7b880e1) and these models. nightly push 7b880e1..010ed3d: CI success; npm publish E404 again."
+  robert_ai: "7b880e1 -> 010ed3d, checks OK. The session had ended at 23:34:51 CDT by a terminal Ctrl+C (router.log channel_stdin_proxy_exit_control_input source=terminal) while the install ran. The pane held a typed, unexecuted 'ciel-runtime --continue'; one Enter was sent and the 010ed3d menu appeared, after which the menu closed and the same command was typed again by someone else in the attached pane, so no further keys were sent."
+  cindy_ai: "42faa44 -> 010ed3d (user: '신디도 푸시'), checks OK; live pid 911590 unchanged (applies on its next launch)."
+  local: "install.ps1 snapshot ~/.local/share/ciel-runtime-010ed3d9bf0c4a2b29f19b98e635b1469b83765d; ciel-runtimectl version 0.2.51-nightly.20260930-043439.010ed3d; CODEX_OPENAI_MODEL_IDS and request_offers_tools import OK."
