@@ -32,6 +32,11 @@ USAGE = """Usage: ciel-runtime tokens <command>
 
 Stored tokens are used only in the Codex routed and Anthropic routed modes."""
 
+REDIRECT_PROMPT = (
+    "Press Enter once the browser says you are signed in. If the browser runs on another "
+    "machine and ends on a page that cannot load, paste that page's address here: "
+)
+
 IMPORT_WARNING = (
     "Note: the imported token is the one the {cli} CLI keeps using and refreshing.\n"
     "If both refresh it, the provider can revoke one side{detail}.\n"
@@ -119,9 +124,13 @@ def run_tokens_command(
     if command == "login":
         provider = _provider(rest)
         if login is None:
+            from functools import partial
+            import sys
+
             from ciel_runtime_support.oauth_login import login as login_flow
 
-            login = login_flow
+            # Interactive: accept the pasted redirect so a remote sign-in works.
+            login = partial(login_flow, redirect_input=lambda: input(REDIRECT_PROMPT)) if sys.stdin.isatty() else login_flow
         credential, email = login(provider, output=output)
         token = store.add(provider, credential, label=_option(rest, "--label") or email, email=email, source="login")
         output(f"Stored {token.token_id} ({email or provider}).")
@@ -166,4 +175,4 @@ def run_tokens_command(
     raise SystemExit(USAGE)
 
 
-__all__ = ["USAGE", "default_import_path", "describe", "run_tokens_command"]
+__all__ = ["REDIRECT_PROMPT", "USAGE", "default_import_path", "describe", "run_tokens_command"]

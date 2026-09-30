@@ -10,6 +10,9 @@ import time
 from pathlib import Path
 from typing import Callable
 
+from functools import partial
+
+from ciel_runtime_support import oauth_login
 from ciel_runtime_support.oauth_token_cli import default_import_path, run_tokens_command
 from ciel_runtime_support.oauth_token_store import STATUS_ACTIVE, OAuthTokenStore
 
@@ -106,7 +109,14 @@ def _apply(
         # The browser sign-in prints its URL and waits for the callback, so
         # its progress goes straight to the terminal instead of the panel.
         args = ["login", subject, *(["--label", label] if label else [])]
-        run(args, workspace_state_dir, output=lambda line: (output(line), collect(line)))
+        login = partial(
+            oauth_login.login,
+            redirect_input=lambda: prompt(
+                "Press Enter once the browser says you are signed in, or paste the address it ended on (remote machine)",
+                "",
+            ),
+        )
+        run(args, workspace_state_dir, output=lambda line: (output(line), collect(line)), login=login)
     elif kind == "import":
         path = prompt(f"{_PROVIDER_LABELS[subject]} credentials file", str(default_import_path(subject)))
         if not path:

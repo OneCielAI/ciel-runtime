@@ -1,0 +1,15 @@
+okf_version: "1.0"
+task: "Make the OAuth tokens menu's browser sign-in work from a remote session (cindy-ai) and stop failing on a busy port 1455."
+reported: "User, 2026-09-30: '신디세션에서 두번째 코덱스 sigin in 하려고하는데 선택해도 에러만남. OAuth token action failed: RuntimeError: port 1455 is in use (another codex sign-in may be open); close it and retry'."
+evidence:
+  port_holder: "cindy-ai `ss -ltnp`: 127.0.0.1:1455 LISTEN by python3 pid 982263 = cindy's own `ciel_runtime.py cli --continue` menu; later pid 983090 (a new menu) holding it again while waiting."
+  pane: "cindy pane: 'Sign in to codex in the browser. If it does not open, visit: https://auth.openai.com/oauth/authorize?...redirect_uri=http%3A%2F%2Flocalhost%3A1455%2Fauth%2Fcallback...' then a KeyboardInterrupt in oauth_login.LoopbackCallback.wait (the 300 s wait)."
+  headless: "cindy-ai has no browser (python webbrowser: 'could not locate runnable browser', DISPLAY empty). The user opens the URL on their own PC, the provider redirects that browser to localhost:1455 on the PC, and the container's callback never receives it."
+cause: "oauth_login.login only accepted the loopback callback, so a remote sign-in could never finish and a waiting/stale attempt kept the fixed Codex port 1455, which made the next attempt fail with 'port 1455 is in use'."
+change:
+  - "oauth_login.login(redirect_input=...): when given, the user presses Enter (local: the loopback callback already has the code) or pastes the address the browser ended on (remote); parse_pasted_redirect accepts the full URL, its query, or code#state; the state check and PKCE exchange are unchanged. A busy fixed callback port only disables the automatic path instead of failing. Without redirect_input the old loopback-only behaviour stays."
+  - "Menu sign-in passes a prompt as redirect_input; `ciel-runtime tokens login` does the same when stdin is a TTY."
+verification:
+  tests: "tests/test_oauth_token_refresh.py: remote paste with port 1455 held (Codex, form exchange carries the pasted code), local Enter uses the loopback callback, nothing pasted cancels, pasted forms. All 4 error on the old code. OAuth suites 45 OK. WSL groups: unit 1676, router 1158, channel 438, runtime 323 OK; ruff clean."
+  real_menu: "WSL tmux, real menu, another process holding 127.0.0.1:1455: '+ Sign in Codex' -> label -> authorize URL and the paste prompt (no port error); pasting http://localhost:1455/auth/callback?code=fake-e2e-code&state=<the URL's state> reached the real auth.openai.com token exchange, which answered 'HTTP 401 ... Could not validate your token' for the fake code; the menu showed it as a message and stayed open. A first run failed the state check only because the script scraped a wrapped state from the pane."
+  not_run: "A successful sign-in with a real account (needs the user's login)."

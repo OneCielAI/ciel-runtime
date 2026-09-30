@@ -1,4 +1,5 @@
 import base64
+import socket
 import json
 import tempfile
 import unittest
@@ -165,6 +166,63 @@ class LoginTests(unittest.TestCase):
 
         with self.assertRaisesRegex(RuntimeError, "state"):
             login("claude", open_browser=browser, post=FakeTokenEndpoint([]), output=lambda _line: None, timeout=10)
+
+
+    def test_remote_sign_in_takes_the_pasted_redirect_even_with_the_port_busy(self) -> None:
+        # cindy-ai 2026-09-30: the browser runs on the user's PC, so the
+        # redirect to localhost:1455 never reaches the container, and a stale
+        # sign-in held 1455. The pasted address still carries the code.
+        from ciel_runtime_support import oauth_login
+
+        endpoint = FakeTokenEndpoint([(200, {"access_token": codex_access(NOW), "refresh_token": "r-2", "id_token": jwt({"email": "b@example.com"})})])
+        seen: list[str] = []
+        busy = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            try:
+                busy.bind(("127.0.0.1", 1455))
+                busy.listen(1)
+            except OSError:
+                pass  # already held by something else: the same condition
+
+            def paste() -> str:
+                query = urllib.parse.parse_qs(urllib.parse.urlparse(seen[0]).query)
+                self.assertEqual(["http://localhost:1455/auth/callback"], query["redirect_uri"])
+                return f"http://localhost:1455/auth/callback?code=pasted-code&state={query['state'][0]}"
+
+            credential, email = oauth_login.login(
+                "codex", open_browser=seen.append, post=endpoint, output=lambda _line: None, redirect_input=paste
+            )
+        finally:
+            busy.close()
+
+        self.assertEqual(("r-2", "b@example.com"), (credential.refresh_token, email))
+        self.assertIn(b"code=pasted-code", endpoint.calls[0][1])
+
+    def test_local_sign_in_uses_the_callback_when_enter_is_pressed(self) -> None:
+        endpoint = FakeTokenEndpoint([(200, {"access_token": "a-3", "refresh_token": "r-3", "expires_in": 3600})])
+
+        def browser(url: str) -> None:
+            query = urllib.parse.parse_qs(urllib.parse.urlparse(url).query)
+            redirect = query["redirect_uri"][0].replace("localhost", "127.0.0.1")
+            urllib.request.urlopen(f"{redirect}?code=loop-code&state={query['state'][0]}", timeout=5).read()
+
+        credential, _email = login("claude", open_browser=browser, post=endpoint, output=lambda _line: None, redirect_input=lambda: "")
+
+        self.assertEqual("r-3", credential.refresh_token)
+        self.assertEqual("loop-code", json.loads(endpoint.calls[0][1])["code"])
+
+    def test_nothing_pasted_and_no_callback_cancels(self) -> None:
+        with self.assertRaisesRegex(RuntimeError, "cancelled"):
+            login("claude", open_browser=lambda _url: None, post=FakeTokenEndpoint([]), output=lambda _line: None, redirect_input=lambda: "")
+
+    def test_pasted_redirect_forms(self) -> None:
+        from ciel_runtime_support.oauth_login import parse_pasted_redirect
+
+        expected = {"code": "c1", "state": "s1"}
+        self.assertEqual(expected, parse_pasted_redirect(" http://localhost:1455/auth/callback?code=c1&state=s1 "))
+        self.assertEqual(expected, parse_pasted_redirect("?code=c1&state=s1"))
+        self.assertEqual(expected, parse_pasted_redirect("c1#s1"))
+        self.assertEqual({}, parse_pasted_redirect(""))
 
 
 class ImportAndCliTests(unittest.TestCase):

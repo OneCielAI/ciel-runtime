@@ -85,14 +85,40 @@ class LoopbackCallback:
         self.port = int(self.server.server_address[1])
         threading.Thread(target=self.server.serve_forever, name="ciel-oauth-callback", daemon=True).start()
 
+    @property
+    def received(self) -> bool:
+        return self._received.is_set()
+
+    def close(self) -> None:
+        self.server.shutdown()
+        self.server.server_close()
+
     def wait(self, timeout: float) -> dict[str, str]:
         try:
             if not self._received.wait(timeout):
                 raise TimeoutError("no sign-in redirect arrived before the timeout")
             return self.result
         finally:
-            self.server.shutdown()
-            self.server.server_close()
+            self.close()
+
+
+def parse_pasted_redirect(text: str) -> dict[str, str]:
+    """Read ``code`` and ``state`` from what the user copied after signing in.
+
+    On a remote machine the provider redirects the user's own browser to
+    ``localhost`` there, which never reaches this process; the address the
+    browser ends on still carries the code. Accepts the full URL, its query
+    string, or the ``code#state`` form some sign-in pages display.
+    """
+
+    value = text.strip()
+    if not value:
+        return {}
+    query = urllib.parse.urlparse(value).query if "://" in value else value.lstrip("?")
+    if "=" not in query and "#" in value:
+        code, _, state = value.partition("#")
+        return {"code": code.strip(), "state": state.strip()}
+    return {key: values[0] for key, values in urllib.parse.parse_qs(query).items() if values}
 
 
 def _port_free(port: int) -> bool:
@@ -111,14 +137,27 @@ def login(
     post: HttpPost = urllib_post,
     output: Callable[[str], None] = print,
     timeout: float = LOGIN_TIMEOUT_SECONDS,
+    redirect_input: Callable[[], str] | None = None,
 ) -> tuple[OAuthCredential, str]:
+    """Sign in with PKCE.
+
+    Without ``redirect_input`` the loopback callback must receive the
+    redirect. With it (interactive use) the user presses Enter once the
+    browser shows the sign-in finished, or pastes the address the browser
+    ended on when the browser runs on another machine; a busy fixed callback
+    port then only disables the automatic path.
+    """
+
     endpoints = ENDPOINTS[provider]
-    if endpoints.callback_port and not _port_free(endpoints.callback_port):
+    callback: LoopbackCallback | None = None
+    if not endpoints.callback_port or _port_free(endpoints.callback_port):
+        callback = LoopbackCallback(endpoints.callback_port, endpoints.callback_path)
+    elif redirect_input is None:
         raise RuntimeError(
             f"port {endpoints.callback_port} is in use (another {provider} sign-in may be open); close it and retry"
         )
-    callback = LoopbackCallback(endpoints.callback_port, endpoints.callback_path)
-    redirect_uri = f"http://localhost:{callback.port}{endpoints.callback_path}"
+    port = callback.port if callback is not None else endpoints.callback_port
+    redirect_uri = f"http://localhost:{port}{endpoints.callback_path}"
     verifier, challenge = pkce_pair()
     state = secrets.token_urlsafe(24)
     url = authorize_url(endpoints, redirect_uri, state, challenge)
@@ -127,7 +166,18 @@ def login(
         open_browser(url)
     except Exception:
         pass
-    result = callback.wait(timeout)
+    if redirect_input is None:
+        assert callback is not None
+        result = callback.wait(timeout)
+    else:
+        try:
+            pasted = redirect_input()
+            result = dict(callback.result) if callback is not None and callback.received else parse_pasted_redirect(pasted)
+        finally:
+            if callback is not None:
+                callback.close()
+        if not result:
+            raise RuntimeError("sign-in cancelled: no redirect arrived and nothing was pasted")
     if result.get("error"):
         raise RuntimeError(f"sign-in failed: {result.get('error')} {result.get('error_description', '')}".strip())
     if result.get("state") != state:
@@ -148,4 +198,5 @@ def login(
     return credential_from_response(provider, payload)
 
 
-__all__ = ["LoopbackCallback", "authorize_url", "login", "pkce_pair"]
+__all__ = [
+    "parse_pasted_redirect","LoopbackCallback", "authorize_url", "login", "pkce_pair"]

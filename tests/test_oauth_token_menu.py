@@ -95,8 +95,9 @@ class OAuthTokenMenuTests(unittest.TestCase):
         calls = []
         printed = []
 
-        def run(args, state_dir, *, output):
+        def run(args, state_dir, *, output, login=None):
             calls.append((args, state_dir))
+            self.assertIsNotNone(login)
             output("Open https://auth.example/authorize to sign in")
             output("Stored tok_new (user@example.com).")
             return 0
