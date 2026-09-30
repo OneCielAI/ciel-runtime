@@ -234,6 +234,22 @@ def apply_config_migrations(cfg: dict[str, Any], *, policy: ConfigMigrationPolic
                 custom.append("claude-sonnet-5-5[1m]")
         migrations[marker] = True
 
+    marker = "codex_gpt_6_sol_luna_model_ids_20260929"
+    if not migrations.get(marker):
+        providers = cfg.get("providers") if isinstance(cfg.get("providers"), dict) else {}
+        pcfg = providers.get("codex")
+        if isinstance(pcfg, dict):
+            custom = pcfg.get("custom_models")
+            if not isinstance(custom, list):
+                custom = []
+                pcfg["custom_models"] = custom
+            known = {str(model).strip().casefold() for model in custom}
+            for model in ("gpt-6.1-sol", "gpt-6-sol", "gpt-6-luna"):
+                if model not in known:
+                    custom.append(model)
+                    known.add(model)
+        migrations[marker] = True
+
     marker = "zcode_wire_version_0163_20260824"
     if not migrations.get(marker):
         providers = cfg.get("providers") if isinstance(cfg.get("providers"), dict) else {}

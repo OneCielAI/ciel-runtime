@@ -1,0 +1,14 @@
+okf_version: "1.0"
+task: "Add OpenAI's new Codex models to the codex provider's model list: GPT-6 Sol, GPT-6 Luna and GPT-6.1 Sol."
+reported: "User, 2026-09-29: 'https://openai.com/ko-KR/index/introducing-gpt-6-sol-and-luna/  코덱스에 새로운 모델도 추가', then with a Codex picker screenshot (GPT-6.1-Sol (default), GPT-6-Astra (current)): 'gtp 6.1 sol 도 참조해서 추가'."
+sources:
+  release: "OpenAI 'Introducing GPT-6 Sol and Luna' (openai.com returned 403 to WebFetch; release facts from search results: rollout 2026-09-22 to ChatGPT Work, Codex and the API)."
+  ids: "robert-ai ~/.codex/models_cache.json (fetched by codex 0.159.2 on 2026-09-30T03:56Z) lists gpt-6.1-sol, gpt-6-astra, gpt-6-sol, gpt-6-luna; the user's screenshot shows GPT-6.1-Sol as Codex's default."
+confirmed_before_change:
+  list_source: "The codex provider's menu list is fallback_models (none) + custom_models + current_model (provider_models.py:133-142, CodexProviderAdapter kind='configured'); nothing is fetched live. A fresh config had custom_models []. The list cache key includes custom_models, so editing them invalidates the cache."
+change:
+  - "providers/native.py: CODEX_OPENAI_MODEL_IDS = ('gpt-6.1-sol', 'gpt-6-sol', 'gpt-6-luna') as the codex adapter's default custom_models (fresh configs)."
+  - "config_migrations.py: marker codex_gpt_6_sol_luna_model_ids_20260929 appends the three IDs once to providers.codex.custom_models (case-insensitive dedupe; user entries and current_model kept)."
+verification:
+  models_command: "`ciel_runtime.py models` with an isolated config (current_provider codex, current_model gpt-6-astra, custom_models []): old code 'codex: 1 models' (gpt-6-astra); new code 'codex: 4 models' gpt-6-astra, gpt-6-luna, gpt-6-sol, gpt-6.1-sol. This is the command the menu's model submenu runs (ciel-runtime-menu.py get_models_for_current_provider)."
+  tests: "tests/test_codex_provider_models.py: fresh defaults, migration once with user entries kept, upstream_model_ids shows the models. Fails on the old code (ImportError for CODEX_OPENAI_MODEL_IDS). WSL groups: unit 1666 OK, router 1158 OK, channel 438 OK, runtime 327 OK."

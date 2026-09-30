@@ -1,0 +1,13 @@
+okf_version: "1.0"
+task: "Deploy the code-mode completion gate fix (7b880e1) to robert-ai and local, and push nightly."
+reported: "User, 2026-09-29: '일단 이거만 수정해서 로버트 세션에 배포, 로컬, 그리고 나이트리시푸'."
+package:
+  version: "0.2.51-nightly.20260930-041845.7b880e1 (git archive of 7b880e1, nightly version applied like npm-publish.yml, npm pack in WSL). sha256 prefix 7e9cf96cc79a8e97, identical on robert-ai."
+  diff_from_42faa44: "Only codex_completion_gate.py, router_http.py, two test files and docs; every other module is byte-identical, so replacing files under a running 42faa44 router mixes no incompatible modules."
+push: "nightly f7ece3b..7b880e1."
+installs:
+  robert_ai: "42faa44 -> 7b880e1 via ~/remote_install2.sh (backup ~/.ciel-runtime-backup/0.2.51-nightly.20260929-044037.42faa44). import_check ok (request_offers_tools accepts an additional_tools catalogue), tokens_help ok. ciel processes before/after unchanged [852413 853699]; the router pid 853699 (started 2026-09-29 20:55 CDT) still runs the previously loaded code, so the fix is live only after that session relaunches."
+  local: "install.ps1 from the extracted package with CIEL_RUNTIME_INSTALL_HOME=~/.local/share/ciel-runtime-7b880e1eba31d2db0172ad76db09a276bc0b5f6d, PREFIX=~/.local; CIEL_RUNTIME_HOME (User) points there; ciel-runtimectl.ps1 version -> 0.2.51-nightly.20260930-041845.7b880e1; request_offers_tools import check True. Live router 9611 (pid 25252) untouched."
+pending:
+  - "robert-ai relaunch (user's decision; the running session was not restarted)."
+  - "After relaunch: confirm codex_completion_gate_* lines at INFO on a gpt-6 text-only final, and whether the ChatGPT backend accepts the check request (codex_completion_gate_failed would mean it does not)."

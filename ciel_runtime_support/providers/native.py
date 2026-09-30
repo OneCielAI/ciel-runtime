@@ -19,12 +19,19 @@ from .base import NoAuthProviderAdapter, provider_configuration
 from .constants import DEFAULT_REQUEST_TIMEOUT_MS, PROVIDER_DEFAULT_BASE_URLS
 
 
+# The codex menu lists only configured models. OpenAI released GPT-6 Sol and
+# Luna for Codex on 2026-09-22; Codex's own picker offers GPT-6.1-Sol as its
+# default (robert-ai models_cache.json, 2026-09-30).
+CODEX_OPENAI_MODEL_IDS = ("gpt-6.1-sol", "gpt-6-sol", "gpt-6-luna")
+
+
 @dataclass(frozen=True)
 class CodexProviderAdapter(NoAuthProviderAdapter):
     name: str = "codex"
     base_url: str = PROVIDER_DEFAULT_BASE_URLS["codex"]
     configuration_defaults_value: dict = field(
         default_factory=lambda: provider_configuration(
+            custom_models=CODEX_OPENAI_MODEL_IDS,
             route_through_router=False,
             request_timeout_ms=DEFAULT_REQUEST_TIMEOUT_MS,
         )
