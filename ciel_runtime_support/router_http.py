@@ -33,6 +33,7 @@ from ciel_runtime_support.responses_input_compatibility import (
     repair_replayed_response_items,
 )
 from ciel_runtime_support.channel_llm_context import ChannelLlmInjectionDeferred
+from ciel_runtime_support.web_access_http import PUBLIC_POST_PATHS as WEB_ACCESS_PUBLIC_POST_PATHS
 from ciel_runtime_support.codex_completion_gate import (
     ResponsesCompletionObservation,
     completion_check_body,
@@ -192,6 +193,9 @@ class RouterHttpServices:
     presentation: RouterHttpPresentation
     errors: RouterHttpErrors
     files: RouterHttpFileEndpoints | None = None
+    # Web sign-in, admin page and the OAuth token / access REST API
+    # (web_access_http.WebAccessHttpController).
+    access: Any | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -1053,9 +1057,13 @@ class RouterHttpHandler(BaseHTTPRequestHandler):
         cfg = services.core.load_config()
         if path.startswith("/ca/usage/") and services.get.events(self, path, query):
             return
+        if services.access is not None and services.access.handle_public_get(self, path):
+            return
         if services.core.reject_external(self, cfg):
             return
         if services.files is not None and services.files.get(self, path, cfg):
+            return
+        if services.access is not None and services.access.handle_get(self, path):
             return
         endpoints = services.get
         if endpoints.tui(self, path, query):
@@ -1377,7 +1385,11 @@ class RouterHttpHandler(BaseHTTPRequestHandler):
             cfg = services.core.load_config()
             endpoints = services.post
             is_webhook = path.startswith("/ca/events/webhooks/")
-            has_endpoint_auth = is_webhook or path == "/v1/logs"
+            has_endpoint_auth = (
+                is_webhook
+                or path == "/v1/logs"
+                or (services.access is not None and path in WEB_ACCESS_PUBLIC_POST_PATHS)
+            )
             if not has_endpoint_auth and services.core.reject_external(self, cfg):
                 self.close_connection = True
                 return
@@ -1437,6 +1449,8 @@ class RouterHttpHandler(BaseHTTPRequestHandler):
                         length,
                         body,
                     )
+                    if services.access is not None and services.access.handle_post(self, path, body):
+                        return
                     if endpoints.usage is not None and endpoints.usage(self, path, body):
                         return
                     if endpoints.external_events_config is not None and endpoints.external_events_config(self, path, body):

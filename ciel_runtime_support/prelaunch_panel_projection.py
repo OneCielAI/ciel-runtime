@@ -8,6 +8,14 @@ from typing import Any, Callable, Mapping, Protocol
 from ciel_runtime_support.web_endpoints import web_backend_summary
 
 
+def web_access_summary() -> str:
+    """Web account count for the router's sign-in page and API."""
+
+    from ciel_runtime_support import web_access_menu
+
+    return web_access_menu.summary(web_access_menu.default_accounts())
+
+
 def oauth_tokens_summary() -> str:
     """Stored token count for this workspace's rotating Codex/Claude sign-ins."""
 
@@ -101,6 +109,7 @@ class MainMenuProjection:
             f"14. {self.ports.ui_text('web_backend', language)}  "
             f"[{web_backend_summary(config, 0)}]",
             f"15. OAuth tokens  [{oauth_tokens_summary()}]",
+            f"16. Web access  [{web_access_summary()}]",
             self.ports.ui_text("quit", language),
         ]
 

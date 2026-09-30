@@ -8,11 +8,13 @@ never refresh the same refresh token.
 from __future__ import annotations
 
 import base64
+from dataclasses import dataclass
 import hashlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import secrets
 import socket
 import threading
+import time
 from typing import Any, Callable
 import urllib.parse
 import webbrowser
@@ -83,15 +85,40 @@ class LoopbackCallback:
 
         self.server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
         self.port = int(self.server.server_address[1])
+        self._closed = False
+        self._close_lock = threading.Lock()
+        self._expiry: threading.Timer | None = None
         threading.Thread(target=self.server.serve_forever, name="ciel-oauth-callback", daemon=True).start()
 
     @property
     def received(self) -> bool:
         return self._received.is_set()
 
+    @property
+    def closed(self) -> bool:
+        return self._closed
+
     def close(self) -> None:
+        with self._close_lock:
+            if self._closed:
+                return
+            self._closed = True
+            if self._expiry is not None:
+                self._expiry.cancel()
         self.server.shutdown()
         self.server.server_close()
+
+    def expire_after(self, timeout: float) -> None:
+        """Close the listener after ``timeout`` even if nobody is waiting on it.
+
+        The pasted-redirect path blocks on the user's input, not on this
+        server, so without this an abandoned sign-in kept the port open.
+        """
+
+        timer = threading.Timer(max(0.0, timeout), self.close)
+        timer.daemon = True
+        self._expiry = timer
+        timer.start()
 
     def wait(self, timeout: float) -> dict[str, str]:
         try:
@@ -157,10 +184,8 @@ def login(
             f"port {endpoints.callback_port} is in use (another {provider} sign-in may be open); close it and retry"
         )
     port = callback.port if callback is not None else endpoints.callback_port
-    redirect_uri = f"http://localhost:{port}{endpoints.callback_path}"
-    verifier, challenge = pkce_pair()
-    state = secrets.token_urlsafe(24)
-    url = authorize_url(endpoints, redirect_uri, state, challenge)
+    pending = begin_sign_in(provider, port=port)
+    url = pending.url
     output(f"Sign in to {provider} in the browser. If it does not open, visit:\n{url}")
     try:
         open_browser(url)
@@ -170,6 +195,8 @@ def login(
         assert callback is not None
         result = callback.wait(timeout)
     else:
+        if callback is not None:
+            callback.expire_after(timeout)
         try:
             pasted = redirect_input()
             result = dict(callback.result) if callback is not None and callback.received else parse_pasted_redirect(pasted)
@@ -178,9 +205,52 @@ def login(
                 callback.close()
         if not result:
             raise RuntimeError("sign-in cancelled: no redirect arrived and nothing was pasted")
+    return finish_sign_in(pending, result, post=post)
+
+
+# Claude accepts any localhost port; a pasted sign-in has no listener, so it
+# names a fixed one. Codex's registered redirect is always port 1455.
+PASTE_CALLBACK_PORT = 54545
+
+
+@dataclass(frozen=True, slots=True)
+class PendingSignIn:
+    """One started sign-in: what finish_sign_in needs to exchange its code."""
+
+    provider: str
+    state: str
+    verifier: str
+    redirect_uri: str
+    url: str
+    created_at: float
+
+
+def begin_sign_in(provider: str, *, port: int | None = None, clock: Callable[[], float] = time.time) -> PendingSignIn:
+    endpoints = ENDPOINTS[provider]
+    chosen = port or endpoints.callback_port or PASTE_CALLBACK_PORT
+    redirect_uri = f"http://localhost:{chosen}{endpoints.callback_path}"
+    verifier, challenge = pkce_pair()
+    state = secrets.token_urlsafe(24)
+    return PendingSignIn(
+        provider=provider,
+        state=state,
+        verifier=verifier,
+        redirect_uri=redirect_uri,
+        url=authorize_url(endpoints, redirect_uri, state, challenge),
+        created_at=clock(),
+    )
+
+
+def finish_sign_in(
+    pending: PendingSignIn,
+    result: dict[str, str],
+    *,
+    post: HttpPost = urllib_post,
+) -> tuple[OAuthCredential, str]:
+    endpoints = ENDPOINTS[pending.provider]
     if result.get("error"):
         raise RuntimeError(f"sign-in failed: {result.get('error')} {result.get('error_description', '')}".strip())
-    if result.get("state") != state:
+    if result.get("state") != pending.state:
         raise RuntimeError("sign-in failed: the redirect state does not match this request")
     code = result.get("code") or ""
     if not code:
@@ -188,15 +258,24 @@ def login(
     fields = {
         "grant_type": "authorization_code",
         "code": code,
-        "redirect_uri": redirect_uri,
+        "redirect_uri": pending.redirect_uri,
         "client_id": endpoints.client_id,
-        "code_verifier": verifier,
+        "code_verifier": pending.verifier,
     }
     if endpoints.json_body:
-        fields["state"] = state
+        fields["state"] = pending.state
     payload = token_request(endpoints, fields, post)
-    return credential_from_response(provider, payload)
+    return credential_from_response(pending.provider, payload)
 
 
 __all__ = [
-    "parse_pasted_redirect","LoopbackCallback", "authorize_url", "login", "pkce_pair"]
+    "PASTE_CALLBACK_PORT",
+    "LoopbackCallback",
+    "PendingSignIn",
+    "authorize_url",
+    "begin_sign_in",
+    "finish_sign_in",
+    "login",
+    "parse_pasted_redirect",
+    "pkce_pair",
+]

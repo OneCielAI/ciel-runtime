@@ -171,6 +171,7 @@ class RouterAccessPolicy:
         config: dict[str, Any] | None,
         administrative_token_provider: Callable[[], str],
         bridge_token_provider: Callable[[], str],
+        session_allowed: Callable[[RouterRequest], bool] | None = None,
     ) -> bool:
         try:
             if is_loopback_address(str(handler.client_address[0])):
@@ -202,10 +203,13 @@ class RouterAccessPolicy:
             ):
                 return False
             local_token = str(handler.headers.get("x-ciel-runtime-token") or "").strip()
-            return bool(expected and (
+            if expected and (
                 (supplied and hmac.compare_digest(expected, supplied))
                 or (local_token and hmac.compare_digest(expected, local_token))
-            ))
+            ):
+                return True
+            # A signed-in web account is the other way in (web_access_http).
+            return bool(session_allowed is not None and session_allowed(handler))
         return False
 
 
@@ -239,6 +243,22 @@ class RouterExternalTokenRepository:
         os.chmod(temporary, 0o600)
         temporary.replace(self.path)
         return token
+
+    def rotate(self) -> str:
+        """Replace the stored token; the old one stops working at once.
+
+        Requests read the token from the file every time, so a running router
+        needs no restart. A token pinned by the environment cannot be rotated
+        here.
+        """
+
+        if str(self.environ.get(self.env_name) or "").strip():
+            raise RuntimeError(f"The token is set by {self.env_name}; change that variable instead.")
+        try:
+            self.path.unlink()
+        except FileNotFoundError:
+            pass
+        return self.ensure()
 
 
 @dataclass(frozen=True, slots=True)
@@ -276,6 +296,17 @@ class RouterAccessConfigService:
         ]
 
 
+def _wants_login_page(handler: RouterRequest) -> bool:
+    """A browser navigating to a page gets the sign-in form instead of JSON."""
+
+    try:
+        method = str(getattr(handler, "command", "") or "")
+        accept = str(handler.headers.get("accept") or "")
+    except Exception:
+        return False
+    return method == "GET" and "text/html" in accept
+
+
 @dataclass(frozen=True, slots=True)
 class RouterAccessHttpController:
     request_allowed: Callable[
@@ -295,6 +326,13 @@ class RouterAccessHttpController:
         if self.request_allowed(handler, config):
             return False
         external_enabled = self.external_access_enabled(config)
+        if external_enabled and _wants_login_page(handler):
+            target = urllib.parse.quote(str(getattr(handler, "path", "/") or "/"), safe="")
+            handler.send_response(303)
+            handler.send_header("location", f"/ca/login?next={target}")
+            handler.send_header("content-length", "0")
+            handler.end_headers()
+            return True
         status = 401 if external_enabled else 403
         message = (
             "ciel-runtime router external authentication is required."

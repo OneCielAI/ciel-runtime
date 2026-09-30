@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from ciel_runtime_support.llm_presentation_data import LLM_OPTION_TOGGLE_KEYS
-from ciel_runtime_support import oauth_token_menu
+from ciel_runtime_support import oauth_token_menu, web_access_menu
 from ciel_runtime_support.prelaunch_launch_preference import (
     preferred_launch_panel_index,
     remember_launch_action,
@@ -42,6 +42,7 @@ MAIN_MENU_ACTIONS: tuple[str, ...] = (
     "request-limits",
     "web-backend",
     "oauth-tokens",
+    "web-access",
     "quit",
 )
 
@@ -364,6 +365,10 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
             panel_rows, panel_values = request_limit_panel_rows(cfg)
         elif name == "oauth-tokens":
             panel_rows, panel_values = oauth_token_menu.panel_rows(_workspace_state_dir())
+        elif name == "web-access":
+            panel_rows, panel_values = web_access_menu.panel_rows(
+                web_access_menu.default_accounts(), web_access_menu.default_token_repository()
+            )
         if panel_rows:
             panel_idx = max(0, min(panel_idx, len(panel_rows) - 1))
 
@@ -1029,6 +1034,32 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                     finally:
                         restore_raw_mode()
                     panel_rows, panel_values = oauth_token_menu.panel_rows(_workspace_state_dir())
+                    panel_idx = max(0, min(panel_idx, len(panel_rows) - 1))
+                elif panel == "web-access":
+                    if value == "back":
+                        close_panel()
+                        continue
+                    accounts = web_access_menu.default_accounts()
+                    token_repository = web_access_menu.default_token_repository()
+                    messages = web_access_menu.apply(
+                        value,
+                        accounts,
+                        token_repository,
+                        lambda label, default: prompt_menu_value(
+                            label,
+                            default,
+                            restore_tty=restore_line_mode,
+                            raw_tty=restore_raw_mode,
+                        ),
+                        lambda label: prompt_menu_value(
+                            label,
+                            "",
+                            secret=True,
+                            restore_tty=restore_line_mode,
+                            raw_tty=restore_raw_mode,
+                        ),
+                    )
+                    panel_rows, panel_values = web_access_menu.panel_rows(accounts, token_repository)
                     panel_idx = max(0, min(panel_idx, len(panel_rows) - 1))
                 elif panel == "options":
                     if value == "back":

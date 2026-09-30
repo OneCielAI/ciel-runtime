@@ -34,7 +34,7 @@ class OAuthTokenMenuTests(unittest.TestCase):
         return path
 
     def test_menu_offers_the_panel_before_quit(self) -> None:
-        self.assertEqual("oauth-tokens", prelaunch.MAIN_MENU_ACTIONS[-2])
+        self.assertEqual("oauth-tokens", prelaunch.MAIN_MENU_ACTIONS[-3])
         self.assertEqual("quit", prelaunch.MAIN_MENU_ACTIONS[-1])
 
     def test_empty_workspace_offers_sign_in_and_import_for_both_providers(self) -> None:

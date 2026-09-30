@@ -2,6 +2,7 @@ import base64
 import socket
 import json
 import tempfile
+import time
 import unittest
 import urllib.parse
 import urllib.request
@@ -214,6 +215,47 @@ class LoginTests(unittest.TestCase):
     def test_nothing_pasted_and_no_callback_cancels(self) -> None:
         with self.assertRaisesRegex(RuntimeError, "cancelled"):
             login("claude", open_browser=lambda _url: None, post=FakeTokenEndpoint([]), output=lambda _line: None, redirect_input=lambda: "")
+
+    @staticmethod
+    def _callback_port(url: str) -> int:
+        redirect = urllib.parse.parse_qs(urllib.parse.urlparse(url).query)["redirect_uri"][0]
+        return int(urllib.parse.urlparse(redirect).port)
+
+    @staticmethod
+    def _listening(port: int) -> bool:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+            probe.settimeout(0.5)
+            return probe.connect_ex(("127.0.0.1", port)) == 0
+
+    def test_unanswered_callback_port_closes_after_the_timeout(self) -> None:
+        seen: list[str] = []
+        with self.assertRaises(TimeoutError):
+            login("claude", open_browser=seen.append, post=FakeTokenEndpoint([]), output=lambda _line: None, timeout=0.3)
+
+        self.assertFalse(self._listening(self._callback_port(seen[0])))
+
+    def test_callback_port_closes_after_the_timeout_while_waiting_for_a_paste(self) -> None:
+        seen: list[str] = []
+        observed: list[bool] = []
+
+        def slow_paste() -> str:
+            port = self._callback_port(seen[0])
+            observed.append(self._listening(port))
+            time.sleep(1.0)
+            observed.append(self._listening(port))
+            return ""
+
+        with self.assertRaisesRegex(RuntimeError, "cancelled"):
+            login(
+                "claude",
+                open_browser=seen.append,
+                post=FakeTokenEndpoint([]),
+                output=lambda _line: None,
+                timeout=0.3,
+                redirect_input=slow_paste,
+            )
+
+        self.assertEqual([True, False], observed)
 
     def test_pasted_redirect_forms(self) -> None:
         from ciel_runtime_support.oauth_login import parse_pasted_redirect

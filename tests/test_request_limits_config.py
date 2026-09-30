@@ -146,9 +146,10 @@ class WorkspaceRequestLimitTests(unittest.TestCase):
             parse_menu_size("many")
 
     def test_main_menu_action_matches_request_limits_row(self):
-        self.assertEqual("request-limits", prelaunch.MAIN_MENU_ACTIONS[-4])
-        self.assertEqual("web-backend", prelaunch.MAIN_MENU_ACTIONS[-3])
-        self.assertEqual("oauth-tokens", prelaunch.MAIN_MENU_ACTIONS[-2])
+        self.assertEqual("request-limits", prelaunch.MAIN_MENU_ACTIONS[-5])
+        self.assertEqual("web-backend", prelaunch.MAIN_MENU_ACTIONS[-4])
+        self.assertEqual("oauth-tokens", prelaunch.MAIN_MENU_ACTIONS[-3])
+        self.assertEqual("web-access", prelaunch.MAIN_MENU_ACTIONS[-2])
 
 
 if __name__ == "__main__":

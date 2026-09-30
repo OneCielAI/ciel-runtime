@@ -443,6 +443,7 @@ def render_prelaunch_screen(
             "external-events": "External event inputs",
             "workspace-mcp": "Workspace MCP modules",
             "oauth-tokens": "OAuth tokens",
+            "web-access": "Web access",
             "channels": "Channels",
             "context": ui_text("context_setup", lang),
             "preset": ui_text("presets", lang),

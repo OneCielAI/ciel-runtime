@@ -1991,6 +1991,7 @@ def render_router_home_page(
 ) -> str:
     links = [
         ("Events UI", "/ca/events", "Live router event stream with filters"),
+        ("Admin", "/ca/admin", "OAuth tokens, web accounts and the admin API token"),
         ("Session web chat", "/ca/web/chat", "Bridge messages into the active coding-agent session"),
         ("Recent events JSON", "/ca/events/recent", "Latest structured event records"),
         ("Events SSE", "/ca/events/stream", "Server-sent events stream"),
@@ -2068,6 +2069,7 @@ def render_router_home_page(
     <button class="tab active" data-view="overview">Overview</button>
     <a class="chat-tab" href="/ca/web/chat">Web Chat</a>
     <a class="chat-tab" href="/ca/tui">TUI Live</a>
+    <a class="chat-tab" href="/ca/admin">Admin</a>
     <button class="tab" data-view="settings">LLM Settings</button>
     <button class="tab" data-view="events">Events</button>
     <button class="tab" data-view="endpoints">Endpoints</button>

@@ -20,7 +20,7 @@ from typing import Any, Callable, Iterable
 
 from ciel_runtime_support import anthropic_model_policy
 from ciel_runtime_support import channel_cursor_repository as channel_cursor_storage, hosted_formula_tools
-from ciel_runtime_support import channel_llm_context, claude_launch_assembly, cli_assembly, cli_dispatch, cli_parser, codex_launch_configuration, codex_turn_recovery, kimi_identity, llm_option_config, llm_presets, native_context_recovery
+from ciel_runtime_support import channel_llm_context, claude_launch_assembly, cli_assembly, cli_dispatch, cli_parser, codex_launch_configuration, codex_turn_recovery, kimi_identity, llm_option_config, llm_presets, native_context_recovery, web_access_http
 from ciel_runtime_support import muse_catalog, muse_oauth, ollama_catalog as ollama_catalog_policy
 from ciel_runtime_support import openai_chat_compatibility_bridge, otlp_logs, prelaunch, prelaunch_assembly, provider_catalog_sources, provider_models, provider_network, rate_limit_policy, router_request_assembly, router_server_runtime, runtime_asset_assembly, runtime_launch, runtime_primitives, terminal_platform_io, windows_console_mode
 from ciel_runtime_support.prelaunch_launch_panel import launch_panel_rows as project_launch_panel_rows
@@ -2418,7 +2418,7 @@ router_bind_host = _ROUTER_ACCESS_POLICY.bind_host
 router_external_access_token, ensure_router_external_access_token = _ROUTER_EXTERNAL_TOKEN_REPOSITORY.get, _ROUTER_EXTERNAL_TOKEN_REPOSITORY.ensure
 remote_bridge_access_token, ensure_remote_bridge_access_token = _REMOTE_BRIDGE_TOKEN_REPOSITORY.get, _REMOTE_BRIDGE_TOKEN_REPOSITORY.ensure
 _REMOTE_BRIDGE = RemoteBridgeRuntimeApi(normalize_provider, parse_bool, os.environ, PROVIDER_LABELS, cached_or_configured_model_ids, model_object, alias_for, get_current_provider, provider_has_api_key, read_model_info_cache)
-def router_request_allowed(handler: BaseHTTPRequestHandler, cfg: dict[str, Any] | None = None) -> bool: return _ROUTER_ACCESS_POLICY.request_allowed(handler, cfg, router_external_access_token, remote_bridge_access_token)
+def router_request_allowed(handler: BaseHTTPRequestHandler, cfg: dict[str, Any] | None = None) -> bool: return _ROUTER_ACCESS_POLICY.request_allowed(handler, cfg, router_external_access_token, remote_bridge_access_token, web_access_http.request_has_web_session)
 def set_router_debug_external_access_config(value: Any) -> list[str]: return RouterAccessConfigService(policy=_ROUTER_ACCESS_POLICY, ports=RouterAccessMutationPorts(load_config=load_config, save_config=save_config, clear_model_cache=clear_model_cache, ensure_token=ensure_router_external_access_token)).set_external_access(value)
 def schedule_router_process_restart(delay: float = 0.8) -> None: schedule_router_restart(delay, Path(__file__).resolve(), router_log)
 _OLLAMA_CONTEXT_POLICY = OllamaRequestContextPolicy(
@@ -2998,7 +2998,7 @@ def _router_server_context() -> RouterServerContext:
                                      handle_plan_post, route_runtime_post, handle_external_event_raw_post, handle_external_event_config_post, handle_usage_post, telemetry_raw=_TELEMETRY_LOG_RUNTIME.http.post),
         presentation=RouterHttpPresentation(render_router_home_html, router_health_payload, write_text_response, write_json, list_model_objects_for_request, resolve_requested_model, model_object, _REMOTE_BRIDGE.model_objects, muse_catalog.muse_model_catalog),
         errors=RouterHttpErrors(write_openai_responses_error, try_write_json),
-        files=RouterHttpFileEndpoints(provider_files.get, provider_files.post, provider_files.delete),
+        files=RouterHttpFileEndpoints(provider_files.get, provider_files.post, provider_files.delete), access=web_access_http.default_controller(write_json, write_text_response, _ROUTER_EXTERNAL_TOKEN_REPOSITORY, router_external_access_enabled),
     )
     server_runtime = router_server_runtime.RouterServerRuntime(
         router_server_runtime.RouterServerConfig(ROUTER_INSTANCE_DIR, PID_PATH, ROUTER_PORT, ROUTER_BASE, LOG_LEVEL_PATH, LOG_LEVEL_NAMES, RouterHandler),
