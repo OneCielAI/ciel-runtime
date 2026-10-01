@@ -1,0 +1,26 @@
+okf_version: "1.0"
+task: "Push nightly; if npm publishing still fails, switch Ciel Runtime's self-update from the npm registry to the GitHub repository so later pushes reach installs automatically."
+reported: "User, 2026-10-01: '나이트리 푸시해봐 여전히 npm에서 문제가생기면, 스스로 업데이트하는 스타일을 npm에서 깃허브 레포를 직접 호출하는형태로 일단변경해서 다음부터는 자동업데이트가되게해'."
+push_1:
+  commit: "e7062c7 feat(channel): session control for every runtime, codex-remote, and Codex Enter fix"
+  npm_publish: "failure: 'npm error 404 Not Found - PUT https://registry.npmjs.org/@oneciel-ai%2fciel-runtime' for 0.2.51-nightly.20261001-164554.e7062c7. Same error on every nightly run since 2026-09-30 04:31 (runs 36669201535 .. 36733351171). npm dist-tags stay latest=0.2.51, nightly=0.2.51-nightly.20260924-003723.ae32250."
+  ci: "failure in the runtime group after 'Ran 343 tests ... OK': run_test_group cleanup 'OSError: [Errno 39] Directory not empty'. Cause found in the code: CodexBareAppServerSession's channel client waited for /readyz without an alive check, so after a mocked app-server exited it kept polling for READY_TIMEOUT and logged into the isolated state dir; stop() joined 5 s per launch test ('Launching Codex App Server' every 5 s in the log)."
+changes:
+  ci_fix: "codex_app_server_session: the bare session sets a server_done event when run_server returns and passes alive=lambda: not server_done.is_set() to wait_ready. Test test_bare_server_exit_ends_the_clients_readiness_wait. Runtime group 22 s -> 3.5 s."
+  github_source: "new ciel_runtime_support/github_runtime_source.py: branch head from https://github.com/OneCielAI/ciel-runtime.git/info/refs?service=git-upload-pack (public, no API token or rate limit; pkt-line length prefix stripped), install spec https://codeload.github.com/OneCielAI/ciel-runtime/tar.gz/<sha>, marker .ciel-runtime-source.json {source, repository, branch, sha} in the package root."
+  lifecycle: "package_lifecycle.SelfUpdateLifecycle(current_version, ports, github=GitHubSourcePorts|None): with GitHub ports and CIEL_RUNTIME_UPDATE_SOURCE != npm, branch = marker branch, else CIEL_RUNTIME_UPDATE_BRANCH, else nightly/main by version; installed commit = marker sha or the nightly version's short sha; up to date when the remote head starts with it; otherwise npm install -g --prefix <same prefix> <tarball>, write the marker, restart. GitHub unreadable -> existing npm registry check. Ports passed outside SelfUpdatePorts (architecture contract caps that dataclass at 10 fields). Wired in runtime_maintenance_services.self_update."
+  bootstrap_note: "npm keeps no record of the tarball a global install came from (no .package-lock.json, no _resolved in the scratch-prefix install), so a first GitHub install has no marker; CIEL_RUNTIME_UPDATE_BRANCH names its branch until the first self-update writes the marker."
+  docs: "docs/install.md (GitHub install command, self-update source section, two variables), CHANGELOG Unreleased."
+push_2:
+  commit: "8ee366b feat(update): self-update from the GitHub repository"
+  ci: "success (run 36895823137)."
+  npm_publish: "failure, same E404 (run 36895823139)."
+verification (Windows, scratch npm prefix, real GitHub + npm, ciel env vars cleared, restart stubbed to print):
+  update_from_older_commit: "Installed tarball 8ee366b, wrote marker sha e7062c7, added a STALE-SENTINEL file. Self-update printed 'update available: 0.2.51 (e7062c7) -> nightly@8ee366b', 'changed 1 package', 'Restarting with the new version'; sentinel gone (package folder replaced); marker sha 8ee366b668e8...; restart requested with the prefix's package root."
+  already_current: "Second run: updated: False, no install."
+  bootstrap: "Marker removed, CIEL_RUNTIME_UPDATE_BRANCH=nightly: 'unknown commit -> nightly@8ee366b', installed, marker written; next run without the variable: updated: False."
+tests: "tests/test_github_runtime_source.py (10), test_package_lifecycle, test_headless_update_checks (npm path pinned with CIEL_RUNTIME_UPDATE_SOURCE=npm), test_architecture_contracts: 262 passed. WSL groups: unit 1705 OK (skipped=55), router 1158 OK, channel 447 OK (skipped=80), runtime 344 OK (skipped=19). ruff clean, docs metadata check passed."
+not_done:
+  - "npm publish E404 not fixed (needs the NPM_TOKEN secret / package permission; not something to change from here)."
+  - "Existing installs (npm 0.2.51 / nightly 0.2.51-nightly.20260924) do not contain this code, so each needs one manual GitHub install before updates become automatic."
+  - "ciel-runtime --ca-upgrade-and-exit (RuntimeUpgradeService) still uses the npm registry; only the automatic self-update was switched."
