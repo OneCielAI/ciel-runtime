@@ -376,7 +376,9 @@ class ChannelTranscriptRepository:
                     ):
                         continue
                     normalized_session_cwd = self._normalized_cwd(session_cwd)
-                    if scope_cwd and normalized_session_cwd and normalized_session_cwd != scope_cwd:
+                    # Explicit resume identity survives workspace/OS migration;
+                    # the original session_meta cwd remains historical.
+                    if not scope_session_id and scope_cwd and normalized_session_cwd and normalized_session_cwd != scope_cwd:
                         continue
                 if runtime == "claude" and (scope_cwd or scope_session_id):
                     _session_started_at, session_cwd, session_id = (
