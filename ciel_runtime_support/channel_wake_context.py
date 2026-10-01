@@ -39,6 +39,8 @@ from .channel_transcript_repository import ChannelTranscriptRepository
 from .channel_wake_claim_repository import ChannelWakeClaimRepository
 from .channel_wake_delivery_repository import ChannelWakeDeliveryRepository
 
+CODEX_LATE_CONFIRM_SECONDS = 15.0
+
 
 @dataclass(frozen=True, slots=True)
 class ChannelWakeClaimPorts:
@@ -334,21 +336,22 @@ class ChannelWakeContext:
             if submit_delay_seconds is None
             else max(0.0, float(submit_delay_seconds))
         )
+        codex_conpty = self.transcript.scope.get("runtime") == "codex" and bool(
+            getattr(master_fd, "supports_prompt_ready_wait", False)
+        )
         submission_receipt = None
         if confirm_submit and getattr(master_fd, "supports_prompt_ready_wait", False):
-            from .submission_receipt import TranscriptSubmissionReceipt
+            from .submission_receipt import LatestTranscriptSubmissionReceipt
 
-            def submission_receipt() -> bool:
-                return False
-
-            path = self.transcript_policy.latest_transcript()
-            if path is not None:
-                try:
-                    submission_receipt = TranscriptSubmissionReceipt(path, prompt)
-                except OSError:
-                    self.input.log("WARN", "channel_input_receipt unavailable=transcript_unreadable confirmation=fail_closed")
-            else:
-                self.input.log("WARN", "channel_input_receipt unavailable=transcript_missing confirmation=fail_closed")
+            try:
+                submission_receipt = LatestTranscriptSubmissionReceipt(self.transcript_policy.latest_transcript, prompt)
+            except OSError:
+                submission_receipt = LatestTranscriptSubmissionReceipt(lambda: None, prompt)
+                self.input.log("WARN", "channel_input_receipt unavailable=transcript_unreadable confirmation=pending_new_transcript")
+            if not submission_receipt.watching:
+                # The prompt may open the session's first transcript; the
+                # receipt picks it up once the CLI creates it.
+                self.input.log("INFO", "channel_input_receipt transcript_missing confirmation=awaiting_new_transcript")
         injector = channel_injection.ChannelPromptInjector(
             sleep=self.input.sleep,
             retry_delay_seconds=self.input.retry_delay_seconds,
@@ -370,6 +373,18 @@ class ChannelWakeContext:
                     submit_attempts=max(1, min(8, int(submit_retry_count or 1))),
                     confirm_submission=confirm_submit,
                     bracketed_paste=bracketed_paste,
+                    # Codex 0.157+ (fullscreen transcript by default) can still be
+                    # counting the injected keys as a paste burst when Enter
+                    # arrives; every Enter then became a newline and the prompt
+                    # stayed in the composer (ara, 2026-10-01).
+                    submit_prefix=(
+                        channel_injection.CODEX_PASTE_BURST_BREAK
+                        if codex_conpty
+                        else b""
+                    ),
+                    # The same slow Codex submitted queued keys ~2 s after the
+                    # last Enter; keep watching the transcript before failing.
+                    late_confirm_seconds=CODEX_LATE_CONFIRM_SECONDS if codex_conpty else 0.0,
                 ),
             ),
         )

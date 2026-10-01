@@ -192,6 +192,133 @@ class ChannelPromptInjectorTests(unittest.TestCase):
             logs,
         )
 
+    def test_conpty_submit_prefix_precedes_every_enter(self) -> None:
+        transport = FakeConPtyTransport()
+        receipts = iter((False, False, False, True))
+        injector = ChannelPromptInjector(
+            sleep=lambda _seconds: None,
+            retry_delay_seconds=lambda: 0.0,
+            snapshot=lambda: None,
+            log=lambda _level, _message: None,
+            submission_receipt=lambda: next(receipts),
+        )
+
+        submitted = injector.inject(
+            transport,
+            PromptInjection(
+                prompt="external message",
+                policy=RuntimeInjectionPolicy(
+                    runtime="interactive-cli",
+                    clear_input=b"\x15",
+                    submit_input=b"\r",
+                    submit_delay_seconds=0.0,
+                    submit_attempts=4,
+                    confirm_submission=True,
+                    submit_prefix=b"\x1b[F",
+                ),
+            ),
+        )
+
+        self.assertTrue(submitted)
+        self.assertEqual(
+            [b"\x15external message", b"\x1b[F\r", b"\x1b[F\r"], transport.writes
+        )
+
+    def test_late_receipt_confirms_without_more_input(self) -> None:
+        transport = FakeConPtyTransport()
+        receipts = iter([False] * 8 + [False, True])
+        logs: list[str] = []
+        pauses: list[float] = []
+        injector = ChannelPromptInjector(
+            sleep=pauses.append,
+            retry_delay_seconds=lambda: 0.0,
+            snapshot=lambda: None,
+            log=lambda _level, message: logs.append(message),
+            submission_receipt=lambda: next(receipts),
+        )
+
+        submitted = injector.inject(
+            transport,
+            PromptInjection(
+                prompt="external message",
+                policy=RuntimeInjectionPolicy(
+                    runtime="interactive-cli",
+                    clear_input=b"\x15",
+                    submit_input=b"\r",
+                    submit_delay_seconds=0.0,
+                    submit_attempts=4,
+                    confirm_submission=True,
+                    late_confirm_seconds=15.0,
+                ),
+            ),
+        )
+
+        self.assertTrue(submitted)
+        self.assertEqual(5, len(transport.writes))
+        self.assertEqual([0.25, 0.25], pauses)
+        self.assertIn("channel_stdin_proxy_submit_confirmed late_seconds=0.50", logs)
+        self.assertNotIn("channel_input_submit_unconfirmed attempts=4", logs)
+
+    def test_late_receipt_window_expires_as_unconfirmed(self) -> None:
+        transport = FakeConPtyTransport()
+        logs: list[str] = []
+        injector = ChannelPromptInjector(
+            sleep=lambda _seconds: None,
+            retry_delay_seconds=lambda: 0.0,
+            snapshot=lambda: None,
+            log=lambda _level, message: logs.append(message),
+            submission_receipt=lambda: False,
+        )
+
+        submitted = injector.inject(
+            transport,
+            PromptInjection(
+                prompt="external message",
+                policy=RuntimeInjectionPolicy(
+                    runtime="interactive-cli",
+                    clear_input=b"\x15",
+                    submit_input=b"\r",
+                    submit_delay_seconds=0.0,
+                    submit_attempts=2,
+                    confirm_submission=True,
+                    late_confirm_seconds=1.0,
+                ),
+            ),
+        )
+
+        self.assertFalse(submitted)
+        self.assertEqual(3, len(transport.writes))
+        self.assertIn("channel_input_submit_unconfirmed attempts=2", logs)
+
+    def test_windows_stages_write_submit_prefix_before_each_submit(self) -> None:
+        transport = FakeWindowsTransport()
+        logs: list[str] = []
+        injector = ChannelPromptInjector(
+            sleep=lambda _seconds: None,
+            retry_delay_seconds=lambda: 0.0,
+            snapshot=lambda: None,
+            log=lambda _level, message: logs.append(message),
+        )
+
+        injector.inject(
+            transport,
+            PromptInjection(
+                prompt="external message",
+                policy=RuntimeInjectionPolicy(
+                    runtime="interactive-cli",
+                    clear_input=b"\x15",
+                    submit_input=b"\r",
+                    submit_delay_seconds=0.0,
+                    submit_prefix=b"\x1b[F",
+                ),
+            ),
+        )
+
+        self.assertEqual(
+            [b"\x15", b"external message", b"\x1b[F", b"\r"], transport.writes
+        )
+        self.assertTrue(any("stage=submit-prefix-1" in line for line in logs))
+
     def test_windows_stages_clear_body_and_submit_and_flattens_newlines(self) -> None:
         transport = FakeWindowsTransport()
         logs: list[str] = []

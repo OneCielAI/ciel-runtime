@@ -37,6 +37,7 @@ class CliRuntime:
     launch_zcode: Any = lambda *_args, **_kwargs: 127
     launch_muse: Any = lambda *_args, **_kwargs: 127
     launch_codex_desktop: Any = lambda *_args, **_kwargs: 127
+    launch_codex_remote: Any = lambda *_args, **_kwargs: 127
 
 
 @dataclass(frozen=True)
@@ -129,6 +130,7 @@ def dispatch_cli(argv: list[str], services: CliServices) -> int:
     launch_zcode = services.runtime.launch_zcode
     launch_muse = services.runtime.launch_muse
     launch_codex_desktop = services.runtime.launch_codex_desktop
+    launch_codex_remote = services.runtime.launch_codex_remote
     load_config = services.core.load_config
     native_agy_enabled = services.runtime.native_agy_enabled
     native_codex_enabled = services.runtime.native_codex_enabled
@@ -163,6 +165,8 @@ def dispatch_cli(argv: list[str], services: CliServices) -> int:
             return launch_muse(rest)
         if head in ("codex-desktop", "codex-desktop-app", "launch-codex-desktop"):
             return launch_codex_desktop(rest)
+        if head in ("codex-remote", "launch-codex-remote"):
+            return launch_codex_remote(rest)
         if head in ("version", "--version", "-v"):
             print(f"ciel-runtime {VERSION}")
             return 0
@@ -407,8 +411,8 @@ def dispatch_cli(argv: list[str], services: CliServices) -> int:
                 runtime = "muse"
             if runtime == "codex-desktop-app":
                 runtime = "codex-desktop"
-            if runtime not in ("claude", "codex", "codex-app-server", "codex-desktop", "agy", "grok", "zcode", "muse", "last"):
-                raise SystemExit("--ca-runtime must be claude, codex, codex-app-server, codex-desktop, agy, grok, zcode, muse, or last")
+            if runtime not in ("claude", "codex", "codex-app-server", "codex-desktop", "codex-remote", "agy", "grok", "zcode", "muse", "last"):
+                raise SystemExit("--ca-runtime must be claude, codex, codex-app-server, codex-desktop, codex-remote, agy, grok, zcode, muse, or last")
         elif arg in ("--ca-no-launch", "--ca-configure-only", "--ca-setup-only"):
             configure_only = True
             skip_menu = True
@@ -779,7 +783,7 @@ def dispatch_cli(argv: list[str], services: CliServices) -> int:
         return 0
     if runtime == "last":
         remembered_runtime = str(last_launch_runtime() or "").strip().lower()
-        runtime = remembered_runtime if remembered_runtime in {"claude", "codex", "codex-desktop", "agy", "grok", "zcode", "muse"} else "claude"
+        runtime = remembered_runtime if remembered_runtime in {"claude", "codex", "codex-desktop", "codex-remote", "agy", "grok", "zcode", "muse"} else "claude"
     if runtime == "agy":
         return launch_agy(
             passthrough,
@@ -806,6 +810,14 @@ def dispatch_cli(argv: list[str], services: CliServices) -> int:
         )
     if runtime == "codex-desktop":
         return launch_codex_desktop(
+            passthrough,
+            skip_menu=skip_menu,
+            force_menu=force_menu,
+            update_check=update_check,
+            self_update_check=self_update_check,
+        )
+    if runtime == "codex-remote":
+        return launch_codex_remote(
             passthrough,
             skip_menu=skip_menu,
             force_menu=force_menu,

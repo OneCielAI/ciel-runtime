@@ -3,7 +3,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from ciel_runtime_support.submission_receipt import TranscriptSubmissionReceipt
+from ciel_runtime_support.submission_receipt import LatestTranscriptSubmissionReceipt, TranscriptSubmissionReceipt
 from ciel_runtime_support.windows_conpty import WindowsConPtySession
 from ciel_runtime_support.channel_injection import ChannelPromptInjector, PromptInjection, RuntimeInjectionPolicy
 
@@ -23,6 +23,31 @@ class SubmissionReceiptTests(unittest.TestCase):
             with p.open('ab') as f:
                 f.write(b'\n')
             self.assertTrue(receipt())
+
+    def test_latest_receipt_confirms_from_a_transcript_created_after_typing(self):
+        with tempfile.TemporaryDirectory() as d:
+            old, new = Path(d) / 'old.jsonl', Path(d) / 'new.jsonl'
+            old.write_text('{}\n')
+            current = {'path': old}
+            receipt = LatestTranscriptSubmissionReceipt(lambda: current['path'], 'id=3 GAMMA', now=lambda: 1790000000.0)
+            self.assertFalse(receipt())
+            record = {'timestamp': '2026-09-21T14:13:21Z', 'type': 'response_item',
+                      'payload': {'type': 'message', 'role': 'user', 'content': [{'type': 'input_text', 'text': 'id=3 GAMMA'}]}}
+            new.write_text(json.dumps(record) + '\n')
+            current['path'] = new
+            self.assertTrue(receipt())
+
+    def test_latest_receipt_ignores_older_records_in_a_newly_seen_transcript(self):
+        with tempfile.TemporaryDirectory() as d:
+            other = Path(d) / 'other.jsonl'
+            current = {'path': None}
+            receipt = LatestTranscriptSubmissionReceipt(lambda: current['path'], 'repeat me', now=lambda: 1790000000.0)
+            self.assertFalse(receipt.watching)
+            stale = {'timestamp': '2026-09-01T00:00:00Z', 'message': {'role': 'user', 'content': 'repeat me'}}
+            unstamped = {'message': {'role': 'user', 'content': 'repeat me'}}
+            other.write_text(json.dumps(stale) + '\n' + json.dumps(unstamped) + '\n')
+            current['path'] = other
+            self.assertFalse(receipt())
 
     def test_display_wrap_and_ansi_paste_marker(self):
         self.assertTrue(WindowsConPtySession._prompt_rendered_in_output(

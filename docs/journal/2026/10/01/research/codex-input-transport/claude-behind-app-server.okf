@@ -1,0 +1,16 @@
+okf_version: "1.0"
+task: "Can Claude be served behind an app-server, or can ciel offer a Codex-app-server-like interface for Claude?"
+reported: "User, 2026-10-01: '그럼 우리가 claude도 app server뒤에서 서빙하게 할수있거나 혹은 유사한 인터페이스를 제공할수도있겟네'."
+confirmed:
+  claude_cli_local: "claude 2.1.286 --help: -p/--print, --input-format text|stream-json, --output-format text|json|stream-json, --replay-user-messages, -r/--resume, --session-id, --fork-session, --remote-control [name], subcommands agents, attach <id>, logs <id>, respawn, rm (background sessions)."
+  ciel_existing: "ciel_runtime_support/claude_session_socket.py: Claude Code cross-session socket transport (Windows named pipe \\\\.\\pipe\\LOCAL\\cc-msg-<nonce>) already used to submit channel input into a live Claude Code TUI."
+  codex_router_non_openai: "ara-ai runs Codex routed through ciel with provider nvidia-hosted (config.json current_provider), i.e. the Codex agent with a non-OpenAI model behind ciel's router."
+docs_research (claude-code-guide agent, official docs, not executed locally):
+  - "No documented multi-client server protocol for Claude Code comparable to codex app-server (background supervisor `claude daemon`, `claude agents`, `--bg` exist without a public client protocol). https://code.claude.com/docs/en/cli-reference.md"
+  - "Remote Control: one local session to claude.ai/code or mobile; no third-party protocol documented. https://code.claude.com/docs/en/remote-control.md"
+  - "stream-json input schema and mid-turn queueing are not documented for the CLI."
+  - "Agent SDK: resume/fork, listSessions/getSessionMessages (list_sessions/get_session_messages), streaming input (TS Query.streamInput), canUseTool/can_use_tool, interrupt; transcripts ~/.claude/projects/<encoded-cwd>/<session-id>.jsonl. https://code.claude.com/docs/en/agent-sdk/overview.md, .../agent-sdk/sessions.md, .../agent-sdk/python.md, .../agent-sdk/typescript.md"
+not_verified:
+  - "Codex app-server with ciel's Anthropic provider as the upstream (Claude model inside the Codex harness)."
+  - "Any Agent SDK call executed locally; a JSON-RPC facade over the SDK; a Claude Code TUI attaching to such a facade."
+not_changed: "No code change."

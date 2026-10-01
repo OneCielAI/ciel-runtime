@@ -52,8 +52,8 @@ def router_mcp_enabled_for_launch(config: dict[str, Any], *, native: bool) -> bo
     """Whether this launch attaches the router's own MCP server.
 
     The router MCP server carries the session control tools - restart_session
-    (relaunch the CLI with --continue), compact_session, submit_input and
-    llm_options - so routed launches attach it by default.  Native launches
+    (relaunch the CLI with --continue), compact_session, new_session,
+    submit_input and llm_options - so routed launches attach it by default.  Native launches
     leave Claude Code's own backend untouched and keep the previous behavior;
     ``claude_code.router_mcp`` overrides either default.
     """
@@ -649,6 +649,7 @@ def run_claude(
                     ),
                     restart_poll=restart_control.incoming,
                     restart_state=restart_control,
+                    session_command_runtime="claude",
                 )
             elif workspace_mcp_launch is not None and workspace_mcp_launch.active:
                 rc = subprocess_call_with_child_pid_record(
@@ -1116,6 +1117,7 @@ def run_codex(
             ),
             restart_poll=codex_restart_control.incoming,
             restart_state=codex_restart_control,
+            session_command_runtime="codex",
         )
 
     def run_codex_session() -> int:
@@ -1239,9 +1241,14 @@ def run_codex_app_server(
     self_update_check: bool = True,
     *,
     services: CodexAppServerLaunchServices,
-    desktop: Callable[[list[str], dict[str, str], Path], int] | None = None,
+    desktop: Callable[..., int] | None = None,
 ) -> int:
-    """Run app-server; with ``desktop`` the Codex desktop app attaches to it."""
+    """Run app-server; ``desktop`` is the session that runs it.
+
+    A session (codex_app_server_session: bare server, ``--remote`` TUI, desktop
+    app) is called with the server command and ``run_server``, the default
+    foreground run, and names itself through ``display_name``/``launch_mode``.
+    """
     CODEX_RUNTIME_API_KEY_ENV = services.constants.CODEX_RUNTIME_API_KEY_ENV
     CONFIG_DIR = services.constants.CONFIG_DIR
     PRELAUNCH_CANCEL = services.constants.PRELAUNCH_CANCEL
@@ -1417,7 +1424,9 @@ def run_codex_app_server(
         if workspace_mcp is not None and workspace_mcp_launch is not None:
             workspace_mcp.finish(workspace_mcp_launch)
         raise
-    print(f"Launching Codex {'desktop app' if desktop is not None else 'App Server'} through Ciel Runtime.", flush=True)
+    session_label = str(getattr(desktop, "display_name", "desktop app")) if desktop is not None else "App Server"
+    session_mode = str(getattr(desktop, "launch_mode", "codex-desktop-router")) if desktop is not None else ""
+    print(f"Launching Codex {session_label} through Ciel Runtime.", flush=True)
     if "--listen" in cmd:
         try:
             print(f"Codex App Server listen: {cmd[cmd.index('--listen') + 1]}", flush=True)
@@ -1428,14 +1437,12 @@ def run_codex_app_server(
     record_launch_state_for_cwd(
         current_launch_cwd_key(),
         provider,
-        "codex-desktop-router" if desktop is not None
-        else provider_mode_label(provider, pcfg) if native_codex_enabled(provider) else "codex-app-server-router",
+        session_mode
+        or provider_mode_label(provider, pcfg) if native_codex_enabled(provider) else "codex-app-server-router",
         str(pcfg.get("current_model") or ("" if native_codex_enabled(provider) else current_alias(cfg)) or ""),
     )
 
-    def run_codex_app_server_process() -> int:
-        if desktop is not None:
-            return desktop(cmd, env, launch_cwd)
+    def run_server() -> int:
         return subprocess_call_with_child_pid_record(
             cmd,
             env,
@@ -1443,6 +1450,11 @@ def run_codex_app_server(
             if workspace_mcp_launch is not None and workspace_mcp_launch.active
             else codex_process_record_path("app-server"),
         )
+
+    def run_codex_app_server_process() -> int:
+        if desktop is not None:
+            return desktop(cmd, env, launch_cwd, run_server=run_server)
+        return run_server()
 
     try:
         return run_with_router_lifetime(run_codex_app_server_process, manage_router_lifetime)

@@ -1,0 +1,21 @@
+okf_version: "1.0"
+task: "Investigate ara-ai (100.64.0.14:1004, Windows aap-win sandbox u21): an external channel notification stays in the Codex composer and is not submitted."
+reported: "User, 2026-10-01 with a screenshot: composer holds '[ciel-runtime external channel message] ... id=14 ... [Pasted Content 2438 chars]' after 'Model changed to gpt-6.1-sol medium'."
+access: "ssh -p 1004 with ~/.ssh/id_ed25519 lands as nt authority\\system; read-only inspection only (no writes, no process changes)."
+environment:
+  ciel_runtime: "0.2.51; channel files windows_conpty, channel_injection, channel_wake_context, submission_receipt, channel_pending_injection, channel_terminal_proxy are byte-identical (sha256) to the repo."
+  codex: "0.159.3 (npm), launched routed through ciel (-c model_provider=ciel-runtime-codex), Windows user aapw-a21u21, CODEX_HOME C:\\Users\\aapw-a21u21\\.codex."
+  router_log: "C:\\Users\\aapw-a21u21\\AppData\\Roaming\\ciel-runtime\\router-instances\\9178-fe924fced90d\\router.log, log level ERROR (INFO/WARN injection steps not recorded)."
+confirmed:
+  failed_records: "router.log channel_stdin_proxy_blocked reason=prior_submission_failed detail=prompt_not_submitted for message ids 2, 3, 10, 12, 13, 14, 15, 16, 17, 18 (23:54 - 00:15 local)."
+  codex_received: "rollout-2026-09-30T23-47-08-01a0f637... user records and history.jsonl: ids 1, 4, 5, 6, a 2-message batch (id=11..), 13, 14, 15, 16, 17, 20."
+  mismatch_A: "13, 15, 16, 17 are marked prompt_not_submitted yet Codex received them; e.g. 13 reached Codex at 00:09:19 (rollout + logs_2.sqlite op.dispatch.turn_input) and its failure line appears at 00:09:41 when the turn ended."
+  mismatch_B: "2, 3, 10, 12, 18 are marked failed and never reached Codex."
+  screenshot_14: "14 sat in the composer (screenshot) and reached Codex at 00:11:23, about 50 s after its failure line (00:10:33)."
+  state_dir: "Workspace state dir workspaces\\fe924fced90d is empty from the SYSTEM view (no runtime-input-status.jsonl) although the router reads failure records; not explained."
+code_path: "Windows ConPTY transport: ChannelPromptInjector writes ^U + bracketed body, waits for the prompt render (prefix or '[Pasted Content' marker), then Enter up to N times; acceptance is decided only by TranscriptSubmissionReceipt (new user record in the latest Codex rollout containing the whole prompt). If the render wait times out it sends ^U and returns False without Enter; if every receipt check is False it returns False after the Enters."
+not_determined:
+  - "Which step returned False for each message (render timeout vs receipt never matching) - INFO/WARN lines are not logged at ERROR level."
+  - "Who submitted 14 at 00:11:23 (Codex logs_2.sqlite has no key events)."
+  - "Why the workspace state dir looks empty."
+not_changed: "No code or configuration change on ara or in the repo."

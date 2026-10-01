@@ -1892,6 +1892,33 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertEqual(b"\x15\x1b[200~hello\nworld\x1b[201~", write_all.call_args_list[0].args[1])
         self.assertEqual(b"\r", write_all.call_args_list[1].args[1])
 
+    def test_codex_conpty_prompt_ends_paste_burst_before_each_enter(self):
+        class ConPtyTarget:
+            supports_prompt_ready_wait = True
+
+            @staticmethod
+            def wait_until_prompt_ready(*_args, **_kwargs):
+                return True
+
+        old_scope = dict(ciel_runtime._CHANNEL_TRANSCRIPT_SCOPE)
+        try:
+            for runtime, target, expected in (
+                ("codex", ConPtyTarget(), b"\x1b[F\r"),
+                ("claude", ConPtyTarget(), b"\r"),
+                ("codex", 99, b"\r"),
+            ):
+                ciel_runtime._CHANNEL_TRANSCRIPT_SCOPE["runtime"] = runtime
+                with mock.patch.object(ciel_runtime, "_write_fd_all") as write_all:
+                    ciel_runtime._write_channel_wake_prompt(target, "wake", b"\r", submit_delay_seconds=0)
+                self.assertEqual(
+                    [b"\x15wake", expected],
+                    [call.args[1] for call in write_all.call_args_list],
+                    runtime,
+                )
+        finally:
+            ciel_runtime._CHANNEL_TRANSCRIPT_SCOPE.clear()
+            ciel_runtime._CHANNEL_TRANSCRIPT_SCOPE.update(old_scope)
+
     def test_latest_transcript_path_checks_codex_sessions(self):
         with tempfile.TemporaryDirectory() as td:
             home = Path(td)

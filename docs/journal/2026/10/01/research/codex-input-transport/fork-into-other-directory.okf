@@ -1,0 +1,21 @@
+okf_version: "1.0"
+task: "Can a forked session use a different directory / file structure, in Codex app-server and in Claude Code?"
+reported: "User, 2026-10-01: 'app server를 쓰면 동일한 세션을 포크해서 새로운세션 만드는건 아주쉽겟는데.. 이럴때 파일도 다른 파일구조를 사용할수있나>? 혹은 다른 디렉토리로 이동해서? 이때 또, claude도 유사한기능을 할수잇나.'"
+codex:
+  schema: "codex 0.159.3 ThreadForkParams: threadId (required), cwd, lastTurnId ('fork through, inclusive; later turns omitted'), excludeTurns, model, modelProvider, sandbox, approvalPolicy, config, baseInstructions, developerInstructions, ephemeral."
+  script: "scratchpad fork_cwd_exp.py (WSL, headless app-server, stub upstream issuing exec_command 'pwd; ls')."
+  results:
+    - "original thread in project-original (main.py, README.md): 3 turns; command ran there."
+    - "thread/fork cwd=project-variant -> new thread id, cwd project-variant, 3 turns copied; command in the fork listed go.mod, service.go from project-variant; the next model request carried all 3 earlier user messages plus the new one."
+    - "The fork's model request contained both <cwd> values (project-original from copied history, project-variant from the new turn)."
+    - "thread/fork lastTurnId=<turn 1> -> 1 turn copied; next request history ['first: design notes', 'after partial fork']."
+    - "Original thread unchanged after forks (history and cwd); thread/list shows the forks under project-variant and the original under project-original."
+claude_code:
+  script: "scratchpad claude_fork_exp.py (Windows, claude 2.1.286 -p, fake Anthropic endpoint via ANTHROPIC_BASE_URL, scratch CLAUDE_CONFIG_DIR, inherited CIEL_RUNTIME_/ANTHROPIC_/CLAUDE_ vars removed)."
+  results:
+    - "Session created in project-original with --session-id; resumed there; Bash 'pwd; ls' -> project-original, README.md, main.py."
+    - "From project-variant: claude -p --resume <id> --fork-session -> new session id; transcript stored under projects/<...project-variant>/<new id>.jsonl; request history carried the original turns; Bash ran in project-variant (go.mod, service.go)."
+    - "Original session transcript unchanged."
+  not_verified: "Forking through an earlier message (partial fork) with the CLI; Agent SDK forkSession/cwd executed."
+notes: "Fork only changes the working directory; the files there are whatever that directory holds (no copy is made by either tool in these runs)."
+not_changed: "No product code change."

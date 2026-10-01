@@ -222,6 +222,8 @@ class ChannelTerminalContext:
         tracked_child_pid_path: Path | None = None,
         restart_poll: Callable[[], Any] | None = None,
         restart_state: Any = None,
+        session_command_runtime: str = "",
+        session_command_actions: frozenset[str] | None = None,
     ) -> int:
         if inject_channel_messages:
             self.dispatch_ports.prepare_delivery()
@@ -243,6 +245,8 @@ class ChannelTerminalContext:
             tracked_child_pid_path=tracked_child_pid_path,
             restart_poll=restart_poll,
             restart_state=restart_state,
+            session_command_runtime=session_command_runtime,
+            session_command_actions=session_command_actions,
         )
 
     def call_direct(
@@ -303,6 +307,8 @@ class ChannelTerminalCompatibilityApi:
         tracked_child_pid_path: Path | None = None,
         restart_poll: Callable[[], Any] | None = None,
         restart_state: Any = None,
+        session_command_runtime: str = "",
+        session_command_actions: frozenset[str] | None = None,
     ) -> int:
         return self.context().run_windows(
             cmd,
@@ -322,6 +328,8 @@ class ChannelTerminalCompatibilityApi:
             tracked_child_pid_path=tracked_child_pid_path,
             restart_poll=restart_poll,
             restart_state=restart_state,
+            session_command_runtime=session_command_runtime,
+            session_command_actions=session_command_actions,
         )
 
     def dispatch(
@@ -342,6 +350,8 @@ class ChannelTerminalCompatibilityApi:
         tracked_child_pid_path: Path | None = None,
         restart_poll: Callable[[], Any] | None = None,
         restart_state: Any = None,
+        session_command_runtime: str = "",
+        session_command_actions: frozenset[str] | None = None,
     ) -> int:
         return self.context().dispatch(
             cmd,
@@ -361,6 +371,8 @@ class ChannelTerminalCompatibilityApi:
             tracked_child_pid_path=tracked_child_pid_path,
             restart_poll=restart_poll,
             restart_state=restart_state,
+            session_command_runtime=session_command_runtime,
+            session_command_actions=session_command_actions,
         )
 
     def call_direct(

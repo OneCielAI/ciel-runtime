@@ -19,6 +19,10 @@ class ChannelCompactInjectionOptions:
     confirm_submit: bool
     bracketed_paste: bool
     submit_delay_seconds: float | None
+    # The CLI the proxy wraps (selects /clear or /new for new_session) and
+    # the queued actions it types; None means every action.
+    runtime: str = ""
+    actions: frozenset[str] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,6 +62,8 @@ def poll_pending_compaction(
         confirm_submit=options.confirm_submit,
         bracketed_paste=options.bracketed_paste,
         submit_delay_seconds=options.submit_delay_seconds,
+        runtime=options.runtime,
+        actions=options.actions,
     )
     defer_logged_at = state.defer_logged_at
     if status == "deferred" and log_defer:

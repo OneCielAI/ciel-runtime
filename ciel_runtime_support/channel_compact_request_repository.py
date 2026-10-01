@@ -1,4 +1,9 @@
-"""Persistent single-slot repository for channel-triggered compact requests."""
+"""Persistent single-slot repository for channel-triggered session commands.
+
+The slot holds one queued command from the ``compact_session`` or
+``new_session`` MCP tools; ``action`` says which.  A request written before
+``action`` existed is a compaction.
+"""
 
 from __future__ import annotations
 
@@ -9,6 +14,13 @@ import uuid
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
+
+SESSION_COMMAND_ACTIONS = ("compact", "new_session")
+
+
+def session_command_action(value: Any) -> str:
+    action = str(value or "").strip().lower()
+    return action if action in SESSION_COMMAND_ACTIONS else "compact"
 
 
 class ChannelCompactRequestRepository:
@@ -28,11 +40,15 @@ class ChannelCompactRequestRepository:
         self.log = log
         self.ttl = ttl
 
-    def payload(self, source: str, reason: str) -> dict[str, Any]:
+    def payload(self, source: str, reason: str, action: str = "compact") -> dict[str, Any]:
         now = time.time()
+        action = session_command_action(action)
         return {
             "id": uuid.uuid4().hex,
-            "command": "/compact",
+            "action": action,
+            # The runtime-neutral name; each consumer maps it to its own
+            # slash command or app-server request.
+            "command": "/compact" if action == "compact" else "/new",
             "source": str(source or "mcp"),
             "reason": self.truncate(str(reason or ""), 1000),
             "requested_at": now,
@@ -40,13 +56,14 @@ class ChannelCompactRequestRepository:
             "pid": os.getpid(),
         }
 
-    def queue(self, source: str = "mcp", reason: str = "") -> dict[str, Any]:
-        request = self.payload(source, reason)
+    def queue(self, source: str = "mcp", reason: str = "", action: str = "compact") -> dict[str, Any]:
+        request = self.payload(source, reason, action)
         with self.lock:
             self.save(request, "channel_compact_request")
         self.log(
             "INFO",
-            f"channel_compact_request_queued id={request['id']} source={request['source']}",
+            f"channel_compact_request_queued id={request['id']} source={request['source']} "
+            f"action={request['action']}",
         )
         return request
 

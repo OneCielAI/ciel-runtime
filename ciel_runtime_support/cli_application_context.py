@@ -98,6 +98,8 @@ class CliApplicationContext:
             "codex-desktop": self.dispatch.extra_launchers["codex-desktop"],
             "codex-desktop-app": self.dispatch.extra_launchers["codex-desktop"],
             "launch-codex-desktop": self.dispatch.extra_launchers["codex-desktop"],
+            "codex-remote": self.dispatch.extra_launchers["codex-remote"],
+            "launch-codex-remote": self.dispatch.extra_launchers["codex-remote"],
         }
         if len(arguments) >= 2 and arguments[1] in routes:
             raise SystemExit(routes[arguments[1]](arguments[2:]))

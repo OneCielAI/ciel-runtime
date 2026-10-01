@@ -36,6 +36,42 @@ class ChannelCompactInjectionServiceTests(unittest.TestCase):
             log=lambda level, message: logs.append((level, message)),
         )
 
+    def test_new_session_types_the_runtime_command(self):
+        for runtime, command in (("claude", "/clear"), ("codex", "/new")):
+            writes, clears = [], []
+            service = self._service(
+                {"id": f"n-{runtime}", "action": "new_session", "command": "/new"},
+                writes=writes,
+                clears=clears,
+            )
+            self.assertEqual("injected", service.inject(7, runtime=runtime))
+            self.assertEqual(command, writes[0][0][1])
+            self.assertEqual([f"n-{runtime}"], clears)
+
+    def test_new_session_without_a_known_command_is_left_queued(self):
+        writes, clears, logs = [], [], []
+        service = self._service(
+            {"id": "n-1", "action": "new_session"},
+            writes=writes,
+            clears=clears,
+            logs=logs,
+        )
+        self.assertEqual("deferred", service.inject(7, runtime="muse"))
+        self.assertEqual([], writes)
+        self.assertEqual([], clears)
+        self.assertIn("unsupported_runtime", logs[-1][1])
+
+    def test_actions_owned_by_another_consumer_are_not_typed(self):
+        writes, clears = [], []
+        service = self._service(
+            {"id": "c-1", "action": "compact"},
+            writes=writes,
+            clears=clears,
+        )
+        self.assertEqual("none", service.inject(7, runtime="codex", actions=frozenset({"new_session"})))
+        self.assertEqual([], writes)
+        self.assertEqual([], clears)
+
     def test_missing_request_is_a_noop(self):
         self.assertEqual("none", self._service(None).inject(7))
 

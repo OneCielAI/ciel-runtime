@@ -126,7 +126,7 @@ from ciel_runtime_support.codex_reasoning_rejects import RejectedReasoningStore
 from ciel_runtime_support.codex_cli import codex_passthrough_args_for_launch, codex_passthrough_has_command, codex_resume_picker_requested, codex_resume_with_session_id
 from ciel_runtime_support.codex_config import codex_alternate_screen_value_from_config_text, codex_config_override_keys as _codex_config_override_keys, toml_scalar_without_comment as _toml_scalar_without_comment  # noqa: F401
 from ciel_runtime_support.codex_config import codex_config_paths_for_launch, repair_codex_mcp_header_collisions  # noqa: F401 - compatibility export
-from ciel_runtime_support.codex_desktop_runtime import CodexDesktopChannelPorts, CodexDesktopPorts, CodexDesktopSession
+from ciel_runtime_support.codex_app_server_session import CodexAppServerSessions, CodexDesktopChannelPorts, CodexDesktopPorts, CodexRemoteTuiPorts, CodexSessionCommandPorts
 from ciel_runtime_support.codex_config import toml_string, unquote_toml_string as _unquote_toml_string  # noqa: F401
 from ciel_runtime_support.codex_launch_assembly import CodexAppServerLaunchPorts, CodexCliLaunchPorts, CodexLaunchAssembly, CodexLaunchSharedChannelPorts, CodexLaunchSharedConfigPorts, CodexLaunchSharedDispatchPorts, CodexLaunchSharedInstallationPorts, CodexLaunchSharedRestartPorts, CodexLaunchSharedRoutingPorts
 from ciel_runtime_support.codex_launch_policy import current_model_args as project_codex_current_model_args
@@ -2064,7 +2064,7 @@ def channel_compact_request_repository() -> ChannelCompactRequestRepository:
     )
 
 def _channel_compact_request_payload(source: str, reason: str) -> dict[str, Any]: return channel_compact_request_repository().payload(source, reason)
-def _write_channel_compact_request(source: str = "mcp", reason: str = "") -> dict[str, Any]: return channel_compact_request_repository().queue(source, reason)
+def _write_channel_compact_request(source: str = "mcp", reason: str = "", action: str = "compact") -> dict[str, Any]: return channel_compact_request_repository().queue(source, reason, action)
 def _read_channel_compact_request() -> dict[str, Any] | None: return channel_compact_request_repository().read()
 def _clear_channel_compact_request(request_id: str | None = None) -> bool: return channel_compact_request_repository().clear(request_id)
 runtime_session_restart_service = local_runtime_session_restart(lambda: RuntimeSessionRestartServicePorts(ROUTER_INSTANCE_DIR, CONFIG_DIR / "router-instances", pid_is_running, router_log, lambda path: workspace_digest(workspace_identity(path)), unisolated_test=_unisolated_test_process))
@@ -4541,7 +4541,7 @@ def _inject_pending_channel_messages(
         skip_blocking_wake_states=skip_blocking_wake_states,
     )
 
-def _inject_pending_compact_request( master_fd: int, enter_bytes: bytes | None = None, *, log_defer: bool = True, submit_retry_count: int = 1, confirm_submit: bool = False, bracketed_paste: bool = False, submit_delay_seconds: float | None = None, ) -> str:
+def _inject_pending_compact_request( master_fd: int, enter_bytes: bytes | None = None, *, log_defer: bool = True, submit_retry_count: int = 1, confirm_submit: bool = False, bracketed_paste: bool = False, submit_delay_seconds: float | None = None, **session_options: Any, ) -> str:
     if _read_channel_compact_request() is not None:
         sync_remote_instruction(last_launch_runtime() or "claude", reason="pre-compact")
     return channel_wake_context().inject_compact(
@@ -4551,7 +4551,7 @@ def _inject_pending_compact_request( master_fd: int, enter_bytes: bytes | None =
         submit_retry_count=submit_retry_count,
         confirm_submit=confirm_submit,
         bracketed_paste=bracketed_paste,
-        submit_delay_seconds=submit_delay_seconds,
+        submit_delay_seconds=submit_delay_seconds, **session_options,
     )
 
 def _chat_messages_file_marker() -> tuple[float, int]: return channel_wake_context().messages_file_marker()
@@ -4873,7 +4873,7 @@ def runtime_launch_context() -> RuntimeLaunchContext:
         runners=RuntimeLaunchRunners(
             claude=runtime_launch.run_claude,
             codex=runtime_launch.run_codex,
-            codex_app_server=runtime_launch.run_codex_app_server,
+            codex_app_server=lambda *args, **kwargs: runtime_launch.run_codex_app_server(*args, **kwargs, desktop=_CODEX_SESSIONS.server),
             agy=runtime_launch.run_agy,
         ),
         services=RuntimeLaunchServiceFactories(
@@ -4888,8 +4888,8 @@ _RUNTIME_LAUNCH_API = RuntimeLaunchCompatibilityApi(runtime_launch_context)
 launch_claude = SynchronizedLaunch(_RUNTIME_LAUNCH_API.launch_claude, sync_remote_launch_assets, "claude")
 launch_codex = SynchronizedLaunch(_RUNTIME_LAUNCH_API.launch_codex, sync_remote_launch_assets, "codex", lambda passthrough=None, **_kwargs: repair_codex_mcp_header_collisions(codex_config_paths_for_launch(list(passthrough or [])), report=lambda message: router_log("WARN", message)))
 launch_codex_app_server = SynchronizedLaunch(_RUNTIME_LAUNCH_API.launch_codex_app_server, sync_remote_launch_assets, "codex-app-server")
-launch_codex_desktop = SynchronizedLaunch(lambda passthrough=None, **kwargs: runtime_launch.run_codex_app_server(list(passthrough or []), **kwargs, services=codex_app_server_launch_services(), desktop=CodexDesktopSession(CodexDesktopPorts(
-    CONFIG_DIR, ROUTER_WORKSPACE_ID, Path(os.environ.get("CODEX_HOME") or HOME / ".codex"), VERSION, router_log, lambda pid: terminate_pid(pid, "codex-desktop", quiet=True), CodexDesktopChannelPorts(lambda last_id, limit: read_runtime_inputs(last_id, None, None, limit), ensure_channel_llm_delivery_cursor_initialized, _commit_channel_llm_cursor_if_newer, _RUNTIME_INPUT_STATUS_REPOSITORY, router_log)))), sync_remote_launch_assets, "codex-app-server")
+_CODEX_SESSIONS = CodexAppServerSessions(CodexDesktopPorts(CONFIG_DIR, ROUTER_WORKSPACE_ID, Path(os.environ.get("CODEX_HOME") or HOME / ".codex"), VERSION, router_log, lambda pid: terminate_pid(pid, "codex-app-server", quiet=True), CodexDesktopChannelPorts(lambda last_id, limit: read_runtime_inputs(last_id, None, None, limit), ensure_channel_llm_delivery_cursor_initialized, _commit_channel_llm_cursor_if_newer, _RUNTIME_INPUT_STATUS_REPOSITORY, router_log, CodexSessionCommandPorts(_read_channel_compact_request, _clear_channel_compact_request))), CodexRemoteTuiPorts(lambda *args, **kwargs: subprocess_call_with_channel_wake_proxy(*args, **kwargs), lambda: runtime_session_restart_service().control(), _set_channel_transcript_scope, lambda: None if _channel_wake_enter_env_is_fixed() else b"\r", _codex_channel_wake_submit_retries, _codex_channel_wake_submit_delay_seconds))
+launch_codex_desktop, launch_codex_remote = (SynchronizedLaunch(lambda passthrough=None, _session=session, **kwargs: runtime_launch.run_codex_app_server(list(passthrough or []), **kwargs, services=codex_app_server_launch_services(), desktop=_session), sync_remote_launch_assets, "codex-app-server") for session in (_CODEX_SESSIONS.desktop, _CODEX_SESSIONS.remote_tui))
 launch_agy = SynchronizedLaunch(_RUNTIME_LAUNCH_API.launch_agy, sync_remote_launch_assets, "agy")
 launch_grok = SynchronizedLaunch(launch_grok, sync_remote_launch_assets, "grok")
 CLAUDE_CODE_STDERR_LOG = CONFIG_DIR / "claude-code-stderr.log"
@@ -4936,7 +4936,7 @@ def cli_services() -> cli_dispatch.CliServices:
         core=cli_dispatch.CliCore(VERSION, cli_usage, find_executable, get_current_provider, load_config, pop_headless_env_file_args,
                                   portable_provider_menu, run_external_menu, run_quiet_upgrade_and_exit),
         runtime=cli_dispatch.CliRuntime(agy_passthrough_has_command, codex_passthrough_has_command, last_launch_runtime, launch_agy, launch_claude,
-                                        launch_codex, launch_codex_app_server, native_agy_enabled, native_codex_enabled, launch_grok, launch_zcode, launch_muse, launch_codex_desktop),
+                                        launch_codex, launch_codex_app_server, native_agy_enabled, native_codex_enabled, launch_grok, launch_zcode, launch_muse, launch_codex_desktop, launch_codex_remote),
         provider_commands=cli_dispatch.CliProviderCommands(cmd_advisor_model, cmd_api_key, cmd_base_url, cmd_language, cmd_log_level, cmd_model,
                                                            cmd_models, cmd_provider, cmd_provider_options, cmd_set_api_key),
         special_commands=cli_dispatch.CliSpecialCommands(cmd_ollama_catalog, cmd_ollama_native, cmd_ollama_options, cmd_web_fetch, cmd_web_search),
@@ -4958,7 +4958,7 @@ def cli_application_context() -> CliApplicationContext:
     return CliApplicationContext(
         dispatch=CliApplicationDispatchPorts(dispatch_cli, cli_services, launch_claude, launch_codex, launch_codex_app_server,
                                              launch_agy, launch_kimi, run_kimi_oauth_login,
-                                             {"grok": launch_grok, "zcode": launch_zcode, "muse": launch_muse, "codex-desktop": launch_codex_desktop}),
+                                             {"grok": launch_grok, "zcode": launch_zcode, "muse": launch_muse, "codex-desktop": launch_codex_desktop, "codex-remote": launch_codex_remote}),
         presentation=CliApplicationPresentationPorts(build_cli_parser, cli_parser_services, VERSION, print, lambda: sys.argv),
     )
 

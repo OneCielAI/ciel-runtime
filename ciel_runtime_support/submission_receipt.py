@@ -1,20 +1,51 @@
 """Confirm input acceptance from newly appended structured user records."""
 
+from collections.abc import Callable
+from datetime import datetime
 import json
 import os
 from pathlib import Path
+import time
+
+# Clock slack between the CLI's record timestamps and this process.
+RECORD_TIME_SLACK_SECONDS = 2.0
+
+
+def record_epoch(record: dict) -> float | None:
+    value = record.get("timestamp")
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return None
 
 
 class TranscriptSubmissionReceipt:
-    def __init__(self, path: Path, prompt: str) -> None:
+    """Accept once a user record containing the prompt is appended.
+
+    ``from_start`` reads a transcript that appeared after the prompt was typed
+    from its first byte, accepting only records stamped at or after
+    ``not_before`` so an older conversation cannot confirm a new prompt.
+    """
+
+    def __init__(
+        self,
+        path: Path,
+        prompt: str,
+        *,
+        from_start: bool = False,
+        not_before: float | None = None,
+    ) -> None:
         self.path = path
         stat = path.stat()
-        self.offset = stat.st_size
+        self.offset = 0 if from_start else stat.st_size
         self.identity = (stat.st_dev, stat.st_ino)
         self.invalidated = False
         self.expected = " ".join(prompt.split())
         self.pending = bytearray()
         self.accepted = False
+        self.not_before = not_before
 
     def __call__(self) -> bool:
         if self.accepted:
@@ -42,6 +73,10 @@ class TranscriptSubmissionReceipt:
                 continue
             if not isinstance(record, dict):
                 continue
+            if self.not_before is not None:
+                stamped = record_epoch(record)
+                if stamped is None or stamped < self.not_before - RECORD_TIME_SLACK_SECONDS:
+                    continue
             payload = record.get("payload") if record.get("type") == "response_item" else record.get("message")
             if not isinstance(payload, dict) or payload.get("role") != "user":
                 continue
@@ -58,3 +93,50 @@ class TranscriptSubmissionReceipt:
             self.pending.clear()
             self.invalidated = True
         return False
+
+
+class LatestTranscriptSubmissionReceipt:
+    """A receipt that follows the session to the transcript it writes next.
+
+    A CLI writes the prompt into a transcript that may not exist yet when the
+    prompt is typed: Codex creates its rollout when a conversation's first
+    turn starts, and ``/new``/``/clear`` move the session to a new file.  The
+    newest transcript is resolved again on every check; one first seen after
+    typing is read from its start (records stamped after typing only).
+    Measured 2026-10-01 (journal runtime-control): without this the first
+    message of a fresh Codex session and the first after ``/new`` were shown
+    in the TUI yet recorded ``prompt_not_submitted``.
+    """
+
+    def __init__(
+        self,
+        resolve: Callable[[], Path | None],
+        prompt: str,
+        *,
+        now: Callable[[], float] = time.time,
+    ) -> None:
+        self.resolve = resolve
+        self.prompt = prompt
+        self.started_at = now()
+        self.receipts: dict[Path, TranscriptSubmissionReceipt] = {}
+        initial = resolve()
+        if initial is not None:
+            self.receipts[initial] = TranscriptSubmissionReceipt(initial, prompt)
+
+    @property
+    def watching(self) -> bool:
+        return bool(self.receipts)
+
+    def __call__(self) -> bool:
+        try:
+            path = self.resolve()
+        except OSError:
+            path = None
+        if path is not None and path not in self.receipts:
+            try:
+                self.receipts[path] = TranscriptSubmissionReceipt(
+                    path, self.prompt, from_start=True, not_before=self.started_at
+                )
+            except OSError:
+                pass
+        return any(receipt() for receipt in list(self.receipts.values()))

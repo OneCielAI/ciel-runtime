@@ -80,6 +80,7 @@ ciel-runtime zcode
 ciel-runtime muse
 ciel-runtime --ca-runtime codex-app-server
 ciel-runtime codex-desktop      # Windows Codex desktop app, see docs/Codex-Desktop.md
+ciel-runtime codex-remote       # Codex TUI attached (--remote) to a routed app-server, see docs/Codex-Remote.md
 ```
 
 Check the effective configuration and upstream compatibility:

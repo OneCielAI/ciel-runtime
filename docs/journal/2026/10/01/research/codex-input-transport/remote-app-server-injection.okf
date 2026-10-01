@@ -1,0 +1,53 @@
+okf_version: "1.0"
+task: "Check whether Codex now offers a socket-style input path (like Claude's session socket) so channel delivery into the Codex TUI need not type into ConPTY."
+reported: "User, 2026-10-01: '전송방식에대해서 혹은 에이전트레벨에서 클러드처럼 소켓전송이나 기타 전송방식이 codex에 추가되었닌즈 확인해줘 그래서 conty 방식말고도 더채택할방식이있는지확인'."
+confirmed_cli_surface:
+  - "codex 0.158/0.159.3 top level: `--remote <ADDR>` 'Connect the TUI to a remote app server endpoint', `--remote-auth-token-env <ENV_VAR>` (bearer token for a remote websocket), `--no-daemon`."
+  - "`codex app-server --listen <URL>`: stdio:// (default), unix://, unix://PATH, ws://IP:PORT, off."
+  - "`codex app-server daemon {bootstrap,start,restart,update,enable-remote-control,disable-remote-control,stop,version}`, `codex app-server proxy` (stdio bridge to the running daemon control socket), `codex agents`, `codex remote-control {start,stop,pair}`."
+experiment:
+  scripts: "scratchpad remote_tui_exp.py (WSL, tmux) and remote_tui_exp_win.py (Windows, TUI hosted in ciel WindowsConPtySession); isolated CODEX_HOME, stub Responses upstream, codex 0.159.3."
+  steps: "app-server --listen ws://127.0.0.1:P; TUI `codex --remote ws://127.0.0.1:P`; one prompt typed in the TUI; a second websocket JSON-RPC client: initialize -> thread/loaded/list -> thread/resume -> turn/start; then a slow turn/start and turn/steer(expectedTurnId) while it runs."
+  linux: "TUI rendered '› SIDECAR-TURN-START message' + its reply, and '› SIDECAR-STEER while busy' + its reply; upstream received both texts."
+  windows: "Same: TUI shows sidecar user text True, reply True, steered text True, reply True; upstream saw 'SIDECAR-TURN-START message' and 'SIDECAR-STEER while busy'."
+  windows_visible_window: "Follow-up question 'app-server 방식이면 터미널에서 확인 방법이 없지 않나 / 윈도우에서는': remote_tui_exp_win_visible.py ran the TUI in ciel's ConPTY with mirror_output=True inside a new Windows Terminal window (title CIEL-REMOTE-TUI-RUN2). Screenshot evidence/windows-remote-tui-sidecar-turns.png shows the keyboard prompt, 'SIDECAR-TURN-START message', 'SLOW sidecar turn', 'SIDECAR-STEER while busy' and each STUB-REPLY in the visible window. The two test windows were closed afterwards. (An earlier capture attempt grabbed an unrelated terminal window and was discarded.)"
+  protocol_confirmation: "turn/start returns turn.id; turn/steer returns {turnId}; the second client receives turn/started, item/started, item/completed, turn/completed notifications (delivery is confirmed by protocol, not by screen or transcript)."
+  caveat: "thread/loaded/list returned two thread ids; the first was the TUI thread in both runs, but selection must be made deliberately (not verified which the second id is)."
+headless_history:
+  question: "User: 'app 서버 방식이라면 오히려, 접속하는측에서 웹이나 api로 접속하면 지난 내용을 볼수도있어? 그렇다면 구지 매번 콘솔에 열어둘필요도 없는거자나'."
+  schema: "codex 0.159.3 generate-json-schema: thread/list, thread/read {threadId, includeTurns}, thread/turns/list {threadId, cursor, limit, itemsView, sortDirection}, thread/items/list {threadId, turnId, cursor, limit}, thread/resume, thread/unsubscribe; server requests item/commandExecution/requestApproval, item/fileChange/requestApproval, item/permissions/requestApproval, item/tool/requestUserInput."
+  script: "scratchpad headless_history_exp.py (WSL, codex 0.159.3, stub upstream, no TUI at any point)."
+  results:
+    - "writer client: thread/start + 2 turns completed, then disconnected."
+    - "late client: thread/list shows the thread with preview; thread/read includeTurns=true returns both turns with userMessage/agentMessage items; thread/turns/list returns 2."
+    - "late client after thread/resume receives live turn/started, item/started, item/completed, turn/completed for a third turn started by another client."
+    - "app-server process stopped and restarted: thread/list still lists the thread; thread/read returns all 3 turns; persisted as CODEX_HOME/sessions/.../rollout-...jsonl."
+  not_verified: "History of tool/command items, approval requests with no TUI attached (who answers them), remote non-loopback access/auth."
+remote_vs_local_source:
+  question: "User: 'remote모드와 아닌거의 차이는뭐야'."
+  targets: "codex-rs/tui/src/lib.rs (rust-v0.159.3) enum AppServerTarget { Embedded, LocalDaemon { endpoint, allow_embedded_fallback }, Remote { endpoint } }; --remote -> Remote; otherwise LocalDaemon over the default daemon unix socket when reusable (embedded fallback on connect failure) or Embedded."
+  remote_differences:
+    - "ThreadParamsMode::Remote (app_server_session.rs): thread/start sends no model_provider, no runtime workspace roots, no permission profile, cwd only from --cd; config overrides limited to allow_login_shell, default_permissions, features, network, permissions, sandbox_workspace_write, shell_environment_policy, suppress_unstable_features_warning (SessionFlags layer)."
+    - "Resume in remote mode clears approval_policy/approvals_reviewer so the server's saved permission settings apply."
+    - "auth_config_for_cloud_loader drops forced login method/workspace/managed auth policy: 'the remote app server enforces its own authentication policy'."
+    - "Embedded network policy is bound only for Embedded/LocalDaemon-with-fallback; not for Remote."
+    - "State DB: Embedded initialises it; Remote/LocalDaemon only attach to an existing one."
+    - "`tui.resume_cwd = \"current\"` requires --cd with a remote workspace; workload identity must be configured on the remote host."
+  disconnect: "Snapshots: remote 'Disconnected from this task. Work may still be running. To reconnect, run: codex --remote <url> resume <id>'; daemon 'Any running work continues ... codex resume THREAD_ID'."
+per_thread_cwd:
+  question: "User: '앱서버로 띄울때는각세션마다 별도의 디렉토리를 만들수있는거야?'."
+  script: "scratchpad per_thread_cwd_exp.py (WSL, codex 0.159.3, headless app-server started in server-start-dir, stub upstream that issues an exec_command 'pwd; ls' tool call)."
+  results:
+    - "thread/start cwd=session-a / session-b -> response cwd and environments[].cwd + runtimeWorkspaceRoots are each thread's own dir."
+    - "Model request environment context <cwd> is session-a for thread A and session-b for thread B."
+    - "exec_command ran in each thread's dir: A output '/var/tmp/cxcwd/session-a only-in-A.txt', B output '/var/tmp/cxcwd/session-b only-in-B.txt'."
+    - "turn/start on thread A with cwd=session-b ran the command in session-b (turn-level override)."
+    - "thread/start with a non-existent cwd returned no error (cwd echoed back); whether the dir is created was not checked."
+  conditions: "approvalPolicy never, sandbox danger-full-access; one CODEX_HOME for the whole server."
+  not_verified: "Write isolation under workspace-write sandbox (runtimeWorkspaceRoots), read isolation between sessions, per-session CODEX_HOME."
+not_verified:
+  - "Daemon path (TUI on the shared daemon + a client via `codex app-server proxy`/control socket)."
+  - "How ciel's routed -c provider overrides must be split between the app-server process and the --remote TUI."
+  - "unix:// listen on Windows."
+existing_code: "ciel already speaks this protocol for Codex Desktop (codex_desktop_injection.py: turn/start when idle, turn/steer while busy, confirmed from turn notifications; codex_app_server.py client)."
+not_changed: "No product code change."

@@ -236,6 +236,8 @@ def run_windows_channel_terminal_proxy(
     tracked_child_pid_path: Path | None = None,
     restart_poll: Callable[[], Any] | None = None,
     restart_state: Any = None,
+    session_command_runtime: str = "",
+    session_command_actions: frozenset[str] | None = None,
 ) -> int:
     process = services.process
     policy = services.policy
@@ -325,6 +327,8 @@ def run_windows_channel_terminal_proxy(
             confirm_submit=channel_wake_confirm_submit,
             bracketed_paste=windows_bracketed_paste,
             submit_delay_seconds=channel_wake_submit_delay_seconds,
+            runtime=session_command_runtime,
+            actions=session_command_actions,
         )
         compact_poll_services = ChannelCompactPollServices(
             inject_pending=polling.inject_compact
@@ -482,6 +486,8 @@ def run_posix_channel_terminal_proxy(
     tracked_child_pid_path: Path | None = None,
     restart_poll: Callable[[], Any] | None = None,
     restart_state: Any = None,
+    session_command_runtime: str = "",
+    session_command_actions: frozenset[str] | None = None,
 ) -> int:
     import pty
     import select
@@ -513,6 +519,8 @@ def run_posix_channel_terminal_proxy(
         confirm_submit=channel_wake_confirm_submit,
         bracketed_paste=channel_wake_bracketed_paste,
         submit_delay_seconds=channel_wake_submit_delay_seconds,
+        runtime=session_command_runtime,
+        actions=session_command_actions,
     )
     compact_poll_services = ChannelCompactPollServices(inject_pending=polling.inject_compact)
     compact_poll_state = ChannelCompactPollState()

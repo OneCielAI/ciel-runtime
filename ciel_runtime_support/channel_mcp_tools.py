@@ -21,7 +21,8 @@ class ChannelMcpRuntimeServices:
 
 @dataclass(frozen=True, slots=True)
 class ChannelMcpToolServices:
-    queue_compact: Callable[[str, str], dict[str, Any]]
+    # (source, reason, action) - action is "compact" or "new_session".
+    queue_compact: Callable[..., dict[str, Any]]
     append_message: Callable[[dict[str, Any]], dict[str, Any]]
     read_messages: Callable[..., list[dict[str, Any]]]
     store_file_path: Callable[[Any, str | None, str | None], dict[str, Any]]
@@ -62,8 +63,28 @@ def channel_mcp_tool_schemas() -> list[dict[str, Any]]:
         {
             "name": "compact_session",
             "description": (
-                "Queue Claude Code's /compact slash command for the active Ciel Runtime-launched session. "
+                "Compact the active Ciel Runtime-launched session's conversation. Terminal sessions "
+                "(Claude Code, Codex) get /compact typed once the turn ends; Codex app-server sessions "
+                "(desktop, --remote TUI) get thread/compact/start. "
                 "Use this when the conversation context is too large and the session should compact itself."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "reason": {
+                        "type": "string",
+                        "description": "Optional short reason shown in Ciel Runtime logs.",
+                    },
+                },
+            },
+        },
+        {
+            "name": "new_session",
+            "description": (
+                "Start a new conversation in the active Ciel Runtime-launched session once the "
+                "current turn ends. Claude Code gets /clear typed, the Codex TUI gets /new, and "
+                "Codex app-server sessions (desktop, bare app-server) get a new thread via thread/start. "
+                "The previous conversation stays on disk and can be resumed."
             ),
             "inputSchema": {
                 "type": "object",
@@ -274,13 +295,18 @@ def dispatch_channel_mcp_tool(
 ) -> dict[str, Any]:
     name = str(params.get("name") or "")
     args = params.get("arguments") if isinstance(params.get("arguments"), dict) else {}
-    if name == "compact_session":
-        request = services.queue_compact("ciel-runtime-router-tool", str(args.get("reason") or ""))
+    if name in ("compact_session", "new_session"):
+        request = services.queue_compact(
+            "ciel-runtime-router-tool",
+            str(args.get("reason") or ""),
+            "compact" if name == "compact_session" else "new_session",
+        )
         return _json_response(
             request_id,
             {
                 "ok": True,
                 "queued": True,
+                "action": request.get("action"),
                 "command": request.get("command"),
                 "request_id": request.get("id"),
                 "expires_at": request.get("expires_at"),

@@ -58,6 +58,8 @@ class ChannelTerminalDispatchService:
         tracked_child_pid_path: Path | None = None,
         restart_poll: Callable[[], Any] | None = None,
         restart_state: Any = None,
+        session_command_runtime: str = "",
+        session_command_actions: frozenset[str] | None = None,
     ) -> int:
         options = {
             "inject_channel_messages": inject_channel_messages,
@@ -77,6 +79,8 @@ class ChannelTerminalDispatchService:
             "tracked_child_pid_path": tracked_child_pid_path,
             "restart_poll": restart_poll,
             "restart_state": restart_state,
+            "session_command_runtime": session_command_runtime,
+            "session_command_actions": session_command_actions,
         }
         if self.settings.platform_name == "nt" and self.proxy.windows_supported():
             try:

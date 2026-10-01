@@ -27,9 +27,9 @@ class ChannelMcpToolsTests(unittest.TestCase):
             ),
         )
 
-    def _queue_compact(self, source, reason):
-        self.compactions.append((source, reason))
-        return {"id": "compact-1", "command": "/compact", "expires_at": 123}
+    def _queue_compact(self, source, reason, action="compact"):
+        self.compactions.append((source, reason, action))
+        return {"id": "compact-1", "action": action, "command": "/compact", "expires_at": 123}
 
     def _append_message(self, message):
         saved = {"id": len(self.messages) + 1, **message}
@@ -50,6 +50,7 @@ class ChannelMcpToolsTests(unittest.TestCase):
             {
                 "submit_input",
                 "compact_session",
+                "new_session",
                 "send_message",
                 "send_file",
                 "llm_options",
@@ -216,9 +217,21 @@ class ChannelMcpToolsTests(unittest.TestCase):
             self.services,
         )
 
-        self.assertEqual([("ciel-runtime-router-tool", "large")], self.compactions)
+        self.assertEqual([("ciel-runtime-router-tool", "large", "compact")], self.compactions)
         self.assertEqual("compact-1", json.loads(compact["result"]["content"][0]["text"])["request_id"])
         self.assertTrue(json.loads(options["result"]["content"][0]["text"])["changed"])
+
+    def test_new_session_queues_the_new_session_action(self):
+        result = dispatch_channel_mcp_tool(
+            11,
+            {"name": "new_session", "arguments": {"reason": "fresh start"}},
+            self.services,
+        )
+
+        self.assertEqual([("ciel-runtime-router-tool", "fresh start", "new_session")], self.compactions)
+        payload = json.loads(result["result"]["content"][0]["text"])
+        self.assertTrue(payload["queued"])
+        self.assertEqual("new_session", payload["action"])
 
     def test_telemetry_logs_read_dispatches_cursor_and_delete_requires_confirmation(self):
         read = dispatch_channel_mcp_tool(

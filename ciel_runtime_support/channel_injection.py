@@ -54,6 +54,14 @@ class RuntimeInjectionPolicy:
     bracketed_paste: bool = False
     input_drain_timeout_seconds: float = 2.0
     prompt_render_timeout_seconds: float = 30.0
+    # Written right before every submit key. Codex on Windows receives pastes
+    # as key events and turns Enter into a newline while it still counts the
+    # keys as a paste burst; a non-character key ends the burst first.
+    submit_prefix: bytes = b""
+    # After the last submit key, keep reading the submission receipt (no more
+    # input) this long before declaring the prompt unsubmitted. A slow CLI can
+    # act on queued keys seconds after they were written.
+    late_confirm_seconds: float = 0.0
 
     def __post_init__(self) -> None:
         if not self.runtime.strip():
@@ -72,6 +80,13 @@ class RuntimeInjectionPolicy:
 class PromptInjection:
     prompt: str
     policy: RuntimeInjectionPolicy
+
+
+# End key (VT "CSI F"). In the Codex TUI composer a non-character key flushes
+# a pending paste burst and clears the window in which Enter is inserted as a
+# newline (codex-rs/tui bottom_pane paste_burst.rs, rust-v0.159.3); End itself
+# only moves the cursor to the end of the line.
+CODEX_PASTE_BURST_BREAK = b"\x1b[F"
 
 
 class ChannelPromptInjector:
@@ -175,6 +190,13 @@ class ChannelPromptInjector:
             if self._submission_receipt is not None and self._submission_receipt():
                 return True
             if bool(getattr(transport, "separate_input_stages", False)):
+                if policy.submit_prefix:
+                    self._write_stage(
+                        transport,
+                        f"submit-prefix-{attempt + 1}",
+                        policy.submit_prefix,
+                        policy,
+                    )
                 self._write_stage(
                     transport,
                     f"submit-{attempt + 1}",
@@ -182,7 +204,7 @@ class ChannelPromptInjector:
                     policy,
                 )
             else:
-                transport.write(policy.submit_input)
+                transport.write(policy.submit_prefix + policy.submit_input)
             if not before and self._submission_receipt is None:
                 return True
             retry_delay = self._retry_delay_seconds()
@@ -193,10 +215,28 @@ class ChannelPromptInjector:
             if accepted:
                 self._log("INFO", f"channel_stdin_proxy_submit_confirmed attempt={attempt + 1}")
                 return True
+        if self._submission_receipt is not None and self._late_confirmed(
+            transport, policy.late_confirm_seconds
+        ):
+            return True
         self._log(
             "WARN",
             f"channel_input_submit_unconfirmed attempts={policy.submit_attempts}",
         )
+        return False
+
+    def _late_confirmed(self, transport: InputTransport, seconds: float) -> bool:
+        waited = 0.0
+        step = 0.25
+        while waited < seconds:
+            self._pause(transport, step)
+            waited += step
+            if self._submission_receipt is not None and self._submission_receipt():
+                self._log(
+                    "INFO",
+                    f"channel_stdin_proxy_submit_confirmed late_seconds={waited:.2f}",
+                )
+                return True
         return False
 
     def _pause(self, transport: InputTransport, seconds: float) -> None:
@@ -419,6 +459,7 @@ class CallableInputTransport:
 
 
 __all__ = [
+    "CODEX_PASTE_BURST_BREAK",
     "CallableInputTransport",
     "ChannelPromptInjector",
     "InputTransport",

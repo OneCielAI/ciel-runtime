@@ -200,7 +200,16 @@ class CodexDesktopSession:
     def __init__(self, ports: CodexDesktopPorts) -> None:
         self.ports = ports
 
-    def __call__(self, cmd: list[str], env: dict[str, str], launch_cwd: Path) -> int:
+    display_name = "desktop app"
+    launch_mode = LAUNCH_MODE_LABEL
+
+    def __call__(
+        self,
+        cmd: list[str],
+        env: dict[str, str],
+        launch_cwd: Path,
+        run_server: Callable[[], int] | None = None,
+    ) -> int:
         ports = self.ports
         executable = ports.find_app(env)
         if executable is None:

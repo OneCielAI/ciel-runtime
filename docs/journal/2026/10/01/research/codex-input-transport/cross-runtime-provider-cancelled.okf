@@ -1,0 +1,12 @@
+okf_version: "1.0"
+task: "Enable the Codex runtime with the Claude (anthropic) provider and the Claude Code runtime with the Codex provider, as a first step toward Codex app-server support."
+reported: "User, 2026-10-01: '코덱스 앱서버를 잘지원하도록 수정하고, 지금 첫번째 발검음으로 프로바이더가 claude일때 코덱스가 런타임이 실행이 안되게 막혀있고 반대경우도 비활성인되 그것이 되게 먼저 지원해줘'."
+findings:
+  gate: "runtime_compatibility.DEFAULT_RUNTIME_COMPATIBILITY: native_runtime_by_provider anthropic->claude, codex->codex; only kimi has additional runtimes {claude, codex}. supports() is consulted by the prelaunch menu (prelaunch_shell_context.supports_runtime)."
+  codex_to_anthropic: "openai_responses_router converts the Codex Responses body to an Anthropic body and calls routing.collect_message. The anthropic provider uses credential_strategy 'anthropic_inbound' (credentials.resolve_anthropic_credentials: ApiKeyCredentialSource, then inbound Claude Code headers). Stored Claude OAuth tokens are applied only in claude_router.py (Claude Code /v1/messages passthrough), not on this path."
+  claude_to_codex: "Codex provider adapter base_url https://api.openai.com, chat_path /v1/responses, no own auth; ChatGPT-login credentials are applied only on the Codex routed path (router_http codex_request_run, chatgpt.com/backend-api/codex)."
+policy_evidence:
+  anthropic: "code.claude.com/docs/en/legal-and-compliance: OAuth authentication 'is designed to support ordinary use of Claude Code and other native Anthropic applications'; developers 'may not ... route requests through Free, Pro, or Max plan credentials on behalf of their users' nor 'collect, store, or intermediate Claude.ai credentials'."
+  openai: "learn.chatgpt.com/docs/auth (redirect target of developers.openai.com/codex/auth) does not address use of ChatGPT sign-in credentials by third-party tools."
+decision: "Asked which credentials to support (API keys only vs API keys + ChatGPT login; Claude subscription OAuth excluded per Anthropic terms). User answered '교차에 oauth 안되면 계획취소' -> plan cancelled."
+not_changed: "No code change."
