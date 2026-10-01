@@ -29,13 +29,6 @@ PREFIX=$HOME/.local ./install.sh
 .\install.ps1
 ```
 
-GitHub 저장소에서 바로 설치할 수도 있다. npm 레지스트리 게시가 막혀 있어도 이 경로는 동작한다.
-
-```bash
-# nightly 브랜치 (main을 쓰려면 끝의 nightly를 main으로)
-npm install -g https://codeload.github.com/OneCielAI/ciel-runtime/tar.gz/nightly
-```
-
 Python 실행 파일을 직접 지정해야 하는 환경에서는 `CIEL_RUNTIME_PYTHON`을 사용한다.
 
 ```bash
@@ -190,21 +183,6 @@ ciel-runtime --ca-upgrade-and-exit
 ```
 
 이 경로는 Ciel Runtime, Claude Code, Codex를 순서대로 업데이트하고 사용자에게 `y/N`을 묻지 않는다.
-
-### 자동 self-update 소스
-
-실행할 때마다 하는 Ciel Runtime self-update는 GitHub 저장소를 먼저 본다.
-
-- 따라가는 브랜치: nightly 설치는 `nightly`, 정식 설치는 `main`. 브랜치 head 커밋이 설치된 커밋과 다르면 그 커밋의 tarball을 같은 npm prefix에 설치하고 재시작한다.
-- 설치한 브랜치와 커밋은 패키지 폴더의 `.ciel-runtime-source.json`에 기록된다.
-- GitHub에서 브랜치 head를 못 읽으면 기존처럼 npm 레지스트리를 확인한다.
-
-| 변수 | 용도 |
-|------|------|
-| `CIEL_RUNTIME_UPDATE_SOURCE` | `npm`이면 GitHub를 건너뛰고 npm 레지스트리만 사용 (기본 `github`) |
-| `CIEL_RUNTIME_UPDATE_BRANCH` | 따라갈 브랜치 지정. `.ciel-runtime-source.json`이 없는 첫 GitHub 설치에서만 쓰인다 (예: `nightly`) |
-
-npm 레지스트리 버전에서 처음 넘어올 때는 위의 GitHub 설치 명령을 한 번 실행한다. nightly를 따라가려면 `CIEL_RUNTIME_UPDATE_BRANCH=nightly`도 설정한다. 이후에는 자동으로 업데이트된다.
 
 업데이트 체크를 끄는 방법:
 

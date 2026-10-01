@@ -5,14 +5,6 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
-- Ciel Runtime updates itself from the GitHub repository. npm publishing
-  failed for every nightly since 2026-09-30 (`E404` on publish), so no install
-  could see new code. The self-update now reads the head of its branch
-  (`nightly` for nightly installs, `main` otherwise) from GitHub, installs that
-  commit's tarball with npm into the same prefix, and records the commit in
-  `.ciel-runtime-source.json`. It falls back to the npm registry when GitHub
-  cannot be read; `CIEL_RUNTIME_UPDATE_SOURCE=npm` keeps the registry only.
-
 - Channel messages injected into the Codex TUI on Windows no longer stay in
   the composer. Since Codex 0.157 turned the fullscreen transcript on by
   default, a slow Codex could still be counting the injected keys as a paste
