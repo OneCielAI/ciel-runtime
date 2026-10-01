@@ -24,3 +24,8 @@ not_done:
   - "npm publish E404 not fixed (needs the NPM_TOKEN secret / package permission; not something to change from here)."
   - "Existing installs (npm 0.2.51 / nightly 0.2.51-nightly.20260924) do not contain this code, so each needs one manual GitHub install before updates become automatic."
   - "ciel-runtime --ca-upgrade-and-exit (RuntimeUpgradeService) still uses the npm registry; only the automatic self-update was switched."
+npm_recheck (user: 'npm 빌드가 여전히 문제인지확인'):
+  rerun: "workflow_dispatch run 36899387292 at c7fd44e (0.2.51-nightly.20261001-172909.c7fd44e): tests pass, 'npm notice Publishing to https://registry.npmjs.org/ with tag nightly' then 'npm error 404 Not Found - PUT'. dist-tags unchanged (nightly 0.2.51-nightly.20260924-003723.ae32250, modified 2026-09-24T00:40Z)."
+  timeline: "Last successful nightly publish 2026-09-24T00:34Z (35939039105); first failure 2026-09-27T01:21Z (36285278420), E404 on every nightly since. NPM_TOKEN secret updated 2026-06-26T06:28Z; 2026-06-26 + 90 days = 2026-09-24. Workflow last changed 2026-09-21 (8211d2f, dispatch only)."
+  npm_policy: "GitHub changelog 2025-11-05 / 2025-12-09: write-enabled granular tokens max 90-day expiry; expired or out-of-scope tokens get 404 on publish PUT."
+  reading: "Consistent with the NPM_TOKEN expiring on 2026-09-24 (inferred: the token's own expiry date is not visible from here)."
