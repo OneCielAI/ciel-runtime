@@ -1,0 +1,25 @@
+okf_version: "1.0"
+task: "Evaluate how ciel-runtime should support (or not) Codex's --no-daemon flag, which keeps surfacing in errors on recent Codex."
+reported: "User, 2026-09-30: '최근에 추가된 codex 버전에서는, --no-daemon 이라는 파라미터가 자꾸에러로 보이는데 이것을 어떻게 지원 혹은 비지원해야하는지 평가'. Context: in an aap-win sandbox shell `codex --yolo` failed with 'start the Windows daemon from a non-elevated terminal ... rerun the same command with --no-daemon'."
+confirmed:
+  codex_source:
+    - "rust-v0.155.0 has no daemon_startup.rs; 0.156.0, 0.157.0, 0.158.0 and 0.159.3 have it (gh api contents per tag)."
+    - "0.158.0 daemon_startup.rs exclusion(): --no-daemon, --oss, workload identity, CODEX_EXEC_SERVER_URL, --profile, then config_exclusion(): any -c/--enable/--disable/--search override except bool tui.fullscreen_transcript, suppress_unstable_features_warning and an allow-list of features.* -> daemon skipped; custom loader; --strict-config; --dangerously-bypass-hook-trust."
+    - "Only backend/windows.rs checks privileges (TokenElevation, TokenIsElevated == 0); no geteuid/root check in the other backends at 0.158.0."
+    - "0.157.0 release notes: #47179 Enable automatic daemon startup by default."
+  codex_cli_parse:
+    - "Local codex-cli 0.158.0: --no-daemon accepted at top level, after `resume` and after `fork`; `codex exec --no-daemon` -> 'error: unexpected argument --no-daemon found'; `review` and `app-server` --help do not list it; `codex --no-daemon exec` (before the subcommand) parses."
+    - "codex-cli 0.155.0 (npm install in scratchpad): `codex --no-daemon` and `codex resume --no-daemon` -> 'error: unexpected argument --no-daemon found'."
+  ciel_runtime_argv:
+    harness: "scratchpad/nodaemon_argv.sh: WSL, isolated config, stub codex that records argv, `ciel_runtime.py cli --ca-runtime codex ...`."
+    results:
+      - "routed --no-daemon -> codex --yolo --no-daemon with 7 -c overrides"
+      - "routed --resume <id> --no-daemon -> codex --yolo resume <id> --no-daemon with 7 -c overrides"
+      - "native --no-daemon -> codex --yolo --no-daemon with 0 -c overrides"
+      - "native --resume <id> --no-daemon -> codex --yolo resume <id> --no-daemon with 0 -c overrides"
+    code: "codex_cli.codex_passthrough_args_for_launch passes unknown flags through unchanged and emits [*mapped_command, *out], so `--print x --no-daemon` would become `exec x --no-daemon` (exec rejects it)."
+  local_terminal: "This PowerShell is not elevated (WindowsPrincipal IsInRole Administrator = False); the elevated error was not reproduced here."
+inferred_unverified:
+  - "Native-mode ciel launches carry no -c override, so by the exclusion rules they would auto-start the daemon on Codex >= 0.157 and fail the same way in an elevated Windows terminal; routed launches would skip it. Not run against a real elevated terminal."
+  - "Whether running the agent inside the shared daemon changes ciel features that track the codex TUI process (process records, restart, channel wake) was not tested."
+not_changed: "No code change; evaluation only."
