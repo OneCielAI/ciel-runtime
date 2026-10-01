@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import dataclasses
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -14,6 +16,7 @@ from ciel_runtime_support.codex_app_server_session import (
     CodexRemoteTuiSession,
     remote_tui_command,
 )
+from ciel_runtime_support.codex_desktop_injection import CodexDesktopChannelPorts
 from ciel_runtime_support.codex_desktop_runtime import CodexDesktopPorts, CodexDesktopSession
 
 
@@ -136,6 +139,37 @@ class SessionTests(unittest.TestCase):
         self.assertEqual(7, rc)
         self.assertEqual(["run"], calls)
         self.assertEqual([], self.popened)
+
+    def test_bare_server_exit_ends_the_clients_readiness_wait(self):
+        waits: list[str] = []
+
+        def wait_ready(_url, alive=lambda: True):
+            deadline = time.monotonic() + 5.0
+            while time.monotonic() < deadline:
+                if not alive():
+                    waits.append("server-gone")
+                    return False
+                time.sleep(0.01)
+            waits.append("timed-out")
+            return False
+
+        ports = dataclasses.replace(
+            self.ports,
+            wait_ready=wait_ready,
+            channel=CodexDesktopChannelPorts(
+                read_messages=lambda _last, _limit: [],
+                read_cursor=lambda: 0,
+                commit_cursor=lambda _id: None,
+                status=None,
+                log=lambda level, message: self.logs.append(f"{level} {message}"),
+            ),
+        )
+        started = time.monotonic()
+        rc = CodexBareAppServerSession(ports)(SERVER_CMD, {}, Path(self.tmp.name), run_server=lambda: 0)
+
+        self.assertEqual(0, rc)
+        self.assertLess(time.monotonic() - started, 2.0)
+        self.assertEqual(["server-gone"], waits)
 
     def test_bare_server_on_stdio_skips_the_channel_client(self):
         cmd = ["codex", "app-server", "--listen", "stdio://"]

@@ -7,8 +7,9 @@ import ntpath
 import os
 from pathlib import Path
 import subprocess
-from typing import Callable
+from typing import Any, Callable
 
+from . import github_runtime_source
 from .npm_runtime import runtime_package_spec
 
 
@@ -176,10 +177,23 @@ class SelfUpdatePorts:
     output: Callable[..., None] = print
 
 
+@dataclass(frozen=True, slots=True)
+class GitHubSourcePorts:
+    remote_head: Callable[[str], str]
+    read_marker: Callable[[Path | None], dict[str, Any]]
+    write_marker: Callable[[Path | None, dict[str, Any]], None]
+
+
 class SelfUpdateLifecycle:
-    def __init__(self, current_version: str, ports: SelfUpdatePorts) -> None:
+    def __init__(
+        self,
+        current_version: str,
+        ports: SelfUpdatePorts,
+        github: GitHubSourcePorts | None = None,
+    ) -> None:
         self._current_version = current_version
         self._ports = ports
+        self._github = github
         self.package_spec = runtime_package_spec(current_version)
 
     def run(self, enabled: bool = True) -> bool:
@@ -193,15 +207,15 @@ class SelfUpdateLifecycle:
         npm = self._ports.find_executable("npm")
         if not npm:
             return False
-        latest = self._ports.latest_version(npm, self.package_spec)
-        if not latest or not self._ports.version_newer(latest, self._current_version):
+        package_root = self._ports.package_root()
+        current, latest, package_spec, marker = self._update_target(npm, package_root)
+        if not package_spec:
             return False
         self._print(
-            f"Ciel Runtime update available: {self._current_version} -> {latest}; upgrading automatically."
+            f"Ciel Runtime update available: {current} -> {latest}; upgrading automatically."
         )
-        package_root = self._ports.package_root()
         prefix = self._ports.prefix_from_root(package_root) if package_root else None
-        command = self._ports.install_command(npm, self.package_spec, prefix)
+        command = self._ports.install_command(npm, package_spec, prefix)
         if prefix is not None:
             self._print(f"Updating current Ciel Runtime install prefix: {prefix}")
         try:
@@ -233,6 +247,11 @@ class SelfUpdateLifecycle:
                     "If this prefix is not writable, reinstall or update with the permissions used for that prefix."
                 )
             return False
+        if marker and self._github is not None:
+            try:
+                self._github.write_marker(package_root, marker)
+            except OSError as exc:
+                self._print(f"Could not record the installed commit ({type(exc).__name__}).")
         self._print("Ciel Runtime updated. Restarting with the new version...")
         try:
             self._ports.restart(npm, package_root=package_root)
@@ -244,6 +263,41 @@ class SelfUpdateLifecycle:
             )
         return True
 
+    def _update_target(
+        self, npm: str, package_root: Path | None
+    ) -> tuple[str, str, str, dict[str, Any]]:
+        """(current label, new label, install spec, source marker); no spec = up to date."""
+
+        github = self._github
+        source = os.environ.get("CIEL_RUNTIME_UPDATE_SOURCE", "github").strip().lower()
+        if github is not None and source != "npm":
+            marker = github.read_marker(package_root)
+            branch = github_runtime_source.channel_branch(
+                self._current_version, marker, os.environ.get("CIEL_RUNTIME_UPDATE_BRANCH", "")
+            )
+            remote = github.remote_head(branch)
+            if remote:
+                installed = github_runtime_source.installed_commit(self._current_version, marker)
+                if github_runtime_source.is_current(installed, remote):
+                    return "", "", "", {}
+                current = f"{self._current_version} ({installed[:7] or 'unknown commit'})"
+                return (
+                    current,
+                    f"{branch}@{remote[:7]}",
+                    github_runtime_source.tarball_url(remote),
+                    {
+                        "source": "github",
+                        "repository": github_runtime_source.REPOSITORY,
+                        "branch": branch,
+                        "sha": remote,
+                    },
+                )
+            self._print("Ciel Runtime could not read the GitHub branch head; checking npm instead.")
+        latest = self._ports.latest_version(npm, self.package_spec)
+        if not latest or not self._ports.version_newer(latest, self._current_version):
+            return "", "", "", {}
+        return self._current_version, latest, self.package_spec, {}
+
     def _print(self, message: str) -> None:
         self._ports.output(message, flush=True)
 
@@ -251,6 +305,7 @@ class SelfUpdateLifecycle:
 __all__ = [
     "NpmPackageLifecycle",
     "NpmPackageLifecyclePorts",
+    "GitHubSourcePorts",
     "SelfUpdateLifecycle",
     "SelfUpdatePorts",
     "windows_executable_image_running",

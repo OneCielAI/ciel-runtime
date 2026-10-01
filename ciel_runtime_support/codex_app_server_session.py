@@ -23,6 +23,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 import subprocess
+import threading
 from typing import Any, Callable
 
 from ciel_runtime_support.codex_app_server import CodexAppServerClient
@@ -123,18 +124,24 @@ class CodexBareAppServerSession:
             # stdio or unix transports carry one client only; nothing to add.
             ports.log("INFO", f"codex_app_server_channel_unavailable listen={listen_url or '-'}")
             return run_server() if run_server is not None else 2
-        injector = _channel_injector(ports, listen_url, launch_cwd, wait_ready=self._ready(listen_url))
+        server_done = threading.Event()
+        injector = _channel_injector(
+            ports, listen_url, launch_cwd, wait_ready=self._ready(listen_url, server_done)
+        )
         if injector is not None:
             injector.start()
         try:
             return run_server()
         finally:
+            # Ends the /readyz wait too: a server that exits before it is ready
+            # must not leave the client polling (and logging) behind it.
+            server_done.set()
             if injector is not None:
                 injector.stop()
 
-    def _ready(self, listen_url: str) -> Callable[[], bool]:
+    def _ready(self, listen_url: str, server_done: threading.Event) -> Callable[[], bool]:
         url = readyz_url(listen_url)
-        return lambda: bool(self.ports.wait_ready(url))
+        return lambda: bool(self.ports.wait_ready(url, alive=lambda: not server_done.is_set()))
 
 
 class CodexRemoteTuiSession:

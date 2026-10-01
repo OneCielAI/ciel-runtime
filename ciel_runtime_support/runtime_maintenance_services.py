@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
+from . import github_runtime_source
 from .agy_installer import AgyInstaller, AgyInstallerPorts
 from .install_diagnostics import (
     InstallDiagnosticsPorts,
@@ -13,6 +14,7 @@ from .install_diagnostics import (
     InstallDiagnosticsSettings,
 )
 from .package_lifecycle import (
+    GitHubSourcePorts,
     NpmPackageLifecycle,
     NpmPackageLifecyclePorts,
     SelfUpdateLifecycle,
@@ -177,6 +179,11 @@ class RuntimeMaintenanceServices:
                 self.update.forced_environment,
                 self.update.restart_after_update,
                 self.npm.output,
+            ),
+            github=GitHubSourcePorts(
+                github_runtime_source.remote_branch_head,
+                github_runtime_source.read_source_marker,
+                github_runtime_source.write_source_marker,
             ),
         )
 

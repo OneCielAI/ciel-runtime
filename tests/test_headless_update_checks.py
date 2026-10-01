@@ -92,7 +92,11 @@ class HeadlessUpdateCheckTests(unittest.TestCase):
         completed = type("Completed", (), {"returncode": 0, "stdout": ""})()
         package_root = Path("/home/user/.local/lib/node_modules/@oneciel-ai/ciel-runtime")
         with (
-            patch.dict("os.environ", {"CIEL_RUNTIME_SKIP_SELF_UPDATE": "0"}, clear=False),
+            patch.dict(
+                "os.environ",
+                {"CIEL_RUNTIME_SKIP_SELF_UPDATE": "0", "CIEL_RUNTIME_UPDATE_SOURCE": "npm"},
+                clear=False,
+            ),
             patch("ciel_runtime.running_from_npm_package", return_value=True),
             patch("ciel_runtime.sys.stdin.isatty", return_value=True),
             patch("ciel_runtime.sys.stdout.isatty", return_value=True),
