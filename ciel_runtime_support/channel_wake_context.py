@@ -352,6 +352,8 @@ class ChannelWakeContext:
                 # The prompt may open the session's first transcript; the
                 # receipt picks it up once the CLI creates it.
                 self.input.log("INFO", "channel_input_receipt transcript_missing confirmation=awaiting_new_transcript")
+            else:
+                self.input.log("INFO", f"channel_input_receipt watching {submission_receipt.describe()}")
         injector = channel_injection.ChannelPromptInjector(
             sleep=self.input.sleep,
             retry_delay_seconds=self.input.retry_delay_seconds,
@@ -359,7 +361,7 @@ class ChannelWakeContext:
             log=self.input.log,
             submission_receipt=submission_receipt,
         )
-        return injector.inject(
+        submitted = injector.inject(
             channel_injection.CallableInputTransport(
                 master_fd, write_all or self.write_all
             ),
@@ -388,6 +390,9 @@ class ChannelWakeContext:
                 ),
             ),
         )
+        if not submitted and submission_receipt is not None:
+            self.input.log("WARN", f"channel_input_receipt_unmatched {submission_receipt.describe()}")
+        return submitted
 
     def transcript_repository(self) -> ChannelTranscriptRepository:
         return ChannelTranscriptRepository(

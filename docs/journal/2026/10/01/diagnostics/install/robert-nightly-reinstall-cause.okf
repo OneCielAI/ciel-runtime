@@ -1,0 +1,30 @@
+okf_version: "1.0"
+task: "Robert (100.64.0.14, sandbox u19, account aapw-a20u19): find why a nightly reinstall looks like the regular version and loses settings/sessions. Read-only, plan approved by the user."
+installed_code: "All 399 .py/.js files under .npm-global/node_modules/@oneciel-ai/ciel-runtime match origin/nightly a4bf5a0/3afbfd0 (git blob hashes). Release 0.2.51 (81a72a9): 304/399; main e74376e: 330/399. package.json and runtime_constants both say 0.2.51; the banner prints that constant."
+npm_logs (C:/Users/aapw-a20u19/AppData/Local/npm-cache/_logs, earliest kept 20:01Z):
+  - "20:05Z and 20:27Z: npm install --global github:OneCielAI/ciel-runtime#nightly, cwd sandbox home, exit 0; both reify .npm-global/ciel-runtime.cmd (temp-rename replace)."
+  - "20:07Z: same install command; no reify/exit lines matched (outcome not determined)."
+  - "20:01Z, 20:07Z, 20:29Z, 20:30Z, 20:33Z: npm view @oneciel-ai/ciel-runtime@latest version (ciel's launch update check; npm_runtime.py:36 picks latest because the version has no -nightly.). No registry install follows any of them."
+  - "Logs from the 12:19 local (19:19Z) self-update are no longer present (rotated)."
+shims: "All ciel-runtime*/cielrt* shims in .npm-global dated 13:28:14 local (20:27Z install), npm default content without CODEX_HOME / CIEL_RUNTIME_CONFIG_DIR. codex.cmd keeps the 2026-09-30 migration wrapper."
+update_branch_var: "CIEL_RUNTIME_UPDATE_BRANCH is read by no .py/.js in the installed package, origin/nightly, or main e74376e (only by the reverted 8ee366b code)."
+not_determined:
+  - "Whether the 19:19Z self-update also replaced the ciel-runtime.cmd wrapper (its npm log is gone). %APPDATA%/ciel-runtime/config.json was written at 13:01:27 local, before the first remaining install."
+changes: "none"
+env_var_removed: "User-approved: HKU\S-1-5-21-1816150378-1414216595-4272940731-1117\Environment CIEL_RUNTIME_UPDATE_BRANCH=nightly deleted (before: Path, TEMP, TMP, CIEL_RUNTIME_UPDATE_BRANCH; after: Path, TEMP, TMP)."
+root_cause_investigation:
+  shell_process: "Robert's PowerShell pid 14740 (started 13:33:13 local, parent AapWin.Host.exe pid 4368 running as SYSTEM, cmd 'powershell.exe -NoLogo -ExecutionPolicy Bypass') runs as aapw-a20u19 with CWD and AAP_WORKSPACE = sandbox home, AAP_SESSION=aap-agent-20, AAP_UNIT_ID=19, but USERPROFILE=C:\Users\aapw-a20u19, APPDATA/LOCALAPPDATA under that profile, no HOME, CODEX_HOME or CIEL_RUNTIME_CONFIG_DIR. Path starts with the sandbox .npm-global. It still carries CIEL_RUNTIME_UPDATE_BRANCH=nightly (started before the deletion)."
+  aap_win_db: "Copied aap-win.db: containers id 19 (windows-sandbox sbx-u19) env_vars '{}', home_dir null; sandbox_accounts aapw-a20u19 home_directory = sandbox home; assignment provision_log shows no CLI runtime or provision script; agents id 20 session_restore_command \"$env:CIEL_RUNTIME_SKIP_MENU='1'; ciel-runtime --ca-runtime last --continue\"."
+  migration: "apply-state.py and apply-delta.py copy Linux /home/robert-ai data into the sandbox home and relocate paths inside Codex SQLite/config; neither sets environment. Only activate-paths.py bridges the paths, by writing .npm-global\ciel-runtime.cmd and codex.cmd wrappers (CODEX_HOME, CIEL_RUNTIME_CONFIG_DIR, CIEL_RUNTIME_LAUNCH_CWD)."
+  ciel_code: "origin/nightly reads no AAP_* variable; npm-bin sets neither CODEX_HOME nor CIEL_RUNTIME_CONFIG_DIR; config dir = CIEL_RUNTIME_CONFIG_DIR or %APPDATA%\ciel-runtime, Codex home = CODEX_HOME or Path.home()\.codex."
+  finding: "The sandbox home relocation exists only as wrapper files inside npm's global bin directory, which npm regenerates on every global install of the package; the session launcher (aap-win) and ciel-runtime provide no other route to the sandbox paths."
+restore (user-approved):
+  precondition: "Another npm install --global github:OneCielAI/ciel-runtime#nightly ran 13:52:47-13:53:56 local (exit 0) and rewrote the shims at 13:53:55; no npm install process running at write time."
+  backup: ".migration-20260930\pre-restore-20261001\ciel-runtime.cmd (363 B) and ciel-runtime.ps1 (957 B), the npm shims."
+  written: ".npm-global\ciel-runtime.cmd = activate-paths.py wrapper (CODEX_HOME, CIEL_RUNTIME_CONFIG_DIR, CIEL_RUNTIME_LAUNCH_CWD, cd /d home, call node_modules\.bin\ciel-runtime.cmd); .npm-global\ciel-runtime.ps1 sets the same three for the call only, Push/Pop-Location to home, calls node_modules\.bin\ciel-runtime.cmd, restores the caller's values. 13:54:54 local; ps1 parse errors 0."
+  verified:
+    - "With robert's Path, PowerShell resolves ciel-runtime to .npm-global\ciel-runtime.ps1 first (then .cmd)."
+    - "Probe copies of both wrappers (final call replaced by an env echo): CWD = sandbox home, CODEX_HOME, CIEL_RUNTIME_CONFIG_DIR, CIEL_RUNTIME_LAUNCH_CWD = sandbox paths, args passed (--continue), exit code passed; caller shell afterwards unchanged (cwd and variables)."
+    - "Installed ciel code with those values: CONFIG_DIR = sandbox .config\ciel-runtime; Codex DB = sandbox .codex\state_5.sqlite (exists, threads 4); workspace id e87f37af3b3a -> symlink to workspaces\51c584b37985 whose config has workspace_mcp servers walkie, walkie_transcripts."
+  not_verified: "A real ciel-runtime launch in robert's window (needs robert's session; robert's shell pid 14740 still carries the old process environment including CIEL_RUNTIME_UPDATE_BRANCH, which no installed code reads)."
+  limit: "Any later npm install -g of ciel-runtime into this prefix rewrites both files again."

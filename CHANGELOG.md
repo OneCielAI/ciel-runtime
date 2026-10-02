@@ -5,6 +5,12 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+- When ciel cannot confirm that an injected channel message was submitted, the
+  router log now says what the transcript check saw: the transcript it watched,
+  where it started and stopped reading, the file size, how many user records
+  it read and whether the file was replaced (`channel_input_receipt watching`
+  at INFO, `channel_input_receipt_unmatched` at WARN). Delivery is unchanged.
+
 - Channel messages injected into the Codex TUI on Windows no longer stay in
   the composer. Since Codex 0.157 turned the fullscreen transcript on by
   default, a slow Codex could still be counting the injected keys as a paste

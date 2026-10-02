@@ -1919,6 +1919,34 @@ class ChannelBridgeTests(unittest.TestCase):
             ciel_runtime._CHANNEL_TRANSCRIPT_SCOPE.clear()
             ciel_runtime._CHANNEL_TRANSCRIPT_SCOPE.update(old_scope)
 
+    def test_unconfirmed_prompt_logs_what_the_receipt_read(self):
+        class ConPtyTarget:
+            supports_prompt_ready_wait = True
+
+            @staticmethod
+            def wait_until_prompt_ready(*_args, **_kwargs):
+                return True
+
+        with tempfile.TemporaryDirectory() as td:
+            transcript = Path(td) / "rollout.jsonl"
+            transcript.write_bytes(b"{}\n")
+            logs: list[tuple[str, str]] = []
+            with mock.patch.object(ciel_runtime, "_latest_claude_transcript_path", lambda ttl_seconds=2.0: transcript), \
+                    mock.patch.object(ciel_runtime, "router_log", lambda level, message: logs.append((level, message))), \
+                    mock.patch.object(ciel_runtime, "_write_fd_all"), \
+                    mock.patch.object(ciel_runtime, "_channel_wake_submit_retry_delay_seconds", lambda: 0.0):
+                submitted = ciel_runtime._write_channel_wake_prompt(
+                    ConPtyTarget(), "never recorded", b"\r", submit_retry_count=2, confirm_submit=True, submit_delay_seconds=0
+                )
+        self.assertFalse(submitted)
+        watching = [m for level, m in logs if m.startswith("channel_input_receipt watching ")]
+        unmatched = [(level, m) for level, m in logs if m.startswith("channel_input_receipt_unmatched ")]
+        self.assertEqual(1, len(watching))
+        self.assertIn(f"resolved={transcript} receipts=1 path={transcript} start=3", watching[0])
+        self.assertEqual(1, len(unmatched))
+        self.assertEqual("WARN", unmatched[0][0])
+        self.assertIn("user_records=0 accepted=False", unmatched[0][1])
+
     def test_latest_transcript_path_checks_codex_sessions(self):
         with tempfile.TemporaryDirectory() as td:
             home = Path(td)

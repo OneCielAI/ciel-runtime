@@ -49,6 +49,24 @@ class SubmissionReceiptTests(unittest.TestCase):
             current['path'] = other
             self.assertFalse(receipt())
 
+    def test_describe_reports_what_the_receipt_read(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / 'transcript.jsonl'
+            p.write_bytes(b'{}\n')
+            receipt = LatestTranscriptSubmissionReceipt(lambda: p, 'expected prompt')
+            other = {'type': 'response_item', 'payload': {'type': 'message', 'role': 'user', 'content': [{'type': 'input_text', 'text': 'another prompt'}]}}
+            with p.open('ab') as f:
+                f.write(json.dumps(other).encode() + b'\n')
+            self.assertFalse(receipt())
+            text = receipt.describe()
+            self.assertIn(f'resolved={p}', text)
+            self.assertIn('start=3 offset=', text)
+            self.assertIn('checks=1 read_errors=0 user_records=1 accepted=False', text)
+            self.assertIn("last_user='another prompt'", text)
+            p.write_bytes(b'')
+            self.assertFalse(receipt())
+            self.assertIn('invalidated=truncated', receipt.describe())
+
     def test_display_wrap_and_ansi_paste_marker(self):
         self.assertTrue(WindowsConPtySession._prompt_rendered_in_output(
             b'[external mes\r\nsage] example', '[external message] example'))

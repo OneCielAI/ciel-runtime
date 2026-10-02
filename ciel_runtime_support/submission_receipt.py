@@ -46,22 +46,37 @@ class TranscriptSubmissionReceipt:
         self.pending = bytearray()
         self.accepted = False
         self.not_before = not_before
+        # Diagnostics for a prompt_not_submitted verdict (celly, 2026-10-01:
+        # the record was on disk inside the window yet never matched).
+        self.started_offset = self.offset
+        self.last_size = stat.st_size
+        self.checks = 0
+        self.read_errors = 0
+        self.user_records = 0
+        self.last_user_head = ""
+        self.invalidated_reason = ""
 
     def __call__(self) -> bool:
         if self.accepted:
             return True
         if self.invalidated:
             return False
+        self.checks += 1
         try:
             with self.path.open("rb") as stream:
                 stat = os.fstat(stream.fileno())
+                self.last_size = stat.st_size
                 if (stat.st_dev, stat.st_ino) != self.identity or stat.st_size < self.offset:
                     self.invalidated = True
+                    self.invalidated_reason = (
+                        "identity" if (stat.st_dev, stat.st_ino) != self.identity else "truncated"
+                    )
                     return False  # Do not match historical records after truncation.
                 stream.seek(self.offset)
                 chunk = stream.read(1024 * 1024)
                 self.offset += len(chunk)
         except OSError:
+            self.read_errors += 1
             return False
         self.pending.extend(chunk)
         while b"\n" in self.pending:
@@ -85,6 +100,8 @@ class TranscriptSubmissionReceipt:
                 str(block.get("text") or "") for block in content
                 if isinstance(block, dict) and block.get("type") in {"text", "input_text"}
             ) if isinstance(content, list) else ""
+            self.user_records += 1
+            self.last_user_head = " ".join(text.split())[:60]
             if self.expected and self.expected in " ".join(text.split()):
                 self.accepted = True
                 return True
@@ -92,7 +109,17 @@ class TranscriptSubmissionReceipt:
             # Fail closed instead of accumulating an unbounded malformed line.
             self.pending.clear()
             self.invalidated = True
+            self.invalidated_reason = "oversized_line"
         return False
+
+    def describe(self) -> str:
+        return (
+            f"path={self.path} start={self.started_offset} offset={self.offset} "
+            f"size={self.last_size} checks={self.checks} read_errors={self.read_errors} "
+            f"user_records={self.user_records} accepted={self.accepted} "
+            f"invalidated={self.invalidated_reason or self.invalidated} "
+            f"expected_len={len(self.expected)} last_user={self.last_user_head!r}"
+        )
 
 
 class LatestTranscriptSubmissionReceipt:
@@ -120,6 +147,7 @@ class LatestTranscriptSubmissionReceipt:
         self.started_at = now()
         self.receipts: dict[Path, TranscriptSubmissionReceipt] = {}
         initial = resolve()
+        self.last_resolved: Path | None = initial
         if initial is not None:
             self.receipts[initial] = TranscriptSubmissionReceipt(initial, prompt)
 
@@ -132,6 +160,7 @@ class LatestTranscriptSubmissionReceipt:
             path = self.resolve()
         except OSError:
             path = None
+        self.last_resolved = path
         if path is not None and path not in self.receipts:
             try:
                 self.receipts[path] = TranscriptSubmissionReceipt(
@@ -140,3 +169,8 @@ class LatestTranscriptSubmissionReceipt:
             except OSError:
                 pass
         return any(receipt() for receipt in list(self.receipts.values()))
+
+    def describe(self) -> str:
+        watched = " | ".join(receipt.describe() for receipt in self.receipts.values())
+        return f"resolved={self.last_resolved} receipts={len(self.receipts)} {watched or 'none'}"
+
