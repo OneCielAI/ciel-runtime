@@ -36,6 +36,7 @@ class ProviderCatalogSources:
 class ModelCatalogResponseCodec:
     model_ids_from_response: Callable[..., Any]
     model_info_from_response: Callable[..., Any]
+    select_entries: Callable[[str, dict[str, Any], Any], Any] = lambda _provider, _pcfg, data: data
 
 
 @dataclass(frozen=True, slots=True)
@@ -227,6 +228,7 @@ def fetch_upstream_model_ids(provider: str, pcfg: dict[str, Any], force_refresh:
                     request_base = lm_studio_api_base(pcfg) if catalog_policy.kind == "lm_studio" and path.startswith("/api/") else base
                     timeout = 2.0 if catalog_policy.kind == "lm_studio" else (4.0 if catalog_policy.kind == "ollama" else 6.0)
                     data = http_json(join_url(request_base, path), headers=headers, timeout=timeout, provider=provider, pcfg=pcfg)
+                    data = services.response_codec.select_entries(provider, pcfg, data)
                     ids = [normalize_model_id(provider, mid) for mid in model_ids_from_response(data)]
                     model_info.update(model_info_from_response(provider, data))
                     fetched = True

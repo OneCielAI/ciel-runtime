@@ -20,6 +20,7 @@ from .providers.native import AgyProviderAdapter, CodexProviderAdapter
 from .providers.ollama import OllamaCloudProviderAdapter, OllamaProviderAdapter
 from .providers.openrouter import OpenRouterProviderAdapter
 from .providers.tabitoken import TabitokenProviderAdapter
+from .providers.cielairouter import CielAiRouterProviderAdapter
 from .providers.lm_studio import LMStudioProviderAdapter
 from .providers.nim import SelfHostedNimProviderAdapter
 from .providers.nvidia import NvidiaHostedProviderAdapter
@@ -93,6 +94,12 @@ PROVIDER_DESCRIPTORS = ProviderDescriptorRegistry(
             "TaBiAI (Tabitoken.com)",
             TabitokenProviderAdapter,
             aliases=("tabi", "tabiai", "tabi-token"),
+        ),
+        ProviderDescriptor(
+            "cielairouter",
+            "CielAiRouter",
+            CielAiRouterProviderAdapter,
+            aliases=("ciel-ai-router", "ciel-router"),
         ),
         ProviderDescriptor("xai", "xAI", XaiProviderAdapter, aliases=("grok",)),
         ProviderDescriptor("fireworks", "Fireworks.ai", FireworksProviderAdapter),

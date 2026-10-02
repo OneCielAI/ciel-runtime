@@ -134,6 +134,7 @@ from ciel_runtime_support.codex_launch_policy import help_requested as project_c
 from ciel_runtime_support.codex_launch_policy import native_routed_config_args as project_codex_native_routed_config_args
 from ciel_runtime_support.codex_launch_policy import yolo_launch_args as project_codex_yolo_launch_args
 from ciel_runtime_support.codex_model_catalog import CodexModelCatalogService
+from ciel_runtime_support.provider_model_profile import apply_adapter_model_profiles, reapply_launch_catalog_profile
 from ciel_runtime_support.codex_process_lifecycle import CodexProcessLifecycle, CodexProcessPorts, CodexProcessRepository
 from ciel_runtime_support.codex_process_lifecycle import managed_process as project_managed_codex_process
 from ciel_runtime_support.codex_process_lifecycle import terminate_recorded_child as terminate_project_recorded_child
@@ -853,6 +854,9 @@ def provider_model_catalog_context() -> ProviderModelCatalogContext:
         cache=ProviderModelCachePorts(
             invalidate_config_cache, upstream_model_ids,
             ollama_catalog_model_ids, sorted_model_ids,
+            lambda provider, pcfg: reapply_launch_catalog_profile(
+                provider, pcfg, provider_model_catalog_policy(provider, pcfg).reapply_catalog_profile_at_launch,
+                apply_provider_model_profile, load_config, save_config, router_log),
         ),
         compatibility=ProviderModelCatalogCompatibilityPorts(
             lambda *args, **kwargs: read_model_list_cache(*args, **kwargs),
@@ -954,6 +958,8 @@ provider_advisor_model_badge = _PROVIDER_CONTRACT_API.advisor_model_badge
 def select_provider_protocol(provider: str, pcfg: dict[str, Any], operation: MessageProtocol, model: str | None = None) -> MessageProtocol:
     adapter = configured_provider_adapter(provider, pcfg)
     return adapter.select_protocol(operation, provider_contract_config(provider, pcfg), model)
+
+def select_provider_catalog_entries(provider: str, pcfg: dict[str, Any], data: Any) -> Any: return configured_provider_adapter(provider, pcfg).select_model_catalog_entries(provider_contract_config(provider, pcfg), data)
 
 def apply_provider_adapter_request_policy(provider: str, pcfg: dict[str, Any], body: dict[str, Any], protocol: MessageProtocol | None = None) -> dict[str, Any]:
     adapter = configured_provider_adapter(provider, pcfg)
@@ -1420,7 +1426,7 @@ def upstream_model_ids(provider: str, pcfg: dict[str, Any], force_refresh: bool 
                                                   nvidia_upstream_base_url),
             sources=provider_models.ProviderCatalogSources(ANTHROPIC_MODEL_DOCS_URLS, fetch_anthropic_api_model_ids, fetch_anthropic_public_model_ids,
                                                             fetch_fireworks_model_ids, fireworks_account_id, fireworks_management_base_url),
-            response_codec=provider_models.ModelCatalogResponseCodec(model_ids_from_response, model_info_from_response),
+            response_codec=provider_models.ModelCatalogResponseCodec(model_ids_from_response, model_info_from_response, select_provider_catalog_entries),
             policy=provider_models.ModelCatalogPolicy(normalize_model_id, ollama_catalog_model_ids, provider_has_api_key, provider_model_catalog_policy,
                                                        provider_model_paths, provider_model_list_headers, provider_upstream_request_base, sorted_model_ids,
                                                        unique_model_ids),
@@ -3295,15 +3301,7 @@ is_qwen36_plus_model_id = ModelContextHintPolicy.is_qwen36_plus
 def is_kimi_k3_model_id(model_id: str) -> bool: return model_context_hint_policy().is_kimi_k3(model_id)
 
 def apply_provider_model_profile(provider: str, pcfg: dict[str, Any]) -> list[str]:
-    adapter = configured_provider_adapter(provider, pcfg)
-    updates, notice = adapter.model_configuration_profile(
-        provider_contract_config(provider, pcfg)
-    )
-    if not updates:
-        return []
-    changed = any(pcfg.get(key) != value for key, value in updates.items())
-    pcfg.update(updates)
-    return [notice] if changed and notice else []
+    return apply_adapter_model_profiles(configured_provider_adapter(provider, pcfg), lambda: provider_contract_config(provider, pcfg), pcfg, lambda: cached_current_model_info(provider, pcfg))
 
 apply_kimi_model_profile = apply_provider_model_profile
 def zai_model_context_hint(model_id: str) -> int | None: return model_context_hint_policy().zai_hint(model_id)

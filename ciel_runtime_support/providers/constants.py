@@ -23,6 +23,7 @@ PROVIDER_DEFAULT_BASE_URLS: dict[str, str] = {
     "self-hosted-nim": "http://127.0.0.1:8000",
     "openrouter": "https://openrouter.ai/api/v1",
     "tabitoken": "https://tabitoken.com",
+    "cielairouter": "https://ciel-router-01.ezonebot.com",
     "fireworks": "https://api.fireworks.ai/inference",
     "meta": "https://api.meta.ai/v1",
 }

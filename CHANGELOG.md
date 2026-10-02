@@ -5,6 +5,20 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+- New provider `cielairouter` (CielAiRouter, aliases `ciel-ai-router` and
+  `ciel-router`). Each runtime keeps its own protocol: Claude Code uses
+  `/v1/messages`, Codex uses `/v1/responses`, everything else uses
+  `/v1/chat/completions`. The model list is read the way CielAiRouter's VS Code
+  extension reads it (only routable chat models, without duplicate prefixes)
+  and is further limited to models that support both tool calling and
+  thinking. The list is cached per API key. Selecting a model applies its
+  catalog limits. Claude models keep Claude Code's own output limit and its
+  own effort and thinking support. Other models get the catalog output limit
+  and catalog-derived capabilities. Codex inherits the bundled model of the
+  same name and the catalog's effort levels, but never its migration to
+  another bundled model. Every launch re-applies and saves the current
+  model's catalog profile. The readiness check allows 10 s for the catalog.
+
 - When ciel cannot confirm that an injected channel message was submitted, the
   router log now says what the transcript check saw: the transcript it watched,
   where it started and stopped reading, the file size, how many user records

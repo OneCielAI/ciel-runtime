@@ -11,6 +11,7 @@ from .native import AgyProviderAdapter, CodexProviderAdapter
 from .ollama import OllamaCloudProviderAdapter, OllamaProviderAdapter
 from .openrouter import OpenRouterProviderAdapter
 from .tabitoken import TabitokenProviderAdapter
+from .cielairouter import CielAiRouterProviderAdapter
 from .lm_studio import LMStudioProviderAdapter
 from .nim import SelfHostedNimProviderAdapter
 from .nvidia import NvidiaHostedProviderAdapter
@@ -63,6 +64,7 @@ __all__ = [
     "OllamaProviderAdapter",
     "OpenRouterProviderAdapter",
     "TabitokenProviderAdapter",
+    "CielAiRouterProviderAdapter",
     "LMStudioProviderAdapter",
     "NvidiaHostedProviderAdapter",
     "SelfHostedNimProviderAdapter",

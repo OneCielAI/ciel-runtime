@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -49,18 +50,23 @@ class ProviderModelMetadataContext:
         api_state = (
             "key" if self.headers.api_key_count(provider, pcfg) else "nokey"
         )
-        return json.dumps(
-            {
-                "provider": provider,
-                "base_url": pcfg.get("base_url", ""),
-                "model_api_base_url": pcfg.get("model_api_base_url", ""),
-                "account_id": pcfg.get("account_id", ""),
-                "api": api_state,
-                "custom": pcfg.get("custom_models", []),
-                "schema": 7,
-            },
-            sort_keys=True,
-        )
+        identity = {
+            "provider": provider,
+            "base_url": pcfg.get("base_url", ""),
+            "model_api_base_url": pcfg.get("model_api_base_url", ""),
+            "account_id": pcfg.get("account_id", ""),
+            "api": api_state,
+            "custom": pcfg.get("custom_models", []),
+            "schema": 7,
+        }
+        adapter = self.headers.configured_adapter(provider, pcfg)
+        contract = self.headers.contract_config(provider, pcfg)
+        if adapter.model_catalog_policy(contract).per_key_catalog:
+            key = str(self.headers.primary_api_key(provider, pcfg) or "")
+            identity["api_key_id"] = (
+                hashlib.sha256(key.encode("utf-8")).hexdigest()[:16] if key else ""
+            )
+        return json.dumps(identity, sort_keys=True)
 
     def infer_claude_capabilities(self, model_id: str) -> list[str]:
         return anthropic_model_policy.infer_capabilities(

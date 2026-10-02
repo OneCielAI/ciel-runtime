@@ -593,6 +593,14 @@ Ollama model-context cache 일치, dynamic `num_ctx` bucket, preset cap, option/
 
 OpenRouter 인증, OpenAI protocol capability와 hosted context 정책을 소유하는 독립 Adapter.
 
+### `ciel_runtime_support/provider_model_profile.py`
+
+Adapter의 모델 프로파일과 캐시된 카탈로그 항목 기반 프로파일을 provider 설정에 적용(값 `None`은 키 제거)하는 공통 함수.
+
+### `ciel_runtime_support/providers/cielairouter.py`
+
+CielAiRouter의 런타임별 네이티브 프로토콜 선택, VSIX와 같은 카탈로그 필터(도구·thinking 지원 모델만), 키별 모델 캐시, 카탈로그 기반 모델 프로파일(Claude Code 지원 능력, Codex 템플릿·effort 단계)과 출력 한도·effort 정규화를 소유하는 독립 Adapter.
+
 ### `ciel_runtime_support/providers/tabitoken.py`
 
 TaBiAI의 OpenAI Chat/Anthropic Messages 이중 endpoint, Bearer 인증, 공개 모델 fallback과 thinking 모델의 `reasoning_effort` 투영을 소유하는 독립 Adapter.

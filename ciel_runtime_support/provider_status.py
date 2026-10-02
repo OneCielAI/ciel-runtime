@@ -92,7 +92,7 @@ def _catalog_status(
         data = catalog.http_json(
             catalog.join_url(probe_base, policy.catalog_path),
             headers=catalog.model_headers(provider, pcfg),
-            timeout=2.5,
+            timeout=policy.probe_timeout_seconds,
             provider=provider,
             pcfg=pcfg,
         )
@@ -122,7 +122,7 @@ def _generic_status(
     path = policy.catalog_path or "/v1/models"
     try:
         request = urllib.request.Request(join_url(base, path), headers=headers)
-        with generic.provider_urlopen(request, timeout=2.5, provider=provider, pcfg=pcfg) as response:
+        with generic.provider_urlopen(request, timeout=policy.probe_timeout_seconds, provider=provider, pcfg=pcfg) as response:
             body = response.read(131072).decode("utf-8", errors="ignore")
         count = ""
         try:

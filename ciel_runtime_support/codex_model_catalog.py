@@ -12,6 +12,14 @@ from pathlib import Path
 from typing import Any, Mapping
 
 
+# Provider metadata keys consumed here and never written into the catalog.
+# TEMPLATE_SLUGS_KEY names bundled entries (in order) whose instructions and
+# tool settings the routed entry should inherit; REASONING_EFFORTS_KEY lists
+# the efforts the upstream accepts for the model.
+TEMPLATE_SLUGS_KEY = "ciel_template_slugs"
+REASONING_EFFORTS_KEY = "ciel_reasoning_efforts"
+
+
 @dataclass(frozen=True, slots=True)
 class CodexModelCatalogSpec:
     alias: str
@@ -57,13 +65,13 @@ class CodexModelCatalogService:
             models = catalog.get("models") if isinstance(catalog, dict) else None
             if not isinstance(models, list) or not models:
                 raise ValueError("bundled catalog contains no models")
+            bundled = {
+                item.get("slug"): item for item in models if isinstance(item, dict)
+            }
+            requested = (spec.metadata or {}).get(TEMPLATE_SLUGS_KEY) or ()
             template = next(
-                (
-                    item
-                    for item in models
-                    if isinstance(item, dict) and item.get("slug") == "gpt-5.2"
-                ),
-                None,
+                (bundled[slug] for slug in requested if slug in bundled),
+                bundled.get("gpt-5.2"),
             )
             if template is None:
                 template = next((item for item in models if isinstance(item, dict)), None)
@@ -108,16 +116,43 @@ class CodexModelCatalogService:
                     spec.context_window,
                     max(1, auto_compact_token_limit),
                 ),
+                # A bundled template can carry a migration to another bundled
+                # model (Codex 0.160.0 gpt-5.6-sol -> gpt-6-sol); the routed
+                # alias must stay selected, so neither the upgrade nor its
+                # announcement is inherited.
+                "upgrade": None,
+                "availability_nux": None,
             }
         )
-        metadata_has_default = bool(
-            spec.metadata and "default_reasoning_level" in spec.metadata
-        )
-        metadata_has_levels = bool(
-            spec.metadata and "supported_reasoning_levels" in spec.metadata
-        )
-        if spec.metadata:
-            routed.update(json.loads(json.dumps(dict(spec.metadata))))
+        metadata = dict(spec.metadata or {})
+        metadata.pop(TEMPLATE_SLUGS_KEY, None)
+        efforts = metadata.pop(REASONING_EFFORTS_KEY, None)
+        if isinstance(efforts, list) and efforts:
+            template_levels = {
+                item.get("effort"): item
+                for item in template.get("supported_reasoning_levels") or []
+                if isinstance(item, dict)
+            }
+            metadata.setdefault(
+                "supported_reasoning_levels",
+                [
+                    template_levels.get(effort)
+                    or {
+                        "effort": effort,
+                        "description": f"{effort.title()} reasoning effort",
+                    }
+                    for effort in efforts
+                ],
+            )
+            if "default_reasoning_level" not in metadata:
+                default = template.get("default_reasoning_level")
+                if default not in efforts:
+                    default = "medium" if "medium" in efforts else efforts[0]
+                metadata["default_reasoning_level"] = default
+        metadata_has_default = "default_reasoning_level" in metadata
+        metadata_has_levels = "supported_reasoning_levels" in metadata
+        if metadata:
+            routed.update(json.loads(json.dumps(metadata)))
         if spec.effort and not metadata_has_default:
             routed["default_reasoning_level"] = spec.effort
         if spec.effort and not metadata_has_levels:

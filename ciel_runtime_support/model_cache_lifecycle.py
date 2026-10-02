@@ -20,6 +20,9 @@ class ModelCacheLifecyclePorts:
     unique_model_ids: Callable[[str, list[str]], list[str]]
     sorted_model_ids: Callable[[list[str]], list[str]]
     log: Callable[[str, str], None]
+    # Runs after hydration so a provider can re-derive launch settings from
+    # the (possibly just fetched) catalog cache.
+    launch_profile: Callable[[str, dict[str, Any]], None] = lambda _provider, _config: None
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,6 +58,10 @@ class ModelCacheLifecycleService:
         return model_ids if provider == "anthropic" else self.ports.sorted_model_ids(model_ids)
 
     def ensure_for_launch(self, provider: str, config: dict[str, Any]) -> None:
+        self._hydrate(provider, config)
+        self.ports.launch_profile(provider, config)
+
+    def _hydrate(self, provider: str, config: dict[str, Any]) -> None:
         if self.ports.read_list_cache(provider, config):
             return
         if self.ports.read_registry_models(provider, config, 0):

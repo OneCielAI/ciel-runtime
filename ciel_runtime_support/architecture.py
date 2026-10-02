@@ -156,6 +156,12 @@ class ProviderModelCatalogPolicy:
     use_bundled_catalog_fallback: bool = False
     authoritative_upstream_catalog: bool = False
     supplemental_model_aliases: tuple[tuple[str, str], ...] = ()
+    # The upstream lists different models per API key, so a cached list is
+    # only reused for the same key (a hashed fingerprint, never the key).
+    per_key_catalog: bool = False
+    # Re-apply the selected model's cached catalog profile on every launch, so
+    # limits follow a refreshed catalog without selecting the model again.
+    reapply_catalog_profile_at_launch: bool = False
 
 
 @dataclass(frozen=True)
@@ -187,6 +193,7 @@ class ProviderStatusPolicy:
     catalog_count_label: str = "models"
     unreachable_hint: str = "Set a reachable Base URL before launching Claude Code."
     readiness_validation: Literal["none", "lm_studio"] = "none"
+    probe_timeout_seconds: float = 2.5
 
 
 @dataclass(frozen=True)
@@ -504,6 +511,12 @@ class ProviderAdapter(ABC):
         del config
         return ProviderModelCatalogPolicy()
 
+    def select_model_catalog_entries(self, config: ProviderConfig, data: Any) -> Any:
+        """Drop catalog entries the launched runtimes cannot use, before ids are read."""
+
+        del config
+        return data
+
     def project_model_metadata(self, raw: Mapping[str, Any]) -> Mapping[str, Any]:
         """Project provider response fields into the shared model metadata shape."""
 
@@ -661,6 +674,17 @@ class ProviderAdapter(ABC):
         """Return provider/model-specific configuration updates and an optional notice."""
 
         del config
+        return {}, None
+
+    def catalog_model_configuration(
+        self, config: ProviderConfig, info: Mapping[str, Any]
+    ) -> tuple[Mapping[str, Any], str | None]:
+        """Return updates derived from the selected model's cached catalog entry.
+
+        A ``None`` value removes that key from the provider configuration.
+        """
+
+        del config, info
         return {}, None
 
     def propagates_inbound_beta_query(self, config: ProviderConfig) -> bool:

@@ -25,6 +25,7 @@
 | `self-hosted-nim` | Self Hosted NIM | OpenAI Chat | 로컬 NIM |
 | `openrouter` | OpenRouter | OpenAI Chat | `https://openrouter.ai/api` |
 | `tabitoken` | TaBiAI (Tabitoken.com) | Anthropic Messages / OpenAI Chat | `https://tabitoken.com` |
+| `cielairouter` | CielAiRouter | Anthropic Messages / OpenAI Responses / OpenAI Chat | `https://ciel-router-01.ezonebot.com` |
 | `fireworks` | Fireworks.ai | OpenAI Chat | `https://api.fireworks.ai/inference` |
 | `xai` | xAI | OpenAI Responses / Chat | `https://api.x.ai/v1` |
 
@@ -316,6 +317,41 @@ ZCode 버전의 선택된 Desktop provider는 fallback으로만 읽는다. 두 �
 - 모든 endpoint에 `Authorization: Bearer <TOKEN>`을 사용한다. 공식 API Detail에
   표시된 `x-api-key`는 Anthropic 형식 endpoint가 추가로 허용하는 대체 인증이다.
 - `-thinking` 모델의 OpenAI Chat 요청에만 `reasoning_effort`를 전달한다.
+
+## CielAiRouter
+
+- 내부 ID: `cielairouter` (`ciel-ai-router`, `ciel-router` 별칭 지원). 기본 서버는
+  `https://ciel-router-01.ezonebot.com`(서버 루트), 기본 모델은 콤보 `ASTRA`.
+- 인증은 CielAiRouter가 발급한 라우터 API 키를 `Authorization: Bearer`로 보낸다.
+- 런타임마다 자기 프로토콜을 그대로 쓴다: Claude Code → `POST /v1/messages`,
+  Codex → `POST /v1/responses`(compact 포함), 그 밖 → `POST /v1/chat/completions`.
+- 모델 목록은 CielAiRouter VS Code 확장(ciel-copilot)과 같은 방식으로 읽는다:
+  `GET /v1/models?prefix=alias&configuredOnly=true&availableOnly=true`로 서버가
+  라우팅 가능한 모델만 고르게 한 뒤, chat 모델이 아닌 행(`type`이 chat이 아니거나
+  `supported_endpoints`에 chat/responses가 없음)과 중복 prefix mirror(`parent`)를
+  뺀다. 에이전트 CLI용이므로 `tool_calling`과 thinking을 모두 지원하는 모델만 남긴다.
+- 목록은 키마다 다르므로 모델 캐시 키에 API 키의 SHA-256 지문(앞 16자)을 넣는다.
+- 모델을 고르거나 스펙을 새로 반영하면 카탈로그 항목에서 `context_length`를
+  `context_window`/`max_model_len`으로 가져온다.
+  - Claude 모델(`claude-` 이름): Claude Code가 네이티브처럼 출력 한도와 effort/thinking
+    지원을 스스로 정하도록 `max_output_tokens`와 `claude_code_supported_capabilities`를
+    비운다(직접 설정한 출력 한도는 유지). 라우터는 카탈로그 출력 한도를 넘는
+    `max_tokens`만 낮춘다.
+  - 그 밖의 모델: 카탈로그 `max_output_tokens`를 출력 한도로, `effort_tiers`와 thinking
+    여부로 Claude Code 지원 능력(`effort`, `xhigh_effort`, `max_effort`, `thinking`)을 만든다.
+  - Codex: 같은 이름의 Codex 내장 모델(effort 접미사를 뗀 이름 포함)을 템플릿으로 써서
+    지시문과 도구 설정을 이어받고, effort 단계는 `effort_tiers` 중 Codex 어휘
+    (low~ultra)에 있는 값으로 만든다. 템플릿의 `upgrade`/`availability_nux`는 물려받지
+    않는다(Codex 0.160.0의 `gpt-5.6-sol`은 `gpt-6-sol`로 이전을 안내해, 그대로 두면
+    라우팅 모델이 내장 모델로 바뀐다).
+- 실행할 때마다(Claude Code, Codex) 캐시된 카탈로그로 현재 모델의 프로파일을 다시
+  적용하고 저장한다. 라우터와 상태줄은 저장된 설정을 읽기 때문이다.
+- 실행 전 Base URL 점검은 필터 목록을 10초 제한으로 요청한다(서버 캐시가 비었을 때
+  2.56초까지 측정되어 기본 2.5초 제한에서 실행이 막혔다).
+- 선택한 모델의 요청에서 `reasoning_effort`, `reasoning.effort`,
+  `output_config.effort` 값이 `effort_tiers`에 없으면 그보다 낮은 가장 가까운 단계로 낮춘다.
+- 서버의 Thinking Budget 설정이 `auto`이면 클라이언트 추론 필드가 제거된다
+  (OmniRoute `services/thinkingBudget.ts`). Codex 추론 표시에는 `passthrough`가 필요하다.
 
 ---
 
