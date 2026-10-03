@@ -115,8 +115,8 @@ class PackageLifecycleTests(unittest.TestCase):
 
         current = "0.2.51-nightly.20260923-185827.4cccb27"
         tags = {
-            "@oneciel-ai/ciel-runtime@latest": "0.2.52",
-            "@oneciel-ai/ciel-runtime@nightly": "0.2.51-nightly.20260924-003723.ae32250",
+            "@one-ciel-ai/ciel-runtime@latest": "0.2.52",
+            "@one-ciel-ai/ciel-runtime@nightly": "0.2.51-nightly.20260924-003723.ae32250",
         }
         queried, installed = [], []
         lifecycle = SelfUpdateLifecycle(
@@ -139,8 +139,8 @@ class PackageLifecycleTests(unittest.TestCase):
             return_value=mock.Mock(returncode=0, stdout="updated"),
         ):
             self.assertTrue(lifecycle.run())
-        self.assertEqual(["@oneciel-ai/ciel-runtime@nightly"], queried)
-        self.assertEqual(["@oneciel-ai/ciel-runtime@nightly"], installed)
+        self.assertEqual(["@one-ciel-ai/ciel-runtime@nightly"], queried)
+        self.assertEqual(["@one-ciel-ai/ciel-runtime@nightly"], installed)
 
     def test_nightly_install_is_not_updated_to_same_or_older_nightly(self):
         from ciel_runtime_support.npm_runtime import version_newer
@@ -154,9 +154,9 @@ class PackageLifecycleTests(unittest.TestCase):
     def test_runtime_package_spec_keeps_release_channel(self):
         from ciel_runtime_support.npm_runtime import runtime_package_spec
 
-        self.assertEqual("@oneciel-ai/ciel-runtime@latest", runtime_package_spec("0.2.51"))
+        self.assertEqual("@one-ciel-ai/ciel-runtime@latest", runtime_package_spec("0.2.51"))
         self.assertEqual(
-            "@oneciel-ai/ciel-runtime@nightly",
+            "@one-ciel-ai/ciel-runtime@nightly",
             runtime_package_spec("0.2.51-nightly.20260924-003723.ae32250"),
         )
 

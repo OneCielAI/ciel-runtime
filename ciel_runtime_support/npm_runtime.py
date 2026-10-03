@@ -22,7 +22,10 @@ def version_newer(latest: str, current: str) -> bool:
     return tuple(left) > tuple(right)
 
 
-RUNTIME_PACKAGE_NAME = "@oneciel-ai/ciel-runtime"
+RUNTIME_PACKAGE_NAME = "@one-ciel-ai/ciel-runtime"
+# Installs made before 2026-10-03 live under the first npm scope; the account
+# that owned it became unreachable, so new builds publish under the @one-ciel-ai org.
+RUNTIME_PACKAGE_SCOPES = ("@one-ciel-ai", "@oneciel-ai")
 
 
 def runtime_package_spec(current_version: str) -> str:
@@ -58,7 +61,7 @@ def npm_latest_package_version(
 
 def npm_global_package_root(
     npm: str,
-    package_name: str = "@oneciel-ai/ciel-runtime",
+    package_name: str = RUNTIME_PACKAGE_NAME,
     timeout: float = 8.0,
 ) -> Path | None:
     try:
@@ -217,7 +220,7 @@ def package_root_from_installed_path(path: Path) -> Path | None:
     for index in range(0, max(0, len(parts) - 2)):
         if (
             parts[index] == "node_modules"
-            and parts[index + 1] == "@oneciel-ai"
+            and parts[index + 1] in RUNTIME_PACKAGE_SCOPES
             and parts[index + 2] == "ciel-runtime"
         ):
             try:

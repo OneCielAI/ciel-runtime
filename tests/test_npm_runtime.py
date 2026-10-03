@@ -26,6 +26,18 @@ class NpmRuntimeTests(unittest.TestCase):
         self.assertEqual(package, package_root_from_installed_path(script))
         self.assertEqual(Path("/opt/npm").resolve(strict=False), npm_prefix_from_package_root(package))
 
+    def test_new_and_pre_rename_scopes_are_both_recognized(self):
+        from ciel_runtime_support.npm_runtime import RUNTIME_PACKAGE_NAME, runtime_package_spec
+        from ciel_runtime_support.runtime_restart import running_from_npm_package
+
+        self.assertEqual("@one-ciel-ai/ciel-runtime", RUNTIME_PACKAGE_NAME)
+        self.assertEqual("@one-ciel-ai/ciel-runtime@nightly", runtime_package_spec("0.2.51-nightly.20261003-000000.abc1234"))
+        for scope in ("@one-ciel-ai", "@oneciel-ai"):
+            package = Path(f"/opt/npm/lib/node_modules/{scope}/ciel-runtime").resolve(strict=False)
+            self.assertEqual(package, package_root_from_installed_path(package / "ciel_runtime.py"))
+            self.assertTrue(running_from_npm_package(package / "ciel_runtime.py", {}))
+        self.assertIsNone(package_root_from_installed_path(Path("/opt/npm/lib/node_modules/@other/ciel-runtime/x.py")))
+
     def test_global_install_command_targets_active_prefix(self):
         self.assertEqual(
             ["npm", "install", "-g", "--prefix", str(Path("/opt/npm")), "pkg@latest"],

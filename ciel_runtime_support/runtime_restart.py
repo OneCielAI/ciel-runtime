@@ -12,7 +12,10 @@ def running_from_npm_package(path: Path, environ: MutableMapping[str, str]) -> b
     if environ.get("CIEL_RUNTIME_NPM_MODE") is not None:
         return True
     normalized = str(path.resolve(strict=False)).replace("\\", "/")
-    return "/node_modules/@oneciel-ai/ciel-runtime/" in normalized
+    return any(
+        f"/node_modules/{scope}/ciel-runtime/" in normalized
+        for scope in ("@one-ciel-ai", "@oneciel-ai")
+    )
 
 
 def forced_upgrade_environment(environ: MutableMapping[str, str]) -> dict[str, str]:

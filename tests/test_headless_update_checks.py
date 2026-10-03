@@ -107,7 +107,7 @@ class HeadlessUpdateCheckTests(unittest.TestCase):
             ciel_runtime.run_ciel_runtime_update_check()
 
         self.assertEqual(
-            ["npm", "install", "-g", "--prefix", str(Path("/home/user/.local")), "@oneciel-ai/ciel-runtime@latest"],
+            ["npm", "install", "-g", "--prefix", str(Path("/home/user/.local")), "@one-ciel-ai/ciel-runtime@latest"],
             run.call_args.args[0],
         )
         self.assertEqual("y\n", run.call_args.kwargs["input"])
@@ -130,7 +130,7 @@ class HeadlessUpdateCheckTests(unittest.TestCase):
 
         self.assertEqual(0, rc)
         self.assertEqual(
-            ["npm", "install", "-g", "--prefix", str(Path("/usr/local")), "@oneciel-ai/ciel-runtime@latest"],
+            ["npm", "install", "-g", "--prefix", str(Path("/usr/local")), "@one-ciel-ai/ciel-runtime@latest"],
             run.call_args.args[0],
         )
         self.assertEqual("y\n", run.call_args.kwargs["input"])

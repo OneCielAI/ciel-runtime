@@ -24,7 +24,7 @@ done
 
 # npm global
 if command -v npm >/dev/null 2>&1; then
-    npm_ls=$(npm ls -g @oneciel-ai/ciel-runtime 2>/dev/null || true)
+    npm_ls=$(npm ls -g @one-ciel-ai/ciel-runtime @oneciel-ai/ciel-runtime 2>/dev/null || true)
     if echo "$npm_ls" | grep -q 'ciel-runtime'; then
         echo "Found npm global:"
         echo "$npm_ls" | sed 's/^/  /'
@@ -45,6 +45,7 @@ echo "=== 2. Remove all existing installations ==="
 
 # Remove npm global
 if command -v npm >/dev/null 2>&1; then
+    npm uninstall -g @one-ciel-ai/ciel-runtime 2>/dev/null || true
     npm uninstall -g @oneciel-ai/ciel-runtime 2>/dev/null || true
 fi
 

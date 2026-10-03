@@ -43,7 +43,7 @@ class RuntimeUpgradeServiceTests(unittest.TestCase):
         service = self.service(executables={"npm": "npm"}, runs=runs)
         self.assertEqual(0, service.ciel_runtime())
         self.assertEqual(
-            (["npm", "@oneciel-ai/ciel-runtime@latest", str(Path("/prefix"))], 300.0),
+            (["npm", "@one-ciel-ai/ciel-runtime@latest", str(Path("/prefix"))], 300.0),
             runs[0],
         )
 

@@ -7,7 +7,16 @@
 ## npm으로 설치 (권장)
 
 ```bash
-npm install -g @oneciel-ai/ciel-runtime
+npm install -g @one-ciel-ai/ciel-runtime
+```
+
+2026-10-03 이전 설치본은 예전 패키지명 `@oneciel-ai/ciel-runtime`을 쓰며 더 이상
+새 빌드를 받지 않는다. 두 패키지 모두 `ciel-runtime` 명령을 만들므로 예전 패키지를
+한 번 지운 뒤 새 이름으로 설치한다:
+
+```bash
+npm uninstall -g @oneciel-ai/ciel-runtime
+npm install -g @one-ciel-ai/ciel-runtime@nightly
 ```
 
 설치 후 아래 명령이 PATH에 추가된다:

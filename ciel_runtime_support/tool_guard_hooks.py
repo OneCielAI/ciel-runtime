@@ -85,7 +85,7 @@ class LegacyToolGuardShimInstaller:
             package_root = self.services.package_root
             if (
                 package_root.name != "ciel-runtime"
-                or package_root.parent.name != "@oneciel-ai"
+                or package_root.parent.name not in ("@one-ciel-ai", "@oneciel-ai")
             ):
                 return
             target = self.services.find_target()

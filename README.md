@@ -8,7 +8,7 @@ Ciel Runtime is a cross-platform launcher, local protocol router, and workspace
 control plane for Claude Code, Codex, Codex App Server, the Codex desktop app, AGY, Grok Build, ZCode, and
 compatible AI coding-agent CLIs.
 
-[![npm](https://img.shields.io/npm/v/@oneciel-ai/ciel-runtime?label=npm)](https://www.npmjs.com/package/@oneciel-ai/ciel-runtime)
+[![npm](https://img.shields.io/npm/v/@one-ciel-ai/ciel-runtime?label=npm)](https://www.npmjs.com/package/@one-ciel-ai/ciel-runtime)
 [![CI](https://github.com/OneCielAI/ciel-runtime/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/OneCielAI/ciel-runtime/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node.js 18+](https://img.shields.io/badge/node-%3E%3D18-339933?logo=node.js&logoColor=white)](package.json)
@@ -37,7 +37,7 @@ Use it when you need to:
 ## Install
 
 ```sh
-npm install -g @oneciel-ai/ciel-runtime
+npm install -g @one-ciel-ai/ciel-runtime
 ```
 
 The package installs three commands:
@@ -191,13 +191,22 @@ security boundaries.
 Stable releases are published from `main`:
 
 ```sh
-npm install -g @oneciel-ai/ciel-runtime@latest
+npm install -g @one-ciel-ai/ciel-runtime@latest
 ```
 
 Nightly builds are published from `nightly` for pre-release validation:
 
 ```sh
-npm install -g @oneciel-ai/ciel-runtime@nightly
+npm install -g @one-ciel-ai/ciel-runtime@nightly
+```
+
+Installs made before 2026-10-03 use the former package name
+`@oneciel-ai/ciel-runtime`, which no longer receives builds. Remove it once
+before installing the new name (both provide the `ciel-runtime` command):
+
+```sh
+npm uninstall -g @oneciel-ai/ciel-runtime
+npm install -g @one-ciel-ai/ciel-runtime@nightly
 ```
 
 See [CHANGELOG.md](CHANGELOG.md) for grouped release notes and the complete
