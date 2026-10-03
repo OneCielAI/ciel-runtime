@@ -1,0 +1,10 @@
+okf_version: "1.0"
+task: "ara (u21) and edward (u22) on 100.64.0.14: SSE/channel messages keep showing up in the Codex chat area; ciel records them prompt_not_submitted. User: 'SSE 이벤트를 제대로 주입을 못해주는 CIEL-RUNTIME의 문제', and asked for block delivery instead of typing in Codex."
+environment: "Both run ciel 0.2.51 with channel_injection.py 3e4772d, channel_wake_context.py f88f098, windows_conpty.py 7771a67 (= nightly, End prefix + 15 s late confirm present). Codex 0.159.3 (ara), 0.160.0 (edward). Router logs at ERROR."
+confirmed:
+  status_store: "runtime-input-status.jsonl (read with robocopy /B into C:\Windows\Temp, copies deleted afterwards): since 08:40 local almost every request goes queued -> failed prompt_not_submitted; edward 614 is the only submitted+replied."
+  delivered_anyway: "Codex rollout user records since 07:00 local: ara ids 565-622 and edward 606-626 all present, one ciel header per record, 0 newlines (no 3-newline merges). Some arrive before ciel's failure line (ara 590: received 08:59:42, failed 08:59:59; ara 621: 10:18:03 vs 10:18:20; edward 621: 10:08:07 vs 10:08:09)."
+  text_differs: "Rebuilding each prompt with the installed format_wake_prompt + normalize_prompt and diffing against the record (10 messages: ara 589,590,614,620,621,622; edward 612,613,621,622): none match; records are 5-44 chars shorter. First differences: U+2026 dropped; U+2014 and the following space dropped; U+23F0 dropped."
+  receipt: "TranscriptSubmissionReceipt requires the whole normalized prompt as a substring of the record, so a record missing those characters never confirms -> prompt_not_submitted although Codex received the message (with the characters missing)."
+not_determined: "Which layer drops the characters (ConPTY input translation, crossterm key decoding or the Codex composer) - to be reproduced locally."
+changes: "none on .14; repo unchanged."

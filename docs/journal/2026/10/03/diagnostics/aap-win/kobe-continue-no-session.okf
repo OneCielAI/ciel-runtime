@@ -1,0 +1,17 @@
+okf_version: "1.0"
+task: "kobe sandbox (100.64.0.14:1004, u24, aapw-a24u24): launch from C:\ProgramData\aap-win\sandboxes\u24\home\kobe-ai ended with 'Ciel Runtime could not find resumable Codex sessions for the current directory (...home\kobe-ai) in: C:\Users\aapw-a24u24\.codex\state_5.sqlite' (user screenshot). Read-only over ssh."
+evidence:
+  installed: "home\kobe-ai\.npm-global\node_modules\@oneciel-ai\ciel-runtime, written 2026-10-02 18:40 local, package.json 0.2.51. ciel_runtime.py 00fded5, runtime_launch.py a7212fc, codex_session_selection.py c141553 = nightly f9fbc87/89fe61a. The locally modified files from 2026-10-02 16:08 (journal 10/02 kobe-router-start-crash.okf) are no longer installed."
+  sessions: "state_5.sqlite threads: one row, id 00347d86-24f3-4ff3-b730-351604b415aa, source cli, archived 0, model_provider ciel-runtime-codex, cli 0.156.1, cwd \\?\C:\ProgramData\aap-win\sandboxes\u24\root\qb, updated 2026-10-02 15:33. Rollout 148,711,959 bytes."
+  code: "runtime_launch.py: --continue maps to resume --last, then select_codex_resume_session(select_latest=True) with session_cwd = launch cwd; no row -> message, return 0. codex_session_repository strips the \\?\ prefix and compares lowercase on Windows. The same message is printed by the resume picker path."
+conclusion: "The user migrated the transcript from another machine. Rollout first line session_meta cwd F:\qb (originator codex-tui, cli 0.156.1, 2026-09-24T05:16:15Z); file created in .codex\sessions 2026-10-02 14:28 local; state_5 row cwd ...\u24\root\qb (registered by a run 15:29-15:33). --continue in home\kobe-ai filters by that folder and finds nothing. Explicit-id resume ignores the cwd in the transcript reader (888e284); the --continue path stays folder-scoped; resume --all lists without the folder filter."
+not_determined: "The exact command line typed (the message appears only on a resume request: --continue or codex resume). Whether a launch from root\qb gets a free router port was not run."
+changes: "none"
+manual_fix (user: '로드할수있도록 파일을 수동으로 수정해줘'):
+  precheck: "No codex process for u24 running (only walkie transcript-relay.py, pid 8544). threads.rollout_path already points at the local rollout file."
+  backup: "C:\Users\aapw-a24u24\codex-backup-20261003\state_5.sqlite (sqlite backup API, 241664 bytes, cwd root\qb)."
+  change: "state_5.sqlite threads id 00347d86-24f3-4ff3-b730-351604b415aa: cwd \\?\C:\ProgramData\aap-win\sandboxes\u24\root\qb -> \\?\C:\ProgramData\aap-win\sandboxes\u24\home\kobe-ai. First write stored a single leading backslash (\?\C:..., lookup empty); rewritten with chr(92)-built string, len 53, integrity_check ok. Rollout file not modified (session_meta still F:\qb)."
+  verified: "Installed CodexSessionRepository.resumable(cwd=home\kobe-ai) -> [00347d86-...]; cwd=root\qb -> []."
+  not_verified: "An actual 'ciel-runtime --continue' launch in the sandbox (would start a live session; left to the user). Whether Codex 0.156.1 accepts the rollout whose session_meta cwd is F:\qb when resumed from home\kobe-ai; an earlier run from root\qb (state row written 15:29-15:33) suggests Codex resumed it from a directory other than F:\qb."
+  observed_later: "Process list on 2026-10-03 ~10:19 local: u24 ciel-runtime.js --continue (pid 3556), python cli --continue, router serve and codex.exe (pid 6620) running since 10:12."
+  rollback: "Copy the backup over C:\Users\aapw-a24u24\.codex\state_5.sqlite with Codex stopped (remove state_5.sqlite-wal/-shm first)."

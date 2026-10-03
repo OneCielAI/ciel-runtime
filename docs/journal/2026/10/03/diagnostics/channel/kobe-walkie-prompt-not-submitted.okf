@@ -1,0 +1,12 @@
+okf_version: "1.0"
+task: "Check whether the other team's root-cause report for kobe (Walkie sent 17:24:56Z, KOBE Runtime SSE received 17:24:57-58Z, CLI submission 17:25:30Z prompt_not_submitted, #2 prior_submission_failed skipped) is resolved by today's change."
+evidence (100.64.0.14, read in memory with SeBackupPrivilege; copying failed because C: had 0 bytes free):
+  status_store: "workspaces\651d879f6c68\runtime-input-status.jsonl: ids 1 and 2 queued 10:24:57/10:24:58 local (input_transport=session_socket), both failed prompt_not_submitted 10:25:30 (same batch); 3 failed 10:47:21; 4 failed 10:48:23; 5 failed 11:06:01. All five are external_event com.ciel.walkie.support.message, 1667-3157 chars."
+  router_log: "router-instances\9779-651d879f6c68\router.log (level ERROR): channel_stdin_proxy_blocked prior_submission_failed for 2, 3, 4, 5."
+  rollout: "Codex rollout 00347d86 user records since 17:00Z: id 3 at 17:47:20Z, 4 at 17:48:22Z, 5 at 18:05:43Z - each received, each shorter than the prompt ciel built (first differences U+2014, U+2705, U+00B7 dropped). Ids 1 and 2 are in no record."
+  versions: "kobe runs ciel code loaded at its 10:12 launch (before today's deploy) and Codex 0.160.0."
+conclusion:
+  confirmed: "3, 4, 5: same mechanism as ara/edward - delivered with characters dropped, receipt never matched, recorded failed. The report's reading 'session_socket result false' matches the code path: Codex has the Claude socket client wired but unconfigured, so send() fails and the prompt is typed."
+  not_determined: "Where ids 1 and 2 went: not in any Codex record; INFO lines are not logged at ERROR, so the render/Enter steps are not recorded."
+fix_status: "Deployed code routes these messages through the [ciel-wake] block and router body injection. E2E on Codex 0.156.1 (e2e-codex-1791052384), 0.159.3 and 0.160.0: session_socket external messages 9/9 confirmed on attempt 1, model received the exact body, replied. kobe applies it only after its next launch."
+other_finding: "C: on 100.64.0.14 has 0 bytes free (269.8 GB used), D: also 0 free, at ~11:17 local; recent writes spread over sandbox homes u19/u22/u24 and C:\ProgramData\RapidDevRuntimeDev\prepared-source. Nothing deleted. One ssh attempt aborted during the banner exchange."

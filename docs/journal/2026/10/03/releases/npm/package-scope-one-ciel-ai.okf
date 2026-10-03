@@ -1,0 +1,14 @@
+okf_version: "1.0"
+task: "Keep publishing nightly builds after losing the npm account that owns @oneciel-ai/ciel-runtime (user: the oneciel account is unreachable and npm support emails got no reply; a new npm account was created)."
+evidence:
+  publish_failures: "GitHub Actions 'Publish to npm' on nightly: last 5 runs failed; 2026-10-03T01:41Z 'npm error 404 Not Found - PUT https://registry.npmjs.org/@oneciel-ai%2fciel-runtime'. Last published nightly 0.2.51-nightly.20260924-003723.ae32250."
+  old_package: "/-/package/@oneciel-ai%2fciel-runtime/collaborators -> {\"oneciel\":\"write\"} (only writer)."
+  new_account: "Token given by the user: whoami -> onecielai; tokens API: package write + org write, org scope one-ciel-ai, bypass_2fa false, expiry 2027-01-01; /-/org/one-ciel-ai/user -> {\"onecielai\":\"owner\"}. Stored as GitHub secret NPM_TOKEN (OneCielAI/ciel-runtime, 2026-10-03T19:06:11Z) through stdin."
+  name_free: "registry 404 for @one-ciel-ai/ciel-runtime and @onecielai/ciel-runtime."
+change:
+  - "package.json name and workflow setup-node scope -> @one-ciel-ai."
+  - "npm_runtime: RUNTIME_PACKAGE_NAME @one-ciel-ai/ciel-runtime (self-update spec, npm root lookup); RUNTIME_PACKAGE_SCOPES (@one-ciel-ai, @oneciel-ai) for install-path detection; runtime_restart and tool_guard_hooks accept both scopes."
+  - "README, docs/Installation.md, docs/install.md, docs/Home.md: new name and the one-time migration (npm uninstall -g @oneciel-ai/ciel-runtime; npm install -g @one-ciel-ai/ciel-runtime@nightly). scripts/remote-cleanup.sh handles both names."
+behavior_of_existing_installs: "Installs of the old name run code that checks @oneciel-ai/ciel-runtime, which receives no builds, so they stay on their version; nothing moves them across names automatically (both packages provide the ciel-runtime command, so an automatic switch would collide)."
+tests: "tests/test_npm_runtime.py (+1: both scopes detected, new spec); spec expectations updated in test_headless_update_checks, test_package_lifecycle, test_runtime_upgrade_service. npm pack --dry-run -> @one-ciel-ai/ciel-runtime 0.2.51."
+not_verified: "A real publish (bypass_2fa=false may stop an unattended publish with EOTP if the account enforces 2FA for writes); the registry's dist-tags after the first publish of the new name."

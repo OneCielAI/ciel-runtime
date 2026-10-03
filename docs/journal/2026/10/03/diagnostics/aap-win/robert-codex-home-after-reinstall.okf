@@ -1,0 +1,8 @@
+okf_version: "1.0"
+task: "robert (u19) on 100.64.0.14 cannot load the last session after the latest update; user: the sandbox should search the sandbox profile first, not the system profile."
+confirmed:
+  reinstall: ".npm-global\ciel-runtime.cmd rewritten as the plain npm shim at 2026-10-03 10:15:59 and again 10:34:13 local (ciel 0.2.51 package written 10:15:55). The migration wrapper (activate-paths.py) had set CODEX_HOME=<home>\.codex, CIEL_RUNTIME_CONFIG_DIR=<home>\.config\ciel-runtime, CIEL_RUNTIME_LAUNCH_CWD=<home> and cd /d <home>."
+  databases: "sandbox home\robert-ai\.codex\state_5.sqlite: 4 threads (cwd home\robert-ai, latest updated_at 1791046260); profile C:\Users\aapw-a20u19\.codex\state_5.sqlite: 0 threads (written 10:33 today)."
+  code: "ciel: runtime_paths CONFIG_DIR = CIEL_RUNTIME_CONFIG_DIR or %APPDATA%; codex_session_repository / runtime_launch CODEX_HOME = env or Path.home()/.codex. Without the wrapper both resolve to the system profile."
+  other_sandboxes: "All five sandboxes now have plain npm shims. Only robert has sandbox-level .codex and .config\ciel-runtime; ara, edward, kobe use the profile .codex (1 thread each) and %APPDATA%\ciel-runtime; eric has neither."
+changes: "none."

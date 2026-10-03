@@ -1,0 +1,11 @@
+okf_version: "1.0"
+task: "Sandbox profile first (user: '샌드박스환경에서는 샌드박스 프로필을 먼저 검색해야함'; approved '모두 승인'). Diagnosis: docs/journal/2026/10/03/diagnostics/aap-win/robert-codex-home-after-reinstall.okf."
+code:
+  module: "ciel_runtime_support/sandbox_profile.py: find_sandbox_home walks from CIEL_RUNTIME_LAUNCH_CWD (or cwd) up to, not including, the account profile (user_home and Path.home()); the first directory with .codex/state_*.sqlite or .config/ciel-runtime/config.json is the sandbox home. apply_sandbox_profile fills only unset CODEX_HOME / CIEL_RUNTIME_CONFIG_DIR in os.environ so router and Codex children inherit them; CIEL_RUNTIME_SANDBOX_PROFILE=0 disables."
+  wiring: "runtime_paths calls it once right after HOME, before CONFIG_DIR."
+  docs: "docs/Configuration.md (샌드박스 프로필 우선), docs/Module-Map.md."
+tests: "tests/test_sandbox_profile.py (6): sandbox before account profile, launch cwd first, explicit env wins and opt-out, partial profile, project .codex without state DB ignored, walk stops at the account profile."
+remote_dry_check (100.64.0.14, read-only, new module executed in memory against the installed 0.2.51 CodexSessionRepository):
+  robert: "before: CODEX_HOME -> C:\Users\aapw-a20u19\.codex, resumable from home\robert-ai = []; after: CODEX_HOME and CIEL_RUNTIME_CONFIG_DIR -> home\robert-ai\.codex / .config\ciel-runtime, resumable = ['01a0e057-55f9-73a2-8a2b-2b8a7d3a744b'] (the latest thread)."
+  others: "ara, edward, eric, kobe from their home and root\qb: apply_sandbox_profile returns {} (unchanged)."
+installed_baseline: "All five sandboxes: runtime_paths b89efb6, runtime_launch a7212fc, channel_pending_injection f5ab9f9, submission_receipt 64cea02 = HEAD 89fe61a; sandbox_profile.py absent."
