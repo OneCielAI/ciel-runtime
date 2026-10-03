@@ -154,6 +154,15 @@ def build_default_config(provider_defaults: dict[str, Any]) -> dict[str, Any]:
             "max_total_bytes": 33554432,
             "max_files": 256,
         },
+        "remote_provision": {
+            "enabled": False,
+            "manifest_url": "",
+            "authorization": "",
+            "timeout_seconds": 30,
+            "max_manifest_bytes": 1048576,
+            "max_file_bytes": 67108864,
+            "max_total_bytes": 268435456,
+        },
         "speech": {
             "colab": {
                 "enabled": True,

@@ -593,6 +593,10 @@ Ollama model-context cache 일치, dynamic `num_ctx` bucket, preset cap, option/
 
 OpenRouter 인증, OpenAI protocol capability와 hosted context 정책을 소유하는 독립 Adapter.
 
+### `ciel_runtime_support/remote_provision.py`
+
+세션 실행 전 HTTP manifest의 파일 배치와 PowerShell/bash/Python 단계 실행(sha256 필수, once/every_launch 상태, 단계별 로그, 실패 시 실행 차단), `remote-provision` CLI를 소유하는 모듈.
+
 ### `ciel_runtime_support/provider_model_profile.py`
 
 Adapter의 모델 프로파일과 캐시된 카탈로그 항목 기반 프로파일을 provider 설정에 적용(값 `None`은 키 제거)하는 공통 함수.

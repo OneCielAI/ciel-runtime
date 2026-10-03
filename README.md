@@ -211,7 +211,7 @@ commit ledger included in each stable release.
 | Commands and settings | [CLI reference](docs/CLI-Reference.md) · [Configuration](docs/Configuration.md) |
 | Providers and model routing | [Providers](docs/Providers.md) · [Router](docs/Router.md) · [Remote Bridge](docs/Remote-Bridge.md) |
 | Runtime design | [Architecture](docs/Architecture.md) · [Module map](docs/Module-Map.md) |
-| Memory and messaging | [Remote Memory](docs/Remote-Memory.md) · [MCP and channels](docs/MCP-Channels.md) |
+| Memory and messaging | [Remote Memory](docs/Remote-Memory.md) · [Remote Provision](docs/Remote-Provision.md) · [MCP and channels](docs/MCP-Channels.md) |
 | Operations | [Observability](docs/Observability.md) · [Usage observability](docs/usage-observability.md) |
 | Verification | [Test suite](docs/Test-Suite.md) |
 

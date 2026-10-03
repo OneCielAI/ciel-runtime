@@ -5,6 +5,16 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+- Remote Provision prepares a workspace before a session starts.
+  `ciel-runtimectl remote-provision enabled=true manifest_url=...` points
+  Ciel at an HTTP manifest. Before every runtime launch, Ciel places the
+  manifest's files in the workspace and runs its PowerShell, bash or Python
+  steps there, for example to install programs. Every file and script must
+  match its sha256, and a failure blocks the launch. `once` steps rerun only
+  when the script changes. `remote-provision run` provisions without starting
+  a session, and `remote-provision status` shows each step's exit code and
+  log. See docs/Remote-Provision.md.
+
 - New provider `cielairouter` (CielAiRouter, aliases `ciel-ai-router` and
   `ciel-router`). Each runtime keeps its own protocol: Claude Code uses
   `/v1/messages`, Codex uses `/v1/responses`, everything else uses

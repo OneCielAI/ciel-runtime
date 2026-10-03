@@ -292,6 +292,18 @@ wire 시스템/개발자 문맥 하단의 관리 블록에 추가한다. 같은 
 
 계약, 제한, 예시는 [Remote Memory](Remote-Memory.md)를 참고한다.
 
+## 세션 전 프로비저닝
+
+Remote Provision은 런타임을 실행하기 전에 manifest의 파일을 워크스페이스에 두고
+설치 스크립트를 실행한다. sha256이 맞지 않거나 스크립트가 실패하면 실행이 막힌다.
+
+```bash
+ciel-runtimectl remote-provision enabled=true   manifest_url=https://provision.example/v1/manifest.json   authorization='Bearer {CIEL_PROVISION_TOKEN}'
+ciel-runtimectl remote-provision run
+```
+
+계약, 제한, 예시는 [Remote Provision](Remote-Provision.md)를 참고한다.
+
 ---
 
 ## 반복 폭주 가드

@@ -308,6 +308,25 @@ ciel-runtimectl remote-memory enabled=true manifest_url=https://memory.example/m
 
 전체 manifest 계약은 [Remote Memory](Remote-Memory.md)를 참고한다.
 
+#### `remote-provision`
+
+```bash
+ciel-runtimectl remote-provision
+ciel-runtimectl remote-provision enabled=true manifest_url=https://provision.example/manifest.json
+ciel-runtimectl remote-provision run
+ciel-runtimectl remote-provision status
+```
+
+세션 시작 전에 HTTP manifest의 파일을 워크스페이스에 두고 스크립트(PowerShell, bash,
+Python)를 실행한다. 모든 파일과 스크립트는 sha256이 맞아야 쓰이거나 실행되며, 실패하면
+실행이 막힌다. `run`은 세션 없이 바로 한 번 수행하고 실패하면 0이 아닌 코드로 끝난다.
+`status`는 마지막 결과와 단계별 종료 코드·로그 경로를 보여준다.
+
+주요 키: `enabled`, `manifest_url`, `authorization`, `timeout_seconds`,
+`max_manifest_bytes`, `max_file_bytes`, `max_total_bytes`.
+
+전체 manifest 계약은 [Remote Provision](Remote-Provision.md)를 참고한다.
+
 #### `serve`
 ```bash
 ciel-runtimectl serve [--port PORT]

@@ -135,6 +135,7 @@ from ciel_runtime_support.codex_launch_policy import native_routed_config_args a
 from ciel_runtime_support.codex_launch_policy import yolo_launch_args as project_codex_yolo_launch_args
 from ciel_runtime_support.codex_model_catalog import CodexModelCatalogService
 from ciel_runtime_support.provider_model_profile import apply_adapter_model_profiles, reapply_launch_catalog_profile
+from ciel_runtime_support.remote_provision import RemoteProvisioner, provision_before_launch, remote_provision_command
 from ciel_runtime_support.codex_process_lifecycle import CodexProcessLifecycle, CodexProcessPorts, CodexProcessRepository
 from ciel_runtime_support.codex_process_lifecycle import managed_process as project_managed_codex_process
 from ciel_runtime_support.codex_process_lifecycle import terminate_recorded_child as terminate_project_recorded_child
@@ -1938,7 +1939,8 @@ def body_with_remote_memory_prompt(body: dict[str, Any], protocol: MessageProtoc
 def finalized_anthropic_upstream_body(body: dict[str, Any], remote_bridge: bool = False) -> dict[str, Any]: return body_without_ciel_runtime_internal_metadata(body if remote_bridge else body_with_remote_memory_prompt(body, "anthropic_messages"))
 def sync_remote_instruction(runtime: str, *, reason: str) -> RemoteInstructionResult: return project_sync_instruction_with_memory_pointer(runtime, reason=reason, instruction_synchronizer=remote_instruction_synchronizer, memory_synchronizer=remote_memory_synchronizer, log=router_log)
 def sync_remote_memory(runtime: str, *, reason: str) -> RemoteMemoryResult: return remote_memory_synchronizer().sync(runtime, reason=reason)
-def sync_remote_launch_assets(runtime: str, *, reason: str) -> RemoteMemoryResult: return project_sync_launch_assets(runtime, reason=reason, instruction_sync=sync_remote_instruction, memory_sync=sync_remote_memory, pointer_sync=lambda name: project_current_pointer_logged(name, memory_synchronizer=remote_memory_synchronizer, log=router_log))
+def remote_provisioner() -> RemoteProvisioner: return RemoteProvisioner(load_config=load_config, workspace=lambda: Path(ROUTER_WORKSPACE), state_dir=WORKSPACE_STATE_DIR, log=router_log)
+def sync_remote_launch_assets(runtime: str, *, reason: str) -> RemoteMemoryResult: return provision_before_launch(project_sync_launch_assets(runtime, reason=reason, instruction_sync=sync_remote_instruction, memory_sync=sync_remote_memory, pointer_sync=lambda name: project_current_pointer_logged(name, memory_synchronizer=remote_memory_synchronizer, log=router_log)), reason=reason, provisioner=remote_provisioner)
 def sync_all_remote_memories() -> list[str]: return project_sync_all_memory_pointers(remote_memory_synchronizer())
 def remote_instruction_panel_rows(cfg: dict[str, Any]) -> tuple[list[str], list[str]]:
     return project_remote_instruction_panel_rows(cfg)
@@ -4945,7 +4947,7 @@ def cli_services() -> cli_dispatch.CliServices:
 def cli_parser_services() -> cli_parser.CliParserServices:
     return cli_assembly.CliParserAssembly(
             launch=cli_parser.CliParserLaunch(cmd_cli, cmd_launch, cmd_launch_codex, cmd_launch_codex_app_server, cmd_launch_agy, serve, cmd_remote_bridge, cmd_launch_grok, cmd_launch_zcode, cmd_launch_muse),
-            runtime=cli_parser.CliParserRuntime(cmd_version, cmd_status, cmd_env, cmd_stop, cmd_test, runtime_session_restart_service().command),
+            runtime=cli_parser.CliParserRuntime(cmd_version, cmd_status, cmd_env, cmd_stop, cmd_test, runtime_session_restart_service().command, remote_provision_command(load_config, save_config, remote_provisioner)),
             settings=cli_parser.CliParserSettings(cmd_language, cmd_web_search, cmd_web_fetch, cmd_log_level, *event_settings_cli.handlers(event_settings_cli.EventSettingsCliPorts(load_config, save_config, external_event_receiver_service, lambda: set_remote_instruction_config('sync', ''), sync_all_remote_memories, print, lambda: USAGE_API_KEYS))),
             provider=cli_parser.CliParserProvider(cmd_ollama_native, cmd_ollama_options, cmd_provider_options, cmd_ollama_catalog, cmd_provider,
                                                   cmd_api_key, cmd_set_api_key, cmd_set_api_keys, cmd_base_url, {"copilot": cmd_copilot_oauth, "zai": cmd_zai_oauth}),

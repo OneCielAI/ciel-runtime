@@ -29,6 +29,7 @@ class CliParserRuntime:
     stop: CliHandler
     test: CliHandler
     restart_session: CliHandler = lambda _args: None
+    remote_provision: CliHandler = lambda _args: None
 
 
 @dataclass(frozen=True)
@@ -121,6 +122,7 @@ def build_cli_parser(services: CliParserServices) -> argparse.ArgumentParser:
     _add_values_command(commands, "usage-api-key", services.settings.usage_api_key)
     _add_values_command(commands, "remote-instructions", services.settings.remote_instructions)
     _add_values_command(commands, "remote-memory", services.settings.remote_memory)
+    _add_values_command(commands, "remote-provision", services.runtime.remote_provision)
     _add_optional_value_command(commands, "ollama-native", services.provider.ollama_native)
     _add_values_command(commands, "ollama-options", services.provider.ollama_options)
     _add_values_command(commands, "provider-options", services.provider.provider_options)
