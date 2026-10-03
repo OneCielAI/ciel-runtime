@@ -1,0 +1,1 @@
+>_ OpenAI Codex (v0.160.0) C:\cxe\ws permissions: YOLO mode Resuming session… › Ask Codex to do anything ? for shortcuts Error: Permission overrides are not supported when resuming a remote task.

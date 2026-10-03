@@ -1,0 +1,26 @@
+2026-10-03T15:30:30 [INFO] codex_remote_app_server_ready pid=56492 listen=ws://127.0.0.1:62379 resume=01a10374-43a1-76e3-b0f8-45d0f95ba6bc
+2026-10-03T15:30:30 [INFO] codex_desktop_channel_ready thread=01a10374-43a1-76e3-b0f8-45d0f95ba6bc cwd=C:\Users\djlov\cxr\ws
+2026-10-03T15:30:30 [INFO] codex_remote_tui_start cmd=-c model_provider="ciel-runtime" -c model_providers.ciel-runtime.name="Ciel Runtime" -c model_providers.ciel-runtime.base_url=... -c model_providers.ciel-runtime.wire_api="responses" -c model_providers.ciel
+2026-10-03T15:31:01 [INFO] codex_desktop_channel_injected message_id=1 thread=01a10374-43a1-76e3-b0f8-45d0f95ba6bc turn=01a10376-8547-7090-84a9-30a5949fc6fc via=turn/start
+2026-10-03T15:31:02 [INFO] codex_desktop_channel_turn_completed message_id=1 turn=01a10376-8547-7090-84a9-30a5949fc6fc status=completed
+2026-10-03T15:31:05 [INFO] codex_desktop_channel_injected message_id=2 thread=01a10374-43a1-76e3-b0f8-45d0f95ba6bc turn=01a10376-9517-77d2-b600-5e90876a937a via=turn/start
+2026-10-03T15:31:06 [INFO] codex_desktop_channel_turn_completed message_id=2 turn=01a10376-9517-77d2-b600-5e90876a937a status=completed
+2026-10-03T15:32:38 [INFO] codex_desktop_channel_injected message_id=3 thread=01a10374-43a1-76e3-b0f8-45d0f95ba6bc turn=01a10378-0100-74a1-877b-375058419c5c via=turn/start
+2026-10-03T15:32:39 [INFO] codex_desktop_channel_turn_completed message_id=3 turn=01a10378-0100-74a1-877b-375058419c5c status=completed
+2026-10-03T15:32:42 [INFO] codex_desktop_channel_injected message_id=4 thread=01a10374-43a1-76e3-b0f8-45d0f95ba6bc turn=01a10378-10ce-7a13-9a4f-898646ddb081 via=turn/start
+2026-10-03T15:32:43 [INFO] codex_desktop_channel_turn_completed message_id=4 turn=01a10378-10ce-7a13-9a4f-898646ddb081 status=completed
+2026-10-03T15:33:56 [INFO] codex_remote_session_ended
+2026-10-03T15:37:29 [INFO] codex_remote_app_server_ready pid=37572 listen=ws://127.0.0.1:65373 resume=01a10374-43a1-76e3-b0f8-45d0f95ba6bc
+2026-10-03T15:37:29 [INFO] codex_desktop_channel_ready thread=01a10374-43a1-76e3-b0f8-45d0f95ba6bc cwd=C:\Users\djlov\cxr\ws
+2026-10-03T15:37:29 [INFO] codex_remote_tui_start cmd=-c model_provider="ciel-runtime" -c model_providers.ciel-runtime.name="Ciel Runtime" -c model_providers.ciel-runtime.base_url=... -c model_providers.ciel-runtime.wire_api="responses" -c model_providers.ciel
+2026-10-03T15:37:53 [INFO] codex_desktop_channel_injected message_id=1 thread=01a10374-43a1-76e3-b0f8-45d0f95ba6bc turn=01a1037c-d076-7bf2-9478-ddf51808a7c9 via=turn/start
+2026-10-03T15:37:54 [INFO] codex_desktop_channel_turn_completed message_id=1 turn=01a1037c-d076-7bf2-9478-ddf51808a7c9 status=completed
+2026-10-03T15:42:54 [INFO] codex_remote_app_server_ready pid=125984 listen=ws://127.0.0.1:62833 resume=-
+2026-10-03T15:42:54 [INFO] codex_desktop_channel_ready thread=- cwd=C:\Users\djlov\cxr\ws
+2026-10-03T15:42:54 [INFO] codex_remote_tui_start cmd=-c model_provider="ciel-runtime" -c model_providers.ciel-runtime.name="Ciel Runtime" -c model_providers.ciel-runtime.base_url=... -c model_providers.ciel-runtime.wire_api="responses" -c model_providers.ciel
+2026-10-03T15:42:55 [INFO] codex_app_server_channel_target thread=01a10381-6827-7820-bc5a-ef471eb29af1 via=thread/started
+2026-10-03T15:42:55 [INFO] codex_app_server_channel_subscribe_deferred thread=01a10381-6827-7820-bc5a-ef471eb29af1 error=codex app-server thread/resume failed: {'code': -32600, 'message': 'no rollout found for thread id 01a10381-6827-7820-bc5a-ef471eb29af1'}
+2026-10-03T15:43:19 [INFO] codex_desktop_channel_injected message_id=1 thread=01a10381-6827-7820-bc5a-ef471eb29af1 turn=01a10381-c668-7b32-8dce-dcd1243f3588 via=turn/start
+2026-10-03T15:43:20 [INFO] codex_app_server_channel_subscribed thread=01a10381-6827-7820-bc5a-ef471eb29af1
+2026-10-03T15:43:22 [INFO] codex_desktop_channel_turn_completed message_id=1 turn=01a10381-c668-7b32-8dce-dcd1243f3588 status=completed
+2026-10-03T15:44:12 [INFO] codex_remote_session_ended

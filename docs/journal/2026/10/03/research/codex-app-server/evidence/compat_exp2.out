@@ -1,0 +1,37 @@
+14:50:11 A plain 0.156.1 TUI pid 114960: 
+14:50:21 A reply shown: True
+===== screen A
+│ │ │ model: loading /model to change │ │ directory: loading │ ╰───────────────────────────────────────╯ › Ask Codex to do anything C:\cxe\ws╭──────────────────────────────────────────╮ │ >_ OpenAI Codex (v0.156.1) │ │ │ │ model: stub-model /model to change │ │ directory: C:\cxe\ws │ ╰──────────────────────────────────────────╯ Tip: New Build faster with Codex. › Ask Codex to do anything stub-model default · C:\cxe\wsLEGACY-ONE first prompt › LEGACY-ONE first prompt › Ask Codex to do anything stub-model default · C:\cxe\ws ⚠ 1 warning · f2 to view • Working (0s • esc to interrupt) › Ask Codex to do anything stub-model default · C:\cxe\ws ⚠ 1 warning · f2 to view · ⠧ • STUB-REPLY-1 to [LEGACY-ONE first prompt] › Ask Codex to do anything stub-model default · C:\cxe\ws · ⠧ ⚠ 1 warning · f2 to view 2:50 PM › Ask Codex to do anything stub-model default · C:\cxe\ws · ⠧ ⚠ 1 warning · f2 to view
+14:50:23 A threads: [('01a10351-25bd-7bd3-a3fb-0ca0b505217d', 'cli', '\\\\?\\C:\\cxe\\ws', 'C:\\cxe\\codex-home\\sessions\\2026\\10\\03\\rollout-2026-10-03T14-50-12-01a10351-25bd-7bd3-a3fb-0ca0b505217d.jsonl', 'stub')]
+14:50:23 A rollouts: ['sessions\\2026\\10\\03\\rollout-2026-10-03T14-50-12-01a10351-25bd-7bd3-a3fb-0ca0b505217d.jsonl']
+14:50:24 app-server up pid 42292 initialize ok=True
+14:50:24 B thread/list: {"id": 2, "result": {"data": [{"id": "01a10351-25bd-7bd3-a3fb-0ca0b505217d", "environments": null, "extra": null, "sessionId": "01a10351-25bd-7bd3-a3fb-0ca0b505217d", "forkedFromId": null, "parentThreadId": null, "preview": "LEGACY-ONE first prompt", "ephemeral": false, "section": null, "sectionEnteredAt": null, "projectId": null, "historyMode": "paginated", "modelProvider": "stub", "model": "stub-model", "reasoningEffort": null, "createdAt": 1791057012, "updatedAt": 1791057020, "recencyAt": 1791057020, "status": {"type": "notLoaded"}, "path": "C:\\cxe\\codex-home\\sessions\\2026\\10\\03\\roll
+14:50:24 B thread/read ok=True items=['userMessage:[{"type": "text", "text": "LEGACY-ONE first prompt', 'agentMessage:"STUB-REPLY-1 to [LEGACY-ONE first prompt]"'] err=None
+14:50:24 B thread/resume ok=True err=None
+14:50:24 B turn/start ok=True completed=True
+14:50:24 B upstream user history of that request: ['LEGACY-ONE first prompt', 'APPSERVER-TWO via turn/start']
+14:50:24 B rollouts: ['sessions\\2026\\10\\03\\rollout-2026-10-03T14-50-12-01a10351-25bd-7bd3-a3fb-0ca0b505217d.jsonl']
+14:50:24 B threads: [('01a10351-25bd-7bd3-a3fb-0ca0b505217d', 'cli', '\\\\?\\C:\\cxe\\ws', 'C:\\cxe\\codex-home\\sessions\\2026\\10\\03\\rollout-2026-10-03T14-50-12-01a10351-25bd-7bd3-a3fb-0ca0b505217d.jsonl', 'stub')]
+14:50:24 C remote resume TUI pid 116452: --remote ws://127.0.0.1:47833 resume 01a10351-25bd-7bd3-a3fb-0ca0b505217d
+14:50:34 C TUI shows LEGACY-ONE=True APPSERVER-TWO=True
+14:50:34 C sidecar turn/start ok=True completed=True
+14:50:34 C TUI shows REMOTE-THREE=True reply=True
+14:50:34 C upstream history: ['LEGACY-ONE first prompt', 'APPSERVER-TWO via turn/start', 'REMOTE-THREE sidecar']
+===== screen C
+>_ OpenAI Codex (v0.160.0) C:\cxe\ws Resuming session… › Ask Codex to do anything ? for shortcuts› LEGACY-ONE first prompt• STUB-REPLY-1 to [LEGACY-ONE first prompt] Worked for <1s • 2:50 PM › APPSERVER-TWO via turn/start• STUB-REPLY-3 to [APPSERVER-TWO via turn/start] Worked for <1s • 2:50 PM stub-model default · C:\cxe\ws⚠ 1 warning · f2 to view• Working (0s • esc to interrupt)>_ OpenAI Codex (v0.160.0) C:\cxe\ws› LEGACY-ONE first prompt • STUB-REPLY-1 to [LEGACY-ONE first prompt] Worked for <1s • 2:50 PM › APPSERVER-TWO via turn/start • STUB-REPLY-3 to [APPSERVER-TWO via turn/start] Worked for <1s • 2:50 PM › REMOTE-THREE sidecar· ⠏• STUB-REPLY-4 to [REMOTE-THREE sidecar]⠋
+14:50:36 C rollouts: ['sessions\\2026\\10\\03\\rollout-2026-10-03T14-50-12-01a10351-25bd-7bd3-a3fb-0ca0b505217d.jsonl']
+14:50:36 C threads: [('01a10351-25bd-7bd3-a3fb-0ca0b505217d', 'cli', '\\\\?\\C:\\cxe\\ws', 'C:\\cxe\\codex-home\\sessions\\2026\\10\\03\\rollout-2026-10-03T14-50-12-01a10351-25bd-7bd3-a3fb-0ca0b505217d.jsonl', 'stub')]
+14:50:36 C ciel resumable(cwd=ws): ['01a10351-25bd-7bd3-a3fb-0ca0b505217d']
+14:50:36 D plain resume TUI pid 108244: resume 01a10351-25bd-7bd3-a3fb-0ca0b505217d
+14:50:46 D TUI shows REMOTE-THREE=True
+14:50:47 D reply shown=True
+14:50:47 D upstream history: ['Generate a concise, single-line task tit']
+===== screen D
+TWO via turn/start • STUB-REPLY-3 to [APPSERVER-TWO via turn/start] Worked for <1s • 2:50 PM › REMOTE-THREE sidecar • STUB-REPLY-4 to [REMOTE-THREE sidecar] Worked for <1s • 2:50 PM › PLAIN-FOUR after server Ask Codex to do anything← for agents · ? for shortcuts Worked for <1s • 2:50 PM › APPSERVER-TWO via turn/start • STUB-REPLY-3 to [APPSERVER-TWO via turn/start] Worked for <1s • 2:50 PM › REMOTE-THREE sidecar • STUB-REPLY-4 to [REMOTE-THREE sidecar] Worked for <1s • 2:50 PM › PLAIN-FOUR after server • Working (0s • esc to interrupt)⚠ 1 warning · f2 to view· ⠙• STUB-REPLY-5 to [PLAIN-FOUR after server] › APPSERVER-TWO via turn/start • STUB-REPLY-3 to [APPSERVER-TWO via turn/start] Worked for <1s • 2:50 PM › REMOTE-THREE sidecar • STUB-REPLY-4 to [REMOTE-THREE sidecar] Worked for <1s • 2:50 PM › PLAIN-FOUR after server • STUB-REPLY-5 to [PLAIN-FOUR after server] Worked for <1s • 2:50 PM
+14:50:49 D rollouts: ['sessions\\2026\\10\\03\\rollout-2026-10-03T14-50-12-01a10351-25bd-7bd3-a3fb-0ca0b505217d.jsonl']
+14:50:49 D threads: [('01a10351-25bd-7bd3-a3fb-0ca0b505217d', 'cli', '\\\\?\\C:\\cxe\\ws', 'C:\\cxe\\codex-home\\sessions\\2026\\10\\03\\rollout-2026-10-03T14-50-12-01a10351-25bd-7bd3-a3fb-0ca0b505217d.jsonl', 'stub')]
+14:50:50 app-server up pid 71904 initialize ok=True
+14:50:50 E thread/resume (no state db) ok=True err=None
+14:50:50 E turn/start ok=True completed=True history=['LEGACY-ONE first prompt', 'APPSERVER-TWO via turn/start', 'REMOTE-THREE sidecar', 'PLAIN-FOUR after server', 'MIGRATED-FIVE']
+14:50:50 E threads: [('01a10351-25bd-7bd3-a3fb-0ca0b505217d', 'cli', '\\\\?\\C:\\cxe\\ws', 'C:\\cxe\\codex-home2\\sessions\\2026\\10\\03\\rollout-2026-10-03T14-50-12-01a10351-25bd-7bd3-a3fb-0ca0b505217d.jsonl', 'stub')]
+14:50:50 done

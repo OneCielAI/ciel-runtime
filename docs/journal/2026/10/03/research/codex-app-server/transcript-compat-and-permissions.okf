@@ -1,0 +1,42 @@
+okf_version: "1.0"
+task: "Re-examine delivering SSE and other external messages to Codex over the network/background (app-server) instead of ConPTY typing, with the goal of running the existing Codex sessions in the local sandboxes on codex app-server while keeping the earlier transcripts usable."
+reported: "User, 2026-10-03: '이제부터 sse 및 기타 외부 메시지를 런타임에 주입하는 과정에, codex app server를 보다 잘지원하는 conty같은 방식말고 네트워크적으로 혹은 백그라운드에서 주입하는것을 지원하는것을 다시 살펴볼것. 기존 codex 세션들을 codex app server를 사용해서 로컬 샌드박스들에서 동작시키게 하는것이 목표. 또한 전에 쓰던 트랜스크립들은 호환이되어야함'."
+existing_code:
+  codex_remote: "Runtime codex-remote (commit e7062c7, journal 10/01 features/runtime-control): routed app-server on ws://127.0.0.1:<router port+20>, channel client (CodexAppServerChannelInjector: turn/start idle, turn/steer busy, confirmation by turn/completed), TUI `codex <server -c overrides> --remote URL` in the terminal proxy with typed injection off."
+  gaps_in_code:
+    - "run_codex_app_server appends the whole passthrough to the app-server command (codex_app_server_launch_args); `--continue`, `resume <id>` and the resume picker are not mapped for codex-remote. The TUI always starts a new thread (remote_tui_command builds no resume)."
+    - "The channel client finds the TUI thread only from thread/started (start_own_thread=False)."
+    - "No --ws-auth: the ws listener on 127.0.0.1 accepts any local client."
+    - "No approval/sandbox setting reaches threads: remote_tui_command copies only -c overrides; the plain codex launch adds --yolo (codex_launch_policy.yolo_launch_args) but run_codex_app_server does not."
+    - "codex_desktop_injection.deliver_pending stops at a message stamped input_transport=router (codex_desktop_channel_deferred reason=router_transport) and waits for the router to attach it to the next model request; an idle thread makes no request."
+    - "No prelaunch menu entry for codex-remote (CLI / --ca-runtime / last only)."
+fleet_14 (read-only ssh 2026-10-03):
+  codex_versions: "u19 robert 0.160.0, u21 ara 0.159.3, u22 edward 0.160.0, u24 kobe 0.160.0 (u23 not found at that path)."
+  processes: "Sandbox users run the plain TUI `codex.exe --yolo -c model_provider=ciel-runtime-codex ...` (edward since 10/02 19:55, kobe since 10/03 12:42). No managed app-server daemon for sandbox users; user greenland has one (0.160.0 `app-server --listen unix:// --managed-daemon`)."
+experiments (Windows, isolated CODEX_HOME, stub Responses upstream, every CODEX_/OPENAI_/CIEL_ variable removed; codex 0.156.1 and 0.160.0 binaries from scratchpad; scripts and outputs in evidence/):
+  compat (compat_exp.py, compat_exp2.out, root C:\cxe):
+    A: "0.156.1 plain TUI wrote thread 01a10351-... source=cli, one rollout file."
+    B: "0.160.0 app-server on the same CODEX_HOME: thread/list lists it (preview 'LEGACY-ONE first prompt'), thread/read returns its userMessage/agentMessage, thread/resume ok, turn/start ok; the upstream request carried the earlier user text (history continued)."
+    C: "`codex --remote ws://.. resume <id>` (0.160.0) showed LEGACY-ONE and APPSERVER-TWO; a second client's turn/start REMOTE-THREE showed in the TUI with its reply."
+    D: "After the server stopped, plain `codex resume <id>` (0.160.0) showed REMOTE-THREE, a typed PLAIN-FOUR got a reply."
+    E: "Rollout copied into a fresh CODEX_HOME with no state DB: app-server thread/resume ok, turn/start history = all five user texts."
+    invariants: "Through A-E: one rollout file (appended), state_5 threads.source stayed 'cli', cwd unchanged; ciel CodexSessionRepository.resumable(cwd=ws) returned the thread."
+    side_finding: "0.160.0 plain TUI (no --no-daemon) started `app-server --listen unix:// --managed-daemon` and `app-server daemon pid-update-loop` from CODEX_HOME\\packages\\app-server-daemon and left both running after the TUI exited. With a long CODEX_HOME (scratchpad path) it failed: 'path must be shorter than SUN_LEN ... rerun with --no-daemon'. The experiment daemons were killed by pid after checking their command lines."
+  auth (auth_exp.py, auth_exp.out):
+    - "app-server --ws-auth capability-token --ws-token-file <file>: ws upgrade without token -> 401, wrong token -> 401, `Authorization: Bearer <token>` -> 101; GET /readyz and /healthz -> 200 without a token."
+    - "TUI `--remote ws://.. --remote-auth-token-env CXTOK resume <id>` connected and showed the history."
+    - "After the TUI resumed the thread, the second client got thread/status/changed and thread/goal/cleared for that thread id (no thread/started); thread/loaded/list returned it."
+  permissions (auth_exp2 / approval_exp.py / approval_v5.py, approval_exp.out):
+    V0: "Server -c approval_policy=\"never\" -c sandbox_mode=\"danger-full-access\", TUI resumed a thread created without --yolo: the channel turn's exec_command raised item/commandExecution/requestApproval; the TUI showed 'Would you like to run the following command?'."
+    V1: "TUI `--remote ... --yolo resume <id>`: 'Error: Permission overrides are not supported when resuming a remote task.' (screen-V1-yolo-remote-resume.txt); the TUI did not attach."
+    V2: "thread/resume {approvalPolicy: never, sandbox: danger-full-access} sent by the second client AFTER the TUI resumed: still requestApproval."
+    V3: "Second client sends thread/resume with those overrides BEFORE the TUI attaches (response approvalPolicy=never, sandbox dangerFullAccess), then the TUI resumes: channel turn and a turn typed in the TUI both ran `echo RAN-OK-123` with no approval request."
+    V4: "TUI resumes first; channel turn/start with approvalPolicy=never, sandboxPolicy={type: dangerFullAccess}: that turn and the following typed turn both ran without approval (schema: 'Override ... for this turn and subsequent turns')."
+    V5: "Thread created by 0.156.1 plain TUI with --yolo (state sandbox_policy {type: disabled}, approval_mode never), resumed in the remote TUI with no overrides: no approval request, but exec_command failed 'rejected: blocked by policy' for the channel turn and the typed turn."
+not_verified:
+  - "New (non-resumed) remote threads: whether server -c approval_policy/sandbox_mode applies to a thread the --remote TUI starts."
+  - "codex 0.159.3 (ara) for the resume/auth/override paths; only 0.160.0 was the server here."
+  - "Ciel's routed provider (-c model_provider=ciel-runtime-codex) with a resumed thread on app-server (the stub provider was used)."
+  - "unix:// listen on Windows with ciel's client (framing not checked)."
+  - "Codex desktop app with a ws token."
+changes: "none (research only)"

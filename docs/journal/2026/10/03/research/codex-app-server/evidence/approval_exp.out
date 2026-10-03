@@ -1,0 +1,19 @@
+14:58:45 V3 legacy thread 01a10358-cf7e-77b0-86fc-f953de843109 replied=True state sandbox_policy={"type":"managed","file_system":{"type":"restricted","entries":[{"path":{"type":"special","value":{"kind":"root"}},"access":"read"}]},"network":"restricted"} approval_mode=on-request
+14:58:46 V3 channel resume first ok=True approvalPolicy=never sandbox={"type": "dangerFullAccess"}
+14:58:46 V3 TUI shows history=True perm-line=[]
+14:58:46 V3 channel turn/start ok=True err=None
+14:58:47 V3 CHANNEL turn: completed=True approval_requests=[] commands=[('completed', 'RAN-OK-123')]
+14:58:50 V3 TYPED turn: completed=True approval_requests=[] commands=[('completed', 'RAN-OK-123')] tui_prompt_shown=False
+14:59:02 V4 legacy thread 01a10359-1099-7693-a913-b6167cd0ea7b replied=True state sandbox_policy={"type":"managed","file_system":{"type":"restricted","entries":[{"path":{"type":"special","value":{"kind":"root"}},"access":"read"}]},"network":"restricted"} approval_mode=on-request
+14:59:03 V4 TUI shows history=True perm-line=[]
+14:59:03 V4 channel resume after TUI ok=True approvalPolicy=on-request
+14:59:03 V4 channel turn/start ok=True err=None
+14:59:03 V4 CHANNEL turn: completed=True approval_requests=[] commands=[('completed', 'RAN-OK-123')]
+14:59:07 V4 TYPED turn: completed=True approval_requests=[] commands=[('completed', 'RAN-OK-123')] tui_prompt_shown=False
+14:59:18 V5 legacy thread 01a10359-512b-7e81-a0cc-11240ad00ecb replied=True state sandbox_policy={"type":"disabled"} approval_mode=never
+14:59:19 V5 TUI shows history=True perm-line=[]
+14:59:19 V5 channel resume after TUI ok=True approvalPolicy=never
+14:59:19 V5 channel turn/start ok=True err=None
+14:59:20 V5 CHANNEL turn: completed=True approval_requests=[] commands=[]
+14:59:23 V5 TYPED turn: completed=True approval_requests=[] commands=[] tui_prompt_shown=False
+14:59:23 done

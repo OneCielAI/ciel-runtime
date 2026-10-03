@@ -1,0 +1,31 @@
+okf_version: "1.0"
+task: "codex-remote (Codex TUI on a routed app-server, channel input over JSON-RPC instead of ConPTY typing): open saved conversations, apply the --yolo permissions, authenticate the listener, deliver router-stamped messages to an idle thread. The default Codex runtime stays the plain TUI."
+reported: "User, 2026-10-03, after the research (research/codex-app-server/transcript-compat-and-permissions.okf): '아냐 codex 는 tui유지. 나이트리배포해'."
+changes:
+  codex_app_server_session:
+    - "split_remote_tui_passthrough: --continue/--resume/resume [--last|<id>|--all] (mapped by codex_passthrough_args_for_launch) become a RemoteTuiResume for the TUI; they no longer reach the app-server command. Permission flags (--yolo, --dangerously-bypass-approvals-and-sandbox, --full-auto) are dropped."
+    - "CodexRemoteTuiSession.split_passthrough is called by run_codex_app_server; last/pick resolve through select_codex_resume_session (current folder, same as the plain codex launch); nothing chosen -> exit 0 before the server starts."
+    - "remote_server_command: -c approval_policy=\"never\" -c sandbox_mode=\"danger-full-access\" after app-server, and --ws-auth capability-token --ws-token-file <config dir>/codex-remote/<workspace>/ws-token (fresh token per launch, file removed when the session ends). remote_tui_command leaves approval_policy/sandbox_mode out and adds --remote-auth-token-env CIEL_RUNTIME_CODEX_REMOTE_TOKEN."
+    - "TUI starts with `--remote URL resume <id>` when a conversation was chosen."
+  codex_desktop_injection:
+    - "AppServerPermissions / FULL_ACCESS (never, danger-full-access, {type: dangerFullAccess})."
+    - "initial_thread_id: open() resumes it with the permissions before the TUI attaches; turn/start carries approvalPolicy/sandboxPolicy when permissions are set (codex-remote only)."
+    - "Router-stamped messages are still left to the router while the thread is busy; on an idle thread they go in as turn/start (before, they waited until something else made a model request). Applies to desktop and bare sessions too."
+  client: "CodexAppServerClient.resume_thread(approval_policy, sandbox), turn_start(approval_policy, sandbox_policy); CodexWebSocketConnection.connect(bearer_token) sends Authorization: Bearer."
+  wiring: "ciel_runtime.py passes select_codex_resume_session to CodexRemoteTuiPorts on the existing line (4980 lines unchanged)."
+  docs: "docs/Codex-Remote.md (resume, permissions, auth, router messages), docs/Codex-Desktop.md (router messages on an idle thread)."
+tests: "runtime group 357 OK (skipped=19) after the change; new: SplitPassthroughTests, server/TUI command permissions and token, token env and file removal, --continue selection, resume id, nothing-to-resume, injector initial resume with permissions, turn permissions, router message on idle/busy thread, websocket bearer header."
+e2e (Windows, isolated: scratch CIEL_RUNTIME_CONFIG_DIR per run, unique router/app-server ports, provider vllm -> stub upstream, CODEX_HOME C:\\Users\\djlov\\cxr\\home, workspace C:\\Users\\djlov\\cxr\\ws, every CIEL_RUNTIME_/ANTHROPIC_/CLAUDE_/CODEX_/OPENAI_ variable cleared; input only through /ca/chat/notify; driver evidence/e2e_remote.py):
+  phase1_plain_tui: "ciel codex (plain TUI, YOLO, codex 0.160.0) created thread 01a10374-43a1-76e3-b0f8-45d0f95ba6bc (evidence/1-plain-tui-legacy.png)."
+  phase2_codex_remote_continue: "codex_remote_app_server_ready resume=01a10374...; channel ready on that thread; TUI shows the phase-1 history (2-codex-remote-continue-resumed.png). REMOTE-TWO, BIG-THREE (… — ⏰ ✅ · and Korean, 6 each; exact body found in the upstream request) and ROUTED-FOUR (input_transport=router, idle thread) each injected via turn/start and turn_completed status=completed (3-codex-remote-big-router-messages.png, router-log-excerpts.txt)."
+  command_execution: "Second --continue run: RUN-CMD -> the model's functions__exec (codex 0.160 code mode) ran exec_command `echo RAN-OK-E2E-1`: 'Script completed ... exit_code 0 ... RAN-OK-E2E-1', no approval request, screen 'Ran echo RAN-OK-E2E-1' (4-codex-remote-command-ran.png). Each --continue reopened the same thread (history grew: 7 then 9 user items)."
+  phase3_plain_tui_after_remote: "ciel codex --continue (plain TUI) opened the same thread and showed the codex-remote turns including 'Ran echo RAN-OK-E2E-1' (5-plain-tui-continue-after-remote.png); the upstream request carried REMOTE-TWO and RUN-CMD from the codex-remote turns."
+  phase4_new_conversation: "codex-remote without --continue: target via thread/started, RUN-CMD ran `echo RAN-OK-E2E-1` with exit_code 0 and no approval (6-codex-remote-new-thread-command.png)."
+  cleanup: "Every E2E window closed by pid after checking its command line (two leftovers from earlier runs today included); live router 9611 healthy."
+found_not_changed:
+  message_id_collision: "Phase 3 typed the wake block and Codex submitted it, but the router logged channel_llm_inject_skipped message_id=1 reason=already_in_request: the conversation already contained '[ciel-runtime external channel message] ... id=1' text from earlier E2E runs, and each E2E run used a fresh config dir, so ids restarted at 1. ids come from runtime-inputs.jsonl in the workspace state dir (max id + 1, kept across rotation), so they keep increasing for one config dir/workspace; a conversation opened under a different workspace state (another folder or config dir) can hit this. app-server delivery writes the full message text into the transcript, which makes such text more common. Not changed."
+  harness: "The stub also answered RUN-CMD inside ciel's completion-check side request ('tools.exec_command is not a function' there); not a session turn."
+not_verified:
+  - "codex 0.159.3 (ara): ciel picked its own codex 0.160.0 although the 0.159.3 bin dir was first on PATH; not run."
+  - "A turn typed in the codex-remote TUI after the permission change (keyboard input is not used in E2E); covered by the 0.160.0 protocol experiment V3/V4 only."
+  - "The .14 sandboxes (not deployed there)."

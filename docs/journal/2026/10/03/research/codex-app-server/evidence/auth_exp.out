@@ -1,0 +1,19 @@
+14:52:44 GET /readyz without token -> 200
+14:52:44 GET /healthz without token -> 200
+14:52:44 ws without token -> HTTP/1.1 401 Unauthorized
+14:52:44 ws with wrong token -> HTTP/1.1 401 Unauthorized
+14:52:44 ws with token -> HTTP/1.1 101 Switching Protocols
+14:52:44 initialize ok=True
+14:52:44 TUI pid 99256
+14:52:44 TUI shows history (PLAIN-FOUR)=True
+14:52:48 notifications to the second client after the TUI resumed: [('remoteControl/status/changed', None), ('thread/status/changed', '01a10351-25bd-7bd3-a3fb-0ca0b505217d'), ('thread/goal/cleared', '01a10351-25bd-7bd3-a3fb-0ca0b505217d')]
+14:52:48 thread/loaded/list: {"data": ["01a10351-25bd-7bd3-a3fb-0ca0b505217d"], "nextCursor": null}
+14:52:48 thread/resume ok=True
+14:52:48 turn/start ok=True err=None
+14:53:29 turn completed=False server->client requests=['item/commandExecution/requestApproval']
+14:53:29 commandExecution items=[]
+14:53:29 upstream requests=[{'last_type': 'message', 'tools': ['exec_command', 'write_stdin', 'request_user_input', 'view_image', 'multi_agent_v1', 'get_goal', 'create_goal', 'update_goal', None], 'last_user': 'RUN-CMD please', 'tool_output': None}, {'last_type': 'message', 'tools': [], 'last_user': 'Generate a concise, single-line task tit', 'tool_output': None}]
+14:53:39 TUI shows RAN-OK-123=True reply=False
+===== screen
+start • STUB-REPLY-3 to [APPSERVER-TWO via turn/start] Worked for <1s • 2:50 PM › REMOTE-THREE sidecar • STUB-REPLY-4 to [REMOTE-THREE sidecar] Worked for <1s • 2:50 PM › PLAIN-FOUR after server • STUB-REPLY-5 to [PLAIN-FOUR after server] Worked for <1s • 2:50 PM • ing (0s • esc to interrupt) Worked for <1s • 2:50 PM › REMOTE-THREE sidecar • STUB-REPLY-4 to [REMOTE-THREE sidecar] Worked for <1s • 2:50 PM › PLAIN-FOUR after server • STUB-REPLY-5 to [PLAIN-FOUR after server] Worked for <1s • 2:50 PM › RUN-CMD please · ⠴REMOTE-THREE sidecarPLAIN-FOU after se ver5 PLAIN-FOU after se ver]RUN-CMD ple se• Running echo RAN-OK-123 Would you like to run the following command? Environment: local$ echo RAN-OK-123 › 1. Yes, proceed (y) 2. Yes, and don't ask again for commands that start with `echo RAN-OK-123` (p)3. No, and tell Codex what to do differently (esc)Press enter to confirm or esc to cancel
+14:53:39 done
