@@ -9,12 +9,16 @@ from types import SimpleNamespace
 from typing import Any
 
 from ciel_runtime_support.codex_app_server_session import (
+    REMOTE_TOKEN_ENV,
     REMOTE_TUI_LAUNCH_MODE,
     CodexAppServerSessions,
     CodexBareAppServerSession,
     CodexRemoteTuiPorts,
     CodexRemoteTuiSession,
+    RemoteTuiResume,
+    remote_server_command,
     remote_tui_command,
+    split_remote_tui_passthrough,
 )
 from ciel_runtime_support.codex_desktop_injection import CodexDesktopChannelPorts
 from ciel_runtime_support.codex_desktop_runtime import CodexDesktopPorts, CodexDesktopSession
@@ -63,6 +67,43 @@ class RemoteTuiCommandTests(unittest.TestCase):
         cmd = ["node", "codex.js", "app-server", "--listen", "ws://127.0.0.1:1"]
         self.assertEqual(["node", "codex.js", "--remote", "ws://127.0.0.1:1"], remote_tui_command(cmd, "ws://127.0.0.1:1"))
 
+    def test_server_gets_full_access_and_a_token_the_tui_does_not_repeat(self):
+        server = remote_server_command(SERVER_CMD, Path("C:/cfg/ws-token"))
+        self.assertEqual(
+            ["codex", "app-server", "-c", 'approval_policy="never"', "-c", 'sandbox_mode="danger-full-access"'],
+            server[:6],
+        )
+        self.assertEqual(["--ws-auth", "capability-token", "--ws-token-file", str(Path("C:/cfg/ws-token"))], server[-4:])
+        tui = remote_tui_command(server, "ws://127.0.0.1:19961")
+        # codex 0.160.0 refuses permission overrides from a TUI resuming a remote thread.
+        self.assertFalse(any("approval_policy" in arg or "sandbox_mode" in arg for arg in tui))
+        self.assertEqual(["--remote-auth-token-env", REMOTE_TOKEN_ENV], tui[-2:])
+
+    def test_an_explicit_ws_auth_is_left_alone(self):
+        cmd = [*SERVER_CMD, "--ws-auth", "signed-bearer-token"]
+        self.assertEqual(1, remote_server_command(cmd, Path("t")).count("--ws-auth"))
+
+
+class SplitPassthroughTests(unittest.TestCase):
+    def test_no_resume_is_a_new_conversation(self):
+        self.assertEqual((["-c", "x=1"], RemoteTuiResume()), split_remote_tui_passthrough(["-c", "x=1", "--yolo"]))
+
+    def test_continue_and_resume_forms(self):
+        self.assertEqual(RemoteTuiResume("last"), split_remote_tui_passthrough(["--continue"])[1])
+        self.assertEqual(RemoteTuiResume("last"), split_remote_tui_passthrough(["resume", "--last"])[1])
+        self.assertEqual(RemoteTuiResume("id", "abc"), split_remote_tui_passthrough(["resume", "abc"])[1])
+        self.assertEqual(RemoteTuiResume("id", "abc"), split_remote_tui_passthrough(["--resume", "abc"])[1])
+        self.assertEqual(RemoteTuiResume("pick"), split_remote_tui_passthrough(["resume"])[1])
+        self.assertEqual(RemoteTuiResume("pick", picker_args=("--all",)), split_remote_tui_passthrough(["resume", "--all"])[1])
+
+    def test_resume_never_reaches_the_server_command(self):
+        server, _ = split_remote_tui_passthrough(["-c", "x=1", "resume", "abc"])
+        self.assertEqual(["-c", "x=1"], server)
+        self.assertEqual(
+            (["-c", "x=1"], {"resume": RemoteTuiResume("id", "abc")}),
+            CodexRemoteTuiSession.split_passthrough(["-c", "x=1", "resume", "abc"]),
+        )
+
 
 class SessionTests(unittest.TestCase):
     def setUp(self) -> None:
@@ -93,8 +134,15 @@ class SessionTests(unittest.TestCase):
         self.control = _Control([])
         self.restart_after_first: Any = None
 
+        self.terminal_envs: list[dict[str, str]] = []
+        self.token_seen: list[str] = []
+
         def run_terminal(cmd, env, **options):
             self.terminal_calls.append((list(cmd), options))
+            self.terminal_envs.append(dict(env))
+            token_file = Path(self.tmp.name) / "codex-remote" / "ws1" / "ws-token"
+            if token_file.exists():
+                self.token_seen.append(token_file.read_text(encoding="utf-8"))
             if self.restart_after_first is not None and len(self.terminal_calls) == 1:
                 self.control.request = self.restart_after_first
             return 0
@@ -108,13 +156,56 @@ class SessionTests(unittest.TestCase):
     def test_remote_tui_runs_through_the_proxy_with_only_new_session_typed(self):
         rc = CodexRemoteTuiSession(self.ports, self.tui_ports)(SERVER_CMD, {}, Path(self.tmp.name))
         self.assertEqual(0, rc)
-        self.assertEqual([SERVER_CMD], self.popened)
+        token_file = Path(self.tmp.name) / "codex-remote" / "ws1" / "ws-token"
+        self.assertEqual([remote_server_command(SERVER_CMD, token_file)], self.popened)
         cmd, options = self.terminal_calls[0]
-        self.assertEqual(["codex", "-c", 'model="deepseek-chat"', "--config=model_provider=\"ciel\"", "--remote", "ws://127.0.0.1:19961"], cmd)
+        self.assertEqual(
+            [
+                "codex", "-c", 'model="deepseek-chat"', "--config=model_provider=\"ciel\"",
+                "--remote", "ws://127.0.0.1:19961", "--remote-auth-token-env", REMOTE_TOKEN_ENV,
+            ],
+            cmd,
+        )
         self.assertFalse(options["inject_channel_messages"])
         self.assertEqual("codex", options["session_command_runtime"])
         self.assertEqual(frozenset({"new_session"}), options["session_command_actions"])
         self.assertEqual([4242], self.terminated)
+
+    def test_remote_tui_gets_the_launch_token_and_the_file_is_removed_afterwards(self):
+        CodexRemoteTuiSession(self.ports, self.tui_ports)(SERVER_CMD, {"A": "1"}, Path(self.tmp.name))
+        env = self.terminal_envs[0]
+        self.assertEqual("1", env["A"])
+        self.assertGreaterEqual(len(env[REMOTE_TOKEN_ENV]), 32)
+        self.assertEqual(env[REMOTE_TOKEN_ENV], self.token_seen[0])
+        self.assertFalse((Path(self.tmp.name) / "codex-remote" / "ws1" / "ws-token").exists())
+
+    def test_remote_tui_resumes_the_requested_conversation(self):
+        rc = CodexRemoteTuiSession(self.ports, self.tui_ports)(
+            SERVER_CMD, {}, Path(self.tmp.name), resume=RemoteTuiResume("id", "01a0-saved")
+        )
+        self.assertEqual(0, rc)
+        self.assertEqual(["resume", "01a0-saved"], self.terminal_calls[0][0][-2:])
+        self.assertNotIn("--yolo", self.terminal_calls[0][0])
+
+    def test_continue_picks_the_latest_conversation_of_the_folder(self):
+        calls: list[dict[str, Any]] = []
+
+        def select(env, **kw):
+            calls.append(kw)
+            return "latest-1"
+
+        tui = dataclasses.replace(self.tui_ports, select_resume=select)
+        CodexRemoteTuiSession(self.ports, tui)(SERVER_CMD, {}, Path(self.tmp.name), resume=RemoteTuiResume("last"))
+        self.assertTrue(calls[0]["select_latest"])
+        self.assertEqual(Path(self.tmp.name), calls[0]["cwd"])
+        self.assertEqual(["resume", "latest-1"], self.terminal_calls[0][0][-2:])
+
+    def test_nothing_to_resume_ends_before_the_server_starts(self):
+        tui = dataclasses.replace(self.tui_ports, select_resume=lambda env, **kw: None)
+        rc = CodexRemoteTuiSession(self.ports, tui)(SERVER_CMD, {}, Path(self.tmp.name), resume=RemoteTuiResume("pick"))
+        self.assertEqual(0, rc)
+        self.assertEqual([], self.popened)
+        self.assertEqual([], self.terminal_calls)
 
     def test_remote_tui_restart_without_a_followed_thread_starts_fresh(self):
         self.restart_after_first = SimpleNamespace(id="r1", resume=True, source="mcp", reason="")

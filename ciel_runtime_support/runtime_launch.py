@@ -1348,6 +1348,11 @@ def run_codex_app_server(
         return 0
     if rc not in (0, PRELAUNCH_LAUNCH_CODEX_APP_SERVER):
         return rc
+    # A session may own part of the passthrough (codex-remote: the TUI's resume).
+    split_passthrough = getattr(desktop, "split_passthrough", None)
+    session_kwargs: dict[str, Any] = {}
+    if callable(split_passthrough):
+        passthrough, session_kwargs = split_passthrough(passthrough)
     cfg = load_config()
     provider, pcfg = get_current_provider(cfg)
     for line in apply_launch_endpoint_policy(cfg, "codex-app-server"):
@@ -1456,7 +1461,7 @@ def run_codex_app_server(
 
     def run_codex_app_server_process() -> int:
         if desktop is not None:
-            return desktop(cmd, env, launch_cwd, run_server=run_server)
+            return desktop(cmd, env, launch_cwd, run_server=run_server, **session_kwargs)
         return run_server()
 
     try:

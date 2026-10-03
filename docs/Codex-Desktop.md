@@ -56,8 +56,8 @@ JSON-RPC로 넣는다.
   그 대화로 옮긴다.
 - 전달 확인은 transcript를 해석하지 않고 app-server의 `turn/completed` 알림으로 한다.
   `runtime-input-status.jsonl`에 `queued → submitted → replied`(실패 시 `failed`)가 남는다.
-- `input_transport=router`로 들어온 메시지는 라우터가 다음 모델 요청에 붙이므로 이 경로는
-  건너뛰지 않고 그 자리에서 기다린다.
+- `input_transport=router`로 들어온 메시지는 턴이 진행 중이면 라우터가 다음 모델 요청에 붙이므로
+  이 경로는 그 자리에서 기다린다. 대화가 쉬고 있으면 모델 요청이 없으므로 `turn/start`로 넣는다.
 - 제출이 3번 연속 실패한 메시지는 `failed`로 기록하고 다음 메시지로 넘어간다.
 
 app-server는 `Origin` 헤더가 있는 WebSocket 핸드셰이크를 403으로 거부하므로, 채널 클라이언트

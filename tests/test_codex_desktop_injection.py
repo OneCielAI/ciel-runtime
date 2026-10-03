@@ -6,6 +6,7 @@ from typing import Any
 
 from ciel_runtime_support.codex_app_server import CodexAppServerError, CodexAppServerState
 from ciel_runtime_support.codex_desktop_injection import (
+    FULL_ACCESS,
     MAX_SUBMIT_ATTEMPTS,
     SUBSCRIBE_RETRY_SECONDS,
     CodexAppServerChannelInjector,
@@ -156,11 +157,54 @@ class CodexDesktopInjectionTests(unittest.TestCase):
         self.assertIn((1, "replied", ""), self.status.records)
         self.assertIn((2, "failed", "upstream 500"), self.status.records)
 
-    def test_router_transport_messages_are_left_for_the_router(self):
+    def test_router_transport_messages_are_left_for_the_router_while_a_turn_runs(self):
+        self.client.state = CodexAppServerState(thread_id="thread-a", active_turn_id="turn-live")
         self.messages = [_message(3, transport="router"), _message(4)]
         self.injector.poll_once()
         self.assertEqual([], self.client.calls)
         self.assertEqual(0, self.cursor)
+
+    def test_router_transport_messages_wake_an_idle_thread(self):
+        # An idle thread makes no model request the router could add them to.
+        self.messages = [_message(3, "routed", transport="router")]
+        self.injector.poll_once()
+        self.assertEqual("start", self.client.calls[0][0])
+        self.assertIn("routed", self.client.calls[0][2])
+        self.assertEqual(3, self.cursor)
+
+    def test_turns_carry_the_session_permissions(self):
+        seen: list[dict[str, Any]] = []
+        original = self.client.turn_start
+
+        def turn_start(thread_id, text, **kw):
+            seen.append(kw)
+            return original(thread_id, text, **kw)
+
+        self.client.turn_start = turn_start  # type: ignore[method-assign]
+        self.injector._permissions = FULL_ACCESS
+        self.messages = [_message(5)]
+        self.injector.poll_once()
+        self.assertEqual("never", seen[0]["approval_policy"])
+        self.assertEqual({"type": "dangerFullAccess"}, seen[0]["sandbox_policy"])
+
+    def test_initial_thread_is_resumed_with_permissions_before_anything_else(self):
+        resumed: list[tuple[str, dict[str, Any]]] = []
+        self.client.resume_thread = lambda thread_id, **kw: resumed.append((thread_id, kw)) or {}  # type: ignore[method-assign]
+        injector = CodexAppServerChannelInjector(
+            lambda: self.client,  # type: ignore[arg-type,return-value]
+            self.injector._ports,
+            cwd="C:/work",
+            version="test",
+            start_own_thread=False,
+            initial_thread_id="saved-1",
+            permissions=FULL_ACCESS,
+        )
+        injector.open()
+        self.assertEqual("saved-1", injector.thread_id)
+        self.assertEqual([("saved-1", {"exclude_turns": True, "approval_policy": "never", "sandbox": "danger-full-access"})], resumed)
+        self.assertEqual(0, self.client.started_threads)
+        injector.subscribe_target()
+        self.assertEqual(1, len(resumed))
 
     def test_hidden_messages_are_passed_without_a_turn(self):
         self.messages = [_message(3, visibility="hidden"), _message(4, "real")]

@@ -238,6 +238,16 @@ class CodexWebSocketTests(unittest.TestCase):
         server_sock.close()
 
     def test_handshake_sends_no_origin_header(self):
+        seen = self._handshake()
+        self.assertNotIn(b"origin:", seen.lower())
+        self.assertNotIn(b"authorization:", seen.lower())
+        self.assertIn(b"sec-websocket-version: 13", seen.lower())
+
+    def test_handshake_carries_the_bearer_token_when_given(self):
+        seen = self._handshake(bearer_token="tok-123")
+        self.assertIn(b"\r\nAuthorization: Bearer tok-123\r\n\r\n", seen)
+
+    def _handshake(self, **kwargs) -> bytes:
         listener = socket.socket()
         listener.bind(("127.0.0.1", 0))
         listener.listen(1)
@@ -257,13 +267,12 @@ class CodexWebSocketTests(unittest.TestCase):
 
         thread = threading.Thread(target=serve, daemon=True)
         thread.start()
-        connection = CodexWebSocketConnection.connect(f"ws://127.0.0.1:{port}")
+        connection = CodexWebSocketConnection.connect(f"ws://127.0.0.1:{port}", **kwargs)
         self.assertEqual("ok", connection.receive_text())
         connection.close()
         thread.join(5)
         listener.close()
-        self.assertNotIn(b"origin:", seen[0].lower())
-        self.assertIn(b"sec-websocket-version: 13", seen[0].lower())
+        return seen[0]
 
 
 if __name__ == "__main__":

@@ -17,6 +17,12 @@ receives ``thread/started`` for threads any client starts, but turn
 notifications only for threads it started or resumed; ``thread/resume`` of a
 thread without turns fails ("no rollout found"), and ``turn/start`` into a
 thread this client never resumed still works.
+
+Measured on codex 0.160.0 (journal 2026-10-03 research/codex-app-server): a
+resumed thread keeps the approval/sandbox it was saved with, and a ``--remote``
+TUI may not override them; overrides take effect when the first client to
+resume the thread passes them, or per ``turn/start`` ("this turn and
+subsequent turns", typed turns included).
 """
 
 from __future__ import annotations
@@ -47,6 +53,19 @@ MAX_SUBMIT_ATTEMPTS = 3
 SESSION_ACTIONS = frozenset({"compact", "new_session"})
 # A thread without turns cannot be resumed yet; subscribing is retried.
 SUBSCRIBE_RETRY_SECONDS = 3.0
+
+
+@dataclass(frozen=True, slots=True)
+class AppServerPermissions:
+    """Approval and sandbox for the threads a session drives."""
+
+    approval_policy: str
+    sandbox: str  # thread/resume (SandboxMode)
+    sandbox_policy: dict[str, Any]  # turn/start (SandboxPolicy)
+
+
+# What `codex --yolo` means; Ciel's Codex TUI launch adds --yolo.
+FULL_ACCESS = AppServerPermissions("never", "danger-full-access", {"type": "dangerFullAccess"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -126,7 +145,9 @@ class CodexAppServerChannelInjector:
     own thread, which the injector picks up from ``thread/started``.
     ``session_actions`` are the queued session commands this client carries
     out; a TUI only changes conversation through its own ``/new``, so that
-    mode leaves new_session to the terminal proxy.
+    mode leaves new_session to the terminal proxy.  ``initial_thread_id`` is a
+    saved conversation to resume at connect time (before a TUI attaches to
+    it), with ``permissions`` when given.
     """
 
     def __init__(
@@ -143,6 +164,8 @@ class CodexAppServerChannelInjector:
         session_actions: frozenset[str] = SESSION_ACTIONS,
         now: Callable[[], float] = time.monotonic,
         wait_ready: Callable[[], bool] | None = None,
+        initial_thread_id: str = "",
+        permissions: AppServerPermissions | None = None,
     ) -> None:
         self._connect = connect
         self._ports = ports
@@ -155,6 +178,8 @@ class CodexAppServerChannelInjector:
         self._session_actions = frozenset(session_actions)
         self._now = now
         self._wait_ready = wait_ready
+        self._initial_thread_id = initial_thread_id
+        self._permissions = permissions
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
         self._delivery = _Delivery()
@@ -184,9 +209,22 @@ class CodexAppServerChannelInjector:
         client = self._connect()
         client.initialize(client_name=CLIENT_NAME, client_title=CLIENT_TITLE, client_version=self._version)
         self.client = client
-        if self._start_own_thread:
+        if self._initial_thread_id:
+            self._resume_initial_thread(client)
+        elif self._start_own_thread:
             self._start_thread(client)
         self._ports.log("INFO", f"codex_desktop_channel_ready thread={self.thread_id or '-'} cwd={self._cwd}")
+
+    def _resume_initial_thread(self, client: CodexAppServerClient) -> None:
+        permissions = self._permissions
+        client.resume_thread(
+            self._initial_thread_id,
+            exclude_turns=True,
+            approval_policy=permissions.approval_policy if permissions else None,
+            sandbox=permissions.sandbox if permissions else None,
+        )
+        self.thread_id = self._initial_thread_id
+        self._threads.subscribed.add(self.thread_id)
 
     def _start_thread(self, client: CodexAppServerClient) -> str:
         result = client.start_thread(cwd=self._cwd)
@@ -401,9 +439,11 @@ class CodexAppServerChannelInjector:
                 continue
             if message_id <= cursor:
                 continue
-            if message_input_transport(message) == "router":
-                # The router appends these to the next model request itself;
-                # leave the cursor here so neither path skips them.
+            if message_input_transport(message) == "router" and (not self.thread_id or self._busy(self.thread_id)):
+                # A running turn takes these in its next model request (the
+                # router appends them); leave the cursor here so neither path
+                # skips them.  An idle thread makes no request, so they go in
+                # as a turn below.
                 self._ports.log("INFO", f"codex_desktop_channel_deferred message_id={message_id} reason=router_transport")
                 return
             skip = llm_message_skip_reason(message) or ("superseded_channel_notice" if message_id in superseded else "")
@@ -418,6 +458,16 @@ class CodexAppServerChannelInjector:
                 return
             self._ports.commit_cursor(message_id)
             cursor = message_id
+
+    def _turn_start(self, client: CodexAppServerClient, prompt: str) -> dict[str, Any]:
+        permissions = self._permissions
+        return client.turn_start(
+            self.thread_id,
+            prompt,
+            cwd=self._cwd,
+            approval_policy=permissions.approval_policy if permissions else None,
+            sandbox_policy=permissions.sandbox_policy if permissions else None,
+        )
 
     def _submit(self, message_id: int, prompt: str) -> bool:
         client = self.client
@@ -435,10 +485,10 @@ class CodexAppServerChannelInjector:
                     turn_id, method = active_turn, "turn/steer"
                 except CodexAppServerError:
                     # The turn finished between the state read and the steer.
-                    result = client.turn_start(self.thread_id, prompt, cwd=self._cwd)
+                    result = self._turn_start(client, prompt)
                     turn_id, method = _turn_id(result), "turn/start"
             else:
-                result = client.turn_start(self.thread_id, prompt, cwd=self._cwd)
+                result = self._turn_start(client, prompt)
                 turn_id, method = _turn_id(result), "turn/start"
         except CodexAppServerError as exc:
             attempts = self._delivery.attempts.get(message_id, 0) + 1
@@ -469,10 +519,12 @@ CodexDesktopChannelInjector = CodexAppServerChannelInjector
 
 
 __all__ = [
+    "AppServerPermissions",
     "CodexAppServerChannelInjector",
     "CodexDesktopChannelInjector",
     "CodexDesktopChannelPorts",
     "CodexSessionCommandPorts",
+    "FULL_ACCESS",
     "SESSION_ACTIONS",
     "delivery_prompt",
     "is_user_thread",

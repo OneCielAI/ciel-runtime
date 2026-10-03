@@ -73,18 +73,24 @@ class CodexWebSocketConnection:
         self.closed = False
 
     @classmethod
-    def connect(cls, url: str, *, timeout: float = 10.0) -> "CodexWebSocketConnection":
+    def connect(
+        cls, url: str, *, timeout: float = 10.0, bearer_token: str = ""
+    ) -> "CodexWebSocketConnection":
         host, port, path = ws_endpoint(url)
         sock = socket.create_connection((host, port), timeout=timeout)
         try:
             key = base64.b64encode(os.urandom(16)).decode("ascii")
+            # A server started with --ws-auth capability-token answers 401
+            # without it (codex 0.160.0).
+            authorization = f"Authorization: Bearer {bearer_token}\r\n" if bearer_token else ""
             request = (
                 f"GET {path} HTTP/1.1\r\n"
                 f"Host: {host}:{port}\r\n"
                 "Upgrade: websocket\r\n"
                 "Connection: Upgrade\r\n"
                 f"Sec-WebSocket-Key: {key}\r\n"
-                "Sec-WebSocket-Version: 13\r\n\r\n"
+                "Sec-WebSocket-Version: 13\r\n"
+                f"{authorization}\r\n"
             )
             sock.sendall(request.encode("ascii"))
             connection = cls(sock)
@@ -214,8 +220,10 @@ class CodexAppServerWebSocketProcess:
         self.stdout = _LineReader(connection)
 
     @classmethod
-    def connect(cls, url: str, *, timeout: float = 10.0) -> "CodexAppServerWebSocketProcess":
-        return cls(CodexWebSocketConnection.connect(url, timeout=timeout))
+    def connect(
+        cls, url: str, *, timeout: float = 10.0, bearer_token: str = ""
+    ) -> "CodexAppServerWebSocketProcess":
+        return cls(CodexWebSocketConnection.connect(url, timeout=timeout, bearer_token=bearer_token))
 
     def poll(self) -> int | None:
         return 0 if self.connection.closed else None

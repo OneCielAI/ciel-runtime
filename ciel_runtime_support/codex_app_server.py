@@ -237,6 +237,8 @@ class CodexAppServerClient:
         model: str | None = None,
         model_provider: str | None = None,
         exclude_turns: bool = True,
+        approval_policy: str | None = None,
+        sandbox: str | None = None,
     ) -> dict[str, Any]:
         result = self.request(
             "thread/resume",
@@ -247,6 +249,8 @@ class CodexAppServerClient:
                     "model": model,
                     "modelProvider": model_provider,
                     "excludeTurns": exclude_turns,
+                    "approvalPolicy": approval_policy,
+                    "sandbox": sandbox,
                 }
             ),
         )
@@ -268,6 +272,8 @@ class CodexAppServerClient:
         responsesapi_client_metadata: dict[str, str] | None = None,
         model: str | None = None,
         permissions: str | None = None,
+        approval_policy: str | None = None,
+        sandbox_policy: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         return self.request(
             "turn/start",
@@ -280,6 +286,8 @@ class CodexAppServerClient:
                     "cwd": str(cwd) if cwd is not None else None,
                     "model": model,
                     "permissions": permissions,
+                    "approvalPolicy": approval_policy,
+                    "sandboxPolicy": sandbox_policy,
                 }
             ),
         )
