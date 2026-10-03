@@ -61,17 +61,20 @@ how a request enters the active TUI and how the answer should leave it:
   input. An interactive Claude Code session launched by Ciel receives it through
   its authenticated messaging socket without terminal typing, including while
   Claude is processing another turn. If the active runtime does not expose a
-  usable session socket, Ciel falls back to `input_transport=tty` while the TUI is
-  idle; during an active turn the durable input remains queued until terminal
-  injection is safe. An explicit `input_transport=tty` always retains terminal
+  usable session socket, Ciel falls back to the router block below when the
+  session routes through Ciel Router (Codex), otherwise to `input_transport=tty`
+  while the TUI is idle; during an active turn the durable input remains queued
+  until terminal injection is safe. An explicit `input_transport=tty` always retains terminal
   delivery.
 - `input_transport=router` keeps the full message in the
   Runtime Input Gateway: while a model turn is already active, its next request
   consumes the message without a console wake; while the CLI is idle, Ciel types
   a correlated wake turn and replaces that entire turn with the full pending
-  message in the next request body. Codex shows the wake marker followed by the
-  original projected message in its TUI; Claude and other CLI adapters retain the
-  short marker-only wake because their terminal turn behavior is different. In
+  message in the next request body. Codex on Linux/macOS shows the wake marker
+  followed by the original projected message in its TUI. Codex on Windows, Claude
+  and the other CLI adapters type only the short `[ciel-wake] pending_ids=...`
+  block: Windows Codex receives typed input as key events, and a large typed body
+  lost characters (`…`, `—`, emoji) and stayed in the composer. In
   both cases the model request receives the queued message exactly once. Router
   transport therefore requires the active model session to use Ciel Router.
   Aliases `llm`, `context`, and `inband` are accepted. Socket aliases `socket`,

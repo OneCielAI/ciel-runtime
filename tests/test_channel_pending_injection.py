@@ -8,6 +8,7 @@ the three repairs: the cursor may not move past a deferred message, a failed
 record may not stall the scan, and a log line is never dropped.
 """
 
+import dataclasses
 import json
 import pathlib
 import tempfile
@@ -185,6 +186,61 @@ class FailedRecordTests(unittest.TestCase):
         self.assertTrue(
             any("prior_submission_failed" in message for _, message in harness.logs)
         )
+
+
+class SessionSocketFallbackTests(unittest.TestCase):
+    """ara/edward 2026-10-03: Codex has no session socket, so these messages
+    were typed in full into the Windows TUI and lost characters."""
+
+    def _run(self, wake_for_llm_delivery: bool, *, socket_configured: bool | None = None) -> _InjectionHarness:
+        message = _message(40)
+        message["meta"] = {"input_transport": "session_socket"}
+        harness = _InjectionHarness([message])
+        services = harness.services()
+        if socket_configured is not None:
+            # Codex: the Claude socket client is wired in but never configured.
+            harness.socket_sends = []
+            services = dataclasses.replace(
+                services,
+                io=dataclasses.replace(
+                    services.io,
+                    write_session_socket=lambda prompt, _messages: harness.socket_sends.append(prompt) or socket_configured,
+                    session_socket_available=lambda: socket_configured,
+                ),
+            )
+        services = dataclasses.replace(
+            services,
+            prompts=dataclasses.replace(
+                services.prompts,
+                llm_delivery=lambda messages: "[ciel-wake] pending_ids="
+                + ",".join(str(m["id"]) for m in messages),
+                standard=lambda messages: "TYPED " + " ".join(str(m["message"]) for m in messages),
+            ),
+        )
+        inject_pending_channel_messages(
+            99, 39, None, wake_for_llm_delivery=wake_for_llm_delivery, services=services
+        )
+        return harness
+
+    def test_falls_back_to_the_router_block_when_router_delivery_is_on(self) -> None:
+        harness = self._run(True)
+        self.assertEqual(["[ciel-wake] pending_ids=40"], harness.written)
+        self.assertTrue(any("fallback=router" in message for _, message in harness.logs))
+
+    def test_unconfigured_socket_goes_to_the_router_block_without_trying_it(self) -> None:
+        harness = self._run(True, socket_configured=False)
+        self.assertEqual(["[ciel-wake] pending_ids=40"], harness.written)
+        self.assertEqual([], harness.socket_sends)
+
+    def test_configured_socket_is_still_used(self) -> None:
+        harness = self._run(True, socket_configured=True)
+        self.assertEqual(1, len(harness.socket_sends))
+        self.assertEqual([], harness.written)
+
+    def test_falls_back_to_typing_without_router_delivery(self) -> None:
+        harness = self._run(False)
+        self.assertEqual(["TYPED body-40"], harness.written)
+        self.assertTrue(any("fallback=tty" in message for _, message in harness.logs))
 
 
 class QueuedStalePolicyTests(unittest.TestCase):

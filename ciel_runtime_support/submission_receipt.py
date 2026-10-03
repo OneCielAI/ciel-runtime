@@ -5,10 +5,24 @@ from datetime import datetime
 import json
 import os
 from pathlib import Path
+import re
 import time
 
 # Clock slack between the CLI's record timestamps and this process.
 RECORD_TIME_SLACK_SECONDS = 2.0
+# A Ciel prompt starts with its own header and the message ids. Codex on
+# Windows can drop characters such as U+2026/U+2014 from typed input (ara and
+# edward, 2026-10-03: every failed id was in the rollout, minus those
+# characters), so a record that starts with the same header and ids is the
+# same submission even when the rest differs.
+_CIEL_IDENTITY_PREFIX = re.compile(
+    r"^\[ciel-[^\]]{1,120}\][^\[\]]{0,400}?\b(?:pending_ids|message_ids|ids|id)=[0-9][0-9,]*"
+)
+
+
+def identity_prefix(expected: str) -> str:
+    match = _CIEL_IDENTITY_PREFIX.match(expected)
+    return match.group(0) if match else ""
 
 
 def record_epoch(record: dict) -> float | None:
@@ -43,6 +57,7 @@ class TranscriptSubmissionReceipt:
         self.identity = (stat.st_dev, stat.st_ino)
         self.invalidated = False
         self.expected = " ".join(prompt.split())
+        self.identity_prefix = identity_prefix(self.expected)
         self.pending = bytearray()
         self.accepted = False
         self.not_before = not_before
@@ -55,6 +70,7 @@ class TranscriptSubmissionReceipt:
         self.user_records = 0
         self.last_user_head = ""
         self.invalidated_reason = ""
+        self.matched_by = "full_text"
 
     def __call__(self) -> bool:
         if self.accepted:
@@ -102,8 +118,13 @@ class TranscriptSubmissionReceipt:
             ) if isinstance(content, list) else ""
             self.user_records += 1
             self.last_user_head = " ".join(text.split())[:60]
-            if self.expected and self.expected in " ".join(text.split()):
+            normalized = " ".join(text.split())
+            if self.expected and self.expected in normalized:
                 self.accepted = True
+                return True
+            if self.identity_prefix and _starts_with_identity(normalized, self.identity_prefix):
+                self.accepted = True
+                self.matched_by = "identity_prefix"
                 return True
         if len(self.pending) > 16 * 1024 * 1024:
             # Fail closed instead of accumulating an unbounded malformed line.
@@ -117,9 +138,19 @@ class TranscriptSubmissionReceipt:
             f"path={self.path} start={self.started_offset} offset={self.offset} "
             f"size={self.last_size} checks={self.checks} read_errors={self.read_errors} "
             f"user_records={self.user_records} accepted={self.accepted} "
+            f"matched_by={self.matched_by if self.accepted else '-'} "
             f"invalidated={self.invalidated_reason or self.invalidated} "
             f"expected_len={len(self.expected)} last_user={self.last_user_head!r}"
         )
+
+
+def _starts_with_identity(record_text: str, prefix: str) -> bool:
+    """The ids must end where the prefix ends: id=5 never confirms id=51."""
+
+    if not record_text.startswith(prefix):
+        return False
+    following = record_text[len(prefix) : len(prefix) + 1]
+    return not following or not (following.isdigit() or following == ",")
 
 
 class LatestTranscriptSubmissionReceipt:

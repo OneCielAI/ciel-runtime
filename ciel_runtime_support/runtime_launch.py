@@ -1103,7 +1103,10 @@ def run_codex(
             cmd,
             env,
             wake_for_llm_delivery=channel_delivery_mode(cfg) == "llm",
-            channel_wake_display_body=True,
+            # Windows Codex receives typed input as key events: a large body
+            # drops characters and stalls the composer, so only the short
+            # [ciel-wake] block is typed and the router supplies the body.
+            channel_wake_display_body=os.name != "nt",
             synthetic_enter_bytes=codex_synthetic_enter,
             normalize_bare_cr_for_synthetic_enter=False,
             channel_wake_submit_retries=_codex_channel_wake_submit_retries(),

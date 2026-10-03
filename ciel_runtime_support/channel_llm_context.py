@@ -122,7 +122,11 @@ def inject_pending_channel_context(
                     f"channel={message.get('channel')} reason={reason}",
                 )
                 continue
-            if message_input_transport(message) != "router":
+            handed_over = bool(wake_request and wake_message_ids and message_id in wake_message_ids)
+            if message_input_transport(message) != "router" and not handed_over:
+                # A wake block that names this id means the terminal side
+                # delivered it through the router (a session_socket request
+                # in a CLI without a socket, e.g. Codex on Windows).
                 # Transport ownership matters only after visibility/delivery
                 # filtering.  A web-only self response stamped as TTY must not
                 # block a later router-owned request from entering the model.

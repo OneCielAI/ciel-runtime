@@ -49,6 +49,45 @@ class SubmissionReceiptTests(unittest.TestCase):
             current['path'] = other
             self.assertFalse(receipt())
 
+    def test_receipt_accepts_a_record_with_the_same_ciel_header_and_ids(self):
+        # ara 2026-10-03: Codex recorded the prompt with U+2026/U+2014 missing.
+        sent = '[ciel-runtime external channel message] channel=ch room=r from=a id=590 text="x — y…"'
+        typed = '[ciel-runtime external channel message] channel=ch room=r from=a id=590 text="x y"'
+        other_id = '[ciel-runtime external channel message] channel=ch room=r from=a id=5901 text="x y"'
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / 'transcript.jsonl'
+            p.write_bytes(b'')
+            receipt = TranscriptSubmissionReceipt(p, sent)
+
+            def append(text):
+                record = {'type': 'response_item', 'payload': {'type': 'message', 'role': 'user',
+                          'content': [{'type': 'input_text', 'text': text}]}}
+                with p.open('ab') as f:
+                    f.write(json.dumps(record).encode() + b'\n')
+
+            append(other_id)
+            append('quoted: ' + typed)
+            self.assertFalse(receipt())
+            append(typed)
+            self.assertTrue(receipt())
+            self.assertIn('matched_by=identity_prefix', receipt.describe())
+
+    def test_wake_block_receipt_matches_its_ids_only(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / 'transcript.jsonl'
+            p.write_bytes(b'')
+            receipt = TranscriptSubmissionReceipt(p, '[ciel-wake] pending_ids=589,590')
+            def append(text):
+                record = {'type': 'response_item', 'payload': {'type': 'message', 'role': 'user',
+                          'content': [{'type': 'input_text', 'text': text}]}}
+                with p.open('ab') as f:
+                    f.write(json.dumps(record).encode() + b'\n')
+
+            append('[ciel-wake] pending_ids=591')
+            self.assertFalse(receipt())
+            append('[ciel-wake] pending_ids=589,590')
+            self.assertTrue(receipt())
+
     def test_describe_reports_what_the_receipt_read(self):
         with tempfile.TemporaryDirectory() as d:
             p = Path(d) / 'transcript.jsonl'

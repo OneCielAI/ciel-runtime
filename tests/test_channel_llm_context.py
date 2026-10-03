@@ -124,6 +124,22 @@ class ChannelLlmContextTests(unittest.TestCase):
         self.assertEqual([], self.committed)
         self.assertTrue(any("reason=input_transport_tty" in message for _level, message in self.logs))
 
+    def test_wake_block_naming_a_session_socket_message_carries_its_body(self):
+        # Codex has no session socket; the terminal side typed the wake block
+        # for this id (e2e 2026-10-03: the router answered 503 instead).
+        message = {"id": 12, "message": "socket body", "meta": {"input_transport": "session_socket"}}
+        out = inject_pending_channel_context(
+            {"messages": [{"role": "user", "content": "wake"}]},
+            self.services([message], wake=True, wake_ids={12}, stdin_reason="stdin_wake_claimed"),
+        )
+        self.assertEqual("channel:socket body", out["messages"][-1]["content"][0]["text"])
+
+        other = {"id": 13, "message": "not named", "meta": {"input_transport": "session_socket"}}
+        with self.assertRaises(ChannelLlmInjectionDeferred):
+            inject_pending_channel_context(
+                {"messages": []}, self.services([other], wake=True, wake_ids={12})
+            )
+
     def test_web_only_tty_self_response_does_not_block_router_wake(self):
         body = {"messages": [{"role": "user", "content": "wake marker"}]}
         messages = [

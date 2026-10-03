@@ -56,6 +56,8 @@ class ChannelInjectionIO:
     write_prompt: Callable[..., Any]
     log: Callable[[str, str], Any]
     write_session_socket: Callable[[str, list[dict[str, Any]]], bool] | None = None
+    # False while no session socket is configured (every runtime but Claude).
+    session_socket_available: Callable[[], bool] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -107,6 +109,12 @@ class _DeferralFloor:
         if self._lowest is None:
             return last_id
         return min(last_id, self._lowest - 1)
+
+
+def _session_socket_usable(io: ChannelInjectionIO) -> bool:
+    if io.write_session_socket is None:
+        return False
+    return io.session_socket_available is None or bool(io.session_socket_available())
 
 
 def inject_pending_channel_messages(
@@ -190,15 +198,20 @@ def inject_pending_channel_messages(
                 if "input_transport" in metadata
                 else wake_for_llm_delivery
             )
-            if requested_session_socket and io.write_session_socket is None:
+            if requested_session_socket and not _session_socket_usable(io):
+                # Without a socket the router block is the next whole-message
+                # path; typing a large body into a Windows TUI loses characters
+                # and stalls (ara/edward, 2026-10-03).
+                fallback = "router" if wake_for_llm_delivery else "tty"
                 io.log(
                     "WARN",
                     f"channel_stdin_proxy_transport_fallback cursor={previous_last_id} "
                     f"message_id={message_id} channel={channel} "
-                    "requested=session_socket fallback=tty "
+                    f"requested=session_socket fallback={fallback} "
                     "reason=session_socket_transport_unavailable",
                 )
                 requested_session_socket = False
+                requested_router = wake_for_llm_delivery
             if not requested_session_socket and (active_tool_call or active_turn):
                 reason = "active_tool_call" if active_tool_call else "active_turn"
                 io.log("INFO", f"channel_stdin_proxy_deferred cursor={previous_last_id} reason={reason}")

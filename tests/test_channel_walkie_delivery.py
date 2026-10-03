@@ -146,6 +146,7 @@ class SessionSocketBatchTests(unittest.TestCase):
             mock.patch.object(ciel_runtime, "_channel_stdin_recover_cursor_from_queued_only", return_value=706),
             mock.patch.object(ciel_runtime, "_channel_stdin_active_turn", return_value=False),
             mock.patch.object(ciel_runtime, "_channel_stdin_active_tool_call", return_value=False),
+            mock.patch.object(ciel_runtime._CLAUDE_SESSION_SOCKET, "available", return_value=True),
             mock.patch.object(ciel_runtime._CLAUDE_SESSION_SOCKET, "send", return_value=True) as send,
             mock.patch.object(ciel_runtime, "_write_fd_all") as write_all,
             mock.patch.object(ciel_runtime, "router_log") as router_log,

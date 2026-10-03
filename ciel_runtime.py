@@ -4430,7 +4430,7 @@ def channel_wake_context() -> ChannelWakeContext:
         pending_delivery=ChannelPendingDeliveryPorts(format_channel_llm_delivery_wake_prompt, format_channel_visible_llm_delivery_wake_prompt, format_channel_web_chat_wake_batch_prompt, format_channel_wake_batch_prompt, _channel_enter_label,
                                                      _channel_wake_store_release_stale, _CHANNEL_WAKE_DELIVERY_REPOSITORY,
                                                      _commit_channel_llm_cursor_if_newer),
-        pending_io=ChannelPendingIoPorts(_CHANNEL_STDIN_INJECT_LOCK, read_runtime_inputs, _write_channel_wake_prompt, _read_channel_compact_request, _clear_channel_compact_request, _runtime_input_storage_path(), router_log, _CLAUDE_SESSION_SOCKET.send),
+        pending_io=ChannelPendingIoPorts(_CHANNEL_STDIN_INJECT_LOCK, read_runtime_inputs, _write_channel_wake_prompt, _read_channel_compact_request, _clear_channel_compact_request, _runtime_input_storage_path(), router_log, _CLAUDE_SESSION_SOCKET.send, _CLAUDE_SESSION_SOCKET.available),
         pending_policy=ChannelPendingPolicyPorts(_channel_stdin_wake_batch_limit, time.time, lambda: channel_runtime_environment_policy().web_chat_replay_ttl_seconds(),
                                                  lambda message: runtime_input_repository().timestamp_seconds(message), _channel_message_is_web_chat_request),
     )
