@@ -8,6 +8,7 @@ import sys
 from pathlib import Path, PureWindowsPath
 from typing import Any
 
+from .sandbox_profile import apply_sandbox_profile
 from .web_endpoints import apply_startup_web_options, load_saved_web_backend
 from .workspace_router_selection import (
     select_workspace_router_port,
@@ -22,6 +23,9 @@ sys.argv[:] = apply_startup_web_options(sys.argv, os.environ)
 
 
 HOME = Path.home()
+# A sandbox home's own .codex / .config/ciel-runtime come before the account
+# profile; children inherit the values through the environment.
+SANDBOX_PROFILE = apply_sandbox_profile(os.environ, cwd=Path.cwd(), user_home=HOME)
 
 
 def platform_path(value: str | os.PathLike[str]) -> Any:

@@ -13,6 +13,20 @@
 
 환경변수 `CIEL_RUNTIME_CONFIG_DIR`로 재정의 가능.
 
+### 샌드박스 프로필 우선
+
+실행 디렉터리(또는 `CIEL_RUNTIME_LAUNCH_CWD`)부터 사용자 프로필 바로 아래까지
+올라가며, 자체 프로필을 가진 첫 디렉터리를 샌드박스 홈으로 쓴다.
+
+- `<홈>\.codex\state_*.sqlite`가 있으면 `CODEX_HOME=<홈>\.codex`
+- `<홈>\.config\ciel-runtime\config.json`이 있으면 `CIEL_RUNTIME_CONFIG_DIR=<홈>\.config\ciel-runtime`
+
+이미 설정된 환경변수가 항상 우선하고, 결정된 값은 환경변수로 기록돼 라우터와
+Codex 자식 프로세스가 같은 위치를 쓴다. 저장소 안의 프로젝트용 `.codex`(상태 DB 없음)는
+프로필로 보지 않는다. `CIEL_RUNTIME_SANDBOX_PROFILE=0`이면 끈다.
+예: AAP Windows 샌드박스 `C:\ProgramData\aap-win\sandboxes\u19\home\robert-ai`에서
+실행하면 계정 프로필(`C:\Users\<계정>\.codex`) 대신 샌드박스의 `.codex`와 설정을 쓴다.
+
 ---
 
 ## 주요 설정 파일

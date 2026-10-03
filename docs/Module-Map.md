@@ -1174,6 +1174,10 @@ log-level 파일·환경 우선순위, mtime cache, 설정 저장·reset과 rout
 
 Windows/POSIX 사용자 경로, config artifact 위치와 사용자별 local router endpoint를 계산하는 Infrastructure Configuration 모듈. 표준 라이브러리에만 의존하며 facade는 기존 경로 상수와 helper를 compatibility export로 제공한다.
 
+### `ciel_runtime_support/sandbox_profile.py`
+
+샌드박스 홈(실행 디렉터리부터 사용자 프로필 아래까지 `.codex\state_*.sqlite` 또는 `.config\ciel-runtime\config.json`을 가진 첫 디렉터리)을 찾아, 비어 있는 `CODEX_HOME`/`CIEL_RUNTIME_CONFIG_DIR`을 프로세스 환경에 채우는 Infrastructure Configuration 모듈. `runtime_paths`가 `CONFIG_DIR` 계산 전에 한 번 호출하며 명시 환경변수가 항상 우선한다.
+
 ### `ciel_runtime_support/runtime_constants.py`
 
 Provider alias, model/catalog 기본값, launch code, logging limit, tool policy, routed compatibility prompt와 launch endpoint provider group을 소유하는 immutable Data Configuration 모듈. 런타임 상태나 facade에 의존하지 않으며 entrypoint는 필요한 이름만 compatibility export한다.
