@@ -1,0 +1,16 @@
+okf_version: "1.0"
+task: "User 2026-10-02: '세션의 시작전에 파일의 준비나 세션을위한 프로그램설치등 스크립트를 준비를 미리 받을수있어서 미리 환경을 프로비전닝할수잇게'. Read-only survey before a plan."
+existing:
+  remote_instructions: "remote_instructions.py: one URL per runtime fetched with conditional GET into CLAUDE.md/AGENTS.md/GEMINI.md, http/https only, size cap; config key remote_instructions, CLI 'remote-instructions'."
+  remote_memory: "remote_memory.py: JSON manifest version 1, files[] {path, url|download_url, format, sha256} downloaded into .ciel/memory with an atomic directory swap; text formats only (okf, markdown, json, yaml, toml, text; lines 44-51); paths confined to the workspace; Authorization only to the manifest origin; config key remote_memory, CLI 'remote-memory'."
+  launch_wrapper: "remote_instructions.SynchronizedLaunch (lines 237-248): optional prepare(), then synchronize(runtime, reason='launch'), then the runtime launcher; wired for every runtime in ciel_runtime.py (Codex already passes a prepare step). Runs before the prelaunch menu and before the router starts."
+  workspace_mcp: "Per-launch MCP config from config key workspace_mcp; stdio commands are started by the CLI, not by ciel."
+  external_events: "Webhook/SSE events into a running session only."
+  headless: "--ca-env-file dotenv and CIEL_RUNTIME_* variables before any launch."
+not_present:
+  - "No step that runs user- or remote-supplied scripts before a launch; ciel itself only runs fixed commands (npm install -g for missing runtimes)."
+  - "No content signature, command allow-list or confirmation for remote content."
+  - "No router endpoint that pushes content for a future session; /ca/* endpoints act on a running session (chat/channel messages, notify, chat files, webhooks)."
+  - "No AAP_* handling in the code; journal robert-nightly-reinstall-cause.okf: aap-win's assignment provision_log showed no provision script, restore command is CIEL_RUNTIME_SKIP_MENU=1 + 'ciel-runtime --ca-runtime last --continue'."
+cielairouter: "Server route /v1/session-leases is an exclusive connection lease API (acquire/status/renew/release), not environment provisioning."
+changes: "none (survey only); plan sent to the user for decisions."

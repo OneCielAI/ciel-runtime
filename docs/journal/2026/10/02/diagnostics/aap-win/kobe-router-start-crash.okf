@@ -1,0 +1,17 @@
+okf_version: "1.0"
+task: "kobe sandbox on 100.64.0.14 (u24, account aapw-a24u24, home C:\\ProgramData\\aap-win\\sandboxes\\u24\\home\\kobe-ai): ciel-runtime crashed while starting (traceback ends in router_process_lifecycle.py line 253). Read-only investigation over ssh -p 1004 (ara-ai, commands run as SYSTEM)."
+evidence:
+  crash_line: "Installed router_process_lifecycle.py:253 = raise RuntimeError('ciel-runtime router did not start. See {log_path}') after the 30 s router_up wait."
+  router_log: "C:\\Users\\aapw-a24u24\\AppData\\Roaming\\ciel-runtime\\router-instances\\9779-651d879f6c68\\router.log (last write 2026-10-02 17:28 local): the router child dies at import with 'RuntimeError: ciel-runtime port 9779 is reserved by workspace c:\\programdata\\aap-win\\sandboxes\\u24\\home\\kobe-ai; choose a different CIEL_RUNTIME_ROUTER_PORT for c:\\programdata\\aap-win\\sandboxes\\u24\\root\\qb' (workspace_router_selection._claim_explicit_port)."
+  registry: "workspace-router-ports.json: 651d879f6c68 -> port 9779, workspace ...\\u24\\home\\kobe-ai (only entry)."
+  paths: "home\\kobe-ai and root\\qb are separate real directories (no reparse point); root\\qb is a project (.git, .venv, service, data)."
+  installed_code: "Package written 2026-10-02 02:42 local; ciel_runtime.py blob fa586b5 = nightly ec852de/d1896ee. Two files modified locally at 2026-10-02 16:08:19 local and present in no repository commit: ciel_runtime_support/runtime_launch.py (blob c1a1495) and codex_session_selection.py. Diff vs nightly: run_codex computes launch_cwd = codex_launch_directory(passthrough, invoking_cwd) and, when it differs, os.chdir(launch_cwd) before starting the router; codex_launch_directory returns the --cd/-C directory from the Codex arguments, else the invoking directory."
+mechanism (from the code above):
+  - "The launcher selected and registered port 9779 for its import-time workspace home\\kobe-ai (runtime_paths.ROUTER_WORKSPACE / select_workspace_router_port)."
+  - "The patched run_codex then changed the process directory to root\\qb."
+  - "start_router_if_needed spawns the router with CIEL_RUNTIME_ROUTER_PORT=9779 and CIEL_RUNTIME_LAUNCH_CWD=str(Path.cwd()) = root\\qb (router_process_lifecycle.py:235-236)."
+  - "The router child treats 9779 as an explicit port for workspace root\\qb, finds it reserved by home\\kobe-ai and raises; the launcher waits 30 s and fails at line 253."
+not_determined:
+  - "Who or what modified the two installed files at 16:08:19, and the exact command line of the failed launch. By the patched code, a chdir to root\\qb happens only when the Codex arguments carry --cd/-C (or --cd=/-C=) naming that directory."
+  - "The aap-win database for u19-u24 was not found: C:\\ProgramData\\aap-win\\aap-win.db (last write 2026-09-29) only holds unit 4 (emily)."
+changes: "none"
