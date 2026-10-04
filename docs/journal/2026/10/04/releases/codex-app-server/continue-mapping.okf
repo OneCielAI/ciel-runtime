@@ -1,0 +1,17 @@
+okf_version: "1.0"
+task: "codex-app-server (and codex-desktop) failed on --continue; map the Claude-style resume flags for app-server launches the way the Codex TUI launch does."
+reported: "User, 2026-10-04: 'codex app server를 사용할때는 --continue 플래그가 에러를 만듬. codex의 경우 이것을 플래그를 코덱스용으로 매핑해주는게 깅ㅅ음'."
+confirmed_before:
+  - "codex 0.160.0: `codex app-server --listen ws://127.0.0.1:1 --continue` -> 'error: unexpected argument '--continue' found'."
+  - "codex_app_server_launch_args(['--continue'], ...) appended it unchanged: ['app-server', '-c', 'x=1', '--listen', 'ws://...', '--continue']. Only codex-remote split it out (2026-10-03)."
+changes:
+  - "New codex_app_server_resume.py: split_app_server_passthrough (codex_passthrough_args_for_launch mapping, then resume words go to the session; options after them, e.g. `--continue -c k=v` -> `resume --last -c k=v`, stay with the server; permission flags dropped) and resolve_resume_thread (select_codex_resume_session for last/pick, current folder)."
+  - "CodexBareAppServerSession and CodexDesktopSession get split_passthrough and a resume argument: the channel client resumes the chosen conversation at connect (initial_thread_id); nothing to resume -> exit 0 before the server starts. The desktop picks from its isolated CODEX_HOME."
+  - "codex-remote uses the same module (RemoteTuiResume / split_remote_tui_passthrough kept as aliases). The earlier codex-remote split dropped options placed after `resume --last` (found by a new test); fixed by the shared split."
+  - "CodexDesktopPorts.select_resume wired to select_codex_resume_session on the existing ciel_runtime.py line (4980 lines unchanged). Docs: Codex-Desktop.md, Module-Map.md."
+tests: "unit 1716, router 1173, channel 454, runtime 362 OK; ruff and docs check clean; router 9611 healthy."
+e2e (Windows, isolated config/CODEX_HOME, stub upstream, input only via /ca/chat/notify):
+  - "Plain ciel codex created thread 01a105cc-227b-7a20-a901-2a5383b93fc9 in the workspace."
+  - "`ciel_runtime.py cli --ca-runtime codex-app-server --continue`: server started (no argument error; screen evidence/bare-app-server-continue.png), codex_desktop_channel_ready thread=01a105cc..., message 2 injected via turn/start into that thread, turn completed; the upstream request carried the earlier turns (5 user items)."
+  - "The red rmcp errors on screen come from MCP servers in C:\Users\djlov\.codex\config.toml picked up as project-local config (workspace under the user profile); not from this change."
+not_verified: "codex-desktop UI with --continue (the desktop app did not start in earlier E2E: 'process has no package identity'); covered by unit test only."

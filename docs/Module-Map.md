@@ -521,6 +521,10 @@ Codex passthrough, resume 및 채널 관련 인수 정규화.
 
 Codex App Server 프로세스와 JSON-RPC/WebSocket 상태 조정.
 
+### `ciel_runtime_support/codex_app_server_resume.py`
+
+app-server 세션(bare, `codex-remote`, 데스크톱)의 `--continue`/`--resume`/`resume [--last|<id>|--all]`을 서버 인수에서 분리하고, 현재 폴더 기준으로 열 대화를 고르는 모듈. `codex app-server`는 이 인수를 받지 않으므로 세션이 채널 클라이언트로 그 대화를 연다.
+
 ### `ciel_runtime_support/provider_adapters.py`
 
 Provider Adapter Registry와 기존 import 경로를 위한 호환 re-export 진입점. 구체 Provider 구현은 `providers/` 하위 모듈이 소유하며, 이 모듈은 이름·표시 label·factory 및 전체 Provider 기본 설정 조립만 담당한다.

@@ -1,0 +1,4 @@
+2026-10-04T02:25:07 [INFO] codex_app_server_launch_cmd argv_len=22 provider_overrides=7 listen=ws://127.0.0.1:57032
+2026-10-04T02:25:08 [INFO] codex_desktop_channel_ready thread=01a105cc-227b-7a20-a901-2a5383b93fc9 cwd=C:\Users\djlov\cxr\ws
+2026-10-04T02:25:41 [INFO] codex_desktop_channel_injected message_id=2 thread=01a105cc-227b-7a20-a901-2a5383b93fc9 turn=01a105cd-e147-7f42-a6b2-a572cb1e884f via=turn/start
+2026-10-04T02:25:42 [INFO] codex_desktop_channel_turn_completed message_id=2 turn=01a105cd-e147-7f42-a6b2-a572cb1e884f status=completed

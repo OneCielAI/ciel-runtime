@@ -46,6 +46,14 @@ ciel-runtime --ca-runtime codex-desktop
 - `auth.json`은 원본이 더 새로우면 매번 다시 복사한다(ChatGPT 로그인 갱신 반영).
 - 새 프로필로 처음 실행하면 앱 자체의 첫 실행 안내 화면이 나온다. 워크스페이스마다 한 번이다.
 
+## 기존 대화 이어받기
+
+`--continue`, `--resume <id>`, `resume [--last|<id>|--all]`은 `codex app-server`가 받지 않는 인수라
+서버 명령줄에서 빼고, 채널 클라이언트가 시작할 때 그 대화를 `thread/resume`으로 연다.
+대화 선택은 앱의 격리 홈(`codex-home/`) 안에서 현재 폴더 기준으로 한다.
+bare `codex-app-server`도 같다(열린 대화가 채널 대상이 되고, 다른 클라이언트는 `thread/list`로 찾는다).
+이어받을 대화가 없으면 서버를 띄우지 않고 끝낸다.
+
 ## 채널 메시지 주입
 
 Web Chat, 외부 이벤트, `/ca/chat/notify` 등으로 들어온 채널 메시지는 app-server
