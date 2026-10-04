@@ -161,7 +161,7 @@ class CodexDesktopSessionTests(unittest.TestCase):
     def tearDown(self) -> None:
         self._tmp.cleanup()
 
-    def _session(self, *, app: Path | None, ready: bool = True) -> CodexDesktopSession:
+    def _session(self, *, app: Path | None, ready: bool = True, select_resume=None) -> CodexDesktopSession:
         def popen(cmd, env, cwd, stdout, stderr):
             kind = "app" if str(cmd[0]).endswith("ChatGPT.exe") else "server"
             self.calls.append((kind, list(cmd), dict(env)))
@@ -184,8 +184,32 @@ class CodexDesktopSessionTests(unittest.TestCase):
                 find_app=lambda _env: app,
                 popen=popen,
                 wait_ready=wait_ready,
+                select_resume=select_resume,
             )
         )
+
+    def test_continue_picks_from_the_app_home_and_never_reaches_the_server(self):
+        from ciel_runtime_support.codex_app_server_resume import AppServerResume
+
+        session = CodexDesktopSession
+        self.assertEqual(
+            (["-c", "x=1"], {"resume": AppServerResume("last")}),
+            session.split_passthrough(["-c", "x=1", "--continue"]),
+        )
+        seen: list[dict[str, str]] = []
+
+        def select(env, **kw):
+            seen.append(dict(env, latest=str(kw["select_latest"])))
+            return None
+
+        rc = self._session(app=Path("C:/app/ChatGPT.exe"), select_resume=select)(
+            ["codex", "app-server", "--listen", "ws://127.0.0.1:1"], {}, self.root, resume=AppServerResume("last")
+        )
+        # Nothing to resume: nothing starts, like `codex resume --last` with no session.
+        self.assertEqual(0, rc)
+        self.assertEqual([], self.calls)
+        self.assertEqual(str(self.root / "cfg" / "codex-desktop" / "ws1" / "codex-home"), seen[0]["CODEX_HOME"])
+        self.assertEqual("True", seen[0]["latest"])
 
     def test_server_starts_in_the_isolated_home_before_the_app_attaches(self):
         cmd = ["codex.exe", "app-server", "-c", 'model_provider="ciel-runtime"', "--listen", "ws://127.0.0.1:9489"]

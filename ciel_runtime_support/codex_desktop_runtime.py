@@ -28,6 +28,11 @@ from urllib.parse import urlsplit
 import urllib.request
 
 from ciel_runtime_support.codex_app_server import CodexAppServerClient
+from ciel_runtime_support.codex_app_server_resume import (
+    AppServerResume,
+    resolve_resume_thread,
+    split_app_server_passthrough,
+)
 from ciel_runtime_support.codex_app_server_websocket import CodexAppServerWebSocketProcess
 from ciel_runtime_support.codex_desktop_injection import (
     CodexDesktopChannelInjector,
@@ -192,6 +197,8 @@ class CodexDesktopPorts:
     find_app: Callable[[dict[str, str]], Path | None] = find_codex_desktop_app
     popen: Callable[..., Any] = subprocess.Popen
     wait_ready: Callable[..., bool] = wait_until_ready
+    # select_codex_resume_session, for --continue / resume [--last|--all]
+    select_resume: Callable[..., str | None] | None = None
 
 
 class CodexDesktopSession:
@@ -203,12 +210,18 @@ class CodexDesktopSession:
     display_name = "desktop app"
     launch_mode = LAUNCH_MODE_LABEL
 
+    @staticmethod
+    def split_passthrough(passthrough: list[str]) -> tuple[list[str], dict[str, Any]]:
+        server, resume = split_app_server_passthrough(passthrough)
+        return server, {"resume": resume}
+
     def __call__(
         self,
         cmd: list[str],
         env: dict[str, str],
         launch_cwd: Path,
         run_server: Callable[[], int] | None = None,
+        resume: AppServerResume | None = None,
     ) -> int:
         ports = self.ports
         executable = ports.find_app(env)
@@ -229,6 +242,10 @@ class CodexDesktopSession:
         )
         server_env = dict(env)
         server_env["CODEX_HOME"] = str(paths.codex_home)
+        # The app keeps its conversations in its own home.
+        thread_id = resolve_resume_thread(ports.select_resume, resume or AppServerResume(), server_env, launch_cwd)
+        if thread_id is None:
+            return 0
         with open(paths.logs / "app-server.log", "ab") as server_log:
             server = ports.popen(cmd, env=server_env, cwd=str(launch_cwd), stdout=server_log, stderr=subprocess.STDOUT)
         injector: CodexDesktopChannelInjector | None = None
@@ -255,6 +272,7 @@ class CodexDesktopSession:
                     ports.channel,
                     cwd=str(launch_cwd),
                     version=ports.version,
+                    initial_thread_id=thread_id,
                 )
                 injector.start()
             return int(app.wait() or 0)

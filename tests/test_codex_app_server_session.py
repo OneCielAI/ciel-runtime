@@ -4,6 +4,7 @@ import dataclasses
 import tempfile
 import time
 import unittest
+from unittest import mock
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -95,6 +96,13 @@ class SplitPassthroughTests(unittest.TestCase):
         self.assertEqual(RemoteTuiResume("id", "abc"), split_remote_tui_passthrough(["--resume", "abc"])[1])
         self.assertEqual(RemoteTuiResume("pick"), split_remote_tui_passthrough(["resume"])[1])
         self.assertEqual(RemoteTuiResume("pick", picker_args=("--all",)), split_remote_tui_passthrough(["resume", "--all"])[1])
+
+    def test_options_after_continue_stay_with_the_server(self):
+        # --continue maps to `resume --last` in front of the other arguments.
+        self.assertEqual(
+            (["-c", "x=1", "--enable", "f"], RemoteTuiResume("last")),
+            split_remote_tui_passthrough(["--continue", "-c", "x=1", "--enable", "f", "--yolo"]),
+        )
 
     def test_resume_never_reaches_the_server_command(self):
         server, _ = split_remote_tui_passthrough(["-c", "x=1", "resume", "abc"])
@@ -234,6 +242,44 @@ class SessionTests(unittest.TestCase):
         self.assertEqual(7, rc)
         self.assertEqual(["run"], calls)
         self.assertEqual([], self.popened)
+
+    def test_bare_server_takes_continue_out_of_the_server_command(self):
+        server, extra = CodexBareAppServerSession.split_passthrough(["--continue", "-c", "x=1"])
+        self.assertEqual(["-c", "x=1"], server)
+        self.assertEqual({"resume": RemoteTuiResume("last")}, extra)
+
+    def test_bare_server_with_nothing_to_resume_does_not_start(self):
+        ports = dataclasses.replace(self.ports, select_resume=lambda env, **kw: None)
+        calls: list[str] = []
+        rc = CodexBareAppServerSession(ports)(
+            SERVER_CMD, {}, Path(self.tmp.name), run_server=lambda: calls.append("run") or 7, resume=RemoteTuiResume("last")
+        )
+        self.assertEqual(0, rc)
+        self.assertEqual([], calls)
+
+    def test_bare_server_channel_client_opens_the_resumed_conversation(self):
+        captured: dict[str, Any] = {}
+
+        class _Injector:
+            def __init__(self, *_a, **kw):
+                captured.update(kw)
+
+            def start(self):
+                pass
+
+            def stop(self):
+                pass
+
+        ports = dataclasses.replace(
+            self.ports,
+            channel=CodexDesktopChannelPorts(lambda *_a: [], lambda: 0, lambda _i: None, None, lambda *_a: None),
+        )
+        with mock.patch("ciel_runtime_support.codex_app_server_session.CodexAppServerChannelInjector", _Injector):
+            rc = CodexBareAppServerSession(ports)(
+                SERVER_CMD, {}, Path(self.tmp.name), run_server=lambda: 5, resume=RemoteTuiResume("id", "saved-9")
+            )
+        self.assertEqual(5, rc)
+        self.assertEqual("saved-9", captured["initial_thread_id"])
 
     def test_bare_server_exit_ends_the_clients_readiness_wait(self):
         waits: list[str] = []

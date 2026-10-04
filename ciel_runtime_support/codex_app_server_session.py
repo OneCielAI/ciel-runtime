@@ -36,13 +36,14 @@ from pathlib import Path
 import secrets
 import subprocess
 import threading
-from typing import Any, Callable, Iterable
+from typing import Any, Callable
 
 from ciel_runtime_support.codex_app_server import CodexAppServerClient, CodexAppServerError
 from ciel_runtime_support.codex_app_server_websocket import CodexAppServerWebSocketProcess
-from ciel_runtime_support.codex_cli import (
-    codex_passthrough_args_for_launch,
-    codex_passthrough_first_non_option_index,
+from ciel_runtime_support.codex_app_server_resume import (
+    AppServerResume,
+    resolve_resume_thread,
+    split_app_server_passthrough,
 )
 from ciel_runtime_support.codex_desktop_injection import (
     FULL_ACCESS,
@@ -63,40 +64,9 @@ REMOTE_TUI_CHANNEL_ACTIONS = frozenset({"compact"})
 REMOTE_TOKEN_ENV = "CIEL_RUNTIME_CODEX_REMOTE_TOKEN"
 # Permissions are the server's: the TUI may not send them when it resumes.
 SERVER_ONLY_CONFIG_KEYS = ("approval_policy", "sandbox_mode")
-PERMISSION_FLAGS = frozenset({"--yolo", "--dangerously-bypass-approvals-and-sandbox", "--full-auto"})
-PICKER_FLAGS = ("--all", "--include-non-interactive")
-
-
-@dataclass(frozen=True, slots=True)
-class RemoteTuiResume:
-    """The conversation a codex-remote launch asked for: a new one by default."""
-
-    mode: str = ""  # "", "last", "pick" or "id"
-    session_id: str = ""
-    picker_args: tuple[str, ...] = ()
-
-
-def split_remote_tui_passthrough(passthrough: Iterable[str]) -> tuple[list[str], RemoteTuiResume]:
-    """Server arguments, and the resume request that belongs to the TUI.
-
-    ``--continue``/``--resume`` map the way the Codex TUI launch maps them
-    (``resume --last`` / ``resume <id>``).  Permission flags are dropped: the
-    session sets permissions over the protocol.
-    """
-
-    args, _notes = codex_passthrough_args_for_launch([str(item) for item in passthrough])
-    index = codex_passthrough_first_non_option_index(args)
-    if index < 0 or args[index] != "resume":
-        return [arg for arg in args if arg not in PERMISSION_FLAGS], RemoteTuiResume()
-    server = [arg for arg in args[:index] if arg not in PERMISSION_FLAGS]
-    rest = args[index + 1 :]
-    picker = tuple(arg for arg in rest if arg in PICKER_FLAGS)
-    positional = [arg for arg in rest if not arg.startswith("-")]
-    if "--last" in rest:
-        return server, RemoteTuiResume("last", picker_args=picker)
-    if positional:
-        return server, RemoteTuiResume("id", positional[0])
-    return server, RemoteTuiResume("pick", picker_args=picker)
+# The --remote TUI's resume request (shared with the other app-server sessions).
+RemoteTuiResume = AppServerResume
+split_remote_tui_passthrough = split_app_server_passthrough
 
 
 def _config_key(setting: str) -> str:
@@ -196,22 +166,33 @@ class CodexBareAppServerSession:
     def __init__(self, ports: CodexDesktopPorts) -> None:
         self.ports = ports
 
+    @staticmethod
+    def split_passthrough(passthrough: list[str]) -> tuple[list[str], dict[str, Any]]:
+        server, resume = split_app_server_passthrough(passthrough)
+        return server, {"resume": resume}
+
     def __call__(
         self,
         cmd: list[str],
         env: dict[str, str],
         launch_cwd: Path,
         run_server: Callable[[], int] | None = None,
+        resume: AppServerResume | None = None,
     ) -> int:
         ports = self.ports
+        thread_id = resolve_resume_thread(ports.select_resume, resume or AppServerResume(), env, launch_cwd)
+        if thread_id is None:
+            return 0
         listen_url = listen_url_from_command(cmd)
         if not listen_url.startswith("ws://") or run_server is None:
             # stdio or unix transports carry one client only; nothing to add.
             ports.log("INFO", f"codex_app_server_channel_unavailable listen={listen_url or '-'}")
             return run_server() if run_server is not None else 2
         server_done = threading.Event()
+        # A resumed conversation becomes the channel target; clients open it
+        # from thread/list.
         injector = _channel_injector(
-            ports, listen_url, launch_cwd, wait_ready=self._ready(listen_url, server_done)
+            ports, listen_url, launch_cwd, wait_ready=self._ready(listen_url, server_done), initial_thread_id=thread_id
         )
         if injector is not None:
             injector.start()
@@ -243,7 +224,7 @@ class CodexRemoteTuiSession:
     def split_passthrough(passthrough: list[str]) -> tuple[list[str], dict[str, Any]]:
         """run_codex_app_server: server arguments, and this session's own."""
 
-        server, resume = split_remote_tui_passthrough(passthrough)
+        server, resume = split_app_server_passthrough(passthrough)
         return server, {"resume": resume}
 
     def __call__(
@@ -308,23 +289,8 @@ class CodexRemoteTuiSession:
                 pass
             ports.log("INFO", "codex_remote_session_ended")
 
-    def _resume_thread_id(self, resume: RemoteTuiResume, env: dict[str, str], launch_cwd: Path) -> str | None:
-        """The saved conversation to open ("" for a new one), None when none was chosen."""
-
-        if resume.mode in ("", "id"):
-            return resume.session_id
-        select = self.tui.select_resume
-        if select is None:
-            print("codex-remote cannot list saved Codex sessions here; pass resume <session id>.", flush=True)
-            return None
-        selected = select(
-            env,
-            include_non_interactive="--include-non-interactive" in resume.picker_args,
-            passthrough=["resume", *resume.picker_args],
-            cwd=launch_cwd,
-            select_latest=resume.mode == "last",
-        )
-        return str(selected or "").strip() or None
+    def _resume_thread_id(self, resume: AppServerResume, env: dict[str, str], launch_cwd: Path) -> str | None:
+        return resolve_resume_thread(self.tui.select_resume or self.ports.select_resume, resume, env, launch_cwd)
 
     def _run_tui(
         self,
@@ -423,6 +389,7 @@ __all__ = [
     "CodexSessionCommandPorts",
     "REMOTE_TOKEN_ENV",
     "REMOTE_TUI_LAUNCH_MODE",
+    "AppServerResume",
     "RemoteTuiResume",
     "remote_server_command",
     "remote_tui_command",
