@@ -25,7 +25,13 @@ e2e (Windows, isolated: scratch CIEL_RUNTIME_CONFIG_DIR per run, unique router/a
 found_not_changed:
   message_id_collision: "Phase 3 typed the wake block and Codex submitted it, but the router logged channel_llm_inject_skipped message_id=1 reason=already_in_request: the conversation already contained '[ciel-runtime external channel message] ... id=1' text from earlier E2E runs, and each E2E run used a fresh config dir, so ids restarted at 1. ids come from runtime-inputs.jsonl in the workspace state dir (max id + 1, kept across rotation), so they keep increasing for one config dir/workspace; a conversation opened under a different workspace state (another folder or config dir) can hit this. app-server delivery writes the full message text into the transcript, which makes such text more common. Not changed."
   harness: "The stub also answered RUN-CMD inside ciel's completion-check side request ('tools.exec_command is not a function' there); not a session turn."
+codex_0_159_3 (follow-up, 2026-10-03 23:25-23:36):
+  executable_choice: "ExecutableDiscovery.find tries codex.exe over the whole PATH before codex.cmd, so the user-PATH standalone C:\\Users\\djlov\\AppData\\Local\\Programs\\OpenAI\\Codex\\bin\\codex.exe (0.160.0) won over the 0.159.3 node_modules/.bin/codex.cmd placed first. E2E_CODEX_BIN then pointed at the 0.159.3 vendor dir holding codex.exe; process list confirmed that path for the TUI and the app-server."
+  plain_tui: "ciel codex (0.159.3) created thread 01a1052a-fcb9-7451-8d76-8ef08ddcd8e3."
+  codex_remote_continue: "codex_remote_app_server_ready resume=01a1052a...; BIG-159 (exact body with … — ⏰ ✅ · and Korean), ROUTED-159 (router transport, idle) and RUN-CMD each turn/start -> completed; `echo RAN-OK-E2E-9` ran, exit_code 0, no approval (evidence/7-..., 8-codex-remote-0.159.3-command-ran.png)."
+  plain_tui_after_remote: "ciel codex --continue (0.159.3) opened the same thread; requests carried END-159 and 'RUN-CMD on 0.159.3' from the codex-remote turns (evidence/9-...)."
+  id_collision_reproduced: "That run used a fresh config dir: messages 1-3 logged channel_llm_inject_skipped reason=already_in_request (ids 1-3 already appear as external-message text in the conversation), message 4 was injected (channel_llm_injected message_ids=4). Same mechanism as found_not_changed.message_id_collision."
+  stray_input: "The first 0.159.3 attempt showed a prompt 'ㅇㄴㄹ' that the E2E did not send (input only via /ca/chat/notify); keyboard input into the focused test window. That run actually used 0.160.0 and was discarded."
 not_verified:
-  - "codex 0.159.3 (ara): ciel picked its own codex 0.160.0 although the 0.159.3 bin dir was first on PATH; not run."
   - "A turn typed in the codex-remote TUI after the permission change (keyboard input is not used in E2E); covered by the 0.160.0 protocol experiment V3/V4 only."
   - "The .14 sandboxes (not deployed there)."
