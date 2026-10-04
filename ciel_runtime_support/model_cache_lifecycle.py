@@ -23,6 +23,7 @@ class ModelCacheLifecyclePorts:
     # Runs after hydration so a provider can re-derive launch settings from
     # the (possibly just fetched) catalog cache.
     launch_profile: Callable[[str, dict[str, Any]], None] = lambda _provider, _config: None
+    authoritative_catalog: Callable[[str, dict[str, Any]], bool] = lambda _provider, _config: False
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,7 +43,9 @@ class ModelCacheLifecycleService:
         provider: str,
         config: dict[str, Any],
     ) -> list[str]:
-        model_ids = self.ports.read_list_cache(provider, config) or []
+        model_ids = list(self.ports.read_list_cache(provider, config) or [])
+        if self.ports.authoritative_catalog(provider, config):
+            return self.ports.sorted_model_ids(self.ports.unique_model_ids(provider, model_ids))
         if provider == "ollama-cloud":
             model_ids.extend(self.ports.catalog_model_ids(provider))
         for raw_model_id in config.get("custom_models", []) or []:

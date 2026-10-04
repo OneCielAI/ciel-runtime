@@ -97,6 +97,14 @@ class ConfigurationCliControllerTests(unittest.TestCase):
         self.set_model.assert_called_once_with("model-b")
         self.assertIn("model updated", self.output)
 
+    def test_model_rejection_exits_without_claiming_cache_was_cleared(self):
+        controller = self.controller()
+        self.set_model.return_value = ["Model selection rejected for cielairouter: stale-model"]
+        with self.assertRaises(SystemExit) as raised:
+            controller.model_command(["stale-model"])
+        self.assertEqual(2, raised.exception.code)
+        self.assertFalse(any("cache cleared" in line for line in self.output))
+
     def test_advisor_command_uses_explicit_provider_capability(self):
         controller = self.controller(builtin_advisor=True)
 

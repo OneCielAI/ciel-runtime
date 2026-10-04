@@ -62,6 +62,12 @@ class ModelMutationPolicyPorts:
 
 
 @dataclass(frozen=True, slots=True)
+class ModelMutationCatalogPorts:
+    authoritative_catalog: Callable[[str, dict[str, Any]], bool]
+    upstream_ids: Callable[..., list[str]]
+
+
+@dataclass(frozen=True, slots=True)
 class ModelMutationEffectPorts:
     sync_context_limit: Callable[[str, dict[str, Any], str], list[str]]
     cap_context_settings: Callable[[str, dict[str, Any]], list[str]]
@@ -114,10 +120,12 @@ class ModelSelectionController:
         config: ModelMutationConfigPorts,
         policy: ModelMutationPolicyPorts,
         effects: ModelMutationEffectPorts,
+        catalog: ModelMutationCatalogPorts | None = None,
     ) -> None:
         self._config = config
         self._policy = policy
         self._effects = effects
+        self._catalog = catalog
 
     def select(self, value: str) -> list[str]:
         config = self._config.load_config()
@@ -127,6 +135,19 @@ class ModelSelectionController:
             provider,
             self._policy.unslug(provider, value, model_map) or value,
         )
+        if self._catalog and self._catalog.authoritative_catalog(provider, provider_config):
+            try:
+                ids = self._catalog.upstream_ids(provider, provider_config)
+            except Exception as exc:
+                return [
+                    f"Model selection rejected for {provider}: {model_id!r}; model list "
+                    f"unavailable ({type(exc).__name__}: {exc}). Refresh the model list and reselect."
+                ]
+            if model_id not in ids:
+                return [
+                    f"Model selection rejected for {provider}: {model_id!r} is not in the "
+                    "provider catalog. Refresh the model list and reselect."
+                ]
         previous_model = str(provider_config.get("current_model") or "")
         provider_config["current_model"] = model_id
         self._policy.apply_selection_updates(provider, provider_config, model_id)
@@ -254,6 +275,11 @@ class ProviderModelSelection:
             ]
         if current and current in ids:
             return True, []
+        if current and current not in placeholders and catalog_policy.authoritative_upstream_catalog:
+            return False, [
+                f"Configured model {current!r} for {provider} is not in the provider catalog. "
+                "Refresh the model list and reselect before launch/test."
+            ]
         candidates = [
             model_id
             for model_id in ids
@@ -276,7 +302,7 @@ class ProviderModelSelection:
                 f"Model selection required for {provider}: provider returned "
                 f"{len(candidates)} models; choose one before launch/test."
             ]
-        if current:
+        if current and not catalog_policy.authoritative_upstream_catalog:
             return True, [
                 f"Model list for {provider} did not include a non-placeholder model; "
                 f"keeping configured model {current}."

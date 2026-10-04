@@ -249,7 +249,7 @@ def fetch_upstream_model_ids(provider: str, pcfg: dict[str, Any], force_refresh:
                     router_log("DEBUG", f"{provider} public model catalog fetch failed: {type(exc).__name__}: {exc}")
     except Exception:
         ids = []
-    if fetched and ids and catalog_policy.authoritative_upstream_catalog:
+    if fetched and catalog_policy.authoritative_upstream_catalog:
         ids = supplement_model_aliases(ids, model_info)
         sorted_ids = sorted_model_ids(unique_model_ids(provider, ids))
         metadata = {"model_info": model_info} if model_info else None

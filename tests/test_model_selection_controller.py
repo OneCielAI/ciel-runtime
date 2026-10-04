@@ -1,8 +1,10 @@
 import unittest
+from unittest import mock
 
 from ciel_runtime_support.provider_model_selection import (
     AdvisorModelMutationPorts,
     AdvisorModelSelectionController,
+    ModelMutationCatalogPorts,
     ModelMutationConfigPorts,
     ModelMutationEffectPorts,
     ModelMutationPolicyPorts,
@@ -54,6 +56,31 @@ class ModelSelectionControllerTests(unittest.TestCase):
 
         self.assertEqual("keep", provider_config["advisor_model"])
         self.assertIn("built-in /advisor", messages[0])
+
+    def test_rejected_selection_never_runs_mutation_effects(self):
+        for result in ([], ["other"], RuntimeError("offline")):
+            with self.subTest(result=result):
+                config = {"current_model": "keep", "custom_models": ["keep"]}
+                policy = mock.Mock(spec=ModelMutationPolicyPorts)
+                policy.model_map.return_value = {}
+                policy.unslug.return_value = None
+                policy.normalize.side_effect = lambda _provider, value: value.strip()
+                effects = mock.Mock(spec=ModelMutationEffectPorts)
+                save, clear = mock.Mock(), mock.Mock()
+                upstream = mock.Mock(side_effect=result) if isinstance(result, Exception) else mock.Mock(return_value=result)
+                controller = ModelSelectionController(
+                    ModelMutationConfigPorts(lambda: config, lambda _: ("test", config), save, clear),
+                    policy, effects, ModelMutationCatalogPorts(lambda *_: True, upstream),
+                )
+                messages = controller.select("missing")
+                self.assertIn("missing", messages[0])
+                self.assertIn("rejected", messages[0])
+                self.assertEqual({"current_model": "keep", "custom_models": ["keep"]}, config)
+                save.assert_not_called()
+                clear.assert_not_called()
+                policy.apply_profile.assert_not_called()
+                policy.apply_selection_updates.assert_not_called()
+                self.assertEqual([], effects.mock_calls)
 
     def test_selection_coordinates_provider_owned_updates_and_recommendations(self):
         provider_config = {"custom_models": []}

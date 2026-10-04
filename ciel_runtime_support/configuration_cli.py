@@ -154,7 +154,10 @@ class ConfigurationCliController:
             value = value[4:].strip()
         if not value:
             raise SystemExit("Missing model id")
-        self._output_lines(self.model.set_model(value))
+        lines = self.model.set_model(value)
+        self._output_lines(lines)
+        if any(line.startswith("Model selection rejected") for line in lines):
+            raise SystemExit(2)
         self.io.output(
             "Gateway model cache cleared. Run /model to refresh if needed."
         )

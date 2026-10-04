@@ -262,6 +262,63 @@ class CielAiRouterProviderTests(unittest.TestCase):
         reapply_launch_catalog_profile("tabitoken", tabitoken, False, profile, dict, saved.append, lambda *_: None)
         profile.assert_not_called()
 
+    def test_catalog_selection_roundtrip_and_rejection(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            pcfg = self.pcfg(api_key="isolated-key", current_model="removed", custom_models=["removed"])
+            config = {"provider": "cielairouter", "providers": {"cielairouter": pcfg}}
+            config_path = root / "config.json"
+            config_path.write_text(json.dumps(config), encoding="utf-8")
+            def save(value):
+                config_path.write_text(json.dumps(value), encoding="utf-8")
+            with (
+                mock.patch.object(ciel_runtime, "CONFIG_DIR", root),
+                mock.patch.object(ciel_runtime, "MODEL_LIST_CACHE_PATH", root / "list.json"),
+                mock.patch.object(ciel_runtime, "MODEL_REGISTRY_PATH", root / "registry.json"),
+                mock.patch.object(ciel_runtime, "GATEWAY_CACHE_PATH", root / "gateway.json", create=True),
+                mock.patch.object(ciel_runtime, "load_config", side_effect=lambda: json.loads(config_path.read_text(encoding="utf-8"))),
+                mock.patch.object(ciel_runtime, "get_current_provider", side_effect=lambda cfg: ("cielairouter", cfg["providers"]["cielairouter"])),
+                mock.patch.object(ciel_runtime, "save_config", side_effect=save) as saved,
+                mock.patch.object(ciel_runtime, "clear_model_cache") as cleared,
+                mock.patch.object(ciel_runtime, "http_json", return_value={"data": [ASTRA, OPUS]}) as http,
+            ):
+                self.assertEqual([], ciel_runtime.cached_or_configured_model_ids("cielairouter", pcfg))
+                ids = ciel_runtime.upstream_model_ids("cielairouter", pcfg, force_refresh=True)
+                self.assertEqual(["ASTRA", OPUS["id"]], ids)
+                self.assertEqual(ids, ciel_runtime.cached_or_configured_model_ids("cielairouter", pcfg))
+                before = {p.name: p.read_bytes() for p in root.iterdir()}
+                messages = ciel_runtime.model_selection_controller().select("removed")
+                self.assertIn("rejected", messages[0])
+                self.assertIn("removed", messages[0])
+                saved.assert_not_called()
+                cleared.assert_not_called()
+                self.assertEqual(before, {p.name: p.read_bytes() for p in root.iterdir()})
+                alias = ciel_runtime.alias_for("cielairouter", OPUS["id"])
+                messages = ciel_runtime.model_selection_controller().select(alias)
+                self.assertIn("set to " + OPUS["id"], messages[0])
+                restored = json.loads(config_path.read_text(encoding="utf-8"))["providers"]["cielairouter"]
+                self.assertEqual(OPUS["id"], restored["current_model"])
+                self.assertTrue(ciel_runtime.ensure_current_model_from_provider_list("cielairouter", restored)[0])
+                http.return_value = {"data": [ASTRA]}
+                ok, messages = ciel_runtime.ensure_current_model_from_provider_list("cielairouter", restored, force_refresh=True)
+                self.assertFalse(ok)
+                self.assertIn(OPUS["id"], messages[0])
+                self.assertIn("reselect", messages[0])
+                self.assertEqual(OPUS["id"], restored["current_model"])
+
+    def test_successful_filtered_empty_catalog_is_cached_without_fallback(self):
+        pcfg = self.pcfg(api_key="test", current_model="removed", custom_models=["custom"])
+        with (
+            mock.patch.object(ciel_runtime, "read_model_list_cache", return_value=None),
+            mock.patch.object(ciel_runtime, "http_json", return_value={"data": [IMAGE, NO_TOOLS, NO_THINKING]}),
+            mock.patch.object(ciel_runtime, "write_model_list_cache") as write,
+        ):
+            self.assertEqual([], ciel_runtime.upstream_model_ids("cielairouter", pcfg, force_refresh=True))
+            self.assertEqual([], write.call_args.args[2])
+            ok, messages = ciel_runtime.ensure_current_model_from_provider_list("cielairouter", pcfg)
+            self.assertFalse(ok)
+            self.assertIn("removed", messages[0])
+
     def test_adapter_contract_defaults(self):
         adapter = CielAiRouterProviderAdapter()
         policy = adapter.model_catalog_policy(self.contract())

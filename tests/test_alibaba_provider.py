@@ -787,34 +787,14 @@ class AlibabaProviderTests(unittest.TestCase):
         }
         ciel_runtime.apply_config_migrations(cfg)
         config = cfg["providers"]["alims-intl"]
-        models = set(ciel_runtime.cached_or_configured_model_ids("alims-intl", config))
-        self.assertTrue(
-            {
-                "qwen3.7-max",
-                "qwen3.8-max",
-                "qwen3.8-max-0902",
-                "qwen3.7-plus",
-                "qwen3.6-flash",
-                "deepseek-v4-pro",
-                "kimi-k3",
-                "kimi-k2.7-code",
-                "legacy-custom",
-            }.issubset(models)
-        )
+        with mock.patch.object(ciel_runtime, "read_model_list_cache", return_value=["qwen3.8-max"]):
+            self.assertEqual(
+                ["qwen3.8-max"],
+                ciel_runtime.cached_or_configured_model_ids("alims-intl", config),
+            )
         token = self.token_config()
-        token_models = set(
-            ciel_runtime.cached_or_configured_model_ids("alitoken", token)
-        )
-        self.assertTrue(
-            {
-                "qwen3.8-max",
-                "qwen3.7-max",
-                "deepseek-v4-pro",
-                "kimi-k3",
-                "kimi-k2.7-code",
-                "glm-5.2",
-            }.issubset(token_models)
-        )
+        with mock.patch.object(ciel_runtime, "read_model_list_cache", return_value=None):
+            self.assertEqual([], ciel_runtime.cached_or_configured_model_ids("alitoken", token))
 
     def test_migration_merges_new_models_without_removing_custom_models(self):
         cfg = {

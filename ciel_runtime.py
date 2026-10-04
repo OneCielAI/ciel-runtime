@@ -320,7 +320,7 @@ from ciel_runtime_support.provider_model_catalog_context import ProviderModelCac
 from ciel_runtime_support.provider_model_context import ProviderModelContext, ProviderModelContextAlgorithms, ProviderModelContextCompatibilityApi, ProviderModelContextQueries
 from ciel_runtime_support.provider_model_identity import ProviderModelIdentityApi, ProviderModelIdentityService
 from ciel_runtime_support.provider_model_metadata_context import ModelCapabilityPorts, ModelCatalogHeaderPorts, ModelRegistryRecommendationPorts, ProviderModelMetadataCompatibilityApi, ProviderModelMetadataContext
-from ciel_runtime_support.provider_model_selection import AdvisorModelMutationPorts, AdvisorModelSelectionController, ModelCatalogPorts, ModelIdentityPorts, ModelMutationConfigPorts, ModelMutationEffectPorts, ModelMutationPolicyPorts, ModelSelectionController, ModelSelectionPorts, ProviderModelSelection, ProviderModelSelectionApi
+from ciel_runtime_support.provider_model_selection import AdvisorModelMutationPorts, AdvisorModelSelectionController, ModelCatalogPorts, ModelIdentityPorts, ModelMutationCatalogPorts, ModelMutationConfigPorts, ModelMutationEffectPorts, ModelMutationPolicyPorts, ModelSelectionController, ModelSelectionPorts, ProviderModelSelection, ProviderModelSelectionApi
 from ciel_runtime_support.provider_model_specs import ModelSpecLookupPorts, ModelSpecMutationPorts, ModelSpecRefreshPorts, ProviderModelSpecService
 from ciel_runtime_support.provider_option_cli import DEFAULT_PROVIDER_NOTES, DEFAULT_UNSUPPORTED_MESSAGE, OllamaOptionCommands, ProviderOptionCliConfig, ProviderOptionCliController, ProviderOptionCommands
 from ciel_runtime_support.provider_option_panel import OptionPanelPolicy, OptionPanelProvider, OptionPanelRuntime, OptionPanelServices, OptionPanelText, OptionValuePolicy, build_option_panel_rows, current_option_bool, option_prompt_default
@@ -853,11 +853,11 @@ def provider_model_catalog_context() -> ProviderModelCatalogContext:
             positive_int, model_registry_recommendations, router_log,
         ),
         cache=ProviderModelCachePorts(
-            invalidate_config_cache, upstream_model_ids,
-            ollama_catalog_model_ids, sorted_model_ids,
+            invalidate_config_cache, upstream_model_ids, ollama_catalog_model_ids, sorted_model_ids,
             lambda provider, pcfg: reapply_launch_catalog_profile(
                 provider, pcfg, provider_model_catalog_policy(provider, pcfg).reapply_catalog_profile_at_launch,
                 apply_provider_model_profile, load_config, save_config, router_log),
+            lambda provider, pcfg: provider_model_catalog_policy(provider, pcfg).authoritative_upstream_catalog,
         ),
         compatibility=ProviderModelCatalogCompatibilityPorts(
             lambda *args, **kwargs: read_model_list_cache(*args, **kwargs),
@@ -3110,9 +3110,8 @@ def provider_endpoint_service() -> ProviderEndpointService:
     )
 
 def apply_provider_model_selection_updates(provider: str, pcfg: dict[str, Any], model_id: str) -> None:
-    adapter = configured_provider_adapter(provider, pcfg)
-    contract = provider_contract_config(provider, pcfg)
-    pcfg.update(adapter.model_selection_config_updates(contract, model_id))
+    pcfg.update(configured_provider_adapter(provider, pcfg).model_selection_config_updates(
+        provider_contract_config(provider, pcfg), model_id))
 
 def model_selection_controller() -> ModelSelectionController:
     return ModelSelectionController(
@@ -3121,6 +3120,7 @@ def model_selection_controller() -> ModelSelectionController:
                                  positive_int, model_preset, apply_provider_model_selection_updates, alias_for, format_context_tokens),
         ModelMutationEffectPorts(sync_ollama_library_context_limit, cap_context_settings_to_model_capacity, auto_apply_recommended_llm_preset_for_model,
                                  apply_recommended_timeout_for_model_context, read_model_list_cache),
+        ModelMutationCatalogPorts(lambda provider, pcfg: provider_model_catalog_policy(provider, pcfg).authoritative_upstream_catalog, upstream_model_ids),
     )
 
 def advisor_model_selection_controller() -> AdvisorModelSelectionController: return AdvisorModelSelectionController(AdvisorModelMutationPorts(load_config, get_current_provider, save_config, clear_model_cache, normalize_model_id, read_model_list_cache, lambda provider, config: provider_ui_policy(provider, config).uses_native_advisor))

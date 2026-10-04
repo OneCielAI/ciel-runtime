@@ -50,6 +50,18 @@ class ModelCacheLifecycleServiceTests(unittest.TestCase):
         )
         self.assertEqual(["cached", "catalog", "current", "custom"], result)
 
+    def test_authoritative_picker_never_appends_configured_models(self):
+        for cached in (None, [], ["valid"]):
+            with self.subTest(cached=cached):
+                service = self.service(
+                    read_list_cache=lambda *_: cached,
+                    authoritative_catalog=lambda *_: True,
+                )
+                self.assertEqual(cached or [], service.cached_or_configured_ids(
+                    "test", {"current_model": "removed", "custom_models": ["custom"]}
+                ))
+                self.assertEqual(["valid"] if cached else cached, cached)
+
     def test_launch_hydration_uses_registry_before_upstream(self):
         upstream_calls = []
         service = self.service(

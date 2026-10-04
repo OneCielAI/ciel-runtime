@@ -43,6 +43,7 @@ class ProviderModelCachePorts:
     catalog_model_ids: Callable[..., list[str]]
     sorted_model_ids: Callable[..., list[str]]
     launch_profile: Callable[[str, dict[str, Any]], None] = lambda _provider, _config: None
+    authoritative_catalog: Callable[[str, dict[str, Any]], bool] = lambda _provider, _config: False
 
 
 @dataclass(frozen=True, slots=True)
@@ -89,6 +90,7 @@ class ProviderModelCatalogContext:
                 read_registry_models=self.compatibility.read_registry_models,
                 upstream_model_ids=self.cache.upstream_model_ids,
                 launch_profile=self.cache.launch_profile,
+                authoritative_catalog=self.cache.authoritative_catalog,
                 catalog_model_ids=self.cache.catalog_model_ids,
                 normalize_model_id=self.registry.normalize_id,
                 unique_model_ids=self.registry.unique_ids,

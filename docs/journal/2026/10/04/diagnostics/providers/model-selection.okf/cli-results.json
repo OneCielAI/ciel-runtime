@@ -1,0 +1,28 @@
+[
+  {
+    "args": [
+      "models"
+    ],
+    "code": 0,
+    "stdout": "cielairouter: 2 models\nciel-runtime-cielairouter-valid-model-a\tvalid-model-a\nciel-runtime-cielairouter-valid-model-b\tvalid-model-b\n",
+    "stderr": ""
+  },
+  {
+    "args": [
+      "model",
+      "stale-model"
+    ],
+    "code": 2,
+    "stdout": "Model selection rejected for cielairouter: 'stale-model' is not in the provider catalog. Refresh the model list and reselect.\n",
+    "stderr": ""
+  },
+  {
+    "args": [
+      "model",
+      "valid-model-b"
+    ],
+    "code": 0,
+    "stdout": "Model for cielairouter set to valid-model-b.\nClaude Code alias: ciel-runtime-cielairouter-valid-model-b\nCielAiRouter catalog profile applied for valid-model-b: 128,000-token context, no catalog output limit.\nStart a new session after changing models to avoid context-cache re-prefill overhead.\nModel context size: 125K (128,000 tokens).\nProvider/model defaults retained. Optional recommended LLM preset: Long context 65K.\nAuto timeout: 300000ms for context 125K.\nstream_idle_timeout_ms: 300000\nGateway model cache cleared. Run /model to refresh if needed.\n",
+    "stderr": ""
+  }
+]
