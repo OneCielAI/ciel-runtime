@@ -21,6 +21,15 @@ from ciel_runtime_support.prelaunch_launch_preference import (
     remember_launch_action,
 )
 from ciel_runtime_support.runtime_paths import CONFIG_PATH
+from ciel_runtime_support.runtime_constants import (
+    PRELAUNCH_LAUNCH_CODEX, PRELAUNCH_LAUNCH_CODEX_APP_SERVER, PRELAUNCH_LAUNCH_CODEX_REMOTE,
+)
+
+CODEX_LAUNCH_RESULTS = {
+    "launch-codex": PRELAUNCH_LAUNCH_CODEX,
+    "launch-codex-app-server": PRELAUNCH_LAUNCH_CODEX_APP_SERVER,
+    "launch-codex-remote": PRELAUNCH_LAUNCH_CODEX_REMOTE,
+}
 
 try:
     import msvcrt
@@ -1007,7 +1016,10 @@ def main_items() -> list[tuple[str, str]]:
     launch_codex_label = t("launch_codex")
     if not codex_launch_enabled(provider):
         launch_codex_label += " [disabled: select Codex provider]"
-    add("launch-codex", launch_codex_label)
+    add("launch-codex", launch_codex_label + " (plain TUI)")
+    codex_suffix = "" if codex_launch_enabled(provider) else " [disabled: select Codex provider]"
+    add("launch-codex-remote", "Codex TUI + app-server" + codex_suffix)
+    add("launch-codex-app-server", "Codex app-server (standalone / no TUI)" + codex_suffix)
     launch_agy_label = t("launch_agy")
     if not agy_launch_enabled(provider):
         launch_agy_label += " [disabled: select AGY provider]"
@@ -1773,9 +1785,9 @@ def render(stdscr, idx: int, sub: dict | None, notice: list[str], checks: list[s
             break
         if i == idx and (sub is None or sub.get("readonly")):
             style = _style(reverse=True, bold=True)
-        elif key in ("launch", "launch-codex", "launch-agy") and "disabled:" in label:
+        elif key in ("launch", "launch-codex", "launch-codex-remote", "launch-codex-app-server", "launch-agy") and "disabled:" in label:
             style = _style(dim=True)
-        elif key in ("launch", "launch-codex", "launch-agy"):
+        elif key in ("launch", "launch-codex", "launch-codex-remote", "launch-codex-app-server", "launch-agy"):
             style = cp(2) + _style(bold=True)
         elif key == "test":
             style = cp(3) + _style(bold=True)
@@ -1934,7 +1946,7 @@ def main() -> int:
                         sub = None
                         continue
                     return PRELAUNCH_LAUNCH_AGY
-                if action == "launch-codex":
+                if action in CODEX_LAUNCH_RESULTS:
                     provider, pcfg = current_provider_cfg()
                     if not codex_launch_enabled(provider):
                         notice = ["Launch Codex is disabled until you select Codex or Codex routed as the provider."]
@@ -1950,7 +1962,7 @@ def main() -> int:
                         sub = None
                         continue
                     persist_launch_action(action)
-                    return PRELAUNCH_LAUNCH_CODEX
+                    return CODEX_LAUNCH_RESULTS[action]
                 if action == "test":
                     code, out = run_test_with_animation(idx, checks)
                     apply_test_result(code, out)
@@ -2185,7 +2197,7 @@ def main() -> int:
                 idx = index_for_action("api-key")
                 continue
             return PRELAUNCH_LAUNCH_AGY
-        if action == "launch-codex":
+        if action in CODEX_LAUNCH_RESULTS:
             provider, pcfg = current_provider_cfg()
             if not codex_launch_enabled(provider):
                 notice = ["Launch Codex is disabled until you select Codex or Codex routed as the provider."]
@@ -2199,7 +2211,7 @@ def main() -> int:
                 idx = index_for_action("api-key")
                 continue
             persist_launch_action(action)
-            return PRELAUNCH_LAUNCH_CODEX
+            return CODEX_LAUNCH_RESULTS[action]
         if action == "test":
             code, out = run_test_with_animation(idx, checks)
             apply_test_result(code, out)

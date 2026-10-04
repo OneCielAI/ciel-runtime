@@ -5,8 +5,54 @@ import ciel_runtime
 
 
 class PrelaunchDefaultActionTests(unittest.TestCase):
+    def test_remote_menu_selection_returns_dispatch_code_and_remembers(self):
+        from ciel_runtime_support.runtime_constants import PRELAUNCH_LAUNCH_CODEX_REMOTE
+
+        cfg = {"current_provider": "codex", "providers": {"codex": {}}, "last_launch_action": "launch-codex-remote"}
+        keys = iter(["enter", "enter"])
+        with (
+            mock.patch.object(ciel_runtime, "load_config", return_value=cfg),
+            mock.patch.object(ciel_runtime, "get_current_provider", return_value=("codex", {})),
+            mock.patch.object(ciel_runtime, "settings_ready_except_api_key", return_value=True),
+            mock.patch.object(ciel_runtime, "preflight_lines", return_value=[]),
+            mock.patch.object(ciel_runtime, "launch_readiness_errors", return_value=[]),
+            mock.patch.object(ciel_runtime, "save_config"),
+            mock.patch.object(ciel_runtime, "render_prelaunch_screen", return_value=False),
+            mock.patch.object(ciel_runtime, "read_menu_key", side_effect=lambda *_args: next(keys)),
+            mock.patch.object(ciel_runtime, "enable_ansi"),
+        ):
+            self.assertEqual(PRELAUNCH_LAUNCH_CODEX_REMOTE, ciel_runtime.portable_prelaunch_menu([]))
+            self.assertEqual("launch-codex-remote", cfg["last_launch_action"])
+
+    def test_legacy_menu_exposes_same_codex_modes_and_dispatch_results(self):
+        import ast
+        from pathlib import Path
+        from ciel_runtime_support.runtime_constants import PRELAUNCH_LAUNCH_CODEX_REMOTE, PRELAUNCH_LAUNCH_CODEX_APP_SERVER
+
+        tree = ast.parse((Path(__file__).resolve().parents[1] / "ciel-runtime-menu.py").read_text(encoding="utf-8"))
+        nodes = [node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "main_items"]
+        nodes += [node for node in tree.body if isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id == "CODEX_LAUNCH_RESULTS" for target in node.targets)]
+        scope = dict(
+            current_provider_cfg=lambda: ("codex", {}), current_language=lambda: "en",
+            t=lambda key: key, LANGUAGES={"en": "English"}, provider_menu_label=lambda *a: "Codex",
+            is_ollama_provider=lambda _: False, has_provider_options=lambda _: False,
+            claude_launch_enabled=lambda _: False, codex_launch_enabled=lambda _: True,
+            agy_launch_enabled=lambda _: False,
+            PRELAUNCH_LAUNCH_CODEX=ciel_runtime.PRELAUNCH_LAUNCH_CODEX,
+            PRELAUNCH_LAUNCH_CODEX_REMOTE=PRELAUNCH_LAUNCH_CODEX_REMOTE,
+            PRELAUNCH_LAUNCH_CODEX_APP_SERVER=PRELAUNCH_LAUNCH_CODEX_APP_SERVER,
+        )
+        exec(compile(ast.Module(body=nodes, type_ignores=[]), "legacy-menu", "exec"), scope)
+        rows = dict(scope["main_items"]())
+        self.assertIn("TUI + app-server", rows["launch-codex-remote"])
+        self.assertIn("no TUI", rows["launch-codex-app-server"])
+        self.assertEqual(PRELAUNCH_LAUNCH_CODEX_REMOTE, scope["CODEX_LAUNCH_RESULTS"]["launch-codex-remote"])
+        self.assertEqual(PRELAUNCH_LAUNCH_CODEX_APP_SERVER, scope["CODEX_LAUNCH_RESULTS"]["launch-codex-app-server"])
+        returns = [node for node in ast.walk(tree) if isinstance(node, ast.Return) and isinstance(node.value, ast.Subscript) and isinstance(node.value.value, ast.Name) and node.value.value.id == "CODEX_LAUNCH_RESULTS"]
+        self.assertEqual(2, len(returns))
+
     def test_all_runtime_defaults_focus_the_combined_launch_menu(self):
-        for action in ("launch", "launch-codex", "launch-codex-app-server", "launch-agy", "launch-kimi"):
+        for action in ("launch", "launch-codex", "launch-codex-app-server", "launch-codex-remote", "launch-agy", "launch-kimi"):
             self.assertEqual(
                 ciel_runtime.MAIN_MENU_ACTIONS.index("launch-menu"),
                 ciel_runtime.prelaunch_action_index(action),

@@ -23,17 +23,18 @@ def launch_panel_rows(
     return (
         [
             f"Claude{claude_suffix}",
-            f"Codex{codex_suffix}",
+            f"Codex (plain TUI){codex_suffix}",
             f"AGY{agy_suffix}",
             f"Kimi{kimi_suffix}",
             "Grok Build",
             "ZCode",
             "Muse Code",
-            f"Codex app server{codex_suffix}",
+            f"Codex TUI + app-server{codex_suffix}",
+            f"Codex app-server (standalone / no TUI){codex_suffix}",
             f"Codex desktop app{codex_suffix}",
             "Back",
         ],
-        ["launch", "launch-codex", "launch-agy", "launch-kimi", "launch-grok", "launch-zcode", "launch-muse", "launch-codex-app-server", "launch-codex-desktop", "back"],
+        ["launch", "launch-codex", "launch-agy", "launch-kimi", "launch-grok", "launch-zcode", "launch-muse", "launch-codex-remote", "launch-codex-app-server", "launch-codex-desktop", "back"],
     )
 
 

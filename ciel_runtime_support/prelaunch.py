@@ -20,6 +20,7 @@ from ciel_runtime_support.runtime_constants import (
     PRELAUNCH_LAUNCH_CLAUDE,
     PRELAUNCH_LAUNCH_CODEX,
     PRELAUNCH_LAUNCH_CODEX_APP_SERVER,
+    PRELAUNCH_LAUNCH_CODEX_REMOTE,
     PRELAUNCH_RELOAD,
 )
 from ciel_runtime_support.web_endpoints import current_web_workspace, web_backend_settings
@@ -63,6 +64,7 @@ class PrelaunchConstants:
     PRELAUNCH_LAUNCH_CLAUDE: Any
     PRELAUNCH_LAUNCH_CODEX: Any
     PRELAUNCH_LAUNCH_CODEX_APP_SERVER: Any
+    PRELAUNCH_LAUNCH_CODEX_REMOTE: Any
     PROVIDER_LABELS: Any
 
 
@@ -77,6 +79,7 @@ def build_default_prelaunch_constants() -> PrelaunchConstants:
         PRELAUNCH_LAUNCH_CLAUDE=PRELAUNCH_LAUNCH_CLAUDE,
         PRELAUNCH_LAUNCH_CODEX=PRELAUNCH_LAUNCH_CODEX,
         PRELAUNCH_LAUNCH_CODEX_APP_SERVER=PRELAUNCH_LAUNCH_CODEX_APP_SERVER,
+        PRELAUNCH_LAUNCH_CODEX_REMOTE=PRELAUNCH_LAUNCH_CODEX_REMOTE,
         PROVIDER_LABELS=PROVIDER_LABELS,
     )
 
@@ -211,6 +214,7 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
     PRELAUNCH_LAUNCH_CLAUDE = services.constants.PRELAUNCH_LAUNCH_CLAUDE
     PRELAUNCH_LAUNCH_CODEX = services.constants.PRELAUNCH_LAUNCH_CODEX
     PRELAUNCH_LAUNCH_CODEX_APP_SERVER = services.constants.PRELAUNCH_LAUNCH_CODEX_APP_SERVER
+    PRELAUNCH_LAUNCH_CODEX_REMOTE = services.constants.PRELAUNCH_LAUNCH_CODEX_REMOTE
     PROVIDER_LABELS = services.constants.PROVIDER_LABELS
     advisor_model_panel_rows = services.panel_rows.advisor_model_panel_rows
     agy_launch_enabled_for_provider = services.launch_policy.agy_launch_enabled_for_provider
@@ -486,7 +490,7 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                             continue
                         persist_launch_action(action)
                         return PRELAUNCH_LAUNCH_CLAUDE
-                    if action in {"launch-codex", "launch-codex-app-server"}:
+                    if action in {"launch-codex", "launch-codex-app-server", "launch-codex-remote"}:
                         if not codex_launch_enabled_for_provider(provider):
                             messages = [f"Launch Codex is disabled while {provider_menu_label(provider, pcfg)} provider is selected."]
                             continue
@@ -495,7 +499,11 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                             messages = blockers
                             continue
                         persist_launch_action(action)
-                        return PRELAUNCH_LAUNCH_CODEX_APP_SERVER if action == "launch-codex-app-server" else PRELAUNCH_LAUNCH_CODEX
+                        return {
+                            "launch-codex": PRELAUNCH_LAUNCH_CODEX,
+                            "launch-codex-app-server": PRELAUNCH_LAUNCH_CODEX_APP_SERVER,
+                            "launch-codex-remote": PRELAUNCH_LAUNCH_CODEX_REMOTE,
+                        }[action]
                     if action == "launch-agy":
                         if not agy_launch_enabled_for_provider(provider):
                             messages = ["Launch AGY is disabled until you select AGY or AGY Routed as the provider."]

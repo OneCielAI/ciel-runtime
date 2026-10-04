@@ -45,6 +45,7 @@ class CodexLaunchSharedDispatchPorts:
     run_codex_update: Callback
     run_prelaunch_menu: Callback
     log_passthrough_mapping: Callback
+    launch_remote: Callback | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -129,6 +130,7 @@ class CodexLaunchAssembly:
                 run_ciel_runtime_update_check=self.dispatch.run_runtime_update,
                 run_codex_update_check=self.dispatch.run_codex_update,
                 run_prelaunch_menu=self.dispatch.run_prelaunch_menu,
+                launch_codex_remote=self.dispatch.launch_remote,
             ),
             routing=runtime_launch.CodexLaunchRouting(
                 cleanup_managed_services_for_provider=self.routing.cleanup_services,
@@ -181,6 +183,8 @@ class CodexLaunchAssembly:
                 run_ciel_runtime_update_check=self.dispatch.run_runtime_update,
                 run_codex_update_check=self.dispatch.run_codex_update,
                 run_prelaunch_menu=self.dispatch.run_prelaunch_menu,
+                launch_codex_remote=self.dispatch.launch_remote,
+                launch_codex_app_server=self.dispatch.launch_app_server,
             ),
             routing=runtime_launch.CodexAppServerRouting(
                 cleanup_managed_services_for_provider=self.routing.cleanup_services,

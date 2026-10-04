@@ -57,6 +57,120 @@ class FakeRequestHeaders(list):
 
 
 class CodexRuntimeTests(unittest.TestCase):
+    def test_remote_menu_dispatch_preserves_exact_resume_args_from_all_launchers(self):
+        from ciel_runtime_support.runtime_constants import PRELAUNCH_LAUNCH_CODEX_REMOTE
+
+        for launcher in ("launch_claude", "launch_codex", "launch_agy", "launch_codex_app_server", "launch_codex_desktop"):
+            for argv in (["--continue"], ["resume", "session-id", "--model", "gpt-5"]):
+                with self.subTest(launcher=launcher, argv=argv), contextlib.ExitStack() as stack:
+                    for name in ("warn_if_multiple_ciel_runtime_installs", "run_ciel_runtime_update_check", "sync_remote_launch_assets"):
+                        stack.enter_context(mock.patch.object(ciel_runtime, name))
+                    for name in ("install_codex_if_missing", "run_codex_update_check", "find_executable", "install_agy_if_missing", "run_agy_update_check"):
+                        stack.enter_context(mock.patch.object(ciel_runtime, name, return_value="fake-cli"))
+                    menu = stack.enter_context(mock.patch.object(ciel_runtime, "run_prelaunch_menu", return_value=PRELAUNCH_LAUNCH_CODEX_REMOTE))
+                    remote = stack.enter_context(mock.patch.object(ciel_runtime, "launch_codex_remote", return_value=73))
+                    self.assertEqual(73, getattr(ciel_runtime, launcher)(list(argv), force_menu=True, update_check=False))
+                    menu.assert_called_once()
+                    remote.assert_called_once_with(argv, skip_menu=True, force_menu=False, update_check=False, self_update_check=False)
+
+    def test_remote_bare_switch_banner_and_mode_recording(self):
+        from dataclasses import replace
+        from ciel_runtime_support import runtime_launch
+        from ciel_runtime_support.runtime_constants import PRELAUNCH_LAUNCH_CODEX_APP_SERVER, PRELAUNCH_LAUNCH_CODEX_REMOTE
+
+        for native in (True, False):
+            for selection in (0, PRELAUNCH_LAUNCH_CODEX_APP_SERVER, PRELAUNCH_LAUNCH_CODEX_REMOTE):
+                with self.subTest(native=native, selection=selection), contextlib.ExitStack() as stack:
+                    for name in ("sync_remote_launch_assets", "terminate_existing_codex_processes_for_launch", "terminate_existing_router_clients_for_launch"):
+                        stack.enter_context(mock.patch.object(ciel_runtime, name))
+                    stack.enter_context(mock.patch.object(runtime_launch, "codex_native_web_tool_overrides", return_value=[]))
+                    services = ciel_runtime.codex_app_server_launch_services()
+                    cfg = {"current_provider": "codex", "providers": {"codex": {}}}
+                    record = mock.Mock()
+                    session = mock.Mock(return_value=0)
+                    session.launch_mode = "codex-remote-router"
+                    session.display_name = "TUI + app-server"
+                    session.split_passthrough = mock.Mock(return_value=([], {"tui_args": ["resume", "exact-id"]}))
+                    bare = mock.Mock(return_value=0)
+                    services = replace(services,
+                        installation=replace(services.installation, warn_if_multiple_ciel_runtime_installs=mock.Mock(), install_codex_if_missing=lambda: "codex", find_executable=lambda _: "codex"),
+                        dispatch=replace(services.dispatch, run_ciel_runtime_update_check=mock.Mock(), run_codex_update_check=lambda *a, **kw: "codex", run_prelaunch_menu=lambda *a, **kw: selection, launch_codex_remote=mock.Mock(), launch_codex_app_server=mock.Mock(return_value=0)),
+                        config=replace(services.config, load_config=lambda: cfg, get_current_provider=lambda _: ("codex", {}), apply_launch_endpoint_policy=lambda *a: [], ensure_model_cache_for_launch=mock.Mock(), current_alias=lambda _: "", codex_runtime_model_catalog_args=lambda *a: [], record_launch_state_for_cwd=record, workspace_mcp=None),
+                        routing=replace(services.routing, codex_launch_enabled_for_provider=lambda _: True, launch_readiness_errors=lambda _: [], cleanup_managed_services_for_provider=mock.Mock(), native_codex_enabled=lambda _: native, direct_native_codex_enabled=lambda *a: native, codex_routed_enabled=lambda *a: False, start_router_if_needed=lambda **kw: False, run_with_router_lifetime=lambda runner, _: runner()),
+                        channel=replace(services.channel, codex_mcp_native_http_compat_args=lambda *a, **kw: []),
+                        process=replace(services.process, subprocess_call_with_child_pid_record=bare),
+                    )
+                    output = io.StringIO()
+                    with contextlib.redirect_stdout(output):
+                        result = runtime_launch.run_codex_app_server(["--listen", "ws://127.0.0.1:8899"], services=services, desktop=session)
+                    self.assertEqual(0, result)
+                    services.dispatch.launch_codex_remote.assert_not_called()
+                    if selection == PRELAUNCH_LAUNCH_CODEX_APP_SERVER:
+                        # Hands over to the bare launcher, which owns resume mapping and channel delivery.
+                        session.assert_not_called()
+                        session.split_passthrough.assert_not_called()
+                        bare.assert_not_called()
+                        services.dispatch.launch_codex_app_server.assert_called_once()
+                        call = services.dispatch.launch_codex_app_server.call_args
+                        self.assertEqual(["--listen", "ws://127.0.0.1:8899"], call.args[0])
+                        self.assertTrue(call.kwargs["skip_menu"])
+                        self.assertFalse(call.kwargs["self_update_check"])
+                    else:
+                        session.assert_called_once()
+                        self.assertEqual(["resume", "exact-id"], session.call_args.kwargs["tui_args"])
+                        self.assertEqual("codex-remote-router", record.call_args.args[2])
+                        self.assertNotIn("no conversation TUI", output.getvalue())
+
+    def test_bare_session_prints_the_no_tui_endpoint_notice(self):
+        from dataclasses import replace
+        from ciel_runtime_support import runtime_launch
+
+        with contextlib.ExitStack() as stack:
+            for name in ("sync_remote_launch_assets", "terminate_existing_codex_processes_for_launch", "terminate_existing_router_clients_for_launch"):
+                stack.enter_context(mock.patch.object(ciel_runtime, name))
+            stack.enter_context(mock.patch.object(runtime_launch, "codex_native_web_tool_overrides", return_value=[]))
+            services = ciel_runtime.codex_app_server_launch_services()
+            cfg = {"current_provider": "codex", "providers": {"codex": {}}}
+            bare_session = mock.Mock(return_value=0)
+            bare_session.launch_mode = ""
+            bare_session.display_name = "App Server"
+            bare_session.split_passthrough = mock.Mock(side_effect=lambda passthrough: (list(passthrough), {}))
+            services = replace(services,
+                installation=replace(services.installation, warn_if_multiple_ciel_runtime_installs=mock.Mock(), install_codex_if_missing=lambda: "codex", find_executable=lambda _: "codex"),
+                dispatch=replace(services.dispatch, run_ciel_runtime_update_check=mock.Mock(), run_codex_update_check=lambda *a, **kw: "codex", run_prelaunch_menu=lambda *a, **kw: 0, launch_codex_app_server=mock.Mock()),
+                config=replace(services.config, load_config=lambda: cfg, get_current_provider=lambda _: ("codex", {}), apply_launch_endpoint_policy=lambda *a: [], ensure_model_cache_for_launch=mock.Mock(), current_alias=lambda _: "", codex_runtime_model_catalog_args=lambda *a: [], record_launch_state_for_cwd=mock.Mock(), workspace_mcp=None),
+                routing=replace(services.routing, codex_launch_enabled_for_provider=lambda _: True, launch_readiness_errors=lambda _: [], cleanup_managed_services_for_provider=mock.Mock(), native_codex_enabled=lambda _: True, direct_native_codex_enabled=lambda *a: True, codex_routed_enabled=lambda *a: False, start_router_if_needed=lambda **kw: False, run_with_router_lifetime=lambda runner, _: runner()),
+                channel=replace(services.channel, codex_mcp_native_http_compat_args=lambda *a, **kw: []),
+            )
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                result = runtime_launch.run_codex_app_server(["--listen", "ws://127.0.0.1:8899"], services=services, desktop=bare_session)
+        self.assertEqual(0, result)
+        bare_session.assert_called_once()
+        services.dispatch.launch_codex_app_server.assert_not_called()
+        text = output.getvalue()
+        self.assertIn("no conversation TUI", text)
+        self.assertIn("http://127.0.0.1:8899/readyz", text)
+        self.assertIn("http://127.0.0.1:8899/healthz", text)
+        self.assertIn("not a web chat UI", text)
+
+    def test_launch_modes_menu_and_remembered_default(self):
+        from ciel_runtime_support.prelaunch_launch_preference import preferred_provider_launch_action, remember_launch_action
+
+        cfg = {"current_provider": "codex", "providers": {"codex": {}}}
+        rows, actions = ciel_runtime.launch_panel_rows(cfg)
+        self.assertIn("plain TUI", rows[actions.index("launch-codex")])
+        self.assertIn("TUI + app-server", rows[actions.index("launch-codex-remote")])
+        self.assertIn("no TUI", rows[actions.index("launch-codex-app-server")])
+        def choose():
+            return preferred_provider_launch_action(cfg, "codex", lambda _: False, lambda _: False, lambda _: True)
+
+        self.assertEqual("launch-codex", choose())
+        self.assertTrue(remember_launch_action(cfg, "launch-codex-remote"))
+        self.assertEqual("launch-codex-remote", choose())
+        disabled, disabled_actions = ciel_runtime.launch_panel_rows({"current_provider": "agy", "providers": {"agy": {}}})
+        self.assertIn("disabled:", disabled[disabled_actions.index("launch-codex-remote")])
+
     def test_unisolated_test_process_cannot_terminate_live_router_clients(self):
         with (
             mock.patch.dict(
@@ -254,21 +368,21 @@ class CodexRuntimeTests(unittest.TestCase):
         self.assertTrue(any(row.startswith("9. Launch") for row in codex_rows))
         codex_launch_rows, _ = ciel_runtime.launch_panel_rows({"current_provider": "codex", "providers": {"codex": codex}})
         self.assertTrue(any(row.startswith("Claude [disabled: Codex") for row in codex_launch_rows))
-        self.assertIn("Codex", codex_launch_rows)
-        self.assertIn("Codex app server", codex_launch_rows)
+        self.assertIn("Codex (plain TUI)", codex_launch_rows)
+        self.assertIn("Codex app-server (standalone / no TUI)", codex_launch_rows)
 
         claude_rows = ciel_runtime.main_menu_rows(cfg, "anthropic", anthropic, "en")
         self.assertTrue(any(row.startswith("9. Launch") for row in claude_rows))
         claude_launch_rows, _ = ciel_runtime.launch_panel_rows({"current_provider": "anthropic", "providers": {"anthropic": anthropic}})
-        self.assertTrue(any(row.startswith("Codex [disabled: Anthropic") for row in claude_launch_rows))
-        self.assertTrue(any(row.startswith("Codex app server [disabled: Anthropic") for row in claude_launch_rows))
+        self.assertTrue(any(row.startswith("Codex (plain TUI) [disabled: Anthropic") for row in claude_launch_rows))
+        self.assertTrue(any(row.startswith("Codex app-server (standalone / no TUI) [disabled: Anthropic") for row in claude_launch_rows))
 
         zai_rows = ciel_runtime.main_menu_rows(cfg, "zai", zai, "en")
         self.assertTrue(any(row.startswith("9. Launch") for row in zai_rows))
         zai_launch_rows, _ = ciel_runtime.launch_panel_rows({"current_provider": "zai", "providers": {"zai": zai}})
         self.assertIn("Claude", zai_launch_rows)
-        self.assertIn("Codex", zai_launch_rows)
-        self.assertIn("Codex app server", zai_launch_rows)
+        self.assertIn("Codex (plain TUI)", zai_launch_rows)
+        self.assertIn("Codex app-server (standalone / no TUI)", zai_launch_rows)
 
     def test_provider_choice_toggles_codex_routing(self):
         cfg = {

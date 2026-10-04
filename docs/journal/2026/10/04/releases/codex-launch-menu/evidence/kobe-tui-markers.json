@@ -1,0 +1,32 @@
+{
+  "markers": {
+    "OpenAI Codex": [
+      876
+    ],
+    "remote": [
+      146,
+      268
+    ],
+    "9799": [
+      350
+    ],
+    "00347d86-24f3-4ff3-b730-351604b415aa": [
+      207
+    ],
+    "context left": [],
+    "Connecting": [],
+    "Error": [
+      3331,
+      15658
+    ],
+    "Failed": [
+      3296,
+      15623
+    ],
+    "directory:": [],
+    "model:": []
+  },
+  "startup_lines": [
+    ">_ OpenAI Codex (v0.160.0)loading"
+  ]
+}

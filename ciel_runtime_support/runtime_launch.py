@@ -18,6 +18,7 @@ from ciel_runtime_support.runtime_constants import (
     PRELAUNCH_LAUNCH_CLAUDE,
     PRELAUNCH_LAUNCH_CODEX,
     PRELAUNCH_LAUNCH_CODEX_APP_SERVER,
+    PRELAUNCH_LAUNCH_CODEX_REMOTE,
     ROUTED_COMPAT_PROMPT,
 )
 from ciel_runtime_support.runtime_paths import CONFIG_DIR, LOG_PATH, ROUTER_BASE, ROUTER_INSTANCE_DIR, WORKSPACE_STATE_DIR
@@ -111,6 +112,7 @@ class ClaudeLaunchConstants:
     PRELAUNCH_LAUNCH_CLAUDE: Any
     PRELAUNCH_LAUNCH_CODEX: Any
     PRELAUNCH_LAUNCH_CODEX_APP_SERVER: Any
+    PRELAUNCH_LAUNCH_CODEX_REMOTE: Any
     ROUTED_COMPAT_PROMPT: Any
 
 
@@ -124,6 +126,7 @@ def build_default_claude_launch_constants() -> ClaudeLaunchConstants:
         PRELAUNCH_LAUNCH_CLAUDE=PRELAUNCH_LAUNCH_CLAUDE,
         PRELAUNCH_LAUNCH_CODEX=PRELAUNCH_LAUNCH_CODEX,
         PRELAUNCH_LAUNCH_CODEX_APP_SERVER=PRELAUNCH_LAUNCH_CODEX_APP_SERVER,
+        PRELAUNCH_LAUNCH_CODEX_REMOTE=PRELAUNCH_LAUNCH_CODEX_REMOTE,
         ROUTED_COMPAT_PROMPT=ROUTED_COMPAT_PROMPT,
     )
 
@@ -163,6 +166,7 @@ class ClaudeLaunchDispatch:
     run_claude_update_check: Callable[..., Any]
     run_prelaunch_menu: Callable[..., Any]
     claude_launch_enabled_for_provider: Callable[..., Any]
+    launch_codex_remote: Callable[..., Any] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -254,6 +258,7 @@ def run_claude(
     PRELAUNCH_LAUNCH_CLAUDE = services.constants.PRELAUNCH_LAUNCH_CLAUDE
     PRELAUNCH_LAUNCH_CODEX = services.constants.PRELAUNCH_LAUNCH_CODEX
     PRELAUNCH_LAUNCH_CODEX_APP_SERVER = services.constants.PRELAUNCH_LAUNCH_CODEX_APP_SERVER
+    PRELAUNCH_LAUNCH_CODEX_REMOTE = services.constants.PRELAUNCH_LAUNCH_CODEX_REMOTE
     ROUTED_COMPAT_PROMPT = services.constants.ROUTED_COMPAT_PROMPT
     _log_claude_command_for_diagnostics = services.process._log_claude_command_for_diagnostics
     _subprocess_call_capturing_stderr = services.process._subprocess_call_capturing_stderr
@@ -339,6 +344,11 @@ def run_claude(
             force_menu=False,
             update_check=update_check,
             self_update_check=False,
+        )
+    if rc == PRELAUNCH_LAUNCH_CODEX_REMOTE:
+        return services.dispatch.launch_codex_remote(
+            passthrough, skip_menu=True, force_menu=False,
+            update_check=update_check, self_update_check=False,
         )
     if rc == PRELAUNCH_LAUNCH_CODEX_APP_SERVER:
         return launch_codex_app_server(
@@ -718,6 +728,7 @@ class CodexLaunchConstants:
     PRELAUNCH_LAUNCH_CLAUDE: Any
     PRELAUNCH_LAUNCH_CODEX: Any
     PRELAUNCH_LAUNCH_CODEX_APP_SERVER: Any
+    PRELAUNCH_LAUNCH_CODEX_REMOTE: Any
 
 
 def build_default_codex_launch_constants() -> CodexLaunchConstants:
@@ -730,6 +741,7 @@ def build_default_codex_launch_constants() -> CodexLaunchConstants:
         PRELAUNCH_LAUNCH_CLAUDE=PRELAUNCH_LAUNCH_CLAUDE,
         PRELAUNCH_LAUNCH_CODEX=PRELAUNCH_LAUNCH_CODEX,
         PRELAUNCH_LAUNCH_CODEX_APP_SERVER=PRELAUNCH_LAUNCH_CODEX_APP_SERVER,
+        PRELAUNCH_LAUNCH_CODEX_REMOTE=PRELAUNCH_LAUNCH_CODEX_REMOTE,
     )
 
 
@@ -794,6 +806,7 @@ class CodexLaunchDispatch:
     run_ciel_runtime_update_check: Callable[..., Any]
     run_codex_update_check: Callable[..., Any]
     run_prelaunch_menu: Callable[..., Any]
+    launch_codex_remote: Callable[..., Any] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -855,6 +868,7 @@ def run_codex(
     PRELAUNCH_LAUNCH_CLAUDE = services.constants.PRELAUNCH_LAUNCH_CLAUDE
     PRELAUNCH_LAUNCH_CODEX = services.constants.PRELAUNCH_LAUNCH_CODEX
     PRELAUNCH_LAUNCH_CODEX_APP_SERVER = services.constants.PRELAUNCH_LAUNCH_CODEX_APP_SERVER
+    PRELAUNCH_LAUNCH_CODEX_REMOTE = services.constants.PRELAUNCH_LAUNCH_CODEX_REMOTE
     _channel_wake_enter_env_is_fixed = services.process._channel_wake_enter_env_is_fixed
     _codex_channel_wake_submit_delay_seconds = services.process._codex_channel_wake_submit_delay_seconds
     _codex_channel_wake_submit_retries = services.process._codex_channel_wake_submit_retries
@@ -948,6 +962,11 @@ def run_codex(
             force_menu=False,
             update_check=update_check,
             self_update_check=False,
+        )
+    if rc == PRELAUNCH_LAUNCH_CODEX_REMOTE:
+        return services.dispatch.launch_codex_remote(
+            passthrough, skip_menu=True, force_menu=False,
+            update_check=update_check, self_update_check=False,
         )
     if rc == PRELAUNCH_LAUNCH_CODEX_APP_SERVER:
         return launch_codex_app_server(
@@ -1204,6 +1223,8 @@ class CodexAppServerDispatch:
     run_ciel_runtime_update_check: Callable[..., Any]
     run_codex_update_check: Callable[..., Any]
     run_prelaunch_menu: Callable[..., Any]
+    launch_codex_remote: Callable[..., Any] | None = None
+    launch_codex_app_server: Callable[..., Any] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -1259,6 +1280,7 @@ def run_codex_app_server(
     PRELAUNCH_LAUNCH_CLAUDE = services.constants.PRELAUNCH_LAUNCH_CLAUDE
     PRELAUNCH_LAUNCH_CODEX = services.constants.PRELAUNCH_LAUNCH_CODEX
     PRELAUNCH_LAUNCH_CODEX_APP_SERVER = services.constants.PRELAUNCH_LAUNCH_CODEX_APP_SERVER
+    PRELAUNCH_LAUNCH_CODEX_REMOTE = services.constants.PRELAUNCH_LAUNCH_CODEX_REMOTE
     _log_codex_app_server_command_for_diagnostics = services.process._log_codex_app_server_command_for_diagnostics
     apply_launch_endpoint_policy = services.config.apply_launch_endpoint_policy
     channel_delivery_mode = services.channel.channel_delivery_mode
@@ -1346,7 +1368,18 @@ def run_codex_app_server(
         )
     if rc == PRELAUNCH_CANCEL:
         return 0
-    if rc not in (0, PRELAUNCH_LAUNCH_CODEX_APP_SERVER):
+    if rc == PRELAUNCH_LAUNCH_CODEX_REMOTE and getattr(desktop, "launch_mode", "") != "codex-remote-router":
+        return services.dispatch.launch_codex_remote(
+            passthrough, skip_menu=True, force_menu=False,
+            update_check=update_check, self_update_check=False,
+        )
+    if rc == PRELAUNCH_LAUNCH_CODEX_APP_SERVER and getattr(desktop, "launch_mode", ""):
+        # Keep the bare session adapter: it owns resume mapping and channel delivery.
+        return services.dispatch.launch_codex_app_server(
+            passthrough, skip_menu=True, force_menu=False,
+            update_check=update_check, self_update_check=False,
+        )
+    if rc not in (0, PRELAUNCH_LAUNCH_CODEX_APP_SERVER, PRELAUNCH_LAUNCH_CODEX_REMOTE):
         return rc
     # A session may own part of the passthrough (codex-remote: the TUI's resume).
     split_passthrough = getattr(desktop, "split_passthrough", None)
@@ -1435,18 +1468,29 @@ def run_codex_app_server(
     session_label = str(getattr(desktop, "display_name", "desktop app")) if desktop is not None else "App Server"
     session_mode = str(getattr(desktop, "launch_mode", "codex-desktop-router")) if desktop is not None else ""
     print(f"Launching Codex {session_label} through Ciel Runtime.", flush=True)
-    if "--listen" in cmd:
-        try:
-            print(f"Codex App Server listen: {cmd[cmd.index('--listen') + 1]}", flush=True)
-        except Exception:
-            pass
+    actual_listen = next((arg.split("=", 1)[1] for arg in cmd if arg.startswith("--listen=")), "")
+    if "--listen" in cmd and cmd.index("--listen") + 1 < len(cmd):
+        actual_listen = cmd[cmd.index("--listen") + 1]
+    if actual_listen:
+        print(f"Codex App Server listen: {actual_listen}", flush=True)
+    if not getattr(desktop, "launch_mode", ""):
+        # Bare server (no adapter, or the bare session): nothing renders a conversation.
+        transport = "WebSocket" if actual_listen.startswith(("ws://", "wss://")) else "stdio"
+        print(f"Standalone Codex app-server: no conversation TUI. Waiting for a {transport} JSON-RPC client.", flush=True)
+        if transport == "WebSocket":
+            from urllib.parse import urlsplit, urlunsplit
+
+            endpoint = urlsplit(actual_listen)
+            for path in ("/readyz", "/healthz"):
+                status_url = urlunsplit(("https" if endpoint.scheme == "wss" else "http", endpoint.netloc, path, "", ""))
+                print(f"HTTP status (not a web chat UI): {status_url}", flush=True)
     cmd = authenticated_codex_command(cmd, env, ROUTER_BASE)
     _log_codex_app_server_command_for_diagnostics(cmd, env)
     record_launch_state_for_cwd(
         current_launch_cwd_key(),
         provider,
         session_mode
-        or provider_mode_label(provider, pcfg) if native_codex_enabled(provider) else "codex-app-server-router",
+        or (provider_mode_label(provider, pcfg) if native_codex_enabled(provider) else "codex-app-server-router"),
         str(pcfg.get("current_model") or ("" if native_codex_enabled(provider) else current_alias(cfg)) or ""),
     )
 
@@ -1479,6 +1523,7 @@ class AgyLaunchConstants:
     PRELAUNCH_LAUNCH_CLAUDE: Any
     PRELAUNCH_LAUNCH_CODEX: Any
     PRELAUNCH_LAUNCH_CODEX_APP_SERVER: Any
+    PRELAUNCH_LAUNCH_CODEX_REMOTE: Any
 
 
 def build_default_agy_launch_constants() -> AgyLaunchConstants:
@@ -1489,6 +1534,7 @@ def build_default_agy_launch_constants() -> AgyLaunchConstants:
         PRELAUNCH_LAUNCH_CLAUDE=PRELAUNCH_LAUNCH_CLAUDE,
         PRELAUNCH_LAUNCH_CODEX=PRELAUNCH_LAUNCH_CODEX,
         PRELAUNCH_LAUNCH_CODEX_APP_SERVER=PRELAUNCH_LAUNCH_CODEX_APP_SERVER,
+        PRELAUNCH_LAUNCH_CODEX_REMOTE=PRELAUNCH_LAUNCH_CODEX_REMOTE,
     )
 
 
@@ -1540,6 +1586,7 @@ class AgyLaunchDispatch:
     run_agy_update_check: Callable[..., Any]
     run_ciel_runtime_update_check: Callable[..., Any]
     run_prelaunch_menu: Callable[..., Any]
+    launch_codex_remote: Callable[..., Any] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -1578,6 +1625,7 @@ def run_agy(
     PRELAUNCH_LAUNCH_CLAUDE = services.constants.PRELAUNCH_LAUNCH_CLAUDE
     PRELAUNCH_LAUNCH_CODEX = services.constants.PRELAUNCH_LAUNCH_CODEX
     PRELAUNCH_LAUNCH_CODEX_APP_SERVER = services.constants.PRELAUNCH_LAUNCH_CODEX_APP_SERVER
+    PRELAUNCH_LAUNCH_CODEX_REMOTE = services.constants.PRELAUNCH_LAUNCH_CODEX_REMOTE
     _codex_channel_wake_submit_delay_seconds = services.process._codex_channel_wake_submit_delay_seconds
     _codex_channel_wake_submit_retries = services.process._codex_channel_wake_submit_retries
     _log_agy_command_for_diagnostics = services.process._log_agy_command_for_diagnostics
@@ -1650,6 +1698,11 @@ def run_agy(
             force_menu=False,
             update_check=update_check,
             self_update_check=False,
+        )
+    if rc == PRELAUNCH_LAUNCH_CODEX_REMOTE:
+        return services.dispatch.launch_codex_remote(
+            passthrough, skip_menu=True, force_menu=False,
+            update_check=update_check, self_update_check=False,
         )
     if rc == PRELAUNCH_LAUNCH_CODEX_APP_SERVER:
         return launch_codex_app_server(

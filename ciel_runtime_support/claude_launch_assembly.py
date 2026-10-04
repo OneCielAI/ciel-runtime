@@ -46,6 +46,7 @@ class ClaudeLaunchDispatchPorts:
     run_claude_update: Callback
     run_prelaunch_menu: Callback
     launch_enabled: Callback
+    launch_codex_remote: Callback | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -152,6 +153,7 @@ class ClaudeLaunchAssembly:
                 launch_agy=self.dispatch.launch_agy,
                 launch_codex=self.dispatch.launch_codex,
                 launch_codex_app_server=self.dispatch.launch_codex_app_server,
+                launch_codex_remote=self.dispatch.launch_codex_remote,
                 materialize_runtime_command=self.dispatch.materialize_command,
                 run_ciel_runtime_update_check=self.dispatch.run_runtime_update,
                 run_claude_update_check=self.dispatch.run_claude_update,

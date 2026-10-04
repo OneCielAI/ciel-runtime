@@ -161,7 +161,7 @@ class PrelaunchShellContext:
             remembered = str(config.get("last_launch_action") or "").strip()
             if remembered in {"launch", "launch-kimi"}:
                 return remembered
-            if remembered in {"launch-codex", "launch-codex-app-server"}:
+            if remembered in {"launch-codex", "launch-codex-remote", "launch-codex-app-server"}:
                 return remembered
             return "launch-kimi"
         return self.provider.preferred_action(
@@ -173,7 +173,7 @@ class PrelaunchShellContext:
         )
 
     def prelaunch_action_index(self, action: str) -> int:
-        if action in {"launch", "launch-codex", "launch-codex-app-server", "launch-codex-desktop", "launch-agy", "launch-kimi", "launch-grok", "launch-zcode", "launch-muse"}:
+        if action in {"launch", "launch-codex", "launch-codex-remote", "launch-codex-app-server", "launch-codex-desktop", "launch-agy", "launch-kimi", "launch-grok", "launch-zcode", "launch-muse"}:
             action = "launch-menu"
         try:
             return self.main_menu_actions.index(action)
