@@ -376,7 +376,15 @@ class ChannelTranscriptRepository:
                     ):
                         continue
                     normalized_session_cwd = self._normalized_cwd(session_cwd)
-                    if scope_cwd and normalized_session_cwd and normalized_session_cwd != scope_cwd:
+                    # A session resumed by id is that file wherever it began:
+                    # session_meta keeps the first folder (a transcript moved
+                    # from F:\qb into a sandbox home, kobe 2026-10-03).
+                    if (
+                        not scope_session_id
+                        and scope_cwd
+                        and normalized_session_cwd
+                        and normalized_session_cwd != scope_cwd
+                    ):
                         continue
                 if runtime == "claude" and (scope_cwd or scope_session_id):
                     _session_started_at, session_cwd, session_id = (

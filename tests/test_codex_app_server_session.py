@@ -134,6 +134,7 @@ class SessionTests(unittest.TestCase):
         self.control = _Control([])
         self.restart_after_first: Any = None
 
+        self.scopes: list[dict[str, Any]] = []
         self.terminal_envs: list[dict[str, str]] = []
         self.token_seen: list[str] = []
 
@@ -150,7 +151,7 @@ class SessionTests(unittest.TestCase):
         self.tui_ports = CodexRemoteTuiPorts(
             run_terminal=run_terminal,
             restart_control=lambda: self.control,
-            set_transcript_scope=lambda *_a, **_kw: None,
+            set_transcript_scope=lambda *_a, **kw: self.scopes.append(kw),
         )
 
     def test_remote_tui_runs_through_the_proxy_with_only_new_session_typed(self):
@@ -170,6 +171,7 @@ class SessionTests(unittest.TestCase):
         self.assertEqual("codex", options["session_command_runtime"])
         self.assertEqual(frozenset({"new_session"}), options["session_command_actions"])
         self.assertEqual([4242], self.terminated)
+        self.assertIsNone(self.scopes[0]["session_id"])
 
     def test_remote_tui_gets_the_launch_token_and_the_file_is_removed_afterwards(self):
         CodexRemoteTuiSession(self.ports, self.tui_ports)(SERVER_CMD, {"A": "1"}, Path(self.tmp.name))
@@ -186,6 +188,8 @@ class SessionTests(unittest.TestCase):
         self.assertEqual(0, rc)
         self.assertEqual(["resume", "01a0-saved"], self.terminal_calls[0][0][-2:])
         self.assertNotIn("--yolo", self.terminal_calls[0][0])
+        # The transcript is found by id even if it began in another folder.
+        self.assertEqual("01a0-saved", self.scopes[0]["session_id"])
 
     def test_continue_picks_the_latest_conversation_of_the_folder(self):
         calls: list[dict[str, Any]] = []

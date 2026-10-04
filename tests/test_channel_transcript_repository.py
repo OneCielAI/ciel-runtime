@@ -146,6 +146,42 @@ class ChannelTranscriptRepositoryTests(unittest.TestCase):
 
             self.assertEqual(resumed, repository.latest(ttl_seconds=0))
 
+    def test_resumed_codex_session_is_bound_even_when_it_started_in_another_folder(self):
+        # kobe (.14, 2026-10-03): a transcript moved from another machine keeps
+        # session_meta cwd F:\qb; `--continue` in the sandbox home resumes it by
+        # id, and the submit check must still find it.
+        with tempfile.TemporaryDirectory() as raw_dir:
+            home = Path(raw_dir)
+            sessions = home / ".codex" / "sessions" / "2026"
+            sessions.mkdir(parents=True)
+            resumed = sessions / "resumed.jsonl"
+            other = sessions / "other.jsonl"
+            for path, session_id, cwd, started in (
+                (resumed, "resumed-session", "F:\\qb", "1970-01-01T00:01:40Z"),
+                (other, "other-session", "C:\\sandbox\\home", "1970-01-01T00:03:30Z"),
+            ):
+                path.write_text(
+                    json.dumps(
+                        {
+                            "type": "session_meta",
+                            "payload": {"id": session_id, "timestamp": started, "cwd": cwd},
+                        }
+                    )
+                    + "\n",
+                    encoding="utf-8",
+                )
+            os.utime(resumed, (250, 250))
+            os.utime(other, (260, 260))
+            repository = self.repository(home, scope={})
+            repository.set_scope(
+                "codex", started_at=200, cwd=Path("C:\\sandbox\\home"), session_id="resumed-session"
+            )
+            self.assertEqual(resumed, repository.latest(ttl_seconds=0))
+
+            # Without a session id the folder still decides.
+            repository.set_scope("codex", started_at=200, cwd=Path("C:\\sandbox\\home"))
+            self.assertEqual(other, repository.latest(ttl_seconds=0))
+
     def test_latest_reuses_cached_path_within_ttl(self):
         cached = Path("cached.jsonl")
         repository = self.repository(

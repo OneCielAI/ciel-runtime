@@ -345,6 +345,8 @@ class CodexRemoteTuiSession:
                 "codex",
                 codex_home=Path(env.get("CODEX_HOME") or (Path.home() / ".codex")),
                 cwd=launch_cwd,
+                # A resumed conversation may have begun in another folder.
+                session_id=cmd[-1] if "resume" in cmd[-2:-1] else None,
             )
             control.reset()
             self.ports.log("INFO", f"codex_remote_tui_start cmd={' '.join(cmd[1:])}")
