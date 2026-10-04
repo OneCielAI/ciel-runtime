@@ -1,0 +1,17 @@
+okf_version: "1.0"
+task: "kobe (.14 u24) records every channel message as failed prompt_not_submitted although Codex receives and answers them; find why and fix in ciel-runtime."
+reported: "User, 2026-10-04: '갑자기 엔터를 못누르는건 왜그래?' then 'kobe 원인을 이어서 조사'."
+evidence_14 (read-only, SYSTEM over ssh, SeBackupPrivilege reads):
+  status: "workspace 651d879f6c68: all 21 messages final status failed prompt_not_submitted, including 18-21 (17:35-18:04 local) after the 16:00 relaunch on @one-ciel-ai/ciel-runtime (pid 10680 cli --continue, codex 0.160.0)."
+  transcript: "C:\\Users\\aapw-a24u24\\.codex\\sessions\\2026\\09\\24\\rollout-...-00347d86-...jsonl: user records '[ciel-wake] pending_ids=18' 00:35:08Z, '=19' 01:02:51Z, '=20' 01:03:34Z, '=21' 01:03:53Z, each followed by an assistant reply about that message's content and task_complete. Enter was pressed and the body reached the model."
+  first_line: "session_meta id/session_id 00347d86-24f3-4ff3-b730-351604b415aa, cwd F:\\qb, timestamp 2026-09-24T05:16:15Z (transcript moved from another machine; journal 10/03 kobe-continue-no-session)."
+  router_log: "log level ERROR; one line 17:35:26 channel_stdin_proxy_blocked cursor=17 message_id=18 reason=prior_submission_failed detail=prompt_not_submitted action=skipped."
+  other_sandboxes: "edward (u22): 134 messages in 6 h all replied. ara (u21): failures until 20:25 (prompt_not_submitted chain and stale_unconfirmed), 865-870 replied afterwards."
+cause:
+  code: "channel_transcript_repository._scan_latest (runtime codex): a rollout whose first-line session_meta cwd differs from the launch cwd was skipped even when its session id equals the resumed session id. run_codex passes session_id=<resumed id> and cwd=<launch folder>, so kobe's only rollout (cwd F:\\qb, launch folder home\\kobe-ai) was never selected: no transcript -> the submit receipt never matches -> prompt_not_submitted."
+  reproduced: "Windows E2E (isolated CODEX_HOME, stub upstream): conversation created in wsA, state_5 threads.cwd changed to \\\\?\\...\\wsB (as done for kobe on 10/03), `ciel codex --continue` in wsB. Old code: model request carried the message, status failed prompt_not_submitted, router log 'channel_input_receipt_unmatched resolved=None receipts=0'. Fixed code: 'channel_input_receipt watching resolved=...rollout-...01a1058e...jsonl', submit_confirmed attempt=1, messages 2 and 3 submitted -> replied (evidence/)."
+fix:
+  - "A resumed session id selects its rollout regardless of the folder in session_meta; without a session id the folder still decides (channel_transcript_repository.py)."
+  - "codex-remote passes the resumed thread id to the transcript scope too (codex_app_server_session.py)."
+tests: "new test_resumed_codex_session_is_bound_even_when_it_started_in_another_folder (fails before, passes after); codex-remote scope session_id asserts. Groups: unit 1716 OK, router 1173 OK, channel 454 OK, runtime 357 OK; ruff and docs check clean; router 9611 healthy."
+not_verified: "kobe itself after the nightly reaches it (needs the update and a relaunch). Already-failed records 1-21 stay failed (terminal records)."
