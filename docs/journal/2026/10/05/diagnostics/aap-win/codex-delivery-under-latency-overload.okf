@@ -1,0 +1,12 @@
+okf_version: "1.0"
+task: "Codex sessions on .14 show the same stalls as Emily, 'especially when network latency is high or the Codex server is overloaded'."
+reported: "User, 2026-10-05: '코덱스에서도 유사한 현상이 많이 나타나고있음 특히 네트워크 레인턴시가 클때나 코덱스 서버 폭주시에'."
+access: "ssh SYSTEM read only: router.log (ERROR level) per sandbox user, Codex logs_2.sqlite copied to temp, rollouts read in place; Ara console scrollback captured earlier without input (scratchpad ara-console-raw.txt)."
+confirmed:
+  failures_by_day: "router.log channel_stdin_proxy_blocked reason=prior_submission_failed detail=prompt_not_submitted (PTY wake path, receipt not found in the Codex rollout in time): Ara u21 10/01 64, 10/03 37, 10/04 1; Edward u22 10/01 10, 10/03 138, 10/04 18; Kobe u24 10/03 11; Eric u23 none. Plus codex_desktop_channel_connect_failed / codex_remote_channel_open_failed on Ara/Edward 10/03-10/04 (app-server tries)."
+  hourly: "Failures cluster in hours (Edward 10/03 11:00-15:00 local: 33/20/27/33/13 per hour; Ara 10/03 10:00-12:00: 10/9/9)."
+  overload_loop: "Ara console before the 10/04 16:32 restart: 715 '[ciel-wake] pending_ids=N' lines for pending ids 1035-1056 only (22 messages), 697 'We’re currently experiencing high demand, which may cause temporary errors.' lines, 669 times a wake line followed directly by that error. Each wake started a turn that failed at once and the next wake followed; the messages were never answered while it lasted."
+  overload_text_source: "ciel upstream_error_policy treats 'high demand' as overloaded (-> 503). Ara's Codex logs_2.sqlite contains the string (findstr), but the time-bounded query since 09-30 returned no matching rows (retention or format), so hours of overload could not be aligned with the router failures from logs."
+not_confirmed:
+  - "Network latency as the cause of the prompt_not_submitted hours: Codex logs_2 had no stream-disconnect / reconnect / timeout rows in those hours (0 for Ara and Edward; Kobe 8 on 10/02 15:00 without failures). The router logs at ERROR, so submit/receipt timings are not recorded."
+not_done: "No code change; nothing typed on any sandbox."

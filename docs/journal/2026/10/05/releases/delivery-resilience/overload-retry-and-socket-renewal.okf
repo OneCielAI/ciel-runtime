@@ -1,0 +1,20 @@
+okf_version: "1.0"
+task: "Improve turn-cut resilience found on Emily, Ara/Edward/Kobe and Celly: retry an overloaded OpenAI upstream automatically, show the error clearly, retry broken TLS connections longer, and keep Claude Code socket delivery working across relaunches."
+reported: "User, 2026-10-05: '개선할것.', 'OpenAI 트래픽폭주나 하이디맨드면 자동으로 리트라이 로직이 동작해야하지않아?', '에러표시도 제대로 해야하고'."
+diagnoses:
+  - "../../diagnostics/aap-win/emily-channel-delivery-stopped.okf"
+  - "../../diagnostics/aap-win/codex-delivery-under-latency-overload.okf"
+  - "../../diagnostics/local-sandbox/celly-turns-fail-on-upstream-overload.okf"
+changes:
+  overload_retry: "ciel_runtime_support/upstream_overload_retry.py + router_http.CodexBackendHttpAdapter._retry_overload_or_raise: Codex routed HTTP 5xx (500/502/503/504/52x) and 429 that reads as overload are retried by the router before anything reaches Codex: waits 2,4,8,16,30 s (Retry-After honoured, max 60 s each) within a per-request budget (default 60 s, CIEL_RUNTIME_CODEX_OVERLOAD_RETRY_SECONDS, 0 disables). Usage limit / quota answers are not retried. WARN codex_overload_retry per wait; on exhaustion ERROR codex_overload_exhausted and the relayed error message starts 'Ciel Runtime retried this request N time(s) over Ss because the upstream reported overload; giving up. Upstream: <original>'. Events published on router.retry."
+  transport: "codex_backend_context.transport_retry_limit default 2 -> 4 (waits 2,4,6,8 s; env max 6). HTTPError is no longer retried as a transport error (the overload policy owns it). Exhausted retryable transport errors log ERROR codex_transport_exhausted."
+  socket_available: "claude_session_socket.ClaudeSessionSocketClient.available() is true only with a published session key and no recent connect failure (30 s cooldown), so the channel proxy falls back to the terminal/router path instead of waiting; ERROR claude_session_socket_unavailable reason=auth_key_unavailable|connect_failed fallback=terminal once per change, INFO claude_session_socket_available on recovery."
+  socket_renewal: "runtime_launch.run_claude: on a restart-session relaunch Ciel gives Claude Code a fresh --messaging-socket-path (only when Ciel chose the path) and reconfigures the client; INFO claude_session_socket_renewed."
+tests:
+  groups: "unit 1738 OK (skipped 49), router 1175 OK, channel 454 OK (skipped 80), runtime 373 OK (skipped 19); ruff clean; docs metadata clean; live router 9611 = 200."
+  new: "test_codex_runtime: high demand 500 then 503 Retry-After 7 then success (sleeps 2 s, 7 s; client gets the stream); budget 6 s exhausted (sleeps 2, 4; annotated message; ERROR line); usage_limit 429 relayed untouched; env defaults. test_claude_session_socket: no key -> unavailable with one ERROR, key -> available, failed connect -> 30 s cooldown. test_claude_session_socket_launch: restart relaunch carries a new socket path and reconfigures the client."
+  e2e: "evidence/overload-e2e.json (overload_e2e.py): real `ciel_runtime.py serve`, Codex routed upstream pointed at a stub. Two 'high demand' 500s then success -> client 200 after 6.1 s with the full stream, 3 upstream calls. Endless 500s with a 20 s budget -> client 500 after 20.1 s, 5 upstream calls, body 'Ciel Runtime retried this request 4 time(s) over 20s ... Upstream: We’re currently experiencing high demand...', router.log WARN codex_overload_retry x4 and ERROR codex_overload_exhausted."
+not_done:
+  - "Not committed, not pushed, not deployed."
+  - "Wake back-off after an overload-failed turn is not separate code: each failing request now takes up to the 60 s budget, so a Codex turn (6 tries) fails after minutes instead of seconds, which slows the Ara-style wake loop accordingly. Not measured on a real overload."
+  - "Claude (Anthropic routed / cielairouter) path keeps its existing retry policy."

@@ -1,0 +1,21 @@
+{
+ "stub_port": 57308,
+ "router_port": 57309,
+ "cc_before": 200,
+ "upstream_before": [
+  {
+   "path": "/v1/messages",
+   "auth": "Bearer sk-ant-oat-local-cli",
+   "model": "claude-opus-5-5"
+  }
+ ],
+ "push": 200,
+ "cc_after": 200,
+ "upstream_after": [
+  {
+   "path": "/v1/messages",
+   "auth": "Bearer sk-ant-oat-pushed-e2e",
+   "model": "claude-opus-5-5"
+  }
+ ]
+}

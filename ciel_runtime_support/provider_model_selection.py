@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable
 
+from .model_override import FORCED_MODEL_KEY, forced_model
 from .remote_bridge import REMOTE_BRIDGE_CONFIG_MARKER
 
 
@@ -150,6 +151,8 @@ class ModelSelectionController:
                 ]
         previous_model = str(provider_config.get("current_model") or "")
         provider_config["current_model"] = model_id
+        # A local choice releases a remotely forced model (model_override).
+        provider_config.pop(FORCED_MODEL_KEY, None)
         self._policy.apply_selection_updates(provider, provider_config, model_id)
         selected_info = self._policy.read_model_info(provider, provider_config).get(model_id) or {}
         selected_context = self._policy.positive_int(selected_info.get("max_model_len"))
@@ -458,7 +461,7 @@ class ProviderModelSelectionApi:
         return self.selection_factory().launch_id(provider, pcfg)
 
     def resolve_requested_model(self, provider: str, pcfg: dict[str, Any], requested: str | None) -> str:
-        return self.selection_factory().resolve_requested(provider, pcfg, requested)
+        return self.selection_factory().resolve_requested(provider, pcfg, forced_model(pcfg) or requested)
 
     def resolve_tool_model_references(self, provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> dict[str, Any]:
         return self.selection_factory().resolve_tool_models(provider, pcfg, body)

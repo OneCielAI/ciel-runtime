@@ -149,6 +149,39 @@ class ClaudeSessionSocketLaunchTests(unittest.TestCase):
             self.assertEqual(provider != "anthropic", writer.called)
             self.assertEqual(provider != "anthropic", "generated-web-tools.json" in launched[-1])
 
+        # A restart relaunches Claude Code with a socket path of its own and
+        # points the socket client at it (Emily 2026-10-04: a reused path left
+        # the new instance without a session key).
+        from ciel_runtime_support.runtime_session_restart import (
+            RuntimeSessionRestartControl,
+            RuntimeSessionRestartRequest,
+            SessionRestartPorts,
+        )
+
+        renewed = r"\\.\pipe\LOCAL\cc-msg-ffffffffffffffffffffffffffffffff"
+        targets = iter([target, renewed])
+        request = RuntimeSessionRestartRequest("r1", "test", "restart", "claude", 0, False, 0.0, 0.0)
+        relaunched: list[list[str]] = []
+        configured.clear()
+
+        def call_restarting(command, _env, **kwargs):
+            relaunched.append(list(command))
+            if len(relaunched) == 1:
+                kwargs["restart_state"].mark(request)
+            return 0
+
+        restarting = replace(
+            services,
+            process=replace(services.process, subprocess_call_with_channel_wake_proxy=call_restarting),
+            channel_delivery=replace(services.channel_delivery, prepare_session_socket=lambda _config, _args: next(targets)),
+            restart=SessionRestartPorts(control=lambda: RuntimeSessionRestartControl(poll=lambda: None)),
+        )
+        runtime_launch.run_claude([], skip_menu=True, update_check=False, self_update_check=False, services=restarting)
+
+        socket_args = [cmd[cmd.index("--messaging-socket-path") + 1] for cmd in relaunched]
+        self.assertEqual([target, renewed], socket_args)
+        self.assertEqual([target, None, renewed, None], configured)
+
 
 if __name__ == "__main__":
     unittest.main()

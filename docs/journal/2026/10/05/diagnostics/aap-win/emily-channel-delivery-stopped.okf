@@ -1,0 +1,19 @@
+okf_version: "1.0"
+task: "Emily (.14 AAP agent 11, Windows user aapw-a11u4, home C:\\Data\\Source\\SGSWMSCrossing\\u4\\home\\emily-ai, Claude Code 2.1.289 via ciel 0.2.51-nightly.20261004-073536.d85af30, provider cielairouter): turns stop and wait; Walkie (SSE) messages do not reach the session; some SSE notifications arrive late."
+reported: "User, 2026-10-05: '.14 emily세션에서 최근에 턴끊김현상이 심해지고있어', screenshots of Emily saying Walkie has the messages but none were delivered to its session, then 'sse 알림의 딜레이가 큰것도잇음'."
+access: "ssh SYSTEM read only (processes, files, transcript read in place); console ws agent 11 read without input. The ciel workspace dir (AppData\\Roaming\\ciel-runtime\\workspaces\\c27b0d656c05) and walkie-install are not readable as SYSTEM (access denied); ACLs not changed."
+confirmed:
+  deliveries_per_day: "Claude transcript b26d8710 (245 MB), user records 'Another Claude session sent a message' (session-socket transport): 10/02 363, 10/03 153, 10/04 14, 10/05 0 until the restart. Last before the gap: inbox id 1848 at 2026-10-04T09:34:59Z. After that only human prompts ('계속', 'did you receive the new message?', 'did you check the message?')."
+  relaunch: "claude.exe pid 2804 started 2026-10-04 03:07:05 local (10:07Z), parent cmd.exe -> ciel cli pid 25908 (started 02:14), i.e. ciel relaunched Claude Code in the same CLI process (restart loop) with the same --messaging-socket-path \\\\.\\pipe\\LOCAL\\cc-msg-d3f54c9d510ec90a551da8713e6f6b0e and --continue."
+  no_session_key: "~/.claude/sessions held 0 files while pid 2804 ran (GetFiles count 0; ACL grants SYSTEM). ciel's ClaudeSessionSocketClient needs ~/.claude/sessions/*.<sha256(canonical pipe)>.key (peerToken); without it send() returns False with 'claude_session_socket_deferred reason=auth_key_unavailable' at INFO, which the ERROR-level router.log does not record."
+  inbox_kept_receiving: "Inbox ids rose from 1848 to 2224 during the gap, so the SSE/receiver side kept accepting events; the break was the submit into Claude Code."
+  previous_router: "Router 8965 (until 10/4) logged repeated channel_stdin_proxy_blocked reason=prior_submission_failed detail=stale_unconfirmed for ids 1690-1692 on 10/03 15:51-15:53 (an earlier, separate stall)."
+  recovery: "The whole Emily session was relaunched 2026-10-05 09:01-09:03 local (new ciel cli, claude pid 13912, pipe cc-msg-c756961f...). sessions/13912.42a775c5...key exists and equals ciel's digest for that pipe. At 16:03:21Z Claude received '8 new messages' (up to id 2224)."
+  delay: "Event 'time' inside the CloudEvent vs transcript timestamp of the delivery: p50 1-5 s, p90 3-14 s per day (09-28..10-04); max 1478 s (09-28), 30084 s (09-29), 408 s (10-03), 146 s (10-04); 602 s for the 10-05 restart batch. These include time the message waited for Emily's running turn; the router's INFO trail that would separate SSE arrival from submission is not logged (level ERROR) and the inbox is not readable."
+reproduction:
+  script: "evidence/emily-restart-race.py (local, Claude Code 2.1.289, isolated home, no credentials)."
+  results: "Same socket path, new instance after the old one exited: new <pid>.<digest>.key written. Same socket path while the old instance still runs: the new instance wrote no key; only the old instance's key (same digest, its own peerToken) remained. Both 2.1.287 and 2.1.289 write the key at startup in a clean start."
+inferred_not_verified:
+  - "At the 03:07 relaunch the new Claude Code started while the old instance (or its pipe) was still alive, so it never registered its socket/key; once the stale key was gone (Claude's cleanup) ciel had no token at all. No log proves the overlap on Emily."
+  - "What requested the 03:07 restart (no INFO log)."
+not_done: "No code change, nothing typed on Emily, ACLs untouched."

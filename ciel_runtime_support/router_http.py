@@ -49,9 +49,16 @@ from ciel_runtime_support.remote_bridge import (
     REMOTE_LLM_PATHS,
     RemoteBridgeRouteError,
 )
+from ciel_runtime_support.model_override import with_forced_model
 from ciel_runtime_support.oauth_routing import codex_request_run
 from ciel_runtime_support.tool_schema import request_tool_schema_scope
 from ciel_runtime_support.upstream_dump import dump_upstream_request
+from ciel_runtime_support.upstream_overload_retry import (
+    DEFAULT_BUDGET_SECONDS as OVERLOAD_BUDGET_SECONDS,
+    OverloadRetryState,
+    annotate as annotate_overload_error,
+    message_excerpt,
+)
 
 # Upper bound on verdict-driven repairs of one replayed turn. The sealed
 # reasoning rule needs one pass per rejected ciphertext and was measured
@@ -207,6 +214,8 @@ class CodexBackendRequestPorts:
     request_timeout: Callable[[dict[str, Any]], float]
     transport_retry_limit: Callable[[], int] = lambda: 2
     retryable_exception: Callable[[BaseException], bool] = lambda _error: False
+    # Seconds the router keeps retrying an overloaded upstream (upstream_overload_retry).
+    overload_budget: Callable[[], float] = lambda: OVERLOAD_BUDGET_SECONDS
 
 
 @dataclass(frozen=True, slots=True)
@@ -290,7 +299,7 @@ class CodexBackendHttpAdapter:
         *,
         mutate_responses: bool = False,
     ) -> dict[str, Any] | None:
-        upstream_body = repair_replayed_response_items(body)
+        upstream_body = with_forced_model(repair_replayed_response_items(body), config)
         upstream_body, prefiltered = drop_rejected_reasoning(
             upstream_body, self._retry.rejected_reasoning_contains
         )
@@ -324,6 +333,7 @@ class CodexBackendHttpAdapter:
         # 39. Past the cap the upstream's own error reaches the client instead
         # of the router retrying in silence.
         compaction_rounds = 0
+        overload = OverloadRetryState(budget_seconds=self._request.overload_budget())
         for attempt in range(MAX_REPLAY_REPAIR_ATTEMPTS + 1):
             try:
                 self._send_codex_request(
@@ -351,7 +361,8 @@ class CodexBackendHttpAdapter:
                     headers = retry
                     continue
                 if exc.code not in (400, 404):
-                    raise
+                    self._retry_overload_or_raise(exc, overload, provider, str(upstream_body.get("model") or ""))
+                    continue
                 raw = exc.read()
                 exhausted = attempt >= MAX_REPLAY_REPAIR_ATTEMPTS
                 repaired = (
@@ -378,6 +389,52 @@ class CodexBackendHttpAdapter:
                 data = json.dumps(upstream_body).encode("utf-8")
                 dump_upstream_request(url, data, self._retry.log)
         return delivery_body
+
+    def _retry_overload_or_raise(
+        self,
+        exc: urllib.error.HTTPError,
+        overload: OverloadRetryState,
+        provider: str,
+        model: str,
+    ) -> None:
+        """Wait out an overloaded upstream, or relay its error with what was tried."""
+
+        raw = exc.read()
+        wait = overload.next_wait(exc.code, raw, exc.headers)
+        excerpt = message_excerpt(raw)
+        if wait is not None:
+            self._retry.log(
+                "WARN",
+                f"codex_overload_retry status={exc.code} model={model or '-'} "
+                f"attempt={overload.attempts} wait={wait:.1f}s waited={overload.waited_seconds:.1f}s "
+                f"budget={overload.budget_seconds:.0f}s message={excerpt}",
+            )
+            self._retry.publish(
+                level="warn",
+                category="router.retry",
+                message="Upstream overloaded; Ciel Runtime is retrying",
+                provider=provider,
+                model=model,
+                data={"status": exc.code, "attempt": overload.attempts, "wait_seconds": wait, "upstream_message": excerpt},
+            )
+            self._retry.sleep(wait)
+            return
+        if overload.attempts:
+            self._retry.log(
+                "ERROR",
+                f"codex_overload_exhausted status={exc.code} model={model or '-'} "
+                f"attempts={overload.attempts} waited={overload.waited_seconds:.1f}s message={excerpt}",
+            )
+            self._retry.publish(
+                level="error",
+                category="router.retry",
+                message="Upstream still overloaded after Ciel Runtime retries",
+                provider=provider,
+                model=model,
+                data={"status": exc.code, "attempts": overload.attempts, "waited_seconds": overload.waited_seconds, "upstream_message": excerpt},
+            )
+            raw = annotate_overload_error(raw, overload.note())
+        raise urllib.error.HTTPError(exc.url, exc.code, exc.msg, exc.hdrs, io.BytesIO(raw)) from None
 
     def _compacted_for_context(
         self,
@@ -715,7 +772,16 @@ class CodexBackendHttpAdapter:
                     pcfg=config,
                 )
             except (TimeoutError, urllib.error.URLError, OSError) as error:
+                if isinstance(error, urllib.error.HTTPError):
+                    raise
                 if attempt >= retries or not self._request.retryable_exception(error):
+                    if attempt and self._request.retryable_exception(error):
+                        self._retry.log(
+                            "ERROR",
+                            "codex_transport_exhausted "
+                            f"operation={operation} model={model} attempts={attempt + 1} "
+                            f"error={type(error).__name__}: {error}",
+                        )
                     raise
                 retry_number = attempt + 1
                 wait = self._retry.retry_wait(retry_number)

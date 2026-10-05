@@ -688,6 +688,28 @@ def run_claude(
             if use_router_mode:
                 print_routed_claude_exit_diagnostics(rc, provider, pcfg, log_offset=launch_log_offset)
 
+    socket_path_owned = bool(session_socket_target) and not has_passthrough_option(
+        launch_passthrough, "--messaging-socket-path"
+    )
+
+    def fresh_session_socket() -> None:
+        """Give a relaunched Claude Code a socket path of its own.
+
+        Reusing the path lets the new instance start while the old one still
+        holds it; it then publishes no session key and socket delivery stops
+        (Emily 2026-10-04, reproduced with Claude Code 2.1.289).
+        """
+
+        nonlocal session_socket_target
+        if not socket_path_owned or "--messaging-socket-path" not in cmd:
+            return
+        index = cmd.index("--messaging-socket-path") + 1
+        if index >= len(cmd):
+            return
+        session_socket_target = prepare_session_socket(cfg, launch_passthrough)
+        cmd[index] = session_socket_target
+        router_log("INFO", f"claude_session_socket_renewed target={session_socket_target}")
+
     def run_claude_session() -> int:
         handled: set[str] = set()
         while True:
@@ -699,6 +721,7 @@ def run_claude(
             handled.add(request.id)
             if request.resume:
                 cmd[:] = runtime_resume_command(cmd, "claude")
+            fresh_session_socket()
             queue_restart_notice(services.restart, "claude", request, router_log)
             print(
                 "Ciel Runtime: restarting Claude Code "

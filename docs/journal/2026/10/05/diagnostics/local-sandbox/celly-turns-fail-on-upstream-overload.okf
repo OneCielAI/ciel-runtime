@@ -1,0 +1,16 @@
+okf_version: "1.0"
+task: "Celly (local AAP agent 15, G:\\ciel-bridge-service, Codex routed, ciel 0.2.51-nightly.20261005-070628.80c65fe, model gpt-6-astra): severe turn cuts."
+reported: "User, 2026-10-05: 'Celly 샌드박스에서는 턴끊김이 심각하게 나타나는중', after 'especially with network latency or Codex server overload'."
+access: "Local read only: router-instances\\9385-52ea0f8a2296\\router.log(.1) at INFO (2026-10-04 21:24 .. 10-05 12:53 local), Codex logs_2.sqlite copied to temp, rollout tail."
+confirmed:
+  responses: "Router access log for POST /backend-api/codex/responses on 10-05: 355 x 200, 481 x 500. 500s by local hour: 03h 60, 04h 60, 05h 30, 06h 60, 08h 90, 09h 30, 10h 1, 11h 150, each burst one per ~1 s."
+  what_the_500_is: "Codex logs_2 (11:48:49-11:48:52): codex_http_client got status=500 from 127.0.0.1:9385 (content-type text/event-stream), then codex_core::responses_retry 'stream disconnected - retrying sampling request (1/5 in 201ms) ... max_retries=5 sampling_error=We’re currently experiencing high demand, which may cause temporary errors.' The router logged no router_request_rejected / router_post_uncaught, so the error is the upstream's overload answer passed through."
+  turns_failed: "Codex logs_2 retained 10-05 11h: 20 high-demand sampling retries across 4 turns, all 4 reaching retries=5/5 (turn failed). Earlier hours are no longer in logs_2 (only the router's 500 bursts remain)."
+  network: "codex_transport_retry (router -> chatgpt.com): 62 retries on 10-05: SSLError 'SSLV3_ALERT_BAD_RECORD_MAC' 24, URLError 'EOF occurred in violation of protocol' 32, RemoteDisconnected 6; the router allows 2 attempts, 8 times both failed (03:49, 04:17, 06:10, 06:51, 07:16, 07:17, 10:04, 10:37)."
+  external_events: "external_event_sse_disconnected 8/3/8/4/4 in 03h/04h/05h/09h/11h (Walkie SSE source refused at times: WinError 10061) and transcript_delta_delivery_failed (HTTP 502 / refused) - delivery side noise, not the turn failures."
+  delivery_side: "Before 12:44 plain TUI: session_socket requested, fallback to router transport (Codex on Windows has no socket); channel_windows_console_deferred reason=active_turn while turns ran. channel_llm_inject_deferred lines accompany every /responses request and are not the 500 source. Since 12:44 Celly runs codex-remote (TUI + app-server)."
+mechanism: "Upstream overload (or a broken TLS connection) -> the router passes the error back -> Codex retries 5 times within seconds -> the turn ends with the error -> the agent stops until the next wake or a person types; with pending channel messages the wake path re-prompts into the same overload (Ara: 715 wakes for 22 messages)."
+not_confirmed:
+  - "Why the TLS connections to chatgpt.com break (local network, proxy, or server side)."
+  - "Exact count of failed turns before 11h (logs_2 retention)."
+not_done: "No code or config change on Celly."

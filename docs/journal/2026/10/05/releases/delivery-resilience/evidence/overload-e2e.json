@@ -1,0 +1,23 @@
+{
+ "recovers": {
+  "status": 200,
+  "seconds": 6.1,
+  "upstream_calls": 3,
+  "got_done": true
+ },
+ "gives_up": {
+  "status": 500,
+  "seconds": 20.1,
+  "upstream_calls": 5,
+  "body": "event: error\ndata: {\"type\": \"error\", \"error\": {\"type\": \"api_error\", \"message\": \"Ciel Runtime retried this request 4 time(s) over 20s because the upstream reported overload; giving up. Upstream: We’re currently experiencing high demand, which may cause temporary errors.\"}}\n\n"
+ },
+ "router_log": [
+  "2026-10-05T13:17:23 [WARN] codex_overload_retry status=500 model=gpt-test attempt=1 wait=2.0s waited=2.0s budget=20s message=We’re currently experiencing high demand, which may cause temporary errors.",
+  "2026-10-05T13:17:25 [WARN] codex_overload_retry status=500 model=gpt-test attempt=2 wait=4.0s waited=6.0s budget=20s message=We’re currently experiencing high demand, which may cause temporary errors.",
+  "2026-10-05T13:17:29 [WARN] codex_overload_retry status=500 model=gpt-test attempt=1 wait=2.0s waited=2.0s budget=20s message=We’re currently experiencing high demand, which may cause temporary errors.",
+  "2026-10-05T13:17:31 [WARN] codex_overload_retry status=500 model=gpt-test attempt=2 wait=4.0s waited=6.0s budget=20s message=We’re currently experiencing high demand, which may cause temporary errors.",
+  "2026-10-05T13:17:35 [WARN] codex_overload_retry status=500 model=gpt-test attempt=3 wait=8.0s waited=14.0s budget=20s message=We’re currently experiencing high demand, which may cause temporary errors.",
+  "2026-10-05T13:17:43 [WARN] codex_overload_retry status=500 model=gpt-test attempt=4 wait=6.0s waited=20.0s budget=20s message=We’re currently experiencing high demand, which may cause temporary errors.",
+  "2026-10-05T13:17:49 [ERROR] codex_overload_exhausted status=500 model=gpt-test attempts=4 waited=20.0s message=We’re currently experiencing high demand, which may cause temporary errors."
+ ]
+}

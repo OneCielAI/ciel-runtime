@@ -78,6 +78,36 @@ class ClaudeSessionSocketTests(unittest.TestCase):
                 self.assertFalse(client.send("not yet"))
             write.assert_not_called()
 
+    def test_socket_without_a_session_key_is_unavailable_and_reported_once(self):
+        # Emily 2026-10-04: no key for 30 hours, every message waited silently.
+        with tempfile.TemporaryDirectory() as raw:
+            home = Path(raw)
+            logs: list[tuple[str, str]] = []
+            now = [100.0]
+            target = r"\\.\pipe\LOCAL\cc-msg-0123456789abcdef0123456789abcdef"
+            client = ClaudeSessionSocketClient(
+                home, lambda level, message: logs.append((level, message)), platform_name="nt", clock=lambda: now[0]
+            )
+            client.configure(target)
+            self.assertFalse(client.available())
+            self.assertFalse(client.available())
+            errors = [message for level, message in logs if level == "ERROR"]
+            self.assertEqual(1, len(errors))
+            self.assertIn("reason=auth_key_unavailable", errors[0])
+            self.assertIn("fallback=terminal", errors[0])
+
+            sessions = home / ".claude" / "sessions"
+            sessions.mkdir(parents=True)
+            (sessions / f"9.{session_key_hash(target, 'nt')}.key").write_text(json.dumps({"peerToken": "cd" * 16}), encoding="utf-8")
+            self.assertTrue(client.available())
+            self.assertTrue(any("claude_session_socket_available" in message for _level, message in logs))
+
+            with mock.patch.object(client, "_write", side_effect=OSError("pipe busy")):
+                self.assertFalse(client.send("hello"))
+            self.assertFalse(client.available())  # cooling down after a failed connect
+            now[0] += 31.0
+            self.assertTrue(client.available())
+
     @unittest.skipIf(os.name == "nt", "POSIX AF_UNIX transport runs on Unix")
     def test_send_over_real_posix_unix_socket(self):
         with tempfile.TemporaryDirectory() as raw:

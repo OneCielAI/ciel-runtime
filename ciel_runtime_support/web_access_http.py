@@ -4,8 +4,9 @@ Routes (all JSON unless noted):
 
 - ``GET /ca/login`` (HTML) and ``POST /ca/auth/login`` / ``/ca/auth/logout``
   are reachable without authentication.
-- ``GET /ca/admin`` (HTML), ``GET|POST /ca/oauth/tokens`` and
-  ``GET|POST /ca/access`` sit behind the router's normal access check:
+- ``GET /ca/admin`` (HTML), ``GET|POST /ca/oauth/tokens``,
+  ``GET|POST /ca/access`` and the management API ``/ca/manage/*``
+  (remote_management_http) sit behind the router's normal access check:
   loopback, the admin bearer token, or a signed-in web session.
 
 Everything reads and writes the same stores as the CLI and the menu, and the
@@ -81,6 +82,8 @@ class WebAccessPorts:
     admin_token: Any  # RouterExternalTokenRepository
     external_access_enabled: Callable[[], bool]
     token_post: Callable[..., Any] | None = None
+    # remote_management_http.RemoteManagementController for /ca/manage/*.
+    management: Any | None = None
     clock: Callable[[], float] = time.time
     sleep: Callable[[float], None] = time.sleep
 
@@ -116,6 +119,8 @@ class WebAccessHttpController:
         if path == "/ca/access":
             self.ports.write_json(handler, self._access_status(handler))
             return True
+        if self.ports.management is not None and path.startswith("/ca/manage/"):
+            return bool(self.ports.management.handle_get(handler, path))
         return False
 
     def handle_post(self, handler: Any, path: str, body: dict[str, Any]) -> bool:
@@ -134,6 +139,8 @@ class WebAccessHttpController:
         if path == "/ca/access":
             self._respond(handler, lambda: self._access_action(handler, body))
             return True
+        if self.ports.management is not None and path.startswith("/ca/manage/"):
+            return bool(self.ports.management.handle_post(handler, path, body))
         return False
 
     # -- responses -----------------------------------------------------------
@@ -319,6 +326,7 @@ def default_controller(
     write_text: Callable[..., Any],
     admin_token: Any,
     external_access_enabled: Callable[..., bool],
+    management: Any | None = None,
 ) -> WebAccessHttpController:
     from ciel_runtime_support.runtime_paths import WORKSPACE_STATE_DIR
 
@@ -330,6 +338,7 @@ def default_controller(
             workspace_state_dir=lambda: Path(WORKSPACE_STATE_DIR),
             admin_token=admin_token,
             external_access_enabled=lambda: bool(external_access_enabled(None)),
+            management=management,
         )
     )
 

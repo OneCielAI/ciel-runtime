@@ -19,6 +19,7 @@ from .router_http import (
     CodexRoutedHeaderPolicy,
 )
 from .upstream_error_policy import retryable_exception
+from .upstream_overload_retry import DEFAULT_BUDGET_SECONDS as OVERLOAD_BUDGET_SECONDS
 
 
 @dataclass(frozen=True, slots=True)
@@ -152,13 +153,24 @@ class CodexBackendContext:
             return 3
 
     def transport_retry_limit(self) -> int:
+        # Four retries (2+4+6+8 s): broken TLS records and EOFs to chatgpt.com
+        # came in short runs on Celly (2026-10-05); two retries ran out 8 times.
         raw = str(
-            self.transport.env_get("CIEL_RUNTIME_CODEX_TRANSPORT_RETRIES") or "2"
+            self.transport.env_get("CIEL_RUNTIME_CODEX_TRANSPORT_RETRIES") or "4"
         ).strip()
         try:
-            return max(0, min(5, int(raw)))
+            return max(0, min(6, int(raw)))
         except ValueError:
-            return 2
+            return 4
+
+    def overload_budget_seconds(self) -> float:
+        raw = str(
+            self.transport.env_get("CIEL_RUNTIME_CODEX_OVERLOAD_RETRY_SECONDS") or ""
+        ).strip()
+        try:
+            return max(0.0, min(600.0, float(raw))) if raw else OVERLOAD_BUDGET_SECONDS
+        except ValueError:
+            return OVERLOAD_BUDGET_SECONDS
 
     def backend_adapter(self) -> CodexBackendHttpAdapter:
         return CodexBackendHttpAdapter(
@@ -171,6 +183,7 @@ class CodexBackendContext:
                 self.transport.timeout_seconds,
                 self.transport_retry_limit,
                 retryable_exception,
+                self.overload_budget_seconds,
             ),
             CodexBackendRetryPorts(
                 self.capacity_retry_limit,

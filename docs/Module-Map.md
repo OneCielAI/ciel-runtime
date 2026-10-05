@@ -1326,6 +1326,18 @@ CLI 자격 증명 파일(Claude `.credentials.json`, Codex `auth.json`)에서 �
 
 `ciel-runtime tokens list|login|import|refresh|enable|disable|remove`.
 
+### `ciel_runtime_support/remote_management_http.py`
+
+관리 전용 REST API. `GET /ca/manage/state`는 provider·현재 모델·provider별 API 키(마스크와 지문만)·OAuth 토큰 상태를, `POST /ca/manage/apply`는 provider·모델·API 키(replace/append/remove/clear, 여러 개면 round-robin)·OAuth 토큰(추가·활성/비활성·삭제·갱신)을 한 변경 묶음으로 받는다. 모두 검증한 뒤 적용하고, 도중에 실패하면 설정을 원래대로 되돌린다. 인증은 라우터 기본 검사(loopback, 관리자 bearer 토큰, 웹 세션)이며 외부 접근이 켜진 라우터에는 관리자 토큰으로만 들어온다. 변경마다 `management-audit.jsonl`에 지문만 기록한다. 라우터가 요청마다 설정과 토큰 저장소를 다시 읽으므로 API 키와 OAuth 토큰은 실행 중인 세션의 다음 요청부터 쓰인다. 모델은 `model_scope: running`(기본)이면 `model_override`의 `forced_model`로 실행 중 세션의 요청 모델까지 바꾸고, `launch`면 새 실행에만 적용하며 강제를 해제한다.
+
+### `ciel_runtime_support/upstream_overload_retry.py`
+
+Codex routed 업스트림이 폭주(5xx, 폭주 문구의 429)로 답하면 라우터가 Codex에 넘기기 전에 2·4·8·16·30초 간격(`Retry-After` 우선)으로 요청당 예산(기본 60초, `CIEL_RUNTIME_CODEX_OVERLOAD_RETRY_SECONDS`) 안에서 재시도한다. 사용 한도·할당량 오류는 재시도하지 않는다. 예산을 다 쓰면 오류 메시지 앞에 재시도 횟수와 시간을 붙여 전달하고 `codex_overload_exhausted`를 ERROR로 남긴다.
+
+### `ciel_runtime_support/model_override.py`
+
+provider 설정의 `forced_model`. 라우터의 요청 모델 결정(`resolve_requested_model`, Codex routed `forward_json`)이 이 값을 요청 모델보다 우선한다. 메뉴·CLI에서 모델을 고르면 해제된다.
+
 ### `ciel_runtime_support/oauth_routing.py`
 
 Codex routed(`router_http.forward_json`)와 Anthropic routed(`claude_router`) 요청 경로 연결부. 요청마다 토큰을 고르고 `Authorization`/`ChatGPT-Account-ID`(Claude는 Bearer와 `oauth-2025-04-20` 베타)를 바꾸며, 응답 사용량을 기록하고, 출력 전에 사용 한도 429는 다음 토큰으로, 401은 한 번 갱신 후 재시도한다. 최종 401은 424로 돌려 CLI의 자체 재로그인을 막는다. 라우터 서비스 그래프가 요청마다 다시 만들어지므로 관리소와 감시 스레드는 프로세스 단위로 캐시하고 첫 사용 때 시작한다.

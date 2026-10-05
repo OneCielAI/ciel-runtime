@@ -2123,6 +2123,99 @@ bearer_token_env_var = "AINET_API_KEY"
         sleep.assert_not_called()
         self.assertEqual(payload, handler.wfile.getvalue())
 
+    def _http_error(self, status, body, headers=None):
+        import io
+        import urllib.error
+
+        return urllib.error.HTTPError(
+            "https://chatgpt.com/backend-api/codex/responses", status, "error",
+            dict(headers or {}), io.BytesIO(body),
+        )
+
+    def test_codex_routed_waits_out_high_demand_before_the_cli_sees_it(self):
+        # Celly 2026-10-05: HTTP 500 "high demand" went straight to Codex, which
+        # retried five times in seconds and failed the turn.
+        high_demand = json.dumps({"error": {"message": "We’re currently experiencing high demand, which may cause temporary errors."}}).encode()
+        success = (
+            b"event: response.created\n"
+            b'data: {"type":"response.created","response":{"id":"ok"}}\n\n'
+        )
+        handler = FakeSSEHandler()
+        handler.path = "/backend-api/codex/responses"
+        handler.headers = FakeRequestHeaders({"authorization": "Bearer native-token"})
+        logs: list[tuple[str, str]] = []
+        with (
+            mock.patch.object(
+                ciel_runtime,
+                "provider_urlopen",
+                side_effect=[self._http_error(500, high_demand), self._http_error(503, high_demand, {"retry-after": "7"}), FakeUpstreamResponse(success)],
+            ) as urlopen,
+            mock.patch.object(ciel_runtime, "codex_responses_body_with_channel_context", return_value=({"model": "gpt-test"}, {"model": "gpt-test"})),
+            mock.patch.object(ciel_runtime, "router_log", side_effect=lambda level, message: logs.append((level, message))),
+            mock.patch.object(ciel_runtime.time, "sleep") as sleep,
+        ):
+            ciel_runtime.forward_codex_backend_json(handler, "codex", {}, {"model": "gpt-test"}, mutate_responses=True)
+
+        self.assertEqual(3, urlopen.call_count)
+        self.assertEqual([mock.call(2.0), mock.call(7.0)], sleep.call_args_list)
+        self.assertEqual(success, handler.wfile.getvalue())
+        retries = [message for level, message in logs if "codex_overload_retry" in message]
+        self.assertEqual(2, len(retries))
+        self.assertIn("high demand", retries[0])
+
+    def test_codex_routed_overload_error_says_what_was_retried(self):
+        import urllib.error
+
+        high_demand = json.dumps({"error": {"message": "We’re currently experiencing high demand."}}).encode()
+        handler = FakeSSEHandler()
+        handler.path = "/backend-api/codex/responses"
+        handler.headers = FakeRequestHeaders({"authorization": "Bearer native-token"})
+        logs: list[tuple[str, str]] = []
+        with (
+            mock.patch.dict("os.environ", {"CIEL_RUNTIME_CODEX_OVERLOAD_RETRY_SECONDS": "6"}),
+            mock.patch.object(ciel_runtime, "provider_urlopen", side_effect=lambda *_a, **_k: (_ for _ in ()).throw(self._http_error(500, high_demand))) as urlopen,
+            mock.patch.object(ciel_runtime, "codex_responses_body_with_channel_context", return_value=({"model": "gpt-test"}, {"model": "gpt-test"})),
+            mock.patch.object(ciel_runtime, "router_log", side_effect=lambda level, message: logs.append((level, message))),
+            mock.patch.object(ciel_runtime.time, "sleep") as sleep,
+            self.assertRaises(urllib.error.HTTPError) as raised,
+        ):
+            ciel_runtime.forward_codex_backend_json(handler, "codex", {}, {"model": "gpt-test"}, mutate_responses=True)
+
+        self.assertEqual([mock.call(2.0), mock.call(4.0)], sleep.call_args_list)  # 6 s budget
+        self.assertEqual(3, urlopen.call_count)
+        message = json.loads(raised.exception.read())["error"]["message"]
+        self.assertIn("Ciel Runtime retried this request 2 time(s) over 6s", message)
+        self.assertIn("high demand", message)
+        self.assertTrue(any(level == "ERROR" and "codex_overload_exhausted" in text for level, text in logs))
+
+    def test_codex_routed_usage_limit_is_not_retried(self):
+        import urllib.error
+
+        limit = json.dumps({"error": {"type": "usage_limit_reached", "message": "The usage limit has been reached"}}).encode()
+        handler = FakeSSEHandler()
+        handler.path = "/backend-api/codex/responses"
+        handler.headers = FakeRequestHeaders({"authorization": "Bearer native-token"})
+        with (
+            mock.patch.object(ciel_runtime, "provider_urlopen", side_effect=[self._http_error(429, limit)]) as urlopen,
+            mock.patch.object(ciel_runtime, "codex_responses_body_with_channel_context", return_value=({"model": "gpt-test"}, {"model": "gpt-test"})),
+            mock.patch.object(ciel_runtime.time, "sleep") as sleep,
+            self.assertRaises(urllib.error.HTTPError) as raised,
+        ):
+            ciel_runtime.forward_codex_backend_json(handler, "codex", {}, {"model": "gpt-test"}, mutate_responses=True)
+
+        urlopen.assert_called_once()
+        sleep.assert_not_called()
+        self.assertEqual(limit, raised.exception.read())
+
+    def test_codex_transport_and_overload_limits_from_env(self):
+        with mock.patch.dict("os.environ", {}, clear=False):
+            os.environ.pop("CIEL_RUNTIME_CODEX_TRANSPORT_RETRIES", None)
+            os.environ.pop("CIEL_RUNTIME_CODEX_OVERLOAD_RETRY_SECONDS", None)
+            self.assertEqual(4, ciel_runtime._CODEX_BACKEND_API.transport_retry_limit())
+            self.assertEqual(60.0, ciel_runtime._CODEX_BACKEND_API.context().overload_budget_seconds())
+        with mock.patch.dict("os.environ", {"CIEL_RUNTIME_CODEX_OVERLOAD_RETRY_SECONDS": "0"}):
+            self.assertEqual(0.0, ciel_runtime._CODEX_BACKEND_API.context().overload_budget_seconds())
+
     def test_codex_capacity_retry_limit_is_bounded_and_tolerates_invalid_env(self):
         with mock.patch.dict("os.environ", {"CIEL_RUNTIME_CODEX_CAPACITY_RETRIES": "99"}):
             self.assertEqual(10, ciel_runtime.codex_capacity_retry_limit())

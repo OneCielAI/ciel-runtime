@@ -1,0 +1,255 @@
+{
+ "stub_port": 56426,
+ "router_port": 56427,
+ "state_before": [
+  200,
+  {
+   "ok": true,
+   "version": "0.2.51",
+   "provider": "vllm",
+   "model": "m-old",
+   "providers": {
+    "vllm": {
+     "current_model": "m-old",
+     "forced_model": "",
+     "api_keys": [
+      {
+       "mask": "*******",
+       "fingerprint": "b89f42c8e56c"
+      }
+     ]
+    }
+   },
+   "oauth_tokens": []
+  }
+ ],
+ "chat_before": 200,
+ "upstream_before": [
+  {
+   "path": "/v1/messages",
+   "auth": "Bearer k-old-1",
+   "model": "m-old"
+  }
+ ],
+ "external_without_token": 401,
+ "external_with_token": [
+  200,
+  {
+   "ok": true,
+   "results": [
+    "Stored 2 API keys for vllm.",
+    "Round-robin: enabled",
+    "Primary: *******; fp 6aa2d71b820c",
+    "Model for vllm set to m-new.",
+    "Claude Code alias: ciel-runtime-vllm-m-new",
+    "Start a new session after changing models to avoid context-cache re-prefill overhead.",
+    "Provider/model defaults retained. Optional recommended LLM preset: Balanced Claude Code.",
+    "Auto timeout: 300000ms for context 32K.",
+    "stream_idle_timeout_ms: 300000",
+    "Running sessions of vllm now use m-new from their next request.",
+    "OAuth token added: claude-b2f222 (claude)"
+   ],
+   "applies": "Routed requests read this on every request: API keys, OAuth tokens and a model pushed with model_scope running apply to running sessions from their next request (the CLI may still show its launch model); model_scope launch applies to new launches.",
+   "version": "0.2.51",
+   "provider": "vllm",
+   "model": "m-new",
+   "providers": {
+    "vllm": {
+     "current_model": "m-new",
+     "forced_model": "m-new",
+     "api_keys": [
+      {
+       "mask": "*******",
+       "fingerprint": "6aa2d71b820c"
+      },
+      {
+       "mask": "*******",
+       "fingerprint": "6d3c6e251ca1"
+      }
+     ]
+    }
+   },
+   "oauth_tokens": [
+    {
+     "token_id": "claude-b2f222",
+     "provider": "claude",
+     "label": "pushed",
+     "email": "",
+     "source": "remote-management",
+     "created_at": 1791193097.614608,
+     "status": "active",
+     "usage": {},
+     "usage_observed_at": 0.0,
+     "draining": false,
+     "exhausted_until": 0.0,
+     "last_error": "",
+     "last_used_at": 0.0,
+     "refreshed_at": 0.0,
+     "expires_at": 1791196697.0,
+     "state": "active"
+    }
+   ]
+  }
+ ],
+ "chat_after": [
+  200,
+  200,
+  200,
+  200
+ ],
+ "upstream_after": [
+  {
+   "path": "/v1/messages",
+   "auth": "Bearer k-new-1",
+   "model": "m-new"
+  },
+  {
+   "path": "/v1/messages",
+   "auth": "Bearer k-new-2",
+   "model": "m-new"
+  },
+  {
+   "path": "/v1/messages",
+   "auth": "Bearer k-new-1",
+   "model": "m-new"
+  },
+  {
+   "path": "/v1/messages",
+   "auth": "Bearer k-new-2",
+   "model": "m-new"
+  }
+ ],
+ "release": 200,
+ "chat_released": 200,
+ "upstream_released": [
+  {
+   "path": "/v1/messages",
+   "auth": "Bearer k-new-1",
+   "model": "m-old"
+  }
+ ],
+ "repush": 200,
+ "local_model_cmd": 0,
+ "chat_after_local": 200,
+ "upstream_after_local": [
+  {
+   "path": "/v1/messages",
+   "auth": "Bearer k-new-2",
+   "model": "m-old"
+  }
+ ],
+ "state_after_local": {
+  "vllm": {
+   "current_model": "m-old",
+   "forced_model": "",
+   "api_keys": [
+    {
+     "mask": "*******",
+     "fingerprint": "6aa2d71b820c"
+    },
+    {
+     "mask": "*******",
+     "fingerprint": "6d3c6e251ca1"
+    }
+   ]
+  }
+ },
+ "rejected_bad_key": [
+  400,
+  {
+   "ok": false,
+   "error": "rejected",
+   "message": "Refusing to store an API key with an invalid token shape (1 item(s)). Control characters and whitespace are not valid inside API keys. Unchanged.",
+   "changed": false
+  }
+ ],
+ "state_after_reject": [
+  200,
+  {
+   "ok": true,
+   "version": "0.2.51",
+   "provider": "vllm",
+   "model": "m-old",
+   "providers": {
+    "vllm": {
+     "current_model": "m-old",
+     "forced_model": "",
+     "api_keys": [
+      {
+       "mask": "*******",
+       "fingerprint": "6aa2d71b820c"
+      },
+      {
+       "mask": "*******",
+       "fingerprint": "6d3c6e251ca1"
+      }
+     ]
+    }
+   },
+   "oauth_tokens": [
+    {
+     "token_id": "claude-b2f222",
+     "provider": "claude",
+     "label": "pushed",
+     "email": "",
+     "source": "remote-management",
+     "created_at": 1791193097.614608,
+     "status": "active",
+     "usage": {},
+     "usage_observed_at": 0.0,
+     "draining": false,
+     "exhausted_until": 0.0,
+     "last_error": "",
+     "last_used_at": 0.0,
+     "refreshed_at": 0.0,
+     "expires_at": 1791196697.0,
+     "state": "active"
+    }
+   ]
+  }
+ ],
+ "audit": [
+  {
+   "time": 1791193097.6166077,
+   "origin": "172.29.112.1",
+   "provider": "",
+   "model": "m-new",
+   "model_scope": "running",
+   "api_keys": {
+    "vllm": {
+     "mode": "replace",
+     "fingerprints": [
+      "6aa2d71b820c",
+      "6d3c6e251ca1"
+     ]
+    }
+   },
+   "oauth_tokens": [
+    {
+     "action": "add",
+     "provider": "claude",
+     "token_id": "",
+     "enabled": null
+    }
+   ]
+  },
+  {
+   "time": 1791193097.9582899,
+   "origin": "127.0.0.1",
+   "provider": "",
+   "model": "",
+   "model_scope": "launch",
+   "api_keys": {},
+   "oauth_tokens": []
+  },
+  {
+   "time": 1791193098.1056883,
+   "origin": "127.0.0.1",
+   "provider": "",
+   "model": "m-new",
+   "model_scope": "running",
+   "api_keys": {},
+   "oauth_tokens": []
+  }
+ ]
+}
