@@ -43,6 +43,7 @@ from ciel_runtime_support.codex_app_server_websocket import CodexAppServerWebSoc
 from ciel_runtime_support.codex_app_server_resume import (
     AppServerResume,
     resolve_resume_thread,
+    resume_model_from_command,
     split_app_server_passthrough,
 )
 from ciel_runtime_support.codex_desktop_injection import (
@@ -192,7 +193,12 @@ class CodexBareAppServerSession:
         # A resumed conversation becomes the channel target; clients open it
         # from thread/list.
         injector = _channel_injector(
-            ports, listen_url, launch_cwd, wait_ready=self._ready(listen_url, server_done), initial_thread_id=thread_id
+            ports,
+            listen_url,
+            launch_cwd,
+            wait_ready=self._ready(listen_url, server_done),
+            initial_thread_id=thread_id,
+            resume_model=resume_model_from_command(cmd),
         )
         if injector is not None:
             injector.start()
@@ -266,6 +272,7 @@ class CodexRemoteTuiSession:
                 session_actions=REMOTE_TUI_CHANNEL_ACTIONS,
                 initial_thread_id=thread_id,
                 permissions=FULL_ACCESS,
+                resume_model=resume_model_from_command(server_cmd),
             )
             if injector is not None:
                 try:

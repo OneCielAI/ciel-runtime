@@ -21,6 +21,7 @@ from ciel_runtime_support.codex_app_server_session import (
     remote_tui_command,
     split_remote_tui_passthrough,
 )
+from ciel_runtime_support.codex_app_server_resume import ResumeModel, resume_model_from_command
 from ciel_runtime_support.codex_desktop_injection import CodexDesktopChannelPorts
 from ciel_runtime_support.codex_desktop_runtime import CodexDesktopPorts, CodexDesktopSession
 
@@ -55,6 +56,21 @@ SERVER_CMD = [
     "--listen",
     "ws://127.0.0.1:19961",
 ]
+
+
+class ResumeModelTests(unittest.TestCase):
+    def test_last_model_and_provider_settings_win(self):
+        cmd = [
+            "codex", "app-server", "-c", 'model_provider="openai"', "-m", "gpt-x",
+            "-c", 'model_provider="ciel-runtime-codex"',
+            "-c", 'model_providers.ciel-runtime-codex.name="Ciel Runtime Codex"',
+            "--listen", "ws://127.0.0.1:1",
+        ]
+        self.assertEqual(ResumeModel("gpt-x", "ciel-runtime-codex"), resume_model_from_command(cmd))
+
+    def test_config_forms_and_absence(self):
+        self.assertEqual(ResumeModel("deepseek-chat", "ciel"), resume_model_from_command(SERVER_CMD))
+        self.assertEqual(ResumeModel(), resume_model_from_command(["codex", "app-server", "--listen", "ws://x"]))
 
 
 class RemoteTuiCommandTests(unittest.TestCase):
@@ -280,6 +296,7 @@ class SessionTests(unittest.TestCase):
             )
         self.assertEqual(5, rc)
         self.assertEqual("saved-9", captured["initial_thread_id"])
+        self.assertEqual(ResumeModel("deepseek-chat", "ciel"), captured["resume_model"])
 
     def test_bare_server_exit_ends_the_clients_readiness_wait(self):
         waits: list[str] = []

@@ -5,6 +5,7 @@ import unittest
 from typing import Any
 
 from ciel_runtime_support.codex_app_server import CodexAppServerError, CodexAppServerState
+from ciel_runtime_support.codex_app_server_resume import ResumeModel
 from ciel_runtime_support.codex_desktop_injection import (
     FULL_ACCESS,
     MAX_SUBMIT_ATTEMPTS,
@@ -201,10 +202,46 @@ class CodexDesktopInjectionTests(unittest.TestCase):
         )
         injector.open()
         self.assertEqual("saved-1", injector.thread_id)
-        self.assertEqual([("saved-1", {"exclude_turns": True, "approval_policy": "never", "sandbox": "danger-full-access"})], resumed)
+        self.assertEqual(
+            [
+                (
+                    "saved-1",
+                    {
+                        "exclude_turns": True,
+                        "model": None,
+                        "model_provider": None,
+                        "approval_policy": "never",
+                        "sandbox": "danger-full-access",
+                    },
+                )
+            ],
+            resumed,
+        )
         self.assertEqual(0, self.client.started_threads)
         injector.subscribe_target()
         self.assertEqual(1, len(resumed))
+
+    def test_resumes_carry_the_server_model_and_provider(self):
+        # Edward 2026-10-05: a thread saved under `ciel-runtime` failed to open
+        # on a `ciel-runtime-codex` server when resume sent no provider.
+        resumed: list[tuple[str, dict[str, Any]]] = []
+        self.client.resume_thread = lambda thread_id, **kw: resumed.append((thread_id, kw)) or {}  # type: ignore[method-assign]
+        injector = CodexAppServerChannelInjector(
+            lambda: self.client,  # type: ignore[arg-type,return-value]
+            self.injector._ports,
+            cwd="C:/work",
+            version="test",
+            start_own_thread=False,
+            initial_thread_id="saved-1",
+            resume_model=ResumeModel("ciel-sol", "ciel-runtime-codex"),
+        )
+        injector.open()
+        injector.thread_id = "other-2"
+        injector.subscribe_target()
+        self.assertEqual(["saved-1", "other-2"], [thread_id for thread_id, _kw in resumed])
+        for _thread_id, kw in resumed:
+            self.assertEqual("ciel-sol", kw["model"])
+            self.assertEqual("ciel-runtime-codex", kw["model_provider"])
 
     def test_hidden_messages_are_passed_without_a_turn(self):
         self.messages = [_message(3, visibility="hidden"), _message(4, "real")]

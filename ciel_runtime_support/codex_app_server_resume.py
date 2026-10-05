@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import tomllib
 from typing import Callable, Iterable
 
 from ciel_runtime_support.codex_cli import (
@@ -73,6 +74,60 @@ def split_app_server_passthrough(passthrough: Iterable[str]) -> tuple[list[str],
     return server, AppServerResume("pick", picker_args=tuple(picker))
 
 
+@dataclass(frozen=True, slots=True)
+class ResumeModel:
+    """The model and provider a session's app-server was launched with.
+
+    ``thread/resume`` without a model override applies the model and provider
+    saved with the thread (codex rust-v0.160.0 app-server thread_processor.rs
+    merge_persisted_resume_metadata).  A thread saved under another Ciel
+    provider id (``ciel-runtime`` vs ``ciel-runtime-codex``) then fails with
+    "Model provider `ciel-runtime` not found" (Edward, 2026-10-05).  The Codex
+    TUI sends the current model and provider when it resumes; so does this.
+    """
+
+    model: str | None = None
+    model_provider: str | None = None
+
+
+def _config_value(setting: str, key: str) -> str | None:
+    name, _, raw = setting.partition("=")
+    if name.strip() != key or not raw.strip():
+        return None
+    try:
+        value = tomllib.loads(f"v = {raw.strip()}").get("v")
+    except tomllib.TOMLDecodeError:
+        value = raw.strip().strip('"').strip("'")
+    return value if isinstance(value, str) and value else None
+
+
+def resume_model_from_command(cmd: Iterable[str]) -> ResumeModel:
+    """The last ``model``/``model_provider`` the server command sets."""
+
+    values = [str(item) for item in cmd]
+    model: str | None = None
+    provider: str | None = None
+    i = 0
+    while i < len(values):
+        arg = values[i]
+        setting = None
+        if arg in ("-c", "--config") and i + 1 < len(values):
+            setting = values[i + 1]
+            i += 1
+        elif arg.startswith("--config="):
+            setting = arg.split("=", 1)[1]
+        elif arg in ("-m", "--model") and i + 1 < len(values):
+            model = values[i + 1] or model
+            i += 1
+        elif arg.startswith("--model="):
+            model = arg.split("=", 1)[1] or model
+        if setting is not None:
+            model = _config_value(setting, "model") or model
+            provider = _config_value(setting, "model_provider") or provider
+        i += 1
+    return ResumeModel(model, provider)
+
+
 def resolve_resume_thread(
     select: Callable[..., str | None] | None,
     resume: AppServerResume,
@@ -104,6 +159,8 @@ __all__ = [
     "AppServerResume",
     "PERMISSION_FLAGS",
     "PICKER_FLAGS",
+    "ResumeModel",
     "resolve_resume_thread",
+    "resume_model_from_command",
     "split_app_server_passthrough",
 ]

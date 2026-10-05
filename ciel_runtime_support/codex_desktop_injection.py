@@ -43,6 +43,7 @@ from ciel_runtime_support.channel_message_prompt import (
     llm_message_skip_reason,
 )
 from ciel_runtime_support.codex_app_server import CodexAppServerClient, CodexAppServerError
+from ciel_runtime_support.codex_app_server_resume import ResumeModel
 
 CLIENT_NAME = "ciel-runtime"
 CLIENT_TITLE = "Ciel Runtime channel"
@@ -147,7 +148,8 @@ class CodexAppServerChannelInjector:
     out; a TUI only changes conversation through its own ``/new``, so that
     mode leaves new_session to the terminal proxy.  ``initial_thread_id`` is a
     saved conversation to resume at connect time (before a TUI attaches to
-    it), with ``permissions`` when given.
+    it), with ``permissions`` when given.  ``resume_model`` is the server's
+    launch model and provider, sent with every ``thread/resume``.
     """
 
     def __init__(
@@ -166,6 +168,7 @@ class CodexAppServerChannelInjector:
         wait_ready: Callable[[], bool] | None = None,
         initial_thread_id: str = "",
         permissions: AppServerPermissions | None = None,
+        resume_model: ResumeModel | None = None,
     ) -> None:
         self._connect = connect
         self._ports = ports
@@ -180,6 +183,7 @@ class CodexAppServerChannelInjector:
         self._wait_ready = wait_ready
         self._initial_thread_id = initial_thread_id
         self._permissions = permissions
+        self._resume_model = resume_model or ResumeModel()
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
         self._delivery = _Delivery()
@@ -220,6 +224,8 @@ class CodexAppServerChannelInjector:
         client.resume_thread(
             self._initial_thread_id,
             exclude_turns=True,
+            model=self._resume_model.model,
+            model_provider=self._resume_model.model_provider,
             approval_policy=permissions.approval_policy if permissions else None,
             sandbox=permissions.sandbox if permissions else None,
         )
@@ -310,7 +316,12 @@ class CodexAppServerChannelInjector:
             return
         self._threads.subscribe_attempt_at[thread_id] = now
         try:
-            client.resume_thread(thread_id, exclude_turns=True)
+            client.resume_thread(
+                thread_id,
+                exclude_turns=True,
+                model=self._resume_model.model,
+                model_provider=self._resume_model.model_provider,
+            )
         except CodexAppServerError as exc:
             # A thread without turns has no rollout yet; turn/start still works.
             if thread_id not in self._threads.deferral_logged:

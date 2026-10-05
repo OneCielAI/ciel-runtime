@@ -31,6 +31,7 @@ from ciel_runtime_support.codex_app_server import CodexAppServerClient
 from ciel_runtime_support.codex_app_server_resume import (
     AppServerResume,
     resolve_resume_thread,
+    resume_model_from_command,
     split_app_server_passthrough,
 )
 from ciel_runtime_support.codex_app_server_websocket import CodexAppServerWebSocketProcess
@@ -273,6 +274,7 @@ class CodexDesktopSession:
                     cwd=str(launch_cwd),
                     version=ports.version,
                     initial_thread_id=thread_id,
+                    resume_model=resume_model_from_command(cmd),
                 )
                 injector.start()
             return int(app.wait() or 0)
