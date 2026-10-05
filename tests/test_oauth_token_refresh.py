@@ -137,6 +137,115 @@ class RefreshTests(unittest.TestCase):
         self.assertTrue(any("refreshed=True" in line for line in logs))
 
 
+class ImportedSourceSyncTests(unittest.TestCase):
+    """A token imported from a CLI credential file stays in step with that file."""
+
+    def setUp(self) -> None:
+        self.dir = tempfile.TemporaryDirectory()
+        self.root = Path(self.dir.name)
+        self.now = NOW
+        self.store = OAuthTokenStore(self.root / "ws", clock=lambda: self.now)
+
+    def tearDown(self) -> None:
+        self.dir.cleanup()
+
+    def claude_file(self, access: str, refresh: str, expires_at: float) -> Path:
+        path = self.root / ".credentials.json"
+        path.write_text(json.dumps({
+            "claudeAiOauth": {
+                "accessToken": access, "refreshToken": refresh, "expiresAt": int(expires_at * 1000),
+                "scopes": ["user:inference"], "subscriptionType": "max", "refreshTokenExpiresAt": 1793044006936,
+            },
+            "mcpOAuth": {"server": {"accessToken": "mcp"}},
+        }))
+        return path
+
+    def import_claude(self, path: Path):
+        credential, _email = import_claude_credentials(path)
+        return self.store.add("claude", credential, label=path.name, source=f"import:{path}")
+
+    def test_refresh_writes_the_new_tokens_back_and_keeps_the_rest(self) -> None:
+        path = self.claude_file("a-1", "r-1", NOW + 30)
+        token = self.import_claude(path)
+        endpoint = FakeTokenEndpoint([(200, {"access_token": "a-2", "refresh_token": "r-2", "expires_in": 28800})])
+
+        outcome = OAuthTokenRefresher(self.store, post=endpoint, clock=lambda: self.now).refresh(token.token_id)
+
+        self.assertEqual((True, "refreshed; source updated"), (outcome.refreshed, outcome.detail))
+        value = json.loads(path.read_text())
+        oauth = value["claudeAiOauth"]
+        self.assertEqual(("a-2", "r-2", int((NOW + 28800) * 1000)), (oauth["accessToken"], oauth["refreshToken"], oauth["expiresAt"]))
+        self.assertEqual(("max", 1793044006936), (oauth["subscriptionType"], oauth["refreshTokenExpiresAt"]))
+        self.assertEqual({"server": {"accessToken": "mcp"}}, value["mcpOAuth"])
+        self.assertEqual("r-2", import_claude_credentials(path)[0].refresh_token)
+
+    def test_a_credential_the_cli_refreshed_is_adopted_instead_of_refreshing(self) -> None:
+        path = self.claude_file("a-1", "r-1", NOW + 30)
+        token = self.import_claude(path)
+        self.claude_file("a-cli", "r-cli", NOW + 28800)  # Claude Code refreshed on its own
+        endpoint = FakeTokenEndpoint([])
+
+        outcome = OAuthTokenRefresher(self.store, post=endpoint, clock=lambda: self.now).refresh_due()
+
+        self.assertEqual([(True, "adopted from source")], [(o.refreshed, o.detail) for o in outcome])
+        self.assertEqual([], endpoint.calls)  # the replaced refresh token r-1 is never presented
+        stored = self.store.credential(token.token_id)
+        self.assertEqual(("a-cli", "r-cli", NOW + 28800), (stored.access_token, stored.refresh_token, stored.expires_at))
+
+    def test_rejected_access_token_is_answered_with_the_cli_credential(self) -> None:
+        path = self.claude_file("a-1", "r-1", NOW + 3600)
+        token = self.import_claude(path)
+        self.claude_file("a-cli", "r-cli", NOW + 28800)
+
+        outcome = OAuthTokenRefresher(self.store, post=FakeTokenEndpoint([]), clock=lambda: self.now).refresh(
+            token.token_id, stale_access_token="a-1"
+        )
+
+        self.assertEqual((True, "adopted from source"), (outcome.refreshed, outcome.detail))
+        self.assertEqual("a-cli", self.store.credential(token.token_id).access_token)
+
+    def test_an_emptied_cli_file_gets_the_refreshed_login_back(self) -> None:
+        # sarah-ai 2026-10-04: the file was left with empty tokens and expiresAt 0.
+        path = self.claude_file("a-1", "r-1", NOW + 30)
+        token = self.import_claude(path)
+        self.claude_file("", "", 0)
+        endpoint = FakeTokenEndpoint([(200, {"access_token": "a-2", "refresh_token": "r-2", "expires_in": 28800})])
+
+        OAuthTokenRefresher(self.store, post=endpoint, clock=lambda: self.now).refresh(token.token_id)
+
+        self.assertEqual("r-1", json.loads(endpoint.calls[0][1])["refresh_token"])
+        restored, _email = import_claude_credentials(path)
+        self.assertEqual(("a-2", "r-2"), (restored.access_token, restored.refresh_token))
+
+    def test_codex_auth_json_is_updated_in_place(self) -> None:
+        path = self.root / "auth.json"
+        path.write_text(json.dumps({"OPENAI_API_KEY": None, "auth_mode": "chatgpt", "tokens": {
+            "access_token": codex_access(NOW + 60), "refresh_token": "r-1", "id_token": jwt({"email": "c@example.com"}), "account_id": "acct-9",
+        }, "last_refresh": "2026-01-01T00:00:00Z"}))
+        credential, email = import_codex_auth(path)
+        token = self.store.add("codex", credential, email=email, source=f"import:{path}")
+        fresh_access = codex_access(NOW + 864000)
+        endpoint = FakeTokenEndpoint([(200, {"access_token": fresh_access, "refresh_token": "r-2"})])
+
+        OAuthTokenRefresher(self.store, post=endpoint, clock=lambda: self.now).refresh(token.token_id)
+
+        value = json.loads(path.read_text())
+        self.assertEqual((fresh_access, "r-2", "acct-9"), (value["tokens"]["access_token"], value["tokens"]["refresh_token"], value["tokens"]["account_id"]))
+        self.assertEqual(("chatgpt", None), (value["auth_mode"], value["OPENAI_API_KEY"]))
+        self.assertNotEqual("2026-01-01T00:00:00Z", value["last_refresh"])
+
+    def test_tokens_without_an_import_source_leave_files_alone(self) -> None:
+        path = self.claude_file("a-1", "r-1", NOW + 30)
+        before = path.read_text()
+        token = self.store.add("claude", OAuthCredential("a-1", "r-1", expires_at=NOW + 30), source="login")
+        endpoint = FakeTokenEndpoint([(200, {"access_token": "a-2", "refresh_token": "r-2", "expires_in": 28800})])
+
+        outcome = OAuthTokenRefresher(self.store, post=endpoint, clock=lambda: self.now).refresh(token.token_id)
+
+        self.assertEqual("refreshed", outcome.detail)
+        self.assertEqual(before, path.read_text())
+
+
 class LoginTests(unittest.TestCase):
     def test_claude_browser_sign_in_exchanges_the_code_with_pkce(self) -> None:
         endpoint = FakeTokenEndpoint(

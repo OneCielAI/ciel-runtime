@@ -12,3 +12,8 @@ confirmed:
 not_determined:
   - "Which ciel-runtime the sandbox shell resolves first on PATH (its environment is not readable from this account)."
 not_done: "Nothing installed, typed or changed on the sandbox; no code change."
+fix_2026_10_05:
+  request: "User, 2026-10-05: pasted the blocked output again for 'cindy' (this local sandbox)."
+  shell: "Typed in the agent 15 terminal (local AAP console ws): whoami sama\\aapw-a15u17; npm prefix -g G:\\ciel-bridge-service\\.npm-global; first ciel-runtime on PATH = .npm-global (then C:\\ProgramData\\aap-win-tools\\npm). Env after clearing: only CIEL_RUNTIME_UPDATE_BRANCH=nightly (not read by current code)."
+  actions: "Remove-Item Env:CIEL_RUNTIME_SKIP_MENU; npm uninstall -g @oneciel-ai/ciel-runtime (exit 0); npm install -g @one-ciel-ai/ciel-runtime@0.2.51-nightly.20261005-063005.7a07765 (exit 0); ciel-runtime --version -> 0.2.51-nightly.20261005-063005.7a07765. Shim ciel-runtime.cmd now targets node_modules\\@one-ciel-ai; runtime_constants VERSION matches, so self-update follows @nightly."
+  not_done: "Session not launched by me (the user is typing in the same terminal). The restore command still sets CIEL_RUNTIME_SKIP_MENU=1 in the shell; a later bare `ciel-runtime --continue` in that shell would again default to Claude (code behaviour unchanged)."

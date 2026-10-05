@@ -1,0 +1,14 @@
+okf_version: "1.0"
+task: "sarah-ai (100.64.0.63:1004, Claude Code, Anthropic routed, ciel 0.2.51-nightly.20261005-063005.7a07765): Claude Code keeps answering 'Login expired · Please run /login' although one of the two stored Claude OAuth tokens is active."
+reported: "User, 2026-10-05, screenshot: OAuth tokens panel '.credentials.json [limited · 7d 100%] claude-659e91' and 'kalvin... [active · 7d 46%] claude-1de5f7'; preflight 'Base URL: model list reachable, auth rejected (401)'."
+access: "ssh -i ~/.ssh/aap_sarah-ai sarah-ai@100.64.0.63 -p 1004, read only. Token values never printed (lengths and timestamps only)."
+confirmed:
+  transcript: "~/.claude/projects/-home-sarah-ai/1d4ada0b-....jsonl: 53 assistant records isApiErrorMessage=true error=authentication_failed text 'Login expired · Please run /login', first 2026-10-04T11:02:20Z, latest 2026-10-05T06:47:13Z (150 ms after the user line)."
+  claude_credentials: "~/.claude/.credentials.json mtime 2026-10-04T11:02:10Z: claudeAiOauth.accessToken length 0, refreshToken length 0, expiresAt 0 (refreshTokenExpiresAt kept). Claude Code's own credential is empty."
+  ciel_store: "workspaces/d4e389cae4e1/oauth-tokens.state.json: claude-659e91 source 'import:/home/sarah-ai/.claude/.credentials.json', created 2026-10-04T06:01:13Z, refreshed_at 10:57:12Z (lock file oauth-refresh-claude-659e91.lock same time), 7d 100% (exhausted until reset), draining. claude-1de5f7 source 'login' (kalvin), active, 7d 46%, refreshed_at 13:52:13Z."
+  router_side: "Session 1d4ada0b mapped to claude-1de5f7, seen_at 2026-10-04T11:02:11Z and not after; router.log at ERROR level has no auth lines. ciel code has no writer for ~/.claude/.credentials.json (only readers: oauth_token_endpoints, oauth_token_cli)."
+timeline_utc: "06:01:13 ciel imports Claude Code's credential as claude-659e91 -> 10:57:12 ciel refreshes claude-659e91 -> 11:02:10 .credentials.json emptied -> 11:02:11 last routed request of the session -> 11:02:20 first 'Login expired'."
+inferred_not_verified:
+  - "ciel's refresh of the imported grant rotated the refresh token Claude Code also held; Claude Code's own refresh then failed and it cleared its credential. Who wrote the file at 11:02:10 is not proven (no Claude Code debug log)."
+  - "With an empty local credential Claude Code stops before sending requests, so the active pool token never gets a chance (no router requests after 11:02:11)."
+not_done: "Nothing changed on sarah; no code change."

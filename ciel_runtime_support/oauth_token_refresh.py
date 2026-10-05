@@ -4,6 +4,10 @@ A refresh holds a per-token lock file for the whole exchange and re-reads the
 credential inside it, so a second router or the ``tokens`` command that
 refreshed first is seen and not repeated: Codex refresh tokens are single use,
 and presenting a used one revokes the whole token family.
+
+A token imported from a CLI credential file is kept in step with that file
+(oauth_import_sync): a credential the CLI refreshed is adopted before
+refreshing, and a refresh is written back so the CLI keeps a working login.
 """
 
 from __future__ import annotations
@@ -14,6 +18,7 @@ import time
 from typing import Callable
 
 from ciel_runtime_support.channel_message_repository import exclusive_file_lock
+from ciel_runtime_support.oauth_import_sync import newer_in_source, write_source
 from ciel_runtime_support.oauth_token_endpoints import (
     ENDPOINTS,
     HttpPost,
@@ -83,6 +88,14 @@ class OAuthTokenRefresher:
             if token is None or credential is None:
                 return RefreshOutcome(token_id, False, "unknown token")
             now = self.clock()
+            adopted = newer_in_source(token, credential)
+            if adopted is not None:
+                self._store(token_id, adopted, now)
+                credential = adopted
+                if (stale_access_token and adopted.access_token != stale_access_token) or (
+                    not stale_access_token and not force and not self.due(adopted, now)
+                ):
+                    return RefreshOutcome(token_id, True, "adopted from source")
             if stale_access_token and credential.access_token != stale_access_token:
                 return RefreshOutcome(token_id, True, "already refreshed")
             if not force and not stale_access_token and not self.due(credential, now):
@@ -97,18 +110,27 @@ class OAuthTokenRefresher:
             except (OSError, ValueError) as error:
                 return self._fail(token_id, f"{type(error).__name__}: {error}", terminal=False)
             fresh, email = credential_from_response(token.provider, payload, credential, now=now)
-            with self.store.transaction() as current:
-                state = current.get(token_id)
-                if state is None:
-                    return RefreshOutcome(token_id, False, "removed during refresh")
-                self.store.replace_credential(token_id, fresh)
-                state.refreshed_at = now
-                state.expires_at = fresh.expires_at
-                state.email = state.email or email
-                state.status = STATUS_ACTIVE
-                state.last_error = ""
+            if not self._store(token_id, fresh, now, email=email):
+                return RefreshOutcome(token_id, False, "removed during refresh")
             self._retry_at.pop(token_id, None)
-            return RefreshOutcome(token_id, True, "refreshed")
+            try:
+                written = write_source(token, fresh, now=now)
+            except OSError as error:
+                return RefreshOutcome(token_id, True, f"refreshed; source not updated: {error}")
+            return RefreshOutcome(token_id, True, "refreshed; source updated" if written else "refreshed")
+
+    def _store(self, token_id: str, credential: OAuthCredential, now: float, *, email: str = "") -> bool:
+        with self.store.transaction() as current:
+            state = current.get(token_id)
+            if state is None:
+                return False
+            self.store.replace_credential(token_id, credential)
+            state.refreshed_at = now
+            state.expires_at = credential.expires_at
+            state.email = state.email or email
+            state.status = STATUS_ACTIVE
+            state.last_error = ""
+        return True
 
     def _fail(self, token_id: str, detail: str, *, terminal: bool) -> RefreshOutcome:
         self._retry_at[token_id] = self.clock() + RETRY_AFTER_FAILURE_SECONDS

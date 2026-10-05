@@ -1314,6 +1314,10 @@ Codex·Claude OAuth 상수(client, authorize/token URL, scope), 토큰 요청(Co
 
 토큰별 잠금 파일 안에서 자격 증명을 다시 읽은 뒤 갱신해 1회용 refresh 토큰의 중복 사용을 막는 `OAuthTokenRefresher`와, 60초마다 한도 복구·만료 임박 갱신을 하는 라우터 감시 스레드 `OAuthTokenWatcher`.
 
+### `ciel_runtime_support/oauth_import_sync.py`
+
+CLI 자격 증명 파일(Claude `.credentials.json`, Codex `auth.json`)에서 가져온(`import:`) 토큰을 그 파일과 맞춘다. 갱신 잠금 안에서 CLI가 먼저 갱신한 자격 증명(파일의 refresh 토큰이 다름)을 채택하고, 라우터가 갱신하면 새 토큰을 파일의 해당 필드에만 원자적으로 다시 쓴다(sarah-ai 2026-10-04: 공유 로그인 갱신 뒤 Claude Code 자격 증명이 비어 "Login expired").
+
 ### `ciel_runtime_support/oauth_login.py`
 
 브라우저 PKCE 로그인(`prompt=login`, loopback 콜백, state 검증)으로 CLI와 갱신 계보가 분리된 토큰을 관리소에 추가한다.
