@@ -1,0 +1,14 @@
+okf_version: "1.0"
+task: "Local AAP sandbox G:\\ciel-bridge-service (local AapWin.Host :13080, agent 15 'Celly Ai'): `ciel-runtime --continue` prints 'Launch Claude Code is disabled while Codex routed provider is selected'; the sandbox also never updates itself."
+reported: "User, 2026-10-04, pasted the blocked output from the local sandbox."
+access: "Read only: local AAP API (agent id/name/restore command, tmux-sessions, processes), console ws /api/aap/ws/agents/15/console read without input, sandbox files on G:. The terminal shell (pid 13076, parent AapWin.Host) runs as another account; its environment is not readable (AccessDenied)."
+confirmed:
+  restore_command: "Agent 15 session_restore_command: `$env:CIEL_RUNTIME_SKIP_MENU='1'; ciel-runtime --ca-runtime last --continue`. Console scrollback shows it in the same PowerShell, so CIEL_RUNTIME_SKIP_MENU=1 stays set for later commands in that shell."
+  blocked_path: "run_prelaunch_menu returns 0 when CIEL_RUNTIME_SKIP_MENU=1; without --ca-runtime the CLI runtime defaults to 'claude'; launch_claude blocks because the provider is Codex routed. Same code in the installed package and the repo."
+  last_runtime: "launch-state.json for G:\\ciel-bridge-service has mode codex-routed, which last_launch_runtime maps to 'codex', so `--ca-runtime last --continue` alone selects Codex. In the scrollback the restore line was joined with other typed text on one line (`...--continueciel-runtime --continuenpm install -g https://codeload.github.com/...nightlyciel-runtime --continue`)."
+  old_scope: "Sandbox .npm-global holds @oneciel-ai/ciel-runtime 0.2.51 (installed 2026-10-03 02:22); ciel-runtime.cmd shim points at node_modules\\@oneciel-ai. No @one-ciel-ai package there."
+  no_self_update: "That build checks `@oneciel-ai/ciel-runtime@latest` (sandbox npm logs 2026-10-04 21:24 and 21:26). Registry: @oneciel-ai latest = 0.2.51, equal to the installed version, so it never updates. Current builds publish only as @one-ciel-ai (nightly 0.2.51-nightly.20261004-232734.b7abba3)."
+  github_install_not_run: "No npm log for the codeload.github.com tarball install; it only appears inside the joined line."
+not_determined:
+  - "Which ciel-runtime the sandbox shell resolves first on PATH (its environment is not readable from this account)."
+not_done: "Nothing installed, typed or changed on the sandbox; no code change."

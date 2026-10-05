@@ -1,0 +1,17 @@
+okf_version: "1.0"
+task: "Ara (.14 AAP agent 21, sandbox u21, Windows user aapw-a21u21): investigate why the session did not update itself to the nightly, and install the nightly."
+reported: "User, 2026-10-04: '아라세션이 자동으로 업그레이드를 못해' then '조사해서 아라세션에 설치해줘'."
+access: "ssh -p 1004 (SYSTEM) for read-only files/process list; AAP console ws /api/aap/ws/agents/21/console?session=aap-agent-21 read only (no input sent). Nothing written or launched on ara."
+confirmed:
+  installed_now: "<home>\\.npm-global\\node_modules\\@one-ciel-ai\\ciel-runtime\\package.json version 0.2.51-nightly.20261004-232734.b7abba3 (= npm dist-tag nightly, published 2026-10-04T23:30:44Z). Console shows the restarted menu 'Ciel Runtime v0.2.51-nightly.20261004-232734.b7abba3' with the new Launch rows."
+  how_installed: "Ciel self-update during the user's second `ciel-runtime --continue` at 16:33:59 local: 'update available: ...50d7907 -> ...b7abba3; upgrading automatically', npm log 23_34_02 `npm install --global --prefix <home>\\.npm-global @one-ciel-ai/ciel-runtime@nightly` exit 0 (16:35:30), 'Restarting with the new version...'. After that the menu was quit and the terminal is at the PS prompt; no ciel/codex process for aapw-a21u21."
+  no_launch_for_a_day: "npm keeps the last 10 debug logs (logs-max 10, each run removed 1 file). They are contiguous: 10/3 15:54-16:06 then 10/4 16:32. So between 10/3 16:06 and 10/4 16:32 no npm command ran as aapw-a21u21, i.e. no ciel launch did a self-update check. The Codex session that ran in that time (pending_ids up to 1056, 'high demand' errors) was started on 50d7907; self-update runs only at launch."
+  first_launch_skipped: "16:32 `ciel-runtime --continue` on 50d7907 printed no update line and went to the menu; npm log 23_32_23 `npm view @one-ciel-ai/ciel-runtime@nightly version` started 16:32:23 and its log was last written 16:32:47 (about 24 s; other view runs 2-3 s). npm_runtime.npm_latest_package_version uses timeout 8.0 s and returns '' on any exception; SelfUpdateLifecycle.run returns False without printing when latest is empty."
+  registry_had_it: "npm cache index entry for the packument at 16:34:01 holds dist-tags.nightly b7abba3; the 16:33:59 view reported 'cache revalidated' (unchanged since the 16:32:23 fetch)."
+  continue_error: "On 50d7907 the user chose 'Codex app server' and Codex printed \"error: unexpected argument '--continue' found\" (mapping added in d85af30, included in b7abba3)."
+  profile: "Ara's state is in the account profile, not the sandbox home: C:\\Users\\aapw-a21u21\\.codex (state_5.sqlite, rollout 01a0f637-... 199 MB) and AppData\\Roaming\\ciel-runtime\\config.json. The sandbox home has no .codex/.config, so the regenerated npm shim (16:35:29) does not change which profile is used."
+inferred_not_verified:
+  - "The 16:32 self-update check most likely hit the 8 s timeout (npm ran ~24 s) and was skipped silently. Not reproduced; the subprocess return value is not logged."
+  - "Why that npm view took ~24 s (fetch itself 597 ms) is not determined."
+evidence: "evidence/ara-self-update-console.txt (console excerpt: session shutdown, first launch on 50d7907 with the --continue error, second launch with update and restart)."
+not_done: "Ara session not relaunched (no request). No code change."

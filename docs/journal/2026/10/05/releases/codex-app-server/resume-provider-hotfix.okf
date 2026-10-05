@@ -1,0 +1,16 @@
+okf_version: "1.0"
+task: "Fix 'thread/resume failed: failed to load configuration: Model provider `ciel-runtime` not found' when Codex TUI + app-server (or standalone/desktop) opens a conversation saved under another Ciel provider id; hotfix Edward first, then nightly and local."
+reported: "User, 2026-10-05: Edward (.14 agent 22) codex-remote output; '수정하고 edward 먼저 긴급배포', '라이브문제', then '나이트리 푸시. 로컬배포.'"
+diagnosis: "../../diagnostics/aap-win/edward-401-and-resume-provider.okf"
+change:
+  commit: "6aaf6af fix(codex-app-server): resume threads with the server's model and provider"
+  code: "codex_app_server_resume.ResumeModel + resume_model_from_command(cmd) read the last -c/--config model and model_provider (and -m/--model) of the server command. CodexAppServerChannelInjector(resume_model=...) sends model/modelProvider with the initial thread/resume and with subscribe_target resumes. Wired for bare app-server, codex-remote (server_cmd) and desktop sessions."
+  basis: "codex rust-v0.160.0: app-server thread_processor.rs merge_persisted_resume_metadata applies the thread's saved model/provider unless the request overrides model/provider; tui app_server_session.rs sends config model and explicit provider (OverrideFromCurrentConfig)."
+tests:
+  groups: "runtime 369 OK (skipped 19); ruff clean on changed files; live router 9611 = 200."
+  new: "ResumeModelTests (last setting wins, --config= form, absence); injector resumes carry model/provider for initial and subscribe resumes; bare session passes resume_model from the command."
+  real_codex: "evidence/resume-provider-repro.json (in diagnostics/aap-win/evidence): codex-cli 0.160.0 app-server with model_provider ciel-runtime-codex, isolated CODEX_HOME with a real thread whose state row says ciel-runtime. Without provider: exactly Edward's error. With provider/model parsed from the command: resume ok, thread modelProvider ciel-runtime-codex."
+edward_hotfix:
+  package: "npm pack with nightly-format version 0.2.51-nightly.20261005-061201.6aaf6af (a later nightly supersedes it). SHA256 34a854da...e524 matched after upload to C:\\ProgramData\\ciel-runtime-deploy (scp -O; the SFTP subsystem on .14 hangs)."
+  install: "Typed in Edward's AAP terminal (user aapw-a22u22): npm install -g --prefix <home>\\.npm-global <tgz> -> 'changed 1 package in 22s'. Installed package.json version 0.2.51-nightly.20261005-061201.6aaf6af; codex_app_server_resume.py has resume_model_from_command (line 104)."
+  not_verified_on_edward: "Session not relaunched by me; the resume on Edward itself is not yet observed."

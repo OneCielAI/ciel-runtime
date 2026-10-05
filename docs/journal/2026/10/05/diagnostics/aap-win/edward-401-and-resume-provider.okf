@@ -1,0 +1,15 @@
+okf_version: "1.0"
+task: "Edward (.14 AAP agent 22, sandbox u22, Windows user aapw-a22u22): (1) plain Codex TUI exits with 'account/read failed during TUI bootstrap: workspace routing discovery unauthorized (401)'; (2) Codex TUI + app-server fails with \"thread/resume failed: failed to load configuration: Model provider `ciel-runtime` not found\" for conversation 01a0faab-9844-7ac0-9e2b-eb0a9b87a854."
+access: "Read only: console ws agent 22 (no input), ssh SYSTEM for files; logs_2.sqlite and state_5.sqlite copied to a temp dir before reading. auth.json read for key names / auth_mode / last_refresh only (no token values)."
+environment: "ciel 0.2.51-nightly.20261004-232734.b7abba3 (@one-ciel-ai, installed 2026-10-04 22:57:57 local); old @oneciel-ai dir still present; Codex 0.160.0; CODEX_HOME C:\\Users\\aapw-a22u22\\.codex; ciel provider Codex routed (router 9397)."
+confirmed:
+  token_revoked: "logs_2.sqlite: chatgpt.com/backend-api/codex/* (analytics-events, codex_apps MCP) returned 401 'Encountered invalidated oauth token for user' code token_revoked from 2026-10-04 15:12:01 local up to 22:56:52."
+  routing_error_source: "openai/codex rust-v0.160.0 codex-rs/app-server/src/request_processors/account_processor/workspace_routing.rs defines 'workspace routing discovery unauthorized (401)' (account/read)."
+  relogin: "Console: `codex login` then `codex login --device-auth` typed in Edward's terminal; auth.json auth_mode chatgpt, last_refresh 2026-10-05T06:04:58Z (23:04:58 local)."
+  thread_provider: "state_5.sqlite threads row 01a0faab...: model_provider 'ciel-runtime', model 'ciel-runtime-cielairouter-ciel-sol'. Rollout session_meta model_provider 'ciel-runtime-codex'. 'ciel-runtime' is ciel's provider id for non-native routed models (runtime_constants.CODEX_RUNTIME_PROVIDER_ID); 'ciel-runtime-codex' for Codex routed (CODEX_ROUTED_PROVIDER_ID)."
+  codex_resume_rule: "rust-v0.160.0 app-server thread_processor.rs merge_persisted_resume_metadata: when thread/resume carries no model / modelProvider / model or model_reasoning_effort config override, the persisted model and model_provider of the thread are applied. tui/src/app_server_session.rs thread_resume_params_from_config sends model and model_provider (explicit provider) with OverrideFromCurrentConfig."
+  ciel_resume_call: "codex_desktop_injection._resume_initial_thread calls resume_thread(thread_id, exclude_turns, approval_policy, sandbox) without model/model_provider, so the app-server applies 'ciel-runtime', which the Codex-routed server config does not define -> the reported error (printed by CodexRemoteTuiSession)."
+not_verified:
+  - "Whether the device-auth login fixed account/read (not relaunched)."
+  - "Why the token was revoked."
+not_done: "No code change, nothing typed on Edward."

@@ -1,0 +1,18 @@
+{
+  "codex_version": "codex-cli 0.160.0",
+  "thread": "01a1030a-b6ec-7be0-94a0-a090a11e967a",
+  "stored_provider": "ciel-runtime",
+  "server_provider": "ciel-runtime-codex",
+  "before_fix_no_provider": {
+    "ok": false,
+    "error": "codex app-server thread/resume failed: {'code': -32600, 'message': 'failed to load configuration: Model provider `ciel-runtime` not found'}"
+  },
+  "parsed_from_command": {
+    "model": "ciel-sol",
+    "model_provider": "ciel-runtime-codex"
+  },
+  "after_fix_with_provider": {
+    "ok": true,
+    "thread_model_provider": "ciel-runtime-codex"
+  }
+}
