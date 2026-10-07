@@ -376,6 +376,16 @@ class CodexAppServerSessionTests(unittest.TestCase):
         self.assertEqual(["own-1"], self.client.compacted)
         self.assertEqual(["c1"], self.commands.cleared)
 
+    def test_goal_clear_uses_thread_goal_clear_even_while_a_turn_runs(self):
+        injector = self.injector()
+        self.client.turns_list = {"cleared": True}
+        self.commands.request = {"id": "g1", "action": "goal_clear", "command": "/goal clear"}
+        self.client.notifications.put({"method": "turn/started", "params": {"threadId": "own-1", "turn": {"id": "t1"}}})
+        injector.poll_once()
+        self.assertIn(("thread/goal/clear", {"threadId": "own-1"}), self.client.requests)
+        self.assertEqual(["g1"], self.commands.cleared)
+        self.assertTrue(any("action=goal_clear" in line and "cleared=true" in line for line in self.logs))
+
     def test_request_without_action_is_compact(self):
         injector = self.injector()
         self.commands.request = {"id": "old", "command": "/compact"}

@@ -21,7 +21,7 @@ class ChannelMcpRuntimeServices:
 
 @dataclass(frozen=True, slots=True)
 class ChannelMcpToolServices:
-    # (source, reason, action) - action is "compact" or "new_session".
+    # (source, reason, action) - action is "compact", "new_session" or "goal_clear".
     queue_compact: Callable[..., dict[str, Any]]
     append_message: Callable[[dict[str, Any]], dict[str, Any]]
     read_messages: Callable[..., list[dict[str, Any]]]
@@ -30,6 +30,9 @@ class ChannelMcpToolServices:
     file_message_text: Callable[[str, list[dict[str, Any]]], str]
     handle_llm_options: Callable[[str, str], tuple[list[str], bool]]
     runtime: ChannelMcpRuntimeServices
+
+
+SESSION_COMMAND_TOOLS = {"compact_session": "compact", "new_session": "new_session", "goal_clear": "goal_clear"}
 
 
 def channel_mcp_tool_schemas() -> list[dict[str, Any]]:
@@ -85,6 +88,24 @@ def channel_mcp_tool_schemas() -> list[dict[str, Any]]:
                 "current turn ends. Claude Code gets /clear typed, the Codex TUI gets /new, and "
                 "Codex app-server sessions (desktop, bare app-server) get a new thread via thread/start. "
                 "The previous conversation stays on disk and can be resumed."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "reason": {
+                        "type": "string",
+                        "description": "Optional short reason shown in Ciel Runtime logs.",
+                    },
+                },
+            },
+        },
+        {
+            "name": "goal_clear",
+            "description": (
+                "Clear the active goal of the Ciel Runtime-launched session (set with /goal in Claude Code "
+                "or Codex), so it stops continuing on its own. Terminal sessions get /goal clear typed, "
+                "even while a turn runs; Codex app-server sessions (desktop, --remote TUI, bare app-server) "
+                "get thread/goal/clear. Setting a goal stays with the runtime's own /goal command."
             ),
             "inputSchema": {
                 "type": "object",
@@ -295,11 +316,11 @@ def dispatch_channel_mcp_tool(
 ) -> dict[str, Any]:
     name = str(params.get("name") or "")
     args = params.get("arguments") if isinstance(params.get("arguments"), dict) else {}
-    if name in ("compact_session", "new_session"):
+    if name in SESSION_COMMAND_TOOLS:
         request = services.queue_compact(
             "ciel-runtime-router-tool",
             str(args.get("reason") or ""),
-            "compact" if name == "compact_session" else "new_session",
+            SESSION_COMMAND_TOOLS[name],
         )
         return _json_response(
             request_id,

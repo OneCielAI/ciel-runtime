@@ -1,0 +1,21 @@
+okf_version: "1.0"
+task: "Add a goal_clear session command (router MCP tool), like compact_session; setting a goal stays with each runtime's own /goal."
+reported: "User, 2026-10-07: 'goal 설정은 기본적으로 claude와 codex에서 지원을하니 goal clear만 compact처럼 별도 지원하기'."
+changes:
+  slot: "channel_compact_request_repository: SESSION_COMMAND_ACTIONS gains goal_clear; command names come from SESSION_COMMANDS (/compact, /new, /goal clear)."
+  terminal: "channel_compact_injection: goal_clear types '/goal clear' for runtimes claude and codex (others: left queued, unsupported_runtime). MID_TURN_ACTIONS = {goal_clear}: typed without waiting for the turn or tool call to end, because an active goal keeps starting turns."
+  app_server: "codex_desktop_injection: SESSION_ACTIONS gains goal_clear -> JSON-RPC thread/goal/clear {threadId} immediately (not deferred while busy); log codex_app_server_session_command_done action=goal_clear cleared=<bool> via=thread/goal/clear. codex-remote: REMOTE_TUI_CHANNEL_ACTIONS gains goal_clear (the app-server client clears it, not the TUI)."
+  mcp: "channel_mcp_tools: new tool goal_clear {reason?}; SESSION_COMMAND_TOOLS maps compact_session/new_session/goal_clear to their actions."
+  docs: "docs/Codex-Remote.md session-control tables."
+tests:
+  unit: "MCP catalog + goal_clear dispatch; terminal typing while a turn and a tool call run (claude, codex) and left queued for muse; app-server thread/goal/clear while a turn runs. Groups: channel 457 OK, runtime 377 OK, unit 1759 OK; ruff clean."
+e2e:
+  method: "evidence/e2e_goal.py: isolated config/router/stub; goal set with the runtime's own command (raw tty '/goal ...' for TUIs, thread/goal/set over the app-server for codex-remote); then tools/call goal_clear on the router MCP endpoint."
+  codex_tui: "e2e-codex-1791359744: goal active and goal turns running; goal_clear queued 02:56:43, injected 02:57:02 ('/goal clear', enter=cr); goals_1.sqlite thread_goals [] ; screen 'Goal cleared', footer no longer 'Pursuing goal'."
+  claude: "e2e-claude-1791359847: goal set ('Goal set'), goal_clear queued 02:58:42, injected 02:58:47; screen 'Goal cleared: E2E-GOAL-DELTA ...'. Claude was idle at that moment (evaluator retry wait), so mid-turn typing was not exercised for Claude."
+  codex_remote: "e2e-codex-remote-1791359963: thread/goal/set -> active; goal_clear queued and done in the same second (cleared=true via=thread/goal/clear); thread/goal/get -> {goal: null}; goal turns stopped."
+not_verified:
+  - "codex-desktop and bare codex-app-server (same injector path as codex-remote; unit test only)."
+  - "Claude Code receiving '/goal clear' while a goal turn is running."
+cleanup: "Isolated Codex homes, scratch run folders, Claude test transcripts deleted; stray test codex.exe/cmd/driver processes stopped; live router 9611 = 200."
+not_done: "Not committed, not pushed."

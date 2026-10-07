@@ -1,8 +1,8 @@
 """Persistent single-slot repository for channel-triggered session commands.
 
-The slot holds one queued command from the ``compact_session`` or
-``new_session`` MCP tools; ``action`` says which.  A request written before
-``action`` existed is a compaction.
+The slot holds one queued command from the ``compact_session``,
+``new_session`` or ``goal_clear`` MCP tools; ``action`` says which.  A request
+written before ``action`` existed is a compaction.
 """
 
 from __future__ import annotations
@@ -15,7 +15,8 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-SESSION_COMMAND_ACTIONS = ("compact", "new_session")
+SESSION_COMMAND_ACTIONS = ("compact", "new_session", "goal_clear")
+SESSION_COMMANDS = {"compact": "/compact", "new_session": "/new", "goal_clear": "/goal clear"}
 
 
 def session_command_action(value: Any) -> str:
@@ -48,7 +49,7 @@ class ChannelCompactRequestRepository:
             "action": action,
             # The runtime-neutral name; each consumer maps it to its own
             # slash command or app-server request.
-            "command": "/compact" if action == "compact" else "/new",
+            "command": SESSION_COMMANDS[action],
             "source": str(source or "mcp"),
             "reason": self.truncate(str(reason or ""), 1000),
             "requested_at": now,

@@ -1,0 +1,2 @@
+2026-10-07T02:56:43 [INFO] channel_compact_request_queued id=d0060afdd5c6426b9cf71ad8c278931d source=ciel-runtime-router-tool action=goal_clear
+2026-10-07T02:57:02 [INFO] channel_compact_request_injected id=d0060afdd5c6426b9cf71ad8c278931d action=goal_clear command=/goal clear enter=cr

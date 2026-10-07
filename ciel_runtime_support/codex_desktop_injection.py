@@ -52,7 +52,7 @@ DEFAULT_SCAN_LIMIT = 50
 # A message that keeps failing to submit is recorded failed and passed, so it
 # cannot hold every later message at the cursor forever.
 MAX_SUBMIT_ATTEMPTS = 3
-SESSION_ACTIONS = frozenset({"compact", "new_session"})
+SESSION_ACTIONS = frozenset({"compact", "new_session", "goal_clear"})
 # A thread without turns cannot be resumed yet; subscribing is retried.
 SUBSCRIBE_RETRY_SECONDS = 3.0
 
@@ -386,6 +386,8 @@ class CodexAppServerChannelInjector:
         request_id = str(request.get("id") or "")
         if action == "compact":
             self._compact(client, commands, request_id)
+        elif action == "goal_clear":
+            self._goal_clear(client, commands, request_id)
         else:
             self._new_session(client, commands, request_id)
 
@@ -413,6 +415,29 @@ class CodexAppServerChannelInjector:
             "INFO",
             f"codex_app_server_session_command_done id={request_id or '-'} action=compact "
             f"thread={thread_id} via=thread/compact/start",
+        )
+
+    def _goal_clear(self, client: CodexAppServerClient, commands: CodexSessionCommandPorts, request_id: str) -> None:
+        # Not deferred while a turn runs: an active goal keeps the thread busy.
+        thread_id = self.thread_id
+        if not thread_id:
+            return
+        try:
+            result = client.request("thread/goal/clear", {"threadId": thread_id})
+        except CodexAppServerError as exc:
+            commands.clear(request_id or None)
+            self._ports.log(
+                "WARN",
+                f"codex_app_server_session_command_failed id={request_id or '-'} action=goal_clear "
+                f"thread={thread_id} error={str(exc)[:300]}",
+            )
+            return
+        commands.clear(request_id or None)
+        cleared = bool(result.get("cleared")) if isinstance(result, dict) else False
+        self._ports.log(
+            "INFO",
+            f"codex_app_server_session_command_done id={request_id or '-'} action=goal_clear "
+            f"thread={thread_id} cleared={str(cleared).lower()} via=thread/goal/clear",
         )
 
     def _new_session(self, client: CodexAppServerClient, commands: CodexSessionCommandPorts, request_id: str) -> None:

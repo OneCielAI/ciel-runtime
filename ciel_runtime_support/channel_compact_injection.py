@@ -2,8 +2,10 @@
 
 ``compact`` is ``/compact`` in every runtime.  ``new_session`` is the
 runtime's own new-conversation command: ``/clear`` in Claude Code (it starts
-a new session id) and ``/new`` in Codex.  Runtimes without a known command
-leave the request for its TTL rather than typing a guess.
+a new session id) and ``/new`` in Codex.  ``goal_clear`` is ``/goal clear`` in
+both; it is typed while a turn runs, because an active goal keeps starting
+turns and the session would never look idle.  Runtimes without a known
+command leave the request for its TTL rather than typing a guess.
 """
 
 from __future__ import annotations
@@ -15,13 +17,19 @@ from typing import Any
 from .channel_compact_request_repository import session_command_action
 
 NEW_SESSION_COMMANDS = {"claude": "/clear", "codex": "/new"}
-DEFAULT_TERMINAL_ACTIONS = frozenset({"compact", "new_session"})
+GOAL_RUNTIMES = frozenset({"claude", "codex"})
+DEFAULT_TERMINAL_ACTIONS = frozenset({"compact", "new_session", "goal_clear"})
+# Typed without waiting for the turn to end.
+MID_TURN_ACTIONS = frozenset({"goal_clear"})
 
 
 def terminal_session_command(action: str, runtime: str) -> str:
+    runtime = str(runtime or "").strip().lower()
     if action == "compact":
         return "/compact"
-    return NEW_SESSION_COMMANDS.get(str(runtime or "").strip().lower(), "")
+    if action == "goal_clear":
+        return "/goal clear" if runtime in GOAL_RUNTIMES else ""
+    return NEW_SESSION_COMMANDS.get(runtime, "")
 
 
 @dataclass(frozen=True, slots=True)
@@ -70,10 +78,10 @@ class ChannelCompactInjectionService:
         if not command:
             self._log_deferred(request_id, f"unsupported_runtime action={action} runtime={runtime or '-'}", log_defer)
             return "deferred"
-        if self.runtime.active_tool_call():
+        if action not in MID_TURN_ACTIONS and self.runtime.active_tool_call():
             self._log_deferred(request_id, "active_tool_call", log_defer)
             return "deferred"
-        if self.runtime.active_turn():
+        if action not in MID_TURN_ACTIONS and self.runtime.active_turn():
             self._log_deferred(request_id, "active_turn", log_defer)
             return "deferred"
 

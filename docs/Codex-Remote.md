@@ -46,6 +46,7 @@ app-server는 실행마다 새로 만든 토큰으로만 접속을 받는다(`--
 | 전달 확인 | 트랜스크립트(rollout)에서 프롬프트 레코드 확인 | `turn/completed` 알림 |
 | `compact_session` | `/compact` 타이핑 | `thread/compact/start` |
 | `new_session` | `/new` 타이핑 | `/new` 타이핑 (TUI는 자기 스레드를 바꾸는 외부 API가 없음) |
+| `goal_clear` | `/goal clear` 타이핑 (턴 진행 중에도) | `thread/goal/clear` |
 | `restart_session` | TUI 재실행 (`resume --last`) | TUI만 재실행, app-server는 유지 (`resume <thread id>`) |
 
 - 새 대화이면 채널 클라이언트가 TUI가 만든 스레드를 `thread/started` 알림으로 찾아
@@ -58,15 +59,17 @@ app-server는 실행마다 새로 만든 토큰으로만 접속을 받는다(`--
 
 ## 세션 제어 MCP 도구 (모든 런타임 공통)
 
-라우터 MCP 서버(`ciel-runtime-router`)의 `compact_session`, `new_session`은
-요청을 한 칸짜리 큐에 넣고, 실행 중인 세션이 현재 턴이 끝난 뒤 처리한다.
+라우터 MCP 서버(`ciel-runtime-router`)의 `compact_session`, `new_session`, `goal_clear`는
+요청을 한 칸짜리 큐에 넣고, 실행 중인 세션이 처리한다. `compact_session`과 `new_session`은
+현재 턴이 끝난 뒤 처리하고, `goal_clear`는 기다리지 않는다(활성 목표는 쉬지 않고 턴을 이어가므로).
+목표 설정은 각 런타임의 `/goal <조건>`을 그대로 쓴다.
 
-| 런타임 | `compact_session` | `new_session` |
-|---|---|---|
-| Claude Code | `/compact` | `/clear` (새 세션 id) |
-| Codex TUI | `/compact` | `/new` |
-| `codex-remote` | `thread/compact/start` | `/new` |
-| `codex-app-server`, `codex-desktop` | `thread/compact/start` | `thread/start` (채널 대상이 새 스레드로 이동) |
+| 런타임 | `compact_session` | `new_session` | `goal_clear` |
+|---|---|---|---|
+| Claude Code | `/compact` | `/clear` (새 세션 id) | `/goal clear` |
+| Codex TUI | `/compact` | `/new` | `/goal clear` |
+| `codex-remote` | `thread/compact/start` | `/new` | `thread/goal/clear` |
+| `codex-app-server`, `codex-desktop` | `thread/compact/start` | `thread/start` (채널 대상이 새 스레드로 이동) | `thread/goal/clear` |
 
 `codex-app-server`(bare)에서도 ws:// 리슨이면 채널 클라이언트가 붙어, 다른
 클라이언트가 만든 스레드를 따라가며 메시지/compact/new를 JSON-RPC로 처리한다.

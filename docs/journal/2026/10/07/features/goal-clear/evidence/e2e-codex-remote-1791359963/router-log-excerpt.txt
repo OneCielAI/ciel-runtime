@@ -1,0 +1,2 @@
+2026-10-07T03:00:40 [INFO] channel_compact_request_queued id=1c36674cd20049f096fc4070ccaf62b6 source=ciel-runtime-router-tool action=goal_clear
+2026-10-07T03:00:40 [INFO] codex_app_server_session_command_done id=1c36674cd20049f096fc4070ccaf62b6 action=goal_clear thread=01a11560-0b42-77e1-90f6-69650070b344 cleared=true via=thread/goal/clear
