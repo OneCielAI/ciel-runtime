@@ -43,6 +43,7 @@ from ciel_runtime_support.channel_message_prompt import (
     llm_message_skip_reason,
 )
 from ciel_runtime_support.codex_app_server import CodexAppServerClient, CodexAppServerError
+from ciel_runtime_support.agent_turn_events import AppServerTurnTracker, user_input_text
 from ciel_runtime_support.codex_app_server_resume import ResumeModel
 
 CLIENT_NAME = "ciel-runtime"
@@ -85,6 +86,8 @@ class CodexDesktopChannelPorts:
     status: Any
     log: Callable[[str, str], Any]
     session_commands: CodexSessionCommandPorts | None = None
+    # Receives one agent.turn_ended event per finished turn (posted to the router).
+    report_turn_end: Callable[[dict[str, Any]], Any] | None = None
 
 
 @dataclass(slots=True)
@@ -169,8 +172,10 @@ class CodexAppServerChannelInjector:
         initial_thread_id: str = "",
         permissions: AppServerPermissions | None = None,
         resume_model: ResumeModel | None = None,
+        runtime_label: str = "codex-app-server",
     ) -> None:
         self._connect = connect
+        self._turn_ends = AppServerTurnTracker(runtime_label)
         self._ports = ports
         self._cwd = cwd
         self._version = version
@@ -302,7 +307,10 @@ class CodexAppServerChannelInjector:
             elif method == "turn/completed":
                 if thread_id:
                     self._threads.active_turn.pop(thread_id, None)
+                self._report_turn_end(turn)
                 self._complete_turn(params)
+            elif method in ("item/started", "item/completed"):
+                self._turn_ends.note_input(*user_input_text(params))
 
     def subscribe_target(self) -> None:
         """Resume the target thread so its turn notifications reach this client."""
@@ -348,6 +356,7 @@ class CodexAppServerChannelInjector:
                 continue
             if turn.get("status") in (None, "inProgress"):
                 continue
+            self._report_turn_end(turn)
             self._complete_turn({"threadId": thread_id, "turn": turn})
 
     def _active_turn(self, thread_id: str) -> str | None:
@@ -423,6 +432,19 @@ class CodexAppServerChannelInjector:
             f"codex_app_server_session_command_done id={request_id or '-'} action=new_session "
             f"thread={thread_id or '-'} previous={previous or '-'} via=thread/start",
         )
+
+    def _report_turn_end(self, turn: dict[str, Any]) -> None:
+        report = self._ports.report_turn_end
+        if report is None or not self._turn_ends.runtime:
+            # No label: the session's transcript watcher reports its turns.
+            return
+        event = self._turn_ends.completed(turn, started_by_ciel=str(turn.get("id") or "") in self._delivery.by_turn)
+        if event is None:
+            return
+        try:
+            report(event)
+        except Exception as exc:  # the router may be restarting; never stop delivery
+            self._ports.log("WARN", f"agent_turn_event_report_failed turn={event['turn_id']} error={exc}")
 
     def _complete_turn(self, params: dict[str, Any]) -> None:
         turn = params.get("turn") if isinstance(params.get("turn"), dict) else {}

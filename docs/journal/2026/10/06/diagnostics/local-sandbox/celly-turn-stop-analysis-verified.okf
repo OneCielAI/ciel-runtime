@@ -1,0 +1,15 @@
+okf_version: "1.0"
+task: "Check Celly's own turn-stop analysis (Walkie DM #33909, 2026-10-06 21:07 CDT) against the source, Celly's router.log and Codex rollout."
+reported: "User, 2026-10-06: '턴끊김현상에서 아래와같은 분석이있어' with a screenshot of Celly's analysis."
+sources:
+  router_log: "G:\\ciel-bridge-service\\AppData\\Roaming\\ciel-runtime\\router-instances\\9385-52ea0f8a2296\\router.log (26527 lines at 21:13 CDT)."
+  rollout: "G:\\ciel-bridge-service\\.codex\\sessions\\2026\\09\\10\\rollout-2026-09-10T22-53-46-01a08e99-9b1a-7642-a2b6-2f2323c95a0f.jsonl (timestamps UTC; CDT = UTC-5)."
+  code: "ciel_runtime_support/codex_desktop_injection.py at 6aaf6af (unchanged since)."
+verified:
+  router_lines: "24607 20:14:31 injected message 2090 turn 01a113e9 via=turn/steer; 24635-24637 20:15:05 turn_completed 2088, 2089, 2090 status=completed; 24797 20:20:48 injected 2091 via=turn/start; 25193 20:32:23 turn_completed 2094; 25650 20:48:48 injected 2095 via=turn/start. All seven lines match Celly's citation."
+  rollout: "01:15:04Z final_answer '... 사이트 해결은 미완료이며 신규 승인 작업은 다음 턴에 처리합니다.' then task_complete 01a113e9. Next task_started 01:20:48Z only when external message 2091 arrived (that turn implemented the approved work, '7개 시험 통과'). 01:32:23Z turn ends with D1 not done; next task_started 01:48:48Z with external message 2095. No turn_aborted / error events in the window."
+  code: "_complete_turn (line 427): every message id mapped to the turn becomes 'replied' when turn.status == 'completed', else 'failed'. deliver_pending (442) only submits messages after the cursor. Nothing in this path starts a turn on its own after turn/completed."
+  scope: "The same injector (CodexAppServerChannelInjector) serves codex-desktop, codex-app-server and codex-remote (codex_app_server_session.py:146-149), so Kobe (codex-remote) has the same behaviour; Kobe 2026-10-05 18:44:34Z ended a turn with '현재 P1 Marketplace 작업을 이어가고 ...' and stayed idle (journal 2026/10/05/diagnostics/aap-win/kobe-turn-ends-with-work-left.okf)."
+not_verified:
+  - "Why the model chose to end those turns (model-side; not visible in these logs)."
+  - "Celly's improvement proposal (remaining-work check + bounded continuation) was not evaluated or implemented."

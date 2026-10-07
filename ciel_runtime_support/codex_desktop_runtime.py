@@ -275,6 +275,7 @@ class CodexDesktopSession:
                     version=ports.version,
                     initial_thread_id=thread_id,
                     resume_model=resume_model_from_command(cmd),
+                    runtime_label="codex-desktop",
                 )
                 injector.start()
             return int(app.wait() or 0)

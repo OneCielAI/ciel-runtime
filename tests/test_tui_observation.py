@@ -364,5 +364,52 @@ class TuiObservationRouterIntegrationTests(unittest.TestCase):
         self.assertEqual("remote visible", observed["events"][2]["text"])
 
 
+class _PostHandler:
+    def __init__(self, client: str) -> None:
+        self.client_address = (client, 50000)
+
+
+class AgentTurnEndedPostTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.bus = TuiObservationBus(enabled=True, capacity=100)
+        self.replies: list[tuple[dict, int]] = []
+        self.logs: list[str] = []
+        self.adapter = TuiObservationHttpAdapter(
+            TuiObservationHttpPorts(
+                self.bus,
+                lambda _handler, body, status=200: self.replies.append((body, status)),
+                lambda *_args, **_kwargs: None,
+                lambda level, message: self.logs.append(f"{level} {message}"),
+            )
+        )
+        self.event = {
+            "turn_id": "t-1",
+            "runtime": "codex-remote",
+            "ended_at": "2026-10-07T03:00:00Z",
+            "reason": "end_turn",
+            "by_user_input": False,
+            "stop_check_blocked": False,
+        }
+
+    def test_loopback_post_publishes_one_event_per_turn(self):
+        self.assertTrue(self.adapter.handle_post(_PostHandler("127.0.0.1"), "/ca/tui/agent-turn", dict(self.event)))
+        self.assertTrue(self.adapter.handle_post(_PostHandler("::1"), "/ca/tui/agent-turn", {**self.event, "runtime": "codex"}))
+        events = self.bus.recent(kind="agent.turn_ended")
+        self.assertEqual(1, len(events))
+        self.assertIsNone(events[0]["request_id"])
+        self.assertEqual(self.event, events[0]["data"])
+        self.assertEqual("", events[0]["text"])
+        self.assertEqual([({"ok": True, "published": True}, 200), ({"ok": True, "published": False}, 200)], self.replies)
+        # The per-request turn.completed stream is unchanged and separate.
+        self.assertEqual([], self.bus.recent(kind="turn."))
+
+    def test_non_loopback_and_invalid_bodies_are_refused(self):
+        self.assertTrue(self.adapter.handle_post(_PostHandler("100.64.0.9"), "/ca/tui/agent-turn", dict(self.event)))
+        self.assertTrue(self.adapter.handle_post(_PostHandler("127.0.0.1"), "/ca/tui/agent-turn", {**self.event, "reason": "done"}))
+        self.assertEqual([403, 400], [status for _body, status in self.replies])
+        self.assertEqual([], self.bus.recent(kind="agent."))
+        self.assertFalse(self.adapter.handle_post(_PostHandler("127.0.0.1"), "/ca/usage", {}))
+
+
 if __name__ == "__main__":
     unittest.main()

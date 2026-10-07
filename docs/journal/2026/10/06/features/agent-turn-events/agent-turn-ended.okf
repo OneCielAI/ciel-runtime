@@ -1,0 +1,28 @@
+okf_version: "1.0"
+task: "Publish one agent.turn_ended event per agent turn on /ca/tui (Walkie 34059, requester Andy Ai) so Walkie can tell a finished turn from a tool-calling model request and decide whether to resume."
+reported: "User, 2026-10-06: pasted request 'Ciel Runtime 협조 요청 — 에이전트 turn 종료 이벤트 (Walkie 34059)'; plan approved with '진행'."
+event:
+  shape: "{kind: 'agent.turn_ended', request_id: null, text: '', data: {turn_id, runtime, ended_at, reason: end_turn|interrupted|error|max_tokens, by_user_input, stop_check_blocked}}. No conversation text. Existing turn.completed (one model request) unchanged."
+  turn_id: "Codex: rollout/app-server turn id. Claude: uuid of the user record that opened the turn (or the first answer record when none was seen)."
+  by_user_input: "false when the turn was opened by a channel delivery ([ciel-runtime external channel message], [ciel-wake], session-socket peer input), a Codex goal (<codex_internal_context>), a hook prompt, a task notification, a Claude scheduled task (isMeta), a compaction continuation, a turn Ciel started via turn/start, or when the turn began before the watcher's start point; otherwise true."
+  stop_check_blocked: "always false: the Stop-hook self check (journal 2026-09-29) is not implemented."
+changes:
+  core: "ciel_runtime_support/agent_turn_events.py (new): TranscriptTurnTracker (Claude end_turn/stop_sequence/refusal -> end_turn, max_tokens, '[Request interrupted by user' -> interrupted, isApiErrorMessage -> error, turn_duration fallback; content blocks of the closing answer ignored. Codex task_complete -> end_turn or error after an error event, turn_aborted interrupted/other), AppServerTurnTracker (turn/completed status completed/interrupted/other), valid_turn_event, SeenTurns, RouterTurnPoster (POST, 5 tries then WARN agent_turn_event_dropped)."
+  router: "tui_observation.TuiObservationBus.publish_turn_ended (one event per turn id) + TuiObservationHttpAdapter.handle_post for POST /ca/tui/agent-turn: loopback only (403 otherwise), invalid body 400, INFO agent_turn_ended log. Chained after the usage POST handler in ciel_runtime.py (line count unchanged, 4980). /ca/tui monitor shows 'agent turn ended: <reason>'."
+  terminal_runtimes: "transcript_delta_delivery.TranscriptDeltaDeliveryService.poll_agent_turns: reads the scoped transcript (claude, codex TUI, codex-remote TUI, muse) from the console launch boundary, every <=1 s, posts each ended turn. Config agent_turn_events.enabled=false turns it off."
+  app_server: "codex_desktop_injection: on turn/completed and for turns settled at subscribe time (_reconcile_turns) the injector posts one event; runtime label codex-desktop / codex-app-server. codex-remote passes an empty label so only its rollout watcher reports (runtime 'codex')."
+tests:
+  groups: "unit 1755 OK (skipped 49); router 1175 OK; channel 454 OK (skipped 80) on re-run — the first run had 2 failures in test_channel_transcript_repository.BoundaryScanDeadlineTests (untouched code, timing-based; passed on two re-runs); runtime 375 OK (skipped 19) after the final injector change. ruff clean, docs metadata clean, live router 9611 = 200 after every run."
+  new: "tests/test_agent_turn_events.py; test_tui_observation AgentTurnEndedPostTests (loopback publish once, duplicate not republished, 403 non-loopback, 400 invalid, turn.completed untouched); test_transcript_delta_delivery AgentTurnPollTests (turns before launch ignored, partial turn waits, one post); test_codex_desktop_injection AgentTurnEndReportTests (ciel-started vs typed, interrupted, reconcile path, unlabelled session quiet)."
+e2e:
+  harness: "evidence/e2e_turns.py (from 2026-10-03 e2e_remote.py + 'turns' command): isolated CIEL_RUNTIME_CONFIG_DIR and router port, stub upstream (provider vllm), new Windows Terminal window, input only via /ca/chat/notify."
+  codex_tui: "evidence/e2e-codex-1791346772: turn 1 (2 tool runs + answer, 3 model requests) -> 1 agent.turn_ended runtime codex end_turn by_user_input false; turn 2 -> second event, distinct turn id. Screenshots 02/03."
+  codex_remote: "evidence/e2e-codex-remote-1791347016: 2 turns, 6 model requests -> 2 events runtime codex end_turn by_user_input false."
+  claude: "evidence/e2e-claude-1791347093: Claude Code 2.1.292, message delivered over the session socket ('Another Claude session sent a message') -> 1 event runtime claude end_turn by_user_input false."
+  codex_app_server: "evidence/e2e-codex-app-server-1791347356: 2 plain turns -> 2 events runtime codex-app-server end_turn by_user_input false. A tool-calling turn in standalone app-server never completed (no client to answer; 1 model request), so no event — expected for that mode."
+  side_effects: "The first codex E2E ran without an isolated CODEX_HOME and left one test rollout in C:\\Users\\djlov\\.codex\\sessions\\2026\\10\\06\\rollout-2026-10-06T23-19-45-01a11496-....jsonl; the Claude E2E wrote its transcript under the user's ~/.claude/projects (scratch workspace key). Not deleted."
+not_verified:
+  - "codex-desktop (needs the desktop app) — same injector path as codex-app-server, covered by unit tests only."
+  - "by_user_input=true, interrupted, error, max_tokens in a live session: unit tests only (E2E input is channel notify only)."
+  - "Whether app-server item/started userMessage notifications carry the typed text in real Codex (desktop typed-turn classification)."
+not_done: "Not committed, not pushed, not deployed."

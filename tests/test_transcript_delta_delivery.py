@@ -263,5 +263,47 @@ class TranscriptDeltaDeliveryTests(unittest.TestCase):
             self.assertEqual("first-call", events[0]["data"]["call_id"])
 
 
+class AgentTurnPollTests(unittest.TestCase):
+    def test_turns_ending_after_launch_are_posted_once(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            transcript = root / "rollout.jsonl"
+            old_turn = [
+                {"type": "event_msg", "payload": {"type": "task_started", "turn_id": "old"}},
+                {"type": "event_msg", "payload": {"type": "task_complete", "turn_id": "old"}},
+            ]
+            transcript.write_text("".join(json.dumps(r) + "\n" for r in old_turn), encoding="utf-8")
+            launch_offset = transcript.stat().st_size
+            posted = []
+            service = TranscriptDeltaDeliveryService(
+                root / "cursors.json",
+                "workspace-1",
+                TranscriptDeliveryPorts(
+                    load_config=lambda: {},
+                    latest_transcript=lambda: transcript,
+                    scope=lambda: {"runtime": "codex", "turn_scan_path": transcript, "turn_scan_offset": launch_offset},
+                    log=lambda *_args: None,
+                    agent_turn_post=posted.append,
+                ),
+            )
+            self.assertEqual(0, service.poll_agent_turns())
+            new_turn = [
+                {"type": "event_msg", "timestamp": "2026-10-07T03:00:00Z", "payload": {"type": "task_started", "turn_id": "t-2"}},
+                {"type": "response_item", "payload": {"type": "message", "role": "user", "content": [{"type": "input_text", "text": "[ciel-wake] pending_ids=3"}]}},
+                {"type": "event_msg", "timestamp": "2026-10-07T03:00:09Z", "payload": {"type": "task_complete", "turn_id": "t-2"}},
+            ]
+            with transcript.open("a", encoding="utf-8") as stream:
+                stream.write(json.dumps(new_turn[0]) + "\n" + json.dumps(new_turn[1]) + "\n")
+            self.assertEqual(0, service.poll_agent_turns())
+            with transcript.open("a", encoding="utf-8") as stream:
+                stream.write(json.dumps(new_turn[2]) + "\n")
+            self.assertEqual(1, service.poll_agent_turns())
+            self.assertEqual(0, service.poll_agent_turns())
+            self.assertEqual(
+                [{"turn_id": "t-2", "runtime": "codex", "ended_at": "2026-10-07T03:00:09Z", "reason": "end_turn", "by_user_input": False, "stop_check_blocked": False}],
+                posted,
+            )
+
+
 if __name__ == "__main__":
     unittest.main()

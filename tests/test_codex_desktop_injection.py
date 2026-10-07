@@ -425,5 +425,65 @@ class CodexAppServerSessionTests(unittest.TestCase):
         self.assertIs(CodexDesktopChannelInjector, CodexAppServerChannelInjector)
 
 
+class AgentTurnEndReportTests(unittest.TestCase):
+    def test_each_completed_turn_is_reported_with_who_started_it(self):
+        client = _Client()
+        reported: list[dict[str, Any]] = []
+        messages = [_message(1, "from walkie")]
+        injector = CodexAppServerChannelInjector(
+            lambda: client,  # type: ignore[arg-type,return-value]
+            CodexDesktopChannelPorts(
+                read_messages=lambda last_id, limit: [m for m in messages if m["id"] > last_id][:limit],
+                read_cursor=lambda: 0,
+                commit_cursor=lambda _id: None,
+                status=_Status(),
+                log=lambda *_args: None,
+                report_turn_end=reported.append,
+            ),
+            cwd="C:/work",
+            version="test",
+            runtime_label="codex-desktop",
+        )
+        injector.client = client  # type: ignore[assignment]
+        injector.thread_id = "thread-a"
+        injector.poll_once()  # starts turn-1 for the channel message
+        client.notifications.put({"method": "item/started", "params": {"threadId": "thread-a", "turnId": "typed-1", "item": {"type": "userMessage", "content": [{"type": "text", "text": "check the logs"}]}}})
+        client.notifications.put({"method": "turn/completed", "params": {"threadId": "thread-a", "turn": {"id": "turn-1", "status": "completed"}}})
+        client.notifications.put({"method": "turn/completed", "params": {"threadId": "thread-a", "turn": {"id": "typed-1", "status": "interrupted"}}})
+        injector.drain_notifications()
+        self.assertEqual(
+            [("turn-1", "end_turn", False, "codex-desktop"), ("typed-1", "interrupted", True, "codex-desktop")],
+            [(e["turn_id"], e["reason"], e["by_user_input"], e["runtime"]) for e in reported],
+        )
+
+    def test_turns_settled_after_subscribing_are_reported_and_unlabelled_sessions_stay_quiet(self):
+        client = _Client()
+        client.turns_list = {"data": [{"id": "turn-1", "status": "completed"}]}
+        reported: list[dict[str, Any]] = []
+        for label, expected in (("codex-app-server", ["turn-1"]), ("", [])):
+            reported.clear()
+            injector = CodexAppServerChannelInjector(
+                lambda: client,  # type: ignore[arg-type,return-value]
+                CodexDesktopChannelPorts(
+                    read_messages=lambda last_id, limit: [_message(1)][:limit] if last_id < 1 else [],
+                    read_cursor=lambda: 0,
+                    commit_cursor=lambda _id: None,
+                    status=_Status(),
+                    log=lambda *_args: None,
+                    report_turn_end=reported.append,
+                ),
+                cwd="C:/work",
+                version="test",
+                runtime_label=label,
+            )
+            injector.client = client  # type: ignore[assignment]
+            injector.thread_id = "thread-a"
+            client.calls.clear()
+            injector.deliver_pending()  # turn-1 starts before the thread is subscribed
+            injector.subscribe_target()
+            with self.subTest(label=label):
+                self.assertEqual(expected, [e["turn_id"] for e in reported])
+
+
 if __name__ == "__main__":
     unittest.main()

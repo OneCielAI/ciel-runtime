@@ -1,0 +1,18 @@
+okf_version: "1.0"
+task: "Check what sampling/generation parameters Codex sessions (Celly, Kobe) send through Ciel Runtime, and whether switching models/providers left them wrong; compare with ciel-Walkie on this PC."
+reported: "User, 2026-10-06: '모델의 파라미터를 텀퍼레이쳐나 리피트같은값을 어떻게 보내고있는지도 확인', 'ciel-Walkie는 이런현상없이 완벽', '여러개의 모델이나 프로바이더를 변경해서 쓰면서 그러한 기본 파라미터값들이 엉망이 되었을확률은?'"
+evidence:
+  capture: "scratchpad capture_body.py: real codex.exe 0.160.1 exec -> isolated `ciel_runtime.py serve` (Codex routed, CIEL_RUNTIME_* unset) -> stub upstream recording the forwarded body. Body keys: client_metadata, include, input, instructions, model, parallel_tool_calls, prompt_cache_key, reasoning, store, stream, text, tool_choice. No temperature, top_p, top_k, frequency/presence/repetition penalty, max_output_tokens."
+  capture_astra: "model gpt-6-astra + model_reasoning_effort=medium -> reasoning {effort: medium, context: all_turns}, text {verbosity: low}."
+  capture_sol_unset: "model gpt-6.1-sol, no effort configured, Celly's models_cache.json -> reasoning {effort: low}, text {verbosity: low} (catalog default_reasoning_level low, default_verbosity low)."
+  code: "router_http Codex forward: with_forced_model + reasoning repair + channel context + compaction; no sampling keys. Sampling keys (temperature/top_p) are only added in provider_request_builder for non-native providers. No Ciel code passes model_reasoning_effort or verbosity to native Codex."
+  celly_config: "Global config providers with temperature 0.7/top_p 0.8: nvidia-hosted, openrouter, lm-studio, vllm, self-hosted-nim (per provider). providers.codex has none. Workspace config unreadable (owner-only ACL)."
+  celly_thread: "01a08e99 (since 2026-09-10): 21 model/effort combinations incl. ollama-cloud glm, meta muse-spark, ollama ornith/qwen, opencode-go, deepseek, alitoken qwen, gpt-5.6-sol, gpt-5.5, gpt-6-sol/luna, gpt-6.1-sol, gpt-6-astra. Since 2026-10-03 07:47Z only gpt-6-astra medium (994 turns total for that combo)."
+  kobe_thread: "00347d86 (since 2026-09-24): alitoken qwen/kimi/glm, ollama-cloud glm, meta muse-spark, gpt-6-astra high/medium, gpt-6.1-sol high, gpt-6-sol high; since 2026-10-03 17:19Z gpt-6.1-sol with effort unset (667 turns). Kobe config.toml has no model_reasoning_effort; Kobe models_cache: gpt-6.1-sol default_reasoning_level low, default_verbosity low."
+  walkie_pc: "ciel-Walkie on this PC is Claude Code (claude.exe --model ciel-runtime-anthropic-claude-opus-5-5[1m], pid 68116, Walkie MCP from G:\\ciel-Walkie), not Codex."
+findings:
+  - "✅ Temperature/top_p/repeat-type parameters are not sent on the Codex path at all, before or after model switches; per-provider temperatures in config do not reach Codex requests."
+  - "✅ The generation settings that are sent are reasoning effort and verbosity. Celly: medium / low. Kobe: effort unset since 10/03 17:19Z; with the same catalog Codex sends effort low (shown in the capture, not captured on Kobe itself)."
+  - "✅ Each thread carries history produced by many different models/providers."
+  - "🟡 Not shown: that low effort, verbosity low or the mixed-model history causes the early turn ends. Celly ends turns early at medium effort too. ciel-Walkie runs a different CLI and model, so it is not a same-condition comparison."
+  - "🟡 Why Kobe's effort became unset at the 10/03 relaunch is not established."

@@ -1,0 +1,25 @@
+okf_version: "1.0"
+task: "Emily (.14 agent 11, aapw-a11u4) turn-cut analysis in the same way as Celly/Kobe: turn endings, request parameters, channel delivery."
+reported: "User, 2026-10-06: '그렇다면 emily 세션에대해서도 분석'."
+access: "ssh SYSTEM read only; Emily router loopback GET /ca/chat/requests; nothing typed, no restart, ACLs untouched."
+state_at_check: "2026-10-06 19:39 local (UTC-7). ciel 0.2.51-nightly.20261004-073536.d85af30 (not updated: CLI running since 2026-10-05 09:01). Claude Code 2.1.289 pid 2028 (started 2026-10-05 10:46:54 local, parent ciel cli pid 5144 started 09:01, i.e. a restart relaunch inside the same CLI), --model ciel-runtime-cielairouter-ciel-opus-5.5[1m], --messaging-socket-path \\\\.\\pipe\\LOCAL\\cc-msg-c756961f... (same pipe as the 09:03 instance)."
+turns:
+  transcript: "C:\\Users\\aapw-a11u4\\.claude\\projects\\C--Data-Source-SGSWMSCrossing-u4-home-emily-ai\\b26d8710-....jsonl (295 MB), records dated 2026-10-06/07 UTC."
+  counts: "3413 assistant messages, all model claude-opus-5-5; stop_reason tool_use 3278, end_turn 135; no isApiErrorMessage / error records, no max_tokens."
+  prompts: "41 turns: 25 started by '계속'/'continue', 8 by <task-notification>, 4 by auto-compaction continuation ('This session is being continued...'), rest other human prompts. Claude Code scheduled tasks fired throughout (system scheduled_task_fire)."
+  endings: "Turns end with end_turn and a status message such as 'The fix is still not on live ... waiting on Ara/Edward'; four turns whose last record is tool_use were continued after auto-compaction. No turn ended with an error."
+delivery:
+  router_status: "GET 127.0.0.1:8966/ca/chat/requests: 3265 records; replied 1877, queued 1369, failed 19. Last replied id 2290 at 2026-10-05 10:44:28 local. All 975 records after it are queued (input_transport session_socket), newest 3265 at 2026-10-06 19:37:58."
+  transcript: "'Another Claude session sent a message' user records per day: 10/02 363, 10/03 153, 10/04 14, 10/05 13; last 2026-10-05T17:44:13Z (10:44 local). None after the 10:46 Claude restart."
+  session_key: "C:\\Users\\aapw-a11u4\\.claude\\sessions\\2028.42a775c5...key written 2026-10-05 10:46:53; 42a775c5... equals session_key_hash of the configured pipe (computed locally). sessions/2028.json status 'busy', updatedAt 2026-10-07T02:21Z."
+  router_log: "router-instances\\8966-c27b0d656c05\\router.log (ERROR level) has no event lines; the installed socket client (d85af30) reports every deferral (target_unconfigured / auth_key_unavailable / connect_failed) at INFO only, so the reason the sends do not happen is not recorded."
+  pipe_check: "The LOCAL\\ pipe namespace is not visible from the SSH session; whether pid 2028 listens on the pipe could not be checked read-only."
+parameters:
+  capture: "scratchpad capture_claude.py: local Claude Code 2.1.292 -p -> isolated `ciel_runtime.py serve` (provider cielairouter, base_url = stub, dummy key) -> stub. Forwarded /v1/messages keys: context_management, max_tokens, messages, metadata, model, output_config, safeguards, stream, system, thinking, tools. max_tokens 32000, thinking adaptive, output_config.effort high. No temperature, top_p, top_k or penalty fields."
+  caveat: "Captured with 2.1.292 and default settings; Emily runs 2.1.289 with its own settings (not read)."
+findings:
+  - "✅ Emily's turns end normally (end_turn) like Celly/Kobe; no API errors."
+  - "✅ Ciel channel push delivery to Emily has been stopped since the Claude Code restart at 2026-10-05 10:46 local: 975 messages queued, 0 delivered, while the session key on disk matches the pipe. Emily is kept going by Claude Code scheduled tasks and by '계속' prompts."
+  - "✅ No sampling parameters on the Claude path either."
+  - "🟡 Why the sends fail after the 10:46 restart is not established (INFO-only deferral logs). The restart reused the same pipe path; 59358c3 (socket renewal on restart, ERROR on unavailable) is not installed on Emily, and whether it would cover this case is not shown."
+  - "🟡 What triggered the 10:46 restart is not recorded."

@@ -1,0 +1,19 @@
+okf_version: "1.0"
+task: "Kobe (.14 u24, KOBE Ai) 'turn cut': find whether Ciel Runtime, Codex or the upstream stopped a turn. Read-only over ssh -p 1004 (SYSTEM) and the Kobe router's loopback GET /ca/chat/requests."
+reported: "User, 2026-10-05: 'kobe 세션이 턴이 끊긴거에 대해서 조사'."
+state_at_check: "2026-10-05 14:03 local (UTC-7). Package 0.2.51-nightly.20261005-182810.59358c3 (self-updated). Mode codex-remote-router (launch-state.json): codex app-server ws://127.0.0.1:9799 + TUI --remote, router serve on 9779, all started 11:48-11:51 local from the AAP console powershell (pid 22404, parent AapWin.Host.exe)."
+evidence:
+  rollout: "C:\\Users\\aapw-a24u24\\.codex\\sessions\\2026\\09\\24\\rollout-...-00347d86-...jsonl (167 MB). 10/05 00:00Z-20:58Z: every task_started has a task_complete except 15:23:45Z turn 01a10ca9 (user typed 'ddddd', turn_aborted reason=interrupted after 2 s). No error / stream_error / warning event_msg on 10/05. Compactions at 06:52Z, 15:50Z, 16:24Z, 19:01Z (inside the 'continue' turn, which then completed)."
+  turn_before_relaunch: "18:44:00Z turn 01a10d61 (channel ids 312, 313: Walkie task.auto_assigned 'steer' request): ACK, one messages.reply call, one exec_command, then final message '... 현재 P1 Marketplace 작업을 이어가고, steer 요청은 별도 작업으로 분석하겠습니다.' and task_complete at 18:44:34Z (34 s). No further turn until 18:57:22Z."
+  after_relaunch: "18:57:22Z user 'are you done?' -> '아직 완료되지 않았습니다 ... 남음: ...' task_complete. 18:57:49Z user 'continue' -> 15 tool calls, task_complete 19:03:34Z with '아직 전체 완료는 아닙니다. 이어서 검증했습니다.'"
+  channel_delivery: "GET http://127.0.0.1:9779/ca/chat/requests: 338 records, replied 315, failed 21 (ids 1-21, 10/03 prompt_not_submitted era), submitted 2 (ids 36, 37, last update 2026-10-04 14:07 local). Every id from today up to 338 (13:58 local) is replied."
+  codex_logs: "logs_2.sqlite WARN/ERROR on 10/05: 14:10:29Z account/rateLimits/read failed during TUI refresh; codex_ansi_escape warnings 20:56Z, 21:02Z. app-server.log: 05:32Z models refresh timed out; 17:46Z apply_patch verification failed (tool error; turn 01a10d29 17:43:33Z-17:48:24Z still completed)."
+  router_log: "router.log (ERROR level) has no event lines after 2026-10-03 12:58; the tail is ConnectionAbortedError tracebacks from /health writes (client closed early)."
+findings:
+  - "✅ No turn on 10/05 was ended by an error, abort or disconnect except the user's own interrupt at 15:23:45Z. All channel messages today reached Codex and were answered."
+  - "✅ The observed stop: Codex ended turns with a final assistant message that says work remains (18:44:34Z '...이어가고 ... 분석하겠습니다', 19:03:34Z '아직 전체 완료는 아닙니다'). The session then waited for input until the user typed 'are you done?' / 'continue'."
+  - "🟡 Why the model ended those turns instead of continuing is not determined from these logs (the turn ends because the response had no further tool call; the reason for that response is model-side)."
+not_verified:
+  - "Who relaunched Kobe at 11:48 local and why (process parent is the AAP console shell; nothing in the logs records the reason)."
+  - "The Kobe workspace state dir (%APPDATA%\\ciel-runtime\\workspaces\\651d879f6c68) is owner-only (ACL aapw-a24u24 only); SYSTEM cannot read it and the ACL was not changed. Delivery status was read through the router API instead."
+  - "Ids 36/37 left in 'submitted' since 10/04 14:07 local were not investigated (before today's window)."

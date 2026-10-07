@@ -14,6 +14,7 @@ from typing import Any
 import urllib.error
 import urllib.request
 
+from .agent_turn_events import TranscriptTurnTracker
 from .remote_instructions import expand_environment_references
 from .tool_call_events import project_transcript_tool_calls
 from .web_search_result_events import project_web_search_results
@@ -89,6 +90,8 @@ class TranscriptDeliveryPorts:
     epoch: Callable[[], float] = time.time
     event_publish: Callable[..., Any] = lambda **_kwargs: None
     event_recent: Callable[..., list[dict[str, Any]]] = lambda **_kwargs: []
+    # Receives one agent.turn_ended event per finished turn (posted to the router).
+    agent_turn_post: Callable[[dict[str, Any]], Any] | None = None
 
 
 class TranscriptDeltaDeliveryService:
@@ -108,6 +111,7 @@ class TranscriptDeltaDeliveryService:
         self._lock = threading.Lock()
         self._last_error = ""
         self._last_error_at = 0.0
+        self._turn_source: dict[str, Any] = {}
 
     def start(self) -> None:
         with self._lock:
@@ -274,6 +278,57 @@ class TranscriptDeltaDeliveryService:
         self._save_cursors(cursors)
         return count
 
+    def poll_agent_turns(self) -> int:
+        """Report turns that ended in the transcript since the last poll."""
+
+        post = self.ports.agent_turn_post
+        if post is None:
+            return 0
+        flush = getattr(post, "flush", None)
+        if callable(flush):
+            flush()
+        path = self.ports.latest_transcript()
+        if path is None:
+            return 0
+        try:
+            path = path.resolve()
+            size = path.stat().st_size
+        except OSError:
+            return 0
+        scope = self.ports.scope()
+        runtime = str(scope.get("runtime") or "runtime")
+        source = self._turn_source
+        if source.get("path") != str(path) or source.get("runtime") != runtime:
+            tail = ToolCallEventSettings(True, 1.0, 1_048_576, "tail", False)
+            source.clear()
+            source.update(
+                path=str(path),
+                runtime=runtime,
+                offset=self._initial_tool_call_offset(tail, scope, path, size),
+                tracker=TranscriptTurnTracker(runtime),
+            )
+        offset = int(source["offset"])
+        if size < offset:
+            offset = 0
+            source["tracker"] = TranscriptTurnTracker(runtime)
+        payload = self._read_complete_batch(path, offset, 1_048_576)
+        if not payload:
+            return 0
+        tracker: TranscriptTurnTracker = source["tracker"]
+        count = 0
+        for raw_line in payload.decode("utf-8", errors="replace").splitlines():
+            try:
+                record = json.loads(raw_line)
+            except (TypeError, ValueError):
+                continue
+            if not isinstance(record, dict):
+                continue
+            for event in tracker.feed(record):
+                post(event)
+                count += 1
+        source["offset"] = offset + len(payload)
+        return count
+
     @staticmethod
     def _initial_offset(
         settings: TranscriptDeliverySettings, scope: dict[str, Any], path: Path
@@ -302,6 +357,9 @@ class TranscriptDeltaDeliveryService:
                     self.poll_tool_call_events()
                 if settings.enabled and settings.url:
                     self.poll_once()
+                if not isinstance(config.get("agent_turn_events"), dict) or config["agent_turn_events"].get("enabled", True) is not False:
+                    interval = min(interval, 1.0)
+                    self.poll_agent_turns()
             except Exception as exc:
                 self._report_error(f"poll {type(exc).__name__}: {exc}")
             self._stop.wait(interval)

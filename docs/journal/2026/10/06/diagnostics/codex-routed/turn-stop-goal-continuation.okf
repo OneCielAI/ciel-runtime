@@ -1,0 +1,15 @@
+okf_version: "1.0"
+task: "Turn cuts: find what keeps a Codex session working between turns and why it stops (Celly, Kobe), after confirming every stop was a normal turn end."
+reported: "User, 2026-10-06: '재시작은 신경안써도돼고. 지금은 턴끊김에 집중'."
+evidence:
+  celly_turn_starts: "Celly rollout 01a08e99 since 2026-09-26: 2635 turns; first user item of each turn: '<codex_internal_context source=\"goal\">' 1404 ('Continue working toward the active thread goal.' + <objective>), '[ciel-runtime external channel message]' 940, '계속' 8, others single digits."
+  celly_goal_days: "Goal-continuation turns per day: 09-30 7, 10-01 1281, 10-03 11, 10-04 9, 10-06 96 (last 2026-10-06T04:45:24Z)."
+  celly_goal_state: "goals_1.sqlite thread_goals: one goal for thread 01a08e99, objective 'Daniel 승인 28876 범위에서 KOBE의 QB 서비스 전용 제품망 연결...', status blocked, created 2026-10-06T00:40:55Z, updated 04:45:50Z. Earlier goals: paused 10-01 16:45, active 19:54, paused 20:48 and 22:48, active 10-03 08:58/10:30, 10-04 04:22, 10-06 01:53 (thread_goal_updated events)."
+  celly_block: "2026-10-06 04:44-04:45Z: goal turns repeated 'no new handoff, schedules active, keeping goal active' every 13-15 s. At 04:45:50Z the model wrote '최근 연속 턴은 구현 진전 없이 같은 전제조건을 확인한 상태 ... 전제조건 미충족으로 차단 상태를 기록' and called update_goal({status:'blocked'}). No goal-continuation turn after that; Celly's later turns (incl. the 2026-10-06 20:14-20:49 CDT case) start only from external channel messages."
+  kobe: "Kobe goals_1.sqlite thread_goals: no rows; rollout 00347d86 has no goal-continuation turns and no thread_goal_updated events. Kobe has no between-turn continuation; every turn starts from a channel message or a human prompt."
+  steer_correlation: "Narrow 'will do / next turn' endings: Celly single 4/2416 (0.2%) vs steered 5/174 (2.9%); Kobe 2/511 (0.4%) vs 1/191 (0.5%). Not consistent across sessions; a broad 'incomplete' regex was too noisy to use."
+findings:
+  - "✅ Celly keeps working between turns only through Codex's thread goal: while the goal is active Codex starts the next turn itself. The model set its own goal to blocked at 2026-10-06 04:45:50Z, so from then on a finished turn waits for the next external message."
+  - "✅ Kobe has never had a goal, so it always waits after a turn."
+  - "✅ Emily (Claude Code) has no goal mechanism; it is kept going by Claude Code scheduled tasks and '계속' prompts (journal emily-turns-and-socket-delivery-stopped-again.okf)."
+  - "🟡 Whether mid-turn steer injection makes early endings more likely is not established (holds for Celly's small sample, not for Kobe)."

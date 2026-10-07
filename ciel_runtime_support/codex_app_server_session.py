@@ -199,6 +199,7 @@ class CodexBareAppServerSession:
             wait_ready=self._ready(listen_url, server_done),
             initial_thread_id=thread_id,
             resume_model=resume_model_from_command(cmd),
+            runtime_label="codex-app-server",
         )
         if injector is not None:
             injector.start()
@@ -273,6 +274,8 @@ class CodexRemoteTuiSession:
                 initial_thread_id=thread_id,
                 permissions=FULL_ACCESS,
                 resume_model=resume_model_from_command(server_cmd),
+                # The TUI rollout watcher reports codex-remote turns (runtime "codex").
+                runtime_label="",
             )
             if injector is not None:
                 try:

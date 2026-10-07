@@ -1,0 +1,43 @@
+{
+ "agent_turn_ended": [
+  {
+   "id": 11,
+   "time": "2026-10-06T23:20:14.296-05:00",
+   "ts": 1791346814.2967696,
+   "kind": "agent.turn_ended",
+   "request_id": null,
+   "role": "system",
+   "provider": "",
+   "model": "",
+   "text": "",
+   "data": {
+    "turn_id": "01a11497-23e5-7532-adc7-b8743e9eaf9c",
+    "runtime": "codex",
+    "ended_at": "2026-10-07T04:20:13.843Z",
+    "reason": "end_turn",
+    "by_user_input": false,
+    "stop_check_blocked": false
+   }
+  },
+  {
+   "id": 16,
+   "time": "2026-10-06T23:20:41.723-05:00",
+   "ts": 1791346841.7233589,
+   "kind": "agent.turn_ended",
+   "request_id": null,
+   "role": "system",
+   "provider": "",
+   "model": "",
+   "text": "",
+   "data": {
+    "turn_id": "01a11497-96b8-7003-b75f-e0814019c3fd",
+    "runtime": "codex",
+    "ended_at": "2026-10-07T04:20:41.493Z",
+    "reason": "end_turn",
+    "by_user_input": false,
+    "stop_check_blocked": false
+   }
+  }
+ ],
+ "turn_completed_count": 4
+}

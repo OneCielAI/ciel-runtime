@@ -106,7 +106,7 @@ JSON·empty·accepted HTTP response 작성, client disconnect 분류와 pending 
 
 ### `ciel_runtime_support/tui_observation.py`
 
-Router를 통과하는 Claude Messages/OpenAI Responses 응답을 소비하지 않고 관찰해 사용자 입력, visible assistant text, tool lifecycle, turn 상태로 정규화한다. bounded in-memory cursor store와 `/ca/tui/status`, `/ca/tui/recent`, `/ca/tui/stream`, `/ca/tui` HTTP/SSE projection을 소유하며 hidden thinking과 tool 인자·결과 원문은 의도적으로 제외한다.
+Router를 통과하는 Claude Messages/OpenAI Responses 응답을 소비하지 않고 관찰해 사용자 입력, visible assistant text, tool lifecycle, turn 상태로 정규화한다. bounded in-memory cursor store와 `/ca/tui/status`, `/ca/tui/recent`, `/ca/tui/stream`, `/ca/tui` HTTP/SSE projection을 소유하며 hidden thinking과 tool 인자·결과 원문은 의도적으로 제외한다. CLI 프로세스가 루프백 `POST /ca/tui/agent-turn`으로 보고한 에이전트 턴 종료를 turn id당 한 번 `agent.turn_ended`로 발행한다.
 
 ### `ciel_runtime_support/chat_http_controller.py`
 
@@ -1346,3 +1346,7 @@ Codex routed(`router_http.forward_json`)와 Anthropic routed(`claude_router`) �
 - [[Architecture]] — 아키텍처 상세
 - [[Router]] — RouterHandler 상세
 - [[Observability]] — 관찰성 모듈
+
+### `ciel_runtime_support/agent_turn_events.py`
+
+에이전트 턴 단위 종료(`agent.turn_ended`: turn_id, runtime, ended_at, reason `end_turn|interrupted|error|max_tokens`, by_user_input, stop_check_blocked). Claude transcript(`end_turn`·`max_tokens`·interrupt·API error·`turn_duration`)와 Codex rollout(`task_complete`·`turn_aborted`)을 따라가는 `TranscriptTurnTracker`, app-server `turn/completed`용 `AppServerTurnTracker`, 라우터로 보내는 `RouterTurnPoster`(재시도 5회 후 WARN)를 소유한다. 대화 본문은 담지 않는다. 터미널 실행은 `transcript_delta_delivery`의 감시 스레드가, codex-desktop·app-server·remote는 `codex_desktop_injection`이 보고한다. `stop_check_blocked`는 Stop hook 자기 점검이 구현되지 않아 항상 false다.
