@@ -182,6 +182,35 @@ class ChannelTranscriptRepositoryTests(unittest.TestCase):
             repository.set_scope("codex", started_at=200, cwd=Path("C:\\sandbox\\home"))
             self.assertEqual(other, repository.latest(ttl_seconds=0))
 
+    def test_explicit_codex_resume_matches_identity_across_cwd_migration(self):
+        with tempfile.TemporaryDirectory() as raw_dir:
+            home = Path(raw_dir)
+            sessions = home / ".codex" / "sessions" / "2026"
+            sessions.mkdir(parents=True)
+            resumed = sessions / "resumed.jsonl"
+            competitor = sessions / "competitor.jsonl"
+            for path, identity, cwd in (
+                (resumed, "migrated-session", "/home/robert-ai"),
+                (competitor, "other-session", r"C:\target\robert-ai"),
+            ):
+                path.write_text(json.dumps({"type": "session_meta", "payload": {
+                    "id": identity, "cwd": cwd,
+                    "timestamp": "1970-01-01T00:01:40Z",
+                }}) + "\n", encoding="utf-8")
+            os.utime(resumed, (150, 150))
+            os.utime(competitor, (260, 260))
+            repository = self.repository(home, scope={})
+            repository.set_scope("codex", started_at=200,
+                                 cwd=Path(r"C:\target\robert-ai"),
+                                 session_id="migrated-session")
+            self.assertEqual(resumed, repository.latest(ttl_seconds=0))
+            self.assertEqual(resumed, repository.scope["turn_scan_path"])
+            self.assertEqual(resumed.stat().st_size, repository.scope["turn_scan_offset"])
+            repository.set_scope("codex", started_at=200,
+                                 cwd=Path(r"C:\target\robert-ai"),
+                                 session_id="missing-session")
+            self.assertIsNone(repository.latest(ttl_seconds=0))
+
     def test_latest_reuses_cached_path_within_ttl(self):
         cached = Path("cached.jsonl")
         repository = self.repository(
