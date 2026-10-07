@@ -12,9 +12,14 @@ among the current folder's conversations, like the plain codex launch.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 from pathlib import Path
-import tomllib
 from typing import Callable, Iterable
+
+try:
+    import tomllib
+except ModuleNotFoundError:  # Python 3.10 remains a supported launcher runtime.
+    tomllib = None  # type: ignore[assignment]
 
 from ciel_runtime_support.codex_cli import (
     CODEX_OPTIONS_WITH_VALUE,
@@ -94,10 +99,20 @@ def _config_value(setting: str, key: str) -> str | None:
     name, _, raw = setting.partition("=")
     if name.strip() != key or not raw.strip():
         return None
-    try:
-        value = tomllib.loads(f"v = {raw.strip()}").get("v")
-    except tomllib.TOMLDecodeError:
-        value = raw.strip().strip('"').strip("'")
+    text = raw.strip()
+    value: object = None
+    if tomllib is not None:
+        try:
+            value = tomllib.loads(f"v = {text}").get("v")
+        except tomllib.TOMLDecodeError:
+            value = None
+    elif text.startswith('"'):
+        try:
+            value = json.loads(text)  # a TOML basic string as Ciel writes it
+        except ValueError:
+            value = None
+    if value is None:
+        value = text.strip('"').strip("'")
     return value if isinstance(value, str) and value else None
 
 

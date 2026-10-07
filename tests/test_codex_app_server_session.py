@@ -72,6 +72,15 @@ class ResumeModelTests(unittest.TestCase):
         self.assertEqual(ResumeModel("deepseek-chat", "ciel"), resume_model_from_command(SERVER_CMD))
         self.assertEqual(ResumeModel(), resume_model_from_command(["codex", "app-server", "--listen", "ws://x"]))
 
+    def test_python_without_tomllib_reads_the_same_values(self):
+        # Python 3.10 has no tomllib; CI python-minimum failed to import ciel_runtime (2026-10-07).
+        from ciel_runtime_support import codex_app_server_resume
+
+        cmd = ["codex", "app-server", "-c", 'model_provider="ciel-runtime-codex"', "-c", "model=gpt-6.1-sol"]
+        with mock.patch.object(codex_app_server_resume, "tomllib", None):
+            self.assertEqual(ResumeModel("gpt-6.1-sol", "ciel-runtime-codex"), resume_model_from_command(cmd))
+            self.assertEqual(ResumeModel("deepseek-chat", "ciel"), resume_model_from_command(SERVER_CMD))
+
 
 class RemoteTuiCommandTests(unittest.TestCase):
     def test_tui_keeps_the_executable_and_config_overrides(self):
