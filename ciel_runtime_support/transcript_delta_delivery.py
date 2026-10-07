@@ -16,6 +16,7 @@ import urllib.request
 
 from .agent_turn_events import TranscriptTurnTracker
 from .remote_instructions import expand_environment_references
+from .transcript_public_projection import content_filter, public_records
 from .tool_call_events import project_transcript_tool_calls
 from .web_search_result_events import project_web_search_results
 from .runtime_error_events import project_runtime_errors
@@ -30,6 +31,9 @@ class TranscriptDeliverySettings:
     poll_interval_seconds: float
     max_batch_bytes: int
     start_mode: str
+    # public_only (default): the relay's public projection, made on this PC.
+    # raw: the transcript JSONL as written.
+    content_filter: str = "public_only"
 
     @classmethod
     def from_config(cls, config: dict[str, Any]) -> "TranscriptDeliverySettings":
@@ -50,6 +54,7 @@ class TranscriptDeliverySettings:
                 1024, min(16_777_216, int(values.get("max_batch_bytes") or 1_048_576))
             ),
             start_mode=start_mode,
+            content_filter=content_filter(values.get("content_filter")),
         )
 
 
@@ -168,14 +173,23 @@ class TranscriptDeltaDeliveryService:
                 self._save_cursors(cursors)
             return False
         end_offset = offset + len(payload)
+        content = payload
+        if settings.content_filter == "public_only":
+            content = public_records(payload.decode("utf-8", errors="replace")).encode("utf-8")
+            if not content:
+                # Nothing public in this batch: move past it without a request.
+                destinations[destination_key] = self._cursor_record(path, end_offset)
+                self._save_cursors(cursors)
+                return False
         event = self._cloud_event(
             runtime=runtime,
             session_id=session_id,
             path=path,
             start_offset=offset,
             end_offset=end_offset,
-            content=payload,
+            content=content,
             rotated=rotated,
+            content_filter=settings.content_filter,
         )
         if not self._post(settings, event):
             return False
@@ -184,7 +198,7 @@ class TranscriptDeltaDeliveryService:
         self.ports.log(
             "INFO",
             "transcript_delta_delivered "
-            f"runtime={runtime} session={session_id} bytes={len(payload)} "
+            f"runtime={runtime} session={session_id} bytes={len(content)} filter={settings.content_filter} "
             f"offset={offset}->{end_offset}",
         )
         self._last_error = ""
@@ -464,6 +478,7 @@ class TranscriptDeltaDeliveryService:
         end_offset: int,
         content: bytes,
         rotated: bool,
+        content_filter: str = "raw",
     ) -> dict[str, Any]:
         digest = hashlib.sha256(content).hexdigest()
         event_id = hashlib.sha256(
@@ -491,6 +506,7 @@ class TranscriptDeltaDeliveryService:
                 "record_count": content.count(b"\n"),
                 "rotated": rotated,
                 "format": "jsonl",
+                "content_filter": content_filter,
                 "content": content.decode("utf-8", errors="replace"),
             },
         }

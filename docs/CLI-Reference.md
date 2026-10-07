@@ -291,6 +291,13 @@ ciel-runtimectl transcript-events enabled=true url=https://memory.example/v1/tra
 2xx 이후에만 전진한다. `start_mode=tail`은 현재 실행 경계 이후만,
 `start_mode=beginning`은 파일 처음부터 보낸다. 설정 확인은 인자 없이 실행한다.
 
+`content_filter`는 보내는 범위를 정한다. 기본값 `public_only`는 PC 안에서 Walkie
+relay와 같은 공개용 투영만 만들어 보낸다. 사용자 본문은 Walkie 라우팅 티켓(`wkp_`)만 남기고,
+툴은 이름만, assistant는 Codex commentary와 Claude 텍스트만 남기며, 턴 끝마다
+`task_complete`를 넣는다. reasoning과 툴 인자·결과는 보내지 않는다. 공개할 내용이 없는
+묶음은 요청 없이 커서만 전진한다. `content_filter=raw`를 명시해야 원본 JSONL을 보낸다.
+이벤트 `data.content_filter`에 적용된 값이 들어간다.
+
 #### `remote-memory`
 
 ```bash

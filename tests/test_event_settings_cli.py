@@ -193,6 +193,7 @@ class EventSettingsCliTests(unittest.TestCase):
                 "poll_interval_ms=500",
                 "max_batch_bytes=2097152",
                 "start_mode=beginning",
+                "content_filter=raw",
             )
         )
 
@@ -204,6 +205,7 @@ class EventSettingsCliTests(unittest.TestCase):
         self.assertEqual(500, stored["poll_interval_ms"])
         self.assertEqual(2_097_152, stored["max_batch_bytes"])
         self.assertEqual("beginning", stored["start_mode"])
+        self.assertEqual("raw", stored["content_filter"])
         self.assertNotIn("Bearer token", "\n".join(self.output))
 
     def test_transcript_events_require_url_when_enabled(self):
@@ -214,6 +216,7 @@ class EventSettingsCliTests(unittest.TestCase):
     def test_transcript_events_validate_mode_url_and_numeric_limits(self):
         for value in (
             "start_mode=all",
+            "content_filter=everything",
             "url=file:///tmp/transcript",
             "poll_interval_ms=99",
             "max_batch_bytes=100",

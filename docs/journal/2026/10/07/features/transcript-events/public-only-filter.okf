@@ -1,0 +1,14 @@
+okf_version: "1.0"
+task: "transcript_events direct delivery: apply the Walkie relay's public projection on the PC (public_only) before posting, instead of the raw transcript JSONL."
+reported: "Walkie 34059 / 35053 (Andy Ai to Daniel Yun): raw JSONL left the PC through Runtime's direct delivery; user decision 2026-10-07: 'public_only 구현해서 나이트리 푸시'."
+changes:
+  module: "ciel_runtime_support/transcript_public_projection.py (new): public_records(content) ported from G:\ciel-Walkie\server\agent-transcript-relay.py public_records (lines 24-73, last change 33dda15). Keeps user routing ticket (single wkp_ activity_context from a [ciel-runtime external channel message] line) else empty user text; tool names only (non-matching names -> 'running'); Codex commentary assistant text; Claude assistant text blocks; one task_complete per turn. Drops reasoning, tool arguments/results, final answers of Codex, session meta. content_filter(): public_only (default) | raw."
+  delivery: "transcript_delta_delivery: TranscriptDeliverySettings.content_filter from transcript_events.content_filter; public_only projects the batch, an empty projection advances the cursor without a request; event data.content_filter records the applied filter; log line shows filter=."
+  cli: "ciel-runtimectl transcript-events content_filter=public_only|raw (validated), shown in the settings report. docs/CLI-Reference.md updated."
+  behaviour_change: "Default changed: without content_filter the content is now the public projection (before: raw). content_filter=raw restores the raw JSONL."
+verification:
+  parity: "Same output as Walkie's relay function (extracted from agent-transcript-relay.py with ast) on real data: Celly Codex rollout tail 6.0 MB / 1244 lines -> 198 records, equal True; this session's Claude transcript tail 6.0 MB / 2123 lines -> 395 records, equal True."
+  tests: "tests/test_transcript_public_projection.py (secrets absent from output, ticket kept, Claude turn end once, default filter, delivery posts projection and skips empty batches); transport tests pinned to content_filter=raw; CLI stores/validates content_filter. Groups: unit 1759 OK, router 1175 OK, channel 455 OK, runtime 376 OK; ruff clean; docs metadata clean; py -3.10 compileall OK; live router 9611 = 200."
+not_done:
+  - "event_hooks push of agent.turn_ended / runtime events to Walkie (/api/agent-runtime-events) from request 34059-runtime-event-push-request.md: not implemented (the request file was not provided)."
+  - "No live delivery to Walkie's server was made in this task."

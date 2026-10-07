@@ -19,6 +19,7 @@ import urllib.parse
 from pathlib import PurePosixPath
 
 from .config_value_codec import parse_bool
+from .transcript_public_projection import CONTENT_FILTERS, content_filter
 
 
 TRUE_WORDS = ("true", "yes", "on", "1", "enable", "enabled")
@@ -42,6 +43,7 @@ TRANSCRIPT_EVENT_KEYS = (
     "poll_interval_ms",
     "max_batch_bytes",
     "start_mode",
+    "content_filter",
 )
 TRANSCRIPT_EVENT_LIMITS = {
     "timeout_seconds": (1, 30),
@@ -238,6 +240,7 @@ class EventSettingsCli:
             "poll_interval_ms": current.get("poll_interval_ms") or 1000,
             "max_batch_bytes": current.get("max_batch_bytes") or 1_048_576,
             "start_mode": str(current.get("start_mode") or "tail"),
+            "content_filter": content_filter(current.get("content_filter")),
         }
 
     def transcript_events(self, args: Any) -> None:
@@ -277,6 +280,13 @@ class EventSettingsCli:
                 if mode not in {"tail", "beginning"}:
                     raise EventSettingsCliError(
                         "start_mode must be tail or beginning"
+                    )
+                updates[key] = mode
+            elif key == "content_filter":
+                mode = value.strip().lower()
+                if mode not in CONTENT_FILTERS:
+                    raise EventSettingsCliError(
+                        "content_filter must be public_only or raw"
                     )
                 updates[key] = mode
             else:

@@ -1350,3 +1350,7 @@ Codex routed(`router_http.forward_json`)와 Anthropic routed(`claude_router`) �
 ### `ciel_runtime_support/agent_turn_events.py`
 
 에이전트 턴 단위 종료(`agent.turn_ended`: turn_id, runtime, ended_at, reason `end_turn|interrupted|error|max_tokens`, by_user_input, stop_check_blocked). Claude transcript(`end_turn`·`max_tokens`·interrupt·API error·`turn_duration`)와 Codex rollout(`task_complete`·`turn_aborted`)을 따라가는 `TranscriptTurnTracker`, app-server `turn/completed`용 `AppServerTurnTracker`, 라우터로 보내는 `RouterTurnPoster`(재시도 5회 후 WARN)를 소유한다. 대화 본문은 담지 않는다. 터미널 실행은 `transcript_delta_delivery`의 감시 스레드가, codex-desktop·app-server·remote는 `codex_desktop_injection`이 보고한다. `stop_check_blocked`는 Stop hook 자기 점검이 구현되지 않아 항상 false다.
+
+### `ciel_runtime_support/transcript_public_projection.py`
+
+`transcript_events` 직접 전송의 공개용 투영. Walkie relay(`server/agent-transcript-relay.py` `public_records`)와 같은 결과를 PC 안에서 만든다: 사용자 본문은 Walkie 라우팅 티켓(`wkp_`)만, 툴은 이름만, assistant는 Codex commentary와 Claude 텍스트만, 턴 끝마다 `task_complete`. reasoning과 툴 인자·결과는 버린다. `transcript_events.content_filter`(기본 `public_only`, 명시적 `raw`)를 `transcript_delta_delivery`가 적용한다.

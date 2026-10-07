@@ -52,6 +52,7 @@ class TranscriptDeltaDeliveryTests(unittest.TestCase):
                 "transcript_events": {
                     "enabled": True,
                     "url": "https://memory.example/transcripts",
+                    "content_filter": "raw",
                     "start_mode": "tail",
                 }
             }
@@ -95,6 +96,7 @@ class TranscriptDeltaDeliveryTests(unittest.TestCase):
                 "transcript_events": {
                     "enabled": True,
                     "url": "https://memory.example/transcripts",
+                    "content_filter": "raw",
                     "start_mode": "beginning",
                     "authorization": "Bearer {TRANSCRIPT_TEST_TOKEN}",
                 }
@@ -132,6 +134,7 @@ class TranscriptDeltaDeliveryTests(unittest.TestCase):
                 "transcript_events": {
                     "enabled": True,
                     "url": "https://memory.example/transcripts",
+                    "content_filter": "raw",
                     "start_mode": "beginning",
                     "authorization": "Bearer {TRANSCRIPT_MISSING_TOKEN}",
                 }
@@ -158,6 +161,7 @@ class TranscriptDeltaDeliveryTests(unittest.TestCase):
                 "transcript_events": {
                     "enabled": True,
                     "url": "https://memory.example/transcripts",
+                    "content_filter": "raw",
                     "start_mode": "tail",
                 }
             }

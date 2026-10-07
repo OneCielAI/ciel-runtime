@@ -1,0 +1,20 @@
+okf_version: "1.0"
+task: "Test whether a message posted with raw_injection over the tty transport triggers TUI slash commands (/goal) in Codex TUI and Claude Code."
+reported: "User, 2026-10-07: '오히려 외부에서 ... /goal clear 라고 외부에서 타이핑넣어줄수있으면 더 빠른거아냐', '확장성도 좋고', 'tty 입력이 실제로 슬래시 명령어를 트리거하는지 테스트'."
+method: "evidence/e2e_slash.py (from the 2026-10-06 harness): isolated CIEL_RUNTIME_CONFIG_DIR and router port, stub upstream (provider vllm), new Windows Terminal window. Each command: POST /ca/chat/messages {message, input_mode: tty, input_transport: tty, response_mode: tty, raw_injection: true}. Codex goal state read from the isolated CODEX_HOME goals_1.sqlite; Claude state from screenshots."
+codex_tui:
+  version: "codex 0.160.1, isolated CODEX_HOME outside %TEMP% (under %TEMP% the TUI stayed blank after a 'Refusing to create helper binaries under temporary dir' warning; with a fresh home it first shows the folder-trust prompt, so the folder was pre-trusted in the isolated config.toml)."
+  results: "'/goal E2E-GOAL-ALPHA ...' -> thread_goals row status active, footer 'Pursuing goal', Codex starts goal turns by itself; '/goal pause' -> paused; '/goal resume' -> active; '/goal clear' -> row deleted. evidence/e2e-codex-1791355824 (screenshots 02-05, driver.log.txt)."
+claude_code:
+  version: "Claude Code 2.1.292 (user's ~/.claude; test transcript deleted afterwards)."
+  results: "'/goal E2E-GOAL-BETA ...' -> 'Goal set: ...', '◎ /goal active'; the evaluator request reached the stub ('has the following stopping condition been satisfied?') and failed JSON validation because the stub answers plain text, Claude then retried. '/goal clear' -> 'Goal cleared: ...'. evidence/e2e-claude-1791356020."
+findings:
+  - "✅ A raw tty message is typed into the TUI and runs as a slash command in both Codex TUI and Claude Code (/goal set, pause, resume, clear on Codex; set and clear on Claude)."
+  - "✅ The channel receipt check does not recognise slash commands: every raw slash message ended as failed reason=prompt_not_submitted after 4 submit attempts (~20 s), the proxy logged channel_stdin_proxy_blocked reason=prior_submission_failed for the next message, and each following command only ran after that cycle (Codex /goal clear took ~57 s from the request). See router-log-excerpt.txt."
+  - "✅ raw_injection is accepted only on POST /ca/chat/messages; /ca/chat/notify and external SSE events (Walkie) are always wrapped as '[ciel-runtime external channel message] ...' (chat_http_controller.py)."
+not_verified:
+  - "Claude session_socket transport (its default) with a slash command."
+  - "Codex '/goal <new objective>' while a non-complete goal exists (the TUI asks for confirmation)."
+  - "codex-remote / codex-desktop / app-server: delivery is JSON-RPC turn/start, not typing, so slash commands are not expected to run there (not tested)."
+  - "Whether the extra Enter presses of the 4 submit attempts had any effect (none visible in the screenshots)."
+cleanup: "Test windows closed, isolated Codex home (~/.ciel-e2e), scratch run folders and the Claude test transcript folders deleted; live router 9611 = 200."

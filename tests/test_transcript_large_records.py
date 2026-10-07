@@ -9,7 +9,7 @@ from ciel_runtime_support.transcript_delta_delivery import TranscriptDeltaDelive
 class LargeTranscriptRecordTests(unittest.TestCase):
     def make_service(self, root, path):
         return TranscriptDeltaDeliveryService(root / "cursor.json", "test", TranscriptDeliveryPorts(
-            load_config=lambda: {"transcript_events": {"enabled": True, "url": "http://fixture.invalid/", "start_mode": "beginning"}},
+            load_config=lambda: {"transcript_events": {"enabled": True, "url": "http://fixture.invalid/", "start_mode": "beginning", "content_filter": "raw"}},
             latest_transcript=lambda: path, scope=lambda: {"runtime": "codex", "session_id": "test"},
             log=lambda *_: None,
         ))
