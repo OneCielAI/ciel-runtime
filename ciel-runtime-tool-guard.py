@@ -210,14 +210,14 @@ def pre_deny(reason: str, context: str = "") -> None:
     emit(out)
 
 
-def permission_allow(event: dict[str, Any], updated: dict[str, Any], reason: str) -> None:
+def permission_allow(event: dict[str, Any], updated: dict[str, Any] | None, reason: str) -> None:
+    decision: dict[str, Any] = {"behavior": "allow"}
+    if updated is not None:
+        decision["updatedInput"] = updated
     out: dict[str, Any] = {
         "hookSpecificOutput": {
             "hookEventName": "PermissionRequest",
-            "decision": {
-                "behavior": "allow",
-                "updatedInput": updated,
-            },
+            "decision": decision,
         }
     }
     log_json_event(event, out)
@@ -792,6 +792,42 @@ def handle_permission_request(event: dict[str, Any]) -> bool:
     return True
 
 
+AUTO_ALLOW_DANGEROUS_RM_ENV = "CIEL_RUNTIME_AUTO_ALLOW_DANGEROUS_RM"
+REMOVAL_COMMAND = re.compile(
+    r"(?i)(?:^|[\s;&|(`{])(?:rm|rmdir|rd|del|erase|ri|remove-item)(?=[\s;&|)`}]|$)"
+)
+
+
+def handle_dangerous_rm_permission(event: dict[str, Any]) -> bool:
+    """Answer Claude Code's critical-path removal prompt when the menu option is on.
+
+    bypassPermissions skips every ordinary prompt; the removal check
+    ("Dangerous rm operation on critical path") is one of the few that still
+    asks, and the session denies the call itself after two minutes. Only that
+    situation is answered: the launcher-set switch, a bypass session, a
+    Bash/PowerShell call, and a removal verb in the command.
+    """
+    if not env_truthy(AUTO_ALLOW_DANGEROUS_RM_ENV):
+        return False
+    mode = event.get("permission_mode") or event.get("permissionMode")
+    if mode != "bypassPermissions":
+        return False
+    if event_tool_name(event) not in {"Bash", "PowerShell"}:
+        return False
+    raw = event_tool_input(event)
+    command = raw.get("command") if isinstance(raw, dict) else None
+    if not isinstance(command, str) or not REMOVAL_COMMAND.search(command):
+        return False
+    # No updatedInput: Claude Code 2.1.293 still showed the prompt when the
+    # allow carried the (unchanged) input back; a bare allow was accepted.
+    permission_allow(
+        event,
+        None,
+        f"PermissionRequest auto-allowed a removal prompt ({AUTO_ALLOW_DANGEROUS_RM_ENV}=1): {command[:200]}",
+    )
+    return True
+
+
 OBSERVE_ONLY_EVENTS = {
     "PostToolUse",
     "PostToolBatch",
@@ -861,6 +897,10 @@ def main() -> int:
     except Exception:
         return 0
     name = str(event.get("hook_event_name") or "")
+    # The removal-prompt answer is its own opt-in, so it runs ahead of the
+    # provider/bypass activation below (a native Claude launch sets it too).
+    if name == "PermissionRequest" and handle_dangerous_rm_permission(event):
+        return 0
     provider = os.environ.get("CIEL_RUNTIME_PROVIDER", "").strip()
     # Stay active for any session Ciel Runtime launched with bypass permissions,
     # even when the provider is "anthropic" (anthropic-routed mode), which is

@@ -1,0 +1,8 @@
+{"n": 1, "path": "/v1/chat/completions", "kind": "compact", "users": 2, "last": "RUN-CMD rm -rf G:/ciel-e2e-crit-on END-CMD"}
+{"n": 2, "path": "/v1/chat/completions", "kind": "compact", "users": 2, "last": "[ciel-runtime channel tool_result follow-up] tool_result data from a previous channel-injected tool call. tool_use_id=to"}
+{"n": 3, "path": "/v1/chat/completions", "kind": "compact", "users": 1, "last": "<environment_context> <cwd>C:\\Users\\djlov\\.ciel-e2e\\ws-rm</cwd> <shell>powershell</shell> <current_date>2026-10-07</curr"}
+{"n": 4, "path": "/v1/chat/completions", "kind": "compact", "users": 2, "last": "This is a runtime completion check. Call the supplied ciel_runtime_confirm_completion tool only if every requested actio"}
+{"n": 5, "path": "/v1/chat/completions", "kind": "compact", "users": 3, "last": "RUN-CMD Remove-Item -Recurse -Force G:/ciel-e2e-crit-on END-CMD"}
+{"n": 6, "path": "/v1/chat/completions", "kind": "compact", "users": 3, "last": "[ciel-runtime channel tool_result follow-up] tool_result data from a previous channel-injected tool call. tool_use_id=to"}
+{"n": 7, "path": "/v1/chat/completions", "kind": "compact", "users": 2, "last": "[ciel-wake] pending_ids=1"}
+{"n": 8, "path": "/v1/chat/completions", "kind": "compact", "users": 3, "last": "This is a runtime completion check. Call the supplied ciel_runtime_confirm_completion tool only if every requested actio"}

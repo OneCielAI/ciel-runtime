@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Callable
 from dataclasses import dataclass
 
+from ciel_runtime_support import dangerous_rm_auto_allow
 from ciel_runtime_support.claude_environment import CLAUDE_PROJECTED_ENV_KEYS
 from ciel_runtime_support.managed_tool_injection import should_inject_tool, codex_native_web_tool_overrides
 from ciel_runtime_support.codex_router_auth import authenticated_codex_command
@@ -512,6 +513,8 @@ def run_claude(
             "claude_anthropic_routed_launch backend=ciel-runtime-router upstream=anthropic",
         )
     env.update(launch_env)
+    if dangerous_rm_auto_allow.apply_launch_env(cfg, env):
+        router_log("INFO", f"claude_dangerous_rm_auto_allow env={dangerous_rm_auto_allow.ENV_NAME}=1")
     if not use_native_anthropic:
         preserve_anthropic_auth = anthropic_routed_enabled(provider, pcfg)
         for key in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"):

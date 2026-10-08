@@ -156,7 +156,7 @@ class ToolGuardTests(unittest.TestCase):
             # what each test injects via env_extra -- otherwise a leaked
             # CIEL_RUNTIME_BYPASS_PERMISSIONS=1 would make "without bypass" tests
             # see bypass and fail non-deterministically by host.
-            for leaked in ("CIEL_RUNTIME_PROVIDER", "CIEL_RUNTIME_BYPASS_PERMISSIONS", "CIEL_RUNTIME_MODEL_ALIAS"):
+            for leaked in ("CIEL_RUNTIME_PROVIDER", "CIEL_RUNTIME_BYPASS_PERMISSIONS", "CIEL_RUNTIME_MODEL_ALIAS", "CIEL_RUNTIME_AUTO_ALLOW_DANGEROUS_RM"):
                 env.pop(leaked, None)
             env["HOME"] = tmp
             env["USERPROFILE"] = tmp
@@ -251,6 +251,44 @@ class ToolGuardTests(unittest.TestCase):
 
         self.assertEqual("", proc.stdout.strip())
         self.assertEqual("", proc.stderr.strip())
+
+    def removal_event(self, command, tool="Bash", mode="bypassPermissions"):
+        # Shape recorded from Claude Code 2.1.293 for the critical-path prompt.
+        return {
+            "hook_event_name": "PermissionRequest",
+            "permission_mode": mode,
+            "tool_name": tool,
+            "tool_input": {"command": command, "description": "remove"},
+            "permission_suggestions": [],
+        }
+
+    def test_critical_path_removal_is_allowed_when_the_option_is_on(self):
+        for tool, command in (
+            ("Bash", "rm -rf G:/test-394"),
+            ("Bash", "cd /tmp && rm -r old"),
+            ("PowerShell", "Remove-Item -Recurse -Force G:\\test-394"),
+            ("PowerShell", "rd /s /q G:\\test-394"),
+        ):
+            with self.subTest(command=command):
+                proc = self.run_guard(
+                    self.removal_event(command, tool),
+                    {"CIEL_RUNTIME_AUTO_ALLOW_DANGEROUS_RM": "1"},
+                )
+                decision = json.loads(proc.stdout)["hookSpecificOutput"]["decision"]
+                self.assertEqual({"behavior": "allow"}, decision)
+
+    def test_removal_prompt_is_left_to_the_person_otherwise(self):
+        cases = (
+            (self.removal_event("rm -rf G:/test-394"), {}),
+            (self.removal_event("rm -rf G:/test-394", mode="default"), {"CIEL_RUNTIME_AUTO_ALLOW_DANGEROUS_RM": "1"}),
+            (self.removal_event("format G:"), {"CIEL_RUNTIME_AUTO_ALLOW_DANGEROUS_RM": "1"}),
+            (self.removal_event("echo rmx; npm run rmdir-check"), {"CIEL_RUNTIME_AUTO_ALLOW_DANGEROUS_RM": "1"}),
+            (self.removal_event("rm -rf G:/x", tool="Write"), {"CIEL_RUNTIME_AUTO_ALLOW_DANGEROUS_RM": "1"}),
+        )
+        for event, env in cases:
+            with self.subTest(event=event["tool_input"]["command"], mode=event["permission_mode"]):
+                proc = self.run_guard(event, {"CIEL_RUNTIME_PROVIDER": "ollama-cloud", "CIEL_RUNTIME_BYPASS_PERMISSIONS": "1", **env})
+                self.assertEqual("", proc.stdout.strip())
 
     def test_exit_plan_pretooluse_is_auto_allowed_under_bypass(self):
         # PermissionRequest does not fire in headless -p mode, so the guard must

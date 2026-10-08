@@ -1,0 +1,33 @@
+okf_version: "1.0"
+task: "Menu option that answers Claude Code's critical-path removal prompt automatically; check whether Codex has the same prompt/hook."
+reported: "User, 2026-10-07: '자동으로 응답하게 옵션을 메뉴에 추가해야겟네', '코덱스와 클러도 모두 동일한 훅이 생겼으니 같이 확인해'; scope chosen: (a) every critical-path removal prompt."
+findings:
+  claude_prompt: "Reproduced on Claude Code 2.1.293 in bypassPermissions: 'Dangerous rm operation on critical path: G:/ciel-e2e-crit-probe', countdown 'automatically deny this request in 1:40' (evidence/probe-1-hook-silent/shots/02-rm-hook-silent.png)."
+  claude_hook_event: "PermissionRequest fires for it. Recorded input: {permission_mode: bypassPermissions, tool_name: Bash, tool_input: {command, description}, permission_suggestions: []}. No field names the critical-path reason (evidence/probe-1-hook-silent/perm-events.jsonl)."
+  claude_hook_answer: "A hook answering {decision: {behavior: allow}} runs the command: screen 'Allowed by PermissionRequest hook', folder removed (evidence/probe-2-hook-allow)."
+  updated_input: "The same allow WITH updatedInput (unchanged input) still showed the prompt (evidence/e2e-1-menu-toggle/shots/10-rm-option-on.png while the guard log has the allow at 1791425022). Without updatedInput it was accepted. Why updatedInput changes this was not determined."
+  codex: "Codex 0.160.1 (YOLO mode = Ciel's launch): 'Remove-Item -Recurse -Force G:/ciel-e2e-crit-on' -> exec_command 'rejected: blocked by policy', no prompt, nothing shown in the TUI (evidence/e2e-4-codex/stub-tools.jsonl n=6). Source codex-rs/core/src/exec_policy.rs:799-807: dangerous command + AskForApproval::Never -> Decision::Forbidden, so request_approval and its PermissionRequest hook never run. 'rm -rf G:/...' was not flagged on Windows: it ran in PowerShell and failed on '-rf' (exit 1, folder kept). Nothing to answer, so Codex is not part of the option."
+changes:
+  option: "ciel_runtime_support/dangerous_rm_auto_allow.py: config key claude_dangerous_rm_auto_allow (default off), panel rows, toggle, apply_launch_env (sets CIEL_RUNTIME_AUTO_ALLOW_DANGEROUS_RM=1 or removes an inherited one)."
+  menu: "prelaunch: main action 'dangerous-rm' before Quit; row '17. Dangerous delete prompt  [Claude · auto-allow on|off]'; panel 'Dangerous delete prompt options' with one toggle row and Back."
+  launch: "runtime_launch.run_claude: after env.update(launch_env) -> apply_launch_env; INFO claude_dangerous_rm_auto_allow env=...=1. Applies to native, anthropic-routed and non-native Claude launches."
+  guard: "ciel-runtime-tool-guard.py handle_dangerous_rm_permission, checked first for PermissionRequest (before the provider/bypass activation): switch on + permission_mode bypassPermissions + Bash/PowerShell + removal verb (rm, rmdir, rd, del, erase, ri, Remove-Item) -> allow without updatedInput; logs 'PermissionRequest auto-allowed a removal prompt ...'. permission_allow accepts updated=None."
+  docs: "docs/Module-Map.md entry."
+tests:
+  unit: "tests/test_dangerous_rm_auto_allow.py (off by default, stale switch removed, toggle, menu order); test_tool_guard (allow for Bash/PowerShell removals; no answer when off, not bypass, not a removal, other tool); projection row 17; menu-index tests in test_oauth_token_menu and test_request_limits_config moved by one."
+  groups: "scripts/run_test_group.py with CIEL_RUNTIME_* unset: unit 1764 OK, router 1175 OK, channel 457 OK, runtime 377 OK; ruff clean; live router 9611 = 200."
+e2e:
+  harness: "evidence/e2e_rm.py (Claude: isolated Ciel config + CIEL_RUNTIME_TEST_ISOLATED so ~/.claude/settings.json is untouched, stub Anthropic upstream answering RUN-RM with one Bash tool_use, repository guard registered as a workspace hook) and evidence/e2e_codex_rm.py (copy of the raw-tty-slash Codex harness, isolated CODEX_HOME). Input only via /ca/chat/notify."
+  menu_toggle: "e2e-1-menu-toggle: --ca-menu shows row 17 'auto-allow off' (01-menu.png); Enter on the panel -> '[on]', config.json claude_dangerous_rm_auto_allow=true (03-panel-on.png); Launch -> Claude; router.log 'claude_dangerous_rm_auto_allow env=CIEL_RUNTIME_AUTO_ALLOW_DANGEROUS_RM=1'. The rm in this run still prompted (the updatedInput finding above); the guard was changed and verified in the next run."
+  option_on: "e2e-2-option-on: config on, rm -rf G:/ciel-e2e-crit-on2 -> 'Allowed by PermissionRequest hook', folder gone (exists=False), guard log line at 1791425192."
+  option_off: "e2e-3-option-off: config off while the launch window had a stale CIEL_RUNTIME_AUTO_ALLOW_DANGEROUS_RM=1 -> launcher removed it, guard silent, prompt shown, folder kept."
+  codex: "e2e-4-codex: see findings.codex."
+side_findings:
+  claude_config_dir: "With CLAUDE_CONFIG_DIR set, Ciel's Claude session socket and channel receipt lookups still read ~/.claude (claude_session_socket.py:191 '_home / .claude / sessions', channel_transcript_repository.py:274 'home / .claude / projects'): router logged auth_key_unavailable and receipt 'transcript_missing', channel messages stayed undelivered (503 deferred). Seen in two discarded runs; not fixed (separate issue)."
+  interrupted_turn: "After Esc on the prompt ('Interrupted'), the next channel message stayed 'waiting_for_turn_completion'. Not investigated."
+not_verified:
+  - "Claude Code versions other than 2.1.293."
+  - "PowerShell-tool removals in a live session (unit test only)."
+  - "Native (non-routed) Claude launch: the env is set, but Ciel installs its hooks only for routed launches; the user's ~/.claude/settings.json must already carry the guard hook."
+cleanup: "E2E Claude transcripts under ~/.claude/projects deleted; ~/.ciel-e2e (Codex home, workspace) and G:\\ciel-e2e-crit-* deleted; run folders trimmed to logs and screenshots."
+release: "Committed on nightly and pushed to origin/nightly (2026-10-07, user: '로커 나이트리 배포')."

@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from ciel_runtime_support.llm_presentation_data import LLM_OPTION_TOGGLE_KEYS
-from ciel_runtime_support import oauth_token_menu, web_access_menu
+from ciel_runtime_support import dangerous_rm_auto_allow, oauth_token_menu, web_access_menu
 from ciel_runtime_support.prelaunch_launch_preference import (
     preferred_launch_panel_index,
     remember_launch_action,
@@ -44,6 +44,7 @@ MAIN_MENU_ACTIONS: tuple[str, ...] = (
     "web-backend",
     "oauth-tokens",
     "web-access",
+    "dangerous-rm",
     "quit",
 )
 
@@ -373,6 +374,8 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
             panel_rows, panel_values = web_access_menu.panel_rows(
                 web_access_menu.default_accounts(), web_access_menu.default_token_repository()
             )
+        elif name == "dangerous-rm":
+            panel_rows, panel_values = dangerous_rm_auto_allow.panel_rows(cfg)
         if panel_rows:
             panel_idx = max(0, min(panel_idx, len(panel_rows) - 1))
 
@@ -1068,6 +1071,15 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                         ),
                     )
                     panel_rows, panel_values = web_access_menu.panel_rows(accounts, token_repository)
+                    panel_idx = max(0, min(panel_idx, len(panel_rows) - 1))
+                elif panel == "dangerous-rm":
+                    if value == "back":
+                        close_panel()
+                        continue
+                    cfg = load_config()
+                    messages = dangerous_rm_auto_allow.toggle(cfg)
+                    save_config(cfg)
+                    panel_rows, panel_values = dangerous_rm_auto_allow.panel_rows(cfg)
                     panel_idx = max(0, min(panel_idx, len(panel_rows) - 1))
                 elif panel == "options":
                     if value == "back":

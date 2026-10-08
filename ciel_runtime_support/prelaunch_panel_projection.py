@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping, Protocol
 
+from ciel_runtime_support import dangerous_rm_auto_allow
 from ciel_runtime_support.web_endpoints import web_backend_summary
 
 
@@ -110,6 +111,7 @@ class MainMenuProjection:
             f"[{web_backend_summary(config, 0)}]",
             f"15. OAuth tokens  [{oauth_tokens_summary()}]",
             f"16. Web access  [{web_access_summary()}]",
+            f"17. Dangerous delete prompt  [{dangerous_rm_auto_allow.summary(config)}]",
             self.ports.ui_text("quit", language),
         ]
 

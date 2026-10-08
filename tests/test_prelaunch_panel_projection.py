@@ -44,6 +44,7 @@ class PrelaunchPanelProjectionTests(unittest.TestCase):
         self.assertIn("14. Web Backend", rows[14])
         self.assertIn("15. OAuth tokens", rows[15])
         self.assertIn("16. Web access", rows[16])
+        self.assertIn("17. Dangerous delete prompt  [Claude · auto-allow off]", rows[17])
 
     def test_provider_panel_projects_native_and_routed_choices(self):
         projection = ProviderPanelProjection(
