@@ -1,8 +1,9 @@
-"""Backup targets beyond a local folder: SSH (sftp), S3-compatible storage, rclone.
+"""Backup targets beyond a local folder: SSH (sftp), S3-compatible storage, rclone, Synology NAS.
 
 Each target stores named byte blobs.  Remote credentials are never written into
 Ciel's settings: SSH uses the user's key/agent, rclone its own config, and S3
-keys are ``${ENV_NAME}`` references expanded at use time.
+keys are ``${ENV_NAME}`` references expanded at use time; a Synology password is
+a reference or a DPAPI file (session_backup_synology).
 
 SSH and rclone stage new blobs in a temporary folder and send them in one
 batch on ``flush()``; the snapshot code flushes before it writes the manifest,
@@ -27,8 +28,9 @@ from typing import Any, Callable, Mapping
 
 from ciel_runtime_support.remote_instructions import expand_environment_references
 from ciel_runtime_support.session_backup_store import LocalTarget
+from ciel_runtime_support.session_backup_synology import build_synology_target
 
-TARGET_TYPES = ("local", "ssh", "s3", "rclone")
+TARGET_TYPES = ("local", "ssh", "s3", "rclone", "synology")
 Runner = Callable[..., subprocess.CompletedProcess]
 
 
@@ -338,6 +340,8 @@ def build_target(name: str, spec: Mapping[str, Any], environ: Mapping[str, str])
             access_key=_expand(spec["access_key"], environ, "access_key"),
             secret_key=_expand(spec["secret_key"], environ, "secret_key"),
         )
+    if kind == "synology":
+        return build_synology_target(name, spec, lambda value, field: _expand(value, environ, field))
     raise ValueError(f"unknown target type {kind!r}; expected one of {', '.join(TARGET_TYPES)}")
 
 

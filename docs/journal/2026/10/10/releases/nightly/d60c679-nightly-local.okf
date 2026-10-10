@@ -1,0 +1,8 @@
+okf_version: "1.0"
+task: "Nightly push and local install of provider fallback, session-backup safety and restart_session (d60c679); free space on C: by removing this session's scratchpad."
+reported: "User, 2026-10-10: '3번 진행해' (remove only this session's scratch), '지금까지 변경 나이트리 로컬 푸시'. Walkie worktree removal: '워크트리삭제는 일단 보류해' - nothing in G:\\ciel-Walkie or its worktrees was touched."
+cleanup: "Before: C: 346 MB free. Removed everything under this session's scratchpad (3.9 GB: old codex builds codex-0155..codex-01600, ccver, e2e-* scratch) except syno/ (the Synology API guide in use); no process referenced the folder. After: 4304 MB free. Other sessions' folders under Temp\\claude\\C--Users-djlov-ciel-runtime were left alone."
+commit: "d60c679 on nightly (150 files): code + tests + docs/journal/2026/10/10. Before committing, the Claude E2E stub logs (session-restart/evidence/e2e-claude/stub*.json*) were redacted to marker words - they had captured the user's global CLAUDE.md text from the request. Older untracked journal folders (2026-09..10-0x) were not part of this commit."
+nightly: "CI 38078838657 success; Publish to npm 38078838630 success; dist-tag nightly = 0.2.51-nightly.20261010-191351.d60c679 (latest stays 0.2.51)."
+local: "npm install -g @one-ciel-ai/ciel-runtime@0.2.51-nightly.20261010-191351.d60c679; install.ps1 with CIEL_RUNTIME_INSTALL_HOME=~/.local/share/ciel-runtime-d60c67930990322dc9479cab3e22e3c6706fb53c. HKCU CIEL_RUNTIME_HOME points to it; ciel-runtimectl version prints 0.2.51-nightly.20261010-191351.d60c679; the snapshot has provider_failover.py and the relaunching codex-remote session; router 9611 200. Running sessions keep their launch-time code until they are restarted."
+not_done: "main not merged (not asked)."

@@ -44,6 +44,8 @@ _TARGET_FIELDS = {
            ("region", "Region", "us-east-1"), ("access_key", "Access key as an environment reference", "${AWS_ACCESS_KEY_ID}"),
            ("secret_key", "Secret key as an environment reference", "${AWS_SECRET_ACCESS_KEY}")),
     "rclone": (("remote", "rclone remote and path (e.g. gdrive:ciel-backups)", ""), ("binary", "rclone executable", "rclone")),
+    "synology": (("address", "Synology QuickConnect ID (or https://host:port)", ""), ("account", "DSM account", ""),
+                 ("path", "NAS folder, starting with a shared folder", "/backup/ciel")),
 }
 _NO_WINDOW = 0x08000000 if os.name == "nt" else 0
 
@@ -80,6 +82,9 @@ def _target_detail(spec: dict[str, Any]) -> str:
         return f"s3 · {spec.get('endpoint')}/{spec.get('bucket')}/{spec.get('prefix') or ''}"
     if kind == "rclone":
         return f"rclone · {spec.get('remote')}"
+    if kind == "synology":
+        password = "password stored" if spec.get("password_file") else f"password {spec.get('password') or 'missing'}"
+        return f"synology · {spec.get('account')}@{spec.get('address')}:{spec.get('path')} · {password}"
     return str(kind)
 
 
@@ -101,7 +106,7 @@ def panel_rows(config_dir: Path, cwd: Path) -> tuple[list[str], list[str]]:
         "Restore a snapshot…",
         "Verify a snapshot…",
         f"Prune old snapshots now  [keep last {schedule['keep_last']} + {schedule['keep_daily']} daily]",
-        "── Targets (Enter on a target: use on/off · test · remove) ──",
+        "── Targets (Enter on a target: use on/off · test · password (Synology) · remove) ──",
         f"  [{'x' if 'local' in selected else ' '}] local  [built-in · {Path(config_dir) / 'backups'}]",
     ]
     values = ["now", "list", "restore", "verify", "prune", "__info__", "target:local"]
@@ -109,7 +114,7 @@ def panel_rows(config_dir: Path, cwd: Path) -> tuple[list[str], list[str]]:
         rows.append(f"  [{'x' if name in selected else ' '}] {name}  [{_target_detail(spec)}]")
         values.append(f"target:{name}")
     rows += [
-        "  Add a target…  [local folder · SSH · S3 · rclone]",
+        "  Add a target…  [local folder · SSH · S3 · rclone · Synology QuickConnect]",
         "── Schedule and triggers ──",
         f"Scheduled backups  [{_onoff(schedule['enabled'])}]",
         f"Interval  [{schedule['interval_minutes']} min]",
@@ -199,7 +204,7 @@ def _probe(name: str, spec: dict[str, Any]) -> str:
 def _add_target(config_dir: Path, settings: dict[str, Any], prompt: Prompt) -> list[str]:
     from ciel_runtime_support.session_backup_targets import build_target
 
-    kind = prompt("Target type (local / ssh / s3 / rclone)", "local").strip().lower()
+    kind = prompt("Target type (local / ssh / s3 / rclone / synology)", "local").strip().lower()
     if kind not in _TARGET_FIELDS:
         return [f"Unknown target type {kind!r}."]
     name = prompt("Name for this target", kind).strip()
@@ -210,6 +215,10 @@ def _add_target(config_dir: Path, settings: dict[str, Any], prompt: Prompt) -> l
         value = prompt(label, default).strip()
         if value:
             spec[field] = value
+    if kind == "synology":
+        problem = _set_nas_password(config_dir, name, spec, prompt)
+        if problem:
+            return [f"Not added: {problem}"]
     try:
         build_target(name, spec, os.environ)
     except ValueError as error:
@@ -228,9 +237,41 @@ def _add_target(config_dir: Path, settings: dict[str, Any], prompt: Prompt) -> l
     return [f"Added target {name} ({_target_detail(spec)}).", *messages]
 
 
+def _ask_secret(prompt: Prompt, label: str) -> str:
+    """A prompt whose typing is not shown, when the menu's prompt supports it."""
+
+    try:
+        return prompt(label, "", True)  # type: ignore[call-arg]
+    except TypeError:
+        return prompt(label, "")
+
+
+def _set_nas_password(config_dir: Path, name: str, spec: dict[str, Any], prompt: Prompt) -> str:
+    """Ask for the NAS password: kept with Windows DPAPI for this user, or an ${ENV} reference. Returns a problem or ""."""
+
+    from ciel_runtime_support.session_backup_synology import SynologyError, store_password
+
+    value = _ask_secret(prompt, "DSM password (not shown; stored encrypted for this Windows user) or ${ENV_NAME}").strip()
+    if not value:
+        return "no password given"
+    if value.startswith("$"):
+        spec.pop("password_file", None)
+        spec["password"] = value
+        return ""
+    path = Path(config_dir) / "backup-credentials" / f"{name}.dpapi"
+    try:
+        store_password(path, value)
+    except SynologyError as error:
+        return str(error)
+    spec.pop("password", None)
+    spec["password_file"] = str(path)
+    return ""
+
+
 def _target_action(config_dir: Path, settings: dict[str, Any], name: str, prompt: Prompt) -> list[str]:
     selected = list(settings["default_targets"] or ["local"])
-    actions = "use / test" + ("" if name == "local" else " / remove")
+    kind = "local" if name == "local" else settings["targets"][name].get("type")
+    actions = "use / test" + (" / password" if kind == "synology" else "") + ("" if name == "local" else " / remove")
     action = prompt(f"{name}: {actions}", "use").strip().lower()
     if action == "use":
         if name in selected:
@@ -250,9 +291,18 @@ def _target_action(config_dir: Path, settings: dict[str, Any], name: str, prompt
             return [f"{name}: {_probe(name, spec)}."]
         except Exception as error:  # noqa: BLE001 - shown to the operator
             return [f"{name} test failed: {type(error).__name__}: {str(error)[:300]}"]
+    if action == "password" and kind == "synology":
+        spec = settings["targets"][name]
+        problem = _set_nas_password(config_dir, name, spec, prompt)
+        if problem:
+            return [f"Password not changed: {problem}"]
+        save_settings(config_dir, settings)
+        return [f"{name}: password {'stored for this Windows user' if spec.get('password_file') else 'taken from ' + spec['password']}."]
     if action == "remove" and name != "local":
         if prompt(f"Remove target {name}? Its snapshots stay where they are. yes/no", "no").strip().lower().startswith("y"):
-            settings["targets"].pop(name, None)
+            removed = settings["targets"].pop(name, None) or {}
+            if removed.get("password_file"):
+                Path(removed["password_file"]).unlink(missing_ok=True)
             settings["default_targets"] = [item for item in selected if item != name]
             save_settings(config_dir, settings)
             return [f"Removed target {name}."]

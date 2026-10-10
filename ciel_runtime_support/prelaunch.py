@@ -1108,9 +1108,10 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                             CONFIG_DIR,
                             Path.cwd(),
                             value,
-                            lambda label, default: prompt_menu_value(
+                            lambda label, default, secret=False: prompt_menu_value(
                                 label,
                                 default,
+                                secret,
                                 restore_tty=restore_line_mode,
                                 raw_tty=restore_raw_mode,
                             ),

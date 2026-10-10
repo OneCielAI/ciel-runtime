@@ -69,6 +69,21 @@ class BackupContext:
     output: Callable[[str], None] = print
 
 
+# Remote targets built for the running command; closed when it ends (a Synology
+# target logs out of its DSM session, SSH/rclone remove their staging folder).
+_OPENED: list[Any] = []
+
+
+def _close_opened() -> None:
+    while _OPENED:
+        close = getattr(_OPENED.pop(), "close", None)
+        if callable(close):
+            try:
+                close()
+            except Exception:  # noqa: BLE001 - closing must not hide the command's own result
+                pass
+
+
 def resolve_targets(context: BackupContext, names: list[str]) -> list[BackupTarget]:
     settings = load_settings(context.config_dir)
     wanted = names or list(settings["default_targets"]) or ["local"]
@@ -78,6 +93,7 @@ def resolve_targets(context: BackupContext, names: list[str]) -> list[BackupTarg
             targets.append(LocalTarget(Path(context.config_dir) / "backups", "local"))
         elif name in settings["targets"]:
             targets.append(build_target(name, settings["targets"][name], context.environ))
+            _OPENED.append(targets[-1])
         else:
             targets.append(LocalTarget(Path(name).expanduser()))
     return targets
@@ -439,6 +455,8 @@ def run_backup_command(argv: list[str], context: BackupContext) -> int:
         message = f"{type(error).__name__}: {error}" if not isinstance(error, ValueError) else str(error)
         context.output(json.dumps({"error": message}) if args.json else f"backup {command} failed: {message}")
         return 1
+    finally:
+        _close_opened()
     return 0
 
 
