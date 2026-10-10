@@ -215,6 +215,7 @@ def fetch_upstream_model_ids(provider: str, pcfg: dict[str, Any], force_refresh:
     ids: list[str] = []
     model_info: dict[str, dict[str, Any]] = {}
     fetched = False
+    catalog_error = "no successful response"
     try:
         if catalog_policy.kind == "nvidia":
             data = http_json(join_url(base, "/v1/models"), headers=nvidia_hosted_list_headers(), timeout=8.0, provider=provider, pcfg=pcfg)
@@ -234,7 +235,12 @@ def fetch_upstream_model_ids(provider: str, pcfg: dict[str, Any], force_refresh:
                     fetched = True
                     if ids:
                         break
-                except Exception:
+                except Exception as exc:
+                    # Retain a safe cause without including URLs, headers or keys.
+                    code = getattr(exc, "code", None)
+                    catalog_error = type(exc).__name__
+                    if isinstance(code, int):
+                        catalog_error += f" HTTP {code}"
                     continue
             if not fetched and catalog_policy.allow_public_without_auth:
                 # OpenCode publishes the model catalog at /v1/models. Keep the
@@ -247,8 +253,16 @@ def fetch_upstream_model_ids(provider: str, pcfg: dict[str, Any], force_refresh:
                     fetched = True
                 except Exception as exc:
                     router_log("DEBUG", f"{provider} public model catalog fetch failed: {type(exc).__name__}: {exc}")
-    except Exception:
+    except Exception as exc:
+        catalog_error = type(exc).__name__
         ids = []
+    if not fetched and catalog_policy.authoritative_upstream_catalog:
+        # A failed lookup is not an authoritative list of allowed model IDs.
+        # Do not persist defaults as a successful catalog: that poisons later
+        # selections even after connectivity or authentication recovers.
+        raise RuntimeError(
+            f"Authoritative model catalog unavailable for {provider} ({catalog_error})"
+        ) from None
     if fetched and catalog_policy.authoritative_upstream_catalog:
         ids = supplement_model_aliases(ids, model_info)
         sorted_ids = sorted_model_ids(unique_model_ids(provider, ids))

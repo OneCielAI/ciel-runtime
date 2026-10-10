@@ -267,6 +267,12 @@ class ProviderModelSelection:
                 self.selection.upstream_ids(provider, config, force_refresh=force_refresh),
             )
         except Exception as exc:
+            if catalog_policy.authoritative_upstream_catalog:
+                return False, [
+                    f"Model selection required for {provider}: authoritative model "
+                    f"catalog unavailable ({type(exc).__name__}). "
+                    "Check catalog authentication/connectivity and refresh before launch."
+                ]
             if current:
                 return True, [
                     f"Model list unavailable for {provider}; keeping configured model "
