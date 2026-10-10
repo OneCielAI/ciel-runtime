@@ -308,6 +308,13 @@ class CodexRuntimeTests(unittest.TestCase):
         )
         config_patcher.start()
         self.addCleanup(config_patcher.stop)
+        # Launches read and prepare CODEX_HOME/config.toml; keep that off the machine's real ~/.codex
+        # so the launch arguments do not depend on the runner's own Codex settings.
+        codex_home = tempfile.TemporaryDirectory()
+        self.addCleanup(codex_home.cleanup)
+        env_patcher = mock.patch.dict(os.environ, {"CODEX_HOME": codex_home.name})
+        env_patcher.start()
+        self.addCleanup(env_patcher.stop)
         retired_external_mcp_markers = (
             "_mcp_",
             "channel_capable",
