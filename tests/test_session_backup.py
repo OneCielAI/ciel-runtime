@@ -436,13 +436,99 @@ class BackupTriggerTests(unittest.TestCase):
 
         rows, values = session_backup_menu.panel_rows(self.config, self.cwd)
         self.assertEqual("back", values[-1])
-        self.assertIn("Scheduled backups  [off]", rows[1])
+        self.assertIn("Scheduled backups  [off]", rows[values.index("toggle-enabled")])
+        for operation in ("now", "list", "restore", "verify", "prune", "target:local", "target-add", "min-interval", "keep", "key"):
+            self.assertIn(operation, values)
         session_backup_menu.apply(self.config, self.cwd, "toggle-enabled")
         session_backup_menu.apply(self.config, self.cwd, "interval")
         schedule = load_settings(self.config)["schedule"]
         self.assertTrue(schedule["enabled"])
         self.assertEqual(120, schedule["interval_minutes"])
         self.assertIn("every 120 min", session_backup_menu.summary(self.config, self.cwd))
+
+    def answers(self, *values):
+        queue = list(values)
+        return lambda _label, default: queue.pop(0) if queue else default
+
+    def test_menu_adds_tests_selects_and_removes_a_target(self):
+        from ciel_runtime_support import session_backup_menu
+        from ciel_runtime_support.session_backup_service import load_settings
+
+        folder = self.base / "nas"
+        messages = session_backup_menu.apply(
+            self.config, self.cwd, "target-add", self.answers("local", "nas", str(folder), "yes", "yes"))
+        self.assertIn("Added target nas", messages[0])
+        self.assertIn("write, read and delete worked", messages[1])
+        settings = load_settings(self.config)
+        self.assertEqual({"type": "local", "path": str(folder)}, settings["targets"]["nas"])
+        self.assertEqual(["local", "nas"], settings["default_targets"])
+        rows, values = session_backup_menu.panel_rows(self.config, self.cwd)
+        self.assertIn("[x] nas", rows[values.index("target:nas")])
+        session_backup_menu.apply(self.config, self.cwd, "target:local", self.answers("use"))
+        self.assertEqual(["nas"], load_settings(self.config)["default_targets"])
+        self.assertEqual(["At least one target stays selected."],
+                         session_backup_menu.apply(self.config, self.cwd, "target:nas", self.answers("use")))
+        self.assertIn("worked", session_backup_menu.apply(self.config, self.cwd, "target:nas", self.answers("test"))[0])
+        session_backup_menu.apply(self.config, self.cwd, "target:nas", self.answers("remove", "yes"))
+        settings = load_settings(self.config)
+        self.assertNotIn("nas", settings["targets"])
+        self.assertEqual([], settings["default_targets"])
+
+    def test_menu_rejects_a_plain_s3_secret(self):
+        from ciel_runtime_support import session_backup_menu
+
+        messages = session_backup_menu.apply(self.config, self.cwd, "target-add", self.answers(
+            "s3", "cloud", "https://s3.example.com", "bucket", "ciel", "us-east-1", "AKIAPLAIN", "plain-secret"))
+        self.assertIn("Not added", messages[0])
+
+    def test_menu_key_file_and_numbers(self):
+        from ciel_runtime_support import session_backup_menu
+        from ciel_runtime_support.session_backup_service import load_settings
+
+        key_path = self.base / "keys" / "backup.key"
+        messages = session_backup_menu.apply(self.config, self.cwd, "key", self.answers(str(key_path)))
+        self.assertEqual("New random backup key created.", messages[0])
+        self.assertEqual(64, len(key_path.read_text(encoding="utf-8").strip()))
+        session_backup_menu.apply(self.config, self.cwd, "min-interval", self.answers("5"))
+        session_backup_menu.apply(self.config, self.cwd, "keep", self.answers("7", "3"))
+        settings = load_settings(self.config)
+        self.assertEqual(str(key_path), settings["key_file"])
+        self.assertEqual((5, 7, 3), (settings["schedule"]["min_interval_minutes"], settings["schedule"]["keep_last"],
+                                     settings["schedule"]["keep_daily"]))
+        self.assertIn("Enter", session_backup_menu.apply(self.config, self.cwd, "min-interval", self.answers("x"))[0])
+
+    def test_menu_restore_lists_confirms_and_runs_the_restore(self):
+        from unittest import mock
+
+        from ciel_runtime_support import session_backup_menu
+
+        calls = []
+
+        def cli(*args, timeout=900):
+            calls.append(args)
+            if args[0] == "list":
+                return 0, [{"id": "20261009T000000Z-aaa", "trigger": "manual", "files": 3, "bytes": 10, "secrets": True}]
+            return 0, {"written": 3, "secrets_restored": True, "safety_snapshot": "s", "next": ["ciel-runtime --continue"]}
+
+        with mock.patch.object(session_backup_menu, "_cli", side_effect=cli):
+            cancelled = session_backup_menu.apply(self.config, self.cwd, "restore", self.answers("", "", "yes", "no"))
+            done = session_backup_menu.apply(self.config, self.cwd, "restore", self.answers("", str(self.base / "elsewhere"), "no", "yes"))
+        self.assertEqual(["Restore cancelled."], cancelled)
+        self.assertIn("Restored 3 files", done[0])
+        restore_call = calls[-1]
+        self.assertEqual(("restore", "20261009T000000Z-aaa"), restore_call[:2])
+        self.assertIn("--to-cwd", restore_call)
+        self.assertIn("--no-files", restore_call)
+
+    def test_backup_key_file_inside_the_work_folder_is_never_collected(self):
+        key_path = self.cwd / "backup.key"
+        key_path.write_text("k" * 64, encoding="utf-8")
+        target = LocalTarget(self.base / "out")
+        roots = default_roots(self.cwd, environ={}, home=self.base / "home", asset_home=self.base / "home", config_dir=self.config)
+        manifest = create_snapshot(roots, [target], CollectOptions(skip_paths=(str(key_path),)), key=None,
+                                   versions={}, host="h", user="u").manifest
+        self.assertNotIn("backup.key", [entry["path"] for entry in manifest["entries"]])
+        self.assertIn("backup key file", [row["reason"] for row in manifest["skipped"]])
 
 
 class RemapPathFormTests(unittest.TestCase):

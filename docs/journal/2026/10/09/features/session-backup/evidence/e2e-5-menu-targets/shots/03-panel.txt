@@ -1,0 +1,29 @@
+  6. LLM options  [max_output_tokens=default, timeout=300000ms, routed=on]
+  7. Log level  [ERROR (file)]
+  8. Test compatibility
+  9. Launch  [Claude · Codex TUI · AGY · Kimi · Grok · Codex TUI + app-server · Codex app-server (no TUI) · Codex de...
+  10. External event inputs  [CloudEvents + Webhook/SSE]
+  11. Remote instructions  [HTTP GET · off]
+  12. Workspace MCP modules  [launch scoped]
+  13. Request/file limits  [workspace scoped]
+  14. Web backend  [off · 127.0.0.1:50950]
+  15. OAuth tokens  [none · Codex/Claude rotation]
+  16. Web access  [0 accounts · admin token]
+  17. Dangerous delete prompt  [Claude · auto-allow off]
+  18. Session backup  [incremental · every 120 min · to local · last 10-09 23:52 ok]
+  Quit
+
+-----------------------------------------------------------------------------------------------------------------------
+Session backup options
+  > Back up this session now  [incremental · last 10-09 23:52 ok]
+    Snapshots of this folder  [list]
+    Restore a snapshot…
+    Verify a snapshot…
+    Prune old snapshots now  [keep last 30 + 14 daily]
+    ... 14 below
+
+-----------------------------------------------------------------------------------------------------------------------
+  Base URL: Codex routed through local router (http://127.0.0.1:50950/backend-api/codex)
+  API key: not set (uses native Codex login/auth headers)
+
+Up/Down moves. PgUp/PgDn jumps. Home/End bounds. Enter selects. Esc/Left closes. q quits.

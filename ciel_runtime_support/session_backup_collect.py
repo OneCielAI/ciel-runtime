@@ -115,6 +115,8 @@ class CollectOptions:
     max_file_bytes: int = DEFAULT_MAX_FILE_BYTES
     label: str = ""
     trigger: str = "manual"
+    # Files never collected wherever they are (the backup key file).
+    skip_paths: tuple[str, ...] = ()
 
 
 @dataclass
@@ -216,6 +218,9 @@ class SessionCollector:
     def add_file(self, root: str, path: Path) -> None:
         path = Path(path)
         if not path.is_file() or not self._claim(path):
+            return
+        if any(_norm(path) == _norm(Path(skip)) for skip in self.options.skip_paths):
+            self._skip(root, path, "backup key file")
             return
         name = path.name
         try:

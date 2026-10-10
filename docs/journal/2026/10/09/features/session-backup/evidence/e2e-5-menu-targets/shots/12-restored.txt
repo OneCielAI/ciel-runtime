@@ -1,0 +1,29 @@
+  10. External event inputs  [CloudEvents + Webhook/SSE]
+  11. Remote instructions  [HTTP GET · off]
+  12. Workspace MCP modules  [launch scoped]
+  13. Request/file limits  [workspace scoped]
+  14. Web backend  [off · 127.0.0.1:50950]
+  15. OAuth tokens  [none · Codex/Claude rotation]
+  16. Web access  [0 accounts · admin token]
+  17. Dangerous delete prompt  [Claude · auto-allow off]
+  18. Session backup  [incremental · every 120 min · to nas · last 10-09 23:54 ok]
+  Quit
+
+-----------------------------------------------------------------------------------------------------------------------
+Session backup options
+    Back up this session now  [incremental · last 10-09 23:54 ok]
+    Snapshots of this folder  [list]
+  > Restore a snapshot…
+    Verify a snapshot…
+    Prune old snapshots now  [keep last 30 + 14 daily]
+    ... 15 below
+
+  Restored 88 files from 20261010T045401Z-9e6bac; credentials restored.
+  Safety snapshot of the previous state: 20261010T045412Z-9f1b13
+  Continue with: cd "C:\Users\djlov\AppData\Local\Temp\claude\C--Users-djlov-ciel-runtime\839a1c11-9672-467c-bcda-8f...
+
+-----------------------------------------------------------------------------------------------------------------------
+  Base URL: Codex routed through local router (http://127.0.0.1:50950/backend-api/codex)
+  API key: not set (uses native Codex login/auth headers)
+
+Up/Down moves. PgUp/PgDn jumps. Home/End bounds. Enter selects. Esc/Left closes. q quits.

@@ -122,8 +122,9 @@ def create(context: BackupContext, args: argparse.Namespace) -> dict[str, Any]:
         extra_excludes=tuple(args.exclude),
         label=args.label,
         trigger=args.trigger,
+        skip_paths=tuple(path for path in (args.key_file, load_settings(context.config_dir).get("key_file")) if path),
     )
-    key = backup_key(context.environ, args.key_file)
+    key = backup_key(context.environ, args.key_file or load_settings(context.config_dir).get("key_file") or None)
     result = create_snapshot(
         roots, resolve_targets(context, args.target), options, key=key, versions=context.versions,
         host=platform.node(), user=getpass.getuser(),
@@ -176,6 +177,10 @@ def cmd_list(context: BackupContext, args: argparse.Namespace) -> list[dict[str,
             "files": len(manifest.get("entries") or []),
             "bytes": sum(int(entry.get("size") or 0) for entry in manifest.get("entries") or []),
             "secrets": bool((manifest.get("secrets") or {}).get("included")),
+            # Incremental: what this snapshot added to the target (chunks already there are reused).
+            "new_chunks": int((manifest.get("stats") or {}).get("uploaded_chunks") or 0),
+            "chunks": int((manifest.get("stats") or {}).get("chunks") or 0),
+            "new_bytes": int((manifest.get("stats") or {}).get("bytes_uploaded") or 0),
         })
     return rows
 
@@ -200,7 +205,7 @@ def restore(context: BackupContext, args: argparse.Namespace) -> dict[str, Any]:
         raise SystemExit(
             f"A Ciel session (pid {live}) is still running for {dest['cwd']}. Stop it first, or pass --force."
         )
-    key = backup_key(context.environ, args.key_file)
+    key = backup_key(context.environ, args.key_file or load_settings(context.config_dir).get("key_file") or None)
     safety = None
     if not args.dry_run and not args.no_safety:
         safety_args = argparse.Namespace(**{**vars(args), "cwd": str(dest["cwd"]), "label": f"before restoring {manifest['id']}",
@@ -294,15 +299,16 @@ def _print(context: BackupContext, value: Any, as_json: bool) -> None:
         for row in value:
             context.output(
                 f"{row['id']}  {row.get('created', '')}  {row.get('trigger') or '-':<11} files={row.get('files')} "
-                f"size={_size(int(row.get('bytes') or 0))} secrets={'yes' if row.get('secrets') else 'no'}"
+                f"size={_size(int(row.get('bytes') or 0))} new={_size(int(row.get('new_bytes') or 0))} "
+                f"({row.get('new_chunks', 0)}/{row.get('chunks', 0)} chunks) secrets={'yes' if row.get('secrets') else 'no'}"
                 + (f"  {row['label']}" if row.get("label") else "")
                 + (f"  [{row['workspace']}]" if row.get("workspace") else "")
             )
         return
     for key, item in value.items():
         if key == "stats" and isinstance(item, dict):
-            item = (f"{item['chunks']} chunks ({_size(item['bytes_total'])}), uploaded {item['uploaded_chunks']} "
-                    f"({_size(item['bytes_uploaded'])} compressed)")
+            item = (f"incremental: {item['uploaded_chunks']} of {item['chunks']} chunks new "
+                    f"({_size(item['bytes_uploaded'])} uploaded compressed, {_size(item['bytes_total'])} in the snapshot)")
         elif isinstance(item, (dict, list)):
             item = json.dumps(item, ensure_ascii=False, default=str)
         context.output(f"{key}: {item}")

@@ -1092,10 +1092,26 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                     if value == "back":
                         close_panel()
                         continue
+                    if value == "__info__":
+                        continue
                     from ciel_runtime_support import session_backup_menu
                     from ciel_runtime_support.runtime_paths import CONFIG_DIR
 
-                    messages = session_backup_menu.apply(CONFIG_DIR, Path.cwd(), value)
+                    restore_line_mode()
+                    try:
+                        messages = session_backup_menu.apply(
+                            CONFIG_DIR,
+                            Path.cwd(),
+                            value,
+                            lambda label, default: prompt_menu_value(
+                                label,
+                                default,
+                                restore_tty=restore_line_mode,
+                                raw_tty=restore_raw_mode,
+                            ),
+                        )
+                    finally:
+                        restore_raw_mode()
                     panel_rows, panel_values = session_backup_menu.panel_rows(CONFIG_DIR, Path.cwd())
                     panel_idx = max(0, min(panel_idx, len(panel_rows) - 1))
                 elif panel == "options":

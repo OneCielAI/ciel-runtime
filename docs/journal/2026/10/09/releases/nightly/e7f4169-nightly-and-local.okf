@@ -1,0 +1,14 @@
+okf_version: "1.0"
+task: "Nightly release and local install of the session backup feature and the Codex effort default."
+reported: "User, 2026-10-09: '로컬 나이트리 배포'."
+commits:
+  - "c34a4a7 feat: session backup/restore and a medium default for unset Codex effort (pushed to nightly)."
+  - "e7f4169 test(codex-runtime): keep launch tests off the runner's real ~/.codex."
+ci:
+  first: "c34a4a7: CI test (runtime) failed and 'Publish to npm' failed in npm test - 4 tests in tests/test_codex_runtime.py got an extra -c model_reasoning_effort=\"medium\". Locally they passed because they read this PC's real ~/.codex/config.toml (effort high); the CI runner has none. unit/router/channel/quality/python-minimum passed."
+  fix: "CodexRuntimeTests.setUp points CODEX_HOME at a temporary folder, so the launch prepares and reads the same test config. Runtime group OK locally both normally and with an empty USERPROFILE/HOME (an empty-home unit run showed 3 sandbox/isolation-guard failures that CI's unit job did not have on the same code; attributed to the simulated temp home, not investigated further)."
+  second: "e7f4169: CI success, Publish to npm success -> @one-ciel-ai/ciel-runtime@nightly = 0.2.51-nightly.20261010-041744.e7f4169."
+local:
+  npm: "npm install -g @one-ciel-ai/ciel-runtime@nightly -> 0.2.51-nightly.20261010-041744.e7f4169."
+  snapshot: "install.ps1 from the npm package, inherited CIEL_RUNTIME_* removed, PREFIX=~/.local, CIEL_RUNTIME_INSTALL_HOME=~/.local/share/ciel-runtime-e7f41698fad6e5b05b00cf9788128d0cca937302. HKCU CIEL_RUNTIME_HOME points there; snapshot has the 9 session_backup modules; ~/.local/bin tool guard equals the package copy; `ciel-runtimectl version` prints the nightly; `ciel-runtime backup schedule` works (defaults, all triggers off)."
+  live: "Router 9611 /health 200. Running sessions were not restarted; they keep their launch-time code until relaunched."

@@ -1,0 +1,22 @@
+okf_version: "1.0"
+task: "Answer 'Ciel-catalog-developer-questions-v2.md' (AAP one-shot sandbox: 'ciel-Opus 5.5' rejected as not in the CielAiRouter catalog) from the source."
+reported: "User, 2026-10-10: answer the questions in C:\\Users\\djlov\\Downloads\\Ciel-catalog-developer-questions-v2.md (owner Bob Ai, PR #3 head 54ec5b5)."
+verified_in_source:
+  generic_fetch: "provider_models.fetch_upstream_model_ids, generic path: every catalog path is tried with timeout 6.0 s (lm_studio 2, ollama 4); any exception is swallowed by `except Exception: continue` with no log line; fetched stays False."
+  fallback_cache: "CielAiRouter policy (providers/cielairouter.py): fallback_models=(ASTRA,), allow_configured_fallback=True, authoritative_upstream_catalog=True, per_key_catalog=True. With fetched False, the allow_configured_fallback branch returns ASTRA + custom + current_model and writes it to the model-list cache."
+  cache_lifetime: "model_registry_repository.read_list_cache: after the TTL (MODEL_CACHE_TTL_SECONDS=300) it returns registry models if any, otherwise it falls through and still returns the stale cached list; for an authoritative provider fetch_upstream_model_ids then returns the cache without fetching. A fallback list therefore stays until force_refresh or a cache-key change (provider, base_url, key hash, custom models, schema 7)."
+  selection: "provider_model_selection.ModelCatalogController.select: an exception from upstream_ids gives 'model list unavailable (…)'; otherwise 'is not in the provider catalog'. Because the generic path never raises, timeout/401/empty response and a truly missing model all end in the same 'not in the provider catalog' message."
+  empty_success: "A successful response whose filtered entries (select_agent_models: tool calling + thinking) are empty sets fetched=True, ids=[] and caches [] as authoritative - also reported as 'not in the provider catalog'."
+  headless_order: "cli_dispatch handles --ca-* options in argv order. --ca-api-key-env stores the env value as the current provider's key (so --ca-provider must come first, as in Job11); --ca-base-url then --ca-model runs the selection fetch with that key and base URL. The cache key includes base_url and the key's sha256 prefix, so a key or base-URL change never reuses another key's list."
+  unchanged_since_job11: "git log 59358c3..e7f4169 has no change to provider_models.py, provider_model_selection.py, providers/cielairouter.py, provider_model_metadata_context.py, model_registry_repository.py: the current nightly behaves the same."
+pr3_review:
+  direction: "Accept the direction: a failed lookup of an authoritative catalog must not be cached as the catalog."
+  requested_changes:
+    - "fetch_upstream_model_ids now raises for authoritative providers; callers besides select/ensure_selected must handle it: configuration_cli.models_command (--ca-models; uncaught today) and the router model listing (provider_model_selection list_objects / list_model_objects_for_request) - router behaviour on raise not verified in this review."
+    - "Log the failure (router_log WARN): provider, path, exception class, HTTP status, elapsed ms, auth header present (bool), key fingerprint (sha256[:12]); never URL query, headers or key."
+    - "Existing persistent homes may already hold a fallback-only cache that never expires (see cache_lifetime): bump the cache_key schema (7 -> 8) or skip caches written by the fallback branch."
+    - "Catalog GET timeout is the generic 6 s while CielAiRouter's readiness probe uses 10 s; the reporter measured 3.7 s and one 6.03 s timeout from the API container. A per-provider catalog timeout (policy field) would close that gap."
+not_verified:
+  - "What Job11's catalog request actually got (timeout, 401, empty or success without the model): no packet or log was kept, and Ciel logs nothing on that path."
+  - "Router /v1/models behaviour when the fetch raises."
+changes: "None (answer only)."
