@@ -57,7 +57,7 @@ class ProviderModelMetadataContext:
             "account_id": pcfg.get("account_id", ""),
             "api": api_state,
             "custom": pcfg.get("custom_models", []),
-            "schema": 7,
+            "schema": 8,
         }
         adapter = self.headers.configured_adapter(provider, pcfg)
         contract = self.headers.contract_config(provider, pcfg)

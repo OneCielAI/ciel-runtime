@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
+from .provider_models import CatalogUnavailableError
+
 
 RuntimeConfig = dict[str, Any]
 ProviderConfig = dict[str, Any]
@@ -199,7 +201,11 @@ class ConfigurationCliController:
         if provider_override:
             provider = self.provider.normalize_provider(provider_override)
             provider_config = config["providers"][provider]
-        models = self.model.upstream_ids(provider, provider_config)
+        try:
+            models = self.model.upstream_ids(provider, provider_config)
+        except CatalogUnavailableError as exc:
+            self.io.output(str(exc))
+            raise SystemExit(2) from None
         self.io.output(f"{provider}: {len(models)} models")
         for model_id in models:
             self.io.output(
