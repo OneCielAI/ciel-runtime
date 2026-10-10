@@ -166,9 +166,28 @@ class RouterShortcutController:
         self.response.write_anthropic(handler, model, "\n".join(lines), stream)
         return True
 
+    def handle_provider_fallback(self, handler: ShortcutHandler, body: dict[str, Any]) -> bool:
+        """/fallback: show or switch the provider fallback without leaving Claude Code."""
+
+        from ciel_runtime_support.provider_failover import fallback_command, fallback_command_arguments
+
+        arguments = fallback_command_arguments(body)
+        if arguments is None:
+            return False
+        lines = fallback_command(self.response.load_config(), arguments)
+        self.response.publish_event(
+            level="info", category="router.fallback", message="provider fallback command", data={"arguments": arguments}
+        )
+        model, stream = self._model_and_stream(body)
+        self.response.write_anthropic(handler, model, "\n".join(lines), stream)
+        return True
+
     def handle_live_api_keys(
         self, handler: ShortcutHandler, body: dict[str, Any]
     ) -> bool:
+        # /fallback shares this local-command hook (no extra wiring in the root module).
+        if self.handle_provider_fallback(handler, body):
+            return True
         if not self.predicates.live_api_keys(body):
             return False
         value = self.live.api_key_value(body)

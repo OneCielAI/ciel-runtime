@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from .agent_router import COMMON_RUNTIME_ROUTER_CAPABILITIES, RouterCapability
+from .provider_failover import FailoverRequested, failover_service, maybe_fail_over
 from .oauth_routing import anthropic_request_run, open_with_oauth
 from .protocols.openai_responses import strip_openai_responses_reasoning_envelopes
 from .remote_bridge import is_remote_bridge_request
@@ -517,11 +518,15 @@ def handle_claude_messages_post(
                 err = e.read()
             if e.code == 429:
                 register_api_key_cooldown(provider, pcfg, key_from_request_headers(headers), e.headers)
+                failover_service(router_log, event_bus.publish)
+                maybe_fail_over(self, provider, status=e.code, headers=e.headers, reason=err)
             event_bus.publish(level="error", category="upstream.error", message=f"upstream HTTP {e.code}", request_id=request_id, provider=provider, model=upstream_model, data={"status": e.code})
             self.send_response(e.code)
             self.send_header("content-type", e.headers.get("content-type", "application/json"))
             self.end_headers()
             self.wfile.write(err)
+    except FailoverRequested:
+        raise
     except Exception as exc:
         if is_client_disconnect_error(exc):
             if local_request:

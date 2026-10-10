@@ -1,0 +1,38 @@
+
+ ▐▛███▛█   Claude Code v2.1.296
+▝▜██████▀  ciel-runtime-vllm-stub-a-model with xhigh effort · API Usage Billing
+ ▝▝   ▝▝   ~\AppData\Local\Temp\claude\C--Users-djlov-ciel-runtime\839a1c11-9672-467c-bcda-8f929bddb4f3\scratchpad\e2e-failover\fa…
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  ⚠ claude.ai connectors are disabled because ANTHROPIC_API_KEY or another auth source is set and takes precedence over your claude.…
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ Try "how does <filepath> work?"
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  [ciel-runtime-vllm-stub-a-model] ws
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · ← 2 agents

@@ -199,12 +199,21 @@ def _runtime_session_restart_requested(
     *,
     transport: str,
     pid: int,
+    busy: Callable[[], bool] | None = None,
+    notify: Callable[[str], Any] | None = None,
 ) -> bool:
-    """Whether a router-side restart request wants this CLI child replaced."""
+    """Whether a router-side restart request wants this CLI child replaced.
+
+    With the session's own restart control, a request waits for the running
+    turn (``busy``) and the console shows a notice while it waits.
+    """
 
     if restart_poll is None:
         return False
-    request = restart_poll()
+    if restart_state is not None and restart_poll == getattr(restart_state, "incoming", None):
+        request = restart_state.incoming(busy=busy, notify=notify)
+    else:
+        request = restart_poll()
     if request is None:
         return False
     if restart_state is not None:
@@ -392,6 +401,8 @@ def run_windows_channel_terminal_proxy(
                 restart_state,
                 transport="conpty" if conpty is not None else "console-input",
                 pid=proc.pid,
+                busy=polling.input_busy,
+                notify=lambda notice: _display_windows_runtime_interaction(writer, notice),
             ):
                 process.terminate_child(proc, "cli session restart")
                 console.sleep(0.05)
@@ -609,6 +620,8 @@ def run_posix_channel_terminal_proxy(
                 restart_state,
                 transport="pty",
                 pid=proc.pid,
+                busy=polling.input_busy,
+                notify=lambda notice: terminal.write_all(stdout_fd, _runtime_interaction_bytes(notice)),
             ):
                 process.terminate_child(proc, "cli session restart")
                 continue

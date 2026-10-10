@@ -308,12 +308,55 @@ class RuntimeSessionRestartRepository:
         return request
 
 
+RUNTIME_SESSION_RESTART_TURN_WAIT_ENV = "CIEL_RUNTIME_SESSION_RESTART_TURN_WAIT_SECONDS"
+DEFAULT_RUNTIME_SESSION_RESTART_TURN_WAIT_SECONDS = 900.0
+# How often a deferred restart re-reads the turn state (a transcript tail or
+# the app-server thread state) while the transports poll every ~50 ms.
+RESTART_BUSY_RECHECK_SECONDS = 0.5
+
+
+def restart_turn_wait_seconds() -> float:
+    """Longest a restart waits for the running turn before it goes ahead."""
+
+    try:
+        value = float(os.environ.get(RUNTIME_SESSION_RESTART_TURN_WAIT_ENV) or DEFAULT_RUNTIME_SESSION_RESTART_TURN_WAIT_SECONDS)
+    except (TypeError, ValueError):
+        value = DEFAULT_RUNTIME_SESSION_RESTART_TURN_WAIT_SECONDS
+    return max(0.0, value)
+
+
+def restart_waiting_notice(request: "RuntimeSessionRestartRequest") -> str:
+    return (
+        "[ciel-runtime] 세션 재시작 요청을 받았습니다 — 진행 중인 turn이 끝나면 재시작합니다 "
+        f"(source={request.source or '-'}, reason={request.reason or '-'})"
+    )
+
+
+def restart_starting_notice(request: "RuntimeSessionRestartRequest") -> str:
+    return (
+        "[ciel-runtime] 세션을 재시작합니다 — MCP를 다시 만들고 같은 대화로 이어집니다 "
+        f"(source={request.source or '-'}, reason={request.reason or '-'})"
+    )
+
+
 @dataclass(slots=True)
 class RuntimeSessionRestartControl:
-    """Process-local record of a restart performed by the CLI transport."""
+    """Process-local record of a restart performed by the CLI transport.
+
+    A claimed request waits while ``busy`` (or the transport's own turn
+    signal) reports a running turn, up to ``restart_turn_wait_seconds``; the
+    transports then stop the CLI.  Without any turn signal the restart is
+    immediate, as before.
+    """
 
     poll: Callable[[], RuntimeSessionRestartRequest | None]
     request: RuntimeSessionRestartRequest | None = None
+    busy: Callable[[], bool] | None = None
+    clock: Callable[[], float] = time.monotonic
+    deferred: RuntimeSessionRestartRequest | None = None
+    deferred_at: float = 0.0
+    busy_checked_at: float = 0.0
+    busy_seen: bool = False
 
     @property
     def requested(self) -> bool:
@@ -324,19 +367,59 @@ class RuntimeSessionRestartControl:
 
     def reset(self) -> None:
         self.request = None
+        self.deferred = None
 
-    def incoming(self) -> RuntimeSessionRestartRequest | None:
+    def incoming(
+        self,
+        busy: Callable[[], bool] | None = None,
+        notify: Callable[[str], Any] | None = None,
+    ) -> RuntimeSessionRestartRequest | None:
         """Poll for a new request while the CLI child runs.
 
         The returned request is remembered, so the transports keep polling
-        only until the first request arrives and relaunch exactly once.
+        only until the first request arrives and relaunch exactly once.  The
+        request is claimed at once (its file has a short TTL) and held here
+        until the turn ends.
         """
 
         if self.request is not None:
             return None
-        request = self.poll()
-        if request is not None:
-            self.request = request
+        turn_running = self.busy or busy
+        now = self.clock()
+        if self.deferred is None:
+            request = self.poll()
+            if request is None:
+                return None
+            if turn_running is None or not self._busy(turn_running, now, fresh=True):
+                return self._release(request, notify)
+            self.deferred, self.deferred_at = request, now
+            if notify is not None:
+                notify(restart_waiting_notice(request))
+            return None
+        if self._busy(turn_running, now) and now - self.deferred_at < restart_turn_wait_seconds():
+            return None
+        request, self.deferred = self.deferred, None
+        return self._release(request, notify)
+
+    def _busy(self, turn_running: Callable[[], bool] | None, now: float, *, fresh: bool = False) -> bool:
+        if turn_running is None:
+            return False
+        if fresh or now - self.busy_checked_at >= RESTART_BUSY_RECHECK_SECONDS:
+            self.busy_checked_at = now
+            try:
+                self.busy_seen = bool(turn_running())
+            except Exception:
+                self.busy_seen = False
+        return self.busy_seen
+
+    def _release(
+        self,
+        request: RuntimeSessionRestartRequest,
+        notify: Callable[[str], Any] | None,
+    ) -> RuntimeSessionRestartRequest:
+        self.request = request
+        if notify is not None:
+            notify(restart_starting_notice(request))
         return request
 
 
@@ -746,11 +829,13 @@ class _NullLock:
 
 __all__ = [
     "DEFAULT_RUNTIME_SESSION_RESTART_TTL_SECONDS",
+    "DEFAULT_RUNTIME_SESSION_RESTART_TURN_WAIT_SECONDS",
     "RESTART_CLIENTS_DIR_NAME",
     "RESTART_REQUEST_FILE_NAME",
     "RESUME_COMMANDS",
     "RUNTIME_SESSION_RESTART_ENV_TTL",
     "RUNTIME_SESSION_RESTART_SCHEMA",
+    "RUNTIME_SESSION_RESTART_TURN_WAIT_ENV",
     "SESSION_CONTROL_FLAGS",
     "RuntimeSessionRestartControl",
     "RuntimeSessionRestartRepository",
@@ -762,6 +847,9 @@ __all__ = [
     "local_runtime_session_restart",
     "queue_session_restart",
     "restart_notice_body",
+    "restart_starting_notice",
+    "restart_turn_wait_seconds",
+    "restart_waiting_notice",
     "runtime_resume_command",
     "runtime_session_control_present",
     "runtime_uses_resume_commands",

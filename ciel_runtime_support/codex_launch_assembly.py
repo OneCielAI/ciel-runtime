@@ -195,10 +195,16 @@ class CodexLaunchAssembly:
                 native_codex_enabled=self.routing.native_enabled,
                 run_with_router_lifetime=self.routing.run_with_router_lifetime,
                 start_router_if_needed=self.routing.start_router,
+                router_log=self.routing.log,
             ),
             channel=runtime_launch.CodexAppServerChannel(
                 channel_delivery_mode=self.channel.delivery_mode,
                 codex_mcp_native_http_compat_args=self.channel.native_http_args,
+            ),
+            restart=(
+                runtime_launch.SessionRestartPorts(self.restart.control, self.restart.notice)
+                if self.restart is not None
+                else runtime_launch.SessionRestartPorts()
             ),
         )
 

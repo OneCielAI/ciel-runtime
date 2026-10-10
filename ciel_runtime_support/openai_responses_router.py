@@ -9,6 +9,7 @@ from typing import Any, Callable
 
 from .context_compaction import AutomaticContextCompactionCompleted
 from .remote_bridge import REMOTE_BRIDGE_CONFIG_MARKER, is_remote_bridge_request
+from .provider_failover import FailoverRequested, maybe_fail_over
 from .upstream_error_policy import (
     UpstreamFailure,
     UpstreamStreamReadError,
@@ -254,6 +255,7 @@ def handle_openai_responses_request(
         )
     except urllib.error.HTTPError as exc:
         raw = exc.read().decode("utf-8", errors="ignore")
+        maybe_fail_over(handler, provider, status=exc.code, headers=exc.headers, reason=raw)
         delivery.mark_failed(handler, f"responses_http_error:{exc.code}")
         output.write_error(
             handler,
@@ -267,6 +269,9 @@ def handle_openai_responses_request(
         # The upstream status, type and message were all read before this was
         # raised.  Answering with a generic local 500 is what made a rejected
         # request look like a provider fault to Codex.
+        if not exc.output_started:
+            maybe_fail_over(handler, provider, status=exc.status_code, reason=exc.message,
+                            rate_limited=exc.category == "rate_limit")
         delivery.mark_failed(handler, f"responses_upstream_failure:{exc.category}")
         output.write_error(
             handler,
@@ -302,6 +307,8 @@ def handle_openai_responses_request(
             status=exc.status_code,
             error_type="api_error",
         )
+    except FailoverRequested:
+        raise
     except Exception as exc:
         if core.is_client_disconnect(exc):
             delivery.mark_failed(handler, f"responses_client_disconnected:{type(exc).__name__}")
@@ -386,6 +393,7 @@ def _handle_codex_route(
         routing.forward_codex(handler, provider, pcfg, body)
     except urllib.error.HTTPError as exc:
         raw = exc.read().decode("utf-8", errors="ignore")
+        maybe_fail_over(handler, provider, status=exc.code, headers=exc.headers, reason=raw)
         delivery.mark_failed(handler, f"codex_responses_http_error:{exc.code}")
         message = output.upstream_error_message(exc, raw)
         if exc.code in (401, 403):
@@ -398,6 +406,9 @@ def _handle_codex_route(
             error_type=_responses_error_type(exc.code),
         )
     except UpstreamFailure as exc:
+        if not exc.output_started:
+            maybe_fail_over(handler, provider, status=exc.status_code, reason=exc.message,
+                            rate_limited=exc.category == "rate_limit")
         delivery.mark_failed(handler, f"codex_responses_upstream_failure:{exc.category}")
         output.write_error(
             handler,
@@ -406,6 +417,8 @@ def _handle_codex_route(
             status=exc.status_code,
             error_type=exc.anthropic_error_type,
         )
+    except FailoverRequested:
+        raise
     except Exception as exc:
         if core.is_client_disconnect(exc):
             delivery.mark_failed(handler, f"codex_responses_client_disconnected:{type(exc).__name__}")
@@ -459,6 +472,7 @@ def _handle_provider_responses_route(
         )
     except urllib.error.HTTPError as exc:
         raw = exc.read().decode("utf-8", errors="ignore")
+        maybe_fail_over(handler, provider, status=exc.code, headers=exc.headers, reason=raw)
         delivery.mark_failed(
             handler,
             f"provider_responses_http_error:{exc.code}",
@@ -472,6 +486,9 @@ def _handle_provider_responses_route(
             **({"upstream_provider": provider} if exc.code == 401 else {}),
         )
     except UpstreamFailure as exc:
+        if not exc.output_started:
+            maybe_fail_over(handler, provider, status=exc.status_code, reason=exc.message,
+                            rate_limited=exc.category == "rate_limit")
         delivery.mark_failed(
             handler, f"provider_responses_upstream_failure:{exc.category}"
         )
@@ -510,6 +527,8 @@ def _handle_provider_responses_route(
             response_started=exc.downstream_started,
             response_id=exc.response_id,
         )
+    except FailoverRequested:
+        raise
     except Exception as exc:
         if core.is_client_disconnect(exc):
             delivery.mark_failed(

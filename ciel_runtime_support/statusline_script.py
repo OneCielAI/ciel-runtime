@@ -438,6 +438,21 @@ def main():
     providers = cfg.get("providers") if isinstance(cfg.get("providers"), dict) else {}
     provider = str(cfg.get("current_provider") or "")
     pcfg = providers.get(provider) if isinstance(providers.get(provider), dict) else {}
+    # Provider fallback: the backup serving this workspace's requests is what the
+    # rest of the line (limits, context) describes, and the line says so.
+    failover_text = ""
+    failover = load_json(WORKSPACE_STATE_DIR / "provider-failover.json", {})
+    active = failover.get("active") if isinstance(failover, dict) else None
+    if isinstance(active, dict) and active.get("from") == provider and isinstance(active.get("to"), dict):
+        backup = str(active["to"].get("provider") or "")
+        if isinstance(providers.get(backup), dict):
+            until = time.strftime("%H:%M", time.localtime(float(active.get("until") or 0)))
+            # ASCII only: the status line's stdout may be a legacy code page (cp1252).
+            failover_text = f"fallback {backup}/{active['to'].get('model') or ''} until {until} ({provider} {active.get('trigger') or ''})"
+            provider = backup
+            pcfg = dict(providers[backup])
+            if active["to"].get("model"):
+                pcfg["current_model"] = active["to"]["model"]
     router_debug_external = bool(cfg.get("router_debug_external_access", False))
     rpm_status = bool(pcfg.get("rate_limit_status", False))
     migrations = cfg.get("migrations") if isinstance(cfg.get("migrations"), dict) else {}
@@ -505,6 +520,8 @@ def main():
     if dir_name:
         left += f" {dir_name}"
     status_parts = []
+    if failover_text:
+        status_parts.append(color(failover_text))
     expected_ctx_limit = status_config_context_limit(provider, pcfg)
     router_ctx_text = context_status_text(context, provider, model, expected_ctx_limit)
     session_ctx_text = session_context_status_text(session, expected_ctx_limit)

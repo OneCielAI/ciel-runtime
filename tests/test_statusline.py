@@ -55,6 +55,27 @@ class StatuslineTests(unittest.TestCase):
             )
             return proc.stdout.strip()
 
+    def test_statusline_shows_an_active_provider_fallback_on_a_legacy_code_page(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            script = Path(tmp) / "statusline.py"
+            script.write_text(ciel_runtime.STATUSLINE_SCRIPT, encoding="utf-8")
+            (Path(tmp) / "config.json").write_text(json.dumps({
+                "current_provider": "vllm",
+                "providers": {"vllm": {"current_model": "a"}, "lm-studio": {"current_model": "b", "context_window": 1000}},
+            }), encoding="utf-8")
+            (Path(tmp) / "provider-failover.json").write_text(json.dumps({"active": {
+                "from": "vllm", "to": {"provider": "lm-studio", "model": "b"}, "trigger": "auto", "until": time.time() + 600,
+            }}), encoding="utf-8")
+            env = statusline_probe_env()
+            env.update({"CIEL_RUNTIME_CONFIG_DIR": tmp, "CIEL_RUNTIME_STATUSLINE_ANSI": "0", "PYTHONIOENCODING": "cp1252"})
+            proc = subprocess.run(
+                [sys.executable, str(script)],
+                input=json.dumps({"model": {"display_name": "ciel-runtime-vllm-a"}, "workspace": {"current_dir": tmp}}),
+                text=True, capture_output=True, env=env, check=True,
+            )
+        self.assertIn("fallback lm-studio/b until", proc.stdout)
+        self.assertIn("(vllm auto)", proc.stdout)
+
     def test_statusline_is_silent_for_native_claude_session(self):
         self.assertEqual("", self.run_statusline())
 

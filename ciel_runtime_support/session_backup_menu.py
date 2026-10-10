@@ -11,11 +11,13 @@ from __future__ import annotations
 import json
 import os
 import secrets
+import shutil
 import subprocess
 import sys
+import textwrap
 import time
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Mapping
 
 from ciel_runtime_support.session_backup_service import (
     SCRIPT,
@@ -116,12 +118,14 @@ def panel_rows(config_dir: Path, cwd: Path) -> tuple[list[str], list[str]]:
         f"Before a restart  [{_onoff(schedule['before_restart'])}]",
         f"When the session ends  [{_onoff(schedule['on_session_end'])}]",
         f"Include work folder files  [{_onoff(schedule['include_files'])}]",
+        f"Exclude from the work folder…  [{', '.join(_excludes(settings, cwd)) or 'defaults only'}]",
+        f"Largest single file to back up  [{schedule.get('max_file_mb', 1024):g} MB]",
         f"Keep snapshots  [last {schedule['keep_last']} + {schedule['keep_daily']} daily]",
         f"Backup key for credentials  [{_key_status(settings)}]",
         "Back",
     ]
     values += ["target-add", "__info__", "toggle-enabled", "interval", "toggle-turn", "min-interval", "toggle-restart",
-               "toggle-end", "toggle-files", "keep", "key", "back"]
+               "toggle-end", "toggle-files", "excludes", "max-file", "keep", "key", "back"]
     return rows, values
 
 
@@ -292,17 +296,118 @@ def _number(prompt: Prompt, label: str, current: int) -> int | None:
     return value if value >= 0 else None
 
 
-def apply(config_dir: Path, cwd: Path, value: str, prompt: Prompt | None = None) -> list[str]:
-    prompt = prompt or (lambda _label, default: default)
+def _excludes(settings: Mapping[str, Any], cwd: Path) -> list[str]:
+    from ciel_runtime_support.workspace_router_selection import workspace_digest
+
+    return list((settings.get("excludes") or {}).get(workspace_digest(cwd)) or [])
+
+
+def _cancel_requested() -> bool:
+    """Esc (or q) pressed while a backup runs."""
+
+    try:
+        if os.name == "nt":
+            import msvcrt
+
+            while msvcrt.kbhit():
+                if msvcrt.getwch() in ("\x1b", "q", "Q"):
+                    return True
+            return False
+        import select
+
+        ready, _, _ = select.select([sys.stdin], [], [], 0)
+        return bool(ready) and sys.stdin.readline().strip().lower() in ("", "q", "esc")
+    except Exception:  # noqa: BLE001 - no console: no cancel key
+        return False
+
+
+def _progress_line(state: Mapping[str, Any], elapsed: float) -> str:
+    if not state:
+        return f"Starting the backup ({elapsed:.0f} s)  Esc cancels"
+    if state.get("phase") == "measuring":
+        return (f"Measuring the work folder: {state.get('files', 0)} files, {_mb(state.get('measured'))} so far "
+                f"({elapsed:.0f} s)  Esc cancels")
+    return (f"Backing up: {state.get('files', 0)} files, {_mb(state.get('read'))} read, {_mb(state.get('uploaded'))} stored "
+            f"({elapsed:.0f} s)  Esc cancels")
+
+
+def _backup_now(config_dir: Path, cwd: Path, output: Callable[[str], None]) -> list[str]:
+    # One line, rewritten in place: never wider than the console, or it wraps into new lines.
+    width = max(40, shutil.get_terminal_size((100, 30)).columns - 2)
+
+    def show(state: dict[str, Any], elapsed: float) -> bool:
+        output("\r" + _progress_line(state, elapsed)[:width].ljust(width))
+        return not _cancel_requested()
+
+    output("\n")
+    result = run_backup(config_dir, cwd, "menu", on_progress=show)
+    output("\n")
+    if result.get("ok"):
+        lines = [f"Saved snapshot {result.get('id')} to {', '.join(result.get('targets') or [])}.",
+                 _incremental(result.get("stats")) + ".",
+                 f"Credentials: {result.get('secrets')}"]
+        missing = int(result.get("not_backed_up_count") or 0)
+        if missing:
+            lines.append(f"Not in this backup: {missing} file(s) (file limit or unreadable), e.g.:")
+            lines += [f"  {item[:110]}" for item in (result.get("not_backed_up") or [])[:3]]
+        return lines
+    reason = result.get("skipped") or str(result.get("output") or "").strip() or "no reason was reported"
+    # The panel cuts long lines: the reason is wrapped so the numbers stay visible.
+    return textwrap.wrap(f"Backup not saved: {reason[:600]}", width=100) or ["Backup not saved."]
+
+
+def _edit_excludes(config_dir: Path, cwd: Path, prompt: Prompt, output: Callable[[str], None]) -> list[str]:
+    from ciel_runtime_support.session_backup_collect import DEFAULT_CWD_EXCLUDES, measure_tree
+    from ciel_runtime_support.workspace_router_selection import workspace_digest
+
+    settings = load_settings(config_dir)
+    current = _excludes(settings, cwd)
+    output(f"\nMeasuring {cwd} (up to 20 s)...\n")
+    total, files, top, complete = measure_tree(cwd, (*DEFAULT_CWD_EXCLUDES, *current), deadline=time.monotonic() + 20)
+    note = "" if complete else " (counting stopped at 20 s; at least this much)"
+    output(f"Work folder as a backup reads it: {_mb(total)} in {files} files{note}\n")
+    for name, size in sorted(top.items(), key=lambda item: -item[1])[:12]:
+        output(f"  {_mb(size):>12}  {name}\n")
+    output(f"Always left out: {', '.join(DEFAULT_CWD_EXCLUDES)}\n")
+    answer = prompt("Folder or file names to leave out, comma-separated ('-name' puts one back; blank keeps the list)",
+                    ", ".join(current)).strip()
+    patterns = list(current)
+    for item in (part.strip() for part in answer.split(",")):
+        if not item:
+            continue
+        if item.startswith("-"):
+            patterns = [entry for entry in patterns if entry != item[1:]]
+        elif item not in patterns:
+            patterns.append(item)
+    settings.setdefault("excludes", {})[workspace_digest(cwd)] = patterns
+    save_settings(config_dir, settings)
+    return [f"Left out of this work folder's backups: {', '.join(patterns) or 'nothing beyond the defaults'}."]
+
+
+def apply(config_dir: Path, cwd: Path, value: str, prompt: Prompt | None = None,
+          output: Callable[[str], None] | None = None) -> list[str]:
+    """Run one panel action; a failure becomes a message instead of closing the menu."""
+
+    try:
+        return _apply(config_dir, cwd, value, prompt or (lambda _label, default: default), output or _write)
+    except Exception as error:  # noqa: BLE001 - the menu stays open with the reason
+        return [f"Session backup {value} failed: {type(error).__name__}: {str(error)[:300]}"]
+
+
+def _write(text: str) -> None:
+    import sys
+
+    sys.stdout.write(text)
+    sys.stdout.flush()
+
+
+def _apply(config_dir: Path, cwd: Path, value: str, prompt: Prompt, output: Callable[[str], None]) -> list[str]:
     settings = load_settings(config_dir)
     schedule = settings["schedule"]
     if value == "now":
-        result = run_backup(config_dir, cwd, "menu")
-        if result.get("ok"):
-            return [f"Saved snapshot {result.get('id')} to {', '.join(result.get('targets') or [])}.",
-                    _incremental(result.get("stats")) + ".",
-                    f"Credentials: {result.get('secrets')}"]
-        return [f"Backup not saved: {result.get('skipped') or str(result.get('output') or '')[:300]}"]
+        return _backup_now(config_dir, cwd, output)
+    if value == "excludes":
+        return _edit_excludes(config_dir, cwd, prompt, output)
     if value == "list":
         return _list(settings, cwd, prompt)[2]
     if value == "restore":
@@ -358,6 +463,12 @@ def apply(config_dir: Path, cwd: Path, value: str, prompt: Prompt | None = None)
             return ["Enter a whole number of minutes (0 or more)."]
         schedule["min_interval_minutes"] = number
         message = f"Turn-end backups at most every {number} minutes."
+    elif value == "max-file":
+        number = _number(prompt, "Largest single work-folder file to back up, in MB", int(schedule.get("max_file_mb", 1024)))
+        if not number:
+            return ["Enter a whole number of MB greater than 0."]
+        schedule["max_file_mb"] = number
+        message = f"Work-folder files over {number} MB are left out (and listed after each backup)."
     elif value == "keep":
         last = _number(prompt, "Keep the newest N snapshots", int(schedule["keep_last"]))
         daily = _number(prompt, "Also keep the newest snapshot of the last N days", int(schedule["keep_daily"]))

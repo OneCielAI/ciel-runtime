@@ -78,11 +78,23 @@ class Fixture:
                              cwd=lambda: self.cwd, output=outputs.append)
 
 
+def plenty_of_space(test: unittest.TestCase) -> None:
+    """The backup's free-space check must not depend on the test machine's disk."""
+
+    from unittest import mock
+
+    patcher = mock.patch("ciel_runtime_support.session_backup_cli.shutil.disk_usage",
+                         return_value=mock.Mock(free=1024 ** 4))
+    patcher.start()
+    test.addCleanup(patcher.stop)
+
+
 class SessionBackupTests(unittest.TestCase):
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
         self.fx = Fixture(Path(self._tmp.name))
         self.target = LocalTarget(self.fx.backups, "local")
+        plenty_of_space(self)
 
     def tearDown(self):
         self._tmp.cleanup()
@@ -380,23 +392,66 @@ class BackupTriggerTests(unittest.TestCase):
             tui_observation.TURN_ENDED_LISTENERS.remove(seen.append)
         self.assertEqual(1, len(seen))
 
-    def test_run_backup_takes_one_lock_per_workspace(self):
-        import subprocess as sp
+    def fake_popen(self, calls, stdout="", returncode=0, polls=1):
+        class Process:
+            def __init__(self, command, **kwargs):
+                calls.append(command)
+                self.returncode = None
+                self._polls = polls
+                self.killed = False
 
+            def poll(self):
+                if self.killed or self._polls <= 0:
+                    self.returncode = -9 if self.killed else returncode
+                    return self.returncode
+                self._polls -= 1
+                return None
+
+            def kill(self):
+                self.killed = True
+
+            def communicate(self):
+                self.poll()
+                return ("" if self.killed else stdout), ""
+
+        return Process
+
+    def test_run_backup_takes_one_lock_per_workspace(self):
         from ciel_runtime_support.session_backup_service import _acquire, run_backup, workspace_state
 
         calls = []
-
-        def runner(command, **kwargs):
-            calls.append(command)
-            return sp.CompletedProcess(command, 0, json.dumps({"id": "snap-1", "targets": ["local"]}), "")
-
-        self.assertEqual("snap-1", run_backup(self.config, self.cwd, "mcp", runner=runner)["id"])
+        popen = self.fake_popen(calls, json.dumps({"id": "snap-1", "targets": ["local"]}))
+        self.assertEqual("snap-1", run_backup(self.config, self.cwd, "mcp", popen=popen, poll_seconds=0)["id"])
         self.assertIn("--prune", calls[0])
+        self.assertIn("--progress-file", calls[0])
         self.assertEqual("snap-1", workspace_state(self.config, self.cwd)["last_id"])
         self.assertTrue(_acquire(self.config, self.cwd))
-        self.assertIn("skipped", run_backup(self.config, self.cwd, "mcp", runner=runner))
+        self.assertIn("skipped", run_backup(self.config, self.cwd, "mcp", popen=popen, poll_seconds=0))
         self.assertEqual(1, len(calls))
+
+    def test_progress_callback_can_cancel_and_the_reason_is_kept(self):
+        from ciel_runtime_support.session_backup_service import run_backup, workspace_state
+
+        calls, seen = [], []
+        popen = self.fake_popen(calls, polls=50)
+        result = run_backup(self.config, self.cwd, "menu", popen=popen, poll_seconds=0,
+                            on_progress=lambda state, elapsed: seen.append(state) or len(seen) < 3)
+        self.assertFalse(result["ok"])
+        self.assertEqual("cancelled", result["output"])
+        self.assertEqual("cancelled", workspace_state(self.config, self.cwd)["last_error"])
+        self.assertFalse(workspace_state(self.config, self.cwd)["running"])
+
+    def test_failure_without_output_still_has_a_reason(self):
+        from ciel_runtime_support.session_backup_service import run_backup
+
+        result = run_backup(self.config, self.cwd, "menu", popen=self.fake_popen([], "", returncode=3), poll_seconds=0)
+        self.assertEqual("exited with code 3", result["output"])
+
+    def test_error_reported_as_json_by_the_child_is_the_reason(self):
+        from ciel_runtime_support.session_backup_service import run_backup
+
+        popen = self.fake_popen([], json.dumps({"error": "not enough space on target andy"}), returncode=1)
+        self.assertIn("not enough space", run_backup(self.config, self.cwd, "menu", popen=popen, poll_seconds=0)["output"])
 
     def test_after_cli_exit_only_when_enabled(self):
         from unittest import mock
@@ -550,6 +605,73 @@ class RemapPathFormTests(unittest.TestCase):
             db.close()
             self.assertEqual("\\\\?\\" + new_cwd, cwd)
             self.assertEqual(str(base / "codex-b" / "r.jsonl"), rollout)
+
+
+class BackupSafetyTests(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.fx = Fixture(Path(self._tmp.name))
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def test_a_full_target_stops_the_backup_instead_of_skipping_every_file(self):
+        from ciel_runtime_support.session_backup_store import TargetWriteError
+
+        class FullTarget(LocalTarget):
+            def put(self, key, data):
+                raise OSError(28, "No space left on device")
+
+        with self.assertRaises(TargetWriteError) as raised:
+            create_snapshot(self.fx.roots(), [FullTarget(self.fx.backups, "full")], CollectOptions(), key=None,
+                            versions={}, host="h", user="u")
+        self.assertTrue(raised.exception.no_space)
+        self.assertIn("no space left on the target", str(raised.exception))
+
+    def test_preflight_refuses_a_first_backup_that_cannot_fit(self):
+        from unittest import mock
+
+        from ciel_runtime_support.session_backup_cli import preflight
+
+        (self.fx.cwd / "big").mkdir()
+        (self.fx.cwd / "big" / "blob.bin").write_bytes(b"x" * 4096)
+        target = LocalTarget(self.fx.backups, "andy")
+        usage = mock.Mock(free=300 * 1024 ** 2)
+        with mock.patch("ciel_runtime_support.session_backup_cli.shutil.disk_usage", return_value=usage):
+            self.assertEqual("", preflight(self.fx.cwd, [target], (), (), "w"))
+        usage.free = 100 * 1024 ** 2
+        with mock.patch("ciel_runtime_support.session_backup_cli.shutil.disk_usage", return_value=usage):
+            problem = preflight(self.fx.cwd, [target], (), (), "w")
+        self.assertIn("not enough space on target andy", problem)
+        self.assertIn("big", problem)
+
+    def test_menu_excludes_are_used_by_the_next_backup(self):
+        from ciel_runtime_support import session_backup_menu
+
+        plenty_of_space(self)
+
+        (self.fx.cwd / "huge").mkdir()
+        (self.fx.cwd / "huge" / "data.bin").write_bytes(b"x" * 1000)
+        printed = []
+        messages = session_backup_menu.apply(self.fx.config, self.fx.cwd, "excludes",
+                                             lambda _label, _default: "huge", printed.append)
+        self.assertIn("huge", messages[0])
+        self.assertTrue(any("huge" in line for line in printed), "the folder list is shown before the question")
+        outputs = []
+        context = self.fx.context(outputs)
+        run_backup_command(["create", "--json"], context)
+        created = json.loads(outputs[-1])
+        _, manifest = find_snapshot(LocalTarget(self.fx.config / "backups"), created["id"])
+        self.assertNotIn("huge/data.bin", [entry["path"] for entry in manifest["entries"]])
+
+    def test_menu_errors_become_messages(self):
+        from unittest import mock
+
+        from ciel_runtime_support import session_backup_menu
+
+        with mock.patch.object(session_backup_menu, "_backup_now", side_effect=OSError(28, "No space left on device")):
+            messages = session_backup_menu.apply(self.fx.config, self.fx.cwd, "now", output=lambda _text: None)
+        self.assertIn("No space left on device", messages[0])
 
 
 class PruneTests(unittest.TestCase):

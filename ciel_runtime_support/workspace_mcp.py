@@ -213,6 +213,60 @@ def project_codex_mcp_args(servers: dict[str, dict[str, Any]]) -> list[str]:
     return args
 
 
+def _replace_run(values: list[str], old: list[str], new: list[str]) -> list[str] | None:
+    """``values`` with the first contiguous run of ``old`` replaced, or None."""
+
+    if not old:
+        return None
+    width = len(old)
+    for index in range(len(values) - width + 1):
+        if values[index : index + width] == old:
+            return [*values[:index], *new, *values[index + width :]]
+    return None
+
+
+def renew_launch_command(
+    cmd: list[str],
+    previous: WorkspaceMcpLaunch | None,
+    renewed: WorkspaceMcpLaunch | None,
+) -> list[str]:
+    """The CLI command with one launch's MCP arguments swapped for another's.
+
+    Claude takes the projection as ``--mcp-config <paths...>`` (other configs
+    may share the flag); Codex takes ``-c mcp_servers.*`` overrides, global
+    options placed after the executable (or after ``app-server``).
+    """
+
+    values = [str(item) for item in cmd]
+    old_paths = [str(path) for path in (previous.claude_config_paths if previous else ())]
+    new_paths = [str(path) for path in (renewed.claude_config_paths if renewed else ())]
+    old_args = list(previous.codex_args if previous else ())
+    new_args = list(renewed.codex_args if renewed else ())
+    if old_paths or new_paths:
+        replaced = _replace_run(values, old_paths, new_paths)
+        if replaced is not None:
+            values = replaced
+        elif new_paths:
+            if "--mcp-config" in values:
+                at = values.index("--mcp-config") + 1
+                values[at:at] = new_paths
+            else:
+                at = values.index("--") if "--" in values else len(values)
+                values[at:at] = ["--mcp-config", *new_paths]
+        if "--mcp-config" in values:
+            at = values.index("--mcp-config")
+            if at + 1 >= len(values) or values[at + 1].startswith("-"):
+                del values[at]
+    if old_args or new_args:
+        replaced = _replace_run(values, old_args, new_args)
+        if replaced is not None:
+            values = replaced
+        elif new_args:
+            at = values.index("app-server") + 1 if "app-server" in values else min(1, len(values))
+            values[at:at] = new_args
+    return values
+
+
 @dataclass(frozen=True, slots=True)
 class WorkspaceMcpLaunch:
     launch_id: str = ""
@@ -316,6 +370,37 @@ class WorkspaceMcpLaunchService:
         if not launch.active or launch.directory is None:
             return
         self._remove_launch_dir(launch.directory, "normal_exit")
+
+    def renew(
+        self,
+        launch: WorkspaceMcpLaunch | None,
+        runtime: str,
+        config: dict[str, Any],
+        environment: Mapping[str, str] | None = None,
+        injected_servers: Mapping[str, Any] | None = None,
+        *, native: bool = False,
+    ) -> WorkspaceMcpLaunch | None:
+        """A fresh launch (new id, manifest, projection) for a restarted CLI.
+
+        Called after the CLI exited, so the old launch's servers are gone;
+        it is finished once the new one exists.  If the new one cannot be
+        prepared the old launch is kept and the restart goes on with it.
+        """
+
+        try:
+            renewed = self.prepare(runtime, config, environment, injected_servers, native=native)
+        except Exception as exc:
+            self.ports.log("WARN", f"workspace_mcp_launch_renew_failed runtime={runtime} error={type(exc).__name__}: {exc}")
+            return launch
+        if launch is not None:
+            self.finish(launch)
+        self.ports.log(
+            "INFO",
+            f"workspace_mcp_launch_renewed runtime={runtime} "
+            f"previous={launch.launch_id if launch is not None and launch.launch_id else '-'} "
+            f"launch_id={renewed.launch_id or '-'}",
+        )
+        return renewed
 
     def recover_stale(self) -> None:
         if not self.launches_dir.exists():
@@ -481,6 +566,7 @@ __all__ = [
     "WorkspaceMcpMenuService",
     "project_claude_mcp",
     "project_codex_mcp_args",
+    "renew_launch_command",
     "resolve_mcp_http_headers",
     "workspace_mcp_servers",
 ]

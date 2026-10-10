@@ -1,0 +1,198 @@
+[
+ {
+  "n": 1,
+  "at": 1791657908.6981714,
+  "path": "/v1/chat/completions",
+  "users": 2,
+  "last": "E2E-RT-TURN-1 hello",
+  "history": [
+   "E2E-RT-TURN-1"
+  ],
+  "tools": [
+   "clock__sleep",
+   "collaboration__followup_task",
+   "collaboration__interrupt_agent",
+   "collaboration__list_agents",
+   "collaboration__send_message",
+   "collaboration__spawn_agent",
+   "collaboration__wait_agent",
+   "functions__exec",
+   "functions__request_user_input",
+   "functions__request_user_input_async",
+   "functions__wait"
+  ],
+  "replied_at": 1791657908.6981714
+ },
+ {
+  "n": 2,
+  "at": 1791657908.744737,
+  "path": "/v1/chat/completions",
+  "users": 3,
+  "last": " is complete. Otherwise call the next actual work tool now, using an exact tool name and every required field from the supplied schema. Do not answer with text.",
+  "history": [
+   "E2E-RT-TURN-1"
+  ],
+  "tools": [
+   "ciel_runtime_confirm_completion",
+   "clock__sleep",
+   "collaboration__followup_task",
+   "collaboration__interrupt_agent",
+   "collaboration__list_agents",
+   "collaboration__send_message",
+   "collaboration__spawn_agent",
+   "collaboration__wait_agent",
+   "functions__exec",
+   "functions__request_user_input",
+   "functions__request_user_input_async",
+   "functions__wait"
+  ],
+  "replied_at": 1791657908.744737
+ },
+ {
+  "n": 3,
+  "at": 1791657911.4702117,
+  "path": "/v1/chat/completions",
+  "users": 3,
+  "last": "E2E-RT-SLOWTURN-2 please take your time",
+  "history": [
+   "E2E-RT-SLOWTURN-2"
+  ],
+  "tools": [
+   "clock__sleep",
+   "collaboration__followup_task",
+   "collaboration__interrupt_agent",
+   "collaboration__list_agents",
+   "collaboration__send_message",
+   "collaboration__spawn_agent",
+   "collaboration__wait_agent",
+   "functions__exec",
+   "functions__request_user_input",
+   "functions__request_user_input_async",
+   "functions__wait"
+  ],
+  "replied_at": 1791657936.4713798
+ },
+ {
+  "n": 4,
+  "at": 1791657936.4819212,
+  "path": "/v1/chat/completions",
+  "users": 4,
+  "last": " is complete. Otherwise call the next actual work tool now, using an exact tool name and every required field from the supplied schema. Do not answer with text.",
+  "history": [
+   "E2E-RT-SLOWTURN-2"
+  ],
+  "tools": [
+   "ciel_runtime_confirm_completion",
+   "clock__sleep",
+   "collaboration__followup_task",
+   "collaboration__interrupt_agent",
+   "collaboration__list_agents",
+   "collaboration__send_message",
+   "collaboration__spawn_agent",
+   "collaboration__wait_agent",
+   "functions__exec",
+   "functions__request_user_input",
+   "functions__request_user_input_async",
+   "functions__wait"
+  ],
+  "replied_at": 1791657936.4819212
+ },
+ {
+  "n": 5,
+  "at": 1791657946.5763803,
+  "path": "/v1/chat/completions",
+  "users": 4,
+  "last": "[ciel-runtime] 재부팅 완료 — codex 런타임이 재시작되었고 이 세션은 이어졌습니다 (source=ciel-runtime-router-tool, reason=e2e restart during a turn)",
+  "history": [
+   "재부팅 완료"
+  ],
+  "tools": [
+   "clock__sleep",
+   "collaboration__followup_task",
+   "collaboration__interrupt_agent",
+   "collaboration__list_agents",
+   "collaboration__send_message",
+   "collaboration__spawn_agent",
+   "collaboration__wait_agent",
+   "functions__exec",
+   "functions__request_user_input",
+   "functions__request_user_input_async",
+   "functions__wait"
+  ],
+  "replied_at": 1791657946.5768852
+ },
+ {
+  "n": 6,
+  "at": 1791657946.5859642,
+  "path": "/v1/chat/completions",
+  "users": 5,
+  "last": " is complete. Otherwise call the next actual work tool now, using an exact tool name and every required field from the supplied schema. Do not answer with text.",
+  "history": [
+   "재부팅 완료"
+  ],
+  "tools": [
+   "ciel_runtime_confirm_completion",
+   "clock__sleep",
+   "collaboration__followup_task",
+   "collaboration__interrupt_agent",
+   "collaboration__list_agents",
+   "collaboration__send_message",
+   "collaboration__spawn_agent",
+   "collaboration__wait_agent",
+   "functions__exec",
+   "functions__request_user_input",
+   "functions__request_user_input_async",
+   "functions__wait"
+  ],
+  "replied_at": 1791657946.5869699
+ },
+ {
+  "n": 7,
+  "at": 1791657965.6778543,
+  "path": "/v1/chat/completions",
+  "users": 5,
+  "last": "E2E-RT-TURN-3 after the restart",
+  "history": [
+   "E2E-RT-TURN-3"
+  ],
+  "tools": [
+   "clock__sleep",
+   "collaboration__followup_task",
+   "collaboration__interrupt_agent",
+   "collaboration__list_agents",
+   "collaboration__send_message",
+   "collaboration__spawn_agent",
+   "collaboration__wait_agent",
+   "functions__exec",
+   "functions__request_user_input",
+   "functions__request_user_input_async",
+   "functions__wait"
+  ],
+  "replied_at": 1791657965.67886
+ },
+ {
+  "n": 8,
+  "at": 1791657965.7099905,
+  "path": "/v1/chat/completions",
+  "users": 6,
+  "last": " is complete. Otherwise call the next actual work tool now, using an exact tool name and every required field from the supplied schema. Do not answer with text.",
+  "history": [
+   "E2E-RT-TURN-3"
+  ],
+  "tools": [
+   "ciel_runtime_confirm_completion",
+   "clock__sleep",
+   "collaboration__followup_task",
+   "collaboration__interrupt_agent",
+   "collaboration__list_agents",
+   "collaboration__send_message",
+   "collaboration__spawn_agent",
+   "collaboration__wait_agent",
+   "functions__exec",
+   "functions__request_user_input",
+   "functions__request_user_input_async",
+   "functions__wait"
+  ],
+  "replied_at": 1791657965.7099905
+ }
+]

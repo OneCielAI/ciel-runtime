@@ -1,0 +1,254 @@
+{
+ "/ca/chat/stream": [
+  {
+   "at": 1791657899.4270146,
+   "event": "connected"
+  },
+  {
+   "at": 1791657899.4270146,
+   "line": ": wait"
+  },
+  {
+   "at": 1791657910.925248,
+   "line": "id: 1"
+  },
+  {
+   "at": 1791657910.925248,
+   "line": "event: message"
+  },
+  {
+   "at": 1791657910.925248,
+   "data": "{\"id\":1,\"time\":\"2026-10-10T13:45:10\",\"created_at_epoch\":1791657910.9186444,\"channel\":\"e2e\",\"sender_id\":\"claude-code\",\"recipients\":[\"web\"],\"thread_id\":\"1\",\"parent_id\":null,\"message\":\"E2E-SSE-BEFORE\",\"k"
+  },
+  {
+   "at": 1791657910.925248,
+   "line": ": wait"
+  },
+  {
+   "at": 1791657925.9288325,
+   "line": ": wait"
+  },
+  {
+   "at": 1791657940.9368093,
+   "line": ": wait"
+  },
+  {
+   "at": 1791657955.9480915,
+   "line": ": wait"
+  },
+  {
+   "at": 1791657969.4024823,
+   "line": "id: 2"
+  },
+  {
+   "at": 1791657969.4024823,
+   "line": "event: message"
+  },
+  {
+   "at": 1791657969.4024823,
+   "data": "{\"id\":2,\"time\":\"2026-10-10T13:46:09\",\"created_at_epoch\":1791657969.3959427,\"channel\":\"e2e\",\"sender_id\":\"claude-code\",\"recipients\":[\"web\"],\"thread_id\":\"2\",\"parent_id\":null,\"message\":\"E2E-SSE-AFTER\",\"ki"
+  },
+  {
+   "at": 1791657969.4024823,
+   "line": ": wait"
+  }
+ ],
+ "/ca/events/stream": [
+  {
+   "at": 1791657899.4270146,
+   "event": "connected"
+  },
+  {
+   "at": 1791657907.8952897,
+   "line": "event: event"
+  },
+  {
+   "at": 1791657907.8952897,
+   "data": "{\"id\": 1, \"time\": \"2026-10-10T13:45:07-05:00\", \"ts\": 1791657907.894165, \"level\": \"info\", \"source\": \"runtime-input\", \"category\": \"runtime_input.status\", \"session_id\": \"\", \"request_id\": \"1\", \"provider\":"
+  },
+  {
+   "at": 1791657908.622091,
+   "line": "event: event"
+  },
+  {
+   "at": 1791657908.622091,
+   "data": "{\"id\": 2, \"time\": \"2026-10-10T13:45:08-05:00\", \"ts\": 1791657908.6210892, \"level\": \"info\", \"source\": \"router\", \"category\": \"router.request\", \"session_id\": \"\", \"request_id\": \"72536-1791657908621089400\","
+  },
+  {
+   "at": 1791657908.670535,
+   "line": "event: event"
+  },
+  {
+   "at": 1791657908.670535,
+   "data": "{\"id\": 3, \"time\": \"2026-10-10T13:45:08-05:00\", \"ts\": 1791657908.6695306, \"level\": \"info\", \"source\": \"router\", \"category\": \"router.prepare\", \"session_id\": \"\", \"request_id\": \"\", \"provider\": \"vllm\", \"mod"
+  },
+  {
+   "at": 1791657908.670535,
+   "line": "event: event"
+  },
+  {
+   "at": 1791657908.670535,
+   "data": "{\"id\": 4, \"time\": \"2026-10-10T13:45:08-05:00\", \"ts\": 1791657908.670535, \"level\": \"info\", \"source\": \"router\", \"category\": \"router.request\", \"session_id\": \"\", \"request_id\": \"\", \"provider\": \"vllm\", \"mode"
+  },
+  {
+   "at": 1791657908.7176738,
+   "line": "event: event"
+  },
+  {
+   "at": 1791657908.7176738,
+   "data": "{\"id\": 5, \"time\": \"2026-10-10T13:45:08-05:00\", \"ts\": 1791657908.7176738, \"level\": \"info\", \"source\": \"router\", \"category\": \"router.prepare\", \"session_id\": \"\", \"request_id\": \"\", \"provider\": \"vllm\", \"mod"
+  },
+  {
+   "at": 1791657908.7176738,
+   "line": "event: event"
+  },
+  {
+   "at": 1791657908.7176738,
+   "data": "{\"id\": 6, \"time\": \"2026-10-10T13:45:08-05:00\", \"ts\": 1791657908.7176738, \"level\": \"info\", \"source\": \"router\", \"category\": \"router.request\", \"session_id\": \"\", \"request_id\": \"\", \"provider\": \"vllm\", \"mod"
+  },
+  {
+   "at": 1791657910.9531984,
+   "line": "event: event"
+  },
+  {
+   "at": 1791657910.9541981,
+   "data": "{\"id\": 7, \"time\": \"2026-10-10T13:45:10-05:00\", \"ts\": 1791657910.9531984, \"level\": \"info\", \"source\": \"runtime-input\", \"category\": \"runtime_input.status\", \"session_id\": \"\", \"request_id\": \"2\", \"provider\""
+  },
+  {
+   "at": 1791657911.4485083,
+   "line": "event: event"
+  },
+  {
+   "at": 1791657911.4485083,
+   "data": "{\"id\": 8, \"time\": \"2026-10-10T13:45:11-05:00\", \"ts\": 1791657911.4469762, \"level\": \"info\", \"source\": \"router\", \"category\": \"router.request\", \"session_id\": \"\", \"request_id\": \"72536-1791657911446976300\","
+  },
+  {
+   "at": 1791657911.466969,
+   "line": "event: event"
+  },
+  {
+   "at": 1791657911.4679794,
+   "data": "{\"id\": 9, \"time\": \"2026-10-10T13:45:11-05:00\", \"ts\": 1791657911.466969, \"level\": \"info\", \"source\": \"router\", \"category\": \"router.prepare\", \"session_id\": \"\", \"request_id\": \"\", \"provider\": \"vllm\", \"mode"
+  },
+  {
+   "at": 1791657911.4679794,
+   "line": "event: event"
+  },
+  {
+   "at": 1791657911.4679794,
+   "data": "{\"id\": 10, \"time\": \"2026-10-10T13:45:11-05:00\", \"ts\": 1791657911.4679794, \"level\": \"info\", \"source\": \"router\", \"category\": \"router.request\", \"session_id\": \"\", \"request_id\": \"\", \"provider\": \"vllm\", \"mo"
+  },
+  {
+   "at": 1791657926.4835246,
+   "line": ": keepalive"
+  },
+  {
+   "at": 1791657936.4794066,
+   "line": "event: event"
+  },
+  {
+   "at": 1791657936.4794066,
+   "data": "{\"id\": 11, \"time\": \"2026-10-10T13:45:36-05:00\", \"ts\": 1791657936.4794066, \"level\": \"info\", \"source\": \"router\", \"category\": \"router.prepare\", \"session_id\": \"\", \"request_id\": \"\", \"provider\": \"vllm\", \"mo"
+  },
+  {
+   "at": 1791657936.4794066,
+   "line": "event: event"
+  },
+  {
+   "at": 1791657936.4794066,
+   "data": "{\"id\": 12, \"time\": \"2026-10-10T13:45:36-05:00\", \"ts\": 1791657936.4794066, \"level\": \"info\", \"source\": \"router\", \"category\": \"router.request\", \"session_id\": \"\", \"request_id\": \"\", \"provider\": \"vllm\", \"mo"
+  },
+  {
+   "at": 1791657946.5551534,
+   "line": "event: event"
+  },
+  {
+   "at": 1791657946.5551534,
+   "data": "{\"id\": 13, \"time\": \"2026-10-10T13:45:46-05:00\", \"ts\": 1791657946.5551534, \"level\": \"info\", \"source\": \"router\", \"category\": \"router.request\", \"session_id\": \"\", \"request_id\": \"72536-1791657946555153300\""
+  },
+  {
+   "at": 1791657946.5728688,
+   "line": "event: event"
+  },
+  {
+   "at": 1791657946.5728688,
+   "data": "{\"id\": 14, \"time\": \"2026-10-10T13:45:46-05:00\", \"ts\": 1791657946.5728688, \"level\": \"info\", \"source\": \"router\", \"category\": \"router.prepare\", \"session_id\": \"\", \"request_id\": \"\", \"provider\": \"vllm\", \"mo"
+  },
+  {
+   "at": 1791657946.5738764,
+   "line": "event: event"
+  },
+  {
+   "at": 1791657946.5738764,
+   "data": "{\"id\": 15, \"time\": \"2026-10-10T13:45:46-05:00\", \"ts\": 1791657946.5738764, \"level\": \"info\", \"source\": \"router\", \"category\": \"router.request\", \"session_id\": \"\", \"request_id\": \"\", \"provider\": \"vllm\", \"mo"
+  },
+  {
+   "at": 1791657946.5834527,
+   "line": "event: event"
+  },
+  {
+   "at": 1791657946.5834527,
+   "data": "{\"id\": 16, \"time\": \"2026-10-10T13:45:46-05:00\", \"ts\": 1791657946.5834527, \"level\": \"info\", \"source\": \"router\", \"category\": \"router.prepare\", \"session_id\": \"\", \"request_id\": \"\", \"provider\": \"vllm\", \"mo"
+  },
+  {
+   "at": 1791657946.5834527,
+   "line": "event: event"
+  },
+  {
+   "at": 1791657946.5834527,
+   "data": "{\"id\": 17, \"time\": \"2026-10-10T13:45:46-05:00\", \"ts\": 1791657946.5834527, \"level\": \"info\", \"source\": \"router\", \"category\": \"router.request\", \"session_id\": \"\", \"request_id\": \"\", \"provider\": \"vllm\", \"mo"
+  },
+  {
+   "at": 1791657950.4431326,
+   "line": "event: event"
+  },
+  {
+   "at": 1791657950.4431326,
+   "data": "{\"id\": 18, \"time\": \"2026-10-10T13:45:50-05:00\", \"ts\": 1791657950.4421318, \"level\": \"info\", \"source\": \"runtime-input\", \"category\": \"runtime_input.status\", \"session_id\": \"\", \"request_id\": \"4\", \"provider"
+  },
+  {
+   "at": 1791657965.4463592,
+   "line": ": keepalive"
+  },
+  {
+   "at": 1791657965.6547406,
+   "line": "event: event"
+  },
+  {
+   "at": 1791657965.6547406,
+   "data": "{\"id\": 19, \"time\": \"2026-10-10T13:46:05-05:00\", \"ts\": 1791657965.6537395, \"level\": \"info\", \"source\": \"router\", \"category\": \"router.request\", \"session_id\": \"\", \"request_id\": \"72536-1791657965653739600\""
+  },
+  {
+   "at": 1791657965.6743195,
+   "line": "event: event"
+  },
+  {
+   "at": 1791657965.6743195,
+   "data": "{\"id\": 20, \"time\": \"2026-10-10T13:46:05-05:00\", \"ts\": 1791657965.6743195, \"level\": \"info\", \"source\": \"router\", \"category\": \"router.prepare\", \"session_id\": \"\", \"request_id\": \"\", \"provider\": \"vllm\", \"mo"
+  },
+  {
+   "at": 1791657965.6758265,
+   "line": "event: event"
+  },
+  {
+   "at": 1791657965.6758265,
+   "data": "{\"id\": 21, \"time\": \"2026-10-10T13:46:05-05:00\", \"ts\": 1791657965.6758265, \"level\": \"info\", \"source\": \"router\", \"category\": \"router.request\", \"session_id\": \"\", \"request_id\": \"\", \"provider\": \"vllm\", \"mo"
+  },
+  {
+   "at": 1791657965.6864576,
+   "line": "event: event"
+  },
+  {
+   "at": 1791657965.6864576,
+   "data": "{\"id\": 22, \"time\": \"2026-10-10T13:46:05-05:00\", \"ts\": 1791657965.6864576, \"level\": \"info\", \"source\": \"router\", \"category\": \"router.prepare\", \"session_id\": \"\", \"request_id\": \"\", \"provider\": \"vllm\", \"mo"
+  },
+  {
+   "at": 1791657965.6874619,
+   "line": "event: event"
+  },
+  {
+   "at": 1791657965.6874619,
+   "data": "{\"id\": 23, \"time\": \"2026-10-10T13:46:05-05:00\", \"ts\": 1791657965.6874619, \"level\": \"info\", \"source\": \"router\", \"category\": \"router.request\", \"session_id\": \"\", \"request_id\": \"\", \"provider\": \"vllm\", \"mo"
+  }
+ ]
+}

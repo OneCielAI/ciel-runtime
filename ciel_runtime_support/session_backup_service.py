@@ -31,6 +31,7 @@ DEFAULT_SCHEDULE: dict[str, Any] = {
     "before_restart": False,   # after the CLI exits for a restart, before it starts again
     "on_session_end": False,   # after the CLI exits for good
     "include_files": True,
+    "max_file_mb": 1024,       # larger work-folder files are left out (and listed in the result)
     "keep_last": 30,
     "keep_daily": 14,
 }
@@ -118,37 +119,83 @@ def backup_command(cwd: Path, trigger: str, schedule: Mapping[str, Any]) -> list
     return command
 
 
+def _record_quietly(config_dir: Path, cwd: Path, **fields: Any) -> None:
+    """State bookkeeping never fails a backup (e.g. a full system disk)."""
+
+    try:
+        record_state(config_dir, cwd, **fields)
+    except OSError:
+        pass
+
+
+def read_progress(path: Path) -> dict[str, Any]:
+    try:
+        data = json.loads(Path(path).read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
 def run_backup(
     config_dir: Path,
     cwd: Path,
     trigger: str,
     *,
-    timeout: float = 900,
-    runner: Callable[..., subprocess.CompletedProcess] = subprocess.run,
+    timeout: float | None = None,
+    on_progress: Callable[[dict[str, Any], float], bool | None] | None = None,
+    popen: Callable[..., Any] = subprocess.Popen,
     environ: Mapping[str, str] | None = None,
+    poll_seconds: float = 0.5,
 ) -> dict[str, Any]:
-    """Run one backup for ``cwd`` now (blocking); skipped when one is already running."""
+    """Run one backup for ``cwd`` now (blocking); skipped when one is already running.
+
+    No time limit by default: a large first backup takes as long as it takes, while
+    ``on_progress(state, elapsed)`` sees files/read/uploaded about once a second and
+    can return False to cancel."""
 
     if not _acquire(config_dir, cwd):
         return {"ok": False, "skipped": "another backup of this workspace is running"}
     started = time.time()
-    record_state(config_dir, cwd, last_started=started, last_trigger=trigger, running=True)
+    _record_quietly(config_dir, cwd, last_started=started, last_trigger=trigger, running=True)
     schedule = load_settings(config_dir)["schedule"]
+    progress_path = Path(config_dir) / "backup-progress" / f"{workspace_digest(cwd)}.json"
+    cancelled = timed_out = False
     try:
-        result = runner(
-            backup_command(cwd, trigger, schedule), capture_output=True, text=True, timeout=timeout,
+        try:
+            progress_path.parent.mkdir(parents=True, exist_ok=True)
+            progress_path.unlink(missing_ok=True)
+        except OSError:
+            pass
+        process = popen(
+            [*backup_command(cwd, trigger, schedule), "--progress-file", str(progress_path)],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
             env=dict(environ if environ is not None else os.environ), creationflags=_NO_WINDOW,
         )
+        while process.poll() is None:
+            elapsed = time.time() - started
+            if on_progress is not None and on_progress(read_progress(progress_path), elapsed) is False:
+                cancelled = True
+            if timeout is not None and elapsed > timeout:
+                timed_out = True
+            if cancelled or timed_out:
+                process.kill()
+                break
+            time.sleep(poll_seconds)
+        stdout, stderr = process.communicate()
         try:
-            summary = json.loads(result.stdout)
+            summary = json.loads(stdout)
         except ValueError:
-            summary = {"output": (result.stdout + result.stderr).strip()[-600:]}
-        ok = result.returncode == 0
+            summary = {}
+        ok = process.returncode == 0 and not cancelled and not timed_out and "error" not in summary
+        if not ok:
+            reason = ("cancelled" if cancelled else f"stopped after {timeout:g} s" if timed_out
+                      else summary.get("error") or (stdout + stderr).strip()[-600:] or f"exited with code {process.returncode}")
+            summary = {**summary, "output": reason}
     except (OSError, subprocess.SubprocessError) as error:
         ok, summary = False, {"output": f"{type(error).__name__}: {error}"}
     finally:
         _release(config_dir, cwd)
-    record_state(
+    _record_quietly(
         config_dir, cwd, running=False, last_finished=time.time(), last_ok=ok,
         last_id=summary.get("id") if ok else workspace_state(config_dir, cwd).get("last_id"),
         last_error="" if ok else str(summary.get("output") or "")[:600],
@@ -278,7 +325,17 @@ def after_cli_exit(config_dir: Path, cwd: Path, *, restarting: bool, log: Callab
         return None
     trigger = "pre-restart" if restarting else "session-end"
     print(f"Ciel Runtime: backing up the session ({trigger})...", flush=True)
-    result = run_backup(config_dir, cwd, trigger, timeout=600)
+    shown = [0.0]
+
+    def show(state: dict[str, Any], elapsed: float) -> bool:
+        if elapsed - shown[0] >= 5:
+            shown[0] = elapsed
+            print(f"  ... {state.get('files', 0)} files, {int(state.get('read') or 0) / 1048576:.0f} MB read, "
+                  f"{int(state.get('uploaded') or 0) / 1048576:.0f} MB stored ({elapsed:.0f} s)", flush=True)
+        return True
+
+    # Between a CLI exit and its restart the user waits, so this one has a limit.
+    result = run_backup(config_dir, cwd, trigger, timeout=600, on_progress=show)
     message = (f"Ciel Runtime: session backup {result.get('id')} saved" if result.get("ok")
                else f"Ciel Runtime: session backup not saved ({result.get('skipped') or str(result.get('output') or '')[:200]})")
     print(message, flush=True)
@@ -292,7 +349,11 @@ def mcp_session_backup(config_dir: Path, cwd: Path, args: Mapping[str, Any]) -> 
 
     action = str(args.get("action") or "status")
     if action == "create":
-        return run_backup(config_dir, cwd, "mcp", timeout=900)
+        # A backup can take far longer than a tool call may wait: start it and report through status.
+        if workspace_state(config_dir, cwd).get("running"):
+            return {"ok": True, "started": False, "note": "a backup of this workspace is already running", "last": workspace_state(config_dir, cwd)}
+        run_backup_in_background(config_dir, cwd, "mcp")
+        return {"ok": True, "started": True, "note": "backup started; call session_backup status for progress and the result"}
     if action == "list":
         result = subprocess.run([sys.executable, str(SCRIPT), "cli", "backup", "list", "--cwd", str(cwd), "--json"],
                                 capture_output=True, text=True, timeout=300, creationflags=_NO_WINDOW)
@@ -303,8 +364,10 @@ def mcp_session_backup(config_dir: Path, cwd: Path, args: Mapping[str, Any]) -> 
         return {"ok": True, "snapshots": rows[-int(args.get("limit") or 20):]}
     if action == "status":
         settings = load_settings(config_dir)
+        last = workspace_state(config_dir, cwd)
+        progress = read_progress(Path(config_dir) / "backup-progress" / f"{workspace_digest(cwd)}.json") if last.get("running") else {}
         return {"ok": True, "schedule": settings["schedule"], "default_targets": settings["default_targets"] or ["local"],
-                "targets": sorted(settings["targets"]), "last": workspace_state(config_dir, cwd)}
+                "targets": sorted(settings["targets"]), "last": last, **({"progress": progress} if progress else {})}
     return {"ok": False, "error": f"unsupported action {action!r}; use create, list or status"}
 
 
@@ -319,6 +382,7 @@ __all__ = [
     "mcp_session_backup",
     "record_state",
     "router_scheduler",
+    "read_progress",
     "run_backup",
     "run_backup_in_background",
     "save_settings",

@@ -23,6 +23,18 @@ FORMAT_VERSION = 1
 CHUNK_SIZE = 8 * 1024 * 1024
 
 
+class TargetWriteError(Exception):
+    """A target could not store a chunk (full disk, lost connection): the whole backup stops.
+
+    Not an OSError on purpose, so per-file read errors (skipped and listed) never hide it."""
+
+    def __init__(self, target: str, error: BaseException) -> None:
+        reason = "no space left on the target" if getattr(error, "errno", None) == 28 or getattr(error, "winerror", None) in (39, 112) else ""
+        super().__init__(f"backup target {target} could not store data: {reason or type(error).__name__}: {error}")
+        self.target = target
+        self.no_space = bool(reason)
+
+
 class BackupTarget(Protocol):
     name: str
 
@@ -92,11 +104,14 @@ class ChunkWriter:
             if marker in self._known:
                 continue
             key = blob_key(digest)
-            if not target.has(key):
-                packed = packed if packed is not None else zlib.compress(chunk, 6)
-                target.put(key, packed)
-                self.stats.uploaded_chunks += 1
-                self.stats.bytes_uploaded += len(packed)
+            try:
+                if not target.has(key):
+                    packed = packed if packed is not None else zlib.compress(chunk, 6)
+                    target.put(key, packed)
+                    self.stats.uploaded_chunks += 1
+                    self.stats.bytes_uploaded += len(packed)
+            except OSError as error:
+                raise TargetWriteError(target.name, error) from error
             self._known.add(marker)
         return digest
 
@@ -195,6 +210,7 @@ __all__ = [
     "BackupTarget",
     "ChunkWriter",
     "LocalTarget",
+    "TargetWriteError",
     "UploadStats",
     "blob_key",
     "decode_manifest",

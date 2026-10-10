@@ -117,6 +117,8 @@ class CollectOptions:
     trigger: str = "manual"
     # Files never collected wherever they are (the backup key file).
     skip_paths: tuple[str, ...] = ()
+    # Called about once a second with {"files", "read", "uploaded", "current"}.
+    progress: Callable[[dict[str, Any]], None] | None = None
 
 
 @dataclass
@@ -184,6 +186,29 @@ class SessionCollector:
         self.writer = writer
         self.options = options
         self.result = Collection()
+        self.files_done = 0
+        self.bytes_read = 0
+        self._reported_at = 0.0
+
+    def _report(self, path: Path, force: bool = False) -> None:
+        if self.options.progress is None:
+            return
+        now = time.monotonic()
+        if not force and now - self._reported_at < 1.0:
+            return
+        self._reported_at = now
+        self.options.progress({
+            "files": self.files_done,
+            "read": self.bytes_read,
+            "uploaded": self.writer.stats.bytes_uploaded,
+            "current": str(path)[-90:],
+        })
+
+    def _counted(self, path: Path, blocks: Iterator[bytes]) -> Iterator[bytes]:
+        for block in blocks:
+            self.bytes_read += len(block)
+            self._report(path)
+            yield block
 
     # ---- primitives -------------------------------------------------------------------------
 
@@ -198,6 +223,8 @@ class SessionCollector:
         return True
 
     def _entry(self, root: str, path: Path, kind: str, chunks: list[str], size: int) -> None:
+        self.files_done += 1
+        self._report(path)
         try:
             stat = path.stat()
             mtime, mode = stat.st_mtime, stat.st_mode & 0o777
@@ -226,7 +253,7 @@ class SessionCollector:
         try:
             size = path.stat().st_size
             if size > self.options.max_file_bytes:
-                self._skip(root, path, f"larger than {self.options.max_file_bytes} bytes")
+                self._skip(root, path, f"{size / 1048576:.0f} MB, over the {self.options.max_file_bytes / 1048576:.0f} MB file limit")
                 return
             if self._is_secret_file(root, path):
                 self.result.secrets.files[f"{root}/{self._rel(root, path)}"] = path.read_bytes()
@@ -239,28 +266,17 @@ class SessionCollector:
                 data = sqlite_snapshot(path)
                 self._entry(root, path, "sqlite", self.writer.write_stream([data]), len(data))
                 return
-            if path.suffix.lower() == ".jsonl":
-                total = 0
-
-                def counted() -> Iterator[bytes]:
-                    nonlocal total
-                    for block in _jsonl_stream(path):
-                        total += len(block)
-                        yield block
-
-                chunks = self.writer.write_stream(counted())
-                self._entry(root, path, "jsonl", chunks, total)
-                return
+            jsonl = path.suffix.lower() == ".jsonl"
             total = 0
 
-            def counted_file() -> Iterator[bytes]:
+            def counted() -> Iterator[bytes]:
                 nonlocal total
-                for block in _file_stream(path):
+                for block in self._counted(path, _jsonl_stream(path) if jsonl else _file_stream(path)):
                     total += len(block)
                     yield block
 
-            chunks = self.writer.write_stream(counted_file())
-            self._entry(root, path, "file", chunks, total)
+            chunks = self.writer.write_stream(counted())
+            self._entry(root, path, "jsonl" if jsonl else "file", chunks, total)
         except (OSError, sqlite3.Error, ValueError) as error:
             self._skip(root, path, f"{type(error).__name__}: {error}")
 
@@ -395,7 +411,52 @@ class SessionCollector:
         self.collect_codex()
         self.collect_ciel()
         self.collect_cwd()
+        self._report(self.roots.cwd, force=True)
         return self.result
+
+
+def measure_tree(
+    base: Path,
+    excludes: tuple[str, ...],
+    skip: tuple[Path, ...] = (),
+    *,
+    deadline: float | None = None,
+    progress: Callable[[dict[str, Any]], None] | None = None,
+    max_file_bytes: int = DEFAULT_MAX_FILE_BYTES,
+) -> tuple[int, int, dict[str, int], bool]:
+    """(bytes, files, bytes per top-level entry, complete) of a work folder as a backup would read it.
+
+    Stops early at ``deadline`` (time.monotonic) and reports complete=False."""
+
+    base = Path(base)
+    skipped = {_norm(path) for path in skip}
+    total = files = 0
+    top: dict[str, int] = {}
+    reported = time.monotonic()
+    for current, dirs, names in os.walk(base):
+        current_path = Path(current)
+        dirs[:] = [name for name in dirs if not _matches(name, excludes) and _norm(current_path / name) not in skipped]
+        relative = current_path.relative_to(base).parts
+        for name in names:
+            if _matches(name, excludes) or name.startswith(".part-") or name.endswith((".tmp", ".lock")):
+                continue
+            try:
+                size = (current_path / name).stat().st_size
+            except OSError:
+                continue
+            if size > max_file_bytes:
+                continue  # the backup leaves it out too
+            total += size
+            files += 1
+            key = relative[0] if relative else name
+            top[key] = top.get(key, 0) + size
+        now = time.monotonic()
+        if progress is not None and now - reported >= 1.0:
+            reported = now
+            progress({"phase": "measuring", "files": files, "read": 0, "uploaded": 0, "measured": total, "current": str(current_path)[-90:]})
+        if deadline is not None and now > deadline:
+            return total, files, top, False
+    return total, files, top, True
 
 
 def _matches(name: str, patterns: tuple[str, ...]) -> bool:
@@ -501,6 +562,7 @@ __all__ = [
     "claude_project_key",
     "codex_threads_for_cwd",
     "default_roots",
+    "measure_tree",
     "plain_path",
     "same_path",
     "sqlite_snapshot",

@@ -369,6 +369,11 @@ class CodexAppServerChannelInjector:
             return state.active_turn_id
         return None
 
+    def turn_running(self) -> bool:
+        """Whether a turn is in progress on the followed thread (a goal between turns is not)."""
+
+        return bool(self.thread_id and self._active_turn(self.thread_id))
+
     def _busy(self, thread_id: str) -> bool:
         return thread_id in self._threads.busy or bool(self._active_turn(thread_id))
 

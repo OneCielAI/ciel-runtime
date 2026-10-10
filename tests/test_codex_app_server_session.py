@@ -250,6 +250,44 @@ class SessionTests(unittest.TestCase):
         self.assertEqual(2, len(self.terminal_calls))
         self.assertNotIn("resume", self.terminal_calls[1][0])
 
+    def test_remote_restart_relaunches_the_server_on_the_same_thread(self):
+        self.restart_after_first = SimpleNamespace(id="r1", resume=True, source="mcp", reason="deploy")
+        relaunched: list[Any] = []
+        renewed_cmd = [*SERVER_CMD, "-c", "mcp_servers.tools.command=new"]
+
+        def relaunch(request):
+            relaunched.append(request)
+            return renewed_cmd
+
+        rc = CodexRemoteTuiSession(self.ports, self.tui_ports)(
+            SERVER_CMD, {}, Path(self.tmp.name), resume=RemoteTuiResume("id", "01a0-saved"), relaunch=relaunch,
+        )
+        self.assertEqual(0, rc)
+        self.assertEqual(["r1"], [request.id for request in relaunched])
+        token_file = Path(self.tmp.name) / "codex-remote" / "ws1" / "ws-token"
+        # The server itself was stopped and started again, with the renewed command.
+        self.assertEqual(
+            [remote_server_command(SERVER_CMD, token_file), remote_server_command(renewed_cmd, token_file)],
+            self.popened,
+        )
+        self.assertEqual([4242, 4242], self.terminated)
+        self.assertEqual(["resume", "01a0-saved"], self.terminal_calls[1][0][-2:])
+        self.assertIn("mcp_servers.tools.command=new", self.terminal_calls[1][0])
+        self.assertNotEqual(self.token_seen[0], self.token_seen[1])
+        self.assertTrue(any("codex_remote_session_restart" in line for line in self.logs))
+
+    def test_remote_restart_without_resume_starts_a_new_conversation(self):
+        self.restart_after_first = SimpleNamespace(id="r1", resume=False, source="mcp", reason="")
+        CodexRemoteTuiSession(self.ports, self.tui_ports)(
+            SERVER_CMD, {}, Path(self.tmp.name), resume=RemoteTuiResume("id", "01a0-saved"),
+        )
+        self.assertEqual(2, len(self.popened))
+        self.assertNotIn("resume", self.terminal_calls[1][0])
+
+    def test_remote_session_declares_it_relaunches_its_server(self):
+        self.assertTrue(CodexRemoteTuiSession.relaunches_server)
+        self.assertFalse(getattr(CodexDesktopSession, "relaunches_server", False))
+
     def test_remote_tui_needs_a_websocket_listener(self):
         cmd = ["codex", "app-server", "--listen", "stdio://"]
         self.assertEqual(2, CodexRemoteTuiSession(self.ports, self.tui_ports)(cmd, {}, Path(self.tmp.name)))

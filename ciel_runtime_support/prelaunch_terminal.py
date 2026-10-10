@@ -446,6 +446,7 @@ def render_prelaunch_screen(
             "web-access": "Web access",
             "dangerous-rm": "Dangerous delete prompt",
             "session-backup": "Session backup",
+            "provider-fallback": "Provider fallback",
             "channels": "Channels",
             "context": ui_text("context_setup", lang),
             "preset": ui_text("presets", lang),

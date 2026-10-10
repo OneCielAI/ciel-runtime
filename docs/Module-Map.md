@@ -1383,6 +1383,10 @@ Codex routed(`router_http.forward_json`)와 Anthropic routed(`claude_router`) �
 
 `ciel-runtime backup create|list|show|verify|restore|prune|schedule|status|target`(cli_dispatch에서 지연 import). 설정은 `CONFIG_DIR/session-backup.json`(대상, 기본 대상, `schedule`), 마지막 실행은 `session-backup-state.json`. 자동 백업은 모두 `backup create --prune` 자식 프로세스로 workspace별 하나씩(pid 잠금) 돈다: 라우터의 `BackupScheduler`(주기·변화 있을 때만, `tui_observation.TURN_ENDED_LISTENERS`로 턴 종료 후), `runtime_launch`의 CLI 종료 직후(재시작 전 `before_restart`, 세션 종료 `on_session_end`), 라우터 MCP 도구 `session_backup`(create/list/status; 복원은 로컬 명령만), 메인 메뉴 `18. Session backup` 패널. 모든 트리거는 기본 꺼짐.
 
+### `ciel_runtime_support/provider_failover.py` / `provider_failover_menu.py`
+
+Provider 폴백. 현재 provider가 429/사용량 한도(키·토큰 로테이션으로도 남은 게 없을 때)를 돌려주면, 인증값이 저장된 백업 provider로 **같은 요청**을 다시 보낸다(`router_http._dispatch_with_failover`; 429 지점 `claude_router` native relay, `openai_forwarding`, `openai_responses_router`의 HTTPError/UpstreamFailure가 `maybe_fail_over` → `FailoverRequested`, 클라이언트에 아무것도 쓰기 전만). 활성 폴백은 Retry-After/리셋 헤더 시각(없으면 `default_cooldown_minutes`)까지 유지되고, 그 뒤 **턴 시작 요청에서만** 원래 provider로 돌아간다(`anthropic_turn_start`/`codex_turn_start`). 설정·활성 상태·이력은 `<workspace state>/provider-failover.json`(config.json에 쓰지 않음). Claude/Codex OAuth 풀이 전부 limited면 먼저 CLI 자체 로그인으로 한 번 시도(`oauth_routing.OAuthRequestRun.cli_login_headers`, 설정 `cli_login_first`, 풀 `all_limited`). UI: 메뉴 19 패널(자동 on/off, CLI 로그인 먼저, 기본 쿨다운, 백업 추가/순서/모델/제거, 지금 전환, 지금 복귀, 이력), Claude 상태줄 `⇄ backup/model until HH:MM`, `/fallback` 슬래시 명령, router MCP 도구 `provider_fallback`, 이벤트 `router.fallback`. 기본 꺼짐.
+
 ### `ciel_runtime_support/transcript_public_projection.py`
 
 `transcript_events` 직접 전송의 공개용 투영. Walkie relay(`server/agent-transcript-relay.py` `public_records`)와 같은 결과를 PC 안에서 만든다: 사용자 본문은 Walkie 라우팅 티켓(`wkp_`)만, 툴은 이름만, assistant는 Codex commentary와 Claude 텍스트만, 턴 끝마다 `task_complete`. reasoning과 툴 인자·결과는 버린다. `transcript_events.content_filter`(기본 `public_only`, 명시적 `raw`)를 `transcript_delta_delivery`가 적용한다.

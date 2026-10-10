@@ -47,6 +47,7 @@ MAIN_MENU_ACTIONS: tuple[str, ...] = (
     "web-access",
     "dangerous-rm",
     "session-backup",
+    "provider-fallback",
     "quit",
 )
 
@@ -383,6 +384,10 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
             from ciel_runtime_support.runtime_paths import CONFIG_DIR
 
             panel_rows, panel_values = session_backup_menu.panel_rows(CONFIG_DIR, Path.cwd())
+        elif name == "provider-fallback":
+            from ciel_runtime_support import provider_failover_menu
+
+            panel_rows, panel_values = provider_failover_menu.panel_rows(load_config())
         if panel_rows:
             panel_idx = max(0, min(panel_idx, len(panel_rows) - 1))
 
@@ -1113,6 +1118,30 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                     finally:
                         restore_raw_mode()
                     panel_rows, panel_values = session_backup_menu.panel_rows(CONFIG_DIR, Path.cwd())
+                    panel_idx = max(0, min(panel_idx, len(panel_rows) - 1))
+                elif panel == "provider-fallback":
+                    if value == "back":
+                        close_panel()
+                        continue
+                    if value == "__info__":
+                        continue
+                    from ciel_runtime_support import provider_failover_menu
+
+                    restore_line_mode()
+                    try:
+                        messages = provider_failover_menu.apply(
+                            load_config(),
+                            value,
+                            lambda label, default: prompt_menu_value(
+                                label,
+                                default,
+                                restore_tty=restore_line_mode,
+                                raw_tty=restore_raw_mode,
+                            ),
+                        )
+                    finally:
+                        restore_raw_mode()
+                    panel_rows, panel_values = provider_failover_menu.panel_rows(load_config())
                     panel_idx = max(0, min(panel_idx, len(panel_rows) - 1))
                 elif panel == "options":
                     if value == "back":

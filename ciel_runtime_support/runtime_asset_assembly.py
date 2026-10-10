@@ -32,6 +32,8 @@ from .slash_command_assets import (
     LLM_OPTIONS_SLASH_COMMAND,
     LLM_RESTORE_SLASH_COMMAND,
     LLM_SLIDER_SLASH_COMMAND,
+    PROVIDER_FALLBACK_SLASH_COMMAND,
+    CIEL_RUNTIME_PROVIDER_FALLBACK_COMMAND_MARKERS,
     ROUTER_DEBUG_SLASH_COMMAND,
     VERSION_SLASH_COMMAND,
 )
@@ -94,6 +96,9 @@ def build_runtime_asset_context(ports: RuntimeAssetAssemblyPorts) -> RuntimeAsse
         ),
         "api-keys.md": CommandAsset(
             API_KEYS_SLASH_COMMAND, CIEL_RUNTIME_API_KEYS_COMMAND_MARKERS
+        ),
+        "fallback.md": CommandAsset(
+            PROVIDER_FALLBACK_SLASH_COMMAND, CIEL_RUNTIME_PROVIDER_FALLBACK_COMMAND_MARKERS
         ),
         "ImportSession.md": CommandAsset(
             IMPORT_SESSION_SLASH_COMMAND, CIEL_RUNTIME_IMPORT_SESSION_COMMAND_MARKERS

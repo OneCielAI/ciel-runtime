@@ -1,0 +1,129 @@
+{
+ "mode": "claude",
+ "before": {
+  "manifests": [
+   {
+    "launch_id": "312b7bea6b0b4f14907c816f5d4b711d",
+    "runtime": "claude",
+    "servers": [
+     "ciel-runtime-router",
+     "e2e-tools"
+    ],
+    "dir": "G:\\ciel-e2e\\restart\\claude\\cfg\\mcp-launches\\312b7bea6b0b4f14907c816f5d4b711d"
+   }
+  ],
+  "mcp_starts": [
+   {
+    "pid": 63132,
+    "started": 1791658548.737649
+   }
+  ],
+  "threads": [],
+  "tools": []
+ },
+ "after": {
+  "manifests": [
+   {
+    "launch_id": "777667a9fa234878a73ee19f18e03086",
+    "runtime": "claude",
+    "servers": [
+     "ciel-runtime-router",
+     "e2e-tools"
+    ],
+    "dir": "G:\\ciel-e2e\\restart\\claude\\cfg\\mcp-launches\\777667a9fa234878a73ee19f18e03086"
+   }
+  ],
+  "mcp_starts": [
+   {
+    "pid": 63132,
+    "started": 1791658548.737649
+   },
+   {
+    "pid": 79020,
+    "started": 1791658707.2620773
+   }
+  ],
+  "threads": [],
+  "tools": [
+   "Agent",
+   "Artifact",
+   "ArtifactComments",
+   "ArtifactData",
+   "AskUserQuestion",
+   "Bash",
+   "CronCreate",
+   "CronDelete",
+   "CronList",
+   "DesignSync",
+   "Edit",
+   "EnterPlanMode",
+   "ExitPlanMode",
+   "Glob",
+   "Grep",
+   "LSP",
+   "ListAgents",
+   "Monitor",
+   "NotebookEdit",
+   "PowerShell",
+   "Read",
+   "ReportFindings",
+   "SendFeedback",
+   "Skill",
+   "TaskStop",
+   "Workflow",
+   "Write",
+   "mcp__ciel-runtime-router__compact_session",
+   "mcp__ciel-runtime-router__goal_clear",
+   "mcp__ciel-runtime-router__llm_options",
+   "mcp__ciel-runtime-router__new_session",
+   "mcp__ciel-runtime-router__provider_fallback",
+   "mcp__ciel-runtime-router__restart_session",
+   "mcp__ciel-runtime-router__send_file",
+   "mcp__ciel-runtime-router__send_message",
+   "mcp__ciel-runtime-router__session_backup",
+   "mcp__ciel-runtime-router__submit_input",
+   "mcp__ciel-runtime-router__telemetry_logs",
+   "mcp__duckduckgo__fetch_content",
+   "mcp__duckduckgo__search",
+   "mcp__e2e-tools__e2e_clock",
+   "mcp__e2e-tools__e2e_echo",
+   "mcp__e2e-tools__e2e_pid",
+   "mcp__web_fetch__fetch"
+  ],
+  "history": [
+   "E2E-RT-TURN-1",
+   "E2E-RT-SLOWTURN-2",
+   "E2E-RT-TURN-3",
+   "재부팅 완료"
+  ]
+ },
+ "restart_line": "2026-10-10T13:58:25 [INFO] claude_session_restart exit_code=1 source=ciel-runtime-router-tool reason=e2e restart during a turn resumed=true",
+ "slow_replied_at": 1791658704.1610072,
+ "restart_requested_at": 1791658681.2290921,
+ "chat_messages": [
+  {
+   "id": 1,
+   "channel": "e2e",
+   "sender_id": "claude-code"
+  },
+  {
+   "id": 2,
+   "channel": "e2e",
+   "sender_id": "claude-code"
+  }
+ ],
+ "sse": {
+  "/ca/chat/stream": {
+   "items": 18,
+   "first_at": 1791658578.1749196,
+   "data_after_restart": 1,
+   "closed": []
+  },
+  "/ca/events/stream": {
+   "items": 70,
+   "first_at": 1791658578.1749196,
+   "data_after_restart": 21,
+   "closed": []
+  }
+ }
+}

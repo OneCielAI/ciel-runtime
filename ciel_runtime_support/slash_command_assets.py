@@ -131,6 +131,18 @@ $ARGUMENTS
 """
 
 
+PROVIDER_FALLBACK_SLASH_COMMAND = """---
+description: Show or switch the ciel-runtime provider fallback (another provider while this one is rate-limited)
+argument-hint: [status|return|on|off|PROVIDER [MINUTES] [MODEL]]
+---
+
+CIEL_RUNTIME_PROVIDER_FALLBACK
+
+Arguments: $ARGUMENTS
+"""
+CIEL_RUNTIME_PROVIDER_FALLBACK_COMMAND_MARKERS = ("CIEL_RUNTIME_PROVIDER_FALLBACK",)
+
+
 IMPORT_SESSION_SLASH_COMMAND = """---
 description: Import a Claude/Codex session transcript into this session
 argument-hint: Codex|Claude [transcript-path]

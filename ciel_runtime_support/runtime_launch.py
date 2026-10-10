@@ -28,6 +28,7 @@ from ciel_runtime_support.runtime_session_restart import (
     restart_notice_body,
     runtime_resume_command,
 )
+from ciel_runtime_support.workspace_mcp import renew_launch_command
 from ciel_runtime_support.web_endpoints import (
     current_web_workspace,
     web_backend_owned_by_workspace,
@@ -553,18 +554,16 @@ def run_claude(
         mcp_config_paths.append(str(zai_mcp_config))
     if should_inject_tool(native=provider == "anthropic", mode="non_native") and should_attach_web_search(provider, cfg, web_search_override):
         mcp_config_paths.append(str(write_duckduckgo_mcp_config(cfg)))
+    claude_router_mcp = {"ciel-runtime-router": {
+        "transport": "streamable_http", "url": f"{ROUTER_BASE}/ca/mcp",
+        "runtimes": ["claude"],
+    }} if (
+        (llm_channel_delivery and web_backend_start_requested(cfg))
+        or router_mcp_enabled_for_launch(cfg, native=use_native_anthropic)
+    ) else None
     workspace_mcp_launch = (
-        workspace_mcp.prepare(
-            "claude", cfg, env,
-            injected_servers={"ciel-runtime-router": {
-                "transport": "streamable_http", "url": f"{ROUTER_BASE}/ca/mcp",
-                "runtimes": ["claude"],
-            }} if (
-                (llm_channel_delivery and web_backend_start_requested(cfg))
-                or router_mcp_enabled_for_launch(cfg, native=use_native_anthropic)
-            ) else None,
-            native=provider == "anthropic",
-        ) if workspace_mcp is not None else None
+        workspace_mcp.prepare("claude", cfg, env, injected_servers=claude_router_mcp, native=provider == "anthropic")
+        if workspace_mcp is not None else None
     )
     if workspace_mcp_launch is not None:
         mcp_config_paths.extend(str(path) for path in workspace_mcp_launch.claude_config_paths)
@@ -725,6 +724,18 @@ def run_claude(
         cmd[index] = session_socket_target
         router_log("INFO", f"claude_session_socket_renewed target={session_socket_target}")
 
+    def renew_claude_mcp() -> None:
+        """A restarted Claude Code gets a new workspace MCP launch (servers re-read from the config)."""
+
+        nonlocal workspace_mcp_launch
+        if workspace_mcp is None:
+            return
+        previous = workspace_mcp_launch
+        workspace_mcp_launch = workspace_mcp.renew(
+            previous, "claude", load_config(), env, injected_servers=claude_router_mcp, native=provider == "anthropic",
+        )
+        cmd[:] = renew_launch_command(cmd, previous, workspace_mcp_launch)
+
     def run_claude_session() -> int:
         handled: set[str] = set()
         while True:
@@ -739,6 +750,7 @@ def run_claude(
             if request.resume:
                 cmd[:] = runtime_resume_command(cmd, "claude")
             fresh_session_socket()
+            renew_claude_mcp()
             queue_restart_notice(services.restart, "claude", request, router_log)
             print(
                 "Ciel Runtime: restarting Claude Code "
@@ -1182,6 +1194,16 @@ def run_codex(
             session_command_runtime="codex",
         )
 
+    def renew_codex_mcp() -> None:
+        """A restarted Codex gets a new workspace MCP launch (servers re-read from the config)."""
+
+        nonlocal workspace_mcp_launch
+        if workspace_mcp is None:
+            return
+        previous = workspace_mcp_launch
+        workspace_mcp_launch = workspace_mcp.renew(previous, "codex", load_config(), env, native=native_codex_enabled(provider))
+        cmd[:] = renew_launch_command(cmd, previous, workspace_mcp_launch)
+
     def run_codex_session() -> int:
         handled: set[str] = set()
         while True:
@@ -1195,6 +1217,7 @@ def run_codex(
             _session_backup_after_exit(restarting=True, log=router_log)
             if request.resume:
                 cmd[:] = runtime_resume_command(cmd, "codex")
+            renew_codex_mcp()
             queue_restart_notice(services.restart, "codex", request, router_log)
             print(
                 "Ciel Runtime: restarting Codex "
@@ -1279,6 +1302,7 @@ class CodexAppServerRouting:
     native_codex_enabled: Callable[..., Any]
     run_with_router_lifetime: Callable[..., Any]
     start_router_if_needed: Callable[..., Any]
+    router_log: Callable[[str, str], Any] = lambda _level, _message: None
 
 
 @dataclass(frozen=True, slots=True)
@@ -1297,6 +1321,7 @@ class CodexAppServerLaunchServices:
     dispatch: CodexAppServerDispatch
     routing: CodexAppServerRouting
     channel: CodexAppServerChannel
+    restart: SessionRestartPorts = SessionRestartPorts()
 
 
 def run_codex_app_server(
@@ -1544,6 +1569,24 @@ def run_codex_app_server(
             if workspace_mcp_launch is not None and workspace_mcp_launch.active
             else codex_process_record_path("app-server"),
         )
+
+    def relaunch(request: Any) -> list[str]:
+        """codex-remote restart: a new workspace MCP launch and the restart notice; the next server command."""
+
+        nonlocal cmd, workspace_mcp_launch
+        router_log = services.routing.router_log
+        _session_backup_after_exit(restarting=True, log=router_log)
+        if workspace_mcp is not None:
+            previous = workspace_mcp_launch
+            workspace_mcp_launch = workspace_mcp.renew(
+                previous, "codex-app-server", load_config(), env, native=native_codex_enabled(provider),
+            )
+            cmd = renew_launch_command(cmd, previous, workspace_mcp_launch)
+        queue_restart_notice(services.restart, "codex", request, router_log)
+        return cmd
+
+    if getattr(desktop, "relaunches_server", False):
+        session_kwargs["relaunch"] = relaunch
 
     def run_codex_app_server_process() -> int:
         if desktop is not None:

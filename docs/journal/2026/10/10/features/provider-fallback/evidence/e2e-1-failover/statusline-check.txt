@@ -1,0 +1,1 @@
+[ciel-runtime-vllm-stub-a-model] ws | fallback lm-studio/stub-b-model until 02:11 (vllm auto) | ctx est 14,538/128,000 tok (11.4%) | upstream 87s 14,815 tok

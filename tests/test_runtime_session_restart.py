@@ -209,6 +209,37 @@ class ClaudeSessionRestartLoopTests(unittest.TestCase):
         self.assertEqual("restart_notice", notice["meta"]["source_kind"])
         self.assertTrue(notice["meta"]["resumed"])
 
+    def test_restart_renews_the_workspace_mcp_launch(self):
+        import dataclasses
+
+        from ciel_runtime_support.workspace_mcp import WorkspaceMcpLaunchPorts, WorkspaceMcpLaunchService
+
+        launched: list[list[str]] = []
+        request = RuntimeSessionRestartRequest(
+            id="restart-mcp", source="ciel-runtime-router-tool", reason="mcp", runtime="claude",
+            target_pid=os.getpid(), resume=True, requested_at=time.time(), expires_at=time.time() + 60,
+        )
+        control = RuntimeSessionRestartControl(poll=lambda: request)
+        with tempfile.TemporaryDirectory() as directory:
+            workspace_mcp = WorkspaceMcpLaunchService(Path(directory), "ws", WorkspaceMcpLaunchPorts(
+                pid_running=lambda _pid: True, command_line=lambda _pid: "",
+                terminate_tree=lambda *_a, **_k: True, log=lambda *_a: None,
+            ))
+            services = self.claude_services(launched, control, [])
+            services = dataclasses.replace(
+                services,
+                config=dataclasses.replace(services.config, load_config=lambda: {"workspace_mcp": {"servers": {
+                    "tools": {"enabled": True, "transport": "stdio", "command": "t", "runtimes": ["claude"]}}}}),
+                mcp_config=dataclasses.replace(services.mcp_config, workspace_mcp=workspace_mcp),
+            )
+            runtime_launch.run_claude([], skip_menu=True, update_check=False, self_update_check=False, services=services)
+            left = sorted(path.name for path in Path(directory).iterdir())
+
+        paths = [command[command.index("--mcp-config") + 1] for command in launched]
+        self.assertEqual(2, len(paths))
+        self.assertNotEqual(Path(paths[0]).parent.name, Path(paths[1]).parent.name)
+        self.assertEqual([], left)  # both launches finished: the first at the restart, the second at exit
+
     def test_launch_without_a_request_runs_once(self):
         launched: list[list[str]] = []
         control = RuntimeSessionRestartControl(poll=lambda: None)

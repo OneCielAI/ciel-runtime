@@ -217,11 +217,28 @@ class CodexBareAppServerSession:
         return lambda: bool(self.ports.wait_ready(url, alive=lambda: not server_done.is_set()))
 
 
+@dataclass(frozen=True, slots=True)
+class _RemoteRun:
+    """One server + TUI run: its exit code, a restart request, the thread it followed."""
+
+    rc: int
+    request: Any = None
+    thread_id: str = ""
+
+
 class CodexRemoteTuiSession:
-    """Starts the app-server, the channel client, then a ``--remote`` TUI."""
+    """Starts the app-server, the channel client, then a ``--remote`` TUI.
+
+    A restart request (``restart_session``) waits for the running turn, then
+    stops the TUI, the channel client and the server, and starts all three
+    again on the same thread.  ``relaunch`` (from run_codex_app_server) gives
+    the next server command with a new workspace MCP launch and queues the
+    restart notice.
+    """
 
     display_name = "TUI (--remote app-server)"
     launch_mode = REMOTE_TUI_LAUNCH_MODE
+    relaunches_server = True
 
     def __init__(self, ports: CodexDesktopPorts, tui: CodexRemoteTuiPorts) -> None:
         self.ports = ports
@@ -241,8 +258,8 @@ class CodexRemoteTuiSession:
         launch_cwd: Path,
         run_server: Callable[[], int] | None = None,
         resume: RemoteTuiResume | None = None,
+        relaunch: Callable[[Any], list[str]] | None = None,
     ) -> int:
-        ports = self.ports
         listen_url = listen_url_from_command(cmd)
         if not listen_url.startswith("ws://"):
             print(f"codex-remote needs a ws:// app-server listen address, got {listen_url or 'none'}", flush=True)
@@ -250,6 +267,39 @@ class CodexRemoteTuiSession:
         thread_id = self._resume_thread_id(resume or RemoteTuiResume(), env, launch_cwd)
         if thread_id is None:
             return 0
+        handled: set[str] = set()
+        try:
+            while True:
+                run = self._run_once(cmd, env, launch_cwd, listen_url, thread_id)
+                request = run.request
+                if request is None or request.id in handled:
+                    return run.rc
+                handled.add(request.id)
+                thread_id = run.thread_id if request.resume else ""
+                print(
+                    "Ciel Runtime: restarting Codex app-server and TUI "
+                    f"source={request.source or '-'} reason={request.reason or '-'} thread={thread_id or '(new)'}",
+                    flush=True,
+                )
+                self.ports.log(
+                    "INFO",
+                    f"codex_remote_session_restart exit_code={run.rc} source={request.source or '-'} "
+                    f"resumed_thread={thread_id or '-'}",
+                )
+                if relaunch is not None:
+                    cmd = relaunch(request)
+        finally:
+            self.ports.log("INFO", "codex_remote_session_ended")
+
+    def _run_once(
+        self,
+        cmd: list[str],
+        env: dict[str, str],
+        launch_cwd: Path,
+        listen_url: str,
+        thread_id: str,
+    ) -> _RemoteRun:
+        ports = self.ports
         logs = ports.config_dir / "codex-remote" / ports.workspace_id
         logs.mkdir(parents=True, exist_ok=True)
         token = secrets.token_urlsafe(32)
@@ -262,7 +312,7 @@ class CodexRemoteTuiSession:
         try:
             if not ports.wait_ready(readyz_url(listen_url), alive=lambda: server.poll() is None):
                 print(f"Codex app-server did not become ready at {listen_url}; see {logs / 'app-server.log'}", flush=True)
-                return 1
+                return _RemoteRun(1)
             ports.log("INFO", f"codex_remote_app_server_ready pid={server.pid} listen={listen_url} resume={thread_id or '-'}")
             injector = _channel_injector(
                 ports,
@@ -283,7 +333,7 @@ class CodexRemoteTuiSession:
                 except (CodexAppServerError, OSError) as exc:
                     ports.log("ERROR", f"codex_remote_channel_open_failed resume={thread_id or '-'} error={str(exc)[:300]}")
                     print(f"Codex app-server could not open conversation {thread_id or '(new)'}: {exc}", flush=True)
-                    return 1
+                    return _RemoteRun(1)
                 injector.start(opened=True)
             tui_env = dict(env)
             tui_env[REMOTE_TOKEN_ENV] = token
@@ -297,7 +347,6 @@ class CodexRemoteTuiSession:
                 token_file.unlink()
             except OSError:
                 pass
-            ports.log("INFO", "codex_remote_session_ended")
 
     def _resume_thread_id(self, resume: AppServerResume, env: dict[str, str], launch_cwd: Path) -> str | None:
         return resolve_resume_thread(self.tui.select_resume or self.ports.select_resume, resume, env, launch_cwd)
@@ -309,23 +358,25 @@ class CodexRemoteTuiSession:
         launch_cwd: Path,
         injector: CodexAppServerChannelInjector | None,
         thread_id: str = "",
-    ) -> int:
+    ) -> _RemoteRun:
         tui = self.tui
         control = tui.restart_control()
-        handled: set[str] = set()
         cmd = [*base_cmd, "resume", thread_id] if thread_id else list(base_cmd)
-        while True:
-            # The server writes the rollout under its CODEX_HOME; the proxy
-            # reads it to hold typed commands while a turn runs.
-            tui.set_transcript_scope(
-                "codex",
-                codex_home=Path(env.get("CODEX_HOME") or (Path.home() / ".codex")),
-                cwd=launch_cwd,
-                # A resumed conversation may have begun in another folder.
-                session_id=cmd[-1] if "resume" in cmd[-2:-1] else None,
-            )
-            control.reset()
-            self.ports.log("INFO", f"codex_remote_tui_start cmd={' '.join(cmd[1:])}")
+        # The server writes the rollout under its CODEX_HOME; the proxy
+        # reads it to hold typed commands while a turn runs.
+        tui.set_transcript_scope(
+            "codex",
+            codex_home=Path(env.get("CODEX_HOME") or (Path.home() / ".codex")),
+            cwd=launch_cwd,
+            # A resumed conversation may have begun in another folder.
+            session_id=thread_id or None,
+        )
+        control.reset()
+        # The channel client sees the thread's turns directly: a restart
+        # waits for the one in progress.
+        control.busy = injector.turn_running if injector is not None else None
+        self.ports.log("INFO", f"codex_remote_tui_start cmd={' '.join(cmd[1:])}")
+        try:
             rc = tui.run_terminal(
                 cmd,
                 env,
@@ -341,20 +392,11 @@ class CodexRemoteTuiSession:
                 session_command_runtime="codex",
                 session_command_actions=REMOTE_TUI_SESSION_ACTIONS,
             )
-            request = control.request
-            if request is None or request.id in handled:
-                return int(rc or 0)
-            handled.add(request.id)
-            thread_id = injector.thread_id if injector is not None else ""
-            # The server keeps running, so the TUI re-attaches to the thread
-            # the channel client last followed.
-            cmd = [*base_cmd, "resume", thread_id] if request.resume and thread_id else list(base_cmd)
-            print(f"Ciel Runtime: restarting the Codex TUI source={request.source or '-'} reason={request.reason or '-'}", flush=True)
-            self.ports.log(
-                "INFO",
-                f"codex_remote_tui_restart exit_code={rc} source={request.source or '-'} "
-                f"resumed_thread={thread_id if request.resume else '-'}",
-            )
+        finally:
+            control.busy = None
+        # The TUI may have moved to another thread (/new, /resume): the
+        # channel client followed it.
+        return _RemoteRun(int(rc or 0), control.request, injector.thread_id if injector is not None else thread_id)
 
 
 def _write_private(path: Path, text: str) -> None:
