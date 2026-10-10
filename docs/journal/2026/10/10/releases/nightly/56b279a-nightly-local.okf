@@ -1,0 +1,7 @@
+okf_version: "1.0"
+task: "Nightly push and local install of the Synology QuickConnect backup target (56b279a)."
+reported: "User, 2026-10-10: '로컬 나이트리 푸시'."
+before_commit: "The repo is public (gh repo view: PUBLIC); the NAS QuickConnect ID, DDNS name and LAN IP were replaced with placeholders in the Synology journal and the module docstring; git log -S found them in no earlier commit. No password or account value in any committed file."
+nightly: "56b279a on nightly; CI 38081928086 success; Publish to npm 38081928124 success; dist-tag nightly = 0.2.51-nightly.20261010-200158.56b279a (latest stays 0.2.51)."
+local: "npm install -g @one-ciel-ai/ciel-runtime@0.2.51-nightly.20261010-200158.56b279a; install.ps1 with CIEL_RUNTIME_INSTALL_HOME=~/.local/share/ciel-runtime-56b279a07ac6a9241a08f845a72f45d5970b626b; HKCU CIEL_RUNTIME_HOME points there; ciel-runtimectl version prints the nightly; the snapshot has session_backup_synology.py; router 9611 200."
+not_done: "Real backup to the user's NAS (needs the user's password typed in the menu); main not merged."

@@ -1361,11 +1361,11 @@ Codex routed(`router_http.forward_json`)와 Anthropic routed(`claude_router`) �
 
 ### `ciel_runtime_support/session_backup_store.py`
 
-세션 백업 스냅샷 형식. 파일을 8 MiB 고정 청크로 잘라 SHA-256 이름(`blobs/<aa>/<sha>`, zlib)으로 한 번만 저장하고, 스냅샷은 `snapshots/<workspace>/<id>.json` manifest다(마지막에 써서 완료 표시). 계속 덧붙는 transcript/rollout은 바뀐 끝 청크만 새로 올라간다. `LocalTarget`(폴더·UNC 공유), `ChunkWriter`, `find_snapshot`/`list_snapshots`.
+세션 백업 스냅샷 형식. 파일을 8 MiB 고정 청크로 잘라 SHA-256 이름(`blobs/<aa>/<sha>`, zlib)으로 한 번만 저장하고, 스냅샷은 `snapshots/<workspace>/<id>.json` manifest다(마지막에 써서 완료 표시). 계속 덧붙는 transcript/rollout은 바뀐 끝 청크만 새로 올라간다. `LocalTarget`(폴더·UNC 공유), `ChunkWriter`, `find_snapshot`/`list_snapshots`. `ChunkWriter(targets, jobs)`: 해시는 호출 스레드에서 순서대로, 압축·중복 확인·저장은 `jobs`개 작업 스레드(동시에 최대 2×jobs 청크, 기본 8, 메뉴 `Parallel transfers`·CLI `--jobs`), manifest 전에 `drain()`. 압축 안 되는 청크(64 KiB 샘플)는 zlib stored(level 0)로 저장 - 형식·복원 동일.
 
 ### `ciel_runtime_support/session_backup_collect.py`
 
-실행 중인 세션 수집. 루트: `cwd`, `claude`(CLAUDE_CONFIG_DIR 또는 ~/.claude), `home`(~/.claude.json), `codex`(CODEX_HOME), `ciel`(CONFIG_DIR), `ciel_ws`(workspace 상태). Claude는 `projects/<cwd key>`의 transcript와 `<sid>/`(subagents·tool-results), file-history·todos, 설정 파일; Codex는 이 cwd의 threads(`state_*.sqlite`, `\\?\` 경로 형식 포함)의 rollout과 설정·prompts·skills; Ciel은 workspace 상태 전체와 config/launch-state. 작업 폴더는 기본 제외(node_modules, .npm-global, 캐시 등)와 다른 루트를 뺀다. jsonl은 그 순간 크기까지·마지막 불완전 줄 제외, sqlite는 backup API로 일관되게 복사한다.
+실행 중인 세션 수집. 루트: `cwd`, `claude`(CLAUDE_CONFIG_DIR 또는 ~/.claude), `home`(~/.claude.json), `codex`(CODEX_HOME), `ciel`(CONFIG_DIR), `ciel_ws`(workspace 상태). Claude는 `projects/<cwd key>`의 transcript와 `<sid>/`(subagents·tool-results), file-history·todos, 설정 파일; Codex는 이 cwd의 threads(`state_*.sqlite`, `\\?\` 경로 형식 포함)의 rollout과 설정·prompts·skills; Ciel은 workspace 상태 전체와 config/launch-state. 작업 폴더는 기본 제외(node_modules, .npm-global, 캐시 등)와 다른 루트를 뺀다. jsonl은 그 순간 크기까지·마지막 불완전 줄 제외, sqlite는 backup API로 일관되게 복사한다. 파일은 8 MiB(청크 크기) 단위로, 남은 크기만큼만 읽는다(작은 파일에 8 MiB read를 하면 매번 8 MiB를 할당해 느려짐). 메뉴에서 고른 1단계 폴더 제외(`skip_top`)와 git worktree 모드(`off`/`inside`/`all`, 밖의 worktree는 `worktree-N` 루트)를 따른다.
 
 ### `ciel_runtime_support/session_backup_secrets.py`
 

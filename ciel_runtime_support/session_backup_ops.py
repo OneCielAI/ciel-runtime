@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import secrets as random_source
+import stat
 import tempfile
 import time
 import zlib
@@ -56,20 +57,25 @@ def create_snapshot(
     versions: Mapping[str, str],
     host: str,
     user: str,
+    jobs: int = 1,
 ) -> CreateResult:
     if not targets:
         raise ValueError("no backup target")
-    writer = ChunkWriter(targets)
-    collection = SessionCollector(roots, writer, options).collect()
-    secrets_ref: dict[str, Any] | None = None
-    if key is not None and collection.secrets:
-        sealed = seal(collection.secrets.to_bytes(), key)
-        secrets_ref = {"included": True, "names": collection.secrets.names(), "chunks": writer.write_stream([sealed])}
+    writer = ChunkWriter(targets, jobs)
+    try:
+        collection = SessionCollector(roots, writer, options).collect()
+        secrets_ref: dict[str, Any] | None = None
+        if key is not None and collection.secrets:
+            sealed = seal(collection.secrets.to_bytes(), key)
+            secrets_ref = {"included": True, "names": collection.secrets.names(), "chunks": writer.write_stream([sealed])}
+        writer.drain()
+    finally:
+        writer.close()
     workspace = workspace_label(roots.cwd, host, user)
     manifest = build_manifest(
         new_snapshot_id(), workspace, roots, collection, options, secrets_ref=secrets_ref, versions=versions
     )
-    manifest["stats"] = writer.stats.as_dict()
+    manifest["stats"] = {**writer.stats.as_dict(), "jobs": writer.jobs}
     data = encode_manifest(manifest)
     for target in targets:
         # Every chunk is on the target before the manifest that names them.
@@ -121,7 +127,9 @@ class RestorePlan:
 
 def destination_roots(manifest: Mapping[str, Any], overrides: Mapping[str, str | Path]) -> dict[str, Path]:
     original = manifest.get("roots") or {}
-    return {name: Path(overrides.get(name) or original.get(name) or "") for name in ROOT_NAMES}
+    # Worktrees outside the work folder (worktree-1, ...) go back where they were unless overridden.
+    names = (*ROOT_NAMES, *sorted(name for name in original if name.startswith("worktree-")))
+    return {name: Path(overrides.get(name) or original.get(name) or "") for name in names}
 
 
 def plan_restore(manifest: Mapping[str, Any], dest: Mapping[str, Path], bundle: SecretBundle | None, *, include_files: bool) -> RestorePlan:
@@ -145,7 +153,14 @@ def _atomic_write(path: Path, data: bytes, mtime: float | None) -> None:
     try:
         with os.fdopen(handle, "wb") as stream:
             stream.write(data)
-        os.replace(temporary, path)
+        try:
+            os.replace(temporary, path)
+        except PermissionError:
+            # Windows refuses to replace a read-only file (git object files are read-only).
+            if not path.exists():
+                raise
+            os.chmod(path, stat.S_IREAD | stat.S_IWRITE)
+            os.replace(temporary, path)
     except BaseException:
         Path(temporary).unlink(missing_ok=True)
         raise

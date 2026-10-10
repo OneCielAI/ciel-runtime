@@ -22,6 +22,7 @@ from typing import Any, Callable, Mapping
 from ciel_runtime_support.session_backup_service import (
     SCRIPT,
     load_settings,
+    record_state,
     run_backup,
     save_settings,
     workspace_state,
@@ -125,13 +126,95 @@ def panel_rows(config_dir: Path, cwd: Path) -> tuple[list[str], list[str]]:
         f"Include work folder files  [{_onoff(schedule['include_files'])}]",
         f"Exclude from the work folder…  [{', '.join(_excludes(settings, cwd)) or 'defaults only'}]",
         f"Largest single file to back up  [{schedule.get('max_file_mb', 1024):g} MB]",
+        f"Parallel transfers  [{schedule.get('parallel_transfers', 8)} at a time]",
         f"Keep snapshots  [last {schedule['keep_last']} + {schedule['keep_daily']} daily]",
         f"Backup key for credentials  [{_key_status(settings)}]",
-        "Back",
     ]
     values += ["target-add", "__info__", "toggle-enabled", "interval", "toggle-turn", "min-interval", "toggle-restart",
-               "toggle-end", "toggle-files", "excludes", "max-file", "keep", "key", "back"]
+               "toggle-end", "toggle-files", "excludes", "max-file", "jobs", "keep", "key"]
+    folder_rows, folder_values = _folder_section(config_dir, settings, cwd)
+    return [*rows, *folder_rows, "Back"], [*values, *folder_values, "back"]
+
+
+WORKTREE_LABELS = {
+    "off": "git worktrees are left out",
+    "inside": "worktrees inside this folder are backed up, the ones elsewhere are not",
+    "all": "worktrees inside this folder and the ones elsewhere (restored to their own paths) are backed up",
+}
+_MAX_FOLDER_ROWS = 200
+
+
+def _folder_choice(settings: dict[str, Any], cwd: Path) -> dict[str, Any]:
+    from ciel_runtime_support.workspace_router_selection import workspace_digest
+
+    folders = settings.setdefault("folders", {})
+    choice = folders.setdefault(workspace_digest(cwd), {})
+    choice.setdefault("skip_top", [])
+    if choice.get("worktrees") not in WORKTREE_LABELS:
+        choice["worktrees"] = "off"
+    return choice
+
+
+def _worktree_counts(cwd: Path) -> tuple[int, int]:
+    from ciel_runtime_support.session_backup_collect import git_worktrees
+
+    base = os.path.normcase(os.path.abspath(cwd)).rstrip("\\/") + os.sep
+    paths = [os.path.normcase(os.path.abspath(path)) + os.sep for path in git_worktrees(cwd)]
+    inside = sum(1 for path in paths if path.startswith(base))
+    return inside, len(paths) - inside
+
+
+def _folder_section(config_dir: Path, settings: dict[str, Any], cwd: Path) -> tuple[list[str], list[str]]:
+    """Work folder rows: the worktree mode and one checkbox per first-level folder (Enter toggles)."""
+
+    import fnmatch
+
+    from ciel_runtime_support.session_backup_collect import DEFAULT_CWD_EXCLUDES, is_linked_worktree
+
+    choice = _folder_choice(json.loads(json.dumps(settings)), cwd)
+    skip = set(choice["skip_top"])
+    inside, outside = _worktree_counts(cwd)
+    state = workspace_state(config_dir, cwd)
+    sizes = state.get("folder_sizes") or {}
+    measured = state.get("folder_sizes_at")
+    rows = [
+        "── Work folder: first-level folders (Enter: back up / leave out) ──",
+        f"Git worktrees  [{choice['worktrees']} · {inside} in this folder · {outside} elsewhere]",
+        f"Measure folder sizes  [{'measured ' + str(measured) if measured else 'not measured yet'}]",
+    ]
+    values = ["__info__", "worktrees", "measure-folders"]
+    try:
+        names = sorted(entry.name for entry in os.scandir(cwd) if entry.is_dir(follow_symlinks=False))
+    except OSError:
+        names = []
+    patterns = (*DEFAULT_CWD_EXCLUDES, *_excludes(settings, cwd))
+    for name in names[:_MAX_FOLDER_ROWS]:
+        size = f" · {_mb(sizes[name])}" if name in sizes else ""
+        if any(fnmatch.fnmatch(name, pattern) for pattern in patterns):
+            rows.append(f"  [-] {name}  [left out by name (Exclude…){size}]")
+            values.append("__info__")
+        elif is_linked_worktree(Path(cwd) / name):
+            rows.append(f"  [{' ' if choice['worktrees'] == 'off' else 'x'}] {name}  [git worktree · follows Git worktrees{size}]")
+            values.append("worktrees")
+        else:
+            rows.append(f"  [{' ' if name in skip else 'x'}] {name}  [{'left out' if name in skip else 'backed up'}{size}]")
+            values.append(f"folder:{name}")
+    if len(names) > _MAX_FOLDER_ROWS:
+        rows.append(f"  … {len(names) - _MAX_FOLDER_ROWS} more folders (use Exclude… for those)")
+        values.append("__info__")
     return rows, values
+
+
+def _measure_folders(config_dir: Path, settings: dict[str, Any], cwd: Path, output: Callable[[str], None]) -> list[str]:
+    from ciel_runtime_support.session_backup_collect import DEFAULT_CWD_EXCLUDES, measure_tree
+
+    choice = _folder_choice(settings, cwd)
+    output(f"\nMeasuring {cwd} (up to 20 s)...\n")
+    total, files, top, complete = measure_tree(cwd, (*DEFAULT_CWD_EXCLUDES, *_excludes(settings, cwd)),
+                                               deadline=time.monotonic() + 20, skip_worktrees=choice["worktrees"] == "off")
+    record_state(config_dir, cwd, folder_sizes=top, folder_sizes_at=time.strftime("%m-%d %H:%M"))
+    note = "" if complete else " (counting stopped at 20 s; sizes are at least this much)"
+    return [f"Measured {len(top)} first-level entries: {_mb(total)} in {files} files{note}."]
 
 
 def _cli(*args: str, timeout: float = 900) -> tuple[int, Any]:
@@ -396,6 +479,14 @@ def _backup_now(config_dir: Path, cwd: Path, output: Callable[[str], None]) -> l
         lines = [f"Saved snapshot {result.get('id')} to {', '.join(result.get('targets') or [])}.",
                  _incremental(result.get("stats")) + ".",
                  f"Credentials: {result.get('secrets')}"]
+        left = result.get("left_out") or {}
+        if left.get("folders"):
+            lines.append(f"Left out by your choice: {len(left['folders'])} folder(s): {', '.join(left['folders'])[:100]}")
+        mode = left.get("worktree_mode") or "off"
+        if left.get("worktrees") or mode != "off":
+            lines.append(f"Git worktrees: {mode}"
+                         + (f"; {len(left['worktrees'])} left out" if left.get("worktrees") else "")
+                         + (f"; {len(left['outside_worktrees'])} outside this folder included" if left.get("outside_worktrees") else ""))
         missing = int(result.get("not_backed_up_count") or 0)
         if missing:
             lines.append(f"Not in this backup: {missing} file(s) (file limit or unreadable), e.g.:")
@@ -458,6 +549,29 @@ def _apply(config_dir: Path, cwd: Path, value: str, prompt: Prompt, output: Call
         return _backup_now(config_dir, cwd, output)
     if value == "excludes":
         return _edit_excludes(config_dir, cwd, prompt, output)
+    if value == "measure-folders":
+        return _measure_folders(config_dir, settings, cwd, output)
+    if value == "worktrees":
+        choice = _folder_choice(settings, cwd)
+        order = list(WORKTREE_LABELS)
+        choice["worktrees"] = order[(order.index(choice["worktrees"]) + 1) % len(order)]
+        save_settings(config_dir, settings)
+        inside, outside = _worktree_counts(cwd)
+        return [f"Git worktrees: {choice['worktrees']} - {WORKTREE_LABELS[choice['worktrees']]}.",
+                f"This folder's repository has {inside} worktree(s) inside it and {outside} elsewhere."]
+    if value.startswith("folder:"):
+        name = value.split(":", 1)[1]
+        choice = _folder_choice(settings, cwd)
+        skip = list(choice["skip_top"])
+        if name in skip:
+            skip.remove(name)
+            message = f"{name} is backed up again."
+        else:
+            skip.append(name)
+            message = f"{name} is left out of this folder's backups (this first-level folder only, not same-named ones deeper)."
+        choice["skip_top"] = sorted(skip)
+        save_settings(config_dir, settings)
+        return [message]
     if value == "list":
         return _list(settings, cwd, prompt)[2]
     if value == "restore":
@@ -513,6 +627,12 @@ def _apply(config_dir: Path, cwd: Path, value: str, prompt: Prompt, output: Call
             return ["Enter a whole number of minutes (0 or more)."]
         schedule["min_interval_minutes"] = number
         message = f"Turn-end backups at most every {number} minutes."
+    elif value == "jobs":
+        number = _number(prompt, "Chunks compressed and sent at the same time (1-16)", int(schedule.get("parallel_transfers", 8)))
+        if not number or not 1 <= number <= 16:
+            return ["Enter a whole number from 1 to 16."]
+        schedule["parallel_transfers"] = number
+        message = f"Backups compress and send {number} chunk(s) at the same time."
     elif value == "max-file":
         number = _number(prompt, "Largest single work-folder file to back up, in MB", int(schedule.get("max_file_mb", 1024)))
         if not number:

@@ -9,13 +9,20 @@ import os
 import platform
 import shutil
 import time
+import dataclasses
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
-from ciel_runtime_support.session_backup_collect import DEFAULT_CWD_EXCLUDES, CollectOptions, default_roots, measure_tree
+from ciel_runtime_support.session_backup_collect import (
+    DEFAULT_CWD_EXCLUDES,
+    WORKTREE_MODES,
+    CollectOptions,
+    default_roots,
+    measure_tree,
+    outside_worktrees,
+)
 from ciel_runtime_support.session_backup_ops import (
-    ROOT_NAMES,
     create_snapshot,
     prune_snapshots,
     destination_roots,
@@ -27,6 +34,8 @@ from ciel_runtime_support.session_backup_ops import (
 from ciel_runtime_support.session_backup_secrets import KEY_ENV, backup_key
 from ciel_runtime_support.session_backup_service import DEFAULT_SCHEDULE, load_settings, save_settings, workspace_state
 from ciel_runtime_support.session_backup_store import (
+    DEFAULT_JOBS,
+    MAX_JOBS,
     BackupTarget,
     LocalTarget,
     TargetWriteError,
@@ -39,7 +48,7 @@ from ciel_runtime_support.workspace_router_selection import workspace_digest
 
 USAGE = f"""usage: ciel-runtime backup <command> [options]
 
-  create   [--cwd DIR] [--target NAME|DIR ...] [--label TEXT] [--session ID] [--no-files]
+  create   [--cwd DIR] [--target NAME|DIR ...] [--label TEXT] [--session ID] [--no-files] [--worktrees off|inside|all] [--jobs N]
            [--exclude PATTERN ...] [--key-file FILE] [--trigger NAME]
   list     [--target NAME|DIR] [--cwd DIR | --all]
   show     ID [--target NAME|DIR]
@@ -109,6 +118,8 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--session", action="append", default=[])
     parser.add_argument("--no-files", action="store_true")
     parser.add_argument("--exclude", action="append", default=[])
+    parser.add_argument("--worktrees", choices=WORKTREE_MODES, default=None)
+    parser.add_argument("--jobs", type=int, default=None)
     parser.add_argument("--key-file")
     parser.add_argument("--trigger", default="manual")
     parser.add_argument("--all", action="store_true")
@@ -159,13 +170,19 @@ def _gb(value: float) -> str:
 
 
 def preflight(cwd: Path, targets: list[BackupTarget], excludes: tuple[str, ...], skip: tuple[Path, ...],
-              workspace: str, progress: Any = None, max_file_bytes: int = 1024 ** 3) -> str:
+              workspace: str, progress: Any = None, max_file_bytes: int = 1024 ** 3, *,
+              skip_top: tuple[str, ...] = (), worktrees: str = "off", extra_roots: tuple[Path, ...] = ()) -> str:
     """'' when the backup can go ahead, else why not (a local target without room for a first backup)."""
 
     local = [target for target in targets if isinstance(target, LocalTarget)]
     if not local:
         return ""
-    total, _files, top, _complete = measure_tree(cwd, excludes, skip, progress=progress, max_file_bytes=max_file_bytes)
+    total, _files, top, _complete = measure_tree(cwd, excludes, skip, progress=progress, max_file_bytes=max_file_bytes,
+                                                 skip_top=skip_top, skip_worktrees=worktrees == "off")
+    for extra in extra_roots:
+        size = measure_tree(extra, excludes, skip, progress=progress, max_file_bytes=max_file_bytes)[0]
+        total += size
+        top[f"worktree {Path(extra).name}"] = size
     for target in local:
         root = target.root
         probe = root
@@ -186,12 +203,29 @@ def workspace_excludes(context: BackupContext, cwd: Path) -> tuple[str, ...]:
     return tuple((load_settings(context.config_dir).get("excludes") or {}).get(workspace_digest(cwd)) or ())
 
 
+# Skip reasons that come from the user's own choices; they are not "missing" from the backup.
+CHOSEN_SKIPS = ("excluded", "not selected", "worktree")
+
+
+def workspace_options(settings: Mapping[str, Any], cwd: Path) -> dict[str, Any]:
+    """Per work folder: first-level folders left out and the worktree mode (default off)."""
+
+    options = (settings.get("folders") or {}).get(workspace_digest(cwd)) or {}
+    mode = str(options.get("worktrees") or "off")
+    return {"skip_top": tuple(str(name) for name in options.get("skip_top") or ()),
+            "worktrees": mode if mode in WORKTREE_MODES else "off"}
+
+
 def create(context: BackupContext, args: argparse.Namespace) -> dict[str, Any]:
     cwd = Path(args.cwd or context.cwd()).resolve()
     roots = default_roots(cwd, environ=context.environ, home=context.home, asset_home=context.asset_home, config_dir=context.config_dir)
     progress = _progress_writer(getattr(args, "progress_file", None))
     extra_excludes = (*args.exclude, *workspace_excludes(context, cwd))
     max_file_bytes = int(float(load_settings(context.config_dir)["schedule"].get("max_file_mb") or 1024) * 1048576)
+    chosen = workspace_options(load_settings(context.config_dir), cwd)
+    worktrees = args.worktrees or chosen["worktrees"]
+    if worktrees == "all" and not args.no_files:
+        roots = dataclasses.replace(roots, worktrees=tuple(outside_worktrees(cwd)))
     options = CollectOptions(
         max_file_bytes=max_file_bytes,
         include_files=not args.no_files,
@@ -202,6 +236,8 @@ def create(context: BackupContext, args: argparse.Namespace) -> dict[str, Any]:
         trigger=args.trigger,
         skip_paths=tuple(path for path in (args.key_file, load_settings(context.config_dir).get("key_file")) if path),
         progress=progress,
+        skip_top=chosen["skip_top"],
+        worktrees=worktrees,
     )
     targets = resolve_targets(context, args.target)
     if options.include_files:
@@ -209,13 +245,15 @@ def create(context: BackupContext, args: argparse.Namespace) -> dict[str, Any]:
 
         problem = preflight(cwd, targets, (*DEFAULT_CWD_EXCLUDES, *extra_excludes),
                             (roots.claude, roots.codex, roots.ciel, roots.ciel_ws),
-                            workspace_label(cwd, platform.node(), getpass.getuser()), progress, max_file_bytes)
+                            workspace_label(cwd, platform.node(), getpass.getuser()), progress, max_file_bytes,
+                            skip_top=options.skip_top, worktrees=worktrees, extra_roots=roots.worktrees)
         if problem:
             raise ValueError(problem)
     key = backup_key(context.environ, args.key_file or load_settings(context.config_dir).get("key_file") or None)
+    jobs = args.jobs or int(load_settings(context.config_dir)["schedule"].get("parallel_transfers") or DEFAULT_JOBS)
     result = create_snapshot(
         roots, targets, options, key=key, versions=context.versions,
-        host=platform.node(), user=getpass.getuser(),
+        host=platform.node(), user=getpass.getuser(), jobs=max(1, min(MAX_JOBS, jobs)),
     )
     manifest = result.manifest
     pruned = {}
@@ -233,8 +271,12 @@ def create(context: BackupContext, args: argparse.Namespace) -> dict[str, Any]:
         "skipped": len(manifest["skipped"]),
         # Files the user would expect in the backup but that are not there (excluded folders are not listed).
         "not_backed_up": [f"{item['root']}/{item['path']}: {item['reason']}" for item in manifest["skipped"]
-                          if item.get("reason") != "excluded"][:5],
-        "not_backed_up_count": sum(1 for item in manifest["skipped"] if item.get("reason") != "excluded"),
+                          if item.get("reason") not in CHOSEN_SKIPS][:5],
+        "not_backed_up_count": sum(1 for item in manifest["skipped"] if item.get("reason") not in CHOSEN_SKIPS),
+        # What the menu choices left out: first-level folders and git worktrees.
+        "left_out": {"folders": sorted(item["path"] for item in manifest["skipped"] if item.get("reason") == "not selected"),
+                     "worktrees": sorted(item["path"] for item in manifest["skipped"] if item.get("reason") == "worktree"),
+                     "worktree_mode": worktrees, "outside_worktrees": [str(path) for path in roots.worktrees]},
         "secrets": "encrypted" if manifest["secrets"].get("included") else f"left out ({len(manifest['secrets'].get('names') or [])} items, no backup key)",
         "sessions": manifest["sessions"],
         "stats": result.stats,
@@ -307,7 +349,7 @@ def restore(context: BackupContext, args: argparse.Namespace) -> dict[str, Any]:
     result = restore_snapshot(target, manifest, dest, key=key, include_files=not args.no_files, dry_run=args.dry_run)
     result.pop("paths") if not args.dry_run else None
     result.update({"id": manifest["id"], "dry_run": args.dry_run, "safety_snapshot": safety,
-                   "roots": {name: str(dest[name]) for name in ROOT_NAMES}, "next": resume_hint(manifest, dest)})
+                   "roots": {name: str(path) for name, path in dest.items()}, "next": resume_hint(manifest, dest)})
     return result
 
 

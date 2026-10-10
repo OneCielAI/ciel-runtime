@@ -20,6 +20,7 @@ import os
 import platform
 import re
 import sqlite3
+import subprocess
 import tempfile
 import time
 from dataclasses import dataclass, field
@@ -27,10 +28,11 @@ from pathlib import Path
 from typing import Any, Callable, Iterator, Mapping
 
 from ciel_runtime_support.session_backup_secrets import SecretBundle, split_secret_fields
-from ciel_runtime_support.session_backup_store import FORMAT_VERSION, ChunkWriter
+from ciel_runtime_support.session_backup_store import CHUNK_SIZE, FORMAT_VERSION, ChunkWriter
 from ciel_runtime_support.workspace_router_selection import workspace_digest, workspace_identity
 
-READ_BLOCK = 1024 * 1024
+# Files are read in whole chunks, so most blocks become a chunk without being copied again.
+READ_BLOCK = CHUNK_SIZE
 DEFAULT_MAX_FILE_BYTES = 1024 * 1024 * 1024
 DEFAULT_CWD_EXCLUDES = (
     "node_modules", ".npm-global", ".npm", ".cache", "__pycache__", ".venv", "venv",
@@ -79,9 +81,54 @@ class CollectRoots:
     codex: Path
     ciel: Path
     ciel_ws: Path
+    # Git worktrees outside the work folder, backed up as roots "worktree-1", "worktree-2", ...
+    worktrees: tuple[Path, ...] = ()
+
+    def extra(self) -> dict[str, Path]:
+        return {f"worktree-{index}": Path(path) for index, path in enumerate(self.worktrees, start=1)}
+
+    def path(self, name: str) -> Path:
+        extra = self.extra()
+        return extra[name] if name in extra else Path(getattr(self, name))
 
     def as_dict(self) -> dict[str, str]:
-        return {name: str(getattr(self, name)) for name in ("cwd", "claude", "home", "codex", "ciel", "ciel_ws")}
+        fixed = {name: str(getattr(self, name)) for name in ("cwd", "claude", "home", "codex", "ciel", "ciel_ws")}
+        return {**fixed, **{name: str(path) for name, path in self.extra().items()}}
+
+
+WORKTREE_MODES = ("off", "inside", "all")
+
+
+def is_linked_worktree(folder: Path) -> bool:
+    """A git linked worktree: ``.git`` is a file pointing into <repo>/.git/worktrees/ (submodules point into modules/)."""
+
+    marker = Path(folder) / ".git"
+    try:
+        if not marker.is_file():
+            return False
+        text = marker.read_text(encoding="utf-8", errors="replace")[:1024]
+    except OSError:
+        return False
+    return text.startswith("gitdir:") and "/worktrees/" in text.replace("\\", "/")
+
+
+def git_worktrees(cwd: Path, runner: Callable[..., Any] = subprocess.run) -> list[Path]:
+    """Linked worktrees of the repository at ``cwd`` (git worktree list), main worktree left out."""
+
+    try:
+        result = runner(["git", "-C", str(cwd), "worktree", "list", "--porcelain"], capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return []
+    if getattr(result, "returncode", 1) != 0:
+        return []
+    paths = [Path(line[len("worktree "):].strip()) for line in str(result.stdout).splitlines() if line.startswith("worktree ")]
+    main = _norm(Path(cwd))
+    return [path for path in paths if _norm(path) != main]
+
+
+def outside_worktrees(cwd: Path, runner: Callable[..., Any] = subprocess.run) -> list[Path]:
+    base = _norm(Path(cwd)).rstrip("\\/") + os.sep
+    return [path for path in git_worktrees(cwd, runner) if not (_norm(path) + os.sep).startswith(base) and path.is_dir()]
 
 
 def default_roots(cwd: Path, *, environ: Mapping[str, str], home: Path, asset_home: Path, config_dir: Path) -> CollectRoots:
@@ -117,6 +164,11 @@ class CollectOptions:
     trigger: str = "manual"
     # Files never collected wherever they are (the backup key file).
     skip_paths: tuple[str, ...] = ()
+    # First-level folders of the work folder left out (chosen in the menu, this depth only).
+    skip_top: tuple[str, ...] = ()
+    # "off": git linked worktrees are left out; "inside": those in the work folder are kept;
+    # "all": also the ones elsewhere (CollectRoots.worktrees).
+    worktrees: str = "off"
     # Called about once a second with {"files", "read", "uploaded", "current"}.
     progress: Callable[[dict[str, Any]], None] | None = None
 
@@ -155,8 +207,18 @@ def _jsonl_stream(path: Path) -> Iterator[bytes]:
 
 
 def _file_stream(path: Path) -> Iterator[bytes]:
+    """The file up to its size when opened, in blocks no larger than what is left.
+
+    read(n) allocates n bytes first: asking a 20 KB file for 8 MiB doubled the
+    time of an incremental backup over 3000 small files (measured 2026-10-10)."""
+
     with path.open("rb") as stream:
-        while block := stream.read(READ_BLOCK):
+        remaining = os.fstat(stream.fileno()).st_size
+        while remaining > 0:
+            block = stream.read(min(READ_BLOCK, remaining))
+            if not block:
+                break
+            remaining -= len(block)
             yield block
 
 
@@ -213,7 +275,7 @@ class SessionCollector:
     # ---- primitives -------------------------------------------------------------------------
 
     def _rel(self, root: str, path: Path) -> str:
-        return Path(path).relative_to(getattr(self.roots, root)).as_posix()
+        return Path(path).relative_to(self.roots.path(root)).as_posix()
 
     def _claim(self, path: Path) -> bool:
         key = _norm(path)
@@ -304,7 +366,8 @@ class SessionCollector:
             return True
         return root == "ciel_ws" and name in ("router-external-token", "remote-bridge-token")
 
-    def add_tree(self, root: str, base: Path, *, skip_dirs: set[str] = frozenset(), excludes: tuple[str, ...] = ()) -> None:
+    def add_tree(self, root: str, base: Path, *, skip_dirs: set[str] = frozenset(), excludes: tuple[str, ...] = (),
+                 skip_top: set[str] = frozenset(), skip_worktrees: bool = False) -> None:
         base = Path(base)
         if not base.is_dir():
             return
@@ -318,6 +381,12 @@ class SessionCollector:
                     continue
                 if _matches(name, excludes) or _norm(child) in others:
                     self._skip(root, child, "excluded")
+                    continue
+                if name in skip_top and current_path == base:
+                    self._skip(root, child, "not selected")
+                    continue
+                if skip_worktrees and is_linked_worktree(child):
+                    self._skip(root, child, "worktree")
                     continue
                 kept.append(name)
             dirs[:] = kept
@@ -404,7 +473,12 @@ class SessionCollector:
 
     def collect_cwd(self) -> None:
         if self.options.include_files:
-            self.add_tree("cwd", self.roots.cwd, excludes=(*self.options.excludes, *self.options.extra_excludes))
+            excludes = (*self.options.excludes, *self.options.extra_excludes)
+            self.add_tree("cwd", self.roots.cwd, excludes=excludes, skip_top=set(self.options.skip_top),
+                          skip_worktrees=self.options.worktrees == "off")
+            if self.options.worktrees == "all":
+                for name, path in self.roots.extra().items():
+                    self.add_tree(name, path, excludes=excludes)
 
     def collect(self) -> Collection:
         self.collect_claude()
@@ -423,6 +497,8 @@ def measure_tree(
     deadline: float | None = None,
     progress: Callable[[dict[str, Any]], None] | None = None,
     max_file_bytes: int = DEFAULT_MAX_FILE_BYTES,
+    skip_top: tuple[str, ...] = (),
+    skip_worktrees: bool = False,
 ) -> tuple[int, int, dict[str, int], bool]:
     """(bytes, files, bytes per top-level entry, complete) of a work folder as a backup would read it.
 
@@ -435,7 +511,9 @@ def measure_tree(
     reported = time.monotonic()
     for current, dirs, names in os.walk(base):
         current_path = Path(current)
-        dirs[:] = [name for name in dirs if not _matches(name, excludes) and _norm(current_path / name) not in skipped]
+        dirs[:] = [name for name in dirs if not _matches(name, excludes) and _norm(current_path / name) not in skipped
+                   and not (current_path == base and name in skip_top)
+                   and not (skip_worktrees and is_linked_worktree(current_path / name))]
         relative = current_path.relative_to(base).parts
         for name in names:
             if _matches(name, excludes) or name.startswith(".part-") or name.endswith((".tmp", ".lock")):
@@ -553,6 +631,7 @@ def build_manifest(
 
 
 __all__ = [
+    "WORKTREE_MODES",
     "CollectOptions",
     "CollectRoots",
     "Collection",
@@ -562,7 +641,10 @@ __all__ = [
     "claude_project_key",
     "codex_threads_for_cwd",
     "default_roots",
+    "git_worktrees",
+    "is_linked_worktree",
     "measure_tree",
+    "outside_worktrees",
     "plain_path",
     "same_path",
     "sqlite_snapshot",

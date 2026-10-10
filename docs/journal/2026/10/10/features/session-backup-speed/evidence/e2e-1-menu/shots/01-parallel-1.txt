@@ -1,0 +1,29 @@
+  10. External event inputs  [CloudEvents + Webhook/SSE]
+  11. Remote instructions  [HTTP GET · off]
+  12. Workspace MCP modules  [launch scoped]
+  13. Request/file limits  [workspace scoped]
+  14. Web backend  [off · 127.0.0.1:9047]
+  15. OAuth tokens  [none · Codex/Claude rotation]
+  16. Web access  [0 accounts · admin token]
+  17. Dangerous delete prompt  [Claude · auto-allow off]
+  18. Session backup  [incremental · schedule off · to local · last never]
+  19. Provider fallback  [auto off · 0/0 backups ready]
+  Quit
+
+-----------------------------------------------------------------------------------------------------------------------
+Session backup options
+    ... 16 above
+    Exclude from the work folder…  [defaults only]
+    Largest single file to back up  [1024 MB]
+  > Parallel transfers  [1 at a time]
+    Keep snapshots  [last 30 + 14 daily]
+    Backup key for credentials  [none - credentials are left out]
+    ... 5 below
+
+  Backups compress and send 1 chunk(s) at the same time.
+
+-----------------------------------------------------------------------------------------------------------------------
+  Base URL: unreachable (URLError)
+  API key: not required for
+
+Up/Down moves. PgUp/PgDn jumps. Home/End bounds. Enter selects. Esc/Left closes. q quits.

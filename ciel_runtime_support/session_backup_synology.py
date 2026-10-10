@@ -25,6 +25,7 @@ import json
 import os
 import secrets
 import ssl
+import threading
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -179,6 +180,8 @@ class DsmClient:
         self._headers: dict[str, str] = {}
         self._apis: dict[str, dict[str, Any]] = {}
         self._sid = ""
+        # Backups store chunks from several threads: one connection probe and one login for all of them.
+        self._lock = threading.RLock()
 
     # connection -------------------------------------------------------------------------------------------------
     def _candidates(self) -> list[tuple[str, str]]:
@@ -187,8 +190,10 @@ class DsmClient:
         return quickconnect_addresses(self.address, self._opener)
 
     def connect(self) -> str:
-        if self.origin:
-            return self.origin
+        with self._lock:
+            return self.origin or self._connect()
+
+    def _connect(self) -> str:
         failures = []
         for origin, pingpong in self._candidates():
             headers = {"Origin": origin, "Referer": origin + "/"} if ".quickconnect.to" in origin else {}
@@ -223,6 +228,22 @@ class DsmClient:
         return f"/webapi/{info.get('path') or 'entry.cgi'}", version
 
     # session ----------------------------------------------------------------------------------------------------
+    def _session(self) -> str:
+        """The current session id, logging in first when there is none."""
+
+        with self._lock:
+            if not self._sid:
+                self.login()
+            return self._sid
+
+    def _renew(self, used: str) -> str:
+        """After a session error: log in again, once for every thread that used the expired id."""
+
+        with self._lock:
+            if self._sid == used:
+                self._sid = ""
+            return self._session()
+
     def login(self) -> None:
         self.connect()
         path, version = self._api("SYNO.API.Auth", 6)
@@ -256,25 +277,23 @@ class DsmClient:
         return data
 
     def call(self, api: str, wanted: int, method: str, params: Mapping[str, Any], *, relogin: bool = True) -> dict[str, Any]:
-        if not self._sid:
-            self.login()
+        sid = self._session()
         path, version = self._api(api, wanted)
         form = {"api": api, "version": str(version), "method": method, **{key: str(value) for key, value in params.items()}}
-        url = f"{self.origin}{path}?_sid={urllib.parse.quote(self._sid)}"
+        url = f"{self.origin}{path}?_sid={urllib.parse.quote(sid)}"
         data = self._decode(self._raw("POST", url, body=urllib.parse.urlencode(form).encode(),
                                       headers={**self._headers, "content-type": "application/x-www-form-urlencoded"}))
         if data.get("success"):
             return data.get("data") or {}
         failure = _error(data, _FILE_ERRORS)
         if relogin and failure.code in _RELOGIN_CODES:
-            self._sid = ""
+            self._renew(sid)
             return self.call(api, wanted, method, params, relogin=False)
         raise failure
 
     # files ------------------------------------------------------------------------------------------------------
-    def upload(self, folder: str, filename: str, data: bytes) -> None:
-        if not self._sid:
-            self.login()
+    def upload(self, folder: str, filename: str, data: bytes, *, relogin: bool = True) -> None:
+        sid = self._session()
         path, version = self._api("SYNO.FileStation.Upload", 2)
         boundary = "ciel" + secrets.token_hex(12)
         fields = {"api": "SYNO.FileStation.Upload", "version": "2" if version < 3 else "3", "method": "upload",
@@ -284,22 +303,21 @@ class DsmClient:
         parts.append(f'--{boundary}\r\ncontent-disposition: form-data; name="file"; filename="{filename}"\r\n'
                      "content-type: application/octet-stream\r\n\r\n".encode() + data + f"\r\n--{boundary}--\r\n".encode())
         body = b"".join(parts)
-        url = f"{self.origin}{path}?_sid={urllib.parse.quote(self._sid)}"
+        url = f"{self.origin}{path}?_sid={urllib.parse.quote(sid)}"
         result = self._decode(self._raw("POST", url, body=body, headers={
             **self._headers, "content-type": f"multipart/form-data; boundary={boundary}", "content-length": str(len(body))}))
         if not result.get("success"):
             failure = _error(result, _FILE_ERRORS)
-            if failure.code in _RELOGIN_CODES:
-                self._sid = ""
-                return self.upload(folder, filename, data)
+            if relogin and failure.code in _RELOGIN_CODES:
+                self._renew(sid)
+                return self.upload(folder, filename, data, relogin=False)
             raise failure
 
-    def download(self, path: str) -> bytes:
-        if not self._sid:
-            self.login()
+    def download(self, path: str, *, relogin: bool = True) -> bytes:
+        sid = self._session()
         api_path, version = self._api("SYNO.FileStation.Download", 2)
         query = urllib.parse.urlencode({"api": "SYNO.FileStation.Download", "version": str(version), "method": "download",
-                                        "path": json.dumps([path]), "mode": "download", "_sid": self._sid})
+                                        "path": json.dumps([path]), "mode": "download", "_sid": sid})
         raw = self._raw("GET", f"{self.origin}{api_path}?{query}", headers=self._headers)
         # A failed download is a small JSON error; stored chunks are zlib data and manifests carry no "success".
         if raw[:1] == b"{" and len(raw) < 4096:
@@ -308,7 +326,11 @@ class DsmClient:
             except (UnicodeDecodeError, ValueError):
                 data = None
             if isinstance(data, dict) and data.get("success") is False:
-                raise _error(data, _FILE_ERRORS)
+                failure = _error(data, _FILE_ERRORS)
+                if relogin and failure.code in _RELOGIN_CODES:
+                    self._renew(sid)
+                    return self.download(path, relogin=False)
+                raise failure
         return raw
 
     def list_folder(self, folder: str) -> list[tuple[bool, str]]:
@@ -341,6 +363,7 @@ class SynologyTarget:
         self.client = client
         self.folder = "/" + folder.strip().strip("/")
         self._index: set[str] | None = None
+        self._index_lock = threading.Lock()
 
     def _path(self, key: str) -> str:
         if ".." in key.split("/"):
@@ -363,9 +386,10 @@ class SynologyTarget:
         return sorted(found)
 
     def _blob_index(self) -> set[str]:
-        if self._index is None:
-            self._index = set(self._walk("blobs"))
-        return self._index
+        with self._index_lock:
+            if self._index is None:
+                self._index = set(self._walk("blobs"))
+            return self._index
 
     def has(self, key: str) -> bool:
         if key.startswith("blobs/"):

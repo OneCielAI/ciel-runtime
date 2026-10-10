@@ -32,6 +32,7 @@ DEFAULT_SCHEDULE: dict[str, Any] = {
     "on_session_end": False,   # after the CLI exits for good
     "include_files": True,
     "max_file_mb": 1024,       # larger work-folder files are left out (and listed in the result)
+    "parallel_transfers": 8,   # chunks compressed and stored at the same time (1-16)
     "keep_last": 30,
     "keep_daily": 14,
 }

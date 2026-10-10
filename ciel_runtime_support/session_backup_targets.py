@@ -19,6 +19,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+import threading
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -47,6 +48,7 @@ class _StagedTarget:
         self._staging = Path(tempfile.mkdtemp(prefix="ciel-backup-stage-"))
         self._staged: list[str] = []
         self._index: set[str] | None = None
+        self._index_lock = threading.Lock()
 
     def _stage(self, key: str, data: bytes) -> None:
         path = self._staging.joinpath(*key.split("/"))
@@ -57,9 +59,10 @@ class _StagedTarget:
             self._index.add(key)
 
     def _blob_index(self) -> set[str]:
-        if self._index is None:
-            self._index = set(self._list_remote("blobs/"))
-        return self._index
+        with self._index_lock:
+            if self._index is None:
+                self._index = set(self._list_remote("blobs/"))
+            return self._index
 
     def has(self, key: str) -> bool:
         if key.startswith("blobs/"):

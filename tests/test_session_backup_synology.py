@@ -9,6 +9,7 @@ import tempfile
 import unittest
 import urllib.error
 import urllib.parse
+import zlib
 from email.parser import BytesParser
 from email.policy import HTTP
 from pathlib import Path
@@ -189,6 +190,17 @@ class ClientTests(unittest.TestCase):
         with self.assertRaises(TargetWriteError) as stopped:
             ChunkWriter([make_target(nas)]).write(b"data")
         self.assertIn("no space left on the NAS volume", str(stopped.exception))
+
+    def test_parallel_chunks_share_one_login(self):
+        nas = FakeNas()
+        target = make_target(nas)
+        writer = ChunkWriter([target], jobs=8)
+        digests = [writer.write(bytes([index]) * 70000) for index in range(20)]
+        writer.drain()
+        writer.close()
+        self.assertEqual(1, sum(1 for _api, method, _ in nas.calls if method == "login"))
+        self.assertEqual(20, sum(1 for path in nas.files if "/blobs/" in path))
+        self.assertEqual(bytes([7]) * 70000, zlib.decompress(target.get(f"blobs/{digests[7][:2]}/{digests[7]}")))
 
     def test_an_expired_session_logs_in_again_once(self):
         nas = FakeNas()

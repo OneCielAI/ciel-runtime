@@ -1,0 +1,29 @@
+  11. Remote instructions  [HTTP GET · off]
+  12. Workspace MCP modules  [launch scoped]
+  13. Request/file limits  [workspace scoped]
+  14. Web backend  [off · 127.0.0.1:9102]
+  15. OAuth tokens  [none · Codex/Claude rotation]
+  16. Web access  [0 accounts · admin token]
+  17. Dangerous delete prompt  [Claude · auto-allow off]
+  18. Session backup  [incremental · schedule off · to local · last 10-10 15:22 ok]
+  19. Provider fallback  [auto off · 0/0 backups ready]
+  Quit
+
+-----------------------------------------------------------------------------------------------------------------------
+Session backup options
+    ... 19 above
+    Backup key for credentials  [none - credentials are left out]
+    ── Work folder: first-level folders (Enter: back up / leave out) ──
+  > Git worktrees  [all · 1 in this folder · 1 elsewhere]
+    Measure folder sizes  [measured 10-10 15:22]
+      [x] .claude  [backed up]
+    ... 4 below
+
+  Git worktrees: all - worktrees inside this folder and the ones elsewhere (restored to their own paths) are backed up.
+  This folder's repository has 1 worktree(s) inside it and 1 elsewhere.
+
+-----------------------------------------------------------------------------------------------------------------------
+  Base URL: unreachable (URLError)
+  API key: not required for
+
+Up/Down moves. PgUp/PgDn jumps. Home/End bounds. Enter selects. Esc/Left closes. q quits.
