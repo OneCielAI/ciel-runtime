@@ -1,0 +1,15 @@
+okf_version: "1.0"
+task: "Why .14 Emily keeps getting 429 even after switching the login (read-only diagnosis)."
+reported: "User, 2026-10-09: '.14 에서 엘밀리가 계속 429 에러로 로그인을 바꿔도 동일한현상이나느데 계속'"
+host: ".14, sandbox u4 (aapw-a11u4), cwd C:\\Data\\Source\\SGSWMSCrossing\\u4\\home\\emily-ai, Claude Code; launch-state last: mode anthropic-routed, provider anthropic, 2026-10-09 12:22 local. Router instance 8965, workspace c27b0d656c05. SSH (SYSTEM) reads only; nothing launched or changed."
+verified:
+  errors: "Claude transcripts modified in the last 2 days (86 files): 42 API error messages. 33 x rate_limit 'API Error: Server is temporarily limiting requests (not your usage limit) · This request would exceed your account's rate limit. Please try again later.' (17:27Z-19:41Z in sessions b26d8710, 86051e24); 5 x server_error 503 'all targets were skipped by pre-…' (text not produced by Ciel source); 3 x invalid_request safeguards flag; 1 x rate_limit 'You've hit your session limit · resets 1:10pm (America/Los_Angeles)' at 19:56:01Z (session a9a016f2)."
+  router_log: "router 8965 log has no 429/rate-limit lines (default level ERROR; Ciel logs these below ERROR or not at all)."
+  user_config: "AppData\\Roaming\\ciel-runtime\\config.json: anthropic api_key empty, route_through_router false (the launch-state still says anthropic-routed; the workspace config could not be read)."
+  token_store: "workspaces\\c27b0d656c05\\oauth-tokens.state.json exists, modified 2026-10-09 11:59 local. Contents and the rest of the workspace folder: Access is denied for SYSTEM (ACL). Not changed."
+  ciel_code: "oauth_routing.anthropic_request_run: for provider anthropic without x-api-key, when the workspace token store has 'claude' tokens the router replaces the CLI's own sign-in (Authorization) with a stored token; a usage-limit 429 rotates to the next token, other 429s are relayed."
+not_verified:
+  - "Whether the workspace store holds claude tokens, which accounts, and whether Emily's requests went through them (would make a Claude /login switch irrelevant). Blocked: workspace ACL denies SYSTEM."
+  - "Which upstream produced the 503 'all targets were skipped by pre-…' message."
+  - "Whether the 'not your usage limit' 429 is per-account or server-wide on Anthropic's side."
+changes: "None."

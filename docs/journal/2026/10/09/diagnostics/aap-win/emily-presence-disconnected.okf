@@ -1,0 +1,14 @@
+okf_version: "1.0"
+task: "Why the Walkie server shows .14 Emily only as disconnected (the presence/status observer is not working) - read-only diagnosis."
+reported: "User, 2026-10-09: '.14 에밀리 세션이 서버 상태 관측기가 동작안해서 서버에서는 연결끊김으로만 표시되는문제'"
+host: ".14, u4 (aapw-a11u4), home C:\\Data\\Source\\SGSWMSCrossing\\u4\\home\\emily-ai. SSH (SYSTEM) process metadata and log reads only."
+verified:
+  current_claude: "claude.exe pid 23528, started 2026-10-09 12:55:55 local, command line '...\\@anthropic-ai\\claude-code\\bin\\claude.exe login', parent powershell.exe pid 20084 (-NoLogo -ExecutionPolicy Bypass, started 12:01:40, owner aapw-a11u4). It is the working session (its child bash runs test_bl_r4.py under the a9a016f2 scratchpad)."
+  no_ciel: "No ciel_runtime.py cli/serve process owned by aapw-a11u4 is running. Router 8965's last log line is 12:55:45 'claude_session_socket_unavailable reason=auth_key_unavailable ... fallback=terminal'."
+  no_walkie_mcp: "No mcp-stdio.py and no walkie-presence-mcp.mjs for Emily. Only walkie-install\\transcript-relay.py (pid 22572, started 12:04:14) runs, standalone."
+  reference: "On a Ciel-launched session the presence process is a child of the Walkie MCP: local Claude 28232 -> mcp-stdio.py 52520 -> walkie-presence-mcp.mjs 52460; edward (u22) runs mcp-stdio.py 18652 the same way under its Ciel launch."
+  timeline: "12:22 launch-state anthropic-routed (Ciel). 12:55:45 last router line. 12:55:55 'claude login' started directly from PowerShell (the login switch reported in the 429 issue); that process is the session now in use, without Ciel and without the Walkie MCP."
+inferred_not_verified:
+  - "The server's 'disconnected' state follows from walkie-presence-mcp.mjs not running (its server-side meaning was not read)."
+  - "Whether the Ciel CLI exited before or because of the direct 'claude login' run."
+not_done: "Nothing launched, typed or changed on .14. Relaunching Emily through Ciel needs the user's OK and a user-context (not SYSTEM) way to start it."

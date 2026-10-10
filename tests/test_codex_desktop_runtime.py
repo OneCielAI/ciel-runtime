@@ -63,13 +63,16 @@ class CodexDesktopHomeTests(unittest.TestCase):
 
     def test_config_is_seeded_once_and_auth_follows_the_source(self):
         paths = codex_desktop_paths(self.root / "cfg", "ws")
-        self.assertEqual(["config.toml", "auth.json"], prepare_codex_home(paths, self.source))
-        (paths.codex_home / "config.toml").write_text('model = "edited-in-app"\n', encoding="utf-8")
+        self.assertEqual(["config.toml", "auth.json", "effort-default"], prepare_codex_home(paths, self.source))
+        self.assertEqual('model_reasoning_effort = "medium"\nmodel = "gpt-6"\n',
+                         (paths.codex_home / "config.toml").read_text(encoding="utf-8"))
+        edited = 'model_reasoning_effort = "high"\nmodel = "edited-in-app"\n'
+        (paths.codex_home / "config.toml").write_text(edited, encoding="utf-8")
         (self.source / "auth.json").write_text('{"v": 2}', encoding="utf-8")
         later = (paths.codex_home / "auth.json").stat().st_mtime + 10
         os.utime(self.source / "auth.json", (later, later))
         self.assertEqual(["auth.json"], prepare_codex_home(paths, self.source))
-        self.assertEqual('model = "edited-in-app"\n', (paths.codex_home / "config.toml").read_text(encoding="utf-8"))
+        self.assertEqual(edited, (paths.codex_home / "config.toml").read_text(encoding="utf-8"))
         self.assertEqual('{"v": 2}', (paths.codex_home / "auth.json").read_text(encoding="utf-8"))
         self.assertEqual('model = "gpt-6"\n', (self.source / "config.toml").read_text(encoding="utf-8"))
         self.assertTrue(paths.user_data.is_dir())

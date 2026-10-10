@@ -1053,7 +1053,11 @@ MCP channel capability probe 결과의 저장, 분류, refresh 결정을 담당�
 
 ### `ciel_runtime_support/codex_config.py`
 
-Codex 설정 경로 발견과 TOML projection을 담당하는 Configuration Policy. 환경·파일 I/O와 순수 변환 규칙을 분리한다.
+Codex 설정 경로 발견과 TOML projection을 담당하는 Configuration Policy. 환경·파일 I/O와 순수 변환 규칙을 분리한다. 실행 프로필(`-p`, 최상위 `profile`)과 `model_reasoning_effort`가 최상위 또는 활성 프로필에 지정됐는지 판정한다.
+
+### `ciel_runtime_support/codex_config_effort.py`
+
+Codex 실행 직전에 실행용 `config.toml`(CODEX_HOME, 없으면 `CLI_ASSET_HOME/.codex`)의 최상위에 `model_reasoning_effort`가 없으면 `"medium"` 한 줄을 파일 맨 앞에 원자적으로 기록하는 Launch Preparation. 기존 내용·줄바꿈·BOM은 그대로 두고, 값이 있으면 건드리지 않으며, 실패는 WARN 로그만 남기고 실행을 계속한다. `CodexLaunchModelSettings`가 TUI·app-server·remote·desktop 공통 모델 설정 인자 직전에 이를 수행하고, desktop 전용 홈은 `codex_desktop_runtime.prepare_codex_home`이 같은 함수를 호출한다.
 
 ### `ciel_runtime_support/codex_channel_sse_launch.py`
 
@@ -1069,7 +1073,7 @@ Codex 명령행 인수를 결정하는 순수 Launch Policy. process 실행이�
 
 ### `ciel_runtime_support/codex_launch_configuration.py`
 
-Codex alternate-screen 호환, routed provider 설정, 현재 모델 인수와 version-matched model catalog 생성을 조정하는 Configuration Application Service. policy·model·catalog·effects를 각각 최대 5필드 typed port로 분리하며 filesystem과 환경 접근은 composition adapter로 격리한다. 기본 Factory가 routed provider 상수와 Codex config projection 정책을 소유한다.
+Codex alternate-screen 호환, routed provider 설정, 현재 모델 인수와 version-matched model catalog 생성을 조정하는 Configuration Application Service. policy·model·catalog·effects를 각각 최대 5필드 typed port로 분리하며 filesystem과 환경 접근은 composition adapter로 격리한다. 기본 Factory가 routed provider 상수와 Codex config projection 정책을 소유한다. 네이티브 Codex 실행에서 실행 인자·config 어디에도 effort가 없으면 `model_reasoning_effort="medium"`을 모델 설정 인자에 더하고, 라우팅 provider는 자기 effort(`effort_level` 또는 카탈로그 기본값)를 `-c`로 명시해 config 최상위 기본값보다 우선시킨다(TUI와 app-server 공통, remote TUI는 서버 `-c`를 물려받음).
 
 ### `ciel_runtime_support/codex_model_catalog.py`
 
@@ -1354,6 +1358,30 @@ Codex routed(`router_http.forward_json`)와 Anthropic routed(`claude_router`) �
 ### `ciel_runtime_support/dangerous_rm_auto_allow.py`
 
 메인 메뉴 `17. Dangerous delete prompt` 옵션(설정 키 `claude_dangerous_rm_auto_allow`, 기본 꺼짐). Claude Code는 bypassPermissions에서도 critical-path(드라이브 루트와 그 바로 아래 폴더, 작업 폴더와 상위 폴더) 삭제를 묻고 2분 뒤 스스로 거부한다. 옵션이 켜지면 Claude 실행 환경에 `CIEL_RUNTIME_AUTO_ALLOW_DANGEROUS_RM=1`을 넣고, 꺼지면 상속된 값도 지운다. 응답은 `ciel-runtime-tool-guard.py`의 `handle_dangerous_rm_permission`이 한다: 이 값, `permission_mode=bypassPermissions`, Bash/PowerShell, 삭제 동사(`rm`·`rmdir`·`rd`·`del`·`erase`·`ri`·`Remove-Item`)가 모두 맞을 때만 `PermissionRequest`에 `allow`(updatedInput 없음)를 낸다. Codex는 Ciel의 승인 정책 `never`에서 위험 명령을 묻지 않고 거부하므로 대상이 아니다.
+
+### `ciel_runtime_support/session_backup_store.py`
+
+세션 백업 스냅샷 형식. 파일을 8 MiB 고정 청크로 잘라 SHA-256 이름(`blobs/<aa>/<sha>`, zlib)으로 한 번만 저장하고, 스냅샷은 `snapshots/<workspace>/<id>.json` manifest다(마지막에 써서 완료 표시). 계속 덧붙는 transcript/rollout은 바뀐 끝 청크만 새로 올라간다. `LocalTarget`(폴더·UNC 공유), `ChunkWriter`, `find_snapshot`/`list_snapshots`.
+
+### `ciel_runtime_support/session_backup_collect.py`
+
+실행 중인 세션 수집. 루트: `cwd`, `claude`(CLAUDE_CONFIG_DIR 또는 ~/.claude), `home`(~/.claude.json), `codex`(CODEX_HOME), `ciel`(CONFIG_DIR), `ciel_ws`(workspace 상태). Claude는 `projects/<cwd key>`의 transcript와 `<sid>/`(subagents·tool-results), file-history·todos, 설정 파일; Codex는 이 cwd의 threads(`state_*.sqlite`, `\\?\` 경로 형식 포함)의 rollout과 설정·prompts·skills; Ciel은 workspace 상태 전체와 config/launch-state. 작업 폴더는 기본 제외(node_modules, .npm-global, 캐시 등)와 다른 루트를 뺀다. jsonl은 그 순간 크기까지·마지막 불완전 줄 제외, sqlite는 backup API로 일관되게 복사한다.
+
+### `ciel_runtime_support/session_backup_secrets.py`
+
+자격증명 분리·암호화. CLI 로그인 파일, Ciel vault와 `.key`, JSON 설정의 자격증명 필드는 평문 청크로 저장하지 않고 하나의 번들로 모아 백업 키(`CIEL_RUNTIME_BACKUP_KEY` 또는 `--key-file`, 백업에 저장 안 함)로 scrypt + HMAC-SHA256 스트림/태그 암호화한다. 키가 없으면 이름만 기록하고 뺀다.
+
+### `ciel_runtime_support/session_backup_targets.py`
+
+원격 대상: `ssh`(`sftp -b`, 키/agent 인증, `known_hosts` 옵션), `s3`(S3 호환, SigV4, path-style, 키는 `${ENV}` 참조만 허용), `rclone`(아무 rclone remote). ssh·rclone은 새 청크를 모아 한 번에 보내고(`flush`), manifest는 항상 청크 다음에 간다.
+
+### `ciel_runtime_support/session_backup_ops.py` / `session_backup_remap.py`
+
+스냅샷 생성·검증(`verify`)·복원·보존 정리(`prune_snapshots`: 최근 N개 + 날짜별 최신, 남은 스냅샷이 안 쓰는 청크만 삭제). 복원은 같은 경로 또는 루트별 새 경로로 쓰고, 실행 중인 세션(launch-state pid)이 있으면 거부, 덮어쓰기 전 현재 상태를 자동 백업한다. 다른 경로·사용자·머신이면 Claude `projects/<cwd key>` 폴더 이름, `~/.claude.json` projects 키, Codex threads의 cwd/rollout_path(원래 `\\?\` 형식 유지), config.toml의 `[projects."<cwd>"]`, launch-state 키를 새 경로로 옮긴다. 대화 기록 본문의 과거 경로는 그대로 둔다.
+
+### `ciel_runtime_support/session_backup_service.py` / `session_backup_cli.py` / `session_backup_menu.py`
+
+`ciel-runtime backup create|list|show|verify|restore|prune|schedule|status|target`(cli_dispatch에서 지연 import). 설정은 `CONFIG_DIR/session-backup.json`(대상, 기본 대상, `schedule`), 마지막 실행은 `session-backup-state.json`. 자동 백업은 모두 `backup create --prune` 자식 프로세스로 workspace별 하나씩(pid 잠금) 돈다: 라우터의 `BackupScheduler`(주기·변화 있을 때만, `tui_observation.TURN_ENDED_LISTENERS`로 턴 종료 후), `runtime_launch`의 CLI 종료 직후(재시작 전 `before_restart`, 세션 종료 `on_session_end`), 라우터 MCP 도구 `session_backup`(create/list/status; 복원은 로컬 명령만), 메인 메뉴 `18. Session backup` 패널. 모든 트리거는 기본 꺼짐.
 
 ### `ciel_runtime_support/transcript_public_projection.py`
 

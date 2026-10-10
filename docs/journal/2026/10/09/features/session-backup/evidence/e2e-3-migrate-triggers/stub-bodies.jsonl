@@ -1,0 +1,3 @@
+{"n": 1, "alpha": true, "gamma": true, "delta": false, "conversation": true}
+{"n": 2, "alpha": true, "gamma": false, "delta": false, "conversation": true}
+{"n": 3, "alpha": true, "gamma": false, "delta": true, "conversation": true}

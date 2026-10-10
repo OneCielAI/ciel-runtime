@@ -98,16 +98,10 @@ def codex_alternate_screen_value_from_config_text(text: str) -> str | None:
     return None
 
 
-def codex_config_paths_for_launch(
-    passthrough: list[str],
-    env: dict[str, str] | None = None,
-    cwd: Path | None = None,
-) -> list[Path]:
-    env = env or os.environ
-    configured_home = str(env.get("CODEX_HOME") or "").strip()
-    default_home = Path.home() / ".codex"
-    home = Path(configured_home or default_home).expanduser()
-    paths = [home / "config.toml"]
+REASONING_EFFORT_KEY = "model_reasoning_effort"
+
+
+def codex_launch_profiles(passthrough: list[str]) -> list[str]:
     profiles: list[str] = []
     index = 0
     while index < len(passthrough):
@@ -119,7 +113,53 @@ def codex_config_paths_for_launch(
         if argument.startswith("--profile="):
             profiles.append(argument.split("=", 1)[1])
         index += 1
-    for profile in profiles:
+    return profiles
+
+
+def _toml_key_values(text: str) -> list[tuple[str, str]]:
+    """(dotted key, raw value) pairs, each key prefixed by its table."""
+    pairs: list[tuple[str, str]] = []
+    table = ""
+    for line in text.splitlines():
+        stripped = toml_scalar_without_comment(line)
+        if not stripped:
+            continue
+        table_match = re.fullmatch(r"\[\[?\s*([^\[\]]+?)\s*\]\]?", stripped)
+        if table_match:
+            table = re.sub(r"\s*\.\s*", ".", table_match.group(1)).replace('"', "").replace("'", "")
+            continue
+        match = re.match(r"([A-Za-z0-9_\"'. -]+?)\s*=\s*(.*)$", stripped)
+        if match is None:
+            continue
+        key = re.sub(r"\s*\.\s*", ".", match.group(1)).replace('"', "").replace("'", "")
+        pairs.append((f"{table}.{key}" if table else key, match.group(2)))
+    return pairs
+
+
+def codex_config_profile(text: str) -> str | None:
+    for key, value in _toml_key_values(text):
+        if key == "profile":
+            return unquote_toml_string(value) or None
+    return None
+
+
+def codex_config_sets_reasoning_effort(text: str, profiles: list[str]) -> bool:
+    """Whether the config chooses an effort at the top level or for an active profile."""
+    wanted = {REASONING_EFFORT_KEY, *(f"profiles.{name}.{REASONING_EFFORT_KEY}" for name in profiles)}
+    return any(key in wanted for key, _value in _toml_key_values(text))
+
+
+def codex_config_paths_for_launch(
+    passthrough: list[str],
+    env: dict[str, str] | None = None,
+    cwd: Path | None = None,
+) -> list[Path]:
+    env = env or os.environ
+    configured_home = str(env.get("CODEX_HOME") or "").strip()
+    default_home = Path.home() / ".codex"
+    home = Path(configured_home or default_home).expanduser()
+    paths = [home / "config.toml"]
+    for profile in codex_launch_profiles(passthrough):
         if re.fullmatch(r"[A-Za-z0-9_-]+", profile or ""):
             paths.append(home / f"{profile}.config.toml")
     current = (cwd or Path.cwd()).resolve()

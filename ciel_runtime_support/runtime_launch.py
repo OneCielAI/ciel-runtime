@@ -67,6 +67,18 @@ def router_mcp_enabled_for_launch(config: dict[str, Any], *, native: bool) -> bo
     return bool(configured)
 
 
+def _session_backup_after_exit(*, restarting: bool, log: Callable[[str, str], Any] | None) -> None:
+    """Back up the session the CLI just left (schedule options before_restart / on_session_end)."""
+
+    try:
+        from ciel_runtime_support.session_backup_service import after_cli_exit
+
+        after_cli_exit(CONFIG_DIR, Path.cwd(), restarting=restarting, log=log)
+    except Exception as error:  # noqa: BLE001 - a backup never blocks the restart or the exit
+        if log is not None:
+            log("WARN", f"session_backup_after_exit_failed error={type(error).__name__}: {error}")
+
+
 def queue_restart_notice(
     restart: SessionRestartPorts,
     runtime: str,
@@ -720,8 +732,10 @@ def run_claude(
             rc = run_claude_process()
             request = restart_control.request
             if request is None or request.id in handled:
+                _session_backup_after_exit(restarting=False, log=router_log)
                 return rc
             handled.add(request.id)
+            _session_backup_after_exit(restarting=True, log=router_log)
             if request.resume:
                 cmd[:] = runtime_resume_command(cmd, "claude")
             fresh_session_socket()
@@ -1175,8 +1189,10 @@ def run_codex(
             rc = run_codex_process()
             request = codex_restart_control.request
             if request is None or request.id in handled:
+                _session_backup_after_exit(restarting=False, log=router_log)
                 return rc
             handled.add(request.id)
+            _session_backup_after_exit(restarting=True, log=router_log)
             if request.resume:
                 cmd[:] = runtime_resume_command(cmd, "codex")
             queue_restart_notice(services.restart, "codex", request, router_log)
@@ -1531,8 +1547,11 @@ def run_codex_app_server(
 
     def run_codex_app_server_process() -> int:
         if desktop is not None:
-            return desktop(cmd, env, launch_cwd, run_server=run_server, **session_kwargs)
-        return run_server()
+            rc = desktop(cmd, env, launch_cwd, run_server=run_server, **session_kwargs)
+        else:
+            rc = run_server()
+        _session_backup_after_exit(restarting=False, log=None)
+        return rc
 
     try:
         return run_with_router_lifetime(run_codex_app_server_process, manage_router_lifetime)

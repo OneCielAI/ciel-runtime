@@ -1,0 +1,22 @@
+okf_version: "1.0"
+task: "Local deploy of the published nightly dbd8dae into the pinned Windows snapshot, so ~/.local/bin launches (and the Claude hook guard) carry the critical-path removal auto-allow."
+reported: "User, 2026-10-08: g:\\ciel-walkie keeps showing 'Dangerous rm operation on critical path: G:\\wt-locale-dist-before' -> asked why it is not auto-passed; then '로컬에 배포해'."
+findings_before:
+  walkie_session: "Claude pid 28232 (started 2026-10-08 00:03:55) runs under ~/.local/share/ciel-runtime-89fe61a7... (commit 89fe61a, 2026-10-02, ancestor of dbd8dae); that snapshot has no dangerous_rm_auto_allow.py."
+  registered_home: "HKCU CIEL_RUNTIME_HOME pointed at the 89fe61a7 snapshot; ~/.local/bin/ciel-runtime.cmd launches the registered home."
+  hook_guard: "~/.claude/settings.json hook runs ~/.local/bin/ciel-runtime-tool-guard.py (2026-10-02, no CIEL_RUNTIME_AUTO_ALLOW_DANGEROUS_RM)."
+  option: "config.json has no claude_dangerous_rm_auto_allow (menu option is off by default)."
+  npm_global: "Already 0.2.51-nightly.20261008-044104.dbd8dae (installed earlier today), but the snapshot pin was not updated."
+method: "install.ps1 from the npm-installed package (CI-published, not hand-packed), every inherited CIEL_RUNTIME_* removed, PREFIX=~/.local, CIEL_RUNTIME_INSTALL_HOME=~/.local/share/ciel-runtime-dbd8dae68891bd2a1aa952563f825ad12a98fc75. Uncommitted working-tree changes (codex effort default) are NOT part of this deploy."
+verified:
+  - "HKCU CIEL_RUNTIME_HOME -> ~/.local/share/ciel-runtime-dbd8dae68891bd2a1aa952563f825ad12a98fc75"
+  - "snapshot contains ciel_runtime_support/dangerous_rm_auto_allow.py"
+  - "~/.local/bin/ciel-runtime-tool-guard.py identical to the npm package copy (3 AUTO_ALLOW_DANGEROUS_RM references)"
+  - "~/.local/bin/ciel-runtimectl.ps1 version -> ciel-runtime 0.2.51-nightly.20261008-044104.dbd8dae"
+  - "guard with PermissionRequest {bypassPermissions, Bash, 'rm -rf G:\\wt-locale-dist-before'}: env=1 -> {\"decision\":{\"behavior\":\"allow\"}}; env unset -> no output (prompt left to the user)"
+  - "live router 9611 /health = 200"
+test_note: "A first guard probe printed nothing because Git Bash echo turned '\\\\w' into '\\w' (invalid JSON; json.loads fails and the guard exits 0 silently). Re-run with valid JSON, piped and from a file: correct."
+not_done:
+  - "Menu option 17 not turned on (not requested); with it off the prompt still appears."
+  - "Running sessions (walkie Claude pid 28232 and others) not restarted; they keep the 89fe61a launcher. The hook guard file they call is now the new one, but the auto-allow env is only set by a new launch with the option on."
+  - "Not verified in the real walkie session."

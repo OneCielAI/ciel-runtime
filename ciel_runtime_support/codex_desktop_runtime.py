@@ -28,6 +28,7 @@ from urllib.parse import urlsplit
 import urllib.request
 
 from ciel_runtime_support.codex_app_server import CodexAppServerClient
+from ciel_runtime_support.codex_config_effort import ensure_default_reasoning_effort
 from ciel_runtime_support.codex_app_server_resume import (
     AppServerResume,
     resolve_resume_thread,
@@ -125,6 +126,10 @@ def prepare_codex_home(paths: CodexDesktopPaths, source_home: Path) -> list[str]
         if source.is_file() and (not target.exists() or source.stat().st_mtime > target.stat().st_mtime):
             shutil.copy2(source, target)
             copied.append(name)
+    # config.toml is seeded only once, so the app's own copy gets the unset
+    # effort default here rather than from the source home.
+    if ensure_default_reasoning_effort(paths.codex_home / "config.toml"):
+        copied.append("effort-default")
     return copied
 
 

@@ -17,6 +17,8 @@ class ChannelMcpRuntimeServices:
     read_runtime_inputs: Callable[..., list[dict[str, Any]]] | None = None
     telemetry_logs: Callable[[str, dict[str, Any]], dict[str, Any]] | None = None
     restart_session: Callable[..., dict[str, Any]] | None = None
+    # (args) -> result; None uses the session backup service for the router's workspace.
+    session_backup: Callable[[dict[str, Any]], dict[str, Any]] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -265,6 +267,23 @@ def channel_mcp_tool_schemas() -> list[dict[str, Any]]:
             },
         },
         {
+            "name": "session_backup",
+            "description": (
+                "Back up this agent session now (conversation, Ciel session state, CLI settings and work files) "
+                "to the configured backup targets, list its snapshots, or show the backup schedule and last run. "
+                "Restoring is a local `ciel-runtime backup restore` command, not a tool."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "action": {"type": "string", "enum": ["create", "list", "status"]},
+                    "limit": {"type": "integer", "minimum": 1, "maximum": 200,
+                              "description": "list: newest snapshots to return (default 20)."},
+                },
+                "required": ["action"],
+            },
+        },
+        {
             "name": "telemetry_logs",
             "description": (
                 "Inspect cursor-addressable OpenTelemetry logs stored by Ciel Runtime without loading "
@@ -354,7 +373,32 @@ def dispatch_channel_mcp_tool(
         return _json_response(request_id, {"ok": True, "changed": changed, "lines": lines})
     if name == "telemetry_logs":
         return _telemetry_logs(request_id, args, services)
+    if name == "session_backup":
+        return _session_backup(request_id, args, services)
     return channel_mcp_tool_response(request_id, f"Unknown ciel-runtime-router tool: {name}", True)
+
+
+def _default_session_backup(args: dict[str, Any]) -> dict[str, Any]:
+    import os
+    from pathlib import Path
+
+    from ciel_runtime_support.runtime_paths import CONFIG_DIR
+    from ciel_runtime_support.session_backup_service import mcp_session_backup
+
+    return mcp_session_backup(CONFIG_DIR, Path(os.environ.get("CIEL_RUNTIME_LAUNCH_CWD") or os.getcwd()), args)
+
+
+def _session_backup(request_id: Any, args: dict[str, Any], services: ChannelMcpToolServices) -> dict[str, Any]:
+    if str(args.get("action") or "") not in ("create", "list", "status"):
+        return channel_mcp_tool_response(request_id, "session_backup action must be create, list or status", True)
+    backup = services.runtime.session_backup or _default_session_backup
+    try:
+        result = backup(dict(args))
+    except Exception as error:  # noqa: BLE001 - reported to the caller as a tool error
+        return channel_mcp_tool_response(request_id, f"session_backup failed: {type(error).__name__}: {error}", True)
+    return _json_response(request_id, result) if result.get("ok") or result.get("skipped") else channel_mcp_tool_response(
+        request_id, json.dumps(result, ensure_ascii=False, default=str), True
+    )
 
 
 def _restart_session(

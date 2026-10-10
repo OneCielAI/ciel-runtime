@@ -9,11 +9,16 @@ from typing import Any
 
 from ciel_runtime_support.architecture import ProviderRuntimeCompactionPolicy
 from ciel_runtime_support.codex_config import (
+    REASONING_EFFORT_KEY,
     codex_alternate_screen_value_from_config_text,
     codex_config_override_keys,
     codex_config_paths_for_launch,
+    codex_config_profile,
+    codex_config_sets_reasoning_effort,
+    codex_launch_profiles,
     toml_string,
 )
+from ciel_runtime_support.codex_config_effort import DEFAULT_REASONING_EFFORT
 from ciel_runtime_support.codex_model_catalog import CodexModelCatalogSpec
 from ciel_runtime_support.runtime_constants import (
     CODEX_NATIVE_PROVIDER_ID_ENV,
@@ -268,13 +273,78 @@ class CodexLaunchConfigurationService:
     def auto_compact_config_args(self, cfg: dict[str, Any]) -> list[str]:
         return self._auto_compact_config_args(self._launch_model_snapshot(cfg))
 
+    def reasoning_effort_default_args(
+        self, native: bool, passthrough: list[str]
+    ) -> list[str]:
+        """Medium effort for a native Codex launch where nothing chose one.
+
+        With no model_reasoning_effort anywhere, Codex falls back to the
+        model catalog's default, which is ``low`` for gpt-6.1-sol.  A launch
+        override, a top-level config value or one in the active profile is
+        the operator's choice and is left alone.  Routed providers carry their
+        own effort through the Ciel model catalog.
+        """
+
+        if not native:
+            return []
+        overrides = self.policy.config_override_keys(passthrough)
+        if any(
+            key == REASONING_EFFORT_KEY or key.endswith("." + REASONING_EFFORT_KEY)
+            for key in overrides
+        ):
+            return []
+        texts: list[str] = []
+        for path in self.policy.config_paths(passthrough):
+            try:
+                texts.append(self.effects.read_text(path))
+            except Exception:
+                continue
+        profiles = codex_launch_profiles(passthrough)
+        profiles += [name for name in map(codex_config_profile, texts) if name]
+        if any(codex_config_sets_reasoning_effort(text, profiles) for text in texts):
+            return []
+        self.effects.log(
+            "INFO",
+            f"codex_reasoning_effort_default effort={DEFAULT_REASONING_EFFORT} "
+            "reason=unset",
+        )
+        return [
+            "-c",
+            f"{REASONING_EFFORT_KEY}={self.policy.toml_string(DEFAULT_REASONING_EFFORT)}",
+        ]
+
+    def _routed_effort_args(
+        self, snapshot: CodexLaunchModelSnapshot, passthrough: list[str]
+    ) -> list[str]:
+        """The routed model's own effort, named on the command line.
+
+        The catalog carries it as the model default, but a top-level
+        model_reasoning_effort in config.toml (which Ciel fills before a
+        launch) outranks a catalog default.  An explicit launch override still
+        wins.
+        """
+
+        spec = snapshot.spec
+        if spec is None:
+            return []
+        effort = spec.effort or str(
+            (spec.metadata or {}).get("default_reasoning_level") or ""
+        ).strip().lower()
+        if not effort or any(
+            key == REASONING_EFFORT_KEY or key.endswith("." + REASONING_EFFORT_KEY)
+            for key in self.policy.config_override_keys(passthrough)
+        ):
+            return []
+        return ["-c", f"{REASONING_EFFORT_KEY}={self.policy.toml_string(effort)}"]
+
     def runtime_model_catalog_args(
         self,
         codex: str,
         cfg: dict[str, Any],
         passthrough: list[str] | None = None,
     ) -> list[str]:
-        if self.passthrough_has_model_override(passthrough or []):
+        passthrough = passthrough or []
+        if self.passthrough_has_model_override(passthrough):
             # The explicit CLI model is the effective launch model.  Its
             # provider profile may not be known to Ciel, so applying the
             # persisted menu model's catalog/threshold would be worse than
@@ -283,8 +353,12 @@ class CodexLaunchConfigurationService:
                 "INFO",
                 "codex_compaction_launch_snapshot skipped=explicit_model_override",
             )
-            return []
+            provider, _provider_config = self.model.current_provider(cfg)
+            return self.reasoning_effort_default_args(
+                self.model.native_enabled(provider), passthrough
+            )
         snapshot = self._launch_model_snapshot(cfg)
+        effort_args = self.reasoning_effort_default_args(snapshot.native, passthrough)
         spec = snapshot.spec
         self.effects.log(
             "INFO",
@@ -297,10 +371,14 @@ class CodexLaunchConfigurationService:
         path = self._write_runtime_model_catalog(codex, snapshot)
         if path is None:
             # A native provider keeps its own bundled catalog; only the
-            # compaction threshold is ours to set.
-            return self._auto_compact_config_args(snapshot)
+            # compaction threshold and an unset effort are ours to set.
+            return [*self._auto_compact_config_args(snapshot), *effort_args]
         value = self.policy.toml_string(str(path.resolve()))
-        return ["-c", f"model_catalog_json={value}"]
+        return [
+            "-c",
+            f"model_catalog_json={value}",
+            *self._routed_effort_args(snapshot, passthrough),
+        ]
 
     def native_routed_config_args(
         self, router_base: str | None = None

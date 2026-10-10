@@ -153,6 +153,11 @@ def dispatch_cli(argv: list[str], services: CliServices) -> int:
             from ciel_runtime_support.runtime_paths import WORKSPACE_STATE_DIR
 
             return run_tokens_command(rest, WORKSPACE_STATE_DIR)
+        if head == "backup":
+            from ciel_runtime_support.runtime_paths import CLI_ASSET_HOME, CONFIG_DIR, HOME
+            from ciel_runtime_support.session_backup_cli import BackupContext, run_backup_command
+
+            return run_backup_command(rest, BackupContext(CONFIG_DIR, HOME, CLI_ASSET_HOME, os.environ, {"ciel_runtime": str(VERSION)}))
         if head in ("agy", "launch-agy", "antigravity"):
             return launch_agy(rest)
         if head in ("codex", "launch-codex"):

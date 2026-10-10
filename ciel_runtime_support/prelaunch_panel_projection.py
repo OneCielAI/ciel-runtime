@@ -27,6 +27,20 @@ def oauth_tokens_summary() -> str:
     return f"{count} stored · Codex/Claude rotation" if count else "none · Codex/Claude rotation"
 
 
+def session_backup_summary() -> str:
+    """Backup schedule and last run for the workspace the menu was opened in."""
+
+    from pathlib import Path
+
+    from ciel_runtime_support.runtime_paths import CONFIG_DIR
+    from ciel_runtime_support.session_backup_menu import summary
+
+    try:
+        return summary(CONFIG_DIR, Path.cwd())
+    except Exception:  # noqa: BLE001 - the menu row never breaks the menu
+        return "unavailable"
+
+
 ProviderConfig = dict[str, Any]
 RuntimeConfig = dict[str, Any]
 
@@ -112,6 +126,7 @@ class MainMenuProjection:
             f"15. OAuth tokens  [{oauth_tokens_summary()}]",
             f"16. Web access  [{web_access_summary()}]",
             f"17. Dangerous delete prompt  [{dangerous_rm_auto_allow.summary(config)}]",
+            f"18. Session backup  [{session_backup_summary()}]",
             self.ports.ui_text("quit", language),
         ]
 

@@ -1,0 +1,15 @@
+okf_version: "1.0"
+task: "Why the .14 edward session shows 'Selected model is at capacity. Please try a different model.' while usage remains (read-only diagnosis)."
+reported: "User, 2026-10-09: '.14 edward 세션에서 모델사용량이 많이 남았는데도 Selected model is at capacity. Please try a different model.'"
+host: ".14, sandbox u22 (aapw-a22u22), home C:\\ProgramData\\aap-win\\sandboxes\\u22\\home\\edward-ai, CODEX_HOME C:\\Users\\aapw-a22u22\\.codex. Read via SSH (SYSTEM) metadata/log reads only; nothing launched or changed."
+verified:
+  mode: "launch-state: codex-remote-router, provider codex (pid 29404). codex app-server + TUI use model_provider ciel-runtime-codex, base_url http://127.0.0.1:9397/backend-api/codex (Ciel router -> ChatGPT Codex backend). config.toml: model gpt-6.1-sol, model_reasoning_effort medium."
+  errors: "Rollout 01a0faab (528 MB): 2026-10-09 11 turns ended with error 'Selected model is at capacity. Please try a different model.' codex_error_info=server_overloaded, between 06:29Z and 07:38Z, model gpt-6.1-sol/medium; 28 turns succeeded since 05:00Z (last success 07:06:50Z). Durations mostly 17-21 s, some 94-650 s."
+  codex_source: "openai/codex main: protocol/src/error.rs ServerOverloaded = 'Selected model is at capacity. Please try a different model.'; codex-api sse/responses_error.rs and api_bridge.rs map upstream error code 'server_is_overloaded' to ServerOverloaded. Usage limits are a different error (UsageLimitReached/QuotaExceeded/UsageNotIncluded -> UsageLimitExceeded). So this message is not a usage-quota error."
+  ciel_router: "Ciel does not create 'server_is_overloaded'; codex_router.py only classifies it (CODEX_CAPACITY_ERROR_CODES) and router_http retries a streamed capacity failure (codex_capacity_retry, WARN) before passing it on. edward's router log level is ERROR, so retry lines are not recorded; no codex_overload_exhausted (ERROR) line today."
+  other_session: "u21 (aapw-a21u21) also got 4 server_overloaded turn errors today (last 07:04:08Z)."
+not_verified:
+  - "Why the upstream reported capacity for gpt-6.1-sol at these times (OpenAI-side; no status data collected)."
+  - "Whether Ciel's capacity retry ran for these turns (WARN not logged at level ERROR)."
+  - "Model of the u21 failures not read."
+changes: "None."

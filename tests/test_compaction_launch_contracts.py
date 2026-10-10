@@ -321,8 +321,14 @@ class CompactionLaunchContractTests(unittest.TestCase):
 
         args = service.runtime_model_catalog_args("codex", config)
 
+        # No Codex config file here, so the unset effort default follows.
         self.assertEqual(
-            ["-c", "model_auto_compact_token_limit=900000"],
+            [
+                "-c",
+                "model_auto_compact_token_limit=900000",
+                "-c",
+                'model_reasoning_effort="medium"',
+            ],
             args,
         )
 

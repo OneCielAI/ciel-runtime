@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import json
 import sys
+from pathlib import Path
 from dataclasses import dataclass
 from typing import Any, Callable
 
@@ -45,6 +46,7 @@ MAIN_MENU_ACTIONS: tuple[str, ...] = (
     "oauth-tokens",
     "web-access",
     "dangerous-rm",
+    "session-backup",
     "quit",
 )
 
@@ -376,6 +378,11 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
             )
         elif name == "dangerous-rm":
             panel_rows, panel_values = dangerous_rm_auto_allow.panel_rows(cfg)
+        elif name == "session-backup":
+            from ciel_runtime_support import session_backup_menu
+            from ciel_runtime_support.runtime_paths import CONFIG_DIR
+
+            panel_rows, panel_values = session_backup_menu.panel_rows(CONFIG_DIR, Path.cwd())
         if panel_rows:
             panel_idx = max(0, min(panel_idx, len(panel_rows) - 1))
 
@@ -1080,6 +1087,16 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                     messages = dangerous_rm_auto_allow.toggle(cfg)
                     save_config(cfg)
                     panel_rows, panel_values = dangerous_rm_auto_allow.panel_rows(cfg)
+                    panel_idx = max(0, min(panel_idx, len(panel_rows) - 1))
+                elif panel == "session-backup":
+                    if value == "back":
+                        close_panel()
+                        continue
+                    from ciel_runtime_support import session_backup_menu
+                    from ciel_runtime_support.runtime_paths import CONFIG_DIR
+
+                    messages = session_backup_menu.apply(CONFIG_DIR, Path.cwd(), value)
+                    panel_rows, panel_values = session_backup_menu.panel_rows(CONFIG_DIR, Path.cwd())
                     panel_idx = max(0, min(panel_idx, len(panel_rows) - 1))
                 elif panel == "options":
                     if value == "back":

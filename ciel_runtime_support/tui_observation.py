@@ -51,6 +51,10 @@ def _now() -> tuple[float, str]:
     return epoch, display
 
 
+# Called once per ended turn (session backups after a turn); a failing listener is ignored.
+TURN_ENDED_LISTENERS: list[Any] = []
+
+
 class TuiObservationBus:
     """Bounded in-memory event bus with active-turn state and long polling."""
 
@@ -75,6 +79,11 @@ class TuiObservationBus:
         with self._condition:
             if not self._ended_turns.first(str(fields.get("turn_id") or "")):
                 return None
+        for listener in list(TURN_ENDED_LISTENERS):
+            try:
+                listener(dict(fields))
+            except Exception:  # noqa: BLE001 - observers never break turn reporting
+                pass
         return self.publish(kind=AGENT_TURN_ENDED, request_id=None, role="system", data=dict(fields))
 
     def begin(

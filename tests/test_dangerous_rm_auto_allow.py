@@ -24,7 +24,7 @@ class DangerousRmAutoAllowTests(unittest.TestCase):
         self.assertEqual("Claude · auto-allow off", option.summary(config))
 
     def test_menu_action_sits_before_quit(self):
-        self.assertEqual(("dangerous-rm", "quit"), MAIN_MENU_ACTIONS[-2:])
+        self.assertEqual(("dangerous-rm", "session-backup", "quit"), MAIN_MENU_ACTIONS[-3:])
 
 
 if __name__ == "__main__":
