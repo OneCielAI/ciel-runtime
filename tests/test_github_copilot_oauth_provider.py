@@ -302,17 +302,22 @@ class GitHubCopilotOAuthProviderTests(unittest.TestCase):
             status = 200
             headers = {}
 
+            def __init__(self, body=b""):
+                self.body = body
+
             def __enter__(self):
                 return self
 
             def __exit__(self, *_args):
                 return False
 
-            def read(self, _size):
-                return b""
+            def read(self, _size=-1):
+                return self.body
 
         def urlopen(request, **_kwargs):
             captured["url"] = request.full_url
+            if request.get_method() == "GET":
+                return Response(b'{"data":[{"id":"gemini-3.1-pro-preview"}]}')
             return Response()
 
         handler = mock.Mock()
