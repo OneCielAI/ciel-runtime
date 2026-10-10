@@ -1,0 +1,25 @@
+okf_version: "1.0"
+type: journal
+status: proposed
+owner: Bob Ai
+timestamp: 2026-10-10
+request: Distinguish authoritative catalog lookup failure from missing model selection.
+evidence:
+  - Exact deployed provider_models.py reproduces timeout followed by cached default-only model list.
+  - Authentication comparison returns 401 without the provider key and 200 with the requested model when authenticated.
+  - Isolated real Ciel CLI configuration/listing sends the correct Authorization header and succeeds; no inference launched.
+  - AAP API container catalog GET timed out at 6 seconds once; later staged GET returned 200 in 3.705 seconds. The host returned 200 in 0.041 seconds.
+  - The historical failed workload was already reclaimed; its exact HTTP failure is not proven.
+changes:
+  - An authoritative catalog fetch failure raises a sanitized unavailable error instead of caching fallback defaults.
+  - Authoritative launch selection refuses unavailable catalog verification even with a configured model.
+  - Successful empty authoritative catalogs remain authoritative; non-authoritative offline fallback remains supported.
+validation:
+  before: New regression suite failed three assertions covering timeout, HTTP401 and configured-model launch gating.
+  after: Four new tests pass; 11 existing model tests and 45 catalog tests pass.
+  lint: Changed Python files pass Ruff0.15.22 and compileall.
+  unit_first: 1759 tests, 55 skipped, one PTY trust-dialog timing assertion failure. This test passed on both unchanged main and the candidate when run in isolation; no modal-guard code changed.
+limits:
+  - This corrects failure handling and diagnostics, not a proven fix of the historical workload network issue.
+  - No active runtime, image, provider registry or live task was modified by this patch.
+  - Existing callers may now receive an explicit unavailable failure where they previously got misleading fallback models.

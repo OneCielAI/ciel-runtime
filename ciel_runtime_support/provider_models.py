@@ -1,7 +1,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
+import json
+import time
 from typing import Any, Callable
+from urllib.parse import urlsplit
+
+
+class CatalogUnavailableError(RuntimeError):
+    """Catalog verification failed; this is not an empty/missing model list."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -215,6 +223,7 @@ def fetch_upstream_model_ids(provider: str, pcfg: dict[str, Any], force_refresh:
     ids: list[str] = []
     model_info: dict[str, dict[str, Any]] = {}
     fetched = False
+    catalog_error = "no successful response"
     try:
         if catalog_policy.kind == "nvidia":
             data = http_json(join_url(base, "/v1/models"), headers=nvidia_hosted_list_headers(), timeout=8.0, provider=provider, pcfg=pcfg)
@@ -224,9 +233,11 @@ def fetch_upstream_model_ids(provider: str, pcfg: dict[str, Any], force_refresh:
         else:
             headers = provider_model_list_headers(provider, pcfg)
             for path in provider_model_paths(provider, pcfg):
+                started = time.monotonic()
                 try:
                     request_base = lm_studio_api_base(pcfg) if catalog_policy.kind == "lm_studio" and path.startswith("/api/") else base
                     timeout = 2.0 if catalog_policy.kind == "lm_studio" else (4.0 if catalog_policy.kind == "ollama" else 6.0)
+                    timeout = getattr(catalog_policy, "request_timeout_seconds", None) or timeout
                     data = http_json(join_url(request_base, path), headers=headers, timeout=timeout, provider=provider, pcfg=pcfg)
                     data = services.response_codec.select_entries(provider, pcfg, data)
                     ids = [normalize_model_id(provider, mid) for mid in model_ids_from_response(data)]
@@ -234,7 +245,24 @@ def fetch_upstream_model_ids(provider: str, pcfg: dict[str, Any], force_refresh:
                     fetched = True
                     if ids:
                         break
-                except Exception:
+                except Exception as exc:
+                    # Retain a safe cause without including URLs, headers or keys.
+                    code = getattr(exc, "code", None)
+                    catalog_error = type(exc).__name__
+                    if isinstance(code, int):
+                        catalog_error += f" HTTP {code}"
+                    lowered = {str(k).lower(): v for k, v in headers.items()}
+                    auth = str(lowered.get("authorization") or "")
+                    key = auth[7:] if auth.lower().startswith("bearer ") else str(lowered.get("x-api-key") or "")
+                    router_log("WARN", "model_catalog_fetch_failed " + json.dumps({
+                        "provider": provider,
+                        "path": urlsplit(path).path,
+                        "exception": type(exc).__name__,
+                        "http_status": code if isinstance(code, int) else None,
+                        "elapsed_ms": round((time.monotonic() - started) * 1000),
+                        "auth_header_present": bool(auth or lowered.get("x-api-key")),
+                        "key_fingerprint": hashlib.sha256(key.encode()).hexdigest()[:12] if key else "",
+                    }, sort_keys=True))
                     continue
             if not fetched and catalog_policy.allow_public_without_auth:
                 # OpenCode publishes the model catalog at /v1/models. Keep the
@@ -247,8 +275,16 @@ def fetch_upstream_model_ids(provider: str, pcfg: dict[str, Any], force_refresh:
                     fetched = True
                 except Exception as exc:
                     router_log("DEBUG", f"{provider} public model catalog fetch failed: {type(exc).__name__}: {exc}")
-    except Exception:
+    except Exception as exc:
+        catalog_error = type(exc).__name__
         ids = []
+    if not fetched and catalog_policy.authoritative_upstream_catalog:
+        # A failed lookup is not an authoritative list of allowed model IDs.
+        # Do not persist defaults as a successful catalog: that poisons later
+        # selections even after connectivity or authentication recovers.
+        raise CatalogUnavailableError(
+            f"Authoritative model catalog unavailable for {provider} ({catalog_error})"
+        ) from None
     if fetched and catalog_policy.authoritative_upstream_catalog:
         ids = supplement_model_aliases(ids, model_info)
         sorted_ids = sorted_model_ids(unique_model_ids(provider, ids))

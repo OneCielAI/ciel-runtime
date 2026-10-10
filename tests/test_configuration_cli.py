@@ -1,4 +1,6 @@
 import unittest
+from dataclasses import replace
+from ciel_runtime_support.provider_models import CatalogUnavailableError
 from unittest import mock
 
 from ciel_runtime_support.configuration_cli import (
@@ -131,6 +133,15 @@ class ConfigurationCliControllerTests(unittest.TestCase):
         self.assertFalse(web["auto_for_non_native"])
         self.assertTrue(web["fetch_ignore_robots_txt"])
         self.assertEqual(2, self.save.call_count)
+
+    def test_models_command_reports_catalog_unavailable_without_traceback(self):
+        controller = self.controller()
+        controller = replace(controller, model=replace(controller.model,
+            upstream_ids=mock.Mock(side_effect=CatalogUnavailableError('catalog unavailable'))))
+        with self.assertRaises(SystemExit) as raised:
+            controller.models_command(None)
+        self.assertEqual(raised.exception.code, 2)
+        self.assertEqual(self.output, ['catalog unavailable'])
 
     def test_log_and_model_list_commands_render_values(self):
         controller = self.controller()

@@ -177,6 +177,7 @@ class CielAiRouterProviderAdapter(OpenAICompatibleProviderAdapter):
             authoritative_upstream_catalog=True,
             per_key_catalog=True,
             reapply_catalog_profile_at_launch=True,
+            request_timeout_seconds=10.0,
         )
     )
 

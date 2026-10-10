@@ -16,6 +16,8 @@ from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler
 from typing import Any, Callable
 
+from ciel_runtime_support.provider_models import CatalogUnavailableError
+
 from ciel_runtime_support.header_forwarding import (
     HOP_BY_HOP_REQUEST_HEADERS,
     project_end_to_end_request_headers,
@@ -1115,6 +1117,18 @@ class RouterHttpHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self) -> None:
+        try:
+            self._do_GET()
+        except CatalogUnavailableError:
+            self._services().presentation.write_json(self, {
+                "error": {
+                    "type": "upstream_error",
+                    "code": "model_catalog_unavailable",
+                    "message": "Provider model catalog unavailable; verify authentication and connectivity.",
+                }
+            }, 503)
+
+    def _do_GET(self) -> None:
         self._ciel_runtime_response_status = None
         services = self._services()
         parsed = urllib.parse.urlparse(self.path)

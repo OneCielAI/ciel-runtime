@@ -162,6 +162,8 @@ class ProviderModelCatalogPolicy:
     # Re-apply the selected model's cached catalog profile on every launch, so
     # limits follow a refreshed catalog without selecting the model again.
     reapply_catalog_profile_at_launch: bool = False
+    # None retains the catalog strategy's existing timeout.
+    request_timeout_seconds: float | None = None
 
 
 @dataclass(frozen=True)
