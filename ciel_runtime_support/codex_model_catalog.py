@@ -28,6 +28,8 @@ class CodexModelCatalogSpec:
     effort: str = ""
     auto_compact_token_limit: int | None = None
     metadata: Mapping[str, Any] | None = None
+    # The provider's own model id, shown by Codex in its footer.
+    model: str = ""
 
 
 class CodexModelCatalogService:
@@ -105,7 +107,11 @@ class CodexModelCatalogService:
         routed.update(
             {
                 "slug": spec.alias,
-                "display_name": f"Ciel Runtime {spec.provider_label}",
+                "display_name": (
+                    f"{spec.model} ({spec.provider_label})"
+                    if spec.model
+                    else f"Ciel Runtime {spec.provider_label}"
+                ),
                 "description": f"{spec.provider_label} routed through Ciel Runtime.",
                 "visibility": "none",
                 "supported_in_api": True,

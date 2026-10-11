@@ -1,0 +1,33 @@
+okf_version: "1.0"
+task: "Why the exact CielAiRouter model name does not show at the bottom of the Claude Code / Codex screen."
+reported: "User, 2026-10-11: 'ciel ai router를 사용할때는 정확한 모델명이 claude나 codex에서 표기가 안되는문제가잇어', 'cli 화면하단에 표시되는이름말이야 실행해서직저보바봐'; user screenshot of Codex on an AAP sandbox: 'Ciel Runtime CielAiRouter medium'."
+reproduced:
+  harness: "evidence/e2e_model_name.py: isolated CIEL_RUNTIME_CONFIG_DIR with only the cielairouter provider (key copied from the user config, config deleted after), Windows Terminal window, screen text read via console_driver, window captured with shot_title.ps1. No prompt was sent."
+  codex_cc_claude_opus_5_5: "bottom line 'Ciel Runtime CielAiRouter medium · <cwd>' (evidence/codex-opus55.png). Codex 0.162.1."
+  claude_cc_claude_opus_5_5: "banner and status line 'Opus 5.5 (1M context)' (evidence/claude-opus55.png). Claude Code 2.1.296."
+  claude_ASTRA: "'[ciel-runtime-cielairouter-astra] ws' (evidence/claude-astra.png)"
+  claude_ciel_Opus_5_5: "'[ciel-runtime-cielairouter-ciel-opus-5.5[1m]] ws' (evidence/claude-cielopus.png)"
+  claude_cx_gpt_6_1_sol_medium: "'[ciel-runtime-cielairouter-cx-gpt-6.1-sol-medium] ws' (evidence/claude-gpt61.png)"
+source:
+  codex: "codex_model_catalog.py:108 sets the routed catalog entry display_name to 'Ciel Runtime <provider label>' for every model and provider; Codex prints display_name + effort in its footer. Local catalogs in %APPDATA%/ciel-runtime/codex-model-catalogs show the same label for every provider."
+  claude: "Claude Code gets ANTHROPIC_MODEL = alias 'ciel-runtime-<provider>-<slug>' (provider_model_identity.py:76: lower-cased, '/' and spaces to '-'). The bottom '[...] dir' line is Ciel's status line script (statusline_script.py:516-519) printing Claude Code's session model.display_name, which is the alias unless Claude Code recognizes a Claude model name in it (cc/claude-opus-5-5 -> 'Opus 5.5 (1M context)')."
+  catalog_names: "CielAiRouter /v1/models returns a 'name' for cc/* rows (e.g. 'Claude Opus 5.5'); combos (ASTRA, ciel-Opus 5.5) have none. Ciel's display_model_name ignores it."
+not_verified:
+  - "Whether Claude Code offers a way to set the banner name for a custom model id (not checked yet)."
+  - "Which upstream model a combo (ASTRA) actually used per request: not visible in what Ciel shows; not checked."
+decision: "User, 2026-10-11: '지금 사용모델이 어떤건지라도 알수있으면돼일단은', then '수정하고 로컬 나이트리 배포'."
+changes:
+  codex: "CodexModelCatalogSpec.model (provider_config current_model); the routed catalog entry display_name is '<model> (<provider label>)', e.g. 'ASTRA (CielAiRouter)'; without a model the old 'Ciel Runtime <label>'."
+  claude_status_line: "statusline_script.routed_model_label: an alias 'ciel-runtime-<provider>-<slug>' in the session model id (or display name) is mapped back to the provider's model id by slug match over current_model, subagent_model, custom_models and model-list-cache.json; longest provider-name prefix wins (ollama vs ollama-cloud); unmatched shows '<slug> (<provider>)'. is_ciel_runtime_session also looks at model.id (Claude Code renames recognized Claude ids, e.g. 'Opus 5.5 (1M context)')."
+  tests: "test_statusline +2 (alias/recognized-name, cached pick/unknown, cp1252 stdout), test_codex_model_catalog +1."
+verified_after:
+  method: "Same harness; Claude runs pass --settings with a statusLine pointing at the script this checkout writes into the isolated config (Claude Code otherwise reads the user's ~/.claude statusLine, i.e. the installed older script). One window at a time: an earlier rerun picked up a still-open window with the same launch.cmd and showed its screen."
+  claude_ASTRA: "'[ASTRA (cielairouter)] ws' (evidence/after/claude-astra.png)"
+  claude_cc_claude_opus_5_5: "'[cc/claude-opus-5-5 (cielairouter)] ws' (evidence/after/claude-opus55.txt)"
+  claude_ciel_Opus_5_5: "'[ciel-Opus 5.5 (cielairouter)] ws' (evidence/after/claude-cielopus.txt)"
+  codex_ASTRA: "'ASTRA (CielAiRouter) medium · <cwd>' (evidence/after/codex-astra.png)"
+  codex_cc_claude_opus_5_5: "'cc/claude-opus-5-5 (CielAiRouter) medium · <cwd>' (evidence/after/codex-opus55.txt)"
+  cleanup: "Isolated configs (with the copied key) under G:/ciel-e2e/model-name deleted; E2E windows closed."
+still_not_shown:
+  - "Claude Code's own banner line ('ciel-runtime-cielairouter-astra with xhigh effort') is drawn by Claude Code from the alias; unchanged."
+  - "Codex footer after a model change inside a running session: not checked (the catalog is written at launch)."

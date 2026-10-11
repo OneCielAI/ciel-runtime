@@ -1,0 +1,38 @@
+
+ ▐▛███▛█   Claude Code v2.1.296
+▝▜██████▀  ciel-runtime-cielairouter-astra with xhigh effort · API Usage Billing
+ ▝▝   ▝▝   G:\ciel-e2e\model-name\claude-astra\ws
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ Try "create a util logging.py that..."
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  [ciel-runtime-cielairouter-astra] ws
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · ← 2 agents

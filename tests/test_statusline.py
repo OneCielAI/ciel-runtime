@@ -76,6 +76,48 @@ class StatuslineTests(unittest.TestCase):
         self.assertIn("fallback lm-studio/b until", proc.stdout)
         self.assertIn("(vllm auto)", proc.stdout)
 
+    def routed_label(self, session_model: dict, providers: dict, cache: list[str] | None = None) -> str:
+        with tempfile.TemporaryDirectory() as tmp:
+            script = Path(tmp) / "statusline.py"
+            script.write_text(ciel_runtime.STATUSLINE_SCRIPT, encoding="utf-8")
+            first = next(iter(providers))
+            (Path(tmp) / "config.json").write_text(json.dumps({"current_provider": first, "providers": providers}), encoding="utf-8")
+            if cache is not None:
+                (Path(tmp) / "model-list-cache.json").write_text(json.dumps({"time": 0, "key": "k", "models": cache}), encoding="utf-8")
+            env = statusline_probe_env()
+            env.update({"CIEL_RUNTIME_CONFIG_DIR": tmp, "CIEL_RUNTIME_STATUSLINE_ANSI": "0", "PYTHONIOENCODING": "cp1252"})
+            proc = subprocess.run(
+                [sys.executable, str(script)],
+                input=json.dumps({"model": session_model, "workspace": {"current_dir": str(Path(tmp) / "ws")}}),
+                text=True, capture_output=True, env=env, check=True,
+            )
+        return proc.stdout.strip().split(" | ")[0]
+
+    def test_statusline_names_the_provider_model_behind_the_alias(self):
+        providers = {"cielairouter": {"current_model": "ciel-Opus 5.5"}}
+        self.assertEqual(
+            "[ciel-Opus 5.5 (cielairouter)] ws",
+            self.routed_label({"id": "ciel-runtime-cielairouter-ciel-opus-5.5[1m]",
+                               "display_name": "ciel-runtime-cielairouter-ciel-opus-5.5[1m]"}, providers),
+        )
+        # Claude Code renames an alias it recognizes ("Opus 5.5 (1M context)"); the id still names the model.
+        self.assertEqual(
+            "[cc/claude-opus-5-5 (cielairouter)] ws",
+            self.routed_label({"id": "ciel-runtime-cielairouter-cc-claude-opus-5-5[1m]", "display_name": "Opus 5.5 (1M context)"},
+                              {"cielairouter": {"current_model": "cc/claude-opus-5-5"}}),
+        )
+
+    def test_statusline_finds_a_model_picked_in_claude_code_in_the_cached_list(self):
+        providers = {"ollama": {"current_model": "qwen3"}, "ollama-cloud": {"current_model": "glm-5.3"}}
+        self.assertEqual(
+            "[ASTRA/Big Model (ollama-cloud)] ws",
+            self.routed_label({"id": "ciel-runtime-ollama-cloud-astra-big-model"}, providers, cache=["ASTRA/Big Model"]),
+        )
+        self.assertEqual(
+            "[unknown-model (ollama-cloud)] ws",
+            self.routed_label({"id": "ciel-runtime-ollama-cloud-unknown-model"}, providers),
+        )
+
     def test_statusline_is_silent_for_native_claude_session(self):
         self.assertEqual("", self.run_statusline())
 

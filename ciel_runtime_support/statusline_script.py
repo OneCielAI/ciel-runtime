@@ -414,8 +414,44 @@ def is_ciel_runtime_session(session):
         return True
     if os.environ.get("CIEL_RUNTIME_STATUSLINE_FORCE", "").lower() in ("1", "true", "yes", "on"):
         return True
-    model_name = ((session.get("model") or {}).get("display_name") if isinstance(session.get("model"), dict) else None) or ""
-    return str(model_name).startswith("ciel-runtime-")
+    info = session.get("model") if isinstance(session.get("model"), dict) else {}
+    return any(str(info.get(key) or "").startswith("ciel-runtime-") for key in ("id", "display_name"))
+
+
+def _status_model_slug(value):
+    normalized = re.sub(r"[^a-zA-Z0-9_.-]+", "-", str(value).lower())
+    return re.sub(r"-+", "-", normalized).strip("-") or "model"
+
+
+def routed_model_label(session, providers):
+    """The upstream model behind Claude Code's 'ciel-runtime-<provider>-<slug>' alias, e.g. 'ASTRA (cielairouter)'.
+
+    Claude Code only knows the alias, which lower-cases the model and folds '/' and spaces into '-';
+    the provider's own model id is recovered from the configured, custom and cached model ids.
+    """
+
+    info = session.get("model") if isinstance(session.get("model"), dict) else {}
+    display = str(info.get("display_name") or "")
+    alias = next((value for value in (str(info.get("id") or ""), display) if value.startswith("ciel-runtime-")), "")
+    if not alias:
+        return display
+    alias = re.sub(r"\[1m\]\s*$", "", alias, flags=re.IGNORECASE)
+    owners = [name for name in providers if isinstance(name, str) and alias.startswith(f"ciel-runtime-{name}-")]
+    if not owners:
+        return alias[len("ciel-runtime-"):]
+    owner = max(owners, key=len)
+    suffix = alias[len(f"ciel-runtime-{owner}-"):]
+    pcfg = providers.get(owner) if isinstance(providers.get(owner), dict) else {}
+    candidates = [pcfg.get("current_model"), pcfg.get("subagent_model"), *(pcfg.get("custom_models") or [])]
+    cache = load_json(CONFIG_DIR / "model-list-cache.json", {})
+    if isinstance(cache, dict) and isinstance(cache.get("models"), list):
+        candidates.extend(cache["models"])
+    for candidate in candidates:
+        if isinstance(candidate, str) and candidate.strip():
+            base = re.sub(r"\[1m\]\s*$", "", candidate.strip(), flags=re.IGNORECASE)
+            if _status_model_slug(base) == suffix:
+                return f"{base} ({owner})"
+    return f"{suffix} ({owner})"
 
 
 def display_capacity(rpm):
@@ -513,7 +549,7 @@ def main():
     server_queue_limit = entry.get("server_queue_limit") if isinstance(entry, dict) else None
     server_queued = entry.get("server_queued") if isinstance(entry, dict) else None
     used = len([ts for ts in (timestamps or []) if isinstance(ts, (int, float)) and 0.0 <= now - float(ts) < 60.0])
-    model_name = ((session.get("model") or {}).get("display_name") if isinstance(session.get("model"), dict) else None) or model or "model"
+    model_name = routed_model_label(session, providers) or model or "model"
     current_dir = ((session.get("workspace") or {}).get("current_dir") if isinstance(session.get("workspace"), dict) else None) or session.get("cwd") or ""
     dir_name = Path(current_dir).name if current_dir else ""
     left = f"[{model_name}]"

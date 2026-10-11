@@ -220,6 +220,7 @@ class CodexLaunchConfigurationService:
                 .lower(),
                 auto_compact_token_limit=auto_compact_token_limit,
                 metadata=dict(metadata) if metadata is not None else None,
+                model=str(provider_config.get("current_model") or "").strip(),
             )
         return CodexLaunchModelSnapshot(
             provider=provider,
