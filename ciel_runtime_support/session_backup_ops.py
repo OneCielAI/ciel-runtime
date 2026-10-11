@@ -63,12 +63,13 @@ def create_snapshot(
         raise ValueError("no backup target")
     writer = ChunkWriter(targets, jobs)
     try:
-        collection = SessionCollector(roots, writer, options).collect()
+        collector = SessionCollector(roots, writer, options)
+        collection = collector.collect()
         secrets_ref: dict[str, Any] | None = None
         if key is not None and collection.secrets:
             sealed = seal(collection.secrets.to_bytes(), key)
             secrets_ref = {"included": True, "names": collection.secrets.names(), "chunks": writer.write_stream([sealed])}
-        writer.drain()
+        writer.drain(collector.report_upload)
     finally:
         writer.close()
     workspace = workspace_label(roots.cwd, host, user)

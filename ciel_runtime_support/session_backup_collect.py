@@ -263,7 +263,24 @@ class SessionCollector:
             "files": self.files_done,
             "read": self.bytes_read,
             "uploaded": self.writer.stats.bytes_uploaded,
+            "sent": self.writer.bytes_sent(),
             "current": str(path)[-90:],
+        })
+
+    def report_upload(self) -> None:
+        """While the last chunks upload (reading is done): chunks stored so far and bytes sent."""
+
+        if self.options.progress is None:
+            return
+        stats = self.writer.stats
+        self.options.progress({
+            "phase": "uploading",
+            "files": self.files_done,
+            "read": self.bytes_read,
+            "uploaded": stats.bytes_uploaded,
+            "sent": self.writer.bytes_sent(),
+            "in_flight": self.writer.in_flight,
+            "stored_chunks": stats.uploaded_chunks,
         })
 
     def _counted(self, path: Path, blocks: Iterator[bytes]) -> Iterator[bytes]:

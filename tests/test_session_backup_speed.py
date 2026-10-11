@@ -109,6 +109,24 @@ class WriterTests(unittest.TestCase):
         self.assertTrue(stopped.exception.no_space)
 
 
+class UploadProgressTests(unittest.TestCase):
+    def test_progress_keeps_coming_while_the_last_chunks_upload(self):
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            cwd = base / "work"
+            cwd.mkdir()
+            (cwd / "big.bin").write_bytes(os.urandom(CHUNK_SIZE * 3))
+            roots = default_roots(cwd, environ={}, home=base / "home", asset_home=base / "home", config_dir=base / "ciel")
+            states: list[dict] = []
+            target = MemoryTarget(delay=1.6)
+            create_snapshot(roots, [target], CollectOptions(progress=states.append), key=None, versions={},
+                            host="h", user="u", jobs=4)
+        uploading = [state for state in states if state.get("phase") == "uploading"]
+        self.assertTrue(uploading, states)
+        self.assertGreater(uploading[0]["in_flight"], 0)
+        self.assertEqual(3, len(target.list("blobs/")))  # the manifest is the fourth put
+
+
 class SnapshotTests(unittest.TestCase):
     def test_parallel_snapshot_equals_the_sequential_one(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -52,6 +52,8 @@ class FakeNas:
     def __call__(self, request, timeout=None):
         url = request.full_url
         body = request.data or b""
+        if not isinstance(body, bytes):
+            body = b"".join(body)  # upload bodies are sent in pieces (counted for progress)
         headers = {key.lower(): value for key, value in request.header_items()}
         if url == session_backup_synology.QUICKCONNECT_GLOBAL_URL:
             command = json.loads(body)[0]["command"]
@@ -201,6 +203,11 @@ class ClientTests(unittest.TestCase):
         self.assertEqual(1, sum(1 for _api, method, _ in nas.calls if method == "login"))
         self.assertEqual(20, sum(1 for path in nas.files if "/blobs/" in path))
         self.assertEqual(bytes([7]) * 70000, zlib.decompress(target.get(f"blobs/{digests[7][:2]}/{digests[7]}")))
+
+    def test_upload_bytes_are_counted_while_they_are_sent(self):
+        target = make_target(FakeNas())
+        target.put("blobs/ab/one", b"x" * 600000)
+        self.assertGreater(target.bytes_sent, 600000)  # the body plus its multipart fields
 
     def test_an_expired_session_logs_in_again_once(self):
         nas = FakeNas()

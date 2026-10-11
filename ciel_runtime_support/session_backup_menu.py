@@ -460,8 +460,13 @@ def _progress_line(state: Mapping[str, Any], elapsed: float) -> str:
     if state.get("phase") == "measuring":
         return (f"Measuring the work folder: {state.get('files', 0)} files, {_mb(state.get('measured'))} so far "
                 f"({elapsed:.0f} s)  Esc cancels")
-    return (f"Backing up: {state.get('files', 0)} files, {_mb(state.get('read'))} read, {_mb(state.get('uploaded'))} stored "
-            f"({elapsed:.0f} s)  Esc cancels")
+    if state.get("phase") == "uploading":
+        return (f"Uploading: {state.get('in_flight', 0)} chunk(s) still sending, {_mb(state.get('uploaded'))} stored"
+                + (f", {_mb(state.get('sent'))} sent" if state.get("sent") else "")
+                + f" ({elapsed:.0f} s)  Esc cancels")
+    return (f"Backing up: {state.get('files', 0)} files, {_mb(state.get('read'))} read, {_mb(state.get('uploaded'))} stored"
+            + (f", {_mb(state.get('sent'))} sent" if state.get("sent") else "")
+            + f" ({elapsed:.0f} s)  Esc cancels")
 
 
 def _backup_now(config_dir: Path, cwd: Path, output: Callable[[str], None]) -> list[str]:

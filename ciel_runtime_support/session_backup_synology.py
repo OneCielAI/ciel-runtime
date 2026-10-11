@@ -182,6 +182,8 @@ class DsmClient:
         self._sid = ""
         # Backups store chunks from several threads: one connection probe and one login for all of them.
         self._lock = threading.RLock()
+        # Bytes of upload bodies sent so far, counted while they go out (progress on slow links).
+        self.bytes_sent = 0
 
     # connection -------------------------------------------------------------------------------------------------
     def _candidates(self) -> list[tuple[str, str]]:
@@ -193,25 +195,52 @@ class DsmClient:
         with self._lock:
             return self.origin or self._connect()
 
+    def _probe(self, origin: str, pingpong: str) -> tuple[dict[str, str], dict[str, Any]]:
+        headers = {"Origin": origin, "Referer": origin + "/"} if ".quickconnect.to" in origin else {}
+        if pingpong:
+            self._raw("GET", origin + pingpong, headers=headers, timeout=_PROBE_TIMEOUT)
+        query = "api=SYNO.API.Info&version=1&method=query&query=SYNO.API.Auth,SYNO.FileStation."
+        data = json.loads(self._raw("GET", f"{origin}/webapi/query.cgi?{query}", headers=headers, timeout=_PROBE_TIMEOUT))
+        if not data.get("success"):
+            raise SynologyError("API info refused")
+        return headers, data.get("data") or {}
+
     def _connect(self) -> str:
+        """Every address is tried at once; the first that answers is used (in listed order when several answer
+        together). An unreachable DDNS address no longer costs its whole timeout before the relay
+        (measured 2026-10-10: ~8 s on every backup command)."""
+
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        candidates = self._candidates()
         failures = []
-        for origin, pingpong in self._candidates():
-            headers = {"Origin": origin, "Referer": origin + "/"} if ".quickconnect.to" in origin else {}
-            try:
-                if pingpong:
-                    self._raw("GET", origin + pingpong, headers=headers, timeout=_PROBE_TIMEOUT)
-                query = "api=SYNO.API.Info&version=1&method=query&query=SYNO.API.Auth,SYNO.FileStation."
-                data = json.loads(self._raw("GET", f"{origin}/webapi/query.cgi?{query}", headers=headers, timeout=_PROBE_TIMEOUT))
-            except (OSError, ValueError) as error:
-                failures.append(f"{origin}: {type(error).__name__}: {str(error)[:120]}")
-                continue
-            if data.get("success"):
-                self.origin, self._headers, self._apis = origin, headers, data.get("data") or {}
+        pool = ThreadPoolExecutor(len(candidates), thread_name_prefix="ciel-nas-probe")
+        try:
+            futures = {pool.submit(self._probe, origin, pingpong): origin for origin, pingpong in candidates}
+            for future in as_completed(futures):
+                origin = futures[future]
+                try:
+                    headers, apis = future.result()
+                except (OSError, ValueError) as error:
+                    failures.append(f"{origin}: {type(error).__name__}: {str(error)[:120]}")
+                    continue
+                self.origin, self._headers, self._apis = origin, headers, apis
                 return origin
-            failures.append(f"{origin}: API info refused")
+        finally:
+            # A probe still waiting for its timeout is left to finish on its own.
+            pool.shutdown(wait=False, cancel_futures=True)
         raise SynologyError("cannot reach the NAS: " + "; ".join(failures))
 
-    def _raw(self, method: str, url: str, *, body: bytes | None = None, headers: Mapping[str, str] | None = None,
+    def _counted(self, body: bytes, piece: int = 256 * 1024):
+        """The body in pieces, counting each into bytes_sent as http.client sends it."""
+
+        for start in range(0, len(body), piece):
+            block = body[start:start + piece]
+            with self._lock:
+                self.bytes_sent += len(block)
+            yield block
+
+    def _raw(self, method: str, url: str, *, body: Any = None, headers: Mapping[str, str] | None = None,
              timeout: float = _REQUEST_TIMEOUT) -> bytes:
         request = urllib.request.Request(url, data=body, method=method, headers=dict(headers or {}))
         try:
@@ -304,7 +333,7 @@ class DsmClient:
                      "content-type: application/octet-stream\r\n\r\n".encode() + data + f"\r\n--{boundary}--\r\n".encode())
         body = b"".join(parts)
         url = f"{self.origin}{path}?_sid={urllib.parse.quote(sid)}"
-        result = self._decode(self._raw("POST", url, body=body, headers={
+        result = self._decode(self._raw("POST", url, body=self._counted(body), headers={
             **self._headers, "content-type": f"multipart/form-data; boundary={boundary}", "content-length": str(len(body))}))
         if not result.get("success"):
             failure = _error(result, _FILE_ERRORS)
@@ -395,6 +424,10 @@ class SynologyTarget:
         if key.startswith("blobs/"):
             return key in self._blob_index()
         return key in set(self._walk(key.rsplit("/", 1)[0]))
+
+    @property
+    def bytes_sent(self) -> int:
+        return self.client.bytes_sent
 
     def put(self, key: str, data: bytes) -> None:
         folder, _, filename = self._path(key).rpartition("/")

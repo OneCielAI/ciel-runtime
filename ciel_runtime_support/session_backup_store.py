@@ -26,7 +26,7 @@ import zlib
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable, Iterator, Protocol
+from typing import Any, Callable, Iterable, Iterator, Protocol
 
 FORMAT_VERSION = 1
 CHUNK_SIZE = 8 * 1024 * 1024
@@ -172,11 +172,23 @@ class ChunkWriter:
     def write_stream(self, data_source: Iterable[bytes]) -> list[str]:
         return [self.write(chunk) for chunk in iter_chunks(data_source)]
 
-    def drain(self) -> None:
-        """Wait until every chunk is stored; raise the first failure."""
+    @property
+    def in_flight(self) -> int:
+        return len(self._pending)
 
-        if self._pending:
-            self._collect(wait(self._pending).done)
+    def bytes_sent(self) -> int:
+        """Bytes the targets have sent so far, chunks still uploading included (targets that count them)."""
+
+        return sum(int(getattr(target, "bytes_sent", 0) or 0) for target in self.targets)
+
+    def drain(self, report: Callable[[], None] | None = None, interval: float = 1.0) -> None:
+        """Wait until every chunk is stored; raise the first failure. ``report`` is called every ``interval`` s meanwhile."""
+
+        while self._pending:
+            done, _ = wait(self._pending, timeout=interval if report is not None else None)
+            self._collect(done)
+            if report is not None and self._pending:
+                report()
         if self._error is not None:
             raise self._error
 
