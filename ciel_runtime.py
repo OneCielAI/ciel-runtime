@@ -20,7 +20,7 @@ from typing import Any, Callable, Iterable
 
 from ciel_runtime_support import anthropic_model_policy
 from ciel_runtime_support import channel_cursor_repository as channel_cursor_storage, hosted_formula_tools
-from ciel_runtime_support import agent_turn_events, channel_llm_context, session_backup_service, claude_launch_assembly, cli_assembly, cli_dispatch, cli_parser, codex_config_effort, codex_launch_configuration, codex_turn_recovery, kimi_identity, llm_option_config, llm_presets, native_context_recovery, remote_management_http, web_access_http
+from ciel_runtime_support import agent_runtime_event_push, agent_turn_events, channel_llm_context, session_backup_service, claude_launch_assembly, cli_assembly, cli_dispatch, cli_parser, codex_config_effort, codex_launch_configuration, codex_turn_recovery, kimi_identity, llm_option_config, llm_presets, native_context_recovery, remote_management_http, web_access_http
 from ciel_runtime_support import muse_catalog, muse_oauth, ollama_catalog as ollama_catalog_policy
 from ciel_runtime_support import openai_chat_compatibility_bridge, otlp_logs, prelaunch, prelaunch_assembly, provider_catalog_sources, provider_models, provider_network, rate_limit_policy, router_request_assembly, router_server_runtime, runtime_asset_assembly, runtime_launch, runtime_primitives, terminal_platform_io, windows_console_mode
 from ciel_runtime_support.prelaunch_launch_panel import launch_panel_rows as project_launch_panel_rows
@@ -2978,9 +2978,9 @@ def router_request_body_policy() -> RouterRequestBodyPolicy:
 def _router_server_context() -> RouterServerContext:
     usage_services = UsageRuntimeServices(USAGE_LEDGER, USAGE_API_KEYS, UsagePushDeliveryService(USAGE_LEDGER, load_config, os.environ, router_log), CONFIG_DIR, WORKSPACE_STATE_DIR, ROUTER_WORKSPACE_ID, USAGE_EVENTS_PATH, router_log)
     def start_router_services() -> None:
-        external_event_receiver_service().start(), _TELEMETRY_LOG_RUNTIME.start(), usage_services.start(), session_backup_service.start_router_scheduler(CONFIG_DIR, os.environ, HOME, CLI_ASSET_HOME, router_log)
+        external_event_receiver_service().start(), _TELEMETRY_LOG_RUNTIME.start(), usage_services.start(), session_backup_service.start_router_scheduler(CONFIG_DIR, os.environ, HOME, CLI_ASSET_HOME, router_log), agent_runtime_event_push.start_router_pusher(ROUTER_WORKSPACE_ID, lambda: agent_runtime_event_push.runtime_event_endpoints(load_config(), external_event_receiver_service().receiver_configs(), external_event_receiver_service().vault.load), router_log)  # Walkie 48926: turn ends pushed to Walkie
     def stop_router_services() -> None:
-        session_backup_service.stop_router_scheduler(), usage_services.stop(), _TELEMETRY_LOG_RUNTIME.stop(), external_event_receiver_service().stop()
+        agent_runtime_event_push.stop_router_pusher(), session_backup_service.stop_router_scheduler(), usage_services.stop(), _TELEMETRY_LOG_RUNTIME.stop(), external_event_receiver_service().stop()
     provider_files = ProviderFilesProxy(
         ProviderFilesProxyPorts(
             current_provider=get_current_provider,

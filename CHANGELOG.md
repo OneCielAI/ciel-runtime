@@ -5,6 +5,23 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+- Turn ends reach Walkie straight from the router. Each `agent.turn_ended`
+  is posted as a CloudEvent to Walkie's `/api/agent-runtime-events` with the
+  agent credential the Walkie notification stream receiver already keeps, so
+  Walkie no longer depends on the status observer installed on each PC. The
+  event id is fixed per turn; network errors, 408, 425, 429 and 5xx are
+  retried up to six times, other 4xx are not. `agent_runtime_events`
+  (`enabled`, `url`, `credential_receiver`, `timeout_seconds`) overrides the
+  endpoint or turns it off.
+- A NUL run or a line over `max_record_bytes` in a transcript no longer stops
+  transcript delivery, tool-call events and turn ends at that offset forever.
+  Each is skipped once with a `transcript_record_skipped` warning (path,
+  offset, length, reason) and the stored cursor moves past it.
+- After a router restart, turn ends continue from a stored cursor. A
+  transcript seen for the first time starts at its end unless it was created
+  after the launch, so resuming a long session no longer re-reports every
+  earlier turn.
+
 - Remote Provision prepares a workspace before a session starts.
   `ciel-runtimectl remote-provision enabled=true manifest_url=...` points
   Ciel at an HTTP manifest. Before every runtime launch, Ciel places the

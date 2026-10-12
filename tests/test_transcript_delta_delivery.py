@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 import json
 from pathlib import Path
 import os
@@ -230,10 +231,14 @@ class TranscriptDeltaDeliveryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             transcript = root / "new-session.jsonl"
+            # Created after the launch: the file system's birth time says so
+            # where it keeps one; elsewhere (Linux) the first record's time,
+            # which Codex and Claude Code records carry (Walkie 48926).
             transcript.write_text(
                 json.dumps(
                     {
                         "type": "response_item",
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
                         "payload": {
                             "type": "function_call",
                             "call_id": "first-call",
