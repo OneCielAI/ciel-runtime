@@ -49,7 +49,7 @@ from ciel_runtime_support.workspace_router_selection import workspace_digest
 USAGE = f"""usage: ciel-runtime backup <command> [options]
 
   create   [--cwd DIR] [--target NAME|DIR ...] [--label TEXT] [--session ID] [--no-files] [--worktrees off|inside|all] [--jobs N]
-           [--exclude PATTERN ...] [--key-file FILE] [--trigger NAME]
+           [--exclude PATTERN ...] [--key-file FILE] [--trigger NAME] [--full]
   list     [--target NAME|DIR] [--cwd DIR | --all]
   show     ID [--target NAME|DIR]
   verify   ID [--target NAME|DIR]
@@ -61,6 +61,8 @@ USAGE = f"""usage: ciel-runtime backup <command> [options]
   target   list | add NAME TYPE [key=value ...] | remove NAME | default NAME ...
            types: {", ".join(TARGET_TYPES)}
   create --prune applies the schedule's keep_last/keep_daily to every target written.
+  create skips files unchanged since the newest snapshot on every target (same size, time and file id);
+  --full reads every file again.
 
 Credentials are kept only when a backup key is given ({KEY_ENV} or --key-file); they are
 encrypted with it and the key is never stored. Without a key, restored sessions need a new sign-in.
@@ -120,6 +122,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--exclude", action="append", default=[])
     parser.add_argument("--worktrees", choices=WORKTREE_MODES, default=None)
     parser.add_argument("--jobs", type=int, default=None)
+    parser.add_argument("--full", action="store_true")
     parser.add_argument("--key-file")
     parser.add_argument("--trigger", default="manual")
     parser.add_argument("--all", action="store_true")
@@ -169,6 +172,15 @@ def _gb(value: float) -> str:
     return f"{value / (1024 ** 3):.1f} GB" if value >= 1024 ** 3 else f"{value / (1024 ** 2):.0f} MB"
 
 
+def _free_and_first(target: LocalTarget, workspace: str) -> tuple[int, bool]:
+    """(free bytes where the target lives, no snapshot of this workspace there yet)."""
+
+    probe = target.root
+    while not probe.exists() and probe.parent != probe:
+        probe = probe.parent
+    return shutil.disk_usage(probe).free, not list_snapshots(target, workspace)
+
+
 def preflight(cwd: Path, targets: list[BackupTarget], excludes: tuple[str, ...], skip: tuple[Path, ...],
               workspace: str, progress: Any = None, max_file_bytes: int = 1024 ** 3, *,
               skip_top: tuple[str, ...] = (), worktrees: str = "off", extra_roots: tuple[Path, ...] = ()) -> str:
@@ -177,6 +189,9 @@ def preflight(cwd: Path, targets: list[BackupTarget], excludes: tuple[str, ...],
     local = [target for target in targets if isinstance(target, LocalTarget)]
     if not local:
         return ""
+    room = {target.name: _free_and_first(target, workspace) for target in local}
+    if all(not first and free >= 1024 ** 3 for free, first in room.values()):
+        return ""  # a later backup needs at most 1 GB: walking the whole folder (minutes) would not change the answer
     total, _files, top, _complete = measure_tree(cwd, excludes, skip, progress=progress, max_file_bytes=max_file_bytes,
                                                  skip_top=skip_top, skip_worktrees=worktrees == "off")
     for extra in extra_roots:
@@ -185,11 +200,7 @@ def preflight(cwd: Path, targets: list[BackupTarget], excludes: tuple[str, ...],
         top[f"worktree {Path(extra).name}"] = size
     for target in local:
         root = target.root
-        probe = root
-        while not probe.exists() and probe.parent != probe:
-            probe = probe.parent
-        free = shutil.disk_usage(probe).free
-        first = not list_snapshots(target, workspace)
+        free, first = room[target.name]
         needed = total if first else min(total, 1024 ** 3)
         if free < 256 * 1024 ** 2 or needed > free:
             largest = ", ".join(f"{name} {_gb(size)}" for name, size in sorted(top.items(), key=lambda item: -item[1])[:5])
@@ -253,7 +264,7 @@ def create(context: BackupContext, args: argparse.Namespace) -> dict[str, Any]:
     jobs = args.jobs or int(load_settings(context.config_dir)["schedule"].get("parallel_transfers") or DEFAULT_JOBS)
     result = create_snapshot(
         roots, targets, options, key=key, versions=context.versions,
-        host=platform.node(), user=getpass.getuser(), jobs=max(1, min(MAX_JOBS, jobs)),
+        host=platform.node(), user=getpass.getuser(), jobs=max(1, min(MAX_JOBS, jobs)), full=args.full,
     )
     manifest = result.manifest
     pruned = {}
@@ -442,7 +453,8 @@ def _print(context: BackupContext, value: Any, as_json: bool) -> None:
     for key, item in value.items():
         if key == "stats" and isinstance(item, dict):
             item = (f"incremental: {item['uploaded_chunks']} of {item['chunks']} chunks new "
-                    f"({_size(item['bytes_uploaded'])} uploaded compressed, {_size(item['bytes_total'])} in the snapshot)")
+                    f"({_size(item['bytes_uploaded'])} uploaded compressed, {_size(item['bytes_total'])} in the snapshot)"
+                    + (f"; {item['reused_files']} unchanged files not read again" if item.get("reused_files") else ""))
         elif isinstance(item, (dict, list)):
             item = json.dumps(item, ensure_ascii=False, default=str)
         context.output(f"{key}: {item}")

@@ -113,10 +113,12 @@ def _release(config_dir: Path, cwd: Path) -> None:
     _lock_path(config_dir, cwd).unlink(missing_ok=True)
 
 
-def backup_command(cwd: Path, trigger: str, schedule: Mapping[str, Any]) -> list[str]:
+def backup_command(cwd: Path, trigger: str, schedule: Mapping[str, Any], *, full: bool = False) -> list[str]:
     command = [sys.executable, str(SCRIPT), "cli", "backup", "create", "--cwd", str(cwd), "--trigger", trigger, "--json", "--prune"]
     if not schedule.get("include_files", True):
         command.append("--no-files")
+    if full:
+        command.append("--full")
     return command
 
 
@@ -147,6 +149,7 @@ def run_backup(
     popen: Callable[..., Any] = subprocess.Popen,
     environ: Mapping[str, str] | None = None,
     poll_seconds: float = 0.5,
+    full: bool = False,
 ) -> dict[str, Any]:
     """Run one backup for ``cwd`` now (blocking); skipped when one is already running.
 
@@ -168,11 +171,18 @@ def run_backup(
         except OSError:
             pass
         process = popen(
-            [*backup_command(cwd, trigger, schedule), "--progress-file", str(progress_path)],
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+            [*backup_command(cwd, trigger, schedule, full=full), "--progress-file", str(progress_path)],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8", errors="replace",
             env=dict(environ if environ is not None else os.environ), creationflags=_NO_WINDOW,
         )
-        while process.poll() is None:
+        while True:
+            try:
+                # Read while waiting: a child that has written more than the pipe holds (4 KB on
+                # Windows, measured 2026-10-11) blocks until it is read, and its summary can be larger.
+                stdout, stderr = process.communicate(timeout=poll_seconds)
+                break
+            except subprocess.TimeoutExpired:
+                pass
             elapsed = time.time() - started
             if on_progress is not None and on_progress(read_progress(progress_path), elapsed) is False:
                 cancelled = True
@@ -180,9 +190,8 @@ def run_backup(
                 timed_out = True
             if cancelled or timed_out:
                 process.kill()
+                stdout, stderr = process.communicate()
                 break
-            time.sleep(poll_seconds)
-        stdout, stderr = process.communicate()
         try:
             summary = json.loads(stdout)
         except ValueError:
@@ -357,7 +366,8 @@ def mcp_session_backup(config_dir: Path, cwd: Path, args: Mapping[str, Any]) -> 
         return {"ok": True, "started": True, "note": "backup started; call session_backup status for progress and the result"}
     if action == "list":
         result = subprocess.run([sys.executable, str(SCRIPT), "cli", "backup", "list", "--cwd", str(cwd), "--json"],
-                                capture_output=True, text=True, timeout=300, creationflags=_NO_WINDOW)
+                                capture_output=True, text=True, encoding="utf-8", errors="replace",
+                                timeout=300, creationflags=_NO_WINDOW)
         try:
             rows = json.loads(result.stdout)
         except ValueError:

@@ -9,6 +9,12 @@ Consistency without stopping the agent: append-only ``.jsonl`` files are read
 up to their size at that moment and cut back to the last complete line; SQLite
 databases are copied through the ``sqlite3`` backup API; everything else Ciel
 and the CLIs write is replaced atomically, so a plain read sees one version.
+
+Speed: a file whose size, modification time and file id are what the newest
+snapshot on every target recorded is not read again; its chunks are named again.
+Files of a folder tree are read on several threads (opening a file the first time
+cost about 10 ms on Windows, 1 ms with eight opens at once; measured 2026-10-11),
+and their entries still come out in the order the tree is walked.
 """
 
 from __future__ import annotations
@@ -22,10 +28,14 @@ import re
 import sqlite3
 import subprocess
 import tempfile
+import threading
 import time
+from collections import deque
+from concurrent.futures import Future, ThreadPoolExecutor, wait
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Iterator, Mapping
+from stat import S_ISREG
+from typing import Any, Callable, Iterable, Iterator, Mapping
 
 from ciel_runtime_support.session_backup_secrets import SecretBundle, split_secret_fields
 from ciel_runtime_support.session_backup_store import CHUNK_SIZE, FORMAT_VERSION, ChunkWriter
@@ -34,6 +44,10 @@ from ciel_runtime_support.workspace_router_selection import workspace_digest, wo
 # Files are read in whole chunks, so most blocks become a chunk without being copied again.
 READ_BLOCK = CHUNK_SIZE
 DEFAULT_MAX_FILE_BYTES = 1024 * 1024 * 1024
+# Files of a tree queued ahead of the one whose entry is written next (a queued file holds no data).
+READ_AHEAD = 256
+# A file modified this close to the start of the snapshot that recorded it is read again next time.
+REUSE_MARGIN_NS = 2_000_000_000
 DEFAULT_CWD_EXCLUDES = (
     "node_modules", ".npm-global", ".npm", ".cache", "__pycache__", ".venv", "venv",
     ".tox", ".mypy_cache", ".pytest_cache", ".ruff_cache", "AppData", "Temp", "$Recycle.Bin",
@@ -171,6 +185,9 @@ class CollectOptions:
     worktrees: str = "off"
     # Called about once a second with {"files", "read", "uploaded", "current"}.
     progress: Callable[[dict[str, Any]], None] | None = None
+    # (root, path) -> entry of files the newest snapshot holds on every target (previous_files);
+    # empty reads every file.
+    previous: Mapping[tuple[str, str], Mapping[str, Any]] = field(default_factory=dict)
 
 
 @dataclass
@@ -180,6 +197,31 @@ class Collection:
     skipped: list[dict[str, str]] = field(default_factory=list)
     sessions: dict[str, Any] = field(default_factory=dict)
     seen: set[str] = field(default_factory=set)
+    started: float = 0.0
+
+
+@dataclass
+class _FileJob:
+    root: str
+    path: Path
+    kind: str  # "file" / "jsonl" read on a reader thread, "reused", or "inline" (secrets, JSON, SQLite)
+    stat: os.stat_result
+    future: Future | None = None
+    previous: Mapping[str, Any] | None = None
+
+    def ready(self) -> bool:
+        return self.future is None or self.future.done()
+
+
+def file_signature(stat: os.stat_result) -> str:
+    """Size, modification time and file id (plus the inode change time off Windows).
+
+    A file replaced by a rename (how editors and Ciel save) gets a new id."""
+
+    parts = [stat.st_size, stat.st_mtime_ns, stat.st_ino]
+    if os.name != "nt":
+        parts.append(stat.st_ctime_ns)
+    return ":".join(str(part) for part in parts)
 
 
 def _norm(path: Path) -> str:
@@ -251,21 +293,25 @@ class SessionCollector:
         self.files_done = 0
         self.bytes_read = 0
         self._reported_at = 0.0
+        self._lock = threading.Lock()
+        self._readers: ThreadPoolExecutor | None = None
 
     def _report(self, path: Path, force: bool = False) -> None:
         if self.options.progress is None:
             return
-        now = time.monotonic()
-        if not force and now - self._reported_at < 1.0:
-            return
-        self._reported_at = now
-        self.options.progress({
-            "files": self.files_done,
-            "read": self.bytes_read,
-            "uploaded": self.writer.stats.bytes_uploaded,
-            "sent": self.writer.bytes_sent(),
-            "current": str(path)[-90:],
-        })
+        with self._lock:
+            now = time.monotonic()
+            if not force and now - self._reported_at < 1.0:
+                return
+            self._reported_at = now
+            self.options.progress({
+                "files": self.files_done,
+                "read": self.bytes_read,
+                "unchanged": self.writer.stats.reused_files,
+                "uploaded": self.writer.stats.bytes_uploaded,
+                "sent": self.writer.bytes_sent(),
+                "current": str(path)[-90:],
+            })
 
     def report_upload(self) -> None:
         """While the last chunks upload (reading is done): chunks stored so far and bytes sent."""
@@ -277,6 +323,7 @@ class SessionCollector:
             "phase": "uploading",
             "files": self.files_done,
             "read": self.bytes_read,
+            "unchanged": stats.reused_files,
             "uploaded": stats.bytes_uploaded,
             "sent": self.writer.bytes_sent(),
             "in_flight": self.writer.in_flight,
@@ -285,7 +332,8 @@ class SessionCollector:
 
     def _counted(self, path: Path, blocks: Iterator[bytes]) -> Iterator[bytes]:
         for block in blocks:
-            self.bytes_read += len(block)
+            with self._lock:
+                self.bytes_read += len(block)
             self._report(path)
             yield block
 
@@ -301,18 +349,23 @@ class SessionCollector:
         self.result.seen.add(key)
         return True
 
-    def _entry(self, root: str, path: Path, kind: str, chunks: list[str], size: int) -> None:
-        self.files_done += 1
+    def _entry(self, root: str, path: Path, kind: str, chunks: list[str], size: int,
+               before: os.stat_result | None = None, *, unchanged: bool = False) -> None:
+        """``before``: the file as it was before reading; its signature lets the next snapshot skip it."""
+
+        with self._lock:
+            self.files_done += 1
         self._report(path)
         try:
-            stat = path.stat()
+            stat = before if unchanged and before is not None else path.stat()
             mtime, mode = stat.st_mtime, stat.st_mode & 0o777
         except OSError:
             mtime, mode = time.time(), 0o644
-        self.result.entries.append(
-            {"root": root, "path": self._rel(root, path), "kind": kind, "size": size,
-             "mtime": mtime, "mode": mode, "chunks": chunks}
-        )
+        entry = {"root": root, "path": self._rel(root, path), "kind": kind, "size": size,
+                 "mtime": mtime, "mode": mode, "chunks": chunks}
+        if before is not None and kind in ("file", "jsonl"):
+            entry["sig"] = file_signature(before)
+        self.result.entries.append(entry)
 
     def _skip(self, root: str, path: Path, reason: str) -> None:
         try:
@@ -322,42 +375,101 @@ class SessionCollector:
         self.result.skipped.append({"root": root, "path": rel, "reason": reason})
 
     def add_file(self, root: str, path: Path) -> None:
-        path = Path(path)
-        if not path.is_file() or not self._claim(path):
-            return
+        job = self._start(root, Path(path))
+        if job is not None:
+            self._finish(job)
+
+    def _add_files(self, files: Iterable[tuple[str, Path]]) -> None:
+        """add_file for each, several read at once on the reader threads, entries in the order given."""
+
+        queue: deque[_FileJob] = deque()
+        for root, path in files:
+            job = self._start(root, path)
+            if job is None:
+                continue
+            queue.append(job)
+            while queue and (len(queue) > READ_AHEAD or queue[0].ready()):
+                self._finish(queue.popleft())
+        while queue:
+            self._finish(queue.popleft())
+
+    def _start(self, root: str, path: Path) -> _FileJob | None:
+        """Checks that need no file contents; a plain file starts reading on a reader thread."""
+
+        try:
+            stat = path.stat()
+        except OSError:
+            return None  # gone, or not a file this user can see
+        if not S_ISREG(stat.st_mode) or not self._claim(path):
+            return None
         if any(_norm(path) == _norm(Path(skip)) for skip in self.options.skip_paths):
             self._skip(root, path, "backup key file")
-            return
-        name = path.name
+            return None
         try:
-            size = path.stat().st_size
-            if size > self.options.max_file_bytes:
-                self._skip(root, path, f"{size / 1048576:.0f} MB, over the {self.options.max_file_bytes / 1048576:.0f} MB file limit")
-                return
-            if self._is_secret_file(root, path):
-                self.result.secrets.files[f"{root}/{self._rel(root, path)}"] = path.read_bytes()
-                self._entry(root, path, "secret-file", [], size)
-                return
-            if name in JSON_SPLIT_NAMES and root in ("ciel", "ciel_ws", "home"):
-                self._add_split_json(root, path)
-                return
-            if path.suffix.lower() in (".sqlite", ".sqlite3", ".db") and _looks_like_sqlite(path):
-                data = sqlite_snapshot(path)
-                self._entry(root, path, "sqlite", self.writer.write_stream([data]), len(data))
-                return
-            jsonl = path.suffix.lower() == ".jsonl"
-            total = 0
+            rel = self._rel(root, path)
+        except ValueError as error:
+            self._skip(root, path, f"{type(error).__name__}: {error}")
+            return None
+        if stat.st_size > self.options.max_file_bytes:
+            self._skip(root, path, f"{stat.st_size / 1048576:.0f} MB, over the {self.options.max_file_bytes / 1048576:.0f} MB file limit")
+            return None
+        suffix = path.suffix.lower()
+        if (self._is_secret_file(root, path) or (path.name in JSON_SPLIT_NAMES and root in ("ciel", "ciel_ws", "home"))
+                or suffix in (".sqlite", ".sqlite3", ".db")):
+            return _FileJob(root, path, "inline", stat)
+        kind = "jsonl" if suffix == ".jsonl" else "file"
+        previous = self.options.previous.get((root, rel))
+        if previous is not None and previous.get("kind") == kind and previous.get("sig") == file_signature(stat):
+            return _FileJob(root, path, "reused", stat, previous=previous)
+        future = self._readers.submit(self._read, path, kind == "jsonl") if self._readers is not None else None
+        return _FileJob(root, path, kind, stat, future=future)
 
-            def counted() -> Iterator[bytes]:
-                nonlocal total
-                for block in self._counted(path, _jsonl_stream(path) if jsonl else _file_stream(path)):
-                    total += len(block)
-                    yield block
+    def _read(self, path: Path, jsonl: bool) -> tuple[list[str], int]:
+        total = 0
 
-            chunks = self.writer.write_stream(counted())
-            self._entry(root, path, "jsonl" if jsonl else "file", chunks, total)
+        def counted() -> Iterator[bytes]:
+            nonlocal total
+            for block in self._counted(path, _jsonl_stream(path) if jsonl else _file_stream(path)):
+                total += len(block)
+                yield block
+
+        return self.writer.write_stream(counted()), total
+
+    def _finish(self, job: _FileJob) -> None:
+        root, path = job.root, job.path
+        try:
+            if job.kind == "inline":
+                self._add_inline(root, path, job.stat)
+            elif job.kind == "reused":
+                chunks, size = list(job.previous["chunks"]), int(job.previous["size"])
+                self.writer.reuse(chunks, size)
+                self._entry(root, path, str(job.previous["kind"]), chunks, size, job.stat, unchanged=True)
+            else:
+                if job.future is None:
+                    chunks, total = self._read(path, job.kind == "jsonl")
+                else:
+                    while not job.future.done():
+                        wait([job.future], timeout=1.0)
+                        self._report(path)
+                    chunks, total = job.future.result()
+                self._entry(root, path, job.kind, chunks, total, job.stat)
         except (OSError, sqlite3.Error, ValueError) as error:
             self._skip(root, path, f"{type(error).__name__}: {error}")
+
+    def _add_inline(self, root: str, path: Path, stat: os.stat_result) -> None:
+        if self._is_secret_file(root, path):
+            self.result.secrets.files[f"{root}/{self._rel(root, path)}"] = path.read_bytes()
+            self._entry(root, path, "secret-file", [], stat.st_size)
+            return
+        if path.name in JSON_SPLIT_NAMES and root in ("ciel", "ciel_ws", "home"):
+            self._add_split_json(root, path)
+            return
+        if _looks_like_sqlite(path):
+            data = sqlite_snapshot(path)
+            self._entry(root, path, "sqlite", self.writer.write_stream([data]), len(data))
+            return
+        chunks, total = self._read(path, False)
+        self._entry(root, path, "file", chunks, total, stat)
 
     def _add_split_json(self, root: str, path: Path) -> None:
         raw = path.read_bytes()
@@ -388,6 +500,10 @@ class SessionCollector:
         base = Path(base)
         if not base.is_dir():
             return
+        self._add_files(self._walk(root, base, skip_dirs, excludes, skip_top, skip_worktrees))
+
+    def _walk(self, root: str, base: Path, skip_dirs: set[str], excludes: tuple[str, ...], skip_top: set[str],
+              skip_worktrees: bool) -> Iterator[tuple[str, Path]]:
         others = {_norm(getattr(self.roots, name)) for name in ("claude", "codex", "ciel", "ciel_ws") if name != root}
         for current, dirs, files in os.walk(base):
             current_path = Path(current)
@@ -410,7 +526,7 @@ class SessionCollector:
             for name in sorted(files):
                 if _matches(name, excludes) or name.startswith(".part-") or name.endswith((".tmp", ".lock")):
                     continue
-                self.add_file(root, current_path / name)
+                yield root, current_path / name
 
     # ---- sources ----------------------------------------------------------------------------
 
@@ -498,10 +614,18 @@ class SessionCollector:
                     self.add_tree(name, path, excludes=excludes)
 
     def collect(self) -> Collection:
-        self.collect_claude()
-        self.collect_codex()
-        self.collect_ciel()
-        self.collect_cwd()
+        self.result.started = time.time()
+        if self.writer.jobs > 1:
+            self._readers = ThreadPoolExecutor(self.writer.jobs, thread_name_prefix="ciel-backup-read")
+        try:
+            self.collect_claude()
+            self.collect_codex()
+            self.collect_ciel()
+            self.collect_cwd()
+        finally:
+            if self._readers is not None:
+                self._readers.shutdown(wait=True, cancel_futures=True)
+                self._readers = None
         self._report(self.roots.cwd, force=True)
         return self.result
 
@@ -617,6 +741,36 @@ def _threads_from_rollouts(codex_home: Path, wanted: str, session_ids: tuple[str
     return rows
 
 
+def previous_files(manifests: list[Mapping[str, Any] | None], roots: CollectRoots) -> dict[tuple[str, str], dict[str, Any]]:
+    """Files a new snapshot may take from the newest snapshot on each target, by (root, path).
+
+    Only files every target's newest snapshot recorded alike (same signature, same chunks)
+    under the same root folder, modified at least REUSE_MARGIN_NS before that snapshot
+    started; a target without a snapshot means every file is read."""
+
+    current = roots.as_dict()
+    shared: dict[tuple[str, str], dict[str, Any]] | None = None
+    for manifest in manifests:
+        if not manifest or not isinstance(manifest.get("started"), (int, float)):
+            return {}
+        limit = int(manifest["started"] * 1e9) - REUSE_MARGIN_NS
+        old_roots = manifest.get("roots") or {}
+        same_roots = {name for name, path in current.items() if old_roots.get(name) and same_path(old_roots[name], path)}
+        files: dict[tuple[str, str], dict[str, Any]] = {}
+        for entry in manifest.get("entries") or []:
+            parts = str(entry.get("sig") or "").split(":")
+            if entry.get("kind") not in ("file", "jsonl") or entry.get("root") not in same_roots or len(parts) < 3:
+                continue
+            if not parts[1].isdigit() or int(parts[1]) >= limit:
+                continue
+            files[(entry["root"], entry["path"])] = entry
+        shared = files if shared is None else {
+            key: entry for key, entry in shared.items()
+            if key in files and files[key].get("sig") == entry.get("sig") and files[key].get("chunks") == entry.get("chunks")
+        }
+    return shared or {}
+
+
 def build_manifest(
     snapshot_id: str,
     workspace: str,
@@ -633,6 +787,7 @@ def build_manifest(
         "id": snapshot_id,
         "workspace": workspace,
         "created": clock(),
+        "started": collection.started,
         "label": options.label,
         "trigger": options.trigger,
         "host": platform.node(),
@@ -658,11 +813,13 @@ __all__ = [
     "claude_project_key",
     "codex_threads_for_cwd",
     "default_roots",
+    "file_signature",
     "git_worktrees",
     "is_linked_worktree",
     "measure_tree",
     "outside_worktrees",
     "plain_path",
+    "previous_files",
     "same_path",
     "sqlite_snapshot",
     "workspace_label",

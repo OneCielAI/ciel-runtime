@@ -1,0 +1,14 @@
+okf_version: "1.0"
+task: "Claude Code shows 'API error · Retrying in 0s · attempt 2/10' often (firstperson415, anthropic-routed, claude-opus-5-5)."
+reported: "User, 2026-10-12 ~00:08, screenshot of Claude Code: 'API error · Retrying in 0s · attempt 2/10', status line '[claude-opus-5-5 (anthropic)] firstperson415 | ctx 615,811/1,000,000 tok (61.6%)', 'claude에서 api에러가 종종 자주나옴'."
+observed:
+  router: "Router 9469 (workspace 261058102223 = C:/Users/djlov/Documents/Unreal Projects/firstperson415), code 6638f33, one OAuth token in the pool (5h 47%, 7d 12%)."
+  access_log: "router.log: 'POST /v1/messages' answered 500 at 23:58:57, 23:59:29, 00:00:01, 00:01:51, 00:01:52 (more at 00:07), each ~1 s after 'upstream_direct_request ... attempt=1/1 bytes=14.7-16.5 MB' (msgs 1174-1199, 77 tools). No WARN/ERROR line for these in router.log."
+  events: "GET http://127.0.0.1:9469/ca/events/recent?level=error (in-memory event buffer): router.error 'upstream direct request failed provider=anthropic model=claude-opus-5-5: URLError: <urlopen error [WinError 10054] An existing connection was forcibly closed by the remote host>' (9x between 23:58:57 and 00:08:46) and once 'SSLError: [SSL: SSLV3_ALERT_BAD_RECORD_MAC] sslv3 alert bad record mac'; each followed by runtime.error HTTP 500."
+  code_path: "upstream_retry.open_*: URLError/OSError that is not retried is re-raised as RuntimeError without router_log; claude_router.py:526-567 catches it, publishes router.error and writes a 500 api_error JSON to the client, again without router_log. HTTP errors from upstream are logged (upstream_direct_http_error)."
+  size_vs_failure: "resets.py over today's router.log: 9469 requests >=10 MB: 11 of 43 answered 500; <1 MB: 0 of 2. 9611 (this ciel-runtime workspace) <1 MB: 5 of 130 answered 500, and its event buffer shows the same 10054 / BAD_RECORD_MAC errors (21:05, 23:48, 00:04, 00:07:36, 00:07:51)."
+  same_minute: "00:07:07, 00:07:12, 00:07:29 (9469) and 00:07:36, 00:07:51 (9611): resets in two workspaces within one minute."
+  claude_transcript: "Claude Code did not write today's retries into the session transcript (latest api_error entries there are ECONNRESET on 2026-09-21..28)."
+not_known:
+  - "Why api.anthropic.com connections are reset. Large requests fail far more often (11/43 at 15-16 MB vs 5/130 under 1 MB), and small requests in another workspace failed in the same minute; the network path is a possibility, not verified."
+changes: "None yet (reported to the user; waiting for a decision)."

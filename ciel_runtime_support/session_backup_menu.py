@@ -103,6 +103,7 @@ def panel_rows(config_dir: Path, cwd: Path) -> tuple[list[str], list[str]]:
     selected = set(settings["default_targets"] or ["local"])
     rows = [
         f"Back up this session now  [incremental · last {_last(config_dir, cwd)}]",
+        "Full backup now  [reads every file again; other backups skip files unchanged since the last one]",
         "Snapshots of this folder  [list]",
         "Restore a snapshot…",
         "Verify a snapshot…",
@@ -110,7 +111,7 @@ def panel_rows(config_dir: Path, cwd: Path) -> tuple[list[str], list[str]]:
         "── Targets (Enter on a target: use on/off · test · password (Synology) · remove) ──",
         f"  [{'x' if 'local' in selected else ' '}] local  [built-in · {Path(config_dir) / 'backups'}]",
     ]
-    values = ["now", "list", "restore", "verify", "prune", "__info__", "target:local"]
+    values = ["now", "now-full", "list", "restore", "verify", "prune", "__info__", "target:local"]
     for name, spec in sorted(settings["targets"].items()):
         rows.append(f"  [{'x' if name in selected else ' '}] {name}  [{_target_detail(spec)}]")
         values.append(f"target:{name}")
@@ -219,6 +220,7 @@ def _measure_folders(config_dir: Path, settings: dict[str, Any], cwd: Path, outp
 
 def _cli(*args: str, timeout: float = 900) -> tuple[int, Any]:
     result = subprocess.run([sys.executable, str(SCRIPT), "cli", "backup", *args], capture_output=True, text=True,
+                            encoding="utf-8", errors="replace",
                             timeout=timeout, creationflags=_NO_WINDOW)
     try:
         return result.returncode, json.loads(result.stdout)
@@ -242,7 +244,8 @@ def _mb(value: object) -> str:
 def _incremental(stats: dict[str, Any] | None) -> str:
     stats = stats or {}
     return (f"incremental: {stats.get('uploaded_chunks', 0)} of {stats.get('chunks', 0)} chunks new, "
-            f"{_mb(stats.get('bytes_uploaded'))} uploaded (snapshot {_mb(stats.get('bytes_total'))})")
+            f"{_mb(stats.get('bytes_uploaded'))} uploaded (snapshot {_mb(stats.get('bytes_total'))})"
+            + (f"; {stats['reused_files']} unchanged files not read again" if stats.get("reused_files") else ""))
 
 
 def _snapshot_lines(rows: list[dict[str, Any]], limit: int = 12) -> list[str]:
@@ -464,12 +467,14 @@ def _progress_line(state: Mapping[str, Any], elapsed: float) -> str:
         return (f"Uploading: {state.get('in_flight', 0)} chunk(s) still sending, {_mb(state.get('uploaded'))} stored"
                 + (f", {_mb(state.get('sent'))} sent" if state.get("sent") else "")
                 + f" ({elapsed:.0f} s)  Esc cancels")
-    return (f"Backing up: {state.get('files', 0)} files, {_mb(state.get('read'))} read, {_mb(state.get('uploaded'))} stored"
+    return (f"Backing up: {state.get('files', 0)} files"
+            + (f" ({state['unchanged']} unchanged)" if state.get("unchanged") else "")
+            + f", {_mb(state.get('read'))} read, {_mb(state.get('uploaded'))} stored"
             + (f", {_mb(state.get('sent'))} sent" if state.get("sent") else "")
             + f" ({elapsed:.0f} s)  Esc cancels")
 
 
-def _backup_now(config_dir: Path, cwd: Path, output: Callable[[str], None]) -> list[str]:
+def _backup_now(config_dir: Path, cwd: Path, output: Callable[[str], None], *, full: bool = False) -> list[str]:
     # One line, rewritten in place: never wider than the console, or it wraps into new lines.
     width = max(40, shutil.get_terminal_size((100, 30)).columns - 2)
 
@@ -478,7 +483,7 @@ def _backup_now(config_dir: Path, cwd: Path, output: Callable[[str], None]) -> l
         return not _cancel_requested()
 
     output("\n")
-    result = run_backup(config_dir, cwd, "menu", on_progress=show)
+    result = run_backup(config_dir, cwd, "menu", on_progress=show, full=full)
     output("\n")
     if result.get("ok"):
         lines = [f"Saved snapshot {result.get('id')} to {', '.join(result.get('targets') or [])}.",
@@ -552,6 +557,8 @@ def _apply(config_dir: Path, cwd: Path, value: str, prompt: Prompt, output: Call
     schedule = settings["schedule"]
     if value == "now":
         return _backup_now(config_dir, cwd, output)
+    if value == "now-full":
+        return _backup_now(config_dir, cwd, output, full=True)
     if value == "excludes":
         return _edit_excludes(config_dir, cwd, prompt, output)
     if value == "measure-folders":

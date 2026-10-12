@@ -1,0 +1,11 @@
+00:19:37
+Session backup options
+  > Back up this session now  [incremental · last running since 10-11 22:23]
+    Full backup now  [reads every file again; other backups skip files unchanged since the last one]
+    Snapshots of this folder  [list]
+    Restore a snapshot…
+    Verify a snapshot…
+    ... 48 below
+--------------------------------------------------------------------------------------------------------------------------------------
+Up/Down moves. PgUp/PgDn jumps. Home/End bounds. Enter selects. Esc/Left closes. q quits.
+Backing up: 1 files (1 unchanged), 0.0 MB read, 0.0 MB stored (3 s)  Esc cancels

@@ -7,8 +7,8 @@ Targets (local folder, SSH, S3, rclone, Synology) only need to store named byte
 blobs: ``blobs/<aa>/<sha>`` and ``snapshots/<workspace>/<id>.json``.  A snapshot
 is complete once its manifest exists; the manifest is always written last.
 
-Chunks are hashed in order on the caller's thread; compressing and storing them
-runs on ``jobs`` worker threads (zlib, hashing, file and socket I/O release the
+Chunks are hashed on the calling thread (the collector calls from several reader
+threads, so ``write`` takes a lock); compressing and storing them runs on ``jobs`` worker threads (zlib, hashing, file and socket I/O release the
 GIL), with at most ``2 * jobs`` chunks in flight.  A chunk that does not compress
 (already-compressed data, binaries) is stored as a zlib "stored" stream: same
 format, read back the same way, without the cost of a compression that saves
@@ -91,6 +91,9 @@ class UploadStats:
     uploaded_chunks: int = 0
     bytes_total: int = 0
     bytes_uploaded: int = 0
+    # Files unchanged since the last snapshot: their chunks are named again without reading them.
+    reused_files: int = 0
+    reused_bytes: int = 0
 
     def as_dict(self) -> dict[str, int]:
         return {
@@ -98,6 +101,8 @@ class UploadStats:
             "uploaded_chunks": self.uploaded_chunks,
             "bytes_total": self.bytes_total,
             "bytes_uploaded": self.bytes_uploaded,
+            "reused_files": self.reused_files,
+            "reused_bytes": self.reused_bytes,
         }
 
 
@@ -125,6 +130,7 @@ class ChunkWriter:
         self.jobs = max(1, min(MAX_JOBS, int(jobs or 1)))
         self._submitted: set[str] = set()
         self._lock = threading.Lock()
+        self._write_lock = threading.Lock()
         self._pending: set[Future] = set()
         self._error: BaseException | None = None
         self._pool = ThreadPoolExecutor(self.jobs, thread_name_prefix="ciel-backup") if self.jobs > 1 else None
@@ -154,6 +160,10 @@ class ChunkWriter:
 
     def write(self, chunk: bytes) -> str:
         digest = hashlib.sha256(chunk).hexdigest()
+        with self._write_lock:
+            return self._submit(digest, chunk)
+
+    def _submit(self, digest: str, chunk: bytes) -> str:
         self.stats.chunks += 1
         self.stats.bytes_total += len(chunk)
         if self._error is not None:
@@ -172,6 +182,15 @@ class ChunkWriter:
     def write_stream(self, data_source: Iterable[bytes]) -> list[str]:
         return [self.write(chunk) for chunk in iter_chunks(data_source)]
 
+    def reuse(self, digests: list[str], size: int) -> None:
+        """Count a file whose chunks an earlier snapshot already stored on every target."""
+
+        with self._write_lock:
+            self.stats.chunks += len(digests)
+            self.stats.bytes_total += size
+            self.stats.reused_files += 1
+            self.stats.reused_bytes += size
+
     @property
     def in_flight(self) -> int:
         return len(self._pending)
@@ -185,7 +204,7 @@ class ChunkWriter:
         """Wait until every chunk is stored; raise the first failure. ``report`` is called every ``interval`` s meanwhile."""
 
         while self._pending:
-            done, _ = wait(self._pending, timeout=interval if report is not None else None)
+            done, _ = wait(set(self._pending), timeout=interval if report is not None else None)
             self._collect(done)
             if report is not None and self._pending:
                 report()

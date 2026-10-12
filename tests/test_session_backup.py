@@ -1,5 +1,7 @@
 import json
 import sqlite3
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -410,8 +412,9 @@ class BackupTriggerTests(unittest.TestCase):
             def kill(self):
                 self.killed = True
 
-            def communicate(self):
-                self.poll()
+            def communicate(self, timeout=None):
+                if self.poll() is None and timeout is not None:
+                    raise subprocess.TimeoutExpired("backup", timeout)
                 return ("" if self.killed else stdout), ""
 
         return Process
@@ -440,6 +443,23 @@ class BackupTriggerTests(unittest.TestCase):
         self.assertEqual("cancelled", result["output"])
         self.assertEqual("cancelled", workspace_state(self.config, self.cwd)["last_error"])
         self.assertFalse(workspace_state(self.config, self.cwd)["running"])
+
+    def test_a_summary_larger_than_the_pipe_does_not_stall_the_backup(self):
+        from ciel_runtime_support.session_backup_service import run_backup
+
+        # A ~70 KB summary with a Korean thread title, printed as UTF-8 like ciel_runtime.py does.
+        script = ("import json, sys; sys.stdout.reconfigure(encoding='utf-8'); sys.stdout.write(json.dumps("
+                  "{'id': 'snap-big', 'targets': ['local'], 'sessions': {'title': '\\uc138\\uc158 \\ubc31\\uc5c5'}, "
+                  "'left_out': {'folders': ['x' * 100] * 700}}, ensure_ascii=False))")
+
+        def popen(command, **kwargs):
+            pipes = {key: kwargs[key] for key in ("stdout", "stderr", "text", "encoding", "errors") if key in kwargs}
+            return subprocess.Popen([sys.executable, "-c", script], **pipes)
+
+        result = run_backup(self.config, self.cwd, "menu", popen=popen, poll_seconds=0.1, timeout=20)
+        self.assertTrue(result["ok"], result.get("output"))
+        self.assertEqual("snap-big", result["id"])
+        self.assertEqual("세션 백업", result["sessions"]["title"])
 
     def test_failure_without_output_still_has_a_reason(self):
         from ciel_runtime_support.session_backup_service import run_backup
@@ -644,6 +664,25 @@ class BackupSafetyTests(unittest.TestCase):
             problem = preflight(self.fx.cwd, [target], (), (), "w")
         self.assertIn("not enough space on target andy", problem)
         self.assertIn("big", problem)
+
+    def test_preflight_walks_the_folder_only_when_the_answer_depends_on_it(self):
+        from unittest import mock
+
+        from ciel_runtime_support import session_backup_cli
+
+        target = LocalTarget(self.fx.backups, "andy")
+        usage = mock.Mock(free=50 * 1024 ** 3)
+        walked = mock.Mock(return_value=(10, 1, {}, True))
+        with mock.patch.object(session_backup_cli.shutil, "disk_usage", return_value=usage), \
+                mock.patch.object(session_backup_cli, "measure_tree", walked):
+            self.assertEqual("", session_backup_cli.preflight(self.fx.cwd, [target], (), (), "w"))
+            self.assertEqual(1, walked.call_count)  # first backup: needs the folder size
+            target.put("snapshots/w/20261011T000000Z-aaaaaa.json", b"{}")
+            self.assertEqual("", session_backup_cli.preflight(self.fx.cwd, [target], (), (), "w"))
+            self.assertEqual(1, walked.call_count)  # a later one needs at most 1 GB, and 50 GB are free
+            usage.free = 900 * 1024 ** 2
+            self.assertEqual("", session_backup_cli.preflight(self.fx.cwd, [target], (), (), "w"))
+            self.assertEqual(2, walked.call_count)
 
     def test_menu_excludes_are_used_by_the_next_backup(self):
         from ciel_runtime_support import session_backup_menu
