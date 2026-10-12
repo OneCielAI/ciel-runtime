@@ -1,0 +1,34 @@
+06:50:31 flow=codex stub=62588 router=62589 appserver=62590 scratch=G:\ciel-e2e\unattended\codex
+06:50:31 launch-state by_cwd mode=codex-remote
+06:50:31 launched A: launch-A.cmd
+06:50:47 launcher pid A: 90604
+06:50:47 wait router up: True
+06:53:17 wait A: continue message at the stub: False
+06:53:21 shot A-started-new-thread: saved C:\Users\djlov\ciel-runtime\docs\journal\2026\10\12\features\unattended-restart\evidence\e2e-codex\shots\01-A-started-new-thread.png handle=7483854 printwindow=True
+06:53:21 notify 'E2E-UA-TURN-1 hello' -> ok=True
+06:53:22 wait A: turn 1 at the stub: True
+06:53:24 ws thread/goal/set thread=01a12ff3-6e3b-76c3-9f8c-bfe8f7205b73 -> {"goal": {"threadId": "01a12ff3-6e3b-76c3-9f8c-bfe8f7205b73", "objective": "E2E-UA-GOAL stay paused", "status": "paused", "tokenBudget": null, "tokensUsed": 0, "timeUsedSeconds": 0, "createdAt": 1791806004, "updatedAt": 1791806004}}
+06:53:24 phase A: {"continue_message_requests": [], "answered": [], "threads": ["01a12ff3-6e3b-76c3-9f8c-bfe8f7205b73"], "goal_set": {"goal": {"threadId": "01a12ff3-6e3b-76c3-9f8c-bfe8f7205b73", "objective": "E2E-UA-GOAL stay paused", "status": "paused", "tokenBudget": null, "tokensUsed": 0, "timeUsedSeconds": 0, "createdAt": 1791806004, "updatedAt": 1791806004}}}
+06:53:24 restart_session -> {"jsonrpc": "2.0", "id": 1, "result": {"content": [{"type": "text", "text": "{\"ok\":true,\"queued\":true,\"request\":{\"schema\":\"ciel-runtime.runtime-session-restart/v1\",\"id\":\"e2fdd7ecff0f4b4b8a19ce59750ca2dc\",\"source\":\"ciel-runtime-router-tool\",\"reason\":\"e2e unattended restart\",\"ru
+06:53:29 wait B: continue message at the stub: True
+06:53:33 shot B-after-restart_session: saved C:\Users\djlov\ciel-runtime\docs\journal\2026\10\12\features\unattended-restart\evidence\e2e-codex\shots\02-B-after-restart_session.png handle=7483854 printwindow=True
+06:53:33 ws thread/goal/get thread=01a12ff3-6e3b-76c3-9f8c-bfe8f7205b73 -> {"goal": {"threadId": "01a12ff3-6e3b-76c3-9f8c-bfe8f7205b73", "objective": "E2E-UA-GOAL stay paused", "status": "paused", "tokenBudget": null, "tokensUsed": 0, "timeUsedSeconds": 0, "createdAt": 1791806004, "updatedAt": 1791806004}}
+06:53:33 phase B: {"continue_message_requests": [{"n": 5, "last": "계속-세션재시작됨", "history_turn1": true, "continue_messages_in_history": 1}], "answered": ["2026-10-12T06:53:29 [INFO] startup_prompt_answered prompt=codex_paused_goal option=leavepaused key=2 enter=false attempt=1"], "threads": ["01a12ff3-6e3b-76c3-9f8c-bfe8f7205b73", "01a12ff3-6e3b-76c3-9f8c-bfe8f7205b73", "01a12ff3-6e3b-76c3-9f8c-bfe8f7205b73"], "goal": {"goal": {"threadId": "01a12ff3-6e3b-76c3-9f8c-bfe8f7205b73", "objective": "E2E-UA-GOAL stay paused", "status": "paused", "tokenBudget": null, "tokensUsed": 0, "timeUsedSeconds": 0, "createdAt": 1791806004, "updatedAt": 1791806004}}}
+06:53:40 kill A: killed 4384 killed 31248 killed 33212
+06:53:43 launch-state by_cwd mode=codex
+06:53:43 launched C: launch-C.cmd
+06:53:59 launcher pid C: 23124
+06:56:29 wait C: continue message at the stub: False
+06:56:34 shot C-plain-codex-after-reboot: saved C:\Users\djlov\ciel-runtime\docs\journal\2026\10\12\features\unattended-restart\evidence\e2e-codex\shots\03-C-plain-codex-after-reboot.png handle=4535646 printwindow=True
+06:56:34 phase C: {"continue_message_requests": [], "answered": ["2026-10-12T06:53:55 [INFO] startup_prompt_answered prompt=codex_trust option=trustandcontinue key=1 enter=true attempt=1", "2026-10-12T06:53:56 [INFO] startup_prompt_answered prompt=codex_paused_goal option=leavepaused key=2 enter=false attempt=1"], "threads": ["01a12ff3-6e3b-76c3-9f8c-bfe8f7205b73", "01a12ff3-6e3b-76c3-9f8c-bfe8f7205b73", "01a12ff3-6e3b-76c3-9f8c-bfe8f7205b73"]}
+06:56:38 kill C: killed 64840 killed 102212
+06:56:41 launch-state by_cwd mode=codex-remote
+06:56:41 launched D: launch-D.cmd
+06:56:56 launcher pid D: 32948
+06:56:56 wait D: continue message at the stub: True
+06:57:01 shot D-codex-remote-after-reboot: saved C:\Users\djlov\ciel-runtime\docs\journal\2026\10\12\features\unattended-restart\evidence\e2e-codex\shots\04-D-codex-remote-after-reboot.png handle=2102770 printwindow=True
+06:57:01 ws thread/goal/get thread=01a12ff3-6e3b-76c3-9f8c-bfe8f7205b73 -> {"goal": {"threadId": "01a12ff3-6e3b-76c3-9f8c-bfe8f7205b73", "objective": "E2E-UA-GOAL stay paused", "status": "paused", "tokenBudget": null, "tokensUsed": 0, "timeUsedSeconds": 0, "createdAt": 1791806004, "updatedAt": 1791806004}}
+06:57:01 phase D: {"continue_message_requests": [{"n": 7, "last": "계속-세션재시작됨", "history_turn1": true, "continue_messages_in_history": 2}, {"n": 9, "last": "계속-세션재시작됨", "history_turn1": true, "continue_messages_in_history": 3}], "answered": ["2026-10-12T06:56:55 [INFO] startup_prompt_answered prompt=codex_paused_goal option=leavepaused key=2 enter=false attempt=1"], "threads": ["01a12ff3-6e3b-76c3-9f8c-bfe8f7205b73", "01a12ff3-6e3b-76c3-9f8c-bfe8f7205b73", "01a12ff3-6e3b-76c3-9f8c-bfe8f7205b73"], "goal": {"goal": {"threadId": "01a12ff3-6e3b-76c3-9f8c-bfe8f7205b73", "objective": "E2E-UA-GOAL stay paused", "status": "paused", "tokenBudget": null, "tokensUsed": 0, "timeUsedSeconds": 0, "createdAt": 1791806004, "updatedAt": 1791806004}}}
+06:57:07 kill D: killed 10112 killed 100952 killed 105640
+06:57:12 kill final: 
+06:57:15 done

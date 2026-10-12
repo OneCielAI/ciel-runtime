@@ -27,6 +27,7 @@ Log = Callable[[str, str], None]
 RUNTIME_SESSION_RESTART_SCHEMA = "ciel-runtime.runtime-session-restart/v1"
 DEFAULT_RUNTIME_SESSION_RESTART_TTL_SECONDS = 300.0
 RUNTIME_SESSION_RESTART_ENV_TTL = "CIEL_RUNTIME_SESSION_RESTART_TTL_SECONDS"
+RESTART_CONTINUE_MESSAGE = "계속-세션재시작됨"
 
 # Flags that already select a conversation, mirroring launch_state's session
 # control list.  A restart must not append a second session selector.
@@ -440,6 +441,24 @@ class SessionRestartPorts:
         return self.control()
 
 
+def primed_notice(
+    prime_cursor: Callable[[], Any],
+    submit: Callable[[dict[str, Any]], Any],
+) -> Callable[[dict[str, Any]], Any]:
+    """Queue a notice only after the channel cursor exists.
+
+    A workspace without a cursor file starts its cursor at the queue tail on
+    the first read, so a notice queued before that read would count as
+    already delivered (codex-remote --ca-resume-last E2E, 2026-10-12).
+    """
+
+    def notice(body: dict[str, Any]) -> Any:
+        prime_cursor()
+        return submit(body)
+
+    return notice
+
+
 def restart_notice_body(
     runtime: str,
     *,
@@ -450,17 +469,19 @@ def restart_notice_body(
     """Payload for one restart-complete notice injected into the session."""
 
     mode = str(runtime or "").strip().lower() or "runtime"
-    text = (
-        f"[ciel-runtime] 재부팅 완료 — {mode} 런타임이 재시작되었고 이 세션은 "
-        f"{'이어졌습니다' if resumed else '새로 시작되었습니다'} "
-        f"(source={source or '-'}, reason={reason or '-'})"
-    )
     return {
         "channel": "restart",
         "sender_id": "ciel-runtime",
         "kind": "restart_notice",
-        "message": text,
+        # The exact words the session receives after every unattended restart
+        # (restart_session or a reboot script), resumed or not.
+        "message": RESTART_CONTINUE_MESSAGE,
         "meta": {
+            "raw_injection": True,
+            # Typed into the prompt like a person would: Claude Code's session
+            # socket presents its input as "Another Claude session sent a
+            # message" and plain Codex's router path shows a wake marker.
+            "input_transport": "tty",
             "source": "ciel-runtime-restart",
             "source_kind": "restart_notice",
             "runtime": mode,
@@ -831,6 +852,7 @@ __all__ = [
     "DEFAULT_RUNTIME_SESSION_RESTART_TTL_SECONDS",
     "DEFAULT_RUNTIME_SESSION_RESTART_TURN_WAIT_SECONDS",
     "RESTART_CLIENTS_DIR_NAME",
+    "RESTART_CONTINUE_MESSAGE",
     "RESTART_REQUEST_FILE_NAME",
     "RESUME_COMMANDS",
     "RUNTIME_SESSION_RESTART_ENV_TTL",
@@ -845,6 +867,7 @@ __all__ = [
     "SessionRestartCliPorts",
     "SessionRestartPorts",
     "local_runtime_session_restart",
+    "primed_notice",
     "queue_session_restart",
     "restart_notice_body",
     "restart_starting_notice",

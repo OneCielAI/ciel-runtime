@@ -447,6 +447,7 @@ def render_prelaunch_screen(
             "dangerous-rm": "Dangerous delete prompt",
             "session-backup": "Session backup",
             "provider-fallback": "Provider fallback",
+            "unattended-restart": "Unattended restart",
             "channels": "Channels",
             "context": ui_text("context_setup", lang),
             "preset": ui_text("presets", lang),

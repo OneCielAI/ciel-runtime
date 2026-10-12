@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from ciel_runtime_support import dangerous_rm_auto_allow
 from ciel_runtime_support.claude_environment import CLAUDE_PROJECTED_ENV_KEYS
 from ciel_runtime_support.managed_tool_injection import should_inject_tool, codex_native_web_tool_overrides
+from ciel_runtime_support.codex_cli import codex_without_resume_command
 from ciel_runtime_support.codex_router_auth import authenticated_codex_command
 from ciel_runtime_support.runtime_constants import (
     CLAUDE_SERVER_SIDE_WEB_TOOLS,
@@ -28,6 +29,8 @@ from ciel_runtime_support.runtime_session_restart import (
     restart_notice_body,
     runtime_resume_command,
 )
+from ciel_runtime_support.session_resume_last import ResumeLastRequest, resume_last_requested
+from ciel_runtime_support.startup_prompt_answers import STARTUP_AUTO_ANSWER_ENV
 from ciel_runtime_support.workspace_mcp import renew_launch_command
 from ciel_runtime_support.web_endpoints import (
     current_web_workspace,
@@ -738,6 +741,8 @@ def run_claude(
 
     def run_claude_session() -> int:
         handled: set[str] = set()
+        if resume_last_requested():
+            queue_restart_notice(services.restart, "claude", ResumeLastRequest(), router_log)
         while True:
             restart_control.reset()
             rc = run_claude_process()
@@ -747,6 +752,8 @@ def run_claude(
                 return rc
             handled.add(request.id)
             _session_backup_after_exit(restarting=True, log=router_log)
+            # Nobody is at the keyboard: answer the startup dialogs.
+            os.environ[STARTUP_AUTO_ANSWER_ENV] = "1"
             if request.resume:
                 cmd[:] = runtime_resume_command(cmd, "claude")
             fresh_session_socket()
@@ -1057,14 +1064,19 @@ def run_codex(
             cwd=launch_cwd,
             select_latest=True,
         )
-        if not session_id:
+        if not session_id and resume_last_requested(env):
+            # An unattended start still opens a session: a new conversation.
+            codex_passthrough = codex_without_resume_command(codex_passthrough)
+            codex_passthrough_notes.append("resume --last -> new conversation (none saved for this folder)")
+        elif not session_id:
             return 0
-        codex_passthrough = codex_resume_with_session_id(
-            codex_passthrough, session_id
-        )
-        codex_passthrough_notes.append(
-            "resume --last -> latest current-directory Codex session ID"
-        )
+        else:
+            codex_passthrough = codex_resume_with_session_id(
+                codex_passthrough, session_id
+            )
+            codex_passthrough_notes.append(
+                "resume --last -> latest current-directory Codex session ID"
+            )
     if not use_native_codex and codex_resume_picker_requested(codex_passthrough):
         session_id = select_codex_resume_session(
             env,
@@ -1206,6 +1218,8 @@ def run_codex(
 
     def run_codex_session() -> int:
         handled: set[str] = set()
+        if resume_last_requested():
+            queue_restart_notice(services.restart, "codex", ResumeLastRequest(), router_log)
         while True:
             codex_restart_control.reset()
             rc = run_codex_process()
@@ -1215,6 +1229,7 @@ def run_codex(
                 return rc
             handled.add(request.id)
             _session_backup_after_exit(restarting=True, log=router_log)
+            os.environ[STARTUP_AUTO_ANSWER_ENV] = "1"
             if request.resume:
                 cmd[:] = runtime_resume_command(cmd, "codex")
             renew_codex_mcp()
@@ -1576,6 +1591,7 @@ def run_codex_app_server(
         nonlocal cmd, workspace_mcp_launch
         router_log = services.routing.router_log
         _session_backup_after_exit(restarting=True, log=router_log)
+        os.environ[STARTUP_AUTO_ANSWER_ENV] = "1"
         if workspace_mcp is not None:
             previous = workspace_mcp_launch
             workspace_mcp_launch = workspace_mcp.renew(
@@ -1589,6 +1605,8 @@ def run_codex_app_server(
         session_kwargs["relaunch"] = relaunch
 
     def run_codex_app_server_process() -> int:
+        if resume_last_requested():
+            queue_restart_notice(services.restart, "codex", ResumeLastRequest(), services.routing.router_log)
         if desktop is not None:
             rc = desktop(cmd, env, launch_cwd, run_server=run_server, **session_kwargs)
         else:

@@ -211,6 +211,11 @@ class WindowsConPtySession:
                 return False
             time.sleep(0.02)
 
+    def output_since(self, checkpoint: int) -> tuple[bytes, int]:
+        """Child output after an absolute position, and the new position."""
+
+        return self._output_since(checkpoint)
+
     def _output_since(self, checkpoint: int) -> tuple[bytes, int]:
         with self._output_lock:
             total = int(self._output_total_bytes)

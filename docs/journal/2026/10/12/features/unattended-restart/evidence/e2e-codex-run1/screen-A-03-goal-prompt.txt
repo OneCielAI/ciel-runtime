@@ -1,0 +1,39 @@
+06:53:29
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                 Resume paused goal?
+                                 Goal: E2E-UA-GOAL stay paused
+
+
+                               › 1. Resume goal   Mark it active and continue when idle
+                                 2. Leave paused  Keep it paused; use /goal resume later
+
+                                 enter select · esc back
+
+
+
+
+
+
+
+
+
+
+
+› Ask Codex to do anything
+
+  stub-model (vLLM) medium · G:\ciel-e2e\unattended\codex\ws
+  ? for shortcuts

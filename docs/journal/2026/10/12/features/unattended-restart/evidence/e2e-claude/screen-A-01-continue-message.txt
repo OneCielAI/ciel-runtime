@@ -1,0 +1,39 @@
+07:22:17
+
+ ▐▛███▛█   Claude Code v2.1.296
+▝▜██████▀  ciel-runtime-vllm-stub-model with xhigh effort · API Usage Billing
+ ▝▝   ▝▝   G:\ciel-e2e\unattended\claude\ws
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  ⚠ claude.ai connectors are disabled because ANTHROPIC_API_KEY or another auth source is set and takes precedence over your claude.…
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ 계속-세션재시작됨
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  [stub-model (vllm)] ws
+  ⏵⏵ bypass permissions on (shift+tab to cycle)

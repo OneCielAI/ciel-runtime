@@ -1,0 +1,16 @@
+okf_version: "1.0"
+task: "Celly (local sandbox, G:\ciel-bridge-service, codex-remote) is shown as not connected to Walkie."
+reported: "User, 2026-10-12 ~06:20 CDT: '로컬에 샌드박스 celly 세션이 와키와 네트워크 연결이 안되는것으로 나오는데 어떤문제인지 조사해줘'."
+access: "Read only: Celly router.log (router-instances/9385-52ea0f8a2296), copies of .codex/logs_2.sqlite and state_5.sqlite in the session scratchpad, thread_history_1.sqlite opened with mode=ro&immutable=1, process list and TCP table. Nothing on Celly was changed or restarted."
+verified:
+  processes: "Celly session since 2026-10-08 00:01: launcher python 15720, router 32856 (alive, /health 200), codex app-server 35396 with MCP children python 36644 -> node 36460 and python 36652 -> python 35652."
+  walkie_network: "TCP sampling 25 s at ~06:30: router 32856 holds an established connection to the Walkie server 100.64.0.9:8787 (external event SSE), and node 36460 (Celly's presence observer, child of 36644) opened connections to 100.64.0.9:8787 in 12 of 50 samples. node 36460 also holds 127.0.0.1:9385 (/ca/tui/stream long-poll every 5 min; /health and /ca/tui/status every few seconds, all 200 in router.log)."
+  delivery_target_moved_to_subagent: "The Walkie messages are injected into the sub-agent thread Kierkegaard (01a126a4, source subagent, parent 01a08e99) instead of Celly's main thread 01a08e99. thread_turns: Kierkegaard turn 01a12bc1 started 2026-10-11 11:18:11 while main turn 01a12bbf (11:15:09-11:20:33) ran; from message 2900 (11:45:09) to 3002 (2026-10-12 05:15:07) router.log 'codex_desktop_channel_injected ... thread=01a126a4'. state_5: main thread last updated 2026-10-11 11:20:33. Code: codex_desktop_injection.py turn/started handler sets self.thread_id to any thread that starts a turn; is_user_thread (sub-agent filter) is applied only to thread/started."
+  subagent_replies: "Kierkegaard calls walkie MCP tools (e.g. walkie_threads_stop at 05:01:16) and answers; last turn 05:15:07-05:15:15."
+  messages_stopped: "No external message reached Celly after 05:15:07 (before: one about every 15 min). Walkie desktop app restarted as 0.4.21 '--updated' at 05:34:31 on this PC."
+  config_error: "logs_2 2026-10-11 11:50:33 and 11:51:03: codex_tui recap 'thread/start failed: failed to load configuration: invalid transport in `mcp_servers.walkie` (code -32600)'."
+not_known:
+  - "Which screen shows 'not connected' and what it reads (Walkie presence has a 60 s TTL, server/src/agent-presence.ts; whether Celly's presence publishes are accepted is not visible from here)."
+  - "Why no message arrived after 05:15."
+  - "Why the walkie MCP config fails to load on a new thread/start."
+not_done: "No change made; waiting for the user's description/screenshot of the not-connected state."

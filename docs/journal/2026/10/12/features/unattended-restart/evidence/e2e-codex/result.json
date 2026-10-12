@@ -1,0 +1,145 @@
+{
+ "flow": "codex",
+ "phases": {
+  "A": {
+   "continue_message_requests": [
+    {
+     "n": 1,
+     "tail": "계속-세션재시작됨",
+     "history_turn1": false,
+     "continue_messages_in_history": 1
+    },
+    {
+     "n": 3,
+     "tail": " code terms require otherwise. Preserve ticket references exactly. Write in the user's language. Do not use quotes, markdown, or trailing punctuation. Do not answer the request. User prompt: 계속-세션재시작됨",
+     "history_turn1": false,
+     "continue_messages_in_history": 1
+    }
+   ],
+   "answered": [],
+   "threads": [
+    "01a13012-2b92-73e2-abf2-b4acad83e389"
+   ],
+   "goal_set": {
+    "goal": {
+     "threadId": "01a13012-2b92-73e2-abf2-b4acad83e389",
+     "objective": "E2E-UA-GOAL stay paused",
+     "status": "paused",
+     "tokenBudget": null,
+     "tokensUsed": 0,
+     "timeUsedSeconds": 0,
+     "createdAt": 1791807870,
+     "updatedAt": 1791807870
+    }
+   }
+  },
+  "B": {
+   "continue_message_requests": [
+    {
+     "n": 9,
+     "tail": "계속-세션재시작됨",
+     "history_turn1": true,
+     "continue_messages_in_history": 2
+    }
+   ],
+   "answered": [
+    "2026-10-12T07:24:35 [INFO] startup_prompt_answered prompt=codex_paused_goal option=leavepaused key=2 enter=false attempt=1"
+   ],
+   "threads": [
+    "01a13012-2b92-73e2-abf2-b4acad83e389",
+    "01a13012-2b92-73e2-abf2-b4acad83e389",
+    "01a13012-2b92-73e2-abf2-b4acad83e389"
+   ],
+   "goal": {
+    "goal": {
+     "threadId": "01a13012-2b92-73e2-abf2-b4acad83e389",
+     "objective": "E2E-UA-GOAL stay paused",
+     "status": "paused",
+     "tokenBudget": null,
+     "tokensUsed": 0,
+     "timeUsedSeconds": 0,
+     "createdAt": 1791807870,
+     "updatedAt": 1791807870
+    }
+   }
+  },
+  "C": {
+   "continue_message_requests": [
+    {
+     "n": 11,
+     "tail": "계속-세션재시작됨",
+     "history_turn1": true,
+     "continue_messages_in_history": 3
+    }
+   ],
+   "answered": [
+    "2026-10-12T07:25:04 [INFO] startup_prompt_answered prompt=codex_trust option=trustandcontinue key=1 enter=true attempt=1",
+    "2026-10-12T07:25:05 [INFO] startup_prompt_answered prompt=codex_paused_goal option=leavepaused key=2 enter=false attempt=1",
+    "2026-10-12T07:25:05 [INFO] startup_prompt_answered prompt=codex_windows_sandbox option=usenon-adminsandbox key=2 enter=true attempt=1",
+    "2026-10-12T07:25:06 [INFO] startup_prompt_answered prompt=codex_paused_goal option=leavepaused key=2 enter=false attempt=2"
+   ],
+   "threads": [
+    "01a13012-2b92-73e2-abf2-b4acad83e389",
+    "01a13012-2b92-73e2-abf2-b4acad83e389",
+    "01a13012-2b92-73e2-abf2-b4acad83e389"
+   ]
+  },
+  "D": {
+   "continue_message_requests": [
+    {
+     "n": 13,
+     "tail": "계속-세션재시작됨",
+     "history_turn1": true,
+     "continue_messages_in_history": 4
+    }
+   ],
+   "answered": [
+    "2026-10-12T07:25:38 [INFO] startup_prompt_answered prompt=codex_paused_goal option=leavepaused key=2 enter=false attempt=1"
+   ],
+   "threads": [
+    "01a13012-2b92-73e2-abf2-b4acad83e389",
+    "01a13012-2b92-73e2-abf2-b4acad83e389",
+    "01a13012-2b92-73e2-abf2-b4acad83e389"
+   ],
+   "goal": {
+    "goal": {
+     "threadId": "01a13012-2b92-73e2-abf2-b4acad83e389",
+     "objective": "E2E-UA-GOAL stay paused",
+     "status": "paused",
+     "tokenBudget": null,
+     "tokensUsed": 0,
+     "timeUsedSeconds": 0,
+     "createdAt": 1791807870,
+     "updatedAt": 1791807870
+    }
+   }
+  }
+ },
+ "router_lines": [
+  "2026-10-12T07:24:18 [INFO] codex_session_restart_notice_queued request_id=1",
+  "2026-10-12T07:24:19 [INFO] codex_remote_app_server_ready pid=102292 listen=ws://127.0.0.1:52105 resume=-",
+  "2026-10-12T07:24:19 [INFO] startup_prompt_auto_answer_enabled",
+  "2026-10-12T07:24:33 [INFO] codex_remote_session_restart exit_code=1 source=ciel-runtime-router-tool resumed_thread=01a13012-2b92-73e2-abf2-b4acad83e389",
+  "2026-10-12T07:24:33 [INFO] codex_session_restart_notice_queued request_id=3",
+  "2026-10-12T07:24:34 [INFO] codex_remote_app_server_ready pid=45040 listen=ws://127.0.0.1:52105 resume=01a13012-2b92-73e2-abf2-b4acad83e389",
+  "2026-10-12T07:24:34 [INFO] startup_prompt_auto_answer_enabled",
+  "2026-10-12T07:24:34 [INFO] startup_prompt_seen prompt=codex_paused_goal",
+  "2026-10-12T07:24:35 [INFO] startup_prompt_answered prompt=codex_paused_goal option=leavepaused key=2 enter=false attempt=1",
+  "2026-10-12T07:25:03 [INFO] codex_passthrough_mapping --continue -> resume --last; resume --last -> latest current-directory Codex session ID",
+  "2026-10-12T07:25:03 [INFO] codex_session_restart_notice_queued request_id=4",
+  "2026-10-12T07:25:03 [INFO] startup_prompt_auto_answer_enabled",
+  "2026-10-12T07:25:03 [INFO] startup_prompt_seen prompt=codex_trust",
+  "2026-10-12T07:25:04 [INFO] startup_prompt_answered prompt=codex_trust option=trustandcontinue key=1 enter=true attempt=1",
+  "2026-10-12T07:25:04 [INFO] startup_prompt_seen prompt=codex_paused_goal",
+  "2026-10-12T07:25:04 [INFO] startup_prompt_seen prompt=codex_windows_sandbox",
+  "2026-10-12T07:25:05 [INFO] startup_prompt_answered prompt=codex_paused_goal option=leavepaused key=2 enter=false attempt=1",
+  "2026-10-12T07:25:05 [INFO] startup_prompt_answered prompt=codex_windows_sandbox option=usenon-adminsandbox key=2 enter=true attempt=1",
+  "2026-10-12T07:25:06 [INFO] startup_prompt_seen prompt=codex_paused_goal",
+  "2026-10-12T07:25:06 [INFO] startup_prompt_answered prompt=codex_paused_goal option=leavepaused key=2 enter=false attempt=2",
+  "2026-10-12T07:25:36 [INFO] codex_session_restart_notice_queued request_id=5",
+  "2026-10-12T07:25:37 [INFO] codex_remote_app_server_ready pid=79028 listen=ws://127.0.0.1:52105 resume=01a13012-2b92-73e2-abf2-b4acad83e389",
+  "2026-10-12T07:25:37 [INFO] startup_prompt_auto_answer_enabled",
+  "2026-10-12T07:25:37 [INFO] startup_prompt_seen prompt=codex_paused_goal",
+  "2026-10-12T07:25:38 [INFO] startup_prompt_answered prompt=codex_paused_goal option=leavepaused key=2 enter=false attempt=1"
+ ]
+}

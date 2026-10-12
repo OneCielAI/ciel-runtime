@@ -1,0 +1,38 @@
+
+
+• STUB-REPLY-1
+
+  Worked for <1s • 6:58 AM
+
+
+› [ciel-runtime external channel message] channel=e2e room=e2e from=e2e-driver id=2 thread=2 text="E2E-UA-TURN-1 hello"
+
+
+• STUB-REPLY-5
+
+  Worked for <1s • 6:58 AM
+
+
+› 계속-세션재시작됨
+
+
+• STUB-REPLY-9
+
+  Worked for <1s • 6:58 AM
+
+• Sandbox ready
+  Codex can now safely edit files and execute commands in your computer
+
+
+› [ciel-wake] pending_ids=4
+
+
+• STUB-REPLY-11
+
+  Worked for <1s • 6:59 AM
+
+
+› Ask Codex to do anything
+
+  stub-model (vLLM) medium · G:\ciel-e2e\unattended\codex\ws                                               Goal paused (/goal resume)
+  ? for shortcuts                                                                                             ⚠ 1 warning · f2 to view

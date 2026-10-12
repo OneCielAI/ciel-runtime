@@ -97,6 +97,9 @@ Headless setup flags, namespaced to avoid Claude CLI collisions:
   ciel-runtime --ca-no-web-fetch       Disable fetch MCP
   ciel-runtime --ca-no-self-update-check
                                       Skip Ciel Runtime npm self-update check
+  ciel-runtime --ca-resume-last       Unattended start (reboot script): last runtime and settings of this
+                                      folder, last conversation, startup questions answered, then
+                                      "계속-세션재시작됨" is sent to the session
   ciel-runtime --ca-no-update-check    Skip runtime update check for this launch
   ciel-runtime --ca-upgrade-and-exit   Update Ciel Runtime, Claude Code, Codex, and AGY without prompts, then exit
   ciel-runtime --ca-no-launch          Apply setup flags/env values, then exit without launching a runtime

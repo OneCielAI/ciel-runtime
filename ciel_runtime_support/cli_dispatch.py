@@ -6,7 +6,10 @@ import argparse
 import os
 import subprocess
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
+
+from ciel_runtime_support.session_resume_last import RESUME_LAST_FLAG, enable_resume_last, resume_last_passthrough
 
 
 @dataclass(frozen=True)
@@ -387,6 +390,7 @@ def dispatch_cli(argv: list[str], services: CliServices) -> int:
     auto_llm_options = False
     auto_llm_model: str | None = None
     runtime = "claude"
+    resume_last = False
     skip_menu, web_search_override, update_check_override, self_update_check_override, force_menu = apply_headless_env_config()
     update_check = True
     if update_check_override is not None:
@@ -769,6 +773,16 @@ def dispatch_cli(argv: list[str], services: CliServices) -> int:
             self_update_check = False
             skip_menu = True
             i += 1
+        elif arg == RESUME_LAST_FLAG:
+            # Unattended start (reboot script): last runtime and settings of
+            # this folder, no menu or update prompts, last conversation.
+            resume_last = True
+            runtime = "last"
+            update_check = False
+            self_update_check = False
+            skip_menu = True
+            enable_resume_last()
+            i += 1
         elif arg == "--ca-status":
             cmd_status(argparse.Namespace())
             return 0
@@ -789,6 +803,8 @@ def dispatch_cli(argv: list[str], services: CliServices) -> int:
     if runtime == "last":
         remembered_runtime = str(last_launch_runtime() or "").strip().lower()
         runtime = remembered_runtime if remembered_runtime in {"claude", "codex", "codex-desktop", "codex-remote", "agy", "grok", "zcode", "muse"} else "claude"
+    if resume_last:
+        passthrough = resume_last_passthrough(passthrough, runtime, cwd=Path.cwd(), environ=os.environ, home=Path.home())
     if runtime == "agy":
         return launch_agy(
             passthrough,

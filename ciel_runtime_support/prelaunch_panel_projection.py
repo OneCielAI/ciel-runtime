@@ -41,6 +41,18 @@ def session_backup_summary() -> str:
         return "unavailable"
 
 
+def unattended_restart_summary() -> str:
+    """Whether this workspace has a reboot script (--ca-resume-last)."""
+
+    from ciel_runtime_support.runtime_paths import WORKSPACE_STATE_DIR
+    from ciel_runtime_support.unattended_restart_menu import summary
+
+    try:
+        return summary(WORKSPACE_STATE_DIR)
+    except Exception:  # noqa: BLE001 - the menu row never breaks the menu
+        return "unavailable"
+
+
 def provider_fallback_summary(config: Mapping[str, Any]) -> str:
     """Automatic fallback state and the active backup, if any."""
 
@@ -139,6 +151,7 @@ class MainMenuProjection:
             f"17. Dangerous delete prompt  [{dangerous_rm_auto_allow.summary(config)}]",
             f"18. Session backup  [{session_backup_summary()}]",
             f"19. Provider fallback  [{provider_fallback_summary(config)}]",
+            f"20. Unattended restart  [{unattended_restart_summary()}]",
             self.ports.ui_text("quit", language),
         ]
 

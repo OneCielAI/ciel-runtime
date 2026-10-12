@@ -1,0 +1,35 @@
+{
+ "flow": "claude",
+ "phases": {
+  "A": {
+   "continue_message_requests": [],
+   "answered": [],
+   "threads": []
+  },
+  "B": {
+   "continue_message_requests": [],
+   "answered": [],
+   "threads": []
+  },
+  "C": {
+   "continue_message_requests": [],
+   "answered": [],
+   "threads": []
+  }
+ },
+ "router_lines": [
+  "2026-10-12T07:00:28 [INFO] claude_session_restart_notice_queued request_id=1",
+  "2026-10-12T07:00:28 [INFO] startup_prompt_auto_answer_enabled",
+  "2026-10-12T07:00:29 [INFO] startup_prompt_seen prompt=claude_trust",
+  "2026-10-12T07:00:34 [WARN] startup_prompt_option_not_found prompt=claude_trust option=yes,itrustthisfolder",
+  "2026-10-12T07:04:41 [INFO] claude_session_restart_notice_queued request_id=3",
+  "2026-10-12T07:04:41 [INFO] claude_session_restart exit_code=1 source=ciel-runtime-router-tool reason=e2e unattended restart resumed=true",
+  "2026-10-12T07:04:41 [INFO] startup_prompt_auto_answer_enabled",
+  "2026-10-12T07:04:41 [INFO] startup_prompt_seen prompt=claude_trust",
+  "2026-10-12T07:04:46 [WARN] startup_prompt_option_not_found prompt=claude_trust option=yes,itrustthisfolder",
+  "2026-10-12T07:07:35 [INFO] claude_session_restart_notice_queued request_id=4",
+  "2026-10-12T07:07:36 [INFO] startup_prompt_auto_answer_enabled",
+  "2026-10-12T07:07:36 [INFO] startup_prompt_seen prompt=claude_trust",
+  "2026-10-12T07:07:41 [WARN] startup_prompt_option_not_found prompt=claude_trust option=yes,itrustthisfolder"
+ ]
+}

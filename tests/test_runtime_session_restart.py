@@ -203,9 +203,10 @@ class ClaudeSessionRestartLoopTests(unittest.TestCase):
         self.assertEqual(1, len(notices))
         notice = notices[0]
         self.assertEqual("restart", notice["channel"])
-        self.assertIn("재부팅 완료", notice["message"])
-        self.assertIn("claude", notice["message"])
-        self.assertIn("source=ciel-runtime-router-tool", notice["message"])
+        self.assertEqual("계속-세션재시작됨", notice["message"])
+        self.assertTrue(notice["meta"]["raw_injection"])
+        self.assertEqual("claude", notice["meta"]["runtime"])
+        self.assertEqual("ciel-runtime-router-tool", notice["meta"]["restart_source"])
         self.assertEqual("restart_notice", notice["meta"]["source_kind"])
         self.assertTrue(notice["meta"]["resumed"])
 
@@ -259,7 +260,7 @@ class ClaudeSessionRestartLoopTests(unittest.TestCase):
 
 
 class RestartNoticeBodyTests(unittest.TestCase):
-    def test_notice_names_the_runtime_and_the_resume_outcome(self):
+    def test_notice_is_the_exact_continue_message_with_the_restart_in_meta(self):
         body = restart_notice_body(
             "codex",
             source="ciel-runtime-router-tool",
@@ -269,9 +270,10 @@ class RestartNoticeBodyTests(unittest.TestCase):
 
         self.assertEqual("restart", body["channel"])
         self.assertEqual("restart_notice", body["kind"])
-        self.assertIn("재부팅 완료", body["message"])
-        self.assertIn("codex", body["message"])
-        self.assertIn("새로 시작되었습니다", body["message"])
+        self.assertEqual("계속-세션재시작됨", body["message"])
+        self.assertTrue(body["meta"]["raw_injection"])
+        self.assertEqual("codex", body["meta"]["runtime"])
+        self.assertEqual("deploy", body["meta"]["restart_reason"])
         self.assertEqual("ciel-runtime-restart", body["meta"]["source"])
         self.assertFalse(body["meta"]["resumed"])
 

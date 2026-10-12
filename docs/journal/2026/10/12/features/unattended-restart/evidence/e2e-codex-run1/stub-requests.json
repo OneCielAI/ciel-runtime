@@ -1,0 +1,122 @@
+[
+ {
+  "n": 1,
+  "at": 1791806002.2457979,
+  "phase": "A",
+  "path": "/v1/chat/completions",
+  "users": 2,
+  "last": "[ciel-runtime external channel message] channel=e2e room=e2e from=e2e-driver id=2 thread=2 text=\"E2E-UA-TURN-1 hello\"",
+  "history_turn1": true,
+  "continue_messages_in_history": 0
+ },
+ {
+  "n": 2,
+  "at": 1791806002.2583373,
+  "phase": "A",
+  "path": "/v1/chat/completions",
+  "users": 3,
+  "last": "This is a runtime completion check. Call the supplied ciel_runtime_confirm_completion tool only if every requested action is complete. Otherwise call the next actual work tool now, using an exact tool name and every required field from the supplied schema. Do not answer with text.",
+  "history_turn1": true,
+  "continue_messages_in_history": 0
+ },
+ {
+  "n": 3,
+  "at": 1791806002.3181586,
+  "phase": "A",
+  "path": "/v1/chat/completions",
+  "users": 2,
+  "last": "Generate a concise, single-line task title of at most 36 characters and under five words where possible. Start with an imperative verb. Capitalize only the first word unless the user's language, proper nouns, acronyms, or code terms require otherwise. Preserve ticket references exactly. Write in the user's language. Do not use quotes, markdown, or trailing punctuation. Do not answer the request. User prompt: [ciel-runtime external channel message] channel=e2e room=e2e from=e2e-driver id=2 thread=2 text=\"E2E-UA-TURN-1 hello\"",
+  "history_turn1": true,
+  "continue_messages_in_history": 0
+ },
+ {
+  "n": 4,
+  "at": 1791806002.3335707,
+  "phase": "A",
+  "path": "/v1/chat/completions",
+  "users": 3,
+  "last": "This is a runtime completion check. Call the supplied ciel_runtime_confirm_completion tool only if every requested action is complete. Otherwise call the next actual work tool now, using an exact tool name and every required field from the supplied schema. Do not answer with text.",
+  "history_turn1": true,
+  "continue_messages_in_history": 0
+ },
+ {
+  "n": 5,
+  "at": 1791806008.9842665,
+  "phase": "B",
+  "path": "/v1/chat/completions",
+  "users": 3,
+  "last": "계속-세션재시작됨",
+  "history_turn1": true,
+  "continue_messages_in_history": 1
+ },
+ {
+  "n": 6,
+  "at": 1791806008.9972796,
+  "phase": "B",
+  "path": "/v1/chat/completions",
+  "users": 4,
+  "last": "This is a runtime completion check. Call the supplied ciel_runtime_confirm_completion tool only if every requested action is complete. Otherwise call the next actual work tool now, using an exact tool name and every required field from the supplied schema. Do not answer with text.",
+  "history_turn1": true,
+  "continue_messages_in_history": 1
+ },
+ {
+  "n": 7,
+  "at": 1791806214.3123343,
+  "phase": "D",
+  "path": "/v1/chat/completions",
+  "users": 4,
+  "last": "계속-세션재시작됨",
+  "history_turn1": true,
+  "continue_messages_in_history": 2
+ },
+ {
+  "n": 8,
+  "at": 1791806214.3335528,
+  "phase": "D",
+  "path": "/v1/chat/completions",
+  "users": 5,
+  "last": "This is a runtime completion check. Call the supplied ciel_runtime_confirm_completion tool only if every requested action is complete. Otherwise call the next actual work tool now, using an exact tool name and every required field from the supplied schema. Do not answer with text.",
+  "history_turn1": true,
+  "continue_messages_in_history": 2
+ },
+ {
+  "n": 9,
+  "at": 1791806214.4010968,
+  "phase": "D",
+  "path": "/v1/chat/completions",
+  "users": 5,
+  "last": "계속-세션재시작됨",
+  "history_turn1": true,
+  "continue_messages_in_history": 3
+ },
+ {
+  "n": 10,
+  "at": 1791806214.409144,
+  "phase": "D",
+  "path": "/v1/chat/completions",
+  "users": 6,
+  "last": "This is a runtime completion check. Call the supplied ciel_runtime_confirm_completion tool only if every requested action is complete. Otherwise call the next actual work tool now, using an exact tool name and every required field from the supplied schema. Do not answer with text.",
+  "history_turn1": true,
+  "continue_messages_in_history": 3
+ },
+ {
+  "n": 11,
+  "at": 1791806214.473969,
+  "phase": "D",
+  "path": "/v1/chat/completions",
+  "users": 2,
+  "last": "Generate a concise, single-line task title of at most 36 characters and under five words where possible. Start with an imperative verb. Capitalize only the first word unless the user's language, proper nouns, acronyms, or code terms require otherwise. Preserve ticket references exactly. Write in the user's language. Do not use quotes, markdown, or trailing punctuation. Do not answer the request. User prompt: 계속-세션재시작됨",
+  "history_turn1": false,
+  "continue_messages_in_history": 0
+ },
+ {
+  "n": 12,
+  "at": 1791806214.5000453,
+  "phase": "D",
+  "path": "/v1/chat/completions",
+  "users": 3,
+  "last": "This is a runtime completion check. Call the supplied ciel_runtime_confirm_completion tool only if every requested action is complete. Otherwise call the next actual work tool now, using an exact tool name and every required field from the supplied schema. Do not answer with text.",
+  "history_turn1": false,
+  "continue_messages_in_history": 0
+ }
+]

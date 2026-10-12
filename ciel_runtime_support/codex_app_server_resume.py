@@ -26,6 +26,7 @@ from ciel_runtime_support.codex_cli import (
     codex_passthrough_args_for_launch,
     codex_passthrough_first_non_option_index,
 )
+from ciel_runtime_support.session_resume_last import resume_last_requested
 
 # Permissions are the server's; a session sets them over the protocol.
 PERMISSION_FLAGS = frozenset({"--yolo", "--dangerously-bypass-approvals-and-sandbox", "--full-auto"})
@@ -167,6 +168,9 @@ def resolve_resume_thread(
         cwd=cwd,
         select_latest=resume.mode == "last",
     )
+    if not str(selected or "").strip() and resume.mode == "last" and resume_last_requested(env):
+        # An unattended start still opens a session: a new conversation.
+        return ""
     return str(selected or "").strip() or None
 
 

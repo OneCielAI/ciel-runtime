@@ -464,7 +464,7 @@ from ciel_runtime_support.runtime_paths import (CHANNEL_COMPACT_REQUEST_PATH,  #
                                                 windows_appdata_root, windows_local_appdata_root)
 from ciel_runtime_support.runtime_restart import forced_upgrade_environment
 from ciel_runtime_support.runtime_restart import running_from_npm_package as detect_running_from_npm_package
-from ciel_runtime_support.runtime_session_restart import RuntimeSessionRestartServicePorts, local_runtime_session_restart
+from ciel_runtime_support.runtime_session_restart import RuntimeSessionRestartServicePorts, local_runtime_session_restart, primed_notice
 from ciel_runtime_support.secure_json_repository import SecureJsonEffects, SecureJsonRepository
 from ciel_runtime_support.colab_speech_jobs import colab_speech_credential_status, colab_speech_job_status, launch_colab_speech_job
 from ciel_runtime_support.speech_http_controller import SpeechHttpController, SpeechHttpPorts
@@ -4738,7 +4738,7 @@ def claude_launch_services() -> runtime_launch.ClaudeLaunchServices:
             write_zai_mcp_config,
             workspace_mcp_launch_service(),
         ),
-        restart=assembly.ClaudeLaunchRestartPorts(lambda: runtime_session_restart_service().control(), runtime_input_gateway().submit_notification),
+        restart=assembly.ClaudeLaunchRestartPorts(lambda: runtime_session_restart_service().control(), primed_notice(_CHANNEL_DELIVERY_API.ensure_cursor_initialized, runtime_input_gateway().submit_notification)),
     ).services()
 
 CODEX_ROUTED_UPSTREAM_BASE = os.environ.get("CIEL_RUNTIME_CODEX_ROUTED_UPSTREAM") or "https://chatgpt.com/backend-api/codex"
@@ -4828,7 +4828,7 @@ def codex_launch_assembly() -> CodexLaunchAssembly:
             policy=runtime_launch.CodexAppServerCliPolicy(codex_app_server_default_listen_url, codex_app_server_launch_args, codex_current_model_config_args,
                                                           codex_native_routed_config_args, codex_passthrough_has_model_override, codex_runtime_config_args, toml_string),
         ),
-        restart=CodexLaunchSharedRestartPorts(lambda: runtime_session_restart_service().control(), runtime_input_gateway().submit_notification),
+        restart=CodexLaunchSharedRestartPorts(lambda: runtime_session_restart_service().control(), primed_notice(_CHANNEL_DELIVERY_API.ensure_cursor_initialized, runtime_input_gateway().submit_notification)),
     )
 
 def codex_launch_services() -> runtime_launch.CodexLaunchServices: return codex_launch_assembly().cli_services()

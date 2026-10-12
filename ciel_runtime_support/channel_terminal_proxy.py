@@ -28,6 +28,7 @@ from ciel_runtime_support.channel_pending_poll import (
     poll_pending_channel_messages,
 )
 from ciel_runtime_support.pty_master_writer import PtyMasterWriter
+from ciel_runtime_support.startup_prompt_answers import startup_prompt_responder
 from ciel_runtime_support.terminal_modal_guard import STARTUP_HOLD_SECONDS, TerminalModalGuard
 from ciel_runtime_support.runtime_interaction import (
     RuntimeInteractionDisplayState,
@@ -321,6 +322,13 @@ def run_windows_channel_terminal_proxy(
         interaction_pending = False
         channel_enter_bytes = policy.enter_bytes(synthetic_enter_bytes)
         channel_input_ready_at = time.time() + console.startup_grace_seconds()
+        # An unattended restart answers the CLI's startup dialogs and holds
+        # channel input until the dialogs are gone (ConPTY output only).
+        startup_answers = startup_prompt_responder(policy.log)
+        if startup_answers is not None and conpty is None:
+            policy.log("WARN", "startup_prompt_auto_answer_unavailable transport=console-input")
+            startup_answers = None
+        startup_output_cursor = 0
         # ConPTY is a byte stream and supports VT bracketed paste. The
         # compatibility transport consumes INPUT_RECORD events and must not
         # receive its delimiters.
@@ -413,6 +421,15 @@ def run_windows_channel_terminal_proxy(
                 last_terminal_input_mode_reset = now
                 console.reset_input_mode()
                 input_mode_guard.apply()
+            if startup_answers is not None:
+                startup_output, startup_output_cursor = conpty.output_since(startup_output_cursor)
+                startup_answers.feed(startup_output)
+                startup_keys = startup_answers.due()
+                if startup_keys:
+                    writer.write(startup_keys)
+            input_ready = now >= channel_input_ready_at and (
+                startup_answers is None or startup_answers.input_ready()
+            )
             if pending_poll_state.inflight_message_id is not None:
                 inflight_message_id = pending_poll_state.inflight_message_id
                 channel_inflight_state = polling.wake_state(inflight_message_id)
@@ -456,7 +473,7 @@ def run_windows_channel_terminal_proxy(
                 compact_poll_state,
                 compact_injection_options,
                 compact_poll_services,
-                input_ready=now >= channel_input_ready_at,
+                input_ready=input_ready,
             )
             pending_poll_state = poll_pending_channel_messages(
                 now,
@@ -466,7 +483,7 @@ def run_windows_channel_terminal_proxy(
                 pending_injection_options,
                 pending_poll_policy,
                 pending_poll_services,
-                input_ready=now >= channel_input_ready_at,
+                input_ready=input_ready,
             )
             console.sleep(0.05)
         returncode = proc.wait()
@@ -581,9 +598,13 @@ def run_posix_channel_terminal_proxy(
     except ValueError:
         startup_hold = STARTUP_HOLD_SECONDS
     modal_guard = TerminalModalGuard(startup_hold_seconds=max(0.0, startup_hold))
+    # An unattended restart also answers those dialogs (startup_prompt_answers).
+    startup_answers = startup_prompt_responder(policy.log)
 
     def forward_child_output(data: bytes) -> None:
         modal_guard.feed(data)
+        if startup_answers is not None:
+            startup_answers.feed(data)
         if data and not interaction_pending:
             terminal.write_all(stdout_fd, data)
 
@@ -692,7 +713,11 @@ def run_posix_channel_terminal_proxy(
                     pending_poll_state.pending_recheck or inflight_update.pending_recheck
                 )
                 pending_poll_state.last_id = inflight_update.last_id
-            dialog_open = modal_guard.blocking
+            if startup_answers is not None and (startup_keys := startup_answers.due()):
+                child_input.write(startup_keys)
+            dialog_open = modal_guard.blocking or (
+                startup_answers is not None and not startup_answers.input_ready()
+            )
             if dialog_open != dialog_logged:
                 dialog_logged = dialog_open
                 policy.log(
