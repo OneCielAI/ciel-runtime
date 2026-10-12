@@ -33,3 +33,7 @@ not_verified:
 side_findings:
   - "During the run two 32de611 Codex launchers (cli --continue, since 04:40/04:44) each did ~9,300 reads/s, ~75 MB/s and ~21,000 other I/O ops/s (top_io.ps1). Which files and which disk is not known; not investigated (live sessions)."
 other_test_groups: "runtime 405 OK, router 1188 OK, 9611 health 200. channel: 1 of 3 runs OK, the others failed different BoundaryScanDeadlineTests / test_resumed_codex_session...; the same group on unmodified HEAD (git archive 6638f33) failed 1 of 4 runs on the same tests, and this change touches no channel file: pre-existing timing flakiness, not caused here."
+stale_running_state:
+  observed: "After the crashed parent of real-run-1 the state file kept running=True; the menu showed 'last running since 10-11 22:23' (menu-run-2/menu-backup-progress.png) and mcp_session_backup create refuses while running is set (session_backup_service.py: 'a backup of this workspace is already running')."
+  change: "workspace_state(): running counts only while the workspace's backup lock is held by a live process; otherwise it reports running=False, interrupted=True, and the menu shows '<start> interrupted'. (User 2026-10-12: '아직 수정할사항잇으면 수정'.)"
+  verification: "test_a_backup_whose_process_died_is_not_running_any_more: dead lock holder -> not running, menu 'interrupted', MCP create starts; live holder -> 'running since'. unit 1851 OK."

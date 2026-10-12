@@ -1081,6 +1081,45 @@ class ApiKeyRotationTests(unittest.TestCase):
             )
         )
 
+    def test_direct_anthropic_dropped_connection_is_logged(self):
+        # 2026-10-12: api.anthropic.com closed 15 MB requests (WinError 10054); the client got a 500 and
+        # router.log had no line for it.
+        pcfg = self.provider_pcfg(
+            "anthropic",
+            api_key="",
+            api_keys=[],
+            base_url="https://api.anthropic.com",
+            gateway_retries=0,
+        )
+        error = urllib.error.URLError(ConnectionResetError(10054, "An existing connection was forcibly closed by the remote host"))
+
+        with (
+            mock.patch.object(ciel_runtime.urllib.request, "urlopen", side_effect=error),
+            mock.patch.object(ciel_runtime, "write_router_activity") as activity,
+            mock.patch.object(ciel_runtime, "router_log") as router_log,
+        ):
+            with self.assertRaisesRegex(RuntimeError, "forcibly closed"):
+                ciel_runtime.open_provider_request_with_key_retry(
+                    "https://api.anthropic.com/v1/messages?api_key=secret#fragment",
+                    {"model": "claude-fable-5", "messages": [], "stream": True},
+                    {"content-type": "application/json"},
+                    300.0,
+                    "anthropic",
+                    pcfg,
+                    "claude-fable-5",
+                    stream=True,
+                )
+
+        error_events = [call for call in activity.call_args_list if call.args and call.args[0] == "error"]
+        self.assertEqual(1, len(error_events))
+        self.assertEqual("https://api.anthropic.com/v1/messages", error_events[0].kwargs["endpoint"])
+        self.assertIn("forcibly closed", error_events[0].kwargs["message"])
+        logged = [str(call) for call in router_log.call_args_list if "upstream_direct_transport_error" in str(call)]
+        self.assertEqual(1, len(logged))
+        self.assertIn("forcibly closed", logged[0])
+        self.assertRegex(logged[0], r"after=\d+\.\d\ds")
+        self.assertNotIn("secret", logged[0])
+
     def test_direct_request_records_endpoint_before_runtime_header_preparation(self):
         pcfg = self.provider_pcfg(
             "zai-start-plan",

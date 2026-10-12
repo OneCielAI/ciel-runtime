@@ -81,11 +81,23 @@ def record_state(config_dir: Path, cwd: Path, **fields: Any) -> None:
 
 
 def workspace_state(config_dir: Path, cwd: Path) -> dict[str, Any]:
-    return dict(_read_state(config_dir).get(workspace_digest(cwd)) or {})
+    state = dict(_read_state(config_dir).get(workspace_digest(cwd)) or {})
+    if state.get("running") and not _lock_held(config_dir, cwd):
+        # The process running it stopped without recording the end (killed, crashed): it is not running.
+        state.update(running=False, interrupted=True)
+    return state
 
 
 def _lock_path(config_dir: Path, cwd: Path) -> Path:
     return Path(config_dir) / "backup-locks" / f"{workspace_digest(cwd)}.lock"
+
+
+def _lock_held(config_dir: Path, cwd: Path) -> bool:
+    try:
+        holder = int(_lock_path(config_dir, cwd).read_text(encoding="utf-8").strip() or 0)
+    except (OSError, ValueError):
+        return False
+    return bool(holder) and pid_is_running(holder)
 
 
 def _acquire(config_dir: Path, cwd: Path) -> bool:

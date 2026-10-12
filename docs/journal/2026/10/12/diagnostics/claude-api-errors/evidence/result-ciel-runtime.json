@@ -1,0 +1,16 @@
+{
+ "repo": "C:\\Users\\djlov\\ciel-runtime",
+ "upstream_saw": [
+  "GET /v1/models HTTP/1.1",
+  "GET /models HTTP/1.1",
+  "POST /v1/messages HTTP/1.1"
+ ],
+ "client_status": 500,
+ "client_body": "{\"type\": \"error\", \"error\": {\"type\": \"api_error\", \"message\": \"upstream direct request failed provider=anthropic model=claude-opus-5-5: ConnectionResetError: [WinError 10054] An existing connection was forcibly closed by the remote host\"}}",
+ "router_log_lines": [
+  "2026-10-12T00:41:28 [INFO] upstream_direct_request provider=anthropic model=claude-opus-5-5 endpoint=http://127.0.0.1:61723/v1/messages attempt=1/1 tokens=500027 bytes=2000109 timeout=300.0",
+  "2026-10-12T00:41:28 [WARN] upstream_direct_transport_error provider=anthropic model=claude-opus-5-5 endpoint=http://127.0.0.1:61723/v1/messages error='ConnectionResetError: [WinError 10054] An existing connection was forcibly closed by the remote host' after=0.00s tokens=500027 bytes=2000109",
+  "2026-10-12T00:41:28 [ERROR] anthropic_route_error provider=anthropic model=claude-opus-5-5 status=500 error=RuntimeError: upstream direct request failed provider=anthropic model=claude-opus-5-5: ConnectionResetError: [WinError 10054] An existing connection was forcibly closed by the remote host",
+  "2026-10-12T00:41:28 [INFO] access \"POST /v1/messages HTTP/1.1\" 500 -"
+ ]
+}

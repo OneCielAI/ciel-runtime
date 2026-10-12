@@ -11,4 +11,11 @@ observed:
   claude_transcript: "Claude Code did not write today's retries into the session transcript (latest api_error entries there are ECONNRESET on 2026-09-21..28)."
 not_known:
   - "Why api.anthropic.com connections are reset. Large requests fail far more often (11/43 at 15-16 MB vs 5/130 under 1 MB), and small requests in another workspace failed in the same minute; the network path is a possibility, not verified."
-changes: "None yet (reported to the user; waiting for a decision)."
+changes:
+  - "User 2026-10-12: '아직 수정할사항잇으면 수정'. Only observability was changed (the cause is unknown; no retry or other behaviour change)."
+  - "upstream_retry.open_provider_request_with_key_retry: a dropped connection / transport error that is not retried now writes a router activity error and WARN 'upstream_direct_transport_error ... error=... after=<s since the request was sent> tokens= bytes=' (same shape as the existing upstream_stream_transport_error); post_json_with_rate_retry logs 'upstream_transport_error'."
+  - "claude_router: the catch-all that answers the client with a 500 api_error now logs ERROR 'anthropic_route_error ... status=500 error=...'."
+verification:
+  e2e: "evidence/e2e_dropped_connection.py: isolated router (own config dir, test key, router port) whose Anthropic base URL is a local fake upstream that reads the headers and part of a 2 MB body and closes with RST. Client gets the same 500 as in the live router ('ConnectionResetError: [WinError 10054] An existing connection was forcibly closed by the remote host'). router.log, previous code (0343d29): only 'upstream_direct_request' and 'access ... 500'. New code: plus 'upstream_direct_transport_error ... after=0.00s tokens=500027 bytes=2000109' and 'anthropic_route_error ... status=500' (evidence/result-ciel-runtime.json, result-head-0343d29.json)."
+  tests: "router 1189 OK (new test_direct_anthropic_dropped_connection_is_logged), unit 1851 OK, runtime 405 OK, channel 457 OK; 9611 200."
+next_evidence: "With the log line in place, router.log will show for each drop the request size and how long after sending it failed; that is what can tell request size apart from the network path."

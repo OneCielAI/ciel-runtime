@@ -444,6 +444,29 @@ class BackupTriggerTests(unittest.TestCase):
         self.assertEqual("cancelled", workspace_state(self.config, self.cwd)["last_error"])
         self.assertFalse(workspace_state(self.config, self.cwd)["running"])
 
+    def test_a_backup_whose_process_died_is_not_running_any_more(self):
+        from unittest import mock
+
+        from ciel_runtime_support import session_backup_menu, session_backup_service
+        from ciel_runtime_support.session_backup_service import _lock_path, record_state, workspace_state
+
+        # The parent of a backup crashed after recording running=True (seen 2026-10-12): its lock names a dead pid.
+        record_state(self.config, self.cwd, last_started=1_000.0, last_trigger="menu", running=True)
+        _lock_path(self.config, self.cwd).parent.mkdir(parents=True, exist_ok=True)
+        _lock_path(self.config, self.cwd).write_text("4242", encoding="utf-8")
+        with mock.patch.object(session_backup_service, "pid_is_running", return_value=False):
+            state = workspace_state(self.config, self.cwd)
+            self.assertFalse(state["running"])
+            self.assertTrue(state["interrupted"])
+            self.assertTrue(session_backup_menu._last(self.config, self.cwd).endswith("interrupted"))
+            with mock.patch.object(session_backup_service, "run_backup_in_background") as started:
+                reply = session_backup_service.mcp_session_backup(self.config, self.cwd, {"action": "create"})
+            self.assertTrue(reply["started"])
+            started.assert_called_once()
+        with mock.patch.object(session_backup_service, "pid_is_running", return_value=True):
+            self.assertTrue(workspace_state(self.config, self.cwd)["running"])
+            self.assertIn("running since", session_backup_menu._last(self.config, self.cwd))
+
     def test_a_summary_larger_than_the_pipe_does_not_stall_the_backup(self):
         from ciel_runtime_support.session_backup_service import run_backup
 

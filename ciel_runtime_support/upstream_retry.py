@@ -313,6 +313,11 @@ def post_json_with_rate_retry(
                 time.sleep(upstream_retry_wait_seconds(retry_no))
                 continue
             write_router_activity("error", provider, model, error=type(exc).__name__, tokens=token_estimate, bytes=byte_estimate)
+            router_log(
+                "WARN",
+                f"upstream_transport_error provider={provider} model={model} "
+                f"error={_http_error_log_message(f'{type(exc).__name__}: {exc}')!r} tokens={token_estimate} bytes={byte_estimate}",
+            )
             raise RuntimeError(
                 f"upstream request failed provider={provider} model={model}: "
                 f"{type(exc).__name__}: {exc}"
@@ -368,6 +373,7 @@ def open_provider_request_with_key_retry(
     data_bytes = json.dumps(req_body).encode("utf-8")
     endpoint = _upstream_endpoint_identity(url)
     for attempt in range(rate_limit_max_attempts):
+        sent_at: float | None = None
         # Runtime-scoped headers may require an interactive step (for example,
         # a one-time CAPTCHA).  Record the already-resolved request target
         # before that step so a timeout or abandoned interaction still leaves
@@ -407,6 +413,7 @@ def open_provider_request_with_key_retry(
                 headers=headers,
             )
             req = urllib.request.Request(url, data=data_bytes, headers=headers, method="POST")
+            sent_at = time.monotonic()
             resp = provider_urlopen(req, timeout=timeout, provider=provider, pcfg=pcfg)
             learn_router_rate_limit_headers(provider, pcfg, model, resp.headers)
             return resp
@@ -486,6 +493,17 @@ def open_provider_request_with_key_retry(
                 router_log("WARN", f"upstream_direct_retry provider={provider} model={model} attempt={retry_no}/{gateway_retries} error={type(exc).__name__} tokens={token_estimate} bytes={byte_estimate}")
                 time.sleep(upstream_retry_wait_seconds(retry_no))
                 continue
+            error_message = _http_error_log_message(f"{type(exc).__name__}: {exc}")
+            elapsed = f"{time.monotonic() - sent_at:.2f}s" if sent_at is not None else "-"
+            write_router_activity("error", provider, model, error=type(exc).__name__, message=error_message,
+                                  tokens=token_estimate, bytes=byte_estimate, stream=stream, endpoint=endpoint)
+            # Without this line a dropped connection (e.g. WinError 10054) reached the client as a 500
+            # and left no trace in router.log (seen 2026-10-12).
+            router_log(
+                "WARN",
+                f"upstream_direct_transport_error provider={provider} model={model} endpoint={endpoint} "
+                f"error={error_message!r} after={elapsed} tokens={token_estimate} bytes={byte_estimate}",
+            )
             raise RuntimeError(
                 f"upstream direct request failed provider={provider} model={model}: "
                 f"{type(exc).__name__}: {exc}"

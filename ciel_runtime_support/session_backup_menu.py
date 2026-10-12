@@ -62,6 +62,9 @@ def _last(config_dir: Path, cwd: Path) -> str:
     when = time.strftime("%m-%d %H:%M", time.localtime(float(state.get("last_finished") or state["last_started"])))
     if state.get("running"):
         return f"running since {when}"
+    if state.get("interrupted"):
+        started = time.strftime("%m-%d %H:%M", time.localtime(float(state["last_started"])))
+        return f"{started} interrupted"
     return f"{when} {'ok' if state.get('last_ok') else 'failed'}"
 
 

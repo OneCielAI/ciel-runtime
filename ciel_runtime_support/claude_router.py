@@ -564,6 +564,10 @@ def handle_claude_messages_post(
                 f"status={response_status} error={type(exc).__name__}: {exc}",
             )
             return
+        router_log(
+            "ERROR",
+            f"anthropic_route_error provider={provider} model={body.get('model')} status=500 error={type(exc).__name__}: {str(exc)[:300]}",
+        )
         try_write_json(self, {"type": "error", "error": {"type": "api_error", "message": str(exc)}}, 500)
 
 
