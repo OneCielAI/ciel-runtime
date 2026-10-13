@@ -1,0 +1,16 @@
+okf_version: "1.0"
+task: "Pull the newest nightly, report what differs, then local install and nightly push of the journals (3db36f8)."
+requested:
+  - "User, 2026-10-12: '나이트리 최신파일 풀 하고 수정된게 어떤게 다른건지확인'."
+  - "User, 2026-10-13: '나이트리 , 로컬 푸시'."
+pulled: "git pull --ff-only origin nightly: 88825b5 -> 3db36f8, one commit, 9 files +1151/-40. Commit message: Walkie 48926 F3, approved in Walkie 48965."
+difference:
+  corrupt_regions: "transcript_delta_delivery._read_complete_batch skips a NUL run or a line over max_record_bytes once (WARN transcript_record_skipped) and stores the cursor past it; before, delivery, tool-call events and turn ends stopped at that offset for good."
+  turn_end_offsets: "Turn-end read offsets are stored (transcript-event-cursors.json agent_turn_sources); a transcript seen for the first time starts at its end unless created after the launch (birth time, else first record timestamp)."
+  walkie_push: "New agent_runtime_event_push.py: the router posts each agent.turn_ended to Walkie POST /api/agent-runtime-events as a CloudEvent with the existing notification-stream receiver credential; fixed id per turn, retries on network/408/425/429/5xx up to 6 times. Config agent_runtime_events. ciel_runtime.py: start/stop lines only, still 4980 lines."
+  overlap_with_88825b5: "None of the unattended-restart files (session_resume_last, startup_prompt_answers, runtime_session_restart, unattended_restart_menu) are touched."
+tests: "On 3db36f8: unit OK (skipped 49; includes the 4 changed/new test files, 33 tests OK when run alone), router 1189 OK, runtime 405 OK, ruff clean, router 9611 200. channel 457: first run 2 failures (BoundaryScanDeadlineTests pair, the known flaky pair), one rerun 9 failures whose names were not captured, then 2 / OK / OK and in a 6-run loop 5 OK and 1 with the same pair; the 9-failure run did not recur in 9 later runs."
+nightly: "CI 38306088966 success; Publish to npm 38306088867 success; dist-tag nightly = 0.2.51-nightly.20261012-204609.3db36f8 (latest stays 0.2.51)."
+local: "npm install -g @one-ciel-ai/ciel-runtime@0.2.51-nightly.20261012-204609.3db36f8; install.ps1 with CIEL_RUNTIME_INSTALL_HOME=~/.local/share/ciel-runtime-3db36f83427c1a215f3594577f3831e164fa73ec; HKCU CIEL_RUNTIME_HOME points there; ciel-runtimectl version prints the nightly; agent_runtime_event_push.py present in the installed tree; 9611 200."
+note: "Running sessions keep their old code until restarted; none were restarted. Two leftover background waiters from the 2026-10-11 backup run were stopped by Claude Code for low memory (not restarted)."
+pushed: "This journal and 2026/10/12/releases/nightly/88825b5-nightly-local.okf."
