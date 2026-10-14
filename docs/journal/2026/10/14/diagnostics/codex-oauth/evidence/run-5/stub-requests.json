@@ -1,0 +1,44 @@
+[
+ {
+  "method": "GET",
+  "path": "/models?client_version=0.162.1",
+  "auth": true,
+  "t": "13:21:01"
+ },
+ {
+  "method": "POST",
+  "path": "/responses",
+  "model": "gpt-6.1-sol",
+  "input_items": 7,
+  "last_user": "E2E turn one on the default model",
+  "auth": true,
+  "t": "13:21:06"
+ },
+ {
+  "method": "POST",
+  "path": "/responses",
+  "model": "gpt-6-astra",
+  "input_items": 11,
+  "last_user": "E2E turn two on astra",
+  "auth": true,
+  "t": "13:21:21"
+ },
+ {
+  "method": "POST",
+  "path": "/responses",
+  "model": "gpt-6.1-sol",
+  "input_items": 14,
+  "last_user": "E2E turn three after switching to sol",
+  "auth": true,
+  "t": "13:21:38"
+ },
+ {
+  "method": "POST",
+  "path": "/responses",
+  "model": "gpt-6.1-sol",
+  "input_items": 16,
+  "last_user": "E2E turn four",
+  "auth": true,
+  "t": "13:21:46"
+ }
+]

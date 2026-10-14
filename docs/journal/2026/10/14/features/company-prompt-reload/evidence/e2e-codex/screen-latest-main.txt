@@ -1,0 +1,38 @@
+
+
+› [ciel-wake] pending_ids=1
+
+
+• STUB-REPLY-1
+
+  Worked for <1s • 5:31 PM
+
+
+› [ciel-wake] pending_ids=2
+
+
+• STUB-REPLY-3
+
+  Worked for 25s • 5:31 PM
+
+
+› [ciel-wake] pending_ids=3
+
+
+• STUB-REPLY-5
+
+  Worked for <1s • 5:31 PM
+
+
+› 계속-세션재시작됨
+
+
+• STUB-REPLY-7
+
+  Worked for <1s • 5:31 PM
+
+
+› Ask Codex to do anything
+
+  stub-model (vLLM) medium · G:\ciel-e2e\company-prompt\codex\ws
+  ? for shortcuts                                                                                             ⚠ 1 warning · f2 to view

@@ -84,6 +84,7 @@ class CodexAppServerLaunchPorts:
 class CodexLaunchSharedRestartPorts:
     control: Callback
     notice: Callback = lambda _body: None
+    prepare: Callback = lambda _runtime: None
 
 
 @dataclass(frozen=True, slots=True)
@@ -148,7 +149,7 @@ class CodexLaunchAssembly:
                 select_codex_resume_session=self.channel.select_resume_session,
             ),
             restart=(
-                runtime_launch.SessionRestartPorts(self.restart.control, self.restart.notice)
+                runtime_launch.SessionRestartPorts(self.restart.control, self.restart.notice, self.restart.prepare)
                 if self.restart is not None
                 else runtime_launch.SessionRestartPorts()
             ),
@@ -202,7 +203,7 @@ class CodexLaunchAssembly:
                 codex_mcp_native_http_compat_args=self.channel.native_http_args,
             ),
             restart=(
-                runtime_launch.SessionRestartPorts(self.restart.control, self.restart.notice)
+                runtime_launch.SessionRestartPorts(self.restart.control, self.restart.notice, self.restart.prepare)
                 if self.restart is not None
                 else runtime_launch.SessionRestartPorts()
             ),

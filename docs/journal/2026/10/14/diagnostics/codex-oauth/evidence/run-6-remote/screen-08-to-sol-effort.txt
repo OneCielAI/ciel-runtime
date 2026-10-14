@@ -1,0 +1,39 @@
+13:23:52
+
+  >_ OpenAI Codex (v0.162.1)
+     G:\ciel-e2e\astra\ws
+
+
+› E2E turn one on the default model
+
+
+• OK from gpt-6.1-sol
+
+  Worked for <1s • 1:23 PM
+
+• Model changed to gpt-6-astra low
+
+
+› E2E turn two on astra
+
+
+■ event: error
+data: {"type": "error", "error": {"type": "invalid_request_error", "message": "{\"detail\": \"The 'gpt-6-astra' model is not supported
+when using Codex with a ChatGPT account.\"}"}}
+
+
+
+
+
+
+
+  Select Reasoning Level for GPT-6.1-Sol
+
+
+  1. Low (default)    Fast responses with lighter reasoning
+  2. Medium           Balances speed and reasoning depth for everyday tasks
+› 3. High             Greater reasoning depth for complex problems
+  4. Extra high       Extra high reasoning depth for complex problems
+  5. More reasoning…  Max and Ultra consume usage limits faster
+
+  enter default · s session · esc back

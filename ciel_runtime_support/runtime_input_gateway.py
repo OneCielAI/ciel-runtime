@@ -13,6 +13,11 @@ import secrets
 from typing import Any, Callable
 
 
+# Router observers of each admitted external event's exact text (company_prompt_reload).
+# A listener handles its own errors: admission has already happened.
+EXTERNAL_EVENT_LISTENERS: list[Callable[[str], Any]] = []
+
+
 @dataclass(frozen=True, slots=True)
 class RuntimeInputGateway:
     append: Callable[[dict[str, Any]], dict[str, Any]]
@@ -235,7 +240,7 @@ class RuntimeInputGateway:
     ) -> dict[str, Any]:
         """Admit exact decoded event text; never normalize or re-serialize it."""
 
-        return self._append(
+        admitted = self._append(
             {
                 "channel": f"external:{receiver_id}",
                 "sender_id": event_source or receiver_id,
@@ -259,6 +264,9 @@ class RuntimeInputGateway:
                 "visibility": "private_runtime",
             }
         )
+        for listener in list(EXTERNAL_EVENT_LISTENERS):
+            listener(raw_event)
+        return admitted
 
     def submit_telemetry_notice(
         self,

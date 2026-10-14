@@ -1,0 +1,14 @@
+{
+ "remote_instructions": {
+  "agy_url": "",
+  "authorization": "",
+  "auto_reload": true,
+  "claude_url": "",
+  "codex_url": "http://127.0.0.1:9/instructions",
+  "enabled": true,
+  "grok_url": "",
+  "kimi_url": "",
+  "max_bytes": 1048576,
+  "timeout_seconds": 5
+ }
+}

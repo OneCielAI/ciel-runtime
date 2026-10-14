@@ -1,0 +1,235 @@
+{
+ "flow": "claude",
+ "long_turn": {
+  "start": 1792017562.4499643,
+  "end": 1792017587.4512699,
+  "duration": 25.0
+ },
+ "requests_in_flight_at_relaunch_check": "see restart vs long_turn end",
+ "first_v8_get": {
+  "at": "17:39:48",
+  "t": 1792017588.911335,
+  "version": 8
+ },
+ "gets": [
+  {
+   "at": "17:38:53",
+   "t": 1792017533.7527027,
+   "version": 7
+  },
+  {
+   "at": "17:38:53",
+   "t": 1792017533.7642148,
+   "version": 7
+  },
+  {
+   "at": "17:39:48",
+   "t": 1792017588.911335,
+   "version": 8
+  },
+  {
+   "at": "17:39:48",
+   "t": 1792017588.9424427,
+   "version": 8
+  }
+ ],
+ "held_files_end": {
+  "AGENTS.md": 8,
+  "CLAUDE.md": 8
+ },
+ "requests": [
+  {
+   "n": 1,
+   "start": 1792017536.355582,
+   "end": 1792017536.355582,
+   "at": "17:38:56",
+   "v7": false,
+   "v8": false,
+   "v7_at": null,
+   "v8_at": null,
+   "messages": 0,
+   "replies_in_history": [],
+   "turn1_in_history": false,
+   "long_turn": false,
+   "path": "/v1/messages",
+   "event_v8": false,
+   "continue_message": false,
+   "title_request": false
+  },
+  {
+   "n": 2,
+   "start": 1792017536.371164,
+   "end": 1792017536.371164,
+   "at": "17:38:56",
+   "v7": false,
+   "v8": false,
+   "v7_at": null,
+   "v8_at": null,
+   "messages": 0,
+   "replies_in_history": [],
+   "turn1_in_history": false,
+   "long_turn": false,
+   "path": "/v1/chat/completions",
+   "event_v8": false,
+   "continue_message": false,
+   "title_request": false
+  },
+  {
+   "n": 3,
+   "start": 1792017556.314568,
+   "end": 1792017556.3150685,
+   "at": "17:39:16",
+   "v7": true,
+   "v8": false,
+   "v7_at": 0.049,
+   "v8_at": null,
+   "messages": 1,
+   "replies_in_history": [],
+   "turn1_in_history": true,
+   "long_turn": false,
+   "path": "/v1/messages",
+   "event_v8": false,
+   "continue_message": false,
+   "title_request": false
+  },
+  {
+   "n": 4,
+   "start": 1792017562.4499643,
+   "end": 1792017587.4512699,
+   "at": "17:39:22",
+   "v7": true,
+   "v8": false,
+   "v7_at": 0.048,
+   "v8_at": null,
+   "messages": 3,
+   "replies_in_history": [
+    3
+   ],
+   "turn1_in_history": true,
+   "long_turn": true,
+   "path": "/v1/messages",
+   "event_v8": false,
+   "continue_message": false,
+   "title_request": false
+  },
+  {
+   "n": 5,
+   "start": 1792017587.5196617,
+   "end": 1792017587.520166,
+   "at": "17:39:47",
+   "v7": true,
+   "v8": false,
+   "v7_at": 0.048,
+   "v8_at": null,
+   "messages": 5,
+   "replies_in_history": [
+    3,
+    4
+   ],
+   "turn1_in_history": true,
+   "long_turn": false,
+   "path": "/v1/messages",
+   "event_v8": false,
+   "continue_message": false,
+   "title_request": false
+  },
+  {
+   "n": 6,
+   "start": 1792017587.7819116,
+   "end": 1792017587.7819116,
+   "at": "17:39:47",
+   "v7": true,
+   "v8": false,
+   "v7_at": 0.048,
+   "v8_at": null,
+   "messages": 5,
+   "replies_in_history": [
+    3,
+    4
+   ],
+   "turn1_in_history": true,
+   "long_turn": false,
+   "path": "/v1/messages",
+   "event_v8": true,
+   "continue_message": false,
+   "title_request": false
+  },
+  {
+   "n": 7,
+   "start": 1792017587.846139,
+   "end": 1792017587.846139,
+   "at": "17:39:47",
+   "v7": true,
+   "v8": false,
+   "v7_at": 0.048,
+   "v8_at": null,
+   "messages": 7,
+   "replies_in_history": [
+    3,
+    4,
+    6
+   ],
+   "turn1_in_history": true,
+   "long_turn": false,
+   "path": "/v1/messages",
+   "event_v8": false,
+   "continue_message": false,
+   "title_request": false
+  },
+  {
+   "n": 8,
+   "start": 1792017597.608595,
+   "end": 1792017597.609101,
+   "at": "17:39:57",
+   "v7": true,
+   "v8": true,
+   "v7_at": 0.045,
+   "v8_at": 0.068,
+   "messages": 7,
+   "replies_in_history": [
+    3,
+    4,
+    6
+   ],
+   "turn1_in_history": true,
+   "long_turn": false,
+   "path": "/v1/messages",
+   "event_v8": false,
+   "continue_message": true,
+   "title_request": false
+  },
+  {
+   "n": 9,
+   "start": 1792017597.6732213,
+   "end": 1792017597.6732213,
+   "at": "17:39:57",
+   "v7": true,
+   "v8": true,
+   "v7_at": 0.044,
+   "v8_at": 0.068,
+   "messages": 9,
+   "replies_in_history": [
+    3,
+    4,
+    6,
+    8
+   ],
+   "turn1_in_history": true,
+   "long_turn": false,
+   "path": "/v1/messages",
+   "event_v8": false,
+   "continue_message": false,
+   "title_request": false
+  }
+ ],
+ "router": [
+  "2026-10-14T17:38:53 [INFO] remote_instructions_updated runtime=claude target=CLAUDE.md reason=launch",
+  "2026-10-14T17:38:53 [INFO] remote_instructions_updated runtime=codex target=AGENTS.md reason=launch",
+  "2026-10-14T17:39:25 [INFO] runtime_session_restart_queued id=36d9a272cf1d4fa99b1ec8f00aa1dc10 source=company-prompt runtime=any target_pid=47548 resume=true wait_turn=true reason=company prompt v8 fb22f268 announced; held v7 fde5fca7",
+  "2026-10-14T17:39:25 [INFO] company_prompt_reload_requested announced=v8:fb22f268 held=v7:fde5fca7 queued=true detail=-",
+  "2026-10-14T17:39:48 [INFO] remote_instructions_updated runtime=claude target=CLAUDE.md reason=restart",
+  "2026-10-14T17:39:48 [INFO] remote_instructions_updated runtime=codex target=AGENTS.md reason=restart",
+  "2026-10-14T17:39:48 [INFO] claude_session_restart exit_code=1 source=company-prompt reason=company prompt v8 fb22f268 announced; held v7 fde5fca7 resumed=true"
+ ],
+ "restart_line_time": "2026-10-14T17:39:48"
+}

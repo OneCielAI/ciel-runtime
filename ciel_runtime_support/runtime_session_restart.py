@@ -115,6 +115,9 @@ class RuntimeSessionRestartRequest:
     resume: bool
     requested_at: float
     expires_at: float
+    # Wait for the running turn however long it takes (no turn-wait limit):
+    # a company prompt reload never cuts a turn (Walkie 53255).
+    wait_turn: bool = False
 
     @classmethod
     def from_mapping(cls, value: Any) -> "RuntimeSessionRestartRequest | None":
@@ -130,6 +133,7 @@ class RuntimeSessionRestartRequest:
                 resume=bool(value.get("resume", True)),
                 requested_at=float(value.get("requested_at") or 0.0),
                 expires_at=float(value.get("expires_at") or 0.0),
+                wait_turn=bool(value.get("wait_turn", False)),
             )
         except (TypeError, ValueError):
             return None
@@ -152,6 +156,7 @@ class RuntimeSessionRestartRequest:
             "resume": self.resume,
             "requested_at": self.requested_at,
             "expires_at": self.expires_at,
+            "wait_turn": self.wait_turn,
         }
 
     def summary(self) -> str:
@@ -160,6 +165,7 @@ class RuntimeSessionRestartRequest:
             f"runtime={self.runtime or 'any'} "
             f"target_pid={self.target_pid or '-'} "
             f"resume={str(self.resume).lower()} "
+            f"wait_turn={str(self.wait_turn).lower()} "
             f"reason={self.reason or '-'}"
         )
 
@@ -208,6 +214,7 @@ class RuntimeSessionRestartRepository:
         runtime: str = "",
         target_pid: int = 0,
         resume: bool = True,
+        wait_turn: bool = False,
     ) -> RuntimeSessionRestartRequest:
         now = self.clock()
         request = RuntimeSessionRestartRequest(
@@ -219,6 +226,7 @@ class RuntimeSessionRestartRepository:
             resume=bool(resume),
             requested_at=now,
             expires_at=now + self.ttl_seconds(),
+            wait_turn=bool(wait_turn),
         )
         payload = request.to_mapping()
         with self._guard():
@@ -397,7 +405,9 @@ class RuntimeSessionRestartControl:
             if notify is not None:
                 notify(restart_waiting_notice(request))
             return None
-        if self._busy(turn_running, now) and now - self.deferred_at < restart_turn_wait_seconds():
+        if self._busy(turn_running, now) and (
+            self.deferred.wait_turn or now - self.deferred_at < restart_turn_wait_seconds()
+        ):
             return None
         request, self.deferred = self.deferred, None
         return self._release(request, notify)
@@ -436,6 +446,10 @@ class SessionRestartPorts:
     # ordinary runtime-input path, so the session's own proxy injects it after
     # the startup grace instead of the caller polling for readiness.
     notice: Callable[[dict[str, Any]], Any] = lambda _body: None
+    # Runs in the launcher just before a restart relaunches the CLI: the
+    # workspace instruction files are fetched again, so a restart picks up a
+    # newer company prompt (Walkie 53255).
+    prepare: Callable[[str], Any] = lambda _runtime: None
 
     def new_control(self) -> RuntimeSessionRestartControl:
         return self.control()
@@ -562,6 +576,7 @@ def queue_session_restart(
     runtime: str = "",
     client_pid: int = 0,
     resume: bool = True,
+    wait_turn: bool = False,
     lock: Any = None,
 ) -> dict[str, Any]:
     """Write a restart request for one instance's active client."""
@@ -597,6 +612,7 @@ def queue_session_restart(
         runtime=runtime,
         target_pid=target,
         resume=resume,
+        wait_turn=wait_turn,
     )
     return {
         "ok": True,
@@ -679,6 +695,7 @@ class RuntimeSessionRestartService:
         client_pid: int = 0,
         resume: bool = True,
         instance_dir: Path | None = None,
+        wait_turn: bool = False,
     ) -> dict[str, Any]:
         if self._ports.unisolated_test():
             # A restart terminates a live CLI; a loose test runner must never
@@ -705,6 +722,7 @@ class RuntimeSessionRestartService:
             runtime=runtime,
             client_pid=client_pid,
             resume=resume,
+            wait_turn=wait_turn,
             is_running=self._ports.is_running,
             log=self._ports.log,
             lock=self._lock,

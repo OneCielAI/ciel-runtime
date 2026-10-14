@@ -5,6 +5,17 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+- A new company prompt reaches running agents. When a Walkie event's
+  `agent_context.company_prompt` differs from the company prompt the
+  workspace's `AGENTS.md`/`CLAUDE.md` were written with (Walkie's
+  `X-Walkie-Company-Prompt-*` headers, else the `<!-- company-prompt -->`
+  comment), the router queues one resumed session restart that waits for
+  the running turn however long it takes. Every restart now fetches the
+  remote instruction files again just before the CLI relaunches, so the
+  conversation continues on the new prompt. On by default with Remote
+  instructions; `remote_instructions.auto_reload` and the menu row
+  "Reload session when the company prompt changes" turn it off.
+
 - Turn ends reach Walkie straight from the router. Each `agent.turn_ended`
   is posted as a CloudEvent to Walkie's `/api/agent-runtime-events` with the
   agent credential the Walkie notification stream receiver already keeps, so

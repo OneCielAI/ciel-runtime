@@ -83,6 +83,15 @@ def _session_backup_after_exit(*, restarting: bool, log: Callable[[str, str], An
             log("WARN", f"session_backup_after_exit_failed error={type(error).__name__}: {error}")
 
 
+def prepare_restart(restart: SessionRestartPorts, runtime: str, log: Callable[[str, str], None]) -> None:
+    """Refresh what a relaunch reads (instruction files); a failure never blocks the restart."""
+
+    try:
+        restart.prepare(runtime)
+    except Exception as exc:  # noqa: BLE001 - the restart goes ahead with the files on disk
+        log("WARN", f"session_restart_prepare_failed runtime={runtime} error={type(exc).__name__}: {exc}")
+
+
 def queue_restart_notice(
     restart: SessionRestartPorts,
     runtime: str,
@@ -758,6 +767,7 @@ def run_claude(
                 cmd[:] = runtime_resume_command(cmd, "claude")
             fresh_session_socket()
             renew_claude_mcp()
+            prepare_restart(services.restart, "claude", router_log)
             queue_restart_notice(services.restart, "claude", request, router_log)
             print(
                 "Ciel Runtime: restarting Claude Code "
@@ -1233,6 +1243,7 @@ def run_codex(
             if request.resume:
                 cmd[:] = runtime_resume_command(cmd, "codex")
             renew_codex_mcp()
+            prepare_restart(services.restart, "codex", router_log)
             queue_restart_notice(services.restart, "codex", request, router_log)
             print(
                 "Ciel Runtime: restarting Codex "
@@ -1598,6 +1609,7 @@ def run_codex_app_server(
                 previous, "codex-app-server", load_config(), env, native=native_codex_enabled(provider),
             )
             cmd = renew_launch_command(cmd, previous, workspace_mcp_launch)
+        prepare_restart(services.restart, "codex-app-server", router_log)
         queue_restart_notice(services.restart, "codex", request, router_log)
         return cmd
 

@@ -1,0 +1,98 @@
+[
+ {
+  "method": "GET",
+  "path": "/models?client_version=0.162.1",
+  "auth": true,
+  "t": "13:23:17"
+ },
+ {
+  "method": "POST",
+  "path": "/responses",
+  "model": "gpt-6.1-sol",
+  "input_items": 7,
+  "last_user": "E2E turn one on the default model",
+  "auth": true,
+  "t": "13:23:23"
+ },
+ {
+  "method": "POST",
+  "path": "/responses",
+  "model": "gpt-6.1-sol",
+  "input_items": 7,
+  "last_user": "se quotes, markdown, or trailing punctuation. Do not answer the request.\n\nUser prompt:\nE2E turn one on the default model",
+  "auth": true,
+  "t": "13:23:23"
+ },
+ {
+  "method": "POST",
+  "path": "/responses",
+  "model": "gpt-6-astra",
+  "input_items": 11,
+  "last_user": "E2E turn two on astra",
+  "auth": true,
+  "t": "13:23:38"
+ },
+ {
+  "method": "POST",
+  "path": "/responses",
+  "model": "gpt-6-astra",
+  "input_items": 7,
+  "last_user": "ge. Do not use quotes, markdown, or trailing punctuation. Do not answer the request.\n\nUser prompt:\nE2E turn two on astra",
+  "auth": true,
+  "t": "13:23:38"
+ },
+ {
+  "method": "POST",
+  "path": "/responses",
+  "model": "gpt-6.1-sol",
+  "input_items": 15,
+  "last_user": "al channel message] channel=e2e room=e2e from=e2e-driver id=1 thread=1 text=\"E2E channel message after switching to sol\"",
+  "auth": true,
+  "t": "13:23:56"
+ },
+ {
+  "method": "POST",
+  "path": "/responses",
+  "model": "gpt-6.1-sol",
+  "input_items": 7,
+  "last_user": "al channel message] channel=e2e room=e2e from=e2e-driver id=1 thread=1 text=\"E2E channel message after switching to sol\"",
+  "auth": true,
+  "t": "13:23:56"
+ },
+ {
+  "method": "POST",
+  "path": "/responses",
+  "model": "gpt-6.1-sol",
+  "input_items": 17,
+  "last_user": "E2E turn three after switching to sol",
+  "auth": true,
+  "t": "13:24:04"
+ },
+ {
+  "method": "POST",
+  "path": "/responses",
+  "model": "gpt-6.1-sol",
+  "input_items": 7,
+  "last_user": "uotes, markdown, or trailing punctuation. Do not answer the request.\n\nUser prompt:\nE2E turn three after switching to sol",
+  "auth": true,
+  "t": "13:24:04"
+ },
+ {
+  "method": "POST",
+  "path": "/responses",
+  "model": "gpt-6.1-sol",
+  "input_items": 19,
+  "last_user": "E2E turn four",
+  "auth": true,
+  "t": "13:24:11"
+ },
+ {
+  "method": "POST",
+  "path": "/responses",
+  "model": "gpt-6.1-sol",
+  "input_items": 7,
+  "last_user": "s language. Do not use quotes, markdown, or trailing punctuation. Do not answer the request.\n\nUser prompt:\nE2E turn four",
+  "auth": true,
+  "t": "13:24:11"
+ }
+]

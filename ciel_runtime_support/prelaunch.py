@@ -896,8 +896,8 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                     if value == "back":
                         close_panel()
                         continue
-                    if value == "enabled":
-                        messages = set_remote_instruction_config("enabled", "toggle")
+                    if value in {"enabled", "auto_reload"}:
+                        messages = set_remote_instruction_config(value, "toggle")
                     elif value == "sync":
                         messages = set_remote_instruction_config("sync", "")
                     elif value in {

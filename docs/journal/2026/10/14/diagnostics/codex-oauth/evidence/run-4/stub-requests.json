@@ -1,0 +1,17 @@
+[
+ {
+  "method": "GET",
+  "path": "/models?client_version=0.162.1",
+  "auth": true,
+  "t": "13:20:01"
+ },
+ {
+  "method": "POST",
+  "path": "/responses",
+  "model": "gpt-6.1-sol",
+  "input_items": 7,
+  "last_user": "E2E turn one on the default model",
+  "auth": true,
+  "t": "13:20:06"
+ }
+]

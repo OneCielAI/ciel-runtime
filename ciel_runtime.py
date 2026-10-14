@@ -20,7 +20,7 @@ from typing import Any, Callable, Iterable
 
 from ciel_runtime_support import anthropic_model_policy
 from ciel_runtime_support import channel_cursor_repository as channel_cursor_storage, hosted_formula_tools
-from ciel_runtime_support import agent_runtime_event_push, agent_turn_events, channel_llm_context, session_backup_service, claude_launch_assembly, cli_assembly, cli_dispatch, cli_parser, codex_config_effort, codex_launch_configuration, codex_turn_recovery, kimi_identity, llm_option_config, llm_presets, native_context_recovery, remote_management_http, web_access_http
+from ciel_runtime_support import agent_runtime_event_push, agent_turn_events, company_prompt_reload, channel_llm_context, session_backup_service, claude_launch_assembly, cli_assembly, cli_dispatch, cli_parser, codex_config_effort, codex_launch_configuration, codex_turn_recovery, kimi_identity, llm_option_config, llm_presets, native_context_recovery, remote_management_http, web_access_http
 from ciel_runtime_support import muse_catalog, muse_oauth, ollama_catalog as ollama_catalog_policy
 from ciel_runtime_support import openai_chat_compatibility_bridge, otlp_logs, prelaunch, prelaunch_assembly, provider_catalog_sources, provider_models, provider_network, rate_limit_policy, router_request_assembly, router_server_runtime, runtime_asset_assembly, runtime_launch, runtime_primitives, terminal_platform_io, windows_console_mode
 from ciel_runtime_support.prelaunch_launch_panel import launch_panel_rows as project_launch_panel_rows
@@ -252,7 +252,7 @@ from ciel_runtime_support.prompt_injection import append_anthropic_system_texts 
 from ciel_runtime_support.prompt_injection import normalize_anthropic_system_role_messages as project_normalize_anthropic_system_role_messages
 from ciel_runtime_support.prompt_injection import normalize_anthropic_system_role_messages_by_strategy as project_normalize_anthropic_system_role_messages_by_strategy
 from ciel_runtime_support.remote_instructions import RemoteInstructionResult, RemoteInstructionSynchronizer, SynchronizedLaunch
-from ciel_runtime_support.remote_instructions import panel_rows as project_remote_instruction_panel_rows
+from ciel_runtime_support.remote_instructions import held_company_prompt, panel_rows as project_remote_instruction_panel_rows
 from ciel_runtime_support.remote_memory import RemoteMemoryResult, RemoteMemorySynchronizer, current_memory_prompt as project_current_memory_prompt, project_current_pointer_logged, inject_current_memory_prompt as project_inject_current_memory_prompt, move_memory_pointer_to_system_end as project_move_memory_pointer_to_system_end, sync_all_memory_pointers as project_sync_all_memory_pointers, sync_instruction_with_memory_pointer as project_sync_instruction_with_memory_pointer, sync_launch_assets as project_sync_launch_assets, without_memory_pointer as project_without_memory_pointer
 from ciel_runtime_support.protocols import PROTOCOL_ADAPTERS
 from ciel_runtime_support.protocols.anthropic_content import content_to_text as anthropic_content_to_text
@@ -1943,7 +1943,7 @@ def remote_provisioner() -> RemoteProvisioner: return RemoteProvisioner(load_con
 def sync_remote_launch_assets(runtime: str, *, reason: str) -> RemoteMemoryResult: return provision_before_launch(project_sync_launch_assets(runtime, reason=reason, instruction_sync=sync_remote_instruction, memory_sync=sync_remote_memory, pointer_sync=lambda name: project_current_pointer_logged(name, memory_synchronizer=remote_memory_synchronizer, log=router_log)), reason=reason, provisioner=remote_provisioner)
 def sync_all_remote_memories() -> list[str]: return project_sync_all_memory_pointers(remote_memory_synchronizer())
 def remote_instruction_panel_rows(cfg: dict[str, Any]) -> tuple[list[str], list[str]]:
-    return project_remote_instruction_panel_rows(cfg)
+    return project_remote_instruction_panel_rows(cfg, held_company_prompt(WORKSPACE_STATE_DIR, Path(ROUTER_WORKSPACE)))
 
 def set_remote_instruction_config(key: str, value: Any) -> list[str]:
     cfg = load_config()
@@ -1951,8 +1951,8 @@ def set_remote_instruction_config(key: str, value: Any) -> list[str]:
     if not isinstance(remote, dict):
         remote = {}
         cfg["remote_instructions"] = remote
-    if key == "enabled":
-        remote["enabled"] = not bool(remote.get("enabled", False))
+    if key in {"enabled", "auto_reload"}:  # auto_reload: Walkie 53255, default on
+        remote[key] = not bool(remote.get(key, key == "auto_reload"))
     elif key == "timeout_seconds":
         try:
             remote[key] = max(1, min(30, int(str(value).strip())))
@@ -1981,7 +1981,7 @@ def set_remote_instruction_config(key: str, value: Any) -> list[str]:
     else:
         raise ValueError(f"unsupported remote instruction option: {key}")
     save_config(cfg)
-    return [f"Remote instructions updated: enabled={bool(remote.get('enabled', False))}."]
+    return [f"Remote instructions updated: enabled={bool(remote.get('enabled', False))}, auto_reload={bool(remote.get('auto_reload', True))}."]
 
 _REMOTE_INSTRUCTION_BEGIN = "<!-- ciel-runtime:remote-instructions:begin -->"
 _REMOTE_INSTRUCTION_END = "<!-- ciel-runtime:remote-instructions:end -->"
@@ -2978,9 +2978,9 @@ def router_request_body_policy() -> RouterRequestBodyPolicy:
 def _router_server_context() -> RouterServerContext:
     usage_services = UsageRuntimeServices(USAGE_LEDGER, USAGE_API_KEYS, UsagePushDeliveryService(USAGE_LEDGER, load_config, os.environ, router_log), CONFIG_DIR, WORKSPACE_STATE_DIR, ROUTER_WORKSPACE_ID, USAGE_EVENTS_PATH, router_log)
     def start_router_services() -> None:
-        external_event_receiver_service().start(), _TELEMETRY_LOG_RUNTIME.start(), usage_services.start(), session_backup_service.start_router_scheduler(CONFIG_DIR, os.environ, HOME, CLI_ASSET_HOME, router_log), agent_runtime_event_push.start_router_pusher(ROUTER_WORKSPACE_ID, lambda: agent_runtime_event_push.runtime_event_endpoints(load_config(), external_event_receiver_service().receiver_configs(), external_event_receiver_service().vault.load), router_log)  # Walkie 48926: turn ends pushed to Walkie
+        external_event_receiver_service().start(), _TELEMETRY_LOG_RUNTIME.start(), usage_services.start(), session_backup_service.start_router_scheduler(CONFIG_DIR, os.environ, HOME, CLI_ASSET_HOME, router_log), company_prompt_reload.start_router_listener(load_config, WORKSPACE_STATE_DIR, Path(ROUTER_WORKSPACE), lambda reason: runtime_session_restart_service().queue(source=company_prompt_reload.COMPANY_PROMPT_RESTART_SOURCE, reason=reason, wait_turn=True), router_log), agent_runtime_event_push.start_router_pusher(ROUTER_WORKSPACE_ID, lambda: agent_runtime_event_push.runtime_event_endpoints(load_config(), external_event_receiver_service().receiver_configs(), external_event_receiver_service().vault.load), router_log)  # Walkie 48926: turn ends pushed to Walkie
     def stop_router_services() -> None:
-        agent_runtime_event_push.stop_router_pusher(), session_backup_service.stop_router_scheduler(), usage_services.stop(), _TELEMETRY_LOG_RUNTIME.stop(), external_event_receiver_service().stop()
+        company_prompt_reload.stop_router_listener(), agent_runtime_event_push.stop_router_pusher(), session_backup_service.stop_router_scheduler(), usage_services.stop(), _TELEMETRY_LOG_RUNTIME.stop(), external_event_receiver_service().stop()
     provider_files = ProviderFilesProxy(
         ProviderFilesProxyPorts(
             current_provider=get_current_provider,
@@ -4738,7 +4738,7 @@ def claude_launch_services() -> runtime_launch.ClaudeLaunchServices:
             write_zai_mcp_config,
             workspace_mcp_launch_service(),
         ),
-        restart=assembly.ClaudeLaunchRestartPorts(lambda: runtime_session_restart_service().control(), primed_notice(_CHANNEL_DELIVERY_API.ensure_cursor_initialized, runtime_input_gateway().submit_notification)),
+        restart=assembly.ClaudeLaunchRestartPorts(lambda: runtime_session_restart_service().control(), primed_notice(_CHANNEL_DELIVERY_API.ensure_cursor_initialized, runtime_input_gateway().submit_notification), lambda runtime: sync_remote_launch_assets(runtime, reason="restart")),
     ).services()
 
 CODEX_ROUTED_UPSTREAM_BASE = os.environ.get("CIEL_RUNTIME_CODEX_ROUTED_UPSTREAM") or "https://chatgpt.com/backend-api/codex"
@@ -4828,7 +4828,7 @@ def codex_launch_assembly() -> CodexLaunchAssembly:
             policy=runtime_launch.CodexAppServerCliPolicy(codex_app_server_default_listen_url, codex_app_server_launch_args, codex_current_model_config_args,
                                                           codex_native_routed_config_args, codex_passthrough_has_model_override, codex_runtime_config_args, toml_string),
         ),
-        restart=CodexLaunchSharedRestartPorts(lambda: runtime_session_restart_service().control(), primed_notice(_CHANNEL_DELIVERY_API.ensure_cursor_initialized, runtime_input_gateway().submit_notification)),
+        restart=CodexLaunchSharedRestartPorts(lambda: runtime_session_restart_service().control(), primed_notice(_CHANNEL_DELIVERY_API.ensure_cursor_initialized, runtime_input_gateway().submit_notification), lambda runtime: sync_remote_launch_assets(runtime, reason="restart")),
     )
 
 def codex_launch_services() -> runtime_launch.CodexLaunchServices: return codex_launch_assembly().cli_services()
