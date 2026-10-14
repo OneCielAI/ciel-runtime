@@ -7,6 +7,7 @@ from dataclasses import replace
 from unittest import mock
 
 import ciel_runtime
+from ciel_runtime_support import provider_models
 from ciel_runtime_support.compatibility_test import run_compatibility_test
 from ciel_runtime_support.providers.opencode import OPENCODE_CLIENT_VERSION
 
@@ -721,11 +722,14 @@ class OpenCodeProviderTests(unittest.TestCase):
         with (
             mock.patch.object(ciel_runtime, "read_model_list_cache", return_value=None),
             mock.patch.object(ciel_runtime, "write_model_list_cache") as write_cache,
+            mock.patch.object(provider_models.time, "sleep") as retry_pause,
             mock.patch.object(
                 ciel_runtime,
                 "http_json",
                 side_effect=[
                     PermissionError("bad key"),
+                    # A timeout is retried once (Walkie 49376); a refusal is not.
+                    TimeoutError("fallback path missing"),
                     TimeoutError("fallback path missing"),
                     public_response,
                 ],
@@ -735,8 +739,9 @@ class OpenCodeProviderTests(unittest.TestCase):
 
         self.assertIn("deepseek-v4-flash", models)
         self.assertIn("qwen3.5-plus", models)
-        self.assertEqual(3, http_json.call_count)
-        public_headers = http_json.call_args_list[2].kwargs["headers"]
+        self.assertEqual(4, http_json.call_count)
+        retry_pause.assert_called_once_with(provider_models.MODEL_LIST_RETRY_BACKOFF_SECONDS)
+        public_headers = http_json.call_args_list[3].kwargs["headers"]
         self.assertNotIn("authorization", public_headers)
         self.assertEqual("claude-cli", public_headers["user-agent"])
         write_cache.assert_called_once()

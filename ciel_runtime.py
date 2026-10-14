@@ -1418,9 +1418,9 @@ native_codex_enabled = _RUNTIME_MODE_POLICY.native_codex
 codex_routed_enabled = _RUNTIME_MODE_POLICY.codex_routed
 direct_native_codex_enabled = _RUNTIME_MODE_POLICY.direct_codex
 
-def upstream_model_ids(provider: str, pcfg: dict[str, Any], force_refresh: bool = False) -> list[str]:
+def upstream_model_ids(provider: str, pcfg: dict[str, Any], force_refresh: bool = False, *, require_catalog: bool = False) -> list[str]:
     return fetch_upstream_model_ids(
-        provider, pcfg, force_refresh,
+        provider, pcfg, force_refresh, require_catalog=require_catalog,
         services=provider_models.ProviderModelServices(
             storage=provider_models.ModelCatalogStorage(read_model_list_cache, write_model_list_cache, write_model_registry, router_log),
             http=provider_models.ModelCatalogHttp(http_json, join_url, with_upstream_user_agent, lm_studio_api_base, nvidia_hosted_list_headers,
