@@ -105,6 +105,57 @@ def _complete_local_delivery(
     delivery.commit(body, handler)
 
 
+def _write_transport_failure(
+    *,
+    handler: Any,
+    provider: str,
+    model: str,
+    stream: bool,
+    core: OpenAIResponsesCore,
+    delivery: OpenAIResponsesDelivery,
+    output: OpenAIResponsesOutput,
+    error: BaseException,
+    reason: str,
+    request_id: str | None = None,
+) -> bool:
+    """Preserve a provider connection failure instead of returning local 500."""
+
+    failure = UpstreamFailure.from_transport_error(provider, model, error)
+    if failure is None:
+        return False
+    if not failure.output_started:
+        maybe_fail_over(
+            handler,
+            provider,
+            status=failure.status_code,
+            reason=failure.message,
+            rate_limited=False,
+        )
+    core.event_bus.publish(
+        level="error",
+        category="router.transport_error",
+        message=failure.detail(),
+        request_id=request_id or core.request_id(),
+        provider=provider,
+        model=model,
+        data={
+            "error_type": type(error).__name__,
+            "transport_error": True,
+            "status": failure.status_code,
+            "source": reason,
+        },
+    )
+    delivery.mark_failed(handler, f"{reason}:transport:{type(error).__name__}")
+    output.write_error(
+        handler,
+        failure.message,
+        stream=stream,
+        status=failure.status_code,
+        error_type=failure.anthropic_error_type,
+    )
+    return True
+
+
 def handle_openai_responses_request(
     handler: Any,
     cfg: dict[str, Any],
@@ -313,6 +364,19 @@ def handle_openai_responses_request(
         if core.is_client_disconnect(exc):
             delivery.mark_failed(handler, f"responses_client_disconnected:{type(exc).__name__}")
             return
+        if _write_transport_failure(
+            handler=handler,
+            provider=provider,
+            model=str(anthropic_body.get("model") or ""),
+            stream=stream,
+            core=core,
+            delivery=delivery,
+            output=output,
+            error=exc,
+            reason="responses",
+            request_id=request_id,
+        ):
+            return
         core.event_bus.publish(
             level="error",
             category="router.error",
@@ -422,6 +486,19 @@ def _handle_codex_route(
     except Exception as exc:
         if core.is_client_disconnect(exc):
             delivery.mark_failed(handler, f"codex_responses_client_disconnected:{type(exc).__name__}")
+            return
+        if _write_transport_failure(
+            handler=handler,
+            provider=provider,
+            model=str(body.get("model") or ""),
+            stream=bool(body.get("stream", True)),
+            core=core,
+            delivery=delivery,
+            output=output,
+            error=exc,
+            reason="codex_responses",
+            request_id=request_id,
+        ):
             return
         delivery.mark_failed(handler, f"codex_responses_error:{type(exc).__name__}")
         output.write_error(handler, f"{type(exc).__name__}: {exc}", stream=bool(body.get("stream", True)))
@@ -535,6 +612,19 @@ def _handle_provider_responses_route(
                 handler,
                 f"provider_responses_client_disconnected:{type(exc).__name__}",
             )
+            return
+        if _write_transport_failure(
+            handler=handler,
+            provider=provider,
+            model=str(body.get("model") or ""),
+            stream=bool(body.get("stream", True)),
+            core=core,
+            delivery=delivery,
+            output=output,
+            error=exc,
+            reason="provider_responses",
+            request_id=request_id,
+        ):
             return
         core.event_bus.publish(
             level="error",

@@ -1,4 +1,5 @@
 import unittest
+import urllib.error
 from types import SimpleNamespace
 from unittest import mock
 
@@ -9,12 +10,118 @@ from ciel_runtime_support.openai_responses_router import (
     OpenAIResponsesOutput,
     OpenAIResponsesRouting,
     OpenAIResponsesServices,
+    _write_transport_failure,
     handle_openai_responses_request,
 )
 from ciel_runtime_support.upstream_error_policy import UpstreamStreamReadError
 
 
 class OpenAIResponsesUpstreamStreamErrorTests(unittest.TestCase):
+    @mock.patch("ciel_runtime_support.openai_responses_router.maybe_fail_over")
+    def test_native_route_maps_connection_refused_to_502(self, fail_over):
+        event_bus = mock.Mock()
+        delivery = OpenAIResponsesDelivery(
+            begin=mock.Mock(),
+            mark_success=mock.Mock(),
+            mark_failed=mock.Mock(),
+            commit=mock.Mock(),
+        )
+        write_error = mock.Mock()
+        services = OpenAIResponsesServices(
+            core=OpenAIResponsesCore(
+                event_bus=event_bus,
+                request_id=lambda: "request-native-transport",
+                input_as_list=lambda value: list(value or []),
+                is_client_disconnect=lambda _error: False,
+                log=mock.Mock(),
+            ),
+            conversion=mock.Mock(),
+            routing=OpenAIResponsesRouting(
+                maybe_import_session=lambda *_args, **_kwargs: False,
+                codex_routed_enabled=lambda *_args: False,
+                forward_codex=mock.Mock(),
+                select_protocol=lambda *_args: "openai_responses",
+                forward_provider_responses=mock.Mock(
+                    side_effect=urllib.error.URLError(
+                        ConnectionRefusedError(10061, "connection refused")
+                    )
+                ),
+                dump_request=mock.Mock(),
+                normalize_provider_wire=mock.Mock(),
+                collect_message=mock.Mock(),
+                apply_codex_compat_instructions=lambda _cfg, _provider, _pcfg, body: body,
+                recover_preamble_only_turn=mock.Mock(),
+            ),
+            delivery=delivery,
+            output=OpenAIResponsesOutput(
+                write_response=mock.Mock(),
+                write_error=write_error,
+                upstream_error_message=mock.Mock(),
+                codex_auth_error_message=lambda message: message,
+                event_preview=mock.Mock(),
+            ),
+        )
+
+        handle_openai_responses_request(
+            SimpleNamespace(path="/v1/responses"),
+            {},
+            "cielairouter",
+            {},
+            {"model": "cx/gpt-6.1-sol-medium", "stream": True, "input": []},
+            services,
+        )
+
+        fail_over.assert_called_once()
+        write_error.assert_called_once_with(
+            mock.ANY,
+            mock.ANY,
+            stream=True,
+            status=502,
+            error_type="api_error",
+        )
+        delivery.mark_failed.assert_called_once_with(
+            mock.ANY, "provider_responses:transport:URLError"
+        )
+
+    @mock.patch("ciel_runtime_support.openai_responses_router.maybe_fail_over")
+    def test_transport_failure_is_emitted_as_502_with_diagnostic_event(self, fail_over):
+        event_bus = mock.Mock()
+        delivery = mock.Mock()
+        output = mock.Mock()
+        core = mock.Mock()
+        core.event_bus = event_bus
+        core.request_id.return_value = "request-transport"
+        handler = mock.Mock()
+
+        handled = _write_transport_failure(
+            handler=handler,
+            provider="cielairouter",
+            model="cx/gpt-6.1-sol-medium",
+            stream=True,
+            core=core,
+            delivery=delivery,
+            output=output,
+            error=urllib.error.URLError(ConnectionRefusedError(10061, "connection refused")),
+            reason="responses",
+        )
+
+        self.assertTrue(handled)
+        fail_over.assert_called_once()
+        output.write_error.assert_called_once_with(
+            handler,
+            mock.ANY,
+            stream=True,
+            status=502,
+            error_type="api_error",
+        )
+        delivery.mark_failed.assert_called_once_with(
+            handler, "responses:transport:URLError"
+        )
+        event = event_bus.publish.call_args.kwargs
+        self.assertEqual("router.transport_error", event["category"])
+        self.assertTrue(event["data"]["transport_error"])
+        self.assertEqual(502, event["data"]["status"])
+
     def test_collected_upstream_truncation_is_returned_as_plain_http_502(self):
         event_bus = mock.Mock()
         delivery = OpenAIResponsesDelivery(

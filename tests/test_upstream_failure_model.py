@@ -6,6 +6,7 @@ message used to be lost before it reached the CLI.
 
 import io
 import json
+import ssl
 import unittest
 import urllib.error
 
@@ -22,6 +23,7 @@ from ciel_runtime_support.upstream_error_policy import (
     UpstreamFailure,
     anthropic_error_type_for_status,
     classify_upstream_failure,
+    is_upstream_transport_error,
 )
 
 
@@ -40,6 +42,35 @@ def sse(*payloads: dict) -> list[str]:
 
 
 class UpstreamFailureClassificationTests(unittest.TestCase):
+    def test_tls_and_refused_connections_are_gateway_failures_not_overload(self):
+        for error in (
+            urllib.error.URLError(ConnectionRefusedError(10061, "connection refused")),
+            urllib.error.URLError(ssl.SSLError("EOF occurred in violation of protocol")),
+        ):
+            with self.subTest(error=error):
+                self.assertTrue(is_upstream_transport_error(error))
+                failure = UpstreamFailure.from_transport_error("cielairouter", "gpt", error)
+                self.assertIsNotNone(failure)
+                self.assertEqual(502, failure.status_code)
+                self.assertEqual("upstream_error", failure.category)
+                self.assertEqual("api_error", failure.anthropic_error_type)
+
+    def test_a_real_transport_timeout_is_distinct_from_connection_failure(self):
+        failure = UpstreamFailure.from_transport_error(
+            "cielairouter",
+            "gpt",
+            urllib.error.URLError(TimeoutError("timed out")),
+        )
+
+        self.assertIsNotNone(failure)
+        self.assertEqual(504, failure.status_code)
+        self.assertEqual("timeout", failure.category)
+
+    def test_non_transport_programming_errors_remain_generic(self):
+        self.assertIsNone(
+            UpstreamFailure.from_transport_error("cielairouter", "gpt", ValueError("bug"))
+        )
+
     def test_observed_terminal_status_outranks_the_body_label(self):
         # Providers answer 413 while calling the failure an invalid request.
         # The size limit is the part the CLI has to act on.
