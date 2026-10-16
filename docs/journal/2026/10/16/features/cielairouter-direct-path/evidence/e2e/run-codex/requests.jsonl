@@ -1,0 +1,8 @@
+{"n": 1, "at": "16:46:21", "server": "central", "path": "/v1/models"}
+{"n": 2, "at": "16:46:28", "server": "central", "path": "/v1/models"}
+{"n": 3, "at": "16:46:47", "server": "central", "path": "/api/gateway/discovery", "auth_ok": true}
+{"n": 4, "at": "16:46:47", "server": "A", "path": "/healthz", "auth": false}
+{"n": 5, "at": "16:46:47", "server": "A", "path": "/v1/responses", "turn": "", "truncated": false, "auth_ok": true, "model": "stub-model", "bytes": 59098, "user_agent": "codex-tui/0.163.0 (Windows 10.0.26200; x86_64) WindowsTerminal (codex-tui; 0.163.0)", "head1": true, "tail1": true, "head2": false, "tail2": false, "restart_notice": false}
+{"n": 6, "at": "16:46:47", "server": "A", "path": "/v1/responses", "turn": "", "truncated": false, "auth_ok": true, "model": "stub-model", "bytes": 59867, "user_agent": "codex-tui/0.163.0 (Windows 10.0.26200; x86_64) WindowsTerminal (codex-tui; 0.163.0)", "head1": true, "tail1": true, "head2": false, "tail2": false, "restart_notice": false}
+{"n": 7, "at": "16:47:04", "server": "A", "path": "/v1/responses", "turn": "", "truncated": false, "auth_ok": true, "model": "stub-model", "bytes": 58142, "user_agent": "codex-tui/0.163.0 (Windows 10.0.26200; x86_64) WindowsTerminal (codex-tui; 0.163.0)", "head1": false, "tail1": false, "head2": false, "tail2": false, "restart_notice": true}
+{"n": 8, "at": "16:47:04", "server": "A", "path": "/v1/responses", "turn": "", "truncated": false, "auth_ok": true, "model": "stub-model", "bytes": 58911, "user_agent": "codex-tui/0.163.0 (Windows 10.0.26200; x86_64) WindowsTerminal (codex-tui; 0.163.0)", "head1": false, "tail1": false, "head2": false, "tail2": false, "restart_notice": true}

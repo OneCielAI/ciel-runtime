@@ -40,6 +40,12 @@ Control plane, runs before Claude Code and does not require LLM connectivity:
                                       Set Ollama num_ctx/options/keep_alive/think
   ciel-runtime provider-options [provider] [key=value ...]
                                       Set vLLM/NIM/NVIDIA output/context/timeouts
+  ciel-runtime provider-options cielairouter gateway_selection=auto|off
+                                      Toggle automatic gateway selection (off uses central)
+  ciel-runtime provider-options cielairouter gateway-status
+                                      Read last observed route/reason from local /health
+  ciel-runtime provider-options cielairouter gateway_data_path=router|direct
+                                      CLI model requests via the router (default) or the gateway picked at launch
   ciel-runtime ollama-catalog          Download Ollama model/context catalog
   ciel-runtime test [seconds] [mode]   Test compatibility; mode is auto, quick, smoke, or full
   ciel-runtime stop                    Stop router

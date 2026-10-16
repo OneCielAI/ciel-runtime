@@ -1,0 +1,11 @@
+{"n": 1, "at": "16:46:03", "server": "central", "path": "/v1/models"}
+{"n": 2, "at": "16:46:10", "server": "central", "path": "/api/gateway/discovery", "auth_ok": true}
+{"n": 3, "at": "16:46:10", "server": "A", "path": "/healthz", "auth": false}
+{"n": 4, "at": "16:46:10", "server": "central", "path": "/v1/models"}
+{"n": 5, "at": "16:46:29", "server": "A", "path": "/v1/responses", "turn": "", "truncated": false, "auth_ok": true, "model": "stub-model", "bytes": 58513, "user_agent": "ciel-runtime/0.163.0 (Windows 10.0.26200; x86_64) WindowsTerminal (codex-tui; 0.163.0)", "head1": true, "tail1": true, "head2": false, "tail2": false, "restart_notice": false}
+{"n": 6, "at": "16:46:29", "server": "A", "path": "/v1/responses", "turn": "", "truncated": false, "auth_ok": true, "model": "stub-model", "bytes": 44416, "user_agent": "ciel-runtime/0.163.0 (Windows 10.0.26200; x86_64) WindowsTerminal (codex-tui; 0.163.0)", "head1": true, "tail1": false, "head2": false, "tail2": false, "restart_notice": false}
+{"n": 7, "at": "16:46:39", "server": "central", "path": "/api/gateway/discovery", "auth_ok": true}
+{"n": 8, "at": "16:46:39", "server": "B", "path": "/healthz", "auth": false}
+{"n": 9, "at": "16:46:40", "server": "B", "path": "/v1/responses", "turn": "", "truncated": false, "auth_ok": true, "model": "stub-model", "bytes": 58836, "user_agent": "ciel-runtime/0.163.0 (Windows 10.0.26200; x86_64) WindowsTerminal (codex-tui; 0.163.0)", "head1": true, "tail1": true, "head2": false, "tail2": false, "restart_notice": true}
+{"n": 10, "at": "16:46:47", "server": "B", "path": "/v1/responses", "turn": "", "truncated": false, "auth_ok": true, "model": "stub-model", "bytes": 60723, "user_agent": "ciel-runtime/0.163.0 (Windows 10.0.26200; x86_64) WindowsTerminal (codex-tui; 0.163.0)", "head1": true, "tail1": true, "head2": true, "tail2": true, "restart_notice": true}
+{"n": 11, "at": "16:46:47", "server": "B", "path": "/v1/responses", "turn": "", "truncated": false, "auth_ok": true, "model": "stub-model", "bytes": 44416, "user_agent": "ciel-runtime/0.163.0 (Windows 10.0.26200; x86_64) WindowsTerminal (codex-tui; 0.163.0)", "head1": false, "tail1": false, "head2": true, "tail2": false, "restart_notice": false}

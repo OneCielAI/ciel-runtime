@@ -312,6 +312,7 @@ class CielAiRouterGatewayService:
         """
         base = normalize_endpoint(base_url, allow_insecure_http=self.allow_insecure_http)
         scope = (base, hashlib.sha256(api_key.encode()).hexdigest(), model)
+        deadline = self.monotonic() + self.exploration_timeout
         with self._condition:
             state = self._states.setdefault(scope, _State())
             waited = False
@@ -319,45 +320,64 @@ class CielAiRouterGatewayService:
                 self._condition.wait()
                 waited = True
             now = self.clock()
-            if state.selection and (waited or now < state.next_refresh or
-                                    (not refresh and not fresh and state.snapshot
-                                     and now < state.snapshot.expires_at)):
+            if (state.selection and self._usable(state.selection, state, now)
+                    and (waited or now < state.next_refresh or
+                         (not refresh and not fresh and state.snapshot
+                          and now < state.snapshot.expires_at))):
                 return state.selection
             self._flights.add(scope)
-            generation = state.generation
-            prior = state.last_good
-            sticky = None if fresh else (state.selection.candidate if state.selection else None)
-            failures = dict(state.failures)
         try:
-            selected, snapshot = self._explore(base, api_key, model, scope, generation,
-                                               prior, sticky, failures)
-            with self._condition:
-                # A failure reported during probing fences the entire result.
-                if state.generation != generation:
-                    return state.selection or GatewaySelection(base, None, None, 'selection invalidated', True, state.generation, scope)
-                state.generation += 1
-                selected = GatewaySelection(selected.endpoint, selected.candidate, selected.probe,
-                                            selected.reason, selected.degraded, state.generation,
-                                            scope, selected.excluded_count)
-                state.selection = selected
-                state.snapshot = snapshot
-                state.next_refresh = self.clock() + self.refresh_interval
-                if selected.candidate:
-                    state.last_good = selected.candidate
-                return selected
+            while True:
+                with self._condition:
+                    generation = state.generation
+                    prior = state.last_good
+                    sticky = None if fresh else (state.selection.candidate if state.selection else None)
+                    failures = dict(state.failures)
+                selected, snapshot = self._explore(base, api_key, model, scope, generation,
+                                                   prior, sticky, failures, deadline)
+                with self._condition:
+                    # Every failure (including an older session's route) fences
+                    # publication. Re-explore inside this same single flight and
+                    # deadline, never return/cache an invalidated candidate.
+                    now = self.clock()
+                    if state.generation != generation or not self._usable(selected, state, now):
+                        if self.monotonic() < deadline:
+                            continue
+                        if state.selection and self._usable(state.selection, state, now):
+                            return state.selection
+                        return GatewaySelection(base, None, None, 'selection invalidated', True,
+                                                state.generation, scope)
+                    state.generation += 1
+                    selected = GatewaySelection(selected.endpoint, selected.candidate, selected.probe,
+                                                selected.reason, selected.degraded, state.generation,
+                                                scope, selected.excluded_count)
+                    state.selection = selected
+                    state.snapshot = snapshot
+                    state.next_refresh = now + self.refresh_interval
+                    if selected.candidate:
+                        state.last_good = selected.candidate
+                    return selected
         finally:
             with self._condition:
                 self._flights.discard(scope)
                 self._condition.notify_all()
 
+    @staticmethod
+    def _usable(selection: GatewaySelection, state: _State, now: float) -> bool:
+        return (selection.candidate is None or
+                (selection.candidate.available_until > now
+                 and state.failures.get(selection.endpoint, 0) <= now))
+
     def _explore(self, base: str, key: str, model: str, scope: tuple[str, str, str],
                  generation: int, prior: GatewayCandidate | None, sticky: GatewayCandidate | None,
-                 failures: dict[str, float]) -> tuple[GatewaySelection, DiscoverySnapshot | None]:
-        deadline = self.monotonic() + self.exploration_timeout
+                 failures: dict[str, float], deadline: float) -> tuple[GatewaySelection, DiscoverySnapshot | None]:
         reason = 'no healthy gateway'
         snapshot = None
         try:
-            payload = self.discovery(base, key, min(5.0, self.exploration_timeout))
+            remaining = deadline - self.monotonic()
+            if remaining <= 0:
+                raise DiscoveryError('exploration deadline exceeded')
+            payload = self.discovery(base, key, min(5.0, remaining))
             snapshot = validate_discovery(payload, now=self.clock(), allow_insecure_http=self.allow_insecure_http)
             candidates = [c for c in snapshot.candidates if failures.get(c.endpoint, 0) <= self.clock()]
         except GatewayAuthenticationError:
@@ -450,8 +470,8 @@ class CielAiRouterGatewayService:
             now = self.clock()
             already = state.failures.get(selection.endpoint, 0) > now
             state.failures[selection.endpoint] = now + self.cooldown
+            state.generation += 1
             if state.selection is not None and state.selection.endpoint == selection.endpoint:
-                state.generation += 1
                 state.selection = None
                 state.snapshot = None
                 state.next_refresh = 0

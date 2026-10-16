@@ -1,0 +1,111 @@
+{
+  "transcript_path": "G:\\ciel-e2e\\direct-path\\claude-1792187138\\claude-config\\projects\\G--ciel-e2e-direct-path-claude-1792187138-ws\\bea23b94-2f64-4f1c-a6ec-0000ffd8cb3c.jsonl",
+  "sha256": "a6a74547625ae6a9d4619f330c59bce0de3da4831e65bbfc9cbf97f62561e363",
+  "types": {
+    "mode": 3,
+    "permission-mode": 3,
+    "atis-latch": 3,
+    "file-history-snapshot": 3,
+    "user": 3,
+    "assistant": 3,
+    "attachment": 13,
+    "system": 3,
+    "last-prompt": 2,
+    "api-request-shape": 1,
+    "api-request-blob": 4,
+    "api-request": 2
+  },
+  "user_markers": [
+    {
+      "head1": true,
+      "tail1": true,
+      "head2": false,
+      "tail2": false,
+      "restart": false
+    },
+    {
+      "head1": false,
+      "tail1": false,
+      "head2": false,
+      "tail2": false,
+      "restart": true
+    },
+    {
+      "head1": false,
+      "tail1": false,
+      "head2": true,
+      "tail2": true,
+      "restart": false
+    }
+  ],
+  "input_statuses": [
+    {
+      "request_id": 1,
+      "status": "queued",
+      "updated_at": "2026-10-16T16:46:06-05:00",
+      "updated_at_epoch": 1792187166.898366,
+      "data": {
+        "channel": "external:default",
+        "input_transport": "session_socket"
+      }
+    },
+    {
+      "request_id": 1,
+      "status": "failed",
+      "updated_at": "2026-10-16T16:46:11-05:00",
+      "updated_at_epoch": 1792187171.126166,
+      "reason": "prompt_not_submitted"
+    },
+    {
+      "request_id": 2,
+      "status": "queued",
+      "updated_at": "2026-10-16T16:46:16-05:00",
+      "updated_at_epoch": 1792187176.52738,
+      "data": {
+        "channel": "restart",
+        "input_transport": "tty"
+      }
+    },
+    {
+      "request_id": 2,
+      "status": "failed",
+      "updated_at": "2026-10-16T16:46:28-05:00",
+      "updated_at_epoch": 1792187188.5857477,
+      "reason": "prompt_not_submitted"
+    },
+    {
+      "request_id": 3,
+      "status": "queued",
+      "updated_at": "2026-10-16T16:46:32-05:00",
+      "updated_at_epoch": 1792187192.940454,
+      "data": {
+        "channel": "external:default",
+        "input_transport": "session_socket"
+      }
+    },
+    {
+      "request_id": 3,
+      "status": "failed",
+      "updated_at": "2026-10-16T16:46:37-05:00",
+      "updated_at_epoch": 1792187197.3997793,
+      "reason": "prompt_not_submitted"
+    }
+  ],
+  "screenshot_files": [
+    {
+      "path": "C:\\Users\\djlov\\ciel-runtime\\docs\\journal\\2026\\10\\16\\features\\cielairouter-direct-path\\evidence\\e2e\\run-claude\\shots\\01-started.png",
+      "bytes": 13074,
+      "sha256": "3a89ce959bf0b0dc1876b14243f6a808c82f9bad5ad4d7420cd8c7612002a0d0"
+    },
+    {
+      "path": "C:\\Users\\djlov\\ciel-runtime\\docs\\journal\\2026\\10\\16\\features\\cielairouter-direct-path\\evidence\\e2e\\run-claude\\shots\\02-sse1.png",
+      "bytes": 42672,
+      "sha256": "5fb21367c763d9af87710e7ea363df11053f39f1b1c2875cd511ab9bd6520466"
+    },
+    {
+      "path": "C:\\Users\\djlov\\ciel-runtime\\docs\\journal\\2026\\10\\16\\features\\cielairouter-direct-path\\evidence\\e2e\\run-claude\\shots\\03-sse2-after-restart.png",
+      "bytes": 54269,
+      "sha256": "c065abff9212fec3b5e41586a05d2ac00478b87f4599ceed2ceaa60407fa55ea"
+    }
+  ]
+}

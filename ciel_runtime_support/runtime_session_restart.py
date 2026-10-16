@@ -298,13 +298,19 @@ class RuntimeSessionRestartRepository:
                 )
                 return False
 
-    def claim(self, client_pid: int) -> RuntimeSessionRestartRequest | None:
-        """Claim a pending request for this client process, if one applies."""
+    def claim(self, client_pid: int, *, exact: bool = False) -> RuntimeSessionRestartRequest | None:
+        """Claim a pending request for this client process, if one applies.
+
+        ``exact`` claims only a request addressed to ``client_pid`` itself; a
+        request for any client (``target_pid`` 0) stays in the slot.
+        """
 
         request = self.read()
         if request is None:
             return None
         if not request.applies_to(client_pid):
+            return None
+        if exact and request.target_pid != int(client_pid or 0):
             return None
         if not self.clear(request.id):
             # Another client consumed it between read and clear.
@@ -312,7 +318,7 @@ class RuntimeSessionRestartRepository:
         self.log(
             "INFO",
             f"runtime_session_restart_claimed client_pid={int(client_pid or 0)} "
-            f"{request.summary()}",
+            f"{'match=exact ' if exact else ''}{request.summary()}",
         )
         return request
 
@@ -356,6 +362,12 @@ class RuntimeSessionRestartControl:
     signal) reports a running turn, up to ``restart_turn_wait_seconds``; the
     transports then stop the CLI.  Without any turn signal the restart is
     immediate, as before.
+
+    The transports stop polling as soon as the CLI child has exited, so the
+    launcher loop calls ``after_child_exit`` once the transport returns: a
+    request still waiting for the turn is released, and otherwise
+    ``exit_poll`` claims, once, a request addressed to this launcher that
+    arrived while the child was ending.
     """
 
     poll: Callable[[], RuntimeSessionRestartRequest | None]
@@ -366,6 +378,12 @@ class RuntimeSessionRestartControl:
     deferred_at: float = 0.0
     busy_checked_at: float = 0.0
     busy_seen: bool = False
+    # Claim after the child ended; None means no claim at exit.
+    exit_poll: Callable[[], RuntimeSessionRestartRequest | None] | None = None
+    # How the request was taken: "transport", "deferred" (held for the turn
+    # when the child ended) or "exit" (claimed after the child ended).
+    claimed_by: str = ""
+    exit_polled: bool = False
 
     @property
     def requested(self) -> bool:
@@ -373,10 +391,36 @@ class RuntimeSessionRestartControl:
 
     def mark(self, request: RuntimeSessionRestartRequest) -> None:
         self.request = request
+        if not self.claimed_by:
+            self.claimed_by = "transport"
 
     def reset(self) -> None:
         self.request = None
         self.deferred = None
+        self.claimed_by = ""
+        self.exit_polled = False
+
+    def after_child_exit(self) -> RuntimeSessionRestartRequest | None:
+        """The restart request for a CLI child that has just ended, if any.
+
+        Call once the transport has returned.  A request the transport took is
+        returned as is; one still waiting for the running turn is released (the
+        turn ended with the child); otherwise ``exit_poll`` runs once per launch
+        (until ``reset``).  Without any of these the session simply ended.
+        """
+
+        if self.request is not None:
+            return self.request
+        if self.deferred is not None:
+            request, self.deferred = self.deferred, None
+            return self._release(request, None, via="deferred")
+        if self.exit_polled or self.exit_poll is None:
+            return None
+        self.exit_polled = True
+        request = self.exit_poll()
+        if request is None:
+            return None
+        return self._release(request, None, via="exit")
 
     def incoming(
         self,
@@ -427,11 +471,25 @@ class RuntimeSessionRestartControl:
         self,
         request: RuntimeSessionRestartRequest,
         notify: Callable[[str], Any] | None,
+        *,
+        via: str = "transport",
     ) -> RuntimeSessionRestartRequest:
         self.request = request
+        self.claimed_by = via
         if notify is not None:
             notify(restart_starting_notice(request))
         return request
+
+
+def restart_request_after_exit(control: Any) -> Any:
+    """``control.after_child_exit()``, or ``control.request`` for controls without it."""
+
+    settle = getattr(control, "after_child_exit", None)
+    return settle() if callable(settle) else getattr(control, "request", None)
+
+
+def restart_claim_label(control: Any) -> str:
+    return str(getattr(control, "claimed_by", "") or "transport")
 
 
 @dataclass(frozen=True, slots=True)
@@ -669,11 +727,25 @@ class RuntimeSessionRestartService:
         """The control shared by the CLI transports of this process."""
 
         if self._control is None:
-            self._control = RuntimeSessionRestartControl(poll=self.claim)
+            self._control = RuntimeSessionRestartControl(
+                poll=self.claim, exit_poll=self.claim_after_exit
+            )
         return self._control
 
     def claim(self) -> RuntimeSessionRestartRequest | None:
         return self.repository().claim(os.getpid())
+
+    def claim_after_exit(self) -> RuntimeSessionRestartRequest | None:
+        """The final claim once the CLI child has ended.
+
+        Only a request addressed to this launcher process by pid - what
+        restart_session and ``ciel-runtime restart-session`` write - brings an
+        ended session back.  The claim runs in the launcher itself while its
+        router-client record is still registered (the restart loop runs inside
+        the router lifetime), so it does not depend on any other process.
+        """
+
+        return self.repository().claim(os.getpid(), exact=True)
 
     def clients(self, instance_dir: Path | None = None) -> list[dict[str, Any]]:
         clients_dir = self.instance_paths(instance_dir or self._ports.instance_dir)[0]
@@ -887,7 +959,9 @@ __all__ = [
     "local_runtime_session_restart",
     "primed_notice",
     "queue_session_restart",
+    "restart_claim_label",
     "restart_notice_body",
+    "restart_request_after_exit",
     "restart_starting_notice",
     "restart_turn_wait_seconds",
     "restart_waiting_notice",

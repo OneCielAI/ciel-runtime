@@ -415,6 +415,155 @@ class WindowsConPtyPolicyTests(unittest.TestCase):
 
         self.assertEqual("한글 입력 🚀".encode("utf-8"), session._read_input_bytes())
 
+    def _console_input_session(self, chunks):
+        session = object.__new__(WindowsConPtySession)
+        session._kernel32 = mock.MagicMock()
+        session._stdin_console_handle = 44
+        session._stdin_fd = -1
+        session._stop = threading.Event()
+        session._log = mock.Mock()
+        chunks = iter(chunks)
+
+        def read_console(_handle, buffer, _length, read_pointer, _reserved):
+            raw = next(chunks, b"")
+            ctypes.memmove(ctypes.addressof(buffer), raw, len(raw))
+            read_pointer._obj.value = len(raw) // 2
+            return 1
+
+        session._kernel32.ReadConsoleW.side_effect = read_console
+        session.write = mock.Mock()
+        return session
+
+    def test_pump_input_preserves_surrogate_pair_across_console_reads(self):
+        session = self._console_input_session([
+            "한".encode("utf-16-le") + b"\x3d\xd8",
+            b"\x80\xde" + "글\r".encode("utf-16-le"),
+        ])
+
+        session._pump_input()
+
+        self.assertEqual(
+            "한🚀글\r".encode("utf-8"),
+            b"".join(call.args[0] for call in session.write.call_args_list),
+        )
+
+    def test_pump_input_does_not_treat_buffered_high_surrogate_as_eof(self):
+        session = self._console_input_session([b"\x3d\xd8", b"\x80\xde", b"x\x00"])
+
+        session._pump_input()
+
+        self.assertEqual(
+            "🚀x".encode("utf-8"),
+            b"".join(call.args[0] for call in session.write.call_args_list),
+        )
+
+    def test_pump_input_replaces_unpaired_surrogates_and_continues(self):
+        for chunks, expected in [
+            ([b"\x80\xde", b"x\x00"], "�x"),
+            ([b"\x3d\xd8", b"x\x00"], "�x"),
+            ([b"\x3d\xd8"], "�"),
+        ]:
+            with self.subTest(chunks=chunks):
+                session = self._console_input_session(chunks)
+                session._pump_input()
+                self.assertEqual(
+                    expected.encode("utf-8"),
+                    b"".join(call.args[0] for call in session.write.call_args_list),
+                )
+
+    def _output_pump_session(self, chunks):
+        session = object.__new__(WindowsConPtySession)
+        session._kernel32 = mock.MagicMock()
+        session._output_handle = 55
+        session._stdout_console_handle = 44
+        session._stdout_fd = -1
+        session._stop = threading.Event()
+        session._parent_output_paused = threading.Event()
+        session._output_lock = threading.Lock()
+        session._output_tail = bytearray()
+        session._output_total_bytes = 0
+        session._mirror_output = True
+        session._output_decoder = codecs.getincrementaldecoder("utf-8")("replace")
+        session._log = mock.Mock()
+        chunks = iter(chunks)
+
+        def read_file(_handle, buffer, _length, read_pointer, _reserved):
+            raw = next(chunks, b"")
+            ctypes.memmove(buffer, raw, len(raw))
+            read_pointer._obj.value = len(raw)
+            return 1
+
+        session._kernel32.ReadFile.side_effect = read_file
+        session._write_console_text = mock.Mock(side_effect=OSError("console unavailable"))
+        return session
+
+    def test_output_pump_drains_and_logs_when_console_mirror_fails(self):
+        session = self._output_pump_session([b"first", b"second", b"third"])
+
+        session._pump_output()
+
+        self.assertEqual(b"firstsecondthird", session.output_tail())
+        self.assertEqual(16, session._output_total_bytes)
+        session._write_console_text.assert_called_once()
+        self.assertFalse(session._mirror_output)
+        session._log.assert_called_once()
+        self.assertIn("channel_windows_conpty_mirror_failed", session._log.call_args.args[1])
+        self.assertIn("OSError", session._log.call_args.args[1])
+
+    def test_output_pump_contains_final_decoder_flush_failure(self):
+        session = self._output_pump_session([b"\xf0\x9f"])
+
+        session._pump_output()
+
+        self.assertEqual(b"\xf0\x9f", session.output_tail())
+        session._write_console_text.assert_called_once_with("�")
+        session._log.assert_called_once()
+        self.assertIn("channel_windows_conpty_mirror_failed", session._log.call_args.args[1])
+        self.assertFalse(session._mirror_output)
+
+    def test_output_pump_keeps_draining_when_failure_logger_raises(self):
+        session = self._output_pump_session([b"first", b"second"])
+        session._log.side_effect = OSError("log unavailable")
+
+        session._pump_output()
+
+        self.assertEqual(b"firstsecond", session.output_tail())
+        self.assertFalse(session._mirror_output)
+        session._log.assert_called_once()
+
+    def test_output_pump_drains_when_redirected_mirror_fails(self):
+        session = self._output_pump_session([b"first", b"second"])
+        session._stdout_console_handle = None
+        with mock.patch(
+            "ciel_runtime_support.windows_conpty.os.write",
+            side_effect=OSError("redirect closed"),
+        ) as write:
+            session._pump_output()
+
+        self.assertEqual(b"firstsecond", session.output_tail())
+        write.assert_called_once()
+        session._log.assert_called_once()
+        self.assertFalse(session._mirror_output)
+
+    def test_pump_input_logs_transport_oserror(self):
+        session = self._console_input_session([])
+        session._read_input_bytes = mock.Mock(side_effect=OSError("input closed"))
+
+        session._pump_input()
+
+        session._log.assert_called_once()
+        self.assertIn("channel_windows_conpty_input_failed", session._log.call_args.args[1])
+        session.write.assert_not_called()
+
+    def test_output_pump_logs_read_oserror(self):
+        session = self._output_pump_session([])
+        session._kernel32.ReadFile.side_effect = OSError("read failed")
+
+        session._pump_output()
+
+        session._log.assert_called_once()
+        self.assertIn("channel_windows_conpty_output_failed", session._log.call_args.args[1])
+
     def test_console_mirror_decodes_utf8_across_arbitrary_pipe_chunks(self):
         captured = []
         session = object.__new__(WindowsConPtySession)

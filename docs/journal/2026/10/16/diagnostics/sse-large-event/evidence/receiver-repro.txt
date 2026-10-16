@@ -1,0 +1,6 @@
+mode=close sent=[60000, 65535, 65536, 65537, 131072, 900000]
+mode=close delivered_lengths=[60000, 65535, 65536, 65537, 131072, 900000]
+mode=close logs=['WARN external_event_sse_disconnected receiver=default error=BrokenPipeError']
+mode=chunked sent=[60000, 65535, 65536, 65537, 131072, 900000]
+mode=chunked delivered_lengths=[60000, 65535, 65536, 65537, 131072, 900000]
+mode=chunked logs=['WARN external_event_sse_disconnected receiver=default error=BrokenPipeError']

@@ -42,6 +42,16 @@ CLAUDE_PROJECTED_ENV_KEYS = (
     "CIEL_RUNTIME_MODEL_ALIAS",
     "CIEL_RUNTIME_PROVIDER",
 )
+# Model values a gateway receives verbatim in direct data-path mode (no router
+# translates a ciel-runtime-* alias there).
+CLAUDE_DIRECT_MODEL_KEYS = (
+    "ANTHROPIC_MODEL",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL",
+    "CLAUDE_CODE_SUBAGENT_MODEL",
+    "CIEL_RUNTIME_MODEL_ALIAS",
+)
 CLAUDE_AUTO_COMPACT_WINDOW_MAX = 1_000_000
 ANTHROPIC_STANDARD_CONTEXT_TOKENS = 200_000
 
@@ -486,7 +496,15 @@ class ClaudeEnvironmentProjection:
             env.pop("CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS", None)
         return env
 
-    def build(self, config: dict[str, Any] | None = None) -> dict[str, str]:
+    def build(self, config: dict[str, Any] | None = None, data_path: Any = None) -> dict[str, str]:
+        """Claude Code's launch environment.
+
+        ``data_path`` (``launch_data_path.LaunchDataPath``) is passed only for a
+        launch whose model requests go directly to a provider gateway: the base
+        URL and token become the gateway's, and every model value becomes the
+        upstream id the router would have sent, never a ``ciel-runtime-*``
+        alias.  Without it the routed environment is unchanged.
+        """
         config = config or self._sources.load_config()
         provider, provider_config = self._sources.current_provider(config)
         if self._sources.direct_native(provider, provider_config):
@@ -542,7 +560,23 @@ class ClaudeEnvironmentProjection:
         auth_token = self._features.router_auth_token(provider, provider_config)
         if auth_token:
             env["ANTHROPIC_AUTH_TOKEN"] = auth_token
+        if data_path is not None and getattr(data_path, "direct", False):
+            self._apply_direct_data_path(provider, provider_config, env, data_path)
         return self.apply_common(provider, provider_config, env)
+
+    def _apply_direct_data_path(
+        self, provider: str, config: dict[str, Any], env: dict[str, str], data_path: Any
+    ) -> None:
+        alias_prefix = f"ciel-runtime-{provider}-"
+        fallback = self._features.current_upstream_model(provider, config)
+        for key in CLAUDE_DIRECT_MODEL_KEYS:
+            value = str(env.get(key) or "").strip()
+            if not value:
+                continue
+            upstream = self._features.resolve_requested_model(provider, config, value)
+            env[key] = fallback if not upstream or upstream.startswith(alias_prefix) else upstream
+        env["ANTHROPIC_BASE_URL"] = str(data_path.endpoint)
+        env["ANTHROPIC_AUTH_TOKEN"] = str(data_path.api_key)
 
 
 @dataclass(frozen=True)
@@ -596,6 +630,7 @@ __all__ = [
     "CLAUDE_AUTO_COMPACT_WINDOW_MAX",
     "CLAUDE_CHROME_CLASSIFIER_FLOOR_ENV",
     "CLAUDE_CHROME_CLASSIFIER_FLOOR_OFF",
+    "CLAUDE_DIRECT_MODEL_KEYS",
     "CLAUDE_PROJECTED_ENV_KEYS",
     "ClaudeCompactionSnapshot",
     "ClaudeEnvironmentFeaturePorts",

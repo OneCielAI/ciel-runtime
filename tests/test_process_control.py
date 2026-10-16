@@ -169,6 +169,39 @@ class ProcessControlTests(unittest.TestCase):
         self.assertEqual(["taskkill", "/PID", "12", "/T", "/F"], run.call_args_list[1].args[0])
         self.assertEqual(["Stopped existing target session(s): 12."], output)
 
+    def test_windows_taskkill_failure_is_not_reported_as_success(self):
+        run = mock.Mock(return_value=subprocess.CompletedProcess([], 5))
+        log = mock.Mock()
+        output = mock.Mock()
+        services = ProcessControlServices(
+            query=ProcessQueryServices(run=run),
+            signals=ProcessSignalServices(kill=mock.Mock(), pid_is_running=lambda _pid: True),
+            log=log,
+            output=output,
+        )
+        controller = ProcessTreeController(services, platform_name="nt")
+        self.assertFalse(controller.terminate_pid(12345, "synthetic", quiet=True))
+        self.assertIn("non-zero exit status 5", log.call_args.args[1])
+        output.assert_not_called()
+
+    def test_windows_bulk_taskkill_failure_is_not_reported_as_success(self):
+        run = mock.Mock(side_effect=[
+            subprocess.CompletedProcess([], 0, stdout=json.dumps([
+                {"ProcessId": 12345, "CommandLine": "synthetic-target"},
+            ])),
+            subprocess.CompletedProcess([], 5),
+        ])
+        services = ProcessControlServices(
+            query=ProcessQueryServices(run=run, current_pid=lambda: 1, parent_pid=lambda: 2),
+            signals=ProcessSignalServices(kill=mock.Mock(), pid_is_running=lambda _pid: True),
+            log=mock.Mock(),
+            output=mock.Mock(),
+        )
+        self.assertFalse(terminate_matching_processes(
+            ["synthetic-target"], "synthetic", services, platform_name="nt",
+        ))
+        self.assertIn("non-zero exit status 5", services.log.call_args.args[1])
+
     def test_posix_termination_skips_parent_and_zombie_processes(self):
         run = mock.Mock(
             return_value=subprocess.CompletedProcess(

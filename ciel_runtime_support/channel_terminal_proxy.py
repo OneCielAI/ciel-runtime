@@ -28,7 +28,7 @@ from ciel_runtime_support.channel_pending_poll import (
     poll_pending_channel_messages,
 )
 from ciel_runtime_support.pty_master_writer import PtyMasterWriter
-from ciel_runtime_support.startup_prompt_answers import startup_prompt_responder
+from ciel_runtime_support.startup_prompt_answers import startup_prompt_responder, windows_startup_screen
 from ciel_runtime_support.terminal_modal_guard import STARTUP_HOLD_SECONDS, TerminalModalGuard
 from ciel_runtime_support.runtime_interaction import (
     RuntimeInteractionDisplayState,
@@ -324,10 +324,13 @@ def run_windows_channel_terminal_proxy(
         channel_input_ready_at = time.time() + console.startup_grace_seconds()
         # An unattended restart answers the CLI's startup dialogs and holds
         # channel input until the dialogs are gone (ConPTY output only).
-        startup_answers = startup_prompt_responder(policy.log)
+        startup_answers = startup_prompt_responder(policy.log, env)
         if startup_answers is not None and conpty is None:
             policy.log("WARN", "startup_prompt_auto_answer_unavailable transport=console-input")
-            startup_answers = None
+            # Retain the responder as a fail-closed injection gate.
+        if startup_answers is not None and conpty is not None:
+            # ConPTY.input_snapshot is an append-only tail, not rendered state.
+            startup_answers.screen_snapshot = windows_startup_screen
         startup_output_cursor = 0
         # ConPTY is a byte stream and supports VT bracketed paste. The
         # compatibility transport consumes INPUT_RECORD events and must not
@@ -421,14 +424,14 @@ def run_windows_channel_terminal_proxy(
                 last_terminal_input_mode_reset = now
                 console.reset_input_mode()
                 input_mode_guard.apply()
-            if startup_answers is not None:
+            if startup_answers is not None and conpty is not None:
                 startup_output, startup_output_cursor = conpty.output_since(startup_output_cursor)
                 startup_answers.feed(startup_output)
                 startup_keys = startup_answers.due()
                 if startup_keys:
                     writer.write(startup_keys)
             input_ready = now >= channel_input_ready_at and (
-                startup_answers is None or startup_answers.input_ready()
+                startup_answers is None or (conpty is not None and startup_answers.input_ready())
             )
             if pending_poll_state.inflight_message_id is not None:
                 inflight_message_id = pending_poll_state.inflight_message_id
@@ -599,7 +602,7 @@ def run_posix_channel_terminal_proxy(
         startup_hold = STARTUP_HOLD_SECONDS
     modal_guard = TerminalModalGuard(startup_hold_seconds=max(0.0, startup_hold))
     # An unattended restart also answers those dialogs (startup_prompt_answers).
-    startup_answers = startup_prompt_responder(policy.log)
+    startup_answers = startup_prompt_responder(policy.log, env)
 
     def forward_child_output(data: bytes) -> None:
         modal_guard.feed(data)

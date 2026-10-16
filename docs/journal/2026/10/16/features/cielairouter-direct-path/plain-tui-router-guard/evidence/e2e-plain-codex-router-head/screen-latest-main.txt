@@ -1,0 +1,38 @@
+
+  >_ OpenAI Codex (v0.163.0)
+     G:\ciel-e2e\direct-plain\codex-router-head\ws
+  Resuming session…
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+› Ask Codex to do anything
+
+
+  ? for shortcuts

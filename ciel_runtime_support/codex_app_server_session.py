@@ -58,6 +58,7 @@ from ciel_runtime_support.codex_desktop_runtime import (
     listen_url_from_command,
     readyz_url,
 )
+from ciel_runtime_support.runtime_session_restart import restart_claim_label, restart_request_after_exit
 
 REMOTE_TUI_LAUNCH_MODE = "codex-remote-router"
 REMOTE_TUI_SESSION_ACTIONS = frozenset({"new_session"})
@@ -224,6 +225,8 @@ class _RemoteRun:
     rc: int
     request: Any = None
     thread_id: str = ""
+    # How the restart request was taken (RuntimeSessionRestartControl.claimed_by).
+    claim: str = ""
 
 
 class CodexRemoteTuiSession:
@@ -284,7 +287,7 @@ class CodexRemoteTuiSession:
                 self.ports.log(
                     "INFO",
                     f"codex_remote_session_restart exit_code={run.rc} source={request.source or '-'} "
-                    f"resumed_thread={thread_id or '-'}",
+                    f"resumed_thread={thread_id or '-'} request_id={request.id} claim={run.claim or 'transport'}",
                 )
                 if relaunch is not None:
                     cmd = relaunch(request)
@@ -394,9 +397,17 @@ class CodexRemoteTuiSession:
             )
         finally:
             control.busy = None
+        # The proxy stops polling once the TUI has ended: a request queued
+        # meanwhile, or one held for the running turn, is taken here.
+        request = restart_request_after_exit(control)
         # The TUI may have moved to another thread (/new, /resume): the
         # channel client followed it.
-        return _RemoteRun(int(rc or 0), control.request, injector.thread_id if injector is not None else thread_id)
+        return _RemoteRun(
+            int(rc or 0),
+            request,
+            injector.thread_id if injector is not None else thread_id,
+            restart_claim_label(control) if request is not None else "",
+        )
 
 
 def _write_private(path: Path, text: str) -> None:

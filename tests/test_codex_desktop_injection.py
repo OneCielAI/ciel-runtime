@@ -165,6 +165,15 @@ class CodexDesktopInjectionTests(unittest.TestCase):
         self.assertEqual([], self.client.calls)
         self.assertEqual(0, self.cursor)
 
+    def test_direct_gateway_router_transport_is_delivered_by_rpc_while_busy(self):
+        from unittest import mock
+        self.client.state = CodexAppServerState(thread_id="thread-a", active_turn_id="turn-live")
+        self.messages = [_message(3, "whole body", transport="router")]
+        with mock.patch("ciel_runtime_support.launch_data_path.model_http_bypassed", return_value=True):
+            self.injector.poll_once()
+        self.assertEqual([("steer", "thread-a", "turn-live")], self.client.calls)
+        self.assertEqual(3, self.cursor)
+
     def test_router_transport_messages_wake_an_idle_thread(self):
         # An idle thread makes no model request the router could add them to.
         self.messages = [_message(3, "routed", transport="router")]

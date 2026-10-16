@@ -20,7 +20,7 @@ from typing import Any, Callable, Iterable
 
 from ciel_runtime_support import anthropic_model_policy
 from ciel_runtime_support import channel_cursor_repository as channel_cursor_storage, hosted_formula_tools
-from ciel_runtime_support import agent_runtime_event_push, agent_turn_events, company_prompt_reload, event_delivery_ack, channel_llm_context, session_backup_service, claude_launch_assembly, cli_assembly, cli_dispatch, cli_parser, codex_config_effort, codex_launch_configuration, codex_turn_recovery, kimi_identity, llm_option_config, llm_presets, native_context_recovery, remote_management_http, web_access_http
+from ciel_runtime_support import agent_runtime_event_push, agent_turn_events, company_prompt_reload, event_delivery_ack, channel_llm_context, session_backup_service, claude_launch_assembly, cli_assembly, cli_dispatch, cli_parser, codex_config_effort, codex_launch_configuration, codex_turn_recovery, kimi_identity, launch_data_path, llm_option_config, llm_presets, native_context_recovery, remote_management_http, web_access_http
 from ciel_runtime_support import muse_catalog, muse_oauth, ollama_catalog as ollama_catalog_policy
 from ciel_runtime_support import openai_chat_compatibility_bridge, otlp_logs, prelaunch, prelaunch_assembly, provider_catalog_sources, provider_models, provider_network, rate_limit_policy, router_request_assembly, router_server_runtime, runtime_asset_assembly, runtime_launch, runtime_primitives, terminal_platform_io, windows_console_mode
 from ciel_runtime_support.prelaunch_launch_panel import launch_panel_rows as project_launch_panel_rows
@@ -3244,7 +3244,7 @@ def cmd_ollama_native(args: argparse.Namespace) -> None: provider_option_cli_con
 def provider_option_policy() -> ProviderOptionPolicy: return ProviderOptionPolicy(normalize_claude_code_supported_capabilities, normalize_ip_family, normalize_model_id, normalize_opencode_endpoint_kind, parse_bool, parse_config_value, positive_int, ProviderSamplingPolicy())
 def apply_ollama_option(pcfg: dict[str, Any], token: str) -> None: mutate_ollama_option(pcfg, token, policy=provider_option_policy())
 def cmd_ollama_options(args: argparse.Namespace) -> None: provider_option_cli_controller().ollama_options(args)
-PROVIDER_OPTION_PROVIDERS = ("anthropic", "agy", "codex", "vllm", "lm-studio", "nvidia-hosted", "self-hosted-nim", "ollama", "ollama-cloud", "deepseek", "opencode", "opencode-go", "kimi", "meta", "openrouter", "fireworks", "zai", "zai-api", "zai-coding-plan", "zai-start-plan")
+PROVIDER_OPTION_PROVIDERS = ("cielairouter", "anthropic", "agy", "codex", "vllm", "lm-studio", "nvidia-hosted", "self-hosted-nim", "ollama", "ollama-cloud", "deepseek", "opencode", "opencode-go", "kimi", "meta", "openrouter", "fireworks", "zai", "zai-api", "zai-coding-plan", "zai-start-plan")
 PROVIDER_SAMPLING_OPTION_PROVIDERS = ("vllm", "lm-studio", "nvidia-hosted", "self-hosted-nim", "openrouter")
 PROVIDER_SAMPLING_OPTIONS = ("temperature", "top_p", "top_k")
 def sampling_option_key(key: str) -> str | None: return ProviderSamplingPolicy().option_key(key)
@@ -3477,7 +3477,7 @@ def format_timeout_minutes(ms: int, lang: str = "en") -> str:
     return f"{minutes:.1f}{label if lang in labels else ' ' + label}"
 
 def llm_option_description_for_value(provider: str, pcfg: dict[str, Any], key: str, lang: str | None = None) -> str:
-    text = llm_option_description(provider, key, lang)
+    text = llm_option_config.gateway_option_description(provider_configuration_policy(provider, pcfg), key) or llm_option_description(provider, key, lang)
     if key not in ("request_timeout_ms", "stream_idle_timeout_ms"):
         return text
     value = positive_int(pcfg.get(key))
@@ -3565,10 +3565,11 @@ def llm_option_config_services() -> llm_option_config.LlmOptionConfigServices:
                                                      normalize_claude_code_supported_capabilities, parse_bool, positive_int, provider_routing_mode_update,
                                                      set_router_debug_external_access_config),
         policy=llm_option_config.LlmOptionPolicy(apply_recommended_timeout_for_model_context, cap_context_settings_to_model_capacity,
-                                                 cap_output_settings_to_context_ratio, router_rate_limit_configured_rpm, PROVIDER_LABELS),
+                                                 cap_output_settings_to_context_ratio, router_rate_limit_configured_rpm, PROVIDER_LABELS), gateway_status=gateway_status_lines,
     )
 
 def provider_routing_mode_update(provider: str, enabled: bool) -> tuple[str, ...]: return PROVIDER_ADAPTERS.create(provider).routing_mode_update(enabled)
+def gateway_status_lines() -> list[str]: return llm_option_config.gateway_status_lines(router_health, router_health_config_matches_current, load_config)
 def set_llm_option_config(provider: str, key: str, raw_value: str) -> list[str]: return llm_option_config.set_llm_option_config(provider, key, raw_value, services=llm_option_config_services())
 
 def apply_provider_option(provider: str, pcfg: dict[str, Any], token: str) -> None:
@@ -3593,6 +3594,7 @@ def provider_option_cli_controller() -> ProviderOptionCliController:
         ollama_providers=("ollama", "ollama-cloud"),
         provider_notes=DEFAULT_PROVIDER_NOTES,
         unsupported_message=DEFAULT_UNSUPPORTED_MESSAGE,
+        gateway_status=gateway_status_lines,
     )
 
 def cmd_provider_options(args: argparse.Namespace) -> None: provider_option_cli_controller().provider_options(args)
@@ -3716,7 +3718,7 @@ def claude_environment_projection() -> ClaudeEnvironmentProjection:
                                       claude_code_router_auth_token, context_limit_for_status),
     )
 
-def env_vars(cfg: dict[str, Any] | None = None) -> dict[str, str]:
+def env_vars(cfg: dict[str, Any] | None = None, data_path: Any = None) -> dict[str, str]:
     """Build the environment overrides ciel-runtime adds when spawning `claude`.
 
     Claude Native mode contract: when the selected provider is native
@@ -3728,7 +3730,7 @@ def env_vars(cfg: dict[str, Any] | None = None) -> dict[str, str]:
     Claude-in-Chrome classifier floor from overriding the bypass mode.
     ``CIEL_RUNTIME_PROVIDER=anthropic`` marks ciel-runtime's own helpers only.
     """
-    return claude_environment_projection().build(cfg)
+    return claude_environment_projection().build(cfg, data_path)
 
 def claude_code_router_auth_token(provider: str, pcfg: dict[str, Any]) -> str:
     if provider == "anthropic":
@@ -4713,7 +4715,7 @@ def claude_launch_services() -> runtime_launch.ClaudeLaunchServices:
         dispatch=assembly.ClaudeLaunchDispatchPorts(launch_agy, launch_codex, launch_codex_app_server, materialize_runtime_command, run_ciel_runtime_update_check,
                                                     run_claude_update_check, run_prelaunch_menu, claude_launch_enabled_for_provider, launch_codex_remote),
         config=assembly.ClaudeLaunchConfigPorts(load_config, save_config, get_current_provider, ensure_current_model_from_provider_list, ensure_model_cache_for_launch,
-                                                apply_launch_endpoint_policy, provider_menu_label, launch_mode_name, current_launch_cwd_key),
+                                                apply_launch_endpoint_policy, provider_menu_label, launch_mode_name, current_launch_cwd_key, launch_data_resolver()),
         routing=assembly.ClaudeLaunchRoutingPorts(anthropic_routed_enabled, direct_native_anthropic_enabled, cleanup_managed_services_for_provider,
                                                   ensure_managed_router_running_for_client, reset_zai_mcp_config_if_inactive, router_health_summary, router_log,
                                                   start_router_if_needed, run_with_router_lifetime, record_launch_state_for_cwd),
@@ -4825,9 +4827,10 @@ def codex_launch_assembly() -> CodexLaunchAssembly:
             policy=runtime_launch.CodexAppServerCliPolicy(codex_app_server_default_listen_url, codex_app_server_launch_args, codex_current_model_config_args,
                                                           codex_native_routed_config_args, codex_passthrough_has_model_override, codex_runtime_config_args, toml_string),
         ),
-        restart=CodexLaunchSharedRestartPorts(lambda: runtime_session_restart_service().control(), primed_notice(_CHANNEL_DELIVERY_API.ensure_cursor_initialized, runtime_input_gateway().submit_notification), lambda runtime: sync_remote_launch_assets(runtime, reason="restart")),
+        restart=CodexLaunchSharedRestartPorts(lambda: runtime_session_restart_service().control(), primed_notice(_CHANNEL_DELIVERY_API.ensure_cursor_initialized, runtime_input_gateway().submit_notification), lambda runtime: sync_remote_launch_assets(runtime, reason="restart")), data_path=launch_data_resolver(),
     )
 
+def launch_data_resolver() -> launch_data_path.LaunchDataPathResolver: return launch_data_path.LaunchDataPathResolver(provider_configuration_policy, router_log, upstream_model=resolve_requested_model)
 def codex_launch_services() -> runtime_launch.CodexLaunchServices: return codex_launch_assembly().cli_services()
 
 def codex_app_server_default_listen_url() -> str:

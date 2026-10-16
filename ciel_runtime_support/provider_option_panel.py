@@ -91,6 +91,13 @@ def build_option_panel_rows(
         add("Claude Code workflows", "workflows_enabled", "on" if runtime.workflows_enabled(provider, config) else "off")
         add("Claude Code ultracode", "ultracode_enabled", "on" if runtime.ultracode_enabled(provider, config) else "off")
         add("Claude Code capabilities", "claude_code_supported_capabilities", capabilities or "auto/none")
+    if policy.presentation.show_gateway_selection:
+        from .cielairouter_gateway_overlay import selection_enabled
+        add("Automatic gateway", "gateway_selection", "auto" if selection_enabled(config) else "off (central)")
+        add("Gateway status", "gateway_status", "read-only /health (Enter)")
+    if policy.presentation.show_gateway_data_path:
+        from .launch_data_path import configured_data_path
+        add("Gateway data path", "gateway_data_path", f"{configured_data_path(config)} (applies at launch)")
     if policy.context_strategy == "ollama":
         _add_ollama_controls(add, provider, config, services)
     else:

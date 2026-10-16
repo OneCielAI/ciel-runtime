@@ -8,6 +8,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from ciel_runtime_support.startup_prompt_answers import STARTUP_AUTO_ANSWER_ENV, startup_auto_answer_enabled
+
 
 @dataclass(frozen=True, slots=True)
 class ChannelTerminalDispatchSettings:
@@ -61,6 +63,8 @@ class ChannelTerminalDispatchService:
         session_command_runtime: str = "",
         session_command_actions: frozenset[str] | None = None,
     ) -> int:
+        if startup_auto_answer_enabled():
+            env = {**env, STARTUP_AUTO_ANSWER_ENV: "1"}
         options = {
             "inject_channel_messages": inject_channel_messages,
             "inject_web_chat_only": inject_web_chat_only,
@@ -124,6 +128,10 @@ class ChannelTerminalDispatchService:
         restart_poll: Callable[[], Any] | None = None,
         restart_state: Any = None,
     ) -> int:
+        if startup_auto_answer_enabled():
+            env = {**env, STARTUP_AUTO_ANSWER_ENV: "1"}
+        if startup_auto_answer_enabled(env):
+            self.log("WARN", "startup_prompt_auto_answer_unavailable transport=direct rendered_screen=false automatic_injection=false")
         if pid_path is None and restart_poll is None:
             return self.direct.call(cmd, env=env)
         proc = self.direct.popen(cmd, env=env)

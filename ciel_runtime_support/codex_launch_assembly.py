@@ -97,6 +97,8 @@ class CodexLaunchAssembly:
     cli: CodexCliLaunchPorts
     app_server: CodexAppServerLaunchPorts
     restart: CodexLaunchSharedRestartPorts | None = None
+    # launch_data_path.LaunchDataPathResolver for the plain and app-server launches.
+    data_path: Callback | None = None
 
     def cli_services(self) -> runtime_launch.CodexLaunchServices:
         return runtime_launch.CodexLaunchServices(
@@ -153,6 +155,7 @@ class CodexLaunchAssembly:
                 if self.restart is not None
                 else runtime_launch.SessionRestartPorts()
             ),
+            data_path=self.data_path,
         )
 
     def app_server_services(self) -> runtime_launch.CodexAppServerLaunchServices:
@@ -207,6 +210,7 @@ class CodexLaunchAssembly:
                 if self.restart is not None
                 else runtime_launch.SessionRestartPorts()
             ),
+            data_path=self.data_path,
         )
 
 

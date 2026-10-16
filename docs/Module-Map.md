@@ -483,7 +483,7 @@ Compatibility 결과의 runtime metadata·context/output 경고를 투영하고 
 
 ### `ciel_runtime_support/claude_environment.py`
 
-Claude Code 모델 별칭·컨텍스트 한도·환경 변수·런타임 settings를 구성하는 Policy/Projection 계층. native와 routed 환경 계약, 모델 family 선택, 셸 출력 형식을 composition root와 분리하며 각 의존성 그룹을 최대 10필드의 typed port로 제한한다.
+Claude Code 모델 별칭·컨텍스트 한도·환경 변수·런타임 settings를 구성하는 Policy/Projection 계층. native와 routed 환경 계약, 모델 family 선택, 셸 출력 형식을 composition root와 분리하며 각 의존성 그룹을 최대 10필드의 typed port로 제한한다. `build(config, data_path)`는 직접 게이트웨이 데이터 경로(`launch_data_path.LaunchDataPath.direct`)일 때만 `ANTHROPIC_BASE_URL`·`ANTHROPIC_AUTH_TOKEN`을 게이트웨이·라우터 키로, `CLAUDE_DIRECT_MODEL_KEYS`의 모델 값을 `resolve_requested_model`의 upstream id로 바꾼다(`ciel-runtime-*` 별칭 금지). 인자가 없으면 routed 환경은 그대로다.
 
 ### `ciel_runtime_support/provider_choice.py`
 
@@ -1073,7 +1073,7 @@ Codex 명령행 인수를 결정하는 순수 Launch Policy. process 실행이�
 
 ### `ciel_runtime_support/codex_launch_configuration.py`
 
-Codex alternate-screen 호환, routed provider 설정, 현재 모델 인수와 version-matched model catalog 생성을 조정하는 Configuration Application Service. policy·model·catalog·effects를 각각 최대 5필드 typed port로 분리하며 filesystem과 환경 접근은 composition adapter로 격리한다. 기본 Factory가 routed provider 상수와 Codex config projection 정책을 소유한다. 네이티브 Codex 실행에서 실행 인자·config 어디에도 effort가 없으면 `model_reasoning_effort="medium"`을 모델 설정 인자에 더하고, 라우팅 provider는 자기 effort(`effort_level` 또는 카탈로그 기본값)를 `-c`로 명시해 config 최상위 기본값보다 우선시킨다(TUI와 app-server 공통, remote TUI는 서버 `-c`를 물려받음).
+Codex alternate-screen 호환, routed provider 설정, 현재 모델 인수와 version-matched model catalog 생성을 조정하는 Configuration Application Service. `runtime_config_args(router_base, env_key=...)`와 `runtime_model_catalog_args(..., model_slug=...)`는 기본값이 router 모드와 같고, 직접 게이트웨이 경로에서만 gateway 루트·`CIEL_RUNTIME_GATEWAY_API_KEY`·upstream slug를 받는다. policy·model·catalog·effects를 각각 최대 5필드 typed port로 분리하며 filesystem과 환경 접근은 composition adapter로 격리한다. 기본 Factory가 routed provider 상수와 Codex config projection 정책을 소유한다. 네이티브 Codex 실행에서 실행 인자·config 어디에도 effort가 없으면 `model_reasoning_effort="medium"`을 모델 설정 인자에 더하고, 라우팅 provider는 자기 effort(`effort_level` 또는 카탈로그 기본값)를 `-c`로 명시해 config 최상위 기본값보다 우선시킨다(TUI와 app-server 공통, remote TUI는 서버 `-c`를 물려받음).
 
 ### `ciel_runtime_support/codex_model_catalog.py`
 
@@ -1411,6 +1411,12 @@ CielAiRouter 요청별 gateway base URL 덮어쓰기. `router_http._dispatch_wit
 
 실패 반영: 덮어쓴 설정에는 `ciel_gateway_route` 토큰이 붙고, `provider_network.provider_urlopen`이 그 토큰이 있는 요청을 `observed_gateway_open`으로 연다. URL이 선택된 gateway 아래일 때만 `cielairouter_gateway_transport`로 응답을 감싸, 연결 오류·시간 초과·5xx·완료 이벤트 없는 스트림 종료를 `CielAiRouterGatewayService.record_failure`에 알린다(`cielairouter_gateway_failure` WARN). 그 요청은 재전송하지 않는다. 응답 바이트·예외는 그대로 전달한다.
 
+실행 시점 선택: `select_launch_gateway(pcfg)`는 `gateway_data_path=direct` 실행에서 런처가 CLI 시작 직전에 한 번 부른다. 같은 `_load_selector`(`CielAiRouterGatewayService`)로 `select(..., fresh=True)`하고, 정상·비 degraded·중앙 base가 아닌 gateway만 `launch_data_path.LaunchGateway`(endpoint, node, upstream 모델 = `forced_model` 또는 `[1m]` 뺀 `current_model`, 첫 전송 가능 키)로 돌려준다. `gateway_selection: off`, 키 없음, 중앙/degraded 결과, selector 예외는 endpoint 없이 사유만 담는다(키·원격 응답 본문 없음). `CielAiRouterConfigurationPolicy.launch_gateway`가 이것을 위임한다.
+
+### `ciel_runtime_support/launch_data_path.py`
+
+provider 중립 실행 데이터 경로. provider 옵션 `gateway_data_path`(`router` 기본, `direct` opt-in)를 읽고, provider 설정 정책(`ProviderConfigurationPolicy.supports_gateway_data_path`/`launch_gateway`, 현재 CielAiRouter만 True)에 gateway를 물어 `LaunchDataPath`(configured/active, endpoint, node, central origin, reason, upstream model; `api_key`는 repr·기록·텍스트에서 제외)를 만든다. `LaunchDataPathResolver`는 `runtime_launch`의 Claude(`ClaudeLaunchConfig.launch_data_path`)·Codex TUI·app-server/codex-remote(`CodexLaunchServices.data_path`/`CodexAppServerLaunchServices.data_path`) 포트로 들어가며, router 설정이면 선택·로그·출력을 하지 않는다. direct에서 HTTPS 또는 루프백 HTTP·키·모델이 모두 있을 때만 active=direct이고, 그 밖에는 router로 유지하며 `launch_data_path ... active=router reason=...` WARN 한 줄. 결과는 `<workspace state>/launch-data-path.json`에 CLI별로 기록되고(키 없음) `status_lines`가 `gateway-status`에 보여 준다. 재시작 보조: `claude_restart_environment`(ANTHROPIC_BASE_URL/AUTH_TOKEN), `codex_provider_command`(provider 블록 base_url/env_key 교체). Codex 키 환경 변수는 `CIEL_RUNTIME_GATEWAY_API_KEY`.
+
 ### `ciel_runtime_support/cielairouter_gateways.py`
 
 게이트웨이 선택기. discovery 문서(`protocol_version: 1`)를 검증하고(서버 시계 차이는 `generated_at` 기준으로 보정, 하루 넘게 어긋나면 거부), 엔드포인트를 정규화한다(`/v1` 접미사 제거, userinfo·query·fragment 거부, 평문 http는 루프백만). `/healthz`를 인증 없이 최대 4개 병렬·2초로 측정하고 `nodeId`·`role`·`ready`를 확인한다. 순위는 utilization → backlog → RTT(혼잡도가 90초보다 오래되면 무시). 범위(중앙 URL·키 지문·모델)마다 single-flight로 탐색하고, 실패한 엔드포인트는 60초 cooldown. discovery 401/403은 키 문제로 보고 노드를 돌지 않는다. 리다이렉트는 따르지 않는다.
@@ -1426,3 +1432,5 @@ SSE 수신 연결 관리. 줄 단위 활동(heartbeat 주석 포함)을 기록�
 ### `ciel_runtime_support/transcript_public_projection.py`
 
 `transcript_events` 직접 전송의 공개용 투영. Walkie relay(`server/agent-transcript-relay.py` `public_records`)와 같은 결과를 PC 안에서 만든다: 사용자 본문은 Walkie 라우팅 티켓(`wkp_`)만, 툴은 이름만, assistant는 Codex commentary와 Claude 텍스트만, 턴 끝마다 `task_complete`. reasoning과 툴 인자·결과는 버린다. `transcript_events.content_filter`(기본 `public_only`, 명시적 `raw`)를 `transcript_delta_delivery`가 적용한다.
+
+Direct launch safety boundary: launchers pass `channel=launch_data_path.ChannelDelivery(terminal_wake, whole_message)` to `resolve`; `ChannelDelivery.router_reason()` keeps a launch on the router, before any gateway selection, when its LLM-delivery wakes are typed `[ciel-wake]` markers and it has no whole-message transport (`CHANNEL_MARKER_REASON`). `run_codex` declares `terminal_wake=channel_delivery_mode(cfg) == "llm"` with no transport (plain Codex TUI stays router at launch and restart), `run_claude` declares `whole_message="session_socket"` only when a messaging socket target exists, and `run_codex_app_server` declares `whole_message="app_server"`. No runtime-name branch; `resolve_requested_model` resolves upstream identity. Direct app-server provider id is `ciel-runtime-gateway`. `CIEL_RUNTIME_DIRECT_GATEWAY_ACTIVE` is launch-scoped in the supervisor: channel_pending_injection delivers whole socket/TTY bodies and codex_desktop_injection uses RPC instead of waiting for router model HTTP. Restart rebuilds the Claude model/env snapshot or app-server model/provider/catalog snapshot. Direct mode has no request-level TUI response observations; transcript turn-end survives.

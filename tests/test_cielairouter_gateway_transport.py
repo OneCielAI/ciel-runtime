@@ -130,6 +130,88 @@ class TestTransport(unittest.TestCase):
         self.assertEqual(response.read(), b"body")
         self.assertEqual(self.results[0].reason, "http_complete")
 
+    def test_large_explicit_terminals_before_and_after_data(self):
+        for protocol, names in [('responses', ['response.completed', 'response.incomplete', 'response.failed']),
+                                ('anthropic', ['message_stop'])]:
+            for name in names:
+                for after in (False, True):
+                    for separator in (b'\n', b'\r\n', b'\r'):
+                        with self.subTest(protocol=protocol, name=name, after=after, separator=separator):
+                            event = b'event: ' + name.encode() + separator
+                            data = b'data: ' + json.dumps({'padding': 'x' * 131072, 'type': name}).encode() + separator
+                            body = (data + event if after else event + data) + separator
+                            response = self.make(body, protocol, max_sse_buffer=128)
+                            output = bytearray()
+                            while part := response.read(37):
+                                output.extend(part)
+                                self.assertLessEqual(len(response._parser.line) + len(response._parser.data), 128)
+                            self.assertEqual(bytes(output), body)
+                            self.assertEqual(len(self.results), 1)
+                            self.assertTrue(self.results[0].success)
+                            self.assertEqual(self.results[0].terminal, name)
+
+    def test_comments_do_not_exhaust_event_budget_and_done_survives(self):
+        for protocol, terminal in [('chat', b'data: [DONE]\n\n'),
+                                   ('responses', frame('response.completed'))]:
+            body = b':' + b'x' * 200000 + b'\r\n' + terminal
+            response = self.make(body, protocol, max_sse_buffer=128)
+            output = bytearray()
+            while part := response.read(1):
+                output.extend(part)
+            self.assertEqual(bytes(output), body)
+            self.assertTrue(self.results[0].success)
+
+    def test_oversized_json_only_is_honest_unknown_not_failure_evidence(self):
+        cases = [('responses', {'type': 'response.completed'}),
+                 ('responses', {'type': 'response.incomplete'}),
+                 ('responses', {'type': 'response.failed'}),
+                 ('anthropic', {'type': 'message_stop'}),
+                 ('chat', {'choices': [{'finish_reason': 'stop'}]}),
+                 ('responses', {'type': 'response.output_text.delta'})]
+        for protocol, fields in cases:
+            with self.subTest(protocol=protocol, fields=fields):
+                body = b'data: ' + json.dumps({'padding': 'x' * 900000, **fields}).encode() + b'\n\n'
+                response = self.make(body, protocol)
+                self.assertEqual(response.read(), body)
+                self.assertEqual(self.results[0].reason, 'observation_incomplete')
+                self.assertIsNone(response.terminal_observed)
+                self.assertFalse(self.results[0].success)
+
+    def test_nested_and_string_types_do_not_forge_terminals(self):
+        for fields in [{'nested': {'type': 'response.completed'}},
+                       {'text': '"type":"response.completed"'},
+                       {'type': 'response.output_text.delta'}]:
+            response = self.make(b'data: ' + json.dumps(fields).encode() + b'\n\n', 'responses')
+            response.read()
+            self.assertEqual(self.results[0].reason, 'eof_before_terminal')
+        response = self.make(b'event: response.completed' + b'x' * 1000 + b'\n\n', 'responses', max_sse_buffer=128)
+        response.read()
+        self.assertEqual(self.results[0].reason, 'observation_incomplete')
+        self.assertIsNone(response.terminal_observed)
+
+    def test_large_nonterminal_then_terminal_and_partial_terminal(self):
+        for protocol, terminal in [('responses', frame('response.completed')),
+                                   ('anthropic', frame('message_stop')),
+                                   ('chat', b'data: {"choices":[{"finish_reason":"stop"}]}\n\n'),
+                                   ('chat', b'data: [DONE]\n\n')]:
+            body = b'data: ' + b'x' * 200000 + b'\n\n' + terminal
+            response = self.make(body, protocol, max_sse_buffer=128)
+            self.assertEqual(response.read(), body)
+            self.assertTrue(self.results[0].success)
+        response = self.make(b'event: response.completed\ndata: ' + b'x' * 200000, 'responses')
+        response.read()
+        self.assertEqual(self.results[0].reason, 'observation_incomplete')
+        self.assertIsNone(response.terminal_observed)
+
+    def test_small_multi_data_json_and_legitimate_truncation(self):
+        response = self.make(b'data: {"type":\r\ndata: "response.completed"}\r\n\r\n', 'responses')
+        response.read()
+        self.assertTrue(self.results[0].success)
+        for body in [b'data: {}\n\n', b'event: response.completed\ndata: {}\n', b'data: {"type":"response.completed"}']:
+            response = self.make(body, 'responses')
+            response.read()
+            self.assertEqual(self.results[0].reason, 'eof_before_terminal')
+
 class ExtendedTransportTests(unittest.TestCase):
     def test_real_urlopen_stream_eof_and_timeout(self):
         import threading
@@ -178,12 +260,12 @@ class ExtendedTransportTests(unittest.TestCase):
         self.assertEqual(len(results), 1)
         self.assertTrue(results[0].success)
 
-    def test_oversized_single_chunk_cannot_forge_terminal(self):
+    def test_explicit_terminal_after_oversized_multiline_data(self):
         body = b'data: x\n' * 50000 + b'event: message_stop\n\n'
         results = []
         response = wrap_gateway_response(R(body), 'anthropic', on_result=results.append, max_sse_buffer=128)
         self.assertEqual(response.read(), body)
-        self.assertFalse(results[0].success)
+        self.assertTrue(results[0].success)
         results.clear()
         response = wrap_gateway_response(R(body + frame('message_stop')), 'anthropic', on_result=results.append, max_sse_buffer=128)
         response.read()

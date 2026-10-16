@@ -337,5 +337,64 @@ class SessionRankingTests(unittest.TestCase):
         self.assertFalse(service.record_failure(old, 'stream_truncated'))
         self.assertTrue(service.is_cooling(old))
 
+class ReselectionRaceTests(unittest.TestCase):
+    def test_failure_during_exploration_does_not_publish_or_cache_cooling_route(self):
+        for current_failure in (False, True):
+            with self.subTest(current_failure=current_failure):
+                now = [1000.0]
+                rows = [row('a', 'https://a.test', now[0], utilization=.1),
+                        row('b', 'https://b.test', now[0], utilization=.2)]
+                entered, release = threading.Event(), threading.Event()
+                block = [False]
+
+                def probe(candidate, _):
+                    if block[0] and candidate.node_id == 'a':
+                        entered.set()
+                        if not release.wait(5):
+                            raise TimeoutError()
+                    return ProbeResult(True, .01)
+
+                service = CielAiRouterGatewayService(discovery=lambda *_: {
+                    'object': 'list', 'protocol_version': 1, 'generated_at': stamp(now[0]), 'data': rows},
+                    probe=probe, clock=lambda: now[0])
+                old_a = service.select('https://central.test', 'key')
+                if not current_failure:
+                    rows[0]['congestion']['utilization'] = .9
+                    now[0] += 6
+                    self.assertEqual('https://b.test', service.select('https://central.test', 'key', fresh=True).endpoint)
+                    rows[0]['congestion']['utilization'] = .1
+                now[0] += 6
+                block[0] = True
+                results = []
+                worker = threading.Thread(target=lambda: results.append(service.select('https://central.test', 'key', fresh=True)))
+                worker.start()
+                try:
+                    self.assertTrue(entered.wait(5))
+                    self.assertTrue(service.record_failure(old_a, 'stream_truncated'))
+                finally:
+                    release.set()
+                    worker.join(5)
+                self.assertFalse(worker.is_alive())
+                self.assertEqual(['https://b.test'], [r.endpoint for r in results])
+                for _ in range(16):
+                    result = service.select('https://central.test', 'key')
+                    self.assertEqual('https://b.test', result.endpoint)
+                    self.assertFalse(service.is_cooling(result))
+
+    def test_cached_selection_rechecks_cooldown_and_candidate_expiry(self):
+        now = [1000.0]
+        rows = [row('a', 'https://a.test', now[0]), row('b', 'https://b.test', now[0], utilization=.3)]
+        rows[0]['availableUntil'] = stamp(now[0] + 1)
+        service = CielAiRouterGatewayService(discovery=lambda *_: {
+            'object': 'list', 'protocol_version': 1, 'generated_at': stamp(now[0]), 'data': rows},
+            probe=lambda *_: ProbeResult(True, .01), clock=lambda: now[0])
+        first = service.select('https://central.test', 'key')
+        now[0] += 2
+        self.assertEqual('https://b.test', service.select('https://central.test', 'key').endpoint)
+        with service._condition:
+            service._states[first.scope].failures['https://b.test'] = now[0] + 60
+        self.assertNotEqual('https://b.test', service.select('https://central.test', 'key').endpoint)
+
+
 if __name__ == '__main__':
     unittest.main()

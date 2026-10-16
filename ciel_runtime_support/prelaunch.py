@@ -1169,6 +1169,27 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                         open_panel("preset")
                     elif value == "timeout_profile":
                         open_panel("timeout")
+                    elif provider == "cielairouter" and value in ("gateway_selection", "gateway_status"):
+                        if value == "gateway_selection":
+                            from ciel_runtime_support.cielairouter_gateway_overlay import selection_enabled
+                            messages = set_llm_option_config(provider, value, "off" if selection_enabled(pcfg) else "auto")
+                        else:
+                            messages = set_llm_option_config(provider, value, "status")
+                        cfg = load_config()
+                        provider, pcfg = get_current_provider(cfg)
+                        panel_rows, panel_values = llm_option_panel_rows(provider, pcfg, cfg.get("language", "en"))
+                    elif value == "gateway_data_path":
+                        # Only providers whose policy shows the row reach here; the setter rejects others.
+                        from ciel_runtime_support.launch_data_path import DIRECT, ROUTER, configured_data_path
+                        try:
+                            messages = set_llm_option_config(
+                                provider, value, ROUTER if configured_data_path(pcfg) == DIRECT else DIRECT
+                            )
+                        except SystemExit as exc:
+                            messages = [str(exc)]
+                        cfg = load_config()
+                        provider, pcfg = get_current_provider(cfg)
+                        panel_rows, panel_values = llm_option_panel_rows(provider, pcfg, cfg.get("language", "en"))
                     elif value in LLM_OPTION_TOGGLE_KEYS:
                         # Boolean toggles flip on Enter — no input prompt.
                         current = llm_option_current_bool(provider, pcfg, value)

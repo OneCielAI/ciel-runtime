@@ -1,0 +1,37 @@
+  line\\nsynthetic filler line\\nsynthetic filler line\\nsynthetic filler line\\nsynthetic filler line\\nsynthetic filler
+  line\\nsynthetic filler line\\nsynthetic filler line\\nsynthetic filler line\\nsynthetic filler line\\nsynthetic filler
+  line\\nsynthetic filler line\\nsynthetic filler line\\nsynthetic filler line\\nsynthetic filler line\\nsynthetic filler
+  line\\nsynthetic filler line\\nsynthetic filler line\\nsynthetic filler line\\nsynthetic filler line\\nsynthetic filler
+  line\\nsynthetic filler line\\nsynthetic filler line\\nE2E-DIRECT-1-TAIL-9c215f3f87 reply briefly\"}}"
+
+● STUB-REPLY-A
+
+✻ Sautéed for 0s · done 4:46 PM
+
+❯ 계속-세션재시작됨
+
+● STUB-REPLY-B
+
+✻ Cooked for 0s · done 4:46 PM
+
+❯ [ciel-runtime external channel message] channel=external:default room=external:default from=http://127.0.0.1/e2e id=3
+  thread=e2e-9c215f3f87-2 metadata={"event_type":"com.ciel.e2e.direct.message","event_id":"e2e-9c215f3f87-2"} text="{\"specversion\":
+  \"1.0\", \"id\": \"e2e-9c215f3f87-2\", \"type\": \"com.ciel.e2e.direct.message\", \"source\": \"http://127.0.0.1/e2e\", \"data\":
+  {\"stream_id\": \"2\", \"text\": \"E2E-DIRECT-2-HEAD-9c215f3f87\\nsynthetic filler line\\nsynthetic filler line\\nsynthetic filler
+  line\\nsynthetic filler line\\nsynthetic filler line\\nsynthetic filler line\\nsynthetic filler line\\nsynthetic filler
+  line\\nsynthetic filler line\\nsynthetic filler line\\nsynthetic filler line\\nsynthetic filler line\\nsynthetic filler
+  line\\nsynthetic filler line\\nsynthetic filler line\\nsynthetic filler line\\nsynthetic filler line\\nsynthetic filler
+  line\\nsynthetic filler line\\nsynthetic filler line\\nsynthetic filler line\\nsynthetic filler line\\nsynthetic filler
+  line\\nsynthetic filler line\\nsynthetic filler line\\nsynthetic filler line\\nsynthetic filler line\\nsynthetic filler
+  line\\nsynthetic filler line\\nsynthetic filler line\\nsynthetic filler line\\nsynthetic filler line\\nsynthetic filler
+  line\\nsynthetic filler line\\nsynthetic filler line\\nsynthetic filler line\\nsynthetic filler line\\nsynthetic filler
+  line\\nsynthetic filler line\\nsynthetic filler line\\nE2E-DIRECT-2-TAIL-9c215f3f87 reply briefly\"}}"
+
+● STUB-REPLY-B
+
+✻ Crunched for 0s · done 4:46 PM
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  paste again to expand

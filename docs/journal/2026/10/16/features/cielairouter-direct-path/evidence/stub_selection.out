@@ -1,0 +1,24 @@
+route: LaunchDataPath(runtime='claude', configured='direct', active='direct', endpoint='http://127.0.0.1:56847', node_id='stub-node-1', central='127.0.0.1:56848', reason='ranked', model='ASTRA')
+direct: True | endpoint == stub gateway: True
+selection off: router (direct unavailable: gateway_selection is off)
+default setting: router
+claude ANTHROPIC_BASE_URL: router=http://127.0.0.1:59871 direct=<stub-gateway>
+claude ANTHROPIC_MODEL: router=ciel-runtime-cielairouter-astra direct=ASTRA
+claude ANTHROPIC_DEFAULT_OPUS_MODEL: router=ciel-runtime-cielairouter-cc-claude-opus-5-5 direct=cc/claude-opus-5-5
+claude CLAUDE_CODE_SUBAGENT_MODEL: router=ciel-runtime-cielairouter-astra direct=ASTRA
+claude CIEL_RUNTIME_MODEL_ALIAS: router=ciel-runtime-cielairouter-astra direct=ASTRA
+claude ANTHROPIC_AUTH_TOKEN is router key (router/direct): True True
+codex provider args: ['model_provider="ciel-runtime"', 'model_providers.ciel-runtime.name="Ciel Runtime"', 'model_providers.ciel-runtime.base_url="<stub-gateway>/v1"', 'model_providers.ciel-runtime.wire_api="responses"', 'model_providers.ciel-runtime.env_key="CIEL_RUNTIME_GATEWAY_API_KEY"', 'model_providers.ciel-runtime.request_max_retries=0', 'model_providers.ciel-runtime.stream_max_retries=0']
+key present in logs/output/record/repr/codex argv/status: False
+log lines:
+   INFO launch_data_path runtime=claude provider=cielairouter configured=direct active=direct endpoint=<stub-gateway> node=stub-node-1 central=<stub-central> reason=ranked elapsed_ms=16; model requests go to the gateway, the router keeps MCP, channels and restart
+   WARN launch_data_path runtime=codex provider=cielairouter configured=direct active=router central=<stub-central> reason=gateway_selection is off elapsed_ms=0; model requests use the local router
+status lines:
+   Gateway data path: direct (opt-in) - at launch Claude Code/Codex send model requests straight to the selected gateway; the local router keeps MCP, channels, events and restart.
+   A running CLI keeps the gateway it was launched with until it restarts; direct mode has no live re-route.
+   Last launch data path per CLI (this workspace; recorded at launch):
+     claude: router at 2026-10-16T21:08:36Z
+     codex: router (direct unavailable: gateway_selection is off) at 2026-10-16T21:08:36Z
+stub requests:
+   {'server': 'central', 'path': '/api/gateway/discovery', 'authorization': 'bearer-router-key'}
+   {'server': 'gateway', 'path': '/healthz', 'authorization': 'none'}

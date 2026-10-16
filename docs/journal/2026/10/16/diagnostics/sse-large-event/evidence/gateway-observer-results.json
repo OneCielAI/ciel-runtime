@@ -1,0 +1,79 @@
+[
+  {
+    "event_nonnewline_bytes": 65535,
+    "wire_bytes": 65538,
+    "wire_preserved": true,
+    "gateway_terminal": "response.completed",
+    "gateway_observation": [
+      {
+        "success": true,
+        "reason": "terminal_event"
+      }
+    ],
+    "usage_observer_terminal": "response.completed"
+  },
+  {
+    "event_nonnewline_bytes": 65536,
+    "wire_bytes": 65539,
+    "wire_preserved": true,
+    "gateway_terminal": "response.completed",
+    "gateway_observation": [
+      {
+        "success": true,
+        "reason": "terminal_event"
+      }
+    ],
+    "usage_observer_terminal": "response.completed"
+  },
+  {
+    "event_nonnewline_bytes": 65537,
+    "wire_bytes": 65540,
+    "wire_preserved": true,
+    "gateway_terminal": null,
+    "gateway_observation": [
+      {
+        "success": false,
+        "reason": "eof_before_terminal"
+      }
+    ],
+    "usage_observer_terminal": "response.completed"
+  },
+  {
+    "event_nonnewline_bytes": 131072,
+    "wire_bytes": 131075,
+    "wire_preserved": true,
+    "gateway_terminal": null,
+    "gateway_observation": [
+      {
+        "success": false,
+        "reason": "eof_before_terminal"
+      }
+    ],
+    "usage_observer_terminal": "response.completed"
+  },
+  {
+    "event_nonnewline_bytes": 900000,
+    "wire_bytes": 900003,
+    "wire_preserved": true,
+    "gateway_terminal": null,
+    "gateway_observation": [
+      {
+        "success": false,
+        "reason": "eof_before_terminal"
+      }
+    ],
+    "usage_observer_terminal": "response.completed"
+  },
+  {
+    "case": "oversized nonterminal followed by small terminal",
+    "wire_preserved": true,
+    "gateway_terminal": "response.completed",
+    "success": true
+  },
+  {
+    "case": "TUI observer large delta",
+    "payload_chars": 900000,
+    "observed_chars": 900000,
+    "wire_preserved": true
+  }
+]

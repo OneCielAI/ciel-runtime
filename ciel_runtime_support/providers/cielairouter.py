@@ -21,6 +21,8 @@ from typing import Any, Mapping
 from ..architecture import (
     MessageProtocol,
     ProviderCapabilities,
+    ProviderConfigurationPolicy,
+    ProviderOptionPresentationPolicy,
     ProviderConfig,
     ProviderContextPolicy,
     ProviderModelCatalogPolicy,
@@ -131,6 +133,33 @@ def lower_to_supported_effort(value: str, tiers: list[str]) -> str:
     return lower[-1] if lower else ranked[0][1]
 
 
+class CielAiRouterConfigurationPolicy(ProviderConfigurationPolicy):
+    @property
+    def supports_gateway_selection(self) -> bool:
+        return True
+
+    @property
+    def supports_gateway_data_path(self) -> bool:
+        # The gateway serves /v1/messages and /v1/responses with the router key,
+        # so a CLI can send its model HTTP there itself (gateway_data_path=direct).
+        return True
+
+    def launch_gateway(self, config: Mapping[str, Any], *, log: Any = None) -> Any:
+        from ..cielairouter_gateway_overlay import select_launch_gateway
+
+        return select_launch_gateway(config, log=log)
+
+
+class CielAiRouterPresentationPolicy(ProviderOptionPresentationPolicy):
+    @property
+    def show_gateway_selection(self) -> bool:
+        return True
+
+    @property
+    def show_gateway_data_path(self) -> bool:
+        return True
+
+
 @dataclass(frozen=True)
 class CielAiRouterProviderAdapter(OpenAICompatibleProviderAdapter):
     """Runtime-native protocols and catalog-driven limits for CielAiRouter."""
@@ -179,6 +208,12 @@ class CielAiRouterProviderAdapter(OpenAICompatibleProviderAdapter):
             reapply_catalog_profile_at_launch=True,
         )
     )
+
+    def configuration_policy(self, config: ProviderConfig) -> ProviderConfigurationPolicy:
+        return CielAiRouterConfigurationPolicy(**vars(super().configuration_policy(config)))
+
+    def option_presentation_policy(self, config: ProviderConfig) -> ProviderOptionPresentationPolicy:
+        return CielAiRouterPresentationPolicy(**vars(super().option_presentation_policy(config)))
 
     def context_policy(self, config: ProviderConfig) -> ProviderContextPolicy:
         del config

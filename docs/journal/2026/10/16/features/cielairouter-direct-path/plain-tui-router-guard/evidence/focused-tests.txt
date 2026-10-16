@@ -1,0 +1,27 @@
+files: test_launch_data_path.py test_codex_runtime.py test_channel_pending_injection.py test_codex_desktop_injection.py test_runtime_session_restart.py test_unattended_restart.py test_codex_app_server_session.py test_cielairouter_gateway_overlay.py test_provider_gateway_options.py test_claude_native_provider.py test_architecture_contracts.py test_architecture_budget.py test_provider_contract_matrix.py
+env: CIEL_RUNTIME_* unset (12 inherited names removed); runner: scripts/run_test_group.isolate_runtime_state
+........Ciel Runtime: restarting Claude Code source=mcp reason=deploy
+................Ciel Runtime: restarting Claude Code source=ciel-runtime-router-tool reason=deploy
+.Ciel Runtime: restarting Claude Code source=ciel-runtime-router-tool reason=deploy
+.Ciel Runtime: restarting Claude Code source=ciel-runtime-router-tool reason=deploy
+.Ciel Runtime: restarting Claude Code source=ciel-runtime-router-tool reason=deploy
+..Ciel Runtime: restarting Codex app-server and TUI source=ciel-runtime-router-tool reason=deploy thread=(new)
+.Ciel Runtime: restarting Codex app-server and TUI source=ciel-runtime-router-tool reason=deploy thread=01a0-saved
+..Ciel Runtime: restarting Codex source=ciel-runtime-router-tool reason=deploy
+...........................................................................ciel-runtime restart-session: queued request_id=r1 client_pid=42 workspace=- resume=false
+ciel-runtime restart-session: no active CLI session is running through ciel-runtime
+ciel-runtime restart-session: multiple CLI sessions are active; select one:
+  --pid 1  workspace=C:/work router_port=9611 started=-
+  --pid 2  workspace=C:/work router_port=9611 started=-
+ciel-runtime restart-session: queued request_id=r1 client_pid=50788 workspace=C:/work resume=true
+ciel-runtime restart-session: client pid 99 is not an active CLI session
+ciel-runtime restart-session: queued request_id=r1 client_pid=7 workspace=- resume=true
+.Ciel Runtime: restarting Codex app-server and TUI source=mcp reason=- thread=(new)
+...codex-remote needs a ws:// app-server listen address, got stdio://
+.Ciel Runtime: restarting Codex app-server and TUI source=mcp reason=- thread=(new)
+...Codex app-server did not become ready at ws://127.0.0.1:19961; see C:\Users\djlov\AppData\Local\Temp\tmphgxgajdb\codex-remote\ws1\app-server.log
+.......................................................................................................................................................................s..sss.......s.ss......sssssssss..............ss...s....s..s.......s.............s..s..............s.ssssssssssss...........................ss..................................................................................s.ss............................................................
+----------------------------------------------------------------------
+Ran 737 tests in 70.858s
+
+OK (skipped=54)

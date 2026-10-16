@@ -1,0 +1,127 @@
+{
+  "transcript_path": "G:\\ciel-e2e\\direct-path\\codex-remote-1792187159\\codex-home\\sessions\\2026\\10\\16\\rollout-2026-10-16T16-46-11-01a146ae-0342-75d1-8603-6a0def64c38a.jsonl",
+  "sha256": "ddb06d478478b751558eb1b83f109fb13e7b9fd7252e0737c1e055047c0d392f",
+  "types": {
+    "session_meta": 1,
+    "event_msg": 19,
+    "response_item": 10,
+    "world_state": 1,
+    "turn_context": 3,
+    "token_usage_record": 3
+  },
+  "user_markers": [
+    {
+      "head1": false,
+      "tail1": false,
+      "head2": false,
+      "tail2": false,
+      "restart": false
+    },
+    {
+      "head1": true,
+      "tail1": true,
+      "head2": false,
+      "tail2": false,
+      "restart": false
+    },
+    {
+      "head1": false,
+      "tail1": false,
+      "head2": false,
+      "tail2": false,
+      "restart": true
+    },
+    {
+      "head1": false,
+      "tail1": false,
+      "head2": true,
+      "tail2": true,
+      "restart": false
+    }
+  ],
+  "input_statuses": [
+    {
+      "request_id": 1,
+      "status": "queued",
+      "updated_at": "2026-10-16T16:46:28-05:00",
+      "updated_at_epoch": 1792187188.9086666,
+      "data": {
+        "channel": "external:default",
+        "input_transport": "session_socket"
+      }
+    },
+    {
+      "request_id": 1,
+      "status": "submitted",
+      "updated_at": "2026-10-16T16:46:29-05:00",
+      "updated_at_epoch": 1792187189.4794447
+    },
+    {
+      "request_id": 1,
+      "status": "replied",
+      "updated_at": "2026-10-16T16:46:30-05:00",
+      "updated_at_epoch": 1792187190.4983811
+    },
+    {
+      "request_id": 2,
+      "status": "queued",
+      "updated_at": "2026-10-16T16:46:39-05:00",
+      "updated_at_epoch": 1792187199.6187596,
+      "data": {
+        "channel": "restart",
+        "input_transport": "tty"
+      }
+    },
+    {
+      "request_id": 2,
+      "status": "submitted",
+      "updated_at": "2026-10-16T16:46:40-05:00",
+      "updated_at_epoch": 1792187200.2702973
+    },
+    {
+      "request_id": 2,
+      "status": "replied",
+      "updated_at": "2026-10-16T16:46:41-05:00",
+      "updated_at_epoch": 1792187201.27971
+    },
+    {
+      "request_id": 3,
+      "status": "queued",
+      "updated_at": "2026-10-16T16:46:46-05:00",
+      "updated_at_epoch": 1792187206.9217901,
+      "data": {
+        "channel": "external:default",
+        "input_transport": "session_socket"
+      }
+    },
+    {
+      "request_id": 3,
+      "status": "submitted",
+      "updated_at": "2026-10-16T16:46:47-05:00",
+      "updated_at_epoch": 1792187207.3234112
+    },
+    {
+      "request_id": 3,
+      "status": "replied",
+      "updated_at": "2026-10-16T16:46:48-05:00",
+      "updated_at_epoch": 1792187208.3325553
+    }
+  ],
+  "screenshot_files": [
+    {
+      "path": "C:\\Users\\djlov\\ciel-runtime\\docs\\journal\\2026\\10\\16\\features\\cielairouter-direct-path\\evidence\\e2e\\run-codex-remote\\shots\\01-started.png",
+      "bytes": 23323,
+      "sha256": "f000b7bc50d8c813f60bf82b3acee0bf22c6abac7b7ab1902a774425f6471ac9"
+    },
+    {
+      "path": "C:\\Users\\djlov\\ciel-runtime\\docs\\journal\\2026\\10\\16\\features\\cielairouter-direct-path\\evidence\\e2e\\run-codex-remote\\shots\\02-sse1.png",
+      "bytes": 46808,
+      "sha256": "ae322042961743722abe5e53deef1c5ae5fc0ffead82b6b0d9ad822d1354aef0"
+    },
+    {
+      "path": "C:\\Users\\djlov\\ciel-runtime\\docs\\journal\\2026\\10\\16\\features\\cielairouter-direct-path\\evidence\\e2e\\run-codex-remote\\shots\\03-sse2-after-restart.png",
+      "bytes": 47447,
+      "sha256": "b7110d891f44600fdd7fed18d48ae951fb17a3675e964781a6d560d9f02a61e5"
+    }
+  ]
+}

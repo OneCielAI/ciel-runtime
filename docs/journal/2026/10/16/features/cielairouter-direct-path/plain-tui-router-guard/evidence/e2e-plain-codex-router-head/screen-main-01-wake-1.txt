@@ -1,0 +1,39 @@
+17:04:39
+
+  >_ OpenAI Codex (v0.163.0)
+     G:\ciel-e2e\direct-plain\codex-router-head\ws
+  permissions: YOLO mode
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+› [ciel-wake] pending_ids=1
+
+  stub-model (CielAiRouter) medium · G:\ciel-e2e\direct-plain\codex-router-head\ws
+                                                                                                              ⚠ 1 warning · f2 to view

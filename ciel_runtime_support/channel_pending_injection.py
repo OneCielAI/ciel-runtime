@@ -198,6 +198,12 @@ def inject_pending_channel_messages(
                 if "input_transport" in metadata
                 else wake_for_llm_delivery
             )
+            from .launch_data_path import model_http_bypassed
+            if model_http_bypassed():
+                # Direct model HTTP never reaches the router's body injector.
+                # Prefer a whole-message socket; otherwise type the complete body.
+                requested_session_socket = _session_socket_usable(io)
+                requested_router = False
             if requested_session_socket and not _session_socket_usable(io):
                 # Without a socket the router block is the next whole-message
                 # path; typing a large body into a Windows TUI loses characters

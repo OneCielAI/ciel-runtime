@@ -1,12 +1,16 @@
 import copy
 import io
+import json
+import socket
 import tempfile
+import threading
 import time
 import unittest
 import urllib.error
 import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from types import SimpleNamespace
 from unittest import mock
 
@@ -518,6 +522,207 @@ class FailureFeedbackTests(unittest.TestCase):
         pcfg = self.routed()
         self.assertIn(ROUTE_TOKEN_KEY, pcfg)
         self.assertNotIn(ROUTE_TOKEN_KEY, discovery_provider_config(pcfg))
+
+
+class SessionReselectionTests(unittest.TestCase):
+    def test_pin_expires_at_candidate_availability_deadline(self):
+        now = [1000.0]
+        selector = SessionStickinessTests.Selector()
+        original = selector.select
+
+        def select(*args, **kwargs):
+            result = original(*args, **kwargs)
+            result.candidate.available_until = now[0] + 2
+            return result
+
+        selector.select = select
+        overlay = CielAiRouterGatewayOverlay(lambda: selector, clock=lambda: now[0])
+        def route():
+            return overlay.apply('cielairouter', cielairouter_pcfg(), session='one')['base_url']
+        self.assertEqual('https://gw-a.test', route())
+        now[0] += 1
+        self.assertEqual('https://gw-a.test', route())
+        now[0] += 1
+        self.assertEqual('https://gw-b.test', route())
+
+    def test_session_pin_is_scoped_by_api_key(self):
+        selector = SessionStickinessTests.Selector()
+        overlay = CielAiRouterGatewayOverlay(lambda: selector)
+        def route(key):
+            return overlay.apply('cielairouter', cielairouter_pcfg(api_key=key), session='same')['base_url']
+        self.assertEqual('https://gw-a.test', route('key-one'))
+        self.assertEqual('https://gw-b.test', route('key-two'))
+        self.assertEqual('https://gw-a.test', route('key-one'))
+
+    def test_simultaneous_first_requests_share_one_pin_not_last_writer_wins(self):
+        entered, release = threading.Event(), threading.Event()
+        selector = SessionStickinessTests.Selector()
+        original = selector.select
+
+        def select(*args, **kwargs):
+            result = original(*args, **kwargs)
+            if len(selector.calls) == 1:
+                entered.set()
+                if not release.wait(5):
+                    raise TimeoutError()
+            return result
+
+        selector.select = select
+        overlay = CielAiRouterGatewayOverlay(lambda: selector)
+        routes = []
+        def route():
+            routes.append(overlay.apply('cielairouter', cielairouter_pcfg(), session='same')['base_url'])
+        first = threading.Thread(target=route)
+        second = threading.Thread(target=route)
+        first.start()
+        try:
+            self.assertTrue(entered.wait(5))
+            second.start()
+            second.join(.1)
+        finally:
+            release.set()
+            first.join(5)
+            second.join(5)
+        self.assertFalse(first.is_alive() or second.is_alive())
+        self.assertEqual(['https://gw-a.test'] * 2, sorted(routes))
+        self.assertEqual([True], selector.calls)
+        for _ in range(16):
+            route()
+        self.assertEqual({'https://gw-a.test'}, set(routes))
+
+
+class LocalGatewayFixtureTests(unittest.TestCase):
+    def test_large_sse_loopback_does_not_penalize_gateway(self):
+        wire = [b'']
+
+        class Handler(BaseHTTPRequestHandler):
+            def log_message(self, *_):
+                pass
+
+            def do_GET(self):
+                self.send_response(200)
+                self.send_header('Content-Type', 'text/event-stream')
+                self.send_header('Content-Length', str(len(wire[0])))
+                self.end_headers()
+                for offset in range(0, len(wire[0]), 997):
+                    self.wfile.write(wire[0][offset:offset + 997])
+
+        server = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        endpoint = f'http://127.0.0.1:{server.server_port}'
+        selector = FailureFeedbackTests.Selector()
+        selector.endpoint = endpoint
+        overlay = CielAiRouterGatewayOverlay(lambda: selector, log=Recorder())
+        routed = overlay.apply('cielairouter', cielairouter_pcfg())
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        try:
+            for kind in ('response.completed', 'response.incomplete', 'response.failed', 'message_stop'):
+                path = '/v1/messages' if kind == 'message_stop' else '/v1/responses'
+                for explicit in (True, False):
+                    with self.subTest(kind=kind, explicit=explicit):
+                        wire[0] = (b'data: ' + json.dumps({'padding': 'x' * 131072, 'type': kind}).encode()
+                                   + b'\r\n' + (f'event: {kind}\r\n'.encode() if explicit else b'') + b'\r\n')
+                        request = urllib.request.Request(endpoint + path)
+                        with overlay.observed_open(request, routed, lambda: opener.open(request, timeout=3)) as response:
+                            actual = bytearray()
+                            while part := response.read(113):
+                                actual.extend(part)
+                            self.assertEqual(bytes(actual), wire[0])
+                            self.assertEqual(response.terminal_observed, kind if explicit else None)
+                        self.assertEqual(selector.failures, [])
+            wire[0] = b'data: {}\n\n'
+            request = urllib.request.Request(endpoint + '/v1/responses')
+            with overlay.observed_open(request, routed, lambda: opener.open(request, timeout=3)) as response:
+                response.read()
+            self.assertEqual(selector.failures, [(endpoint, 'stream_truncated')])
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(5)
+
+    def test_unreachable_loopback_then_failure_rotates_once_and_16_later_posts_stick(self):
+        from ciel_runtime_support.cielairouter_gateways import CielAiRouterGatewayService
+
+        traffic = []
+        payload = {}
+        fail = [False]
+
+        def handler(node):
+            class Handler(BaseHTTPRequestHandler):
+                def log_message(self, *_):
+                    pass
+
+                def reply(self, code, body):
+                    data = json.dumps(body).encode()
+                    self.send_response(code)
+                    self.send_header('Content-Type', 'application/json')
+                    self.send_header('Content-Length', str(len(data)))
+                    self.end_headers()
+                    self.wfile.write(data)
+
+                def do_GET(self):
+                    traffic.append((node, 'GET', self.path, self.headers.get('Authorization')))
+                    self.reply(200, payload if self.path == '/api/gateway/discovery' else
+                               {'nodeId': node, 'role': 'gateway', 'ready': True})
+
+                def do_POST(self):
+                    self.rfile.read(int(self.headers.get('Content-Length', 0)))
+                    traffic.append((node, 'POST', self.path, self.headers.get('Authorization')))
+                    self.reply(503 if node == 'a' and fail[0] else 200, {'gateway': node})
+            return Handler
+
+        servers = [ThreadingHTTPServer(('127.0.0.1', 0), handler(node)) for node in ('central', 'a', 'b')]
+        threads = [threading.Thread(target=server.serve_forever, daemon=True) for server in servers]
+        # A bound socket without listen is reliably unreachable, without recycling its port.
+        with socket.socket() as unreachable:
+            unreachable.bind(('127.0.0.1', 0))
+            endpoints = [f'http://127.0.0.1:{server.server_port}' for server in servers]
+            dead = f'http://127.0.0.1:{unreachable.getsockname()[1]}'
+            now = datetime.now(timezone.utc)
+            payload.update(object='list', protocol_version=1, generated_at=_iso(now), data=[
+                {'id': node, 'endpoint': endpoint, 'endpoints': [endpoint], 'status': 'online',
+                 'health': 'healthy', 'lastSeenAt': _iso(now - timedelta(seconds=1)),
+                 'availableUntil': _iso(now + timedelta(minutes=5)),
+                 'congestion': {'utilization': load, 'backlog': 0, 'observedAt': _iso(now)}}
+                for node, endpoint, load in [('dead', dead, 0), ('a', endpoints[1], .1), ('b', endpoints[2], .2)]])
+            for thread in threads:
+                thread.start()
+            try:
+                service = CielAiRouterGatewayService()
+                overlay = CielAiRouterGatewayOverlay(lambda: service)
+                pcfg = cielairouter_pcfg(base_url=endpoints[0], api_key='fixture-key')
+                opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+                # Use a real urllib client for discovery/probes, avoiding host proxy settings.
+                from ciel_runtime_support.cielairouter_gateways import GatewayHttpClient
+                client = GatewayHttpClient(opener.open)
+                service.discovery, service.probe = client.discovery, client.probe
+
+                def post():
+                    routed = overlay.apply('cielairouter', pcfg, session='fixture-session')
+                    request = urllib.request.Request(routed['base_url'] + '/v1/messages', data=b'{}',
+                        headers={'Authorization': 'Bearer fixture-key'}, method='POST')
+                    with overlay.observed_open(request, routed, lambda: opener.open(request, timeout=2)) as response:
+                        return json.loads(response.read())
+
+                self.assertEqual({'gateway': 'a'}, post())
+                fail[0] = True
+                with self.assertRaises(urllib.error.HTTPError) as raised:
+                    post()
+                self.assertEqual(503, raised.exception.code)
+                self.assertEqual(['a', 'a'], [t[0] for t in traffic if t[1] == 'POST'])
+                for _ in range(16):
+                    self.assertEqual({'gateway': 'b'}, post())
+                self.assertEqual(['a', 'a'] + ['b'] * 16, [t[0] for t in traffic if t[1] == 'POST'])
+                self.assertTrue(all(t[3] is None for t in traffic if t[2] == '/healthz'))
+                self.assertTrue(all(t[3] == 'Bearer fixture-key' for t in traffic if t[2] == '/api/gateway/discovery'))
+                self.assertEqual(1, overlay.status()['sessions'])
+            finally:
+                for server in servers:
+                    server.shutdown()
+                    server.server_close()
+                for thread in threads:
+                    thread.join(5)
 
 
 if __name__ == "__main__":

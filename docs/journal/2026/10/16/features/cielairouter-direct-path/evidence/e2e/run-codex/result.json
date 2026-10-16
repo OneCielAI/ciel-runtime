@@ -1,0 +1,236 @@
+{
+ "flow": "codex",
+ "ports": {
+  "central": 54329,
+  "A": 54330,
+  "B": 54331
+ },
+ "sse1": [
+  {
+   "n": 5,
+   "at": "16:46:47",
+   "server": "A",
+   "path": "/v1/responses",
+   "turn": "",
+   "truncated": false,
+   "auth_ok": true,
+   "model": "stub-model",
+   "bytes": 59098,
+   "user_agent": "codex-tui/0.163.0 (Windows 10.0.26200; x86_64) WindowsTerminal (codex-tui; 0.163.0)",
+   "head1": true,
+   "tail1": true,
+   "head2": false,
+   "tail2": false,
+   "restart_notice": false
+  },
+  {
+   "n": 6,
+   "at": "16:46:47",
+   "server": "A",
+   "path": "/v1/responses",
+   "turn": "",
+   "truncated": false,
+   "auth_ok": true,
+   "model": "stub-model",
+   "bytes": 59867,
+   "user_agent": "codex-tui/0.163.0 (Windows 10.0.26200; x86_64) WindowsTerminal (codex-tui; 0.163.0)",
+   "head1": true,
+   "tail1": true,
+   "head2": false,
+   "tail2": false,
+   "restart_notice": false
+  }
+ ],
+ "sse2": [],
+ "events": [
+  {
+   "n": 1,
+   "at": "16:46:21",
+   "server": "central",
+   "path": "/v1/models"
+  },
+  {
+   "n": 2,
+   "at": "16:46:28",
+   "server": "central",
+   "path": "/v1/models"
+  },
+  {
+   "n": 3,
+   "at": "16:46:47",
+   "server": "central",
+   "path": "/api/gateway/discovery",
+   "auth_ok": true
+  },
+  {
+   "n": 4,
+   "at": "16:46:47",
+   "server": "A",
+   "path": "/healthz",
+   "auth": false
+  },
+  {
+   "n": 5,
+   "at": "16:46:47",
+   "server": "A",
+   "path": "/v1/responses",
+   "turn": "",
+   "truncated": false,
+   "auth_ok": true,
+   "model": "stub-model",
+   "bytes": 59098,
+   "user_agent": "codex-tui/0.163.0 (Windows 10.0.26200; x86_64) WindowsTerminal (codex-tui; 0.163.0)",
+   "head1": true,
+   "tail1": true,
+   "head2": false,
+   "tail2": false,
+   "restart_notice": false
+  },
+  {
+   "n": 6,
+   "at": "16:46:47",
+   "server": "A",
+   "path": "/v1/responses",
+   "turn": "",
+   "truncated": false,
+   "auth_ok": true,
+   "model": "stub-model",
+   "bytes": 59867,
+   "user_agent": "codex-tui/0.163.0 (Windows 10.0.26200; x86_64) WindowsTerminal (codex-tui; 0.163.0)",
+   "head1": true,
+   "tail1": true,
+   "head2": false,
+   "tail2": false,
+   "restart_notice": false
+  },
+  {
+   "n": 7,
+   "at": "16:47:04",
+   "server": "A",
+   "path": "/v1/responses",
+   "turn": "",
+   "truncated": false,
+   "auth_ok": true,
+   "model": "stub-model",
+   "bytes": 58142,
+   "user_agent": "codex-tui/0.163.0 (Windows 10.0.26200; x86_64) WindowsTerminal (codex-tui; 0.163.0)",
+   "head1": false,
+   "tail1": false,
+   "head2": false,
+   "tail2": false,
+   "restart_notice": true
+  },
+  {
+   "n": 8,
+   "at": "16:47:04",
+   "server": "A",
+   "path": "/v1/responses",
+   "turn": "",
+   "truncated": false,
+   "auth_ok": true,
+   "model": "stub-model",
+   "bytes": 58911,
+   "user_agent": "codex-tui/0.163.0 (Windows 10.0.26200; x86_64) WindowsTerminal (codex-tui; 0.163.0)",
+   "head1": false,
+   "tail1": false,
+   "head2": false,
+   "tail2": false,
+   "restart_notice": true
+  }
+ ],
+ "stream_gets": [
+  {
+   "at": 1792187190.6934686,
+   "after": 0
+  },
+  {
+   "at": 1792187241.7224164,
+   "after": 1
+  },
+  {
+   "at": 1792187292.7574558,
+   "after": 1
+  },
+  {
+   "at": 1792187343.8159344,
+   "after": 1
+  },
+  {
+   "at": 1792187394.838788,
+   "after": 1
+  },
+  {
+   "at": 1792187445.8634696,
+   "after": 1
+  },
+  {
+   "at": 1792187496.892731,
+   "after": 2
+  },
+  {
+   "at": 1792187547.9207134,
+   "after": 2
+  },
+  {
+   "at": 1792187598.9481685,
+   "after": 2
+  }
+ ],
+ "data_path_lines": [
+  "2026-10-16T16:46:28 [WARN] launch_data_path runtime=codex provider=cielairouter configured=direct active=router central=- reason=channel wakes are typed [ciel-wake] markers whose bodies only router model HTTP injects (no whole-message transport) elapsed_ms=0; model requests use the local router"
+ ],
+ "router_model_http": [
+  "2026-10-16T16:46:47 [INFO] access \"POST /v1/responses HTTP/1.1\" 200 -",
+  "2026-10-16T16:47:04 [INFO] access \"POST /v1/responses HTTP/1.1\" 200 -",
+  "2026-10-16T16:51:32 [INFO] access \"POST /v1/responses HTTP/1.1\" 500 -"
+ ],
+ "router_control_http": [
+  "2026-10-16T16:46:28 [INFO] access \"POST /ca/mcp HTTP/1.1\" 200 -",
+  "2026-10-16T16:46:28 [INFO] access \"POST /ca/mcp HTTP/1.1\" 202 -",
+  "2026-10-16T16:46:28 [INFO] access \"POST /ca/mcp HTTP/1.1\" 200 -",
+  "2026-10-16T16:46:30 [INFO] access \"POST /ca/events/receivers/default HTTP/1.1\" 200 -",
+  "2026-10-16T16:46:47 [INFO] access \"POST /ca/tui/agent-turn HTTP/1.1\" 200 -",
+  "2026-10-16T16:46:54 [INFO] access \"POST /ca/mcp HTTP/1.1\" 200 -",
+  "2026-10-16T16:46:56 [INFO] access \"POST /ca/mcp HTTP/1.1\" 200 -",
+  "2026-10-16T16:46:56 [INFO] access \"POST /ca/mcp HTTP/1.1\" 202 -",
+  "2026-10-16T16:46:56 [INFO] access \"POST /ca/mcp HTTP/1.1\" 200 -"
+ ],
+ "restart_lines": [
+  "2026-10-16T16:46:54 [INFO] runtime_session_restart_queued id=db978e8ba4394041a2aa343bc8a28aa0 source=ciel-runtime-router-tool runtime=any target_pid=56500 resume=true wait_turn=false reason=e2e direct selection restart",
+  "2026-10-16T16:46:54 [INFO] runtime_session_restart_claimed client_pid=56500 id=db978e8ba4394041a2aa343bc8a28aa0 source=ciel-runtime-router-tool runtime=any target_pid=56500 resume=true wait_turn=false reason=e2e direct selection restart",
+  "2026-10-16T16:46:56 [INFO] codex_session_restart_notice_queued request_id=2",
+  "2026-10-16T16:46:56 [INFO] codex_session_restart exit_code=1 source=ciel-runtime-router-tool reason=e2e direct selection restart resumed=true request_id=db978e8ba4394041a2aa343bc8a28aa0 claim=transport"
+ ],
+ "channel_lines": [
+  "2026-10-16T16:46:47 [INFO] channel_input_prompt_ready result=observed",
+  "2026-10-16T16:46:47 [INFO] channel_llm_wake_prompt_stripped",
+  "2026-10-16T16:46:47 [INFO] channel_llm_injected count=1 message_ids=1 channels=external:default",
+  "2026-10-16T16:46:48 [INFO] channel_stdin_proxy_submit_confirmed attempt=1",
+  "2026-10-16T16:46:48 [INFO] channel_stdin_proxy_injected count=1 message_ids=1 channels=external:default enter=cr transport=router commit_cursor=False display_body=False",
+  "2026-10-16T16:46:48 [INFO] channel_wake_completed_evidence message_id=1 transcript=G:\\ciel-e2e\\direct-path\\codex-1792187175\\codex-home\\sessions\\2026\\10\\16\\rollout-2026-10-16T16-46-28-01a146ae-45b0-79d1-a02a-16933d207ada.jsonl prompt_record=10 completion_record=13 record_type=response_item session_id=- timestamp=2026-10-16T21:46:47.451Z",
+  "2026-10-16T16:46:48 [INFO] channel_windows_console_confirmed message_id=1 cursor=1",
+  "2026-10-16T16:46:54 [INFO] channel_mcp_http method=tools/call request_id=1 protocol=legacy-streamable-http",
+  "2026-10-16T16:46:54 [INFO] channel_console_restart_requested transport=conpty pid=5796 id=db978e8ba4394041a2aa343bc8a28aa0 source=ciel-runtime-router-tool runtime=any target_pid=56500 resume=true wait_turn=false reason=e2e direct selection restart",
+  "2026-10-16T16:46:56 [INFO] channel_windows_console_child_exit pid=5796 returncode=1",
+  "2026-10-16T16:46:56 [INFO] channel_llm_cursor_fast_forward_on_launch last_id=1 previous_cursor=1 recent_seconds=600",
+  "2026-10-16T16:46:56 [INFO] channel_windows_console_proxy_started pid=94844 transport=conpty enter=cr submit_retries=4 confirm_submit=True bracketed_paste=True display_body=False",
+  "2026-10-16T16:46:56 [INFO] channel_mcp_http method=initialize request_id=0 protocol=legacy-streamable-http",
+  "2026-10-16T16:46:56 [INFO] channel_mcp_http method=notifications/initialized request_id=None protocol=legacy-streamable-http",
+  "2026-10-16T16:46:56 [INFO] channel_mcp_http method=tools/list request_id=1 protocol=legacy-streamable-http",
+  "2026-10-16T16:47:04 [INFO] channel_input_receipt transcript_missing confirmation=awaiting_new_transcript",
+  "2026-10-16T16:47:04 [INFO] channel_input_prompt_ready result=observed",
+  "2026-10-16T16:47:04 [INFO] channel_llm_inject_deferred message_id=2 channel=restart reason=input_transport_tty",
+  "2026-10-16T16:47:23 [WARN] channel_input_submit_unconfirmed attempts=4",
+  "2026-10-16T16:47:23 [WARN] channel_input_receipt_unmatched resolved=None receipts=0 none",
+  "2026-10-16T16:47:23 [WARN] channel_stdin_proxy_deferred message_ids=2 reason=prompt_not_submitted",
+  "2026-10-16T16:47:23 [ERROR] channel_stdin_proxy_blocked cursor=1 message_id=2 reason=prior_submission_failed detail=prompt_not_submitted action=skipped",
+  "2026-10-16T16:51:32 [WARN] channel_stdin_proxy_transport_fallback cursor=2 message_id=3 channel=external:default requested=session_socket fallback=router reason=session_socket_transport_unavailable",
+  "2026-10-16T16:51:32 [INFO] channel_input_receipt transcript_missing confirmation=awaiting_new_transcript",
+  "2026-10-16T16:51:32 [INFO] channel_input_prompt_ready result=observed",
+  "2026-10-16T16:51:32 [INFO] channel_llm_inject_deferred message_id=2 channel=restart reason=input_transport_tty",
+  "2026-10-16T16:51:51 [WARN] channel_input_submit_unconfirmed attempts=4",
+  "2026-10-16T16:51:51 [WARN] channel_input_receipt_unmatched resolved=None receipts=0 none",
+  "2026-10-16T16:51:51 [WARN] channel_stdin_proxy_deferred message_ids=3 reason=prompt_not_submitted",
+  "2026-10-16T16:51:51 [ERROR] channel_stdin_proxy_blocked cursor=2 message_id=3 reason=prior_submission_failed detail=prompt_not_submitted action=skipped"
+ ]
+}

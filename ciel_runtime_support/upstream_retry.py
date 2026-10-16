@@ -110,6 +110,27 @@ def _http_error_log_message(message: object, *, limit: int = 512) -> str:
     return compact[: max(0, limit - 1)] + "…"
 
 
+def _selected_cielairouter_gateway(provider: str, pcfg: Any) -> bool:
+    """Return whether this call is pinned to one overlay-selected gateway.
+
+    A selected gateway reports transport/5xx failures through the overlay.  A
+    retry in this same call would reuse the already-cooled route token; the
+    next client request must re-enter selection instead.  Only the retry is
+    skipped: the failure still leaves through the final-attempt branch, so it
+    is wrapped, logged and recorded exactly like an exhausted retry budget.  A
+    raw re-raise would hand ``http.client.RemoteDisconnected`` (a
+    ``ConnectionResetError``) to the protocol router, which classifies it as a
+    client disconnect and answers nothing.  429 handling remains separate
+    because key rotation and rate-limit backoff are intentional.
+    """
+
+    return (
+        provider == "cielairouter"
+        and isinstance(pcfg, dict)
+        and bool(pcfg.get("ciel_gateway_route"))
+    )
+
+
 def _upstream_endpoint_identity(url: str) -> str:
     """Return the request origin and path without query credentials or fragments."""
 
@@ -209,6 +230,7 @@ def post_json_with_rate_retry(
     write_router_activity = rate_limit.write_activity
     estimate_tokens = http.estimate_tokens
     provider_urlopen = http.provider_urlopen
+    selected_gateway = _selected_cielairouter_gateway(provider, pcfg)
     remote_bridge = pcfg.get(REMOTE_BRIDGE_CONFIG_MARKER) is True
     gateway_retries = 0 if remote_bridge else configured_gateway_retries(pcfg)
     max_attempts = max(1, gateway_retries + 1)
@@ -285,7 +307,11 @@ def post_json_with_rate_retry(
                     provider, pcfg, headers, None, True
                 )
                 continue
-            if exc.code in UPSTREAM_RETRY_HTTP_CODES and attempt + 1 < max_attempts:
+            if (
+                exc.code in UPSTREAM_RETRY_HTTP_CODES
+                and attempt + 1 < max_attempts
+                and not selected_gateway
+            ):
                 retry_no = attempt + 1
                 write_router_activity("retry", provider, model, attempt=retry_no, total=gateway_retries, code=exc.code, tokens=token_estimate, bytes=byte_estimate)
                 router_log("WARN", f"upstream_retry provider={provider} model={model} attempt={retry_no}/{gateway_retries} code={exc.code} tokens={token_estimate} bytes={byte_estimate}")
@@ -304,7 +330,11 @@ def post_json_with_rate_retry(
                 provider, model, exc, raw_bytes
             ) from exc
         except (urllib.error.URLError, OSError) as exc:
-            if retryable_upstream_exception(exc) and attempt + 1 < max_attempts:
+            if (
+                retryable_upstream_exception(exc)
+                and attempt + 1 < max_attempts
+                and not selected_gateway
+            ):
                 retry_no = attempt + 1
                 write_router_activity("retry", provider, model, attempt=retry_no, total=gateway_retries, error=type(exc).__name__, tokens=token_estimate, bytes=byte_estimate)
                 router_log("WARN", f"upstream_retry provider={provider} model={model} attempt={retry_no}/{gateway_retries} error={type(exc).__name__} tokens={token_estimate} bytes={byte_estimate}")
@@ -360,6 +390,7 @@ def open_provider_request_with_key_retry(
     estimate_tokens = http.estimate_tokens
     provider_urlopen = http.provider_urlopen
     upstream_http_error_message = http.upstream_http_error_message
+    selected_gateway = _selected_cielairouter_gateway(provider, pcfg)
     remote_bridge = pcfg.get(REMOTE_BRIDGE_CONFIG_MARKER) is True
     gateway_retries = 0 if remote_bridge else configured_gateway_retries(pcfg)
     max_attempts = max(1, gateway_retries + 1)
@@ -462,7 +493,11 @@ def open_provider_request_with_key_retry(
                 router_log("WARN", f"upstream_direct_rate_limit_retry provider={provider} model={model} attempt={retry_no}/{gateway_retries} wait={wait:.2f}s tokens={token_estimate} bytes={byte_estimate}")
                 time.sleep(wait)
                 continue
-            if exc.code in UPSTREAM_RETRY_HTTP_CODES and attempt + 1 < max_attempts:
+            if (
+                exc.code in UPSTREAM_RETRY_HTTP_CODES
+                and attempt + 1 < max_attempts
+                and not selected_gateway
+            ):
                 retry_no = attempt + 1
                 write_router_activity("retry", provider, model, attempt=retry_no, total=gateway_retries, code=exc.code, tokens=token_estimate, bytes=byte_estimate, stream=stream)
                 router_log("WARN", f"upstream_direct_retry provider={provider} model={model} attempt={retry_no}/{gateway_retries} code={exc.code} message={error_message!r} tokens={token_estimate} bytes={byte_estimate}")
@@ -487,7 +522,11 @@ def open_provider_request_with_key_retry(
             )
             raise exc from original_exc
         except (urllib.error.URLError, OSError) as exc:
-            if retryable_upstream_exception(exc) and attempt + 1 < max_attempts:
+            if (
+                retryable_upstream_exception(exc)
+                and attempt + 1 < max_attempts
+                and not selected_gateway
+            ):
                 retry_no = attempt + 1
                 write_router_activity("retry", provider, model, attempt=retry_no, total=gateway_retries, error=type(exc).__name__, tokens=token_estimate, bytes=byte_estimate, stream=stream)
                 router_log("WARN", f"upstream_direct_retry provider={provider} model={model} attempt={retry_no}/{gateway_retries} error={type(exc).__name__} tokens={token_estimate} bytes={byte_estimate}")
@@ -549,6 +588,7 @@ def open_openai_stream_with_rate_retry(
     provider_stream_idle_timeout_seconds = http.stream_idle_timeout_seconds
     provider_urlopen = http.provider_urlopen
     set_upstream_stream_read_timeout = http.set_stream_read_timeout
+    selected_gateway = _selected_cielairouter_gateway(provider, pcfg)
     remote_bridge = pcfg.get(REMOTE_BRIDGE_CONFIG_MARKER) is True
     gateway_retries = 0 if remote_bridge else configured_gateway_retries(pcfg)
     max_attempts = max(1, gateway_retries + 1)
@@ -645,7 +685,11 @@ def open_openai_stream_with_rate_retry(
                     provider, pcfg, headers, None, True
                 )
                 continue
-            if exc.code in UPSTREAM_RETRY_HTTP_CODES and attempt + 1 < max_attempts:
+            if (
+                exc.code in UPSTREAM_RETRY_HTTP_CODES
+                and attempt + 1 < max_attempts
+                and not selected_gateway
+            ):
                 retry_no = attempt + 1
                 write_router_activity("retry", provider, model, attempt=retry_no, total=gateway_retries, code=exc.code, tokens=token_estimate, bytes=byte_estimate, stream=True)
                 router_log("WARN", f"upstream_stream_retry provider={provider} model={model} attempt={retry_no}/{gateway_retries} code={exc.code} tokens={token_estimate} bytes={byte_estimate}")
@@ -663,7 +707,11 @@ def open_openai_stream_with_rate_retry(
             error_message = _http_error_log_message(
                 f"{type(exc).__name__}: {exc}"
             )
-            if retryable_upstream_exception(exc) and attempt + 1 < max_attempts:
+            if (
+                retryable_upstream_exception(exc)
+                and attempt + 1 < max_attempts
+                and not selected_gateway
+            ):
                 retry_no = attempt + 1
                 write_router_activity("retry", provider, model, attempt=retry_no, total=gateway_retries, error=type(exc).__name__, tokens=token_estimate, bytes=byte_estimate, stream=True)
                 router_log("WARN", f"upstream_stream_retry provider={provider} model={model} attempt={retry_no}/{gateway_retries} error={type(exc).__name__} tokens={token_estimate} bytes={byte_estimate}")

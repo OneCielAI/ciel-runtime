@@ -502,7 +502,9 @@ class CodexAppServerChannelInjector:
                 continue
             if message_id <= cursor:
                 continue
-            if message_input_transport(message) == "router" and (not self.thread_id or self._busy(self.thread_id)):
+            from .launch_data_path import model_http_bypassed
+            if (not model_http_bypassed() and message_input_transport(message) == "router"
+                    and (not self.thread_id or self._busy(self.thread_id))):
                 # A running turn takes these in its next model request (the
                 # router appends them); leave the cursor here so neither path
                 # skips them.  An idle thread makes no request, so they go in

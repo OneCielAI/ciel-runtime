@@ -1,0 +1,62 @@
+{
+  "flow": "codex-remote",
+  "cli_actual": "0.163.0",
+  "direct_launches": [
+    "2026-10-16T16:46:10 [INFO] launch_data_path runtime=codex-remote-router provider=cielairouter configured=direct active=direct endpoint=http://127.0.0.1:49168 node=node-A central=127.0.0.1:49167 reason=ranked elapsed_ms=47; model requests go to the gateway, the router keeps MCP, channels and restart",
+    "2026-10-16T16:46:39 [INFO] launch_data_path runtime=codex-remote-router provider=cielairouter configured=direct active=direct endpoint=http://127.0.0.1:49169 node=node-B central=127.0.0.1:49167 reason=ranked elapsed_ms=16; model requests go to the gateway, the router keeps MCP, channels and restart"
+  ],
+  "gateway_model_requests": {
+    "central": 0,
+    "A": 2,
+    "B": 3
+  },
+  "router_model_post_count": 0,
+  "sse_whole_body": [
+    {
+      "event": 1,
+      "payload_characters": 951,
+      "exact_whole_body_equal": true,
+      "filler_lines": 40
+    },
+    {
+      "event": 2,
+      "payload_characters": 951,
+      "exact_whole_body_equal": true,
+      "filler_lines": 40
+    }
+  ],
+  "restart_lines": [
+    "2026-10-16T16:46:37 [INFO] runtime_session_restart_queued id=ea6ac0603a894994b07ef792a08ae633 source=ciel-runtime-router-tool runtime=any target_pid=86808 resume=true wait_turn=false reason=e2e direct selection restart",
+    "2026-10-16T16:46:37 [INFO] runtime_session_restart_claimed client_pid=86808 id=ea6ac0603a894994b07ef792a08ae633 source=ciel-runtime-router-tool runtime=any target_pid=86808 resume=true wait_turn=false reason=e2e direct selection restart",
+    "2026-10-16T16:46:39 [INFO] codex_remote_session_restart exit_code=1 source=ciel-runtime-router-tool resumed_thread=01a146ae-0342-75d1-8603-6a0def64c38a request_id=ea6ac0603a894994b07ef792a08ae633 claim=transport",
+    "2026-10-16T16:46:39 [INFO] codex_session_restart_notice_queued request_id=2"
+  ],
+  "health_probe_auth": [
+    false,
+    false
+  ],
+  "receiver_connections": [
+    {
+      "at": 1792187172.838082,
+      "after": 0
+    }
+  ],
+  "screenshots": [
+    {
+      "path": "C:\\Users\\djlov\\ciel-runtime\\docs\\journal\\2026\\10\\16\\features\\cielairouter-direct-path\\evidence\\e2e\\run-codex-remote\\shots\\01-started.png",
+      "bytes": 23323,
+      "sha256": "f000b7bc50d8c813f60bf82b3acee0bf22c6abac7b7ab1902a774425f6471ac9"
+    },
+    {
+      "path": "C:\\Users\\djlov\\ciel-runtime\\docs\\journal\\2026\\10\\16\\features\\cielairouter-direct-path\\evidence\\e2e\\run-codex-remote\\shots\\02-sse1.png",
+      "bytes": 46808,
+      "sha256": "ae322042961743722abe5e53deef1c5ae5fc0ffead82b6b0d9ad822d1354aef0"
+    },
+    {
+      "path": "C:\\Users\\djlov\\ciel-runtime\\docs\\journal\\2026\\10\\16\\features\\cielairouter-direct-path\\evidence\\e2e\\run-codex-remote\\shots\\03-sse2-after-restart.png",
+      "bytes": 47447,
+      "sha256": "b7110d891f44600fdd7fed18d48ae951fb17a3675e964781a6d560d9f02a61e5"
+    }
+  ],
+  "live_router_preserved": "verified separately at 127.0.0.1:9512 /health pid=31392 v0.2.51"
+}

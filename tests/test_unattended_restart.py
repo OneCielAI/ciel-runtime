@@ -21,6 +21,7 @@ from ciel_runtime_support.startup_prompt_answers import (
     STARTUP_AUTO_ANSWER_ENV,
     StartupPromptResponder,
     startup_prompt_responder,
+    viewport_row_text,
 )
 
 
@@ -43,17 +44,119 @@ class StartupPromptResponderTests(unittest.TestCase):
         logs: list[str] = []
         return StartupPromptResponder(log=lambda level, message: logs.append(f"{level} {message}"), clock=clock), clock, logs
 
+    def goal_frame(self, selected="resume", reversed=False):
+        rows = [("Resume goal", "resume"), ("Leave paused", "leave")]
+        if reversed:
+            rows.reverse()
+        return "Resume paused goal?\n" + "\n".join(
+            f"{'›' if key == selected else ' '} {i}. {label}"
+            for i, (label, key) in enumerate(rows, 1)
+        ) + "\nenter select · esc back\n? for shortcuts"
+
+    def rendered(self, responder, frame):
+        responder.observe_screen(frame)
+
     def test_codex_paused_goal_is_left_paused(self):
         responder, clock, logs = self.responder()
-        responder.feed(screen("Resume paused goal?", "Goal: keep going", "› 1. Resume goal   Mark it active",
-                              "  2. Leave paused  Keep it paused; use /goal resume later", "enter select · esc back"))
-        self.assertEqual(b"", responder.due())  # not before the screen settles
-        self.assertFalse(responder.input_ready())
+        self.rendered(responder, self.goal_frame())
         clock.now += 0.6
         self.assertEqual(b"2", responder.due())
-        self.assertIn("INFO startup_prompt_answered prompt=codex_paused_goal option=leavepaused key=2 enter=false attempt=1", logs)
+        self.assertFalse(responder.input_ready())
+        self.rendered(responder, self.goal_frame("leave"))
+        clock.now += 0.6
+        self.assertEqual(bytes([13]), responder.due())
+        self.assertFalse(responder.input_ready())
+        self.rendered(responder, "Ask Codex to do anything\n? for shortcuts")
+        clock.now += 0.6
         self.assertEqual(b"", responder.due())
-        clock.now += 3.1
+        self.assertTrue(responder.input_ready())
+        self.assertTrue(any("startup_prompt_dismissed" in line for line in logs))
+
+    def test_digit_ignored_never_confirms_resume_default(self):
+        responder, clock, _ = self.responder()
+        responder.observe_screen(self.goal_frame())
+        clock.now += 0.6
+        self.assertEqual(b"2", responder.due())
+        clock.now += 0.6
+        self.assertEqual(b"", responder.due())
+        clock.now += 5
+        self.assertEqual(bytes([27]) + b"[B", responder.due())
+        responder.observe_screen(self.goal_frame("leave"))
+        clock.now += 0.6
+        self.assertEqual(bytes([13]), responder.due())
+
+    def test_reordered_options_selects_label_not_fixed_digit(self):
+        responder, clock, _ = self.responder()
+        responder.observe_screen(self.goal_frame(reversed=True))
+        clock.now += 0.6
+        self.assertEqual(b"1", responder.due())
+        responder.observe_screen(self.goal_frame("leave", reversed=True))
+        clock.now += 0.6
+        self.assertEqual(bytes([13]), responder.due())
+
+    def test_background_footer_does_not_prove_dismissal(self):
+        responder, clock, _ = self.responder()
+        responder.observe_screen(self.goal_frame("leave"))
+        clock.now += 0.6
+        self.assertEqual(bytes([13]), responder.due())
+        clock.now += 181
+        self.assertEqual(b"", responder.due())
+        self.assertFalse(responder.input_ready())
+
+    def test_digit_directly_dismisses_no_enter_leaks_to_composer(self):
+        responder, clock, _ = self.responder()
+        responder.observe_screen(self.goal_frame())
+        clock.now += 0.6
+        self.assertEqual(b"2", responder.due())
+        responder.observe_screen("? for shortcuts")
+        self.assertEqual(b"", responder.due())
+        self.assertFalse(responder.input_ready())  # wait for stable rendered state
+        clock.now += 0.6
+        self.assertEqual(b"", responder.due())
+        self.assertTrue(responder.input_ready())
+
+    def test_missing_rendered_screen_keeps_gate_closed(self):
+        responder, clock, logs = self.responder()
+        responder.screen_snapshot = lambda: None
+        clock.now += 16
+        self.assertEqual(b"", responder.due())
+        self.assertFalse(responder.input_ready())
+        self.assertTrue(any("rendered_screen_unavailable" in line for line in logs))
+
+    def test_delayed_trust_enter_cancelled_when_goal_replaces_it(self):
+        responder, clock, _ = self.responder()
+        responder.feed(screen("Trust this folder? Codex", "› 1. Trust and continue", "2. Quit"))
+        clock.now += 0.6
+        self.assertEqual(b"1", responder.due())
+        responder.observe_screen(self.goal_frame())
+        clock.now += 0.6
+        self.assertEqual(b"2", responder.due())
+        responder.observe_screen("? for shortcuts")
+        clock.now += 0.6
+        self.assertEqual(b"", responder.due())
+        self.assertTrue(responder.input_ready())
+
+    def test_stream_only_is_not_rendered_state_proof(self):
+        responder, clock, logs = self.responder()
+        responder.feed(screen("Resume paused goal?", "› 1. Resume goal", "2. Leave paused", "? for shortcuts"))
+        clock.now += 0.6
+        self.assertEqual(b"", responder.due())
+        clock.now += 181
+        self.assertFalse(responder.input_ready())
+        self.assertTrue(any("rendered_screen_unavailable" in line for line in logs))
+
+    def test_chain_dialog_does_not_receive_goal_confirmation(self):
+        responder, clock, _ = self.responder()
+        responder.observe_screen(self.goal_frame())
+        clock.now += 0.6
+        self.assertEqual(b"2", responder.due())
+        responder.observe_screen("Update available\n› 1. Update now\n2. Skip")
+        clock.now += 0.6
+        self.assertEqual(b"2", responder.due())  # update's own answer, not Enter
+        self.assertFalse(responder.input_ready())
+        responder.observe_screen("? for shortcuts")
+        clock.now += 0.6
+        responder.due()
         self.assertTrue(responder.input_ready())
 
     def test_the_option_number_comes_from_the_screen(self):
@@ -127,22 +230,24 @@ class StartupPromptResponderTests(unittest.TestCase):
         clock.now += 0.6
         self.assertEqual(b"2", responder.due())
 
-    def test_a_redrawn_dialog_is_answered_again_up_to_three_times(self):
-        responder, clock, _ = self.responder()
-        frame = screen("Resume paused goal?", "1. Resume goal", "2. Leave paused")
+    def test_retry_limit_keeps_unresolved_modal_held(self):
+        responder, clock, logs = self.responder()
+        responder.observe_screen(self.goal_frame())
         keys = []
-        for _ in range(5):
-            responder.feed(frame)
-            clock.now += 0.6
+        for _ in range(6):
+            clock.now += 5.1
             keys.append(responder.due())
-        self.assertEqual([b"2", b"2", b"2", b"", b""], keys)
+        self.assertEqual([b"2", bytes([27]) + b"[B", bytes([27]) + b"[B", b"", b"", b""], keys)
+        self.assertFalse(responder.input_ready())
+        self.assertEqual(1, sum("reason=retry_limit" in line for line in logs))
 
-    def test_missing_option_gives_up_and_releases_input(self):
+    def test_missing_goal_option_keeps_input_held(self):
         responder, clock, logs = self.responder()
         responder.feed(screen("Resume paused goal?", "something else"))
         clock.now += 5.1
         self.assertEqual(b"", responder.due())
-        self.assertTrue(any("startup_prompt_option_not_found prompt=codex_paused_goal" in line for line in logs))
+        self.assertTrue(any("rendered_screen_unavailable" in line for line in logs))
+        self.assertFalse(responder.input_ready())
 
     def test_input_waits_for_the_ready_footer_or_the_hold(self):
         responder, clock, _ = self.responder()
@@ -160,9 +265,50 @@ class StartupPromptResponderTests(unittest.TestCase):
         clock.now += 1.0
         self.assertEqual(b"", responder.due())
 
+    def test_wide_glyph_trailing_cell_is_not_a_second_character(self):
+        # ReadConsoleOutputW cells measured in Windows Terminal and conhost (journal 2026/10/16
+        # unattended-restart screen-reader-probe): a Hangul glyph fills a 0x100 and a 0x200 cell.
+        cells = [("ㄱ", 0x100), ("ㄱ", 0x200), (" ", 0), ("계", 0x107), ("계", 0x207), ("-", 7), (" ", 7), (" ", 7)]
+        self.assertEqual("ㄱ 계-  ", viewport_row_text(cells))
+
+    @unittest.skipUnless(os.name == "nt", "requires a native Windows console")
+    def test_native_viewport_with_korean_row_still_shows_the_goal_modal(self):
+        import json
+        import subprocess
+        import sys
+
+        frame = ["› 계속-세션재시작됨", "  Resume paused goal?", "› 1. Resume goal   Mark it active",
+                 "  2. Leave paused  Keep it paused; use /goal resume later", "  enter select · esc back"]
+        child = (
+            "import json,sys,time; sys.path.insert(0, sys.argv[1]); "
+            "from ciel_runtime_support.startup_prompt_answers import windows_startup_screen; "
+            "sys.stdout.write('\\n'.join(json.loads(sys.argv[3])) + '\\n'); sys.stdout.flush(); time.sleep(0.5); "
+            "open(sys.argv[2], 'w', encoding='utf-8').write(json.dumps(windows_startup_screen()))"
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "screen.json"
+            # A console of its own (no window), so the viewport is this frame, not the test runner's.
+            # No std handles are passed: the child's stdout must be that console, not the runner's pipe.
+            completed = subprocess.run(
+                [sys.executable, "-c", child, str(Path(__file__).resolve().parents[1]), str(out), json.dumps(frame)],
+                creationflags=subprocess.CREATE_NO_WINDOW, timeout=30,
+            )
+            self.assertEqual(0, completed.returncode)
+            snapshot = json.loads(out.read_text(encoding="utf-8"))
+        self.assertIsNotNone(snapshot)
+        self.assertEqual(frame, [row.rstrip() for row in snapshot.split("\n")[: len(frame)]])
+        responder, clock, _ = self.responder()
+        responder.screen_snapshot = lambda: snapshot
+        responder.due()
+        clock.now += 0.6
+        self.assertEqual(b"2", responder.due())
+
     def test_responder_only_for_unattended_launches(self):
         self.assertIsNone(startup_prompt_responder(lambda *_: None, {}))
         self.assertIsNotNone(startup_prompt_responder(lambda *_: None, {STARTUP_AUTO_ANSWER_ENV: "1"}))
+        with mock.patch.dict(os.environ, {STARTUP_AUTO_ANSWER_ENV: "1"}):
+            self.assertIsNone(startup_prompt_responder(lambda *_: None, {}))
+            self.assertIsNotNone(startup_prompt_responder(lambda *_: None))
 
 
 class ResumeLastTests(unittest.TestCase):

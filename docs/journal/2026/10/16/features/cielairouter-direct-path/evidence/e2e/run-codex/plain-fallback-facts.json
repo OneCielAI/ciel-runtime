@@ -1,0 +1,81 @@
+{
+  "flow": "plain codex",
+  "data_path_lines": [
+    "2026-10-16T16:46:28 [WARN] launch_data_path runtime=codex provider=cielairouter configured=direct active=router central=- reason=channel wakes are typed [ciel-wake] markers whose bodies only router model HTTP injects (no whole-message transport) elapsed_ms=0; model requests use the local router"
+  ],
+  "router_model_http": [
+    "2026-10-16T16:46:47 [INFO] access \"POST /v1/responses HTTP/1.1\" 200 -",
+    "2026-10-16T16:47:04 [INFO] access \"POST /v1/responses HTTP/1.1\" 200 -"
+  ],
+  "gateway_model_posts": [
+    {
+      "n": 5,
+      "at": "16:46:47",
+      "server": "A",
+      "path": "/v1/responses",
+      "turn": "",
+      "truncated": false,
+      "auth_ok": true,
+      "model": "stub-model",
+      "bytes": 59098,
+      "user_agent": "codex-tui/0.163.0 (Windows 10.0.26200; x86_64) WindowsTerminal (codex-tui; 0.163.0)",
+      "head1": true,
+      "tail1": true,
+      "head2": false,
+      "tail2": false,
+      "restart_notice": false
+    },
+    {
+      "n": 6,
+      "at": "16:46:47",
+      "server": "A",
+      "path": "/v1/responses",
+      "turn": "",
+      "truncated": false,
+      "auth_ok": true,
+      "model": "stub-model",
+      "bytes": 59867,
+      "user_agent": "codex-tui/0.163.0 (Windows 10.0.26200; x86_64) WindowsTerminal (codex-tui; 0.163.0)",
+      "head1": true,
+      "tail1": true,
+      "head2": false,
+      "tail2": false,
+      "restart_notice": false
+    },
+    {
+      "n": 7,
+      "at": "16:47:04",
+      "server": "A",
+      "path": "/v1/responses",
+      "turn": "",
+      "truncated": false,
+      "auth_ok": true,
+      "model": "stub-model",
+      "bytes": 58142,
+      "user_agent": "codex-tui/0.163.0 (Windows 10.0.26200; x86_64) WindowsTerminal (codex-tui; 0.163.0)",
+      "head1": false,
+      "tail1": false,
+      "head2": false,
+      "tail2": false,
+      "restart_notice": true
+    },
+    {
+      "n": 8,
+      "at": "16:47:04",
+      "server": "A",
+      "path": "/v1/responses",
+      "turn": "",
+      "truncated": false,
+      "auth_ok": true,
+      "model": "stub-model",
+      "bytes": 58911,
+      "user_agent": "codex-tui/0.163.0 (Windows 10.0.26200; x86_64) WindowsTerminal (codex-tui; 0.163.0)",
+      "head1": false,
+      "tail1": false,
+      "head2": false,
+      "tail2": false,
+      "restart_notice": true
+    }
+  ],
+  "note": "Direct path correctly declined; driver still waits for direct restart expectations which do not apply to plain Codex. Preserve this interim evidence."
+}

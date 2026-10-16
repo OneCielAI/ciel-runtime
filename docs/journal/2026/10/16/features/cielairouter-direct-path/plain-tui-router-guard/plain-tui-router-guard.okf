@@ -1,0 +1,32 @@
+okf_version: "1.0"
+task: "Direct gateway data path: capability guard that keeps launches whose channel wakes need router body injection on the router (plain Codex TUI mandatory), keeps codex-remote/app-server direct, and checks other plain modes."
+reported: >
+  Parent instruction 2026-10-16 (user approved implementation + verification; no commit/push/install/live changes):
+  plain Codex TUI must fall back to router mode when configured direct, because the Windows short wake marker relies on
+  router HTTP body injection. Provider-neutral/capability guard, fallback status reason, test the actual plain launch and
+  that restart retains the router, keep codex-remote/app-server direct, check plain modes on other platforms and fail
+  closed where appropriate. Existing dirty changes kept.
+context:
+  concurrent_editor: "Another agent (direct-gateway-impl) was still editing launch_data_path.py, runtime_launch.py, channel_pending_injection.py, codex_desktop_injection.py and tests until 16:28 local (journal revision_2026_10_16_seam_review in ../cielairouter-direct-path.okf). Edits here started after 6+ minutes without file changes and were re-checked before editing. Its runtime-name branch (if runtime == 'codex') was replaced; its whole-message delivery flag (CIEL_RUNTIME_DIRECT_GATEWAY_ACTIVE) was kept unchanged."
+code_paths_inspected:
+  - "runtime_launch.run_codex: subprocess_call_with_channel_wake_proxy(wake_for_llm_delivery=channel_delivery_mode(cfg)=='llm', channel_wake_display_body=os.name!='nt'). Codex has no messaging socket, so default session_socket requests fall back to router transport (channel_pending_injection.py fallback=router)."
+  - "channel_message_prompt.format_llm_delivery_wake_prompt: '[ciel-wake] pending_ids=N' only; format_visible_llm_delivery_wake_prompt adds the body (non-Windows Codex) while keeping router replacement semantics."
+  - "channel_wake_context.body_with_pending_messages -> channel_llm_context.inject_pending_channel_context: the router strips the wake turn and appends format_llm_batch_prompt(pending) to the model request; FIFO guard raises ChannelLlmInjectionDeferred behind earlier TTY-owned messages."
+  - "runtime_launch.run_claude: proxy wake_for_llm_delivery=llm_channel_delivery, no channel_wake_display_body (False) -> router-transport wakes are bare markers on every platform; whole messages only via the messaging socket (prepared_socket_path returns '' when claude_code.session_socket_input is false)."
+  - "codex_app_server_session: remote TUI runs with inject_channel_messages=False; CodexAppServerChannelInjector submits whole messages as app-server turns (RPC)."
+  - "docs/journal/2026/10/03/diagnostics/channel/codex-typed-prompt-chars-dropped.okf: typed bodies lost U+2026/U+2014/U+23F0 in Windows Codex; the dropping layer was not determined."
+design:
+  capability: "launch_data_path.ChannelDelivery(terminal_wake: bool, whole_message: str); router_reason() returns CHANNEL_MARKER_REASON when terminal_wake and no whole_message transport. resolve(..., channel=) and LaunchDataPathResolver.__call__(..., channel=) check it after the provider capability check and before policy.launch_gateway (no discovery/probe), record it, log one WARN line and print the fallback line. No runtime-name or provider-name branch."
+  reason: "channel wakes are typed [ciel-wake] markers whose bodies only router model HTTP injects (no whole-message transport)  (113 chars; records keep 160)"
+  declarations:
+    plain_codex: "ChannelDelivery(terminal_wake=channel_delivery_mode(cfg)=='llm') -> router on every platform; restart: launched_direct is False so no reselection, and _reselect_codex_data_path also receives the same channel."
+    claude: "ChannelDelivery(terminal_wake=stdin_channel_proxy and llm_channel_delivery, whole_message='session_socket' if a socket target exists) -> direct allowed with the messaging socket (or without a wake proxy); router when session-socket input is off. Reselection on restart re-evaluates with the current socket target."
+    app_server_and_codex_remote: "ChannelDelivery(whole_message='app_server') at launch and relaunch -> direct still allowed."
+  other_platforms: "Non-Windows plain Codex types the body after the marker (display_body), so content would arrive without the router, but that turn is designed around router replacement and was not verified without the router (no non-Windows host here); it stays on the router (fail closed). Claude Code: the marker-only path exists on every platform, so the socket-off case falls back everywhere."
+files_changed:
+  - "ciel_runtime_support/launch_data_path.py: module docstring, CHANNEL_MARKER_REASON, ChannelDelivery, resolve(channel=), resolver channel check replacing the runtime == 'codex' branch, status_lines text, __all__."
+  - "ciel_runtime_support/runtime_launch.py: run_claude claude_channel_delivery() used at launch and restart reselection; run_codex codex_channel at launch and restart; _reselect_codex_data_path(channel=); run_codex_app_server app_server_channel at launch and relaunch."
+  - "tests/test_launch_data_path.py: Claude/Codex harness options (socket, stdin_proxy, delivery_mode, parent bypass flag and wake options capture) and 7 new/strengthened tests."
+  - "docs/Configuration.md, docs/Module-Map.md, CHANGELOG.md (Unreleased)."
+verification:
+  RESULTS-PLACEHOLDER: ""

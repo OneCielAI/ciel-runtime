@@ -1,0 +1,208 @@
+{
+ "flow": "claude",
+ "ports": {
+  "central": 62509,
+  "A": 62510,
+  "B": 62511
+ },
+ "sse1": [
+  {
+   "n": 6,
+   "at": "16:46:07",
+   "server": "A",
+   "path": "/v1/messages",
+   "turn": "",
+   "truncated": false,
+   "auth_ok": true,
+   "model": "stub-model",
+   "bytes": 102044,
+   "user_agent": "claude-cli/2.1.302 (external, cli)",
+   "head1": true,
+   "tail1": true,
+   "head2": false,
+   "tail2": false,
+   "restart_notice": false
+  }
+ ],
+ "sse2": [
+  {
+   "n": 11,
+   "at": "16:46:33",
+   "server": "B",
+   "path": "/v1/messages",
+   "turn": "",
+   "truncated": false,
+   "auth_ok": true,
+   "model": "stub-model",
+   "bytes": 103075,
+   "user_agent": "claude-cli/2.1.302 (external, cli)",
+   "head1": true,
+   "tail1": true,
+   "head2": true,
+   "tail2": true,
+   "restart_notice": true
+  }
+ ],
+ "events": [
+  {
+   "n": 1,
+   "at": "16:45:42",
+   "server": "central",
+   "path": "/v1/models"
+  },
+  {
+   "n": 2,
+   "at": "16:45:50",
+   "server": "central",
+   "path": "/v1/models"
+  },
+  {
+   "n": 3,
+   "at": "16:45:50",
+   "server": "central",
+   "path": "/api/gateway/discovery",
+   "auth_ok": true
+  },
+  {
+   "n": 4,
+   "at": "16:45:50",
+   "server": "A",
+   "path": "/healthz",
+   "auth": false
+  },
+  {
+   "n": 5,
+   "at": "16:45:52",
+   "server": "A",
+   "path": "/v1/models"
+  },
+  {
+   "n": 6,
+   "at": "16:46:07",
+   "server": "A",
+   "path": "/v1/messages",
+   "turn": "",
+   "truncated": false,
+   "auth_ok": true,
+   "model": "stub-model",
+   "bytes": 102044,
+   "user_agent": "claude-cli/2.1.302 (external, cli)",
+   "head1": true,
+   "tail1": true,
+   "head2": false,
+   "tail2": false,
+   "restart_notice": false
+  },
+  {
+   "n": 7,
+   "at": "16:46:16",
+   "server": "central",
+   "path": "/api/gateway/discovery",
+   "auth_ok": true
+  },
+  {
+   "n": 8,
+   "at": "16:46:16",
+   "server": "B",
+   "path": "/healthz",
+   "auth": false
+  },
+  {
+   "n": 9,
+   "at": "16:46:17",
+   "server": "B",
+   "path": "/v1/models"
+  },
+  {
+   "n": 10,
+   "at": "16:46:25",
+   "server": "B",
+   "path": "/v1/messages",
+   "turn": "",
+   "truncated": false,
+   "auth_ok": true,
+   "model": "stub-model",
+   "bytes": 101298,
+   "user_agent": "claude-cli/2.1.302 (external, cli)",
+   "head1": true,
+   "tail1": true,
+   "head2": false,
+   "tail2": false,
+   "restart_notice": true
+  },
+  {
+   "n": 11,
+   "at": "16:46:33",
+   "server": "B",
+   "path": "/v1/messages",
+   "turn": "",
+   "truncated": false,
+   "auth_ok": true,
+   "model": "stub-model",
+   "bytes": 103075,
+   "user_agent": "claude-cli/2.1.302 (external, cli)",
+   "head1": true,
+   "tail1": true,
+   "head2": true,
+   "tail2": true,
+   "restart_notice": true
+  }
+ ],
+ "stream_gets": [
+  {
+   "at": 1792187150.8885624,
+   "after": 0
+  }
+ ],
+ "data_path_lines": [
+  "2026-10-16T16:45:50 [INFO] launch_data_path runtime=claude provider=cielairouter configured=direct active=direct endpoint=http://127.0.0.1:62510 node=node-A central=127.0.0.1:62509 reason=ranked elapsed_ms=16; model requests go to the gateway, the router keeps MCP, channels and restart",
+  "2026-10-16T16:46:16 [INFO] launch_data_path runtime=claude provider=cielairouter configured=direct active=direct endpoint=http://127.0.0.1:62511 node=node-B central=127.0.0.1:62509 reason=ranked elapsed_ms=0; model requests go to the gateway, the router keeps MCP, channels and restart"
+ ],
+ "router_model_http": [],
+ "router_control_http": [
+  "2026-10-16T16:45:50 [INFO] access \"POST /ca/events/receivers/default HTTP/1.1\" 200 -",
+  "2026-10-16T16:45:52 [INFO] access \"POST /ca/mcp HTTP/1.1\" 200 -",
+  "2026-10-16T16:45:52 [INFO] access \"POST /ca/mcp HTTP/1.1\" 200 -",
+  "2026-10-16T16:46:15 [INFO] access \"POST /ca/mcp HTTP/1.1\" 200 -",
+  "2026-10-16T16:46:17 [INFO] access \"POST /ca/mcp HTTP/1.1\" 200 -",
+  "2026-10-16T16:46:17 [INFO] access \"POST /ca/mcp HTTP/1.1\" 200 -"
+ ],
+ "restart_lines": [
+  "2026-10-16T16:46:15 [INFO] runtime_session_restart_queued id=ac7aa1f1a43a4b6fb4807f9b35b69eb9 source=ciel-runtime-router-tool runtime=any target_pid=61308 resume=true wait_turn=false reason=e2e direct selection restart",
+  "2026-10-16T16:46:15 [INFO] runtime_session_restart_claimed client_pid=61308 id=ac7aa1f1a43a4b6fb4807f9b35b69eb9 source=ciel-runtime-router-tool runtime=any target_pid=61308 resume=true wait_turn=false reason=e2e direct selection restart",
+  "2026-10-16T16:46:16 [INFO] claude_session_restart_notice_queued request_id=2",
+  "2026-10-16T16:46:16 [INFO] claude_session_restart exit_code=1 source=ciel-runtime-router-tool reason=e2e direct selection restart resumed=true request_id=ac7aa1f1a43a4b6fb4807f9b35b69eb9 claim=transport"
+ ],
+ "channel_lines": [
+  "2026-10-16T16:45:50 [INFO] channel_llm_cursor_fast_forward_on_launch last_id=0 previous_cursor=0 recent_seconds=600",
+  "2026-10-16T16:45:50 [INFO] channel_windows_console_proxy_started pid=92784 transport=conpty enter=crlf submit_retries=4 confirm_submit=True bracketed_paste=True display_body=False",
+  "2026-10-16T16:45:52 [INFO] channel_mcp_http method=server/discover request_id=server-discover-probe-1 protocol=2026-07-28",
+  "2026-10-16T16:45:52 [INFO] channel_mcp_http method=tools/list request_id=0 protocol=2026-07-28",
+  "2026-10-16T16:46:07 [INFO] channel_input_receipt transcript_missing confirmation=awaiting_new_transcript",
+  "2026-10-16T16:46:07 [INFO] channel_input_prompt_ready result=observed",
+  "2026-10-16T16:46:11 [WARN] channel_input_submit_unconfirmed attempts=4",
+  "2026-10-16T16:46:11 [WARN] channel_input_receipt_unmatched resolved=None receipts=0 none",
+  "2026-10-16T16:46:11 [WARN] channel_stdin_proxy_deferred message_ids=1 reason=prompt_not_submitted",
+  "2026-10-16T16:46:12 [ERROR] channel_stdin_proxy_blocked cursor=0 message_id=1 reason=prior_submission_failed detail=prompt_not_submitted action=skipped",
+  "2026-10-16T16:46:15 [INFO] channel_mcp_http method=tools/call request_id=1 protocol=legacy-streamable-http",
+  "2026-10-16T16:46:15 [INFO] channel_console_restart_requested transport=conpty pid=92784 id=ac7aa1f1a43a4b6fb4807f9b35b69eb9 source=ciel-runtime-router-tool runtime=any target_pid=61308 resume=true wait_turn=false reason=e2e direct selection restart",
+  "2026-10-16T16:46:16 [INFO] channel_windows_console_child_exit pid=92784 returncode=1",
+  "2026-10-16T16:46:16 [INFO] channel_llm_cursor_fast_forward_on_launch last_id=0 previous_cursor=0 recent_seconds=600",
+  "2026-10-16T16:46:16 [INFO] channel_windows_console_proxy_started pid=97636 transport=conpty enter=crlf submit_retries=4 confirm_submit=True bracketed_paste=True display_body=False",
+  "2026-10-16T16:46:17 [INFO] channel_mcp_http method=server/discover request_id=server-discover-probe-1 protocol=2026-07-28",
+  "2026-10-16T16:46:17 [INFO] channel_mcp_http method=tools/list request_id=0 protocol=2026-07-28",
+  "2026-10-16T16:46:24 [ERROR] channel_stdin_proxy_blocked cursor=0 message_id=1 reason=prior_submission_failed detail=prompt_not_submitted action=skipped",
+  "2026-10-16T16:46:24 [INFO] channel_input_receipt transcript_missing confirmation=awaiting_new_transcript",
+  "2026-10-16T16:46:24 [INFO] channel_input_prompt_ready result=observed",
+  "2026-10-16T16:46:28 [WARN] channel_input_submit_unconfirmed attempts=4",
+  "2026-10-16T16:46:28 [WARN] channel_input_receipt_unmatched resolved=None receipts=0 none",
+  "2026-10-16T16:46:28 [WARN] channel_stdin_proxy_deferred message_ids=2 reason=prompt_not_submitted",
+  "2026-10-16T16:46:29 [ERROR] channel_stdin_proxy_blocked cursor=1 message_id=2 reason=prior_submission_failed detail=prompt_not_submitted action=skipped",
+  "2026-10-16T16:46:33 [INFO] channel_input_receipt transcript_missing confirmation=awaiting_new_transcript",
+  "2026-10-16T16:46:33 [INFO] channel_input_prompt_ready result=observed",
+  "2026-10-16T16:46:37 [WARN] channel_input_submit_unconfirmed attempts=4",
+  "2026-10-16T16:46:37 [WARN] channel_input_receipt_unmatched resolved=None receipts=0 none",
+  "2026-10-16T16:46:37 [WARN] channel_stdin_proxy_deferred message_ids=3 reason=prompt_not_submitted",
+  "2026-10-16T16:46:38 [ERROR] channel_stdin_proxy_blocked cursor=2 message_id=3 reason=prior_submission_failed detail=prompt_not_submitted action=skipped"
+ ]
+}

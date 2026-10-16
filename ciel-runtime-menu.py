@@ -924,7 +924,7 @@ def is_ollama_provider(provider: str) -> bool:
 
 
 def has_provider_options(provider: str) -> bool:
-    return provider in ("anthropic", "agy", "codex", "vllm", "lm-studio", "nvidia-hosted", "self-hosted-nim", "ollama", "ollama-cloud", "deepseek")
+    return provider in ("cielairouter", "anthropic", "agy", "codex", "vllm", "lm-studio", "nvidia-hosted", "self-hosted-nim", "ollama", "ollama-cloud", "deepseek")
 
 
 def ollama_ctx_text(pcfg: dict) -> str:
@@ -955,6 +955,11 @@ def ollama_options_summary(pcfg: dict) -> str:
 
 
 def provider_options_summary(provider: str, pcfg: dict) -> str:
+    if provider == "cielairouter":
+        from ciel_runtime_support.cielairouter_gateway_overlay import selection_enabled
+        from ciel_runtime_support.launch_data_path import configured_data_path
+        return (f"automatic gateway {'on' if selection_enabled(pcfg) else 'off (central)'}, "
+                f"data path {configured_data_path(pcfg)}")
     timeout = pcfg.get("request_timeout_ms", "default")
     timeout_text = f"{timeout}ms" if timeout != "default" else "default"
     parts = [
@@ -1405,6 +1410,13 @@ PROVIDER_OPTION_DESCRIPTIONS = {
 
 
 def provider_option_description(value: str) -> str:
+    if value.startswith("gateway_selection="):
+        return "Automatic gateway selection for subsequent requests; off uses the configured central base."
+    if value == "__gateway_status__":
+        return "Read local /health last observed gateway/central and reason; no probing or reselection."
+    if value.startswith("gateway_data_path="):
+        return ("router: CLI model requests go through the local router (default). direct: they go straight to the "
+                "gateway picked at launch; the router keeps MCP, channels and restart; a running CLI keeps it until restart.")
     lang = current_language()
     if value in PROVIDER_OPTION_DESCRIPTIONS:
         entry = PROVIDER_OPTION_DESCRIPTIONS[value]
@@ -1460,6 +1472,19 @@ def build_provider_options_submenu() -> dict:
         ("__edit_max_output__", f"Edit max_output_tokens [{max_output}]", False),
         ("__edit_timeout__", f"Edit timeout ms [{timeout}]", False),
     ]
+    if provider == "cielairouter":
+        from ciel_runtime_support.cielairouter_gateway_overlay import selection_enabled
+        from ciel_runtime_support.launch_data_path import DIRECT, configured_data_path
+        enabled = selection_enabled(pcfg)
+        direct = configured_data_path(pcfg) == DIRECT
+        choices = [
+            ("gateway_selection=auto", "Automatic gateway selection ON", enabled),
+            ("gateway_selection=off", "Automatic gateway selection OFF (central)", not enabled),
+            ("gateway_data_path=router", "Gateway data path: router (default)", not direct),
+            ("gateway_data_path=direct", "Gateway data path: direct to gateway at launch", direct),
+            ("__gateway_status__", "Gateway status (read-only /health, launch data path)", False),
+            *choices,
+        ]
     if provider in ("anthropic", "codex"):
         routed = bool(pcfg.get("route_through_router", False))
         choices.insert(0, ("route_through_router=true", "routed through ciel-runtime router", routed))
@@ -2116,6 +2141,12 @@ def main() -> int:
                     row = row_by_action.get("__sub_selected__", row_by_action.get("provider-options", 10))
                     provider_now, pcfg_now = current_provider_cfg()
                     action_value = item["value"]
+                    if action_value == "__gateway_status__":
+                        _, out = run_cmd([CTL, "provider-options", provider, "gateway-status"])
+                        sub = test_submenu(out.strip().splitlines() or ["Gateway status unavailable."])
+                        sub["parent"] = "provider-options"
+                        notice = []
+                        continue
                     value = ""
                     if action_value == "__edit_context_window__":
                         default = str(pcfg_now.get("context_window", "32768"))

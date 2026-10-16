@@ -192,9 +192,9 @@ class SessionSocketFallbackTests(unittest.TestCase):
     """ara/edward 2026-10-03: Codex has no session socket, so these messages
     were typed in full into the Windows TUI and lost characters."""
 
-    def _run(self, wake_for_llm_delivery: bool, *, socket_configured: bool | None = None) -> _InjectionHarness:
+    def _run(self, wake_for_llm_delivery: bool, *, socket_configured: bool | None = None, transport: str = "session_socket") -> _InjectionHarness:
         message = _message(40)
-        message["meta"] = {"input_transport": "session_socket"}
+        message["meta"] = {"input_transport": transport}
         harness = _InjectionHarness([message])
         services = harness.services()
         if socket_configured is not None:
@@ -221,6 +221,19 @@ class SessionSocketFallbackTests(unittest.TestCase):
             99, 39, None, wake_for_llm_delivery=wake_for_llm_delivery, services=services
         )
         return harness
+
+    def test_direct_gateway_without_socket_types_the_whole_body(self) -> None:
+        from unittest import mock
+        with mock.patch("ciel_runtime_support.launch_data_path.model_http_bypassed", return_value=True):
+            harness = self._run(True, socket_configured=False)
+        self.assertEqual(["TYPED body-40"], harness.written)
+
+    def test_direct_gateway_with_socket_sends_the_whole_message(self) -> None:
+        from unittest import mock
+        with mock.patch("ciel_runtime_support.launch_data_path.model_http_bypassed", return_value=True):
+            harness = self._run(True, socket_configured=True, transport="router")
+        self.assertEqual(1, len(harness.socket_sends))
+        self.assertEqual([], harness.written)
 
     def test_falls_back_to_the_router_block_when_router_delivery_is_on(self) -> None:
         harness = self._run(True)

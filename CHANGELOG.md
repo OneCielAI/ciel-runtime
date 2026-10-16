@@ -5,6 +5,48 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+- Direct gateway safety: a launch whose channel messages reach the CLI only as
+  typed `[ciel-wake]` markers, with no whole-message transport, stays on the
+  router before any gateway selection, at launch and after a session restart:
+  plain Codex TUI on every platform and Claude Code with session-socket input
+  off. The launcher declares this (`ChannelDelivery`); the status and launch
+  record name the reason. Claude Code with its messaging socket and Codex
+  app-server/codex-remote can still go direct. Claude uses
+  whole-message socket/TTY delivery and app-server/remote use RPC. Direct Codex
+  uses a distinct `ciel-runtime-gateway` provider id. Restart rebuilds model
+  snapshots. Request-level TUI observations are unavailable; transcript
+  `agent.turn_ended` remains available.
+
+- CielAiRouter can send Claude Code and Codex model requests directly to a
+  gateway (opt-in `gateway_data_path=direct`; the default `router` launch is
+  unchanged). Right before the CLI starts, the existing gateway selector picks
+  a healthy gateway; Claude Code then gets the gateway as `ANTHROPIC_BASE_URL`
+  with the router key and upstream model ids, and Codex (app-server and
+  codex-remote) gets the gateway `/v1` with the key in
+  `CIEL_RUNTIME_GATEWAY_API_KEY` and the upstream model and catalog slug. The
+  local router still starts with its MCP endpoint, the channel proxy, the
+  event receiver and session restart; router request handling (key rotation,
+  failover, output caps, `[ciel-wake]` body injection) does not apply to
+  direct requests. Selection off, discovery or probe failure, a
+  degraded or central result, or plain HTTP to a non-loopback gateway keeps the
+  router path with one log line. A running CLI keeps its gateway until it
+  restarts; a session restart selects again. Set it with `provider-options
+  cielairouter gateway_data_path=direct`, the LLM options panel or the external
+  menu; `gateway-status` shows the setting and each CLI's last launch path.
+  Other providers reject the option.
+
+- Gateway discovery results are checked against failures reported while probes
+  are running. Cooling or expired routes cannot be republished from an old
+  snapshot, and concurrent first requests for one authenticated session share
+  a selection. Healthy loopback gateways remain preferred after probing.
+- Session supervisors check for a targeted restart request once more when a
+  child exits, including requests deferred until turn completion. An ordinary
+  exit without a restart request does not relaunch the session.
+- Windows console input preserves UTF-16 surrogate pairs across reads. A
+  parent-console output failure is logged and disables display mirroring
+  without stopping the drain of the child's output. Failed Windows taskkill
+  commands are no longer reported as successful termination.
+
 - A CielAiRouter gateway running on the same computer is preferred. Gateway
   candidates are identified by node id and address, so several nodes may
   advertise the same loopback address (`http://127.0.0.1:20128`); the one

@@ -28,6 +28,8 @@ class GatewayObservation:
 
     response.incomplete/failed are complete wire terminals, not missing EOF
     markers. Their terminal names are retained without retaining their bodies.
+    observation_incomplete is unknown (not gateway failure evidence): the bounded
+    observer could not inspect a JSON-only event.
     """
     success: bool
     reason: str
@@ -79,69 +81,68 @@ def observe_gateway_error(error: BaseException, *, on_result: Callback | None) -
 
 
 class _SseTerminal:
-    """Bounded incremental SSE parser, dropping oversized events in full."""
+    """Bounded SSE observation, with independent event metadata and data budgets.
+
+    Explicit event fields survive oversized bodies, including when they follow
+    the data. JSON-only events beyond the budget remain unknown: absence of an
+    observed terminal is not evidence of truncation after dropping data.
+    """
     def __init__(self, protocol: GatewayProtocol, limit: int) -> None:
         self.protocol, self.limit = protocol, limit
         self.line = bytearray()
         self.data = bytearray()
         self.event = b""
-        self.size = 0
-        self.dropping = False
+        self.line_overflow = False
+        self.data_overflow = False
+        self.incomplete = False
         self.after_cr = False
-        self.nonempty = False
         self.terminal: str | None = None
 
     def feed(self, chunk: bytes) -> None:
-        # Process bounded slices, never copy/append an unbounded caller chunk.
-        for start in range(0, len(chunk), self.limit):
-            for char in memoryview(chunk)[start:start + self.limit]:
-                if self.after_cr:
-                    self.after_cr = False
-                    if char == 10:
-                        continue
-                if char in (10, 13):
-                    self._line()
-                    self.after_cr = char == 13
-                else:
-                    self.nonempty = True
-                    if self.dropping:
-                        continue
-                    self.size += 1
-                    if self.size > self.limit:
-                        self.dropping = True
-                        self.line.clear()
-                        self.data.clear()
-                        self.event = b""
-                    else:
-                        self.line.append(char)
-                if self.terminal:
-                    self.clear()
-                    return
+        # Never retain/copy an unbounded caller chunk. A line prefix suffices
+        # to identify its field; overflow is tracked separately from its value.
+        for char in memoryview(chunk).cast("B"):
+            if self.after_cr:
+                self.after_cr = False
+                if char == 10:
+                    continue
+            if char in (10, 13):
+                self._line()
+                self.after_cr = char == 13
+            elif len(self.line) < self.limit - len(self.data):
+                self.line.append(char)
+            else:
+                self.line_overflow = True
+            if self.terminal:
+                self.clear()
+                return
 
     def _line(self) -> None:
         line = bytes(self.line)
-        nonempty, self.nonempty = self.nonempty, False
+        overflow = self.line_overflow
         self.line.clear()
-        if self.dropping:
-            # Need blank-line detection even when skipping an oversized line.
-            if not nonempty:
-                self.dropping = False
-                self.size = 0
-            return
-        if not line:
+        self.line_overflow = False
+        if not line and not overflow:
             self._event()
-            self.size = 0
         elif line.startswith(b"data:"):
             value = line[5:]
-            self.data.extend(value[1:] if value.startswith(b" ") else value)
-            self.data.extend(b"\n")
+            value = value[1:] if value.startswith(b" ") else value
+            if overflow or len(self.data) + len(value) + 1 > self.limit - 32:
+                self.data_overflow = True
+                self.data.clear()
+            elif not self.data_overflow:
+                self.data.extend(value)
+                self.data.extend(b"\n")
         elif line.startswith(b"event:"):
-            self.event = line[6:].lstrip(b" ")
+            # An overflowing event field must not match its retained prefix.
+            self.event = b"" if overflow else line[6:].removeprefix(b" ")
+            if overflow:
+                self.incomplete = True
 
     def _event(self) -> None:
-        data = bytes(self.data).rstrip(b"\n")
+        data = bytes(self.data).removesuffix(b"\n")
         try:
-            payload = json.loads(data)
+            payload = json.loads(data) if not self.data_overflow else None
         except (ValueError, UnicodeError, RecursionError):
             payload = None
         kind = payload.get("type") if isinstance(payload, dict) else None
@@ -152,14 +153,25 @@ class _SseTerminal:
                 if kind == name or self.event == name.encode():
                     self.terminal = name
         elif self.protocol == "chat":
-            if data == b"[DONE]":
+            if data == b"[DONE]" and not self.data_overflow:
                 self.terminal = "[DONE]"
             elif isinstance(payload, dict):
                 choices = payload.get("choices")
                 if isinstance(choices, list) and choices and all(isinstance(c, dict) and c.get("finish_reason") is not None for c in choices):
                     self.terminal = "finish_reason"
+        if self.data_overflow:
+            self.incomplete = True
         self.data.clear()
+        self.data_overflow = False
         self.event = b""
+
+    def finish(self) -> None:
+        # SSE dispatch requires the blank line. Retained partial data cannot
+        # be accepted, but budget loss on an unfinished line is still unknown.
+        if self.line_overflow and self.line.startswith((b"data:", b"event:")):
+            self.incomplete = True
+        if self.data_overflow:
+            self.incomplete = True
 
     def clear(self) -> None:
         self.line.clear()
@@ -173,7 +185,8 @@ class CielAiRouterGatewayTransport:
     Success is reported at a complete SSE terminal frame, so consumers may stop
     reading at that marker. A finish_reason is accepted at EOF (or close) for
     Chat endpoints omitting [DONE]; [DONE] itself is accepted immediately.
-    Missing terminal EOF is observed, never raised. ``stream=False`` observes
+    Missing terminal EOF is observed, never raised. Budget loss without an
+    explicit terminal reports observation_incomplete, not proven truncation. ``stream=False`` observes
     normal HTTP body completion instead. HTTP 5xx is failure even if readable.
     Explicit close/abort without completion yields no result, not a failure.
     """
@@ -233,7 +246,10 @@ class CielAiRouterGatewayTransport:
                 self._report(True, "terminal_event")
         if eof:
             if self._stream:
-                self._report(bool(self._parser.terminal), "terminal_event" if self._parser.terminal else "eof_before_terminal")
+                self._parser.finish()
+                reason = ("terminal_event" if self._parser.terminal else
+                          "observation_incomplete" if self._parser.incomplete else "eof_before_terminal")
+                self._report(bool(self._parser.terminal), reason)
             else:
                 self._report(True, "http_complete")
 

@@ -27,13 +27,19 @@ through ``observed_open``, which moves later requests to another gateway.  The
 failed request itself is never replayed: it may already have reached the model.
 Set ``gateway_selection: "off"`` in the CielAiRouter provider config to always
 use the configured base URL.
+
+``select_launch_gateway`` serves ``gateway_data_path=direct`` (``launch_data_path``):
+the launcher asks the same selector once, before a CLI starts, for the gateway
+the CLI then calls itself.
 """
 
 from __future__ import annotations
 
 import copy
+import hashlib
 import importlib
 import itertools
+import re
 import threading
 import time
 import urllib.parse
@@ -147,7 +153,9 @@ class CielAiRouterGatewayOverlay:
         self._routes: dict[str, dict[str, Any]] = {}
         self._tokens: OrderedDict[str, Any] = OrderedDict()
         self._token_counter = itertools.count(1)
-        self._sessions: OrderedDict[tuple[str, str, str], Any] = OrderedDict()
+        self._sessions: OrderedDict[tuple[str, str, str, str], Any] = OrderedDict()
+        self._session_condition = threading.Condition(self._lock)
+        self._session_flights: set[tuple[str, str, str, str]] = set()
 
     # ---- selector -------------------------------------------------------------------------
 
@@ -194,17 +202,9 @@ class CielAiRouterGatewayOverlay:
             return discovery_provider_config(pcfg)
         model = str(pcfg.get("current_model") or "")
         started = self.monotonic()
-        session_key = (central, model, session) if session else None
+        session_key = (central, hashlib.sha256(keys[0].encode()).hexdigest(), model, session) if session else None
         try:
-            selection = self._session_selection(session_key, selector)
-            if selection is None:
-                selection = self._select(selector, central, keys[0], model, fresh=session_key is not None)
-                if session_key is not None and getattr(selection, "candidate", None) is not None:
-                    with self._lock:
-                        self._sessions[session_key] = selection
-                        self._sessions.move_to_end(session_key)
-                        while len(self._sessions) > _MAX_SESSIONS:
-                            self._sessions.popitem(last=False)
+            selection = self._select_session(session_key, selector, central, keys[0], model)
         except Exception as error:  # noqa: BLE001 - selection never fails the request
             self._record(central, {"state": "failed", "error": _error_text(error)}, started)
             return discovery_provider_config(pcfg)
@@ -240,11 +240,33 @@ class CielAiRouterGatewayOverlay:
             # A selector without per-session ranking keeps its own sticky pick.
             return selector.select(central, key, model)
 
-    def _session_selection(self, session_key: Any, selector: Any) -> Any:
-        """This session's gateway while it is not cooling down after a failure."""
-
+    def _select_session(self, session_key: Any, selector: Any, central: str, key: str, model: str) -> Any:
         if session_key is None:
-            return None
+            return self._select(selector, central, key, model, fresh=False)
+        # One owner per auth-scoped session. Other sessions/keys may explore
+        # concurrently; no network work holds the overlay lock.
+        with self._session_condition:
+            while session_key in self._session_flights:
+                self._session_condition.wait()
+            self._session_flights.add(session_key)
+        try:
+            selection = self._session_selection(session_key, selector)
+            if selection is None:
+                selection = self._select(selector, central, key, model, fresh=True)
+                if getattr(selection, "candidate", None) is not None:
+                    with self._lock:
+                        self._sessions[session_key] = selection
+                        self._sessions.move_to_end(session_key)
+                        while len(self._sessions) > _MAX_SESSIONS:
+                            self._sessions.popitem(last=False)
+            return selection
+        finally:
+            with self._session_condition:
+                self._session_flights.discard(session_key)
+                self._session_condition.notify_all()
+
+    def _session_selection(self, session_key: Any, selector: Any) -> Any:
+        """Reuse a session pin only until its candidate expires or cools down."""
         with self._lock:
             selection = self._sessions.get(session_key)
             if selection is not None:
@@ -252,7 +274,8 @@ class CielAiRouterGatewayOverlay:
         if selection is None:
             return None
         cooling = getattr(selector, "is_cooling", None)
-        if callable(cooling) and cooling(selection):
+        expires = getattr(getattr(selection, "candidate", None), "available_until", float("inf"))
+        if expires <= self.clock() or (callable(cooling) and cooling(selection)):
             with self._lock:
                 if self._sessions.get(session_key) is selection:
                     del self._sessions[session_key]
@@ -439,6 +462,52 @@ def observed_gateway_open(request: Any, pcfg: Any, open_request: Callable[[], An
     return overlay.observed_open(request, pcfg, open_request)
 
 
+def select_launch_gateway(
+    pcfg: Mapping[str, Any],
+    *,
+    log: Log | None = None,
+    selector_factory: Callable[[], Any] = _load_selector,
+) -> Any:
+    """The gateway a ``gateway_data_path=direct`` launch sends its model requests to.
+
+    Runs once in the launcher, right before the CLI starts, with the same
+    selector the router uses (a fresh ranking, as for a new session).  Only a
+    healthy, non-degraded gateway other than the central base is returned; any
+    other outcome carries the reason the launch keeps the router data path.
+    The reason and error text never contain the key or remote response content.
+    """
+
+    from .credentials import transportable_api_key
+    from .launch_data_path import LaunchGateway
+    from .model_override import forced_model
+
+    central = discovery_base_url(pcfg)
+    origin = _origin(central)
+    if not selection_enabled(pcfg):
+        return LaunchGateway(reason="gateway_selection is off", central=origin)
+    keys = [key for key in provider_config_api_keys(pcfg) if transportable_api_key(key)]
+    if not keys:
+        return LaunchGateway(reason="no API key", central=origin)
+    model = str(pcfg.get("current_model") or "").strip()
+    try:
+        selection = CielAiRouterGatewayOverlay._select(selector_factory(), central, keys[0], model, fresh=True)
+    except Exception as error:  # noqa: BLE001 - selection never blocks a launch
+        if log is not None:
+            log("WARN", f"cielairouter_launch_gateway_failed central={origin} error={type(error).__name__}")
+        return LaunchGateway(reason=f"gateway selection failed ({type(error).__name__})", central=origin)
+    endpoint = str(getattr(selection, "endpoint", "") or "").rstrip("/")
+    candidate = getattr(selection, "candidate", None)
+    node = str(getattr(candidate, "node_id", "") or "")
+    reason = " ".join(str(getattr(selection, "reason", "") or "").split())[:160]
+    if candidate is None or not endpoint or endpoint == central:
+        return LaunchGateway(reason=f"central base ({reason or 'no gateway selected'})", central=origin)
+    if getattr(selection, "degraded", False):
+        return LaunchGateway(reason=f"degraded gateway ({reason or 'degraded'})", node_id=node, central=origin)
+    upstream = re.sub(r"\[(?:1m)\]\s*$", "", forced_model(dict(pcfg)) or model, flags=re.IGNORECASE).strip()
+    return LaunchGateway(endpoint=endpoint, node_id=node, reason=reason or "selected", central=origin,
+                         model=upstream, api_key=keys[0])
+
+
 def gateway_overlay_status() -> dict[str, Any]:
     """Status without creating the overlay or loading the selector."""
 
@@ -463,6 +532,7 @@ __all__ = [
     "gateway_overlay",
     "gateway_overlay_status",
     "observed_gateway_open",
+    "select_launch_gateway",
     "selection_enabled",
     "use_gateway_overlay",
 ]
