@@ -170,6 +170,7 @@ class GatewayTests(unittest.TestCase):
                                            200, c.node_id, 'gateway', True), clock=lambda: now)
         selected = service.select('https://central.test', 'synthetic')
         self.assertEqual('local', selected.candidate.node_id)
+
     def test_rank_congestion_then_backlog_then_rtt_and_sticky(self):
         now = [1000.0]
         payload = {'object': 'list', 'protocol_version': 1, 'generated_at': stamp(now[0]),
@@ -338,4 +339,3 @@ class SessionRankingTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-

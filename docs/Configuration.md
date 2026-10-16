@@ -411,13 +411,19 @@ Authorization: Bearer <token>
 ## CielAiRouter 게이트웨이 선택
 
 CielAiRouter 공급자의 `base_url`은 중앙 라우터 주소다. 라우터는 요청마다 이 주소의
-`GET /api/gateway/discovery`(라우터 키, Bearer)로 사용 가능한 게이트웨이를 확인하고
-다음 순서로 고른다.
+`GET /api/gateway/discovery`(라우터 키, Bearer, 최대 5초)로 사용 가능한 게이트웨이를
+확인하고 다음 순서로 고른다.
 
 1. `status=online`, `health=healthy`, `availableUntil` 이전인 노드만 후보
-2. 각 엔드포인트의 `/healthz`를 인증 없이 2초 안에 직접 측정(성공한 것만)
-3. 낮은 `congestion.utilization` → 낮은 `backlog` → 짧은 측정 RTT 순서
+2. 각 엔드포인트의 `/healthz`를 인증 없이 2초 안에 직접 측정(성공한 것만). 응답에
+   `nodeId`가 있으면 그 노드의 `id`와 같아야 하며, 다르면 실패로 본다.
+3. 루프백(`127.0.0.0/8`, `::1`, `localhost`) 게이트웨이 → 낮은 `congestion.utilization` →
+   낮은 `backlog` → 짧은 측정 RTT 순서
    (`observedAt`이 90초보다 오래되면 혼잡도 값은 쓰지 않는다)
+
+여러 노드가 같은 루프백 주소(예: `http://127.0.0.1:20128`)를 광고해도 후보는 노드 `id`와
+주소의 조합으로 구분한다. 그 주소의 `/healthz`가 돌려준 `nodeId`와 일치하는 노드, 즉 이
+컴퓨터에서 실제로 실행 중인 게이트웨이만 선택된다.
 
 - Claude Code·Codex 세션은 시작할 때 고른 게이트웨이를 계속 쓴다. 새 세션은 다시 고른다.
 - 연결 실패, 시간 초과, HTTP 5xx, 완료 이벤트(`message_stop`, `response.completed`) 없이

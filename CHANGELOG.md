@@ -5,6 +5,14 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+- A CielAiRouter gateway running on the same computer is preferred. Gateway
+  candidates are identified by node id and address, so several nodes may
+  advertise the same loopback address (`http://127.0.0.1:20128`); the one
+  whose `/healthz` reports the matching `nodeId` is the computer's own gateway
+  and is chosen ahead of remote gateways, whatever their load. Previously the
+  first node listed with that address hid the local one, and the router fell
+  back to the central `base_url`. Discovery may take up to 5 s (was 2 s).
+
 - Follow-up to the gateway/event-ack review: gateway addresses are validated
   independently, so an untrusted representative address no longer discards a
   usable alternate. Generation requests to selected gateways reject redirects

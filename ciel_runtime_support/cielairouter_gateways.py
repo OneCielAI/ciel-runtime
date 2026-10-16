@@ -472,4 +472,3 @@ class CielAiRouterGatewayService:
                      'degraded': state.selection.degraded if state.selection else True,
                      'generation': state.generation,
                      'cooldowns': dict(state.failures)} for scope, state in self._states.items()]
-
