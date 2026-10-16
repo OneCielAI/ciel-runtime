@@ -44,7 +44,7 @@ class RouterServerContext:
     ) -> dict[str, Any]:
         del pcfg
         active_clients = self.health.runtime.active_client_pids()
-        return {
+        payload = {
             "ok": True,
             "version": self.health.version,
             "source_fingerprint": self.health.source_fingerprint,
@@ -73,6 +73,12 @@ class RouterServerContext:
             "tui_status": "/ca/tui/status",
             "tui_stream": "/ca/tui/stream",
         }
+        if provider == "cielairouter":
+            # Diagnostics only: the in-memory gateway route, no discovery here.
+            from .cielairouter_gateway_overlay import gateway_overlay_status
+
+            payload["cielairouter_gateway"] = gateway_overlay_status()
+        return payload
 
     def build_http_services(self) -> RouterHttpServices:
         return self.http_services

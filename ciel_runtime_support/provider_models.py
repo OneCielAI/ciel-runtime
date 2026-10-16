@@ -6,6 +6,8 @@ import urllib.error
 from dataclasses import dataclass
 from typing import Any, Callable, TypeVar
 
+from .cielairouter_gateway_overlay import discovery_provider_config
+
 
 # GET <base>/v1/models timeout.  A cold hosted provider (CielAiRouter) takes
 # 2-6 s to give its first answer, which the former 6 s limit cut off
@@ -166,6 +168,8 @@ def fetch_upstream_model_ids(provider: str, pcfg: dict[str, Any], force_refresh:
     with_upstream_user_agent = services.http.with_upstream_user_agent
     write_model_list_cache = services.storage.write_model_list_cache
     write_model_registry = services.storage.write_model_registry
+    # A per-request CielAiRouter gateway copy reads the central catalog.
+    pcfg = discovery_provider_config(pcfg)
     catalog_policy = provider_model_catalog_policy(provider, pcfg)
 
     def supplement_model_aliases(

@@ -20,7 +20,7 @@ from typing import Any, Callable, Iterable
 
 from ciel_runtime_support import anthropic_model_policy
 from ciel_runtime_support import channel_cursor_repository as channel_cursor_storage, hosted_formula_tools
-from ciel_runtime_support import agent_runtime_event_push, agent_turn_events, company_prompt_reload, channel_llm_context, session_backup_service, claude_launch_assembly, cli_assembly, cli_dispatch, cli_parser, codex_config_effort, codex_launch_configuration, codex_turn_recovery, kimi_identity, llm_option_config, llm_presets, native_context_recovery, remote_management_http, web_access_http
+from ciel_runtime_support import agent_runtime_event_push, agent_turn_events, company_prompt_reload, event_delivery_ack, channel_llm_context, session_backup_service, claude_launch_assembly, cli_assembly, cli_dispatch, cli_parser, codex_config_effort, codex_launch_configuration, codex_turn_recovery, kimi_identity, llm_option_config, llm_presets, native_context_recovery, remote_management_http, web_access_http
 from ciel_runtime_support import muse_catalog, muse_oauth, ollama_catalog as ollama_catalog_policy
 from ciel_runtime_support import openai_chat_compatibility_bridge, otlp_logs, prelaunch, prelaunch_assembly, provider_catalog_sources, provider_models, provider_network, rate_limit_policy, router_request_assembly, router_server_runtime, runtime_asset_assembly, runtime_launch, runtime_primitives, terminal_platform_io, windows_console_mode
 from ciel_runtime_support.prelaunch_launch_panel import launch_panel_rows as project_launch_panel_rows
@@ -1905,15 +1905,12 @@ def external_event_receiver_service() -> ExternalEventReceiverService:
             submit_event=runtime_input_gateway().submit_external_event,
             vault=EventReceiverSecretVault(WORKSPACE_STATE_DIR / "external-event-secrets.vault.json"),
             workspace_key=ROUTER_WORKSPACE_ID,
-            legacy_workspace_keys=tuple(
-                dict.fromkeys(
-                    key
-                    for key in (MIGRATED_LEGACY_INSTANCE_ID, ROUTER_INSTANCE_ID)
-                    if key
-                )
-            ),
+            legacy_workspace_keys=tuple(dict.fromkeys(key for key in (MIGRATED_LEGACY_INSTANCE_ID, ROUTER_INSTANCE_ID) if key)),
             log=router_log,
             cursor_path=WORKSPACE_STATE_DIR / "external-event-sse-cursors.json",
+            # Walkie 49269/56190: the SSE GET names this runtime and acknowledges data.delivery_ack events.
+            client_header=event_delivery_ack.receiver_client_header(VERSION),
+            delivery_ack=event_delivery_ack.DeliveryAckService(WORKSPACE_STATE_DIR, RUNTIME_INPUT_STATUS_PATH, router_log),
         )
         _EXTERNAL_EVENT_RECEIVER_SERVICE.migrate_legacy_config()
     return _EXTERNAL_EVENT_RECEIVER_SERVICE

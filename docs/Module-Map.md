@@ -1355,6 +1355,10 @@ Codex routed(`router_http.forward_json`)와 Anthropic routed(`claude_router`) �
 
 에이전트 턴 단위 종료(`agent.turn_ended`: turn_id, runtime, ended_at, reason `end_turn|interrupted|error|max_tokens`, by_user_input, stop_check_blocked). Claude transcript(`end_turn`·`max_tokens`·interrupt·API error·`turn_duration`)와 Codex rollout(`task_complete`·`turn_aborted`)을 따라가는 `TranscriptTurnTracker`, app-server `turn/completed`용 `AppServerTurnTracker`, 라우터로 보내는 `RouterTurnPoster`(재시도 5회 후 WARN)를 소유한다. 대화 본문은 담지 않는다. 터미널 실행은 `transcript_delta_delivery`의 감시 스레드가, codex-desktop·app-server·remote는 `codex_desktop_injection`이 보고한다. `transcript_delta_delivery`는 턴 종료 읽기 위치를 `transcript-event-cursors.json`의 `agent_turn_sources`에 저장해 라우터 재시작 뒤 이어 읽고, 처음 보는 transcript는 실행 뒤 생성된 것(파일 생성 시각, 없으면 첫 레코드 timestamp)만 처음부터, 나머지는 끝에서 시작한다. NUL 구간과 `max_record_bytes`를 넘는 줄은 한 번 WARN(`transcript_record_skipped` path·offset·length·reason)하고 건너뛴다(Walkie 48926). `stop_check_blocked`는 Stop hook 자기 점검이 구현되지 않아 항상 false다.
 
+### `ciel_runtime_support/event_delivery_ack.py`
+
+CloudEvent의 `data.delivery_ack`(Walkie 49269 §3.4)에 이벤트별 수신 확인을 보낸다(56190 재요청). `ExternalEventReceiverService.delivery_ack`로 붙어 있을 때만 SSE GET이 `Ciel-Receiver-Features: event-ack/1`을 보내고, `receiver_client_header`가 `Walkie-Client` 값을 만든다. 입력 큐에 새 행이 생기면 `stage: queued`(outcome queued), 같은 CloudEvent id나 재전송의 `redelivery_of.event_id`가 이미 큐에 있으면 다시 넣지 않고 `already_queued`, 큐가 다른 이벤트의 행을 남겼으면 `rejected`. `runtime-input-status.jsonl`에 그 행이 `submitted`/`replied`로 기록되면 `stage: injected`. SSE URL과 같은 scheme·host·port에만, SSE의 Authorization으로 보내고 redirect는 따르지 않는다. 실패하면 1·2·4·8·16초 뒤 재시도(timeout 10초), 못 보낸 ack는 라우터 재시작·스트림 재연결 때 다시 보낸다(24시간까지). 단계마다 `event-acks.jsonl`(본문·자격 증명 없음, 14일)에 남기고, 메뉴의 external event 패널 "Delivery acks (event-ack/1)" 행이 집계를 보여 준다.
+
 ### `ciel_runtime_support/company_prompt_reload.py`
 
 Walkie 이벤트의 `data.agent_context.company_prompt {version, sha8}`가 이 워크스페이스의 instruction 파일이 받은 회사 프롬프트(`remote_instructions.held_company_prompt`: 동기화 상태의 `X-Walkie-Company-Prompt-*` 헤더 값, 없으면 파일의 `<!-- company-prompt -->` 주석)와 다르면 라우터가 이어가기 재시작을 한 번 요청한다(Walkie 53255). 요청은 `wait_turn`이라 진행 중인 turn을 시간 제한 없이 기다리고, 런처는 재실행 직전에 instruction 파일을 다시 받는다(`runtime_launch.prepare_restart` → `SessionRestartPorts.prepare`). `runtime_input_gateway.EXTERNAL_EVENT_LISTENERS`로 이벤트를 받고, 같은 프롬프트는 30분에 한 번만 요청한다(`company-prompt-reload.json`). 설정 `remote_instructions.auto_reload`(Remote instructions가 켜져 있으면 기본 켜짐), 메뉴 11번 패널의 "Reload session when the company prompt changes" 행.
@@ -1398,6 +1402,26 @@ Synology NAS 백업 대상(`type: synology`). File Station Web API(공식 가이
 ### `ciel_runtime_support/provider_failover.py` / `provider_failover_menu.py`
 
 Provider 폴백. 현재 provider가 429/사용량 한도(키·토큰 로테이션으로도 남은 게 없을 때)를 돌려주면, 인증값이 저장된 백업 provider로 **같은 요청**을 다시 보낸다(`router_http._dispatch_with_failover`; 429 지점 `claude_router` native relay, `openai_forwarding`, `openai_responses_router`의 HTTPError/UpstreamFailure가 `maybe_fail_over` → `FailoverRequested`, 클라이언트에 아무것도 쓰기 전만). 활성 폴백은 Retry-After/리셋 헤더 시각(없으면 `default_cooldown_minutes`)까지 유지되고, 그 뒤 **턴 시작 요청에서만** 원래 provider로 돌아간다(`anthropic_turn_start`/`codex_turn_start`). 설정·활성 상태·이력은 `<workspace state>/provider-failover.json`(config.json에 쓰지 않음). Claude/Codex OAuth 풀이 전부 limited면 먼저 CLI 자체 로그인으로 한 번 시도(`oauth_routing.OAuthRequestRun.cli_login_headers`, 설정 `cli_login_first`, 풀 `all_limited`). UI: 메뉴 19 패널(자동 on/off, CLI 로그인 먼저, 기본 쿨다운, 백업 추가/순서/모델/제거, 지금 전환, 지금 복귀, 이력), Claude 상태줄 `⇄ backup/model until HH:MM`, `/fallback` 슬래시 명령, router MCP 도구 `provider_fallback`, 이벤트 `router.fallback`. 기본 꺼짐.
+
+### `ciel_runtime_support/cielairouter_gateway_overlay.py`
+
+CielAiRouter 요청별 gateway base URL 덮어쓰기. `router_http._dispatch_with_failover`가 LLM 경로에서 provider 폴백(`failover.effective`)으로 응답할 provider를 고른 **뒤**(폴백 재시도 후에도 다시) `gateway_overlay().apply(provider, pcfg)`를 부른다. provider가 `cielairouter`일 때만 `cielairouter_gateways.CielAiRouterGatewayService`(첫 CielAiRouter 요청에서 지연 생성, 내부 single-flight·sticky 선택)에 설정된 `base_url`(중앙 discovery base)·첫 라우터 키·`current_model`을 넘기고, 후보가 고른 gateway면 provider 설정의 **deep copy**에 `base_url=<gateway>`, `ciel_gateway_discovery_base_url=<중앙>`을 넣는다. 자격 증명은 그대로, config.json·로드된 config는 바꾸지 않는다. 모듈이 없거나 실패하거나 후보가 없으면 그 요청은 기존 base로 간다. 모델 목록 조회(`provider_models.fetch_upstream_model_ids`)와 모델 캐시 키(`provider_model_metadata_context.cache_key`)는 `discovery_provider_config`로 중앙 base를 쓴다. 진단: 선택이 바뀔 때만 `cielairouter_gateway_selected`/`cielairouter_gateway_central`/`cielairouter_gateway_select_failed`/`cielairouter_gateway_selector_unavailable` 로그, 요청마다 DEBUG `cielairouter_gateway_route`, provider가 cielairouter일 때 router `/health`의 `cielairouter_gateway`(selector 상태·마지막 경로·세션 수·`CielAiRouterGatewayService.status()`, 키 없음).
+
+세션 고정: 요청의 세션 키(Claude `x-claude-code-session-id`, Codex `prompt_cache_key`/세션 헤더, `oauth_routing`)마다 처음 고른 gateway를 계속 쓰고, 새 세션의 첫 요청은 `select(..., fresh=True)`로 다시 순위를 매긴다. 그 gateway가 cooldown 중이면 그 세션만 다시 고른다. `gateway_selection: "off"`이면 덮어쓰지 않는다.
+
+실패 반영: 덮어쓴 설정에는 `ciel_gateway_route` 토큰이 붙고, `provider_network.provider_urlopen`이 그 토큰이 있는 요청을 `observed_gateway_open`으로 연다. URL이 선택된 gateway 아래일 때만 `cielairouter_gateway_transport`로 응답을 감싸, 연결 오류·시간 초과·5xx·완료 이벤트 없는 스트림 종료를 `CielAiRouterGatewayService.record_failure`에 알린다(`cielairouter_gateway_failure` WARN). 그 요청은 재전송하지 않는다. 응답 바이트·예외는 그대로 전달한다.
+
+### `ciel_runtime_support/cielairouter_gateways.py`
+
+게이트웨이 선택기. discovery 문서(`protocol_version: 1`)를 검증하고(서버 시계 차이는 `generated_at` 기준으로 보정, 하루 넘게 어긋나면 거부), 엔드포인트를 정규화한다(`/v1` 접미사 제거, userinfo·query·fragment 거부, 평문 http는 루프백만). `/healthz`를 인증 없이 최대 4개 병렬·2초로 측정하고 `nodeId`·`role`·`ready`를 확인한다. 순위는 utilization → backlog → RTT(혼잡도가 90초보다 오래되면 무시). 범위(중앙 URL·키 지문·모델)마다 single-flight로 탐색하고, 실패한 엔드포인트는 60초 cooldown. discovery 401/403은 키 문제로 보고 노드를 돌지 않는다. 리다이렉트는 따르지 않는다.
+
+### `ciel_runtime_support/cielairouter_gateway_transport.py`
+
+관찰 전용 응답 래퍼. 바이트·예외·타이밍을 바꾸지 않고, Anthropic `message_stop`, Responses `response.completed|incomplete|failed`, Chat `[DONE]`/`finish_reason`이 오기 전에 스트림이 끝나면 `eof_before_terminal`, 읽기 오류는 `timeout`/`connection_reset`/`eof`/`network_error`로 한 번만 알린다. 의도적 `close()`·클라이언트 끊김은 실패로 치지 않는다. SSE 파서는 버퍼 크기가 제한되어 있다.
+
+### `ciel_runtime_support/event_receiver_connection.py`
+
+SSE 수신 연결 관리. 줄 단위 활동(heartbeat 주석 포함)을 기록하고, heartbeat를 본 뒤로 `idle_timeout_seconds`(기본 60초, 1–300) 동안 아무 줄도 오지 않으면 소켓을 끊어 `ExternalEventReceiverService`가 같은 인증·cursor로 다시 연결하게 한다. receiver마다 reader 하나만 두고, `reconnect(receiver_id)`로 즉시 재연결한다.
 
 ### `ciel_runtime_support/transcript_public_projection.py`
 

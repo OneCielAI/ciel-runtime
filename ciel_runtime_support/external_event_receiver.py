@@ -19,6 +19,9 @@ from pathlib import Path
 from collections.abc import Mapping
 from typing import Any, Callable
 
+from .event_delivery_ack import RECEIVER_FEATURES, delivery_ack_request
+from .event_receiver_connection import ReceiverWorker, SseConnection, idle_timeout_seconds
+
 
 MAX_EVENT_BYTES = 1024 * 1024
 WEBHOOK_TOLERANCE_SECONDS = 300
@@ -340,8 +343,15 @@ class ExternalEventReceiverService:
     cursor_path: Path | None = None
     urlopen: Callable[..., Any] = urllib.request.urlopen
     sleep: Callable[[float], None] = time.sleep
+    # event_delivery_ack.DeliveryAckService (Walkie 49269/56190): with it the SSE GET says
+    # Ciel-Receiver-Features: event-ack/1 and data.delivery_ack events are acknowledged.
+    delivery_ack: Any = None
+    # Walkie-Client: ciel-runtime/<version> (<os>) runtime=python/<version>.
+    client_header: str = ""
     _stop: threading.Event = field(default_factory=threading.Event)
     _threads: dict[str, threading.Thread] = field(default_factory=dict)
+    _workers: dict[str, ReceiverWorker] = field(default_factory=dict)
+    _lifecycle_lock: Any = field(default_factory=threading.RLock)
     _status: dict[str, dict[str, Any]] = field(default_factory=dict)
     _lock: threading.Lock = field(default_factory=threading.Lock)
     _cursor_lock: threading.Lock = field(default_factory=threading.Lock)
@@ -418,6 +428,7 @@ class ExternalEventReceiverService:
         cursor_query_parameter = str(body.get("cursor_query_parameter") or "").strip()
         if len(cursor_query_parameter) > 80 or any(char in cursor_query_parameter for char in "&=?#/"):
             raise ValueError("cursor_query_parameter must be a single URL query parameter name")
+        idle_timeout = idle_timeout_seconds(body.get("idle_timeout_seconds"))
         input_transport = str(body.get("input_transport") or "auto").strip().lower().replace("-", "_")
         input_transport = {
             "socket": "session_socket",
@@ -446,6 +457,7 @@ class ExternalEventReceiverService:
                 "cursor_json_pointer": cursor_json_pointer,
                 "cursor_query_parameter": cursor_query_parameter,
                 "input_transport": input_transport,
+                **({"idle_timeout_seconds": idle_timeout} if idle_timeout is not None else {}),
             }
         )
         workspace[receiver_id] = current
@@ -594,35 +606,107 @@ class ExternalEventReceiverService:
                 pass
             os.replace(temporary, path)
 
+    def _ack_endpoint(self, receiver_id: str) -> tuple[str, str]:
+        """The receiver's SSE URL and Authorization now, for its acknowledgements."""
+
+        config = self.receiver_configs().get(receiver_id, {})
+        if not config.get("enabled") or config.get("transport") != "sse":
+            return "", ""
+        secret = resolve_environment_reference(self.vault.load(receiver_id).get("authorization", ""))
+        authorization = secret if secret.lower().startswith("bearer ") or not secret else f"Bearer {secret}"
+        return resolve_environment_reference(config.get("url")), authorization
+
+    def _admit_sse_frame(self, receiver_id: str, sse_url: str, raw_text: str, event: dict[str, str], transport_event_id: str) -> None:
+        request = delivery_ack_request(raw_text) if self.delivery_ack is not None else None
+        if request is None:
+            self._admit(receiver_id, "sse", raw_text, event, transport_event_id)
+            return
+        received_at = self.delivery_ack.clock()
+        # A re-sent event whose first event is already queued is not queued twice (49269 R4).
+        original = self.delivery_ack.queued_original(receiver_id, request, event["id"])
+        admitted = None
+        if original is None:
+            admitted = self._admit(receiver_id, "sse", raw_text, event, transport_event_id)
+        else:
+            self._set_status(receiver_id, state="connected", last_event_id=event["id"], last_event_at=time.time(), error="")
+        # Persist before the reconnect cursor advances. Failure reconnects from the old cursor.
+        self.delivery_ack.observe(receiver_id, sse_url, event, request, received_at, admitted, original)
+
     def start(self) -> None:
-        self._stop.clear()
-        for receiver_id, config in self.receiver_configs().items():
-            existing = self._threads.get(receiver_id)
-            if existing is not None and not existing.is_alive():
-                self._threads.pop(receiver_id, None)
-                existing = None
-            if not config.get("enabled") or config.get("transport") != "sse" or existing is not None:
-                continue
-            thread = threading.Thread(target=self._run_sse, args=(receiver_id,), name=f"ciel-event-sse-{receiver_id}", daemon=True)
-            self._threads[receiver_id] = thread
-            thread.start()
+        with self._lifecycle_lock:
+            self._stop.clear()
+            if self.delivery_ack is not None:
+                self.delivery_ack.start(self._ack_endpoint)
+            for receiver_id, config in self.receiver_configs().items():
+                existing = self._threads.get(receiver_id)
+                if existing is not None and existing.is_alive():
+                    continue
+                if existing is not None:
+                    self._threads.pop(receiver_id, None)
+                    self._workers.pop(receiver_id, None)
+                if not config.get("enabled") or config.get("transport") != "sse":
+                    continue
+                worker = ReceiverWorker()
+                self._workers[receiver_id] = worker
+                thread = threading.Thread(target=self._worker_main, args=(receiver_id, worker), name=f"ciel-event-sse-{receiver_id}", daemon=True)
+                self._threads[receiver_id] = thread
+                thread.start()
+
+    def reconnect(self, receiver_id: str) -> bool:
+        receiver_id = self._safe_id(receiver_id)
+        with self._lifecycle_lock:
+            thread = self._threads.get(receiver_id)
+            worker = self._workers.get(receiver_id)
+            if thread is None or not thread.is_alive() or worker is None:
+                return False
+            worker.interrupt()
+            self._set_status(receiver_id, state="reconnecting", error="")
+            return True
 
     def stop(self) -> None:
-        self._stop.set()
-        for thread in tuple(self._threads.values()):
-            thread.join(timeout=2.0)
-        self._threads.clear()
+        with self._lifecycle_lock:
+            self._stop.set()
+            workers = tuple(self._workers.values())
+            threads = tuple(self._threads.values())
+            for worker in workers:
+                worker.interrupt(stop=True)
+        for thread in threads:
+            if thread is not threading.current_thread():
+                thread.join(timeout=2.0)
+        # Retain live workers, including urlopen calls still waiting for headers.
+        # Their permanent stop token must not be cleared by a later start().
+        if self.delivery_ack is not None:
+            with self._lifecycle_lock:
+                if self._stop.is_set():
+                    self.delivery_ack.stop()
 
-    def _run_sse(self, receiver_id: str) -> None:
+    def _worker_main(self, receiver_id: str, worker: ReceiverWorker) -> None:
+        try:
+            self._run_sse(receiver_id, worker)
+        finally:
+            with self._lifecycle_lock:
+                if self._workers.get(receiver_id) is worker:
+                    self._workers.pop(receiver_id, None)
+                    self._threads.pop(receiver_id, None)
+                    if worker.stop.is_set() and not self._stop.is_set():
+                        self.start()
+
+    def _run_sse(self, receiver_id: str, worker: ReceiverWorker | None = None) -> None:
+        worker = worker or ReceiverWorker()
         retry = 1.0
         last_event_id = self._read_sse_cursor(receiver_id)
-        while not self._stop.is_set():
+        while not self._stop.is_set() and not worker.stop.is_set():
             config = self.receiver_configs().get(receiver_id, {})
             if not config.get("enabled") or config.get("transport") != "sse":
                 break
             cursor_query_parameter = str(config.get("cursor_query_parameter") or "").strip()
+            connection = None
             try:
                 headers = {"Accept": CLOUDEVENTS_SSE_ACCEPT, "Cache-Control": "no-cache"}
+                if self.client_header:
+                    headers["Walkie-Client"] = self.client_header
+                if self.delivery_ack is not None:
+                    headers["Ciel-Receiver-Features"] = RECEIVER_FEATURES
                 secret = resolve_environment_reference(
                     self.vault.load(receiver_id).get("authorization", "")
                 )
@@ -640,28 +724,51 @@ class ExternalEventReceiverService:
                 request = urllib.request.Request(request_url, headers=headers)
                 self._set_status(receiver_id, state="connecting", error="")
                 with self.urlopen(request, timeout=90) as response:
+                    connection = SseConnection(
+                        response,
+                        idle_timeout_seconds(config.get("idle_timeout_seconds")),
+                        on_activity=lambda metadata: self._set_status(receiver_id, **metadata),
+                    )
+                    worker.bind(connection)
+                    connection.start()
                     content_type = str(response.headers.get("content-type") or "").lower()
                     if "text/event-stream" not in content_type:
                         raise ValueError("SSE endpoint did not return text/event-stream")
                     self._set_status(receiver_id, state="connected", connected_at=time.time(), error="")
                     retry = 1.0
-                    for transport_event_id, raw_text in parse_sse_frames(response):
-                        if self._stop.is_set():
+                    if self.delivery_ack is not None:
+                        self.delivery_ack.reconnected(receiver_id)
+                    for transport_event_id, raw_text in parse_sse_frames(connection.lines()):
+                        if self._stop.is_set() or worker.stop.is_set() or worker.reconnect.is_set():
                             break
                         event = validate_cloud_event(raw_text)
-                        self._admit(receiver_id, "sse", raw_text, event, transport_event_id)
+                        self._admit_sse_frame(receiver_id, request_url, raw_text, event, transport_event_id)
                         projected_cursor = cloud_event_cursor(
                             raw_text,
                             str(config.get("cursor_json_pointer") or "").strip(),
                         )
                         next_cursor = projected_cursor or transport_event_id
                         if next_cursor:
+                            self._write_sse_cursor(receiver_id, next_cursor)
                             last_event_id = next_cursor
-                            self._write_sse_cursor(receiver_id, last_event_id)
+                    if connection.timed_out:
+                        raise TimeoutError("SSE line activity timed out")
             except Exception as exc:
-                self._set_status(receiver_id, state="disconnected", error=f"{type(exc).__name__}: {exc}", retry_seconds=retry)
-                self.log("WARN", f"external_event_sse_disconnected receiver={receiver_id} error={type(exc).__name__}: {exc}")
-            if self._stop.wait(retry):
+                self._set_status(receiver_id, state="disconnected", error=type(exc).__name__, retry_seconds=retry)
+                self.log("WARN", f"external_event_sse_disconnected receiver={receiver_id} error={type(exc).__name__}")
+            finally:
+                if connection is not None:
+                    connection.close()
+                worker.bind(None)
+            if self._stop.is_set() or worker.stop.is_set():
+                break
+            if worker.reconnect.is_set():
+                worker.reconnect.clear()
+                continue
+            # Explicit reconnect and stop wake backoff without creating a reader.
+            if worker.reconnect.wait(retry):
+                worker.reconnect.clear()
+            if self._stop.is_set() or worker.stop.is_set():
                 break
             retry = min(30.0, retry * 2.0)
         self._set_status(receiver_id, state="stopped")
@@ -680,4 +787,5 @@ __all__ = [
     "sse_reconnect_url",
     "validate_cloud_event",
     "verify_standard_webhook",
+    "idle_timeout_seconds",
 ]

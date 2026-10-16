@@ -124,8 +124,18 @@ def provider_urlopen(
     policy = provider_ip_family(provider, config)
     if policy != "auto":
         log("DEBUG", f"upstream_ip_family provider={provider or ''} policy={policy}")
-    with socket_ip_family_policy(policy):
-        return urllib.request.urlopen(request, timeout=timeout)
+
+    def open_request() -> Any:
+        with socket_ip_family_policy(policy):
+            return urllib.request.urlopen(request, timeout=timeout)
+
+    if isinstance(config, dict) and config.get("ciel_gateway_route"):
+        # A CielAiRouter request routed to a selected gateway: its failures move
+        # later requests to another gateway (cielairouter_gateway_overlay).
+        from ciel_runtime_support.cielairouter_gateway_overlay import observed_gateway_open
+
+        return observed_gateway_open(request, config, open_request)
+    return open_request()
 
 
 def ip_family_connectivity(

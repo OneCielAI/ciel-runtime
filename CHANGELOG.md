@@ -5,6 +5,37 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+- Decision notices are acknowledged per event (Walkie 49269, re-requested in
+  56190). The SSE receiver now sends `Ciel-Receiver-Features: event-ack/1`
+  and `Walkie-Client: ciel-runtime/<version> (<os>) runtime=python/<version>`.
+  An event carrying `data.delivery_ack` is acknowledged `queued` once it has a
+  runtime input row (`already_queued` when the same CloudEvent id or a re-sent
+  event's first id is already queued, which is then not queued twice) and
+  `injected` once the runtime input status store records it submitted. Posts go
+  only to the SSE URL's own origin with its Authorization, never follow a
+  redirect, retry after 1, 2, 4, 8 and 16 s, and an unsent one is sent again
+  after a router restart or stream reconnect (until 24 h). Every step is kept in
+  `event-acks.jsonl` for 14 days; the menu's external event panel shows the
+  counts. Events without `delivery_ack` are handled as before.
+
+- CielAiRouter requests go to the best available gateway. The router reads
+  the central router's `/api/gateway/discovery` with the router key, probes
+  each healthy gateway's `/healthz` without credentials, and ranks them by
+  utilization, backlog and measured round trip. Each Claude Code or Codex
+  session keeps the gateway it started on; a new session ranks again. When a
+  gateway fails a request (connection error, timeout, HTTP 5xx, or a stream
+  that ends before `message_stop`/`response.completed`), that request is not
+  replayed, and later requests move to another healthy gateway while the
+  failed one cools down for 60 s. With no usable gateway the configured
+  `base_url` is used. The model catalog keeps using the configured `base_url`.
+  `gateway_selection: "off"` in the CielAiRouter provider config turns it off.
+
+- The external event SSE receiver reconnects a stalled stream. Once the
+  stream has sent a heartbeat comment, 60 s without any line closes it and
+  reconnects with the same Authorization and cursor (`idle_timeout_seconds`
+  sets the limit, 1–300 s). Each receiver keeps one reader; stopping and
+  starting no longer leaves a second reader on the old connection.
+
 - A new company prompt reaches running agents. When a Walkie event's
   `agent_context.company_prompt` differs from the company prompt the
   workspace's `AGENTS.md`/`CLAUDE.md` were written with (Walkie's

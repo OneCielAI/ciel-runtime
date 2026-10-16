@@ -1067,6 +1067,25 @@ class EventHttpAdapter:
         return last_id
 
 
+def gateway_session(handler: Any, provider: str, body: dict[str, Any]) -> str:
+    """The client session a CielAiRouter request belongs to ("" when unknown).
+
+    Only CielAiRouter requests need it; a header object the session helpers
+    cannot read leaves the request without a session rather than failing it.
+    """
+
+    if provider != "cielairouter":
+        return ""
+    from ciel_runtime_support.oauth_routing import anthropic_session_key, codex_session_key
+
+    session_key = anthropic_session_key if "messages" in body else codex_session_key
+    try:
+        value = session_key(getattr(handler, "headers", None), body)
+    except (TypeError, ValueError, AttributeError):
+        return ""
+    return "" if value == "default" else value
+
+
 class RouterHttpHandler(BaseHTTPRequestHandler):
     server_version = "ciel-runtime/0.1"
     services_factory: Callable[[], RouterHttpServices] | None = None
@@ -1460,6 +1479,7 @@ class RouterHttpHandler(BaseHTTPRequestHandler):
         backup.  Each provider is tried once per request.
         """
 
+        from ciel_runtime_support.cielairouter_gateway_overlay import gateway_overlay
         from ciel_runtime_support.oauth_routing import anthropic_turn_start, codex_turn_start
         from ciel_runtime_support.provider_failover import (
             HANDLER_CONFIG_ATTRIBUTE,
@@ -1470,6 +1490,9 @@ class RouterHttpHandler(BaseHTTPRequestHandler):
         llm = path in REMOTE_LLM_PATHS or path.startswith("/backend-api/codex")
         failover = failover_service(services.core.log) if llm else None
         pristine = copy.deepcopy(body) if failover is not None else body
+        # The serving provider's config copy for this request: a CielAiRouter
+        # request goes to the selected gateway (central base kept for discovery).
+        gateways = gateway_overlay(services.core.log) if llm else None
         if failover is not None:
             setattr(self, HANDLER_CONFIG_ATTRIBUTE, cfg)
             turn_start = anthropic_turn_start(body) if "messages" in body else codex_turn_start(body)
@@ -1477,6 +1500,9 @@ class RouterHttpHandler(BaseHTTPRequestHandler):
             if routed != provider:
                 services.core.log("INFO", f"provider_failover_route path={path} configured={provider} serving={routed} turn_start={turn_start}")
             provider = routed
+        session = gateway_session(self, provider, body) if gateways is not None else ""
+        if gateways is not None:
+            pcfg = gateways.apply(provider, pcfg, path=path, session=session)
         for _attempt in range(8):
             model = str(body.get("model") or pcfg.get("current_model") or "")
             try:
@@ -1487,6 +1513,9 @@ class RouterHttpHandler(BaseHTTPRequestHandler):
                     raise
                 services.core.log("WARN", f"provider_failover_retry path={path} {request}")
                 provider, pcfg = failover.effective(cfg, request.from_provider, pcfg, turn_start=False)
+                if gateways is not None:
+                    session = gateway_session(self, provider, pristine)
+                    pcfg = gateways.apply(provider, pcfg, path=path, session=session)
                 body = copy.deepcopy(pristine)
         return False
 

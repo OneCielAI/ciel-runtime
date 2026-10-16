@@ -30,6 +30,20 @@ def panel_rows(
             return f"env:{reference['name']} {availability}"
         return "stored" if secret_status[stored_key] else "unset"
 
+    def delivery_acks() -> str:
+        # Walkie 49269/56190: per-event acknowledgements, read from event-acks.jsonl.
+        ack_service = getattr(service, "delivery_ack", None)
+        if ack_service is None:
+            return "not attached"
+        summary = ack_service.summary()
+        if not summary.get("events"):
+            return "on · none yet"
+        last = summary.get("last") or {}
+        return (
+            f"on · acked {summary['acked']} · waiting {summary['waiting']} · failed {summary['failed']}"
+            f" · injected {summary['injected']} · last {last.get('at') or '-'} {last.get('queued_ack') or '-'}"
+        )
+
     rows = [
         f"Enabled  [{'on' if enabled else 'off'}]",
         f"Transport  [{transport}]",
@@ -41,6 +55,7 @@ def panel_rows(
         f"Reconnect query parameter  [{str(receiver.get('cursor_query_parameter') or 'Last-Event-ID header')}]",
         f"Webhook signing secret  [{secret_source('webhook_secret', 'stored_webhook_secret')}]",
         f"SSE authorization  [{secret_source('authorization', 'stored_authorization')}]",
+        f"Delivery acks (event-ack/1)  [{delivery_acks()}]",
         f"Webhook endpoint  [{router_base}/ca/events/webhooks/default]",
         "Back",
     ]
@@ -55,6 +70,7 @@ def panel_rows(
         "cursor_query_parameter",
         "webhook_secret",
         "authorization",
+        "__info__",
         "__info__",
         "back",
     ]

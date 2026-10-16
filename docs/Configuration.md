@@ -408,6 +408,34 @@ Authorization: Bearer <token>
 `CIEL_RUNTIME_ROUTER_EXTERNAL_TOKEN` 환경 변수로 파일 토큰을 재정의할 수 있다.
 루프백 요청은 기존 로컬 CLI 호환성을 위해 토큰 없이 허용된다.
 
+## CielAiRouter 게이트웨이 선택
+
+CielAiRouter 공급자의 `base_url`은 중앙 라우터 주소다. 라우터는 요청마다 이 주소의
+`GET /api/gateway/discovery`(라우터 키, Bearer)로 사용 가능한 게이트웨이를 확인하고
+다음 순서로 고른다.
+
+1. `status=online`, `health=healthy`, `availableUntil` 이전인 노드만 후보
+2. 각 엔드포인트의 `/healthz`를 인증 없이 2초 안에 직접 측정(성공한 것만)
+3. 낮은 `congestion.utilization` → 낮은 `backlog` → 짧은 측정 RTT 순서
+   (`observedAt`이 90초보다 오래되면 혼잡도 값은 쓰지 않는다)
+
+- Claude Code·Codex 세션은 시작할 때 고른 게이트웨이를 계속 쓴다. 새 세션은 다시 고른다.
+- 연결 실패, 시간 초과, HTTP 5xx, 완료 이벤트(`message_stop`, `response.completed`) 없이
+  끝난 스트림은 그 게이트웨이의 실패로 기록되고 60초 동안 후보에서 빠진다. 그 요청은
+  다시 보내지 않는다(이미 모델이 처리했을 수 있다). 다음 요청부터 다른 게이트웨이를 쓴다.
+- 401·403·429 같은 키·한도 응답은 게이트웨이 실패로 보지 않는다.
+- 쓸 수 있는 게이트웨이가 없거나 discovery가 실패하면 설정된 `base_url`을 그대로 쓴다.
+- 모델 목록(`/v1/models`)은 항상 설정된 `base_url`에서 읽는다.
+- 평문 `http` 게이트웨이는 루프백 주소만 허용한다. 리다이렉트는 따르지 않는다.
+- 선택 결과는 설정 파일에 저장하지 않는다. 라우터 `/health`의 `cielairouter_gateway`와
+  로그(`cielairouter_gateway_selected`, `cielairouter_gateway_failure`)에서 확인한다.
+
+끄려면 공급자 설정에 다음을 넣는다.
+
+```json
+{ "providers": { "cielairouter": { "gateway_selection": "off" } } }
+```
+
 ---
 
 ## Windows 콘솔 채널 wake
