@@ -29,4 +29,39 @@ files_changed:
   - "tests/test_launch_data_path.py: Claude/Codex harness options (socket, stdin_proxy, delivery_mode, parent bypass flag and wake options capture) and 7 new/strengthened tests."
   - "docs/Configuration.md, docs/Module-Map.md, CHANGELOG.md (Unreleased)."
 verification:
-  RESULTS-PLACEHOLDER: ""
+  environment: "Windows 11 26200, Python 3.11.6, ruff 0.14.11; all inherited CIEL_RUNTIME_* names removed (env -u) for every test and E2E run; tests through scripts/run_test_group.isolate_runtime_state (evidence/focused.py)."
+  unit_new_file: "evidence/launch-data-path-tests.txt: tests/test_launch_data_path.py 41 tests OK (verbose). New or strengthened: resolver marker-only channel keeps router before selection (0 launch_gateway calls, WARN line, record + status line carry the reason, reason <= 160 chars); whole-message transport, no terminal wake or no channel permit selection; channel adds nothing to router mode or to other providers; plain Codex run_codex launch + restart both on the router provider block (ROUTER_BASE/v1, router alias -m, CIEL_RUNTIME_CODEX_API_KEY, no gateway key or ciel-runtime-gateway id, parent direct-delivery flag unset, wake_for_llm_delivery True) with 0 selections; capability not runtime name (delivery_mode tty -> plain Codex selects gw1, restart gw2); Claude socket off -> router at launch and restart, 0 selections; Claude with socket or without wake proxy -> direct."
+  focused_suites: "evidence/focused-tests.txt: 13 files (launch_data_path, codex_runtime, channel_pending_injection, codex_desktop_injection, runtime_session_restart, unattended_restart, codex_app_server_session, cielairouter_gateway_overlay, provider_gateway_options, claude_native_provider, architecture_contracts, architecture_budget, provider_contract_matrix): Ran 737 tests OK (skipped=54). Broad suites not run (instruction)."
+  static: "ruff check on launch_data_path.py, runtime_launch.py, tests/test_launch_data_path.py and the evidence scripts: All checks passed. git diff --check clean on the tracked files changed here. ciel_runtime.py not touched."
+  real_cli_e2e_direct: >
+    evidence/e2e_plain_codex.py (real codex-tui 0.163.0 started by ciel_runtime.py --ca-runtime codex in a wt.exe console,
+    isolated config G:/ciel-e2e/direct-plain/codex, loopback stub central + gateways A/B, gateway_data_path=direct).
+    Facts in evidence/e2e-plain-codex/result.json, router-excerpt.txt, screen-main-*.txt, shots/01-04.png.
+    Launch: launch-data-path.json codex = configured direct, active router, reason = CHANNEL_MARKER_REASON; router.log one
+    WARN 'launch_data_path runtime=codex ... active=router ... elapsed_ms=0'; codex command line
+    model_providers.ciel-runtime.base_url = http://127.0.0.1:<router>/v1, env_key CIEL_RUNTIME_CODEX_API_KEY,
+    -m ciel-runtime-cielairouter-stub-model; only /v1/models reached the central before turn 1 (no launch-time discovery).
+    Turn 1: Codex composer shows '[ciel-wake] pending_ids=1' (screen-main-01); router.log channel_stdin_proxy_injected
+    transport=router display_body=False, channel_llm_wake_prompt_stripped, channel_llm_injected message_ids=1; gateway B
+    request last user text 'E2E-TURN-1 please reply', no wake marker; reply STUB-REPLY-B shown (screen-main-02).
+    Restart (restart_session via router /ca/mcp): codex_session_restart resumed=true claim=transport; the relaunched codex
+    command line again names the router provider block; the record is unchanged (router); the restart notice turn reached
+    gateway B through the router.
+  restart_turn2_finding: >
+    After the restart, the next channel message did not reach a gateway in either run: the restart notice (id 2, tty
+    transport) was answered but its receipt failed (channel_input_receipt transcript_missing
+    confirmation=awaiting_new_transcript -> channel_input_submit_unconfirmed -> prompt_not_submitted), so the router
+    deferred the body of wake id 3 behind it (channel_llm_inject_deferred message_id=2 reason=input_transport_tty) and
+    answered HTTP 500; Codex showed 'We're currently experiencing high demand'. The same sequence occurred in the control run
+    with gateway_data_path unset (evidence/e2e-plain-codex-router/router-excerpt.txt lines for 16:57:24-16:58:02), so it is
+    independent of the data-path setting and of this guard. A HEAD baseline (git archive HEAD 05a43fd, router default,
+    evidence/e2e-plain-codex-router-head) could not compare it: there the console window and router were gone about 20 s
+    after the restart (router.log ends at channel_windows_console_proxy_started). Cause not investigated; not fixed here.
+  live_router: "127.0.0.1:9512 pid 31392 v0.2.51 /health ok before and after (evidence/live-router-before.txt, live-router-after.txt). No leftover E2E processes."
+not_verified:
+  - "Real Claude Code launch with session-socket input off (unit tests only)."
+  - "Real codex-remote / app-server direct launch after this change (unit tests only; their direct path is unchanged apart from the explicit app_server channel declaration)."
+  - "Non-Windows hosts (no such host here): plain Codex falls back there by design; the visible-body wake was not exercised."
+  - "Claude Code direct with the socket temporarily unavailable types the full body through the TTY (unchanged behavior of the CIEL_RUNTIME_DIRECT_GATEWAY_ACTIVE flag); whether Windows Claude Code drops characters of a long typed body is unknown (dropping was observed for Codex on 2026-10-03)."
+limits:
+  - "The guard is decided at launch from the launcher's declaration; a Claude Code messaging socket that later becomes unusable does not move the running CLI back to the router."

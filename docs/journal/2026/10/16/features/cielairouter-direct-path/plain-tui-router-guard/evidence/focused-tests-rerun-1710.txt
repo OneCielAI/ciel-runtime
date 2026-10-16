@@ -1,0 +1,50 @@
+................................................s.s.sssssss...........................Launching Codex App Server through Ciel Runtime.
+Codex App Server listen: ws://127.0.0.1:8899
+Standalone Codex app-server: no conversation TUI. Waiting for a WebSocket JSON-RPC client.
+HTTP status (not a web chat UI): http://127.0.0.1:8899/readyz
+HTTP status (not a web chat UI): http://127.0.0.1:8899/healthz
+.Launching Codex App Server through Ciel Runtime.
+Codex App Server listen: ws://127.0.0.1:8899
+Standalone Codex app-server: no conversation TUI. Waiting for a WebSocket JSON-RPC client.
+HTTP status (not a web chat UI): http://127.0.0.1:8899/readyz
+HTTP status (not a web chat UI): http://127.0.0.1:8899/healthz
+.Launching Codex App Server through Ciel Runtime.
+Codex App Server listen: ws://127.0.0.1:8899
+Standalone Codex app-server: no conversation TUI. Waiting for a WebSocket JSON-RPC client.
+HTTP status (not a web chat UI): http://127.0.0.1:8899/readyz
+HTTP status (not a web chat UI): http://127.0.0.1:8899/healthz
+.Launching Codex App Server through Ciel Runtime.
+Codex App Server listen: ws://127.0.0.1:8899
+Standalone Codex app-server: no conversation TUI. Waiting for a WebSocket JSON-RPC client.
+HTTP status (not a web chat UI): http://127.0.0.1:8899/readyz
+HTTP status (not a web chat UI): http://127.0.0.1:8899/healthz
+.s..s........s............................................................Ciel Runtime: restarting Claude Code source=ciel-runtime-router-tool reason=deploy
+.Ciel Runtime: restarting Claude Code source=ciel-runtime-router-tool reason=mcp
+.Ciel Runtime: restarting Claude Code source=ciel-runtime-router-tool reason=deploy
+..Ciel Runtime: restarting Codex source=cli reason=deploy
+........Ciel Runtime: restarting Claude Code source=mcp reason=deploy
+................Ciel Runtime: restarting Claude Code source=ciel-runtime-router-tool reason=deploy
+.Ciel Runtime: restarting Claude Code source=ciel-runtime-router-tool reason=deploy
+.Ciel Runtime: restarting Claude Code source=ciel-runtime-router-tool reason=deploy
+.Ciel Runtime: restarting Claude Code source=ciel-runtime-router-tool reason=deploy
+..Ciel Runtime: restarting Codex app-server and TUI source=ciel-runtime-router-tool reason=deploy thread=(new)
+.Ciel Runtime: restarting Codex app-server and TUI source=ciel-runtime-router-tool reason=deploy thread=01a0-saved
+..Ciel Runtime: restarting Codex source=ciel-runtime-router-tool reason=deploy
+...........................................................................ciel-runtime restart-session: queued request_id=r1 client_pid=42 workspace=- resume=false
+ciel-runtime restart-session: no active CLI session is running through ciel-runtime
+ciel-runtime restart-session: multiple CLI sessions are active; select one:
+  --pid 1  workspace=C:/work router_port=9611 started=-
+  --pid 2  workspace=C:/work router_port=9611 started=-
+ciel-runtime restart-session: queued request_id=r1 client_pid=50788 workspace=C:/work resume=true
+ciel-runtime restart-session: client pid 99 is not an active CLI session
+ciel-runtime restart-session: queued request_id=r1 client_pid=7 workspace=- resume=true
+Ciel Runtime: restarting Codex app-server and TUI source=mcp reason=deploy thread=01a0-saved
+.Ciel Runtime: restarting Codex app-server and TUI source=mcp reason=- thread=(new)
+...codex-remote needs a ws:// app-server listen address, got stdio://
+.Ciel Runtime: restarting Codex app-server and TUI source=mcp reason=- thread=(new)
+...Codex app-server did not become ready at ws://127.0.0.1:19961; see C:\Users\djlov\AppData\Local\Temp\tmpwg4ll82_\codex-remote\ws1\app-server.log
+.......................................................................................................................................................................s..sss.......s.ss......sssssssss..............ss...s....s..s.......s.............s..s..............s.ssssssssssss...........................ss..................................................................................s.ss............................................................
+----------------------------------------------------------------------
+Ran 737 tests in 86.539s
+
+OK (skipped=54)
