@@ -1,0 +1,15 @@
+okf_version: "1.0"
+task: "Add focused evidence tests for real SSE activity reconnect and stop/start reader ownership."
+reported: >
+  Agent affc6338527f53ab9 reported that its final focused verification was killed by memory pressure before the
+  last changes were verified, and that these two tests had not been added. User requested proceeding.
+changes:
+  - "tests/test_external_event_receiver.py now uses a real ThreadingHTTPServer to send one heartbeat, hold the socket, then serve a CloudEvent after the activity watchdog interrupts and reconnects."
+  - "The stop/start test holds the first reader, asserts start keeps the live stopped worker instead of creating a second reader, then releases it and verifies the replacement is created only after the old reader exits."
+verification:
+  - "test_event_receiver_connection.py: 4 tests OK"
+  - "test_external_event_receiver.py: 13 tests OK, including the two new tests"
+  - "ruff check on the receiver modules and both test files: All checks passed"
+limits:
+  - "This is a local fixture and unit/integration test; no managed host, live receiver, or user session was touched."
+  - "No full four-group sweep was started because the prior background sweep was killed under memory pressure; the focused tests are the requested verification."

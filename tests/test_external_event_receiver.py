@@ -4,8 +4,10 @@ import hmac
 import json
 import os
 import tempfile
+import threading
 import time
 import unittest
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from unittest import mock
 from pathlib import Path
 
@@ -268,6 +270,148 @@ class ExternalEventReceiverTests(unittest.TestCase):
             self.assertEqual(event_text, admitted[0][0])
             self.assertEqual("session_socket", admitted[0][1]["input_transport"])
             self.assertEqual("11-1", json.loads(cursor_path.read_text(encoding="utf-8"))["default"])
+
+    def test_real_http_sse_reconnects_after_activity_timeout(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            delivered = threading.Event()
+            release = threading.Event()
+            requests = []
+            errors = []
+            event_text = '{"specversion":"1.0","id":"http-1","source":"/http","type":"demo"}'
+
+            class Handler(BaseHTTPRequestHandler):
+                def log_message(self, *_args):
+                    pass
+
+                def do_GET(self):
+                    requests.append(self.path)
+                    number = len(requests)
+                    self.send_response(200)
+                    self.send_header("content-type", "text/event-stream")
+                    self.send_header("connection", "close")
+                    self.end_headers()
+                    if number == 1:
+                        self.wfile.write(b": heartbeat\n\n")
+                    else:
+                        self.wfile.write(f"id: http-1\ndata: {event_text}\n\n".encode())
+                    self.wfile.flush()
+                    release.wait(1.5)
+
+            server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+            server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+            server_thread.start()
+            config = {"external_event_receivers": {"workspace": {}}}
+
+            def submit(raw, **_meta):
+                self.assertEqual(event_text, raw)
+                delivered.set()
+                return {"id": 1}
+
+            service = ExternalEventReceiverService(
+                load_config=lambda: config,
+                save_config=lambda value: config.update(value),
+                write_json=lambda *_args: None,
+                submit_event=submit,
+                vault=EventReceiverSecretVault(root / "events.vault.json"),
+                workspace_key="workspace",
+                log=lambda _level, text: errors.append(text),
+                cursor_path=root / "cursors.json",
+            )
+            try:
+                service.save_receiver("default", {
+                    "enabled": True,
+                    "transport": "sse",
+                    "url": f"http://127.0.0.1:{server.server_port}/events",
+                    "idle_timeout_seconds": 1,
+                })
+                service.start()
+                first_thread = service._threads["default"]
+                self.assertTrue(delivered.wait(8), f"requests={requests}, logs={errors}")
+                self.assertEqual(2, len(requests))
+                self.assertIs(first_thread, service._threads["default"])
+                self.assertTrue(any("external_event_sse_disconnected receiver=default error=" in text for text in errors), errors)
+            finally:
+                service.stop()
+                release.set()
+                server.shutdown()
+                server.server_close()
+                server_thread.join(timeout=2)
+            self.assertFalse(first_thread.is_alive())
+
+    def test_stop_then_start_does_not_create_a_second_reader(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            entered = threading.Event()
+            release = threading.Event()
+            replacement_entered = threading.Event()
+            replacement_release = threading.Event()
+            calls = []
+            config = {"external_event_receivers": {"workspace": {}}}
+
+            class BlockingResponse:
+                headers = {"content-type": "text/event-stream"}
+
+                def __init__(self, number):
+                    self.number = number
+
+                def __enter__(self):
+                    return self
+
+                def __exit__(self, *_args):
+                    return False
+
+                def __iter__(self):
+                    if self.number == 1:
+                        entered.set()
+                        release.wait(10)
+                    else:
+                        replacement_entered.set()
+                        replacement_release.wait(10)
+                    return iter(())
+
+            def urlopen(_request, timeout):
+                calls.append(threading.get_ident())
+                return BlockingResponse(len(calls))
+
+            service = ExternalEventReceiverService(
+                load_config=lambda: config,
+                save_config=lambda value: config.update(value),
+                write_json=lambda *_args: None,
+                submit_event=lambda *_args, **_kwargs: {},
+                vault=EventReceiverSecretVault(root / "events.vault.json"),
+                workspace_key="workspace",
+                log=lambda *_args: None,
+                urlopen=urlopen,
+            )
+            try:
+                service.save_receiver("default", {
+                    "enabled": True,
+                    "transport": "sse",
+                    "url": "https://events.example/stream",
+                })
+                service.start()
+                self.assertTrue(entered.wait(2))
+                old_thread = service._threads["default"]
+                old_worker = service._workers["default"]
+                service.stop()
+                self.assertTrue(old_thread.is_alive())
+                service.start()
+                self.assertIs(old_thread, service._threads["default"])
+                self.assertIs(old_worker, service._workers["default"])
+                self.assertTrue(old_worker.stop.is_set())
+                self.assertEqual(1, len(calls))
+                release.set()
+                self.assertTrue(replacement_entered.wait(3))
+                old_thread.join(timeout=1)
+                self.assertFalse(old_thread.is_alive())
+                self.assertEqual(2, len(calls))
+                self.assertIsNot(old_worker, service._workers["default"])
+            finally:
+                release.set()
+                replacement_release.set()
+                service.stop()
+            self.assertFalse(any(thread.is_alive() for thread in service._threads.values()))
 
     def test_standard_sse_cursor_uses_last_event_id_header(self):
         with tempfile.TemporaryDirectory() as directory:
