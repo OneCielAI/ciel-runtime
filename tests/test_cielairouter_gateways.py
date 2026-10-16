@@ -143,6 +143,33 @@ class GatewayTests(unittest.TestCase):
                 server.shutdown()
                 thread.join(timeout=5)
 
+    def test_shared_loopback_url_keeps_node_identity_and_selects_actual_local_node(self):
+        now = 1000.0
+        endpoint = 'http://127.0.0.1:20128'
+        for ids in (('remote', 'local'), ('local', 'remote')):
+            with self.subTest(order=ids):
+                payload = {'object': 'list', 'protocol_version': 1, 'generated_at': stamp(now),
+                           'data': [row(node, endpoint, now) for node in ids]}
+                snapshot = validate_discovery(payload, now=now)
+                self.assertEqual(set(ids), {c.node_id for c in snapshot.candidates})
+                service = CielAiRouterGatewayService(discovery=lambda *_: payload,
+                    probe=lambda *_: ProbeResult(True, .001, 200, 'local', 'gateway', True),
+                    clock=lambda: now)
+                selected = service.select('https://central.test', 'synthetic')
+                self.assertEqual('local', selected.candidate.node_id)
+                self.assertEqual(endpoint, selected.endpoint)
+
+    def test_local_gateway_precedes_remote_load_and_latency_for_new_selection(self):
+        now = 1000.0
+        local = row('local', 'http://127.0.0.1:20128', now, utilization=.8, backlog=2)
+        remote = row('remote', 'https://remote.test', now, utilization=0, backlog=0)
+        payload = {'object': 'list', 'protocol_version': 1, 'generated_at': stamp(now),
+                   'data': [remote, local]}
+        service = CielAiRouterGatewayService(discovery=lambda *_: payload,
+            probe=lambda c, _: ProbeResult(True, .02 if c.node_id == 'local' else .001,
+                                           200, c.node_id, 'gateway', True), clock=lambda: now)
+        selected = service.select('https://central.test', 'synthetic')
+        self.assertEqual('local', selected.candidate.node_id)
     def test_rank_congestion_then_backlog_then_rtt_and_sticky(self):
         now = [1000.0]
         payload = {'object': 'list', 'protocol_version': 1, 'generated_at': stamp(now[0]),
@@ -311,3 +338,4 @@ class SessionRankingTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+

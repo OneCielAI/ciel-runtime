@@ -145,7 +145,7 @@ def validate_discovery(payload: Any, *, now: float, allow_insecure_http: bool = 
         return _timestamp(value) + offset
     candidates: list[GatewayCandidate] = []
     excluded = 0
-    seen: set[str] = set()
+    seen: set[tuple[str, str]] = set()
     for row in payload['data']:
         try:
             if not isinstance(row, Mapping) or not isinstance(row.get('id'), str):
@@ -201,10 +201,11 @@ def validate_discovery(payload: Any, *, now: float, allow_insecure_http: bool = 
             if item in expanded:
                 continue
             expanded.add(item)
-            if item in seen or len(candidates) >= 16:
+            identity = (row['id'], item)
+            if identity in seen or len(candidates) >= 16:
                 excluded += 1
                 continue
-            seen.add(item)
+            seen.add(identity)
             candidates.append(GatewayCandidate(row['id'], item, _health_url(item), row['health'], until,
                                                last_seen, utilization, backlog, observed, min(timeout / 1000, 2.0)))
     expiry = min([now + 60] + [item.available_until for item in candidates]) if candidates else now + 60
@@ -356,7 +357,7 @@ class CielAiRouterGatewayService:
         reason = 'no healthy gateway'
         snapshot = None
         try:
-            payload = self.discovery(base, key, min(2.0, self.exploration_timeout))
+            payload = self.discovery(base, key, min(5.0, self.exploration_timeout))
             snapshot = validate_discovery(payload, now=self.clock(), allow_insecure_http=self.allow_insecure_http)
             candidates = [c for c in snapshot.candidates if failures.get(c.endpoint, 0) <= self.clock()]
         except GatewayAuthenticationError:
@@ -366,15 +367,15 @@ class CielAiRouterGatewayService:
             reason = 'discovery unavailable'
             candidates = [prior] if prior and prior.available_until > self.clock() and failures.get(prior.endpoint, 0) <= self.clock() else []
         probes = self._probe_all(candidates, model, key, deadline)
-        healthy = [c for c in candidates if c.health == 'healthy' and c.endpoint in probes]
+        healthy = [c for c in candidates if c.health == 'healthy' and (c.node_id, c.endpoint) in probes]
         degraded = False
         if not healthy and snapshot:
             # Runbook fallback is a new probe, not a cached success. Never bypass cooldown.
             probes = self._probe_all(candidates, model, key, deadline)
-            healthy = [c for c in candidates if c.endpoint in probes]
+            healthy = [c for c in candidates if (c.node_id, c.endpoint) in probes]
             degraded = True
         if not snapshot:
-            healthy = [c for c in candidates if c.endpoint in probes]
+            healthy = [c for c in candidates if (c.node_id, c.endpoint) in probes]
             degraded = True
         now = self.clock()
         healthy = [c for c in healthy if c.available_until > now]
@@ -386,18 +387,23 @@ class CielAiRouterGatewayService:
             fresh = c.observed_at is not None and 0 <= now - c.observed_at <= 90 and now - c.last_seen_at <= 90
             utilization = c.utilization if fresh else None
             backlog = c.backlog if fresh else None
-            return (utilization if utilization is not None else math.inf,
+            host = urllib.parse.urlsplit(c.endpoint).hostname or ''
+            try:
+                is_local = ipaddress.ip_address(host).is_loopback
+            except ValueError:
+                is_local = host.lower() == 'localhost'
+            return (0 if is_local else 1, utilization if utilization is not None else math.inf,
                     backlog if backlog is not None else math.inf,
-                    probes[c.endpoint].rtt_seconds, c.endpoint)
-        chosen = next((c for c in healthy if sticky and c.endpoint == sticky.endpoint), None)
+                    probes[(c.node_id, c.endpoint)].rtt_seconds, c.endpoint)
+        chosen = next((c for c in healthy if sticky and c.node_id == sticky.node_id and c.endpoint == sticky.endpoint), None)
         if chosen is None:
             chosen = min(healthy, key=rank) if not degraded else max(healthy, key=lambda c: c.last_seen_at)
-        return GatewaySelection(chosen.endpoint, chosen, probes[chosen.endpoint],
+        return GatewaySelection(chosen.endpoint, chosen, probes[(chosen.node_id, chosen.endpoint)],
                                 'sticky' if sticky and chosen.endpoint == sticky.endpoint else 'reprobed fallback' if degraded else 'ranked',
                                 degraded, generation, scope, snapshot.excluded_count if snapshot else 0), snapshot
 
     def _probe_all(self, candidates: list[GatewayCandidate], model: str, key: str,
-                   deadline: float) -> dict[str, ProbeResult]:
+                   deadline: float) -> dict[tuple[str, str], ProbeResult]:
         def run(candidate: GatewayCandidate) -> ProbeResult | None:
             timeout = min(candidate.timeout_seconds, deadline - self.monotonic())
             if timeout <= 0:
@@ -426,7 +432,7 @@ class CielAiRouterGatewayService:
         for future in pending:
             future.cancel()
         pool.shutdown(wait=False, cancel_futures=True)
-        return {futures[f].endpoint: result for f in done if (result := f.result()) is not None}
+        return {(futures[f].node_id, futures[f].endpoint): result for f in done if (result := f.result()) is not None}
 
     def record_failure(self, selection: GatewaySelection, classification: str) -> bool:
         """Cool down a failed gateway; only connectivity, truncation and 5xx count.
@@ -466,3 +472,4 @@ class CielAiRouterGatewayService:
                      'degraded': state.selection.degraded if state.selection else True,
                      'generation': state.generation,
                      'cooldowns': dict(state.failures)} for scope, state in self._states.items()]
+
