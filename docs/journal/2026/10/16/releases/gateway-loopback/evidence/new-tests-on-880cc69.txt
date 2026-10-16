@@ -1,0 +1,39 @@
+selector module: G:\ciel-e2e\wt-880cc69\ciel_runtime_support\cielairouter_gateways.py
+test_shared_loopback_url_keeps_node_identity_and_selects_actual_local_node (t.GatewayTests.test_shared_loopback_url_keeps_node_identity_and_selects_actual_local_node) ... 
+  test_shared_loopback_url_keeps_node_identity_and_selects_actual_local_node (t.GatewayTests.test_shared_loopback_url_keeps_node_identity_and_selects_actual_local_node) (order=('remote', 'local')) ... FAIL
+  test_shared_loopback_url_keeps_node_identity_and_selects_actual_local_node (t.GatewayTests.test_shared_loopback_url_keeps_node_identity_and_selects_actual_local_node) (order=('local', 'remote')) ... FAIL
+test_local_gateway_precedes_remote_load_and_latency_for_new_selection (t.GatewayTests.test_local_gateway_precedes_remote_load_and_latency_for_new_selection) ... FAIL
+
+======================================================================
+FAIL: test_shared_loopback_url_keeps_node_identity_and_selects_actual_local_node (t.GatewayTests.test_shared_loopback_url_keeps_node_identity_and_selects_actual_local_node) (order=('remote', 'local'))
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime\tests\test_cielairouter_gateways.py", line 154, in test_shared_loopback_url_keeps_node_identity_and_selects_actual_local_node
+    self.assertEqual(set(ids), {c.node_id for c in snapshot.candidates})
+AssertionError: Items in the first set but not the second:
+'local'
+
+======================================================================
+FAIL: test_shared_loopback_url_keeps_node_identity_and_selects_actual_local_node (t.GatewayTests.test_shared_loopback_url_keeps_node_identity_and_selects_actual_local_node) (order=('local', 'remote'))
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime\tests\test_cielairouter_gateways.py", line 154, in test_shared_loopback_url_keeps_node_identity_and_selects_actual_local_node
+    self.assertEqual(set(ids), {c.node_id for c in snapshot.candidates})
+AssertionError: Items in the first set but not the second:
+'remote'
+
+======================================================================
+FAIL: test_local_gateway_precedes_remote_load_and_latency_for_new_selection (t.GatewayTests.test_local_gateway_precedes_remote_load_and_latency_for_new_selection)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime\tests\test_cielairouter_gateways.py", line 172, in test_local_gateway_precedes_remote_load_and_latency_for_new_selection
+    self.assertEqual('local', selected.candidate.node_id)
+AssertionError: 'local' != 'remote'
+- local
++ remote
+
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.003s
+
+FAILED (failures=3)

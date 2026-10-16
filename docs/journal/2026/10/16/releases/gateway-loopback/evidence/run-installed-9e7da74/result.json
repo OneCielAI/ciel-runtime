@@ -1,0 +1,80 @@
+{
+  "label": "installed-9e7da74",
+  "repo_head": "",
+  "ports": {
+    "central": 59393,
+    "gateway": 59394
+  },
+  "reply_text": "STUB-REPLY-gateway",
+  "generation_request_went_to": [
+    "gateway"
+  ],
+  "healthz_with_auth": [],
+  "discovery_auth_ok": [
+    true
+  ],
+  "health_gateway": {
+    "provider": "cielairouter",
+    "selector_module": "ciel_runtime_support.cielairouter_gateways",
+    "selector": "available",
+    "selector_error": "",
+    "sessions": 0,
+    "routes": [
+      {
+        "central": "127.0.0.1:59393",
+        "state": "gateway",
+        "endpoint": "http://127.0.0.1:59394",
+        "node_id": "node-local",
+        "reason": "ranked",
+        "degraded": false,
+        "generation": 1,
+        "at": 1792136496.4247916,
+        "since": 1792136496.4247916
+      }
+    ],
+    "gateways": [
+      {
+        "origin": "127.0.0.1:59393",
+        "endpoint": "http://127.0.0.1:59394",
+        "reason": "ranked",
+        "degraded": false,
+        "generation": 1,
+        "cooldowns": {}
+      }
+    ]
+  },
+  "router_log": [
+    "2026-10-16T02:41:36 [INFO] cielairouter_gateway_selected central=127.0.0.1:59393 endpoint=http://127.0.0.1:59394 node=node-local reason=ranked degraded=False generation=1 elapsed_ms=0"
+  ],
+  "events": [
+    {
+      "n": 1,
+      "server": "central",
+      "path": "/api/gateway/discovery",
+      "auth_ok": true
+    },
+    {
+      "n": 2,
+      "server": "gateway",
+      "path": "/healthz",
+      "auth": false
+    },
+    {
+      "n": 3,
+      "server": "gateway",
+      "path": "/healthz",
+      "auth": false
+    },
+    {
+      "n": 4,
+      "server": "central",
+      "path": "/v1/models"
+    },
+    {
+      "n": 5,
+      "server": "gateway",
+      "path": "/v1/messages",
+      "auth_ok": true
+    }
+  ]
+}
