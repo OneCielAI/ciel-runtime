@@ -507,7 +507,9 @@ class FailureFeedbackTests(unittest.TestCase):
     def test_provider_urlopen_routes_gateway_requests_through_observation(self):
         pcfg = self.routed()
         error = urllib.error.URLError(TimeoutError())
-        with mock.patch.object(provider_network.urllib.request, "urlopen", side_effect=error):
+        opener = mock.Mock()
+        opener.open.side_effect = error
+        with mock.patch.object(provider_network.urllib.request, "build_opener", return_value=opener):
             with self.assertRaises(urllib.error.URLError):
                 provider_network.provider_urlopen(self.request(GATEWAY + "/v1/messages"), 5, "cielairouter", pcfg, Recorder())
         self.assertEqual([(GATEWAY, "timeout")], self.selector.failures)

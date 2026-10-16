@@ -426,7 +426,9 @@ CielAiRouter 공급자의 `base_url`은 중앙 라우터 주소다. 라우터는
 - 401·403·429 같은 키·한도 응답은 게이트웨이 실패로 보지 않는다.
 - 쓸 수 있는 게이트웨이가 없거나 discovery가 실패하면 설정된 `base_url`을 그대로 쓴다.
 - 모델 목록(`/v1/models`)은 항상 설정된 `base_url`에서 읽는다.
-- 평문 `http` 게이트웨이는 루프백 주소만 허용한다. 리다이렉트는 따르지 않는다.
+- 평문 `http` 게이트웨이는 루프백 주소만 허용한다. 한 노드의 대표 주소가 거부되어도
+  다른 주소는 각각 검증한다. 생성 요청도 301·302·303·307·308 리다이렉트를 따르지 않으므로
+  다른 origin으로 인증값을 넘기지 않는다.
 - 선택 결과는 설정 파일에 저장하지 않는다. 라우터 `/health`의 `cielairouter_gateway`와
   로그(`cielairouter_gateway_selected`, `cielairouter_gateway_failure`)에서 확인한다.
 

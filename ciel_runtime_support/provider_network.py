@@ -6,6 +6,7 @@ import contextlib
 import os
 import socket
 import threading
+import urllib.error
 import urllib.parse
 import urllib.request
 from collections.abc import Iterable
@@ -114,6 +115,13 @@ def socket_ip_family_policy(ip_family: str) -> Iterable[None]:
             socket.getaddrinfo = original_getaddrinfo
 
 
+class _GatewayNoRedirect(urllib.request.HTTPRedirectHandler):
+    """Never forward a selected gateway's credentials to a redirect target."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise urllib.error.HTTPError(req.full_url, code, "gateway redirect refused", headers, fp)
+
+
 def provider_urlopen(
     request: urllib.request.Request,
     timeout: float,
@@ -125,11 +133,15 @@ def provider_urlopen(
     if policy != "auto":
         log("DEBUG", f"upstream_ip_family provider={provider or ''} policy={policy}")
 
+    gateway_request = provider == "cielairouter" and isinstance(config, dict) and bool(config.get("ciel_gateway_route"))
+
     def open_request() -> Any:
         with socket_ip_family_policy(policy):
+            if gateway_request:
+                return urllib.request.build_opener(_GatewayNoRedirect()).open(request, timeout=timeout)
             return urllib.request.urlopen(request, timeout=timeout)
 
-    if isinstance(config, dict) and config.get("ciel_gateway_route"):
+    if gateway_request:
         # A CielAiRouter request routed to a selected gateway: its failures move
         # later requests to another gateway (cielairouter_gateway_overlay).
         from ciel_runtime_support.cielairouter_gateway_overlay import observed_gateway_open

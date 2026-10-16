@@ -623,7 +623,9 @@ class ExternalEventReceiverService:
             return
         received_at = self.delivery_ack.clock()
         # A re-sent event whose first event is already queued is not queued twice (49269 R4).
-        original = self.delivery_ack.queued_original(receiver_id, request, event["id"])
+        original = self.delivery_ack.queued_original(
+            receiver_id, request, event["id"], event_source=event.get("source", "")
+        )
         admitted = None
         if original is None:
             admitted = self._admit(receiver_id, "sse", raw_text, event, transport_event_id)

@@ -2,6 +2,8 @@ import threading
 import time
 import unittest
 from datetime import datetime, timezone
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import json
 from unittest import mock
 
 from ciel_runtime_support.cielairouter_gateways import (
@@ -47,6 +49,99 @@ class GatewayTests(unittest.TestCase):
         self.assertEqual(1, len(snapshot.candidates))
         self.assertIsNone(snapshot.candidates[0].utilization)
         self.assertGreaterEqual(snapshot.excluded_count, 1)
+
+    def test_tailnet_representative_preserves_loopback_alternate(self):
+        now = 1000.0
+        node = row('emily', 'http://100.64.0.50:8080', now)
+        node['endpoints'] += ['http://127.0.0.1:8080/v1']
+        payload = {'object': 'list', 'protocol_version': 1, 'generated_at': stamp(now), 'data': [node]}
+        snapshot = validate_discovery(payload, now=now)
+        self.assertEqual(['http://127.0.0.1:8080'], [c.endpoint for c in snapshot.candidates])
+        self.assertEqual('http://127.0.0.1:8080/healthz', snapshot.candidates[0].health_url)
+        self.assertEqual(1, snapshot.excluded_count)
+        # Explicit opt-in still permits both; the default must never permit tailnet HTTP.
+        opted_in = validate_discovery(payload, now=now, allow_insecure_http=True)
+        self.assertEqual(2, len(opted_in.candidates))
+
+    def test_invalid_alternates_do_not_discard_safe_endpoints(self):
+        now = 1000.0
+        for invalid in ('http://100.64.0.50:8080', 'https://u:p@evil.test',
+                        'https://a.test:bad', None, {}, ['https://a.test']):
+            with self.subTest(invalid=invalid):
+                node = row('a', 'https://a.test/v1', now)
+                node['endpoints'] = [invalid, 'https://a.test/v1', invalid,
+                                     'http://127.0.0.1:8080/v1', 'https://a.test/']
+                snapshot = validate_discovery({'object': 'list', 'protocol_version': 1,
+                    'generated_at': stamp(now), 'data': [node]}, now=now)
+                self.assertEqual(['https://a.test', 'http://127.0.0.1:8080'],
+                                 [c.endpoint for c in snapshot.candidates])
+                self.assertEqual(['https://a.test/healthz', 'http://127.0.0.1:8080/healthz'],
+                                 [c.health_url for c in snapshot.candidates])
+                self.assertEqual(2, snapshot.excluded_count)
+
+    def test_mismatched_health_url_rejects_representative_not_safe_alternate(self):
+        now = 1000.0
+        for health_url in ('https://evil.test/healthz', 'https://a.test:444/healthz',
+                           'https://a.test/not-health', 'http://100.64.0.50:8080/healthz'):
+            with self.subTest(health_url=health_url):
+                node = row('a', 'https://a.test', now)
+                node['healthUrl'] = health_url
+                payload = {'object': 'list', 'protocol_version': 1,
+                           'generated_at': stamp(now), 'data': [node]}
+                self.assertEqual((), validate_discovery(payload, now=now).candidates)
+                node['endpoints'].append('http://127.0.0.1:8080/v1')
+                snapshot = validate_discovery(payload, now=now)
+                self.assertEqual(['http://127.0.0.1:8080'], [c.endpoint for c in snapshot.candidates])
+                self.assertEqual('http://127.0.0.1:8080/healthz', snapshot.candidates[0].health_url)
+
+    def test_all_untrusted_endpoints_remain_excluded(self):
+        now = 1000.0
+        node = row('a', 'http://100.64.0.50:8080', now)
+        node['endpoints'] += ['http://192.168.1.10:8080', None]
+        snapshot = validate_discovery({'object': 'list', 'protocol_version': 1,
+            'generated_at': stamp(now), 'data': [node]}, now=now)
+        self.assertEqual((), snapshot.candidates)
+        self.assertEqual(3, snapshot.excluded_count)
+
+    def test_live_loopback_alternate_is_selected_without_health_credentials(self):
+        now = 1000.0
+        requests = []
+        payload = {}
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                requests.append((self.path, self.headers.get('Authorization')))
+                body = json.dumps(payload if self.path == '/api/gateway/discovery' else
+                                  {'nodeId': 'emily', 'role': 'gateway', 'ready': True}).encode()
+                self.send_response(200)
+                self.send_header('Content-Length', str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, *_):
+                pass
+
+        with ThreadingHTTPServer(('127.0.0.1', 0), Handler) as server:
+            endpoint = f'http://127.0.0.1:{server.server_port}'
+            node = row('emily', 'http://100.64.0.50:8080', now)
+            node['endpoints'] += [endpoint + '/v1', 'http://192.168.1.10:8080']
+            # The representative's malicious health URL is never used for the alternate.
+            node['healthUrl'] = endpoint + '/credential-trap'
+            payload.update(object='list', protocol_version=1, generated_at=stamp(now), data=[node])
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            try:
+                service = CielAiRouterGatewayService(clock=lambda: now)
+                selected = service.select(endpoint, 'synthetic-test-key')
+                self.assertEqual(endpoint, selected.endpoint)
+                self.assertIsNotNone(selected.candidate)
+                self.assertEqual(endpoint + '/healthz', selected.candidate.health_url)
+                self.assertFalse(selected.degraded)
+                self.assertEqual([('/api/gateway/discovery', 'Bearer synthetic-test-key'),
+                                  ('/healthz', None)], requests)
+            finally:
+                server.shutdown()
+                thread.join(timeout=5)
 
     def test_rank_congestion_then_backlog_then_rtt_and_sticky(self):
         now = [1000.0]

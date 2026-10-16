@@ -5,6 +5,13 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+- Follow-up to the gateway/event-ack review: gateway addresses are validated
+  independently, so an untrusted representative address no longer discards a
+  usable alternate. Generation requests to selected gateways reject redirects
+  rather than forwarding credentials to the redirect target. Re-sent decision
+  notices use the original event identity for deduplication even when that
+  original notice never reached this receiver.
+
 - Decision notices are acknowledged per event (Walkie 49269, re-requested in
   56190). The SSE receiver now sends `Ciel-Receiver-Features: event-ack/1`
   and `Walkie-Client: ciel-runtime/<version> (<os>) runtime=python/<version>`.

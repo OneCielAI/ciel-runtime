@@ -256,6 +256,73 @@ class DeliveryAckQueueTests(unittest.TestCase):
             fixture.ack.flush()
             self.assertEqual("queued", fixture.walkie.posts[0]["body"]["acks"][0]["outcome"])
 
+    def test_absent_original_redeliveries_share_one_row_and_keep_both_ack_ids(self):
+        for restart in (False, True):
+            with self.subTest(restart=restart), tempfile.TemporaryDirectory() as directory:
+                fixture = _Fixture(directory)
+                original = {"event_id": "e0", "stream_id": "780", "attempt": 1}
+                fixture.stream(frame("e1", "781", redelivery_of=original))
+                if restart:
+                    fixture.ack = DeliveryAckService(
+                        Path(directory), Path(directory) / "runtime-input-status.jsonl",
+                        lambda *_args: None, urlopen=fixture.walkie, clock=fixture.clock,
+                    )
+                    fixture.ack.endpoint = fixture.service._ack_endpoint
+                    fixture.service.delivery_ack = fixture.ack
+                fixture.stream(frame("e2", "782", redelivery_of={**original, "attempt": 2}))
+                self.assertEqual(1, len(fixture.submitted))
+                entries = list(fixture.ack.entries().values())
+                self.assertEqual(["queued", "already_queued"], [e["outcome"] for e in entries])
+                self.assertEqual({"e0"}, {e["canonical_event_id"] for e in entries})
+                self.assertEqual({1}, {e["request_id"] for e in entries})
+                self.assertEqual(2, fixture.ack.flush())
+                status_path = Path(directory) / "runtime-input-status.jsonl"
+                status_path.write_text(json.dumps({
+                    "request_id": 1, "status": "submitted", "updated_at_epoch": fixture.clock.now + 1,
+                }) + "\n", encoding="utf-8")
+                self.assertEqual(2, fixture.ack.scan_injections())
+                self.assertEqual(2, fixture.ack.flush())
+                acks = [a for post in fixture.walkie.posts for a in post["body"]["acks"]]
+                self.assertEqual(
+                    [("e1", "781", "queued"), ("e2", "782", "queued"),
+                     ("e1", "781", "injected"), ("e2", "782", "injected")],
+                    [(a["event_id"], a["stream_id"], a["stage"]) for a in acks],
+                )
+
+    def test_rejected_redelivery_does_not_claim_the_canonical_identity_after_reload(self):
+        with tempfile.TemporaryDirectory() as directory:
+            other = {"id": 5, "_ciel_runtime_duplicate": True, "meta": {"event_id": "other"}}
+            fixture = _Fixture(directory, admitted=lambda raw, meta: dict(other))
+            original = {"event_id": "e0", "stream_id": "780", "attempt": 1}
+            fixture.stream(frame("e1", "781", redelivery_of=original))
+            self.assertEqual("rejected", fixture.ledger()[-1]["outcome"])
+            fixture.ack._entries = None
+            fixture.admitted = lambda raw, meta: {"id": 6}
+            fixture.stream(frame("e2", "782", redelivery_of=original))
+            fixture.stream(frame("e3", "783", redelivery_of=original))
+            self.assertEqual(2, len(fixture.submitted))
+            self.assertEqual(["rejected", "queued", "already_queued"],
+                             [e["outcome"] for e in fixture.ack.entries().values()])
+            self.assertIsNone(fixture.ack.entries()["default e1"]["injected_ack"])
+
+    def test_canonical_lookup_is_scoped_to_receiver_and_source(self):
+        with tempfile.TemporaryDirectory() as directory:
+            fixture = _Fixture(directory)
+            original = {"event_id": "e0", "stream_id": "780", "attempt": 1}
+            fixture.stream(frame("e1", "781", redelivery_of=original))
+            request = delivery_ack_request(frame("e2", "782", redelivery_of=original))
+            self.assertIsNotNone(fixture.ack.queued_original("default", request, "e2"))
+            self.assertIsNone(fixture.ack.queued_original("other", request, "e2"))
+            different = json.loads(frame("e1", "782", redelivery_of=original))
+            different["source"] = "http://walkie.test:8787/conversations/other"
+            fixture.stream(json.dumps(different))
+            fixture.ack._entries = None
+            self.assertEqual(2, len(fixture.ack.entries()))
+            self.assertEqual(2, len(fixture.submitted))
+            other_request = delivery_ack_request(json.dumps(different))
+            self.assertEqual(1, fixture.ack.queued_original("default", request, "e2")["request_id"])
+            self.assertEqual(2, fixture.ack.queued_original("default", other_request, "e2")["request_id"])
+
     def test_queue_keeping_another_events_row_is_rejected(self):
         with tempfile.TemporaryDirectory() as directory:
             other = {"id": 5, "_ciel_runtime_duplicate": True, "meta": {"event_id": "conv:41:other"}}

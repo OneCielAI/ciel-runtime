@@ -78,6 +78,7 @@ class DeliveryAckRequest:
     stream_id: str
     decision: str
     redelivery_event_id: str
+    event_source: str = ""
 
 
 def delivery_ack_request(raw_text: str) -> DeliveryAckRequest | None:
@@ -97,7 +98,7 @@ def delivery_ack_request(raw_text: str) -> DeliveryAckRequest | None:
         return None
     redelivery = ack.get("redelivery_of")
     redelivery_event_id = str(redelivery.get("event_id") or "").strip() if isinstance(redelivery, dict) else ""
-    return DeliveryAckRequest(url, stream_id, str(ack.get("decision") or ""), redelivery_event_id)
+    return DeliveryAckRequest(url, stream_id, str(ack.get("decision") or ""), redelivery_event_id, str(value.get("source") or ""))
 
 
 def origin_of(url: str) -> tuple[str, str, int] | None:
@@ -242,6 +243,7 @@ class DeliveryAckService:
         self.retry_delays = tuple(retry_delays)
         self.endpoint: Callable[[str], tuple[str, str]] = lambda _receiver_id: ("", "")
         self._entries: dict[str, dict[str, Any]] | None = None
+        self._queued: dict[tuple[str, str, str], dict[str, Any]] = {}
         self._status_offset = 0
         self._status_remainder = b""
         self._recent_status: OrderedDict[int, dict[str, Any]] = OrderedDict()
@@ -256,6 +258,9 @@ class DeliveryAckService:
         with self._lock:
             if self._entries is None:
                 self._entries = self.ledger.load()
+                self._queued.clear()
+                for entry in self._entries.values():
+                    self._index_queued(entry)
                 self._pruned_at = self.clock()
             return self._entries
 
@@ -273,16 +278,36 @@ class DeliveryAckService:
     def _key(receiver_id: str, event_id: str) -> str:
         return f"{receiver_id} {event_id}"
 
-    # -- the receiver's side -------------------------------------------------
-    def queued_original(self, receiver_id: str, request: DeliveryAckRequest, event_id: str = "") -> dict[str, Any] | None:
-        """A re-sent event's first event when it is already in the queue."""
+    @staticmethod
+    def _canonical_id(event_id: str, redelivery_event_id: str) -> str:
+        return redelivery_event_id or event_id
 
+    def _index_queued(self, entry: dict[str, Any]) -> None:
+        """Index accepted canonical identities, not rejected queue attempts."""
+        if entry.get("outcome") not in {"queued", "already_queued"} or int(entry.get("request_id") or 0) <= 0:
+            return
+        canonical = str(entry.get("canonical_event_id") or entry.get("redelivery_of") or entry.get("event_id") or "")
+        for identity in (canonical, str(entry.get("event_id") or "")):
+            if identity:
+                key = (str(entry.get("receiver_id") or ""), str(entry.get("event_source") or ""), identity)
+                self._queued[key] = entry
+
+    # -- the receiver's side -------------------------------------------------
+    def queued_original(self, receiver_id: str, request: DeliveryAckRequest, event_id: str = "", event_source: str = "") -> dict[str, Any] | None:
+        """Find an accepted delivery by canonical CloudEvent identity.
+
+        The original delivery may be absent from the queue, so this index is
+        persisted in each accepted redelivery row and rebuilt on restart.
+        """
         with self._lock:
-            for candidate in (event_id, request.redelivery_event_id):
+            self.entries()  # Rebuild the index before its first lookup after restart.
+            source = event_source or request.event_source
+            candidates = (request.redelivery_event_id, event_id)
+            for candidate in candidates:
                 if not candidate:
                     continue
-                original = self.entries().get(self._key(receiver_id, candidate))
-                if original and original.get("outcome") in {"queued", "already_queued"} and int(original.get("request_id") or 0) > 0:
+                original = self._queued.get((receiver_id, source, candidate))
+                if original is not None:
                     return dict(original)
         return None
 
@@ -326,6 +351,8 @@ class DeliveryAckService:
             "stream_id": request.stream_id,
             "decision": request.decision,
             "redelivery_of": request.redelivery_event_id or None,
+            "canonical_event_id": self._canonical_id(event_id, request.redelivery_event_id),
+            "event_source": str(event.get("source") or request.event_source or ""),
             "request_id": request_id,
             "outcome": outcome,
             "ack_url": request.url,
@@ -344,13 +371,19 @@ class DeliveryAckService:
         if problem:
             entry["queued_ack"] = {"status": "dropped", "attempts": 0, "due": 0.0, "detail": problem}
         with self._lock:
-            previous = self.entries().get(entry["key"])
+            entries = self.entries()
+            previous = entries.get(entry["key"])
+            if previous and previous.get("event_source", "") != entry["event_source"]:
+                # CloudEvent IDs are unique within their source, not globally.
+                entry["key"] = json.dumps([receiver_id, entry["event_source"], event_id], separators=(",", ":"))
+                previous = entries.get(entry["key"])
             if previous:
                 # Replays must not erase injection evidence or unsent injected acks.
                 for name in ("injected_at", "injected_at_epoch", "session_status", "injected_ack"):
                     entry[name] = previous.get(name)
             self._save(entry)
             self.entries()[entry["key"]] = entry
+            self._index_queued(entry)
         self.log(
             "INFO",
             f"event_ack_received receiver={receiver_id} event_id={event_id} stream_id={request.stream_id} "

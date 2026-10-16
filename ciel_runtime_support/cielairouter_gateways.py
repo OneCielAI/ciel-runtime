@@ -156,10 +156,6 @@ def validate_discovery(payload: Any, *, now: float, allow_insecure_http: bool = 
                 raise DiscoveryError('node unavailable')
             if row.get('health') not in {'healthy', 'degraded', 'unknown'}:
                 raise DiscoveryError('invalid health')
-            endpoint = normalize_endpoint(row['endpoint'], allow_insecure_http=allow_insecure_http)
-            declared = normalize_endpoint(row.get('healthUrl', _health_url(endpoint)), allow_insecure_http=allow_insecure_http)
-            if declared != _health_url(endpoint):
-                raise DiscoveryError('health origin mismatch')
             probe = row.get('clientProbe', {})
             if not isinstance(probe, Mapping) or probe.get('path', '/healthz') != '/healthz' or probe.get('method', 'GET') != 'GET':
                 raise DiscoveryError('invalid health probe')
@@ -181,11 +177,30 @@ def validate_discovery(payload: Any, *, now: float, allow_insecure_http: bool = 
             endpoint_values = row.get('endpoints', [row['endpoint']])
             if not isinstance(endpoint_values, list):
                 raise DiscoveryError('invalid endpoint list')
-            expanded = list(dict.fromkeys(normalize_endpoint(item, allow_insecure_http=allow_insecure_http) for item in endpoint_values))
         except (KeyError, TypeError, DiscoveryError):
             excluded += 1
             continue
-        for item in expanded:
+        # The advertised healthUrl belongs only to the representative endpoint.
+        # Its trust failure must not discard independently usable alternatives.
+        try:
+            representative = normalize_endpoint(row['endpoint'], allow_insecure_http=allow_insecure_http)
+        except (KeyError, DiscoveryError):
+            representative = None
+        expanded: set[str] = set()
+        for value in endpoint_values:
+            try:
+                item = normalize_endpoint(value, allow_insecure_http=allow_insecure_http)
+                health_url = _health_url(item)
+                if item == representative:
+                    declared = normalize_endpoint(row.get('healthUrl', health_url), allow_insecure_http=allow_insecure_http)
+                    if declared != health_url:
+                        raise DiscoveryError('health origin mismatch')
+            except DiscoveryError:
+                excluded += 1
+                continue
+            if item in expanded:
+                continue
+            expanded.add(item)
             if item in seen or len(candidates) >= 16:
                 excluded += 1
                 continue
