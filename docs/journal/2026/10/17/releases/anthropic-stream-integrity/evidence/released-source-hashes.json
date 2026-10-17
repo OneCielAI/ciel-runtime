@@ -1,0 +1,10 @@
+{
+  "ciel_runtime_support/streaming_anthropic.py": {
+    "sha256": "f5ecd5d5cdece0c7644e9a7f567f4324363a877f978032b4822427f977567d71",
+    "lf_sha256": "f5ecd5d5cdece0c7644e9a7f567f4324363a877f978032b4822427f977567d71"
+  },
+  "tests/test_anthropic_stream_integrity.py": {
+    "sha256": "6a551e7e66d278bbe754a11a2b3d9e81364e0f1776bea96da05f88c3e95a51a6",
+    "lf_sha256": "e0cae76f71dbb311a5b00d8b15d9c6eabca83fa66e00b86eea9c0215b8361a52"
+  }
+}

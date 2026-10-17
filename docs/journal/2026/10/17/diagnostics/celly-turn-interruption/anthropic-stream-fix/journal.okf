@@ -51,4 +51,4 @@ Inherited `CIEL_RUNTIME_*`, `ANTHROPIC_*`, and `CLAUDE*` variables were removed 
 - Routers `127.0.0.1:9512` and `127.0.0.1:9385` returned HTTP 200 before and after the final runs.
 - One earlier post-run check of 9385 timed out for about 25 seconds, then returned 200 under the same pid 72844, created 05:03:26.
 
-No commit, push, deploy, live sandbox config change, or restart was made.
+At the diagnostic stage no commit, push, deploy, live sandbox config change, or restart was made. Subsequent user-authorized release: code commit 19627938ad5b0b9682bd87e1000ff0ddc01784f4, version 0.2.51-nightly.20261017-172902.1962793; see releases/anthropic-stream-integrity/release.okf under the same 2026/10/17 journal date. Running sessions were not restarted.

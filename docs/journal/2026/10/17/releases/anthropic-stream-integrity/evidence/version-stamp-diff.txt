@@ -1,0 +1,27 @@
+--- git/package.json
+
++++ tarball/package.json
+
+@@ -1,6 +1,6 @@
+
+ {
+   "name": "@one-ciel-ai/ciel-runtime",
+-  "version": "0.2.51",
++  "version": "0.2.51-nightly.20261017-172902.1962793",
+   "description": "Universal AI coding-agent runtime and model-routing layer for Claude, Codex, AGY, ZCode, and compatible runtimes.",
+   "license": "MIT",
+   "author": "One Ciel LLC",
+--- git/ciel_runtime_support/runtime_constants.py
+
++++ tarball/ciel_runtime_support/runtime_constants.py
+
+@@ -105,7 +105,7 @@
+
+ }
+ 
+ APP_NAME = "Ciel Runtime"
+-VERSION = "0.2.51"
++VERSION = "0.2.51-nightly.20261017-172902.1962793"
+ CREDITS = "Credits: One Ciel LLC"
+ PRELAUNCH_CANCEL = 10
+ PRELAUNCH_LAUNCH_CODEX = 11

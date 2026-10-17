@@ -1,0 +1,8 @@
+{
+  "evidence/client/claude-code-2.1.302-stream-contract.txt": "10c57d58c6c9f4d5bac1632d071894b58da2be5e10d69407c27289e95e37a661",
+  "evidence/e2e/claude-head.jsonl": "72583f5a1b3dbe5e64f7dfbdd6ec913dfe4c0be37e8c0d240a335db95624621f",
+  "evidence/e2e/claude-tree.jsonl": "a397fa794769fac8b0622d7aa3c4f92e144b2b81bea54c5e26fa69d6aa860018",
+  "scripts/e2e_wire.py": "62e0e6afefa9876381e73c4e5deac1aa48f887307c0084ee937c2a994b4a4630",
+  "scripts/e2e_table.py": "3fb4377ddc49b742b0ad4194e45b9595dd2cf51cc994cb3f752a9b61e041f4d8",
+  "scripts/run_focused.py": "4480ac8a0861b4dd8f89f823053180b60307744a3e16c6368bdd01af9a9707e8"
+}

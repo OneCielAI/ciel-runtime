@@ -18,4 +18,25 @@ This suppresses fabricated successful terminal events; the historical gateway te
 
 # Release state
 
-Pending CI, published immutable version and local installed functional verification; follow-up records actual outcomes.
+Released code commit: `19627938ad5b0b9682bd87e1000ff0ddc01784f4` (nightly). This follow-up journal is separate and is not the published code commit.
+
+- CI https://github.com/OneCielAI/ciel-runtime/actions/runs/39053625169: success, all six jobs (quality, python-minimum, unit/router/channel/runtime).
+- Publish https://github.com/OneCielAI/ciel-runtime/actions/runs/39053625235: success, including Verify published tarball.
+- Exact version `0.2.51-nightly.20261017-172902.1962793`; registry gitHead equals released code commit; nightly tag points to this version, latest remains 0.2.51.
+- Tarball SHA-256 `aa544802111b41762cfe005b1f92837844e9f39d8808a58d8aaec61599836cad`; SHA-1 and SHA-512 verified against registry shasum/integrity. Downloaded directly from the registry into fresh download/unpack directories; no dirty-tree npm pack.
+- Tarball vs released git: 1739/1741 identical after LF normalization. Only package.json and runtime_constants.py CI version stamps differ (inspected exact diff).
+- npm global exact version installed under C:/Users/djlov/AppData/Roaming/npm; same 1739/1741 result. No install lifecycle scripts.
+- Published install.ps1 equals inspected git copy. Ran with pwsh RemoteSigned, no execution-policy change/bypass, cleared inherited CIEL_RUNTIME_* and set only intended installation vars. New HKCU CIEL_RUNTIME_HOME: C:/Users/djlov/.local/share/ciel-runtime-19627938ad5b0b9682bd87e1000ff0ddc01784f4. Snapshot 424/425 matches git, constants stamp only.
+- Installed root, streaming relay and stamped constants have identical byte hashes in tarball, npm global and snapshot (installed-hashes.json).
+- Twenty synthetic regression tests run against each installed composition root: npm global 20 OK; snapshot 20 OK. Tests include upstream reset/EOF/timeouts, partial tools, pending stop reason, downstream failure and complete streams. Isolated scratch config/free router port, cleared inherited runtime/provider variables, Python -I -B. No live router started.
+- npm .cmd, .local .cmd, and fresh-registry-PATH bare launcher all exit 0 and report exact published version. Ran from empty scratch cwd and scratch config; fresh PATH resolves .local first.
+- Nine visible live process PIDs and old snapshot code paths unchanged. Previous registered 890299d snapshot's 425 non-bytecode files unchanged. No remote/G: sandbox access or live session restart. Future launches use the new install; running sessions were not updated in place.
+- Health before 17:23:51Z and after 17:41:57Z: 9385/9489/9505/9512 all HTTP 200.
+
+# Evidence and validation
+
+Evidence files are under this directory's evidence/. Installed functional logs name the actual loaded roots. Source hashes and registry metadata are retained. Full local test sweep deliberately not run; hosted CI and Publish ran their configured suites. Prior real-client synthetic E2E was inspected, not rerun against the installed version; installed checks use scripted upstream iterables, not sockets or a real client.
+
+The actual skill validator ignores .okf extension (zero concepts); first console attempt also failed cp1252 output. Re-ran its deterministic checker on temporary .md projections of both journal contents with UTF-8; 2 concepts conformant, no errors, optional-field warnings only. Final release journal projection validated again before follow-up commit.
+
+The closed-block + stop_reason but absent message_stop discrepancy remains: the synthetic real client accepted Done. while router delivery failed. Do not equate this release with correcting that client interpretation or proving historical gateway termination causes.
