@@ -1,0 +1,5 @@
+version = '0.2.51-nightly.20261017-122407.890299d'
+gitHead = '890299d8ca78e10b294a97898fb70ef36482d935'
+dist.shasum = '536241329c6df0027fa6ac3e6cded68ec4e14b9e'
+dist.integrity = 'sha512-ZVRGp0+poEIVt1m0NwTMGx893ZkQwJzlL8b41d6b7av8W3x3RwcMqMNH4UgfICck1YkHfnKeXP7UaPTfbJXQFg=='
+dist.tarball = 'https://registry.npmjs.org/@one-ciel-ai/ciel-runtime/-/ciel-runtime-0.2.51-nightly.20261017-122407.890299d.tgz'

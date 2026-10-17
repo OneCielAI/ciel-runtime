@@ -1,0 +1,6 @@
+HKCU CIEL_RUNTIME_HOME=C:\Users\djlov\.local\share\ciel-runtime-1707ad4ddc6775f1005eaf40e3ece8df6c343d02
+HKCU Path kind=String
+target snapshot exists=False
+would drop duplicate: C:\Users\djlov\.local\bin
+install.ps1 would write user Path=False
+user Path entries=20 first=C:\Users\djlov\.local\bin

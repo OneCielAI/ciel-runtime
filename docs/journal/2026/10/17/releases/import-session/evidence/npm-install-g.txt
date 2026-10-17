@@ -1,0 +1,7 @@
+before: +-- @one-ciel-ai/ciel-runtime@0.2.51-nightly.20261017-034922.1707ad4
+prefix: C:\Users\djlov\AppData\Roaming\npm
++ npm install -g @one-ciel-ai/ciel-runtime@0.2.51-nightly.20261017-122407.890299d
+
+changed 1 package in 4s
+exit=0
+after: +-- @one-ciel-ai/ciel-runtime@0.2.51-nightly.20261017-122407.890299d

@@ -1,0 +1,42 @@
+{
+  "label": "worktree",
+  "root": "C:\\Users\\djlov\\ciel-runtime",
+  "loaded_from": "C:\\Users\\djlov\\ciel-runtime\\ciel_runtime_support",
+  "python": "3.11.6",
+  "request_shortcuts_lf_sha256": "f8590f83bcc14c8ca5621d54e2df34ef838ddfc7cb5c21bb938d81a6bad0a86b",
+  "results": [
+    {
+      "case": "claude-client <- Codex explicit path",
+      "handled": true,
+      "wire": "anthropic",
+      "ok": true,
+      "reply_first_line": "Ciel Runtime ImportSession completed.",
+      "expected_marker_present": true
+    },
+    {
+      "case": "codex-client <- Claude explicit path",
+      "handled": true,
+      "wire": "openai",
+      "ok": true,
+      "reply_first_line": "Ciel Runtime ImportSession completed.",
+      "expected_marker_present": true
+    },
+    {
+      "case": "claude-client <- Codex latest",
+      "handled": true,
+      "wire": "anthropic",
+      "ok": true,
+      "reply_first_line": "Ciel Runtime ImportSession completed.",
+      "expected_marker_present": true
+    },
+    {
+      "case": "codex-client <- Claude latest",
+      "handled": true,
+      "wire": "openai",
+      "ok": true,
+      "reply_first_line": "Ciel Runtime ImportSession completed.",
+      "expected_marker_present": true
+    }
+  ],
+  "all_ok": true
+}

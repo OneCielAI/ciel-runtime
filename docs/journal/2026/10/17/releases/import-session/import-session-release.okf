@@ -4,7 +4,7 @@ authorization: >
   User, 2026-10-17: explicit nightly push and local (current user only) deployment of the ImportSession parser fix:
   npm install -g of the exact published version and a fresh full-SHA snapshot through the published install.ps1.
   No remote or managed (G:) machine change, no live router, session or config change, no live snapshot overwrite.
-status: "pre-push (results recorded in the follow-up journal commit)"
+status: "released to nightly and installed locally (current user); results below, added in the follow-up journal commit"
 base: "nightly 1707ad4ddc6775f1005eaf40e3ece8df6c343d02 (CI 39000016160 and Publish 39000016191 success)"
 diagnosis: "../../diagnostics/import-session/investigation.okf"
 scope:
@@ -34,6 +34,84 @@ pre_push_verification:
 baseline_reproduction_note: >
   diagnostics/import-session/run_focused.py --baseline loads `git show HEAD:ciel_runtime_support/request_shortcuts.py`.
   After this commit HEAD carries the fix; the pre-fix parser is `1707ad4:ciel_runtime_support/request_shortcuts.py`.
+release:
+  commit: "890299d8ca78e10b294a97898fb70ef36482d935 (pushed 1707ad4..890299d to origin/nightly)"
+  ci: "https://github.com/OneCielAI/ciel-runtime/actions/runs/39032072846 success (quality, python-minimum, test unit/router/channel/runtime)"
+  publish: >
+    https://github.com/OneCielAI/ciel-runtime/actions/runs/39032072760 success. Published
+    0.2.51-nightly.20261017-122407.890299d with dist-tag nightly. The workflow's "Verify published tarball" step
+    retried 60 times while the registry propagated and passed on attempt 61 (evidence/publish-run-extract.txt).
+  registry: >
+    npm view: version 0.2.51-nightly.20261017-122407.890299d, gitHead 890299d8ca78e10b294a97898fb70ef36482d935,
+    dist-tags nightly=that version, latest=0.2.51 (evidence/registry-version.txt, registry-dist-tags.json).
+  tarball: >
+    npm pack of the exact version into a new empty directory: sha1 and sha512 equal registry dist.shasum and
+    dist.integrity (evidence/local-tarball-digest.txt). LF-normalized comparison with git 890299d: 1692 of 1694 files
+    identical; package.json and runtime_constants.py differ only by the CI version stamp
+    (evidence/tarball-vs-git-summary.txt, tarball-fix-files.txt). Its install.ps1 equals the repository copy that was
+    read before running it.
+local_install:
+  pre_state: >
+    npm global @one-ciel-ai/ciel-runtime 0.2.51-nightly.20261017-034922.1707ad4; HKCU CIEL_RUNTIME_HOME
+    C:\Users\djlov\.local\share\ciel-runtime-1707ad4ddc6775f1005eaf40e3ece8df6c343d02; user PATH first entry
+    C:\Users\djlov\.local\bin. All 9 visible ciel_runtime.py processes ran from the 1707ad4 snapshot; none from the
+    npm global directory (evidence/live-homes-before.txt).
+  npm_global: >
+    npm install -g @one-ciel-ai/ciel-runtime@0.2.51-nightly.20261017-122407.890299d (prefix
+    C:\Users\djlov\AppData\Roaming\npm, inherited CIEL_RUNTIME_* removed; the package has no lifecycle scripts).
+    Installed tree vs git: same 1692/1694 result, same stamp-only differences (evidence/npm-install-g.txt,
+    npm-global-vs-git-summary.txt, npm-global-fix-files.txt).
+  snapshot: >
+    The tarball's install.ps1 run with pwsh 7.6.7 -NoProfile -File under its pre-existing RemoteSigned policy (no
+    -ExecutionPolicy argument, no policy change; Windows PowerShell 5.1 is Restricted and was not used for it). The
+    script has no Zone.Identifier stream. Environment: inherited CIEL_RUNTIME_* removed,
+    CIEL_RUNTIME_INSTALL_HOME=C:\Users\djlov\.local\share\ciel-runtime-890299d8ca78e10b294a97898fb70ef36482d935 (new),
+    PREFIX=C:\Users\djlov\.local. HKCU CIEL_RUNTIME_HOME now names that snapshot. The user Path registry value is
+    byte-identical before and after (replayed cleanup predicted no write). Snapshot vs git: 424 of 425 identical,
+    runtime_constants.py stamp only. The 11 .local\bin files the installer copies equal git and were already
+    byte-identical to their previous contents. The 1707ad4 snapshot has no file newer than the release start
+    (evidence/install-ps1.txt, pre-install-state.txt, hkcu-ciel-home-after.txt, snapshot-vs-git-summary.txt,
+    snapshot-fix-files.txt, local-bin-vs-git.txt).
+  launchers: >
+    Run through cmd.exe with inherited CIEL_RUNTIME_* removed and an isolated scratch CIEL_RUNTIME_CONFIG_DIR, from an
+    empty directory (cmd.exe searches the current directory before PATH): Roaming\npm\ciel-runtimectl.cmd version and
+    .local\bin\ciel-runtimectl.cmd version both print ciel-runtime 0.2.51-nightly.20261017-122407.890299d. Under a PATH
+    rebuilt from the Machine and User registry values (what a new terminal gets), `where ciel-runtimectl` lists
+    .local\bin first and Roaming\npm second, and bare `ciel-runtimectl version` prints the same version. Shells started
+    by the running session put Roaming\npm (position 11) before .local\bin (position 62); both now give the same
+    version (evidence/launcher-versions.txt).
+  observation: >
+    `ciel-runtimectl version` writes workspace-router-ports.json and workspaces/<id>/telemetry-logs/ingest-token into
+    the config directory when ciel_runtime.py is imported. That is why the launcher checks used a scratch config
+    directory; those scratch directories are not committed.
+functional_verification:
+  composition_root: >
+    evidence/scripts/installed_root_controller.py imports an installed ciel_runtime.py and calls its
+    maybe_handle_import_session_request (the entry claude_router and openai_responses_router call) with the shipped
+    IMPORT_SESSION_SLASH_COMMAND rendered for Codex/Claude, Windows paths containing spaces and the latest-transcript
+    form. Codex requests are a Responses `input` body passed through the installed
+    openai_responses_to_anthropic_messages first. HOME/USERPROFILE/CODEX_HOME point at a temporary home holding
+    synthetic one-record transcripts; CIEL_RUNTIME_CONFIG_DIR is scratch with CIEL_RUNTIME_TEST_ISOLATED=1; python -I -B;
+    the HTTP handler is an in-memory capture object.
+    New snapshot 890299d: 4/4 HTTP 200 "Ciel Runtime ImportSession completed." containing the synthetic content.
+    npm global 890299d: 4/4 the same. Old snapshot 1707ad4 (read only, no bytecode written): 4/4 "ImportSession failed:
+    Transcript file not found: format and must be `Codex` or `Claude`." (evidence/functional/root-controller-*.json).
+  support_layer: >
+    evidence/scripts/installed_import_session.py wires the installed support modules the same way: 4/4 completed on the
+    worktree, the new snapshot and npm global; 4/4 the error on the 1707ad4 snapshot (evidence/functional/harness-*.json).
+  not_exercised: "A live router over a real socket, a real Claude Code or Codex client, and any real user transcript."
+live_health:
+  before: "11:58:01Z and 12:19:03Z: 9385, 9489, 9505, 9512 /health 200 (5 s timeout)."
+  after: >
+    9489, 9505 and 9512 /health 200 at 12:44:08Z and 12:46:07Z. 9385 gave no response within 5 s at 12:44:08Z and
+    within 10 s at 12:46:07Z; other probes returned 200 in 7.3-8.2 s or in 8-13 ms. Over six probes 12:46:38Z-12:47:44Z
+    all returned 200 (two in 7.3-7.7 s) and the 9385 listener stayed PID 72844 (python). Its start time, owner and command
+    line are not readable from this account; earlier journals describe 9385 as the sandbox router. The cause of the
+    slow or missing responses was not established. Nothing in this release starts, stops or configures that process
+    (evidence/health-*.txt). The 9 visible ciel processes have the same PIDs before and after and still run from the
+    1707ad4 snapshot (evidence/live-homes-after.txt); they keep that code until they are relaunched.
+not_done:
+  - "Running routers and CLI sessions were not restarted. No remote or managed machine was accessed."
 not_claimed:
   - "No MCP import tool exists; importsession/ImportSession/import_session tools/call still return Unknown ciel-runtime-router tool."
   - "Muse transcripts are not an ImportSession source."

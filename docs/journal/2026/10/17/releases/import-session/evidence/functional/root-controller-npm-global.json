@@ -1,0 +1,43 @@
+{
+  "label": "npm-global",
+  "root": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime",
+  "ciel_runtime_file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime.py",
+  "version": "0.2.51-nightly.20261017-122407.890299d",
+  "python": "3.11.6",
+  "request_shortcuts_lf_sha256": "f8590f83bcc14c8ca5621d54e2df34ef838ddfc7cb5c21bb938d81a6bad0a86b",
+  "results": [
+    {
+      "case": "claude-client <- Codex explicit path",
+      "handled": true,
+      "http_status": 200,
+      "ok": true,
+      "reply_first_line": "Ciel Runtime ImportSession completed.",
+      "expected_marker_present": true
+    },
+    {
+      "case": "codex-client <- Claude explicit path",
+      "handled": true,
+      "http_status": 200,
+      "ok": true,
+      "reply_first_line": "Ciel Runtime ImportSession completed.",
+      "expected_marker_present": true
+    },
+    {
+      "case": "claude-client <- Codex latest",
+      "handled": true,
+      "http_status": 200,
+      "ok": true,
+      "reply_first_line": "Ciel Runtime ImportSession completed.",
+      "expected_marker_present": true
+    },
+    {
+      "case": "codex-client <- Claude latest",
+      "handled": true,
+      "http_status": 200,
+      "ok": true,
+      "reply_first_line": "Ciel Runtime ImportSession completed.",
+      "expected_marker_present": true
+    }
+  ],
+  "all_ok": true
+}

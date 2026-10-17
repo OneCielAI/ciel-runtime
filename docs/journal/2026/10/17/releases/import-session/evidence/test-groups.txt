@@ -1,0 +1,6 @@
+group=unit exit=0 secs=209 Ran 2062 tests in 206.302s OK (skipped=49) 
+group=router exit=0 secs=313 Ran 1334 tests in 310.451s OK 
+group=channel exit=0 secs=2 Ran 462 tests in 1.296s OK (skipped=80) 
+group=runtime exit=0 secs=16 Ran 406 tests in 13.982s OK (skipped=19) 
+
+[exited with code 0]

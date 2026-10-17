@@ -1,0 +1,15 @@
+cwd=C:\Users\djlov\AppData\Local\Temp\ciel-release-importsession\neutral-cwd
+launcher=C:\Users\djlov\AppData\Roaming\npm\ciel-runtimectl.cmd exit=0 output=ciel-runtime 0.2.51-nightly.20261017-122407.890299d
+launcher=C:\Users\djlov\.local\bin\ciel-runtimectl.cmd exit=0 output=ciel-runtime 0.2.51-nightly.20261017-122407.890299d
+fresh-PATH where ciel-runtimectl:
+  C:\Users\djlov\.local\bin\ciel-runtimectl
+  C:\Users\djlov\.local\bin\ciel-runtimectl.cmd
+  C:\Users\djlov\AppData\Roaming\npm\ciel-runtimectl
+  C:\Users\djlov\AppData\Roaming\npm\ciel-runtimectl.cmd
+fresh-PATH bare 'ciel-runtimectl version' exit=0 output=ciel-runtime 0.2.51-nightly.20261017-122407.890299d
+isolated config dir entries after run:
+  \workspaces
+  \workspace-router-ports.json
+  \workspaces\2e6ba90139d0
+  \workspaces\2e6ba90139d0\telemetry-logs
+  \workspaces\2e6ba90139d0\telemetry-logs\ingest-token

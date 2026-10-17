@@ -1,0 +1,22 @@
+# Extract of gh run view 39032072760 --log (Publish to npm, nightly 890299d). Full log not committed.
+[Compute and apply nightly version] 2026-10-17T12:24:07.6392077Z Nightly version: 0.2.51-nightly.20261017-122407.890299d
+[Run pkg="$(node -p "require('./package.json').name")"] 2026-10-17T12:24:09.3295327Z Package @one-ciel-ai/ciel-runtime@0.2.51-nightly.20261017-122407.890299d is not published yet.
+[Run npm publish --access public --tag nightly] 2026-10-17T12:24:14.2418638Z npm notice name: @one-ciel-ai/ciel-runtime
+[Run npm publish --access public --tag nightly] 2026-10-17T12:24:14.2418864Z npm notice version: 0.2.51-nightly.20261017-122407.890299d
+[Run npm publish --access public --tag nightly] 2026-10-17T12:24:14.2419238Z npm notice filename: one-ciel-ai-ciel-runtime-0.2.51-nightly.20261017-122407.890299d.tgz
+[Run npm publish --access public --tag nightly] 2026-10-17T12:24:14.2419386Z npm notice package size: 9.9 MB
+[Run npm publish --access public --tag nightly] 2026-10-17T12:24:14.2419532Z npm notice unpacked size: 18.9 MB
+[Run npm publish --access public --tag nightly] 2026-10-17T12:24:14.2419751Z npm notice shasum: 536241329c6df0027fa6ac3e6cded68ec4e14b9e
+[Run npm publish --access public --tag nightly] 2026-10-17T12:24:14.2420001Z npm notice integrity: sha512-ZVRGp0+poEIVt[...]P7UaPTfbJXQFg==
+[Run npm publish --access public --tag nightly] 2026-10-17T12:24:14.2420126Z npm notice total files: 1694
+[Run npm publish --access public --tag nightly] 2026-10-17T12:24:16.7379235Z + @one-ciel-ai/ciel-runtime@0.2.51-nightly.20261017-122407.890299d
+[Verify published tarball] 2026-10-17T12:24:16.8432944Z Verifying @one-ciel-ai/ciel-runtime@0.2.51-nightly.20261017-122407.890299d tarball...
+[Verify published tarball] 2026-10-17T12:34:34.2044803Z npm notice name: @one-ciel-ai/ciel-runtime
+[Verify published tarball] 2026-10-17T12:34:34.2045236Z npm notice version: 0.2.51-nightly.20261017-122407.890299d
+[Verify published tarball] 2026-10-17T12:34:34.2045848Z npm notice filename: one-ciel-ai-ciel-runtime-0.2.51-nightly.20261017-122407.890299d.tgz
+[Verify published tarball] 2026-10-17T12:34:34.2046359Z npm notice package size: 9.9 MB
+[Verify published tarball] 2026-10-17T12:34:34.2046670Z npm notice unpacked size: 18.9 MB
+[Verify published tarball] 2026-10-17T12:34:34.2047066Z npm notice shasum: 536241329c6df0027fa6ac3e6cded68ec4e14b9e
+[Verify published tarball] 2026-10-17T12:34:34.2047554Z npm notice integrity: sha512-ZVRGp0+poEIVt[...]P7UaPTfbJXQFg==
+[Verify published tarball] 2026-10-17T12:34:34.2047934Z npm notice total files: 1694
+[Verify published tarball] Tarball is not available yet: retries 1..60 (12:24:17Z..12:34:23Z); attempt 61 succeeded at 12:34:34Z

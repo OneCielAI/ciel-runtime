@@ -1,0 +1,7 @@
+# probe A (5 s timeout) at 12:44:08Z: 9385 http=000 (no response within 5 s); 9489/9505/9512 http=200
+# retries on 9385 (10 s timeout): 200 in 8.19 s, then 200 in 0.013 s and 0.011 s; listener pid 72844 (python; start time, owner and command line not readable from this account)
+2026-10-17T12:46:07Z
+port=9385 /health http=000 total=10.016589s
+port=9489 /health http=200 total=0.005819s
+port=9505 /health http=200 total=0.007191s
+port=9512 /health http=200 total=0.006869s
