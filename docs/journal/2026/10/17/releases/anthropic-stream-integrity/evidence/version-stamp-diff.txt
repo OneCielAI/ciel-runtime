@@ -18,7 +18,7 @@
 @@ -105,7 +105,7 @@
 
  }
- 
+
  APP_NAME = "Ciel Runtime"
 -VERSION = "0.2.51"
 +VERSION = "0.2.51-nightly.20261017-172902.1962793"
