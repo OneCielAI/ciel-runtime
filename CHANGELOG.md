@@ -5,6 +5,14 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+- `/ImportSession` slash command: the arguments parser now stops at the blank
+  line that ends the `Arguments:` block of the generated command. It used to
+  read the explanatory sentence that follows as part of the transcript path,
+  so every import through the shipped command failed with
+  ``Transcript file not found: format and must be `Codex` or `Claude`.``, whether a path was given or
+  the latest transcript was requested, in both the Claude-to-Codex and
+  Codex-to-Claude directions. Accepted sources are unchanged.
+
 - Upstream TLS EOF and truncated streams (CielAiRouter gateways, native
   Responses). A provider read failure after the native Responses passthrough
   has sent status 200 (TLS EOF, connection reset, timeout) now ends the started

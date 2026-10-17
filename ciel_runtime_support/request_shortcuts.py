@@ -222,6 +222,10 @@ def import_session_args(
     for line in tail.splitlines():
         stripped = line.strip()
         if capture:
+            # The generated slash command ends Arguments with a blank line,
+            # followed by explanatory prose. That prose is not a file path.
+            if not stripped and arguments:
+                break
             if stripped not in PLACEHOLDER_VALUES:
                 arguments.append(stripped)
             continue

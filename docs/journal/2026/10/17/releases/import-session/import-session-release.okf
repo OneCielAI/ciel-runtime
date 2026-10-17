@@ -1,0 +1,40 @@
+okf_version: "1.0"
+task: "Release the /ImportSession slash-command arguments parser fix to nightly and install the published nightly locally."
+authorization: >
+  User, 2026-10-17: explicit nightly push and local (current user only) deployment of the ImportSession parser fix:
+  npm install -g of the exact published version and a fresh full-SHA snapshot through the published install.ps1.
+  No remote or managed (G:) machine change, no live router, session or config change, no live snapshot overwrite.
+status: "pre-push (results recorded in the follow-up journal commit)"
+base: "nightly 1707ad4ddc6775f1005eaf40e3ece8df6c343d02 (CI 39000016160 and Publish 39000016191 success)"
+diagnosis: "../../diagnostics/import-session/investigation.okf"
+scope:
+  production:
+    - "ciel_runtime_support/request_shortcuts.py import_session_args: stop collecting the Arguments block at the first blank line once an argument is collected (4 added lines)."
+  tests_new:
+    - "tests/test_session_import_regression.py (synthetic fixtures only; joins the unit group by filename)."
+  tests_modified:
+    - "tests/test_request_shortcuts.py: shipped-template and paragraph-boundary regressions."
+  release_owner_change:
+    - "tests/test_session_import_regression.py test_byte_and_character_truncation: lambda `row` rewritten as a nested def. ruff E731 failed `ruff check .` (the Publish workflow step) on the original file. Same behavior; later line numbers shift by 2 relative to the diagnostics before.txt tracebacks."
+  changelog: "CHANGELOG.md Unreleased entry '/ImportSession slash command'. It claims no MCP import tool and no new source format; neither exists (investigation.okf)."
+lf_normalized_sha256_of_released_modules:
+  request_shortcuts.py: "f8590f83bcc14c8ca5621d54e2df34ef838ddfc7cb5c21bb938d81a6bad0a86b"
+  slash_command_assets.py: "f60600b4ded27404bfdcce6cda84e8dee577fdfef914db180b0b409ce81cea50 (unchanged)"
+  session_import.py: "766230134b7186dd1380d7de2e7fcf9a30b6ed6ef1c528fcaaa9f6a73298f1f8 (unchanged)"
+pre_push_verification:
+  focused: "diagnostics/import-session/run_focused.py (4 files, 23 tests, inherited CIEL_RUNTIME_* removed, isolate_runtime_state): OK on Python 3.11 and 3.10.6 (CI python-minimum), and again on 3.10.6 after the E731 change."
+  lint: "ruff 0.14.11 and the Publish-pinned ruff 0.15.22 (uvx, cache only): `ruff check .` All checks passed. git diff --check clean."
+  groups: >
+    scripts/run_test_group.py (Python 3.11.6, inherited CIEL_RUNTIME_* removed): unit 2062 OK (49 skipped),
+    router 1334 OK, channel 462 OK (80 skipped), runtime 406 OK (19 skipped). The unit group was started before the
+    E731 rewrite and may have loaded the earlier copy of test_session_import_regression.py; the focused run after the
+    rewrite covers that file.
+  docs_check: "npm run check:docs (CI quality step): Documentation metadata checks passed."
+  live_health: "127.0.0.1:9385/9489/9505/9512 /health returned 200 before and after the test runs (status codes only)."
+baseline_reproduction_note: >
+  diagnostics/import-session/run_focused.py --baseline loads `git show HEAD:ciel_runtime_support/request_shortcuts.py`.
+  After this commit HEAD carries the fix; the pre-fix parser is `1707ad4:ciel_runtime_support/request_shortcuts.py`.
+not_claimed:
+  - "No MCP import tool exists; importsession/ImportSession/import_session tools/call still return Unknown ciel-runtime-router tool."
+  - "Muse transcripts are not an ImportSession source."
+  - "The reporter's exact failed invocation was not supplied (investigation.okf Scope)."
