@@ -1,0 +1,21 @@
+---
+type: journal
+title: Anthropic stream integrity nightly release
+timestamp: 2026-10-17
+---
+
+# Scope and authorization
+
+User authorized nightly push and current-user npm global plus fresh full-SHA snapshot install. No remote, G: sandbox, live session restart, or old snapshot overwrite.
+
+# Verification before release
+
+Reviewed streaming_anthropic.py diff and all 20 regression tests. Isolated focused runner rerun: 20 tests OK; scoped ruff and git diff --check pass. Prior inspected diagnostics record 665 related tests (43 skipped) and real Claude Code 2.1.302 synthetic HTTP/HTTPS loopback E2E. No full local sweep run. Health-before.txt records HTTP 200 on 9385, 9489, 9505, 9512.
+
+# Limits
+
+This suppresses fabricated successful terminal events; the historical gateway termination cause remains unproven. Claude Code may accept closed blocks plus stop_reason without message_stop while router channel delivery remains failed. Synthetic E2E is not the reporter's real gateway/session reproduction. Existing running sessions retain their loaded code.
+
+# Release state
+
+Pending CI, published immutable version and local installed functional verification; follow-up records actual outcomes.

@@ -1,0 +1,92 @@
+### docs/journal/2026/10/17/diagnostics/celly-turn-interruption/anthropic-stream-fix/evidence/e2e/claude-head.jsonl {"source": "head", "streaming_anthropic_sha256": "60749532e9f868beba3746a28f9ad169dec2de189e03c4253967eab8b44532e6", "python": "3.11.6", "openssl": "OpenSSL 3.0.11 19 Sep 2023", "router_read_timeout_s": 2.0, "claude_version": "2.1.302 (Claude Code)", "claude_sha256": "3ab075f78998efef8b87f491c2e4a39c309dddf44e51d0103eba4f3713d2a0ae"}
+other_paths: []
+- complete
+    raw wire : ['message_start', 'content_block_start', 'content_block_delta', 'content_block_stop', 'message_delta', 'message_stop'] text='All good.' errors=[] channel=True/anthropic_stream_message_stop
+    cc wire  : ['message_start', 'content_block_start', 'content_block_delta', 'content_block_stop', 'message_delta', 'message_stop'] channel=True/anthropic_stream_message_stop
+    cc result: upstream=S final='All good.' is_error=False tools=[]
+- midtext_rst
+    raw wire : ['message_start', 'content_block_start', 'content_block_delta', 'content_block_delta', 'content_block_stop', 'message_delta', 'message_stop'] text='The deployment check found three issues: first, the ' errors=[] channel=False/pending
+    cc wire  : ['message_start', 'content_block_start', 'content_block_stop', 'message_delta', 'message_stop'] channel=False/pending
+    cc result: upstream=S+S final='RETRY-OK stream' is_error=False tools=[]
+- midtext_tls_eof
+    raw wire : ['message_start', 'content_block_start', 'content_block_delta', 'content_block_delta'] text='The deployment check found three issues: first, the ' errors=[] channel=False/pending
+    cc wire  : ['message_start', 'content_block_start'] channel=False/pending
+    cc result: upstream=S+S final='RETRY-OK stream' is_error=False tools=[]
+- midtext_stall
+    raw wire : ['message_start', 'content_block_start', 'content_block_delta', 'content_block_delta', 'content_block_stop', 'message_delta', 'message_stop'] text='The deployment check found three issues: first, the ' errors=[] channel=False/pending
+    cc wire  : ['message_start', 'content_block_start', 'content_block_stop', 'message_delta', 'message_stop'] channel=False/pending
+    cc result: upstream=S+S final='RETRY-OK stream' is_error=False tools=[]
+- midtext_fin_no_stop
+    raw wire : ['message_start', 'content_block_start', 'content_block_delta', 'content_block_delta'] text='The deployment check found three issues: first, the ' errors=[] channel=False/pending
+    cc wire  : ['message_start', 'content_block_start'] channel=False/pending
+    cc result: upstream=S+S final='RETRY-OK stream' is_error=False tools=[]
+- before_start_rst
+    raw wire : ['message_start', 'content_block_start', 'content_block_delta', 'content_block_stop', 'message_delta', 'message_stop'] text='Upstream stream error: ConnectionResetError: [WinError 10054] An existing connection was forcibly closed by the remote host' errors=[] channel=False/pending
+    cc wire  : ['message_start', 'content_block_start', 'content_block_delta', 'content_block_stop', 'message_delta', 'message_stop'] channel=False/pending
+    cc result: upstream=S final='Upstream stream error: Conn' is_error=False tools=[]
+- pending_delta_rst
+    raw wire : ['message_start', 'content_block_start', 'content_block_delta', 'content_block_stop', 'message_delta', 'message_stop', 'message_delta', 'message_stop'] text='Done.' errors=[] channel=False/pending
+    cc wire  : ['message_start', 'content_block_start', 'content_block_delta', 'content_block_stop', 'message_delta', 'message_stop', 'message_delta', 'message_stop'] channel=False/pending
+    cc result: upstream=S final='Done.' is_error=False tools=[]
+- tool_partial_rst
+    raw wire : ['message_start', 'content_block_start', 'content_block_delta', 'content_block_stop', 'message_delta', 'message_stop'] text='' errors=[] channel=False/pending
+    cc wire  : ['message_start', 'content_block_start', 'content_block_delta', 'content_block_stop', 'message_delta', 'message_stop'] channel=False/pending
+    cc result: upstream=S+Sr final='RETRY-OK stream' is_error=False tools=['Read(unparsed)']
+- error_event
+    raw wire : ['message_start', 'content_block_start', 'content_block_delta', 'content_block_delta', 'error'] text='The deployment check found three issues: first, the ' errors=['overloaded_error'] channel=False/pending
+    cc wire  : ['message_start', 'content_block_start', 'error'] channel=False/pending
+    cc result: upstream=S+N final='RETRY-OK non-stream' is_error=False tools=[]
+- complete_then_tls_eof
+    raw wire : ['message_start', 'content_block_start', 'content_block_delta', 'content_block_stop', 'message_delta', 'message_stop'] text='All good.' errors=[] channel=True/anthropic_stream_message_stop
+    cc wire  : ['message_start', 'content_block_start', 'content_block_delta', 'content_block_stop', 'message_delta', 'message_stop'] channel=True/anthropic_stream_message_stop
+    cc result: upstream=S final='All good.' is_error=False tools=[]
+- complete_then_rst
+    raw wire : ['message_start', 'content_block_start', 'content_block_delta', 'content_block_stop', 'message_delta', 'message_stop'] text='All good.' errors=[] channel=False/pending
+    cc wire  : ['message_start', 'content_block_start', 'content_block_delta', 'content_block_stop', 'message_delta', 'message_stop'] channel=False/pending
+    cc result: upstream=S final='All good.' is_error=False tools=[]
+### docs/journal/2026/10/17/diagnostics/celly-turn-interruption/anthropic-stream-fix/evidence/e2e/claude-tree.jsonl {"source": "tree", "streaming_anthropic_sha256": "f5ecd5d5cdece0c7644e9a7f567f4324363a877f978032b4822427f977567d71", "python": "3.11.6", "openssl": "OpenSSL 3.0.11 19 Sep 2023", "router_read_timeout_s": 2.0, "claude_version": "2.1.302 (Claude Code)", "claude_sha256": "3ab075f78998efef8b87f491c2e4a39c309dddf44e51d0103eba4f3713d2a0ae"}
+other_paths: []
+- complete
+    raw wire : ['message_start', 'content_block_start', 'content_block_delta', 'content_block_stop', 'message_delta', 'message_stop'] text='All good.' errors=[] channel=True/anthropic_stream_message_stop
+    cc wire  : ['message_start', 'content_block_start', 'content_block_delta', 'content_block_stop', 'message_delta', 'message_stop'] channel=True/anthropic_stream_message_stop
+    cc result: upstream=S final='All good.' is_error=False tools=[]
+- midtext_rst
+    raw wire : ['message_start', 'content_block_start', 'content_block_delta', 'content_block_delta', 'error'] text='The deployment check found three issues: first, the ' errors=['api_error'] channel=False/anthropic_stream_upstream_error:ConnectionResetError
+    cc wire  : ['message_start', 'content_block_start', 'content_block_delta', 'error'] channel=False/anthropic_stream_upstream_error:ConnectionResetError
+    cc result: upstream=S+N final='RETRY-OK non-stream' is_error=False tools=[]
+- midtext_tls_eof
+    raw wire : ['message_start', 'content_block_start', 'content_block_delta', 'content_block_delta', 'error'] text='The deployment check found three issues: first, the ' errors=['api_error'] channel=False/anthropic_stream_upstream_incomplete
+    cc wire  : ['message_start', 'content_block_start', 'content_block_delta', 'error'] channel=False/anthropic_stream_upstream_incomplete
+    cc result: upstream=S+N final='RETRY-OK non-stream' is_error=False tools=[]
+- midtext_stall
+    raw wire : ['message_start', 'content_block_start', 'content_block_delta', 'content_block_delta', 'error'] text='The deployment check found three issues: first, the ' errors=['api_error'] channel=False/anthropic_stream_upstream_error:TimeoutError
+    cc wire  : ['message_start', 'content_block_start', 'content_block_delta', 'error'] channel=False/anthropic_stream_upstream_error:TimeoutError
+    cc result: upstream=S+N final='RETRY-OK non-stream' is_error=False tools=[]
+- midtext_fin_no_stop
+    raw wire : ['message_start', 'content_block_start', 'content_block_delta', 'content_block_delta', 'error'] text='The deployment check found three issues: first, the ' errors=['api_error'] channel=False/anthropic_stream_upstream_incomplete
+    cc wire  : ['message_start', 'content_block_start', 'content_block_delta', 'error'] channel=False/anthropic_stream_upstream_incomplete
+    cc result: upstream=S+N final='RETRY-OK non-stream' is_error=False tools=[]
+- before_start_rst
+    raw wire : ['error'] text='' errors=['api_error'] channel=False/anthropic_stream_upstream_error:ConnectionResetError
+    cc wire  : ['error'] channel=False/anthropic_stream_upstream_error:ConnectionResetError
+    cc result: upstream=S+N final='RETRY-OK non-stream' is_error=False tools=[]
+- pending_delta_rst
+    raw wire : ['message_start', 'content_block_start', 'content_block_delta', 'content_block_stop', 'message_delta', 'error'] text='Done.' errors=['api_error'] channel=False/anthropic_stream_upstream_error:ConnectionResetError
+    cc wire  : ['message_start', 'content_block_start', 'content_block_delta', 'content_block_stop', 'message_delta', 'error'] channel=False/anthropic_stream_upstream_error:ConnectionResetError
+    cc result: upstream=S final='Done.' is_error=False tools=[]
+- tool_partial_rst
+    raw wire : ['message_start', 'content_block_start', 'content_block_delta', 'error'] text='' errors=['api_error'] channel=False/anthropic_stream_upstream_error:ConnectionResetError
+    cc wire  : ['message_start', 'content_block_start', 'content_block_delta', 'error'] channel=False/anthropic_stream_upstream_error:ConnectionResetError
+    cc result: upstream=S+N final='RETRY-OK non-stream' is_error=False tools=[]
+- error_event
+    raw wire : ['message_start', 'content_block_start', 'content_block_delta', 'content_block_delta', 'error'] text='The deployment check found three issues: first, the ' errors=['overloaded_error'] channel=False/anthropic_stream_upstream_error_event
+    cc wire  : ['message_start', 'content_block_start', 'content_block_delta', 'error'] channel=False/anthropic_stream_upstream_error_event
+    cc result: upstream=S+N final='RETRY-OK non-stream' is_error=False tools=[]
+- complete_then_tls_eof
+    raw wire : ['message_start', 'content_block_start', 'content_block_delta', 'content_block_stop', 'message_delta', 'message_stop'] text='All good.' errors=[] channel=True/anthropic_stream_message_stop
+    cc wire  : ['message_start', 'content_block_start', 'content_block_delta', 'content_block_stop', 'message_delta', 'message_stop'] channel=True/anthropic_stream_message_stop
+    cc result: upstream=S final='All good.' is_error=False tools=[]
+- complete_then_rst
+    raw wire : ['message_start', 'content_block_start', 'content_block_delta', 'content_block_stop', 'message_delta', 'message_stop'] text='All good.' errors=[] channel=True/anthropic_stream_message_stop
+    cc wire  : ['message_start', 'content_block_start', 'content_block_delta', 'content_block_stop', 'message_delta', 'message_stop'] channel=True/anthropic_stream_message_stop
+    cc result: upstream=S final='All good.' is_error=False tools=[]

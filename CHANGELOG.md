@@ -5,6 +5,13 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+- Native Anthropic streaming: interrupted reads and EOF before upstream
+  `message_stop` now emit an SSE `api_error` instead of inventing a successful
+  ending or closing a partial tool call. Upstream errors are forwarded once;
+  recovery tools wait for `message_stop`. A transport error after that terminal
+  preserves the completed response. This does not fix or identify the cause of
+  historical gateway interruptions.
+
 - `/ImportSession` slash command: the arguments parser now stops at the blank
   line that ends the `Arguments:` block of the generated command. It used to
   read the explanatory sentence that follows as part of the transcript path,
