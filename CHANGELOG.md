@@ -5,6 +5,27 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+- Upstream TLS EOF and truncated streams (CielAiRouter gateways, native
+  Responses). A provider read failure after the native Responses passthrough
+  has sent status 200 (TLS EOF, connection reset, timeout) now ends the started
+  stream with `response.failed` (`upstream_stream_truncated`) instead of a
+  second HTTP 502 written into the stream; an upstream reset is no longer
+  recorded as a client disconnect, and downstream write failures still are.
+  A request routed to a selected gateway is not replayed within the same call
+  (initial-stream reconnect, collection truncation retry, buffered native
+  Responses truncation retry): the replay would reach the same gateway, so the
+  next request selects again. Requests without a selected gateway keep their
+  retries. Gateway scoring reads the bytes carried by an `IncompleteRead`
+  before scoring it, so a stream that delivered its completion event no longer
+  counts against the gateway, and a dispatched provider `error` event is not a
+  gateway failure. A discovery node whose endpoint is the configured central
+  base is reported as central (`gateway endpoint is the central base`) and is
+  not pinned to the session. router.log gains a metadata-only
+  `provider_responses_failure` line for native Responses transport and
+  truncation failures: request id, stage, exception class names,
+  `downstream_started`, and the configured base URL reduced to scheme, host
+  and port.
+
 - Direct gateway safety: a launch whose channel messages reach the CLI only as
   typed `[ciel-wake]` markers, with no whole-message transport, stays on the
   router before any gateway selection, at launch and after a session restart:

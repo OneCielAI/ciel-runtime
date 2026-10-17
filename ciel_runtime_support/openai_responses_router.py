@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import re
 import urllib.error
 import urllib.parse
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, Callable
 
+from .cielairouter_gateway_overlay import DISCOVERY_BASE_URL_KEY
 from .context_compaction import AutomaticContextCompactionCompleted
 from .remote_bridge import REMOTE_BRIDGE_CONFIG_MARKER, is_remote_bridge_request
 from .provider_failover import FailoverRequested, maybe_fail_over
@@ -14,6 +17,7 @@ from .upstream_error_policy import (
     UpstreamFailure,
     UpstreamStreamReadError,
     anthropic_error_type_for_status,
+    is_upstream_transport_error,
 )
 
 
@@ -154,6 +158,101 @@ def _write_transport_failure(
         error_type=failure.anthropic_error_type,
     )
     return True
+
+
+# A hostname as ``urlsplit`` returns it (IPv6 brackets removed, zone id kept).
+_LOGGABLE_HOST = re.compile(r"[A-Za-z0-9._~%:-]+")
+
+
+def _endpoint_origin(value: Any) -> str:
+    """``scheme://host[:port]`` of a configured base URL, and nothing else.
+
+    Userinfo, path, query and fragment are dropped, so a credential carried in
+    any of them cannot reach the log.  A value that does not parse to a scheme
+    and a plain host is reported as ``invalid`` instead of being echoed.
+    """
+
+    text = str(value or "").strip()
+    if not text:
+        return "unset"
+    try:
+        parts = urllib.parse.urlsplit(text)
+        host = parts.hostname or ""
+        port = parts.port
+    except ValueError:
+        return "invalid"
+    if not parts.scheme or not _LOGGABLE_HOST.fullmatch(host):
+        return "invalid"
+    if ":" in host:
+        host = f"[{host}]"
+    return f"{parts.scheme.lower()}://{host}" + ("" if port is None else f":{port}")
+
+
+def _handler_downstream_started(handler: Any) -> str:
+    """Whether this handler had already sent a response status to the client."""
+
+    status = getattr(handler, "_ciel_runtime_response_status", "unknown")
+    if status is None:
+        return "false"
+    if isinstance(status, int) and not isinstance(status, bool):
+        return "true"
+    return "unknown"
+
+
+def _log_native_responses_failure(
+    core: OpenAIResponsesCore,
+    handler: Any,
+    *,
+    request_id: str,
+    provider: str,
+    pcfg: Mapping[str, Any],
+    error: BaseException,
+) -> None:
+    """Persist which endpoint a failed native Responses request was sent to.
+
+    Metadata only: exception class names, never their text, and the request's
+    provider config ``base_url`` reduced to scheme, host and port.  ``stage``
+    is ``stream`` when the reader reported a truncated response body
+    (``UpstreamStreamReadError``) and ``open`` for a ``URLError``, which urllib
+    raises only before it reads a response (connect, TLS handshake, sending the
+    request); it is ``unknown`` for any other transport exception.  ``open``
+    does not mean the provider never received the request.  The node behind a
+    selected CielAiRouter gateway is not recorded here.
+    """
+
+    if isinstance(error, UpstreamStreamReadError):
+        stage = "stream"
+        cause: Any = error.error
+        downstream_started = "true" if error.downstream_started else "false"
+    else:
+        stage = "open" if isinstance(error, urllib.error.URLError) else "unknown"
+        cause = getattr(error, "reason", None) if stage == "open" else None
+        downstream_started = _handler_downstream_started(handler)
+    if not isinstance(pcfg, Mapping):
+        pcfg = {}
+    received = getattr(error, "received_bytes", None)
+    received_text = (
+        str(received)
+        if isinstance(received, int) and not isinstance(received, bool) and received >= 0
+        else "unknown"
+    )
+    gateway = DISCOVERY_BASE_URL_KEY in pcfg
+    fields = [
+        f"request_id={request_id}",
+        f"provider={provider}",
+        f"stage={stage}",
+        f"error={type(error).__name__}",
+        f"cause={type(cause).__name__ if isinstance(cause, BaseException) else '-'}",
+        f"downstream_started={downstream_started}",
+        f"received_bytes={received_text}",
+        f"config_base_url={_endpoint_origin(pcfg.get('base_url'))}",
+        f"gateway_selected={'true' if gateway else 'false'}",
+    ]
+    if gateway:
+        fields.append(
+            f"gateway_discovery_base_url={_endpoint_origin(pcfg.get(DISCOVERY_BASE_URL_KEY))}"
+        )
+    core.log("ERROR", "provider_responses_failure " + " ".join(fields))
 
 
 def handle_openai_responses_request(
@@ -594,6 +693,14 @@ def _handle_provider_responses_route(
                 "downstream_started": exc.downstream_started,
             },
         )
+        _log_native_responses_failure(
+            core,
+            handler,
+            request_id=request_id,
+            provider=provider,
+            pcfg=pcfg,
+            error=exc,
+        )
         delivery.mark_failed(handler, "provider_responses_upstream_stream_truncated")
         output.write_error(
             handler,
@@ -613,6 +720,15 @@ def _handle_provider_responses_route(
                 f"provider_responses_client_disconnected:{type(exc).__name__}",
             )
             return
+        if is_upstream_transport_error(exc):
+            _log_native_responses_failure(
+                core,
+                handler,
+                request_id=request_id,
+                provider=provider,
+                pcfg=pcfg,
+                error=exc,
+            )
         if _write_transport_failure(
             handler=handler,
             provider=provider,

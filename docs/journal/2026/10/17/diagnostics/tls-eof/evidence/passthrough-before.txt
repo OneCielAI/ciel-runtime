@@ -1,0 +1,121 @@
+== BEFORE fix: new regression tests on unmodified passthrough 2026-10-16T21:55:34-05:00
+HEAD 572b7e7
+86d36b236df66386e02f49c3dc0df93656b09a3adf6748cc944ee2edec0f119c *ciel_runtime_support/provider_responses_passthrough.py
+3c685c06626e9b836638373c1b6029e91fa027a795cc60539c020a8924ab53e2 *tests/test_meta_provider.py
+9005e68a495215ea17850f2f5f095d1ca43eb5f63197a5276e8fef6fa4c3cebf *tests/test_openai_responses_upstream_stream_error.py
+inherited CIEL_RUNTIME_* removed: -u CIEL_RUNTIME_PROVIDER -u CIEL_RUNTIME_CONFIG_DIR -u CIEL_RUNTIME_SCRIPT -u CIEL_RUNTIME_HOME -u CIEL_RUNTIME_AUTO_ALLOW_DANGEROUS_RM -u CIEL_RUNTIME_MODEL_ALIAS -u CIEL_RUNTIME_REGISTERED_HOME -u CIEL_RUNTIME_LAUNCH_CWD -u CIEL_RUNTIME_SELECTED_HOME -u CIEL_RUNTIME_STATE_DIR -u CIEL_RUNTIME_WORKSPACE_STATE_DIR -u CIEL_RUNTIME_BYPASS_PERMISSIONS 
+isolated CIEL_RUNTIME_CONFIG_DIR=C:\Users\djlov\AppData\Local\Temp\ciel-runtime-tests-awgevr03 ROUTER_PORT=61061 TEST_ISOLATED=1
+test_upstream_read_failure_after_status_is_a_started_stream_failure (test_meta_provider.ProviderResponsesPassthroughTests.test_upstream_read_failure_after_status_is_a_started_stream_failure) ... 
+  test_upstream_read_failure_after_status_is_a_started_stream_failure (test_meta_provider.ProviderResponsesPassthroughTests.test_upstream_read_failure_after_status_is_a_started_stream_failure) (case='tls_eof') ... ERROR
+  test_upstream_read_failure_after_status_is_a_started_stream_failure (test_meta_provider.ProviderResponsesPassthroughTests.test_upstream_read_failure_after_status_is_a_started_stream_failure) (case='tls_eof_first_read') ... ERROR
+  test_upstream_read_failure_after_status_is_a_started_stream_failure (test_meta_provider.ProviderResponsesPassthroughTests.test_upstream_read_failure_after_status_is_a_started_stream_failure) (case='upstream_reset') ... ERROR
+  test_upstream_read_failure_after_status_is_a_started_stream_failure (test_meta_provider.ProviderResponsesPassthroughTests.test_upstream_read_failure_after_status_is_a_started_stream_failure) (case='upstream_timeout') ... ERROR
+test_downstream_write_failure_keeps_its_client_disconnect_type (test_meta_provider.ProviderResponsesPassthroughTests.test_downstream_write_failure_keeps_its_client_disconnect_type) ... ok
+test_tls_eof_after_a_complete_terminal_event_keeps_the_delivered_stream (test_meta_provider.ProviderResponsesPassthroughTests.test_tls_eof_after_a_complete_terminal_event_keeps_the_delivered_stream) ... ERROR
+test_downstream_client_disconnect_stays_distinct_from_upstream_failure (test_openai_responses_upstream_stream_error.NativeResponsesRouterWireTests.test_downstream_client_disconnect_stays_distinct_from_upstream_failure) ... ok
+test_missing_or_malformed_terminal_still_fails_in_the_started_stream (test_openai_responses_upstream_stream_error.NativeResponsesRouterWireTests.test_missing_or_malformed_terminal_still_fails_in_the_started_stream) ... ok
+test_tls_eof_after_upstream_status_keeps_one_http_response (test_openai_responses_upstream_stream_error.NativeResponsesRouterWireTests.test_tls_eof_after_upstream_status_keeps_one_http_response) ... FAIL
+test_tls_eof_before_upstream_response_is_a_single_502 (test_openai_responses_upstream_stream_error.NativeResponsesRouterWireTests.test_tls_eof_before_upstream_response_is_a_single_502) ... ok
+test_upstream_reset_after_status_is_not_reported_as_client_disconnect (test_openai_responses_upstream_stream_error.NativeResponsesRouterWireTests.test_upstream_reset_after_status_is_not_reported_as_client_disconnect) ... FAIL
+
+======================================================================
+ERROR: test_upstream_read_failure_after_status_is_a_started_stream_failure (test_meta_provider.ProviderResponsesPassthroughTests.test_upstream_read_failure_after_status_is_a_started_stream_failure) (case='tls_eof')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime\tests\test_meta_provider.py", line 1463, in test_upstream_read_failure_after_status_is_a_started_stream_failure
+    self._passthrough_for_response(response, logs=logs).forward(
+  File "C:\Users\djlov\ciel-runtime\ciel_runtime_support\provider_responses_passthrough.py", line 621, in forward
+    while chunk := response.read(65_536):
+                   ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\djlov\ciel-runtime\tests\test_meta_provider.py", line 1441, in read
+    raise step
+ssl.SSLEOFError: EOF occurred in violation of protocol (_ssl.c:2427)
+
+======================================================================
+ERROR: test_upstream_read_failure_after_status_is_a_started_stream_failure (test_meta_provider.ProviderResponsesPassthroughTests.test_upstream_read_failure_after_status_is_a_started_stream_failure) (case='tls_eof_first_read')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime\tests\test_meta_provider.py", line 1463, in test_upstream_read_failure_after_status_is_a_started_stream_failure
+    self._passthrough_for_response(response, logs=logs).forward(
+  File "C:\Users\djlov\ciel-runtime\ciel_runtime_support\provider_responses_passthrough.py", line 621, in forward
+    while chunk := response.read(65_536):
+                   ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\djlov\ciel-runtime\tests\test_meta_provider.py", line 1441, in read
+    raise step
+ssl.SSLEOFError: EOF occurred in violation of protocol (_ssl.c:2427)
+
+======================================================================
+ERROR: test_upstream_read_failure_after_status_is_a_started_stream_failure (test_meta_provider.ProviderResponsesPassthroughTests.test_upstream_read_failure_after_status_is_a_started_stream_failure) (case='upstream_reset')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime\tests\test_meta_provider.py", line 1463, in test_upstream_read_failure_after_status_is_a_started_stream_failure
+    self._passthrough_for_response(response, logs=logs).forward(
+  File "C:\Users\djlov\ciel-runtime\ciel_runtime_support\provider_responses_passthrough.py", line 621, in forward
+    while chunk := response.read(65_536):
+                   ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\djlov\ciel-runtime\tests\test_meta_provider.py", line 1441, in read
+    raise step
+ConnectionResetError: [Errno 10054] upstream reset
+
+======================================================================
+ERROR: test_upstream_read_failure_after_status_is_a_started_stream_failure (test_meta_provider.ProviderResponsesPassthroughTests.test_upstream_read_failure_after_status_is_a_started_stream_failure) (case='upstream_timeout')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime\tests\test_meta_provider.py", line 1463, in test_upstream_read_failure_after_status_is_a_started_stream_failure
+    self._passthrough_for_response(response, logs=logs).forward(
+  File "C:\Users\djlov\ciel-runtime\ciel_runtime_support\provider_responses_passthrough.py", line 621, in forward
+    while chunk := response.read(65_536):
+                   ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\djlov\ciel-runtime\tests\test_meta_provider.py", line 1441, in read
+    raise step
+TimeoutError: The read operation timed out
+
+======================================================================
+ERROR: test_tls_eof_after_a_complete_terminal_event_keeps_the_delivered_stream (test_meta_provider.ProviderResponsesPassthroughTests.test_tls_eof_after_a_complete_terminal_event_keeps_the_delivered_stream)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime\tests\test_meta_provider.py", line 1531, in test_tls_eof_after_a_complete_terminal_event_keeps_the_delivered_stream
+    ).forward(
+      ^^^^^^^^
+  File "C:\Users\djlov\ciel-runtime\ciel_runtime_support\provider_responses_passthrough.py", line 621, in forward
+    while chunk := response.read(65_536):
+                   ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\djlov\ciel-runtime\tests\test_meta_provider.py", line 1441, in read
+    raise step
+ssl.SSLEOFError: EOF occurred in violation of protocol
+
+======================================================================
+FAIL: test_tls_eof_after_upstream_status_keeps_one_http_response (test_openai_responses_upstream_stream_error.NativeResponsesRouterWireTests.test_tls_eof_after_upstream_status_keeps_one_http_response)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime\tests\test_openai_responses_upstream_stream_error.py", line 455, in test_tls_eof_after_upstream_status_keeps_one_http_response
+    self.assertEqual([200], statuses)
+AssertionError: Lists differ: [200] != [200, 502]
+
+Second list contains 1 additional elements.
+First extra element 1:
+502
+
+- [200]
++ [200, 502]
+
+======================================================================
+FAIL: test_upstream_reset_after_status_is_not_reported_as_client_disconnect (test_openai_responses_upstream_stream_error.NativeResponsesRouterWireTests.test_upstream_reset_after_status_is_not_reported_as_client_disconnect)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime\tests\test_openai_responses_upstream_stream_error.py", line 481, in test_upstream_reset_after_status_is_not_reported_as_client_disconnect
+    self.assertEqual(
+AssertionError: Lists differ: ['response.created', 'response.failed'] != ['response.created']
+
+First list contains 1 additional elements.
+First extra element 1:
+'response.failed'
+
+- ['response.created', 'response.failed']
++ ['response.created']
+
+----------------------------------------------------------------------
+Ran 8 tests in 2.581s
+
+FAILED (failures=2, errors=5)
+exit=1

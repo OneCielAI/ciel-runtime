@@ -1,5 +1,7 @@
+import http.client
 import io
 import json
+import ssl
 import unittest
 import urllib.error
 
@@ -211,6 +213,141 @@ class TestTransport(unittest.TestCase):
             response = self.make(body, 'responses')
             response.read()
             self.assertEqual(self.results[0].reason, 'eof_before_terminal')
+
+    def test_incomplete_read_partial_is_observed_before_scoring_without_mutation(self):
+        for protocol, terminal in [('responses', frame('response.completed')),
+                                   ('anthropic', frame('message_stop')),
+                                   ('chat', b'data: [DONE]\n\n')]:
+            for cut in (0, 1, len(terminal) // 2):
+                for complete in (True, False):
+                    with self.subTest(protocol=protocol, cut=cut, complete=complete):
+                        prefix = terminal[:cut]
+                        partial = terminal[cut:] if complete else terminal[cut:-1]
+                        error = http.client.IncompleteRead(partial, 123)
+                        response = self.make(prefix, protocol)
+                        self.assertEqual(response.read(len(prefix)), prefix)
+                        def fail(*args):
+                            raise error
+                        response._response.read = fail
+                        with self.assertRaises(http.client.IncompleteRead) as raised:
+                            response.read(65536)
+                        self.assertIs(raised.exception, error)
+                        self.assertIs(error.partial, partial)
+                        self.assertEqual(error.expected, 123)
+                        self.assertEqual(len(self.results), 1)
+                        self.assertEqual(self.results[0].success, complete)
+                        self.assertEqual(self.results[0].reason, 'terminal_event' if complete else 'eof')
+                        response.close()
+                        self.assertEqual(len(self.results), 1)
+
+    def test_error_events_are_metadata_only_unknown_not_transport_success(self):
+        for protocol in ('anthropic', 'responses', 'chat'):
+            bodies = [frame('error'), b'event: error\ndata: {}\n\n']
+            if protocol == 'chat':
+                bodies.append(b'data: {"error":{"message":"private-error-message","code":502}}\n\n')
+            for body in bodies:
+                with self.subTest(protocol=protocol, body=body):
+                    response = self.make(body, protocol)
+                    self.assertEqual(response.read(), body)
+                    self.assertEqual(len(self.results), 1)
+                    self.assertFalse(self.results[0].success)
+                    self.assertEqual(self.results[0].reason, 'upstream_error_event')
+                    self.assertIsNone(response.terminal_observed)
+                    self.assertNotIn('private-error-message', repr(self.results))
+                    response.close()
+                    self.assertEqual(len(self.results), 1)
+
+    def test_error_event_requires_blank_dispatch_and_top_level_fields(self):
+        for protocol in ('anthropic', 'responses', 'chat'):
+            for body in [frame('error')[:-1], frame('error')[:-2],
+                         b'data: {"nested":{"type":"error","error":{"code":502}}}\n\n',
+                         b'data: {"text":"error","type":"delta"}\n\n',
+                         b'data: "error"\n\n', b'data: {"error":null}\n\n']:
+                with self.subTest(protocol=protocol, body=body):
+                    response = self.make(body, protocol)
+                    self.assertEqual(response.read(), body)
+                    self.assertEqual(self.results[0].reason, 'eof_before_terminal')
+                    self.assertFalse(self.results[0].success)
+
+    def test_oversized_explicit_error_does_not_fabricate_success(self):
+        for protocol in ('anthropic', 'responses', 'chat'):
+            for after in (False, True):
+                event = b'event: error\n'
+                data = b'data: ' + b'x' * 200000 + b'\n'
+                body = (data + event if after else event + data) + b'\n'
+                response = self.make(body, protocol, max_sse_buffer=128)
+                actual = bytearray()
+                while part := response.read(37):
+                    actual.extend(part)
+                    self.assertLessEqual(len(response._parser.line) + len(response._parser.data), 128)
+                self.assertEqual(bytes(actual), body)
+                self.assertEqual(len(self.results), 1)
+                self.assertEqual(self.results[0].reason, 'upstream_error_event')
+                self.assertFalse(self.results[0].success)
+                self.assertIsNone(response.terminal_observed)
+
+    def test_dispatched_error_in_partial_preserves_exception_and_reports_once(self):
+        error = http.client.IncompleteRead(frame('error'))
+        response = self.make(protocol='responses')
+        def fail(*args):
+            raise error
+        response._response.read = fail
+        with self.assertRaises(http.client.IncompleteRead) as raised:
+            response.read()
+        self.assertIs(raised.exception, error)
+        self.assertEqual(len(self.results), 1)
+        self.assertEqual(self.results[0].reason, 'upstream_error_event')
+        self.assertFalse(self.results[0].success)
+
+    def test_partial_observation_is_bounded_and_callback_stays_once(self):
+        partial = b'data: ' + b'x' * 200000 + b'\n\n' + frame('response.completed')
+        error = http.client.IncompleteRead(partial)
+        response = self.make(protocol='responses', max_sse_buffer=128)
+        def fail(*args):
+            raise error
+        response._response.read = fail
+        for _ in range(2):
+            with self.assertRaises(http.client.IncompleteRead) as raised:
+                response.read()
+            self.assertIs(raised.exception, error)
+            self.assertIs(error.partial, partial)
+            self.assertLessEqual(len(response._parser.line) + len(response._parser.data), 128)
+        self.assertEqual(len(self.results), 1)
+        self.assertTrue(self.results[0].success)
+        response.close()
+        self.assertEqual(len(self.results), 1)
+
+    def test_dispatched_error_wins_over_later_success_in_same_read(self):
+        for protocol, terminal in [('responses', frame('response.completed')),
+                                   ('anthropic', frame('message_stop')),
+                                   ('chat', b'data: [DONE]\n\n')]:
+            body = frame('error') + terminal
+            response = self.make(body, protocol)
+            self.assertEqual(response.read(), body)
+            self.assertEqual(len(self.results), 1)
+            self.assertEqual(self.results[0].reason, 'upstream_error_event')
+            self.assertFalse(self.results[0].success)
+
+    def test_ssl_eof_bare_and_wrapped_open_and_read_identity(self):
+        for wrapped in (False, True):
+            eof = ssl.SSLEOFError(8, 'private-eof-message')
+            error = urllib.error.URLError(eof) if wrapped else eof
+            results = []
+            self.assertIs(observe_gateway_error(error, on_result=results.append), error)
+            self.assertEqual(len(results), 1)
+            self.assertEqual(results[0].reason, 'eof')
+            response = self.make(protocol='responses')
+            def fail(*args):
+                raise error
+            response._response.read = fail
+            with self.assertRaises(type(error)) as raised:
+                response.read()
+            self.assertIs(raised.exception, error)
+            if wrapped:
+                self.assertIs(raised.exception.reason, eof)
+            self.assertEqual(len(self.results), 1)
+            self.assertEqual(self.results[0].reason, 'eof')
+            self.assertNotIn('private-eof-message', repr(self.results))
 
 class ExtendedTransportTests(unittest.TestCase):
     def test_real_urlopen_stream_eof_and_timeout(self):

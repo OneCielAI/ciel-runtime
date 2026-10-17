@@ -1,0 +1,6 @@
+.............................................
+----------------------------------------------------------------------
+Ran 45 tests in 0.036s
+
+OK
+SUMMARY files=test_initial_stream_retry.py,test_runaway_collection_retry.py run=45 failures=0 errors=0 skipped=0

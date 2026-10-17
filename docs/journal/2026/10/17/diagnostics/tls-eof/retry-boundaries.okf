@@ -1,0 +1,64 @@
+---
+type: diagnostic-change
+title: Selected-gateway replay guard for initial-stream and collection truncation retries
+description: A provider config carrying the CielAiRouter overlay route token no longer gets the InitialStreamRetry reopen or the collection truncation replay; configs without the token keep both.
+tags: [cielairouter, gateway, retry, tls-eof]
+timestamp: 2026-10-17T03:11:56Z
+---
+
+# Scope
+
+Files changed by this task, and only these:
+
+| File | Change |
+| --- | --- |
+| [`ciel_runtime_support/initial_stream_retry.py`](../../../../../../../ciel_runtime_support/initial_stream_retry.py) | New helper `gateway_route_selected(config)`: `isinstance(config, Mapping) and bool(config.get(ROUTE_TOKEN_KEY))`. `ROUTE_TOKEN_KEY` is imported from `cielairouter_gateway_overlay`. |
+| [`ciel_runtime_support/openai_forwarding.py`](../../../../../../../ciel_runtime_support/openai_forwarding.py) | Streaming call site: `reconnects = 0 if gateway_route_selected(pcfg) else initial_stream_retries(pcfg)`. |
+| [`ciel_runtime_support/response_collection_context.py`](../../../../../../../ciel_runtime_support/response_collection_context.py) | `opened_stream_collector`: `truncation_retries` is 0 when `remote_bridge or gateway_route_selected(pcfg)`. |
+| [`tests/test_initial_stream_retry.py`](../../../../../../../tests/test_initial_stream_retry.py) | 5 new tests (helper and call site). |
+| [`tests/test_runaway_collection_retry.py`](../../../../../../../tests/test_runaway_collection_retry.py) | 2 new tests (collection truncation). |
+
+Full production diff: [`retry-boundaries-evidence/production.diff`](retry-boundaries-evidence/production.diff).
+
+Not edited: `provider_responses_passthrough.py`, `upstream_error_policy.py`, `upstream_retry.py`, any router, the overlay, or the transport. Other agents had uncommitted edits in `cielairouter_gateway_overlay.py`, `cielairouter_gateway_transport.py`, `openai_responses_router.py` and `provider_responses_passthrough.py` during this task. Those edits are theirs.
+
+# Design
+
+- Guard key: the overlay route token. It is set in one place, `overlay[ROUTE_TOKEN_KEY] = self._remember(selection)` (`cielairouter_gateway_overlay.py:249` in the working tree), and `apply` returns other providers' configs unchanged (`if provider != PROVIDER ...: return pcfg`, line 206). `discovery_provider_config` pops the token. So the check needs no provider-name comparison. It is the same data-marker pattern these modules already use for `REMOTE_BRIDGE_CONFIG_MARKER`.
+- Why a replay would reuse the same gateway: `openai_forwarding` computes `url` once (line 157) and `reopen_initial_stream` passes that `url` and the same `pcfg` back to `open_with_retry`. The collection loop reuses its `url` and `pcfg` argument on every attempt. The tests record the route token seen by each open. Before the fix the second open carried the same token: `['r1', 'r1']`.
+- No retries were added. The only effect is that two existing replay windows close for routed configs. A selected route falls through to the same path that `stream_initial_retries: 0` (openai_forwarding) or an exhausted truncation budget (collection: `*_stream_read_exhausted` log, `UpstreamStreamReadError(attempts=1)`) already uses.
+- The change makes no assumption that a `URLError`, a reset or an empty stream is safe to replay.
+
+# Difference from the existing upstream_retry helper
+
+`upstream_retry._selected_cielairouter_gateway` also requires `provider == "cielairouter"`. The new helper checks only the token, so this task adds no provider-name branch. Unconfirmed edge case: if a non-CielAiRouter provider's config.json held a literal `ciel_gateway_route` key, that provider would also lose these two replays. I found no code path that produces such a config.
+
+# Reachability (verified, limits the claim)
+
+[`protocol-selection-probe.txt`](retry-boundaries-evidence/protocol-selection-probe.txt): `select_provider_protocol("cielairouter", ...)` returns `anthropic_messages` for `anthropic_messages`, `openai_responses` for `openai_responses`, and `openai_chat` for `openai_chat`. This holds for `native_compat` unset, true and false.
+
+- `claude_router.py` calls `forward_openai_compatible_chat` only when the `anthropic_messages` selection yields `openai_chat`.
+- `ResponseCollectionContext.collect` collects only for `ollama_chat`, `openai_chat` and `anthropic_messages` after selecting for `openai_responses`.
+- So with the current adapter, CielAiRouter Claude Code and Codex requests reach neither guarded site. The guard is a boundary for any routed config that does reach them. It does not change the native Responses path in the 9385 TLS-EOF investigation; that path is `provider_responses_passthrough.py`, owned by another agent.
+
+# Unchanged (verified by test or code reading as noted)
+
+- CielAiRouter config without a token (`discovery_provider_config` of an overlay copy): 2 opens and recovery on the initial stream; 2 opens and success on collection truncation. Verified by test.
+- Other providers (`openai`, `alitoken`): initial reconnect and one truncation retry, unchanged. Verified by new and existing tests.
+- Kimi capacity/transport retries, remote-bridge zero-retry policy, the runaway re-issue ladder (`collect_without_runaway`, which re-asks after a completed looped collection, not after a transport failure), and `open_with_retry` 429/key-rotation handling are not touched. Code reading.
+
+# Verification
+
+Isolated runner ([`run_focused.py`](retry-boundaries-evidence/run_focused.py)): removes every `CIEL_RUNTIME_*`, sets a temp `CIEL_RUNTIME_CONFIG_DIR` and free `CIEL_RUNTIME_ROUTER_PORT`, and sets `CIEL_RUNTIME_TEST_ISOLATED=1`. This matches `scripts/run_test_group.py`.
+
+- Fail before, working tree before the production edit ([`before.txt`](retry-boundaries-evidence/before.txt)): 44 run, 3 failures: two `['r1'] != ['r1', 'r1']` and one `UpstreamStreamReadError not raised`.
+- Fail before, final test files on a `git archive` export of HEAD `572b7e7` ([`before-head.txt`](retry-boundaries-evidence/before-head.txt)): 45 run, 3 failures and 1 error (ImportError, `gateway_route_selected` absent).
+- After, working tree ([`after.txt`](retry-boundaries-evidence/after.txt)): 45 run, OK.
+- HEAD `572b7e7` plus only the three production files from this task ([`head-plus-change.txt`](retry-boundaries-evidence/head-plus-change.txt)): 45 run, OK. The fix does not depend on the other agents' uncommitted edits.
+- Focused suites ([`focused-suites.txt`](retry-boundaries-evidence/focused-suites.txt)): 616 tests OK, 42 skipped. The suites are initial_stream_retry, runaway_collection_retry, architecture_contracts, architecture_budget, openai_chat_413, openai_chat_compatibility_bridge, upstream_retry, upstream_error_policy, upstream_failure_routing, cielairouter_gateway_overlay, cielairouter_gateway_transport, cielairouter_gateways, provider_network, remote_bridge_stream_integrity, remote_bridge_http, sse_stream_collection, codex_turn_recovery, runtime_routers and api_key_rotation. They ran against the working tree, including the other agents' uncommitted edits at that moment.
+- Ruff ([`ruff.txt`](retry-boundaries-evidence/ruff.txt)): `ruff check` on the 5 files and `ruff check .` both report "All checks passed!". Local ruff is 0.14.11; CI pins 0.15.22. `ruff format --check` flags these files at HEAD too, and CI does not run it, so no reformat was applied.
+- Live router 127.0.0.1:9512 reported pid 31392 before and after the runs.
+
+# Not done
+
+No live, remote or end-to-end request through a running router. No config change, commit, push or deploy.

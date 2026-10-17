@@ -491,6 +491,37 @@ class FailureFeedbackTests(unittest.TestCase):
         self.assertEqual(b'{"id":"r"}', response.read())
         self.assertEqual([], self.selector.failures)
 
+    def test_provider_error_events_do_not_penalize_gateway(self):
+        pcfg = self.routed()
+        for path in ('/v1/messages', '/v1/responses', '/v1/chat/completions'):
+            for body in (b'event: error\ndata: {"type":"error","message":"private"}\n\n',
+                         b'event: error\ndata: ' + b'x' * 100000 + b'\n\n'):
+                response = observed_gateway_open(self.request(GATEWAY + path), pcfg,
+                    lambda: self.Response(body, 'text/event-stream'))
+                self.assertEqual(response.read(), body)
+                response.close()
+        self.assertEqual([], self.selector.failures)
+        self.assertFalse(self.log.named('cielairouter_gateway_failure'))
+
+    def test_partial_terminal_exception_is_identical_and_does_not_penalize(self):
+        import http.client
+        pcfg = self.routed()
+        for complete in (True, False):
+            body = b'event: response.completed\ndata: {"type":"response.completed"}\n\n'
+            partial = body if complete else body[:-1]
+            error = http.client.IncompleteRead(partial, 42)
+            raw = self.Response(b'', 'text/event-stream')
+            def fail(*args):
+                raise error
+            raw.read = fail
+            response = observed_gateway_open(self.request(GATEWAY + '/v1/responses'), pcfg, lambda: raw)
+            with self.assertRaises(http.client.IncompleteRead) as raised:
+                response.read(65536)
+            self.assertIs(raised.exception, error)
+            self.assertIs(raised.exception.partial, partial)
+            response.close()
+            self.assertEqual([] if complete else [(GATEWAY, 'connection')], self.selector.failures)
+
     def test_rejected_key_and_rate_limit_are_not_gateway_failures(self):
         pcfg = self.routed()
         for code in (401, 403, 429):

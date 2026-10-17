@@ -1,0 +1,37 @@
+okf_version: "1.0"
+task: "Persistent metadata-only diagnostics for native Responses transport and truncation failures"
+status: "verified locally"
+scope:
+  production: "ciel_runtime_support/openai_responses_router.py only"
+  tests: "tests/test_openai_responses_native_failure_diagnostics.py (new); isolated test state"
+  not_changed: "provider_responses_passthrough.py (concurrent owner), upstream_error_policy.py, config, live routers"
+problem:
+  - "Sandbox 9385 failures (IncompleteRead attempts=1 downstream_started=false; URLError projected as provider_responses transport 502) were recorded only on the in-memory EventBus. No persisted line tied the handler request_id to the endpoint the request was configured for, so the historical gateway/base URL stayed unknown."
+confirmed_basis:
+  - "EventBus (observability.py) keeps events in a bounded in-memory deque; core.log is router_log -> RouterFileLogger, which appends to router.log and swallows its own write errors."
+  - "router_http applies the CielAiRouter gateway overlay before dispatch: the pcfg reaching the native route has base_url = selected gateway endpoint and carries ciel_gateway_discovery_base_url only when a gateway was selected."
+  - "CPython 3.11.6 urllib AbstractHTTPHandler.do_open wraps OSError from h.request (connect, TLS handshake, request send) in URLError; h.getresponse errors propagate unwrapped."
+  - "RouterHttpHandler.send_response sets _ciel_runtime_response_status; do_POST resets it to None."
+changes:
+  - "New ERROR line 'provider_responses_failure' via the existing core.log port, emitted in the native route for UpstreamStreamReadError and for exceptions is_upstream_transport_error accepts, before failover/delivery/write_error run."
+  - "Fields: request_id (the handler id already used by router.request and router.transport_error events), provider, stage, error class, cause class, downstream_started, received_bytes, config_base_url, gateway_selected, gateway_discovery_base_url (only when selected)."
+  - "stage=stream for UpstreamStreamReadError; stage=open for URLError; stage=unknown for any other transport exception. open does not establish that the provider did not receive the request."
+  - "downstream_started comes from UpstreamStreamReadError.downstream_started, otherwise from the handler response status (true/false; unknown when the handler exposes none)."
+  - "Base URLs reduce to scheme://host[:port]; userinfo, path, query and fragment are dropped; unparseable values print 'invalid', missing ones 'unset'."
+  - "No exception text, payloads, model, response id, keys, key hashes or session/conversation text. No retries; responses, failover calls and delivery marks unchanged."
+verification:
+  - "12 new tests passed: URL userinfo/path/query/fragment redaction, '@' in password, IPv6, invalid port/scheme/host not echoed, open-stage TLS EOF with gateway config, raw TLS EOF after response start (stage unknown, downstream true), missing handler state, buffered and started truncation, non-transport failure emits no line."
+  - "Tests assert the logged request_id equals the router.request and router.transport_error event id and that status 502, error_type, mark_failed reason and failover call are unchanged."
+  - "Related files passed in isolated env: upstream_stream_error 9, responses_provider_auth_boundary 1, meta_provider 48, cielairouter_gateway_overlay 36, architecture_contracts 261 (42 skipped)."
+  - "Real RouterFileLogger probe wrote both lines to a temporary router.log; every planted secret string absent."
+  - "ruff check passed on both files; git diff --check clean. Live router 9512 /health HTTP 200 before and after."
+limitations:
+  - "UpstreamStreamReadError does not store received_bytes as an attribute (only inside its message), so received_bytes logs 'unknown' today; the helper reads the attribute if upstream_error_policy later keeps it. Not changed here (outside ownership)."
+  - "Gateway node id is not logged: it is reachable only through the overlay's private route-token table. Correlate config_base_url with the overlay's own cielairouter_gateway_selected INFO line when INFO is enabled."
+  - "config_base_url is the request's provider config base_url, not an independently observed dialed URL; provider adapters may resolve an operation-specific endpoint."
+  - "Diagnostics apply to requests after deployment; they do not recover the endpoint of the historical 9385 failures. The root cause of those failures remains unestablished."
+  - "First run of upstream_stream_error and meta_provider showed 2 failures / 5 errors while concurrent agents were editing those test files; immediate reruns with this change in place passed. Cause of the transient failures not determined."
+evidence:
+  - "safe-diagnostics-evidence/focused-tests.txt"
+  - "safe-diagnostics-evidence/persist-probe-router-log.txt"
+  - "safe-diagnostics-evidence/persist_probe.py"

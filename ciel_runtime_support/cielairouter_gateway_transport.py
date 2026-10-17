@@ -29,7 +29,8 @@ class GatewayObservation:
     response.incomplete/failed are complete wire terminals, not missing EOF
     markers. Their terminal names are retained without retaining their bodies.
     observation_incomplete is unknown (not gateway failure evidence): the bounded
-    observer could not inspect a JSON-only event.
+    observer could not inspect a JSON-only event. upstream_error_event is also
+    unknown: a dispatched provider error does not establish a gateway failure.
     """
     success: bool
     reason: str
@@ -97,6 +98,7 @@ class _SseTerminal:
         self.incomplete = False
         self.after_cr = False
         self.terminal: str | None = None
+        self.upstream_error = False
 
     def feed(self, chunk: bytes) -> None:
         # Never retain/copy an unbounded caller chunk. A line prefix suffices
@@ -113,7 +115,7 @@ class _SseTerminal:
                 self.line.append(char)
             else:
                 self.line_overflow = True
-            if self.terminal:
+            if self.terminal or self.upstream_error:
                 self.clear()
                 return
 
@@ -146,7 +148,12 @@ class _SseTerminal:
         except (ValueError, UnicodeError, RecursionError):
             payload = None
         kind = payload.get("type") if isinstance(payload, dict) else None
-        if self.protocol == "anthropic" and (kind == "message_stop" or self.event == b"message_stop"):
+        # Only dispatched, top-level error metadata is evidence. Never search
+        # nested values or text, and do not retain any provider error content.
+        if (self.event == b"error" or kind == "error" or
+                (self.protocol == "chat" and isinstance(payload, dict) and payload.get("error") is not None)):
+            self.upstream_error = True
+        elif self.protocol == "anthropic" and (kind == "message_stop" or self.event == b"message_stop"):
             self.terminal = "message_stop"
         elif self.protocol == "responses":
             for name in ("response.completed", "response.incomplete", "response.failed"):
@@ -242,7 +249,9 @@ class CielAiRouterGatewayTransport:
         if self._stream:
             self._parser.feed(data)
             terminal = self._parser.terminal
-            if terminal is not None and terminal != "finish_reason":
+            if self._parser.upstream_error:
+                self._report(False, "upstream_error_event")
+            elif terminal is not None and terminal != "finish_reason":
                 self._report(True, "terminal_event")
         if eof:
             if self._stream:
@@ -257,6 +266,11 @@ class CielAiRouterGatewayTransport:
         try:
             return getattr(self._response, method)(*args, **kwargs)
         except Exception as error:
+            # http.client can raise with bytes not returned by this call. Feed
+            # those exact bytes before scoring, without consuming/mutating them
+            # or replacing the exception the provider layer must still receive.
+            if isinstance(error, http.client.IncompleteRead):
+                self._observe(error.partial)
             reason = _error_reason(error)
             if reason is not None:
                 self._report(False, reason)

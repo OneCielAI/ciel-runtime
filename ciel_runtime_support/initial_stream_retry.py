@@ -2,8 +2,26 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Mapping
 from typing import Any
+
+from .cielairouter_gateway_overlay import ROUTE_TOKEN_KEY
+
+
+def gateway_route_selected(config: Any) -> bool:
+    """Whether ``config`` is pinned to an overlay-selected gateway route.
+
+    The gateway overlay mints ``ROUTE_TOKEN_KEY`` only on its per-request
+    provider config copy, and the token is fixed for the whole call.  Every
+    reopen inside that call therefore reaches the same selected gateway,
+    including one the transport has just reported as failed.  Callers skip
+    their same-call replay windows for such a config; the next client request
+    re-enters gateway selection instead.  A config without the token,
+    including an overlay copy restored by ``discovery_provider_config``,
+    keeps its replay windows unchanged.
+    """
+
+    return isinstance(config, Mapping) and bool(config.get(ROUTE_TOKEN_KEY))
 
 
 class InitialStreamRetry:

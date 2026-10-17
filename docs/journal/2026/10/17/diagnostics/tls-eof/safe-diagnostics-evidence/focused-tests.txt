@@ -1,0 +1,22 @@
+== test_openai_responses_native_failure_diagnostics.py
+Ran 12 tests in 0.009s
+OK
+== test_openai_responses_upstream_stream_error.py
+Ran 9 tests in 2.577s
+OK
+== test_responses_provider_auth_boundary.py
+Ran 1 test in 0.003s
+OK
+== test_meta_provider.py
+Ran 48 tests in 0.809s
+OK
+== test_cielairouter_gateway_overlay.py
+Ran 36 tests in 5.928s
+OK
+== test_architecture_contracts.py
+Ran 261 tests in 41.267s
+OK (skipped=42)
+== ruff
+All checks passed!
+== git diff --check
+check-exit=0

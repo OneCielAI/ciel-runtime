@@ -8,7 +8,7 @@ import time
 import urllib.error
 from typing import Any, Callable
 
-from .initial_stream_retry import InitialStreamRetry
+from .initial_stream_retry import InitialStreamRetry, gateway_route_selected
 from .provider_failover import maybe_fail_over
 from .remote_bridge import REMOTE_BRIDGE_CONFIG_MARKER, is_remote_bridge_request
 from .upstream_error_policy import (
@@ -232,7 +232,11 @@ def forward_openai_compatible_chat(
                 emit_retry_notice,
                 retry_rate_limits=not compatibility_test,
             )
-            reconnects = initial_stream_retries(pcfg)
+            # A reopen would carry the same selected gateway route, so a
+            # selected gateway gets no initial-stream replay in this call.
+            reconnects = (
+                0 if gateway_route_selected(pcfg) else initial_stream_retries(pcfg)
+            )
             if reconnects:
                 def reopen_initial_stream(_attempt: int) -> Any:
                     return streaming.open_with_retry(

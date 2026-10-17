@@ -18,6 +18,7 @@ from .codex_completion_gate import (
     request_requires_completion_check,
 )
 from .codex_turn_recovery import CODEX_COMPLETION_TOOL_NAME
+from .initial_stream_retry import gateway_route_selected
 from .responses_usage_observer import ResponsesUsageObserver
 from .responses_cache_diagnostics import (
     cache_trace,
@@ -312,7 +313,15 @@ class ProviderResponsesPassthrough:
         request headers as built, not as urllib amended them while sending.
         """
 
-        retries = self._stream_truncation_retries(config)
+        # A selected gateway route is fixed for the whole call, so a replay
+        # would reach the gateway that just failed; the next client request
+        # re-enters gateway selection instead. ``forward`` still buffers on the
+        # configured count, so the failure leaves nothing committed downstream.
+        retries = (
+            0
+            if gateway_route_selected(config)
+            else self._stream_truncation_retries(config)
+        )
         max_attempts = retries + 1
         model = str(upstream_body.get("model") or "")
         for attempt in range(1, max_attempts + 1):
@@ -617,55 +626,56 @@ class ProviderResponsesPassthrough:
                 else None
             )
             response_body = bytearray()
-            try:
-                while chunk := response.read(65_536):
+            read_error: IncompleteRead | OSError | None = None
+            while True:
+                # Only the upstream read is guarded. The status and headers above
+                # are already on the wire, so a provider reset, timeout or TLS
+                # EOF must become a typed started-stream failure rather than a
+                # second HTTP response; a failed downstream write keeps its own
+                # type so a departed client stays distinct from the provider.
+                try:
+                    chunk = response.read(65_536)
+                except (IncompleteRead, OSError) as exc:
+                    read_error = exc
+                    chunk = bytes(getattr(exc, "partial", None) or b"")
+                if chunk:
                     received_bytes += len(chunk)
                     usage.feed(chunk)
                     if response_tools and projector is None:
                         response_body.extend(chunk)
-                        continue
-                    output = projector.feed(chunk) if projector is not None else chunk
-                    if output:
-                        handler.wfile.write(output)
-                        handler.wfile.flush()
-            except IncompleteRead as exc:
-                partial = bytes(exc.partial or b"")
-                if partial:
-                    received_bytes += len(partial)
-                    usage.feed(partial)
-                    if response_tools and projector is None:
-                        response_body.extend(partial)
                     else:
                         output = (
-                            projector.feed(partial)
-                            if projector is not None
-                            else partial
+                            projector.feed(chunk) if projector is not None else chunk
                         )
                         if output:
                             handler.wfile.write(output)
                             handler.wfile.flush()
+                if read_error is not None or not chunk:
+                    break
+            if read_error is not None:
                 usage.finish()
                 if usage.terminal_event is None:
                     self._ports.log(
                         "ERROR",
                         "provider_responses_stream_truncated "
                         f"provider={provider} model={upstream_body.get('model')} "
-                        f"bytes={received_bytes}",
+                        f"bytes={received_bytes} error={type(read_error).__name__}",
                     )
                     raise UpstreamStreamReadError(
                         provider,
                         str(upstream_body.get("model") or ""),
-                        exc,
+                        read_error,
                         attempts=1,
                         downstream_started=True,
                         response_id=usage.response_id,
                         received_bytes=received_bytes,
-                    ) from exc
+                    ) from read_error
                 self._ports.log(
                     "WARN",
                     "provider_responses_length_mismatch_after_terminal "
                     f"provider={provider} model={upstream_body.get('model')} "
-                    f"terminal={usage.terminal_event} bytes={received_bytes}",
+                    f"terminal={usage.terminal_event} bytes={received_bytes} "
+                    f"error={type(read_error).__name__}",
                 )
             if projector is not None:
                 tail = projector.finish()

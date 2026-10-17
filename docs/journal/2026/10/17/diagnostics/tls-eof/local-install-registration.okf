@@ -1,0 +1,12 @@
+okf_version: "1.0"
+task: "Correct incomplete prior local release registration verification"
+status: "registration-corrected-default-npm-launcher-still-old"
+confirmed:
+  - "Windows user CIEL_RUNTIME_HOME was 05a43fd despite release snapshot 572b7e7 existing."
+  - "Corrected user registration to existing local snapshot ciel-runtime-572b7e7 under prior explicit local deployment request."
+  - "Explicit .local/bin/ciel-runtimectl.cmd version prints 0.2.51."
+  - "PATH-first npm ciel-runtimectl.cmd still prints nightly d2be7d8."
+limitations:
+  - "Registration correction does not update PATH-first npm package. Do not claim ordinary launcher is updated."
+  - "PowerShell .ps1 execution blocked by existing execution policy; no policy change made."
+  - "No running session restart or managed machine modification performed."

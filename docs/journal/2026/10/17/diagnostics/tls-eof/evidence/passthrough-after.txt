@@ -1,0 +1,21 @@
+== AFTER fix: same new regression tests 2026-10-16T21:57:40-05:00
+HEAD 572b7e7
+11454fbd5d6cd5fb0707ee2ac5c7bfad947949e14ae4c70c1ce6caa67bf420df *ciel_runtime_support/provider_responses_passthrough.py
+3c685c06626e9b836638373c1b6029e91fa027a795cc60539c020a8924ab53e2 *tests/test_meta_provider.py
+9005e68a495215ea17850f2f5f095d1ca43eb5f63197a5276e8fef6fa4c3cebf *tests/test_openai_responses_upstream_stream_error.py
+inherited CIEL_RUNTIME_* removed: -u CIEL_RUNTIME_PROVIDER -u CIEL_RUNTIME_CONFIG_DIR -u CIEL_RUNTIME_SCRIPT -u CIEL_RUNTIME_HOME -u CIEL_RUNTIME_AUTO_ALLOW_DANGEROUS_RM -u CIEL_RUNTIME_MODEL_ALIAS -u CIEL_RUNTIME_REGISTERED_HOME -u CIEL_RUNTIME_LAUNCH_CWD -u CIEL_RUNTIME_SELECTED_HOME -u CIEL_RUNTIME_STATE_DIR -u CIEL_RUNTIME_WORKSPACE_STATE_DIR -u CIEL_RUNTIME_BYPASS_PERMISSIONS 
+isolated CIEL_RUNTIME_CONFIG_DIR=C:\Users\djlov\AppData\Local\Temp\ciel-runtime-tests-1b0shofz ROUTER_PORT=54448 TEST_ISOLATED=1
+test_upstream_read_failure_after_status_is_a_started_stream_failure (test_meta_provider.ProviderResponsesPassthroughTests.test_upstream_read_failure_after_status_is_a_started_stream_failure) ... ok
+test_downstream_write_failure_keeps_its_client_disconnect_type (test_meta_provider.ProviderResponsesPassthroughTests.test_downstream_write_failure_keeps_its_client_disconnect_type) ... ok
+test_tls_eof_after_a_complete_terminal_event_keeps_the_delivered_stream (test_meta_provider.ProviderResponsesPassthroughTests.test_tls_eof_after_a_complete_terminal_event_keeps_the_delivered_stream) ... ok
+test_downstream_client_disconnect_stays_distinct_from_upstream_failure (test_openai_responses_upstream_stream_error.NativeResponsesRouterWireTests.test_downstream_client_disconnect_stays_distinct_from_upstream_failure) ... ok
+test_missing_or_malformed_terminal_still_fails_in_the_started_stream (test_openai_responses_upstream_stream_error.NativeResponsesRouterWireTests.test_missing_or_malformed_terminal_still_fails_in_the_started_stream) ... ok
+test_tls_eof_after_upstream_status_keeps_one_http_response (test_openai_responses_upstream_stream_error.NativeResponsesRouterWireTests.test_tls_eof_after_upstream_status_keeps_one_http_response) ... ok
+test_tls_eof_before_upstream_response_is_a_single_502 (test_openai_responses_upstream_stream_error.NativeResponsesRouterWireTests.test_tls_eof_before_upstream_response_is_a_single_502) ... ok
+test_upstream_reset_after_status_is_not_reported_as_client_disconnect (test_openai_responses_upstream_stream_error.NativeResponsesRouterWireTests.test_upstream_reset_after_status_is_not_reported_as_client_disconnect) ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 2.578s
+
+OK
+exit=0

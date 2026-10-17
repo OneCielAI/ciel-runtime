@@ -1,0 +1,44 @@
+......FF................................F...
+======================================================================
+FAIL: test_selected_gateway_empty_stream_is_not_reopened (test_initial_stream_retry.SelectedGatewayInitialStreamReplayTests.test_selected_gateway_empty_stream_is_not_reopened)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime\tests\test_initial_stream_retry.py", line 277, in test_selected_gateway_empty_stream_is_not_reopened
+    self.assertEqual([pcfg[ROUTE_TOKEN_KEY]], result.opened_routes)
+AssertionError: Lists differ: ['r1'] != ['r1', 'r1']
+
+Second list contains 1 additional elements.
+First extra element 1:
+'r1'
+
+- ['r1']
++ ['r1', 'r1']
+
+======================================================================
+FAIL: test_selected_gateway_reset_before_first_byte_is_not_reopened (test_initial_stream_retry.SelectedGatewayInitialStreamReplayTests.test_selected_gateway_reset_before_first_byte_is_not_reopened)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime\tests\test_initial_stream_retry.py", line 259, in test_selected_gateway_reset_before_first_byte_is_not_reopened
+    self.assertEqual([token], result.opened_routes)
+AssertionError: Lists differ: ['r1'] != ['r1', 'r1']
+
+Second list contains 1 additional elements.
+First extra element 1:
+'r1'
+
+- ['r1']
++ ['r1', 'r1']
+
+======================================================================
+FAIL: test_selected_gateway_truncated_stream_is_never_replayed (test_runaway_collection_retry.OpenedStreamCollectorTests.test_selected_gateway_truncated_stream_is_never_replayed)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime\tests\test_runaway_collection_retry.py", line 659, in test_selected_gateway_truncated_stream_is_never_replayed
+    with self.assertRaises(UpstreamStreamReadError) as caught:
+AssertionError: UpstreamStreamReadError not raised
+
+----------------------------------------------------------------------
+Ran 44 tests in 0.038s
+
+FAILED (failures=3)
+SUMMARY files=test_initial_stream_retry.py,test_runaway_collection_retry.py run=44 failures=3 errors=0 skipped=0

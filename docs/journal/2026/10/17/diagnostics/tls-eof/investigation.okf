@@ -1,0 +1,19 @@
+okf_version: "1.0"
+task: "Investigate sandbox 9385 stream truncation and TLS EOF"
+status: "investigating"
+confirmed:
+  - "9385 is running nightly 572b7e7."
+  - "20:36:58 event: IncompleteRead, attempts=1, downstream_started=false."
+  - "20:36:59 and 20:37:01: URLError projected as provider_responses transport HTTP 502."
+  - "Current selected endpoint is loopback port 20128; current gateway ready and online."
+limitations:
+  - "Current gateway selection does not establish the endpoint used by historical failed requests."
+  - "Screenshots show symptoms, not which upstream peer terminated TLS."
+  - "No restart, config mutation, remote access or production request replay performed."
+evidence:
+  - "runtime-error-metadata.json"
+
+rejected_inferences:
+  - "9512 workspace configuration does not establish effective configuration for sandbox 9385."
+  - "URLError wrapping identifies an exception phase but does not establish non-delivery or safe idempotent replay."
+  - "Temporal correlation across ports does not establish a CielAiRouter server-side outage root cause."

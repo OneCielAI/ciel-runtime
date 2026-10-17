@@ -1,0 +1,52 @@
+---
+type: diagnostic-change
+title: Selected-gateway replay guard for native Responses buffered truncation retries
+description: The buffered native Responses passthrough no longer replays a truncated stream when the provider config carries the CielAiRouter overlay route token; configs without the token keep the configured replay count.
+tags: [cielairouter, gateway, retry, tls-eof, responses-passthrough]
+timestamp: 2026-10-17T03:26:37Z
+related: [retry-boundaries.okf, passthrough-read-failure-fix.okf]
+---
+
+# Scope
+
+| File | Change |
+| --- | --- |
+| [`ciel_runtime_support/provider_responses_passthrough.py`](../../../../../../../ciel_runtime_support/provider_responses_passthrough.py) | Import `gateway_route_selected` from `initial_stream_retry`. In `_forward_buffered_stream`: `retries = 0 if gateway_route_selected(config) else self._stream_truncation_retries(config)`. Nothing else. |
+| [`tests/test_provider_responses_gateway_replay_guard.py`](../../../../../../../tests/test_provider_responses_gateway_replay_guard.py) | New dedicated file, 4 tests (8 selected-gateway subcases, 2 control subcases). |
+
+Task-only diff: [`native-retry-boundary-evidence/production.diff`](native-retry-boundary-evidence/production.diff). It was produced against a reconstruction of the pre-edit file whose SHA-256 is `11454fbd...20df`, identical to the file left by the passthrough-read-failure task, so the diff contains this change only.
+
+Not edited: `tests/test_meta_provider.py`, `initial_stream_retry.py`, the overlay, the transport, routers, or any other concurrently edited file. No config, remote, live, commit, push or deploy action.
+
+This closes the gap listed in `retry-boundaries.okf` ("It does not change the native Responses path ... that path is `provider_responses_passthrough.py`, owned by another agent").
+
+# Design
+
+- Guard key is the same helper the other two replay sites use: `gateway_route_selected(config)` = `isinstance(config, Mapping) and bool(config.get(ROUTE_TOKEN_KEY))`. No provider-name branch.
+- Why a replay reaches the same gateway: `_forward_buffered_stream` opens the same `request` object (same URL) with the same `pcfg=config` on every attempt. The new test asserts the open carries the overlay token and a gateway URL.
+- Buffering decision unchanged: `forward` still uses `completion_gate or self._stream_truncation_retries(config)`. A selected-gateway config with a configured count stays buffered, so a truncated stream raises `UpstreamStreamReadError(attempts=1, downstream_started=False)` with no status line and no bytes sent. That is the same exit an exhausted budget already uses.
+- No retries added. The only behavior change is that an existing replay window closes for a token-carrying config. Unchanged: the log text (`attempt={attempt}/{retries}` now never prints for routed configs), terminal detection, the read-error-after-terminal handling, and the completion continuation.
+
+# Verification
+
+Runner: [`run_focused.py`](native-retry-boundary-evidence/run_focused.py), a copy of the retry-boundaries runner. It removes every inherited `CIEL_RUNTIME_*`, sets a temp `CIEL_RUNTIME_CONFIG_DIR`, a free `CIEL_RUNTIME_ROUTER_PORT` and `CIEL_RUNTIME_TEST_ISOLATED=1`. The test class also clears `CIEL_RUNTIME_*` in `setUp`.
+
+- Fail before ([`before.txt`](native-retry-boundary-evidence/before.txt)), passthrough `11454fbd...20df`: 4 tests, 6 failures. All 6 selected-gateway subcases (`eof_after_created`, `incomplete_read_partial`, `tls_eof_after_created`, each with and without the completion gate) failed `AssertionError: 1 != 3`: three upstream dispatches to the same gateway. The 3 control tests passed.
+- Pass after ([`after.txt`](native-retry-boundary-evidence/after.txt)), passthrough `3a0e8339...36ff`: 4 tests OK.
+- HEAD `572b7e7` export plus only the prior task helper `initial_stream_retry.py`, `production.diff` and the new test ([`head-plus-change.txt`](native-retry-boundary-evidence/head-plus-change.txt)): 4 tests OK. The change does not depend on the passthrough read-failure edit by the other agent.
+- Focused and architecture suites ([`focused-suites.txt`](native-retry-boundary-evidence/focused-suites.txt)): 22 files, 636 tests OK, 42 skipped. Includes architecture_contracts, architecture_budget, meta_provider (run only), provider_responses_completion_gate, openai_responses_upstream_stream_error, remote_bridge_http, alibaba/xai providers, initial_stream_retry, runaway_collection_retry, gateway overlay/transport/central_fallback/gateways, provider_network, upstream_retry, upstream_error_policy. These ran against the working tree including other agents uncommitted edits at that time.
+- Imports and lint ([`imports-and-ruff.txt`](native-retry-boundary-evidence/imports-and-ruff.txt)): fresh `python -I` import of passthrough, initial_stream_retry and overlay without `CIEL_RUNTIME_*` (no import cycle). `ruff check` on both files and `ruff check .`: All checks passed (local ruff 0.14.11).
+- Live router 127.0.0.1:9512 `/health` ok, pid 31392, before and after all runs.
+
+# Test cases
+
+- Selected gateway (real `CielAiRouterGatewayOverlay.apply` config, `responses_stream_truncation_retries: 2`), truncated raw stream: one dispatch, `attempts == 1`, `downstream_started` false, no body, no `send_response`, no `provider_responses_stream_retry` log, `provider_responses_stream_truncated ... attempts=1` logged.
+- Unoverlaid control (central config, and `discovery_provider_config` of the overlay copy, token removed), retries 2: 3 dispatches, `attempts == 3`, 2 retry logs, no body.
+- Unoverlaid config, attempt 1 `IncompleteRead(partial)` without terminal, attempt 2 full terminal stream: 2 dispatches, the complete stream is delivered once with status 200 (existing recovery behavior).
+- Selected gateway, complete stream with terminal (with and without completion gate): one dispatch, bytes delivered unchanged, status 200 once.
+
+# Reachability (limits the claim)
+
+- In shipped code only `providers/alibaba.py:723` sets `responses_stream_truncation_retries` (=1). The overlay mints the token only for `cielairouter`. So in default configuration a CielAiRouter config already has 0 truncation replays, and this guard changes behavior only when a CielAiRouter provider config carries a user-set nonzero `responses_stream_truncation_retries`. Verified by grep of `ciel_runtime_support` and `ciel_runtime.py`.
+- Not verified in this task: an end-to-end Codex request through a running router that reaches `_forward_buffered_stream` with the overlay copy. No live or remote request was made.
+- Pre-existing and unchanged (see passthrough-read-failure-fix.okf item 1): a read error after a parsed terminal event on the buffered path still fails the attempt; for a routed config that now fails without a replay.

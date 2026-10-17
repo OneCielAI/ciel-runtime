@@ -1,6 +1,7 @@
 import copy
 import io
 import json
+import ssl
 import unittest
 import urllib.error
 from http.client import IncompleteRead
@@ -1414,6 +1415,130 @@ class ProviderResponsesPassthroughTests(unittest.TestCase):
         self.assertTrue(caught.exception.downstream_started)
         self.assertEqual("resp_eof", caught.exception.response_id)
         self.assertIn("without a terminal event", str(caught.exception))
+
+    @staticmethod
+    def _scripted_upstream_response(steps):
+        """An upstream HTTP 200 whose successive reads return bytes or raise."""
+
+        class Response:
+            status = 200
+            headers = {"content-type": "text/event-stream"}
+
+            def __init__(self):
+                self.steps = list(steps)
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+            def read(self, _size):
+                if not self.steps:
+                    return b""
+                step = self.steps.pop(0)
+                if isinstance(step, BaseException):
+                    raise step
+                return step
+
+        return Response()
+
+    def test_upstream_read_failure_after_status_is_a_started_stream_failure(self):
+        # Raised by response.read() after the upstream returned HTTP 200 and the
+        # passthrough already sent its own status and headers downstream.
+        prefix = b'event: response.created\ndata: {"type":"response.created","response":{"id":"resp_cut"}}\n\n'
+        broken = b'event: response.completed\ndata: {"type":"response.completed","response":{'
+        cases = (
+            ("tls_eof", [prefix, broken], ssl.SSLEOFError(8, "EOF occurred in violation of protocol (_ssl.c:2427)")),
+            ("tls_eof_first_read", [], ssl.SSLEOFError(8, "EOF occurred in violation of protocol (_ssl.c:2427)")),
+            ("upstream_reset", [prefix], ConnectionResetError(10054, "upstream reset")),
+            ("upstream_timeout", [prefix], TimeoutError("The read operation timed out")),
+        )
+        for name, chunks, failure in cases:
+            with self.subTest(case=name):
+                handler = self._passthrough_handler()
+                logs = []
+                response = self._scripted_upstream_response([*chunks, failure])
+                with self.assertRaises(UpstreamStreamReadError) as caught:
+                    self._passthrough_for_response(response, logs=logs).forward(
+                        handler,
+                        "alitoken",
+                        {},
+                        {"model": "alias", "input": [], "stream": True},
+                    )
+
+                error = caught.exception
+                self.assertIs(failure, error.error)
+                self.assertIs(failure, error.__cause__)
+                self.assertTrue(error.downstream_started)
+                self.assertIn(type(failure).__name__, str(error))
+                self.assertEqual(b"".join(chunks), handler.wfile.getvalue())
+                handler.send_response.assert_called_once_with(200)
+                handler.end_headers.assert_called_once_with()
+                # An upstream reset must never read as the Codex client leaving.
+                self.assertFalse(ciel_runtime.is_client_disconnect_error(error))
+                self.assertTrue(
+                    any("provider_responses_stream_truncated" in m for _, m in logs)
+                )
+                if chunks:
+                    self.assertEqual("resp_cut", error.response_id)
+
+    def test_downstream_write_failure_keeps_its_client_disconnect_type(self):
+        payload = (
+            b'event: response.created\ndata: {"type":"response.created","response":{"id":"resp_w"}}\n\n'
+            b'event: response.completed\ndata: {"type":"response.completed","response":{"id":"resp_w"}}\n\n'
+        )
+        for failure in (
+            ConnectionResetError(10054, "client reset"),
+            ConnectionAbortedError(10053, "client aborted"),
+            BrokenPipeError(32, "client pipe closed"),
+        ):
+            with self.subTest(error=type(failure).__name__):
+
+                class Client(io.BytesIO):
+                    def write(self, _data):
+                        raise failure
+
+                handler = self._passthrough_handler()
+                handler.wfile = Client()
+                with self.assertRaises(type(failure)) as caught:
+                    self._passthrough_for_response(
+                        self._scripted_upstream_response([payload])
+                    ).forward(
+                        handler,
+                        "alitoken",
+                        {},
+                        {"model": "alias", "input": [], "stream": True},
+                    )
+
+                self.assertIs(failure, caught.exception)
+                self.assertTrue(ciel_runtime.is_client_disconnect_error(caught.exception))
+
+    def test_tls_eof_after_a_complete_terminal_event_keeps_the_delivered_stream(self):
+        # Same policy as IncompleteRead after a terminal event: the client has
+        # already received the whole response, so the turn is not failed.
+        payload = (
+            b"event: response.completed\n"
+            b'data: {"type":"response.completed","response":{"id":"resp_done"}}\n\n'
+        )
+        handler = self._passthrough_handler()
+        logs = []
+        delivery = self._passthrough_for_response(
+            self._scripted_upstream_response(
+                [payload, ssl.SSLEOFError(8, "EOF occurred in violation of protocol")]
+            ),
+            logs=logs,
+        ).forward(
+            handler,
+            "alitoken",
+            {},
+            {"model": "alias", "input": [], "stream": True},
+        )
+
+        self.assertEqual(payload, handler.wfile.getvalue())
+        self.assertEqual({"delivery": True}, delivery)
+        self.assertTrue(any("length_mismatch_after_terminal" in m for _, m in logs))
+        self.assertFalse(any("stream_truncated" in m for _, m in logs))
 
     def test_alitoken_buffers_and_retries_one_truncated_native_stream(self):
         prefix = b'event: response.created\ndata: {"type":"response.created","response":{"id":"resp_cut"}}\n\n'

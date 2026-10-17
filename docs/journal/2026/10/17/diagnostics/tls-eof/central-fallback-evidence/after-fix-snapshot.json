@@ -1,0 +1,30 @@
+{
+  "first_request": {
+    "base_url": "https://ciel-router-01.ezonebot.com",
+    "route_token_present": false,
+    "status_route": {
+      "state": "central",
+      "endpoint": "https://ciel-router-01.ezonebot.com",
+      "node_id": "ciel-router-01",
+      "reason": "gateway endpoint is the central base",
+      "degraded": true,
+      "generation": 1,
+      "selection_reason": "reprobed fallback"
+    },
+    "session_pins": 0,
+    "status_line": ""
+  },
+  "after_central_tls_eof_and_healthy_gateway_plus_6s": {
+    "base_url": "https://gw-2.ezonebot.com",
+    "discovery_calls": 2,
+    "selector_failures_recorded": [],
+    "cooldowns": [
+      {}
+    ]
+  },
+  "log_events": [
+    "WARN cielairouter_gateway_central",
+    "INFO cielairouter_gateway_selected",
+    "DEBUG cielairouter_gateway_route"
+  ]
+}

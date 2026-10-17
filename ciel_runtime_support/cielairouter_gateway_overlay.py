@@ -25,6 +25,11 @@ A failure the gateway is responsible for (connection, timeout, a stream that
 ends before its completion event, HTTP 5xx) is reported back to the selector
 through ``observed_open``, which moves later requests to another gateway.  The
 failed request itself is never replayed: it may already have reached the model.
+A selected discovery node whose endpoint is the central base is a central
+route (reason ``CENTRAL_GATEWAY_REASON``): the request goes to the central base
+unchanged, without a route token, so nothing observes it.  Like a route without
+a candidate it is never pinned to a session; the session's next request asks
+the selector again (which shares an exploration within its refresh interval).
 Set ``gateway_selection: "off"`` in the CielAiRouter provider config to always
 use the configured base URL.
 
@@ -66,6 +71,8 @@ _FAILURE_CLASSES = {
     "eof_before_terminal": "stream_truncated",
     "http_5xx": "5xx",
 }
+# Route reason when the selected discovery node's endpoint is the central base.
+CENTRAL_GATEWAY_REASON = "gateway endpoint is the central base"
 SELECTOR_MODULE = "ciel_runtime_support.cielairouter_gateways"
 SELECTOR_CLASS = "CielAiRouterGatewayService"
 # Exceptions this module defines carry no remote response content or keys
@@ -124,6 +131,15 @@ def _error_text(error: BaseException) -> str:
     if name in _SAFE_ERROR_NAMES and str(error):
         return f"{name}: {' '.join(str(error).split())[:160]}"
     return name
+
+
+def _gateway_endpoint(selection: Any, central: str) -> str:
+    """The gateway base a selection routes to; empty when the request uses ``central``."""
+
+    endpoint = str(getattr(selection, "endpoint", "") or "").rstrip("/")
+    if getattr(selection, "candidate", None) is None or not endpoint or endpoint == central:
+        return ""
+    return endpoint
 
 
 def _load_selector() -> Any:
@@ -210,16 +226,22 @@ class CielAiRouterGatewayOverlay:
             return discovery_provider_config(pcfg)
         endpoint = str(getattr(selection, "endpoint", "") or "").rstrip("/")
         candidate = getattr(selection, "candidate", None)
+        gateway = _gateway_endpoint(selection, central)
         route = {
-            "state": "gateway" if candidate is not None and endpoint else "central",
+            "state": "gateway" if gateway else "central",
             "endpoint": endpoint or None,
             "node_id": getattr(candidate, "node_id", None),
             "reason": str(getattr(selection, "reason", "") or ""),
             "degraded": bool(getattr(selection, "degraded", False)),
             "generation": getattr(selection, "generation", None),
         }
+        if candidate is not None and endpoint == central:
+            # The selected discovery node is the central base itself: the
+            # request goes to central unchanged, so report central.
+            route["selection_reason"] = route["reason"]
+            route["reason"] = CENTRAL_GATEWAY_REASON
         self._record(central, route, started)
-        if route["state"] != "gateway" or endpoint == central:
+        if not gateway:
             return discovery_provider_config(pcfg)
         overlay = copy.deepcopy(dict(pcfg))
         overlay["base_url"] = endpoint
@@ -253,7 +275,10 @@ class CielAiRouterGatewayOverlay:
             selection = self._session_selection(session_key, selector)
             if selection is None:
                 selection = self._select(selector, central, key, model, fresh=True)
-                if getattr(selection, "candidate", None) is not None:
+                # Only a gateway route is pinned: its failures are observed and
+                # release the pin.  A central route (no candidate, or a node at
+                # the central base) is never observed, so it is asked again.
+                if _gateway_endpoint(selection, central):
                     with self._lock:
                         self._sessions[session_key] = selection
                         self._sessions.move_to_end(session_key)
@@ -360,7 +385,8 @@ class CielAiRouterGatewayOverlay:
 
     def _record(self, central: str, route: dict[str, Any], started: float) -> None:
         elapsed_ms = int(max(0.0, self.monotonic() - started) * 1000)
-        signature = (route.get("state"), route.get("endpoint"), route.get("reason"), route.get("error"))
+        signature = (route.get("state"), route.get("endpoint"), route.get("reason"), route.get("error"),
+                     route.get("selection_reason"))
         with self._lock:
             previous = self._routes.get(central)
             changed = previous is None or previous.get("signature") != signature
@@ -377,9 +403,13 @@ class CielAiRouterGatewayOverlay:
                 f"generation={route['generation']} elapsed_ms={elapsed_ms}",
             )
         elif route["state"] == "central":
+            selected_node = (
+                f"node={route['node_id'] or '-'} selection_reason={route['selection_reason'] or '-'} "
+                if "selection_reason" in route else ""
+            )
             self.log(
                 "WARN" if route.get("degraded") else "INFO",
-                f"cielairouter_gateway_central central={origin} reason={route['reason'] or '-'} "
+                f"cielairouter_gateway_central central={origin} reason={route['reason'] or '-'} {selected_node}"
                 f"degraded={route['degraded']} generation={route['generation']} elapsed_ms={elapsed_ms}; "
                 "requests use the configured base URL",
             )
@@ -520,6 +550,7 @@ def gateway_overlay_status() -> dict[str, Any]:
 
 
 __all__ = [
+    "CENTRAL_GATEWAY_REASON",
     "DISCOVERY_BASE_URL_KEY",
     "PROVIDER",
     "ROUTE_TOKEN_KEY",

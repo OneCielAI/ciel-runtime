@@ -1,0 +1,45 @@
+== AFTER fix wire probe 2026-10-16T21:57:54-05:00 HEAD 572b7e7 + working-tree edit
+11454fbd5d6cd5fb0707ee2ac5c7bfad947949e14ae4c70c1ce6caa67bf420df *ciel_runtime_support/provider_responses_passthrough.py
+--- tls_eof_after_200
+server send_response calls: [200]
+wire status lines: [200]
+delivery.mark_failed: ['provider_responses_upstream_stream_truncated']
+raw wire bytes:
+HTTP/1.0 200 OK
+Server: ciel-runtime/0.1 Python/3.11.6
+Date: Sat, 17 Oct 2026 02:57:55 GMT
+content-type: text/event-stream
+x-request-id: upstream-req
+connection: close
+
+event: response.created
+data: {"type":"response.created","response":{"id":"resp_wire"}}
+
+
+
+event: response.failed
+data: {"type": "response.failed", "response": {"id": "resp_wire", "status": "failed", "error": {"code": "upstream_stream_truncated", "type": "upstream_stream_truncated", "message": "Upstream provider 'cielairouter' response stream was truncated (SSLEOFError: EOF occurred in violation of protocol (_ssl.c:2427); model=cx/gpt-6.1-sol-medium; attempts=1)"}}}
+
+
+--- upstream_reset_after_200
+server send_response calls: [200]
+wire status lines: [200]
+delivery.mark_failed: ['provider_responses_upstream_stream_truncated']
+raw wire bytes:
+HTTP/1.0 200 OK
+Server: ciel-runtime/0.1 Python/3.11.6
+Date: Sat, 17 Oct 2026 02:57:56 GMT
+content-type: text/event-stream
+x-request-id: upstream-req
+connection: close
+
+event: response.created
+data: {"type":"response.created","response":{"id":"resp_wire"}}
+
+
+
+event: response.failed
+data: {"type": "response.failed", "response": {"id": "resp_wire", "status": "failed", "error": {"code": "upstream_stream_truncated", "type": "upstream_stream_truncated", "message": "Upstream provider 'cielairouter' response stream was truncated (ConnectionResetError: [Errno 10054] upstream reset; model=cx/gpt-6.1-sol-medium; attempts=1)"}}}
+
+
+exit=0
