@@ -276,6 +276,12 @@ class _DirectChannelPoller:
         if self.state is None:
             self.state = ChannelPendingPollState(last_id=policy.initial_cursor())
         state = self.state
+        paused = state.inflight.hold_for_recovery(
+            now, bool(getattr(policy, "compaction", None) and policy.compaction.external_admission_paused())
+        )
+        if paused:
+            state.pending_recheck = True
+            return
         if state.inflight_message_id is not None:
             update = advance_channel_inflight(
                 ChannelInflightSnapshot(
@@ -320,5 +326,6 @@ class _DirectChannelPoller:
                 inject_pending=polling.inject_pending,
                 log=policy.log,
                 session_socket_ready=polling.session_socket_ready,
+                external_admission_paused=(policy.compaction.external_admission_paused if getattr(policy, "compaction", None) else lambda: False),
             ),
         )

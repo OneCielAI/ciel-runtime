@@ -1,0 +1,58 @@
+[
+  {
+    "variant": "truthful",
+    "local_message": "prompt is too long: the unmodified client request exceeds the configured Runtime input budget (local JSON-size estimate; not a provider token count). Native compaction is required.",
+    "delivery": "http400",
+    "compact_requests": [
+      7
+    ],
+    "request_count": 8,
+    "persisted_boundaries": 1,
+    "final_is_error": false,
+    "harness_errors": []
+  },
+  {
+    "variant": "estimate",
+    "local_message": "prompt is too long: Runtime estimated input 1239398 tokens against configured input budget 780750 (approximate, not upstream measured).",
+    "delivery": "http400",
+    "compact_requests": [
+      7
+    ],
+    "request_count": 8,
+    "persisted_boundaries": 1,
+    "final_is_error": false,
+    "harness_errors": []
+  },
+  {
+    "variant": "nophrase",
+    "local_message": "the unmodified client request exceeds the configured Runtime input budget (local JSON-size estimate; not a provider token count). Native compaction is required.",
+    "delivery": "http400",
+    "compact_requests": [],
+    "request_count": 7,
+    "persisted_boundaries": 0,
+    "final_is_error": false,
+    "harness_errors": []
+  },
+  {
+    "variant": "truthful_held",
+    "local_message": "prompt is too long: the unmodified client request exceeds the configured Runtime input budget (local JSON-size estimate; not a provider token count). Native compaction is required.",
+    "delivery": "http400",
+    "compact_requests": [
+      7
+    ],
+    "request_count": 8,
+    "persisted_boundaries": 1,
+    "final_is_error": false,
+    "harness_errors": []
+  },
+  {
+    "variant": "truthful_sse",
+    "local_message": "prompt is too long: the unmodified client request exceeds the configured Runtime input budget (local JSON-size estimate; not a provider token count). Native compaction is required.",
+    "delivery": "sse",
+    "compact_requests": [],
+    "request_count": 7,
+    "persisted_boundaries": 0,
+    "final_is_error": false,
+    "harness_errors": []
+  }
+]

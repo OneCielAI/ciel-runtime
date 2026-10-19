@@ -69,6 +69,18 @@ class ChannelTerminalDispatchServiceTests(unittest.TestCase):
             delivery=delivery,
         )
 
+    def test_terminal_context_composes_pressure_control_without_extra_dispatch_fields(self):
+        import ciel_runtime
+        from dataclasses import replace
+
+        context = ciel_runtime.channel_terminal_context()
+        control = mock.Mock()
+        context = replace(context, policy=replace(context.policy, compaction=control))
+        service = context.dispatch_service()
+        self.assertIs(control, service.delivery.policy.compaction)
+        self.assertIs(control, context.posix_services().policy.compaction)
+        self.assertIs(control, context.windows_services().policy.compaction)
+
     def test_windows_console_adapter_receives_launch_options(self):
         calls = []
         service = self._service(
@@ -230,6 +242,33 @@ class ChannelTerminalDispatchServiceTests(unittest.TestCase):
         self.assertIn(("completed", 11), events)
         if inject.called:
             self.assertEqual(11, inject.call_args.args[1])
+
+    def test_pressure_hold_survives_proxy_socket_handoff_without_failure_or_cursor(self):
+        from dataclasses import replace
+        from ciel_runtime_support.channel_terminal_dispatch import _DirectChannelPoller
+        from ciel_runtime_support.channel_pending_poll import ChannelPendingInjectionOptions, ChannelPendingPollState
+
+        control = mock.Mock()
+        control.external_admission_paused.return_value = True
+        events = []
+        inject = mock.Mock(side_effect=AssertionError("frozen socket must not inject"))
+        delivery = self._delivery(inject, events=events)
+        delivery = replace(delivery, policy=replace(delivery.policy, compaction=control))
+        state = ChannelPendingPollState(last_id=10)
+        state.inflight_message_id = 11
+        state.inflight_cursor = 11
+        state.inflight_started_at = 20
+        poller = _DirectChannelPoller(
+            delivery, ChannelPendingInjectionOptions(True, False, True, False, 1, True, False, None, False),
+            b"cr", state,
+        )
+        poller.poll(25)
+        poller.poll(525)
+        inject.assert_not_called()
+        self.assertEqual(11, state.inflight_message_id)
+        self.assertEqual(10, state.last_id)
+        self.assertEqual(20, state.inflight_started_at)
+        self.assertEqual([], events)
 
     def test_direct_child_survives_transient_lock_during_confirmation(self):
         from ciel_runtime_support.channel_message_repository import ChannelFileLockBusy

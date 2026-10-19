@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import queue
+import dataclasses
+from unittest.mock import Mock
 import unittest
 from typing import Any
 
@@ -123,6 +125,42 @@ class CodexDesktopInjectionTests(unittest.TestCase):
 
     def _commit(self, message_id: int) -> None:
         self.cursor = max(self.cursor, message_id)
+
+    def test_context_pressure_stops_steer_without_cursor_or_status_transition(self):
+        self.messages = [_message(7)]
+        self.client.state = CodexAppServerState(thread_id="thread-a", active_turn_id="turn-live")
+        control = Mock()
+        control.external_admission_paused.return_value = True
+        self.injector._ports = dataclasses.replace(self.injector._ports, compaction=control)
+        self.injector.poll_once()
+        self.assertEqual([], self.client.calls)
+        self.assertEqual(0, self.cursor)
+        self.assertEqual([], self.status.records)
+        control.external_admission_paused.return_value = False
+        self.injector.poll_once()
+        self.assertEqual([("steer", "thread-a", "turn-live")], self.client.calls)
+        self.assertEqual(7, self.cursor)
+
+    def test_compact_rpc_acceptance_reports_only_submission_to_shared_control(self):
+        request = {"id": "automatic-compact", "action": "compact", "automatic": True}
+        control = Mock()
+        control.command_ready.return_value = True
+        control.external_admission_paused.return_value = True
+        cleared = []
+        self.messages = [_message(7)]
+        self.injector._ports = dataclasses.replace(
+            self.injector._ports, compaction=control,
+            session_commands=CodexSessionCommandPorts(lambda: request, cleared.append),
+        )
+        self.injector.poll_once()
+        self.assertEqual(["thread-a"], self.client.compacted)
+        control.command_submitted.assert_called_once_with(request)
+        self.assertEqual(["automatic-compact"], cleared)
+        self.assertEqual([], self.client.calls)
+        self.assertEqual(0, self.cursor)
+        self.assertEqual([], self.status.records)
+        self.assertTrue(any("session_command_submitted" in line for line in self.logs))
+        self.assertFalse(any("session_command_done" in line for line in self.logs))
 
     def test_idle_thread_gets_a_new_turn_and_the_cursor_moves(self):
         self.messages = [_message(5, "first")]

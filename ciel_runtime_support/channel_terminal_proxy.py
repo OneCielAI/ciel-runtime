@@ -29,6 +29,7 @@ from ciel_runtime_support.channel_pending_poll import (
     ChannelPendingPollState,
     poll_pending_channel_messages,
 )
+from ciel_runtime_support.runtime_compaction_control import RuntimeCompactionControl
 from ciel_runtime_support.pty_master_writer import PtyMasterWriter
 from ciel_runtime_support.startup_prompt_answers import startup_prompt_responder, windows_startup_screen
 from ciel_runtime_support.terminal_modal_guard import STARTUP_HOLD_SECONDS, TerminalModalGuard
@@ -67,6 +68,7 @@ class ChannelTerminalPolicy:
     unseen_retry_seconds: Callable[[], float]
     inflight_is_stale: Callable[..., bool]
     log: Callable[[str, str], None]
+    compaction: RuntimeCompactionControl | None = None
 
 
 @dataclass(frozen=True)
@@ -369,7 +371,8 @@ def run_windows_channel_terminal_proxy(
             actions=session_command_actions,
         )
         compact_poll_services = ChannelCompactPollServices(
-            inject_pending=polling.inject_compact
+            inject_pending=polling.inject_compact,
+            recovery_pending=(policy.compaction.external_admission_paused if getattr(policy, "compaction", None) else lambda: False),
         )
         pending_injection_options = ChannelPendingInjectionOptions(
             enabled=inject_channel_messages,
@@ -391,6 +394,7 @@ def run_windows_channel_terminal_proxy(
             inject_pending=polling.inject_pending,
             log=policy.log,
             session_socket_ready=getattr(polling, "session_socket_ready", lambda: False),
+            external_admission_paused=(policy.compaction.external_admission_paused if getattr(policy, "compaction", None) else lambda: False),
         )
         pending_poll_policy = ChannelPendingPollPolicy(
             "channel_windows_console",
@@ -456,7 +460,7 @@ def run_windows_channel_terminal_proxy(
             )
             try:
                 stage = "inflight_confirmation"
-                if pending_poll_state.inflight_message_id is not None:
+                if pending_poll_state.inflight_message_id is not None and not pending_poll_state.inflight.hold_for_recovery(now, bool(getattr(policy, "compaction", None) and policy.compaction.external_admission_paused())):
                     inflight_message_id = pending_poll_state.inflight_message_id
                     channel_inflight_state = polling.wake_state(inflight_message_id)
                     inflight_update = advance_channel_inflight(
@@ -588,7 +592,7 @@ def run_posix_channel_terminal_proxy(
         runtime=session_command_runtime,
         actions=session_command_actions,
     )
-    compact_poll_services = ChannelCompactPollServices(inject_pending=polling.inject_compact)
+    compact_poll_services = ChannelCompactPollServices(inject_pending=polling.inject_compact, recovery_pending=(policy.compaction.external_admission_paused if getattr(policy, "compaction", None) else lambda: False))
     compact_poll_state = ChannelCompactPollState()
     interaction_display_state = RuntimeInteractionDisplayState()
     interaction_pending = False
@@ -610,6 +614,7 @@ def run_posix_channel_terminal_proxy(
         inject_pending=polling.inject_pending,
         log=policy.log,
         session_socket_ready=getattr(polling, "session_socket_ready", lambda: False),
+        external_admission_paused=(policy.compaction.external_admission_paused if getattr(policy, "compaction", None) else lambda: False),
     )
     pending_poll_policy = ChannelPendingPollPolicy("channel_stdin_proxy", "active_turn")
     policy.log(
@@ -722,7 +727,7 @@ def run_posix_channel_terminal_proxy(
                     io_failure = ("master_read", exc)
                     break
                 forward_child_output(data or b"")
-            if pending_poll_state.inflight_message_id is not None:
+            if pending_poll_state.inflight_message_id is not None and not pending_poll_state.inflight.hold_for_recovery(now, bool(getattr(policy, "compaction", None) and policy.compaction.external_admission_paused())):
                 inflight_update = advance_channel_inflight(
                     ChannelInflightSnapshot(
                         message_id=pending_poll_state.inflight_message_id,

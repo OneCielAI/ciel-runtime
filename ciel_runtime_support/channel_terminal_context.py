@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
+from .runtime_compaction_control import RuntimeCompactionControl
 from .runtime_interaction import RuntimeInteractionEvent
 
 from .channel_pending_poll import ChannelPendingPollState
@@ -44,6 +45,7 @@ class ChannelTerminalPolicyPorts:
     unseen_retry_seconds: Callable[[], float]
     inflight_is_stale: Callable[..., bool]
     log: Callable[[str, str], None]
+    compaction: RuntimeCompactionControl | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -121,6 +123,7 @@ class ChannelTerminalContext:
             unseen_retry_seconds=self.policy.unseen_retry_seconds,
             inflight_is_stale=self.policy.inflight_is_stale,
             log=self.policy.log,
+            compaction=self.policy.compaction,
         )
 
     def polling_services(self) -> ChannelTerminalPolling:

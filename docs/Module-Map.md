@@ -857,6 +857,18 @@ compact 요청 판정·text-only 변환, tool 입력 축약, persisted-output �
 
 `ContextSummaryCompatibilityApi`는 compact request 탐지·text-only 변환·chunk/reduce projection 공개 표면을 명시적 typed method로 연결하는 Adapter이다. facade에는 policy 조립과 호환 alias만 남긴다.
 
+### `ciel_runtime_support/runtime_compaction_control.py`
+
+Native compact 명령의 예약·제출·persisted checkpoint·다음 raw request 감소를 구분하는 복구 상태기계. private atomic state와 cross-process lock으로 자동 명령을 중복 예약하지 않으며, SSE 입력을 durable queue에 보존한 채 admission을 보류한다. 미확인 제출은 재전송하지 않고 실패·재시도는 bounded이다.
+
+### `ciel_runtime_support/runtime_compaction_binding.py`
+
+Launcher와 별도 router process가 같은 runtime/session/epoch/transcript를 확인하도록 private scope를 조립한다. Claude의 정확한 messaging socket pid metadata, main request identity 및 Codex app-server thread event를 사용하며 최신 workspace 세션을 추측하지 않는다. 원본 raw budget과 numeric upstream overflow를 control에 관측하고 subagent·다른 session·native-provider ownership을 분리한다.
+
+### `ciel_runtime_support/runtime_compaction_rejection.py`
+
+Claude 2.1.303에서 검증한 reactive-compaction HTTP400 contract를 사용하는 pre-upstream admission policy. 정확히 귀속된 routed main request의 local budget 초과만 거절하며 token count나 usage를 위조하지 않는다. Compact 요청·subagent·native Anthropic·remote bridge는 비침범이고 복구 반복을 제한한다.
+
 ### `ciel_runtime_support/runtime_adapters.py`
 
 정규화된 `LaunchSpec`을 최종 `RuntimeCommand`로 변환하는 실제 CLI 런타임 어댑터.

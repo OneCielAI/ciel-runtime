@@ -664,15 +664,7 @@ def run_claude(
     )
     launch_log_offset = file_size_or_zero(LOG_PATH)
     capture_stderr = env_bool(os.environ.get("CIEL_RUNTIME_CAPTURE_CC_STDERR"), False)
-    transcript_session_id = ""
-    for index, argument in enumerate(cmd):
-        text = str(argument or "")
-        if text == "--session-id" and index + 1 < len(cmd):
-            transcript_session_id = str(cmd[index + 1] or "").strip()
-            break
-        if text.startswith("--session-id="):
-            transcript_session_id = text.partition("=")[2].strip()
-            break
+    transcript_session_id = _claude_explicit_session_id([str(argument or "") for argument in cmd])
 
     # Whether the last run_claude_process handed the restart control to its
     # transport; only such a launch can be restarted after its child ends.
@@ -688,6 +680,8 @@ def run_claude(
                 "claude",
                 cwd=Path.cwd(),
                 session_id=transcript_session_id or None,
+                messaging_socket_path=session_socket_target or None,
+                request_identity=use_router_mode and not launched_direct,
             )
             if use_router_mode and not ensure_managed_router_running_for_client():
                 print(
@@ -974,6 +968,29 @@ class CodexLaunchServices:
     restart: SessionRestartPorts = SessionRestartPorts()
     # launch_data_path.LaunchDataPathResolver; None keeps every launch on the router.
     data_path: Callable[..., Any] | None = None
+
+
+def _claude_explicit_session_id(cmd: list[str]) -> str:
+    """The session the child will write, when the command names it.
+
+    ``--session-id`` names it outright. ``--resume <id>`` keeps that id
+    unless ``--fork-session`` asks Claude Code 2.1.303 for a new one; a bare
+    ``--resume``/``--continue`` picks a session the launcher does not know.
+    """
+
+    def value(flags: tuple[str, ...]) -> str:
+        for index, text in enumerate(cmd):
+            if text in flags and index + 1 < len(cmd) and not cmd[index + 1].startswith("-"):
+                return cmd[index + 1].strip()
+            for flag in flags:
+                if flag.startswith("--") and text.startswith(flag + "="):
+                    return text.partition("=")[2].strip()
+        return ""
+
+    explicit = value(("--session-id",))
+    if explicit or "--fork-session" in cmd:
+        return explicit
+    return value(("--resume", "-r"))
 
 
 def _codex_explicit_resume_session_id(passthrough: list[str]) -> str:
@@ -1303,6 +1320,7 @@ def run_codex(
             codex_home=Path(env.get("CODEX_HOME") or (Path.home() / ".codex")),
             cwd=launch_cwd,
             session_id=_codex_explicit_resume_session_id(codex_passthrough),
+            request_identity=not native_codex_enabled(provider) and not launched_direct,
         )
         codex_synthetic_enter = None if _channel_wake_enter_env_is_fixed() else b"\r"
         return subprocess_call_with_channel_wake_proxy(

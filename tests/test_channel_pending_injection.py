@@ -714,5 +714,96 @@ class RouterLogRotationTests(unittest.TestCase):
             self.assertIn("survives", path.read_text(encoding="utf-8"))
 
 
+
+
+class CompactionAdmissionTests(unittest.TestCase):
+    def test_pressure_holds_busy_whole_message_socket_without_delivery_or_cursor(self):
+        message = _message(51)
+        message["meta"] = {"input_transport": "session_socket"}
+        harness = _InjectionHarness([message])
+        services = harness.services()
+        socket = Mock(return_value=True)
+        services = dataclasses.replace(
+            services,
+            state=dataclasses.replace(services.state, active_turn=lambda: True),
+            io=dataclasses.replace(services.io, write_session_socket=socket,
+                                   session_socket_available=lambda: True,
+                                   external_admission_paused=lambda: True),
+        )
+        injected, ceilings = [], []
+        returned = inject_pending_channel_messages(
+            99, 50, services=services, injected_message_ids=injected,
+            injected_commit_cursors=ceilings,
+        )
+        self.assertEqual(50, returned)
+        self.assertEqual([], injected)
+        self.assertEqual([], ceilings)
+        self.assertEqual([], harness.written)
+        self.assertEqual([], harness.delivery.commits)
+        self.assertFalse(harness.delivery.is_delivered(51))
+        self.assertFalse(harness.delivery.failure_reason(51))
+        socket.assert_not_called()
+
+    def test_pressure_gate_rechecks_after_candidate_reads_before_claiming(self):
+        message = _message(52)
+        message["meta"] = {"input_transport": "router"}
+        harness = _InjectionHarness([message])
+        services = harness.services()
+        paused = iter((False, True))
+        claim = Mock(return_value=True)
+        services = dataclasses.replace(
+            services,
+            io=dataclasses.replace(services.io, external_admission_paused=lambda: next(paused)),
+            wake_store=dataclasses.replace(services.wake_store, claim_prompt=claim),
+        )
+        self.assertEqual(50, inject_pending_channel_messages(
+            99, 50, services=services, wake_for_llm_delivery=True,
+        ))
+        claim.assert_not_called()
+        self.assertEqual([], harness.written)
+        self.assertEqual([], harness.delivery.commits)
+        self.assertFalse(harness.delivery.failure_reason(52))
+
+    def test_same_durable_backlog_releases_once_only_after_checkpoint_and_shrink(self):
+        from test_runtime_compaction_control import _ControllerHarness, boundary
+
+        controller_harness = _ControllerHarness()
+        controller_harness.setUp()
+        self.addCleanup(controller_harness.doCleanups)
+        controller_harness.request()
+        message = _message(61)
+        message["meta"] = {"input_transport": "session_socket"}
+        harness = _InjectionHarness([message])
+        services = harness.services()
+        sent = []
+        services = dataclasses.replace(
+            services,
+            state=dataclasses.replace(services.state, active_turn=lambda: True),
+            io=dataclasses.replace(
+                services.io, write_session_socket=lambda prompt, pending: sent.append((prompt, pending)) or True,
+                session_socket_available=lambda: True,
+                external_admission_paused=controller_harness.control.external_admission_paused,
+            ),
+        )
+        self.assertEqual(60, inject_pending_channel_messages(99, 60, services=services))
+        self.assertEqual([], sent)
+        request = controller_harness.repository.read()
+        self.assertTrue(controller_harness.control.command_ready(request))
+        controller_harness.control.command_submitted(request)
+        controller_harness.repository.clear(request["id"])
+        controller_harness.clock += 1
+        controller_harness.append(boundary("session-a", controller_harness.clock))
+        self.assertEqual(60, inject_pending_channel_messages(99, 60, services=services))
+        controller_harness.request(120)
+        self.assertEqual("verified", controller_harness.snapshot()["phase"])
+        cursor = inject_pending_channel_messages(99, 60, services=services)
+        self.assertEqual(61, cursor)
+        self.assertEqual(1, len(sent))
+        self.assertEqual([61], harness.delivery.commits)
+        self.assertEqual(61, inject_pending_channel_messages(99, cursor, services=services))
+        self.assertEqual(1, len(sent))
+        self.assertFalse(harness.delivery.failure_reason(61))
+
+
 if __name__ == "__main__":
     unittest.main()

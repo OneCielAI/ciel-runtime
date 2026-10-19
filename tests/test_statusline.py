@@ -529,7 +529,8 @@ class StatuslineTests(unittest.TestCase):
                 check=True,
             )
 
-        self.assertIn("compact 3 chunks", proc.stdout)
+        self.assertIn("context guard 3 groups", proc.stdout)
+        self.assertNotIn("compact 3 chunks", proc.stdout)
 
     def test_statusline_shows_parallel_context_compact_sessions(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -550,6 +551,8 @@ class StatuslineTests(unittest.TestCase):
                         "model": "model",
                         "chunks": 3,
                         "parallel_sessions": 3,
+                        "phase": "map",
+                        "completed_chunks": 2,
                     }
                 ),
                 encoding="utf-8",
@@ -573,7 +576,42 @@ class StatuslineTests(unittest.TestCase):
                 check=True,
             )
 
-        self.assertIn("compact 3 chunks parallel 3/3", proc.stdout)
+        self.assertIn("compact map 2/3 parallel 3/3", proc.stdout)
+
+    def test_statusline_distinguishes_semantic_progress_and_failure(self):
+        for phase, completed, expected in (
+            ("guard", 0, "context guard 12 groups"),
+            ("map", 7, "compact map 7/12"),
+            ("reduce", 11, "compact reduce 11/12"),
+            ("failed", 7, "compact failed"),
+            ("cancelled", 7, "compact cancelled"),
+            ("local-complete", 12, "compact summary ready"),
+            ("checkpoint-confirmed", 12, "compact checkpoint-confirmed"),
+        ):
+            with self.subTest(phase=phase), tempfile.TemporaryDirectory() as tmp:
+                script = Path(tmp) / "statusline.py"
+                script.write_text(ciel_runtime.STATUSLINE_SCRIPT, encoding="utf-8")
+                root = Path(tmp)
+                (root / "config.json").write_text(json.dumps({
+                    "current_provider": "vllm", "providers": {"vllm": {"current_model": "model"}},
+                }), encoding="utf-8")
+                (root / "context-compact-activity.json").write_text(json.dumps({
+                    "updated_at": time.time(), "event": "compact", "provider": "vllm", "model": "model",
+                    "chunks": 12, "phase": phase, "completed_chunks": completed,
+                }), encoding="utf-8")
+                env = statusline_probe_env()
+                env.update({
+                    "CIEL_RUNTIME_CONFIG_DIR": tmp, "CIEL_RUNTIME_STATUSLINE_ANSI": "0",
+                    "CIEL_RUNTIME_PROVIDER": "vllm", "CIEL_RUNTIME_MODEL_ALIAS": "ciel-runtime-test",
+                })
+                proc = subprocess.run(
+                    [sys.executable, str(script)], input=json.dumps({
+                        "model": {"display_name": "ciel-runtime-test"}, "workspace": {"current_dir": tmp},
+                    }),
+                    text=True, capture_output=True, env=env, check=True,
+                )
+                self.assertIn(expected, proc.stdout)
+                self.assertNotIn("compact 12 chunks", proc.stdout)
 
 
 if __name__ == "__main__":

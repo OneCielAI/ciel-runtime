@@ -1,0 +1,27 @@
+[
+  {
+    "path": "ciel_runtime_support/claude_environment.py",
+    "matches_running_snapshot_after_lf_normalization": true,
+    "normalized_sha256": "e67fa1e384256fe360f7c4c335c4820a47f0f2e6ee89214690573c0ec68370e8"
+  },
+  {
+    "path": "ciel_runtime_support/statusline_script.py",
+    "matches_running_snapshot_after_lf_normalization": true,
+    "normalized_sha256": "0c0061796490e4dd635f754894fc0f585414b7bc815e1f8601e865b7209490a6"
+  },
+  {
+    "path": "ciel_runtime_support/context_summary_policy.py",
+    "matches_running_snapshot_after_lf_normalization": true,
+    "normalized_sha256": "ec1e503794a340c5899d87dd13ebc66df3a2f45d6ac7f57445a96ed94f4144c6"
+  },
+  {
+    "path": "ciel_runtime_support/claude_router.py",
+    "matches_running_snapshot_after_lf_normalization": true,
+    "normalized_sha256": "5c7485c78deb7c6f9698ae3d9f379bd71cb04b4fabb366ee8f8c0d744861453f"
+  },
+  {
+    "path": "ciel_runtime_support/prompt_compaction.py",
+    "matches_running_snapshot_after_lf_normalization": true,
+    "normalized_sha256": "993d30d9aa637cbe7e2c16351dd2c2adfe7700a7257ba14854df7dda56281abe"
+  }
+]

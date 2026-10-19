@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import re
 import urllib.error
 import urllib.parse
@@ -28,6 +29,8 @@ class OpenAIResponsesCore:
     input_as_list: Callable[[Any], list[Any]]
     is_client_disconnect: Callable[[BaseException], bool]
     log: Callable[[str, str], Any]
+    observe_context_request: Callable[..., Any] = lambda *_args: None
+    observe_context_failure: Callable[..., Any] = lambda *_args: None
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,6 +45,15 @@ class OpenAIResponsesConversion:
     strip_advisor_tools: Callable[..., dict[str, Any]]
     inject_channel_context: Callable[[dict[str, Any]], dict[str, Any]]
     inject_tool_result_context: Callable[[dict[str, Any]], dict[str, Any]]
+
+
+def _observe_context_request(core: Any, *args: Any) -> None:
+    # Older injected cores predate the context observers; they observe nothing.
+    getattr(core, "observe_context_request", lambda *_args: None)(*args)
+
+
+def _observe_context_failure(core: Any, *args: Any) -> None:
+    getattr(core, "observe_context_failure", lambda *_args: None)(*args)
 
 
 @dataclass(frozen=True, slots=True)
@@ -273,6 +285,7 @@ def handle_openai_responses_request(
     # conversion so it reaches both the translated path and a native Responses
     # provider; the native Codex backend is excluded inside the port.
     remote_bridge = is_remote_bridge_request(handler)
+    raw_body = copy.deepcopy(body) if not remote_bridge else body
     if not remote_bridge:
         body = routing.apply_codex_compat_instructions(cfg, provider, pcfg, body)
     if (
@@ -291,6 +304,7 @@ def handle_openai_responses_request(
             pcfg,
             body,
             services,
+            raw_body=raw_body,
         )
         return
     conversion_body = (
@@ -310,8 +324,10 @@ def handle_openai_responses_request(
         source_body=body,
     ):
         return
+    if not remote_bridge:
+        _observe_context_request(core, provider, pcfg, raw_body, "codex", getattr(handler, "headers", None))
     if routing.codex_routed_enabled(provider, pcfg):
-        _handle_codex_route(handler, provider, pcfg, body, services)
+        _handle_codex_route(handler, provider, pcfg, body, services, raw_body=raw_body)
         return
     if (
         routing.select_protocol(
@@ -328,6 +344,7 @@ def handle_openai_responses_request(
             pcfg,
             body,
             services,
+            raw_body=raw_body,
         )
         return
 
@@ -405,6 +422,8 @@ def handle_openai_responses_request(
         )
     except urllib.error.HTTPError as exc:
         raw = exc.read().decode("utf-8", errors="ignore")
+        if not remote_bridge:
+            _observe_context_failure(core, provider, pcfg, raw_body, raw, "codex", getattr(handler, "headers", None))
         maybe_fail_over(handler, provider, status=exc.code, headers=exc.headers, reason=raw)
         delivery.mark_failed(handler, f"responses_http_error:{exc.code}")
         output.write_error(
@@ -419,6 +438,8 @@ def handle_openai_responses_request(
         # The upstream status, type and message were all read before this was
         # raised.  Answering with a generic local 500 is what made a rejected
         # request look like a provider fault to Codex.
+        if not remote_bridge:
+            _observe_context_failure(core, provider, pcfg, raw_body, exc.body or exc.message, "codex", getattr(handler, "headers", None))
         if not exc.output_started:
             maybe_fail_over(handler, provider, status=exc.status_code, reason=exc.message,
                             rate_limited=exc.category == "rate_limit")
@@ -532,7 +553,10 @@ def _handle_codex_route(
     pcfg: dict[str, Any],
     body: dict[str, Any],
     services: OpenAIResponsesServices,
+    *,
+    raw_body: dict[str, Any] | None = None,
 ) -> None:
+    raw_body = copy.deepcopy(body) if raw_body is None else raw_body
     core = services.core
     routing = services.routing
     delivery = services.delivery
@@ -556,6 +580,8 @@ def _handle_codex_route(
         routing.forward_codex(handler, provider, pcfg, body)
     except urllib.error.HTTPError as exc:
         raw = exc.read().decode("utf-8", errors="ignore")
+        if not is_remote_bridge_request(handler):
+            _observe_context_failure(core, provider, pcfg, raw_body, raw, "codex", getattr(handler, "headers", None))
         maybe_fail_over(handler, provider, status=exc.code, headers=exc.headers, reason=raw)
         delivery.mark_failed(handler, f"codex_responses_http_error:{exc.code}")
         message = output.upstream_error_message(exc, raw)
@@ -569,6 +595,8 @@ def _handle_codex_route(
             error_type=_responses_error_type(exc.code),
         )
     except UpstreamFailure as exc:
+        if not is_remote_bridge_request(handler):
+            _observe_context_failure(core, provider, pcfg, raw_body, exc.body or exc.message, "codex", getattr(handler, "headers", None))
         if not exc.output_started:
             maybe_fail_over(handler, provider, status=exc.status_code, reason=exc.message,
                             rate_limited=exc.category == "rate_limit")
@@ -609,7 +637,10 @@ def _handle_provider_responses_route(
     pcfg: dict[str, Any],
     body: dict[str, Any],
     services: OpenAIResponsesServices,
+    *,
+    raw_body: dict[str, Any] | None = None,
 ) -> None:
+    raw_body = copy.deepcopy(body) if raw_body is None else raw_body
     core = services.core
     routing = services.routing
     delivery = services.delivery
@@ -648,6 +679,8 @@ def _handle_provider_responses_route(
         )
     except urllib.error.HTTPError as exc:
         raw = exc.read().decode("utf-8", errors="ignore")
+        if not is_remote_bridge_request(handler):
+            _observe_context_failure(core, provider, pcfg, raw_body, raw, "codex", getattr(handler, "headers", None))
         maybe_fail_over(handler, provider, status=exc.code, headers=exc.headers, reason=raw)
         delivery.mark_failed(
             handler,
@@ -662,6 +695,8 @@ def _handle_provider_responses_route(
             **({"upstream_provider": provider} if exc.code == 401 else {}),
         )
     except UpstreamFailure as exc:
+        if not is_remote_bridge_request(handler):
+            _observe_context_failure(core, provider, pcfg, raw_body, exc.body or exc.message, "codex", getattr(handler, "headers", None))
         if not exc.output_started:
             maybe_fail_over(handler, provider, status=exc.status_code, reason=exc.message,
                             rate_limited=exc.category == "rate_limit")

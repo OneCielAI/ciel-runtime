@@ -1,4 +1,6 @@
 import contextlib
+import dataclasses
+from unittest.mock import Mock
 import unittest
 
 from ciel_runtime_support.channel_message_prompt import llm_message_skip_reason
@@ -214,6 +216,30 @@ class ChannelLlmContextTests(unittest.TestCase):
         out = inject_pending_channel_context(body, self.services([{"id": 11}], plan=True))
         self.assertIs(body, out)
         self.assertIn("reason=plan_mode_active", self.logs[0][1])
+
+    def test_recovery_does_not_append_or_consume_and_allows_direct_user_body(self):
+        body = {"messages": [{"role": "user", "content": "direct recovery input"}]}
+        services = self.services([{"id": 11, "message": "external pending"}])
+        read = Mock(side_effect=AssertionError("pressure gate must not scan"))
+        services = dataclasses.replace(
+            services, pause_reason=lambda _body: "context_recovery",
+            repository=dataclasses.replace(services.repository, read_messages=read),
+        )
+        self.assertIs(body, inject_pending_channel_context(body, services))
+        self.assertEqual([], self.committed)
+        read.assert_not_called()
+
+    def test_paused_wake_is_deferred_not_empty_success_or_consumed(self):
+        services = dataclasses.replace(self.services([], wake=True), pause_reason=lambda _body: "context_recovery")
+        with self.assertRaises(ChannelLlmInjectionDeferred):
+            inject_pending_channel_context({"messages": []}, services)
+        self.assertEqual([], self.committed)
+
+    def test_native_compact_is_never_augmented_with_external_pending(self):
+        body = {"messages": [{"role": "user", "content": "compact instruction"}], "tools": []}
+        services = dataclasses.replace(self.services([], wake=True), pause_reason=lambda _body: "native_compaction")
+        self.assertIs(body, inject_pending_channel_context(body, services))
+        self.assertEqual([], self.committed)
 
 
 if __name__ == "__main__":

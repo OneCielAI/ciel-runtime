@@ -38,6 +38,7 @@ from .channel_transcript import (
 from .channel_transcript_repository import ChannelTranscriptRepository
 from .channel_wake_claim_repository import ChannelWakeClaimRepository
 from .channel_wake_delivery_repository import ChannelWakeDeliveryRepository
+from .runtime_compaction_control import RuntimeCompactionControl
 
 CODEX_LATE_CONFIRM_SECONDS = 15.0
 
@@ -153,6 +154,7 @@ class ChannelPendingIoPorts:
     log: Callable[[str, str], None]
     write_session_socket: Callable[[str, list[dict[str, Any]]], bool] | None = None
     session_socket_available: Callable[[], bool] | None = None
+    compaction: RuntimeCompactionControl | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -281,6 +283,8 @@ class ChannelWakeContext:
                     format_prompt=self.messages.format_batch_prompt,
                 ),
                 log=self.claims.log,
+                pause_reason=(self.pending_io.compaction.context_pause_reason
+                              if self.pending_io.compaction else lambda _body: ""),
             ),
         )
 
@@ -612,6 +616,8 @@ class ChannelWakeContext:
                 log=self.pending_io.log,
                 write_session_socket=self.pending_io.write_session_socket,
                 session_socket_available=self.pending_io.session_socket_available,
+                external_admission_paused=(self.pending_io.compaction.external_admission_paused
+                                           if self.pending_io.compaction else lambda: False),
             ),
             policy=ChannelInjectionPolicy(
                 wake_batch_limit=self.pending_policy.wake_batch_limit,
@@ -658,7 +664,7 @@ class ChannelWakeContext:
                 enter_label=self.pending_delivery.enter_label,
             ),
             log=self.pending_io.log,
-        ).inject(master_fd, enter_bytes, **options)
+        ).inject(master_fd, enter_bytes, control=self.pending_io.compaction, **options)
 
     def messages_file_marker(self) -> tuple[float, int]:
         try:

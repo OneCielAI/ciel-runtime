@@ -679,12 +679,26 @@ def main():
                 parallel_sessions = int(compact_activity.get("parallel_sessions") or 1)
             except Exception:
                 parallel_sessions = 1
-            if compact_chunks > 0:
-                compact_text = color(f"compact {compact_chunks:,} chunks")
-                if parallel_sessions > 1:
-                    compact_text += " " + color(f"parallel {parallel_sessions:,}/{compact_chunks:,}")
+            compact_phase = str(compact_activity.get("phase") or "").strip()
+            try:
+                completed_chunks = max(0, int(compact_activity.get("completed_chunks") or 0))
+            except Exception:
+                completed_chunks = 0
+            if compact_phase == "guard":
+                compact_text = color(f"context guard {compact_chunks:,} groups")
+            elif compact_phase in {"map", "reduce"}:
+                compact_text = color(f"compact {compact_phase} {completed_chunks:,}/{compact_chunks:,}")
+            elif compact_phase in {"completed", "failed", "cancelled", "uncertain", "checkpoint-confirmed"}:
+                compact_text = color(f"compact {compact_phase}")
+            elif compact_phase == "local-complete":
+                compact_text = color("compact summary ready")
+            elif compact_chunks > 0:
+                # Legacy records without a phase cannot prove semantic work.
+                compact_text = color(f"context guard {compact_chunks:,} groups")
             elif str(compact_activity.get("event") or "") == "compact":
-                compact_text = color("compact")
+                compact_text = color("compact pending")
+            if parallel_sessions > 1 and compact_phase in {"map", "reduce"}:
+                compact_text += " " + color(f"parallel {parallel_sessions:,}/{compact_chunks:,}")
     if compact_text:
         status_parts.append(compact_text)
     status_text = " | ".join(status_parts)

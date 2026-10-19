@@ -1,0 +1,14 @@
+{
+  "kind": "offline-lossless-source-projection",
+  "request_sha256": "d8e1a3bc4b14a66c26f8e930dc45a4ec1a9a28b0c41e5253ba4439168e8720e1",
+  "messages": 4014,
+  "tools": 272,
+  "source_chars": 19892386,
+  "fragments": 4014,
+  "map_chunks": 94,
+  "coverage_verified": true,
+  "seconds": 1.641,
+  "model_calls": 0,
+  "native_checkpoint_verified": false,
+  "limitation": "Projection only; map/reduce and native persistence not exercised."
+}

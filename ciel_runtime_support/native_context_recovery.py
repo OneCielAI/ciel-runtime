@@ -22,6 +22,12 @@ _OVERFLOW_PATTERN = re.compile(
     re.IGNORECASE | re.DOTALL,
 )
 
+_INPUT_OVERFLOW_PATTERN = re.compile(
+    r"\bprompt is too long:\s*(?P<messages>[\d,]+)\s+tokens?\s*>\s*"
+    r"(?P<limit>[\d,]+)\s+maximum\b",
+    re.IGNORECASE,
+)
+
 
 def _integer(value: str) -> int:
     try:
@@ -34,7 +40,16 @@ def parse_context_overflow(raw: str | bytes | None) -> ContextOverflow | None:
     text = raw.decode("utf-8", errors="ignore") if isinstance(raw, bytes) else str(raw or "")
     match = _OVERFLOW_PATTERN.search(text)
     if not match:
-        return None
+        input_match = _INPUT_OVERFLOW_PATTERN.search(text)
+        if input_match is None:
+            return None
+        limit = _integer(input_match.group("limit"))
+        messages = _integer(input_match.group("messages"))
+        if limit <= 0 or messages <= limit:
+            return None
+        # No output reservation was reported. This observation can request
+        # native input compaction, never justify an output-only retry.
+        return ContextOverflow(limit, messages, 0)
     limit = _integer(match.group("limit"))
     messages = _integer(match.group("messages"))
     completion = _integer(match.group("completion"))

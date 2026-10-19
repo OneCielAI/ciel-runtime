@@ -1,4 +1,6 @@
 import unittest
+import dataclasses
+from unittest.mock import Mock
 
 from ciel_runtime_support.channel_compact_injection import (
     ChannelCompactInjectionService,
@@ -131,6 +133,25 @@ class ChannelCompactInjectionServiceTests(unittest.TestCase):
         self.assertEqual(3, options["submit_retry_count"])
         self.assertTrue(options["confirm_submit"])
         self.assertEqual(["req-2"], clears)
+
+    def test_failed_write_never_consumes_compact_request(self):
+        clears = []
+        service = self._service({"id": "compact-failed"}, clears=clears)
+        service = dataclasses.replace(service, runtime=dataclasses.replace(service.runtime, write_prompt=lambda *_args, **_kw: False))
+        self.assertEqual("deferred", service.inject(7))
+        self.assertEqual([], clears)
+
+    def test_controller_observes_submission_but_busy_gate_still_wins(self):
+        control = Mock()
+        control.command_ready.return_value = True
+        request = {"id": "pressure", "action": "compact", "automatic": True}
+        service = self._service(request, active_turn=True)
+        self.assertEqual("deferred", service.inject(7, control=control))
+        control.command_ready.assert_not_called()
+        service = dataclasses.replace(service, runtime=dataclasses.replace(service.runtime, active_turn=lambda: False))
+        self.assertEqual("injected", service.inject(7, control=control))
+        control.command_ready.assert_called_once_with(request)
+        control.command_submitted.assert_called_once_with(request)
 
 
 if __name__ == "__main__":

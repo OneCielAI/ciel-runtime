@@ -425,6 +425,37 @@ class ChannelPendingPollTests(unittest.TestCase):
         self.assertIsNone(state.inflight_cursor)
         self.assertEqual([], state.inflight.backlog)
 
+    def test_context_recovery_hard_gate_precedes_busy_socket_scan_and_cursor(self):
+        inject, marker, cursor = Mock(), Mock(), Mock()
+        services = dataclasses.replace(
+            self.services(active=True), session_socket_ready=lambda: True,
+            external_admission_paused=lambda: True,
+            inject_pending=inject, file_marker=marker, ensure_cursor=cursor,
+        )
+        state = ChannelPendingPollState(last_id=10, last_marker=(1.0, 20))
+        result = poll_pending_channel_messages(
+            31.0, 1, b"cr", state, self.options(), self.policy(), services,
+        )
+        self.assertIs(state, result)
+        self.assertTrue(state.pending_recheck)
+        self.assertEqual(10, state.last_id)
+        self.assertEqual((1.0, 20), state.last_marker)
+        self.assertEqual(0.0, state.last_scan_at)
+        inject.assert_not_called()
+        marker.assert_not_called()
+        cursor.assert_not_called()
+
+    def test_compaction_pause_does_not_age_an_unconfirmed_wake(self):
+        state = ChannelPendingPollState(last_id=10)
+        state.inflight_message_id = 11
+        state.inflight_started_at = 20.0
+        self.assertTrue(state.inflight.hold_for_recovery(25.0, True))
+        self.assertTrue(state.inflight.hold_for_recovery(500.0, True))
+        self.assertEqual(20.0, state.inflight_started_at)
+        self.assertFalse(state.inflight.hold_for_recovery(525.0, False))
+        self.assertEqual(520.0, state.inflight_started_at)
+        self.assertEqual(11, state.inflight_message_id)
+
 
 if __name__ == "__main__":
     unittest.main()

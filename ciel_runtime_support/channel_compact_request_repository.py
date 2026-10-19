@@ -12,8 +12,11 @@ import os
 import time
 import uuid
 from collections.abc import Callable
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
+
+from .channel_message_repository import exclusive_file_lock
 
 SESSION_COMMAND_ACTIONS = ("compact", "new_session", "goal_clear")
 SESSION_COMMANDS = {"compact": "/compact", "new_session": "/new", "goal_clear": "/goal clear"}
@@ -41,6 +44,13 @@ class ChannelCompactRequestRepository:
         self.log = log
         self.ttl = ttl
 
+    @contextmanager
+    def _locked(self):
+        # The router and CLI consumer are different processes. A thread lock
+        # alone cannot protect automatic reservation against manual actions.
+        with self.lock, exclusive_file_lock(self.path):
+            yield
+
     def payload(self, source: str, reason: str, action: str = "compact") -> dict[str, Any]:
         now = time.time()
         action = session_command_action(action)
@@ -59,7 +69,7 @@ class ChannelCompactRequestRepository:
 
     def queue(self, source: str = "mcp", reason: str = "", action: str = "compact") -> dict[str, Any]:
         request = self.payload(source, reason, action)
-        with self.lock:
+        with self._locked():
             self.save(request, "channel_compact_request")
         self.log(
             "INFO",
@@ -68,34 +78,63 @@ class ChannelCompactRequestRepository:
         )
         return request
 
+    def queue_automatic(
+        self, scope: dict[str, str], reason: str
+    ) -> dict[str, Any] | None:
+        """Reserve an empty slot without replacing a person's session action."""
+
+        with self._locked():
+            existing = self._read_locked()
+            if existing:
+                if (existing.get("automatic") is True
+                        and existing.get("scope") == scope
+                        and session_command_action(existing.get("action")) == "compact"):
+                    return existing
+                return None
+            # A corrupt/unreadable slot is not proof that it is empty.
+            if self.path.exists():
+                return None
+            request = self.payload("context-pressure", reason, "compact")
+            request.update({"automatic": True, "scope": dict(scope)})
+            self.save(request, "channel_compact_request")
+        self.log(
+            "INFO",
+            f"channel_compact_request_queued id={request['id']} "
+            "source=context-pressure action=compact automatic=true",
+        )
+        return request
+
     def read(self) -> dict[str, Any] | None:
-        with self.lock:
-            try:
-                data = json.loads(self.path.read_text(encoding="utf-8"))
-            except FileNotFoundError:
-                return None
-            except Exception as exc:
-                self.log(
-                    "WARN",
-                    f"channel_compact_request_read_failed error={type(exc).__name__}: {exc}",
-                )
-                return None
-            if not isinstance(data, dict):
-                return None
-            try:
-                expires_at = float(data.get("expires_at") or 0)
-            except Exception:
-                expires_at = 0.0
-            if expires_at and time.time() > expires_at:
-                self._unlink(str(data.get("id") or "-"))
-                self.log(
-                    "INFO", f"channel_compact_request_expired id={data.get('id') or '-'}"
-                )
-                return None
-            return data
+        with self._locked():
+            return self._read_locked()
+
+    def _read_locked(self) -> dict[str, Any] | None:
+        try:
+            data = json.loads(self.path.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            return None
+        except Exception as exc:
+            self.log(
+                "WARN",
+                f"channel_compact_request_read_failed error={type(exc).__name__}: {exc}",
+            )
+            return None
+        if not isinstance(data, dict):
+            return None
+        try:
+            expires_at = float(data.get("expires_at") or 0)
+        except Exception:
+            expires_at = 0.0
+        if expires_at and time.time() > expires_at:
+            self._unlink(str(data.get("id") or "-"))
+            self.log(
+                "INFO", f"channel_compact_request_expired id={data.get('id') or '-'}"
+            )
+            return None
+        return data
 
     def clear(self, request_id: str | None = None) -> bool:
-        with self.lock:
+        with self._locked():
             if request_id:
                 try:
                     data = json.loads(self.path.read_text(encoding="utf-8"))

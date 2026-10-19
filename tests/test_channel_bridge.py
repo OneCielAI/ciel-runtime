@@ -17,6 +17,7 @@ from unittest import mock
 
 import ciel_runtime
 from ciel_runtime_support import runtime_launch
+from ciel_runtime_support.runtime_compaction_binding import RuntimeCompactionBinding
 
 
 class ChannelBridgeTests(unittest.TestCase):
@@ -52,6 +53,20 @@ class ChannelBridgeTests(unittest.TestCase):
         self._home_patch = mock.patch.object(ciel_runtime, "HOME", Path(self._home_tmp.name))
         self._home_patch.start()
         self.addCleanup(self._home_patch.stop)
+        # The facade binding persists launch scope under the process-wide
+        # router instance directory; a test that binds a launch would hold
+        # every later delivery as identity_pending. Each test gets its own.
+        facade = ciel_runtime._RUNTIME_COMPACTION
+        compaction = RuntimeCompactionBinding(
+            Path(self._home_tmp.name) / "router-instance", Path(self._home_tmp.name),
+            ciel_runtime.channel_compact_request_repository(), facade.builder, facade.estimate,
+            facade.config, facade.log)
+        self._compaction_patch = mock.patch.object(ciel_runtime, "_RUNTIME_COMPACTION", compaction)
+        self._compaction_patch.start()
+        self.addCleanup(self._compaction_patch.stop)
+        # Binding a transcript scope starts the process-wide delivery poller,
+        # which would keep contending for the shared transcript scan worker.
+        self.addCleanup(ciel_runtime._TRANSCRIPT_DELIVERY_SERVICE.stop)
         self.addCleanup(
             lambda: ciel_runtime._CHANNEL_TRANSCRIPT_CACHE.update({"checked_at": 0.0, "path": None})
         )
@@ -1782,6 +1797,17 @@ class ChannelBridgeTests(unittest.TestCase):
             "channel_wake_submit_retries=channel_wake_submit_retries()",
             source,
         )
+
+    def test_claude_explicit_resume_names_the_exact_session(self):
+        session_id = runtime_launch._claude_explicit_session_id
+        self.assertEqual("a", session_id(["claude", "--session-id", "a", "--resume", "b"]))
+        self.assertEqual("b", session_id(["claude", "--resume", "b"]))
+        self.assertEqual("c", session_id(["claude", "-r", "c"]))
+        self.assertEqual("d", session_id(["claude", "--resume=d"]))
+        # A fork or an unnamed pick is not a session the launcher knows.
+        self.assertEqual("", session_id(["claude", "--resume", "b", "--fork-session"]))
+        self.assertEqual("", session_id(["claude", "--resume", "--model", "x"]))
+        self.assertEqual("", session_id(["claude", "--continue"]))
 
     def test_write_fd_all_accepts_writer_object(self):
         class Writer:

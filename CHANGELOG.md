@@ -5,6 +5,19 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+- Routed Claude and Codex native checkpoints now use bounded, lossless semantic
+  map/reduce on Messages, chat and Responses wires. Large tool payloads are split
+  without dropping fields; empty, truncated, cancelled or failed summaries cannot
+  masquerade as successful checkpoints. The final response still passes through
+  the native codec and the CLI persists its own checkpoint and real usage.
+  Raw-history pressure holds external SSE/channel admission while durable input
+  stays queued, with exact shared launch/session identity and bounded compaction
+  attempts. Release requires a new native checkpoint and a smaller next raw
+  request; subagent calls and outbound excerpt guards cannot supply that proof.
+  Claude local preflight rejection can invoke its verified reactive compaction
+  before any upstream generation, without inventing provider token counts.
+  Native provider ownership and remote-client request boundaries are preserved.
+
 - External SSE/channel input keeps its socket delivery loop when the Windows
   terminal proxy fails and the CLI falls back to a direct subprocess. The direct
   supervisor preserves inflight confirmation and never substitutes terminal

@@ -71,8 +71,20 @@ class ResponsesTailSafetyTests(unittest.TestCase):
 
         self.assertEqual("user", responses_item_as_message(message)["role"])
         self.assertEqual("assistant", responses_item_as_message(call)["role"])
-        self.assertIn("shell", responses_item_as_message(call)["content"])
+        self.assertEqual("shell", responses_item_as_message(call)["name"])
+        self.assertEqual(call["arguments"], responses_item_as_message(call)["content"])
         self.assertEqual("tool", responses_item_as_message(output)["role"])
+
+    def test_structured_custom_tool_input_and_output_keep_all_fields(self):
+        args = {"first": "한글" * 15000, "last": [str(i) for i in range(40)]}
+        call = {"type": "custom_tool_call", "name": "custom", "call_id": "call-7", "input": args}
+        projected = responses_item_as_message(call)
+        self.assertEqual(args, projected["content"])
+        self.assertEqual(call, projected["tool_calls"][0])
+        self.assertEqual("call-7", projected["tool_call_id"])
+        output = {"type": "custom_tool_call_output", "call_id": "call-7", "output": args}
+        self.assertEqual(args, responses_item_as_message(output)["content"])
+        self.assertEqual("call-7", responses_item_as_message(output)["tool_call_id"])
 
     def test_a_stable_checkpoint_never_orphans_a_tool_output(self):
         items = [block for index in range(12) for block in turn(index, 10)]

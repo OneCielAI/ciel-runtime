@@ -60,6 +60,7 @@ class ChannelInjectionIO:
     write_session_socket: Callable[[str, list[dict[str, Any]]], bool] | None = None
     # False while no session socket is configured (every runtime but Claude).
     session_socket_available: Callable[[], bool] | None = None
+    external_admission_paused: Callable[[], bool] = lambda: False
 
 
 @dataclass(frozen=True, slots=True)
@@ -178,7 +179,13 @@ def inject_pending_channel_messages(
     prompts = services.prompts
     wake_store = services.wake_store
     io = services.io
+    original_cursor = last_id
     with io.inject_lock:
+        # Independent of the busy-turn policy: whole-message sockets bypass
+        # that policy but may not feed a session awaiting native recovery.
+        if io.external_admission_paused():
+            io.log("INFO", f"channel_stdin_proxy_deferred cursor={last_id} reason=context_recovery")
+            return last_id
         active_tool_call = state.active_tool_call()
         active_turn = state.active_turn()
         if not web_chat_only:
@@ -406,6 +413,9 @@ def inject_pending_channel_messages(
         else:
             prompt = prompts.standard(pending)
         submit_bytes = prompts.enter_bytes(enter_bytes)
+        if io.external_admission_paused():
+            io.log("INFO", f"channel_stdin_proxy_deferred cursor={original_cursor} reason=context_recovery")
+            return original_cursor
         claimed_ids: list[int] = []
         if pending_uses_router:
             for message in pending:

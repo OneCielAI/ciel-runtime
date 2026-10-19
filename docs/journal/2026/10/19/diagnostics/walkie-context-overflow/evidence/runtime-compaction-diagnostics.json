@@ -1,0 +1,162 @@
+[
+  {
+    "line": 41837,
+    "time": "2026-10-19T13:19:07",
+    "event_name": "compacted",
+    "fields": {
+      "budget": "716750"
+    }
+  },
+  {
+    "line": 41918,
+    "time": "2026-10-19T13:19:48",
+    "event_name": "compacted",
+    "fields": {
+      "budget": "716750"
+    }
+  },
+  {
+    "line": 42003,
+    "time": "2026-10-19T13:20:25",
+    "event_name": "compacted",
+    "fields": {
+      "budget": "716750"
+    }
+  },
+  {
+    "line": 42426,
+    "time": "2026-10-19T13:21:05",
+    "event_name": "compacted",
+    "fields": {
+      "budget": "716750"
+    }
+  },
+  {
+    "line": 42467,
+    "time": "2026-10-19T13:21:47",
+    "event_name": "compacted",
+    "fields": {
+      "budget": "716750"
+    }
+  },
+  {
+    "line": 42525,
+    "time": "2026-10-19T13:22:29",
+    "event_name": "compacted",
+    "fields": {
+      "budget": "716750"
+    }
+  },
+  {
+    "line": 42881,
+    "time": "2026-10-19T13:23:10",
+    "event_name": "compacted",
+    "fields": {
+      "budget": "716750"
+    }
+  },
+  {
+    "line": 42913,
+    "time": "2026-10-19T13:23:39",
+    "event_name": "compacted",
+    "fields": {
+      "budget": "716750"
+    }
+  },
+  {
+    "line": 43002,
+    "time": "2026-10-19T13:25:53",
+    "event_name": "compacted",
+    "fields": {
+      "budget": "716750"
+    }
+  },
+  {
+    "line": 43041,
+    "time": "2026-10-19T13:27:02",
+    "event_name": "compacted",
+    "fields": {
+      "budget": "716750"
+    }
+  },
+  {
+    "line": 43069,
+    "time": "2026-10-19T13:27:40",
+    "event_name": "compacted",
+    "fields": {
+      "budget": "716750"
+    }
+  },
+  {
+    "line": 43112,
+    "time": "2026-10-19T13:28:44",
+    "event_name": "compacted",
+    "fields": {
+      "budget": "716750"
+    }
+  },
+  {
+    "line": 43124,
+    "time": "2026-10-19T13:28:55",
+    "event_name": "compacted",
+    "fields": {
+      "budget": "780750"
+    }
+  },
+  {
+    "line": 43257,
+    "time": "2026-10-19T13:33:10",
+    "event_name": "compacted",
+    "fields": {
+      "budget": "780750"
+    }
+  },
+  {
+    "line": 43337,
+    "time": "2026-10-19T13:35:37",
+    "event_name": "compacted",
+    "fields": {
+      "budget": "780750"
+    }
+  },
+  {
+    "line": 43481,
+    "time": "2026-10-19T13:39:54",
+    "event_name": "compacted",
+    "fields": {
+      "budget": "780750"
+    }
+  },
+  {
+    "line": 43571,
+    "time": "2026-10-19T13:42:28",
+    "event_name": "compacted",
+    "fields": {
+      "budget": "780750"
+    }
+  },
+  {
+    "line": 43621,
+    "time": "2026-10-19T13:43:41",
+    "event_name": "compacted",
+    "fields": {
+      "budget": "716750"
+    }
+  },
+  {
+    "line": 43633,
+    "time": "2026-10-19T13:43:51",
+    "event_name": "compacted",
+    "fields": {
+      "budget": "780750"
+    }
+  },
+  {
+    "line": 43783,
+    "time": "2026-10-19T13:48:03",
+    "event_name": "compacted",
+    "fields": {
+      "budget": "780750"
+    }
+  }
+]

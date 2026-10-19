@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import json
 import os
 import time
@@ -15,6 +16,7 @@ from .provider_failover import FailoverRequested, failover_service, maybe_fail_o
 from .oauth_routing import anthropic_request_run, open_with_oauth
 from .protocols.openai_responses import strip_openai_responses_reasoning_envelopes
 from .remote_bridge import is_remote_bridge_request
+from .upstream_error_policy import UpstreamFailure
 
 
 @dataclass(frozen=True, slots=True)
@@ -120,6 +122,10 @@ class ClaudeRouterResponse:
 @dataclass(frozen=True, slots=True)
 class ClaudeRouterContextRecovery:
     recover_output_budget: Callable[..., Any]
+    observe_request: Callable[..., Any] = lambda *_args: None
+    observe_failure: Callable[..., Any] = lambda *_args: None
+    # Returns an error payload to send as HTTP 400 before upstream, or None.
+    reject_request: Callable[..., Any] = lambda *_args: None
 
 
 @dataclass(frozen=True, slots=True)
@@ -230,6 +236,7 @@ def handle_claude_messages_post(
 
     self = handler
     local_request = not is_remote_bridge_request(handler)
+    raw_body = copy.deepcopy(body) if local_request else body
     if local_request:
         _update_tool_schema_registry(body.get("tools"))
     request_id = f"{os.getpid()}-{time.time_ns()}"
@@ -279,6 +286,15 @@ def handle_claude_messages_post(
     if local_request:
         body = strip_autonomous_advisor_server_tools(provider, body)
     if local_request:
+        context_recovery.observe_request(provider, pcfg, raw_body, "claude", getattr(self, "headers", None))
+        # Decided on the unmodified request, before pending input or the
+        # outbound guard could change it; Claude Code compacts natively and
+        # retries this same turn.
+        rejection = context_recovery.reject_request(provider, pcfg, raw_body, "claude", getattr(self, "headers", None))
+        if isinstance(rejection, Mapping):
+            event_bus.publish(level="warning", category="context_recovery.local_rejection", message="over-budget request rejected before upstream", request_id=request_id, provider=provider, model=str(body.get("model") or ""))
+            write_json(self, dict(rejection), 400)
+            return
         body = body_with_pending_channel_messages(body)
         body = body_with_channel_tool_result_context(body)
         begin_pending_channel_delivery(self, body)
@@ -516,6 +532,8 @@ def handle_claude_messages_post(
             err = getattr(e, "ciel_runtime_body", None)
             if err is None:
                 err = e.read()
+            if local_request:
+                context_recovery.observe_failure(provider, pcfg, raw_body, err, "claude", getattr(self, "headers", None))
             if e.code == 429:
                 register_api_key_cooldown(provider, pcfg, key_from_request_headers(headers), e.headers)
                 failover_service(router_log, event_bus.publish)
@@ -528,6 +546,15 @@ def handle_claude_messages_post(
     except FailoverRequested:
         raise
     except Exception as exc:
+        if local_request and isinstance(exc, (urllib.error.HTTPError, UpstreamFailure)):
+            if isinstance(exc, urllib.error.HTTPError):
+                reason = getattr(exc, "ciel_runtime_body", None)
+                if reason is None:
+                    reason = exc.read()
+                    exc.ciel_runtime_body = reason
+            else:
+                reason = exc.body or exc.message
+            context_recovery.observe_failure(provider, pcfg, raw_body, reason, "claude", getattr(self, "headers", None))
         if is_client_disconnect_error(exc):
             if local_request:
                 mark_pending_channel_delivery_failed(

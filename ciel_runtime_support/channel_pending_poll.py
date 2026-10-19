@@ -20,6 +20,18 @@ class ChannelPendingInflightState:
     # in during a turn and another one right after it; tracking only the
     # newest left the earlier ones at "submitted" forever.
     backlog: list[int] = field(default_factory=list)
+    recovery_paused_at: float | None = None
+
+    def hold_for_recovery(self, now: float, paused: bool) -> bool:
+        if paused:
+            if self.recovery_paused_at is None:
+                self.recovery_paused_at = now
+            return True
+        if self.recovery_paused_at is not None:
+            if self.started_at > 0:
+                self.started_at += max(0.0, now - self.recovery_paused_at)
+            self.recovery_paused_at = None
+        return False
 
 
 @dataclass(slots=True)
@@ -98,6 +110,7 @@ class ChannelPendingPollServices:
     inject_pending: Callable[..., int]
     log: Callable[[str, str], Any]
     session_socket_ready: Callable[[], bool] = lambda: False
+    external_admission_paused: Callable[[], bool] = lambda: False
 
 
 def poll_pending_channel_messages(
@@ -111,6 +124,10 @@ def poll_pending_channel_messages(
     *,
     input_ready: bool = True,
 ) -> ChannelPendingPollState:
+    paused = state.inflight.hold_for_recovery(now, services.external_admission_paused())
+    if paused:
+        state.pending_recheck = True
+        return state
     if state.inflight_message_id is None and state.inflight.backlog:
         state.inflight_message_id = state.inflight.backlog.pop(0)
         state.inflight_cursor = None

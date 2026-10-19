@@ -15,6 +15,8 @@ from dataclasses import dataclass
 from typing import Any
 
 from .channel_compact_request_repository import session_command_action
+from .channel_message_repository import ChannelFileLockBusy
+from .runtime_compaction_control import RuntimeCompactionControl
 
 NEW_SESSION_COMMANDS = {"claude": "/clear", "codex": "/new"}
 GOAL_RUNTIMES = frozenset({"claude", "codex"})
@@ -43,7 +45,7 @@ class ChannelCompactRuntimePorts:
     active_tool_call: Callable[[], bool]
     active_turn: Callable[[], bool]
     enter_bytes: Callable[[bytes | None], bytes]
-    write_prompt: Callable[..., None]
+    write_prompt: Callable[..., bool | None]
     enter_label: Callable[[bytes], str]
 
 
@@ -65,6 +67,7 @@ class ChannelCompactInjectionService:
         submit_delay_seconds: float | None = None,
         runtime: str = "",
         actions: frozenset[str] | None = None,
+        control: RuntimeCompactionControl | None = None,
     ) -> str:
         request = self.request.read()
         if not request:
@@ -86,23 +89,43 @@ class ChannelCompactInjectionService:
             return "deferred"
 
         submit_bytes = self.runtime.enter_bytes(enter_bytes)
-        self.runtime.write_prompt(
-            writer,
-            command,
-            submit_bytes,
-            submit_retry_count=submit_retry_count,
-            confirm_submit=confirm_submit,
-            bracketed_paste=bracketed_paste,
-            submit_delay_seconds=submit_delay_seconds,
-        )
-        self.request.clear(request_id or None)
-        self.log(
-            "INFO",
-            f"channel_compact_request_injected id={request_id or '-'} "
-            f"action={action} command={command} "
-            f"enter={self.runtime.enter_label(submit_bytes)}",
-        )
-        return "injected"
+        if control and not control.command_ready(request):
+            self._log_deferred(request_id, "context_recovery_command_not_ready", log_defer)
+            return "deferred"
+        try:
+            try:
+                submitted = self.runtime.write_prompt(
+                    writer,
+                    command,
+                    submit_bytes,
+                    submit_retry_count=submit_retry_count,
+                    confirm_submit=confirm_submit,
+                    bracketed_paste=bracketed_paste,
+                    submit_delay_seconds=submit_delay_seconds,
+                )
+            except Exception:
+                if control:
+                    control.command_failed(request, "command_submission_uncertain", uncertain=True)
+                raise
+            if submitted is False:
+                if control:
+                    control.command_failed(request, "command_not_submitted")
+                self._log_deferred(request_id, "command_not_submitted", log_defer)
+                return "deferred"
+            if control:
+                control.command_submitted(request)
+            self.request.clear(request_id or None)
+            self.log(
+                "INFO",
+                f"channel_compact_request_injected id={request_id or '-'} "
+                f"action={action} command={command} "
+                f"enter={self.runtime.enter_label(submit_bytes)}",
+            )
+            return "injected"
+        except ChannelFileLockBusy as exc:
+            # Polling may defer only failures known to precede submission.
+            # A send or its bookkeeping may already have changed native state.
+            raise RuntimeError("channel compact lock busy after submission attempt") from exc
 
     def _log_deferred(
         self, request_id: str, reason: str, enabled: bool
