@@ -1,0 +1,98 @@
+Auto-compact trigger: what the client actually computes, and why the pin is safe
+Re-checked 2026-10-19 against commit 50e7906 (HEAD) and the live provider table.
+No transcript, key, or message content is reproduced here; only numbers.
+
+1. Client-side threshold (from the recorded build evidence, not documentation)
+
+Source: docs/journal/2026/10/15/diagnostics/claude-autocompact/evidence/
+05-claude-code-2.1.300-autocompact-source.txt (Claude Code 2.1.300 binary, plain-JS
+region; minified names valid for that build only). Both environment names used by
+this fix are present in the installed 2.1.292 binary as well:
+  CLAUDE_AUTOCOMPACT_PCT_OVERRIDE      -> bin/claude.exe, claude-code-win32-x64/claude.exe
+  CLAUDE_CODE_AUTO_COMPACT_WINDOW      -> same two files
+
+The build computes:
+  effective_window = window - min(model.maxOutputTokens, 20000)
+  default_threshold = effective_window - 13000
+  override_threshold = min(floor(effective_window * pct / 100), effective_window - 13000)
+
+So the override percentage is applied to the window AFTER up to 20,000 output
+tokens are deducted, and is additionally capped 13,000 below that. It is not a
+percentage of the raw CLAUDE_CODE_AUTO_COMPACT_WINDOW value.
+
+2. Numbers for the live Walkie provider (cielairouter)
+
+  window (env)                 872,000
+  effective window             852,000   (872,000 - 20,000)
+  default threshold            839,000   (852,000 - 13,000)
+  guard input budget           716,750   (872,000 - 128,000 output - 27,250 reserve)
+  pinned percent               82
+  client threshold at 82 %     698,640   (floor(852,000 * 0.82))
+  headroom under the budget     18,110
+
+Regression, restated in the client's own terms: the client would have compacted
+at 839,000 tokens while the router stopped forwarding unmodified requests at
+716,750. The trigger sat 122,250 tokens above the trim point, so it could never
+be reached. The measured token basis after the last boundary peaked at 817,921,
+which is below 839,000 and above 716,750 - exactly the window in which the session
+sent 1,582 requests, zero compaction requests, and grew without bound.
+
+3. Version robustness
+
+The pinned percent is derived from the raw window, so for any internal deduction
+d of the client (d >= 0):
+  floor((window - d) * pct / 100) <= floor(window * pct / 100) <= budget
+The trigger therefore stays at or below the budget for every build that deducts
+from the window at all, without encoding the 20,000 / 13,000 constants. Pinning
+to the exact effective window (84 % here) would land at 715,680, 1,070 under the
+budget, but would depend on constants observed in a single build. The conservative
+pin is deliberate: an overshoot would silently restore the incident.
+
+4. One trim point only
+
+cap_anthropic_body -> budget.compact_anthropic(input_budget)
+                   -> prompt_compaction.compact_anthropic_body_for_budget(budget_tokens)
+The runtime guard and the environment now read the same guarded_input_budget()
+helper, so there is no second, smaller threshold that the trigger could exceed.
+A translated Codex checkpoint on the Anthropic wire is the only case that trims
+with native_owns=False; it is a Codex launch and does not consume this env.
+
+5. Full provider sweep (the workspace config the launcher actually loads, HEAD)
+
+Source config: %APPDATA%\ciel-runtime\workspaces\bd5f642b3583\config.json
+(the global config.json is not the file load_config() reads; the first sweep used
+it by mistake and is superseded by this one).
+
+61 providers are pinned and every one satisfies trigger <= budget. Violations: 0.
+Selected rows (window, percent, budget, threshold on the client's effective window):
+  cielairouter       872,000    82    716,750   698,640
+  kimi             1,000,000    89    983,040   872,200
+  tabitoken        1,000,000    98    983,616   960,400
+  alims-intl/alitoken* 900,000  95    860,736   836,000
+  ollama             262,144    95    249,856   230,036
+  openrouter         262,144    96    252,928   232,458
+  fireworks          262,144    93    245,760   225,193
+  minimax*           200,000    92    185,664   165,600
+  codebuddy-cn       200,000    94    189,760   169,200
+  azure/github-copilot-oauth 128,000  91/81  116,736/104,448  98,280/87,480
+  nvidia-hosted       65,536    90     59,392    40,982
+  lm-studio/self-hosted-nim 32,768  90  29,696   11,491
+  the remaining 40 providers: 131,072  90  118,784   99,964
+
+Unbounded (guard never trims, percent intentionally left to the client):
+  ollama-cloud     1,000,000   none 1,011,712   (active provider; model deepseek-v4.1-flash:1017)
+  deepseek         1,000,000   none 1,032,192
+  meta               900,000   none 1,011,712
+  opencode-go      1,000,000   none 1,024,000
+On these the client's own default threshold (window - 33,000 = 967,000) sits below
+the budget, so no pin is needed and none is emitted.
+
+Native Anthropic and remote-bridge launches report a zero budget and keep their
+own compaction contract.
+
+6. What this does not establish
+
+No live Claude launch was made to read the emitted environment from a running
+child in this re-check; the values come from the shipped code path plus the
+saved configuration. The 20,000/13,000 deductions come from one inspected build
+and are not documented; the pin does not depend on them, as shown in section 3.
