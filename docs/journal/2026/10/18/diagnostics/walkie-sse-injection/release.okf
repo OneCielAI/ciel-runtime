@@ -1,0 +1,55 @@
+---
+type: Release Journal
+title: Walkie socket fallback nightly deployment
+description: Exact-commit CI, published artifact integrity and current-user local installation evidence for Windows proxy fallback delivery.
+timestamp: "2026-10-18"
+tags: [walkie, sse, channel, nightly, verification]
+---
+
+# Authorization
+
+The user requested analysis, a nightly release and local deployment, and reserved Walkie session restart to themselves. No live session restart, queue replay, cursor reset, key change, test message or loaded-snapshot overwrite is authorized by this release record.
+
+# Released source
+
+Code commit: `4e5c802900363fd318d1460b7510abd2ed08c24f` on nightly.
+
+- Windows proxy fallback retains socket-only pending delivery and inflight confirmation.
+- Typed pre-submission Windows lock contention defers polling; uncertain sends are not automatically replayed.
+- Shared state is forwarded through the production compatibility API. Batch completion/stale cleanup and safe confirmation cursor ceilings survive retries without skipping deferred inputs.
+- Historical errno 36's exact raising call remains unconfirmed; this release corrects the verified missing-poller failure path rather than claiming a historical lock caller.
+
+# Verification before installation
+
+- Python 3.10, 3.11 and 3.14: 96 focused tests each, no failures/errors/skips. Both real local SSE → queue → authenticated OS socket fixtures succeeded with one user frame each, including post-submit display failure and original-child replacement.
+- Additional terminal/composition/architecture/restart checks: 564 tests run, 126 skipped, zero failures/errors.
+- Exact-commit hosted CI https://github.com/OneCielAI/ciel-runtime/actions/runs/39200629643 succeeded in all six jobs: quality, Python 3.10 minimum, and unit/router/channel/runtime groups.
+- Hosted group counts: unit 2062 (58 skipped), router 1354, channel 506 (80 skipped), runtime 406 (19 skipped). Python-minimum repeats the 2062 unit suite. Skips remain explicit; do not interpret counts as all cases executed.
+- Local live router health was HTTP 200 before and after source validation. No full local suite was rerun while the live routers were serving.
+
+# Deployment status
+
+The first npm Publish attempt failed its Verify published tarball step after 90 checks. npm publish returned success with the explicit notice `Your package is being processed and may take a few minutes to become available.`, but `0.2.51-nightly.20261019-044445.4e5c802` and its tarball were HTTP 404 at the time. The workflow retained/rolled nightly back to 1962793. One failed-job rerun for the same commit then succeeded, including tarball verification.
+
+- Publish run https://github.com/OneCielAI/ciel-runtime/actions/runs/39200629471 attempt 2: success.
+- Exact deployed version: `0.2.51-nightly.20261019-050605.4e5c802`. Registry gitHead equals `4e5c802900363fd318d1460b7510abd2ed08c24f`; nightly tag points to this version, latest remains `0.2.51`.
+- Tarball SHA-256: `3c925c2d0f1fb730deede75c0ff120fa93028dabb004ed69c106e4608664a2dd`; registry SHA-1 and SHA-512 integrity verified before extraction.
+- Published package vs released git: 1764 of 1766 files identical after LF normalization; only package.json and runtime_constants.py have inspected CI version stamps.
+- npm global installed that exact version. All 1766 installed package files match the verified tarball. No npm lifecycle scripts were run.
+- Published install.ps1 matched the inspected source. Ran under existing RemoteSigned policy, no bypass or policy changes, with cleared inherited runtime/provider variables and a new target only.
+- HKCU CIEL_RUNTIME_HOME is now `C:/Users/djlov/.local/share/ciel-runtime-4e5c802900363fd318d1460b7510abd2ed08c24f`; all 425 snapshot files match the verified package. Old loaded 1962793 snapshot's 425 files remain byte-identical.
+- npm .cmd, local .cmd and fresh User-PATH launcher each returned 0 and reported the exact deployed version from scratch config/cwd.
+- Each installed root ran 96 focused tests on Python 3.14, zero failures/errors/skips, including both real SSE/OS-socket fixtures, one accepted user frame, confirmation and fixture-child cleanup. Loaded hashes for all seven modified support modules were captured.
+- Four observed live routers remain HTTP 200 on 9385/9489/9505/9512. All 12 processes visible immediately before installation retain their PIDs and old snapshot. Three of the original 15 observation PIDs were already absent before installation; this record does not attribute their exit to a cause.
+
+Local nightly installation and isolated installed-path functional verification are complete. The observed Walkie router on 9505 still reports 1962793; no live Walkie restart was performed, and this is not a claim that its currently running session has loaded the fix.
+
+# Evidence
+
+Local evidence is under implementation-evidence/. Source/installed verifiers clear inherited CIEL_RUNTIME_*, CLAUDE* and ANTHROPIC_* environment variables, use temporary state and child sockets, and do not target the live Walkie endpoint. New launchers need a fresh session to load the installed snapshot; old processes keep their existing code.
+
+Portable summary and decisive functional logs are retained in `release-evidence.json`, `installed-npm-tests.txt`, and `installed-snapshot-tests.txt`. This is a CLI/server change; command output, API health responses and real socket receipt evidence are the verification captures, not a fabricated UI screenshot.
+
+# Publication delay limitation
+
+Official npm CLI source logs the registry's npm-notice header and does not wait for post-upload availability. Official npm documentation explains pre-install publication scanning with variable duration and recommends polling availability. This explains why command success alone is insufficient, but does not establish the precise cause/state of this release's first delayed upload. Sources: https://github.com/npm/npm-registry-fetch/blob/main/lib/check-response.js ; https://github.com/npm/cli/blob/latest/workspaces/libnpmpublish/lib/publish.js ; https://github.blog/changelog/2026-07-28-npm-publish-time-malware-scanning-and-dual-use-metadata/ .
