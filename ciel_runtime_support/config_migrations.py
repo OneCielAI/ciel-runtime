@@ -553,6 +553,23 @@ def apply_config_migrations(cfg: dict[str, Any], *, policy: ConfigMigrationPolic
                     pcfg["num_ctx_max"] = 1_000_000
         migrations[marker] = True
 
+    marker = "ollama_cloud_deepseek_v41_flash_1017_20261019"
+    if not migrations.get(marker):
+        pcfg = cfg.get("providers", {}).get("ollama-cloud", {})
+        if isinstance(pcfg, dict):
+            custom = pcfg.get("custom_models")
+            if isinstance(custom, list):
+                known = {
+                    normalize_model_id("ollama-cloud", str(model))
+                    for model in custom
+                    if str(model).strip()
+                }
+                if normalize_model_id(
+                    "ollama-cloud", "deepseek-v4.1-flash:1017-cloud"
+                ) not in known:
+                    custom.append("deepseek-v4.1-flash:1017-cloud")
+        migrations[marker] = True
+
     marker = "ollama_cloud_glm52_thinking_context_20260711"
     if not migrations.get(marker):
         pcfg = cfg.get("providers", {}).get("ollama-cloud", {})

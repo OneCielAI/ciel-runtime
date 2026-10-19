@@ -689,6 +689,25 @@ class OllamaProviderOptionTests(unittest.TestCase):
             "deepseek-v4-flash:0731", pcfg["model_context_model"]
         )
 
+    def test_deepseek_v41_flash_1017_migration_adds_dated_snapshot_once(self):
+        cfg = {
+            "providers": {"ollama-cloud": {"custom_models": ["deepseek-v4.1-flash"]}},
+            "migrations": {},
+        }
+        ciel_runtime.apply_config_migrations(cfg)
+        custom = cfg["providers"]["ollama-cloud"]["custom_models"]
+        self.assertIn("deepseek-v4.1-flash:1017-cloud", custom)
+        ciel_runtime.apply_config_migrations(cfg)
+        self.assertEqual(1, custom.count("deepseek-v4.1-flash:1017-cloud"))
+
+    def test_deepseek_v41_flash_1017_cloud_tag_normalizes_for_wire(self):
+        adapter = ciel_runtime.configured_provider_adapter(
+            "ollama-cloud", {"current_model": "deepseek-v4.1-flash:1017-cloud"})
+        self.assertEqual(
+            "deepseek-v4.1-flash:1017",
+            adapter.normalize_model_id("deepseek-v4.1-flash:1017-cloud"),
+        )
+
     def test_glm_52_ollama_preset_matches_provider_api_context(self):
         for model in ("glm-5.2", "glm-5.2:cloud"):
             preset = ciel_runtime.MODEL_PRESETS[model]
