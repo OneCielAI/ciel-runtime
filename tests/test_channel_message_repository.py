@@ -1,11 +1,14 @@
 import contextlib
+import errno
 import json
 from pathlib import Path
 import tempfile
 import threading
 import unittest
+from unittest.mock import Mock, patch
 
 from ciel_runtime_support.channel_message_repository import (
+    ChannelFileLockBusy,
     ChannelMessageAppendPorts,
     ChannelMessageRepository,
     exclusive_file_lock,
@@ -21,6 +24,85 @@ class ChannelMessageRepositoryTests(unittest.TestCase):
                 self.assertTrue(path.with_name("messages.jsonl.lock").exists())
 
             self.assertTrue(path.parent.exists())
+
+    def test_windows_acquisition_contention_is_typed_with_errno(self):
+        windows = Mock(LK_LOCK=1, LK_UNLCK=0)
+        for code in (errno.EACCES, errno.EAGAIN, errno.EDEADLK):
+            with self.subTest(errno=code), tempfile.TemporaryDirectory() as tmp:
+                failure = OSError(code, "lock busy")
+                windows.locking.reset_mock(side_effect=True)
+                windows.locking.side_effect = failure
+                path = Path(tmp) / "messages.jsonl"
+                with (
+                    patch("ciel_runtime_support.channel_message_repository.os.name", "nt"),
+                    patch.dict("sys.modules", msvcrt=windows),
+                ):
+                    with self.assertRaises(ChannelFileLockBusy) as caught:
+                        with exclusive_file_lock(path):
+                            self.fail("lock body must not run before acquisition")
+                self.assertEqual(code, caught.exception.errno)
+                self.assertIs(failure, caught.exception.__cause__)
+                self.assertEqual(1, windows.locking.call_count)
+
+    def test_windows_noncontention_acquisition_error_is_not_converted(self):
+        windows = Mock(LK_LOCK=1, LK_UNLCK=0)
+        failure = OSError(errno.EIO, "not contention")
+        windows.locking.side_effect = failure
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "messages.jsonl"
+            with (
+                patch("ciel_runtime_support.channel_message_repository.os.name", "nt"),
+                patch.dict("sys.modules", msvcrt=windows),
+            ):
+                with self.assertRaises(OSError) as caught:
+                    with exclusive_file_lock(path):
+                        self.fail("acquisition failed")
+        self.assertIs(failure, caught.exception)
+        self.assertNotIsInstance(caught.exception, ChannelFileLockBusy)
+
+    def test_windows_lock_body_error_is_not_converted(self):
+        windows = Mock(LK_LOCK=1, LK_UNLCK=0)
+        failure = OSError(errno.EACCES, "write denied")
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "messages.jsonl"
+            with (
+                patch("ciel_runtime_support.channel_message_repository.os.name", "nt"),
+                patch.dict("sys.modules", msvcrt=windows),
+            ):
+                with self.assertRaises(OSError) as caught:
+                    with exclusive_file_lock(path):
+                        raise failure
+        self.assertIs(failure, caught.exception)
+        self.assertNotIsInstance(caught.exception, ChannelFileLockBusy)
+        self.assertEqual([1, 0], [call.args[1] for call in windows.locking.call_args_list])
+
+    def test_windows_unlock_error_is_not_converted(self):
+        windows = Mock(LK_LOCK=1, LK_UNLCK=0)
+        failure = OSError(errno.EACCES, "unlock denied")
+        windows.locking.side_effect = [None, failure]
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "messages.jsonl"
+            with (
+                patch("ciel_runtime_support.channel_message_repository.os.name", "nt"),
+                patch.dict("sys.modules", msvcrt=windows),
+            ):
+                with self.assertRaises(OSError) as caught:
+                    with exclusive_file_lock(path):
+                        pass
+        self.assertIs(failure, caught.exception)
+        self.assertNotIsInstance(caught.exception, ChannelFileLockBusy)
+        self.assertEqual(2, windows.locking.call_count)
+
+    def test_lock_file_open_error_is_not_converted(self):
+        failure = OSError(errno.EACCES, "open denied")
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "messages.jsonl"
+            with patch.object(Path, "open", side_effect=failure):
+                with self.assertRaises(OSError) as caught:
+                    with exclusive_file_lock(path):
+                        self.fail("open failed")
+        self.assertIs(failure, caught.exception)
+        self.assertNotIsInstance(caught.exception, ChannelFileLockBusy)
 
     def repository(self, path: Path) -> ChannelMessageRepository:
         return ChannelMessageRepository(path=path, log=lambda _level, _message: None)

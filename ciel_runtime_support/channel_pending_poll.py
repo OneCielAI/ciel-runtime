@@ -6,6 +6,8 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
+from ciel_runtime_support.channel_message_repository import ChannelFileLockBusy
+
 
 @dataclass(slots=True)
 class ChannelPendingInflightState:
@@ -75,6 +77,7 @@ class ChannelPendingInjectionOptions:
     confirm_submit: bool
     bracketed_paste: bool
     submit_delay_seconds: float | None
+    terminal_available: bool = True
 
 
 @dataclass(frozen=True, slots=True)
@@ -150,42 +153,56 @@ def poll_pending_channel_messages(
                 )
             return state
 
-    if marker != state.last_marker:
-        state.last_marker = marker
+    injected_ids: list[int] = []
+    injected_commit_cursors: list[int] = []
+    try:
+        cursor = max(state.last_id, services.ensure_cursor())
+        last_id = services.inject_pending(
+            writer,
+            cursor,
+            enter_bytes,
+            web_chat_only=options.web_chat_only,
+            wake_for_llm_delivery=options.wake_for_llm_delivery,
+            display_llm_delivery_body=options.display_llm_delivery_body,
+            # A runtime without transcript confirmation (for example Muse Code)
+            # uses a single fire-and-forget TTY write. Persist its cursor in that
+            # same operation; otherwise the generic inflight verifier sees every
+            # successful delivery as "missing" and replays it.
+            commit_cursor=not options.confirm_submit,
+            injected_message_ids=injected_ids,
+            injected_commit_cursors=injected_commit_cursors,
+            submit_retry_count=options.submit_retry_count,
+            confirm_submit=options.confirm_submit,
+            bracketed_paste=options.bracketed_paste,
+            submit_delay_seconds=options.submit_delay_seconds,
+            skip_blocking_wake_states=state.inflight_message_id is not None,
+            terminal_available=options.terminal_available,
+        )
+    except ChannelFileLockBusy as exc:
+        # The injector never exposes this type after a submission attempt.
+        # Keep the unconsumed marker/cursor and recheck on the next bounded poll.
+        state.pending_recheck = True
+        services.log(
+            "WARN",
+            f"{policy.log_namespace}_deferred stage=pre_submit errno={exc.errno} "
+            "reason=channel_file_lock_busy",
+        )
+        return state
+    state.last_marker = marker
     # A scan during a turn may have left TTY inputs behind; look again once
     # the turn ends.
     state.pending_recheck = busy
     state.last_scan_at = now
-    state.last_id = max(state.last_id, services.ensure_cursor())
-    injected_ids: list[int] = []
-    state.last_id = services.inject_pending(
-        writer,
-        state.last_id,
-        enter_bytes,
-        web_chat_only=options.web_chat_only,
-        wake_for_llm_delivery=options.wake_for_llm_delivery,
-        display_llm_delivery_body=options.display_llm_delivery_body,
-        # A runtime without transcript confirmation (for example Muse Code)
-        # uses a single fire-and-forget TTY write. Persist its cursor in that
-        # same operation; otherwise the generic inflight verifier sees every
-        # successful delivery as "missing" and replays it.
-        commit_cursor=not options.confirm_submit,
-        injected_message_ids=injected_ids,
-        submit_retry_count=options.submit_retry_count,
-        confirm_submit=options.confirm_submit,
-        bracketed_paste=options.bracketed_paste,
-        submit_delay_seconds=options.submit_delay_seconds,
-        skip_blocking_wake_states=state.inflight_message_id is not None,
-    )
+    state.last_id = last_id
     if injected_ids and options.confirm_submit:
         if state.inflight_message_id is not None:
             state.inflight.backlog.append(state.inflight_message_id)
         state.inflight_message_id = injected_ids[-1]
         state.inflight.attempts += 1
-        # The injector deliberately returns the cursor preceding an LLM-delivery
-        # batch until the resulting turn is confirmed.  The durable commit point
-        # is nevertheless the highest message in that atomic batch.
-        state.inflight_cursor = max(injected_ids)
+        # Router delivery may return its pre-batch cursor, while a mixed scan
+        # may have deferred an earlier input. Use the injector's safe commit
+        # ceiling rather than committing across that unresolved deferral.
+        state.inflight_cursor = min(injected_commit_cursors) if injected_commit_cursors else max(injected_ids)
         state.inflight_logged_at = now
         state.inflight_started_at = now
     return state

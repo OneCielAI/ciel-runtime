@@ -4517,12 +4517,12 @@ def _inject_pending_channel_messages(
     web_chat_only: bool = False,
     wake_for_llm_delivery: bool = False, display_llm_delivery_body: bool = False,
     commit_cursor: bool = True,
-    injected_message_ids: list[int] | None = None,
+    injected_message_ids: list[int] | None = None, injected_commit_cursors: list[int] | None = None,
     submit_retry_count: int = 1,
     confirm_submit: bool = False,
     bracketed_paste: bool = False,
     submit_delay_seconds: float | None = None,
-    skip_blocking_wake_states: bool = False,
+    skip_blocking_wake_states: bool = False, terminal_available: bool = True,
 ) -> int:
     return channel_wake_context().inject_pending(
         master_fd,
@@ -4532,12 +4532,12 @@ def _inject_pending_channel_messages(
         wake_for_llm_delivery=wake_for_llm_delivery,
         display_llm_delivery_body=display_llm_delivery_body,
         commit_cursor=commit_cursor,
-        injected_message_ids=injected_message_ids,
+        injected_message_ids=injected_message_ids, injected_commit_cursors=injected_commit_cursors,
         submit_retry_count=submit_retry_count,
         confirm_submit=confirm_submit,
         bracketed_paste=bracketed_paste,
         submit_delay_seconds=submit_delay_seconds,
-        skip_blocking_wake_states=skip_blocking_wake_states,
+        skip_blocking_wake_states=skip_blocking_wake_states, terminal_available=terminal_available,
     )
 
 def _inject_pending_compact_request( master_fd: int, enter_bytes: bytes | None = None, *, log_defer: bool = True, submit_retry_count: int = 1, confirm_submit: bool = False, bracketed_paste: bool = False, submit_delay_seconds: float | None = None, **session_options: Any, ) -> str:

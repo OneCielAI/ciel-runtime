@@ -5,6 +5,17 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+- External SSE/channel input keeps its socket delivery loop when the Windows
+  terminal proxy fails and the CLI falls back to a direct subprocess. The direct
+  supervisor preserves inflight confirmation and never substitutes terminal
+  typing for an unavailable socket. Transient Windows queue-lock acquisition
+  failures defer a pre-submission scan instead of terminating the proxy; an
+  uncertain send is not automatically replayed. Proxy failure diagnostics now
+  include the operation stage, errno and traceback frame locations without
+  prompt contents. This fixes the queued-input stall observed in Walkie after
+  the proxy's `Errno 36`; the historical exception's exact raising call remains
+  unconfirmed. Existing running launchers need a fresh launch to load the fix.
+
 - Native Anthropic streaming: interrupted reads and EOF before upstream
   `message_stop` now emit an SSE `api_error` instead of inventing a successful
   ending or closing a partial tool call. Upstream errors are forwarded once;

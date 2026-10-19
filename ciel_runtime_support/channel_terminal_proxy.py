@@ -5,6 +5,7 @@ import os
 import signal
 import sys
 import time
+import traceback
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
@@ -15,6 +16,7 @@ from ciel_runtime_support.channel_compact_poll import (
     ChannelCompactPollState,
     poll_pending_compaction,
 )
+from ciel_runtime_support.channel_message_repository import ChannelFileLockBusy
 from ciel_runtime_support.channel_inflight import (
     ChannelInflightPolicy,
     ChannelInflightSnapshot,
@@ -158,6 +160,18 @@ def resolve_posix_child_exit_status(
     return exit_status
 
 
+def terminal_proxy_error_context(exc: BaseException, *, stage: str) -> str:
+    frames = ",".join(
+        f"{Path(frame.filename).name}:{frame.lineno}:{frame.name}"
+        for frame in traceback.extract_tb(exc.__traceback__)[-8:]
+    ) or "-"
+    return (
+        f"stage={stage} type={type(exc).__name__} "
+        f"errno={getattr(exc, 'errno', None)} winerror={getattr(exc, 'winerror', None)} "
+        f"frames={frames}"
+    )
+
+
 def terminal_exit_control_summary(data: bytes) -> str:
     """Summarize only terminal controls that can request a Codex TUI exit."""
 
@@ -248,6 +262,7 @@ def run_windows_channel_terminal_proxy(
     restart_state: Any = None,
     session_command_runtime: str = "",
     session_command_actions: frozenset[str] | None = None,
+    pending_poll_state: ChannelPendingPollState | None = None,
 ) -> int:
     process = services.process
     policy = services.policy
@@ -313,10 +328,13 @@ def run_windows_channel_terminal_proxy(
     except BaseException:
         cleanup_resources()
         raise
+    stage = "initialize"
     try:
-        pending_poll_state = ChannelPendingPollState(
-            last_id=policy.initial_cursor()
-        )
+        pending_poll_state = pending_poll_state or ChannelPendingPollState(last_id=0)
+        try:
+            pending_poll_state.last_id = max(pending_poll_state.last_id, policy.initial_cursor())
+        except ChannelFileLockBusy as exc:
+            policy.log("WARN", f"channel_windows_console_deferred phase=cursor_initialize errno={exc.errno}")
         compact_poll_state = ChannelCompactPollState()
         interaction_display_state = RuntimeInteractionDisplayState()
         interaction_pending = False
@@ -394,6 +412,7 @@ def run_windows_channel_terminal_proxy(
             f"display_body={bool(channel_wake_display_body)}",
         )
         while proc.poll() is None:
+            stage = "interaction"
             now = time.time()
             interaction = polling.runtime_interaction()
             interaction_pending = runtime_interaction_is_pending(interaction, now)
@@ -406,6 +425,7 @@ def run_windows_channel_terminal_proxy(
                 lambda: interaction,
                 lambda notice: _display_windows_runtime_interaction(writer, notice),
             )
+            stage = "restart"
             if _runtime_session_restart_requested(
                 policy.log,
                 restart_poll,
@@ -418,6 +438,7 @@ def run_windows_channel_terminal_proxy(
                 process.terminate_child(proc, "cli session restart")
                 console.sleep(0.05)
                 continue
+            stage = "terminal_io"
             if conpty is not None:
                 conpty.resize_if_needed()
             elif now - last_terminal_input_mode_reset >= terminal_input_mode_reset_interval:
@@ -433,41 +454,48 @@ def run_windows_channel_terminal_proxy(
             input_ready = now >= channel_input_ready_at and (
                 startup_answers is None or (conpty is not None and startup_answers.input_ready())
             )
-            if pending_poll_state.inflight_message_id is not None:
-                inflight_message_id = pending_poll_state.inflight_message_id
-                channel_inflight_state = polling.wake_state(inflight_message_id)
-                inflight_update = advance_channel_inflight(
-                    ChannelInflightSnapshot(
-                        message_id=inflight_message_id,
-                        cursor=pending_poll_state.inflight_cursor,
-                        wake_state=channel_inflight_state,
-                        started_at=pending_poll_state.inflight_started_at,
-                        logged_at=pending_poll_state.inflight_logged_at,
-                        now=now,
-                        last_id=pending_poll_state.last_id,
-                    ),
-                    ChannelInflightPolicy(
-                        unseen_retry_seconds=policy.unseen_retry_seconds(),
-                        waiting_log_interval=30.0,
-                        is_stale=policy.inflight_is_stale,
-                        commit_cursor_on_stale=False,
-                        log_namespace="channel_windows_console",
-                        stale_event="stale_inflight_retry",
-                    ),
-                    polling.inflight_effects(),
-                )
-                pending_poll_state.inflight_message_id = inflight_update.message_id
-                pending_poll_state.inflight_cursor = inflight_update.cursor
-                pending_poll_state.inflight_started_at = inflight_update.started_at
-                pending_poll_state.inflight_logged_at = inflight_update.logged_at
-                pending_poll_state.pending_recheck = (
-                    pending_poll_state.pending_recheck or inflight_update.pending_recheck
-                )
-                pending_poll_state.last_id = inflight_update.last_id
-                if inflight_update.action == "completed":
-                    pending_poll_state.inflight.attempts = 0
-                elif inflight_update.action == "failed":
-                    pending_poll_state.inflight.attempts = 0
+            try:
+                stage = "inflight_confirmation"
+                if pending_poll_state.inflight_message_id is not None:
+                    inflight_message_id = pending_poll_state.inflight_message_id
+                    channel_inflight_state = polling.wake_state(inflight_message_id)
+                    inflight_update = advance_channel_inflight(
+                        ChannelInflightSnapshot(
+                            message_id=inflight_message_id,
+                            cursor=pending_poll_state.inflight_cursor,
+                            wake_state=channel_inflight_state,
+                            started_at=pending_poll_state.inflight_started_at,
+                            logged_at=pending_poll_state.inflight_logged_at,
+                            now=now,
+                            last_id=pending_poll_state.last_id,
+                        ),
+                        ChannelInflightPolicy(
+                            unseen_retry_seconds=policy.unseen_retry_seconds(),
+                            waiting_log_interval=30.0,
+                            is_stale=policy.inflight_is_stale,
+                            commit_cursor_on_stale=False,
+                            log_namespace="channel_windows_console",
+                            stale_event="stale_inflight_retry",
+                        ),
+                        polling.inflight_effects(),
+                    )
+                    pending_poll_state.inflight_message_id = inflight_update.message_id
+                    pending_poll_state.inflight_cursor = inflight_update.cursor
+                    pending_poll_state.inflight_started_at = inflight_update.started_at
+                    pending_poll_state.inflight_logged_at = inflight_update.logged_at
+                    pending_poll_state.pending_recheck = (
+                        pending_poll_state.pending_recheck or inflight_update.pending_recheck
+                    )
+                    pending_poll_state.last_id = inflight_update.last_id
+                    if inflight_update.action == "completed":
+                        pending_poll_state.inflight.attempts = 0
+                    elif inflight_update.action == "failed":
+                        pending_poll_state.inflight.attempts = 0
+            except ChannelFileLockBusy as exc:
+                policy.log("WARN", f"channel_windows_console_deferred phase=inflight_lock_acquire errno={exc.errno}")
+                console.sleep(0.5)
+                continue
+            stage = "compact_poll"
             compact_poll_state = poll_pending_compaction(
                 now,
                 writer,
@@ -478,6 +506,7 @@ def run_windows_channel_terminal_proxy(
                 compact_poll_services,
                 input_ready=input_ready,
             )
+            stage = "pending_poll"
             pending_poll_state = poll_pending_channel_messages(
                 now,
                 writer,
@@ -493,7 +522,13 @@ def run_windows_channel_terminal_proxy(
         policy.log("INFO", f"channel_windows_console_child_exit pid={proc.pid} returncode={returncode}")
         return returncode
     except BaseException as exc:
-        policy.log("ERROR", f"channel_windows_console_proxy_exception type={type(exc).__name__}")
+        policy.log(
+            "ERROR",
+            "channel_windows_console_proxy_exception "
+            f"{terminal_proxy_error_context(exc, stage=stage)} "
+            f"pid={proc.pid if proc is not None else '-'} "
+            f"cursor={pending_poll_state.last_id if pending_poll_state is not None else '-'}",
+        )
         raise
     finally:
         cleanup_resources()

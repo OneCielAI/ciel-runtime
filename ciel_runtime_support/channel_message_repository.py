@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from datetime import datetime
+import errno
 import json
 from dataclasses import dataclass
 import os
@@ -10,6 +11,10 @@ from typing import Any, Callable
 import time
 
 from ciel_runtime_support.channel_message_policy import string_list
+
+
+class ChannelFileLockBusy(OSError):
+    """A Windows advisory lock acquisition exhausted its bounded wait."""
 
 
 @contextmanager
@@ -27,7 +32,12 @@ def exclusive_file_lock(path: Path):
                 lock_file.write(b"\0")
                 lock_file.flush()
             lock_file.seek(0)
-            msvcrt.locking(lock_file.fileno(), msvcrt.LK_LOCK, 1)
+            try:
+                msvcrt.locking(lock_file.fileno(), msvcrt.LK_LOCK, 1)
+            except OSError as exc:
+                if exc.errno in {errno.EACCES, errno.EAGAIN, errno.EDEADLK}:
+                    raise ChannelFileLockBusy(exc.errno, "channel file lock acquisition busy") from exc
+                raise
             try:
                 yield
             finally:

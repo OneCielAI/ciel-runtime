@@ -199,7 +199,7 @@ private Runtime Input의 `queued -> submitted -> replied|failed` 전이를 JSONL
 
 ### `ciel_runtime_support/channel_terminal_proxy.py`
 
-POSIX PTY와 Windows ConPTY/Console transport의 생성, 터미널 크기 동기화, 표준 입출력 전달, channel/compact polling과 자식 프로세스 정리를 조정하는 Channel Infrastructure Adapter. Windows setup 또는 loop가 실패해도 자식 종료, terminal mode 복원, PID record 해제와 ConPTY close를 독립적인 best-effort 단계로 수행한다. Process, Terminal I/O, Policy, Polling 포트를 각각 10필드 이하로 주입하며 메인 composition root는 플랫폼 선택과 실제 콜백 조립만 담당한다.
+POSIX PTY와 Windows ConPTY/Console transport의 생성, 터미널 크기 동기화, 표준 입출력 전달, channel/compact polling과 자식 프로세스 정리를 조정하는 Channel Infrastructure Adapter. Windows setup 또는 loop가 실패해도 자식 종료, terminal mode 복원, PID record 해제와 ConPTY close를 독립적인 best-effort 단계로 수행한다. Process, Terminal I/O, Policy, Polling 포트를 각각 10필드 이하로 주입하며 메인 composition root는 플랫폼 선택과 실제 콜백 조립만 담당한다. Windows proxy loop의 예외는 단계·errno·traceback 위치를 본문 없이 기록하고 dispatch 계층으로 전파한다.
 
 ### `ciel_runtime_support/pty_master_writer.py`
 
@@ -211,7 +211,7 @@ POSIX PTY 중계에서 자식 CLI의 화면 출력(ANSI·공백 제거)을 보�
 
 ### `ciel_runtime_support/channel_terminal_dispatch.py`
 
-Windows Console/POSIX PTY/direct subprocess 선택과 tracked child-process record 수명주기를 소유하는 Application Service. 플랫폼·TTY 설정, proxy adapter, direct process 효과를 각각 최대 5필드 typed port로 분리하며 Windows Adapter 실패 시 명시적으로 direct 실행으로 복구한다.
+Windows Console/POSIX PTY/direct subprocess 선택과 tracked child-process record 수명주기를 소유하는 Application Service. 플랫폼·TTY 설정, proxy adapter, direct process 효과를 각각 최대 5필드 typed port로 분리하며 Windows Adapter 실패 시 명시적으로 direct 실행으로 복구한다. `ChannelDirectDeliveryServices`로 같은 policy/polling 포트를 받아 direct child 수명 동안 socket-only pending poll과 inflight 확인을 유지한다. 프록시에서 넘긴 inflight 상태를 재사용하며 socket 미준비 시 TTY 입력으로 대체하거나 queued 커서를 넘기지 않는다. unattended startup 자동화가 화면을 확인하지 못하는 direct 경로에서는 자동 입력을 계속 보류한다.
 
 ### `ciel_runtime_support/terminal_platform_io.py`
 

@@ -329,6 +329,7 @@ from ciel_runtime_support.channel_terminal_proxy import (
     ChannelWindowsServices,
 )
 from ciel_runtime_support.channel_terminal_dispatch import (
+    ChannelDirectDeliveryServices,
     ChannelDirectProcessPorts,
     ChannelTerminalDispatchService,
     ChannelTerminalDispatchSettings,
@@ -3606,7 +3607,8 @@ class ArchitectureContractTests(unittest.TestCase):
                 self.assertLessEqual(len(fields(port)), 10)
 
     def test_channel_terminal_dispatch_uses_bounded_typed_ports(self):
-        self.assertEqual(4, len(fields(ChannelTerminalDispatchService)))
+        self.assertEqual(5, len(fields(ChannelTerminalDispatchService)))
+        self.assertEqual(2, len(fields(ChannelDirectDeliveryServices)))
         for port in (
             ChannelTerminalDispatchSettings,
             ChannelTerminalProxyPorts,

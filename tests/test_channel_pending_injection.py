@@ -9,14 +9,16 @@ record may not stall the scan, and a log line is never dropped.
 """
 
 import dataclasses
+import errno
 import json
 import pathlib
 import tempfile
 import threading
 import time
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
+from ciel_runtime_support.channel_message_repository import ChannelFileLockBusy
 from ciel_runtime_support.channel_pending_injection import (
     ChannelInjectionIO,
     ChannelInjectionPolicy,
@@ -254,6 +256,346 @@ class SessionSocketFallbackTests(unittest.TestCase):
         harness = self._run(False)
         self.assertEqual(["TYPED body-40"], harness.written)
         self.assertTrue(any("fallback=tty" in message for _, message in harness.logs))
+
+
+class SocketOnlyInjectionTests(unittest.TestCase):
+    def services(self, harness, *, available=True, send=None, busy=False):
+        base = harness.services()
+        return dataclasses.replace(
+            base,
+            state=dataclasses.replace(base.state, active_turn=lambda: busy),
+            io=dataclasses.replace(
+                base.io,
+                write_session_socket=send or Mock(return_value=True),
+                session_socket_available=lambda: available,
+            ),
+            policy=dataclasses.replace(base.policy, wake_batch_limit=lambda: 10),
+        )
+
+    def socket_message(self, message_id):
+        message = _message(message_id)
+        message["meta"] = {"input_transport": "session_socket"}
+        return message
+
+    def test_unavailable_socket_defers_before_claim_or_delivery_mark(self):
+        for busy in (False, True):
+            for wake in (False, True):
+                with self.subTest(busy=busy, wake=wake):
+                    harness = _InjectionHarness([self.socket_message(40), self.socket_message(41)])
+                    services = self.services(harness, available=False, busy=busy)
+                    claim = Mock(side_effect=AssertionError("must not claim"))
+                    services = dataclasses.replace(
+                        services,
+                        wake_store=dataclasses.replace(
+                            services.wake_store,
+                            claim_prompt=claim,
+                            claim_for_nonblocking_scan=claim,
+                        ),
+                    )
+                    returned = inject_pending_channel_messages(
+                        None, 39, services=services, terminal_available=False,
+                        wake_for_llm_delivery=wake, skip_blocking_wake_states=True,
+                    )
+                    self.assertEqual(39, returned)
+                    self.assertEqual([], harness.written)
+                    self.assertEqual([], harness.delivery.commits)
+                    self.assertEqual(set(), harness.delivery.delivered)
+                    services.io.write_session_socket.assert_not_called()
+                    claim.assert_not_called()
+
+    def test_irrelevant_terminal_records_do_not_block_later_socket(self):
+        for reason in ("noise", "superseded", "completed", "delivered"):
+            with self.subTest(reason=reason):
+                first = _message(40)
+                first["meta"] = {"input_transport": "tty"}
+                harness = _InjectionHarness([first, self.socket_message(41)])
+                services = self.services(harness)
+                if reason == "noise":
+                    services = dataclasses.replace(services, state=dataclasses.replace(
+                        services.state, message_skip_reason=lambda row: "heartbeat" if row["id"] == 40 else "",
+                    ))
+                elif reason == "superseded":
+                    services = dataclasses.replace(services, state=dataclasses.replace(
+                        services.state, superseded_ids=lambda rows: {40},
+                    ))
+                elif reason == "completed":
+                    services = dataclasses.replace(services, state=dataclasses.replace(
+                        services.state, wake_state_for_message=lambda row, prompt: "completed" if row["id"] == 40 else "missing",
+                    ))
+                else:
+                    harness.delivery.mark_delivered(40)
+
+                returned = inject_pending_channel_messages(None, 39, services=services, terminal_available=False)
+
+                self.assertEqual(41, returned)
+                services.io.write_session_socket.assert_called_once()
+                self.assertEqual([41], [row["id"] for row in services.io.write_session_socket.call_args.args[1]])
+                self.assertEqual([], harness.written)
+
+    def test_different_socket_batch_does_not_advance_past_unsent_candidate(self):
+        first = self.socket_message(40)
+        second = self.socket_message(41)
+        second["meta"]["raw_injection"] = True
+        harness = _InjectionHarness([first, second])
+        services = self.services(harness)
+
+        self.assertEqual(40, inject_pending_channel_messages(None, 39, services=services, terminal_available=False))
+        self.assertEqual([40], [row["id"] for row in services.io.write_session_socket.call_args.args[1]])
+        self.assertEqual(41, inject_pending_channel_messages(None, 40, services=services, terminal_available=False))
+        self.assertEqual([41], [row["id"] for row in services.io.write_session_socket.call_args.args[1]])
+        self.assertEqual([40, 41], harness.delivery.commits)
+
+    def test_non_socket_input_defers_without_leaping_to_later_socket(self):
+        for transport in ("tty", "router"):
+            with self.subTest(transport=transport):
+                message = _message(40)
+                message["meta"] = {"input_transport": transport}
+                harness = _InjectionHarness([message, self.socket_message(41)])
+                services = self.services(harness)
+                claim = Mock(side_effect=AssertionError("must not claim"))
+                services = dataclasses.replace(
+                    services,
+                    wake_store=dataclasses.replace(services.wake_store, claim_prompt=claim),
+                )
+                with patch("ciel_runtime_support.launch_data_path.model_http_bypassed", return_value=True):
+                    returned = inject_pending_channel_messages(
+                        None, 39, services=services, terminal_available=False,
+                        wake_for_llm_delivery=True,
+                    )
+                self.assertEqual(39, returned)
+                self.assertEqual([], harness.written)
+                self.assertEqual(set(), harness.delivery.delivered)
+                self.assertEqual([], harness.delivery.commits)
+                services.io.write_session_socket.assert_not_called()
+                claim.assert_not_called()
+
+    def test_socket_batch_stops_and_commits_before_deferred_non_socket(self):
+        message = _message(41)
+        message["meta"] = {"input_transport": "tty"}
+        harness = _InjectionHarness([self.socket_message(40), message, self.socket_message(42)])
+        services = self.services(harness)
+        injected = []
+        returned = inject_pending_channel_messages(
+            None, 39, services=services, terminal_available=False, injected_message_ids=injected,
+        )
+        self.assertEqual(40, returned)
+        self.assertEqual([40], injected)
+        self.assertEqual([40], harness.delivery.commits)
+        self.assertEqual([40], [m["id"] for m in services.io.write_session_socket.call_args.args[1]])
+        self.assertEqual([], harness.written)
+        self.assertEqual({40}, harness.delivery.delivered)
+
+    def test_socket_batch_stops_before_a_socket_that_becomes_unavailable(self):
+        harness = _InjectionHarness([self.socket_message(40), self.socket_message(41), self.socket_message(42)])
+        services = self.services(harness)
+        services = dataclasses.replace(
+            services, io=dataclasses.replace(
+                services.io, session_socket_available=Mock(side_effect=[True, False]),
+            ),
+        )
+        returned = inject_pending_channel_messages(None, 39, services=services, terminal_available=False)
+        self.assertEqual(40, returned)
+        self.assertEqual([40], harness.delivery.commits)
+        self.assertEqual({40}, harness.delivery.delivered)
+        self.assertEqual([40], [m["id"] for m in services.io.write_session_socket.call_args.args[1]])
+        self.assertEqual([], harness.written)
+
+    def test_wrapper_forwards_socket_only_option(self):
+        import ciel_runtime
+
+        context = Mock()
+        context.inject_pending.return_value = 39
+        commit_cursors = []
+        with patch.object(ciel_runtime, "channel_wake_context", return_value=context):
+            returned = ciel_runtime._inject_pending_channel_messages(
+                None, 39, terminal_available=False, injected_commit_cursors=commit_cursors,
+            )
+        self.assertEqual(39, returned)
+        self.assertFalse(context.inject_pending.call_args.kwargs["terminal_available"])
+        self.assertIs(commit_cursors, context.inject_pending.call_args.kwargs["injected_commit_cursors"])
+
+    def test_ready_socket_can_send_during_an_active_turn(self):
+        harness = _InjectionHarness([self.socket_message(40), self.socket_message(41)])
+        services = self.services(harness, busy=True)
+        injected = []
+        returned = inject_pending_channel_messages(
+            None, 39, services=services, terminal_available=False,
+            wake_for_llm_delivery=True, injected_message_ids=injected,
+        )
+        self.assertEqual(41, returned)
+        self.assertEqual([40, 41], injected)
+        services.io.write_session_socket.assert_called_once()
+        self.assertEqual([], harness.written)
+        self.assertEqual([41], harness.delivery.commits)
+
+    def test_failed_send_has_no_tty_fallback_and_is_not_retried(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            status = RuntimeInputStatusRepository(
+                pathlib.Path(tmp) / "status.jsonl", publish_event=Mock(),
+                log=lambda *_args: None, lock=threading.Lock(),
+            )
+            status.transition(40, "queued", data={"input_transport": "session_socket"})
+            harness = _InjectionHarness([self.socket_message(40)])
+            harness.delivery.status = status
+            send = Mock(return_value=False)
+            services = self.services(harness, send=send)
+            injected = []
+            returned = inject_pending_channel_messages(
+                None, 39, services=services, terminal_available=False,
+                injected_message_ids=injected,
+            )
+            self.assertEqual(39, returned)
+            self.assertEqual("prompt_not_submitted", status.get(40)["reason"])
+            self.assertEqual("failed", status.get(40)["status"])
+            returned = inject_pending_channel_messages(
+                None, returned, services=services, terminal_available=False,
+            )
+        send.assert_called_once()
+        self.assertEqual(40, returned)
+        self.assertEqual([], harness.written)
+        self.assertEqual([], injected)
+        self.assertEqual([], harness.delivery.commits)
+
+    def test_status_failure_after_socket_send_remains_failed_without_resending(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            status = RuntimeInputStatusRepository(
+                pathlib.Path(tmp) / "status.jsonl", publish_event=Mock(),
+                log=lambda *_args: None, lock=threading.Lock(),
+            )
+            status.transition(40, "queued")
+            status.publish_event = Mock(side_effect=[OSError(errno.EACCES, "status publisher denied"), None])
+            harness = _InjectionHarness([self.socket_message(40)])
+            harness.delivery.status = status
+            send = Mock(return_value=True)
+            services = self.services(harness, send=send)
+            with self.assertRaises(OSError) as caught:
+                inject_pending_channel_messages(None, 39, services=services, terminal_available=False)
+            self.assertNotIsInstance(caught.exception, ChannelFileLockBusy)
+            self.assertEqual("failed", status.get(40)["status"])
+            self.assertEqual("submission_exception", status.get(40)["reason"])
+            self.assertEqual(40, inject_pending_channel_messages(None, 39, services=services, terminal_available=False))
+        send.assert_called_once()
+        self.assertEqual([], harness.written)
+        self.assertEqual([], harness.delivery.commits)
+
+    def test_pre_submit_lock_on_later_candidate_leaves_earlier_input_unmarked(self):
+        harness = _InjectionHarness([self.socket_message(40), self.socket_message(41)])
+        services = self.services(harness)
+        busy = ChannelFileLockBusy(errno.EACCES, "busy")
+        with patch.object(harness.delivery, "failure_reason", side_effect=["", busy]):
+            with self.assertRaises(ChannelFileLockBusy):
+                inject_pending_channel_messages(None, 39, services=services, terminal_available=False)
+        self.assertEqual(set(), harness.delivery.delivered)
+        self.assertEqual([], harness.delivery.commits)
+        services.io.write_session_socket.assert_not_called()
+        returned = inject_pending_channel_messages(None, 39, services=services, terminal_available=False)
+        self.assertEqual(41, returned)
+        self.assertEqual([40, 41], [m["id"] for m in services.io.write_session_socket.call_args.args[1]])
+
+    def test_post_send_lock_errors_are_not_safe_to_replay(self):
+        for stage in ("send", "record_prompts", "commit_cursor", "failure_bookkeeping"):
+            with self.subTest(stage=stage):
+                harness = _InjectionHarness([self.socket_message(40)])
+                busy = ChannelFileLockBusy(errno.EACCES, "private payload must not be logged")
+                send = Mock(return_value=stage != "failure_bookkeeping")
+                if stage == "send":
+                    send.side_effect = busy
+                services = self.services(harness, send=send)
+                if stage == "commit_cursor":
+                    services = dataclasses.replace(
+                        services, wake_store=dataclasses.replace(
+                            services.wake_store, commit_cursor=Mock(side_effect=busy),
+                        ),
+                    )
+                with patch.object(harness.delivery, "record_prompts", wraps=harness.delivery.record_prompts) as record:
+                    if stage == "record_prompts":
+                        record.side_effect = busy
+                    with patch.object(harness.delivery, "clear_claim", side_effect=busy if stage == "failure_bookkeeping" else None):
+                        with self.assertRaises(RuntimeError) as caught:
+                            inject_pending_channel_messages(None, 39, services=services, terminal_available=False)
+                self.assertNotIsInstance(caught.exception, ChannelFileLockBusy)
+                send.assert_called_once()
+                self.assertEqual([], harness.written)
+                self.assertTrue(any("stage=post_submit" in entry for _, entry in harness.logs))
+                self.assertFalse(any("private payload" in entry for _, entry in harness.logs))
+                if stage != "commit_cursor":
+                    self.assertTrue(harness.delivery.failure_reason(40))
+
+
+class PartialClaimTests(unittest.TestCase):
+    def services(self, harness, claim, clear):
+        base = harness.services()
+        return dataclasses.replace(
+            base,
+            policy=dataclasses.replace(base.policy, wake_batch_limit=lambda: 10),
+            wake_store=dataclasses.replace(base.wake_store, claim_prompt=claim, clear_claim=clear),
+        )
+
+    def test_claim_refusal_releases_only_claims_created_by_this_attempt(self):
+        harness = _InjectionHarness([_message(40), _message(41), _message(42)])
+        claims = {41: "another scan", 77: "unrelated"}
+        cleared = []
+
+        def claim(message_id, prompt):
+            if message_id in claims:
+                return False
+            claims[message_id] = prompt
+            return True
+
+        def clear(message_id):
+            cleared.append(message_id)
+            claims.pop(message_id, None)
+
+        returned = inject_pending_channel_messages(
+            99, 39, services=self.services(harness, claim, clear), wake_for_llm_delivery=True,
+        )
+        self.assertEqual(39, returned)
+        self.assertEqual([40], cleared)
+        self.assertEqual({41: "another scan", 77: "unrelated"}, claims)
+        self.assertEqual([], harness.written)
+        self.assertEqual([], harness.delivery.commits)
+        self.assertFalse(harness.delivery.failed)
+
+    def test_pre_submit_acquisition_failure_releases_previous_claims(self):
+        harness = _InjectionHarness([_message(40), _message(41), _message(42)])
+        busy = ChannelFileLockBusy(errno.EACCES, "lock busy")
+        claim = Mock(side_effect=[True, True, busy])
+        clear = Mock()
+        with self.assertRaises(ChannelFileLockBusy) as caught:
+            inject_pending_channel_messages(
+                99, 39, services=self.services(harness, claim, clear), wake_for_llm_delivery=True,
+            )
+        self.assertIs(busy, caught.exception)
+        self.assertEqual([40, 41], [call.args[0] for call in clear.call_args_list])
+        self.assertEqual([], harness.written)
+        self.assertEqual([], harness.delivery.commits)
+        self.assertFalse(harness.delivery.failed)
+
+    def test_ambiguous_claim_write_is_not_changed_to_acquisition_contention(self):
+        harness = _InjectionHarness([_message(40), _message(41)])
+        failure = OSError(errno.EACCES, "claim write denied")
+        claim = Mock(side_effect=[True, failure])
+        clear = Mock()
+        with self.assertRaises(OSError) as caught:
+            inject_pending_channel_messages(
+                99, 39, services=self.services(harness, claim, clear), wake_for_llm_delivery=True,
+            )
+        self.assertIs(failure, caught.exception)
+        self.assertNotIsInstance(caught.exception, ChannelFileLockBusy)
+        clear.assert_called_once_with(40)
+        self.assertEqual([], harness.written)
+
+    def test_claim_cleanup_failure_is_not_safe_to_retry_and_attempts_all_owned_claims(self):
+        harness = _InjectionHarness([_message(40), _message(41), _message(42)])
+        claim = Mock(side_effect=[True, True, False])
+        clear = Mock(side_effect=[ChannelFileLockBusy(errno.EACCES, "busy"), None])
+        with self.assertRaises(RuntimeError):
+            inject_pending_channel_messages(
+                99, 39, services=self.services(harness, claim, clear), wake_for_llm_delivery=True,
+            )
+        self.assertEqual([40, 41], [call.args[0] for call in clear.call_args_list])
+        self.assertEqual([], harness.written)
+        self.assertFalse(harness.delivery.failed)
 
 
 class QueuedStalePolicyTests(unittest.TestCase):

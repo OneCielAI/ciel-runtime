@@ -51,9 +51,6 @@ class ChannelWakeDeliveryRepository:
             if self.failed is None:
                 self.failed = {}
             for grouped_id in sorted(message_ids):
-                self.delivered.discard(grouped_id)
-                self.prompts.pop(grouped_id, None)
-                self.batches.pop(grouped_id, None)
                 self.failed[grouped_id] = "stale_unconfirmed"
             self._prune(self.failed)
         for grouped_id in sorted(message_ids):
@@ -61,16 +58,24 @@ class ChannelWakeDeliveryRepository:
             self._transition(grouped_id, "failed", reason="stale_unconfirmed")
         if commit_cursor:
             self.commit_cursor(max(message_ids))
+        with self.lock:
+            for grouped_id in sorted(message_ids):
+                self.delivered.discard(grouped_id)
+                self.prompts.pop(grouped_id, None)
+                self.batches.pop(grouped_id, None)
 
     def complete(self, message_id: int) -> None:
         with self.lock:
             message_ids = self._prompt_group(message_id)
-            for grouped_id in sorted(message_ids):
-                self.prompts.pop(grouped_id, None)
-                self.batches.pop(grouped_id, None)
+        # Keep the full batch available if clearing a claim or persisting its
+        # status must be retried after a transient lock-acquisition failure.
         for grouped_id in sorted(message_ids):
             self.clear_claim(grouped_id)
             self._transition(grouped_id, "replied")
+        with self.lock:
+            for grouped_id in sorted(message_ids):
+                self.prompts.pop(grouped_id, None)
+                self.batches.pop(grouped_id, None)
 
     def mark_delivered(self, message_id: int) -> bool:
         with self.lock:

@@ -8,7 +8,9 @@ from typing import Any, Callable
 
 from .runtime_interaction import RuntimeInteractionEvent
 
+from .channel_pending_poll import ChannelPendingPollState
 from .channel_terminal_dispatch import (
+    ChannelDirectDeliveryServices,
     ChannelDirectProcessPorts,
     ChannelTerminalDispatchService,
     ChannelTerminalDispatchSettings,
@@ -202,6 +204,10 @@ class ChannelTerminalContext:
                 release_record=self.process.release_record,
             ),
             log=self.policy.log,
+            delivery=ChannelDirectDeliveryServices(
+                policy=self.policy_services(),
+                polling=self.polling_services(),
+            ),
         )
 
     def dispatch(
@@ -309,6 +315,7 @@ class ChannelTerminalCompatibilityApi:
         restart_state: Any = None,
         session_command_runtime: str = "",
         session_command_actions: frozenset[str] | None = None,
+        pending_poll_state: ChannelPendingPollState | None = None,
     ) -> int:
         return self.context().run_windows(
             cmd,
@@ -330,6 +337,7 @@ class ChannelTerminalCompatibilityApi:
             restart_state=restart_state,
             session_command_runtime=session_command_runtime,
             session_command_actions=session_command_actions,
+            pending_poll_state=pending_poll_state,
         )
 
     def dispatch(
