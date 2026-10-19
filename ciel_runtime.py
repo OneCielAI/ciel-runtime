@@ -3685,8 +3685,7 @@ def cmd_test(args: argparse.Namespace) -> None:
 
 def claude_code_output_token_limit(provider: str, pcfg: dict[str, Any]) -> int | None: return claude_limit_policy().output_token_limit(provider, pcfg)
 def claude_code_auto_compact_window(provider: str, pcfg: dict[str, Any]) -> int | None: return claude_limit_policy().auto_compact_window(provider, pcfg)
-def claude_limit_policy() -> ClaudeLimitPolicy:
-    return ClaudeLimitPolicy(
+def claude_limit_policy() -> ClaudeLimitPolicy: return ClaudeLimitPolicy(
         ClaudeLimitPorts(
             positive_int,
             cap_output_tokens_to_context_ratio,
@@ -3695,6 +3694,7 @@ def claude_limit_policy() -> ClaudeLimitPolicy:
             lambda provider, pcfg: configured_provider_adapter(
                 provider, pcfg
             ).runtime_compaction_policy(provider_contract_config(provider, pcfg)),
+            lambda provider, pcfg: provider_request_builder().guarded_input_budget(provider, pcfg),
         )
     )
 def claude_model_alias_policy() -> ClaudeModelAliasPolicy: return ClaudeModelAliasPolicy(ClaudeModelPorts(strip_claude_context_suffix, current_upstream_model_id, unslug_provider_alias, model_map_for, model_context_hint_from_model_id, anthropic_model_limit_hints, positive_int, cached_or_configured_model_ids, normalize_model_id, alias_for))

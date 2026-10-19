@@ -712,7 +712,17 @@ class KimiProviderTests(unittest.TestCase):
             env = ciel_runtime.env_vars(cfg)
         self.assertEqual("262144", env["CLAUDE_CODE_AUTO_COMPACT_WINDOW"])
         self.assertEqual("262144", env["CLAUDE_CODE_MAX_CONTEXT_TOKENS"])
-        self.assertNotIn("CLAUDE_AUTOCOMPACT_PCT_OVERRIDE", env)
+        # The router trims above its own budget, so the trigger must land
+        # there instead of at the untrimmed window.
+        trigger = (
+            int(env["CLAUDE_CODE_AUTO_COMPACT_WINDOW"])
+            * int(env["CLAUDE_AUTOCOMPACT_PCT_OVERRIDE"])
+            // 100
+        )
+        self.assertLessEqual(
+            trigger,
+            ciel_runtime.provider_request_builder().guarded_input_budget("kimi", pcfg),
+        )
 
     def test_launch_requires_kimi_api_key(self):
         with (

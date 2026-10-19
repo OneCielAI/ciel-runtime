@@ -74,6 +74,56 @@ class ClaudeEnvironmentPolicyTests(unittest.TestCase):
         self.assertEqual(1_000_000, snapshot.auto_compact_window)
         self.assertEqual(89, snapshot.auto_compact_percent)
 
+    def _guarded_policy(self, budget):
+        return ClaudeLimitPolicy(
+            ClaudeLimitPorts(
+                positive_int=lambda value: int(value) if value else None,
+                cap_output_tokens=lambda _provider, _config, value: value,
+                ollama_options=lambda _config: {},
+                context_limit=lambda _provider, _config: 872_000,
+                compaction_policy=lambda _provider, _config: ProviderRuntimeCompactionPolicy(),
+                guarded_input_budget=lambda _provider, _config: budget,
+            )
+        )
+
+    def test_routed_launch_pins_the_trigger_at_the_forwarded_budget(self):
+        policy = self._guarded_policy(716_750)
+
+        snapshot = policy.compaction_snapshot("cielairouter", {})
+
+        self.assertEqual(872_000, snapshot.auto_compact_window)
+        self.assertEqual(82, snapshot.auto_compact_percent)
+        self.assertLessEqual(
+            872_000 * snapshot.auto_compact_percent // 100, 716_750
+        )
+        # A direct data path bypasses the router, so nothing is trimmed.
+        self.assertIsNone(policy.compaction_snapshot("cielairouter", {}, guarded=False).auto_compact_percent)
+        # The window itself is the model's real context; only the trigger moves.
+        self.assertEqual(872_000, policy.auto_compact_window("cielairouter", {}, guarded=True))
+        self.assertEqual(872_000, policy.auto_compact_window("cielairouter", {}))
+
+    def test_guarded_percent_is_only_added_below_the_window_and_never_raised(self):
+        policy = self._guarded_policy(716_750)
+        self.assertIsNone(
+            policy.compaction_snapshot("x", {"auto_compact_window": 400_000}).auto_compact_percent
+        )
+        raised = policy.compaction_snapshot("x", {"auto_compact_window": 900_000})
+        self.assertEqual(872_000, raised.auto_compact_window)  # capped to the model limit
+        self.assertEqual(82, raised.auto_compact_percent)
+        configured = ClaudeLimitPolicy(
+            ClaudeLimitPorts(
+                positive_int=lambda value: int(value) if value else None,
+                cap_output_tokens=lambda _provider, _config, value: value,
+                ollama_options=lambda _config: {},
+                context_limit=lambda _provider, _config: 1_048_576,
+                compaction_policy=lambda _provider, _config: ProviderRuntimeCompactionPolicy(trigger_percent=60),
+                guarded_input_budget=lambda _provider, _config: 716_750,
+            )
+        )
+        # 60% of 1,048,576 rescaled to the 1,000,000 window is 62; the guard is
+        # looser than that, so the configured trigger wins.
+        self.assertEqual(62, configured.compaction_snapshot("x", {}).auto_compact_percent)
+
     def test_native_projection_only_sets_marker_key_and_chrome_floor_off(self):
         projection = self._projection(native=True, key="secret")
         self.assertEqual(

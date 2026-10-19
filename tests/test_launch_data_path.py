@@ -364,9 +364,13 @@ class ClaudeEnvironmentTests(unittest.TestCase):
         self.assertEqual("cc/claude-sonnet-5", direct["ANTHROPIC_DEFAULT_SONNET_MODEL"])
         self.assertFalse([key for key, value in direct.items() if "ciel-runtime-cielairouter-" in value])
         changed = {key for key in set(routed) | set(direct) if routed.get(key) != direct.get(key)}
+        # A routed launch is trimmed by the router, so its auto-compact trigger
+        # is pinned to the forwarded budget; a direct launch is not trimmed.
         self.assertEqual({"ANTHROPIC_BASE_URL", "ANTHROPIC_MODEL", "ANTHROPIC_CUSTOM_MODEL_OPTION",
                           "ANTHROPIC_DEFAULT_HAIKU_MODEL", "ANTHROPIC_DEFAULT_OPUS_MODEL", "ANTHROPIC_DEFAULT_SONNET_MODEL",
-                          "CLAUDE_CODE_SUBAGENT_MODEL", "CIEL_RUNTIME_MODEL_ALIAS"}, changed)
+                          "CLAUDE_CODE_SUBAGENT_MODEL", "CIEL_RUNTIME_MODEL_ALIAS",
+                          "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE"}, changed)
+        self.assertNotIn("CLAUDE_AUTOCOMPACT_PCT_OVERRIDE", direct)
 
 
 class CodexConfigurationTests(unittest.TestCase):

@@ -98,6 +98,41 @@ class ProviderRequestBuilder:
         self.openai = openai
         self.options = options
 
+    def guarded_input_budget(
+        self, provider: str, config: dict[str, Any], body: dict[str, Any] | None = None,
+        *, native_owns: bool = True,
+    ) -> int:
+        """The input budget ``cap_anthropic_body`` enforces, or 0 when none.
+
+        Claude Code's auto-compact trigger must land at or below this budget:
+        a window the router silently trims below it makes the client's own
+        trigger unreachable.  Native Anthropic and remote clients keep their
+        own contract, so they report 0 (no clamp).
+        """
+
+        if config.get(REMOTE_BRIDGE_CONFIG_MARKER):
+            return 0
+        if native_owns and provider == "anthropic":
+            return 0
+        body = body if isinstance(body, dict) else {}
+        context_limit = (
+            self.budget.context_limit(provider, config)
+            or self.budget.positive_int(config.get("max_model_len"))
+            or self.budget.positive_int(config.get("context_window"))
+            or (32768 if provider == "vllm" else 0)
+        )
+        if not context_limit:
+            return 0
+        configured = self.budget.configured_output(config, body)
+        output_reserve = (
+            self.budget.cap_output_ratio(provider, config, configured)
+            or self.budget.positive_int(body.get("max_tokens"))
+            or configured
+            or 4096
+        )
+        reserve = self.budget.reserve(config, context_limit)
+        return max(8192, context_limit - output_reserve - reserve)
+
     def cap_anthropic_body(
         self, provider: str, config: dict[str, Any], body: dict[str, Any]
     ) -> dict[str, Any]:
@@ -122,15 +157,17 @@ class ProviderRequestBuilder:
             or self.budget.positive_int(config.get("context_window"))
             or (32768 if provider == "vllm" else 0)
         )
-        if not context_limit:
+        # Native Anthropic already returned above; a translated Codex
+        # checkpoint on it is trimmed here, so ask for the real budget.
+        input_budget = self.guarded_input_budget(
+            provider, config, capped, native_owns=False
+        )
+        if not context_limit or not input_budget:
             return capped
         configured = self.budget.configured_output(config, capped)
         ratio_capped = self.budget.cap_output_ratio(provider, config, configured)
         if ratio_capped:
             capped["max_tokens"] = ratio_capped
-        reserve = self.budget.reserve(config, context_limit)
-        output_reserve = self.budget.positive_int(capped.get("max_tokens")) or configured or 4096
-        input_budget = max(8192, context_limit - output_reserve - reserve)
 
         capped = self.budget.compact_anthropic(
             capped,
