@@ -1,0 +1,3 @@
+Old registered snapshot: 425 non-bytecode file hashes unchanged.
+Nine visible live process PIDs and code paths unchanged.
+Tarball/npm-global/snapshot production root, relay and constants byte hashes equal.

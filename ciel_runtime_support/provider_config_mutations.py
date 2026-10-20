@@ -187,6 +187,30 @@ def apply_provider_option(
     policy: ProviderOptionPolicy,
     capabilities: ProviderConfigurationPolicy,
 ) -> None:
+    if token.split("=", 1)[0].strip() == "gateway_selection" or token == "unset:gateway_selection":
+        if not capabilities.supports_gateway_selection:
+            raise SystemExit("gateway_selection is only available for cielairouter")
+        if token == "unset:gateway_selection":
+            pcfg.pop("gateway_selection", None)
+            return
+        if "=" not in token:
+            raise SystemExit("gateway_selection must be auto or off")
+        raw = token.split("=", 1)[1].strip().lower()
+        if raw not in ("auto", "off"):
+            raise SystemExit("gateway_selection must be auto or off")
+        pcfg["gateway_selection"] = raw
+        return
+    if token.split("=", 1)[0].strip() == "gateway_data_path" or token == "unset:gateway_data_path":
+        if not capabilities.supports_gateway_data_path:
+            raise SystemExit("gateway_data_path is only available for cielairouter")
+        if token == "unset:gateway_data_path":
+            pcfg.pop("gateway_data_path", None)
+            return
+        raw = token.split("=", 1)[1].strip().lower() if "=" in token else ""
+        if raw not in ("router", "direct"):
+            raise SystemExit("gateway_data_path must be router or direct")
+        pcfg["gateway_data_path"] = raw
+        return
     normalize_claude_code_supported_capabilities = policy.normalize_claude_code_supported_capabilities
     normalize_ip_family = policy.normalize_ip_family
     normalize_model_id = policy.normalize_model_id

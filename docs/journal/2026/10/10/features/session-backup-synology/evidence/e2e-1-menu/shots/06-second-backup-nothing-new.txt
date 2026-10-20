@@ -1,0 +1,29 @@
+  11. Remote instructions  [HTTP GET · off]
+  12. Workspace MCP modules  [launch scoped]
+  13. Request/file limits  [workspace scoped]
+  14. Web backend  [off · 127.0.0.1:9323]
+  15. OAuth tokens  [none · Codex/Claude rotation]
+  16. Web access  [0 accounts · admin token]
+  17. Dangerous delete prompt  [Claude · auto-allow off]
+  18. Session backup  [incremental · schedule off · to nas-e2e · last 10-10 14:48 ok]
+  19. Provider fallback  [auto off · 0/0 backups ready]
+  Quit
+
+-----------------------------------------------------------------------------------------------------------------------
+Session backup options
+  > Back up this session now  [incremental · last 10-10 14:48 ok]
+    Snapshots of this folder  [list]
+    Restore a snapshot…
+    Verify a snapshot…
+    Prune old snapshots now  [keep last 30 + 14 daily]
+    ... 17 below
+
+  Saved snapshot 20261010T194832Z-18f8b8 to nas-e2e.
+  incremental: 0 of 3 chunks new, 0.0 MB uploaded (snapshot 0.0 MB).
+  Credentials: left out (1 items, no backup key)
+
+-----------------------------------------------------------------------------------------------------------------------
+  Base URL: unreachable (URLError)
+  API key: not required for
+
+Up/Down moves. PgUp/PgDn jumps. Home/End bounds. Enter selects. Esc/Left closes. q quits.

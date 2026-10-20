@@ -1,4 +1,6 @@
 import unittest
+import dataclasses
+from unittest.mock import Mock
 
 from ciel_runtime_support.channel_compact_injection import (
     ChannelCompactInjectionService,
@@ -37,7 +39,11 @@ class ChannelCompactInjectionServiceTests(unittest.TestCase):
         )
 
     def test_new_session_types_the_runtime_command(self):
-        for runtime, command in (("claude", "/clear"), ("codex", "/new")):
+        for runtime, command in (
+            ("claude", "/clear"),
+            ("codex", "/new"),
+            ("muse", "/new"),
+        ):
             writes, clears = [], []
             service = self._service(
                 {"id": f"n-{runtime}", "action": "new_session", "command": "/new"},
@@ -56,7 +62,7 @@ class ChannelCompactInjectionServiceTests(unittest.TestCase):
             clears=clears,
             logs=logs,
         )
-        self.assertEqual("deferred", service.inject(7, runtime="muse"))
+        self.assertEqual("deferred", service.inject(7, runtime="unknown-cli"))
         self.assertEqual([], writes)
         self.assertEqual([], clears)
         self.assertIn("unsupported_runtime", logs[-1][1])
@@ -74,7 +80,7 @@ class ChannelCompactInjectionServiceTests(unittest.TestCase):
 
     def test_goal_clear_is_typed_while_a_turn_runs(self):
         # An active goal keeps starting turns; waiting for idle would never type it.
-        for runtime in ("claude", "codex"):
+        for runtime in ("claude", "codex", "muse"):
             writes, clears = [], []
             service = self._service(
                 {"id": f"g-{runtime}", "action": "goal_clear", "command": "/goal clear"},
@@ -87,8 +93,8 @@ class ChannelCompactInjectionServiceTests(unittest.TestCase):
             self.assertEqual("/goal clear", writes[0][0][1])
             self.assertEqual([f"g-{runtime}"], clears)
         writes = []
-        service = self._service({"id": "g-muse", "action": "goal_clear"}, writes=writes)
-        self.assertEqual("deferred", service.inject(7, runtime="muse"))
+        service = self._service({"id": "g-unknown", "action": "goal_clear"}, writes=writes)
+        self.assertEqual("deferred", service.inject(7, runtime="unknown-cli"))
         self.assertEqual([], writes)
 
     def test_missing_request_is_a_noop(self):
@@ -131,6 +137,25 @@ class ChannelCompactInjectionServiceTests(unittest.TestCase):
         self.assertEqual(3, options["submit_retry_count"])
         self.assertTrue(options["confirm_submit"])
         self.assertEqual(["req-2"], clears)
+
+    def test_failed_write_never_consumes_compact_request(self):
+        clears = []
+        service = self._service({"id": "compact-failed"}, clears=clears)
+        service = dataclasses.replace(service, runtime=dataclasses.replace(service.runtime, write_prompt=lambda *_args, **_kw: False))
+        self.assertEqual("deferred", service.inject(7))
+        self.assertEqual([], clears)
+
+    def test_controller_observes_submission_but_busy_gate_still_wins(self):
+        control = Mock()
+        control.command_ready.return_value = True
+        request = {"id": "pressure", "action": "compact", "automatic": True}
+        service = self._service(request, active_turn=True)
+        self.assertEqual("deferred", service.inject(7, control=control))
+        control.command_ready.assert_not_called()
+        service = dataclasses.replace(service, runtime=dataclasses.replace(service.runtime, active_turn=lambda: False))
+        self.assertEqual("injected", service.inject(7, control=control))
+        control.command_ready.assert_called_once_with(request)
+        control.command_submitted.assert_called_once_with(request)
 
 
 if __name__ == "__main__":

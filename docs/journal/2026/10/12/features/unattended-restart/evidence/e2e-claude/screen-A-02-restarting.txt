@@ -1,0 +1,38 @@
+07:22:35
+  permission laundering.
+
+● STUB-REPLY-4
+
+✻ Cooked for 0s · done 7:22 AM
+
+
+
+
+
+
+
+
+                                                                                                                    ◉ xhigh · /effort
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+[ciel-runtime] 세션을 재시작합니다 — MCP를 다시 만들고 같은 대화로 이어집니다 (source=ciel-runtime-router-tool, reason=e2e unattended r
+estart)
+Ciel Runtime diagnostic: Claude Code exited with code 1 while routed through http://127.0.0.1:54952.
+Router: health=ok base=http://127.0.0.1:54952 pid=108064 version=0.2.51 source=ffd2c9bee0d9e9ef provider=vllm model=ciel-runtime-vllm-s
+tub-model config_dir=G:\ciel-e2e\unattended\claude\cfg
+Provider: vllm upstream=http://127.0.0.1:54950/v1/messages
+Router log: G:\ciel-e2e\unattended\claude\cfg\router.log
+Recent router events:
+  2026-10-12T07:22:17 [WARN] removed Anthropic thinking request and thinking content blocks for non-Anthropic provider provider=vllm sy
+nthetic_tool=False continuation_blocks=0 assistant_history=0 thinking_blocks=0
+  2026-10-12T07:22:17 [INFO] upstream_direct_request provider=vllm model=stub-model endpoint=http://127.0.0.1:54950/v1/messages attempt
+=1/1 tokens=39878 bytes=162146 timeout=300.0
+  2026-10-12T07:22:21 [WARN] removed Anthropic thinking request and thinking content blocks for non-Anthropic provider provider=vllm sy
+nthetic_tool=False continuation_blocks=0 assistant_history=1 thinking_blocks=0
+  2026-10-12T07:22:21 [INFO] upstream_direct_request provider=vllm model=stub-model endpoint=http://127.0.0.1:54950/v1/messages attempt
+=1/1 tokens=40089 bytes=162993 timeout=300.0
+  2026-10-12T07:22:21 [WARN] removed Anthropic thinking request and thinking content blocks for non-Anthropic provider provider=vllm sy
+nthetic_tool=False continuation_blocks=0 assistant_history=2 thinking_blocks=0
+  2026-10-12T07:22:21 [INFO] upstream_direct_request provider=vllm model=stub-model endpoint=http://127.0.0.1:54950/v1/messages attempt
+=1/1 tokens=40466 bytes=164516 timeout=300.0
+Ciel Runtime: restarting Claude Code source=ciel-runtime-router-tool reason=e2e unattended restart

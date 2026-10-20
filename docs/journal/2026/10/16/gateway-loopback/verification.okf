@@ -1,0 +1,23 @@
+format: okf/1
+kind: engineering-journal
+status: verified-source
+scope: CielAiRouter loopback gateway selection
+base: nightly at 880cc69
+observations:
+  - Gateways may advertise the same loopback URL while having distinct node IDs.
+  - Global URL deduplication discarded the actual local node when another node appeared first.
+  - Probe success maps keyed only by URL could associate a success with the wrong node.
+changes:
+  - Deduplicate and associate probe results using node ID plus endpoint.
+  - Rank verified loopback routes before remote load and latency on a fresh selection.
+  - Preserve valid sticky routes and node-ID health verification.
+  - Allow discovery up to five seconds within the existing total exploration budget.
+validation:
+  - python -m unittest discover -s tests -p test_cielairouter_gateway*.py
+  - Result 67 tests passed, including shared-loopback orders and local preference regressions.
+  - Real SAMA health probes with management-derived discovery fixture selected central before the change.
+  - The same probe selected http://127.0.0.1:20128 and SAMA node 6016dfc3-4689-4e8b-8479-45eeb49cc48b after the change.
+limits:
+  - The live selector probe injected discovery metadata; it did not authenticate a real discovery request or make an inference request.
+  - Existing Python processes retain imported modules until restarted.
+  - HTTPS issuance for the .14 node is deferred at the operator's request.

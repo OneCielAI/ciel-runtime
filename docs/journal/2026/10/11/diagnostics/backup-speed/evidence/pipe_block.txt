@@ -1,0 +1,8 @@
+  1024 bytes: exited by itself (read back 1024)
+  4000 bytes: exited by itself (read back 4000)
+  4096 bytes: exited by itself (read back 4096)
+  4200 bytes: BLOCKED until the parent read (read back 4200)
+  4755 bytes: BLOCKED until the parent read (read back 4755)
+  8192 bytes: BLOCKED until the parent read (read back 8192)
+ 65536 bytes: BLOCKED until the parent read (read back 65536)
+ 70000 bytes: BLOCKED until the parent read (read back 70000)

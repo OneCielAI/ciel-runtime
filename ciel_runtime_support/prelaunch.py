@@ -47,6 +47,8 @@ MAIN_MENU_ACTIONS: tuple[str, ...] = (
     "web-access",
     "dangerous-rm",
     "session-backup",
+    "provider-fallback",
+    "unattended-restart",
     "quit",
 )
 
@@ -383,6 +385,14 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
             from ciel_runtime_support.runtime_paths import CONFIG_DIR
 
             panel_rows, panel_values = session_backup_menu.panel_rows(CONFIG_DIR, Path.cwd())
+        elif name == "provider-fallback":
+            from ciel_runtime_support import provider_failover_menu
+
+            panel_rows, panel_values = provider_failover_menu.panel_rows(load_config())
+        elif name == "unattended-restart":
+            from ciel_runtime_support import unattended_restart_menu
+
+            panel_rows, panel_values = unattended_restart_menu.panel_rows(_workspace_state_dir(), Path.cwd())
         if panel_rows:
             panel_idx = max(0, min(panel_idx, len(panel_rows) - 1))
 
@@ -831,6 +841,15 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                         continue
                     if value in {"enabled", "transport"}:
                         messages = set_external_event_config(value, "toggle")
+                    elif value in {"refresh_receiver", "reconnect_receiver"}:
+                        messages = set_external_event_config(value, None)
+                    elif value == "idle_timeout_seconds":
+                        entered = prompt_menu_value(
+                            "SSE idle timeout (1-300 seconds; blank restores automatic)",
+                            restore_tty=restore_line_mode,
+                            raw_tty=restore_raw_mode,
+                        )
+                        messages = set_external_event_config(value, entered)
                     elif value == "input_transport":
                         entered = prompt_menu_value(
                             "Runtime input transport (auto/session_socket/tty/router)",
@@ -886,8 +905,8 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                     if value == "back":
                         close_panel()
                         continue
-                    if value == "enabled":
-                        messages = set_remote_instruction_config("enabled", "toggle")
+                    if value in {"enabled", "auto_reload"}:
+                        messages = set_remote_instruction_config(value, "toggle")
                     elif value == "sync":
                         messages = set_remote_instruction_config("sync", "")
                     elif value in {
@@ -1103,6 +1122,42 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                             CONFIG_DIR,
                             Path.cwd(),
                             value,
+                            lambda label, default, secret=False: prompt_menu_value(
+                                label,
+                                default,
+                                secret,
+                                restore_tty=restore_line_mode,
+                                raw_tty=restore_raw_mode,
+                            ),
+                        )
+                    finally:
+                        restore_raw_mode()
+                    panel_rows, panel_values = session_backup_menu.panel_rows(CONFIG_DIR, Path.cwd())
+                    panel_idx = max(0, min(panel_idx, len(panel_rows) - 1))
+                elif panel == "unattended-restart":
+                    if value == "back":
+                        close_panel()
+                        continue
+                    if value == "__info__":
+                        continue
+                    from ciel_runtime_support import unattended_restart_menu
+
+                    messages = unattended_restart_menu.apply(_workspace_state_dir(), Path.cwd(), value)
+                    panel_rows, panel_values = unattended_restart_menu.panel_rows(_workspace_state_dir(), Path.cwd())
+                    panel_idx = max(0, min(panel_idx, len(panel_rows) - 1))
+                elif panel == "provider-fallback":
+                    if value == "back":
+                        close_panel()
+                        continue
+                    if value == "__info__":
+                        continue
+                    from ciel_runtime_support import provider_failover_menu
+
+                    restore_line_mode()
+                    try:
+                        messages = provider_failover_menu.apply(
+                            load_config(),
+                            value,
                             lambda label, default: prompt_menu_value(
                                 label,
                                 default,
@@ -1112,7 +1167,7 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                         )
                     finally:
                         restore_raw_mode()
-                    panel_rows, panel_values = session_backup_menu.panel_rows(CONFIG_DIR, Path.cwd())
+                    panel_rows, panel_values = provider_failover_menu.panel_rows(load_config())
                     panel_idx = max(0, min(panel_idx, len(panel_rows) - 1))
                 elif panel == "options":
                     if value == "back":
@@ -1123,6 +1178,27 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                         open_panel("preset")
                     elif value == "timeout_profile":
                         open_panel("timeout")
+                    elif provider == "cielairouter" and value in ("gateway_selection", "gateway_status"):
+                        if value == "gateway_selection":
+                            from ciel_runtime_support.cielairouter_gateway_overlay import selection_enabled
+                            messages = set_llm_option_config(provider, value, "off" if selection_enabled(pcfg) else "auto")
+                        else:
+                            messages = set_llm_option_config(provider, value, "status")
+                        cfg = load_config()
+                        provider, pcfg = get_current_provider(cfg)
+                        panel_rows, panel_values = llm_option_panel_rows(provider, pcfg, cfg.get("language", "en"))
+                    elif value == "gateway_data_path":
+                        # Only providers whose policy shows the row reach here; the setter rejects others.
+                        from ciel_runtime_support.launch_data_path import DIRECT, ROUTER, configured_data_path
+                        try:
+                            messages = set_llm_option_config(
+                                provider, value, ROUTER if configured_data_path(pcfg) == DIRECT else DIRECT
+                            )
+                        except SystemExit as exc:
+                            messages = [str(exc)]
+                        cfg = load_config()
+                        provider, pcfg = get_current_provider(cfg)
+                        panel_rows, panel_values = llm_option_panel_rows(provider, pcfg, cfg.get("language", "en"))
                     elif value in LLM_OPTION_TOGGLE_KEYS:
                         # Boolean toggles flip on Enter — no input prompt.
                         current = llm_option_current_bool(provider, pcfg, value)

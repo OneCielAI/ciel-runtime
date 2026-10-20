@@ -1,0 +1,35 @@
+okf_version: "1.0"
+task: "Bounded confirmed gateway observation attribution fixes"
+status: "verified locally"
+scope:
+  production: "ciel_runtime_support/cielairouter_gateway_transport.py only"
+  tests: "transport and overlay; isolated test state, ephemeral loopback servers"
+confirmed_before:
+  - "57 existing transport/overlay tests passed. Six new transport methods produced 18 failing subcases before the fix (63 tests total)."
+  - "Real HTTP and HTTPS chunked loopback: IncompleteRead.partial held the entire 184-byte dispatched response.completed stream. Provider usage observer saw response.completed; gateway reported eof and overlay recorded connection failure."
+  - "Real HTTP and HTTPS clean provider-error streams for anthropic, responses, chat were classified eof_before_terminal and overlay recorded stream_truncated."
+changes:
+  - "Feed bare IncompleteRead.partial through the bounded observer before scoring its exception. Bare raise preserves the identical error, partial object and expected byte count."
+  - "Dispatched explicit event:error, top-level type:error, and chat top-level non-null error classify as metadata-only upstream_error_event, success=false, terminal=null."
+  - "Overlay production code unchanged: upstream_error_event is absent from its failure classes and does not penalize the gateway."
+  - "No change to SSE blank-line dispatch, single-newline EOF, retry policy, response delivery or bytes."
+verification:
+  - "67 focused transport/overlay tests passed, including partial complete/incomplete dispatch, split frames, callbacks at most once, oversized explicit errors, nested/string guards, bounded storage and SSL EOF bare/wrapped exception identity."
+  - "90 transport/overlay/selector tests passed together."
+  - "After-fix real HTTP and HTTPS: full completed partial => terminal_event; missing blank or created-only partial => eof; complete provider errors => upstream_error_event; ordinary missing terminal => eof_before_terminal."
+  - "All fourteen real-loopback scenarios retained exact wire bytes; selector failures removed only for dispatched complete terminal and provider-error cases."
+  - "Existing bounded 128-byte parser tests and new 200000-byte partial/explicit-error tests passed."
+  - "Live router port 9512 health HTTP 200 before and after focused tests. No live state mutations, remote access, config writes, commit, push or restart."
+limitations:
+  - "Local fixture evidence establishes observation defects, not the historical upstream TLS peer or root cause of sandbox 9385 failures."
+  - "HTTPS fixture used a temporary self-signed localhost certificate and abrupt chunked close; observed exception was IncompleteRead, not SSLEOFError. Bare/wrapped SSLEOFError identities are separately injected unit tests."
+  - "The existing provider-layer usage observer accepts a final data line without blank dispatch; gateway intentionally retains stricter dispatch semantics. Provider-layer production code belongs to a concurrent agent and was not changed here."
+evidence:
+  - "attribution-evidence/before-existing.txt"
+  - "attribution-evidence/before-regressions.txt"
+  - "attribution-evidence/after-tests.txt"
+  - "attribution-evidence/after-gateway-suite.txt"
+  - "attribution-evidence/before-repro.jsonl"
+  - "attribution-evidence/after-repro.jsonl"
+  - "attribution-evidence/repro.py"
+  - "attribution-evidence/run_tests.sh"

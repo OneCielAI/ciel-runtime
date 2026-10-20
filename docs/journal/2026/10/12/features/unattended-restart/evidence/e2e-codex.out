@@ -1,0 +1,34 @@
+07:24:05 flow=codex stub=52102 router=52104 appserver=52105 scratch=G:\ciel-e2e\unattended\codex
+07:24:05 launch-state by_cwd mode=codex-remote
+07:24:05 launched A: launch-A.cmd
+07:24:24 launcher pid A: 104552
+07:24:24 wait router up: True
+07:24:24 wait A: continue message at the stub: True
+07:24:27 shot A-started-new-thread: saved C:\Users\djlov\ciel-runtime\docs\journal\2026\10\12\features\unattended-restart\evidence\e2e-codex\shots\01-A-started-new-thread.png handle=18287118 printwindow=True
+07:24:27 notify 'E2E-UA-TURN-1 hello' -> ok=True
+07:24:28 wait A: turn 1 at the stub: True
+07:24:30 ws thread/goal/set thread=01a13012-2b92-73e2-abf2-b4acad83e389 -> {"goal": {"threadId": "01a13012-2b92-73e2-abf2-b4acad83e389", "objective": "E2E-UA-GOAL stay paused", "status": "paused", "tokenBudget": null, "tokensUsed": 0, "timeUsedSeconds": 0, "createdAt": 1791807870, "updatedAt": 1791807870}}
+07:24:30 phase A: {"continue_message_requests": [{"n": 1, "tail": "계속-세션재시작됨", "history_turn1": false, "continue_messages_in_history": 1}, {"n": 3, "tail": " code terms require otherwise. Preserve ticket references exactly. Write in the user's language. Do not use quotes, markdown, or trailing punctuation. Do not answer the request. User prompt: 계속-세션재시작됨", "history_turn1": false, "continue_messages_in_history": 1}], "answered": [], "threads": ["01a13012-2b92-73e2-abf2-b4acad83e389"], "goal_set": {"goal": {"threadId": "01a13012-2b92-73e2-abf2-b4acad83e389", "objective": "E2E-UA-GOAL stay paused", "status": "paused", "tokenBudget": null, "tokensUsed": 0, "timeUsedSeconds": 0, "createdAt": 1791807870, "updatedAt": 1791807870}}}
+07:24:30 restart_session -> {"jsonrpc": "2.0", "id": 1, "result": {"content": [{"type": "text", "text": "{\"ok\":true,\"queued\":true,\"request\":{\"schema\":\"ciel-runtime.runtime-session-restart/v1\",\"id\":\"15469fef905240d7a2325df12a56f0a1\",\"source\":\"ciel-runtime-router-tool\",\"reason\":\"e2e unattended restart\",\"ru
+07:24:35 wait B: continue message at the stub: True
+07:24:39 shot B-after-restart_session: saved C:\Users\djlov\ciel-runtime\docs\journal\2026\10\12\features\unattended-restart\evidence\e2e-codex\shots\02-B-after-restart_session.png handle=18287118 printwindow=True
+07:24:39 ws thread/goal/get thread=01a13012-2b92-73e2-abf2-b4acad83e389 -> {"goal": {"threadId": "01a13012-2b92-73e2-abf2-b4acad83e389", "objective": "E2E-UA-GOAL stay paused", "status": "paused", "tokenBudget": null, "tokensUsed": 0, "timeUsedSeconds": 0, "createdAt": 1791807870, "updatedAt": 1791807870}}
+07:24:39 phase B: {"continue_message_requests": [{"n": 9, "tail": "계속-세션재시작됨", "history_turn1": true, "continue_messages_in_history": 2}], "answered": ["2026-10-12T07:24:35 [INFO] startup_prompt_answered prompt=codex_paused_goal option=leavepaused key=2 enter=false attempt=1"], "threads": ["01a13012-2b92-73e2-abf2-b4acad83e389", "01a13012-2b92-73e2-abf2-b4acad83e389", "01a13012-2b92-73e2-abf2-b4acad83e389"], "goal": {"goal": {"threadId": "01a13012-2b92-73e2-abf2-b4acad83e389", "objective": "E2E-UA-GOAL stay paused", "status": "paused", "tokenBudget": null, "tokensUsed": 0, "timeUsedSeconds": 0, "createdAt": 1791807870, "updatedAt": 1791807870}}}
+07:24:47 kill A: killed 21964 killed 29100 killed 45040
+07:24:50 launch-state by_cwd mode=codex
+07:24:50 launched C: launch-C.cmd
+07:25:08 launcher pid C: 35160
+07:25:12 wait C: continue message at the stub: True
+07:25:16 shot C-plain-codex-after-reboot: saved C:\Users\djlov\ciel-runtime\docs\journal\2026\10\12\features\unattended-restart\evidence\e2e-codex\shots\03-C-plain-codex-after-reboot.png handle=36513802 printwindow=True
+07:25:16 phase C: {"continue_message_requests": [{"n": 11, "tail": "계속-세션재시작됨", "history_turn1": true, "continue_messages_in_history": 3}], "answered": ["2026-10-12T07:25:04 [INFO] startup_prompt_answered prompt=codex_trust option=trustandcontinue key=1 enter=true attempt=1", "2026-10-12T07:25:05 [INFO] startup_prompt_answered prompt=codex_paused_goal option=leavepaused key=2 enter=false attempt=1", "2026-10-12T07:25:05 [INFO] startup_prompt_answered prompt=codex_windows_sandbox option=usenon-adminsandbox key=2 enter=true attempt=1", "2026-10-12T07:25:06 [INFO] startup_prompt_answered prompt=codex_paused_goal option=leavepaused key=2 enter=false attempt=2"], "threads": ["01a13012-2b92-73e2-abf2-b4acad83e389", "01a13012-2b92-73e2-abf2-b4acad83e389", "01a13012-2b92-73e2-abf2-b4acad83e389"]}
+07:25:22 kill C: killed 84272 killed 103272
+07:25:25 launch-state by_cwd mode=codex-remote
+07:25:25 launched D: launch-D.cmd
+07:25:40 launcher pid D: 104596
+07:25:40 wait D: continue message at the stub: True
+07:25:45 shot D-codex-remote-after-reboot: saved C:\Users\djlov\ciel-runtime\docs\journal\2026\10\12\features\unattended-restart\evidence\e2e-codex\shots\04-D-codex-remote-after-reboot.png handle=4007354 printwindow=True
+07:25:45 ws thread/goal/get thread=01a13012-2b92-73e2-abf2-b4acad83e389 -> {"goal": {"threadId": "01a13012-2b92-73e2-abf2-b4acad83e389", "objective": "E2E-UA-GOAL stay paused", "status": "paused", "tokenBudget": null, "tokensUsed": 0, "timeUsedSeconds": 0, "createdAt": 1791807870, "updatedAt": 1791807870}}
+07:25:45 phase D: {"continue_message_requests": [{"n": 13, "tail": "계속-세션재시작됨", "history_turn1": true, "continue_messages_in_history": 4}], "answered": ["2026-10-12T07:25:38 [INFO] startup_prompt_answered prompt=codex_paused_goal option=leavepaused key=2 enter=false attempt=1"], "threads": ["01a13012-2b92-73e2-abf2-b4acad83e389", "01a13012-2b92-73e2-abf2-b4acad83e389", "01a13012-2b92-73e2-abf2-b4acad83e389"], "goal": {"goal": {"threadId": "01a13012-2b92-73e2-abf2-b4acad83e389", "objective": "E2E-UA-GOAL stay paused", "status": "paused", "tokenBudget": null, "tokensUsed": 0, "timeUsedSeconds": 0, "createdAt": 1791807870, "updatedAt": 1791807870}}}
+07:25:51 kill D: killed 32104 killed 52508 killed 79028
+07:25:57 kill final: 
+07:26:00 done

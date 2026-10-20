@@ -71,6 +71,7 @@ class ChannelLlmContextServices:
     repository: ChannelLlmContextRepository
     projection: ChannelLlmContextProjection
     log: Callable[[str, str], Any]
+    pause_reason: Callable[[dict[str, Any]], str] = lambda _body: ""
 
 
 def inject_pending_channel_context(
@@ -81,6 +82,14 @@ def inject_pending_channel_context(
     repository = services.repository
     wake_request = policy.wake_request(body)
     wake_message_ids = policy.wake_message_ids(body) if wake_request else set()
+    pause_reason = services.pause_reason(body)
+    if pause_reason:
+        # No queue scan, skip/fail transition, claim release or cursor commit.
+        # A native compact request must keep its checkpoint instruction intact.
+        if wake_request and pause_reason != "native_compaction":
+            raise ChannelLlmInjectionDeferred("Ciel Router deferred wake body during context recovery")
+        services.log("INFO", f"channel_llm_inject_deferred reason={pause_reason}")
+        return body
     if policy.plan_mode_active(body):
         if not wake_request:
             services.log("INFO", "channel_llm_inject_skipped reason=plan_mode_active")
@@ -157,6 +166,11 @@ def inject_pending_channel_context(
                 )
             return services.projection.remove_wake_prompt(body) if wake_request else body
 
+    if pause_reason := services.pause_reason(body):
+        if wake_request and pause_reason != "native_compaction":
+            raise ChannelLlmInjectionDeferred("Ciel Router deferred wake body during context recovery")
+        services.log("INFO", f"channel_llm_inject_deferred reason={pause_reason}")
+        return body
     base_body = services.projection.remove_wake_prompt(body) if wake_request else body
     messages = [message for message in base_body.get("messages", []) if isinstance(message, dict)]
     messages.append(

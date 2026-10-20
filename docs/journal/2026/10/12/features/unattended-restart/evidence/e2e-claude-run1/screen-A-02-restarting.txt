@@ -1,0 +1,38 @@
+07:04:41
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ Accessing workspace:
+
+ G:\ciel-e2e\unattended\claude\ws
+
+ Quick safety check: Is this a project you created or one you trust? (Like your own code, a well-known open source project, or work
+ from your team). If not, take a moment to review what's in this folder first.
+
+ Claude Code'll be able to read, edit, and execute files here.
+
+ Security guide
+
+ ❯ No, exit
+   Yes, I trust this folder
+
+ Enter to confirm · Esc to cancel
+[ciel-runtime] 세션을 재시작합니다 — MCP를 다시 만들고 같은 대화로 이어집니다 (source=ciel-runtime-router-tool, reason=e2e unattended r
+estart)
+Ciel Runtime diagnostic: Claude Code exited with code 1 while routed through http://127.0.0.1:64811.
+Router: health=ok base=http://127.0.0.1:64811 pid=85916 version=0.2.51 source=ffd2c9bee0d9e9ef provider=vllm model=ciel-runtime-vllm-st
+ub-model config_dir=G:\ciel-e2e\unattended\claude\cfg
+Provider: vllm upstream=http://127.0.0.1:64810/v1/messages
+Router log: G:\ciel-e2e\unattended\claude\cfg\router.log
+Recent router events:
+  2026-10-12T07:00:34 [WARN] startup_prompt_option_not_found prompt=claude_trust option=yes,itrustthisfolder
+Ciel Runtime: restarting Claude Code source=ciel-runtime-router-tool reason=e2e unattended restart
+
+
+
+
+
+
+
+
+
+

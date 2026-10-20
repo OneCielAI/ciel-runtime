@@ -7,9 +7,10 @@ from pathlib import Path
 from typing import Any, Callable
 from dataclasses import dataclass
 
-from ciel_runtime_support import dangerous_rm_auto_allow
+from ciel_runtime_support import dangerous_rm_auto_allow, launch_data_path
 from ciel_runtime_support.claude_environment import CLAUDE_PROJECTED_ENV_KEYS
 from ciel_runtime_support.managed_tool_injection import should_inject_tool, codex_native_web_tool_overrides
+from ciel_runtime_support.codex_cli import codex_without_resume_command
 from ciel_runtime_support.codex_router_auth import authenticated_codex_command
 from ciel_runtime_support.runtime_constants import (
     CLAUDE_SERVER_SIDE_WEB_TOOLS,
@@ -25,9 +26,14 @@ from ciel_runtime_support.runtime_constants import (
 from ciel_runtime_support.runtime_paths import CONFIG_DIR, LOG_PATH, ROUTER_BASE, ROUTER_INSTANCE_DIR, WORKSPACE_STATE_DIR
 from ciel_runtime_support.runtime_session_restart import (
     SessionRestartPorts,
+    restart_claim_label,
     restart_notice_body,
+    restart_request_after_exit,
     runtime_resume_command,
 )
+from ciel_runtime_support.session_resume_last import ResumeLastRequest, resume_last_requested
+from ciel_runtime_support.startup_prompt_answers import STARTUP_AUTO_ANSWER_ENV
+from ciel_runtime_support.workspace_mcp import renew_launch_command
 from ciel_runtime_support.web_endpoints import (
     current_web_workspace,
     web_backend_owned_by_workspace,
@@ -77,6 +83,15 @@ def _session_backup_after_exit(*, restarting: bool, log: Callable[[str, str], An
     except Exception as error:  # noqa: BLE001 - a backup never blocks the restart or the exit
         if log is not None:
             log("WARN", f"session_backup_after_exit_failed error={type(error).__name__}: {error}")
+
+
+def prepare_restart(restart: SessionRestartPorts, runtime: str, log: Callable[[str, str], None]) -> None:
+    """Refresh what a relaunch reads (instruction files); a failure never blocks the restart."""
+
+    try:
+        restart.prepare(runtime)
+    except Exception as exc:  # noqa: BLE001 - the restart goes ahead with the files on disk
+        log("WARN", f"session_restart_prepare_failed runtime={runtime} error={type(exc).__name__}: {exc}")
 
 
 def queue_restart_notice(
@@ -193,6 +208,8 @@ class ClaudeLaunchConfig:
     provider_menu_label: Callable[..., Any]
     launch_mode_name: Callable[..., Any]
     current_launch_cwd_key: Callable[..., Any]
+    # launch_data_path.LaunchDataPathResolver; None keeps every launch on the router.
+    launch_data_path: Callable[..., Any] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -443,7 +460,22 @@ def run_claude(
             raise RuntimeError(
                 f"No concrete model is selected for provider {provider}; choose a model from the provider model list before launching Claude Code."
             )
-    launch_env = env_vars(cfg)
+    def claude_channel_delivery() -> launch_data_path.ChannelDelivery:
+        # Router-transport wakes are bare [ciel-wake] markers; only the messaging socket carries whole messages.
+        return launch_data_path.ChannelDelivery(
+            terminal_wake=bool(stdin_channel_proxy and llm_channel_delivery),
+            whole_message="session_socket" if session_socket_target else "",
+        )
+
+    data_path = (
+        launch_data_path.resolve(services.config.launch_data_path, "claude", provider, pcfg,
+                                 channel=claude_channel_delivery())
+        if use_router_mode
+        else launch_data_path.ROUTER_PATH
+    )
+    launch_env = env_vars(cfg, data_path=data_path) if data_path.direct else env_vars(cfg)
+    # A direct launch keeps the router's values for a restart without a gateway.
+    launched_direct = data_path.direct
     explicit_claude_model = has_passthrough_option(
         launch_passthrough, "--model"
     )
@@ -553,18 +585,16 @@ def run_claude(
         mcp_config_paths.append(str(zai_mcp_config))
     if should_inject_tool(native=provider == "anthropic", mode="non_native") and should_attach_web_search(provider, cfg, web_search_override):
         mcp_config_paths.append(str(write_duckduckgo_mcp_config(cfg)))
+    claude_router_mcp = {"ciel-runtime-router": {
+        "transport": "streamable_http", "url": f"{ROUTER_BASE}/ca/mcp",
+        "runtimes": ["claude"],
+    }} if (
+        (llm_channel_delivery and web_backend_start_requested(cfg))
+        or router_mcp_enabled_for_launch(cfg, native=use_native_anthropic)
+    ) else None
     workspace_mcp_launch = (
-        workspace_mcp.prepare(
-            "claude", cfg, env,
-            injected_servers={"ciel-runtime-router": {
-                "transport": "streamable_http", "url": f"{ROUTER_BASE}/ca/mcp",
-                "runtimes": ["claude"],
-            }} if (
-                (llm_channel_delivery and web_backend_start_requested(cfg))
-                or router_mcp_enabled_for_launch(cfg, native=use_native_anthropic)
-            ) else None,
-            native=provider == "anthropic",
-        ) if workspace_mcp is not None else None
+        workspace_mcp.prepare("claude", cfg, env, injected_servers=claude_router_mcp, native=provider == "anthropic")
+        if workspace_mcp is not None else None
     )
     if workspace_mcp_launch is not None:
         mcp_config_paths.extend(str(path) for path in workspace_mcp_launch.claude_config_paths)
@@ -634,17 +664,15 @@ def run_claude(
     )
     launch_log_offset = file_size_or_zero(LOG_PATH)
     capture_stderr = env_bool(os.environ.get("CIEL_RUNTIME_CAPTURE_CC_STDERR"), False)
-    transcript_session_id = ""
-    for index, argument in enumerate(cmd):
-        text = str(argument or "")
-        if text == "--session-id" and index + 1 < len(cmd):
-            transcript_session_id = str(cmd[index + 1] or "").strip()
-            break
-        if text.startswith("--session-id="):
-            transcript_session_id = text.partition("=")[2].strip()
-            break
+    transcript_session_id = _claude_explicit_session_id([str(argument or "") for argument in cmd])
+
+    # Whether the last run_claude_process handed the restart control to its
+    # transport; only such a launch can be restarted after its child ends.
+    restart_supervised = False
 
     def run_claude_process() -> int:
+        nonlocal restart_supervised
+        restart_supervised = False
         rc = 1
         try:
             configure_session_socket(session_socket_target or None)
@@ -652,6 +680,8 @@ def run_claude(
                 "claude",
                 cwd=Path.cwd(),
                 session_id=transcript_session_id or None,
+                messaging_socket_path=session_socket_target or None,
+                request_identity=use_router_mode and not launched_direct,
             )
             if use_router_mode and not ensure_managed_router_running_for_client():
                 print(
@@ -660,6 +690,7 @@ def run_claude(
                 )
                 print(f"  {router_health_summary()}", flush=True)
             if stdin_channel_proxy:
+                restart_supervised = True
                 rc = subprocess_call_with_channel_wake_proxy(
                     cmd,
                     env,
@@ -677,6 +708,7 @@ def run_claude(
                     session_command_runtime="claude",
                 )
             elif workspace_mcp_launch is not None and workspace_mcp_launch.active:
+                restart_supervised = True
                 rc = subprocess_call_with_child_pid_record(
                     cmd,
                     env,
@@ -690,6 +722,7 @@ def run_claude(
                 # A one-shot print run (-p/--print) has no session to restart.
                 rc = subprocess.call(cmd, env=env)
             else:
+                restart_supervised = True
                 rc = subprocess_call_with_child_pid_record(
                     cmd,
                     env,
@@ -725,20 +758,80 @@ def run_claude(
         cmd[index] = session_socket_target
         router_log("INFO", f"claude_session_socket_renewed target={session_socket_target}")
 
+    def renew_claude_mcp() -> None:
+        """A restarted Claude Code gets a new workspace MCP launch (servers re-read from the config)."""
+
+        nonlocal workspace_mcp_launch
+        if workspace_mcp is None:
+            return
+        previous = workspace_mcp_launch
+        workspace_mcp_launch = workspace_mcp.renew(
+            previous, "claude", load_config(), env, injected_servers=claude_router_mcp, native=provider == "anthropic",
+        )
+        cmd[:] = renew_launch_command(cmd, previous, workspace_mcp_launch)
+
+    def reselect_claude_data_path() -> None:
+        """A restarted direct launch picks a gateway again (the router when none is healthy).
+
+        Its model ids stay upstream ids, which the router accepts as well as its
+        aliases; a launch that started on the router keeps it until relaunch.
+        """
+
+        if not launched_direct:
+            return
+        providers = load_config().get("providers")
+        current = providers.get(provider) if isinstance(providers, dict) else None
+        route = launch_data_path.resolve(
+            services.config.launch_data_path, "claude", provider, current if isinstance(current, dict) else pcfg,
+            channel=claude_channel_delivery(),
+        )
+        fresh_cfg = load_config()
+        # Rebuild model aliases, limits and capability metadata as well as URL/auth.
+        snapshot = env_vars(fresh_cfg, data_path=route) if route.direct else env_vars(fresh_cfg)
+        for key in CLAUDE_PROJECTED_ENV_KEYS:
+            env.pop(key, None)
+        env.update(snapshot)
+        if "--model" in cmd and not explicit_claude_model:
+            cmd[cmd.index("--model") + 1] = snapshot.get("CIEL_RUNTIME_MODEL_ALIAS", "")
+        if route.direct:
+            os.environ[launch_data_path.ACTIVE_ENV] = "1"
+        else:
+            os.environ.pop(launch_data_path.ACTIVE_ENV, None)
+
     def run_claude_session() -> int:
         handled: set[str] = set()
+        if resume_last_requested():
+            queue_restart_notice(services.restart, "claude", ResumeLastRequest(), router_log)
         while True:
             restart_control.reset()
             rc = run_claude_process()
-            request = restart_control.request
+            # The transport returned, so this child is gone: any wake it owned
+            # can no longer be confirmed. Reconcile before the next launch
+            # scope overrides the epoch (Sarah 2026-10-20 interrupted input).
+            try:
+                services.restart.child_exited(True)
+            except Exception as exc:  # noqa: BLE001 - reconciliation never blocks the exit path
+                router_log("WARN", f"channel_wake_child_exit_reconcile_failed error={type(exc).__name__}: {exc}")
+            # The transport stops polling once the child has ended: a request
+            # queued meanwhile, or one held for the running turn, is taken here.
+            request = (
+                restart_request_after_exit(restart_control)
+                if restart_supervised
+                else restart_control.request
+            )
             if request is None or request.id in handled:
                 _session_backup_after_exit(restarting=False, log=router_log)
                 return rc
             handled.add(request.id)
             _session_backup_after_exit(restarting=True, log=router_log)
+            # Nobody is at the keyboard: answer the startup dialogs.
+            os.environ[STARTUP_AUTO_ANSWER_ENV] = "1"
             if request.resume:
                 cmd[:] = runtime_resume_command(cmd, "claude")
             fresh_session_socket()
+            renew_claude_mcp()
+            reselect_claude_data_path()
+            prepare_restart(services.restart, "claude", router_log)
             queue_restart_notice(services.restart, "claude", request, router_log)
             print(
                 "Ciel Runtime: restarting Claude Code "
@@ -748,11 +841,12 @@ def run_claude(
             router_log(
                 "INFO",
                 f"claude_session_restart exit_code={rc} source={request.source or '-'} "
-                f"reason={request.reason or '-'} resumed={str(bool(request.resume)).lower()}",
+                f"reason={request.reason or '-'} resumed={str(bool(request.resume)).lower()} "
+                f"request_id={request.id} claim={restart_claim_label(restart_control)}",
             )
 
     try:
-        return run_with_router_lifetime(run_claude_session, manage_router_lifetime)
+        return run_with_router_lifetime(lambda: launch_data_path.run_with_delivery_path(data_path, run_claude_session), manage_router_lifetime)
     finally:
         if workspace_mcp is not None and workspace_mcp_launch is not None:
             workspace_mcp.finish(workspace_mcp_launch)
@@ -879,6 +973,31 @@ class CodexLaunchServices:
     routing: CodexLaunchRouting
     channel: CodexLaunchChannel
     restart: SessionRestartPorts = SessionRestartPorts()
+    # launch_data_path.LaunchDataPathResolver; None keeps every launch on the router.
+    data_path: Callable[..., Any] | None = None
+
+
+def _claude_explicit_session_id(cmd: list[str]) -> str:
+    """The session the child will write, when the command names it.
+
+    ``--session-id`` names it outright. ``--resume <id>`` keeps that id
+    unless ``--fork-session`` asks Claude Code 2.1.303 for a new one; a bare
+    ``--resume``/``--continue`` picks a session the launcher does not know.
+    """
+
+    def value(flags: tuple[str, ...]) -> str:
+        for index, text in enumerate(cmd):
+            if text in flags and index + 1 < len(cmd) and not cmd[index + 1].startswith("-"):
+                return cmd[index + 1].strip()
+            for flag in flags:
+                if flag.startswith("--") and text.startswith(flag + "="):
+                    return text.partition("=")[2].strip()
+        return ""
+
+    explicit = value(("--session-id",))
+    if explicit or "--fork-session" in cmd:
+        return explicit
+    return value(("--resume", "-r"))
 
 
 def _codex_explicit_resume_session_id(passthrough: list[str]) -> str:
@@ -890,6 +1009,36 @@ def _codex_explicit_resume_session_id(passthrough: list[str]) -> str:
         value = str(passthrough[index + 1]).strip()
         return value if value and not value.startswith("-") else ""
     return ""
+
+
+def _reselect_codex_data_path(
+    resolver: Any,
+    runtime: str,
+    provider: str,
+    pcfg: dict[str, Any],
+    load_config: Callable[..., Any],
+    cmd: list[str],
+    env: dict[str, str],
+    *,
+    channel: launch_data_path.ChannelDelivery | None = None,
+) -> list[str]:
+    """A restarted direct Codex launch: a gateway picked again, or the router when none is healthy.
+
+    The model stays the upstream id, which the router also accepts.
+    """
+
+    providers = load_config().get("providers")
+    current = providers.get(provider) if isinstance(providers, dict) else None
+    route = launch_data_path.resolve(resolver, runtime, provider, current if isinstance(current, dict) else pcfg,
+                                     channel=channel)
+    if route.direct:
+        env[launch_data_path.GATEWAY_API_KEY_ENV] = route.api_key
+        return launch_data_path.codex_provider_command(
+            cmd, launch_data_path.DIRECT_PROVIDER_ID, route.endpoint, launch_data_path.GATEWAY_API_KEY_ENV
+        )
+    env[CODEX_RUNTIME_API_KEY_ENV] = env.get(CODEX_RUNTIME_API_KEY_ENV) or "ciel-runtime-router-local-key"
+    routed = launch_data_path.codex_provider_command(cmd, launch_data_path.DIRECT_PROVIDER_ID, ROUTER_BASE, CODEX_RUNTIME_API_KEY_ENV)
+    return authenticated_codex_command(routed, env, ROUTER_BASE)
 
 
 def run_codex(
@@ -1045,14 +1194,19 @@ def run_codex(
             cwd=launch_cwd,
             select_latest=True,
         )
-        if not session_id:
+        if not session_id and resume_last_requested(env):
+            # An unattended start still opens a session: a new conversation.
+            codex_passthrough = codex_without_resume_command(codex_passthrough)
+            codex_passthrough_notes.append("resume --last -> new conversation (none saved for this folder)")
+        elif not session_id:
             return 0
-        codex_passthrough = codex_resume_with_session_id(
-            codex_passthrough, session_id
-        )
-        codex_passthrough_notes.append(
-            "resume --last -> latest current-directory Codex session ID"
-        )
+        else:
+            codex_passthrough = codex_resume_with_session_id(
+                codex_passthrough, session_id
+            )
+            codex_passthrough_notes.append(
+                "resume --last -> latest current-directory Codex session ID"
+            )
     if not use_native_codex and codex_resume_picker_requested(codex_passthrough):
         session_id = select_codex_resume_session(
             env,
@@ -1101,16 +1255,28 @@ def run_codex(
         passthrough=[*codex_passthrough, *codex_mcp_compat_args], env=env, cwd=launch_cwd,
     ))
     codex_yolo_args = codex_yolo_launch_args(codex_passthrough)
-    if not use_native_codex and not use_codex_routed:
+    router_data_path = not use_native_codex and not use_codex_routed and not native_codex_enabled(provider)
+    # The plain TUI has no messaging socket: its LLM-delivery wakes are typed
+    # [ciel-wake] markers (on Windows without the body), so they need the router.
+    codex_channel = launch_data_path.ChannelDelivery(terminal_wake=channel_delivery_mode(cfg) == "llm")
+    data_path = (
+        launch_data_path.resolve(services.data_path, "codex", provider, pcfg, channel=codex_channel)
+        if router_data_path
+        else launch_data_path.ROUTER_PATH
+    )
+    if data_path.direct:
+        env[launch_data_path.GATEWAY_API_KEY_ENV] = data_path.api_key
+    elif not use_native_codex and not use_codex_routed:
         env[CODEX_RUNTIME_API_KEY_ENV] = env.get(CODEX_RUNTIME_API_KEY_ENV) or "ciel-runtime-router-local-key"
     log_codex_passthrough_mapping(codex_passthrough_notes)
     model_alias_args: list[str] = []
     if not native_codex_enabled(provider):
         alias_config = dict(pcfg)
-        alias_config["current_model"] = current_alias(cfg)
+        alias_config["current_model"] = data_path.model if data_path.direct else current_alias(cfg)
         model_alias_args = codex_current_model_cli_args(
             alias_config, codex_passthrough
         )
+    direct_options: dict[str, Any] = {"model_slug": data_path.model} if data_path.direct else {}
     codex_mode = "native" if use_native_codex else ("routed" if use_codex_routed else "router")
     try:
         cmd, env = materialize_runtime_command(
@@ -1128,9 +1294,13 @@ def run_codex(
                 "yolo_args": tuple(codex_yolo_args),
                 "model_args": tuple(codex_current_model_cli_args(pcfg, codex_passthrough)),
                 "routed_config_args": tuple(codex_native_routed_config_args()),
-                "router_config_args": tuple(codex_runtime_config_args()),
+                "router_config_args": tuple(
+                    codex_runtime_config_args(data_path.endpoint, env_key=launch_data_path.GATEWAY_API_KEY_ENV, provider_id=launch_data_path.DIRECT_PROVIDER_ID)
+                    if data_path.direct
+                    else codex_runtime_config_args()
+                ),
                 "model_catalog_args": tuple(
-                    codex_runtime_model_catalog_args(codex, cfg, codex_passthrough)
+                    codex_runtime_model_catalog_args(codex, cfg, codex_passthrough, **direct_options)
                 ),
                 "alternate_screen_args": tuple(codex_alternate_screen_compat_args(codex_passthrough, env=env)),
                 "mcp_args": tuple(codex_mcp_compat_args),
@@ -1142,6 +1312,7 @@ def run_codex(
             workspace_mcp.finish(workspace_mcp_launch)
         raise
     cmd = authenticated_codex_command(cmd, env, ROUTER_BASE)
+    launched_direct = data_path.direct
     _log_codex_command_for_diagnostics(cmd, env)
     record_launch_state_for_cwd(
         current_launch_cwd_key(),
@@ -1156,6 +1327,7 @@ def run_codex(
             codex_home=Path(env.get("CODEX_HOME") or (Path.home() / ".codex")),
             cwd=launch_cwd,
             session_id=_codex_explicit_resume_session_id(codex_passthrough),
+            request_identity=not native_codex_enabled(provider) and not launched_direct,
         )
         codex_synthetic_enter = None if _channel_wake_enter_env_is_fixed() else b"\r"
         return subprocess_call_with_channel_wake_proxy(
@@ -1182,19 +1354,39 @@ def run_codex(
             session_command_runtime="codex",
         )
 
+    def renew_codex_mcp() -> None:
+        """A restarted Codex gets a new workspace MCP launch (servers re-read from the config)."""
+
+        nonlocal workspace_mcp_launch
+        if workspace_mcp is None:
+            return
+        previous = workspace_mcp_launch
+        workspace_mcp_launch = workspace_mcp.renew(previous, "codex", load_config(), env, native=native_codex_enabled(provider))
+        cmd[:] = renew_launch_command(cmd, previous, workspace_mcp_launch)
+
     def run_codex_session() -> int:
         handled: set[str] = set()
+        if resume_last_requested():
+            queue_restart_notice(services.restart, "codex", ResumeLastRequest(), router_log)
         while True:
             codex_restart_control.reset()
             rc = run_codex_process()
-            request = codex_restart_control.request
+            # The proxy stops polling once the child has ended: a request
+            # queued meanwhile, or one held for the running turn, is taken here.
+            request = restart_request_after_exit(codex_restart_control)
             if request is None or request.id in handled:
                 _session_backup_after_exit(restarting=False, log=router_log)
                 return rc
             handled.add(request.id)
             _session_backup_after_exit(restarting=True, log=router_log)
+            os.environ[STARTUP_AUTO_ANSWER_ENV] = "1"
             if request.resume:
                 cmd[:] = runtime_resume_command(cmd, "codex")
+            renew_codex_mcp()
+            if launched_direct:
+                cmd[:] = _reselect_codex_data_path(services.data_path, "codex", provider, pcfg, load_config, cmd, env,
+                                                   channel=codex_channel)
+            prepare_restart(services.restart, "codex", router_log)
             queue_restart_notice(services.restart, "codex", request, router_log)
             print(
                 "Ciel Runtime: restarting Codex "
@@ -1204,7 +1396,8 @@ def run_codex(
             router_log(
                 "INFO",
                 f"codex_session_restart exit_code={rc} source={request.source or '-'} "
-                f"reason={request.reason or '-'} resumed={str(bool(request.resume)).lower()}",
+                f"reason={request.reason or '-'} resumed={str(bool(request.resume)).lower()} "
+                f"request_id={request.id} claim={restart_claim_label(codex_restart_control)}",
             )
 
     try:
@@ -1279,6 +1472,7 @@ class CodexAppServerRouting:
     native_codex_enabled: Callable[..., Any]
     run_with_router_lifetime: Callable[..., Any]
     start_router_if_needed: Callable[..., Any]
+    router_log: Callable[[str, str], Any] = lambda _level, _message: None
 
 
 @dataclass(frozen=True, slots=True)
@@ -1297,6 +1491,8 @@ class CodexAppServerLaunchServices:
     dispatch: CodexAppServerDispatch
     routing: CodexAppServerRouting
     channel: CodexAppServerChannel
+    restart: SessionRestartPorts = SessionRestartPorts()
+    data_path: Callable[..., Any] | None = None
 
 
 def run_codex_app_server(
@@ -1459,23 +1655,35 @@ def run_codex_app_server(
         ) if web_backend_start_requested(cfg) else False
     else:
         manage_router_lifetime = bool(start_router_if_needed())
+    data_path = launch_data_path.ROUTER_PATH
+    data_path_runtime = str(getattr(desktop, "launch_mode", "") or "codex-app-server")
+    # Channel messages go in as whole app-server turns (the codex-remote TUI types none).
+    app_server_channel = launch_data_path.ChannelDelivery(whole_message="app_server")
     if use_codex_routed:
         config_args = codex_native_routed_config_args()
     elif use_native_codex:
         config_args = []
     else:
-        env[CODEX_RUNTIME_API_KEY_ENV] = env.get(CODEX_RUNTIME_API_KEY_ENV) or "ciel-runtime-router-local-key"
-        config_args = codex_runtime_config_args()
+        if not native_codex_enabled(provider):
+            data_path = launch_data_path.resolve(services.data_path, data_path_runtime, provider, pcfg,
+                                                 channel=app_server_channel)
+        if data_path.direct:
+            env[launch_data_path.GATEWAY_API_KEY_ENV] = data_path.api_key
+            config_args = codex_runtime_config_args(data_path.endpoint, env_key=launch_data_path.GATEWAY_API_KEY_ENV, provider_id=launch_data_path.DIRECT_PROVIDER_ID)
+        else:
+            env[CODEX_RUNTIME_API_KEY_ENV] = env.get(CODEX_RUNTIME_API_KEY_ENV) or "ciel-runtime-router-local-key"
+            config_args = codex_runtime_config_args()
     if native_codex_enabled(provider):
         config_args = [*config_args, *codex_current_model_config_args(pcfg, passthrough)]
     if not native_codex_enabled(provider):
         ensure_model_cache_for_launch(provider, pcfg)
-        model = current_alias(cfg)
+        model = data_path.model if data_path.direct else current_alias(cfg)
         if model and not codex_passthrough_has_model_override(passthrough):
             config_args = [*config_args, "-c", f"model={toml_string(model)}"]
+    direct_options: dict[str, Any] = {"model_slug": data_path.model} if data_path.direct else {}
     config_args = [
         *config_args,
-        *codex_runtime_model_catalog_args(codex, cfg, passthrough),
+        *codex_runtime_model_catalog_args(codex, cfg, passthrough, **direct_options),
     ]
     codex_mcp_compat_args = codex_mcp_native_http_compat_args(
         None,
@@ -1545,7 +1753,52 @@ def run_codex_app_server(
             else codex_process_record_path("app-server"),
         )
 
+    def relaunch(request: Any) -> list[str]:
+        """codex-remote restart: a new workspace MCP launch and the restart notice; the next server command."""
+
+        nonlocal cmd, workspace_mcp_launch
+        router_log = services.routing.router_log
+        _session_backup_after_exit(restarting=True, log=router_log)
+        os.environ[STARTUP_AUTO_ANSWER_ENV] = "1"
+        if workspace_mcp is not None:
+            previous = workspace_mcp_launch
+            workspace_mcp_launch = workspace_mcp.renew(
+                previous, "codex-app-server", load_config(), env, native=native_codex_enabled(provider),
+            )
+            cmd = renew_launch_command(cmd, previous, workspace_mcp_launch)
+        if data_path.direct:
+            fresh_cfg = load_config()
+            fresh_provider, fresh_pcfg = get_current_provider(fresh_cfg)
+            route = launch_data_path.resolve(services.data_path, data_path_runtime, fresh_provider, fresh_pcfg,
+                                             channel=app_server_channel)
+            if route.direct:
+                env[launch_data_path.GATEWAY_API_KEY_ENV] = route.api_key
+                new_args = codex_runtime_config_args(route.endpoint, env_key=launch_data_path.GATEWAY_API_KEY_ENV,
+                                                     provider_id=launch_data_path.DIRECT_PROVIDER_ID)
+                new_model = route.model
+                catalog_options = {"model_slug": new_model}
+                os.environ[launch_data_path.ACTIVE_ENV] = "1"
+            else:
+                env[CODEX_RUNTIME_API_KEY_ENV] = env.get(CODEX_RUNTIME_API_KEY_ENV) or "ciel-runtime-router-local-key"
+                new_args = codex_runtime_config_args()
+                new_model = current_alias(fresh_cfg)
+                catalog_options = {}
+                os.environ.pop(launch_data_path.ACTIVE_ENV, None)
+            if new_model and not codex_passthrough_has_model_override(passthrough):
+                new_args.extend(["-c", f"model={toml_string(new_model)}"])
+            new_args.extend(codex_runtime_model_catalog_args(codex, fresh_cfg, passthrough, **catalog_options))
+            cmd = launch_data_path.replace_codex_model_settings(cmd, new_args)
+            cmd = authenticated_codex_command(cmd, env, ROUTER_BASE)
+        prepare_restart(services.restart, "codex-app-server", router_log)
+        queue_restart_notice(services.restart, "codex", request, router_log)
+        return cmd
+
+    if getattr(desktop, "relaunches_server", False):
+        session_kwargs["relaunch"] = relaunch
+
     def run_codex_app_server_process() -> int:
+        if resume_last_requested():
+            queue_restart_notice(services.restart, "codex", ResumeLastRequest(), services.routing.router_log)
         if desktop is not None:
             rc = desktop(cmd, env, launch_cwd, run_server=run_server, **session_kwargs)
         else:
@@ -1554,7 +1807,7 @@ def run_codex_app_server(
         return rc
 
     try:
-        return run_with_router_lifetime(run_codex_app_server_process, manage_router_lifetime)
+        return run_with_router_lifetime(lambda: launch_data_path.run_with_delivery_path(data_path, run_codex_app_server_process), manage_router_lifetime)
     finally:
         if workspace_mcp is not None and workspace_mcp_launch is not None:
             workspace_mcp.finish(workspace_mcp_launch)

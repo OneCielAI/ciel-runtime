@@ -1,0 +1,29 @@
+{
+  "version": "0.2.51-nightly.20261019-225158.50e7906",
+  "gitHead": "50e7906a1b4e3a104414adbbd40313de560a8c9c",
+  "tags": {
+    "latest": "0.2.51",
+    "nightly": "0.2.51-nightly.20261019-225158.50e7906"
+  },
+  "dist": {
+    "shasum": "ce5e88e4faabf55b699ac7b40269fd19733d716f",
+    "tarball": "https://registry.npmjs.org/@one-ciel-ai/ciel-runtime/-/ciel-runtime-0.2.51-nightly.20261019-225158.50e7906.tgz",
+    "fileCount": 1778,
+    "integrity": "sha512-QvY+iEuIJwZhfw+sJlAop+obdmHO4yyXOHALLSKW+C4nB250AZoeCZXiqRF/UbM2OdKQO6TOgCl083DT+gZZoA==",
+    "signatures": [
+      {
+        "sig": "MEUCIQDuBrdPs1MUsnoX4YfZ4w7o6QrDkTOt7RiIIngHjXiT+QIgD0CDdKIlawmRw5bp3GSgeNFOj7mSX6FFryguYZIX77M=",
+        "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+      },
+      {
+        "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U",
+        "sig": "MEYCIQDqTTlUM2A3pwmM5SVJXjw2B5AeqtLGCA36yQDyvBOKEgIhAN/sWI3IfBOwPG8q6JRy3dNtx3jR6nMrG/4sbNI3E9z6"
+      }
+    ],
+    "unpackedSize": 19362951
+  },
+  "tarball_sha256": "acbfae6890a122bae50adb520c8511a4f659c5bc45c577ae48d12424d730d745",
+  "tarball_bytes": 10009266,
+  "files": 1778,
+  "package_dir": "C:\\Users\\djlov\\ciel-runtime\\docs\\journal\\2026\\10\\19\\releases\\auto-compact-trigger\\evidence\\payload\\unpack\\package"
+}

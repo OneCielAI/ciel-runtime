@@ -1,0 +1,168 @@
+{
+ "mode": "router-head",
+ "ports": {
+  "central": 65235,
+  "A": 65236,
+  "B": 65237
+ },
+ "router_port": 65238,
+ "record_at_launch": {},
+ "launch_data_path_log_at_launch": [],
+ "events_before_turn1": [
+  {
+   "n": 1,
+   "at": "17:03:13",
+   "t": 1792188193.8228447,
+   "server": "central",
+   "path": "/v1/models"
+  },
+  {
+   "n": 2,
+   "at": "17:03:21",
+   "t": 1792188201.1943357,
+   "server": "central",
+   "path": "/v1/models"
+  }
+ ],
+ "codex_provider_args_launch": [
+  "model_provider=\\\"ciel-runtime\\\" model_providers.ciel-runtime.base_url=\\\"http://127.0.0.1:65238/v1\\\" model_providers.ciel-runtime.env_key=\\\"CIEL_RUNTIME_CODEX_API_KEY\\\" -m ciel-runtime-cielairouter-stub-model"
+ ],
+ "restart_response": {
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"ok\":true,\"queued\":true,\"request\":{\"schema\":\"ciel-runtime.runtime-session-restart/v1\",\"id\":\"bf35eaa077dc45b197179cdf02b86f32\",\"source\":\"ciel-runtime-router-tool\",\"reason\":\"direct-plain E2E restart\",\"runtime\":\"\",\"target_pid\":48472,\"resume\":true,\"requested_at\":1792188288.6799085,\"expires_at\":1792188588.6799085,\"wait_turn\":false},\"target\":{\"pid\":48472,\"workspace\":\"G:\\\\ciel-e2e\\\\direct-plain\\\\codex-router-head\\\\ws\",\"started_at\":\"2026-10-16T17:03:21\",\"router_port\":65238,\"instance\":\"cfg\"},\"clients\":[{\"pid\":48472,\"workspace\":\"G:\\\\ciel-e2e\\\\direct-plain\\\\codex-router-head\\\\ws\",\"started_at\":\"2026-10-16T17:03:21\",\"router_port\":65238,\"instance\":\"cfg\"}]}"
+    }
+   ],
+   "isError": false
+  }
+ },
+ "codex_provider_args_after_restart": [],
+ "turn1": [
+  {
+   "n": 6,
+   "at": "17:04:39",
+   "t": 1792188279.693071,
+   "server": "B",
+   "path": "/v1/responses",
+   "turn": "1",
+   "auth_ok": true,
+   "model": "stub-model",
+   "ua": "codex-tui/0.163.0 (Windows 10.0.26200; x86_64) WindowsTerminal (codex-tui; 0.163.0)",
+   "originator": "codex-tui",
+   "wake_marker_in_body": false,
+   "last_user_prefix": "E2E-TURN-1 please reply"
+  },
+  {
+   "n": 7,
+   "at": "17:04:39",
+   "t": 1792188279.7086508,
+   "server": "B",
+   "path": "/v1/responses",
+   "turn": "1",
+   "auth_ok": true,
+   "model": "stub-model",
+   "ua": "codex-tui/0.163.0 (Windows 10.0.26200; x86_64) WindowsTerminal (codex-tui; 0.163.0)",
+   "originator": "codex-tui",
+   "wake_marker_in_body": false,
+   "last_user_prefix": "This is a runtime completion check. Call the supplied ciel_r"
+  }
+ ],
+ "turn2": [],
+ "discovery_requests": [
+  {
+   "n": 3,
+   "at": "17:04:39",
+   "t": 1792188279.6366525,
+   "server": "central",
+   "path": "/api/gateway/discovery",
+   "auth_ok": true,
+   "ua": "Python-urllib/3.11"
+  }
+ ],
+ "healthz_with_auth": [],
+ "central_generation_requests": [],
+ "events": [
+  {
+   "n": 1,
+   "at": "17:03:13",
+   "t": 1792188193.8228447,
+   "server": "central",
+   "path": "/v1/models"
+  },
+  {
+   "n": 2,
+   "at": "17:03:21",
+   "t": 1792188201.1943357,
+   "server": "central",
+   "path": "/v1/models"
+  },
+  {
+   "n": 3,
+   "at": "17:04:39",
+   "t": 1792188279.6366525,
+   "server": "central",
+   "path": "/api/gateway/discovery",
+   "auth_ok": true,
+   "ua": "Python-urllib/3.11"
+  },
+  {
+   "n": 4,
+   "at": "17:04:39",
+   "t": 1792188279.6416516,
+   "server": "B",
+   "path": "/healthz",
+   "auth": false
+  },
+  {
+   "n": 5,
+   "at": "17:04:39",
+   "t": 1792188279.642151,
+   "server": "A",
+   "path": "/healthz",
+   "auth": false
+  },
+  {
+   "n": 6,
+   "at": "17:04:39",
+   "t": 1792188279.693071,
+   "server": "B",
+   "path": "/v1/responses",
+   "turn": "1",
+   "auth_ok": true,
+   "model": "stub-model",
+   "ua": "codex-tui/0.163.0 (Windows 10.0.26200; x86_64) WindowsTerminal (codex-tui; 0.163.0)",
+   "originator": "codex-tui",
+   "wake_marker_in_body": false,
+   "last_user_prefix": "E2E-TURN-1 please reply"
+  },
+  {
+   "n": 7,
+   "at": "17:04:39",
+   "t": 1792188279.7086508,
+   "server": "B",
+   "path": "/v1/responses",
+   "turn": "1",
+   "auth_ok": true,
+   "model": "stub-model",
+   "ua": "codex-tui/0.163.0 (Windows 10.0.26200; x86_64) WindowsTerminal (codex-tui; 0.163.0)",
+   "originator": "codex-tui",
+   "wake_marker_in_body": false,
+   "last_user_prefix": "This is a runtime completion check. Call the supplied ciel_r"
+  }
+ ],
+ "record_at_end": {},
+ "launch_data_path_log": [],
+ "restart_log": [
+  "2026-10-16T17:04:50 [INFO] codex_session_restart_notice_queued request_id=2",
+  "2026-10-16T17:04:50 [INFO] codex_session_restart exit_code=1 source=ciel-runtime-router-tool reason=direct-plain E2E restart resumed=true"
+ ],
+ "wake_log": [
+  "2026-10-16T17:04:39 [INFO] channel_llm_injected count=1 message_ids=1 channels=e2e",
+  "2026-10-16T17:04:40 [INFO] channel_stdin_proxy_injected count=1 message_ids=1 channels=e2e enter=cr transport=router commit_cursor=False display_body=False"
+ ],
+ "codex_rollout_user_prefixes": []
+}

@@ -1,0 +1,24 @@
+{
+  "kind": "claude-auto-compact-trigger-alignment",
+  "why": "A routed launch advertised the model's full context while the router trimmed every request, so the client's own trigger was unreachable; after the last boundary the Walkie session sent 0 compaction requests.",
+  "measured_before": {
+    "cielairouter": {"window": 872000, "guard_input_budget": 716750, "percent": null, "client_default_threshold": 839000},
+    "deepseek": {"window": 1000000, "guard_input_budget": 1032192, "percent": null, "client_default_threshold": 967000}
+  },
+  "measured_after": {
+    "cielairouter": {"window": 872000, "guard_input_budget": 716750, "percent": 82, "pct_of_raw_window": 715040, "client_threshold": 698640},
+    "deepseek": {"window": 1000000, "guard_input_budget": 1032192, "percent": null}
+  },
+  "client_semantics": {
+    "source": "docs/journal/2026/10/15/diagnostics/claude-autocompact/evidence/05-claude-code-2.1.300-autocompact-source.txt",
+    "effective_window": "window - min(model.maxOutputTokens, 20000)",
+    "default_threshold": "effective_window - 13000",
+    "override_threshold": "min(floor(effective_window * pct / 100), effective_window - 13000)",
+    "consequence": "The percentage applies to the window after the output deduction, so the pinned trigger lands below budget for every deduction >= 0; the pin does not encode the 20000/13000 constants.",
+    "recheck": "evidence/autocompact-trigger-client-semantics.txt"
+  },
+  "sweep": {"providers": 40, "violations": 0, "unbounded_percent_none": ["deepseek", "meta", "opencode-go"]},
+  "rules": ["The window stays the model's real context.", "The trigger is pinned to the budget cap_anthropic_body enforces.", "A direct data-path launch bypasses the router and keeps the client's own trigger.", "Native Anthropic keeps owning its compaction.", "An explicit lower provider percent is never raised."],
+  "tests": {"focused": 185, "unit_group_isolated": 2185, "unit_skipped": 49, "recheck_focused": 18},
+  "not_verified": "No live launch read the new env in this re-check; the values come from the shipped code path with the saved configuration."
+}

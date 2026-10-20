@@ -7,7 +7,9 @@ from ciel_runtime_support.providers.ollama import OllamaCloudProviderAdapter
 
 class CloudNewModelsTests(unittest.TestCase):
     def test_new_model_available_in_offline_defaults(self):
-        self.assertIn('deepseek-v4.1-flash', OllamaCloudProviderAdapter().configuration_defaults_value['custom_models'])
+        models = OllamaCloudProviderAdapter().configuration_defaults_value['custom_models']
+        self.assertIn('deepseek-v4.1-flash', models)
+        self.assertIn('deepseek-v4.1-flash:1017-cloud', models)
 
     def test_discovered_multimodal_metadata_and_safe_thinking(self):
         model = 'deepseek-v4.1-flash'

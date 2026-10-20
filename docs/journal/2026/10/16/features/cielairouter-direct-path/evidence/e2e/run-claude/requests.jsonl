@@ -1,0 +1,11 @@
+{"n": 1, "at": "16:45:42", "server": "central", "path": "/v1/models"}
+{"n": 2, "at": "16:45:50", "server": "central", "path": "/v1/models"}
+{"n": 3, "at": "16:45:50", "server": "central", "path": "/api/gateway/discovery", "auth_ok": true}
+{"n": 4, "at": "16:45:50", "server": "A", "path": "/healthz", "auth": false}
+{"n": 5, "at": "16:45:52", "server": "A", "path": "/v1/models"}
+{"n": 6, "at": "16:46:07", "server": "A", "path": "/v1/messages", "turn": "", "truncated": false, "auth_ok": true, "model": "stub-model", "bytes": 102044, "user_agent": "claude-cli/2.1.302 (external, cli)", "head1": true, "tail1": true, "head2": false, "tail2": false, "restart_notice": false}
+{"n": 7, "at": "16:46:16", "server": "central", "path": "/api/gateway/discovery", "auth_ok": true}
+{"n": 8, "at": "16:46:16", "server": "B", "path": "/healthz", "auth": false}
+{"n": 9, "at": "16:46:17", "server": "B", "path": "/v1/models"}
+{"n": 10, "at": "16:46:25", "server": "B", "path": "/v1/messages", "turn": "", "truncated": false, "auth_ok": true, "model": "stub-model", "bytes": 101298, "user_agent": "claude-cli/2.1.302 (external, cli)", "head1": true, "tail1": true, "head2": false, "tail2": false, "restart_notice": true}
+{"n": 11, "at": "16:46:33", "server": "B", "path": "/v1/messages", "turn": "", "truncated": false, "auth_ok": true, "model": "stub-model", "bytes": 103075, "user_agent": "claude-cli/2.1.302 (external, cli)", "head1": true, "tail1": true, "head2": true, "tail2": true, "restart_notice": true}

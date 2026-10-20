@@ -18,6 +18,7 @@ from .codex_completion_gate import (
     request_requires_completion_check,
 )
 from .codex_turn_recovery import CODEX_COMPLETION_TOOL_NAME
+from .initial_stream_retry import gateway_route_selected
 from .responses_usage_observer import ResponsesUsageObserver
 from .responses_cache_diagnostics import (
     cache_trace,
@@ -33,6 +34,8 @@ from .responses_custom_tool_bridge import (
     project_response_payload,
     tool_definitions,
 )
+from .prompt_compaction import responses_compact_instruction_index
+from .context_summary_policy import semantic_payload_cost
 from .remote_bridge import is_remote_bridge_request
 from .upstream_dump import dump_upstream_request
 from .upstream_error_policy import UpstreamStreamReadError
@@ -188,6 +191,51 @@ class ProviderResponsesPassthrough:
             separators=(",", ":"),
         ).encode("utf-8")
 
+    def _compact_checkpoint(
+        self,
+        provider: str,
+        config: dict[str, Any],
+        body: dict[str, Any],
+        semantic_input: list[Any] | None,
+    ) -> dict[str, Any]:
+        # The native Codex backend owns its own compaction. Only a native
+        # checkpoint on a compatible provider opts into semantic map/reduce.
+        source = semantic_input if isinstance(semantic_input, list) else body.get("input")
+        if (
+            provider == "codex"
+            or body.get("previous_response_id")
+            or not str(body.get("model") or "")
+            or not isinstance(source, list)
+            or responses_compact_instruction_index(source) is None
+        ):
+            return body
+
+        def positive(value: Any) -> int:
+            try:
+                return max(0, int(value or 0))
+            except (TypeError, ValueError):
+                return 0
+
+        context = positive(config.get("context_window")) or positive(config.get("max_model_len"))
+        if not context:
+            return body
+        outputs = [value for value in (
+            positive(config.get("max_output_tokens")), positive(body.get("max_output_tokens")),
+        ) if value]
+        reserve = positive(config.get("context_reserve_tokens")) or max(1024, min(32768, context // 32))
+        budget = max(8192, context - (min(outputs) if outputs else 4096) - reserve)
+        if semantic_payload_cost(body, self._ports.estimate_tokens) <= budget:
+            return body
+        return self._ports.compact_responses(
+            body,
+            budget,
+            provider=provider,
+            model=str(body.get("model") or ""),
+            pcfg=config,
+            full_compact_request=True,
+            semantic_input=source,
+        )
+
     def _fit_provider_request(
         self,
         url: str,
@@ -196,7 +244,13 @@ class ProviderResponsesPassthrough:
         body: dict[str, Any],
         *,
         remote_bridge: bool = False,
+        semantic_input: list[Any] | None = None,
     ) -> tuple[dict[str, Any], bytes]:
+        # Network clients own their prompt; never run a local checkpoint for them.
+        if not remote_bridge:
+            checkpoint = self._compact_checkpoint(provider, config, body, semantic_input)
+            if checkpoint is not body:
+                body = self._ports.finalize_body(checkpoint)
         data = self._encode(body)
         configured_limit = self._ports.request_max_bytes(provider, config)
         if configured_limit is None:
@@ -238,6 +292,7 @@ class ProviderResponsesPassthrough:
                 provider=provider,
                 model=str(current.get("model") or ""),
                 remote_bridge=remote_bridge,
+                pcfg=config,
                 stable_prefix_checkpoint_items=config.get(
                     "responses_cache_checkpoint_items", 0
                 ),
@@ -312,7 +367,15 @@ class ProviderResponsesPassthrough:
         request headers as built, not as urllib amended them while sending.
         """
 
-        retries = self._stream_truncation_retries(config)
+        # A selected gateway route is fixed for the whole call, so a replay
+        # would reach the gateway that just failed; the next client request
+        # re-enters gateway selection instead. ``forward`` still buffers on the
+        # configured count, so the failure leaves nothing committed downstream.
+        retries = (
+            0
+            if gateway_route_selected(config)
+            else self._stream_truncation_retries(config)
+        )
         max_attempts = retries + 1
         model = str(upstream_body.get("model") or "")
         for attempt in range(1, max_attempts + 1):
@@ -526,6 +589,11 @@ class ProviderResponsesPassthrough:
         body: dict[str, Any],
     ) -> dict[str, Any]:
         remote_bridge = is_remote_bridge_request(handler)
+        # Replay repair drops orphan halves and foreign reasoning the wire cannot
+        # carry; a native checkpoint still summarizes that raw client content.
+        semantic_input = (
+            None if remote_bridge else hoist_additional_tools(body).get("input")
+        )
         # Codex carries its tool catalogue in an `additional_tools` input item;
         # only the OpenAI backend accepts that item, so lift it into `tools`
         # before the provider's own normalisation runs.
@@ -560,6 +628,7 @@ class ProviderResponsesPassthrough:
             config,
             upstream_body,
             remote_bridge=remote_bridge,
+            semantic_input=semantic_input,
         )
         cache_profile = request_cache_profile(upstream_body, len(data))
         request_headers = self._request_headers(
@@ -617,55 +686,56 @@ class ProviderResponsesPassthrough:
                 else None
             )
             response_body = bytearray()
-            try:
-                while chunk := response.read(65_536):
+            read_error: IncompleteRead | OSError | None = None
+            while True:
+                # Only the upstream read is guarded. The status and headers above
+                # are already on the wire, so a provider reset, timeout or TLS
+                # EOF must become a typed started-stream failure rather than a
+                # second HTTP response; a failed downstream write keeps its own
+                # type so a departed client stays distinct from the provider.
+                try:
+                    chunk = response.read(65_536)
+                except (IncompleteRead, OSError) as exc:
+                    read_error = exc
+                    chunk = bytes(getattr(exc, "partial", None) or b"")
+                if chunk:
                     received_bytes += len(chunk)
                     usage.feed(chunk)
                     if response_tools and projector is None:
                         response_body.extend(chunk)
-                        continue
-                    output = projector.feed(chunk) if projector is not None else chunk
-                    if output:
-                        handler.wfile.write(output)
-                        handler.wfile.flush()
-            except IncompleteRead as exc:
-                partial = bytes(exc.partial or b"")
-                if partial:
-                    received_bytes += len(partial)
-                    usage.feed(partial)
-                    if response_tools and projector is None:
-                        response_body.extend(partial)
                     else:
                         output = (
-                            projector.feed(partial)
-                            if projector is not None
-                            else partial
+                            projector.feed(chunk) if projector is not None else chunk
                         )
                         if output:
                             handler.wfile.write(output)
                             handler.wfile.flush()
+                if read_error is not None or not chunk:
+                    break
+            if read_error is not None:
                 usage.finish()
                 if usage.terminal_event is None:
                     self._ports.log(
                         "ERROR",
                         "provider_responses_stream_truncated "
                         f"provider={provider} model={upstream_body.get('model')} "
-                        f"bytes={received_bytes}",
+                        f"bytes={received_bytes} error={type(read_error).__name__}",
                     )
                     raise UpstreamStreamReadError(
                         provider,
                         str(upstream_body.get("model") or ""),
-                        exc,
+                        read_error,
                         attempts=1,
                         downstream_started=True,
                         response_id=usage.response_id,
                         received_bytes=received_bytes,
-                    ) from exc
+                    ) from read_error
                 self._ports.log(
                     "WARN",
                     "provider_responses_length_mismatch_after_terminal "
                     f"provider={provider} model={upstream_body.get('model')} "
-                    f"terminal={usage.terminal_event} bytes={received_bytes}",
+                    f"terminal={usage.terminal_event} bytes={received_bytes} "
+                    f"error={type(read_error).__name__}",
                 )
             if projector is not None:
                 tail = projector.finish()

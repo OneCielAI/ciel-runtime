@@ -8,6 +8,11 @@ from http.client import IncompleteRead
 from types import SimpleNamespace
 from unittest import mock
 
+from ciel_runtime_support.cielairouter_gateway_overlay import (
+    ROUTE_TOKEN_KEY,
+    CielAiRouterGatewayOverlay,
+    discovery_provider_config,
+)
 from ciel_runtime_support.ollama_stream_collection import collect_ollama_chat_stream
 from ciel_runtime_support.ollama_thinking import INTERNAL_REASONING_EFFORT_KEY
 from ciel_runtime_support.response_collection_context import (
@@ -37,6 +42,35 @@ def loop_lines(count=OFFERED, field="content"):
     lines = ndjson(*({"message": {field: LOOP}, "done": False} for _ in range(count)))
     lines.extend(ndjson({"message": {"content": ""}, "done": True, "done_reason": "stop"}))
     return lines
+
+
+class _GatewaySelector:
+    """Selector double: always ranks one gateway, so ``apply`` mints a route."""
+
+    def select(self, _base_url, _api_key, _model="", fresh=False):
+        del fresh
+        return SimpleNamespace(
+            endpoint="https://gw-2.example.test",
+            candidate=SimpleNamespace(node_id="gw-2", available_until=float("inf")),
+            reason="ranked",
+            degraded=False,
+            generation=1,
+        )
+
+
+def selected_gateway_config():
+    """A provider config copy exactly as the overlay hands it to a protocol handler."""
+
+    pcfg = CielAiRouterGatewayOverlay(_GatewaySelector).apply(
+        "cielairouter",
+        {
+            "base_url": "https://central.example.test",
+            "api_key": "router-key",
+            "current_model": "ASTRA",
+        },
+    )
+    assert pcfg.get(ROUTE_TOKEN_KEY), "the overlay did not select a gateway route"
+    return pcfg
 
 
 class CountingStream:
@@ -586,6 +620,66 @@ class OpenedStreamCollectorTests(unittest.TestCase):
         self.assertIn("after 12970 bytes", str(caught.exception))
         self.assertIn("provider 'alitoken'", str(caught.exception))
         self.assertIn("openai_chat_stream_read_exhausted", logs[-1][1])
+
+    def truncated_then_healthy_collector(self):
+        """A collector whose first stream truncates and whose second is healthy."""
+
+        streams = [CountingStream([]), CountingStream([])]
+        opened_routes = []
+        logs = []
+
+        def open_stream(_url, _body, _headers, _timeout, _provider, pcfg, *_args, **_kwargs):
+            opened_routes.append(pcfg.get(ROUTE_TOKEN_KEY))
+            return streams[len(opened_routes) - 1]
+
+        def parse(_response, _policy):
+            if len(opened_routes) == 1:
+                raise IncompleteRead(b"partial-response")
+            return SimpleNamespace(response={"ok": True}, verdict=None, chunks=1)
+
+        context = ResponseCollectionContext(
+            shared=None,
+            anthropic=None,
+            strategies=None,
+            routing=None,
+            stream=ResponseCollectionStreamPorts(
+                open_stream=open_stream,
+                log=lambda level, message: logs.append((level, message)),
+            ),
+        )
+        return context.opened_stream_collector(parse, "openai_chat"), streams, opened_routes, logs
+
+    def test_selected_gateway_truncated_stream_is_never_replayed(self):
+        pcfg = selected_gateway_config()
+        collect, streams, opened_routes, logs = self.truncated_then_healthy_collector()
+
+        with mock.patch(
+            "ciel_runtime_support.response_collection_context.time.sleep"
+        ) as sleep:
+            with self.assertRaises(UpstreamStreamReadError) as caught:
+                collect("url", {}, {}, 30.0, "cielairouter", pcfg, "ASTRA")
+
+        # One dispatch on the selected route; a replay would carry the same token.
+        self.assertEqual([pcfg[ROUTE_TOKEN_KEY]], opened_routes)
+        self.assertEqual(1, caught.exception.attempts)
+        self.assertIsInstance(caught.exception.__cause__, IncompleteRead)
+        self.assertTrue(streams[0].closed)
+        sleep.assert_not_called()
+        self.assertFalse([line for line in logs if "stream_truncated_retry" in line[1]])
+        self.assertIn("openai_chat_stream_read_exhausted", logs[-1][1])
+        self.assertIn("attempts=1", logs[-1][1])
+
+    def test_unoverlaid_cielairouter_truncated_stream_keeps_one_retry(self):
+        restored = discovery_provider_config(selected_gateway_config())
+        self.assertNotIn(ROUTE_TOKEN_KEY, restored)
+        collect, streams, opened_routes, logs = self.truncated_then_healthy_collector()
+
+        response = collect("url", {}, {}, 30.0, "cielairouter", restored, "ASTRA")
+
+        self.assertEqual({"ok": True}, response)
+        self.assertEqual([None, None], opened_routes)
+        self.assertTrue(all(stream.closed for stream in streams))
+        self.assertIn("openai_chat_stream_truncated_retry", logs[0][1])
 
 
 def looping_message():

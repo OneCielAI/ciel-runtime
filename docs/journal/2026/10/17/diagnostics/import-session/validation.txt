@@ -1,0 +1,4 @@
+Validated identical .okf bytes as investigation.md in an isolated temporary directory (validator only discovers .md).
+OKF v0.1 conformance — C:\Users\djlov\AppData\Local\Temp\ciel-okf-validation-7pilbpjb
+  concepts: 1   index.md: 0   log.md: 0
+  [32m✓ conformant — no issues[0m

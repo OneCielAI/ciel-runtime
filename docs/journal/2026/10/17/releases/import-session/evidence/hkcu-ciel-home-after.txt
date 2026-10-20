@@ -1,0 +1,4 @@
+
+HKEY_CURRENT_USER\Environment
+    CIEL_RUNTIME_HOME    REG_SZ    C:\Users\djlov\.local\share\ciel-runtime-890299d8ca78e10b294a97898fb70ef36482d935
+

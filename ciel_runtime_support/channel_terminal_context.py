@@ -6,9 +6,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
+from .runtime_compaction_control import RuntimeCompactionControl
 from .runtime_interaction import RuntimeInteractionEvent
 
+from .channel_pending_poll import ChannelPendingPollState
 from .channel_terminal_dispatch import (
+    ChannelDirectDeliveryServices,
     ChannelDirectProcessPorts,
     ChannelTerminalDispatchService,
     ChannelTerminalDispatchSettings,
@@ -42,6 +45,7 @@ class ChannelTerminalPolicyPorts:
     unseen_retry_seconds: Callable[[], float]
     inflight_is_stale: Callable[..., bool]
     log: Callable[[str, str], None]
+    compaction: RuntimeCompactionControl | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -119,6 +123,7 @@ class ChannelTerminalContext:
             unseen_retry_seconds=self.policy.unseen_retry_seconds,
             inflight_is_stale=self.policy.inflight_is_stale,
             log=self.policy.log,
+            compaction=self.policy.compaction,
         )
 
     def polling_services(self) -> ChannelTerminalPolling:
@@ -202,6 +207,10 @@ class ChannelTerminalContext:
                 release_record=self.process.release_record,
             ),
             log=self.policy.log,
+            delivery=ChannelDirectDeliveryServices(
+                policy=self.policy_services(),
+                polling=self.polling_services(),
+            ),
         )
 
     def dispatch(
@@ -309,6 +318,7 @@ class ChannelTerminalCompatibilityApi:
         restart_state: Any = None,
         session_command_runtime: str = "",
         session_command_actions: frozenset[str] | None = None,
+        pending_poll_state: ChannelPendingPollState | None = None,
     ) -> int:
         return self.context().run_windows(
             cmd,
@@ -330,6 +340,7 @@ class ChannelTerminalCompatibilityApi:
             restart_state=restart_state,
             session_command_runtime=session_command_runtime,
             session_command_actions=session_command_actions,
+            pending_poll_state=pending_poll_state,
         )
 
     def dispatch(

@@ -1,0 +1,13 @@
+okf_version: "1.0"
+task: "G:\\B2BInvoicingSystem: Claude reports the usage limit although there is quota, and token rotation does not help (read-only diagnosis)."
+reported: "User, 2026-10-10 with a menu screenshot: 'B2BInvoicingSystem 에서 충분한토큰이있는데도 실행하면 사용 한도를 다썼다는 이상한메지가 나오고 이러한 상황에서 토큰 로테이션이 실패하고있음'. Menu showed OAuth tokens 'Claude ka [limited · 5h 101%, 7d 51%]', 'Claude bob [limited · 5h 0%, 7d 100%]'."
+verified:
+  workspace: "launch-state: G:\\B2BInvoicingSystem, anthropic-routed, claude-opus-5-5; workspace state workspaces/a7c79138b67f with an OAuth token store (2 Claude tokens); router 9504 at DEBUG."
+  pool_state: "oauth-tokens.state.json (no secrets read): ka claude-290404 usage 5h 101% (reset 2026-10-10 01:20), 7d 51%, exhausted_until 01:20, last_error 'usage limit reached'; bob claude-2888c6 5h 0%, 7d 100% (reset 2026-10-12 03:00), exhausted_until 10-12 03:00. Both draining."
+  upstream: "router.log 00:54-00:55: every request first used ka -> Anthropic 429 'rate_limit_error … Retry-After 25m' -> oauth_token_refused kind=limit -> oauth_token_rotated to bob (reason 'all tokens are limited') -> Anthropic 429 'Retry-After 2d 9h' -> 429 relayed to Claude Code. Rotation did run; both stored accounts are limited by Anthropic itself."
+  cli_login: "The CLI's own Claude sign-in on this PC is a third account (dj…@gmail.com, claude_max, rate tier default_claude_max_20x) that is not in the pool."
+  code: "oauth_routing.anthropic_request_run replaces the CLI's Authorization with a stored token whenever the workspace has Claude tokens; OAuthRequestRun.retry_headers excludes each 429'd token and, when none is left, relays the 429. The CLI's own sign-in is used only when the store has no token at all, never as a fallback after the stored tokens are exhausted. Each request also spends two upstream calls on tokens already known to be limited (pool returns a limited token when all are limited)."
+cause: "Not a bad usage reading: Anthropic limits both stored accounts. The quota the user expects is on the CLI's own account, which Ciel bypasses while stored tokens exist and does not fall back to."
+not_verified:
+  - "That the dj… account would have accepted these requests (no request was sent with it from this workspace)."
+changes: "None (diagnosis)."

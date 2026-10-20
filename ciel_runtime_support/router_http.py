@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import io
 import base64
 import hashlib
@@ -1066,6 +1067,25 @@ class EventHttpAdapter:
         return last_id
 
 
+def gateway_session(handler: Any, provider: str, body: dict[str, Any]) -> str:
+    """The client session a CielAiRouter request belongs to ("" when unknown).
+
+    Only CielAiRouter requests need it; a header object the session helpers
+    cannot read leaves the request without a session rather than failing it.
+    """
+
+    if provider != "cielairouter":
+        return ""
+    from ciel_runtime_support.oauth_routing import anthropic_session_key, codex_session_key
+
+    session_key = anthropic_session_key if "messages" in body else codex_session_key
+    try:
+        value = session_key(getattr(handler, "headers", None), body)
+    except (TypeError, ValueError, AttributeError):
+        return ""
+    return "" if value == "default" else value
+
+
 class RouterHttpHandler(BaseHTTPRequestHandler):
     server_version = "ciel-runtime/0.1"
     services_factory: Callable[[], RouterHttpServices] | None = None
@@ -1442,6 +1462,63 @@ class RouterHttpHandler(BaseHTTPRequestHandler):
         )
         return None
 
+    def _dispatch_with_failover(
+        self,
+        services: Any,
+        endpoints: Any,
+        cfg: dict[str, Any],
+        provider: str,
+        pcfg: dict[str, Any],
+        path: str,
+        body: dict[str, Any],
+    ) -> bool:
+        """Dispatch an LLM request; a rate-limited provider hands it to a stored backup.
+
+        A 429 point that has not answered the client raises FailoverRequested after
+        recording the failover; the same request (a pristine copy) then goes to the
+        backup.  Each provider is tried once per request.
+        """
+
+        from ciel_runtime_support.cielairouter_gateway_overlay import gateway_overlay
+        from ciel_runtime_support.oauth_routing import anthropic_turn_start, codex_turn_start
+        from ciel_runtime_support.provider_failover import (
+            HANDLER_CONFIG_ATTRIBUTE,
+            FailoverRequested,
+            failover_service,
+        )
+
+        llm = path in REMOTE_LLM_PATHS or path.startswith("/backend-api/codex")
+        failover = failover_service(services.core.log) if llm else None
+        pristine = copy.deepcopy(body) if failover is not None else body
+        # The serving provider's config copy for this request: a CielAiRouter
+        # request goes to the selected gateway (central base kept for discovery).
+        gateways = gateway_overlay(services.core.log) if llm else None
+        if failover is not None:
+            setattr(self, HANDLER_CONFIG_ATTRIBUTE, cfg)
+            turn_start = anthropic_turn_start(body) if "messages" in body else codex_turn_start(body)
+            routed, pcfg = failover.effective(cfg, provider, pcfg, turn_start=turn_start)
+            if routed != provider:
+                services.core.log("INFO", f"provider_failover_route path={path} configured={provider} serving={routed} turn_start={turn_start}")
+            provider = routed
+        session = gateway_session(self, provider, body) if gateways is not None else ""
+        if gateways is not None:
+            pcfg = gateways.apply(provider, pcfg, path=path, session=session)
+        for _attempt in range(8):
+            model = str(body.get("model") or pcfg.get("current_model") or "")
+            try:
+                with services.core.observe_runtime(self, path, provider, model, body):
+                    return bool(endpoints.runtime(self, cfg, provider, pcfg, path, body))
+            except FailoverRequested as request:
+                if failover is None or self._ciel_runtime_response_status is not None:
+                    raise
+                services.core.log("WARN", f"provider_failover_retry path={path} {request}")
+                provider, pcfg = failover.effective(cfg, request.from_provider, pcfg, turn_start=False)
+                if gateways is not None:
+                    session = gateway_session(self, provider, pristine)
+                    pcfg = gateways.apply(provider, pcfg, path=path, session=session)
+                body = copy.deepcopy(pristine)
+        return False
+
     def do_POST(self) -> None:
         self._ciel_runtime_response_status = None
         services = self._services()
@@ -1449,6 +1526,9 @@ class RouterHttpHandler(BaseHTTPRequestHandler):
         body: dict[str, Any] = {}
         try:
             cfg = services.core.load_config()
+            from ciel_runtime_support.provider_failover import remember_config
+
+            remember_config(cfg)
             endpoints = services.post
             is_webhook = path.startswith("/ca/events/webhooks/")
             has_endpoint_auth = (
@@ -1577,13 +1657,10 @@ class RouterHttpHandler(BaseHTTPRequestHandler):
                                     ):
                                         return
                         else:
-                            with services.core.observe_runtime(
-                                self, path, provider, model, body
+                            if self._dispatch_with_failover(
+                                services, endpoints, cfg, provider, pcfg, path, body
                             ):
-                                if endpoints.runtime(
-                                    self, cfg, provider, pcfg, path, body
-                                ):
-                                    return
+                                return
                     except ValueError as exc:
                         if (
                             not bridge_request

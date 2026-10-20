@@ -65,6 +65,41 @@ class CodexModelCatalogServiceTests(unittest.TestCase):
             self.assertTrue(kimi.exists())
             self.assertTrue(other.exists())
 
+    def test_codex_footer_names_the_provider_model(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = CodexModelCatalogService(
+                Path(tmp), self._run, lambda _level, _message: None
+            )
+            named = service.write(
+                "codex",
+                CodexModelCatalogSpec(
+                    alias="ciel-runtime-cielairouter-astra",
+                    provider_label="CielAiRouter",
+                    context_window=872_000,
+                    model="ASTRA",
+                ),
+                {},
+            )
+            unnamed = service.write(
+                "codex",
+                CodexModelCatalogSpec(
+                    alias="ciel-runtime-other-model",
+                    provider_label="Other",
+                    context_window=262_144,
+                ),
+                {},
+            )
+            routed = {
+                path: next(
+                    item
+                    for item in json.loads(path.read_text(encoding="utf-8"))["models"]
+                    if item["slug"].startswith("ciel-runtime-")
+                )
+                for path in (named, unnamed)
+            }
+        self.assertEqual("ASTRA (CielAiRouter)", routed[named]["display_name"])
+        self.assertEqual("Ciel Runtime Other", routed[unnamed]["display_name"])
+
     def test_identical_concurrent_snapshots_share_content_address(self):
         with tempfile.TemporaryDirectory() as tmp:
             service = CodexModelCatalogService(

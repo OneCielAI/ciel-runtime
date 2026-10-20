@@ -1,0 +1,434 @@
+"""Queue-preserving admission control around native session compaction.
+
+Counts are the client's unmodified request observations, never fabricated
+usage. Command submission and app-server acceptance are not completion:
+a persisted native checkpoint and smaller next request release pressure.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import time
+from collections.abc import Callable
+from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
+from typing import Any
+
+from .channel_compact_request_repository import ChannelCompactRequestRepository
+from .channel_message_repository import exclusive_file_lock
+from .secure_json_repository import SecureJsonEffects, SecureJsonRepository
+
+
+@dataclass(frozen=True, slots=True)
+class CompactionScope:
+    runtime: str
+    session_id: str
+    epoch: str
+
+    def payload(self) -> dict[str, str]:
+        return {"runtime": self.runtime, "session_id": self.session_id, "epoch": self.epoch}
+
+
+@dataclass(frozen=True, slots=True)
+class NativeCompactionCheckpoint:
+    scope: CompactionScope
+    identity: str
+    persisted_at: float
+    pre_tokens: int = 0
+    post_tokens: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class RuntimeCompactionPolicy:
+    # Semantic work is bounded at 900s plus the final native-wire generation.
+    confirmation_timeout_seconds: float = 1200.0
+    retry_cooldown_seconds: float = 30.0
+    max_attempts: int = 2
+
+
+@dataclass(frozen=True, slots=True)
+class RuntimeCompactionPorts:
+    load: Callable[[], dict[str, Any] | None]
+    save: Callable[[dict[str, Any]], None]
+    lock: Callable[[], Any]
+    scope: Callable[[], CompactionScope | None]
+    checkpoint: Callable[[CompactionScope], NativeCompactionCheckpoint | None]
+    queue: Callable[[dict[str, str], str], dict[str, Any] | None]
+    clear: Callable[[str], Any]
+    compact_kind: Callable[[dict[str, Any]], str | None]
+    log: Callable[[str, str], None]
+    now: Callable[[], float] = time.time
+
+
+def _positive(value: Any) -> int:
+    try:
+        return max(0, int(value))
+    except (ValueError, TypeError, OverflowError):
+        return 0
+
+
+def _timestamp(value: Any) -> float:
+    try:
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00")).timestamp()
+    except (ValueError, TypeError, OverflowError, OSError):
+        return 0.0
+
+
+def native_checkpoint_from_transcript(
+    path: Path | None, scope: CompactionScope, *, max_bytes: int = 512 * 1024
+) -> NativeCompactionCheckpoint | None:
+    """Read native JSONL metadata, not assistant/tool marker text.
+
+    Shapes were captured from Claude Code 2.1.303 and Codex 0.158. The caller
+    selects the active session's exact transcript; no latest-file discovery.
+    Missing or oversized checkpoint records remain unknown.
+    """
+
+    if path is None or not scope.session_id or not scope.epoch:
+        return None
+    try:
+        with path.open("rb") as stream:
+            stream.seek(0, 2)
+            size = stream.tell()
+            stream.seek(max(0, size - max(1, max_bytes)))
+            data = stream.read(max_bytes)
+            if size > max_bytes:
+                # Never readline across an unbounded giant tool-result line.
+                data = data.partition(bytes([10]))[2]
+            text = data.decode("utf-8", errors="replace")
+    except OSError:
+        return None
+    newest = None
+    for line in text.splitlines():
+        try:
+            record = json.loads(line)
+        except (ValueError, TypeError):
+            continue
+        if not isinstance(record, dict) or record.get("isSidechain") is True:
+            continue
+        pre_tokens = post_tokens = 0
+        if scope.runtime == "claude":
+            if (record.get("type") != "system" or record.get("subtype") != "compact_boundary"
+                    or record.get("sessionId") != scope.session_id):
+                continue
+            metadata = record.get("compactMetadata")
+            if not isinstance(metadata, dict) or not record.get("uuid"):
+                continue
+            pre_tokens = _positive(metadata.get("preTokens"))
+            post_tokens = _positive(metadata.get("postTokens"))
+        elif scope.runtime in {"codex", "codex-app-server", "codex-desktop"}:
+            payload = record.get("payload")
+            if record.get("type") != "compacted" or not isinstance(payload, dict):
+                continue
+            if not isinstance(payload.get("replacement_history"), list) or not payload["replacement_history"]:
+                continue
+            usage = payload.get("latest_token_usage_record")
+            thread_id = usage.get("thread_id") if isinstance(usage, dict) else None
+            # Codex compacted records have no top-level session id.
+            if thread_id and thread_id != scope.session_id:
+                continue
+            if not thread_id and not path.stem.endswith(scope.session_id):
+                continue
+        else:
+            continue
+        persisted_at = _timestamp(record.get("timestamp"))
+        if persisted_at <= 0:
+            continue
+        identity = hashlib.sha256(line.encode("utf-8")).hexdigest()
+        newest = NativeCompactionCheckpoint(scope, identity, persisted_at, pre_tokens, post_tokens)
+    return newest
+
+
+class RuntimeCompactionControl:
+    def __init__(self, ports: RuntimeCompactionPorts,
+                 policy: RuntimeCompactionPolicy = RuntimeCompactionPolicy()) -> None:
+        self.ports = ports
+        self.policy = policy
+
+    def _read(self, scope: CompactionScope) -> dict[str, Any]:
+        value = self.ports.load()
+        if value is None:
+            raise OSError("compaction admission state is unreadable")
+        if value.get("scope") != scope.payload():
+            return {}
+        if value.get("phase") not in {"needed", "queued", "dispatching", "awaiting_checkpoint",
+                                      "compacting", "awaiting_shrink", "blocked", "retry_wait", "verified"}:
+            raise ValueError("invalid compaction control phase")
+        return dict(value)
+
+    def _start(self, scope: CompactionScope, raw_tokens: int, limit: int,
+               *, pressure: bool) -> dict[str, Any]:
+        now = self.ports.now()
+        checkpoint = self.ports.checkpoint(scope)
+        return {
+            "scope": scope.payload(), "phase": "needed", "pressure": pressure,
+            "baseline_tokens": raw_tokens, "context_limit": limit,
+            "requested_at": now, "deadline": now + self.policy.confirmation_timeout_seconds,
+            "baseline_checkpoint_id": checkpoint.identity if checkpoint else "",
+            "checkpoint_id": "", "request_id": "", "attempts": 0,
+        }
+
+    def _write(self, state: dict[str, Any], event: str = "") -> None:
+        self.ports.save(state)
+        if event:
+            self.ports.log(
+                "INFO", f"runtime_compaction_control event={event} phase={state.get('phase')} "
+                f"runtime={state['scope']['runtime']} session={state['scope']['session_id']} "
+                f"epoch={state['scope']['epoch']} attempts={state.get('attempts', 0)}",
+            )
+
+    def _refresh(self, state: dict[str, Any], scope: CompactionScope) -> None:
+        if not state or state.get("phase") == "verified":
+            return
+        now = self.ports.now()
+        checkpoint = self.ports.checkpoint(scope)
+        if (checkpoint and checkpoint.scope == scope
+                and checkpoint.identity != state.get("baseline_checkpoint_id")
+                and checkpoint.persisted_at >= float(state.get("requested_at") or 0)
+                and checkpoint.identity != state.get("checkpoint_id")):
+            state.update({"checkpoint_id": checkpoint.identity, "phase": "awaiting_shrink"})
+            self._write(state, "native_checkpoint_observed")
+            limit = _positive(state.get("context_limit"))
+            if checkpoint.post_tokens and limit and checkpoint.post_tokens >= limit:
+                # The client measured its own compacted history as still full.
+                self._not_shrunk(state, "checkpoint_not_below_budget")
+            elif isinstance(state.get("shrink_observed"), dict):
+                # Claude Code 2.1.303 persists the boundary only after its
+                # automatic retry completes; that retry was the smaller raw
+                # request of this same compaction cycle.
+                self._verify(state, _positive(state["shrink_observed"].get("tokens")))
+        if state.get("phase") in {"dispatching", "awaiting_checkpoint", "compacting"}:
+            if now >= float(state.get("deadline") or 0):
+                # An uncertain submission cannot authorize another compact.
+                state.update({"phase": "blocked", "failure": "checkpoint_unconfirmed"})
+                self._write(state, "confirmation_timeout")
+        if state.get("phase") == "queued" and now >= float(state.get("deadline") or 0):
+            if state.get("request_id"):
+                self.ports.clear(str(state["request_id"]))
+            self._retry(state, "request_expired_before_dispatch")
+        elif state.get("phase") == "queued":
+            # A manual session action may have replaced our automatic slot.
+            # Re-reservation does not overwrite it; once it is consumed a new
+            # automatic id can be reserved without waiting for the old TTL.
+            request = self.ports.queue(scope.payload(), "full-history context pressure")
+            if request is None:
+                state.update({"phase": "needed", "request_id": ""})
+                self._write(state, "manual_action_has_priority")
+            elif str(request.get("id") or "") != state.get("request_id"):
+                state["request_id"] = str(request.get("id") or "")
+                state["deadline"] = min(float(request.get("expires_at") or now + self.policy.confirmation_timeout_seconds),
+                                        now + self.policy.confirmation_timeout_seconds)
+                self._write(state, "compact_slot_reacquired")
+        if state.get("phase") == "retry_wait" and now >= float(state.get("cooldown_until") or 0):
+            state["phase"] = "needed"
+        if state.get("phase") == "needed":
+            request = self.ports.queue(scope.payload(), "full-history context pressure")
+            if request:
+                state.update({
+                    "phase": "queued", "request_id": str(request.get("id") or ""),
+                    "attempts": _positive(state.get("attempts")) + 1,
+                    "deadline": min(float(request.get("expires_at") or now + self.policy.confirmation_timeout_seconds),
+                                    now + self.policy.confirmation_timeout_seconds),
+                })
+                self._write(state, "compact_queued")
+            else:
+                # Manual /new or /goal retains ownership of the single slot.
+                self._write(state)
+
+    def observe_request(self, body: dict[str, Any], raw_tokens: int, context_limit: int,
+                        *, scope: CompactionScope | None = None,
+                        recovery_required: bool = False) -> None:
+        active_scope = self.ports.scope()
+        scope = scope or active_scope
+        if scope != active_scope:
+            return
+        if scope is None or not scope.session_id or not scope.epoch:
+            return
+        raw_tokens, context_limit = _positive(raw_tokens), _positive(context_limit)
+        native = bool(self.ports.compact_kind(body))
+        if not native and not recovery_required and (not raw_tokens or not context_limit):
+            return
+        with self.ports.lock():
+            state = self._read(scope)
+            active = bool(state and state.get("phase") != "verified")
+            pressure = recovery_required or bool(context_limit and raw_tokens >= context_limit)
+            if not active:
+                if not pressure and not native:
+                    return
+                state = self._start(scope, raw_tokens, context_limit, pressure=pressure)
+                if native:
+                    state.update({"phase": "compacting", "attempts": 1})
+                self._write(state, "admission_paused")
+            elif native:
+                if state.get("phase") == "queued" and state.get("request_id"):
+                    self.ports.clear(str(state["request_id"]))
+                    state["request_id"] = ""
+                if state.get("phase") not in {"queued", "dispatching", "awaiting_checkpoint", "compacting"}:
+                    # A client-started (reactive or manual) compaction is an
+                    # attempt too; otherwise non-shrinking cycles never end.
+                    # One that supersedes our queued command uses its count.
+                    state["attempts"] = _positive(state.get("attempts")) + 1
+                state["phase"] = "compacting"
+                state["deadline"] = self.ports.now() + self.policy.confirmation_timeout_seconds
+                state["baseline_tokens"] = max(raw_tokens, _positive(state.get("baseline_tokens")))
+                # A new manual/native compaction must not reuse proof from an
+                # earlier failed attempt of the same recovery epoch.
+                current_checkpoint = self.ports.checkpoint(scope)
+                state["baseline_checkpoint_id"] = current_checkpoint.identity if current_checkpoint else ""
+                state["checkpoint_id"] = ""
+                self._write(state, "native_compact_started")
+            if native:
+                # A new compaction cannot reuse an earlier cycle's request.
+                state.pop("shrink_observed", None)
+            baseline = _positive(state.get("baseline_tokens"))
+            shrunk = bool(not native and not recovery_required and raw_tokens and context_limit
+                          and raw_tokens < context_limit and (not baseline or raw_tokens < baseline))
+            if shrunk and state.get("phase") in {"dispatching", "awaiting_checkpoint", "compacting"}:
+                state["shrink_observed"] = {"tokens": raw_tokens, "at": self.ports.now()}
+                self._write(state, "smaller_request_before_checkpoint")
+            self._refresh(state, scope)
+            if native or state.get("phase") != "awaiting_shrink":
+                return
+            if shrunk:
+                self._verify(state, raw_tokens)
+            elif recovery_required or (context_limit and raw_tokens >= context_limit):
+                state["baseline_tokens"] = max(raw_tokens, baseline)
+                self._not_shrunk(state, "next_request_not_below_budget")
+
+    def _verify(self, state: dict[str, Any], raw_tokens: int) -> None:
+        if state.get("request_id"):
+            self.ports.clear(str(state["request_id"]))
+        state.update({"phase": "verified", "verified_at": self.ports.now(), "next_raw_tokens": raw_tokens})
+        self._write(state, "checkpoint_and_history_shrink_verified")
+
+    def _not_shrunk(self, state: dict[str, Any], reason: str) -> None:
+        # A checkpoint that did not shrink is spent proof: the next attempt
+        # needs a newer one, and attempts stay bounded.
+        state.pop("shrink_observed", None)
+        state.update({"baseline_checkpoint_id": state.get("checkpoint_id") or "",
+                      "checkpoint_id": "", "requested_at": self.ports.now()})
+        self._retry(state, reason)
+
+    def external_admission_paused(self) -> bool:
+        try:
+            scope = self.ports.scope()
+            if scope is None:
+                return False
+            with self.ports.lock():
+                state = self._read(scope)
+                self._refresh(state, scope)
+                return bool(state and state.get("phase") != "verified")
+        except (OSError, ValueError, TypeError) as exc:
+            self.ports.log("WARN", f"runtime_compaction_control admission=paused reason=state_unavailable error={type(exc).__name__}")
+            return True
+
+    def context_pause_reason(self, body: dict[str, Any]) -> str:
+        if self.ports.compact_kind(body):
+            return "native_compaction"
+        return "context_recovery" if self.external_admission_paused() else ""
+
+    def command_ready(self, request: dict[str, Any]) -> bool:
+        if request.get("action", "compact") != "compact":
+            return True
+        if not request.get("id"):
+            return request.get("automatic") is not True
+        scope = self.ports.scope()
+        if scope is None:
+            return request.get("automatic") is not True
+        with self.ports.lock():
+            state = self._read(scope)
+            automatic = request.get("automatic") is True
+            if automatic:
+                if request.get("scope") != scope.payload():
+                    self.ports.clear(str(request.get("id") or ""))
+                    return False
+                self._refresh(state, scope)
+                if (state.get("phase") != "queued"
+                        or state.get("request_id") != str(request.get("id") or "")):
+                    if state.get("phase") in {"verified", "awaiting_shrink", "compacting", "blocked"}:
+                        self.ports.clear(str(request.get("id") or ""))
+                    return False
+            elif state.get("request_id") == str(request.get("id") or ""):
+                # Two consumers may have read the same single slot. A manual
+                # retry is a new request id, never a second dispatch of this id.
+                return False
+            elif not state or state.get("phase") == "verified":
+                state = self._start(scope, 0, 0, pressure=False)
+            if not automatic:
+                checkpoint = self.ports.checkpoint(scope)
+                state["baseline_checkpoint_id"] = checkpoint.identity if checkpoint else ""
+                state["checkpoint_id"] = ""
+                state["requested_at"] = self.ports.now()
+            state.pop("shrink_observed", None)
+            state.update({"phase": "dispatching", "request_id": str(request.get("id") or ""),
+                          "deadline": self.ports.now() + self.policy.confirmation_timeout_seconds})
+            self._write(state, "command_dispatch_started")
+            return True
+
+    def command_submitted(self, request: dict[str, Any]) -> None:
+        self._command_result(request, "awaiting_checkpoint", "command_submitted")
+
+    def command_failed(self, request: dict[str, Any], reason: str, *, uncertain: bool = False) -> None:
+        self._command_result(request, "blocked" if uncertain else "retry_wait", reason)
+
+    def _command_result(self, request: dict[str, Any], phase: str, reason: str) -> None:
+        if request.get("action", "compact") != "compact":
+            return
+        scope = self.ports.scope()
+        if scope is None:
+            return
+        with self.ports.lock():
+            state = self._read(scope)
+            if not state or state.get("request_id") != str(request.get("id") or ""):
+                return
+            if state.get("phase") in {"awaiting_shrink", "verified", "compacting"}:
+                return
+            if phase == "retry_wait":
+                self.ports.clear(str(request.get("id") or ""))
+                if request.get("automatic") is True:
+                    self._retry(state, reason)
+                else:
+                    state.update({"phase": "blocked", "failure": reason})
+                    self._write(state, reason)
+            else:
+                state.update({"phase": phase, "failure": reason})
+                self._write(state, reason)
+
+    def _retry(self, state: dict[str, Any], reason: str) -> None:
+        state.update({"failure": reason, "request_id": ""})
+        if _positive(state.get("attempts")) >= self.policy.max_attempts:
+            state["phase"] = "blocked"
+        else:
+            state.update({"phase": "retry_wait", "cooldown_until": self.ports.now() + self.policy.retry_cooldown_seconds})
+        self._write(state, reason)
+
+
+def build_runtime_compaction_control(
+    state_path: Path,
+    *,
+    scope: Callable[[], CompactionScope | None],
+    transcript_path: Callable[[], Path | None],
+    requests: ChannelCompactRequestRepository,
+    compact_kind: Callable[[dict[str, Any]], str | None],
+    log: Callable[[str, str], None],
+    policy: RuntimeCompactionPolicy = RuntimeCompactionPolicy(),
+) -> RuntimeCompactionControl:
+    """Compose private atomic state shared by the router and native consumer."""
+
+    state = SecureJsonRepository(state_path, SecureJsonEffects(log=log))
+    return RuntimeCompactionControl(
+        RuntimeCompactionPorts(
+            load=lambda: state.load("runtime_compaction_control"),
+            save=lambda value: state.save(value, "runtime_compaction_control"),
+            lock=lambda: exclusive_file_lock(state_path),
+            scope=scope,
+            checkpoint=lambda current: native_checkpoint_from_transcript(transcript_path(), current),
+            queue=requests.queue_automatic,
+            clear=requests.clear,
+            compact_kind=compact_kind,
+            log=log,
+        ),
+        policy,
+    )

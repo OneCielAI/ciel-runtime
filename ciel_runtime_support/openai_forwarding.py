@@ -8,7 +8,8 @@ import time
 import urllib.error
 from typing import Any, Callable
 
-from .initial_stream_retry import InitialStreamRetry
+from .initial_stream_retry import InitialStreamRetry, gateway_route_selected
+from .provider_failover import maybe_fail_over
 from .remote_bridge import REMOTE_BRIDGE_CONFIG_MARKER, is_remote_bridge_request
 from .upstream_error_policy import (
     UpstreamFailure,
@@ -231,7 +232,11 @@ def forward_openai_compatible_chat(
                 emit_retry_notice,
                 retry_rate_limits=not compatibility_test,
             )
-            reconnects = initial_stream_retries(pcfg)
+            # A reopen would carry the same selected gateway route, so a
+            # selected gateway gets no initial-stream replay in this call.
+            reconnects = (
+                0 if gateway_route_selected(pcfg) else initial_stream_retries(pcfg)
+            )
             if reconnects:
                 def reopen_initial_stream(_attempt: int) -> Any:
                     return streaming.open_with_retry(
@@ -301,6 +306,9 @@ def forward_openai_compatible_chat(
             failure = _http_error_failure(
                 provider, model, exc, output_started=stream_started
             )
+            if not stream_started:
+                maybe_fail_over(handler, provider, status=exc.code, headers=exc.headers,
+                                reason=failure.message, rate_limited=failure.category == "rate_limit")
             mark_delivery_failed(f"openai_stream_http_error:{exc.code}")
             response.write_activity(
                 "error", provider, model, code=exc.code, stream=True
@@ -315,6 +323,9 @@ def forward_openai_compatible_chat(
         except UpstreamFailure as exc:
             # The provider status and message are known here, so this answers
             # as an error even though the failure arrived as an exception.
+            if not stream_started:
+                maybe_fail_over(handler, provider, status=exc.status_code, reason=exc.message,
+                                rate_limited=exc.category == "rate_limit")
             mark_delivery_failed(
                 f"openai_stream_upstream_failure:{exc.category}"
             )
@@ -411,6 +422,8 @@ def forward_openai_compatible_chat(
             )
     except urllib.error.HTTPError as exc:
         failure = _http_error_failure(provider, model, exc, output_started=False)
+        maybe_fail_over(handler, provider, status=exc.code, headers=exc.headers,
+                        reason=failure.message, rate_limited=failure.category == "rate_limit")
         mark_delivery_failed(f"openai_http_error:{exc.code}")
         response.write_activity(
             "error", provider, model, code=exc.code, stream=False
@@ -423,6 +436,8 @@ def forward_openai_compatible_chat(
         # The transport already read the provider status, type and message.
         # Reporting all of it as a local 500 is what made a rejected request
         # look like a provider outage.
+        maybe_fail_over(handler, provider, status=exc.status_code, reason=exc.message,
+                        rate_limited=exc.category == "rate_limit")
         mark_delivery_failed(f"openai_upstream_failure:{exc.category}")
         response.write_json(handler, exc.anthropic_payload(), exc.status_code)
         return

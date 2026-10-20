@@ -169,6 +169,18 @@ def anthropic_headers(headers: Mapping[str, str], lease: OAuthLease) -> dict[str
 # ---- one routed request -----------------------------------------------------------------------------
 
 
+# Whether a run may fall back to the CLI's own sign-in once every stored token is
+# limited.  provider_failover installs its 'cli_login_first' setting here.
+CLI_LOGIN_FALLBACK: list[Callable[[], bool]] = [lambda: True]
+
+
+def _cli_login_fallback_enabled() -> bool:
+    try:
+        return bool(CLI_LOGIN_FALLBACK[0]())
+    except Exception:  # noqa: BLE001 - the default applies when the setting cannot be read
+        return True
+
+
 class OAuthRequestRun:
     """Token choice, usage recording and token-level retries for one request."""
 
@@ -192,10 +204,30 @@ class OAuthRequestRun:
         self.lease: OAuthLease | None = None
         self._excluded: set[str] = set()
         self._refreshed: set[str] = set()
+        self.cli_used = False
+
+    def cli_login_headers(self, base: Mapping[str, str]) -> dict[str, str] | None:
+        """The CLI's own sign-in (the headers it sent), once, when every stored token is out.
+
+        Controlled by the provider-fallback setting ``cli_login_first`` (default on)."""
+
+        if self.cli_used or not _cli_login_fallback_enabled():
+            return None
+        if not any(str(name).lower() in ("authorization", "x-api-key") and str(value).strip() for name, value in base.items()):
+            return None
+        self.cli_used = True
+        self.lease = None
+        self.log("WARN", f"oauth_token_fallback_cli provider={self.provider} reason=all stored tokens are limited")
+        return dict(base)
 
     def headers(self, base: Mapping[str, str]) -> dict[str, str] | None:
         """Headers for the next attempt; None when no stored token can serve."""
 
+        if self.routing.pool.all_limited(self.provider, self._excluded):
+            # Stored tokens known to be out until a reset are not sent again.
+            cli = self.cli_login_headers(base)
+            if cli is not None:
+                return cli
         lease = self.routing.pool.acquire(
             self.provider, self.session_key, turn_start=self.turn_start, exclude=self._excluded
         )
@@ -228,7 +260,7 @@ class OAuthRequestRun:
             self._excluded.add(lease.token_id)
             kind = "limit" if observation.limited else "throttle"
             self.log("WARN", f"oauth_token_refused provider={self.provider} token={lease.token_id} kind={kind} until={int(observation.reset_at)}")
-            return self.headers(base), relay
+            return self.headers(base) or self.cli_login_headers(base), relay
         if error.code == 401:
             if lease.token_id not in self._refreshed:
                 self._refreshed.add(lease.token_id)

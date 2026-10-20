@@ -1,0 +1,32 @@
+$ ciel-runtimectl provider-options cielairouter gateway_data_path=direct
+Provider options updated for cielairouter.
+provider: cielairouter
+provider_options: context_window=872000, reserve=default, max_output_tokens=default, timeout=300000ms, native=True, tool_choice=auto (on), temperature=default, top_p=default, top_k=default, stream=on, gateway_selection=auto, gateway_data_path=direct
+  max_output_tokens is passed to Claude Code as CLAUDE_CODE_MAX_OUTPUT_TOKENS.
+  context_window is a ciel-runtime/router cap; native mode still cannot raise the real server limit.
+  temperature/top_p/top_k are injected by ciel-runtime router mode when the provider supports them.
+  gateway_selection=auto enables automatic selection; gateway_selection=off uses the configured central base.
+  gateway-status reads the local router /health only; it does not probe or reselect gateways.
+  Changes apply to subsequent requests; in-flight requests are not replayed.
+  gateway_data_path=router (default) sends CLI model requests through the local router;
+  gateway_data_path=direct sends them straight to the gateway selected at launch
+  (the router keeps MCP, channels, events and restart; falls back to router without a healthy gateway).
+  A running CLI keeps the gateway it was launched with until it restarts; no live re-route in direct mode.
+
+$ ciel-runtimectl provider-options cielairouter gateway-status
+Automatic gateway selection: on (auto)
+Gateway status unavailable: local router is not reachable.
+Gateway data path: direct (opt-in) - at launch Claude Code/Codex send model requests straight to the selected gateway; the local router keeps MCP, channels, events and restart.
+A running CLI keeps the gateway it was launched with until it restarts; direct mode has no live re-route.
+No CLI launch data path recorded in this workspace yet.
+
+$ ciel-runtimectl provider-options vllm gateway_data_path=direct
+gateway_data_path is only available for cielairouter
+exit=1
+
+$ ciel-runtimectl provider-options cielairouter gateway_data_path=sideways
+gateway_data_path must be router or direct
+exit=1
+
+config.json cielairouter.gateway_data_path:
+[None, 'direct']

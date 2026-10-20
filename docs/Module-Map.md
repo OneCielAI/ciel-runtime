@@ -199,7 +199,7 @@ private Runtime Input의 `queued -> submitted -> replied|failed` 전이를 JSONL
 
 ### `ciel_runtime_support/channel_terminal_proxy.py`
 
-POSIX PTY와 Windows ConPTY/Console transport의 생성, 터미널 크기 동기화, 표준 입출력 전달, channel/compact polling과 자식 프로세스 정리를 조정하는 Channel Infrastructure Adapter. Windows setup 또는 loop가 실패해도 자식 종료, terminal mode 복원, PID record 해제와 ConPTY close를 독립적인 best-effort 단계로 수행한다. Process, Terminal I/O, Policy, Polling 포트를 각각 10필드 이하로 주입하며 메인 composition root는 플랫폼 선택과 실제 콜백 조립만 담당한다.
+POSIX PTY와 Windows ConPTY/Console transport의 생성, 터미널 크기 동기화, 표준 입출력 전달, channel/compact polling과 자식 프로세스 정리를 조정하는 Channel Infrastructure Adapter. Windows setup 또는 loop가 실패해도 자식 종료, terminal mode 복원, PID record 해제와 ConPTY close를 독립적인 best-effort 단계로 수행한다. Process, Terminal I/O, Policy, Polling 포트를 각각 10필드 이하로 주입하며 메인 composition root는 플랫폼 선택과 실제 콜백 조립만 담당한다. Windows proxy loop의 예외는 단계·errno·traceback 위치를 본문 없이 기록하고 dispatch 계층으로 전파한다.
 
 ### `ciel_runtime_support/pty_master_writer.py`
 
@@ -211,7 +211,7 @@ POSIX PTY 중계에서 자식 CLI의 화면 출력(ANSI·공백 제거)을 보�
 
 ### `ciel_runtime_support/channel_terminal_dispatch.py`
 
-Windows Console/POSIX PTY/direct subprocess 선택과 tracked child-process record 수명주기를 소유하는 Application Service. 플랫폼·TTY 설정, proxy adapter, direct process 효과를 각각 최대 5필드 typed port로 분리하며 Windows Adapter 실패 시 명시적으로 direct 실행으로 복구한다.
+Windows Console/POSIX PTY/direct subprocess 선택과 tracked child-process record 수명주기를 소유하는 Application Service. 플랫폼·TTY 설정, proxy adapter, direct process 효과를 각각 최대 5필드 typed port로 분리하며 Windows Adapter 실패 시 명시적으로 direct 실행으로 복구한다. `ChannelDirectDeliveryServices`로 같은 policy/polling 포트를 받아 direct child 수명 동안 socket-only pending poll과 inflight 확인을 유지한다. 프록시에서 넘긴 inflight 상태를 재사용하며 socket 미준비 시 TTY 입력으로 대체하거나 queued 커서를 넘기지 않는다. unattended startup 자동화가 화면을 확인하지 못하는 direct 경로에서는 자동 입력을 계속 보류한다.
 
 ### `ciel_runtime_support/terminal_platform_io.py`
 
@@ -483,7 +483,7 @@ Compatibility 결과의 runtime metadata·context/output 경고를 투영하고 
 
 ### `ciel_runtime_support/claude_environment.py`
 
-Claude Code 모델 별칭·컨텍스트 한도·환경 변수·런타임 settings를 구성하는 Policy/Projection 계층. native와 routed 환경 계약, 모델 family 선택, 셸 출력 형식을 composition root와 분리하며 각 의존성 그룹을 최대 10필드의 typed port로 제한한다.
+Claude Code 모델 별칭·컨텍스트 한도·환경 변수·런타임 settings를 구성하는 Policy/Projection 계층. native와 routed 환경 계약, 모델 family 선택, 셸 출력 형식을 composition root와 분리하며 각 의존성 그룹을 최대 10필드의 typed port로 제한한다. `build(config, data_path)`는 직접 게이트웨이 데이터 경로(`launch_data_path.LaunchDataPath.direct`)일 때만 `ANTHROPIC_BASE_URL`·`ANTHROPIC_AUTH_TOKEN`을 게이트웨이·라우터 키로, `CLAUDE_DIRECT_MODEL_KEYS`의 모델 값을 `resolve_requested_model`의 upstream id로 바꾼다(`ciel-runtime-*` 별칭 금지). 인자가 없으면 routed 환경은 그대로다.
 
 ### `ciel_runtime_support/provider_choice.py`
 
@@ -857,6 +857,18 @@ compact 요청 판정·text-only 변환, tool 입력 축약, persisted-output �
 
 `ContextSummaryCompatibilityApi`는 compact request 탐지·text-only 변환·chunk/reduce projection 공개 표면을 명시적 typed method로 연결하는 Adapter이다. facade에는 policy 조립과 호환 alias만 남긴다.
 
+### `ciel_runtime_support/runtime_compaction_control.py`
+
+Native compact 명령의 예약·제출·persisted checkpoint·다음 raw request 감소를 구분하는 복구 상태기계. private atomic state와 cross-process lock으로 자동 명령을 중복 예약하지 않으며, SSE 입력을 durable queue에 보존한 채 admission을 보류한다. 미확인 제출은 재전송하지 않고 실패·재시도는 bounded이다.
+
+### `ciel_runtime_support/runtime_compaction_binding.py`
+
+Launcher와 별도 router process가 같은 runtime/session/epoch/transcript를 확인하도록 private scope를 조립한다. Claude의 정확한 messaging socket pid metadata, main request identity 및 Codex app-server thread event를 사용하며 최신 workspace 세션을 추측하지 않는다. 원본 raw budget과 numeric upstream overflow를 control에 관측하고 subagent·다른 session·native-provider ownership을 분리한다.
+
+### `ciel_runtime_support/runtime_compaction_rejection.py`
+
+Claude 2.1.303에서 검증한 reactive-compaction HTTP400 contract를 사용하는 pre-upstream admission policy. 정확히 귀속된 routed main request의 local budget 초과만 거절하며 token count나 usage를 위조하지 않는다. Compact 요청·subagent·native Anthropic·remote bridge는 비침범이고 복구 반복을 제한한다.
+
 ### `ciel_runtime_support/runtime_adapters.py`
 
 정규화된 `LaunchSpec`을 최종 `RuntimeCommand`로 변환하는 실제 CLI 런타임 어댑터.
@@ -1073,7 +1085,7 @@ Codex 명령행 인수를 결정하는 순수 Launch Policy. process 실행이�
 
 ### `ciel_runtime_support/codex_launch_configuration.py`
 
-Codex alternate-screen 호환, routed provider 설정, 현재 모델 인수와 version-matched model catalog 생성을 조정하는 Configuration Application Service. policy·model·catalog·effects를 각각 최대 5필드 typed port로 분리하며 filesystem과 환경 접근은 composition adapter로 격리한다. 기본 Factory가 routed provider 상수와 Codex config projection 정책을 소유한다. 네이티브 Codex 실행에서 실행 인자·config 어디에도 effort가 없으면 `model_reasoning_effort="medium"`을 모델 설정 인자에 더하고, 라우팅 provider는 자기 effort(`effort_level` 또는 카탈로그 기본값)를 `-c`로 명시해 config 최상위 기본값보다 우선시킨다(TUI와 app-server 공통, remote TUI는 서버 `-c`를 물려받음).
+Codex alternate-screen 호환, routed provider 설정, 현재 모델 인수와 version-matched model catalog 생성을 조정하는 Configuration Application Service. `runtime_config_args(router_base, env_key=...)`와 `runtime_model_catalog_args(..., model_slug=...)`는 기본값이 router 모드와 같고, 직접 게이트웨이 경로에서만 gateway 루트·`CIEL_RUNTIME_GATEWAY_API_KEY`·upstream slug를 받는다. policy·model·catalog·effects를 각각 최대 5필드 typed port로 분리하며 filesystem과 환경 접근은 composition adapter로 격리한다. 기본 Factory가 routed provider 상수와 Codex config projection 정책을 소유한다. 네이티브 Codex 실행에서 실행 인자·config 어디에도 effort가 없으면 `model_reasoning_effort="medium"`을 모델 설정 인자에 더하고, 라우팅 provider는 자기 effort(`effort_level` 또는 카탈로그 기본값)를 `-c`로 명시해 config 최상위 기본값보다 우선시킨다(TUI와 app-server 공통, remote TUI는 서버 `-c`를 물려받음).
 
 ### `ciel_runtime_support/codex_model_catalog.py`
 
@@ -1353,7 +1365,19 @@ Codex routed(`router_http.forward_json`)와 Anthropic routed(`claude_router`) �
 
 ### `ciel_runtime_support/agent_turn_events.py`
 
-에이전트 턴 단위 종료(`agent.turn_ended`: turn_id, runtime, ended_at, reason `end_turn|interrupted|error|max_tokens`, by_user_input, stop_check_blocked). Claude transcript(`end_turn`·`max_tokens`·interrupt·API error·`turn_duration`)와 Codex rollout(`task_complete`·`turn_aborted`)을 따라가는 `TranscriptTurnTracker`, app-server `turn/completed`용 `AppServerTurnTracker`, 라우터로 보내는 `RouterTurnPoster`(재시도 5회 후 WARN)를 소유한다. 대화 본문은 담지 않는다. 터미널 실행은 `transcript_delta_delivery`의 감시 스레드가, codex-desktop·app-server·remote는 `codex_desktop_injection`이 보고한다. `stop_check_blocked`는 Stop hook 자기 점검이 구현되지 않아 항상 false다.
+에이전트 턴 단위 종료(`agent.turn_ended`: turn_id, runtime, ended_at, reason `end_turn|interrupted|error|max_tokens`, by_user_input, stop_check_blocked). Claude transcript(`end_turn`·`max_tokens`·interrupt·API error·`turn_duration`)와 Codex rollout(`task_complete`·`turn_aborted`)을 따라가는 `TranscriptTurnTracker`, app-server `turn/completed`용 `AppServerTurnTracker`, 라우터로 보내는 `RouterTurnPoster`(재시도 5회 후 WARN)를 소유한다. 대화 본문은 담지 않는다. 터미널 실행은 `transcript_delta_delivery`의 감시 스레드가, codex-desktop·app-server·remote는 `codex_desktop_injection`이 보고한다. `transcript_delta_delivery`는 턴 종료 읽기 위치를 `transcript-event-cursors.json`의 `agent_turn_sources`에 저장해 라우터 재시작 뒤 이어 읽고, 처음 보는 transcript는 실행 뒤 생성된 것(파일 생성 시각, 없으면 첫 레코드 timestamp)만 처음부터, 나머지는 끝에서 시작한다. NUL 구간과 `max_record_bytes`를 넘는 줄은 한 번 WARN(`transcript_record_skipped` path·offset·length·reason)하고 건너뛴다(Walkie 48926). `stop_check_blocked`는 Stop hook 자기 점검이 구현되지 않아 항상 false다.
+
+### `ciel_runtime_support/event_delivery_ack.py`
+
+CloudEvent의 `data.delivery_ack`(Walkie 49269 §3.4)에 이벤트별 수신 확인을 보낸다(56190 재요청). `ExternalEventReceiverService.delivery_ack`로 붙어 있을 때만 SSE GET이 `Ciel-Receiver-Features: event-ack/1`을 보내고, `receiver_client_header`가 `Walkie-Client` 값을 만든다. 입력 큐에 새 행이 생기면 `stage: queued`(outcome queued), 같은 CloudEvent id나 재전송의 `redelivery_of.event_id`가 이미 큐에 있으면 다시 넣지 않고 `already_queued`, 큐가 다른 이벤트의 행을 남겼으면 `rejected`. `runtime-input-status.jsonl`에 그 행이 `submitted`/`replied`로 기록되면 `stage: injected`. SSE URL과 같은 scheme·host·port에만, SSE의 Authorization으로 보내고 redirect는 따르지 않는다. 실패하면 1·2·4·8·16초 뒤 재시도(timeout 10초), 못 보낸 ack는 라우터 재시작·스트림 재연결 때 다시 보낸다(24시간까지). 단계마다 `event-acks.jsonl`(본문·자격 증명 없음, 14일)에 남기고, 메뉴의 external event 패널 "Delivery acks (event-ack/1)" 행이 집계를 보여 준다.
+
+### `ciel_runtime_support/company_prompt_reload.py`
+
+Walkie 이벤트의 `data.agent_context.company_prompt {version, sha8}`가 이 워크스페이스의 instruction 파일이 받은 회사 프롬프트(`remote_instructions.held_company_prompt`: 동기화 상태의 `X-Walkie-Company-Prompt-*` 헤더 값, 없으면 파일의 `<!-- company-prompt -->` 주석)와 다르면 라우터가 이어가기 재시작을 한 번 요청한다(Walkie 53255). 요청은 `wait_turn`이라 진행 중인 turn을 시간 제한 없이 기다리고, 런처는 재실행 직전에 instruction 파일을 다시 받는다(`runtime_launch.prepare_restart` → `SessionRestartPorts.prepare`). `runtime_input_gateway.EXTERNAL_EVENT_LISTENERS`로 이벤트를 받고, 같은 프롬프트는 30분에 한 번만 요청한다(`company-prompt-reload.json`). 설정 `remote_instructions.auto_reload`(Remote instructions가 켜져 있으면 기본 켜짐), 메뉴 11번 패널의 "Reload session when the company prompt changes" 행.
+
+### `ciel_runtime_support/agent_runtime_event_push.py`
+
+라우터가 발행하는 `agent.turn_ended`(`tui_observation.TURN_ENDED_LISTENERS`)를 Walkie `POST /api/agent-runtime-events`로 직접 보낸다(Walkie 48926 F3). 에이전트 PC마다 설치된 status observer 버전에 기대지 않기 위해서다. CloudEvents 1.0 단건(`application/cloudevents+json`), type `ai.oneciel.ciel-runtime.agent.turn_ended`, source `urn:ciel-runtime:workspace:<id>`, data는 턴 필드만(본문 없음). id는 턴마다 고정(sha256(source, type, turn_id))이고 `Idempotency-Key`도 같은 값이라 재전송·재시도·observer 보고가 Walkie에서 한 번만 처리된다. 자격증명은 새로 저장하지 않고 Walkie 알림 스트림 수신기(`/api/notification-delivery/stream`)의 vault 값(`external-event-secrets.vault.json`)을 `Authorization: Bearer`로 쓰며 로그에 남기지 않는다(로그는 scheme·host·port만). 설정 `agent_runtime_events`(`enabled` 기본 true, `url`, `credential_receiver`, `timeout_seconds`); `url`이 없으면 그 수신기와 같은 origin의 `/api/agent-runtime-events`. 라우터 요청 스레드는 큐에만 넣고 전송은 별도 스레드: 네트워크 오류·408·425·429·5xx는 1·2·4·8·16초 backoff로 최대 6회, 그 밖의 4xx는 재시도 없이 WARN.
 
 ### `ciel_runtime_support/dangerous_rm_auto_allow.py`
 
@@ -1361,11 +1385,11 @@ Codex routed(`router_http.forward_json`)와 Anthropic routed(`claude_router`) �
 
 ### `ciel_runtime_support/session_backup_store.py`
 
-세션 백업 스냅샷 형식. 파일을 8 MiB 고정 청크로 잘라 SHA-256 이름(`blobs/<aa>/<sha>`, zlib)으로 한 번만 저장하고, 스냅샷은 `snapshots/<workspace>/<id>.json` manifest다(마지막에 써서 완료 표시). 계속 덧붙는 transcript/rollout은 바뀐 끝 청크만 새로 올라간다. `LocalTarget`(폴더·UNC 공유), `ChunkWriter`, `find_snapshot`/`list_snapshots`.
+세션 백업 스냅샷 형식. 파일을 8 MiB 고정 청크로 잘라 SHA-256 이름(`blobs/<aa>/<sha>`, zlib)으로 한 번만 저장하고, 스냅샷은 `snapshots/<workspace>/<id>.json` manifest다(마지막에 써서 완료 표시). 계속 덧붙는 transcript/rollout은 바뀐 끝 청크만 새로 올라간다. `LocalTarget`(폴더·UNC 공유), `ChunkWriter`, `find_snapshot`/`list_snapshots`. `ChunkWriter(targets, jobs)`: 해시는 호출 스레드에서 순서대로, 압축·중복 확인·저장은 `jobs`개 작업 스레드(동시에 최대 2×jobs 청크, 기본 8, 메뉴 `Parallel transfers`·CLI `--jobs`), manifest 전에 `drain()`. 압축 안 되는 청크(64 KiB 샘플)는 zlib stored(level 0)로 저장 - 형식·복원 동일.
 
 ### `ciel_runtime_support/session_backup_collect.py`
 
-실행 중인 세션 수집. 루트: `cwd`, `claude`(CLAUDE_CONFIG_DIR 또는 ~/.claude), `home`(~/.claude.json), `codex`(CODEX_HOME), `ciel`(CONFIG_DIR), `ciel_ws`(workspace 상태). Claude는 `projects/<cwd key>`의 transcript와 `<sid>/`(subagents·tool-results), file-history·todos, 설정 파일; Codex는 이 cwd의 threads(`state_*.sqlite`, `\\?\` 경로 형식 포함)의 rollout과 설정·prompts·skills; Ciel은 workspace 상태 전체와 config/launch-state. 작업 폴더는 기본 제외(node_modules, .npm-global, 캐시 등)와 다른 루트를 뺀다. jsonl은 그 순간 크기까지·마지막 불완전 줄 제외, sqlite는 backup API로 일관되게 복사한다.
+실행 중인 세션 수집. 루트: `cwd`, `claude`(CLAUDE_CONFIG_DIR 또는 ~/.claude), `home`(~/.claude.json), `codex`(CODEX_HOME), `ciel`(CONFIG_DIR), `ciel_ws`(workspace 상태). Claude는 `projects/<cwd key>`의 transcript와 `<sid>/`(subagents·tool-results), file-history·todos, 설정 파일; Codex는 이 cwd의 threads(`state_*.sqlite`, `\\?\` 경로 형식 포함)의 rollout과 설정·prompts·skills; Ciel은 workspace 상태 전체와 config/launch-state. 작업 폴더는 기본 제외(node_modules, .npm-global, 캐시 등)와 다른 루트를 뺀다. jsonl은 그 순간 크기까지·마지막 불완전 줄 제외, sqlite는 backup API로 일관되게 복사한다. 파일은 8 MiB(청크 크기) 단위로, 남은 크기만큼만 읽는다(작은 파일에 8 MiB read를 하면 매번 8 MiB를 할당해 느려짐). 메뉴에서 고른 1단계 폴더 제외(`skip_top`)와 git worktree 모드(`off`/`inside`/`all`, 밖의 worktree는 `worktree-N` 루트)를 따른다.
 
 ### `ciel_runtime_support/session_backup_secrets.py`
 
@@ -1383,6 +1407,42 @@ Codex routed(`router_http.forward_json`)와 Anthropic routed(`claude_router`) �
 
 `ciel-runtime backup create|list|show|verify|restore|prune|schedule|status|target`(cli_dispatch에서 지연 import). 설정은 `CONFIG_DIR/session-backup.json`(대상, 기본 대상, `schedule`), 마지막 실행은 `session-backup-state.json`. 자동 백업은 모두 `backup create --prune` 자식 프로세스로 workspace별 하나씩(pid 잠금) 돈다: 라우터의 `BackupScheduler`(주기·변화 있을 때만, `tui_observation.TURN_ENDED_LISTENERS`로 턴 종료 후), `runtime_launch`의 CLI 종료 직후(재시작 전 `before_restart`, 세션 종료 `on_session_end`), 라우터 MCP 도구 `session_backup`(create/list/status; 복원은 로컬 명령만), 메인 메뉴 `18. Session backup` 패널. 모든 트리거는 기본 꺼짐.
 
+### `ciel_runtime_support/session_backup_synology.py`
+
+Synology NAS 백업 대상(`type: synology`). File Station Web API(공식 가이드: SYNO.API.Info, SYNO.API.Auth login/logout, SYNO.FileStation.Upload/Download/List/Delete)로 청크·매니페스트를 `/공유폴더/...` 아래에 쓴다. `address`가 QuickConnect ID면 global.quickconnect.to `get_server_info` → DDNS(`https://<ddns>:<port>`) 먼저, 안 되면 `request_tunnel`의 relay(`https://<id>.<region>.quickconnect.to`, pingpong 쿠키 후)로 붙는다(Synology 비공개 방식, 2026-10-10 실측). TLS 검증 항상. 주소 후보는 동시에 확인해 먼저 답한 곳을 쓴다(닿지 않는 DDNS가 매번 8초를 먹던 것, 9.8초→1.8초). 업로드 본문은 조각으로 보내며 `bytes_sent`를 세어 진행 표시가 청크 안에서도 움직인다. 비밀번호는 설정에 쓰지 않는다: 메뉴가 Windows DPAPI로 `CONFIG_DIR/backup-credentials/<name>.dpapi`에 저장(`password_file`)하거나 `${ENV}` 참조. 모든 실패는 OSError(`SynologyError`, DSM 코드 포함)라 백업이 이유와 함께 멈춘다. CLI 명령이 끝나면 `session_backup_cli`가 연 대상의 `close()`(로그아웃)를 부른다. 메뉴 18 패널: 대상 추가(입력 숨김), 테스트, 사용 on/off, 비밀번호 변경, 제거(자격 파일 삭제).
+
+### `ciel_runtime_support/provider_failover.py` / `provider_failover_menu.py`
+
+Provider 폴백. 현재 provider가 429/사용량 한도(키·토큰 로테이션으로도 남은 게 없을 때)를 돌려주면, 인증값이 저장된 백업 provider로 **같은 요청**을 다시 보낸다(`router_http._dispatch_with_failover`; 429 지점 `claude_router` native relay, `openai_forwarding`, `openai_responses_router`의 HTTPError/UpstreamFailure가 `maybe_fail_over` → `FailoverRequested`, 클라이언트에 아무것도 쓰기 전만). 활성 폴백은 Retry-After/리셋 헤더 시각(없으면 `default_cooldown_minutes`)까지 유지되고, 그 뒤 **턴 시작 요청에서만** 원래 provider로 돌아간다(`anthropic_turn_start`/`codex_turn_start`). 설정·활성 상태·이력은 `<workspace state>/provider-failover.json`(config.json에 쓰지 않음). Claude/Codex OAuth 풀이 전부 limited면 먼저 CLI 자체 로그인으로 한 번 시도(`oauth_routing.OAuthRequestRun.cli_login_headers`, 설정 `cli_login_first`, 풀 `all_limited`). UI: 메뉴 19 패널(자동 on/off, CLI 로그인 먼저, 기본 쿨다운, 백업 추가/순서/모델/제거, 지금 전환, 지금 복귀, 이력), Claude 상태줄 `⇄ backup/model until HH:MM`, `/fallback` 슬래시 명령, router MCP 도구 `provider_fallback`, 이벤트 `router.fallback`. 기본 꺼짐.
+
+### `ciel_runtime_support/cielairouter_gateway_overlay.py`
+
+CielAiRouter 요청별 gateway base URL 덮어쓰기. `router_http._dispatch_with_failover`가 LLM 경로에서 provider 폴백(`failover.effective`)으로 응답할 provider를 고른 **뒤**(폴백 재시도 후에도 다시) `gateway_overlay().apply(provider, pcfg)`를 부른다. provider가 `cielairouter`일 때만 `cielairouter_gateways.CielAiRouterGatewayService`(첫 CielAiRouter 요청에서 지연 생성, 내부 single-flight·sticky 선택)에 설정된 `base_url`(중앙 discovery base)·첫 라우터 키·`current_model`을 넘기고, 후보가 고른 gateway면 provider 설정의 **deep copy**에 `base_url=<gateway>`, `ciel_gateway_discovery_base_url=<중앙>`을 넣는다. 자격 증명은 그대로, config.json·로드된 config는 바꾸지 않는다. 모듈이 없거나 실패하거나 후보가 없으면 그 요청은 기존 base로 간다. 모델 목록 조회(`provider_models.fetch_upstream_model_ids`)와 모델 캐시 키(`provider_model_metadata_context.cache_key`)는 `discovery_provider_config`로 중앙 base를 쓴다. 진단: 선택이 바뀔 때만 `cielairouter_gateway_selected`/`cielairouter_gateway_central`/`cielairouter_gateway_select_failed`/`cielairouter_gateway_selector_unavailable` 로그, 요청마다 DEBUG `cielairouter_gateway_route`, provider가 cielairouter일 때 router `/health`의 `cielairouter_gateway`(selector 상태·마지막 경로·세션 수·`CielAiRouterGatewayService.status()`, 키 없음).
+
+세션 고정: 요청의 세션 키(Claude `x-claude-code-session-id`, Codex `prompt_cache_key`/세션 헤더, `oauth_routing`)마다 처음 고른 gateway를 계속 쓰고, 새 세션의 첫 요청은 `select(..., fresh=True)`로 다시 순위를 매긴다. 그 gateway가 cooldown 중이면 그 세션만 다시 고른다. `gateway_selection: "off"`이면 덮어쓰지 않는다.
+
+실패 반영: 덮어쓴 설정에는 `ciel_gateway_route` 토큰이 붙고, `provider_network.provider_urlopen`이 그 토큰이 있는 요청을 `observed_gateway_open`으로 연다. URL이 선택된 gateway 아래일 때만 `cielairouter_gateway_transport`로 응답을 감싸, 연결 오류·시간 초과·5xx·완료 이벤트 없는 스트림 종료를 `CielAiRouterGatewayService.record_failure`에 알린다(`cielairouter_gateway_failure` WARN). 그 요청은 재전송하지 않는다. 응답 바이트·예외는 그대로 전달한다.
+
+실행 시점 선택: `select_launch_gateway(pcfg)`는 `gateway_data_path=direct` 실행에서 런처가 CLI 시작 직전에 한 번 부른다. 같은 `_load_selector`(`CielAiRouterGatewayService`)로 `select(..., fresh=True)`하고, 정상·비 degraded·중앙 base가 아닌 gateway만 `launch_data_path.LaunchGateway`(endpoint, node, upstream 모델 = `forced_model` 또는 `[1m]` 뺀 `current_model`, 첫 전송 가능 키)로 돌려준다. `gateway_selection: off`, 키 없음, 중앙/degraded 결과, selector 예외는 endpoint 없이 사유만 담는다(키·원격 응답 본문 없음). `CielAiRouterConfigurationPolicy.launch_gateway`가 이것을 위임한다.
+
+### `ciel_runtime_support/launch_data_path.py`
+
+provider 중립 실행 데이터 경로. provider 옵션 `gateway_data_path`(`router` 기본, `direct` opt-in)를 읽고, provider 설정 정책(`ProviderConfigurationPolicy.supports_gateway_data_path`/`launch_gateway`, 현재 CielAiRouter만 True)에 gateway를 물어 `LaunchDataPath`(configured/active, endpoint, node, central origin, reason, upstream model; `api_key`는 repr·기록·텍스트에서 제외)를 만든다. `LaunchDataPathResolver`는 `runtime_launch`의 Claude(`ClaudeLaunchConfig.launch_data_path`)·Codex TUI·app-server/codex-remote(`CodexLaunchServices.data_path`/`CodexAppServerLaunchServices.data_path`) 포트로 들어가며, router 설정이면 선택·로그·출력을 하지 않는다. direct에서 HTTPS 또는 루프백 HTTP·키·모델이 모두 있을 때만 active=direct이고, 그 밖에는 router로 유지하며 `launch_data_path ... active=router reason=...` WARN 한 줄. 결과는 `<workspace state>/launch-data-path.json`에 CLI별로 기록되고(키 없음) `status_lines`가 `gateway-status`에 보여 준다. 재시작 보조: `claude_restart_environment`(ANTHROPIC_BASE_URL/AUTH_TOKEN), `codex_provider_command`(provider 블록 base_url/env_key 교체). Codex 키 환경 변수는 `CIEL_RUNTIME_GATEWAY_API_KEY`.
+
+### `ciel_runtime_support/cielairouter_gateways.py`
+
+게이트웨이 선택기. discovery 문서(`protocol_version: 1`)를 검증하고(서버 시계 차이는 `generated_at` 기준으로 보정, 하루 넘게 어긋나면 거부), 엔드포인트를 정규화한다(`/v1` 접미사 제거, userinfo·query·fragment 거부, 평문 http는 루프백만). `/healthz`를 인증 없이 최대 4개 병렬·2초로 측정하고 `nodeId`·`role`·`ready`를 확인한다. 순위는 utilization → backlog → RTT(혼잡도가 90초보다 오래되면 무시). 범위(중앙 URL·키 지문·모델)마다 single-flight로 탐색하고, 실패한 엔드포인트는 60초 cooldown. discovery 401/403은 키 문제로 보고 노드를 돌지 않는다. 리다이렉트는 따르지 않는다.
+
+### `ciel_runtime_support/cielairouter_gateway_transport.py`
+
+관찰 전용 응답 래퍼. 바이트·예외·타이밍을 바꾸지 않고, Anthropic `message_stop`, Responses `response.completed|incomplete|failed`, Chat `[DONE]`/`finish_reason`이 오기 전에 스트림이 끝나면 `eof_before_terminal`, 읽기 오류는 `timeout`/`connection_reset`/`eof`/`network_error`로 한 번만 알린다. 의도적 `close()`·클라이언트 끊김은 실패로 치지 않는다. SSE 파서는 버퍼 크기가 제한되어 있다.
+
+### `ciel_runtime_support/event_receiver_connection.py`
+
+SSE 수신 연결 관리. 줄 단위 활동(heartbeat 주석 포함)을 기록하고, heartbeat를 본 뒤로 `idle_timeout_seconds`(기본 60초, 1–300) 동안 아무 줄도 오지 않으면 소켓을 끊어 `ExternalEventReceiverService`가 같은 인증·cursor로 다시 연결하게 한다. receiver마다 reader 하나만 두고, `reconnect(receiver_id)`로 즉시 재연결한다.
+
 ### `ciel_runtime_support/transcript_public_projection.py`
 
 `transcript_events` 직접 전송의 공개용 투영. Walkie relay(`server/agent-transcript-relay.py` `public_records`)와 같은 결과를 PC 안에서 만든다: 사용자 본문은 Walkie 라우팅 티켓(`wkp_`)만, 툴은 이름만, assistant는 Codex commentary와 Claude 텍스트만, 턴 끝마다 `task_complete`. reasoning과 툴 인자·결과는 버린다. `transcript_events.content_filter`(기본 `public_only`, 명시적 `raw`)를 `transcript_delta_delivery`가 적용한다.
+
+Direct launch safety boundary: launchers pass `channel=launch_data_path.ChannelDelivery(terminal_wake, whole_message)` to `resolve`; `ChannelDelivery.router_reason()` keeps a launch on the router, before any gateway selection, when its LLM-delivery wakes are typed `[ciel-wake]` markers and it has no whole-message transport (`CHANNEL_MARKER_REASON`). `run_codex` declares `terminal_wake=channel_delivery_mode(cfg) == "llm"` with no transport (plain Codex TUI stays router at launch and restart), `run_claude` declares `whole_message="session_socket"` only when a messaging socket target exists, and `run_codex_app_server` declares `whole_message="app_server"`. No runtime-name branch; `resolve_requested_model` resolves upstream identity. Direct app-server provider id is `ciel-runtime-gateway`. `CIEL_RUNTIME_DIRECT_GATEWAY_ACTIVE` is launch-scoped in the supervisor: channel_pending_injection delivers whole socket/TTY bodies and codex_desktop_injection uses RPC instead of waiting for router model HTTP. Restart rebuilds the Claude model/env snapshot or app-server model/provider/catalog snapshot. Direct mode has no request-level TUI response observations; transcript turn-end survives.

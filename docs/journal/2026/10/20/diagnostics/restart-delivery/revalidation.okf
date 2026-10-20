@@ -1,0 +1,88 @@
+---
+type: journal
+title: Restart ownership and interrupted channel delivery revalidation
+timestamp: 2026-10-20
+---
+
+# Scope
+
+User requested re-analysis, implementation, local installation and nightly
+publication. Operational remote session restart, inbox replay and remote
+installation are not included. Existing live snapshots remain untouched.
+
+# Corrections to earlier explanations
+
+- The old Bob native app-server logged invalid-bearer rejection during restart.
+  Killing only a shim can retain an orphan listener in the recorded experiment.
+  The actual incident shim kill, replacement bind failure and readiness-response
+  owner were not directly captured; absence of a banner does not prove them.
+- The company-prompt reloader requested restart; this is not proof the agent
+  itself called a restart tool. Its busy decision at the exact race is unknown.
+- Sarah's receiver persisted later events while the injector repeatedly waited
+  on 3801 queued. This supports a delivery-state stall, not runtime sleep.
+  Literal contentless dequeue was recorded, but cannot alone prove execution,
+  successful delivery, or safe replay.
+
+# Source findings
+
+- POSIX terminate_pid signaled only the root, while terminate_tree discovers
+  current descendants. Reparented children cannot be recovered using a dead root
+  without retained launch ownership.
+- The initial TCP probe swallowed all OSError as absence and cleanup timeout
+  preserved a successful result. Those are implementation defects, not proof of
+  a successful restart repair.
+- Single/batched wake classification recognized enqueue/remove, not literal
+  dequeue. Old queued ownership could survive into a new CLI launch because
+  wake evidence lacked the current child-epoch boundary.
+- Durable input states had no interrupted/uncertain disposition. Failing or
+  completing old inputs to advance the cursor would misrepresent their outcome.
+
+# Verification status
+
+Release-focused selection: 524 tests, zero failures/errors, 42 skips; includes
+SSE socket restoration twice, actual HTTP controls/access policy/gateway queue,
+restart lifecycle and architecture contracts. No full local sweep was run for
+this final verification.
+
+Native Claude scoped restart passed: verified old child exit, new child, durable
+interrupted_uncertain old attempts, no uncertain-input replay, new input replied.
+Native Codex remote scoped restart passed without probe override in
+run-codex-remote-production-probe3-094738: old native gone, appserver port released,
+new appserver/TUI, same thread resumed and new notification input replied.
+Fixture listeners were unbound after cleanup. Optional raw console typing after
+restart failed in earlier additional probes; scoped acceptance does not claim
+that separate console path is fixed.
+
+Windows closed-port measurement found timeout=0.5 raised TimeoutError after
+0.516s while timeout=3 raised ConnectionRefusedError after 2.062s. The production
+Windows listener probe now allows 3s; POSIX retains 0.5s, unknown still fails
+closed. Earlier harness preflight failures cannot be called successful proof.
+
+The earlier pristine HEAD unit-group run failed in compaction binding, but
+root cause is not established; do not label this proven harmless order-only
+flakiness or use it to waive CI failures. CI/Publish must pass for exact SHA.
+Publication and new local snapshot installation verified at exact SHA
+4907ba8974fda7e00f92d9862df01fff00fab472, version
+0.2.51-nightly.20261020-145930.4907ba8. Installed native Claude and Codex scoped
+restart runs both passed with cleanup listeners absent. See the same-day
+releases/restart-and-sse-recovery/release.okf for CI and source hash evidence.
+
+# Implementation summary
+
+- `codex_owned_server.py` (new): launch-scoped process group/sentinel containment
+  for the remote app-server and token-authenticated initialization.
+- `codex_app_server_session.py`: explicit-auth conflict refusal, authenticated
+  initialization before the TUI, cleanup failures become a nonzero result that
+  blocks relaunch, token cleanup owned by the launch.
+- `codex_desktop_runtime.py`: tri-state listener probe (bound/released/unknown)
+  where only a confirmed refusal counts as released, plus injectable
+  `owned_server`/`authenticate` ports.
+- Channel side: durable `interrupted_uncertain` status, attempt ownership bound to
+  a child epoch, reconciliation only on a verified child exit, no replay of
+  uncertain input, late-callback fencing, and a launcher hook that reconciles
+  before the next launch scope.
+
+# Baseline live health
+
+Before isolated work: routers 9487/9489/9505/9512 returned HTTP 200 with
+PIDs 92104/74076/76572/69012 respectively. No live session was restarted.

@@ -1,0 +1,74 @@
+---
+type: journal
+title: Auto-compact trigger alignment nightly release and local snapshot install
+timestamp: 2026-10-19
+---
+
+# Scope and authorization
+
+User asked to deploy locally and to re-verify that the fix is appropriate now that
+the regression point is known ("로컬배포하고. 코드가 깨진지점을 아니까 이번 수정이
+적정하게 이루어졌는지 재확인"). Nightly push was authorized earlier in the same task.
+No live session was restarted, no old snapshot was overwritten, no remote host was
+touched.
+
+# Release state
+
+Released code commit: 50e7906a1b4e3a104414adbbd40313de560a8c9c (nightly), the item-1
+fix that pins the auto-compact trigger to the budget the router forwards.
+
+- Publish workflow 39337367303: completed, success, including Verify published tarball.
+- Exact version 0.2.51-nightly.20261019-225158.50e7906; registry gitHead equals the
+  released commit; nightly tag points to this version; latest remains 0.2.51.
+- dist.shasum ce5e88e4faabf55b699ac7b40269fd19733d716f; dist.integrity
+  sha512-QvY+iEuIJwZhfw+sJlAop+obdmHO4yyXOHALLSKW+C4nB250AZoeCZXiqRF/UbM2OdKQO6TOgCl083DT+gZZoA==.
+- Downloaded from the registry into a fresh directory; SHA-1 and SHA-512 verified
+  against those values. Tarball SHA-256 acbfae6890a122bae50adb520c8511a4f659c5bc45c577ae48d12424d730d745,
+  10,009,266 bytes, 1,778 files. No npm pack from the working tree.
+
+# Observed CI outcome on the released commit
+
+CI run 39337367289 for the same commit is marked failure, but the router job log
+shows "Ran 1366 tests ... OK" with no test failure. The exit code came from
+tempfile.TemporaryDirectory.cleanup() raising
+OSError: [Errno 39] Directory not empty: '/tmp/ciel-runtime-tests-rzssw__b'
+while a child was still writing into the isolated test state. The other five jobs
+passed. Recorded as a harness teardown race, not a product failure; it is not
+changed by this release.
+
+# Local install
+
+- Before: HKCU CIEL_RUNTIME_HOME pointed at ~/.local/share/ciel-runtime-4e5c802900363fd318d1460b7510abd2ed08c24f
+  and ciel-runtimectl reported 0.2.51-nightly.20261019-050605.4e5c802.
+- npm global install of the exact version under C:/Users/djlov/AppData/Roaming/npm.
+- install.ps1 run with CIEL_RUNTIME_INSTALL_HOME=~/.local/share/ciel-runtime-50e7906a1b4e3a104414adbbd40313de560a8c9c;
+  the script registered that path in HKCU CIEL_RUNTIME_HOME.
+- First attempt failed with npm ETARGET for the exact version while the registry
+  packument already listed it; the retry with npm_config_prefer_online=true
+  resolved it. The failed attempt created no snapshot and changed no registry value
+  (checked).
+- After: ciel-runtimectl reports 0.2.51-nightly.20261019-225158.50e7906; the
+  launcher resolved from a non-repo working directory reports the same; the new
+  snapshot holds 429 files; the previous 4e5c802 snapshot is untouched.
+
+# Verification of the fix in the installed artifact
+
+The installed snapshot's own code was executed (not the working tree):
+window 872,000, percent 82, budget 716,750. Package and snapshot code trees are
+byte-identical (recursive diff, no differences for ciel_runtime.py or
+ciel_runtime_support). The DeepSeek V4.1 Flash 1017 registration is present in the
+installed providers/ollama.py.
+
+Re-verification detail, including the client's effective-window arithmetic and a
+61-provider sweep with zero violations, is in
+docs/journal/2026/10/19/diagnostics/walkie-context-overflow/evidence/autocompact-trigger-client-semantics.txt.
+
+# Limits
+
+The running Claude Code session that produced this work was launched by the
+4e5c802 runtime and keeps that code in its inherited CIEL_RUNTIME_HOME until it is
+restarted; it was not restarted. No live Claude or Codex launch was made after the
+install to read the emitted environment from a child process. The packaged tarball
+still ships 901 historical journal evidence files from earlier releases (pre-existing
+behaviour, unchanged here); the private walkie-context-overflow evidence directory is
+excluded by the root .npmignore and was confirmed absent from the tarball.

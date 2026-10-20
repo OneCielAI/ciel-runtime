@@ -1,0 +1,10 @@
+07:12:09 flow=claude stub=64121 router=64122 appserver=64123 scratch=G:\ciel-e2e\unattended\claude
+07:12:09 launched A: launch-A.cmd
+07:12:27 launcher pid A: 70536
+07:12:27 wait router up: True
+07:14:57 wait A: continue message at the stub: False
+07:15:00 shot A-started-new-conversation: saved C:\Users\djlov\ciel-runtime\docs\journal\2026\10\12\features\unattended-restart\evidence\e2e-claude\shots\01-A-started-new-conversation.png handle=133118168 printwindow=True
+07:15:00 notify 'E2E-UA-TURN-1 hello' -> ok=True
+07:15:01 wait A: turn 1 at the stub: True
+07:15:04 phase A: {"continue_message_requests": [], "answered": ["2026-10-12T07:12:22 [INFO] startup_prompt_answered prompt=claude_trust option=yes,itrustthisfolder key=downx1+enter enter=false attempt=1"], "threads": []}
+07:15:04 restart_session -> {"jsonrpc": "2.0", "id": 1, "result": {"content": [{"type": "text", "text": "{\"ok\":true,\"queued\":true,\"request\":{\"schema\":\"ciel-runtime.runtime-session-restart/v1\",\"id\":\"5debaa4be2d44415be11a0d1aa090e84\",\"source\":\"ciel-runtime-router-tool\",\"reason\":\"e2e unattended restart\",\"ru

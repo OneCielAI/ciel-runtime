@@ -1,0 +1,215 @@
+{
+ "flow": "codex-remote",
+ "ports": {
+  "central": 49167,
+  "A": 49168,
+  "B": 49169
+ },
+ "sse1": [
+  {
+   "n": 5,
+   "at": "16:46:29",
+   "server": "A",
+   "path": "/v1/responses",
+   "turn": "",
+   "truncated": false,
+   "auth_ok": true,
+   "model": "stub-model",
+   "bytes": 58513,
+   "user_agent": "ciel-runtime/0.163.0 (Windows 10.0.26200; x86_64) WindowsTerminal (codex-tui; 0.163.0)",
+   "head1": true,
+   "tail1": true,
+   "head2": false,
+   "tail2": false,
+   "restart_notice": false
+  }
+ ],
+ "sse2": [
+  {
+   "n": 10,
+   "at": "16:46:47",
+   "server": "B",
+   "path": "/v1/responses",
+   "turn": "",
+   "truncated": false,
+   "auth_ok": true,
+   "model": "stub-model",
+   "bytes": 60723,
+   "user_agent": "ciel-runtime/0.163.0 (Windows 10.0.26200; x86_64) WindowsTerminal (codex-tui; 0.163.0)",
+   "head1": true,
+   "tail1": true,
+   "head2": true,
+   "tail2": true,
+   "restart_notice": true
+  }
+ ],
+ "events": [
+  {
+   "n": 1,
+   "at": "16:46:03",
+   "server": "central",
+   "path": "/v1/models"
+  },
+  {
+   "n": 2,
+   "at": "16:46:10",
+   "server": "central",
+   "path": "/api/gateway/discovery",
+   "auth_ok": true
+  },
+  {
+   "n": 3,
+   "at": "16:46:10",
+   "server": "A",
+   "path": "/healthz",
+   "auth": false
+  },
+  {
+   "n": 4,
+   "at": "16:46:10",
+   "server": "central",
+   "path": "/v1/models"
+  },
+  {
+   "n": 5,
+   "at": "16:46:29",
+   "server": "A",
+   "path": "/v1/responses",
+   "turn": "",
+   "truncated": false,
+   "auth_ok": true,
+   "model": "stub-model",
+   "bytes": 58513,
+   "user_agent": "ciel-runtime/0.163.0 (Windows 10.0.26200; x86_64) WindowsTerminal (codex-tui; 0.163.0)",
+   "head1": true,
+   "tail1": true,
+   "head2": false,
+   "tail2": false,
+   "restart_notice": false
+  },
+  {
+   "n": 6,
+   "at": "16:46:29",
+   "server": "A",
+   "path": "/v1/responses",
+   "turn": "",
+   "truncated": false,
+   "auth_ok": true,
+   "model": "stub-model",
+   "bytes": 44416,
+   "user_agent": "ciel-runtime/0.163.0 (Windows 10.0.26200; x86_64) WindowsTerminal (codex-tui; 0.163.0)",
+   "head1": true,
+   "tail1": false,
+   "head2": false,
+   "tail2": false,
+   "restart_notice": false
+  },
+  {
+   "n": 7,
+   "at": "16:46:39",
+   "server": "central",
+   "path": "/api/gateway/discovery",
+   "auth_ok": true
+  },
+  {
+   "n": 8,
+   "at": "16:46:39",
+   "server": "B",
+   "path": "/healthz",
+   "auth": false
+  },
+  {
+   "n": 9,
+   "at": "16:46:40",
+   "server": "B",
+   "path": "/v1/responses",
+   "turn": "",
+   "truncated": false,
+   "auth_ok": true,
+   "model": "stub-model",
+   "bytes": 58836,
+   "user_agent": "ciel-runtime/0.163.0 (Windows 10.0.26200; x86_64) WindowsTerminal (codex-tui; 0.163.0)",
+   "head1": true,
+   "tail1": true,
+   "head2": false,
+   "tail2": false,
+   "restart_notice": true
+  },
+  {
+   "n": 10,
+   "at": "16:46:47",
+   "server": "B",
+   "path": "/v1/responses",
+   "turn": "",
+   "truncated": false,
+   "auth_ok": true,
+   "model": "stub-model",
+   "bytes": 60723,
+   "user_agent": "ciel-runtime/0.163.0 (Windows 10.0.26200; x86_64) WindowsTerminal (codex-tui; 0.163.0)",
+   "head1": true,
+   "tail1": true,
+   "head2": true,
+   "tail2": true,
+   "restart_notice": true
+  },
+  {
+   "n": 11,
+   "at": "16:46:47",
+   "server": "B",
+   "path": "/v1/responses",
+   "turn": "",
+   "truncated": false,
+   "auth_ok": true,
+   "model": "stub-model",
+   "bytes": 44416,
+   "user_agent": "ciel-runtime/0.163.0 (Windows 10.0.26200; x86_64) WindowsTerminal (codex-tui; 0.163.0)",
+   "head1": false,
+   "tail1": false,
+   "head2": true,
+   "tail2": false,
+   "restart_notice": false
+  }
+ ],
+ "stream_gets": [
+  {
+   "at": 1792187172.838082,
+   "after": 0
+  }
+ ],
+ "data_path_lines": [
+  "2026-10-16T16:46:10 [INFO] launch_data_path runtime=codex-remote-router provider=cielairouter configured=direct active=direct endpoint=http://127.0.0.1:49168 node=node-A central=127.0.0.1:49167 reason=ranked elapsed_ms=47; model requests go to the gateway, the router keeps MCP, channels and restart",
+  "2026-10-16T16:46:39 [INFO] launch_data_path runtime=codex-remote-router provider=cielairouter configured=direct active=direct endpoint=http://127.0.0.1:49169 node=node-B central=127.0.0.1:49167 reason=ranked elapsed_ms=16; model requests go to the gateway, the router keeps MCP, channels and restart"
+ ],
+ "router_model_http": [],
+ "router_control_http": [
+  "2026-10-16T16:46:12 [INFO] access \"POST /ca/events/receivers/default HTTP/1.1\" 200 -",
+  "2026-10-16T16:46:29 [INFO] access \"POST /ca/tui/agent-turn HTTP/1.1\" 200 -",
+  "2026-10-16T16:46:37 [INFO] access \"POST /ca/mcp HTTP/1.1\" 200 -",
+  "2026-10-16T16:46:40 [INFO] access \"POST /ca/tui/agent-turn HTTP/1.1\" 200 -",
+  "2026-10-16T16:46:47 [INFO] access \"POST /ca/tui/agent-turn HTTP/1.1\" 200 -"
+ ],
+ "restart_lines": [
+  "2026-10-16T16:46:37 [INFO] runtime_session_restart_queued id=ea6ac0603a894994b07ef792a08ae633 source=ciel-runtime-router-tool runtime=any target_pid=86808 resume=true wait_turn=false reason=e2e direct selection restart",
+  "2026-10-16T16:46:37 [INFO] runtime_session_restart_claimed client_pid=86808 id=ea6ac0603a894994b07ef792a08ae633 source=ciel-runtime-router-tool runtime=any target_pid=86808 resume=true wait_turn=false reason=e2e direct selection restart",
+  "2026-10-16T16:46:39 [INFO] codex_remote_session_restart exit_code=1 source=ciel-runtime-router-tool resumed_thread=01a146ae-0342-75d1-8603-6a0def64c38a request_id=ea6ac0603a894994b07ef792a08ae633 claim=transport",
+  "2026-10-16T16:46:39 [INFO] codex_session_restart_notice_queued request_id=2"
+ ],
+ "channel_lines": [
+  "2026-10-16T16:46:11 [INFO] codex_desktop_channel_ready thread=- cwd=G:\\ciel-e2e\\direct-path\\codex-remote-1792187159\\ws",
+  "2026-10-16T16:46:11 [INFO] channel_windows_console_proxy_started pid=70796 transport=conpty enter=cr submit_retries=4 confirm_submit=True bracketed_paste=True display_body=False",
+  "2026-10-16T16:46:12 [INFO] codex_app_server_channel_target thread=01a146ae-0342-75d1-8603-6a0def64c38a via=thread/started",
+  "2026-10-16T16:46:12 [INFO] codex_app_server_channel_subscribe_deferred thread=01a146ae-0342-75d1-8603-6a0def64c38a error=codex app-server thread/resume failed: {'code': -32600, 'message': 'no rollout found for thread id 01a146ae-0342-75d1-8603-6a0def64c38a'}",
+  "2026-10-16T16:46:29 [INFO] codex_desktop_channel_injected message_id=1 thread=01a146ae-0342-75d1-8603-6a0def64c38a turn=01a146ae-48d4-71f3-8e15-12f53d0c8461 via=turn/start",
+  "2026-10-16T16:46:30 [INFO] codex_app_server_channel_subscribed thread=01a146ae-0342-75d1-8603-6a0def64c38a",
+  "2026-10-16T16:46:30 [INFO] codex_desktop_channel_turn_completed message_id=1 turn=01a146ae-48d4-71f3-8e15-12f53d0c8461 status=completed",
+  "2026-10-16T16:46:37 [INFO] channel_mcp_http method=tools/call request_id=1 protocol=legacy-streamable-http",
+  "2026-10-16T16:46:37 [INFO] channel_console_restart_requested transport=conpty pid=70796 id=ea6ac0603a894994b07ef792a08ae633 source=ciel-runtime-router-tool runtime=any target_pid=86808 resume=true wait_turn=false reason=e2e direct selection restart",
+  "2026-10-16T16:46:38 [INFO] channel_windows_console_child_exit pid=70796 returncode=1",
+  "2026-10-16T16:46:40 [INFO] codex_desktop_channel_ready thread=01a146ae-0342-75d1-8603-6a0def64c38a cwd=G:\\ciel-e2e\\direct-path\\codex-remote-1792187159\\ws",
+  "2026-10-16T16:46:40 [INFO] codex_desktop_channel_injected message_id=2 thread=01a146ae-0342-75d1-8603-6a0def64c38a turn=01a146ae-72fc-7813-b6b3-66c1625e3dbd via=turn/start",
+  "2026-10-16T16:46:40 [INFO] channel_windows_console_proxy_started pid=46676 transport=conpty enter=cr submit_retries=4 confirm_submit=True bracketed_paste=True display_body=False",
+  "2026-10-16T16:46:41 [INFO] codex_desktop_channel_turn_completed message_id=2 turn=01a146ae-72fc-7813-b6b3-66c1625e3dbd status=completed",
+  "2026-10-16T16:46:47 [INFO] codex_desktop_channel_injected message_id=3 thread=01a146ae-0342-75d1-8603-6a0def64c38a turn=01a146ae-8e85-72b1-a1c8-d904490e0d76 via=turn/start",
+  "2026-10-16T16:46:48 [INFO] codex_desktop_channel_turn_completed message_id=3 turn=01a146ae-8e85-72b1-a1c8-d904490e0d76 status=completed"
+ ]
+}

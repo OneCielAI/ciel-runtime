@@ -38,6 +38,7 @@ from .channel_transcript import (
 from .channel_transcript_repository import ChannelTranscriptRepository
 from .channel_wake_claim_repository import ChannelWakeClaimRepository
 from .channel_wake_delivery_repository import ChannelWakeDeliveryRepository
+from .runtime_compaction_control import RuntimeCompactionControl
 
 CODEX_LATE_CONFIRM_SECONDS = 15.0
 
@@ -153,6 +154,7 @@ class ChannelPendingIoPorts:
     log: Callable[[str, str], None]
     write_session_socket: Callable[[str, list[dict[str, Any]]], bool] | None = None
     session_socket_available: Callable[[], bool] | None = None
+    compaction: RuntimeCompactionControl | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -281,6 +283,8 @@ class ChannelWakeContext:
                     format_prompt=self.messages.format_batch_prompt,
                 ),
                 log=self.claims.log,
+                pause_reason=(self.pending_io.compaction.context_pause_reason
+                              if self.pending_io.compaction else lambda _body: ""),
             ),
         )
 
@@ -421,6 +425,10 @@ class ChannelWakeContext:
             cwd=cwd,
             session_id=session_id,
         )
+        self.claims.delivery.bind_child_epoch(str(self.transcript.scope.get("child_epoch") or ""))
+
+    def child_exited(self, child_epoch: str, *, verified_exit: bool) -> list[int]:
+        return self.claims.delivery.child_exited(child_epoch, verified_exit=verified_exit)
 
     def transcript_roots(self) -> tuple[tuple[Path, str], ...]:
         return self.transcript_repository().roots()
@@ -490,6 +498,8 @@ class ChannelWakeContext:
         *,
         not_before: float | None = None,
     ) -> WakeStateEvidence:
+        if self.claims.delivery.interrupted(message_id):
+            return WakeStateEvidence("interrupted_uncertain")
         return self.transcript.wake_state_evidence_from_text(
             message_id,
             text,
@@ -612,6 +622,8 @@ class ChannelWakeContext:
                 log=self.pending_io.log,
                 write_session_socket=self.pending_io.write_session_socket,
                 session_socket_available=self.pending_io.session_socket_available,
+                external_admission_paused=(self.pending_io.compaction.external_admission_paused
+                                           if self.pending_io.compaction else lambda: False),
             ),
             policy=ChannelInjectionPolicy(
                 wake_batch_limit=self.pending_policy.wake_batch_limit,
@@ -658,7 +670,7 @@ class ChannelWakeContext:
                 enter_label=self.pending_delivery.enter_label,
             ),
             log=self.pending_io.log,
-        ).inject(master_fd, enter_bytes, **options)
+        ).inject(master_fd, enter_bytes, control=self.pending_io.compaction, **options)
 
     def messages_file_marker(self) -> tuple[float, int]:
         try:
@@ -666,3 +678,25 @@ class ChannelWakeContext:
             return (stat.st_mtime, stat.st_size)
         except Exception:
             return (0.0, 0)
+
+
+def reconcile_wake_child_exit(scope: dict[str, Any], *, verified_exit: bool, context: Callable[[], Any], log: Callable[[str, str], None]) -> list[int]:
+    """Quarantine the delivery attempts owned by a CLI child that just exited.
+
+    The launcher calls this the moment its transport returns, before the next
+    launch records its own epoch. An unresolved attempt stays durable and is
+    never replayed; later messages are then free to be delivered.
+    """
+
+    epoch = str(scope.get("child_epoch") or "")
+    if not epoch:
+        return []
+    try:
+        reconciled = context().child_exited(epoch, verified_exit=verified_exit)
+    except Exception as exc:  # noqa: BLE001 - the exit path must not fail on reconciliation
+        log("WARN", f"channel_wake_child_exit_reconcile_failed error={type(exc).__name__}: {exc}")
+        return []
+    if reconciled:
+        message_ids = ",".join(str(value) for value in reconciled)
+        log("WARN", f"channel_wake_child_exit_quarantined child_epoch={epoch} message_ids={message_ids}")
+    return reconciled

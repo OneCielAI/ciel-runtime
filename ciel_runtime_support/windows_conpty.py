@@ -119,6 +119,7 @@ class WindowsConPtySession:
         self._closed = False
         self._stop = threading.Event()
         self._stdin_console_handle: Any = None
+        self._console_input_decoder = codecs.getincrementaldecoder("utf-16-le")("replace")
         self._old_input_mode: int | None = None
         self._old_output_mode: int | None = None
         self._last_size = (0, 0)
@@ -210,6 +211,11 @@ class WindowsConPtySession:
             if time.monotonic() >= deadline:
                 return False
             time.sleep(0.02)
+
+    def output_since(self, checkpoint: int) -> tuple[bytes, int]:
+        """Child output after an absolute position, and the new position."""
+
+        return self._output_since(checkpoint)
 
     def _output_since(self, checkpoint: int) -> tuple[bytes, int]:
         with self._output_lock:
@@ -856,12 +862,33 @@ class WindowsConPtySession:
                     self._output_total_bytes += len(data)
                     del self._output_tail[: max(0, len(self._output_tail) - 64 * 1024)]
                 if self._mirror_output and not self._parent_output_paused.is_set():
-                    self._mirror_bytes(data)
-        except OSError:
-            pass
+                    self._pump_mirror_bytes(data)
+        except OSError as exc:
+            self._log_pump_failure("output", exc)
         finally:
             if self._mirror_output:
-                self._mirror_bytes(b"", final=True)
+                self._pump_mirror_bytes(b"", final=True)
+
+    def _log_pump_failure(self, stage: str, exc: OSError) -> None:
+        try:
+            self._log(
+                "ERROR",
+                f"channel_windows_conpty_{stage}_failed "
+                f"error={type(exc).__name__}: {exc}",
+            )
+        except Exception:
+            # A failed diagnostic sink must not stop draining the child pipe.
+            pass
+
+    def _pump_mirror_bytes(self, data: bytes, *, final: bool = False) -> None:
+        try:
+            self._mirror_bytes(data, final=final)
+        except OSError as exc:
+            # Parent display availability is independent of child pipe capture.
+            # Disable retries (including final flush), but keep the reader alive.
+            with self._parent_output_lock():
+                self._mirror_output = False
+            self._log_pump_failure("mirror", exc)
 
     def _mirror_bytes(self, data: bytes, *, final: bool = False) -> None:
         with self._parent_output_lock():
@@ -921,20 +948,29 @@ class WindowsConPtySession:
         # fixed-width buffer so both the Win32 call and byte conversion have
         # the same representation on every host.
         buffer = (ctypes.c_uint16 * 4096)()
-        read = wintypes.DWORD(0)
-        if not self._kernel32.ReadConsoleW(
-            self._stdin_console_handle,
-            buffer,
-            len(buffer) - 1,
-            ctypes.byref(read),
-            None,
-        ):
-            raise ctypes.WinError(ctypes.get_last_error())
-        units = int(read.value)
-        if units <= 0:
-            return b""
-        raw = ctypes.string_at(ctypes.addressof(buffer), units * ctypes.sizeof(ctypes.c_uint16))
-        return raw.decode("utf-16-le").encode("utf-8")
+        decoder = getattr(self, "_console_input_decoder", None)
+        if decoder is None:
+            decoder = self._console_input_decoder = codecs.getincrementaldecoder(
+                "utf-16-le"
+            )("replace")
+        while True:
+            read = wintypes.DWORD(0)
+            if not self._kernel32.ReadConsoleW(
+                self._stdin_console_handle,
+                buffer,
+                len(buffer) - 1,
+                ctypes.byref(read),
+                None,
+            ):
+                raise ctypes.WinError(ctypes.get_last_error())
+            units = int(read.value)
+            raw = ctypes.string_at(
+                ctypes.addressof(buffer), units * ctypes.sizeof(ctypes.c_uint16)
+            )
+            data = decoder.decode(raw, final=units == 0).encode("utf-8")
+            if data or units == 0:
+                return data
+            # A high surrogate alone is buffered input, not end-of-file.
 
     def manual_input_active(self) -> bool:
         """Return whether the operator has an unsubmitted parent-console draft."""
@@ -1013,7 +1049,8 @@ class WindowsConPtySession:
                         return
                     self._observe_parent_input(data)
                     frames.feed(data)
-                except OSError:
+                except OSError as exc:
+                    self._log_pump_failure("input", exc)
                     return
         finally:
             frames.close()

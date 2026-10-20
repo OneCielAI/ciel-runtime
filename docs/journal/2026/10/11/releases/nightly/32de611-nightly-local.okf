@@ -1,0 +1,8 @@
+okf_version: "1.0"
+task: "Nightly push and local install after the real Synology NAS test: progress while uploading, faster NAS connect (32de611)."
+reported: "User, 2026-10-10: '실제 nas 테스트해봐', '테스트 완료하고 개발종료되면 로컬, 나이트리 푸시해'."
+before_commit: "Staged diff scanned for the NAS password/ID/account/IP: 0 matches. The real-NAS screens and logs (they show the NAS ID and account) stay local: docs/journal/2026/10/10/features/session-backup-synology/evidence/e2e-2-real-nas is in .git/info/exclude. The isolated test config with the DPAPI password file was deleted."
+tests: "unit 1842 OK, runtime 402 OK, router 1188 OK; channel: BoundaryScanDeadlineTests failed in 2 of 3 runs on this PC (files unchanged; same intermittent failure seen earlier on committed HEAD); ruff clean."
+nightly: "32de611 on nightly; CI 38099480446 success; Publish to npm 38099480386 success; dist-tag nightly = 0.2.51-nightly.20261011-004750.32de611 (latest stays 0.2.51)."
+local: "npm install -g @one-ciel-ai/ciel-runtime@0.2.51-nightly.20261011-004750.32de611; install.ps1 with CIEL_RUNTIME_INSTALL_HOME=~/.local/share/ciel-runtime-32de611c309d420ec37c6e2a008159dbeffe787b; HKCU CIEL_RUNTIME_HOME points there; ciel-runtimectl version prints the nightly; the snapshot has report_upload and the probe race; router 9611 200."
+not_done: "main not merged (not asked)."

@@ -1,0 +1,38 @@
+
+
+› [ciel-wake] pending_ids=1
+
+
+• STUB-REPLY-1
+
+  Worked for <1s • 1:45 PM
+
+
+› [ciel-wake] pending_ids=2
+
+
+• STUB-REPLY-3
+
+  Worked for 25s • 1:45 PM
+
+
+› [ciel-wake] pending_ids=3
+
+
+• STUB-REPLY-5
+
+  Worked for <1s • 1:45 PM
+
+
+› [ciel-wake] pending_ids=4
+
+
+• STUB-REPLY-7
+
+  Worked for <1s • 1:46 PM
+
+
+› Ask Codex to do anything
+
+  Ciel Runtime vLLM medium · G:\ciel-e2e\restart\codex\ws
+  ? for shortcuts                                                                                             ⚠ 1 warning · f2 to view

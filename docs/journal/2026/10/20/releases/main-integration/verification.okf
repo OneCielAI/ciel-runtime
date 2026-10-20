@@ -1,0 +1,42 @@
+---
+type: integration-verification
+title: Nightly integration into main and fresh nightly branch
+description: Evidence for the requested main merge and new waiting branch.
+timestamp: 2026-10-20
+tags: [git, main, nightly, integration]
+---
+
+# Authorization
+
+User requested merging into main and waiting on a new nightly branch.
+
+# Observed preflight
+
+Remote main: a5cb6bb9a6fa506eeee09c62a1abfbb5077693e2.
+Remote nightly: 03fb196b017dbbbdab1d53002c365426ee83024b.
+Main is an ancestor of nightly; 45 commits are pending integration.
+Tracked working tree was clean. Existing unrelated untracked files are not staged.
+The no-ff merge completed without conflicts on nightly-20261020, created from
+origin/main. The original nightly branch is preserved.
+
+# Existing runtime verification
+
+The latest code change 9ac82f0e86a067b8cf9fcdfe3fc69ef695071ff8 has successful
+CI run 39461098497 and npm publish run 39461098465. Installed-root focused tests
+and native paused-goal acceptance are recorded in the adjacent
+remote-paused-goal/release.okf. No source changes are made by this integration.
+
+# Publication boundary
+
+Package name: @one-ciel-ai/ciel-runtime. Both branches declare 0.2.51.
+Registry reports latest=0.2.51. npm-publish.yml skips publication when that
+exact package version already exists; no version bump is requested or made.
+The initial lookup using @oneciel/ciel-runtime returned E404; this was a wrong
+package name, corrected by reading package.json before the successful lookup.
+
+# Integration verification
+
+Before push: assert the merged tree equals origin/nightly except this journal,
+check merge whitespace, and verify both parent SHAs. Push main without force,
+then publish nightly-20261020 and set its upstream to its matching remote branch.
+Main workflow results will be appended locally after observing them.

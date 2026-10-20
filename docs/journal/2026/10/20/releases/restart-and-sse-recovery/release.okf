@@ -1,0 +1,57 @@
+---
+type: release-verification
+title: Restart ownership and SSE recovery nightly deployment
+timestamp: 2026-10-20
+tags: [release, nightly, sse, restart]
+---
+
+# Published identity
+
+- Version: 0.2.51-nightly.20261020-145930.4907ba8
+- Exact gitHead: 4907ba8974fda7e00f92d9862df01fff00fab472
+- CI run 39443547132: success.
+- Publish run 39443547012: success, including registry tarball gate.
+- Registry nightly tag matches exact version and gitHead.
+- Downloaded tarball verified SHA1 and SHA512 against registry metadata.
+- Tarball SHA256: 1a12ad7e0828e24e7e3598ff7987a86d2a6dacfaa91052e9a1c2a641d958eb6c.
+- Published package has 484 files, zero docs/journal entries and zero inspected
+  credential-path matches. Operational journals are excluded via docs/.npmignore.
+
+# Local installation
+
+- npm global exact version installed.
+- New immutable snapshot: ~/.local/share/ciel-runtime-4907ba8974fda7e00f92d9862df01fff00fab472.
+- User CIEL_RUNTIME_HOME registration points to that new snapshot.
+- 425 Python source files in each installation match the published tarball hashes.
+- Existing loaded snapshots were not overwritten and live sessions were not
+  restarted for activation. Future launches load the new registration.
+
+# Execution verification
+
+- Repository release-focused selection: 524 tests, zero failures/errors, 42 skips.
+- Installed snapshot selected functional tests: 261 tests, all pass, zero skips.
+- npm global selected socket/control/lifecycle tests: 52 tests, all pass.
+- Installed snapshot native Claude and Codex remote each passed scoped restart
+  acceptance: old child exit, replacement, resumed session and new input replied.
+  Claude uncertain attempts remained fenced and not replayed. Codex app-server
+  port release observed. No probe-timeout monkeypatch was used in installed runs.
+- Owned test listeners absent after cleanup. Text console captures and lifecycle
+  logs retained locally; window screenshot capture was unavailable (0x0 window).
+- SSE fixture independently verifies two real listener outages/restorations,
+  cursor continuation, one worker, and actual HTTP controls to durable gateway
+  input. This is not a single native CLI + network-outage scenario.
+
+# Limits and corrections
+
+- Original reported URLError root cause remains unknown; real NIC/VPN/DNS flap
+  recovery is not established by loopback fixture.
+- Additional raw-console typing after restart failed in earlier diagnostic runs;
+  this release does not claim that separate path fixed.
+- Initial d59c7a1 CI/Publish failed due to Linux-specific OSError(111) subclass
+  construction in a new test. Corrected by explicit ConnectionRefusedError in
+  4907ba8, then both exact-SHA workflows passed. No CI failure was waived.
+- A verification shell attempted PowerShell variable syntax through Bash; that
+  assignment failed. Identity/hash/tests were subsequently verified directly
+  against installed absolute roots, without depending on that assignment.
+- Alibaba token-plan-only error report is a separate unverified issue; screenshot
+  unavailable to current provider. No causal link to SSE is claimed.

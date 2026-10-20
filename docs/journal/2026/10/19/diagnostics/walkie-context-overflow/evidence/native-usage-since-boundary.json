@@ -1,0 +1,43 @@
+{
+  "kind": "native-usage-since-last-boundary",
+  "source_sha256": "6ba4f8a1599b13d3676c8bdb79bcceff3994e33539300a506c93aedb2d73b048",
+  "last_boundary": "2026-10-18T17:34:48.403Z",
+  "api_request_records": 1582,
+  "non_main_thread_requests": 0,
+  "assistant_responses_with_usage": 1562,
+  "usage_basis": "input+cache_read+cache_creation as recorded by Claude Code",
+  "by_model": {
+    "claude-opus-5-5": {
+      "responses": 11,
+      "min": 662333,
+      "max": 998467
+    },
+    "gpt-6.1-sol": {
+      "responses": 1535,
+      "min": 380128,
+      "max": 700448
+    },
+    "<synthetic>": {
+      "responses": 1,
+      "min": 0,
+      "max": 0
+    },
+    "gpt-6.1-sol-ultra": {
+      "responses": 15,
+      "min": 682107,
+      "max": 739447
+    }
+  },
+  "responses_at_or_above_700k": 10,
+  "responses_at_or_above_839k": 1,
+  "raw_request_reconstructed": {
+    "messages": 4014,
+    "runtime_estimate_tokens": 5230119,
+    "guard_final_estimate": 760866,
+    "guard_budget": 780750
+  },
+  "limitations": [
+    "Exact Claude Code 2.1.303 auto-compact threshold for this session was not recorded; 839k is an assumed comparison line, not an observed gate.",
+    "Usage is what the routed upstream reported through Runtime for the guarded payload."
+  ]
+}

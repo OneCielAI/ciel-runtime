@@ -1,0 +1,136 @@
+{
+  "baseline_HEAD": [
+    {
+      "event_nonnewline_bytes": 65535,
+      "wire_bytes": 65538,
+      "wire_preserved": true,
+      "gateway_observation": [
+        {
+          "success": true,
+          "reason": "terminal_event",
+          "status": 200,
+          "terminal": "response.completed"
+        }
+      ]
+    },
+    {
+      "event_nonnewline_bytes": 65536,
+      "wire_bytes": 65539,
+      "wire_preserved": true,
+      "gateway_observation": [
+        {
+          "success": true,
+          "reason": "terminal_event",
+          "status": 200,
+          "terminal": "response.completed"
+        }
+      ]
+    },
+    {
+      "event_nonnewline_bytes": 65537,
+      "wire_bytes": 65540,
+      "wire_preserved": true,
+      "gateway_observation": [
+        {
+          "success": false,
+          "reason": "eof_before_terminal",
+          "status": 200,
+          "terminal": null
+        }
+      ]
+    },
+    {
+      "event_nonnewline_bytes": 131072,
+      "wire_bytes": 131075,
+      "wire_preserved": true,
+      "gateway_observation": [
+        {
+          "success": false,
+          "reason": "eof_before_terminal",
+          "status": 200,
+          "terminal": null
+        }
+      ]
+    },
+    {
+      "event_nonnewline_bytes": 900000,
+      "wire_bytes": 900003,
+      "wire_preserved": true,
+      "gateway_observation": [
+        {
+          "success": false,
+          "reason": "eof_before_terminal",
+          "status": 200,
+          "terminal": null
+        }
+      ]
+    }
+  ],
+  "working_tree": [
+    {
+      "event_nonnewline_bytes": 65535,
+      "wire_bytes": 65538,
+      "wire_preserved": true,
+      "gateway_observation": [
+        {
+          "success": true,
+          "reason": "terminal_event",
+          "status": 200,
+          "terminal": "response.completed"
+        }
+      ]
+    },
+    {
+      "event_nonnewline_bytes": 65536,
+      "wire_bytes": 65539,
+      "wire_preserved": true,
+      "gateway_observation": [
+        {
+          "success": true,
+          "reason": "terminal_event",
+          "status": 200,
+          "terminal": "response.completed"
+        }
+      ]
+    },
+    {
+      "event_nonnewline_bytes": 65537,
+      "wire_bytes": 65540,
+      "wire_preserved": true,
+      "gateway_observation": [
+        {
+          "success": true,
+          "reason": "terminal_event",
+          "status": 200,
+          "terminal": "response.completed"
+        }
+      ]
+    },
+    {
+      "event_nonnewline_bytes": 131072,
+      "wire_bytes": 131075,
+      "wire_preserved": true,
+      "gateway_observation": [
+        {
+          "success": true,
+          "reason": "terminal_event",
+          "status": 200,
+          "terminal": "response.completed"
+        }
+      ]
+    },
+    {
+      "event_nonnewline_bytes": 900000,
+      "wire_bytes": 900003,
+      "wire_preserved": true,
+      "gateway_observation": [
+        {
+          "success": true,
+          "reason": "terminal_event",
+          "status": 200,
+          "terminal": "response.completed"
+        }
+      ]
+    }
+  ]
+}

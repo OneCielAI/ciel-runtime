@@ -408,6 +408,113 @@ Authorization: Bearer <token>
 `CIEL_RUNTIME_ROUTER_EXTERNAL_TOKEN` 환경 변수로 파일 토큰을 재정의할 수 있다.
 루프백 요청은 기존 로컬 CLI 호환성을 위해 토큰 없이 허용된다.
 
+## CielAiRouter 게이트웨이 선택
+
+CielAiRouter 공급자의 `base_url`은 중앙 라우터 주소다. 라우터는 요청마다 이 주소의
+`GET /api/gateway/discovery`(라우터 키, Bearer, 최대 5초)로 사용 가능한 게이트웨이를
+확인하고 다음 순서로 고른다.
+
+1. `status=online`, `health=healthy`, `availableUntil` 이전인 노드만 후보
+2. 각 엔드포인트의 `/healthz`를 인증 없이 2초 안에 직접 측정(성공한 것만). 응답에
+   `nodeId`가 있으면 그 노드의 `id`와 같아야 하며, 다르면 실패로 본다.
+3. 루프백(`127.0.0.0/8`, `::1`, `localhost`) 게이트웨이 → 낮은 `congestion.utilization` →
+   낮은 `backlog` → 짧은 측정 RTT 순서
+   (`observedAt`이 90초보다 오래되면 혼잡도 값은 쓰지 않는다)
+
+여러 노드가 같은 루프백 주소(예: `http://127.0.0.1:20128`)를 광고해도 후보는 노드 `id`와
+주소의 조합으로 구분한다. 그 주소의 `/healthz`가 돌려준 `nodeId`와 일치하는 노드, 즉 이
+컴퓨터에서 실제로 실행 중인 게이트웨이만 선택된다.
+
+- Claude Code·Codex 세션은 정상인 동안 선택한 게이트웨이를 유지한다. 새 세션·후보 만료·연결 실패 때는 다시 탐색한다. 루프백도 반드시 이 컴퓨터에서 probe에 성공해야 하며, 존재하지 않는 `127.0.0.1`은 제외한다.
+- 연결 실패, 시간 초과, HTTP 5xx, 완료 이벤트(`message_stop`, `response.completed`) 없이
+  끝난 스트림은 그 게이트웨이의 실패로 기록되고 60초 동안 후보에서 빠진다. 그 요청은
+  다시 보내지 않는다(이미 모델이 처리했을 수 있다). 다음 요청부터 다른 게이트웨이를 쓴다.
+- 401·403·429 같은 키·한도 응답은 게이트웨이 실패로 보지 않는다.
+- 쓸 수 있는 게이트웨이가 없거나 discovery가 실패하면 설정된 `base_url`을 그대로 쓴다.
+- 모델 목록(`/v1/models`)은 항상 설정된 `base_url`에서 읽는다.
+- 평문 `http` 게이트웨이는 루프백 주소만 허용한다. 한 노드의 대표 주소가 거부되어도
+  다른 주소는 각각 검증한다. 생성 요청도 301·302·303·307·308 리다이렉트를 따르지 않으므로
+  다른 origin으로 인증값을 넘기지 않는다.
+- 선택 결과는 설정 파일에 저장하지 않는다. 라우터 `/health`의 `cielairouter_gateway`와
+  로그(`cielairouter_gateway_selected`, `cielairouter_gateway_failure`)에서 확인한다.
+
+끄려면 공급자 설정에 다음을 넣는다.
+
+```json
+{ "providers": { "cielairouter": { "gateway_selection": "off" } } }
+```
+
+### 직접 게이트웨이 데이터 경로 (`gateway_data_path`, opt-in)
+
+기본값 `router`에서는 Claude Code·Codex의 모델 요청이 로컬 Ciel Runtime 라우터를 거쳐
+게이트웨이로 간다(위 선택 규칙이 요청마다 적용). `direct`로 바꾸면 CLI를 실행하기 직전에
+같은 선택기(`CielAiRouterGatewayService`, 새 세션과 같은 fresh 순위)로 게이트웨이를 한 번
+고르고, CLI가 그 게이트웨이와 모델 HTTP를 직접 주고받는다. CielAiRouter 공급자에서만
+설정할 수 있으며 다른 공급자는 이 옵션을 거부한다.
+
+```json
+{ "providers": { "cielairouter": { "gateway_data_path": "direct" } } }
+```
+
+```text
+ciel-runtimectl provider-options cielairouter gateway_data_path=direct   # 또는 router
+ciel-runtimectl provider-options cielairouter gateway-status              # 설정·마지막 실행 경로 확인
+```
+
+메뉴: 프리런치 LLM 옵션 패널의 `Gateway data path` 행(Enter로 router/direct 전환),
+외부 메뉴 Provider options의 `Gateway data path: router|direct` 항목.
+
+`direct`가 실제로 적용되면:
+
+- Claude Code: `ANTHROPIC_BASE_URL`=게이트웨이 루트, `ANTHROPIC_AUTH_TOKEN`=CielAiRouter
+  라우터 키, `ANTHROPIC_MODEL`·기본 haiku/opus/sonnet·subagent·`--model`은 라우터가 보냈을
+  upstream 모델 id(`ciel-runtime-cielairouter-*` 별칭은 보내지 않는다).
+- Codex(app-server, codex-remote): `model_providers.ciel-runtime-gateway.base_url`=게이트웨이
+  `/v1`, `env_key`=`CIEL_RUNTIME_GATEWAY_API_KEY`(라우터 키는 이 환경 변수에만 들어간다),
+  모델과 model catalog slug는 upstream 모델 id. direct는 별도 provider id를 사용한다.
+- 로컬 라우터는 그대로 시작되고 router MCP(`/ca/mcp`), workspace MCP, 채널 프록시·세션 소켓,
+  외부 이벤트(SSE) 수신, 세션 재시작은 router 모드와 같다. 모델 요청만 라우터를 거치지 않는다.
+
+다음 경우에는 그 실행을 router 경로로 유지하고 키 없는 로그 한 줄
+(`launch_data_path ... active=router reason=...`)과 안내 한 줄을 남긴다: `gateway_selection`이
+`off`, 키 없음, 모델 없음, discovery·probe 실패, 중앙 base 결과, degraded 결과, 루프백이 아닌
+평문 `http` 게이트웨이.
+
+채널 전달 방식이 먼저 판단된다(게이트웨이 discovery·probe 전, 공급자와 무관). 채널 메시지가
+CLI에 `[ciel-wake] pending_ids=...` 표식으로만 타이핑되고 전체 메시지 전송 수단(Claude Code
+messaging socket, app-server RPC)이 없는 실행은 router에 남는다. 그 본문은 router가 모델 HTTP
+요청에 붙이므로 직접 요청에는 표식만 실린다. 해당 실행과 기록 사유:
+
+- 일반 Codex TUI(LLM 채널 전달): 소켓이 없고, Windows에서는 입력 본문 문자 누락 때문에 표식만
+  입력한다(2026-10-03 진단). 다른 플랫폼에서는 표식 뒤에 본문도 입력하지만 그 turn은 router가
+  교체하는 방식이고 router 없이 동작하는지는 검증되지 않았으므로, 모든 플랫폼에서 router로
+  폴백한다. 세션 재시작 후에도 router다.
+- Claude Code에서 session-socket 입력이 꺼진 경우(`claude_code.session_socket_input: false`,
+  채널 wake 프록시 사용 중).
+- 기록 사유: `channel wakes are typed [ciel-wake] markers whose bodies only router model HTTP
+  injects (no whole-message transport)`.
+
+Claude Code(messaging socket 사용)와 Codex app-server·codex-remote(RPC 주입, TUI는 채널 입력을
+타이핑하지 않음)는 direct를 쓸 수 있다.
+
+제한(직접 경로에서는 라우터가 요청을 보지 못한다):
+
+- 실행 중인 CLI는 시작할 때 고른 게이트웨이를 계속 쓴다. 실행 중 재선택(live re-route),
+  요청 단위 실패 반영·cooldown, 키 로테이션, provider 폴백, 카탈로그 출력 상한·effort 하향
+  보정은 적용되지 않는다. 게이트웨이가 죽으면 그 CLI의 요청은 실패한다.
+- 세션 재시작(`restart_session`)은 게이트웨이를 다시 고른다. 정상 게이트웨이가 없으면 그
+  재시작부터 라우터로 돌아간다(upstream 모델 id는 라우터도 받는다). 실행 시점에 router로
+  폴백한 세션은 다음 실행 전까지 router에 머문다.
+- 일반 Codex TUI는 direct 설정이어도 router로 폴백한다(위 채널 전달 판단).
+- Claude의 router 전송 지정은 direct에서 전체 메시지 소켓으로, 소켓을 쓸 수 없는 동안에는
+  본문 전체 TTY 입력으로, app-server는 RPC로 전달된다. Windows Claude Code에 긴 본문을 TTY로
+  입력할 때 문자 누락이 있는지는 확인되지 않았다(Codex에서는 2026-10-03에 확인됨).
+- 명시적으로 넘긴 `--model`은 그대로 게이트웨이로 간다.
+
+`gateway-status`는 설정값과 이 워크스페이스에서 CLI별로 마지막 실행 때 기록된 경로
+(`<workspace state>/launch-data-path.json`: direct/router, 게이트웨이 주소, 노드, 사유, 시각;
+키 없음)를 보여 준다.
+
 ---
 
 ## Windows 콘솔 채널 wake
@@ -505,3 +612,9 @@ state-bound 일회성 URL을 사용하지만, 신뢰하는 사설 인터페이�
 - [[CLI-Reference]] — 설정 변경 CLI 커맨드
 - [[Providers]] — 제공자별 설정 옵션
 - [[Observability]] — 이벤트 로그 설정
+
+### Direct gateway safety boundary (2026-10-16)
+
+The launcher declares its channel delivery (`launch_data_path.ChannelDelivery`) and the resolver checks it before any gateway selection: a launch whose channel messages reach the CLI only as typed `[ciel-wake]` markers, with no whole-message transport (Claude Code messaging socket, app-server RPC), stays on the router because the router injects those bodies into model HTTP. Plain Codex TUI (no socket; on Windows only the marker is typed) and Claude Code with `claude_code.session_socket_input: false` fall back on every platform, at launch and after a session restart, with reason `channel wakes are typed [ciel-wake] markers whose bodies only router model HTTP injects (no whole-message transport)`. Claude Code with its messaging socket and Codex app-server/remote use direct model HTTP. The direct Codex provider id is `ciel-runtime-gateway`, distinct from the local-router provider; authentication uses `CIEL_RUNTIME_GATEWAY_API_KEY`. Launch model ids are resolved with the existing `resolve_requested_model` service.
+
+In direct mode, Claude router-transport messages use a whole-message session socket (or full-body TTY when unavailable); app-server router-transport messages use RPC rather than waiting for model HTTP. Restart rebuilds Claude environment/model/capabilities and app-server provider/model/catalog snapshots. Request-level TUI response observation is unavailable in direct mode; transcript-based `agent.turn_ended` remains available. These restrictions supersede references to direct plain Codex TUI above.

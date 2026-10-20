@@ -1,0 +1,30 @@
+  18. Session backup  [incremental · schedule off · to local · last 10-10 13:04 failed]
+  19. Provider fallback  [auto off · 0/0 backups ready]
+  Quit
+
+-----------------------------------------------------------------------------------------------------------------------
+Session backup options
+    ... 15 above
+    When the session ends  [off]
+    Include work folder files  [on]
+  > Exclude from the work folder…  [defaults only]
+    Largest single file to back up  [1024 MB]
+    Keep snapshots  [last 30 + 14 daily]
+    ... 2 below
+
+  Backup not saved: cancelled
+
+-----------------------------------------------------------------------------------------------------------------------
+  Base URL: unreachable (URLError)
+  API key: not required for
+
+Up/Down moves. PgUp/PgDn jumps. Home/End bounds. Enter selects. Esc/Left closes. q quits.
+
+Measuring G:\ciel-e2e\backup-safety\ws (up to 20 s)...
+Work folder as a backup reads it: 3072.0 MB in 13 files
+     3072.0 MB  bigdata
+        0.0 MB  src
+Always left out: node_modules, .npm-global, .npm, .cache, __pycache__, .venv, venv, .tox, .mypy_cache, .pytest_cache, .r
+uff_cache, AppData, Temp, $Recycle.Bin, *.lock, .part-*
+
+Folder or file names to leave out, comma-separated ('-name' puts one back; blank keeps the list):

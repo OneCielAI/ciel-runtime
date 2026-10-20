@@ -14,6 +14,7 @@ from .runaway_output_guard import (
     policy_from_env,
     trim_runaway_message_content,
 )
+from .initial_stream_retry import gateway_route_selected
 from .remote_bridge import REMOTE_BRIDGE_CONFIG_MARKER, is_remote_bridge_request
 from .ollama_thinking import INTERNAL_REASONING_EFFORT_KEY
 from .ollama_stream_collection import collect_ollama_chat_stream
@@ -119,9 +120,13 @@ class ResponseCollectionContext:
             # truncated upstream HTTP body can therefore be reopened once
             # safely.  Keep this independent from provider capacity retries:
             # repeating a full generation ten times would multiply cost and
-            # cannot repair a persistently broken stream.
+            # cannot repair a persistently broken stream.  A selected gateway
+            # route is fixed for this call, so its reopen would go back to the
+            # gateway that just truncated; it gets no truncation replay.
             truncation_retries = (
-                0 if remote_bridge else (1 if provider != "kimi" else 0)
+                0
+                if remote_bridge or gateway_route_selected(pcfg)
+                else (1 if provider != "kimi" else 0)
             )
             retries = max(capacity_retries, truncation_retries)
             for attempt in range(retries + 1):

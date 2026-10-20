@@ -1,0 +1,54 @@
+---
+id: celly-anthropic-stream-false-success-fix-2026-10-17
+title: Native Anthropic stream false-success fix
+type: journal
+status: verified-in-loopback-wire-and-tests
+scope: ciel_runtime_support/streaming_anthropic.py rebatch_anthropic_sse_text; tests/test_anthropic_stream_integrity.py
+---
+
+# Result
+
+The native Anthropic SSE relay now treats only an upstream `message_stop` as completion.
+
+- An upstream read failure, a timeout, or an EOF before `message_stop` forwards received text, then sends one Anthropic `error` event (`api_error`).
+- It does not invent `content_block_stop`, `message_delta`, or `message_stop`.
+- An upstream `error` event is forwarded once, as an `error` event, and nothing follows it.
+- A transport error after a complete `message_stop` keeps the completed response, and channel delivery is marked successful.
+- Message-delta recovery policies wait until upstream `message_stop`, so an interrupted response cannot emit a synthetic tool.
+- Events after `message_stop` are ignored and logged.
+
+# Evidence
+
+- `evidence/tests/before.txt`: HEAD module loaded in memory, 20 tests, 34 failures + 1 error.
+- `evidence/tests/after.txt`: fixed tree, 20 tests OK.
+- `evidence/tests/after-related.txt`: 16 related files, 665 tests OK, 43 skipped.
+- `evidence/e2e/claude-head.jsonl` and `evidence/e2e/claude-tree.jsonl`: loopback HTTP/HTTPS upstream, real urllib response, real relay, raw client, Claude Code 2.1.302.
+- `evidence/e2e/e2e-table.txt`: before/after client view.
+- `evidence/client/claude-code-2.1.302-stream-contract.txt`: shipped-client stream contract offsets.
+
+# Client proof
+
+HEAD with Claude Code 2.1.302:
+- a reset before `message_start` became the final answer `Upstream stream error: ...`
+- a partial `Read` tool was dispatched as `__unparsedToolInput`
+- `message_delta` was duplicated after a reset
+
+Fixed tree with Claude Code 2.1.302:
+- interrupted streams end in a client-driven non-streaming fallback
+- no partial tool is dispatched
+- complete streams stay complete
+
+# Limits
+
+- This does not prove the cause of the 18 Celly client resets.
+- Claude Code accepts a received stop reason plus closed blocks as complete. The router still marks channel delivery as failed until upstream `message_stop`.
+- The Ollama and OpenAI-chat local fallback paths were not changed.
+
+# Live safety
+
+Inherited `CIEL_RUNTIME_*`, `ANTHROPIC_*`, and `CLAUDE*` variables were removed for test and E2E children.
+
+- Routers `127.0.0.1:9512` and `127.0.0.1:9385` returned HTTP 200 before and after the final runs.
+- One earlier post-run check of 9385 timed out for about 25 seconds, then returned 200 under the same pid 72844, created 05:03:26.
+
+At the diagnostic stage no commit, push, deploy, live sandbox config change, or restart was made. Subsequent user-authorized release: code commit 19627938ad5b0b9682bd87e1000ff0ddc01784f4, version 0.2.51-nightly.20261017-172902.1962793; see releases/anthropic-stream-integrity/release.okf under the same 2026/10/17 journal date. Running sessions were not restarted.

@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Callable
 
+from .external_event_control import ExternalEventControl
 from .external_event_receiver import ExternalEventReceiverService
 
 
 def panel_rows(
-    service: ExternalEventReceiverService, router_base: str
+    service: ExternalEventReceiverService, router_base: str,
+    *, control: Callable[..., dict[str, Any]] | None = None,
 ) -> tuple[list[str], list[str]]:
     receiver = service.receiver_configs().get("default", {})
     public_receiver = service.public_receiver("default", receiver)
@@ -30,6 +32,30 @@ def panel_rows(
             return f"env:{reference['name']} {availability}"
         return "stored" if secret_status[stored_key] else "unset"
 
+    def delivery_acks() -> str:
+        # Walkie 49269/56190: per-event acknowledgements, read from event-acks.jsonl.
+        ack_service = getattr(service, "delivery_ack", None)
+        if ack_service is None:
+            return "not attached"
+        summary = ack_service.summary()
+        if not summary.get("events"):
+            return "on · none yet"
+        last = summary.get("last") or {}
+        return (
+            f"on · acked {summary['acked']} · waiting {summary['waiting']} · failed {summary['failed']}"
+            f" · injected {summary['injected']} · last {last.get('at') or '-'} {last.get('queued_ack') or '-'}"
+        )
+
+    live = control("status") if control is not None else {"available": False}
+    status = live.get("status") or {}
+    state = str(status.get("state") or "unknown") if live.get("available") else "unavailable"
+    failure = status.get("last_failure") or {}
+    if not isinstance(failure, dict):
+        failure = {}
+    diagnostic = status.get("diagnostic") or {}
+    if not isinstance(diagnostic, dict):
+        diagnostic = {}
+    detail = diagnostic.get("category") or status.get("error") or "none"
     rows = [
         f"Enabled  [{'on' if enabled else 'off'}]",
         f"Transport  [{transport}]",
@@ -41,6 +67,12 @@ def panel_rows(
         f"Reconnect query parameter  [{str(receiver.get('cursor_query_parameter') or 'Last-Event-ID header')}]",
         f"Webhook signing secret  [{secret_source('webhook_secret', 'stored_webhook_secret')}]",
         f"SSE authorization  [{secret_source('authorization', 'stored_authorization')}]",
+        f"SSE idle timeout  [{receiver.get('idle_timeout_seconds') or 'auto (heartbeat/transport timeout)'}]",
+        f"Live receiver  [{state} · phase {status.get('phase') or '-'} · error {detail}]",
+        f"Recovery  [failures {status.get('consecutive_failures', 0)} · retry {status.get('retry_seconds', 0)}s · recovered {status.get('recovery_count', 0)}]",
+        "Refresh receiver status",
+        "Reconnect receiver now",
+        f"Delivery acks (event-ack/1)  [{delivery_acks()}]",
         f"Webhook endpoint  [{router_base}/ca/events/webhooks/default]",
         "Back",
     ]
@@ -55,6 +87,12 @@ def panel_rows(
         "cursor_query_parameter",
         "webhook_secret",
         "authorization",
+        "idle_timeout_seconds",
+        "__info__",
+        "__info__",
+        "refresh_receiver",
+        "reconnect_receiver",
+        "__info__",
         "__info__",
         "back",
     ]
@@ -62,8 +100,17 @@ def panel_rows(
 
 
 def update_config(
-    service: ExternalEventReceiverService, key: str, value: Any
+    service: ExternalEventReceiverService, key: str, value: Any,
+    *, control: Callable[..., dict[str, Any]] | None = None,
 ) -> list[str]:
+    if key in {"refresh_receiver", "reconnect_receiver"}:
+        action = "status" if key == "refresh_receiver" else "reconnect"
+        result = control(action) if control is not None else {"available": False}
+        if result.get("available") and result.get("accepted") is False:
+            return ["Receiver reconnect rejected (disabled or stopping); no session was restarted."]
+        if not result.get("available"):
+            return ["Router receiver control unavailable; no stream was opened or session restarted."]
+        return ["Receiver status refreshed." if action == "status" else "Receiver reconnect requested; this is not delivery confirmation."]
     current = service.receiver_configs().get("default", {})
     body: dict[str, Any] = {
         "enabled": bool(current.get("enabled", False)),
@@ -82,6 +129,9 @@ def update_config(
         body["transport"] = "sse" if body["transport"] == "webhook" else "webhook"
     elif key == "input_transport":
         body["input_transport"] = str(value or "auto")
+    elif key == "idle_timeout_seconds":
+        from .event_receiver_connection import idle_timeout_seconds
+        body[key] = idle_timeout_seconds(value)
     elif key == "event_types":
         body["event_types"] = [
             part.strip() for part in str(value or "").split(",") if part.strip()
@@ -97,11 +147,16 @@ def update_config(
     else:
         raise ValueError(f"unsupported external event option: {key}")
     updated = service.save_receiver("default", body)
+    # Secrets were stored locally; they must not be sent over the control request.
+    public_body = {name: item for name, item in body.items() if name not in {"webhook_secret", "authorization"}}
+    result = control("save", public_body) if control is not None else {"available": False}
+    applied = "Router receiver configuration reconciled." if result.get("available") else "Live router unavailable; settings saved for its next receiver start."
     return [
+        applied,
         f"External event receiver updated: enabled={updated.get('enabled')} transport={updated.get('transport')} input_transport={updated.get('input_transport')}.",
         "The router owns receiver connections; the prelaunch configuration process does not open a duplicate stream.",
         "External events use the private Runtime Input Gateway and are never published to Web Chat.",
     ]
 
 
-__all__ = ["panel_rows", "update_config"]
+__all__ = ["ExternalEventControl", "panel_rows", "update_config"]

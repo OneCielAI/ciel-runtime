@@ -1,0 +1,72 @@
+---
+type: implementation-journal
+title: Durable native compaction scope binding
+date: 2026-10-19
+status: focused-verified-integration-gaps-explicit
+---
+
+# Implemented
+
+RuntimeCompactionBinding persists launch runtime, explicit session id, common
+random epoch and exact validated native transcript path in private atomic JSON
+under ROUTER_INSTANCE_DIR. Launcher and router processes use the same record.
+No arbitrary workspace-latest fallback: a missing exact id remains unbound.
+ChannelTranscriptRepository performs scoped selection; native metadata must
+match the requested id. New epochs invalidate earlier controller proof.
+
+The facade passes this binding into pending IO, terminal policy, desktop channel
+ports, and Claude/OpenAI request and failure callbacks. Raw request callbacks
+precede channel-body append in the concurrently updated router support modules.
+HTTP observations reject mismatched session ids and Claude agent-id requests.
+Missing HTTP identity cannot prove pressure or shrink. Trusted in-process
+observations use headers=None.
+
+# Pressure and checkpoint proof
+
+Input budget mirrors the request builder: context capacity minus configured
+ratio-capped output reserve minus context guard reserve, with its 8192 floor.
+A bounded 512 KiB native tail seeds resumed-session pressure before external
+submission: Claude input+cache read+cache creation, Codex last_token_usage input
+(not cumulative usage). Unknown remains unknown. A newer checkpoint invalidates
+older usage; initial seed never supplies shrink proof. A first real request
+prevents another process from re-seeding stale tail usage.
+
+Native compact/checkpoint alone does not mark verified. After a persisted
+checkpoint the consumer gate permits a probe to cause the real next native
+request; router append remains paused until raw request shrink is observed.
+A non-shrinking request keeps admission paused and controller bounded retry is
+preserved. Direct Anthropic native pressure and remote bridge ownership bypass
+are preserved; explicitly observed native compaction can still finish proof.
+
+# Verification
+
+20 binding tests passed (including a real separate Python process reading the
+launcher's exact scope and epoch). Adjacent isolated selection: 458 tests,
+0 failures, 0 errors, 42 skipped. Files: binding/controller, architecture
+contracts, pending injection/poll, terminal dispatch, desktop injection, LLM
+context, compact injection/poll, native recovery, transcript repository.
+After later missing-HTTP-identity coverage, binding 20 tests passed again.
+Scoped ruff and py_compile passed. Facade remains 4980 physical lines.
+The focused selection is captured in evidence/scope-binding/focused-tests.txt.
+After exact-path identity revalidation, binding 20 tests passed again.
+Inherited CIEL_RUNTIME_*, CLAUDE*, ANTHROPIC* variables cleared and
+scripts.run_test_group.isolate_runtime_state invoked before runtime import.
+No live router/client launch, queue/replay, restart, install, or commit occurred.
+
+# Explicit integration limitations
+
+Fresh launches, resume-latest/continue launches, and desktop/app-server thread
+changes must supply exact native session identity through the launcher or
+trusted native thread event. Current scope refuses to guess when absent.
+A header alone is not used to rebind a launch (subagent/session race concern).
+This agent did not own runtime_launch.py or desktop identity-event wiring.
+No live provider verification or screenshots were authorized for this task.
+
+# Concurrent edit verification note
+
+A final binding rerun at handoff ran 20 tests: 18 passed, 2 import errors in
+facade/callback integration caused by a concurrent syntax error outside this
+agent's owned scope: context_summary_policy.py line 440, unterminated string.
+The captured 458-test run above passed before that concurrent edit. Owned
+binding, facade and test files still pass ruff and py_compile. This dependency
+error is reported to the parent; it is not repaired or hidden here.

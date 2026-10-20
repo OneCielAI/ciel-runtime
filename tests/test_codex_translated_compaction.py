@@ -2,7 +2,6 @@ import unittest
 from unittest import mock
 
 import ciel_runtime
-from ciel_runtime_support.context_compaction import AutomaticContextCompactionCompleted
 from ciel_runtime_support.context_summary_policy import (
     CODEX_CONTEXT_CHECKPOINT_PROMPT,
 )
@@ -63,24 +62,17 @@ class CodexTranslatedCompactionTests(unittest.TestCase):
             )
         return request, summaries
 
-    def test_over_budget_checkpoint_uses_segmented_fallback_automatically(self):
-        # Roughly the captured 1M-token request size after projection: each
-        # message is capped at 20K chars by the existing prompt projector.
-        summaries = mock.Mock(side_effect=lambda *_args, **_kwargs: "segment summary")
-        with (
-            mock.patch.object(
-                ciel_runtime, "context_compact_request_summary", summaries
-            ),
-            self.assertRaises(AutomaticContextCompactionCompleted) as raised,
-        ):
-            ciel_runtime.openai_compatible_chat_request(
-                "kimi", "k3", translated_checkpoint_body(230), self.config(), stream=True
-            )
-
-        self.assertGreater(summaries.call_count, 1)
-        self.assertLessEqual(summaries.call_count, 8)
-        self.assertIn("[ciel-runtime local context checkpoint]", raised.exception.summary)
-        self.assertIn("segment summary", raised.exception.summary)
+    def test_over_budget_checkpoint_maps_complete_history_to_final_wire_reducer(self):
+        request, summaries = self.request(230)
+        self.assertGreater(summaries.call_count, 8)
+        self.assertLessEqual(summaries.call_count, 256)
+        self.assertIn("[ciel-runtime segmented compact]", request["messages"][-1]["content"])
+        self.assertIn("segment summary", request["messages"][-1]["content"])
+        self.assertIn(CODEX_CONTEXT_CHECKPOINT_PROMPT, request["messages"][-1]["content"])
+        prompts = [call.args[3] for call in summaries.call_args_list]
+        self.assertIn("history 0 ", prompts[0])
+        self.assertIn("history 229 ", prompts[-1])
+        self.assertNotIn("local context checkpoint", str(request))
 
     def test_within_budget_checkpoint_does_not_start_auxiliary_summaries(self):
         request, summaries = self.request(1)
@@ -91,28 +83,17 @@ class CodexTranslatedCompactionTests(unittest.TestCase):
             request["messages"][-1]["content"],
         )
 
-    def test_failed_automatic_summary_falls_back_once_without_gateway_retries(self):
+    def test_failed_automatic_summary_is_propagated_once_without_fake_checkpoint(self):
         summaries = mock.Mock(side_effect=RuntimeError("high demand"))
         config = self.config(gateway_retries=10)
-
-        with (
-            mock.patch.object(
-                ciel_runtime, "context_compact_request_summary", summaries
-            ),
-            self.assertRaises(AutomaticContextCompactionCompleted) as raised,
-        ):
-            ciel_runtime.openai_compatible_chat_request(
-                "kimi", "k3", translated_checkpoint_body(230), config, stream=True
-            )
-
+        with mock.patch.object(ciel_runtime, "context_compact_request_summary", summaries):
+            with self.assertRaisesRegex(RuntimeError, "high demand"):
+                ciel_runtime.openai_compatible_chat_request(
+                    "kimi", "k3", translated_checkpoint_body(230), config, stream=True
+                )
         summaries.assert_called_once()
-        summary_config = summaries.call_args.args[2]
-        self.assertEqual(0, summary_config["gateway_retries"])
+        self.assertEqual(0, summaries.call_args.args[2]["gateway_retries"])
         self.assertEqual(10, config["gateway_retries"])
-        self.assertIn("local context checkpoint", raised.exception.summary)
-        self.assertLessEqual(
-            ciel_runtime.estimate_tokens(raised.exception.summary), 983_040
-        )
 
     def test_explicit_false_disables_automatic_segmented_fallback(self):
         request, summaries = self.request(230, context_compact_llm=False)
@@ -151,19 +132,12 @@ class CodexTranslatedCompactionTests(unittest.TestCase):
         compact_body = translated_checkpoint_body(230)
         summaries = mock.Mock(side_effect=lambda *_args, **_kwargs: "segment summary")
 
-        with (
-            mock.patch.object(
-                ciel_runtime, "context_compact_request_summary", summaries
-            ),
-            self.assertRaises(AutomaticContextCompactionCompleted) as raised,
-        ):
-            ciel_runtime.cap_anthropic_body_for_provider(
-                "anthropic", config, compact_body
-            )
+        with mock.patch.object(ciel_runtime, "context_compact_request_summary", summaries):
+            request = ciel_runtime.cap_anthropic_body_for_provider("anthropic", config, compact_body)
 
-        self.assertGreater(summaries.call_count, 1)
-        self.assertLessEqual(summaries.call_count, 8)
-        self.assertIn("local context checkpoint", raised.exception.summary)
+        self.assertGreater(summaries.call_count, 8)
+        self.assertLessEqual(summaries.call_count, 256)
+        self.assertIn("[ciel-runtime segmented compact]", request["messages"][-1]["content"])
 
         normal_body = translated_checkpoint_body(2)
         normal_body["messages"][-1]["content"] = [

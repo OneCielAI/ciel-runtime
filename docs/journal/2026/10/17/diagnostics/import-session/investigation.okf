@@ -1,0 +1,97 @@
+---
+type: Diagnostic
+description: Synthetic reproduction establishes a slash-template parser defect and an absent MCP import tool.
+title: ImportSession template parser consumes explanatory prose
+timestamp: 2026-10-17
+tags: [import-session, regression, mcp, synthetic-fixtures]
+---
+
+# Established findings
+
+1. ImportSession is a generated slash command, NOT a registered MCP tool.
+   `ciel_runtime_support/slash_command_assets.py:146-158` emits the marker;
+   `runtime_asset_assembly.py:103-105,136-140` registers command assets.
+   `channel_mcp_http_controller.py:189-199` routes tools/list and tools/call;
+   `channel_mcp_tools.py:40-341,406` has no import schema/dispatch branch and returns
+   Unknown ciel-runtime-router tool. Synthetic real controller calls verified all
+   three spellings importsession, ImportSession, import_session. No success claim
+   is made for importing through MCP; that feature remains absent.
+2. Actual shipped command has explanatory prose after Arguments, separated by a
+   blank line (`slash_command_assets.py:155-157`). The HEAD parser captures every
+   remaining line (`request_shortcuts.py:224-227` before patch), passes it through
+   split_import_session_arguments, whose literal `transcript` path flag
+   (`request_shortcuts.py:194-195`) resets the path to `format`, then appends the
+   remaining prose. The observed path is `format and must be `Codex` or `Claude`.`.
+   Source resolution therefore fails even with a valid synthetic transcript.
+   Both Claude-to-Codex and Codex-to-Claude directions reproduce this failure.
+3. Narrow fix: `request_shortcuts.py:225-228` stops Arguments at the paragraph
+   boundary after collected arguments. Existing single-line and multiline
+   arguments and quoted paths remain tested. No MCP registration, policy, or
+   transcript-format architecture change was attempted.
+
+# Source resolution, formats, truncation and permissions
+
+- `session_import.py:20-26` accepts only Claude/Codex aliases, not Muse.
+  `:46-58` discovers ~/.claude/projects/*/*.jsonl or CODEX_HOME/sessions/**/*.jsonl;
+  `:76-98` resolves latest/directory/local-file paths and rejects URLs. A session
+  ID alone is treated as a path, not looked up by ID. Latest is global per root,
+  not restricted to the current workspace.
+- Muse discovery DOES exist in the separate channel transcript repository
+  (`channel_transcript_repository.py:283-300`, */*/*/*/session.jsonl), but it is not
+  wired into ImportSession. No actual Muse conversation was read; Muse source
+  format/record decoding is NOT validated here. Passing Muse produces Usage.
+- `session_import.py:226-232` intentionally blocks Claude-to-Claude imports.
+  This is existing policy, not changed as a supposed bug.
+- `session_import.py:101-141` reads only the byte tail and then trims characters.
+  Synthetic tests verify warning metadata and latest complete record retention.
+  A single record larger than the byte budget produces partial raw JSON with
+  jsonl=false, records=0, yet nonempty content. This is a separate observed
+  limitation, not repaired here.
+- `session_import.py:233-242` calls resolve outside its read exception handler.
+  Synthetic injected read PermissionError is correctly reported. Real Windows
+  ACL denial and resolve-time permission failures were not exercised; do not
+  claim permissions as the report's cause.
+- Claude message and Codex response_item/event_msg synthetic content is decoded
+  by `session_import.py:188-206` using `channel_transcript.py:220-234,310+`.
+
+# Fail-before / pass-after
+
+Run from the repository with Python 3.11:
+
+    python -I -X utf8 docs/journal/2026/10/17/diagnostics/import-session/run_focused.py --baseline
+    python -I -X utf8 docs/journal/2026/10/17/diagnostics/import-session/run_focused.py
+
+The runner strips inherited CIEL_RUNTIME_* variables, uses the project's
+isolate_runtime_state helper, and selects four test files only. Baseline loads
+HEAD's original parser IN MEMORY via git show; no working file is reverted.
+
+- before.txt: 23 tests; 12 assertion failures including subtests; exit 1.
+  Actual ImportSessionHttpController.handle returns transcript-not-found for
+  both synthetic cross-runtime fixtures despite their files existing.
+- after.txt: same 23 tests pass; exit 0. The real import controller reads the
+  synthetic files and returns ImportSession completed with synthetic content.
+- MCP test invokes real ChannelMcpHttpController.post and the real dispatcher;
+  response writer is captured, not a real HTTP socket. All import tool names
+  remain errors before AND after. This is real handler invocation in-process,
+  not a live router/client E2E, and not a successful MCP import test.
+- Other tests are repository/parser unit tests; read PermissionError is injected.
+- No UI change. CLI/server text logs are the verification evidence; no browser
+  screenshot was applicable or taken. No live config/session, remote machine,
+  runtime launch, install, commit, push, or unrelated TLS file was touched.
+
+# Scope and uncertainty
+
+The exact reported failed invocation and error were not supplied. Established:
+a literal MCP call cannot succeed because no tool is registered, and the shipped
+slash command has a deterministic parser defect. This is NOT proof that a new
+October TLS change caused this issue. Blame traces the template to d19784be and
+the extracted parser to 4c48edfc (July 19); introduction before extraction has
+not been determined. Native/direct paths bypassing marker interception and Muse
+source support require separate product decisions, not speculative expansion.
+
+# Changes
+
+- ciel_runtime_support/request_shortcuts.py: four added lines only.
+- tests/test_request_shortcuts.py: generated-template/paragraph regressions.
+- tests/test_session_import_regression.py: synthetic controller/repository tests.
+- This journal directory: isolated runner and textual verification evidence.

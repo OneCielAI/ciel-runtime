@@ -1,0 +1,39 @@
+[
+  {
+    "time": "2026-10-16T20:36:58-05:00",
+    "category": "router.error",
+    "request_id": "29772-1792201013103846600",
+    "provider": "cielairouter",
+    "level": "error",
+    "data": {
+      "error_type": "IncompleteRead",
+      "upstream_stream_truncated": true,
+      "attempts": 1,
+      "downstream_started": false
+    }
+  },
+  {
+    "time": "2026-10-16T20:36:59-05:00",
+    "category": "router.transport_error",
+    "request_id": "29772-1792201019045039500",
+    "provider": "cielairouter",
+    "level": "error",
+    "data": {
+      "status": 502,
+      "source": "provider_responses",
+      "error_type": "URLError"
+    }
+  },
+  {
+    "time": "2026-10-16T20:37:01-05:00",
+    "category": "router.transport_error",
+    "request_id": "29772-1792201021179767100",
+    "provider": "cielairouter",
+    "level": "error",
+    "data": {
+      "status": 502,
+      "source": "provider_responses",
+      "error_type": "URLError"
+    }
+  }
+]

@@ -1,0 +1,309 @@
+"""Real local SSE, queue and child-socket delivery after proxy failure."""
+
+import json
+import os
+import subprocess
+import sys
+import tempfile
+import threading
+import time
+import unittest
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+
+from ciel_runtime_support.channel_inflight import ChannelInflightEffects
+from ciel_runtime_support.channel_message_policy import string_list
+from ciel_runtime_support.channel_message_repository import ChannelMessageAppendPorts, ChannelMessageRepository, exclusive_file_lock
+from ciel_runtime_support.channel_pending_injection import (
+    ChannelInjectionIO, ChannelInjectionPolicy, ChannelInjectionPrompts,
+    ChannelInjectionServices, ChannelInjectionState, ChannelInjectionWakeStore,
+    inject_pending_channel_messages,
+)
+from ciel_runtime_support.channel_terminal_context import (
+    ChannelTerminalCompatibilityApi, ChannelTerminalContext, ChannelTerminalDispatchPorts, ChannelTerminalIoPorts,
+    ChannelTerminalPolicyPorts, ChannelTerminalPollingPorts,
+    ChannelTerminalProcessPorts, ChannelTerminalWindowsPorts,
+)
+from ciel_runtime_support.channel_wake_delivery_repository import ChannelWakeDeliveryRepository
+from ciel_runtime_support.claude_session_socket import ClaudeSessionSocketClient, generated_socket_path, session_key_hash
+from ciel_runtime_support.external_event_receiver import EventReceiverSecretVault, ExternalEventReceiverService
+from ciel_runtime_support.runtime_input_gateway import RuntimeInputGateway
+from ciel_runtime_support.runtime_input_status import RuntimeInputStatusRepository
+
+
+CHILD_CODE = """
+import ctypes,json,os,socket,sys,threading,time
+from pathlib import Path
+pipe,key,receipt,release=sys.argv[1:]
+threading.Timer(20,lambda:os._exit(4)).start()
+if Path(receipt).exists():
+    while not Path(release).exists():time.sleep(0.02)
+    os._exit(0)
+if os.name == 'nt':
+    from ctypes import wintypes
+    k=ctypes.WinDLL('kernel32',use_last_error=True)
+    k.CreateNamedPipeW.argtypes=[wintypes.LPCWSTR,wintypes.DWORD,wintypes.DWORD,wintypes.DWORD,wintypes.DWORD,wintypes.DWORD,wintypes.DWORD,ctypes.c_void_p]
+    k.CreateNamedPipeW.restype=wintypes.HANDLE
+    k.ConnectNamedPipe.argtypes=[wintypes.HANDLE,ctypes.c_void_p]
+    k.ReadFile.argtypes=[wintypes.HANDLE,ctypes.c_void_p,wintypes.DWORD,ctypes.POINTER(wintypes.DWORD),ctypes.c_void_p]
+    k.CloseHandle.argtypes=[wintypes.HANDLE]
+    handle=k.CreateNamedPipeW(pipe,1,8,1,65536,65536,0,None)
+    if handle == ctypes.c_void_p(-1).value:raise ctypes.WinError(ctypes.get_last_error())
+    Path(key).write_text(json.dumps({'peerToken':'ab'*16}),encoding='utf-8')
+    if not k.ConnectNamedPipe(handle,None) and ctypes.get_last_error()!=535:raise ctypes.WinError(ctypes.get_last_error())
+    data=bytearray()
+    while data.count(bytes([10]))<2:
+        buf=ctypes.create_string_buffer(65536);n=wintypes.DWORD()
+        if not k.ReadFile(handle,buf,len(buf),ctypes.byref(n),None):break
+        data.extend(buf.raw[:n.value])
+    k.CloseHandle(handle)
+else:
+    server=socket.socket(socket.AF_UNIX,socket.SOCK_STREAM)
+    server.bind(pipe);server.listen(1)
+    Path(key).write_text(json.dumps({'peerToken':'ab'*16}),encoding='utf-8')
+    c,_=server.accept();data=bytearray()
+    with c:
+        while data.count(bytes([10]))<2:
+            block=c.recv(65536)
+            if not block:break
+            data.extend(block)
+    server.close()
+    Path(pipe).unlink(missing_ok=True)
+frames=[json.loads(row) for row in bytes(data).splitlines()]
+assert frames[0]=={'type':'auth','token':'ab'*16}
+assert frames[1]['type']=='user'
+Path(receipt).write_text(json.dumps({'accepted':True,'prompt':frames[1]['message']['content'],'user_frames':sum(f['type']=='user' for f in frames)}),encoding='utf-8')
+while not Path(release).exists():time.sleep(0.02)
+os._exit(0)
+"""
+
+
+class DirectSocketDeliveryE2ETests(unittest.TestCase):
+    def test_real_sse_queue_and_socket_survive_proxy_fallback(self):
+        self._run_pipeline(fail_after_submit=False)
+
+    def test_inflight_socket_delivery_is_confirmed_after_real_child_replacement(self):
+        self._run_pipeline(fail_after_submit=True)
+
+    def _run_pipeline(self, *, fail_after_submit):
+        with tempfile.TemporaryDirectory(prefix="ciel-direct-e2e-") as raw:
+            root = Path(raw)
+            logs = []
+            def log(*entry):
+                logs.append(entry)
+            cursor = [0]
+            receipt = root / "received.json"
+            release = root / "release"
+            target = generated_socket_path("nt") if os.name == "nt" else str(root / "session.sock")
+            keys = root / ".claude" / "sessions"
+            keys.mkdir(parents=True)
+            key = keys / f"fixture.{session_key_hash(target, os.name)}.key"
+            client = ClaudeSessionSocketClient(root, log, platform_name=os.name)
+            client.configure(target)
+            status = RuntimeInputStatusRepository(root / "status.jsonl", lambda *a, **kw: None, log, threading.RLock())
+            queue = ChannelMessageRepository(root / "inputs.jsonl", log)
+            append_ports = ChannelMessageAppendPorts(
+                condition=threading.Condition(), file_lock=lambda: exclusive_file_lock(queue.path),
+                duplicate=lambda row: None, normalize_recipients=string_list,
+            )
+            gateway = RuntimeInputGateway(lambda body: queue.append(body, append_ports), status=status)
+            lifecycle = ChannelWakeDeliveryRepository(
+                lock=threading.RLock(), delivered=set(), prompts={}, batches={},
+                clear_claim=lambda _: None, commit_cursor=lambda n: cursor.__setitem__(0, n), status=status,
+            )
+            def received():
+                return receipt.is_file()
+            def wake_state(message_id):
+                return "completed" if received() else "queued" if lifecycle.is_delivered(message_id) else "missing"
+            def no_tty(*args, **kwargs):
+                raise AssertionError("direct fallback tried terminal input")
+            def format_prompt(messages):
+                return " ".join(row["message"] for row in messages)
+            def compact(writer, *args, **kwargs):
+                self.assertIsNotNone(writer, "direct fallback polled terminal compaction")
+                return ""
+            injection = ChannelInjectionServices(
+                state=ChannelInjectionState(
+                    active_tool_call=lambda: False, active_turn=lambda: False,
+                    recover_cursor=lambda n: n, pending_scan_limit=lambda: 50,
+                    superseded_ids=lambda rows: set(), message_is_web_chat=lambda row: False,
+                    message_skip_reason=lambda row: "", event_identity_key=lambda row: (),
+                    wake_state_for_message=lambda row, prompt: wake_state(row["id"]),
+                    queued_wake_is_stale=lambda *a: False,
+                ),
+                prompts=ChannelInjectionPrompts(
+                    llm_delivery=format_prompt, visible_llm_delivery=format_prompt,
+                    web_chat=format_prompt, standard=format_prompt,
+                    enter_bytes=lambda _: bytes([13]), enter_label=lambda _: "cr",
+                ),
+                wake_store=ChannelInjectionWakeStore(
+                    claim_for_nonblocking_scan=lambda _: False, claim_prompt=lambda *a: True,
+                    clear_claim=lambda _: None, release_stale=lambda *a: None,
+                    lifecycle=lifecycle, commit_cursor=lambda n: cursor.__setitem__(0, n),
+                ),
+                io=ChannelInjectionIO(
+                    inject_lock=threading.Lock(), read_messages=lambda n,*a: queue.read(n),
+                    write_prompt=no_tty, log=log, write_session_socket=client.send,
+                    session_socket_available=client.available,
+                ),
+                policy=ChannelInjectionPolicy(wake_batch_limit=lambda: 1, replay_skip_reason=lambda row: ""),
+            )
+            def inject(writer, last_id, enter, **options):
+                return inject_pending_channel_messages(writer, last_id, enter, services=injection, **options)
+            def complete(message_id):
+                lifecycle.complete(message_id)
+                release.touch()
+            processes = []
+            def popen(cmd, env):
+                proc = subprocess.Popen(cmd, env=env, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+                processes.append(proc)
+                return proc
+            def terminate(proc, label):
+                if proc.poll() is None:
+                    proc.terminate()
+                proc.wait(timeout=5)
+            def fail_proxy(cmd, env, **options):
+                if not fail_after_submit:
+                    raise OSError(36, "fixture proxy failure")
+                from dataclasses import replace
+                from types import SimpleNamespace
+                from ciel_runtime_support.channel_terminal_proxy import run_windows_channel_terminal_proxy
+                proc = popen(cmd, env)
+                deadline = time.monotonic() + 3
+                while not key.exists() and proc.poll() is None and time.monotonic() < deadline:
+                    time.sleep(0.01)
+                self.assertTrue(key.exists(), "original child never published its socket key")
+                class ConsoleChild:
+                    pid = proc.pid
+                    poll = staticmethod(proc.poll)
+                    wait = staticmethod(proc.wait)
+                    terminate = staticmethod(proc.terminate)
+                    def resize_if_needed(self):
+                        if lifecycle.is_delivered(1):
+                            deadline = time.monotonic() + 3
+                            while not receipt.exists() and time.monotonic() < deadline:
+                                time.sleep(0.01)
+                            if not receipt.exists():
+                                raise AssertionError("original socket submission was not received")
+                            raise OSError(36, "fixture post-submit display failure")
+                    def close(self):
+                        pass
+                services = context.windows_services()
+                services = replace(services, console=SimpleNamespace(
+                    open_conpty=lambda *a: ConsoleChild(), startup_grace_seconds=lambda: 0,
+                    reset_interval_seconds=lambda n: n, sleep=time.sleep, active_turn=lambda: False,
+                ))
+                options.pop("normalize_bare_cr_for_synthetic_enter", None)
+                return run_windows_channel_terminal_proxy(cmd, env, services, **options)
+            api = ChannelTerminalCompatibilityApi(lambda: context)
+            context = ChannelTerminalContext(
+                process=ChannelTerminalProcessPorts(
+                    popen=popen, write_record=lambda *a: None, terminate=terminate,
+                    release_record=lambda *a: None,
+                ),
+                policy=ChannelTerminalPolicyPorts(
+                    initial_cursor=lambda: cursor[0], enter_bytes=lambda _: bytes([13]),
+                    enter_label=lambda _: "cr", enter_is_fixed=lambda: True,
+                    unseen_retry_seconds=lambda: 30, inflight_is_stale=lambda *a: False,
+                    log=log,
+                ),
+                polling=ChannelTerminalPollingPorts(
+                    inject_compact=compact,
+                    file_marker=lambda: (queue.path.stat().st_mtime, queue.path.stat().st_size) if queue.path.exists() else (0.0, 0),
+                    should_check=lambda *a: True, active_tool_call=lambda: False,
+                    active_turn=lambda: False, inject_pending=inject, wake_state=wake_state,
+                    inflight_effects=lambda: ChannelInflightEffects(
+                        commit_cursor=lambda n: cursor.__setitem__(0, n), complete_wake=complete,
+                        release_wake=no_tty, ensure_cursor=lambda: cursor[0], log=log,
+                    ),
+                    session_socket_ready=client.available,
+                ),
+                io=ChannelTerminalIoPorts(
+                    terminal_size=no_tty, apply_terminal_size=no_tty, write_all=no_tty,
+                    mouse_filter=no_tty, observed_enter=no_tty, reset_input_mode=no_tty,
+                ),
+                windows=ChannelTerminalWindowsPorts(
+                    run_proxy=lambda cmd, env, services, **options: fail_proxy(cmd, env, **options),
+                    reset_input_mode=no_tty, mouse_guard=no_tty,
+                    input_writer=no_tty, startup_grace_seconds=lambda: 0,
+                    reset_interval_seconds=lambda n: n, active_turn=lambda: False,
+                    sleep=time.sleep, open_conpty=no_tty,
+                ),
+                dispatch_ports=ChannelTerminalDispatchPorts(
+                    platform_name="nt", stdin_isatty=lambda: True, stdout_isatty=lambda: True,
+                    direct_call=no_tty, run_windows=api.run_windows, run_posix=no_tty,
+                    prepare_delivery=lambda: None, windows_supported=lambda: True,
+                ),
+            )
+            ready = threading.Event()
+            class Inbox(BaseHTTPRequestHandler):
+                def do_GET(self):
+                    self.send_response(200)
+                    self.send_header("content-type", "text/event-stream")
+                    self.end_headers()
+                    event = {"specversion": "1.0", "id": "fixture-event", "source": "urn:ciel:fixture",
+                             "type": "fixture.message", "data": {"text": "socket-fallback-nonce"}}
+                    frame = "id: fixture-event" + chr(10) + "data: " + json.dumps(event) + chr(10) * 2
+                    self.wfile.write(frame.encode())
+                    self.wfile.flush()
+                    ready.set()
+                def log_message(self, *args):
+                    pass
+            server = ThreadingHTTPServer(("127.0.0.1", 0), Inbox)
+            server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+            server_thread.start()
+            config = {"external_event_receivers": {"fixture": {"default": {
+                "enabled": True, "transport": "sse", "input_transport": "session_socket",
+                "url": f"http://127.0.0.1:{server.server_port}/events",
+            }}}}
+            receiver = ExternalEventReceiverService(
+                load_config=lambda: config, save_config=lambda value: None,
+                write_json=lambda *a: None, submit_event=gateway.submit_external_event,
+                vault=EventReceiverSecretVault(root / "fixture.vault.json"),
+                workspace_key="fixture", log=log, cursor_path=root / "sse-cursor.json",
+            )
+            child = root / "fixture-child.py"
+            child.write_text(CHILD_CODE, encoding="utf-8")
+            env = {k: v for k, v in os.environ.items() if not k.startswith("CIEL_RUNTIME_")}
+            env["CIEL_RUNTIME_TEST_ISOLATED"] = "1"
+            env["CIEL_RUNTIME_CONFIG_DIR"] = str(root / "config")
+            try:
+                receiver.start()
+                self.assertTrue(ready.wait(3))
+                deadline = time.monotonic() + 3
+                while not queue.path.exists() and time.monotonic() < deadline:
+                    time.sleep(0.01)
+                self.assertTrue(queue.path.exists())
+                receiver.stop()
+                result = context.dispatch(
+                    [sys.executable, str(child), target, str(key), str(receipt), str(release)],
+                    env, channel_wake_confirm_submit=True,
+                )
+                errors = [proc.stderr.read().decode() for proc in processes]
+                self.assertEqual(0, result, f"stderr={errors}; logs={logs}")
+                record = json.loads(receipt.read_text(encoding="utf-8"))
+                self.assertTrue(record["accepted"])
+                self.assertIn("socket-fallback-nonce", record["prompt"])
+                self.assertEqual(1, record["user_frames"])
+                self.assertEqual(1, len(queue.read()))
+                self.assertEqual(1, cursor[0])
+                self.assertEqual("replied", status.get(1)["status"])
+                self.assertEqual(1, sum("claude_session_socket_injected" in message for _, message in logs))
+                self.assertTrue(any("channel_direct_socket_poller_started" in message for _, message in logs))
+                self.assertTrue(any("channel_direct_socket_poller_stopped" in message for _, message in logs))
+                if fail_after_submit:
+                    self.assertEqual(2, len(processes))
+                    self.assertIsNotNone(processes[0].poll())
+                    self.assertTrue(any("stage=terminal_io" in message for _, message in logs))
+                    self.assertTrue(any("channel_direct_socket_confirmed" in message for _, message in logs))
+                else:
+                    self.assertEqual(1, len(processes))
+            finally:
+                receiver.stop()
+                server.shutdown()
+                server.server_close()
+                server_thread.join(timeout=2)
+                for proc in processes:
+                    terminate(proc, "fixture cleanup")
+                    if proc.stderr is not None:
+                        proc.stderr.close()

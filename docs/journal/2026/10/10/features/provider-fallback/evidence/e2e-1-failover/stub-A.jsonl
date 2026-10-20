@@ -1,0 +1,9 @@
+{"at": 1791616073.8201246, "path": "/v1/messages", "model": null, "limited": false, "last_role": null, "last_types": "str", "words": []}
+{"at": 1791616073.8226945, "path": "/v1/chat/completions", "model": null, "limited": false, "last_role": null, "last_types": "str", "words": []}
+{"at": 1791616095.0518363, "path": "/v1/messages", "model": "stub-a-model", "limited": true, "last_role": "user", "last_types": ["text", "text", "text", "text"], "words": ["TURN-1"]}
+{"at": 1791616144.975819, "path": "/v1/messages", "model": "stub-a-model", "limited": false, "last_role": "user", "last_types": ["text"], "words": ["TURN-1", "TURN-2", "TURN-3"]}
+{"at": 1791616145.0544646, "path": "/v1/messages", "model": "stub-a-model", "limited": false, "last_role": "user", "last_types": "str", "words": ["TURN-1", "TURN-2", "TURN-3"]}
+{"at": 1791616161.5190842, "path": "/v1/messages", "model": "stub-a-model", "limited": false, "last_role": "user", "last_types": "str", "words": ["TURN-1", "TURN-2", "TURN-3", "TURN-4"]}
+{"at": 1791616163.8105361, "path": "/v1/messages", "model": "stub-a-model", "limited": false, "last_role": "user", "last_types": ["text"], "words": ["TURN-1", "TURN-2", "TURN-3", "TURN-4", "TURN-5"]}
+{"at": 1791616163.890496, "path": "/v1/messages", "model": "stub-a-model", "limited": false, "last_role": "user", "last_types": "str", "words": ["TURN-1", "TURN-2", "TURN-3", "TURN-4", "TURN-5"]}
+{"at": 1791616221.6767366, "path": "/v1/chat/completions", "model": "stub-a-model", "limited": true, "last_role": "user", "last_types": "str", "words": ["CODEX-TURN"]}

@@ -6,6 +6,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
+from .channel_message_repository import ChannelFileLockBusy
+
 
 @dataclass(frozen=True, slots=True)
 class ChannelCompactPollState:
@@ -34,6 +36,9 @@ class ChannelCompactPollPolicy:
 @dataclass(frozen=True, slots=True)
 class ChannelCompactPollServices:
     inject_pending: Callable[..., str]
+    # Recovery compaction may bypass an old unconfirmed channel wake, but the
+    # injector still requires a safe native turn/tool boundary.
+    recovery_pending: Callable[[], bool] = lambda: False
 
 
 def poll_pending_compaction(
@@ -50,21 +55,26 @@ def poll_pending_compaction(
 ) -> ChannelCompactPollState:
     if not input_ready or now - state.last_poll_at < policy.poll_interval_seconds:
         return state
-    if inflight_message_id is not None:
-        return ChannelCompactPollState(now, state.defer_logged_at)
+    try:
+        if inflight_message_id is not None and not services.recovery_pending():
+            return ChannelCompactPollState(now, state.defer_logged_at)
 
-    log_defer = now - state.defer_logged_at >= policy.defer_log_interval_seconds
-    status = services.inject_pending(
-        writer,
-        enter_bytes,
-        log_defer=log_defer,
-        submit_retry_count=options.submit_retry_count,
-        confirm_submit=options.confirm_submit,
-        bracketed_paste=options.bracketed_paste,
-        submit_delay_seconds=options.submit_delay_seconds,
-        runtime=options.runtime,
-        actions=options.actions,
-    )
+        log_defer = now - state.defer_logged_at >= policy.defer_log_interval_seconds
+        status = services.inject_pending(
+            writer,
+            enter_bytes,
+            log_defer=log_defer,
+            submit_retry_count=options.submit_retry_count,
+            confirm_submit=options.confirm_submit,
+            bracketed_paste=options.bracketed_paste,
+            submit_delay_seconds=options.submit_delay_seconds,
+            runtime=options.runtime,
+            actions=options.actions,
+        )
+    except ChannelFileLockBusy:
+        # The injector masks this type once submission may have started.
+        # Leave the request and defer-log timestamp intact for a bounded poll.
+        return ChannelCompactPollState(now, state.defer_logged_at)
     defer_logged_at = state.defer_logged_at
     if status == "deferred" and log_defer:
         defer_logged_at = now

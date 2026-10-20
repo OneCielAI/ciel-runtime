@@ -149,6 +149,12 @@ class ProviderOptionStatusProjection:
             )
             if bool(config.get("stream_word_chunking", False)):
                 parts.append("word_chunk=on")
+        if presentation.show_gateway_selection:
+            from .cielairouter_gateway_overlay import selection_enabled
+            parts.append(f"gateway_selection={'auto' if selection_enabled(config) else 'off'}")
+        if presentation.show_gateway_data_path:
+            from .launch_data_path import configured_data_path
+            parts.append(f"gateway_data_path={configured_data_path(config)}")
         return ", ".join(parts)
 
     def _rate_limit(self, provider: str, config: dict[str, Any]) -> list[str]:
@@ -190,3 +196,42 @@ class ProviderOptionStatusProjection:
         if presentation.show_tool_choice or presentation.show_route:
             return self.provider(provider, config)
         return "provider defaults"
+
+
+def gateway_health_lines(health: dict[str, Any] | None, config: dict[str, Any]) -> list[str]:
+    """Project last observed router routes; never probe or select a gateway."""
+    import urllib.parse
+    from .cielairouter_gateway_overlay import discovery_base_url, selection_enabled
+
+    enabled = selection_enabled(config)
+    lines = [f"Automatic gateway selection: {'on (auto)' if enabled else 'off (central)'}"]
+    if not enabled:
+        lines.append("Subsequent requests use the configured central base; previous observations may be stale.")
+    if health is None:
+        return lines + ["Gateway status unavailable: local router is not reachable."]
+    block = health.get("cielairouter_gateway")
+    if not isinstance(block, dict):
+        return lines + ["Gateway status unavailable: /health has no CielAiRouter diagnostics."]
+    origin = urllib.parse.urlsplit(discovery_base_url(config)).netloc
+    routes = block.get("routes")
+    routes = [r for r in routes if isinstance(r, dict) and r.get("central") == origin] if isinstance(routes, list) else []
+    if not routes:
+        return lines + ["No route observed for this central base yet (selection happens on a request)."]
+    lines.append("Last observed routes (router-wide, not per-session current routes):")
+    for route in routes:
+        state = route.get("state")
+        state = state if state in ("gateway", "central", "failed") else "unknown"
+        # Strip URL credentials, query and fragment even if an older router emitted them.
+        endpoint = "-"
+        try:
+            parsed = urllib.parse.urlsplit(str(route.get("endpoint") or ""))
+            if parsed.scheme in ("http", "https") and parsed.hostname:
+                host = parsed.hostname
+                if ":" in host:
+                    host = f"[{host}]"
+                endpoint = f"{parsed.scheme}://{host}" + (f":{parsed.port}" if parsed.port else "")
+        except ValueError:
+            pass
+        reason = " ".join(str(route.get("reason") or "not provided").split())[:160]
+        lines.append(f"  {state}: {endpoint}; reason: {reason}")
+    return lines

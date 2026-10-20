@@ -40,6 +40,7 @@ class LlmOptionConfigServices:
     repository: LlmOptionRepository
     mutation: LlmOptionMutation
     policy: LlmOptionPolicy
+    gateway_status: Callable[[], list[str]] = lambda: ["Gateway status unavailable."]
 
 
 @dataclass(frozen=True, slots=True)
@@ -144,6 +145,24 @@ def set_llm_option_config(
     set_router_debug_external_access_config = mutation.set_router_debug_external_access
     cfg = load_config()
     pcfg = cfg["providers"][provider]
+    capabilities = configuration_policy(provider, pcfg)
+    if capabilities.supports_gateway_selection and key == "gateway_status":
+        return services.gateway_status()
+    if capabilities.supports_gateway_selection and key == "gateway_selection":
+        token = "unset:gateway_selection" if raw_value.strip().lower() in ("default", "unset") else f"gateway_selection={raw_value}"
+        apply_provider_option(provider, pcfg, token)
+        save_config(cfg)
+        return ["Automatic gateway selection updated for subsequent requests.",
+                f"gateway_selection: {pcfg.get('gateway_selection', 'auto')}"]
+    if key == "gateway_data_path":
+        # apply_provider_option rejects providers without a direct gateway data path.
+        token = "unset:gateway_data_path" if raw_value.strip().lower() in ("default", "unset") else f"gateway_data_path={raw_value}"
+        apply_provider_option(provider, pcfg, token)
+        save_config(cfg)
+        from .launch_data_path import LIVE_REROUTE_NOTE, configured_data_path
+
+        return [f"Gateway data path set to {configured_data_path(pcfg)}; it applies when Claude Code or Codex next launches.",
+                LIVE_REROUTE_NOTE]
     value = raw_value.strip()
     if not value:
         return ["Option unchanged."]
@@ -257,3 +276,29 @@ def set_llm_option_config(
     save_config(cfg)
     clear_model_cache()
     return [f"{PROVIDER_LABELS.get(provider, provider)} option updated.", f"{key}: {value}", *cap_lines, *timeout_lines]
+
+
+def gateway_status_lines(router_health, matches_config, load_config) -> list[str]:
+    from .launch_data_path import status_lines
+    from .provider_option_status import gateway_health_lines
+
+    config = load_config().get("providers", {}).get("cielairouter", {})
+    health = router_health()
+    if health is not None and not matches_config(health):
+        lines = ["Gateway status unavailable: router belongs to another configuration."]
+    else:
+        lines = gateway_health_lines(health, config)
+    # Launch data paths come from this workspace's launch records, not the router.
+    return [*lines, *status_lines(config)]
+
+
+def gateway_option_description(capabilities, key: str) -> str:
+    if not capabilities.supports_gateway_selection:
+        return ""
+    if key == "gateway_data_path" and capabilities.supports_gateway_data_path:
+        return ("Enter toggles router/direct: direct sends Claude Code/Codex model requests straight to the gateway "
+                "picked at launch (the router keeps MCP, channels and restart); a running CLI keeps it until restart.")
+    return {
+        "gateway_selection": "Enter toggles automatic gateway selection on/off for subsequent requests; off uses central.",
+        "gateway_status": "Read local /health last observed gateway/central and reason; no probing or reselection.",
+    }.get(key, "")

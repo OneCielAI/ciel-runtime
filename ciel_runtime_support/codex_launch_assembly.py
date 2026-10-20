@@ -84,6 +84,7 @@ class CodexAppServerLaunchPorts:
 class CodexLaunchSharedRestartPorts:
     control: Callback
     notice: Callback = lambda _body: None
+    prepare: Callback = lambda _runtime: None
 
 
 @dataclass(frozen=True, slots=True)
@@ -96,6 +97,8 @@ class CodexLaunchAssembly:
     cli: CodexCliLaunchPorts
     app_server: CodexAppServerLaunchPorts
     restart: CodexLaunchSharedRestartPorts | None = None
+    # launch_data_path.LaunchDataPathResolver for the plain and app-server launches.
+    data_path: Callback | None = None
 
     def cli_services(self) -> runtime_launch.CodexLaunchServices:
         return runtime_launch.CodexLaunchServices(
@@ -148,10 +151,11 @@ class CodexLaunchAssembly:
                 select_codex_resume_session=self.channel.select_resume_session,
             ),
             restart=(
-                runtime_launch.SessionRestartPorts(self.restart.control, self.restart.notice)
+                runtime_launch.SessionRestartPorts(self.restart.control, self.restart.notice, self.restart.prepare)
                 if self.restart is not None
                 else runtime_launch.SessionRestartPorts()
             ),
+            data_path=self.data_path,
         )
 
     def app_server_services(self) -> runtime_launch.CodexAppServerLaunchServices:
@@ -195,11 +199,18 @@ class CodexLaunchAssembly:
                 native_codex_enabled=self.routing.native_enabled,
                 run_with_router_lifetime=self.routing.run_with_router_lifetime,
                 start_router_if_needed=self.routing.start_router,
+                router_log=self.routing.log,
             ),
             channel=runtime_launch.CodexAppServerChannel(
                 channel_delivery_mode=self.channel.delivery_mode,
                 codex_mcp_native_http_compat_args=self.channel.native_http_args,
             ),
+            restart=(
+                runtime_launch.SessionRestartPorts(self.restart.control, self.restart.notice, self.restart.prepare)
+                if self.restart is not None
+                else runtime_launch.SessionRestartPorts()
+            ),
+            data_path=self.data_path,
         )
 
 

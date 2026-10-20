@@ -86,6 +86,15 @@ class OAuthTokenPool:
             return None
         return OAuthLease(token_id, provider, credential, moved_from, reason if moved_from else "")
 
+    def all_limited(self, provider: str, exclude: Iterable[str] = ()) -> bool:
+        """Every active token of the provider is out until a reset (none usable now)."""
+
+        excluded = set(exclude)
+        now = self.clock()
+        with self.store.transaction() as snapshot:
+            tokens = [token for token in snapshot.for_provider(provider) if token.status == STATUS_ACTIVE]
+        return bool(tokens) and all(token.token_id in excluded or token.exhausted_until > now for token in tokens)
+
     def _choose(
         self,
         pinned: OAuthTokenState | None,

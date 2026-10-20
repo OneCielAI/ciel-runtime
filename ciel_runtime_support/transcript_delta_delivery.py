@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 import hashlib
 import json
+import os
 from pathlib import Path
 import threading
 import time
@@ -84,6 +85,27 @@ class ToolCallEventSettings:
             start_mode=start_mode,
             include_arguments=bool(values.get("include_arguments", True)),
         )
+
+
+# A transcript region is read in chunks of this size when it is skipped, never whole.
+_SKIP_CHUNK = 1_048_576
+# How far into a transcript its first record's time is looked for.
+_FIRST_RECORD_PROBE = 65_536
+
+
+@dataclass(frozen=True, slots=True)
+class _Batch:
+    """Complete records read from a transcript.
+
+    ``payload`` holds the records between the file offsets ``start`` and
+    ``end``; a corrupt region inside that range (a NUL run, a line over
+    ``max_record_bytes``) was skipped and is not in it.  ``end`` is where the
+    next read starts, even when nothing was readable yet.
+    """
+
+    start: int
+    end: int
+    payload: bytes
 
 
 @dataclass(frozen=True, slots=True)
@@ -166,13 +188,14 @@ class TranscriptDeltaDeliveryService:
         rotated = size < offset
         if rotated:
             offset = 0
-        payload = self._read_complete_batch(path, offset, settings.max_batch_bytes)
+        batch = self._read_complete_batch(path, offset, settings.max_batch_bytes, "transcript_delivery")
+        payload = batch.payload
+        end_offset = batch.end
         if not payload:
-            if rotated:
-                destinations[destination_key] = self._cursor_record(path, offset)
+            if rotated or end_offset != offset:
+                destinations[destination_key] = self._cursor_record(path, end_offset)
                 self._save_cursors(cursors)
             return False
-        end_offset = offset + len(payload)
         content = payload
         if settings.content_filter == "public_only":
             content = public_records(payload.decode("utf-8", errors="replace")).encode("utf-8")
@@ -236,11 +259,16 @@ class TranscriptDeltaDeliveryService:
         if size < offset:
             offset = 0
             current.pop("web_search_results", None)
-        payload = self._read_complete_batch(path, offset, settings.max_batch_bytes)
+        batch = self._read_complete_batch(path, offset, settings.max_batch_bytes, "tool_call_events")
+        payload = batch.payload
+        search_state = current.setdefault("web_search_results", {})
         if not payload:
+            if batch.end != offset:
+                sources[source_key] = self._cursor_record(path, batch.end)
+                sources[source_key]["web_search_results"] = search_state
+                self._save_cursors(cursors)
             return 0
         count = 0
-        search_state = current.setdefault("web_search_results", {})
         for raw_line in payload.decode("utf-8", errors="replace").splitlines():
             try:
                 record = json.loads(raw_line)
@@ -287,7 +315,7 @@ class TranscriptDeltaDeliveryService:
                     data={**data, "transcript_name": path.name},
                 )
                 count += 1
-        sources[source_key] = self._cursor_record(path, offset + len(payload))
+        sources[source_key] = self._cursor_record(path, batch.end)
         sources[source_key]["web_search_results"] = search_state
         self._save_cursors(cursors)
         return count
@@ -311,22 +339,36 @@ class TranscriptDeltaDeliveryService:
             return 0
         scope = self.ports.scope()
         runtime = str(scope.get("runtime") or "runtime")
+        # The offset is stored, so a restarted router goes on where it stopped
+        # instead of reporting every turn the transcript ever held again.
+        source_key = hashlib.sha256(f"agent-turn\0{path}".encode("utf-8")).hexdigest()
         source = self._turn_source
         if source.get("path") != str(path) or source.get("runtime") != runtime:
-            tail = ToolCallEventSettings(True, 1.0, 1_048_576, "tail", False)
+            stored = self._load_cursors()["agent_turn_sources"].get(source_key)
+            if isinstance(stored, dict):
+                start = max(0, int(stored.get("offset") or 0))
+            else:
+                tail = ToolCallEventSettings(True, 1.0, 1_048_576, "tail", False)
+                start = self._initial_tool_call_offset(tail, scope, path, size)
             source.clear()
             source.update(
                 path=str(path),
                 runtime=runtime,
-                offset=self._initial_tool_call_offset(tail, scope, path, size),
+                offset=start,
                 tracker=TranscriptTurnTracker(runtime),
             )
+            if not isinstance(stored, dict):
+                self._save_turn_offset(source_key, path, start)
         offset = int(source["offset"])
         if size < offset:
             offset = 0
             source["tracker"] = TranscriptTurnTracker(runtime)
-        payload = self._read_complete_batch(path, offset, 1_048_576)
+        batch = self._read_complete_batch(path, offset, 1_048_576, "agent_turn_events")
+        payload = batch.payload
         if not payload:
+            if batch.end != offset:
+                source["offset"] = batch.end
+                self._save_turn_offset(source_key, path, batch.end)
             return 0
         tracker: TranscriptTurnTracker = source["tracker"]
         count = 0
@@ -340,8 +382,14 @@ class TranscriptDeltaDeliveryService:
             for event in tracker.feed(record):
                 post(event)
                 count += 1
-        source["offset"] = offset + len(payload)
+        source["offset"] = batch.end
+        self._save_turn_offset(source_key, path, batch.end)
         return count
+
+    def _save_turn_offset(self, source_key: str, path: Path, offset: int) -> None:
+        cursors = self._load_cursors()
+        cursors["agent_turn_sources"][source_key] = self._cursor_record(path, offset)
+        self._save_cursors(cursors)
 
     @staticmethod
     def _initial_offset(
@@ -349,15 +397,12 @@ class TranscriptDeltaDeliveryService:
     ) -> int:
         if settings.start_mode == "beginning":
             return 0
-        boundary_path = scope.get("turn_scan_path")
-        if boundary_path is None:
-            return 0
         try:
-            if Path(boundary_path).resolve() != path:
-                return 0
-        except (OSError, TypeError, ValueError):
+            size = path.stat().st_size
+        except OSError:
             return 0
-        return max(0, int(scope.get("turn_scan_offset") or 0))
+        tail = ToolCallEventSettings(True, 1.0, settings.max_batch_bytes, "tail", False)
+        return TranscriptDeltaDeliveryService._initial_tool_call_offset(tail, scope, path, size)
 
     def _run(self) -> None:
         while not self._stop.is_set():
@@ -389,6 +434,8 @@ class TranscriptDeltaDeliveryService:
             value["destinations"] = {}
         if not isinstance(value.get("tool_call_sources"), dict):
             value["tool_call_sources"] = {}
+        if not isinstance(value.get("agent_turn_sources"), dict):
+            value["agent_turn_sources"] = {}
         value["version"] = 1
         return value
 
@@ -408,14 +455,49 @@ class TranscriptDeltaDeliveryService:
                     return max(0, int(scope.get("turn_scan_offset") or 0))
             except (OSError, TypeError, ValueError):
                 pass
+        # A transcript first seen without a stored cursor starts at its end,
+        # unless it was created after the launch (a new session: its first
+        # records belong to this launch).  Modified after the launch is not
+        # enough: a resumed session writes to a transcript that may hold
+        # hundreds of earlier turns (Walkie 48926).
         started_at = float(scope.get("started_at") or 0)
         if started_at > 0:
-            try:
-                if path.stat().st_mtime >= started_at - 1.0:
-                    return 0
-            except OSError:
-                pass
+            created = TranscriptDeltaDeliveryService._created_at(path)
+            if created is not None and created >= started_at - 1.0:
+                return 0
         return size
+
+    @staticmethod
+    def _created_at(path: Path) -> float | None:
+        """When the transcript was created: the file system's birth time where
+        it keeps one (Windows, macOS), else the time on its first record."""
+
+        try:
+            status = path.stat()
+        except OSError:
+            return None
+        birth = getattr(status, "st_birthtime", None)
+        if birth is None and os.name == "nt":
+            birth = status.st_ctime  # creation time on Windows before st_birthtime
+        if birth:
+            return float(birth)
+        try:
+            with path.open("rb") as stream:
+                head = stream.read(_FIRST_RECORD_PROBE)
+        except OSError:
+            return None
+        for line in head.split(b"\n"):
+            try:
+                record = json.loads(line.lstrip(b"\x00"))
+            except ValueError:
+                continue
+            stamp = record.get("timestamp") if isinstance(record, dict) else None
+            if isinstance(stamp, str) and stamp:
+                try:
+                    return datetime.fromisoformat(stamp.replace("Z", "+00:00")).timestamp()
+                except ValueError:
+                    continue
+        return None
 
     def _save_cursors(self, cursors: dict[str, Any]) -> None:
         self.cursor_path.parent.mkdir(parents=True, exist_ok=True)
@@ -439,34 +521,114 @@ class TranscriptDeltaDeliveryService:
     def _destination_key(url: str, path: Path) -> str:
         return hashlib.sha256(f"{url}\0{path}".encode("utf-8")).hexdigest()
 
-    def _read_complete_batch(self, path: Path, offset: int, limit: int) -> bytes:
+    def _record_limit(self, limit: int) -> int:
         # Batch size is a throughput target, not a maximum JSONL record size.
         # Read a larger first record atomically, with a separate memory bound.
         config = self.ports.load_config()
         raw = config.get("transcript_events")
         values = raw if isinstance(raw, dict) else {}
-        record_limit = max(limit, min(64 * 1024 * 1024, max(1024,
+        return max(limit, min(64 * 1024 * 1024, max(1024,
             int(values.get("max_record_bytes") or 16 * 1024 * 1024))))
+
+    def _read_complete_batch(self, path: Path, offset: int, limit: int, consumer: str = "transcript") -> _Batch:
+        """Complete records from ``offset``.
+
+        A NUL run (a hole a crashed or racing writer left; Walkie 48926 found
+        28.5 MB of them) or a line longer than ``max_record_bytes`` would stop
+        every reader at that offset for good.  Each is skipped once, with one
+        WARN naming the file, offset, length and reason, and the returned
+        ``end`` is past it.  The skipped bytes are streamed, never held.  A NUL
+        run or an oversized line that has not ended yet (no byte after it, no
+        newline yet) is waited for, as an unfinished record is.
+        """
+
+        record_limit = self._record_limit(limit)
         try:
             with path.open("rb") as stream:
                 stream.seek(offset)
+                nuls, more = self._nul_run_length(stream)
+                if nuls and not more:
+                    return _Batch(offset, offset, b"")
+                start = offset + nuls
+                if nuls:
+                    self._skipped(consumer, path, offset, nuls, "nul_run")
+                stream.seek(start)
                 data = stream.read(limit)
                 complete_end = data.rfind(b"\n")
                 if complete_end >= 0:
-                    return data[: complete_end + 1]
+                    data = data[: complete_end + 1]
+                    return _Batch(start, start + len(data), self._without_nul_prefixes(consumer, path, start, data))
                 if len(data) < limit:
-                    return b""  # Writer has not finished the record yet.
-                remainder = stream.readline(record_limit - len(data) + 1)
-                data += remainder
+                    return _Batch(start, start, b"")  # Writer has not finished the record yet.
+                data += stream.readline(record_limit - len(data) + 1)
+                if len(data) <= record_limit:
+                    if not data.endswith(b"\n"):
+                        return _Batch(start, start, b"")
+                    return _Batch(start, start + len(data), self._without_nul_prefixes(consumer, path, start, data))
+                held = len(data)
+                del data
+                rest = self._length_through_newline(stream)
+                if rest is None:
+                    return _Batch(start, start, b"")  # The oversized line is still being written.
+                length = held + rest
+                self._skipped(consumer, path, start, length, f"record_exceeds_max_record_bytes={record_limit}")
+                return _Batch(start + length, start + length, b"")
         except OSError as exc:
             self._report_error(f"read {type(exc).__name__}: {exc}")
-            return b""
-        if len(data) > record_limit:
-            self._report_error(
-                f"record exceeds max_record_bytes={record_limit} path={path.name} offset={offset}"
-            )
-            return b""
-        return data if data.endswith(b"\n") else b""
+            return _Batch(offset, offset, b"")
+
+    @staticmethod
+    def _nul_run_length(stream: Any) -> tuple[int, bool]:
+        """(NUL bytes from the stream position, whether any byte follows them)."""
+
+        first = stream.read(1)
+        if first != b"\x00":
+            return 0, bool(first)
+        count = 1
+        while True:
+            chunk = stream.read(_SKIP_CHUNK)
+            if not chunk:
+                return count, False
+            rest = chunk.lstrip(b"\x00")
+            count += len(chunk) - len(rest)
+            if rest:
+                return count, True
+
+    @staticmethod
+    def _length_through_newline(stream: Any) -> int | None:
+        """Bytes up to and including the next newline, or None before one is written."""
+
+        length = 0
+        while True:
+            chunk = stream.read(_SKIP_CHUNK)
+            if not chunk:
+                return None
+            newline = chunk.find(b"\n")
+            if newline >= 0:
+                return length + newline + 1
+            length += len(chunk)
+
+    def _without_nul_prefixes(self, consumer: str, path: Path, start: int, data: bytes) -> bytes:
+        """``data`` with the NUL run at the head of any line removed (one WARN each)."""
+
+        if b"\n\x00" not in data:
+            return data
+        lines = data.split(b"\n")
+        position = start
+        for index, line in enumerate(lines):
+            if line.startswith(b"\x00"):
+                kept = line.lstrip(b"\x00")
+                self._skipped(consumer, path, position, len(line) - len(kept), "nul_run")
+                lines[index] = kept
+            position += len(line) + 1
+        return b"\n".join(lines)
+
+    def _skipped(self, consumer: str, path: Path, offset: int, length: int, reason: str) -> None:
+        self.ports.log(
+            "WARN",
+            f"transcript_record_skipped consumer={consumer} path={path.name} "
+            f"offset={offset} length={length} reason={reason}",
+        )
 
     def _cloud_event(
         self,

@@ -1,0 +1,62 @@
+okf_version: "1.0"
+task: "Central-equals-gateway route status and next-request refresh after a failed central fallback"
+status: "fixed-in-working-tree-not-committed"
+scope:
+  changed:
+    - "ciel_runtime_support/cielairouter_gateway_overlay.py"
+    - "tests/test_cielairouter_gateway_central_fallback.py (new, dedicated)"
+  not_changed:
+    - "tests/test_cielairouter_gateway_overlay.py (owned by another agent)"
+    - "provider_network.py, cielairouter_gateway_transport.py, upstream_retry.py, cielairouter_gateways.py"
+    - "No config, remote, deploy, commit, router restart or live session change."
+baseline: "HEAD 572b7e7 on nightly; overlay file unmodified vs HEAD when reproduced."
+
+reproduction:
+  harness: "Real CielAiRouterGatewayService with injected discovery/probe and fake wall clock; discovery lists one node ciel-router-01 whose endpoint equals the configured central base, health=degraded."
+  confirmed_before_fix:
+    - "Selector returns candidate ciel-router-01, endpoint == central, reason 'reprobed fallback', degraded=true (central-fallback-evidence/before-fix-snapshot.json)."
+    - "apply() returned the config unchanged, no route token; status route state='gateway', endpoint=central; status_line 'CielAiRouter gateway https://ciel-router-01.ezonebot.com (reprobed fallback)'; log INFO cielairouter_gateway_selected."
+    - "The session was pinned (sessions=1). A TLS EOF (URLError(SSLEOFError)) through provider_urlopen was re-raised once and never scored (no token -> no observation)."
+    - "After the failure, with a healthy gw-2 in discovery and 6 s elapsed (> refresh_interval 5 s), the session's next request still went to central; discovery was not called again."
+    - "4 of 13 new tests failed on HEAD (central-fallback-evidence/before-fix-tests.txt)."
+
+fix:
+  - "_gateway_endpoint(selection, central): a selection routes to a gateway only with a candidate and an endpoint different from central. apply() and the session pin both use it."
+  - "Candidate whose endpoint == central: route state 'central', reason 'gateway endpoint is the central base' (CENTRAL_GATEWAY_REASON), selector reason kept as selection_reason, node_id/degraded/generation kept. Logged once as cielairouter_gateway_central (WARN when degraded) with node and selection_reason."
+  - "Such a selection is no longer pinned to the session, matching the existing candidate=None central route: the next request asks the selector again (fresh=True). The selector shares one exploration inside refresh_interval."
+  - "Request path is unchanged: config returned as-is, no route token, so provider_urlopen keeps the default opener and upstream_retry keeps its central retry budget. record_failure is never called for central."
+
+confirmed_after_fix:
+  - "13/13 new tests pass (central-fallback-evidence/after-fix-tests.txt)."
+  - "Snapshot: state central with explicit reason, sessions=0, status_line empty; after TLS EOF + 6 s the next request selects gw-2 (generation 2, token present, discovery base still central), cooldowns empty (after-fix-snapshot.json)."
+  - "Within refresh_interval three session requests share one discovery call; a real gateway pin is unchanged; a real-gateway 'reprobed fallback' is still observed and cooled on TLS EOF (central not cooled); key and model scopes stay separate; other providers untouched."
+  - "Focused isolated suites (12 files, 229 tests) OK; ruff check clean (focused-suites.txt, ruff.txt). Live router 9512 /health 200 before and after."
+
+failure_only_invalidation_design_not_implemented:
+  finding: "Not possible as safe metadata-only observation inside the overlay alone."
+  evidence:
+    - "provider_network.py:136 observes only when config carries ciel_gateway_route; the same token selects _GatewayNoRedirect (line 141) for that request."
+    - "upstream_retry.py:113-131 and 233/393/591: the same token disables in-call gateway retries."
+    - "overlay.report -> selector.record_failure (cielairouter_gateways.py:457-472) is the only invalidation API and it cools the endpoint (would cool the central node for that scope)."
+    - "openai_responses_router.py:239 reports gateway_selected=true when DISCOVERY_BASE_URL_KEY is present."
+  required_design:
+    - "An observation-only marker honored by provider_network without changing opener or retry budget (provider_network owner)."
+    - "Defined meaning of a failure when central in-call retries may still succeed (attempt vs request outcome)."
+    - "A selector or overlay invalidation that drops the scope pick or session pin without a cooldown entry."
+
+residual_unknowns:
+  - "Whether production discovery ever lists a node whose endpoint equals the central base is not observed; this is a source-path reproduction."
+  - "Not established as the cause of the 9385 IncompleteRead/502 events; investigation.okf recorded the current pick there as loopback 20128."
+  - "Central comparison is a string compare: central configured with /v1, uppercase host or :443 does not equal the selector-normalized node endpoint (central-comparison-normalization.txt). Such a node is still routed as a gateway; unchanged."
+  - "Non-session requests (fresh=False) reuse the selector scope pick until snapshot expiry (cielairouter_gateways.py:211, 324-325, at most 60 s); unchanged."
+
+evidence:
+  - "central-fallback-evidence/before-fix-tests.txt"
+  - "central-fallback-evidence/before-fix-snapshot.json"
+  - "central-fallback-evidence/after-fix-tests.txt"
+  - "central-fallback-evidence/after-fix-snapshot.json"
+  - "central-fallback-evidence/focused-suites.txt"
+  - "central-fallback-evidence/ruff.txt"
+  - "central-fallback-evidence/central-comparison-normalization.txt"
+  - "central-fallback-evidence/snapshot.py.txt"
+  - "central-fallback-evidence/v1_check.py.txt"

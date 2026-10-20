@@ -1,0 +1,62 @@
+okf_version: "1.0"
+task: "Review Andy's e71d945 (loopback gateway by node identity), merge it into nightly, release, install locally."
+reported: >
+  User, 2026-10-16: "변경된커밋 확인하고 로컬, 나이트리 푸시". The only commit not on nightly was
+  origin/fix/gateway-loopback-selection e71d945 (Andy Ai, 2026-10-16 01:50 -0500), branched from 880cc69.
+  Its journal is docs/journal/2026/10/16/gateway-loopback/verification.okf.
+review:
+  change:
+    - "Candidates are deduplicated by (node id, endpoint) instead of endpoint, and probe results are keyed the same way."
+    - "Ranking puts a loopback endpoint (127.0.0.0/8, ::1, localhost) first, then utilization, backlog, RTT."
+    - "Sticky reuse requires the same node id and endpoint."
+    - "Discovery timeout min(5 s, exploration budget), was 2 s; per-gateway /healthz probes stay at 2 s."
+  checked:
+    - "Probe node-id verification (cielairouter_gateways.py _probe_all) rejects a /healthz answer whose nodeId differs from the candidate, so a remote node advertising 127.0.0.1:20128 is not chosen; the node whose nodeId the local gateway reports is."
+    - "Cooldowns stay keyed by endpoint; nodes sharing one loopback URL are the same physical gateway, so cooling the URL cools both identities."
+    - "Degraded fallback (no healthy candidate) still picks the most recently seen re-probed candidate; loopback preference applies to the ranked path only."
+    - "Cosmetic: the 'sticky' reason label compares endpoint only; it can read 'sticky' when a different node with the same URL is ranked first. Not changed."
+  follow_up_in_this_release:
+    - "Removed the trailing blank line at EOF in cielairouter_gateways.py and tests/test_cielairouter_gateways.py, added the missing blank line between two test methods."
+    - "docs/Configuration.md: ranking order now lists loopback first, nodeId check, 5 s discovery, shared-loopback rule. CHANGELOG Unreleased entry."
+verification:
+  regression_tests_before: "evidence/new-tests-on-880cc69.txt: Andy's two new tests run against 880cc69 code -> 3 failures (both shared-loopback orders, local-vs-remote)."
+  regression_tests_after: "evidence/gateway-tests-after.txt: tests/test_cielairouter_gateway*.py 67 OK on the merge."
+  e2e: >
+    evidence/e2e_loopback.py runs `ciel_runtime.py serve` as an isolated router (scratch config on G:, unique port,
+    CIEL_RUNTIME_TEST_ISOLATED=1, inherited CIEL_RUNTIME_/ANTHROPIC_/CLAUDE_/CODEX_/OPENAI_ cleared). Fake central
+    discovery lists node-remote then node-local, both at http://127.0.0.1:G/v1; G's /healthz reports nodeId node-local.
+    One /v1/messages request through the router.
+    880cc69 (git worktree G:/ciel-e2e/wt-880cc69): reply STUB-REPLY-central, request went to central, router log
+    cielairouter_gateway_central reason="no healthy gateway" degraded=True (evidence/run-before-880cc69/result.json).
+    Merge 0a825ed: reply STUB-REPLY-gateway, request went to G, /health cielairouter_gateway node_id=node-local
+    reason=ranked degraded=False, log cielairouter_gateway_selected (evidence/run-after-merge/result.json).
+    No /healthz request carried Authorization in either run; discovery authenticated with the router key.
+  full_suite: >
+    scripts/run_test_group.py on the merge: unit 1952 OK, router 1274 OK (1272 + Andy's 2), runtime 405 OK,
+    channel 457 OK. Live routers 9385/9489/9505/9512 answered /health 200 before and after.
+  installed: >
+    evidence/run-installed-9e7da74: the same E2E against the installed release snapshot -> request went to G,
+    node_id=node-local, reason=ranked.
+  not_verified: >
+    Local-before-remote with a real non-loopback remote gateway (needs https or allow_insecure_http, which the
+    provider config does not expose); covered only by the unit test. No request to the real central router or to .14.
+release:
+  commits: "0a825ed merge of e71d945, 9e7da74 docs follow-up; pushed 880cc69..9e7da74 to origin/nightly."
+  ci: "CI run 38866733745 success."
+  publish: >
+    Run 38866733853 attempt 1 failed in `npm test` on one Linux-only test,
+    test_pty_master_writer.PosixChannelTerminalProxyDeadlockTests.test_channel_prompt_injected_while_child_floods_output_is_delivered
+    ("child never finished; output tail ...CHILD_DONE received="). The same unit group passed twice in CI on the same
+    commit (python-minimum, test (unit)). The test's read loop stops as soon as b"CHILD_DONE" is in the buffer and then
+    asserts the whole "CHILD_DONE received=<n> sha256=<hex>" line, so a line split across two reads fails it; the tail
+    ends exactly at "received=". The test was not changed. Attempt 2 (failed job only) succeeded and published
+    0.2.51-nightly.20261016-073047.9e7da74 (dist-tag nightly).
+  local_install: >
+    npm pack of the published version into a new temp directory; the tarball's gateway selector, overlay and
+    provider_network match git 9e7da74 byte for byte. install.ps1 with
+    CIEL_RUNTIME_INSTALL_HOME=C:/Users/djlov/.local/share/ciel-runtime-9e7da74936f13f545c7bebfb6b558db02bceef58 and
+    PREFIX=C:/Users/djlov/.local. HKCU CIEL_RUNTIME_HOME moved from Andy's source snapshot ciel-runtime-e71d945... to it;
+    .local/bin/ciel-runtimectl.cmd version -> 0.2.51-nightly.20261016-073047.9e7da74. A shell built from the new user
+    PATH resolves .local/bin first. Shells opened earlier still resolve the npm global shim first, which runs its own
+    d2be7d8 copy (0.2.51-nightly.20261014-230508.d2be7d8); the npm global package was not changed.
+  not_done: "Running routers and CLI sessions were not restarted; they keep the code they loaded."

@@ -1,0 +1,6 @@
+# Sanitized copy of persist-probe-router-log.txt (release 2026-10-17).
+# The two router.log lines are reproduced unchanged. The original also listed the
+# planted synthetic marker strings it searched for; their names are omitted here.
+2026-10-16T21:59:07 [ERROR] provider_responses_failure request_id=probe-req-1 provider=cielairouter stage=open error=URLError cause=SSLEOFError downstream_started=false received_bytes=unknown config_base_url=http://127.0.0.1:20128 gateway_selected=true gateway_discovery_base_url=https://router.example.com
+2026-10-16T21:59:07 [ERROR] provider_responses_failure request_id=probe-req-2 provider=cielairouter stage=stream error=UpstreamStreamReadError cause=IncompleteRead downstream_started=false received_bytes=unknown config_base_url=http://127.0.0.1:20128 gateway_selected=true gateway_discovery_base_url=https://router.example.com
+planted synthetic markers checked: 9; all absent from the log: True

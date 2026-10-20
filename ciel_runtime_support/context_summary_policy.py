@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from typing import Any, Callable
 
 
 PROMPT_TOOL_INPUT_FIELD_LIMIT = 1200
 PROMPT_MESSAGE_TEXT_LIMIT = 20000
+MAX_CONTEXT_SUMMARY_FRAGMENTS = 65536
+MAX_CONTEXT_SUMMARY_SOURCE_BYTES = 64 * 1024 * 1024
 CLAUDE_CODE_PERSISTED_OUTPUT_MARKER = "<persisted-output>"
 CODEX_CONTEXT_CHECKPOINT_PROMPT = """You are performing a CONTEXT CHECKPOINT COMPACTION. Create a handoff summary for another LLM that will resume the task.
 
@@ -40,6 +43,75 @@ def is_codex_context_checkpoint_prompt(text: Any) -> bool:
     )
 
 
+CLAUDE_COMPACT_TEXT_PREFIX = "CRITICAL: Respond with TEXT ONLY. Do NOT call any tools."
+CLAUDE_COMPACT_TASK = "Your task is to create a detailed summary of the conversation so far"
+CLAUDE_COMPACT_END = (
+    "REMINDER: Do NOT call any tools. Respond with plain text only — an <analysis> block "
+    "followed by a <summary> block. Tool calls will be rejected and you will fail the task."
+)
+
+
+def native_compact_text(content: Any) -> str:
+    """The captured Claude auto contract appends a separate final text block."""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        texts = [str(block.get("text") or "") for block in content
+                 if isinstance(block, dict) and block.get("type") in {"text", "input_text"}]
+        return texts[-1] if texts else ""
+    return ""
+
+
+def compact_instruction_kind(text: Any) -> str | None:
+    """Recognize native leading instructions, not quoted markers in user prose."""
+    normalized = str(text or "").replace("\r\n", "\n").replace("\r", "\n").strip()
+    if is_codex_context_checkpoint_prompt(normalized):
+        return "codex"
+    lowered = normalized.casefold()
+    if re.match(
+        r"^(?:<command-message>compact</command-message>\s*)?"
+        r"<command-name>/compact</command-name>(?:\s|$)", lowered
+    ):
+        return "claude"
+    if (lowered.startswith(CLAUDE_COMPACT_TEXT_PREFIX.casefold())
+        and CLAUDE_COMPACT_TASK.casefold() in lowered
+        and "your summary should include the following sections:" in lowered
+        and lowered.endswith(CLAUDE_COMPACT_END.casefold())):
+        return "claude"
+    if (lowered.startswith(CLAUDE_COMPACT_TASK.casefold())
+        and "your summary should include the following sections:" in lowered
+        and "1. primary request and intent:" in lowered
+        and "8. current work:" in lowered):
+        return "claude"
+    if "compact" in lowered and lowered.startswith((
+        "create a detailed summary of the conversation",
+        "summarize the conversation so far",
+    )):
+        return "claude"
+    return None
+
+
+def semantic_payload_cost(value: Any, estimate_tokens: Callable[[Any], int]) -> int:
+    """Local conservative UTF-8 envelope, NOT an exact provider token count.
+
+    Keep the shared estimator unchanged. Counting serialized UTF-8 bytes also
+    bounds large Unicode/tool payloads that a JSON/4 estimate can understate.
+    Provider tokenization and additional gateway transforms remain unobserved.
+    """
+    encoded = json.dumps(value, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    return max(1, estimate_tokens(value), len(encoded))
+
+
+@dataclass(frozen=True, slots=True)
+class ContextSummaryFragment:
+    source_index: int
+    start: int
+    end: int
+    source_chars: int
+    text: str
+    role: str = "unknown"
+
+
 @dataclass(frozen=True, slots=True)
 class ContextSummaryPolicy:
     estimate_tokens: Callable[[Any], int]
@@ -51,21 +123,25 @@ class ContextSummaryPolicy:
     def compact_request_kind(self, body: dict[str, Any]) -> str | None:
         if not isinstance(body, dict):
             return None
-        latest = self.latest_user_text(body)
-        if is_codex_context_checkpoint_prompt(latest):
-            return "codex"
-        text = latest.lower()
-        if (
-            text
-            and (
-                "<command-name>/compact</command-name>" in text
-                or ("<command-message>compact</command-message>" in text and "<command-name>" in text)
-                or ("create a detailed summary of the conversation" in text and "compact" in text)
-                or ("summarize the conversation so far" in text and "compact" in text)
-            )
-        ):
-            return "claude"
-        return None
+        messages = body.get("messages")
+        if isinstance(messages, list) and messages:
+            index = self.instruction_index(messages)
+            return compact_instruction_kind(native_compact_text(messages[index].get("content"))) if index is not None else None
+        items = body.get("input")
+        if isinstance(items, str):
+            return compact_instruction_kind(items)
+        if isinstance(items, list) and items:
+            # Raw Responses (Codex 0.158): the checkpoint is the newest user
+            # message item; a newer tool output means it is an ordinary turn.
+            for item in reversed(items):
+                if not isinstance(item, dict):
+                    return None
+                if str(item.get("type") or "").endswith("_output"):
+                    return None
+                if item.get("role") == "user":
+                    return compact_instruction_kind(native_compact_text(item.get("content")))
+            return None
+        return compact_instruction_kind(self.latest_user_text(body))
 
     def is_compact_request(self, body: dict[str, Any]) -> bool:
         return self.compact_request_kind(body) is not None
@@ -229,37 +305,36 @@ class ContextSummaryPolicy:
         summary = "\n".join(lines)
         return self.truncate(summary, max_chars) if len(summary) > max_chars else summary
 
-    def compact_message(self, message: dict[str, Any], index: int) -> str:
-        role = str(message.get("role") or "unknown")
-        parts = [f"Message {index} role={role}"]
-        if name := message.get("name") or message.get("tool_name"):
-            parts.append(f"name={name}")
-        if message.get("tool_call_id"):
-            parts.append(f"tool_call_id={message.get('tool_call_id')}")
-        content = self.content_to_text(message.get("content"))
-        if message.get("tool_calls"):
-            tool_calls = "tool_calls=" + self.compact_json(message.get("tool_calls"), max_chars=6000)
-            content = f"{content}\n\n{tool_calls}" if content else tool_calls
-        return f"{' '.join(parts)}\n{self.message_text(content)}"
+    def compact_message(
+        self, message: dict[str, Any] | ContextSummaryFragment, index: int
+    ) -> str:
+        if isinstance(message, ContextSummaryFragment):
+            return (
+                f"Message {message.source_index} role={message.role} fragment chars="
+                f"{message.start}:{message.end}/{message.source_chars}\n{message.text}"
+            )
+        # Unlike the deterministic wire guard this is the source of a semantic
+        # summary. Preserve every field, block, tool argument and result in order.
+        serialized = json.dumps(message, ensure_ascii=False, separators=(",", ":"))
+        return f"Message {index} role={message.get('role') or 'unknown'}\n{serialized}"
 
     def instruction_index(self, messages: list[dict[str, Any]]) -> int | None:
-        fallback: int | None = None
         for index in range(len(messages) - 1, -1, -1):
             message = messages[index]
-            if str(message.get("role") or "") != "user":
+            if not isinstance(message, dict) or str(message.get("role") or "") != "user":
                 continue
-            raw_text = self.content_to_text(message.get("content"))
-            text = raw_text.lower()
-            if text and fallback is None:
-                fallback = index
-            if is_codex_context_checkpoint_prompt(raw_text) or (
-                "<command-name>/compact</command-name>" in text
-                or ("<command-message>compact</command-message>" in text and "<command-name>" in text)
-                or ("create a detailed summary of the conversation" in text and "compact" in text)
-                or ("summarize the conversation so far" in text and "compact" in text)
+            content = message.get("content")
+            if isinstance(content, str) and content.strip():
+                return index
+            if isinstance(content, list) and any(
+                isinstance(block, dict) and block.get("type") in {"text", "input_text"}
+                and str(block.get("text") or "").strip() for block in content
             ):
                 return index
-        return fallback
+            # A later tool-result-only user message is not a checkpoint request;
+            # never resurrect an older compact instruction behind it.
+            return None
+        return None
 
     @staticmethod
     def segmented_compaction_mode(
@@ -269,52 +344,74 @@ class ContextSummaryPolicy:
     ) -> str | None:
         configured = config.get("context_compact_llm")
         if configured is None:
-            return (
-                "auto_codex"
-                if is_codex_context_checkpoint_prompt(compact_instruction)
-                else None
-            )
+            kind = compact_instruction_kind(compact_instruction)
+            return f"auto_{kind}" if kind else None
         return "explicit" if parse_bool(configured, default=False) else None
 
     def chunk_target_tokens(self, config: dict[str, Any] | None, budget_tokens: int) -> int:
+        """Clamp the historical token option to the local semantic payload envelope."""
         configured = self.positive_int((config or {}).get("context_compact_chunk_tokens"))
-        return max(8192, configured) if configured else max(8192, min(65536, max(1, budget_tokens) // 4))
+        ceiling = max(256, min(262144, max(1, budget_tokens) // 2))
+        return min(ceiling, max(256, configured or ceiling))
 
     def summary_output_tokens(self, config: dict[str, Any] | None, budget_tokens: int) -> int:
         configured = self.positive_int((config or {}).get("context_compact_summary_tokens"))
-        return max(512, configured) if configured else max(1024, min(8192, max(1, budget_tokens) // 64))
+        ceiling = max(32, min(8192, max(1, budget_tokens) // 8))
+        return min(ceiling, max(32, configured or max(512, min(4096, budget_tokens // 64))))
 
     def split_messages(
-        self,
-        messages: list[dict[str, Any]],
-        target_tokens: int,
-    ) -> list[tuple[int, list[dict[str, Any]]]]:
-        chunks: list[tuple[int, list[dict[str, Any]]]] = []
-        current: list[dict[str, Any]] = []
-        current_start = 0
-        current_tokens = 0
+        self, messages: list[dict[str, Any]], target_tokens: int,
+    ) -> list[tuple[int, list[ContextSummaryFragment]]]:
+        # Each interval is disjoint and exhaustive in the original projection.
+        # Character offsets avoid breaking Unicode; size uses serialized bytes.
+        target = max(256, int(target_tokens))
+        fragments: list[ContextSummaryFragment] = []
+        source_bytes = 0
         for index, message in enumerate(messages):
-            tokens = max(1, self.estimate_tokens(message))
-            if current and current_tokens + tokens > target_tokens:
-                chunks.append((current_start, current))
-                current, current_tokens, current_start = [], 0, index
-            if not current:
-                current_start = index
-            current.append(message)
-            current_tokens += tokens
+            source = self.compact_message(message, index)
+            source_bytes += len(source.encode("utf-8"))
+            if source_bytes > MAX_CONTEXT_SUMMARY_SOURCE_BYTES:
+                raise ValueError("semantic context compaction source byte limit exceeded")
+            start = 0
+            while start < len(source):
+                low, high = start + 1, min(len(source), start + target)
+                end = start
+                while low <= high:
+                    middle = (low + high) // 2
+                    fragment = ContextSummaryFragment(index, start, middle, len(source), source[start:middle], str(message.get("role") or "unknown"))
+                    if semantic_payload_cost(self.compact_message(fragment, index), self.estimate_tokens) <= target:
+                        end, low = middle, middle + 1
+                    else:
+                        high = middle - 1
+                if end == start:
+                    raise ValueError("context compact fragment metadata exceeds chunk budget")
+                fragments.append(ContextSummaryFragment(index, start, end, len(source), source[start:end], str(message.get("role") or "unknown")))
+                start = end
+                if len(fragments) > MAX_CONTEXT_SUMMARY_FRAGMENTS:
+                    raise ValueError("semantic context compaction source fragment limit exceeded")
+        chunks: list[tuple[int, list[ContextSummaryFragment]]] = []
+        current: list[ContextSummaryFragment] = []
+        current_cost = 0
+        for fragment in fragments:
+            cost = semantic_payload_cost(self.compact_message(fragment, fragment.source_index), self.estimate_tokens) + 4
+            if current and current_cost + cost > target:
+                chunks.append((current[0].source_index, current))
+                current, current_cost = [], 0
+            current.append(fragment)
+            current_cost += cost
         if current:
-            chunks.append((current_start, current))
+            chunks.append((current[0].source_index, current))
         return chunks
 
     def chunk_prompt(
         self,
-        chunk: list[dict[str, Any]],
+        chunk: list[dict[str, Any] | ContextSummaryFragment],
         start_index: int,
         chunk_number: int,
         chunk_total: int,
     ) -> str:
         parts = [
-            f"Segment {chunk_number}/{chunk_total}. Summarize messages {start_index}-{start_index + len(chunk) - 1}.",
+            f"Segment {chunk_number}/{chunk_total}. Summarize the ordered message fragments below.",
             "Return only the segment summary.",
         ]
         parts.extend(
@@ -336,6 +433,17 @@ class ContextSummaryPolicy:
                 message = choice.get("message") if isinstance(choice.get("message"), dict) else {}
                 return str(message.get("content") or "").strip()
             return ""
+        if wire == "responses":
+            output = data.get("output")
+            if not isinstance(output, list):
+                return ""
+            return "\n".join(
+                block["text"]
+                for item in output if isinstance(item, dict) and item.get("type") == "message"
+                for block in (item.get("content") if isinstance(item.get("content"), list) else [])
+                if isinstance(block, dict) and block.get("type") == "output_text"
+                and isinstance(block.get("text"), str)
+            ).strip()
         if wire == "anthropic":
             return self.content_to_text(data.get("content")).strip()
         return ""
@@ -353,19 +461,17 @@ class ContextSummaryPolicy:
             "Segment summaries:",
         ]
         parts.extend(
-            f"## Segment {index}\n{summary.strip()}"
+            f"## Segment {index}\n{summary}"
             for index, summary in enumerate(summaries, start=1)
         )
         parts.extend(
             (
                 "Client compact instruction:",
-                self.message_text(compact_instruction),
+                compact_instruction,
                 "Using the segment summaries above, return only the final compact summary text requested by the client.",
             )
         )
-        text = "\n\n".join(parts)
-        max_chars = max(8192, max(1, budget_tokens) * 3)
-        return self.truncate(text, max_chars) if len(text) > max_chars else text
+        return "\n\n".join(parts)
 
 
 @dataclass(frozen=True, slots=True)
@@ -421,7 +527,9 @@ class ContextSummaryCompatibilityApi:
             omitted_messages, budget_tokens, start_index
         )
 
-    def compact_message(self, message: dict[str, Any], index: int) -> str:
+    def compact_message(
+        self, message: dict[str, Any] | ContextSummaryFragment, index: int
+    ) -> str:
         return self.policy_factory().compact_message(message, index)
 
     def instruction_index(self, messages: list[dict[str, Any]]) -> int | None:
@@ -448,12 +556,12 @@ class ContextSummaryCompatibilityApi:
 
     def split_messages(
         self, messages: list[dict[str, Any]], target_tokens: int
-    ) -> list[tuple[int, list[dict[str, Any]]]]:
+    ) -> list[tuple[int, list[ContextSummaryFragment]]]:
         return self.policy_factory().split_messages(messages, target_tokens)
 
     def chunk_prompt(
         self,
-        chunk: list[dict[str, Any]],
+        chunk: list[dict[str, Any] | ContextSummaryFragment],
         start_index: int,
         chunk_no: int,
         chunk_total: int,

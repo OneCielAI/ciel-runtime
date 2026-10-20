@@ -1,0 +1,57 @@
+---
+type: journal
+title: Alibaba token-plan 503 relay and the missing upstream attempt log
+timestamp: 2026-10-19
+---
+
+# Reported
+
+User, 2026-10-19: using the Alibaba token plan, Codex shows
+`503 Service Unavailable` with `Master scheduling failed ...` and argued this is
+a ciel-runtime problem rather than a CielAiRouter problem.
+
+# Confirmed observations
+
+- Codex client log (`~/.codex/logs_2.sqlite`) records the response exactly:
+  `POST http://127.0.0.1:9489/v1/responses`, `503 Service Unavailable`,
+  `server: ciel-runtime/0.1 Python/3.14.2`, `content-type: text/event-stream`.
+  Bodies: `Master scheduling failed (INTERNAL)` at 19:29:12 and
+  `(UNAVAILABLE)` at 20:02:16 (local).
+- The body's `type: ServiceUnavailable` and the message are Alibaba DashScope's;
+  no such string exists in the runtime source.
+- The requests go to `https://token-plan.ap-southeast-1.maas.aliyuncs.com`
+  (alitoken), not to CielAiRouter.
+- Same router log, same minutes: no `POST /v1/responses provider=...` DEBUG line
+  and no `upstream_stream_request` line for the failing requests, while normal
+  requests log both. Log level is DEBUG.
+- Large requests to the same endpoint/model succeed: 277,169 tokens / 1.1 MB at
+  19:27:50 and 241,436 tokens at 20:01:28 both returned 200.
+- The provider's saved `custom_models` lists `deepseek-v4.1-flash` but not the
+  selected `deepseek-v4.1-flash-1017`; the model-registry cache does list the
+  snapshot, so the token plan advertises it.
+
+# What this establishes
+
+The 503 originates upstream and the runtime relays it. The runtime cannot be
+excluded as the cause of that upstream rejection because it recorded no
+upstream attempt for the request, which is a runtime observability defect.
+
+# Changes made
+
+- Every `/v1/responses` request logs `responses_request_received` on entry,
+  before any route branch, so a request is recorded even when it fails before
+  the translated-path DEBUG line.
+- Every upstream failure relayed to the client (HTTPError, UpstreamFailure,
+  transport failure) logs `responses_upstream_error` with path, provider,
+  model, status, error type and a 300-character message. Covered branches:
+  translated path, Codex route, native provider Responses route.
+- `alitoken_deepseek_v41_flash_1017_20261019` keeps the selected snapshot in the
+  saved catalog.
+
+# Not established
+
+- Whether the rejected request was too large, wrongly shaped, or hit an Alibaba
+  serving-capacity failure. The new log line answers this on the next
+  occurrence.
+- The upstream error type's exact meaning; no public documentation found for
+  "Master scheduling failed".

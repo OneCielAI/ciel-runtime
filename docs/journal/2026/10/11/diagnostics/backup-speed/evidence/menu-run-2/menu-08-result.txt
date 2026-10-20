@@ -1,0 +1,18 @@
+00:21:15
+Session backup options
+  > Back up this session now  [incremental · last 10-12 00:21 ok]
+    Full backup now  [reads every file again; other backups skip files unchanged since the last one]
+    Snapshots of this folder  [list]
+    Restore a snapshot…
+    Verify a snapshot…
+    ... 48 below
+  Saved snapshot 20261012T052110Z-d91d9a to andy.
+  incremental: 628 of 124807 chunks new, 20.4 MB uploaded (snapshot 150290.4 MB); 111225 unchanged files not read again.
+  Credentials: left out (11 items, no backup key)
+  Git worktrees: off; 67 left out
+  Not in this backup: 8 file(s) (file limit or unreadable), e.g.:
+    claude/projects/G--ciel-Walkie/417ef30b-1289-47a5-8921-a4d45eb93f2e.jsonl: 1416 MB, over the 1024 MB file limi
+    codex/.codex-global-state.json.bak-auto-restore-20260608-140130: 1184 MB, over the 1024 MB file limit
+    codex/.codex-global-state.json.bak-auto-restore-20260608-144527: 1184 MB, over the 1024 MB file limit
+--------------------------------------------------------------------------------------------------------------------------------------
+Up/Down moves. PgUp/PgDn jumps. Home/End bounds. Enter selects. Esc/Left closes. q quits.

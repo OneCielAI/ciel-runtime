@@ -1,0 +1,103 @@
+{
+ "mode": "codex",
+ "before": {
+  "manifests": [
+   {
+    "launch_id": "20abf250d2124d71b51f154835d15788",
+    "runtime": "codex",
+    "servers": [
+     "e2e-tools"
+    ],
+    "dir": "G:\\ciel-e2e\\restart\\codex\\cfg\\mcp-launches\\20abf250d2124d71b51f154835d15788"
+   }
+  ],
+  "mcp_starts": [
+   {
+    "pid": 7532,
+    "started": 1791657868.9888012
+   }
+  ],
+  "threads": [],
+  "tools": [
+   "clock__sleep",
+   "collaboration__followup_task",
+   "collaboration__interrupt_agent",
+   "collaboration__list_agents",
+   "collaboration__send_message",
+   "collaboration__spawn_agent",
+   "collaboration__wait_agent",
+   "functions__exec",
+   "functions__request_user_input",
+   "functions__request_user_input_async",
+   "functions__wait"
+  ]
+ },
+ "after": {
+  "manifests": [
+   {
+    "launch_id": "ffa95f2c09e74f72a30f981e8d6787b2",
+    "runtime": "codex",
+    "servers": [
+     "e2e-tools"
+    ],
+    "dir": "G:\\ciel-e2e\\restart\\codex\\cfg\\mcp-launches\\ffa95f2c09e74f72a30f981e8d6787b2"
+   }
+  ],
+  "mcp_starts": [
+   {
+    "pid": 7532,
+    "started": 1791657868.9888012
+   },
+   {
+    "pid": 76308,
+    "started": 1791657938.248747
+   }
+  ],
+  "threads": [],
+  "tools": [
+   "clock__sleep",
+   "collaboration__followup_task",
+   "collaboration__interrupt_agent",
+   "collaboration__list_agents",
+   "collaboration__send_message",
+   "collaboration__spawn_agent",
+   "collaboration__wait_agent",
+   "functions__exec",
+   "functions__request_user_input",
+   "functions__request_user_input_async",
+   "functions__wait"
+  ],
+  "history": [
+   "E2E-RT-TURN-3"
+  ]
+ },
+ "restart_line": "2026-10-10T13:45:37 [INFO] codex_session_restart exit_code=1 source=ciel-runtime-router-tool reason=e2e restart during a turn resumed=true",
+ "slow_replied_at": 1791657936.4713798,
+ "restart_requested_at": 1791657913.9557028,
+ "chat_messages": [
+  {
+   "id": 1,
+   "channel": "e2e",
+   "sender_id": "claude-code"
+  },
+  {
+   "id": 2,
+   "channel": "e2e",
+   "sender_id": "claude-code"
+  }
+ ],
+ "sse": {
+  "/ca/chat/stream": {
+   "items": 13,
+   "first_at": 1791657899.4270146,
+   "data_after_restart": 1,
+   "closed": []
+  },
+  "/ca/events/stream": {
+   "items": 49,
+   "first_at": 1791657899.4270146,
+   "data_after_restart": 13,
+   "closed": []
+  }
+ }
+}

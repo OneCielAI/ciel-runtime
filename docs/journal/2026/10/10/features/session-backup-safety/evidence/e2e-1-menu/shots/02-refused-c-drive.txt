@@ -1,0 +1,29 @@
+  12. Workspace MCP modules  [launch scoped]
+  13. Request/file limits  [workspace scoped]
+  14. Web backend  [off · 127.0.0.1:9595]
+  15. OAuth tokens  [none · Codex/Claude rotation]
+  16. Web access  [0 accounts · admin token]
+  17. Dangerous delete prompt  [Claude · auto-allow off]
+  18. Session backup  [incremental · schedule off · to cdrive · last 10-10 13:04 failed]
+  19. Provider fallback  [auto off · 0/0 backups ready]
+  Quit
+
+-----------------------------------------------------------------------------------------------------------------------
+Session backup options
+  > Back up this session now  [incremental · last 10-10 13:04 failed]
+    Snapshots of this folder  [list]
+    Restore a snapshot…
+    Verify a snapshot…
+    Prune old snapshots now  [keep last 30 + 14 daily]
+    ... 17 below
+
+  Backup not saved: not enough space on target cdrive
+  (C:\Users\djlov\AppData\Local\Temp\ciel-e2e-cdrive): 570 MB free, the work folder is 3.0 GB for a
+  first backup (largest: bigdata 3.0 GB, src 0 MB). Exclude big folders (menu: Exclude from the work
+  folder) or choose a target with more room.
+
+-----------------------------------------------------------------------------------------------------------------------
+  Base URL: unreachable (URLError)
+  API key: not required for
+
+Up/Down moves. PgUp/PgDn jumps. Home/End bounds. Enter selects. Esc/Left closes. q quits.

@@ -235,8 +235,10 @@ def channel_mcp_tool_schemas() -> list[dict[str, Any]]:
                 "through this Ciel Runtime router. The launcher that owns the CLI terminates it and "
                 "relaunches it with the runtime's session-continue argument (--continue for Claude "
                 "Code, resume --last for Codex), so the conversation resumes instead of starting over. "
-                "Use this after deploying a new runtime build, or to recover a wedged CLI. The caller "
-                "is disconnected when the session restarts."
+                "A turn in progress finishes first (the console shows a notice while the restart waits), "
+                "the workspace MCP servers are started anew, and codex-remote restarts its app-server too, "
+                "on the same thread. Use this after deploying a new runtime build, or to recover a wedged "
+                "CLI. The caller is disconnected when the session restarts."
             ),
             "inputSchema": {
                 "type": "object",
@@ -264,6 +266,25 @@ def channel_mcp_tool_schemas() -> list[dict[str, Any]]:
                         ),
                     },
                 },
+            },
+        },
+        {
+            "name": "provider_fallback",
+            "description": (
+                "Show or change the provider fallback: while the current provider is rate-limited "
+                "(429 / usage limit), requests are served by a backup provider whose credentials are "
+                "already stored, until the provider's reset time. Actions: status, switch (provider, "
+                "minutes, model), return (back to the configured provider now), enable, disable."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "action": {"type": "string", "enum": ["status", "switch", "return", "enable", "disable"]},
+                    "provider": {"type": "string", "description": "switch: the backup provider id."},
+                    "minutes": {"type": "number", "minimum": 1, "description": "switch: how long (default: the configured cooldown)."},
+                    "model": {"type": "string", "description": "switch: the model on that provider (default: its configured model)."},
+                },
+                "required": ["action"],
             },
         },
         {
@@ -375,6 +396,13 @@ def dispatch_channel_mcp_tool(
         return _telemetry_logs(request_id, args, services)
     if name == "session_backup":
         return _session_backup(request_id, args, services)
+    if name == "provider_fallback":
+        from ciel_runtime_support.provider_failover import mcp_provider_fallback
+
+        result = mcp_provider_fallback(dict(args))
+        if not result.get("ok"):
+            return channel_mcp_tool_response(request_id, str(result.get("error")), True)
+        return _json_response(request_id, result)
     return channel_mcp_tool_response(request_id, f"Unknown ciel-runtime-router tool: {name}", True)
 
 

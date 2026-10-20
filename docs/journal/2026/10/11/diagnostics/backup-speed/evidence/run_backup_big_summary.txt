@@ -1,0 +1,2 @@
+{"code": "C:\\Users\\djlov\\AppData\\Local\\Temp\\claude\\C--Users-djlov-ciel-runtime\\839a1c11-9672-467c-bcda-8f929bddb4f3\\scratchpad\\old-code", "ok": false, "id": null, "output": "stopped after 15 s", "seconds": 15.1}
+{"code": "C:\\Users\\djlov\\ciel-runtime", "ok": true, "id": "snap-big", "output": "", "seconds": 0.1}

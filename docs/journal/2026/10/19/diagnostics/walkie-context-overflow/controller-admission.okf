@@ -1,0 +1,51 @@
+---
+type: implementation-journal
+title: Native compaction admission control
+date: 2026-10-19
+status: support-implementation-focused-verified-parent-wiring-required
+---
+
+# Verified scope
+
+Added runtime_compaction_control.py and queue-preserving guards at terminal/socket,
+router body append, app-server steer/start, terminal polling, and direct socket
+handoff. Native compact and direct user recovery requests remain usable. External
+pending backlog is not cleared, marked failed/delivered, or cursor-committed while
+pressure is paused. Existing submitted wake confirmation timers exclude the pause.
+
+Automatic compact reserves only an empty single-slot command repository; manual
+new_session/goal_clear is never overwritten. Commands are deduplicated by session
+and launch epoch. Submitted/RPC accepted is not completed. Admission requires a
+new persisted native checkpoint AND a smaller below-budget next raw request.
+Uncertain submission stays blocked; definite pre-submit failure has bounded retry
+and cooldown. Checkpoint parser uses observed Claude 2.1.303 compact_boundary and
+Codex 0.158 compacted replacement_history shapes from native-e2e/baseline-01.
+The parser is bounded to 512 KiB tail bytes and never scans giant JSONL lines.
+
+# Verification evidence
+
+[Focused test output](evidence/controller/focused-tests.txt) records the isolated
+focused selection. Inherited runtime/provider/client environment variables were
+removed before imports, scripts.run_test_group.isolate_runtime_state was called,
+and no external provider or live router endpoints were used. Includes actual
+private durable state and JSONL checkpoint handoff, same pending backlog held
+until proof then delivered once, wrong-session/old/quoted checkpoint rejection,
+manual priority, uncertainty timeout, epoch scope, busy socket gate and direct
+fallback preservation. Scoped ruff and compile checks also passed.
+
+# Explicit integration boundary
+
+Support implementation is not a complete live product recovery. Parent must
+compose one shared private state path with build_runtime_compaction_control,
+provide exact active session id plus common launch epoch across router/consumer,
+call observe_request before guard/channel append, and pass compaction into
+ChannelPendingIoPorts, ChannelTerminalPolicyPorts, CodexDesktopChannelPorts.
+The factory accepts transcript_path callback; use the exact bound session file,
+not an unrelated latest transcript. Raw count must be the same unmodified-stage
+count across observations, never a post-guard count. Proven overflow can call
+observe_request(..., recovery_required=True). Native compact detection must reuse
+compact_request_kind from context_summary_policy; no new heuristic is introduced.
+
+No live session, SSE receiver, backlog cursor, install, restart or commit was
+performed by this task. Native CLI E2E and screenshots belong to the parent native
+verification task and are not claimed by this journal.

@@ -1,0 +1,18 @@
+{
+  "bundle": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-final-okf-1aj2n4od",
+  "conformant": true,
+  "passed": true,
+  "counts": {
+    "concepts": 2,
+    "indexes": 0,
+    "logs": 0
+  },
+  "errors": [],
+  "warnings": [
+    "concept-0.md: recommended field `description` is absent (\u00a74.1)",
+    "concept-0.md: recommended field `tags` is absent (\u00a74.1)",
+    "concept-1.md: recommended field `description` is absent (\u00a74.1)",
+    "concept-1.md: recommended field `tags` is absent (\u00a74.1)",
+    "concept-1.md: recommended field `timestamp` is absent (\u00a74.1)"
+  ]
+}

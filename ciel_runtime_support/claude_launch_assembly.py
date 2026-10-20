@@ -60,6 +60,7 @@ class ClaudeLaunchConfigPorts:
     provider_menu_label: Callback
     launch_mode_name: Callback
     current_launch_cwd_key: Callback
+    data_path: Callback | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -111,6 +112,8 @@ class ClaudeLaunchMcpConfigPorts:
 class ClaudeLaunchRestartPorts:
     control: Callback
     notice: Callback = lambda _body: None
+    prepare: Callback = lambda _runtime: None
+    child_exited: Callback = lambda _verified: None
 
 
 @dataclass(frozen=True, slots=True)
@@ -170,6 +173,7 @@ class ClaudeLaunchAssembly:
                 provider_menu_label=self.config.provider_menu_label,
                 launch_mode_name=self.config.launch_mode_name,
                 current_launch_cwd_key=self.config.current_launch_cwd_key,
+                launch_data_path=self.config.data_path,
             ),
             routing=runtime_launch.ClaudeLaunchRouting(
                 anthropic_routed_enabled=self.routing.routed_enabled,
@@ -209,7 +213,7 @@ class ClaudeLaunchAssembly:
                 workspace_mcp=self.mcp_config.workspace,
             ),
             restart=(
-                runtime_launch.SessionRestartPorts(self.restart.control, self.restart.notice)
+                runtime_launch.SessionRestartPorts(self.restart.control, self.restart.notice, self.restart.prepare, self.restart.child_exited)
                 if self.restart is not None
                 else runtime_launch.SessionRestartPorts()
             ),

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import queue
+import dataclasses
+from unittest.mock import Mock
 import unittest
 from typing import Any
 
@@ -124,6 +126,70 @@ class CodexDesktopInjectionTests(unittest.TestCase):
     def _commit(self, message_id: int) -> None:
         self.cursor = max(self.cursor, message_id)
 
+    def test_terminal_startup_gate_holds_queue_commands_and_direct_submit(self):
+        ready = [False]
+        self.injector._delivery_ready = lambda: ready[0]
+        self.messages = [_message(7)]
+        commands = Mock()
+        commands.read.return_value = {"id": "compact-1", "action": "compact"}
+        self.injector._ports = dataclasses.replace(self.injector._ports, session_commands=commands)
+        self.client.notifications.put({"method": "thread/status/changed", "params": {
+            "threadId": "thread-a", "status": {"type": "idle"}}})
+        self.injector.poll_once()
+        self.injector.deliver_pending()
+        self.injector.run_session_command()
+        self.assertFalse(self.injector._submit(7, "continuation"))
+        self.assertEqual([], self.client.calls)
+        self.assertEqual([], self.client.compacted)
+        self.assertEqual([], self.status.records)
+        self.assertEqual({}, self.injector._delivery.attempts)
+        self.assertEqual(0, self.cursor)
+        commands.read.assert_not_called()
+        commands.clear.assert_not_called()
+        self.assertTrue(self.client.notifications.empty())
+        ready[0] = True
+        self.injector.poll_once()
+        self.assertEqual(["thread-a"], self.client.compacted)
+        self.assertEqual("start", self.client.calls[0][0])
+        self.assertEqual(7, self.cursor)
+        commands.clear.assert_called_once_with("compact-1")
+
+    def test_context_pressure_stops_steer_without_cursor_or_status_transition(self):
+        self.messages = [_message(7)]
+        self.client.state = CodexAppServerState(thread_id="thread-a", active_turn_id="turn-live")
+        control = Mock()
+        control.external_admission_paused.return_value = True
+        self.injector._ports = dataclasses.replace(self.injector._ports, compaction=control)
+        self.injector.poll_once()
+        self.assertEqual([], self.client.calls)
+        self.assertEqual(0, self.cursor)
+        self.assertEqual([], self.status.records)
+        control.external_admission_paused.return_value = False
+        self.injector.poll_once()
+        self.assertEqual([("steer", "thread-a", "turn-live")], self.client.calls)
+        self.assertEqual(7, self.cursor)
+
+    def test_compact_rpc_acceptance_reports_only_submission_to_shared_control(self):
+        request = {"id": "automatic-compact", "action": "compact", "automatic": True}
+        control = Mock()
+        control.command_ready.return_value = True
+        control.external_admission_paused.return_value = True
+        cleared = []
+        self.messages = [_message(7)]
+        self.injector._ports = dataclasses.replace(
+            self.injector._ports, compaction=control,
+            session_commands=CodexSessionCommandPorts(lambda: request, cleared.append),
+        )
+        self.injector.poll_once()
+        self.assertEqual(["thread-a"], self.client.compacted)
+        control.command_submitted.assert_called_once_with(request)
+        self.assertEqual(["automatic-compact"], cleared)
+        self.assertEqual([], self.client.calls)
+        self.assertEqual(0, self.cursor)
+        self.assertEqual([], self.status.records)
+        self.assertTrue(any("session_command_submitted" in line for line in self.logs))
+        self.assertFalse(any("session_command_done" in line for line in self.logs))
+
     def test_idle_thread_gets_a_new_turn_and_the_cursor_moves(self):
         self.messages = [_message(5, "first")]
         self.injector.poll_once()
@@ -164,6 +230,15 @@ class CodexDesktopInjectionTests(unittest.TestCase):
         self.injector.poll_once()
         self.assertEqual([], self.client.calls)
         self.assertEqual(0, self.cursor)
+
+    def test_direct_gateway_router_transport_is_delivered_by_rpc_while_busy(self):
+        from unittest import mock
+        self.client.state = CodexAppServerState(thread_id="thread-a", active_turn_id="turn-live")
+        self.messages = [_message(3, "whole body", transport="router")]
+        with mock.patch("ciel_runtime_support.launch_data_path.model_http_bypassed", return_value=True):
+            self.injector.poll_once()
+        self.assertEqual([("steer", "thread-a", "turn-live")], self.client.calls)
+        self.assertEqual(3, self.cursor)
 
     def test_router_transport_messages_wake_an_idle_thread(self):
         # An idle thread makes no model request the router could add them to.

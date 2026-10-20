@@ -1,0 +1,35 @@
+---
+type: Diagnostic Review
+title: Walkie compaction ownership and context overflow
+description: Distinguish native Claude Code conversation compaction from Ciel Runtime payload guarding using actual process limits, transcript metadata and overflow logs.
+timestamp: "2026-10-19"
+tags: [walkie, context, compaction, ownership, diagnosis]
+---
+
+# Responsibility boundary
+
+Native persistent conversation compaction is initiated by Claude Code. Ciel Runtime projects the selected provider window into Claude Code and implements a separate outbound-payload guard. Ciel AI Router routes requests and exposes the upstream provider rejection/fallback. The first responsibility boundary for a missing 872K native trigger is Runtime-to-Claude-Code integration, not an assumption that the remote gateway should initiate the CLI's /compact.
+
+# Direct observations
+
+- Current Walkie router 9505: provider cielairouter, Runtime version 0.2.51-nightly.20261019-050605.4e5c802. Launcher PID 4296 and Claude PID 28964.
+- Actual Claude child environment: CLAUDE_CODE_AUTO_COMPACT_WINDOW=872000, CLAUDE_CODE_MAX_CONTEXT_TOKENS=872000, CLAUDE_CODE_MAX_OUTPUT_TOKENS=128000. DISABLE_AUTO_COMPACT, DISABLE_COMPACT and CLAUDE_AUTOCOMPACT_PCT_OVERRIDE were unset. User settings autoCompactEnabled=true. Launch snapshot at router.log line 14 agrees: context=872000 window=872000.
+- Screenshot numerator 998467 is exactly the latest assistant usage input_tokens 4297 + cache_creation_input_tokens 994170; it is not the current outbound request's exact tokenizer count.
+- Runtime guard ran repeatedly: messages 4014→297, estimated tokens 5230119→760866, budget 780750. The compact activity snapshot reports chunks=12. That label describes deterministic outbound-request guard chunks, not twelve native compactions of the persisted CLI conversation.
+- At router.log lines 43326 and 43556, the remote response was outer HTTP 502 with nested Claude HTTP 400 prompt too long 1239398 > 1000000, then Codex fallback HTTP 504. Runtime request estimate was 760859, bytes 3239466.
+- Last retained native compact_boundary is 2026-10-18T17:34:48.403Z, trigger auto, preTokens 648692, postTokens 153606. Since that boundary the inspected transcript contains main-thread API request records but no subsequent native compact boundary. Latest request metadata names Claude Code 2.1.303.
+
+# Source evidence
+
+- ciel_runtime_support/claude_environment.py:447-462 exports the two windows and optional percent.
+- ciel_runtime_support/statusline_script.py:228-249 sums input/cache usage and prefers configured expected capacity.
+- ciel_runtime_support/context_summary_policy.py:183-225 caps chunk reporting at 12 and makes deterministic guard summaries.
+- ciel_runtime_support/claude_router.py:370-379 normalizes/caps the body before upstream forwarding.
+- ciel_runtime.py:2141-2150 estimates serialized JSON characters divided by four; it is not the actual upstream tokenizer.
+- Official docs: https://code.claude.com/docs/en/how-claude-code-works ; https://code.claude.com/docs/en/model-config . Current installed binary contains both context-window environment names. No claim that the exact 2.1.300 threshold formula applies to 2.1.303.
+
+# Limits
+
+The native CLI's precise reason for not initiating compaction is not established. Env projection was present, so missing launch variables are not supported as the explanation. Internal failure/thrashing gates, model/token accounting and gateway-side request transformation have not been proven for this incident. Runtime guard's estimated fit did not prevent the reported upstream rejection; the differing counts alone cannot locate where they diverged. Do not label either product's implementation the sole confirmed defect.
+
+Only read-only live health/process/environment and metadata/log inspection was performed. Conversation bodies, credentials and keys were not saved. No runtime code/settings, session state, queues, cursors or model accounts changed. Numeric evidence is in evidence/.

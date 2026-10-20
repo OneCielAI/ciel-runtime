@@ -1,0 +1,9 @@
+{
+  "wire_preserved": true,
+  "classification": [
+    "stream_truncated"
+  ],
+  "failure_log": [
+    "cielairouter_gateway_failure endpoint=https://fixture.invalid node=fixture reason=eof_before_terminal class=stream_truncated rotated=True; later requests reselect a gateway"
+  ]
+}

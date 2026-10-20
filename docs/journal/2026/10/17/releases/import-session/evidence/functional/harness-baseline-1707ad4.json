@@ -1,0 +1,42 @@
+{
+  "label": "baseline-1707ad4-snapshot",
+  "root": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-1707ad4ddc6775f1005eaf40e3ece8df6c343d02",
+  "loaded_from": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-1707ad4ddc6775f1005eaf40e3ece8df6c343d02\\ciel_runtime_support",
+  "python": "3.11.6",
+  "request_shortcuts_lf_sha256": "9293143f619dc15118802ce2f3359a779c6744b5bae59090edaddcc012478151",
+  "results": [
+    {
+      "case": "claude-client <- Codex explicit path",
+      "handled": true,
+      "wire": "anthropic",
+      "ok": false,
+      "reply_first_line": "ImportSession failed: Transcript file not found: format and must be `Codex` or `Claude`.",
+      "expected_marker_present": false
+    },
+    {
+      "case": "codex-client <- Claude explicit path",
+      "handled": true,
+      "wire": "openai",
+      "ok": false,
+      "reply_first_line": "ImportSession failed: Transcript file not found: format and must be `Codex` or `Claude`.",
+      "expected_marker_present": false
+    },
+    {
+      "case": "claude-client <- Codex latest",
+      "handled": true,
+      "wire": "anthropic",
+      "ok": false,
+      "reply_first_line": "ImportSession failed: Transcript file not found: format and must be `Codex` or `Claude`.",
+      "expected_marker_present": false
+    },
+    {
+      "case": "codex-client <- Claude latest",
+      "handled": true,
+      "wire": "openai",
+      "ok": false,
+      "reply_first_line": "ImportSession failed: Transcript file not found: format and must be `Codex` or `Claude`.",
+      "expected_marker_present": false
+    }
+  ],
+  "all_ok": false
+}

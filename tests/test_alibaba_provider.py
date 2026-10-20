@@ -767,6 +767,27 @@ class AlibabaProviderTests(unittest.TestCase):
         self.assertIn("private-token-model", cfg["providers"]["alitoken"]["custom_models"])
         self.assertTrue(cfg["migrations"]["alibaba_singapore_plan_catalog_20260918"])
 
+    def test_alitoken_snapshot_model_is_kept_in_custom_models(self):
+        # The token plan advertises deepseek-v4.1-flash-1017 in GET /models,
+        # but an older saved catalog can predate it while already selected.
+        cfg = {
+            "migrations": {},
+            "providers": {
+                "alitoken": {
+                    "current_model": "deepseek-v4.1-flash-1017",
+                    "custom_models": ["deepseek-v4.1-flash"],
+                }
+            },
+        }
+
+        ciel_runtime.apply_config_migrations(cfg)
+        ciel_runtime.apply_config_migrations(cfg)
+
+        custom = cfg["providers"]["alitoken"]["custom_models"]
+        self.assertEqual(1, custom.count("deepseek-v4.1-flash-1017"))
+        self.assertIn("deepseek-v4.1-flash", custom)
+        self.assertTrue(cfg["migrations"]["alitoken_deepseek_v41_flash_1017_20261019"])
+
     def test_all_alibaba_catalogs_include_current_provider_models(self):
         expected_coding = {
             "qwen3.7-plus",

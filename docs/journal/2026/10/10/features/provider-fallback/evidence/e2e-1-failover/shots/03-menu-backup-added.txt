@@ -1,0 +1,29 @@
+  10. External event inputs  [CloudEvents + Webhook/SSE]
+  11. Remote instructions  [HTTP GET · off]
+  12. Workspace MCP modules  [launch scoped]
+  13. Request/file limits  [workspace scoped]
+  14. Web backend  [off · 127.0.0.1:54604]
+  15. OAuth tokens  [none · Codex/Claude rotation]
+  16. Web access  [0 accounts · admin token]
+  17. Dangerous delete prompt  [Claude · auto-allow off]
+  18. Session backup  [incremental · schedule off · to local · last never]
+  19. Provider fallback  [auto on · 1/1 backups ready]
+  Quit
+
+-----------------------------------------------------------------------------------------------------------------------
+Provider fallback options
+    ... 2 above
+    Cooldown when the provider gives no reset time  [30 min]
+    ── Backups, tried in this order (Enter: up · down · model · remove) ──
+  >   1. lm-studio · stub-b-model  [credentials ✓]
+      Add a backup…  [1 providers with stored credentials]
+    ── Now: vllm serves requests (no fallback active) ──
+    ... 3 below
+
+  Added backup 1: lm-studio · stub-b-model.
+
+-----------------------------------------------------------------------------------------------------------------------
+  Base URL: model list reachable (/v1/models, 1 models, max_model_len 128000)
+  API key: set (primary *******; fp 54cb26614c42)
+
+Up/Down moves. PgUp/PgDn jumps. Home/End bounds. Enter selects. Esc/Left closes. q quits.

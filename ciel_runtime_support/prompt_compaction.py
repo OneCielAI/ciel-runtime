@@ -5,6 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable
 
+from .context_compaction import ContextCompactionFailed
+from .context_summary_policy import compact_instruction_kind, native_compact_text, semantic_payload_cost
+
 
 @dataclass(frozen=True, slots=True)
 class PromptCompactionText:
@@ -63,10 +66,7 @@ def compact_chat_messages_for_budget(
             final_tokens = runtime.estimate_tokens({"messages": compacted_by_llm, "tools": []})
             if final_tokens <= budget_tokens:
                 return compacted_by_llm
-            runtime.log(
-                "WARN",
-                f"context_compact_map_reduce_oversize provider={provider} model={model} tokens={final_tokens} budget={budget_tokens}; falling back to deterministic compact",
-            )
+            raise ContextCompactionFailed("final_reduce_exceeds_budget")
 
     def compact_message(message: dict[str, Any], max_chars: int, prefix: str) -> dict[str, Any]:
         role = str(message.get("role") or "user")
@@ -197,16 +197,16 @@ def responses_item_as_message(item: dict[str, Any]) -> dict[str, Any]:
     if item_type == "message":
         return {"role": str(item.get("role") or "user"), "content": item.get("content")}
     if item_type in RESPONSES_CALL_TYPES:
-        arguments = item.get("arguments")
-        if arguments is None:
-            arguments = item.get("input")
         return {
             "role": "assistant",
-            "content": f"{item.get('name') or item_type}({arguments if isinstance(arguments, str) else ''})",
+            "content": item.get("input") if item.get("arguments") is None else item.get("arguments"),
+            "tool_calls": [dict(item)],
+            "name": item.get("name"),
+            "tool_call_id": item.get("call_id"),
         }
     if item_type in RESPONSES_OUTPUT_TYPES:
-        return {"role": "tool", "content": item.get("output")}
-    return {"role": "assistant", "content": item_type}
+        return {"role": "tool", "content": item.get("output"), "tool_call_id": item.get("call_id")}
+    return {"role": "assistant", "content": dict(item)}
 
 
 def responses_tail_is_safe(items: list[dict[str, Any]], start: int) -> bool:
@@ -257,6 +257,17 @@ def responses_stable_checkpoint_start(
     return checkpoint if checkpoint < len(items) else start
 
 
+def responses_compact_instruction_index(items: list[dict[str, Any]]) -> int | None:
+    """Only the newest user instruction can request a native checkpoint."""
+    for index in range(len(items) - 1, -1, -1):
+        item = items[index]
+        if not isinstance(item, dict) or str(item.get("type") or "").endswith("_output"):
+            return None
+        if item.get("role") == "user":
+            return index if compact_instruction_kind(native_compact_text(item.get("content"))) else None
+    return None
+
+
 def compact_responses_input_for_budget(
     body: dict[str, Any],
     budget_tokens: int,
@@ -264,6 +275,9 @@ def compact_responses_input_for_budget(
     provider: str = "",
     model: str = "",
     stable_prefix_checkpoint_items: int = 0,
+    pcfg: dict[str, Any] | None = None,
+    full_compact_request: bool = False,
+    semantic_input: list[Any] | None = None,
     services: PromptCompactionServices,
 ) -> dict[str, Any]:
     """Fit a Responses ``input`` array inside the target model's budget.
@@ -289,6 +303,40 @@ def compact_responses_input_for_budget(
     text = services.text
     runtime = services.runtime
     budget_tokens = max(8192, budget_tokens)
+    if full_compact_request:
+        # Semantic checkpoint only. The deterministic guard below belongs to the
+        # byte-limit caller and must never run on unrepaired raw source items.
+        source = semantic_input if isinstance(semantic_input, list) else typed
+        if not source or not all(isinstance(item, dict) for item in source):
+            return body
+        instruction_index = responses_compact_instruction_index(source)
+        # A previous_response_id input may be a delta of server-held history,
+        # so the visible items are not the complete semantic source.
+        if (instruction_index is None or body.get("previous_response_id")
+                or pcfg is None or not provider or not model
+                or semantic_payload_cost(body, runtime.estimate_tokens) <= budget_tokens):
+            return body
+        messages = ([{"role": "system", "content": body["instructions"]}]
+                    if body.get("instructions") else [])
+        for index, item in enumerate(source):
+            # Every field, argument, output, image and opaque item stays intact;
+            # historical system/developer items are data in the map stage.
+            messages.append(dict(item) if index == instruction_index
+                            else {"role": "assistant", "content": dict(item)})
+        compacted = runtime.llm_compact_messages(
+            provider, model, pcfg, messages, budget_tokens, wire="responses",
+        )
+        if not compacted:
+            return body
+        out = {key: value for key, value in body.items()
+               if key not in {"tools", "tool_choice", "parallel_tool_calls"}}
+        out["input"] = [
+            {"role": "user", "content": [{"type": "input_text", "text": message["content"]}]}
+            for message in compacted if message.get("role") != "system"
+        ]
+        if semantic_payload_cost(out, runtime.estimate_tokens) > budget_tokens:
+            raise ContextCompactionFailed("final_reduce_exceeds_budget")
+        return out
     initial_tokens = runtime.estimate_tokens(body)
     if initial_tokens <= budget_tokens:
         return body
@@ -384,6 +432,7 @@ def compact_anthropic_body_for_budget(
     model: str = "",
     pcfg: dict[str, Any] | None = None,
     full_compact_request: bool = False,
+    wire: str = "anthropic",
     services: PromptCompactionServices,
 ) -> dict[str, Any]:
     messages = body.get("messages")
@@ -399,13 +448,17 @@ def compact_anthropic_body_for_budget(
     if initial_tokens <= budget_tokens:
         return body
     if full_compact_request and pcfg is not None and provider and model:
+        envelope = {key: value for key, value in body.items()
+                    if key not in {"messages", "tools", "tool_choice", "parallel_tool_calls"}}
+        semantic_budget = max(1, budget_tokens - semantic_payload_cost(envelope, runtime.estimate_tokens))
         compact_messages = runtime.llm_compact_messages(
             provider,
             model,
             pcfg,
             typed_messages,
-            budget_tokens,
-            wire="anthropic",
+            semantic_budget,
+            # Raw native blocks, but summaries go to the provider's own wire.
+            wire=wire,
         )
         if compact_messages:
             compacted = dict(body)
@@ -416,10 +469,7 @@ def compact_anthropic_body_for_budget(
             final_tokens = runtime.estimate_tokens(compacted)
             if final_tokens <= budget_tokens:
                 return compacted
-            runtime.log(
-                "WARN",
-                f"context_compact_map_reduce_oversize provider={provider} model={model} tokens={final_tokens} budget={budget_tokens}; falling back to deterministic compact",
-            )
+            raise ContextCompactionFailed("final_reduce_exceeds_budget")
 
     summary_budget = max(1024, min(24576, budget_tokens // 10))
     tail_budget = max(8192, budget_tokens - summary_budget)

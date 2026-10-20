@@ -1,0 +1,442 @@
+{
+  "release_sha": "4e5c802900363fd318d1460b7510abd2ed08c24f",
+  "version": "0.2.51-nightly.20261019-050605.4e5c802",
+  "tarball_sha256": "3c925c2d0f1fb730deede75c0ff120fa93028dabb004ed69c106e4608664a2dd",
+  "tarball_sha1": "7c13cb95a34e7b07a328c49ea1b0c595952b554f",
+  "tarball_integrity": "sha512-p1O6x69Y9c+do4jhl9bIBiWfPyYCmhlhIl/WASLi0o3luxFnyHjSSlFbga5OPAV0hoKHA0MlfvdlgA5UvIWQ+g==",
+  "ci": {
+    "url": "https://github.com/OneCielAI/ciel-runtime/actions/runs/39200629643",
+    "conclusion": "success",
+    "headSha": "4e5c802900363fd318d1460b7510abd2ed08c24f",
+    "jobs": [
+      {
+        "name": "quality",
+        "conclusion": "success"
+      },
+      {
+        "name": "python-minimum",
+        "conclusion": "success"
+      },
+      {
+        "name": "test (router)",
+        "conclusion": "success"
+      },
+      {
+        "name": "test (channel)",
+        "conclusion": "success"
+      },
+      {
+        "name": "test (runtime)",
+        "conclusion": "success"
+      },
+      {
+        "name": "test (unit)",
+        "conclusion": "success"
+      }
+    ]
+  },
+  "publish": {
+    "url": "https://github.com/OneCielAI/ciel-runtime/actions/runs/39200629471",
+    "attempt": 2,
+    "headSha": "4e5c802900363fd318d1460b7510abd2ed08c24f",
+    "conclusion": "success"
+  },
+  "tags": {
+    "latest": "0.2.51",
+    "nightly": "0.2.51-nightly.20261019-050605.4e5c802"
+  },
+  "package_source_matches_after_lf_normalization": 1764,
+  "stamp_only_changes": [
+    "ciel_runtime_support/runtime_constants.py",
+    "package.json"
+  ],
+  "installed": {
+    "version": "0.2.51-nightly.20261019-050605.4e5c802",
+    "sha": "4e5c802900363fd318d1460b7510abd2ed08c24f",
+    "tarball_sha256": "3c925c2d0f1fb730deede75c0ff120fa93028dabb004ed69c106e4608664a2dd",
+    "tarball_sha1": "7c13cb95a34e7b07a328c49ea1b0c595952b554f",
+    "tarball_integrity": "sha512-p1O6x69Y9c+do4jhl9bIBiWfPyYCmhlhIl/WASLi0o3luxFnyHjSSlFbga5OPAV0hoKHA0MlfvdlgA5UvIWQ+g==",
+    "package_source_matches_after_lf_normalization": 1764,
+    "stamp_only_changes": [
+      "ciel_runtime_support/runtime_constants.py",
+      "package.json"
+    ],
+    "registered_home": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-4e5c802900363fd318d1460b7510abd2ed08c24f",
+    "installations": {
+      "npm": {
+        "root": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime",
+        "matched_files": 1766
+      },
+      "snapshot": {
+        "root": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-4e5c802900363fd318d1460b7510abd2ed08c24f",
+        "matched_files": 425
+      }
+    },
+    "old_snapshot_preserved_files": 425,
+    "launchers": [
+      {
+        "name": "npm-cmd",
+        "path": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\ciel-runtimectl.cmd",
+        "returncode": 0,
+        "stdout": "ciel-runtime 0.2.51-nightly.20261019-050605.4e5c802\n",
+        "stderr": ""
+      },
+      {
+        "name": "local-cmd",
+        "path": "C:\\Users\\djlov\\.local\\bin\\ciel-runtimectl.cmd",
+        "returncode": 0,
+        "stdout": "ciel-runtime 0.2.51-nightly.20261019-050605.4e5c802\n",
+        "stderr": ""
+      },
+      {
+        "name": "fresh-user-path",
+        "returncode": 0,
+        "stdout": "resolved=C:\\Users\\djlov\\.local\\bin\\ciel-runtimectl.ps1\nciel-runtime 0.2.51-nightly.20261019-050605.4e5c802\n",
+        "stderr": ""
+      }
+    ]
+  },
+  "functional_checks": {
+    "installed-npm": {
+      "root": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime",
+      "tests_run": 96,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "module_hashes": [
+        {
+          "module": "ciel_runtime_support.channel_terminal_dispatch",
+          "path": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\channel_terminal_dispatch.py",
+          "sha256": "8874ec6a0855ad80a7c53d6472a9e0e3e9044d0eabae38bdb49abfe13093b16e"
+        },
+        {
+          "module": "ciel_runtime_support.channel_terminal_context",
+          "path": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\channel_terminal_context.py",
+          "sha256": "03632e2b5bf40d54c97678eb239831480c5a0c911703bebd260a4576d878a2c2"
+        },
+        {
+          "module": "ciel_runtime_support.channel_pending_injection",
+          "path": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\channel_pending_injection.py",
+          "sha256": "e5eb574e918b0f171a9b02bc0ad3df256e49feb3477d73d136332aa576aa8372"
+        },
+        {
+          "module": "ciel_runtime_support.channel_message_repository",
+          "path": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\channel_message_repository.py",
+          "sha256": "0ac82364ba51f24c8743bc77c4af700a9a106c8a6ffe8bff5ce00ec20c8d3634"
+        },
+        {
+          "module": "ciel_runtime_support.channel_pending_poll",
+          "path": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\channel_pending_poll.py",
+          "sha256": "35cfd99ea8abf47da1c34ed7f77cefb672c486ccf37c3169a067b09d3be37410"
+        },
+        {
+          "module": "ciel_runtime_support.channel_terminal_proxy",
+          "path": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\channel_terminal_proxy.py",
+          "sha256": "6ec56d4c16e1b9d4af7a2ef11ffba8bdf3571c26a39cc909c825d8c118f56e1c"
+        },
+        {
+          "module": "ciel_runtime_support.channel_wake_delivery_repository",
+          "path": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\channel_wake_delivery_repository.py",
+          "sha256": "dcd4b4ccef96ee676f60fd1185be6488bbfc70eafbc77802e54cc64fdf0eac78"
+        }
+      ],
+      "fixtures": [
+        {
+          "returncode": 0,
+          "receipt": {
+            "accepted": true,
+            "prompt": "{\"specversion\": \"1.0\", \"id\": \"fixture-event\", \"source\": \"urn:ciel:fixture\", \"type\": \"fixture.message\", \"data\": {\"text\": \"socket-fallback-nonce\"}}",
+            "user_frames": 1
+          },
+          "released": true,
+          "events": [
+            [
+              "INFO",
+              "claude_session_socket_configured target=\\\\.\\pipe\\LOCAL\\cc-msg-af2ba854cadcbbdb3fd4fc267b187738"
+            ],
+            [
+              "INFO",
+              "channel_windows_console_proxy_started pid=63964 transport=conpty enter=cr submit_retries=1 confirm_submit=True bracketed_paste=False display_body=False"
+            ],
+            [
+              "INFO",
+              "claude_session_socket_injected bytes=345 target=\\\\.\\pipe\\LOCAL\\cc-msg-af2ba854cadcbbdb3fd4fc267b187738"
+            ],
+            [
+              "INFO",
+              "channel_stdin_proxy_injected count=1 message_ids=1 channels=external:default enter=cr transport=session_socket commit_cursor=False display_body=False"
+            ],
+            [
+              "ERROR",
+              "channel_windows_console_proxy_exception stage=terminal_io type=OSError errno=36 winerror=None frames=channel_terminal_proxy.py:443:run_windows_channel_terminal_proxy,test_channel_direct_socket_e2e.py:188:resize_if_needed pid=63964 cursor=1"
+            ],
+            [
+              "WARN",
+              "channel_windows_console_proxy_failed stage=windows_proxy type=OSError errno=36 winerror=None frames=channel_terminal_dispatch.py:123:dispatch,channel_terminal_context.py:320:run_windows,channel_terminal_context.py:179:run_windows,test_channel_direct_socket_e2e.py:226:<lambda>,test_channel_direct_socket_e2e.py:197:fail_proxy,channel_terminal_proxy.py:443:run_windows_channel_terminal_proxy,test_channel_direct_socket_e2e.py:188:resize_if_needed; using direct subprocess call"
+            ],
+            [
+              "INFO",
+              "channel_stdin_proxy_unavailable; using direct subprocess call"
+            ],
+            [
+              "INFO",
+              "channel_direct_socket_poller_started pid=59188 terminal_available=false"
+            ],
+            [
+              "INFO",
+              "channel_direct_socket_confirmed message_id=1 cursor=1"
+            ],
+            [
+              "INFO",
+              "channel_direct_socket_poller_stopped pid=59188"
+            ]
+          ]
+        },
+        {
+          "returncode": 0,
+          "receipt": {
+            "accepted": true,
+            "prompt": "{\"specversion\": \"1.0\", \"id\": \"fixture-event\", \"source\": \"urn:ciel:fixture\", \"type\": \"fixture.message\", \"data\": {\"text\": \"socket-fallback-nonce\"}}",
+            "user_frames": 1
+          },
+          "released": true,
+          "events": [
+            [
+              "INFO",
+              "claude_session_socket_configured target=\\\\.\\pipe\\LOCAL\\cc-msg-406a16d035a759f4e44e4215cdf96779"
+            ],
+            [
+              "WARN",
+              "channel_windows_console_proxy_failed stage=windows_proxy type=OSError errno=36 winerror=None frames=channel_terminal_dispatch.py:123:dispatch,channel_terminal_context.py:320:run_windows,channel_terminal_context.py:179:run_windows,test_channel_direct_socket_e2e.py:226:<lambda>,test_channel_direct_socket_e2e.py:167:fail_proxy; using direct subprocess call"
+            ],
+            [
+              "INFO",
+              "channel_stdin_proxy_unavailable; using direct subprocess call"
+            ],
+            [
+              "INFO",
+              "channel_direct_socket_poller_started pid=83432 terminal_available=false"
+            ],
+            [
+              "ERROR",
+              "claude_session_socket_unavailable reason=auth_key_unavailable target=\\\\.\\pipe\\LOCAL\\cc-msg-406a16d035a759f4e44e4215cdf96779 fallback=terminal"
+            ],
+            [
+              "INFO",
+              "channel_stdin_proxy_deferred cursor=0 message_id=1 channel=external:default reason=session_socket_transport_unavailable"
+            ],
+            [
+              "INFO",
+              "claude_session_socket_available target=\\\\.\\pipe\\LOCAL\\cc-msg-406a16d035a759f4e44e4215cdf96779 after=auth_key_unavailable"
+            ],
+            [
+              "INFO",
+              "claude_session_socket_injected bytes=345 target=\\\\.\\pipe\\LOCAL\\cc-msg-406a16d035a759f4e44e4215cdf96779"
+            ],
+            [
+              "INFO",
+              "channel_stdin_proxy_injected count=1 message_ids=1 channels=external:default enter=cr transport=session_socket commit_cursor=False display_body=False"
+            ],
+            [
+              "INFO",
+              "channel_direct_socket_confirmed message_id=1 cursor=1"
+            ],
+            [
+              "INFO",
+              "channel_direct_socket_poller_stopped pid=83432"
+            ]
+          ]
+        }
+      ]
+    },
+    "installed-snapshot": {
+      "root": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-4e5c802900363fd318d1460b7510abd2ed08c24f",
+      "tests_run": 96,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "module_hashes": [
+        {
+          "module": "ciel_runtime_support.channel_terminal_dispatch",
+          "path": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-4e5c802900363fd318d1460b7510abd2ed08c24f\\ciel_runtime_support\\channel_terminal_dispatch.py",
+          "sha256": "8874ec6a0855ad80a7c53d6472a9e0e3e9044d0eabae38bdb49abfe13093b16e"
+        },
+        {
+          "module": "ciel_runtime_support.channel_terminal_context",
+          "path": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-4e5c802900363fd318d1460b7510abd2ed08c24f\\ciel_runtime_support\\channel_terminal_context.py",
+          "sha256": "03632e2b5bf40d54c97678eb239831480c5a0c911703bebd260a4576d878a2c2"
+        },
+        {
+          "module": "ciel_runtime_support.channel_pending_injection",
+          "path": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-4e5c802900363fd318d1460b7510abd2ed08c24f\\ciel_runtime_support\\channel_pending_injection.py",
+          "sha256": "e5eb574e918b0f171a9b02bc0ad3df256e49feb3477d73d136332aa576aa8372"
+        },
+        {
+          "module": "ciel_runtime_support.channel_message_repository",
+          "path": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-4e5c802900363fd318d1460b7510abd2ed08c24f\\ciel_runtime_support\\channel_message_repository.py",
+          "sha256": "0ac82364ba51f24c8743bc77c4af700a9a106c8a6ffe8bff5ce00ec20c8d3634"
+        },
+        {
+          "module": "ciel_runtime_support.channel_pending_poll",
+          "path": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-4e5c802900363fd318d1460b7510abd2ed08c24f\\ciel_runtime_support\\channel_pending_poll.py",
+          "sha256": "35cfd99ea8abf47da1c34ed7f77cefb672c486ccf37c3169a067b09d3be37410"
+        },
+        {
+          "module": "ciel_runtime_support.channel_terminal_proxy",
+          "path": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-4e5c802900363fd318d1460b7510abd2ed08c24f\\ciel_runtime_support\\channel_terminal_proxy.py",
+          "sha256": "6ec56d4c16e1b9d4af7a2ef11ffba8bdf3571c26a39cc909c825d8c118f56e1c"
+        },
+        {
+          "module": "ciel_runtime_support.channel_wake_delivery_repository",
+          "path": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-4e5c802900363fd318d1460b7510abd2ed08c24f\\ciel_runtime_support\\channel_wake_delivery_repository.py",
+          "sha256": "dcd4b4ccef96ee676f60fd1185be6488bbfc70eafbc77802e54cc64fdf0eac78"
+        }
+      ],
+      "fixtures": [
+        {
+          "returncode": 0,
+          "receipt": {
+            "accepted": true,
+            "prompt": "{\"specversion\": \"1.0\", \"id\": \"fixture-event\", \"source\": \"urn:ciel:fixture\", \"type\": \"fixture.message\", \"data\": {\"text\": \"socket-fallback-nonce\"}}",
+            "user_frames": 1
+          },
+          "released": true,
+          "events": [
+            [
+              "INFO",
+              "claude_session_socket_configured target=\\\\.\\pipe\\LOCAL\\cc-msg-4438f7ad01811b04ee69768b6f71bf33"
+            ],
+            [
+              "INFO",
+              "channel_windows_console_proxy_started pid=65404 transport=conpty enter=cr submit_retries=1 confirm_submit=True bracketed_paste=False display_body=False"
+            ],
+            [
+              "INFO",
+              "claude_session_socket_injected bytes=345 target=\\\\.\\pipe\\LOCAL\\cc-msg-4438f7ad01811b04ee69768b6f71bf33"
+            ],
+            [
+              "INFO",
+              "channel_stdin_proxy_injected count=1 message_ids=1 channels=external:default enter=cr transport=session_socket commit_cursor=False display_body=False"
+            ],
+            [
+              "ERROR",
+              "channel_windows_console_proxy_exception stage=terminal_io type=OSError errno=36 winerror=None frames=channel_terminal_proxy.py:443:run_windows_channel_terminal_proxy,test_channel_direct_socket_e2e.py:188:resize_if_needed pid=65404 cursor=1"
+            ],
+            [
+              "WARN",
+              "channel_windows_console_proxy_failed stage=windows_proxy type=OSError errno=36 winerror=None frames=channel_terminal_dispatch.py:123:dispatch,channel_terminal_context.py:320:run_windows,channel_terminal_context.py:179:run_windows,test_channel_direct_socket_e2e.py:226:<lambda>,test_channel_direct_socket_e2e.py:197:fail_proxy,channel_terminal_proxy.py:443:run_windows_channel_terminal_proxy,test_channel_direct_socket_e2e.py:188:resize_if_needed; using direct subprocess call"
+            ],
+            [
+              "INFO",
+              "channel_stdin_proxy_unavailable; using direct subprocess call"
+            ],
+            [
+              "INFO",
+              "channel_direct_socket_poller_started pid=6004 terminal_available=false"
+            ],
+            [
+              "INFO",
+              "channel_direct_socket_confirmed message_id=1 cursor=1"
+            ],
+            [
+              "INFO",
+              "channel_direct_socket_poller_stopped pid=6004"
+            ]
+          ]
+        },
+        {
+          "returncode": 0,
+          "receipt": {
+            "accepted": true,
+            "prompt": "{\"specversion\": \"1.0\", \"id\": \"fixture-event\", \"source\": \"urn:ciel:fixture\", \"type\": \"fixture.message\", \"data\": {\"text\": \"socket-fallback-nonce\"}}",
+            "user_frames": 1
+          },
+          "released": true,
+          "events": [
+            [
+              "INFO",
+              "claude_session_socket_configured target=\\\\.\\pipe\\LOCAL\\cc-msg-3ffe30117596a3ce9d7b5a1651f8243e"
+            ],
+            [
+              "WARN",
+              "channel_windows_console_proxy_failed stage=windows_proxy type=OSError errno=36 winerror=None frames=channel_terminal_dispatch.py:123:dispatch,channel_terminal_context.py:320:run_windows,channel_terminal_context.py:179:run_windows,test_channel_direct_socket_e2e.py:226:<lambda>,test_channel_direct_socket_e2e.py:167:fail_proxy; using direct subprocess call"
+            ],
+            [
+              "INFO",
+              "channel_stdin_proxy_unavailable; using direct subprocess call"
+            ],
+            [
+              "INFO",
+              "channel_direct_socket_poller_started pid=73772 terminal_available=false"
+            ],
+            [
+              "ERROR",
+              "claude_session_socket_unavailable reason=auth_key_unavailable target=\\\\.\\pipe\\LOCAL\\cc-msg-3ffe30117596a3ce9d7b5a1651f8243e fallback=terminal"
+            ],
+            [
+              "INFO",
+              "channel_stdin_proxy_deferred cursor=0 message_id=1 channel=external:default reason=session_socket_transport_unavailable"
+            ],
+            [
+              "INFO",
+              "claude_session_socket_available target=\\\\.\\pipe\\LOCAL\\cc-msg-3ffe30117596a3ce9d7b5a1651f8243e after=auth_key_unavailable"
+            ],
+            [
+              "INFO",
+              "claude_session_socket_injected bytes=345 target=\\\\.\\pipe\\LOCAL\\cc-msg-3ffe30117596a3ce9d7b5a1651f8243e"
+            ],
+            [
+              "INFO",
+              "channel_stdin_proxy_injected count=1 message_ids=1 channels=external:default enter=cr transport=session_socket commit_cursor=False display_body=False"
+            ],
+            [
+              "INFO",
+              "channel_direct_socket_confirmed message_id=1 cursor=1"
+            ],
+            [
+              "INFO",
+              "channel_direct_socket_poller_stopped pid=73772"
+            ]
+          ]
+        }
+      ]
+    }
+  },
+  "health_after": {
+    "observed_at": "2026-10-19T05:14:50.278452+00:00",
+    "routers": [
+      {
+        "port": 9385,
+        "http": 200,
+        "pid": 19604,
+        "version": "0.2.51-nightly.20261017-172902.1962793"
+      },
+      {
+        "port": 9489,
+        "http": 200,
+        "pid": 91212,
+        "version": "0.2.51-nightly.20261017-172902.1962793"
+      },
+      {
+        "port": 9505,
+        "http": 200,
+        "pid": 69188,
+        "version": "0.2.51-nightly.20261017-172902.1962793"
+      },
+      {
+        "port": 9512,
+        "http": 200,
+        "pid": 76412,
+        "version": "0.2.51-nightly.20261017-172902.1962793"
+      }
+    ]
+  },
+  "scope_limits": {
+    "live_restart": false,
+    "live_test_message": false,
+    "backlog_replay": false,
+    "cursor_reset": false,
+    "historical_errno36_raising_call": "unconfirmed",
+    "fixture_terminal": "injected console adapter failure; real OS sockets and child processes"
+  }
+}

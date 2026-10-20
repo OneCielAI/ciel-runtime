@@ -1,0 +1,200 @@
+BASELINE: HEAD parser loaded in memory; working tree untouched
+test_api_keys_preserve_multiline_arguments (test_request_shortcuts.RequestShortcutTests.test_api_keys_preserve_multiline_arguments) ... ok
+test_channel_command_parses_loose_message (test_request_shortcuts.RequestShortcutTests.test_channel_command_parses_loose_message) ... ok
+test_import_session_multiline_arguments_stop_at_paragraph_boundary (test_request_shortcuts.RequestShortcutTests.test_import_session_multiline_arguments_stop_at_paragraph_boundary) ... FAIL
+test_import_session_shipped_template_excludes_trailing_instructions (test_request_shortcuts.RequestShortcutTests.test_import_session_shipped_template_excludes_trailing_instructions) ... 
+  test_import_session_shipped_template_excludes_trailing_instructions (test_request_shortcuts.RequestShortcutTests.test_import_session_shipped_template_excludes_trailing_instructions) (posix=False, source='Codex', path='') ... FAIL
+  test_import_session_shipped_template_excludes_trailing_instructions (test_request_shortcuts.RequestShortcutTests.test_import_session_shipped_template_excludes_trailing_instructions) (posix=False, source='Codex', path='C:/synthetic/session file.jsonl') ... FAIL
+  test_import_session_shipped_template_excludes_trailing_instructions (test_request_shortcuts.RequestShortcutTests.test_import_session_shipped_template_excludes_trailing_instructions) (posix=False, source='Claude', path='') ... FAIL
+  test_import_session_shipped_template_excludes_trailing_instructions (test_request_shortcuts.RequestShortcutTests.test_import_session_shipped_template_excludes_trailing_instructions) (posix=False, source='Claude', path='C:/synthetic/session file.jsonl') ... FAIL
+  test_import_session_shipped_template_excludes_trailing_instructions (test_request_shortcuts.RequestShortcutTests.test_import_session_shipped_template_excludes_trailing_instructions) (posix=True, source='Codex', path='') ... FAIL
+  test_import_session_shipped_template_excludes_trailing_instructions (test_request_shortcuts.RequestShortcutTests.test_import_session_shipped_template_excludes_trailing_instructions) (posix=True, source='Codex', path='C:/synthetic/session file.jsonl') ... FAIL
+  test_import_session_shipped_template_excludes_trailing_instructions (test_request_shortcuts.RequestShortcutTests.test_import_session_shipped_template_excludes_trailing_instructions) (posix=True, source='Claude', path='') ... FAIL
+  test_import_session_shipped_template_excludes_trailing_instructions (test_request_shortcuts.RequestShortcutTests.test_import_session_shipped_template_excludes_trailing_instructions) (posix=True, source='Claude', path='C:/synthetic/session file.jsonl') ... FAIL
+test_import_session_supports_quoted_path (test_request_shortcuts.RequestShortcutTests.test_import_session_supports_quoted_path) ... ok
+test_live_option_ignores_template_placeholder (test_request_shortcuts.RequestShortcutTests.test_live_option_ignores_template_placeholder) ... ok
+test_byte_and_character_truncation (test_session_import_regression.SessionImportRegressionTests.test_byte_and_character_truncation) ... ok
+test_latest_directory_missing_url_and_same_runtime_policy (test_session_import_regression.SessionImportRegressionTests.test_latest_directory_missing_url_and_same_runtime_policy) ... ok
+test_oversized_single_record_falls_back_to_partial_raw_json (test_session_import_regression.SessionImportRegressionTests.test_oversized_single_record_falls_back_to_partial_raw_json) ... ok
+test_permission_error_while_reading_is_reported (test_session_import_regression.SessionImportRegressionTests.test_permission_error_while_reading_is_reported) ... FAIL
+test_real_mcp_http_handler_has_no_import_tool (test_session_import_regression.SessionImportRegressionTests.test_real_mcp_http_handler_has_no_import_tool) ... ok
+test_shipped_template_runs_real_import_http_controller (test_session_import_regression.SessionImportRegressionTests.test_shipped_template_runs_real_import_http_controller) ... 
+  test_shipped_template_runs_real_import_http_controller (test_session_import_regression.SessionImportRegressionTests.test_shipped_template_runs_real_import_http_controller) (source='Codex') ... FAIL
+  test_shipped_template_runs_real_import_http_controller (test_session_import_regression.SessionImportRegressionTests.test_shipped_template_runs_real_import_http_controller) (source='Claude') ... FAIL
+test_advisor_controller_maps_upstream_error_to_local_response (test_local_request_controllers.LocalRequestControllerTests.test_advisor_controller_maps_upstream_error_to_local_response) ... ok
+test_advisor_controller_obeys_adapter_owned_interception_policy (test_local_request_controllers.LocalRequestControllerTests.test_advisor_controller_obeys_adapter_owned_interception_policy) ... ok
+test_import_session_anthropic_response_and_event (test_local_request_controllers.LocalRequestControllerTests.test_import_session_anthropic_response_and_event) ... ok
+test_import_session_openai_response_preserves_source_body (test_local_request_controllers.LocalRequestControllerTests.test_import_session_openai_response_preserves_source_body) ... ok
+test_2026_discovery_is_stateless_and_cacheable (test_channel_mcp_http_controller.ChannelMcpHttpControllerTests.test_2026_discovery_is_stateless_and_cacheable) ... ok
+test_2026_removed_ping_method_is_not_advertised (test_channel_mcp_http_controller.ChannelMcpHttpControllerTests.test_2026_removed_ping_method_is_not_advertised) ... ok
+test_2026_tool_call_requires_matching_name_header (test_channel_mcp_http_controller.ChannelMcpHttpControllerTests.test_2026_tool_call_requires_matching_name_header) ... ok
+test_2026_tool_result_has_result_type (test_channel_mcp_http_controller.ChannelMcpHttpControllerTests.test_2026_tool_result_has_result_type) ... ok
+test_deprecated_sse_endpoint_is_absent (test_channel_mcp_http_controller.ChannelMcpHttpControllerTests.test_deprecated_sse_endpoint_is_absent) ... ok
+test_legacy_streamable_http_initialize_stays_stateless (test_channel_mcp_http_controller.ChannelMcpHttpControllerTests.test_legacy_streamable_http_initialize_stays_stateless) ... ok
+test_unknown_protocol_version_returns_standard_error (test_channel_mcp_http_controller.ChannelMcpHttpControllerTests.test_unknown_protocol_version_returns_standard_error) ... ok
+
+======================================================================
+FAIL: test_import_session_multiline_arguments_stop_at_paragraph_boundary (test_request_shortcuts.RequestShortcutTests.test_import_session_multiline_arguments_stop_at_paragraph_boundary)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime\tests\test_request_shortcuts.py", line 58, in test_import_session_multiline_arguments_stop_at_paragraph_boundary
+    self.assertEqual(
+AssertionError: Tuples differ: ('Codex', 'C:/synthetic/session file.jsonl') != ('Codex', 'C:/synthetic/session file.jsonl Instructions: not a path')
+
+First differing element 1:
+'C:/synthetic/session file.jsonl'
+'C:/synthetic/session file.jsonl Instructions: not a path'
+
+- ('Codex', 'C:/synthetic/session file.jsonl')
++ ('Codex', 'C:/synthetic/session file.jsonl Instructions: not a path')
+?                                           +++++++++++++++++++++++++
+
+
+======================================================================
+FAIL: test_import_session_shipped_template_excludes_trailing_instructions (test_request_shortcuts.RequestShortcutTests.test_import_session_shipped_template_excludes_trailing_instructions) (posix=False, source='Codex', path='')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime\tests\test_request_shortcuts.py", line 45, in test_import_session_shipped_template_excludes_trailing_instructions
+    self.assertEqual(
+AssertionError: Tuples differ: ('Codex', '') != ('Codex', 'format and must be `Codex` or `Claude`.')
+
+First differing element 1:
+''
+'format and must be `Codex` or `Claude`.'
+
+- ('Codex', '')
++ ('Codex', 'format and must be `Codex` or `Claude`.')
+
+======================================================================
+FAIL: test_import_session_shipped_template_excludes_trailing_instructions (test_request_shortcuts.RequestShortcutTests.test_import_session_shipped_template_excludes_trailing_instructions) (posix=False, source='Codex', path='C:/synthetic/session file.jsonl')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime\tests\test_request_shortcuts.py", line 45, in test_import_session_shipped_template_excludes_trailing_instructions
+    self.assertEqual(
+AssertionError: Tuples differ: ('Codex', 'C:/synthetic/session file.jsonl') != ('Codex', 'format and must be `Codex` or `Claude`.')
+
+First differing element 1:
+'C:/synthetic/session file.jsonl'
+'format and must be `Codex` or `Claude`.'
+
+- ('Codex', 'C:/synthetic/session file.jsonl')
++ ('Codex', 'format and must be `Codex` or `Claude`.')
+
+======================================================================
+FAIL: test_import_session_shipped_template_excludes_trailing_instructions (test_request_shortcuts.RequestShortcutTests.test_import_session_shipped_template_excludes_trailing_instructions) (posix=False, source='Claude', path='')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime\tests\test_request_shortcuts.py", line 45, in test_import_session_shipped_template_excludes_trailing_instructions
+    self.assertEqual(
+AssertionError: Tuples differ: ('Claude', '') != ('Claude', 'format and must be `Codex` or `Claude`.')
+
+First differing element 1:
+''
+'format and must be `Codex` or `Claude`.'
+
+- ('Claude', '')
++ ('Claude', 'format and must be `Codex` or `Claude`.')
+
+======================================================================
+FAIL: test_import_session_shipped_template_excludes_trailing_instructions (test_request_shortcuts.RequestShortcutTests.test_import_session_shipped_template_excludes_trailing_instructions) (posix=False, source='Claude', path='C:/synthetic/session file.jsonl')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime\tests\test_request_shortcuts.py", line 45, in test_import_session_shipped_template_excludes_trailing_instructions
+    self.assertEqual(
+AssertionError: Tuples differ: ('Claude', 'C:/synthetic/session file.jsonl') != ('Claude', 'format and must be `Codex` or `Claude`.')
+
+First differing element 1:
+'C:/synthetic/session file.jsonl'
+'format and must be `Codex` or `Claude`.'
+
+- ('Claude', 'C:/synthetic/session file.jsonl')
++ ('Claude', 'format and must be `Codex` or `Claude`.')
+
+======================================================================
+FAIL: test_import_session_shipped_template_excludes_trailing_instructions (test_request_shortcuts.RequestShortcutTests.test_import_session_shipped_template_excludes_trailing_instructions) (posix=True, source='Codex', path='')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime\tests\test_request_shortcuts.py", line 45, in test_import_session_shipped_template_excludes_trailing_instructions
+    self.assertEqual(
+AssertionError: Tuples differ: ('Codex', '') != ('Codex', 'format and must be `Codex` or `Claude`.')
+
+First differing element 1:
+''
+'format and must be `Codex` or `Claude`.'
+
+- ('Codex', '')
++ ('Codex', 'format and must be `Codex` or `Claude`.')
+
+======================================================================
+FAIL: test_import_session_shipped_template_excludes_trailing_instructions (test_request_shortcuts.RequestShortcutTests.test_import_session_shipped_template_excludes_trailing_instructions) (posix=True, source='Codex', path='C:/synthetic/session file.jsonl')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime\tests\test_request_shortcuts.py", line 45, in test_import_session_shipped_template_excludes_trailing_instructions
+    self.assertEqual(
+AssertionError: Tuples differ: ('Codex', 'C:/synthetic/session file.jsonl') != ('Codex', 'format and must be `Codex` or `Claude`.')
+
+First differing element 1:
+'C:/synthetic/session file.jsonl'
+'format and must be `Codex` or `Claude`.'
+
+- ('Codex', 'C:/synthetic/session file.jsonl')
++ ('Codex', 'format and must be `Codex` or `Claude`.')
+
+======================================================================
+FAIL: test_import_session_shipped_template_excludes_trailing_instructions (test_request_shortcuts.RequestShortcutTests.test_import_session_shipped_template_excludes_trailing_instructions) (posix=True, source='Claude', path='')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime\tests\test_request_shortcuts.py", line 45, in test_import_session_shipped_template_excludes_trailing_instructions
+    self.assertEqual(
+AssertionError: Tuples differ: ('Claude', '') != ('Claude', 'format and must be `Codex` or `Claude`.')
+
+First differing element 1:
+''
+'format and must be `Codex` or `Claude`.'
+
+- ('Claude', '')
++ ('Claude', 'format and must be `Codex` or `Claude`.')
+
+======================================================================
+FAIL: test_import_session_shipped_template_excludes_trailing_instructions (test_request_shortcuts.RequestShortcutTests.test_import_session_shipped_template_excludes_trailing_instructions) (posix=True, source='Claude', path='C:/synthetic/session file.jsonl')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime\tests\test_request_shortcuts.py", line 45, in test_import_session_shipped_template_excludes_trailing_instructions
+    self.assertEqual(
+AssertionError: Tuples differ: ('Claude', 'C:/synthetic/session file.jsonl') != ('Claude', 'format and must be `Codex` or `Claude`.')
+
+First differing element 1:
+'C:/synthetic/session file.jsonl'
+'format and must be `Codex` or `Claude`.'
+
+- ('Claude', 'C:/synthetic/session file.jsonl')
++ ('Claude', 'format and must be `Codex` or `Claude`.')
+
+======================================================================
+FAIL: test_permission_error_while_reading_is_reported (test_session_import_regression.SessionImportRegressionTests.test_permission_error_while_reading_is_reported)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime\tests\test_session_import_regression.py", line 98, in test_permission_error_while_reading_is_reported
+    self.assertIn("PermissionError", text)
+AssertionError: 'PermissionError' not found in 'ImportSession failed: Transcript file not found: format and must be `Codex` or `Claude`.'
+
+======================================================================
+FAIL: test_shipped_template_runs_real_import_http_controller (test_session_import_regression.SessionImportRegressionTests.test_shipped_template_runs_real_import_http_controller) (source='Codex')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime\tests\test_session_import_regression.py", line 48, in test_shipped_template_runs_real_import_http_controller
+    self.assertIn("ImportSession completed", writes[0][2])
+AssertionError: 'ImportSession completed' not found in 'ImportSession failed: Transcript file not found: format and must be `Codex` or `Claude`.'
+
+======================================================================
+FAIL: test_shipped_template_runs_real_import_http_controller (test_session_import_regression.SessionImportRegressionTests.test_shipped_template_runs_real_import_http_controller) (source='Claude')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime\tests\test_session_import_regression.py", line 48, in test_shipped_template_runs_real_import_http_controller
+    self.assertIn("ImportSession completed", writes[0][2])
+AssertionError: 'ImportSession completed' not found in 'ImportSession failed: Transcript file not found: format and must be `Codex` or `Claude`.'
+
+----------------------------------------------------------------------
+Ran 23 tests in 0.016s
+
+FAILED (failures=12)

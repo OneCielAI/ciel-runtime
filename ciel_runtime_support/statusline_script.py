@@ -414,8 +414,44 @@ def is_ciel_runtime_session(session):
         return True
     if os.environ.get("CIEL_RUNTIME_STATUSLINE_FORCE", "").lower() in ("1", "true", "yes", "on"):
         return True
-    model_name = ((session.get("model") or {}).get("display_name") if isinstance(session.get("model"), dict) else None) or ""
-    return str(model_name).startswith("ciel-runtime-")
+    info = session.get("model") if isinstance(session.get("model"), dict) else {}
+    return any(str(info.get(key) or "").startswith("ciel-runtime-") for key in ("id", "display_name"))
+
+
+def _status_model_slug(value):
+    normalized = re.sub(r"[^a-zA-Z0-9_.-]+", "-", str(value).lower())
+    return re.sub(r"-+", "-", normalized).strip("-") or "model"
+
+
+def routed_model_label(session, providers):
+    """The upstream model behind Claude Code's 'ciel-runtime-<provider>-<slug>' alias, e.g. 'ASTRA (cielairouter)'.
+
+    Claude Code only knows the alias, which lower-cases the model and folds '/' and spaces into '-';
+    the provider's own model id is recovered from the configured, custom and cached model ids.
+    """
+
+    info = session.get("model") if isinstance(session.get("model"), dict) else {}
+    display = str(info.get("display_name") or "")
+    alias = next((value for value in (str(info.get("id") or ""), display) if value.startswith("ciel-runtime-")), "")
+    if not alias:
+        return display
+    alias = re.sub(r"\[1m\]\s*$", "", alias, flags=re.IGNORECASE)
+    owners = [name for name in providers if isinstance(name, str) and alias.startswith(f"ciel-runtime-{name}-")]
+    if not owners:
+        return alias[len("ciel-runtime-"):]
+    owner = max(owners, key=len)
+    suffix = alias[len(f"ciel-runtime-{owner}-"):]
+    pcfg = providers.get(owner) if isinstance(providers.get(owner), dict) else {}
+    candidates = [pcfg.get("current_model"), pcfg.get("subagent_model"), *(pcfg.get("custom_models") or [])]
+    cache = load_json(CONFIG_DIR / "model-list-cache.json", {})
+    if isinstance(cache, dict) and isinstance(cache.get("models"), list):
+        candidates.extend(cache["models"])
+    for candidate in candidates:
+        if isinstance(candidate, str) and candidate.strip():
+            base = re.sub(r"\[1m\]\s*$", "", candidate.strip(), flags=re.IGNORECASE)
+            if _status_model_slug(base) == suffix:
+                return f"{base} ({owner})"
+    return f"{suffix} ({owner})"
 
 
 def display_capacity(rpm):
@@ -438,6 +474,21 @@ def main():
     providers = cfg.get("providers") if isinstance(cfg.get("providers"), dict) else {}
     provider = str(cfg.get("current_provider") or "")
     pcfg = providers.get(provider) if isinstance(providers.get(provider), dict) else {}
+    # Provider fallback: the backup serving this workspace's requests is what the
+    # rest of the line (limits, context) describes, and the line says so.
+    failover_text = ""
+    failover = load_json(WORKSPACE_STATE_DIR / "provider-failover.json", {})
+    active = failover.get("active") if isinstance(failover, dict) else None
+    if isinstance(active, dict) and active.get("from") == provider and isinstance(active.get("to"), dict):
+        backup = str(active["to"].get("provider") or "")
+        if isinstance(providers.get(backup), dict):
+            until = time.strftime("%H:%M", time.localtime(float(active.get("until") or 0)))
+            # ASCII only: the status line's stdout may be a legacy code page (cp1252).
+            failover_text = f"fallback {backup}/{active['to'].get('model') or ''} until {until} ({provider} {active.get('trigger') or ''})"
+            provider = backup
+            pcfg = dict(providers[backup])
+            if active["to"].get("model"):
+                pcfg["current_model"] = active["to"]["model"]
     router_debug_external = bool(cfg.get("router_debug_external_access", False))
     rpm_status = bool(pcfg.get("rate_limit_status", False))
     migrations = cfg.get("migrations") if isinstance(cfg.get("migrations"), dict) else {}
@@ -498,13 +549,15 @@ def main():
     server_queue_limit = entry.get("server_queue_limit") if isinstance(entry, dict) else None
     server_queued = entry.get("server_queued") if isinstance(entry, dict) else None
     used = len([ts for ts in (timestamps or []) if isinstance(ts, (int, float)) and 0.0 <= now - float(ts) < 60.0])
-    model_name = ((session.get("model") or {}).get("display_name") if isinstance(session.get("model"), dict) else None) or model or "model"
+    model_name = routed_model_label(session, providers) or model or "model"
     current_dir = ((session.get("workspace") or {}).get("current_dir") if isinstance(session.get("workspace"), dict) else None) or session.get("cwd") or ""
     dir_name = Path(current_dir).name if current_dir else ""
     left = f"[{model_name}]"
     if dir_name:
         left += f" {dir_name}"
     status_parts = []
+    if failover_text:
+        status_parts.append(color(failover_text))
     expected_ctx_limit = status_config_context_limit(provider, pcfg)
     router_ctx_text = context_status_text(context, provider, model, expected_ctx_limit)
     session_ctx_text = session_context_status_text(session, expected_ctx_limit)
@@ -626,12 +679,26 @@ def main():
                 parallel_sessions = int(compact_activity.get("parallel_sessions") or 1)
             except Exception:
                 parallel_sessions = 1
-            if compact_chunks > 0:
-                compact_text = color(f"compact {compact_chunks:,} chunks")
-                if parallel_sessions > 1:
-                    compact_text += " " + color(f"parallel {parallel_sessions:,}/{compact_chunks:,}")
+            compact_phase = str(compact_activity.get("phase") or "").strip()
+            try:
+                completed_chunks = max(0, int(compact_activity.get("completed_chunks") or 0))
+            except Exception:
+                completed_chunks = 0
+            if compact_phase == "guard":
+                compact_text = color(f"context guard {compact_chunks:,} groups")
+            elif compact_phase in {"map", "reduce"}:
+                compact_text = color(f"compact {compact_phase} {completed_chunks:,}/{compact_chunks:,}")
+            elif compact_phase in {"completed", "failed", "cancelled", "uncertain", "checkpoint-confirmed"}:
+                compact_text = color(f"compact {compact_phase}")
+            elif compact_phase == "local-complete":
+                compact_text = color("compact summary ready")
+            elif compact_chunks > 0:
+                # Legacy records without a phase cannot prove semantic work.
+                compact_text = color(f"context guard {compact_chunks:,} groups")
             elif str(compact_activity.get("event") or "") == "compact":
-                compact_text = color("compact")
+                compact_text = color("compact pending")
+            if parallel_sessions > 1 and compact_phase in {"map", "reduce"}:
+                compact_text += " " + color(f"parallel {parallel_sessions:,}/{compact_chunks:,}")
     if compact_text:
         status_parts.append(compact_text)
     status_text = " | ".join(status_parts)

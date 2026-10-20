@@ -1,0 +1,36 @@
+---
+type: Implementation Journal
+title: Windows proxy fallback socket delivery
+description: Keep pending channel socket delivery supervised after terminal proxy failure without replaying uncertain sends.
+timestamp: "2026-10-18"
+tags: [walkie, sse, socket, windows, verification]
+---
+
+# Observed failure
+
+The local receiver continued admitting SSE events, but the Windows terminal proxy raised OSError errno 36 and fell back to a direct CLI subprocess. That direct supervisor did not poll pending channel messages. Receiver connectivity and an available session socket therefore did not imply that queued inputs were being submitted. The original low-level exception source remains unknown; matching errno in an isolated lock-contention probe does not identify the historical caller.
+
+# Implementation
+
+- The direct subprocess supervisor now shares channel policy/polling services and pending/inflight state with the Windows proxy. It confirms existing submissions before scanning new inputs.
+- Direct delivery explicitly disables terminal transport. Only available session-socket inputs can be submitted; unavailable socket or terminal-only inputs retain the deferred cursor floor. Failed or uncertain sends are not blindly retried.
+- Windows queue-lock acquisition contention has a typed pre-submission deferral. A post-submission lock failure does not masquerade as a safe pre-submission retry, and partial claim cleanup releases only the claims acquired by that attempt.
+- Proxy exceptions log stage, errno/winerror, and traceback locations without exception text or prompt bodies.
+- Direct unattended startup retains its existing fail-closed injection gate because that transport has no rendered startup screen.
+- The production Windows compatibility API accepts and forwards the same shared poll state; the integration harness now traverses that actual wrapper rather than bypassing it.
+- Batch completion and stale release retain membership until fallible claim/status/cursor cleanup succeeds, so a transient lock retry cannot drop earlier batch members.
+- Delivery-independent noise/superseded/completed checks precede the socket-only transport barrier. A different batch's unsent candidate cannot advance the cursor. The injector reports a separate safe commit ceiling, preserving earlier deferrals when a later input is confirmed.
+
+# Verification
+
+- Python 3.10 and Python 3.11: 96 focused tests each passed with zero skips.
+- Python 3.14: the same 96 focused tests passed with zero skips.
+- Both versions ran actual loopback HTTP SSE admission, temporary queue, authenticated named-pipe child receipt, one user frame, cursor/status confirmation and cleanup. A second case sent through the proxy, raised errno 36 in terminal I/O, terminated that original fixture child, and confirmed the preserved inflight state from the replacement direct child without resending.
+- The child-replacement fixture initially failed because its compaction callback incorrectly raised before the intended injected terminal failure. Full fixture logs identified that earlier assertion. Correcting the no-work compaction stub made the intended stage=terminal_io failure and direct confirmation observable; no product change was needed for that fixture error.
+- Architecture, existing terminal-input, channel bridge, session-restart, PTY writer and modal checks: 564 tests ran, zero failures/errors, 126 platform/fixture skips (438 executed).
+- Ruff, compileall, documentation metadata and git diff --check passed. Local npm pack dry-run passed but included unrelated untracked local documents. A separate clean staged-index export packed successfully (1766 files, about 10 MB) without those documents. Installation will use only the exact registry tarball from the clean hosted workflow.
+- Live router health was recorded before verification. No full local suite was rerun while live routers were serving; the release gates are the configured hosted CI and Publish suites.
+
+# Authorization and boundaries
+
+The user requested nightly deployment and local installation and will restart Walkie independently. Do not restart any live session, submit a live test message, replay queued backlog, reset a cursor or overwrite a loaded snapshot. Install the exact successfully published nightly into npm global and a new full-SHA local snapshot. Existing processes retain their old loaded code until a fresh launch. Artifact authentication is a separate issue and is not changed by this fix.

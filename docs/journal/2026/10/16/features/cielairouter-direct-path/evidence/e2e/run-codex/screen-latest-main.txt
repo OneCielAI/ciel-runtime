@@ -1,0 +1,38 @@
+
+  >_ OpenAI Codex (v0.163.0)
+     G:\ciel-e2e\direct-path\codex-1792187175\ws
+  permissions: YOLO mode
+
+
+› [ciel-wake] pending_ids=1
+
+
+• STUB-REPLY-A
+
+  Worked for <1s • 4:46 PM
+
+
+› 계속-세션재시작됨
+
+
+• STUB-REPLY-A
+
+  Worked for <1s • 4:47 PM
+
+
+› [ciel-wake] pending_ids=3
+
+
+■ We’re currently experiencing high demand, which may cause temporary errors.
+
+
+
+
+
+
+
+
+› Ask Codex to do anything
+
+  stub-model (CielAiRouter) medium · G:\ciel-e2e\direct-path\codex-1792187175\ws
+  ? for shortcuts                                                                                             ⚠ 1 warning · f2 to view

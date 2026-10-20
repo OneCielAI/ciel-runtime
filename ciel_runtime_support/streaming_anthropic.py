@@ -274,6 +274,13 @@ def rebatch_anthropic_sse_text(
     pending_message_stop: tuple[str | None, str] | None = None
     last_suppressed_keepalive_at = 0.0
     stream_success = False
+    # Only an upstream message_stop completes a turn. Once any ending (terminal
+    # events or an error) starts downstream, nothing may follow it.
+    upstream_error_forwarded = False
+    ending_started = False
+    reading_upstream = True
+    completing_stream = False
+    failure_reason: str | None = None
     allow_tasklist_synthesis = should_synthesize_tasklist_for_provider(provider)
     filter_visible_tool_call_artifacts = bool(
         provider == "anthropic"
@@ -545,6 +552,8 @@ def rebatch_anthropic_sse_text(
         return json.dumps(event, ensure_ascii=False)
 
     def emit_pending_message_end(default_stop_reason: str = "end_turn") -> None:
+        nonlocal ending_started
+        ending_started = True
         stop_reason = default_stop_reason
         if pending_message_delta is not None:
             try:
@@ -566,9 +575,10 @@ def rebatch_anthropic_sse_text(
     def emit_runaway_stop() -> None:
         """Close a looping turn instead of relaying the rest of the loop."""
 
-        nonlocal next_content_index
+        nonlocal next_content_index, ending_started
         if runaway_verdict is None:
             return
+        ending_started = True
         router_log(
             "WARN",
             f"anthropic_stream_runaway_repetition provider={provider} model={model} "
@@ -603,6 +613,101 @@ def rebatch_anthropic_sse_text(
             stop_reason = "tool_use"
         emit_raw("message_delta", patched_message_delta(stop_reason))
         emit_raw("message_stop", "{\"type\":\"message_stop\"}")
+
+    def tracked_upstream_lines() -> Iterable[Any]:
+        """Mark whether a failure came from reading upstream or from relaying a line."""
+
+        nonlocal reading_upstream
+        for raw_line in upstream_lines_with_downstream_keepalive():
+            reading_upstream = False
+            yield raw_line
+            reading_upstream = True
+
+    def flush_received_text(*, unfinished: bool = False) -> None:
+        for index in list(text_buffers.keys()):
+            flush_buffer(index, force=True)
+        if unfinished:
+            # A failed stream never reaches content_block_stop, where the
+            # artifact filter would release the text it holds back.
+            for index in list(visible_tool_call_artifact_filters.keys()):
+                finish_visible_tool_call_artifact_filter(index)
+
+    def forward_upstream_error(event_type: str | None, data_str: str) -> None:
+        """Relay Anthropic's in-stream error after what preceded it; nothing follows it."""
+
+        nonlocal upstream_error_forwarded, ending_started
+        flush_received_text(unfinished=True)
+        upstream_error_forwarded = True
+        ending_started = True
+        if pending_message_delta is not None:
+            emit_raw(pending_message_delta[0] or "message_delta", pending_message_delta[1])
+        # A data-only record is ignored by Anthropic SSE clients; the error
+        # must arrive as an ``error`` event to fail the request.
+        emit_raw("error", data_str)
+
+    def process_tail_event() -> None:
+        """An unterminated final record counts only when its data is complete JSON."""
+
+        nonlocal pending_event_type, pending_event_lines
+        if not pending_event_lines:
+            return
+        event_type = pending_event_type
+        data_str = "\n".join(pending_event_lines)
+        pending_event_type = None
+        pending_event_lines = []
+        if event_type != "error":
+            try:
+                json.loads(data_str)
+            except (ValueError, RecursionError):
+                router_log(
+                    "WARN",
+                    f"anthropic_sse_upstream_truncated_event provider={provider} model={model} "
+                    f"event={event_type or '-'} data_len={len(data_str)}",
+                )
+                return
+        process_event(event_type, data_str)
+
+    def finish_completed_stream() -> None:
+        """Upstream sent message_stop: apply completion policies, relay the ending once."""
+
+        nonlocal stream_success, completing_stream
+        flush_received_text()
+        for index in list(suppressed_thinking_blocks.keys()):
+            finish_suppressed_thinking_block(index)
+        # message_delta recovery can emit tools. Defer it until the upstream
+        # terminal is known, so an interrupted response cannot trigger a tool.
+        if pending_message_delta is not None:
+            event_type, data_str = pending_message_delta
+            completing_stream = True
+            try:
+                process_event(event_type, data_str)
+            finally:
+                completing_stream = False
+        recover_hidden_only_response_if_needed()
+        flush_suppressed_thinking_passback()
+        emit_pending_message_end()
+        stream_success = True
+
+    def report_incomplete_stream(message: str, reason: str) -> None:
+        """No upstream message_stop: relay what arrived, then fail; never invent an ending.
+
+        Open blocks stay open. Closing them would hand the client a finished
+        block (a truncated tool_use included) that it may keep and act on.
+        """
+
+        nonlocal failure_reason, ending_started
+        failure_reason = reason
+        flush_received_text(unfinished=True)
+        for index in list(suppressed_thinking_blocks.keys()):
+            finish_suppressed_thinking_block(index)
+        flush_suppressed_thinking_passback()
+        ending_started = True
+        if pending_message_delta is not None:
+            emit_raw(pending_message_delta[0] or "message_delta", pending_message_delta[1])
+        emit_raw(
+            "error",
+            json.dumps({"type": "error", "error": {"type": "api_error", "message": message}}, ensure_ascii=False),
+        )
 
     def recover_hidden_only_response_if_needed() -> None:
         nonlocal next_content_index, saw_tool_use, emitted_tool_use, text_so_far, pending_message_delta
@@ -770,15 +875,24 @@ def rebatch_anthropic_sse_text(
 
     def process_event(event_type: str | None, data_str: str) -> None:
         nonlocal saw_message_start, saw_message_stop, text_so_far, saw_tool_use, emitted_tool_use, next_content_index, pending_message_delta, pending_message_stop
+        if saw_message_stop and not completing_stream:
+            router_log("WARN", f"anthropic_sse_event_after_message_stop_ignored provider={provider} model={model} event={event_type or '-'}")
+            return
         try:
             event = json.loads(data_str)
         except Exception:
+            if event_type == "error":
+                forward_upstream_error(event_type, data_str)
+                return
             emit_raw(event_type, data_str)
             return
         if not isinstance(event, dict):
             emit_raw(event_type, data_str)
             return
         evt_type = event.get("type") or event_type
+        if event_type == "error" or evt_type == "error":
+            forward_upstream_error(event_type, data_str)
+            return
         if evt_type == "message_start":
             saw_message_start = True
         elif evt_type == "message_stop":
@@ -861,6 +975,11 @@ def rebatch_anthropic_sse_text(
                 emit_raw(event_type, data_str)
                 return
         elif evt_type == "message_delta":
+            if not completing_stream:
+                for index in list(text_buffers.keys()):
+                    flush_buffer(index, force=True)
+                pending_message_delta = (event_type, data_str)
+                return
             delta = event.get("delta") if isinstance(event.get("delta"), dict) else {}
             stop_reason = str(delta.get("stop_reason") or "")
             tool_calls = [{"type": "tool_use"}] if emitted_tool_use else []
@@ -1054,8 +1173,15 @@ def rebatch_anthropic_sse_text(
             flush_suppressed_thinking_passback()
         emit_raw(event_type, data_str)
 
+    def stream_state() -> str:
+        return (
+            f"text_len={len(text_so_far)} emitted_tool_use={emitted_tool_use} "
+            f"message_start={saw_message_start} message_delta={pending_message_delta is not None} "
+            f"open_blocks={len(open_content_blocks) + len(buffered_tool_uses)}"
+        )
+
     try:
-        for raw in upstream_lines_with_downstream_keepalive():
+        for raw in tracked_upstream_lines():
             line = raw.decode("utf-8", errors="ignore")
             stripped = line.rstrip("\r\n")
             if stripped == "":
@@ -1064,7 +1190,7 @@ def rebatch_anthropic_sse_text(
                     process_event(pending_event_type, data_str)
                 pending_event_type = None
                 pending_event_lines = []
-                if runaway_verdict is not None:
+                if runaway_verdict is not None or upstream_error_forwarded:
                     # Stop reading upstream; the finally block closes the
                     # response so the loop stops being generated and billed.
                     break
@@ -1075,24 +1201,27 @@ def rebatch_anthropic_sse_text(
             if stripped.startswith("data:"):
                 pending_event_lines.append(stripped[len("data:"):].lstrip())
                 continue
-        if pending_event_lines:
-            data_str = "\n".join(pending_event_lines)
-            process_event(pending_event_type, data_str)
-        for index in list(text_buffers.keys()):
-            flush_buffer(index, force=True)
-        for index in list(suppressed_thinking_blocks.keys()):
-            finish_suppressed_thinking_block(index)
-        if runaway_verdict is not None:
+        reading_upstream = False
+        process_tail_event()
+        if upstream_error_forwarded:
+            failure_reason = "anthropic_stream_upstream_error_event"
+            router_log("WARN", f"anthropic_sse_upstream_error_event provider={provider} model={model} {stream_state()}")
+        elif runaway_verdict is not None:
+            flush_received_text()
+            for index in list(suppressed_thinking_blocks.keys()):
+                finish_suppressed_thinking_block(index)
             emit_runaway_stop()
             stream_success = True
-            return
-        recover_hidden_only_response_if_needed()
-        flush_suppressed_thinking_passback()
-        if pending_message_delta is not None or pending_message_stop is not None:
-            emit_pending_message_end()
-        stream_success = bool(saw_message_stop)
+        elif saw_message_stop:
+            finish_completed_stream()
+        else:
+            router_log("WARN", f"anthropic_sse_upstream_incomplete provider={provider} model={model} {stream_state()}")
+            report_incomplete_stream(
+                "Upstream Anthropic stream ended before message_stop.",
+                "anthropic_stream_upstream_incomplete",
+            )
     except ClientStreamDisconnected as exc:
-        mark_pending_channel_delivery_failed(handler, "anthropic_stream_client_disconnected")
+        failure_reason = failure_reason or "anthropic_stream_client_disconnected"
         router_log(
             "WARN",
             f"anthropic_sse_client_disconnected model={model} "
@@ -1101,58 +1230,66 @@ def rebatch_anthropic_sse_text(
             f"error={exc}",
         )
     except Exception as exc:
-        router_log("ERROR", f"anthropic_sse_forward_error model={model} error={type(exc).__name__}: {exc}")
+        source = "upstream" if reading_upstream else "relay"
         try:
-            if pending_event_lines:
-                data_str = "\n".join(pending_event_lines)
-                process_event(pending_event_type, data_str)
-                pending_event_lines = []
-                pending_event_type = None
-            for index in list(text_buffers.keys()):
-                flush_buffer(index, force=True)
-            for index in list(suppressed_thinking_blocks.keys()):
-                finish_suppressed_thinking_block(index)
-            recover_hidden_only_response_if_needed()
-            flush_suppressed_thinking_passback()
-            if pending_message_delta is not None or pending_message_stop is not None:
-                emit_pending_message_end()
-            for index in sorted(open_content_blocks):
-                emit_raw("content_block_stop", json.dumps({"type": "content_block_stop", "index": index}, ensure_ascii=False))
-            open_content_blocks.clear()
-            if not saw_message_stop:
-                if not saw_message_start:
-                    payload = {
-                        "type": "message_start",
-                        "message": {
-                            "id": f"msg_ciel_runtime_forward_{int(time.time() * 1000)}",
-                            "type": "message",
-                            "role": "assistant",
-                            "content": [],
-                            "model": model,
-                            "stop_reason": None,
-                            "stop_sequence": None,
-                            "usage": {"input_tokens": 0, "output_tokens": 0},
-                        },
-                    }
-                    emit_raw("message_start", json.dumps(payload, ensure_ascii=False))
-                    emit_raw(
-                        "content_block_start",
-                        json.dumps({"type": "content_block_start", "index": 0, "content_block": {"type": "text", "text": ""}}, ensure_ascii=False),
-                    )
-                    emit_text_delta(0, f"Upstream stream error: {type(exc).__name__}: {exc}")
-                    emit_raw("content_block_stop", json.dumps({"type": "content_block_stop", "index": 0}, ensure_ascii=False))
-                emit_raw(
-                    "message_delta",
-                    json.dumps({"type": "message_delta", "delta": {"stop_reason": "end_turn", "stop_sequence": None}, "usage": {"output_tokens": 1}}, ensure_ascii=False),
+            if ending_started:
+                # Part of an ending is already downstream; anything more would
+                # duplicate or contradict it.
+                failure_reason = failure_reason or f"anthropic_stream_{source}_error:{type(exc).__name__}"
+                router_log(
+                    "ERROR",
+                    f"anthropic_sse_forward_error provider={provider} model={model} source={source} "
+                    f"stage=ending {stream_state()} error={type(exc).__name__}: {exc}",
                 )
-                emit_raw("message_stop", "{\"type\":\"message_stop\"}")
-        except Exception as exc:
-            router_log("WARN", f"anthropic_stream_fallback_emit_failed error={type(exc).__name__}: {exc}")
+            else:
+                if source == "upstream":
+                    process_tail_event()
+                if upstream_error_forwarded:
+                    failure_reason = "anthropic_stream_upstream_error_event"
+                    router_log(
+                        "WARN",
+                        f"anthropic_sse_upstream_error_event provider={provider} model={model} {stream_state()} "
+                        f"read_error={type(exc).__name__}",
+                    )
+                elif source == "upstream" and saw_message_stop:
+                    # The upstream already finished the turn; a transport error
+                    # afterwards does not undo a complete response.
+                    router_log(
+                        "WARN",
+                        f"anthropic_sse_upstream_error_after_message_stop provider={provider} model={model} "
+                        f"error={type(exc).__name__}: {exc}",
+                    )
+                    finish_completed_stream()
+                else:
+                    router_log(
+                        "ERROR",
+                        f"anthropic_sse_forward_error provider={provider} model={model} source={source} "
+                        f"stage=before_message_stop {stream_state()} error={type(exc).__name__}: {exc}",
+                    )
+                    report_incomplete_stream(
+                        (
+                            f"Upstream Anthropic stream failed before message_stop ({type(exc).__name__})."
+                            if source == "upstream"
+                            else f"Ciel Runtime failed to relay the Anthropic stream ({type(exc).__name__})."
+                        ),
+                        f"anthropic_stream_{source}_error:{type(exc).__name__}",
+                    )
+        except ClientStreamDisconnected as emit_exc:
+            failure_reason = failure_reason or "anthropic_stream_client_disconnected"
+            router_log(
+                "WARN",
+                f"anthropic_sse_client_disconnected model={model} while_reporting={type(exc).__name__} error={emit_exc}",
+            )
+        except Exception as emit_exc:
+            router_log("WARN", f"anthropic_stream_fallback_emit_failed error={type(emit_exc).__name__}: {emit_exc}")
     finally:
         if stream_success:
             mark_pending_channel_delivery_success(handler, "anthropic_stream_message_stop")
         else:
-            reason = str(getattr(handler, "_ciel_runtime_channel_delivery_reason", "anthropic_stream_incomplete") or "anthropic_stream_incomplete")
+            reason = failure_reason or str(
+                getattr(handler, "_ciel_runtime_channel_delivery_reason", "anthropic_stream_incomplete")
+                or "anthropic_stream_incomplete"
+            )
             mark_pending_channel_delivery_failed(handler, reason)
         try:
             resp.close()

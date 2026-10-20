@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import json
+import errno
 import re
+import ssl
+import urllib.error
 from http.client import IncompleteRead
 from collections.abc import Callable, Mapping
 from typing import Any
@@ -133,6 +136,61 @@ _CATEGORY_ANTHROPIC_TYPES = {
 _PROTECTED_STATUS_TYPES = frozenset({401, 403, 413})
 
 _RETRYABLE_CATEGORIES = frozenset({"overloaded", "timeout"})
+
+# Transport failures are different from provider HTTP responses.  In
+# particular, ``URLError`` is what urllib raises for TLS EOF and connection
+# refused; letting it reach the generic route handler turns an upstream fault
+# into a local HTTP 500, which Codex renders as its generic "high demand"
+# message.  Keep the list deliberately narrow so local programming errors are
+# still surfaced by the generic handler.
+_NETWORK_ERRNOS = frozenset(
+    {
+        errno.ECONNABORTED,
+        errno.ECONNREFUSED,
+        errno.ECONNRESET,
+        errno.EHOSTUNREACH,
+        errno.ENETUNREACH,
+        errno.EPIPE,
+        errno.ETIMEDOUT,
+    }
+)
+
+
+def _transport_reason(error: BaseException) -> BaseException:
+    if isinstance(error, urllib.error.URLError):
+        reason = error.reason
+        if isinstance(reason, BaseException):
+            return reason
+    return error
+
+
+def is_upstream_transport_error(error: BaseException) -> bool:
+    """Return whether *error* represents a failed provider connection.
+
+    This function is intentionally independent of the downstream client
+    disconnect detector. Callers must check that detector first, because a
+    broken pipe can be raised while writing to a client that went away.
+    """
+
+    if isinstance(error, urllib.error.HTTPError):
+        return False
+    if isinstance(error, urllib.error.URLError):
+        return True
+    reason = _transport_reason(error)
+    if isinstance(reason, (TimeoutError, ssl.SSLError, ConnectionError, IncompleteRead, EOFError)):
+        return True
+    if isinstance(reason, OSError):
+        return getattr(reason, "errno", None) in _NETWORK_ERRNOS
+    return False
+
+
+def _transport_status(error: BaseException) -> int:
+    reason = _transport_reason(error)
+    if isinstance(reason, TimeoutError):
+        return 504
+    if isinstance(reason, OSError) and getattr(reason, "errno", None) == errno.ETIMEDOUT:
+        return 504
+    return 502
 
 
 def classify_upstream_failure(
@@ -272,6 +330,7 @@ class UpstreamFailure(RuntimeError):
         body: Any = "",
         output_started: bool = False,
         response_id: str | None = None,
+        category: str | None = None,
     ) -> None:
         self.provider = str(provider or "upstream")
         self.model = str(model or "unknown")
@@ -284,7 +343,7 @@ class UpstreamFailure(RuntimeError):
         self.body = _decoded(body)
         self.output_started = bool(output_started)
         self.response_id = str(response_id or "").strip() or None
-        self.category = classify_upstream_failure(
+        self.category = category or classify_upstream_failure(
             self.upstream_status, self.error_type, self.message
         )
         super().__init__(self.detail())
@@ -324,6 +383,35 @@ class UpstreamFailure(RuntimeError):
             source="http_status",
             body=body,
             output_started=output_started,
+        )
+
+    @classmethod
+    def from_transport_error(
+        cls,
+        provider: str,
+        model: str,
+        error: BaseException,
+        *,
+        output_started: bool = False,
+    ) -> "UpstreamFailure | None":
+        """Convert a provider connection failure into a faithful gateway error.
+
+        ``None`` is returned for exceptions outside the transport boundary so
+        callers can retain their existing generic error handling.
+        """
+
+        if not is_upstream_transport_error(error):
+            return None
+        reason = _transport_reason(error)
+        message = f"{type(reason).__name__}: {reason}"
+        return cls(
+            provider,
+            model,
+            status=_transport_status(error),
+            message=message,
+            source="transport",
+            output_started=output_started,
+            category="timeout" if _transport_status(error) == 504 else "upstream_error",
         )
 
     @classmethod

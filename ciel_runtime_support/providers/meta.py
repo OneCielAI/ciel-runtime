@@ -30,6 +30,13 @@ MUSE_SPARK_MODELS = (
     "muse-spark-1.2-contributor",
     "muse-spark-1.1",
 )
+# Muse Wonder is the frontier agent model (docs 2026-10-12; model card
+# published 2026-10-19). ``muse-wonder-1.0`` is the Model API id (Standard
+# mode only). Muse Wonder Full is documented as Muse Code/subscription only
+# with no Model API id, so nothing here invents one.
+MUSE_WONDER_MODEL = "muse-wonder-1.0"
+MUSE_WONDER_MODELS = (MUSE_WONDER_MODEL,)
+MUSE_MODELS = (*MUSE_WONDER_MODELS, *MUSE_SPARK_MODELS)
 # Meta compiles every tool ``pattern`` with its own regex engine and rejects
 # the whole request when an escape does not compile. Claude Code's Artifact
 # tool ships ``"pattern": "^[^\0]*$"`` (a NUL escape in ``file_paths``), and
@@ -57,6 +64,29 @@ MUSE_SPARK_CODEX_CATALOG = {
     ],
     "default_reasoning_level": "high",
 }
+# The model card lists text, image, video, audio and PDF input with text
+# output, and reasoning effort from ``minimal`` to ``max``.
+MUSE_WONDER_CODEX_CATALOG = {
+    "context_window": MUSE_SPARK_CONTEXT_WINDOW,
+    "max_context_window": MUSE_SPARK_CONTEXT_WINDOW,
+    "input_modalities": ["text", "image", "video", "audio"],
+    "support_verbosity": False,
+    "supports_reasoning_summaries": True,
+    "supported_reasoning_levels": [
+        {"effort": "minimal", "description": "Shortest reasoning pass"},
+        {"effort": "low", "description": "Light reasoning"},
+        {"effort": "medium", "description": "Moderate reasoning depth"},
+        {"effort": "high", "description": "Deep reasoning"},
+        {"effort": "xhigh", "description": "Extended reasoning"},
+        {"effort": "max", "description": "Maximum reasoning effort"},
+    ],
+    "default_reasoning_level": "high",
+}
+# Per-model context/catalog profile; Muse Spark keeps its existing settings.
+MUSE_MODEL_CATALOGS = {
+    MUSE_WONDER_MODEL: MUSE_WONDER_CODEX_CATALOG,
+    **{model: MUSE_SPARK_CODEX_CATALOG for model in MUSE_SPARK_MODELS},
+}
 
 
 @dataclass(frozen=True)
@@ -68,7 +98,7 @@ class MetaModelProviderAdapter(HttpBearerProviderAdapter):
     configuration_defaults_value: dict = field(
         default_factory=lambda: provider_configuration(
             MUSE_SPARK_MODEL,
-            custom_models=MUSE_SPARK_MODELS,
+            custom_models=MUSE_MODELS,
             native_compat=True,
             preserve_anthropic_thinking=True,
             normalize_anthropic_tool_use=True,
@@ -121,7 +151,7 @@ class MetaModelProviderAdapter(HttpBearerProviderAdapter):
     model_catalog_policy_value: ProviderModelCatalogPolicy = field(
         default_factory=lambda: ProviderModelCatalogPolicy(
             kind="openai",
-            fallback_models=MUSE_SPARK_MODELS,
+            fallback_models=MUSE_MODELS,
             allow_configured_fallback=True,
         )
     )
@@ -166,7 +196,8 @@ class MetaModelProviderAdapter(HttpBearerProviderAdapter):
         self, config: ProviderConfig
     ) -> tuple[Mapping[str, Any], str | None]:
         model = self.normalize_model_id(config.model)
-        if model not in MUSE_SPARK_MODELS:
+        catalog = MUSE_MODEL_CATALOGS.get(model)
+        if catalog is None:
             return {}, None
         contributor_notice = (
             " Contributor tier permits Meta to train on prompts and completions."
@@ -179,7 +210,7 @@ class MetaModelProviderAdapter(HttpBearerProviderAdapter):
                 "max_model_len": MUSE_SPARK_CONTEXT_WINDOW,
                 "auto_compact_window": MUSE_SPARK_AUTO_COMPACT_LIMIT,
                 "effort_level": "high",
-                "codex_model_catalog": deepcopy(MUSE_SPARK_CODEX_CATALOG),
+                "codex_model_catalog": deepcopy(catalog),
                 "model_profile": f"{model}-1m",
             },
             f"{model} profile applied: 1M context, high reasoning effort, "

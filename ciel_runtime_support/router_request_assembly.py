@@ -23,6 +23,8 @@ class OpenAIResponseCorePorts:
     input_as_list: Callback
     is_client_disconnect: Callback
     log: Callback
+    observe_context_request: Callback = lambda *_args: None
+    observe_context_failure: Callback = lambda *_args: None
 
 
 @dataclass(frozen=True, slots=True)
@@ -86,6 +88,8 @@ class OpenAIResponseAssembly:
                 input_as_list=self.core.input_as_list,
                 is_client_disconnect=self.core.is_client_disconnect,
                 log=self.core.log,
+                observe_context_request=self.core.observe_context_request,
+                observe_context_failure=self.core.observe_context_failure,
             ),
             conversion=openai_responses_router.OpenAIResponsesConversion(
                 to_anthropic=self.conversion.to_anthropic,
@@ -230,6 +234,9 @@ class ClaudeRouterResponsePorts:
 @dataclass(frozen=True, slots=True)
 class ClaudeRouterContextRecoveryPorts:
     recover_output_budget: Callback
+    observe_request: Callback = lambda *_args: None
+    observe_failure: Callback = lambda *_args: None
+    reject_request: Callback = lambda *_args: None
 
 
 @dataclass(frozen=True, slots=True)
@@ -331,6 +338,9 @@ class ClaudeRouterAssembly:
             ),
             context_recovery=claude_router.ClaudeRouterContextRecovery(
                 recover_output_budget=self.context_recovery.recover_output_budget,
+                observe_request=self.context_recovery.observe_request,
+                observe_failure=self.context_recovery.observe_failure,
+                reject_request=self.context_recovery.reject_request,
             ),
         )
 

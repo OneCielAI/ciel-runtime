@@ -301,12 +301,14 @@ class ProcessTreeController:
 
         try:
             if self._platform_name == "nt":
-                self._services.query.run(
+                result = self._services.query.run(
                     ["taskkill", "/PID", str(pid), "/T", "/F"],
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                     timeout=8,
                 )
+                if getattr(result, "returncode", 1) != 0:
+                    raise subprocess.CalledProcessError(result.returncode, "taskkill")
             else:
                 self._services.signals.kill(pid, signal.SIGTERM)
                 deadline = self._services.signals.now() + 4
@@ -653,12 +655,14 @@ def _terminate_windows_processes(
     stopped = False
     for pid in matched:
         try:
-            services.query.run(
+            result = services.query.run(
                 ["taskkill", "/PID", str(pid), "/T", "/F"],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 timeout=8,
             )
+            if getattr(result, "returncode", 1) != 0:
+                raise subprocess.CalledProcessError(result.returncode, "taskkill")
             stopped = True
         except Exception as exc:
             services.log(

@@ -40,6 +40,12 @@ Control plane, runs before Claude Code and does not require LLM connectivity:
                                       Set Ollama num_ctx/options/keep_alive/think
   ciel-runtime provider-options [provider] [key=value ...]
                                       Set vLLM/NIM/NVIDIA output/context/timeouts
+  ciel-runtime provider-options cielairouter gateway_selection=auto|off
+                                      Toggle automatic gateway selection (off uses central)
+  ciel-runtime provider-options cielairouter gateway-status
+                                      Read last observed route/reason from local /health
+  ciel-runtime provider-options cielairouter gateway_data_path=router|direct
+                                      CLI model requests via the router (default) or the gateway picked at launch
   ciel-runtime ollama-catalog          Download Ollama model/context catalog
   ciel-runtime test [seconds] [mode]   Test compatibility; mode is auto, quick, smoke, or full
   ciel-runtime stop                    Stop router
@@ -97,6 +103,9 @@ Headless setup flags, namespaced to avoid Claude CLI collisions:
   ciel-runtime --ca-no-web-fetch       Disable fetch MCP
   ciel-runtime --ca-no-self-update-check
                                       Skip Ciel Runtime npm self-update check
+  ciel-runtime --ca-resume-last       Unattended start (reboot script): last runtime and settings of this
+                                      folder, last conversation, startup questions answered, then
+                                      "계속-세션재시작됨" is sent to the session
   ciel-runtime --ca-no-update-check    Skip runtime update check for this launch
   ciel-runtime --ca-upgrade-and-exit   Update Ciel Runtime, Claude Code, Codex, and AGY without prompts, then exit
   ciel-runtime --ca-no-launch          Apply setup flags/env values, then exit without launching a runtime

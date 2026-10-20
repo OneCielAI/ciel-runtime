@@ -1,0 +1,47 @@
+okf_version: "1.0"
+task: "Release the TLS EOF / stream truncation follow-up fixes to nightly and install the published nightly locally."
+authorization: >
+  User, 2026-10-16: explicit nightly push and local (current user only) deployment of the verified TLS
+  follow-up fixes. No remote .14 or managed G: sandbox change, no live router or session restart.
+status: "pre-push (results recorded in the follow-up journal commit)"
+base: "nightly 572b7e7b83eddec071278ed5bb1d050c1d104ba3"
+scope:
+  production:
+    - "ciel_runtime_support/cielairouter_gateway_transport.py: IncompleteRead.partial observed before scoring; dispatched provider error events are upstream_error_event (not a gateway failure)."
+    - "ciel_runtime_support/cielairouter_gateway_overlay.py: a discovery node at the central base is a central route (CENTRAL_GATEWAY_REASON), not pinned to the session."
+    - "ciel_runtime_support/initial_stream_retry.py: gateway_route_selected(config) helper (overlay route token)."
+    - "ciel_runtime_support/openai_forwarding.py, response_collection_context.py, provider_responses_passthrough.py: no same-call replay for a selected-gateway config."
+    - "ciel_runtime_support/provider_responses_passthrough.py: upstream read failures (IncompleteRead, OSError) after status 200 become a started-stream UpstreamStreamReadError."
+    - "ciel_runtime_support/openai_responses_router.py: metadata-only provider_responses_failure router.log line."
+  tests_new:
+    - "tests/test_cielairouter_gateway_central_fallback.py"
+    - "tests/test_openai_responses_native_failure_diagnostics.py"
+    - "tests/test_provider_responses_gateway_replay_guard.py"
+  tests_modified: "test_cielairouter_gateway_overlay, test_cielairouter_gateway_transport, test_initial_stream_retry, test_meta_provider, test_openai_responses_upstream_stream_error, test_runaway_collection_retry"
+  changelog: "CHANGELOG.md Unreleased entry 'Upstream TLS EOF and truncated streams'."
+lf_normalized_sha256_of_released_modules:
+  cielairouter_gateway_overlay.py: "c967260c3b4a1b943deeaeb206685fd4523b9da55fa58a908d2d9e58fc940eb8"
+  cielairouter_gateway_transport.py: "b00e3f86690911f54951d6390fdc2a20a2f18d26691dfecac16a7f0864e58852"
+  initial_stream_retry.py: "7980acd0df2860b58dd58cd4783b673246acfaaa9c5cdbc48998dd145a5cd751"
+  openai_forwarding.py: "1cb3f0da173378b73f568d9119aab424099de11e75e63d7822f22a1fb808c46e"
+  openai_responses_router.py: "0edc085cc9b7be2df1d6a83d369a62bf630730abe1ab535a5ef6ceab7b8ccb08"
+  provider_responses_passthrough.py: "3a0e833960a4dea133218269c8a5ff713fa2d85517187debb4428e84514436ff"
+  response_collection_context.py: "c0594615c39e0531e72a27fd32cc71473f5df39237166c7acfd16a32d7eb1ac2"
+pre_push_verification:
+  parent: "../../diagnostics/tls-eof/combined-final-tests.txt: 9 suites, 198 tests OK on the final working tree (Python 3.11.6, isolated)."
+  release_owner:
+    - "Same 9 suites under Python 3.10.6 (CI python-minimum version), inherited CIEL_RUNTIME_* removed, run_test_group isolation: 198 tests OK."
+    - "test_architecture_contracts 261 OK (42 skipped), test_architecture_budget 2 OK on the final tree."
+    - "ruff 0.14.11 check ciel_runtime_support tests: All checks passed. git diff --check clean."
+  router_group: "../../diagnostics/tls-eof/evidence/passthrough-after-router-group.txt: scripts/run_test_group.py router 1317 OK (agent run, isolated)."
+published_evidence_selection: >
+  Only the task OKFs, combined-final-tests.txt, runtime-error-metadata.json and before/after test and wire logs are
+  committed. Not committed (kept in the local working tree): helper scripts (repro.py, run_tests.sh, run_focused.py,
+  probe_protocols.py, snapshot.py.txt, v1_check.py.txt, persist_probe.py), production.diff copies, focused-suite and
+  ruff logs, the 70 KB passthrough-after-modules log, unreferenced live-log metadata JSONs, and the original
+  persist-probe-router-log.txt, which names planted synthetic secret markers. Its two router.log lines are published
+  as safe-diagnostics-evidence/persist-probe-router-log.sanitized.txt. Some task OKF links therefore point at files
+  that are not in the commit.
+known_limits:
+  - "Root cause of the 2026-10-16 20:36-20:37 sandbox 9385 IncompleteRead/URLError events remains unestablished (investigation.okf)."
+  - "In default configuration CielAiRouter has 0 native Responses truncation replays; the passthrough replay guard changes behavior only with a user-set responses_stream_truncation_retries (native-retry-boundary.okf)."

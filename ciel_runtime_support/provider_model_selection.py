@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from .model_override import FORCED_MODEL_KEY, forced_model
+from .provider_models import MODEL_LIST_TIMEOUT_SECONDS, ModelListUnavailableError
 from .remote_bridge import REMOTE_BRIDGE_CONFIG_MARKER
 
 
@@ -138,7 +139,14 @@ class ModelSelectionController:
         )
         if self._catalog and self._catalog.authoritative_catalog(provider, provider_config):
             try:
-                ids = self._catalog.upstream_ids(provider, provider_config)
+                ids = self._catalog.upstream_ids(provider, provider_config, require_catalog=True)
+            except ModelListUnavailableError as exc:
+                # The list was not fetched, so the model was neither found nor
+                # missing.  As before, an unverified choice is not saved.
+                return [
+                    f"Model selection rejected for {provider}: {exc}; {model_id!r} was not "
+                    "checked and the current model is unchanged. Retry when the provider responds."
+                ]
             except Exception as exc:
                 return [
                     f"Model selection rejected for {provider}: {model_id!r}; model list "
@@ -264,8 +272,19 @@ class ProviderModelSelection:
         try:
             ids = self.selection.unique_ids(
                 provider,
-                self.selection.upstream_ids(provider, config, force_refresh=force_refresh),
+                self.selection.upstream_ids(
+                    provider, config, force_refresh=force_refresh, require_catalog=True
+                ),
             )
+        except ModelListUnavailableError as exc:
+            # A slow or unreachable provider does not make a configured model
+            # wrong: keep it, unchecked, as the unavailable-list path always has.
+            if current and current not in placeholders:
+                return True, [
+                    f"Model list unavailable: {exc}; keeping configured model "
+                    f"{current} (not checked against the catalog)."
+                ]
+            return False, [f"Model selection required for {provider}: {exc}."]
         except Exception as exc:
             if current:
                 return True, [
@@ -405,7 +424,7 @@ class ProviderModelSelection:
                         inbound_headers,
                         "anthropic_messages",
                     ),
-                    timeout=6.0,
+                    timeout=MODEL_LIST_TIMEOUT_SECONDS,
                 )
                 if ids:
                     ids.extend(

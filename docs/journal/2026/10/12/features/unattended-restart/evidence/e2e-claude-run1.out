@@ -1,0 +1,22 @@
+07:00:17 flow=claude stub=64810 router=64811 appserver=64812 scratch=G:\ciel-e2e\unattended\claude
+07:00:17 launched A: launch-A.cmd
+07:00:33 launcher pid A: 99148
+07:00:33 wait router up: True
+07:03:03 wait A: continue message at the stub: False
+07:03:07 shot A-started-new-conversation: saved C:\Users\djlov\ciel-runtime\docs\journal\2026\10\12\features\unattended-restart\evidence\e2e-claude\shots\01-A-started-new-conversation.png handle=20587730 printwindow=True
+07:03:07 notify 'E2E-UA-TURN-1 hello' -> ok=True
+07:04:37 wait A: turn 1 at the stub: False
+07:04:40 phase A: {"continue_message_requests": [], "answered": [], "threads": []}
+07:04:40 restart_session -> {"jsonrpc": "2.0", "id": 1, "result": {"content": [{"type": "text", "text": "{\"ok\":true,\"queued\":true,\"request\":{\"schema\":\"ciel-runtime.runtime-session-restart/v1\",\"id\":\"d49a9637434244b4a23ebb9e313925b1\",\"source\":\"ciel-runtime-router-tool\",\"reason\":\"e2e unattended restart\",\"ru
+07:07:10 wait B: continue message at the stub: False
+07:07:14 shot B-after-restart_session: saved C:\Users\djlov\ciel-runtime\docs\journal\2026\10\12\features\unattended-restart\evidence\e2e-claude\shots\02-B-after-restart_session.png handle=20587730 printwindow=True
+07:07:14 phase B: {"continue_message_requests": [], "answered": [], "threads": []}
+07:07:21 kill A: killed 52452 killed 85916 killed 96604
+07:07:24 launched C: launch-C.cmd
+07:07:40 launcher pid C: 107436
+07:10:10 wait C: continue message at the stub: False
+07:10:15 shot C-after-reboot: saved C:\Users\djlov\ciel-runtime\docs\journal\2026\10\12\features\unattended-restart\evidence\e2e-claude\shots\03-C-after-reboot.png handle=21443776 printwindow=True
+07:10:15 phase C: {"continue_message_requests": [], "answered": [], "threads": []}
+07:10:21 kill C: killed 43892 killed 86244 killed 97972
+07:10:27 kill final: 
+07:10:30 done

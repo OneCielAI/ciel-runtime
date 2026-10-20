@@ -102,6 +102,6 @@ class CodexLaunchModelSettings:
     asset_home: Path
     log: Callable[[str, str], Any]
 
-    def __call__(self, codex: str, cfg: dict[str, Any], passthrough: list[str] | None = None) -> list[str]:
+    def __call__(self, codex: str, cfg: dict[str, Any], passthrough: list[str] | None = None, **options: Any) -> list[str]:
         ensure_logged(codex_home_config_path(self.environ(), self.asset_home), self.log)
-        return self.model_catalog_args(codex, cfg, passthrough)
+        return self.model_catalog_args(codex, cfg, passthrough, **options)

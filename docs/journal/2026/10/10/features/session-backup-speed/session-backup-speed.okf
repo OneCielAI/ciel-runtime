@@ -1,0 +1,23 @@
+okf_version: "1.0"
+task: "Faster session backups: parallel compress/store, no compression for incompressible chunks, cheaper reads; parallel transfers settable in the menu."
+requested: "User, 2026-10-10: '파일 백업속도가 느림. 좀도 효가적으로 고속전송을해야함. 여러개 동시전송도고려할것'; plan approved with '진행'."
+measured_before:
+  profile: "1.1 GB work folder (3 x 256 MB random, 256 MB jsonl, 3000 x 20 KB) on G: (CT4000BX500 SATA SSD) -> local target on G:, warm cache: 29.8 s; zlib.compress 18.6 s (62%), reads + re-cutting ~5 s, sha256 0.4 s, writes < 1 s; incremental (nothing changed) 5.8 s."
+  facts: "zlib on random data: level 6 46 MB/s, level 1 47 MB/s, level 0 1234 MB/s (no size gain either way); jsonl level 6 298 MB/s ratio 0.004; level 6 on 16 chunks: 1 thread 351 MB/s, 4 threads 1255, 8 threads 2585 (24 CPUs); sha256 3688 MB/s."
+changes:
+  store: "ChunkWriter(targets, jobs): sha256 in order on the caller thread; compress + has/put on a ThreadPoolExecutor (jobs, max 16), at most 2*jobs chunks in flight; the same chunk in flight is stored once; a target failure is kept and raised by the next write/drain (backup stops with the reason); drain() before the manifest; close() shuts the pool. pack_chunk: zlib level 6, or level 0 (stored, same format) when a 64 KiB sample compresses to > 95%. iter_chunks passes whole CHUNK_SIZE blocks without copying."
+  collect: "READ_BLOCK = CHUNK_SIZE, and _file_stream reads only what is left of the file. A first version read 8 MiB blocks blindly and made incremental backups 2x slower (profile: read() 17 s): Python's read(n) allocates n bytes, so every 20 KB file cost two 8 MiB allocations."
+  targets: "Synology DsmClient: one connection probe and one login under a lock for all threads; an expired session renews once per stale id (call/upload/download). Blob indexes (Synology, SSH/rclone staging) built under a lock. S3 has no shared state. rclone already copies with its own parallel transfers; SSH sends one sftp batch (only compression is parallel)."
+  settings_ui: "schedule.parallel_transfers (default 8); menu 18 row 'Parallel transfers  [8 at a time]' (1-16); backup create --jobs N; manifest stats carry jobs."
+measured_after:
+  code: "Same data, warm cache, a target that keeps nothing (evidence/bench_targets.py; old = HEAD 56b279a extracted with git archive): first backup old 21.2-22.2 s -> new 4.1-4.2 s (jobs 1), 2.7 s (jobs 8); incremental old 6.0-6.4 s -> new 2.0-2.9 s."
+  network: "Target with 30 ms per request (has and put): old 214.3 s, new jobs 1 195.3 s, jobs 8 24.4 s, jobs 16 12.9 s."
+  real_disk: "G: -> G: (evidence/bench_compare.py), alternating: old first 52.2 / 23.2 s, incremental 6.3 / 6.2 s; new jobs 8 first 3.0 / 3.3 s, incremental 2.5 / 2.6 s."
+  cli: "backup create via ciel_runtime.py (reads 3.5 GB incl. other roots, stores 833 MB): jobs 8: 9.3, 9.0, 10.2, 9.1 s; jobs 16 9.2 s; jobs 1: 17.0, 16.2, 20.2 s."
+  outliers: "Some single runs were far slower regardless of jobs: CLI first run jobs 8 78.1 s; menu E2E jobs 8 123.1 s (run 1) and jobs 1 137.1 s (run 2). Each came right after deleting GBs of earlier test backups on G:. Raw write test afterwards: 307-362 MB/s with fsync. Cause not found (Windows real-time protection is on - unverified as the cause)."
+tests: "tests/test_session_backup_speed.py 5 (stored packing round trip; parallel order + concurrency bounded by jobs; same chunk in flight stored once; failing target stops the writer with no_space; jobs 1 and 8 snapshots name identical chunks and verify), test_session_backup_synology +1 (8 threads, one login). Groups: unit 1840 OK, runtime 402 OK, channel 457 OK, router 1188 OK; ruff clean; router 9611 200."
+e2e: "evidence/e2e_speed_menu.py (+ _steps.py): 1.1 GB folder, isolated config, menu by key events. Run 2 (16:11-16:14): Parallel transfers set to 1 -> Back up now 137.1 s (outlier, see above); stored backups removed; set to 8 -> Back up now 7.0 s ('3130 of 3130 chunks new, 769.3 MB uploaded'); set to 8 again (clears the old result) -> Back up now 8.0 s (0 chunks new). Run 1's incremental timing (0.5 s) was invalid: the old 'Saved snapshot' text was still on screen; fixed in the steps."
+not_verified:
+  - "Real NAS (QuickConnect relay) throughput with parallel uploads - needs the user's password in the menu."
+  - "Restore/verify speed (reading is still one chunk at a time)."
+not_done: "Not committed, pushed or deployed."

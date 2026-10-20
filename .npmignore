@@ -3,3 +3,5 @@
 # (which only ships docs/). This is a defense-in-depth backstop.
 internal-docs/
 docs/internal/
+# Private native homes, request bodies and socket keys are local diagnostics.
+docs/journal/2026/10/19/diagnostics/walkie-context-overflow/evidence/

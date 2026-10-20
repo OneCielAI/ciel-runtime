@@ -1,0 +1,16 @@
+16:48:24 central=58545 A=58546 B=58547 router=58548 scratch=G:\ciel-e2e\direct-plain\codex
+16:48:37 launcher pid 87000
+16:48:37 wait router up: True
+16:48:37 wait launch data path recorded: True
+16:48:53 shot launch: saved C:\Users\djlov\ciel-runtime\docs\journal\2026\10\16\features\cielairouter-direct-path\plain-tui-router-guard\evidence\e2e-plain-codex\shots\01-launch.png handle=7478054 printwindow=True
+16:48:53 notify 'E2E-TURN-1 please reply' -> ok=True
+16:48:54 wait turn 1 reached a gateway: True
+16:49:03 shot turn1: saved C:\Users\djlov\ciel-runtime\docs\journal\2026\10\16\features\cielairouter-direct-path\plain-tui-router-guard\evidence\e2e-plain-codex\shots\02-turn1.png handle=7478054 printwindow=True
+16:49:03 restart response: {"jsonrpc": "2.0", "id": 1, "result": {"content": [{"type": "text", "text": "{\"ok\":true,\"queued\":true,\"request\":{\"schema\":\"ciel-runtime.runtime-session-restart/v1\",\"id\":\"25a3a162a12144e68cd9694e223ba74c\",\"source\":\"ciel-runtime-router-tool\",\"reason\":\"direct-plain E2E restart\",\"
+16:49:04 wait codex session restarted: True
+16:49:26 shot after-restart: saved C:\Users\djlov\ciel-runtime\docs\journal\2026\10\16\features\cielairouter-direct-path\plain-tui-router-guard\evidence\e2e-plain-codex\shots\03-after-restart.png handle=7478054 printwindow=True
+16:49:26 notify 'E2E-TURN-2 please reply' -> ok=True
+16:51:26 wait turn 2 reached a gateway: False
+16:51:35 shot turn2: saved C:\Users\djlov\ciel-runtime\docs\journal\2026\10\16\features\cielairouter-direct-path\plain-tui-router-guard\evidence\e2e-plain-codex\shots\04-turn2.png handle=7478054 printwindow=True
+16:51:39 kill: killed 95772 killed 98180
+16:51:41 done

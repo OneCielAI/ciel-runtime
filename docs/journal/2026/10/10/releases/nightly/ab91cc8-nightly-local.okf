@@ -1,0 +1,7 @@
+okf_version: "1.0"
+task: "Nightly push and local install of faster backups (parallel transfers) and the folder/worktree choices (ab91cc8)."
+reported: "User, 2026-10-10: '테스트 완료하고 개발종료되면 로컬, 나이트리 푸시해'."
+before_commit: "Changed files scanned for the NAS password/ID/account, emails, LAN/WAN IPs and personal instruction text: none. (Other repo files only hold existing sk-ant- test fixtures.) The NAS credentials the user pasted were not written anywhere."
+nightly: "ab91cc8 on nightly; CI 38087585635 success; Publish to npm 38087585569 success; dist-tag nightly = 0.2.51-nightly.20261010-212841.ab91cc8 (latest stays 0.2.51)."
+local: "npm install -g @one-ciel-ai/ciel-runtime@0.2.51-nightly.20261010-212841.ab91cc8; install.ps1 with CIEL_RUNTIME_INSTALL_HOME=~/.local/share/ciel-runtime-ab91cc8f575aa3bc3068741c6c9f38aa0299f5e0; HKCU CIEL_RUNTIME_HOME points there; ciel-runtimectl version prints the nightly; the snapshot has pack_chunk and parallel_transfers; router 9611 200. Running sessions keep their launch-time code."
+not_done: "Real backup to the user's NAS: needs the user to type the password in the menu and the NAS folder (the agent does not enter passwords). main not merged."

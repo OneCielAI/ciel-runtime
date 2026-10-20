@@ -1,0 +1,50 @@
+{
+ "flow": "claude",
+ "phases": {
+  "A": {
+   "continue_message_requests": [
+    {
+     "n": 3,
+     "tail": "mit messages with: Co-Authored-By: Claude Code <noreply@anthropic.com> - End pull request descriptions with: 🤖 Generated with [Claude Code](https://claude.com/claude-code) </system-reminder> 계속-세션재시작됨",
+     "history_turn1": false,
+     "continue_messages_in_history": 1
+    }
+   ],
+   "answered": [],
+   "threads": []
+  },
+  "B": {
+   "continue_message_requests": [
+    {
+     "n": 6,
+     "tail": "계속-세션재시작됨",
+     "history_turn1": true,
+     "continue_messages_in_history": 2
+    }
+   ],
+   "answered": [],
+   "threads": []
+  },
+  "C": {
+   "continue_message_requests": [
+    {
+     "n": 10,
+     "tail": "계속-세션재시작됨",
+     "history_turn1": true,
+     "continue_messages_in_history": 3
+    }
+   ],
+   "answered": [],
+   "threads": []
+  }
+ },
+ "router_lines": [
+  "2026-10-12T07:22:09 [INFO] claude_session_restart_notice_queued request_id=1",
+  "2026-10-12T07:22:09 [INFO] startup_prompt_auto_answer_enabled",
+  "2026-10-12T07:22:35 [INFO] claude_session_restart_notice_queued request_id=3",
+  "2026-10-12T07:22:35 [INFO] claude_session_restart exit_code=1 source=ciel-runtime-router-tool reason=e2e unattended restart resumed=true",
+  "2026-10-12T07:22:35 [INFO] startup_prompt_auto_answer_enabled",
+  "2026-10-12T07:23:17 [INFO] claude_session_restart_notice_queued request_id=4",
+  "2026-10-12T07:23:18 [INFO] startup_prompt_auto_answer_enabled"
+ ]
+}

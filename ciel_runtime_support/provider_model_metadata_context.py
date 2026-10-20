@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Callable, Mapping
 
 from . import anthropic_model_policy
+from .cielairouter_gateway_overlay import discovery_provider_config
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,6 +48,8 @@ class ProviderModelMetadataContext:
     nvidia_env: Path
 
     def cache_key(self, provider: str, pcfg: dict[str, Any]) -> str:
+        # A per-request CielAiRouter gateway copy keys the central catalog.
+        pcfg = discovery_provider_config(pcfg)
         api_state = (
             "key" if self.headers.api_key_count(provider, pcfg) else "nokey"
         )

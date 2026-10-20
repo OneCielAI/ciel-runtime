@@ -5,6 +5,219 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+- Codex app-server + remote TUI restarts explicitly propagate startup-answer
+  policy, settle paused-goal controls independently of unrelated screen redraws,
+  and hold the RPC channel client until rendered startup readiness. The paused
+  goal is left paused; no goal activation or clearing is substituted for UI
+  dismissal. Missing rendered state keeps automatic delivery held.
+
+- External SSE receivers retain one reader across transport outages, recover from
+  configuration/cleanup failures, and expose typed network/persistence diagnostics
+  without exception messages or credentials. EOF participates in capped backoff;
+  short heartbeat/EOF loops cannot reset it. Resume cursors are scoped to the
+  endpoint and cursor configuration. External events menus expose live router
+  status, reconnect and idle-timeout controls without opening another stream.
+
+- Restart lifecycle hardening is under verification: Codex remote launches must
+  release their owned app-server before replacement and authenticate the new
+  server rather than treating any `/readyz` response as launch identity. External
+  channel delivery must distinguish interrupted old-launch attempts from queues
+  still owned by the current CLI. See the 2026-10-20 restart-delivery journal for
+  the verified implementation and release evidence; historical failure causes
+  not directly observed remain explicitly unresolved.
+
+- Every routed `/v1/responses` request is logged on entry, before any route
+  branch, and every upstream failure that becomes the client's HTTP error is
+  recorded with provider, model, status, error type and a bounded message. A
+  token-plan 503 previously left only an access line, so the request that
+  produced it could not be identified. The Alibaba token plan's advertised
+  `deepseek-v4.1-flash-1017` snapshot is kept in a saved catalog when it is
+  already the selected model.
+
+- Muse Code parity: `muse-wonder-1.0` joins the Meta provider catalog with the
+  model card's 1,048,576-token context, text/image/video/audio input and
+  reasoning effort from `minimal` to `max`. Muse Wonder Full is documented as
+  Muse Code/subscription-only and has no Model API id, so it is not registered.
+  Channel session commands now target Muse launches: `/compact`, `/new` and
+  `/goal clear` are typed into the terminal, where they were previously
+  deferred as an unknown runtime.
+
+- Routed Claude and Codex native checkpoints now use bounded, lossless semantic
+  map/reduce on Messages, chat and Responses wires. Large tool payloads are split
+  without dropping fields; empty, truncated, cancelled or failed summaries cannot
+  masquerade as successful checkpoints. The final response still passes through
+  the native codec and the CLI persists its own checkpoint and real usage.
+  Raw-history pressure holds external SSE/channel admission while durable input
+  stays queued, with exact shared launch/session identity and bounded compaction
+  attempts. Release requires a new native checkpoint and a smaller next raw
+  request; subagent calls and outbound excerpt guards cannot supply that proof.
+  Claude local preflight rejection can invoke its verified reactive compaction
+  before any upstream generation, without inventing provider token counts.
+  Native provider ownership and remote-client request boundaries are preserved.
+
+- External SSE/channel input keeps its socket delivery loop when the Windows
+  terminal proxy fails and the CLI falls back to a direct subprocess. The direct
+  supervisor preserves inflight confirmation and never substitutes terminal
+  typing for an unavailable socket. Transient Windows queue-lock acquisition
+  failures defer a pre-submission scan instead of terminating the proxy; an
+  uncertain send is not automatically replayed. Proxy failure diagnostics now
+  include the operation stage, errno and traceback frame locations without
+  prompt contents. This fixes the queued-input stall observed in Walkie after
+  the proxy's `Errno 36`; the historical exception's exact raising call remains
+  unconfirmed. Existing running launchers need a fresh launch to load the fix.
+
+- Native Anthropic streaming: interrupted reads and EOF before upstream
+  `message_stop` now emit an SSE `api_error` instead of inventing a successful
+  ending or closing a partial tool call. Upstream errors are forwarded once;
+  recovery tools wait for `message_stop`. A transport error after that terminal
+  preserves the completed response. This does not fix or identify the cause of
+  historical gateway interruptions.
+
+- `/ImportSession` slash command: the arguments parser now stops at the blank
+  line that ends the `Arguments:` block of the generated command. It used to
+  read the explanatory sentence that follows as part of the transcript path,
+  so every import through the shipped command failed with
+  ``Transcript file not found: format and must be `Codex` or `Claude`.``, whether a path was given or
+  the latest transcript was requested, in both the Claude-to-Codex and
+  Codex-to-Claude directions. Accepted sources are unchanged.
+
+- Upstream TLS EOF and truncated streams (CielAiRouter gateways, native
+  Responses). A provider read failure after the native Responses passthrough
+  has sent status 200 (TLS EOF, connection reset, timeout) now ends the started
+  stream with `response.failed` (`upstream_stream_truncated`) instead of a
+  second HTTP 502 written into the stream; an upstream reset is no longer
+  recorded as a client disconnect, and downstream write failures still are.
+  A request routed to a selected gateway is not replayed within the same call
+  (initial-stream reconnect, collection truncation retry, buffered native
+  Responses truncation retry): the replay would reach the same gateway, so the
+  next request selects again. Requests without a selected gateway keep their
+  retries. Gateway scoring reads the bytes carried by an `IncompleteRead`
+  before scoring it, so a stream that delivered its completion event no longer
+  counts against the gateway, and a dispatched provider `error` event is not a
+  gateway failure. A discovery node whose endpoint is the configured central
+  base is reported as central (`gateway endpoint is the central base`) and is
+  not pinned to the session. router.log gains a metadata-only
+  `provider_responses_failure` line for native Responses transport and
+  truncation failures: request id, stage, exception class names,
+  `downstream_started`, and the configured base URL reduced to scheme, host
+  and port.
+
+- Direct gateway safety: a launch whose channel messages reach the CLI only as
+  typed `[ciel-wake]` markers, with no whole-message transport, stays on the
+  router before any gateway selection, at launch and after a session restart:
+  plain Codex TUI on every platform and Claude Code with session-socket input
+  off. The launcher declares this (`ChannelDelivery`); the status and launch
+  record name the reason. Claude Code with its messaging socket and Codex
+  app-server/codex-remote can still go direct. Claude uses
+  whole-message socket/TTY delivery and app-server/remote use RPC. Direct Codex
+  uses a distinct `ciel-runtime-gateway` provider id. Restart rebuilds model
+  snapshots. Request-level TUI observations are unavailable; transcript
+  `agent.turn_ended` remains available.
+
+- CielAiRouter can send Claude Code and Codex model requests directly to a
+  gateway (opt-in `gateway_data_path=direct`; the default `router` launch is
+  unchanged). Right before the CLI starts, the existing gateway selector picks
+  a healthy gateway; Claude Code then gets the gateway as `ANTHROPIC_BASE_URL`
+  with the router key and upstream model ids, and Codex (app-server and
+  codex-remote) gets the gateway `/v1` with the key in
+  `CIEL_RUNTIME_GATEWAY_API_KEY` and the upstream model and catalog slug. The
+  local router still starts with its MCP endpoint, the channel proxy, the
+  event receiver and session restart; router request handling (key rotation,
+  failover, output caps, `[ciel-wake]` body injection) does not apply to
+  direct requests. Selection off, discovery or probe failure, a
+  degraded or central result, or plain HTTP to a non-loopback gateway keeps the
+  router path with one log line. A running CLI keeps its gateway until it
+  restarts; a session restart selects again. Set it with `provider-options
+  cielairouter gateway_data_path=direct`, the LLM options panel or the external
+  menu; `gateway-status` shows the setting and each CLI's last launch path.
+  Other providers reject the option.
+
+- Gateway discovery results are checked against failures reported while probes
+  are running. Cooling or expired routes cannot be republished from an old
+  snapshot, and concurrent first requests for one authenticated session share
+  a selection. Healthy loopback gateways remain preferred after probing.
+- Session supervisors check for a targeted restart request once more when a
+  child exits, including requests deferred until turn completion. An ordinary
+  exit without a restart request does not relaunch the session.
+- Windows console input preserves UTF-16 surrogate pairs across reads. A
+  parent-console output failure is logged and disables display mirroring
+  without stopping the drain of the child's output. Failed Windows taskkill
+  commands are no longer reported as successful termination.
+
+- A CielAiRouter gateway running on the same computer is preferred. Gateway
+  candidates are identified by node id and address, so several nodes may
+  advertise the same loopback address (`http://127.0.0.1:20128`); the one
+  whose `/healthz` reports the matching `nodeId` is the computer's own gateway
+  and is chosen ahead of remote gateways, whatever their load. Previously the
+  first node listed with that address hid the local one, and the router fell
+  back to the central `base_url`. Discovery may take up to 5 s (was 2 s).
+
+- Follow-up to the gateway/event-ack review: gateway addresses are validated
+  independently, so an untrusted representative address no longer discards a
+  usable alternate. Generation requests to selected gateways reject redirects
+  rather than forwarding credentials to the redirect target. Re-sent decision
+  notices use the original event identity for deduplication even when that
+  original notice never reached this receiver.
+
+- Decision notices are acknowledged per event (Walkie 49269, re-requested in
+  56190). The SSE receiver now sends `Ciel-Receiver-Features: event-ack/1`
+  and `Walkie-Client: ciel-runtime/<version> (<os>) runtime=python/<version>`.
+  An event carrying `data.delivery_ack` is acknowledged `queued` once it has a
+  runtime input row (`already_queued` when the same CloudEvent id or a re-sent
+  event's first id is already queued, which is then not queued twice) and
+  `injected` once the runtime input status store records it submitted. Posts go
+  only to the SSE URL's own origin with its Authorization, never follow a
+  redirect, retry after 1, 2, 4, 8 and 16 s, and an unsent one is sent again
+  after a router restart or stream reconnect (until 24 h). Every step is kept in
+  `event-acks.jsonl` for 14 days; the menu's external event panel shows the
+  counts. Events without `delivery_ack` are handled as before.
+
+- CielAiRouter requests go to the best available gateway. The router reads
+  the central router's `/api/gateway/discovery` with the router key, probes
+  each healthy gateway's `/healthz` without credentials, and ranks them by
+  utilization, backlog and measured round trip. Each Claude Code or Codex
+  session keeps the gateway it started on; a new session ranks again. When a
+  gateway fails a request (connection error, timeout, HTTP 5xx, or a stream
+  that ends before `message_stop`/`response.completed`), that request is not
+  replayed, and later requests move to another healthy gateway while the
+  failed one cools down for 60 s. With no usable gateway the configured
+  `base_url` is used. The model catalog keeps using the configured `base_url`.
+  `gateway_selection: "off"` in the CielAiRouter provider config turns it off.
+
+- The external event SSE receiver reconnects a stalled stream. Once the
+  stream has sent a heartbeat comment, 60 s without any line closes it and
+  reconnects with the same Authorization and cursor (`idle_timeout_seconds`
+  sets the limit, 1–300 s). Each receiver keeps one reader; stopping and
+  starting no longer leaves a second reader on the old connection.
+
+- A new company prompt reaches running agents. When a Walkie event's
+  `agent_context.company_prompt` differs from the company prompt the
+  workspace's `AGENTS.md`/`CLAUDE.md` were written with (Walkie's
+  `X-Walkie-Company-Prompt-*` headers, else the `<!-- company-prompt -->`
+  comment), the router queues one resumed session restart that waits for
+  the running turn however long it takes. Every restart now fetches the
+  remote instruction files again just before the CLI relaunches, so the
+  conversation continues on the new prompt. On by default with Remote
+  instructions; `remote_instructions.auto_reload` and the menu row
+  "Reload session when the company prompt changes" turn it off.
+
+- Turn ends reach Walkie straight from the router. Each `agent.turn_ended`
+  is posted as a CloudEvent to Walkie's `/api/agent-runtime-events` with the
+  agent credential the Walkie notification stream receiver already keeps, so
+  Walkie no longer depends on the status observer installed on each PC. The
+  event id is fixed per turn; network errors, 408, 425, 429 and 5xx are
+  retried up to six times, other 4xx are not. `agent_runtime_events`
+  (`enabled`, `url`, `credential_receiver`, `timeout_seconds`) overrides the
+  endpoint or turns it off.
+- A NUL run or a line over `max_record_bytes` in a transcript no longer stops
+  transcript delivery, tool-call events and turn ends at that offset forever.
+  Each is skipped once with a `transcript_record_skipped` warning (path,
+  offset, length, reason) and the stored cursor moves past it.
+- After a router restart, turn ends continue from a stored cursor. A
+  transcript seen for the first time starts at its end unless it was created
+  after the launch, so resuming a long session no longer re-reports every
+  earlier turn.
+
 - Remote Provision prepares a workspace before a session starts.
   `ciel-runtimectl remote-provision enabled=true manifest_url=...` points
   Ciel at an HTTP manifest. Before every runtime launch, Ciel places the

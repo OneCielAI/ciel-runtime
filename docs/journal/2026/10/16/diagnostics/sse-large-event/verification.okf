@@ -1,0 +1,37 @@
+okf_version: "1.0"
+task: "Investigate reported 64KiB SSE watcher event loss"
+status: "investigating-observer-path"
+constraints:
+  - "Local synthetic payloads only; no remote or live session mutation."
+confirmed:
+  - "ExternalEventReceiverService real HTTP close-delimited and chunked streams delivered all synthetic JSON lengths: 60000, 65535, 65536, 65537, 131072, 900000."
+  - "Existing test_external_event_receiver.py suite: 13 tests OK."
+  - "Existing test_event_receiver_connection.py watchdog suite: 4 tests OK."
+limitations:
+  - "Receiver fixture admission callback only; does not verify later CLI injection or model response observers."
+  - "BrokenPipeError disconnect warnings occurred during fixture shutdown; do not infer event loss from these warnings."
+  - "The reported observer defect is not yet attributed."
+evidence:
+  - "repro_receiver.py"
+  - "evidence/receiver-repro.txt"
+  - "evidence/receiver-tests.txt"
+
+implementation:
+  transport: "ciel_runtime_support/cielairouter_gateway_transport.py"
+  behavior: "Explicit SSE event metadata is retained independently of bounded data bytes. Oversized JSON-only events report observation_incomplete, which is unknown and is not mapped to gateway rotation."
+  terminals: "responses response.completed/incomplete/failed, anthropic message_stop, chat [DONE]/finish_reason"
+  memory: "Bounded line/data storage; wire bytes are returned unchanged."
+verification:
+  focused_transport: "23 tests OK"
+  focused_overlay: "34 tests OK"
+  ruff: "All checks passed"
+  diff_check: "clean"
+  real_loopback: "HEAD fails at 65537/131072/900000; working tree observes terminal_event at all five sizes and preserves wire bytes."
+  evidence:
+    - "evidence/gateway-before-after.json"
+    - "evidence/transport-after.txt"
+    - "evidence/overlay-after.txt"
+    - "evidence/ruff.txt"
+    - "evidence/diff-check.txt"
+limitations:
+  - "The synthetic comparison uses explicit response.completed event metadata; JSON-only oversized events remain observation_incomplete by design because the bounded observer cannot soundly extract a top-level type without retaining or fully lexing the JSON."

@@ -65,6 +65,9 @@ _COMMON_PROVIDER_NOTES = (
     "  temperature/top_p/top_k are injected by ciel-runtime router mode when the provider supports them.",
 )
 _PROVIDER_EXAMPLES = (
+    "  ciel-runtimectl provider-options cielairouter gateway_selection=auto",
+    "  ciel-runtimectl provider-options cielairouter gateway-status",
+    "  ciel-runtimectl provider-options cielairouter gateway_data_path=direct",
     "  ciel-runtimectl provider-options deepseek max_output_tokens=8192 context_window=1048576",
     "  ciel-runtimectl provider-options opencode-go endpoint:custom-model=chat",
     "  ciel-runtimectl provider-options opencode ip_family=ipv6-preferred",
@@ -80,6 +83,15 @@ _OLLAMA_EXAMPLES = (
 )
 
 DEFAULT_PROVIDER_NOTES: Mapping[str, Sequence[str]] = {
+    "cielairouter": (
+        "  gateway_selection=auto enables automatic selection; gateway_selection=off uses the configured central base.",
+        "  gateway-status reads the local router /health only; it does not probe or reselect gateways.",
+        "  Changes apply to subsequent requests; in-flight requests are not replayed.",
+        "  gateway_data_path=router (default) sends CLI model requests through the local router;",
+        "  gateway_data_path=direct sends them straight to the gateway selected at launch",
+        "  (the router keeps MCP, channels, events and restart; falls back to router without a healthy gateway).",
+        "  A running CLI keeps the gateway it was launched with until it restarts; no live re-route in direct mode.",
+    ),
     "opencode": (
         "  OpenCode endpoint override: endpoint:<model-id>=messages|chat|responses|gemini",
         "  OpenCode ip_family options: auto, ipv4, ipv6, ipv4-preferred, ipv6-preferred",
@@ -94,7 +106,7 @@ DEFAULT_PROVIDER_NOTES: Mapping[str, Sequence[str]] = {
 }
 DEFAULT_UNSUPPORTED_MESSAGE = (
     "Provider options are available for anthropic, ollama, ollama-cloud, "
-    "deepseek, opencode, opencode-go, kimi, meta, z.ai, fireworks, vllm, "
+    "cielairouter, deepseek, opencode, opencode-go, kimi, meta, z.ai, fireworks, vllm, "
     "lm-studio, nvidia-hosted, self-hosted-nim, and openrouter."
 )
 
@@ -110,6 +122,7 @@ class ProviderOptionCliController:
         ollama_providers: Collection[str],
         provider_notes: Mapping[str, Sequence[str]],
         unsupported_message: str,
+        gateway_status: Callable[[], Sequence[str]] = lambda: ("Gateway status unavailable.",),
     ) -> None:
         self.config = config
         self.ollama = ollama
@@ -118,6 +131,7 @@ class ProviderOptionCliController:
         self.ollama_providers = frozenset(ollama_providers)
         self.provider_notes = provider_notes
         self.unsupported_message = unsupported_message
+        self.gateway_status = gateway_status
 
     def native(self, args: Any) -> None:
         config = self.config.load()
@@ -178,19 +192,33 @@ class ProviderOptionCliController:
         if provider not in self.supported_providers:
             raise SystemExit(self.unsupported_message)
         provider_config = config["providers"][provider]
+        if "gateway-status" in values:
+            if provider != "cielairouter" or values != ["gateway-status"]:
+                raise SystemExit("Use: provider-options cielairouter gateway-status (read-only)")
+            self._lines(self.gateway_status())
+            return
         if values:
             context_changed = self._contains_key(values, _CONTEXT_KEYS)
             explicit_timeout = self._contains_key(values, _TIMEOUT_KEYS)
             for token in values:
                 self.provider.apply(provider, provider_config, token)
-            cap_lines = self.provider.cap_context(provider, provider_config)
-            cap_lines.extend(self.provider.cap_output(provider, provider_config))
+            gateway_only = provider == "cielairouter" and all(
+                token in ("unset:gateway_selection", "unset:gateway_data_path")
+                or token.split("=", 1)[0].strip() in ("gateway_selection", "gateway_data_path")
+                for token in values
+            )
+            cap_lines = [] if gateway_only else self.provider.cap_context(provider, provider_config)
+            if not gateway_only:
+                cap_lines.extend(self.provider.cap_output(provider, provider_config))
             timeout_lines = (
                 self.provider.apply_timeout(provider, provider_config)
                 if context_changed and not explicit_timeout
                 else []
             )
-            self._persist(config)
+            if gateway_only:
+                self.config.save(config)
+            else:
+                self._persist(config)
             self.config.output(f"Provider options updated for {provider}.")
             self._lines((*cap_lines, *timeout_lines))
         self.config.output(f"provider: {provider}")

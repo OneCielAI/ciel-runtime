@@ -1,0 +1,7 @@
+{"n": 1, "at": "17:03:13", "t": 1792188193.8228447, "server": "central", "path": "/v1/models"}
+{"n": 2, "at": "17:03:21", "t": 1792188201.1943357, "server": "central", "path": "/v1/models"}
+{"n": 3, "at": "17:04:39", "t": 1792188279.6366525, "server": "central", "path": "/api/gateway/discovery", "auth_ok": true, "ua": "Python-urllib/3.11"}
+{"n": 4, "at": "17:04:39", "t": 1792188279.6416516, "server": "B", "path": "/healthz", "auth": false}
+{"n": 5, "at": "17:04:39", "t": 1792188279.642151, "server": "A", "path": "/healthz", "auth": false}
+{"n": 6, "at": "17:04:39", "t": 1792188279.693071, "server": "B", "path": "/v1/responses", "turn": "1", "auth_ok": true, "model": "stub-model", "ua": "codex-tui/0.163.0 (Windows 10.0.26200; x86_64) WindowsTerminal (codex-tui; 0.163.0)", "originator": "codex-tui", "wake_marker_in_body": false, "last_user_prefix": "E2E-TURN-1 please reply"}
+{"n": 7, "at": "17:04:39", "t": 1792188279.7086508, "server": "B", "path": "/v1/responses", "turn": "1", "auth_ok": true, "model": "stub-model", "ua": "codex-tui/0.163.0 (Windows 10.0.26200; x86_64) WindowsTerminal (codex-tui; 0.163.0)", "originator": "codex-tui", "wake_marker_in_body": false, "last_user_prefix": "This is a runtime completion check. Call the supplied ciel_r"}

@@ -131,6 +131,15 @@ def codex_resume_with_session_id(passthrough: list[str], session_id: str) -> lis
     return out
 
 
+def codex_without_resume_command(passthrough: list[str]) -> list[str]:
+    """Drop the `resume` subcommand: the launch opens a new conversation."""
+
+    command_index = codex_passthrough_first_non_option_index(passthrough)
+    if command_index < 0 or str(passthrough[command_index]) != "resume":
+        return list(passthrough)
+    return [*passthrough[:command_index], *passthrough[command_index + 1 :]]
+
+
 def _codex_consume_optional_value(passthrough: list[str], index: int) -> tuple[str, int]:
     if index + 1 < len(passthrough):
         value = str(passthrough[index + 1])

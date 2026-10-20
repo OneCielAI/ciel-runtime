@@ -1,0 +1,80 @@
+---
+id: tls-eof-passthrough-read-failure-fix-2026-10-17
+title: Native Responses passthrough upstream read failures after status 200
+type: journal
+status: verified-in-tests
+scope: ciel_runtime_support/provider_responses_passthrough.py and its regression tests only
+---
+
+# What Image #9 shows, and how it maps to code
+
+Text of the two errors (as relayed by main; the screenshot itself was not viewed here):
+- subagent: `upstream_stream_truncated` (rest clipped)
+- main: HTTP 502 `api_error` `SSLEOFError: EOF occurred in violation of protocol (_ssl.c:2427)`, url `localhost:9385/v1/responses`
+
+Confirmed from source (HEAD 572b7e7):
+- `upstream_stream_truncated` is written only by `_handle_provider_responses_route` (openai_responses_router.py), from an `UpstreamStreamReadError`.
+- A Codex request with tools that does not come through the remote bridge goes to `_forward_buffered_stream`: `completion_gate = stream and bool(tools) and tool_choice != "none"`. That path reads the whole upstream body before it writes anything downstream. Read errors there become `UpstreamStreamReadError(downstream_started=False)`, which the route writes as the first status, an HTTP 502 with `upstream_stream_truncated`.
+- `api_error` plus `SSLEOFError: ...` comes from `_write_transport_failure`. On the buffered path it can only originate in `urlopen()` (connect, TLS, send, status line), because no downstream byte exists yet. A single 502 is then the first status line. Wire test `test_tls_eof_before_upstream_response_is_a_single_502` reproduces exactly this text and status.
+- `_ssl.c:2427`: Modules/_ssl.c was fetched for 65 CPython tags (3.8.10 to 3.14.2). Every tag where line 2427 is a `PySSL_SetError` site (3.11.5-3.11.11, 3.12.9-3.12.12, 3.13.0) has it inside `_ssl__SSLSocket_write_impl`, the TLS write. No surveyed tag has a read or handshake error at that line. Dev-box `python` is 3.11.6; live routers here run pythoncore 3.14.2, where 2427 is not an error site. The Python version of the router that produced the screenshot is unknown.
+- Teammate evidence in this folder (runtime-error-metadata.json): 20:36:58 IncompleteRead with downstream_started=false, and 20:36:59 / 20:37:01 URLError transport 502 with source=provider_responses. Both match the buffered/open paths above, not the defect fixed below.
+- Codex 0.158.0 `codex.exe` contains the "unexpected status " and ", url: " format pieces and the SSE crate `eventsource-stream-0.2.3`.
+
+UNKNOWN, and kept unknown: which peer or network element ended TLS, and why. Nothing here touches the gateway or network.
+
+# Defect fixed (unbuffered path only: no tools, tool_choice none, or remote bridge)
+
+`ProviderResponsesPassthrough.forward` sends status 200 and the headers before its first upstream read. The read loop caught only `IncompleteRead`. A raw `OSError` from `response.read()` therefore escaped: `ssl.SSLEOFError`, `ConnectionResetError`, `TimeoutError`.
+- SSLEOFError / TimeoutError: the route's generic handler calls `_write_transport_failure`, which calls `send_response(502)` a second time on the same socket.
+- Upstream ConnectionResetError: `is_client_disconnect` returns true, so the failure was recorded as `provider_responses_client_disconnected` and the stream ended with no terminal event.
+
+Fix: only `response.read()` is guarded, for `(IncompleteRead, OSError)`. Any read failure follows the existing IncompleteRead policy:
+- no terminal event: `UpstreamStreamReadError(downstream_started=True, error=<original>, __cause__=<original>)`. The route then appends an in-stream `response.failed`.
+- a terminal event was already forwarded: WARN `provider_responses_length_mismatch_after_terminal`, delivered unchanged.
+
+Downstream `wfile.write` errors are outside the guard and keep their own type, so a client disconnect is still detected as one. No replay or retry is added, and no defaults change. Both log lines gain `error=<ExceptionType>`.
+
+# Evidence files (evidence/)
+
+- passthrough-before.txt: new tests on unmodified passthrough (sha256 86d36b23...119c). 8 tests, failures=2, errors=5. Raw SSLEOFError, ConnectionResetError and TimeoutError escape. Wire: `[200] != [200, 502]`. The upstream reset case has no response.failed.
+- passthrough-before-wire.txt: raw socket bytes before. `HTTP/1.0 200 OK` ... `response.created` ... then a second `HTTP/1.0 502 Bad Gateway` header block and an `event: error` (api_error SSLEOFError) inside the 200 body. The upstream reset case is marked `provider_responses_client_disconnected:ConnectionResetError`.
+- passthrough-after.txt: same 8 tests, OK (passthrough sha256 11454fbd...20df).
+- passthrough-after-wire.txt: one `HTTP/1.0 200`, `response.created`, then `response.failed` with code upstream_stream_truncated and the original exception text. Both cases are marked `provider_responses_upstream_stream_truncated`.
+- passthrough-after-modules.txt: 10 related modules, 372 tests OK (42 skipped).
+- passthrough-after-router-group.txt: `scripts/run_test_group.py router`, isolated. Result: see "Router group" below.
+- buffered-terminal-seen-probe.txt: buffered vs unbuffered paths, same bytes plus read error.
+
+All runs removed every inherited CIEL_RUNTIME_* variable and used `run_test_group.isolate_runtime_state()`, which provides a temp CONFIG_DIR, a free ROUTER_PORT and TEST_ISOLATED=1. Live router 127.0.0.1:9385/health returned 200 before and after.
+
+Concurrent tree note: another agent's working-tree edit to openai_responses_router.py (mtime 21:53:04, sha256 50ca3ae6...e43b, logging-only `provider_responses_failure`) predates both the before and after runs, so the only difference between them is the passthrough edit.
+
+# Tests added
+
+tests/test_meta_provider.py, ProviderResponsesPassthroughTests:
+- test_upstream_read_failure_after_status_is_a_started_stream_failure: SSLEOFError after a prefix and a malformed terminal; SSLEOFError on the first read; ConnectionResetError; TimeoutError.
+- test_downstream_write_failure_keeps_its_client_disconnect_type: ConnectionReset, ConnectionAborted and BrokenPipe raised by wfile.write.
+- test_tls_eof_after_a_complete_terminal_event_keeps_the_delivered_stream.
+
+tests/test_openai_responses_upstream_stream_error.py, NativeResponsesRouterWireTests. These run over a real loopback socket with the router's `RouterHttpHandler` class, real `handle_openai_responses_request`, real passthrough, `ciel_runtime.write_openai_responses_error`, `ciel_runtime.is_client_disconnect_error` and `CodexBackendHttpAdapter.copy_response_headers`. Only the upstream response, the delivery and the event bus are scripted. This is not the full `ciel_runtime.RouterHandler` (config, auth and provider selection).
+- tls_eof_after_upstream_status_keeps_one_http_response
+- upstream_reset_after_status_is_not_reported_as_client_disconnect
+- missing_or_malformed_terminal_still_fails_in_the_started_stream
+- tls_eof_before_upstream_response_is_a_single_502
+- downstream_client_disconnect_stays_distinct_from_upstream_failure
+
+# Examined, not changed
+
+1. Buffered path, terminal seen plus a read error. It logs WARN `length_mismatch_after_terminal` and then still retries or raises a 502, with 0 downstream bytes. The unbuffered path delivers the same bytes (probe file). Not fixed: "terminal seen" means only that a `response.completed` data line parsed as JSON, and `finish()` also parses a line with no closing blank line. eventsource-stream 0.2.3 (verified source: `Poll::Ready(None)` returns None, and its own test shows `"data: Hello, world!\n"` yields no event) drops an event that ends at EOF without that blank line. So the signal does not prove Codex would have received the turn. Open question: does the 20:36:58 request show that WARN in its router log? If it does, a complete response was received and discarded.
+2. The buffered read guard also covers `spool.write`, so a local temp-file OSError would be classified as an upstream truncation. No incident evidence; not changed.
+3. Residual, pre-existing and now shared by OSError: unbuffered tolerance after a terminal relies on the same signal as item 1.
+
+# Router group
+
+`scripts/run_test_group.py router` (97 files), run with inherited CIEL_RUNTIME_* removed, from 21:59:13 to 22:06:08. Result: `Ran 1317 tests in 412.457s`, `OK`, exit=0.
+
+Live 9385 observation, cause not determined:
+- Health was 200 at 21:58 (before/after the module run).
+- At about 22:06:5x one probe got no answer (000); the next two returned 200.
+- The current 9385 listener is pid 31524, created 22:06:45. That is 37 s after the router-group process wrote exit=0 (22:06:08).
+- The incident-time router pid was 29772 (request_id prefix in runtime-error-metadata.json).
+- From this account, pid 31524's command line and the 9385 instance log are not readable, and no 9385 directory exists under djlov's router-instances. Whether the previous 9385 router exited during or after the test run, and why, is unknown. Check that sandbox's router.log for `router_spawned` at 22:06:45 and for the predecessor's exit reason.

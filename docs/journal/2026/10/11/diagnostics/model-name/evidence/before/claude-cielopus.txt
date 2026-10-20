@@ -1,0 +1,38 @@
+
+ ▐▛███▛█   Claude Code v2.1.296
+▝▜██████▀  ciel-runtime-cielairouter-ciel-opus-5.5[1m] with xhigh effort · API Usage Billing
+ ▝▝   ▝▝   G:\ciel-e2e\model-name\claude-cielopus\ws
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ Try "refactor <filepath>"
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  [ciel-runtime-cielairouter-ciel-opus-5.5[1m]] ws
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · ← 2 agents

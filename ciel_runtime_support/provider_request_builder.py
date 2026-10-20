@@ -98,6 +98,41 @@ class ProviderRequestBuilder:
         self.openai = openai
         self.options = options
 
+    def guarded_input_budget(
+        self, provider: str, config: dict[str, Any], body: dict[str, Any] | None = None,
+        *, native_owns: bool = True,
+    ) -> int:
+        """The input budget ``cap_anthropic_body`` enforces, or 0 when none.
+
+        Claude Code's auto-compact trigger must land at or below this budget:
+        a window the router silently trims below it makes the client's own
+        trigger unreachable.  Native Anthropic and remote clients keep their
+        own contract, so they report 0 (no clamp).
+        """
+
+        if config.get(REMOTE_BRIDGE_CONFIG_MARKER):
+            return 0
+        if native_owns and provider == "anthropic":
+            return 0
+        body = body if isinstance(body, dict) else {}
+        context_limit = (
+            self.budget.context_limit(provider, config)
+            or self.budget.positive_int(config.get("max_model_len"))
+            or self.budget.positive_int(config.get("context_window"))
+            or (32768 if provider == "vllm" else 0)
+        )
+        if not context_limit:
+            return 0
+        configured = self.budget.configured_output(config, body)
+        output_reserve = (
+            self.budget.cap_output_ratio(provider, config, configured)
+            or self.budget.positive_int(body.get("max_tokens"))
+            or configured
+            or 4096
+        )
+        reserve = self.budget.reserve(config, context_limit)
+        return max(8192, context_limit - output_reserve - reserve)
+
     def cap_anthropic_body(
         self, provider: str, config: dict[str, Any], body: dict[str, Any]
     ) -> dict[str, Any]:
@@ -122,15 +157,17 @@ class ProviderRequestBuilder:
             or self.budget.positive_int(config.get("context_window"))
             or (32768 if provider == "vllm" else 0)
         )
-        if not context_limit:
+        # Native Anthropic already returned above; a translated Codex
+        # checkpoint on it is trimmed here, so ask for the real budget.
+        input_budget = self.guarded_input_budget(
+            provider, config, capped, native_owns=False
+        )
+        if not context_limit or not input_budget:
             return capped
         configured = self.budget.configured_output(config, capped)
         ratio_capped = self.budget.cap_output_ratio(provider, config, configured)
         if ratio_capped:
             capped["max_tokens"] = ratio_capped
-        reserve = self.budget.reserve(config, context_limit)
-        output_reserve = self.budget.positive_int(capped.get("max_tokens")) or configured or 4096
-        input_budget = max(8192, context_limit - output_reserve - reserve)
 
         capped = self.budget.compact_anthropic(
             capped,
@@ -207,8 +244,6 @@ class ProviderRequestBuilder:
     ) -> dict[str, Any]:
         remote_bridge = bool(config.get(REMOTE_BRIDGE_CONFIG_MARKER))
         include_memory = not remote_bridge
-        messages = self.ollama.messages(body, include_memory=include_memory)
-        tools = self.ollama.tools(body.get("tools"))
         context_limit = self.ollama.context_limit(config)
         configured = (
             self.budget.positive_int(body.get("max_tokens"))
@@ -218,18 +253,28 @@ class ProviderRequestBuilder:
         reserve = self.budget.reserve(config, context_limit)
         output_reserve = configured or self.budget.positive_int(body.get("max_tokens")) or 4096
         compact_kind = self.budget.compact_kind(body)
-        local_compact_refresh = bool(compact_kind)
+        local_compact_refresh = bool(compact_kind) and not remote_bridge
+        input_budget = max(8192, context_limit - output_reserve - reserve)
+        if local_compact_refresh:
+            # Native checkpoint blocks and full tool payloads must reach the
+            # semantic reducer before chat projection truncates or flattens them.
+            body = self.budget.compact_anthropic(
+                body, input_budget, provider=provider, model=model, pcfg=config,
+                full_compact_request=True, compact_runtime=compact_kind, wire="ollama",
+            )
+            body = {key: value for key, value in body.items()
+                    if key not in {"tools", "tool_choice", "parallel_tool_calls"}}
+        messages = self.ollama.messages(body, include_memory=include_memory)
+        tools = self.ollama.tools(body.get("tools"))
         payload = {"messages": messages, "tools": tools}
-        if not remote_bridge:
+        if not remote_bridge and not local_compact_refresh:
             messages = self.budget.compact_messages(
                 messages,
                 tools,
-                max(8192, context_limit - output_reserve - reserve),
+                input_budget,
                 provider=provider,
                 model=model,
                 pcfg=config,
-                full_compact_request=local_compact_refresh,
-                compact_runtime=compact_kind if local_compact_refresh else None,
                 wire="ollama",
             )
         payload["messages"] = messages
@@ -307,12 +352,6 @@ class ProviderRequestBuilder:
         remote_bridge = bool(config.get(REMOTE_BRIDGE_CONFIG_MARKER))
         passback = self.openai.reasoning_passback(provider, model, config)
         include_memory = not remote_bridge
-        messages = self.openai.messages(
-            body,
-            reasoning_passback=passback,
-            include_memory=include_memory,
-        )
-        tools = self.openai.tools(body.get("tools"))
         context_limit = self.openai.context_limit(provider, config)
         configured = (
             self.budget.positive_int(body.get("max_tokens"))
@@ -322,19 +361,32 @@ class ProviderRequestBuilder:
         reserve = self.budget.reserve(config, context_limit)
         output_reserve = configured or self.budget.positive_int(body.get("max_tokens")) or 4096
         compact_kind = self.budget.compact_kind(body)
-        local_compact_refresh = bool(compact_kind)
-        if not remote_bridge:
+        local_compact_refresh = bool(compact_kind) and not remote_bridge
+        input_budget = max(8192, context_limit - output_reserve - reserve)
+        if local_compact_refresh:
+            body = self.budget.compact_anthropic(
+                body, input_budget, provider=provider, model=model, pcfg=config,
+                full_compact_request=True, compact_runtime=compact_kind, wire="openai",
+            )
+            body = {key: value for key, value in body.items()
+                    if key not in {"tools", "tool_choice", "parallel_tool_calls"}}
+        messages = self.openai.messages(
+            body,
+            reasoning_passback=passback,
+            include_memory=include_memory,
+        )
+        tools = self.openai.tools(body.get("tools"))
+        if not remote_bridge and not local_compact_refresh:
             messages = self.budget.compact_messages(
                 messages,
                 tools,
-                max(8192, context_limit - output_reserve - reserve),
+                input_budget,
                 provider=provider,
                 model=model,
                 pcfg=config,
-                full_compact_request=local_compact_refresh,
-                compact_runtime=compact_kind if local_compact_refresh else None,
                 wire="openai",
             )
+        if not remote_bridge:
             messages = self.openai.repair_tools(messages)
         request: dict[str, Any] = {"model": model, "messages": messages, "stream": stream}
         if remote_bridge:

@@ -27,6 +27,7 @@ Log = Callable[[str, str], None]
 RUNTIME_SESSION_RESTART_SCHEMA = "ciel-runtime.runtime-session-restart/v1"
 DEFAULT_RUNTIME_SESSION_RESTART_TTL_SECONDS = 300.0
 RUNTIME_SESSION_RESTART_ENV_TTL = "CIEL_RUNTIME_SESSION_RESTART_TTL_SECONDS"
+RESTART_CONTINUE_MESSAGE = "계속-세션재시작됨"
 
 # Flags that already select a conversation, mirroring launch_state's session
 # control list.  A restart must not append a second session selector.
@@ -114,6 +115,9 @@ class RuntimeSessionRestartRequest:
     resume: bool
     requested_at: float
     expires_at: float
+    # Wait for the running turn however long it takes (no turn-wait limit):
+    # a company prompt reload never cuts a turn (Walkie 53255).
+    wait_turn: bool = False
 
     @classmethod
     def from_mapping(cls, value: Any) -> "RuntimeSessionRestartRequest | None":
@@ -129,6 +133,7 @@ class RuntimeSessionRestartRequest:
                 resume=bool(value.get("resume", True)),
                 requested_at=float(value.get("requested_at") or 0.0),
                 expires_at=float(value.get("expires_at") or 0.0),
+                wait_turn=bool(value.get("wait_turn", False)),
             )
         except (TypeError, ValueError):
             return None
@@ -151,6 +156,7 @@ class RuntimeSessionRestartRequest:
             "resume": self.resume,
             "requested_at": self.requested_at,
             "expires_at": self.expires_at,
+            "wait_turn": self.wait_turn,
         }
 
     def summary(self) -> str:
@@ -159,6 +165,7 @@ class RuntimeSessionRestartRequest:
             f"runtime={self.runtime or 'any'} "
             f"target_pid={self.target_pid or '-'} "
             f"resume={str(self.resume).lower()} "
+            f"wait_turn={str(self.wait_turn).lower()} "
             f"reason={self.reason or '-'}"
         )
 
@@ -207,6 +214,7 @@ class RuntimeSessionRestartRepository:
         runtime: str = "",
         target_pid: int = 0,
         resume: bool = True,
+        wait_turn: bool = False,
     ) -> RuntimeSessionRestartRequest:
         now = self.clock()
         request = RuntimeSessionRestartRequest(
@@ -218,6 +226,7 @@ class RuntimeSessionRestartRepository:
             resume=bool(resume),
             requested_at=now,
             expires_at=now + self.ttl_seconds(),
+            wait_turn=bool(wait_turn),
         )
         payload = request.to_mapping()
         with self._guard():
@@ -289,13 +298,19 @@ class RuntimeSessionRestartRepository:
                 )
                 return False
 
-    def claim(self, client_pid: int) -> RuntimeSessionRestartRequest | None:
-        """Claim a pending request for this client process, if one applies."""
+    def claim(self, client_pid: int, *, exact: bool = False) -> RuntimeSessionRestartRequest | None:
+        """Claim a pending request for this client process, if one applies.
+
+        ``exact`` claims only a request addressed to ``client_pid`` itself; a
+        request for any client (``target_pid`` 0) stays in the slot.
+        """
 
         request = self.read()
         if request is None:
             return None
         if not request.applies_to(client_pid):
+            return None
+        if exact and request.target_pid != int(client_pid or 0):
             return None
         if not self.clear(request.id):
             # Another client consumed it between read and clear.
@@ -303,17 +318,72 @@ class RuntimeSessionRestartRepository:
         self.log(
             "INFO",
             f"runtime_session_restart_claimed client_pid={int(client_pid or 0)} "
-            f"{request.summary()}",
+            f"{'match=exact ' if exact else ''}{request.summary()}",
         )
         return request
 
 
+RUNTIME_SESSION_RESTART_TURN_WAIT_ENV = "CIEL_RUNTIME_SESSION_RESTART_TURN_WAIT_SECONDS"
+DEFAULT_RUNTIME_SESSION_RESTART_TURN_WAIT_SECONDS = 900.0
+# How often a deferred restart re-reads the turn state (a transcript tail or
+# the app-server thread state) while the transports poll every ~50 ms.
+RESTART_BUSY_RECHECK_SECONDS = 0.5
+
+
+def restart_turn_wait_seconds() -> float:
+    """Longest a restart waits for the running turn before it goes ahead."""
+
+    try:
+        value = float(os.environ.get(RUNTIME_SESSION_RESTART_TURN_WAIT_ENV) or DEFAULT_RUNTIME_SESSION_RESTART_TURN_WAIT_SECONDS)
+    except (TypeError, ValueError):
+        value = DEFAULT_RUNTIME_SESSION_RESTART_TURN_WAIT_SECONDS
+    return max(0.0, value)
+
+
+def restart_waiting_notice(request: "RuntimeSessionRestartRequest") -> str:
+    return (
+        "[ciel-runtime] 세션 재시작 요청을 받았습니다 — 진행 중인 turn이 끝나면 재시작합니다 "
+        f"(source={request.source or '-'}, reason={request.reason or '-'})"
+    )
+
+
+def restart_starting_notice(request: "RuntimeSessionRestartRequest") -> str:
+    return (
+        "[ciel-runtime] 세션을 재시작합니다 — MCP를 다시 만들고 같은 대화로 이어집니다 "
+        f"(source={request.source or '-'}, reason={request.reason or '-'})"
+    )
+
+
 @dataclass(slots=True)
 class RuntimeSessionRestartControl:
-    """Process-local record of a restart performed by the CLI transport."""
+    """Process-local record of a restart performed by the CLI transport.
+
+    A claimed request waits while ``busy`` (or the transport's own turn
+    signal) reports a running turn, up to ``restart_turn_wait_seconds``; the
+    transports then stop the CLI.  Without any turn signal the restart is
+    immediate, as before.
+
+    The transports stop polling as soon as the CLI child has exited, so the
+    launcher loop calls ``after_child_exit`` once the transport returns: a
+    request still waiting for the turn is released, and otherwise
+    ``exit_poll`` claims, once, a request addressed to this launcher that
+    arrived while the child was ending.
+    """
 
     poll: Callable[[], RuntimeSessionRestartRequest | None]
     request: RuntimeSessionRestartRequest | None = None
+    busy: Callable[[], bool] | None = None
+    clock: Callable[[], float] = time.monotonic
+    deferred: RuntimeSessionRestartRequest | None = None
+    deferred_at: float = 0.0
+    busy_checked_at: float = 0.0
+    busy_seen: bool = False
+    # Claim after the child ended; None means no claim at exit.
+    exit_poll: Callable[[], RuntimeSessionRestartRequest | None] | None = None
+    # How the request was taken: "transport", "deferred" (held for the turn
+    # when the child ended) or "exit" (claimed after the child ended).
+    claimed_by: str = ""
+    exit_polled: bool = False
 
     @property
     def requested(self) -> bool:
@@ -321,23 +391,105 @@ class RuntimeSessionRestartControl:
 
     def mark(self, request: RuntimeSessionRestartRequest) -> None:
         self.request = request
+        if not self.claimed_by:
+            self.claimed_by = "transport"
 
     def reset(self) -> None:
         self.request = None
+        self.deferred = None
+        self.claimed_by = ""
+        self.exit_polled = False
 
-    def incoming(self) -> RuntimeSessionRestartRequest | None:
+    def after_child_exit(self) -> RuntimeSessionRestartRequest | None:
+        """The restart request for a CLI child that has just ended, if any.
+
+        Call once the transport has returned.  A request the transport took is
+        returned as is; one still waiting for the running turn is released (the
+        turn ended with the child); otherwise ``exit_poll`` runs once per launch
+        (until ``reset``).  Without any of these the session simply ended.
+        """
+
+        if self.request is not None:
+            return self.request
+        if self.deferred is not None:
+            request, self.deferred = self.deferred, None
+            return self._release(request, None, via="deferred")
+        if self.exit_polled or self.exit_poll is None:
+            return None
+        self.exit_polled = True
+        request = self.exit_poll()
+        if request is None:
+            return None
+        return self._release(request, None, via="exit")
+
+    def incoming(
+        self,
+        busy: Callable[[], bool] | None = None,
+        notify: Callable[[str], Any] | None = None,
+    ) -> RuntimeSessionRestartRequest | None:
         """Poll for a new request while the CLI child runs.
 
         The returned request is remembered, so the transports keep polling
-        only until the first request arrives and relaunch exactly once.
+        only until the first request arrives and relaunch exactly once.  The
+        request is claimed at once (its file has a short TTL) and held here
+        until the turn ends.
         """
 
         if self.request is not None:
             return None
-        request = self.poll()
-        if request is not None:
-            self.request = request
+        turn_running = self.busy or busy
+        now = self.clock()
+        if self.deferred is None:
+            request = self.poll()
+            if request is None:
+                return None
+            if turn_running is None or not self._busy(turn_running, now, fresh=True):
+                return self._release(request, notify)
+            self.deferred, self.deferred_at = request, now
+            if notify is not None:
+                notify(restart_waiting_notice(request))
+            return None
+        if self._busy(turn_running, now) and (
+            self.deferred.wait_turn or now - self.deferred_at < restart_turn_wait_seconds()
+        ):
+            return None
+        request, self.deferred = self.deferred, None
+        return self._release(request, notify)
+
+    def _busy(self, turn_running: Callable[[], bool] | None, now: float, *, fresh: bool = False) -> bool:
+        if turn_running is None:
+            return False
+        if fresh or now - self.busy_checked_at >= RESTART_BUSY_RECHECK_SECONDS:
+            self.busy_checked_at = now
+            try:
+                self.busy_seen = bool(turn_running())
+            except Exception:
+                self.busy_seen = False
+        return self.busy_seen
+
+    def _release(
+        self,
+        request: RuntimeSessionRestartRequest,
+        notify: Callable[[str], Any] | None,
+        *,
+        via: str = "transport",
+    ) -> RuntimeSessionRestartRequest:
+        self.request = request
+        self.claimed_by = via
+        if notify is not None:
+            notify(restart_starting_notice(request))
         return request
+
+
+def restart_request_after_exit(control: Any) -> Any:
+    """``control.after_child_exit()``, or ``control.request`` for controls without it."""
+
+    settle = getattr(control, "after_child_exit", None)
+    return settle() if callable(settle) else getattr(control, "request", None)
+
+
+def restart_claim_label(control: Any) -> str:
+    return str(getattr(control, "claimed_by", "") or "transport")
 
 
 @dataclass(frozen=True, slots=True)
@@ -352,9 +504,36 @@ class SessionRestartPorts:
     # ordinary runtime-input path, so the session's own proxy injects it after
     # the startup grace instead of the caller polling for readiness.
     notice: Callable[[dict[str, Any]], Any] = lambda _body: None
+    # Runs in the launcher just before a restart relaunches the CLI: the
+    # workspace instruction files are fetched again, so a restart picks up a
+    # newer company prompt (Walkie 53255).
+    prepare: Callable[[str], Any] = lambda _runtime: None
+    # The launcher observed this CLI child exit (the transport returned): a
+    # delivery attempt it owned can no longer be confirmed by it. Runs before
+    # the next launch scope or restart notice, so the reconciliation is bound
+    # to the child that actually ended.
+    child_exited: Callable[[bool], Any] = lambda _verified: None
 
     def new_control(self) -> RuntimeSessionRestartControl:
         return self.control()
+
+
+def primed_notice(
+    prime_cursor: Callable[[], Any],
+    submit: Callable[[dict[str, Any]], Any],
+) -> Callable[[dict[str, Any]], Any]:
+    """Queue a notice only after the channel cursor exists.
+
+    A workspace without a cursor file starts its cursor at the queue tail on
+    the first read, so a notice queued before that read would count as
+    already delivered (codex-remote --ca-resume-last E2E, 2026-10-12).
+    """
+
+    def notice(body: dict[str, Any]) -> Any:
+        prime_cursor()
+        return submit(body)
+
+    return notice
 
 
 def restart_notice_body(
@@ -367,17 +546,19 @@ def restart_notice_body(
     """Payload for one restart-complete notice injected into the session."""
 
     mode = str(runtime or "").strip().lower() or "runtime"
-    text = (
-        f"[ciel-runtime] 재부팅 완료 — {mode} 런타임이 재시작되었고 이 세션은 "
-        f"{'이어졌습니다' if resumed else '새로 시작되었습니다'} "
-        f"(source={source or '-'}, reason={reason or '-'})"
-    )
     return {
         "channel": "restart",
         "sender_id": "ciel-runtime",
         "kind": "restart_notice",
-        "message": text,
+        # The exact words the session receives after every unattended restart
+        # (restart_session or a reboot script), resumed or not.
+        "message": RESTART_CONTINUE_MESSAGE,
         "meta": {
+            "raw_injection": True,
+            # Typed into the prompt like a person would: Claude Code's session
+            # socket presents its input as "Another Claude session sent a
+            # message" and plain Codex's router path shows a wake marker.
+            "input_transport": "tty",
             "source": "ciel-runtime-restart",
             "source_kind": "restart_notice",
             "runtime": mode,
@@ -458,6 +639,7 @@ def queue_session_restart(
     runtime: str = "",
     client_pid: int = 0,
     resume: bool = True,
+    wait_turn: bool = False,
     lock: Any = None,
 ) -> dict[str, Any]:
     """Write a restart request for one instance's active client."""
@@ -493,6 +675,7 @@ def queue_session_restart(
         runtime=runtime,
         target_pid=target,
         resume=resume,
+        wait_turn=wait_turn,
     )
     return {
         "ok": True,
@@ -549,11 +732,25 @@ class RuntimeSessionRestartService:
         """The control shared by the CLI transports of this process."""
 
         if self._control is None:
-            self._control = RuntimeSessionRestartControl(poll=self.claim)
+            self._control = RuntimeSessionRestartControl(
+                poll=self.claim, exit_poll=self.claim_after_exit
+            )
         return self._control
 
     def claim(self) -> RuntimeSessionRestartRequest | None:
         return self.repository().claim(os.getpid())
+
+    def claim_after_exit(self) -> RuntimeSessionRestartRequest | None:
+        """The final claim once the CLI child has ended.
+
+        Only a request addressed to this launcher process by pid - what
+        restart_session and ``ciel-runtime restart-session`` write - brings an
+        ended session back.  The claim runs in the launcher itself while its
+        router-client record is still registered (the restart loop runs inside
+        the router lifetime), so it does not depend on any other process.
+        """
+
+        return self.repository().claim(os.getpid(), exact=True)
 
     def clients(self, instance_dir: Path | None = None) -> list[dict[str, Any]]:
         clients_dir = self.instance_paths(instance_dir or self._ports.instance_dir)[0]
@@ -575,6 +772,7 @@ class RuntimeSessionRestartService:
         client_pid: int = 0,
         resume: bool = True,
         instance_dir: Path | None = None,
+        wait_turn: bool = False,
     ) -> dict[str, Any]:
         if self._ports.unisolated_test():
             # A restart terminates a live CLI; a loose test runner must never
@@ -601,6 +799,7 @@ class RuntimeSessionRestartService:
             runtime=runtime,
             client_pid=client_pid,
             resume=resume,
+            wait_turn=wait_turn,
             is_running=self._ports.is_running,
             log=self._ports.log,
             lock=self._lock,
@@ -746,11 +945,14 @@ class _NullLock:
 
 __all__ = [
     "DEFAULT_RUNTIME_SESSION_RESTART_TTL_SECONDS",
+    "DEFAULT_RUNTIME_SESSION_RESTART_TURN_WAIT_SECONDS",
     "RESTART_CLIENTS_DIR_NAME",
+    "RESTART_CONTINUE_MESSAGE",
     "RESTART_REQUEST_FILE_NAME",
     "RESUME_COMMANDS",
     "RUNTIME_SESSION_RESTART_ENV_TTL",
     "RUNTIME_SESSION_RESTART_SCHEMA",
+    "RUNTIME_SESSION_RESTART_TURN_WAIT_ENV",
     "SESSION_CONTROL_FLAGS",
     "RuntimeSessionRestartControl",
     "RuntimeSessionRestartRepository",
@@ -760,8 +962,14 @@ __all__ = [
     "SessionRestartCliPorts",
     "SessionRestartPorts",
     "local_runtime_session_restart",
+    "primed_notice",
     "queue_session_restart",
+    "restart_claim_label",
     "restart_notice_body",
+    "restart_request_after_exit",
+    "restart_starting_notice",
+    "restart_turn_wait_seconds",
+    "restart_waiting_notice",
     "runtime_resume_command",
     "runtime_session_control_present",
     "runtime_uses_resume_commands",

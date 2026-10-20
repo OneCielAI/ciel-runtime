@@ -1,0 +1,6 @@
+{
+ "scripts": [
+  "G:\\ciel-e2e\\unattended\\menu\\cfg\\resume-last.cmd"
+ ],
+ "text": "@echo off\ncd /d \"G:\\ciel-e2e\\unattended\\menu\\ws\"\ncall ciel-runtime --ca-resume-last\n"
+}

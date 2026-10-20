@@ -178,6 +178,22 @@ class ProviderConfigurationPolicy:
     uses_ollama_status: bool = False
     runtime_owns_model: bool = False
     restricts_runtime_options: bool = False
+    @property
+    def supports_gateway_selection(self) -> bool:
+        return False
+    @property
+    def supports_gateway_data_path(self) -> bool:
+        """Whether ``gateway_data_path=direct`` may send CLI model HTTP to a provider gateway."""
+        return False
+
+    def launch_gateway(self, config: Mapping[str, Any], *, log: Any = None) -> Any:
+        """The gateway a direct-data-path launch uses (``launch_data_path.LaunchGateway``).
+
+        Called once right before a CLI starts, only when ``supports_gateway_data_path``;
+        ``None`` keeps the launch on the local router.
+        """
+        del config, log
+        return None
 
 
 @dataclass(frozen=True)
@@ -242,6 +258,12 @@ class ProviderOptionPresentationPolicy:
     show_rate_limit_controls: bool = False
     show_sampling_controls: bool = False
     show_ip_family_control: bool = False
+    @property
+    def show_gateway_selection(self) -> bool:
+        return False
+    @property
+    def show_gateway_data_path(self) -> bool:
+        return False
 
 
 @dataclass(frozen=True)

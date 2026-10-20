@@ -1,0 +1,9 @@
+  45496 py.exe      C:\Users\djlov\.local\share\ciel-runtime-1707ad4ddc6775f1005eaf40e3ece8df6c343d02\ciel_runtime.py
+   3488 python.exe  C:\Users\djlov\.local\share\ciel-runtime-1707ad4ddc6775f1005eaf40e3ece8df6c343d02\ciel_runtime.py
+   2748 python.exe  C:\Users\djlov\AppData\Local\Python\pythoncore-3.14-64\python.exe C:\Users\djlov\.local\share\ciel-runtime-1707ad4ddc6775f1005eaf40e3ece8df6c343d02\ciel_runtime.py
+  34804 py.exe      C:\Users\djlov\.local\share\ciel-runtime-1707ad4ddc6775f1005eaf40e3ece8df6c343d02\ciel_runtime.py
+  33068 python.exe  C:\Users\djlov\.local\share\ciel-runtime-1707ad4ddc6775f1005eaf40e3ece8df6c343d02\ciel_runtime.py
+  22552 python.exe  C:\Users\djlov\AppData\Local\Python\pythoncore-3.14-64\python.exe C:\Users\djlov\.local\share\ciel-runtime-1707ad4ddc6775f1005eaf40e3ece8df6c343d02\ciel_runtime.py
+   3492 py.exe      C:\Users\djlov\.local\share\ciel-runtime-1707ad4ddc6775f1005eaf40e3ece8df6c343d02\ciel_runtime.py
+  37932 python.exe  C:\Users\djlov\.local\share\ciel-runtime-1707ad4ddc6775f1005eaf40e3ece8df6c343d02\ciel_runtime.py
+  71276 python.exe  C:\Users\djlov\AppData\Local\Python\pythoncore-3.14-64\python.exe C:\Users\djlov\.local\share\ciel-runtime-1707ad4ddc6775f1005eaf40e3ece8df6c343d02\ciel_runtime.py

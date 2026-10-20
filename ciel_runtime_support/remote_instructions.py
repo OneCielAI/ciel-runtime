@@ -38,6 +38,14 @@ URL_KEYS = {
     "muse": "muse_url",
 }
 
+# Walkie names the company prompt inside each agent's instruction document,
+# in response headers and in a comment in the body (checked 2026-10-14):
+# "X-Walkie-Company-Prompt-Version: 8", "X-Walkie-Company-Prompt-Sha256: c344…"
+# and "<!-- company-prompt version=8 sha256=c344… source=latest -->".
+COMPANY_PROMPT_VERSION_HEADER = "X-Walkie-Company-Prompt-Version"
+COMPANY_PROMPT_SHA256_HEADER = "X-Walkie-Company-Prompt-Sha256"
+_COMPANY_PROMPT_MARKER = re.compile(r"<!--\s*company-prompt\s+version=(\d+)\s+sha256=([0-9a-fA-F]{8,64})")
+
 _ENV_REFERENCE = re.compile(r"%([A-Za-z_][A-Za-z0-9_]*)%|\$\{([A-Za-z_][A-Za-z0-9_]*)\}|\{([A-Za-z_][A-Za-z0-9_]*)\}")
 
 
@@ -56,6 +64,52 @@ def expand_environment_references(value: str, environ: Mapping[str, str] = os.en
 def settings(config: dict[str, Any]) -> dict[str, Any]:
     value = config.get("remote_instructions")
     return value if isinstance(value, dict) else {}
+
+
+def auto_reload_enabled(config: dict[str, Any]) -> bool:
+    """Reload the session when Walkie announces another company prompt (default on)."""
+
+    remote = settings(config)
+    return bool(remote.get("enabled", False)) and bool(remote.get("auto_reload", True))
+
+
+def company_prompt_in(text: str, headers: Any = None) -> dict[str, Any]:
+    """The company prompt an instruction document carries: headers first, then the body comment."""
+
+    version = str((headers.get(COMPANY_PROMPT_VERSION_HEADER) if headers is not None else "") or "").strip()
+    sha256 = str((headers.get(COMPANY_PROMPT_SHA256_HEADER) if headers is not None else "") or "").strip().lower()
+    if not sha256:
+        match = _COMPANY_PROMPT_MARKER.search(text or "")
+        if match:
+            version, sha256 = match.group(1), match.group(2).lower()
+    return {"company_prompt_version": version, "company_prompt_sha256": sha256} if sha256 else {}
+
+
+def held_company_prompt(state_dir: Path, workspace: Path) -> dict[str, Any]:
+    """The company prompt this workspace's instruction files were last written with.
+
+    The newest synchronization state wins; a state written before the
+    company prompt was recorded falls back to the comment in the file itself.
+    """
+
+    held: list[tuple[float, dict[str, Any]]] = []
+    for runtime in ("claude", "codex"):
+        path = state_dir / f"remote-instructions-{runtime}.json"
+        try:
+            state = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            state = {}
+        found = {key: state.get(key) for key in ("company_prompt_version", "company_prompt_sha256")} if isinstance(state, dict) and state.get("company_prompt_sha256") else {}
+        if not found:
+            try:
+                target = workspace.resolve() / RUNTIME_FILES[runtime]
+                found = company_prompt_in(target.read_text(encoding="utf-8", errors="replace"))
+            except OSError:
+                found = {}
+        if found:
+            updated = float(state.get("updated_at") or 0.0) if isinstance(state, dict) else 0.0
+            held.append((updated, found))
+    return max(held, key=lambda item: item[0])[1] if held else {}
 
 
 # One externally supplied prompt serves both native files: a workspace given
@@ -177,6 +231,7 @@ class RemoteInstructionSynchronizer:
                     "last_modified": str(response.headers.get("last-modified") or ""),
                     "updated_at": self.now(),
                     "reason": reason,
+                    **company_prompt_in(text, response.headers),
                 })
         except urllib.error.HTTPError as exc:
             if exc.code == 304 and path.is_file():
@@ -248,9 +303,14 @@ class SynchronizedLaunch:
         return self.delegate(*args, **kwargs)
 
 
-def panel_rows(config: dict[str, Any]) -> tuple[list[str], list[str]]:
+def panel_rows(config: dict[str, Any], held: dict[str, Any] | None = None) -> tuple[list[str], list[str]]:
     current = settings(config)
     enabled = bool(current.get("enabled", False))
+    held = held or {}
+    company = (
+        f"held v{held.get('company_prompt_version') or '?'} {str(held.get('company_prompt_sha256'))[:8]}"
+        if held.get("company_prompt_sha256") else "no company prompt held"
+    )
     def compact(value: Any) -> str:
         text = str(value)
         return text[:73] + "…" if len(text) > 74 else text
@@ -265,6 +325,7 @@ def panel_rows(config: dict[str, Any]) -> tuple[list[str], list[str]]:
             f"Muse URL → AGENTS.md  [{compact(current.get('muse_url') or 'unset')}]",
             f"Authorization header  [{'configured' if current.get('authorization') else 'unset'}]",
             f"HTTP timeout seconds  [{current.get('timeout_seconds') or 5}]",
+            f"Reload session when the company prompt changes  [{'on' if current.get('auto_reload', True) else 'off'} · {company}]",
             "Sync configured instruction files now",
             "Back",
         ],
@@ -278,6 +339,7 @@ def panel_rows(config: dict[str, Any]) -> tuple[list[str], list[str]]:
             "muse_url",
             "authorization",
             "timeout_seconds",
+            "auto_reload",
             "sync",
             "back",
         ],
@@ -288,7 +350,10 @@ __all__ = [
     "RemoteInstructionResult",
     "RemoteInstructionSynchronizer",
     "SynchronizedLaunch",
+    "auto_reload_enabled",
+    "company_prompt_in",
     "configured_url",
+    "held_company_prompt",
     "launch_instruction_runtimes",
     "expand_environment_references",
     "normalized_instruction_sha256",

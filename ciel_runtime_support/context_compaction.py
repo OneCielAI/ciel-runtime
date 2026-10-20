@@ -1,14 +1,25 @@
 from __future__ import annotations
 
+import time
+import re
+import urllib.error
 from dataclasses import dataclass
 from typing import Any, Callable
 
+from .context_summary_policy import (
+    ContextSummaryFragment, compact_instruction_kind, native_compact_text, semantic_payload_cost,
+)
+from .upstream_error_policy import UpstreamFailure
 
-AUTO_CODEX_MAX_MAP_CHUNKS = 8
+
+MAX_MAP_CHUNKS = 256
+MAX_SUMMARY_CALLS = 512
+MAX_REDUCE_ROUNDS = 12
+COMPACTION_TIMEOUT_SECONDS = 900.0
 
 
 class AutomaticContextCompactionCompleted(Exception):
-    """Carry a locally completed Codex checkpoint back to the Responses router."""
+    """Legacy codec carrier; semantic work now returns a real final generation."""
 
     def __init__(self, summary: str) -> None:
         super().__init__("automatic context compaction completed locally")
@@ -32,7 +43,7 @@ class ContextCompactionWorkflow:
     instruction_index: Callable[[list[dict[str, Any]]], int | None]
     content_to_text: Callable[[Any], str]
     chunk_target_tokens: Callable[[dict[str, Any], int], int]
-    split_messages: Callable[..., list[tuple[int, list[dict[str, Any]]]]]
+    split_messages: Callable[..., list[tuple[int, list[dict[str, Any] | ContextSummaryFragment]]]]
     parallel_sessions: Callable[[dict[str, Any], int], int]
     write_activity: Callable[..., Any]
     estimate_tokens: Callable[[Any], int]
@@ -56,102 +67,296 @@ class ContextCompactionServices:
     map_system_prompt: str
 
 
-def request_context_summary(
-    provider: str,
-    model: str,
-    provider_config: dict[str, Any],
-    prompt: str,
-    services: ContextCompactionServices,
-    *,
-    wire: str,
-    budget_tokens: int,
-) -> str:
-    transport = services.transport
-    max_tokens = transport.summary_output_tokens(provider_config, budget_tokens)
-    timeout = transport.request_timeout(provider_config)
+class ContextCompactionFailed(RuntimeError):
+    """An incomplete semantic checkpoint must never become a guard success."""
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(f"semantic context compaction failed: {reason}")
+        self.reason = reason
+
+
+def _summary_request(
+    provider: str, model: str, config: dict[str, Any], prompt: str,
+    services: ContextCompactionServices, wire: str, budget: int,
+) -> tuple[dict[str, Any], str]:
+    maximum = min(
+        max(32, services.transport.summary_output_tokens(config, budget)),
+        max(32, budget // 8),
+    )
+    messages = [
+        {"role": "system", "content": services.map_system_prompt},
+        {"role": "user", "content": prompt},
+    ]
+    request: dict[str, Any] = {"model": model, "messages": messages, "stream": False}
     if wire == "ollama":
-        request: dict[str, Any] = {
-            "model": model,
-            "messages": [
-                {"role": "system", "content": services.map_system_prompt},
-                {"role": "user", "content": prompt},
-            ],
-            "stream": False,
-        }
         request = services.projection.apply_ollama_optional(
-            request,
-            provider,
-            model,
-            provider_config,
-            {},
-            output_limit=max_tokens,
+            request, provider, model, config, {}, output_limit=maximum,
         )
-        operation = "ollama_chat"
-    elif wire == "openai":
-        request = {
+        return request, "ollama_chat"
+    if wire == "responses":
+        return {
             "model": model,
-            "messages": [
-                {"role": "system", "content": services.map_system_prompt},
-                {"role": "user", "content": prompt},
-            ],
+            "instructions": services.map_system_prompt,
+            "input": [{"role": "user", "content": [{"type": "input_text", "text": prompt}]}],
+            "max_output_tokens": maximum,
             "stream": False,
-            "max_tokens": max_tokens,
-        }
-        operation = "openai_chat"
-    else:
-        request = {
-            "model": model,
-            "system": services.map_system_prompt,
-            "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": max_tokens,
-            "stream": False,
-        }
-        url = transport.endpoint(provider, provider_config, "anthropic_messages")
-        return _post_summary(
-            provider, model, provider_config, request, url, "anthropic", timeout, services
-        )
-    url = transport.endpoint(provider, provider_config, operation)
-    return _post_summary(
-        provider, model, provider_config, request, url, wire, timeout, services
-    )
+        }, "openai_responses"
+    request["max_tokens"] = maximum
+    if wire == "openai":
+        return request, "openai_chat"
+    request["system"] = services.map_system_prompt
+    request["messages"] = messages[1:]
+    return request, "anthropic_messages"
 
 
-def _post_summary(
-    provider: str,
-    model: str,
-    provider_config: dict[str, Any],
-    request: dict[str, Any],
-    url: str,
-    wire: str,
-    timeout: float,
-    services: ContextCompactionServices,
+def _request_cost(
+    provider: str, model: str, config: dict[str, Any], prompt: str,
+    services: ContextCompactionServices, wire: str, budget: int,
+) -> int:
+    request, _operation = _summary_request(provider, model, config, prompt, services, wire, budget)
+    output = min(max(32, services.transport.summary_output_tokens(config, budget)), max(32, budget // 8))
+    # This UTF-8 envelope is a local safety bound, not tokenizer authority.
+    return semantic_payload_cost(request, services.workflow.estimate_tokens) + output + 512
+
+
+def request_context_summary(
+    provider: str, model: str, provider_config: dict[str, Any], prompt: str,
+    services: ContextCompactionServices, *, wire: str, budget_tokens: int,
 ) -> str:
-    transport = services.transport
-    data = transport.post_json(
-        url,
-        request,
-        transport.headers(provider, provider_config),
-        timeout,
-        provider,
-        provider_config,
-        model,
-        # Summarization is a non-idempotent generation request.  A retry can
-        # consume quota even when the provider completed the first attempt but
-        # the response was lost, so never multiply it implicitly.
-        retry_rate_limits=False,
+    if _request_cost(provider, model, provider_config, prompt, services, wire, budget_tokens) > budget_tokens:
+        raise ContextCompactionFailed("summary_request_exceeds_budget")
+    request, operation = _summary_request(
+        provider, model, provider_config, prompt, services, wire, budget_tokens
     )
-    return transport.extract_text(data, wire)
+    transport = services.transport
+    timeout = min(
+        transport.request_timeout(provider_config),
+        float(provider_config.get("_context_compact_timeout_seconds", 120.0)),
+        120.0,
+    )
+    config = {**provider_config, "gateway_retries": 0}
+    headers = transport.headers(provider, config)
+    if wire == "responses":
+        headers = {name: value for name, value in headers.items()
+                   if str(name).casefold() != "anthropic-version"}
+    try:
+        data = transport.post_json(
+            transport.endpoint(provider, config, operation), request,
+            headers, timeout, provider, config, model,
+            # Generation is non-idempotent: never replay after an ambiguous failure.
+            retry_rate_limits=False,
+        )
+    except urllib.error.HTTPError as exc:
+        raise UpstreamFailure.from_http_error(provider, model, exc) from exc
+    if wire == "responses":
+        if not isinstance(data, dict):
+            raise ContextCompactionFailed("invalid_summary_response")
+        if data.get("error"):
+            raise UpstreamFailure.from_payload(provider, model, data, status=200, source="json_200")
+        if data.get("status") != "completed":
+            raise ContextCompactionFailed("incomplete_summary_response")
+        output = data.get("output")
+        if not isinstance(output, list):
+            raise ContextCompactionFailed("invalid_summary_output")
+        for item in output:
+            if not isinstance(item, dict) or item.get("type") not in {"message", "reasoning"}:
+                raise ContextCompactionFailed("invalid_summary_output")
+            if item.get("status") not in {None, "completed"}:
+                raise ContextCompactionFailed("incomplete_summary_response")
+            if item.get("type") == "message":
+                content = item.get("content")
+                if not isinstance(content, list) or any(
+                    not isinstance(block, dict) or block.get("type") != "output_text"
+                    or not isinstance(block.get("text"), str) for block in content
+                ):
+                    raise ContextCompactionFailed("invalid_summary_output")
+    if isinstance(data, dict):
+        choice = (data.get("choices") or [{}])[0] if wire == "openai" else {}
+        reason = choice.get("finish_reason") if isinstance(choice, dict) else None
+        if (reason in {"length", "content_filter", "tool_calls"}
+            or data.get("stop_reason") in {"max_tokens", "refusal", "tool_use"}
+            or data.get("done_reason") == "length"
+            or data.get("status") in {"incomplete", "failed", "cancelled"}
+            or data.get("done") is False):
+            raise ContextCompactionFailed("truncated_summary")
+        if data.get("error"):
+            raise UpstreamFailure.from_payload(provider, model, data, status=200, source="json_200")
+    text = transport.extract_text(data, wire)
+    if not isinstance(text, str) or not text.strip():
+        raise ContextCompactionFailed("empty_summary")
+    return text.strip()
+
+
+@dataclass
+class _SummaryRun:
+    provider: str
+    model: str
+    config: dict[str, Any]
+    services: ContextCompactionServices
+    wire: str
+    budget: int
+    deadline: float
+    calls: int = 0
+    completed_chunks: int = 0
+    total_chunks: int = 0
+
+    def fits(self, prompt: str) -> bool:
+        return _request_cost(
+            self.provider, self.model, self.config, prompt,
+            self.services, self.wire, self.budget,
+        ) <= self.budget
+
+    def generate(self, prompt: str) -> str:
+        remaining = self.deadline - time.monotonic()
+        if remaining <= 0:
+            raise ContextCompactionFailed("deadline_exceeded")
+        if self.calls >= MAX_SUMMARY_CALLS:
+            raise ContextCompactionFailed("summary_call_limit")
+        if not self.fits(prompt):
+            raise ContextCompactionFailed("summary_request_exceeds_budget")
+        self.calls += 1
+        config = {**self.config, "_context_compact_timeout_seconds": min(remaining, 120.0)}
+        summary = self.services.workflow.request_summary(
+            self.provider, self.model, config, prompt, wire=self.wire, budget_tokens=self.budget,
+        )
+        if time.monotonic() > self.deadline:
+            raise ContextCompactionFailed("deadline_exceeded")
+        if not isinstance(summary, str) or not summary.strip():
+            raise ContextCompactionFailed("empty_summary")
+        # Finite output guard even for transports without a proven output knob.
+        maximum = min(self.services.transport.summary_output_tokens(config, self.budget), max(32, self.budget // 8))
+        if len(summary.encode("utf-8")) > max(1024, maximum * 32):
+            raise ContextCompactionFailed("summary_output_limit")
+        return summary.strip()
+
+
+
+def _no_output_context_rejection(error: BaseException) -> bool:
+    if not isinstance(error, UpstreamFailure):
+        return False
+    if error.source != "http_status" or error.upstream_status not in {400, 413}:
+        return False
+    if error.output_started or error.response_id:
+        return False
+    return error.error_type in {"context_length_exceeded", "context_window_exceeded"} or (
+        error.error_type == "invalid_request_error" and bool(re.match(
+            r"^prompt is too long: [0-9]+ tokens > [0-9]+ maximum", error.message.casefold()
+        ))
+    )
+
+
+def _split_rejected_chunk(
+    chunk: list[dict[str, Any] | ContextSummaryFragment], start: int,
+) -> list[tuple[int, list[dict[str, Any] | ContextSummaryFragment]]]:
+    if len(chunk) > 1:
+        middle = len(chunk) // 2
+        right_start = chunk[middle].source_index if isinstance(chunk[middle], ContextSummaryFragment) else start + middle
+        return [(start, chunk[:middle]), (right_start, chunk[middle:])]
+    if len(chunk) != 1 or not isinstance(chunk[0], ContextSummaryFragment) or len(chunk[0].text) < 2:
+        raise ContextCompactionFailed("rejected_chunk_cannot_split")
+    fragment = chunk[0]
+    middle = len(fragment.text) // 2
+    left = ContextSummaryFragment(fragment.source_index, fragment.start,
+        fragment.start + middle, fragment.source_chars, fragment.text[:middle], fragment.role)
+    right = ContextSummaryFragment(fragment.source_index, fragment.start + middle,
+        fragment.end, fragment.source_chars, fragment.text[middle:], fragment.role)
+    return [(fragment.source_index, [left]), (fragment.source_index, [right])]
+
+
+def _map_summaries(chunks: list[Any], run: _SummaryRun, initial_tokens: int) -> list[str]:
+    pending = [(start, chunk, 0) for start, chunk in chunks]
+    summaries: list[str] = []
+    total = len(chunks)
+    run.total_chunks = total
+    while pending:
+        start, chunk, depth = pending.pop(0)
+        prompt = run.services.projection.build_chunk_prompt(chunk, start, len(summaries) + 1, total)
+        try:
+            summary = run.generate(prompt)
+        except Exception as exc:
+            if not _no_output_context_rejection(exc) or depth >= 4:
+                raise
+            if total >= MAX_MAP_CHUNKS:
+                raise ContextCompactionFailed("map_chunk_limit") from exc
+            smaller = _split_rejected_chunk(chunk, start)
+            total += len(smaller) - 1
+            run.total_chunks = total
+            pending[0:0] = [(offset, parts, depth + 1) for offset, parts in smaller]
+            continue
+        summaries.append(summary)
+        run.completed_chunks = len(summaries)
+        _write_activity(run.provider, run.model, total, initial_tokens,
+            sum(run.services.workflow.estimate_tokens(item) for item in summaries),
+            run.budget, "map", len(summaries), run.services.workflow)
+    return summaries
+
+def _reduce_summaries(
+    summaries: list[str], instruction: str, source_count: int,
+    system_messages: list[dict[str, Any]], run: _SummaryRun,
+) -> list[dict[str, Any]]:
+    projection = run.services.projection
+    estimate = run.services.workflow.estimate_tokens
+
+    def prompt(parts: list[str]) -> str:
+        return projection.build_reduce_prompt(
+            parts, instruction, budget_tokens=run.budget, source_message_count=source_count,
+        )
+
+    for round_number in range(MAX_REDUCE_ROUNDS + 1):
+        output = [*system_messages, {"role": "user", "content": prompt(summaries)}]
+        if semantic_payload_cost({"messages": output}, estimate) + 512 <= run.budget:
+            return output
+        if round_number >= MAX_REDUCE_ROUNDS:
+            raise ContextCompactionFailed("reduce_round_limit")
+        parts: list[str] = []
+        for summary in summaries:
+            if run.fits(prompt([summary])):
+                parts.append(summary)
+                continue
+            # A provider without a proven output knob may emit one large map
+            # summary. Split its complete text, never an excerpt, for reduction.
+            offset = 0
+            while offset < len(summary):
+                low, high, end = offset + 1, len(summary), offset
+                while low <= high:
+                    middle = (low + high) // 2
+                    if run.fits(prompt([summary[offset:middle]])):
+                        end, low = middle, middle + 1
+                    else:
+                        high = middle - 1
+                if end == offset or len(parts) >= MAX_SUMMARY_CALLS:
+                    raise ContextCompactionFailed("reduce_fragment_exceeds_budget")
+                parts.append(summary[offset:end])
+                offset = end
+        groups: list[list[str]] = []
+        group: list[str] = []
+        for summary in parts:
+            if group and not run.fits(prompt([*group, summary])):
+                groups.append(group)
+                group = []
+            if not run.fits(prompt([*group, summary])):
+                raise ContextCompactionFailed("reduce_fragment_exceeds_budget")
+            group.append(summary)
+        if group:
+            groups.append(group)
+        reduced = [run.generate(prompt(group)) for group in groups]
+        if sum(semantic_payload_cost(item, estimate) for item in reduced) >= sum(
+            semantic_payload_cost(item, estimate) for item in summaries
+        ):
+            raise ContextCompactionFailed("reduce_did_not_contract")
+        summaries = reduced
+        run.services.workflow.write_activity(
+            run.provider or "provider", run.model, phase="reduce",
+            reduce_round=round_number + 1, summary_calls=run.calls,
+            budget=run.budget, final_tokens=estimate({"messages": output}),
+        )
+    raise ContextCompactionFailed("reduce_round_limit")
 
 
 def build_llm_compacted_messages(
-    provider: str,
-    model: str,
-    provider_config: dict[str, Any] | None,
-    messages: list[dict[str, Any]],
-    budget_tokens: int,
-    services: ContextCompactionServices,
-    *,
-    wire: str,
+    provider: str, model: str, provider_config: dict[str, Any] | None,
+    messages: list[dict[str, Any]], budget_tokens: int,
+    services: ContextCompactionServices, *, wire: str,
 ) -> list[dict[str, Any]] | None:
     if provider_config is None or not messages:
         return None
@@ -160,241 +365,97 @@ def build_llm_compacted_messages(
     instruction_index = workflow.instruction_index(messages)
     if instruction_index is None:
         return None
-    compact_instruction = workflow.content_to_text(messages[instruction_index].get("content"))
-    # Codex custom providers receive its local checkpoint as an ordinary
-    # translated /v1/responses turn.  Unlike Claude's compact request, Codex
-    # can otherwise keep forwarding a checkpoint that the upstream cannot fit.
-    # Use the existing segmented reducer by default only for that captured
-    # checkpoint prompt.  Operators can explicitly turn it
-    # off, while all other clients retain the opt-in policy that avoids
-    # multiplying provider usage.
-    segmented_mode = workflow.segmented_mode(provider_config, compact_instruction)
-    if segmented_mode is None:
+    content = messages[instruction_index].get("content")
+    native_instruction = native_compact_text(content)
+    instruction = native_instruction if compact_instruction_kind(native_instruction) else workflow.content_to_text(content)
+    if workflow.segmented_mode(provider_config, instruction) is None:
         return None
-    history = [
-        message
-        for index, message in enumerate(messages)
-        if index != instruction_index and str(message.get("role") or "") != "system"
-    ]
-    system_messages = [message for message in messages if str(message.get("role") or "") == "system"]
+    history = []
+    for index, message in enumerate(messages):
+        if str(message.get("role") or "") == "system":
+            continue
+        if index != instruction_index:
+            history.append(message)
+        elif isinstance(content, list) and compact_instruction_kind(native_instruction):
+            # Claude auto compact appends its instruction to the last real user
+            # message. Exclude only that block, never the earlier user content.
+            kept = list(content)
+            for offset in range(len(kept) - 1, -1, -1):
+                block = kept[offset]
+                if isinstance(block, dict) and block.get("type") in {"text", "input_text"}:
+                    del kept[offset]
+                    break
+            if kept:
+                history.append({**message, "content": kept})
+    systems = [message for message in messages if str(message.get("role") or "") == "system"]
     if not history:
         return None
-    if not workflow.compaction_available(provider, provider_config):
-        if segmented_mode == "auto_codex":
-            raise AutomaticContextCompactionCompleted(
-                _local_checkpoint_summary(
-                    [projection.build_fallback_summary(history, budget_tokens)],
-                    len(history),
-                )
-            )
-        return None
-    target_tokens = workflow.chunk_target_tokens(provider_config, budget_tokens)
-    if (
-        segmented_mode == "auto_codex"
-        and provider_config.get("context_compact_chunk_tokens") is None
-    ):
-        target_tokens = max(
-            target_tokens,
-            min(262_144, max(8_192, (max(1, budget_tokens) * 3) // 4)),
-        )
-    chunks = workflow.split_messages(history, target_tokens)
-    if not chunks:
-        return None
-    if (
-        segmented_mode == "auto_codex"
-        and len(chunks) > AUTO_CODEX_MAX_MAP_CHUNKS
-    ):
-        projection.log(
-            "WARN",
-            f"context_compact_auto_chunk_limit provider={provider} model={model} "
-            f"chunks={len(chunks)} limit={AUTO_CODEX_MAX_MAP_CHUNKS}; "
-            "completing checkpoint locally",
-        )
-        raise AutomaticContextCompactionCompleted(
-            _local_checkpoint_summary(
-                [projection.build_fallback_summary(history, budget_tokens)],
-                len(history),
-            )
-        )
-    parallel_sessions = workflow.parallel_sessions(provider_config, len(chunks))
     initial_tokens = workflow.estimate_tokens({"messages": messages})
-    _write_activity(
-        provider,
-        model,
-        len(chunks),
-        parallel_sessions,
-        initial_tokens,
-        0,
-        budget_tokens,
-        "map",
-        0,
-        workflow,
-    )
-    summaries: list[str] = []
-    summary_provider_config = provider_config
-    if segmented_mode == "auto_codex":
-        # The checkpoint request is already a recovery operation for an input
-        # that cannot fit upstream.  Retrying the same auxiliary generation on
-        # transport/capacity failures only multiplies load and delays the
-        # deterministic guard that can compact the request locally.
-        summary_provider_config = dict(provider_config)
-        summary_provider_config["gateway_retries"] = 0
-    for chunk_number, (start, chunk) in enumerate(chunks, start=1):
-        prompt = projection.build_chunk_prompt(chunk, start, chunk_number, len(chunks))
-        try:
-            summary = workflow.request_summary(
-                provider,
-                model,
-                summary_provider_config,
-                prompt,
-                wire=wire,
-                budget_tokens=budget_tokens,
-            )
-        except Exception as exc:
-            projection.log(
-                "WARN",
-                f"context_compact_chunk_failed provider={provider} model={model} "
-                f"chunk={chunk_number}/{len(chunks)} error={type(exc).__name__}: {exc}",
-            )
-            if segmented_mode == "auto_codex":
-                summaries.extend(
-                    projection.build_fallback_summary(
-                        remaining_chunk,
-                        target_tokens,
-                        start_index=remaining_start,
-                    ).strip()
-                    for remaining_start, remaining_chunk in chunks[chunk_number - 1 :]
-                )
-                projection.log(
-                    "WARN",
-                    f"context_compact_auto_fallback provider={provider} model={model} "
-                    "reason=summary_request_failed; completing checkpoint locally",
-                )
-                raise AutomaticContextCompactionCompleted(
-                    _local_checkpoint_summary(summaries, len(history))
-                ) from exc
-            summary = projection.build_fallback_summary(
-                chunk, target_tokens, start_index=start
-            )
-        if not summary.strip():
-            if segmented_mode == "auto_codex":
-                summaries.extend(
-                    projection.build_fallback_summary(
-                        remaining_chunk,
-                        target_tokens,
-                        start_index=remaining_start,
-                    ).strip()
-                    for remaining_start, remaining_chunk in chunks[chunk_number - 1 :]
-                )
-                projection.log(
-                    "WARN",
-                    f"context_compact_auto_fallback provider={provider} model={model} "
-                    "reason=empty_summary; completing checkpoint locally",
-                )
-                raise AutomaticContextCompactionCompleted(
-                    _local_checkpoint_summary(summaries, len(history))
-                )
-            summary = projection.build_fallback_summary(
-                chunk, target_tokens, start_index=start
-            )
-        summaries.append(summary.strip())
-        _write_activity(
-            provider,
-            model,
-            len(chunks),
-            parallel_sessions,
-            initial_tokens,
-            sum(workflow.estimate_tokens(item) for item in summaries),
-            budget_tokens,
-            "map",
-            chunk_number,
-            workflow,
+    completed = 0
+    chunks: list[Any] = []
+    config = {**provider_config, "gateway_retries": 0}
+    run = _SummaryRun(provider, model, config, services, wire, budget_tokens,
+                      time.monotonic() + COMPACTION_TIMEOUT_SECONDS)
+    try:
+        minimum_final = projection.build_reduce_prompt(
+            [""], instruction, budget_tokens=budget_tokens, source_message_count=len(history),
         )
-    if segmented_mode == "auto_codex":
-        local_summary = _local_checkpoint_summary(summaries, len(history))
-        final_tokens = workflow.estimate_tokens(local_summary)
-        projection.log(
-            "WARN",
-            f"context_compact_local_complete provider={provider} model={model} "
-            f"chunks={len(chunks)} messages={len(history)} tokens={initial_tokens}->{final_tokens}",
-        )
+        if semantic_payload_cost({"messages": [*systems, {"role": "user", "content": minimum_final}]}, workflow.estimate_tokens) + 512 > budget_tokens:
+            raise ContextCompactionFailed("final_system_instruction_exceeds_budget")
+        if not workflow.compaction_available(provider, provider_config):
+            raise ContextCompactionFailed("provider_unavailable")
+        overhead = _request_cost(provider, model, config, "", services, wire, budget_tokens)
+        target = min(workflow.chunk_target_tokens(config, budget_tokens), budget_tokens - overhead - 512)
+        if target < 256:
+            raise ContextCompactionFailed("insufficient_summary_budget")
+        chunks = workflow.split_messages(history, target)
+        if not chunks:
+            raise ContextCompactionFailed("no_source_chunks")
+        if len(chunks) > MAX_MAP_CHUNKS:
+            raise ContextCompactionFailed("map_chunk_limit")
+        # Preflight the complete map before starting any billable generation.
+        prompts = [
+            projection.build_chunk_prompt(chunk, start, number, len(chunks))
+            for number, (start, chunk) in enumerate(chunks, 1)
+        ]
+        if not all(run.fits(prompt) for prompt in prompts):
+            raise ContextCompactionFailed("map_request_exceeds_budget")
+        _write_activity(provider, model, len(chunks), initial_tokens, 0, budget_tokens, "map", 0, workflow)
+        summaries = _map_summaries(chunks, run, initial_tokens)
+        completed = len(summaries)
+        output = _reduce_summaries(summaries, instruction, len(history), systems, run)
+    except BaseException as exc:
         workflow.write_activity(
-            provider or "provider",
-            model,
-            chunks=len(chunks),
-            parallel_sessions=parallel_sessions,
-            tokens=initial_tokens,
-            final_tokens=final_tokens,
-            budget=budget_tokens,
-            phase="local-complete",
-            completed_chunks=len(chunks),
-            retained_messages=1,
+            provider or "provider", model, phase="failed", chunks=run.total_chunks or len(chunks),
+            completed_chunks=run.completed_chunks, summary_calls=run.calls,
+            reason=exc.reason if isinstance(exc, ContextCompactionFailed) else type(exc).__name__,
+            tokens=initial_tokens, budget=budget_tokens,
         )
-        raise AutomaticContextCompactionCompleted(local_summary)
-    reduce_prompt = projection.build_reduce_prompt(
-        summaries,
-        compact_instruction,
-        budget_tokens=budget_tokens,
-        source_message_count=len(history),
-    )
-    output = [*system_messages, {"role": "user", "content": reduce_prompt}]
+        projection.log("WARN", f"context_compact_failed provider={provider} model={model} "
+                       f"completed_chunks={run.completed_chunks}/{run.total_chunks or len(chunks)} error={type(exc).__name__}")
+        raise
     final_tokens = workflow.estimate_tokens({"messages": output})
-    projection.log(
-        "WARN",
-        f"context_compact_map_reduce provider={provider} model={model} chunks={len(chunks)} "
-        f"messages {len(messages)}->{len(output)} tokens {initial_tokens}->{final_tokens} "
-        f"budget={budget_tokens}",
-    )
+    projection.log("WARN", f"context_compact_map_reduce provider={provider} model={model} "
+                   f"chunks={run.total_chunks} summary_calls={run.calls} "
+                   f"tokens={initial_tokens}->{final_tokens} budget={budget_tokens}")
+    # Not completed yet: the existing final wire generation owns real usage and
+    # the native CLI owns persistence of its checkpoint. Never mint local success.
     workflow.write_activity(
-        provider or "provider",
-        model,
-        chunks=len(chunks),
-        parallel_sessions=parallel_sessions,
-        tokens=initial_tokens,
-        final_tokens=final_tokens,
-        budget=budget_tokens,
-        phase="reduce",
-        completed_chunks=len(chunks),
-        retained_messages=len(output),
+        provider or "provider", model, chunks=run.total_chunks, parallel_sessions=1,
+        tokens=initial_tokens, final_tokens=final_tokens, budget=budget_tokens,
+        phase="reduce", completed_chunks=completed, retained_messages=len(output),
+        summary_calls=run.calls,
     )
     return output
 
 
-def _local_checkpoint_summary(summaries: list[str], source_message_count: int) -> str:
-    parts = [
-        "[ciel-runtime local context checkpoint]",
-        f"Compacted {source_message_count} conversation messages into "
-        f"{len(summaries)} deterministic segment summaries because provider "
-        "summarization was unavailable.",
-    ]
-    parts.extend(
-        f"## Segment {index}\n{summary.strip()}"
-        for index, summary in enumerate(summaries, start=1)
-        if summary.strip()
-    )
-    return "\n\n".join(parts)
-
-
 def _write_activity(
-    provider: str,
-    model: str,
-    chunks: int,
-    parallel_sessions: int,
-    tokens: int,
-    final_tokens: int,
-    budget: int,
-    phase: str,
-    completed_chunks: int,
+    provider: str, model: str, chunks: int, tokens: int, final_tokens: int,
+    budget: int, phase: str, completed_chunks: int,
     workflow: ContextCompactionWorkflow,
 ) -> None:
     workflow.write_activity(
-        provider or "provider",
-        model,
-        chunks=chunks,
-        parallel_sessions=parallel_sessions,
-        tokens=tokens,
-        final_tokens=final_tokens,
-        budget=budget,
-        phase=phase,
-        completed_chunks=completed_chunks,
+        provider or "provider", model, chunks=chunks, parallel_sessions=1,
+        tokens=tokens, final_tokens=final_tokens, budget=budget,
+        phase=phase, completed_chunks=completed_chunks,
     )

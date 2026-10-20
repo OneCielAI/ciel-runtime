@@ -42,6 +42,16 @@ CLAUDE_PROJECTED_ENV_KEYS = (
     "CIEL_RUNTIME_MODEL_ALIAS",
     "CIEL_RUNTIME_PROVIDER",
 )
+# Model values a gateway receives verbatim in direct data-path mode (no router
+# translates a ciel-runtime-* alias there).
+CLAUDE_DIRECT_MODEL_KEYS = (
+    "ANTHROPIC_MODEL",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL",
+    "CLAUDE_CODE_SUBAGENT_MODEL",
+    "CIEL_RUNTIME_MODEL_ALIAS",
+)
 CLAUDE_AUTO_COMPACT_WINDOW_MAX = 1_000_000
 ANTHROPIC_STANDARD_CONTEXT_TOKENS = 200_000
 
@@ -93,6 +103,10 @@ class ClaudeLimitPorts:
     compaction_policy: Callable[
         [str, dict[str, Any]], ProviderRuntimeCompactionPolicy
     ]
+    # Input budget the router actually forwards (0: nothing is trimmed).
+    guarded_input_budget: Callable[[str, dict[str, Any]], int] = (
+        lambda _provider, _config: 0
+    )
 
 
 @dataclass(frozen=True)
@@ -122,35 +136,61 @@ class ClaudeLimitPolicy:
                 return self._ports.cap_output_tokens(provider, config, configured)
         return None
 
-    def auto_compact_window(self, provider: str, config: dict[str, Any]) -> int | None:
-        return self.compaction_snapshot(provider, config).auto_compact_window
+    def auto_compact_window(
+        self, provider: str, config: dict[str, Any], *, guarded: bool = False
+    ) -> int | None:
+        return self.compaction_snapshot(provider, config, guarded=guarded).auto_compact_window
 
     def compaction_snapshot(
-        self, provider: str, config: dict[str, Any]
+        self, provider: str, config: dict[str, Any], *, guarded: bool = True
     ) -> ClaudeCompactionSnapshot:
+        """Compact settings for one child.
+
+        ``guarded`` marks a launch whose requests the router trims.  There the
+        trigger is pinned to the budget the router really forwards: a window
+        above it is never reached, so the client's own auto-compact would
+        never run while the router silently shortened every turn.
+        """
+
         configured = self._ports.positive_int(config.get("auto_compact_window"))
         limit = self._ports.context_limit(provider, config)
         if anthropic_routed_standard_context(provider, config):
             limit = min(limit or ANTHROPIC_STANDARD_CONTEXT_TOKENS, ANTHROPIC_STANDARD_CONTEXT_TOKENS)
+        percent: int | None = None
         if configured:
             window = min(
                 configured,
                 limit or configured,
                 CLAUDE_AUTO_COMPACT_WINDOW_MAX,
             )
-            return ClaudeCompactionSnapshot(limit or None, window, None)
-        policy = self._ports.compaction_policy(provider, config)
-        try:
-            percent = int(policy.trigger_percent) if policy.trigger_percent else None
-        except (TypeError, ValueError):
-            percent = None
-        if percent is not None and not 1 <= percent <= 100:
-            percent = None
-        window = min(limit, CLAUDE_AUTO_COMPACT_WINDOW_MAX) if limit else None
-        if percent is not None and limit and window:
-            desired_tokens = (limit * percent) // 100
-            percent = max(1, min(100, (desired_tokens * 100) // window))
+        else:
+            policy = self._ports.compaction_policy(provider, config)
+            try:
+                percent = int(policy.trigger_percent) if policy.trigger_percent else None
+            except (TypeError, ValueError):
+                percent = None
+            if percent is not None and not 1 <= percent <= 100:
+                percent = None
+            window = min(limit, CLAUDE_AUTO_COMPACT_WINDOW_MAX) if limit else None
+            if percent is not None and limit and window:
+                desired_tokens = (limit * percent) // 100
+                percent = max(1, min(100, (desired_tokens * 100) // window))
+        if guarded:
+            percent = self._guarded_percent(percent, window, provider, config)
         return ClaudeCompactionSnapshot(limit or None, window, percent)
+
+    def _guarded_percent(
+        self,
+        percent: int | None,
+        window: int | None,
+        provider: str,
+        config: dict[str, Any],
+    ) -> int | None:
+        budget = self._ports.guarded_input_budget(provider, config)
+        if not budget or not window or budget >= window:
+            return percent
+        derived = max(1, min(100, (budget * 100) // window))
+        return min(percent, derived) if percent is not None else derived
 
 
 @dataclass(frozen=True)
@@ -434,12 +474,12 @@ class ClaudeEnvironmentProjection:
         self._sources = sources
         self._features = features
 
-    def apply_common(self, provider: str, config: dict[str, Any], env: dict[str, str]) -> dict[str, str]:
+    def apply_common(self, provider: str, config: dict[str, Any], env: dict[str, str], *, guarded: bool = True) -> dict[str, str]:
         env["CLAUDE_CODE_DISABLE_TERMINAL_TITLE"] = "1"
         output_tokens = self._limits.output_token_limit(provider, config)
         if output_tokens:
             env["CLAUDE_CODE_MAX_OUTPUT_TOKENS"] = str(output_tokens)
-        compaction = self._limits.compaction_snapshot(provider, config)
+        compaction = self._limits.compaction_snapshot(provider, config, guarded=guarded)
         if compaction.auto_compact_window:
             env["CLAUDE_CODE_AUTO_COMPACT_WINDOW"] = str(
                 compaction.auto_compact_window
@@ -486,7 +526,15 @@ class ClaudeEnvironmentProjection:
             env.pop("CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS", None)
         return env
 
-    def build(self, config: dict[str, Any] | None = None) -> dict[str, str]:
+    def build(self, config: dict[str, Any] | None = None, data_path: Any = None) -> dict[str, str]:
+        """Claude Code's launch environment.
+
+        ``data_path`` (``launch_data_path.LaunchDataPath``) is passed only for a
+        launch whose model requests go directly to a provider gateway: the base
+        URL and token become the gateway's, and every model value becomes the
+        upstream id the router would have sent, never a ``ciel-runtime-*``
+        alias.  Without it the routed environment is unchanged.
+        """
         config = config or self._sources.load_config()
         provider, provider_config = self._sources.current_provider(config)
         if self._sources.direct_native(provider, provider_config):
@@ -542,7 +590,25 @@ class ClaudeEnvironmentProjection:
         auth_token = self._features.router_auth_token(provider, provider_config)
         if auth_token:
             env["ANTHROPIC_AUTH_TOKEN"] = auth_token
-        return self.apply_common(provider, provider_config, env)
+        direct = data_path is not None and bool(getattr(data_path, "direct", False))
+        if direct:
+            self._apply_direct_data_path(provider, provider_config, env, data_path)
+        # A direct data path bypasses the router, so nothing is trimmed there.
+        return self.apply_common(provider, provider_config, env, guarded=not direct)
+
+    def _apply_direct_data_path(
+        self, provider: str, config: dict[str, Any], env: dict[str, str], data_path: Any
+    ) -> None:
+        alias_prefix = f"ciel-runtime-{provider}-"
+        fallback = self._features.current_upstream_model(provider, config)
+        for key in CLAUDE_DIRECT_MODEL_KEYS:
+            value = str(env.get(key) or "").strip()
+            if not value:
+                continue
+            upstream = self._features.resolve_requested_model(provider, config, value)
+            env[key] = fallback if not upstream or upstream.startswith(alias_prefix) else upstream
+        env["ANTHROPIC_BASE_URL"] = str(data_path.endpoint)
+        env["ANTHROPIC_AUTH_TOKEN"] = str(data_path.api_key)
 
 
 @dataclass(frozen=True)
@@ -596,6 +662,7 @@ __all__ = [
     "CLAUDE_AUTO_COMPACT_WINDOW_MAX",
     "CLAUDE_CHROME_CLASSIFIER_FLOOR_ENV",
     "CLAUDE_CHROME_CLASSIFIER_FLOOR_OFF",
+    "CLAUDE_DIRECT_MODEL_KEYS",
     "CLAUDE_PROJECTED_ENV_KEYS",
     "ClaudeCompactionSnapshot",
     "ClaudeEnvironmentFeaturePorts",

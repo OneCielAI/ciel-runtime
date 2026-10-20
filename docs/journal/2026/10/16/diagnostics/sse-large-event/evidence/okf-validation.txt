@@ -1,0 +1,12 @@
+OKF v0.1 conformance — docs\journal\2026\10\16\diagnostics\sse-large-event
+  concepts: 0   index.md: 0   log.md: 0
+Traceback (most recent call last):
+  File "C:\Users\djlov\.claude\skills\validate\scripts\okf_validate.py", line 219, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "C:\Users\djlov\.claude\skills\validate\scripts\okf_validate.py", line 210, in main
+    print("  \033[32m\u2713 conformant — no issues\033[0m")
+  File "C:\Program Files\Python311\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2713' in position 7: character maps to <undefined>

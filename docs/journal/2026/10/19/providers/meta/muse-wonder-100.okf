@@ -1,0 +1,52 @@
+---
+type: journal
+title: Muse Wonder 1.0 in the Meta catalog and Muse Code session commands
+timestamp: 2026-10-19
+---
+
+# Scope
+
+User supplied the Muse Wonder model card (https://research.meta.ai/static/muse-wonder-model-card)
+and asked for Muse Code support at the Codex/Claude level, naming SSE, MCP and
+chunked compaction. No live session was restarted.
+
+# Model facts (official documentation, fetched 2026-10-19)
+
+- `muse-wonder-1.0` is the Model API id; Standard mode only.
+- 1,048,576-token context; input text, image, video, audio, PDF; output text.
+- Reasoning effort from `minimal` to `max`.
+- Muse Wonder Full is Muse Code/subscription-only and has no Model API id, so
+  it is deliberately not registered.
+- Not available in South Korea on Model API or in Muse Code (availability
+  note in https://dev.meta.ai/docs/models).
+
+# Changes
+
+- `providers/meta.py`: `MUSE_WONDER_MODEL = "muse-wonder-1.0"` joins the
+  provider's custom models and fallback list; a Wonder Codex catalog carries
+  the card's input modalities and reasoning levels. Muse Spark profiles are
+  unchanged; the profile lookup now uses a per-model catalog map.
+- `config_migrations.py`: `meta_muse_wonder_100_20261019` appends the model to
+  an existing saved Meta catalog once and never changes the selected model.
+- `channel_compact_injection.py`: Muse joins `NEW_SESSION_COMMANDS` (`/new`)
+  and `GOAL_RUNTIMES` (`/goal clear`); `/compact` was already runtime-neutral.
+- `muse_runtime_context.py`: the interactive launch passes
+  `session_command_runtime="muse"` to the channel proxy, so a queued session
+  command can be typed into that terminal.
+
+# Already present before this change
+
+- Channel SSE delivery: Muse launches already run through the channel proxy
+  (`enable_channels=True`, bracketed-paste wake), and the transcript repository
+  already reads `~/.local/share/muse/sessions`.
+- MCP: `muse_mcp.py` merges the router's `mcpServers` entry into
+  `~/.config/muse/settings.json`.
+
+# Not done
+
+- Muse chunked compaction is not wired. The router's semantic map/reduce keys
+  off a recognised compact request; Muse's `/compact` request shape has not
+  been captured, and inventing a marker would misclassify ordinary turns.
+  This needs a real routed Muse `/compact` capture before implementation.
+- No live Muse launch was run for this change; verification is the focused
+  unit suites.

@@ -45,6 +45,7 @@ from ciel_runtime_support.channel_message_prompt import (
 from ciel_runtime_support.codex_app_server import CodexAppServerClient, CodexAppServerError
 from ciel_runtime_support.agent_turn_events import AppServerTurnTracker, user_input_text
 from ciel_runtime_support.codex_app_server_resume import ResumeModel
+from ciel_runtime_support.runtime_compaction_control import RuntimeCompactionControl
 
 CLIENT_NAME = "ciel-runtime"
 CLIENT_TITLE = "Ciel Runtime channel"
@@ -88,6 +89,7 @@ class CodexDesktopChannelPorts:
     session_commands: CodexSessionCommandPorts | None = None
     # Receives one agent.turn_ended event per finished turn (posted to the router).
     report_turn_end: Callable[[dict[str, Any]], Any] | None = None
+    compaction: RuntimeCompactionControl | None = None
 
 
 @dataclass(slots=True)
@@ -173,8 +175,10 @@ class CodexAppServerChannelInjector:
         permissions: AppServerPermissions | None = None,
         resume_model: ResumeModel | None = None,
         runtime_label: str = "codex-app-server",
+        delivery_ready: Callable[[], bool] = lambda: True,
     ) -> None:
         self._connect = connect
+        self._delivery_ready = delivery_ready
         self._turn_ends = AppServerTurnTracker(runtime_label)
         self._ports = ports
         self._cwd = cwd
@@ -196,6 +200,7 @@ class CodexAppServerChannelInjector:
         self._deferred_command = ""
         self.client: CodexAppServerClient | None = None
         self.thread_id = ""
+        self._bound_thread = ""
 
     def start(self, *, opened: bool = False) -> None:
         """Run the poll loop; ``opened`` when open() already connected."""
@@ -224,6 +229,14 @@ class CodexAppServerChannelInjector:
             self._start_thread(client)
         self._ports.log("INFO", f"codex_desktop_channel_ready thread={self.thread_id or '-'} cwd={self._cwd}")
 
+    def _bind_target(self) -> None:
+        """Give compaction admission the exact thread this client delivers to."""
+
+        bind = getattr(self._ports.compaction, "bind_native_session", None)
+        # Retried each poll until the launch that owns this client has bound.
+        if callable(bind) and self.thread_id and self.thread_id != self._bound_thread and bind("codex", self.thread_id):
+            self._bound_thread = self.thread_id
+
     def _resume_initial_thread(self, client: CodexAppServerClient) -> None:
         permissions = self._permissions
         client.resume_thread(
@@ -236,6 +249,7 @@ class CodexAppServerChannelInjector:
         )
         self.thread_id = self._initial_thread_id
         self._threads.subscribed.add(self.thread_id)
+        self._bind_target()
 
     def _start_thread(self, client: CodexAppServerClient) -> str:
         result = client.start_thread(cwd=self._cwd)
@@ -244,6 +258,7 @@ class CodexAppServerChannelInjector:
         self.thread_id = thread_id or client.state.thread_id or ""
         if self.thread_id:
             self._threads.subscribed.add(self.thread_id)
+        self._bind_target()
         return self.thread_id
 
     def _run(self, opened: bool = False) -> None:
@@ -267,6 +282,7 @@ class CodexAppServerChannelInjector:
 
     def poll_once(self) -> None:
         self.drain_notifications()
+        self._bind_target()
         self.subscribe_target()
         self.run_session_command()
         self.deliver_pending()
@@ -369,10 +385,17 @@ class CodexAppServerChannelInjector:
             return state.active_turn_id
         return None
 
+    def turn_running(self) -> bool:
+        """Whether a turn is in progress on the followed thread (a goal between turns is not)."""
+
+        return bool(self.thread_id and self._active_turn(self.thread_id))
+
     def _busy(self, thread_id: str) -> bool:
         return thread_id in self._threads.busy or bool(self._active_turn(thread_id))
 
     def run_session_command(self) -> None:
+        if not self._delivery_ready():
+            return
         commands = self._ports.session_commands
         client = self.client
         if commands is None or client is None:
@@ -385,13 +408,14 @@ class CodexAppServerChannelInjector:
             return
         request_id = str(request.get("id") or "")
         if action == "compact":
-            self._compact(client, commands, request_id)
+            self._compact(client, commands, request)
         elif action == "goal_clear":
             self._goal_clear(client, commands, request_id)
         else:
             self._new_session(client, commands, request_id)
 
-    def _compact(self, client: CodexAppServerClient, commands: CodexSessionCommandPorts, request_id: str) -> None:
+    def _compact(self, client: CodexAppServerClient, commands: CodexSessionCommandPorts, request: dict[str, Any]) -> None:
+        request_id = str(request.get("id") or "")
         thread_id = self.thread_id
         if not thread_id:
             return
@@ -400,9 +424,16 @@ class CodexAppServerChannelInjector:
                 self._deferred_command = request_id
                 self._ports.log("INFO", f"codex_app_server_session_command_deferred id={request_id or '-'} action=compact reason=active_turn")
             return
+        control = self._ports.compaction
+        if control and not control.command_ready(request):
+            return
         try:
             client.compact_thread(thread_id)
         except CodexAppServerError as exc:
+            # A failed RPC can still have reached the native process. Never
+            # reopen admission or replay automatic compact based on its ack.
+            if control:
+                control.command_failed(request, "compact_rpc_unconfirmed", uncertain=True)
             commands.clear(request_id or None)
             self._ports.log(
                 "WARN",
@@ -410,10 +441,12 @@ class CodexAppServerChannelInjector:
                 f"thread={thread_id} error={str(exc)[:300]}",
             )
             return
+        if control:
+            control.command_submitted(request)
         commands.clear(request_id or None)
         self._ports.log(
             "INFO",
-            f"codex_app_server_session_command_done id={request_id or '-'} action=compact "
+            f"codex_app_server_session_command_submitted id={request_id or '-'} action=compact "
             f"thread={thread_id} via=thread/compact/start",
         )
 
@@ -487,6 +520,10 @@ class CodexAppServerChannelInjector:
             )
 
     def deliver_pending(self) -> None:
+        if not self._delivery_ready():
+            return
+        if self._ports.compaction and self._ports.compaction.external_admission_paused():
+            return
         cursor = int(self._ports.read_cursor() or 0)
         candidates = self._ports.read_messages(cursor, self._scan_limit)
         superseded = superseded_message_ids(candidates)
@@ -497,7 +534,9 @@ class CodexAppServerChannelInjector:
                 continue
             if message_id <= cursor:
                 continue
-            if message_input_transport(message) == "router" and (not self.thread_id or self._busy(self.thread_id)):
+            from .launch_data_path import model_http_bypassed
+            if (not model_http_bypassed() and message_input_transport(message) == "router"
+                    and (not self.thread_id or self._busy(self.thread_id))):
                 # A running turn takes these in its next model request (the
                 # router appends them); leave the cursor here so neither path
                 # skips them.  An idle thread makes no request, so they go in
@@ -528,6 +567,10 @@ class CodexAppServerChannelInjector:
         )
 
     def _submit(self, message_id: int, prompt: str) -> bool:
+        if not self._delivery_ready():
+            return False
+        if self._ports.compaction and self._ports.compaction.external_admission_paused():
+            return False
         client = self.client
         if client is None or not self.thread_id:
             return False

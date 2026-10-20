@@ -1,0 +1,17 @@
+{
+  "tarball": {
+    "ciel_runtime.py": "99c4c7c377646f811d0b34922c9b4d3f58e30cdf10b880c753b1f25491cfd9b0",
+    "ciel_runtime_support/streaming_anthropic.py": "f5ecd5d5cdece0c7644e9a7f567f4324363a877f978032b4822427f977567d71",
+    "ciel_runtime_support/runtime_constants.py": "f04a7dee9574931edd1de9d738e2d9d51dfc2cbdf818b833e52517c00264d766"
+  },
+  "npm-global": {
+    "ciel_runtime.py": "99c4c7c377646f811d0b34922c9b4d3f58e30cdf10b880c753b1f25491cfd9b0",
+    "ciel_runtime_support/streaming_anthropic.py": "f5ecd5d5cdece0c7644e9a7f567f4324363a877f978032b4822427f977567d71",
+    "ciel_runtime_support/runtime_constants.py": "f04a7dee9574931edd1de9d738e2d9d51dfc2cbdf818b833e52517c00264d766"
+  },
+  "snapshot": {
+    "ciel_runtime.py": "99c4c7c377646f811d0b34922c9b4d3f58e30cdf10b880c753b1f25491cfd9b0",
+    "ciel_runtime_support/streaming_anthropic.py": "f5ecd5d5cdece0c7644e9a7f567f4324363a877f978032b4822427f977567d71",
+    "ciel_runtime_support/runtime_constants.py": "f04a7dee9574931edd1de9d738e2d9d51dfc2cbdf818b833e52517c00264d766"
+  }
+}

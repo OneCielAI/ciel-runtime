@@ -1,0 +1,186 @@
+{
+ "mode": "codex-remote",
+ "goal_before": {
+  "goal": {
+   "threadId": "01a1271f-af4d-7fe2-96a4-17d5b6b4595e",
+   "objective": "E2E-GOAL-KEEP survive the restart",
+   "status": "paused",
+   "tokenBudget": null,
+   "tokensUsed": 0,
+   "timeUsedSeconds": 0,
+   "createdAt": 1791657788,
+   "updatedAt": 1791657788
+  }
+ },
+ "goal_after": {
+  "goal": {
+   "threadId": "01a1271f-af4d-7fe2-96a4-17d5b6b4595e",
+   "objective": "E2E-GOAL-KEEP survive the restart",
+   "status": "paused",
+   "tokenBudget": null,
+   "tokensUsed": 0,
+   "timeUsedSeconds": 0,
+   "createdAt": 1791657788,
+   "updatedAt": 1791657788
+  }
+ },
+ "before": {
+  "manifests": [
+   {
+    "launch_id": "b0fdbf49340d4af8a8bb70cc2c9f3641",
+    "runtime": "codex-app-server",
+    "servers": [
+     "e2e-tools"
+    ],
+    "dir": "G:\\ciel-e2e\\restart\\codex-remote\\cfg\\mcp-launches\\b0fdbf49340d4af8a8bb70cc2c9f3641"
+   }
+  ],
+  "mcp_starts": [
+   {
+    "pid": 24644,
+    "started": 1791657750.4080558
+   }
+  ],
+  "threads": [
+   "01a1271f-af4d-7fe2-96a4-17d5b6b4595e"
+  ],
+  "tools": [
+   "clock__sleep",
+   "collaboration__followup_task",
+   "collaboration__interrupt_agent",
+   "collaboration__list_agents",
+   "collaboration__send_message",
+   "collaboration__spawn_agent",
+   "collaboration__wait_agent",
+   "functions__exec",
+   "functions__request_user_input",
+   "functions__request_user_input_async",
+   "functions__wait"
+  ],
+  "mcp_status": {
+   "e2e-tools": {
+    "runtimeStatus": "connected",
+    "tools": [
+     "e2e_clock",
+     "e2e_echo",
+     "e2e_pid"
+    ],
+    "keys": [
+     "authStatus",
+     "httpOrigin",
+     "name",
+     "pluginId",
+     "resourceTemplates",
+     "resources",
+     "runtimeStatus",
+     "serverCapabilities",
+     "serverInfo",
+     "tools",
+     "toolsError"
+    ]
+   }
+  }
+ },
+ "after": {
+  "manifests": [
+   {
+    "launch_id": "a67f15bffde44619b35a0dcb303650f6",
+    "runtime": "codex-app-server",
+    "servers": [
+     "e2e-tools"
+    ],
+    "dir": "G:\\ciel-e2e\\restart\\codex-remote\\cfg\\mcp-launches\\a67f15bffde44619b35a0dcb303650f6"
+   }
+  ],
+  "mcp_starts": [
+   {
+    "pid": 24644,
+    "started": 1791657750.4080558
+   },
+   {
+    "pid": 17580,
+    "started": 1791657788.4872003
+   },
+   {
+    "pid": 88012,
+    "started": 1791657819.1607404
+   }
+  ],
+  "threads": [
+   "01a1271f-af4d-7fe2-96a4-17d5b6b4595e",
+   "01a1271f-af4d-7fe2-96a4-17d5b6b4595e",
+   "01a1271f-af4d-7fe2-96a4-17d5b6b4595e"
+  ],
+  "tools": [
+   "clock__sleep",
+   "collaboration__followup_task",
+   "collaboration__interrupt_agent",
+   "collaboration__list_agents",
+   "collaboration__send_message",
+   "collaboration__spawn_agent",
+   "collaboration__wait_agent",
+   "functions__exec",
+   "functions__request_user_input",
+   "functions__request_user_input_async",
+   "functions__wait"
+  ],
+  "history": [
+   "E2E-RT-TURN-1",
+   "E2E-RT-SLOWTURN-2",
+   "E2E-RT-TURN-3",
+   "재부팅 완료"
+  ],
+  "mcp_status": {
+   "e2e-tools": {
+    "runtimeStatus": "connected",
+    "tools": [
+     "e2e_clock",
+     "e2e_echo",
+     "e2e_pid"
+    ],
+    "keys": [
+     "authStatus",
+     "httpOrigin",
+     "name",
+     "pluginId",
+     "resourceTemplates",
+     "resources",
+     "runtimeStatus",
+     "serverCapabilities",
+     "serverInfo",
+     "tools",
+     "toolsError"
+    ]
+   }
+  }
+ },
+ "restart_line": "2026-10-10T13:43:38 [INFO] codex_remote_session_restart exit_code=1 source=ciel-runtime-router-tool resumed_thread=01a1271f-af4d-7fe2-96a4-17d5b6b4595e",
+ "slow_replied_at": 1791657814.3314846,
+ "restart_requested_at": 1791657791.550299,
+ "chat_messages": [
+  {
+   "id": 1,
+   "channel": "e2e",
+   "sender_id": "claude-code"
+  },
+  {
+   "id": 2,
+   "channel": "e2e",
+   "sender_id": "claude-code"
+  }
+ ],
+ "sse": {
+  "/ca/chat/stream": {
+   "items": 12,
+   "first_at": 1791657781.889505,
+   "data_after_restart": 1,
+   "closed": []
+  },
+  "/ca/events/stream": {
+   "items": 48,
+   "first_at": 1791657781.889505,
+   "data_after_restart": 13,
+   "closed": []
+  }
+ }
+}

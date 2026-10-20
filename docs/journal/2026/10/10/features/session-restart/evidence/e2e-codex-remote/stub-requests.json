@@ -1,0 +1,210 @@
+[
+ {
+  "n": 1,
+  "at": 1791657786.3072505,
+  "path": "/v1/chat/completions",
+  "users": 2,
+  "last": "[ciel-runtime external channel message] channel=e2e room=e2e from=e2e-driver id=1 thread=1 text=\"E2E-RT-TURN-1 hello\"",
+  "history": [
+   "E2E-RT-TURN-1"
+  ],
+  "tools": [
+   "clock__sleep",
+   "collaboration__followup_task",
+   "collaboration__interrupt_agent",
+   "collaboration__list_agents",
+   "collaboration__send_message",
+   "collaboration__spawn_agent",
+   "collaboration__wait_agent",
+   "functions__exec",
+   "functions__request_user_input",
+   "functions__request_user_input_async",
+   "functions__wait"
+  ],
+  "replied_at": 1791657786.3072505
+ },
+ {
+  "n": 2,
+  "at": 1791657786.3396864,
+  "path": "/v1/chat/completions",
+  "users": 3,
+  "last": " is complete. Otherwise call the next actual work tool now, using an exact tool name and every required field from the supplied schema. Do not answer with text.",
+  "history": [
+   "E2E-RT-TURN-1"
+  ],
+  "tools": [
+   "ciel_runtime_confirm_completion",
+   "clock__sleep",
+   "collaboration__followup_task",
+   "collaboration__interrupt_agent",
+   "collaboration__list_agents",
+   "collaboration__send_message",
+   "collaboration__spawn_agent",
+   "collaboration__wait_agent",
+   "functions__exec",
+   "functions__request_user_input",
+   "functions__request_user_input_async",
+   "functions__wait"
+  ],
+  "replied_at": 1791657786.3406906
+ },
+ {
+  "n": 3,
+  "at": 1791657789.3306594,
+  "path": "/v1/chat/completions",
+  "users": 3,
+  "last": "[ciel-runtime external channel message] channel=e2e room=e2e from=e2e-driver id=2 thread=2 text=\"E2E-RT-SLOWTURN-2 please take your time\"",
+  "history": [
+   "E2E-RT-TURN-1",
+   "E2E-RT-SLOWTURN-2"
+  ],
+  "tools": [
+   "clock__sleep",
+   "collaboration__followup_task",
+   "collaboration__interrupt_agent",
+   "collaboration__list_agents",
+   "collaboration__send_message",
+   "collaboration__spawn_agent",
+   "collaboration__wait_agent",
+   "functions__exec",
+   "functions__request_user_input",
+   "functions__request_user_input_async",
+   "functions__wait"
+  ],
+  "replied_at": 1791657814.3314846
+ },
+ {
+  "n": 4,
+  "at": 1791657814.3453825,
+  "path": "/v1/chat/completions",
+  "users": 4,
+  "last": " is complete. Otherwise call the next actual work tool now, using an exact tool name and every required field from the supplied schema. Do not answer with text.",
+  "history": [
+   "E2E-RT-TURN-1",
+   "E2E-RT-SLOWTURN-2"
+  ],
+  "tools": [
+   "ciel_runtime_confirm_completion",
+   "clock__sleep",
+   "collaboration__followup_task",
+   "collaboration__interrupt_agent",
+   "collaboration__list_agents",
+   "collaboration__send_message",
+   "collaboration__spawn_agent",
+   "collaboration__wait_agent",
+   "functions__exec",
+   "functions__request_user_input",
+   "functions__request_user_input_async",
+   "functions__wait"
+  ],
+  "replied_at": 1791657814.3453825
+ },
+ {
+  "n": 5,
+  "at": 1791657819.238556,
+  "path": "/v1/chat/completions",
+  "users": 4,
+  "last": "rom=ciel-runtime id=3 thread=3 text=\"[ciel-runtime] 재부팅 완료 — codex 런타임이 재시작되었고 이 세션은 이어졌습니다 (source=ciel-runtime-router-tool, reason=e2e restart during a turn)\"",
+  "history": [
+   "E2E-RT-TURN-1",
+   "E2E-RT-SLOWTURN-2",
+   "재부팅 완료"
+  ],
+  "tools": [
+   "clock__sleep",
+   "collaboration__followup_task",
+   "collaboration__interrupt_agent",
+   "collaboration__list_agents",
+   "collaboration__send_message",
+   "collaboration__spawn_agent",
+   "collaboration__wait_agent",
+   "functions__exec",
+   "functions__request_user_input",
+   "functions__request_user_input_async",
+   "functions__wait"
+  ],
+  "replied_at": 1791657819.238556
+ },
+ {
+  "n": 6,
+  "at": 1791657819.2512097,
+  "path": "/v1/chat/completions",
+  "users": 5,
+  "last": " is complete. Otherwise call the next actual work tool now, using an exact tool name and every required field from the supplied schema. Do not answer with text.",
+  "history": [
+   "E2E-RT-TURN-1",
+   "E2E-RT-SLOWTURN-2",
+   "재부팅 완료"
+  ],
+  "tools": [
+   "ciel_runtime_confirm_completion",
+   "clock__sleep",
+   "collaboration__followup_task",
+   "collaboration__interrupt_agent",
+   "collaboration__list_agents",
+   "collaboration__send_message",
+   "collaboration__spawn_agent",
+   "collaboration__wait_agent",
+   "functions__exec",
+   "functions__request_user_input",
+   "functions__request_user_input_async",
+   "functions__wait"
+  ],
+  "replied_at": 1791657819.2512097
+ },
+ {
+  "n": 7,
+  "at": 1791657823.3089225,
+  "path": "/v1/chat/completions",
+  "users": 5,
+  "last": "[ciel-runtime external channel message] channel=e2e room=e2e from=e2e-driver id=4 thread=4 text=\"E2E-RT-TURN-3 after the restart\"",
+  "history": [
+   "E2E-RT-TURN-1",
+   "E2E-RT-SLOWTURN-2",
+   "E2E-RT-TURN-3",
+   "재부팅 완료"
+  ],
+  "tools": [
+   "clock__sleep",
+   "collaboration__followup_task",
+   "collaboration__interrupt_agent",
+   "collaboration__list_agents",
+   "collaboration__send_message",
+   "collaboration__spawn_agent",
+   "collaboration__wait_agent",
+   "functions__exec",
+   "functions__request_user_input",
+   "functions__request_user_input_async",
+   "functions__wait"
+  ],
+  "replied_at": 1791657823.3089225
+ },
+ {
+  "n": 8,
+  "at": 1791657823.3230855,
+  "path": "/v1/chat/completions",
+  "users": 6,
+  "last": " is complete. Otherwise call the next actual work tool now, using an exact tool name and every required field from the supplied schema. Do not answer with text.",
+  "history": [
+   "E2E-RT-TURN-1",
+   "E2E-RT-SLOWTURN-2",
+   "E2E-RT-TURN-3",
+   "재부팅 완료"
+  ],
+  "tools": [
+   "ciel_runtime_confirm_completion",
+   "clock__sleep",
+   "collaboration__followup_task",
+   "collaboration__interrupt_agent",
+   "collaboration__list_agents",
+   "collaboration__send_message",
+   "collaboration__spawn_agent",
+   "collaboration__wait_agent",
+   "functions__exec",
+   "functions__request_user_input",
+   "functions__request_user_input_async",
+   "functions__wait"
+  ],
+  "replied_at": 1791657823.3230855
+ }
+]

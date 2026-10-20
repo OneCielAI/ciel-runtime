@@ -1,4 +1,12 @@
 import unittest
+import dataclasses
+import errno
+from unittest.mock import Mock
+
+from ciel_runtime_support.channel_message_repository import ChannelFileLockBusy
+from ciel_runtime_support.channel_compact_injection import (
+    ChannelCompactInjectionService, ChannelCompactRequestPorts, ChannelCompactRuntimePorts,
+)
 
 from ciel_runtime_support.channel_compact_poll import (
     ChannelCompactInjectionOptions,
@@ -68,6 +76,90 @@ class ChannelCompactPollTests(unittest.TestCase):
             ChannelCompactPollServices(lambda *args, **kwargs: "injected"),
         )
         self.assertEqual(ChannelCompactPollState(41.0, 0.0), injected)
+
+    def test_recovery_compact_is_not_starved_by_unconfirmed_channel_wake(self):
+        calls = []
+        poll_pending_compaction(
+            11.0, 1, b"cr", 42, ChannelCompactPollState(), self.options(),
+            ChannelCompactPollServices(lambda *_args, **_kw: calls.append("compact"), recovery_pending=lambda: True),
+        )
+        self.assertEqual(["compact"], calls)
+
+    def _busy_service(self, stage):
+        request = {"id": "compact-lock", "action": "compact", "automatic": True}
+        busy = ChannelFileLockBusy(errno.EACCES, "private lock payload")
+        read, clear, write, control = Mock(return_value=request), Mock(), Mock(), Mock()
+        control.command_ready.return_value = True
+        if stage == "read":
+            read.side_effect = busy
+        elif stage == "ready":
+            control.command_ready.side_effect = busy
+        elif stage == "write":
+            write.side_effect = busy
+        elif stage == "submitted":
+            control.command_submitted.side_effect = busy
+        elif stage == "clear":
+            clear.side_effect = busy
+        service = ChannelCompactInjectionService(
+            ChannelCompactRequestPorts(read, clear),
+            ChannelCompactRuntimePorts(lambda: False, lambda: False, lambda value: value, write, repr),
+            Mock(),
+        )
+        return service, request, clear, write, control
+
+    def test_pre_submit_lock_busy_defers_without_consuming_or_marking_uncertain(self):
+        for stage in ("facade_read", "read", "ready", "recovery_pending"):
+            with self.subTest(stage=stage):
+                service, request, clear, write, control = self._busy_service(stage)
+                inject = Mock(side_effect=lambda *args, **kwargs: service.inject(*args, control=control, **kwargs))
+                recovery = Mock(return_value=True)
+                if stage == "facade_read":
+                    inject.side_effect = ChannelFileLockBusy(errno.EACCES, "private facade payload")
+                if stage == "recovery_pending":
+                    recovery.side_effect = ChannelFileLockBusy(errno.EACCES, "private recovery payload")
+                before = ChannelCompactPollState(10.0, 3.0)
+                services = ChannelCompactPollServices(inject, recovery)
+                inflight = 42 if stage == "recovery_pending" else None
+                state = poll_pending_compaction(40.0, 1, b"\r", inflight, before, self.options(), services)
+                self.assertEqual(ChannelCompactPollState(40.0, 3.0), state)
+                clear.assert_not_called()
+                write.assert_not_called()
+                control.command_failed.assert_not_called()
+                control.command_submitted.assert_not_called()
+                # No hot-loop retry; the next eligible poll still owns the request.
+                self.assertIs(state, poll_pending_compaction(40.2, 1, b"\r", inflight, state, self.options(), services))
+                inject.reset_mock(side_effect=True)
+                recovery.reset_mock(side_effect=True)
+                recovery.return_value = True
+                service = dataclasses.replace(service, request=dataclasses.replace(service.request, read=lambda: request))
+                control.command_ready.side_effect = None
+                inject.side_effect = lambda *args, **kwargs: service.inject(*args, control=control, **kwargs)
+                state = poll_pending_compaction(40.6, 1, b"\r", inflight, state, self.options(), services)
+                self.assertEqual(ChannelCompactPollState(40.6, 0.0), state)
+                write.assert_called_once()
+                clear.assert_called_once_with(request["id"])
+
+    def test_submission_or_bookkeeping_lock_busy_is_not_a_retryable_poll(self):
+        for stage in ("write", "submitted", "clear"):
+            with self.subTest(stage=stage):
+                service, request, clear, write, control = self._busy_service(stage)
+                services = ChannelCompactPollServices(
+                    lambda *args, **kwargs: service.inject(*args, control=control, **kwargs)
+                )
+                with self.assertRaisesRegex(RuntimeError, "after submission attempt") as caught:
+                    poll_pending_compaction(40.0, 1, b"\r", None, ChannelCompactPollState(), self.options(), services)
+                self.assertNotIsInstance(caught.exception, ChannelFileLockBusy)
+                write.assert_called_once()
+                if stage == "write":
+                    control.command_failed.assert_called_once_with(request, "command_submission_uncertain", uncertain=True)
+                    clear.assert_not_called()
+                else:
+                    control.command_submitted.assert_called_once_with(request)
+
+    def test_other_errors_are_not_hidden_as_contention(self):
+        services = ChannelCompactPollServices(Mock(side_effect=OSError(errno.EIO, "fixture I/O")))
+        with self.assertRaises(OSError):
+            poll_pending_compaction(40.0, 1, b"\r", None, ChannelCompactPollState(), self.options(), services)
 
 
 if __name__ == "__main__":

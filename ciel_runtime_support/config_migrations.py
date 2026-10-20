@@ -553,6 +553,56 @@ def apply_config_migrations(cfg: dict[str, Any], *, policy: ConfigMigrationPolic
                     pcfg["num_ctx_max"] = 1_000_000
         migrations[marker] = True
 
+    marker = "ollama_cloud_deepseek_v41_flash_1017_20261019"
+    if not migrations.get(marker):
+        pcfg = cfg.get("providers", {}).get("ollama-cloud", {})
+        if isinstance(pcfg, dict):
+            custom = pcfg.get("custom_models")
+            if isinstance(custom, list):
+                known = {
+                    normalize_model_id("ollama-cloud", str(model))
+                    for model in custom
+                    if str(model).strip()
+                }
+                if normalize_model_id(
+                    "ollama-cloud", "deepseek-v4.1-flash:1017-cloud"
+                ) not in known:
+                    custom.append("deepseek-v4.1-flash:1017-cloud")
+        migrations[marker] = True
+
+    marker = "alitoken_deepseek_v41_flash_1017_20261019"
+    if not migrations.get(marker):
+        pcfg = cfg.get("providers", {}).get("alitoken", {})
+        if isinstance(pcfg, dict):
+            current = str(pcfg.get("current_model") or "").strip()
+            custom = pcfg.get("custom_models")
+            if current == "deepseek-v4.1-flash-1017" and isinstance(custom, list):
+                # The token plan advertises this snapshot in GET /models, but
+                # an older saved catalog predates it; keep the picker honest.
+                known = {
+                    normalize_model_id("alitoken", str(model))
+                    for model in custom
+                    if str(model).strip()
+                }
+                if normalize_model_id("alitoken", current) not in known:
+                    custom.append(current)
+        migrations[marker] = True
+
+    marker = "meta_muse_wonder_100_20261019"
+    if not migrations.get(marker):
+        pcfg = cfg.get("providers", {}).get("meta", {})
+        if isinstance(pcfg, dict):
+            custom = pcfg.get("custom_models")
+            if isinstance(custom, list):
+                known = {
+                    normalize_model_id("meta", str(model))
+                    for model in custom
+                    if str(model).strip()
+                }
+                if normalize_model_id("meta", "muse-wonder-1.0") not in known:
+                    custom.append("muse-wonder-1.0")
+        migrations[marker] = True
+
     marker = "ollama_cloud_glm52_thinking_context_20260711"
     if not migrations.get(marker):
         pcfg = cfg.get("providers", {}).get("ollama-cloud", {})

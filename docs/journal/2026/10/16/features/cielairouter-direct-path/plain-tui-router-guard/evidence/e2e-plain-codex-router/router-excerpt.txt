@@ -1,0 +1,80 @@
+2026-10-16T16:55:40 [INFO] codex_tracked_processes_terminated reason=codex_prelaunch_processes stopped=false
+2026-10-16T16:55:46 [INFO] router_port_clear reason=pre_spawn port=64753 stopped=false
+2026-10-16T16:55:46 [INFO] router_check_state running=False spawn=True base=http://127.0.0.1:64753
+ciel-runtime router starting on 127.0.0.1:64753 (client base http://127.0.0.1:64753, log level INFO, source=file)
+web: http://127.0.0.1:64753/
+web_tailscale_https_recommended: ciel-runtime --ca-web-port 64753 --ca-tailscale-https=64753
+2026-10-16T16:55:47 [INFO] router_spawned running=True base=http://127.0.0.1:64753 elapsed=1.0s
+2026-10-16T16:55:47 [INFO] launch_model_cache_ready provider=cielairouter count=1
+2026-10-16T16:55:47 [INFO] launch_catalog_profile provider=cielairouter CielAiRouter catalog profile applied for stub-model: 128,000-token context, 8,192-token output limit.
+2026-10-16T16:55:47 [INFO] codex_config_effort_default_written path=G:\ciel-e2e\direct-plain\codex-router\codex-home\config.toml effort=medium
+2026-10-16T16:55:47 [INFO] codex_compaction_launch_snapshot provider=cielairouter model=ciel-runtime-cielairouter-stub-model context=128000 limit=115200
+2026-10-16T16:55:47 [INFO] codex_launch_cmd argv_len=22 provider_overrides=7
+2026-10-16T16:55:47 [INFO] codex_launch_env CIEL_RUNTIME_CODEX_API_KEY=ciel...-key
+2026-10-16T16:55:47 [INFO] router_client_registered pid=39916 path=G:\ciel-e2e\direct-plain\codex-router\cfg\router-clients\39916.json
+2026-10-16T16:55:47 [INFO] channel_llm_cursor_fast_forward_on_launch last_id=0 previous_cursor=0 recent_seconds=600
+2026-10-16T16:55:47 [INFO] codex_child_process_registered pid=51064 path=G:\ciel-e2e\direct-plain\codex-router\cfg\codex-processes\39916-client.json
+2026-10-16T16:55:47 [INFO] startup_prompt_auto_answer_enabled
+2026-10-16T16:55:47 [INFO] channel_windows_console_proxy_started pid=51064 transport=conpty enter=cr submit_retries=4 confirm_submit=True bracketed_paste=True display_body=False
+2026-10-16T16:55:48 [INFO] access "POST /ca/mcp HTTP/1.1" 200 -
+2026-10-16T16:55:48 [INFO] channel_mcp_http method=initialize request_id=0 protocol=legacy-streamable-http
+2026-10-16T16:55:48 [INFO] access "POST /ca/mcp HTTP/1.1" 202 -
+2026-10-16T16:55:48 [INFO] channel_mcp_http method=notifications/initialized request_id=None protocol=legacy-streamable-http
+2026-10-16T16:55:48 [INFO] access "POST /ca/mcp HTTP/1.1" 200 -
+2026-10-16T16:55:48 [INFO] channel_mcp_http method=tools/list request_id=1 protocol=legacy-streamable-http
+2026-10-16T16:57:04 [INFO] access "POST /ca/chat/notify HTTP/1.1" 200 -
+2026-10-16T16:57:05 [WARN] channel_stdin_proxy_transport_fallback cursor=0 message_id=1 channel=e2e requested=session_socket fallback=router reason=session_socket_transport_unavailable
+2026-10-16T16:57:05 [INFO] channel_input_receipt transcript_missing confirmation=awaiting_new_transcript
+2026-10-16T16:57:05 [INFO] channel_input_prompt_ready result=observed
+2026-10-16T16:57:05 [INFO] cielairouter_gateway_selected central=127.0.0.1:64750 endpoint=http://127.0.0.1:64752 node=node-B reason=ranked degraded=False generation=1 elapsed_ms=14
+2026-10-16T16:57:05 [INFO] channel_llm_wake_prompt_stripped
+2026-10-16T16:57:05 [INFO] channel_llm_injected count=1 message_ids=1 channels=e2e
+2026-10-16T16:57:05 [WARN] provider_responses_cache provider=cielairouter model=stub-model input_tokens=10 cache_read_tokens=0 uncached_input_tokens=10 cache_hit_percent=0.0 prompt_cache_key_fingerprint=83bf7dd985df3b3e prompt_cache_retention= request_instructions_fingerprint=bef526f4af100923 request_tools_fingerprint=74681b07c422ea7f request_input_head_fingerprint=e84141172fbf68c6 request_input_i
+2026-10-16T16:57:05 [INFO] provider_responses_completion_gate_kept provider=cielairouter model=stub-model confirmed=False status=completed
+2026-10-16T16:57:05 [INFO] access "POST /v1/responses HTTP/1.1" 200 -
+2026-10-16T16:57:06 [INFO] agent_turn_ended turn=01a146b7-fd6d-7e53-b401-8858898118f8 runtime=codex reason=end_turn by_user_input=false
+2026-10-16T16:57:06 [INFO] access "POST /ca/tui/agent-turn HTTP/1.1" 200 -
+2026-10-16T16:57:06 [INFO] channel_stdin_proxy_submit_confirmed attempt=1
+2026-10-16T16:57:06 [INFO] channel_stdin_proxy_injected count=1 message_ids=1 channels=e2e enter=cr transport=router commit_cursor=False display_body=False
+2026-10-16T16:57:06 [INFO] channel_wake_completed_evidence message_id=1 transcript=G:\ciel-e2e\direct-plain\codex-router\codex-home\sessions\2026\10\16\rollout-2026-10-16T16-55-48-01a146b6-cec0-7522-abac-7184d0672036.jsonl prompt_record=10 completion_record=13 record_type=response_item session_id=- timestamp=2026-10-16T21:57:05.676Z
+2026-10-16T16:57:06 [INFO] channel_windows_console_confirmed message_id=1 cursor=1
+2026-10-16T16:57:14 [INFO] runtime_session_restart_queued id=5e9ac6764bf14fd9a52a961e75b94329 source=ciel-runtime-router-tool runtime=any target_pid=39916 resume=true wait_turn=false reason=direct-plain E2E restart
+2026-10-16T16:57:14 [INFO] access "POST /ca/mcp HTTP/1.1" 200 -
+2026-10-16T16:57:14 [INFO] channel_mcp_http method=tools/call request_id=1 protocol=legacy-streamable-http
+2026-10-16T16:57:14 [INFO] runtime_session_restart_claimed client_pid=39916 id=5e9ac6764bf14fd9a52a961e75b94329 source=ciel-runtime-router-tool runtime=any target_pid=39916 resume=true wait_turn=false reason=direct-plain E2E restart
+2026-10-16T16:57:14 [INFO] channel_console_restart_requested transport=conpty pid=51064 id=5e9ac6764bf14fd9a52a961e75b94329 source=ciel-runtime-router-tool runtime=any target_pid=39916 resume=true wait_turn=false reason=direct-plain E2E restart
+2026-10-16T16:57:16 [INFO] channel_windows_console_child_exit pid=51064 returncode=1
+2026-10-16T16:57:16 [INFO] codex_child_process_released path=G:\ciel-e2e\direct-plain\codex-router\cfg\codex-processes\39916-client.json
+2026-10-16T16:57:16 [INFO] workspace_mcp_launch_renewed runtime=codex previous=- launch_id=-
+2026-10-16T16:57:16 [INFO] codex_session_restart_notice_queued request_id=2
+2026-10-16T16:57:16 [INFO] codex_session_restart exit_code=1 source=ciel-runtime-router-tool reason=direct-plain E2E restart resumed=true request_id=5e9ac6764bf14fd9a52a961e75b94329 claim=transport
+2026-10-16T16:57:16 [INFO] channel_llm_cursor_fast_forward_on_launch last_id=1 previous_cursor=1 recent_seconds=600
+2026-10-16T16:57:16 [INFO] codex_child_process_registered pid=74988 path=G:\ciel-e2e\direct-plain\codex-router\cfg\codex-processes\39916-client.json
+2026-10-16T16:57:16 [INFO] startup_prompt_auto_answer_enabled
+2026-10-16T16:57:16 [INFO] channel_windows_console_proxy_started pid=74988 transport=conpty enter=cr submit_retries=4 confirm_submit=True bracketed_paste=True display_body=False
+2026-10-16T16:57:16 [INFO] access "POST /ca/mcp HTTP/1.1" 200 -
+2026-10-16T16:57:16 [INFO] channel_mcp_http method=initialize request_id=0 protocol=legacy-streamable-http
+2026-10-16T16:57:16 [INFO] access "POST /ca/mcp HTTP/1.1" 202 -
+2026-10-16T16:57:16 [INFO] channel_mcp_http method=notifications/initialized request_id=None protocol=legacy-streamable-http
+2026-10-16T16:57:16 [INFO] access "POST /ca/mcp HTTP/1.1" 200 -
+2026-10-16T16:57:16 [INFO] channel_mcp_http method=tools/list request_id=1 protocol=legacy-streamable-http
+2026-10-16T16:57:24 [INFO] channel_input_receipt transcript_missing confirmation=awaiting_new_transcript
+2026-10-16T16:57:24 [INFO] channel_input_prompt_ready result=observed
+2026-10-16T16:57:24 [INFO] channel_llm_inject_deferred message_id=2 channel=restart reason=input_transport_tty
+2026-10-16T16:57:24 [WARN] provider_responses_cache provider=cielairouter model=stub-model input_tokens=10 cache_read_tokens=0 uncached_input_tokens=10 cache_hit_percent=0.0 prompt_cache_key_fingerprint=83bf7dd985df3b3e prompt_cache_retention= request_instructions_fingerprint=bef526f4af100923 request_tools_fingerprint=74681b07c422ea7f request_input_head_fingerprint=48b5b56df30b2937 request_input_i
+2026-10-16T16:57:24 [INFO] provider_responses_completion_gate_kept provider=cielairouter model=stub-model confirmed=False status=completed
+2026-10-16T16:57:24 [INFO] access "POST /v1/responses HTTP/1.1" 200 -
+2026-10-16T16:57:39 [INFO] access "POST /ca/chat/notify HTTP/1.1" 200 -
+2026-10-16T16:57:43 [WARN] channel_input_submit_unconfirmed attempts=4
+2026-10-16T16:57:43 [WARN] channel_input_receipt_unmatched resolved=None receipts=0 none
+2026-10-16T16:57:43 [WARN] channel_stdin_proxy_deferred message_ids=2 reason=prompt_not_submitted
+2026-10-16T16:57:43 [ERROR] channel_stdin_proxy_blocked cursor=1 message_id=2 reason=prior_submission_failed detail=prompt_not_submitted action=skipped
+2026-10-16T16:57:43 [WARN] channel_stdin_proxy_transport_fallback cursor=2 message_id=3 channel=e2e requested=session_socket fallback=router reason=session_socket_transport_unavailable
+2026-10-16T16:57:43 [INFO] channel_input_receipt transcript_missing confirmation=awaiting_new_transcript
+2026-10-16T16:57:43 [INFO] channel_input_prompt_ready result=observed
+2026-10-16T16:57:43 [INFO] channel_llm_inject_deferred message_id=2 channel=restart reason=input_transport_tty
+2026-10-16T16:57:43 [INFO] access "POST /v1/responses HTTP/1.1" 500 -
+2026-10-16T16:58:02 [WARN] channel_input_submit_unconfirmed attempts=4
+2026-10-16T16:58:02 [WARN] channel_input_receipt_unmatched resolved=None receipts=0 none
+2026-10-16T16:58:02 [WARN] channel_stdin_proxy_deferred message_ids=3 reason=prompt_not_submitted
+2026-10-16T16:58:02 [ERROR] channel_stdin_proxy_blocked cursor=2 message_id=3 reason=prior_submission_failed detail=prompt_not_submitted action=skipped

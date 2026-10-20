@@ -1,0 +1,2 @@
+DIFF ciel_runtime_support/runtime_constants.py tree=f04a7dee9574931edd1de9d738e2d9d51dfc2cbdf818b833e52517c00264d766 git=4221783d69b286e69850e4b6c38585fd1d97cd0374bbfe8794b18d970167e173
+compared=425 identical=424 different=1 not_in_git=0 commit=19627938ad5b0b9682bd87e1000ff0ddc01784f4

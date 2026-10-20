@@ -1,0 +1,36 @@
+---
+type: provider-catalog-journal
+title: DeepSeek V4.1 Flash 1017 cloud snapshot
+date: 2026-10-19
+status: local-registration-verified
+---
+
+# Request
+
+User: when patching again, recheck whether the DeepSeek V4.1 Flash 1017 model is
+added for use.
+
+# Verified source
+
+`https://ollama.com/library/deepseek-v4.1-flash/tags` lists two tags: `cloud`
+(published 1 month ago) and **`1017-cloud`** (published 2 days ago, 1M context,
+text+image input). The repository previously declared only the untagged
+`deepseek-v4.1-flash` and the older `deepseek-v4-flash:0731` snapshot.
+
+# Change
+
+- `providers/ollama.py`: the Ollama Cloud offline default list now also contains
+  `deepseek-v4.1-flash:1017-cloud`.
+- `config_migrations.py`: marker `ollama_cloud_deepseek_v41_flash_1017_20261019`
+  appends that model once to a saved `ollama-cloud.custom_models` list. It never
+  changes `current_model`, and normalization deduplicates the `-cloud` suffix.
+- `tests/test_ollama_cloud_new_models.py`, `tests/test_ollama_provider_options.py`:
+  offline availability, one-time idempotent migration, and wire normalization
+  (`deepseek-v4.1-flash:1017-cloud` → `deepseek-v4.1-flash:1017`).
+
+# Verification
+
+Focused isolated tests: 65 passed (`test_ollama_cloud_new_models`,
+`test_ollama_provider_options`, `test_ollama_catalog`). No paid inference and no
+live selection change. Model discovery from the official tags API remains the
+authoritative source; the change only keeps the offline fallback complete.

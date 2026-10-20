@@ -15,6 +15,10 @@ from ciel_runtime_support.model_catalog_projection import (
     ModelCatalogProjectionServices,
     project_model_info,
 )
+from ciel_runtime_support.provider_models import (
+    MODEL_LIST_TIMEOUT_SECONDS,
+    fetch_model_list_with_retry,
+)
 from ciel_runtime_support.runtime_constants import (
     ANTHROPIC_LIMITED_ACCESS_MODEL_IDS,
     ANTHROPIC_MODEL_DOCS_URLS,
@@ -302,16 +306,15 @@ class ProviderCatalogSourceService:
         self,
         provider_config: dict[str, Any],
         headers: dict[str, str],
-        timeout: float = 6.0,
+        timeout: float = MODEL_LIST_TIMEOUT_SECONDS,
     ) -> tuple[list[str], str]:
         base = self.http.upstream_base("anthropic", provider_config)
         errors: list[str] = []
         for path in ("/v1/models", "/models"):
             try:
-                data = self.http.http_json(
-                    self.http.join_url(base, path),
-                    headers=headers,
-                    timeout=timeout,
+                url = self.http.join_url(base, path)
+                data = fetch_model_list_with_retry(
+                    lambda: self.http.http_json(url, headers=headers, timeout=timeout)
                 )
                 ids = self.policy.unique_model_ids(
                     "anthropic", self.model_ids_from_response(data)

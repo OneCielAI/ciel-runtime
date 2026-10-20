@@ -56,6 +56,7 @@ class ChannelMcpToolsTests(unittest.TestCase):
                 "send_file",
                 "llm_options",
                 "restart_session",
+                "provider_fallback",
                 "session_backup",
                 "telemetry_logs",
             },

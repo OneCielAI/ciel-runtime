@@ -1,0 +1,29 @@
+{
+  "version": "0.2.51-nightly.20261020-015728.fa633ec",
+  "gitHead": "fa633ec9fbbd4af5df105e6f39b9c8d88061406d",
+  "tags": {
+    "latest": "0.2.51",
+    "nightly": "0.2.51-nightly.20261020-015728.fa633ec"
+  },
+  "dist": {
+    "shasum": "ce177c874e72d3a58f1cabbd9309f15189210838",
+    "tarball": "https://registry.npmjs.org/@one-ciel-ai/ciel-runtime/-/ciel-runtime-0.2.51-nightly.20261020-015728.fa633ec.tgz",
+    "fileCount": 1784,
+    "integrity": "sha512-6sP3bmChxOv4L5t46j8JX+9lCrrVRuvZ3+n/yy/axWfwL3Cx7YGcMpbSVwF8yuLn5PLSP3UAL/lbCDPXfivUfw==",
+    "signatures": [
+      {
+        "sig": "MEUCIFtguvdVcQbCQMa07JUn9IHaY6rDxsRibNQOIItL26NcAiEAn732EeSV7tz0HpRIuq8D3bvmf3takfFZ3ctHFbjn26k=",
+        "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+      },
+      {
+        "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U",
+        "sig": "MEUCIQChU4iwhDRkddagn5ZPm8SYaEmvoRUMhPw6Yc8EE/YozwIgMDoJ32UgSgL2aKKhh97V3P3ti2sNBbkA8l8zbP4H0gQ="
+      }
+    ],
+    "unpackedSize": 19384286
+  },
+  "tarball_sha256": "b0ffaa434245bd8e85120ca5a51756906589b79605417be51eb7fc22953cd088",
+  "tarball_bytes": 10015529,
+  "files": 1784,
+  "package_dir": "docs\\journal\\2026\\10\\19\\releases\\muse-wonder-and-upstream-log\\evidence\\payload\\unpack\\package"
+}

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import dataclasses
+import os
 import tempfile
 import time
 import unittest
@@ -33,6 +34,20 @@ class _Proc:
 
     def poll(self):
         return None if self.alive else 0
+
+    def wait(self, timeout=None):
+        self.alive = False
+        return 0
+
+
+class OwnedServerTests(unittest.TestCase):
+    def test_dead_windows_owner_fails_closed(self):
+        from ciel_runtime_support.codex_owned_server import OwnedServer, OwnedServerError
+        process = mock.Mock(pid=4321)
+        process.poll.return_value = 0
+        with self.assertRaises(OwnedServerError):
+            OwnedServer(process, mock.Mock(), grouped=False).cleanup()
+        process.wait.assert_called_once_with(timeout=10)
 
 
 class _Control:
@@ -147,9 +162,21 @@ class SessionTests(unittest.TestCase):
         self.terminated: list[int] = []
         self.server = _Proc()
         self.ready = True
+        # Port ownership is a sequence so a test can make the pre-spawn guard
+        # pass and the post-exit check (shim gone, native child still bound) fail.
+        self.listener_states: list[bool] = []
+        self.listener_released = True
+        self.authenticates: list[tuple[str, str, str]] = []
+
+        def authenticate(listen_url: str, token: str, version: str) -> None:
+            self.authenticates.append((listen_url, token, version))
+
+        def listener_bound(_url: str) -> bool:
+            return self.listener_states.pop(0) if self.listener_states else False
 
         def popen(cmd, **_kw):
             self.popened.append(list(cmd))
+            self.server.alive = True
             return self.server
 
         self.ports = CodexDesktopPorts(
@@ -162,7 +189,24 @@ class SessionTests(unittest.TestCase):
             channel=None,
             popen=popen,
             wait_ready=lambda *_a, **_kw: self.ready,
+            listener_bound=listener_bound,
+            authenticate=authenticate,
         )
+        released = mock.patch(
+            "ciel_runtime_support.codex_app_server_session.wait_listener_released",
+            lambda _url, **_kw: self.listener_released,
+        )
+        released.start()
+        self.addCleanup(released.stop)
+        # Unit doubles exercise the Windows tree callback, not real groups.
+        from ciel_runtime_support.codex_owned_server import OwnedServer
+        launch = mock.patch(
+            "ciel_runtime_support.codex_app_server_session.OwnedServer.launch",
+            side_effect=lambda cmd, popen, terminate_tree, **kw: OwnedServer(
+                popen(cmd, **kw), terminate_tree, grouped=False),
+        )
+        launch.start()
+        self.addCleanup(launch.stop)
         self.terminal_calls: list[tuple[list[str], dict[str, Any]]] = []
         self.control = _Control([])
         self.restart_after_first: Any = None
@@ -205,6 +249,93 @@ class SessionTests(unittest.TestCase):
         self.assertEqual(frozenset({"new_session"}), options["session_command_actions"])
         self.assertEqual([4242], self.terminated)
         self.assertIsNone(self.scopes[0]["session_id"])
+
+    def test_each_unattended_launch_shares_a_fresh_closed_gate_with_the_injector(self):
+        from ciel_runtime_support.terminal_startup_gate import current_terminal_startup_gate
+        gates = []
+        injector_ready = []
+        original = self.tui_ports.run_terminal
+
+        def injector(*args, **kwargs):
+            injector_ready.append(kwargs["delivery_ready"])
+            self.assertEqual(os.name != "nt", kwargs["delivery_ready"]())
+            result = mock.Mock(thread_id="saved")
+            result.turn_running.return_value = False
+            return result
+
+        def terminal(*args, **kwargs):
+            gate = current_terminal_startup_gate()
+            self.assertIsNotNone(gate)
+            self.assertEqual(os.name != "nt", gate.ready())
+            gates.append(gate)
+            gate.observe(rendered_ready=True)
+            self.assertTrue(injector_ready[-1]())
+            return original(*args, **kwargs)
+
+        self.restart_after_first = SimpleNamespace(id="r1", resume=True, source="mcp", reason="")
+        with mock.patch("ciel_runtime_support.codex_app_server_session._channel_injector", side_effect=injector):
+            CodexRemoteTuiSession(self.ports, dataclasses.replace(self.tui_ports, run_terminal=terminal))(
+                SERVER_CMD, {"CIEL_RUNTIME_STARTUP_AUTO_ANSWER": "1"}, Path(self.tmp.name))
+        self.assertEqual(2, len(gates))
+        self.assertIsNot(gates[0], gates[1])
+        self.assertIsNone(current_terminal_startup_gate())
+
+    def test_parent_startup_flag_is_in_child_environment_before_injector_opens(self):
+        seen = []
+
+        def injector(*args, **kwargs):
+            seen.append(kwargs["delivery_ready"]())
+            return None
+
+        with mock.patch.dict("os.environ", {"CIEL_RUNTIME_STARTUP_AUTO_ANSWER": "1"}), mock.patch(
+            "ciel_runtime_support.codex_app_server_session._channel_injector", side_effect=injector,
+        ):
+            CodexRemoteTuiSession(self.ports, self.tui_ports)(SERVER_CMD, {}, Path(self.tmp.name))
+        self.assertEqual([os.name != "nt"], seen)
+        self.assertEqual("1", self.terminal_envs[0]["CIEL_RUNTIME_STARTUP_AUTO_ANSWER"])
+
+    def test_interactive_remote_launch_keeps_delivery_open(self):
+        from ciel_runtime_support.terminal_startup_gate import current_terminal_startup_gate
+        seen = []
+
+        def terminal(*args, **kwargs):
+            seen.append(current_terminal_startup_gate().ready())
+            return 0
+
+        CodexRemoteTuiSession(self.ports, dataclasses.replace(self.tui_ports, run_terminal=terminal))(
+            SERVER_CMD, {}, Path(self.tmp.name))
+        self.assertEqual([True], seen)
+
+    def test_restart_enables_startup_answers_in_fresh_child_env(self):
+        self.restart_after_first = SimpleNamespace(id="r1", resume=True, source="mcp", reason="")
+        original = {"A": "1"}
+        CodexRemoteTuiSession(self.ports, self.tui_ports)(SERVER_CMD, original, Path(self.tmp.name))
+        self.assertNotIn("CIEL_RUNTIME_STARTUP_AUTO_ANSWER", self.terminal_envs[0])
+        self.assertEqual("1", self.terminal_envs[1].get("CIEL_RUNTIME_STARTUP_AUTO_ANSWER"))
+        self.assertEqual({"A": "1"}, original)
+
+    def test_restart_keeps_the_renewed_outer_launch_environment(self):
+        env = {"GATEWAY_KEY": "old"}
+        original = self.tui_ports.run_terminal
+
+        def relaunch(_request):
+            env["GATEWAY_KEY"] = "renewed"
+            return SERVER_CMD
+
+        def terminal(*args, **kwargs):
+            if len(self.terminal_envs) == 0:
+                self.control.request = SimpleNamespace(id="r1", resume=True, source="mcp", reason="")
+            return original(*args, **kwargs)
+
+        self.tui_ports = dataclasses.replace(self.tui_ports, run_terminal=terminal)
+        rc = CodexRemoteTuiSession(self.ports, self.tui_ports)(
+            SERVER_CMD, env, Path(self.tmp.name), relaunch=relaunch
+        )
+        self.assertEqual(0, rc)
+        self.assertEqual("renewed", env["GATEWAY_KEY"])
+        self.assertEqual("old", self.terminal_envs[0]["GATEWAY_KEY"])
+        self.assertEqual("renewed", self.terminal_envs[1]["GATEWAY_KEY"])
+        self.assertEqual("1", self.terminal_envs[1]["CIEL_RUNTIME_STARTUP_AUTO_ANSWER"])
 
     def test_remote_tui_gets_the_launch_token_and_the_file_is_removed_afterwards(self):
         CodexRemoteTuiSession(self.ports, self.tui_ports)(SERVER_CMD, {"A": "1"}, Path(self.tmp.name))
@@ -250,6 +381,44 @@ class SessionTests(unittest.TestCase):
         self.assertEqual(2, len(self.terminal_calls))
         self.assertNotIn("resume", self.terminal_calls[1][0])
 
+    def test_remote_restart_relaunches_the_server_on_the_same_thread(self):
+        self.restart_after_first = SimpleNamespace(id="r1", resume=True, source="mcp", reason="deploy")
+        relaunched: list[Any] = []
+        renewed_cmd = [*SERVER_CMD, "-c", "mcp_servers.tools.command=new"]
+
+        def relaunch(request):
+            relaunched.append(request)
+            return renewed_cmd
+
+        rc = CodexRemoteTuiSession(self.ports, self.tui_ports)(
+            SERVER_CMD, {}, Path(self.tmp.name), resume=RemoteTuiResume("id", "01a0-saved"), relaunch=relaunch,
+        )
+        self.assertEqual(0, rc)
+        self.assertEqual(["r1"], [request.id for request in relaunched])
+        token_file = Path(self.tmp.name) / "codex-remote" / "ws1" / "ws-token"
+        # The server itself was stopped and started again, with the renewed command.
+        self.assertEqual(
+            [remote_server_command(SERVER_CMD, token_file), remote_server_command(renewed_cmd, token_file)],
+            self.popened,
+        )
+        self.assertEqual([4242, 4242], self.terminated)
+        self.assertEqual(["resume", "01a0-saved"], self.terminal_calls[1][0][-2:])
+        self.assertIn("mcp_servers.tools.command=new", self.terminal_calls[1][0])
+        self.assertNotEqual(self.token_seen[0], self.token_seen[1])
+        self.assertTrue(any("codex_remote_session_restart" in line for line in self.logs))
+
+    def test_remote_restart_without_resume_starts_a_new_conversation(self):
+        self.restart_after_first = SimpleNamespace(id="r1", resume=False, source="mcp", reason="")
+        CodexRemoteTuiSession(self.ports, self.tui_ports)(
+            SERVER_CMD, {}, Path(self.tmp.name), resume=RemoteTuiResume("id", "01a0-saved"),
+        )
+        self.assertEqual(2, len(self.popened))
+        self.assertNotIn("resume", self.terminal_calls[1][0])
+
+    def test_remote_session_declares_it_relaunches_its_server(self):
+        self.assertTrue(CodexRemoteTuiSession.relaunches_server)
+        self.assertFalse(getattr(CodexDesktopSession, "relaunches_server", False))
+
     def test_remote_tui_needs_a_websocket_listener(self):
         cmd = ["codex", "app-server", "--listen", "stdio://"]
         self.assertEqual(2, CodexRemoteTuiSession(self.ports, self.tui_ports)(cmd, {}, Path(self.tmp.name)))
@@ -260,6 +429,66 @@ class SessionTests(unittest.TestCase):
         self.assertEqual(1, CodexRemoteTuiSession(self.ports, self.tui_ports)(SERVER_CMD, {}, Path(self.tmp.name)))
         self.assertEqual([], self.terminal_calls)
         self.assertEqual([4242], self.terminated)
+
+    def test_remote_tui_refuses_a_port_another_listener_still_owns(self):
+        # A draining app-server answers /readyz and then rejects the new token
+        # with 401; starting a second server into the port cannot work.
+        self.listener_states = [True]
+        rc = CodexRemoteTuiSession(self.ports, self.tui_ports)(SERVER_CMD, {}, Path(self.tmp.name))
+        self.assertEqual(1, rc)
+        self.assertEqual([], self.popened)
+        self.assertEqual([], self.terminal_calls)
+        self.assertTrue(any("codex_remote_listener_already_bound" in line for line in self.logs))
+
+    def test_remote_restart_refuses_dead_windows_owner(self):
+        self.restart_after_first = SimpleNamespace(id="r1", resume=True, source="mcp", reason="")
+        original = self.tui_ports.run_terminal
+        def exited(*args, **kwargs):
+            result = original(*args, **kwargs)
+            self.server.alive = False
+            return result
+        tui = dataclasses.replace(self.tui_ports, run_terminal=exited)
+        renewed = mock.Mock()
+        rc = CodexRemoteTuiSession(self.ports, tui)(SERVER_CMD, {}, Path(self.tmp.name), relaunch=renewed)
+        self.assertEqual(1, rc)
+        self.assertEqual([], self.terminated)
+        renewed.assert_not_called()
+
+    def test_remote_restart_reports_a_listener_that_never_closes(self):
+        self.listener_released = False
+        self.restart_after_first = SimpleNamespace(id="r1", resume=True, source="mcp", reason="")
+        renewed = mock.Mock()
+        rc = CodexRemoteTuiSession(self.ports, self.tui_ports)(SERVER_CMD, {}, Path(self.tmp.name), relaunch=renewed)
+        self.assertEqual(1, rc)
+        renewed.assert_not_called()
+        self.assertTrue(any("codex_remote_cleanup_failed" in line for line in self.logs))
+
+    def test_authentication_is_required_without_channel(self):
+        def refuse(_url: str, _token: str, _version: str) -> None:
+            raise OSError("unauthorized")
+
+        ports = dataclasses.replace(self.ports, authenticate=refuse)
+        self.assertEqual(1, CodexRemoteTuiSession(ports, self.tui_ports)(SERVER_CMD, {}, Path(self.tmp.name)))
+        self.assertEqual([], self.terminal_calls)
+        self.assertEqual([4242], self.terminated)
+        self.assertFalse((Path(self.tmp.name) / "codex-remote" / "ws1" / "ws-token").exists())
+
+    def test_authentication_uses_the_launch_token(self):
+        CodexRemoteTuiSession(self.ports, self.tui_ports)(SERVER_CMD, {}, Path(self.tmp.name))
+        self.assertEqual("ws://127.0.0.1:19961", self.authenticates[0][0])
+        self.assertTrue(self.authenticates[0][1])
+
+    def test_explicit_auth_is_not_mixed_with_minted_token(self):
+        self.assertEqual(1, CodexRemoteTuiSession(self.ports, self.tui_ports)(
+            [*SERVER_CMD, "--ws-auth=none"], {}, Path(self.tmp.name)))
+        self.assertEqual([], self.popened)
+
+    def test_termination_failure_prevents_restart(self):
+        self.restart_after_first = SimpleNamespace(id="r1", resume=True, source="mcp", reason="")
+        ports = dataclasses.replace(self.ports, terminate_tree=lambda _pid: False)
+        renewed = mock.Mock()
+        self.assertEqual(1, CodexRemoteTuiSession(ports, self.tui_ports)(SERVER_CMD, {}, Path(self.tmp.name), relaunch=renewed))
+        renewed.assert_not_called()
 
     def test_bare_server_runs_the_default_process_step(self):
         calls: list[str] = []

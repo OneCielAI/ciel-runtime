@@ -1,0 +1,6 @@
+Command: $env:PYTHONPATH='.'; python tests/test_upstream_failure_model.py
+Result: 25 tests passed.
+Command: $env:PYTHONPATH='.'; python tests/test_openai_responses_upstream_stream_error.py
+Result: 4 tests passed, including native Responses route with ConnectionRefusedError -> 502 and router.transport_error.
+Command: python -m compileall -q ciel_runtime_support/openai_responses_router.py ciel_runtime_support/upstream_error_policy.py
+Result: passed.

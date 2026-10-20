@@ -1,0 +1,7 @@
++ CIEL_RUNTIME_INSTALL_HOME=C:\Users\djlov\.local\share\ciel-runtime-890299d8ca78e10b294a97898fb70ef36482d935 PREFIX=C:\Users\djlov\.local pwsh -NoProfile -File C:\Users\djlov\AppData\Local\Temp\ciel-release-importsession\extract-0.2.51-nightly.20261017-122407.890299d\package\install.ps1
+inherited CIEL_RUNTIME_* removed: -u CIEL_RUNTIME_PROVIDER -u CIEL_RUNTIME_CONFIG_DIR -u CIEL_RUNTIME_SCRIPT -u CIEL_RUNTIME_HOME -u CIEL_RUNTIME_AUTO_ALLOW_DANGEROUS_RM -u CIEL_RUNTIME_MODEL_ALIAS -u CIEL_RUNTIME_REGISTERED_HOME -u CIEL_RUNTIME_LAUNCH_CWD -u CIEL_RUNTIME_SELECTED_HOME -u CIEL_RUNTIME_STATE_DIR -u CIEL_RUNTIME_WORKSPACE_STATE_DIR -u CIEL_RUNTIME_BYPASS_PERMISSIONS 
+Installed Ciel Runtime to C:\Users\djlov\.local\share\ciel-runtime-890299d8ca78e10b294a97898fb70ef36482d935
+Pinned future Windows launches to C:\Users\djlov\.local\share\ciel-runtime-890299d8ca78e10b294a97898fb70ef36482d935
+Registered C:\Users\djlov\.local\bin at the front of the user PATH and notified the Windows shell.
+Open a new terminal window if the current terminal has an older PATH snapshot.
+exit=0

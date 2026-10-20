@@ -1,0 +1,38 @@
+› [ciel-runtime external channel message] channel=e2e room=e2e from=e2e-driver id=1 thread=1 text="E2E-RT-TURN-1 hello"
+
+
+• STUB-REPLY-1
+
+  Worked for <1s • 1:43 PM
+
+
+› [ciel-runtime external channel message] channel=e2e room=e2e from=e2e-driver id=2 thread=2 text="E2E-RT-SLOWTURN-2 please take your
+  time"
+
+
+• STUB-REPLY-3
+
+  Worked for 25s • 1:43 PM
+                                 Resume paused goal?
+                                 Goal: E2E-GOAL-KEEP survive the restart
+› [ciel-runtime external channe                                                                        text="[ciel-runtime] 재부팅 완
+  료 — codex 런타임이 재시작되었                                                                       restart during a turn)"
+                               › 1. Resume goal   Mark it active and continue when idle
+                                 2. Leave paused  Keep it paused; use /goal resume later
+• STUB-REPLY-5
+                                 enter select · esc back
+  Worked for <1s • 1:43 PM
+
+
+› [ciel-runtime external channel message] channel=e2e room=e2e from=e2e-driver id=4 thread=4 text="E2E-RT-TURN-3 after the restart"
+
+
+• STUB-REPLY-7
+
+  Worked for <1s • 1:43 PM
+
+
+› Ask Codex to do anything
+
+  Ciel Runtime vLLM medium · G:\ciel-e2e\restart\codex-remote\ws                                           Goal paused (/goal resume)
+  ? for shortcuts

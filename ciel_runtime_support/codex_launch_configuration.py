@@ -147,8 +147,15 @@ class CodexLaunchConfigurationService:
                 return ["-c", f"{key}={self.policy.toml_string(value)}"]
         return []
 
-    def runtime_config_args(self, router_base: str | None = None) -> list[str]:
-        provider = self.constants.runtime_provider_id
+    def runtime_config_args(
+        self, router_base: str | None = None, *, env_key: str | None = None, provider_id: str | None = None
+    ) -> list[str]:
+        """The Ciel provider block; ``router_base``/``env_key`` default to the local router's.
+
+        A direct gateway data path passes the gateway root and the env var that
+        holds its key; the block keeps its id so sessions resume across paths.
+        """
+        provider = provider_id or self.constants.runtime_provider_id
         configured_base = (
             self.effects.router_base() if router_base is None else router_base
         )
@@ -164,7 +171,7 @@ class CodexLaunchConfigurationService:
             "-c",
             f"model_providers.{provider}.wire_api={toml('responses')}",
             "-c",
-            f"model_providers.{provider}.env_key={toml(self.constants.runtime_api_key_env)}",
+            f"model_providers.{provider}.env_key={toml(env_key or self.constants.runtime_api_key_env)}",
             "-c",
             f"model_providers.{provider}.request_max_retries=0",
             "-c",
@@ -180,11 +187,12 @@ class CodexLaunchConfigurationService:
         return parsed if parsed > 0 else None
 
     def _launch_model_snapshot(
-        self, cfg: dict[str, Any]
+        self, cfg: dict[str, Any], model_slug: str | None = None
     ) -> CodexLaunchModelSnapshot:
         provider, provider_config = self.model.current_provider(cfg)
         native = self.model.native_enabled(provider)
-        alias = self.model.current_alias(cfg)
+        # A direct gateway launch names the upstream model, not the router alias.
+        alias = model_slug or self.model.current_alias(cfg)
         known_context_window = self.model.context_window(provider, provider_config)
         # Ciel does not own the model catalog of a direct native Codex launch.
         # An unknown native context must stay unknown: inventing 272K here
@@ -220,6 +228,7 @@ class CodexLaunchConfigurationService:
                 .lower(),
                 auto_compact_token_limit=auto_compact_token_limit,
                 metadata=dict(metadata) if metadata is not None else None,
+                model=str(provider_config.get("current_model") or "").strip(),
             )
         return CodexLaunchModelSnapshot(
             provider=provider,
@@ -342,6 +351,8 @@ class CodexLaunchConfigurationService:
         codex: str,
         cfg: dict[str, Any],
         passthrough: list[str] | None = None,
+        *,
+        model_slug: str | None = None,
     ) -> list[str]:
         passthrough = passthrough or []
         if self.passthrough_has_model_override(passthrough):
@@ -357,7 +368,7 @@ class CodexLaunchConfigurationService:
             return self.reasoning_effort_default_args(
                 self.model.native_enabled(provider), passthrough
             )
-        snapshot = self._launch_model_snapshot(cfg)
+        snapshot = self._launch_model_snapshot(cfg, model_slug)
         effort_args = self.reasoning_effort_default_args(snapshot.native, passthrough)
         spec = snapshot.spec
         self.effects.log(

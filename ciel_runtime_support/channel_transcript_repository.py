@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 import re
 import threading
+import uuid
 from typing import Any
 
 
@@ -100,6 +101,7 @@ class ChannelTranscriptRepository:
         cwd: Path | None = None,
         session_id: str | None = None,
     ) -> None:
+        self.scope["child_epoch"] = uuid.uuid4().hex
         self.scope["runtime"] = str(runtime or "").strip().casefold()
         self.scope["started_at"] = (
             self.now() if started_at is None else float(started_at)
@@ -271,7 +273,7 @@ class ChannelTranscriptRepository:
 
     def roots(self) -> tuple[tuple[Path, str], ...]:
         runtime = str(self.scope.get("runtime") or "").strip().casefold()
-        claude_projects = self.home / ".claude" / "projects"
+        claude_projects = Path(self.scope.get("claude_config_dir") or self.home / ".claude") / "projects"
         claude_root = (claude_projects, "*/*.jsonl")
         configured_codex_home = self.scope.get("codex_home")
         codex_home = (

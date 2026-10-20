@@ -1,0 +1,22 @@
+okf_version: "1.0"
+task: "Preserve upstream transport failures in Ciel Runtime Responses routing"
+reported: "User requested reapplication after runtime evidence showed Bob's high-demand text came from local HTTP 500 handling of URLError, not a runtime timeout."
+observed:
+  - "Bob evidence records IncompleteRead -> 502, TLS EOF URLError -> 500 in about 0.25 s, and connection refused URLError -> 500 in about 1.2 s."
+  - "Configured request_timeout_ms=600000 and stream_idle_timeout_ms=300000; no TimeoutError, socket.timeout, or timed out appears in the cited failures."
+  - "openai_responses_router.py previously sent generic exceptions to write_error without status, whose default was 500."
+implementation:
+  - "Added narrow transport classification for URLError, TLS errors, connection errors, EOF and network errno values."
+  - "Transport failures now become UpstreamFailure with 502; a real timeout becomes 504."
+  - "Responses, Codex Responses, and native provider Responses routes emit router.transport_error with provider, model, exception type and status before returning the structured error."
+  - "Client disconnect detection remains first, so downstream disconnects are not relabeled as upstream transport failures or 499 policy events."
+verification:
+  - "tests/test_upstream_failure_model.py: 25 passed"
+  - "tests/test_openai_responses_upstream_stream_error.py: 4 passed"
+  - "tests/test_meta_provider.py: 45 passed"
+  - "tests/test_responses_provider_auth_boundary.py: 1 passed"
+  - "tests/test_openai_responses_stream.py: 9 passed"
+  - "python compileall and git diff --check passed"
+limits:
+  - "This change does not claim the remote upstream TLS peer is identified; it preserves the observed transport class and prevents the misleading 500 mapping."
+  - "The existing workspace fake-address configuration must still be corrected separately; a 502 makes that cause visible but cannot repair a deliberately wrong base URL."

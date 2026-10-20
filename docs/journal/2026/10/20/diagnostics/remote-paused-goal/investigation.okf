@@ -1,0 +1,101 @@
+---
+type: diagnostic
+title: Codex remote TUI restart leaves paused-goal prompt
+timestamp: 2026-10-20
+tags: [codex, remote-tui, restart, paused-goal]
+---
+
+# Scope
+
+User clarified affected mode is Codex app-server + remote TUI, not Electron.
+Required behavior is Leave paused after unattended restart, preserving goal
+identity, objective, paused status and updatedAt. Screenshot not interpreted by
+current provider; exact incident root cause unverified.
+
+# Source findings
+
+Existing responder requires current rendered state; Enter only when Leave paused
+is selected. Windows ConPTY has a screen adapter; POSIX and direct paths lack
+that adapter. Whole-screen quiet timer can be starved by unrelated redraws.
+RPC channel injector opens before TUI and has no shared modal-readiness gate.
+Remote relaunch mutates process env; the next TUI receives an existing env mapping,
+so flag propagation needs an exact regression rather than an assumed success.
+
+# Verification in progress
+
+Owned native baseline/candidate harness and focused production regression work
+are delegated. No successful repair is claimed yet. Live sessions are untouched.
+
+# Native baseline observation
+
+Installed 4907ba8 snapshot with real Codex 0.158.0 passed the seeded paused-goal
+remote TUI restart scenario (run-codex-remote-baseline-paused-111656). The existing
+handler logged seen/select/dismissed, same thread resumed, goal objective/status
+paused/updatedAt remained unchanged, post-restart external input replied, and
+owned listeners were absent after cleanup. Thus this is NOT a reproduction of
+the user's reported failure, and candidate changes cannot claim to fix that
+incident based on this baseline. Screenshots were unavailable (0x0 window);
+rendered terminal text, RPC readback and lifecycle logs were captured locally.
+
+# Regression red phase
+
+During parallel implementation the added exact-file regression selection ran
+122 tests with 3 failures and 1 error against not-yet-updated production:
+- repeated unrelated viewport redraw postpones Leave paused selection;
+- remote restart child env lacks CIEL_RUNTIME_STARTUP_AUTO_ANSWER in the unit
+  session wrapper without outer dispatch's environment normalization;
+- injector accepts direct submit before any terminal readiness gate;
+- rendered_input_ready is a new planned method absent from baseline.
+These are targeted red regressions, not the actual reported incident reproduction.
+
+# Candidate execution evidence
+
+Candidate run-codex-remote-candidate-sequential-113226 passed paused-goal
+acceptance. Same goal thread/objective/status=paused/updatedAt were unchanged.
+Timeline: prompt seen 11:33:06, Leave paused select 11:33:07, dismissed 11:33:08,
+external message injection 11:33:15. Owned listeners absent after teardown.
+Targeted selection 454 tests passed, 42 skipped; ruff/compile passed.
+
+Earlier candidate-gated-112924 exited 3221225786 before router health/scenario
+with AttachConsole failure; it is a failed attempt, not fix evidence. Concurrent
+native-console tests were running, but causality of that exit is not established.
+Sequential rerun passed. Baseline success remains a limit on incident attribution.
+
+# Review corrections
+
+- Relaunch env copying now happens per-attempt from the original mutable mapping,
+  after the outer relaunch callback can renew credentials; this prevents stale
+  credentials on second/subsequent restart without mutating the caller for the
+  auto-answer flag.
+- The new RPC screen gate is Windows-only. POSIX is deliberately not closed by a
+  new gate with no observer; existing terminal fail-closed limitations remain.
+- Readiness stability now uses semantic ready/modal markers, not unrelated
+  surrounding viewport changes.
+- Targeted reviewed suite: 457 tests, zero failures/errors, 42 skips. No local
+  whole-group sweep performed. Native reviewed rerun passed (reviewed-candidate-114817), with paused goal
+objective/status/updatedAt unchanged, new input replied, owned listeners absent.
+
+# Shipping scope
+
+The change strengthens Windows app-server + remote TUI startup only. It does not
+claim a repaired POSIX renderer, Electron UI automation, or a root cause for the
+reported screenshot instance. Publication/local installation awaits exact-SHA
+workflow verification.
+
+# Exact-SHA CI initial result
+
+9ac82f0 CI run 39461098497 initial runtime job ran 426 tests OK (19 skips),
+then failed isolated TemporaryDirectory cleanup with Errno 39 Directory not
+empty. This is a real CI failure, not waived. Failed job rerun requested for
+same SHA; cleanup race cause has not been established. Publish is independently
+still running. No installation of this candidate yet.
+
+# Publication and local installation
+
+Exact SHA 9ac82f0 CI rerun succeeded and npm Publish succeeded. Registry version
+is 0.2.51-nightly.20261020-165616.9ac82f0 with matching gitHead; tarball SHA256
+is b35e9382ae60a0d9ade1fa76f4191e962aea2c8661b93e4869533bef3e2f8ae2. New
+snapshot installed at ~/.local/share/ciel-runtime-9ac82f0e86a067b8cf9fcdfe3fc69ef695071ff8.
+Published package source hashes matched 426 Python files; installed focused
+selection ran 194 tests with no failures/errors. Installed native acceptance passed
+(run-codex-remote-installed-9ac82f0-120350); no live sessions were restarted.

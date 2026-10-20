@@ -32,6 +32,7 @@ EXTERNAL_EVENT_KEYS = (
     "event_types",
     "cursor_json_pointer",
     "cursor_query_parameter",
+    "idle_timeout_seconds",
     "webhook_secret",
     "authorization",
 )
@@ -176,6 +177,7 @@ class EventSettingsCli:
             ),
             "cursor_json_pointer": str(current.get("cursor_json_pointer") or ""),
             "cursor_query_parameter": str(current.get("cursor_query_parameter") or ""),
+            "idle_timeout_seconds": current.get("idle_timeout_seconds") or "auto",
             "webhook_secret": (
                 "stored" if secrets.get("stored_webhook_secret") else "unset"
             ),
@@ -198,6 +200,7 @@ class EventSettingsCli:
             "event_types": list(current.get("event_types") or []),
             "cursor_json_pointer": str(current.get("cursor_json_pointer") or ""),
             "cursor_query_parameter": str(current.get("cursor_query_parameter") or ""),
+            **({"idle_timeout_seconds": current["idle_timeout_seconds"]} if "idle_timeout_seconds" in current else {}),
         }
         changed: list[str] = []
         for token in tokens:
@@ -214,6 +217,9 @@ class EventSettingsCli:
                 if transport not in {"webhook", "sse"}:
                     raise EventSettingsCliError("transport must be webhook or sse")
                 body["transport"] = transport
+            elif key == "idle_timeout_seconds":
+                from .event_receiver_connection import idle_timeout_seconds
+                body[key] = idle_timeout_seconds(None if value.strip().lower() == "auto" else value)
             elif key == "event_types":
                 body["event_types"] = [
                     part.strip() for part in value.split(",") if part.strip()

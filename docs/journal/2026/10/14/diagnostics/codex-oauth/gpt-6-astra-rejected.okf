@@ -1,0 +1,80 @@
+okf_version: "1.0"
+task: "Remote Codex (codex-routed, menu OAuth tokens) shows \"The 'gpt-6-astra' model is not supported when using Codex with a ChatGPT account\" right after '/model gpt-6.1-sol high'."
+reported: "User, 2026-10-14: screenshot of the error; '메뉴에서 oauth 토큰 인증기능으로 사용하는데 문제가생김'; '사용하려고 하는 모델과 다른모델을 에러로 보여줌'; asked to check over <remote-pc>:9204 with the admin token (read only, token not recorded)."
+remote_read:
+  health: "<remote-pc>:9204 /health: version 0.2.51-nightly.20261014-145432.d99f453, workspace ...\<client folder> (the screenshot's folder), provider codex, model alias ciel-runtime-codex-model, 1 active client."
+  manage_state: "GET /ca/manage/state: codex current_model '' and forced_model '' (empty); cielairouter current_model ASTRA, deepseek, ollama-cloud keys stored; one Codex OAuth token (label <label>, source login, active, last used 2026-10-14 12:30:43 local)."
+  events: "/ca/events/recent empty, /ca/tui latest_event_id 0, telemetry_logs list empty: no per-request model record available over the web API. /ca/usage/events 401 with the admin token."
+code_facts:
+  - "Codex routed /backend-api/codex/responses: openai_responses_router._handle_codex_route -> CodexBackendHttpAdapter.forward_json (router_http.py:303). The body's model is sent unchanged unless the provider config has forced_model (model_override.with_forced_model). Remote forced_model is empty, so the router did not replace the model."
+  - "The error text is the ChatGPT backend's 400 body ({\"detail\": ...}) relayed by output.write_error; the model name in it is the one in the request the Codex client sent."
+  - "codex_launch_configuration: for the native codex provider no model catalog is written and no -m is passed ('A native provider keeps its own bundled catalog'), so Codex uses its own config/default model."
+  - "Local codex-cli 0.158.0 'codex debug models --bundled': gpt-6-astra is priority 1 (the bundled default); the list has no gpt-6.1-sol (the remote Codex is a newer build)."
+refuted: "First hypothesis (a remote management forced_model = gpt-6-astra): the remote forced_model is empty."
+unknown:
+  - "Which Codex request carried gpt-6-astra after the model was changed to gpt-6.1-sol (main turn vs. another request), and the remote Codex version and ~/.codex/config.toml model. Needs the remote Codex session file (turn_context model) or the router log on that machine; the web API does not expose either."
+changes: "None (read only)."
+user_hypothesis: "User, 2026-10-14: the menu sign-in may not capture a Codex token ('codex with chatgpt account')."
+sign_in_compare:
+  - "Ciel CODEX endpoints (oauth_token_endpoints.py:42-58): client app_EMoamEEZ73f0CkXaXp7hrann, auth.openai.com, scopes 'openid profile email offline_access', id_token_add_organizations, codex_cli_simplified_flow, originator codex_cli_rs, prompt login."
+  - "codex.exe 0.158 login strings: same client flow parameters, scope 'openid profile email offline_access api.connectors.read api.connectors.invoke' (+ allowed_workspace_id). Difference: Ciel does not ask for api.connectors.read / api.connectors.invoke. Whether that matters for model access: unknown."
+headers:
+  - "POST /backend-api/codex/responses: OAuth pool token replaces Authorization and sets ChatGPT-Account-ID (oauth_routing.py:151-154)."
+  - "GET /backend-api/codex/* (forward_get, router_http.py:813-828): only the Codex CLI's own inbound headers (CodexRoutedHeaderPolicy.project); the OAuth pool token is not used. So GETs Codex makes through the router (model list etc.) carry the CLI's own login or none, while turns carry the pool token. Effect on the remote Codex's model list and default model: not verified."
+user_followup: "User, 2026-10-14: '/model 명령어로 모델을 변경해도 변경이 안된다고'; '지금의 가장큰 문제는 codex 계정이 chat gpt 계정으로 들어간다는거야'; '우리가 다른토큰을 생성하고있어'."
+token_compare_local:
+  codex_own: "~/.codex/auth.json: auth_mode 'chatgpt' (Codex's own login is a ChatGPT-account login too). access_token claims: client_id app_EMoamEEZ73f0CkXaXp7hrann, aud https://api.openai.com/v1, scp openid profile email offline_access api.connectors.read api.connectors.invoke, plan pro."
+  ciel_menu_login: "This PC's one Ciel Codex token (<this PC's menu token>, source login): same client_id and aud, scp openid profile email offline_access (no api.connectors.read / api.connectors.invoke), plan prolite (another account)."
+  verdict: "The menu sign-in mints a token with fewer scopes than Codex's own login (verified). Both are ChatGPT-account tokens. Whether the missing scopes or the plan cause the gpt-6-astra rejection or the model not changing: not verified. The remote token (<label>) claims were not read (secret stays on that machine)."
+direct_backend_test:
+  when: "2026-10-14, POST https://chatgpt.com/backend-api/codex/responses, stream, 'Say OK', one request per token and model (user: '플랜엔 다포함되어있어')."
+  codex_own_login: "gpt-6-astra HTTP 200 (response.created), gpt-6.1-sol HTTP 200. A ChatGPT-account token from Codex's own login (scopes incl. api.connectors.*) is accepted for gpt-6-astra."
+  ciel_menu_login: "<this PC's menu token>: HTTP 401 code token_revoked for both models, while the Ciel token state still says active. No valid Ciel-minted token on this PC to compare."
+  open: "Same account, Ciel-minted token (no api.connectors.* scopes) vs Codex-minted token is still untested; it needs a fresh menu sign-in of one account. Refreshing Codex's own token with a narrower scope was not done (rotating its refresh token would sign the live Codex out)."
+remote_new_login: "User signed in again on <remote-pc> (menu): token <menu token> (label <label>) created 12:48, used right after; user: astra asked twice (error persists). Its claims (scopes, plan) are not readable over the web API."
+upstream_issues:
+  - "openai/codex: 130 issues carry 'not supported when using Codex with a ChatGPT account', including Codex's own `codex login` (#49619 Pro $100 with gpt-6-astra, #46304 Pro with gpt-5.6-sol/gpt-6-astra). The message is not specific to Ciel-minted tokens."
+  - "#53020 (2026-10-11): an OAuth token carrying a stale chatgpt_plan_type made every paid model fail with this message until the token was renewed."
+  - "#54030 (2026-10-14, Codex runtime 0.162.0-alpha.17.2): after switching the model, pre-turn compaction runs with the previous model first ('previous-model compaction failed; retried with current model', reason=CompHashChanged); the turn error shows the previous model's unsupported error although gpt-6.1-sol is selected. Same shape as the user's screenshot (gpt-6.1-sol selected, error names gpt-6-astra). Not verified on the remote (its Codex log/version not read)."
+remote_codex_version: "User: codex-cli 0.162.1 on the remote."
+codex_0_162_1_source:
+  - "core/src/compact_model_fallback.rs should_retry_with_current_model: a failed previous-model compaction is retried with the current model only when current.provider.info().is_openai() and the cached auth uses the Codex backend or an API key; otherwise false."
+  - "model-provider-info/src/lib.rs:616 is_openai(): provider name == 'OpenAI'. supports_codex_backend_routes() also requires is_openai()."
+  - "Ciel codex-routed launch (codex_launch_policy.native_routed_config_args): model_provider 'ciel-runtime-codex' (runtime_constants.CODEX_ROUTED_PROVIDER_ID) with name 'Ciel Runtime Codex', unless the native provider id env selects 'openai'. So under Ciel, is_openai() is false and a failed previous-model compaction is not retried with the newly selected model."
+chain_code_level: "Model switch gpt-6-astra -> gpt-6.1-sol triggers pre-turn compaction with the previous model (CompHashChanged, #54030); that request uses gpt-6-astra, which this account/token gets rejected for; with the Ciel provider the current-model retry is skipped, so the turn ends with the gpt-6-astra error and the switch looks ignored. Code-level only: the remote codex-tui.log lines and the remote provider id were not read."
+still_open: "Why gpt-6-astra is rejected for the remote token/account at all (scopes, plan claim #53020, or account gating #46304/#49619)."
+correction: "comp_hash of gpt-6-astra and gpt-6.1-sol is 3000 in the 0.162.1 bundled list and in the server list, so an astra -> 6.1-sol switch does not trigger previous-model compaction (turn.rs comp_hash_changed). The #54030 chain does not apply to this switch; that explanation is withdrawn."
+reproduction:
+  harness: "evidence/astra_repro.py + astra_drive.py (console_driver.py, shot_title.ps1): Codex 0.162.1 (isolated npm prefix G:\ciel-e2e\astra\codex162) launched by this checkout's Ciel, provider codex route_through_router, CIEL_RUNTIME_CODEX_ROUTED_UPSTREAM -> local stub (rejects gpt-6-astra with the remote's 400 detail, streams 'OK from <model>' otherwise). Fake ChatGPT auth cannot start 0.162.1 (account/read -> workspace routing discovery at chatgpt_base_url, https only, 401: run-3); runs 4-6 copy this PC's own ~/.codex/auth.json into the isolated CODEX_HOME (REAL_AUTH=1), removed after the run, refresh token compared (not refreshed). Model requests reached only the stub."
+  run_5_codex_tui: "turn 1 default -> gpt-6.1-sol OK; /model GPT-6-Astra low -> request model gpt-6-astra -> screen shows '■ event: error / data: {\"type\": \"error\", ... \"The 'gpt-6-astra' model is not supported when using Codex with a ChatGPT account.\"}' (same text and raw SSE form as the remote screenshot); /model GPT-6.1-Sol high -> turns 3 and 4 sent gpt-6.1-sol and succeeded."
+  run_6_codex_remote: "Same flow in codex-remote (app-server): astra turn -> gpt-6-astra (error); after /model gpt-6.1-sol high, a Ciel channel message (/ca/chat/notify, injected by turn/start without a model) went out as gpt-6.1-sol, then typed turns as gpt-6.1-sol. Each turn also sends a title-generation request with the same current model."
+  result: "Reproduced: the error text and its raw 'event: error / data:' display. Not reproduced: a request with gpt-6-astra after switching to gpt-6.1-sol (codex TUI and codex-remote, typed and channel-injected turns)."
+  display_note: "The raw 'event: error data:' block is how Codex shows the error frame Ciel writes for a routed 400 (openai_responses_router output.write_error); observed in run 5/6 and on the remote."
+remote_codex_logs:
+  source: "User ran read-only queries in Python on the remote against %USERPROFILE%\.codex\logs_2.sqlite (19,781 rows, 2026-10-06 17:49 .. 2026-10-14 13:46; CODEX_HOME unset; the only Codex log DB)."
+  turn_models_today: "10:59 and 12:00 ciel-runtime-cielairouter-astra medium (Ciel provider cielairouter); 12:08 gpt-6-astra medium; 12:14, 12:22, 12:30, 12:35 gpt-6.1-sol high; 12:40 and 12:50:12 gpt-6-astra medium; 12:50:48 gpt-6-astra high."
+  astra_failure: "12:50:44/48 turn model=gpt-6-astra effort=high: run_pre_sampling_compact -> run_auto_compact{reason=ContextLimit phase=PreTurn} -> POST /responses model=gpt-6-astra -> 'Failed to run pre-sampling compact' (long thread at its context limit; the compaction request carries the turn's model)."
+  resume: "12:56:59 thread/resume -> 'Configuring session: model=gpt-6-astra; provider ... name: \"Ciel Runtime Codex\", base_url http://127.0.0.1:9204/backend-api/codex'."
+  error_rows: "The 6 latest ERROR rows are unrelated (a tool's /exec to <tool-host>:8791 timing out)."
+remote_codex_config: "~/.codex/config.toml top level: model = \"gpt-6-astra\", model_reasoning_effort = \"high\"."
+codex_source_persist: "Codex 0.162.1 tui/src/chatwidget/model_popups.rs:329/437 send AppEvent::PersistModelSelection; app/event_dispatch.rs:2433 writes it as the default model and effort (config_update::build_model_selection_edits). Choosing a model in /model with Enter ('enter default') writes model/model_reasoning_effort into config.toml; 's' is session only."
+cause:
+  verified:
+    - "/model switches apply inside a session (12:14-12:35 turns ran gpt-6.1-sol)."
+    - "New sessions and resumed threads start from config.toml model = gpt-6-astra (12:56:59 resume)."
+    - "With the remote's ChatGPT sign-in, gpt-6-astra requests are rejected by the backend ('not supported when using Codex with a ChatGPT account'); with this PC's Codex sign-in the same model is accepted (direct test)."
+    - "Ciel does not choose or rewrite the Codex model on this path (forced_model empty; Ciel writes only model_reasoning_effort to config.toml)."
+  not_verified:
+    - "Who wrote model = gpt-6-astra before 12:08 (the current value matches the user's astra test at 12:50 high, which overwrote it)."
+    - "Why the backend rejects gpt-6-astra for that account (scopes of the Ciel-minted token, plan claim #53020, or account gating #46304/#49619)."
+after_default_change:
+  - "User changed the default: config.toml model = gpt-6.1-sol, effort high. 14:01:51 turn ran gpt-6.1-sol high: pre-turn ContextLimit compaction POST /responses model=gpt-6.1-sol -> Ciel router 9204 answered 400 (Codex log 'Request completed ... status=400 ... server ciel-runtime/0.1'), retried, 'Failed to run pre-sampling compact'. Screen: \"The 'gpt-6.1-sol' model is not supported when using Codex with a ChatGPT account.\""
+  - "WARN in that turn: 'Unknown model ciel-runtime-cielairouter-astra is used. This will use fallback model metadata' (the thread's earlier turns ran under the CielAiRouter alias)."
+token_claims_remote: "User ran a paste-safe PowerShell -> Python check on the remote (prints claims only; ciel install %USERPROFILE%\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime): Ciel menu token <menu token> (label <label>) chatgpt_plan_type = free, scp openid profile email offline_access; the machine's own Codex sign-in (~/.codex/auth.json) chatgpt_plan_type = pro, scp incl. api.connectors.read/invoke."
+root_cause:
+  verified:
+    - "In codex-routed mode the Ciel OAuth pool token replaces the Codex CLI's own Authorization for /backend-api/codex/responses (oauth_routing.py:151-154, codex_request_run whenever the store has codex tokens)."
+    - "The remote pool holds one Codex token, <label>, whose access token says chatgpt_plan_type=free; the backend rejects gpt-6-astra and gpt-6.1-sol for it with 'not supported when using Codex with a ChatGPT account'."
+    - "The machine's own Codex sign-in is a pro token but is not used for model requests while the pool has a token."
+  not_verified:
+    - "Why the <label> token says free: the account's current subscription, or a stale plan claim as in openai/codex#53020. The same label on this PC (token <this PC's menu token>, 2026-10-07) said prolite."

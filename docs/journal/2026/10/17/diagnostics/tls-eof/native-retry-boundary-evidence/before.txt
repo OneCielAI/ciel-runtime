@@ -1,0 +1,58 @@
+passthrough sha256 11454fbd5d6cd5fb0707ee2ac5c7bfad947949e14ae4c70c1ce6caa67bf420df
+test sha256 50e9f3518825dec1f476802c120fb1b31d692629c793c2cf82624632066439b5
+2026-10-17T03:21:45Z
+.FFFFFF..
+======================================================================
+FAIL: test_selected_gateway_truncation_is_dispatched_once (test_provider_responses_gateway_replay_guard.ProviderResponsesGatewayReplayGuardTests.test_selected_gateway_truncation_is_dispatched_once) (case='eof_after_created', completion_gate=False)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime\tests\test_provider_responses_gateway_replay_guard.py", line 197, in test_selected_gateway_truncation_is_dispatched_once
+    self.assertEqual(1, outcome.urlopen.call_count)
+AssertionError: 1 != 3
+
+======================================================================
+FAIL: test_selected_gateway_truncation_is_dispatched_once (test_provider_responses_gateway_replay_guard.ProviderResponsesGatewayReplayGuardTests.test_selected_gateway_truncation_is_dispatched_once) (case='incomplete_read_partial', completion_gate=False)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime\tests\test_provider_responses_gateway_replay_guard.py", line 197, in test_selected_gateway_truncation_is_dispatched_once
+    self.assertEqual(1, outcome.urlopen.call_count)
+AssertionError: 1 != 3
+
+======================================================================
+FAIL: test_selected_gateway_truncation_is_dispatched_once (test_provider_responses_gateway_replay_guard.ProviderResponsesGatewayReplayGuardTests.test_selected_gateway_truncation_is_dispatched_once) (case='tls_eof_after_created', completion_gate=False)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime\tests\test_provider_responses_gateway_replay_guard.py", line 197, in test_selected_gateway_truncation_is_dispatched_once
+    self.assertEqual(1, outcome.urlopen.call_count)
+AssertionError: 1 != 3
+
+======================================================================
+FAIL: test_selected_gateway_truncation_is_dispatched_once (test_provider_responses_gateway_replay_guard.ProviderResponsesGatewayReplayGuardTests.test_selected_gateway_truncation_is_dispatched_once) (case='eof_after_created', completion_gate=True)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime\tests\test_provider_responses_gateway_replay_guard.py", line 197, in test_selected_gateway_truncation_is_dispatched_once
+    self.assertEqual(1, outcome.urlopen.call_count)
+AssertionError: 1 != 3
+
+======================================================================
+FAIL: test_selected_gateway_truncation_is_dispatched_once (test_provider_responses_gateway_replay_guard.ProviderResponsesGatewayReplayGuardTests.test_selected_gateway_truncation_is_dispatched_once) (case='incomplete_read_partial', completion_gate=True)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime\tests\test_provider_responses_gateway_replay_guard.py", line 197, in test_selected_gateway_truncation_is_dispatched_once
+    self.assertEqual(1, outcome.urlopen.call_count)
+AssertionError: 1 != 3
+
+======================================================================
+FAIL: test_selected_gateway_truncation_is_dispatched_once (test_provider_responses_gateway_replay_guard.ProviderResponsesGatewayReplayGuardTests.test_selected_gateway_truncation_is_dispatched_once) (case='tls_eof_after_created', completion_gate=True)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime\tests\test_provider_responses_gateway_replay_guard.py", line 197, in test_selected_gateway_truncation_is_dispatched_once
+    self.assertEqual(1, outcome.urlopen.call_count)
+AssertionError: 1 != 3
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.013s
+
+FAILED (failures=6)
+SUMMARY files=test_provider_responses_gateway_replay_guard.py run=4 failures=6 errors=0 skipped=0
+exit=1
