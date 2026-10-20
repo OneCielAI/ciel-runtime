@@ -58,7 +58,9 @@ class SseConnection:
             if line.startswith(":") or line.strip() in {"event: heartbeat", "event: ping", "event: keepalive"}:
                 self.heartbeat_observed = True
             metadata = {"last_activity_at": self.last_activity_at,
-                        "heartbeat_observed": self.heartbeat_observed}
+                        "heartbeat_observed": self.heartbeat_observed,
+                        "idle_timeout_seconds": self._timeout(),
+                        "effective_idle_timeout_seconds": self._timeout()}
         if self.on_activity is not None:
             self.on_activity(metadata)
 
@@ -66,7 +68,8 @@ class SseConnection:
         with self._lock:
             return {"last_activity_at": self.last_activity_at,
                     "heartbeat_observed": self.heartbeat_observed,
-                    "idle_timeout_seconds": self._timeout()}
+                    "idle_timeout_seconds": self._timeout(),
+                    "effective_idle_timeout_seconds": self._timeout()}
 
     def _timeout(self) -> float | None:
         return self.timeout if self.timeout is not None else (
@@ -91,11 +94,11 @@ class SseConnection:
         if sock is not None:
             try:
                 sock.shutdown(socket.SHUT_RDWR)
-            except OSError:
+            except Exception:
                 pass
             try:
                 sock.close()
-            except OSError:
+            except Exception:
                 pass
 
     def start(self) -> None:

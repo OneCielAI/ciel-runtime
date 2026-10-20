@@ -425,6 +425,10 @@ class ChannelWakeContext:
             cwd=cwd,
             session_id=session_id,
         )
+        self.claims.delivery.bind_child_epoch(str(self.transcript.scope.get("child_epoch") or ""))
+
+    def child_exited(self, child_epoch: str, *, verified_exit: bool) -> list[int]:
+        return self.claims.delivery.child_exited(child_epoch, verified_exit=verified_exit)
 
     def transcript_roots(self) -> tuple[tuple[Path, str], ...]:
         return self.transcript_repository().roots()
@@ -494,6 +498,8 @@ class ChannelWakeContext:
         *,
         not_before: float | None = None,
     ) -> WakeStateEvidence:
+        if self.claims.delivery.interrupted(message_id):
+            return WakeStateEvidence("interrupted_uncertain")
         return self.transcript.wake_state_evidence_from_text(
             message_id,
             text,
@@ -672,3 +678,25 @@ class ChannelWakeContext:
             return (stat.st_mtime, stat.st_size)
         except Exception:
             return (0.0, 0)
+
+
+def reconcile_wake_child_exit(scope: dict[str, Any], *, verified_exit: bool, context: Callable[[], Any], log: Callable[[str, str], None]) -> list[int]:
+    """Quarantine the delivery attempts owned by a CLI child that just exited.
+
+    The launcher calls this the moment its transport returns, before the next
+    launch records its own epoch. An unresolved attempt stays durable and is
+    never replayed; later messages are then free to be delivered.
+    """
+
+    epoch = str(scope.get("child_epoch") or "")
+    if not epoch:
+        return []
+    try:
+        reconciled = context().child_exited(epoch, verified_exit=verified_exit)
+    except Exception as exc:  # noqa: BLE001 - the exit path must not fail on reconciliation
+        log("WARN", f"channel_wake_child_exit_reconcile_failed error={type(exc).__name__}: {exc}")
+        return []
+    if reconciled:
+        message_ids = ",".join(str(value) for value in reconciled)
+        log("WARN", f"channel_wake_child_exit_quarantined child_epoch={epoch} message_ids={message_ids}")
+    return reconciled

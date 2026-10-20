@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 import re
 import threading
+import uuid
 from typing import Any
 
 
@@ -100,6 +101,7 @@ class ChannelTranscriptRepository:
         cwd: Path | None = None,
         session_id: str | None = None,
     ) -> None:
+        self.scope["child_epoch"] = uuid.uuid4().hex
         self.scope["runtime"] = str(runtime or "").strip().casefold()
         self.scope["started_at"] = (
             self.now() if started_at is None else float(started_at)

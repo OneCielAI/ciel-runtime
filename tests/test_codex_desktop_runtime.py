@@ -7,6 +7,7 @@ import struct
 import tempfile
 import threading
 import unittest
+from typing import Any
 
 from ciel_runtime_support.codex_app_server_websocket import (
     CodexWebSocketConnection,
@@ -15,6 +16,7 @@ from ciel_runtime_support.codex_app_server_websocket import (
     ws_endpoint,
 )
 from ciel_runtime_support.codex_desktop_runtime import (
+    LISTENER_PROBE_TIMEOUT_SECONDS,
     CodexDesktopLaunchError,
     CodexDesktopPorts,
     CodexDesktopSession,
@@ -23,8 +25,10 @@ from ciel_runtime_support.codex_desktop_runtime import (
     desktop_app_env,
     find_codex_desktop_app,
     listen_url_from_command,
+    listener_is_bound,
     prepare_codex_home,
     readyz_url,
+    wait_listener_released,
     wait_until_ready,
 )
 from ciel_runtime_support.launch_state import last_launch_runtime
@@ -127,6 +131,69 @@ class CodexDesktopLaunchPieceTests(unittest.TestCase):
         self.assertTrue(wait_until_ready("http://h/readyz", urlopen=urlopen, sleep=lambda _s: None))
         self.assertEqual(3, len(attempts))
         self.assertFalse(wait_until_ready("http://h/readyz", alive=lambda: False, urlopen=urlopen, sleep=lambda _s: None))
+
+    def test_listener_is_bound_reads_the_port_not_the_readyz_body(self):
+        seen: list[tuple[tuple[Any, ...], dict[str, Any]]] = []
+
+        def connect(address, timeout):
+            seen.append((address, {"timeout": timeout}))
+
+            class _Conn:
+                def __enter__(self):
+                    return self
+
+                def __exit__(self, *_exc):
+                    return False
+
+            return _Conn()
+
+        self.assertTrue(listener_is_bound("ws://127.0.0.1:9489", connect=connect))
+        self.assertEqual((("127.0.0.1", 9489), {"timeout": LISTENER_PROBE_TIMEOUT_SECONDS}), seen[0])
+        self.assertTrue(listener_is_bound("stdio://", connect=connect))
+
+        def refused(_address, _timeout):
+            raise ConnectionRefusedError("refused")
+
+        self.assertFalse(listener_is_bound("ws://127.0.0.1:9489", connect=refused))
+
+    def test_listener_unknown_errors_never_count_as_released(self):
+        from ciel_runtime_support.codex_desktop_runtime import listener_probe
+        for error in (TimeoutError("timeout"), PermissionError("denied"), socket.gaierror("DNS")):
+            def connect(_address, _timeout):
+                raise error
+            self.assertIsNone(listener_probe("ws://127.0.0.1:9489", connect=connect))
+            self.assertTrue(listener_is_bound("ws://127.0.0.1:9489", connect=connect))
+        self.assertFalse(wait_listener_released("ws://127.0.0.1:9489", timeout=0, is_bound=lambda _url: True))
+
+    def test_wait_listener_released_is_bounded_and_reports_the_last_state(self):
+        states = [True, True, False]
+        clock = [0.0]
+        sleeps: list[float] = []
+
+        def sleep(seconds: float) -> None:
+            sleeps.append(seconds)
+            clock[0] += seconds
+
+        self.assertTrue(
+            wait_listener_released(
+                "ws://127.0.0.1:9489",
+                is_bound=lambda _url: states.pop(0) if states else False,
+                sleep=sleep,
+                now=lambda: clock[0],
+                timeout=5.0,
+            )
+        )
+        self.assertEqual([0.1, 0.1], sleeps)
+        clock[0] = 0.0
+        self.assertFalse(
+            wait_listener_released(
+                "ws://127.0.0.1:9489",
+                is_bound=lambda _url: True,
+                sleep=lambda seconds: clock.__setitem__(0, clock[0] + seconds),
+                now=lambda: clock[0],
+                timeout=0.3,
+            )
+        )
 
     def test_find_app_prefers_the_override_then_the_store_package(self):
         with tempfile.TemporaryDirectory() as tmp:

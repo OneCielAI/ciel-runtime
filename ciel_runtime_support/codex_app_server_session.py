@@ -57,8 +57,10 @@ from ciel_runtime_support.codex_desktop_runtime import (
     CodexDesktopSession,
     listen_url_from_command,
     readyz_url,
+    wait_listener_released,
 )
 from ciel_runtime_support.runtime_session_restart import restart_claim_label, restart_request_after_exit
+from ciel_runtime_support.codex_owned_server import OwnedServer
 
 REMOTE_TUI_LAUNCH_MODE = "codex-remote-router"
 REMOTE_TUI_SESSION_ACTIONS = frozenset({"new_session"})
@@ -305,17 +307,41 @@ class CodexRemoteTuiSession:
         ports = self.ports
         logs = ports.config_dir / "codex-remote" / ports.workspace_id
         logs.mkdir(parents=True, exist_ok=True)
+        # A listener we did not start (a previous app-server still draining its
+        # restart, or an orphan whose Node shim was killed first) answers
+        # /readyz with 200 and then rejects this launch's token with 401.
+        # Refuse to start a second server into an occupied port and say why.
+        if ports.listener_bound(listen_url):
+            ports.log("ERROR", f"codex_remote_listener_already_bound listen={listen_url} resume={thread_id or '-'}")
+            print(
+                f"Codex app-server port {listen_url} is still owned by another process; "
+                "not starting a second server.",
+                flush=True,
+            )
+            return _RemoteRun(1)
+        if any(value == "--ws-auth" or value.startswith("--ws-auth=") or
+               value == "--ws-token-file" or value.startswith("--ws-token-file=") for value in cmd):
+            ports.log("ERROR", "codex_remote_explicit_auth_unsupported: launch-owned capability token required")
+            return _RemoteRun(1)
         token = secrets.token_urlsafe(32)
         token_file = logs / "ws-token"
-        _write_private(token_file, token)
-        server_cmd = remote_server_command(cmd, token_file)
-        with open(logs / "app-server.log", "ab") as server_log:
-            server = ports.popen(server_cmd, env=env, cwd=str(launch_cwd), stdout=server_log, stderr=subprocess.STDOUT)
+        server: OwnedServer | None = None
         injector: CodexAppServerChannelInjector | None = None
         try:
-            if not ports.wait_ready(readyz_url(listen_url), alive=lambda: server.poll() is None):
+            _write_private(token_file, token)
+            server_cmd = remote_server_command(cmd, token_file)
+            launch = ports.owned_server or OwnedServer.launch
+            with open(logs / "app-server.log", "ab") as server_log:
+                server = launch(
+                    server_cmd, popen=ports.popen, terminate_tree=ports.terminate_tree,
+                    env=env, cwd=str(launch_cwd), stdout=server_log, stderr=subprocess.STDOUT,
+                )
+            if server is None or not ports.wait_ready(readyz_url(listen_url), alive=lambda: server.poll() is None):
                 print(f"Codex app-server did not become ready at {listen_url}; see {logs / 'app-server.log'}", flush=True)
                 return _RemoteRun(1)
+            ports.authenticate(listen_url, token, ports.version)
+            if server.poll() is not None:
+                raise CodexAppServerError("launch owner exited during authenticated initialization")
             ports.log("INFO", f"codex_remote_app_server_ready pid={server.pid} listen={listen_url} resume={thread_id or '-'}")
             injector = _channel_injector(
                 ports,
@@ -334,22 +360,48 @@ class CodexRemoteTuiSession:
                 try:
                     injector.open()
                 except (CodexAppServerError, OSError) as exc:
-                    ports.log("ERROR", f"codex_remote_channel_open_failed resume={thread_id or '-'} error={str(exc)[:300]}")
+                    # server_alive=false with a refused handshake means another
+                    # process answered /readyz: this server never bound the port.
+                    ports.log(
+                        "ERROR",
+                        f"codex_remote_channel_open_failed resume={thread_id or '-'} "
+                        f"server_alive={server.poll() is None if server is not None else False} error={str(exc)[:300]}",
+                    )
                     print(f"Codex app-server could not open conversation {thread_id or '(new)'}: {exc}", flush=True)
                     return _RemoteRun(1)
                 injector.start(opened=True)
             tui_env = dict(env)
             tui_env[REMOTE_TOKEN_ENV] = token
             return self._run_tui(remote_tui_command(server_cmd, listen_url), tui_env, launch_cwd, injector, thread_id)
+        except Exception as exc:
+            ports.log("ERROR", f"codex_remote_launch_failed error={type(exc).__name__}: {exc}")
+            return _RemoteRun(1)
         finally:
+            failures: list[str] = []
             if injector is not None:
-                injector.stop()
-            if server.poll() is None:
-                ports.terminate_tree(int(server.pid))
+                try:
+                    injector.stop()
+                except Exception as exc:
+                    failures.append(f"channel stop failed: {exc}")
+            if server is not None:
+                try:
+                    server.cleanup()
+                except Exception as exc:
+                    failures.append(str(exc))
+                try:
+                    if not wait_listener_released(listen_url, is_bound=ports.listener_bound):
+                        failures.append(f"listener release unverified: {listen_url}")
+                except Exception as exc:
+                    failures.append(f"listener release probe failed: {exc}")
             try:
-                token_file.unlink()
-            except OSError:
-                pass
+                token_file.unlink(missing_ok=True)
+            except OSError as exc:
+                failures.append(f"token cleanup failed: {exc}")
+            if failures:
+                ports.log("ERROR", "codex_remote_cleanup_failed " + "; ".join(failures))
+                # Override even a successful TUI / pending restart. Renewal
+                # must never run with unresolved launch ownership or cleanup.
+                return _RemoteRun(1)
 
     def _resume_thread_id(self, resume: AppServerResume, env: dict[str, str], launch_cwd: Path) -> str | None:
         return resolve_resume_thread(self.tui.select_resume or self.ports.select_resume, resume, env, launch_cwd)

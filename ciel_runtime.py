@@ -110,14 +110,14 @@ from ciel_runtime_support.transcript_delta_delivery import TranscriptDeliveryPor
 from ciel_runtime_support.channel_wake_claim_repository import ChannelWakeClaimRepository
 from ciel_runtime_support.channel_wake_claim_repository import prompt_message_ids as _channel_prompt_message_ids
 from ciel_runtime_support.channel_wake_claim_repository import prompt_references_message_id as analyze_prompt_message_reference
-from ciel_runtime_support.channel_wake_context import ChannelPendingDeliveryPorts, ChannelPendingIoPorts, ChannelPendingPolicyPorts, ChannelPendingStatePorts, ChannelTranscriptPolicyPorts, ChannelTranscriptPorts, ChannelWakeClaimPorts, ChannelWakeContext, ChannelWakeCursorPorts, ChannelWakeInputPorts, ChannelWakeMessagePorts
+from ciel_runtime_support.channel_wake_context import reconcile_wake_child_exit, ChannelPendingDeliveryPorts, ChannelPendingIoPorts, ChannelPendingPolicyPorts, ChannelPendingStatePorts, ChannelTranscriptPolicyPorts, ChannelTranscriptPorts, ChannelWakeClaimPorts, ChannelWakeContext, ChannelWakeCursorPorts, ChannelWakeInputPorts, ChannelWakeMessagePorts
 from ciel_runtime_support.channel_wake_delivery_repository import ChannelWakeDeliveryRepository
 from ciel_runtime_support.chat_files import ChatFilePorts, ChatFileRepository
 from ciel_runtime_support.chat_http_controller import ChatHttpController, ChatHttpReadServices, ChatHttpWriteServices
 from ciel_runtime_support.runtime_input_gateway import RuntimeInputGateway
 from ciel_runtime_support.runtime_input_status import RuntimeInputStatusRepository
 from ciel_runtime_support.external_event_receiver import EventReceiverSecretVault, ExternalEventReceiverService
-from ciel_runtime_support.external_event_menu import panel_rows as project_external_event_panel_rows, update_config as project_set_external_event_config
+from ciel_runtime_support.external_event_menu import panel_rows as project_external_event_panel_rows, update_config as project_set_external_event_config, ExternalEventControl
 from ciel_runtime_support.claude_environment import ClaudeEnvironmentFeaturePorts, ClaudeEnvironmentProjection, ClaudeEnvironmentShellRenderer, ClaudeEnvironmentSourcePorts, ClaudeLimitPolicy, ClaudeLimitPorts, ClaudeModelAliasCompatibilityApi, ClaudeModelAliasPolicy, ClaudeModelPorts, ClaudeRuntimeSettingsPolicy, ClaudeRuntimeSettingsPorts
 from ciel_runtime_support.claude_session_socket import ClaudeSessionSocketClient, prepared_socket_path
 from ciel_runtime_support.cli_application_context import CliApplicationCompatibilityApi, CliApplicationContext, CliApplicationDispatchPorts, CliApplicationPresentationPorts
@@ -1927,10 +1927,10 @@ def handle_external_event_raw_post(handler: BaseHTTPRequestHandler, path: str, r
     return external_event_receiver_service().handle_raw_post(handler, path, raw)
 
 def external_event_panel_rows(_cfg: dict[str, Any]) -> tuple[list[str], list[str]]:
-    return project_external_event_panel_rows(external_event_receiver_service(), ROUTER_BASE)
+    return project_external_event_panel_rows(external_event_receiver_service(), ROUTER_BASE, control=ExternalEventControl(ROUTER_BASE, ROUTER_WORKSPACE, _ROUTER_ACCESS_POLICY.health_headers(ROUTER_BASE, load_config(), router_external_access_token)).call)
 
 def set_external_event_config(key: str, value: Any) -> list[str]:
-    return project_set_external_event_config(external_event_receiver_service(), key, value)
+    return project_set_external_event_config(external_event_receiver_service(), key, value, control=ExternalEventControl(ROUTER_BASE, ROUTER_WORKSPACE, _ROUTER_ACCESS_POLICY.health_headers(ROUTER_BASE, load_config(), router_external_access_token)).call)
 
 def remote_instruction_synchronizer() -> RemoteInstructionSynchronizer: return RemoteInstructionSynchronizer(load_config=load_config, workspace=lambda: Path(ROUTER_WORKSPACE), state_dir=WORKSPACE_STATE_DIR, log=router_log)
 def remote_memory_synchronizer() -> RemoteMemorySynchronizer: return RemoteMemorySynchronizer(load_config=load_config, workspace=lambda: Path(ROUTER_WORKSPACE), state_dir=WORKSPACE_STATE_DIR, log=router_log)
@@ -4404,6 +4404,7 @@ body_without_ciel_runtime_internal_metadata = channel_llm_context.strip_internal
 _commit_channel_llm_cursor_if_newer = _CHANNEL_DELIVERY_API.commit_if_newer
 commit_pending_channel_delivery_cursors = _CHANNEL_DELIVERY_API.commit_pending
 def _channel_stdin_wake_claim_ttl_seconds() -> float: return channel_runtime_environment_policy().wake_claim_ttl_seconds()
+def _channel_wake_child_exited(verified_exit: bool) -> None: return reconcile_wake_child_exit(_CHANNEL_TRANSCRIPT_SCOPE, verified_exit=verified_exit, context=channel_wake_context, log=router_log)
 
 def channel_wake_context() -> ChannelWakeContext:
     return ChannelWakeContext(
@@ -4734,7 +4735,7 @@ def claude_launch_services() -> runtime_launch.ClaudeLaunchServices:
             write_zai_mcp_config,
             workspace_mcp_launch_service(),
         ),
-        restart=assembly.ClaudeLaunchRestartPorts(lambda: runtime_session_restart_service().control(), primed_notice(_CHANNEL_DELIVERY_API.ensure_cursor_initialized, runtime_input_gateway().submit_notification), lambda runtime: sync_remote_launch_assets(runtime, reason="restart")),
+        restart=assembly.ClaudeLaunchRestartPorts(lambda: runtime_session_restart_service().control(), primed_notice(_CHANNEL_DELIVERY_API.ensure_cursor_initialized, runtime_input_gateway().submit_notification), lambda runtime: sync_remote_launch_assets(runtime, reason="restart"), _channel_wake_child_exited),
     ).services()
 
 CODEX_ROUTED_UPSTREAM_BASE = os.environ.get("CIEL_RUNTIME_CODEX_ROUTED_UPSTREAM") or "https://chatgpt.com/backend-api/codex"
@@ -4887,7 +4888,7 @@ launch_codex = SynchronizedLaunch(_RUNTIME_LAUNCH_API.launch_codex, sync_remote_
 launch_codex_app_server = SynchronizedLaunch(_RUNTIME_LAUNCH_API.launch_codex_app_server, sync_remote_launch_assets, "codex-app-server")
 _RUNTIME_COMPACTION = RuntimeCompactionBinding(ROUTER_INSTANCE_DIR, HOME, channel_compact_request_repository(), provider_request_builder, estimate_tokens, lambda: get_current_provider(load_config()), router_log)
 _RUNTIME_CONTEXT_REJECTION = build_reactive_compaction_rejection(_RUNTIME_COMPACTION)
-_CODEX_SESSIONS = CodexAppServerSessions(CodexDesktopPorts(CONFIG_DIR, ROUTER_WORKSPACE_ID, Path(os.environ.get("CODEX_HOME") or HOME / ".codex"), VERSION, router_log, lambda pid: terminate_pid(pid, "codex-app-server", quiet=True), CodexDesktopChannelPorts(lambda last_id, limit: read_runtime_inputs(last_id, None, None, limit), ensure_channel_llm_delivery_cursor_initialized, _commit_channel_llm_cursor_if_newer, _RUNTIME_INPUT_STATUS_REPOSITORY, router_log, CodexSessionCommandPorts(_read_channel_compact_request, _clear_channel_compact_request), agent_turn_events.RouterTurnPoster(lambda: ROUTER_BASE, router_log), _RUNTIME_COMPACTION), select_resume=select_codex_resume_session), CodexRemoteTuiPorts(lambda *args, **kwargs: subprocess_call_with_channel_wake_proxy(*args, **kwargs), lambda: runtime_session_restart_service().control(), _set_channel_transcript_scope, lambda: None if _channel_wake_enter_env_is_fixed() else b"\r", _codex_channel_wake_submit_retries, _codex_channel_wake_submit_delay_seconds, select_codex_resume_session))
+_CODEX_SESSIONS = CodexAppServerSessions(CodexDesktopPorts(CONFIG_DIR, ROUTER_WORKSPACE_ID, Path(os.environ.get("CODEX_HOME") or HOME / ".codex"), VERSION, router_log, lambda pid: terminate_pid_tree(pid, "codex-app-server", quiet=True), CodexDesktopChannelPorts(lambda last_id, limit: read_runtime_inputs(last_id, None, None, limit), ensure_channel_llm_delivery_cursor_initialized, _commit_channel_llm_cursor_if_newer, _RUNTIME_INPUT_STATUS_REPOSITORY, router_log, CodexSessionCommandPorts(_read_channel_compact_request, _clear_channel_compact_request), agent_turn_events.RouterTurnPoster(lambda: ROUTER_BASE, router_log), _RUNTIME_COMPACTION), select_resume=select_codex_resume_session), CodexRemoteTuiPorts(lambda *args, **kwargs: subprocess_call_with_channel_wake_proxy(*args, **kwargs), lambda: runtime_session_restart_service().control(), _set_channel_transcript_scope, lambda: None if _channel_wake_enter_env_is_fixed() else b"\r", _codex_channel_wake_submit_retries, _codex_channel_wake_submit_delay_seconds, select_codex_resume_session))
 launch_codex_desktop, launch_codex_remote = (SynchronizedLaunch(lambda passthrough=None, _session=session, **kwargs: runtime_launch.run_codex_app_server(list(passthrough or []), **kwargs, services=codex_app_server_launch_services(), desktop=_session), sync_remote_launch_assets, "codex-app-server") for session in (_CODEX_SESSIONS.desktop, _CODEX_SESSIONS.remote_tui))
 launch_agy = SynchronizedLaunch(_RUNTIME_LAUNCH_API.launch_agy, sync_remote_launch_assets, "agy")
 launch_grok = SynchronizedLaunch(launch_grok, sync_remote_launch_assets, "grok")

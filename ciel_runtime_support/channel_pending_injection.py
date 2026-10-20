@@ -211,6 +211,10 @@ def inject_pending_channel_messages(
                 continue
             last_id = max(last_id, message_id)
             channel = message.get("channel")
+            interrupted = getattr(wake_store.lifecycle, "interrupted", None)
+            if callable(interrupted) and interrupted(message_id):
+                io.log("WARN", f"channel_stdin_proxy_quarantined message_id={message_id} reason=interrupted_uncertain action=no_replay")
+                continue
             failure_reason = wake_store.lifecycle.failure_reason(message_id)
             if failure_reason:
                 # A failed record is terminal - it is never retried - so holding
@@ -432,6 +436,13 @@ def inject_pending_channel_messages(
                     io.log("INFO", f"channel_stdin_proxy_skipped_noise message_id={claim_id} channel={message.get('channel')} reason=stdin_wake_claimed")
                     return return_last_id
                 claimed_ids.append(claim_id)
+        begin_attempt = getattr(wake_store.lifecycle, "begin_attempt", None)
+        if callable(begin_attempt):
+            try:
+                begin_attempt(pending)
+            except Exception:
+                _release_claims(claimed_ids, services)
+                raise
         if not pending_uses_router:
             # Candidate selection can acquire file locks. Only mark delivery
             # after every pre-submit read succeeds, so a safe recheck cannot

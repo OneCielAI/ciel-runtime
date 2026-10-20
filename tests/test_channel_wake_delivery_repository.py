@@ -19,8 +19,7 @@ class ChannelWakeDeliveryRepositoryTests(unittest.TestCase):
             batches={},
             clear_claim=cleared.append,
             commit_cursor=committed.append,
-            retained_limit=retained_limit,
-            prune_count=prune_count,
+            retention=(retained_limit, prune_count),
         )
         return repository, cleared, committed
 

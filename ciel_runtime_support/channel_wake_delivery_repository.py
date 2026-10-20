@@ -2,9 +2,17 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from threading import Lock, RLock
 from typing import Any, Callable
+
+
+@dataclass(slots=True)
+class DeliveryAttempts:
+    """The child epoch this delivery loop owns and the attempts it persisted."""
+
+    child_epoch: str = ""
+    by_message: dict[int, str] = field(default_factory=dict)
 
 
 def _message_id(message: dict[str, Any]) -> int:
@@ -24,8 +32,47 @@ class ChannelWakeDeliveryRepository:
     commit_cursor: Callable[[int], None]
     failed: dict[int, str] | None = None
     status: Any = None
-    retained_limit: int = 1000
-    prune_count: int = 500
+    # (retained_limit, prune_count) and the launch-scoped attempt bookkeeping
+    # (child epoch -> attempt ids) share one field: the frozen port shape is
+    # capped by tests/test_architecture_contracts.py.
+    retention: tuple[int, int] = (1000, 500)
+    attempts: DeliveryAttempts | None = None
+
+    def begin_attempt(self, messages: list[dict[str, Any]]) -> str:
+        state = self.attempts
+        if self.status is None or state is None or not state.child_epoch:
+            return ""
+        ids = [_message_id(message) for message in messages if _message_id(message) > 0]
+        attempt_id = self.status.begin_attempt(ids, state.child_epoch)
+        with self.lock:
+            state.by_message.update(dict.fromkeys(ids, attempt_id))
+        return attempt_id
+
+    def bind_child_epoch(self, child_epoch: str) -> DeliveryAttempts:
+        state = self.attempts
+        if state is None:
+            state = self.attempts = DeliveryAttempts()
+        state.child_epoch = str(child_epoch or "")
+        return state
+
+    def interrupted(self, message_id: int) -> bool:
+        get = getattr(self.status, "get", None)
+        row = get(message_id) if callable(get) else None
+        return isinstance(row, dict) and row.get("status") == "interrupted_uncertain"
+
+    def child_exited(self, child_epoch: str, *, verified_exit: bool) -> list[int]:
+        if self.status is None:
+            return []
+        ids = self.status.reconcile_child_exit(child_epoch, verified_exit=verified_exit)
+        # Persistence above must succeed for the entire epoch before releasing
+        # claims. Keep delivered proofs: uncertain does not mean not delivered.
+        for message_id in ids:
+            self.clear_claim(message_id)
+        with self.lock:
+            for message_id in ids:
+                self.prompts.pop(message_id, None)
+                self.batches.pop(message_id, None)
+        return ids
 
     def prompt(self, message_id: int) -> str:
         with self.lock:
@@ -46,6 +93,8 @@ class ChannelWakeDeliveryRepository:
         return ""
 
     def release_stale(self, message_id: int, commit_cursor: bool) -> None:
+        if self.interrupted(message_id):
+            return
         with self.lock:
             message_ids = self._prompt_group(message_id)
             if self.failed is None:
@@ -65,6 +114,8 @@ class ChannelWakeDeliveryRepository:
                 self.batches.pop(grouped_id, None)
 
     def complete(self, message_id: int) -> None:
+        if self.interrupted(message_id):
+            return
         with self.lock:
             message_ids = self._prompt_group(message_id)
         # Keep the full batch available if clearing a claim or persisting its
@@ -106,6 +157,8 @@ class ChannelWakeDeliveryRepository:
         claimed_ids: list[int],
         reason: str,
     ) -> None:
+        messages = [message for message in messages if not self.interrupted(_message_id(message))]
+        claimed_ids = [value for value in claimed_ids if not self.interrupted(value)]
         message_ids: list[int] = []
         with self.lock:
             if self.failed is None:
@@ -132,11 +185,17 @@ class ChannelWakeDeliveryRepository:
 
     def _transition(self, message_id: int, state: str, **kwargs: Any) -> None:
         if self.status is not None:
+            attempts = self.attempts
+            attempt_id = attempts.by_message.get(message_id) if attempts is not None else None
+            if attempt_id:
+                kwargs["expected_attempt"] = attempt_id
             self.status.transition(message_id, state, **kwargs)
 
     def rollback(
         self, messages: list[dict[str, Any]], claimed_ids: list[int]
     ) -> None:
+        messages = [message for message in messages if not self.interrupted(_message_id(message))]
+        claimed_ids = [value for value in claimed_ids if not self.interrupted(value)]
         with self.lock:
             for message in messages:
                 message_id = _message_id(message)
@@ -150,9 +209,10 @@ class ChannelWakeDeliveryRepository:
             self.clear_claim(message_id)
 
     def _prune(self, collection: set[int] | dict[int, Any]) -> None:
-        if len(collection) <= self.retained_limit:
+        retained_limit, prune_count = self.retention
+        if len(collection) <= retained_limit:
             return
-        for old_id in sorted(collection)[: self.prune_count]:
+        for old_id in sorted(collection)[:prune_count]:
             if isinstance(collection, set):
                 collection.discard(old_id)
             else:
@@ -162,4 +222,4 @@ class ChannelWakeDeliveryRepository:
         return set(self.batches.get(message_id) or {message_id})
 
 
-__all__ = ["ChannelWakeDeliveryRepository"]
+__all__ = ["ChannelWakeDeliveryRepository", "DeliveryAttempts"]

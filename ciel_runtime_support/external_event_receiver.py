@@ -21,6 +21,7 @@ from typing import Any, Callable
 
 from .event_delivery_ack import RECEIVER_FEATURES, delivery_ack_request
 from .event_receiver_connection import ReceiverWorker, SseConnection, idle_timeout_seconds
+from .event_receiver_diagnostics import receiver_failure
 
 
 MAX_EVENT_BYTES = 1024 * 1024
@@ -349,6 +350,7 @@ class ExternalEventReceiverService:
     # Walkie-Client: ciel-runtime/<version> (<os>) runtime=python/<version>.
     client_header: str = ""
     _stop: threading.Event = field(default_factory=threading.Event)
+    _running: bool = False
     _threads: dict[str, threading.Thread] = field(default_factory=dict)
     _workers: dict[str, ReceiverWorker] = field(default_factory=dict)
     _lifecycle_lock: Any = field(default_factory=threading.RLock)
@@ -460,6 +462,8 @@ class ExternalEventReceiverService:
                 **({"idle_timeout_seconds": idle_timeout} if idle_timeout is not None else {}),
             }
         )
+        if "idle_timeout_seconds" in body and idle_timeout is None:
+            current.pop("idle_timeout_seconds", None)
         workspace[receiver_id] = current
         self.save_config(cfg)
         self.vault.update(
@@ -474,6 +478,18 @@ class ExternalEventReceiverService:
     def public_receiver(self, receiver_id: str, config: dict[str, Any]) -> dict[str, Any]:
         with self._lock:
             status = dict(self._status.get(receiver_id, {}))
+        with self._lifecycle_lock:
+            thread = self._threads.get(receiver_id)
+            status["worker_alive"] = bool(thread is not None and thread.is_alive())
+        for key, default in {
+            "state": "stopped", "attempt_count": 0, "last_attempt_at": None,
+            "last_failure_at": None, "last_recovery_at": None, "consecutive_failures": 0,
+            "retry_seconds": None, "next_retry_at": None, "diagnostic": None,
+            "phase": "stopped", "recovery_count": 0, "last_failure": None,
+        }.items():
+            status.setdefault(key, default)
+        status.setdefault("idle_timeout_seconds", config.get("idle_timeout_seconds"))
+        status.setdefault("effective_idle_timeout_seconds", config.get("idle_timeout_seconds"))
         secrets_config = self.vault.load(receiver_id)
         references: dict[str, dict[str, Any]] = {}
         for field_name, raw_value in (
@@ -505,12 +521,20 @@ class ExternalEventReceiverService:
         prefix = "/ca/events/receivers/"
         if not path.startswith(prefix):
             return False
+        suffix = path[len(prefix):]
         try:
-            result = self.save_receiver(path[len(prefix):], body)
+            if suffix.endswith("/reconnect"):
+                receiver_id = self._safe_id(suffix[:-len("/reconnect")])
+                accepted = self.reconnect(receiver_id)
+                self.write_json(handler, {"ok": accepted, "reconnecting": accepted}, 200 if accepted else 409)
+                return True
+            receiver_id = self._safe_id(suffix)
+            self.save_receiver(receiver_id, body)
+            self.reconcile(receiver_id)
+            result = self.public_receiver(receiver_id, self.receiver_configs()[receiver_id])
         except ValueError as exc:
             self.write_json(handler, {"ok": False, "error": str(exc)}, 400)
             return True
-        self.start()
         self.write_json(handler, {"ok": True, "receiver": result, "restart_required": False})
         return True
 
@@ -575,6 +599,12 @@ class ExternalEventReceiverService:
             current = self._status.setdefault(receiver_id, {})
             current.update(values)
 
+    def _cursor_scope(self, receiver_id: str, config: dict[str, Any] | None = None) -> str:
+        config = self.receiver_configs().get(receiver_id, {}) if config is None else config
+        scope = [resolve_environment_reference(config.get("url")),
+                 str(config.get("cursor_json_pointer") or ""), str(config.get("cursor_query_parameter") or "")]
+        return hashlib.sha256(json.dumps(scope).encode("utf-8")).hexdigest()
+
     def _read_sse_cursor(self, receiver_id: str) -> str:
         path = self.cursor_path
         if path is None:
@@ -583,9 +613,14 @@ class ExternalEventReceiverService:
             value = json.loads(path.read_text(encoding="utf-8"))
         except (FileNotFoundError, OSError, json.JSONDecodeError):
             return ""
-        return str(value.get(receiver_id) or "") if isinstance(value, dict) else ""
+        if not isinstance(value, dict):
+            return ""
+        scopes = value.get("_receiver_scopes", {})
+        if isinstance(scopes, dict) and scopes.get(receiver_id) not in (None, self._cursor_scope(receiver_id)):
+            return ""
+        return str(value.get(receiver_id) or "")
 
-    def _write_sse_cursor(self, receiver_id: str, event_id: str) -> None:
+    def _write_sse_cursor(self, receiver_id: str, event_id: str, scope: str | None = None) -> None:
         path = self.cursor_path
         if path is None or not event_id:
             return
@@ -597,6 +632,10 @@ class ExternalEventReceiverService:
             if not isinstance(value, dict):
                 value = {}
             value[receiver_id] = event_id
+            scopes = value.setdefault("_receiver_scopes", {})
+            if not isinstance(scopes, dict):
+                scopes = value["_receiver_scopes"] = {}
+            scopes[receiver_id] = scope or self._cursor_scope(receiver_id)
             path.parent.mkdir(parents=True, exist_ok=True)
             temporary = path.with_suffix(path.suffix + ".tmp")
             temporary.write_text(json.dumps(value, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -632,41 +671,58 @@ class ExternalEventReceiverService:
         else:
             self._set_status(receiver_id, state="connected", last_event_id=event["id"], last_event_at=time.time(), error="")
         # Persist before the reconnect cursor advances. Failure reconnects from the old cursor.
+        self._set_status(receiver_id, phase="ack")
         self.delivery_ack.observe(receiver_id, sse_url, event, request, received_at, admitted, original)
+
+    def _start_worker(self, receiver_id: str) -> None:
+        existing = self._threads.get(receiver_id)
+        if existing is not None and existing.is_alive():
+            return
+        worker = ReceiverWorker()
+        self._workers[receiver_id] = worker
+        thread = threading.Thread(target=self._worker_main, args=(receiver_id, worker), name=f"ciel-event-sse-{receiver_id}", daemon=True)
+        self._threads[receiver_id] = thread
+        thread.start()
 
     def start(self) -> None:
         with self._lifecycle_lock:
+            self._running = True
             self._stop.clear()
             if self.delivery_ack is not None:
                 self.delivery_ack.start(self._ack_endpoint)
             for receiver_id, config in self.receiver_configs().items():
-                existing = self._threads.get(receiver_id)
-                if existing is not None and existing.is_alive():
-                    continue
-                if existing is not None:
-                    self._threads.pop(receiver_id, None)
-                    self._workers.pop(receiver_id, None)
-                if not config.get("enabled") or config.get("transport") != "sse":
-                    continue
-                worker = ReceiverWorker()
-                self._workers[receiver_id] = worker
-                thread = threading.Thread(target=self._worker_main, args=(receiver_id, worker), name=f"ciel-event-sse-{receiver_id}", daemon=True)
-                self._threads[receiver_id] = thread
-                thread.start()
+                if config.get("enabled") and config.get("transport") == "sse":
+                    self._start_worker(receiver_id)
 
-    def reconnect(self, receiver_id: str) -> bool:
+    def reconcile(self, receiver_id: str) -> bool:
+        """Apply a committed save without taking prelaunch startup ownership."""
         receiver_id = self._safe_id(receiver_id)
         with self._lifecycle_lock:
-            thread = self._threads.get(receiver_id)
+            config = self.receiver_configs().get(receiver_id, {})
+            enabled = config.get("enabled") and config.get("transport") == "sse"
             worker = self._workers.get(receiver_id)
-            if thread is None or not thread.is_alive() or worker is None:
+            thread = self._threads.get(receiver_id)
+            if not enabled:
+                if worker is not None:
+                    worker.interrupt(stop=True)
+                self._set_status(receiver_id, state="stopped", phase="stopped", error="", diagnostic=None,
+                             retry_seconds=None, next_retry_at=None)
                 return False
-            worker.interrupt()
-            self._set_status(receiver_id, state="reconnecting", error="")
+            if not self._running or self._stop.is_set():
+                return False
+            if worker is not None and thread is not None and thread.is_alive():
+                worker.interrupt()
+            else:
+                self._start_worker(receiver_id)
+            self._set_status(receiver_id, state="reconnecting", phase="reconnect", error="", retry_seconds=None, next_retry_at=None)
             return True
+
+    def reconnect(self, receiver_id: str) -> bool:
+        return self.reconcile(receiver_id)
 
     def stop(self) -> None:
         with self._lifecycle_lock:
+            self._running = False
             self._stop.set()
             workers = tuple(self._workers.values())
             threads = tuple(self._threads.values())
@@ -684,96 +740,165 @@ class ExternalEventReceiverService:
 
     def _worker_main(self, receiver_id: str, worker: ReceiverWorker) -> None:
         try:
-            self._run_sse(receiver_id, worker)
+            retry = 1.0
+            while not self._stop.is_set() and not worker.stop.is_set():
+                try:
+                    self._run_sse(receiver_id, worker)
+                    break
+                except Exception as exc:
+                    diagnostic = receiver_failure(exc, "worker")
+                    self._set_status(receiver_id, state="backoff", phase="worker", error=diagnostic["class"],
+                                     diagnostic=diagnostic, last_failure=diagnostic, last_failure_at=time.time(),
+                                     retry_seconds=retry, next_retry_at=time.time() + retry)
+                    try:
+                        self.log("WARN", f"external_event_sse_worker_recovering receiver={receiver_id} error={diagnostic['class']}")
+                    except Exception:
+                        pass
+                    if worker.reconnect.wait(retry):
+                        worker.reconnect.clear()
+                    retry = min(30.0, retry * 2.0)
         finally:
             with self._lifecycle_lock:
                 if self._workers.get(receiver_id) is worker:
                     self._workers.pop(receiver_id, None)
                     self._threads.pop(receiver_id, None)
-                    if worker.stop.is_set() and not self._stop.is_set():
-                        self.start()
+                    if worker.stop.is_set() and self._running and not self._stop.is_set():
+                        self.reconcile(receiver_id)
 
     def _run_sse(self, receiver_id: str, worker: ReceiverWorker | None = None) -> None:
         worker = worker or ReceiverWorker()
         retry = 1.0
-        last_event_id = self._read_sse_cursor(receiver_id)
+        last_event_id = ""
+        cursor_scope = None
+        failures = 0
+        attempts = 0
         while not self._stop.is_set() and not worker.stop.is_set():
-            config = self.receiver_configs().get(receiver_id, {})
-            if not config.get("enabled") or config.get("transport") != "sse":
-                break
-            cursor_query_parameter = str(config.get("cursor_query_parameter") or "").strip()
             connection = None
+            diagnostic = None
+            phase = "config"
+            recovered = False
+            stream_started = time.monotonic()
+            attempts += 1
+            self._set_status(receiver_id, state="connecting", phase="config", attempt_count=attempts, last_attempt_at=time.time())
+
+            def activity(metadata: dict[str, Any]) -> None:
+                nonlocal recovered, retry, failures
+                self._set_status(receiver_id, **{k: v for k, v in metadata.items() if k != "delivery_progress"})
+                if (not recovered and metadata.get("delivery_progress", time.monotonic() - stream_started >= 30.0)
+                        and not self._stop.is_set() and not worker.stop.is_set() and not worker.reconnect.is_set()):
+                    recovered = True
+                    values = dict(state="connected", error="", diagnostic=None, retry_seconds=None,
+                                  next_retry_at=None, consecutive_failures=0)
+                    if failures:
+                        values["last_recovery_at"] = time.time()
+                        with self._lock:
+                            values["recovery_count"] = int(self._status.get(receiver_id, {}).get("recovery_count", 0)) + 1
+                    failures = 0
+                    retry = 1.0
+                    self._set_status(receiver_id, **values)
+
             try:
+                config = self.receiver_configs().get(receiver_id, {})
+                if not config.get("enabled") or config.get("transport") != "sse":
+                    break
+                timeout = idle_timeout_seconds(config.get("idle_timeout_seconds"))
+                self._set_status(receiver_id, idle_timeout_seconds=timeout, effective_idle_timeout_seconds=timeout,
+                                 heartbeat_observed=False, last_activity_at=None)
+                phase = "cursor"
+                next_scope = self._cursor_scope(receiver_id, config)
+                if cursor_scope is None:
+                    last_event_id = self._read_sse_cursor(receiver_id)
+                elif cursor_scope != next_scope:
+                    last_event_id = ""
+                cursor_scope = next_scope
+                cursor_query_parameter = str(config.get("cursor_query_parameter") or "").strip()
                 headers = {"Accept": CLOUDEVENTS_SSE_ACCEPT, "Cache-Control": "no-cache"}
                 if self.client_header:
                     headers["Walkie-Client"] = self.client_header
                 if self.delivery_ack is not None:
                     headers["Ciel-Receiver-Features"] = RECEIVER_FEATURES
-                secret = resolve_environment_reference(
-                    self.vault.load(receiver_id).get("authorization", "")
-                )
+                phase = "authorization"
+                secret = resolve_environment_reference(self.vault.load(receiver_id).get("authorization", ""))
                 if secret:
-                    headers["Authorization"] = (
-                        secret if secret.lower().startswith("bearer ") else f"Bearer {secret}"
-                    )
+                    headers["Authorization"] = secret if secret.lower().startswith("bearer ") else f"Bearer {secret}"
                 if last_event_id and not cursor_query_parameter:
                     headers["Last-Event-ID"] = last_event_id
-                request_url = sse_reconnect_url(
-                    resolve_environment_reference(config.get("url")),
-                    cursor_query_parameter,
-                    last_event_id,
-                )
+                phase = "request"
+                request_url = sse_reconnect_url(resolve_environment_reference(config.get("url")), cursor_query_parameter, last_event_id)
                 request = urllib.request.Request(request_url, headers=headers)
-                self._set_status(receiver_id, state="connecting", error="")
+                phase = "connect"
+                self._set_status(receiver_id, phase=phase)
                 with self.urlopen(request, timeout=90) as response:
-                    connection = SseConnection(
-                        response,
-                        idle_timeout_seconds(config.get("idle_timeout_seconds")),
-                        on_activity=lambda metadata: self._set_status(receiver_id, **metadata),
-                    )
+                    stream_started = time.monotonic()
+                    connection = SseConnection(response, timeout, on_activity=activity)
                     worker.bind(connection)
                     connection.start()
+                    phase = "headers"
                     content_type = str(response.headers.get("content-type") or "").lower()
                     if "text/event-stream" not in content_type:
                         raise ValueError("SSE endpoint did not return text/event-stream")
-                    self._set_status(receiver_id, state="connected", connected_at=time.time(), error="")
-                    retry = 1.0
+                    self._set_status(receiver_id, state="connected", phase="read", connected_at=time.time(),
+                                     error="", diagnostic=None, retry_seconds=None, next_retry_at=None)
                     if self.delivery_ack is not None:
                         self.delivery_ack.reconnected(receiver_id)
+                    phase = "read"
                     for transport_event_id, raw_text in parse_sse_frames(connection.lines()):
                         if self._stop.is_set() or worker.stop.is_set() or worker.reconnect.is_set():
                             break
+                        phase = "admission"
+                        self._set_status(receiver_id, phase=phase)
                         event = validate_cloud_event(raw_text)
                         self._admit_sse_frame(receiver_id, request_url, raw_text, event, transport_event_id)
-                        projected_cursor = cloud_event_cursor(
-                            raw_text,
-                            str(config.get("cursor_json_pointer") or "").strip(),
-                        )
+                        projected_cursor = cloud_event_cursor(raw_text, str(config.get("cursor_json_pointer") or "").strip())
                         next_cursor = projected_cursor or transport_event_id
                         if next_cursor:
-                            self._write_sse_cursor(receiver_id, next_cursor)
+                            phase = "cursor_write"
+                            self._set_status(receiver_id, phase=phase)
+                            self._write_sse_cursor(receiver_id, next_cursor, cursor_scope)
                             last_event_id = next_cursor
+                        activity({"delivery_progress": True})
+                        phase = "read"
+                        self._set_status(receiver_id, phase=phase)
                     if connection.timed_out:
                         raise TimeoutError("SSE line activity timed out")
+                    if not self._stop.is_set() and not worker.stop.is_set() and not worker.reconnect.is_set():
+                        raise EOFError()
+                    phase = "cleanup"
             except Exception as exc:
-                self._set_status(receiver_id, state="disconnected", error=type(exc).__name__, retry_seconds=retry)
-                self.log("WARN", f"external_event_sse_disconnected receiver={receiver_id} error={type(exc).__name__}")
+                if phase == "admission":
+                    with self._lock:
+                        phase = self._status.get(receiver_id, {}).get("phase", phase)
+                diagnostic = receiver_failure(exc, phase)
             finally:
-                if connection is not None:
-                    connection.close()
+                try:
+                    if connection is not None:
+                        connection.close()
+                except Exception as exc:
+                    if diagnostic is None:
+                        diagnostic = receiver_failure(exc, "cleanup")
                 worker.bind(None)
             if self._stop.is_set() or worker.stop.is_set():
                 break
             if worker.reconnect.is_set():
                 worker.reconnect.clear()
                 continue
-            # Explicit reconnect and stop wake backoff without creating a reader.
+            failures += 1
+            diagnostic = diagnostic or {"class": "Exception", "category": "internal", "phase": phase}
+            self._set_status(receiver_id, state="backoff", phase=diagnostic["phase"],
+                             error=diagnostic["class"], diagnostic=diagnostic, last_failure=diagnostic,
+                             last_failure_at=time.time(), consecutive_failures=failures,
+                             retry_seconds=retry, next_retry_at=time.time() + retry)
+            try:
+                self.log("WARN", f"external_event_sse_disconnected receiver={receiver_id} error={diagnostic['class']} diagnostic={json.dumps(diagnostic, sort_keys=True)}")
+            except Exception:
+                pass
             if worker.reconnect.wait(retry):
                 worker.reconnect.clear()
             if self._stop.is_set() or worker.stop.is_set():
                 break
             retry = min(30.0, retry * 2.0)
-        self._set_status(receiver_id, state="stopped")
+        self._set_status(receiver_id, state="stopped", phase="stopped", error="", diagnostic=None,
+                             retry_seconds=None, next_retry_at=None)
 
 
 __all__ = [

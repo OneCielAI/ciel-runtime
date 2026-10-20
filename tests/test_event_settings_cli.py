@@ -181,6 +181,15 @@ class EventSettingsCliTests(unittest.TestCase):
         self.assertIn("transport=sse", report)
         self.assertIn("url=https://events.example/stream", report)
 
+    def test_idle_timeout_can_be_set_cleared_and_reported(self):
+        self.controller.external_events(_args("idle_timeout_seconds=15"))
+        self.assertEqual(15, self.service.receivers["default"]["idle_timeout_seconds"])
+        self.assertEqual(15, self.controller.external_event_values()["idle_timeout_seconds"])
+        self.controller.external_events(_args("idle_timeout_seconds=auto"))
+        self.assertIsNone(self.service.receivers["default"]["idle_timeout_seconds"])
+        with self.assertRaises(ValueError):
+            self.controller.external_events(_args("idle_timeout_seconds=999"))
+
     # -- transcript events ------------------------------------------------
 
     def test_transcript_events_store_registered_destination_and_limits(self):

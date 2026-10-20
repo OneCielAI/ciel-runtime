@@ -841,6 +841,15 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                         continue
                     if value in {"enabled", "transport"}:
                         messages = set_external_event_config(value, "toggle")
+                    elif value in {"refresh_receiver", "reconnect_receiver"}:
+                        messages = set_external_event_config(value, None)
+                    elif value == "idle_timeout_seconds":
+                        entered = prompt_menu_value(
+                            "SSE idle timeout (1-300 seconds; blank restores automatic)",
+                            restore_tty=restore_line_mode,
+                            raw_tty=restore_raw_mode,
+                        )
+                        messages = set_external_event_config(value, entered)
                     elif value == "input_transport":
                         entered = prompt_menu_value(
                             "Runtime input transport (auto/session_socket/tty/router)",

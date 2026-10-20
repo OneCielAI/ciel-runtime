@@ -805,6 +805,13 @@ def run_claude(
         while True:
             restart_control.reset()
             rc = run_claude_process()
+            # The transport returned, so this child is gone: any wake it owned
+            # can no longer be confirmed. Reconcile before the next launch
+            # scope overrides the epoch (Sarah 2026-10-20 interrupted input).
+            try:
+                services.restart.child_exited(True)
+            except Exception as exc:  # noqa: BLE001 - reconciliation never blocks the exit path
+                router_log("WARN", f"channel_wake_child_exit_reconcile_failed error={type(exc).__name__}: {exc}")
             # The transport stops polling once the child has ended: a request
             # queued meanwhile, or one held for the running turn, is taken here.
             request = (

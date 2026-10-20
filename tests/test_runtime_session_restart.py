@@ -964,6 +964,29 @@ class _EndedChild:
         return self.returncode
 
 
+class _OwnedServer:
+    """Deterministic stand-in for codex_owned_server.OwnedServer."""
+
+    def __init__(self, process: object, **kwargs: object) -> None:
+        self.process = process
+        self.kwargs = kwargs
+        self.cleaned = False
+
+    @property
+    def pid(self) -> int:
+        return int(getattr(self.process, "pid", 0) or 0)
+
+    def poll(self):
+        return self.process.poll() if hasattr(self.process, "poll") else None
+
+    def cleanup(self) -> None:
+        self.cleaned = True
+
+
+def _fake_owned_server(cmd, **kwargs):
+    return _OwnedServer(kwargs["popen"](cmd, **{k: v for k, v in kwargs.items() if k != "popen" and k != "terminate_tree"}), **kwargs)
+
+
 class _AppServer:
     def __init__(self) -> None:
         self.pid = 4242
@@ -1254,6 +1277,9 @@ class RestartRequestAtChildExitTests(unittest.TestCase):
             channel=None,
             popen=lambda cmd, **_kw: popened.append(list(cmd)) or _AppServer(),
             wait_ready=lambda *_a, **_kw: True,
+            listener_bound=lambda _url: False,
+            owned_server=_fake_owned_server,
+            authenticate=lambda *_a, **_kw: None,
         )
         control = self.service.control()
         tui = CodexRemoteTuiPorts(

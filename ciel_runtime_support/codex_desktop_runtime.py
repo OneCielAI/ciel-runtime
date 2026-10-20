@@ -21,6 +21,7 @@ from dataclasses import dataclass
 import os
 from pathlib import Path
 import shutil
+import socket
 import subprocess
 import time
 from typing import Any, Callable, Iterable
@@ -28,6 +29,7 @@ from urllib.parse import urlsplit
 import urllib.request
 
 from ciel_runtime_support.codex_app_server import CodexAppServerClient
+from ciel_runtime_support.codex_owned_server import authenticate_server
 from ciel_runtime_support.codex_config_effort import ensure_default_reasoning_effort
 from ciel_runtime_support.codex_app_server_resume import (
     AppServerResume,
@@ -175,6 +177,62 @@ def wait_until_ready(
     return False
 
 
+LISTENER_RELEASE_TIMEOUT_SECONDS = 10.0
+# Windows loopback refusal can arrive after the TCP retry (~2 seconds).
+LISTENER_PROBE_TIMEOUT_SECONDS = 3.0 if os.name == "nt" else 0.5
+
+
+def listener_probe(
+    listen_url: str,
+    *,
+    timeout: float = LISTENER_PROBE_TIMEOUT_SECONDS,
+    connect: Callable[..., Any] = socket.create_connection,
+) -> bool | None:
+    """Return bound, released, or unknown for a TCP listener probe."""
+
+    parts = urlsplit(listen_url)
+    if parts.scheme not in ("ws", "wss") or not parts.hostname or not parts.port:
+        return None
+    try:
+        with connect((parts.hostname, parts.port), timeout):
+            return True
+    except ConnectionRefusedError:
+        return False
+    except OSError:
+        return None
+
+
+def listener_is_bound(
+    listen_url: str,
+    *,
+    timeout: float = LISTENER_PROBE_TIMEOUT_SECONDS,
+    connect: Callable[..., Any] = socket.create_connection,
+) -> bool:
+    """Compatibility projection; unknown is conservatively treated as bound."""
+
+    return listener_probe(listen_url, timeout=timeout, connect=connect) is not False
+
+
+def wait_listener_released(
+    listen_url: str,
+    *,
+    timeout: float = LISTENER_RELEASE_TIMEOUT_SECONDS,
+    is_bound: Callable[[str], bool] | None = None,
+    sleep: Callable[[float], Any] = time.sleep,
+    now: Callable[[], float] = time.monotonic,
+) -> bool:
+    """Wait until nothing answers at the listen address (bounded)."""
+
+    bound = is_bound or listener_is_bound
+    deadline = now() + timeout
+    while True:
+        if not bound(listen_url):
+            return True
+        if now() >= deadline:
+            return False
+        sleep(0.1)
+
+
 def desktop_app_env(env: dict[str, str], paths: CodexDesktopPaths, listen_url: str) -> dict[str, str]:
     app_env = dict(env)
     app_env["CODEX_HOME"] = str(paths.codex_home)
@@ -203,6 +261,14 @@ class CodexDesktopPorts:
     find_app: Callable[[dict[str, str]], Path | None] = find_codex_desktop_app
     popen: Callable[..., Any] = subprocess.Popen
     wait_ready: Callable[..., bool] = wait_until_ready
+    # Whether something still owns the app-server port (see listener_is_bound).
+    listener_bound: Callable[[str], bool] = listener_is_bound
+    # Launch-scoped containment for the app-server process (see
+    # codex_owned_server.OwnedServer): tests inject a deterministic owner.
+    owned_server: Callable[..., Any] | None = None
+    # Token-authenticated initialization of the server we launched. /readyz
+    # alone cannot prove whose listener answered; tests inject a stub.
+    authenticate: Callable[[str, str, str], Any] = authenticate_server
     # select_codex_resume_session, for --continue / resume [--last|--all]
     select_resume: Callable[..., str | None] | None = None
 

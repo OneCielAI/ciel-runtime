@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Literal
 
 
-InflightAction = Literal["none", "completed", "failed", "waiting"]
+InflightAction = Literal["none", "completed", "failed", "waiting", "interrupted_uncertain"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,6 +58,13 @@ def advance_channel_inflight(
     message_id = snapshot.message_id
     state = snapshot.wake_state
     age = snapshot.now - snapshot.started_at
+    if state == "interrupted_uncertain":
+        # This state is emitted only after durable exit reconciliation. It is
+        # not a completion, failure, or invitation to replay the input.
+        if snapshot.cursor is not None:
+            effects.commit_cursor(snapshot.cursor)
+        effects.log("WARN", f"{policy.log_namespace}_interrupted_uncertain message_id={message_id} action=no_replay")
+        return _reset("interrupted_uncertain", snapshot)
     if state == "completed":
         if snapshot.cursor is not None:
             effects.commit_cursor(snapshot.cursor)

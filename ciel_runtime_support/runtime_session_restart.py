@@ -508,6 +508,11 @@ class SessionRestartPorts:
     # workspace instruction files are fetched again, so a restart picks up a
     # newer company prompt (Walkie 53255).
     prepare: Callable[[str], Any] = lambda _runtime: None
+    # The launcher observed this CLI child exit (the transport returned): a
+    # delivery attempt it owned can no longer be confirmed by it. Runs before
+    # the next launch scope or restart notice, so the reconciliation is bound
+    # to the child that actually ended.
+    child_exited: Callable[[bool], Any] = lambda _verified: None
 
     def new_control(self) -> RuntimeSessionRestartControl:
         return self.control()

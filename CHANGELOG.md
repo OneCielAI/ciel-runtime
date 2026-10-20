@@ -5,6 +5,21 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+- External SSE receivers retain one reader across transport outages, recover from
+  configuration/cleanup failures, and expose typed network/persistence diagnostics
+  without exception messages or credentials. EOF participates in capped backoff;
+  short heartbeat/EOF loops cannot reset it. Resume cursors are scoped to the
+  endpoint and cursor configuration. External events menus expose live router
+  status, reconnect and idle-timeout controls without opening another stream.
+
+- Restart lifecycle hardening is under verification: Codex remote launches must
+  release their owned app-server before replacement and authenticate the new
+  server rather than treating any `/readyz` response as launch identity. External
+  channel delivery must distinguish interrupted old-launch attempts from queues
+  still owned by the current CLI. See the 2026-10-20 restart-delivery journal for
+  the verified implementation and release evidence; historical failure causes
+  not directly observed remain explicitly unresolved.
+
 - Every routed `/v1/responses` request is logged on entry, before any route
   branch, and every upstream failure that becomes the client's HTTP error is
   recorded with provider, model, status, error type and a bounded message. A

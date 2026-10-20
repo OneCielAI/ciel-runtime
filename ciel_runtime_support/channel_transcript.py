@@ -23,6 +23,7 @@ class WakeStateEvidence:
     record_type: str = ""
     session_id: str = ""
     timestamp: str = ""
+    queue_exit_record: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -642,6 +643,7 @@ def wake_state_evidence_from_text(
     seen_real_prompt = False
     prompt_record: int | None = None
     queued_record: int | None = None
+    queue_exit_record: int | None = None
     prompt_metadata: dict[str, str] = {}
     for record_index, record in enumerate(_jsonl_records(text), start=1):
         record_type = str(record.get("type") or "")
@@ -654,12 +656,18 @@ def wake_state_evidence_from_text(
                 session_id=prompt_metadata.get("session_id", ""),
                 timestamp=prompt_metadata.get("timestamp", ""),
             )
-        if record_type == "queue-operation" and record.get("operation") in {"enqueue", "remove"}:
+        if record_type == "queue-operation" and record.get("operation") in {"enqueue", "remove", "dequeue"}:
             raw = record.get("content")
             if isinstance(raw, str) and services.prompt_references_message_id(raw, message_id, prompts):
                 seen_queued_prompt = True
                 queued_record = record_index
-                seen_dequeued = seen_dequeued or record.get("operation") == "remove"
+                seen_dequeued = seen_dequeued or record.get("operation") in {"remove", "dequeue"}
+                if record.get("operation") in {"remove", "dequeue"}:
+                    queue_exit_record = record_index
+                # An enqueue begins a fresh queue observation for this ID.
+                if record.get("operation") == "enqueue":
+                    seen_dequeued = False
+                    queue_exit_record = None
             continue
         if record_type == "attachment":
             attachment = record.get("attachment")
@@ -709,7 +717,7 @@ def wake_state_evidence_from_text(
             timestamp=prompt_metadata.get("timestamp", ""),
         )
     if seen_queued_prompt:
-        return WakeStateEvidence("queued", prompt_record=queued_record)
+        return WakeStateEvidence("queued", prompt_record=queued_record, queue_exit_record=queue_exit_record)
     return WakeStateEvidence("missing")
 
 
@@ -752,7 +760,7 @@ def wake_states_from_text(
         if is_assistant_message(record):
             assistant_records.append(record_index)
         record_type = str(record.get("type") or "")
-        if record_type == "queue-operation" and record.get("operation") in {"enqueue", "remove"}:
+        if record_type == "queue-operation" and record.get("operation") in {"enqueue", "remove", "dequeue"}:
             file_references(record.get("content"), record_index, str(record.get("operation")))
             continue
         if record_type == "attachment":
@@ -770,9 +778,9 @@ def wake_states_from_text(
             if kind == "prompt" or (kind == "handed_over" and dequeued):
                 prompt_record = record_index
                 break
-            if kind in {"enqueue", "remove"}:
+            if kind in {"enqueue", "remove", "dequeue"}:
                 queued = True
-                dequeued = dequeued or kind == "remove"
+                dequeued = kind in {"remove", "dequeue"}
         if prompt_record is not None:
             answered = bisect_right(assistant_records, prompt_record) < len(assistant_records)
             states[message_id] = "completed" if answered else "pending"

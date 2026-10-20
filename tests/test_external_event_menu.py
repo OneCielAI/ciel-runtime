@@ -46,6 +46,57 @@ class ExternalEventMenuTests(unittest.TestCase):
 
         self.assertEqual("tty", service.saved["input_transport"])
 
+    def test_live_status_comes_only_from_router_control_and_secrets_stay_local(self):
+        service = _Service()
+        calls = []
+
+        def control(action, body=None):
+            calls.append((action, body))
+            if action == "status":
+                return {"available": True, "status": {
+                    "state": "disconnected", "phase": "connect", "diagnostic": {"category": "dns"},
+                    "consecutive_failures": 3, "retry_seconds": 8, "recovery_count": 1}}
+            return {"available": True, "accepted": True}
+
+        rows, values = panel_rows(service, "http://127.0.0.1:6971", control=control)
+        live = next(row for row in rows if row.startswith("Live receiver"))
+        self.assertIn("disconnected", live)
+        self.assertIn("dns", live)
+        self.assertIn("refresh_receiver", values)
+        self.assertIn("reconnect_receiver", values)
+
+        update_config(service, "authorization", "Bearer sentinel-secret", control=control)
+        save = [body for action, body in calls if action == "save"][0]
+        self.assertNotIn("authorization", save)
+        self.assertNotIn("sentinel-secret", repr(calls))
+
+    def test_unreachable_router_is_unavailable_not_a_fabricated_state(self):
+        rows, _values = panel_rows(_Service(), "http://127.0.0.1:6971",
+                                   control=lambda *_a, **_k: {"available": False})
+        self.assertIn("unavailable", next(row for row in rows if row.startswith("Live receiver")))
+        messages = update_config(_Service(), "reconnect_receiver", None,
+                                 control=lambda *_a, **_k: {"available": False})
+        self.assertIn("unavailable", messages[0])
+
+    def test_recovery_does_not_label_historical_failure_as_current_error(self):
+        rows, _ = panel_rows(_Service(), "http://127.0.0.1:1", control=lambda *_a: {
+            "available": True, "status": {"state": "connected", "error": "", "diagnostic": None,
+                                          "last_failure": {"category": "dns"}}})
+        self.assertIn("error none", next(row for row in rows if row.startswith("Live receiver")))
+        messages = update_config(_Service(), "reconnect_receiver", None, control=lambda *_a: {
+            "available": True, "accepted": False})
+        self.assertIn("rejected", messages[0])
+
+    def test_idle_timeout_is_set_and_blank_clears_it_explicitly(self):
+        service = _Service()
+        update_config(service, "idle_timeout_seconds", "45")
+        self.assertEqual(45.0, service.saved["idle_timeout_seconds"])
+        update_config(service, "idle_timeout_seconds", "")
+        self.assertIn("idle_timeout_seconds", service.saved)
+        self.assertIsNone(service.saved["idle_timeout_seconds"])
+        with self.assertRaises(ValueError):
+            update_config(service, "idle_timeout_seconds", "999")
+
 
 if __name__ == "__main__":
     unittest.main()
