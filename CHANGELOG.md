@@ -5,6 +5,8 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+- External runtime wake delivery now excludes durable terminal inputs, atomically preflights ownership batches, preserves existing submitted ownership, and defers pre-submit ownership conflicts without crashing the terminal proxy or advancing the cursor.
+
 - Codex app-server + remote TUI restarts explicitly propagate startup-answer
   policy, settle paused-goal controls independently of unrelated screen redraws,
   and hold the RPC channel client until rendered startup readiness. The paused

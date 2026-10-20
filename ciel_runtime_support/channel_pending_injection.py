@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from ciel_runtime_support.channel_message_repository import ChannelFileLockBusy
+from ciel_runtime_support.runtime_input_status import WakeAttemptConflict
 from ciel_runtime_support.channel_message_policy import (
     message_input_transport,
     message_is_external_event,
@@ -126,6 +127,8 @@ def _submission_boundary(io: ChannelInjectionIO):
     # bookkeeping is not evidence that nothing was submitted.
     try:
         yield
+    except WakeAttemptConflict as exc:
+        raise RuntimeError("wake ownership conflict after submission attempt") from exc
     except ChannelFileLockBusy as exc:
         io.log(
             "ERROR",
@@ -145,6 +148,8 @@ def _release_claims(claimed_ids: list[int], services: ChannelInjectionServices) 
         except Exception as exc:
             if first_error is None:
                 first_error = exc
+    if isinstance(first_error, WakeAttemptConflict):
+        raise RuntimeError("channel claim cleanup incomplete") from first_error
     if isinstance(first_error, ChannelFileLockBusy):
         services.io.log(
             "ERROR",
@@ -230,6 +235,11 @@ def inject_pending_channel_messages(
                     "action=skipped",
                 )
                 continue
+            admission_status = getattr(wake_store.lifecycle, "admission_status", None)
+            durable = admission_status(message_id) if callable(admission_status) else ""
+            if durable in {"replied", "skipped"}:
+                io.log("INFO", f"channel_stdin_proxy_skipped_noise message_id={message_id} reason=durable_{durable}")
+                continue
             if web_chat_only and not state.message_is_web_chat(message):
                 io.log("INFO", f"channel_stdin_proxy_skipped_noise message_id={message_id} channel={channel} reason=not_web_chat")
                 continue
@@ -301,6 +311,13 @@ def inject_pending_channel_messages(
             wake_state = state.wake_state_for_message(message, message_prompt)
             if wake_state == "completed":
                 io.log("INFO", f"channel_stdin_proxy_skipped_noise message_id={message_id} channel={channel} reason=stdin_wake_completed")
+                continue
+            if durable == "submitted":
+                # Missing transcript evidence is not proof that an owned send
+                # never happened. Preserve the frontier; scan later inputs
+                # without resubmitting this one or adopting its attempt.
+                deferred.mark(message_id)
+                io.log("INFO", f"channel_stdin_proxy_deferred message_id={message_id} reason=ownership_submitted action=no_replay")
                 continue
             if not terminal_available and not candidate_uses_router and wake_store.lifecycle.is_delivered(message_id):
                 io.log("INFO", f"channel_stdin_proxy_skipped_noise message_id={message_id} channel={channel} reason=stdin_wake_delivered")

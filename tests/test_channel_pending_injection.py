@@ -38,7 +38,7 @@ from ciel_runtime_support.channel_transcript import (
 from ciel_runtime_support.channel_wake_delivery_repository import (
     ChannelWakeDeliveryRepository,
 )
-from ciel_runtime_support.runtime_input_status import RuntimeInputStatusRepository
+from ciel_runtime_support.runtime_input_status import RuntimeInputStatusRepository, WakeAttemptConflict
 from ciel_runtime_support.runtime_logging import LogLevelRepository, RouterFileLogger
 
 
@@ -276,6 +276,87 @@ class SocketOnlyInjectionTests(unittest.TestCase):
         message = _message(message_id)
         message["meta"] = {"input_transport": "session_socket"}
         return message
+
+    def ownership(self, harness, root):
+        status = RuntimeInputStatusRepository(
+            pathlib.Path(root) / "status.jsonl", Mock(), lambda *_: None, threading.RLock())
+        harness.delivery.status = status
+        harness.delivery.bind_child_epoch("owned-child")
+        return status
+
+    def test_durable_terminal_rows_with_missing_transcript_are_not_resent(self):
+        for terminal in ("replied", "skipped", "failed", "interrupted_uncertain"):
+            with self.subTest(terminal=terminal), tempfile.TemporaryDirectory() as root:
+                harness = _InjectionHarness([self.socket_message(40), self.socket_message(41)])
+                status = self.ownership(harness, root)
+                status.transition(40, "queued")
+                if terminal in {"replied", "interrupted_uncertain"}:
+                    status.begin_attempt([40], "old-child")
+                status.transition(40, terminal)
+                status.transition(41, "queued")
+                services = self.services(harness)
+                self.assertEqual(41, inject_pending_channel_messages(
+                    None, 39, services=services, terminal_available=False))
+                self.assertEqual(terminal, status.get(40)["status"])
+                sent = services.io.write_session_socket.call_args.args
+                self.assertEqual([41], [m["id"] for m in sent[1]])
+                self.assertNotIn("body-40", sent[0])
+                self.assertEqual("owned-child", status.get(41)["data"]["child_epoch"])
+
+    def test_racing_completion_rebuilds_batch_without_partial_ownership(self):
+        with tempfile.TemporaryDirectory() as root:
+            harness = _InjectionHarness([self.socket_message(40), self.socket_message(41)])
+            status = self.ownership(harness, root)
+            for message_id in (40, 41):
+                status.transition(message_id, "queued")
+            services = self.services(harness)
+            raced = False
+
+            def wake(message, prompt):
+                nonlocal raced
+                if message["id"] == 41 and not raced:
+                    raced = True
+                    status.begin_attempt([41], "other-child")
+                    status.transition(41, "replied")
+                return "missing"
+
+            services = dataclasses.replace(services, state=dataclasses.replace(
+                services.state, wake_state_for_message=wake))
+            with self.assertRaises(WakeAttemptConflict) as caught:
+                inject_pending_channel_messages(None, 39, services=services, terminal_available=False)
+            self.assertEqual(41, caught.exception.request_id)
+            self.assertEqual("queued", status.get(40)["status"])
+            self.assertEqual({}, harness.delivery.attempts.by_message)
+            self.assertEqual(set(), harness.delivery.delivered)
+            self.assertEqual([], harness.delivery.commits)
+            services.io.write_session_socket.assert_not_called()
+            self.assertEqual(41, inject_pending_channel_messages(
+                None, 39, services=services, terminal_available=False))
+            sent = services.io.write_session_socket.call_args.args
+            self.assertEqual([40], [m["id"] for m in sent[1]])
+            self.assertNotIn("body-41", sent[0])
+            services.io.write_session_socket.assert_called_once()
+
+    def test_submitted_owner_is_not_replayed_or_passed_by_cursor(self):
+        with tempfile.TemporaryDirectory() as root:
+            harness = _InjectionHarness([self.socket_message(40), self.socket_message(41)])
+            status = self.ownership(harness, root)
+            old = status.begin_attempt([40], "old-child")
+            status.transition(41, "queued")
+            services = self.services(harness)
+            self.assertEqual(39, inject_pending_channel_messages(
+                None, 39, services=services, terminal_available=False))
+            self.assertEqual([39], harness.delivery.commits)
+            self.assertEqual(old, status.get(40)["data"]["attempt_id"])
+            self.assertEqual([41], [m["id"] for m in services.io.write_session_socket.call_args.args[1]])
+
+    def test_post_send_conflict_is_not_safe_to_retry(self):
+        harness = _InjectionHarness([self.socket_message(40)])
+        services = self.services(harness, send=Mock(side_effect=WakeAttemptConflict(40, "replied")))
+        with self.assertRaises(RuntimeError) as caught:
+            inject_pending_channel_messages(None, 39, services=services, terminal_available=False)
+        self.assertNotIsInstance(caught.exception, WakeAttemptConflict)
+        services.io.write_session_socket.assert_called_once()
 
     def test_unavailable_socket_defers_before_claim_or_delivery_mark(self):
         for busy in (False, True):

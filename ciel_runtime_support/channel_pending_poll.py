@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from ciel_runtime_support.channel_message_repository import ChannelFileLockBusy
+from ciel_runtime_support.runtime_input_status import WakeAttemptConflict
 
 
 @dataclass(slots=True)
@@ -195,6 +196,15 @@ def poll_pending_channel_messages(
             skip_blocking_wake_states=state.inflight_message_id is not None,
             terminal_available=options.terminal_available,
         )
+    except WakeAttemptConflict as exc:
+        # The injector releases only this scan's claims before exposing this
+        # type. No send or ownership write occurred; rebuild on a bounded poll.
+        state.pending_recheck = True
+        if now - state.defer_logged_at >= policy.defer_log_interval_seconds:
+            state.defer_logged_at = now
+            services.log("WARN", f"{policy.log_namespace}_deferred stage=pre_submit "
+                         f"message_id={exc.request_id} status={exc.status} reason=wake_ownership_conflict")
+        return state
     except ChannelFileLockBusy as exc:
         # The injector never exposes this type after a submission attempt.
         # Keep the unconsumed marker/cursor and recheck on the next bounded poll.

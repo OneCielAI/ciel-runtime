@@ -55,6 +55,11 @@ class ChannelWakeDeliveryRepository:
         state.child_epoch = str(child_epoch or "")
         return state
 
+    def admission_status(self, message_id: int) -> str:
+        get = getattr(self.status, "get", None)
+        row = get(message_id) if callable(get) else None
+        return str(row.get("status") or "") if isinstance(row, dict) else ""
+
     def interrupted(self, message_id: int) -> bool:
         get = getattr(self.status, "get", None)
         row = get(message_id) if callable(get) else None

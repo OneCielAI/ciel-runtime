@@ -53,6 +53,15 @@ class ChannelBridgeTests(unittest.TestCase):
         self._home_patch = mock.patch.object(ciel_runtime, "HOME", Path(self._home_tmp.name))
         self._home_patch.start()
         self.addCleanup(self._home_patch.stop)
+        # Durable admission is part of candidate selection. Synthetic message
+        # ids are reused across these tests, so their status history must be
+        # isolated just like their transcript and delivery dictionaries.
+        self._status_patch = mock.patch.object(
+            ciel_runtime._RUNTIME_INPUT_STATUS_REPOSITORY,
+            "path", Path(self._home_tmp.name) / "runtime-input-status.jsonl",
+        )
+        self._status_patch.start()
+        self.addCleanup(self._status_patch.stop)
         # The facade binding persists launch scope under the process-wide
         # router instance directory; a test that binds a launch would hold
         # every later delivery as identity_pending. Each test gets its own.
@@ -2415,6 +2424,7 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertEqual(b"\r\n", write_all.call_args_list[1].args[1])
 
         ciel_runtime._CHANNEL_STDIN_WAKE_DELIVERED.clear()
+        ciel_runtime._RUNTIME_INPUT_STATUS_REPOSITORY.path.unlink(missing_ok=True)
         with (
             mock.patch.object(ciel_runtime, "read_chat_messages", return_value=messages),
             mock.patch.object(ciel_runtime, "_write_fd_all") as write_all_cr,

@@ -12,12 +12,23 @@ import threading
 import time
 from typing import Any, Callable
 
+from .channel_message_repository import ChannelFileLockBusy, exclusive_file_lock
+
 
 RUNTIME_INPUT_STATES = frozenset({"queued", "submitted", "replied", "failed", "skipped", "interrupted_uncertain"})
 # skipped: the scan consumed the input without delivering it (for example a
 # notice superseded by a newer one); a queued record would otherwise look
 # pending forever.
 _TERMINAL_STATES = frozenset({"replied", "failed", "skipped", "interrupted_uncertain"})
+
+
+class WakeAttemptConflict(RuntimeError):
+    """Batch admission was refused before any ownership record or send."""
+
+    def __init__(self, request_id: int, status: str) -> None:
+        self.request_id = request_id
+        self.status = status
+        super().__init__(f"wake ownership conflict request_id={request_id} status={status}")
 
 
 @dataclass(slots=True)
@@ -42,7 +53,7 @@ class RuntimeInputStatusRepository:
             raise ValueError("request_id must be positive")
         if status not in RUNTIME_INPUT_STATES:
             raise ValueError(f"invalid runtime input status: {status}")
-        with self.lock:
+        with self.lock, exclusive_file_lock(self.path):
             current = self.get(request_id, _locked=True)
             current_status = str((current or {}).get("status") or "")
             current_data = dict((current or {}).get("data") or {})
@@ -98,13 +109,33 @@ class RuntimeInputStatusRepository:
             raise ValueError("child epoch is required")
         attempt_id = uuid.uuid4().hex
         ids = sorted(set(int(value) for value in message_ids if int(value) > 0))
-        for request_id in ids:
-            record = self.transition(request_id, "submitted", data={
-                "child_epoch": child_epoch, "attempt_id": attempt_id,
-                "batch_ids": ids,
-            })
-            if record.get("data", {}).get("attempt_id") != attempt_id:
-                raise RuntimeError("wake attempt ownership persistence rejected")
+        writing = False
+        try:
+            with self.lock, exclusive_file_lock(self.path):
+                latest = {int(row["request_id"]): row for row in self._items(strict=True)
+                          if str(row.get("request_id", "")).isdigit()}
+                # Validate the whole batch before writing its first member. A
+                # completion racing candidate selection must not strand earlier
+                # queued work as submitted. Existing ownership is never stolen.
+                for request_id in ids:
+                    status = str(latest.get(request_id, {}).get("status") or "")
+                    if status not in {"", "queued"}:
+                        raise WakeAttemptConflict(request_id, status)
+                records = []
+                for request_id in ids:
+                    data = {**(latest.get(request_id, {}).get("data") or {}),
+                            "child_epoch": child_epoch, "attempt_id": attempt_id,
+                            "batch_ids": ids}
+                    writing = True
+                    records.append(self._record(request_id, "submitted", "", data))
+            for record in records:
+                self.publish_event(level="info", category="runtime_input.status",
+                                   message="runtime input submitted", source="runtime-input",
+                                   request_id=str(record["request_id"]), data=record)
+        except ChannelFileLockBusy as exc:
+            if writing:
+                raise RuntimeError("wake ownership persistence uncertain") from exc
+            raise
         return attempt_id
 
     def reconcile_child_exit(self, child_epoch: str, *, verified_exit: bool) -> list[int]:
@@ -223,4 +254,4 @@ class RuntimeInputStatusRepository:
         return items
 
 
-__all__ = ["RUNTIME_INPUT_STATES", "RuntimeInputStatusRepository"]
+__all__ = ["RUNTIME_INPUT_STATES", "RuntimeInputStatusRepository", "WakeAttemptConflict"]

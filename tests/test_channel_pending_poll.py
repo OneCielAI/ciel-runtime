@@ -4,6 +4,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 from ciel_runtime_support.channel_message_repository import ChannelFileLockBusy
+from ciel_runtime_support.runtime_input_status import WakeAttemptConflict
 from ciel_runtime_support.channel_pending_poll import (
     ChannelPendingInjectionOptions,
     ChannelPendingPollPolicy,
@@ -79,6 +80,24 @@ class ChannelPendingPollTests(unittest.TestCase):
         self.assertTrue(state.pending_recheck)
         self.assertEqual(31.0, state.defer_logged_at)
         self.assertIn("channel_test_deferred cursor=10 reason=active_turn", logs[0][1])
+
+    def test_ownership_conflict_rechecks_without_advancing_frontier(self):
+        state = ChannelPendingPollState(last_id=10, last_marker=(1.0, 5), last_scan_at=2.0)
+        inject = Mock(side_effect=[WakeAttemptConflict(20, "replied"), 21])
+        services = self.services(inject=inject)
+        result = poll_pending_channel_messages(
+            31.0, 1, bytes([13]), state, self.options(), self.policy(), services)
+        self.assertIs(state, result)
+        self.assertEqual(10, state.last_id)
+        self.assertEqual((1.0, 5), state.last_marker)
+        self.assertEqual(2.0, state.last_scan_at)
+        self.assertTrue(state.pending_recheck)
+        self.assertIsNone(state.inflight_message_id)
+        poll_pending_channel_messages(31.1, 1, bytes([13]), state, self.options(), self.policy(), services)
+        inject.assert_called_once()
+        poll_pending_channel_messages(32.0, 1, bytes([13]), state, self.options(), self.policy(), services)
+        self.assertEqual(2, inject.call_count)
+        self.assertEqual(21, state.last_id)
 
     def test_injection_updates_cursor_and_inflight_state(self):
         observed = []

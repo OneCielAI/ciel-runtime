@@ -1,0 +1,2 @@
+rect 0 0 0 0
+unavailable: console window rectangle does not expose rendered terminal
