@@ -1,0 +1,16 @@
+{
+  "runtime": "codex",
+  "epoch": "b9754d13d55647cebec61da5ce707a6e",
+  "started_at": 1792524063.0814567,
+  "session_id": "01a15ac2-3ab3-7a80-a064-f46cc7a9639b",
+  "cwd": "C:\\Windows\\Temp\\ciel-owned-restart-v1h59dbr\\ws",
+  "codex_home": "C:\\Windows\\Temp\\ciel-owned-restart-v1h59dbr\\codex",
+  "path": "C:\\Windows\\Temp\\ciel-owned-restart-v1h59dbr\\codex\\sessions\\2026\\10\\20\\rollout-2026-10-20T14-20-40-01a15ac2-3ab3-7a80-a064-f46cc7a9639b.jsonl",
+  "messaging_socket_path": "",
+  "owned_pid": 0,
+  "launcher_pid": 63816,
+  "claude_config_dir": "C:\\Windows\\Temp\\ciel-owned-restart-v1h59dbr\\home\\.claude",
+  "request_identity": true,
+  "seeded": true,
+  "request_observed": true
+}

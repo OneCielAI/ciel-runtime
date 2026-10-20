@@ -1,0 +1,1 @@
+{"updated_at":1792524073.3546753,"time":"2026-10-20T14:21:13","event":"request","provider":"vllm","model":"stub-model","attempt":1,"total":1,"tokens":10721,"bytes":42892,"timeout":300.0,"stream":true,"endpoint":"http://127.0.0.1:64524/v1/chat/completions"}

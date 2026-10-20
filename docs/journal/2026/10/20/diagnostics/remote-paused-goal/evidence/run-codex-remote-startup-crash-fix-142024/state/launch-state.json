@@ -1,0 +1,20 @@
+{
+  "by_cwd": {
+    "C:\\Windows\\Temp\\ciel-owned-restart-v1h59dbr\\ws": {
+      "cwd": "C:\\Windows\\Temp\\ciel-owned-restart-v1h59dbr\\ws",
+      "mode": "codex-remote-router",
+      "model": "stub-model",
+      "pid": 63816,
+      "provider": "vllm",
+      "time": 1792524037.9630475
+    }
+  },
+  "last": {
+    "cwd": "C:\\Windows\\Temp\\ciel-owned-restart-v1h59dbr\\ws",
+    "mode": "codex-remote-router",
+    "model": "stub-model",
+    "pid": 63816,
+    "provider": "vllm",
+    "time": 1792524037.9630475
+  }
+}

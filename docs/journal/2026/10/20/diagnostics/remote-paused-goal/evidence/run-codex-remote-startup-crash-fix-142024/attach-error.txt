@@ -1,0 +1,7 @@
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime\docs\journal\2026\10\20\diagnostics\remote-paused-goal\evidence\console_watch.py", line 61, in <module>
+    console = Console(pid)
+              ^^^^^^^^^^^^
+  File "C:\Users\djlov\ciel-runtime\docs\journal\2026\10\16\features\cielairouter-direct-path\evidence\e2e\console_driver.py", line 54, in __init__
+    raise OSError(f"AttachConsole({pid}) failed: {ctypes.get_last_error()}")
+OSError: AttachConsole(63816) failed: 6

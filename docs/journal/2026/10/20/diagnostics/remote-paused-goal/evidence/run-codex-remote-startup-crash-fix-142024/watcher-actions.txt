@@ -1,0 +1,3 @@
+14:20:53 typed 28 chars: 'E2E-RT-TURN-1 owned baseline'
+14:21:17 PrintWindow unavailable rect=0x0
+14:21:18 stop requested

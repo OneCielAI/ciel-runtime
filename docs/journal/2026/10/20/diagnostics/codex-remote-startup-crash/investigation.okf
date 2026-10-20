@@ -1,0 +1,68 @@
+---
+type: crash-investigation
+title: Codex app-server TUI startup crash
+description: Verified Bob and Walkie crash caused by a persisted compaction callback using an unsupported remote launch identity.
+timestamp: 2026-10-20
+tags: [codex, app-server, tui, restart, crash]
+---
+
+# Observed
+
+Bob's aap-bob-next logs for installed version
+0.2.51-nightly.20261020-165616.9ac82f0 repeatedly recorded
+`codex_remote_launch_failed error=KeyError: 'codex-remote'` at 2026-10-21
+03:32:14, 03:38:04 and earlier retries. The plain Codex TUI did not show this
+failure. The local `G:/ciel-Walkie` workspace also had a durable automatic
+`channel-compact-request.json` while its router log recorded context-recovery
+and deferred compaction activity.
+
+The pure reproduction was run without a Codex process, network, or terminal:
+`RemoteMemorySynchronizer.project_current_pointer("codex-remote")` reached
+`remote_memory.py:619` and raised `KeyError` because `RUNTIME_FILES` has
+`codex-app-server` but not `codex-remote`.
+
+# Trace
+
+`_run_tui` enters the terminal polling loop. A pending session command calls
+`ciel_runtime.py:_inject_pending_compact_request`, which refreshed remote
+instructions using `last_launch_runtime()`. Launch-state normalization returns
+`codex-remote` for `codex-remote-router`. Remote memory then indexed
+`RUNTIME_FILES["codex-remote"]`; the broad remote launch exception boundary
+reported this as `codex_remote_launch_failed` and returned exit code 1. A durable
+request caused the same failure on each subsequent restart.
+
+The CLI dispatch map was not the failing boundary. The error occurred after the
+remote TUI had already entered its terminal loop.
+
+# Change
+
+Added `instruction_runtime()` to map persisted `codex-remote` and
+`codex-desktop` identities to the existing `codex-app-server` instruction
+runtime before pre-compaction synchronization. Unsupported direct pointer
+projection now raises the typed `ValueError` instead of leaking `KeyError`; the
+existing synchronization wrappers log it and continue. Added regression tests
+for alias normalization, the original compact callback, RPC ownership of the
+remote TUI compact action, and the typed unsupported-runtime boundary.
+
+# Verification
+
+Focused isolated evidence:
+- `evidence/before.txt`: expected failing regressions (4 errors), including the
+  original KeyError and missing helper.
+- `evidence/after.txt`: 259 tests passed, 80 skipped.
+- `evidence/adjacent.txt`: 115 tests passed.
+- `evidence/final.txt`: 260 tests passed, 80 skipped.
+- Python compileall passed for the changed production and test files.
+- Architecture budget returned no violations.
+- Pure alias reproduction returned `codex-remote -> codex-app-server` and the
+  direct unsupported boundary returned `ValueError`.
+- Native acceptance `run-codex-remote-startup-crash-fix-142024` passed: the app-server
+  TUI restarted, Leave paused was dismissed, paused goal identity/objective/status/
+  updatedAt stayed unchanged, post-restart notification reached the fixture, the old
+  native process ended, and app-server listener release was observed.
+
+# Scope
+
+No Bob or Walkie process was restarted or modified. The fix is local source
+work only until review, commit, and release verification are explicitly carried
+out.

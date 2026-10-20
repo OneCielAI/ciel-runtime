@@ -1,0 +1,1 @@
+{"updated_at":1792524073.3080053,"time":"2026-10-20T14:21:13","provider":"vllm","model":"ciel-runtime-vllm-stub-model","source":"responses","token_source":"estimated_json","tokens":10432,"context_limit":128000,"percent":8.2,"messages":2,"tools":10}
