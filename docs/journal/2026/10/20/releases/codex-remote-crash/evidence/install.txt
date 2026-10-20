@@ -1,0 +1,13 @@
+prefix=C:\Users\djlov\AppData\Roaming\npm target=C:\Users\djlov\.local\share\ciel-runtime-f6fc7ac656629a39e0508726b505f861c5524a96 policy=Bypass
+npm error code ETARGET
+npm error notarget No matching version found for @one-ciel-ai/ciel-runtime@0.2.51-nightly.20261020-193048.f6fc7ac.
+npm error notarget In most cases you or one of your dependencies are requesting a package version that doesn't exist.
+npm error A complete log of this run can be found in: C:\Users\djlov\AppData\Local\npm-cache\_logs\2026-10-20T19_40_51_205Z-debug-0.log
+npm global install failed
+At C:\Users\djlov\ciel-runtime\docs\journal\2026\10\19\releases\muse-wonder-and-upstream-log\evidence\scripts\deploy_pu
+blished.ps1:11 char:28
++ if ($LASTEXITCODE -ne 0) { throw "npm global install failed" }
++                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : OperationStopped: (npm global install failed:String) [], RuntimeException
+    + FullyQualifiedErrorId : npm global install failed
+ 

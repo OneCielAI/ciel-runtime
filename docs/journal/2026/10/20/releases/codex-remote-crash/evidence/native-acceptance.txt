@@ -1,0 +1,43 @@
+{
+  "run": "docs\\journal\\2026\\10\\20\\diagnostics\\remote-paused-goal\\evidence\\run-codex-remote-installed-f6fc7ac-144153",
+  "status": "passed_paused_goal_restart",
+  "checks": [
+    {
+      "at": 1792525368.988,
+      "kind": "acceptance_pass",
+      "checks": {
+        "old_native_gone": true,
+        "new_input_replied": true,
+        "paused_goal_preserved": true,
+        "appserver_listener_release_observed": true
+      }
+    }
+  ],
+  "teardown": {
+    "killed": [
+      {
+        "pid": 21336
+      },
+      {
+        "pid": 54556
+      },
+      {
+        "pid": 65780
+      },
+      {
+        "pid": 66960
+      },
+      {
+        "pid": 70832
+      },
+      {
+        "pid": 71548
+      },
+      {
+        "pid": 71684
+      }
+    ],
+    "router_listener_after": null,
+    "app_listener_after": null
+  }
+}

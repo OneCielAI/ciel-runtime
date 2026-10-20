@@ -1,0 +1,12 @@
+{
+  "snapshot": {
+    "python_files": 430,
+    "mismatches": [],
+    "version_exit": 0,
+    "version_output": "ciel-runtime 0.2.51-nightly.20261020-193048.f6fc7ac"
+  },
+  "npm": {
+    "python_files": 430,
+    "mismatches": []
+  }
+}
