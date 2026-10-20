@@ -11,6 +11,7 @@ from ciel_runtime_support.remote_instructions import (
     SynchronizedLaunch,
     configured_url,
     expand_environment_references,
+    instruction_runtime,
     launch_instruction_runtimes,
     normalized_instruction_sha256,
     panel_rows,
@@ -278,6 +279,18 @@ class RemoteInstructionTests(unittest.TestCase):
             [("prepare", "now"), ("sync", "codex", "launch"), ("launch", "now")],
             calls,
         )
+
+
+    def test_app_server_launch_runtimes_use_the_app_server_instruction_runtime(self):
+        # last_launch_runtime() reports "codex-remote" and "codex-desktop"; both
+        # launch through the app-server session, which synchronizes as
+        # "codex-app-server" (AGENTS.md, codex_url).
+        for launch_runtime in ("codex-remote", "codex-desktop"):
+            with self.subTest(launch_runtime=launch_runtime):
+                self.assertEqual("codex-app-server", instruction_runtime(launch_runtime))
+        for runtime in ("claude", "codex", "codex-app-server", "agy", "muse", ""):
+            with self.subTest(runtime=runtime):
+                self.assertEqual(runtime, instruction_runtime(runtime))
 
 
 if __name__ == "__main__":

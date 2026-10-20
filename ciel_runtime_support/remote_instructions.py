@@ -122,6 +122,12 @@ _SHARED_URL_FALLBACK = {"claude_url": "codex_url", "codex_url": "claude_url"}
 LAUNCH_COMPANION_RUNTIMES = ("claude", "codex")
 
 
+def instruction_runtime(runtime: str) -> str:
+    """Map persisted app-server launch identities to their instruction runtime."""
+
+    return "codex-app-server" if runtime in {"codex-remote", "codex-desktop"} else runtime
+
+
 def configured_url(config: dict[str, Any], runtime: str) -> str:
     key = URL_KEYS.get(runtime, "")
     if not key:
@@ -353,6 +359,7 @@ __all__ = [
     "auto_reload_enabled",
     "company_prompt_in",
     "configured_url",
+    "instruction_runtime",
     "held_company_prompt",
     "launch_instruction_runtimes",
     "expand_environment_references",

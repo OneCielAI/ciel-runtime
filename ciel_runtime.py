@@ -254,7 +254,7 @@ from ciel_runtime_support.prompt_injection import append_anthropic_system_texts 
 from ciel_runtime_support.prompt_injection import normalize_anthropic_system_role_messages as project_normalize_anthropic_system_role_messages
 from ciel_runtime_support.prompt_injection import normalize_anthropic_system_role_messages_by_strategy as project_normalize_anthropic_system_role_messages_by_strategy
 from ciel_runtime_support.remote_instructions import RemoteInstructionResult, RemoteInstructionSynchronizer, SynchronizedLaunch
-from ciel_runtime_support.remote_instructions import held_company_prompt, panel_rows as project_remote_instruction_panel_rows
+from ciel_runtime_support.remote_instructions import held_company_prompt, instruction_runtime, panel_rows as project_remote_instruction_panel_rows
 from ciel_runtime_support.remote_memory import RemoteMemoryResult, RemoteMemorySynchronizer, current_memory_prompt as project_current_memory_prompt, project_current_pointer_logged, inject_current_memory_prompt as project_inject_current_memory_prompt, move_memory_pointer_to_system_end as project_move_memory_pointer_to_system_end, sync_all_memory_pointers as project_sync_all_memory_pointers, sync_instruction_with_memory_pointer as project_sync_instruction_with_memory_pointer, sync_launch_assets as project_sync_launch_assets, without_memory_pointer as project_without_memory_pointer
 from ciel_runtime_support.protocols import PROTOCOL_ADAPTERS
 from ciel_runtime_support.protocols.anthropic_content import content_to_text as anthropic_content_to_text
@@ -4540,7 +4540,7 @@ def _inject_pending_channel_messages(
 
 def _inject_pending_compact_request( master_fd: int, enter_bytes: bytes | None = None, *, log_defer: bool = True, submit_retry_count: int = 1, confirm_submit: bool = False, bracketed_paste: bool = False, submit_delay_seconds: float | None = None, **session_options: Any, ) -> str:
     if _read_channel_compact_request() is not None:
-        sync_remote_instruction(last_launch_runtime() or "claude", reason="pre-compact")
+        sync_remote_instruction(instruction_runtime(last_launch_runtime() or "claude"), reason="pre-compact")
     return channel_wake_context().inject_compact(
         master_fd,
         enter_bytes,
