@@ -81,3 +81,21 @@ The change strengthens Windows app-server + remote TUI startup only. It does not
 claim a repaired POSIX renderer, Electron UI automation, or a root cause for the
 reported screenshot instance. Publication/local installation awaits exact-SHA
 workflow verification.
+
+# Exact-SHA CI initial result
+
+9ac82f0 CI run 39461098497 initial runtime job ran 426 tests OK (19 skips),
+then failed isolated TemporaryDirectory cleanup with Errno 39 Directory not
+empty. This is a real CI failure, not waived. Failed job rerun requested for
+same SHA; cleanup race cause has not been established. Publish is independently
+still running. No installation of this candidate yet.
+
+# Publication and local installation
+
+Exact SHA 9ac82f0 CI rerun succeeded and npm Publish succeeded. Registry version
+is 0.2.51-nightly.20261020-165616.9ac82f0 with matching gitHead; tarball SHA256
+is b35e9382ae60a0d9ade1fa76f4191e962aea2c8661b93e4869533bef3e2f8ae2. New
+snapshot installed at ~/.local/share/ciel-runtime-9ac82f0e86a067b8cf9fcdfe3fc69ef695071ff8.
+Published package source hashes matched 426 Python files; installed focused
+selection ran 194 tests with no failures/errors. Installed native acceptance passed
+(run-codex-remote-installed-9ac82f0-120350); no live sessions were restarted.

@@ -1,0 +1,32 @@
+---
+type: release-verification
+title: Codex remote TUI Leave paused local nightly deployment
+timestamp: 2026-10-20
+tags: [codex, paused-goal, release]
+---
+
+# Identity
+
+Version 0.2.51-nightly.20261020-165616.9ac82f0, exact SHA
+9ac82f0e86a067b8cf9fcdfe3fc69ef695071ff8. CI 39461098497 succeeded on rerun;
+initial runtime job passed 426 tests but failed temporary-directory cleanup.
+Publish 39461098465 succeeded. Registry tag/gitHead, SHA1/SHA512 verified.
+Tarball SHA256 b35e9382ae60a0d9ade1fa76f4191e962aea2c8661b93e4869533bef3e2f8ae2.
+
+# Local verification
+
+Exact npm global and new full-SHA snapshot installed; user registration updated
+for future launches without restarting existing sessions. Snapshot Python source
+hashes: 426 checked, no mismatch. Installed focused tests: 194 passed.
+Native installed acceptance run-codex-remote-installed-9ac82f0-120350 passed:
+same thread, Leave paused selected and modal dismissed, goal paused/objective/
+updatedAt preserved, new external input reached fixture and replied, owned
+listeners absent after teardown. Window screenshot unavailable (0x0); rendered
+terminal text, goal RPC readback and process/listener logs retained privately.
+
+# Scope limits
+
+Baseline installed 4907ba8 also passed the owned modal fixture. The reported user
+incident root cause is not established. Candidate fixes tested redraw starvation,
+per-attempt env policy and Windows RPC startup delivery gating. POSIX/Electron
+UI automation is not claimed. Operational sessions were not restarted by this work.
