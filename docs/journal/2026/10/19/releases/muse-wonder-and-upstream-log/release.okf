@@ -1,0 +1,57 @@
+---
+type: journal
+title: Muse Wonder, request observability and the token-plan 503 nightly
+timestamp: 2026-10-19
+---
+
+# Scope
+
+User authorized the fix, a local install and a nightly push ("수정 진행 로컬 나이트리 푸시").
+No live session was restarted and no old snapshot was overwritten.
+
+# Release state
+
+Released code commit: fa633ec9fbbd4af5df105e6f39b9c8d88061406d (nightly).
+
+- CI 39355873593: success, all six jobs (the earlier 03bec69 run failed in
+  test (router) with an `AttributeError: SimpleNamespace has no attribute
+  'log'` in the Responses auth-boundary tests; the follow-up commit routes the
+  new logs through one tolerant helper).
+- Publish 39355873588: success, including Verify published tarball. The
+  03bec69 publish run was stopped at npm test by the same regression and
+  published nothing.
+- Exact version `0.2.51-nightly.20261020-015728.fa633ec`; registry gitHead
+  equals the released commit; nightly tag points at it; latest remains 0.2.51.
+- Tarball SHA-256 `b0ffaa434245bd8e85120ca5a51756906589b79605417be51eb7fc22953cd088`,
+  10,015,529 bytes, 1,784 files. SHA-1 and SHA-512 verified against the registry
+  values by acquire_published.py before extraction.
+
+# Local install
+
+- Previous HKCU CIEL_RUNTIME_HOME: ~/.local/share/ciel-runtime-50e7906a1b4e3a104414adbbd40313de560a8c9c
+  (0.2.51-nightly.20261019-225158.50e7906); left untouched.
+- npm global install of the exact version, then install.ps1 with
+  CIEL_RUNTIME_INSTALL_HOME=~/.local/share/ciel-runtime-fa633ec9fbbd4af5df105e6f39b9c8d88061406d.
+- New HKCU CIEL_RUNTIME_HOME points at that snapshot; `ciel-runtimectl version`
+  prints `0.2.51-nightly.20261020-015728.fa633ec`.
+- The installed tree contains the new `responses_upstream_error` log and
+  `muse-wonder-1.0` registration.
+
+# Verification before release
+
+- Focused suites: Meta provider 49, Alibaba provider, channel compact injection,
+  Muse runtime/MCP/injection, Responses router observers, Responses stream and
+  upstream stream error, Codex router/auth: 228 + 68 tests OK.
+- `ruff check .` clean; `py_compile` clean.
+- Migration dry-run against a copy of the live workspace config: alitoken gains
+  `deepseek-v4.1-flash-1017`, meta gains `muse-wonder-1.0`, `current_model`
+  unchanged.
+- Full local test groups were not run because live routers are serving; hosted
+  CI ran all six jobs.
+
+# Limits
+
+Running sessions keep the code and environment they were launched with. The
+Walkie session on router 9505 was launched at 17:52 with
+`context=872000 window=872000 percent=-` (no auto-compact trigger override) and
+keeps that environment until it is restarted.
