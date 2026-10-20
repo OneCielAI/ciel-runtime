@@ -61,7 +61,11 @@ closed. Earlier harness preflight failures cannot be called successful proof.
 The earlier pristine HEAD unit-group run failed in compaction binding, but
 root cause is not established; do not label this proven harmless order-only
 flakiness or use it to waive CI failures. CI/Publish must pass for exact SHA.
-Publication and new local snapshot installation remain pending.
+Publication and new local snapshot installation verified at exact SHA
+4907ba8974fda7e00f92d9862df01fff00fab472, version
+0.2.51-nightly.20261020-145930.4907ba8. Installed native Claude and Codex scoped
+restart runs both passed with cleanup listeners absent. See the same-day
+releases/restart-and-sse-recovery/release.okf for CI and source hash evidence.
 
 # Implementation summary
 

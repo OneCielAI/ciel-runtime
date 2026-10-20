@@ -44,4 +44,7 @@ Final integrated focused selection: 524 tests, zero failures/errors, 42 skips.
 Real HTTP receiver controls/access-policy/gateway fixture passes; it is not the
 entire production router handler. Package dry-run after excluding operational
 journals: 557 files, zero docs/journal entries, zero credential-path hits.
-Publication and installation are not yet verified.
+Published and locally installed 0.2.51-nightly.20261020-145930.4907ba8 at
+exact SHA 4907ba8974fda7e00f92d9862df01fff00fab472. Installed snapshot 261 focused
+tests passed; npm root 52 passed. Native installed Claude/Codex scoped restart
+checks passed. See ../../../releases/restart-and-sse-recovery/release.okf.
