@@ -98,6 +98,14 @@ class OpenAIResponsesServices:
     output: OpenAIResponsesOutput
 
 
+def _core_log(core: Any, level: str, message: str) -> None:
+    """Log through ``core`` when it exposes one (tests use a bare namespace)."""
+
+    log = getattr(core, "log", None)
+    if callable(log):
+        log(level, message)
+
+
 def _request_path(handler: Any) -> str:
     """The request path for a log line, or ``-`` when the handler has none."""
 
@@ -127,7 +135,8 @@ def _log_upstream_error(
     """
 
     text = " ".join(str(message or "").split())[:300]
-    core.log(
+    _core_log(
+        core,
         "ERROR",
         f"responses_upstream_error path={path or '-'} provider={provider} "
         f"model={model or '-'} status={status} type={error_type or '-'} "
@@ -332,7 +341,8 @@ def handle_openai_responses_request(
     # provider; the native Codex backend is excluded inside the port.
     remote_bridge = is_remote_bridge_request(handler)
     raw_body = copy.deepcopy(body) if not remote_bridge else body
-    core.log(
+    _core_log(
+        core,
         "DEBUG",
         f"responses_request_received path={_request_path(handler)} "
         f"provider={provider} model={body.get('model') or '-'} "
