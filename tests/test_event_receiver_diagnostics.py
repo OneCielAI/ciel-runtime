@@ -7,11 +7,11 @@ from ciel_runtime_support.event_receiver_diagnostics import receiver_failure
 
 class EventReceiverDiagnosticsTests(unittest.TestCase):
     def test_nested_url_error_is_typed_without_reason_text(self):
-        exc = urllib.error.URLError(OSError(111, "secret.endpoint.invalid token"))
+        exc = urllib.error.URLError(ConnectionRefusedError(111, "secret.endpoint.invalid token"))
         value = receiver_failure(exc, "connect")
         encoded = json.dumps(value)
-        self.assertEqual("io", value["category"])
-        self.assertEqual("io", value["reason"]["category"])
+        self.assertEqual("network", value["category"])
+        self.assertEqual("network", value["reason"]["category"])
         self.assertEqual(111, value["reason"]["errno"])
         self.assertNotIn("secret.endpoint.invalid", encoded)
         self.assertNotIn("token", encoded)
