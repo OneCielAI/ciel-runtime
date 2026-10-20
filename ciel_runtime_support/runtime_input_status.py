@@ -22,6 +22,14 @@ RUNTIME_INPUT_STATES = frozenset({"queued", "submitted", "replied", "failed", "s
 _TERMINAL_STATES = frozenset({"replied", "failed", "skipped", "interrupted_uncertain"})
 
 
+class WakeHistoryUnavailable(RuntimeError):
+    """Ownership cannot be established from an incomplete durable history."""
+
+    def __init__(self, line_number: int = 0) -> None:
+        self.line_number = line_number
+        super().__init__("wake ownership history contains an incomplete record")
+
+
 class WakeAttemptConflict(RuntimeError):
     """Batch admission was refused before any ownership record or send."""
 
@@ -132,7 +140,7 @@ class RuntimeInputStatusRepository:
                 self.publish_event(level="info", category="runtime_input.status",
                                    message="runtime input submitted", source="runtime-input",
                                    request_id=str(record["request_id"]), data=record)
-        except ChannelFileLockBusy as exc:
+        except (ChannelFileLockBusy, WakeHistoryUnavailable) as exc:
             if writing:
                 raise RuntimeError("wake ownership persistence uncertain") from exc
             raise
@@ -235,12 +243,12 @@ class RuntimeInputStatusRepository:
         items: list[dict[str, Any]] = []
         try:
             with self.path.open("r", encoding="utf-8") as stream:
-                for line in stream:
+                for line_number, line in enumerate(stream, 1):
                     try:
                         item = json.loads(line)
                     except (json.JSONDecodeError, TypeError):
                         if strict:
-                            raise RuntimeError("wake ownership history contains an incomplete record")
+                            raise WakeHistoryUnavailable(line_number)
                         continue
                     if isinstance(item, dict):
                         items.append(item)
@@ -254,4 +262,4 @@ class RuntimeInputStatusRepository:
         return items
 
 
-__all__ = ["RUNTIME_INPUT_STATES", "RuntimeInputStatusRepository", "WakeAttemptConflict"]
+__all__ = ["RUNTIME_INPUT_STATES", "RuntimeInputStatusRepository", "WakeAttemptConflict", "WakeHistoryUnavailable"]

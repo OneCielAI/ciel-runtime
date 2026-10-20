@@ -38,7 +38,7 @@ from ciel_runtime_support.channel_transcript import (
 from ciel_runtime_support.channel_wake_delivery_repository import (
     ChannelWakeDeliveryRepository,
 )
-from ciel_runtime_support.runtime_input_status import RuntimeInputStatusRepository, WakeAttemptConflict
+from ciel_runtime_support.runtime_input_status import RuntimeInputStatusRepository, WakeAttemptConflict, WakeHistoryUnavailable
 from ciel_runtime_support.runtime_logging import LogLevelRepository, RouterFileLogger
 
 
@@ -349,6 +349,75 @@ class SocketOnlyInjectionTests(unittest.TestCase):
             self.assertEqual([39], harness.delivery.commits)
             self.assertEqual(old, status.get(40)["data"]["attempt_id"])
             self.assertEqual([41], [m["id"] for m in services.io.write_session_socket.call_args.args[1]])
+
+    def test_corrupt_history_holds_poll_without_crashing_or_sending(self):
+        from ciel_runtime_support.channel_pending_poll import (
+            ChannelPendingPollState, ChannelPendingPollPolicy,
+            ChannelPendingPollServices, ChannelPendingInjectionOptions,
+            poll_pending_channel_messages,
+        )
+        for damage in ("{incomplete", "not-json" + chr(10), chr(10)):
+            with self.subTest(damage=repr(damage)), tempfile.TemporaryDirectory() as root:
+                harness = _InjectionHarness([self.socket_message(40)])
+                status = self.ownership(harness, root)
+                status.transition(40, "queued")
+                valid = status.path.read_bytes()
+                with status.path.open("a", encoding="utf-8") as stream:
+                    stream.write(damage)
+                damaged = status.path.read_bytes()
+                services = self.services(harness)
+                logs = []
+                polling = ChannelPendingPollServices(
+                    file_marker=lambda: (1.0, 10), should_check=lambda *_: True,
+                    active=lambda: False, ensure_cursor=lambda: 39,
+                    inject_pending=lambda writer, cursor, enter, **options:
+                        inject_pending_channel_messages(writer, cursor, enter, services=services, **options),
+                    log=lambda level, message: logs.append((level, message)),
+                )
+                options = ChannelPendingInjectionOptions(True, False, False, False, 1, True, False, 0,
+                                                         terminal_available=False)
+                state = ChannelPendingPollState(last_id=39, last_marker=(0.0, 0))
+                policy = ChannelPendingPollPolicy("test", "busy")
+                for now in (31.0, 31.1, 32.0):
+                    self.assertIs(state, poll_pending_channel_messages(
+                        now, None, bytes([13]), state, options, policy, polling))
+                self.assertEqual(39, state.last_id)
+                self.assertEqual((0.0, 0), state.last_marker)
+                self.assertIsNone(state.inflight_message_id)
+                self.assertTrue(state.pending_recheck)
+                self.assertEqual(damaged, status.path.read_bytes())
+                self.assertEqual([], harness.delivery.commits)
+                self.assertEqual({}, harness.delivery.attempts.by_message)
+                services.io.write_session_socket.assert_not_called()
+                self.assertEqual(1, len(logs))
+                self.assertIn("reason=wake_history_incomplete", logs[0][1])
+                self.assertIn("line=2", logs[0][1])
+                # Only the isolated test repairs its own fixture. Production
+                # never deletes or rewrites an ambiguous ownership record.
+                status.path.write_bytes(valid)
+                poll_pending_channel_messages(33.0, None, bytes([13]), state, options, policy, polling)
+                services.io.write_session_socket.assert_called_once()
+
+    def test_corrupt_history_claim_cleanup_does_not_become_safe_retry(self):
+        harness = _InjectionHarness([_message(40)])
+        services = harness.services()
+        busy = WakeHistoryUnavailable(2)
+        services = dataclasses.replace(services, wake_store=dataclasses.replace(
+            services.wake_store, clear_claim=Mock(side_effect=busy)))
+        with patch.object(harness.delivery, "begin_attempt", side_effect=busy):
+            with self.assertRaises(RuntimeError) as caught:
+                inject_pending_channel_messages(123, 39, services=services, wake_for_llm_delivery=True)
+        self.assertNotIsInstance(caught.exception, WakeHistoryUnavailable)
+        self.assertEqual([], harness.written)
+        self.assertEqual([], harness.delivery.commits)
+
+    def test_post_send_history_failure_is_not_a_pre_submit_deferral(self):
+        harness = _InjectionHarness([self.socket_message(40)])
+        services = self.services(harness, send=Mock(side_effect=WakeHistoryUnavailable(2)))
+        with self.assertRaises(RuntimeError) as caught:
+            inject_pending_channel_messages(None, 39, services=services, terminal_available=False)
+        self.assertNotIsInstance(caught.exception, WakeHistoryUnavailable)
+        services.io.write_session_socket.assert_called_once()
 
     def test_post_send_conflict_is_not_safe_to_retry(self):
         harness = _InjectionHarness([self.socket_message(40)])

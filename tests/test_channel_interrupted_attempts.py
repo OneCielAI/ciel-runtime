@@ -8,7 +8,7 @@ from unittest import mock
 import concurrent.futures
 import errno
 
-from ciel_runtime_support.runtime_input_status import RuntimeInputStatusRepository, WakeAttemptConflict
+from ciel_runtime_support.runtime_input_status import RuntimeInputStatusRepository, WakeAttemptConflict, WakeHistoryUnavailable
 from ciel_runtime_support.channel_wake_delivery_repository import ChannelWakeDeliveryRepository, DeliveryAttempts
 from ciel_runtime_support.channel_transcript import (
     ChannelWakeTranscriptServices, wake_state_evidence_from_text, wake_states_from_text,
@@ -61,8 +61,9 @@ class InterruptedAttemptTests(unittest.TestCase):
         with self.status.path.open("a") as stream:
             stream.write("{incomplete")
         before = self.status.path.read_bytes()
-        with self.assertRaises(RuntimeError):
+        with self.assertRaises(WakeHistoryUnavailable) as caught:
             self.status.begin_attempt([40], "child")
+        self.assertEqual(2, caught.exception.line_number)
         self.assertEqual(before, self.status.path.read_bytes())
 
     def test_two_repository_instances_admit_exactly_one_owner(self):
@@ -102,6 +103,13 @@ class InterruptedAttemptTests(unittest.TestCase):
             with self.assertRaises(RuntimeError) as caught:
                 self.status.begin_attempt([40, 41], "child")
         self.assertNotIsInstance(caught.exception, ChannelFileLockBusy)
+
+    def test_history_failure_after_ownership_write_is_not_safe_retry(self):
+        with mock.patch.object(RuntimeInputStatusRepository, "_record",
+                               side_effect=WakeHistoryUnavailable(1)):
+            with self.assertRaises(RuntimeError) as caught:
+                self.status.begin_attempt([40], "child")
+        self.assertNotIsInstance(caught.exception, WakeHistoryUnavailable)
 
     def test_fence_rejects_other_attempt(self):
         self.status.begin_attempt([9], "child")
