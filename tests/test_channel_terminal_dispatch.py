@@ -398,6 +398,45 @@ class ChannelTerminalDispatchServiceTests(unittest.TestCase):
         service.call_direct(["codex"], {"CIEL_RUNTIME_STARTUP_AUTO_ANSWER": "1"})
         self.assertTrue(any("transport=direct rendered_screen=false automatic_injection=false" in str(event) for event in events))
 
+    def test_conpty_modal_gate_opens_only_after_confirmed_rendered_readiness(self):
+        from ciel_runtime_support.startup_prompt_answers import StartupPromptResponder
+        from ciel_runtime_support.terminal_startup_gate import TerminalStartupGate, terminal_startup_scope
+        clock = [100.0]
+        step = [0]
+        gate = TerminalStartupGate(require_screen=True)
+        frames = ['Resume paused goal?\n› 1. Resume goal\n2. Leave paused\n? for shortcuts', 'Resume paused goal?\n1. Resume goal\n› 2. Leave paused\n? for shortcuts', 'Ask Codex to do anything\n? for shortcuts']
+        proc = mock.Mock(pid=42)
+        proc.poll.side_effect = lambda: None if step[0] < 6 else 0
+        proc.wait.return_value = 0
+        proc.output_since.side_effect = lambda cursor: (b"", cursor)
+        states = []
+        restarts = mock.Mock(return_value=None)
+        process = SimpleNamespace(write_child_record=mock.Mock(), terminate_child=mock.Mock(), release_child_record=mock.Mock())
+        policy = SimpleNamespace(initial_cursor=lambda: 0, enter_bytes=lambda _: bytes([13]), enter_label=lambda _: "enter",
+                                 unseen_retry_seconds=lambda: 1, inflight_is_stale=lambda *a: False, log=lambda *a: None)
+        polling = SimpleNamespace(inject_compact=mock.Mock(), file_marker=lambda: None, should_check=lambda *a: False,
+                                  active_tool_call=lambda: False, active_turn=lambda: False, input_busy=lambda: False,
+                                  inject_pending=mock.Mock(), wake_state=lambda _: None, inflight_effects=lambda: None,
+                                  runtime_interaction=lambda: None)
+        def advance(_seconds):
+            states.append(gate.ready())
+            step[0] += 1
+            clock[0] += 0.6
+        console = SimpleNamespace(open_conpty=lambda *a: proc, startup_grace_seconds=lambda: 0,
+                                  reset_interval_seconds=lambda x: x, sleep=advance)
+        responder = StartupPromptResponder(clock=lambda: clock[0])
+        with terminal_startup_scope(gate), mock.patch(
+            "ciel_runtime_support.channel_terminal_proxy.startup_prompt_responder", return_value=responder,
+        ), mock.patch("ciel_runtime_support.channel_terminal_proxy.windows_startup_screen", side_effect=lambda: frames[step[0] // 2]), mock.patch(
+            "ciel_runtime_support.channel_terminal_proxy.poll_pending_compaction", side_effect=lambda *a, **k: a[5],
+        ), mock.patch("ciel_runtime_support.channel_terminal_proxy.poll_pending_channel_messages", side_effect=lambda *a, **k: a[3]):
+            self.assertEqual(0, run_windows_channel_terminal_proxy(
+                ["codex", "--remote", "ws://fixture"], {"CIEL_RUNTIME_STARTUP_AUTO_ANSWER": "1"},
+                SimpleNamespace(process=process, policy=policy, polling=polling, console=console), restart_poll=restarts))
+        self.assertEqual([False, False, False, False, False, True], states)
+        self.assertEqual([mock.call(b"2"), mock.call(bytes([13]))], proc.write.call_args_list)
+        restarts.assert_not_called()
+
     def test_console_fallback_holds_all_automatic_injection(self):
         proc = mock.Mock(pid=42)
         proc.poll.side_effect = [None, 0]

@@ -31,6 +31,7 @@ from ciel_runtime_support.channel_pending_poll import (
 )
 from ciel_runtime_support.runtime_compaction_control import RuntimeCompactionControl
 from ciel_runtime_support.pty_master_writer import PtyMasterWriter
+from ciel_runtime_support.terminal_startup_gate import current_terminal_startup_gate
 from ciel_runtime_support.startup_prompt_answers import startup_prompt_responder, windows_startup_screen
 from ciel_runtime_support.terminal_modal_guard import STARTUP_HOLD_SECONDS, TerminalModalGuard
 from ciel_runtime_support.runtime_interaction import (
@@ -225,7 +226,8 @@ def _runtime_session_restart_requested(
     turn (``busy``) and the console shows a notice while it waits.
     """
 
-    if restart_poll is None:
+    gate = current_terminal_startup_gate()
+    if restart_poll is None or (gate is not None and not gate.ready()):
         return False
     if restart_state is not None and restart_poll == getattr(restart_state, "incoming", None):
         request = restart_state.incoming(busy=busy, notify=notify)
@@ -458,6 +460,12 @@ def run_windows_channel_terminal_proxy(
             input_ready = now >= channel_input_ready_at and (
                 startup_answers is None or (conpty is not None and startup_answers.input_ready())
             )
+            gate = current_terminal_startup_gate()
+            if gate is not None:
+                gate.observe(rendered_ready=bool(
+                    input_ready and startup_answers is not None and startup_answers.rendered_input_ready()
+                ))
+                input_ready = input_ready and gate.ready()
             try:
                 stage = "inflight_confirmation"
                 if pending_poll_state.inflight_message_id is not None and not pending_poll_state.inflight.hold_for_recovery(now, bool(getattr(policy, "compaction", None) and policy.compaction.external_admission_paused())):

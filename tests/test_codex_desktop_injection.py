@@ -126,6 +126,34 @@ class CodexDesktopInjectionTests(unittest.TestCase):
     def _commit(self, message_id: int) -> None:
         self.cursor = max(self.cursor, message_id)
 
+    def test_terminal_startup_gate_holds_queue_commands_and_direct_submit(self):
+        ready = [False]
+        self.injector._delivery_ready = lambda: ready[0]
+        self.messages = [_message(7)]
+        commands = Mock()
+        commands.read.return_value = {"id": "compact-1", "action": "compact"}
+        self.injector._ports = dataclasses.replace(self.injector._ports, session_commands=commands)
+        self.client.notifications.put({"method": "thread/status/changed", "params": {
+            "threadId": "thread-a", "status": {"type": "idle"}}})
+        self.injector.poll_once()
+        self.injector.deliver_pending()
+        self.injector.run_session_command()
+        self.assertFalse(self.injector._submit(7, "continuation"))
+        self.assertEqual([], self.client.calls)
+        self.assertEqual([], self.client.compacted)
+        self.assertEqual([], self.status.records)
+        self.assertEqual({}, self.injector._delivery.attempts)
+        self.assertEqual(0, self.cursor)
+        commands.read.assert_not_called()
+        commands.clear.assert_not_called()
+        self.assertTrue(self.client.notifications.empty())
+        ready[0] = True
+        self.injector.poll_once()
+        self.assertEqual(["thread-a"], self.client.compacted)
+        self.assertEqual("start", self.client.calls[0][0])
+        self.assertEqual(7, self.cursor)
+        commands.clear.assert_called_once_with("compact-1")
+
     def test_context_pressure_stops_steer_without_cursor_or_status_transition(self):
         self.messages = [_message(7)]
         self.client.state = CodexAppServerState(thread_id="thread-a", active_turn_id="turn-live")

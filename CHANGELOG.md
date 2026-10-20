@@ -5,6 +5,12 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+- Codex app-server + remote TUI restarts explicitly propagate startup-answer
+  policy, settle paused-goal controls independently of unrelated screen redraws,
+  and hold the RPC channel client until rendered startup readiness. The paused
+  goal is left paused; no goal activation or clearing is substituted for UI
+  dismissal. Missing rendered state keeps automatic delivery held.
+
 - External SSE receivers retain one reader across transport outages, recover from
   configuration/cleanup failures, and expose typed network/persistence diagnostics
   without exception messages or credentials. EOF participates in capped backoff;

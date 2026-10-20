@@ -38,6 +38,39 @@ def screen(*lines: str) -> bytes:
     return "".join(f"\x1b[{row};3H{text}" for row, text in enumerate(lines, start=1)).encode("utf-8")
 
 
+class TerminalStartupGateTests(unittest.TestCase):
+    def test_default_open_and_scoped_state_is_fresh_and_restored(self):
+        from ciel_runtime_support.terminal_startup_gate import (
+            TerminalStartupGate, current_terminal_startup_gate, terminal_startup_scope,
+        )
+        self.assertTrue(TerminalStartupGate().ready())
+        self.assertIsNone(current_terminal_startup_gate())
+        first = TerminalStartupGate(require_screen=True)
+        with terminal_startup_scope(first):
+            self.assertIs(first, current_terminal_startup_gate())
+            first.observe(rendered_ready=False)
+            self.assertFalse(first.ready())
+            first.observe(rendered_ready=True)
+            self.assertTrue(first.ready())
+            with terminal_startup_scope(TerminalStartupGate(require_screen=True)):
+                self.assertFalse(current_terminal_startup_gate().ready())
+            self.assertIs(first, current_terminal_startup_gate())
+        self.assertIsNone(current_terminal_startup_gate())
+
+    def test_closed_gate_does_not_even_poll_competing_restart(self):
+        from ciel_runtime_support.channel_terminal_proxy import _runtime_session_restart_requested
+        from ciel_runtime_support.terminal_startup_gate import TerminalStartupGate, terminal_startup_scope
+        poll, state = mock.Mock(return_value=None), mock.Mock()
+        gate = TerminalStartupGate(require_screen=True)
+        with terminal_startup_scope(gate):
+            self.assertFalse(_runtime_session_restart_requested(lambda *_: None, poll, state, transport="conpty", pid=1))
+            poll.assert_not_called()
+            state.mark.assert_not_called()
+            gate.observe(rendered_ready=True)
+            self.assertFalse(_runtime_session_restart_requested(lambda *_: None, poll, state, transport="conpty", pid=1))
+            poll.assert_called_once_with()
+
+
 class StartupPromptResponderTests(unittest.TestCase):
     def responder(self) -> tuple[StartupPromptResponder, Clock, list[str]]:
         clock = Clock()
@@ -55,6 +88,54 @@ class StartupPromptResponderTests(unittest.TestCase):
 
     def rendered(self, responder, frame):
         responder.observe_screen(frame)
+
+    def test_rendered_readiness_never_uses_silence_or_stream_footer(self):
+        responder, clock, _ = self.responder()
+        responder.feed(screen("? for shortcuts"))
+        clock.now += 181
+        self.assertFalse(responder.rendered_input_ready())
+        responder.observe_screen("loading")
+        self.assertFalse(responder.rendered_input_ready())
+        responder.observe_screen("Ask Codex to do anything\n? for shortcuts")
+        self.assertFalse(responder.rendered_input_ready())
+        clock.now += 0.6
+        self.assertTrue(responder.rendered_input_ready())
+
+    def test_ready_footer_is_stable_across_unrelated_redraws(self):
+        responder, clock, _ = self.responder()
+        frame = "noise 1" + chr(10) + "Ask Codex to do anything" + chr(10) + "? for shortcuts"
+        responder.observe_screen(frame)
+        for tick in range(1, 7):
+            clock.now += 0.1
+            responder.observe_screen("noise " + str(tick + 1) + chr(10) + "Ask Codex to do anything" + chr(10) + "? for shortcuts")
+        self.assertTrue(responder.rendered_input_ready())
+
+    def test_ready_footer_change_restarts_the_settle_window(self):
+        responder, clock, _ = self.responder()
+        ready = "Ask Codex to do anything" + chr(10) + "? for shortcuts"
+        responder.observe_screen(ready)
+        self.assertFalse(responder.rendered_input_ready())
+        clock.now += 0.4
+        responder.observe_screen("still loading")
+        self.assertFalse(responder.rendered_input_ready())
+        clock.now += 0.4
+        responder.observe_screen(ready)
+        self.assertFalse(responder.rendered_input_ready())
+        clock.now += 0.6
+        self.assertTrue(responder.rendered_input_ready())
+
+    def test_modal_stability_ignores_unrelated_redraw_but_not_selected_row(self):
+        responder, clock, _ = self.responder()
+        responder.observe_screen("clock 1\n" + self.goal_frame())
+        for tick in range(1, 7):
+            clock.now += 0.1
+            responder.observe_screen(f"clock {tick + 1}\n" + self.goal_frame())
+        self.assertEqual(b"2", responder.due())
+        responder.observe_screen("clock 8\n" + self.goal_frame("leave"))
+        self.assertEqual(b"", responder.due())
+        clock.now += 0.6
+        self.assertEqual(bytes([13]), responder.due())
+        self.assertFalse(responder.rendered_input_ready())
 
     def test_codex_paused_goal_is_left_paused(self):
         responder, clock, logs = self.responder()

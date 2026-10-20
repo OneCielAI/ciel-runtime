@@ -111,6 +111,10 @@ class StartupPromptResponder:
     _goal_unresolved: bool = False
     _screen: str | None = None
     _screen_changed_at: float = 0.0
+    _goal_signature: tuple[str, ...] = ()
+    _goal_changed_at: float = 0.0
+    _ready_signature: tuple[str, ...] = ()
+    _ready_changed_at: float = 0.0
     _screen_unavailable_logged: bool = False
     _decoder: codecs.IncrementalDecoder = field(
         default_factory=lambda: codecs.getincrementaldecoder("utf-8")(errors="replace")
@@ -208,6 +212,18 @@ class StartupPromptResponder:
 
     def observe_screen(self, snapshot: str | None) -> None:
         """Replace current rendered state; an output tail is not a screen."""
+        compact = re.sub(r"\s+", "", snapshot or "").lower()
+        modal = compact[compact.rfind("resumepausedgoal?"):] if "resumepausedgoal?" in compact else ""
+        signature = ("resumepausedgoal?", *re.findall(r"[›❯]?[1-9]\.(?:leavepaused|resumegoal)", modal)) if modal else ()
+        if signature != self._goal_signature:
+            self._goal_signature = signature
+            self._goal_changed_at = self.clock()
+        ready = tuple(marker for marker in READY_MARKERS if marker in compact)
+        blockers = tuple(prompt.trigger for prompt in self.prompts if prompt.trigger in compact)
+        ready_signature = (*ready, *blockers) if snapshot is not None else ("unavailable",)
+        if ready_signature != self._ready_signature:
+            self._ready_signature = ready_signature
+            self._ready_changed_at = self.clock()
         changed = snapshot != self._screen
         if changed:
             self._screen_changed_at = self.clock()
@@ -231,7 +247,7 @@ class StartupPromptResponder:
         compact = re.sub(r"\s+", "", self._screen).lower()
         if pending.prompt.trigger not in compact:
             # Absence alone (blank screen or next redraw) is not composer readiness.
-            if now - self._screen_changed_at >= SETTLE_SECONDS and any(marker in compact for marker in READY_MARKERS) and not any(p.trigger in compact for p in self.prompts):
+            if now - self._ready_changed_at >= SETTLE_SECONDS and any(marker in compact for marker in READY_MARKERS) and not any(p.trigger in compact for p in self.prompts):
                 self._goal_unresolved = False
                 del self._pending[pending.prompt.name]
                 self._handled[pending.prompt.name] = self._offset + len(self._text)
@@ -240,7 +256,7 @@ class StartupPromptResponder:
                 self.answered.append(pending.prompt.name)
                 self.log("INFO", "startup_prompt_dismissed prompt=codex_paused_goal input_released=true")
             return b""
-        if now - max(self._screen_changed_at, pending.acted_at) < SETTLE_SECONDS:
+        if now - max(self._goal_changed_at, pending.acted_at) < SETTLE_SECONDS:
             return b""
         compact = compact[compact.rfind(pending.prompt.trigger):]
         selected = re.search(r"[›❯]([1-9])\.(leavepaused|resumegoal)", compact)
@@ -336,6 +352,17 @@ class StartupPromptResponder:
             )
             return keys
         return b""
+
+    def rendered_input_ready(self) -> bool:
+        """Strict startup proof for a second RPC client, never silence-based."""
+        compact = re.sub(r"\s+", "", self._screen or "").lower()
+        return bool(
+            self._screen is not None
+            and self.clock() - self._ready_changed_at >= SETTLE_SECONDS
+            and any(marker in compact for marker in READY_MARKERS)
+            and not any(prompt.trigger in compact for prompt in self.prompts)
+            and not self._pending and not self._enter_at and not self._goal_unresolved
+        )
 
     def input_ready(self) -> bool:
         """Whether typed input may go to the CLI (no dialog left on screen)."""

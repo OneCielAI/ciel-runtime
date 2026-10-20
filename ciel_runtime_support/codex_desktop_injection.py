@@ -175,8 +175,10 @@ class CodexAppServerChannelInjector:
         permissions: AppServerPermissions | None = None,
         resume_model: ResumeModel | None = None,
         runtime_label: str = "codex-app-server",
+        delivery_ready: Callable[[], bool] = lambda: True,
     ) -> None:
         self._connect = connect
+        self._delivery_ready = delivery_ready
         self._turn_ends = AppServerTurnTracker(runtime_label)
         self._ports = ports
         self._cwd = cwd
@@ -392,6 +394,8 @@ class CodexAppServerChannelInjector:
         return thread_id in self._threads.busy or bool(self._active_turn(thread_id))
 
     def run_session_command(self) -> None:
+        if not self._delivery_ready():
+            return
         commands = self._ports.session_commands
         client = self.client
         if commands is None or client is None:
@@ -516,6 +520,8 @@ class CodexAppServerChannelInjector:
             )
 
     def deliver_pending(self) -> None:
+        if not self._delivery_ready():
+            return
         if self._ports.compaction and self._ports.compaction.external_admission_paused():
             return
         cursor = int(self._ports.read_cursor() or 0)
@@ -561,6 +567,8 @@ class CodexAppServerChannelInjector:
         )
 
     def _submit(self, message_id: int, prompt: str) -> bool:
+        if not self._delivery_ready():
+            return False
         if self._ports.compaction and self._ports.compaction.external_admission_paused():
             return False
         client = self.client

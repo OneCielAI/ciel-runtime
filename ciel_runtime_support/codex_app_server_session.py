@@ -61,6 +61,8 @@ from ciel_runtime_support.codex_desktop_runtime import (
 )
 from ciel_runtime_support.runtime_session_restart import restart_claim_label, restart_request_after_exit
 from ciel_runtime_support.codex_owned_server import OwnedServer
+from ciel_runtime_support.startup_prompt_answers import STARTUP_AUTO_ANSWER_ENV, startup_auto_answer_enabled
+from ciel_runtime_support.terminal_startup_gate import TerminalStartupGate, terminal_startup_scope
 
 REMOTE_TUI_LAUNCH_MODE = "codex-remote-router"
 REMOTE_TUI_SESSION_ACTIONS = frozenset({"new_session"})
@@ -273,9 +275,11 @@ class CodexRemoteTuiSession:
         if thread_id is None:
             return 0
         handled: set[str] = set()
+        unattended_restart = False
         try:
             while True:
-                run = self._run_once(cmd, env, launch_cwd, listen_url, thread_id)
+                launch_env = {**env, STARTUP_AUTO_ANSWER_ENV: "1"} if unattended_restart else env
+                run = self._run_once(cmd, launch_env, launch_cwd, listen_url, thread_id)
                 request = run.request
                 if request is None or request.id in handled:
                     return run.rc
@@ -293,6 +297,7 @@ class CodexRemoteTuiSession:
                 )
                 if relaunch is not None:
                     cmd = relaunch(request)
+                unattended_restart = True
         finally:
             self.ports.log("INFO", "codex_remote_session_ended")
 
@@ -305,6 +310,12 @@ class CodexRemoteTuiSession:
         thread_id: str,
     ) -> _RemoteRun:
         ports = self.ports
+        env = dict(env)
+        if STARTUP_AUTO_ANSWER_ENV not in env and startup_auto_answer_enabled():
+            env[STARTUP_AUTO_ANSWER_ENV] = "1"
+        startup_gate = TerminalStartupGate(
+            require_screen=os.name == "nt" and startup_auto_answer_enabled(env)
+        )
         logs = ports.config_dir / "codex-remote" / ports.workspace_id
         logs.mkdir(parents=True, exist_ok=True)
         # A listener we did not start (a previous app-server still draining its
@@ -349,6 +360,7 @@ class CodexRemoteTuiSession:
                 launch_cwd,
                 bearer_token=token,
                 start_own_thread=False,
+                delivery_ready=startup_gate.ready,
                 session_actions=REMOTE_TUI_CHANNEL_ACTIONS,
                 initial_thread_id=thread_id,
                 permissions=FULL_ACCESS,
@@ -372,7 +384,8 @@ class CodexRemoteTuiSession:
                 injector.start(opened=True)
             tui_env = dict(env)
             tui_env[REMOTE_TOKEN_ENV] = token
-            return self._run_tui(remote_tui_command(server_cmd, listen_url), tui_env, launch_cwd, injector, thread_id)
+            with terminal_startup_scope(startup_gate):
+                return self._run_tui(remote_tui_command(server_cmd, listen_url), tui_env, launch_cwd, injector, thread_id)
         except Exception as exc:
             ports.log("ERROR", f"codex_remote_launch_failed error={type(exc).__name__}: {exc}")
             return _RemoteRun(1)

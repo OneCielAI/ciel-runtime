@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import dataclasses
+import os
 import tempfile
 import time
 import unittest
@@ -248,6 +249,93 @@ class SessionTests(unittest.TestCase):
         self.assertEqual(frozenset({"new_session"}), options["session_command_actions"])
         self.assertEqual([4242], self.terminated)
         self.assertIsNone(self.scopes[0]["session_id"])
+
+    def test_each_unattended_launch_shares_a_fresh_closed_gate_with_the_injector(self):
+        from ciel_runtime_support.terminal_startup_gate import current_terminal_startup_gate
+        gates = []
+        injector_ready = []
+        original = self.tui_ports.run_terminal
+
+        def injector(*args, **kwargs):
+            injector_ready.append(kwargs["delivery_ready"])
+            self.assertEqual(os.name != "nt", kwargs["delivery_ready"]())
+            result = mock.Mock(thread_id="saved")
+            result.turn_running.return_value = False
+            return result
+
+        def terminal(*args, **kwargs):
+            gate = current_terminal_startup_gate()
+            self.assertIsNotNone(gate)
+            self.assertEqual(os.name != "nt", gate.ready())
+            gates.append(gate)
+            gate.observe(rendered_ready=True)
+            self.assertTrue(injector_ready[-1]())
+            return original(*args, **kwargs)
+
+        self.restart_after_first = SimpleNamespace(id="r1", resume=True, source="mcp", reason="")
+        with mock.patch("ciel_runtime_support.codex_app_server_session._channel_injector", side_effect=injector):
+            CodexRemoteTuiSession(self.ports, dataclasses.replace(self.tui_ports, run_terminal=terminal))(
+                SERVER_CMD, {"CIEL_RUNTIME_STARTUP_AUTO_ANSWER": "1"}, Path(self.tmp.name))
+        self.assertEqual(2, len(gates))
+        self.assertIsNot(gates[0], gates[1])
+        self.assertIsNone(current_terminal_startup_gate())
+
+    def test_parent_startup_flag_is_in_child_environment_before_injector_opens(self):
+        seen = []
+
+        def injector(*args, **kwargs):
+            seen.append(kwargs["delivery_ready"]())
+            return None
+
+        with mock.patch.dict("os.environ", {"CIEL_RUNTIME_STARTUP_AUTO_ANSWER": "1"}), mock.patch(
+            "ciel_runtime_support.codex_app_server_session._channel_injector", side_effect=injector,
+        ):
+            CodexRemoteTuiSession(self.ports, self.tui_ports)(SERVER_CMD, {}, Path(self.tmp.name))
+        self.assertEqual([os.name != "nt"], seen)
+        self.assertEqual("1", self.terminal_envs[0]["CIEL_RUNTIME_STARTUP_AUTO_ANSWER"])
+
+    def test_interactive_remote_launch_keeps_delivery_open(self):
+        from ciel_runtime_support.terminal_startup_gate import current_terminal_startup_gate
+        seen = []
+
+        def terminal(*args, **kwargs):
+            seen.append(current_terminal_startup_gate().ready())
+            return 0
+
+        CodexRemoteTuiSession(self.ports, dataclasses.replace(self.tui_ports, run_terminal=terminal))(
+            SERVER_CMD, {}, Path(self.tmp.name))
+        self.assertEqual([True], seen)
+
+    def test_restart_enables_startup_answers_in_fresh_child_env(self):
+        self.restart_after_first = SimpleNamespace(id="r1", resume=True, source="mcp", reason="")
+        original = {"A": "1"}
+        CodexRemoteTuiSession(self.ports, self.tui_ports)(SERVER_CMD, original, Path(self.tmp.name))
+        self.assertNotIn("CIEL_RUNTIME_STARTUP_AUTO_ANSWER", self.terminal_envs[0])
+        self.assertEqual("1", self.terminal_envs[1].get("CIEL_RUNTIME_STARTUP_AUTO_ANSWER"))
+        self.assertEqual({"A": "1"}, original)
+
+    def test_restart_keeps_the_renewed_outer_launch_environment(self):
+        env = {"GATEWAY_KEY": "old"}
+        original = self.tui_ports.run_terminal
+
+        def relaunch(_request):
+            env["GATEWAY_KEY"] = "renewed"
+            return SERVER_CMD
+
+        def terminal(*args, **kwargs):
+            if len(self.terminal_envs) == 0:
+                self.control.request = SimpleNamespace(id="r1", resume=True, source="mcp", reason="")
+            return original(*args, **kwargs)
+
+        self.tui_ports = dataclasses.replace(self.tui_ports, run_terminal=terminal)
+        rc = CodexRemoteTuiSession(self.ports, self.tui_ports)(
+            SERVER_CMD, env, Path(self.tmp.name), relaunch=relaunch
+        )
+        self.assertEqual(0, rc)
+        self.assertEqual("renewed", env["GATEWAY_KEY"])
+        self.assertEqual("old", self.terminal_envs[0]["GATEWAY_KEY"])
+        self.assertEqual("renewed", self.terminal_envs[1]["GATEWAY_KEY"])
+        self.assertEqual("1", self.terminal_envs[1]["CIEL_RUNTIME_STARTUP_AUTO_ANSWER"])
 
     def test_remote_tui_gets_the_launch_token_and_the_file_is_removed_afterwards(self):
         CodexRemoteTuiSession(self.ports, self.tui_ports)(SERVER_CMD, {"A": "1"}, Path(self.tmp.name))
