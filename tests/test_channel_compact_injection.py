@@ -39,7 +39,11 @@ class ChannelCompactInjectionServiceTests(unittest.TestCase):
         )
 
     def test_new_session_types_the_runtime_command(self):
-        for runtime, command in (("claude", "/clear"), ("codex", "/new")):
+        for runtime, command in (
+            ("claude", "/clear"),
+            ("codex", "/new"),
+            ("muse", "/new"),
+        ):
             writes, clears = [], []
             service = self._service(
                 {"id": f"n-{runtime}", "action": "new_session", "command": "/new"},
@@ -58,7 +62,7 @@ class ChannelCompactInjectionServiceTests(unittest.TestCase):
             clears=clears,
             logs=logs,
         )
-        self.assertEqual("deferred", service.inject(7, runtime="muse"))
+        self.assertEqual("deferred", service.inject(7, runtime="unknown-cli"))
         self.assertEqual([], writes)
         self.assertEqual([], clears)
         self.assertIn("unsupported_runtime", logs[-1][1])
@@ -76,7 +80,7 @@ class ChannelCompactInjectionServiceTests(unittest.TestCase):
 
     def test_goal_clear_is_typed_while_a_turn_runs(self):
         # An active goal keeps starting turns; waiting for idle would never type it.
-        for runtime in ("claude", "codex"):
+        for runtime in ("claude", "codex", "muse"):
             writes, clears = [], []
             service = self._service(
                 {"id": f"g-{runtime}", "action": "goal_clear", "command": "/goal clear"},
@@ -89,8 +93,8 @@ class ChannelCompactInjectionServiceTests(unittest.TestCase):
             self.assertEqual("/goal clear", writes[0][0][1])
             self.assertEqual([f"g-{runtime}"], clears)
         writes = []
-        service = self._service({"id": "g-muse", "action": "goal_clear"}, writes=writes)
-        self.assertEqual("deferred", service.inject(7, runtime="muse"))
+        service = self._service({"id": "g-unknown", "action": "goal_clear"}, writes=writes)
+        self.assertEqual("deferred", service.inject(7, runtime="unknown-cli"))
         self.assertEqual([], writes)
 
     def test_missing_request_is_a_noop(self):

@@ -2,8 +2,9 @@
 
 ``compact`` is ``/compact`` in every runtime.  ``new_session`` is the
 runtime's own new-conversation command: ``/clear`` in Claude Code (it starts
-a new session id) and ``/new`` in Codex.  ``goal_clear`` is ``/goal clear`` in
-both; it is typed while a turn runs, because an active goal keeps starting
+a new session id), ``/new`` in Codex, and ``/new`` in Muse Code (its docs
+pair ``/new`` with ``/clear``; ``/new`` keeps the scrollback).  ``goal_clear``
+is ``/goal clear`` in each; it is typed while a turn runs, because an active goal keeps starting
 turns and the session would never look idle.  Runtimes without a known
 command leave the request for its TTL rather than typing a guess.
 """
@@ -18,8 +19,8 @@ from .channel_compact_request_repository import session_command_action
 from .channel_message_repository import ChannelFileLockBusy
 from .runtime_compaction_control import RuntimeCompactionControl
 
-NEW_SESSION_COMMANDS = {"claude": "/clear", "codex": "/new"}
-GOAL_RUNTIMES = frozenset({"claude", "codex"})
+NEW_SESSION_COMMANDS = {"claude": "/clear", "codex": "/new", "muse": "/new"}
+GOAL_RUNTIMES = frozenset({"claude", "codex", "muse"})
 DEFAULT_TERMINAL_ACTIONS = frozenset({"compact", "new_session", "goal_clear"})
 # Typed without waiting for the turn to end.
 MID_TURN_ACTIONS = frozenset({"goal_clear"})

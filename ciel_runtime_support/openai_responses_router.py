@@ -98,6 +98,43 @@ class OpenAIResponsesServices:
     output: OpenAIResponsesOutput
 
 
+def _request_path(handler: Any) -> str:
+    """The request path for a log line, or ``-`` when the handler has none."""
+
+    raw = getattr(handler, "path", "")
+    if not isinstance(raw, str) or not raw:
+        return "-"
+    try:
+        return urllib.parse.urlparse(raw).path or "-"
+    except ValueError:
+        return "-"
+
+
+def _log_upstream_error(
+    core: Any,
+    *,
+    path: str,
+    provider: str,
+    model: str,
+    status: int,
+    error_type: str,
+    message: Any,
+) -> None:
+    """Record the upstream failure that becomes this client's HTTP error.
+
+    A relayed 5xx used to leave only the access line, so the request that
+    produced it could not be identified after the fact.
+    """
+
+    text = " ".join(str(message or "").split())[:300]
+    core.log(
+        "ERROR",
+        f"responses_upstream_error path={path or '-'} provider={provider} "
+        f"model={model or '-'} status={status} type={error_type or '-'} "
+        f"message={text or '-'}",
+    )
+
+
 def _responses_error_type(status: int) -> str:
     """Name the failure the way the shared classifier does.
 
@@ -160,6 +197,15 @@ def _write_transport_failure(
             "status": failure.status_code,
             "source": reason,
         },
+    )
+    _log_upstream_error(
+        core,
+        path=_request_path(handler),
+        provider=provider,
+        model=model,
+        status=failure.status_code,
+        error_type=failure.anthropic_error_type,
+        message=failure.message,
     )
     delivery.mark_failed(handler, f"{reason}:transport:{type(error).__name__}")
     output.write_error(
@@ -286,6 +332,13 @@ def handle_openai_responses_request(
     # provider; the native Codex backend is excluded inside the port.
     remote_bridge = is_remote_bridge_request(handler)
     raw_body = copy.deepcopy(body) if not remote_bridge else body
+    core.log(
+        "DEBUG",
+        f"responses_request_received path={_request_path(handler)} "
+        f"provider={provider} model={body.get('model') or '-'} "
+        f"input_items={len(body.get('input')) if isinstance(body.get('input'), list) else 0} "
+        f"tools={len(body.get('tools') or [])}",
+    )
     if not remote_bridge:
         body = routing.apply_codex_compat_instructions(cfg, provider, pcfg, body)
     if (
@@ -425,6 +478,15 @@ def handle_openai_responses_request(
         if not remote_bridge:
             _observe_context_failure(core, provider, pcfg, raw_body, raw, "codex", getattr(handler, "headers", None))
         maybe_fail_over(handler, provider, status=exc.code, headers=exc.headers, reason=raw)
+        _log_upstream_error(
+            core,
+            path=_request_path(handler),
+            provider=provider,
+            model=str(body.get("model") or ""),
+            status=exc.code,
+            error_type=_responses_error_type(exc.code),
+            message=raw,
+        )
         delivery.mark_failed(handler, f"responses_http_error:{exc.code}")
         output.write_error(
             handler,
@@ -443,6 +505,15 @@ def handle_openai_responses_request(
         if not exc.output_started:
             maybe_fail_over(handler, provider, status=exc.status_code, reason=exc.message,
                             rate_limited=exc.category == "rate_limit")
+        _log_upstream_error(
+            core,
+            path=_request_path(handler),
+            provider=provider,
+            model=str(body.get("model") or ""),
+            status=exc.status_code,
+            error_type=exc.anthropic_error_type,
+            message=exc.message,
+        )
         delivery.mark_failed(handler, f"responses_upstream_failure:{exc.category}")
         output.write_error(
             handler,
@@ -583,6 +654,15 @@ def _handle_codex_route(
         if not is_remote_bridge_request(handler):
             _observe_context_failure(core, provider, pcfg, raw_body, raw, "codex", getattr(handler, "headers", None))
         maybe_fail_over(handler, provider, status=exc.code, headers=exc.headers, reason=raw)
+        _log_upstream_error(
+            core,
+            path=_request_path(handler),
+            provider=provider,
+            model=str(body.get("model") or ""),
+            status=exc.code,
+            error_type=_responses_error_type(exc.code),
+            message=raw,
+        )
         delivery.mark_failed(handler, f"codex_responses_http_error:{exc.code}")
         message = output.upstream_error_message(exc, raw)
         if exc.code in (401, 403):
@@ -600,6 +680,15 @@ def _handle_codex_route(
         if not exc.output_started:
             maybe_fail_over(handler, provider, status=exc.status_code, reason=exc.message,
                             rate_limited=exc.category == "rate_limit")
+        _log_upstream_error(
+            core,
+            path=_request_path(handler),
+            provider=provider,
+            model=str(body.get("model") or ""),
+            status=exc.status_code,
+            error_type=exc.anthropic_error_type,
+            message=exc.message,
+        )
         delivery.mark_failed(handler, f"codex_responses_upstream_failure:{exc.category}")
         output.write_error(
             handler,
@@ -682,6 +771,15 @@ def _handle_provider_responses_route(
         if not is_remote_bridge_request(handler):
             _observe_context_failure(core, provider, pcfg, raw_body, raw, "codex", getattr(handler, "headers", None))
         maybe_fail_over(handler, provider, status=exc.code, headers=exc.headers, reason=raw)
+        _log_upstream_error(
+            core,
+            path=_request_path(handler),
+            provider=provider,
+            model=str(body.get("model") or ""),
+            status=exc.code,
+            error_type=_responses_error_type(exc.code),
+            message=raw,
+        )
         delivery.mark_failed(
             handler,
             f"provider_responses_http_error:{exc.code}",
@@ -700,6 +798,15 @@ def _handle_provider_responses_route(
         if not exc.output_started:
             maybe_fail_over(handler, provider, status=exc.status_code, reason=exc.message,
                             rate_limited=exc.category == "rate_limit")
+        _log_upstream_error(
+            core,
+            path=_request_path(handler),
+            provider=provider,
+            model=str(body.get("model") or ""),
+            status=exc.status_code,
+            error_type=exc.anthropic_error_type,
+            message=exc.message,
+        )
         delivery.mark_failed(
             handler, f"provider_responses_upstream_failure:{exc.category}"
         )

@@ -44,6 +44,7 @@ class MetaProviderTests(unittest.TestCase):
         self.assertEqual("muse-spark-1.3", pcfg["current_model"])
         self.assertEqual(
             [
+                "muse-wonder-1.0",
                 "muse-spark-1.3",
                 "muse-spark-1.3-contributor",
                 "muse-spark-1.2",
@@ -1752,6 +1753,82 @@ class ProviderResponsesPassthroughTests(unittest.TestCase):
             stream=False,
             status=413,
             error_type="request_too_large",
+        )
+
+    def test_router_logs_the_upstream_503_it_relays(self):
+        # Live 2026-10-19: a token-plan 503 reached Codex with only an access
+        # line in router.log, so the request that produced it could not be
+        # identified. Every relayed upstream failure must now be recorded.
+        error_body = (
+            b'{"error":{"type":"ServiceUnavailable","message":'
+            b'"An error occurred in model serving, error message is: '
+            b'[Master scheduling failed (UNAVAILABLE)]"}}'
+        )
+        upstream_error = urllib.error.HTTPError(
+            "https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1/responses",
+            503,
+            "Service Unavailable",
+            {},
+            io.BytesIO(error_body),
+        )
+        log = mock.Mock()
+        write_error = mock.Mock()
+        services = openai_responses_router.OpenAIResponsesServices(
+            core=openai_responses_router.OpenAIResponsesCore(
+                event_bus=SimpleNamespace(publish=mock.Mock()),
+                request_id=lambda: "request-id",
+                input_as_list=lambda value: list(value),
+                is_client_disconnect=lambda _exc: False,
+                log=log,
+            ),
+            conversion=mock.Mock(),
+            routing=openai_responses_router.OpenAIResponsesRouting(
+                maybe_import_session=lambda *_args, **_kwargs: False,
+                codex_routed_enabled=lambda *_args: False,
+                forward_codex=mock.Mock(),
+                select_protocol=lambda *_args: "openai_responses",
+                forward_provider_responses=mock.Mock(side_effect=upstream_error),
+                dump_request=mock.Mock(),
+                normalize_provider_wire=mock.Mock(),
+                collect_message=mock.Mock(),
+                apply_codex_compat_instructions=lambda _cfg, _provider, _pcfg, body: body,
+                recover_preamble_only_turn=mock.Mock(),
+            ),
+            delivery=openai_responses_router.OpenAIResponsesDelivery(
+                begin=mock.Mock(),
+                mark_success=mock.Mock(),
+                mark_failed=mock.Mock(),
+                commit=mock.Mock(),
+            ),
+            output=openai_responses_router.OpenAIResponsesOutput(
+                write_response=mock.Mock(),
+                write_error=write_error,
+                upstream_error_message=lambda _error, _raw: "model serving failed",
+                codex_auth_error_message=mock.Mock(),
+                event_preview=mock.Mock(),
+            ),
+        )
+        handler = SimpleNamespace(path="/v1/responses")
+
+        openai_responses_router.handle_openai_responses_request(
+            handler,
+            {},
+            "alitoken",
+            {},
+            {"model": "deepseek-v4.1-flash-1017", "input": [], "stream": True},
+            services,
+        )
+
+        write_error.assert_called_once()
+        self.assertEqual(503, write_error.call_args.kwargs["status"])
+        logged = [call.args[1] for call in log.call_args_list if call.args and call.args[0] == "ERROR"]
+        self.assertTrue(
+            any("responses_upstream_error" in line and "status=503" in line for line in logged),
+            logged,
+        )
+        self.assertTrue(
+            any("provider=alitoken" in line and "model=deepseek-v4.1-flash-1017" in line for line in logged),
+            logged,
         )
 
     def test_router_preserves_upstream_401_with_provider_auth_boundary(self):

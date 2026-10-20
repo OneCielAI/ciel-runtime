@@ -5,6 +5,22 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+- Every routed `/v1/responses` request is logged on entry, before any route
+  branch, and every upstream failure that becomes the client's HTTP error is
+  recorded with provider, model, status, error type and a bounded message. A
+  token-plan 503 previously left only an access line, so the request that
+  produced it could not be identified. The Alibaba token plan's advertised
+  `deepseek-v4.1-flash-1017` snapshot is kept in a saved catalog when it is
+  already the selected model.
+
+- Muse Code parity: `muse-wonder-1.0` joins the Meta provider catalog with the
+  model card's 1,048,576-token context, text/image/video/audio input and
+  reasoning effort from `minimal` to `max`. Muse Wonder Full is documented as
+  Muse Code/subscription-only and has no Model API id, so it is not registered.
+  Channel session commands now target Muse launches: `/compact`, `/new` and
+  `/goal clear` are typed into the terminal, where they were previously
+  deferred as an unknown runtime.
+
 - Routed Claude and Codex native checkpoints now use bounded, lossless semantic
   map/reduce on Messages, chat and Responses wires. Large tool payloads are split
   without dropping fields; empty, truncated, cancelled or failed summaries cannot
