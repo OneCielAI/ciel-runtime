@@ -1,0 +1,40 @@
+{
+  "run": "docs\\journal\\2026\\10\\20\\diagnostics\\restart-delivery\\evidence\\run-claude-ownership-fix-174500",
+  "status": "passed_scoped_restart_delivery",
+  "teardown": {
+    "killed": [
+      {
+        "pid": 11688
+      },
+      {
+        "pid": 17732
+      },
+      {
+        "pid": 37724
+      },
+      {
+        "pid": 48156
+      },
+      {
+        "pid": 68188
+      },
+      {
+        "pid": 68784
+      }
+    ],
+    "router_listener_after": null,
+    "app_listener_after": null
+  },
+  "events": [
+    {
+      "at": 1792536365.497,
+      "kind": "acceptance_pass",
+      "checks": {
+        "old_native_gone": true,
+        "new_input_replied": true,
+        "claude_submitted_old_fenced": true,
+        "appserver_listener_release_observed": false
+      }
+    }
+  ]
+}

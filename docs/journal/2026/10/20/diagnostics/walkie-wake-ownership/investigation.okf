@@ -76,4 +76,9 @@ per-test durable status isolation because synthetic ids were reused across
 cases. The initial adjacent run had 8 failures from this shared history; the
 fixture correction and passing rerun are retained separately. Ruff passed.
 The final adjacent evidence is in `final-adjacent.txt`.
+The fix is committed as `e7d81c7` and pushed to the nightly branch; CI
+39511001223 and npm Publish 39511001233 succeeded. Exact nightly
+0.2.51-nightly.20261020-225441.e7d81c7 is installed locally; installed tests
+378 run with zero failures/errors (80 skipped), and installed native restart
+acceptance passed. See the wake-ownership release journal.
 Native owned acceptance `run-claude-ownership-fix-174500` passed scoped restart delivery: old native gone, new input replied, old submitted inputs fenced, and no listeners remained after teardown. The harness reported app-server listener release as not applicable for Claude. Live Walkie/Celly sessions were not restarted.

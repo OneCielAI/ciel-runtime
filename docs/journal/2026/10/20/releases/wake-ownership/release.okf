@@ -1,0 +1,47 @@
+---
+type: release-verification
+title: Wake ownership crash fix nightly deployment
+description: Exact nightly package installed into a fresh local snapshot with focused and native acceptance evidence.
+timestamp: 2026-10-20
+tags: [wake, ownership, crash, nightly, deployment]
+---
+
+# Identity
+
+Commit e7d81c7e0008ede7a5731db9274863557c328d4a.
+Version 0.2.51-nightly.20261020-225441.e7d81c7.
+CI 39511001223 passed. Publish workflow 39511001233 passed, including
+registry tarball availability verification at 2026-10-20T23:04:57Z.
+Registry gitHead and nightly tag matched. Tarball SHA-1/SHA-512 verified;
+SHA-256 498aa969e6cdc3aabecd1ccc4057dcc84ccc1b41aef1c6de95b5be96ab85eead.
+485 tarball files, zero docs/journal entries.
+
+# Local installation
+
+npm global installed from the exact verified tarball. Created new full-SHA
+snapshot under ~/.local/share/ciel-runtime-e7d81c7e0008ede7a5731db9274863557c328d4a;
+User CIEL_RUNTIME_HOME registered to it. Existing snapshots were not overwritten.
+Version command reports the exact published nightly. Recursive Python source
+hash comparison against the verified package: 430 files, zero mismatches in
+both npm global and snapshot.
+
+# Verification
+
+Installed focused tests: 378 run, zero failures/errors, 80 skipped.
+Source native acceptance run-claude-ownership-fix-174500 passed: same-session
+restart, old submitted inputs fenced without replay, new input replied, owned
+listeners absent after teardown. Installed native acceptance
+`run-claude-installed-ownership-180422` passed the same checks; both owned
+listeners absent after teardown. Rendered terminal capture shows STUB-REPLY-6
+for the post-restart input. An initial AttachConsole error 6 is retained;
+subsequent text capture succeeded. A window screenshot is not available from
+the console HWND (zero-size rectangle).
+
+# Scope and remaining evidence
+
+No live Walkie or Celly process restarted, no sandbox settings or queue edited.
+This release addresses wake ownership conflicts; it does not claim to resolve
+all user-reported turn interruptions. Separate investigation found repeated
+upstream HTTP 400 service_tier validation errors; no provider-policy change is
+included in this release. Actual rejected Walkie input id remains unknown;
+11901 was the logged cursor, not proven to be the rejected input.

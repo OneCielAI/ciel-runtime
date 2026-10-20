@@ -1,0 +1,29 @@
+{
+  "version": "0.2.51-nightly.20261020-225441.e7d81c7",
+  "gitHead": "e7d81c7e0008ede7a5731db9274863557c328d4a",
+  "tags": {
+    "latest": "0.2.51",
+    "nightly": "0.2.51-nightly.20261020-225441.e7d81c7"
+  },
+  "dist": {
+    "shasum": "052fbd3980681500b229d4e0f511d5629c2a238e",
+    "tarball": "https://registry.npmjs.org/@one-ciel-ai/ciel-runtime/-/ciel-runtime-0.2.51-nightly.20261020-225441.e7d81c7.tgz",
+    "fileCount": 485,
+    "integrity": "sha512-bEpP4TQt78jYXepZUOYYaa03qN9Jwcq0N+Dp1kVlcNyZWINsYgFsbHRQ10VdZSAIY7w4XyemLLVDC7qXdz8KSQ==",
+    "signatures": [
+      {
+        "sig": "MEQCICQG2VzlJJumaZLR+S1kXMbLpOcXctg3mHI8ZAznPx8EAiBdQDMwZ4ZT5uN2gBahWdst3z5GPTp0htB0UbDj6udZjg==",
+        "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+      },
+      {
+        "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U",
+        "sig": "MEYCIQDdlRl2WGRpOOBMT57ZUCBnm78SAlsRRX23QmNQClq3EgIhAL6mrC96bEwbHrrciuHFOQJ1OezZpHHZdvIjY0tgrDZm"
+      }
+    ],
+    "unpackedSize": 6273079
+  },
+  "tarball_sha256": "498aa969e6cdc3aabecd1ccc4057dcc84ccc1b41aef1c6de95b5be96ab85eead",
+  "tarball_bytes": 1408885,
+  "files": 485,
+  "package_dir": "docs\\journal\\2026\\10\\20\\releases\\wake-ownership\\evidence\\payload\\unpack\\package"
+}
