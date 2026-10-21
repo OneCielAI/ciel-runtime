@@ -5,10 +5,7 @@ description: Isolated production-bound Codex checkpoint admission with durable s
 tags: [compaction, codex, admission, acceptance]
 timestamp: 2026-10-21T00:00:00Z
 date: 2026-10-21
-description: Production compaction binding and checkpoint control verify large native evidence while preserving input queue, status and cursor state.
-tags: [ara, compaction, checkpoint, admission, verification]
-timestamp: 2026-10-21
-status: isolated-functional-verified
+status: installed-functional-verified
 ---
 
 # Scope
@@ -45,6 +42,27 @@ admission projection, and recovery status are production implementations.
   status history, and cursor file SHA-256 digests were unchanged in every
   observation.
 
+# Publication and installed verification
+
+- Implementation `a13c08f0d88e23eac7793ed54996363b38477c87` pushed to
+  nightly and nightly-20261020. CI 39674790685 passed all six jobs; npm
+  publish 39674790670 succeeded.
+- Registry nightly: `0.2.51-nightly.20261021-210312.a13c08f`.
+  Tarball SHA-256:
+  `eb3dde045193e9e1bde9c89a8be2b23ac76d8528192afb8061f86fe87b8a47e9`.
+- Installed globally and to `~/.local/share/ciel-runtime-a13c08f`.
+  `installed-source-match.json` verifies all 433 shipped Python files in
+  each installation against the exact commit, permitting only the workflow
+  version stamp. No running session was restarted.
+- `installed-result.json`: all 13 production-binding projections passed.
+  Large metadata/checkpoint/tail recovered `verified`, input 120, terminal
+  admission ready; invalid/old/wrong-session/unknown/full-capacity controls
+  stayed paused. Queue/status/cursor bytes stayed unchanged.
+- `installed-focused.txt`: 141 adjacent exact-file tests passed, including
+  checkpoint, identity, binding, rejection, input gateway and SSE recovery.
+- `acceptance.py --runtime <installed-root> --out <evidence.json>` verifies
+  the selected installation without touching a live Ara session.
+
 # Limitations
 
 This is isolated functional evidence, not live CLI/provider or Ara-host
@@ -75,7 +93,5 @@ three source modules used by the binding/scanner path.
 The deterministic strict checker receives a temporary bundle with this
 `.okf` journal projected verbatim to `acceptance.md` because its file walker
 only checks `.md` concepts. Evidence companions are copied alongside it so
-links resolve. The log is [okf-validation.txt](okf-validation.txt). The existing
-nested reproduction bundle is not modified; validating the whole parent
-reports its nested root index as a non-root index warning, unrelated to this
-journal.
+links resolve. The log is [okf-validation.txt](okf-validation.txt). The coordinated parent validation also removed the nested index's root-only
+frontmatter; all three concept files now pass the whole-parent strict checker.

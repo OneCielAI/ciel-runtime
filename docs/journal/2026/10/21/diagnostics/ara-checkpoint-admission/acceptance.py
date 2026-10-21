@@ -1,4 +1,5 @@
 """Isolated production binding functional acceptance."""
+import argparse
 import hashlib
 import json
 import os
@@ -10,7 +11,11 @@ import time
 from datetime import datetime, timezone
 from types import SimpleNamespace
 
-ROOT = Path(__file__).resolve().parents[7]
+parser = argparse.ArgumentParser()
+parser.add_argument("--runtime", default="", help="Exact installed runtime root")
+parser.add_argument("--out", default="", help="Evidence JSON path")
+ARGS = parser.parse_args()
+ROOT = Path(ARGS.runtime).resolve() if ARGS.runtime else Path(__file__).resolve().parents[7]
 for key in tuple(os.environ):
     upper = key.upper()
     if upper.startswith(("CIEL_RUNTIME_", "CLAUDE", "CODEX_", "ANTHROPIC", "OPENAI_")) or any(
@@ -240,7 +245,7 @@ if __name__ == "__main__":
     sources = ("runtime_compaction_binding.py", "runtime_compaction_control.py", "channel_transcript_repository.py")
     result["source_digests"] = {name: digest(ROOT / "ciel_runtime_support" / name) for name in sources}
     result["acceptance_script"] = digest(Path(__file__))
-    output = Path(__file__).with_name("result.json")
+    output = Path(ARGS.out).resolve() if ARGS.out else Path(__file__).with_name("result.json")
     output.write_text(json.dumps(result, indent=2) + chr(10), encoding="utf-8")
     print(json.dumps({"status": result["status"], "cases": len(result["cases"]),
         "elapsed_seconds": result["elapsed_seconds"],
