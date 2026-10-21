@@ -314,8 +314,10 @@ def _check_own_launch_lease(record: dict[str, Any]) -> None:
         current = _process_identity(pid)
         if pid == os.getpid() and current and current == lease.get("identity"):
             return
-        expires = float(lease["expires_at"])
-        if current == "" and 0 < expires <= time.time():
+        float(lease["expires_at"])  # Validate the stored lease shape.
+        # A verified-dead owner cannot still be launching, even if its short
+        # lease had not elapsed when the process disappeared.
+        if current == "":
             return
     except (TypeError, ValueError, KeyError):
         pass
