@@ -1,0 +1,53 @@
+[adapter] runtime C:\Users\djlov\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime
+[adapter] package {'name': '@one-ciel-ai/ciel-runtime', 'version': '0.2.51-nightly.20261021-200945.f87747a'} stamped=0.2.51-nightly.20261021-200945.f87747a
+[adapter] output C:\Users\djlov\ciel-runtime\docs\journal\2026\10\21\releases\cielairouter-transient-retry\evidence\installed label=npm-f87747a-lf
+[adapter] protocol source C:\Users\djlov\ciel-runtime\docs\journal\2026\10\21\diagnostics\cielairouter-transient-retry\harness\protocol_acceptance.py
+[adapter] substituted REPO -> C:\Users\djlov\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime
+[adapter] isolation root C:\Users\djlov\AppData\Local\Temp\ciel-protocol-acceptance-0k3wcbwq
+[adapter] ciel_runtime C:\Users\djlov\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime.py from_installed=True
+[protocol] 31 cases against C:\Users\djlov\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime
+[protocol] opener.screenshot_sse_then_success               PASS   0.28s
+[protocol] opener.screenshot_exhausted_configured_3         PASS   0.81s
+[protocol] opener.default_unset_is_three                    PASS   0.81s
+[protocol] opener.explicit_zero                             PASS   0.03s
+[protocol] opener.http200_initial_error_sse                 PASS   0.30s
+[protocol] opener.output_then_error_no_retry                PASS   0.02s
+[protocol] opener.malformed_no_retry                        PASS   0.01s
+[protocol] opener.usage_limit_no_retry                      PASS   0.01s
+[protocol] opener.next_request_fresh_budget                 PASS   1.59s
+[protocol] opener.remote_bridge_one_hit                     PASS   0.03s
+[protocol] opener.selected_gateway_reselect                 PASS   0.31s
+[protocol] responses.screenshot_sse_then_success            PASS   0.31s
+[protocol] responses.screenshot_exhausted_configured_3      PASS   0.81s
+[protocol] responses.explicit_zero                          PASS   0.03s
+[protocol] responses.http200_initial_error_sse              PASS   0.31s
+[protocol] responses.output_then_error_no_retry             PASS   0.03s
+[protocol] responses.malformed_no_retry                     PASS   0.03s
+[protocol] responses.usage_limit_no_retry                   PASS   0.03s
+[protocol] responses.tool_item_equality                     PASS   0.31s
+[protocol] responses.remote_bridge_one_hit                  PASS   0.03s
+[protocol] responses.selected_gateway_reselect              PASS   1.38s
+[protocol] chat.screenshot_sse_then_success                 PASS   0.30s
+[protocol] chat.screenshot_exhausted_configured_3           PASS   0.80s
+[protocol] chat.explicit_zero                               PASS   0.03s
+[protocol] chat.http200_initial_error_sse                   PASS   0.30s
+[protocol] chat.output_then_error_no_retry                  PASS   0.06s
+[protocol] chat.malformed_no_retry                          PASS   0.03s
+[protocol] chat.usage_limit_no_retry                        PASS   0.03s
+[protocol] chat.tool_equality                               PASS   0.30s
+[protocol] chat.remote_bridge_one_hit                       PASS   0.03s
+[protocol] chat.selected_gateway_reselect                   PASS   1.38s
+[protocol] PASS 31/31  FAIL 0
+[adapter] routed_native_e2e import from C:\Users\djlov\ciel-runtime\docs\journal\2026\10\21\diagnostics\cielairouter-transient-retry\harness\routed_native_e2e.py
+[native] 3 installed CLI binaries
+[native] claude_503_then_success    C:\Users\djlov\.local\bin\claude.exe                                     PASS cli_requests=1 upstream_hits=2 statuses=[503, 200] successes=1 rc=0
+[native] claude_persistent503       C:\Users\djlov\.local\bin\claude.exe                                     PASS cli_requests=1 upstream_hits=4 statuses=[503, 503, 503, 503] successes=0 rc=1
+[native] codex_503_then_success     C:\Users\djlov\AppData\Roaming\npm\node_modules\@openai\codex\node_modules\@openai\codex-win32-x64\vendor\x86_64-pc-windows-msvc\bin\codex.exe PASS cli_requests=1 upstream_hits=2 statuses=[503, 200] successes=1 rc=0
+[native] codex_persistent503        C:\Users\djlov\AppData\Roaming\npm\node_modules\@openai\codex\node_modules\@openai\codex-win32-x64\vendor\x86_64-pc-windows-msvc\bin\codex.exe PASS cli_requests=1 upstream_hits=4 statuses=[503, 503, 503, 503] successes=0 rc=1
+[native] codex_503_then_success     C:\Users\djlov\.codex\packages\standalone\releases\0.163.0-x86_64-pc-windows-msvc\bin\codex.exe PASS cli_requests=1 upstream_hits=2 statuses=[503, 200] successes=1 rc=0
+[native] codex_persistent503        C:\Users\djlov\.codex\packages\standalone\releases\0.163.0-x86_64-pc-windows-msvc\bin\codex.exe PASS cli_requests=1 upstream_hits=4 statuses=[503, 503, 503, 503] successes=0 rc=1
+[native] PASS 6/6  FAIL 0
+[sse] C:\Program Files\Python311\python.exe -I C:\Users\djlov\ciel-runtime\docs\journal\2026\10\21\releases\cielairouter-transient-retry\evidence\focused.py --runtime C:\Users\djlov\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime test_runtime_sse_recovery.py
+[sse] exit=0 ran=28 ok=True evidence=C:\Users\djlov\ciel-runtime\docs\journal\2026\10\21\releases\cielairouter-transient-retry\evidence\installed\focused-sse-npm-f87747a-lf.txt
+[adapter] checks {"runtime_layout_present": true, "protocol_repo_assignment_substituted_once": true, "imported_ciel_runtime_from_installed_root": true, "imported_ciel_runtime_digest_matches_installed_source": true, "all_support_modules_under_installed_root": true, "all_sources_present_in_installed_runtime": true, "source_digests_match_repo_checkout": true, "expected_version_matches": true, "protocol_31_of_31": true, "native_module_uses_injected_protocol_module": true, "native_6_of_6": true, "sse_28_tests_ok": true, "sources_stable_during_run": true, "all_stages_run": true}
+[adapter] all_passed=True evidence=C:\Users\djlov\ciel-runtime\docs\journal\2026\10\21\releases\cielairouter-transient-retry\evidence\installed\installed-verify-npm-f87747a-lf.json

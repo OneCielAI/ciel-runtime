@@ -305,13 +305,32 @@ No production provider or existing session was contacted or reset.
 - Final exact-file combined sweep: 709 tests, 12 skipped, no failures;
   repository ruff, compileall and documentation metadata checks pass.
 
-# Not verified
+# Publication and installed verification
 
-- No commit, publish, install or deployment: all changes are in the working
-  tree on top of `051ecf9`; `transient_retry.py` and
-  `runtime_sse_recovery.py` are new modules. The acceptance JSON
-  records source SHA-256 digests, not a git commit. `pack-dry-run.json` is a
-  packaging dry run at the existing version 0.2.51, not a publish or install.
+- Implementation `ed80c84`, follow-up `f87747a`, pushed to nightly and
+  nightly-20261020. The first CI failed three tests; its log and the
+  172-test isolation/policy-boundary regression fix are retained.
+- `f87747a` CI 39667103605 succeeded in all six jobs; npm publish
+  39667103531 succeeded. Registry nightly is
+  `0.2.51-nightly.20261021-200945.f87747a`, gitHead
+  `f87747a7463bb945c1c982ee8da115a6d77f4bb0`.
+- Registry tarball SHA-256:
+  `ca38aa008daac6f4dee99f8689dc60d1ba9a49de71c3caa65ffe2ad27cd821e7`.
+  Installed to npm global and a fresh `~/.local/share/ciel-runtime-f87747a`
+  snapshot. Each matches all 433 shipped Python files against the exact git
+  commit, with only the workflow's version stamp permitted.
+- `evidence/installed/installed-verify-npm-f87747a-lf.json` reports
+  all_passed=true: 31/31 protocol cases, 6/6 actual native CLI -> installed
+  RouterHandler cases, and 28/28 installed SSE recovery tests. Every imported
+  support module is under the installed root; source files remain unchanged.
+- The first adapter run falsely rejected newline-only Windows checkout
+  differences. Raw file SHA-256 and LF-normalized SHA-256 are retained; direct
+  git-blob comparison separately verified exact installed bytes. No source
+  fix was needed for that verifier issue.
+- Existing running launchers were not restarted; no production input queue,
+  cursor, transcript or history was changed.
+
+# Not verified
 - No production runtime, real provider credential, remote gateway host or
   existing session state was used. The isolated native CLI test above covers
   actual local router dispatch; it does not establish remote-host behavior.

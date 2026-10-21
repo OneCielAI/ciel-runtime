@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-21T19:51:56.713350+00:00",
+  "generated_at": "2026-10-21T20:06:18.003177+00:00",
   "cli_identities": [
     {
       "protocol": "claude",
@@ -23,27 +23,27 @@
   "production_dispatch": "RouterHandler -> build_router_http_services -> RouterHttpHandler.do_POST -> _dispatch_with_failover -> route_runtime_post",
   "lifecycle": "Only ThreadingHTTPServer. No run_cli/serve/scheduler/receiver/backup/lifetime-watchdog start.",
   "isolation": {
-    "root": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-protocol-acceptance-9azczrbl",
-    "home": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-protocol-acceptance-9azczrbl\\home",
-    "config": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-protocol-acceptance-9azczrbl\\config",
-    "cwd": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-protocol-acceptance-9azczrbl\\cwd",
-    "tmp": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-protocol-acceptance-9azczrbl\\tmp"
+    "root": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-protocol-acceptance-dmm4a78u",
+    "home": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-protocol-acceptance-dmm4a78u\\home",
+    "config": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-protocol-acceptance-dmm4a78u\\config",
+    "cwd": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-protocol-acceptance-dmm4a78u\\cwd",
+    "tmp": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-protocol-acceptance-dmm4a78u\\tmp"
   },
   "sources_before": {
     "ciel_runtime.py": "0b62581240643d526242958854a84b03c7a02a858acb475491060fc2e5e77392",
     "ciel_runtime_support/router_http.py": "3c70de09dc21e0f2ccf816267a419714cf5c75fa797773f7ca5850dfcd749a85",
-    "ciel_runtime_support/transient_retry.py": "008d6caa840e91dfcfa11f9a9c9456c6015451e1892a5107732eb1fa8cd34b45",
+    "ciel_runtime_support/transient_retry.py": "446735a023382903127d1d545aec8545e2b46ad2824a788290c50670012bb6f2",
     "ciel_runtime_support/upstream_retry.py": "8bbecde49a8ee2ca9712100626972c7b31fd37aae908e762616782a8ac11df01",
     "ciel_runtime_support/provider_responses_passthrough.py": "2249c72772b9103e3de73247828ce1417175b73c796070ec1e27551a5a75decf",
-    "ciel_runtime_support/claude_router.py": "f956a3200040802e9a9e3af54e16cf0d35597b4f891a15a3d8a2df9fbcd54180"
+    "ciel_runtime_support/claude_router.py": "84a9213010ba9eb24557223ddf30fab973032263d4e2ef4dd38f71574d74e7a5"
   },
   "sources_after": {
     "ciel_runtime.py": "0b62581240643d526242958854a84b03c7a02a858acb475491060fc2e5e77392",
     "ciel_runtime_support/router_http.py": "3c70de09dc21e0f2ccf816267a419714cf5c75fa797773f7ca5850dfcd749a85",
-    "ciel_runtime_support/transient_retry.py": "008d6caa840e91dfcfa11f9a9c9456c6015451e1892a5107732eb1fa8cd34b45",
+    "ciel_runtime_support/transient_retry.py": "446735a023382903127d1d545aec8545e2b46ad2824a788290c50670012bb6f2",
     "ciel_runtime_support/upstream_retry.py": "8bbecde49a8ee2ca9712100626972c7b31fd37aae908e762616782a8ac11df01",
     "ciel_runtime_support/provider_responses_passthrough.py": "2249c72772b9103e3de73247828ce1417175b73c796070ec1e27551a5a75decf",
-    "ciel_runtime_support/claude_router.py": "f956a3200040802e9a9e3af54e16cf0d35597b4f891a15a3d8a2df9fbcd54180"
+    "ciel_runtime_support/claude_router.py": "84a9213010ba9eb24557223ddf30fab973032263d4e2ef4dd38f71574d74e7a5"
   },
   "sources_stable_during_run": true,
   "cases": [
@@ -80,7 +80,7 @@
           "path": "/v1/messages",
           "status": 503,
           "request_bytes": 1140,
-          "request_sha256": "535ed2cda22cad94e632baee6ab8ddc3c3d5b528e6019cd72041346b56f932bd",
+          "request_sha256": "439056c1a5789c7ca86f8d65fa68c4b4f5d0308c682c69a7e71aff4a4fbbb614",
           "request_model": "claude-sonnet-5-5",
           "request_stream": true,
           "authorization_present": true
@@ -90,7 +90,7 @@
           "path": "/v1/messages",
           "status": 200,
           "request_bytes": 1140,
-          "request_sha256": "535ed2cda22cad94e632baee6ab8ddc3c3d5b528e6019cd72041346b56f932bd",
+          "request_sha256": "439056c1a5789c7ca86f8d65fa68c4b4f5d0308c682c69a7e71aff4a4fbbb614",
           "request_model": "claude-sonnet-5-5",
           "request_stream": true,
           "authorization_present": true
@@ -116,7 +116,7 @@
       "cli": {
         "returncode": 0,
         "timed_out": false,
-        "elapsed_seconds": 1.25,
+        "elapsed_seconds": 1.313,
         "job_assigned": true,
         "retry_controls": {
           "CLAUDE_CODE_MAX_RETRIES": "0",
@@ -138,7 +138,7 @@
         "last_message_is_ok": false
       },
       "retry_logs": [
-        "2026-10-21T14:51:50 [WARN] cielairouter_transient_retry operation=messages operation_id=134a6bb29f724da895007930408feff9 model=claude-sonnet-5-5 status=503 attempt=1/3 wait=0.25s elapsed=0.05s"
+        "2026-10-21T15:06:11 [WARN] cielairouter_transient_retry operation=messages operation_id=b4e3f506da2c4a35b9265c0d39a46397 model=claude-sonnet-5-5 status=503 attempt=1/3 wait=0.25s elapsed=0.03s"
       ]
     },
     {
@@ -174,7 +174,7 @@
           "path": "/v1/messages",
           "status": 503,
           "request_bytes": 1140,
-          "request_sha256": "1ab369e3f768d31a044c2981a442a1a3fc3d1ea6affaeb141210b6bf1a061a7c",
+          "request_sha256": "0fb7bb2e87a2bed2b05b18ffe87fd39c8622e41577a4aefccf172747e880ae56",
           "request_model": "claude-sonnet-5-5",
           "request_stream": true,
           "authorization_present": true
@@ -184,7 +184,7 @@
           "path": "/v1/messages",
           "status": 503,
           "request_bytes": 1140,
-          "request_sha256": "1ab369e3f768d31a044c2981a442a1a3fc3d1ea6affaeb141210b6bf1a061a7c",
+          "request_sha256": "0fb7bb2e87a2bed2b05b18ffe87fd39c8622e41577a4aefccf172747e880ae56",
           "request_model": "claude-sonnet-5-5",
           "request_stream": true,
           "authorization_present": true
@@ -194,7 +194,7 @@
           "path": "/v1/messages",
           "status": 503,
           "request_bytes": 1140,
-          "request_sha256": "1ab369e3f768d31a044c2981a442a1a3fc3d1ea6affaeb141210b6bf1a061a7c",
+          "request_sha256": "0fb7bb2e87a2bed2b05b18ffe87fd39c8622e41577a4aefccf172747e880ae56",
           "request_model": "claude-sonnet-5-5",
           "request_stream": true,
           "authorization_present": true
@@ -204,7 +204,7 @@
           "path": "/v1/messages",
           "status": 503,
           "request_bytes": 1140,
-          "request_sha256": "1ab369e3f768d31a044c2981a442a1a3fc3d1ea6affaeb141210b6bf1a061a7c",
+          "request_sha256": "0fb7bb2e87a2bed2b05b18ffe87fd39c8622e41577a4aefccf172747e880ae56",
           "request_model": "claude-sonnet-5-5",
           "request_stream": true,
           "authorization_present": true
@@ -230,7 +230,7 @@
       "cli": {
         "returncode": 1,
         "timed_out": false,
-        "elapsed_seconds": 1.704,
+        "elapsed_seconds": 1.718,
         "job_assigned": true,
         "retry_controls": {
           "CLAUDE_CODE_MAX_RETRIES": "0",
@@ -241,7 +241,7 @@
         "success_outputs": [],
         "success_output_count": 0,
         "tool_execution_item_count": 0,
-        "stdout_sha256": "80860bf29071a4896b0c116d8941eedac53c9e7a92390233590b8780a421639f",
+        "stdout_sha256": "1cceb360b4fabcad566dd2cccf1544c7cb49d58334dbe8f7b7b2b7aa424bff81",
         "stdout_bytes": 341,
         "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "stderr_bytes": 0,
@@ -250,10 +250,10 @@
         "last_message_is_ok": false
       },
       "retry_logs": [
-        "2026-10-21T14:51:51 [WARN] cielairouter_transient_retry operation=messages operation_id=f238de08a91c4a86815d44499373424c model=claude-sonnet-5-5 status=503 attempt=1/3 wait=0.25s elapsed=0.03s",
-        "2026-10-21T14:51:51 [WARN] cielairouter_transient_retry operation=messages operation_id=f238de08a91c4a86815d44499373424c model=claude-sonnet-5-5 status=503 attempt=2/3 wait=0.25s elapsed=0.28s",
-        "2026-10-21T14:51:51 [WARN] cielairouter_transient_retry operation=messages operation_id=f238de08a91c4a86815d44499373424c model=claude-sonnet-5-5 status=503 attempt=3/3 wait=0.25s elapsed=0.53s",
-        "2026-10-21T14:51:52 [WARN] cielairouter_transient_stopped operation_id=f238de08a91c4a86815d44499373424c attempts=3 opens=4 elapsed=0.80s"
+        "2026-10-21T15:06:12 [WARN] cielairouter_transient_retry operation=messages operation_id=03430546967e4ff3a94381ed1d39a142 model=claude-sonnet-5-5 status=503 attempt=1/3 wait=0.25s elapsed=0.03s",
+        "2026-10-21T15:06:12 [WARN] cielairouter_transient_retry operation=messages operation_id=03430546967e4ff3a94381ed1d39a142 model=claude-sonnet-5-5 status=503 attempt=2/3 wait=0.25s elapsed=0.30s",
+        "2026-10-21T15:06:12 [WARN] cielairouter_transient_retry operation=messages operation_id=03430546967e4ff3a94381ed1d39a142 model=claude-sonnet-5-5 status=503 attempt=3/3 wait=0.25s elapsed=0.55s",
+        "2026-10-21T15:06:13 [WARN] cielairouter_transient_stopped operation_id=03430546967e4ff3a94381ed1d39a142 attempts=3 opens=4 elapsed=0.80s"
       ]
     },
     {
@@ -289,7 +289,7 @@
           "path": "/v1/responses",
           "status": 503,
           "request_bytes": 34534,
-          "request_sha256": "3d39212a664ada7ca5c0201cdf67308a025bd405e1e9b3a3d63301dcbce88c63",
+          "request_sha256": "020936a16210a3619af4493508f7393c482e561859cc149dc2b8796a826072d0",
           "request_model": "gpt-5.5",
           "request_stream": true,
           "authorization_present": true
@@ -299,7 +299,7 @@
           "path": "/v1/responses",
           "status": 200,
           "request_bytes": 34534,
-          "request_sha256": "3d39212a664ada7ca5c0201cdf67308a025bd405e1e9b3a3d63301dcbce88c63",
+          "request_sha256": "020936a16210a3619af4493508f7393c482e561859cc149dc2b8796a826072d0",
           "request_model": "gpt-5.5",
           "request_stream": true,
           "authorization_present": true
@@ -315,7 +315,7 @@
       "cli": {
         "returncode": 0,
         "timed_out": false,
-        "elapsed_seconds": 0.766,
+        "elapsed_seconds": 0.797,
         "job_assigned": true,
         "retry_controls": {
           "model": "\"gpt-5.5\"",
@@ -324,7 +324,7 @@
           "sandbox_mode": "\"read-only\"",
           "check_for_update_on_startup": "false",
           "model_providers.fixture.name": "\"Loopback fixture\"",
-          "model_providers.fixture.base_url": "\"http://127.0.0.1:54707/v1\"",
+          "model_providers.fixture.base_url": "\"http://127.0.0.1:63732/v1\"",
           "model_providers.fixture.wire_api": "\"responses\"",
           "model_providers.fixture.env_key": "\"CODEX_FIXTURE_API_KEY\"",
           "model_providers.fixture.request_max_retries": "0",
@@ -348,9 +348,9 @@
         ],
         "success_output_count": 1,
         "tool_execution_item_count": 0,
-        "stdout_sha256": "4494f059987ab095a3e6f32eac3c8396813ffd7d3447d3d5f784e876f66a2241",
+        "stdout_sha256": "f43fa76ee3df4d8462d0682e8bad96e3eae4ec38203c5520ca62fe583b97aa64",
         "stdout_bytes": 337,
-        "stderr_sha256": "e04cb6c27d09e97514b88c5053207fdbac2b372240e8128da57ae479f5065535",
+        "stderr_sha256": "d1d85fc51455a19df1e9f9cb437bbd587463e1b74bb2d0b9be243696b6cd564a",
         "stderr_bytes": 389,
         "external_plugin_warning": false,
         "event_types": {
@@ -362,7 +362,7 @@
         "last_message_is_ok": true
       },
       "retry_logs": [
-        "2026-10-21T14:51:52 [WARN] cielairouter_transient_retry operation=responses operation_id=cf0801ee3dad4f6e9efc684d1fdfdb39 model=gpt-5.5 status=503 attempt=1/3 wait=0.25s elapsed=0.01s"
+        "2026-10-21T15:06:13 [WARN] cielairouter_transient_retry operation=responses operation_id=42471815353343c89f15fad5c67afd6c model=gpt-5.5 status=503 attempt=1/3 wait=0.25s elapsed=0.03s"
       ]
     },
     {
@@ -398,7 +398,7 @@
           "path": "/v1/responses",
           "status": 503,
           "request_bytes": 34534,
-          "request_sha256": "7d9168356618819ca2301ddb12d6cbea2a2046c08ac84c8294e6d5d6d55b3809",
+          "request_sha256": "1d097dca22f71bdb7aea5407c0efab72a75724a474b3bbe53f558c7f8f8addce",
           "request_model": "gpt-5.5",
           "request_stream": true,
           "authorization_present": true
@@ -408,7 +408,7 @@
           "path": "/v1/responses",
           "status": 503,
           "request_bytes": 34534,
-          "request_sha256": "7d9168356618819ca2301ddb12d6cbea2a2046c08ac84c8294e6d5d6d55b3809",
+          "request_sha256": "1d097dca22f71bdb7aea5407c0efab72a75724a474b3bbe53f558c7f8f8addce",
           "request_model": "gpt-5.5",
           "request_stream": true,
           "authorization_present": true
@@ -418,7 +418,7 @@
           "path": "/v1/responses",
           "status": 503,
           "request_bytes": 34534,
-          "request_sha256": "7d9168356618819ca2301ddb12d6cbea2a2046c08ac84c8294e6d5d6d55b3809",
+          "request_sha256": "1d097dca22f71bdb7aea5407c0efab72a75724a474b3bbe53f558c7f8f8addce",
           "request_model": "gpt-5.5",
           "request_stream": true,
           "authorization_present": true
@@ -428,7 +428,7 @@
           "path": "/v1/responses",
           "status": 503,
           "request_bytes": 34534,
-          "request_sha256": "7d9168356618819ca2301ddb12d6cbea2a2046c08ac84c8294e6d5d6d55b3809",
+          "request_sha256": "1d097dca22f71bdb7aea5407c0efab72a75724a474b3bbe53f558c7f8f8addce",
           "request_model": "gpt-5.5",
           "request_stream": true,
           "authorization_present": true
@@ -444,7 +444,7 @@
       "cli": {
         "returncode": 1,
         "timed_out": false,
-        "elapsed_seconds": 1.063,
+        "elapsed_seconds": 1.11,
         "job_assigned": true,
         "retry_controls": {
           "model": "\"gpt-5.5\"",
@@ -453,7 +453,7 @@
           "sandbox_mode": "\"read-only\"",
           "check_for_update_on_startup": "false",
           "model_providers.fixture.name": "\"Loopback fixture\"",
-          "model_providers.fixture.base_url": "\"http://127.0.0.1:54723/v1\"",
+          "model_providers.fixture.base_url": "\"http://127.0.0.1:63747/v1\"",
           "model_providers.fixture.wire_api": "\"responses\"",
           "model_providers.fixture.env_key": "\"CODEX_FIXTURE_API_KEY\"",
           "model_providers.fixture.request_max_retries": "0",
@@ -475,9 +475,9 @@
         "success_outputs": [],
         "success_output_count": 0,
         "tool_execution_item_count": 0,
-        "stdout_sha256": "11bd8e6812d87fbc618bb4c440843e58313993211a8b2e22f25af1e3d0865cc3",
+        "stdout_sha256": "151f85b4dc36155e77a8a85235b309696a1289de1a26da50aa0ae85fe02a6d1c",
         "stdout_bytes": 1059,
-        "stderr_sha256": "4bf6723ec11af2e70c192a42ce0d569a7b9526c040da7991416a9e39630d4b38",
+        "stderr_sha256": "d2ac0fd9fb4bf963e5a7342d2d5d4cb1b2299fb049113f1774ab1783b757177b",
         "stderr_bytes": 389,
         "external_plugin_warning": false,
         "event_types": {
@@ -489,10 +489,10 @@
         "last_message_is_ok": false
       },
       "retry_logs": [
-        "2026-10-21T14:51:53 [WARN] cielairouter_transient_retry operation=responses operation_id=a35091e9314d4bcf962e02cf9bac3e47 model=gpt-5.5 status=503 attempt=1/3 wait=0.25s elapsed=0.01s",
-        "2026-10-21T14:51:53 [WARN] cielairouter_transient_retry operation=responses operation_id=a35091e9314d4bcf962e02cf9bac3e47 model=gpt-5.5 status=503 attempt=2/3 wait=0.25s elapsed=0.28s",
-        "2026-10-21T14:51:54 [WARN] cielairouter_transient_retry operation=responses operation_id=a35091e9314d4bcf962e02cf9bac3e47 model=gpt-5.5 status=503 attempt=3/3 wait=0.25s elapsed=0.55s",
-        "2026-10-21T14:51:54 [WARN] cielairouter_transient_stopped operation_id=a35091e9314d4bcf962e02cf9bac3e47 attempts=3 opens=4 elapsed=0.80s"
+        "2026-10-21T15:06:14 [WARN] cielairouter_transient_retry operation=responses operation_id=862f6d007b44486699915fc0f4d2e962 model=gpt-5.5 status=503 attempt=1/3 wait=0.25s elapsed=0.02s",
+        "2026-10-21T15:06:14 [WARN] cielairouter_transient_retry operation=responses operation_id=862f6d007b44486699915fc0f4d2e962 model=gpt-5.5 status=503 attempt=2/3 wait=0.25s elapsed=0.27s",
+        "2026-10-21T15:06:15 [WARN] cielairouter_transient_retry operation=responses operation_id=862f6d007b44486699915fc0f4d2e962 model=gpt-5.5 status=503 attempt=3/3 wait=0.25s elapsed=0.52s",
+        "2026-10-21T15:06:15 [WARN] cielairouter_transient_stopped operation_id=862f6d007b44486699915fc0f4d2e962 attempts=3 opens=4 elapsed=0.78s"
       ]
     },
     {
@@ -528,7 +528,7 @@
           "path": "/v1/responses",
           "status": 503,
           "request_bytes": 34169,
-          "request_sha256": "398ca56abbe72ac71d980cb2351179221963c494aa5a64002c3bf845c4d04ede",
+          "request_sha256": "3c0e40472eba0f21de49f46481856a99565efb19e9a4a10e964292775e4e2a63",
           "request_model": "gpt-5.5",
           "request_stream": true,
           "authorization_present": true
@@ -538,7 +538,7 @@
           "path": "/v1/responses",
           "status": 200,
           "request_bytes": 34169,
-          "request_sha256": "398ca56abbe72ac71d980cb2351179221963c494aa5a64002c3bf845c4d04ede",
+          "request_sha256": "3c0e40472eba0f21de49f46481856a99565efb19e9a4a10e964292775e4e2a63",
           "request_model": "gpt-5.5",
           "request_stream": true,
           "authorization_present": true
@@ -554,7 +554,7 @@
       "cli": {
         "returncode": 0,
         "timed_out": false,
-        "elapsed_seconds": 0.891,
+        "elapsed_seconds": 1.046,
         "job_assigned": true,
         "retry_controls": {
           "model": "\"gpt-5.5\"",
@@ -563,7 +563,7 @@
           "sandbox_mode": "\"read-only\"",
           "check_for_update_on_startup": "false",
           "model_providers.fixture.name": "\"Loopback fixture\"",
-          "model_providers.fixture.base_url": "\"http://127.0.0.1:54747/v1\"",
+          "model_providers.fixture.base_url": "\"http://127.0.0.1:63766/v1\"",
           "model_providers.fixture.wire_api": "\"responses\"",
           "model_providers.fixture.env_key": "\"CODEX_FIXTURE_API_KEY\"",
           "model_providers.fixture.request_max_retries": "0",
@@ -587,9 +587,9 @@
         ],
         "success_output_count": 1,
         "tool_execution_item_count": 0,
-        "stdout_sha256": "027c005cde6b66381030c002f412f1591b74d0db377a76701b55529b328e82dc",
+        "stdout_sha256": "d76920ae3891c2845416e6bab0423f786e322e173e45059ca61ed3a150c8e359",
         "stdout_bytes": 337,
-        "stderr_sha256": "fc09143b172b533a51f04b4b863afe0d4bb441d581afe0e6ba7426aa0d78bc70",
+        "stderr_sha256": "b8862161f2d21f9442b01d21b7cc88d8c8c2a53bbb30cb8766777157c2d42f85",
         "stderr_bytes": 389,
         "external_plugin_warning": false,
         "event_types": {
@@ -601,7 +601,7 @@
         "last_message_is_ok": true
       },
       "retry_logs": [
-        "2026-10-21T14:51:54 [WARN] cielairouter_transient_retry operation=responses operation_id=85f1e3ab288445c88797ff78ba7b07e0 model=gpt-5.5 status=503 attempt=1/3 wait=0.25s elapsed=0.02s"
+        "2026-10-21T15:06:16 [WARN] cielairouter_transient_retry operation=responses operation_id=9f6a03b105c74313836b663ea9904f29 model=gpt-5.5 status=503 attempt=1/3 wait=0.25s elapsed=0.02s"
       ]
     },
     {
@@ -637,7 +637,7 @@
           "path": "/v1/responses",
           "status": 503,
           "request_bytes": 34169,
-          "request_sha256": "d59f8bf77a15612e618c562d615465449ab14cbaffa711ff04d312d123187719",
+          "request_sha256": "cfd885f44bb8e4bcd45fa5455f13cde44117fa945f7c43e5eff1a1d1a1665cf8",
           "request_model": "gpt-5.5",
           "request_stream": true,
           "authorization_present": true
@@ -647,7 +647,7 @@
           "path": "/v1/responses",
           "status": 503,
           "request_bytes": 34169,
-          "request_sha256": "d59f8bf77a15612e618c562d615465449ab14cbaffa711ff04d312d123187719",
+          "request_sha256": "cfd885f44bb8e4bcd45fa5455f13cde44117fa945f7c43e5eff1a1d1a1665cf8",
           "request_model": "gpt-5.5",
           "request_stream": true,
           "authorization_present": true
@@ -657,7 +657,7 @@
           "path": "/v1/responses",
           "status": 503,
           "request_bytes": 34169,
-          "request_sha256": "d59f8bf77a15612e618c562d615465449ab14cbaffa711ff04d312d123187719",
+          "request_sha256": "cfd885f44bb8e4bcd45fa5455f13cde44117fa945f7c43e5eff1a1d1a1665cf8",
           "request_model": "gpt-5.5",
           "request_stream": true,
           "authorization_present": true
@@ -667,7 +667,7 @@
           "path": "/v1/responses",
           "status": 503,
           "request_bytes": 34169,
-          "request_sha256": "d59f8bf77a15612e618c562d615465449ab14cbaffa711ff04d312d123187719",
+          "request_sha256": "cfd885f44bb8e4bcd45fa5455f13cde44117fa945f7c43e5eff1a1d1a1665cf8",
           "request_model": "gpt-5.5",
           "request_stream": true,
           "authorization_present": true
@@ -683,7 +683,7 @@
       "cli": {
         "returncode": 1,
         "timed_out": false,
-        "elapsed_seconds": 1.063,
+        "elapsed_seconds": 1.109,
         "job_assigned": true,
         "retry_controls": {
           "model": "\"gpt-5.5\"",
@@ -692,7 +692,7 @@
           "sandbox_mode": "\"read-only\"",
           "check_for_update_on_startup": "false",
           "model_providers.fixture.name": "\"Loopback fixture\"",
-          "model_providers.fixture.base_url": "\"http://127.0.0.1:54766/v1\"",
+          "model_providers.fixture.base_url": "\"http://127.0.0.1:63787/v1\"",
           "model_providers.fixture.wire_api": "\"responses\"",
           "model_providers.fixture.env_key": "\"CODEX_FIXTURE_API_KEY\"",
           "model_providers.fixture.request_max_retries": "0",
@@ -714,9 +714,9 @@
         "success_outputs": [],
         "success_output_count": 0,
         "tool_execution_item_count": 0,
-        "stdout_sha256": "e301556041d990c7b6c6a09d56103ddbdc6a2843e8447c5a3e4d4fbe3a3ad393",
+        "stdout_sha256": "9b3ff0073274f8b5d52aa6d8137609d1c7399a718d33480fdabb6aad0ac5e7ab",
         "stdout_bytes": 1059,
-        "stderr_sha256": "4742fe745f9ec4d0151d17f9fe79b5e57da57d56fad0a6cd7c53fd3eb9e8895b",
+        "stderr_sha256": "f0b4c9a2435bf86605eb33c972b33af6756e87b69cad26d422e4e439f3e1e337",
         "stderr_bytes": 389,
         "external_plugin_warning": false,
         "event_types": {
@@ -728,10 +728,10 @@
         "last_message_is_ok": false
       },
       "retry_logs": [
-        "2026-10-21T14:51:55 [WARN] cielairouter_transient_retry operation=responses operation_id=646ab92fa1504b7d8e67a9fc27e4a103 model=gpt-5.5 status=503 attempt=1/3 wait=0.25s elapsed=0.02s",
-        "2026-10-21T14:51:56 [WARN] cielairouter_transient_retry operation=responses operation_id=646ab92fa1504b7d8e67a9fc27e4a103 model=gpt-5.5 status=503 attempt=2/3 wait=0.25s elapsed=0.27s",
-        "2026-10-21T14:51:56 [WARN] cielairouter_transient_retry operation=responses operation_id=646ab92fa1504b7d8e67a9fc27e4a103 model=gpt-5.5 status=503 attempt=3/3 wait=0.25s elapsed=0.52s",
-        "2026-10-21T14:51:56 [WARN] cielairouter_transient_stopped operation_id=646ab92fa1504b7d8e67a9fc27e4a103 attempts=3 opens=4 elapsed=0.78s"
+        "2026-10-21T15:06:17 [WARN] cielairouter_transient_retry operation=responses operation_id=fc183ebc6f754634b50a75971fb2124d model=gpt-5.5 status=503 attempt=1/3 wait=0.25s elapsed=0.02s",
+        "2026-10-21T15:06:17 [WARN] cielairouter_transient_retry operation=responses operation_id=fc183ebc6f754634b50a75971fb2124d model=gpt-5.5 status=503 attempt=2/3 wait=0.25s elapsed=0.28s",
+        "2026-10-21T15:06:17 [WARN] cielairouter_transient_retry operation=responses operation_id=fc183ebc6f754634b50a75971fb2124d model=gpt-5.5 status=503 attempt=3/3 wait=0.25s elapsed=0.53s",
+        "2026-10-21T15:06:17 [WARN] cielairouter_transient_stopped operation_id=fc183ebc6f754634b50a75971fb2124d attempts=3 opens=4 elapsed=0.78s"
       ]
     }
   ],

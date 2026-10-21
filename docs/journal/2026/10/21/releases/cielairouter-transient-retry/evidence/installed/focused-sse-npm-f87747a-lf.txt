@@ -1,0 +1,39 @@
+command: C:\Program Files\Python311\python.exe -I C:\Users\djlov\ciel-runtime\docs\journal\2026\10\21\releases\cielairouter-transient-retry\evidence\focused.py --runtime C:\Users\djlov\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime test_runtime_sse_recovery.py
+runtime: C:\Users\djlov\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime
+exit_code: 0
+--- output ---
+Selected runtime: C:\Users\djlov\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime
+Exact files: test_runtime_sse_recovery.py
+test_actual_mcp_http_fixture_dispatches_recovery (test_runtime_sse_recovery.RecoveryTests.test_actual_mcp_http_fixture_dispatches_recovery) ... ok
+test_actual_status_queue_and_restart_service_over_mcp (test_runtime_sse_recovery.RecoveryTests.test_actual_status_queue_and_restart_service_over_mcp) ... ok
+test_admission_blocked_without_stale_queue_is_not_restart_authority (test_runtime_sse_recovery.RecoveryTests.test_admission_blocked_without_stale_queue_is_not_restart_authority) ... ok
+test_clock_reversal_remains_in_cooldown (test_runtime_sse_recovery.RecoveryTests.test_clock_reversal_remains_in_cooldown) ... ok
+test_compaction_pause_does_not_authorize_a_restart (test_runtime_sse_recovery.RecoveryTests.test_compaction_pause_does_not_authorize_a_restart) ... ok
+test_complete_stale_queue_queues_one_resumed_restart (test_runtime_sse_recovery.RecoveryTests.test_complete_stale_queue_queues_one_resumed_restart) ... ok
+test_cooldown_expires (test_runtime_sse_recovery.RecoveryTests.test_cooldown_expires) ... ok
+test_cooldown_suppresses_second_reset_and_force_cannot_bypass (test_runtime_sse_recovery.RecoveryTests.test_cooldown_suppresses_second_reset_and_force_cannot_bypass) ... ok
+test_corrupt_or_unreadable_record_fails_closed (test_runtime_sse_recovery.RecoveryTests.test_corrupt_or_unreadable_record_fails_closed) ... ok
+test_defaults_and_status_are_read_only (test_runtime_sse_recovery.RecoveryTests.test_defaults_and_status_are_read_only) ... ok
+test_enforced_minimums_and_force_rejection (test_runtime_sse_recovery.RecoveryTests.test_enforced_minimums_and_force_rejection) ... ok
+test_failed_reservation_never_calls_restart (test_runtime_sse_recovery.RecoveryTests.test_failed_reservation_never_calls_restart) ... ok
+test_initial_clock_below_cooldown_is_not_a_previous_reset (test_runtime_sse_recovery.RecoveryTests.test_initial_clock_below_cooldown_is_not_a_previous_reset) ... ok
+test_invalid_action_and_pid_are_rejected (test_runtime_sse_recovery.RecoveryTests.test_invalid_action_and_pid_are_rejected) ... ok
+test_invalid_arguments_rejected_even_without_evidence (test_runtime_sse_recovery.RecoveryTests.test_invalid_arguments_rejected_even_without_evidence) ... ok
+test_nonfinite_health_is_not_restart_authority (test_runtime_sse_recovery.RecoveryTests.test_nonfinite_health_is_not_restart_authority) ... ok
+test_oversized_record_fails_closed (test_runtime_sse_recovery.RecoveryTests.test_oversized_record_fails_closed) ... ok
+test_partial_private_history_never_authorizes_restart (test_runtime_sse_recovery.RecoveryTests.test_partial_private_history_never_authorizes_restart) ... ok
+test_pause_observation_failure_does_not_authorize_reset (test_runtime_sse_recovery.RecoveryTests.test_pause_observation_failure_does_not_authorize_reset) ... ok
+test_recent_queue_is_not_reset (test_runtime_sse_recovery.RecoveryTests.test_recent_queue_is_not_reset) ... ok
+test_refused_restart_keeps_cooldown_reservation (test_runtime_sse_recovery.RecoveryTests.test_refused_restart_keeps_cooldown_reservation) ... ok
+test_restart_exception_is_reserved_not_retried (test_runtime_sse_recovery.RecoveryTests.test_restart_exception_is_reserved_not_retried) ... ok
+test_router_only_targets_one_registered_instance_client (test_runtime_sse_recovery.RecoveryTests.test_router_only_targets_one_registered_instance_client) ... ok
+test_simultaneous_calls_queue_one_restart (test_runtime_sse_recovery.RecoveryTests.test_simultaneous_calls_queue_one_restart) ... ok
+test_stale_queue_without_complete_coverage_is_not_restart_evidence (test_runtime_sse_recovery.RecoveryTests.test_stale_queue_without_complete_coverage_is_not_restart_evidence) ... ok
+test_status_only_history_without_a_real_queue_never_resets (test_runtime_sse_recovery.RecoveryTests.test_status_only_history_without_a_real_queue_never_resets) ... ok
+test_unobservable_health_does_not_reset (test_runtime_sse_recovery.RecoveryTests.test_unobservable_health_does_not_reset) ... ok
+test_zero_timestamp_is_not_a_previous_reset (test_runtime_sse_recovery.RecoveryTests.test_zero_timestamp_is_not_a_previous_reset) ... ok
+
+----------------------------------------------------------------------
+Ran 28 tests in 2.226s
+
+OK

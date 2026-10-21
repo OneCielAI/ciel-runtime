@@ -1,0 +1,1201 @@
+{
+  "label": "npm-f87747a-lf",
+  "generated_at": "2026-10-21T20:17:55.812748+00:00",
+  "python": "3.11.6",
+  "platform": "Windows-10-10.0.26200-SP0",
+  "isolation": {
+    "root": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-protocol-acceptance-0k3wcbwq",
+    "home": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-protocol-acceptance-0k3wcbwq\\home",
+    "config": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-protocol-acceptance-0k3wcbwq\\config",
+    "cwd": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-protocol-acceptance-0k3wcbwq\\cwd",
+    "tmp": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-protocol-acceptance-0k3wcbwq\\tmp"
+  },
+  "runtime": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime",
+  "production_wiring": {
+    "claude_messages_opener": "ciel_runtime.open_provider_request_with_key_retry via upstream_retry_context()",
+    "responses": "ciel_runtime.provider_responses_passthrough()",
+    "chat": "ciel_runtime.provider_chat_passthrough()",
+    "gateway": "CielAiRouterGatewayService + CielAiRouterGatewayOverlay + provider_network.provider_urlopen + reselect_cielairouter_gateway"
+  },
+  "not_covered": [
+    "router_http request dispatch wrapping (owned by dispatch-scope)",
+    "live runtime, real provider and remote gateway hosts"
+  ],
+  "cases": [
+    {
+      "case": "opener.screenshot_sse_then_success",
+      "started_at": "2026-10-21T20:17:45.016844+00:00",
+      "upstream_hits": 2,
+      "request_body": {
+        "bytes": 94,
+        "sha256": "abbe809a86e22ec8b552cb66baf8c4625b072fee1ffd48aceef89f40b8a420ea"
+      },
+      "client_body": {
+        "bytes": 695,
+        "sha256": "09ccbdc61b32500194055026e3aea39024ba99c6b3543c3cb8d9c79c7e96a0a0"
+      },
+      "budget": {
+        "opens": 2,
+        "shared_objects": 1,
+        "none_opens": 0,
+        "attempts": 1,
+        "opens_recorded": 2,
+        "exposed": true
+      },
+      "passed": true,
+      "elapsed_seconds": 0.28,
+      "checks": [
+        {
+          "check": "upstream_hit_count",
+          "ok": true
+        },
+        {
+          "check": "client_stream_is_exactly_one_success",
+          "ok": true
+        },
+        {
+          "check": "upstream_hits_recorded",
+          "ok": true
+        },
+        {
+          "check": "all_retries_use_identical_request_body",
+          "ok": true
+        },
+        {
+          "check": "all_retries_use_expected_endpoint",
+          "ok": true
+        },
+        {
+          "check": "all_retries_use_identical_authorization",
+          "ok": true
+        },
+        {
+          "check": "budget_attempts",
+          "ok": true
+        },
+        {
+          "check": "budget_opens",
+          "ok": true
+        },
+        {
+          "check": "one_shared_budget_object",
+          "ok": true
+        },
+        {
+          "check": "budget_marked_exposed_after_success_read",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "case": "opener.screenshot_exhausted_configured_3",
+      "started_at": "2026-10-21T20:17:45.306747+00:00",
+      "upstream_hits": 4,
+      "client_error": {
+        "bytes": 188,
+        "sha256": "d3ce31901053128f7c970253e04826f759f2b8f452e774552a84f9ee1fe4f7b3"
+      },
+      "budget": {
+        "opens": 4,
+        "shared_objects": 1,
+        "none_opens": 0,
+        "attempts": 3,
+        "opens_recorded": 4,
+        "exposed": false
+      },
+      "passed": true,
+      "elapsed_seconds": 0.81,
+      "checks": [
+        {
+          "check": "client_error_recorded",
+          "ok": true
+        },
+        {
+          "check": "client_status",
+          "ok": true
+        },
+        {
+          "check": "client_error_body_is_original_screenshot",
+          "ok": true
+        },
+        {
+          "check": "upstream_hit_count",
+          "ok": true
+        },
+        {
+          "check": "upstream_hits_recorded",
+          "ok": true
+        },
+        {
+          "check": "all_retries_use_identical_request_body",
+          "ok": true
+        },
+        {
+          "check": "all_retries_use_expected_endpoint",
+          "ok": true
+        },
+        {
+          "check": "all_retries_use_identical_authorization",
+          "ok": true
+        },
+        {
+          "check": "budget_attempts",
+          "ok": true
+        },
+        {
+          "check": "budget_opens",
+          "ok": true
+        },
+        {
+          "check": "one_shared_budget_object",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "case": "opener.default_unset_is_three",
+      "started_at": "2026-10-21T20:17:46.114210+00:00",
+      "upstream_hits": 4,
+      "budget": {
+        "opens": 4,
+        "shared_objects": 1,
+        "none_opens": 0,
+        "attempts": 3,
+        "opens_recorded": 4,
+        "exposed": false
+      },
+      "passed": true,
+      "elapsed_seconds": 0.81,
+      "checks": [
+        {
+          "check": "upstream_hit_count_unset_is_three_retries",
+          "ok": true
+        },
+        {
+          "check": "client_status",
+          "ok": true
+        },
+        {
+          "check": "budget_attempts",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "case": "opener.explicit_zero",
+      "started_at": "2026-10-21T20:17:46.923280+00:00",
+      "upstream_hits": 1,
+      "budget": {
+        "opens": 1,
+        "shared_objects": 0,
+        "none_opens": 1,
+        "attempts": null,
+        "opens_recorded": null,
+        "exposed": null
+      },
+      "passed": true,
+      "elapsed_seconds": 0.03,
+      "checks": [
+        {
+          "check": "upstream_hit_count",
+          "ok": true
+        },
+        {
+          "check": "client_status",
+          "ok": true
+        },
+        {
+          "check": "client_error_body_is_original_screenshot",
+          "ok": true
+        },
+        {
+          "check": "no_budget_allocated",
+          "ok": true
+        },
+        {
+          "check": "no_budget_attempts",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "case": "opener.http200_initial_error_sse",
+      "started_at": "2026-10-21T20:17:46.954401+00:00",
+      "upstream_hits": 2,
+      "client_body": {
+        "bytes": 695,
+        "sha256": "09ccbdc61b32500194055026e3aea39024ba99c6b3543c3cb8d9c79c7e96a0a0"
+      },
+      "budget": {
+        "opens": 2,
+        "shared_objects": 1,
+        "none_opens": 0,
+        "attempts": 1,
+        "opens_recorded": 2,
+        "exposed": true
+      },
+      "passed": true,
+      "elapsed_seconds": 0.3,
+      "checks": [
+        {
+          "check": "upstream_hit_count",
+          "ok": true
+        },
+        {
+          "check": "client_stream_is_exactly_one_success",
+          "ok": true
+        },
+        {
+          "check": "upstream_hits_recorded",
+          "ok": true
+        },
+        {
+          "check": "all_retries_use_identical_request_body",
+          "ok": true
+        },
+        {
+          "check": "all_retries_use_expected_endpoint",
+          "ok": true
+        },
+        {
+          "check": "all_retries_use_identical_authorization",
+          "ok": true
+        },
+        {
+          "check": "budget_attempts",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "case": "opener.output_then_error_no_retry",
+      "started_at": "2026-10-21T20:17:47.249165+00:00",
+      "upstream_hits": 1,
+      "client_body": {
+        "bytes": 510,
+        "sha256": "6ff31af3d964c52486de51cac3e56f9f3778ba7fa792ed199b49a90a03cce86c"
+      },
+      "budget": {
+        "opens": 1,
+        "shared_objects": 1,
+        "none_opens": 0,
+        "attempts": 0,
+        "opens_recorded": 1,
+        "exposed": true
+      },
+      "passed": true,
+      "elapsed_seconds": 0.02,
+      "checks": [
+        {
+          "check": "upstream_hit_count_no_replay_after_output",
+          "ok": true
+        },
+        {
+          "check": "client_receives_entire_original_stream_exactly",
+          "ok": true
+        },
+        {
+          "check": "no_retry_attempt",
+          "ok": true
+        },
+        {
+          "check": "budget_marked_exposed",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "case": "opener.malformed_no_retry",
+      "started_at": "2026-10-21T20:17:47.280695+00:00",
+      "upstream_hits": 1,
+      "budget": {
+        "opens": 1,
+        "shared_objects": 1,
+        "none_opens": 0,
+        "attempts": 0,
+        "opens_recorded": 1,
+        "exposed": false
+      },
+      "passed": true,
+      "elapsed_seconds": 0.01,
+      "checks": [
+        {
+          "check": "upstream_hit_count_no_verdict_no_retry",
+          "ok": true
+        },
+        {
+          "check": "client_body_is_original_malformed_error",
+          "ok": true
+        },
+        {
+          "check": "no_retry_attempt",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "case": "opener.usage_limit_no_retry",
+      "started_at": "2026-10-21T20:17:47.311785+00:00",
+      "upstream_hits": 1,
+      "budget": {
+        "opens": 1,
+        "shared_objects": 1,
+        "none_opens": 0,
+        "attempts": 0,
+        "opens_recorded": 1,
+        "exposed": false
+      },
+      "passed": true,
+      "elapsed_seconds": 0.01,
+      "checks": [
+        {
+          "check": "upstream_hit_count_terminal_usage_limit_no_retry",
+          "ok": true
+        },
+        {
+          "check": "client_body_is_original_quota_error",
+          "ok": true
+        },
+        {
+          "check": "no_retry_attempt",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "case": "opener.next_request_fresh_budget",
+      "started_at": "2026-10-21T20:17:47.342088+00:00",
+      "upstream_hits": 8,
+      "request_body": {
+        "bytes": 94,
+        "sha256": "abbe809a86e22ec8b552cb66baf8c4625b072fee1ffd48aceef89f40b8a420ea"
+      },
+      "budgets": [
+        {
+          "opens": 4,
+          "shared_objects": 1,
+          "none_opens": 0,
+          "attempts": 3,
+          "opens_recorded": 4,
+          "exposed": false
+        },
+        {
+          "opens": 4,
+          "shared_objects": 1,
+          "none_opens": 0,
+          "attempts": 3,
+          "opens_recorded": 4,
+          "exposed": false
+        }
+      ],
+      "passed": true,
+      "elapsed_seconds": 1.59,
+      "checks": [
+        {
+          "check": "two_logical_requests_each_spend_four_hits",
+          "ok": true
+        },
+        {
+          "check": "both_requests_failed_identically",
+          "ok": true
+        },
+        {
+          "check": "both_payloads_logically_identical",
+          "ok": true
+        },
+        {
+          "check": "each_request_spent_its_own_three_attempts",
+          "ok": true
+        },
+        {
+          "check": "second_request_allocated_a_fresh_budget_object",
+          "ok": true
+        },
+        {
+          "check": "config_never_holds_a_mutable_budget",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "case": "opener.remote_bridge_one_hit",
+      "started_at": "2026-10-21T20:17:48.923256+00:00",
+      "upstream_hits": 1,
+      "passed": true,
+      "elapsed_seconds": 0.03,
+      "checks": [
+        {
+          "check": "remote_bridge_owner_disabled_single_hit",
+          "ok": true
+        },
+        {
+          "check": "client_status",
+          "ok": true
+        },
+        {
+          "check": "no_budget_allocated",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "case": "opener.selected_gateway_reselect",
+      "started_at": "2026-10-21T20:17:48.954457+00:00",
+      "failing_gateway_hits": 1,
+      "reselect_gateway_hits": 1,
+      "budget": {
+        "opens": 2,
+        "shared_objects": 1,
+        "none_opens": 0,
+        "attempts": 1,
+        "opens_recorded": 2,
+        "exposed": true
+      },
+      "route_state": "gateway",
+      "passed": true,
+      "elapsed_seconds": 0.31,
+      "checks": [
+        {
+          "check": "overlay_pinned_first_gateway",
+          "ok": true
+        },
+        {
+          "check": "central_config_keeps_central_base",
+          "ok": true
+        },
+        {
+          "check": "central_config_has_no_route_token",
+          "ok": true
+        },
+        {
+          "check": "failing_gateway_hits",
+          "ok": true
+        },
+        {
+          "check": "reselect_gateway_hits",
+          "ok": true
+        },
+        {
+          "check": "client_stream_from_reselected_gateway",
+          "ok": true
+        },
+        {
+          "check": "same_request_body_on_both_gateways",
+          "ok": true
+        },
+        {
+          "check": "same_authorization_on_both_gateways",
+          "ok": true
+        },
+        {
+          "check": "reselect_spends_one_attempt",
+          "ok": true
+        },
+        {
+          "check": "reselect_keeps_one_budget_object",
+          "ok": true
+        },
+        {
+          "check": "overlay_route_moved_to_second_gateway",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "case": "responses.screenshot_sse_then_success",
+      "started_at": "2026-10-21T20:17:49.278741+00:00",
+      "upstream_hits": 2,
+      "request_body": {
+        "bytes": 49,
+        "sha256": "fb26d14a44a307e0ae4e67f8d810c1ff123e859b8c15aabee98d4b39fc479641"
+      },
+      "client_body": {
+        "bytes": 219,
+        "sha256": "98e895387a90122b0c4cd20fdc1910e1c13e5c351afab8cae0faf50142989bc0"
+      },
+      "passed": true,
+      "elapsed_seconds": 0.31,
+      "checks": [
+        {
+          "check": "no_client_error",
+          "ok": true
+        },
+        {
+          "check": "client_status",
+          "ok": true
+        },
+        {
+          "check": "client_stream_is_exactly_one_success",
+          "ok": true
+        },
+        {
+          "check": "upstream_hit_count",
+          "ok": true
+        },
+        {
+          "check": "upstream_hits_recorded",
+          "ok": true
+        },
+        {
+          "check": "all_retries_use_identical_request_body",
+          "ok": true
+        },
+        {
+          "check": "all_retries_use_expected_endpoint",
+          "ok": true
+        },
+        {
+          "check": "all_retries_use_identical_authorization",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "case": "responses.screenshot_exhausted_configured_3",
+      "started_at": "2026-10-21T20:17:49.588687+00:00",
+      "upstream_hits": 4,
+      "client_error": {
+        "bytes": 188,
+        "sha256": "d3ce31901053128f7c970253e04826f759f2b8f452e774552a84f9ee1fe4f7b3"
+      },
+      "passed": true,
+      "elapsed_seconds": 0.81,
+      "checks": [
+        {
+          "check": "client_error_recorded",
+          "ok": true
+        },
+        {
+          "check": "client_status",
+          "ok": true
+        },
+        {
+          "check": "client_error_body_is_original_screenshot",
+          "ok": true
+        },
+        {
+          "check": "no_partial_downstream_status",
+          "ok": true
+        },
+        {
+          "check": "no_partial_downstream_body",
+          "ok": true
+        },
+        {
+          "check": "upstream_hit_count",
+          "ok": true
+        },
+        {
+          "check": "upstream_hits_recorded",
+          "ok": true
+        },
+        {
+          "check": "all_retries_use_identical_request_body",
+          "ok": true
+        },
+        {
+          "check": "all_retries_use_expected_endpoint",
+          "ok": true
+        },
+        {
+          "check": "all_retries_use_identical_authorization",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "case": "responses.explicit_zero",
+      "started_at": "2026-10-21T20:17:50.395840+00:00",
+      "upstream_hits": 1,
+      "passed": true,
+      "elapsed_seconds": 0.03,
+      "checks": [
+        {
+          "check": "upstream_hit_count",
+          "ok": true
+        },
+        {
+          "check": "client_status",
+          "ok": true
+        },
+        {
+          "check": "no_partial_downstream_status",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "case": "responses.http200_initial_error_sse",
+      "started_at": "2026-10-21T20:17:50.427074+00:00",
+      "upstream_hits": 2,
+      "client_body": {
+        "bytes": 219,
+        "sha256": "98e895387a90122b0c4cd20fdc1910e1c13e5c351afab8cae0faf50142989bc0"
+      },
+      "passed": true,
+      "elapsed_seconds": 0.31,
+      "checks": [
+        {
+          "check": "no_client_error",
+          "ok": true
+        },
+        {
+          "check": "upstream_hit_count",
+          "ok": true
+        },
+        {
+          "check": "client_status",
+          "ok": true
+        },
+        {
+          "check": "client_stream_is_exactly_one_success",
+          "ok": true
+        },
+        {
+          "check": "upstream_hits_recorded",
+          "ok": true
+        },
+        {
+          "check": "all_retries_use_identical_request_body",
+          "ok": true
+        },
+        {
+          "check": "all_retries_use_expected_endpoint",
+          "ok": true
+        },
+        {
+          "check": "all_retries_use_identical_authorization",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "case": "responses.output_then_error_no_retry",
+      "started_at": "2026-10-21T20:17:50.734845+00:00",
+      "upstream_hits": 1,
+      "client_body": {
+        "bytes": 598,
+        "sha256": "d68b5afb6853561db3c78a27ef1fd0cb83c244c0a617dc4d084e363e71cc7c17"
+      },
+      "passed": true,
+      "elapsed_seconds": 0.03,
+      "checks": [
+        {
+          "check": "no_client_error",
+          "ok": true
+        },
+        {
+          "check": "upstream_hit_count_no_replay_after_output",
+          "ok": true
+        },
+        {
+          "check": "client_receives_entire_original_stream_exactly",
+          "ok": true
+        },
+        {
+          "check": "client_status",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "case": "responses.malformed_no_retry",
+      "started_at": "2026-10-21T20:17:50.766107+00:00",
+      "upstream_hits": 1,
+      "passed": true,
+      "elapsed_seconds": 0.03,
+      "checks": [
+        {
+          "check": "upstream_hit_count_no_verdict_no_retry",
+          "ok": true
+        },
+        {
+          "check": "client_body_is_original_malformed_error",
+          "ok": true
+        },
+        {
+          "check": "no_partial_downstream_status",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "case": "responses.usage_limit_no_retry",
+      "started_at": "2026-10-21T20:17:50.812063+00:00",
+      "upstream_hits": 1,
+      "passed": true,
+      "elapsed_seconds": 0.03,
+      "checks": [
+        {
+          "check": "upstream_hit_count_terminal_usage_limit_no_retry",
+          "ok": true
+        },
+        {
+          "check": "client_body_is_original_quota_error",
+          "ok": true
+        },
+        {
+          "check": "no_partial_downstream_status",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "case": "responses.tool_item_equality",
+      "started_at": "2026-10-21T20:17:50.857814+00:00",
+      "upstream_hits": 2,
+      "request_body": {
+        "bytes": 251,
+        "sha256": "ebe25136224966282efdc0dee1650c0cc9e45dfc9b9ef09782429e813b389c85"
+      },
+      "client_body": {
+        "bytes": 410,
+        "sha256": "e192004a348d22b642e414d987c161b19fa7f9712496dd353b009a610730f388"
+      },
+      "passed": true,
+      "elapsed_seconds": 0.31,
+      "checks": [
+        {
+          "check": "no_client_error",
+          "ok": true
+        },
+        {
+          "check": "upstream_hit_count",
+          "ok": true
+        },
+        {
+          "check": "upstream_hits_recorded",
+          "ok": true
+        },
+        {
+          "check": "all_retries_use_identical_request_body",
+          "ok": true
+        },
+        {
+          "check": "all_retries_use_expected_endpoint",
+          "ok": true
+        },
+        {
+          "check": "all_retries_use_identical_authorization",
+          "ok": true
+        },
+        {
+          "check": "tool_item_delivered_exactly_once",
+          "ok": true
+        },
+        {
+          "check": "tool_definition_sent_exactly_once",
+          "ok": true
+        },
+        {
+          "check": "client_output_has_no_duplicate_stream",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "case": "responses.remote_bridge_one_hit",
+      "started_at": "2026-10-21T20:17:51.168765+00:00",
+      "upstream_hits": 1,
+      "passed": true,
+      "elapsed_seconds": 0.03,
+      "checks": [
+        {
+          "check": "remote_bridge_owner_disabled_single_hit",
+          "ok": true
+        },
+        {
+          "check": "client_status",
+          "ok": true
+        },
+        {
+          "check": "no_partial_downstream_status",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "case": "responses.selected_gateway_reselect",
+      "started_at": "2026-10-21T20:17:51.199646+00:00",
+      "failing_gateway_hits": 1,
+      "reselect_gateway_hits": 1,
+      "route_state": "gateway",
+      "passed": true,
+      "elapsed_seconds": 1.38,
+      "checks": [
+        {
+          "check": "overlay_pinned_first_gateway",
+          "ok": true
+        },
+        {
+          "check": "central_config_keeps_central_base",
+          "ok": true
+        },
+        {
+          "check": "central_config_has_no_route_token",
+          "ok": true
+        },
+        {
+          "check": "no_client_error",
+          "ok": true
+        },
+        {
+          "check": "failing_gateway_hits",
+          "ok": true
+        },
+        {
+          "check": "reselect_gateway_hits",
+          "ok": true
+        },
+        {
+          "check": "client_status",
+          "ok": true
+        },
+        {
+          "check": "client_stream_from_reselected_gateway",
+          "ok": true
+        },
+        {
+          "check": "same_request_body_on_both_gateways",
+          "ok": true
+        },
+        {
+          "check": "overlay_route_moved_to_second_gateway",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "case": "chat.screenshot_sse_then_success",
+      "started_at": "2026-10-21T20:17:52.564605+00:00",
+      "upstream_hits": 2,
+      "request_body": {
+        "bytes": 78,
+        "sha256": "97656d260fd659930f523c6a62d4100fd05e1c2f4847d15854a379dbc3c74829"
+      },
+      "client_body": {
+        "bytes": 144,
+        "sha256": "63eb497bc1bf1c6e6491581606468b0ff2ab7705122dc3afe27c858b1e962b2c"
+      },
+      "passed": true,
+      "elapsed_seconds": 0.3,
+      "checks": [
+        {
+          "check": "client_status",
+          "ok": true
+        },
+        {
+          "check": "client_body_is_exactly_one_success",
+          "ok": true
+        },
+        {
+          "check": "upstream_hit_count",
+          "ok": true
+        },
+        {
+          "check": "upstream_hits_recorded",
+          "ok": true
+        },
+        {
+          "check": "all_retries_use_identical_request_body",
+          "ok": true
+        },
+        {
+          "check": "all_retries_use_expected_endpoint",
+          "ok": true
+        },
+        {
+          "check": "all_retries_use_identical_authorization",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "case": "chat.screenshot_exhausted_configured_3",
+      "started_at": "2026-10-21T20:17:52.861113+00:00",
+      "upstream_hits": 4,
+      "client_error": {
+        "bytes": 188,
+        "sha256": "d3ce31901053128f7c970253e04826f759f2b8f452e774552a84f9ee1fe4f7b3"
+      },
+      "passed": true,
+      "elapsed_seconds": 0.8,
+      "checks": [
+        {
+          "check": "client_status",
+          "ok": true
+        },
+        {
+          "check": "client_error_body_is_original_screenshot",
+          "ok": true
+        },
+        {
+          "check": "upstream_hit_count",
+          "ok": true
+        },
+        {
+          "check": "upstream_hits_recorded",
+          "ok": true
+        },
+        {
+          "check": "all_retries_use_identical_request_body",
+          "ok": true
+        },
+        {
+          "check": "all_retries_use_expected_endpoint",
+          "ok": true
+        },
+        {
+          "check": "all_retries_use_identical_authorization",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "case": "chat.explicit_zero",
+      "started_at": "2026-10-21T20:17:53.668855+00:00",
+      "upstream_hits": 1,
+      "passed": true,
+      "elapsed_seconds": 0.03,
+      "checks": [
+        {
+          "check": "upstream_hit_count",
+          "ok": true
+        },
+        {
+          "check": "client_status",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "case": "chat.http200_initial_error_sse",
+      "started_at": "2026-10-21T20:17:53.700620+00:00",
+      "upstream_hits": 2,
+      "client_body": {
+        "bytes": 144,
+        "sha256": "63eb497bc1bf1c6e6491581606468b0ff2ab7705122dc3afe27c858b1e962b2c"
+      },
+      "passed": true,
+      "elapsed_seconds": 0.3,
+      "checks": [
+        {
+          "check": "upstream_hit_count",
+          "ok": true
+        },
+        {
+          "check": "client_status",
+          "ok": true
+        },
+        {
+          "check": "client_body_is_exactly_one_success",
+          "ok": true
+        },
+        {
+          "check": "upstream_hits_recorded",
+          "ok": true
+        },
+        {
+          "check": "all_retries_use_identical_request_body",
+          "ok": true
+        },
+        {
+          "check": "all_retries_use_expected_endpoint",
+          "ok": true
+        },
+        {
+          "check": "all_retries_use_identical_authorization",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "case": "chat.output_then_error_no_retry",
+      "started_at": "2026-10-21T20:17:53.996607+00:00",
+      "upstream_hits": 1,
+      "client_body": {
+        "bytes": 295,
+        "sha256": "78ce2be5bc32410664d3266db23e07a543265fe6bc322a7e99b2a3bb774767b7"
+      },
+      "passed": true,
+      "elapsed_seconds": 0.06,
+      "checks": [
+        {
+          "check": "upstream_hit_count_no_replay_after_output",
+          "ok": true
+        },
+        {
+          "check": "client_status",
+          "ok": true
+        },
+        {
+          "check": "client_receives_entire_original_stream_exactly",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "case": "chat.malformed_no_retry",
+      "started_at": "2026-10-21T20:17:54.058668+00:00",
+      "upstream_hits": 1,
+      "passed": true,
+      "elapsed_seconds": 0.03,
+      "checks": [
+        {
+          "check": "upstream_hit_count_no_verdict_no_retry",
+          "ok": true
+        },
+        {
+          "check": "client_status",
+          "ok": true
+        },
+        {
+          "check": "client_body_is_original_malformed_error",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "case": "chat.usage_limit_no_retry",
+      "started_at": "2026-10-21T20:17:54.090751+00:00",
+      "upstream_hits": 1,
+      "passed": true,
+      "elapsed_seconds": 0.03,
+      "checks": [
+        {
+          "check": "upstream_hit_count_terminal_usage_limit_no_retry",
+          "ok": true
+        },
+        {
+          "check": "client_status",
+          "ok": true
+        },
+        {
+          "check": "client_body_is_original_quota_error",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "case": "chat.tool_equality",
+      "started_at": "2026-10-21T20:17:54.121329+00:00",
+      "upstream_hits": 2,
+      "request_body": {
+        "bytes": 224,
+        "sha256": "a7902d3a1f35c449747c1a6e5e0f3fbef46a0b00f2b4e0e8ca9636dbe27de6bb"
+      },
+      "client_body": {
+        "bytes": 258,
+        "sha256": "a7ad88ab52d16553c6907b3bb64408c15c22cf329d2c0eaaea1803dac85b9226"
+      },
+      "passed": true,
+      "elapsed_seconds": 0.3,
+      "checks": [
+        {
+          "check": "client_status",
+          "ok": true
+        },
+        {
+          "check": "upstream_hit_count",
+          "ok": true
+        },
+        {
+          "check": "upstream_hits_recorded",
+          "ok": true
+        },
+        {
+          "check": "all_retries_use_identical_request_body",
+          "ok": true
+        },
+        {
+          "check": "all_retries_use_expected_endpoint",
+          "ok": true
+        },
+        {
+          "check": "all_retries_use_identical_authorization",
+          "ok": true
+        },
+        {
+          "check": "tool_call_delivered_exactly_once",
+          "ok": true
+        },
+        {
+          "check": "tool_definition_sent_exactly_once",
+          "ok": true
+        },
+        {
+          "check": "client_output_is_exactly_one_success",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "case": "chat.remote_bridge_one_hit",
+      "started_at": "2026-10-21T20:17:54.416745+00:00",
+      "upstream_hits": 1,
+      "passed": true,
+      "elapsed_seconds": 0.03,
+      "checks": [
+        {
+          "check": "remote_bridge_owner_disabled_single_hit",
+          "ok": true
+        },
+        {
+          "check": "client_status",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "case": "chat.selected_gateway_reselect",
+      "started_at": "2026-10-21T20:17:54.447441+00:00",
+      "failing_gateway_hits": 1,
+      "reselect_gateway_hits": 1,
+      "route_state": "gateway",
+      "passed": true,
+      "elapsed_seconds": 1.38,
+      "checks": [
+        {
+          "check": "overlay_pinned_first_gateway",
+          "ok": true
+        },
+        {
+          "check": "central_config_keeps_central_base",
+          "ok": true
+        },
+        {
+          "check": "central_config_has_no_route_token",
+          "ok": true
+        },
+        {
+          "check": "failing_gateway_hits",
+          "ok": true
+        },
+        {
+          "check": "reselect_gateway_hits",
+          "ok": true
+        },
+        {
+          "check": "client_status",
+          "ok": true
+        },
+        {
+          "check": "client_body_from_reselected_gateway",
+          "ok": true
+        },
+        {
+          "check": "same_request_body_on_both_gateways",
+          "ok": true
+        },
+        {
+          "check": "overlay_route_moved_to_second_gateway",
+          "ok": true
+        }
+      ]
+    }
+  ],
+  "passed": 31,
+  "failed": 0,
+  "all_passed": true,
+  "elapsed_seconds": 10.81
+}

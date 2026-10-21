@@ -1,18 +1,18 @@
 {
-  "label": "final-reviewed",
-  "generated_at": "2026-10-21T19:39:15.283498+00:00",
+  "label": "final-policy",
+  "generated_at": "2026-10-21T20:06:00.463188+00:00",
   "python": "3.11.6",
   "platform": "Windows-10-10.0.26200-SP0",
   "isolation": {
-    "root": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-protocol-acceptance-4f11_n0g",
-    "home": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-protocol-acceptance-4f11_n0g\\home",
-    "config": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-protocol-acceptance-4f11_n0g\\config",
-    "cwd": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-protocol-acceptance-4f11_n0g\\cwd",
-    "tmp": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-protocol-acceptance-4f11_n0g\\tmp"
+    "root": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-protocol-acceptance-t7q3uov9",
+    "home": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-protocol-acceptance-t7q3uov9\\home",
+    "config": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-protocol-acceptance-t7q3uov9\\config",
+    "cwd": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-protocol-acceptance-t7q3uov9\\cwd",
+    "tmp": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-protocol-acceptance-t7q3uov9\\tmp"
   },
   "sources": {
     "ciel_runtime.py": "0b62581240643d526242958854a84b03c7a02a858acb475491060fc2e5e77392",
-    "ciel_runtime_support/transient_retry.py": "008d6caa840e91dfcfa11f9a9c9456c6015451e1892a5107732eb1fa8cd34b45",
+    "ciel_runtime_support/transient_retry.py": "446735a023382903127d1d545aec8545e2b46ad2824a788290c50670012bb6f2",
     "ciel_runtime_support/upstream_retry.py": "8bbecde49a8ee2ca9712100626972c7b31fd37aae908e762616782a8ac11df01",
     "ciel_runtime_support/upstream_retry_context.py": "59b7c74a5aa7d79a6d4e82bc1d795dafaad629180dcaead2828c1fbaa21896a8",
     "ciel_runtime_support/upstream_error_policy.py": "413658e6c110c161b3fbd9a40a6b55401b32000f972900ede96a37fc3ab9883c",
@@ -36,7 +36,7 @@
   "cases": [
     {
       "case": "opener.screenshot_sse_then_success",
-      "started_at": "2026-10-21T19:39:04.506107+00:00",
+      "started_at": "2026-10-21T20:05:49.723389+00:00",
       "upstream_hits": 2,
       "request_body": {
         "bytes": 94,
@@ -101,7 +101,7 @@
     },
     {
       "case": "opener.screenshot_exhausted_configured_3",
-      "started_at": "2026-10-21T19:39:04.815183+00:00",
+      "started_at": "2026-10-21T20:05:50.030106+00:00",
       "upstream_hits": 4,
       "client_error": {
         "bytes": 188,
@@ -116,7 +116,7 @@
         "exposed": false
       },
       "passed": true,
-      "elapsed_seconds": 0.81,
+      "elapsed_seconds": 0.8,
       "checks": [
         {
           "check": "client_error_recorded",
@@ -166,7 +166,7 @@
     },
     {
       "case": "opener.default_unset_is_three",
-      "started_at": "2026-10-21T19:39:05.623227+00:00",
+      "started_at": "2026-10-21T20:05:50.837126+00:00",
       "upstream_hits": 4,
       "budget": {
         "opens": 4,
@@ -177,7 +177,7 @@
         "exposed": false
       },
       "passed": true,
-      "elapsed_seconds": 0.8,
+      "elapsed_seconds": 0.81,
       "checks": [
         {
           "check": "upstream_hit_count_unset_is_three_retries",
@@ -195,7 +195,7 @@
     },
     {
       "case": "opener.explicit_zero",
-      "started_at": "2026-10-21T19:39:06.428804+00:00",
+      "started_at": "2026-10-21T20:05:51.645792+00:00",
       "upstream_hits": 1,
       "budget": {
         "opens": 1,
@@ -232,7 +232,7 @@
     },
     {
       "case": "opener.http200_initial_error_sse",
-      "started_at": "2026-10-21T19:39:06.459851+00:00",
+      "started_at": "2026-10-21T20:05:51.676554+00:00",
       "upstream_hits": 2,
       "client_body": {
         "bytes": 695,
@@ -247,7 +247,7 @@
         "exposed": true
       },
       "passed": true,
-      "elapsed_seconds": 0.3,
+      "elapsed_seconds": 0.31,
       "checks": [
         {
           "check": "upstream_hit_count",
@@ -281,7 +281,7 @@
     },
     {
       "case": "opener.output_then_error_no_retry",
-      "started_at": "2026-10-21T19:39:06.754359+00:00",
+      "started_at": "2026-10-21T20:05:51.987314+00:00",
       "upstream_hits": 1,
       "client_body": {
         "bytes": 510,
@@ -296,7 +296,7 @@
         "exposed": true
       },
       "passed": true,
-      "elapsed_seconds": 0.05,
+      "elapsed_seconds": 0.03,
       "checks": [
         {
           "check": "upstream_hit_count_no_replay_after_output",
@@ -318,7 +318,7 @@
     },
     {
       "case": "opener.malformed_no_retry",
-      "started_at": "2026-10-21T19:39:06.801001+00:00",
+      "started_at": "2026-10-21T20:05:52.017867+00:00",
       "upstream_hits": 1,
       "budget": {
         "opens": 1,
@@ -347,7 +347,7 @@
     },
     {
       "case": "opener.usage_limit_no_retry",
-      "started_at": "2026-10-21T19:39:06.831948+00:00",
+      "started_at": "2026-10-21T20:05:52.049905+00:00",
       "upstream_hits": 1,
       "budget": {
         "opens": 1,
@@ -376,7 +376,7 @@
     },
     {
       "case": "opener.next_request_fresh_budget",
-      "started_at": "2026-10-21T19:39:06.862992+00:00",
+      "started_at": "2026-10-21T20:05:52.080708+00:00",
       "upstream_hits": 8,
       "request_body": {
         "bytes": 94,
@@ -431,7 +431,7 @@
     },
     {
       "case": "opener.remote_bridge_one_hit",
-      "started_at": "2026-10-21T19:39:08.448586+00:00",
+      "started_at": "2026-10-21T20:05:53.650841+00:00",
       "upstream_hits": 1,
       "passed": true,
       "elapsed_seconds": 0.03,
@@ -452,7 +452,7 @@
     },
     {
       "case": "opener.selected_gateway_reselect",
-      "started_at": "2026-10-21T19:39:08.479189+00:00",
+      "started_at": "2026-10-21T20:05:53.682016+00:00",
       "failing_gateway_hits": 1,
       "reselect_gateway_hits": 1,
       "budget": {
@@ -465,7 +465,7 @@
       },
       "route_state": "gateway",
       "passed": true,
-      "elapsed_seconds": 0.33,
+      "elapsed_seconds": 0.3,
       "checks": [
         {
           "check": "overlay_pinned_first_gateway",
@@ -515,7 +515,7 @@
     },
     {
       "case": "responses.screenshot_sse_then_success",
-      "started_at": "2026-10-21T19:39:08.805276+00:00",
+      "started_at": "2026-10-21T20:05:53.991613+00:00",
       "upstream_hits": 2,
       "request_body": {
         "bytes": 49,
@@ -564,14 +564,14 @@
     },
     {
       "case": "responses.screenshot_exhausted_configured_3",
-      "started_at": "2026-10-21T19:39:09.115479+00:00",
+      "started_at": "2026-10-21T20:05:54.302068+00:00",
       "upstream_hits": 4,
       "client_error": {
         "bytes": 188,
         "sha256": "d3ce31901053128f7c970253e04826f759f2b8f452e774552a84f9ee1fe4f7b3"
       },
       "passed": true,
-      "elapsed_seconds": 0.83,
+      "elapsed_seconds": 0.81,
       "checks": [
         {
           "check": "client_error_recorded",
@@ -617,10 +617,10 @@
     },
     {
       "case": "responses.explicit_zero",
-      "started_at": "2026-10-21T19:39:09.937039+00:00",
+      "started_at": "2026-10-21T20:05:55.111681+00:00",
       "upstream_hits": 1,
       "passed": true,
-      "elapsed_seconds": 0.03,
+      "elapsed_seconds": 0.05,
       "checks": [
         {
           "check": "upstream_hit_count",
@@ -638,7 +638,7 @@
     },
     {
       "case": "responses.http200_initial_error_sse",
-      "started_at": "2026-10-21T19:39:09.968117+00:00",
+      "started_at": "2026-10-21T20:05:55.157917+00:00",
       "upstream_hits": 2,
       "client_body": {
         "bytes": 219,
@@ -683,14 +683,14 @@
     },
     {
       "case": "responses.output_then_error_no_retry",
-      "started_at": "2026-10-21T19:39:10.262552+00:00",
+      "started_at": "2026-10-21T20:05:55.452606+00:00",
       "upstream_hits": 1,
       "client_body": {
         "bytes": 598,
         "sha256": "d68b5afb6853561db3c78a27ef1fd0cb83c244c0a617dc4d084e363e71cc7c17"
       },
       "passed": true,
-      "elapsed_seconds": 0.01,
+      "elapsed_seconds": 0.05,
       "checks": [
         {
           "check": "no_client_error",
@@ -712,7 +712,7 @@
     },
     {
       "case": "responses.malformed_no_retry",
-      "started_at": "2026-10-21T19:39:10.292800+00:00",
+      "started_at": "2026-10-21T20:05:55.499248+00:00",
       "upstream_hits": 1,
       "passed": true,
       "elapsed_seconds": 0.03,
@@ -733,7 +733,7 @@
     },
     {
       "case": "responses.usage_limit_no_retry",
-      "started_at": "2026-10-21T19:39:10.324586+00:00",
+      "started_at": "2026-10-21T20:05:55.530895+00:00",
       "upstream_hits": 1,
       "passed": true,
       "elapsed_seconds": 0.03,
@@ -754,7 +754,7 @@
     },
     {
       "case": "responses.tool_item_equality",
-      "started_at": "2026-10-21T19:39:10.355378+00:00",
+      "started_at": "2026-10-21T20:05:55.561797+00:00",
       "upstream_hits": 2,
       "request_body": {
         "bytes": 251,
@@ -807,7 +807,7 @@
     },
     {
       "case": "responses.remote_bridge_one_hit",
-      "started_at": "2026-10-21T19:39:10.650583+00:00",
+      "started_at": "2026-10-21T20:05:55.855453+00:00",
       "upstream_hits": 1,
       "passed": true,
       "elapsed_seconds": 0.03,
@@ -828,12 +828,12 @@
     },
     {
       "case": "responses.selected_gateway_reselect",
-      "started_at": "2026-10-21T19:39:10.681230+00:00",
+      "started_at": "2026-10-21T20:05:55.886487+00:00",
       "failing_gateway_hits": 1,
       "reselect_gateway_hits": 1,
       "route_state": "gateway",
       "passed": true,
-      "elapsed_seconds": 1.39,
+      "elapsed_seconds": 1.36,
       "checks": [
         {
           "check": "overlay_pinned_first_gateway",
@@ -879,7 +879,7 @@
     },
     {
       "case": "chat.screenshot_sse_then_success",
-      "started_at": "2026-10-21T19:39:12.066762+00:00",
+      "started_at": "2026-10-21T20:05:57.252220+00:00",
       "upstream_hits": 2,
       "request_body": {
         "bytes": 78,
@@ -924,7 +924,7 @@
     },
     {
       "case": "chat.screenshot_exhausted_configured_3",
-      "started_at": "2026-10-21T19:39:12.361869+00:00",
+      "started_at": "2026-10-21T20:05:57.546473+00:00",
       "upstream_hits": 4,
       "client_error": {
         "bytes": 188,
@@ -965,7 +965,7 @@
     },
     {
       "case": "chat.explicit_zero",
-      "started_at": "2026-10-21T19:39:13.170564+00:00",
+      "started_at": "2026-10-21T20:05:58.353009+00:00",
       "upstream_hits": 1,
       "passed": true,
       "elapsed_seconds": 0.03,
@@ -982,7 +982,7 @@
     },
     {
       "case": "chat.http200_initial_error_sse",
-      "started_at": "2026-10-21T19:39:13.201189+00:00",
+      "started_at": "2026-10-21T20:05:58.399387+00:00",
       "upstream_hits": 2,
       "client_body": {
         "bytes": 144,
@@ -1023,14 +1023,14 @@
     },
     {
       "case": "chat.output_then_error_no_retry",
-      "started_at": "2026-10-21T19:39:13.497273+00:00",
+      "started_at": "2026-10-21T20:05:58.694890+00:00",
       "upstream_hits": 1,
       "client_body": {
         "bytes": 295,
         "sha256": "78ce2be5bc32410664d3266db23e07a543265fe6bc322a7e99b2a3bb774767b7"
       },
       "passed": true,
-      "elapsed_seconds": 0.06,
+      "elapsed_seconds": 0.03,
       "checks": [
         {
           "check": "upstream_hit_count_no_replay_after_output",
@@ -1048,7 +1048,7 @@
     },
     {
       "case": "chat.malformed_no_retry",
-      "started_at": "2026-10-21T19:39:13.560067+00:00",
+      "started_at": "2026-10-21T20:05:58.726025+00:00",
       "upstream_hits": 1,
       "passed": true,
       "elapsed_seconds": 0.03,
@@ -1069,7 +1069,7 @@
     },
     {
       "case": "chat.usage_limit_no_retry",
-      "started_at": "2026-10-21T19:39:13.591293+00:00",
+      "started_at": "2026-10-21T20:05:58.756801+00:00",
       "upstream_hits": 1,
       "passed": true,
       "elapsed_seconds": 0.03,
@@ -1090,7 +1090,7 @@
     },
     {
       "case": "chat.tool_equality",
-      "started_at": "2026-10-21T19:39:13.622326+00:00",
+      "started_at": "2026-10-21T20:05:58.787714+00:00",
       "upstream_hits": 2,
       "request_body": {
         "bytes": 224,
@@ -1101,7 +1101,7 @@
         "sha256": "a7ad88ab52d16553c6907b3bb64408c15c22cf329d2c0eaaea1803dac85b9226"
       },
       "passed": true,
-      "elapsed_seconds": 0.28,
+      "elapsed_seconds": 0.3,
       "checks": [
         {
           "check": "client_status",
@@ -1143,7 +1143,7 @@
     },
     {
       "case": "chat.remote_bridge_one_hit",
-      "started_at": "2026-10-21T19:39:13.917492+00:00",
+      "started_at": "2026-10-21T20:05:59.083053+00:00",
       "upstream_hits": 1,
       "passed": true,
       "elapsed_seconds": 0.03,
@@ -1160,12 +1160,12 @@
     },
     {
       "case": "chat.selected_gateway_reselect",
-      "started_at": "2026-10-21T19:39:13.948159+00:00",
+      "started_at": "2026-10-21T20:05:59.114160+00:00",
       "failing_gateway_hits": 1,
       "reselect_gateway_hits": 1,
       "route_state": "gateway",
       "passed": true,
-      "elapsed_seconds": 1.34,
+      "elapsed_seconds": 1.36,
       "checks": [
         {
           "check": "overlay_pinned_first_gateway",
@@ -1211,4 +1211,4 @@
   "all_passed": true
 }
 
-PASS 31/31  FAIL 0  evidence=C:\Users\djlov\ciel-runtime\docs\journal\2026\10\21\diagnostics\cielairouter-transient-retry\harness\protocol-acceptance-final-reviewed.json
+PASS 31/31  FAIL 0  evidence=C:\Users\djlov\ciel-runtime\docs\journal\2026\10\21\diagnostics\cielairouter-transient-retry\harness\protocol-acceptance-final-policy.json

@@ -1,0 +1,2066 @@
+{
+  "label": "npm-f87747a-lf",
+  "generated_at": "2026-10-21T20:18:07.156945+00:00",
+  "elapsed_seconds": 31.02,
+  "runtime": {
+    "root": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime",
+    "package": {
+      "name": "@one-ciel-ai/ciel-runtime",
+      "version": "0.2.51-nightly.20261021-200945.f87747a"
+    },
+    "stamped_version": "0.2.51-nightly.20261021-200945.f87747a",
+    "expected_version": "0.2.51-nightly.20261021-200945.f87747a",
+    "python": "3.11.6",
+    "platform": "Windows-10-10.0.26200-SP0"
+  },
+  "protocol_module": {
+    "source": "C:\\Users\\djlov\\ciel-runtime\\docs\\journal\\2026\\10\\21\\diagnostics\\cielairouter-transient-retry\\harness\\protocol_acceptance.py",
+    "source_sha256": "16ca4784655c926eabb5e6cd7a433668ccf0afb7bb0e78cc1dc650af3590669d",
+    "executed_source_sha256": "996abdfbdda95dc28d6464a6972cf9cd19a513625377b081cac2ee9c8f468396",
+    "repo_assignment_substitutions": 1,
+    "installed_repo": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime",
+    "harness_sys_path": "C:\\Users\\djlov\\ciel-runtime\\docs\\journal\\2026\\10\\21\\diagnostics\\cielairouter-transient-retry\\harness",
+    "sys_path_head": [
+      "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime",
+      "C:\\Users\\djlov\\ciel-runtime\\docs\\journal\\2026\\10\\21\\diagnostics\\cielairouter-transient-retry\\harness",
+      "C:\\Program Files\\Python311\\python311.zip"
+    ]
+  },
+  "module_identity": {
+    "ciel_runtime_file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime.py",
+    "expected_ciel_runtime_file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime.py",
+    "ciel_runtime_from_installed_root": true,
+    "ciel_runtime_sha256": "4df9d4d66a74fcaeebdc17bb36e5ff2eef8580c20ee2f37b0f896313ce220423",
+    "transient_retry_file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\transient_retry.py",
+    "all_support_modules_under_installed_root": true,
+    "support_modules": {
+      "ciel_runtime_support": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\__init__.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.advisor_client": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\advisor_client.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.advisor_policy": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\advisor_policy.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.advisor_refinement": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\advisor_refinement.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.advisor_request_builder": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\advisor_request_builder.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.agent_router": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\agent_router.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.agent_runtime_event_push": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\agent_runtime_event_push.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.agent_turn_events": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\agent_turn_events.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.agy_cli": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\agy_cli.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.agy_installer": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\agy_installer.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.anthropic_model_policy": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\anthropic_model_policy.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.anthropic_response_writer": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\anthropic_response_writer.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.anthropic_responses_bridge": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\anthropic_responses_bridge.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.anthropic_tool_turns": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\anthropic_tool_turns.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.api_key_cooldown": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\api_key_cooldown.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.architecture": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\architecture.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.channel_backlog": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\channel_backlog.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.channel_compact_injection": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\channel_compact_injection.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.channel_compact_poll": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\channel_compact_poll.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.channel_compact_request_repository": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\channel_compact_request_repository.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.channel_cursor_recovery": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\channel_cursor_recovery.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.channel_cursor_repository": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\channel_cursor_repository.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.channel_cursor_service": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\channel_cursor_service.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.channel_delivery_context": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\channel_delivery_context.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.channel_event_identity": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\channel_event_identity.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.channel_event_projection": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\channel_event_projection.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.channel_inflight": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\channel_inflight.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.channel_injection": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\channel_injection.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.channel_launch_guard_repository": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\channel_launch_guard_repository.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.channel_llm_context": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\channel_llm_context.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.channel_mcp_context": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\channel_mcp_context.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.channel_mcp_http_controller": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\channel_mcp_http_controller.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.channel_mcp_tools": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\channel_mcp_tools.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.channel_message_context": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\channel_message_context.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.channel_message_dedupe": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\channel_message_dedupe.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.channel_message_policy": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\channel_message_policy.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.channel_message_prompt": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\channel_message_prompt.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.channel_message_repository": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\channel_message_repository.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.channel_pending_injection": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\channel_pending_injection.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.channel_pending_poll": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\channel_pending_poll.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.channel_replay_policy": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\channel_replay_policy.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.channel_runtime_environment": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\channel_runtime_environment.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.channel_terminal_context": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\channel_terminal_context.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.channel_terminal_dispatch": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\channel_terminal_dispatch.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.channel_terminal_input": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\channel_terminal_input.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.channel_terminal_proxy": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\channel_terminal_proxy.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.channel_tool_context": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\channel_tool_context.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.channel_transcript": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\channel_transcript.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.channel_transcript_repository": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\channel_transcript_repository.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.channel_wake_claim_repository": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\channel_wake_claim_repository.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.channel_wake_context": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\channel_wake_context.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.channel_wake_delivery_repository": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\channel_wake_delivery_repository.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.chat_files": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\chat_files.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.chat_http_controller": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\chat_http_controller.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.cielairouter_gateway_overlay": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\cielairouter_gateway_overlay.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.cielairouter_gateways": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\cielairouter_gateways.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.claude_environment": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\claude_environment.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.claude_launch_assembly": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\claude_launch_assembly.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.claude_router": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\claude_router.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.claude_session_socket": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\claude_session_socket.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.claude_stream_recovery_runtime": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\claude_stream_recovery_runtime.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.claude_stream_recovery_settings": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\claude_stream_recovery_settings.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.cli_application_context": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\cli_application_context.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.cli_assembly": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\cli_assembly.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.cli_dispatch": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\cli_dispatch.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.cli_parser": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\cli_parser.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.cli_usage": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\cli_usage.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.codex_app_server": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\codex_app_server.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.codex_app_server_resume": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\codex_app_server_resume.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.codex_app_server_session": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\codex_app_server_session.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.codex_app_server_websocket": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\codex_app_server_websocket.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.codex_backend_context": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\codex_backend_context.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.codex_cli": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\codex_cli.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.codex_completion_gate": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\codex_completion_gate.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.codex_config": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\codex_config.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.codex_config_effort": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\codex_config_effort.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.codex_desktop_injection": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\codex_desktop_injection.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.codex_desktop_runtime": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\codex_desktop_runtime.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.codex_launch_assembly": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\codex_launch_assembly.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.codex_launch_configuration": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\codex_launch_configuration.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.codex_launch_policy": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\codex_launch_policy.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.codex_model_catalog": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\codex_model_catalog.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.codex_owned_server": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\codex_owned_server.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.codex_process_lifecycle": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\codex_process_lifecycle.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.codex_reasoning_rejects": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\codex_reasoning_rejects.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.codex_router": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\codex_router.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.codex_router_auth": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\codex_router_auth.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.codex_session_repository": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\codex_session_repository.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.codex_session_selection": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\codex_session_selection.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.codex_turn_recovery": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\codex_turn_recovery.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.colab_speech_jobs": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\colab_speech_jobs.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.command_asset_installer": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\command_asset_installer.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.company_prompt_reload": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\company_prompt_reload.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.compatibility_probe": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\compatibility_probe.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.compatibility_protocol": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\compatibility_protocol.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.compatibility_runtime": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\compatibility_runtime.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.compatibility_test": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\compatibility_test.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.config_migrations": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\config_migrations.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.config_repository": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\config_repository.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.config_value_codec": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\config_value_codec.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.configuration_cli": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\configuration_cli.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.context_compaction": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\context_compaction.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.context_setup": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\context_setup.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.context_summary_policy": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\context_summary_policy.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.credential_cli": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\credential_cli.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.credential_management": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\credential_management.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.credentials": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\credentials.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.dangerous_rm_auto_allow": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\dangerous_rm_auto_allow.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.event_delivery_ack": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\event_delivery_ack.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.event_receiver_connection": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\event_receiver_connection.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.event_receiver_diagnostics": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\event_receiver_diagnostics.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.event_settings_cli": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\event_settings_cli.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.executable_discovery": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\executable_discovery.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.external_event_control": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\external_event_control.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.external_event_menu": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\external_event_menu.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.external_event_receiver": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\external_event_receiver.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.github_copilot_oauth": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\github_copilot_oauth.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.github_copilot_oauth_runtime": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\github_copilot_oauth_runtime.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.header_forwarding": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\header_forwarding.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.headless_config": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\headless_config.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.hosted_formula_tools": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\hosted_formula_tools.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.http_response": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\http_response.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.initial_stream_retry": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\initial_stream_retry.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.install_diagnostics": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\install_diagnostics.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.kimi_identity": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\kimi_identity.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.kimi_runtime_context": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\kimi_runtime_context.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.launch_data_path": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\launch_data_path.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.launch_diagnostics": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\launch_diagnostics.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.launch_state": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\launch_state.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.live_api_key_controller": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\live_api_key_controller.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.llm_config_http": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\llm_config_http.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.llm_option_config": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\llm_option_config.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.llm_presentation_data": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\llm_presentation_data.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.llm_preset_context": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\llm_preset_context.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.llm_presets": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\llm_presets.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.lm_studio_runtime": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\lm_studio_runtime.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.managed_mcp_config": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\managed_mcp_config.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.managed_service_cleanup": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\managed_service_cleanup.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.managed_tool_injection": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\managed_tool_injection.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.mcp_config_reader": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\mcp_config_reader.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.model_cache_lifecycle": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\model_cache_lifecycle.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.model_catalog_projection": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\model_catalog_projection.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.model_context_hints": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\model_context_hints.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.model_override": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\model_override.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.model_panel": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\model_panel.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.model_registry_repository": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\model_registry_repository.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.muse_catalog": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\muse_catalog.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.muse_cli": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\muse_cli.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.muse_mcp": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\muse_mcp.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.muse_oauth": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\muse_oauth.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.muse_runtime_context": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\muse_runtime_context.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.native_context_recovery": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\native_context_recovery.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.npm_runtime": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\npm_runtime.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.oauth_import_sync": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\oauth_import_sync.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.oauth_login": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\oauth_login.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.oauth_routing": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\oauth_routing.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.oauth_token_cli": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\oauth_token_cli.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.oauth_token_endpoints": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\oauth_token_endpoints.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.oauth_token_menu": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\oauth_token_menu.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.oauth_token_pool": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\oauth_token_pool.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.oauth_token_refresh": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\oauth_token_refresh.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.oauth_token_store": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\oauth_token_store.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.oauth_usage_signals": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\oauth_usage_signals.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.observability": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\observability.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.ollama_catalog": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\ollama_catalog.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.ollama_catalog_cli": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\ollama_catalog_cli.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.ollama_catalog_context": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\ollama_catalog_context.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.ollama_catalog_repository": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\ollama_catalog_repository.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.ollama_context_sync": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\ollama_context_sync.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.ollama_forwarding": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\ollama_forwarding.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.ollama_stream_collection": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\ollama_stream_collection.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.ollama_thinking": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\ollama_thinking.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.ollama_wire_projection": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\ollama_wire_projection.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.openai_chat_compatibility_bridge": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\openai_chat_compatibility_bridge.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.openai_chat_passthrough": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\openai_chat_passthrough.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.openai_chat_router": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\openai_chat_router.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.openai_forwarding": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\openai_forwarding.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.openai_responses_router": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\openai_responses_router.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.openai_responses_stream": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\openai_responses_stream.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.otlp_logs": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\otlp_logs.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.output_budget": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\output_budget.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.package_lifecycle": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\package_lifecycle.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.plan_artifact_controller": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\plan_artifact_controller.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.prelaunch": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\prelaunch.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.prelaunch_assembly": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\prelaunch_assembly.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.prelaunch_launch_panel": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\prelaunch_launch_panel.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.prelaunch_launch_preference": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\prelaunch_launch_preference.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.prelaunch_panel_context": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\prelaunch_panel_context.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.prelaunch_panel_projection": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\prelaunch_panel_projection.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.prelaunch_shell_context": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\prelaunch_shell_context.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.prelaunch_terminal": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\prelaunch_terminal.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.process_control": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\process_control.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.prompt_compaction": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\prompt_compaction.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.prompt_injection": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\prompt_injection.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.protocols": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\protocols\\__init__.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.protocols.anthropic_content": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\protocols\\anthropic_content.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.protocols.anthropic_thinking_policy": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\protocols\\anthropic_thinking_policy.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.protocols.chat_projection": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\protocols\\chat_projection.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.protocols.conversation_policy": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\protocols\\conversation_policy.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.protocols.conversation_turn_policy": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\protocols\\conversation_turn_policy.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.protocols.ollama_chat": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\protocols\\ollama_chat.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.protocols.ollama_response": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\protocols\\ollama_response.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.protocols.openai_chat_compat": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\protocols\\openai_chat_compat.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.protocols.openai_reasoning": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\protocols\\openai_reasoning.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.protocols.openai_responses": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\protocols\\openai_responses.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.protocols.pseudo_tool_history": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\protocols\\pseudo_tool_history.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.protocols.tool_result_projection": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\protocols\\tool_result_projection.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.provider_adapters": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\provider_adapters.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.provider_administration_context": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\provider_administration_context.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.provider_catalog_sources": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\provider_catalog_sources.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.provider_choice": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\provider_choice.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.provider_compatibility": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\provider_compatibility.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.provider_config_mutations": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\provider_config_mutations.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.provider_configuration_service": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\provider_configuration_service.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.provider_context": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\provider_context.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.provider_contract_projection": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\provider_contract_projection.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.provider_descriptor": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\provider_descriptor.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.provider_endpoint_policy": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\provider_endpoint_policy.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.provider_endpoint_probe": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\provider_endpoint_probe.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.provider_failover": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\provider_failover.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.provider_files_proxy": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\provider_files_proxy.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.provider_launch_endpoint": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\provider_launch_endpoint.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.provider_limits": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\provider_limits.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.provider_model_catalog_context": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\provider_model_catalog_context.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.provider_model_context": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\provider_model_context.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.provider_model_identity": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\provider_model_identity.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.provider_model_metadata_context": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\provider_model_metadata_context.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.provider_model_profile": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\provider_model_profile.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.provider_model_selection": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\provider_model_selection.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.provider_model_specs": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\provider_model_specs.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.provider_models": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\provider_models.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.provider_network": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\provider_network.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.provider_option_cli": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\provider_option_cli.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.provider_option_panel": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\provider_option_panel.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.provider_option_status": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\provider_option_status.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.provider_policy": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\provider_policy.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.provider_query_policy": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\provider_query_policy.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.provider_readiness": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\provider_readiness.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.provider_readiness_context": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\provider_readiness_context.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.provider_request_access": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\provider_request_access.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.provider_request_builder": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\provider_request_builder.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.provider_responses_passthrough": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\provider_responses_passthrough.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.provider_runtime_info": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\provider_runtime_info.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.provider_runtime_modes": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\provider_runtime_modes.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.provider_sampling_policy": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\provider_sampling_policy.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.provider_status": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\provider_status.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.provider_timeout_policy": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\provider_timeout_policy.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.provider_tool_policy": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\provider_tool_policy.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.providers": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\providers\\__init__.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.providers.alibaba": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\providers\\alibaba.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.providers.anthropic": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\providers\\anthropic.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.providers.anthropic_catalog": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\providers\\anthropic_catalog.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.providers.base": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\providers\\base.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.providers.catalog": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\providers\\catalog.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.providers.cielairouter": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\providers\\cielairouter.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.providers.cloud": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\providers\\cloud.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.providers.constants": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\providers\\constants.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.providers.deepseek": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\providers\\deepseek.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.providers.fireworks": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\providers\\fireworks.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.providers.github_copilot_oauth": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\providers\\github_copilot_oauth.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.providers.kimi": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\providers\\kimi.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.providers.lm_studio": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\providers\\lm_studio.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.providers.meta": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\providers\\meta.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.providers.native": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\providers\\native.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.providers.nim": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\providers\\nim.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.providers.nvidia": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\providers\\nvidia.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.providers.nvidia_runtime": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\providers\\nvidia_runtime.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.providers.ollama": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\providers\\ollama.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.providers.ollama_context": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\providers\\ollama_context.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.providers.ollama_runtime": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\providers\\ollama_runtime.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.providers.opencode": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\providers\\opencode.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.providers.opencode_catalog": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\providers\\opencode_catalog.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.providers.opencode_go": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\providers\\opencode_go.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.providers.openrouter": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\providers\\openrouter.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.providers.tabitoken": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\providers\\tabitoken.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.providers.vllm": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\providers\\vllm.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.providers.xai": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\providers\\xai.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.providers.zai": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\providers\\zai.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.pseudo_tool_parser": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\pseudo_tool_parser.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.pty_master_writer": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\pty_master_writer.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.rate_limit_policy": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\rate_limit_policy.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.rate_limit_repository": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\rate_limit_repository.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.registry": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\registry.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.remote_bridge": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\remote_bridge.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.remote_bridge_cli": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\remote_bridge_cli.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.remote_bridge_runtime": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\remote_bridge_runtime.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.remote_instructions": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\remote_instructions.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.remote_management_http": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\remote_management_http.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.remote_memory": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\remote_memory.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.remote_provision": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\remote_provision.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.request_body_policy": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\request_body_policy.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.request_limits_config": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\request_limits_config.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.request_shortcuts": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\request_shortcuts.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.request_trace": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\request_trace.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.response_collection": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\response_collection.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.response_collection_context": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\response_collection_context.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.response_stream_context": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\response_stream_context.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.responses_anthropic_stream": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\responses_anthropic_stream.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.responses_cache_diagnostics": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\responses_cache_diagnostics.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.responses_custom_tool_bridge": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\responses_custom_tool_bridge.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.responses_input_compatibility": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\responses_input_compatibility.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.responses_usage_observer": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\responses_usage_observer.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.router_access": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\router_access.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.router_client_lifecycle": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\router_client_lifecycle.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.router_health_policy": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\router_health_policy.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.router_http": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\router_http.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.router_observability_context": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\router_observability_context.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.router_process_context": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\router_process_context.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.router_process_lifecycle": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\router_process_lifecycle.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.router_rate_limit_service": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\router_rate_limit_service.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.router_request_assembly": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\router_request_assembly.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.router_request_context": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\router_request_context.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.router_server_context": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\router_server_context.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.router_server_runtime": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\router_server_runtime.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.router_shortcuts": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\router_shortcuts.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.runaway_output_guard": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\runaway_output_guard.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.runtime_activity_repository": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\runtime_activity_repository.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.runtime_adapters": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\runtime_adapters.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.runtime_asset_assembly": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\runtime_asset_assembly.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.runtime_asset_context": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\runtime_asset_context.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.runtime_command_factory": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\runtime_command_factory.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.runtime_compaction_binding": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\runtime_compaction_binding.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.runtime_compaction_control": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\runtime_compaction_control.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.runtime_compaction_rejection": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\runtime_compaction_rejection.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.runtime_compatibility": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\runtime_compatibility.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.runtime_constants": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\runtime_constants.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.runtime_error_events": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\runtime_error_events.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.runtime_input_delivery_health": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\runtime_input_delivery_health.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.runtime_input_gateway": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\runtime_input_gateway.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.runtime_input_status": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\runtime_input_status.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.runtime_interaction": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\runtime_interaction.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.runtime_launch": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\runtime_launch.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.runtime_launch_context": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\runtime_launch_context.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.runtime_llm_options": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\runtime_llm_options.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.runtime_logging": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\runtime_logging.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.runtime_maintenance_assembly": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\runtime_maintenance_assembly.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.runtime_maintenance_context": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\runtime_maintenance_context.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.runtime_maintenance_services": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\runtime_maintenance_services.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.runtime_paths": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\runtime_paths.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.runtime_primitives": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\runtime_primitives.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.runtime_restart": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\runtime_restart.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.runtime_session_restart": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\runtime_session_restart.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.runtime_sse_recovery": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\runtime_sse_recovery.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.runtime_upgrade": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\runtime_upgrade.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.sandbox_profile": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\sandbox_profile.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.secure_json_repository": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\secure_json_repository.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.session_backup_collect": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\session_backup_collect.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.session_backup_secrets": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\session_backup_secrets.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.session_backup_service": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\session_backup_service.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.session_backup_store": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\session_backup_store.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.session_import": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\session_import.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.session_resume_last": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\session_resume_last.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.settings_repository": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\settings_repository.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.slash_command_assets": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\slash_command_assets.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.speech_http_controller": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\speech_http_controller.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.speech_models": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\speech_models.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.sse_stream_collection": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\sse_stream_collection.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.sse_trace": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\sse_trace.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.startup_prompt_answers": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\startup_prompt_answers.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.statusline_script": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\statusline_script.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.statusline_settings": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\statusline_settings.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.stream_chunk_policy": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\stream_chunk_policy.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.streaming_anthropic": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\streaming_anthropic.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.synthetic_tool_policy": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\synthetic_tool_policy.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.terminal_input_frames": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\terminal_input_frames.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.terminal_modal_guard": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\terminal_modal_guard.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.terminal_platform_io": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\terminal_platform_io.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.terminal_startup_gate": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\terminal_startup_gate.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.test_isolation_guard": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\test_isolation_guard.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.timeout_profile": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\timeout_profile.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.tool_call_events": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\tool_call_events.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.tool_dialects": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\tool_dialects.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.tool_exposure_policy": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\tool_exposure_policy.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.tool_guard_hooks": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\tool_guard_hooks.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.tool_request_projection": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\tool_request_projection.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.tool_schema": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\tool_schema.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.tool_side_effect_dedupe": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\tool_side_effect_dedupe.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.transcript_delta_delivery": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\transcript_delta_delivery.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.transcript_filter": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\transcript_filter.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.transcript_public_projection": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\transcript_public_projection.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.transient_retry": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\transient_retry.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.tts_reference_audio_repository": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\tts_reference_audio_repository.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.tui_observation": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\tui_observation.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.ui_text": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\ui_text.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.upstream_dump": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\upstream_dump.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.upstream_error_policy": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\upstream_error_policy.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.upstream_overload_retry": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\upstream_overload_retry.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.upstream_retry": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\upstream_retry.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.upstream_retry_context": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\upstream_retry_context.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.upstream_stream_io": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\upstream_stream_io.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.usage_events": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\usage_events.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.usage_service": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\usage_service.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.visible_stream_filters": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\visible_stream_filters.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.web_access_http": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\web_access_http.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.web_access_menu": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\web_access_menu.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.web_access_ui": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\web_access_ui.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.web_accounts": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\web_accounts.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.web_endpoints": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\web_endpoints.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.web_search_result_events": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\web_search_result_events.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.web_ui": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\web_ui.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.web_ui_controller": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\web_ui_controller.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.windows_command_line": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\windows_command_line.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.windows_conpty": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\windows_conpty.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.windows_console_guard": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\windows_console_guard.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.windows_console_input": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\windows_console_input.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.windows_console_mode": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\windows_console_mode.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.windows_terminal_modes": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\windows_terminal_modes.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.workspace_mcp": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\workspace_mcp.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.workspace_router_selection": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\workspace_router_selection.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.workspace_state": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\workspace_state.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.zai_oauth": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\zai_oauth.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.zai_start_plan_captcha": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\zai_start_plan_captcha.py",
+        "under_runtime": true
+      },
+      "ciel_runtime_support.zcode_runtime_context": {
+        "file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\zcode_runtime_context.py",
+        "under_runtime": true
+      }
+    },
+    "routed_native_ciel_runtime_file": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime.py",
+    "routed_native_shares_ciel_runtime_module": true
+  },
+  "sources": {
+    "ciel_runtime.py": {
+      "runtime": {
+        "path": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime.py",
+        "exists": true,
+        "sha256": "4df9d4d66a74fcaeebdc17bb36e5ff2eef8580c20ee2f37b0f896313ce220423",
+        "lf_sha256": "4df9d4d66a74fcaeebdc17bb36e5ff2eef8580c20ee2f37b0f896313ce220423"
+      },
+      "repo": {
+        "path": "C:\\Users\\djlov\\ciel-runtime\\ciel_runtime.py",
+        "exists": true,
+        "sha256": "0b62581240643d526242958854a84b03c7a02a858acb475491060fc2e5e77392",
+        "lf_sha256": "4df9d4d66a74fcaeebdc17bb36e5ff2eef8580c20ee2f37b0f896313ce220423"
+      },
+      "match": true
+    },
+    "ciel_runtime_support/transient_retry.py": {
+      "runtime": {
+        "path": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\transient_retry.py",
+        "exists": true,
+        "sha256": "8fde011692639671a8c180c5e8c45af44e004d81c256002406bde522ad3fcd92",
+        "lf_sha256": "8fde011692639671a8c180c5e8c45af44e004d81c256002406bde522ad3fcd92"
+      },
+      "repo": {
+        "path": "C:\\Users\\djlov\\ciel-runtime\\ciel_runtime_support\\transient_retry.py",
+        "exists": true,
+        "sha256": "446735a023382903127d1d545aec8545e2b46ad2824a788290c50670012bb6f2",
+        "lf_sha256": "8fde011692639671a8c180c5e8c45af44e004d81c256002406bde522ad3fcd92"
+      },
+      "match": true
+    },
+    "ciel_runtime_support/upstream_retry.py": {
+      "runtime": {
+        "path": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\upstream_retry.py",
+        "exists": true,
+        "sha256": "8bbecde49a8ee2ca9712100626972c7b31fd37aae908e762616782a8ac11df01",
+        "lf_sha256": "8bbecde49a8ee2ca9712100626972c7b31fd37aae908e762616782a8ac11df01"
+      },
+      "repo": {
+        "path": "C:\\Users\\djlov\\ciel-runtime\\ciel_runtime_support\\upstream_retry.py",
+        "exists": true,
+        "sha256": "8bbecde49a8ee2ca9712100626972c7b31fd37aae908e762616782a8ac11df01",
+        "lf_sha256": "8bbecde49a8ee2ca9712100626972c7b31fd37aae908e762616782a8ac11df01"
+      },
+      "match": true
+    },
+    "ciel_runtime_support/upstream_retry_context.py": {
+      "runtime": {
+        "path": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\upstream_retry_context.py",
+        "exists": true,
+        "sha256": "59b7c74a5aa7d79a6d4e82bc1d795dafaad629180dcaead2828c1fbaa21896a8",
+        "lf_sha256": "59b7c74a5aa7d79a6d4e82bc1d795dafaad629180dcaead2828c1fbaa21896a8"
+      },
+      "repo": {
+        "path": "C:\\Users\\djlov\\ciel-runtime\\ciel_runtime_support\\upstream_retry_context.py",
+        "exists": true,
+        "sha256": "59b7c74a5aa7d79a6d4e82bc1d795dafaad629180dcaead2828c1fbaa21896a8",
+        "lf_sha256": "59b7c74a5aa7d79a6d4e82bc1d795dafaad629180dcaead2828c1fbaa21896a8"
+      },
+      "match": true
+    },
+    "ciel_runtime_support/upstream_error_policy.py": {
+      "runtime": {
+        "path": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\upstream_error_policy.py",
+        "exists": true,
+        "sha256": "413658e6c110c161b3fbd9a40a6b55401b32000f972900ede96a37fc3ab9883c",
+        "lf_sha256": "413658e6c110c161b3fbd9a40a6b55401b32000f972900ede96a37fc3ab9883c"
+      },
+      "repo": {
+        "path": "C:\\Users\\djlov\\ciel-runtime\\ciel_runtime_support\\upstream_error_policy.py",
+        "exists": true,
+        "sha256": "413658e6c110c161b3fbd9a40a6b55401b32000f972900ede96a37fc3ab9883c",
+        "lf_sha256": "413658e6c110c161b3fbd9a40a6b55401b32000f972900ede96a37fc3ab9883c"
+      },
+      "match": true
+    },
+    "ciel_runtime_support/provider_responses_passthrough.py": {
+      "runtime": {
+        "path": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\provider_responses_passthrough.py",
+        "exists": true,
+        "sha256": "2249c72772b9103e3de73247828ce1417175b73c796070ec1e27551a5a75decf",
+        "lf_sha256": "2249c72772b9103e3de73247828ce1417175b73c796070ec1e27551a5a75decf"
+      },
+      "repo": {
+        "path": "C:\\Users\\djlov\\ciel-runtime\\ciel_runtime_support\\provider_responses_passthrough.py",
+        "exists": true,
+        "sha256": "2249c72772b9103e3de73247828ce1417175b73c796070ec1e27551a5a75decf",
+        "lf_sha256": "2249c72772b9103e3de73247828ce1417175b73c796070ec1e27551a5a75decf"
+      },
+      "match": true
+    },
+    "ciel_runtime_support/openai_chat_passthrough.py": {
+      "runtime": {
+        "path": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\openai_chat_passthrough.py",
+        "exists": true,
+        "sha256": "b09479e5aede2a53cf474d44e1476ddf28f19db0bd5905a90a36cc0cb21dda66",
+        "lf_sha256": "b09479e5aede2a53cf474d44e1476ddf28f19db0bd5905a90a36cc0cb21dda66"
+      },
+      "repo": {
+        "path": "C:\\Users\\djlov\\ciel-runtime\\ciel_runtime_support\\openai_chat_passthrough.py",
+        "exists": true,
+        "sha256": "b09479e5aede2a53cf474d44e1476ddf28f19db0bd5905a90a36cc0cb21dda66",
+        "lf_sha256": "b09479e5aede2a53cf474d44e1476ddf28f19db0bd5905a90a36cc0cb21dda66"
+      },
+      "match": true
+    },
+    "ciel_runtime_support/cielairouter_gateway_overlay.py": {
+      "runtime": {
+        "path": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\cielairouter_gateway_overlay.py",
+        "exists": true,
+        "sha256": "f7d500fc1ca4f8469ffe3fa5c474345e44563b52cd4457ba783c33b1ee8cc8cc",
+        "lf_sha256": "f7d500fc1ca4f8469ffe3fa5c474345e44563b52cd4457ba783c33b1ee8cc8cc"
+      },
+      "repo": {
+        "path": "C:\\Users\\djlov\\ciel-runtime\\ciel_runtime_support\\cielairouter_gateway_overlay.py",
+        "exists": true,
+        "sha256": "f7d500fc1ca4f8469ffe3fa5c474345e44563b52cd4457ba783c33b1ee8cc8cc",
+        "lf_sha256": "f7d500fc1ca4f8469ffe3fa5c474345e44563b52cd4457ba783c33b1ee8cc8cc"
+      },
+      "match": true
+    },
+    "ciel_runtime_support/cielairouter_gateways.py": {
+      "runtime": {
+        "path": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\cielairouter_gateways.py",
+        "exists": true,
+        "sha256": "93a71b074622fe682cb062b5c621f6c5a7fb03a63d7c8822424801589307d43b",
+        "lf_sha256": "93a71b074622fe682cb062b5c621f6c5a7fb03a63d7c8822424801589307d43b"
+      },
+      "repo": {
+        "path": "C:\\Users\\djlov\\ciel-runtime\\ciel_runtime_support\\cielairouter_gateways.py",
+        "exists": true,
+        "sha256": "93a71b074622fe682cb062b5c621f6c5a7fb03a63d7c8822424801589307d43b",
+        "lf_sha256": "93a71b074622fe682cb062b5c621f6c5a7fb03a63d7c8822424801589307d43b"
+      },
+      "match": true
+    },
+    "ciel_runtime_support/cielairouter_gateway_transport.py": {
+      "runtime": {
+        "path": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\cielairouter_gateway_transport.py",
+        "exists": true,
+        "sha256": "b00e3f86690911f54951d6390fdc2a20a2f18d26691dfecac16a7f0864e58852",
+        "lf_sha256": "b00e3f86690911f54951d6390fdc2a20a2f18d26691dfecac16a7f0864e58852"
+      },
+      "repo": {
+        "path": "C:\\Users\\djlov\\ciel-runtime\\ciel_runtime_support\\cielairouter_gateway_transport.py",
+        "exists": true,
+        "sha256": "b00e3f86690911f54951d6390fdc2a20a2f18d26691dfecac16a7f0864e58852",
+        "lf_sha256": "b00e3f86690911f54951d6390fdc2a20a2f18d26691dfecac16a7f0864e58852"
+      },
+      "match": true
+    },
+    "ciel_runtime_support/provider_network.py": {
+      "runtime": {
+        "path": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\provider_network.py",
+        "exists": true,
+        "sha256": "b26284a1d6767e450b0f19d6f8fe613b1be517d23f37a7b678098704bfdc2161",
+        "lf_sha256": "b26284a1d6767e450b0f19d6f8fe613b1be517d23f37a7b678098704bfdc2161"
+      },
+      "repo": {
+        "path": "C:\\Users\\djlov\\ciel-runtime\\ciel_runtime_support\\provider_network.py",
+        "exists": true,
+        "sha256": "b26284a1d6767e450b0f19d6f8fe613b1be517d23f37a7b678098704bfdc2161",
+        "lf_sha256": "b26284a1d6767e450b0f19d6f8fe613b1be517d23f37a7b678098704bfdc2161"
+      },
+      "match": true
+    }
+  },
+  "source_digests_stable_during_run": true,
+  "environment_isolation": {
+    "harness_isolation": {
+      "root": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-protocol-acceptance-0k3wcbwq",
+      "home": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-protocol-acceptance-0k3wcbwq\\home",
+      "config": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-protocol-acceptance-0k3wcbwq\\config",
+      "cwd": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-protocol-acceptance-0k3wcbwq\\cwd",
+      "tmp": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-protocol-acceptance-0k3wcbwq\\tmp"
+    },
+    "inherited_ciel_runtime_keys_removed": [
+      "CIEL_RUNTIME_AUTO_ALLOW_DANGEROUS_RM",
+      "CIEL_RUNTIME_BYPASS_PERMISSIONS",
+      "CIEL_RUNTIME_CONFIG_DIR",
+      "CIEL_RUNTIME_HOME",
+      "CIEL_RUNTIME_LAUNCH_CWD",
+      "CIEL_RUNTIME_MODEL_ALIAS",
+      "CIEL_RUNTIME_PROVIDER",
+      "CIEL_RUNTIME_REGISTERED_HOME",
+      "CIEL_RUNTIME_SCRIPT",
+      "CIEL_RUNTIME_SELECTED_HOME",
+      "CIEL_RUNTIME_STATE_DIR",
+      "CIEL_RUNTIME_WORKSPACE_STATE_DIR"
+    ],
+    "inherited_provider_keys_removed": [
+      "ANTHROPIC_AUTH_TOKEN",
+      "ANTHROPIC_BASE_URL",
+      "ANTHROPIC_CUSTOM_MODEL_OPTION",
+      "ANTHROPIC_CUSTOM_MODEL_OPTION_SUPPORTED_CAPABILITIES",
+      "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+      "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTED_CAPABILITIES",
+      "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTS",
+      "ANTHROPIC_DEFAULT_OPUS_MODEL",
+      "ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTED_CAPABILITIES",
+      "ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTS",
+      "ANTHROPIC_DEFAULT_SONNET_MODEL",
+      "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTED_CAPABILITIES",
+      "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTS",
+      "ANTHROPIC_MODEL",
+      "CLAUDECODE",
+      "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE",
+      "CLAUDE_CHROME_CLASSIFIER_FLOOR",
+      "CLAUDE_CODE_ATTRIBUTION_HEADER",
+      "CLAUDE_CODE_AUTO_COMPACT_WINDOW",
+      "CLAUDE_CODE_CHILD_SESSION",
+      "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS",
+      "CLAUDE_CODE_DISABLE_TERMINAL_TITLE",
+      "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY",
+      "CLAUDE_CODE_ENTRYPOINT",
+      "CLAUDE_CODE_EXECPATH",
+      "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS",
+      "CLAUDE_CODE_MAX_CONTEXT_TOKENS",
+      "CLAUDE_CODE_MAX_OUTPUT_TOKENS",
+      "CLAUDE_CODE_MESSAGING_SOCKET",
+      "CLAUDE_CODE_MESSAGING_TOKEN",
+      "CLAUDE_CODE_SESSION_ATTENDED",
+      "CLAUDE_CODE_SESSION_ID",
+      "CLAUDE_CODE_SUBAGENT_MODEL",
+      "CLAUDE_EFFORT",
+      "CLAUDE_PID",
+      "CODEX_SPARKLE_ENABLED"
+    ],
+    "control": "protocol_acceptance._isolate_environment before runtime import; native CLIs get private HOME/CODEX_HOME/cwd and only loopback URLs"
+  },
+  "stages": {
+    "protocol": {
+      "evidence": "C:\\Users\\djlov\\ciel-runtime\\docs\\journal\\2026\\10\\21\\releases\\cielairouter-transient-retry\\evidence\\installed\\protocol-acceptance-npm-f87747a-lf.json",
+      "cases": 31,
+      "passed": 31,
+      "failed": 0,
+      "all_passed": true
+    },
+    "native": {
+      "evidence": "C:\\Users\\djlov\\ciel-runtime\\docs\\journal\\2026\\10\\21\\releases\\cielairouter-transient-retry\\evidence\\installed\\routed-native-e2e-npm-f87747a-lf.json",
+      "cases": 6,
+      "passed": 6,
+      "failed": 0,
+      "all_passed": true,
+      "counts": [
+        {
+          "name": "claude_503_then_success",
+          "binary": "C:\\Users\\djlov\\.local\\bin\\claude.exe",
+          "cli_requests": 1,
+          "upstream_hits": 2,
+          "upstream_statuses": [
+            503,
+            200
+          ],
+          "successes": 1,
+          "returncode": 0
+        },
+        {
+          "name": "claude_persistent503",
+          "binary": "C:\\Users\\djlov\\.local\\bin\\claude.exe",
+          "cli_requests": 1,
+          "upstream_hits": 4,
+          "upstream_statuses": [
+            503,
+            503,
+            503,
+            503
+          ],
+          "successes": 0,
+          "returncode": 1
+        },
+        {
+          "name": "codex_503_then_success",
+          "binary": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@openai\\codex\\node_modules\\@openai\\codex-win32-x64\\vendor\\x86_64-pc-windows-msvc\\bin\\codex.exe",
+          "cli_requests": 1,
+          "upstream_hits": 2,
+          "upstream_statuses": [
+            503,
+            200
+          ],
+          "successes": 1,
+          "returncode": 0
+        },
+        {
+          "name": "codex_persistent503",
+          "binary": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@openai\\codex\\node_modules\\@openai\\codex-win32-x64\\vendor\\x86_64-pc-windows-msvc\\bin\\codex.exe",
+          "cli_requests": 1,
+          "upstream_hits": 4,
+          "upstream_statuses": [
+            503,
+            503,
+            503,
+            503
+          ],
+          "successes": 0,
+          "returncode": 1
+        },
+        {
+          "name": "codex_503_then_success",
+          "binary": "C:\\Users\\djlov\\.codex\\packages\\standalone\\releases\\0.163.0-x86_64-pc-windows-msvc\\bin\\codex.exe",
+          "cli_requests": 1,
+          "upstream_hits": 2,
+          "upstream_statuses": [
+            503,
+            200
+          ],
+          "successes": 1,
+          "returncode": 0
+        },
+        {
+          "name": "codex_persistent503",
+          "binary": "C:\\Users\\djlov\\.codex\\packages\\standalone\\releases\\0.163.0-x86_64-pc-windows-msvc\\bin\\codex.exe",
+          "cli_requests": 1,
+          "upstream_hits": 4,
+          "upstream_statuses": [
+            503,
+            503,
+            503,
+            503
+          ],
+          "successes": 0,
+          "returncode": 1
+        }
+      ]
+    },
+    "sse_tests": {
+      "evidence": "C:\\Users\\djlov\\ciel-runtime\\docs\\journal\\2026\\10\\21\\releases\\cielairouter-transient-retry\\evidence\\installed\\focused-sse-npm-f87747a-lf.txt",
+      "command": [
+        "C:\\Program Files\\Python311\\python.exe",
+        "-I",
+        "C:\\Users\\djlov\\ciel-runtime\\docs\\journal\\2026\\10\\21\\releases\\cielairouter-transient-retry\\evidence\\focused.py",
+        "--runtime",
+        "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime",
+        "test_runtime_sse_recovery.py"
+      ],
+      "exit_code": 0,
+      "tests_run": 28,
+      "expected_tests": 28,
+      "ok": true,
+      "output_tail": [
+        "test_restart_exception_is_reserved_not_retried (test_runtime_sse_recovery.RecoveryTests.test_restart_exception_is_reserved_not_retried) ... ok",
+        "test_router_only_targets_one_registered_instance_client (test_runtime_sse_recovery.RecoveryTests.test_router_only_targets_one_registered_instance_client) ... ok",
+        "test_simultaneous_calls_queue_one_restart (test_runtime_sse_recovery.RecoveryTests.test_simultaneous_calls_queue_one_restart) ... ok",
+        "test_stale_queue_without_complete_coverage_is_not_restart_evidence (test_runtime_sse_recovery.RecoveryTests.test_stale_queue_without_complete_coverage_is_not_restart_evidence) ... ok",
+        "test_status_only_history_without_a_real_queue_never_resets (test_runtime_sse_recovery.RecoveryTests.test_status_only_history_without_a_real_queue_never_resets) ... ok",
+        "test_unobservable_health_does_not_reset (test_runtime_sse_recovery.RecoveryTests.test_unobservable_health_does_not_reset) ... ok",
+        "test_zero_timestamp_is_not_a_previous_reset (test_runtime_sse_recovery.RecoveryTests.test_zero_timestamp_is_not_a_previous_reset) ... ok",
+        "",
+        "----------------------------------------------------------------------",
+        "Ran 28 tests in 2.226s",
+        "",
+        "OK"
+      ]
+    }
+  },
+  "checks": {
+    "runtime_layout_present": true,
+    "protocol_repo_assignment_substituted_once": true,
+    "imported_ciel_runtime_from_installed_root": true,
+    "imported_ciel_runtime_digest_matches_installed_source": true,
+    "all_support_modules_under_installed_root": true,
+    "all_sources_present_in_installed_runtime": true,
+    "source_digests_match_repo_checkout": true,
+    "expected_version_matches": true,
+    "protocol_31_of_31": true,
+    "native_module_uses_injected_protocol_module": true,
+    "native_6_of_6": true,
+    "sse_28_tests_ok": true,
+    "sources_stable_during_run": true,
+    "all_stages_run": true
+  },
+  "stage_errors": [],
+  "all_passed": true
+}
