@@ -1,0 +1,25 @@
+{
+  "passed": true,
+  "tests_run": 59,
+  "failures": 0,
+  "errors": 0,
+  "isolation": "CIEL_RUNTIME_* and provider credentials removed before imports; scripts/run_test_group.isolate_runtime_state; fresh temporary config and port",
+  "sources_unchanged_during_run": true,
+  "source_sha256": {
+    "ciel_runtime_support/router_http.py": "2d1cd4f0306a096ef4ef4e56636af5699eddf9dc28091428fa79b7179a4d938d",
+    "tests/test_codex_no_output_http_retry.py": "2067e70996c26e29947260044008ce84613f03a63be405467b01b52b6405d418",
+    "tests/test_codex_backend_item_repair.py": "ac5600461e17289f9a40841cd66a430e8347a802841d5dd5cf874cb9c2b3aec5",
+    "tests/test_codex_completion_gate.py": "85c8dc1e04f727343e4a2a57e1944087486ec3f42c997b84ae03a13a2261f254",
+    "tests/test_codex_router.py": "1ad660f385211d50656ca9719fb3b0e9010cdaf23dfd40db07ba3959b28ffcd8",
+    "tests/test_upstream_retry.py": "e9661d4b652956da547bc3857a6a8ee97ce4fc884af49fd7e7ab76d5e796b6b6",
+    "tests/test_codex_translated_compaction.py": "3d4fe16041cbac04cd670b28181b30c4f9c764c9ace8f25ba7aed07848db4393"
+  },
+  "modules": [
+    "test_codex_no_output_http_retry",
+    "test_codex_backend_item_repair",
+    "test_codex_completion_gate",
+    "test_codex_router",
+    "test_upstream_retry",
+    "test_codex_translated_compaction"
+  ]
+}

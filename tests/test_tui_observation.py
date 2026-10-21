@@ -1,9 +1,12 @@
 import io
 import json
+from pathlib import Path
+import tempfile
 import threading
 import unittest
 import urllib.request
-from http.server import ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from unittest.mock import patch
 
 from ciel_runtime_support.request_body_policy import RouterRequestBodyPolicy
 from ciel_runtime_support.router_http import (
@@ -241,6 +244,76 @@ class TuiObservationHttpAdapterTests(unittest.TestCase):
 
 
 class TuiObservationRouterIntegrationTests(unittest.TestCase):
+    def test_production_factory_binds_shared_delivery_health_over_http(self):
+        import ciel_runtime
+        from ciel_runtime_support.runtime_input_delivery_health import runtime_input_delivery_health
+        from ciel_runtime_support.runtime_input_status import RuntimeInputStatusRepository
+
+        for corrupt in (False, True):
+            with self.subTest(corrupt=corrupt), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                status_path = root / "runtime-input-status.jsonl"
+                inputs_path = root / "runtime-inputs.jsonl"
+                status_path.write_bytes(
+                    b'{"request_id":1,"status":"queued","updated_at_epoch":100}\n'
+                    b'{"request_id":2,"status":"queued","updated_at_epoch":110}\n'
+                    + (b'\x00private corrupt data\n' if corrupt else b"")
+                )
+                inputs_path.write_bytes(
+                    b'{"id":1,"created_at_epoch":90,"channel":"external:default","message":"PRIVATE_PAYLOAD"}\n'
+                    b'{"id":2,"created_at_epoch":100,"channel":"web"}\n'
+                )
+                repository = RuntimeInputStatusRepository(
+                    status_path, lambda **_kwargs: None, lambda *_args: None, threading.RLock()
+                )
+                before = status_path.read_bytes(), inputs_path.read_bytes()
+
+                class Handler(BaseHTTPRequestHandler):
+                    def do_GET(self):
+                        if not ciel_runtime.handle_tui_observation_get(self, self.path, {}):
+                            self.send_error(404)
+
+                    def log_message(self, _format, *_args):
+                        pass
+
+                with (
+                    patch.object(ciel_runtime, "_RUNTIME_INPUT_STATUS_REPOSITORY", repository),
+                    patch.object(
+                        ciel_runtime, "runtime_input_delivery_health", wraps=runtime_input_delivery_health
+                    ) as health,
+                ):
+                    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+                    thread = threading.Thread(target=server.serve_forever, daemon=True)
+                    thread.start()
+                    try:
+                        for endpoint in ("/ca/tui/status", "/ca/tui/health"):
+                            with urllib.request.urlopen(
+                                f"http://127.0.0.1:{server.server_address[1]}{endpoint}", timeout=2
+                            ) as response:
+                                body = json.loads(response.read())
+                            health.assert_called_with(repository)
+                            self.assertTrue(body["ok"])
+                            delivery = body["delivery"]
+                            self.assertEqual(
+                                "admission_blocked" if corrupt else "not_blocked", delivery["state"]
+                            )
+                            self.assertEqual(corrupt, delivery["admission_blocked"])
+                            self.assertEqual(2, delivery["known_queued_count"])
+                            self.assertEqual("partial" if corrupt else "complete", delivery["queued_coverage"])
+                            self.assertFalse(delivery["launcher_hold_observed"])
+                            self.assertGreater(delivery["oldest_queued_age_seconds"], 0)
+                            if corrupt:
+                                self.assertEqual("wake_history_incomplete", delivery["reason"])
+                                self.assertEqual(3, delivery["line_number"])
+                            self.assertNotIn("PRIVATE_PAYLOAD", json.dumps(body))
+                            self.assertNotIn("private corrupt data", json.dumps(body))
+                        self.assertEqual(2, health.call_count)
+                    finally:
+                        server.shutdown()
+                        server.server_close()
+                        thread.join(timeout=2)
+                self.assertEqual(before, (status_path.read_bytes(), inputs_path.read_bytes()))
+
     def test_routed_sse_turn_is_available_from_recent_api(self):
         bus = TuiObservationBus(enabled=True, capacity=100)
 

@@ -1,0 +1,49 @@
+---
+type: release-verification
+title: Codex HTTP retry and TUI delivery observation
+description: Follow-up release tracking for bounded Codex no-output HTTP retry and production TUI wiring.
+tags: [runtime, codex, retry, tui, release]
+timestamp: 2026-10-21
+---
+
+# Scope
+
+User requested continued verification followed by local and nightly deployment.
+Current changes are uncommitted. Active workers own router_http.py plus its
+focused regression and the independent production TUI factory callback fix.
+No live history, queue, cursor, replay, quarantine or fleet stop is authorized.
+
+# Gates
+
+Preliminary tests found concrete issues (shared allowance across outer loops,
+unreadable HTTPError body, malformed field types) and they are being corrected.
+Prior loopback runs bind their own recorded source hashes, not final source.
+Existing generic overload policy may retry ambiguous5xx; the new explicit
+no-output branch is not an unconditional prohibition on pre-existing overload
+retry. Final exact-file suite, loopback, lint and package checks are pending.
+
+# Prior release
+
+0f5014d is published/installed successfully; its release evidence is separate
+at ../runtime-recovery/. Walkie restart is confirmed but fresh-input end-to-end
+delivery remains held by incomplete ownership history. This release must not
+claim to repair those live records.
+
+# Final source verification
+
+Final retry source hashes:
+- ciel_runtime_support/router_http.py: 2d1cd4f0306a096ef4ef4e56636af5699eddf9dc28091428fa79b7179a4d938d
+- tests/test_codex_no_output_http_retry.py: 2067e70996c26e29947260044008ce84613f03a63be405467b01b52b6405d418
+The exact isolated integrated suite ran421 tests, zero failures/errors,54 skips.
+The retry/TUI focused sources and related modules were included. TUI-only
+verification ran12 tests successfully. Real owned loopback retry acceptance
+passed all seven final-source cases, including bounded explicit no-output retry,
+body preservation, malformed/incomplete error-body rejection, and no replay
+after an opened-stream failure. The accepted TUI browser fixture displayed:
+`observation stream live | session delivery admission_blocked | known queued 1 |
+wake_history_incomplete line 2`; screenshot `evidence/source-tui-held.png`.
+Fixture source bytes were unchanged and owned listeners closed.
+Repository ruff, py_compile, documentation metadata, OKF strict projections,
+diff check and npm pack dry-run passed. Existing overload retry remains a
+separate policy and may retry ambiguous5xx; this release does not claim to
+remove that behavior.

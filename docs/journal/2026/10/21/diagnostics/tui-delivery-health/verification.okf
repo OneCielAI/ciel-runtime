@@ -1,0 +1,38 @@
+---
+type: verification
+title: Production TUI delivery-health port binding
+description: Verified the production TUI factory exposes shared runtime-input delivery health.
+tags: [tui, delivery-health, regression]
+timestamp: 2026-10-21
+---
+
+# Change
+
+`ciel_runtime.py` imports `runtime_input_delivery_health` and binds the existing
+`TuiObservationHttpPorts.delivery_health` callback to the shared
+`_RUNTIME_INPUT_STATUS_REPOSITORY`. The adapter and port architecture are unchanged.
+Chat and receiver observations already resolve that same repository via their bound
+callbacks.
+
+# Regression
+
+`tests/test_tui_observation.py::TuiObservationRouterIntegrationTests::test_production_factory_binds_shared_delivery_health_over_http`
+exercises the production factory and JSON writer through temporary loopback HTTP.
+Both `/ca/tui/status` and `/ca/tui/health` are tested against complete and corrupt
+private history. The test asserts the exact callback repository, two queued inputs,
+coverage, age, corrupt physical line, payload exclusion, no claimed launcher hold,
+and byte-for-byte unchanged fixture histories.
+
+Before the factory fix, both fixture cases failed with `Actual: not called`.
+After the fix, the focused regression passed. The TUI observation and delivery-health
+files passed together: 20 tests, 0 failures, 0 errors (3.322 seconds).
+`py_compile` and focused `git diff --check` passed.
+
+# Isolation
+
+Tests ran in a subprocess after removing inherited `CIEL_RUNTIME_*`, provider/session
+environment, and token/secret/password/credential/API-key environment. The supported
+`isolate_runtime_state()` helper supplied temporary config and an ephemeral port;
+state/workspace paths and launch cwd were set to that temporary directory. HTTP
+fixtures bound loopback port 0 and closed their own servers. No live runtime actions,
+commits, pushes, deployments, or changes to the worker-owned router HTTP/retry files.

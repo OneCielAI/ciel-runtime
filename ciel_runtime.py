@@ -116,6 +116,7 @@ from ciel_runtime_support.chat_files import ChatFilePorts, ChatFileRepository
 from ciel_runtime_support.chat_http_controller import ChatHttpController, ChatHttpReadServices, ChatHttpWriteServices
 from ciel_runtime_support.runtime_input_gateway import RuntimeInputGateway
 from ciel_runtime_support.runtime_input_status import RuntimeInputStatusRepository
+from ciel_runtime_support.runtime_input_delivery_health import runtime_input_delivery_health
 from ciel_runtime_support.external_event_receiver import EventReceiverSecretVault, ExternalEventReceiverService
 from ciel_runtime_support.external_event_menu import panel_rows as project_external_event_panel_rows, update_config as project_set_external_event_config, ExternalEventControl
 from ciel_runtime_support.claude_environment import ClaudeEnvironmentFeaturePorts, ClaudeEnvironmentProjection, ClaudeEnvironmentShellRenderer, ClaudeEnvironmentSourcePorts, ClaudeLimitPolicy, ClaudeLimitPorts, ClaudeModelAliasCompatibilityApi, ClaudeModelAliasPolicy, ClaudeModelPorts, ClaudeRuntimeSettingsPolicy, ClaudeRuntimeSettingsPorts
@@ -1771,7 +1772,7 @@ def handle_events_get(handler: BaseHTTPRequestHandler, path: str, query: dict[st
 _USAGE_HTTP_ADAPTER = UsageHttpAdapter(USAGE_LEDGER, USAGE_API_KEYS, write_json, reject_external_router_request, load_config, router_log)
 def handle_usage_post(handler: BaseHTTPRequestHandler, path: str, body: dict[str, Any]) -> bool: return _USAGE_HTTP_ADAPTER.handle_post(handler, path, body) or tui_observation_http_adapter().handle_post(handler, path, body)
 def handle_observability_get(handler: BaseHTTPRequestHandler, path: str, query: dict[str, list[str]]) -> bool: return _USAGE_HTTP_ADAPTER.handle_get(handler, path, query) or handle_events_get(handler, path, query)
-def tui_observation_http_adapter() -> TuiObservationHttpAdapter: return TuiObservationHttpAdapter(TuiObservationHttpPorts(TUI_OBSERVATION_BUS, write_json, write_text_response, router_log))
+def tui_observation_http_adapter() -> TuiObservationHttpAdapter: return TuiObservationHttpAdapter(TuiObservationHttpPorts(TUI_OBSERVATION_BUS, write_json, write_text_response, router_log, delivery_health=lambda: runtime_input_delivery_health(_RUNTIME_INPUT_STATUS_REPOSITORY)))
 def handle_tui_observation_get(handler: BaseHTTPRequestHandler, path: str, query: dict[str, list[str]]) -> bool: return tui_observation_http_adapter().handle_get(handler, path, query)
 def observe_tui_runtime_response(handler: BaseHTTPRequestHandler, path: str, provider: str, model: str, body: dict[str, Any]) -> Any: return observe_runtime_response(handler, path, provider, model, body, TUI_OBSERVATION_BUS)
 _safe_segment = ChatFileRepository.safe_segment
