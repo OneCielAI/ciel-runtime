@@ -59,3 +59,35 @@ Verification, commit and publication are recorded below.
   (../../diagnostics/delivery-health-partial/evidence/final-tui-not-blocked.png).
 - ruff (repository), py_compile, check:docs, git diff --check, npm pack
   dry-run (561 files, no recovery modules) passed.
+- Published 0.2.51-nightly.20261021-090826.1c0b706 has gitHead
+  1c0b706c65ddafe63df6a64454d31e688619f10b; tarball SHA-256
+  0f2f3bb15a2d0f9cd07f3a126a69f7c9409ca0c6013bbcb0995fa56f219abe91.
+  Fresh snapshot and npm global install each match all 431 Python files;
+  removed recovery modules are absent. Installed native acceptance passed
+  with the same queued/submitted/replied and no-replay checks. Installed
+  focused suite reproduced the same two pre-existing isolation-guard failures
+  and 122 skips; no change-specific failure. Installed TUI browser capture
+  passed with the partial-history reason visible.
+
+# Publication and installed acceptance
+
+Implementation 1c0b706 pushed to origin/nightly and origin/nightly-20261020.
+CI 39573943760 succeeded (all six jobs); Publish 39573943761 succeeded.
+Local npm global and fresh snapshot ~/.local/share/ciel-runtime-1c0b706
+installed from the digest-verified registry tarball. Existing running launchers
+were not restarted and live Walkie/Celly/Emily data was not deleted or replayed.
+
+Installed native run: ../../diagnostics/sse-admission-regression/
+run-claude-installed-1c0b706-041552, passed_native_sse_damaged_history.
+Real native CLI, local model fixture (no real provider): new SSE ids 7 and 8
+queued/submitted/replied, each sent once; old ids 1-6 never resent; old bytes
+unchanged; no archive/quarantine created. Owned router/app listeners closed.
+Native pixel screenshot unavailable (empty PrintWindow); text capture retained.
+Installed browser screenshot: ../../diagnostics/delivery-health-partial/
+evidence/installed-1c0b706-tui-not-blocked.png. This is a real browser screenshot,
+not the native CLI pixel frame.
+
+Installed exact-file suite: 871 tests, the same two pre-existing failures and
+122 skips. Local failure and clean-HEAD comparison are disclosed above; GitHub
+CI passed. No claim is made that existing remote/live sessions have adopted the
+new launcher or that their real inbox injection has been observed.

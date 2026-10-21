@@ -1,0 +1,21 @@
+{
+  "version": "0.2.51-nightly.20261021-090826.1c0b706",
+  "gitHead": "1c0b706c65ddafe63df6a64454d31e688619f10b",
+  "dist": {
+    "shasum": "8e66afcc77161f526b5b825f502bc54080d29cd6",
+    "tarball": "https://registry.npmjs.org/@one-ciel-ai/ciel-runtime/-/ciel-runtime-0.2.51-nightly.20261021-090826.1c0b706.tgz",
+    "fileCount": 488,
+    "integrity": "sha512-q03JWcM8YmX6v6iKVPRlBsh73MGHzCpI4czu7n+sH1+uwaj8Pw/1kWTeWTlX8w68iKvcMPqonL9/yfDj1lmefw==",
+    "signatures": [
+      {
+        "sig": "MEYCIQDg5HWPFTHHfhkw9yOqZrogmXypn29XytR1wQRbo2QxbwIhAL3mQW/BfT6cZfAibo7CdiKunnMzY3jLpAxoF2+sIgBZ",
+        "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+      },
+      {
+        "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U",
+        "sig": "MEYCIQCaMlwjMp06wNR2Zbw2yaJeYHOvAlMnW6xAZLsi3JKjhAIhAPKXedCvXnBRGxI8qAbY6NqijO3F7mdKp+kE1KDjUpcy"
+      }
+    ],
+    "unpackedSize": 6367884
+  }
+}
