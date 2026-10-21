@@ -330,6 +330,21 @@ No production provider or existing session was contacted or reset.
 - Existing running launchers were not restarted; no production input queue,
   cursor, transcript or history was changed.
 
+## Actual native SSE recovery and resumed delivery: PASS
+
+The owned Claude launcher was tested against both source and installed
+f87747a with a local text-only model fixture. A synthetic 400-second-old
+private queue entry authorized MCP auto recovery; a second call hit the
+900-second cooldown. The production launcher claimed the durable restart,
+replaced its native child, renewed socket/MCP, resumed with --continue, and
+delivered the original entry exactly once (queued -> submitted -> replied).
+MCP calls left queue/history/cursor bytes and mtimes unchanged; the normal
+subsequent delivery appended lifecycle observations without deleting prefixes.
+The owned router listener was absent after teardown. See
+`evidence/sse-native/sanitized-source-installed-results.json` and the harness.
+The old age was deliberately seeded and the owned launcher briefly suspended
+for fixture setup; this does not prove a real external transport outage.
+
 # Not verified
 - No production runtime, real provider credential, remote gateway host or
   existing session state was used. The isolated native CLI test above covers
