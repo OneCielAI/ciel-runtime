@@ -1,16 +1,13 @@
 import dataclasses
 import io
-import os
 import unittest
 import urllib.error
 from unittest import mock
 
-for key in tuple(os.environ):
-    if key.startswith(('CIEL_RUNTIME_', 'CLAUDE', 'OPENAI', 'ANTHROPIC', 'CODEX')) or any(w in key.upper() for w in ('API_KEY', 'API_TOKEN', 'CREDENTIAL', 'PROVIDER')):
-        os.environ.pop(key)
-
-from ciel_runtime_support import transient_retry  # noqa: E402 - isolate before runtime imports
-from test_upstream_retry import ENTRYPOINTS, services, invoke, Response  # noqa: E402
+# The runner owns process isolation. Never erase its CIEL_RUNTIME_TEST_ISOLATED
+# flag during test discovery, which changes unrelated lifecycle-test behavior.
+from ciel_runtime_support import transient_retry
+from test_upstream_retry import ENTRYPOINTS, services, invoke, Response
 
 ERROR = (bytes([101,118,101,110,116,58,32,101,114,114,111,114,10])
          + b'data: {"type":"error","error":{"type":"overloaded_error","message":"service_unavailable: Service temporarily unavailable: all targets were skipped by pre-dispatch filters"}}'

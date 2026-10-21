@@ -26,7 +26,6 @@ import dataclasses
 import http.server
 import io
 import json
-import os
 import threading
 import unittest
 import urllib.error
@@ -34,19 +33,11 @@ import urllib.request
 from types import SimpleNamespace
 from unittest import mock
 
-# A focused test file must never inherit the live runtime workspace: the
-# repository's other transport tests scrub the same variables before importing
-# runtime modules.
-for _name in tuple(os.environ):
-    if _name.startswith(("CIEL_RUNTIME_", "CLAUDE", "OPENAI", "ANTHROPIC", "CODEX")) or any(
-        _marker in _name.upper()
-        for _marker in ("API_KEY", "API_TOKEN", "CREDENTIAL", "PROVIDER")
-    ):
-        os.environ.pop(_name, None)
-
-from ciel_runtime_support import transient_retry  # noqa: E402
-from ciel_runtime_support import upstream_retry as retry  # noqa: E402 - env scrub must run first
-from test_upstream_retry import ENTRYPOINTS, Response, invoke, services  # noqa: E402
+# The exact-file/CI runner owns process isolation. Test discovery must preserve
+# its isolation marker and temporary paths for other lifecycle tests.
+from ciel_runtime_support import transient_retry
+from ciel_runtime_support import upstream_retry as retry
+from test_upstream_retry import ENTRYPOINTS, Response, invoke, services
 
 BASE_URL = "https://provider.test"
 

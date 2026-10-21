@@ -17,7 +17,7 @@ from .provider_failover import FailoverRequested, failover_service, maybe_fail_o
 from .oauth_routing import anthropic_request_run, open_with_oauth
 from .protocols.openai_responses import strip_openai_responses_reasoning_envelopes
 from .remote_bridge import is_remote_bridge_request
-from .transient_retry import request_scope
+from .transient_retry import owns_transient_retries, request_scope
 from .upstream_error_policy import UpstreamFailure
 
 
@@ -472,12 +472,12 @@ def handle_claude_messages_post(
                 # not another transient retry window after the terminal 400.
                 recovery_config = (
                     {**pcfg, "gateway_retries": 0}
-                    if provider == "cielairouter"
+                    if owns_transient_retries(provider)
                     else pcfg
                 )
                 recovery_scope = (
                     request_scope(recovery_config, provider)
-                    if provider == "cielairouter"
+                    if owns_transient_retries(provider)
                     else nullcontext()
                 )
                 with recovery_scope:

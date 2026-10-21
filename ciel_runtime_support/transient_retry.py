@@ -145,8 +145,13 @@ def configured_retry_limit(config: Any) -> int:
     return max(0, min(MAX_RETRIES, number))
 
 
+def owns_transient_retries(provider: str) -> bool:
+    """Whether this provider uses the shared explicit-rejection retry policy."""
+    return provider == PROVIDER
+
+
 def _limit(config: Any, provider: str) -> int:
-    if provider != PROVIDER or not isinstance(config, dict):
+    if not owns_transient_retries(provider) or not isinstance(config, dict):
         return 0
     return configured_retry_limit(config)
 
@@ -691,5 +696,5 @@ def reselect_config_factory(apply, restore):
 
 __all__ = ["BUDGET_CONFIG_KEY", "DEFAULT_RETRIES", "DEFAULT_SECONDS", "MAX_RETRIES",
            "TransientRetryBudget", "budget_for", "bounded_timeout", "configured_retry_limit",
-           "consume_external_retry", "retry_handled", "open_with_transient_retry",
+           "consume_external_retry", "retry_handled", "open_with_transient_retry", "owns_transient_retries",
            "request_scope"]

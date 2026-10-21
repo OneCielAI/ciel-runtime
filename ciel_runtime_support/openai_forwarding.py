@@ -9,6 +9,7 @@ import urllib.error
 from typing import Any, Callable
 
 from .initial_stream_retry import InitialStreamRetry, gateway_route_selected
+from .transient_retry import owns_transient_retries
 from .provider_failover import maybe_fail_over
 from .remote_bridge import REMOTE_BRIDGE_CONFIG_MARKER, is_remote_bridge_request
 from .upstream_error_policy import (
@@ -235,7 +236,7 @@ def forward_openai_compatible_chat(
             # CielAiRouter replays only explicit pre-output rejections in its
             # request-scoped executor, never ambiguous stream/transport loss.
             reconnects = (
-                0 if provider == "cielairouter" or gateway_route_selected(pcfg)
+                0 if owns_transient_retries(provider) or gateway_route_selected(pcfg)
                 else initial_stream_retries(pcfg)
             )
             if reconnects:
