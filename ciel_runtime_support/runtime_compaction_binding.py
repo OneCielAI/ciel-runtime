@@ -18,7 +18,10 @@ from typing import Any, Callable
 
 from .claude_session_socket import canonical_socket_path
 from .channel_message_repository import exclusive_file_lock
-from .channel_transcript_repository import ChannelTranscriptRepository
+from .channel_transcript_repository import (
+    ChannelTranscriptRepository,
+    read_codex_session_meta,
+)
 from .native_context_recovery import parse_context_overflow
 from .oauth_routing import codex_session_key
 from .process_control import pid_is_running
@@ -306,15 +309,13 @@ class RuntimeCompactionBinding:
         if runtime == "claude":
             session_id = ChannelTranscriptRepository._claude_session_identity(path)[2]
             return session_id if any(record.get("sessionId") == session_id for record in _records(path, 64 * 1024)) else ""
-        try:
-            with path.open("rb") as stream:
-                header = json.loads(stream.readline(64 * 1024))
-        except (OSError, ValueError, TypeError):
+        # A large ``base_instructions`` payload makes the first physical line
+        # longer than any bounded readline; the shared reader validates the
+        # record and returns only its exact identity scalars.
+        meta = read_codex_session_meta(path)
+        if meta is None or meta.record_type != "session_meta" or meta.is_sidechain:
             return ""
-        payload = header.get("payload") if isinstance(header, dict) else None
-        if not isinstance(payload, dict) or header.get("type") != "session_meta" or header.get("isSidechain") is True:
-            return ""
-        return str(payload.get("id") or payload.get("session_id") or "")
+        return meta.identity
 
     def scope(self) -> CompactionScope | None:
         value = self._resolve()

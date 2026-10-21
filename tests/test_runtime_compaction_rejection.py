@@ -1,6 +1,7 @@
 """Truthful local rejection for Claude reactive native compaction; no live calls."""
 import copy
 import json
+import os
 import re
 import tempfile
 import threading
@@ -148,6 +149,9 @@ class BindingCycleTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name)
+        environment = mock.patch.dict(os.environ, {"CLAUDE_CONFIG_DIR": str(self.root / "home" / ".claude")})
+        environment.start()
+        self.addCleanup(environment.stop)
         self.logs = []
         log = lambda *args: self.logs.append(args)  # noqa: E731
         artifact = SecureJsonRepository(self.root / "command.json", SecureJsonEffects(log))

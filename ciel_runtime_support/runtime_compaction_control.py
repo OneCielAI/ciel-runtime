@@ -9,12 +9,15 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import threading
 import time
+from collections import OrderedDict
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, BinaryIO
 
 from .channel_compact_request_repository import ChannelCompactRequestRepository
 from .channel_message_repository import exclusive_file_lock
@@ -38,6 +41,9 @@ class NativeCompactionCheckpoint:
     persisted_at: float
     pre_tokens: int = 0
     post_tokens: int = 0
+    # Newest native prompt size written after this checkpoint in the same
+    # transcript; None stays unknown rather than assumed.
+    last_input_tokens: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,6 +75,12 @@ def _positive(value: Any) -> int:
         return 0
 
 
+def _below_capacity(tokens: int, limit: int, baseline: int = 0) -> bool:
+    """A measured prompt can only prove shrink against a known capacity."""
+
+    return bool(tokens and limit and tokens < limit and (not baseline or tokens < baseline))
+
+
 def _timestamp(value: Any) -> float:
     try:
         return datetime.fromisoformat(str(value).replace("Z", "+00:00")).timestamp()
@@ -76,69 +88,166 @@ def _timestamp(value: Any) -> float:
         return 0.0
 
 
-def native_checkpoint_from_transcript(
-    path: Path | None, scope: CompactionScope, *, max_bytes: int = 512 * 1024
-) -> NativeCompactionCheckpoint | None:
-    """Read native JSONL metadata, not assistant/tool marker text.
+def _nonnegative_int(value: Any) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool) and value >= 0
 
-    Shapes were captured from Claude Code 2.1.303 and Codex 0.158. The caller
-    selects the active session's exact transcript; no latest-file discovery.
-    Missing or oversized checkpoint records remain unknown.
+
+# Retain only one bounded record while scanning; cache scalar proof, never the
+# transcript or its replacement history. Changed files are rescanned so a
+# rewrite/truncation cannot inherit proof from bytes no longer on disk.
+_MAX_RECORD_BYTES = 8 * 1024 * 1024
+_SCAN_CACHE_LIMIT = 4
+
+
+@dataclass(frozen=True, slots=True)
+class _TranscriptScan:
+    signature: tuple[int, int, int, int, int]
+    checkpoint: NativeCompactionCheckpoint | None
+
+
+_scan_cache: OrderedDict[tuple[str, CompactionScope, int], _TranscriptScan] = OrderedDict()
+_scan_lock = threading.Lock()
+
+
+def _read_jsonl(stream: BinaryIO, max_record_bytes: int):
+    """Yield complete bounded records, draining an oversized line whole."""
+
+    while True:
+        line = stream.readline(max_record_bytes + 1)
+        if not line:
+            return
+        if len(line) > max_record_bytes:
+            while not line.endswith(b"\n"):
+                line = stream.readline(256 * 1024)
+                if not line:
+                    return
+            continue
+        if not line.endswith(b"\n"):
+            return
+        yield line.rstrip(b"\r\n")
+
+
+def _checkpoint_record(record: Any, scope: CompactionScope, path: Path) -> tuple[float, int, int] | None:
+    if not isinstance(record, dict) or record.get("isSidechain") is True:
+        return None
+    pre_tokens = post_tokens = 0
+    if scope.runtime == "claude":
+        if (record.get("type") != "system" or record.get("subtype") != "compact_boundary"
+                or record.get("sessionId") != scope.session_id):
+            return None
+        metadata = record.get("compactMetadata")
+        if not isinstance(metadata, dict) or not record.get("uuid"):
+            return None
+        pre_tokens = _positive(metadata.get("preTokens"))
+        post_tokens = _positive(metadata.get("postTokens"))
+    elif scope.runtime in {"codex", "codex-app-server", "codex-desktop"}:
+        payload = record.get("payload")
+        if record.get("type") != "compacted" or not isinstance(payload, dict):
+            return None
+        if not isinstance(payload.get("replacement_history"), list) or not payload["replacement_history"]:
+            return None
+        usage = payload.get("latest_token_usage_record")
+        thread_id = usage.get("thread_id") if isinstance(usage, dict) else None
+        # Codex compacted records have no top-level session id.
+        if thread_id and thread_id != scope.session_id:
+            return None
+        if not thread_id and not path.stem.endswith(scope.session_id):
+            return None
+    else:
+        return None
+    persisted_at = _timestamp(record.get("timestamp"))
+    return (persisted_at, pre_tokens, post_tokens) if persisted_at > 0 else None
+
+
+def _input_tokens_record(record: Any, scope: CompactionScope) -> int | None:
+    """The prompt size this record reports for the same conversation.
+
+    Claude records input + cache read + cache creation; Codex token_count
+    events carry last_token_usage.input_tokens.  Only another process's
+    records for this exact session qualify; the file itself binds Codex.
+    """
+
+    if not isinstance(record, dict) or record.get("isSidechain") is True:
+        return None
+    if scope.runtime == "claude":
+        if record.get("type") != "assistant" or record.get("sessionId") != scope.session_id:
+            return None
+        message = record.get("message")
+        usage = message.get("usage") if isinstance(message, dict) else None
+        if not isinstance(usage, dict) or not _nonnegative_int(usage.get("input_tokens")):
+            return None
+        values = [usage.get(key, 0) for key in
+                  ("input_tokens", "cache_read_input_tokens", "cache_creation_input_tokens")]
+        if not all(_nonnegative_int(value) for value in values):
+            return None
+        return sum(values) or None
+    if scope.runtime in {"codex", "codex-app-server", "codex-desktop"}:
+        payload = record.get("payload")
+        if record.get("type") != "event_msg" or not isinstance(payload, dict):
+            return None
+        if payload.get("type") != "token_count":
+            return None
+        info = payload.get("info")
+        usage = info.get("last_token_usage") if isinstance(info, dict) else None
+        value = usage.get("input_tokens") if isinstance(usage, dict) else None
+        return value if _nonnegative_int(value) else None
+    return None
+
+
+def native_checkpoint_from_transcript(
+    path: Path | None, scope: CompactionScope, *, max_bytes: int = _MAX_RECORD_BYTES
+) -> NativeCompactionCheckpoint | None:
+    """Scan the exact native transcript with bounded per-record memory.
+
+    ``max_bytes`` caps each JSON record, not the file tail. A 600 KiB native
+    checkpoint and checkpoints followed by arbitrarily much later history are
+    visible. Unchanged file signatures reuse only scalar checkpoint evidence.
+    No latest-file discovery or assistant/tool marker matching is performed.
     """
 
     if path is None or not scope.session_id or not scope.epoch:
         return None
+    cap = max(1, min(int(max_bytes), _MAX_RECORD_BYTES))
+    key = (str(path), scope, cap)
     try:
-        with path.open("rb") as stream:
-            stream.seek(0, 2)
-            size = stream.tell()
-            stream.seek(max(0, size - max(1, max_bytes)))
-            data = stream.read(max_bytes)
-            if size > max_bytes:
-                # Never readline across an unbounded giant tool-result line.
-                data = data.partition(bytes([10]))[2]
-            text = data.decode("utf-8", errors="replace")
+        with _scan_lock, path.open("rb") as stream:
+            stat = os.fstat(stream.fileno())
+            signature = (stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns)
+            previous = _scan_cache.get(key)
+            if previous is not None and previous.signature == signature:
+                _scan_cache.move_to_end(key)
+                return previous.checkpoint
+            newest = None
+            for line in _read_jsonl(stream, cap):
+                try:
+                    record = json.loads(line)
+                except (ValueError, TypeError, UnicodeError, RecursionError):
+                    continue
+                found = _checkpoint_record(record, scope, path)
+                if found is not None:
+                    newest = NativeCompactionCheckpoint(scope, hashlib.sha256(line).hexdigest(), *found)
+                    continue
+                # Usage must follow a matching checkpoint physically and carry
+                # a valid timestamp at or after that boundary. Older usage is
+                # never promoted into proof merely because it was appended.
+                if (newest is not None and isinstance(record, dict)
+                        and _timestamp(record.get("timestamp")) >= newest.persisted_at):
+                    tokens = _input_tokens_record(record, scope)
+                    if tokens is not None:
+                        newest = NativeCompactionCheckpoint(
+                            scope, newest.identity, newest.persisted_at,
+                            newest.pre_tokens, newest.post_tokens, tokens)
+            after = os.fstat(stream.fileno())
+            after_signature = (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns, after.st_ctime_ns)
+            if after_signature != signature:
+                return None
+            _scan_cache[key] = _TranscriptScan(signature, newest)
+            _scan_cache.move_to_end(key)
+            while len(_scan_cache) > _SCAN_CACHE_LIMIT:
+                _scan_cache.popitem(last=False)
+            return newest
     except OSError:
         return None
-    newest = None
-    for line in text.splitlines():
-        try:
-            record = json.loads(line)
-        except (ValueError, TypeError):
-            continue
-        if not isinstance(record, dict) or record.get("isSidechain") is True:
-            continue
-        pre_tokens = post_tokens = 0
-        if scope.runtime == "claude":
-            if (record.get("type") != "system" or record.get("subtype") != "compact_boundary"
-                    or record.get("sessionId") != scope.session_id):
-                continue
-            metadata = record.get("compactMetadata")
-            if not isinstance(metadata, dict) or not record.get("uuid"):
-                continue
-            pre_tokens = _positive(metadata.get("preTokens"))
-            post_tokens = _positive(metadata.get("postTokens"))
-        elif scope.runtime in {"codex", "codex-app-server", "codex-desktop"}:
-            payload = record.get("payload")
-            if record.get("type") != "compacted" or not isinstance(payload, dict):
-                continue
-            if not isinstance(payload.get("replacement_history"), list) or not payload["replacement_history"]:
-                continue
-            usage = payload.get("latest_token_usage_record")
-            thread_id = usage.get("thread_id") if isinstance(usage, dict) else None
-            # Codex compacted records have no top-level session id.
-            if thread_id and thread_id != scope.session_id:
-                continue
-            if not thread_id and not path.stem.endswith(scope.session_id):
-                continue
-        else:
-            continue
-        persisted_at = _timestamp(record.get("timestamp"))
-        if persisted_at <= 0:
-            continue
-        identity = hashlib.sha256(line.encode("utf-8")).hexdigest()
-        newest = NativeCompactionCheckpoint(scope, identity, persisted_at, pre_tokens, post_tokens)
-    return newest
 
 
 class RuntimeCompactionControl:
@@ -190,15 +299,15 @@ class RuntimeCompactionControl:
                 and checkpoint.identity != state.get("checkpoint_id")):
             state.update({"checkpoint_id": checkpoint.identity, "phase": "awaiting_shrink"})
             self._write(state, "native_checkpoint_observed")
-            limit = _positive(state.get("context_limit"))
-            if checkpoint.post_tokens and limit and checkpoint.post_tokens >= limit:
-                # The client measured its own compacted history as still full.
-                self._not_shrunk(state, "checkpoint_not_below_budget")
-            elif isinstance(state.get("shrink_observed"), dict):
-                # Claude Code 2.1.303 persists the boundary only after its
-                # automatic retry completes; that retry was the smaller raw
-                # request of this same compaction cycle.
-                self._verify(state, _positive(state["shrink_observed"].get("tokens")))
+        if (state.get("phase") == "awaiting_shrink" and checkpoint and checkpoint.scope == scope
+                and checkpoint.identity == state.get("checkpoint_id")
+                and checkpoint.identity != state.get("baseline_checkpoint_id")
+                and checkpoint.persisted_at >= float(state.get("requested_at") or 0)):
+            # The phase and its evidence are durable, so the release decision
+            # is re-evaluated on every refresh rather than only on the write
+            # that observed the checkpoint: a restart between those two writes
+            # must not hold admission forever.
+            self._release(state, checkpoint)
         if state.get("phase") in {"dispatching", "awaiting_checkpoint", "compacting"}:
             if now >= float(state.get("deadline") or 0):
                 # An uncertain submission cannot authorize another compact.
@@ -282,9 +391,14 @@ class RuntimeCompactionControl:
             if native:
                 # A new compaction cannot reuse an earlier cycle's request.
                 state.pop("shrink_observed", None)
+            if context_limit and not _positive(state.get("context_limit")):
+                # A manual dispatch starts before a request reveals capacity.
+                # Persist that real bound, never infer one from native usage.
+                state["context_limit"] = context_limit
+                self._write(state)
             baseline = _positive(state.get("baseline_tokens"))
-            shrunk = bool(not native and not recovery_required and raw_tokens and context_limit
-                          and raw_tokens < context_limit and (not baseline or raw_tokens < baseline))
+            shrunk = bool(not native and not recovery_required
+                          and _below_capacity(raw_tokens, context_limit, baseline))
             if shrunk and state.get("phase") in {"dispatching", "awaiting_checkpoint", "compacting"}:
                 state["shrink_observed"] = {"tokens": raw_tokens, "at": self.ports.now()}
                 self._write(state, "smaller_request_before_checkpoint")
@@ -296,6 +410,35 @@ class RuntimeCompactionControl:
             elif recovery_required or (context_limit and raw_tokens >= context_limit):
                 state["baseline_tokens"] = max(raw_tokens, baseline)
                 self._not_shrunk(state, "next_request_not_below_budget")
+
+    def _release(self, state: dict[str, Any], checkpoint: NativeCompactionCheckpoint) -> None:
+        """Decide whether a stored checkpoint cycle may release admission.
+
+        Every input here was written under the new-checkpoint gate (exact
+        session, identity, timestamp at or after the request), so this only
+        re-applies the shrink rules to durable evidence.
+        """
+
+        limit = _positive(state.get("context_limit"))
+        if checkpoint.post_tokens and limit and checkpoint.post_tokens >= limit:
+            # The client measured its own compacted history as still full.
+            self._not_shrunk(state, "checkpoint_not_below_budget")
+            return
+        observed = state.get("shrink_observed")
+        if isinstance(observed, dict):
+            # Claude Code 2.1.303 persists the boundary only after its
+            # automatic retry completes; that retry was the smaller raw
+            # request of this same compaction cycle.
+            tokens = _positive(observed.get("tokens"))
+            if _below_capacity(tokens, limit, _positive(state.get("baseline_tokens"))):
+                self._verify(state, tokens)
+                return
+        # The native client's own newest prompt size after this checkpoint is
+        # the same measurement as the next raw request, for a client that
+        # sends without passing through the router.
+        tokens = checkpoint.last_input_tokens
+        if tokens is not None and _below_capacity(tokens, limit, _positive(state.get("baseline_tokens"))):
+            self._verify(state, tokens)
 
     def _verify(self, state: dict[str, Any], raw_tokens: int) -> None:
         if state.get("request_id"):

@@ -10,6 +10,7 @@ import unittest
 from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from ciel_runtime_support.channel_compact_request_repository import ChannelCompactRequestRepository
 from ciel_runtime_support.runtime_compaction_binding import RuntimeCompactionBinding, native_input_tokens
@@ -31,6 +32,11 @@ class BindingHarness(unittest.TestCase):
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name)
         self.home = self.root / "home"
+        # The exact-file runner provides its own safe Claude home. This fixture
+        # owns a different home, so bind its transcript directory explicitly.
+        environment = patch.dict(os.environ, {"CLAUDE_CONFIG_DIR": str(self.home / ".claude")})
+        environment.start()
+        self.addCleanup(environment.stop)
         self.logs = []
         self.log = lambda *args: self.logs.append(args)
         artifact = SecureJsonRepository(self.root / "command.json", SecureJsonEffects(self.log))
