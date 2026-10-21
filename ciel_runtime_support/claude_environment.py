@@ -14,6 +14,7 @@ from typing import Any, Callable
 
 from .architecture import ProviderRuntimeCompactionPolicy
 from .anthropic_model_policy import defaults_to_one_million_context
+from .transient_retry import configured_retry_limit
 
 
 CLAUDE_PROJECTED_ENV_KEYS = (
@@ -25,6 +26,10 @@ CLAUDE_PROJECTED_ENV_KEYS = (
     "CLAUDE_CODE_MAX_CONTEXT_TOKENS",
     "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE",
     "CLAUDE_CODE_EFFORT_LEVEL",
+    "CLAUDE_CODE_MAX_RETRIES",
+    "CLAUDE_CODE_RETRY_WATCHDOG",
+    "CLAUDE_CODE_NONSTREAMING_TIMEOUT_RETRIES",
+    "CLAUDE_CODE_DISABLE_NONSTREAMING_FALLBACK",
     "ANTHROPIC_MODEL",
     "ANTHROPIC_CUSTOM_MODEL_OPTION",
     "ANTHROPIC_CUSTOM_MODEL_OPTION_SUPPORTED_CAPABILITIES",
@@ -593,6 +598,15 @@ class ClaudeEnvironmentProjection:
         direct = data_path is not None and bool(getattr(data_path, "direct", False))
         if direct:
             self._apply_direct_data_path(provider, provider_config, env, data_path)
+        if provider == "cielairouter":
+            # One retry owner: the router in routed mode, the CLI in direct mode.
+            # Timeout resend and stream fallback are separate replay paths.
+            env.update({
+                "CLAUDE_CODE_MAX_RETRIES": str(configured_retry_limit(provider_config) if direct else 0),
+                "CLAUDE_CODE_RETRY_WATCHDOG": "0",
+                "CLAUDE_CODE_NONSTREAMING_TIMEOUT_RETRIES": "0",
+                "CLAUDE_CODE_DISABLE_NONSTREAMING_FALLBACK": "1",
+            })
         # A direct data path bypasses the router, so nothing is trimmed there.
         return self.apply_common(provider, provider_config, env, guarded=not direct)
 

@@ -8,6 +8,7 @@ import os
 import time
 import urllib.error
 from collections.abc import Mapping
+from contextlib import nullcontext
 from dataclasses import dataclass
 from typing import Any, Callable
 
@@ -16,6 +17,7 @@ from .provider_failover import FailoverRequested, failover_service, maybe_fail_o
 from .oauth_routing import anthropic_request_run, open_with_oauth
 from .protocols.openai_responses import strip_openai_responses_reasoning_envelopes
 from .remote_bridge import is_remote_bridge_request
+from .transient_retry import request_scope
 from .upstream_error_policy import UpstreamFailure
 
 
@@ -466,20 +468,33 @@ def handle_claude_messages_post(
                     reason="context_output_budget",
                     max_tokens=recovered_body["max_tokens"],
                 )
-                resp = open_with_oauth(
-                    oauth_run,
-                    headers,
-                    lambda attempt_headers: open_provider_request_with_key_retry(
-                        url,
-                        upstream_body,
-                        attempt_headers,
-                        provider_request_timeout_seconds(pcfg),
-                        provider,
-                        pcfg,
-                        upstream_model,
-                        stream=bool(body.get("stream", stream_enabled)),
-                    ),
+                # A changed output budget is one semantic recovery attempt,
+                # not another transient retry window after the terminal 400.
+                recovery_config = (
+                    {**pcfg, "gateway_retries": 0}
+                    if provider == "cielairouter"
+                    else pcfg
                 )
+                recovery_scope = (
+                    request_scope(recovery_config, provider)
+                    if provider == "cielairouter"
+                    else nullcontext()
+                )
+                with recovery_scope:
+                    resp = open_with_oauth(
+                        oauth_run,
+                        headers,
+                        lambda attempt_headers: open_provider_request_with_key_retry(
+                            url,
+                            upstream_body,
+                            attempt_headers,
+                            provider_request_timeout_seconds(recovery_config),
+                            provider,
+                            recovery_config,
+                            upstream_model,
+                            stream=bool(body.get("stream", stream_enabled)),
+                        ),
+                    )
             if bool(body.get("stream", stream_enabled)):
                 set_upstream_stream_read_timeout(resp, provider_stream_idle_timeout_seconds(pcfg))
             status = getattr(resp, "status", 200)

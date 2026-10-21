@@ -19,6 +19,8 @@ class ChannelMcpRuntimeServices:
     restart_session: Callable[..., dict[str, Any]] | None = None
     # (args) -> result; None uses the session backup service for the router's workspace.
     session_backup: Callable[[dict[str, Any]], dict[str, Any]] | None = None
+    # (args) -> result; reports or resets a session whose SSE inputs are stuck.
+    recover_sse_delivery: Callable[[dict[str, Any]], dict[str, Any]] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -269,6 +271,35 @@ def channel_mcp_tool_schemas() -> list[dict[str, Any]]:
             },
         },
         {
+            "name": "recover_sse_delivery",
+            "description": (
+                "Report or recover a session whose external SSE inputs are not reaching it. "
+                "action=status returns payload-free delivery evidence without changing anything; "
+                "action=reset or auto queues a resumed restart only for the sole registered local "
+                "client when queued input is observably stale (at least 120 s), compaction admission "
+                "is not paused, and the recovery cooldown (at least 900 s) has elapsed. "
+                "Compaction pauses never authorize a reset. No history, queue or cursor is modified."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "action": {"type": "string", "enum": ["status", "reset", "auto"]},
+                    "reason": {"type": "string", "description": "Short reason recorded in the logs."},
+                    "runtime": {"type": "string", "description": "Optional runtime label, e.g. claude or codex."},
+                    "client_pid": {"type": "integer", "description": "Optional launcher pid from restart_session."},
+                    "min_queue_age_seconds": {
+                        "type": "number", "minimum": 1,
+                        "description": "Queue age threshold; enforced minimum/default 120 s.",
+                    },
+                    "cooldown_seconds": {
+                        "type": "number", "minimum": 0,
+                        "description": "Seconds between recovery attempts; enforced minimum/default 900.",
+                    },
+                    "force": {"type": "boolean", "description": "Compatibility field; cannot bypass evidence or cooldown."},
+                },
+            },
+        },
+        {
             "name": "provider_fallback",
             "description": (
                 "Show or change the provider fallback: while the current provider is rate-limited "
@@ -382,6 +413,8 @@ def dispatch_channel_mcp_tool(
         return _json_response(request_id, {"ok": True, "message": saved})
     if name == "restart_session":
         return _restart_session(request_id, args, services)
+    if name == "recover_sse_delivery":
+        return _recover_sse_delivery(request_id, args, services)
     if name == "send_message":
         return _send_message(request_id, args, services)
     if name == "send_file":
@@ -452,6 +485,22 @@ def _restart_session(
     if not result.get("ok"):
         return channel_mcp_tool_response(request_id, json.dumps(result, ensure_ascii=False), True)
     return _json_response(request_id, result)
+
+
+def _recover_sse_delivery(
+    request_id: Any,
+    args: dict[str, Any],
+    services: ChannelMcpToolServices,
+) -> dict[str, Any]:
+    if services.runtime.recover_sse_delivery is None:
+        return channel_mcp_tool_response(request_id, "SSE delivery recovery is unavailable", True)
+    try:
+        result = services.runtime.recover_sse_delivery(dict(args))
+    except (OSError, ValueError, TypeError) as exc:
+        return channel_mcp_tool_response(request_id, f"recover_sse_delivery failed: {exc}", True)
+    return _json_response(request_id, result) if result.get("ok") else channel_mcp_tool_response(
+        request_id, json.dumps(result, ensure_ascii=False), True
+    )
 
 
 def _telemetry_logs(

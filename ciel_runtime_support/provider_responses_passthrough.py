@@ -36,7 +36,8 @@ from .responses_custom_tool_bridge import (
 )
 from .prompt_compaction import responses_compact_instruction_index
 from .context_compaction import no_output_context_rejection
-from .remote_bridge import is_remote_bridge_request
+from .remote_bridge import REMOTE_BRIDGE_CONFIG_MARKER, is_remote_bridge_request
+from .transient_retry import bounded_timeout, open_with_transient_retry, request_scope, retry_handled
 from .upstream_dump import dump_upstream_request
 from .upstream_error_policy import UpstreamFailure, UpstreamStreamReadError
 from .upstream_stream_io import client_connection_closed, UpstreamClientDisconnected
@@ -71,6 +72,9 @@ class ProviderResponsesPassthroughPorts:
     )
     finalize_body: Callable[[dict[str, Any]], dict[str, Any]] = lambda body: body
     endpoint: Callable[[str, dict[str, Any], str], str] | None = None
+    publish: Callable[..., Any] = lambda **_kwargs: None
+    # Rebuild the provider config for one more attempt on a fresh gateway.
+    reselect: Callable[[dict[str, Any]], dict[str, Any]] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -253,53 +257,119 @@ class ProviderResponsesPassthrough:
         *,
         remote_bridge: bool = False,
         handler: Any = None,
+        rebuild_request: Callable[
+            [dict[str, Any], Any], urllib.request.Request
+        ] | None = None,
     ) -> Any:
         """One native attempt, then one recovery only after explicit rejection.
 
         This boundary has not exposed response bytes. Transport failures,
         partial streams and ambiguous errors never authorize another summary.
         The request object retains the recovery marker across stream retries.
+        A transient rejection before any downstream byte spends the request's
+        one request-scoped ``transient_retry`` budget; each retry may reselect
+        a gateway through ``rebuild_request``.
         """
-        try:
+        attempt: dict[str, Any] = {"config": config, "request": request}
+        # A remote bridge client owns its own retries; never replay for it.
+        retry_provider = (
+            ""
+            if remote_bridge or config.get(REMOTE_BRIDGE_CONFIG_MARKER) is True
+            else provider
+        )
+
+        def open_once() -> Any:
             return self._ports.urlopen(
-                request, timeout=self._ports.timeout_seconds(config),
-                provider=provider, pcfg=config,
+                attempt["request"],
+                timeout=bounded_timeout(attempt["config"], retry_provider,
+                                        self._ports.timeout_seconds(attempt["config"])),
+                provider=provider,
+                pcfg=attempt["config"],
             )
+
+        def cancelled() -> bool:
+            return handler is not None and client_connection_closed(handler)
+
+        def reselect() -> None:
+            if self._ports.reselect is None or rebuild_request is None:
+                return
+            fresh = self._ports.reselect(dict(config))
+            if not isinstance(fresh, dict):
+                return
+            previous = attempt["request"]
+            rebuilt = rebuild_request(fresh, getattr(previous, "data", None))
+            if getattr(previous, "_context_compact_recovered", False):
+                rebuilt._context_compact_recovered = True
+            config.clear()
+            config.update(fresh)
+            attempt["request"] = rebuilt
+            # Keep the caller's request current for buffered reopens, too.
+            request.full_url = rebuilt.full_url
+            request.headers = dict(rebuilt.headers)
+            request.data = rebuilt.data
+            if getattr(rebuilt, "_context_compact_recovered", False):
+                request._context_compact_recovered = True
+
+        def retry_open() -> Any:
+            return open_with_transient_retry(
+                open_once,
+                provider=retry_provider,
+                config=attempt["config"],
+                log=self._ports.log,
+                publish=self._ports.publish,
+                cancelled=cancelled if handler is not None else None,
+                request=attempt["request"],
+                reselect=reselect if self._ports.reselect is not None else None,
+                model=str(body.get("model") or ""),
+            )
+
+        try:
+            return retry_open()
         except urllib.error.HTTPError as exc:
             raw = exc.read()
             failure = UpstreamFailure.from_http_error(
                 provider, str(body.get("model") or ""), exc, raw,
             )
-            if (remote_bridge or getattr(request, "_context_compact_recovered", False)
+            if (remote_bridge or getattr(attempt["request"], "_context_compact_recovered", False)
                     or not no_output_context_rejection(failure)):
-                raise urllib.error.HTTPError(exc.url, exc.code, exc.msg, exc.hdrs, io.BytesIO(raw)) from None
-            def cancelled():
-                return handler is not None and client_connection_closed(handler)
+                self._raise_replayed(exc, raw)
             if cancelled():
                 raise UpstreamClientDisconnected("downstream client disconnected before compaction")
             checkpoint = self._compact_checkpoint(
-                provider, config, body, semantic_input, context_rejected=True,
-                cancelled=cancelled,
+                provider, attempt["config"], body, semantic_input,
+                context_rejected=True, cancelled=cancelled,
             )
             if cancelled():
                 raise UpstreamClientDisconnected("downstream client disconnected during compaction")
             if checkpoint is body:
-                raise urllib.error.HTTPError(exc.url, exc.code, exc.msg, exc.hdrs, io.BytesIO(raw)) from None
+                self._raise_replayed(exc, raw)
             checkpoint = self._ports.finalize_body(checkpoint)
             # Byte policy is a separate transport contract, including recovery.
+            previous = attempt["request"]
             checkpoint, data = self._fit_provider_request(
-                request.full_url, provider, config, checkpoint,
+                previous.full_url, provider, attempt["config"], checkpoint,
             )
             body.clear()
             body.update(checkpoint)
-            request.data = data
-            request._context_compact_recovered = True
+            previous.data = data
+            previous._context_compact_recovered = True
             self._ports.log("INFO", f"provider_responses_checkpoint_recovery provider={provider} "
                             "reason=confirmed_no_output_context_rejection attempts=1")
-            return self._ports.urlopen(
-                request, timeout=self._ports.timeout_seconds(config),
-                provider=provider, pcfg=config,
-            )
+            # A checkpoint changes the body. Its existing recovery contract is
+            # one shot, not another transient retry window on that new body.
+            with request_scope(attempt["config"], retry_provider):
+                return open_once()
+
+    @staticmethod
+    def _raise_replayed(exc: urllib.error.HTTPError, raw: bytes) -> None:
+        replayed = urllib.error.HTTPError(
+            exc.url, exc.code, exc.msg, exc.hdrs, io.BytesIO(raw)
+        )
+        if retry_handled(exc):
+            # An outer replay loop must not spend another budget on this one.
+            replayed._ciel_transient_retry_handled = True
+            replayed._ciel_transient_retry_exhausted = True
+        raise replayed from None
 
     def _fit_provider_request(
         self,
@@ -426,6 +496,9 @@ class ProviderResponsesPassthrough:
         *,
         completion_gate_headers: Mapping[str, str] | None = None,
         semantic_input: list[Any] | None = None,
+        rebuild_request: Callable[
+            [dict[str, Any], Any], urllib.request.Request
+        ] | None = None,
     ) -> None:
         """Validate a native Responses stream before exposing it downstream.
 
@@ -433,20 +506,20 @@ class ProviderResponsesPassthrough:
         request headers as built, not as urllib amended them while sending.
         """
 
-        # A selected gateway route is fixed for the whole call, so a replay
-        # would reach the gateway that just failed; the next client request
-        # re-enters gateway selection instead. ``forward`` still buffers on the
-        # configured count, so the failure leaves nothing committed downstream.
+        # CielAiRouter replays only explicit pre-output rejections. A truncated
+        # stream, even when buffered, does not prove the upstream executed no
+        # tool. Other providers keep their existing truncation retry policy.
         retries = (
             0
-            if gateway_route_selected(config)
+            if provider == "cielairouter" or gateway_route_selected(config)
             else self._stream_truncation_retries(config)
         )
         max_attempts = retries + 1
         model = str(upstream_body.get("model") or "")
         for attempt in range(1, max_attempts + 1):
             with self._open_checkpoint_request(
-                request, provider, config, upstream_body, semantic_input, handler=handler,
+                request, provider, config, upstream_body, semantic_input,
+                handler=handler, rebuild_request=rebuild_request,
             ) as response, tempfile.SpooledTemporaryFile(max_size=4 * 1024 * 1024) as spool:
                 usage = ResponsesUsageObserver()
                 completion = ResponsesCompletionObservation()
@@ -706,6 +779,21 @@ class ProviderResponsesPassthrough:
             headers=request_headers,
             method="POST",
         )
+
+        def rebuild_request(
+            fresh_config: dict[str, Any], attempt_data: Any
+        ) -> urllib.request.Request:
+            """The same request against a freshly selected gateway route."""
+
+            return urllib.request.Request(
+                self._endpoint(provider, fresh_config, "openai_responses"),
+                data=attempt_data,
+                headers=self._request_headers(
+                    provider, fresh_config, handler.headers, upstream_body
+                ),
+                method="POST",
+            )
+
         # A response that may still need the completion check is held back, as
         # on the Codex backend route; requests without usable tools keep streaming.
         completion_gate = (
@@ -726,11 +814,13 @@ class ProviderResponsesPassthrough:
                 cache_profile,
                 completion_gate_headers=request_headers if completion_gate else None,
                 semantic_input=semantic_input,
+                rebuild_request=rebuild_request,
             )
             return delivery_body
         with self._open_checkpoint_request(
             request, provider, config, upstream_body, semantic_input,
             remote_bridge=remote_bridge, handler=handler,
+            rebuild_request=rebuild_request,
         ) as response:
             usage = ResponsesUsageObserver()
             received_bytes = 0

@@ -130,6 +130,22 @@ class LaunchDataPathResolverTests(ResolverHarness):
         self.assertEqual([], self.output)
         self.assertFalse(self.record.exists())
 
+    def test_only_direct_launch_owns_native_request_retries(self):
+        for value, expected in ((None, 3), (0, 0), (10, 10), (100, 10)):
+            with self.subTest(value=value):
+                config = {"gateway_data_path": "direct"}
+                if value is not None:
+                    config["gateway_retries"] = value
+                policy = FakeGatewayPolicy(_gateway())
+                direct = self.resolver(policy)("codex-app-server", "cielairouter", config)
+                self.assertEqual(expected, direct.request_max_retries)
+                config["gateway_data_path"] = "router"
+                routed = self.resolver(policy)("codex-app-server", "cielairouter", config)
+                self.assertEqual(0, routed.request_max_retries)
+                fallback = self.resolver(FakeGatewayPolicy(LaunchGateway(reason="unavailable")))(
+                    "codex-app-server", "cielairouter", {"gateway_data_path": "direct", "gateway_retries": 10})
+                self.assertEqual(0, fallback.request_max_retries)
+
     def test_router_launch_replaces_a_stale_direct_record(self):
         direct = self.resolver(FakeGatewayPolicy(_gateway()))("claude", "cielairouter", {"gateway_data_path": "direct"})
         self.assertTrue(direct.direct)
@@ -369,7 +385,9 @@ class ClaudeEnvironmentTests(unittest.TestCase):
         self.assertEqual({"ANTHROPIC_BASE_URL", "ANTHROPIC_MODEL", "ANTHROPIC_CUSTOM_MODEL_OPTION",
                           "ANTHROPIC_DEFAULT_HAIKU_MODEL", "ANTHROPIC_DEFAULT_OPUS_MODEL", "ANTHROPIC_DEFAULT_SONNET_MODEL",
                           "CLAUDE_CODE_SUBAGENT_MODEL", "CIEL_RUNTIME_MODEL_ALIAS",
-                          "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE"}, changed)
+                          "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE", "CLAUDE_CODE_MAX_RETRIES"}, changed)
+        self.assertEqual("0", routed["CLAUDE_CODE_MAX_RETRIES"])
+        self.assertEqual("3", direct["CLAUDE_CODE_MAX_RETRIES"])
         self.assertNotIn("CLAUDE_AUTOCOMPACT_PCT_OVERRIDE", direct)
 
 
@@ -384,6 +402,42 @@ class CodexConfigurationTests(unittest.TestCase):
         self.assertEqual(len(routed), len(direct))
         self.assertEqual([item for item in routed if "base_url" not in item and "env_key" not in item],
                          [item for item in direct if "base_url" not in item and "env_key" not in item])
+
+    def test_direct_request_retry_limit_does_not_enable_stream_replay(self):
+        for retries in (0, 3, 10):
+            args = ciel_runtime.codex_runtime_config_args(
+                "https://gw1.example", env_key=GATEWAY_API_KEY_ENV,
+                provider_id=launch_data_path.DIRECT_PROVIDER_ID, request_max_retries=retries)
+            self.assertIn(f"model_providers.ciel-runtime-gateway.request_max_retries={retries}", args)
+            self.assertIn("model_providers.ciel-runtime-gateway.stream_max_retries=0", args)
+        for kwargs in ({}, {"request_max_retries": None}):
+            args = ciel_runtime.codex_runtime_config_args(**kwargs)
+            self.assertIn("model_providers.ciel-runtime.request_max_retries=0", args)
+            self.assertIn("model_providers.ciel-runtime.stream_max_retries=0", args)
+
+    def test_restart_transfers_retry_ownership_back_to_runtime(self):
+        prefix = "model_providers.ciel-runtime-gateway"
+        command = ["codex", "-c", f'{prefix}.base_url="https://gw1.example/v1"',
+                   "-c", f'{prefix}.env_key="{GATEWAY_API_KEY_ENV}"',
+                   "-c", f"{prefix}.request_max_retries=3", "-c", f"{prefix}.stream_max_retries=0",
+                   "-c", 'mcp_servers.ciel-runtime-router.url="http://127.0.0.1:1/ca/mcp"', "resume", "saved-thread"]
+        direct = launch_data_path.codex_provider_command(command, "ciel-runtime-gateway", "https://gw2.example",
+                                                        GATEWAY_API_KEY_ENV, request_max_retries=10)
+        self.assertIn(f"{prefix}.request_max_retries=10", direct)
+        routed = launch_data_path.codex_provider_command(direct, "ciel-runtime-gateway", ROUTER_BASE,
+                                                        "CIEL_RUNTIME_CODEX_API_KEY", request_max_retries=0)
+        self.assertIn(f"{prefix}.request_max_retries=0", routed)
+        self.assertIn(f"{prefix}.stream_max_retries=0", routed)
+        self.assertEqual(command[9:], routed[9:])
+        without_retry = command[:5] + command[7:]
+        appended = launch_data_path.codex_provider_command(
+            without_retry, "ciel-runtime-gateway", "https://gw2.example", GATEWAY_API_KEY_ENV, request_max_retries=3)
+        self.assertEqual(["-c", f"{prefix}.request_max_retries=3"], appended[-2:])
+        without_stream_retry = command[:7] + command[9:]
+        appended_stream = launch_data_path.codex_provider_command(
+            without_stream_retry, "ciel-runtime-gateway", "https://gw2.example",
+            GATEWAY_API_KEY_ENV, request_max_retries=3)
+        self.assertEqual(["-c", f"{prefix}.stream_max_retries=0"], appended_stream[-2:])
 
     def test_catalog_slug_is_the_upstream_model_in_direct_mode(self):
         service = ciel_runtime._CODEX_LAUNCH_CONFIGURATION
@@ -654,6 +708,8 @@ class CodexLaunchTests(ResolverHarness):
         self.assertIn(f'model_providers.ciel-runtime.base_url="{ROUTER_BASE}/v1"', cmd)
         self.assertEqual("ciel-runtime-cielairouter-astra", cmd[cmd.index("-m") + 1])
         self.assertNotIn(GATEWAY_API_KEY_ENV, env)
+        self.assertIn("model_providers.ciel-runtime.request_max_retries=0", cmd)
+        self.assertIn("model_providers.ciel-runtime.stream_max_retries=0", cmd)
 
     def test_default_router_setting_never_selects_and_matches_a_launch_without_resolver(self):
         policy = FakeGatewayPolicy(_gateway())
@@ -690,13 +746,16 @@ class CodexLaunchTests(ResolverHarness):
         policy = FakeGatewayPolicy(_gateway(), _gateway(endpoint="https://gw2.example", node="n2"))
         launches, _services = self.codex(self.resolver(policy), _request("codex"), delivery_mode="tty")
         self.assertEqual(2, policy.calls)
+        for cmd, _env in launches:
+            self.assertIn("model_providers.ciel-runtime-gateway.request_max_retries=3", cmd)
+            self.assertIn("model_providers.ciel-runtime-gateway.stream_max_retries=0", cmd)
         self.assertEqual(['model_providers.ciel-runtime-gateway.base_url="https://gw1.example/v1"',
                           'model_providers.ciel-runtime-gateway.base_url="https://gw2.example/v1"'],
                          [next(part for part in cmd if "base_url" in part) for cmd, _env in launches])
 
 
 class CodexAppServerLaunchTests(ResolverHarness):
-    def run_server(self, resolver, relaunch_requests=()):
+    def run_server(self, resolver, relaunch_requests=(), *, gateway_retries=None):
         launches = []
 
         def session(cmd, env, _cwd, run_server=None, relaunch=None, **_kwargs):
@@ -712,6 +771,8 @@ class CodexAppServerLaunchTests(ResolverHarness):
         session.relaunches_server = True
         session.split_passthrough = mock.Mock(side_effect=lambda passthrough: (list(passthrough), {}))
         pcfg = {"gateway_data_path": "direct", "current_model": "ASTRA"}
+        if gateway_retries is not None:
+            pcfg["gateway_retries"] = gateway_retries
         cfg = {"current_provider": "cielairouter", "providers": {"cielairouter": pcfg}}
         with ExitStack() as stack:
             for name in ("sync_remote_launch_assets", "terminate_existing_codex_processes_for_launch", "terminate_existing_router_clients_for_launch"):
@@ -752,6 +813,20 @@ class CodexAppServerLaunchTests(ResolverHarness):
         tui = remote_tui_command(cmd, "ws://127.0.0.1:8899")
         self.assertIn('model_providers.ciel-runtime-gateway.base_url="https://gw1.example/v1"', tui)
         self.assertNotIn(SECRET, " ".join(tui))
+        for args in (cmd, tui):
+            self.assertIn("model_providers.ciel-runtime-gateway.request_max_retries=3", args)
+            self.assertIn("model_providers.ciel-runtime-gateway.stream_max_retries=0", args)
+
+    def test_direct_server_respects_configured_retry_limit_and_fallback(self):
+        for retries in (0, 10):
+            with self.subTest(retries=retries):
+                launches = self.run_server(self.resolver(FakeGatewayPolicy(
+                    _gateway(), LaunchGateway(reason="unavailable"))),
+                    relaunch_requests=(_request("codex"),), gateway_retries=retries)
+                self.assertIn(f"model_providers.ciel-runtime-gateway.request_max_retries={retries}", launches[0][0])
+                self.assertIn("model_providers.ciel-runtime.request_max_retries=0", launches[1][0])
+                for cmd, _env in launches:
+                    self.assertTrue(any(item.endswith(".stream_max_retries=0") for item in cmd))
 
     def test_relaunch_selects_again(self):
         policy = FakeGatewayPolicy(_gateway(), _gateway(endpoint="https://gw2.example", node="n2", model="next/model"))

@@ -117,6 +117,8 @@ from ciel_runtime_support.chat_http_controller import ChatHttpController, ChatHt
 from ciel_runtime_support.runtime_input_gateway import RuntimeInputGateway
 from ciel_runtime_support.runtime_input_status import RuntimeInputStatusRepository
 from ciel_runtime_support.runtime_input_delivery_health import runtime_input_delivery_health
+from ciel_runtime_support.runtime_sse_recovery import router_recovery
+from ciel_runtime_support.cielairouter_gateway_overlay import reselect_gateway as project_reselect_gateway
 from ciel_runtime_support.external_event_receiver import EventReceiverSecretVault, ExternalEventReceiverService
 from ciel_runtime_support.external_event_menu import panel_rows as project_external_event_panel_rows, update_config as project_set_external_event_config, ExternalEventControl
 from ciel_runtime_support.claude_environment import ClaudeEnvironmentFeaturePorts, ClaudeEnvironmentProjection, ClaudeEnvironmentShellRenderer, ClaudeEnvironmentSourcePorts, ClaudeLimitPolicy, ClaudeLimitPorts, ClaudeModelAliasCompatibilityApi, ClaudeModelAliasPolicy, ClaudeModelPorts, ClaudeRuntimeSettingsPolicy, ClaudeRuntimeSettingsPorts
@@ -2090,6 +2092,7 @@ def _channel_mcp_tool_call_response(request_id: Any, params: dict[str, Any]) -> 
             runtime=ChannelMcpRuntimeServices(
                 submit_input=runtime_input_gateway().submit_stream_input, read_runtime_inputs=read_runtime_inputs,
                 telemetry_logs=_TELEMETRY_LOG_RUNTIME.tool, restart_session=runtime_session_restart_service().queue_tool,
+                recover_sse_delivery=lambda args: router_recovery(args, status_repository=_RUNTIME_INPUT_STATUS_REPOSITORY, compaction=_RUNTIME_COMPACTION, restart=runtime_session_restart_service().queue_tool, root=ROUTER_INSTANCE_DIR),
             ),
         ),
     )
@@ -2790,7 +2793,7 @@ def upstream_retry_context() -> UpstreamRetryContext:
                                         project_upstream_retry_wait_seconds, UPSTREAM_RETRY_HTTP_CODES, lambda: str(load_config().get("language") or "en")),
         credentials=UpstreamRetryCredentialPorts(key_from_request_headers, provider_api_key_count, provider_has_live_api_key, provider_headers, prepare_provider_runtime_headers, register_api_key_cooldown),
         rate_limit=UpstreamRetryRateLimitPorts(learn_router_rate_limit_headers, router_log, register_router_rate_limit_backoff, write_router_activity),
-        transport=UpstreamRetryTransportPorts(estimate_tokens, provider_urlopen, set_upstream_stream_read_timeout, provider_stream_idle_timeout_seconds),
+        transport=UpstreamRetryTransportPorts(estimate_tokens, provider_urlopen, set_upstream_stream_read_timeout, provider_stream_idle_timeout_seconds, reselect=lambda config: project_reselect_gateway(config, router_log), publish=EVENT_BUS.publish),
     )
 
 _UPSTREAM_RETRY_API = UpstreamRetryCompatibilityApi(upstream_retry_context)
@@ -2878,7 +2881,7 @@ def codex_backend_context() -> CodexBackendContext:
         provider_transport=ProviderPassthroughTransportPorts(provider_upstream_request_base, join_url, provider_urlopen,
                                                              provider_request_timeout_seconds,
                                                              lambda *args, **kwargs: _copy_upstream_response_headers(*args, **kwargs), write_router_activity,
-                                                             provider_endpoint),
+                                                             provider_endpoint, reselect=lambda config: project_reselect_gateway(config, router_log)),
     )
 
 _CODEX_BACKEND_API = CodexBackendCompatibilityApi(codex_backend_context)

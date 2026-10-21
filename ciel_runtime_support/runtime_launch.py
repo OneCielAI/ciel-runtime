@@ -1034,10 +1034,12 @@ def _reselect_codex_data_path(
     if route.direct:
         env[launch_data_path.GATEWAY_API_KEY_ENV] = route.api_key
         return launch_data_path.codex_provider_command(
-            cmd, launch_data_path.DIRECT_PROVIDER_ID, route.endpoint, launch_data_path.GATEWAY_API_KEY_ENV
+            cmd, launch_data_path.DIRECT_PROVIDER_ID, route.endpoint, launch_data_path.GATEWAY_API_KEY_ENV,
+            request_max_retries=route.request_max_retries,
         )
     env[CODEX_RUNTIME_API_KEY_ENV] = env.get(CODEX_RUNTIME_API_KEY_ENV) or "ciel-runtime-router-local-key"
-    routed = launch_data_path.codex_provider_command(cmd, launch_data_path.DIRECT_PROVIDER_ID, ROUTER_BASE, CODEX_RUNTIME_API_KEY_ENV)
+    routed = launch_data_path.codex_provider_command(cmd, launch_data_path.DIRECT_PROVIDER_ID, ROUTER_BASE, CODEX_RUNTIME_API_KEY_ENV,
+                                                     request_max_retries=0)
     return authenticated_codex_command(routed, env, ROUTER_BASE)
 
 
@@ -1295,7 +1297,8 @@ def run_codex(
                 "model_args": tuple(codex_current_model_cli_args(pcfg, codex_passthrough)),
                 "routed_config_args": tuple(codex_native_routed_config_args()),
                 "router_config_args": tuple(
-                    codex_runtime_config_args(data_path.endpoint, env_key=launch_data_path.GATEWAY_API_KEY_ENV, provider_id=launch_data_path.DIRECT_PROVIDER_ID)
+                    codex_runtime_config_args(data_path.endpoint, env_key=launch_data_path.GATEWAY_API_KEY_ENV, provider_id=launch_data_path.DIRECT_PROVIDER_ID,
+                                              request_max_retries=data_path.request_max_retries)
                     if data_path.direct
                     else codex_runtime_config_args()
                 ),
@@ -1669,7 +1672,8 @@ def run_codex_app_server(
                                                  channel=app_server_channel)
         if data_path.direct:
             env[launch_data_path.GATEWAY_API_KEY_ENV] = data_path.api_key
-            config_args = codex_runtime_config_args(data_path.endpoint, env_key=launch_data_path.GATEWAY_API_KEY_ENV, provider_id=launch_data_path.DIRECT_PROVIDER_ID)
+            config_args = codex_runtime_config_args(data_path.endpoint, env_key=launch_data_path.GATEWAY_API_KEY_ENV, provider_id=launch_data_path.DIRECT_PROVIDER_ID,
+                                              request_max_retries=data_path.request_max_retries)
         else:
             env[CODEX_RUNTIME_API_KEY_ENV] = env.get(CODEX_RUNTIME_API_KEY_ENV) or "ciel-runtime-router-local-key"
             config_args = codex_runtime_config_args()
@@ -1774,7 +1778,8 @@ def run_codex_app_server(
             if route.direct:
                 env[launch_data_path.GATEWAY_API_KEY_ENV] = route.api_key
                 new_args = codex_runtime_config_args(route.endpoint, env_key=launch_data_path.GATEWAY_API_KEY_ENV,
-                                                     provider_id=launch_data_path.DIRECT_PROVIDER_ID)
+                                                     provider_id=launch_data_path.DIRECT_PROVIDER_ID,
+                                                     request_max_retries=route.request_max_retries)
                 new_model = route.model
                 catalog_options = {"model_slug": new_model}
                 os.environ[launch_data_path.ACTIVE_ENV] = "1"

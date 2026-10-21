@@ -211,6 +211,18 @@ def apply_provider_option(
             raise SystemExit("gateway_data_path must be router or direct")
         pcfg["gateway_data_path"] = raw
         return
+    if token.split("=", 1)[0].strip() == "gateway_retries" or token == "unset:gateway_retries":
+        if not capabilities.supports_gateway_selection:
+            raise SystemExit("gateway_retries is only available for cielairouter")
+        if token == "unset:gateway_retries":
+            pcfg.pop("gateway_retries", None)
+            return
+        from .transient_retry import MAX_RETRIES
+        raw = token.split("=", 1)[1].strip() if "=" in token else ""
+        if not raw.isascii() or not raw.isdecimal() or len(raw) > 16 or int(raw) > MAX_RETRIES:
+            raise SystemExit(f"gateway_retries must be an integer from 0 to {MAX_RETRIES}; 0 disables retries")
+        pcfg["gateway_retries"] = int(raw)
+        return
     normalize_claude_code_supported_capabilities = policy.normalize_claude_code_supported_capabilities
     normalize_ip_family = policy.normalize_ip_family
     normalize_model_id = policy.normalize_model_id

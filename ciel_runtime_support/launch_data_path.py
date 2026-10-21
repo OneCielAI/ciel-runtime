@@ -130,6 +130,7 @@ class LaunchDataPath:
     reason: str = ""
     model: str = ""
     api_key: str = field(default="", repr=False, compare=False)
+    request_max_retries: int = 0
 
     @property
     def direct(self) -> bool:
@@ -257,10 +258,10 @@ class LaunchDataPathResolver:
             from dataclasses import replace
             gateway = replace(gateway, model=self.upstream_model(provider, pcfg, gateway.model))
         elapsed_ms = int(max(0.0, self.monotonic() - started) * 1000)
-        return self._finish(self._route(runtime, gateway), provider, elapsed_ms)
+        return self._finish(self._route(runtime, gateway, pcfg), provider, elapsed_ms)
 
     @staticmethod
-    def _route(runtime: str, gateway: Any) -> LaunchDataPath:
+    def _route(runtime: str, gateway: Any, pcfg: Any = None) -> LaunchDataPath:
         if not isinstance(gateway, LaunchGateway):
             return LaunchDataPath(runtime, DIRECT, ROUTER, reason="no gateway selected")
         reason = " ".join(str(gateway.reason or "").split())[:160]
@@ -276,8 +277,11 @@ class LaunchDataPathResolver:
         if not gateway.api_key or not gateway.model:
             return LaunchDataPath(runtime, DIRECT, ROUTER, node_id=gateway.node_id, central=gateway.central,
                                   reason="no API key" if not gateway.api_key else "no model selected")
+        from .transient_retry import configured_retry_limit
+
         return LaunchDataPath(runtime, DIRECT, DIRECT, gateway.endpoint.rstrip("/"), gateway.node_id,
-                              gateway.central, reason or "selected", gateway.model, gateway.api_key)
+                              gateway.central, reason or "selected", gateway.model, gateway.api_key,
+                              request_max_retries=configured_retry_limit(pcfg))
 
     def _finish(self, route: LaunchDataPath, provider: str, elapsed_ms: int, *, record: bool = True) -> LaunchDataPath:
         if route.direct:
@@ -373,13 +377,25 @@ def claude_restart_environment(route: LaunchDataPath, router_environment: Mappin
     return {key: router_environment[key] for key in _CLAUDE_ROUTE_KEYS if key in router_environment}
 
 
-def codex_provider_command(cmd: list[str], provider_id: str, base_url: str, env_key: str) -> list[str]:
-    """``cmd`` with the provider block's ``base_url``/``env_key`` overrides replaced."""
+def codex_provider_command(cmd: list[str], provider_id: str, base_url: str, env_key: str, *,
+                           request_max_retries: int | None = None) -> list[str]:
+    """Replace a restarted provider endpoint/key and optionally its HTTP retry owner.
+
+    A fallback to the router supplies zero, disabling the native HTTP loop.
+    Stream replay remains disabled in either path.
+    """
 
     values = {
         f"model_providers.{provider_id}.base_url": toml_string(base_url.rstrip("/") + "/v1"),
         f"model_providers.{provider_id}.env_key": toml_string(env_key),
     }
+    if request_max_retries is not None:
+        from .transient_retry import configured_retry_limit
+
+        values[f"model_providers.{provider_id}.request_max_retries"] = str(
+            configured_retry_limit({"gateway_retries": request_max_retries})
+        )
+        values[f"model_providers.{provider_id}.stream_max_retries"] = "0"
     out = list(cmd)
     for index in range(len(out) - 1):
         if out[index] not in ("-c", "--config"):
@@ -387,6 +403,12 @@ def codex_provider_command(cmd: list[str], provider_id: str, base_url: str, env_
         key, separator, _value = str(out[index + 1]).partition("=")
         if separator and key.strip() in values:
             out[index + 1] = f"{key.strip()}={values[key.strip()]}"
+    if request_max_retries is not None:
+        for suffix in ("request_max_retries", "stream_max_retries"):
+            key = f"model_providers.{provider_id}.{suffix}"
+            if not any(out[i] in ("-c", "--config") and out[i + 1].partition("=")[0].strip() == key
+                       for i in range(len(out) - 1)):
+                out.extend(["-c", f"{key}={values[key]}"])
     return out
 
 

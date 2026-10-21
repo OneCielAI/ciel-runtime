@@ -857,7 +857,7 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                         continue
                     if value in {"enabled", "transport"}:
                         messages = set_external_event_config(value, "toggle")
-                    elif value in {"refresh_receiver", "reconnect_receiver"}:
+                    elif value in {"refresh_receiver", "reconnect_receiver", "recover_sse_delivery"}:
                         messages = set_external_event_config(value, None)
                     elif value == "idle_timeout_seconds":
                         entered = prompt_menu_value(
@@ -1239,7 +1239,7 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                         entered = prompt_menu_value(f"{value} for {provider} (default/unset clears)", default, restore_tty=restore_line_mode, raw_tty=restore_raw_mode)
                         try:
                             messages = set_llm_option_config(provider, value, entered)
-                        except Exception as exc:
+                        except (Exception, SystemExit) as exc:
                             messages = [f"Option update failed: {type(exc).__name__}: {exc}"]
                         refresh_checks()
                         cfg = load_config()

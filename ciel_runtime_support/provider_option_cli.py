@@ -6,6 +6,8 @@ from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
+from .transient_retry import DEFAULT_RETRIES, MAX_RETRIES
+
 
 @dataclass(frozen=True, slots=True)
 class ProviderOptionCliConfig:
@@ -68,6 +70,7 @@ _PROVIDER_EXAMPLES = (
     "  ciel-runtimectl provider-options cielairouter gateway_selection=auto",
     "  ciel-runtimectl provider-options cielairouter gateway-status",
     "  ciel-runtimectl provider-options cielairouter gateway_data_path=direct",
+    "  ciel-runtimectl provider-options cielairouter gateway_retries=3",
     "  ciel-runtimectl provider-options deepseek max_output_tokens=8192 context_window=1048576",
     "  ciel-runtimectl provider-options opencode-go endpoint:custom-model=chat",
     "  ciel-runtimectl provider-options opencode ip_family=ipv6-preferred",
@@ -86,6 +89,8 @@ DEFAULT_PROVIDER_NOTES: Mapping[str, Sequence[str]] = {
     "cielairouter": (
         "  gateway_selection=auto enables automatic selection; gateway_selection=off uses the configured central base.",
         "  gateway-status reads the local router /health only; it does not probe or reselect gateways.",
+        f"  gateway_retries=0..{MAX_RETRIES} sets extra retries (default {DEFAULT_RETRIES}); 0 disables retries.",
+        "  Retry settings apply to router requests; direct Claude/Codex HTTP uses them after CLI restart.",
         "  Changes apply to subsequent requests; in-flight requests are not replayed.",
         "  gateway_data_path=router (default) sends CLI model requests through the local router;",
         "  gateway_data_path=direct sends them straight to the gateway selected at launch",
@@ -203,8 +208,8 @@ class ProviderOptionCliController:
             for token in values:
                 self.provider.apply(provider, provider_config, token)
             gateway_only = provider == "cielairouter" and all(
-                token in ("unset:gateway_selection", "unset:gateway_data_path")
-                or token.split("=", 1)[0].strip() in ("gateway_selection", "gateway_data_path")
+                token in ("unset:gateway_selection", "unset:gateway_data_path", "unset:gateway_retries")
+                or token.split("=", 1)[0].strip() in ("gateway_selection", "gateway_data_path", "gateway_retries")
                 for token in values
             )
             cap_lines = [] if gateway_only else self.provider.cap_context(provider, provider_config)

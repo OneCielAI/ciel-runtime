@@ -290,7 +290,7 @@ class SelectedGatewayInitialStreamReplayTests(unittest.TestCase):
         self.assertEqual([], result.retry_activity)
         result.sleep.assert_not_called()
 
-    def test_unoverlaid_cielairouter_config_keeps_initial_reconnects(self):
+    def test_unoverlaid_cielairouter_config_does_not_retry_ambiguous_transport(self):
         restored = discovery_provider_config(selected_gateway_config())
         self.assertNotIn(ROUTE_TOKEN_KEY, restored)
 
@@ -300,10 +300,14 @@ class SelectedGatewayInitialStreamReplayTests(unittest.TestCase):
             ScriptedResponse([ConnectionResetError(104, "Connection reset by peer")]),
         )
 
-        self.assertEqual([None, None], result.opened_routes)
-        self.assertEqual([b"data: ok\n", b"data: [DONE]\n"], result.delivered)
-        self.assertEqual(1, len(result.retry_activity))
-        result.response.mark_delivery_success.assert_called_once()
+        self.assertEqual([None], result.opened_routes)
+        self.assertEqual([], result.delivered)
+        self.assertEqual([], result.retry_activity)
+        result.sleep.assert_not_called()
+        result.response.mark_delivery_success.assert_not_called()
+        result.response.mark_delivery_failed.assert_called_once_with(
+            mock.ANY, "openai_stream_error:ConnectionResetError"
+        )
 
     def test_other_provider_keeps_initial_reconnects(self):
         result = self.forward(

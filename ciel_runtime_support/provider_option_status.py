@@ -151,7 +151,9 @@ class ProviderOptionStatusProjection:
                 parts.append("word_chunk=on")
         if presentation.show_gateway_selection:
             from .cielairouter_gateway_overlay import selection_enabled
+            from .transient_retry import configured_retry_limit
             parts.append(f"gateway_selection={'auto' if selection_enabled(config) else 'off'}")
+            parts.append(f"gateway_retries={configured_retry_limit(config)}")
         if presentation.show_gateway_data_path:
             from .launch_data_path import configured_data_path
             parts.append(f"gateway_data_path={configured_data_path(config)}")

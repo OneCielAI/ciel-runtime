@@ -208,9 +208,20 @@ class GatewayRetryBoundaryTests(unittest.TestCase):
                                 raise TimeoutError("timed out")
                             raise urllib.error.HTTPError(req.full_url, kind, "unavailable", {}, io.BytesIO(BODY))
                         dispatch = mock.Mock(side_effect=fail)
-                        with mock.patch.object(retry.time, "sleep"), self.assertRaises(Exception):
-                            invoke(fn, services(dispatch), config, provider)
-                        self.assertEqual(18, dispatch.call_count)
+                        activity = mock.Mock()
+                        with mock.patch.object(retry.time, "sleep") as sleep, self.assertRaises(Exception) as raised:
+                            invoke(fn, services(dispatch, activity=activity), config, provider)
+                        # CielAiRouter only replays structured rejection verdicts;
+                        # an ambiguous timeout or untyped 503 cannot authorize replay.
+                        expected = 1 if provider == "cielairouter" else 18
+                        self.assertEqual(expected, dispatch.call_count)
+                        if provider == "cielairouter" and kind == "timeout":
+                            self.assertTrue(
+                                retry.retry_handled(raised.exception.__cause__),
+                                "An ambiguous CielAiRouter transport failure must not fall back to legacy replay",
+                            )
+                            sleep.assert_not_called()
+                            self.assertNotIn("retry", [call.args[0] for call in activity.call_args_list])
 
     def test_routed_auth_and_rate_limit_semantics_unchanged(self):
         for fn in ENTRYPOINTS:

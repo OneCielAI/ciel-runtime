@@ -29,6 +29,75 @@ class GatewayOptionTests(unittest.TestCase):
             cap.assert_not_called()
         self.assertEqual(before, cfg["providers"]["vllm"])
 
+    def test_gateway_retry_cli_round_trip_does_not_mutate_model_options(self):
+        cfg = copy.deepcopy(ciel_runtime.DEFAULT_CONFIG)
+        pcfg = cfg["providers"]["cielairouter"]
+        pcfg.pop("gateway_retries", None)
+        before = copy.deepcopy(pcfg)
+        with (mock.patch.object(ciel_runtime, "load_config", return_value=cfg),
+              mock.patch.object(ciel_runtime, "save_config") as save,
+              mock.patch.object(ciel_runtime, "clear_model_cache") as clear,
+              mock.patch.object(ciel_runtime, "cap_context_settings_to_model_capacity") as cap_context,
+              mock.patch.object(ciel_runtime, "cap_output_settings_to_context_ratio") as cap_output,
+              mock.patch.object(ciel_runtime, "apply_recommended_timeout_for_model_context") as timeout):
+            for token, expected in (("gateway_retries=0", 0), ("gateway_retries=10", 10),
+                                    ("unset:gateway_retries", 3)):
+                with self.subTest(token=token), redirect_stdout(io.StringIO()) as out:
+                    ciel_runtime.cmd_provider_options(argparse.Namespace(values=["cielairouter", token]))
+                    self.assertIn(f"gateway_retries={expected}", out.getvalue())
+                    self.assertEqual(before, {key: value for key, value in pcfg.items() if key != "gateway_retries"})
+            self.assertEqual(3, save.call_count)
+            clear.assert_not_called()
+            cap_context.assert_not_called()
+            cap_output.assert_not_called()
+            timeout.assert_not_called()
+        self.assertNotIn("gateway_retries", pcfg)
+
+    def test_gateway_retry_status_projects_effective_limit_without_mutation(self):
+        for value, expected in ((None, 3), (0, 0), (10, 10), (99, 10),
+                                (-1, 0), ("2", 2), (True, 3), (1.5, 3), ("invalid", 3)):
+            with self.subTest(value=value):
+                pcfg = {} if value is None else {"gateway_retries": value}
+                before = copy.deepcopy(pcfg)
+                self.assertIn(f"gateway_retries={expected}", ciel_runtime.provider_options_status("cielairouter", pcfg))
+                self.assertIn(f"gateway_retries={expected}", ciel_runtime.llm_options_status("cielairouter", pcfg))
+                self.assertEqual(before, pcfg)
+        self.assertNotIn("gateway_retries=", ciel_runtime.provider_options_status("vllm", {"gateway_retries": 5}))
+
+    def test_gateway_retry_validation_and_unset(self):
+        pcfg = {}
+        for value in ("0", "3", "10"):
+            ciel_runtime.apply_provider_option("cielairouter", pcfg, f"gateway_retries={value}")
+            self.assertEqual(int(value), pcfg["gateway_retries"])
+        for value in ("-1", "11", "true", "false", "1.5", "3.0", "nan", "inf", "1e2", "", "none", "９"):
+            with self.subTest(value=value), self.assertRaises(SystemExit):
+                ciel_runtime.apply_provider_option("cielairouter", pcfg, f"gateway_retries={value}")
+            self.assertEqual(10, pcfg["gateway_retries"])
+        for provider in ("vllm", "ollama", "anthropic", "codex"):
+            with self.subTest(provider=provider), self.assertRaises(SystemExit):
+                ciel_runtime.apply_provider_option(provider, pcfg, "gateway_retries=3")
+        with self.assertRaises(SystemExit):
+            ciel_runtime.apply_provider_option("cielairouter", pcfg, "gateway_retries")
+        ciel_runtime.apply_provider_option("cielairouter", pcfg, "unset:gateway_retries")
+        self.assertNotIn("gateway_retries", pcfg)
+
+    def test_retry_prompt_and_portable_menu_round_trip(self):
+        cfg = copy.deepcopy(ciel_runtime.DEFAULT_CONFIG)
+        pcfg = cfg["providers"]["cielairouter"]
+        pcfg.pop("gateway_retries", None)
+        with (mock.patch.object(ciel_runtime, "load_config", return_value=cfg),
+              mock.patch.object(ciel_runtime, "save_config") as save,
+              mock.patch.object(ciel_runtime, "clear_model_cache"),
+              mock.patch.object(ciel_runtime, "cap_context_settings_to_model_capacity", return_value=[]),
+              mock.patch.object(ciel_runtime, "cap_output_settings_to_context_ratio", return_value=[])):
+            self.assertEqual("3", ciel_runtime.llm_option_prompt_default("cielairouter", pcfg, "gateway_retries"))
+            for raw, expected in (("0", 0), ("10", 10), ("default", None), ("3", 3), ("unset", None)):
+                ciel_runtime.set_llm_option_config("cielairouter", "gateway_retries", raw)
+                self.assertEqual(expected, pcfg.get("gateway_retries"))
+                self.assertEqual(str(3 if expected is None else expected),
+                                 ciel_runtime.llm_option_prompt_default("cielairouter", pcfg, "gateway_retries"))
+            self.assertEqual(5, save.call_count)
+
     def test_validation_and_unset(self):
         pcfg = {}
         for value in ("on", "false", "refresh", "", "automatic"):
@@ -96,6 +165,7 @@ class GatewayOptionTests(unittest.TestCase):
                 _rows, keys = ciel_runtime.llm_option_panel_rows(provider, cfg["providers"][provider], "en")
                 self.assertEqual(provider == "cielairouter", "gateway_selection" in keys)
                 self.assertEqual(provider == "cielairouter", "gateway_status" in keys)
+                self.assertEqual(provider == "cielairouter", "gateway_retries" in keys)
 
     def test_external_menu_choices_and_default_on(self):
         # Pure function extraction avoids the POSIX-only termios import on Windows.

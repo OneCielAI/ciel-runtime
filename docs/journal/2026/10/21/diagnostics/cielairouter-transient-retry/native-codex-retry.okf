@@ -1,0 +1,144 @@
+---
+type: diagnostic
+title: Installed Codex native retry contract against an owned loopback Responses fixture
+description: Measured codex exec 0.158.0 and 0.163.0 retry counts for HTTP 503 and for HTTP 200 SSE failures; request_max_retries N gives N+1 total HTTP hits, stream_max_retries N re-sends the full request even after output, and the production stream_max_retries=0 produces exactly one hit.
+tags: [codex, retry, responses, sse, loopback, evidence, cielairouter]
+timestamp: 2026-10-21
+---
+
+# Question
+
+What does the installed Codex CLI itself do with the CielAiRouter pre-dispatch
+rejection, independent of any Ciel Runtime code? Specifically: does
+`request_max_retries` cover the HTTP 503 screenshot body, does
+`stream_max_retries` cover an HTTP 200 stream that fails before or after
+output, and how many real HTTP requests reach the provider in each case?
+
+# Installed binaries on this host
+
+| Role | Path | Version |
+|---|---|---|
+| Runtime launch target (`find_executable("codex")` -> PATH -> npm shim -> vendor binary) | `C:\Users\djlov\AppData\Roaming\npm\node_modules\@openai\codex\node_modules\@openai\codex-win32-x64\vendor\x86_64-pc-windows-msvc\bin\codex.exe` | `codex-cli 0.158.0` (sha256 `af02050cc0c95f5aeb714af2c1077e635c58e9896c13c89d75099cf5b96477be`) |
+| Second local install (not first on PATH) | `C:\Users\djlov\AppData\Local\Programs\OpenAI\Codex\bin\codex.exe` | `codex-cli 0.163.0` (sha256 `2692c8c7bb2cf8b0aefe638741fc90236f4b824c59578ce84994f9de58200993`) |
+
+`shutil.which("codex")` resolves `C:\Users\djlov\AppData\Roaming\npm\codex.CMD`;
+Ciel's `ExecutableDiscovery.find` checks `codex.exe` (absent), then
+`codex.cmd` (present), then PATH. The npm shim only spawns the vendor binary
+above with inherited argv/env, so the harness runs that vendor binary directly.
+
+# Method (owned loopback fixture)
+
+Harness: [harness/native_codex_retry.py](harness/native_codex_retry.py).
+
+- Private temp `HOME`, `USERPROFILE`, `CODEX_HOME`, cwd; `--ignore-user-config`;
+  `--ephemeral`; `--dangerously-bypass-approvals-and-sandbox` (the fixture
+  returns text only, so no tool can execute).
+- All inherited `CIEL_RUNTIME_*`, `CODEX_*`, `OPENAI_*`, `ANTHROPIC_*`,
+  `CLAUDE*`, proxy and credential-shaped variables removed. The only key the
+  CLI can read is `CODEX_FIXTURE_API_KEY=fixture-key`; every hit carried an
+  `Authorization` header (`authorization_present=true`).
+- Provider block passed exactly as `-c` overrides, the same shape the runtime
+  emits:
+  `model_provider="fixture"`,
+  `model_providers.fixture.base_url="http://127.0.0.1:<port>/v1"`,
+  `model_providers.fixture.wire_api="responses"`,
+  `model_providers.fixture.env_key="CODEX_FIXTURE_API_KEY"`,
+  `request_max_retries=<N>`, `stream_max_retries=<M>`.
+- Fixture answers `POST /v1/responses` only; every hit was `/v1/responses`.
+  Success bodies are valid Responses SSE (`response.created` ->
+  `response.output_item.done` -> `response.completed`, with `resp_fixture_1` /
+  `msg_fixture_1`); the CLI accepted them (`last-message.txt` = `ok`).
+- The rejection body is the exact screenshot body:
+  `event: error` + `data: {"type":"error","error":{"type":"overloaded_error",
+  "message":"service_unavailable: Service temporarily unavailable: all targets
+  were skipped by pre-dispatch filters"}}`.
+
+# Measured results
+
+Public evidence:
+[harness/native-codex-sanitized-facts.json](harness/native-codex-sanitized-facts.json)
+contains both version matrices, source-capture digests, binary identities,
+hit counts, return codes and fixture request digests. Raw CLI captures remain
+local because the initial isolation probe encountered host configuration.
+Both matrices produced identical hit counts and return codes.
+
+| Case | request / stream limits | Fixture script | HTTP hits | Exit | Fact |
+|---|---|---|---|---|---|
+| 503 then success | 3 / 0 | 503, success | **2** | 0 | One retry, then the turn completes |
+| 503 always | 3 / 0 | 503 repeated | **4** | 1 | Initial + 3 retries, then failure |
+| 503, limit 0 | 0 / 0 | 503 repeated | **1** | 1 | Explicit zero disables request retry |
+| 200 + screenshot error, before output | 3 / 0 | error, success | **1** | 1 | No request-level replay; stream retry disabled |
+| 200 + screenshot error, before output | 3 / 2 | error, success | **2** | 0 | Stream retry re-sends the request; second attempt succeeds |
+| 200 + output then screenshot error | 3 / 0 | partial, error, success | **1** | 1 | No replay after output when stream retry is 0 |
+| 200 + output then screenshot error | 3 / 2 | partial, error, success | **2** | 0 | Replay after output; client prints `partial answer` then `ok` |
+| 200 + native `response.failed`, before output | 3 / 2 | failed, success | **2** | 0 | Native failure event also replayed under stream retry |
+
+## `request_max_retries` semantics (measured)
+
+`request_max_retries=N` allows **N retries after the initial attempt**, so a
+persistently failing request produces **N+1 HTTP hits**. Observed directly:
+N=3 -> 4 hits, N=0 -> 1 hit, first-failure-then-success -> 2 hits. After the
+budget is exhausted the CLI reports the original status and body:
+`unexpected status 503 Service Unavailable: event: error\ndata: {...}`.
+
+## HTTP 200 stream failure semantics (measured)
+
+The router's `event: error` body is **not parsed as an error event**. With
+`stream_max_retries=0` the CLI fails with
+`stream disconnected before completion: stream closed before response.completed`
+(one HTTP hit). With `stream_max_retries=2` the same body produces
+`Reconnecting... 1/2 (...)` and a second full `POST /v1/responses`; the retry
+succeeded on the fixture's second response.
+
+- Streaming retries are governed by `stream_max_retries`, not
+  `request_max_retries` (the request already returned HTTP 200).
+- A native `response.failed` event is surfaced as
+  `stream disconnected before completion: fixture stream failure`, confirming
+  it is recognized, whereas the router's `event: error` is ignored and only
+  fails on stream close. Both are retryable under `stream_max_retries`.
+- **Replay after output happens** when `stream_max_retries > 0`: the client
+  emitted `agent_message: "partial answer"` and then, after the second request,
+  `agent_message: "ok"`. With `stream_max_retries=0` the output is delivered
+  (`partial answer`) and the turn fails without replay (one hit).
+
+## Production block implication
+
+The runtime's provider block sets `request_max_retries=0` and
+`stream_max_retries=0` for router paths, and direct gateway launches pass an
+explicit request limit while keeping stream retries at 0
+(`codex_launch_configuration.py:176-185`). Under those settings the installed
+Codex client performs **no native retry** of either shape; retry ownership must
+sit in the router for the request-level 503, and no byte may be replayed after
+output has been delivered.
+
+# Isolation limits and anomalies (facts, not inferences)
+
+- With a generated `CODEX_HOME/config.toml` (first run, kept as
+  [harness/native-codex-installed-0.158.0-configtoml.json](harness/native-codex-installed-0.158.0-configtoml.json)),
+  the CLI still read the real user's `C:\Users\djlov\.codex\config.toml` MCP
+  entries (`higgsfield`) and attempted `https://chatgpt.com/backend-api/plugins/featured`
+  (401) plus loopback MCP ports 8080/18300. Those attempts did not touch the
+  fixture and did not change hit counts. Adding `--ignore-user-config` removed
+  them from stderr; the primary evidence uses that flag.
+- One 0.158.0 run of `screenshot_error_before_output_stream0` reported
+  `timed_out=true` after 61 s, but `poll_before_cleanup=1` and the captured
+  JSONL show the CLI had already exited with code 1 and
+  `turn.failed`. A descendant process kept the inherited stdout/stderr pipes
+  open. Closing a Windows Job Object (`KILL_ON_JOB_CLOSE`) terminated the
+  descendant and released the buffered output. An isolated repeat
+  ([harness/native-codex-second-install-0.163.0-timeoutprobe.json](harness/native-codex-second-install-0.163.0-timeoutprobe.json))
+  completed in 1.69 s with the same single hit. This is a pipe-lifetime
+  artifact, not a retry difference.
+- Scope is `codex exec` on Windows with the `responses` wire API. The TUI,
+  app-server, WebSocket transport, 429 handling, and other hosts were **not**
+  measured here. No claim is made about those paths.
+- The harness read no transcripts or credentials; the only real-user file
+  inspected was `~/.codex/config.toml`, searched for the MCP server name to
+  explain the stderr traffic.
+
+# Artifacts
+
+- [harness/native_codex_retry.py](harness/native_codex_retry.py)
+- [harness/native-codex-sanitized-facts.json](harness/native-codex-sanitized-facts.json)
+- Raw captures named in the isolation notes are local-only investigation data,
+  not publication artifacts.

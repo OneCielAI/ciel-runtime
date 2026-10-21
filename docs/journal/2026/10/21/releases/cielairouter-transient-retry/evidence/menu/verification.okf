@@ -1,0 +1,24 @@
+---
+id: cielairouter-retry-sse-menu-evidence
+title: Actual isolated prelaunch menu capture
+type: verification
+description: Real isolated console captures verify retry setting edits and the SSE recovery menu-to-MCP action.
+tags: [cielairouter, retry, sse, menu, verification]
+timestamp: 2026-10-21
+status: verified
+created: 2026-10-21
+---
+
+# Scope
+Actual production portable_prelaunch_menu and renderer, driven by Win32 key input in a new owned console. Separate temporary HOME, USERPROFILE, APPDATA, LOCALAPPDATA, config, CLI homes and workspace; inherited CIEL_RUNTIME and provider credential environment prefixes removed. The MCP control endpoint is a synthetic loopback HTTP fixture, not a real router. No live session, cursor, configuration or process was targeted.
+
+# Observed
+- 02-retry-default.txt: selected production CielAiRouter retries row displays 3 extra, 0 off, max 10.
+- 03-retry-disabled.txt: actual key input sets 0; harness reads back persisted gateway_retries=0.
+- 04-retry-restored.txt: actual key input restores 3; production success message displays gateway_retries: 3.
+- 05-sse-menu.txt: production Session delivery, SSE delivery recovery and Recover SSE delivery now rows.
+- 06-sse-action-result.txt: selecting Recover SSE delivery now reaches /ca/mcp tools/call recover_sse_delivery with action=auto, verified in http-fixture-calls.json. Fixture no-reset result is displayed as no session was restarted.
+- result.json records assertions and menu exit code 0. driver.log ends PASS and owned resources closed.
+
+# Limitations
+The HTTP fixture verifies menu-to-control wiring, not real recovery/restart behavior. Pixel capture was attempted only on the owned console handle and failed because no drawable window was found. No PNG was produced or claimed. The six text files are direct ReadConsoleOutputCharacterW terminal screen captures, not static projections.

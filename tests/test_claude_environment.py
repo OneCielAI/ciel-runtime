@@ -1,7 +1,9 @@
 import unittest
+from types import SimpleNamespace
 
 from ciel_runtime_support.architecture import ProviderRuntimeCompactionPolicy
 from ciel_runtime_support.claude_environment import (
+    CLAUDE_PROJECTED_ENV_KEYS,
     ClaudeEnvironmentFeaturePorts,
     ClaudeEnvironmentProjection,
     ClaudeEnvironmentShellRenderer,
@@ -144,6 +146,72 @@ class ClaudeEnvironmentPolicyTests(unittest.TestCase):
         self.assertEqual("1024", env["CLAUDE_CODE_MAX_OUTPUT_TOKENS"])
         self.assertEqual("1", env["CLAUDE_CODE_DISABLE_TERMINAL_TITLE"])
         self.assertNotIn("CLAUDE_CODE_SUBAGENT_MODEL_FORCE", env)
+
+    def test_cielairouter_routed_launch_leaves_retries_to_the_router(self):
+        projection = self._projection(native=False, key="")
+        for limit in (None, 0, 3, 10):
+            with self.subTest(limit=limit):
+                env = projection.build({"provider": "cielairouter", "gateway_retries": limit})
+                self.assertEqual("0", env["CLAUDE_CODE_MAX_RETRIES"])
+                self.assertEqual("0", env["CLAUDE_CODE_RETRY_WATCHDOG"])
+                self.assertEqual("0", env["CLAUDE_CODE_NONSTREAMING_TIMEOUT_RETRIES"])
+                self.assertEqual("1", env["CLAUDE_CODE_DISABLE_NONSTREAMING_FALLBACK"])
+
+    def test_cielairouter_direct_launch_uses_shared_bounded_retry_limit(self):
+        projection = self._projection(native=False, key="")
+        route = SimpleNamespace(direct=True, endpoint="http://gateway", api_key="fixture-key")
+        for limit, expected in ((None, "3"), (0, "0"), (2, "2"), ("5", "5"),
+                                (100, "10"), (-1, "0"), (True, "3"), (1.5, "3"),
+                                ("invalid", "3")):
+            with self.subTest(limit=limit):
+                env = projection.build(
+                    {"provider": "cielairouter", "gateway_retries": limit}, data_path=route
+                )
+                self.assertEqual(expected, env["CLAUDE_CODE_MAX_RETRIES"])
+                self.assertEqual("0", env["CLAUDE_CODE_RETRY_WATCHDOG"])
+                self.assertEqual("0", env["CLAUDE_CODE_NONSTREAMING_TIMEOUT_RETRIES"])
+                self.assertEqual("1", env["CLAUDE_CODE_DISABLE_NONSTREAMING_FALLBACK"])
+                self.assertEqual("http://gateway", env["ANTHROPIC_BASE_URL"])
+
+    def test_retry_projection_cleans_inherited_and_restarted_environment(self):
+        projection = self._projection(native=False, key="")
+        route = SimpleNamespace(direct=True, endpoint="http://gateway", api_key="fixture-key")
+        keys = ("CLAUDE_CODE_MAX_RETRIES", "CLAUDE_CODE_RETRY_WATCHDOG",
+                "CLAUDE_CODE_NONSTREAMING_TIMEOUT_RETRIES", "CLAUDE_CODE_DISABLE_NONSTREAMING_FALLBACK")
+        env = dict.fromkeys(keys, "inherited")
+        for provider, data_path, expected in (
+            ("cielairouter", route, "3"), ("cielairouter", None, "0"),
+            ("test", None, None), ("test", route, None),
+        ):
+            with self.subTest(provider=provider, direct=data_path is not None):
+                snapshot = projection.build({"provider": provider}, data_path=data_path)
+                # runtime_launch uses this shared list before each initial/restart snapshot.
+                for key in CLAUDE_PROJECTED_ENV_KEYS:
+                    env.pop(key, None)
+                env.update(snapshot)
+                self.assertEqual(expected, env.get("CLAUDE_CODE_MAX_RETRIES"))
+                shell = ClaudeEnvironmentShellRenderer.lines(snapshot)
+                for key in keys:
+                    self.assertIn(key, CLAUDE_PROJECTED_ENV_KEYS)
+                    if expected is None:
+                        self.assertNotIn(key, env)
+                        self.assertIn(f"unset {key}", shell)
+                    else:
+                        self.assertIn(f'export {key}="{snapshot[key]}"', shell)
+
+    def test_retry_settings_do_not_change_other_providers_or_native_anthropic(self):
+        keys = {"CLAUDE_CODE_MAX_RETRIES", "CLAUDE_CODE_RETRY_WATCHDOG",
+                "CLAUDE_CODE_NONSTREAMING_TIMEOUT_RETRIES", "CLAUDE_CODE_DISABLE_NONSTREAMING_FALLBACK"}
+        route = SimpleNamespace(direct=True, endpoint="http://gateway", api_key="fixture-key")
+        for provider, native, data_path in (
+            ("anthropic", True, None), ("anthropic", False, None),
+            ("test", False, route), ("ollama", False, None),
+        ):
+            with self.subTest(provider=provider, native=native):
+                env = self._projection(native=native, key="").build(
+                    {"provider": provider, "gateway_retries": 2}, data_path=data_path
+                )
+                self.assertFalse(keys.intersection(env))
 
     def test_chrome_classifier_floor_is_disabled_for_every_claude_launch(self):
         # Claude Code 2.1.278 re-routes Claude-in-Chrome MCP tools to its

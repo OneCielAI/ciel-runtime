@@ -474,6 +474,16 @@ def gateway_overlay(log: Log | None = None) -> CielAiRouterGatewayOverlay:
         return _OVERLAY
 
 
+def reselect_gateway(pcfg: dict[str, Any], log: Log | None = None) -> dict[str, Any]:
+    """Restore discovery credentials/base before choosing another request target."""
+
+    clean = dict(pcfg)
+    # Older callers may carry an obsolete config-owned allowance. Current
+    # transport budgets belong to the logical request's ContextVar scope.
+    clean.pop("_ciel_transient_retry_budget", None)
+    return gateway_overlay(log).apply(PROVIDER, discovery_provider_config(clean))
+
+
 def use_gateway_overlay(overlay: CielAiRouterGatewayOverlay | None) -> None:
     """Replace the process overlay (tests)."""
 

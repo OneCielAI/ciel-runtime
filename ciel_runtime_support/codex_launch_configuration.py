@@ -148,13 +148,20 @@ class CodexLaunchConfigurationService:
         return []
 
     def runtime_config_args(
-        self, router_base: str | None = None, *, env_key: str | None = None, provider_id: str | None = None
+        self, router_base: str | None = None, *, env_key: str | None = None, provider_id: str | None = None,
+        request_max_retries: int | None = None
     ) -> list[str]:
         """The Ciel provider block; ``router_base``/``env_key`` default to the local router's.
 
         A direct gateway data path passes the gateway root and the env var that
-        holds its key; the block keeps its id so sessions resume across paths.
+        holds its key. Router HTTP retries stay zero: the runtime owns that
+        budget. A direct gateway launch explicitly supplies its retry limit;
+        stream retries stay zero to avoid replay after output has started.
         """
+        from .transient_retry import configured_retry_limit
+
+        retries = (0 if request_max_retries is None else
+                   configured_retry_limit({"gateway_retries": request_max_retries}))
         provider = provider_id or self.constants.runtime_provider_id
         configured_base = (
             self.effects.router_base() if router_base is None else router_base
@@ -173,7 +180,7 @@ class CodexLaunchConfigurationService:
             "-c",
             f"model_providers.{provider}.env_key={toml(env_key or self.constants.runtime_api_key_env)}",
             "-c",
-            f"model_providers.{provider}.request_max_retries=0",
+            f"model_providers.{provider}.request_max_retries={retries}",
             "-c",
             f"model_providers.{provider}.stream_max_retries=0",
         ]

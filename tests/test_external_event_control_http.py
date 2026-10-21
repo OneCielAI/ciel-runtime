@@ -22,7 +22,7 @@ class ReceiverControlHttpTests(unittest.TestCase):
         self.directory = tempfile.TemporaryDirectory()
         self.root = Path(self.directory.name)
         self.workspace = str(self.root / "workspace")
-        self.requests, self.messages = [], []
+        self.requests, self.messages, self.tool_calls = [], [], []
         self.lock, self.halt = threading.Lock(), threading.Event()
         self.force_external = False
         fixture = self
@@ -103,7 +103,23 @@ class ReceiverControlHttpTests(unittest.TestCase):
                 if not handler.allowed():
                     return
                 body = json.loads(handler.rfile.read(int(handler.headers.get("Content-Length", "0"))))
-                if not fixture.receiver.handle_config_post(handler, handler.path, body):
+                if handler.path == "/ca/mcp":
+                    # The runtime's tool call runs in the router; this fixture only
+                    # proves the control client reaches and reads tools/call.
+                    params = body.get("params") or {}
+                    fixture.tool_calls.append(dict(params))
+                    payload = {
+                        "ok": True, "action": (params.get("arguments") or {}).get("action"),
+                        "problem": True, "reset": False,
+                        "evidence": {"reasons": ["admission_blocked"],
+                                     "known_queued_count": 2,
+                                     "oldest_queued_age_seconds": 300.0},
+                    }
+                    fixture.write_json(handler, {
+                        "jsonrpc": "2.0", "id": body.get("id"),
+                        "result": {"content": [{"type": "text", "text": json.dumps(payload)}]},
+                    })
+                elif not fixture.receiver.handle_config_post(handler, handler.path, body):
                     fixture.write_json(handler, {"ok": False}, 404)
 
         self.http = ThreadingHTTPServer(("127.0.0.1", 0), ControlHandler)
@@ -186,6 +202,23 @@ class ReceiverControlHttpTests(unittest.TestCase):
         self.assertEqual(10, self.receiver.receiver_configs()["default"]["idle_timeout_seconds"])
         self.assertEqual(1, len(self.receiver._threads))
         print("real_http_config: disabled -> reconnect_rejected409 -> enabled -> event_received; single_worker=true")
+
+    def test_sse_recovery_tool_call_reaches_router_mcp_and_reports_evidence(self):
+        status = self.control.call("sse_status")
+        self.assertTrue(status["available"])
+        self.assertEqual("status", status["result"]["action"])
+        self.assertTrue(status["result"]["problem"])
+        recover = self.control.call("sse_recover")
+        self.assertTrue(recover["available"])
+        self.assertEqual("auto", recover["result"]["action"])
+        self.assertEqual(
+            ["recover_sse_delivery", "recover_sse_delivery"],
+            [call.get("name") for call in self.tool_calls],
+        )
+        mismatch = ExternalEventControl(self.base, str(self.root / "other")).call("sse_recover")
+        self.assertEqual("workspace_mismatch", mismatch["reason"])
+        self.assertEqual(2, len(self.tool_calls))
+
 
     def test_workspace_gate_and_external_auth_reject_before_mutation(self):
         mismatch = ExternalEventControl(self.base, str(self.root / "other")).call("reconnect")

@@ -162,7 +162,10 @@ class NativeResponsesSemanticCheckpointTests(unittest.TestCase):
         body = checkpoint()
         body["model"] = "upstream-test-model"
         request = urllib.request.Request("https://provider.test", data=route._encode(body))
-        self.assertIs(response, route._open_checkpoint_request(request, "cielairouter", {"context_window": 16384}, body))
+        opened = route._open_checkpoint_request(request, "cielairouter", {"context_window": 16384}, body)
+        # The pre-output retry guard may wrap a response to retain read-ahead;
+        # its observable response contract, not Python identity, is preserved.
+        self.assertIs(response.headers, opened.headers)
         self.assertEqual(2, upstream.call_count)
         compact.assert_called_once()
         self.assertEqual("upstream-test-model", compact.call_args.kwargs["model"])

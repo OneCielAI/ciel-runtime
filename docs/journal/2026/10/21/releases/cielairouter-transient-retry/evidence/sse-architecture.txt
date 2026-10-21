@@ -1,0 +1,72 @@
+Selected runtime: C:\Users\djlov\ciel-runtime
+Exact files: test_architecture_boundaries.py, test_runtime_sse_recovery.py, test_channel_mcp_tools.py, test_external_event_menu.py, test_external_event_control_http.py
+test_actual_mcp_http_fixture_dispatches_recovery (test_runtime_sse_recovery.RecoveryTests.test_actual_mcp_http_fixture_dispatches_recovery) ... ok
+test_actual_private_status_history_never_authorizes_restart (test_runtime_sse_recovery.RecoveryTests.test_actual_private_status_history_never_authorizes_restart) ... FAIL
+test_auto_hard_minimum_and_force_cannot_bypass_cooldown (test_runtime_sse_recovery.RecoveryTests.test_auto_hard_minimum_and_force_cannot_bypass_cooldown) ... ok
+test_clock_reversal_remains_in_cooldown (test_runtime_sse_recovery.RecoveryTests.test_clock_reversal_remains_in_cooldown) ... ok
+test_compaction_pause_does_not_authorize_a_restart (test_runtime_sse_recovery.RecoveryTests.test_compaction_pause_does_not_authorize_a_restart) ... ok
+test_confirmed_active_launcher_hold_queues_one_restart (test_runtime_sse_recovery.RecoveryTests.test_confirmed_active_launcher_hold_queues_one_restart) ... ok
+test_cooldown_expires (test_runtime_sse_recovery.RecoveryTests.test_cooldown_expires) ... ok
+test_cooldown_suppresses_second_reset_until_forced (test_runtime_sse_recovery.RecoveryTests.test_cooldown_suppresses_second_reset_until_forced) ... ok
+test_corrupt_or_unreadable_record_fails_closed (test_runtime_sse_recovery.RecoveryTests.test_corrupt_or_unreadable_record_fails_closed) ... ok
+test_failed_reservation_never_calls_restart (test_runtime_sse_recovery.RecoveryTests.test_failed_reservation_never_calls_restart) ... ok
+test_initial_clock_below_cooldown_is_not_a_previous_reset (test_runtime_sse_recovery.RecoveryTests.test_initial_clock_below_cooldown_is_not_a_previous_reset) ... ok
+test_invalid_action_and_pid_are_rejected (test_runtime_sse_recovery.RecoveryTests.test_invalid_action_and_pid_are_rejected) ... ok
+test_invalid_arguments_rejected_even_without_evidence (test_runtime_sse_recovery.RecoveryTests.test_invalid_arguments_rejected_even_without_evidence) ... ok
+test_nonfinite_health_is_not_restart_authority (test_runtime_sse_recovery.RecoveryTests.test_nonfinite_health_is_not_restart_authority) ... ok
+test_oversized_record_fails_closed (test_runtime_sse_recovery.RecoveryTests.test_oversized_record_fails_closed) ... ok
+test_pause_observation_failure_does_not_authorize_reset (test_runtime_sse_recovery.RecoveryTests.test_pause_observation_failure_does_not_authorize_reset) ... ok
+test_recent_queue_is_not_reset (test_runtime_sse_recovery.RecoveryTests.test_recent_queue_is_not_reset) ... ok
+test_refused_restart_keeps_cooldown_reservation (test_runtime_sse_recovery.RecoveryTests.test_refused_restart_keeps_cooldown_reservation) ... ok
+test_restart_exception_is_reserved_not_retried (test_runtime_sse_recovery.RecoveryTests.test_restart_exception_is_reserved_not_retried) ... ok
+test_router_only_targets_one_registered_instance_client (test_runtime_sse_recovery.RecoveryTests.test_router_only_targets_one_registered_instance_client) ... ok
+test_simultaneous_calls_queue_one_restart (test_runtime_sse_recovery.RecoveryTests.test_simultaneous_calls_queue_one_restart) ... ok
+test_stale_queue_alone_is_not_restart_evidence (test_runtime_sse_recovery.RecoveryTests.test_stale_queue_alone_is_not_restart_evidence) ... ok
+test_status_is_read_only_and_reports_evidence (test_runtime_sse_recovery.RecoveryTests.test_status_is_read_only_and_reports_evidence) ... ok
+test_unobservable_health_does_not_reset (test_runtime_sse_recovery.RecoveryTests.test_unobservable_health_does_not_reset) ... ok
+test_zero_timestamp_is_not_a_previous_reset (test_runtime_sse_recovery.RecoveryTests.test_zero_timestamp_is_not_a_previous_reset) ... ok
+test_catalog_exposes_only_supported_tools (test_channel_mcp_tools.ChannelMcpToolsTests.test_catalog_exposes_only_supported_tools) ... ok
+test_compact_and_llm_options_use_injected_services (test_channel_mcp_tools.ChannelMcpToolsTests.test_compact_and_llm_options_use_injected_services) ... ok
+test_goal_clear_queues_the_goal_clear_action (test_channel_mcp_tools.ChannelMcpToolsTests.test_goal_clear_queues_the_goal_clear_action) ... ok
+test_new_session_queues_the_new_session_action (test_channel_mcp_tools.ChannelMcpToolsTests.test_new_session_queues_the_new_session_action) ... ok
+test_recover_sse_delivery_reaches_the_runtime_service (test_channel_mcp_tools.ChannelMcpToolsTests.test_recover_sse_delivery_reaches_the_runtime_service) ... ok
+test_recover_sse_delivery_requires_a_bound_service (test_channel_mcp_tools.ChannelMcpToolsTests.test_recover_sse_delivery_requires_a_bound_service) ... ok
+test_send_file_converts_expected_storage_errors_to_tool_error (test_channel_mcp_tools.ChannelMcpToolsTests.test_send_file_converts_expected_storage_errors_to_tool_error) ... ok
+test_send_message_builds_default_web_delivery (test_channel_mcp_tools.ChannelMcpToolsTests.test_send_message_builds_default_web_delivery) ... ok
+test_send_message_preserves_structured_web_response (test_channel_mcp_tools.ChannelMcpToolsTests.test_send_message_preserves_structured_web_response) ... ok
+test_send_message_schema_allows_structured_response_without_legacy_message (test_channel_mcp_tools.ChannelMcpToolsTests.test_send_message_schema_allows_structured_response_without_legacy_message) ... ok
+test_submit_input_uses_shared_runtime_gateway (test_channel_mcp_tools.ChannelMcpToolsTests.test_submit_input_uses_shared_runtime_gateway) ... ok
+test_telemetry_logs_read_dispatches_cursor_and_delete_requires_confirmation (test_channel_mcp_tools.ChannelMcpToolsTests.test_telemetry_logs_read_dispatches_cursor_and_delete_requires_confirmation) ... ok
+test_web_chat_reply_is_correlated_and_final_reply_is_one_shot (test_channel_mcp_tools.ChannelMcpToolsTests.test_web_chat_reply_is_correlated_and_final_reply_is_one_shot) ... ok
+test_web_chat_reply_requires_current_parent_request (test_channel_mcp_tools.ChannelMcpToolsTests.test_web_chat_reply_requires_current_parent_request) ... ok
+test_idle_timeout_is_set_and_blank_clears_it_explicitly (test_external_event_menu.ExternalEventMenuTests.test_idle_timeout_is_set_and_blank_clears_it_explicitly) ... ok
+test_live_status_comes_only_from_router_control_and_secrets_stay_local (test_external_event_menu.ExternalEventMenuTests.test_live_status_comes_only_from_router_control_and_secrets_stay_local) ... ok
+test_panel_exposes_session_socket_input_transport (test_external_event_menu.ExternalEventMenuTests.test_panel_exposes_session_socket_input_transport) ... ok
+test_recovery_does_not_label_historical_failure_as_current_error (test_external_event_menu.ExternalEventMenuTests.test_recovery_does_not_label_historical_failure_as_current_error) ... ok
+test_sse_recovery_refuses_without_evidence_or_tool (test_external_event_menu.ExternalEventMenuTests.test_sse_recovery_refuses_without_evidence_or_tool) ... ok
+test_sse_recovery_row_shows_tool_evidence_and_only_resets_on_evidence (test_external_event_menu.ExternalEventMenuTests.test_sse_recovery_row_shows_tool_evidence_and_only_resets_on_evidence) ... ok
+test_unreachable_router_is_unavailable_not_a_fabricated_state (test_external_event_menu.ExternalEventMenuTests.test_unreachable_router_is_unavailable_not_a_fabricated_state) ... ok
+test_update_persists_explicit_transport (test_external_event_menu.ExternalEventMenuTests.test_update_persists_explicit_transport) ... ok
+test_http_save_disables_reenables_and_distinguishes_rejected_reconnect (test_external_event_control_http.ReceiverControlHttpTests.test_http_save_disables_reenables_and_distinguishes_rejected_reconnect) ... ok
+test_http_status_reconnect_and_menu_use_single_router_owned_reader (test_external_event_control_http.ReceiverControlHttpTests.test_http_status_reconnect_and_menu_use_single_router_owned_reader) ... ok
+test_sse_recovery_tool_call_reaches_router_mcp_and_reports_evidence (test_external_event_control_http.ReceiverControlHttpTests.test_sse_recovery_tool_call_reaches_router_mcp_and_reports_evidence) ... ok
+test_workspace_gate_and_external_auth_reject_before_mutation (test_external_event_control_http.ReceiverControlHttpTests.test_workspace_gate_and_external_auth_reject_before_mutation) ... ok
+
+======================================================================
+FAIL: test_actual_private_status_history_never_authorizes_restart (test_runtime_sse_recovery.RecoveryTests.test_actual_private_status_history_never_authorizes_restart)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime\tests\test_runtime_sse_recovery.py", line 289, in test_actual_private_status_history_never_authorizes_restart
+    self.assertEqual("restart_evidence_insufficient", result["reason"])
+AssertionError: 'restart_evidence_insufficient' != 'restart_refused'
+- restart_evidence_insufficient
++ restart_refused
+
+
+----------------------------------------------------------------------
+Ran 51 tests in 1.006s
+
+FAILED (failures=1)
+real_http_config: disabled -> reconnect_rejected409 -> enabled -> event_received; single_worker=true
+real_http_control: connected -> reconnect -> cursor_resume -> gateway_queue=2; single_worker=true
+real_http_policy: workspace_mismatch rejected; external_identity missing_token=403; valid_token=status_ok

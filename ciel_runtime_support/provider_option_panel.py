@@ -95,6 +95,9 @@ def build_option_panel_rows(
         from .cielairouter_gateway_overlay import selection_enabled
         add("Automatic gateway", "gateway_selection", "auto" if selection_enabled(config) else "off (central)")
         add("Gateway status", "gateway_status", "read-only /health (Enter)")
+        from .transient_retry import configured_retry_limit
+        add("CielAiRouter retries", "gateway_retries",
+            f"{configured_retry_limit(config)} extra; 0 off, max 10; router/direct CLI HTTP")
     if policy.presentation.show_gateway_data_path:
         from .launch_data_path import configured_data_path
         add("Gateway data path", "gateway_data_path", f"{configured_data_path(config)} (applies at launch)")
@@ -237,6 +240,9 @@ def option_prompt_default(
     }
     if key in boolean_keys:
         return "true" if current_option_bool(provider, config, key, policy, services) else "false"
+    if key == "gateway_retries" and provider == "cielairouter":
+        from .transient_retry import configured_retry_limit
+        return str(configured_retry_limit(config))
     if key == "router_debug_message_preview_chars":
         return str(runtime.message_preview_chars())
     if key == "claude_code_supported_capabilities":

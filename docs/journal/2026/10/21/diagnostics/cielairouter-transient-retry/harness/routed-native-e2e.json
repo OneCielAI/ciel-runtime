@@ -1,0 +1,746 @@
+{
+  "generated_at": "2026-10-21T19:51:56.713350+00:00",
+  "cli_identities": [
+    {
+      "protocol": "claude",
+      "path": "C:\\Users\\djlov\\.local\\bin\\claude.exe",
+      "version": "2.1.306 (Claude Code)",
+      "sha256": "f6bc9de38f507c36c9a3bb0085a59a27e32156e2208252bf1707c4e3ef309114"
+    },
+    {
+      "protocol": "codex",
+      "path": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@openai\\codex\\node_modules\\@openai\\codex-win32-x64\\vendor\\x86_64-pc-windows-msvc\\bin\\codex.exe",
+      "version": "codex-cli 0.158.0",
+      "sha256": "af02050cc0c95f5aeb714af2c1077e635c58e9896c13c89d75099cf5b96477be"
+    },
+    {
+      "protocol": "codex",
+      "path": "C:\\Users\\djlov\\AppData\\Local\\Programs\\OpenAI\\Codex\\bin\\codex.exe",
+      "version": "codex-cli 0.163.0",
+      "sha256": "2692c8c7bb2cf8b0aefe638741fc90236f4b824c59578ce84994f9de58200993"
+    }
+  ],
+  "production_dispatch": "RouterHandler -> build_router_http_services -> RouterHttpHandler.do_POST -> _dispatch_with_failover -> route_runtime_post",
+  "lifecycle": "Only ThreadingHTTPServer. No run_cli/serve/scheduler/receiver/backup/lifetime-watchdog start.",
+  "isolation": {
+    "root": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-protocol-acceptance-9azczrbl",
+    "home": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-protocol-acceptance-9azczrbl\\home",
+    "config": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-protocol-acceptance-9azczrbl\\config",
+    "cwd": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-protocol-acceptance-9azczrbl\\cwd",
+    "tmp": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-protocol-acceptance-9azczrbl\\tmp"
+  },
+  "sources_before": {
+    "ciel_runtime.py": "0b62581240643d526242958854a84b03c7a02a858acb475491060fc2e5e77392",
+    "ciel_runtime_support/router_http.py": "3c70de09dc21e0f2ccf816267a419714cf5c75fa797773f7ca5850dfcd749a85",
+    "ciel_runtime_support/transient_retry.py": "008d6caa840e91dfcfa11f9a9c9456c6015451e1892a5107732eb1fa8cd34b45",
+    "ciel_runtime_support/upstream_retry.py": "8bbecde49a8ee2ca9712100626972c7b31fd37aae908e762616782a8ac11df01",
+    "ciel_runtime_support/provider_responses_passthrough.py": "2249c72772b9103e3de73247828ce1417175b73c796070ec1e27551a5a75decf",
+    "ciel_runtime_support/claude_router.py": "f956a3200040802e9a9e3af54e16cf0d35597b4f891a15a3d8a2df9fbcd54180"
+  },
+  "sources_after": {
+    "ciel_runtime.py": "0b62581240643d526242958854a84b03c7a02a858acb475491060fc2e5e77392",
+    "ciel_runtime_support/router_http.py": "3c70de09dc21e0f2ccf816267a419714cf5c75fa797773f7ca5850dfcd749a85",
+    "ciel_runtime_support/transient_retry.py": "008d6caa840e91dfcfa11f9a9c9456c6015451e1892a5107732eb1fa8cd34b45",
+    "ciel_runtime_support/upstream_retry.py": "8bbecde49a8ee2ca9712100626972c7b31fd37aae908e762616782a8ac11df01",
+    "ciel_runtime_support/provider_responses_passthrough.py": "2249c72772b9103e3de73247828ce1417175b73c796070ec1e27551a5a75decf",
+    "ciel_runtime_support/claude_router.py": "f956a3200040802e9a9e3af54e16cf0d35597b4f891a15a3d8a2df9fbcd54180"
+  },
+  "sources_stable_during_run": true,
+  "cases": [
+    {
+      "name": "claude_503_then_success",
+      "binary": "C:\\Users\\djlov\\.local\\bin\\claude.exe",
+      "passed": true,
+      "checks": {
+        "one_cli_http_request": true,
+        "downstream_status": true,
+        "exact_upstream_hits": true,
+        "exact_upstream_status_sequence": true,
+        "same_upstream_endpoint": true,
+        "same_upstream_body": true,
+        "one_retry_operation_id": true,
+        "correct_final_retry_budget": true,
+        "correct_cli_exit": true,
+        "exact_cli_success_count": true,
+        "no_cli_tool_execution": true,
+        "no_external_plugin_warning": true,
+        "retry_log_count": true,
+        "owned_listeners_closed": true
+      },
+      "ingress": [
+        {
+          "path": "/v1/messages",
+          "method": "POST",
+          "status": 200
+        }
+      ],
+      "upstream_hits": [
+        {
+          "sequence": 1,
+          "path": "/v1/messages",
+          "status": 503,
+          "request_bytes": 1140,
+          "request_sha256": "535ed2cda22cad94e632baee6ab8ddc3c3d5b528e6019cd72041346b56f932bd",
+          "request_model": "claude-sonnet-5-5",
+          "request_stream": true,
+          "authorization_present": true
+        },
+        {
+          "sequence": 2,
+          "path": "/v1/messages",
+          "status": 200,
+          "request_bytes": 1140,
+          "request_sha256": "535ed2cda22cad94e632baee6ab8ddc3c3d5b528e6019cd72041346b56f932bd",
+          "request_model": "claude-sonnet-5-5",
+          "request_stream": true,
+          "authorization_present": true
+        }
+      ],
+      "upstream_auxiliary_http": [
+        {
+          "method": "GET",
+          "path": "/v1/models",
+          "status": 501
+        },
+        {
+          "method": "GET",
+          "path": "/v1/models",
+          "status": 501
+        },
+        {
+          "method": "GET",
+          "path": "/v1/models",
+          "status": 501
+        }
+      ],
+      "cli": {
+        "returncode": 0,
+        "timed_out": false,
+        "elapsed_seconds": 1.25,
+        "job_assigned": true,
+        "retry_controls": {
+          "CLAUDE_CODE_MAX_RETRIES": "0",
+          "CLAUDE_CODE_RETRY_WATCHDOG": "0",
+          "CLAUDE_CODE_NONSTREAMING_TIMEOUT_RETRIES": "0",
+          "CLAUDE_CODE_DISABLE_NONSTREAMING_FALLBACK": "1"
+        },
+        "success_outputs": [
+          "ok"
+        ],
+        "success_output_count": 1,
+        "tool_execution_item_count": 0,
+        "stdout_sha256": "dc51b8c96c2d745df3bd5590d990230a482fd247123599548e0632fdbf97fc22",
+        "stdout_bytes": 3,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_bytes": 0,
+        "external_plugin_warning": false,
+        "event_types": {},
+        "last_message_is_ok": false
+      },
+      "retry_logs": [
+        "2026-10-21T14:51:50 [WARN] cielairouter_transient_retry operation=messages operation_id=134a6bb29f724da895007930408feff9 model=claude-sonnet-5-5 status=503 attempt=1/3 wait=0.25s elapsed=0.05s"
+      ]
+    },
+    {
+      "name": "claude_persistent503",
+      "binary": "C:\\Users\\djlov\\.local\\bin\\claude.exe",
+      "passed": true,
+      "checks": {
+        "one_cli_http_request": true,
+        "downstream_status": true,
+        "exact_upstream_hits": true,
+        "exact_upstream_status_sequence": true,
+        "same_upstream_endpoint": true,
+        "same_upstream_body": true,
+        "one_retry_operation_id": true,
+        "correct_final_retry_budget": true,
+        "correct_cli_exit": true,
+        "exact_cli_success_count": true,
+        "no_cli_tool_execution": true,
+        "no_external_plugin_warning": true,
+        "retry_log_count": true,
+        "owned_listeners_closed": true
+      },
+      "ingress": [
+        {
+          "path": "/v1/messages",
+          "method": "POST",
+          "status": 503
+        }
+      ],
+      "upstream_hits": [
+        {
+          "sequence": 1,
+          "path": "/v1/messages",
+          "status": 503,
+          "request_bytes": 1140,
+          "request_sha256": "1ab369e3f768d31a044c2981a442a1a3fc3d1ea6affaeb141210b6bf1a061a7c",
+          "request_model": "claude-sonnet-5-5",
+          "request_stream": true,
+          "authorization_present": true
+        },
+        {
+          "sequence": 2,
+          "path": "/v1/messages",
+          "status": 503,
+          "request_bytes": 1140,
+          "request_sha256": "1ab369e3f768d31a044c2981a442a1a3fc3d1ea6affaeb141210b6bf1a061a7c",
+          "request_model": "claude-sonnet-5-5",
+          "request_stream": true,
+          "authorization_present": true
+        },
+        {
+          "sequence": 3,
+          "path": "/v1/messages",
+          "status": 503,
+          "request_bytes": 1140,
+          "request_sha256": "1ab369e3f768d31a044c2981a442a1a3fc3d1ea6affaeb141210b6bf1a061a7c",
+          "request_model": "claude-sonnet-5-5",
+          "request_stream": true,
+          "authorization_present": true
+        },
+        {
+          "sequence": 4,
+          "path": "/v1/messages",
+          "status": 503,
+          "request_bytes": 1140,
+          "request_sha256": "1ab369e3f768d31a044c2981a442a1a3fc3d1ea6affaeb141210b6bf1a061a7c",
+          "request_model": "claude-sonnet-5-5",
+          "request_stream": true,
+          "authorization_present": true
+        }
+      ],
+      "upstream_auxiliary_http": [
+        {
+          "method": "GET",
+          "path": "/v1/models",
+          "status": 501
+        },
+        {
+          "method": "GET",
+          "path": "/v1/models",
+          "status": 501
+        },
+        {
+          "method": "GET",
+          "path": "/v1/models",
+          "status": 501
+        }
+      ],
+      "cli": {
+        "returncode": 1,
+        "timed_out": false,
+        "elapsed_seconds": 1.704,
+        "job_assigned": true,
+        "retry_controls": {
+          "CLAUDE_CODE_MAX_RETRIES": "0",
+          "CLAUDE_CODE_RETRY_WATCHDOG": "0",
+          "CLAUDE_CODE_NONSTREAMING_TIMEOUT_RETRIES": "0",
+          "CLAUDE_CODE_DISABLE_NONSTREAMING_FALLBACK": "1"
+        },
+        "success_outputs": [],
+        "success_output_count": 0,
+        "tool_execution_item_count": 0,
+        "stdout_sha256": "80860bf29071a4896b0c116d8941eedac53c9e7a92390233590b8780a421639f",
+        "stdout_bytes": 341,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_bytes": 0,
+        "external_plugin_warning": false,
+        "event_types": {},
+        "last_message_is_ok": false
+      },
+      "retry_logs": [
+        "2026-10-21T14:51:51 [WARN] cielairouter_transient_retry operation=messages operation_id=f238de08a91c4a86815d44499373424c model=claude-sonnet-5-5 status=503 attempt=1/3 wait=0.25s elapsed=0.03s",
+        "2026-10-21T14:51:51 [WARN] cielairouter_transient_retry operation=messages operation_id=f238de08a91c4a86815d44499373424c model=claude-sonnet-5-5 status=503 attempt=2/3 wait=0.25s elapsed=0.28s",
+        "2026-10-21T14:51:51 [WARN] cielairouter_transient_retry operation=messages operation_id=f238de08a91c4a86815d44499373424c model=claude-sonnet-5-5 status=503 attempt=3/3 wait=0.25s elapsed=0.53s",
+        "2026-10-21T14:51:52 [WARN] cielairouter_transient_stopped operation_id=f238de08a91c4a86815d44499373424c attempts=3 opens=4 elapsed=0.80s"
+      ]
+    },
+    {
+      "name": "codex_503_then_success",
+      "binary": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@openai\\codex\\node_modules\\@openai\\codex-win32-x64\\vendor\\x86_64-pc-windows-msvc\\bin\\codex.exe",
+      "passed": true,
+      "checks": {
+        "one_cli_http_request": true,
+        "downstream_status": true,
+        "exact_upstream_hits": true,
+        "exact_upstream_status_sequence": true,
+        "same_upstream_endpoint": true,
+        "same_upstream_body": true,
+        "one_retry_operation_id": true,
+        "correct_final_retry_budget": true,
+        "correct_cli_exit": true,
+        "exact_cli_success_count": true,
+        "no_cli_tool_execution": true,
+        "no_external_plugin_warning": true,
+        "retry_log_count": true,
+        "owned_listeners_closed": true
+      },
+      "ingress": [
+        {
+          "path": "/v1/responses",
+          "method": "POST",
+          "status": 200
+        }
+      ],
+      "upstream_hits": [
+        {
+          "sequence": 1,
+          "path": "/v1/responses",
+          "status": 503,
+          "request_bytes": 34534,
+          "request_sha256": "3d39212a664ada7ca5c0201cdf67308a025bd405e1e9b3a3d63301dcbce88c63",
+          "request_model": "gpt-5.5",
+          "request_stream": true,
+          "authorization_present": true
+        },
+        {
+          "sequence": 2,
+          "path": "/v1/responses",
+          "status": 200,
+          "request_bytes": 34534,
+          "request_sha256": "3d39212a664ada7ca5c0201cdf67308a025bd405e1e9b3a3d63301dcbce88c63",
+          "request_model": "gpt-5.5",
+          "request_stream": true,
+          "authorization_present": true
+        }
+      ],
+      "upstream_auxiliary_http": [
+        {
+          "method": "GET",
+          "path": "/v1/models",
+          "status": 501
+        }
+      ],
+      "cli": {
+        "returncode": 0,
+        "timed_out": false,
+        "elapsed_seconds": 0.766,
+        "job_assigned": true,
+        "retry_controls": {
+          "model": "\"gpt-5.5\"",
+          "model_provider": "\"fixture\"",
+          "approval_policy": "\"never\"",
+          "sandbox_mode": "\"read-only\"",
+          "check_for_update_on_startup": "false",
+          "model_providers.fixture.name": "\"Loopback fixture\"",
+          "model_providers.fixture.base_url": "\"http://127.0.0.1:54707/v1\"",
+          "model_providers.fixture.wire_api": "\"responses\"",
+          "model_providers.fixture.env_key": "\"CODEX_FIXTURE_API_KEY\"",
+          "model_providers.fixture.request_max_retries": "0",
+          "model_providers.fixture.stream_max_retries": "0",
+          "features.plugins": "false",
+          "features.remote_plugin": "false",
+          "features.apps": "false",
+          "features.shell_tool": "false",
+          "features.unified_exec": "false",
+          "features.goals": "false",
+          "features.view_image": "false",
+          "features.shell_snapshot": "false",
+          "features.skill_search": "false",
+          "features.multi_agent": "false",
+          "features.tool_suggest": "false",
+          "features.unbounded_connection_retries": "false",
+          "web_search": "\"disabled\""
+        },
+        "success_outputs": [
+          "ok"
+        ],
+        "success_output_count": 1,
+        "tool_execution_item_count": 0,
+        "stdout_sha256": "4494f059987ab095a3e6f32eac3c8396813ffd7d3447d3d5f784e876f66a2241",
+        "stdout_bytes": 337,
+        "stderr_sha256": "e04cb6c27d09e97514b88c5053207fdbac2b372240e8128da57ae479f5065535",
+        "stderr_bytes": 389,
+        "external_plugin_warning": false,
+        "event_types": {
+          "thread.started": 1,
+          "turn.started": 1,
+          "item.completed": 1,
+          "turn.completed": 1
+        },
+        "last_message_is_ok": true
+      },
+      "retry_logs": [
+        "2026-10-21T14:51:52 [WARN] cielairouter_transient_retry operation=responses operation_id=cf0801ee3dad4f6e9efc684d1fdfdb39 model=gpt-5.5 status=503 attempt=1/3 wait=0.25s elapsed=0.01s"
+      ]
+    },
+    {
+      "name": "codex_persistent503",
+      "binary": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@openai\\codex\\node_modules\\@openai\\codex-win32-x64\\vendor\\x86_64-pc-windows-msvc\\bin\\codex.exe",
+      "passed": true,
+      "checks": {
+        "one_cli_http_request": true,
+        "downstream_status": true,
+        "exact_upstream_hits": true,
+        "exact_upstream_status_sequence": true,
+        "same_upstream_endpoint": true,
+        "same_upstream_body": true,
+        "one_retry_operation_id": true,
+        "correct_final_retry_budget": true,
+        "correct_cli_exit": true,
+        "exact_cli_success_count": true,
+        "no_cli_tool_execution": true,
+        "no_external_plugin_warning": true,
+        "retry_log_count": true,
+        "owned_listeners_closed": true
+      },
+      "ingress": [
+        {
+          "path": "/v1/responses",
+          "method": "POST",
+          "status": 503
+        }
+      ],
+      "upstream_hits": [
+        {
+          "sequence": 1,
+          "path": "/v1/responses",
+          "status": 503,
+          "request_bytes": 34534,
+          "request_sha256": "7d9168356618819ca2301ddb12d6cbea2a2046c08ac84c8294e6d5d6d55b3809",
+          "request_model": "gpt-5.5",
+          "request_stream": true,
+          "authorization_present": true
+        },
+        {
+          "sequence": 2,
+          "path": "/v1/responses",
+          "status": 503,
+          "request_bytes": 34534,
+          "request_sha256": "7d9168356618819ca2301ddb12d6cbea2a2046c08ac84c8294e6d5d6d55b3809",
+          "request_model": "gpt-5.5",
+          "request_stream": true,
+          "authorization_present": true
+        },
+        {
+          "sequence": 3,
+          "path": "/v1/responses",
+          "status": 503,
+          "request_bytes": 34534,
+          "request_sha256": "7d9168356618819ca2301ddb12d6cbea2a2046c08ac84c8294e6d5d6d55b3809",
+          "request_model": "gpt-5.5",
+          "request_stream": true,
+          "authorization_present": true
+        },
+        {
+          "sequence": 4,
+          "path": "/v1/responses",
+          "status": 503,
+          "request_bytes": 34534,
+          "request_sha256": "7d9168356618819ca2301ddb12d6cbea2a2046c08ac84c8294e6d5d6d55b3809",
+          "request_model": "gpt-5.5",
+          "request_stream": true,
+          "authorization_present": true
+        }
+      ],
+      "upstream_auxiliary_http": [
+        {
+          "method": "GET",
+          "path": "/v1/models",
+          "status": 501
+        }
+      ],
+      "cli": {
+        "returncode": 1,
+        "timed_out": false,
+        "elapsed_seconds": 1.063,
+        "job_assigned": true,
+        "retry_controls": {
+          "model": "\"gpt-5.5\"",
+          "model_provider": "\"fixture\"",
+          "approval_policy": "\"never\"",
+          "sandbox_mode": "\"read-only\"",
+          "check_for_update_on_startup": "false",
+          "model_providers.fixture.name": "\"Loopback fixture\"",
+          "model_providers.fixture.base_url": "\"http://127.0.0.1:54723/v1\"",
+          "model_providers.fixture.wire_api": "\"responses\"",
+          "model_providers.fixture.env_key": "\"CODEX_FIXTURE_API_KEY\"",
+          "model_providers.fixture.request_max_retries": "0",
+          "model_providers.fixture.stream_max_retries": "0",
+          "features.plugins": "false",
+          "features.remote_plugin": "false",
+          "features.apps": "false",
+          "features.shell_tool": "false",
+          "features.unified_exec": "false",
+          "features.goals": "false",
+          "features.view_image": "false",
+          "features.shell_snapshot": "false",
+          "features.skill_search": "false",
+          "features.multi_agent": "false",
+          "features.tool_suggest": "false",
+          "features.unbounded_connection_retries": "false",
+          "web_search": "\"disabled\""
+        },
+        "success_outputs": [],
+        "success_output_count": 0,
+        "tool_execution_item_count": 0,
+        "stdout_sha256": "11bd8e6812d87fbc618bb4c440843e58313993211a8b2e22f25af1e3d0865cc3",
+        "stdout_bytes": 1059,
+        "stderr_sha256": "4bf6723ec11af2e70c192a42ce0d569a7b9526c040da7991416a9e39630d4b38",
+        "stderr_bytes": 389,
+        "external_plugin_warning": false,
+        "event_types": {
+          "thread.started": 1,
+          "turn.started": 1,
+          "error": 1,
+          "turn.failed": 1
+        },
+        "last_message_is_ok": false
+      },
+      "retry_logs": [
+        "2026-10-21T14:51:53 [WARN] cielairouter_transient_retry operation=responses operation_id=a35091e9314d4bcf962e02cf9bac3e47 model=gpt-5.5 status=503 attempt=1/3 wait=0.25s elapsed=0.01s",
+        "2026-10-21T14:51:53 [WARN] cielairouter_transient_retry operation=responses operation_id=a35091e9314d4bcf962e02cf9bac3e47 model=gpt-5.5 status=503 attempt=2/3 wait=0.25s elapsed=0.28s",
+        "2026-10-21T14:51:54 [WARN] cielairouter_transient_retry operation=responses operation_id=a35091e9314d4bcf962e02cf9bac3e47 model=gpt-5.5 status=503 attempt=3/3 wait=0.25s elapsed=0.55s",
+        "2026-10-21T14:51:54 [WARN] cielairouter_transient_stopped operation_id=a35091e9314d4bcf962e02cf9bac3e47 attempts=3 opens=4 elapsed=0.80s"
+      ]
+    },
+    {
+      "name": "codex_503_then_success",
+      "binary": "C:\\Users\\djlov\\AppData\\Local\\Programs\\OpenAI\\Codex\\bin\\codex.exe",
+      "passed": true,
+      "checks": {
+        "one_cli_http_request": true,
+        "downstream_status": true,
+        "exact_upstream_hits": true,
+        "exact_upstream_status_sequence": true,
+        "same_upstream_endpoint": true,
+        "same_upstream_body": true,
+        "one_retry_operation_id": true,
+        "correct_final_retry_budget": true,
+        "correct_cli_exit": true,
+        "exact_cli_success_count": true,
+        "no_cli_tool_execution": true,
+        "no_external_plugin_warning": true,
+        "retry_log_count": true,
+        "owned_listeners_closed": true
+      },
+      "ingress": [
+        {
+          "path": "/v1/responses",
+          "method": "POST",
+          "status": 200
+        }
+      ],
+      "upstream_hits": [
+        {
+          "sequence": 1,
+          "path": "/v1/responses",
+          "status": 503,
+          "request_bytes": 34169,
+          "request_sha256": "398ca56abbe72ac71d980cb2351179221963c494aa5a64002c3bf845c4d04ede",
+          "request_model": "gpt-5.5",
+          "request_stream": true,
+          "authorization_present": true
+        },
+        {
+          "sequence": 2,
+          "path": "/v1/responses",
+          "status": 200,
+          "request_bytes": 34169,
+          "request_sha256": "398ca56abbe72ac71d980cb2351179221963c494aa5a64002c3bf845c4d04ede",
+          "request_model": "gpt-5.5",
+          "request_stream": true,
+          "authorization_present": true
+        }
+      ],
+      "upstream_auxiliary_http": [
+        {
+          "method": "GET",
+          "path": "/v1/models",
+          "status": 501
+        }
+      ],
+      "cli": {
+        "returncode": 0,
+        "timed_out": false,
+        "elapsed_seconds": 0.891,
+        "job_assigned": true,
+        "retry_controls": {
+          "model": "\"gpt-5.5\"",
+          "model_provider": "\"fixture\"",
+          "approval_policy": "\"never\"",
+          "sandbox_mode": "\"read-only\"",
+          "check_for_update_on_startup": "false",
+          "model_providers.fixture.name": "\"Loopback fixture\"",
+          "model_providers.fixture.base_url": "\"http://127.0.0.1:54747/v1\"",
+          "model_providers.fixture.wire_api": "\"responses\"",
+          "model_providers.fixture.env_key": "\"CODEX_FIXTURE_API_KEY\"",
+          "model_providers.fixture.request_max_retries": "0",
+          "model_providers.fixture.stream_max_retries": "0",
+          "features.plugins": "false",
+          "features.remote_plugin": "false",
+          "features.apps": "false",
+          "features.shell_tool": "false",
+          "features.unified_exec": "false",
+          "features.goals": "false",
+          "features.view_image": "false",
+          "features.shell_snapshot": "false",
+          "features.skill_search": "false",
+          "features.multi_agent": "false",
+          "features.tool_suggest": "false",
+          "features.unbounded_connection_retries": "false",
+          "web_search": "\"disabled\""
+        },
+        "success_outputs": [
+          "ok"
+        ],
+        "success_output_count": 1,
+        "tool_execution_item_count": 0,
+        "stdout_sha256": "027c005cde6b66381030c002f412f1591b74d0db377a76701b55529b328e82dc",
+        "stdout_bytes": 337,
+        "stderr_sha256": "fc09143b172b533a51f04b4b863afe0d4bb441d581afe0e6ba7426aa0d78bc70",
+        "stderr_bytes": 389,
+        "external_plugin_warning": false,
+        "event_types": {
+          "thread.started": 1,
+          "turn.started": 1,
+          "item.completed": 1,
+          "turn.completed": 1
+        },
+        "last_message_is_ok": true
+      },
+      "retry_logs": [
+        "2026-10-21T14:51:54 [WARN] cielairouter_transient_retry operation=responses operation_id=85f1e3ab288445c88797ff78ba7b07e0 model=gpt-5.5 status=503 attempt=1/3 wait=0.25s elapsed=0.02s"
+      ]
+    },
+    {
+      "name": "codex_persistent503",
+      "binary": "C:\\Users\\djlov\\AppData\\Local\\Programs\\OpenAI\\Codex\\bin\\codex.exe",
+      "passed": true,
+      "checks": {
+        "one_cli_http_request": true,
+        "downstream_status": true,
+        "exact_upstream_hits": true,
+        "exact_upstream_status_sequence": true,
+        "same_upstream_endpoint": true,
+        "same_upstream_body": true,
+        "one_retry_operation_id": true,
+        "correct_final_retry_budget": true,
+        "correct_cli_exit": true,
+        "exact_cli_success_count": true,
+        "no_cli_tool_execution": true,
+        "no_external_plugin_warning": true,
+        "retry_log_count": true,
+        "owned_listeners_closed": true
+      },
+      "ingress": [
+        {
+          "path": "/v1/responses",
+          "method": "POST",
+          "status": 503
+        }
+      ],
+      "upstream_hits": [
+        {
+          "sequence": 1,
+          "path": "/v1/responses",
+          "status": 503,
+          "request_bytes": 34169,
+          "request_sha256": "d59f8bf77a15612e618c562d615465449ab14cbaffa711ff04d312d123187719",
+          "request_model": "gpt-5.5",
+          "request_stream": true,
+          "authorization_present": true
+        },
+        {
+          "sequence": 2,
+          "path": "/v1/responses",
+          "status": 503,
+          "request_bytes": 34169,
+          "request_sha256": "d59f8bf77a15612e618c562d615465449ab14cbaffa711ff04d312d123187719",
+          "request_model": "gpt-5.5",
+          "request_stream": true,
+          "authorization_present": true
+        },
+        {
+          "sequence": 3,
+          "path": "/v1/responses",
+          "status": 503,
+          "request_bytes": 34169,
+          "request_sha256": "d59f8bf77a15612e618c562d615465449ab14cbaffa711ff04d312d123187719",
+          "request_model": "gpt-5.5",
+          "request_stream": true,
+          "authorization_present": true
+        },
+        {
+          "sequence": 4,
+          "path": "/v1/responses",
+          "status": 503,
+          "request_bytes": 34169,
+          "request_sha256": "d59f8bf77a15612e618c562d615465449ab14cbaffa711ff04d312d123187719",
+          "request_model": "gpt-5.5",
+          "request_stream": true,
+          "authorization_present": true
+        }
+      ],
+      "upstream_auxiliary_http": [
+        {
+          "method": "GET",
+          "path": "/v1/models",
+          "status": 501
+        }
+      ],
+      "cli": {
+        "returncode": 1,
+        "timed_out": false,
+        "elapsed_seconds": 1.063,
+        "job_assigned": true,
+        "retry_controls": {
+          "model": "\"gpt-5.5\"",
+          "model_provider": "\"fixture\"",
+          "approval_policy": "\"never\"",
+          "sandbox_mode": "\"read-only\"",
+          "check_for_update_on_startup": "false",
+          "model_providers.fixture.name": "\"Loopback fixture\"",
+          "model_providers.fixture.base_url": "\"http://127.0.0.1:54766/v1\"",
+          "model_providers.fixture.wire_api": "\"responses\"",
+          "model_providers.fixture.env_key": "\"CODEX_FIXTURE_API_KEY\"",
+          "model_providers.fixture.request_max_retries": "0",
+          "model_providers.fixture.stream_max_retries": "0",
+          "features.plugins": "false",
+          "features.remote_plugin": "false",
+          "features.apps": "false",
+          "features.shell_tool": "false",
+          "features.unified_exec": "false",
+          "features.goals": "false",
+          "features.view_image": "false",
+          "features.shell_snapshot": "false",
+          "features.skill_search": "false",
+          "features.multi_agent": "false",
+          "features.tool_suggest": "false",
+          "features.unbounded_connection_retries": "false",
+          "web_search": "\"disabled\""
+        },
+        "success_outputs": [],
+        "success_output_count": 0,
+        "tool_execution_item_count": 0,
+        "stdout_sha256": "e301556041d990c7b6c6a09d56103ddbdc6a2843e8447c5a3e4d4fbe3a3ad393",
+        "stdout_bytes": 1059,
+        "stderr_sha256": "4742fe745f9ec4d0151d17f9fe79b5e57da57d56fad0a6cd7c53fd3eb9e8895b",
+        "stderr_bytes": 389,
+        "external_plugin_warning": false,
+        "event_types": {
+          "thread.started": 1,
+          "turn.started": 1,
+          "error": 1,
+          "turn.failed": 1
+        },
+        "last_message_is_ok": false
+      },
+      "retry_logs": [
+        "2026-10-21T14:51:55 [WARN] cielairouter_transient_retry operation=responses operation_id=646ab92fa1504b7d8e67a9fc27e4a103 model=gpt-5.5 status=503 attempt=1/3 wait=0.25s elapsed=0.02s",
+        "2026-10-21T14:51:56 [WARN] cielairouter_transient_retry operation=responses operation_id=646ab92fa1504b7d8e67a9fc27e4a103 model=gpt-5.5 status=503 attempt=2/3 wait=0.25s elapsed=0.27s",
+        "2026-10-21T14:51:56 [WARN] cielairouter_transient_retry operation=responses operation_id=646ab92fa1504b7d8e67a9fc27e4a103 model=gpt-5.5 status=503 attempt=3/3 wait=0.25s elapsed=0.52s",
+        "2026-10-21T14:51:56 [WARN] cielairouter_transient_stopped operation_id=646ab92fa1504b7d8e67a9fc27e4a103 attempts=3 opens=4 elapsed=0.78s"
+      ]
+    }
+  ],
+  "fixture_error_sha256": "d3ce31901053128f7c970253e04826f759f2b8f452e774552a84f9ee1fe4f7b3",
+  "limitations": [
+    "Owned loopback fixtures, not live provider infrastructure.",
+    "Codex still advertises request_user_input/apply_patch; fixture emits no tool call and zero execution items were observed.",
+    "No process-wide network capture; provider HTTP sequence is recorded at owned ingress/upstream sockets.",
+    "Upstream statuses observed at fixture send_response; raw request bodies and native transcripts are not persisted."
+  ],
+  "all_passed": true
+}

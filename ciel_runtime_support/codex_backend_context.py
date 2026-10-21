@@ -81,6 +81,7 @@ class ProviderPassthroughTransportPorts:
     copy_response_headers: Callable[..., None]
     write_activity: Callable[..., None]
     endpoint: Callable[[str, dict[str, Any], str], str] | None = None
+    reselect: Callable[[dict[str, Any]], dict[str, Any]] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -270,6 +271,9 @@ class CodexBackendContext:
                 copy_response_headers=self.provider_transport.copy_response_headers,
                 finalize_body=self.provider_projection.finalize_chat,
                 endpoint=self.provider_transport.endpoint,
+                log=self.transport.log,
+                publish=self.transport.publish_event,
+                reselect=self.provider_transport.reselect,
             )
         )
 
@@ -304,6 +308,8 @@ class CodexBackendContext:
                 compact_responses=self.replay.compact_responses,
                 finalize_body=self.provider_projection.finalize_responses,
                 endpoint=self.provider_transport.endpoint,
+                publish=self.transport.publish_event,
+                reselect=self.provider_transport.reselect,
             )
         )
 

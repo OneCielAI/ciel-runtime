@@ -1,0 +1,207 @@
+---
+type: investigation
+title: CielAiRouter transient rejection retry across Claude and Codex
+description: Screenshot HTTP 503 pre-dispatch rejection is not retried on the CielAiRouter Responses passthrough; a shared per-request budget now covers all supported routes without multiplying retries, with measured native-client boundaries.
+tags: [cielairouter, retry, claude, codex, responses, investigation]
+timestamp: 2026-10-21
+---
+
+# Reported symptom (user)
+
+Codex showed `unexpected status 503 Service Unavailable: event: error data:
+{"type":"error","error":{"type":"overloaded_error","message":"service_unavailable:
+Service temporarily unavailable: all targets were skipped by pre-dispatch filters"}}`
+against `http://127.0.0.1:9179/v1/responses`. User requires detection and
+automatic retry for both Claude and Codex, without duplicated retries.
+
+# Verified in source before implementation
+
+- CielAiRouter preserves the client protocol
+  (`ciel_runtime_support/providers/cielairouter.py`).
+- A Codex client using CielAiRouter reaches the provider Responses passthrough,
+  not the `provider=codex` backend retry code (selection in
+  `openai_responses_router.py`; `codex_backend_context.py`).
+- `provider_responses_passthrough._open_checkpoint_request` opened once and
+  returned HTTP errors except confirmed context rejection; the buffered path
+  had the same boundary. `provider_network.provider_urlopen` opens once.
+- Claude native Messages uses `open_provider_request_with_key_retry`
+  (`claude_router.py`); generic generation retries default to zero
+  (`upstream_error_policy.py`), and selected gateways suppress same-call
+  retries (`upstream_retry.py`), enforced by `tests/test_upstream_retry.py`.
+- Existing `9d1666f` Codex no-output retry accepts only error types
+  `server_error`/`api_error` with one fixed phrase; the screenshot body is
+  `overloaded_error`. AST-isolated run of the current classifiers against the
+  exact screenshot body: no-output classifier False, outer overload classifier
+  True. This proves classifier membership only; it does not prove which route
+  the affected session used. On the passthrough opening boundary no retry
+  owner existed at all.
+- Claude native Messages committed HTTP/SSE headers before inspecting content
+  (`claude_router.py`), so an initial overload event could not be retried there
+  without a pre-commit preflight.
+- Direct gateway launches bypass runtime model HTTP (`launch_data_path.py`);
+  Codex launch forced `request_max_retries=0` and `stream_max_retries=0` even
+  in direct mode (`codex_launch_configuration.py`).
+
+# Measured evidence (actual captures)
+
+## Production retry wiring against owned loopback HTTP
+
+[harness/protocol_acceptance.py](harness/protocol_acceptance.py) exercised the
+production Messages opener, Responses passthrough, Chat passthrough and the
+gateway service/overlay with private HOME/config/cwd/temp and no inherited
+provider variables.
+
+- [harness/protocol-acceptance-integrated.json](harness/protocol-acceptance-integrated.json):
+  label `integrated`, generated 2026-10-21T19:15:06Z, `passed 31`, `failed 0`,
+  `all_passed true`. The console transcript is
+  [../../releases/cielairouter-transient-retry/evidence/protocol-console.txt](../../releases/cielairouter-transient-retry/evidence/protocol-console.txt).
+- Groups: Messages opener 11 cases, Responses 10, Chat 10. Hit counts include
+  screenshot SSE then success 2, exhausted configured 3 = 4, explicit 0 = 1,
+  HTTP 200 initial error SSE = 2, output-then-error 1, malformed 1, usage limit
+  1, remote bridge 1, and selected-gateway reselect 1 failing + 1 reselected.
+- Every case checked identical body/endpoint/Authorization across retries,
+  exactly-once tool delivery and exactly one client success.
+- Source digest drift: 10 of 11 captured digests match the current tree.
+  `upstream_retry.py` is now `9867c832e186...` versus `039cf79e7539...` in the
+  capture (mtime 14:16:04, after the 14:15:06 run). The 31/31 result applies to
+  the captured revision of that file, not the current one.
+- Superseded harness captures: `protocol-acceptance-run1.json` 20/31,
+  `protocol-acceptance-run2.json` 29/31; final and integrated runs are 31/31.
+- Router dispatch is not inside this harness. Exact-file
+  [../../releases/cielairouter-transient-retry/evidence/scopes-gateways.txt](../../releases/cielairouter-transient-retry/evidence/scopes-gateways.txt)
+  ran 108 tests `OK` in 11.411 s, including
+  `RouterHttpHandler._dispatch_with_failover` (selected gateway, inactive
+  failover, non-LLM/other-provider paths), provider/gateway transport, overlay
+  session stickiness and handled-error guards. Stalled loopback:
+  `elapsed=0.172s socket_timeout=0.150s opens=1 retries=0 handled=True`.
+- Still not covered by any recorded capture: a live runtime with a real
+  provider or remote gateway host.
+
+## Installed Codex CLI contract
+
+Sanitized record:
+[native-codex-retry.okf](native-codex-retry.okf). Installed 0.158.0 and
+0.163.0 produced identical hit counts against an owned loopback Responses
+fixture using the exact screenshot body.
+
+- `request_max_retries=N` gives N retries after the initial attempt:
+  3/0 on 503-then-success = 2 hits rc 0; 503 always = 4 hits rc 1; 0/0 = 1 hit
+  rc 1.
+- HTTP 200 with the screenshot `event: error` before output and
+  `stream_max_retries=0` = 1 hit rc 1. The installed direct CLI does not retry
+  that shape; with stream retries 2 = 2 hits rc 0.
+- Output then `event: error`: stream 0 = 1 hit rc 1; stream 2 = 2 hits rc 0
+  with replay after output.
+- Native `response.failed` before output with stream 2 = 2 hits rc 0.
+- Scope: `codex exec` on Windows, `responses` wire API only. TUI, app-server,
+  WebSocket transport, 429 handling and other hosts were not measured.
+- One 0.158.0 case timed out at 61 s after the CLI had already failed; a
+  descendant kept the pipes open. The 0.163.0 repeat completed in 1.69 s with
+  the same single hit. Pipe-lifetime artifact, not a retry difference.
+- Evidence handling: the first run's generated-config JSON recorded host-local
+  MCP names, loopback ports and external requests. It is intentionally not
+  cited here; only sanitized hit counts are used.
+
+## Installed Claude CLI contract
+
+- Default-configuration SSE probe
+  [harness/direct-claude-sse.json](harness/direct-claude-sse.json): real
+  `/v1/messages` hits were failures+1 (3, 4, 5, 7 hits for 2, 3, 4, 6 scripted
+  failures), all rc 0. [harness/direct-claude-sse-cap.json](harness/direct-claude-sse-cap.json):
+  8 and 10 failures gave 9 and 11 hits rc 0; 12 failures gave 11 real hits then
+  rc 1 with the exact screenshot body (initial hit + 10 retries).
+- These two JSONs do not record a CLI version. The host PATH npm CLI was
+  recorded as `2.1.292 (Claude Code)` in the earlier 03:58 SSE-admission run;
+  the later owner-configured probes recorded `2.1.306 (Claude Code)`. The
+  11-hit cap belongs to the default-config probe binary and must not be
+  attributed to 2.1.306.
+- [evidence/claude-native-direct-owner-retries3.json](evidence/claude-native-direct-owner-retries3.json):
+  2.1.306 with `MAX_RETRIES=3`, watchdog 0, non-streaming timeout retries 0,
+  fallback disabled. SSE 1 failure then success = 2 hits rc 0; 4 failures =
+  4 hits rc 1. JSON mode the same (2 hits rc 0 / 4 hits rc 1).
+- [evidence/claude-native-router-owner-retries0.json](evidence/claude-native-router-owner-retries0.json):
+  `MAX_RETRIES=0`, one failure = 1 hit rc 1 in both SSE and JSON modes.
+- [evidence/claude-environment-owned-tests.txt](evidence/claude-environment-owned-tests.txt):
+  16 environment-projection tests `OK`.
+
+## Menu wiring
+
+Production `portable_prelaunch_menu` and renderer were driven by Win32 key
+input in an owned console; the router control was a synthetic loopback MCP
+fixture. Evidence:
+[../../releases/cielairouter-transient-retry/evidence/menu/verification.okf](../../releases/cielairouter-transient-retry/evidence/menu/verification.okf).
+Observed: default retries row `3 extra; 0 off, max 10, router/direct Codex
+HTTP`; actual key input persisted 0 then restored 3; SSE recovery rows
+rendered; selecting `Recover SSE delivery now` issued
+`/ca/mcp tools/call recover_sse_delivery action=auto` and displayed the
+fixture's no-problem result. The six captures are
+`ReadConsoleOutputCharacterW` text, not pixel screenshots; pixel capture failed
+because no drawable owned console window was found and no PNG is claimed.
+
+## SSE delivery and recovery focused sweep
+
+[../../releases/cielairouter-transient-retry/evidence/focused-native-sse.txt](../../releases/cielairouter-transient-retry/evidence/focused-native-sse.txt)
+ran 228 tests `OK (skipped=12)` in 20.441 s at 14:22, including
+`test_runtime_sse_recovery`, `test_channel_mcp_tools` (including
+`recover_sse_delivery` dispatch), `test_external_event_menu`,
+`test_external_event_control_http` and `test_transient_retry_preamble`, with
+the real-HTTP control lines passing. The dedicated file-only run
+`focused-sse-recovery-final.txt` (captured 2026-10-21 14:22:45 -0500) ran 27
+`test_runtime_sse_recovery` tests `OK` in 2.210 s. The earlier 13:54
+`sse-architecture.txt` capture (51 tests, 1 failure in
+`test_actual_private_status_history_never_authorizes_restart`) is superseded
+for that test by the 14:22 runs; that 51-test file was not rerun as a whole.
+
+## Final exact-file sweep
+
+[../../releases/cielairouter-transient-retry/evidence/focused-final.txt](../../releases/cielairouter-transient-retry/evidence/focused-final.txt)
+ran 670 tests `OK (skipped=12)` in 57.651 s at 14:26 across 34 exact files,
+including `test_runtime_sse_recovery.py`, `test_upstream_retry.py`,
+`test_transient_retry.py`, `test_channel_mcp_tools.py` and the other
+retry/provider files. This is the latest full exact-file capture and was
+written after the 14:16:04 `upstream_retry.py` edit.
+
+# Corrections to earlier wording
+
+- The 60 s value bounds attempt admission, backoff and bounded pre-output
+  inspection; each opener's socket timeout is clipped to the remainder. It is
+  not a hard wall over DNS resolution or a synchronous opener's multiple socket
+  operations.
+- Exhaustion preserves the original status, headers and body exactly. The
+  retry note is attached to the exception object for diagnostics and logged; it
+  is never appended to the provider body.
+- The budget is a `ContextVar` request scope. Provider configuration never
+  stores mutable retry state; sequential and threaded requests get independent
+  budgets.
+- Native direct coverage is not uniform: Codex with `stream_max_retries=0`
+  does not retry a 200 SSE error event, while the measured Claude 2.1.306
+  `MAX_RETRIES>0` does retry the pre-output SSE 503. Do not generalize either
+  result to every error shape or host.
+- The earlier Claude 2.1.292 attribution and the current 2.1.306 measurements
+  are separate observations; see the version note above.
+
+# Not established
+
+- Whether the affected session used the local router or a direct gateway.
+- Port 9179 on this machine refused connection, so no live request or log from
+  the reported incident was inspected.
+- A 503 does not prove the upstream executed nothing; the runtime bounds only
+  its own replay and makes no server-side exactly-once claim.
+- No commit, publish, install or deployment was performed or verified. The
+  packaging dry run is at the existing version 0.2.51 and includes the new
+  modules; it is not a publish or install.
+- The current `upstream_retry.py` revision has no fresh 31/31 acceptance
+  capture. It is covered by the 14:26 670-test exact-file sweep (including its
+  dedicated `test_upstream_retry.py`) and by the 14:21 production-wiring suite,
+  but no repeated protocol acceptance run exists for it.
+
+# Direction (implemented in the working tree)
+
+One request-scoped transient-rejection budget (`transient_retry.py`) shared by
+Messages/Responses/Chat openings: structured verdict only, pre-output only,
+default 3 for CielAiRouter (explicit 0 disables, cap 10), 60 s admission and
+backoff deadline with socket-timeout clipping, gateway reselection through the
+existing overlay, no nested budgets, no replay after any delivered byte,
+original status/headers/body preserved on exhaustion. Routed Claude and Codex
+launches disable native retry loops; direct launches use one bounded native
+owner. Verification and deployment status are recorded in the release file.

@@ -56,12 +56,38 @@ class ChannelMcpToolsTests(unittest.TestCase):
                 "send_file",
                 "llm_options",
                 "restart_session",
+                "recover_sse_delivery",
                 "provider_fallback",
                 "session_backup",
                 "telemetry_logs",
             },
             names,
         )
+
+    def test_recover_sse_delivery_reaches_the_runtime_service(self):
+        calls = []
+        services = replace(
+            self.services,
+            runtime=replace(
+                self.services.runtime,
+                recover_sse_delivery=lambda args: calls.append(args) or {
+                    "ok": True, "reset": True, "problem": True,
+                },
+            ),
+        )
+        response = dispatch_channel_mcp_tool(
+            9,
+            {"name": "recover_sse_delivery", "arguments": {"action": "auto"}},
+            services,
+        )
+        self.assertEqual("auto", calls[0]["action"])
+        self.assertTrue(json.loads(response["result"]["content"][0]["text"])["reset"])
+
+    def test_recover_sse_delivery_requires_a_bound_service(self):
+        response = dispatch_channel_mcp_tool(
+            9, {"name": "recover_sse_delivery", "arguments": {}}, self.services
+        )
+        self.assertTrue(response["result"]["isError"])
 
     def test_submit_input_uses_shared_runtime_gateway(self):
         admitted = []

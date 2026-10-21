@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import contextlib
 import io
 import base64
 import hashlib
@@ -54,6 +55,7 @@ from ciel_runtime_support.remote_bridge import (
 from ciel_runtime_support.model_override import with_forced_model
 from ciel_runtime_support.oauth_routing import codex_request_run
 from ciel_runtime_support.tool_schema import request_tool_schema_scope
+from ciel_runtime_support.transient_retry import request_scope, retry_handled
 from ciel_runtime_support.upstream_dump import dump_upstream_request
 from ciel_runtime_support.upstream_stream_io import (
     UpstreamClientDisconnected,
@@ -370,7 +372,8 @@ class CodexBackendHttpAdapter:
                 data = json.dumps(upstream_body).encode("utf-8")
                 dump_upstream_request(url, data, self._retry.log)
             except urllib.error.HTTPError as exc:
-                if (getattr(exc, "_codex_no_output_retry_exhausted", False)
+                if (retry_handled(exc)
+                        or getattr(exc, "_codex_no_output_retry_exhausted", False)
                         or getattr(exc, "_codex_http_body_read_failed", False)):
                     raise
                 if oauth_run is not None and exc.code in (401, 429):
@@ -418,6 +421,8 @@ class CodexBackendHttpAdapter:
     ) -> None:
         """Wait out an overloaded upstream, or relay its error with what was tried."""
 
+        if retry_handled(exc):
+            raise exc
         raw = exc.read()
         wait = overload.next_wait(exc.code, raw, exc.headers)
         excerpt = message_excerpt(raw)
@@ -836,6 +841,10 @@ class CodexBackendHttpAdapter:
                     pcfg=config,
                 )
             except (TimeoutError, urllib.error.URLError, OSError) as error:
+                if provider == "cielairouter" or retry_handled(error):
+                    # The request-scoped executor is the sole transient owner;
+                    # transport loss is not an explicit pre-output rejection.
+                    raise
                 payload = b""
                 if isinstance(error, urllib.error.HTTPError):
                     try:
@@ -1611,20 +1620,30 @@ class RouterHttpHandler(BaseHTTPRequestHandler):
         session = gateway_session(self, provider, body) if gateways is not None else ""
         if gateways is not None:
             pcfg = gateways.apply(provider, pcfg, path=path, session=session)
-        for _attempt in range(8):
-            model = str(body.get("model") or pcfg.get("current_model") or "")
-            try:
-                with services.core.observe_runtime(self, path, provider, model, body):
-                    return bool(endpoints.runtime(self, cfg, provider, pcfg, path, body))
-            except FailoverRequested as request:
-                if failover is None or self._ciel_runtime_response_status is not None:
-                    raise
-                services.core.log("WARN", f"provider_failover_retry path={path} {request}")
-                provider, pcfg = failover.effective(cfg, request.from_provider, pcfg, turn_start=False)
-                if gateways is not None:
-                    session = gateway_session(self, provider, pristine)
-                    pcfg = gateways.apply(provider, pcfg, path=path, session=session)
-                body = copy.deepcopy(pristine)
+        with contextlib.ExitStack() as retry_scope:
+            scoped_provider = None
+            for _attempt in range(8):
+                if llm and provider != scoped_provider:
+                    retry_scope.close()
+                    if provider == "cielairouter":
+                        # One allowance for the entire logical dispatch, including
+                        # nested context recovery and legacy reopen loops. Never
+                        # attach mutable retry state to a reusable provider config.
+                        retry_scope.enter_context(request_scope(pcfg, provider))
+                    scoped_provider = provider
+                model = str(body.get("model") or pcfg.get("current_model") or "")
+                try:
+                    with services.core.observe_runtime(self, path, provider, model, body):
+                        return bool(endpoints.runtime(self, cfg, provider, pcfg, path, body))
+                except FailoverRequested as request:
+                    if failover is None or self._ciel_runtime_response_status is not None:
+                        raise
+                    services.core.log("WARN", f"provider_failover_retry path={path} {request}")
+                    provider, pcfg = failover.effective(cfg, request.from_provider, pcfg, turn_start=False)
+                    if gateways is not None:
+                        session = gateway_session(self, provider, pristine)
+                        pcfg = gateways.apply(provider, pcfg, path=path, session=session)
+                    body = copy.deepcopy(pristine)
         return False
 
     def do_POST(self) -> None:

@@ -19,6 +19,7 @@ from .upstream_error_policy import (
     terminal_usage_limit_error,
 )
 from .upstream_dump import dump_upstream_request
+from .transient_retry import bounded_timeout, configured_retry_limit, open_with_transient_retry, retry_handled
 
 
 def _preserves_upstream_status(error: urllib.error.HTTPError) -> bool:
@@ -55,6 +56,9 @@ def _preserved_http_error(
     upstream_status = getattr(error, "ciel_runtime_upstream_status", None)
     if upstream_status is not None:
         preserved.ciel_runtime_upstream_status = upstream_status
+    if retry_handled(error):
+        preserved._ciel_transient_retry_handled = True
+        preserved._ciel_transient_retry_exhausted = True
     return preserved
 
 
@@ -120,8 +124,9 @@ def _selected_cielairouter_gateway(provider: str, pcfg: Any) -> bool:
     is wrapped, logged and recorded exactly like an exhausted retry budget.  A
     raw re-raise would hand ``http.client.RemoteDisconnected`` (a
     ``ConnectionResetError``) to the protocol router, which classifies it as a
-    client disconnect and answers nothing.  429 handling remains separate
-    because key rotation and rate-limit backoff are intentional.
+    client disconnect and answers nothing. Legacy 429 key/backoff handling
+    remains for calls without the shared owner; a handled CielAiRouter error
+    never enters that independent loop.
     """
 
     return (
@@ -184,6 +189,8 @@ class UpstreamRetryHttp:
     set_stream_read_timeout: Callable[..., Any]
     stream_idle_timeout_seconds: Callable[..., Any]
     upstream_http_error_message: Callable[..., Any]
+    reselect: Callable[[dict[str, Any]], dict[str, Any]] | None = None
+    publish: Callable[..., Any] = lambda **_kwargs: None
 
 
 @dataclass(frozen=True, slots=True)
@@ -192,6 +199,58 @@ class UpstreamRetryServices:
     keys: UpstreamRetryKeys
     rate_limit: UpstreamRetryRateLimit
     http: UpstreamRetryHttp
+
+
+def _open_cielairouter_transient(
+    open_once: Callable[[], Any],
+    *,
+    provider: str,
+    config: dict[str, Any],
+    request: Any,
+    model: str,
+    http: UpstreamRetryHttp,
+    log: Callable[[str, str], Any],
+    rebuild_headers: Callable[[dict[str, Any]], dict[str, str]] | None = None,
+) -> Any:
+    """Spend the request-scoped CielAiRouter pre-output HTTP budget."""
+
+    if (provider != "cielairouter"
+            or config.get(REMOTE_BRIDGE_CONFIG_MARKER) is True
+            or (_selected_cielairouter_gateway(provider, config) and http.reselect is None)):
+        return open_once()
+
+    def reselect_request() -> None:
+        if http.reselect is None:
+            return
+        old_base = str(config.get("base_url") or "").rstrip("/")
+        # Only replace a verified base prefix; never transplant credentials to
+        # an unrelated URL supplied by a caller.
+        if not old_base or not request.full_url.startswith(old_base + "/"):
+            return
+        suffix = request.full_url[len(old_base):]
+        fresh = http.reselect(dict(config))
+        if not isinstance(fresh, dict):
+            return
+        new_base = str(fresh.get("base_url") or "").rstrip("/")
+        if not new_base:
+            return
+        request.full_url = new_base + suffix
+        if rebuild_headers is not None:
+            request.headers = dict(rebuild_headers(fresh))
+        config.clear()
+        config.update(fresh)
+
+    return open_with_transient_retry(
+        open_once,
+        provider=provider,
+        config=config,
+        log=log,
+        publish=http.publish,
+        request=request,
+        model=model,
+        reselect=reselect_request if http.reselect is not None else None,
+        sleep=time.sleep,
+    )
 
 
 def post_json_with_rate_retry(
@@ -236,7 +295,7 @@ def post_json_with_rate_retry(
     max_attempts = max(1, gateway_retries + 1)
     rate_limit_max_attempts = (
         max_attempts
-        if remote_bridge
+        if remote_bridge or (provider == "cielairouter" and configured_retry_limit(pcfg) == 0)
         else max(max_attempts, provider_api_key_count(provider, pcfg))
     )
     token_estimate = estimate_tokens(req_body)
@@ -257,7 +316,20 @@ def post_json_with_rate_retry(
             router_log("INFO", f"upstream_request provider={provider} model={model} attempt={attempt + 1}/{max_attempts} tokens={token_estimate} bytes={byte_estimate} timeout={timeout}")
             data_bytes = json.dumps(req_body).encode("utf-8")
             req = urllib.request.Request(url, data=data_bytes, headers=headers, method="POST")
-            with provider_urlopen(req, timeout=timeout, provider=provider, pcfg=pcfg) as resp:
+            def open_once() -> Any:
+                return provider_urlopen(req, timeout=bounded_timeout(pcfg, provider, timeout), provider=provider, pcfg=pcfg)
+            with _open_cielairouter_transient(
+                open_once,
+                provider=provider,
+                config=pcfg,
+                request=req,
+                model=model,
+                http=http,
+                log=router_log,
+                rebuild_headers=lambda fresh: prepare_runtime_headers(
+                    provider, fresh, provider_headers(provider, fresh, headers)
+                ),
+            ) as resp:
                 learn_router_rate_limit_headers(provider, pcfg, model, resp.headers)
                 data = json.loads(resp.read().decode("utf-8"))
                 write_router_activity("success", provider, model, attempt=attempt + 1, tokens=token_estimate, bytes=byte_estimate)
@@ -272,6 +344,7 @@ def post_json_with_rate_retry(
                 register_api_key_cooldown(provider, pcfg, key_from_request_headers(headers), exc.headers)
             if (
                 exc.code == 429
+                and not retry_handled(exc)
                 and not terminal_usage_limit
                 and retry_rate_limits
                 and provider_api_key_count(provider, pcfg) > 1
@@ -286,7 +359,7 @@ def post_json_with_rate_retry(
                 write_router_activity("retry", provider, model, attempt=retry_no, total=rate_limit_max_attempts - 1, code=exc.code, wait=0, tokens=token_estimate, bytes=byte_estimate)
                 router_log("WARN", f"upstream_rate_limit_key_retry provider={provider} model={model} attempt={retry_no}/{rate_limit_max_attempts - 1} next_key_hash={next_hash} tokens={token_estimate} bytes={byte_estimate}")
                 continue
-            if exc.code == 429 and not terminal_usage_limit and retry_rate_limits and attempt + 1 < max_attempts:
+            if exc.code == 429 and not retry_handled(exc) and not terminal_usage_limit and retry_rate_limits and attempt + 1 < max_attempts:
                 skip_retry, retry_after_seconds = retry_after_exceeds_request_timeout(exc.headers, timeout)
                 if skip_retry:
                     write_router_activity("error", provider, model, code=exc.code, retry_after=retry_after_seconds, tokens=token_estimate, bytes=byte_estimate)
@@ -308,7 +381,8 @@ def post_json_with_rate_retry(
                 )
                 continue
             if (
-                exc.code in UPSTREAM_RETRY_HTTP_CODES
+                provider != "cielairouter"
+                and exc.code in UPSTREAM_RETRY_HTTP_CODES
                 and attempt + 1 < max_attempts
                 and not selected_gateway
             ):
@@ -320,7 +394,7 @@ def post_json_with_rate_retry(
                 time.sleep(upstream_retry_wait_seconds(retry_no))
                 continue
             write_router_activity("error", provider, model, code=exc.code, tokens=token_estimate, bytes=byte_estimate)
-            if _preserves_upstream_status(exc):
+            if _preserves_upstream_status(exc) or retry_handled(exc):
                 # Request-level failures are terminal, not capacity errors.
                 # Preserve their status and body so callers never turn them
                 # into a retryable generic 500. The original stream was
@@ -332,6 +406,7 @@ def post_json_with_rate_retry(
         except (urllib.error.URLError, OSError) as exc:
             if (
                 retryable_upstream_exception(exc)
+                and not retry_handled(exc)
                 and attempt + 1 < max_attempts
                 and not selected_gateway
             ):
@@ -396,7 +471,7 @@ def open_provider_request_with_key_retry(
     max_attempts = max(1, gateway_retries + 1)
     rate_limit_max_attempts = (
         max_attempts
-        if remote_bridge
+        if remote_bridge or (provider == "cielairouter" and configured_retry_limit(pcfg) == 0)
         else max(max_attempts, provider_api_key_count(provider, pcfg))
     )
     token_estimate = estimate_tokens(req_body)
@@ -445,7 +520,20 @@ def open_provider_request_with_key_retry(
             )
             req = urllib.request.Request(url, data=data_bytes, headers=headers, method="POST")
             sent_at = time.monotonic()
-            resp = provider_urlopen(req, timeout=timeout, provider=provider, pcfg=pcfg)
+            def open_once() -> Any:
+                return provider_urlopen(req, timeout=bounded_timeout(pcfg, provider, timeout), provider=provider, pcfg=pcfg)
+            resp = _open_cielairouter_transient(
+                open_once,
+                provider=provider,
+                config=pcfg,
+                request=req,
+                model=model,
+                http=http,
+                log=router_log,
+                rebuild_headers=lambda fresh: prepare_runtime_headers(
+                    provider, fresh, provider_headers(provider, fresh, headers)
+                ),
+            )
             learn_router_rate_limit_headers(provider, pcfg, model, resp.headers)
             return resp
         except urllib.error.HTTPError as original_exc:
@@ -464,6 +552,7 @@ def open_provider_request_with_key_retry(
                 register_api_key_cooldown(provider, pcfg, key_from_request_headers(headers), exc.headers)
             if (
                 exc.code == 429
+                and not retry_handled(exc)
                 and not terminal_usage_limit
                 and retry_rate_limits
                 and provider_api_key_count(provider, pcfg) > 1
@@ -478,7 +567,7 @@ def open_provider_request_with_key_retry(
                 write_router_activity("retry", provider, model, attempt=retry_no, total=rate_limit_max_attempts - 1, code=exc.code, wait=0, tokens=token_estimate, bytes=byte_estimate, stream=stream)
                 router_log("WARN", f"upstream_direct_rate_limit_key_retry provider={provider} model={model} attempt={retry_no}/{rate_limit_max_attempts - 1} next_key_hash={next_hash} tokens={token_estimate} bytes={byte_estimate}")
                 continue
-            if exc.code == 429 and not terminal_usage_limit and retry_rate_limits and attempt + 1 < max_attempts:
+            if exc.code == 429 and not retry_handled(exc) and not terminal_usage_limit and retry_rate_limits and attempt + 1 < max_attempts:
                 skip_retry, retry_after_seconds = retry_after_exceeds_request_timeout(exc.headers, timeout)
                 if skip_retry:
                     write_router_activity("error", provider, model, code=exc.code, retry_after=retry_after_seconds, tokens=token_estimate, bytes=byte_estimate, stream=stream)
@@ -494,7 +583,8 @@ def open_provider_request_with_key_retry(
                 time.sleep(wait)
                 continue
             if (
-                exc.code in UPSTREAM_RETRY_HTTP_CODES
+                provider != "cielairouter"
+                and exc.code in UPSTREAM_RETRY_HTTP_CODES
                 and attempt + 1 < max_attempts
                 and not selected_gateway
             ):
@@ -524,6 +614,7 @@ def open_provider_request_with_key_retry(
         except (urllib.error.URLError, OSError) as exc:
             if (
                 retryable_upstream_exception(exc)
+                and not retry_handled(exc)
                 and attempt + 1 < max_attempts
                 and not selected_gateway
             ):
@@ -594,7 +685,7 @@ def open_openai_stream_with_rate_retry(
     max_attempts = max(1, gateway_retries + 1)
     rate_limit_max_attempts = (
         max_attempts
-        if remote_bridge
+        if remote_bridge or (provider == "cielairouter" and configured_retry_limit(pcfg) == 0)
         else max(max_attempts, provider_api_key_count(provider, pcfg))
     )
     token_estimate = estimate_tokens(req_body)
@@ -636,7 +727,20 @@ def open_openai_stream_with_rate_retry(
                 headers=headers,
             )
             req = urllib.request.Request(url, data=data_bytes, headers=headers, method="POST")
-            resp = provider_urlopen(req, timeout=timeout, provider=provider, pcfg=pcfg)
+            def open_once() -> Any:
+                return provider_urlopen(req, timeout=bounded_timeout(pcfg, provider, timeout), provider=provider, pcfg=pcfg)
+            resp = _open_cielairouter_transient(
+                open_once,
+                provider=provider,
+                config=pcfg,
+                request=req,
+                model=model,
+                http=http,
+                log=router_log,
+                rebuild_headers=lambda fresh: prepare_runtime_headers(
+                    provider, fresh, provider_headers(provider, fresh, headers)
+                ),
+            )
             set_upstream_stream_read_timeout(resp, provider_stream_idle_timeout_seconds(pcfg))
             learn_router_rate_limit_headers(provider, pcfg, model, resp.headers)
             return resp
@@ -650,6 +754,7 @@ def open_openai_stream_with_rate_retry(
                 register_api_key_cooldown(provider, pcfg, key_from_request_headers(headers), exc.headers)
             if (
                 exc.code == 429
+                and not retry_handled(exc)
                 and not terminal_usage_limit
                 and retry_rate_limits
                 and provider_api_key_count(provider, pcfg) > 1
@@ -664,7 +769,7 @@ def open_openai_stream_with_rate_retry(
                 write_router_activity("retry", provider, model, attempt=retry_no, total=rate_limit_max_attempts - 1, code=exc.code, wait=0, tokens=token_estimate, bytes=byte_estimate, stream=True)
                 router_log("WARN", f"upstream_stream_rate_limit_key_retry provider={provider} model={model} attempt={retry_no}/{rate_limit_max_attempts - 1} next_key_hash={next_hash} tokens={token_estimate} bytes={byte_estimate}")
                 continue
-            if exc.code == 429 and not terminal_usage_limit and retry_rate_limits and attempt + 1 < max_attempts:
+            if exc.code == 429 and not retry_handled(exc) and not terminal_usage_limit and retry_rate_limits and attempt + 1 < max_attempts:
                 skip_retry, retry_after_seconds = retry_after_exceeds_request_timeout(exc.headers, timeout)
                 if skip_retry:
                     write_router_activity("error", provider, model, code=exc.code, retry_after=retry_after_seconds, tokens=token_estimate, bytes=byte_estimate, stream=True)
@@ -686,7 +791,8 @@ def open_openai_stream_with_rate_retry(
                 )
                 continue
             if (
-                exc.code in UPSTREAM_RETRY_HTTP_CODES
+                provider != "cielairouter"
+                and exc.code in UPSTREAM_RETRY_HTTP_CODES
                 and attempt + 1 < max_attempts
                 and not selected_gateway
             ):
@@ -698,7 +804,7 @@ def open_openai_stream_with_rate_retry(
                 time.sleep(upstream_retry_wait_seconds(retry_no))
                 continue
             write_router_activity("error", provider, model, code=exc.code, tokens=token_estimate, bytes=byte_estimate, stream=True)
-            if _preserves_upstream_status(exc):
+            if _preserves_upstream_status(exc) or retry_handled(exc):
                 raise _preserved_http_error(exc, raw_bytes) from exc
             raise UpstreamFailure.from_http_error(
                 provider, model, exc, raw_bytes
@@ -709,6 +815,7 @@ def open_openai_stream_with_rate_retry(
             )
             if (
                 retryable_upstream_exception(exc)
+                and not retry_handled(exc)
                 and attempt + 1 < max_attempts
                 and not selected_gateway
             ):

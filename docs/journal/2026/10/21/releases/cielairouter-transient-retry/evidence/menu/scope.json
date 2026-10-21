@@ -1,0 +1,27 @@
+{
+  "scratch": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-menu-evidence-7xnqdxtv",
+  "port": 64532,
+  "workspace": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-menu-evidence-7xnqdxtv\\workspace",
+  "scope": "Actual production portable_prelaunch_menu and renderer with Win32 key input. Router control uses synthetic loopback MCP fixture, not real runtime restart. No provider credentials.",
+  "cleared_environment_prefixes": [
+    "CIEL_RUNTIME_",
+    "CLAUDE_",
+    "ANTHROPIC_",
+    "CODEX_",
+    "OPENAI_",
+    "OLLAMA_",
+    "GEMINI_",
+    "GOOGLE_",
+    "AZURE_",
+    "AWS_",
+    "DEEPSEEK_",
+    "MISTRAL_",
+    "NVIDIA_",
+    "ZAI_",
+    "KIMI_",
+    "GROQ_",
+    "OPENCODE_",
+    "GITHUB_",
+    "COPILOT_"
+  ]
+}
