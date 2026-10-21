@@ -1,0 +1,61 @@
+---
+type: release-verification
+title: SSE injection restored by ignoring damaged input history
+description: Removes the file-global history gate, offline quarantine and archives; damaged status/queue lines are ignored and readable IDs kept.
+tags: [runtime, sse, channel, history, release]
+timestamp: 2026-10-21
+---
+
+# Request
+
+User: SSE automatic injection worked one or two versions ago and stopped.
+Damaged history may be ignored as long as readable IDs are used; remove the
+quarantine, archive and history-preservation machinery; deploy locally and to
+nightly after real injection is verified.
+
+# Regression (from commit diffs)
+
+- e7d81c7 made begin_attempt scan the whole status file strictly; one
+  malformed line anywhere raised and refused every new batch.
+- 1b08402 turned that raise into a permanent "delivery_held" in the poller.
+- 09017fb also made get(_locked=True) strict, so transitions failed too, and
+  added the offline quarantine (generation marker, archive, menu preview).
+Walkie's status file has NUL-damaged lines 12888/30025, so every new SSE input
+was queued but never submitted.
+
+# Change
+
+- runtime_input_status: no strict mode, no WakeHistoryUnavailable. Undecodable
+  lines are ignored (logged once per damage state). A NUL run of any length
+  before a complete record is stripped and the record used. A complete record
+  at EOF without newline is used; appends add the missing newline first. An
+  unreadable file (OSError) raises StatusHistoryUnreadable, a
+  ChannelFileLockBusy subtype, so the poll defers instead of resending.
+  Past 4 MiB the file is rewritten in place to one latest row per request,
+  dropping requests below the queue's lowest remaining id; no archive.
+- channel_pending_poll/injection: the history-hold branch is removed.
+- Offline quarantine modules, marker and menu row deleted.
+- channel_message_repository: no .jsonl.1 archive; damaged rows ignored while
+  ids visible in them stay reserved.
+
+Verification, commit and publication are recorded below.
+
+# Source verification
+
+- Isolated exact-file suite (evidence/focused.py, 30 files): 871 tests,
+  2 failures, 122 skips (evidence/focused-source.txt). Both failures are in
+  test_unisolated_test_guard IsolatedCliAssetTests (isolated codex prompts
+  path resolves to ~/.codex) and fail identically on a clean `git archive
+  HEAD` tree under the same runner. Pre-existing; cause not investigated here.
+- Native claude.exe 2.1.292 acceptance over damaged + NUL history:
+  ../../diagnostics/sse-admission-regression/run-claude-final-source-035809
+  passed (one socket send per new SSE input, queued/submitted/replied,
+  repeat scan sends only the newer input, old submitted/replied/uncertain
+  never resent, old bytes unchanged, no archive file). Console text rendered
+  to native-screen-rendered.png (labelled; PrintWindow returns empty).
+- Protocol-fixture SSE->socket E2E 4/4 (sse-admission-regression/after).
+- Real TUI factory in Edge: `session delivery not_blocked | known queued 2 |
+  history_observation_partial line 2`
+  (../../diagnostics/delivery-health-partial/evidence/final-tui-not-blocked.png).
+- ruff (repository), py_compile, check:docs, git diff --check, npm pack
+  dry-run (561 files, no recovery modules) passed.

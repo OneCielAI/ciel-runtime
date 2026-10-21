@@ -1,5 +1,6 @@
-"""Real local SSE, queue and child-socket delivery after proxy failure."""
+"""Real SSE and production delivery to an owned protocol fixture, not native CLI."""
 
+import hashlib
 import json
 import os
 import subprocess
@@ -24,6 +25,8 @@ from ciel_runtime_support.channel_terminal_context import (
     ChannelTerminalPolicyPorts, ChannelTerminalPollingPorts,
     ChannelTerminalProcessPorts, ChannelTerminalWindowsPorts,
 )
+from ciel_runtime_support.channel_wake_claim_repository import prompt_message_ids, prompt_references_message_id
+from ciel_runtime_support.channel_transcript import ChannelWakeTranscriptServices, wake_state_evidence_from_text
 from ciel_runtime_support.channel_wake_delivery_repository import ChannelWakeDeliveryRepository
 from ciel_runtime_support.claude_session_socket import ClaudeSessionSocketClient, generated_socket_path, session_key_hash
 from ciel_runtime_support.external_event_receiver import EventReceiverSecretVault, ExternalEventReceiverService
@@ -34,7 +37,7 @@ from ciel_runtime_support.runtime_input_status import RuntimeInputStatusReposito
 CHILD_CODE = """
 import ctypes,json,os,socket,sys,threading,time
 from pathlib import Path
-pipe,key,receipt,release=sys.argv[1:]
+pipe,key,receipt,release,transcript=sys.argv[1:]
 threading.Timer(20,lambda:os._exit(4)).start()
 if Path(receipt).exists():
     while not Path(release).exists():time.sleep(0.02)
@@ -73,6 +76,11 @@ frames=[json.loads(row) for row in bytes(data).splitlines()]
 assert frames[0]=={'type':'auth','token':'ab'*16}
 assert frames[1]['type']=='user'
 Path(receipt).write_text(json.dumps({'accepted':True,'prompt':frames[1]['message']['content'],'user_frames':sum(f['type']=='user' for f in frames)}),encoding='utf-8')
+from datetime import datetime,timezone
+stamp=datetime.now(timezone.utc).isoformat()
+rows=[{'type':'user','sessionId':'owned-fixture','timestamp':stamp,'message':frames[1]['message']},
+      {'type':'assistant','sessionId':'owned-fixture','timestamp':stamp,'message':{'role':'assistant','content':[{'type':'text','text':'synthetic fixture reply'}]}}]
+Path(transcript).write_text(''.join(json.dumps(row)+chr(10) for row in rows),encoding='utf-8')
 while not Path(release).exists():time.sleep(0.02)
 os._exit(0)
 """
@@ -85,7 +93,13 @@ class DirectSocketDeliveryE2ETests(unittest.TestCase):
     def test_inflight_socket_delivery_is_confirmed_after_real_child_replacement(self):
         self._run_pipeline(fail_after_submit=True)
 
-    def _run_pipeline(self, *, fail_after_submit):
+    def test_damaged_history_admits_new_sse_once(self):
+        self._run_pipeline(fail_after_submit=False, damaged_history=True)
+
+    def test_damaged_history_replacement_preserves_old_owners(self):
+        self._run_pipeline(fail_after_submit=True, damaged_history=True)
+
+    def _run_pipeline(self, *, fail_after_submit, damaged_history=False):
         with tempfile.TemporaryDirectory(prefix="ciel-direct-e2e-") as raw:
             root = Path(raw)
             logs = []
@@ -93,6 +107,11 @@ class DirectSocketDeliveryE2ETests(unittest.TestCase):
                 logs.append(entry)
             cursor = [0]
             receipt = root / "received.json"
+            transcript = root / "transcript.jsonl"
+            evidence_states = []
+            socket_sends = []
+            repeat_ids = []
+            fresh_id = 7 if damaged_history else 1
             release = root / "release"
             target = generated_socket_path("nt") if os.name == "nt" else str(root / "session.sock")
             keys = root / ".claude" / "sessions"
@@ -100,21 +119,56 @@ class DirectSocketDeliveryE2ETests(unittest.TestCase):
             key = keys / f"fixture.{session_key_hash(target, os.name)}.key"
             client = ClaudeSessionSocketClient(root, log, platform_name=os.name)
             client.configure(target)
-            status = RuntimeInputStatusRepository(root / "status.jsonl", lambda *a, **kw: None, log, threading.RLock())
+            def publish_status(**event):
+                row = event["data"]
+                evidence_states.append((row["request_id"], row["status"]))
+            status = RuntimeInputStatusRepository(root / "status.jsonl", publish_status, log, threading.RLock())
             queue = ChannelMessageRepository(root / "inputs.jsonl", log)
             append_ports = ChannelMessageAppendPorts(
                 condition=threading.Condition(), file_lock=lambda: exclusive_file_lock(queue.path),
                 duplicate=lambda row: None, normalize_recipients=string_list,
             )
+            # Old inputs whose readable durable owners must never be resent:
+            # 1-3 are plain rows, 4-6 survive a leading-NUL writer prefix.
+            original_states = {1: "submitted", 2: "replied", 3: "interrupted_uncertain",
+                               4: "submitted", 5: "replied", 6: "interrupted_uncertain"} if damaged_history else {}
+            history_prefix = b""
+            if damaged_history:
+                owner_rows = []
+                for message_id, old_state in original_states.items():
+                    queue.append({"message": f"synthetic old input {message_id}", "channel": "fixture-old",
+                                  "meta": {"input_transport": "session_socket"}}, append_ports)
+                    row = {"request_id": message_id, "status": old_state,
+                           "updated_at": "2026-10-20T00:00:00+00:00", "updated_at_epoch": 1792454400.0,
+                           "data": {"attempt_id": f"old-attempt-{message_id}", "child_epoch": "old-child"}}
+                    nul_prefix = bytes(19) if message_id > 3 else b""
+                    owner_rows.append(nul_prefix + json.dumps(row).encode("utf-8") + bytes([10]))
+                damaged_lines = [b"{malformed" + bytes([10]), b"{broken" + bytes([0, 10]), bytes([255, 10])]
+                history_prefix = (damaged_lines[0] + b"".join(owner_rows[:3]) + damaged_lines[1]
+                                  + b"".join(owner_rows[3:]) + damaged_lines[2] + b"{" + b'"unfinished"' + b":")
+                status.path.write_bytes(history_prefix)
+                for message_id, old_state in original_states.items():
+                    self.assertEqual(old_state, status.get(message_id)["status"])
+                self.assertFalse(status.history_health()["complete"])
+                self.assertEqual(history_prefix, status.path.read_bytes(), "history read changed source bytes")
             gateway = RuntimeInputGateway(lambda body: queue.append(body, append_ports), status=status)
             lifecycle = ChannelWakeDeliveryRepository(
                 lock=threading.RLock(), delivered=set(), prompts={}, batches={},
                 clear_claim=lambda _: None, commit_cursor=lambda n: cursor.__setitem__(0, n), status=status,
             )
-            def received():
-                return receipt.is_file()
-            def wake_state(message_id):
-                return "completed" if received() else "queued" if lifecycle.is_delivered(message_id) else "missing"
+            lifecycle.bind_child_epoch("owned-protocol-child")
+            transcript_services = ChannelWakeTranscriptServices(
+                claim_prompt=lifecycle.prompt, prompt_references_message_id=prompt_references_message_id,
+                prompt_message_ids=prompt_message_ids, now=time.time,
+            )
+            def wake_state(message_id, prompt=None):
+                text = transcript.read_text(encoding="utf-8") if transcript.exists() else ""
+                return wake_state_evidence_from_text(
+                    message_id, text, [prompt] if prompt else (), transcript_services,
+                ).state
+            def send_socket(prompt, messages):
+                socket_sends.append([row["id"] for row in messages])
+                return client.send(prompt, messages)
             def no_tty(*args, **kwargs):
                 raise AssertionError("direct fallback tried terminal input")
             def format_prompt(messages):
@@ -128,7 +182,7 @@ class DirectSocketDeliveryE2ETests(unittest.TestCase):
                     recover_cursor=lambda n: n, pending_scan_limit=lambda: 50,
                     superseded_ids=lambda rows: set(), message_is_web_chat=lambda row: False,
                     message_skip_reason=lambda row: "", event_identity_key=lambda row: (),
-                    wake_state_for_message=lambda row, prompt: wake_state(row["id"]),
+                    wake_state_for_message=lambda row, prompt: wake_state(row["id"], prompt),
                     queued_wake_is_stale=lambda *a: False,
                 ),
                 prompts=ChannelInjectionPrompts(
@@ -143,7 +197,7 @@ class DirectSocketDeliveryE2ETests(unittest.TestCase):
                 ),
                 io=ChannelInjectionIO(
                     inject_lock=threading.Lock(), read_messages=lambda n,*a: queue.read(n),
-                    write_prompt=no_tty, log=log, write_session_socket=client.send,
+                    write_prompt=no_tty, log=log, write_session_socket=send_socket,
                     session_socket_available=client.available,
                 ),
                 policy=ChannelInjectionPolicy(wake_batch_limit=lambda: 1, replay_skip_reason=lambda row: ""),
@@ -179,7 +233,7 @@ class DirectSocketDeliveryE2ETests(unittest.TestCase):
                     wait = staticmethod(proc.wait)
                     terminate = staticmethod(proc.terminate)
                     def resize_if_needed(self):
-                        if lifecycle.is_delivered(1):
+                        if lifecycle.is_delivered(fresh_id):
                             deadline = time.monotonic() + 3
                             while not receipt.exists() and time.monotonic() < deadline:
                                 time.sleep(0.01)
@@ -264,19 +318,27 @@ class DirectSocketDeliveryE2ETests(unittest.TestCase):
             )
             child = root / "fixture-child.py"
             child.write_text(CHILD_CODE, encoding="utf-8")
-            env = {k: v for k, v in os.environ.items() if not k.startswith("CIEL_RUNTIME_")}
+            purge = ("CIEL_RUNTIME_", "CLAUDE", "ANTHROPIC_", "CODEX_", "OPENAI_", "OPENROUTER_", "GEMINI_", "GOOGLE_")
+            env = {k: v for k, v in os.environ.items() if not k.upper().startswith(purge)
+                   and not any(word in k.upper() for word in ("TOKEN", "SECRET", "PASSWORD", "API_KEY", "CREDENTIAL"))}
+            env.update(HOME=str(root), USERPROFILE=str(root), CLAUDE_CONFIG_DIR=str(root / ".claude"))
             env["CIEL_RUNTIME_TEST_ISOLATED"] = "1"
             env["CIEL_RUNTIME_CONFIG_DIR"] = str(root / "config")
             try:
                 receiver.start()
                 self.assertTrue(ready.wait(3))
                 deadline = time.monotonic() + 3
-                while not queue.path.exists() and time.monotonic() < deadline:
+                # Wait for gateway admission itself: its queued status row is
+                # appended after the queue row, and old rows already exist.
+                while (fresh_id, "queued") not in evidence_states and time.monotonic() < deadline:
                     time.sleep(0.01)
-                self.assertTrue(queue.path.exists())
+                self.assertEqual(fresh_id, queue.max_id())
+                self.assertEqual([(fresh_id, "queued")], evidence_states)
+                self.assertEqual("queued", status.get(fresh_id)["status"])
+                self.assertEqual([], socket_sends, "transport preceded queued admission")
                 receiver.stop()
                 result = context.dispatch(
-                    [sys.executable, str(child), target, str(key), str(receipt), str(release)],
+                    [sys.executable, "-I", str(child), target, str(key), str(receipt), str(release), str(transcript)],
                     env, channel_wake_confirm_submit=True,
                 )
                 errors = [proc.stderr.read().decode() for proc in processes]
@@ -285,10 +347,53 @@ class DirectSocketDeliveryE2ETests(unittest.TestCase):
                 self.assertTrue(record["accepted"])
                 self.assertIn("socket-fallback-nonce", record["prompt"])
                 self.assertEqual(1, record["user_frames"])
-                self.assertEqual(1, len(queue.read()))
-                self.assertEqual(1, cursor[0])
-                self.assertEqual("replied", status.get(1)["status"])
+                self.assertEqual(fresh_id, len(queue.read()))
+                # A readable old submitted owner holds the frontier without
+                # blocking or resending; later independent inputs still go.
+                self.assertEqual(0 if damaged_history else fresh_id, cursor[0])
+                self.assertEqual("replied", status.get(fresh_id)["status"])
+                fresh_body = queue.read(fresh_id - 1)[0]["message"]
+                self.assertEqual("completed", wake_state(fresh_id, fresh_body))
+                self.assertEqual([(fresh_id, "queued"), (fresh_id, "submitted"), (fresh_id, "replied")],
+                                 evidence_states)
+                self.assertEqual([[fresh_id]], socket_sends)
                 self.assertEqual(1, sum("claude_session_socket_injected" in message for _, message in logs))
+                appended_before_repeat = status.path.read_bytes()
+                # Full rescan from zero, not just an empty tail after the cursor.
+                inject(None, 0, bytes([13]), terminal_available=False, injected_message_ids=repeat_ids)
+                self.assertEqual([], repeat_ids)
+                self.assertEqual([[fresh_id]], socket_sends)
+                self.assertEqual(appended_before_repeat, status.path.read_bytes(), "repeat scan wrote status")
+                for message_id, old_state in original_states.items():
+                    self.assertEqual(old_state, status.get(message_id)["status"])
+                    self.assertEqual(f"old-attempt-{message_id}", status.get(message_id)["data"]["attempt_id"])
+                final_history = status.path.read_bytes()
+                self.assertTrue(final_history.startswith(history_prefix), "history prefix rewritten")
+                self.assertEqual([], [p.name for p in root.rglob("*") if "archive" in p.name or "quarantine" in p.name])
+                evidence_dir = os.environ.get("E2E_EVIDENCE_DIR")
+                if evidence_dir:
+                    label = ("damaged" if damaged_history else "baseline") + ("-replacement" if fail_after_submit else "")
+                    appended = final_history[len(history_prefix):]
+                    evidence = {
+                        "fixture": "owned python protocol child (not native Claude Code)",
+                        "platform": os.name, "message_id": fresh_id, "cursor": cursor[0],
+                        "socket_sends": socket_sends, "repeat_scan_injected_ids": repeat_ids,
+                        "status_events": evidence_states,
+                        "old_states_before": original_states,
+                        "old_states_after": {i: status.get(i)["status"] for i in original_states},
+                        "history_health_after": status.history_health(),
+                        "history_prefix_bytes": len(history_prefix),
+                        "history_prefix_sha256": hashlib.sha256(history_prefix).hexdigest(),
+                        "history_prefix_unchanged": final_history.startswith(history_prefix),
+                        "appended_rows": [{k: json.loads(line).get(k) for k in ("request_id", "status")}
+                                          for line in appended.splitlines() if line.strip()],
+                        "transcript_record_types": [json.loads(line)["type"]
+                                                    for line in transcript.read_text(encoding="utf-8").splitlines()],
+                        "transcript_wake_state": wake_state(fresh_id, fresh_body),
+                        "receipt_user_frames": record["user_frames"], "process_count": len(processes),
+                        "logs": logs,
+                    }
+                    Path(evidence_dir, label + ".json").write_text(json.dumps(evidence, indent=2), encoding="utf-8")
                 self.assertTrue(any("channel_direct_socket_poller_started" in message for _, message in logs))
                 self.assertTrue(any("channel_direct_socket_poller_stopped" in message for _, message in logs))
                 if fail_after_submit:

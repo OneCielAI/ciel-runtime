@@ -1,0 +1,9 @@
+test_damaged_history_admits_new_sse_once (test_channel_direct_socket_e2e.DirectSocketDeliveryE2ETests.test_damaged_history_admits_new_sse_once) ... ok
+test_damaged_history_replacement_preserves_old_owners (test_channel_direct_socket_e2e.DirectSocketDeliveryE2ETests.test_damaged_history_replacement_preserves_old_owners) ... ok
+test_inflight_socket_delivery_is_confirmed_after_real_child_replacement (test_channel_direct_socket_e2e.DirectSocketDeliveryE2ETests.test_inflight_socket_delivery_is_confirmed_after_real_child_replacement) ... ok
+test_real_sse_queue_and_socket_survive_proxy_fallback (test_channel_direct_socket_e2e.DirectSocketDeliveryE2ETests.test_real_sse_queue_and_socket_survive_proxy_fallback) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 6.250s
+
+OK

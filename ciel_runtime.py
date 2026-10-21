@@ -602,6 +602,7 @@ TUI_OBSERVATION_BUS = TuiObservationBus(error_publish=EVENT_BUS.publish)
 _RUNTIME_INPUT_STATUS_REPOSITORY = RuntimeInputStatusRepository(
     RUNTIME_INPUT_STATUS_PATH, EVENT_BUS.publish,
     lambda level, message: router_log(level, message), threading.RLock(),
+    request_floor=lambda: runtime_input_repository().min_id(),
 )
 _CHANNEL_WAKE_DELIVERY_REPOSITORY = ChannelWakeDeliveryRepository(
     lock=_CHANNEL_STDIN_WAKE_LOCK,

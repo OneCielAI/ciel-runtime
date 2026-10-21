@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
+import errno
 import json
 import math
 import os
@@ -22,9 +23,13 @@ RUNTIME_INPUT_STATES = frozenset({"queued", "submitted", "replied", "failed", "s
 # pending forever.
 _TERMINAL_STATES = frozenset({"replied", "failed", "skipped", "interrupted_uncertain"})
 
-_HISTORY_BYTE_BUDGET = 8 * 1024 * 1024
 _HISTORY_LINE_BUDGET = 256 * 1024
 _HISTORY_DIAGNOSTIC_LIMIT = 32
+# The history is append-only and tens of thousands of inputs pass a day. Past
+# this size it is rewritten as one latest row per request; superseded rows and
+# unreadable lines are deleted, never archived.
+_HISTORY_COMPACT_BYTES = 4 * 1024 * 1024
+_HISTORY_COMPACT_RETRY_SECONDS = 60.0
 
 
 class _HistoryDecodeFailure(ValueError):
@@ -78,37 +83,11 @@ def _decode_history_row(raw: bytes) -> dict[str, Any]:
     return item
 
 
-def _nul_remainder_identity(raw: bytes) -> dict[str, Any]:
-    """Describe a writer-shaped remainder, never recover it as history."""
-    prefix = len(raw) - len(raw.lstrip(b"\x00"))
-    if not prefix or not raw.endswith(b"\n"):
-        return {}
-    try:
-        row = _decode_history_row(raw[prefix:])
-    except (ValueError, TypeError, RecursionError):
-        return {}
-    required = {"request_id", "status", "updated_at", "updated_at_epoch"}
-    if not required <= row.keys() or row.keys() - (required | {"reason", "data"}):
-        return {}
-    if type(row["request_id"]) is not int or not isinstance(row["updated_at"], str):
-        return {}
-    try:
-        stamp = datetime.fromisoformat(row["updated_at"])
-    except ValueError:
-        return {}
-    if stamp.tzinfo is None or type(row["updated_at_epoch"]) not in (int, float):
-        return {}
-    if "reason" in row and not isinstance(row["reason"], str):
-        return {}
-    return {"remainder_request_id": row["request_id"], "remainder_status": row["status"]}
+class StatusHistoryUnreadable(ChannelFileLockBusy):
+    """The history file could not be read now; defer like a busy lock.
 
-
-class WakeHistoryUnavailable(RuntimeError):
-    """Ownership cannot be established from an incomplete durable history."""
-
-    def __init__(self, line_number: int = 0) -> None:
-        self.line_number = line_number
-        super().__init__("wake ownership history contains an incomplete record")
+    Reading nothing would make delivered inputs look new.
+    """
 
 
 class WakeAttemptConflict(RuntimeError):
@@ -126,6 +105,12 @@ class RuntimeInputStatusRepository:
     publish_event: Callable[..., Any]
     log: Callable[[str, str], None]
     lock: threading.Lock | threading.RLock
+    # Lowest input id the queue can still return. Statuses below it can never
+    # be selected again, so compaction deletes them; 0 keeps every request.
+    request_floor: Callable[[], int] = lambda: 0
+    _compact_after: float = field(default=0.0, init=False, repr=False)
+    _compacted_size: int = field(default=0, init=False, repr=False)
+    _damage_logged: tuple[int, int] = field(default=(0, 0), init=False, repr=False)
 
     def transition(
         self,
@@ -143,8 +128,6 @@ class RuntimeInputStatusRepository:
         if status not in RUNTIME_INPUT_STATES:
             raise ValueError(f"invalid runtime input status: {status}")
         with self.lock, exclusive_file_lock(self.path):
-            from .runtime_input_recovery_marker import guard_status_history
-            guard_status_history(self.path, [request_id])
             current = self.get(request_id, _locked=True)
             current_status = str((current or {}).get("status") or "")
             current_data = dict((current or {}).get("data") or {})
@@ -203,9 +186,7 @@ class RuntimeInputStatusRepository:
         writing = False
         try:
             with self.lock, exclusive_file_lock(self.path):
-                from .runtime_input_recovery_marker import guard_status_history
-                guard_status_history(self.path, ids)
-                latest = {int(row["request_id"]): row for row in self._items(strict=True)
+                latest = {int(row["request_id"]): row for row in self._items()
                           if str(row.get("request_id", "")).isdigit()}
                 # Validate the whole batch before writing its first member. A
                 # completion racing candidate selection must not strand earlier
@@ -225,7 +206,7 @@ class RuntimeInputStatusRepository:
                 self.publish_event(level="info", category="runtime_input.status",
                                    message="runtime input submitted", source="runtime-input",
                                    request_id=str(record["request_id"]), data=record)
-        except (ChannelFileLockBusy, WakeHistoryUnavailable) as exc:
+        except ChannelFileLockBusy as exc:
             if writing:
                 raise RuntimeError("wake ownership persistence uncertain") from exc
             raise
@@ -239,11 +220,8 @@ class RuntimeInputStatusRepository:
         """
         if not verified_exit or not child_epoch:
             return []
-        # Do not advance a scan frontier from a truncated ownership history.
-        if self.path.exists() and self.path.stat().st_size > 8 * 1024 * 1024:
-            raise RuntimeError("wake ownership history exceeds reconciliation budget")
         with self.lock:
-            latest = {int(row["request_id"]): row for row in self._items(strict=True)
+            latest = {int(row["request_id"]): row for row in self._items()
                       if str(row.get("request_id", "")).isdigit()}
         reconciled = []
         for request_id, row in latest.items():
@@ -277,17 +255,67 @@ class RuntimeInputStatusRepository:
             record["reason"] = str(reason)
         if data:
             record["data"] = dict(data)
+        line = json.dumps(record, ensure_ascii=False, separators=(",", ":")).encode("utf-8") + b"\n"
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        with self.path.open("a", encoding="utf-8") as stream:
-            stream.write(json.dumps(record, ensure_ascii=False, separators=(",", ":")) + "\n")
+        with self.path.open("a+b") as stream:
+            stream.seek(0, os.SEEK_END)
+            if stream.tell():
+                # A torn tail without its newline would swallow this record.
+                stream.seek(-1, os.SEEK_END)
+                if stream.read(1) != b"\n":
+                    line = b"\n" + line
+            stream.write(line)
             stream.flush()
             os.fsync(stream.fileno())
+        self._compact_if_oversized()
         return record
+
+    def _compact_if_oversized(self) -> None:
+        """Delete old history in place; callers hold the file lock.
+
+        Failure only postpones the next attempt (Windows refuses the replace
+        while another process has the file open); the append already stands.
+        """
+        now = time.monotonic()
+        temporary = self.path.with_name(f".{self.path.name}.{os.getpid()}.compact")
+        try:
+            # Rows the queue still holds survive compaction; wait for the
+            # file to double again rather than rescanning it on every append.
+            limit = max(_HISTORY_COMPACT_BYTES, 2 * self._compacted_size)
+            if now < self._compact_after or self.path.stat().st_size <= limit:
+                return
+            items, health = self._scan_history()
+            if health["coverage"] == "unknown":
+                raise OSError("status history read unavailable")
+            latest: dict[int, dict[str, Any]] = {}
+            for item in items:
+                latest[int(item["request_id"])] = item
+            # Delete superseded transitions and requests the queue no longer
+            # holds; a request still in the queue keeps its ownership.
+            floor = int(self.request_floor())
+            kept = [request_id for request_id in sorted(latest) if request_id >= floor]
+            with temporary.open("wb") as stream:
+                for request_id in kept:
+                    stream.write(json.dumps(latest[request_id], ensure_ascii=False,
+                                            separators=(",", ":")).encode("utf-8") + b"\n")
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(temporary, self.path)
+            self._compacted_size = self.path.stat().st_size
+            self.log("INFO", f"runtime_input_status_history_compacted kept={len(kept)} "
+                     f"dropped_rows={len(items) - len(kept)}")
+        except Exception as exc:
+            self._compact_after = now + _HISTORY_COMPACT_RETRY_SECONDS
+            self.log("WARN", f"runtime_input_status_history_compact_deferred error={type(exc).__name__}")
+            try:
+                temporary.unlink()
+            except OSError:
+                pass
 
     def get(self, request_id: int, *, _locked: bool = False) -> dict[str, Any] | None:
         def read() -> dict[str, Any] | None:
             latest = None
-            for item in self._items(strict=_locked):
+            for item in self._items():
                 try:
                     if int(item.get("request_id") or 0) == int(request_id):
                         latest = item
@@ -328,86 +356,86 @@ class RuntimeInputStatusRepository:
             _, health = self._scan_history()
         return health
 
-    def _items(self, *, strict: bool = False) -> list[dict[str, Any]]:
-        from .runtime_input_recovery_marker import guard_status_history
-        guard_status_history(self.path)
+    def _items(self) -> list[dict[str, Any]]:
         items, health = self._scan_history()
+        if health["coverage"] == "unknown":
+            raise StatusHistoryUnreadable(errno.EIO, "runtime input status history unreadable")
         if not health["complete"]:
+            # Damaged lines are ignored, never a reason to hold delivery.
+            # Report each new damage state once rather than on every read.
             first = health["diagnostics"][0]
-            if strict:
-                raise WakeHistoryUnavailable(first["line_number"])
-            self.log("WARN", "runtime_input_status_history_incomplete "
-                     f"coverage={health['coverage']} line={first['line_number']} "
-                     f"byte_offset={first['byte_offset']} category={first['failure_category']}")
+            seen = (health["failure_count"], first["line_number"])
+            if seen != self._damage_logged:
+                self._damage_logged = seen
+                self.log("WARN", "runtime_input_status_history_damage_ignored "
+                         f"lines={health['failure_count']} first_line={first['line_number']} "
+                         f"category={first['failure_category']}")
         return items
 
     def _scan_history(self) -> tuple[list[dict[str, Any]], dict[str, Any]]:
         items: list[dict[str, Any]] = []
         health: dict[str, Any] = {
             "complete": True, "coverage": "complete", "scanned_bytes": 0,
-            "failure_count": 0, "diagnostics": [], "diagnostics_truncated": False,
+            "failure_count": 0, "recovered_count": 0,
+            "diagnostics": [], "diagnostics_truncated": False,
         }
 
-        def failure(line_number, byte_offset, category, raw=b""):
+        def failure(line_number, byte_offset, category):
             health["complete"] = False
             health["coverage"] = "partial"
             health["failure_count"] += 1
             if len(health["diagnostics"]) < _HISTORY_DIAGNOSTIC_LIMIT:
-                diagnostic = {"line_number": line_number, "byte_offset": byte_offset,
-                              "failure_category": category}
-                if raw.startswith(b"\x00"):
-                    identity = _nul_remainder_identity(raw)
-                    if identity:
-                        diagnostic["failure_category"] = "leading_nul_prefix_candidate"
-                        diagnostic.update(identity)
-                health["diagnostics"].append(diagnostic)
+                health["diagnostics"].append({"line_number": line_number, "byte_offset": byte_offset,
+                                              "failure_category": category})
             else:
                 health["diagnostics_truncated"] = True
 
         line_number = 0
         offset = 0
-        opened = False
         try:
             with self.path.open("rb") as stream:
-                opened = True
-                before = os.fstat(stream.fileno())
-                while offset < _HISTORY_BYTE_BUDGET:
-                    raw = stream.readline(min(_HISTORY_LINE_BUDGET + 1,
-                                              _HISTORY_BYTE_BUDGET - offset))
+                while True:
+                    raw = stream.readline(_HISTORY_LINE_BUDGET + 1)
                     if not raw:
                         break
                     line_number += 1
                     start = offset
                     offset += len(raw)
-                    health["scanned_bytes"] = offset
-                    if len(raw) > _HISTORY_LINE_BUDGET:
+                    # A torn append can leave a NUL run of any length before
+                    # the record written after it. The NULs are ignored; only
+                    # the surviving record counts against the line budget.
+                    prefixed = raw.startswith(b"\x00")
+                    body = raw.lstrip(b"\x00")
+                    while prefixed and not raw.endswith(b"\n") and len(body) <= _HISTORY_LINE_BUDGET:
+                        raw = stream.readline(_HISTORY_LINE_BUDGET + 1)
+                        if not raw:
+                            break
+                        offset += len(raw)
+                        body = body + raw if body else raw.lstrip(b"\x00")
+                    if len(body) > _HISTORY_LINE_BUDGET:
+                        while raw and not raw.endswith(b"\n"):
+                            raw = stream.readline(_HISTORY_LINE_BUDGET + 1)
+                            offset += len(raw)
                         failure(line_number, start, "line_budget_exceeded")
-                        break
-                    if not raw.endswith(b"\n"):
-                        category = ("byte_budget_exceeded" if before.st_size > offset
-                                    and offset == _HISTORY_BYTE_BUDGET else "unfinished_eof")
-                        failure(line_number, start, category)
-                        break
+                        continue
                     try:
-                        items.append(_decode_history_row(raw))
+                        items.append(_decode_history_row(body))
                     except (ValueError, TypeError, RecursionError) as exc:
-                        category = str(exc) if isinstance(exc, _HistoryDecodeFailure) else "invalid_record"
-                        failure(line_number, start, category, raw)
-                after = os.fstat(stream.fileno())
-                current = self.path.stat()
-                if before.st_size > offset and offset == _HISTORY_BYTE_BUDGET and raw.endswith(b"\n"):
-                    failure(line_number + 1, offset, "byte_budget_exceeded")
-                def signature(stat):
-                    return (stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns)
-                if signature(before) != signature(after) or signature(after) != signature(current):
-                    failure(line_number, offset, "changed_during_read")
+                        # A complete record without its newline is still
+                        # history; only an undecodable tail is unfinished.
+                        category = ("unfinished_eof" if not body.endswith(b"\n") else
+                                    str(exc) if isinstance(exc, _HistoryDecodeFailure) else "invalid_record")
+                        failure(line_number, start, category)
+                        continue
+                    if prefixed:
+                        health["recovered_count"] += 1
         except FileNotFoundError:
-            if opened:
-                failure(line_number, offset, "changed_during_read")
+            pass
         except OSError:
             failure(line_number, offset, "read_unavailable")
             health["coverage"] = "unknown"
+        health["scanned_bytes"] = offset
         return items, health
 
 
-__all__ = ["RUNTIME_INPUT_STATES", "RuntimeInputStatusRepository", "WakeAttemptConflict", "WakeHistoryUnavailable"]
+__all__ = ["RUNTIME_INPUT_STATES", "RuntimeInputStatusRepository", "StatusHistoryUnreadable", "WakeAttemptConflict"]

@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from ciel_runtime_support.channel_message_repository import ChannelFileLockBusy
-from ciel_runtime_support.runtime_input_status import WakeAttemptConflict, WakeHistoryUnavailable
+from ciel_runtime_support.runtime_input_status import WakeAttemptConflict
 
 
 @dataclass(slots=True)
@@ -196,16 +196,6 @@ def poll_pending_channel_messages(
             skip_blocking_wake_states=state.inflight_message_id is not None,
             terminal_available=options.terminal_available,
         )
-    except WakeHistoryUnavailable as exc:
-        # Keep the CLI usable when legacy status history is corrupt. Do not
-        # skip that evidence, send inputs, or advance the frontier; an operator
-        # must resolve the durable history before delivery can resume.
-        state.pending_recheck = True
-        if now - state.defer_logged_at >= policy.defer_log_interval_seconds:
-            state.defer_logged_at = now
-            services.log("ERROR", f"{policy.log_namespace}_deferred stage=pre_submit "
-                         f"reason=wake_history_incomplete line={exc.line_number} action=delivery_held")
-        return state
     except WakeAttemptConflict as exc:
         # The injector releases only this scan's claims before exposing this
         # type. No send or ownership write occurred; rebuild on a bounded poll.

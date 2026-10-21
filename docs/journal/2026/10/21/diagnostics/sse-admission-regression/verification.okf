@@ -1,0 +1,85 @@
+---
+type: verification
+title: SSE admission over damaged status history - fixture and native acceptance
+description: Real receiver SSE reaches queued, one session-socket send, transcript reply and replied over corrupt and NUL history; readable old owners are never resent.
+tags: [sse, runtime-input-status, session-socket, native-e2e, no-replay]
+timestamp: 2026-10-21
+---
+
+# Scope
+
+Owned isolated verification only. No production source edits by this task,
+no live session or real inbox, no provider calls (loopback model fixture), no
+commit. Source under test (working tree, other agents' edits):
+runtime_input_status.py sha256 97d775e2... (mtime 03:40:53),
+channel_pending_injection.py 271f8a70..., channel_pending_poll.py 6d08bab6...,
+channel_wake_delivery_repository.py 2278f7f9... All saved runs below started
+after 03:40:53.
+
+# Synthetic damaged history (both layers)
+
+Lines: `{malformed`; owners 1 submitted, 2 replied, 3 interrupted_uncertain;
+`{broken` + NUL; owners 4-6 (same states) each behind 19 leading NUL bytes;
+a 0xFF line; unterminated `{"unfinished":` tail. Payload-free.
+
+# Protocol fixture (tests/test_channel_direct_socket_e2e.py)
+
+Child is an owned Python named-pipe protocol fixture, NOT native Claude Code.
+It authenticates the real ClaudeSessionSocketClient frames and writes a
+synthetic user+assistant transcript; completion is decided by production
+wake_state_evidence_from_text. Path: real ExternalEventReceiverService SSE ->
+RuntimeInputGateway queued -> production inject_pending_channel_messages ->
+socket child -> transcript -> replied.
+
+- after (harness/run_focused.py after): 4/4 OK (after-output.txt, after/*.json)
+  - damaged: id 7 events queued, submitted, replied; socket_sends [[7]];
+    repeat full rescan from 0 injected []; old 1-6 states and attempt_ids
+    unchanged; 1235-byte prefix sha c81a923b... unchanged; only 3 appended
+    rows (id 7); no archive/quarantine files. Same in replacement variant
+    (child killed after submit, confirmed by replacement poller).
+- before (harness/run_against_tree.py on git archive HEAD ddf1a28):
+  2 damaged tests ERROR at precondition: HEAD returns None for NUL-prefixed
+  owner 4 (head-before-output.txt). Prior before/damaged.json (earlier HEAD
+  run): admission raised WakeHistoryUnavailable, socket_sends [].
+
+# Native CLI (native_sse_acceptance.py, real claude.exe 2.1.292)
+
+Derived from restart-delivery native_history_guard.py; isolated scratch
+HOME/CLAUDE_CONFIG_DIR/CIEL_RUNTIME_CONFIG_DIR/TEMP, every inherited
+CIEL_RUNTIME_*/CLAUDE*/provider/credential variable removed, proxies pointed
+to a dead port, loopback model stub. Receiver enabled through router
+/ca/events/receivers/default against an owned local SSE endpoint.
+
+- run-claude-repeat-scan-034407: passed_native_sse_damaged_history.
+  id 7 queued -> one socket injection -> native transcript user+assistant
+  -> replied; later SSE id 8 forced a rescan: id 7 skipped durable_replied,
+  only id 8 sent; ids 1,4 ownership_submitted no_replay, 2,5 durable_replied,
+  3,6 interrupted_uncertain no_replay on every scan. Model stub saw
+  TURN-4 once, TURN-3 once, no old input. Status prefix bytes unchanged
+  (sha 60060e4a...); appended rows only for 7 and 8.
+- run-claude-tolerant-history-034147: also passed, but its old queue rows
+  lacked external provenance so 1 and 4 were skipped as
+  unscoped_channel_message; superseded by the repeat-scan run.
+- Screenshot: PrintWindow rect=0x0 (owned pseudoconsole, same as earlier
+  harness runs). native-screen-rendered.png is a rendering of captured
+  console text, labeled as such; screen-latest.txt is the raw capture.
+
+# Cleanup
+
+Teardown killed only processes carrying the run scratch path; post-check
+found none left; both C:\Windows\Temp\ciel-owned-restart-* scratch trees
+removed; HEAD export temp tree removed; debug-log symlinks removed.
+
+# Final-source native rerun (parent)
+
+After the last source change (compaction floor/doubling, EOF tail decode,
+unbounded NUL prefix strip, queue compaction) the parent reran the native
+acceptance unchanged: run-claude-final-source-035809 ->
+passed_native_sse_damaged_history (native-output-final.txt). Same checks:
+socket_send_count 1, new statuses queued/submitted/replied, old states 1-6
+preserved, old inputs sent 0, repeat scan sent only id 8, old prefix sha
+60060e4a... unchanged, no archive/quarantine file. Teardown killed six owned
+processes; router/app listeners closed. Source sha256 at that run:
+runtime_input_status.py e01946c5..., channel_message_repository.py
+33c9f68a..., channel_pending_poll.py 6d08bab6...,
+channel_pending_injection.py 271f8a70...

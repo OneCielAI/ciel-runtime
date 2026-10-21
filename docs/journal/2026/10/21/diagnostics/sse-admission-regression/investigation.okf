@@ -1,0 +1,57 @@
+---
+type: regression-investigation
+title: SSE injection global-history regression
+description: Commit comparison identifies whole-history admission as the new-input blocker.
+tags: [sse, regression, admission]
+timestamp: 2026-10-21
+---
+
+# Confirmed commit chain
+
+- f6fc7ac: send admission calls per-id transition with tolerant history reads;
+  malformed historical JSON lines do not globally veto a send.
+- e7d81c7 (2026-10-20 17:50:14-05:00): begin_attempt replaces per-id writes
+  with file-global _items(strict=True) before candidate batch validation.
+  Incomplete historical records throw before any transport send. The plain
+  RuntimeError initially escaped the poll and terminated CLI.
+- 1b08402: typed WakeHistoryUnavailable is caught in pending poll and delivery
+  held indefinitely; cursor/marker do not advance. This prevents the crash
+  but preserves the delivery regression.
+- 09017fb: get(_locked=True) becomes strict too, so transition/queued admission
+  also encounters the global blocker, not only terminal send.
+- 0f5014d and9d1666f: no changes to those admission files; installing/restarting
+  those versions cannot repair this regression.
+
+# Scope correction
+
+The user wants new SSE auto-injection restored, not historic backlog archival.
+Minimal candidate-scoped repair is being implemented; no quarantine, history
+rewrite/delete, cursor reset or new generation architecture is in scope.
+Recognized leading-NUL writer-shaped row identities remain tainted for that
+request; they are not promoted to valid ownership. Independently valid new
+candidates must not inherit an unrelated known damaged-id veto. Unbounded,
+unknown, partial-read corruption remains a separate fail-closed case.
+
+# User link
+
+User provided https://walkie.ezonebot.com/app#message=73085. Direct read-only
+page fetch returned no body (fragment is client-side). Sent current verified
+Walkie peer a read-only lookup request; message contents not yet received.
+No claim about that message's content is made.
+
+# Storage observations
+
+Direct payload-free scan measured Walkie status4.79MiB, active queue18.14MiB,
+rotated queue19.08MiB, ACK ledger0.78MiB. Status lacks rotation and has8MiB
+scan limit; queue threshold differs by actual runtime construction and must not
+be inferred solely from repository default10MiB. No data was changed.
+
+# Linked message scope clarified
+
+Peer with authorized Walkie MCP access relayed at2026-10-21T08:16:24Z that
+message73085 concerns another project's CI runner policy, not Runtime/SSE.
+No Runtime change or cross-project CI action follows from that message.
+Peer workspace remains manual-processing only; no live test, receiver/state
+change or injection is authorized there. Any future live test needs exact
+steps and separate approval in that workspace. Current verification remains
+owned isolated fixtures only.

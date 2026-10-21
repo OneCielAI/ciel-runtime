@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from ciel_runtime_support.channel_message_repository import ChannelFileLockBusy
-from ciel_runtime_support.runtime_input_status import WakeAttemptConflict, WakeHistoryUnavailable
+from ciel_runtime_support.runtime_input_status import WakeAttemptConflict
 from ciel_runtime_support.channel_message_policy import (
     message_input_transport,
     message_is_external_event,
@@ -127,7 +127,7 @@ def _submission_boundary(io: ChannelInjectionIO):
     # bookkeeping is not evidence that nothing was submitted.
     try:
         yield
-    except (WakeAttemptConflict, WakeHistoryUnavailable) as exc:
+    except WakeAttemptConflict as exc:
         raise RuntimeError("wake ownership failure after submission attempt") from exc
     except ChannelFileLockBusy as exc:
         io.log(
@@ -148,7 +148,7 @@ def _release_claims(claimed_ids: list[int], services: ChannelInjectionServices) 
         except Exception as exc:
             if first_error is None:
                 first_error = exc
-    if isinstance(first_error, (WakeAttemptConflict, WakeHistoryUnavailable)):
+    if isinstance(first_error, WakeAttemptConflict):
         raise RuntimeError("channel claim cleanup incomplete") from first_error
     if isinstance(first_error, ChannelFileLockBusy):
         services.io.log(

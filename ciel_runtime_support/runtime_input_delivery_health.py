@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from collections import OrderedDict
+from contextlib import nullcontext
 from copy import deepcopy
 import json
 import math
@@ -37,8 +38,8 @@ def _epoch(value: Any) -> float | None:
         return None
 
 
-def _rows(path: Path) -> tuple[list[dict[str, Any]], bool]:
-    """Bound display metrics. Ownership validity comes from history_health."""
+def _input_rows(path: Path) -> tuple[list[dict[str, Any]], bool]:
+    """Bound the private input scan used only for receiver scope and age."""
     rows = []
     complete = True
     offset = 0
@@ -52,7 +53,16 @@ def _rows(path: Path) -> tuple[list[dict[str, Any]], bool]:
                 if not raw:
                     break
                 offset += len(raw)
-                if len(raw) > _SCAN_LINE_BYTES or not raw.endswith(bytes([10])):
+                if len(raw) > _SCAN_LINE_BYTES:
+                    complete = False
+                    # Skip this physical row, not every later valid record.
+                    while not raw.endswith(bytes([10])) and offset < _SCAN_BYTES:
+                        raw = stream.readline(min(_SCAN_LINE_BYTES + 1, _SCAN_BYTES - offset))
+                        if not raw:
+                            break
+                        offset += len(raw)
+                    continue
+                if not raw.endswith(bytes([10])):
                     complete = False
                     break
                 try:
@@ -74,20 +84,35 @@ def _rows(path: Path) -> tuple[list[dict[str, Any]], bool]:
     return rows, complete
 
 
+def _status_history(status: Any) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """One pass with the repository's own decoder and damage/recovery rules.
+
+    Reusing the production scan keeps this observer from diverging: a line the
+    status history ignores is ignored here, and a recovered row counts here.
+    """
+    scan = getattr(status, "_scan_history", None)
+    if callable(scan):
+        with getattr(status, "lock", None) or nullcontext():
+            return scan()
+    # Retain the existing path/history_health observation-port contract.
+    # Production repositories take the single-pass branch above.
+    repository = RuntimeInputStatusRepository(Path(status.path), lambda **_kw: None,
+                                              lambda *_args: None, threading.RLock())
+    rows, history = repository._scan_history()
+    return rows, history if history.get("coverage") == "unknown" else status.history_health()
+
+
 def _snapshot(status: Any, inputs_path: Path, receiver_id: str | None) -> dict[str, Any]:
-    history = status.history_health()
-    status_rows, status_complete = _rows(Path(status.path))
-    input_rows, inputs_complete = _rows(inputs_path)
+    status_rows, history = _status_history(status)
+    input_rows, inputs_complete = _input_rows(inputs_path)
     latest = {}
     first_queued = {}
     for row in status_rows:
         try:
             request_id = int(row.get("request_id") or 0)
         except (TypeError, ValueError, OverflowError):
-            status_complete = False
             continue
         if request_id <= 0:
-            status_complete = False
             continue
         latest[request_id] = row
         if row.get("status") == "queued":
@@ -122,16 +147,22 @@ def _snapshot(status: Any, inputs_path: Path, receiver_id: str | None) -> dict[s
     complete = bool(history.get("complete"))
     first = next(iter(history.get("diagnostics") or []), {})
     stamps = [stamp for stamp in queued if stamp is not None]
-    state = "admission_blocked" if not complete else "not_blocked" if status_complete else "unknown"
-    return {"state": state,
-            "reason": "wake_history_incomplete" if not complete else "" if status_complete else "history_observation_partial",
-            "scope": "private_runtime_inputs", "blocker_scope": "ownership_history",
-            "admission_blocked": not complete, "launcher_hold_observed": False,
+    # Status history ignores damaged lines, so damage is never an admission
+    # blocker here: it only makes this observation partial. A history that
+    # could not be read at all is unknown, never a confirmed hold.
+    available = history.get("coverage") != "unknown"
+    observation_complete = complete and inputs_complete
+    return {"state": "not_blocked" if available else "unknown",
+            "reason": ("delivery_observation_unavailable" if not available else
+                       "" if observation_complete else "history_observation_partial"),
+            "scope": "private_runtime_inputs", "blocker_scope": None,
+            "admission_blocked": False if available else None, "launcher_hold_observed": False,
             "line_number": first.get("line_number"),
             "known_queued_count": len(queued),
             "oldest_queued_at_epoch": min(stamps) if stamps else None,
             "queue_age_coverage": "complete" if len(stamps) == len(queued) else "partial",
-            "queued_coverage": "complete" if complete and status_complete and inputs_complete else "partial",
+            "queued_coverage": ("unknown" if not available else
+                                "complete" if observation_complete else "partial"),
             "history": history}
 
 
@@ -141,8 +172,9 @@ def runtime_input_delivery_health(status: Any = None, *, status_path: Path | Non
                                   now: float | None = None) -> dict[str, Any]:
     """Cache bounded observations for two seconds without touching durable state.
 
-    Status is duck-typed (path, history_health). These are private runtime input
-    paths, never the public chat frontier. Known counts may have partial coverage.
+    Status is duck-typed (path, history_health). Native repositories use their
+    own read-only scan once for both rows and health. These are private runtime
+    input paths, never the public chat frontier. Known counts may be partial.
     """
     if status is None and status_path is None:
         return unavailable_delivery_health()
@@ -187,7 +219,11 @@ def delivery_health_text(health: dict[str, Any]) -> str:
     oldest = f"{int(age)}s" if isinstance(age, (int, float)) else "unknown"
     coverage = health.get("queued_coverage", "unknown")
     detail = f"{state}; known queued {count}; oldest {oldest}; coverage {coverage}"
-    if health.get("admission_blocked"):
-        line = health.get("line_number") or "?"
-        detail += f"; wake_history_incomplete line {line}; launcher hold unobserved"
+    if health.get("reason") == "history_observation_partial":
+        detail += "; history observation partial"
+        if health.get("line_number"):
+            detail += f" line {health['line_number']}"
+        detail += " (damaged lines ignored)"
+    elif state == "unknown":
+        detail += "; observation unavailable"
     return detail

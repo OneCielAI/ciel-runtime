@@ -373,8 +373,7 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
         elif name == "web-backend":
             panel_rows, panel_values = web_backend_panel_rows(cfg)
         elif name == "external-events":
-            from .runtime_input_recovery_menu import with_recovery_rows
-            panel_rows, panel_values = with_recovery_rows(*external_event_panel_rows(cfg))
+            panel_rows, panel_values = external_event_panel_rows(cfg)
         elif name == "launch-menu":
             panel_rows, panel_values = launch_panel_rows(cfg)
             if name not in panel_last_idx:
@@ -856,10 +855,7 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                     if value == "back":
                         close_panel()
                         continue
-                    if value == "preview_history_quarantine":
-                        from .runtime_input_recovery_menu import preview_menu_messages
-                        messages = preview_menu_messages()
-                    elif value in {"enabled", "transport"}:
+                    if value in {"enabled", "transport"}:
                         messages = set_external_event_config(value, "toggle")
                     elif value in {"refresh_receiver", "reconnect_receiver"}:
                         messages = set_external_event_config(value, None)
@@ -919,8 +915,7 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                     else:
                         continue
                     cfg = load_config()
-                    from .runtime_input_recovery_menu import with_recovery_rows
-                    panel_rows, panel_values = with_recovery_rows(*external_event_panel_rows(cfg))
+                    panel_rows, panel_values = external_event_panel_rows(cfg)
                     panel_idx = max(0, min(panel_idx, len(panel_rows) - 1))
                 elif panel == "remote-instructions":
                     if value == "back":

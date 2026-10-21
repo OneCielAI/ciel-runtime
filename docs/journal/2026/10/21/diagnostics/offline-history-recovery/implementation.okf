@@ -28,3 +28,9 @@ Runtime queue max-ID scans and status transitions inspect the generation marker.
 Focused isolated verification command: `python docs/journal/2026/10/19/diagnostics/walkie-context-overflow/evidence/scripts/verify_focused.py --repo C:/Users/djlov/ciel-runtime --output C:/Users/djlov/ciel-runtime/.focused-recovery.txt test_runtime_input_recovery.py test_channel_message_repository.py test_runtime_input_status.py test_prelaunch_panel_projection.py`
 
 Observed result: 35 tests, 0 failures, 0 errors, 0 skipped. The fixture uses isolated temporary state and never writes live runtime state.
+
+# Removed
+
+Superseded the same day by ../../releases/sse-history-tolerance/release.okf:
+at the user's request the offline quarantine, recovery marker, archive and
+menu preview were deleted. Damaged history lines are now ignored instead.

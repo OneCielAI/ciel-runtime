@@ -1,0 +1,31 @@
+test_damaged_history_admits_new_sse_once (tests.test_channel_direct_socket_e2e.DirectSocketDeliveryE2ETests.test_damaged_history_admits_new_sse_once) ... ERROR
+test_damaged_history_replacement_preserves_old_owners (tests.test_channel_direct_socket_e2e.DirectSocketDeliveryE2ETests.test_damaged_history_replacement_preserves_old_owners) ... ERROR
+test_inflight_socket_delivery_is_confirmed_after_real_child_replacement (tests.test_channel_direct_socket_e2e.DirectSocketDeliveryE2ETests.test_inflight_socket_delivery_is_confirmed_after_real_child_replacement) ... ok
+test_real_sse_queue_and_socket_survive_proxy_fallback (tests.test_channel_direct_socket_e2e.DirectSocketDeliveryE2ETests.test_real_sse_queue_and_socket_survive_proxy_fallback) ... ok
+
+======================================================================
+ERROR: test_damaged_history_admits_new_sse_once (tests.test_channel_direct_socket_e2e.DirectSocketDeliveryE2ETests.test_damaged_history_admits_new_sse_once)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\AppData\Local\Temp\ciel-head-export-TkiZ\tests\test_channel_direct_socket_e2e.py", line 97, in test_damaged_history_admits_new_sse_once
+    self._run_pipeline(fail_after_submit=False, damaged_history=True)
+  File "C:\Users\djlov\AppData\Local\Temp\ciel-head-export-TkiZ\tests\test_channel_direct_socket_e2e.py", line 151, in _run_pipeline
+    self.assertEqual(old_state, status.get(message_id)["status"])
+                                ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+TypeError: 'NoneType' object is not subscriptable
+
+======================================================================
+ERROR: test_damaged_history_replacement_preserves_old_owners (tests.test_channel_direct_socket_e2e.DirectSocketDeliveryE2ETests.test_damaged_history_replacement_preserves_old_owners)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\AppData\Local\Temp\ciel-head-export-TkiZ\tests\test_channel_direct_socket_e2e.py", line 100, in test_damaged_history_replacement_preserves_old_owners
+    self._run_pipeline(fail_after_submit=True, damaged_history=True)
+  File "C:\Users\djlov\AppData\Local\Temp\ciel-head-export-TkiZ\tests\test_channel_direct_socket_e2e.py", line 151, in _run_pipeline
+    self.assertEqual(old_state, status.get(message_id)["status"])
+                                ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+TypeError: 'NoneType' object is not subscriptable
+
+----------------------------------------------------------------------
+Ran 4 tests in 3.176s
+
+FAILED (errors=2)

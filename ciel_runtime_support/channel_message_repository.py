@@ -7,10 +7,31 @@ import json
 from dataclasses import dataclass
 import os
 from pathlib import Path
+import re
+import threading
 from typing import Any, Callable
 import time
+import uuid
 
 from ciel_runtime_support.channel_message_policy import string_list
+
+# Ids still visible in a damaged row; ignoring the row must not reissue them.
+_RECOVERABLE_ID = re.compile(
+    rb'"id"\s*:\s*(?:"([0-9]{1,100})"|([0-9]{1,100}))(?=\s*[,}]|\s*$)'
+)
+
+# Legacy id frontier per queue, keyed by the stat identity of its leftover files
+# so an unchanged multi-megabyte ``.jsonl.1`` is not rescanned on every append.
+_LEGACY_FLOOR_CACHE: dict[str, tuple[tuple[Any, ...], int]] = {}
+_LEGACY_FLOOR_LOCK = threading.Lock()
+
+
+def _stat_identity(path: Path) -> tuple[int, int, int, int] | None:
+    try:
+        stat = path.stat()
+    except FileNotFoundError:
+        return None
+    return (stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns)
 
 
 class ChannelFileLockBusy(OSError):
@@ -71,11 +92,7 @@ class ChannelMessageRepository:
         with ports.condition:
             with ports.file_lock():
                 self.path.parent.mkdir(parents=True, exist_ok=True)
-                from .runtime_input_recovery_marker import recovery_generation
-                generation = recovery_generation(self.path)
                 previous_max_id = self.max_id()
-                if self.path.exists() and self.path.stat().st_size > self.max_bytes:
-                    self.path.replace(self.path.with_suffix(".jsonl.1"))
                 next_id = previous_max_id + 1
                 created_at = time.time()
                 message = {
@@ -93,8 +110,6 @@ class ChannelMessageRepository:
                     "kind": str(payload.get("kind") or "message"),
                     "meta": payload.get("meta") if isinstance(payload.get("meta"), dict) else {},
                 }
-                if generation:
-                    message["_ciel_runtime_generation"] = generation["generation"]
                 if payload.get("visibility") is not None:
                     message["visibility"] = str(payload.get("visibility") or "user")
                 if payload.get("delivery") is not None:
@@ -109,10 +124,89 @@ class ChannelMessageRepository:
                         f"channel={message.get('channel')} kind={message.get('kind')}",
                     )
                     return returned
+                # A truncated last row must not swallow the next valid input.
+                separator = "\n" if self._ends_unterminated() else ""
                 with self.path.open("a", encoding="utf-8") as stream:
-                    stream.write(json.dumps(message, ensure_ascii=False, separators=(",", ":")) + "\n")
+                    stream.write(separator + json.dumps(message, ensure_ascii=False, separators=(",", ":")) + "\n")
+                # Bound the queue only after the new row is durable in it: that row
+                # carries the id frontier and is always kept by compaction.
+                self._compact_if_oversized()
             ports.condition.notify_all()
             return message
+
+    def _compact_if_oversized(self) -> None:
+        """Delete the oldest rows in place once the queue exceeds ``max_bytes``.
+
+        Keeps the newest decodable rows totalling about ``max_bytes // 2`` and
+        always the newest one, drops damaged rows, and writes no archive.  The
+        caller holds the queue lock.  A failed replace (for example a Windows
+        reader holding the file) leaves the queue intact and retries next append.
+        """
+
+        if self.max_bytes <= 0:
+            return
+        try:
+            if self.path.stat().st_size <= self.max_bytes:
+                return
+            raw = self.path.read_bytes()
+        except OSError as exc:
+            self.log("WARN", f"chat compaction skipped error={type(exc).__name__}: {exc}")
+            return
+        budget = self.max_bytes // 2
+        kept: list[bytes] = []
+        kept_bytes = 0
+        kept_max_id = 0
+        file_max_id = 0
+        full = False
+        for line in reversed(raw.splitlines()):
+            try:
+                item = json.loads(line)
+            except (ValueError, TypeError, RecursionError):
+                item = None
+            if not isinstance(item, dict):
+                for quoted, bare in _RECOVERABLE_ID.findall(line):
+                    file_max_id = max(file_max_id, int(quoted or bare))
+                continue
+            item_id = self._items_max_id([item])
+            file_max_id = max(file_max_id, item_id)
+            row = line.rstrip(b"\r") + b"\n"
+            # Keep one contiguous newest tail; older rows are only scanned for ids.
+            full = full or (bool(kept) and kept_bytes + len(row) > budget)
+            if full:
+                continue
+            kept.append(row)
+            kept_bytes += len(row)
+            kept_max_id = max(kept_max_id, item_id)
+        if not kept:
+            return
+        if kept_max_id < file_max_id:
+            # Never let deletion lower the allocator frontier kept in the file.
+            self.log(
+                "WARN",
+                f"chat compaction refused kept_max_id={kept_max_id} file_max_id={file_max_id}",
+            )
+            return
+        temporary = self.path.with_name(f"{self.path.name}.{uuid.uuid4().hex}.tmp")
+        try:
+            with temporary.open("xb") as stream:
+                stream.write(b"".join(reversed(kept)))
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(temporary, self.path)
+        except OSError as exc:
+            self.log(
+                "WARN",
+                f"chat compaction deferred size={len(raw)} error={type(exc).__name__}: {exc}",
+            )
+            try:
+                temporary.unlink()
+            except OSError:
+                pass
+            return
+        self.log(
+            "INFO",
+            f"chat compaction removed_bytes={len(raw) - kept_bytes} kept_rows={len(kept)}",
+        )
 
     @staticmethod
     def timestamp_seconds(item: dict[str, Any]) -> float | None:
@@ -141,38 +235,121 @@ class ChannelMessageRepository:
             return parsed.timestamp()
         return parsed.timestamp()
 
-    def _jsonl_items(self, operation: str) -> list[dict[str, Any]]:
-        from .runtime_input_recovery_marker import recovery_generation
-        recovery_generation(self.path)
-        if not self.path.exists():
-            return []
-        items: list[dict[str, Any]] = []
+    def _ends_unterminated(self) -> bool:
         try:
-            with self.path.open("r", encoding="utf-8") as stream:
+            with self.path.open("rb") as stream:
+                stream.seek(0, os.SEEK_END)
+                if not stream.tell():
+                    return False
+                stream.seek(-1, os.SEEK_END)
+                return stream.read(1) != b"\n"
+        except FileNotFoundError:
+            return False
+
+    def _scan(self, path: Path, operation: str) -> tuple[list[dict[str, Any]], int, bool]:
+        """Return decodable rows, the highest id recoverable from damaged rows,
+        and whether the file was read completely (a missing file counts as read).
+
+        Damaged rows are ignored for delivery, but any id still visible in their
+        bytes stays reserved so ignoring corruption never reissues an id.
+        """
+
+        items: list[dict[str, Any]] = []
+        damaged_max_id = 0
+        complete = True
+        try:
+            with path.open("rb") as stream:
                 for line in stream:
                     try:
                         item = json.loads(line)
-                    except (json.JSONDecodeError, TypeError):
-                        continue
+                    except (ValueError, TypeError, RecursionError):
+                        item = None
                     if isinstance(item, dict):
                         items.append(item)
+                        continue
+                    for quoted, bare in _RECOVERABLE_ID.findall(line):
+                        damaged_max_id = max(damaged_max_id, int(quoted or bare))
+        except FileNotFoundError:
+            pass
         except OSError as exc:
+            complete = False
             self.log(
                 "WARN",
                 f"chat {operation} failed error={type(exc).__name__}: {exc}",
             )
-        return items
+        return items, damaged_max_id, complete
 
-    def max_id(self) -> int:
-        from .runtime_input_recovery_marker import recovery_generation
-        generation = recovery_generation(self.path)
-        max_id = generation["id_floor"] - 1 if generation else 0
-        for item in self._jsonl_items("max id scan"):
+    def _jsonl_items(self, operation: str) -> list[dict[str, Any]]:
+        return self._scan(self.path, operation)[0]
+
+    @staticmethod
+    def _items_max_id(items: list[dict[str, Any]]) -> int:
+        max_id = 0
+        for item in items:
             try:
                 max_id = max(max_id, int(item.get("id") or 0))
-            except (TypeError, ValueError):
+            except (TypeError, ValueError, OverflowError):
                 continue
         return max_id
+
+    def _legacy_id_floor(self) -> int:
+        """Highest id an older build may have issued outside the live file.
+
+        Older builds rotated the queue to ``.jsonl.1`` and an offline reset
+        could empty it behind a ``.recovery.json`` id floor.  Both are read
+        only, as allocator frontier data: nothing is created, modified,
+        required or replayed, and unreadable leftovers are ignored.
+        """
+
+        rotated = self.path.with_suffix(".jsonl.1")
+        record_path = self.path.with_name(self.path.name + ".recovery.json")
+        signature = (_stat_identity(rotated), _stat_identity(record_path))
+        if signature == (None, None):
+            return 0
+        key = str(self.path.absolute())
+        with _LEGACY_FLOOR_LOCK:
+            cached = _LEGACY_FLOOR_CACHE.get(key)
+        if cached is not None and cached[0] == signature:
+            return cached[1]
+        floor = 0
+        complete = True
+        if signature[0] is not None:
+            items, damaged_max_id, complete = self._scan(rotated, "legacy id scan")
+            floor = max(self._items_max_id(items), damaged_max_id)
+        if signature[1] is not None:
+            try:
+                record = json.loads(record_path.read_bytes())
+            except FileNotFoundError:
+                record = None
+            except OSError:
+                record, complete = None, False
+            except (ValueError, RecursionError):
+                record = None
+            id_floor = record.get("id_floor") if isinstance(record, dict) else None
+            if type(id_floor) is int and id_floor > 0:
+                floor = max(floor, id_floor - 1)
+        if complete:
+            # An unreadable leftover is retried next time, never cached low.
+            with _LEGACY_FLOOR_LOCK:
+                _LEGACY_FLOOR_CACHE[key] = (signature, floor)
+        return floor
+
+    def max_id(self) -> int:
+        items, damaged_max_id, _complete = self._scan(self.path, "max id scan")
+        return max(self._items_max_id(items), damaged_max_id, self._legacy_id_floor())
+
+    def min_id(self) -> int:
+        """Lowest positive id among decodable live rows; 0 when there are none."""
+
+        lowest = 0
+        for item in self._jsonl_items("min id scan"):
+            try:
+                item_id = int(item.get("id") or 0)
+            except (TypeError, ValueError, OverflowError):
+                continue
+            if item_id > 0 and (lowest == 0 or item_id < lowest):
+                lowest = item_id
+        return lowest
 
     def max_id_before_epoch(self, cutoff_epoch: float) -> int:
         max_id = 0
