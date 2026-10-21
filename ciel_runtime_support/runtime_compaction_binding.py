@@ -367,6 +367,15 @@ class RuntimeCompactionBinding:
         # always pass the header container, even when it has no session key.
         return scope if headers is None or session == scope.session_id else None
 
+    def request_scope(self, runtime: str, headers: Any, body: dict[str, Any]) -> CompactionScope | None:
+        """The bound scope when this HTTP request belongs to its main conversation."""
+
+        try:
+            return self._main_session(runtime, headers, body)
+        except (OSError, ValueError, TypeError) as exc:
+            self.log("WARN", f"runtime_compaction_request_scope_failed runtime={runtime} error={type(exc).__name__}")
+            return None
+
     def observe_request(self, provider: str, config: dict[str, Any], body: dict[str, Any], runtime: str,
                         headers: Any = None) -> None:
         try:
@@ -389,9 +398,11 @@ class RuntimeCompactionBinding:
         with exclusive_file_lock(self.seed_lock_path):
             self._update(scope.epoch, request_observed=True)
             active = self._active_state(scope)
-            # Claude owns proactive compaction of native Messages turns: only a
-            # native compact, or the proof an active cycle waits for, is seen.
-            if provider == "anthropic" and runtime == "claude" and not active and not native:
+            # Native clients own proactive timing. JSON/4 is not tokenizer
+            # evidence and the Runtime input reserve is not the CLI threshold.
+            # Keep observing native checkpoints and an existing recovery cycle,
+            # but only a confirmed upstream overflow may start pressure here.
+            if not active and not native:
                 return
             if active and not limit:
                 # Unknown capacity: the observed compact request size is the
@@ -488,9 +499,9 @@ class RuntimeCompactionBinding:
         budget = self.input_budget(provider, config, {})
         self.log("INFO", f"runtime_compaction_seed runtime={scope.runtime} session={scope.session_id} "
                  f"native_input_tokens={'unknown' if tokens is None else tokens} input_budget={budget or 'unknown'}")
-        if tokens is not None and budget and tokens >= budget:
-            # An initial pressure observation only; it can never prove shrink.
-            self.control.observe_request({}, tokens, budget, scope=scope)
+        # Transcript usage predates this launch and is not tied to the current
+        # provider/model. It is diagnostic only, never proactive pressure. The
+        # native CLI applies its own threshold to the resumed conversation.
 
     def context_pause_reason(self, body: dict[str, Any]) -> str:
         if self._compact_kind(body):

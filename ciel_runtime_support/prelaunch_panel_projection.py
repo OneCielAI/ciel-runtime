@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping, Protocol
 
-from ciel_runtime_support import dangerous_rm_auto_allow
+from ciel_runtime_support import claude_stream_recovery_settings, dangerous_rm_auto_allow
 from ciel_runtime_support.web_endpoints import web_backend_summary
 
 
@@ -148,7 +148,8 @@ class MainMenuProjection:
             f"[{web_backend_summary(config, 0)}]",
             f"15. OAuth tokens  [{oauth_tokens_summary()}]",
             f"16. Web access  [{web_access_summary()}]",
-            f"17. Dangerous delete prompt  [{dangerous_rm_auto_allow.summary(config)}]",
+            f"17. Dangerous delete prompt · Stream recovery  "
+            f"[{dangerous_rm_auto_allow.summary(config)} · {claude_stream_recovery_settings.short_summary(config)}]",
             f"18. Session backup  [{session_backup_summary()}]",
             f"19. Provider fallback  [{provider_fallback_summary(config)}]",
             f"20. Unattended restart  [{unattended_restart_summary()}]",

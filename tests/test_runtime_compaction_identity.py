@@ -102,14 +102,14 @@ class PublishedSocketIdentityTests(IdentityHarness):
         self.assertEqual(self.binding.scope(), other.scope())
         self.assertFalse(other.external_admission_paused())
 
-    def test_continue_seeds_resumed_pressure_once_transcript_is_selected(self):
+    def test_continue_does_not_seed_pressure_from_old_usage(self):
         self.published()
         self.assertFalse(self.binding.external_admission_paused())  # no transcript yet
         self.transcript(16000)
         self.binding.cache["checked_at"] = 0.0
-        self.assertTrue(self.binding.external_admission_paused())
-        self.assertTrue(self.requests.read()["automatic"])
-        self.assertEqual("queued", self.state()["phase"])
+        self.assertFalse(self.binding.external_admission_paused())
+        self.assertIsNone(self.requests.read())
+        self.assertFalse(self.state())
 
     def test_wrong_socket_cwd_earlier_process_or_identity_never_select_latest(self):
         self.transcript()
@@ -136,8 +136,8 @@ class PublishedSocketIdentityTests(IdentityHarness):
         self.published()
         self.assertIsNone(self.binding.transcript_path())
         self.binding.observe_request("other", {}, {"tokens": 16000}, "claude", {"x-claude-code-session-id": "exact"})
-        self.assertEqual("queued", self.state()["phase"])
-        self.assertTrue(self.binding.external_admission_paused())
+        self.assertFalse(self.state())
+        self.assertFalse(self.binding.external_admission_paused())
 
     def test_request_header_cannot_override_declared_socket_ownership(self):
         self.binding.observe_request("other", {}, {"tokens": 16000}, "claude", {"x-claude-code-session-id": "other"})
@@ -152,7 +152,7 @@ class PublishedSocketIdentityTests(IdentityHarness):
         self.published()
         self.transcript(16000)
         epoch = self.binding.scope().epoch
-        self.assertTrue(self.binding.external_admission_paused())
+        self.assertFalse(self.binding.external_admission_paused())
         self.published("cleared")
         self.binding.observe_request("other", {}, {"tokens": 100}, "claude", {"x-claude-code-session-id": "cleared"})
         scope = self.make().scope()
@@ -183,8 +183,8 @@ class PublishedSocketIdentityTests(IdentityHarness):
         self.transcript()
         peer = self.make()
         self.assertEqual(self.path, peer.transcript_path())
-        self.assertTrue(peer.external_admission_paused())
-        self.assertEqual("queued", peer.control.ports.load()["phase"])
+        self.assertFalse(peer.external_admission_paused())
+        self.assertFalse(peer.control.ports.load())
 
     def test_separate_process_resolves_launcher_socket_identity(self):
         self.published()
@@ -212,7 +212,7 @@ class RequestIdentityTests(IdentityHarness):
             self.assertIsNone(self.binding.scope(), headers)
         self.binding.observe_request("other", {}, {"tokens": 16000}, "claude", {"x-claude-code-session-id": "exact"})
         self.assertEqual("exact", self.make().scope().session_id)
-        self.assertEqual("queued", self.state()["phase"])
+        self.assertFalse(self.state())
         self.binding.observe_request("other", {}, {"tokens": 100}, "claude", {"x-claude-code-session-id": "other"})
         self.assertEqual("exact", self.binding.scope().session_id)
 

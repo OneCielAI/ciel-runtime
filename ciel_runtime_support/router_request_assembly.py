@@ -237,6 +237,8 @@ class ClaudeRouterContextRecoveryPorts:
     observe_request: Callback = lambda *_args: None
     observe_failure: Callback = lambda *_args: None
     reject_request: Callback = lambda *_args: None
+    stream_scope: Callback = lambda *_args: None
+    observe_stream_failure: Callback = lambda *_args: None
 
 
 @dataclass(frozen=True, slots=True)
@@ -341,6 +343,8 @@ class ClaudeRouterAssembly:
                 observe_request=self.context_recovery.observe_request,
                 observe_failure=self.context_recovery.observe_failure,
                 reject_request=self.context_recovery.reject_request,
+                stream_scope=self.context_recovery.stream_scope,
+                observe_stream_failure=self.context_recovery.observe_stream_failure,
             ),
         )
 

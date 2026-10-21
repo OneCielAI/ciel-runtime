@@ -1,6 +1,8 @@
 """Native compatible Responses checkpoint keeps semantic and backend ownership."""
 import io
 import json
+import urllib.error
+import urllib.request
 import unittest
 from dataclasses import replace
 from types import SimpleNamespace
@@ -93,57 +95,118 @@ def ports(compact, urlopen=None, byte_limit=None):
 
 
 class NativeResponsesSemanticCheckpointTests(unittest.TestCase):
-    def test_map_uses_responses_wire_and_full_raw_history_then_final_stream(self):
-        seen = []
-
-        def post(url, request, *args, **kw):
-            self.assertEqual("https://provider.test/v1/responses", url)
-            self.assertFalse(request["stream"])
-            self.assertIn("max_output_tokens", request)
-            self.assertNotIn("max_tokens", request)
-            self.assertNotIn("messages", request)
-            self.assertFalse(kw["retry_rate_limits"])
-            self.assertEqual("upstream-test-model", request["model"])
-            seen.append(request["input"][0]["content"][0]["text"])
-            return {"status": "completed", "output": [{"type": "message", "status": "completed",
-                    "content": [{"type": "output_text", "text": "durable segment"}]}]}
-
-        services = prompt_services(summary_services(post))
-        compact = mock.Mock(side_effect=lambda body, budget, **kw: compact_responses_input_for_budget(
-            body, budget, services=services, **kw))
-        terminal = (b'event: response.completed\ndata: {"type":"response.completed","response":'
-                    b'{"id":"real-final","status":"completed","output":[],'
-                    b'"usage":{"input_tokens":12,"output_tokens":7}}}\n\n')
+    def test_native_checkpoint_is_forwarded_without_local_summary_when_upstream_has_not_rejected(self):
+        compact = mock.Mock()
         response = mock.MagicMock()
         response.__enter__.return_value = response
         response.status = 200
         response.headers = {}
+        terminal = b'event: response.completed\ndata: {"type":"response.completed","response":{"id":"real-final","status":"completed","output":[],"usage":{"input_tokens":12,"output_tokens":7}}}\n\n'
         response.read.side_effect = [terminal, b""]
         urlopen = mock.Mock(return_value=response)
         handler = SimpleNamespace(headers={}, wfile=io.BytesIO(), send_response=mock.Mock(),
                                   end_headers=mock.Mock())
         body = checkpoint()
-        body["input"].insert(0, {"type": "function_call_output", "call_id": "orphan",
-                                 "output": "RAW-ORPHAN-MUST-BE-SUMMARIZED"})
         ProviderResponsesPassthrough(ports(compact, urlopen)).forward(
             handler, "cielairouter", {"context_window": 16384, "max_output_tokens": 1024}, body)
-        self.assertGreater(len(seen), 1)
-        joined = "".join(seen)
-        self.assertIn("RAW-ORPHAN-MUST-BE-SUMMARIZED", joined)
-        for marker in ("MARKER-FIRST", "MARKER-LAST", "function_call_output", '"rows":[0,1,2', "38,39]"):
-            self.assertIn(marker, joined)
-        self.assertEqual(1, compact.call_count)
-        self.assertEqual(16384 - 1024 - 1024, compact.call_args.args[1])
-        self.assertTrue(compact.call_args.kwargs["full_compact_request"])
+        compact.assert_not_called()
         final = json.loads(urlopen.call_args.args[0].data)
         self.assertEqual("upstream-test-model", final["model"])
-        self.assertEqual(1, len(final["input"]))
-        self.assertTrue(final["stream"])
-        self.assertEqual(body["instructions"], final["instructions"])
-        self.assertNotIn("tools", final)
-        self.assertIn("durable segment", final["input"][0]["content"][0]["text"])
-        # The real upstream final stream is relayed; no local usage or checkpoint is minted.
+        self.assertEqual(body["input"], final["input"])
         self.assertEqual(terminal, handler.wfile.getvalue())
+
+    def test_confirmed_context_recovery_uses_full_raw_source_and_real_responses_summary(self):
+        seen = []
+        def post(url, request, *args, **kwargs):
+            self.assertEqual("upstream-test-model", request["model"])
+            self.assertFalse(request["stream"])
+            self.assertFalse(kwargs["retry_rate_limits"])
+            seen.append(request["input"][0]["content"][0]["text"])
+            return {"status": "completed", "output": [{"type": "message", "content": [
+                {"type": "output_text", "text": "durable segment"}]}]}
+        services = prompt_services(summary_services(post))
+        compact = mock.Mock(side_effect=lambda body, budget, **kw: compact_responses_input_for_budget(
+            body, budget, services=services, **kw))
+        raw = json.dumps({"error": {"type": "context_length_exceeded", "message": "context"}}).encode()
+        rejected = urllib.error.HTTPError("https://provider.test", 400, "Bad Request", {}, io.BytesIO(raw))
+        response = mock.MagicMock()
+        response.__enter__.return_value = response
+        response.status = 200
+        response.headers = {}
+        response.read.side_effect = [b'event: response.completed' + bytes([10]) +
+            b'data: {"type":"response.completed","response":{"status":"completed","output":[]}}' + bytes([10, 10]), b""]
+        upstream = mock.Mock(side_effect=[rejected, response])
+        route = ProviderResponsesPassthrough(ports(compact, upstream))
+        body = checkpoint()
+        body["input"].insert(0, {"type": "function_call_output", "call_id": "orphan", "output": "RAW-ORPHAN"})
+        handler = SimpleNamespace(headers={}, wfile=io.BytesIO(), send_response=mock.Mock(), end_headers=mock.Mock())
+        route.forward(handler, "cielairouter", {"context_window": 16384, "max_output_tokens": 1024}, body)
+        self.assertGreater(len(seen), 0)
+        joined = "".join(seen)
+        for marker in ("RAW-ORPHAN", "MARKER-FIRST", "MARKER-LAST", "function_call_output", "38,39]"):
+            self.assertIn(marker, joined)
+        compact.assert_called_once()
+        self.assertEqual(2, upstream.call_count)
+        final = json.loads(upstream.call_args.args[0].data)
+        self.assertEqual("upstream-test-model", final["model"])
+        self.assertIn("durable segment", final["input"][0]["content"][0]["text"])
+
+    def test_confirmed_no_output_rejection_runs_one_bounded_recovery_with_normalized_model(self):
+        compact = mock.Mock(side_effect=lambda body, budget, **kw: {
+            **body, "input": [{"role": "user", "content": "reduced"}]})
+        raw = json.dumps({"error": {"type": "context_length_exceeded", "message": "context"}}).encode()
+        rejected = urllib.error.HTTPError("https://provider.test", 400, "Bad Request", {}, io.BytesIO(raw))
+        response = mock.Mock()
+        upstream = mock.Mock(side_effect=[rejected, response])
+        route = ProviderResponsesPassthrough(ports(compact, upstream))
+        body = checkpoint()
+        body["model"] = "upstream-test-model"
+        request = urllib.request.Request("https://provider.test", data=route._encode(body))
+        self.assertIs(response, route._open_checkpoint_request(request, "cielairouter", {"context_window": 16384}, body))
+        self.assertEqual(2, upstream.call_count)
+        compact.assert_called_once()
+        self.assertEqual("upstream-test-model", compact.call_args.kwargs["model"])
+        self.assertTrue(compact.call_args.kwargs["pcfg"]["_context_compact_context_rejected"])
+        self.assertEqual("reduced", json.loads(request.data)["input"][0]["content"])
+
+    def test_second_context_rejection_is_relayed_without_second_summary(self):
+        raw = json.dumps({"error": {"type": "context_length_exceeded", "message": "context"}}).encode()
+        def error():
+            return urllib.error.HTTPError("https://test", 400, "Rejected", {}, io.BytesIO(raw))
+        compact = mock.Mock(side_effect=lambda body, budget, **kw: {**body, "input": [{"role": "user", "content": "reduced"}]})
+        upstream = mock.Mock(side_effect=[error(), error()])
+        route = ProviderResponsesPassthrough(ports(compact, upstream))
+        body = checkpoint()
+        request = urllib.request.Request("https://test", data=route._encode(body))
+        with self.assertRaises(urllib.error.HTTPError):
+            route._open_checkpoint_request(request, "cielairouter", {"context_window": 16384}, body)
+        self.assertEqual(2, upstream.call_count)
+        compact.assert_called_once()
+
+    def test_ambiguous_error_does_not_authorize_recovery(self):
+        for status, kind in ((400, "invalid_request_error"), (413, "request_too_large"), (503, "context_length_exceeded")):
+            with self.subTest(status=status, kind=kind):
+                raw = json.dumps({"error": {"type": kind, "message": "rejected"}}).encode()
+                error = urllib.error.HTTPError("https://test", status, "Rejected", {}, io.BytesIO(raw))
+                compact = mock.Mock()
+                upstream = mock.Mock(side_effect=error)
+                route = ProviderResponsesPassthrough(ports(compact, upstream))
+                body = checkpoint()
+                request = urllib.request.Request("https://test", data=route._encode(body))
+                with self.assertRaises(urllib.error.HTTPError) as caught:
+                    route._open_checkpoint_request(request, "cielairouter", {"context_window": 16384}, body)
+                self.assertEqual(raw, caught.exception.read())
+                compact.assert_not_called()
+                upstream.assert_called_once()
+
+    def test_unknown_token_count_and_large_unicode_never_trigger_preflight_summary(self):
+        for estimate_value in (0, 10**9):
+            compact = mock.Mock()
+            route = ProviderResponsesPassthrough(replace(ports(compact), estimate_tokens=lambda _: estimate_value))
+            body = checkpoint()
+            body["input"][1]["output"] = "가" * 50000
+            self.assertIs(body, route._fit_provider_request("https://test", "cielairouter", {"context_window": 16384}, body)[0])
+            compact.assert_not_called()
 
     def test_remote_and_native_backend_never_semantically_compact(self):
         compact = mock.Mock()

@@ -57,6 +57,18 @@ def _remote_empty_list(*_args: Any, **_kwargs: Any) -> list[Any]:
     return []
 
 
+def _ignore_stream_failure(_metadata: dict[str, Any]) -> None:
+    return None
+
+
+def _stream_session_id(handler: Any) -> str | None:
+    getter = getattr(getattr(handler, "headers", None), "get", None)
+    value = getter("x-claude-code-session-id") if callable(getter) else None
+    if not isinstance(value, str):
+        return None
+    return value.strip()[:128] or None
+
+
 def _complete_sse_data(parts: list[str]) -> bool:
     body = "\n".join(parts).strip()
     if not body:
@@ -193,6 +205,7 @@ def rebatch_anthropic_sse_text(
     provider: str = "",
     *,
     services: AnthropicStreamServices,
+    stream_failure_observer: Callable[[dict[str, Any]], None] = _ignore_stream_failure,
 ) -> None:
     """
     Parse upstream Anthropic SSE and re-emit it with text_delta events buffered
@@ -200,6 +213,11 @@ def rebatch_anthropic_sse_text(
     When the selected provider cannot preserve Anthropic's thinking passback
     contract, thinking blocks are suppressed and later content block indices are
     compacted.
+
+    ``stream_failure_observer`` receives one metadata dict after a stream that
+    did not complete, once the upstream response is closed. It carries counts
+    and flags only, never body text, tool arguments or credentials, and it
+    cannot change what was sent downstream.
     """
 
     ANTHROPIC_THINKING_BLOCK_TYPES = services.io.ANTHROPIC_THINKING_BLOCK_TYPES
@@ -281,6 +299,20 @@ def rebatch_anthropic_sse_text(
     reading_upstream = True
     completing_stream = False
     failure_reason: str | None = None
+    # Failure metadata: how the upstream side ended, as far as it was observed.
+    upstream_message_id: str | None = None
+    upstream_error_type = ""
+    upstream_eof = False
+    upstream_read_failed = False
+    client_disconnected = False
+    # Text the client actually received: counted only after emit_raw flushed it.
+    visible_text_len = 0
+    # Any upstream block whose type ends in "tool_use" (tool_use,
+    # server_tool_use, mcp_tool_use, ...) or any tool-input delta. Metadata
+    # only: it never changes what is relayed.
+    saw_tool_like_block = False
+    # A pseudo XML tool call was detected in streamed text at least once.
+    saw_pseudo_tool_text = False
     allow_tasklist_synthesis = should_synthesize_tasklist_for_provider(provider)
     filter_visible_tool_call_artifacts = bool(
         provider == "anthropic"
@@ -372,6 +404,13 @@ def rebatch_anthropic_sse_text(
                 raise value
             return
 
+    def note_visible_text(text: Any) -> None:
+        """Call only after emit_raw returned, i.e. the bytes were written and flushed."""
+
+        nonlocal visible_text_len
+        if isinstance(text, str):
+            visible_text_len += len(text)
+
     def emit_text_delta_raw(index: int, text: str) -> None:
         if not text:
             return
@@ -381,6 +420,7 @@ def rebatch_anthropic_sse_text(
             "delta": {"type": "text_delta", "text": text},
         }
         emit_raw("content_block_delta", json.dumps(payload, ensure_ascii=False))
+        note_visible_text(text)
 
     def emit_text_delta(index: int, text: str) -> None:
         if not text:
@@ -617,11 +657,13 @@ def rebatch_anthropic_sse_text(
     def tracked_upstream_lines() -> Iterable[Any]:
         """Mark whether a failure came from reading upstream or from relaying a line."""
 
-        nonlocal reading_upstream
+        nonlocal reading_upstream, upstream_eof
         for raw_line in upstream_lines_with_downstream_keepalive():
             reading_upstream = False
             yield raw_line
             reading_upstream = True
+        # Reached only when the upstream ran out, not when the relay stopped reading.
+        upstream_eof = True
 
     def flush_received_text(*, unfinished: bool = False) -> None:
         for index in list(text_buffers.keys()):
@@ -635,7 +677,12 @@ def rebatch_anthropic_sse_text(
     def forward_upstream_error(event_type: str | None, data_str: str) -> None:
         """Relay Anthropic's in-stream error after what preceded it; nothing follows it."""
 
-        nonlocal upstream_error_forwarded, ending_started
+        nonlocal upstream_error_forwarded, ending_started, upstream_error_type
+        try:
+            parsed_error = json.loads(data_str).get("error")
+            upstream_error_type = str(parsed_error.get("type") or "")[:64] if isinstance(parsed_error, dict) else ""
+        except (AttributeError, TypeError, ValueError):
+            upstream_error_type = ""
         flush_received_text(unfinished=True)
         upstream_error_forwarded = True
         ending_started = True
@@ -874,7 +921,7 @@ def rebatch_anthropic_sse_text(
         return True
 
     def process_event(event_type: str | None, data_str: str) -> None:
-        nonlocal saw_message_start, saw_message_stop, text_so_far, saw_tool_use, emitted_tool_use, next_content_index, pending_message_delta, pending_message_stop
+        nonlocal saw_message_start, saw_message_stop, text_so_far, saw_tool_use, emitted_tool_use, next_content_index, pending_message_delta, pending_message_stop, upstream_message_id, saw_tool_like_block, saw_pseudo_tool_text
         if saw_message_stop and not completing_stream:
             router_log("WARN", f"anthropic_sse_event_after_message_stop_ignored provider={provider} model={model} event={event_type or '-'}")
             return
@@ -895,6 +942,9 @@ def rebatch_anthropic_sse_text(
             return
         if evt_type == "message_start":
             saw_message_start = True
+            message = event.get("message")
+            if isinstance(message, dict) and isinstance(message.get("id"), str):
+                upstream_message_id = message["id"][:128]
         elif evt_type == "message_stop":
             saw_message_stop = True
             pending_message_stop = (event_type, data_str)
@@ -902,6 +952,9 @@ def rebatch_anthropic_sse_text(
         elif evt_type == "content_block_start":
             index = event.get("index")
             content_block = event.get("content_block") if isinstance(event.get("content_block"), dict) else {}
+            block_type = content_block.get("type")
+            if isinstance(block_type, str) and block_type.endswith("tool_use"):
+                saw_tool_like_block = True
             mapped_index: int | None = None
             if isinstance(index, int):
                 if not preserve_thinking and content_block.get("type") in ANTHROPIC_THINKING_BLOCK_TYPES:
@@ -1100,6 +1153,8 @@ def rebatch_anthropic_sse_text(
             return
         if evt_type == "content_block_delta":
             delta = event.get("delta") if isinstance(event.get("delta"), dict) else {}
+            if delta.get("type") == "input_json_delta":
+                saw_tool_like_block = True
             index = event.get("index")
             mapped_index = mapped_content_index(index)
             if isinstance(index, int) and mapped_index is None:
@@ -1131,6 +1186,7 @@ def rebatch_anthropic_sse_text(
                     return
                 pseudo_start = _find_pseudo_xml_tool_start(text, source_body) if provider != "anthropic" else -1
                 if pseudo_start >= 0:
+                    saw_pseudo_tool_text = True
                     prefix = text[:pseudo_start]
                     held_pseudo_tool_text[mapped_index] = text[pseudo_start:]
                     if not prefix:
@@ -1148,6 +1204,8 @@ def rebatch_anthropic_sse_text(
                 flush_buffer(mapped_index, force=False)
                 return
             emit_raw(event_type, data_str)
+            if delta.get("type") == "text_delta":
+                note_visible_text(delta.get("text"))
             return
         if evt_type == "content_block_stop":
             index = event.get("index")
@@ -1172,6 +1230,11 @@ def rebatch_anthropic_sse_text(
         if evt_type == "message_stop":
             flush_suppressed_thinking_passback()
         emit_raw(event_type, data_str)
+        if evt_type == "content_block_start":
+            # A text block may carry initial text in content_block_start.
+            started_block = event.get("content_block")
+            if isinstance(started_block, dict) and started_block.get("type") == "text":
+                note_visible_text(started_block.get("text"))
 
     def stream_state() -> str:
         return (
@@ -1179,6 +1242,62 @@ def rebatch_anthropic_sse_text(
             f"message_start={saw_message_start} message_delta={pending_message_delta is not None} "
             f"open_blocks={len(open_content_blocks) + len(buffered_tool_uses)}"
         )
+
+    def stream_failure_metadata(reason: str) -> dict[str, Any]:
+        """Counts and flags only; no body text, tool arguments or credentials."""
+
+        return {
+            "event": "anthropic_stream_failure",
+            "provider": provider,
+            "model": model,
+            "session_id": _stream_session_id(handler),
+            "upstream_message_id": upstream_message_id,
+            # The upstream itself ended (EOF, read error or error event) without
+            # message_stop. False when the relay stopped reading first, so the
+            # upstream's own ending is unknown.
+            "confirmed_incomplete": bool(
+                not saw_message_stop and (upstream_eof or upstream_read_failed or upstream_error_forwarded)
+            ),
+            # Text received from upstream, including text the relay still held.
+            "text_len": len(text_so_far),
+            # Text the client received: text_delta (and initial text-block
+            # text) counted only after the write and flush succeeded.
+            "visible_text_len": visible_text_len,
+            "emitted_tool_use": emitted_tool_use,
+            # Only blocks typed exactly "tool_use"; see saw_tool_like_block.
+            "saw_tool_use": saw_tool_use,
+            "saw_tool_like_block": saw_tool_like_block,
+            "saw_pseudo_tool_text": saw_pseudo_tool_text,
+            # Indices whose pseudo tool-call text was held and never relayed.
+            "held_pseudo_tool_text": len(held_pseudo_tool_text),
+            # Conservative: any client, server or MCP tool block, tool-input
+            # delta, held tool_use, or pseudo tool text makes this True.
+            "tool_uncertain": bool(
+                saw_tool_use
+                or emitted_tool_use
+                or saw_tool_like_block
+                or buffered_tool_uses
+                or saw_pseudo_tool_text
+                or held_pseudo_tool_text
+            ),
+            # Blocks started downstream without a content_block_stop; buffered
+            # tool_use blocks were never started downstream and count separately.
+            "open_blocks": len(open_content_blocks.difference(buffered_tool_uses)),
+            "held_tool_uses": len(buffered_tool_uses),
+            "upstream_error": upstream_error_forwarded,
+            # Anthropic's error.type from the forwarded in-stream error event.
+            "upstream_error_type": upstream_error_type,
+            "client_disconnected": client_disconnected,
+            "saw_message_start": saw_message_start,
+            "saw_message_stop": saw_message_stop,
+            "failure_reason": reason,
+        }
+
+    def notify_stream_failure(reason: str) -> None:
+        try:
+            stream_failure_observer(stream_failure_metadata(reason))
+        except Exception as exc:
+            router_log("WARN", f"anthropic_stream_failure_observer_failed error={type(exc).__name__}")
 
     try:
         for raw in tracked_upstream_lines():
@@ -1221,6 +1340,7 @@ def rebatch_anthropic_sse_text(
                 "anthropic_stream_upstream_incomplete",
             )
     except ClientStreamDisconnected as exc:
+        client_disconnected = True
         failure_reason = failure_reason or "anthropic_stream_client_disconnected"
         router_log(
             "WARN",
@@ -1231,6 +1351,7 @@ def rebatch_anthropic_sse_text(
         )
     except Exception as exc:
         source = "upstream" if reading_upstream else "relay"
+        upstream_read_failed = source == "upstream"
         try:
             if ending_started:
                 # Part of an ending is already downstream; anything more would
@@ -1275,6 +1396,7 @@ def rebatch_anthropic_sse_text(
                         f"anthropic_stream_{source}_error:{type(exc).__name__}",
                     )
         except ClientStreamDisconnected as emit_exc:
+            client_disconnected = True
             failure_reason = failure_reason or "anthropic_stream_client_disconnected"
             router_log(
                 "WARN",
@@ -1283,6 +1405,7 @@ def rebatch_anthropic_sse_text(
         except Exception as emit_exc:
             router_log("WARN", f"anthropic_stream_fallback_emit_failed error={type(emit_exc).__name__}: {emit_exc}")
     finally:
+        reported_failure_reason: str | None = None
         if stream_success:
             mark_pending_channel_delivery_success(handler, "anthropic_stream_message_stop")
         else:
@@ -1291,10 +1414,13 @@ def rebatch_anthropic_sse_text(
                 or "anthropic_stream_incomplete"
             )
             mark_pending_channel_delivery_failed(handler, reason)
+            reported_failure_reason = reason
         try:
             resp.close()
         except Exception as exc:
             router_log("WARN", f"anthropic_stream_response_close_failed error={type(exc).__name__}: {exc}")
+        if reported_failure_reason is not None:
+            notify_stream_failure(reported_failure_reason)
 
 
 @dataclass(frozen=True, slots=True)

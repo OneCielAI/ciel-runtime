@@ -283,6 +283,7 @@ class ResponseStreamContext:
         preserve_thinking: bool = True,
         normalize_tool_use: bool = False,
         provider: str = "",
+        stream_failure_observer: Callable[[dict[str, Any]], None] | None = None,
     ) -> None:
         return streaming_anthropic.rebatch_anthropic_sse_text(
             handler,
@@ -294,6 +295,7 @@ class ResponseStreamContext:
             normalize_tool_use=normalize_tool_use,
             provider=provider,
             services=self.anthropic_stream_services(),
+            **({"stream_failure_observer": stream_failure_observer} if stream_failure_observer is not None else {}),
         )
 
     def ollama_stream_services(self) -> streaming_anthropic.OllamaStreamServices:

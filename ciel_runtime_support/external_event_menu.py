@@ -6,6 +6,7 @@ from typing import Any, Callable
 
 from .external_event_control import ExternalEventControl
 from .external_event_receiver import ExternalEventReceiverService
+from .runtime_input_delivery_health import delivery_health_text
 
 
 def panel_rows(
@@ -96,6 +97,8 @@ def panel_rows(
         "__info__",
         "back",
     ]
+    rows.insert(-1, f"Session delivery  [{delivery_health_text(status.get('delivery') or {})}]")
+    values.insert(-1, "__info__")
     return rows, values
 
 

@@ -444,7 +444,7 @@ def render_prelaunch_screen(
             "workspace-mcp": "Workspace MCP modules",
             "oauth-tokens": "OAuth tokens",
             "web-access": "Web access",
-            "dangerous-rm": "Dangerous delete prompt",
+            "dangerous-rm": "Dangerous delete prompt · Stream recovery",
             "session-backup": "Session backup",
             "provider-fallback": "Provider fallback",
             "unattended-restart": "Unattended restart",

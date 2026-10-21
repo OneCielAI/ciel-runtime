@@ -1,0 +1,90 @@
+import copy
+import json
+import unittest
+from unittest.mock import Mock
+
+from ciel_runtime_support.prompt_compaction import (
+    PromptCompactionRuntime,
+    PromptCompactionServices,
+    PromptCompactionText,
+    compact_anthropic_body_for_budget,
+    compact_chat_messages_for_budget,
+)
+from ciel_runtime_support.context_summary_policy import CODEX_CONTEXT_CHECKPOINT_PROMPT
+
+
+class NativeCompactPassthroughTests(unittest.TestCase):
+    def services(self):
+        auxiliary = Mock(return_value=[{"role": "user", "content": "summary"}])
+        estimate = Mock(side_effect=lambda value: max(1, len(json.dumps(value, ensure_ascii=False)) // 4))
+        text = PromptCompactionText(*(Mock(side_effect=AssertionError("deterministic guard must not run")) for _ in range(6)))
+        runtime = PromptCompactionRuntime(estimate, auxiliary, Mock(), Mock())
+        return PromptCompactionServices(text, runtime)
+
+    def messages(self):
+        return [
+            {"role": "assistant", "content": "한글🙂" * 16000},
+            {"role": "user", "content": CODEX_CONTEXT_CHECKPOINT_PROMPT},
+        ]
+
+    def test_large_unicode_chat_checkpoint_passes_unchanged_without_auxiliary_work(self):
+        for config in (None, {}, {"context_compact_llm": True}):
+            with self.subTest(config=config):
+                services = self.services()
+                messages, tools = self.messages(), [{"name": "tool", "description": "도구" * 8000}]
+                before = copy.deepcopy(messages)
+                result = compact_chat_messages_for_budget(messages, tools, 8192,
+                    provider="provider", model="model", pcfg=config,
+                    full_compact_request=True, services=services)
+                self.assertIs(result, messages)
+                self.assertEqual(before, messages)
+                services.runtime.estimate_tokens.assert_not_called()
+                services.runtime.llm_compact_messages.assert_not_called()
+                services.runtime.write_activity.assert_not_called()
+
+    def test_large_unicode_anthropic_checkpoint_passes_raw_tool_blocks_unchanged(self):
+        services = self.services()
+        body = {"messages": self.messages(), "system": "규칙" * 9000,
+                "tools": [{"name": "tool", "input_schema": {"type": "object"}}]}
+        body["messages"][0]["content"] = [{"type": "tool_use", "id": "call1",
+            "name": "tool", "input": {"raw": "자료🙂" * 16000}}]
+        before = copy.deepcopy(body)
+        result = compact_anthropic_body_for_budget(body, 8192,
+            provider="provider", model="model", pcfg={},
+            full_compact_request=True, services=services)
+        self.assertIs(result, body)
+        self.assertEqual(before, body)
+        services.runtime.estimate_tokens.assert_not_called()
+        services.runtime.llm_compact_messages.assert_not_called()
+        services.runtime.write_activity.assert_not_called()
+
+    def test_confirmed_rejection_keeps_chat_semantic_recovery(self):
+        services = self.services()
+        result = compact_chat_messages_for_budget(self.messages(), [], 8192,
+            provider="provider", model="model",
+            pcfg={"_context_compact_context_rejected": True},
+            full_compact_request=True, services=services)
+        self.assertEqual([{"role": "user", "content": "summary"}], result)
+        services.runtime.llm_compact_messages.assert_called_once()
+
+    def test_confirmed_rejection_keeps_anthropic_semantic_recovery(self):
+        services = self.services()
+        body = {"messages": self.messages(), "tools": [{"name": "tool"}]}
+        result = compact_anthropic_body_for_budget(body, 8192,
+            provider="provider", model="model",
+            pcfg={"_context_compact_context_rejected": True},
+            full_compact_request=True, services=services)
+        self.assertEqual([{"role": "user", "content": "summary"}], result["messages"])
+        self.assertEqual([], result["tools"])
+        services.runtime.llm_compact_messages.assert_called_once()
+
+    def test_small_ordinary_request_keeps_existing_budget_path(self):
+        services = self.services()
+        messages = [{"role": "user", "content": "ordinary"}]
+        self.assertIs(messages, compact_chat_messages_for_budget(messages, [], 8192, services=services))
+        services.runtime.estimate_tokens.assert_called_once()
+        services.runtime.llm_compact_messages.assert_not_called()
+
+
+if __name__ == "__main__":
+    unittest.main()

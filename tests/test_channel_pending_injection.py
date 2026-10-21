@@ -356,13 +356,23 @@ class SocketOnlyInjectionTests(unittest.TestCase):
             ChannelPendingPollServices, ChannelPendingInjectionOptions,
             poll_pending_channel_messages,
         )
-        for damage in ("{incomplete", "not-json" + chr(10), chr(10)):
+        damages = [b"{incomplete", b"not-json" + bytes([10]), bytes([10]), bytes([255, 10])]
+        for status_name in ("queued", "submitted", "replied"):
+            row = {"request_id": 40, "status": status_name,
+                   "updated_at": "2026-10-20T09:00:00+00:00", "updated_at_epoch": 1}
+            damages.append(bytes(17) + json.dumps(row).encode() + bytes([10]))
+        valid_row = json.dumps({"request_id": 40, "status": "queued"}).encode()
+        damages.extend((valid_row, valid_row + bytes([0, 10]),
+                        valid_row[:5] + bytes(1) + valid_row[5:] + bytes([10]),
+                        b"{\"request_id\":40,\"status\":\"queued\",\"status\":\"replied\"}" + bytes([10]),
+                        b"{\"request_id\":40,\"status\":\"queued\",\"data\":{\"x\":NaN}}" + bytes([10])))
+        for damage in damages:
             with self.subTest(damage=repr(damage)), tempfile.TemporaryDirectory() as root:
                 harness = _InjectionHarness([self.socket_message(40)])
                 status = self.ownership(harness, root)
                 status.transition(40, "queued")
                 valid = status.path.read_bytes()
-                with status.path.open("a", encoding="utf-8") as stream:
+                with status.path.open("ab") as stream:
                     stream.write(damage)
                 damaged = status.path.read_bytes()
                 services = self.services(harness)

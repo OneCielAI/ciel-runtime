@@ -12,6 +12,9 @@ class ChannelReplaySafetyPolicy:
     replay_ttl_seconds: Callable[[], float]
     timestamp_seconds: Callable[[dict[str, Any]], float | None]
     is_web_chat: Callable[[dict[str, Any]], bool]
+    # A launch-scoped input (a stream recovery continuation) that no longer
+    # belongs to the running session; empty when it still does.
+    scoped_skip_reason: Callable[[dict[str, Any]], str] = lambda _message: ""
 
     def skip_reason(self, message: dict[str, Any]) -> str:
         """Expire old browser commands independently of startup cursor state.
@@ -21,6 +24,9 @@ class ChannelReplaySafetyPolicy:
         command after a process or machine restart.
         """
 
+        scoped = self.scoped_skip_reason(message)
+        if scoped:
+            return scoped
         if not self.is_web_chat(message):
             return ""
         created_at = self.timestamp_seconds(message)

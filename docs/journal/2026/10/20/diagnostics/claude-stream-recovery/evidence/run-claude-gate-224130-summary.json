@@ -1,0 +1,80 @@
+{
+  "status": "passed_auto_stream_recovery",
+  "versions": {
+    "C:\\Users\\djlov\\.local\\bin\\claude.exe": "2.1.306 (Claude Code)",
+    "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@openai\\codex\\node_modules\\@openai\\codex-win32-x64\\vendor\\x86_64-pc-windows-msvc\\bin\\codex.exe": "codex-cli 0.158.0"
+  },
+  "ports": {
+    "router": 52532,
+    "appserver": null,
+    "fixture": 52534
+  },
+  "teardown": {
+    "killed": [
+      {
+        "pid": 1108
+      },
+      {
+        "pid": 7268
+      },
+      {
+        "pid": 37392
+      },
+      {
+        "pid": 75796
+      },
+      {
+        "pid": 79800
+      },
+      {
+        "pid": 81092
+      }
+    ],
+    "router_listener_after": null,
+    "app_listener_after": null,
+    "fixture_listener_after": null
+  },
+  "events": [
+    {
+      "at": 1792554116.202,
+      "kind": "claude_version",
+      "version": "2.1.306 (Claude Code)"
+    },
+    {
+      "at": 1792554135.474,
+      "kind": "auto_text_closed",
+      "auto_requests": [
+        5
+      ],
+      "same_native_identities": true,
+      "server_errors": 1
+    },
+    {
+      "at": 1792554164.782,
+      "kind": "auto_chain",
+      "auto_requests_after": 1,
+      "ledger_handled": {
+        "8eab2630-4c01-4d0d-a129-2b122a536c93": "admitted",
+        "de969ac7-f514-424f-b3e7-e0d91152cba0": "admitted",
+        "565b3211-f770-4b7a-8097-078664ac83f3": "exhausted"
+      }
+    },
+    {
+      "at": 1792554180.893,
+      "kind": "auto_manual",
+      "auto_requests_after": 0
+    },
+    {
+      "at": 1792554222.393,
+      "kind": "auto_tools",
+      "auto_requests_after": 0,
+      "completed_tool_executed_lines": 1,
+      "partial_tool_not_dispatched": true
+    },
+    {
+      "at": 1792554222.412,
+      "kind": "auto_complete",
+      "status": "passed_auto_stream_recovery"
+    }
+  ]
+}

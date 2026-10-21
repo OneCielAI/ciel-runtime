@@ -1,0 +1,51 @@
+---
+id: native-compaction-noninterference-2026-10-21
+title: Native compaction noninterference verification
+type: diagnostic
+status: partial
+created: 2026-10-21
+---
+
+# Native compaction noninterference
+
+## Confirmed source behavior
+
+Runtime binding no longer starts pressure from a normal request's JSON/4 estimate.
+Resumed transcript usage is diagnostic only because it is not attributed to this launch's current provider/model.
+Native checkpoint observation, persisted checkpoint plus raw shrink validation, and numeric upstream overflow recovery remain.
+Legacy local reactive preflight no longer synthesizes prompt-too-long HTTP errors.
+
+Native compatible Responses checkpoint requests are sent upstream once before semantic map/reduce.
+Only explicit HTTP no-output context rejection authorizes one bounded semantic recovery.
+Unknown token count, UTF-8 byte size, ordinary HTTP 400/413, transport failures and partial streams are not recovery proof.
+Byte-limited provider policy remains separate from token sizing.
+Source fragments remain complete, Unicode-safe, and subject to an independent 64 MiB source cap.
+
+## Executed verification
+
+The exact-file runner `scripts/focused.py` removed inherited Runtime/Claude/provider environment,
+selected a temporary Runtime config root and free loopback port before imports, and discovered only eight named files.
+Result: 130 tests passed in 96.315 seconds. Full command output: `evidence/focused-tests.txt`.
+Checks include native-first no auxiliary summary, unknown counts, large Unicode/tool payloads,
+confirmed overflow plus real Responses map/reduce with raw orphan content retained,
+one recovery maximum, error body fidelity, upstream model resolution, cancellation before billable summary,
+identity/epoch isolation, stale resume usage noninterference, checkpoint/shrink safety and remote bypass.
+Scoped changed-module py_compile and git diff --check passed.
+
+## Limitations
+
+This is fixture/runtime-code verification, not a live native CLI/provider acceptance run.
+No native success or screen evidence is claimed. No live state, deployment, commit or push was touched.
+Translated Chat/Anthropic semantic preflight retains its existing estimator-triggered policy; only native compatible Responses is native-first.
+Cross-request single-flight was not added; individual fallback is bounded to one per request and map/reduce retains call/deadline limits.
+In-flight synchronous summary HTTP calls cannot be interrupted; cancellation is checked before/between calls and before the final upstream retry.
+The transport now accepts a model resolver; facade owner must bind the existing resolve_requested_model function.
+
+## Integration follow-up
+
+Translated Chat and Anthropic native checkpoint requests now also pass through
+without estimator-driven summary unless confirmed-rejection marker is supplied.
+Five dedicated passthrough regressions plus six provider semantic tests and
+context suite passed (41 tests), see translated-compact-passthrough.txt in
+10/20 integration-acceptance. No translated automatic replay was added.
+Facade supplies resolve_requested_model to summary transport.

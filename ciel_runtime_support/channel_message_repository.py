@@ -71,6 +71,8 @@ class ChannelMessageRepository:
         with ports.condition:
             with ports.file_lock():
                 self.path.parent.mkdir(parents=True, exist_ok=True)
+                from .runtime_input_recovery_marker import recovery_generation
+                generation = recovery_generation(self.path)
                 previous_max_id = self.max_id()
                 if self.path.exists() and self.path.stat().st_size > self.max_bytes:
                     self.path.replace(self.path.with_suffix(".jsonl.1"))
@@ -91,6 +93,8 @@ class ChannelMessageRepository:
                     "kind": str(payload.get("kind") or "message"),
                     "meta": payload.get("meta") if isinstance(payload.get("meta"), dict) else {},
                 }
+                if generation:
+                    message["_ciel_runtime_generation"] = generation["generation"]
                 if payload.get("visibility") is not None:
                     message["visibility"] = str(payload.get("visibility") or "user")
                 if payload.get("delivery") is not None:
@@ -138,6 +142,8 @@ class ChannelMessageRepository:
         return parsed.timestamp()
 
     def _jsonl_items(self, operation: str) -> list[dict[str, Any]]:
+        from .runtime_input_recovery_marker import recovery_generation
+        recovery_generation(self.path)
         if not self.path.exists():
             return []
         items: list[dict[str, Any]] = []
@@ -158,7 +164,9 @@ class ChannelMessageRepository:
         return items
 
     def max_id(self) -> int:
-        max_id = 0
+        from .runtime_input_recovery_marker import recovery_generation
+        generation = recovery_generation(self.path)
+        max_id = generation["id_floor"] - 1 if generation else 0
         for item in self._jsonl_items("max id scan"):
             try:
                 max_id = max(max_id, int(item.get("id") or 0))

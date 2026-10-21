@@ -22,6 +22,7 @@ from typing import Any, Callable
 from .event_delivery_ack import RECEIVER_FEATURES, delivery_ack_request
 from .event_receiver_connection import ReceiverWorker, SseConnection, idle_timeout_seconds
 from .event_receiver_diagnostics import receiver_failure
+from .runtime_input_delivery_health import delivery_health_for_callback
 
 
 MAX_EVENT_BYTES = 1024 * 1024
@@ -488,6 +489,7 @@ class ExternalEventReceiverService:
             "phase": "stopped", "recovery_count": 0, "last_failure": None,
         }.items():
             status.setdefault(key, default)
+        status["delivery"] = delivery_health_for_callback(self.submit_event, receiver_id=receiver_id)
         status.setdefault("idle_timeout_seconds", config.get("idle_timeout_seconds"))
         status.setdefault("effective_idle_timeout_seconds", config.get("idle_timeout_seconds"))
         secrets_config = self.vault.load(receiver_id)

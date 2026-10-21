@@ -46,6 +46,9 @@ class ChannelTerminalPolicyPorts:
     inflight_is_stale: Callable[..., bool]
     log: Callable[[str, str], None]
     compaction: RuntimeCompactionControl | None = None
+    # Receives the proxy's recovery admission snapshot (see
+    # channel_terminal_proxy.terminal_recovery_admission_snapshot).
+    recovery_admission: Callable[[dict[str, Any]], None] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -124,6 +127,7 @@ class ChannelTerminalContext:
             inflight_is_stale=self.policy.inflight_is_stale,
             log=self.policy.log,
             compaction=self.policy.compaction,
+            recovery_admission=self.policy.recovery_admission,
         )
 
     def polling_services(self) -> ChannelTerminalPolling:

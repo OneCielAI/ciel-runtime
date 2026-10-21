@@ -1,0 +1,22 @@
+---
+type: Verification Record
+title: Router port reservation reuse
+description: Focused evidence for conservative dead reservation reclamation.
+timestamp: 2026-10-20T00:00:00Z
+---
+
+# Verified
+
+- Updated workspace router selection to preserve same-workspace live health, unreserved-free preference, explicit claims, and stable registry locking.
+- Automatic reclamation is attempted only after the 50-port scan is exhausted, and requires an offline health probe, a bind-free port, and verified inactive router/client/startup identities. Unknown or malformed process state remains protected.
+- New automatic reservations carry a bounded launch lease with PID plus process-identity token. Explicit claims are tagged and never automatically reclaimed.
+- Added focused cases for exhaustion, health/bind conflicts, live and unknown process identities, startup leases, explicit claims, child inheritance, and concurrent registry calls.
+
+# Evidence
+
+Focused isolated runner output: tests.txt in the evidence subdirectory. It reports 27 tests run, 0 failures, 0 errors, and 0 skipped.
+
+# Limitations
+
+- Only the owned module and test file were changed. No live registry, router, client, installation, or deployment was touched.
+- The suite uses injected health and availability probes and does not prove behavior of an already-running external router.

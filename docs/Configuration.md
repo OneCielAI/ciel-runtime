@@ -236,13 +236,15 @@ Ciel의 `prompt_compaction` soft guard는 이 native auto-compaction과 별개�
 compact가 먼저 일어나지 못한 예외 상황의 마지막 방어선으로만 남긴다. 일반 `413`, `429`,
 high-demand 또는 network 오류를 context overflow로 재분류하지 않는다.
 
-Codex가 local checkpoint compact를 일반 `/v1/responses` 요청으로 보내고, 그 요청이 선택한
-provider/model의 입력 예산을 초과하면 translated Chat/Anthropic 경로에서만 기존 segmented
-compact를 자동 사용한다. 보조 map 호출은 최대 8개이며, 더 많은 chunk가 필요하면 추가 모델
-호출 없이 deterministic soft guard로 전환한다. 정상 turn, 예산 안의 checkpoint, native
-Responses의 opaque compaction item에는 이 경로를 적용하지 않는다. provider 설정에
-`context_compact_llm=false`를 명시하면 자동 segmented compact도 끌 수 있고, `true`는 기존의
-명시적 opt-in 동작을 유지한다.
+Codex가 local checkpoint compact를 일반 `/v1/responses` 요청으로 보내면 먼저 원본
+checkpoint를 선택한 upstream provider/model에 그대로 전달한다. Ciel은 JSON/4 추정치나
+UTF-8 byte 수를 provider token 수로 취급하지 않으며, native 요청이 예산 안이라고 관측되면
+보조 summary를 만들지 않는다. provider가 출력 없이 명시적인 context-length 거절을 반환한
+경우에만 기존 bounded map/reduce recovery를 한 번 시작할 수 있고, 일반 `400`, `413`,
+network 오류, partial output은 재요약 근거가 아니다. 요약 요청은 내부 Ciel alias가 아닌
+해석된 upstream model ID를 사용하며, client disconnect/turn cancellation 때 중단한다.
+정상 turn과 native Responses의 opaque compaction item에는 이 경로를 적용하지 않는다.
+provider 설정에 `context_compact_llm=false`를 명시하면 segmented compact를 끌 수 있다.
 
 Alibaba Model Studio Token Plan(`alitoken`)의 native Responses endpoint는 실제 서비스가
 10 MiB wire body를 거절하므로, Ciel은 이 provider에만 9 MiB 선제 경계를 적용한다. 본문이

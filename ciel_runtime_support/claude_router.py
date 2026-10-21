@@ -126,6 +126,10 @@ class ClaudeRouterContextRecovery:
     observe_failure: Callable[..., Any] = lambda *_args: None
     # Returns an error payload to send as HTTP 400 before upstream, or None.
     reject_request: Callable[..., Any] = lambda *_args: None
+    # The main-session scope a streamed request starts in (None outside it),
+    # then (that scope, metadata) once the stream broke before message_stop.
+    stream_scope: Callable[..., Any] = lambda *_args: None
+    observe_stream_failure: Callable[..., Any] = lambda *_args: None
 
 
 @dataclass(frozen=True, slots=True)
@@ -285,8 +289,10 @@ def handle_claude_messages_post(
         return
     if local_request:
         body = strip_autonomous_advisor_server_tools(provider, body)
+    stream_scope = None
     if local_request:
         context_recovery.observe_request(provider, pcfg, raw_body, "claude", getattr(self, "headers", None))
+        stream_scope = context_recovery.stream_scope(getattr(self, "headers", None), raw_body)
         # Decided on the unmodified request, before pending input or the
         # outbound guard could change it; Claude Code compacts natively and
         # retries this same turn.
@@ -501,6 +507,9 @@ def handle_claude_messages_post(
                     preserve_thinking=preserves_anthropic_thinking_contract(provider, pcfg),
                     normalize_tool_use=should_normalize_anthropic_stream_tool_use(provider, pcfg),
                     provider=provider,
+                    stream_failure_observer=lambda metadata: context_recovery.observe_stream_failure(
+                        stream_scope, metadata
+                    ),
                 )
             else:
                 self.send_response(status)

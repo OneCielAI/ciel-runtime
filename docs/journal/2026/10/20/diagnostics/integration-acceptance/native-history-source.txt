@@ -1,0 +1,13 @@
+{"at": 1792558289.992, "kind": "launched", "pid": 35020, "watcher": 39360}
+{"at": 1792558302.131, "kind": "wait_pass", "label": "router health"}
+{"at": 1792558303.359, "kind": "wait_pass", "label": "native launch claude_session_socket"}
+{"at": 1792558303.393, "kind": "wait_pass", "label": "native process present"}
+{"at": 1792558315.615, "kind": "children_before", "processes": [{"pid": 77284, "ct": 1792558289.949, "name": "conhost.exe", "ppid": 35020, "cmd": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4"}, {"pid": 52348, "ct": 1792558300.669, "name": "python.exe", "ppid": 35020, "cmd": "C:\\Program Files\\Python311\\python.exe C:\\Users\\djlov\\ciel-runtime\\ciel_runtime.py serve"}, {"pid": 32828, "ct": 1792558303.026, "name": "conhost.exe", "ppid": 35020, "cmd": "\\\\?\\C:\\WINDOWS\\system32\\conhost.exe --headless --width 120 --height 30 --signal 0x2e8 --server 0x300"}, {"pid": 6032, "ct": 1792558303.0
+{"at": 1792558315.634, "kind": "notify", "text": "E2E-RT-TURN-4 must wait for verified ownership", "response": {"error": "HTTPError: HTTP Error 500: Internal Server Error"}}
+{"at": 1792558316.059, "kind": "wait_pass", "label": "history corruption held without crash"}
+{"at": 1792558319.061, "kind": "corrupt_history_guard_pass", "launcher_alive": true, "transport_calls": 0}
+{"at": 1792558319.863, "kind": "wait_pass", "label": "owned fixture recovery delivered held input"}
+{"at": 1792558322.875, "kind": "wait_pass", "label": "held input reply rendered"}
+{"at": 1792558323.293, "kind": "wait_pass", "label": "owned screenshot attempted"}
+{"at": 1792558323.294, "kind": "acceptance_pass", "checks": {"alive_during_corruption": true, "no_send_without_history": true, "owned_fixture_recovery_replied": true}}
+RESULT C:\Users\djlov\ciel-runtime\docs\journal\2026\10\20\diagnostics\restart-delivery\evidence\run-claude-diagnostic-source-235129 passed_corrupt_history_guard

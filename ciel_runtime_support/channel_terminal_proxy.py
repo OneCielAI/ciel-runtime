@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import errno
 import os
+import re
 import signal
 import sys
 import time
@@ -70,6 +71,7 @@ class ChannelTerminalPolicy:
     inflight_is_stale: Callable[..., bool]
     log: Callable[[str, str], None]
     compaction: RuntimeCompactionControl | None = None
+    recovery_admission: Callable[[dict[str, Any]], None] | None = None
 
 
 @dataclass(frozen=True)
@@ -117,6 +119,148 @@ class ChannelWindowsServices:
     policy: ChannelTerminalPolicy
     polling: ChannelTerminalPolling
     console: ChannelWindowsConsole
+
+
+def terminal_recovery_admission_snapshot(
+    now: float,
+    *,
+    input_ready: bool,
+    manual_input: bool | None,
+    busy: bool,
+    compaction: bool,
+    pending_state: ChannelPendingPollState | None,
+    interaction_pending: bool = False,
+    modal_ready: bool | None = True,
+) -> dict[str, Any]:
+    """Recovery-only admission; unknown draft/modal evidence fails closed.
+
+    ``manual_input`` None means the transport cannot observe a draft; it is
+    reported as True with ``manual_input_known`` False.  ``pending`` covers
+    the proxy's confirmed-delivery tracking only, not the durable input queue.
+    """
+
+    pending = bool(pending_state is not None and (
+        pending_state.inflight_message_id is not None or pending_state.inflight.backlog
+    ))
+    return {
+        "at": now,
+        "ready": bool(input_ready and modal_ready is True and not interaction_pending
+                      and manual_input is False and not busy and not compaction and not pending),
+        "manual_input": manual_input is not False,
+        "manual_input_known": manual_input is not None,
+        "busy": bool(busy),
+        "compaction": bool(compaction),
+        "pending": pending,
+    }
+
+
+# Busy/compaction reads touch transcript and state files while the proxy loop
+# runs every 50-200 ms; the recovery monitor treats reports over 3 s as stale.
+RECOVERY_ADMISSION_SAMPLE_SECONDS = 1.0
+
+
+class TerminalRecoveryAdmissionReporter:
+    """Publishes the proxy's admission view without changing delivery gates."""
+
+    def __init__(
+        self,
+        polling: ChannelTerminalPolling,
+        policy: ChannelTerminalPolicy,
+        *,
+        clock: Callable[[], float] = time.time,
+        sample_seconds: float = RECOVERY_ADMISSION_SAMPLE_SECONDS,
+    ) -> None:
+        callback = getattr(policy, "recovery_admission", None)
+        self._callback = callback if callable(callback) else None
+        self._polling, self._policy, self._clock = polling, policy, clock
+        self._sample_seconds = max(0.0, float(sample_seconds))
+        self._sampled_at: float | None = None
+        self._busy, self._compaction = True, True
+        self._closed = False
+        self._failure_logged = False
+
+    def _sample(self, now: float) -> None:
+        if self._sampled_at is not None and now - self._sampled_at < self._sample_seconds:
+            return
+        self._sampled_at = now
+        compaction = getattr(self._policy, "compaction", None)
+        try:
+            self._busy = bool(self._polling.input_busy())
+            self._compaction = bool(compaction is not None and compaction.external_admission_paused())
+        except Exception:
+            # An unreadable observation withdraws permission, never grants it.
+            self._busy, self._compaction = True, True
+
+    def report(
+        self,
+        pending_state: ChannelPendingPollState | None,
+        *,
+        input_ready: bool,
+        manual_input: bool | None,
+        interaction_pending: bool = False,
+        modal_ready: bool | None = True,
+    ) -> None:
+        if self._callback is None or self._closed:
+            return
+        now = self._clock()
+        self._sample(now)
+        self._publish(terminal_recovery_admission_snapshot(
+            now, input_ready=input_ready, manual_input=manual_input,
+            busy=self._busy, compaction=self._compaction, pending_state=pending_state,
+            interaction_pending=interaction_pending, modal_ready=modal_ready,
+        ))
+
+    def close(self, pending_state: ChannelPendingPollState | None = None) -> None:
+        """Withdraw admission when the proxy loop ends; later reports are ignored."""
+
+        if self._callback is None or self._closed:
+            return
+        self._closed = True
+        self._publish(terminal_recovery_admission_snapshot(
+            self._clock(), input_ready=False, manual_input=None,
+            busy=self._busy, compaction=self._compaction, pending_state=pending_state,
+            modal_ready=None,
+        ))
+
+    def _publish(self, snapshot: dict[str, Any]) -> None:
+        try:
+            self._callback(snapshot)
+        except Exception as exc:
+            if not self._failure_logged:
+                self._failure_logged = True
+                self._policy.log("WARN", f"channel_terminal_recovery_report_failed error={type(exc).__name__}")
+
+
+_TERMINAL_REPORT = re.compile(
+    rb"\x1b\[[IO]"  # focus in/out
+    rb"|\x1b\[\d+;\d+R"  # cursor position report
+    rb"|\x1b\[[?>=][\d;]*c"  # device attributes
+    rb"|\x1b\[\?[\d;]*\$y"  # DECRPM
+    rb"|\x1b\[\?\d*u"  # kitty keyboard flags
+    rb"|\x1b\[\d+(?:;\d+)*t"  # window reports
+    rb"|\x1b\[0n"  # device status
+    rb"|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)"  # OSC replies
+    rb"|\x1bP[^\x1b]*\x1b\\"  # DCS replies
+)
+
+
+def terminal_operator_input(data: bytes) -> bool:
+    """Whether forwarded stdin bytes include anything but terminal replies.
+
+    Fail-closed: arrows, Esc, controls, partial sequences and text all count,
+    since bytes alone cannot prove a TUI draft stayed empty.
+    """
+
+    return bool(_TERMINAL_REPORT.sub(b"", bytes(data or b"")))
+
+
+def _terminal_manual_input(writer: Any) -> bool | None:
+    observe = getattr(writer, "manual_input_active", None)
+    try:
+        value = observe() if callable(observe) else None
+    except Exception:
+        return None
+    return value if isinstance(value, bool) else None
 
 
 def resolve_posix_child_exit_status(
@@ -289,7 +433,10 @@ def run_windows_channel_terminal_proxy(
             except BaseException:
                 pass
 
+    recovery_admission = TerminalRecoveryAdmissionReporter(polling, policy)
+
     def cleanup_resources() -> None:
+        cleanup_step("recovery_admission", lambda: recovery_admission.close(pending_poll_state))
         if proc is not None:
             cleanup_step(
                 "terminate_child",
@@ -354,6 +501,8 @@ def run_windows_channel_terminal_proxy(
             # ConPTY.input_snapshot is an append-only tail, not rendered state.
             startup_answers.screen_snapshot = windows_startup_screen
         startup_output_cursor = 0
+        recovery_modal_guard = TerminalModalGuard() if conpty is not None else None
+        recovery_output_cursor = 0
         # ConPTY is a byte stream and supports VT bracketed paste. The
         # compatibility transport consumes INPUT_RECORD events and must not
         # receive its delimiters.
@@ -466,6 +615,21 @@ def run_windows_channel_terminal_proxy(
                     input_ready and startup_answers is not None and startup_answers.rendered_input_ready()
                 ))
                 input_ready = input_ready and gate.ready()
+            recovery_modal_ready = None
+            if recovery_modal_guard is not None:
+                output_since = getattr(conpty, "output_since", None)
+                if callable(output_since):
+                    try:
+                        output, recovery_output_cursor = output_since(recovery_output_cursor)
+                        recovery_modal_guard.feed(output)
+                        recovery_modal_ready = not recovery_modal_guard.blocking
+                    except Exception:
+                        pass
+            recovery_admission.report(
+                pending_poll_state, input_ready=input_ready,
+                manual_input=_terminal_manual_input(writer),
+                interaction_pending=interaction_pending, modal_ready=recovery_modal_ready,
+            )
             try:
                 stage = "inflight_confirmation"
                 if pending_poll_state.inflight_message_id is not None and not pending_poll_state.inflight.hold_for_recovery(now, bool(getattr(policy, "compaction", None) and policy.compaction.external_admission_paused())):
@@ -661,6 +825,11 @@ def run_posix_channel_terminal_proxy(
 
     io_failure: tuple[str, OSError] | None = None
     dialog_logged = False
+    # POSIX has no parent-console draft observer. Any forwarded operator input
+    # bumps this epoch and withdraws recovery admission for this attachment:
+    # Enter/control/escape bytes alone cannot prove a TUI draft is clean.
+    manual_input_epoch = 0
+    recovery_admission = TerminalRecoveryAdmissionReporter(polling, policy)
     try:
         # Every input path writes through this so a full child input queue
         # never stops the child's output from being drained (robert PTY freeze).
@@ -727,6 +896,8 @@ def run_posix_channel_terminal_proxy(
                                     f"channel_stdin_proxy_enter_observed enter={policy.enter_label(observed_enter)}",
                                 )
                             channel_enter_bytes = observed_enter
+                        if terminal_operator_input(filtered_data):
+                            manual_input_epoch += 1
                         child_input.write(filtered_data)
             if master_fd in readable:
                 try:
@@ -777,6 +948,13 @@ def run_posix_channel_terminal_proxy(
                     if dialog_open
                     else "channel_stdin_proxy_input_released reason=cli_dialog_closed",
                 )
+            gate = current_terminal_startup_gate()
+            recovery_admission.report(
+                pending_poll_state,
+                input_ready=not dialog_open and (gate is None or gate.ready()),
+                manual_input=manual_input_epoch > 0,
+                interaction_pending=interaction_pending,
+            )
             compact_poll_state = poll_pending_compaction(
                 now,
                 child_input,
@@ -814,6 +992,10 @@ def run_posix_channel_terminal_proxy(
             io_failure=io_failure,
         )
     finally:
+        try:
+            recovery_admission.close(pending_poll_state)
+        except Exception as exc:
+            policy.log("WARN", f"channel_terminal_recovery_close_failed error={type(exc).__name__}")
         if sigwinch_installed:
             try:
                 signal.signal(signal.SIGWINCH, old_sigwinch)

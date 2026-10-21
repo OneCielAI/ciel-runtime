@@ -121,15 +121,14 @@ class ScopeIdentityTests(BindingHarness):
 
 
 class ResumedPressureTests(BindingHarness):
-    def test_resumed_native_usage_gates_before_first_submit_without_mutation(self):
+    def test_resumed_usage_is_diagnostic_only_without_mutation(self):
         self.binding.bind("claude", session_id="exact", cwd=self.root)
         original = self.path.read_bytes()
         self.assertEqual(15000, self.binding.input_budget("other", {}, {}))
-        self.assertTrue(self.binding.external_admission_paused())
-        self.assertTrue(self.make().external_admission_paused())
+        self.assertFalse(self.binding.external_admission_paused())
+        self.assertFalse(self.make().external_admission_paused())
         self.assertEqual(original, self.path.read_bytes())
-        self.assertTrue(self.requests.read()["automatic"])
-        self.assertEqual("queued", self.state()["phase"])
+        self.assertIsNone(self.requests.read())
 
     def test_unknown_and_post_checkpoint_usage_stay_unknown(self):
         self.checkpoint()
@@ -165,7 +164,7 @@ class ResumedPressureTests(BindingHarness):
         path.write_text("".join(json.dumps(line) + chr(10) for line in lines), encoding="utf-8")
         self.binding.bind("codex", session_id="native", codex_home=codex, cwd=self.root)
         self.assertEqual(16000, native_input_tokens(path, self.binding.scope()))
-        self.assertTrue(self.binding.external_admission_paused())
+        self.assertFalse(self.binding.external_admission_paused())
 
 
 class ObservationTests(BindingHarness):
@@ -175,7 +174,7 @@ class ObservationTests(BindingHarness):
         self.binding.observe_request("other", {}, {"tokens": 100}, "claude")  # resumed, small
 
     def test_raw_pressure_queues_once_and_router_append_stays_paused(self):
-        self.binding.observe_request("other", {}, {"tokens": 15000}, "claude")
+        self.binding.observe_failure("other", {}, {"tokens": 15000}, "prompt is too long: 21000 tokens > 20000 maximum", "claude")
         request = self.requests.read()
         self.binding.observe_request("other", {}, {"tokens": 16000}, "claude")
         self.assertEqual(request["id"], self.requests.read()["id"])
@@ -200,7 +199,7 @@ class ObservationTests(BindingHarness):
         self.assertTrue(self.state()["pressure"])
 
     def test_checkpoint_alone_holds_consumers_until_real_shrink(self):
-        self.binding.observe_request("other", {}, {"tokens": 15000}, "claude")
+        self.binding.observe_failure("other", {}, {"tokens": 15000}, "prompt is too long: 21000 tokens > 20000 maximum", "claude")
         request = self.requests.read()
         self.assertTrue(self.binding.command_ready(request))
         self.binding.command_submitted(request)
@@ -217,7 +216,7 @@ class ObservationTests(BindingHarness):
         self.assertFalse(self.binding.external_admission_paused())
 
     def test_non_shrinking_probe_closes_consumer_gate_without_fake_success(self):
-        self.binding.observe_request("other", {}, {"tokens": 15000}, "claude")
+        self.binding.observe_failure("other", {}, {"tokens": 15000}, "prompt is too long: 21000 tokens > 20000 maximum", "claude")
         request = self.requests.read()
         self.binding.command_ready(request)
         self.binding.command_submitted(request)
@@ -236,7 +235,7 @@ class ObservationTests(BindingHarness):
         self.binding.observe_request("other", {}, {"tokens": 90000}, "claude", {"X-Claude-Code-Session-Id": "other"})
         self.binding.observe_request("other", {}, {"tokens": 90000}, "claude", {})
         self.assertIsNone(self.requests.read())
-        self.binding.observe_request("other", {}, {"tokens": 15000}, "claude", main)
+        self.binding.observe_failure("other", {}, {"tokens": 15000}, "prompt is too long: 21000 tokens > 20000 maximum", "claude", main)
         request = self.requests.read()
         self.binding.command_ready(request)
         self.binding.command_submitted(request)
@@ -260,7 +259,7 @@ class ObservationTests(BindingHarness):
         self.binding.observe_request("other", {}, {"tokens": 90000}, "codex", {"session_id": "subagent"})
         self.assertIsNone(self.requests.read())
         self.binding.observe_request("other", {}, {"tokens": 90000, "prompt_cache_key": "thread"}, "codex", {})
-        self.assertTrue(self.requests.read()["automatic"])
+        self.assertIsNone(self.requests.read())
 
     def test_router_callback_shapes_are_accepted(self):
         from ciel_runtime_support import claude_router, openai_responses_router

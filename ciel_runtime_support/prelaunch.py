@@ -8,7 +8,12 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from ciel_runtime_support.llm_presentation_data import LLM_OPTION_TOGGLE_KEYS
-from ciel_runtime_support import dangerous_rm_auto_allow, oauth_token_menu, web_access_menu
+from ciel_runtime_support import (
+    claude_stream_recovery_settings,
+    dangerous_rm_auto_allow,
+    oauth_token_menu,
+    web_access_menu,
+)
 from ciel_runtime_support.prelaunch_launch_preference import (
     preferred_launch_panel_index,
     remember_launch_action,
@@ -57,6 +62,15 @@ def _workspace_state_dir():
     from ciel_runtime_support.runtime_paths import WORKSPACE_STATE_DIR
 
     return WORKSPACE_STATE_DIR
+
+
+def _stream_recovery_recent() -> list[dict[str, Any]]:
+    """This router instance's last stream recovery decisions, read-only."""
+
+    from ciel_runtime_support.claude_stream_recovery_runtime import LEDGER_NAME, StreamRecoveryLedger
+    from ciel_runtime_support.runtime_paths import ROUTER_INSTANCE_DIR
+
+    return StreamRecoveryLedger(ROUTER_INSTANCE_DIR / LEDGER_NAME, lambda _level, _message: None).recent()
 
 
 @dataclass(frozen=True, slots=True)
@@ -359,7 +373,8 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
         elif name == "web-backend":
             panel_rows, panel_values = web_backend_panel_rows(cfg)
         elif name == "external-events":
-            panel_rows, panel_values = external_event_panel_rows(cfg)
+            from .runtime_input_recovery_menu import with_recovery_rows
+            panel_rows, panel_values = with_recovery_rows(*external_event_panel_rows(cfg))
         elif name == "launch-menu":
             panel_rows, panel_values = launch_panel_rows(cfg)
             if name not in panel_last_idx:
@@ -379,7 +394,9 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                 web_access_menu.default_accounts(), web_access_menu.default_token_repository()
             )
         elif name == "dangerous-rm":
-            panel_rows, panel_values = dangerous_rm_auto_allow.panel_rows(cfg)
+            panel_rows, panel_values = claude_stream_recovery_settings.with_panel_rows(
+                *dangerous_rm_auto_allow.panel_rows(cfg), cfg, _stream_recovery_recent()
+            )
         elif name == "session-backup":
             from ciel_runtime_support import session_backup_menu
             from ciel_runtime_support.runtime_paths import CONFIG_DIR
@@ -839,7 +856,10 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                     if value == "back":
                         close_panel()
                         continue
-                    if value in {"enabled", "transport"}:
+                    if value == "preview_history_quarantine":
+                        from .runtime_input_recovery_menu import preview_menu_messages
+                        messages = preview_menu_messages()
+                    elif value in {"enabled", "transport"}:
                         messages = set_external_event_config(value, "toggle")
                     elif value in {"refresh_receiver", "reconnect_receiver"}:
                         messages = set_external_event_config(value, None)
@@ -899,7 +919,8 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                     else:
                         continue
                     cfg = load_config()
-                    panel_rows, panel_values = external_event_panel_rows(cfg)
+                    from .runtime_input_recovery_menu import with_recovery_rows
+                    panel_rows, panel_values = with_recovery_rows(*external_event_panel_rows(cfg))
                     panel_idx = max(0, min(panel_idx, len(panel_rows) - 1))
                 elif panel == "remote-instructions":
                     if value == "back":
@@ -1103,9 +1124,14 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                         close_panel()
                         continue
                     cfg = load_config()
-                    messages = dangerous_rm_auto_allow.toggle(cfg)
+                    if claude_stream_recovery_settings.handles(value):
+                        messages = claude_stream_recovery_settings.apply(cfg, value)
+                    else:
+                        messages = dangerous_rm_auto_allow.toggle(cfg)
                     save_config(cfg)
-                    panel_rows, panel_values = dangerous_rm_auto_allow.panel_rows(cfg)
+                    panel_rows, panel_values = claude_stream_recovery_settings.with_panel_rows(
+                        *dangerous_rm_auto_allow.panel_rows(cfg), cfg, _stream_recovery_recent()
+                    )
                     panel_idx = max(0, min(panel_idx, len(panel_rows) - 1))
                 elif panel == "session-backup":
                     if value == "back":

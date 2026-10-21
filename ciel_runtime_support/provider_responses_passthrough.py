@@ -35,10 +35,11 @@ from .responses_custom_tool_bridge import (
     tool_definitions,
 )
 from .prompt_compaction import responses_compact_instruction_index
-from .context_summary_policy import semantic_payload_cost
+from .context_compaction import no_output_context_rejection
 from .remote_bridge import is_remote_bridge_request
 from .upstream_dump import dump_upstream_request
-from .upstream_error_policy import UpstreamStreamReadError
+from .upstream_error_policy import UpstreamFailure, UpstreamStreamReadError
+from .upstream_stream_io import client_connection_closed, UpstreamClientDisconnected
 
 
 @dataclass(frozen=True, slots=True)
@@ -197,9 +198,16 @@ class ProviderResponsesPassthrough:
         config: dict[str, Any],
         body: dict[str, Any],
         semantic_input: list[Any] | None,
+        *,
+        context_rejected: bool = False,
+        cancelled: Callable[[], bool] | None = None,
     ) -> dict[str, Any]:
-        # The native Codex backend owns its own compaction. Only a native
-        # checkpoint on a compatible provider opts into semantic map/reduce.
+        # Try the native single request first, even when the local estimator
+        # exceeds our budget. Only a confirmed no-output context rejection can
+        # authorize semantic recovery; UTF-8 bytes are not token evidence.
+        if not context_rejected:
+            return body
+        # The native Codex backend owns its own compaction.
         source = semantic_input if isinstance(semantic_input, list) else body.get("input")
         if (
             provider == "codex"
@@ -224,17 +232,74 @@ class ProviderResponsesPassthrough:
         ) if value]
         reserve = positive(config.get("context_reserve_tokens")) or max(1024, min(32768, context // 32))
         budget = max(8192, context - (min(outputs) if outputs else 4096) - reserve)
-        if semantic_payload_cost(body, self._ports.estimate_tokens) <= budget:
-            return body
         return self._ports.compact_responses(
             body,
             budget,
             provider=provider,
             model=str(body.get("model") or ""),
-            pcfg=config,
+            pcfg={**config, "_context_compact_context_rejected": True,
+                  "_context_compact_cancelled": cancelled},
             full_compact_request=True,
             semantic_input=source,
         )
+
+    def _open_checkpoint_request(
+        self,
+        request: urllib.request.Request,
+        provider: str,
+        config: dict[str, Any],
+        body: dict[str, Any],
+        semantic_input: list[Any] | None = None,
+        *,
+        remote_bridge: bool = False,
+        handler: Any = None,
+    ) -> Any:
+        """One native attempt, then one recovery only after explicit rejection.
+
+        This boundary has not exposed response bytes. Transport failures,
+        partial streams and ambiguous errors never authorize another summary.
+        The request object retains the recovery marker across stream retries.
+        """
+        try:
+            return self._ports.urlopen(
+                request, timeout=self._ports.timeout_seconds(config),
+                provider=provider, pcfg=config,
+            )
+        except urllib.error.HTTPError as exc:
+            raw = exc.read()
+            failure = UpstreamFailure.from_http_error(
+                provider, str(body.get("model") or ""), exc, raw,
+            )
+            if (remote_bridge or getattr(request, "_context_compact_recovered", False)
+                    or not no_output_context_rejection(failure)):
+                raise urllib.error.HTTPError(exc.url, exc.code, exc.msg, exc.hdrs, io.BytesIO(raw)) from None
+            def cancelled():
+                return handler is not None and client_connection_closed(handler)
+            if cancelled():
+                raise UpstreamClientDisconnected("downstream client disconnected before compaction")
+            checkpoint = self._compact_checkpoint(
+                provider, config, body, semantic_input, context_rejected=True,
+                cancelled=cancelled,
+            )
+            if cancelled():
+                raise UpstreamClientDisconnected("downstream client disconnected during compaction")
+            if checkpoint is body:
+                raise urllib.error.HTTPError(exc.url, exc.code, exc.msg, exc.hdrs, io.BytesIO(raw)) from None
+            checkpoint = self._ports.finalize_body(checkpoint)
+            # Byte policy is a separate transport contract, including recovery.
+            checkpoint, data = self._fit_provider_request(
+                request.full_url, provider, config, checkpoint,
+            )
+            body.clear()
+            body.update(checkpoint)
+            request.data = data
+            request._context_compact_recovered = True
+            self._ports.log("INFO", f"provider_responses_checkpoint_recovery provider={provider} "
+                            "reason=confirmed_no_output_context_rejection attempts=1")
+            return self._ports.urlopen(
+                request, timeout=self._ports.timeout_seconds(config),
+                provider=provider, pcfg=config,
+            )
 
     def _fit_provider_request(
         self,
@@ -360,6 +425,7 @@ class ProviderResponsesPassthrough:
         cache_profile: Mapping[str, Any],
         *,
         completion_gate_headers: Mapping[str, str] | None = None,
+        semantic_input: list[Any] | None = None,
     ) -> None:
         """Validate a native Responses stream before exposing it downstream.
 
@@ -379,11 +445,8 @@ class ProviderResponsesPassthrough:
         max_attempts = retries + 1
         model = str(upstream_body.get("model") or "")
         for attempt in range(1, max_attempts + 1):
-            with self._ports.urlopen(
-                request,
-                timeout=self._ports.timeout_seconds(config),
-                provider=provider,
-                pcfg=config,
+            with self._open_checkpoint_request(
+                request, provider, config, upstream_body, semantic_input, handler=handler,
             ) as response, tempfile.SpooledTemporaryFile(max_size=4 * 1024 * 1024) as spool:
                 usage = ResponsesUsageObserver()
                 completion = ResponsesCompletionObservation()
@@ -662,13 +725,12 @@ class ProviderResponsesPassthrough:
                 response_tools,
                 cache_profile,
                 completion_gate_headers=request_headers if completion_gate else None,
+                semantic_input=semantic_input,
             )
             return delivery_body
-        with self._ports.urlopen(
-            request,
-            timeout=self._ports.timeout_seconds(config),
-            provider=provider,
-            pcfg=config,
+        with self._open_checkpoint_request(
+            request, provider, config, upstream_body, semantic_input,
+            remote_bridge=remote_bridge, handler=handler,
         ) as response:
             usage = ResponsesUsageObserver()
             received_bytes = 0

@@ -268,7 +268,7 @@ class ContextCompactionTests(unittest.TestCase):
         ]}
         self.compact(services, history=[message])
         prompts = [call.args[3] for call in services.workflow.request_summary.call_args_list]
-        self.assertGreater(len(prompts), 8)
+        self.assertGreater(len(prompts), 1)
         self.assertTrue(any("FINAL_FACT" in prompt for prompt in prompts))
         self.assertTrue(any("RESULT_FACT" in prompt for prompt in prompts))
         self.assertTrue(all("truncated" not in prompt for prompt in prompts))
@@ -281,7 +281,7 @@ class ContextCompactionTests(unittest.TestCase):
         def generate(_provider, _model, _config, prompt, **_kwargs):
             if prompt.startswith("Segment "):
                 number = int(prompt.split()[1].split("/")[0].rstrip("."))
-                return f"fact-{number}:" + "x" * 900
+                return f"fact-{number}:" + "x" * 2200
             return "reduced:" + ",".join(f"fact-{i}:" for i in range(1, 19) if f"fact-{i}:" in prompt)
         services.workflow.request_summary.side_effect = generate
         result = self.compact(services, history=[{"role": "assistant", "content": f"history {i}"} for i in range(18)])
@@ -297,7 +297,7 @@ class ContextCompactionTests(unittest.TestCase):
         services = self.real_services()
         services = replace(services, workflow=replace(services.workflow,
             split_messages=lambda messages, _target: [(i, [message]) for i, message in enumerate(messages)]))
-        services.workflow.request_summary.side_effect = ["x" * 1200] * 10 + [TimeoutError("reduce")]
+        services.workflow.request_summary.side_effect = ["x" * 4000] * 10 + [TimeoutError("reduce")]
         with self.assertRaises(TimeoutError):
             self.compact(services, history=[{"role": "assistant", "content": "history"}] * 10)
         self.assertEqual(11, services.workflow.request_summary.call_count)
@@ -312,7 +312,7 @@ class ContextCompactionTests(unittest.TestCase):
 
     def test_full_map_request_checks_protocol_system_and_output_budget(self):
         services = self.real_services()
-        services = replace(services, map_system_prompt="system" * 2000)
+        services = replace(services, map_system_prompt="system" * 6000)
         with self.assertRaisesRegex(ContextCompactionFailed, "insufficient_summary_budget"):
             self.compact(services)
         services.workflow.request_summary.assert_not_called()
@@ -325,8 +325,24 @@ class ContextCompactionTests(unittest.TestCase):
         self.assertEqual(1024, services.transport.post_json.call_args.args[1]["max_tokens"])
         services.transport.post_json.reset_mock()
         with self.assertRaisesRegex(ContextCompactionFailed, "summary_request_exceeds_budget"):
-            request_context_summary("provider", "model", {}, "한글" * 3000, services, wire="openai", budget_tokens=8192)
+            request_context_summary("provider", "model", {}, "한글" * 16000, services, wire="openai", budget_tokens=8192)
         services.transport.post_json.assert_not_called()
+
+    def test_summary_transport_resolves_internal_alias_before_sending(self):
+        services = self.real_services()
+        resolve = mock.Mock(return_value="provider/upstream")
+        services = replace(services, transport=replace(services.transport, resolve_model=resolve))
+        request_context_summary("provider", "ciel-runtime-provider-alias", {}, "prompt", services,
+                                wire="openai", budget_tokens=8192)
+        request = services.transport.post_json.call_args.args[1]
+        self.assertEqual("provider/upstream", request["model"])
+        self.assertEqual("provider/upstream", services.transport.post_json.call_args.args[6])
+
+    def test_cancelled_summary_run_stops_before_billable_call(self):
+        services = self.real_services()
+        with self.assertRaisesRegex(ContextCompactionFailed, "client_cancelled"):
+            self.compact(services, {"_context_compact_cancelled": lambda: True})
+        services.workflow.request_summary.assert_not_called()
 
     def test_transport_rejects_partial_generation_and_empty_output(self):
         for data in ({"choices": [{"finish_reason": "length"}]}, {"stop_reason": "max_tokens"}, {"status": "incomplete"}, {"error": {"message": "failed"}}):
@@ -379,7 +395,7 @@ class ContextCompactionTests(unittest.TestCase):
         services = self.prompt_services([])
         messages = [{"role": "user", "content": CODEX_CONTEXT_CHECKPOINT_PROMPT}]
         result = compact_chat_messages_for_budget(messages, [], 8192, provider="provider", model="model",
-            pcfg={}, full_compact_request=True, services=services)
+            pcfg={"_context_compact_context_rejected": True}, full_compact_request=True, services=services)
         self.assertIs(messages, result)
         services.runtime.llm_compact_messages.assert_not_called()
 
@@ -390,24 +406,25 @@ class ContextCompactionTests(unittest.TestCase):
             with self.assertRaisesRegex(ContextCompactionFailed, "final_reduce_exceeds_budget"):
                 if wire == "openai":
                     compact_chat_messages_for_budget(messages, [], 8192, provider="provider", model="model",
-                        pcfg={}, full_compact_request=True, services=services)
+                        pcfg={"_context_compact_context_rejected": True}, full_compact_request=True, services=services)
                 else:
                     compact_anthropic_body_for_budget({"messages": messages}, 8192, provider="provider", model="model",
-                        pcfg={}, full_compact_request=True, services=services)
+                        pcfg={"_context_compact_context_rejected": True}, full_compact_request=True, services=services)
             services.text.build_summary.assert_not_called()
 
     def test_anthropic_system_envelope_is_reserved_before_semantic_work(self):
         services = self.prompt_services([{"role": "user", "content": "final reducer"}])
         body = {"system": "system constraints " * 150, "messages": [{"role": "user", "content": "history " * 10000}], "max_tokens": 512}
-        compact_anthropic_body_for_budget(body, 8192, provider="provider", model="model", pcfg={},
+        compact_anthropic_body_for_budget(body, 8192, provider="provider", model="model", pcfg={"_context_compact_context_rejected": True},
             full_compact_request=True, services=services)
         supplied = services.runtime.llm_compact_messages.call_args.args[4]
-        self.assertLess(supplied, 8192 - len(body["system"]))
+        self.assertLess(supplied, 8192 - len(body["system"]) // 4)
         self.assertGreater(supplied, 1024)
 
     def test_one_oversized_map_summary_is_split_completely_for_reduce(self):
         services = self.real_services()
-        original = "BEGIN " + "한글" * 2000 + " END"
+        services = replace(services, transport=replace(services.transport, summary_output_tokens=lambda *_: 8192))
+        original = "BEGIN " + "word " * 6200 + " END"
         observed = []
         def generate(_provider, _model, _config, prompt, **_kwargs):
             if prompt.startswith("Segment "):

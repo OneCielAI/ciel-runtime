@@ -47,6 +47,10 @@ def compact_chat_messages_for_budget(
 ) -> list[dict[str, Any]]:
     if not messages:
         return messages
+    # Native checkpoint requests get their own upstream attempt first. A local
+    # estimate is not proof that semantic recovery is necessary.
+    if full_compact_request and not (pcfg or {}).get("_context_compact_context_rejected"):
+        return messages
     text = services.text
     runtime = services.runtime
     budget_tokens = max(8192, budget_tokens)
@@ -314,7 +318,7 @@ def compact_responses_input_for_budget(
         # so the visible items are not the complete semantic source.
         if (instruction_index is None or body.get("previous_response_id")
                 or pcfg is None or not provider or not model
-                or semantic_payload_cost(body, runtime.estimate_tokens) <= budget_tokens):
+                or not pcfg.get("_context_compact_context_rejected")):
             return body
         messages = ([{"role": "system", "content": body["instructions"]}]
                     if body.get("instructions") else [])
@@ -437,6 +441,11 @@ def compact_anthropic_body_for_budget(
 ) -> dict[str, Any]:
     messages = body.get("messages")
     if not isinstance(messages, list) or not messages:
+        return body
+    # Do not preflight a native checkpoint with the local estimator. The
+    # upstream's explicit no-output context rejection is the only semantic
+    # recovery proof.
+    if full_compact_request and not (pcfg or {}).get("_context_compact_context_rejected"):
         return body
     typed_messages = [message for message in messages if isinstance(message, dict)]
     if len(typed_messages) != len(messages):

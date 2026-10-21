@@ -215,6 +215,10 @@ def build_default_config(provider_defaults: dict[str, Any]) -> dict[str, Any]:
         "claude_code": {
             "compat_prompt_for_non_anthropic": True,
         },
+        "claude_stream_recovery": {
+            "enabled": True,
+            "max_attempts": 1,
+        },
         "cleanup": {"managed_services_on_launch": True},
         "web_search": {
             "auto_for_non_native": True,

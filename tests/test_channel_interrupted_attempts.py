@@ -66,6 +66,51 @@ class InterruptedAttemptTests(unittest.TestCase):
         self.assertEqual(2, caught.exception.line_number)
         self.assertEqual(before, self.status.path.read_bytes())
 
+    def test_all_malformed_histories_hold_strict_admission(self):
+        row = {"request_id": 40, "status": "queued"}
+        valid = json.dumps(row).encode()
+        duplicate = b"{\"request_id\":40,\"status\":\"queued\",\"status\":\"replied\"}"
+        damages = [duplicate + bytes([10]),
+                   b"{\"request_id\":40,\"status\":\"queued\",\"data\":{\"x\":NaN}}" + bytes([10]),
+                   b"{\"request_id\":40,\"status\":\"queued\",\"data\":{\"x\":1e999}}" + bytes([10]),
+                   valid + bytes([255, 10]), valid + bytes([0, 10]),
+                   valid[:5] + bytes(1) + valid[5:] + bytes([10]), valid,
+                   b"[]" + bytes([10]), b"{}" + bytes([10]), bytes([10]),
+                   json.dumps({"request_id": True, "status": "queued"}).encode() + bytes([10])]
+        for damage in damages:
+            with self.subTest(damage=damage):
+                self.status.path.write_bytes(damage)
+                before = self.status.path.read_bytes()
+                with self.assertRaises(WakeHistoryUnavailable):
+                    self.status.begin_attempt([40, 41], "child")
+                self.assertFalse(self.status.history_health()["complete"])
+                self.assertEqual(before, self.status.path.read_bytes())
+
+    def test_concurrent_diagnostics_do_not_admit_corrupt_owner_or_mutate_source(self):
+        self.status.transition(40, "queued")
+        with self.status.path.open("ab") as stream:
+            stream.write(bytes(23) + self.status.path.read_bytes())
+        before = self.status.path.read_bytes()
+        other = RuntimeInputStatusRepository(
+            self.status.path, lambda **_: None, lambda *_: None, threading.RLock())
+        barrier = threading.Barrier(2)
+
+        def inspect():
+            barrier.wait(timeout=5)
+            return self.status.history_health()
+
+        def attempt():
+            barrier.wait(timeout=5)
+            with self.assertRaises(WakeHistoryUnavailable):
+                other.begin_attempt([40], "new")
+
+        with concurrent.futures.ThreadPoolExecutor(2) as pool:
+            diagnostic = pool.submit(inspect)
+            admission = pool.submit(attempt)
+            self.assertFalse(diagnostic.result(timeout=10)["complete"])
+            admission.result(timeout=10)
+        self.assertEqual(before, self.status.path.read_bytes())
+
     def test_two_repository_instances_admit_exactly_one_owner(self):
         other = RuntimeInputStatusRepository(
             self.status.path, lambda **_: None, lambda *_: None, threading.RLock())

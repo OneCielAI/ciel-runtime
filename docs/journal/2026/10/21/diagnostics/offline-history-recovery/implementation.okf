@@ -1,0 +1,30 @@
+---
+title: Offline history recovery implementation
+kind: decision
+type: implementation
+timestamp: 2026-10-21
+---
+
+# Offline history recovery
+
+## Scope
+
+The implementation is deliberately offline-only. Preview reads both runtime input histories, reports byte size, SHA-256, known maximum identifiers, pending status counts, coverage gaps, and a confirmation token. It does not send network requests or attempt online generation recovery.
+
+## Safety boundary
+
+Confirmation requires the exact preview token, the literal data-changing opt-in `quarantine_old_inputs=True`, an exclusive maintenance lock shared with router selection, verified dead recorded router/client/launcher owners, a machine-wide runtime process inventory with no remaining candidates, and a free recorded endpoint. Unknown or malformed state refuses.
+
+## Transaction
+
+The original queue and status bytes are copied byte-for-byte into a generation archive with a manifest. A prepared marker is durable before originals are replaced, so a crash fails closed. Finalization replaces both active files with fresh empty files, writes a finalized generation marker, and sets the durable ID floor above every recognized ID. No old row is replayed. A prepared transaction can only be resumed explicitly with the same token and archive identity.
+
+## Reader and writer boundary
+
+Runtime queue max-ID scans and status transitions inspect the generation marker. Old request IDs are rejected after quarantine and new queue rows carry the immutable generation value. The ACK reader retains its existing truncation/reset behavior; broader ACK generation changes remain outside this implementation boundary.
+
+## Verification
+
+Focused isolated verification command: `python docs/journal/2026/10/19/diagnostics/walkie-context-overflow/evidence/scripts/verify_focused.py --repo C:/Users/djlov/ciel-runtime --output C:/Users/djlov/ciel-runtime/.focused-recovery.txt test_runtime_input_recovery.py test_channel_message_repository.py test_runtime_input_status.py test_prelaunch_panel_projection.py`
+
+Observed result: 35 tests, 0 failures, 0 errors, 0 skipped. The fixture uses isolated temporary state and never writes live runtime state.

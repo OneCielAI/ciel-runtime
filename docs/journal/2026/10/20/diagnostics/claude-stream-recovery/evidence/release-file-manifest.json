@@ -1,0 +1,157 @@
+[
+  {
+    "path": "docs/journal/2026/10/20/diagnostics/claude-stream-recovery/fixture.py",
+    "size": 10550,
+    "sha256": "b553bb4daf533ad6a11245c90fcb7da89d777432bcadeeeb8ad49fc177fad8ed"
+  },
+  {
+    "path": "docs/journal/2026/10/20/diagnostics/claude-stream-recovery/native_stream_recovery.py",
+    "size": 30186,
+    "sha256": "6175101c1b47cbf4cf89a59d163d36fea9101c4fa56bc3a975fb01ce0b3e7130"
+  },
+  {
+    "path": "docs/journal/2026/10/20/diagnostics/claude-stream-recovery/console_watch.py",
+    "size": 8872,
+    "sha256": "cdf32f87ffb97f9dbda476c338efd7651e713d83db6927c9a0afbe8dc287df75"
+  },
+  {
+    "path": "docs/journal/2026/10/20/diagnostics/claude-stream-recovery/launch_shim.py",
+    "size": 1819,
+    "sha256": "ca9eb210504fdfeb3ff3e9513b09ef7d171603e5ba922249e50f8cca56cb8514"
+  },
+  {
+    "path": "docs/journal/2026/10/20/diagnostics/claude-stream-recovery/implementation.okf",
+    "size": 9954,
+    "sha256": "2b10a3dfdb0e7a6bb889cc559013dce941ec869f4cfde24045f94299e8fb3568"
+  },
+  {
+    "path": "docs/journal/2026/10/20/diagnostics/claude-stream-recovery/evidence/focused-policy-move.txt",
+    "size": 71980,
+    "sha256": "33fbaf785538eca63de44401b30256a3c3b96d11099a40393dca4805d37e2143"
+  },
+  {
+    "path": "docs/journal/2026/10/20/diagnostics/claude-stream-recovery/evidence/terminal-after-ruff.txt",
+    "size": 3141,
+    "sha256": "f640441bc1c1e0ead8aa60396103e02635f761bdfee719ace1ce38a7046c68bf"
+  },
+  {
+    "path": "docs/journal/2026/10/20/diagnostics/claude-stream-recovery/evidence/recovery-preintegration.txt",
+    "size": 68471,
+    "sha256": "9cfb38a45864dfa172c31b57826f3fea6a110089c388f931f4a0db5db221f053"
+  },
+  {
+    "path": "docs/journal/2026/10/20/diagnostics/claude-stream-recovery/evidence/metadata-audit-tests.txt",
+    "size": 9021,
+    "sha256": "04ef3363635f24f6934d0ef155498bed40c995aea5e2e316814c1e8794657c38"
+  },
+  {
+    "path": "docs/journal/2026/10/20/diagnostics/claude-stream-recovery/evidence/run-claude-gate-224130-summary.json",
+    "size": 1891,
+    "sha256": "6293e4376214a356b658e3db2402dd0cdc8315de82b7e67772af60064e112f7e"
+  },
+  {
+    "path": "docs/journal/2026/10/20/diagnostics/claude-stream-recovery/evidence/run-claude-gate-cielairouter-clean-232304-summary.json",
+    "size": 1893,
+    "sha256": "fcb86eeb2e4fd3652bad66cbcca95f601ea75ab778ca305c787b2412788dd022"
+  },
+  {
+    "path": "docs/journal/2026/10/20/diagnostics/claude-stream-recovery/run-claude-gate-224130/auto-text-closed-error-owned-console.png",
+    "size": 136454,
+    "sha256": "6a06b9b7c5791e63bf8d1619528e73d8e2aa0722f86798d102394f5c1d41ac65"
+  },
+  {
+    "path": "docs/journal/2026/10/20/diagnostics/claude-stream-recovery/run-claude-gate-224130/auto-text-closed-error-screen-latest.txt",
+    "size": 3304,
+    "sha256": "74ef4a4016bb21d71928dc29e066c9bcbf67b59b3803f0b2190355c17d09978f"
+  },
+  {
+    "path": "docs/journal/2026/10/20/diagnostics/claude-stream-recovery/run-claude-gate-224130/auto-text-recovered-owned-console.png",
+    "size": 81663,
+    "sha256": "1a15a6d7ea1d5c8c6bd6f2315e67c3dba3d2d2103757351111d3e5c4e87b939f"
+  },
+  {
+    "path": "docs/journal/2026/10/20/diagnostics/claude-stream-recovery/run-claude-gate-224130/auto-text-recovered-screen-latest.txt",
+    "size": 2658,
+    "sha256": "3728d17731b25d14b55fbe80ddc9b6ddbbe8c56bbeb52f3ea223ef70e48c5727"
+  },
+  {
+    "path": "docs/journal/2026/10/20/diagnostics/claude-stream-recovery/run-claude-gate-224130/auto-chain-exhausted-owned-console.png",
+    "size": 129352,
+    "sha256": "9878ab72a3ebe8ce150e02f46102d431728291edbed2958d147b0861fdaff266"
+  },
+  {
+    "path": "docs/journal/2026/10/20/diagnostics/claude-stream-recovery/run-claude-gate-224130/auto-chain-exhausted-screen-latest.txt",
+    "size": 3136,
+    "sha256": "ac8d907e0fd02533d6813dde94e8a695cfab482e413165d1b5339880b18646e6"
+  },
+  {
+    "path": "docs/journal/2026/10/20/diagnostics/claude-stream-recovery/run-claude-gate-224130/auto-partial-tool-owned-console.png",
+    "size": 119228,
+    "sha256": "a953a161e9baf95e79f5beebda3604ab558224071eae03f7290a2f5d6dea42ac"
+  },
+  {
+    "path": "docs/journal/2026/10/20/diagnostics/claude-stream-recovery/run-claude-gate-224130/auto-partial-tool-screen-latest.txt",
+    "size": 3040,
+    "sha256": "c20b58624f56889df7def83e13c497391953ea92231ae079e56b223ee01e6c37"
+  },
+  {
+    "path": "docs/journal/2026/10/20/diagnostics/claude-stream-recovery/run-claude-gate-224130/auto-completed-tool-owned-console.png",
+    "size": 111049,
+    "sha256": "edae76182c33c23a26b0efce4a1d7bb924f82911d58ebbe155d9a31876e1bab2"
+  },
+  {
+    "path": "docs/journal/2026/10/20/diagnostics/claude-stream-recovery/run-claude-gate-224130/auto-completed-tool-screen-latest.txt",
+    "size": 2813,
+    "sha256": "dce7092c50c21f2c3f931690431669196df2bf8b1a46c518a361bb255022b9ed"
+  },
+  {
+    "path": "docs/journal/2026/10/20/diagnostics/claude-stream-recovery/run-claude-gate-cielairouter-clean-232304/auto-text-closed-error-owned-console.png",
+    "size": 136270,
+    "sha256": "ccf185c43bccebec6360432b19e741797e5e7913ca0c8b9a909c933f1057febd"
+  },
+  {
+    "path": "docs/journal/2026/10/20/diagnostics/claude-stream-recovery/run-claude-gate-cielairouter-clean-232304/auto-text-closed-error-screen-latest.txt",
+    "size": 3305,
+    "sha256": "b471328e8b197d0b32b3cd2e34a465abc9591f8aaacd3c3262949111b34a063c"
+  },
+  {
+    "path": "docs/journal/2026/10/20/diagnostics/claude-stream-recovery/run-claude-gate-cielairouter-clean-232304/auto-text-recovered-owned-console.png",
+    "size": 81143,
+    "sha256": "d780422a087bf2612cd6e2047c42ac09915d1595c64bc8b82fa1b494d4f27c5c"
+  },
+  {
+    "path": "docs/journal/2026/10/20/diagnostics/claude-stream-recovery/run-claude-gate-cielairouter-clean-232304/auto-text-recovered-screen-latest.txt",
+    "size": 2660,
+    "sha256": "f67a96efb24a2e4b1aa3e209710f82735b196a3d86429a078ba04f760cc6fe81"
+  },
+  {
+    "path": "docs/journal/2026/10/20/diagnostics/claude-stream-recovery/run-claude-gate-cielairouter-clean-232304/auto-chain-exhausted-owned-console.png",
+    "size": 129187,
+    "sha256": "84f9f0259c74c5b5ec04f1de2a25a62b3a2aa3328ab4b0790992281dcca94099"
+  },
+  {
+    "path": "docs/journal/2026/10/20/diagnostics/claude-stream-recovery/run-claude-gate-cielairouter-clean-232304/auto-chain-exhausted-screen-latest.txt",
+    "size": 3136,
+    "sha256": "dde6f80ddf93dc35aa9f4ebf434f53c2abc17f5567ea263ada4fbcb970fa4d57"
+  },
+  {
+    "path": "docs/journal/2026/10/20/diagnostics/claude-stream-recovery/run-claude-gate-cielairouter-clean-232304/auto-partial-tool-owned-console.png",
+    "size": 118853,
+    "sha256": "fd7836ad2bc856d7110c5084e8aae424e1dbf1de213d68c8e80267012448875e"
+  },
+  {
+    "path": "docs/journal/2026/10/20/diagnostics/claude-stream-recovery/run-claude-gate-cielairouter-clean-232304/auto-partial-tool-screen-latest.txt",
+    "size": 3040,
+    "sha256": "a30e0521e13305ce89cac24c35457d76929c90593544c3893f8bdf4765870bd7"
+  },
+  {
+    "path": "docs/journal/2026/10/20/diagnostics/claude-stream-recovery/run-claude-gate-cielairouter-clean-232304/auto-completed-tool-owned-console.png",
+    "size": 110688,
+    "sha256": "e231e9c8490df2201d90e609d5d0298678364fc91fecd9f2062954098f6f802c"
+  },
+  {
+    "path": "docs/journal/2026/10/20/diagnostics/claude-stream-recovery/run-claude-gate-cielairouter-clean-232304/auto-completed-tool-screen-latest.txt",
+    "size": 2795,
+    "sha256": "7225c4985a0451f64887c0e95c0e0ef620b9dfa98bae4928be65b48bd4d43770"
+  }
+]

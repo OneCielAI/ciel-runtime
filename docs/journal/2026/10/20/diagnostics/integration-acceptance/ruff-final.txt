@@ -1,0 +1,50 @@
+F401 [*] `dataclasses.replace` imported but unused
+  --> tests\test_runtime_compaction_rejection.py:9:33
+   |
+ 7 | import time
+ 8 | import unittest
+ 9 | from dataclasses import fields, replace
+   |                                 ^^^^^^^
+10 | from datetime import datetime, timezone
+11 | from pathlib import Path
+   |
+help: Remove unused import: `dataclasses.replace`
+
+F401 [*] `ciel_runtime_support.remote_bridge.REMOTE_BRIDGE_CONFIG_MARKER` imported but unused
+  --> tests\test_runtime_compaction_rejection.py:18:48
+   |
+16 | from ciel_runtime_support import router_request_assembly as assembly
+17 | from ciel_runtime_support.channel_compact_request_repository import ChannelCompactRequestRepository
+18 | from ciel_runtime_support.remote_bridge import REMOTE_BRIDGE_CONFIG_MARKER, REMOTE_BRIDGE_CONTEXT_ATTRIBUTE
+   |                                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+19 | from ciel_runtime_support.runtime_compaction_binding import RuntimeCompactionBinding
+20 | from ciel_runtime_support.runtime_compaction_control import CompactionScope
+   |
+help: Remove unused import: `ciel_runtime_support.remote_bridge.REMOTE_BRIDGE_CONFIG_MARKER`
+
+F401 [*] `ciel_runtime_support.runtime_compaction_rejection.BLOCKED_MESSAGE` imported but unused
+  --> tests\test_runtime_compaction_rejection.py:22:5
+   |
+20 | from ciel_runtime_support.runtime_compaction_control import CompactionScope
+21 | from ciel_runtime_support.runtime_compaction_rejection import (
+22 |     BLOCKED_MESSAGE,
+   |     ^^^^^^^^^^^^^^^
+23 |     REACTIVE_MESSAGE,
+24 |     ReactiveCompactionRejection,
+   |
+help: Remove unused import
+
+F401 [*] `ciel_runtime_support.runtime_compaction_rejection.ReactiveRejectionPolicy` imported but unused
+  --> tests\test_runtime_compaction_rejection.py:25:5
+   |
+23 |     REACTIVE_MESSAGE,
+24 |     ReactiveCompactionRejection,
+25 |     ReactiveRejectionPolicy,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^
+26 |     ReactiveRejectionPorts,
+27 | )
+   |
+help: Remove unused import
+
+Found 4 errors.
+[*] 4 fixable with the `--fix` option.

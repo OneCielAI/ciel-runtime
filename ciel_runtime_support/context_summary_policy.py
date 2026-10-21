@@ -92,14 +92,17 @@ def compact_instruction_kind(text: Any) -> str | None:
 
 
 def semantic_payload_cost(value: Any, estimate_tokens: Callable[[Any], int]) -> int:
-    """Local conservative UTF-8 envelope, NOT an exact provider token count.
+    """Return the available token observation without treating bytes as tokens.
 
-    Keep the shared estimator unchanged. Counting serialized UTF-8 bytes also
-    bounds large Unicode/tool payloads that a JSON/4 estimate can understate.
-    Provider tokenization and additional gateway transforms remain unobserved.
+    UTF-8 size is useful for transport/resource limits, but it is not evidence
+    of provider token usage.  In particular, non-ASCII text can be byte-large
+    while still fitting the native model context.  A zero result remains
+    unknown and must not be turned into a proactive compact request.
     """
-    encoded = json.dumps(value, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
-    return max(1, estimate_tokens(value), len(encoded))
+    try:
+        return max(0, int(estimate_tokens(value)))
+    except (TypeError, ValueError, OverflowError):
+        return 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -349,7 +352,7 @@ class ContextSummaryPolicy:
         return "explicit" if parse_bool(configured, default=False) else None
 
     def chunk_target_tokens(self, config: dict[str, Any] | None, budget_tokens: int) -> int:
-        """Clamp the historical token option to the local semantic payload envelope."""
+        """Clamp the map target in token units, independently of source bytes."""
         configured = self.positive_int((config or {}).get("context_compact_chunk_tokens"))
         ceiling = max(256, min(262144, max(1, budget_tokens) // 2))
         return min(ceiling, max(256, configured or ceiling))
@@ -363,7 +366,8 @@ class ContextSummaryPolicy:
         self, messages: list[dict[str, Any]], target_tokens: int,
     ) -> list[tuple[int, list[ContextSummaryFragment]]]:
         # Each interval is disjoint and exhaustive in the original projection.
-        # Character offsets avoid breaking Unicode; size uses serialized bytes.
+        # Character offsets avoid breaking Unicode; fragment costs use the
+        # available token estimator. Source bytes have their own resource cap.
         target = max(256, int(target_tokens))
         fragments: list[ContextSummaryFragment] = []
         source_bytes = 0
@@ -374,7 +378,7 @@ class ContextSummaryPolicy:
                 raise ValueError("semantic context compaction source byte limit exceeded")
             start = 0
             while start < len(source):
-                low, high = start + 1, min(len(source), start + target)
+                low, high = start + 1, len(source)
                 end = start
                 while low <= high:
                     middle = (low + high) // 2

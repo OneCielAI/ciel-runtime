@@ -34,6 +34,7 @@ class ContextCompactionTransport:
     post_json: Callable[..., Any]
     headers: Callable[[str, dict[str, Any]], dict[str, str]]
     extract_text: Callable[[Any, str], str]
+    resolve_model: Callable[[str, dict[str, Any], str], str] = lambda _provider, _config, model: model
 
 
 @dataclass(frozen=True)
@@ -79,6 +80,7 @@ def _summary_request(
     provider: str, model: str, config: dict[str, Any], prompt: str,
     services: ContextCompactionServices, wire: str, budget: int,
 ) -> tuple[dict[str, Any], str]:
+    model = services.transport.resolve_model(provider, config, model)
     maximum = min(
         max(32, services.transport.summary_output_tokens(config, budget)),
         max(32, budget // 8),
@@ -115,7 +117,7 @@ def _request_cost(
 ) -> int:
     request, _operation = _summary_request(provider, model, config, prompt, services, wire, budget)
     output = min(max(32, services.transport.summary_output_tokens(config, budget)), max(32, budget // 8))
-    # This UTF-8 envelope is a local safety bound, not tokenizer authority.
+    # Estimated tokens remain a recovery sizing heuristic, not tokenizer authority.
     return semantic_payload_cost(request, services.workflow.estimate_tokens) + output + 512
 
 
@@ -129,6 +131,7 @@ def request_context_summary(
         provider, model, provider_config, prompt, services, wire, budget_tokens
     )
     transport = services.transport
+    model = str(request["model"])
     timeout = min(
         transport.request_timeout(provider_config),
         float(provider_config.get("_context_compact_timeout_seconds", 120.0)),
@@ -207,6 +210,9 @@ class _SummaryRun:
         ) <= self.budget
 
     def generate(self, prompt: str) -> str:
+        cancelled = self.config.get("_context_compact_cancelled")
+        if callable(cancelled) and cancelled():
+            raise ContextCompactionFailed("client_cancelled")
         remaining = self.deadline - time.monotonic()
         if remaining <= 0:
             raise ContextCompactionFailed("deadline_exceeded")
@@ -219,6 +225,8 @@ class _SummaryRun:
         summary = self.services.workflow.request_summary(
             self.provider, self.model, config, prompt, wire=self.wire, budget_tokens=self.budget,
         )
+        if callable(cancelled) and cancelled():
+            raise ContextCompactionFailed("client_cancelled")
         if time.monotonic() > self.deadline:
             raise ContextCompactionFailed("deadline_exceeded")
         if not isinstance(summary, str) or not summary.strip():
@@ -231,7 +239,7 @@ class _SummaryRun:
 
 
 
-def _no_output_context_rejection(error: BaseException) -> bool:
+def no_output_context_rejection(error: BaseException) -> bool:
     if not isinstance(error, UpstreamFailure):
         return False
     if error.source != "http_status" or error.upstream_status not in {400, 413}:
@@ -274,7 +282,7 @@ def _map_summaries(chunks: list[Any], run: _SummaryRun, initial_tokens: int) -> 
         try:
             summary = run.generate(prompt)
         except Exception as exc:
-            if not _no_output_context_rejection(exc) or depth >= 4:
+            if not no_output_context_rejection(exc) or depth >= 4:
                 raise
             if total >= MAX_MAP_CHUNKS:
                 raise ContextCompactionFailed("map_chunk_limit") from exc
