@@ -1,0 +1,23 @@
+{
+  "version": "0.2.51-nightly.20261021-064208.9d1666f",
+  "commit": "9d1666ff5c3612468459a1a092cbde0fadb5adab",
+  "installed_tests": {
+    "run": 421,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 54
+  },
+  "loopback_cases_passed": 7,
+  "integrity_python_files_per_install": 434,
+  "integrity_mismatches": 0,
+  "browser": {
+    "passed": true,
+    "status_text": "observation stream live | session delivery admission_blocked | known queued 1 | wake_history_incomplete line 2",
+    "source_unchanged": true,
+    "runtime": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-9d1666f\\ciel_runtime.py",
+    "screenshot": "installed-tui-held.png",
+    "owned_server_closed": true
+  },
+  "live_history_changed": false,
+  "live_sessions_restarted": false
+}

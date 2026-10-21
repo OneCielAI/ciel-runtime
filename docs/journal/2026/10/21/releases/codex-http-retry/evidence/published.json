@@ -1,0 +1,29 @@
+{
+  "version": "0.2.51-nightly.20261021-064208.9d1666f",
+  "gitHead": "9d1666ff5c3612468459a1a092cbde0fadb5adab",
+  "tags": {
+    "latest": "0.2.51",
+    "nightly": "0.2.51-nightly.20261021-064208.9d1666f"
+  },
+  "dist": {
+    "shasum": "e2ae84e2050ea60e13dcbfe13423f6ff2ce310b6",
+    "tarball": "https://registry.npmjs.org/@one-ciel-ai/ciel-runtime/-/ciel-runtime-0.2.51-nightly.20261021-064208.9d1666f.tgz",
+    "fileCount": 491,
+    "integrity": "sha512-8yi20IP6PKhk+auajcummNvSGyZJVmmDVCYuQf7c+T7HlRhhvsamkJs71s2txuaejvIy99M2RfCajQYpkA3BtA==",
+    "signatures": [
+      {
+        "sig": "MEUCIQCxYIbTi6n/hDntRkQB3g6GG3KHEpPLWIbeONHohmdlfAIgIXV8wqN47QvYLdwSM/8fw0AwqOUbwHNiASFZJ8k/yrk=",
+        "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+      },
+      {
+        "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U",
+        "sig": "MEUCIGsHZiGgzmKXZNJpfMvZXEokw2WpgpqMRdWbnk9pQTOXAiEAt9fGmqVfFbJJn+JTmmfvaYSuOc9m6WGLJ6qnMmSRuXA="
+      }
+    ],
+    "unpackedSize": 6381112
+  },
+  "tarball_sha256": "39dc6bab5a372e567f4ff24d8a2b4fe35037cdeb178d2ac5f4782af62f81b7d6",
+  "tarball_bytes": 1436602,
+  "files": 491,
+  "package_dir": "C:\\Users\\djlov\\ciel-runtime\\docs\\journal\\2026\\10\\21\\releases\\codex-http-retry\\evidence\\payload\\unpack\\package"
+}

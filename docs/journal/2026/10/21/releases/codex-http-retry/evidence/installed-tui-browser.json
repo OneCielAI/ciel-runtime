@@ -1,0 +1,8 @@
+{
+  "passed": true,
+  "status_text": "observation stream live | session delivery admission_blocked | known queued 1 | wake_history_incomplete line 2",
+  "source_unchanged": true,
+  "runtime": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-9d1666f\\ciel_runtime.py",
+  "screenshot": "installed-tui-held.png",
+  "owned_server_closed": true
+}

@@ -9,18 +9,20 @@ timestamp: 2026-10-21
 # Scope
 
 User requested continued verification followed by local and nightly deployment.
-Current changes are uncommitted. Active workers own router_http.py plus its
-focused regression and the independent production TUI factory callback fix.
+Implementation commit 9d1666f contains the bounded retry regressions and
+independent production TUI factory callback fix; publication and installed
+verification are recorded below.
 No live history, queue, cursor, replay, quarantine or fleet stop is authorized.
 
 # Gates
 
 Preliminary tests found concrete issues (shared allowance across outer loops,
-unreadable HTTPError body, malformed field types) and they are being corrected.
-Prior loopback runs bind their own recorded source hashes, not final source.
+unreadable HTTPError body, malformed field types); all three were corrected
+and covered by final regressions. Historical loopback runs bind their own
+recorded source hashes, not final source.
 Existing generic overload policy may retry ambiguous5xx; the new explicit
 no-output branch is not an unconditional prohibition on pre-existing overload
-retry. Final exact-file suite, loopback, lint and package checks are pending.
+retry. Final exact-file suite, loopback, lint and package checks passed.
 
 # Prior release
 
@@ -47,3 +49,30 @@ Repository ruff, py_compile, documentation metadata, OKF strict projections,
 diff check and npm pack dry-run passed. Existing overload retry remains a
 separate policy and may retry ambiguous5xx; this release does not claim to
 remove that behavior.
+
+# Commit and publication
+
+Implementation commit9d1666f pushed to origin/nightly and
+origin/nightly-20261020. CI39556534445 completed successfully. Publish
+39556534377 published the exact registry version
+0.2.51-nightly.20261021-064208.9d1666f with gitHead
+9d1666ff5c3612468459a1a092cbde0fadb5adab. Registry tarball SHA-256 is
+39dc6bab5a372e567f4ff24d8a2b4fe35037cdeb178d2ac5f4782af62f81b7d6.
+
+Local installation completed to
+C:/Users/djlov/.local/share/ciel-runtime-9d1666f and npm global now reports
+0.2.51-nightly.20261021-064208.9d1666f. The 434 Python files in both the
+fresh snapshot and global package match the exact unpacked tarball with zero
+mismatches. Installed real loopback HTTP acceptance passed all seven cases;
+all seven owned listeners/threads were cleaned up and no provider was called.
+Evidence: evidence/published.json, install.txt, installed-integrity.json,
+and installed-loopback.txt.
+
+# Installed snapshot runtime verification
+
+Against C:/Users/djlov/.local/share/ciel-runtime-9d1666f, the same isolated
+421-test suite passed with0 failures/errors and54 skips. Installed browser
+verification displayed the expected payload-free blocked state: `observation
+stream live | session delivery admission_blocked | known queued 1 |
+wake_history_incomplete line 2`; the installed fixture source bytes remained
+unchanged and its owned server closed.
