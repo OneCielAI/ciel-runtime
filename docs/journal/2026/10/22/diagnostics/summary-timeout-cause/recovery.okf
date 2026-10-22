@@ -1,0 +1,19 @@
+title: Summary timeout causal recovery
+status: source verified; live recovery not yet verified
+observations:
+  - Celly instance 9385-52ea0f8a2296 logged identity admission pause after restart.
+  - Last activity 2026-10-22T12:46:50 failed at 3/31 chunks, 4 calls, RuntimeError.
+  - Two fourth summary calls ended at the 120 second timeout.
+changes:
+  - Recognize explicit transport exceptions through RuntimeError cause chains.
+  - Retry only failed internal tool-free map summaries, at most three attempts.
+  - Retain completed summaries in the current run and honor cancellation and deadline.
+  - Exhausted retries propagate failure, never substitute a truncated source excerpt.
+limits:
+  - Does not prove tokenizer accuracy or explain the initial oversized conversation.
+  - Completed summaries are not persisted across process restarts.
+  - Does not claim successful recovery of the live Celly checkpoint.
+validation:
+  - 39 compaction tests pass, including real loopback HTTP timeout and recovery.
+  - Runtime group: 441 tests pass, 19 skipped.
+  - Ruff and project documentation metadata checks pass.
