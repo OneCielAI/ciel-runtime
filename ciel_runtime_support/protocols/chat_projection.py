@@ -142,6 +142,22 @@ def coalesce_ollama_system_messages(
     return [{"role": "system", "content": "\n\n".join(system_parts)}, *conversation]
 
 
+def ollama_image_payloads(blocks: list[Any]) -> list[str]:
+    """Base64 image bytes Ollama's native chat accepts, in block order.
+
+    Ollama carries images beside the message text (``images``) rather than as
+    content blocks; only inline base64 can be forwarded, a remote URL cannot.
+    """
+    images: list[str] = []
+    for block in blocks:
+        if not isinstance(block, dict) or block.get("type") != "image":
+            continue
+        source = block.get("source") if isinstance(block.get("source"), dict) else {}
+        if source.get("type") == "base64" and isinstance(source.get("data"), str) and source["data"]:
+            images.append(source["data"])
+    return images
+
+
 def anthropic_messages_to_ollama(body: dict[str, Any], *, services: ChatProjectionServices) -> list[dict[str, Any]]:
     text = services.text
     tools = services.tools
@@ -169,8 +185,12 @@ def anthropic_messages_to_ollama(body: dict[str, Any], *, services: ChatProjecti
                 else:
                     text_blocks.append(block)
             user_text = text.content_to_text(text_blocks)
-            if user_text:
-                messages.append({"role": "user", "content": text.compact_text(user_text)})
+            user_images = ollama_image_payloads(text_blocks)
+            if user_text or user_images:
+                entry: dict[str, Any] = {"role": "user", "content": text.compact_text(user_text)}
+                if user_images:
+                    entry["images"] = user_images
+                messages.append(entry)
             for block in tool_blocks:
                 tool_use_id = str(block.get("tool_use_id") or "")
                 tool_name = tool_names_by_id.get(tool_use_id, "tool")

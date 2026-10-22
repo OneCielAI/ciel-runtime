@@ -52,6 +52,21 @@ QWEN38_CODEX_CATALOG = {
     ],
     "default_reasoning_level": "xhigh",
 }
+# DeepSeek V4.1-Flash (the 1017 snapshot) takes text and images on Model
+# Studio -- "deepseek-v4.1-flash and deepseek-v4.1-flash-1017 support text and
+# image input and text-only output" (Model Studio DeepSeek FAQ, 2026-10-21);
+# DeepSeek's own guide states the same for the deepseek-flash model, whose
+# current version is DeepSeek-V4.1-Flash-1017. deepseek-v4-pro does not take
+# images. The Codex catalog needs the modality explicitly: the bundled
+# template it is built from carries no input_modalities.
+DEEPSEEK_V41_FLASH_MODELS = ("deepseek-v4.1-flash",)
+DEEPSEEK_V41_FLASH_CODEX_CATALOG = {
+    "input_modalities": ["text", "image"],
+    "supports_image_detail_original": True,
+    "supports_parallel_tool_calls": False,
+    "support_verbosity": False,
+    "supports_reasoning_summaries": False,
+}
 QWEN37_MAX_MODEL = "qwen3.7-max"
 QWEN37_CONTEXT_WINDOW = 1_000_000
 QWEN37_MAX_OUTPUT = 65_536
@@ -305,7 +320,20 @@ class AlibabaModelStudioProviderAdapter(HttpBearerProviderAdapter):
                 },
                 "Alibaba Kimi K3 profile applied: 1,048,576-token context, 131,072-token interactive output budget, always-on provider-managed reasoning, and 900K compaction.",
             )
+        if self._is_deepseek_v41_flash(config.model):
+            return (
+                {"codex_model_catalog": deepcopy(DEEPSEEK_V41_FLASH_CODEX_CATALOG)},
+                "DeepSeek V4.1-Flash profile applied: text and image input, text output.",
+            )
         if not self._is_qwen38(config.model):
+            if "deepseek-" in self._clean_model(config.model):
+                # deepseek-v4-pro takes text only; the bundled Codex template
+                # every routed catalog is built from declares image input, so
+                # the modality has to be stated instead of inherited.
+                return (
+                    {"codex_model_catalog": {"input_modalities": ["text"]}},
+                    None,
+                )
             if QWEN37_MAX_MODEL not in self._clean_model(config.model):
                 return {}, None
             return (
@@ -631,6 +659,11 @@ class AlibabaModelStudioProviderAdapter(HttpBearerProviderAdapter):
             projected = dict(block)
             projected.pop("cache_control", None)
             content[index] = projected
+
+    @classmethod
+    def _is_deepseek_v41_flash(cls, model: str | None) -> bool:
+        clean = cls._clean_model(str(model or ""))
+        return any(clean.startswith(prefix) for prefix in DEEPSEEK_V41_FLASH_MODELS)
 
     @classmethod
     def _is_qwen38(cls, model: str) -> bool:

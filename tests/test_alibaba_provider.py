@@ -1099,3 +1099,37 @@ class AlibabaProviderTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class AlibabaDeepSeekVisionTests(unittest.TestCase):
+    def test_deepseek_v41_flash_advertises_image_input_to_codex(self):
+        for provider in ("alims-intl", "alitoken", "alitoken-individual"):
+            for model in ("deepseek-v4.1-flash", "deepseek-v4.1-flash-1017"):
+                with self.subTest(provider=provider, model=model):
+                    config = copy.deepcopy(ciel_runtime.DEFAULT_CONFIG["providers"][provider])
+                    config["current_model"] = model
+
+                    messages = ciel_runtime.apply_provider_model_profile(provider, config)
+
+                    self.assertEqual(["text", "image"], config["codex_model_catalog"]["input_modalities"])
+                    self.assertTrue(config["codex_model_catalog"]["supports_image_detail_original"])
+                    self.assertIn("text and image input", messages[0])
+
+    def test_text_only_deepseek_model_drops_the_previous_image_catalog(self):
+        for provider in ("alims-intl", "alitoken"):
+            with self.subTest(provider=provider):
+                config = copy.deepcopy(ciel_runtime.DEFAULT_CONFIG["providers"][provider])
+                config["current_model"] = "deepseek-v4.1-flash-1017"
+                ciel_runtime.apply_provider_model_profile(provider, config)
+
+                config["current_model"] = "deepseek-v4-pro"
+                ciel_runtime.apply_provider_model_profile(provider, config)
+
+                self.assertEqual(["text"], config["codex_model_catalog"]["input_modalities"])
+
+    def test_other_models_keep_their_existing_catalog(self):
+        config = copy.deepcopy(ciel_runtime.DEFAULT_CONFIG["providers"]["alitoken"])
+
+        ciel_runtime.apply_provider_model_profile("alitoken", config)
+
+        self.assertIn("supported_reasoning_levels", config["codex_model_catalog"])
