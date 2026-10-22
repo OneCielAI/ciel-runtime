@@ -62,3 +62,17 @@ builder, transient retry and architecture contracts.
 The provider's own upper bound on a compact request is not documented here;
 this change is justified by the observed 1.45M > 872K rejection, not by an
 estimate of what the gateway would accept.
+
+# Correction after CI
+
+The first form applied the window rule to every full compact request. CI run
+39792088196 (test (runtime)) failed
+test_large_checkpoint_without_rejection_preserves_full_history: a translated
+Codex checkpoint over its window was chunked without a confirmed rejection,
+which that path's recovery contract forbids. The Publish run failed with it, so
+no nightly was published from 57b39d4.
+
+8045ba0 scopes the rule to Claude's own checkpoint (compact_kind "claude",
+marked by provider_request_builder as _context_compact_native_over_window);
+a translated Codex checkpoint keeps its confirmed-rejection rule, asserted by
+test_translated_codex_checkpoint_keeps_its_rejection_rule.
