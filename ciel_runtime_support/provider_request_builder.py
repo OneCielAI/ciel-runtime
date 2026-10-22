@@ -156,11 +156,12 @@ class ProviderRequestBuilder:
         # Codex checkpoint remains the exception because its client cannot
         # perform Anthropic-native compaction itself.
         preflight_disabled = config.get("preflight_prompt_compaction") is False
-        # A request estimated past the model window cannot be served by any
-        # upstream, so even an explicit preflight opt-out still delivers it to
-        # the window guard, which only acts above that window.
-        guarded_by_window = compact_kind != "codex" and provider != "anthropic"
-        if not rejected and not guarded_by_window and (
+        # A native checkpoint estimated past the model window cannot be served
+        # by any upstream, so an explicit preflight opt-out must not hide it
+        # from the window guard. An ordinary routed turn stays untouched: its
+        # authoritative path is the upstream's own rejection.
+        guarded_by_window = compact_kind == "claude" and provider != "anthropic"
+        if not rejected and not guarded_by_window and compact_kind != "codex" and (
                 provider == "anthropic" or preflight_disabled):
             return capped
         context_limit = (
