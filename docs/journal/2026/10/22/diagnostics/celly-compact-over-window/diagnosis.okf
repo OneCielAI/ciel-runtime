@@ -114,3 +114,18 @@ tests/test_claude_transient_context_recovery.py
 CielAiRouterContextWindowRecoveryTests: the prose 400 produces exactly one
 second upstream request whose body is the compacted one, and an unrelated 400
 is returned unchanged with no compaction. 330 exact-file tests OK.
+
+# Third stage: recovery fired but did not shrink
+
+Celly at 10:06:51 and 10:13:02 (build a174231) logged context_window_recovery
+and then the identical prose 400 again. The recovered body was 6,455,592 and
+6,457,259 bytes -- larger than the original 6,307,244 -- so the semantic
+reducers never ran: compact_kind was still unrecognized, full_compact_request
+stayed false, and only the deterministic tail guard executed.
+
+e062fa5: a confirmed no-output context rejection now forces
+full_compact_request (compact_runtime 'claude') in the request builder, so the
+window recovery reaches the map/reduce reducers that chunk to the input
+budget. Tests assert the semantic function runs with the marker and does not
+run without it; a 4 MB synthetic history reduces to the injected summary.
+324 exact-file tests OK.
