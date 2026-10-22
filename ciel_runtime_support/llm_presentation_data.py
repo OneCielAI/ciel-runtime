@@ -424,6 +424,12 @@ LLM_OPTION_DESCRIPTIONS: dict[str, dict[str, str]] = {
         "ja": "0より大きい場合、デバッグ用イベントdataに直近ユーザーメッセージの先頭N文字を含めます。プライバシー保護のため既定値は0です。",
         "zh": "大于0时，在调试事件data中包含最近用户消息的前N个字符。为保护隐私默认值为0。",
     },
+    "claude_feedback_drafts": {
+        "en": "Off by default: Ciel sets CLAUDE_CODE_SEND_FEEDBACK=0 on every Claude launch so Claude cannot draft feedback reports. On lets Claude Code's account and personal settings decide; drafts stay on this machine until you send them. Manual /feedback remains available. Applies on the next Claude launch.",
+        "ko": "기본값은 off입니다. Ciel이 Claude 실행 때마다 CLAUDE_CODE_SEND_FEEDBACK=0을 설정해 Claude가 피드백 초안을 만들지 못하게 합니다. on이면 Claude Code 계정/개인 설정을 따르며, 초안은 전송 전까지 이 PC에만 저장됩니다. 수동 /feedback은 계속 사용할 수 있습니다. 다음 Claude 실행부터 적용됩니다.",
+        "ja": "既定は off です。Ciel は Claude の起動ごとに CLAUDE_CODE_SEND_FEEDBACK=0 を設定し、Claude がフィードバック下書きを作成できないようにします。on の場合は Claude Code のアカウント/個人設定に従い、下書きは送信するまでこの PC にのみ保存されます。手動 /feedback は利用できます。次回の Claude 起動から適用されます。",
+        "zh": "默认关闭。Ciel 会在每次启动 Claude 时设置 CLAUDE_CODE_SEND_FEEDBACK=0，使 Claude 无法生成反馈草稿。开启后由 Claude Code 账户和个人设置决定；草稿在发送前只保存在本机。手动 /feedback 仍可用。下次启动 Claude 时生效。",
+    },
     "back": {
         "en": "Return to the main menu.",
         "ko": "메인 메뉴로 돌아갑니다.",
@@ -441,6 +447,7 @@ LLM_OPTION_TOGGLE_KEYS = {
     "rate_limit_enabled",
     "rate_limit_status",
     "router_debug_external_access",
+    "claude_feedback_drafts",
     "route_through_router",
     "workflows_enabled",
     "ultracode_enabled",

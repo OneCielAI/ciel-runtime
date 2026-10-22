@@ -133,6 +133,7 @@ class ClaudeEnvironmentPolicyTests(unittest.TestCase):
                 "CIEL_RUNTIME_PROVIDER": "anthropic",
                 "ANTHROPIC_API_KEY": "secret",
                 "CLAUDE_CHROME_CLASSIFIER_FLOOR": "0",
+                "CLAUDE_CODE_SEND_FEEDBACK": "0",
             },
             projection.build({"provider": "anthropic"}),
         )
@@ -146,6 +147,29 @@ class ClaudeEnvironmentPolicyTests(unittest.TestCase):
         self.assertEqual("1024", env["CLAUDE_CODE_MAX_OUTPUT_TOKENS"])
         self.assertEqual("1", env["CLAUDE_CODE_DISABLE_TERMINAL_TITLE"])
         self.assertNotIn("CLAUDE_CODE_SUBAGENT_MODEL_FORCE", env)
+
+    def test_feedback_drafts_default_off_and_explicit_on_on_every_path(self):
+        route = SimpleNamespace(direct=True, endpoint="http://gateway", api_key="fixture-key")
+        for native, data_path in ((True, None), (False, None), (False, route)):
+            projection = self._projection(native=native, key="")
+            for value, expected in ((None, "0"), (False, "0"), (True, "1"),
+                                    ("true", "0"), (1, "0"), ({}, "0")):
+                with self.subTest(native=native, direct=data_path is not None, value=value):
+                    config = {"provider": "cielairouter"}
+                    if value is not None:
+                        config["claude_feedback_drafts"] = value
+                    env = projection.build(config, data_path=data_path)
+                    self.assertEqual(expected, env["CLAUDE_CODE_SEND_FEEDBACK"])
+                    self.assertNotIn("DISABLE_FEEDBACK_COMMAND", env)
+                    self.assertNotIn("DISABLE_BUG_COMMAND", env)
+        self.assertIn("CLAUDE_CODE_SEND_FEEDBACK", CLAUDE_PROJECTED_ENV_KEYS)
+
+    def test_feedback_drafts_shell_projection_explicitly_sets_each_launch(self):
+        for enabled, expected in ((False, "0"), (True, "1"), (False, "0")):
+            env = self._projection(native=False, key="").build(
+                {"provider": "test", "claude_feedback_drafts": enabled})
+            lines = ClaudeEnvironmentShellRenderer.lines(env)
+            self.assertIn(f'export CLAUDE_CODE_SEND_FEEDBACK="{expected}"', lines)
 
     def test_cielairouter_routed_launch_leaves_retries_to_the_router(self):
         projection = self._projection(native=False, key="")

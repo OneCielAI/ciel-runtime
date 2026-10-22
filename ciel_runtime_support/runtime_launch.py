@@ -803,6 +803,10 @@ def run_claude(
         if resume_last_requested():
             queue_restart_notice(services.restart, "claude", ResumeLastRequest(), router_log)
         while True:
+            # Reapply the current global choice to every child, including a
+            # routed/native relaunch that keeps its existing model endpoint.
+            feedback = load_config().get("claude_feedback_drafts") is True
+            env["CLAUDE_CODE_SEND_FEEDBACK"] = "1" if feedback else "0"
             restart_control.reset()
             rc = run_claude_process()
             # The transport returned, so this child is gone: any wake it owned

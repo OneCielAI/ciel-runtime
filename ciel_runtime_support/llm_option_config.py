@@ -168,6 +168,19 @@ def set_llm_option_config(
         return ["Option unchanged."]
     if key == "router_debug_external_access":
         return set_router_debug_external_access_config(value)
+    if key == "claude_feedback_drafts":
+        normalized = value.lower()
+        if normalized in ("default", "unset", "none", "null"):
+            cfg.pop(key, None)
+            enabled = False
+        elif normalized in ("on", "true", "yes", "1", "enable", "enabled", "off", "false", "no", "0", "disable", "disabled"):
+            enabled = parse_bool(value, default=False)
+            cfg[key] = enabled
+        else:
+            return ["claude_feedback_drafts: enter on or off."]
+        save_config(cfg)
+        return [f"Claude feedback drafts {'on' if enabled else 'off'}.",
+                "Applied on every Claude launch; manual /feedback remains available. Restart Claude to change a running session."]
     if key == "router_debug_message_preview_chars":
         fixed = positive_int(value)
         if str(value).lower() in ("0", "false", "off", "disable", "disabled", "none", "unset"):

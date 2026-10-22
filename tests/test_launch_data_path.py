@@ -582,6 +582,31 @@ class ClaudeLaunchTests(ResolverHarness):
                                                    "runtimes": ["claude"]}}], injected)
         services.routing.start_router_if_needed.assert_called_once()
 
+    def test_feedback_choice_is_reapplied_for_each_routed_and_direct_child(self):
+        for setting in ("router", "direct"):
+            with self.subTest(setting=setting):
+                launches, injected = [], []
+                self.parent_bypass = []
+                control = RuntimeSessionRestartControl(poll=_polls(
+                    _request("claude", "feedback1"), _request("claude", "feedback2")))
+                services = self.services(self.resolver(FakeGatewayPolicy(_gateway())),
+                                         control, launches, injected, setting)
+                config = services.config.load_config()
+                original = services.process.subprocess_call_with_channel_wake_proxy
+
+                def child(*args, **kwargs):
+                    result = original(*args, **kwargs)
+                    config["claude_feedback_drafts"] = len(launches) == 1
+                    return result
+
+                services = replace(services, process=replace(services.process,
+                    subprocess_call_with_channel_wake_proxy=child, subprocess_call_with_child_pid_record=child))
+                with mock.patch.dict(os.environ, {"CLAUDE_CODE_SEND_FEEDBACK": "1"}), redirect_stdout(io.StringIO()):
+                    self.assertEqual(0, runtime_launch.run_claude([], skip_menu=True, update_check=False,
+                                                               self_update_check=False, services=services))
+                self.assertEqual(["0", "1", "0"],
+                                 [env["CLAUDE_CODE_SEND_FEEDBACK"] for _cmd, env in launches])
+
     def test_restart_selects_again_and_falls_back_to_the_router(self):
         policy = FakeGatewayPolicy(_gateway(), _gateway(endpoint="https://gw2.example", node="n2"),
                                    LaunchGateway(reason="central base (no healthy gateway)"))

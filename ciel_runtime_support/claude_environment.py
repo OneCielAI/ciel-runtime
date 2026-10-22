@@ -30,6 +30,7 @@ CLAUDE_PROJECTED_ENV_KEYS = (
     "CLAUDE_CODE_RETRY_WATCHDOG",
     "CLAUDE_CODE_NONSTREAMING_TIMEOUT_RETRIES",
     "CLAUDE_CODE_DISABLE_NONSTREAMING_FALLBACK",
+    "CLAUDE_CODE_SEND_FEEDBACK",
     "ANTHROPIC_MODEL",
     "ANTHROPIC_CUSTOM_MODEL_OPTION",
     "ANTHROPIC_CUSTOM_MODEL_OPTION_SUPPORTED_CAPABILITIES",
@@ -59,6 +60,13 @@ CLAUDE_DIRECT_MODEL_KEYS = (
 )
 CLAUDE_AUTO_COMPACT_WINDOW_MAX = 1_000_000
 ANTHROPIC_STANDARD_CONTEXT_TOKENS = 200_000
+
+
+def _feedback_drafts_env(config: dict[str, Any]) -> dict[str, str]:
+    """Claude Code v2.1.238+ automatic feedback drafts, off by default."""
+
+    enabled = config.get("claude_feedback_drafts") is True
+    return {"CLAUDE_CODE_SEND_FEEDBACK": "1" if enabled else "0"}
 
 # Claude Code >= 2.1.278 gives the built-in Claude-in-Chrome MCP server a
 # classifier "floor": in a bypassPermissions (or auto) session its tools are
@@ -546,6 +554,7 @@ class ClaudeEnvironmentProjection:
             env = {
                 "CIEL_RUNTIME_PROVIDER": provider,
                 CLAUDE_CHROME_CLASSIFIER_FLOOR_ENV: CLAUDE_CHROME_CLASSIFIER_FLOOR_OFF,
+                **_feedback_drafts_env(config),
             }
             key = self._sources.primary_api_key(provider, provider_config)
             if self._sources.meaningful_key(key):
@@ -589,6 +598,7 @@ class ClaudeEnvironmentProjection:
             "CIEL_RUNTIME_MODEL_ALIAS": claude_model,
             "CIEL_RUNTIME_BYPASS_PERMISSIONS": "1",
             CLAUDE_CHROME_CLASSIFIER_FLOOR_ENV: CLAUDE_CHROME_CLASSIFIER_FLOOR_OFF,
+            **_feedback_drafts_env(config),
         }
         if configured_subagent:
             env["CLAUDE_CODE_SUBAGENT_MODEL_FORCE"] = "1"
