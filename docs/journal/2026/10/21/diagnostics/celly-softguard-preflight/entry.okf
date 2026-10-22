@@ -42,3 +42,15 @@ compaction itself.
 - Added a regression test that forces the first map summary to truncate and
   verifies the split segments complete. The full context-compaction suite
   passed: 31 tests.
+
+## Published and installed
+
+- Fix commit `e83bea7`; no-ff merge `625faed32c8680615ea1f46b9f29bc0764c3b886`.
+- CI run `39714827921` passed. Publish run `39714827923` passed and published
+  `@one-ciel-ai/ciel-runtime@0.2.51-nightly.20261022-030938.625faed`.
+- Global install now reports that exact version. The installed package contains
+  both `preflight_prompt_compaction=False` and the truncated-summary retry path;
+  an import-level installed-package check passed.
+- Already-running Ciel Runtime processes keep their previously loaded Python
+  modules in memory. A relaunched Celly/Ara session is required to activate the
+  new package in those processes; no live conversation process was terminated.
