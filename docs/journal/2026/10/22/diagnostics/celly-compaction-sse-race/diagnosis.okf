@@ -18,9 +18,11 @@ first failed compaction.
 - The active Celly runtime was `0.2.51-nightly.20261022-060129.64ec9c4`, whose
   `context_compaction.py`, `claude_router.py`, and `prompt_compaction.py` do not
   contain the later recovery fixes.
-- `context-usage.json` reported 1,481,007 estimated tokens against a 872,000
-  measured context limit. The rejected provider request recorded 1,480,927
-  tokens, only 80 tokens lower, so this was not a hidden token-estimation miss.
+- Live snapshots around the failures recorded an estimated 1,481,007 tokens
+  against a 872,000 measured context limit and a 716,750 input budget. The two
+  rejected provider attempts recorded 1,480,927 and 1,481,672 tokens. These
+  values are all far beyond the limit and differ only at the sub-0.1% scale;
+  nothing supports a missing-million-token calculation error.
 - At 11:22:12 the runtime bound socket identity `1421b038-...`; at 11:22:13 it
   injected external message 6219; at 11:22:14 it rebound to the actual session
   `30179e9a-...`; at 11:22:20 it sent 1,480,927 tokens and received the
