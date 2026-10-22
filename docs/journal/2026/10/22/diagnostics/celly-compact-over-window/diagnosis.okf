@@ -139,3 +139,22 @@ rules stay: a native checkpoint waits for the explicit no-output rejection and
 an ordinary turn keeps the tail guard; native Anthropic and the preflight
 opt-out are untouched. Both triggers now exist -- proactive over the window,
 reactive on the rejected error.
+
+# Fifth stage: the preflight opt-out bypassed the window guard
+
+The Celly router at 11:22 ran 418caa6 and still sent tokens=1,480,927
+bytes=6,457,566 unchanged; the gateway answered 200 with an in-stream error
+event (`anthropic_sse_upstream_error_event text_len=0`), which Claude reported
+as "automatic compaction failed". No context_window_recovery line appeared
+because the reply was not an HTTP 4xx.
+
+Root cause: commit 58f5469 gave cielairouter `preflight_prompt_compaction=False`
+by default, and the builder returned every non-Codex request before the window
+check. c1a0329 keeps the opt-out meaning ("do not pre-compact a segment that
+may still fit") but still delivers the request to the window guard, which acts
+only above the model's whole context window; a body inside the window is
+untouched. Tests cover both sides.
+
+Note for the future: a rejection delivered as an in-stream SSE error event has
+no HTTP status to react to; the error-driven recovery added in 81a270b only
+sees HTTP 4xx replies.
