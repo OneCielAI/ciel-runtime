@@ -177,12 +177,17 @@ class ProviderRequestBuilder:
         if ratio_capped:
             capped["max_tokens"] = ratio_capped
 
-        # Only Claude's own checkpoint is chunked when it already exceeds the
-        # model window; a translated Codex checkpoint keeps the confirmed-
-        # rejection rule of its own recovery path.
+        # Any request past the model window is chunked before it is sent; a
+        # translated Codex checkpoint keeps the confirmed-rejection rule of its
+        # own recovery path, as does native Anthropic (it owns compaction).
+        over_window_guard = (
+            compact_kind != "codex"
+            and provider != "anthropic"
+            and not preflight_disabled
+        )
         compact_config = (
             {**config, "_context_compact_native_over_window": True}
-            if compact_kind == "claude"
+            if over_window_guard
             else config
         )
         capped = self.budget.compact_anthropic(

@@ -458,29 +458,31 @@ def compact_anthropic_body_for_budget(
     messages = body.get("messages")
     if not isinstance(messages, list) or not messages:
         return body
-    # Do not preflight a native checkpoint with the local estimator: the
-    # upstream's explicit no-output context rejection is the semantic recovery
-    # proof. A checkpoint already past the model's whole context window is the
-    # exception -- no upstream accepts it, so it is chunked here instead of
-    # being forwarded to a guaranteed rejection.
-    if full_compact_request and not (pcfg or {}).get("_context_compact_context_rejected"):
-        window = (
-            _context_window_tokens(pcfg)
-            if (pcfg or {}).get("_context_compact_native_over_window")
-            else None
-        )
-        if window is None or services.runtime.estimate_tokens(body) <= window:
-            return body
     typed_messages = [message for message in messages if isinstance(message, dict)]
     if len(typed_messages) != len(messages):
         return body
     text = services.text
     runtime = services.runtime
     budget_tokens = max(8192, budget_tokens)
+    rejected = bool((pcfg or {}).get("_context_compact_context_rejected"))
+    # A request already past the model's whole context window cannot be served
+    # by any upstream, so it is chunked here. Everything below the window keeps
+    # the estimator out of the checkpoint decision: a native checkpoint waits
+    # for the upstream's explicit no-output rejection, and an ordinary turn
+    # keeps the tail guard.
+    window = (
+        _context_window_tokens(pcfg)
+        if (pcfg or {}).get("_context_compact_native_over_window")
+        else None
+    )
+    if full_compact_request and not rejected:
+        if window is None or runtime.estimate_tokens(body) <= window:
+            return body
     initial_tokens = runtime.estimate_tokens(body)
+    over_window = window is not None and initial_tokens > window
     if initial_tokens <= budget_tokens:
         return body
-    if full_compact_request and pcfg is not None and provider and model:
+    if (full_compact_request or over_window) and pcfg is not None and provider and model:
         envelope = {key: value for key, value in body.items()
                     if key not in {"messages", "tools", "tool_choice", "parallel_tool_calls"}}
         semantic_budget = max(1, budget_tokens - semantic_payload_cost(envelope, runtime.estimate_tokens))
