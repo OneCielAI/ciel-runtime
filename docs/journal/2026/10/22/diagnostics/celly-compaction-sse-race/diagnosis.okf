@@ -66,6 +66,9 @@ compaction recovery gate.
   `C:\Users\djlov\.local\share\ciel-runtime`. Installed source contains both
   the exact context-rejection recovery and the `request_identity_pending`
   admission gate.
+- Registry nightly `0.2.51-nightly.20261022-171453.023063b` (gitHead
+  `023063baec1d8a609a0808bf56747a552748e81a`) contains the admission fix and
+  was installed through the package `install.ps1` into the same runtime home.
 
 # Remaining activation step
 
