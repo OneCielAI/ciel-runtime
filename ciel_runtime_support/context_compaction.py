@@ -253,6 +253,15 @@ def no_output_context_rejection(error: BaseException) -> bool:
     )
 
 
+def retryable_summary_truncation(error: BaseException) -> bool:
+    """A finite output was truncated, so a smaller source may complete."""
+
+    return isinstance(error, ContextCompactionFailed) and error.reason in {
+        "truncated_summary",
+        "incomplete_summary_response",
+    }
+
+
 def _split_rejected_chunk(
     chunk: list[dict[str, Any] | ContextSummaryFragment], start: int,
 ) -> list[tuple[int, list[dict[str, Any] | ContextSummaryFragment]]]:
@@ -282,7 +291,11 @@ def _map_summaries(chunks: list[Any], run: _SummaryRun, initial_tokens: int) -> 
         try:
             summary = run.generate(prompt)
         except Exception as exc:
-            if not no_output_context_rejection(exc) or depth >= 4:
+            retryable = (
+                no_output_context_rejection(exc)
+                or retryable_summary_truncation(exc)
+            )
+            if not retryable or depth >= 4:
                 raise
             if total >= MAX_MAP_CHUNKS:
                 raise ContextCompactionFailed("map_chunk_limit") from exc
