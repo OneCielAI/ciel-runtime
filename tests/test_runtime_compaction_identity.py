@@ -92,7 +92,7 @@ class PublishedSocketIdentityTests(IdentityHarness):
         super().setUp()
         self.binding.bind("claude", cwd=self.root, messaging_socket_path=self.socket)
 
-    def test_fresh_launch_holds_until_exact_socket_record_then_shares_epoch(self):
+    def test_fresh_launch_holds_until_request_proves_exact_socket_session(self):
         self.assertIsNone(self.binding.scope())
         self.assertTrue(self.binding.external_admission_paused())
         self.assertEqual("identity_pending", self.binding.context_pause_reason({}))
@@ -100,16 +100,22 @@ class PublishedSocketIdentityTests(IdentityHarness):
         other = self.make()
         self.assertEqual("exact", other.scope().session_id)
         self.assertEqual(self.binding.scope(), other.scope())
+        self.assertTrue(other.external_admission_paused())
+        other.observe_request("other", {}, {"tokens": 100}, "claude",
+                              {"x-claude-code-session-id": "exact"})
         self.assertFalse(other.external_admission_paused())
 
     def test_continue_does_not_seed_pressure_from_old_usage(self):
         self.published()
-        self.assertFalse(self.binding.external_admission_paused())  # no transcript yet
+        self.assertTrue(self.binding.external_admission_paused())
         self.transcript(16000)
         self.binding.cache["checked_at"] = 0.0
-        self.assertFalse(self.binding.external_admission_paused())
+        self.assertTrue(self.binding.external_admission_paused())
         self.assertIsNone(self.requests.read())
         self.assertFalse(self.state())
+        self.binding.observe_request("other", {}, {"tokens": 100}, "claude",
+                                     {"x-claude-code-session-id": "exact"})
+        self.assertFalse(self.binding.external_admission_paused())
 
     def test_wrong_socket_cwd_earlier_process_or_identity_never_select_latest(self):
         self.transcript()
@@ -132,6 +138,23 @@ class PublishedSocketIdentityTests(IdentityHarness):
         self.assertIsNone(self.binding.scope())
         self.assertTrue(self.binding.external_admission_paused())
 
+    def test_published_id_stays_provisional_across_a_pre_request_switch(self):
+        # Celly 2026-10-22: Claude briefly published a different session id
+        # before the resumed conversation's correct id. An external SSE event
+        # arrived inside that switch window and raced the oversized request.
+        self.published("stale")
+        self.assertEqual("stale", self.binding.scope().session_id)
+        self.assertTrue(self.binding.external_admission_paused())
+
+        self.published("exact")
+        self.binding.published_checked = ("", 0.0)
+        self.assertEqual("exact", self.binding.scope().session_id)
+        self.assertTrue(self.binding.external_admission_paused())
+
+        self.binding.observe_request("other", {}, {"tokens": 100}, "claude",
+                                     {"x-claude-code-session-id": "exact"})
+        self.assertFalse(self.binding.external_admission_paused())
+
     def test_identity_precedes_transcript_and_raw_pressure_is_observed(self):
         self.published()
         self.assertIsNone(self.binding.transcript_path())
@@ -152,6 +175,9 @@ class PublishedSocketIdentityTests(IdentityHarness):
         self.published()
         self.transcript(16000)
         epoch = self.binding.scope().epoch
+        self.assertTrue(self.binding.external_admission_paused())
+        self.binding.observe_request("other", {}, {"tokens": 100}, "claude",
+                                     {"x-claude-code-session-id": "exact"})
         self.assertFalse(self.binding.external_admission_paused())
         self.published("cleared")
         self.binding.observe_request("other", {}, {"tokens": 100}, "claude", {"x-claude-code-session-id": "cleared"})
@@ -183,8 +209,11 @@ class PublishedSocketIdentityTests(IdentityHarness):
         self.transcript()
         peer = self.make()
         self.assertEqual(self.path, peer.transcript_path())
-        self.assertFalse(peer.external_admission_paused())
+        self.assertTrue(peer.external_admission_paused())
         self.assertFalse(peer.control.ports.load())
+        peer.observe_request("other", {}, {"tokens": 100}, "claude",
+                             {"x-claude-code-session-id": "exact"})
+        self.assertFalse(peer.external_admission_paused())
 
     def test_separate_process_resolves_launcher_socket_identity(self):
         self.published()

@@ -446,12 +446,41 @@ class RuntimeCompactionBinding:
                 scope = self.scope()
                 if scope is None:
                     return self._identity_pending()
+                if self._request_identity_pending(self._update("")):
+                    return True
                 if self.seeded != f"{scope.epoch}:{scope.session_id}":
                     self._seed(scope)
         except (OSError, ValueError, TypeError) as exc:
             self.log("WARN", f"runtime_compaction_scope admission=paused reason=state_unavailable error={type(exc).__name__}")
             return True
         return self.control.external_admission_paused()
+
+    def _request_identity_pending(self, value: dict[str, Any]) -> bool:
+        """Hold external input until this launch proves its routed session.
+
+        Claude publishes a session id from the socket before it necessarily
+        completes the first resumed turn. The first published id can be
+        replaced, so a socket-only identity is provisional: injecting an event
+        against it can observe the wrong compaction scope and race the actual
+        request past a full context window (Celly, 2026-10-22 11:22/11:35).
+        A locally typed user turn is not gated; the first routed request marks
+        the identity observed and opens external delivery.
+        """
+
+        if (value.get("runtime") != "claude"
+                or not value.get("messaging_socket_path")
+                or value.get("request_observed") is True):
+            return False
+        pid = _positive(value.get("launcher_pid"))
+        held = bool(pid and pid_is_running(pid))
+        marker = f"request:{value.get('epoch')}:{value.get('session_id')}"
+        if self.pending_logged != marker:
+            self.pending_logged = marker
+            self.log("INFO" if held else "WARN", "runtime_compaction_scope "
+                     f"admission={'paused' if held else 'ungated'} "
+                     f"reason={'request_identity_pending' if held else 'request_identity_unavailable'} "
+                     "runtime=claude")
+        return held
 
     def _identity_pending(self) -> bool:
         """A live supported launch whose exact native identity is not yet known."""
