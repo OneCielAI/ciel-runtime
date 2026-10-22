@@ -144,12 +144,15 @@ class ProviderRequestBuilder:
             return capped
         compact_kind = self.budget.compact_kind(capped)
         local_compact_refresh = bool(compact_kind)
-        # Anthropic/Claude owns persistent compaction for its native Messages
-        # protocol.  The JSON-size estimator below is only a provider-neutral
-        # fallback and must never rewrite an ordinary native Claude turn.
-        # The sole exception is an explicitly translated Codex checkpoint,
-        # whose client cannot perform Anthropic-native compaction itself.
-        if provider == "anthropic" and compact_kind != "codex":
+        # Native Anthropic owns persistent compaction. Routed providers can
+        # opt out of the JSON-size preflight for ordinary turns when their
+        # upstream has authoritative context rejection; reactive recovery
+        # still handles a confirmed overflow. The estimator must never rewrite
+        # a native compact request or an opted-out ordinary turn. A translated
+        # Codex checkpoint remains the exception because its client cannot
+        # perform Anthropic-native compaction itself.
+        preflight_disabled = config.get("preflight_prompt_compaction") is False
+        if compact_kind != "codex" and (provider == "anthropic" or preflight_disabled):
             return capped
         context_limit = (
             self.budget.context_limit(provider, config)

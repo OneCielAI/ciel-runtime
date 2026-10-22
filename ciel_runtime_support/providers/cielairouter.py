@@ -172,6 +172,7 @@ class CielAiRouterProviderAdapter(OpenAICompatibleProviderAdapter):
             native_compat=True,
             context_window=CIELAIROUTER_DEFAULT_CONTEXT_WINDOW,
             max_model_len=CIELAIROUTER_DEFAULT_CONTEXT_WINDOW,
+            preflight_prompt_compaction=False,
             request_timeout_ms=DEFAULT_REQUEST_TIMEOUT_MS,
             stream_enabled=True,
             stream_word_chunking=False,
