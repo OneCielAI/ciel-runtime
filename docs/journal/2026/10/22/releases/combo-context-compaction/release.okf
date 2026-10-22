@@ -1,0 +1,51 @@
+---
+type: release-record
+title: Combo context-limit compaction recovery shipped and installed
+description: Celly's oversized native checkpoint now recovers from the router's prose context-limit 400, and the published nightly is installed in the runtime home.
+tags: [runtime, compaction, cielairouter, nightly]
+timestamp: 2026-10-22
+status: released-and-installed
+---
+
+# Incident
+
+Celly reported `Prompt is too long` followed by `automatic compaction failed`
+and the CielAiRouter message `Conversation exceeds the known context limits of
+all eligible combo targets. Compact the conversation before retrying.` The
+compact request was 1,458,507 tokens for a target whose advertised window was
+smaller, and the error escaped the compaction recovery path.
+
+# Commits
+
+- `7058a29` recognizes the router's exact prose rejection as a no-output
+  context rejection and keeps unrelated invalid requests non-retryable.
+- `81a270b` uses that proof to compact the rejected history through the
+  semantic chunked path and retries once under a fresh transient scope.
+- `42e52d5` adds the proactive whole-window guard published in the installed
+  nightly.
+- `299513d` merged the fix and its evidence into nightly.
+
+# CI and registry
+
+- CI 39798235659 and Publish 39798235828 succeeded for `81a270b`.
+- CI 39805573551 and Publish 39805573731 succeeded for `42e52d5`.
+- Registry nightly: `0.2.51-nightly.20261022-153630.42e52d5`, gitHead
+  `42e52d58ffd2fbdcc1bb78a429def2a029c78913`.
+
+# Local install and verification
+
+- `npm install -g @one-ciel-ai/ciel-runtime@nightly` installed the registry
+  nightly, and the package `install.ps1` updated
+  `C:\Users\djlov\.local\share\ciel-runtime`.
+- `ciel-runtime version` reports
+  `0.2.51-nightly.20261022-153630.42e52d5`.
+- The installed runtime's `no_output_context_rejection` returns true for the
+  exact CielAiRouter message, and the installed `claude_router.py` contains the
+  `context_window_recovery` retry path.
+- Focused suites passed (6 recovery, 33 context-compaction, 9 native
+  passthrough tests), as did the full runtime group: 441 tests, 19 skips.
+
+# Activation
+
+Running Ciel processes keep their loaded Python until the next runtime start.
+No active session was terminated; new runtime sessions use the installed code.
