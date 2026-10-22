@@ -1,6 +1,7 @@
 import copy
 import json
 import unittest
+from unittest import mock
 from unittest.mock import Mock
 
 from ciel_runtime_support.prompt_compaction import (
@@ -160,3 +161,33 @@ class NativeCompactOverWindowTests(unittest.TestCase):
                     full_compact_request=True, services=services)
                 self.assertIs(result, body)
                 services.runtime.llm_compact_messages.assert_not_called()
+
+
+class ConfirmedRejectionForcesSemanticChunkingTests(unittest.TestCase):
+    """A rejected request without a recognized checkpoint kind still chunks."""
+
+    def test_rejection_marker_runs_the_semantic_reducer(self):
+        import ciel_runtime
+        body = {"model": "model", "max_tokens": 32000, "stream": True,
+                "system": [{"type": "text", "text": "s"}],
+                "messages": [{"role": "user", "content": [{"type": "text", "text": "x" * 20000}]}
+                             for _ in range(200)]}
+        config = {"current_model": "ASTRA", "context_window": 872000,
+                  "_context_compact_context_rejected": True}
+        summaries = mock.Mock(return_value=[{"role": "user", "content": "summary"}])
+        with mock.patch.object(ciel_runtime, "maybe_build_llm_compacted_messages", summaries):
+            out = ciel_runtime.cap_anthropic_body_for_provider("cielairouter", config, copy.deepcopy(body))
+
+        summaries.assert_called_once()
+        self.assertEqual([{"role": "user", "content": "summary"}], out["messages"])
+        self.assertLess(len(json.dumps(out)), len(json.dumps(body)))
+
+    def test_without_the_marker_no_semantic_work_starts(self):
+        import ciel_runtime
+        body = {"model": "model", "messages": [{"role": "user", "content": [{"type": "text", "text": "x" * 20000}]}
+                                               for _ in range(200)]}
+        config = {"current_model": "ASTRA", "context_window": 872000}
+        summaries = mock.Mock(return_value=[])
+        with mock.patch.object(ciel_runtime, "maybe_build_llm_compacted_messages", summaries):
+            ciel_runtime.cap_anthropic_body_for_provider("cielairouter", config, copy.deepcopy(body))
+        summaries.assert_not_called()

@@ -143,7 +143,11 @@ class ProviderRequestBuilder:
             # so let the selected upstream return its normal context error.
             return capped
         compact_kind = self.budget.compact_kind(capped)
-        local_compact_refresh = bool(compact_kind)
+        # A confirmed no-output context rejection is proof that the history no
+        # longer fits even when the checkpoint kind was not recognized, so that
+        # recovery runs the semantic (chunked) path instead of the tail guard.
+        rejected = bool(config.get("_context_compact_context_rejected"))
+        local_compact_refresh = bool(compact_kind) or rejected
         # Native Anthropic owns persistent compaction. Routed providers can
         # opt out of the JSON-size preflight for ordinary turns when their
         # upstream has authoritative context rejection; reactive recovery
@@ -152,7 +156,8 @@ class ProviderRequestBuilder:
         # Codex checkpoint remains the exception because its client cannot
         # perform Anthropic-native compaction itself.
         preflight_disabled = config.get("preflight_prompt_compaction") is False
-        if compact_kind != "codex" and (provider == "anthropic" or preflight_disabled):
+        if not rejected and compact_kind != "codex" and (
+                provider == "anthropic" or preflight_disabled):
             return capped
         context_limit = (
             self.budget.context_limit(provider, config)
@@ -187,7 +192,11 @@ class ProviderRequestBuilder:
             pcfg=compact_config,
             model=str(capped.get("model") or config.get("current_model") or ""),
             full_compact_request=local_compact_refresh,
-            compact_runtime=compact_kind if local_compact_refresh else None,
+            compact_runtime=(
+                compact_kind or ("claude" if rejected else None)
+                if local_compact_refresh
+                else None
+            ),
         )
         output_tokens = self.budget.cap_output(
             config,
