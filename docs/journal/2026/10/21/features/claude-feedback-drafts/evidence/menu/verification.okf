@@ -1,0 +1,51 @@
+---
+type: verification
+title: Claude feedback menu roundtrip
+description: Actual portable menu key input persists default-off feedback controls and projects each choice into a new owned child process.
+tags: [claude, feedback, menu, launch, verification]
+timestamp: 2026-10-21
+status: passed
+---
+
+# Scope
+
+Production portable_prelaunch_menu and renderer ran in a new owned Win32 console.
+HOME, USERPROFILE, APPDATA, LOCALAPPDATA, config, workspace and temporary paths were
+fresh private fixture directories. Runtime/provider/credential environment was
+scrubbed; only an owned loopback model catalogue fixture was contacted. No real
+Claude session, provider, personal settings file, draft queue or feedback send was
+used. Parent source files were read, not changed by this verification.
+
+# Observed
+
+- The fixture config omitted claude_feedback_drafts. The production menu rendered
+  Claude feedback drafts [off (default)].
+- Real Enter key events changed the row to [on], then [off (default)]. Each step
+  was read back from the temporary config.json as a root boolean.
+- Each choice was independently loaded through production ciel_runtime.env_vars,
+  applied after production projected-key cleanup, and sent to a new real owned
+  Python child. The child observed CLAUDE_CODE_SEND_FEEDBACK=0, 1, 0 respectively.
+- The probe parent deliberately carried CLAUDE_CODE_SEND_FEEDBACK=1; default-off
+  and explicit-off both replaced it with 0.
+- The menu exited with code 0. Owned menu process exited and fixture listener was
+  closed. result.json records all assertions, environment observations, source
+  hashes and pixel-capture outcomes.
+
+# Evidence
+
+- 01-main.txt: actual production main menu console buffer.
+- 02-feedback-default-off.txt: selected feedback row, default off.
+- 03-feedback-on.txt: real key toggle on and next-launch explanatory message.
+- 04-feedback-off.txt: real key toggle off and next-launch explanatory message.
+- child-environment-probes.json: real child process environment 0 -> 1 -> 0.
+- result.json: final passed status, menu exit code 0 and closed owned resources.
+- capture_menu.py, menu_bootstrap.py, projection_probe.py, console_driver.py:
+  exact reproduction harness and Win32 console input/output driver.
+
+# Limits
+
+PrintWindow was attempted only against the owned console handle. All four
+attempts reported window not found; no PNG was produced. The .txt files are
+ReadConsoleOutputCharacterW captures, not pixel screenshots or synthetic UI.
+No actual Claude feedback draft was triggered or sent. This verifies menu
+persistence and new-child launch environment, not remote account eligibility.

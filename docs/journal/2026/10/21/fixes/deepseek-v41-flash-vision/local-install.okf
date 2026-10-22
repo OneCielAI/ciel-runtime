@@ -1,0 +1,37 @@
+---
+type: install-record
+title: Local install of the working-tree build
+description: npm global install from a working-tree tarball so the Alibaba token plan can be tested before any commit or publish.
+tags: [install, npm, tarball, verification]
+timestamp: 2026-10-21
+status: installed
+---
+
+# What was installed
+
+- `npm pack` of the working tree produced
+  `one-ciel-ai-ciel-runtime-0.2.51.tgz` (563 files, shasum
+  978c2e4feb8c2665b36e55310c3bfbd990fd5642) in a temporary directory,
+  outside the repository.
+- `npm install -g` replaced
+  C:\Users\djlov\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime
+  ("changed 1 package"). package.json still reports 0.2.51, so no registry
+  version identifies this build.
+- `ciel-runtime --version` prints `ciel-runtime 0.2.51` from the installed
+  launcher.
+
+# Included fixes, verified in the installed tree
+
+| Fix | File | Check |
+| --- | --- | --- |
+| Accepted responses keep the caller read timeout | ciel_runtime_support/transient_retry.py | release_read_timeout present |
+| Same for the checkpoint reopen | ciel_runtime_support/provider_responses_passthrough.py | release_read_timeout present |
+| Ollama native wire forwards inline images | ciel_runtime_support/protocols/chat_projection.py | ollama_image_payloads present |
+| Alibaba DeepSeek Codex modality | ciel_runtime_support/providers/alibaba.py | DEEPSEEK_V41_FLASH_CODEX_CATALOG present |
+| Claude feedback drafts default off | ciel_runtime_support/claude_environment.py | CLAUDE_CODE_SEND_FEEDBACK present |
+
+# Not done
+
+No commit, push, publish or install outside this machine. Running sessions
+keep the code they started with; the user restarts to load this build and will
+select the Alibaba token plan for the live check.

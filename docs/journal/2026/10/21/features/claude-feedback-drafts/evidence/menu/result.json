@@ -1,0 +1,102 @@
+{
+  "scratch": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-feedback-menu-cof8zy9e",
+  "port": 52795,
+  "workspace": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-feedback-menu-cof8zy9e\\workspace",
+  "scope": "Actual production portable_prelaunch_menu and renderer with Win32 key input; catalogue-only owned loopback fixture. Production Claude environment projection applied to real owned child processes; no native Claude or feedback submission.",
+  "cleared_environment_prefixes": [
+    "CIEL_RUNTIME_",
+    "CLAUDE_",
+    "ANTHROPIC_",
+    "CODEX_",
+    "OPENAI_",
+    "OLLAMA_",
+    "GEMINI_",
+    "GOOGLE_",
+    "AZURE_",
+    "AWS_",
+    "DEEPSEEK_",
+    "MISTRAL_",
+    "NVIDIA_",
+    "ZAI_",
+    "KIMI_",
+    "GROQ_",
+    "OPENCODE_",
+    "GITHUB_",
+    "COPILOT_"
+  ],
+  "pixel_capture_attempts": [
+    {
+      "capture": "01-main",
+      "exit_code": 1,
+      "message": "window 81339834 not found",
+      "png_exists": false
+    },
+    {
+      "capture": "02-feedback-default-off",
+      "exit_code": 1,
+      "message": "window 81339834 not found",
+      "png_exists": false
+    },
+    {
+      "capture": "03-feedback-on",
+      "exit_code": 1,
+      "message": "window 81339834 not found",
+      "png_exists": false
+    },
+    {
+      "capture": "04-feedback-off",
+      "exit_code": 1,
+      "message": "window 81339834 not found",
+      "png_exists": false
+    }
+  ],
+  "source_sha256": {
+    "ciel_runtime_support/provider_option_panel.py": "378e28c8d394f34d1e89b7453c7f0cc6d0d680fe510983ed05fda1d15bc7569b",
+    "ciel_runtime_support/llm_option_config.py": "272ce3a7a94899204a234685ab266589315878e68282314a839c1c08fc2a5f8c",
+    "ciel_runtime_support/claude_environment.py": "c35fefa3964e245cd39188c4d33d68e26bd66b8e29ff059e81864fb097c701b2"
+  },
+  "status": "passed",
+  "menu_exit_code": 0,
+  "child_environment_probes": [
+    {
+      "label": "default-off",
+      "stored_setting": false,
+      "setting_present": true,
+      "inherited": "1",
+      "projected": "0",
+      "actual_child": {
+        "CLAUDE_CODE_SEND_FEEDBACK": "0"
+      }
+    },
+    {
+      "label": "menu-on",
+      "stored_setting": true,
+      "setting_present": true,
+      "inherited": "1",
+      "projected": "1",
+      "actual_child": {
+        "CLAUDE_CODE_SEND_FEEDBACK": "1"
+      }
+    },
+    {
+      "label": "menu-off",
+      "stored_setting": false,
+      "setting_present": true,
+      "inherited": "1",
+      "projected": "0",
+      "actual_child": {
+        "CLAUDE_CODE_SEND_FEEDBACK": "0"
+      }
+    }
+  ],
+  "assertions": [
+    "actual menu default off",
+    "real key input toggled on and persisted",
+    "real key input toggled off and persisted",
+    "parent feedback env was overridden by projection",
+    "real owned child environment off-on-off via production projection",
+    "no Claude feedback was sent"
+  ],
+  "owned_fixture_listener_closed": true,
+  "owned_menu_exited": true
+}

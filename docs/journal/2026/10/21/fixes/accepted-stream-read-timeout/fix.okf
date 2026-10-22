@@ -1,0 +1,58 @@
+---
+type: fix-verification
+title: Accepted stream keeps the caller's read timeout
+description: The CielAiRouter retry deadline clipped the socket timeout and left it on the accepted response, cutting long streams at 60 seconds; accepted responses now get the caller's timeout back.
+tags: [cielairouter, timeout, responses, transient-retry]
+timestamp: 2026-10-21
+status: source-verified
+---
+
+# Defect
+
+bounded_timeout clips each opener socket timeout to the transient-retry
+deadline (60 seconds by default) so a stalled open cannot outlive it. The
+clipped value stayed on the socket after HTTP 200 acceptance, so a native
+Responses stream that was still generating after 60 seconds (even with a
+configured request timeout of 120 seconds or more) ended with
+UpstreamStreamReadError -> HTTP 502 upstream_stream_truncated
+"TimeoutError: timed out; attempts=1". The checkpoint-recovery reopen in
+provider_responses_passthrough had the same leak.
+
+# Change
+
+- TransientRetryBudget records the caller's requested timeout inside
+  bounded_timeout (requested_timeout).
+- release_read_timeout puts it back on the accepted response socket. _execute
+  calls it for every accepted response; the one-shot checkpoint reopen calls
+  it explicitly. Invalid requested values keep the clipped bound; None restores
+  blocking reads, exactly as the unscoped path.
+- Acceptance is unchanged: a stalled open is still bounded by the deadline
+  (test_stalled_loopback_headers_hit_bounded_socket_timeout_without_replay).
+
+# Verification
+
+tests/test_transient_retry_read_timeout.py uses a real loopback server whose
+SSE stream completes 0.3 seconds after acceptance with a 0.1 second retry
+deadline and a 1 second caller timeout:
+
+- Without the change: the production ProviderResponsesPassthrough raised
+  "Upstream provider 'cielairouter' response stream was truncated
+  (TimeoutError: timed out; model=fixture-model; attempts=1)", the
+  screenshot's message.
+- With the change: full body forwarded, one upstream request, accepted socket
+  timeout 1.0, generic provider unchanged.
+
+evidence/focused-tests.txt: 419 exact-file tests OK (42 existing retired
+architecture skips), covering transient retry, preamble, deadline,
+integration, upstream retry, Responses passthrough, compaction and
+architecture budgets. Ruff and diff whitespace checks passed.
+
+# Not established
+
+The screenshot's router (127.0.0.1:9179) was not present on this host, so that
+specific incident is matched by signature only. The separate
+"semantic context compaction failed: truncated_summary" errors in the 9512
+session are a different mechanism: the summary request returned with a
+truncation stop reason after about 39 seconds; the exact stop reason is not
+logged. That is not changed here. No commit, publish or live session restart
+was performed.

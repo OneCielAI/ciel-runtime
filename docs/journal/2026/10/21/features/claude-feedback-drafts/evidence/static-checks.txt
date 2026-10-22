@@ -1,0 +1,5 @@
+All checks passed!
+Documentation metadata checks passed (31 Markdown files).
+warning: in the working copy of 'ciel_runtime.py', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'ciel_runtime_support/provider_option_panel.py', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'tests/test_launch_data_path.py', CRLF will be replaced by LF the next time Git touches it

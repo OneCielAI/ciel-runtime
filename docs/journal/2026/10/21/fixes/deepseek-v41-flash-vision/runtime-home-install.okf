@@ -1,0 +1,45 @@
+---
+type: install-record
+title: Runtime home updated with the working-tree build
+description: The restart had loaded published nightly 625faed from ~/.local/share/ciel-runtime, not the npm global tarball; the changed modules were copied into that runtime home.
+tags: [install, runtime-home, verification]
+timestamp: 2026-10-21
+status: installed
+---
+
+# What the restart actually loaded
+
+- Router pid 49032 ran
+  C:\Users\djlov\.local\share\ciel-runtime\ciel_runtime.py serve and reported
+  0.2.51-nightly.20261022-030938.625faed, provider alitoken, model
+  ciel-runtime-alitoken-deepseek-v4.1-flash-1017.
+- That directory held none of the five fixes; the earlier npm global install
+  is not the path this launcher executes. The launcher resolves
+  CIEL_RUNTIME_HOME, else ~/.local/share/ciel-runtime (ciel-runtime.cmd).
+
+# What was changed
+
+The 11 Python files carrying the working-tree fixes were copied from
+C:\Users\djlov\ciel-runtime into ~/.local/share/ciel-runtime, each with a
+.bak-20261022-002214 backup. Commit 625faed changed only context_compaction.py
+(plus its docs and test), which was left untouched, so both its
+truncated-summary retry and these fixes are present. Stale bytecode for the
+copied modules was removed.
+
+# Version string
+
+runtime_constants.VERSION still reads nightly.625faed; it is not stamped by a
+local copy, so the running build must be identified by process start time
+compared with the copied files' mtimes, not by /health version.
+
+# Live vision result on the previous build
+
+evidence/live-vision-probe.txt: with the still-running 625faed build, the
+alitoken deepseek-v4.1-flash-1017 model answered "Red" for a red image on the
+Anthropic wire and "Blue" for a blue image on the Chat wire. Image input
+already worked on those paths; the fixes cover the Ollama wire, the Codex
+catalog modality, the accepted-stream timeout and the feedback menu.
+
+# Pending
+
+A restart is required to load the copied modules into the running router.
