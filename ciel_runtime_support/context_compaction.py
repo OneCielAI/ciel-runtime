@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from http.client import IncompleteRead
-
 import time
 import re
 import urllib.error
@@ -11,14 +9,13 @@ from typing import Any, Callable
 from .context_summary_policy import (
     ContextSummaryFragment, compact_instruction_kind, native_compact_text, semantic_payload_cost,
 )
-from .upstream_error_policy import UpstreamFailure
+from .upstream_error_policy import UpstreamFailure, is_upstream_transport_error
 
 
 MAX_MAP_CHUNKS = 256
 MAX_SUMMARY_CALLS = 512
 MAX_REDUCE_ROUNDS = 12
-# A single summary call can lose its connection; the chunk is tried again
-# before the compaction degrades that chunk to an excerpt.
+# Retry only internal, tool-free summary generation; never replace source with excerpts.
 SUMMARY_MAP_ATTEMPTS = 3
 COMPACTION_TIMEOUT_SECONDS = 900.0
 
@@ -151,7 +148,7 @@ def request_context_summary(
         data = transport.post_json(
             transport.endpoint(provider, config, operation), request,
             headers, timeout, provider, config, model,
-            # Generation is non-idempotent: never replay after an ambiguous failure.
+            # The workflow owns bounded retries of these internal tool-free summaries.
             retry_rate_limits=False,
         )
     except urllib.error.HTTPError as exc:
@@ -293,30 +290,19 @@ def _split_rejected_chunk(
     return [(fragment.source_index, [left]), (fragment.source_index, [right])]
 
 
-def _chunk_excerpt(chunk: list[Any], limit: int = 4000) -> str:
-    """A deterministic stand-in when one chunk's summary never completes."""
-
-    parts: list[str] = []
-    for item in chunk:
-        if isinstance(item, ContextSummaryFragment):
-            text = item.text
-        elif isinstance(item, dict):
-            text = str(item.get("content") or "")
-            if isinstance(item.get("content"), list):
-                text = " ".join(
-                    str(block.get("text") or "")
-                    for block in item["content"]
-                    if isinstance(block, dict)
-                )
-        else:
-            text = str(item)
-        text = " ".join(text.split())
-        if text:
-            parts.append(text)
-    joined = "\n".join(parts)
-    if len(joined) > limit:
-        joined = joined[:limit] + " …"
-    return "[unsummarized excerpt of one segment]\n" + joined
+def _summary_transport_cause(error: BaseException) -> BaseException | None:
+    """Recognize explicit transport causes, never error-message substrings."""
+    seen: set[int] = set()
+    while id(error) not in seen:
+        seen.add(id(error))
+        if is_upstream_transport_error(error):
+            return error
+        # Only unwrap the retry layer's explicit causal wrapper. HTTP/provider
+        # failures and semantic compaction failures must retain their verdict.
+        if type(error) is not RuntimeError or error.__cause__ is None:
+            return None
+        error = error.__cause__
+    return None
 
 
 def _map_summaries(chunks: list[Any], run: _SummaryRun, initial_tokens: int) -> list[str]:
@@ -348,20 +334,16 @@ def _map_summaries(chunks: list[Any], run: _SummaryRun, initial_tokens: int) -> 
                     pending[0:0] = [(offset, parts, depth + 1) for offset, parts in smaller]
                     summary = None
                     break
-                # A dropped connection is not a verdict on the chunk: retry,
-                # then keep the history valid with a deterministic excerpt.
-                # Any other failure stays unambiguous and propagates.
-                transport = isinstance(exc, (ConnectionError, EOFError, IncompleteRead))
-                if not transport:
+                cause = _summary_transport_cause(exc)
+                if cause is None or attempt + 1 >= SUMMARY_MAP_ATTEMPTS:
                     raise
-                if attempt + 1 >= SUMMARY_MAP_ATTEMPTS:
-                    summary = _chunk_excerpt(chunk)
-                    run.services.projection.log(
-                        "WARN",
-                        "context_compact_chunk_degraded "
-                        f"provider={run.provider} chunk={start} "
-                        f"error={type(exc).__name__}: {str(exc)[:160]}",
-                    )
+                run.services.projection.log(
+                    "WARN", "context_compact_chunk_retry "
+                    f"provider={run.provider} chunk={start} "
+                    f"attempt={attempt + 1}/{SUMMARY_MAP_ATTEMPTS} "
+                    f"completed_chunks={run.completed_chunks} "
+                    f"error={type(exc).__name__} cause={type(cause).__name__}",
+                )
         if summary is None and not pending:
             continue
         if summary is None:

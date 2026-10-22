@@ -184,8 +184,8 @@ class ContextCompactionTests(unittest.TestCase):
         self.assertEqual(0, services.workflow.request_summary.call_args.args[2]["gateway_retries"])
         self.assertEqual(10, config["gateway_retries"])
 
-    def test_failures_empty_timeout_and_cancel_never_complete_or_retry(self):
-        for failure in (RuntimeError("high demand"), TimeoutError("ambiguous"), asyncio.CancelledError(), KeyboardInterrupt(), ""):
+    def test_semantic_failures_empty_and_cancel_never_complete_or_retry(self):
+        for failure in (RuntimeError("high demand"), asyncio.CancelledError(), KeyboardInterrupt(), ""):
             with self.subTest(failure=repr(failure)):
                 services = self.services()
                 if isinstance(failure, BaseException):
@@ -540,21 +540,117 @@ if __name__ == "__main__":
 
 
 class ChunkTransportFailureTests(unittest.TestCase):
-    """One dropped connection must not lose an entire compaction."""
+    services = ContextCompactionTests.services
+    compact = ContextCompactionTests.compact
+    def wrapped_timeout(self):
+        error = RuntimeError("upstream request failed")
+        error.__cause__ = TimeoutError("timed out")
+        return error
 
-    def test_connection_abort_maps_to_a_degraded_segment_not_a_failure(self):
-        from ciel_runtime_support.context_compaction import (
-            ContextSummaryFragment, _chunk_excerpt,
-        )
+    def test_wrapped_timeout_retries_only_failed_chunk_preserving_prior_summary(self):
+        services = self.services(split_messages=lambda messages, _target: [
+            (i, [message]) for i, message in enumerate(messages)])
+        services = replace(services, projection=replace(services.projection,
+            build_chunk_prompt=lambda chunk, *_: chunk[0]["content"],
+            build_reduce_prompt=lambda summaries, *_args, **_kwargs: "|".join(summaries)))
+        services.workflow.request_summary.side_effect = ["first-summary", self.wrapped_timeout(), "second-summary"]
+        result = self.compact(services, history=[
+            {"role": "user", "content": "first-source"},
+            {"role": "assistant", "content": "second-source"}])
+        self.assertEqual(["first-source", "second-source", "second-source"],
+                         [call.args[3] for call in services.workflow.request_summary.call_args_list])
+        self.assertEqual("first-summary|second-summary", result[-1]["content"])
+        self.assertEqual("reduce", services.workflow.write_activity.call_args.kwargs["phase"])
 
-        excerpt = _chunk_excerpt([ContextSummaryFragment(0, 0, 4, 4, "abcd", "user")])
+    def test_persistent_transport_failure_fails_honestly_without_excerpt(self):
+        for failure in (TimeoutError("timeout"), self.wrapped_timeout(), ConnectionResetError("reset")):
+            with self.subTest(failure=type(failure).__name__):
+                services = self.services()
+                services.workflow.request_summary.side_effect = failure
+                with self.assertRaises(type(failure)):
+                    self.compact(services)
+                self.assertEqual(3, services.workflow.request_summary.call_count)
+                self.assertEqual("failed", services.workflow.write_activity.call_args.kwargs["phase"])
+                self.assertEqual(0, services.workflow.write_activity.call_args.kwargs["completed_chunks"])
 
-        self.assertIn("abcd", excerpt)
-        self.assertIn("unsummarized excerpt", excerpt)
+    def test_cancel_between_timeout_and_retry_stops_without_new_request(self):
+        services = self.services()
+        services.workflow.request_summary.side_effect = self.wrapped_timeout()
+        cancelled = mock.Mock(side_effect=[False, True])
+        with self.assertRaisesRegex(ContextCompactionFailed, "client_cancelled"):
+            self.compact(services, {"_context_compact_cancelled": cancelled})
+        services.workflow.request_summary.assert_called_once()
 
-    def test_other_failures_still_propagate(self):
-        import inspect
-        source = inspect.getsource(__import__("ciel_runtime_support.context_compaction",
-                                              fromlist=["_map_summaries"])._map_summaries)
-        self.assertIn("ConnectionError", source)
-        self.assertIn("if not transport:", source)
+    def test_deadline_between_timeout_and_retry_stops_without_new_request(self):
+        services = self.services()
+        services.workflow.request_summary.side_effect = self.wrapped_timeout()
+        with mock.patch("ciel_runtime_support.context_compaction.time.monotonic", side_effect=[0, 1, 901]):
+            with self.assertRaisesRegex(ContextCompactionFailed, "deadline_exceeded"):
+                self.compact(services)
+        services.workflow.request_summary.assert_called_once()
+
+    def test_exception_text_does_not_authorize_retry(self):
+        services = self.services()
+        services.workflow.request_summary.side_effect = RuntimeError("TimeoutError: timed out")
+        with self.assertRaises(RuntimeError):
+            self.compact(services)
+        services.workflow.request_summary.assert_called_once()
+
+    def test_http_timeout_recovery_through_real_summary_transport(self):
+        import threading
+        import time
+        import urllib.request
+        from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+        requests = []
+        class Handler(BaseHTTPRequestHandler):
+            def log_message(self, *_args):
+                pass
+
+            def do_POST(self):
+                payload = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+                text = payload["messages"][-1]["content"]
+                requests.append(text)
+                if len(requests) == 2:
+                    time.sleep(0.15)
+                body = json.dumps({"summary": text + "-summary"}).encode()
+                self.send_response(200)
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                try:
+                    self.wfile.write(body)
+                except OSError:
+                    pass
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            services = self.services(split_messages=lambda messages, _target: [
+                (i, [message]) for i, message in enumerate(messages)])
+            def post(url, request, headers, timeout, *_args, **_kwargs):
+                req = urllib.request.Request(url, data=json.dumps(request).encode(), headers=headers)
+                try:
+                    with urllib.request.urlopen(req, timeout=timeout) as response:
+                        return json.load(response)
+                except OSError as error:
+                    raise RuntimeError("upstream request failed") from error
+            services = replace(services,
+                transport=replace(services.transport, post_json=post,
+                    request_timeout=lambda _config: 0.05,
+                    endpoint=lambda *_: f"http://127.0.0.1:{server.server_port}/summary",
+                    extract_text=lambda data, _wire: data["summary"]),
+                projection=replace(services.projection,
+                    build_chunk_prompt=lambda chunk, *_: chunk[0]["content"],
+                    build_reduce_prompt=lambda summaries, *_args, **_kwargs: "|".join(summaries)))
+            services = replace(services, workflow=replace(services.workflow,
+                request_summary=lambda *args, **kwargs: request_context_summary(*args, services, **kwargs)))
+            result = self.compact(services, history=[
+                {"role": "user", "content": "first"},
+                {"role": "assistant", "content": "second"}])
+            self.assertEqual(["first", "second", "second"], requests)
+            self.assertEqual("first-summary|second-summary", result[-1]["content"])
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
