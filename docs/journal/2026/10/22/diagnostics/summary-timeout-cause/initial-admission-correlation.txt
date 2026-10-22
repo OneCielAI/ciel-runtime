@@ -1,0 +1,13 @@
+2026-10-22T02:27:50 [INFO] runtime_compaction_control event=admission_paused phase=compacting runtime=claude session=30179e9a-f9b9-4860-99ff-6045b647bf6f epoch=307710de41634fb1af811d168ea8709b attempts=1
+2026-10-22T02:27:50 [INFO] channel_llm_inject_deferred reason=native_compaction
+2026-10-22T02:28:03 [WARN] anthropic_sse_upstream_error_event provider=cielairouter model=_Walkie_Opus55-Sol61-Fast text_len=0 emitted_tool_use=False message_start=False message_delta=False open_blocks=0
+2026-10-22T02:28:07 [INFO] channel_llm_inject_deferred reason=context_recovery
+2026-10-22T02:28:22 [INFO] runtime_compaction_control event=native_compact_started phase=compacting runtime=claude session=30179e9a-f9b9-4860-99ff-6045b647bf6f epoch=307710de41634fb1af811d168ea8709b attempts=1
+2026-10-22T02:28:22 [INFO] channel_llm_inject_deferred reason=native_compaction
+2026-10-22T02:28:32 [WARN] anthropic_sse_upstream_error_event provider=cielairouter model=_Walkie_Opus55-Sol61-Fast text_len=0 emitted_tool_use=False message_start=False message_delta=False open_blocks=0
+2026-10-22T02:28:36 [INFO] channel_llm_inject_deferred reason=context_recovery
+2026-10-22T02:28:49 [INFO] runtime_compaction_control event=native_compact_started phase=compacting runtime=claude session=30179e9a-f9b9-4860-99ff-6045b647bf6f epoch=307710de41634fb1af811d168ea8709b attempts=1
+2026-10-22T02:28:49 [INFO] channel_llm_inject_deferred reason=native_compaction
+2026-10-22T02:29:00 [WARN] anthropic_sse_upstream_error_event provider=cielairouter model=_Walkie_Opus55-Sol61-Fast text_len=0 emitted_tool_use=False message_start=False message_delta=False open_blocks=0
+2026-10-22T02:29:04 [INFO] channel_llm_inject_deferred reason=context_recovery
+2026-10-22T02:29:23 [INFO] channel_llm_inject_deferred reason=context_recovery
