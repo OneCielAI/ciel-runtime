@@ -4,7 +4,7 @@ title: External delivery raced a provisional Claude session identity
 description: Celly's repeated over-window compaction attempts were caused by external channel messages arriving before the published socket session was confirmed by a routed request.
 tags: [celly, compaction, sse, session-identity, admission]
 timestamp: 2026-10-22
-status: fixed-source
+status: fixed-source-and-installed
 ---
 
 # Reported symptom
@@ -58,7 +58,12 @@ compaction recovery gate.
   only after the matching request is observed.
 - Compaction identity, compaction binding, pending injection, and pending poll
   suites: 106 tests passed.
-- Ruff passed for the changed source and test files.
+- Ruff passed for the changed source and test files. The full runtime group
+  passed 441 tests with 19 existing skips.
+- The verified worktree was installed into
+  `C:\Users\djlov\.local\share\ciel-runtime`. Installed source contains both
+  the exact context-rejection recovery and the `request_identity_pending`
+  admission gate.
 
 # Remaining activation step
 
