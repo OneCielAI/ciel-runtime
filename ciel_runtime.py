@@ -545,6 +545,7 @@ from ciel_runtime_support.web_endpoints import build_web_endpoint_report, config
 from ciel_runtime_support.web_ui import render_router_home_page, render_web_chat_page
 from ciel_runtime_support.web_ui_controller import WebUiConstants, WebUiController, WebUiDisplayPorts, WebUiHttpPorts, WebUiProjectionPorts
 from ciel_runtime_support.windows_console_input import WindowsConsoleInputWriter
+from ciel_runtime_support.token_estimate import estimate_tokens
 from ciel_runtime_support.windows_conpty import WindowsConPtySession, conpty_enabled
 from ciel_runtime_support.windows_console_input import _windows_console_utf16_units as project_windows_console_utf16_units
 
@@ -2142,17 +2143,6 @@ def handle_chat_post(handler: BaseHTTPRequestHandler, path: str, body: dict[str,
 def plan_artifact_controller() -> PlanArtifactController: return PlanArtifactController(PlanArtifactServices(PLAN_ARTIFACTS_DIR, ROUTER_BASE, _safe_segment, write_json, write_text_response, append_chat_message))
 def handle_plan_get(handler: BaseHTTPRequestHandler, path: str) -> bool: return plan_artifact_controller().get(handler, path)
 def handle_plan_post(handler: BaseHTTPRequestHandler, path: str, body: dict[str, Any]) -> bool: return plan_artifact_controller().post(handler, path, body)
-
-def estimate_tokens(body: Any, _cache: dict[int, int] | None = None) -> int:
-    if _cache is not None:
-        body_id = id(body)
-        if body_id in _cache:
-            return _cache[body_id]
-    text = json.dumps(body, ensure_ascii=False)
-    result = max(1, len(text) // 4)
-    if _cache is not None:
-        _cache[id(body)] = result
-    return result
 
 COMPACT_TEXT_ONLY_SYSTEM_PROMPT = (
     "The coding client is compacting the conversation. Return only the requested summary text. "

@@ -158,3 +158,21 @@ untouched. Tests cover both sides.
 Note for the future: a rejection delivered as an in-stream SSE error event has
 no HTTP status to react to; the error-driven recovery added in 81a270b only
 sees HTTP 4xx replies.
+
+# Sixth stage: the token estimate was script-blind
+
+estimate_tokens counted characters uniformly (len(text)//4). Celly's
+conversation is Korean, where a character is close to a token, so Ciel
+under-estimated by roughly 4x: a body it sized at 1.45M tokens while the
+provider reported the same session past its 872K window. The window guard
+therefore fires late for CJK conversations.
+
+The estimate now counts ASCII at four characters per token and every other
+character at one token (ciel_runtime_support/token_estimate.py): 4,000 English
+characters -> 1,002 tokens, 4,000 Hangul characters -> 4,002. The function moved
+out of the composition root, which returns under its 4,980-line ratchet (4,970).
+
+Injected channel messages do not escape the guard: in
+claude_router.handle_claude_messages_post the pending channel messages are
+merged at lines 341-342 and cap_anthropic_body runs at line 431, so the size
+that reaches the window guard includes them.
