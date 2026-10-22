@@ -464,7 +464,11 @@ def compact_anthropic_body_for_budget(
     # exception -- no upstream accepts it, so it is chunked here instead of
     # being forwarded to a guaranteed rejection.
     if full_compact_request and not (pcfg or {}).get("_context_compact_context_rejected"):
-        window = _context_window_tokens(pcfg)
+        window = (
+            _context_window_tokens(pcfg)
+            if (pcfg or {}).get("_context_compact_native_over_window")
+            else None
+        )
         if window is None or services.runtime.estimate_tokens(body) <= window:
             return body
     typed_messages = [message for message in messages if isinstance(message, dict)]

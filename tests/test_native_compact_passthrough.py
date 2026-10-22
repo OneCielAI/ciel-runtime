@@ -111,14 +111,16 @@ class NativeCompactOverWindowTests(unittest.TestCase):
 
         result = compact_anthropic_body_for_budget(
             body, 8192, provider="cielairouter", model="model",
-            pcfg={"context_window": over_window}, full_compact_request=True, services=services)
+            pcfg={"context_window": over_window, "_context_compact_native_over_window": True},
+            full_compact_request=True, services=services)
 
         self.assertEqual([{"role": "user", "content": "summary"}], result["messages"])
         self.assertEqual([], result["tools"])
         services.runtime.llm_compact_messages.assert_called_once()
 
     def test_checkpoint_inside_the_window_still_passes_without_estimation(self):
-        for config in ({"context_window": 10_000_000}, {}):
+        for config in ({"context_window": 10_000_000, "_context_compact_native_over_window": True},
+                       {"context_window": 10_000_000}, {}, {"_context_compact_native_over_window": True}):
             with self.subTest(config=config):
                 services = self.services()
                 body = self.body()
@@ -136,6 +138,17 @@ class NativeCompactOverWindowTests(unittest.TestCase):
                                           pcfg={}, full_compact_request=True, services=audit)
         audit.runtime.estimate_tokens.assert_not_called()
 
+    def test_translated_codex_checkpoint_keeps_its_rejection_rule(self):
+        services = self.services()
+        body = self.body()
+
+        result = compact_anthropic_body_for_budget(
+            body, 8192, provider="kimi", model="k3",
+            pcfg={"context_window": 1}, full_compact_request=True, services=services)
+
+        self.assertIs(result, body)
+        services.runtime.llm_compact_messages.assert_not_called()
+
     def test_malformed_window_values_keep_the_passthrough(self):
         for value in (None, 0, -1, "bad", True):
             with self.subTest(value=value):
@@ -143,6 +156,7 @@ class NativeCompactOverWindowTests(unittest.TestCase):
                 body = self.body()
                 result = compact_anthropic_body_for_budget(
                     body, 8192, provider="p", model="m",
-                    pcfg={"context_window": value}, full_compact_request=True, services=services)
+                    pcfg={"context_window": value, "_context_compact_native_over_window": True},
+                    full_compact_request=True, services=services)
                 self.assertIs(result, body)
                 services.runtime.llm_compact_messages.assert_not_called()
