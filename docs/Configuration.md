@@ -246,6 +246,12 @@ network 오류, partial output은 재요약 근거가 아니다. 요약 요청�
 정상 turn과 native Responses의 opaque compaction item에는 이 경로를 적용하지 않는다.
 provider 설정에 `context_compact_llm=false`를 명시하면 segmented compact를 끌 수 있다.
 
+라우팅 provider가 공급자의 실제 context-length 거절을 그대로 받을 수 있으면
+`preflight_prompt_compaction=false`를 명시한다. 그러면 JSON 크기 추정치만으로 일반
+턴을 미리 압축하지 않는다. 실제 backlog가 남아 있는 요청은 공급자 거절을 받은 뒤
+기존 reactive context recovery가 한 번 압축·재시도한다. 이 값은 옵션 기본값이며
+네이티브 compact 요청과 번역된 Codex checkpoint에는 적용하지 않는다.
+
 Alibaba Model Studio Token Plan(`alitoken`)의 native Responses endpoint는 실제 서비스가
 10 MiB wire body를 거절하므로, Ciel은 이 provider에만 9 MiB 선제 경계를 적용한다. 본문이
 경계를 넘으면 기존 Responses soft guard로 오래된 history를 deterministic chunk summary로
