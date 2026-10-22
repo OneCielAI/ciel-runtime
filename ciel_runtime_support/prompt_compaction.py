@@ -416,6 +416,22 @@ def compact_responses_input_for_budget(
     return out
 
 
+def _context_window_tokens(pcfg: dict[str, Any] | None) -> int | None:
+    """The model's whole context window, when the config states one."""
+
+    for key in ("context_window", "max_model_len"):
+        raw = (pcfg or {}).get(key)
+        if isinstance(raw, bool):
+            continue
+        try:
+            value = int(raw)
+        except (TypeError, ValueError):
+            continue
+        if value > 0:
+            return value
+    return None
+
+
 def anthropic_message_has_tool_result(message: dict[str, Any]) -> bool:
     content = message.get("content")
     return isinstance(content, list) and any(
@@ -442,11 +458,15 @@ def compact_anthropic_body_for_budget(
     messages = body.get("messages")
     if not isinstance(messages, list) or not messages:
         return body
-    # Do not preflight a native checkpoint with the local estimator. The
-    # upstream's explicit no-output context rejection is the only semantic
-    # recovery proof.
+    # Do not preflight a native checkpoint with the local estimator: the
+    # upstream's explicit no-output context rejection is the semantic recovery
+    # proof. A checkpoint already past the model's whole context window is the
+    # exception -- no upstream accepts it, so it is chunked here instead of
+    # being forwarded to a guaranteed rejection.
     if full_compact_request and not (pcfg or {}).get("_context_compact_context_rejected"):
-        return body
+        window = _context_window_tokens(pcfg)
+        if window is None or services.runtime.estimate_tokens(body) <= window:
+            return body
     typed_messages = [message for message in messages if isinstance(message, dict)]
     if len(typed_messages) != len(messages):
         return body

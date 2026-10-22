@@ -1,0 +1,64 @@
+---
+type: diagnosis
+title: Celly cannot compact a history larger than the upstream window
+description: The native compact request is forwarded unmodified at 1.45M tokens and the gateway rejects it; a checkpoint past the whole context window is now chunked instead.
+tags: [celly, compaction, cielairouter, context-window]
+timestamp: 2026-10-22
+status: fixed-source
+---
+
+# Reported symptom
+
+Celly (local AAP sandbox, G:\ciel-bridge-service, router 9385, build
+0.2.51-nightly.20261022-060129.64ec9c4, provider cielairouter, model
+_Walkie_Opus55-Sol61-Fast, context 872,000): compaction never completes; the
+user asked that an oversized context be chunked.
+
+# Evidence
+
+- 08:41:47 runtime_compaction_control event=admission_paused phase=compacting.
+- 08:43:17 native_compact_started, then immediately
+  upstream_direct_request tokens=1458490 bytes=6307171, and
+  08:43:20 anthropic_sse_upstream_error_event text_len=0.
+- 08:50:10 the same request at tokens=1458498, answered
+  08:50:12 upstream_direct_http_error code=400:
+  "invalid_request_error: Conversation exceeds the known context limits of all
+  eligible combo targets. Compact the conversation before retrying."
+- No `compacted anthropic payload` line accompanies either request, while at
+  02:20-02:29 ordinary turns did compact (1.45M -> ~683K, budget 716,750).
+
+# Mechanism (code facts)
+
+- prompt_compaction.compact_anthropic_body_for_budget deliberately leaves a
+  native checkpoint untouched unless pcfg["_context_compact_context_rejected"]
+  is set; the upstream rejection was the only authorisation.
+- The Messages path (claude_router) only recovers an output-budget 400
+  (context_recovery.recover_output_budget) and has no context-window
+  recovery, so the 400 went straight back to Claude.
+- The upstream wording ("Conversation exceeds the known context limits")
+  also does not match context_compaction.no_output_context_rejection.
+
+So an oversized compact request could never be compacted: the request that
+would shrink the history was itself rejected for being too large.
+
+# Change
+
+compact_anthropic_body_for_budget now treats a native checkpoint estimated
+above its model's whole context window (pcfg context_window / max_model_len)
+as compactable, using the existing semantic chunked path. Checkpoints at or
+below the window keep the old pass-through without any estimation, and
+malformed/boolean window values keep it too.
+
+# Verification
+
+tests/test_native_compact_passthrough.py NativeCompactOverWindowTests:
+over-window body is chunked (llm_compact_messages called once, tools dropped),
+in-window body passes unchanged without estimation, malformed values pass.
+318 exact-file tests OK (42 existing skips) including compaction, request
+builder, transient retry and architecture contracts.
+
+# Not established
+
+The provider's own upper bound on a compact request is not documented here;
+this change is justified by the observed 1.45M > 872K rejection, not by an
+estimate of what the gateway would accept.

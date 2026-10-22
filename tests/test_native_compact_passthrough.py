@@ -88,3 +88,61 @@ class NativeCompactPassthroughTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class NativeCompactOverWindowTests(unittest.TestCase):
+    """A checkpoint past the whole context window cannot succeed upstream."""
+
+    def services(self):
+        auxiliary = Mock(return_value=[{"role": "user", "content": "summary"}])
+        estimate = Mock(side_effect=lambda value: max(1, len(json.dumps(value, ensure_ascii=False)) // 4))
+        text = PromptCompactionText(*(Mock(side_effect=AssertionError("deterministic guard must not run")) for _ in range(6)))
+        runtime = PromptCompactionRuntime(estimate, auxiliary, Mock(), Mock())
+        return PromptCompactionServices(text, runtime)
+
+    def body(self):
+        return {"messages": [{"role": "user", "content": "x" * 40000}], "system": "rules",
+                "tools": [{"name": "tool"}]}
+
+    def test_window_sized_checkpoint_is_chunked_instead_of_forwarded(self):
+        services = self.services()
+        body = self.body()
+        over_window = services.runtime.estimate_tokens(body) - 1
+
+        result = compact_anthropic_body_for_budget(
+            body, 8192, provider="cielairouter", model="model",
+            pcfg={"context_window": over_window}, full_compact_request=True, services=services)
+
+        self.assertEqual([{"role": "user", "content": "summary"}], result["messages"])
+        self.assertEqual([], result["tools"])
+        services.runtime.llm_compact_messages.assert_called_once()
+
+    def test_checkpoint_inside_the_window_still_passes_without_estimation(self):
+        for config in ({"context_window": 10_000_000}, {}):
+            with self.subTest(config=config):
+                services = self.services()
+                body = self.body()
+                before = copy.deepcopy(body)
+
+                result = compact_anthropic_body_for_budget(
+                    body, 8192, provider="cielairouter", model="model",
+                    pcfg=config, full_compact_request=True, services=services)
+
+                self.assertIs(result, body)
+                self.assertEqual(before, body)
+                services.runtime.llm_compact_messages.assert_not_called()
+        audit = self.services()
+        compact_anthropic_body_for_budget(self.body(), 8192, provider="p", model="m",
+                                          pcfg={}, full_compact_request=True, services=audit)
+        audit.runtime.estimate_tokens.assert_not_called()
+
+    def test_malformed_window_values_keep_the_passthrough(self):
+        for value in (None, 0, -1, "bad", True):
+            with self.subTest(value=value):
+                services = self.services()
+                body = self.body()
+                result = compact_anthropic_body_for_budget(
+                    body, 8192, provider="p", model="m",
+                    pcfg={"context_window": value}, full_compact_request=True, services=services)
+                self.assertIs(result, body)
+                services.runtime.llm_compact_messages.assert_not_called()
