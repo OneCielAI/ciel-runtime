@@ -1,0 +1,67 @@
+---
+type: diagnosis
+title: External delivery raced a provisional Claude session identity
+description: Celly's repeated over-window compaction attempts were caused by external channel messages arriving before the published socket session was confirmed by a routed request.
+tags: [celly, compaction, sse, session-identity, admission]
+timestamp: 2026-10-22
+status: fixed-source
+---
+
+# Reported symptom
+
+Celly repeatedly reported `Prompt is too long` and automatic compaction
+failure. The user suspected that external SSE messages kept arriving after the
+first failed compaction.
+
+# Evidence from the live sandbox
+
+- The active Celly runtime was `0.2.51-nightly.20261022-060129.64ec9c4`, whose
+  `context_compaction.py`, `claude_router.py`, and `prompt_compaction.py` do not
+  contain the later recovery fixes.
+- `context-usage.json` reported 1,481,007 estimated tokens against a 872,000
+  measured context limit. The rejected provider request recorded 1,480,927
+  tokens, only 80 tokens lower, so this was not a hidden token-estimation miss.
+- At 11:22:12 the runtime bound socket identity `1421b038-...`; at 11:22:13 it
+  injected external message 6219; at 11:22:14 it rebound to the actual session
+  `30179e9a-...`; at 11:22:20 it sent 1,480,927 tokens and received the
+  context-limit 400.
+- At 11:35:32 it bound `5594e8ac-...`; at 11:35:33 it injected messages
+  6220-6222; at 11:35:34 it rebound to `30179e9a-...`; at 11:35:39 it sent
+  1,481,672 tokens and received the same 400.
+- The external event connection logged EOF roughly once per minute. Those
+  reconnect events did not inject messages by themselves; the messages arrived
+  at 11:22 and 11:35. The harmful condition was delivery during the short
+  provisional-session window.
+
+# Mechanism
+
+`RuntimeCompactionBinding._follow_published` accepts a session id from
+Claude's socket record before the first routed request confirms which resumed
+conversation will be used. `external_admission_paused` treated that provisional
+id as a confirmed scope. The injection gate therefore found no compaction state
+for the temporary id and admitted the external event. The request then rebound
+to the real session and crossed the context limit.
+
+# Change
+
+For socket-launched Claude sessions, a released session id remains provisional
+until `request_observed=true` for that launch epoch and session. External
+channel delivery is paused across the provisional window. Locally typed user
+input is not gated, so the first real request can establish identity; after
+that request is observed, external delivery remains governed by the existing
+compaction recovery gate.
+
+# Verification
+
+- New regression test covers a stale published id followed by the correct id
+  before any routed request: admission remains paused across both and releases
+  only after the matching request is observed.
+- Compaction identity, compaction binding, pending injection, and pending poll
+  suites: 106 tests passed.
+- Ruff passed for the changed source and test files.
+
+# Remaining activation step
+
+The live Celly process still runs the old Python snapshot. A fresh launch is
+required to load this source fix; the existing failed conversation cannot be
+repaired by hot-replacing Python modules.
