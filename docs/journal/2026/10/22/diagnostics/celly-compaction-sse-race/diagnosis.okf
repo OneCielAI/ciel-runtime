@@ -1,7 +1,7 @@
 ---
 type: diagnosis
 title: External delivery raced a provisional Claude session identity
-description: Celly's repeated over-window compaction attempts were caused by external channel messages arriving before the published socket session was confirmed by a routed request.
+description: External delivery preceded confirmed request identity; this admission defect is verified, but the original oversized-context cause remains unproven.
 tags: [celly, compaction, sse, session-identity, admission]
 timestamp: 2026-10-22
 status: fixed-source-and-installed
@@ -21,8 +21,8 @@ first failed compaction.
 - Live snapshots around the failures recorded an estimated 1,481,007 tokens
   against a 872,000 measured context limit and a 716,750 input budget. The two
   rejected provider attempts recorded 1,480,927 and 1,481,672 tokens. These
-  values are all far beyond the limit and differ only at the sub-0.1% scale;
-  nothing supports a missing-million-token calculation error.
+  values are Runtime estimates, not independent tokenizer measurements. Their
+  agreement cannot prove tokenizer accuracy or rule out a sizing defect.
 - At 11:22:12 the runtime bound socket identity `1421b038-...`; at 11:22:13 it
   injected external message 6219; at 11:22:14 it rebound to the actual session
   `30179e9a-...`; at 11:22:20 it sent 1,480,927 tokens and received the
@@ -42,7 +42,8 @@ Claude's socket record before the first routed request confirms which resumed
 conversation will be used. `external_admission_paused` treated that provisional
 id as a confirmed scope. The injection gate therefore found no compaction state
 for the temporary id and admitted the external event. The request then rebound
-to the real session and crossed the context limit.
+to the real session and was rejected as over the context limit. This sequence
+does not establish that the injected messages caused the initial overflow.
 
 # Change
 
