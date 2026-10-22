@@ -17,3 +17,14 @@ validation:
   - 39 compaction tests pass, including real loopback HTTP timeout and recovery.
   - Runtime group: 441 tests pass, 19 skipped.
   - Ruff and project documentation metadata checks pass.
+initial_failure_correlation:
+  - Native compaction started at 02:27:50 local, before the 02:29:36 visible prompt-too-long error.
+  - At 02:27:50, 02:28:22, and 02:28:49 external injection logged deferred native_compaction.
+  - After failures, deferred context_recovery records remained present.
+  - No channel_stdin_proxy_injected record appears in the inspected 02:15 through 02:30 interval.
+  - Therefore this initial interval does not support continuous external-message injection as the demonstrated cause.
+  - At 07:29:20 UTC DeepSeek reported total input 700835; at 07:29:36 UTC Claude reported 935102.
+  - Provider-switch usage differs materially; the exact request payload and tokenizer counts must be compared before attributing causation.
+installed_validation:
+  - Six transport recovery tests were executed against the installed local-share module and passed.
+  - npm publication run 39838396344 completed successfully.
