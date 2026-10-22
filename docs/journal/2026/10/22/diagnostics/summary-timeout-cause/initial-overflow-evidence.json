@@ -1,0 +1,57 @@
+{
+  "observation": {
+    "time": "2026-10-22T07:29:36.979Z",
+    "error": "invalid_request",
+    "preceding_usage": [
+      {
+        "time": "2026-10-22T07:28:16.714Z",
+        "model": "deepseek-flash",
+        "input_tokens": 1466,
+        "cache_read_input_tokens": 698496,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 103
+      },
+      {
+        "time": "2026-10-22T07:28:45.872Z",
+        "model": "deepseek-flash",
+        "input_tokens": 382,
+        "cache_read_input_tokens": 700032,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 209
+      },
+      {
+        "time": "2026-10-22T07:28:46.152Z",
+        "model": "deepseek-flash",
+        "input_tokens": 382,
+        "cache_read_input_tokens": 700032,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 209
+      },
+      {
+        "time": "2026-10-22T07:29:17.095Z",
+        "model": "deepseek-flash",
+        "input_tokens": 291,
+        "cache_read_input_tokens": 700544,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 1332
+      },
+      {
+        "time": "2026-10-22T07:29:20.117Z",
+        "model": "deepseek-flash",
+        "input_tokens": 291,
+        "cache_read_input_tokens": 700544,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 1332
+      },
+      {
+        "time": "2026-10-22T07:29:36.410Z",
+        "model": "claude-opus-5-5",
+        "input_tokens": 386,
+        "cache_read_input_tokens": 64722,
+        "cache_creation_input_tokens": 869994,
+        "output_tokens": 148
+      }
+    ]
+  },
+  "limit": "Provider token counts differ across model transitions; this evidence alone does not establish the original cause."
+}
