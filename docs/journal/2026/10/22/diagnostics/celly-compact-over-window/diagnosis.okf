@@ -4,7 +4,7 @@ title: Celly cannot compact a history larger than the upstream window
 description: The native compact request is forwarded unmodified at 1.45M tokens and the gateway rejects it; a checkpoint past the whole context window is now chunked instead.
 tags: [celly, compaction, cielairouter, context-window]
 timestamp: 2026-10-22
-status: fixed-source
+status: verified-source
 ---
 
 # Reported symptom
@@ -62,3 +62,18 @@ builder, transient retry and architecture contracts.
 The provider's own upper bound on a compact request is not documented here;
 this change is justified by the observed 1.45M > 872K rejection, not by an
 estimate of what the gateway would accept.
+
+# Follow-up: exact combo rejection
+
+The deployed 64ec9c4 build still did not recognize the router's prose rejection
+when a compact request reached the provider before the over-window estimate was
+available. `no_output_context_rejection` now classifies the exact
+`invalid_request_error` text, "Conversation exceeds the known context limits of
+all eligible combo targets. Compact the conversation before retrying.", as a
+no-output context rejection. Unrelated 400 responses remain non-retryable.
+
+Verification after this follow-up: focused context-compaction and native
+passthrough suites passed (42 tests); the runtime group passed 441 tests with
+19 existing skips after removing inherited `CIEL_RUNTIME_CODEX_API_KEY`,
+`CIEL_RUNTIME_ROUTER_PORT`, and `CIEL_RUNTIME_TEST_ISOLATED` test-process
+variables. Ruff passed for the changed source and test files.

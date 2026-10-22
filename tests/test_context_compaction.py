@@ -14,6 +14,7 @@ from ciel_runtime_support.context_compaction import (
     ContextCompactionTransport,
     ContextCompactionWorkflow,
     build_llm_compacted_messages,
+    no_output_context_rejection,
     request_context_summary,
 )
 from ciel_runtime_support.context_summary_policy import (
@@ -368,6 +369,33 @@ class ContextCompactionTests(unittest.TestCase):
         self.assertNotEqual(calls[0].args[3], calls[1].args[3])
         self.assertNotEqual(calls[0].args[3], calls[2].args[3])
         self.assertEqual(2, services.workflow.write_activity.call_args.kwargs["completed_chunks"])
+
+    def test_context_limit_rejection_is_recognized_from_custom_exact_text(self):
+        failure = UpstreamFailure(
+            "cielairouter",
+            "combo",
+            status=400,
+            error_type="invalid_request_error",
+            message=(
+                "Conversation exceeds the known context limits of all eligible combo "
+                "targets. Compact the conversation before retrying."
+            ),
+            source="http_status",
+        )
+
+        self.assertTrue(no_output_context_rejection(failure))
+
+    def test_unrelated_invalid_request_is_not_a_context_rejection(self):
+        failure = UpstreamFailure(
+            "cielairouter",
+            "combo",
+            status=400,
+            error_type="invalid_request_error",
+            message="Unsupported tool: 'exec'. Only 'apply_patch' is supported.",
+            source="http_status",
+        )
+
+        self.assertFalse(no_output_context_rejection(failure))
 
     def test_truncated_map_summary_is_split_and_regenerated(self):
         services = self.real_services()

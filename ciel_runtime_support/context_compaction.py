@@ -246,10 +246,18 @@ def no_output_context_rejection(error: BaseException) -> bool:
         return False
     if error.output_started or error.response_id:
         return False
-    return error.error_type in {"context_length_exceeded", "context_window_exceeded"} or (
-        error.error_type == "invalid_request_error" and bool(re.match(
-            r"^prompt is too long: [0-9]+ tokens > [0-9]+ maximum", error.message.casefold()
-        ))
+    if error.error_type in {"context_length_exceeded", "context_window_exceeded"}:
+        return True
+    if error.error_type != "invalid_request_error":
+        return False
+    message = error.message.casefold()
+    # CielAiRouter names the condition in prose rather than a typed error:
+    # "Conversation exceeds the known context limits of all eligible combo
+    # targets. Compact the conversation before retrying." (Celly, 2026-10-22).
+    return bool(
+        re.match(r"^prompt is too long: [0-9]+ tokens > [0-9]+ maximum", message)
+        or "exceeds the known context limit" in message
+        or "compact the conversation before retrying" in message
     )
 
 
