@@ -1,0 +1,21 @@
+status: installed locally; live checkpoint success unverified
+revision: 058ff68
+version: 0.2.51-local.058ff68
+installation:
+  - Global npm package installed from git archive of merged revision.
+  - Windows local share installed by install.ps1.
+verification:
+  - ciel-runtime --version returned 0.2.51-local.058ff68.
+  - context_compaction.py SHA256 matches merged source in both locations.
+  - Installed causal classifier recognizes RuntimeError caused by TimeoutError.
+  - GitHub CI run 39838396319 completed successfully.
+publication:
+  - Run 39838396344 passed npm tests and publish step.
+  - Published tarball verification still in progress at observation.
+limits:
+  - Running processes were not restarted or live session inputs injected.
+  - No claim of completed Celly compaction.
+
+update:
+  - Replaced local snapshot with npm registry nightly 0.2.51-nightly.20261022-192435.058ff68.
+  - Both installed source hashes match merged revision.
