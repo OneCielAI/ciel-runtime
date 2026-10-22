@@ -26,3 +26,19 @@ compaction itself.
 - `python -m ruff check`: passed.
 - A live-config probe with an oversized body reported an estimated 750,026
   tokens, called the soft compactor zero times, and returned the body unchanged.
+
+## Truncated semantic checkpoint follow-up
+
+- A later Celly run at 21:46-21:50 local time logged 120-second upstream
+  requests and repeated `context_compact_failed ... completed_chunks=0/13`.
+  The error detail was `truncated_summary`, not a 60-second timeout.
+- The map phase previously retried only explicit provider context rejections.
+  A finite summary that ended at its output limit aborted the entire checkpoint
+  before one source chunk completed, so the same turn failed again.
+- A truncated or incomplete summary response now splits its source chunk and
+  regenerates the smaller segment, matching the existing bounded retry used for
+  an explicit context rejection. Client cancellation, deadline exhaustion, and
+  ambiguous provider failures still abort without replay.
+- Added a regression test that forces the first map summary to truncate and
+  verifies the split segments complete. The full context-compaction suite
+  passed: 31 tests.

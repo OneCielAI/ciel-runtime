@@ -369,6 +369,27 @@ class ContextCompactionTests(unittest.TestCase):
         self.assertNotEqual(calls[0].args[3], calls[2].args[3])
         self.assertEqual(2, services.workflow.write_activity.call_args.kwargs["completed_chunks"])
 
+    def test_truncated_map_summary_is_split_and_regenerated(self):
+        services = self.real_services()
+        services.workflow.request_summary.side_effect = [
+            ContextCompactionFailed("truncated_summary"),
+            "left summary",
+            "right summary",
+        ]
+
+        result = self.compact(
+            services,
+            history=[{"role": "assistant", "content": "left fact " * 120 + "right fact " * 120}],
+        )
+
+        calls = services.workflow.request_summary.call_args_list
+        self.assertEqual(3, len(calls))
+        self.assertNotEqual(calls[0].args[3], calls[1].args[3])
+        self.assertNotEqual(calls[0].args[3], calls[2].args[3])
+        self.assertIn("left summary", result[-1]["content"])
+        self.assertIn("right summary", result[-1]["content"])
+        self.assertEqual(2, services.workflow.write_activity.call_args.kwargs["completed_chunks"])
+
     def test_ambiguous_rejections_and_partial_output_are_not_split_or_retried(self):
         for status, source, output_started in ((502, "http_status", False), (400, "sse", False), (400, "http_status", True)):
             services = self.real_services()
