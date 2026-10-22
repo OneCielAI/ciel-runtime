@@ -1,0 +1,18 @@
+{
+  "observation": {
+    "updated_at": 1792703741.040123,
+    "time": "2026-10-22T16:15:41",
+    "event": "compact",
+    "provider": "cielairouter",
+    "model": "ciel-runtime-cielairouter-_walkie_opus55-sol61-fast",
+    "chunks": 31,
+    "parallel_sessions": 1,
+    "tokens": 1644645,
+    "final_tokens": 22711,
+    "budget": 692320,
+    "phase": "map",
+    "completed_chunks": 18
+  },
+  "status": "Compaction is running after restart; native checkpoint success is not yet verified.",
+  "prior_run": "Observed 32 of 33 map segments before another launch epoch at 16:08:18; do not infer successful completion."
+}
