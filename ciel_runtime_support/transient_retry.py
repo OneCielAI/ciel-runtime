@@ -48,6 +48,7 @@ PROVIDER = "cielairouter"
 DEFAULT_RETRIES = 3
 MAX_RETRIES = 10
 DEFAULT_SECONDS = 60.0
+_UNSET = object()
 RETRYABLE_STATUSES = frozenset({500, 502, 503, 504, 529, 408})
 # 429 is only replayable after a strict rate-limit verdict; see _retryable_verdict.
 RATE_LIMIT_STATUSES = frozenset({429})
@@ -76,6 +77,9 @@ class TransientRetryBudget:
     stopped: bool = False
     owner: int | None = None
     lock: Any = field(default_factory=threading.RLock, repr=False)
+    # The caller's own read timeout, before bounded_timeout clipped it to the
+    # retry deadline; an accepted response gets it back (release_read_timeout).
+    requested_timeout: Any = field(default=_UNSET, repr=False)
 
     def __post_init__(self) -> None:
         self.limit = max(0, min(MAX_RETRIES, int(self.limit)))
@@ -188,6 +192,7 @@ def bounded_timeout(config: Any, provider: str, timeout: Any) -> Any:
     if budget is None:
         return timeout
     with budget.lock:
+        budget.requested_timeout = timeout
         remaining = budget.remaining()
         if remaining <= 0:
             budget.stopped = True
@@ -551,6 +556,35 @@ def _preflight(response, budget, cancelled):
     return _ReplayResponse(response, bytes(prefix), budget), None
 
 
+def release_read_timeout(response: Any, budget: TransientRetryBudget | None) -> Any:
+    """Give an accepted response the caller's read timeout back.
+
+    bounded_timeout clips each socket operation to the retry deadline so a
+    stalled open cannot outlive it. That deadline bounds acceptance only: once
+    a response is accepted the stream is read under the caller's own timeout,
+    exactly as when no retry scope is active.
+    """
+    if response is None or budget is None:
+        return response
+    requested = budget.requested_timeout
+    if requested is _UNSET or isinstance(requested, bool):
+        return response
+    if requested is not None:
+        try:
+            requested = float(requested)
+        except (TypeError, ValueError, OverflowError):
+            return response
+        if not math.isfinite(requested) or requested <= 0:
+            return response
+    sock = _socket(response)
+    if sock is not None and hasattr(sock, "settimeout"):
+        try:
+            sock.settimeout(requested)
+        except (OSError, ValueError):
+            pass
+    return response
+
+
 def open_with_transient_retry(open_once: Callable[[], Any], *, provider: str,
                               config: dict[str, Any], log: Callable[[str, str], None],
                               publish: Callable[..., Any] | None = None,
@@ -637,7 +671,7 @@ def _execute(open_once, budget, log, publish, sleep, cancelled, request, reselec
                 _mark(caught, budget)
                 raise
             if raw is None:
-                return response
+                return release_read_timeout(response, budget)
             headers = getattr(response, "headers", {})
             status = getattr(response, "status", 200)
             url = getattr(response, "url", getattr(request, "full_url", ""))
@@ -697,4 +731,4 @@ def reselect_config_factory(apply, restore):
 __all__ = ["BUDGET_CONFIG_KEY", "DEFAULT_RETRIES", "DEFAULT_SECONDS", "MAX_RETRIES",
            "TransientRetryBudget", "budget_for", "bounded_timeout", "configured_retry_limit",
            "consume_external_retry", "retry_handled", "open_with_transient_retry", "owns_transient_retries",
-           "request_scope"]
+           "release_read_timeout", "request_scope"]

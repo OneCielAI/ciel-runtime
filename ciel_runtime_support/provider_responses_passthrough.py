@@ -37,7 +37,8 @@ from .responses_custom_tool_bridge import (
 from .prompt_compaction import responses_compact_instruction_index
 from .context_compaction import no_output_context_rejection
 from .remote_bridge import REMOTE_BRIDGE_CONFIG_MARKER, is_remote_bridge_request
-from .transient_retry import bounded_timeout, open_with_transient_retry, request_scope, retry_handled
+from .transient_retry import (bounded_timeout, open_with_transient_retry, release_read_timeout,
+                              request_scope, retry_handled)
 from .upstream_dump import dump_upstream_request
 from .upstream_error_policy import UpstreamFailure, UpstreamStreamReadError
 from .upstream_stream_io import client_connection_closed, UpstreamClientDisconnected
@@ -357,8 +358,8 @@ class ProviderResponsesPassthrough:
                             "reason=confirmed_no_output_context_rejection attempts=1")
             # A checkpoint changes the body. Its existing recovery contract is
             # one shot, not another transient retry window on that new body.
-            with request_scope(attempt["config"], retry_provider):
-                return open_once()
+            with request_scope(attempt["config"], retry_provider) as budget:
+                return release_read_timeout(open_once(), budget)
 
     @staticmethod
     def _raise_replayed(exc: urllib.error.HTTPError, raw: bytes) -> None:
