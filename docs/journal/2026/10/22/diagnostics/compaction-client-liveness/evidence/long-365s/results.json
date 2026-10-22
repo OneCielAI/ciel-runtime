@@ -1,0 +1,48 @@
+[
+  {
+    "mode": "delayed_headers",
+    "delay_s": 20,
+    "ping_s": 5,
+    "api_timeout_ms": 10000,
+    "returncode": 1,
+    "elapsed_s": 10.781,
+    "checks": {
+      "one_message_request": true,
+      "streaming": true,
+      "no_tools": true,
+      "no_harness_timeout": true,
+      "cli_timeout_error": true,
+      "no_headers_before_exit": true,
+      "no_real_message": true
+    },
+    "passed": true,
+    "ping_count": 0,
+    "max_ping_gap_s": 0,
+    "first_real_message_s": null
+  },
+  {
+    "mode": "early_sse",
+    "delay_s": 365,
+    "ping_s": 5,
+    "api_timeout_ms": 10000,
+    "returncode": 0,
+    "elapsed_s": 365.609,
+    "checks": {
+      "one_message_request": true,
+      "streaming": true,
+      "no_tools": true,
+      "no_harness_timeout": true,
+      "exit_zero": true,
+      "marker_returned": true,
+      "cli_success": true,
+      "pings_within_ten_seconds": true,
+      "real_message_after_delay": true,
+      "immediate_headers": true,
+      "pings_observed": true
+    },
+    "passed": true,
+    "ping_count": 73,
+    "max_ping_gap_s": 5.0160000000000196,
+    "first_real_message_s": 365.016
+  }
+]

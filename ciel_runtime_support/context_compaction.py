@@ -211,10 +211,16 @@ class _SummaryRun:
             self.services, self.wire, self.budget,
         ) <= self.budget
 
-    def generate(self, prompt: str) -> str:
+    def check_cancelled(self) -> None:
+        cancel_event = self.config.get("_context_compact_cancel_event")
         cancelled = self.config.get("_context_compact_cancelled")
+        if hasattr(cancel_event, "is_set") and cancel_event.is_set():
+            raise ContextCompactionFailed("client_cancelled")
         if callable(cancelled) and cancelled():
             raise ContextCompactionFailed("client_cancelled")
+
+    def generate(self, prompt: str) -> str:
+        self.check_cancelled()
         remaining = self.deadline - time.monotonic()
         if remaining <= 0:
             raise ContextCompactionFailed("deadline_exceeded")
@@ -224,11 +230,15 @@ class _SummaryRun:
             raise ContextCompactionFailed("summary_request_exceeds_budget")
         self.calls += 1
         config = {**self.config, "_context_compact_timeout_seconds": min(remaining, 120.0)}
-        summary = self.services.workflow.request_summary(
-            self.provider, self.model, config, prompt, wire=self.wire, budget_tokens=self.budget,
-        )
-        if callable(cancelled) and cancelled():
-            raise ContextCompactionFailed("client_cancelled")
+        try:
+            summary = self.services.workflow.request_summary(
+                self.provider, self.model, config, prompt, wire=self.wire, budget_tokens=self.budget,
+            )
+        except Exception:
+            # A disconnected client wins over transport retry classification.
+            self.check_cancelled()
+            raise
+        self.check_cancelled()
         if time.monotonic() > self.deadline:
             raise ContextCompactionFailed("deadline_exceeded")
         if not isinstance(summary, str) or not summary.strip():
@@ -311,6 +321,7 @@ def _map_summaries(chunks: list[Any], run: _SummaryRun, initial_tokens: int) -> 
     total = len(chunks)
     run.total_chunks = total
     while pending:
+        run.check_cancelled()
         start, chunk, depth = pending.pop(0)
         prompt = run.services.projection.build_chunk_prompt(chunk, start, len(summaries) + 1, total)
         summary = None
@@ -319,6 +330,7 @@ def _map_summaries(chunks: list[Any], run: _SummaryRun, initial_tokens: int) -> 
                 summary = run.generate(prompt)
                 break
             except Exception as exc:
+                run.check_cancelled()
                 retryable = (
                     no_output_context_rejection(exc)
                     or retryable_summary_truncation(exc)
@@ -368,6 +380,7 @@ def _reduce_summaries(
         )
 
     for round_number in range(MAX_REDUCE_ROUNDS + 1):
+        run.check_cancelled()
         output = [*system_messages, {"role": "user", "content": prompt(summaries)}]
         if semantic_payload_cost({"messages": output}, estimate) + 512 <= run.budget:
             return output
@@ -375,6 +388,7 @@ def _reduce_summaries(
             raise ContextCompactionFailed("reduce_round_limit")
         parts: list[str] = []
         for summary in summaries:
+            run.check_cancelled()
             if run.fits(prompt([summary])):
                 parts.append(summary)
                 continue
@@ -485,10 +499,16 @@ def build_llm_compacted_messages(
         ]
         if not all(run.fits(prompt) for prompt in prompts):
             raise ContextCompactionFailed("map_request_exceeds_budget")
+        run.check_cancelled()
+        on_semantic_start = config.get("_context_compact_on_semantic_start")
+        if callable(on_semantic_start):
+            on_semantic_start()
+        run.check_cancelled()
         _write_activity(provider, model, len(chunks), initial_tokens, 0, budget_tokens, "map", 0, workflow)
         summaries = _map_summaries(chunks, run, initial_tokens)
         completed = len(summaries)
         output = _reduce_summaries(summaries, instruction, len(history), systems, run)
+        run.check_cancelled()
     except BaseException as exc:
         workflow.write_activity(
             provider or "provider", model, phase="failed", chunks=run.total_chunks or len(chunks),

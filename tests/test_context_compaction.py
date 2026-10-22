@@ -575,10 +575,13 @@ class ChunkTransportFailureTests(unittest.TestCase):
 
     def test_cancel_between_timeout_and_retry_stops_without_new_request(self):
         services = self.services()
-        services.workflow.request_summary.side_effect = self.wrapped_timeout()
-        cancelled = mock.Mock(side_effect=[False, True])
+        cancelled = asyncio.Event()
+        def timeout_then_cancel(*_args, **_kwargs):
+            cancelled.set()
+            raise self.wrapped_timeout()
+        services.workflow.request_summary.side_effect = timeout_then_cancel
         with self.assertRaisesRegex(ContextCompactionFailed, "client_cancelled"):
-            self.compact(services, {"_context_compact_cancelled": cancelled})
+            self.compact(services, {"_context_compact_cancelled": cancelled.is_set})
         services.workflow.request_summary.assert_called_once()
 
     def test_deadline_between_timeout_and_retry_stops_without_new_request(self):

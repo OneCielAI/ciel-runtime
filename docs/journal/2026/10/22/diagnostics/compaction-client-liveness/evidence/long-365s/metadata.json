@@ -1,0 +1,19 @@
+{
+  "started_at": "2026-10-22T21:39:40.178283+00:00",
+  "executable": "C:\\Users\\djlov\\.local\\share\\claude\\versions\\2.1.308",
+  "sha256": "c9796ba22a9221586b36371b36f5b66198d66eb4badf6a4cf4a5f7b07becea53",
+  "version": "2.1.308 (Claude Code)",
+  "version_exit": 0,
+  "script_sha256": "ebb4f8c9c579dd42aa7917e156e12d051f18427e7a5e944c08299ee8186b49af",
+  "parameters": {
+    "executable": "None",
+    "api_timeout_ms": "10000",
+    "baseline_delay_s": "20",
+    "delay_s": "365",
+    "ping_s": "5",
+    "run_name": "long-365s"
+  },
+  "official_ping_reference": "https://platform.claude.com/docs/en/api/messages-streaming",
+  "isolation": "OS environment allowlist; empty HOME/config/cwd; --bare; no settings/tools/MCP/persistence",
+  "limitation": "Protocol proof, not runtime integration or live Celly modification"
+}

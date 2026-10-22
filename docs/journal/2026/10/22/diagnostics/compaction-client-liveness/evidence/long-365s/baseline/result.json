@@ -1,0 +1,21 @@
+{
+  "mode": "delayed_headers",
+  "delay_s": 20,
+  "ping_s": 5,
+  "api_timeout_ms": 10000,
+  "returncode": 1,
+  "elapsed_s": 10.781,
+  "checks": {
+    "one_message_request": true,
+    "streaming": true,
+    "no_tools": true,
+    "no_harness_timeout": true,
+    "cli_timeout_error": true,
+    "no_headers_before_exit": true,
+    "no_real_message": true
+  },
+  "passed": true,
+  "ping_count": 0,
+  "max_ping_gap_s": 0,
+  "first_real_message_s": null
+}

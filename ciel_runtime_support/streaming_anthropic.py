@@ -19,6 +19,136 @@ from .runaway_output_guard import (
     recent_runaway_notices,
 )
 from .remote_bridge import is_remote_bridge_request
+from .upstream_stream_io import UpstreamClientDisconnected, client_connection_closed
+
+
+def downstream_keepalive_interval() -> float:
+    """One keepalive policy for semantic admission and upstream SSE relay."""
+    raw = os.environ.get("CIEL_RUNTIME_ANTHROPIC_STREAM_KEEPALIVE_SECONDS")
+    if raw is None:
+        return 15.0
+    try:
+        return max(0.0, min(120.0, float(raw)))
+    except (TypeError, ValueError, OverflowError):
+        return 15.0
+
+
+class SemanticCompactionSSE:
+    """Request-local early envelope; the sidecar only probes and writes pings.
+
+    The request thread must join the sole heartbeat writer before relaying or
+    reporting an error. A stuck writer fails closed instead of handing off.
+    Summary generation deliberately never runs on this thread.
+    """
+
+    def __init__(self, handler: Any) -> None:
+        self.handler = handler
+        self.state = "UNSTARTED"
+        self.cancel_event = threading.Event()
+        self._stop = threading.Event()
+        self._thread: threading.Thread | None = None
+
+    @property
+    def started(self) -> bool:
+        return self.state != "UNSTARTED"
+
+    def cancelled(self) -> bool:
+        if not self.cancel_event.is_set() and client_connection_closed(self.handler):
+            self.cancel_event.set()
+        return self.cancel_event.is_set()
+
+    def check_cancelled(self) -> None:
+        if self.started and self.cancelled():
+            raise UpstreamClientDisconnected("downstream client disconnected during compaction")
+
+    def _ping(self) -> None:
+        self.handler.wfile.write(b'event: ping\ndata: {"type":"ping"}\n\n')
+        self.handler.wfile.flush()
+
+    def start(self) -> None:
+        if self.cancelled():
+            raise UpstreamClientDisconnected("downstream client disconnected before compaction")
+        if self.started:
+            return
+        # Mark before writing any headers: even a partial commit cannot be
+        # answered with another HTTP status line.
+        self.state = "EARLY_SSE"
+        self.handler.close_connection = True
+        try:
+            self.handler.send_response(200)
+            self.handler.send_header("content-type", "text/event-stream")
+            self.handler.send_header("cache-control", "no-cache")
+            self.handler.send_header("connection", "close")
+            self.handler.end_headers()
+            self._ping()
+        except Exception:
+            self.cancel_event.set()
+            raise
+        self._thread = threading.Thread(
+            target=self._heartbeat, daemon=True, name="ciel-compaction-heartbeat",
+        )
+        self._thread.start()
+
+    def _heartbeat(self) -> None:
+        interval = downstream_keepalive_interval()
+        next_ping = time.monotonic() + interval
+        try:
+            while not self._stop.wait(0.25):
+                if self.cancelled():
+                    return
+                if interval > 0 and time.monotonic() >= next_ping:
+                    if self._stop.is_set():
+                        return
+                    self._ping()
+                    next_ping = time.monotonic() + interval
+        except Exception:
+            self.cancel_event.set()
+
+    def stop(self) -> bool:
+        """Bounded writer join. False forbids any further downstream writes."""
+        self._stop.set()
+        thread = self._thread
+        if thread is not None:
+            thread.join(timeout=1.0)
+            if thread.is_alive():
+                self.cancel_event.set()
+                # Interrupt a blocked socket write; never race it with relay.
+                connection = getattr(self.handler, "connection", None)
+                if connection is not None:
+                    try:
+                        connection.shutdown(2)
+                    except OSError:
+                        pass
+                thread.join(timeout=1.0)
+                return False
+        return True
+
+    def handoff(self) -> None:
+        if not self.stop():
+            raise UpstreamClientDisconnected("compaction heartbeat writer did not stop")
+        self.check_cancelled()
+        self.state = "RELAYING"
+
+    def fail(self, payload: dict[str, Any]) -> None:
+        """At most one typed error, and only before the existing relay owns IO."""
+        stopped = self.stop()
+        if self.state != "EARLY_SSE":
+            return
+        self.state = "TERMINAL"
+        self.handler.close_connection = True
+        if not stopped or self.cancelled():
+            return
+        try:
+            data = json.dumps(payload, ensure_ascii=False)
+            self.handler.wfile.write(f"event: error\ndata: {data}\n\n".encode("utf-8"))
+            self.handler.wfile.flush()
+        except Exception:
+            self.cancel_event.set()
+
+    def finish(self) -> None:
+        self.stop()
+        if self.started:
+            self.state = "TERMINAL"
 
 
 def _remote_noop(*_args: Any, **_kwargs: Any) -> None:
@@ -332,15 +462,6 @@ def rebatch_anthropic_sse_text(
         nonlocal runaway_verdict
         if runaway_verdict is None:
             runaway_verdict = detector.feed(text)
-
-    def downstream_keepalive_interval() -> float:
-        raw = os.environ.get("CIEL_RUNTIME_ANTHROPIC_STREAM_KEEPALIVE_SECONDS")
-        if raw is None:
-            return 15.0
-        try:
-            return max(0.0, min(120.0, float(raw)))
-        except Exception:
-            return 15.0
 
     def emit_raw(event_type: str | None, data_str: str) -> None:
         try:
