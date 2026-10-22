@@ -54,3 +54,10 @@ compaction itself.
 - Already-running Ciel Runtime processes keep their previously loaded Python
   modules in memory. A relaunched Celly/Ara session is required to activate the
   new package in those processes; no live conversation process was terminated.
+- The package installer then refreshed the stable Windows runtime home from the
+  old snapshot pointer to `C:\Users\djlov\.local\share\ciel-runtime`. Both
+  fixes are present in that installed copy, and an import-level check passed.
+- A graceful restart request for the Celly workspace was claimed, but the old
+  runtime's child termination returned `taskkill` status 128. The old parent
+  process still has its previously loaded modules; closing and reopening the
+  Ciel Runtime launcher is required to load the stable runtime.
