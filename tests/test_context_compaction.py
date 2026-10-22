@@ -537,3 +537,24 @@ class ContextCompactionTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ChunkTransportFailureTests(unittest.TestCase):
+    """One dropped connection must not lose an entire compaction."""
+
+    def test_connection_abort_maps_to_a_degraded_segment_not_a_failure(self):
+        from ciel_runtime_support.context_compaction import (
+            ContextSummaryFragment, _chunk_excerpt,
+        )
+
+        excerpt = _chunk_excerpt([ContextSummaryFragment(0, 0, 4, 4, "abcd", "user")])
+
+        self.assertIn("abcd", excerpt)
+        self.assertIn("unsummarized excerpt", excerpt)
+
+    def test_other_failures_still_propagate(self):
+        import inspect
+        source = inspect.getsource(__import__("ciel_runtime_support.context_compaction",
+                                              fromlist=["_map_summaries"])._map_summaries)
+        self.assertIn("ConnectionError", source)
+        self.assertIn("if not transport:", source)

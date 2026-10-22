@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from http.client import IncompleteRead
+
 import time
 import re
 import urllib.error
@@ -15,6 +17,9 @@ from .upstream_error_policy import UpstreamFailure
 MAX_MAP_CHUNKS = 256
 MAX_SUMMARY_CALLS = 512
 MAX_REDUCE_ROUNDS = 12
+# A single summary call can lose its connection; the chunk is tried again
+# before the compaction degrades that chunk to an excerpt.
+SUMMARY_MAP_ATTEMPTS = 3
 COMPACTION_TIMEOUT_SECONDS = 900.0
 
 
@@ -288,6 +293,32 @@ def _split_rejected_chunk(
     return [(fragment.source_index, [left]), (fragment.source_index, [right])]
 
 
+def _chunk_excerpt(chunk: list[Any], limit: int = 4000) -> str:
+    """A deterministic stand-in when one chunk's summary never completes."""
+
+    parts: list[str] = []
+    for item in chunk:
+        if isinstance(item, ContextSummaryFragment):
+            text = item.text
+        elif isinstance(item, dict):
+            text = str(item.get("content") or "")
+            if isinstance(item.get("content"), list):
+                text = " ".join(
+                    str(block.get("text") or "")
+                    for block in item["content"]
+                    if isinstance(block, dict)
+                )
+        else:
+            text = str(item)
+        text = " ".join(text.split())
+        if text:
+            parts.append(text)
+    joined = "\n".join(parts)
+    if len(joined) > limit:
+        joined = joined[:limit] + " …"
+    return "[unsummarized excerpt of one segment]\n" + joined
+
+
 def _map_summaries(chunks: list[Any], run: _SummaryRun, initial_tokens: int) -> list[str]:
     pending = [(start, chunk, 0) for start, chunk in chunks]
     summaries: list[str] = []
@@ -296,21 +327,44 @@ def _map_summaries(chunks: list[Any], run: _SummaryRun, initial_tokens: int) -> 
     while pending:
         start, chunk, depth = pending.pop(0)
         prompt = run.services.projection.build_chunk_prompt(chunk, start, len(summaries) + 1, total)
-        try:
-            summary = run.generate(prompt)
-        except Exception as exc:
-            retryable = (
-                no_output_context_rejection(exc)
-                or retryable_summary_truncation(exc)
-            )
-            if not retryable or depth >= 4:
-                raise
-            if total >= MAX_MAP_CHUNKS:
-                raise ContextCompactionFailed("map_chunk_limit") from exc
-            smaller = _split_rejected_chunk(chunk, start)
-            total += len(smaller) - 1
-            run.total_chunks = total
-            pending[0:0] = [(offset, parts, depth + 1) for offset, parts in smaller]
+        summary = None
+        for attempt in range(SUMMARY_MAP_ATTEMPTS):
+            try:
+                summary = run.generate(prompt)
+                break
+            except Exception as exc:
+                retryable = (
+                    no_output_context_rejection(exc)
+                    or retryable_summary_truncation(exc)
+                )
+                if retryable:
+                    if depth >= 4:
+                        raise
+                    if total >= MAX_MAP_CHUNKS:
+                        raise ContextCompactionFailed("map_chunk_limit") from exc
+                    smaller = _split_rejected_chunk(chunk, start)
+                    total += len(smaller) - 1
+                    run.total_chunks = total
+                    pending[0:0] = [(offset, parts, depth + 1) for offset, parts in smaller]
+                    summary = None
+                    break
+                # A dropped connection is not a verdict on the chunk: retry,
+                # then keep the history valid with a deterministic excerpt.
+                # Any other failure stays unambiguous and propagates.
+                transport = isinstance(exc, (ConnectionError, EOFError, IncompleteRead))
+                if not transport:
+                    raise
+                if attempt + 1 >= SUMMARY_MAP_ATTEMPTS:
+                    summary = _chunk_excerpt(chunk)
+                    run.services.projection.log(
+                        "WARN",
+                        "context_compact_chunk_degraded "
+                        f"provider={run.provider} chunk={start} "
+                        f"error={type(exc).__name__}: {str(exc)[:160]}",
+                    )
+        if summary is None and not pending:
+            continue
+        if summary is None:
             continue
         summaries.append(summary)
         run.completed_chunks = len(summaries)
