@@ -70,5 +70,5 @@ Ruff and documentation metadata checks pass.
 
 # Status
 
-Release pending. No live session restarted, injected or mutated. Celly recovery is
+[Released and installed](release.md). No live session restarted, injected or mutated. Celly recovery is
 not claimed until a completed checkpoint is observed after its next launch.
