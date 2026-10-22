@@ -63,7 +63,6 @@ The provider's own upper bound on a compact request is not documented here;
 this change is justified by the observed 1.45M > 872K rejection, not by an
 estimate of what the gateway would accept.
 
-<<<<<<< HEAD
 # Correction after CI
 
 The first form applied the window rule to every full compact request. CI run
@@ -77,7 +76,7 @@ no nightly was published from 57b39d4.
 marked by provider_request_builder as _context_compact_native_over_window);
 a translated Codex checkpoint keeps its confirmed-rejection rule, asserted by
 test_translated_codex_checkpoint_keeps_its_rejection_rule.
-=======
+
 # Follow-up: exact combo rejection
 
 The deployed 64ec9c4 build still did not recognize the router's prose rejection
@@ -92,7 +91,6 @@ passthrough suites passed (42 tests); the runtime group passed 441 tests with
 19 existing skips after removing inherited `CIEL_RUNTIME_CODEX_API_KEY`,
 `CIEL_RUNTIME_ROUTER_PORT`, and `CIEL_RUNTIME_TEST_ISOLATED` test-process
 variables. Ruff passed for the changed source and test files.
->>>>>>> fix/combo-context-rejection-compaction
 
 # Second stage: the live build still failed
 
