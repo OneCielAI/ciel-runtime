@@ -18,6 +18,7 @@ from .oauth_routing import anthropic_request_run, open_with_oauth
 from .protocols.openai_responses import strip_openai_responses_reasoning_envelopes
 from .remote_bridge import is_remote_bridge_request
 from .transient_retry import owns_transient_retries, request_scope
+from .context_compaction import no_output_context_rejection
 from .upstream_error_policy import UpstreamFailure
 
 
@@ -159,6 +160,40 @@ def handle_claude_count_tokens_post(
     tokens = count.estimate_tokens(body)
     count.write_context_usage(provider, pcfg, body, "count_tokens")
     count.write_json(handler, {"input_tokens": tokens})
+
+
+def _context_window_recovery_body(
+    provider: str,
+    pcfg: dict[str, Any],
+    upstream_body: dict[str, Any],
+    error: urllib.error.HTTPError,
+    raw_error: bytes,
+    local_request: bool,
+    cap_body: Callable[..., dict[str, Any]],
+) -> dict[str, Any] | None:
+    """Chunk the rejected history and retry once, when the rejection is provable.
+
+    Only a no-output context-window rejection authorizes this: the upstream
+    then stated that nothing was generated, so replaying a compacted request
+    cannot duplicate a partial answer.
+    """
+    if not local_request or getattr(error, "code", None) != 400:
+        return None
+    failure = UpstreamFailure.from_http_error(
+        provider, str(upstream_body.get("model") or ""), error, raw_error,
+        output_started=False,
+    )
+    if not no_output_context_rejection(failure):
+        return None
+    compacted = cap_body(
+        provider,
+        {**pcfg, "_context_compact_context_rejected": True,
+         "_context_compact_native_over_window": True},
+        upstream_body,
+    )
+    if not isinstance(compacted, dict) or compacted is upstream_body:
+        return None
+    return compacted
 
 
 def handle_claude_messages_post(
@@ -450,51 +485,96 @@ def handle_claude_messages_post(
                 )
                 if recovered_body is None:
                     initial_error.ciel_runtime_body = raw_error
-                    raise
-                previous_output = upstream_body.get("max_tokens")
-                upstream_body = recovered_body
-                body["max_tokens"] = recovered_body["max_tokens"]
-                router_log(
-                    "WARN",
-                    "native_context_output_retry "
-                    f"provider={provider} model={upstream_model} "
-                    f"max_tokens={previous_output}->{recovered_body['max_tokens']}",
-                )
-                write_router_activity(
-                    "retry",
-                    provider,
-                    upstream_model,
-                    code=400,
-                    reason="context_output_budget",
-                    max_tokens=recovered_body["max_tokens"],
-                )
-                # A changed output budget is one semantic recovery attempt,
-                # not another transient retry window after the terminal 400.
-                recovery_config = (
-                    {**pcfg, "gateway_retries": 0}
-                    if owns_transient_retries(provider)
-                    else pcfg
-                )
-                recovery_scope = (
-                    request_scope(recovery_config, provider)
-                    if owns_transient_retries(provider)
-                    else nullcontext()
-                )
-                with recovery_scope:
-                    resp = open_with_oauth(
-                        oauth_run,
-                        headers,
-                        lambda attempt_headers: open_provider_request_with_key_retry(
-                            url,
-                            upstream_body,
-                            attempt_headers,
-                            provider_request_timeout_seconds(recovery_config),
-                            provider,
-                            recovery_config,
-                            upstream_model,
-                            stream=bool(body.get("stream", stream_enabled)),
-                        ),
+                    # A context-window rejection is the only proof that the
+                    # history no longer fits; compact it (chunked) and retry
+                    # once instead of handing the 400 back to the client.
+                    compacted = _context_window_recovery_body(
+                        provider, pcfg, upstream_body, initial_error, raw_error,
+                        local_request, cap_anthropic_body_for_provider,
                     )
+                    if compacted is None:
+                        raise
+                    upstream_body = compacted
+                    recovery_config = (
+                        {**pcfg, "gateway_retries": 0}
+                        if owns_transient_retries(provider)
+                        else pcfg
+                    )
+                    router_log(
+                        "WARN",
+                        "context_window_recovery "
+                        f"provider={provider} model={upstream_model} "
+                        f"bytes={len(json.dumps(compacted, ensure_ascii=False).encode('utf-8'))}",
+                    )
+                    write_router_activity(
+                        "retry", provider, upstream_model, code=400,
+                        reason="context_window_recovery",
+                    )
+                    recovery_scope = (
+                        request_scope(recovery_config, provider)
+                        if owns_transient_retries(provider)
+                        else nullcontext()
+                    )
+                    with recovery_scope:
+                        resp = open_with_oauth(
+                            oauth_run,
+                            headers,
+                            lambda attempt_headers: open_provider_request_with_key_retry(
+                                url,
+                                upstream_body,
+                                attempt_headers,
+                                provider_request_timeout_seconds(recovery_config),
+                                provider,
+                                recovery_config,
+                                upstream_model,
+                                stream=bool(body.get("stream", stream_enabled)),
+                            ),
+                        )
+                else:
+                    previous_output = upstream_body.get("max_tokens")
+                    upstream_body = recovered_body
+                    body["max_tokens"] = recovered_body["max_tokens"]
+                    router_log(
+                        "WARN",
+                        "native_context_output_retry "
+                        f"provider={provider} model={upstream_model} "
+                        f"max_tokens={previous_output}->{recovered_body['max_tokens']}",
+                    )
+                    write_router_activity(
+                        "retry",
+                        provider,
+                        upstream_model,
+                        code=400,
+                        reason="context_output_budget",
+                        max_tokens=recovered_body["max_tokens"],
+                    )
+                    # A changed output budget is one semantic recovery attempt,
+                    # not another transient retry window after the terminal 400.
+                    recovery_config = (
+                        {**pcfg, "gateway_retries": 0}
+                        if owns_transient_retries(provider)
+                        else pcfg
+                    )
+                    recovery_scope = (
+                        request_scope(recovery_config, provider)
+                        if owns_transient_retries(provider)
+                        else nullcontext()
+                    )
+                    with recovery_scope:
+                        resp = open_with_oauth(
+                            oauth_run,
+                            headers,
+                            lambda attempt_headers: open_provider_request_with_key_retry(
+                                url,
+                                upstream_body,
+                                attempt_headers,
+                                provider_request_timeout_seconds(recovery_config),
+                                provider,
+                                recovery_config,
+                                upstream_model,
+                                stream=bool(body.get("stream", stream_enabled)),
+                            ),
+                        )
             if bool(body.get("stream", stream_enabled)):
                 set_upstream_stream_read_timeout(resp, provider_stream_idle_timeout_seconds(pcfg))
             status = getattr(resp, "status", 200)

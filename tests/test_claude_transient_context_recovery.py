@@ -149,3 +149,114 @@ class ClaudeTransientContextRecoveryTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+COMBO_OVERFLOW = json.dumps({"type": "error", "error": {
+    "type": "invalid_request_error",
+    "message": "Conversation exceeds the known context limits of all eligible "
+               "combo targets. Compact the conversation before retrying."}}).encode()
+
+
+class CielAiRouterContextWindowRecoveryTests(unittest.TestCase):
+    """The combo gateway states the overflow in prose; it still authorizes one retry."""
+
+    def test_prose_context_rejection_compacts_and_retries_once(self):
+        class Upstream(http.server.BaseHTTPRequestHandler):
+            def do_POST(self):
+                raw = self.rfile.read(int(self.headers.get("content-length") or 0))
+                self.server.bodies.append(json.loads(raw))
+                status, payload = ((400, COMBO_OVERFLOW) if len(self.server.bodies) == 1
+                                   else (200, json.dumps(SUCCESS).encode()))
+                self.send_response(status)
+                self.send_header("content-type", "application/json")
+                self.send_header("content-length", str(len(payload)))
+                self.end_headers()
+                self.wfile.write(payload)
+
+            def log_message(self, *_args):
+                pass
+
+        server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Upstream)
+        server.bodies = []
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        transport = retry_services(
+            lambda request, *, timeout, provider, pcfg: opener.open(request, timeout=timeout))
+
+        def open_request(*a, **kw):
+            return open_provider_request_with_key_retry(*a, **kw, services=transport)
+
+        svc = route_services(f"http://127.0.0.1:{server.server_address[1]}/v1/messages", open_request)
+        compacted_for = []
+
+        def cap(provider, pcfg, body):
+            if not pcfg.get("_context_compact_context_rejected"):
+                return body
+            compacted_for.append(pcfg.get("_context_compact_native_over_window"))
+            return {**body, "messages": body["messages"][-1:], "tools": []}
+
+        svc = replace(svc, normalization=replace(svc.normalization, cap_body=cap))
+        handler = SimpleNamespace(path="/v1/messages", headers={}, wfile=io.BytesIO(),
+            send_response=mock.Mock(), send_header=mock.Mock(), end_headers=mock.Mock())
+        config = {"gateway_retries": 3, "stream_enabled": False}
+        request = {"model": "model", "messages": [
+            {"role": "user", "content": "history one"},
+            {"role": "assistant", "content": "history two"},
+            {"role": "user", "content": "compact now"}], "max_tokens": 400, "stream": False}
+
+        claude.handle_claude_messages_post(svc, handler, {}, "cielairouter",
+                                          config, "/v1/messages", request)
+
+        self.assertEqual(2, len(server.bodies))
+        self.assertEqual(["history one", "history two", "compact now"],
+                         [m["content"] for m in server.bodies[0]["messages"]])
+        self.assertEqual(["compact now"], [m["content"] for m in server.bodies[1]["messages"]])
+        self.assertEqual([True], compacted_for)
+        self.assertEqual([], server.bodies[1]["tools"])
+        self.assertNotIn("_iel_context_window_recovered", server.bodies[1])
+        self.assertEqual(200, handler.send_response.call_args.args[0])
+        self.assertIn(b"single-answer", handler.wfile.getvalue())
+
+    def test_unrelated_400_is_returned_without_compaction(self):
+        class Upstream(http.server.BaseHTTPRequestHandler):
+            def do_POST(self):
+                self.rfile.read(int(self.headers.get("content-length") or 0))
+                self.server.bodies.append(1)
+                payload = b'{"type":"error","error":{"type":"invalid_request_error","message":"bad tools"}}'
+                self.send_response(400)
+                self.send_header("content-type", "application/json")
+                self.send_header("content-length", str(len(payload)))
+                self.end_headers()
+                self.wfile.write(payload)
+
+            def log_message(self, *_args):
+                pass
+
+        server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Upstream)
+        server.bodies = []
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        transport = retry_services(
+            lambda request, *, timeout, provider, pcfg: opener.open(request, timeout=timeout))
+
+        def open_request(*a, **kw):
+            return open_provider_request_with_key_retry(*a, **kw, services=transport)
+
+        svc = route_services(f"http://127.0.0.1:{server.server_address[1]}/v1/messages", open_request)
+        cap = mock.Mock(side_effect=lambda _p, _c, body: body)
+        svc = replace(svc, normalization=replace(svc.normalization, cap_body=cap))
+        handler = SimpleNamespace(path="/v1/messages", headers={}, wfile=io.BytesIO(),
+            send_response=mock.Mock(), send_header=mock.Mock(), end_headers=mock.Mock())
+        claude.handle_claude_messages_post(
+            svc, handler, {}, "cielairouter",
+            {"gateway_retries": 0, "stream_enabled": False}, "/v1/messages",
+            {"model": "model", "messages": [{"role": "user", "content": "x"}],
+             "max_tokens": 10, "stream": False})
+        handler.send_response.assert_called_once_with(400)
+        self.assertEqual(1, len(server.bodies))
+        self.assertTrue(all(not call.args[1].get("_context_compact_context_rejected")
+                            for call in cap.call_args_list))
