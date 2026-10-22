@@ -480,6 +480,9 @@ def compact_anthropic_body_for_budget(
             return body
     initial_tokens = runtime.estimate_tokens(body)
     over_window = window is not None and initial_tokens > window
+    if (pcfg or {}).get("_context_compact_only_if_over_window") and not over_window:
+        # The provider opted out of preflight; only the window guard may act.
+        return body
     if initial_tokens <= budget_tokens:
         return body
     if (full_compact_request or over_window) and pcfg is not None and provider and model:

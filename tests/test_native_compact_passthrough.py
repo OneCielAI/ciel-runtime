@@ -201,3 +201,29 @@ class ConfirmedRejectionForcesSemanticChunkingTests(unittest.TestCase):
         with mock.patch.object(ciel_runtime, "maybe_build_llm_compacted_messages", summaries):
             ciel_runtime.cap_anthropic_body_for_provider("cielairouter", config, copy.deepcopy(body))
         summaries.assert_not_called()
+
+
+class PreflightOptOutStillGuardsTheWindowTests(unittest.TestCase):
+    def test_disabled_preflight_still_chunks_a_body_past_the_window(self):
+        import ciel_runtime
+        body = {"model": "m", "messages": [{"role": "user", "content": [{"type": "text", "text": "x" * 20000}]}
+                                           for _ in range(300)]}
+        config = {"current_model": "ASTRA", "context_window": 872000,
+                  "preflight_prompt_compaction": False}
+        summaries = mock.Mock(return_value=[{"role": "user", "content": "summary"}])
+        with mock.patch.object(ciel_runtime, "maybe_build_llm_compacted_messages", summaries):
+            out = ciel_runtime.cap_anthropic_body_for_provider("cielairouter", config, copy.deepcopy(body))
+        summaries.assert_called_once()
+        self.assertEqual([{"role": "user", "content": "summary"}], out["messages"])
+
+    def test_disabled_preflight_leaves_a_body_inside_the_window_alone(self):
+        import ciel_runtime
+        body = {"model": "m", "messages": [{"role": "user", "content": [{"type": "text", "text": "x" * 20000}]}
+                                           for _ in range(10)]}
+        config = {"current_model": "ASTRA", "context_window": 872000,
+                  "preflight_prompt_compaction": False}
+        summaries = mock.Mock(return_value=[])
+        with mock.patch.object(ciel_runtime, "maybe_build_llm_compacted_messages", summaries):
+            out = ciel_runtime.cap_anthropic_body_for_provider("cielairouter", config, copy.deepcopy(body))
+        summaries.assert_not_called()
+        self.assertEqual(len(body["messages"]), len(out["messages"]))

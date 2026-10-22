@@ -156,7 +156,11 @@ class ProviderRequestBuilder:
         # Codex checkpoint remains the exception because its client cannot
         # perform Anthropic-native compaction itself.
         preflight_disabled = config.get("preflight_prompt_compaction") is False
-        if not rejected and compact_kind != "codex" and (
+        # A request estimated past the model window cannot be served by any
+        # upstream, so even an explicit preflight opt-out still delivers it to
+        # the window guard, which only acts above that window.
+        guarded_by_window = compact_kind != "codex" and provider != "anthropic"
+        if not rejected and not guarded_by_window and (
                 provider == "anthropic" or preflight_disabled):
             return capped
         context_limit = (
@@ -180,14 +184,10 @@ class ProviderRequestBuilder:
         # Any request past the model window is chunked before it is sent; a
         # translated Codex checkpoint keeps the confirmed-rejection rule of its
         # own recovery path, as does native Anthropic (it owns compaction).
-        over_window_guard = (
-            compact_kind != "codex"
-            and provider != "anthropic"
-            and not preflight_disabled
-        )
         compact_config = (
-            {**config, "_context_compact_native_over_window": True}
-            if over_window_guard
+            {**config, "_context_compact_native_over_window": True,
+             "_context_compact_only_if_over_window": preflight_disabled}
+            if guarded_by_window
             else config
         )
         capped = self.budget.compact_anthropic(
