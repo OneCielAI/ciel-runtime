@@ -129,3 +129,13 @@ window recovery reaches the map/reduce reducers that chunk to the input
 budget. Tests assert the semantic function runs with the marker and does not
 run without it; a 4 MB synthetic history reduces to the injected summary.
 324 exact-file tests OK.
+
+# Fourth stage: trigger before the error, not only after it
+
+42e52d5 runs the window guard for every routed Claude request: a body
+estimated above the model's context window is chunked before it is sent, so
+the gateway never sees a request it must refuse. Below the window the old
+rules stay: a native checkpoint waits for the explicit no-output rejection and
+an ordinary turn keeps the tail guard; native Anthropic and the preflight
+opt-out are untouched. Both triggers now exist -- proactive over the window,
+reactive on the rejected error.
