@@ -4,7 +4,7 @@ title: Celly cannot compact a history larger than the upstream window
 description: The native compact request is forwarded unmodified at 1.45M tokens and the gateway rejects it; a checkpoint past the whole context window is now chunked instead.
 tags: [celly, compaction, cielairouter, context-window]
 timestamp: 2026-10-22
-status: fixed-source
+status: verified-source
 ---
 
 # Reported symptom
@@ -63,6 +63,7 @@ The provider's own upper bound on a compact request is not documented here;
 this change is justified by the observed 1.45M > 872K rejection, not by an
 estimate of what the gateway would accept.
 
+<<<<<<< HEAD
 # Correction after CI
 
 The first form applied the window rule to every full compact request. CI run
@@ -76,3 +77,42 @@ no nightly was published from 57b39d4.
 marked by provider_request_builder as _context_compact_native_over_window);
 a translated Codex checkpoint keeps its confirmed-rejection rule, asserted by
 test_translated_codex_checkpoint_keeps_its_rejection_rule.
+=======
+# Follow-up: exact combo rejection
+
+The deployed 64ec9c4 build still did not recognize the router's prose rejection
+when a compact request reached the provider before the over-window estimate was
+available. `no_output_context_rejection` now classifies the exact
+`invalid_request_error` text, "Conversation exceeds the known context limits of
+all eligible combo targets. Compact the conversation before retrying.", as a
+no-output context rejection. Unrelated 400 responses remain non-retryable.
+
+Verification after this follow-up: focused context-compaction and native
+passthrough suites passed (42 tests); the runtime group passed 441 tests with
+19 existing skips after removing inherited `CIEL_RUNTIME_CODEX_API_KEY`,
+`CIEL_RUNTIME_ROUTER_PORT`, and `CIEL_RUNTIME_TEST_ISOLATED` test-process
+variables. Ruff passed for the changed source and test files.
+>>>>>>> fix/combo-context-rejection-compaction
+
+# Second stage: the live build still failed
+
+Celly was confirmed running 0.2.51-nightly.20261022-142105.8045ba0 at 09:03
+and 09:08 and forwarded the same 1,458,507-token request; the gateway answered
+the same prose 400. So the preflight rule did not fire there: the checkpoint
+kind was not proven at request time, and a native checkpoint still must not be
+rewritten on a local estimate alone.
+
+The error itself is the proof the preflight lacked. 81a270b:
+- no_output_context_rejection recognizes "exceeds the known context limit"
+  and "compact the conversation before retrying" for invalid_request_error.
+- The native Messages path, on a no-output 400, compacts the rejected history
+  through the semantic chunked path (_context_compact_context_rejected) and
+  retries once under a fresh unshared transient-retry scope.
+- The two pre-existing recovery branches are now an if/else; before, a
+  successful window recovery fell through to the output-budget branch and
+  raised TypeError('NoneType' object is not subscriptable).
+
+tests/test_claude_transient_context_recovery.py
+CielAiRouterContextWindowRecoveryTests: the prose 400 produces exactly one
+second upstream request whose body is the compacted one, and an unrelated 400
+is returned unchanged with no compaction. 330 exact-file tests OK.
