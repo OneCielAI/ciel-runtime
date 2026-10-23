@@ -93,5 +93,6 @@ whitespace checks pass.
 
 # Delivery
 
-Source and local loopback validation only. No commit/push, npm installation,
-remote changes or live router/CLI restart were performed for this request.
+Initial implementation was source-only. The user then requested local deployment
+and nightly push. See [release](release.md) for commit, CI, npm package,
+installed-code verification, and unchanged live-router PIDs.

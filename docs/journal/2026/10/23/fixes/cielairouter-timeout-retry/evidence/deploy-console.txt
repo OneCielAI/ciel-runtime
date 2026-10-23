@@ -1,0 +1,65 @@
+REGISTRY {'version': '0.2.51-nightly.20261023-155417.dfcf41a', 'gitHead': 'dfcf41a529c7dc1f24945c964b853b0146220830'} BEFORE {'9489': {'ok': True, 'pid': 34936, 'version': '0.2.51-nightly.20261023-071511.dc7711a'}, '9505': {'ok': True, 'pid': 33444, 'version': '0.2.51-nightly.20261023-052413.0cd6c60'}, '9524': {'ok': True, 'pid': 51420, 'version': '0.2.51-nightly.20261023-012415.bb5a17f'}, '9385': {'ok': True, 'pid': 49232, 'version': '0.2.51-nightly.20261023-052413.0cd6c60'}}
+
+changed 1 package in 1s
+
+RUN ['C:\\Program Files\\Python311\\python.exe', '-X', 'utf8', '-I', 'C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-release-dfcf41a-xjrue9o5\\installed_runner.py', 'test_cielairouter_timeout_route', 'test_transient_retry_timeout', 'test_transient_retry', 'test_transient_retry_deadline', 'test_transient_retry_preamble', 'test_transient_retry_read_timeout', 'test_cielairouter_transient_integration', 'test_upstream_retry', 'test_router_transient_retry_scope', 'test_provider_responses_gateway_replay_guard', 'test_openai_responses_upstream_stream_error', 'test_cielairouter_handled_error_guards']
+{
+  "commit": "dfcf41a529c7dc1f24945c964b853b0146220830",
+  "version": "0.2.51-nightly.20261023-155417.dfcf41a",
+  "registry": {
+    "version": "0.2.51-nightly.20261023-155417.dfcf41a",
+    "gitHead": "dfcf41a529c7dc1f24945c964b853b0146220830"
+  },
+  "copied_files": 449,
+  "hashes": {
+    "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-release-dfcf41a-xjrue9o5\\package": "3d6dae320c9f56c7edb86f0c446f39591d951bf9f4f3de2ed0b9d750bc97aeff",
+    "C:\\Users\\djlov\\.local\\share\\ciel-runtime": "3d6dae320c9f56c7edb86f0c446f39591d951bf9f4f3de2ed0b9d750bc97aeff",
+    "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime": "3d6dae320c9f56c7edb86f0c446f39591d951bf9f4f3de2ed0b9d750bc97aeff"
+  },
+  "health_before": {
+    "9489": {
+      "ok": true,
+      "pid": 34936,
+      "version": "0.2.51-nightly.20261023-071511.dc7711a"
+    },
+    "9505": {
+      "ok": true,
+      "pid": 33444,
+      "version": "0.2.51-nightly.20261023-052413.0cd6c60"
+    },
+    "9524": {
+      "ok": true,
+      "pid": 51420,
+      "version": "0.2.51-nightly.20261023-012415.bb5a17f"
+    },
+    "9385": {
+      "ok": true,
+      "pid": 49232,
+      "version": "0.2.51-nightly.20261023-052413.0cd6c60"
+    }
+  },
+  "health_after": {
+    "9489": {
+      "ok": true,
+      "pid": 34936,
+      "version": "0.2.51-nightly.20261023-071511.dc7711a"
+    },
+    "9505": {
+      "ok": true,
+      "pid": 33444,
+      "version": "0.2.51-nightly.20261023-052413.0cd6c60"
+    },
+    "9524": {
+      "ok": true,
+      "pid": 51420,
+      "version": "0.2.51-nightly.20261023-012415.bb5a17f"
+    },
+    "9385": {
+      "ok": true,
+      "pid": 49232,
+      "version": "0.2.51-nightly.20261023-052413.0cd6c60"
+    }
+  },
+  "installed_tests": "99 passed",
+  "restarted_sessions": false
+}
