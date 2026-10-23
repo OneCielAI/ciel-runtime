@@ -1,0 +1,65 @@
+REGISTRY {'version': '0.2.51-nightly.20261023-203900.ed7ab55', 'gitHead': 'ed7ab55659a9e5ffe39d1509982552acafe80b7a'} BEFORE {'9489': {'ok': True, 'pid': 77744, 'version': '0.2.51-nightly.20261023-155417.dfcf41a'}, '9505': {'ok': True, 'pid': 33444, 'version': '0.2.51-nightly.20261023-052413.0cd6c60'}, '9524': {'ok': True, 'pid': 51420, 'version': '0.2.51-nightly.20261023-012415.bb5a17f'}, '9385': {'ok': True, 'pid': 69748, 'version': '0.2.51-nightly.20261023-155417.dfcf41a'}}
+
+changed 1 package in 1s
+
+RUN ['C:\\Program Files\\Python311\\python.exe', '-X', 'utf8', '-I', 'C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-release-b8b8k9n6\\installed_runner.py', 'test_cielairouter_timeout_route', 'test_transient_retry_timeout', 'test_transient_retry', 'test_transient_retry_deadline', 'test_transient_retry_preamble', 'test_transient_retry_read_timeout', 'test_cielairouter_transient_integration', 'test_upstream_retry', 'test_router_transient_retry_scope', 'test_provider_responses_gateway_replay_guard', 'test_openai_responses_upstream_stream_error', 'test_cielairouter_handled_error_guards', 'test_context_compaction', 'test_runtime_compaction_control', 'test_runtime_compaction_binding', 'test_runtime_compaction_checkpoint_evidence', 'test_runtime_compaction_continuation_boundary', 'test_channel_inflight', 'test_channel_pending_poll', 'test_channel_pending_injection', 'test_channel_terminal_dispatch', 'test_channel_terminal_input', 'test_channel_walkie_delivery', 'test_claude_stream_recovery_runtime', 'test_claude_stream_recovery_settings', 'test_claude_compact_continuation']
+{
+  "commit": "ed7ab55659a9e5ffe39d1509982552acafe80b7a",
+  "version": "0.2.51-nightly.20261023-203900.ed7ab55",
+  "registry": {
+    "version": "0.2.51-nightly.20261023-203900.ed7ab55",
+    "gitHead": "ed7ab55659a9e5ffe39d1509982552acafe80b7a"
+  },
+  "copied_files": 450,
+  "hashes": {
+    "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-release-b8b8k9n6\\package": "16de8775219480e75bee6d90e9ca288e10416c3cbf37cacea0afb6e1b1401365",
+    "C:\\Users\\djlov\\.local\\share\\ciel-runtime": "16de8775219480e75bee6d90e9ca288e10416c3cbf37cacea0afb6e1b1401365",
+    "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime": "16de8775219480e75bee6d90e9ca288e10416c3cbf37cacea0afb6e1b1401365"
+  },
+  "health_before": {
+    "9489": {
+      "ok": true,
+      "pid": 77744,
+      "version": "0.2.51-nightly.20261023-155417.dfcf41a"
+    },
+    "9505": {
+      "ok": true,
+      "pid": 33444,
+      "version": "0.2.51-nightly.20261023-052413.0cd6c60"
+    },
+    "9524": {
+      "ok": true,
+      "pid": 51420,
+      "version": "0.2.51-nightly.20261023-012415.bb5a17f"
+    },
+    "9385": {
+      "ok": true,
+      "pid": 69748,
+      "version": "0.2.51-nightly.20261023-155417.dfcf41a"
+    }
+  },
+  "health_after": {
+    "9489": {
+      "ok": true,
+      "pid": 77744,
+      "version": "0.2.51-nightly.20261023-155417.dfcf41a"
+    },
+    "9505": {
+      "ok": true,
+      "pid": 33444,
+      "version": "0.2.51-nightly.20261023-052413.0cd6c60"
+    },
+    "9524": {
+      "ok": true,
+      "pid": 51420,
+      "version": "0.2.51-nightly.20261023-012415.bb5a17f"
+    },
+    "9385": {
+      "ok": true,
+      "pid": 69748,
+      "version": "0.2.51-nightly.20261023-155417.dfcf41a"
+    }
+  },
+  "installed_tests": "passed (see installed-tests.txt)",
+  "restarted_sessions": false
+}

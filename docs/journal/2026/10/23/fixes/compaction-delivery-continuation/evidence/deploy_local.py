@@ -33,7 +33,8 @@ def health():
             result[str(port)] = {"error": type(error).__name__}
     return result
 
-metadata = json.loads(npm("view", "@one-ciel-ai/ciel-runtime@nightly", "version", "gitHead", "--json"))
+target = sys.argv[2] if len(sys.argv) > 2 else "nightly"
+metadata = json.loads(npm("view", "@one-ciel-ai/ciel-runtime@" + target, "version", "gitHead", "--json"))
 assert metadata["gitHead"] == COMMIT, metadata
 version = metadata["version"]
 before = health()
