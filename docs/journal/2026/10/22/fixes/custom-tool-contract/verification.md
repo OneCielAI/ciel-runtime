@@ -24,8 +24,16 @@ Do not redesign outbound namespace hoisting or unrelated translated Anthropic na
 
 # Status
 
-Focused validation: 177 tests across 10 Responses/provider files passed. The new contract suite covers namespace, additional_tools, exact-function precedence, ambiguity, native custom preservation, SSE optional-space/CRLF/event fallback, all byte-split positions sampled every13 bytes, JSON and buffered stream delivery, no conversion flag, and remote-bridge exclusion. Ruff, compile and diff checks pass.
+Focused validation: 177 tests across 10 Responses/provider files passed. The new contract suite covers namespace, additional_tools, exact-function precedence, ambiguity, native custom preservation, SSE optional-space/CRLF/event fallback, all single byte-split positions, including UTF-8 boundaries, JSON and buffered stream delivery, no conversion flag, and remote-bridge exclusion. Ruff, compile and diff checks pass.
 
 One initial nonstream byte-preservation assertion was corrected in the product: when projection produces no change, the original JSON bytes are now forwarded unchanged.
 
 Implementation ready for commit/release; Celly post-compact continuation remains a separate confirmed behavior investigation.
+
+# Real HTTP replay
+
+The isolated loopback script replayed function_call exec with a JSON input envelope through the real ProviderResponsesPassthrough HTTP opener. Without the outbound conversion flag, the client received custom_tool_call, namespace functions, the exact raw script and original call_id; one upstream request. No production model API or remote sandbox execution used. Evidence: evidence/loopback-source.json.
+
+# Negative control
+
+Running the 22 new cases against original9538df3 bridge/passthrough modules produced27 failing subtests (evidence/negative-control.txt); patched modules pass. These are actual runtime defects, not speculative attribution to the gateway.
