@@ -190,6 +190,13 @@ class ClaudeLimitPolicy:
                 percent = max(1, min(100, (desired_tokens * 100) // window))
         if guarded:
             percent = self._guarded_percent(percent, window, provider, config)
+        if provider == "cielairouter" and guarded and window and percent:
+            # Gateway aliases do not reliably take the CLI's native percentage
+            # path. Express the selected profile's trigger as a token window,
+            # retaining the full model context separately and applying no
+            # second percentage to the derived window. CLI accepts 100K..1M.
+            window = min(window, max(100_000, window * percent // 100))
+            percent = None
         return ClaudeCompactionSnapshot(limit or None, window, percent)
 
     def _guarded_percent(

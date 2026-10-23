@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import os
+import sys
+
 import argparse
 import ast
 import copy
 import io
 import json
-import os
 import tempfile
 import time
 import unittest
@@ -369,6 +371,22 @@ class ClaudeEnvironmentTests(unittest.TestCase):
         self.assertEqual(ROUTER_BASE, routed["ANTHROPIC_BASE_URL"])
         self.assertTrue(routed["ANTHROPIC_MODEL"].startswith("ciel-runtime-cielairouter-"))
 
+    def test_spawned_child_receives_model_context_and_token_compact_window(self):
+        import subprocess
+        env = {key: value for key, value in os.environ.items()
+               if not key.startswith(("CIEL_RUNTIME_", "CLAUDE", "ANTHROPIC"))}
+        env.update(self.env(context_window=872000, max_model_len=872000))
+        env.pop("CLAUDE_AUTOCOMPACT_PCT_OVERRIDE", None)
+        result = subprocess.check_output([sys.executable, "-I", "-c",
+            "import os,json; print(json.dumps({k:os.environ.get(k) for k in "
+            "('CLAUDE_CODE_MAX_CONTEXT_TOKENS','CLAUDE_CODE_AUTO_COMPACT_WINDOW','CLAUDE_AUTOCOMPACT_PCT_OVERRIDE')}))"],
+            env=env, text=True)
+        values = json.loads(result)
+        self.assertEqual("872000", values["CLAUDE_CODE_MAX_CONTEXT_TOKENS"])
+        self.assertLess(int(values["CLAUDE_CODE_AUTO_COMPACT_WINDOW"]), 872000)
+        self.assertIsNone(values["CLAUDE_AUTOCOMPACT_PCT_OVERRIDE"])
+        print("spawned_compact_environment", values)
+
     def test_direct_environment_points_at_the_gateway_with_upstream_models(self):
         routed = self.env()
         direct = self.env(LaunchDataPath("claude", DIRECT, DIRECT, "https://gw1.example", "n1", "central.example",
@@ -385,7 +403,7 @@ class ClaudeEnvironmentTests(unittest.TestCase):
         self.assertEqual({"ANTHROPIC_BASE_URL", "ANTHROPIC_MODEL", "ANTHROPIC_CUSTOM_MODEL_OPTION",
                           "ANTHROPIC_DEFAULT_HAIKU_MODEL", "ANTHROPIC_DEFAULT_OPUS_MODEL", "ANTHROPIC_DEFAULT_SONNET_MODEL",
                           "CLAUDE_CODE_SUBAGENT_MODEL", "CIEL_RUNTIME_MODEL_ALIAS",
-                          "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE", "CLAUDE_CODE_MAX_RETRIES"}, changed)
+                          "CLAUDE_CODE_AUTO_COMPACT_WINDOW", "CLAUDE_CODE_MAX_RETRIES"}, changed)
         self.assertEqual("0", routed["CLAUDE_CODE_MAX_RETRIES"])
         self.assertEqual("3", direct["CLAUDE_CODE_MAX_RETRIES"])
         self.assertNotIn("CLAUDE_AUTOCOMPACT_PCT_OVERRIDE", direct)

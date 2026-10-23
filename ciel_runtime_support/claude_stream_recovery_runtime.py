@@ -355,10 +355,12 @@ class ClaudeStreamRecoveryMonitor:
         quiet_seconds: float = QUIET_SECONDS,
         input_watermark: Callable[[], int] = lambda: 0,
         bound_epoch: Callable[[], str] = lambda: "",
+        compact_dispatch: Callable[[], dict[str, Any]] = lambda: {},
     ) -> None:
         self.ledger, self.load_config, self.scope, self.submit, self.log = ledger, load_config, scope, submit, log
         self.now, self.quiet_seconds, self.input_watermark = now, quiet_seconds, input_watermark
         self.bound_epoch = bound_epoch
+        self.compact_dispatch = compact_dispatch
         # The terminal proxy's last report: ready/manual_input/busy/compaction/
         # pending flags plus its time.  None until one arrives.
         self._terminal: dict[str, Any] | None = None
@@ -430,14 +432,38 @@ class ClaudeStreamRecoveryMonitor:
         self.log("INFO", f"claude_stream_recovery_skipped reason={reason} {subject}")
         self.ledger.note(pending["error_uuid"], "skipped", reason)
 
+    def _runtime_compact_owned(self, record: dict[str, Any]) -> bool:
+        """Only confirmed automatic dispatch, never a transported manual command."""
+        try:
+            dispatch = self.compact_dispatch()
+            scope = self.scope()
+            if (scope is None or dispatch.get("scope") != scope.payload()
+                    or dispatch.get("automatic") is not True
+                    or dispatch.get("source") != "model-compact-safeguard"
+                    or dispatch.get("submission") != "submitted"):
+                return False
+            from datetime import datetime
+            at = datetime.fromisoformat(str(record.get("timestamp") or "").replace("Z", "+00:00")).timestamp()
+            verified_at = dispatch.get("verified_at")
+            return (record.get("sessionId") == scope.session_id
+                    and (verified_at is None or at <= float(verified_at))
+                    and 0 <= at - float(dispatch.get("dispatched_at") or 0) <= 1200)
+        except (OSError, TypeError, ValueError, OverflowError):
+            return False
+
     def observe(self, record: dict[str, Any]) -> None:
         if record.get("isSidechain") is True:
             return
         kind = record.get("type")
         if kind == "system" and record.get("subtype") == "compact_boundary":
             self._cancel("compaction")
+            candidate = record
+            metadata = record.get("compactMetadata")
+            if (isinstance(metadata, dict) and metadata.get("trigger") == "manual"
+                    and self._runtime_compact_owned(record)):
+                candidate = {**record, "compactMetadata": {**metadata, "trigger": "auto"}}
             pending, reason = self._compact.candidate(
-                record, self.scope(), self.bound_epoch(), self.now(), self._watermark()
+                candidate, self.scope(), self.bound_epoch(), self.now(), self._watermark()
             )
             if reason:
                 self._skip(pending, reason, f"checkpoint={record.get('uuid') or '-'}")
@@ -445,6 +471,11 @@ class ClaudeStreamRecoveryMonitor:
                 self._pending = pending
             return
         message = record.get("message") if isinstance(record.get("message"), dict) else {}
+        text = _text(message.get("content"))
+        if (self._runtime_compact_owned(record)
+                and (kind == "system" and record.get("subtype") == "local_command"
+                     or kind == "user" and (text.strip() == "/compact" or "<command-name>/compact</command-name>" in text))):
+            return
         self._compact.observe(record, self.scope(), _text(message.get("content")), self._watermark())
         if self._pending and self._pending.get("kind") == "compact_resume":
             # Summary/attachments/permission bookkeeping follow every native
@@ -639,6 +670,7 @@ class ClaudeStreamRecovery:
         self.monitor = ClaudeStreamRecoveryMonitor(
             self.ledger, load_config, binding.scope, submit, log, input_watermark=input_watermark,
             bound_epoch=lambda: str(getattr(binding, "bound_epoch", "") or ""),
+            compact_dispatch=lambda: binding.compact_dispatch(),
         )
         self.binding = binding
 

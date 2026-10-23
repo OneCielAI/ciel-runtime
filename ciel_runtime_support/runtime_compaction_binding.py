@@ -23,6 +23,7 @@ from .channel_transcript_repository import (
     read_codex_session_meta,
 )
 from .native_context_recovery import parse_context_overflow
+from .native_model_usage import latest_native_model_usage
 from .oauth_routing import codex_session_key
 from .process_control import pid_is_running
 from .remote_bridge import REMOTE_BRIDGE_CONFIG_MARKER
@@ -141,6 +142,7 @@ class RuntimeCompactionBinding:
                  log: Callable[[str, str], None]) -> None:
         self.home, self.builder, self.estimate, self.config, self.log = home, builder, estimate, config, log
         self.repository = SecureJsonRepository(root / "compaction-scope.json", SecureJsonEffects(log=log))
+        self.safeguard_checked = 0.0
         self.seed_lock_path = root / "compaction-seed"
         self.cache: dict[str, Any] = {}
         self.seeded = ""
@@ -470,10 +472,27 @@ class RuntimeCompactionBinding:
                     return True
                 if self.seeded != f"{scope.epoch}:{scope.session_id}":
                     self._seed(scope)
+                self._observe_safeguard(scope)
         except (OSError, ValueError, TypeError) as exc:
             self.log("WARN", f"runtime_compaction_scope admission=paused reason=state_unavailable error={type(exc).__name__}")
             return True
         return self.control.external_admission_paused()
+
+    def _observe_safeguard(self, scope, force=False):
+        now = time.monotonic()
+        if not force and now - self.safeguard_checked < 2:
+            return
+        self.safeguard_checked = now
+        provider, config = self.config()
+        value = self._update(str())
+        model = str(config.get('current_model') or str()).strip()
+        enabled = (provider == 'cielairouter' and scope.runtime == 'claude'
+                   and config.get('compact_safeguard') is not False
+                   and not config.get(REMOTE_BRIDGE_CONFIG_MARKER))
+        limit = self.builder().budget.context_limit(provider, config) if enabled else 0
+        since = max(float(value.get('started_at') or 0), float(value.get('identity_since') or 0))
+        sample = latest_native_model_usage(self.transcript_path(), scope, since, model) if enabled else None
+        self.control.observe_proactive(scope, sample, _positive(limit), model.casefold())
 
     def _request_identity_pending(self, value: dict[str, Any]) -> bool:
         """Hold external input until this launch proves its routed session.
@@ -570,7 +589,23 @@ class RuntimeCompactionBinding:
             return ""
         return "context_recovery" if self.scope() is not None else "identity_pending"
 
+    def compact_dispatch(self) -> dict[str, Any]:
+        """Exact confirmed runtime dispatch for a continuation observer."""
+        scope = self.scope()
+        state = self.control.ports.load() if scope is not None else None
+        if not isinstance(state, dict) or state.get("scope") != scope.payload():
+            return {}
+        dispatch = state.get("dispatch")
+        if not isinstance(dispatch, dict):
+            return {}
+        return {**dispatch, "verified_at": state.get("verified_at")}
+
     def command_ready(self, request: dict[str, Any]) -> bool:
+        if request.get('automatic') is True:
+            with exclusive_file_lock(self.seed_lock_path):
+                scope = self.scope()
+                if scope is not None:
+                    self._observe_safeguard(scope, force=True)
         return self.control.command_ready(request)
 
     def command_submitted(self, request: dict[str, Any]) -> None:

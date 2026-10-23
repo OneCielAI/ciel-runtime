@@ -6,6 +6,18 @@ from ciel_runtime_support.prelaunch import MAIN_MENU_ACTIONS
 
 
 class ClaudeStreamRecoverySettingsTests(unittest.TestCase):
+    def test_measured_compact_safeguard_toggle_persists_in_provider_config(self):
+        from ciel_runtime_support import claude_stream_recovery_settings as settings
+        config = {}
+        rows, values = settings.panel_rows(config)
+        index = values.index(settings.VALUE_SAFEGUARD)
+        self.assertIn(">90%", rows[index])
+        self.assertTrue(settings.compact_safeguard(config))
+        settings.apply(config, values[index])
+        self.assertFalse(config["providers"]["cielairouter"]["compact_safeguard"])
+        settings.apply(config, values[index])
+        self.assertTrue(config["providers"]["cielairouter"]["compact_safeguard"])
+
     def test_default_is_enabled_with_one_attempt(self):
         config = build_default_config({})
         self.assertEqual(

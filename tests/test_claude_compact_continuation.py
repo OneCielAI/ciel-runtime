@@ -198,6 +198,26 @@ class CompactContinuationTests(unittest.TestCase):
         self.h.terminal["compaction"] = False
         self.assertEqual("compact_resume", self.h.monitor.tick()["kind"])
 
+    def test_safeguard_confirmed_dispatch_can_resume_manual_labeled_checkpoint(self):
+        from datetime import datetime, timezone
+        record = boundary(compactMetadata={"trigger": "manual", "preTokens": 20000, "postTokens": 4000},
+                          timestamp=datetime.fromtimestamp(self.h.clock(), timezone.utc).isoformat())
+        self.h.monitor.compact_dispatch = lambda: {"scope": SCOPE.payload(), "automatic": True,
+            "source": "model-compact-safeguard", "submission": "submitted",
+            "dispatched_at": self.h.clock() - 1, "request_id": "safety-1"}
+        self.assertEqual("compact_resume", self.decide(record)["kind"])
+
+    def test_manual_or_uncertain_dispatch_does_not_grant_resume_authority(self):
+        from datetime import datetime, timezone
+        for automatic, submission in ((False, "submitted"), (True, "uncertain"), (True, "failed")):
+            self.task()
+            self.h.monitor.compact_dispatch = lambda: {"scope": SCOPE.payload(), "automatic": automatic,
+                "source": "model-compact-safeguard", "submission": submission,
+                "dispatched_at": self.h.clock() - 1}
+            record = boundary(compactMetadata={"trigger": "manual", "preTokens": 20000, "postTokens": 4000},
+                timestamp=datetime.fromtimestamp(self.h.clock(), timezone.utc).isoformat())
+            self.assertIsNone(self.decide(record))
+
     def test_independent_toggle_and_fixed_one_attempt(self):
         self.h.config = {settings.CONFIG_KEY: {"enabled": False, "max_attempts": 2, "compact_resume": True}}
         self.assertEqual(1, self.decide()["limit"])
@@ -433,3 +453,31 @@ class CompactContinuationSettingsTests(unittest.TestCase):
         self.assertTrue(settings.enabled(config))
         self.assertEqual(1, save.call_count)
         self.assertTrue(any("Claude compact continuation  [off]" in rows for _, _, rows in renders))
+
+    def test_actual_menu_selection_saves_safeguard_provider_toggle(self):
+        import ciel_runtime
+        from ciel_runtime_support.config_repository import build_default_config
+        from ciel_runtime_support.prelaunch import MAIN_MENU_ACTIONS
+
+        config = build_default_config({})
+        rows, values = settings.with_panel_rows(["critical removal", "Back"], ["toggle", "back"], config)
+        down = values.index(settings.VALUE_SAFEGUARD)
+        keys = iter(["enter", *(["down"] * down), "enter", "q", "q"])
+        renders = []
+        def render(_main, panel, index, rows, *_rest):
+            renders.append((panel, index, list(rows)))
+            return False
+        with (mock.patch.object(ciel_runtime, "load_config", return_value=config),
+              mock.patch.object(ciel_runtime, "get_current_provider", return_value=("anthropic", {})),
+              mock.patch.object(ciel_runtime, "settings_ready_except_api_key", return_value=True),
+              mock.patch.object(ciel_runtime, "prelaunch_action_index", return_value=MAIN_MENU_ACTIONS.index("dangerous-rm")),
+              mock.patch.object(ciel_runtime, "preflight_lines", return_value=[]),
+              mock.patch.object(ciel_runtime, "save_config") as save,
+              mock.patch.object(ciel_runtime, "render_prelaunch_screen", side_effect=render),
+              mock.patch.object(ciel_runtime, "read_menu_key", side_effect=lambda *_args: next(keys)),
+              mock.patch.object(ciel_runtime, "enable_ansi")):
+            self.assertEqual(ciel_runtime.PRELAUNCH_CANCEL, ciel_runtime.portable_prelaunch_menu([]))
+        self.assertFalse(settings.compact_safeguard(config))
+        self.assertTrue(settings.enabled(config))
+        self.assertEqual(1, save.call_count)
+        self.assertTrue(any("CielAiRouter >90% compact safeguard  [off]" in rows for _, _, rows in renders))

@@ -27,6 +27,7 @@ VALUE_TOGGLE = "stream-recovery:toggle"
 VALUE_ATTEMPTS = "stream-recovery:attempts"
 VALUE_INFO = "__info__"
 VALUE_COMPACT = "stream-recovery:compact"
+VALUE_SAFEGUARD = "stream-recovery:compact-safeguard"
 
 
 def default_config() -> dict[str, Any]:
@@ -53,6 +54,19 @@ def max_attempts(config: dict[str, Any]) -> int:
 def compact_resume(config: dict[str, Any]) -> bool:
     value = _section(config).get("compact_resume")
     return value if isinstance(value, bool) else DEFAULT_COMPACT_RESUME
+
+
+def compact_safeguard(config: dict[str, Any]) -> bool:
+    providers = config.get("providers")
+    section = providers.get("cielairouter") if isinstance(providers, dict) else None
+    return not isinstance(section, dict) or section.get("compact_safeguard") is not False
+
+
+def toggle_compact_safeguard(config: dict[str, Any]) -> list[str]:
+    enabled = not compact_safeguard(config)
+    section = config.setdefault("providers", {}).setdefault("cielairouter", {})
+    section["compact_safeguard"] = enabled
+    return [f"CielAiRouter measured context >90% compact safeguard {'on' if enabled else 'off'}."]
 
 
 def _attempts_text(count: int) -> str:
@@ -103,8 +117,11 @@ def panel_rows(config: dict[str, Any], recent: list[dict[str, Any]] | None = Non
             recent_text(recent or []),
             f"Claude compact continuation  [{'on' if compact_resume(config) else 'off'}]",
             "  Auto compact only; one continuation of observed unfinished work, never manual /compact.",
+            f"CielAiRouter >90% compact safeguard  [{'on' if compact_safeguard(config) else 'off'}]",
+            "  Uses current-session/model measured usage; waits for a safe native turn boundary.",
         ],
-        [VALUE_TOGGLE, VALUE_ATTEMPTS, VALUE_INFO, VALUE_INFO, VALUE_COMPACT, VALUE_INFO],
+        [VALUE_TOGGLE, VALUE_ATTEMPTS, VALUE_INFO, VALUE_INFO, VALUE_COMPACT, VALUE_INFO,
+         VALUE_SAFEGUARD, VALUE_INFO],
     )
 
 
@@ -123,7 +140,7 @@ def with_panel_rows(
 def handles(value: str) -> bool:
     """Values this panel owns; the information rows do nothing when chosen."""
 
-    return value in {VALUE_TOGGLE, VALUE_ATTEMPTS, VALUE_COMPACT, VALUE_INFO}
+    return value in {VALUE_TOGGLE, VALUE_ATTEMPTS, VALUE_COMPACT, VALUE_SAFEGUARD, VALUE_INFO}
 
 
 def toggle_enabled(config: dict[str, Any]) -> list[str]:
@@ -148,6 +165,8 @@ def toggle_compact_resume(config: dict[str, Any]) -> list[str]:
 
 
 def apply(config: dict[str, Any], value: str) -> list[str]:
+    if value == VALUE_SAFEGUARD:
+        return toggle_compact_safeguard(config)
     if value == VALUE_COMPACT:
         return toggle_compact_resume(config)
     if value == VALUE_TOGGLE:

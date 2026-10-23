@@ -93,16 +93,26 @@ class ClaudeEnvironmentPolicyTests(unittest.TestCase):
 
         snapshot = policy.compaction_snapshot("cielairouter", {})
 
-        self.assertEqual(872_000, snapshot.auto_compact_window)
-        self.assertEqual(82, snapshot.auto_compact_percent)
-        self.assertLessEqual(
-            872_000 * snapshot.auto_compact_percent // 100, 716_750
-        )
+        self.assertEqual(872_000, snapshot.context_window)
+        self.assertEqual(715_040, snapshot.auto_compact_window)
+        self.assertIsNone(snapshot.auto_compact_percent)
+        self.assertLessEqual(snapshot.auto_compact_window, 716_750)
         # A direct data path bypasses the router, so nothing is trimmed.
         self.assertIsNone(policy.compaction_snapshot("cielairouter", {}, guarded=False).auto_compact_percent)
         # The window itself is the model's real context; only the trigger moves.
-        self.assertEqual(872_000, policy.auto_compact_window("cielairouter", {}, guarded=True))
+        self.assertEqual(715_040, policy.auto_compact_window("cielairouter", {}, guarded=True))
         self.assertEqual(872_000, policy.auto_compact_window("cielairouter", {}))
+
+    def test_cielairouter_explicit_window_and_direct_model_limits_are_independent(self):
+        policy = self._guarded_policy(716750)
+        explicit = policy.compaction_snapshot("cielairouter", {"auto_compact_window": 600000})
+        self.assertEqual(872000, explicit.context_window)
+        self.assertEqual(600000, explicit.auto_compact_window)
+        self.assertIsNone(explicit.auto_compact_percent)
+        direct = policy.compaction_snapshot("cielairouter", {}, guarded=False)
+        self.assertEqual(872000, direct.context_window)
+        self.assertEqual(872000, direct.auto_compact_window)
+        self.assertIsNone(direct.auto_compact_percent)
 
     def test_guarded_percent_is_only_added_below_the_window_and_never_raised(self):
         policy = self._guarded_policy(716_750)
