@@ -1,7 +1,10 @@
-"""Request-scoped retries for explicit pre-output provider rejections.
+"""Request-scoped retries for pre-output rejections and typed open timeouts.
 
 The generation dispatcher enters request_scope; reusable config never owns a
-mutable budget. Ambiguous transport failures do not authorize replay here.
+mutable budget. Typed TimeoutError (also inside URLError) during open may
+retry under that same budget; other ambiguous transport failures do not.
+A timeout does not prove the upstream did no work, so replay may duplicate
+upstream generation or billing. Accepted-stream reads never reopen here.
 
 open_once must not expose downstream bytes. Only text/event-stream success
 responses are inspected: at most 64 KiB for at most 100 ms (also limited by
@@ -100,10 +103,18 @@ class TransientRetryBudget:
 
     def next_wait(self, error: urllib.error.HTTPError, raw: bytes,
                   headers: Mapping[str, Any] | None = None) -> float | None:
+        if not _retryable_verdict(error.code, raw):
+            return None
+        return self._schedule_wait(headers)
+
+    def timeout_wait(self, error: BaseException) -> float | None:
+        if retry_handled(error) or not _typed_open_timeout(error):
+            return None
+        return self._schedule_wait()
+
+    def _schedule_wait(self, headers: Mapping[str, Any] | None = None) -> float | None:
         with self.lock:
-            if self.stopped or self.exposed or not _retryable_verdict(error.code, raw):
-                return None
-            if self.attempts >= self.limit or self.remaining() <= 0:
+            if self.stopped or self.exposed or self.attempts >= self.limit or self.remaining() <= 0:
                 return None
             hinted = _retry_after(headers)
             scheduled = WAIT_SCHEDULE_SECONDS[min(self.attempts, len(WAIT_SCHEDULE_SECONDS) - 1)]
@@ -117,7 +128,7 @@ class TransientRetryBudget:
 
     def note(self) -> str:
         return (f"Ciel Runtime retried this request {self.attempts} time(s) over "
-                f"{self.waited_seconds:.2f}s after a transient upstream rejection; giving up.")
+                f"{self.waited_seconds:.2f}s after transient upstream rejection or timeout; giving up.")
 
 
 _SCOPE: contextvars.ContextVar[TransientRetryBudget | None] = contextvars.ContextVar(
@@ -625,6 +636,11 @@ def open_with_transient_retry(open_once: Callable[[], Any], *, provider: str,
             budget.owner = None
 
 
+def _typed_open_timeout(error: BaseException) -> bool:
+    return isinstance(error, TimeoutError) or (
+        isinstance(error, urllib.error.URLError) and isinstance(error.reason, TimeoutError))
+
+
 def _execute(open_once, budget, log, publish, sleep, cancelled, request, reselect, model):
     last = None
     while True:
@@ -640,16 +656,19 @@ def _execute(open_once, budget, log, publish, sleep, cancelled, request, reselec
         except urllib.error.HTTPError as caught:
             error = caught
         except BaseException as caught:
-            budget.stopped = True
-            _mark(caught, budget)
-            raise
+            if not _typed_open_timeout(caught):
+                budget.stopped = True
+                _mark(caught, budget)
+                raise
+            error = caught
         if cancelled is not None and cancelled():
             _close(error if error is not None else response)
+            budget.stopped = True
             _check_cancelled(lambda: True)
-        if error is not None:
-            if retry_handled(error):
-                budget.stopped = True
-                raise error
+        if error is not None and retry_handled(error):
+            budget.stopped = True
+            raise error
+        if isinstance(error, urllib.error.HTTPError):
             try:
                 raw, complete = _read_error(error, budget, cancelled)
             except BaseException:
@@ -663,7 +682,7 @@ def _execute(open_once, budget, log, publish, sleep, cancelled, request, reselec
                 raise _mark(replay, budget)
             _close(error)
             error = urllib.error.HTTPError(error.url, error.code, error.msg, error.hdrs, io.BytesIO(raw))
-        else:
+        elif error is None:
             try:
                 response, raw = _preflight(response, budget, cancelled)
             except BaseException as caught:
@@ -679,23 +698,30 @@ def _execute(open_once, budget, log, publish, sleep, cancelled, request, reselec
             error = urllib.error.HTTPError(url, status, "Upstream SSE error", headers, io.BytesIO(raw))
             error._ciel_sse_error = True
         last = error
-        classification = error
-        if getattr(error, "_ciel_sse_error", False):
-            classification = urllib.error.HTTPError(error.url, 503, error.msg, error.hdrs, None)
-        wait = budget.next_wait(classification, raw, error.headers)
+        if isinstance(error, urllib.error.HTTPError):
+            classification = error
+            if getattr(error, "_ciel_sse_error", False):
+                classification = urllib.error.HTTPError(error.url, 503, error.msg, error.hdrs, None)
+            wait = budget.next_wait(classification, raw, error.headers)
+            kind, status = "http_rejection", error.code
+        else:
+            wait = budget.timeout_wait(error)
+            kind, status = "transport_timeout", None
         if wait is None:
             budget.stopped = True
             log("WARN", f"cielairouter_transient_stopped operation_id={budget.operation_id} "
-                        f"attempts={budget.attempts} opens={budget.opens} elapsed={budget.clock() - budget.started:.2f}s")
+                        f"kind={kind} attempts={budget.attempts} opens={budget.opens} "
+                        f"elapsed={budget.clock() - budget.started:.2f}s")
             raise _mark(error, budget)
         log("WARN", f"cielairouter_transient_retry operation={_operation(request)} "
-                    f"operation_id={budget.operation_id} model={model or '-'} status={error.code} "
+                    f"operation_id={budget.operation_id} model={model or '-'} kind={kind} "
+                    f"{'status=' + str(status) if status is not None else 'error=' + type(error).__name__} "
                     f"attempt={budget.attempts}/{budget.limit} wait={wait:.2f}s "
                     f"elapsed={budget.clock() - budget.started:.2f}s")
         if publish is not None:
-            publish(level="warn", category="router.retry", message="Transient CielAiRouter rejection; retrying",
+            publish(level="warn", category="router.retry", message="Transient CielAiRouter rejection or timeout; retrying",
                     provider=PROVIDER, model=model,
-                    data={"status": error.code, "attempt": budget.attempts,
+                    data={"kind": kind, "status": status, "attempt": budget.attempts,
                           "total": budget.limit, "wait_seconds": wait, "operation_id": budget.operation_id})
         try:
             _check_cancelled(cancelled)

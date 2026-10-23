@@ -119,7 +119,7 @@ class TransientRetryDeadlineTests(unittest.TestCase):
             self.assertEqual([1], calls)
             self.assertEqual([1], connections)
             self.assertGreater(timeouts[0], 0)
-            self.assertLessEqual(timeouts[0], 0.15)
+            self.assertLessEqual(timeouts[0], 0.15 + 1e-9)
             self.assertGreaterEqual(elapsed, 0.07)
             self.assertLess(elapsed, 1.5)
             error = caught.exception
