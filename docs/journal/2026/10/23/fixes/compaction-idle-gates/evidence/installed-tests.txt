@@ -1,0 +1,7 @@
+binding C:\Users\djlov\.local\share\ciel-runtime\ciel_runtime_support\runtime_compaction_binding.py
+control C:\Users\djlov\.local\share\ciel-runtime\ciel_runtime_support\runtime_compaction_control.py
+----------------------------------------------------------------------
+Ran 109 tests in 13.303s
+
+OK
+ran 109 failures 0 errors 0

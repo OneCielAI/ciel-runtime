@@ -1,0 +1,20 @@
+# Regina router 8802, 2026-10-23 (UTC); read with sjglobal via sudo -u regina-ai, no writes
+# compaction-admission.json (mtime 05:49:14, unchanged through 07:02)
+{
+  "scope": {
+    "runtime": "claude",
+    "session_id": "71bc7a99-f225-4f52-a1f5-471df3871aaa",
+    "epoch": "4e3601d9faba4162bb1c298e645e2bd6"
+  },
+  "phase": "awaiting_shrink",
+  "pressure": false,
+  "baseline_tokens": 1182703,
+  "context_limit": 716750,
+  "requested_at": 1792733860.4210978,
+  "deadline": 1792735061.4139957,
+  "baseline_checkpoint_id": "db2694b26a7a9f57ac0ede47be66d24118ee5bbb7a43e60135ad2e628497495e",
+  "checkpoint_id": "51b44bb0f207e8c8ccf25af00cb30ef938a70bb26770ffd79fe38f6c19499453",
+  "request_id": "38950176cf8341e18f69c8f97ab7755b",
+  "attempts": 0
+}
+2026-10-23T05:49:13.885Z {'trigger': 'manual', 'preTokens': 479412, 'postTokens': 15117, 'durationMs': 692983}
