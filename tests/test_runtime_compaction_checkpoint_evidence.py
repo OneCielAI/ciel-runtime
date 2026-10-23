@@ -67,7 +67,7 @@ def claude_boundary(session_id, when, identity="checkpoint-1", post_tokens=120):
     return {
         "type": "system", "subtype": "compact_boundary", "sessionId": session_id,
         "timestamp": stamp(when), "uuid": identity, "isSidechain": False,
-        "compactMetadata": {"trigger": "auto", "preTokens": 1200, "postTokens": post_tokens},
+        "compactMetadata": {"preTokens": 1200, "postTokens": post_tokens},
     }
 
 

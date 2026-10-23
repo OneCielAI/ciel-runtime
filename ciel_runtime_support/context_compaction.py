@@ -10,6 +10,7 @@ from .context_summary_policy import (
     ContextSummaryFragment, compact_instruction_kind, native_compact_text, semantic_payload_cost,
 )
 from .upstream_error_policy import UpstreamFailure, is_upstream_transport_error
+from .transient_retry import owns_transient_retries
 
 
 MAX_MAP_CHUNKS = 256
@@ -302,6 +303,16 @@ def _split_rejected_chunk(
 
 def _summary_transport_cause(error: BaseException) -> BaseException | None:
     """Recognize explicit transport causes, never error-message substrings."""
+    if (isinstance(error, UpstreamFailure) and error.source == "http_status"
+            and not error.output_started and not error.response_id
+            and owns_transient_retries(error.provider)
+            and error.upstream_status in {502, 503, 504, 529}
+            and error.error_type in {"api_error", "server_error", "overloaded_error"}
+            and error.retryable):
+        # Internal tool-free summaries have their own bounded three-attempt
+        # owner; the transport deliberately disables nested gateway retries.
+        # A real typed provider failure used to bypass this owner entirely.
+        return error
     seen: set[int] = set()
     while id(error) not in seen:
         seen.add(id(error))

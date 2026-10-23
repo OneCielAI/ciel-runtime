@@ -55,7 +55,7 @@ class TimeoutRouteTests(unittest.TestCase):
         self.addCleanup(server.shutdown)
         return server
 
-    def fixture(self, script, retries=None, wrapped=False):
+    def fixture(self, script, retries=None, wrapped=False, open_timeout=0.15):
         state = SimpleNamespace(hits=[], gates=[], errors=[], budgets=[], snapshots=[], logs=[])
         owner = self
         class Upstream(http.server.BaseHTTPRequestHandler):
@@ -68,7 +68,7 @@ class TimeoutRouteTests(unittest.TestCase):
                 action = script[min(index, len(script)-1)]
                 h.close_connection = True
                 if action == "timeout":
-                    gate.wait(3)  # No status line: opener must hit a real socket timeout.
+                    gate.wait(open_timeout + 3)  # No status line: opener must hit a real socket timeout.
                     return
                 if action == "reset":
                     return
@@ -112,13 +112,13 @@ class TimeoutRouteTests(unittest.TestCase):
         base = self.factory(dispatch, state.logs)
         state.reselect = mock.Mock(side_effect=lambda c: dict(c))
         state.route = type(base)(dataclasses.replace(base._ports,
-            timeout_seconds=lambda _c: 0.15, reselect=state.reselect))
+            timeout_seconds=lambda _c: open_timeout, reselect=state.reselect))
         return state
 
     def forward(self, s):
         return s.route.forward(s.handler, "cielairouter", s.config, self.body())
 
-    def check(self, s, count):
+    def check(self, s, count, minimum_remaining=40):
         self.assertEqual(count, len(s.hits))
         self.assertEqual(["/v1/responses"]*count, [path for path, _ in s.hits])
         self.assertEqual([s.hits[0][1]]*count, [raw for _, raw in s.hits])
@@ -127,7 +127,7 @@ class TimeoutRouteTests(unittest.TestCase):
         self.assertEqual(count-1, s.reselect.call_count)
         if s.budgets[0] is not None:
             self.assertTrue(all(b is s.budgets[0] for b in s.budgets))
-            self.assertGreater(s.budgets[0].remaining(), 40)
+            self.assertGreater(s.budgets[0].remaining(), minimum_remaining)
 
     def test_header_timeout_then_success_direct_and_wrapped(self):
         for wrapped in (False, True):
@@ -142,6 +142,18 @@ class TimeoutRouteTests(unittest.TestCase):
                 self.assertEqual(self.complete, s.handler.wfile.getvalue())
                 s.handler.send_response.assert_called_once_with(200)
                 s.handler.end_headers.assert_called_once_with()
+
+    def test_default_scope_can_retry_after_open_outlasts_old_aggregate_limit(self):
+        # No injected budget: the configured per-open timeout exceeds the old
+        # aggregate deadline. Scale the old threshold, not the actual policy.
+        self.waits.clear()
+        s = self.fixture(["timeout", "complete"], 1)
+        with mock.patch.object(self.retry, "DEFAULT_SECONDS", 0.05):
+            self.forward(s)
+        self.check(s, 2, minimum_remaining=0)
+        self.assertGreater(s.budgets[0].deadline_seconds, 0.30)
+        self.assertEqual(self.complete, s.handler.wfile.getvalue())
+        s.handler.send_response.assert_called_once_with(200)
 
     def test_timeout_default_cap_and_zero(self):
         for retries, count in ((None, 4), (99, 11), (0, 1)):

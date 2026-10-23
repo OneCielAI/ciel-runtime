@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import Mock
 
 from ciel_runtime_support.channel_inflight import (
     ChannelInflightEffects,
@@ -73,6 +74,40 @@ class ChannelInflightStateMachineTests(unittest.TestCase):
         self.assertEqual("failed", update.action)
         self.assertEqual([11], self.committed)
         self.assertEqual([12], self.released)
+
+    def test_recovery_blocks_both_age_only_failure_branches(self):
+        from dataclasses import replace
+        for wake_state in ("unknown", "missing"):
+            with self.subTest(wake_state=wake_state):
+                stale = Mock(return_value=True)
+                snapshot = replace(
+                    self.snapshot(wake_state, now=100000.0, started=1.0),
+                    recovery_protected=True,
+                )
+                update = advance_channel_inflight(
+                    snapshot, replace(self.policy(), is_stale=stale), self.effects,
+                )
+                self.assertEqual("waiting", update.action)
+                self.assertEqual(12, update.message_id)
+                self.assertFalse(update.pending_recheck)
+                stale.assert_not_called()
+        self.assertEqual([], self.released)
+        self.assertEqual([], self.completed)
+        self.assertEqual([], self.committed)
+
+    def test_recovery_does_not_suppress_verified_resolution(self):
+        from dataclasses import replace
+        for wake_state in ("completed", "interrupted_uncertain"):
+            with self.subTest(wake_state=wake_state):
+                update = advance_channel_inflight(
+                    replace(self.snapshot(wake_state), recovery_protected=True),
+                    self.policy(stale=True), self.effects,
+                )
+                self.assertEqual(wake_state, update.action)
+                self.assertIsNone(update.message_id)
+        self.assertEqual([12], self.completed)
+        self.assertEqual([], self.released)
+        self.assertEqual([11, 11], self.committed)
 
     def test_waiting_transition_only_updates_log_time(self):
         update = advance_channel_inflight(

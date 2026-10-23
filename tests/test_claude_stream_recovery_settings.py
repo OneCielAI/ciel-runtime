@@ -12,6 +12,7 @@ class ClaudeStreamRecoverySettingsTests(unittest.TestCase):
             {"enabled": True, "max_attempts": 1},
             config[option.CONFIG_KEY],
         )
+        self.assertTrue(option.compact_resume(config))
         self.assertTrue(option.enabled(config))
         self.assertEqual(1, option.max_attempts(config))
 
@@ -39,7 +40,7 @@ class ClaudeStreamRecoverySettingsTests(unittest.TestCase):
         self.assertIn("text-only", rows[2])
         self.assertIn("never one with a tool call", rows[2])
         self.assertEqual("  Recent: no mid-response server error seen", rows[3])
-        self.assertEqual([option.VALUE_INFO, option.VALUE_INFO], values[2:])
+        self.assertEqual([option.VALUE_INFO, option.VALUE_INFO], values[2:4])
         # Choosing an information row changes nothing, not even the delete prompt sharing the panel.
         config = {}
         self.assertTrue(option.handles(values[2]))
@@ -103,7 +104,7 @@ class ClaudeStreamRecoverySettingsTests(unittest.TestCase):
         self.assertIn("Claude stream recovery  [on]", opened[0])
         self.assertTrue(any(row.startswith("  Continues only a text-only reply") for row in opened[0]))
         self.assertEqual("Back", opened[0][-1])
-        self.assertEqual({"enabled": False, "max_attempts": 2}, cfg[option.CONFIG_KEY])
+        self.assertEqual({"enabled": False, "max_attempts": 2, "compact_resume": True}, cfg[option.CONFIG_KEY])
         self.assertFalse(cfg.get("claude_dangerous_rm_auto_allow", False))
         self.assertEqual(2, save.call_count)
 

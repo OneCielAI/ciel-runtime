@@ -199,16 +199,22 @@ class TerminalRecoveryAdmissionReporter:
         manual_input: bool | None,
         interaction_pending: bool = False,
         modal_ready: bool | None = True,
+        operator_generation: int | None = None,
+        operator_input_at: float | None = None,
     ) -> None:
         if self._callback is None or self._closed:
             return
         now = self._clock()
         self._sample(now)
-        self._publish(terminal_recovery_admission_snapshot(
+        snapshot = terminal_recovery_admission_snapshot(
             now, input_ready=input_ready, manual_input=manual_input,
             busy=self._busy, compaction=self._compaction, pending_state=pending_state,
             interaction_pending=interaction_pending, modal_ready=modal_ready,
-        ))
+        )
+        if operator_generation is not None:
+            snapshot.update(operator_generation=operator_generation, operator_input_at=operator_input_at,
+                            input_ready=bool(input_ready and modal_ready is True and not interaction_pending))
+        self._publish(snapshot)
 
     def close(self, pending_state: ChannelPendingPollState | None = None) -> None:
         """Withdraw admission when the proxy loop ends; later reports are ignored."""
@@ -252,6 +258,15 @@ def terminal_operator_input(data: bytes) -> bool:
     """
 
     return bool(_TERMINAL_REPORT.sub(b"", bytes(data or b"")))
+
+
+def _terminal_operator_state(writer: Any) -> dict[str, Any]:
+    observe = getattr(writer, "operator_input_generation", None)
+    try:
+        generation, at = observe() if callable(observe) else (None, None)
+    except Exception:
+        return {}
+    return {"operator_generation": generation, "operator_input_at": at} if generation is not None else {}
 
 
 def _terminal_manual_input(writer: Any) -> bool | None:
@@ -627,7 +642,7 @@ def run_windows_channel_terminal_proxy(
                         pass
             recovery_admission.report(
                 pending_poll_state, input_ready=input_ready,
-                manual_input=_terminal_manual_input(writer),
+                manual_input=_terminal_manual_input(writer), **_terminal_operator_state(writer),
                 interaction_pending=interaction_pending, modal_ready=recovery_modal_ready,
             )
             try:
@@ -644,6 +659,9 @@ def run_windows_channel_terminal_proxy(
                             logged_at=pending_poll_state.inflight_logged_at,
                             now=now,
                             last_id=pending_poll_state.last_id,
+                            recovery_protected=(
+                                pending_poll_state.inflight_message_id in pending_poll_state.inflight.recovery_protected
+                            ),
                         ),
                         ChannelInflightPolicy(
                             unseen_retry_seconds=policy.unseen_retry_seconds(),
@@ -829,6 +847,7 @@ def run_posix_channel_terminal_proxy(
     # bumps this epoch and withdraws recovery admission for this attachment:
     # Enter/control/escape bytes alone cannot prove a TUI draft is clean.
     manual_input_epoch = 0
+    manual_input_at = 0.0
     recovery_admission = TerminalRecoveryAdmissionReporter(polling, policy)
     try:
         # Every input path writes through this so a full child input queue
@@ -898,6 +917,7 @@ def run_posix_channel_terminal_proxy(
                             channel_enter_bytes = observed_enter
                         if terminal_operator_input(filtered_data):
                             manual_input_epoch += 1
+                            manual_input_at = time.time()
                         child_input.write(filtered_data)
             if master_fd in readable:
                 try:
@@ -916,6 +936,9 @@ def run_posix_channel_terminal_proxy(
                         logged_at=pending_poll_state.inflight_logged_at,
                         now=now,
                         last_id=pending_poll_state.last_id,
+                        recovery_protected=(
+                            pending_poll_state.inflight_message_id in pending_poll_state.inflight.recovery_protected
+                        ),
                     ),
                     ChannelInflightPolicy(
                         unseen_retry_seconds=policy.unseen_retry_seconds(),
@@ -953,6 +976,7 @@ def run_posix_channel_terminal_proxy(
                 pending_poll_state,
                 input_ready=not dialog_open and (gate is None or gate.ready()),
                 manual_input=manual_input_epoch > 0,
+                operator_generation=manual_input_epoch, operator_input_at=manual_input_at,
                 interaction_pending=interaction_pending,
             )
             compact_poll_state = poll_pending_compaction(

@@ -18,6 +18,7 @@ class ChannelInflightSnapshot:
     logged_at: float
     now: float
     last_id: int
+    recovery_protected: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -74,14 +75,20 @@ def advance_channel_inflight(
             f"{policy.log_namespace}_confirmed message_id={message_id} cursor={snapshot.cursor or '-'}",
         )
         return _reset("completed", snapshot)
-    if state == "missing" and snapshot.started_at > 0 and age >= policy.unseen_retry_seconds:
+    # Recovery can replace/truncate transcript evidence. Absence after that
+    # boundary proves neither failure nor completion, regardless of elapsed
+    # time. Keep ownership until evidence resolves it; never release to replay.
+    age_failure_allowed = not (
+        snapshot.recovery_protected and state in {"unknown", "missing"}
+    )
+    if age_failure_allowed and state == "missing" and snapshot.started_at > 0 and age >= policy.unseen_retry_seconds:
         effects.release_wake(message_id)
         effects.log(
             "WARN",
             f"{policy.log_namespace}_unseen_failed message_id={message_id} age={age:.1f}s",
         )
         return _reset("failed", snapshot, last_id=effects.ensure_cursor(), logged_at=snapshot.now)
-    if policy.is_stale(state, snapshot.started_at, snapshot.now):
+    if age_failure_allowed and policy.is_stale(state, snapshot.started_at, snapshot.now):
         if policy.commit_cursor_on_stale and snapshot.cursor is not None:
             effects.commit_cursor(snapshot.cursor)
         effects.release_wake(message_id)

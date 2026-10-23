@@ -346,9 +346,8 @@ class TransientRetryTests(unittest.TestCase):
     def test_retry_after_finite_and_remaining_below_minimum(self):
         for hint in ["nan", "inf", "-inf", "1e999", "bad", "0", "-3", "0.02"]:
             budget = retry.TransientRetryBudget(3, 0.1, clock=Clock())
-            self.assertAlmostEqual(
-                0.1, budget.next_wait(failure(), SCREENSHOT, {"Retry-After": hint})
-            )
+            self.assertIsNone(budget.next_wait(failure(), SCREENSHOT, {"Retry-After": hint}))
+            self.assertEqual(0, budget.attempts)
         budget = retry.TransientRetryBudget(3, 60)
         self.assertEqual(
             0.25, budget.next_wait(failure(), SCREENSHOT, {"Retry-After": "0"})

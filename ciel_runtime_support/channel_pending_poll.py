@@ -22,16 +22,28 @@ class ChannelPendingInflightState:
     # newest left the earlier ones at "submitted" forever.
     backlog: list[int] = field(default_factory=list)
     recovery_paused_at: float | None = None
+    # Protection belongs to submitted attempts, not the current poll slot. Old
+    # slots move into backlog when a newer socket batch is submitted.
+    recovery_protected: set[int] = field(default_factory=set)
+    recovery_pause_owner: tuple[int | None, float] | None = None
 
     def hold_for_recovery(self, now: float, paused: bool) -> bool:
+        outstanding = set(self.backlog)
+        if self.message_id is not None:
+            outstanding.add(self.message_id)
+        self.recovery_protected.intersection_update(outstanding)
         if paused:
+            self.recovery_protected.update(outstanding)
             if self.recovery_paused_at is None:
                 self.recovery_paused_at = now
+                self.recovery_pause_owner = (self.message_id, self.started_at)
             return True
         if self.recovery_paused_at is not None:
-            if self.started_at > 0:
+            if (self.started_at > 0 and self.recovery_pause_owner ==
+                    (self.message_id, self.started_at)):
                 self.started_at += max(0.0, now - self.recovery_paused_at)
             self.recovery_paused_at = None
+            self.recovery_pause_owner = None
         return False
 
 
@@ -53,6 +65,8 @@ class ChannelPendingPollState:
 
     @inflight_message_id.setter
     def inflight_message_id(self, value: int | None) -> None:
+        if value is None:
+            self.inflight.recovery_protected.discard(self.inflight.message_id)
         self.inflight.message_id = value
 
     @property
@@ -222,6 +236,10 @@ def poll_pending_channel_messages(
     state.last_scan_at = now
     state.last_id = last_id
     if injected_ids and options.confirm_submit:
+        # A successful send starts a new attempt even if an id is reused. Do
+        # not inherit protection (or a pause clock) from the previous attempt.
+        state.inflight.recovery_protected.difference_update(injected_ids)
+        state.inflight.recovery_pause_owner = None
         if state.inflight_message_id is not None:
             state.inflight.backlog.append(state.inflight_message_id)
         state.inflight_message_id = injected_ids[-1]

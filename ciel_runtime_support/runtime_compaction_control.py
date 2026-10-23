@@ -440,14 +440,13 @@ class RuntimeCompactionControl:
             if _below_capacity(tokens, limit, baseline):
                 self._verify(state, tokens, evidence="next_request_shrink")
                 return
-        if checkpoint.trigger == "manual" and _below_capacity(checkpoint.post_tokens, limit, baseline):
-            # A user-run /compact has no pending turn to retry, so no later
-            # request will ever measure it: holding here stranded every
-            # external delivery until someone typed (Regina, 2026-10-23:
-            # 716,750 window, boundary postTokens 15,117, nothing after).
-            # The boundary is the client's own measurement of its compacted
-            # history; a request that still overflows re-arms this state.
-            self._verify(state, checkpoint.post_tokens, evidence="manual_checkpoint_post_tokens")
+        if checkpoint.trigger in {"manual", "auto"} and _below_capacity(checkpoint.post_tokens, limit, baseline):
+            # Native auto/manual compaction measures its own compacted history.
+            # Waiting for another request deadlocks an idle client, including
+            # auto compactions that checkpoint but do not resume their turn.
+            # Exact scope/fresh checkpoint gates above remain mandatory; a
+            # later provider-confirmed overflow re-arms admission.
+            self._verify(state, checkpoint.post_tokens, evidence=f"{checkpoint.trigger}_checkpoint_post_tokens")
             return
         # The native client's own newest prompt size after this checkpoint is
         # the same measurement as the next raw request, for a client that

@@ -34,7 +34,7 @@ def boundary(session_id, when, identity="checkpoint-1"):
         "type": "system", "subtype": "compact_boundary", "sessionId": session_id,
         "timestamp": datetime.fromtimestamp(when, timezone.utc).isoformat(),
         "uuid": identity, "isSidechain": False,
-        "compactMetadata": {"trigger": "auto", "preTokens": 1200, "postTokens": 120},
+        "compactMetadata": {"preTokens": 1200, "postTokens": 120},
     }
 
 
@@ -230,6 +230,28 @@ class RuntimeCompactionControlTests(_ControllerHarness):
         self.assertEqual("verified", state["phase"])
         self.assertEqual(120, state["next_raw_tokens"])
         self.assertTrue(any("evidence=manual_checkpoint_post_tokens" in str(item) for item in self.logs))
+
+    def test_auto_compact_releases_from_fresh_boundary_without_another_request(self):
+        native = {"messages": [{"role": "user", "content": "<command-name>/compact</command-name>"}]}
+        self.request(1200, native)
+        self.clock += 1
+        record = boundary("session-a", self.clock)
+        record["compactMetadata"]["trigger"] = "auto"
+        self.append(record)
+        self.assertFalse(self.control.external_admission_paused())
+        self.assertEqual("verified", self.snapshot()["phase"])
+        self.assertTrue(any("evidence=auto_checkpoint_post_tokens" in str(row) for row in self.logs))
+
+    def test_auto_boundary_without_valid_post_count_keeps_gate_closed(self):
+        for post_tokens in (0, 1500):
+            with self.subTest(post_tokens=post_tokens):
+                native = {"messages": [{"role": "user", "content": "<command-name>/compact</command-name>"}]}
+                self.request(1200, native)
+                self.clock += 1
+                record = boundary("session-a", self.clock, str(post_tokens))
+                record["compactMetadata"].update(trigger="auto", postTokens=post_tokens)
+                self.append(record)
+                self.assertTrue(self.control.external_admission_paused())
 
     def test_manual_compact_whose_boundary_is_still_full_stays_bounded(self):
         native = {"messages": [{"role": "user", "content": "<command-name>/compact</command-name>"}]}

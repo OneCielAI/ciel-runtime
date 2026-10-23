@@ -26,6 +26,7 @@ import time
 from typing import Any, Callable
 
 from . import claude_stream_recovery_settings
+from .claude_compact_continuation import COMPACT_MARKER, CompactContinuationEvidence
 from .channel_message_repository import exclusive_file_lock
 from .channel_wake_claim_repository import prompt_message_ids
 from .runtime_compaction_control import CompactionScope
@@ -116,6 +117,7 @@ def recovery_notice_body(
     message_id: str,
     scope: CompactionScope | None = None,
     created_at: float | None = None,
+    compact: bool = False,
 ) -> dict[str, Any]:
     """One continuation, admitted like the restart notice (exact text).
 
@@ -127,19 +129,25 @@ def recovery_notice_body(
     return {
         "channel": "stream-recovery",
         "sender_id": "ciel-runtime",
-        "kind": "stream_recovery",
+        "kind": "compact_resume" if compact else "stream_recovery",
         "message": (
+            f"{COMPACT_MARKER} (1/1 · {error_uuid}): Continue the previously authorized unfinished work "
+            "after automatic context compaction. Do not repeat completed work or expand the user-approved scope."
+        ) if compact else (
             f"{RECOVERY_MARKER} ({attempt}/{limit} · {error_uuid[:8]}): 직전 응답이 업스트림 서버 오류로 중간에 끊겼습니다. "
             "이미 출력했거나 실행을 마친 작업은 반복하지 말고, 끊긴 지점부터 남은 작업을 이어서 진행하세요."
         ),
         "meta": {
             "raw_injection": True,
-            "source": "ciel-runtime-stream-recovery",
+            "source": "ciel-runtime-compact-resume" if compact else "ciel-runtime-stream-recovery",
+            "recovery_kind": "compact_resume" if compact else "stream_recovery",
+            # Preserve the existing recovery queue and exact-scope delivery gates.
             "source_kind": "stream_recovery",
             "runtime": "claude",
             "attempt": attempt,
             "max_attempts": limit,
             "native_error_uuid": error_uuid,
+            **({"compact_checkpoint_claim": error_uuid} if compact else {}),
             "upstream_message_id": message_id,
             **({"recovery_scope": scope.payload()} if scope is not None else {}),
             "recovery_created_at": time.time() if created_at is None else created_at,
@@ -226,7 +234,8 @@ class StreamRecoveryLedger:
             return None
         return entry
 
-    def claim(self, scope: CompactionScope, error_uuid: str, *, continues_chain: bool, limit: int) -> int | None:
+    def claim(self, scope: CompactionScope, error_uuid: str, *, continues_chain: bool, limit: int,
+              checkpoint: bool = False) -> int | None:
         """The attempt number to admit for this error record, or None.
 
         An error record is claimed once.  A failure answering a continuation
@@ -239,14 +248,15 @@ class StreamRecoveryLedger:
                 return None
             chain = chains.get(scope.session_id)
             spent = 0
-            if continues_chain and isinstance(chain, dict) and chain.get("epoch") == scope.epoch:
+            if not checkpoint and continues_chain and isinstance(chain, dict) and chain.get("epoch") == scope.epoch:
                 spent = int(chain.get("attempts") or 0)
             if spent >= limit:
                 handled[error_uuid] = {"status": "exhausted", "at": self.now(), "attempts": spent}
                 self._remember(value, error_uuid, "exhausted", f"attempts={spent}/{limit}")
                 result = None
             else:
-                chains[scope.session_id] = {"epoch": scope.epoch, "attempts": spent + 1}
+                if not checkpoint:
+                    chains[scope.session_id] = {"epoch": scope.epoch, "attempts": spent + 1}
                 handled[error_uuid] = {"status": "admitted", "at": self.now(), "attempt": spent + 1}
                 self._remember(value, error_uuid, "admitted", f"attempt={spent + 1}/{limit}")
                 result = spent + 1
@@ -358,8 +368,12 @@ class ClaudeStreamRecoveryMonitor:
         """Record the terminal proxy's view of whether input may be added now."""
 
         self._terminal = dict(snapshot)
+        self._compact.terminal(snapshot)
+        if self._compact.operator_input and self._pending and self._pending.get("kind") == "compact_resume":
+            self._cancel("compact_operator_input")
 
     def reset(self) -> None:
+        self._compact = CompactContinuationEvidence()
         self._assistant_ids: OrderedDict[str, str] = OrderedDict()
         self._last_prompt_recovery = False
         # Unknown until this attachment sees a permission-mode record; a
@@ -420,7 +434,29 @@ class ClaudeStreamRecoveryMonitor:
         if record.get("isSidechain") is True:
             return
         kind = record.get("type")
+        if kind == "system" and record.get("subtype") == "compact_boundary":
+            self._cancel("compaction")
+            pending, reason = self._compact.candidate(
+                record, self.scope(), self.bound_epoch(), self.now(), self._watermark()
+            )
+            if reason:
+                self._skip(pending, reason, f"checkpoint={record.get('uuid') or '-'}")
+            else:
+                self._pending = pending
+            return
         message = record.get("message") if isinstance(record.get("message"), dict) else {}
+        self._compact.observe(record, self.scope(), _text(message.get("content")), self._watermark())
+        if self._pending and self._pending.get("kind") == "compact_resume":
+            # Summary/attachments/permission bookkeeping follow every native
+            # boundary; only actual work or new input invalidates resumption.
+            bookkeeping = (kind in {"attachment", "permission-mode", "mode", "last-prompt", "atis-latch",
+                                    "file-history-snapshot", "cost-state"}
+                           or kind == "user" and record.get("isCompactSummary") is True)
+            if bookkeeping:
+                if kind == "permission-mode" and record.get("permissionMode") == "plan":
+                    self._cancel("plan_mode")
+                return
+            self._cancel("native_continued")
         if kind == "assistant":
             if record.get("isApiErrorMessage") is True:
                 self._observe_error(record)
@@ -486,7 +522,14 @@ class ClaudeStreamRecoveryMonitor:
         if pending is None or self.now() - pending["seen_at"] < self.quiet_seconds:
             return None
         self._pending = None
-        enabled, limit = settings(self.load_config())
+        config = self.load_config()
+        compact = pending.get("kind") == "compact_resume"
+        enabled, limit = settings(config)
+        if compact:
+            if self.now() - pending["seen_at"] > RECOVERY_NOTICE_TTL_SECONDS:
+                self._skip(pending, "compact_expired", f"checkpoint={pending['error_uuid']}")
+                return None
+            enabled, limit = claude_stream_recovery_settings.compact_resume(config), 1
         if not enabled:
             self._skip(pending, "disabled", f"error={pending['error_uuid']}")
             return None
@@ -498,14 +541,29 @@ class ClaudeStreamRecoveryMonitor:
         ):
             self._skip(pending, "scope", f"error={pending['error_uuid']}")
             return None
+        if compact and scope != pending["scope"]:
+            self._skip(pending, "scope", f"checkpoint={pending['error_uuid']}")
+            return None
         watermark = self._watermark()
         if watermark < 0 or watermark != pending["input_watermark"]:
             self._skip(pending, "newer_input", f"error={pending['error_uuid']}")
             return None
+        original_terminal = self._terminal
+        if compact and isinstance(original_terminal, dict):
+            self._terminal = self._compact.terminal_for_compact(original_terminal)
         blocked = self._terminal_blocked()
+        self._terminal = original_terminal
         if blocked:
             self._skip(pending, blocked, f"error={pending['error_uuid']}")
             return None
+        if compact:
+            snapshot = self._terminal or {}
+            if (snapshot.get("manual_input_known") is not True or self._compact.operator_input
+                    or not isinstance(snapshot.get("at"), (float, int))
+                    or not pending["seen_at"] <= snapshot["at"] <= self.now()):
+                self._skip(pending, "compact_terminal_unproven", f"checkpoint={pending['error_uuid']}")
+                return None
+            return self._submit_compact(scope, pending)
         failure = self.ledger.failure(scope, pending["message_id"])
         if failure is None:
             self._skip(pending, "no_router_failure", f"message={pending['message_id']}")
@@ -541,6 +599,21 @@ class ClaudeStreamRecoveryMonitor:
             f"native_error={pending['error_uuid']} input_id={(admitted or {}).get('id') if isinstance(admitted, dict) else '-'}",
         )
         return {"attempt": attempt, "limit": limit, "admitted": admitted}
+
+    def _submit_compact(self, scope: CompactionScope, pending: dict[str, Any]) -> dict[str, Any] | None:
+        attempt = self.ledger.claim(scope, pending["error_uuid"], continues_chain=False, limit=1, checkpoint=True)
+        if attempt is None:
+            return None
+        body = recovery_notice_body(1, 1, error_uuid=pending["error_uuid"], message_id="",
+                                    scope=scope, created_at=self.now(), compact=True)
+        try:
+            admitted = self.submit(body)
+        except Exception as exc:
+            self.ledger.settle(pending["error_uuid"], "submit_failed")
+            self.log("WARN", f"claude_compact_resume_submit_failed error={type(exc).__name__}")
+            return None
+        self.log("INFO", f"claude_compact_resume_admitted session={scope.session_id} checkpoint={pending['checkpoint_uuid']}")
+        return {"attempt": 1, "limit": 1, "kind": "compact_resume", "admitted": admitted}
 
 
 class ClaudeStreamRecovery:

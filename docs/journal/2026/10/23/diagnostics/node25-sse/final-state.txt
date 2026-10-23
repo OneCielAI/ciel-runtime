@@ -1,0 +1,213 @@
+OBSERVED 2026-10-23T19:04:29.861284+00:00
+PACKAGE_MTIME 2026-10-23T18:56:19.104765+00:00
+2026-10-23T18:59:34 [WARN] context_compact_failed provider=cielairouter model=ciel-runtime-cielairouter-_walkie_opus55-sol61-fast completed_chunks=0/19 error=UpstreamFailure
+2026-10-23T18:59:34 [ERROR] anthropic_route_error_after_compaction_sse provider=cielairouter model=ciel-runtime-cielairouter-_walkie_opus55-sol61-fast error=UpstreamFailure: Upstream provider 'cielairouter' returned HTTP 502 (server_error: claude/claude-opus-5-5: rate limit — [claude/claude-opus-5-5] [429]: This request would exceed your account's rate limit. Please try again later. (reset after 11m 4s) (HTTP 429); codex/gpt-6.1-sol-high: provider — Model codex/gpt-6.1-
+2026-10-23T19:01:13 [WARN] context_compact_failed provider=cielairouter model=ciel-runtime-cielairouter-_walkie_opus55-sol61-fast completed_chunks=0/19 error=UpstreamFailure
+2026-10-23T19:01:13 [ERROR] anthropic_route_error_after_compaction_sse provider=cielairouter model=ciel-runtime-cielairouter-_walkie_opus55-sol61-fast error=UpstreamFailure: Upstream provider 'cielairouter' returned HTTP 502 (server_error: claude/claude-opus-5-5: rate limit — [claude/claude-opus-5-5] [429]: This request would exceed your account's rate limit. Please try again later. (reset after 22m 53s) (HTTP 429); codex/gpt-6.1-sol-high: provider — Model codex/gpt-6.1
+FILE /home/regina-ai/.npm-global/lib/node_modules/@one-ciel-ai/ciel-runtime/ciel_runtime_support/runtime_compaction_control.py
+39:     scope: CompactionScope
+40:     identity: str
+41:     persisted_at: float
+42:     pre_tokens: int = 0
+43:     post_tokens: int = 0
+44:     # "manual" when the user ran /compact: that compaction has no pending turn
+45:     # to retry, so no later request will ever measure its shrink.
+46:     trigger: str = ""
+47:     # Newest native prompt size written after this checkpoint in the same
+48:     # transcript; None stays unknown rather than assumed.
+49:     last_input_tokens: int | None = None
+50: 
+51: 
+52: @dataclass(frozen=True, slots=True)
+53: class RuntimeCompactionPolicy:
+54:     # Semantic work is bounded at 900s plus the final native-wire generation.
+55:     confirmation_timeout_seconds: float = 1200.0
+56:     retry_cooldown_seconds: float = 30.0
+57:     max_attempts: int = 2
+58: 
+59: 
+60: @dataclass(frozen=True, slots=True)
+61: class RuntimeCompactionPorts:
+62:     load: Callable[[], dict[str, Any] | None]
+63:     save: Callable[[dict[str, Any]], None]
+64:     lock: Callable[[], Any]
+132: 
+133: def _checkpoint_record(record: Any, scope: CompactionScope, path: Path) -> tuple[float, int, int, str] | None:
+134:     if not isinstance(record, dict) or record.get("isSidechain") is True:
+135:         return None
+136:     pre_tokens = post_tokens = 0
+137:     trigger = ""
+138:     if scope.runtime == "claude":
+139:         if (record.get("type") != "system" or record.get("subtype") != "compact_boundary"
+140:                 or record.get("sessionId") != scope.session_id):
+141:             return None
+142:         metadata = record.get("compactMetadata")
+143:         if not isinstance(metadata, dict) or not record.get("uuid"):
+144:             return None
+145:         pre_tokens = _positive(metadata.get("preTokens"))
+146:         post_tokens = _positive(metadata.get("postTokens"))
+147:         trigger = str(metadata.get("trigger") or "")
+148:     elif scope.runtime in {"codex", "codex-app-server", "codex-desktop"}:
+149:         payload = record.get("payload")
+150:         if record.get("type") != "compacted" or not isinstance(payload, dict):
+151:             return None
+152:         if not isinstance(payload.get("replacement_history"), list) or not payload["replacement_history"]:
+153:             return None
+154:         usage = payload.get("latest_token_usage_record")
+155:         thread_id = usage.get("thread_id") if isinstance(usage, dict) else None
+160:             return None
+161:     else:
+162:         return None
+163:     persisted_at = _timestamp(record.get("timestamp"))
+164:     return (persisted_at, pre_tokens, post_tokens, trigger) if persisted_at > 0 else None
+165: 
+166: 
+167: def _input_tokens_record(record: Any, scope: CompactionScope) -> int | None:
+168:     """The prompt size this record reports for the same conversation.
+169: 
+170:     Claude records input + cache read + cache creation; Codex token_count
+171:     events carry last_token_usage.input_tokens.  Only another process's
+172:     records for this exact session qualify; the file itself binds Codex.
+173:     """
+231:                 found = _checkpoint_record(record, scope, path)
+232:                 if found is not None:
+233:                     newest = NativeCompactionCheckpoint(
+234:                         scope, hashlib.sha256(line).hexdigest(), found[0],
+235:                         pre_tokens=found[1], post_tokens=found[2], trigger=found[3])
+236:                     continue
+237:                 # Usage must follow a matching checkpoint physically and carry
+238:                 # a valid timestamp at or after that boundary. Older usage is
+239:                 # never promoted into proof merely because it was appended.
+240:                 if (newest is not None and isinstance(record, dict)
+241:                         and _timestamp(record.get("timestamp")) >= newest.persisted_at):
+242:                     tokens = _input_tokens_record(record, scope)
+243:                     if tokens is not None:
+244:                         newest = replace(newest, last_input_tokens=tokens)
+267:             raise OSError("compaction admission state is unreadable")
+268:         if value.get("scope") != scope.payload():
+269:             return {}
+270:         if value.get("phase") not in {"needed", "queued", "dispatching", "awaiting_checkpoint",
+271:                                       "compacting", "awaiting_shrink", "blocked", "retry_wait", "verified"}:
+272:             raise ValueError("invalid compaction control phase")
+273:         return dict(value)
+274: 
+275:     def _start(self, scope: CompactionScope, raw_tokens: int, limit: int,
+276:                *, pressure: bool) -> dict[str, Any]:
+277:         now = self.ports.now()
+278:         checkpoint = self.ports.checkpoint(scope)
+279:         return {
+280:             "scope": scope.payload(), "phase": "needed", "pressure": pressure,
+281:             "baseline_tokens": raw_tokens, "context_limit": limit,
+282:             "requested_at": now, "deadline": now + self.policy.confirmation_timeout_seconds,
+283:             "baseline_checkpoint_id": checkpoint.identity if checkpoint else "",
+284:             "checkpoint_id": "", "request_id": "", "attempts": 0,
+285:         }
+286: 
+287:     def _write(self, state: dict[str, Any], event: str = "", detail: str = "") -> None:
+288:         self.ports.save(state)
+289:         if event:
+290:             self.ports.log(
+291:                 "INFO", f"runtime_compaction_control event={event} phase={state.get('phase')} "
+293:                 f"epoch={state['scope']['epoch']} attempts={state.get('attempts', 0)}"
+294:                 f"{' ' + detail if detail else ''}",
+295:             )
+296: 
+297:     def _refresh(self, state: dict[str, Any], scope: CompactionScope) -> None:
+298:         if not state or state.get("phase") == "verified":
+299:             return
+300:         now = self.ports.now()
+301:         checkpoint = self.ports.checkpoint(scope)
+302:         if (checkpoint and checkpoint.scope == scope
+303:                 and checkpoint.identity != state.get("baseline_checkpoint_id")
+304:                 and checkpoint.persisted_at >= float(state.get("requested_at") or 0)
+305:                 and checkpoint.identity != state.get("checkpoint_id")):
+306:             state.update({"checkpoint_id": checkpoint.identity, "phase": "awaiting_shrink"})
+307:             self._write(state, "native_checkpoint_observed")
+308:         if (state.get("phase") == "awaiting_shrink" and checkpoint and checkpoint.scope == scope
+309:                 and checkpoint.identity == state.get("checkpoint_id")
+310:                 and checkpoint.identity != state.get("baseline_checkpoint_id")
+311:                 and checkpoint.persisted_at >= float(state.get("requested_at") or 0)):
+312:             # The phase and its evidence are durable, so the release decision
+313:             # is re-evaluated on every refresh rather than only on the write
+314:             # that observed the checkpoint: a restart between those two writes
+315:             # must not hold admission forever.
+316:             self._release(state, checkpoint)
+317:         if state.get("phase") in {"dispatching", "awaiting_checkpoint", "compacting"}:
+332:                 state.update({"phase": "needed", "request_id": ""})
+333:                 self._write(state, "manual_action_has_priority")
+334:             elif str(request.get("id") or "") != state.get("request_id"):
+335:                 state["request_id"] = str(request.get("id") or "")
+336:                 state["deadline"] = min(float(request.get("expires_at") or now + self.policy.confirmation_timeout_seconds),
+337:                                         now + self.policy.confirmation_timeout_seconds)
+338:                 self._write(state, "compact_slot_reacquired")
+339:         if state.get("phase") == "retry_wait" and now >= float(state.get("cooldown_until") or 0):
+340:             state["phase"] = "needed"
+341:         if state.get("phase") == "needed":
+342:             request = self.ports.queue(scope.payload(), "full-history context pressure")
+343:             if request:
+344:                 state.update({
+345:                     "phase": "queued", "request_id": str(request.get("id") or ""),
+346:                     "attempts": _positive(state.get("attempts")) + 1,
+347:                     "deadline": min(float(request.get("expires_at") or now + self.policy.confirmation_timeout_seconds),
+348:                                     now + self.policy.confirmation_timeout_seconds),
+349:                 })
+350:                 self._write(state, "compact_queued")
+351:             else:
+352:                 # Manual /new or /goal retains ownership of the single slot.
+353:                 self._write(state)
+354: 
+355:     def observe_request(self, body: dict[str, Any], raw_tokens: int, context_limit: int,
+356:                         *, scope: CompactionScope | None = None,
+357:                         recovery_required: bool = False) -> None:
+385:                     # attempt too; otherwise non-shrinking cycles never end.
+386:                     # One that supersedes our queued command uses its count.
+387:                     state["attempts"] = _positive(state.get("attempts")) + 1
+388:                 state["phase"] = "compacting"
+389:                 state["deadline"] = self.ports.now() + self.policy.confirmation_timeout_seconds
+390:                 state["baseline_tokens"] = max(raw_tokens, _positive(state.get("baseline_tokens")))
+391:                 # A new manual/native compaction must not reuse proof from an
+392:                 # earlier failed attempt of the same recovery epoch.
+393:                 current_checkpoint = self.ports.checkpoint(scope)
+394:                 state["baseline_checkpoint_id"] = current_checkpoint.identity if current_checkpoint else ""
+395:                 state["checkpoint_id"] = ""
+396:                 self._write(state, "native_compact_started")
+397:             if native:
+398:                 # A new compaction cannot reuse an earlier cycle's request.
+399:                 state.pop("shrink_observed", None)
+400:             if context_limit and not _positive(state.get("context_limit")):
+FILE /home/regina-ai/.npm-global/lib/node_modules/@one-ciel-ai/ciel-runtime/ciel_runtime_support/runtime_compaction_binding.py
+430:                 # only bound a real next request can be proven smaller than.
+431:                 limit = _positive(active.get("baseline_tokens"))
+432:             self.control.observe_request(body, tokens, limit, scope=scope)
+433:             after = self._active_state(scope)
+434:             if not native and after.get("phase") == "awaiting_shrink":
+435:                 # The real next request did not shrink: stop admitting probes.
+436:                 self._update(scope.epoch, failed_probe=after.get("checkpoint_id", ""))
+437: 
+438:     def observe_failure(self, provider: str, config: dict[str, Any], body: dict[str, Any], raw: Any, runtime: str,
+439:                         headers: Any = None) -> None:
+440:         try:
+441:             self._observe_failure(provider, config, body, raw, runtime, headers)
+442:         except (OSError, ValueError, TypeError) as exc:
+443:             self.log("WARN", f"runtime_compaction_failure_observe_failed runtime={runtime} error={type(exc).__name__}")
+FINAL_STATUSES {312: {'status': 'queued', 'at': '2026-10-23T18:25:03+00:00'}, 313: {'status': 'queued', 'at': '2026-10-23T18:39:35+00:00'}, 314: {'status': 'queued', 'at': '2026-10-23T18:42:12+00:00'}, 315: {'status': 'submitted', 'at': '2026-10-23T18:58:41+00:00'}, 316: {'status': 'submitted', 'at': '2026-10-23T18:58:41+00:00'}, 317: {'status': 'submitted', 'at': '2026-10-23T18:58:41+00:00'}, 318: {'status': 'submitted', 'at': '2026-10-23T18:58:41+00:00'}, 319: {'status': 'submitted', 'at': '2026-10-23T18:58:41+00:00'}}
+FINAL_CURSOR {"last_id":314}
+
+FINAL_ADMISSION {
+  "scope": {
+    "runtime": "claude",
+    "session_id": "71bc7a99-f225-4f52-a1f5-471df3871aaa",
+    "epoch": "3a2980f4d97841878f291dda6f483615"
+  },
+  "phase": "compacting",
+  "pressure": true,
+  "baseline_tokens": 1076457,
+  "context_limit": 716750,
+  "requested_at": 1792781923.168492,
+  "deadline": 1792783296.916813,
+  "baseline_checkpoint_id": "70f0731d9432dacfa0f843cd002fe73c00e522c4d23a24fdb2ad9bb4f362d326",
+  "checkpoint_id": "",
+  "request_id": "",
+  "attempts": 1
+}
+

@@ -18,6 +18,99 @@ class TimeoutRetryTests(unittest.TestCase):
             config={"gateway_retries": 2} if config is None else config,
             log=kwargs.pop("log", lambda *_: None), sleep=kwargs.pop("sleep", lambda _: None), **kwargs)
 
+    def test_default_budget_preserves_full_timeout_and_retry(self):
+        clock = Clock()
+        config = {"gateway_retries": 2}
+        timeouts = []
+        with mock.patch.object(retry.time, "monotonic", clock):
+            with retry.request_scope(config) as budget:
+                # Default factory clock is bound at class definition, so align
+                # it without injecting a custom budget/deadline.
+                budget.clock, budget.started = clock, clock()
+                def open_once():
+                    timeouts.append(retry.bounded_timeout(config, "cielairouter", 300))
+                    if len(timeouts) == 1:
+                        clock.now += 300
+                        raise TimeoutError("The read operation timed out")
+                    return Response()
+                result = self.invoke(open_once, config, sleep=clock.sleep)
+                self.assertEqual([300, 300], timeouts)
+                self.assertEqual(1, budget.attempts)
+                self.assertAlmostEqual(960.3, budget.deadline_seconds)
+                result.close()
+
+    def test_default_timeout_budget_is_initialized_once_not_per_reselection(self):
+        config = {"gateway_retries": 1}
+        with retry.request_scope(config) as budget:
+            self.assertEqual(300, retry.bounded_timeout(config, "cielairouter", 300))
+            deadline = budget.deadline_seconds
+            started = budget.started
+            retry.bounded_timeout(config, "cielairouter", 1200)
+            self.assertEqual(deadline, budget.deadline_seconds)
+            self.assertEqual(started, budget.started)
+
+    def test_invalid_first_timeout_keeps_finite_default_and_cannot_expand_later(self):
+        for timeout in (None, False, float("inf"), float("nan"), -1, "bad"):
+            with self.subTest(timeout=timeout), retry.request_scope({}) as budget:
+                retry.bounded_timeout({}, "cielairouter", timeout)
+                retry.bounded_timeout({}, "cielairouter", 300)
+                self.assertEqual(60, budget.deadline_seconds)
+
+    def test_full_duration_timeouts_retain_configured_attempt_count(self):
+        for retries in (1, 3, 10):
+            clock = Clock()
+            config = {"gateway_retries": retries}
+            timeouts = []
+            with self.subTest(retries=retries), retry.request_scope(config) as budget:
+                budget.clock, budget.started = clock, clock()
+                def open_once():
+                    timeouts.append(retry.bounded_timeout(config, "cielairouter", 300))
+                    clock.now += 300
+                    raise TimeoutError("The read operation timed out")
+                with self.assertRaises(TimeoutError):
+                    self.invoke(open_once, config, sleep=clock.sleep)
+                self.assertEqual([300] * (retries + 1), timeouts)
+                self.assertEqual(retries, budget.attempts)
+                self.assertLess(clock() - budget.started, budget.deadline_seconds)
+                self.assertTrue(budget.stopped)
+
+    def test_exact_predispatch_503_body_retries_without_plaintext_expansion(self):
+        message = ("Service temporarily unavailable: all targets were skipped by pre-dispatch filters")
+        raw = json.dumps({"type": "error", "error": {"type": "overloaded_error", "message": message}}).encode()
+        for payload in (raw, b"event: error" + bytes([10]) + b"data: " + raw + bytes([10, 10])):
+            for status in (503, 200):
+                calls = []
+                def open_once():
+                    calls.append(1)
+                    if len(calls) == 1:
+                        if status == 503:
+                            raise failure(503, payload)
+                        return Response(payload, sse=True)
+                    return Response()
+                with self.subTest(status=status, sse=payload != raw):
+                    # Successful JSON isn't an error-only SSE stream.
+                    if status == 200 and payload == raw:
+                        continue
+                    result = self.invoke(open_once)
+                    self.assertEqual(2, len(calls))
+                    self.assertEqual(b"ok", result.read())
+                    result.close()
+        for payload in (message.encode(), json.dumps({"error": {"message": message}}).encode()):
+            opener = mock.Mock(side_effect=lambda: (_ for _ in ()).throw(failure(503, payload)))
+            with self.subTest(payload=payload), self.assertRaises(urllib.error.HTTPError):
+                self.invoke(opener)
+            self.assertEqual(1, opener.call_count)
+
+    def test_expired_default_scope_cannot_revive_on_first_timeout_resolution(self):
+        clock = Clock()
+        with retry.request_scope({}) as budget:
+            budget.clock, budget.started = clock, clock()
+            clock.now += 61
+            with self.assertRaises(TimeoutError):
+                retry.bounded_timeout({}, "cielairouter", 300)
+            self.assertEqual(60, budget.deadline_seconds)
+            self.assertTrue(budget.stopped)
+
     def test_typed_open_timeouts_retry_then_success(self):
         for error in (TimeoutError("The read operation timed out"), socket.timeout("timed out"),
                       urllib.error.URLError(TimeoutError("The read operation timed out"))):

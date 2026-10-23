@@ -1,0 +1,52 @@
+test_accepted_body_timeout_is_not_reopened (test_transient_retry_timeout.TimeoutRetryTests.test_accepted_body_timeout_is_not_reopened) ... ok
+test_already_handled_timeout_cannot_open_a_second_allowance (test_transient_retry_timeout.TimeoutRetryTests.test_already_handled_timeout_cannot_open_a_second_allowance) ... ok
+test_backoff_cancellation_prevents_reselection_and_second_open (test_transient_retry_timeout.TimeoutRetryTests.test_backoff_cancellation_prevents_reselection_and_second_open) ... ok
+test_cancellation_after_timeout_stops_before_backoff (test_transient_retry_timeout.TimeoutRetryTests.test_cancellation_after_timeout_stops_before_backoff) ... ok
+test_default_budget_preserves_full_timeout_and_retry (test_transient_retry_timeout.TimeoutRetryTests.test_default_budget_preserves_full_timeout_and_retry) ... ERROR
+test_default_timeout_budget_is_initialized_once_not_per_reselection (test_transient_retry_timeout.TimeoutRetryTests.test_default_timeout_budget_is_initialized_once_not_per_reselection) ... FAIL
+test_exact_timeout_http504_json_or_sse_success_exhausted_and_zero (test_transient_retry_timeout.TimeoutRetryTests.test_exact_timeout_http504_json_or_sse_success_exhausted_and_zero) ... ok
+test_expired_open_timeout_does_not_restart_deadline (test_transient_retry_timeout.TimeoutRetryTests.test_expired_open_timeout_does_not_restart_deadline) ... ok
+test_explicit_zero_and_other_providers_preserve_timeout (test_transient_retry_timeout.TimeoutRetryTests.test_explicit_zero_and_other_providers_preserve_timeout) ... ok
+test_exposed_owner_forbids_timeout_retry (test_transient_retry_timeout.TimeoutRetryTests.test_exposed_owner_forbids_timeout_retry) ... ok
+test_invalid_first_timeout_keeps_finite_default_and_cannot_expand_later (test_transient_retry_timeout.TimeoutRetryTests.test_invalid_first_timeout_keeps_finite_default_and_cannot_expand_later) ... ok
+test_mixed_http_and_timeout_spend_one_allowance (test_transient_retry_timeout.TimeoutRetryTests.test_mixed_http_and_timeout_spend_one_allowance) ... ok
+test_other_transport_errors_still_do_not_replay (test_transient_retry_timeout.TimeoutRetryTests.test_other_transport_errors_still_do_not_replay) ... ok
+test_preflight_timeout_is_not_reopened_after_response_acceptance (test_transient_retry_timeout.TimeoutRetryTests.test_preflight_timeout_is_not_reopened_after_response_acceptance) ... ok
+test_timeout_default_limit_and_cap (test_transient_retry_timeout.TimeoutRetryTests.test_timeout_default_limit_and_cap) ... ok
+test_timeout_with_time_remaining_reselects_same_budget (test_transient_retry_timeout.TimeoutRetryTests.test_timeout_with_time_remaining_reselects_same_budget) ... ok
+test_typed_open_timeouts_retry_then_success (test_transient_retry_timeout.TimeoutRetryTests.test_typed_open_timeouts_retry_then_success) ... ok
+
+======================================================================
+ERROR: test_default_budget_preserves_full_timeout_and_retry (test_transient_retry_timeout.TimeoutRetryTests.test_default_budget_preserves_full_timeout_and_retry)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-timeout\tests\test_transient_retry_timeout.py", line 36, in test_default_budget_preserves_full_timeout_and_retry
+    result = self.invoke(open_once, config, sleep=clock.sleep)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\djlov\ciel-runtime-wt-timeout\tests\test_transient_retry_timeout.py", line 16, in invoke
+    return retry.open_with_transient_retry(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\djlov\ciel-runtime-wt-timeout\ciel_runtime_support\transient_retry.py", line 633, in open_with_transient_retry
+    return _execute(open_once, budget, log, publish, sleep, cancelled, request, reselect, model)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\djlov\ciel-runtime-wt-timeout\ciel_runtime_support\transient_retry.py", line 715, in _execute
+    raise _mark(error, budget)
+  File "C:\Users\djlov\ciel-runtime-wt-timeout\ciel_runtime_support\transient_retry.py", line 655, in _execute
+    response = open_once()
+               ^^^^^^^^^^^
+  File "C:\Users\djlov\ciel-runtime-wt-timeout\tests\test_transient_retry_timeout.py", line 34, in open_once
+    raise TimeoutError("The read operation timed out")
+TimeoutError: The read operation timed out
+
+======================================================================
+FAIL: test_default_timeout_budget_is_initialized_once_not_per_reselection (test_transient_retry_timeout.TimeoutRetryTests.test_default_timeout_budget_is_initialized_once_not_per_reselection)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-timeout\tests\test_transient_retry_timeout.py", line 45, in test_default_timeout_budget_is_initialized_once_not_per_reselection
+    self.assertEqual(300, retry.bounded_timeout(config, "cielairouter", 300))
+AssertionError: 300 != 60.0
+
+----------------------------------------------------------------------
+Ran 17 tests in 0.008s
+
+FAILED (failures=1, errors=1)

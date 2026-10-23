@@ -1,0 +1,4 @@
+2026-10-23T13:18:02 [WARN] cielairouter_transient_stopped operation_id=01dac92c4bbc4b7ab7eb3b3ec0ad269d kind=transport_timeout attempts=0 opens=1 elapsed=60.36s
+2026-10-23T13:18:02 [ERROR] provider_responses_failure request_id=77744-1792779422086894300 provider=cielairouter stage=unknown error=TimeoutError cause=- downstream_started=false received_bytes=unknown config_base_url=https://ciel-router-01.ezonebot.com gateway_selected=false
+2026-10-23T13:18:02 [ERROR] responses_upstream_error path=/v1/responses provider=cielairouter model=ciel-runtime-cielairouter-astra status=504 type=api_error message=TimeoutError: The read operation timed out
+2026-10-23T13:18:02 [INFO] access "POST /v1/responses HTTP/1.1" 504 -

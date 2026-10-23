@@ -17,6 +17,11 @@ sequentially reopen an unconsumed response within the same scope, spending the
 same allowance. Materially different checkpoint recovery after terminal 400
 must explicitly enter a fresh request_scope; the executor never resets one.
 
+Default scopes size one finite aggregate allowance from the first resolved
+opener timeout: all allowed opens plus capped waits and inspection. This does
+not reset the original start time or an explicitly supplied budget. Unknown
+or unbounded opener timeouts retain the finite default allowance.
+
 The deadline limits attempt admission, backoff and bounded inspection. Transport
 openers must use bounded_timeout for each attempt's socket timeout. It is not a
 hard wall-clock interruption: DNS resolution and a synchronous opener's multiple
@@ -83,6 +88,9 @@ class TransientRetryBudget:
     # The caller's own read timeout, before bounded_timeout clipped it to the
     # retry deadline; an accepted response gets it back (release_read_timeout).
     requested_timeout: Any = field(default=_UNSET, repr=False)
+    # Only default scopes size their allowance from the first resolved opener
+    # timeout. Explicitly supplied budgets retain their exact deadline.
+    timeout_pending: bool = field(default=False, repr=False)
 
     def __post_init__(self) -> None:
         self.limit = max(0, min(MAX_RETRIES, int(self.limit)))
@@ -120,7 +128,9 @@ class TransientRetryBudget:
             scheduled = WAIT_SCHEDULE_SECONDS[min(self.attempts, len(WAIT_SCHEDULE_SECONDS) - 1)]
             wait = min(max(MIN_WAIT_SECONDS, hinted if hinted is not None else scheduled),
                        MAX_WAIT_SECONDS, self.remaining())
-            if wait <= 0:
+            # A wait that consumes all remaining time cannot admit an open;
+            # do not count a retry that can never happen (socket rounding).
+            if wait <= 0 or wait >= self.remaining():
                 return None
             self.attempts += 1
             self.waited_seconds += wait
@@ -180,7 +190,7 @@ def request_scope(config: Any = None, provider: str = PROVIDER, *,
         raise RuntimeError("cannot replace an active transient retry owner")
     current = budget
     if current is None and _limit(config, provider):
-        current = TransientRetryBudget(_limit(config, provider), DEFAULT_SECONDS)
+        current = TransientRetryBudget(_limit(config, provider), DEFAULT_SECONDS, timeout_pending=True)
     token = _SCOPE.set(current)
     try:
         yield current
@@ -204,14 +214,25 @@ def bounded_timeout(config: Any, provider: str, timeout: Any) -> Any:
         return timeout
     with budget.lock:
         budget.requested_timeout = timeout
-        remaining = budget.remaining()
-        if remaining <= 0:
-            budget.stopped = True
-            raise _mark(TimeoutError("transient retry deadline reached before open"), budget)
         try:
             seconds = float(timeout) if not isinstance(timeout, bool) else math.nan
         except (TypeError, ValueError, OverflowError):
             seconds = math.nan
+        if budget.timeout_pending:
+            budget.timeout_pending = False
+            # Fix the aggregate allowance once, without resetting its start.
+            # The old 60s total clipped a configured 300s first open to 60s
+            # and left zero retries (9489, 2026-10-23 13:18:02).
+            if (not budget.stopped and not budget.exposed and budget.opens <= 1
+                    and budget.remaining() > 0 and math.isfinite(seconds) and seconds > 0):
+                total = ((budget.limit + 1) * (seconds + PREFLIGHT_SECONDS)
+                         + budget.limit * MAX_WAIT_SECONDS)
+                if math.isfinite(total):
+                    budget.deadline_seconds = max(budget.deadline_seconds, total)
+        remaining = budget.remaining()
+        if remaining <= 0:
+            budget.stopped = True
+            raise _mark(TimeoutError("transient retry deadline reached before open"), budget)
         return min(seconds, remaining) if math.isfinite(seconds) and seconds > 0 else remaining
 
 
@@ -717,7 +738,9 @@ def _execute(open_once, budget, log, publish, sleep, cancelled, request, reselec
                     f"operation_id={budget.operation_id} model={model or '-'} kind={kind} "
                     f"{'status=' + str(status) if status is not None else 'error=' + type(error).__name__} "
                     f"attempt={budget.attempts}/{budget.limit} wait={wait:.2f}s "
-                    f"elapsed={budget.clock() - budget.started:.2f}s")
+                    f"elapsed={budget.clock() - budget.started:.2f}s "
+                    f"deadline_seconds={budget.deadline_seconds:.2f} "
+                    f"requested_timeout={budget.requested_timeout if budget.requested_timeout is not _UNSET else 'unknown'}")
         if publish is not None:
             publish(level="warn", category="router.retry", message="Transient CielAiRouter rejection or timeout; retrying",
                     provider=PROVIDER, model=model,

@@ -592,6 +592,35 @@ class ChunkTransportFailureTests(unittest.TestCase):
                 self.compact(services)
         services.workflow.request_summary.assert_called_once()
 
+    def test_structured_summary_timeout_and_predispatch_retries_failed_chunk(self):
+        for status, error_type in ((504, "api_error"), (503, "overloaded_error")):
+            with self.subTest(status=status):
+                services = self.services()
+                failure = UpstreamFailure("cielairouter", "model", status=status,
+                    error_type=error_type, message="temporarily unavailable", source="http_status")
+                services.workflow.request_summary.side_effect = [failure, "summary"]
+                result = self.compact(services)
+                self.assertTrue(result)
+                self.assertEqual(2, services.workflow.request_summary.call_count)
+
+    def test_structured_summary_errors_stay_bounded_and_do_not_retry_output(self):
+        for started in (False, True):
+            services = self.services()
+            services.workflow.request_summary.side_effect = UpstreamFailure(
+                "cielairouter", "model", status=504, error_type="api_error",
+                message="timed out", source="http_status", output_started=started)
+            with self.subTest(output_started=started), self.assertRaises(UpstreamFailure):
+                self.compact(services)
+            self.assertEqual(1 if started else 3, services.workflow.request_summary.call_count)
+
+    def test_non_cielairouter_structured_failure_policy_is_unchanged(self):
+        services = self.services()
+        services.workflow.request_summary.side_effect = UpstreamFailure(
+            "other", "model", status=504, error_type="api_error", message="timeout", source="http_status")
+        with self.assertRaises(UpstreamFailure):
+            self.compact(services)
+        services.workflow.request_summary.assert_called_once()
+
     def test_exception_text_does_not_authorize_retry(self):
         services = self.services()
         services.workflow.request_summary.side_effect = RuntimeError("TimeoutError: timed out")
