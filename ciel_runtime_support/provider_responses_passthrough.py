@@ -31,6 +31,7 @@ from .responses_input_compatibility import (
 )
 from .responses_custom_tool_bridge import (
     ResponsesCustomToolStreamProjector,
+    ToolKey,
     project_response_payload,
     tool_definitions,
 )
@@ -492,7 +493,7 @@ class ProviderResponsesPassthrough:
         provider: str,
         config: dict[str, Any],
         upstream_body: dict[str, Any],
-        response_tools: Mapping[str, Mapping[str, Any]],
+        response_tools: Mapping[ToolKey, Mapping[str, Any]],
         cache_profile: Mapping[str, Any],
         *,
         completion_gate_headers: Mapping[str, str] | None = None,
@@ -726,6 +727,14 @@ class ProviderResponsesPassthrough:
         body: dict[str, Any],
     ) -> dict[str, Any]:
         remote_bridge = is_remote_bridge_request(handler)
+        # Retain the original identities before hoisting flattens namespaces and
+        # deduplicates names. Custom-only restoration must not normalize genuine
+        # function arguments on providers without the existing conversion flag.
+        convert_functions = bool(config.get("responses_custom_tools_as_functions"))
+        response_tools = (
+            tool_definitions(body, include_functions=convert_functions)
+            if not remote_bridge or convert_functions else {}
+        )
         # Replay repair drops orphan halves and foreign reasoning the wire cannot
         # carry; a native checkpoint still summarizes that raw client content.
         semantic_input = (
@@ -738,11 +747,6 @@ class ProviderResponsesPassthrough:
             body
             if remote_bridge
             else hoist_additional_tools(repair_replayed_response_items(body))
-        )
-        response_tools = (
-            tool_definitions(upstream_body)
-            if config.get("responses_custom_tools_as_functions")
-            else {}
         )
         upstream_body["model"] = self._ports.normalize_model(
             provider, config, str(body.get("model") or "")
@@ -899,7 +903,9 @@ class ProviderResponsesPassthrough:
                 try:
                     decoded = json.loads(response_body)
                     projected_body = project_response_payload(decoded, response_tools)
-                    handler.wfile.write(self._encode(projected_body))
+                    handler.wfile.write(
+                        response_body if projected_body == decoded else self._encode(projected_body)
+                    )
                     handler.wfile.flush()
                 except (UnicodeDecodeError, ValueError, TypeError):
                     handler.wfile.write(response_body)
