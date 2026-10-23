@@ -33,12 +33,29 @@ from .secure_json_repository import SecureJsonEffects, SecureJsonRepository
 # /clear and /resume, which Claude Code 2.1.303 writes as a new sessionId.
 PUBLISHED_RECHECK_SECONDS = 2.0
 
+# An unproven launch identity holds external input until the first routed
+# request, but an idle relaunched session never produces one: Celly held
+# 6363 until the user typed "222" (2026-10-23 01:35). After this window the
+# gate opens for the launch's own socket; the first request still re-binds the
+# exact scope, and any request that overflows re-arms compaction admission.
+REQUEST_IDENTITY_GRACE_SECONDS = 120.0
+
 
 def _positive(value: Any) -> int:
     try:
         return max(0, int(value))
     except (ValueError, TypeError, OverflowError):
         return 0
+
+
+def _identity_expired(value: dict[str, Any], now: float) -> bool:
+    """A held launch identity older than the grace window no longer blocks."""
+
+    try:
+        since = float(value.get("identity_since") or value.get("started_at") or 0)
+    except (ValueError, TypeError, OverflowError):
+        return False
+    return since > 0 and now - since >= REQUEST_IDENTITY_GRACE_SECONDS
 
 
 def _header(headers: Any, name: str) -> str:
@@ -140,8 +157,9 @@ class RuntimeCompactionBinding:
         return self.builder().budget.compact_kind(body)
 
     def bind(self, runtime: str, **options: Any) -> None:
+        started_at = options.get("started_at") or time.time()
         value = {"runtime": runtime, "epoch": uuid.uuid4().hex,
-                 "started_at": options.get("started_at") or time.time(),
+                 "started_at": started_at, "identity_since": started_at,
                  "session_id": str(options.get("session_id") or "").strip(),
                  "cwd": str(options.get("cwd") or ""),
                  "codex_home": str(options.get("codex_home") or ""), "path": "",
@@ -233,8 +251,10 @@ class RuntimeCompactionBinding:
                 return True
             if unbound_only and value.get("session_id"):
                 return False
-            # Proof belongs to one conversation: path and seeding start over.
-            value.update({"session_id": session_id, "path": "", "seeded": False, "request_observed": False})
+            # Proof belongs to one conversation: path and seeding start over,
+            # and the new identity gets its own grace window.
+            value.update({"session_id": session_id, "path": "", "seeded": False,
+                          "request_observed": False, "identity_since": time.time()})
             self.repository.save(value, "compaction_scope")
         self.log("INFO", f"runtime_compaction_scope_bound runtime={runtime} session={session_id} via={via}")
         return True
@@ -464,7 +484,9 @@ class RuntimeCompactionBinding:
         against it can observe the wrong compaction scope and race the actual
         request past a full context window (Celly, 2026-10-22 11:22/11:35).
         A locally typed user turn is not gated; the first routed request marks
-        the identity observed and opens external delivery.
+        the identity observed and opens external delivery. A session that
+        stays idle never sends one, so the hold also ends after
+        ``REQUEST_IDENTITY_GRACE_SECONDS`` from this identity binding.
         """
 
         if (value.get("runtime") != "claude"
@@ -472,14 +494,16 @@ class RuntimeCompactionBinding:
                 or value.get("request_observed") is True):
             return False
         pid = _positive(value.get("launcher_pid"))
-        held = bool(pid and pid_is_running(pid))
-        marker = f"request:{value.get('epoch')}:{value.get('session_id')}"
+        running = bool(pid and pid_is_running(pid))
+        held = running and not _identity_expired(value, time.time())
+        marker = f"request:{value.get('epoch')}:{value.get('session_id')}:{held}"
         if self.pending_logged != marker:
             self.pending_logged = marker
+            reason = "request_identity_pending" if held else (
+                "request_identity_expired" if running else "request_identity_unavailable")
             self.log("INFO" if held else "WARN", "runtime_compaction_scope "
                      f"admission={'paused' if held else 'ungated'} "
-                     f"reason={'request_identity_pending' if held else 'request_identity_unavailable'} "
-                     "runtime=claude")
+                     f"reason={reason} runtime=claude")
         return held
 
     def _identity_pending(self) -> bool:
@@ -490,18 +514,24 @@ class RuntimeCompactionBinding:
             return False
         pid = _positive(value.get("launcher_pid"))
         sources = bool(value.get("messaging_socket_path")) or value.get("request_identity") is not False
-        held = bool(sources and pid and pid_is_running(pid))
-        if self.pending_logged != value["epoch"]:
-            self.pending_logged = value["epoch"]
+        running = bool(pid and pid_is_running(pid))
+        held = bool(sources and running and not _identity_expired(value, time.time()))
+        marker = f"{value['epoch']}:{held}"
+        if self.pending_logged != marker:
+            self.pending_logged = marker
+            reason = "identity_pending" if held else (
+                "identity_expired" if sources and running else "identity_unavailable")
             self.log("INFO" if held else "WARN", f"runtime_compaction_scope admission={'paused' if held else 'ungated'} "
-                     f"reason={'identity_pending' if held else 'identity_unavailable'} runtime={value['runtime']}")
+                     f"reason={reason} runtime={value['runtime']}")
         return held
 
     def external_admission_paused(self) -> bool:
         """Hold external deliveries until checkpoint AND raw shrink are proven.
 
-        A manual compact may wait here for the next user/native request. An
-        external SSE delivery must not be used as a recovery probe.
+        An automatic compact releases through the retry request that follows
+        it; a manual /compact has none and releases on its own boundary. An
+        unproven launch identity holds only for its grace window. An external
+        SSE delivery is never used as a recovery probe.
         """
         return self._admission_paused()
 

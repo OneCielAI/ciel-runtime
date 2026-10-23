@@ -215,6 +215,32 @@ class RuntimeCompactionControlTests(_ControllerHarness):
         self.assertTrue(self.control.external_admission_paused())
         self.assertEqual("retry_wait", self.snapshot()["phase"])
 
+    def test_manual_compact_releases_on_its_own_boundary_without_a_retry(self):
+        # /compact has no pending turn to retry, so the boundary postTokens is
+        # the only measurement that will ever exist (Regina 2026-10-23).
+        native = {"messages": [{"role": "user", "content": "<command-name>/compact</command-name>"}]}
+        self.request(1200, native)
+        self.assertEqual("compacting", self.snapshot()["phase"])
+        self.clock += 1
+        record = boundary("session-a", self.clock)
+        record["compactMetadata"]["trigger"] = "manual"
+        self.append(record)
+        self.assertFalse(self.control.external_admission_paused())
+        state = self.snapshot()
+        self.assertEqual("verified", state["phase"])
+        self.assertEqual(120, state["next_raw_tokens"])
+        self.assertTrue(any("evidence=manual_checkpoint_post_tokens" in str(item) for item in self.logs))
+
+    def test_manual_compact_whose_boundary_is_still_full_stays_bounded(self):
+        native = {"messages": [{"role": "user", "content": "<command-name>/compact</command-name>"}]}
+        self.request(1200, native)
+        self.clock += 1
+        record = boundary("session-a", self.clock)
+        record["compactMetadata"].update({"trigger": "manual", "postTokens": 1500})
+        self.append(record)
+        self.assertTrue(self.control.external_admission_paused())
+        self.assertEqual("retry_wait", self.snapshot()["phase"])
+
     def test_historical_wrong_session_and_quoted_markers_do_not_confirm(self):
         self.append(boundary("session-a", self.clock - 5, "old"))
         self.request()

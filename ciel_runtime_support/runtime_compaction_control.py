@@ -14,7 +14,7 @@ import threading
 import time
 from collections import OrderedDict
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from pathlib import Path
 from typing import Any, BinaryIO
@@ -41,6 +41,9 @@ class NativeCompactionCheckpoint:
     persisted_at: float
     pre_tokens: int = 0
     post_tokens: int = 0
+    # "manual" when the user ran /compact: that compaction has no pending turn
+    # to retry, so no later request will ever measure its shrink.
+    trigger: str = ""
     # Newest native prompt size written after this checkpoint in the same
     # transcript; None stays unknown rather than assumed.
     last_input_tokens: int | None = None
@@ -127,10 +130,11 @@ def _read_jsonl(stream: BinaryIO, max_record_bytes: int):
         yield line.rstrip(b"\r\n")
 
 
-def _checkpoint_record(record: Any, scope: CompactionScope, path: Path) -> tuple[float, int, int] | None:
+def _checkpoint_record(record: Any, scope: CompactionScope, path: Path) -> tuple[float, int, int, str] | None:
     if not isinstance(record, dict) or record.get("isSidechain") is True:
         return None
     pre_tokens = post_tokens = 0
+    trigger = ""
     if scope.runtime == "claude":
         if (record.get("type") != "system" or record.get("subtype") != "compact_boundary"
                 or record.get("sessionId") != scope.session_id):
@@ -140,6 +144,7 @@ def _checkpoint_record(record: Any, scope: CompactionScope, path: Path) -> tuple
             return None
         pre_tokens = _positive(metadata.get("preTokens"))
         post_tokens = _positive(metadata.get("postTokens"))
+        trigger = str(metadata.get("trigger") or "")
     elif scope.runtime in {"codex", "codex-app-server", "codex-desktop"}:
         payload = record.get("payload")
         if record.get("type") != "compacted" or not isinstance(payload, dict):
@@ -156,7 +161,7 @@ def _checkpoint_record(record: Any, scope: CompactionScope, path: Path) -> tuple
     else:
         return None
     persisted_at = _timestamp(record.get("timestamp"))
-    return (persisted_at, pre_tokens, post_tokens) if persisted_at > 0 else None
+    return (persisted_at, pre_tokens, post_tokens, trigger) if persisted_at > 0 else None
 
 
 def _input_tokens_record(record: Any, scope: CompactionScope) -> int | None:
@@ -225,7 +230,9 @@ def native_checkpoint_from_transcript(
                     continue
                 found = _checkpoint_record(record, scope, path)
                 if found is not None:
-                    newest = NativeCompactionCheckpoint(scope, hashlib.sha256(line).hexdigest(), *found)
+                    newest = NativeCompactionCheckpoint(
+                        scope, hashlib.sha256(line).hexdigest(), found[0],
+                        pre_tokens=found[1], post_tokens=found[2], trigger=found[3])
                     continue
                 # Usage must follow a matching checkpoint physically and carry
                 # a valid timestamp at or after that boundary. Older usage is
@@ -234,9 +241,7 @@ def native_checkpoint_from_transcript(
                         and _timestamp(record.get("timestamp")) >= newest.persisted_at):
                     tokens = _input_tokens_record(record, scope)
                     if tokens is not None:
-                        newest = NativeCompactionCheckpoint(
-                            scope, newest.identity, newest.persisted_at,
-                            newest.pre_tokens, newest.post_tokens, tokens)
+                        newest = replace(newest, last_input_tokens=tokens)
             after = os.fstat(stream.fileno())
             after_signature = (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns, after.st_ctime_ns)
             if after_signature != signature:
@@ -279,13 +284,14 @@ class RuntimeCompactionControl:
             "checkpoint_id": "", "request_id": "", "attempts": 0,
         }
 
-    def _write(self, state: dict[str, Any], event: str = "") -> None:
+    def _write(self, state: dict[str, Any], event: str = "", detail: str = "") -> None:
         self.ports.save(state)
         if event:
             self.ports.log(
                 "INFO", f"runtime_compaction_control event={event} phase={state.get('phase')} "
                 f"runtime={state['scope']['runtime']} session={state['scope']['session_id']} "
-                f"epoch={state['scope']['epoch']} attempts={state.get('attempts', 0)}",
+                f"epoch={state['scope']['epoch']} attempts={state.get('attempts', 0)}"
+                f"{' ' + detail if detail else ''}",
             )
 
     def _refresh(self, state: dict[str, Any], scope: CompactionScope) -> None:
@@ -424,27 +430,37 @@ class RuntimeCompactionControl:
             # The client measured its own compacted history as still full.
             self._not_shrunk(state, "checkpoint_not_below_budget")
             return
+        baseline = _positive(state.get("baseline_tokens"))
         observed = state.get("shrink_observed")
         if isinstance(observed, dict):
             # Claude Code 2.1.303 persists the boundary only after its
             # automatic retry completes; that retry was the smaller raw
             # request of this same compaction cycle.
             tokens = _positive(observed.get("tokens"))
-            if _below_capacity(tokens, limit, _positive(state.get("baseline_tokens"))):
-                self._verify(state, tokens)
+            if _below_capacity(tokens, limit, baseline):
+                self._verify(state, tokens, evidence="next_request_shrink")
                 return
+        if checkpoint.trigger == "manual" and _below_capacity(checkpoint.post_tokens, limit, baseline):
+            # A user-run /compact has no pending turn to retry, so no later
+            # request will ever measure it: holding here stranded every
+            # external delivery until someone typed (Regina, 2026-10-23:
+            # 716,750 window, boundary postTokens 15,117, nothing after).
+            # The boundary is the client's own measurement of its compacted
+            # history; a request that still overflows re-arms this state.
+            self._verify(state, checkpoint.post_tokens, evidence="manual_checkpoint_post_tokens")
+            return
         # The native client's own newest prompt size after this checkpoint is
         # the same measurement as the next raw request, for a client that
         # sends without passing through the router.
         tokens = checkpoint.last_input_tokens
-        if tokens is not None and _below_capacity(tokens, limit, _positive(state.get("baseline_tokens"))):
-            self._verify(state, tokens)
+        if tokens is not None and _below_capacity(tokens, limit, baseline):
+            self._verify(state, tokens, evidence="post_checkpoint_prompt")
 
-    def _verify(self, state: dict[str, Any], raw_tokens: int) -> None:
+    def _verify(self, state: dict[str, Any], raw_tokens: int, *, evidence: str = "") -> None:
         if state.get("request_id"):
             self.ports.clear(str(state["request_id"]))
         state.update({"phase": "verified", "verified_at": self.ports.now(), "next_raw_tokens": raw_tokens})
-        self._write(state, "checkpoint_and_history_shrink_verified")
+        self._write(state, "checkpoint_and_history_shrink_verified", f"evidence={evidence}" if evidence else "")
 
     def _not_shrunk(self, state: dict[str, Any], reason: str) -> None:
         # A checkpoint that did not shrink is spent proof: the next attempt

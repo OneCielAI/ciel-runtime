@@ -13,7 +13,11 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from ciel_runtime_support.channel_compact_request_repository import ChannelCompactRequestRepository
-from ciel_runtime_support.runtime_compaction_binding import RuntimeCompactionBinding, native_input_tokens
+from ciel_runtime_support.runtime_compaction_binding import (
+    REQUEST_IDENTITY_GRACE_SECONDS,
+    RuntimeCompactionBinding,
+    native_input_tokens,
+)
 from ciel_runtime_support.runtime_compaction_control import CompactionScope
 from ciel_runtime_support.remote_bridge import REMOTE_BRIDGE_CONFIG_MARKER
 from ciel_runtime_support.secure_json_repository import SecureJsonEffects, SecureJsonRepository
@@ -291,6 +295,39 @@ class ObservationTests(BindingHarness):
         self.assertTrue(self.binding.external_admission_paused())
         self.binding.observe_request("anthropic", {}, {"tokens": 900}, "claude")
         self.assertEqual("verified", self.state()["phase"])
+
+
+class RequestIdentityGraceTests(BindingHarness):
+    def bind_socket(self, binding=None, **options):
+        options.setdefault("cwd", self.root)
+        options.setdefault("messaging_socket_path", "/tmp/cc-msg-test.sock")
+        (binding or self.binding).bind("claude", **options)
+
+    def age_identity(self, seconds):
+        value = self.binding.repository.load("compaction_scope")
+        value["identity_since"] = time.time() - seconds
+        self.binding.repository.save(value, "compaction_scope")
+
+    def test_unproven_identity_holds_then_opens_after_the_grace(self):
+        # Celly 2026-10-23: the launch held 6363 until the user typed "222".
+        self.bind_socket(session_id="exact")
+        self.assertTrue(self.binding.external_admission_paused())
+        self.age_identity(REQUEST_IDENTITY_GRACE_SECONDS + 1)
+        self.assertFalse(self.binding.external_admission_paused())
+
+    def test_routed_request_proves_identity_without_waiting_for_the_grace(self):
+        self.bind_socket(session_id="exact")
+        self.assertTrue(self.binding.external_admission_paused())
+        self.binding.observe_request(self.provider, {}, {"tokens": 100}, "claude")
+        self.assertFalse(self.binding.external_admission_paused())
+
+    def test_unpublished_identity_also_opens_after_the_grace(self):
+        fresh = self.make()
+        self.bind_socket(fresh)
+        self.assertTrue(fresh.external_admission_paused())
+        expired = self.make()
+        self.bind_socket(expired, started_at=time.time() - REQUEST_IDENTITY_GRACE_SECONDS - 1)
+        self.assertFalse(expired.external_admission_paused())
 
 
 class FacadeWiringTests(unittest.TestCase):
