@@ -190,6 +190,14 @@ class CompactContinuationTests(unittest.TestCase):
         self.assertIsNone(self.decide())
         print("compact_owned_transport checkpoint=1 socket_frames=2 http_requests=1 status=200 replay=0")
 
+    def test_boundary_waits_for_compaction_gate_and_idle_report_to_refresh(self):
+        self.h.monitor.observe(boundary())
+        self.h.clock.value += 5
+        self.h.terminal["compaction"] = True
+        self.assertIsNone(self.h.monitor.tick())
+        self.h.terminal["compaction"] = False
+        self.assertEqual("compact_resume", self.h.monitor.tick()["kind"])
+
     def test_independent_toggle_and_fixed_one_attempt(self):
         self.h.config = {settings.CONFIG_KEY: {"enabled": False, "max_attempts": 2, "compact_resume": True}}
         self.assertEqual(1, self.decide()["limit"])

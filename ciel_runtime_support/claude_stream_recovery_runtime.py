@@ -554,6 +554,12 @@ class ClaudeStreamRecoveryMonitor:
         blocked = self._terminal_blocked()
         self._terminal = original_terminal
         if blocked:
+            if compact and blocked in {"terminal_busy", "compaction", "terminal_stale", "terminal_unknown", "terminal_not_ready"}:
+                # Checkpoint persistence can precede the terminal's refreshed
+                # idle report. Keep this bounded candidate until its TTL,
+                # rather than permanently dropping it at the first busy poll.
+                self._pending = pending
+                return None
             self._skip(pending, blocked, f"error={pending['error_uuid']}")
             return None
         if compact:
