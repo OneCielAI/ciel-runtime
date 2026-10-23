@@ -1,0 +1,124 @@
+diff --git a/ciel_runtime_support/runtime_compaction_control.py b/ciel_runtime_support/runtime_compaction_control.py
+index 8431149..ab1ec4b 100644
+--- a/ciel_runtime_support/runtime_compaction_control.py
++++ b/ciel_runtime_support/runtime_compaction_control.py
+@@ -561,9 +561,21 @@ def build_runtime_compaction_control(
+     """Compose private atomic state shared by the router and native consumer."""
+ 
+     state = SecureJsonRepository(state_path, SecureJsonEffects(log=log))
++
++    def load_state() -> dict[str, Any] | None:
++        # An unreadable file used to pause external delivery forever, with no
++        # request able to repair it. Move it aside once; the next observed
++        # request then starts a new cycle from its own measured tokens, so a
++        # full context still pauses admission until shrink is proven.
++        value = state.load("runtime_compaction_control")
++        if value is None:
++            state.quarantine("runtime_compaction_control")
++            return {}
++        return value
++
+     return RuntimeCompactionControl(
+         RuntimeCompactionPorts(
+-            load=lambda: state.load("runtime_compaction_control"),
++            load=load_state,
+             save=lambda value: state.save(value, "runtime_compaction_control"),
+             lock=lambda: exclusive_file_lock(state_path),
+             scope=scope,
+diff --git a/ciel_runtime_support/secure_json_repository.py b/ciel_runtime_support/secure_json_repository.py
+index 27f4fe4..d87e510 100644
+--- a/ciel_runtime_support/secure_json_repository.py
++++ b/ciel_runtime_support/secure_json_repository.py
+@@ -35,6 +35,34 @@ class SecureJsonRepository:
+             return None
+         return value if isinstance(value, dict) else {}
+ 
++    def quarantine(self, purpose: str) -> Path | None:
++        """Move an unreadable state file aside so a fresh cycle can start.
++
++        The original bytes are kept for diagnosis. A move that fails leaves
++        the file in place, so callers keep failing closed rather than
++        overwriting evidence they could not read.
++        """
++
++        target = self.path.with_name(f"{self.path.name}.corrupt-{self.effects.time_ns()}")
++        try:
++            self.path.replace(target)
++            try:
++                self.effects.chmod(target, 0o600)
++            except OSError:
++                pass
++        except OSError as exc:
++            self.effects.log(
++                "WARN",
++                f"secure_json_quarantine_failed purpose={purpose} path={self.path} "
++                f"error={type(exc).__name__}: {exc}",
++            )
++            return None
++        self.effects.log(
++            "WARN",
++            f"secure_json_quarantined purpose={purpose} path={self.path} moved_to={target}",
++        )
++        return target
++
+     def save(self, value: dict[str, Any], purpose: str) -> None:
+         self.path.parent.mkdir(parents=True, exist_ok=True)
+         temporary_path = self.path.with_name(
+diff --git a/tests/test_runtime_compaction_control.py b/tests/test_runtime_compaction_control.py
+index 107902f..3b18df1 100644
+--- a/tests/test_runtime_compaction_control.py
++++ b/tests/test_runtime_compaction_control.py
+@@ -15,6 +15,7 @@ from ciel_runtime_support.runtime_compaction_control import (
+     RuntimeCompactionControl,
+     RuntimeCompactionPolicy,
+     RuntimeCompactionPorts,
++    build_runtime_compaction_control,
+     native_checkpoint_from_transcript,
+ )
+ from ciel_runtime_support.secure_json_repository import SecureJsonEffects, SecureJsonRepository
+@@ -71,6 +72,15 @@ class _ControllerHarness(unittest.TestCase):
+             now=lambda: self.clock,
+         ), RuntimeCompactionPolicy(confirmation_timeout_seconds=10, retry_cooldown_seconds=3, max_attempts=2))
+ 
++    def factory(self):
++        return build_runtime_compaction_control(
++            self.state.path, scope=lambda: self.scope,
++            transcript_path=lambda: self.trace, requests=self.repository,
++            compact_kind=compact_kind, log=lambda *args: self.logs.append(args),
++            policy=RuntimeCompactionPolicy(
++                confirmation_timeout_seconds=10, retry_cooldown_seconds=3, max_attempts=2),
++        )
++
+     def request(self, tokens=1200, body=None):
+         with patch("ciel_runtime_support.channel_compact_request_repository.time.time", return_value=self.clock):
+             self.control.observe_request(body or {"messages": [{"role": "user", "content": "ordinary"}]}, tokens, 1000)
+@@ -282,6 +292,29 @@ class RuntimeCompactionControlTests(_ControllerHarness):
+         self.assertTrue(self.control.external_admission_paused())
+         self.assertIsNone(self.repository.read())
+ 
++    def test_unreadable_state_is_quarantined_and_a_new_cycle_can_verify(self):
++        self.state.path.write_text("not json", encoding="utf-8")
++        control = self.factory()
++        # An unreadable file is moved aside once, not allowed to block forever.
++        self.assertFalse(control.external_admission_paused())
++        quarantined = sorted(self.root.glob("control.json.corrupt-*"))
++        self.assertEqual(1, len(quarantined))
++        self.assertEqual("not json", quarantined[0].read_text(encoding="utf-8"))
++        self.assertIsNone(self.repository.read())
++        # The next measured request still controls safety: a full context
++        # pauses admission until the cycle proves a smaller request.
++        with patch("ciel_runtime_support.channel_compact_request_repository.time.time", return_value=self.clock):
++            control.observe_request({"messages": [{"role": "user", "content": "big"}]}, 1200, 1000)
++        self.assertTrue(control.external_admission_paused())
++        request = self.repository.read()
++        self.assertIsNotNone(request)
++        self.assertTrue(control.command_ready(request))
++        control.command_submitted(request)
++        self.repository.clear(request["id"])
++        self.append(boundary("session-a", self.clock))
++        control.observe_request({"messages": [{"role": "user", "content": "small"}]}, 120, 1000)
++        self.assertFalse(control.external_admission_paused())
++
+     def test_corrupt_state_fails_closed_without_consuming_command(self):
+         self.state.path.write_text("not json", encoding="utf-8")
+         self.assertTrue(self.control.external_admission_paused())

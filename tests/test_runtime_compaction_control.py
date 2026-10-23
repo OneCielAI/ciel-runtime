@@ -15,6 +15,7 @@ from ciel_runtime_support.runtime_compaction_control import (
     RuntimeCompactionControl,
     RuntimeCompactionPolicy,
     RuntimeCompactionPorts,
+    build_runtime_compaction_control,
     native_checkpoint_from_transcript,
 )
 from ciel_runtime_support.secure_json_repository import SecureJsonEffects, SecureJsonRepository
@@ -70,6 +71,15 @@ class _ControllerHarness(unittest.TestCase):
             compact_kind=compact_kind, log=lambda *args: self.logs.append(args),
             now=lambda: self.clock,
         ), RuntimeCompactionPolicy(confirmation_timeout_seconds=10, retry_cooldown_seconds=3, max_attempts=2))
+
+    def factory(self):
+        return build_runtime_compaction_control(
+            self.state.path, scope=lambda: self.scope,
+            transcript_path=lambda: self.trace, requests=self.repository,
+            compact_kind=compact_kind, log=lambda *args: self.logs.append(args),
+            policy=RuntimeCompactionPolicy(
+                confirmation_timeout_seconds=10, retry_cooldown_seconds=3, max_attempts=2),
+        )
 
     def request(self, tokens=1200, body=None):
         with patch("ciel_runtime_support.channel_compact_request_repository.time.time", return_value=self.clock):
@@ -281,6 +291,29 @@ class RuntimeCompactionControlTests(_ControllerHarness):
         self.clock += 50
         self.assertTrue(self.control.external_admission_paused())
         self.assertIsNone(self.repository.read())
+
+    def test_unreadable_state_is_quarantined_and_a_new_cycle_can_verify(self):
+        self.state.path.write_text("not json", encoding="utf-8")
+        control = self.factory()
+        # An unreadable file is moved aside once, not allowed to block forever.
+        self.assertFalse(control.external_admission_paused())
+        quarantined = sorted(self.root.glob("control.json.corrupt-*"))
+        self.assertEqual(1, len(quarantined))
+        self.assertEqual("not json", quarantined[0].read_text(encoding="utf-8"))
+        self.assertIsNone(self.repository.read())
+        # The next measured request still controls safety: a full context
+        # pauses admission until the cycle proves a smaller request.
+        with patch("ciel_runtime_support.channel_compact_request_repository.time.time", return_value=self.clock):
+            control.observe_request({"messages": [{"role": "user", "content": "big"}]}, 1200, 1000)
+        self.assertTrue(control.external_admission_paused())
+        request = self.repository.read()
+        self.assertIsNotNone(request)
+        self.assertTrue(control.command_ready(request))
+        control.command_submitted(request)
+        self.repository.clear(request["id"])
+        self.append(boundary("session-a", self.clock))
+        control.observe_request({"messages": [{"role": "user", "content": "small"}]}, 120, 1000)
+        self.assertFalse(control.external_admission_paused())
 
     def test_corrupt_state_fails_closed_without_consuming_command(self):
         self.state.path.write_text("not json", encoding="utf-8")

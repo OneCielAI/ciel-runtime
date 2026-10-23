@@ -561,9 +561,21 @@ def build_runtime_compaction_control(
     """Compose private atomic state shared by the router and native consumer."""
 
     state = SecureJsonRepository(state_path, SecureJsonEffects(log=log))
+
+    def load_state() -> dict[str, Any] | None:
+        # An unreadable file used to pause external delivery forever, with no
+        # request able to repair it. Move it aside once; the next observed
+        # request then starts a new cycle from its own measured tokens, so a
+        # full context still pauses admission until shrink is proven.
+        value = state.load("runtime_compaction_control")
+        if value is None:
+            state.quarantine("runtime_compaction_control")
+            return {}
+        return value
+
     return RuntimeCompactionControl(
         RuntimeCompactionPorts(
-            load=lambda: state.load("runtime_compaction_control"),
+            load=load_state,
             save=lambda value: state.save(value, "runtime_compaction_control"),
             lock=lambda: exclusive_file_lock(state_path),
             scope=scope,
