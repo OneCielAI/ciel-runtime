@@ -1,0 +1,60 @@
+{
+  "commit": "1c48c8e3b28a60bcb1fcc81ea11c9cc93892a51a",
+  "version": "0.2.51-nightly.20261023-220155.1c48c8e",
+  "registry": {
+    "version": "0.2.51-nightly.20261023-220155.1c48c8e",
+    "gitHead": "1c48c8e3b28a60bcb1fcc81ea11c9cc93892a51a"
+  },
+  "copied_files": 451,
+  "hashes": {
+    "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-release-4bhntmt3\\package": "a26ccc32e2f056a330478ccf7a3e683394cef33081c3ae79918dbd4748ddd020",
+    "C:\\Users\\djlov\\.local\\share\\ciel-runtime": "a26ccc32e2f056a330478ccf7a3e683394cef33081c3ae79918dbd4748ddd020",
+    "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime": "a26ccc32e2f056a330478ccf7a3e683394cef33081c3ae79918dbd4748ddd020"
+  },
+  "health_before": {
+    "9489": {
+      "ok": true,
+      "pid": 77744,
+      "version": "0.2.51-nightly.20261023-155417.dfcf41a"
+    },
+    "9505": {
+      "ok": true,
+      "pid": 33444,
+      "version": "0.2.51-nightly.20261023-052413.0cd6c60"
+    },
+    "9524": {
+      "ok": true,
+      "pid": 85976,
+      "version": "0.2.51-nightly.20261023-203900.ed7ab55"
+    },
+    "9385": {
+      "ok": true,
+      "pid": 69748,
+      "version": "0.2.51-nightly.20261023-155417.dfcf41a"
+    }
+  },
+  "health_after": {
+    "9489": {
+      "ok": true,
+      "pid": 77744,
+      "version": "0.2.51-nightly.20261023-155417.dfcf41a"
+    },
+    "9505": {
+      "ok": true,
+      "pid": 33444,
+      "version": "0.2.51-nightly.20261023-052413.0cd6c60"
+    },
+    "9524": {
+      "ok": true,
+      "pid": 85976,
+      "version": "0.2.51-nightly.20261023-203900.ed7ab55"
+    },
+    "9385": {
+      "ok": true,
+      "pid": 69748,
+      "version": "0.2.51-nightly.20261023-155417.dfcf41a"
+    }
+  },
+  "installed_tests": "passed (see installed-tests.txt)",
+  "restarted_sessions": false
+}
