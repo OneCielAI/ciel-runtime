@@ -604,7 +604,7 @@ def _map_progress(
             scope.get(key) for key in ("runtime", "session_id", "epoch")):
         return None
     transport = services.transport
-    operation = _summary_request(provider, model, config, "", services, wire, budget)[1]
+    request, operation = _summary_request(provider, model, config, "", services, wire, budget)
     identity = {
         "scope": {key: str(scope[key]) for key in ("runtime", "session_id", "epoch")},
         "provider": provider, "model": transport.resolve_model(provider, config, model), "wire": wire,
@@ -612,6 +612,9 @@ def _map_progress(
         "budget": budget, "target": target,
         "summary_output": transport.summary_output_tokens(config, budget),
         "map_system": stable_digest(services.map_system_prompt),
+        # The projected request shape covers provider options (for example
+        # Ollama sampling and think settings) that change the generated text.
+        "request": stable_digest(request),
         # Full source digests: image bytes are covered although the textual
         # map prompts carry only a marker for them.
         "history": stable_digest(history), "systems": stable_digest(systems),

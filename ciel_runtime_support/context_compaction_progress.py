@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from pathlib import Path
 import time
 from typing import Any, Callable
@@ -138,7 +139,11 @@ class MapProgress:
                 order = sorted(runs, key=lambda key: (key != self.run, -runs[key]["at"]))[:MAX_RUNS]
                 while order:
                     state = {"version": PROGRESS_VERSION, "runs": {key: runs[key] for key in order}}
-                    if len(json.dumps(state, ensure_ascii=False).encode("utf-8", "surrogatepass")) <= MAX_BYTES:
+                    # Measure the bytes SecureJsonRepository writes: indented
+                    # JSON through a text-mode file, which translates newlines.
+                    text = json.dumps(state, indent=2, ensure_ascii=False) + "\n"
+                    encoded = text.replace("\n", os.linesep)
+                    if len(encoded.encode("utf-8", "surrogatepass")) <= MAX_BYTES:
                         break
                     order.pop()
                 if self.run not in order:

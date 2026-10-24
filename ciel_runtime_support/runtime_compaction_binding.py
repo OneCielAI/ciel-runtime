@@ -179,16 +179,13 @@ class RuntimeCompactionBinding:
             self.log("WARN", f"runtime_compaction_scope_bind_failed runtime={runtime} error={type(exc).__name__}")
 
     def _update(self, epoch: str, **fields: Any) -> dict[str, Any]:
-        if not fields:
-            value = self.repository.load("compaction_scope")
-            if value is None:
-                raise OSError("compaction scope is unreadable")
-            return value
+        # Reads take the short scope lock too: on Windows an open reader makes
+        # the writer's atomic replace fail (measured: 2194 failed saves in 3 s).
         with exclusive_file_lock(self.repository.path):
             value = self.repository.load("compaction_scope")
             if value is None:
                 raise OSError("compaction scope is unreadable")
-            if value.get("epoch") == epoch:
+            if fields and value.get("epoch") == epoch:
                 value.update(fields)
                 self.repository.save(value, "compaction_scope")
             return value
@@ -364,8 +361,13 @@ class RuntimeCompactionBinding:
                   or configured or 4096)
         return max(8192, limit - output - budget.reserve(config, limit))
 
+    def _admission_state(self) -> dict[str, Any] | None:
+        # Never called while the admission lock is held; see _update.
+        with self.control.ports.lock():
+            return self.control.ports.load()
+
     def _active_state(self, scope: CompactionScope | None) -> dict[str, Any]:
-        state = self.control.ports.load() if scope else None
+        state = self._admission_state() if scope else None
         if not state or state.get("scope") != scope.payload() or state.get("phase") == "verified":
             return {}
         return state
@@ -600,7 +602,7 @@ class RuntimeCompactionBinding:
     def recovery_status(self) -> dict[str, Any]:
         try:
             scope = self.scope()
-            state = self.control.ports.load() if scope is not None else None
+            state = self._admission_state() if scope is not None else None
             if not isinstance(state, dict) or state.get("scope") != scope.payload():
                 return {}
             return {key: state.get(key) for key in (
@@ -611,7 +613,7 @@ class RuntimeCompactionBinding:
     def compact_dispatch(self) -> dict[str, Any]:
         """Exact confirmed runtime dispatch for a continuation observer."""
         scope = self.scope()
-        state = self.control.ports.load() if scope is not None else None
+        state = self._admission_state() if scope is not None else None
         if not isinstance(state, dict) or state.get("scope") != scope.payload():
             return {}
         dispatch = state.get("dispatch")

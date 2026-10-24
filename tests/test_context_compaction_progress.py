@@ -234,6 +234,43 @@ class MapProgressReuseTests(unittest.TestCase):
         self.assertFalse(writer.enabled)
         self.assertEqual(original, writer.path.read_bytes())
 
+    def test_provider_request_options_are_part_of_the_identity(self):
+        def options(value):
+            return {"ollama_options": {"temperature": value}, "ollama_explicit_options": ["temperature"]}
+
+        def compact(services, config):
+            return build_llm_compacted_messages(
+                "provider", "model", {"_context_compact_scope": SCOPE, **config},
+                [*self.history(), {"role": "user", "content": COMPACT}], 8192, services, wire="ollama",
+            )
+
+        first = self.services()
+        with self.assertRaises(ContextCompactionFailed):
+            compact(first, {**options(0.1), **self.cancel_after(first, 3)})
+        changed = self.services()
+        compact(changed, options(0.9))
+        self.assertEqual(6, changed.workflow.request_summary.call_count)
+        same = self.services()
+        compact(same, options(0.1))
+        self.assertEqual(3, same.workflow.request_summary.call_count)
+        self.assertEqual(3, same.workflow.write_activity.call_args.kwargs["reused_chunks"])
+
+    def test_size_bound_uses_the_bytes_written_to_disk(self):
+        from ciel_runtime_support import context_compaction_progress as progress
+        log = mock.Mock()
+        with mock.patch.object(progress, "MAX_BYTES", 1200):
+            writer = progress.MapProgress(self.root, {"run": "exact"}, log)
+            for number in range(100):
+                writer.record(f"prompt {number}", "summary", "s" * 40)
+                if not writer.enabled:
+                    break
+                self.assertLessEqual(writer.path.stat().st_size, progress.MAX_BYTES)
+            self.assertFalse(writer.enabled)
+            reader = progress.MapProgress(self.root, {"run": "exact"}, log)
+            self.assertEqual(writer.recorded, reader.recorded)
+            self.assertGreater(reader.recorded, 0)
+        self.assertEqual([], list(self.root.glob("*.corrupt-*")))
+
     def test_expired_runs_are_ignored(self):
         log = mock.Mock()
         MapProgress(self.root, {"run": 3}, log, now=lambda: 1000.0).record("prompt", "summary", "old")

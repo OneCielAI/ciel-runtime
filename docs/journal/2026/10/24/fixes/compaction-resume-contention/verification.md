@@ -15,12 +15,22 @@ timestamp: 2026-10-24T00:00:00Z
 
 # Verification
 
-- [Focused tests](evidence/focused-tests.txt): 636 tests, OK, 43 environment-specific skips. Exact-file isolated runner, temporary homes, stripped inherited Runtime/Claude/Anthropic/Codex environment. No broad discovery on the live machine.
+- [Focused tests](evidence/focused-tests.txt): 672 tests, OK, 43 environment-specific skips. Exact-file isolated runner, temporary homes, stripped inherited Runtime/Claude/Anthropic/Codex environment. No broad discovery on the live machine.
 - Real loopback disconnect/resume: first attempt completed three summaries before cancellation; retry reused three and generated only three more; final upstream opened once. This is synthetic transport evidence, not real-model/fleet recovery.
 - Review regression: one-shot overflow/shrink observations survive repeated state conflicts without promoting stale checkpoint proof; disabling safeguard cancels its queued reservation.
 - Barrier-controlled full-binding slow scan: seed/scope/admission locks available to a concurrent thread; stale revision and epoch/session changes reject commits; two concurrent dispatchers produce exactly one claim.
 - Shrink deadline remains gated, with no queued replay, and accepts a later real small request. Menu output contains phase/reason/checkpoint-observed/failure time.
 - [Ruff](evidence/ruff.txt), [metadata](evidence/metadata.txt), [npm pack dry run](evidence/pack-dry-run.json). Compile passed. Existing facade/port architecture tests remain enforced.
+
+# Follow-up review defects
+
+2e55ca4 was published as nightly `0.2.51-nightly.20261024-061214.2e55ca4` before an independent review finished. It was not installed locally. Three defects were confirmed and fixed:
+
+- Unlocked state reads. Measured on this Windows host with a 3 s concurrent writer/reader loop: unlocked reads caused 2194 failed atomic saves, 253 failed reads and 1978 leftover `.tmp` files; locked reads caused 0/0/0. Through the binding itself the old code produced `scope_save PermissionError`. Scope and admission reads now take their short file locks; identity, configuration and transcript checks run before the admission lock is retaken.
+- Progress identity omitted provider request options. On 2e55ca4 a changed Ollama `temperature` reused summaries (3 calls instead of 6). The identity now includes a digest of the projected summary request.
+- The size bound measured compact JSON while the repository writes indented JSON in text mode (CRLF on Windows). On 2e55ca4 the journal reached 1202 bytes with a 1200-byte bound, which the next reader quarantines. The bound now measures the bytes written.
+
+Each new regression test fails on 2e55ca4 and passes on the fix.
 
 # Limits
 
@@ -28,4 +38,4 @@ No live session restarted; no remote machine changed. A crash between upstream c
 
 # Release
 
-Nightly push, registry gitHead verification and local installed-path verification pending. Changes apply only to new launches unless a session is explicitly restarted separately.
+Nightly push of the follow-up commit, registry gitHead verification and local installed-path verification are recorded in [deployment](evidence/deployment.json) once complete. Changes apply only to new launches unless a session is explicitly restarted separately.

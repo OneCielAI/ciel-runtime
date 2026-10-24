@@ -193,6 +193,51 @@ class ContentionTests(fixtures._ControllerHarness):
 
 
 class FullBindingContentionTests(binding_fixtures.BindingHarness):
+    def test_concurrent_state_reads_never_break_atomic_replacement(self):
+        import time
+        self.binding.bind('claude', session_id='exact', cwd=self.root)
+        scope = self.binding.scope()
+        control = self.binding.control
+        stop = time.monotonic() + 1.0
+        failures = []
+        def scope_writer():
+            number = 0
+            while time.monotonic() < stop:
+                number += 1
+                try:
+                    self.binding._update(scope.epoch, failed_probe=str(number))
+                except Exception as exc:
+                    failures.append(('scope_save', type(exc).__name__))
+        def admission_writer():
+            number = 0
+            while time.monotonic() < stop:
+                number += 1
+                try:
+                    with control.ports.lock():
+                        control.ports.save({'scope': scope.payload(), 'phase': 'verified', 'n': number})
+                except Exception as exc:
+                    failures.append(('admission_save', type(exc).__name__))
+        def reader(read, name):
+            while time.monotonic() < stop:
+                try:
+                    if read() is None:
+                        failures.append((name, 'unreadable'))
+                except Exception as exc:
+                    failures.append((name, type(exc).__name__))
+        scope_read = lambda: self.binding._update('')  # noqa: E731
+        admission_read = lambda: self.binding._admission_state()  # noqa: E731
+        threads = [threading.Thread(target=scope_writer), threading.Thread(target=admission_writer),
+                   threading.Thread(target=reader, args=(scope_read, 'scope_read')),
+                   threading.Thread(target=reader, args=(admission_read, 'admission_read'))]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(30)
+            self.assertFalse(thread.is_alive())
+        self.assertEqual([], sorted(set(failures)))
+        self.assertEqual([], list(self.root.glob('compaction-*.json.*.tmp')))
+        print('state_race failures=0 leftover_tmp=0')
+
     def test_disabling_safeguard_cancels_queued_reservation(self):
         self.provider = 'cielairouter'
         config = {'current_model': 'ASTRA', 'compact_safeguard': True}
@@ -228,10 +273,13 @@ class FullBindingContentionTests(binding_fixtures.BindingHarness):
             thread.start()
             try:
                 self.assertTrue(entered.wait(5))
+                # Each lock is free while the scan is parked at the barrier.
                 with exclusive_file_lock(self.root / 'compaction-seed'):
                     with exclusive_file_lock(self.binding.repository.path):
                         with self.binding.control.ports.lock():
-                            self.assertEqual('exact', self.binding.scope().session_id)
+                            held = True
+                self.assertTrue(held)
+                self.assertEqual('exact', self.binding.scope().session_id)
             finally:
                 release.set()
                 thread.join(8)

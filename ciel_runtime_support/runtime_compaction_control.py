@@ -276,12 +276,13 @@ class RuntimeCompactionControl:
                 snapshot = self._read(scope)
             observed = self.ports.checkpoint(scope) if needed(snapshot) else None
             checkpoint = observed.checkpoint if isinstance(observed, _CheckpointObservation) else observed
+            # Identity, configuration and transcript checks read other files
+            # and locks; they run before the admission lock is retaken.
+            current = scope == self.ports.scope() and validate()
+            fresh = not isinstance(observed, _CheckpointObservation) or observed.valid()
             with self.ports.lock():
                 state = self._read(scope)
-                current = scope == self.ports.scope() and validate()
-                valid = (current and state == snapshot
-                         and (not isinstance(observed, _CheckpointObservation) or observed.valid()))
-                if valid:
+                if current and fresh and state == snapshot:
                     yield state, checkpoint
                     return
                 now = self.ports.now()
