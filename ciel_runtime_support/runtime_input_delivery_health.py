@@ -144,6 +144,7 @@ def _snapshot(status: Any, inputs_path: Path, receiver_id: str | None) -> dict[s
         # Original queue time wins over repeated queued status writes.
         stamp = _epoch(message.get("created_at_epoch")) or first_queued.get(request_id)
         queued.append(stamp)
+    outcomes = _delivery_outcomes(latest)
     complete = bool(history.get("complete"))
     first = next(iter(history.get("diagnostics") or []), {})
     stamps = [stamp for stamp in queued if stamp is not None]
@@ -163,7 +164,29 @@ def _snapshot(status: Any, inputs_path: Path, receiver_id: str | None) -> dict[s
             "queue_age_coverage": "complete" if len(stamps) == len(queued) else "partial",
             "queued_coverage": ("unknown" if not available else
                                 "complete" if observation_complete else "partial"),
+            **outcomes,
             "history": history}
+
+
+def _delivery_outcomes(latest: dict[int, dict[str, Any]]) -> dict[str, Any]:
+    """Resends waiting, resends exhausted, launch expiries and the last failure."""
+    retrying = exhausted = expired = 0
+    last_failure: dict[str, Any] | None = None
+    for request_id, row in latest.items():
+        status = row.get("status")
+        reason = str(row.get("reason") or "")
+        data = row.get("data") if isinstance(row.get("data"), dict) else {}
+        if status == "queued" and isinstance(data.get("retry"), dict):
+            retrying += 1
+        elif status == "skipped" and reason == "launch_replay_window_expired":
+            expired += 1
+        elif status == "failed":
+            exhausted += reason.startswith("retry_exhausted:")
+            stamp = _epoch(row.get("updated_at_epoch")) or 0.0
+            if last_failure is None or stamp >= last_failure["at_epoch"]:
+                last_failure = {"request_id": request_id, "reason": reason[:120], "at_epoch": stamp}
+    return {"retrying_count": retrying, "retry_exhausted_count": exhausted,
+            "launch_expired_count": expired, "last_failure": last_failure}
 
 
 def runtime_input_delivery_health(status: Any = None, *, status_path: Path | None = None,
@@ -219,6 +242,16 @@ def delivery_health_text(health: dict[str, Any]) -> str:
     oldest = f"{int(age)}s" if isinstance(age, (int, float)) else "unknown"
     coverage = health.get("queued_coverage", "unknown")
     detail = f"{state}; known queued {count}; oldest {oldest}; coverage {coverage}"
+    if health.get("retrying_count"):
+        detail += f"; resending {health['retrying_count']}"
+    if health.get("retry_exhausted_count"):
+        detail += f"; resend exhausted {health['retry_exhausted_count']}"
+    if health.get("launch_expired_count"):
+        detail += f"; expired at launch {health['launch_expired_count']}"
+    failure = health.get("last_failure")
+    if isinstance(failure, dict) and failure.get("reason"):
+        when = time.strftime("%H:%M", time.localtime(float(failure.get("at_epoch") or 0)))
+        detail += f"; last failure #{failure.get('request_id')} {failure['reason'][:60]} at {when}"
     if health.get("reason") == "history_observation_partial":
         detail += "; history observation partial"
         if health.get("line_number"):

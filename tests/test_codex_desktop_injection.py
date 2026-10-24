@@ -222,7 +222,8 @@ class CodexDesktopInjectionTests(unittest.TestCase):
         )
         self.injector.poll_once()
         self.assertIn((1, "replied", ""), self.status.records)
-        self.assertIn((2, "failed", "upstream 500"), self.status.records)
+        # Unclassified errors are not resent; the reason keeps the type and text.
+        self.assertIn((2, "failed", "turn_failed upstream 500"), self.status.records)
 
     def test_router_transport_messages_are_left_for_the_router_while_a_turn_runs(self):
         self.client.state = CodexAppServerState(thread_id="thread-a", active_turn_id="turn-live")

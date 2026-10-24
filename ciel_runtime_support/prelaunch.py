@@ -12,6 +12,7 @@ from ciel_runtime_support import (
     claude_stream_recovery_settings,
     dangerous_rm_auto_allow,
     oauth_token_menu,
+    runtime_input_retry,
     web_access_menu,
 )
 from ciel_runtime_support.prelaunch_launch_preference import (
@@ -373,7 +374,7 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
         elif name == "web-backend":
             panel_rows, panel_values = web_backend_panel_rows(cfg)
         elif name == "external-events":
-            panel_rows, panel_values = external_event_panel_rows(cfg)
+            panel_rows, panel_values = runtime_input_retry.with_panel_rows(*external_event_panel_rows(cfg), cfg)
         elif name == "launch-menu":
             panel_rows, panel_values = launch_panel_rows(cfg)
             if name not in panel_last_idx:
@@ -855,7 +856,16 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                     if value == "back":
                         close_panel()
                         continue
-                    if value in {"enabled", "transport"}:
+                    if runtime_input_retry.handles(value):
+                        entered = prompt_menu_value(
+                            runtime_input_retry.prompt_label(value),
+                            restore_tty=restore_line_mode,
+                            raw_tty=restore_raw_mode,
+                        )
+                        cfg = load_config()
+                        messages = runtime_input_retry.apply(cfg, value, entered)
+                        save_config(cfg)
+                    elif value in {"enabled", "transport"}:
                         messages = set_external_event_config(value, "toggle")
                     elif value in {"refresh_receiver", "reconnect_receiver", "recover_sse_delivery"}:
                         messages = set_external_event_config(value, None)
@@ -915,7 +925,7 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                     else:
                         continue
                     cfg = load_config()
-                    panel_rows, panel_values = external_event_panel_rows(cfg)
+                    panel_rows, panel_values = runtime_input_retry.with_panel_rows(*external_event_panel_rows(cfg), cfg)
                     panel_idx = max(0, min(panel_idx, len(panel_rows) - 1))
                 elif panel == "remote-instructions":
                     if value == "back":

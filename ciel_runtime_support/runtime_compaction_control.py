@@ -396,7 +396,7 @@ class RuntimeCompactionControl:
         if state.get("phase") in {"dispatching", "awaiting_checkpoint", "compacting"}:
             if now >= float(state.get("deadline") or 0):
                 # An uncertain submission cannot authorize another compact.
-                state.update({"phase": "blocked", "failure": "checkpoint_unconfirmed"})
+                state.update({"phase": "blocked", "failure": "checkpoint_unconfirmed", "failure_at": now})
                 self._write(state, "confirmation_timeout")
         if state.get("phase") == "queued" and now >= float(state.get("deadline") or 0):
             if state.get("request_id"):

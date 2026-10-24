@@ -5,8 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable, Literal
 
+from .runtime_input_retry import is_failed_state
 
-InflightAction = Literal["none", "completed", "failed", "waiting", "interrupted_uncertain"]
+
+InflightAction = Literal["none", "completed", "failed", "retrying", "waiting", "interrupted_uncertain"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,6 +40,9 @@ class ChannelInflightEffects:
     release_wake: Callable[[int], Any]
     ensure_cursor: Callable[[], int]
     log: Callable[[str, str], Any]
+    # (message_id, failed wake state) -> "retry" | "failed" | "stale".  Unset
+    # keeps the old reading of an API error record as completion.
+    turn_failed: Callable[[int, str, float], str] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,6 +71,22 @@ def advance_channel_inflight(
             effects.commit_cursor(snapshot.cursor)
         effects.log("WARN", f"{policy.log_namespace}_interrupted_uncertain message_id={message_id} action=no_replay")
         return _reset("interrupted_uncertain", snapshot)
+    if is_failed_state(state):
+        # The prompt was answered by an API error. A transient one is resent
+        # (the input is queued again with its resend record); any other ends
+        # it failed with its typed reason and delivery moves on.
+        outcome = effects.turn_failed(message_id, state, snapshot.started_at) if effects.turn_failed else "completed"
+        if outcome == "retry":
+            effects.log("WARN", f"{policy.log_namespace}_turn_failed message_id={message_id} action=retry_scheduled")
+            return _reset("retrying", snapshot, last_id=effects.ensure_cursor())
+        if outcome == "failed":
+            if snapshot.cursor is not None:
+                effects.commit_cursor(snapshot.cursor)
+            effects.log("WARN", f"{policy.log_namespace}_turn_failed message_id={message_id} action=failed")
+            return _reset("failed", snapshot, last_id=effects.ensure_cursor())
+        # "stale": the error belongs to an earlier attempt; this attempt has
+        # left no evidence yet, which is exactly "missing".
+        state = "completed" if outcome == "completed" else "missing"
     if state == "completed":
         if snapshot.cursor is not None:
             effects.commit_cursor(snapshot.cursor)

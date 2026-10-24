@@ -575,6 +575,33 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertEqual(3, saved["last_id"])
         self.assertEqual(3, guard["max_existing_id"])
 
+    def test_launch_fast_forward_records_the_stranded_queue_as_skipped(self):
+        # Ara .14 2026-10-23: ids 10365-10384 stayed queued behind the floor.
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            path = root / "chat-messages.jsonl"
+            old_time = time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(time.time() - 3600))
+            path.write_text(
+                "\n".join(json.dumps({"id": item_id, "time": old_time, "message": f"old-{item_id}"}) for item_id in (1, 2, 3)) + "\n",
+                encoding="utf-8",
+            )
+            status = ciel_runtime._RUNTIME_INPUT_STATUS_REPOSITORY
+            status.transition(2, "queued")
+            status.transition(3, "queued")
+            status.transition(3, "submitted")
+            with (
+                mock.patch.object(ciel_runtime, "CONFIG_DIR", root),
+                mock.patch.object(ciel_runtime, "CHAT_MESSAGES_PATH", path),
+                mock.patch.object(ciel_runtime, "CHANNEL_LLM_CURSOR_PATH", root / "channel-llm-cursor.json"),
+                mock.patch.object(ciel_runtime, "CHANNEL_LLM_LAUNCH_GUARD_PATH", root / "channel-llm-launch-guard.json"),
+                mock.patch.object(ciel_runtime, "_CHANNEL_LLM_CURSOR_LAST_ID", None),
+            ):
+                ciel_runtime.prepare_channel_llm_delivery_for_launch()
+
+        self.assertEqual(("skipped", "launch_replay_window_expired"),
+                         (status.get(2)["status"], status.get(2)["reason"]))
+        self.assertEqual("submitted", status.get(3)["status"])
+
     def test_mcp_endpoint_event_initializes_sse_session(self):
         name = "unit-mcp"
         original = dict(ciel_runtime._CHANNEL_SSE_CONNECTIONS)

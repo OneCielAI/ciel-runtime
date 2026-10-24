@@ -603,8 +603,19 @@ class RuntimeCompactionBinding:
         try:
             scope = self.scope()
             state = self._admission_state() if scope is not None else None
-            if not isinstance(state, dict) or state.get("scope") != scope.payload():
+            if not isinstance(state, dict):
                 return {}
+            if state.get("scope") != scope.payload():
+                if state.get("phase") in {None, "verified"}:
+                    return {}
+                # Diagnostic only: a state an earlier session scope left
+                # unfinished never gates this scope and never opens it.
+                stored = state.get("scope") if isinstance(state.get("scope"), dict) else {}
+                return {"phase": "stale_scope", "failure":
+                        f"earlier_{stored.get('runtime') or '-'}_scope_{state.get('phase')}_not_gating",
+                        "failure_at": state.get("failure_at") or state.get("requested_at"),
+                        "checkpoint_observed_at": state.get("checkpoint_observed_at"),
+                        "deadline": state.get("deadline")}
             return {key: state.get(key) for key in (
                 "phase", "failure", "failure_at", "checkpoint_observed_at", "deadline")}
         except (OSError, ValueError, TypeError):

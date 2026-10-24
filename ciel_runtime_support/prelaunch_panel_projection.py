@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping, Protocol
 
-from ciel_runtime_support import claude_stream_recovery_settings, dangerous_rm_auto_allow
+from ciel_runtime_support import claude_stream_recovery_settings, dangerous_rm_auto_allow, runtime_input_retry
 from ciel_runtime_support.web_endpoints import web_backend_summary
 
 
@@ -140,7 +140,7 @@ class MainMenuProjection:
             f"[{self.ports.log_level_status()}]",
             f"8. {self.ports.ui_text('test', language)}",
             "9. Launch  [Claude · Codex TUI · AGY · Kimi · Grok · Codex TUI + app-server · Codex app-server (no TUI) · Codex desktop]",
-            "10. External event inputs  [CloudEvents + Webhook/SSE]",
+            f"10. External event inputs  [CloudEvents + Webhook/SSE · {runtime_input_retry.short_summary(config)}]",
             f"11. Remote instructions  [HTTP GET · {'on' if remote_enabled else 'off'}]",
             "12. Workspace MCP modules  [launch scoped]",
             "13. Request/file limits  [workspace scoped]",

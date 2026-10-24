@@ -397,7 +397,11 @@ def runtime_delivery_status_text():
             status_path=WORKSPACE_STATE_DIR / "runtime-input-status.jsonl",
             inputs_path=WORKSPACE_STATE_DIR / "runtime-inputs.jsonl",
         )
-        if health.get("admission_blocked") or health.get("known_queued_count"):
+        failure = health.get("last_failure") if isinstance(health.get("last_failure"), dict) else {}
+        # A resend in progress is queued; a failure stays visible for ten
+        # minutes so an exhausted resend is not silent once the queue drains.
+        recent_failure = time.time() - float(failure.get("at_epoch") or 0) < 600
+        if health.get("admission_blocked") or health.get("known_queued_count") or recent_failure:
             return "session delivery " + delivery_health_text(health)
     except (ImportError, OSError, ValueError):
         return "session delivery unknown"

@@ -177,6 +177,84 @@ class RuntimeInputStatusRepository:
         )
         return record
 
+    def schedule_retry(
+        self, request_id: int, retry: dict[str, Any], *, reason: str, expected_attempt: str | None = None
+    ) -> dict[str, Any]:
+        """Return a submitted input to the queue for one resend.
+
+        The resend count is the compare-and-set: only the caller that saw
+        attempt ``n - 1`` may schedule attempt ``n``, so concurrent pollers or
+        a restarted injector never schedule (or send) the same attempt twice.
+        Returns {} when another owner already moved the row.
+        """
+        request_id = int(request_id)
+        with self.lock, exclusive_file_lock(self.path):
+            current = self.get(request_id, _locked=True) or {}
+            data = dict(current.get("data") or {})
+            previous = data.get("retry") if isinstance(data.get("retry"), dict) else {}
+            if (current.get("status") != "submitted"
+                    or int(previous.get("attempt") or 0) != int(retry.get("attempt") or 0) - 1
+                    or (expected_attempt is not None and data.get("attempt_id") != expected_attempt)):
+                return {}
+            data["retry"] = dict(retry)
+            record = self._record(request_id, "queued", reason, data)
+        self.publish_event(level="warn", category="runtime_input.status", message="runtime input retry scheduled",
+                           source="runtime-input", request_id=str(request_id), data=record)
+        return record
+
+    def claim_retry(self, request_id: int, attempt: int, *, now: float | None = None) -> str:
+        """Own one due resend before sending it; '' when it is not ours to send."""
+        request_id = int(request_id)
+        with self.lock, exclusive_file_lock(self.path):
+            current = self.get(request_id, _locked=True) or {}
+            data = dict(current.get("data") or {})
+            retry = data.get("retry") if isinstance(data.get("retry"), dict) else {}
+            if current.get("status") != "queued" or int(retry.get("attempt") or 0) != int(attempt) or retry.get("claim"):
+                return ""
+            claim = uuid.uuid4().hex
+            data["retry"] = {**retry, "claim": claim, "claimed_at_epoch": time.time() if now is None else now}
+            self._record(request_id, "queued", str(current.get("reason") or ""), data)
+        return claim
+
+    def release_retry_claim(self, request_id: int, claim: str, due_epoch: float) -> bool:
+        """Give a claimed resend back after its send RPC failed (nothing was sent)."""
+        request_id = int(request_id)
+        with self.lock, exclusive_file_lock(self.path):
+            current = self.get(request_id, _locked=True) or {}
+            data = dict(current.get("data") or {})
+            retry = data.get("retry") if isinstance(data.get("retry"), dict) else {}
+            if current.get("status") != "queued" or not claim or retry.get("claim") != claim:
+                return False
+            data["retry"] = {**retry, "claim": "", "due_epoch": due_epoch}
+            self._record(request_id, "queued", str(current.get("reason") or ""), data)
+        return True
+
+    def expire_launch_backlog(self, floor: int, cutoff_epoch: float) -> list[int]:
+        """Mark queued inputs a launch fast-forward put behind its replay floor.
+
+        They can never be delivered (the clear floor bounds every rewind), so
+        they are recorded skipped with the launch boundary instead of staying
+        queued forever (Ara, .14 2026-10-23: ids 10365-10384).
+        """
+        floor = int(floor)
+        if floor <= 0:
+            return []
+        with self.lock:
+            latest = {int(row["request_id"]): row for row in self._items()
+                      if str(row.get("request_id", "")).isdigit()}
+        expired = []
+        for request_id in sorted(latest):
+            if request_id > floor or latest[request_id].get("status") != "queued":
+                continue
+            record = self.transition(request_id, "skipped", reason="launch_replay_window_expired",
+                                     data={"launch_floor": floor, "launch_cutoff_epoch": cutoff_epoch})
+            if record.get("status") == "skipped":
+                expired.append(request_id)
+        if expired:
+            self.log("WARN", f"runtime_input_launch_backlog_expired count={len(expired)} "
+                     f"first={expired[0]} last={expired[-1]} floor={floor}")
+        return expired
+
     def begin_attempt(self, message_ids: list[int], child_epoch: str) -> str:
         """Persist ownership before a transport is permitted to send a batch."""
         if not child_epoch:

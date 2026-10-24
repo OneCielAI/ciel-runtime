@@ -218,6 +218,26 @@ class DeliveryHealthTests(unittest.TestCase):
         self.assertNotIn("wake_history_incomplete", result.stdout)
         self.assertNotIn("SECRET", result.stdout)
 
+    def test_statusline_shows_resends_and_a_recent_exhausted_resend(self):
+        self.status.transition(1, "queued")
+        self.status.transition(1, "submitted")
+        self.status.schedule_retry(1, {"attempt": 1, "limit": 10, "due_epoch": 1.0, "claim": ""},
+                                   reason="retry_scheduled:serverOverloaded")
+        self.status.transition(2, "queued")
+        self.status.transition(2, "submitted")
+        self.status.transition(2, "failed", reason="retry_exhausted:httpConnectionFailed 504")
+        script = self.root / "status.py"
+        script.write_text(STATUSLINE_SCRIPT, encoding="utf8")
+        env = {key: value for key, value in os.environ.items() if not key.startswith("CIEL_RUNTIME_")}
+        env.update(CIEL_RUNTIME_CONFIG_DIR=str(self.root), CIEL_RUNTIME_STATE_DIR=str(self.root),
+                   CIEL_RUNTIME_WORKSPACE_STATE_DIR=str(self.root), CIEL_RUNTIME_STATUSLINE_FORCE="1",
+                   CIEL_RUNTIME_STATUSLINE_ANSI="0", PYTHONIOENCODING="utf-8")
+        result = subprocess.run([sys.executable, str(script)], input="{}", text=True, capture_output=True,
+                                cwd=self.root, env=env, check=True)
+        self.assertIn("resending 1", result.stdout)
+        self.assertIn("resend exhausted 1", result.stdout)
+        self.assertIn("last failure #2 retry_exhausted:httpConnectionFailed 504", result.stdout)
+
     def test_connected_receiver_and_menu_show_separate_delivery_observation(self):
         from ciel_runtime_support.external_event_receiver import ExternalEventReceiverService, EventReceiverSecretVault
         from ciel_runtime_support.external_event_menu import panel_rows

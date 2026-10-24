@@ -6,6 +6,8 @@ from dataclasses import dataclass
 import json
 from typing import Any, Callable, Iterable, Iterator
 
+from .runtime_input_retry import classify_claude_api_error, encode_failed_state
+
 
 @dataclass(frozen=True)
 class ChannelWakeTranscriptServices:
@@ -645,8 +647,23 @@ def wake_state_evidence_from_text(
     queued_record: int | None = None
     queue_exit_record: int | None = None
     prompt_metadata: dict[str, str] = {}
+    failed: WakeStateEvidence | None = None
     for record_index, record in enumerate(_jsonl_records(text), start=1):
         record_type = str(record.get("type") or "")
+        if seen_real_prompt and is_assistant_message(record) and record.get("isApiErrorMessage") is True:
+            # The prompt was answered by an API error, not by the model: the
+            # turn died before any reply.  A later prompt for the same id (a
+            # resend) starts a new observation, so the latest attempt decides.
+            failed = WakeStateEvidence(
+                encode_failed_state(classify_claude_api_error(record), record_timestamp_seconds(record)),
+                prompt_record=prompt_record,
+                completion_record=record_index,
+                record_type=prompt_metadata.get("record_type", ""),
+                session_id=prompt_metadata.get("session_id", ""),
+                timestamp=prompt_metadata.get("timestamp", ""),
+            )
+            seen_real_prompt = False
+            continue
         if seen_real_prompt and is_assistant_message(record):
             return WakeStateEvidence(
                 "completed",
@@ -661,6 +678,7 @@ def wake_state_evidence_from_text(
             if isinstance(raw, str) and services.prompt_references_message_id(raw, message_id, prompts):
                 seen_queued_prompt = True
                 queued_record = record_index
+                failed = None
                 seen_dequeued = seen_dequeued or record.get("operation") in {"remove", "dequeue"}
                 if record.get("operation") in {"remove", "dequeue"}:
                     queue_exit_record = record_index
@@ -683,6 +701,7 @@ def wake_state_evidence_from_text(
                     timestamp = record_timestamp_seconds(record)
                     if seen_dequeued and (not_before is None or (timestamp is not None and timestamp >= not_before)):
                         seen_real_prompt = True
+                        failed = None
                         prompt_record = record_index
                         prompt_metadata = {
                             "record_type": record_type,
@@ -702,6 +721,7 @@ def wake_state_evidence_from_text(
         )
         if prompt_confirmed:
             seen_real_prompt = True
+            failed = None
             prompt_record = record_index
             prompt_metadata = {
                 "record_type": record_type,
@@ -716,6 +736,8 @@ def wake_state_evidence_from_text(
             session_id=prompt_metadata.get("session_id", ""),
             timestamp=prompt_metadata.get("timestamp", ""),
         )
+    if failed is not None:
+        return failed
     if seen_queued_prompt:
         return WakeStateEvidence("queued", prompt_record=queued_record, queue_exit_record=queue_exit_record)
     return WakeStateEvidence("missing")
