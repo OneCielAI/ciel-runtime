@@ -245,8 +245,7 @@ def native_checkpoint_from_transcript(
                         newest = replace(newest, last_input_tokens=tokens)
             after = os.fstat(stream.fileno())
             after_signature = (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns, after.st_ctime_ns)
-            current = path.stat()
-            current_signature = (current.st_dev, current.st_ino, current.st_size, current.st_mtime_ns, current.st_ctime_ns)
+            current_signature = _signature(path)
             if after_signature != signature or current_signature != signature:
                 return None
             _scan_cache[key] = _TranscriptScan(signature, newest)
@@ -688,7 +687,11 @@ def _signature(path):
     if path is None:
         return None
     try:
-        stat = path.stat()
+        # Windows stat(path) and fstat(fd) disagree on ctime in Python 3.12+.
+        # Reopen the path so replacement detection and scan validation use
+        # the same clock semantics without dropping metadata-change checks.
+        with path.open("rb") as stream:
+            stat = os.fstat(stream.fileno())
         return (stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns)
     except OSError:
         return None

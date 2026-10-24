@@ -1,0 +1,9 @@
+3.10.6 fstat_ctime==stat_ctime True fstat_ctime==mtime False stat_ctime==mtime False rest_equal True
+3.11.6 fstat_ctime==stat_ctime True fstat_ctime==mtime False stat_ctime==mtime False rest_equal True
+3.12.10 fstat_ctime==stat_ctime False fstat_ctime==mtime True stat_ctime==mtime False rest_equal True
+3.13.5 fstat_ctime==stat_ctime False fstat_ctime==mtime True stat_ctime==mtime False rest_equal True
+3.14.2 fstat_ctime==stat_ctime False fstat_ctime==mtime True stat_ctime==mtime False rest_equal True
+3.13.5 G:\ fstat_ctime==stat_ctime False fstat_ctime==mtime True stat_ctime==mtime False rest_equal True
+3.13.5 C:\ fstat_ctime==stat_ctime False fstat_ctime==mtime True stat_ctime==mtime False rest_equal True
+3.14.2 G:\ fstat_ctime==stat_ctime False fstat_ctime==mtime True stat_ctime==mtime False rest_equal True
+3.14.2 C:\ fstat_ctime==stat_ctime False fstat_ctime==mtime True stat_ctime==mtime False rest_equal True

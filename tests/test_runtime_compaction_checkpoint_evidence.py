@@ -28,6 +28,7 @@ import threading
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from ciel_runtime_support import runtime_compaction_control as control_module
@@ -242,6 +243,38 @@ class CheckpointScanTests(CodexHarness):
         self.assert_held()
         self.request(120)
         self.assert_verified()
+
+    def test_path_stat_ctime_disagreement_does_not_discard_checkpoint(self):
+        self.append(codex_compacted("session-a", self.clock + 1))
+        original = Path.stat
+
+        def changed_ctime(path, *args, **kwargs):
+            stat = original(path, *args, **kwargs)
+            if path == self.trace:
+                return SimpleNamespace(st_dev=stat.st_dev, st_ino=stat.st_ino,
+                                       st_size=stat.st_size, st_mtime_ns=stat.st_mtime_ns,
+                                       st_ctime_ns=stat.st_ctime_ns + 1000000000)
+            return stat
+
+        with patch.object(Path, "stat", changed_ctime):
+            with patch.object(control_module, "_read_jsonl", wraps=control_module._read_jsonl) as reader:
+                first = native_checkpoint_from_transcript(self.trace, self.scope)
+                self.assertIsNotNone(first)
+                self.assertEqual(first, native_checkpoint_from_transcript(self.trace, self.scope))
+                self.assertEqual(1, reader.call_count)
+
+    def test_path_identity_change_after_scan_discards_checkpoint(self):
+        self.append(codex_compacted("session-a", self.clock + 1))
+        control_module._scan_cache.clear()
+        original = control_module._signature
+
+        def replaced(path):
+            signature = original(path)
+            return None if signature is None else (signature[0], signature[1] + 1, *signature[2:])
+
+        with patch.object(control_module, "_signature", replaced):
+            self.assertIsNone(native_checkpoint_from_transcript(self.trace, self.scope))
+        self.assertIsNotNone(native_checkpoint_from_transcript(self.trace, self.scope))
 
     def test_record_over_the_record_cap_is_not_proof(self):
         """Bounded memory: a record beyond the cap stays unknown, never proof."""
