@@ -7,6 +7,8 @@ import re
 from dataclasses import dataclass
 from typing import Any, Callable
 
+from .media_payload import opaque_media
+
 
 PROMPT_TOOL_INPUT_FIELD_LIMIT = 1200
 PROMPT_MESSAGE_TEXT_LIMIT = 20000
@@ -317,8 +319,10 @@ class ContextSummaryPolicy:
                 f"{message.start}:{message.end}/{message.source_chars}\n{message.text}"
             )
         # Unlike the deterministic wire guard this is the source of a semantic
-        # summary. Preserve every field, block, tool argument and result in order.
-        serialized = json.dumps(message, ensure_ascii=False, separators=(",", ":"))
+        # summary. Preserve every field, block, tool argument and result in order,
+        # but do not put binary image bytes into a text-only map prompt.
+        projected, _media = opaque_media(message)
+        serialized = json.dumps(projected, ensure_ascii=False, separators=(",", ":"))
         return f"Message {index} role={message.get('role') or 'unknown'}\n{serialized}"
 
     def instruction_index(self, messages: list[dict[str, Any]]) -> int | None:

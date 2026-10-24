@@ -172,6 +172,62 @@ class CompactionLivenessTests(unittest.TestCase):
         self.assertEqual(1, len(opened))
         self.assertEqual([], errors)
 
+    def test_disconnected_socket_retry_reuses_completed_map_work(self):
+        import tempfile
+        from pathlib import Path
+        import test_context_compaction_progress as progress
+        from ciel_runtime_support.context_compaction import build_llm_compacted_messages
+        case = progress.MapProgressReuseTests()
+        with tempfile.TemporaryDirectory() as temporary:
+            case.root = Path(temporary)
+            entered, release = threading.Event(), threading.Event()
+            attempts, services_used = [], []
+            history = case.history()
+            def cap(_provider, config, body):
+                services = case.services()
+                services_used.append(services)
+                first = not attempts
+                attempts.append(first)
+                def summary(*_args, **_kwargs):
+                    if first and services.workflow.request_summary.call_count == 3:
+                        entered.set()
+                        if not release.wait(5):
+                            raise AssertionError("disconnect fixture not released")
+                    return "mapped summary " + str(services.workflow.request_summary.call_count)
+                services.workflow.request_summary.side_effect = summary
+                build_llm_compacted_messages("provider", "model",
+                    {**config, "_context_compact_scope": progress.SCOPE},
+                    [*history, {"role": "user", "content": progress.COMPACT}],
+                    8192, services, wire="openai")
+                return body
+            address, opened, finished, errors = self.serve(cap)
+            conn = http.client.HTTPConnection(*address, timeout=5)
+            self.request(conn)
+            response = conn.getresponse()
+            response.readline()
+            self.assertTrue(entered.wait(5))
+            # Force a real peer disconnect, then wait until the SSE writer has
+            # observed it before allowing the completed third answer through.
+            response.fp.raw._sock.shutdown(socket.SHUT_RDWR)
+            response.close()
+            conn.close()
+            time.sleep(0.15)
+            release.set()
+            self.assertTrue(finished.wait(5))
+            self.assertEqual([], opened)
+            retry = http.client.HTTPConnection(*address, timeout=5)
+            self.addCleanup(retry.close)
+            self.request(retry)
+            raw = retry.getresponse().read()
+            self.assertIn(b"message_stop", raw)
+            self.assertNotIn(b"event: error", raw)
+            self.assertEqual(3, services_used[0].workflow.request_summary.call_count)
+            self.assertEqual(3, services_used[1].workflow.request_summary.call_count)
+            self.assertEqual(3, services_used[1].workflow.write_activity.call_args.kwargs["reused_chunks"])
+            self.assertEqual(1, len(opened))
+            self.assertEqual([], errors)
+            print("socket_resume disconnected_calls=3 retry_calls=3 reused=3 final_upstream=1")
+
     def test_post_commit_http_error_is_sse_not_second_headers(self):
         def cap(_provider, config, body):
             self.start(config)

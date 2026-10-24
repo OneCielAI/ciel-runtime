@@ -148,6 +148,19 @@ class ExternalEventMenuTests(unittest.TestCase):
         self.assertIn("unavailable", row)
         self.assertNotIn("[ok", row)
 
+    def test_compaction_recovery_reason_and_evidence_time_are_visible(self):
+        rows, values = panel_rows(_Service(), "http://127.0.0.1:1", control=lambda *_args: {
+            "available": True, "status": {}, "result": {"compaction": {
+                "phase": "awaiting_shrink", "failure": "shrink_unconfirmed",
+                "checkpoint_observed_at": 100, "failure_at": 200}}})
+        row = next(row for row in rows if row.startswith("Compaction recovery"))
+        self.assertIn("awaiting_shrink", row)
+        self.assertIn("shrink_unconfirmed", row)
+        self.assertIn("checkpoint observed 100", row)
+        self.assertIn("failure at 200", row)
+        self.assertEqual("__info__", values[rows.index(row)])
+        print(row)
+
     def test_idle_timeout_is_set_and_blank_clears_it_explicitly(self):
         service = _Service()
         update_config(service, "idle_timeout_seconds", "45")

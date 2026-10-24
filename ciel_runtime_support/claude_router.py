@@ -484,6 +484,11 @@ def handle_claude_messages_post(
                 "_context_compact_on_semantic_start": early_sse.start,
                 "_context_compact_cancelled": early_sse.cancelled,
                 "_context_compact_cancel_event": early_sse.cancel_event,
+                # Exact main-session scope, or None: only then may completed
+                # map summaries be journaled for an identical retry.
+                "_context_compact_scope": (
+                    stream_scope.payload() if hasattr(stream_scope, "payload") else None
+                ),
             }
         body = cap_anthropic_body_for_provider(provider, compact_config, body)
         check_compaction_client()

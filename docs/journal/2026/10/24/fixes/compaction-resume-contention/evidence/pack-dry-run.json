@@ -1,0 +1,21 @@
+{
+  "name": "@one-ciel-ai/ciel-runtime",
+  "version": "0.2.51",
+  "size": 1481520,
+  "unpackedSize": 6553954,
+  "shasum": "2dd4fde6f4b2f7d77bfe1ef6d742b1e32d9b0474",
+  "integrity": "sha512-gUkofvfQOlxANsYwlzxFDLcgYcSFGNwxUvZKxg+wRudxFk7PqOjxYxLR6crBe6HHxqb20WR66AGGfnjbnO7+xA==",
+  "entryCount": 495,
+  "verified_modules": [
+    {
+      "path": "ciel_runtime_support/context_compaction_progress.py",
+      "size": 6696,
+      "mode": 420
+    },
+    {
+      "path": "ciel_runtime_support/media_payload.py",
+      "size": 5552,
+      "mode": 420
+    }
+  ]
+}

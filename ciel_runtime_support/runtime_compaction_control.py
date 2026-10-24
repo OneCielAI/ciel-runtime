@@ -14,6 +14,7 @@ import threading
 import time
 from collections import OrderedDict
 from collections.abc import Callable
+from contextlib import contextmanager
 from dataclasses import dataclass, replace
 from datetime import datetime
 from pathlib import Path
@@ -244,7 +245,9 @@ def native_checkpoint_from_transcript(
                         newest = replace(newest, last_input_tokens=tokens)
             after = os.fstat(stream.fileno())
             after_signature = (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns, after.st_ctime_ns)
-            if after_signature != signature:
+            current = path.stat()
+            current_signature = (current.st_dev, current.st_ino, current.st_size, current.st_mtime_ns, current.st_ctime_ns)
+            if after_signature != signature or current_signature != signature:
                 return None
             _scan_cache[key] = _TranscriptScan(signature, newest)
             _scan_cache.move_to_end(key)
@@ -260,6 +263,37 @@ class RuntimeCompactionControl:
                  policy: RuntimeCompactionPolicy = RuntimeCompactionPolicy()) -> None:
         self.ports = ports
         self.policy = policy
+        self.conflict_logged = 0.0
+
+    @contextmanager
+    def _observation(self, scope, needed=lambda state: bool(state and state.get("phase") != "verified"),
+                     validate=lambda: True, *, preserve_request=False):
+        # Polls can defer conflicts; one-shot request evidence must not be lost.
+        # Recollect once, then commit only the request measurement (no scan proof)
+        # against the latest state if writers continue to race the scan.
+        for attempt in range(2 if preserve_request else 1):
+            with self.ports.lock():
+                snapshot = self._read(scope)
+            observed = self.ports.checkpoint(scope) if needed(snapshot) else None
+            checkpoint = observed.checkpoint if isinstance(observed, _CheckpointObservation) else observed
+            with self.ports.lock():
+                state = self._read(scope)
+                current = scope == self.ports.scope() and validate()
+                valid = (current and state == snapshot
+                         and (not isinstance(observed, _CheckpointObservation) or observed.valid()))
+                if valid:
+                    yield state, checkpoint
+                    return
+                now = self.ports.now()
+                if now - self.conflict_logged >= 2:
+                    self.conflict_logged = now
+                    self.ports.log("INFO", "runtime_compaction_control event=observation_conflict admission=unchanged")
+                if not current or not preserve_request:
+                    yield None, None
+                    return
+                if attempt == 1:
+                    yield state, None
+                    return
 
     def _read(self, scope: CompactionScope) -> dict[str, Any]:
         value = self.ports.load()
@@ -273,9 +307,8 @@ class RuntimeCompactionControl:
         return dict(value)
 
     def _start(self, scope: CompactionScope, raw_tokens: int, limit: int,
-               *, pressure: bool) -> dict[str, Any]:
+               *, pressure: bool, checkpoint: NativeCompactionCheckpoint | None) -> dict[str, Any]:
         now = self.ports.now()
-        checkpoint = self.ports.checkpoint(scope)
         return {
             "scope": scope.payload(), "phase": "needed", "pressure": pressure,
             "baseline_tokens": raw_tokens, "context_limit": limit,
@@ -294,14 +327,18 @@ class RuntimeCompactionControl:
                 f"{' ' + detail if detail else ''}",
             )
 
-    def observe_proactive(self, scope, sample, limit, model):
+    def observe_proactive(self, scope, sample, limit, model, *, validate=lambda: True):
         if scope != self.ports.scope():
             return
-        with self.ports.lock():
-            state = self._read(scope)
-            cp = self.ports.checkpoint(scope)
+        high = bool(sample and limit and sample.tokens * 10 > limit * 9)
+        def needed(state):
+            return bool((state.get('proactive') and state.get('phase') in {'needed', 'queued', 'retry_wait'})
+                        or (high and (not state or state.get('phase') == 'verified')
+                            and sample.identity not in (state.get('safeguard_seen') or [])))
+        with self._observation(scope, needed, validate) as (state, cp):
+            if state is None:
+                return
             checkpoint = cp.identity if cp else str()
-            high = bool(sample and limit and sample.tokens * 10 > limit * 9)
             if state.get('proactive') and state.get('phase') in {'needed', 'queued', 'retry_wait'}:
                 if (not high or model != state.get('safeguard_model')
                         or checkpoint != state.get('baseline_checkpoint_id')
@@ -313,11 +350,11 @@ class RuntimeCompactionControl:
             if not high or sample.identity in seen:
                 return
             seen.append(sample.identity)
-            state = self._start(scope, sample.tokens, limit, pressure=False)
+            state = self._start(scope, sample.tokens, limit, pressure=False, checkpoint=cp)
             state.update({'proactive': True, 'safeguard_model': model,
                           'safeguard_sample': sample.identity, 'safeguard_seen': seen})
             self._write(state, 'proactive_usage_observed')
-            self._refresh(state, scope)
+            self._refresh(state, scope, cp)
 
     def _cancel_proactive(self, state, reason):
         if state.get('request_id'):
@@ -325,11 +362,11 @@ class RuntimeCompactionControl:
         state.update({'phase': 'verified', 'request_id': str(), 'failure': reason})
         self._write(state, reason)
 
-    def _refresh(self, state: dict[str, Any], scope: CompactionScope) -> None:
+    def _refresh(self, state: dict[str, Any], scope: CompactionScope,
+                 checkpoint: NativeCompactionCheckpoint | None) -> None:
         if not state or state.get("phase") == "verified":
             return
         now = self.ports.now()
-        checkpoint = self.ports.checkpoint(scope)
         if state.get('proactive') and state.get('phase') in {'needed', 'queued', 'retry_wait'}:
             if (checkpoint.identity if checkpoint else str()) != state.get('baseline_checkpoint_id'):
                 self._cancel_proactive(state, 'proactive_checkpoint_superseded')
@@ -338,7 +375,8 @@ class RuntimeCompactionControl:
                 and checkpoint.identity != state.get("baseline_checkpoint_id")
                 and checkpoint.persisted_at >= float(state.get("requested_at") or 0)
                 and checkpoint.identity != state.get("checkpoint_id")):
-            state.update({"checkpoint_id": checkpoint.identity, "phase": "awaiting_shrink"})
+            state.update({"checkpoint_id": checkpoint.identity, "phase": "awaiting_shrink",
+                          "checkpoint_observed_at": now})
             self._write(state, "native_checkpoint_observed")
         if (state.get("phase") == "awaiting_shrink" and checkpoint and checkpoint.scope == scope
                 and checkpoint.identity == state.get("checkpoint_id")
@@ -349,6 +387,11 @@ class RuntimeCompactionControl:
             # that observed the checkpoint: a restart between those two writes
             # must not hold admission forever.
             self._release(state, checkpoint)
+        if (state.get("phase") == "awaiting_shrink" and now >= float(state.get("deadline") or 0)
+                and state.get("failure") != "shrink_unconfirmed"):
+            # No timer release or replay: late real proof is still accepted.
+            state.update({"failure": "shrink_unconfirmed", "failure_at": now})
+            self._write(state, "shrink_confirmation_timeout")
         if state.get("phase") in {"dispatching", "awaiting_checkpoint", "compacting"}:
             if now >= float(state.get("deadline") or 0):
                 # An uncertain submission cannot authorize another compact.
@@ -405,15 +448,17 @@ class RuntimeCompactionControl:
         native = bool(self.ports.compact_kind(body))
         if not native and not recovery_required and (not raw_tokens or not context_limit):
             return
-        with self.ports.lock():
-            state = self._read(scope)
+        pressure = recovery_required or bool(context_limit and raw_tokens >= context_limit)
+        with self._observation(scope, lambda state: native or pressure or bool(
+                state and state.get("phase") != "verified"), preserve_request=True) as (state, checkpoint):
+            if state is None:
+                return
             active = bool(state and state.get("phase") != "verified")
-            pressure = recovery_required or bool(context_limit and raw_tokens >= context_limit)
             if not active:
                 if not pressure and not native:
                     return
                 seen = state.get('safeguard_seen', [])
-                state = self._start(scope, raw_tokens, context_limit, pressure=pressure)
+                state = self._start(scope, raw_tokens, context_limit, pressure=pressure, checkpoint=checkpoint)
                 if seen:
                     state['safeguard_seen'] = seen
                 if native:
@@ -437,8 +482,7 @@ class RuntimeCompactionControl:
                 state["baseline_tokens"] = max(raw_tokens, _positive(state.get("baseline_tokens")))
                 # A new manual/native compaction must not reuse proof from an
                 # earlier failed attempt of the same recovery epoch.
-                current_checkpoint = self.ports.checkpoint(scope)
-                state["baseline_checkpoint_id"] = current_checkpoint.identity if current_checkpoint else ""
+                state["baseline_checkpoint_id"] = checkpoint.identity if checkpoint else ""
                 state["checkpoint_id"] = ""
                 self._write(state, "native_compact_started")
             if native:
@@ -452,14 +496,18 @@ class RuntimeCompactionControl:
             baseline = _positive(state.get("baseline_tokens"))
             shrunk = bool(not native and not recovery_required
                           and _below_capacity(raw_tokens, context_limit, baseline))
-            if shrunk and state.get("phase") in {"dispatching", "awaiting_checkpoint", "compacting"}:
+            if shrunk and state.get("phase") in {"dispatching", "awaiting_checkpoint", "compacting", "awaiting_shrink"}:
                 state["shrink_observed"] = {"tokens": raw_tokens, "at": self.ports.now()}
                 self._write(state, "smaller_request_before_checkpoint")
-            self._refresh(state, scope)
+            self._refresh(state, scope, checkpoint)
             if native or state.get("phase") != "awaiting_shrink":
                 return
             if shrunk:
-                self._verify(state, raw_tokens)
+                # A request preserved after repeated scan conflicts has no
+                # fresh checkpoint proof. Its measurement is durable above;
+                # the next successful refresh can combine both observations.
+                if checkpoint and checkpoint.identity == state.get("checkpoint_id"):
+                    self._verify(state, raw_tokens)
             elif recovery_required or (context_limit and raw_tokens >= context_limit):
                 state["baseline_tokens"] = max(raw_tokens, baseline)
                 self._not_shrunk(state, "next_request_not_below_budget")
@@ -505,6 +553,8 @@ class RuntimeCompactionControl:
     def _verify(self, state: dict[str, Any], raw_tokens: int, *, evidence: str = "") -> None:
         if state.get("request_id"):
             self.ports.clear(str(state["request_id"]))
+        state.pop("failure", None)
+        state.pop("failure_at", None)
         state.update({"phase": "verified", "verified_at": self.ports.now(), "next_raw_tokens": raw_tokens})
         self._write(state, "checkpoint_and_history_shrink_verified", f"evidence={evidence}" if evidence else "")
 
@@ -521,9 +571,10 @@ class RuntimeCompactionControl:
             scope = self.ports.scope()
             if scope is None:
                 return False
-            with self.ports.lock():
-                state = self._read(scope)
-                self._refresh(state, scope)
+            with self._observation(scope) as (state, checkpoint):
+                if state is None:
+                    return True
+                self._refresh(state, scope, checkpoint)
                 return bool(state and state.get('phase') != 'verified' and not (state.get('proactive') and state.get('phase') in {'needed', 'queued', 'retry_wait'}))
         except (OSError, ValueError, TypeError) as exc:
             self.ports.log("WARN", f"runtime_compaction_control admission=paused reason=state_unavailable error={type(exc).__name__}")
@@ -542,14 +593,15 @@ class RuntimeCompactionControl:
         scope = self.ports.scope()
         if scope is None:
             return request.get("automatic") is not True
-        with self.ports.lock():
-            state = self._read(scope)
+        with self._observation(scope, lambda _state: True) as (state, checkpoint):
+            if state is None:
+                return False
             automatic = request.get("automatic") is True
             if automatic:
                 if request.get("scope") != scope.payload():
                     self.ports.clear(str(request.get("id") or ""))
                     return False
-                self._refresh(state, scope)
+                self._refresh(state, scope, checkpoint)
                 if (state.get("phase") != "queued"
                         or state.get("request_id") != str(request.get("id") or "")):
                     if state.get("phase") in {"verified", "awaiting_shrink", "compacting", "blocked"}:
@@ -560,10 +612,9 @@ class RuntimeCompactionControl:
                 # retry is a new request id, never a second dispatch of this id.
                 return False
             elif not state or state.get("phase") == "verified":
-                state = self._start(scope, 0, 0, pressure=False)
+                state = self._start(scope, 0, 0, pressure=False, checkpoint=checkpoint)
             if not automatic:
                 state.pop('proactive', None)
-                checkpoint = self.ports.checkpoint(scope)
                 state["baseline_checkpoint_id"] = checkpoint.identity if checkpoint else ""
                 state["checkpoint_id"] = ""
                 state["requested_at"] = self.ports.now()
@@ -626,6 +677,22 @@ class RuntimeCompactionControl:
         self._write(state, reason)
 
 
+@dataclass(frozen=True, slots=True)
+class _CheckpointObservation:
+    checkpoint: NativeCompactionCheckpoint | None
+    valid: Callable[[], bool]
+
+
+def _signature(path):
+    if path is None:
+        return None
+    try:
+        stat = path.stat()
+        return (stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns)
+    except OSError:
+        return None
+
+
 def build_runtime_compaction_control(
     state_path: Path,
     *,
@@ -651,13 +718,23 @@ def build_runtime_compaction_control(
             return {}
         return value
 
+    def checkpoint(current):
+        path = transcript_path()
+        signature = _signature(path)
+        started = time.monotonic()
+        proof = native_checkpoint_from_transcript(path, current)
+        elapsed = time.monotonic() - started
+        if elapsed >= 1:
+            log("INFO", f"runtime_compaction_checkpoint_scan elapsed_ms={int(elapsed * 1000)} locks_held=0")
+        return _CheckpointObservation(proof, lambda: transcript_path() == path and _signature(path) == signature)
+
     return RuntimeCompactionControl(
         RuntimeCompactionPorts(
             load=load_state,
             save=lambda value: state.save(value, "runtime_compaction_control"),
             lock=lambda: exclusive_file_lock(state_path),
             scope=scope,
-            checkpoint=lambda current: native_checkpoint_from_transcript(transcript_path(), current),
+            checkpoint=checkpoint,
             queue=requests.queue_automatic,
             clear=requests.clear,
             compact_kind=compact_kind,

@@ -721,6 +721,12 @@ def main():
                 compact_text = color(f"context guard {compact_chunks:,} groups")
             elif str(compact_activity.get("event") or "") == "compact":
                 compact_text = color("compact pending")
+            try:
+                reused = max(0, int(compact_activity.get("reused_chunks") or 0))
+            except Exception:
+                reused = 0
+            if reused and compact_text:
+                compact_text += " " + color(f"reused {reused:,}")
             if parallel_sessions > 1 and compact_phase in {"map", "reduce"}:
                 compact_text += " " + color(f"parallel {parallel_sessions:,}/{compact_chunks:,}")
     if compact_text:

@@ -119,6 +119,12 @@ def panel_rows(
     values.insert(-1, "__info__")
     rows.insert(-1, f"SSE delivery recovery  [{sse_text}]")
     values.insert(-1, "__info__")
+    compact = sse_result.get("compaction")
+    if isinstance(compact, dict) and compact.get("phase"):
+        rows.insert(-1, f"Compaction recovery  [{compact['phase']} ; reason {compact.get('failure') or '-'} ; "
+                    f"checkpoint observed {compact.get('checkpoint_observed_at') or '-'} ; "
+                    f"failure at {compact.get('failure_at') or '-'}]")
+        values.insert(-1, "__info__")
     rows.insert(-1, "Recover SSE delivery now")
     values.insert(-1, "recover_sse_delivery")
     return rows, values

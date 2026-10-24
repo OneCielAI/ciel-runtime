@@ -143,7 +143,6 @@ class RuntimeCompactionBinding:
         self.home, self.builder, self.estimate, self.config, self.log = home, builder, estimate, config, log
         self.repository = SecureJsonRepository(root / "compaction-scope.json", SecureJsonEffects(log=log))
         self.safeguard_checked = 0.0
-        self.seed_lock_path = root / "compaction-seed"
         self.cache: dict[str, Any] = {}
         self.seeded = ""
         self.pending_logged = ""
@@ -180,11 +179,16 @@ class RuntimeCompactionBinding:
             self.log("WARN", f"runtime_compaction_scope_bind_failed runtime={runtime} error={type(exc).__name__}")
 
     def _update(self, epoch: str, **fields: Any) -> dict[str, Any]:
+        if not fields:
+            value = self.repository.load("compaction_scope")
+            if value is None:
+                raise OSError("compaction scope is unreadable")
+            return value
         with exclusive_file_lock(self.repository.path):
             value = self.repository.load("compaction_scope")
             if value is None:
                 raise OSError("compaction scope is unreadable")
-            if fields and value.get("epoch") == epoch:
+            if value.get("epoch") == epoch:
                 value.update(fields)
                 self.repository.save(value, "compaction_scope")
             return value
@@ -418,24 +422,23 @@ class RuntimeCompactionBinding:
         tokens = self.estimate({key: value for key, value in body.items() if key != "max_tokens"})
         # A raw Responses body names its output budget max_output_tokens.
         limit = self.input_budget(provider, config, {"max_tokens": body.get("max_tokens", body.get("max_output_tokens"))})
-        with exclusive_file_lock(self.seed_lock_path):
-            self._update(scope.epoch, request_observed=True)
-            active = self._active_state(scope)
-            # Native clients own proactive timing. JSON/4 is not tokenizer
-            # evidence and the Runtime input reserve is not the CLI threshold.
-            # Keep observing native checkpoints and an existing recovery cycle,
-            # but only a confirmed upstream overflow may start pressure here.
-            if not active and not native:
-                return
-            if active and not limit:
-                # Unknown capacity: the observed compact request size is the
-                # only bound a real next request can be proven smaller than.
-                limit = _positive(active.get("baseline_tokens"))
-            self.control.observe_request(body, tokens, limit, scope=scope)
-            after = self._active_state(scope)
-            if not native and after.get("phase") == "awaiting_shrink":
-                # The real next request did not shrink: stop admitting probes.
-                self._update(scope.epoch, failed_probe=after.get("checkpoint_id", ""))
+        self._update(scope.epoch, request_observed=True)
+        active = self._active_state(scope)
+        # Native clients own proactive timing. JSON/4 is not tokenizer
+        # evidence and the Runtime input reserve is not the CLI threshold.
+        # Keep observing native checkpoints and an existing recovery cycle,
+        # but only a confirmed upstream overflow may start pressure here.
+        if not active and not native:
+            return
+        if active and not limit:
+            # Unknown capacity: the observed compact request size is the
+            # only bound a real next request can be proven smaller than.
+            limit = _positive(active.get("baseline_tokens"))
+        self.control.observe_request(body, tokens, limit, scope=scope)
+        after = self._active_state(scope)
+        if not native and after.get("phase") == "awaiting_shrink":
+            # The real next request did not shrink: stop admitting probes.
+            self._update(scope.epoch, failed_probe=after.get("checkpoint_id", ""))
 
     def observe_failure(self, provider: str, config: dict[str, Any], body: dict[str, Any], raw: Any, runtime: str,
                         headers: Any = None) -> None:
@@ -457,22 +460,20 @@ class RuntimeCompactionBinding:
         limit = max(1, overflow.context_limit - self.builder().budget.reserve(config, overflow.context_limit))
         if overflow.message_tokens < limit:
             return
-        with exclusive_file_lock(self.seed_lock_path):
-            self.control.observe_request(body, overflow.message_tokens, limit, scope=scope, recovery_required=True)
+        self.control.observe_request(body, overflow.message_tokens, limit, scope=scope, recovery_required=True)
 
     def _admission_paused(self) -> bool:
         """Strict gate for router-side append: paused until shrink is verified."""
 
         try:
-            with exclusive_file_lock(self.seed_lock_path):
-                scope = self.scope()
-                if scope is None:
-                    return self._identity_pending()
-                if self._request_identity_pending(self._update("")):
-                    return True
-                if self.seeded != f"{scope.epoch}:{scope.session_id}":
-                    self._seed(scope)
-                self._observe_safeguard(scope)
+            scope = self.scope()
+            if scope is None:
+                return self._identity_pending()
+            if self._request_identity_pending(self._update("")):
+                return True
+            if self.seeded != f"{scope.epoch}:{scope.session_id}":
+                self._seed(scope)
+            self._observe_safeguard(scope)
         except (OSError, ValueError, TypeError) as exc:
             self.log("WARN", f"runtime_compaction_scope admission=paused reason=state_unavailable error={type(exc).__name__}")
             return True
@@ -492,7 +493,14 @@ class RuntimeCompactionBinding:
         limit = self.builder().budget.context_limit(provider, config) if enabled else 0
         since = max(float(value.get('started_at') or 0), float(value.get('identity_since') or 0))
         sample = latest_native_model_usage(self.transcript_path(), scope, since, model) if enabled else None
-        self.control.observe_proactive(scope, sample, _positive(limit), model.casefold())
+        def validate():
+            current_provider, current = self.config()
+            return (current_provider == provider
+                    and str(current.get('current_model') or '').strip() == model
+                    and current.get('compact_safeguard') == config.get('compact_safeguard')
+                    and not current.get(REMOTE_BRIDGE_CONFIG_MARKER)
+                    and (not enabled or self.builder().budget.context_limit(current_provider, current) == limit))
+        self.control.observe_proactive(scope, sample, _positive(limit), model.casefold(), validate=validate)
 
     def _request_identity_pending(self, value: dict[str, Any]) -> bool:
         """Hold external input until this launch proves its routed session.
@@ -589,6 +597,17 @@ class RuntimeCompactionBinding:
             return ""
         return "context_recovery" if self.scope() is not None else "identity_pending"
 
+    def recovery_status(self) -> dict[str, Any]:
+        try:
+            scope = self.scope()
+            state = self.control.ports.load() if scope is not None else None
+            if not isinstance(state, dict) or state.get("scope") != scope.payload():
+                return {}
+            return {key: state.get(key) for key in (
+                "phase", "failure", "failure_at", "checkpoint_observed_at", "deadline")}
+        except (OSError, ValueError, TypeError):
+            return {"phase": "unknown", "failure": "state_unavailable"}
+
     def compact_dispatch(self) -> dict[str, Any]:
         """Exact confirmed runtime dispatch for a continuation observer."""
         scope = self.scope()
@@ -602,10 +621,9 @@ class RuntimeCompactionBinding:
 
     def command_ready(self, request: dict[str, Any]) -> bool:
         if request.get('automatic') is True:
-            with exclusive_file_lock(self.seed_lock_path):
-                scope = self.scope()
-                if scope is not None:
-                    self._observe_safeguard(scope, force=True)
+            scope = self.scope()
+            if scope is not None:
+                self._observe_safeguard(scope, force=True)
         return self.control.command_ready(request)
 
     def command_submitted(self, request: dict[str, Any]) -> None:

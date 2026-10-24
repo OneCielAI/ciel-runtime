@@ -41,6 +41,7 @@ class ChannelMessageRepositoryTests(unittest.TestCase):
                         with exclusive_file_lock(path):
                             self.fail("lock body must not run before acquisition")
                 self.assertEqual(code, caught.exception.errno)
+                self.assertIn(str(path) + ".lock", str(caught.exception))
                 self.assertIs(failure, caught.exception.__cause__)
                 self.assertEqual(1, windows.locking.call_count)
 

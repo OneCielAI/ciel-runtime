@@ -57,7 +57,7 @@ def exclusive_file_lock(path: Path):
                 msvcrt.locking(lock_file.fileno(), msvcrt.LK_LOCK, 1)
             except OSError as exc:
                 if exc.errno in {errno.EACCES, errno.EAGAIN, errno.EDEADLK}:
-                    raise ChannelFileLockBusy(exc.errno, "channel file lock acquisition busy") from exc
+                    raise ChannelFileLockBusy(exc.errno, f"channel file lock acquisition busy: {lock_path}") from exc
                 raise
             try:
                 yield

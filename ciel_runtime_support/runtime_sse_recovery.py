@@ -318,13 +318,17 @@ def router_recovery(args: Mapping[str, Any], *, status_repository: Any, compacti
             health["reason"] = "queueunavailable"
         return health
 
-    return recover_sse_delivery(
+    result = recover_sse_delivery(
         args,
         delivery_health=delivery_health,
         admission_paused=lambda: compaction.external_admission_paused(),
         restart=restart_local,
         state_path=Path(root) / "sse-recovery.json",
     )
+    status = getattr(compaction, "recovery_status", None)
+    if callable(status):
+        result["compaction"] = status()
+    return result
 
 
 __all__ = [

@@ -2197,7 +2197,7 @@ def context_compaction_services() -> ContextCompactionServices:
         transport=ContextCompactionTransport(context_compact_summary_output_tokens, provider_request_timeout_seconds, provider_endpoint, post_json_with_rate_retry, provider_headers, context_compact_extract_text, resolve_model=resolve_requested_model),
         workflow=ContextCompactionWorkflow(context_compact_segmented_mode, context_compaction_available, context_compact_instruction_index, anthropic_content_to_text, context_compact_chunk_target_tokens, split_messages_for_context_compact, context_compact_parallel_sessions, write_context_compact_activity, estimate_tokens, context_compact_request_summary),
         projection=ContextCompactionProjection(build_context_compact_chunk_prompt, build_chunked_context_guard_summary, build_context_compact_reduce_prompt, router_log, apply_ollama_wire_options),
-        map_system_prompt=CONTEXT_COMPACT_MAP_SYSTEM_PROMPT,
+        map_system_prompt=CONTEXT_COMPACT_MAP_SYSTEM_PROMPT, progress_root=ROUTER_INSTANCE_DIR,
     )
 def context_compact_request_summary(provider: str, model: str, pcfg: dict[str, Any], prompt: str, *, wire: str, budget_tokens: int) -> str: return request_context_summary(provider, model, pcfg, prompt, context_compaction_services(), wire=wire, budget_tokens=budget_tokens)
 def maybe_build_llm_compacted_messages( provider: str, model: str, pcfg: dict[str, Any] | None, messages: list[dict[str, Any]], budget_tokens: int, *, wire: str, ) -> list[dict[str, Any]] | None: return build_llm_compacted_messages(provider, model, pcfg, messages, budget_tokens, context_compaction_services(), wire=wire)

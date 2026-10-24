@@ -7,6 +7,7 @@ from typing import Any, Callable
 
 from .context_compaction import ContextCompactionFailed
 from .context_summary_policy import compact_instruction_kind, native_compact_text, semantic_payload_cost
+from .media_payload import opaque_media
 
 
 @dataclass(frozen=True, slots=True)
@@ -477,6 +478,18 @@ def compact_anthropic_body_for_budget(
     )
     if full_compact_request and not rejected:
         if window is None or runtime.estimate_tokens(body) <= window:
+            return body
+        text_only, media = opaque_media(body)
+        if media.images and runtime.estimate_tokens(text_only) <= window:
+            # Only encoded image bytes put this checkpoint past the window, and
+            # their visual cost is unknown here. Let the upstream decide; a real
+            # overflow still returns the no-output rejection that recovers.
+            runtime.log(
+                "INFO",
+                "context_compact_native_media_forwarded "
+                f"provider={provider} images={media.images} "
+                f"encoded_image_bytes={media.encoded_bytes} window={window}",
+            )
             return body
     initial_tokens = runtime.estimate_tokens(body)
     over_window = window is not None and initial_tokens > window
