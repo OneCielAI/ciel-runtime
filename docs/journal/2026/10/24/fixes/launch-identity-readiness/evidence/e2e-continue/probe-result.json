@@ -1,0 +1,163 @@
+{
+ "claude": "C:\\Users\\djlov\\.local\\bin\\claude.exe",
+ "mode": "continue",
+ "child_pid": 44968,
+ "seeded_sessions": [
+  "16322aae-5f82-4bd9-b6dc-21bcfc7fae6b"
+ ],
+ "launch_t": 64.69,
+ "seconds": 30.0,
+ "record_changes": [
+  {
+   "t": 64.71,
+   "file": "70904.json",
+   "sessionId": "16322aae-5f82-4bd9-b6dc-21bcfc7fae6b",
+   "status": "idle",
+   "statusUpdatedAt": 1792866849706,
+   "socket_matches": false,
+   "peerFeatures": [
+    "notify_idle",
+    "artifact_yield"
+   ]
+  },
+  {
+   "t": 65.36,
+   "file": "44968.json",
+   "sessionId": "b2512229-23bb-4f27-870d-a58d9c964c0e",
+   "status": null,
+   "statusUpdatedAt": null,
+   "socket_matches": true,
+   "peerFeatures": [
+    "notify_idle",
+    "artifact_yield"
+   ]
+  },
+  {
+   "t": 65.68,
+   "file": "44968.json",
+   "sessionId": "16322aae-5f82-4bd9-b6dc-21bcfc7fae6b",
+   "status": null,
+   "statusUpdatedAt": null,
+   "socket_matches": true,
+   "peerFeatures": [
+    "notify_idle",
+    "artifact_yield"
+   ]
+  },
+  {
+   "t": 65.76,
+   "file": "44968.json",
+   "sessionId": "16322aae-5f82-4bd9-b6dc-21bcfc7fae6b",
+   "status": "idle",
+   "statusUpdatedAt": 1792866854383,
+   "socket_matches": true,
+   "peerFeatures": [
+    "notify_idle",
+    "artifact_yield"
+   ]
+  },
+  {
+   "t": 65.96,
+   "file": "44968.json",
+   "sessionId": "16322aae-5f82-4bd9-b6dc-21bcfc7fae6b",
+   "status": "busy",
+   "statusUpdatedAt": 1792866854767,
+   "socket_matches": true,
+   "peerFeatures": [
+    "notify_idle",
+    "artifact_yield"
+   ]
+  },
+  {
+   "t": 66.17,
+   "file": "44968.json",
+   "sessionId": "16322aae-5f82-4bd9-b6dc-21bcfc7fae6b",
+   "status": "idle",
+   "statusUpdatedAt": 1792866855000,
+   "socket_matches": true,
+   "peerFeatures": [
+    "notify_idle",
+    "artifact_yield"
+   ]
+  }
+ ],
+ "upstream": [
+  {
+   "t": 60.78,
+   "method": "POST",
+   "path": "/v1/messages?beta=true",
+   "session_header": "16322aae-5f82-4bd9-b6dc-21bcfc7fae6b",
+   "messages": 2,
+   "stream": true,
+   "external_marker": false
+  },
+  {
+   "t": 64.69,
+   "method": "-",
+   "path": "seed [('prompt', True), ('reply', True)] transcripts=['16322aae-5f82-4bd9-b6dc-21bcfc7fae6b']"
+  },
+  {
+   "t": 66.06,
+   "method": "POST",
+   "path": "/v1/messages?beta=true",
+   "session_header": "16322aae-5f82-4bd9-b6dc-21bcfc7fae6b",
+   "messages": 4,
+   "stream": true,
+   "external_marker": true
+  }
+ ],
+ "delivery": {
+  "t": 65.81,
+  "sent": true,
+  "session": "16322aae-5f82-4bd9-b6dc-21bcfc7fae6b",
+  "request_observed_before_send": false
+ },
+ "logs": [
+  {
+   "t": 64.7,
+   "level": "INFO",
+   "text": "claude_session_socket_configured target=\\\\.\\pipe\\LOCAL\\cc-msg-probea5bbcff53da7"
+  },
+  {
+   "t": 64.72,
+   "level": "INFO",
+   "text": "runtime_compaction_scope admission=paused reason=identity_pending runtime=claude"
+  },
+  {
+   "t": 65.3,
+   "level": "INFO",
+   "text": "runtime_compaction_scope_bound runtime=claude session=b2512229-23bb-4f27-870d-a58d9c964c0e via=socket"
+  },
+  {
+   "t": 65.31,
+   "level": "INFO",
+   "text": "runtime_compaction_scope admission=paused reason=request_identity_pending runtime=claude"
+  },
+  {
+   "t": 65.69,
+   "level": "INFO",
+   "text": "runtime_compaction_scope_bound runtime=claude session=16322aae-5f82-4bd9-b6dc-21bcfc7fae6b via=socket"
+  },
+  {
+   "t": 65.7,
+   "level": "INFO",
+   "text": "runtime_compaction_scope admission=paused reason=request_identity_pending runtime=claude"
+  },
+  {
+   "t": 65.76,
+   "level": "INFO",
+   "text": "runtime_compaction_scope identity=ready reason=published_idle runtime=claude session=16322aae-5f82-4bd9-b6dc-21bcfc7fae6b"
+  },
+  {
+   "t": 65.78,
+   "level": "INFO",
+   "text": "runtime_compaction_seed runtime=claude session=16322aae-5f82-4bd9-b6dc-21bcfc7fae6b native_input_tokens=10 input_budget=18000"
+  },
+  {
+   "t": 65.81,
+   "level": "INFO",
+   "text": "claude_session_socket_injected bytes=225 target=\\\\.\\pipe\\LOCAL\\cc-msg-probea5bbcff53da7"
+  }
+ ],
+ "scratch": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-idle-probe-1792866788"
+}

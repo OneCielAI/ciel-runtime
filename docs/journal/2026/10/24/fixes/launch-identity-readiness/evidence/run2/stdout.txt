@@ -1,0 +1,38 @@
+{
+ "seeded": [
+  "a8af6867-55e2-4d13-acf6-f38b82d26a27"
+ ],
+ "changes": [
+  {
+   "t": 1.51,
+   "file": "28764.json",
+   "sessionId": "a8af6867-55e2-4d13-acf6-f38b82d26a27",
+   "status": null,
+   "statusUpdatedAt": null,
+   "socket_matches": true,
+   "peerFeatures": [
+    "notify_idle",
+    "artifact_yield"
+   ]
+  },
+  {
+   "t": 1.87,
+   "file": "28764.json",
+   "sessionId": "a8af6867-55e2-4d13-acf6-f38b82d26a27",
+   "status": "idle",
+   "statusUpdatedAt": 1792859298356,
+   "socket_matches": true,
+   "peerFeatures": [
+    "notify_idle",
+    "artifact_yield"
+   ]
+  }
+ ],
+ "upstream_after_launch": [
+  {
+   "t": 0.9,
+   "method": "-",
+   "path": "seed exit=0 transcripts=['a8af6867-55e2-4d13-acf6-f38b82d26a27']"
+  }
+ ]
+}

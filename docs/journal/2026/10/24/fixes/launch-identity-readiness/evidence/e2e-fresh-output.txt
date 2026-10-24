@@ -1,0 +1,75 @@
+{
+ "seeded": [],
+ "changes": [
+  {
+   "t": 1.13,
+   "file": "32876.json",
+   "sessionId": "f931eab7-9641-43cd-9a64-946ee8ac91e5",
+   "status": null,
+   "statusUpdatedAt": null,
+   "socket_matches": true,
+   "peerFeatures": [
+    "notify_idle",
+    "artifact_yield"
+   ]
+  },
+  {
+   "t": 1.19,
+   "file": "32876.json",
+   "sessionId": "f931eab7-9641-43cd-9a64-946ee8ac91e5",
+   "status": "idle",
+   "statusUpdatedAt": 1792866959833,
+   "socket_matches": true,
+   "peerFeatures": [
+    "notify_idle",
+    "artifact_yield"
+   ]
+  },
+  {
+   "t": 1.42,
+   "file": "32876.json",
+   "sessionId": "f931eab7-9641-43cd-9a64-946ee8ac91e5",
+   "status": "busy",
+   "statusUpdatedAt": 1792866960348,
+   "socket_matches": true,
+   "peerFeatures": [
+    "notify_idle",
+    "artifact_yield"
+   ]
+  },
+  {
+   "t": 1.62,
+   "file": "32876.json",
+   "sessionId": "f931eab7-9641-43cd-9a64-946ee8ac91e5",
+   "status": "idle",
+   "statusUpdatedAt": 1792866960579,
+   "socket_matches": true,
+   "peerFeatures": [
+    "notify_idle",
+    "artifact_yield"
+   ]
+  }
+ ],
+ "delivery": {
+  "t": 1.21,
+  "sent": true,
+  "session": "f931eab7-9641-43cd-9a64-946ee8ac91e5",
+  "request_observed_before_send": false
+ },
+ "upstream_after_launch": [
+  {
+   "t": 0.01,
+   "method": "-",
+   "path": "seed none transcripts=[]"
+  },
+  {
+   "t": 1.5,
+   "method": "POST",
+   "path": "/v1/messages?beta=true",
+   "session_header": "f931eab7-9641-43cd-9a64-946ee8ac91e5",
+   "messages": 2,
+   "stream": true,
+   "external_marker": true
+  }
+ ]
+}

@@ -1,0 +1,51 @@
+{
+ "claude": "C:\\Users\\djlov\\.local\\bin\\claude.exe",
+ "mode": "resume",
+ "seeded_sessions": [
+  "a8af6867-55e2-4d13-acf6-f38b82d26a27"
+ ],
+ "launch_t": 0.9,
+ "seconds": 60.0,
+ "record_changes": [
+  {
+   "t": 1.51,
+   "file": "28764.json",
+   "sessionId": "a8af6867-55e2-4d13-acf6-f38b82d26a27",
+   "status": null,
+   "statusUpdatedAt": null,
+   "socket_matches": true,
+   "peerFeatures": [
+    "notify_idle",
+    "artifact_yield"
+   ]
+  },
+  {
+   "t": 1.87,
+   "file": "28764.json",
+   "sessionId": "a8af6867-55e2-4d13-acf6-f38b82d26a27",
+   "status": "idle",
+   "statusUpdatedAt": 1792859298356,
+   "socket_matches": true,
+   "peerFeatures": [
+    "notify_idle",
+    "artifact_yield"
+   ]
+  }
+ ],
+ "upstream": [
+  {
+   "t": 0.66,
+   "method": "POST",
+   "path": "/v1/messages?beta=true",
+   "session_header": "a8af6867-55e2-4d13-acf6-f38b82d26a27",
+   "messages": 2,
+   "stream": true
+  },
+  {
+   "t": 0.9,
+   "method": "-",
+   "path": "seed exit=0 transcripts=['a8af6867-55e2-4d13-acf6-f38b82d26a27']"
+  }
+ ],
+ "scratch": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-idle-probe-1792859296"
+}

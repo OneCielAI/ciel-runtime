@@ -34,8 +34,8 @@ from .secure_json_repository import SecureJsonEffects, SecureJsonRepository
 # /clear and /resume, which Claude Code 2.1.303 writes as a new sessionId.
 PUBLISHED_RECHECK_SECONDS = 2.0
 
-# An unproven launch identity holds external input until the first routed
-# request, but an idle relaunched session never produces one: Celly held
+# An unproven launch identity holds external input until published idle or a
+# routed request. Older clients without idle status retain this fallback: Celly held
 # 6363 until the user typed "222" (2026-10-23 01:35). After this window the
 # gate opens for the launch's own socket; the first request still re-binds the
 # exact scope, and any request that overflows re-arms compaction admission.
@@ -190,7 +190,7 @@ class RuntimeCompactionBinding:
                 self.repository.save(value, "compaction_scope")
             return value
 
-    def _published_claude_session(self, value: dict[str, Any]) -> str:
+    def _published_claude_record(self, value: dict[str, Any]) -> dict[str, Any]:
         """The session Claude Code publishes for this launch's exact socket.
 
         The record must name the launch's messaging socket and cwd, carry a
@@ -201,13 +201,13 @@ class RuntimeCompactionBinding:
         target = str(value.get("messaging_socket_path") or "")
         cwd = ChannelTranscriptRepository._normalized_cwd(value.get("cwd"))
         if not target or not cwd:
-            return ""
+            return {}
         directory = Path(value.get("claude_config_dir") or self.home / ".claude") / "sessions"
         candidates = []
         try:
             paths = list(directory.glob("*.json"))
         except OSError:
-            return ""
+            return {}
         for path in paths:
             try:
                 if path.stat().st_size > 64 * 1024:
@@ -227,21 +227,60 @@ class RuntimeCompactionBinding:
                 published = str(record.get("messagingSocketPath") or "")
                 session_id = str(record.get("sessionId") or "").strip()
                 if published and session_id and canonical_socket_path(published) == canonical_socket_path(target):
-                    candidates.append(session_id)
+                    candidates.append(record)
             except (OSError, ValueError, TypeError, UnicodeError):
                 continue
-        return candidates[0] if len(candidates) == 1 else ""
+        return candidates[0] if len(candidates) == 1 else {}
 
     def _follow_published(self, value: dict[str, Any]) -> dict[str, Any]:
         epoch, now = value["epoch"], time.time()
         checked_epoch, checked_at = self.published_checked
-        if value.get("session_id") and checked_epoch == epoch and now - checked_at < PUBLISHED_RECHECK_SECONDS:
+        if value.get("identity_ready") and checked_epoch == epoch and now - checked_at < PUBLISHED_RECHECK_SECONDS:
             return value
         self.published_checked = (epoch, now)
-        session_id = self._published_claude_session(value)
-        if session_id and session_id != value.get("session_id") and self._switch(epoch, "claude", session_id, "socket"):
-            return self._update("")
-        return value
+        record = self._published_claude_record(value)
+        session_id = str(record.get("sessionId") or "").strip()
+        ready = None
+        if session_id:
+            peer = {"session_id": session_id, "pid": record["pid"], "proc_start": record["procStart"]}
+            previous = value.get("identity_ready")
+            if isinstance(previous, dict) and all(previous.get(key) == item for key, item in peer.items()):
+                # Readiness establishes identity once; busy turns do not make
+                # that same native process provisional again.
+                ready = previous
+            else:
+                try:
+                    stamp = record.get("statusUpdatedAt")
+                    if (record.get("status") == "idle" and not isinstance(stamp, bool)
+                            and float(record["startedAt"]) / 1000 - 1 <= float(stamp) / 1000 <= now + 1
+                            and float(stamp) / 1000 >= float(value["started_at"]) - 1):
+                        ready = {**peer, "at": float(stamp) / 1000}
+                except (ValueError, TypeError, OverflowError):
+                    pass
+        with exclusive_file_lock(self.repository.path):
+            current = self.repository.load("compaction_scope")
+            if current is None:
+                raise OSError("compaction scope is unreadable")
+            # A scan cannot overwrite a newer launch or a concurrent retarget.
+            fields = ("epoch", "session_id", "messaging_socket_path", "identity_since", "identity_ready", "request_observed")
+            if any(current.get(key) != value.get(key) for key in fields):
+                return current
+            switched = bool(session_id and session_id != current.get("session_id"))
+            if switched:
+                current.update({"session_id": session_id, "path": "", "seeded": False,
+                                "request_observed": False, "identity_since": now})
+            changed = current.get("identity_ready") != ready
+            if ready:
+                current["identity_ready"] = ready
+            else:
+                current.pop("identity_ready", None)
+            if switched or changed:
+                self.repository.save(current, "compaction_scope")
+        if switched:
+            self.log("INFO", f"runtime_compaction_scope_bound runtime=claude session={session_id} via=socket")
+        if ready and changed:
+            self.log("INFO", f"runtime_compaction_scope identity=ready reason=published_idle runtime=claude session={session_id}")
+        return current
 
     def _switch(self, epoch: str, runtime: str, session_id: str, via: str, *, unbound_only: bool = False) -> bool:
         """Retarget one launch epoch to an exactly observed native session."""
@@ -256,6 +295,7 @@ class RuntimeCompactionBinding:
                 return False
             # Proof belongs to one conversation: path and seeding start over,
             # and the new identity gets its own grace window.
+            value.pop("identity_ready", None)
             value.update({"session_id": session_id, "path": "", "seeded": False,
                           "request_observed": False, "identity_since": time.time()})
             self.repository.save(value, "compaction_scope")
@@ -512,15 +552,16 @@ class RuntimeCompactionBinding:
         replaced, so a socket-only identity is provisional: injecting an event
         against it can observe the wrong compaction scope and race the actual
         request past a full context window (Celly, 2026-10-22 11:22/11:35).
-        A locally typed user turn is not gated; the first routed request marks
-        the identity observed and opens external delivery. A session that
-        stays idle never sends one, so the hold also ends after
+        Claude's exact published idle record establishes readiness without a
+        user turn. The first routed request is independent proof. Older clients
+        without a readiness record retain the compatibility deadline after
         ``REQUEST_IDENTITY_GRACE_SECONDS`` from this identity binding.
         """
 
         if (value.get("runtime") != "claude"
                 or not value.get("messaging_socket_path")
-                or value.get("request_observed") is True):
+                or value.get("request_observed") is True
+                or value.get("identity_ready")):
             return False
         pid = _positive(value.get("launcher_pid"))
         running = bool(pid and pid_is_running(pid))

@@ -1,0 +1,30 @@
+{
+ "claude": "C:\\Users\\djlov\\.local\\bin\\claude.exe",
+ "mode": "fresh",
+ "child_pid": 68004,
+ "seeded_sessions": [],
+ "launch_t": 0.01,
+ "seconds": 30.0,
+ "record_changes": [
+  {
+   "t": 0.98,
+   "file": "68004.json",
+   "sessionId": "823b85dc-f467-4c50-83cc-e82a9a8b66ac",
+   "status": "idle",
+   "statusUpdatedAt": 1792859639260,
+   "socket_matches": true,
+   "peerFeatures": [
+    "notify_idle",
+    "artifact_yield"
+   ]
+  }
+ ],
+ "upstream": [
+  {
+   "t": 0.01,
+   "method": "-",
+   "path": "seed none transcripts=[]"
+  }
+ ],
+ "scratch": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-idle-probe-1792859638"
+}

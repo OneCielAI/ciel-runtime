@@ -1,0 +1,24 @@
+{
+ "seeded": [],
+ "changes": [
+  {
+   "t": 0.98,
+   "file": "68004.json",
+   "sessionId": "823b85dc-f467-4c50-83cc-e82a9a8b66ac",
+   "status": "idle",
+   "statusUpdatedAt": 1792859639260,
+   "socket_matches": true,
+   "peerFeatures": [
+    "notify_idle",
+    "artifact_yield"
+   ]
+  }
+ ],
+ "upstream_after_launch": [
+  {
+   "t": 0.01,
+   "method": "-",
+   "path": "seed none transcripts=[]"
+  }
+ ]
+}

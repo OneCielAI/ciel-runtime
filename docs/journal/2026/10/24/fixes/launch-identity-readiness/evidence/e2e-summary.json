@@ -1,0 +1,74 @@
+[
+  {
+    "mode": "e2e-fresh",
+    "sent": true,
+    "request_observed_before_send": false,
+    "seconds_from_launch_to_send": 1.2,
+    "seconds_from_launch_to_upstream": 1.49,
+    "transcript_events": [
+      {
+        "type": "queue-operation",
+        "timestamp": "2026-10-24T18:36:00.315Z",
+        "external_prompt": true
+      },
+      {
+        "type": "user",
+        "timestamp": "2026-10-24T18:36:00.356Z",
+        "external_prompt": true
+      },
+      {
+        "type": "assistant",
+        "timestamp": "2026-10-24T18:36:00.528Z",
+        "stop_reason": "end_turn"
+      }
+    ]
+  },
+  {
+    "mode": "e2e-resume-fixed",
+    "sent": true,
+    "request_observed_before_send": false,
+    "seconds_from_launch_to_send": 1.13,
+    "seconds_from_launch_to_upstream": 1.37,
+    "transcript_events": [
+      {
+        "type": "queue-operation",
+        "timestamp": "2026-10-24T18:32:48.755Z",
+        "external_prompt": true
+      },
+      {
+        "type": "user",
+        "timestamp": "2026-10-24T18:32:48.806Z",
+        "external_prompt": true
+      },
+      {
+        "type": "assistant",
+        "timestamp": "2026-10-24T18:32:48.993Z",
+        "stop_reason": "end_turn"
+      }
+    ]
+  },
+  {
+    "mode": "e2e-continue",
+    "sent": true,
+    "request_observed_before_send": false,
+    "seconds_from_launch_to_send": 1.12,
+    "seconds_from_launch_to_upstream": 1.37,
+    "transcript_events": [
+      {
+        "type": "queue-operation",
+        "timestamp": "2026-10-24T18:34:14.729Z",
+        "external_prompt": true
+      },
+      {
+        "type": "user",
+        "timestamp": "2026-10-24T18:34:14.781Z",
+        "external_prompt": true
+      },
+      {
+        "type": "assistant",
+        "timestamp": "2026-10-24T18:34:14.968Z",
+        "stop_reason": "end_turn"
+      }
+    ]
+  }
+]
