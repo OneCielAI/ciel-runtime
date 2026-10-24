@@ -32,6 +32,24 @@ timestamp: 2026-10-24T12:00:00Z
   - Admission opened on the second call; the first call was a scan conflict while the live transcript was being appended.
   - The state used was a private temp copy, and the live transcript was only read.
 
+# Release
+
+- **Nightly.** `5d4dc0e` was pushed as a fast-forward from `acd43e9`. CI run 40091101319 and Publish run 40091101316 both succeeded.
+- **Registry.** The `nightly` tag is `0.2.51-nightly.20261024-115611.5d4dc0e`, with gitHead `5d4dc0e8f07644e9d6f81f143ca644990e00e28b`.
+- **Local install** ([deploy_local.py](evidence/deploy_local.py), [deployment](evidence/deployment.json), [output](evidence/deploy-output.txt)):
+  - The exact version was packed and extracted with member checks, then installed with `npm install -g`.
+  - 454 files were replaced one at a time, atomically, into `~/.local/share/ciel-runtime` and `~/.local/bin`. `install.ps1` was not used.
+  - `runtime_compaction_control.py` has the same hash (`3b173a8e…`) in git, the tarball, the snapshot and global npm. No `*.deploy-*.tmp` file was left behind.
+- **Installed-path tests** ([installed-tests.txt](evidence/installed-tests.txt)): 99 tests OK on Python 3.14, importing `~/.local/share/ciel-runtime/ciel_runtime_support/runtime_compaction_control.py`. `ciel-runtime --version` reports the new version.
+- **Live routers.** The five live routers kept their PIDs and the old version:
+  - 9385 → 54704
+  - 9464 → 54764
+  - 9489 → 67368
+  - 9505 → 5188
+  - 9524 → 67176
+- No session was restarted. The fix applies only to sessions launched after this install.
+
 # Not verified
 
-- A live router running this fix. Live routers keep their loaded code until they are relaunched.
+- A live router running this fix.
+- Celly (`G:\ciel-bridge-service\.npm-global`) is a separate npm prefix and still has `a7e28f9`. Its router started a new native compaction at 07:03:38 (`admission_paused phase=compacting`, epoch `2fa07db0`).
