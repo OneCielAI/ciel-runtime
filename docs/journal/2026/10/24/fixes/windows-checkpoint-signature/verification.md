@@ -49,7 +49,13 @@ timestamp: 2026-10-24T12:00:00Z
   - 9524 → 67176
 - No session was restarted. The fix applies only to sessions launched after this install.
 
-# Not verified
+# Celly after its update
 
-- A live router running this fix.
-- Celly (`G:\ciel-bridge-service\.npm-global`) is a separate npm prefix and still has `a7e28f9`. Its router started a new native compaction at 07:03:38 (`admission_paused phase=compacting`, epoch `2fa07db0`).
+- **07:03–11:03, still on `a7e28f9`.** The 07:03:38 native compaction was never confirmed, and admission ended `blocked / checkpoint_unconfirmed`.
+- **11:02:47.** The user updated celly's package to `5d4dc0e`. `runtime_compaction_control.py` hash is `3b173a8e…`.
+- **11:03:33.** Router pid 6032 started on the new version.
+  - At launch, 6772–6789 (18 inputs queued during the stall) were marked `skipped / launch_replay_window_expired` and not replayed.
+- **11:03:36–11:05:41.** External input was held by the launch identity grace (`request_identity_pending`, 120 s), then `request_identity_expired` ungated it.
+- **11:05:45.** 6790–6793 were injected together over the session socket and confirmed, and all four are `replied`. Delivery health shows 0 queued.
+- **Checkpoint scan.** celly's installed module on Python 3.13 returns the 07:05:37 auto checkpoint 3/3 ([scan](evidence/celly-installed-scan-py313.txt)). The pre-update code returned None for the same file.
+- **Not yet observed.** A native compaction released by the new code inside celly's live router.
