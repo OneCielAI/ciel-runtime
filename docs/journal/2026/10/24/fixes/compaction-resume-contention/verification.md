@@ -38,4 +38,8 @@ No live session restarted; no remote machine changed. A crash between upstream c
 
 # Release
 
-Nightly push of the follow-up commit, registry gitHead verification and local installed-path verification are recorded in [deployment](evidence/deployment.json) once complete. Changes apply only to new launches unless a session is explicitly restarted separately.
+- Nightly: `f276c63` pushed fast-forward; Publish to npm and CI succeeded. Registry `nightly` = `0.2.51-nightly.20261024-063453.f276c63`, gitHead `f276c63e5f85258def26ed6949d636cdd626f2d4`.
+- Local install ([deployment](evidence/deployment.json)): exact version packed and extracted with member checks, `npm install -g`, then per-file atomic replacement of 453 files into `~/.local/share/ciel-runtime` and `~/.local/bin`. The 13 changed modules hash identically across git, tarball, snapshot and global npm. `install.ps1` was not used.
+- [Installed-path tests](evidence/installed-tests.txt): 318 tests OK, importing `~/.local/share/ciel-runtime/ciel_runtime_support/context_compaction_progress.py`. `ciel-runtime --version` reports the new version.
+- Live routers 9489/9505/9524/9385 kept PIDs 77744/33444/26568/69748 and their old versions. No session restarted; no remote host touched. The fixes apply to new launches only.
+- Observed once on the first launch after replacement: a Python 3.14 `SyntaxWarning` for `return` in a `finally` block at `codex_app_server_session.py:417`. That file is unchanged by these commits; not addressed here. Changes apply only to new launches unless a session is explicitly restarted separately.
