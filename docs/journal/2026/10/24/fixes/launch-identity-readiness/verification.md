@@ -48,3 +48,13 @@ Exact-file isolated runner clears CIEL_RUNTIME/CLAUDE/ANTHROPIC/CODEX/OPENAI inh
 # Boundaries
 
 No Celly or .14 files, sessions, queue or cursor were modified. Existing live processes are not reloaded. Packaging and local installation results are recorded separately when available.
+
+# Release
+
+- Code commit `4af30c7995732ec6c0bbf8b7afe90c965f79bc87` pushed to nightly; CI 40121737737 and Publish 40121737726 both succeeded.
+- Registry nightly `0.2.51-nightly.20261024-184918.4af30c7` has the exact code gitHead.
+- Local deployment used the exact tarball, `npm install -g`, and 454 per-file atomic replacements; no `install.ps1` and no live restart. See [deployment](evidence/deployment.json) and [output](evidence/deploy-output.txt).
+- `runtime_compaction_binding.py` hashes match git, registry tarball, local snapshot and global npm.
+- Installed-path Python 3.14 focused run: 188 tests OK ([output](evidence/installed-tests.txt)).
+- Router PIDs unchanged: 9385=6032, 9464=54764, 9489=67368, 9505=49288, 9524=6196. Celly remains separate and was not installed/restarted by this task.
+- New behavior requires a new launch; old running Python processes keep their loaded code.
