@@ -80,4 +80,23 @@ timestamp: 2026-10-24T10:15:00Z
 **Not verified.**
 - A resend that sits behind a running turn on the Claude path is picked up by the 5 s safety rescan. The effective spacing there is 10–15 s and was not measured in a live session.
 - The "Session delivery" menu row with a live router was not driven. The text it renders comes from `delivery_health_text`, which the E2E exercised.
-- No live session, router or remote host was touched. Nothing was committed, pushed or installed as part of this verification.
+- No live session, router or remote host was touched during verification.
+
+# Release
+
+- **Nightly.** `a7e28f9` was pushed as a fast-forward from `495cd41`. Publish to npm run 40085040778 succeeded, and so did CI run 40085040779.
+- **Registry.** The `nightly` tag is `0.2.51-nightly.20261024-102326.a7e28f9`, with gitHead `a7e28f9005a91cbdb32380b65a7593d3abbf580f`.
+- **Local install** ([deploy_local.py](evidence/deploy_local.py), [deployment](evidence/deployment.json), [output](evidence/deploy-output.txt)):
+  - The exact version was packed and extracted with member checks, then installed with `npm install -g`.
+  - 454 files were replaced one at a time, atomically, into `~/.local/share/ciel-runtime` and `~/.local/bin`. `install.ps1` was not used.
+  - The 15 changed modules have identical hashes across git, tarball, snapshot and global npm.
+- **Installed-path tests** ([installed-tests.txt](evidence/installed-tests.txt)): 256 tests OK, importing `~/.local/share/ciel-runtime/ciel_runtime_support/runtime_input_retry.py`. `ciel-runtime --version` reports the new version.
+  - It also prints a `SyntaxWarning` ("'return' in a 'finally' block") from `codex_app_server_session.py:417`. That file was last changed in `9ac82f0`, not in this release.
+- **Live routers.** The six live routers kept their PIDs and old versions:
+  - 9385 → 69748
+  - 9464 → 79804
+  - 9465 → 96784
+  - 9489 → 95780
+  - 9505 → 33444
+  - 9524 → 81068
+- No session was restarted and no remote host (.14) was touched. The change applies only to sessions launched after this install.
