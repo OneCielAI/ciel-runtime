@@ -1,0 +1,42 @@
+# router 9464 (ciel-code, 0.2.51-nightly a7e28f9), metadata lines only
+2026-10-24T14:41:19 [INFO] runtime_compaction_control event=native_compact_started phase=compacting runtime=claude session=d56cd7ef-e0a6-41fc-8b07-01d7eb38c117 epoch=94cdcdf7ee3b44de8f7dae2d3382d2e1 a
+2026-10-24T14:41:19 [DEBUG] POST /v1/messages provider=ollama-cloud model=ciel-runtime-ollama-cloud-glm-5.3-flash tools=248 msgs=1007
+2026-10-24T14:43:39 [DEBUG] POST /v1/messages provider=ollama-cloud model=ciel-runtime-ollama-cloud-glm-5.3-flash tools=248 msgs=5
+2026-10-24T14:43:41 [WARN] dropped ExitPlanMode while plan mode is not active
+2026-10-24T14:43:42 [WARN] ollama_reasoning_only_stream provider=ollama-cloud model=glm-5.3-flash chunks=9 thinking_chars=89 done_reason=stop
+2026-10-24T14:43:42 [INFO] agent_turn_ended turn=e7ad117e-5983-4fcb-959f-b793219dae81 runtime=claude reason=end_turn by_user_input=false
+2026-10-24T14:45:01 [DEBUG] POST /v1/messages provider=ollama-cloud model=ciel-runtime-ollama-cloud-glm-5.3-flash tools=248 msgs=7
+2026-10-24T14:45:04 [WARN] dropped ExitPlanMode while plan mode is not active
+2026-10-24T14:45:05 [WARN] ollama_reasoning_only_stream provider=ollama-cloud model=glm-5.3-flash chunks=70 thinking_chars=952 done_reason=stop
+2026-10-24T14:45:05 [INFO] agent_turn_ended turn=c88bd8b6-973e-4a73-b80c-950299eb11e3 runtime=claude reason=end_turn by_user_input=true
+2026-10-24T14:45:45 [DEBUG] POST /v1/messages provider=ollama-cloud model=ciel-runtime-ollama-cloud-glm-5.3-flash tools=248 msgs=9
+2026-10-24T14:45:47 [WARN] dropped ExitPlanMode while plan mode is not active
+2026-10-24T14:45:47 [WARN] ollama_empty_stream provider=ollama-cloud model=glm-5.3-flash chunks=3
+2026-10-24T14:45:47 [INFO] agent_turn_ended turn=abf7288e-2d36-4a1f-a5cd-86ce769d9ba6 runtime=claude reason=end_turn by_user_input=true
+2026-10-24T14:46:01 [DEBUG] POST /v1/messages provider=ollama-cloud model=ciel-runtime-ollama-cloud-glm-5.3-flash tools=248 msgs=11
+2026-10-24T14:46:03 [WARN] dropped ExitPlanMode while plan mode is not active
+2026-10-24T14:46:03 [WARN] ollama_reasoning_only_stream provider=ollama-cloud model=glm-5.3-flash chunks=13 thinking_chars=129 done_reason=stop
+2026-10-24T14:46:04 [INFO] agent_turn_ended turn=0255dfb3-7031-4860-8663-0d6551dc4c8c runtime=claude reason=end_turn by_user_input=true
+2026-10-24T14:49:05 [DEBUG] POST /v1/messages provider=ollama-cloud model=ciel-runtime-ollama-cloud-glm-5.3-flash tools=248 msgs=13
+2026-10-24T15:11:48 [DEBUG] POST /v1/messages provider=ollama-cloud model=ciel-runtime-ollama-cloud-glm-5.3-flash tools=248 msgs=13
+2026-10-24T15:11:51 [WARN] dropped ExitPlanMode while plan mode is not active
+2026-10-24T15:11:51 [WARN] ollama_empty_stream provider=ollama-cloud model=glm-5.3-flash chunks=3
+2026-10-24T15:11:51 [INFO] agent_turn_ended turn=db9b82ca-7d79-4738-aa47-40152d9f8767 runtime=claude reason=end_turn by_user_input=true
+2026-10-24T15:26:09 [DEBUG] POST /v1/messages provider=ollama-cloud model=ciel-runtime-ollama-cloud-glm-5.3-flash tools=248 msgs=15
+2026-10-24T15:26:11 [WARN] dropped ExitPlanMode while plan mode is not active
+2026-10-24T15:26:11 [WARN] ollama_empty_stream provider=ollama-cloud model=glm-5.3-flash chunks=3
+2026-10-24T15:26:11 [INFO] agent_turn_ended turn=50c243d6-d4bb-45f5-b11c-adf4e981e9d1 runtime=claude reason=end_turn by_user_input=true
+2026-10-24T15:29:12 [DEBUG] POST /v1/messages provider=ollama-cloud model=ciel-runtime-ollama-cloud-glm-5.3-flash tools=248 msgs=17
+2026-10-24T15:34:53 [DEBUG] POST /v1/messages provider=ollama-cloud model=ciel-runtime-ollama-cloud-glm-5.3-flash tools=248 msgs=18
+2026-10-24T15:34:55 [WARN] dropped ExitPlanMode while plan mode is not active
+2026-10-24T15:34:55 [WARN] ollama_reasoning_only_stream provider=ollama-cloud model=glm-5.3-flash chunks=5 thinking_chars=84 done_reason=stop
+2026-10-24T15:34:56 [INFO] agent_turn_ended turn=34425e69-f461-4241-9e68-6c6f7010ca65 runtime=claude reason=end_turn by_user_input=true
+2026-10-24T15:34:57 [DEBUG] POST /v1/messages provider=ollama-cloud model=ciel-runtime-ollama-cloud-glm-5.3-flash tools=248 msgs=21
+2026-10-24T15:35:00 [WARN] dropped ExitPlanMode while plan mode is not active
+2026-10-24T15:35:00 [WARN] ollama_empty_stream provider=ollama-cloud model=glm-5.3-flash chunks=3
+2026-10-24T15:35:00 [INFO] agent_turn_ended turn=3b10caa7-eb22-4c8a-9f67-a0e7ecb6a088 runtime=claude reason=end_turn by_user_input=false
+2026-10-24T16:30:17 [DEBUG] POST /v1/messages provider=ollama-cloud model=ciel-runtime-ollama-cloud-glm-5.3-flash tools=248 msgs=23
+2026-10-24T16:30:20 [WARN] dropped ExitPlanMode while plan mode is not active
+2026-10-24T16:30:20 [WARN] ollama_empty_stream provider=ollama-cloud model=glm-5.3-flash chunks=3
+2026-10-24T16:30:20 [INFO] agent_turn_ended turn=dfec5919-0530-470b-a9ab-2b5bb01f55b8 runtime=claude reason=end_turn by_user_input=true
+2026-10-24T16:33:21 [DEBUG] POST /v1/messages provider=ollama-cloud model=ciel-runtime-ollama-cloud-glm-5.3-flash tools=248 msgs=25

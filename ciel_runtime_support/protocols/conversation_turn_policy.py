@@ -17,6 +17,18 @@ SYSTEM_REMINDER_BLOCK_RE = re.compile(
     r"<system-reminder>.*?</system-reminder>", re.DOTALL
 )
 CLAUDE_CODE_SUGGESTION_MODE_PREFIX = "[SUGGESTION MODE:"
+# Claude Code sends its plan-mode attachments as reminder text, not as
+# attachment objects: 2.1.310 puts them in a system-role message, older
+# versions in a <system-reminder> of a user message. Without this, plan mode
+# was lost once native compaction removed the EnterPlanMode result, and every
+# ExitPlanMode call was dropped (ciel-code, 2026-10-24, 9 of 9 turns).
+PLAN_MODE_TEXT_RE = re.compile(
+    r"^(?:(?P<exit>## Exited Plan Mode\s+You have exited plan mode\.)"
+    r"|(?P<active>Plan mode is active\. The user indicated that they do not want you to execute yet"
+    r"|Plan mode still active \(see full instructions earlier in conversation\)"
+    r"|## Re-entering Plan Mode\s+You are returning to plan mode))",
+    re.MULTILINE,
+)
 WORK_CONTINUATION_RESULT_TOOLS = frozenset(
     {
         "Bash",
@@ -54,6 +66,12 @@ class ConversationTurnPolicy:
     def __init__(self, ports: ConversationTurnPorts) -> None:
         self.ports = ports
 
+    @staticmethod
+    def plan_mode_text_state(text: str, active: bool) -> bool:
+        for match in PLAN_MODE_TEXT_RE.finditer(text):
+            active = match.group("active") is not None
+        return active
+
     def plan_mode_active(self, body: dict[str, Any]) -> bool:
         """Infer Claude Code Plan Mode from tool history and plan-mode attachments."""
         active = False
@@ -68,7 +86,11 @@ class ConversationTurnPolicy:
                     active = True
                 elif attachment_type == "plan_mode_exit":
                     active = False
-            if message.get("role") == "assistant":
+            if message.get("role") == "system":
+                for block in self.ports.content_blocks(message):
+                    if isinstance(block, dict) and block.get("type") == "text":
+                        active = self.plan_mode_text_state(str(block.get("text") or ""), active)
+            elif message.get("role") == "assistant":
                 for block in self.ports.content_blocks(message):
                     if not isinstance(block, dict) or block.get("type") != "tool_use":
                         continue
@@ -91,6 +113,12 @@ class ConversationTurnPolicy:
                         active = True
                     elif block.get("type") == "plan_mode_exit":
                         active = False
+                    elif block.get("type") == "text":
+                        # Only Claude Code's own reminders; typed text and
+                        # tool results (read files) never change the state.
+                        for reminder in SYSTEM_REMINDER_BLOCK_RE.findall(str(block.get("text") or "")):
+                            reminder = reminder.removeprefix("<system-reminder>").lstrip()
+                            active = self.plan_mode_text_state(reminder, active)
         return active
 
     def channel_llm_wake_text(self, text: str) -> bool:

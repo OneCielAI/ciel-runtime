@@ -1,0 +1,385 @@
+{
+ "case": "nightly",
+ "retries": 1,
+ "expected_main_posts": 2,
+ "uid": "26761df515",
+ "prompt": "PLAN-E2E-NIGHTLY-26761df515 finish the plan and exit plan mode",
+ "answer_marker": null,
+ "ports": {
+  "fake_ollama": 57610,
+  "egress_sentinel": 57611,
+  "router": 57612,
+  "codex_app_server_unused": 57613
+ },
+ "scratch": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-plan-e2e-nightly-4tqtx2d0",
+ "repo": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-nightly-Igd0",
+ "title": "CIELE2E-PLAN-nightly-26761df515",
+ "python": "C:\\Program Files\\Python311\\python.EXE",
+ "driver_python": "C:\\Program Files\\Python311\\python.exe",
+ "driver_stripped_env_names": [
+  "ANTHROPIC_AUTH_TOKEN",
+  "ANTHROPIC_BASE_URL",
+  "ANTHROPIC_CUSTOM_MODEL_OPTION",
+  "ANTHROPIC_CUSTOM_MODEL_OPTION_SUPPORTED_CAPABILITIES",
+  "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+  "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTED_CAPABILITIES",
+  "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTS",
+  "ANTHROPIC_DEFAULT_OPUS_MODEL",
+  "ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTED_CAPABILITIES",
+  "ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTS",
+  "ANTHROPIC_DEFAULT_SONNET_MODEL",
+  "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTED_CAPABILITIES",
+  "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTS",
+  "ANTHROPIC_MODEL",
+  "CIEL_RUNTIME_AUTO_ALLOW_DANGEROUS_RM",
+  "CIEL_RUNTIME_BYPASS_PERMISSIONS",
+  "CIEL_RUNTIME_CONFIG_DIR",
+  "CIEL_RUNTIME_HOME",
+  "CIEL_RUNTIME_LAUNCH_CWD",
+  "CIEL_RUNTIME_MODEL_ALIAS",
+  "CIEL_RUNTIME_PROVIDER",
+  "CIEL_RUNTIME_REGISTERED_HOME",
+  "CIEL_RUNTIME_SCRIPT",
+  "CIEL_RUNTIME_SELECTED_HOME",
+  "CIEL_RUNTIME_STATE_DIR",
+  "CIEL_RUNTIME_WORKSPACE_STATE_DIR",
+  "CLAUDECODE",
+  "CLAUDE_CHROME_CLASSIFIER_FLOOR",
+  "CLAUDE_CODE_ATTRIBUTION_HEADER",
+  "CLAUDE_CODE_AUTO_COMPACT_WINDOW",
+  "CLAUDE_CODE_CHILD_SESSION",
+  "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS",
+  "CLAUDE_CODE_DISABLE_NONSTREAMING_FALLBACK",
+  "CLAUDE_CODE_DISABLE_TERMINAL_TITLE",
+  "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY",
+  "CLAUDE_CODE_ENTRYPOINT",
+  "CLAUDE_CODE_EXECPATH",
+  "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS",
+  "CLAUDE_CODE_MAX_CONTEXT_TOKENS",
+  "CLAUDE_CODE_MAX_OUTPUT_TOKENS",
+  "CLAUDE_CODE_MAX_RETRIES",
+  "CLAUDE_CODE_MESSAGING_SOCKET",
+  "CLAUDE_CODE_MESSAGING_TOKEN",
+  "CLAUDE_CODE_NONSTREAMING_TIMEOUT_RETRIES",
+  "CLAUDE_CODE_RETRY_WATCHDOG",
+  "CLAUDE_CODE_SEND_FEEDBACK",
+  "CLAUDE_CODE_SESSION_ATTENDED",
+  "CLAUDE_CODE_SESSION_ID",
+  "CLAUDE_CODE_SUBAGENT_MODEL",
+  "CLAUDE_EFFORT",
+  "CLAUDE_PID",
+  "CODEX_SPARKLE_ENABLED"
+ ],
+ "live_health_before": {
+  "9385": {
+   "attempts": 1,
+   "ok": true,
+   "pid": 6032,
+   "version": "0.2.51-nightly.20261024-115611.5d4dc0e"
+  },
+  "9464": {
+   "attempts": 1,
+   "ok": true,
+   "pid": 54764,
+   "version": "0.2.51-nightly.20261024-102326.a7e28f9"
+  },
+  "9489": {
+   "attempts": 1,
+   "ok": true,
+   "pid": 67368,
+   "version": "0.2.51-nightly.20261024-102326.a7e28f9"
+  },
+  "9505": {
+   "attempts": 1,
+   "ok": true,
+   "pid": 49288,
+   "version": "0.2.51-nightly.20261024-115611.5d4dc0e"
+  },
+  "9524": {
+   "attempts": 1,
+   "ok": true,
+   "pid": 6196,
+   "version": "0.2.51-nightly.20261024-115611.5d4dc0e"
+  }
+ },
+ "router_health": {
+  "ok": true,
+  "version": "0.2.51",
+  "source_fingerprint": "49b907420b3f019f",
+  "pid": 68296,
+  "user": "djlov",
+  "home": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-plan-e2e-nightly-4tqtx2d0\\home",
+  "config_dir": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-plan-e2e-nightly-4tqtx2d0\\cfg",
+  "workspace": "c:\\users\\djlov\\appdata\\local\\temp\\ciel-plan-e2e-nightly-4tqtx2d0\\ws",
+  "router_port": 57612,
+  "instance_id": "57612-76e7ca3671a4",
+  "active_client_count": 0,
+  "active_client_pids": [],
+  "provider": "ollama",
+  "model": "ciel-runtime-ollama-osr-fake",
+  "web_chat": "/ca/web/chat",
+  "web_chat_api": "/ca/web/chat/api",
+  "speech": "/ca/speech/health",
+  "chat": "/ca/chat/health",
+  "plan": "/ca/plan/artifacts",
+  "events": "/ca/events",
+  "events_websocket": "/ca/events/ws",
+  "external_event_receivers": "/ca/events/receivers",
+  "otlp_logs": "/v1/logs",
+  "telemetry_logs_tool": "POST /ca/mcp tools/call telemetry_logs",
+  "tui": "/ca/tui",
+  "tui_status": "/ca/tui/status",
+  "tui_stream": "/ca/tui/stream"
+ },
+ "main_posts_at_response": 1,
+ "owned_processes": [
+  {
+   "pid": 19092,
+   "ppid": 29128,
+   "name": "cmd.exe",
+   "cmd": "cmd /k C:\\Users\\djlov\\ciel-runtime-wt-lease\\docs\\journal\\2026\\10\\24\\fixes\\plan-mode-reminder-text\\evidence\\run-nightly\\launch.cmd"
+  },
+  {
+   "pid": 86940,
+   "ppid": 19092,
+   "name": "python.exe",
+   "cmd": "\"C:\\Program Files\\Python311\\python.EXE\"  \"C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-nightly-Igd0\\ciel_runtime.py\" cli --ca-runtime claude --ca-no-update-check --ca-no-self-update-check"
+  },
+  {
+   "pid": 68296,
+   "ppid": 86940,
+   "name": "python.exe",
+   "cmd": "\"C:\\Program Files\\Python311\\python.EXE\" C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-nightly-Igd0\\ciel_runtime.py serve"
+  },
+  {
+   "pid": 79400,
+   "ppid": 86940,
+   "name": "conhost.exe",
+   "cmd": "\\\\?\\C:\\WINDOWS\\system32\\conhost.exe --headless --width 135 --height 38 --signal 0x19c --server 0x344"
+  },
+  {
+   "pid": 80856,
+   "ppid": 86940,
+   "name": "claude.exe",
+   "cmd": "C:\\Users\\djlov\\.local\\bin\\claude.exe --dangerously-skip-permissions --permission-mode bypassPermissions --disallowedTools WebSearch,WebFetch --model ciel-runtime-ollama-osr-fake --mcp-config C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-plan-e2e-nightly-4tqtx2d0\\cfg\\web-tools-mcp.json C:\\Users\\djlov\\AppDat"
+  },
+  {
+   "pid": 72512,
+   "ppid": 86940,
+   "name": "python.exe",
+   "cmd": "\"C:\\Program Files\\Python311\\python.EXE\" C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-nightly-Igd0\\ciel_runtime_support\\windows_console_guard.py 86940 487 7"
+  }
+ ],
+ "router_pid_file": 68296,
+ "router_port_listeners": [
+  "68296"
+ ],
+ "kills": [
+  {
+   "pid": 19092,
+   "rc": 0,
+   "out": "SUCCESS: The process with PID 68296 (child process of PID 86940) has been terminated.\nSUCCESS: The process with PID 79400 (child process of PID 86940) has been terminated.\nSUCCESS: The process with PID 80856 (child process of PID 86940) has been terminated.\nSUCCESS: The process with PID 72512 (child process of PID 86940) has been terminated.\nSUCCESS: The process with PID 86940 (child process of PI"
+  },
+  {
+   "pid": 68296,
+   "rc": 128,
+   "out": "ERROR: The process \"68296\" not found."
+  }
+ ],
+ "owned_still_alive": [],
+ "live_health_after": {
+  "9385": {
+   "attempts": 1,
+   "ok": true,
+   "pid": 6032,
+   "version": "0.2.51-nightly.20261024-115611.5d4dc0e"
+  },
+  "9464": {
+   "attempts": 1,
+   "ok": true,
+   "pid": 54764,
+   "version": "0.2.51-nightly.20261024-102326.a7e28f9"
+  },
+  "9489": {
+   "attempts": 1,
+   "ok": true,
+   "pid": 67368,
+   "version": "0.2.51-nightly.20261024-102326.a7e28f9"
+  },
+  "9505": {
+   "attempts": 1,
+   "ok": true,
+   "pid": 49288,
+   "version": "0.2.51-nightly.20261024-115611.5d4dc0e"
+  },
+  "9524": {
+   "attempts": 1,
+   "ok": true,
+   "pid": 6196,
+   "version": "0.2.51-nightly.20261024-115611.5d4dc0e"
+  }
+ },
+ "fake_ollama_requests": [
+  {
+   "n": 1,
+   "t": 2.61,
+   "at": "23:34:30",
+   "method": "GET",
+   "path": "/api/tags",
+   "kind": "meta"
+  },
+  {
+   "n": 2,
+   "t": 10.43,
+   "at": "23:34:37",
+   "method": "GET",
+   "path": "/api/tags",
+   "kind": "meta"
+  },
+  {
+   "n": 3,
+   "t": 27.07,
+   "at": "23:34:54",
+   "method": "POST",
+   "path": "/api/chat",
+   "kind": "main",
+   "attempt": 1,
+   "served": "exit_plan_mode",
+   "stream": true,
+   "bytes": 98154,
+   "model": "osr-fake",
+   "messages": 3,
+   "tools": 31,
+   "think": null,
+   "options_keys": [],
+   "prompt_marker": true,
+   "replay_instruction_last": false,
+   "replay_instruction_text": null,
+   "base_sha256": "5570e75702ac6b9a8c266bce2d47125aa6f8906da1d53e45a80cd6339f869d2f",
+   "body_sha256": "5570e75702ac6b9a8c266bce2d47125aa6f8906da1d53e45a80cd6339f869d2f",
+   "compat_header": {}
+  }
+ ],
+ "main_post_count": 1,
+ "egress_sentinel_requests": [
+  {
+   "t": 11.43,
+   "method": "CONNECT",
+   "target": "downloads.claude.ai:443"
+  },
+  {
+   "t": 11.61,
+   "method": "CONNECT",
+   "target": "pypi.org:443"
+  },
+  {
+   "t": 11.61,
+   "method": "CONNECT",
+   "target": "pypi.org:443"
+  },
+  {
+   "t": 11.88,
+   "method": "CONNECT",
+   "target": "github.com:443"
+  },
+  {
+   "t": 11.98,
+   "method": "CONNECT",
+   "target": "registry.npmjs.org:443"
+  },
+  {
+   "t": 12.0,
+   "method": "CONNECT",
+   "target": "registry.npmjs.org:443"
+  },
+  {
+   "t": 13.21,
+   "method": "CONNECT",
+   "target": "pypi.org:443"
+  },
+  {
+   "t": 13.3,
+   "method": "CONNECT",
+   "target": "registry.npmjs.org:443"
+  },
+  {
+   "t": 13.35,
+   "method": "CONNECT",
+   "target": "pypi.org:443"
+  },
+  {
+   "t": 14.45,
+   "method": "CONNECT",
+   "target": "pypi.org:443"
+  },
+  {
+   "t": 15.35,
+   "method": "CONNECT",
+   "target": "pypi.org:443"
+  },
+  {
+   "t": 18.03,
+   "method": "CONNECT",
+   "target": "pypi.org:443"
+  },
+  {
+   "t": 18.09,
+   "method": "CONNECT",
+   "target": "pypi.org:443"
+  },
+  {
+   "t": 18.1,
+   "method": "CONNECT",
+   "target": "pypi.org:443"
+  },
+  {
+   "t": 19.25,
+   "method": "CONNECT",
+   "target": "pypi.org:443"
+  },
+  {
+   "t": 19.72,
+   "method": "CONNECT",
+   "target": "pypi.org:443"
+  },
+  {
+   "t": 20.79,
+   "method": "CONNECT",
+   "target": "pypi.org:443"
+  },
+  {
+   "t": 21.1,
+   "method": "CONNECT",
+   "target": "pypi.org:443"
+  },
+  {
+   "t": 24.83,
+   "method": "CONNECT",
+   "target": "pypi.org:443"
+  }
+ ],
+ "router_plan_lines": [
+  "2026-10-24T23:34:54 [INFO] ollama_stream_request provider=ollama model=osr-fake attempt=1/1 tokens=23967 bytes=98154",
+  "2026-10-24T23:34:54 [WARN] dropped ExitPlanMode while plan mode is not active",
+  "2026-10-24T23:34:54 [WARN] ollama_reasoning_only_stream provider=ollama model=osr-fake chunks=3 thinking_chars=21 done_reason=stop"
+ ],
+ "transcript_exit_plan_mode_calls": 0,
+ "transcript_plan_marker_in_exit_call": false,
+ "transcript_enter_plan_mode_calls": 0,
+ "transcript_permission_modes": [
+  "plan"
+ ],
+ "transcript_plan_attachments": [
+  "plan_mode"
+ ],
+ "transcript_texts": [
+  "[ciel-runtime] Upstream model returned reasoning without a final answer or tool call. Please retry or ask me to continue."
+ ],
+ "final_screen": "23:34:54\n\n ▐▛███▛█   Claude Code v2.1.310\n▝▜██████▀  ciel-runtime-ollama-osr-fake · API Usage Billing\n ▝▝   ▝▝   C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-plan-e2e-nightly-4tqtx2d0\\ws\n\n\n● Auto mode lets Claude handle permission prompts automatically — Claude checks each tool call for risky actions and prompt\n  injection before executing. Actions Claude identifies as safe are executed, while actions Claude identifies as risky are\n  blocked and Claude may try a different approach. Ideal for long-running tasks. Sessions are slightly more expensive. Claude\n  can make mistakes that allow harmful commands to run, it's recommended to only use in isolated environments. Shift+Tab to\n  change mode.\n\n● Session was started with bypass permissions, so plan mode won't ask before most edits or commands. Start a new session\n  without bypass permissions for prompts in plan mode.\n\n❯ PLAN-E2E-NIGHTLY-26761df515 finish the plan and exit plan mode\n\n  Thought for 1s\n\n● [ciel-runtime] Upstream model returned reasoning without a final answer or tool call. Please retry or ask me to continue.\n\n✻ Baked for 0s · done 11:34 PM\n\n\n\n\n\n\n\n\n\n\n\n\n───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────\n❯\n───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────\n  ⏸ plan mode on (shift+tab to cycle)",
+ "screen_shows_plan_approval": false,
+ "screen_shows_runtime_empty_notice": true,
+ "router_dropped_exit_plan_mode": true,
+ "no_model_api_egress_attempt": true,
+ "owned_processes_stopped": true,
+ "live_router_pids_observed_and_unchanged": true
+}

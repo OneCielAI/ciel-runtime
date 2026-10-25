@@ -1,0 +1,34 @@
+test_claude_code_system_message_reminder_keeps_plan_mode_after_compaction (test_plan_mode_reminder_text.PlanModeReminderTextTests.test_claude_code_system_message_reminder_keeps_plan_mode_after_compaction) ... FAIL
+test_exit_and_reentry_follow_message_order (test_plan_mode_reminder_text.PlanModeReminderTextTests.test_exit_and_reentry_follow_message_order) ... FAIL
+test_exit_plan_mode_result_still_ends_plan_mode (test_plan_mode_reminder_text.PlanModeReminderTextTests.test_exit_plan_mode_result_still_ends_plan_mode) ... ok
+test_sparse_reminder_and_older_user_reminder_shape (test_plan_mode_reminder_text.PlanModeReminderTextTests.test_sparse_reminder_and_older_user_reminder_shape) ... FAIL
+test_text_that_is_not_a_claude_code_reminder_does_not_enter_plan_mode (test_plan_mode_reminder_text.PlanModeReminderTextTests.test_text_that_is_not_a_claude_code_reminder_does_not_enter_plan_mode) ... ok
+
+======================================================================
+FAIL: test_claude_code_system_message_reminder_keeps_plan_mode_after_compaction (test_plan_mode_reminder_text.PlanModeReminderTextTests.test_claude_code_system_message_reminder_keeps_plan_mode_after_compaction)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-lease\tests\test_plan_mode_reminder_text.py", line 49, in test_claude_code_system_message_reminder_keeps_plan_mode_after_compaction
+    self.assertTrue(policy().plan_mode_active(request))
+AssertionError: False is not true
+
+======================================================================
+FAIL: test_exit_and_reentry_follow_message_order (test_plan_mode_reminder_text.PlanModeReminderTextTests.test_exit_and_reentry_follow_message_order)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-lease\tests\test_plan_mode_reminder_text.py", line 59, in test_exit_and_reentry_follow_message_order
+    self.assertTrue(policy().plan_mode_active(body(system(ACTIVE), system(EXITED), system(REENTRY))))
+AssertionError: False is not true
+
+======================================================================
+FAIL: test_sparse_reminder_and_older_user_reminder_shape (test_plan_mode_reminder_text.PlanModeReminderTextTests.test_sparse_reminder_and_older_user_reminder_shape)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-lease\tests\test_plan_mode_reminder_text.py", line 53, in test_sparse_reminder_and_older_user_reminder_shape
+    self.assertTrue(policy().plan_mode_active(body(system(SPARSE))))
+AssertionError: False is not true
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.002s
+
+FAILED (failures=3)
