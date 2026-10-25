@@ -84,8 +84,11 @@ with tempfile.TemporaryDirectory(prefix="ciel-release-") as temp:
         + chr(10) + '    suite = unittest.defaultTestLoader')
     runner = directory / "installed_runner.py"
     runner.write_text(source, encoding="utf-8")
+    # test_ollama_empty_response_options reads ciel-runtime-menu.py beside ciel_runtime.py (repo/npm layout);
+    # the snapshot keeps the menu in ~/.local/bin, so that module runs against the npm-global package instead
+    # (installed-npm-menu-test.txt).
     names = ["test_plan_mode_reminder_text", "test_conversation_policy", "test_empty_end_turn_recovery",
-             "test_ollama_semantic_retry_stream", "test_ollama_semantic_retry_policy", "test_ollama_empty_response_options",
+             "test_ollama_semantic_retry_stream", "test_ollama_semantic_retry_policy",
              "test_ollama_provider_options", "test_workspace_router_selection"]
     with (EVIDENCE / "installed-tests.txt").open("w", encoding="utf-8") as output:
         run([sys.executable, "-X", "utf8", "-I", str(runner), *names], cwd=directory,

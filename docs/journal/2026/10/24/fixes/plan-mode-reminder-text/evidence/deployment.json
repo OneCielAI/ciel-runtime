@@ -1,0 +1,98 @@
+{
+  "commit": "144bebcb34b32d325809906f8744dbbdfcaa9008",
+  "version": "0.2.51-nightly.20261025-050332.144bebc",
+  "registry": {
+    "version": "0.2.51-nightly.20261025-050332.144bebc",
+    "gitHead": "144bebcb34b32d325809906f8744dbbdfcaa9008"
+  },
+  "copied_files": 455,
+  "hashes": {
+    "ciel_runtime_support/protocols/conversation_turn_policy.py": {
+      "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-release-ho1__a_2\\package": "124686c0894dcdc6957d36cca6f17c592eb1cc387461277de4544caff439f74a",
+      "C:\\Users\\djlov\\.local\\share\\ciel-runtime": "124686c0894dcdc6957d36cca6f17c592eb1cc387461277de4544caff439f74a",
+      "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime": "124686c0894dcdc6957d36cca6f17c592eb1cc387461277de4544caff439f74a"
+    },
+    "ciel_runtime_support/ollama_semantic_retry.py": {
+      "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-release-ho1__a_2\\package": "0611a1e8f53de2be6ba3147d508eb1bac2df5a8097e08c20b7f736046ef0b0b8",
+      "C:\\Users\\djlov\\.local\\share\\ciel-runtime": "0611a1e8f53de2be6ba3147d508eb1bac2df5a8097e08c20b7f736046ef0b0b8",
+      "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime": "0611a1e8f53de2be6ba3147d508eb1bac2df5a8097e08c20b7f736046ef0b0b8"
+    },
+    "ciel_runtime_support/streaming_anthropic.py": {
+      "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-release-ho1__a_2\\package": "072847f2c3379bd25858a7bddfdbbc0b4973b5a9eb8c37c72e63371208e5eddf",
+      "C:\\Users\\djlov\\.local\\share\\ciel-runtime": "072847f2c3379bd25858a7bddfdbbc0b4973b5a9eb8c37c72e63371208e5eddf",
+      "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime": "072847f2c3379bd25858a7bddfdbbc0b4973b5a9eb8c37c72e63371208e5eddf"
+    },
+    "ciel_runtime_support/ollama_forwarding.py": {
+      "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-release-ho1__a_2\\package": "687b0a8b1b4b2e76250379fc79be5a59fdb342540c45f13907b063c78d533e7d",
+      "C:\\Users\\djlov\\.local\\share\\ciel-runtime": "687b0a8b1b4b2e76250379fc79be5a59fdb342540c45f13907b063c78d533e7d",
+      "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime": "687b0a8b1b4b2e76250379fc79be5a59fdb342540c45f13907b063c78d533e7d"
+    },
+    "ciel_runtime_support/provider_option_panel.py": {
+      "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-release-ho1__a_2\\package": "c7f2ebe88c689e07e53373cd577874b98ea60880bdf55c782abb0eebaf616417",
+      "C:\\Users\\djlov\\.local\\share\\ciel-runtime": "c7f2ebe88c689e07e53373cd577874b98ea60880bdf55c782abb0eebaf616417",
+      "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime": "c7f2ebe88c689e07e53373cd577874b98ea60880bdf55c782abb0eebaf616417"
+    }
+  },
+  "health_before": {
+    "9385": {
+      "ok": true,
+      "pid": 6032,
+      "version": "0.2.51-nightly.20261024-115611.5d4dc0e"
+    },
+    "9464": {
+      "ok": true,
+      "pid": 54764,
+      "version": "0.2.51-nightly.20261024-102326.a7e28f9"
+    },
+    "9465": {
+      "error": "URLError"
+    },
+    "9489": {
+      "ok": true,
+      "pid": 67368,
+      "version": "0.2.51-nightly.20261024-102326.a7e28f9"
+    },
+    "9505": {
+      "ok": true,
+      "pid": 49288,
+      "version": "0.2.51-nightly.20261024-115611.5d4dc0e"
+    },
+    "9524": {
+      "ok": true,
+      "pid": 6196,
+      "version": "0.2.51-nightly.20261024-115611.5d4dc0e"
+    }
+  },
+  "health_after": {
+    "9385": {
+      "ok": true,
+      "pid": 6032,
+      "version": "0.2.51-nightly.20261024-115611.5d4dc0e"
+    },
+    "9464": {
+      "ok": true,
+      "pid": 54764,
+      "version": "0.2.51-nightly.20261024-102326.a7e28f9"
+    },
+    "9465": {
+      "error": "URLError"
+    },
+    "9489": {
+      "ok": true,
+      "pid": 67368,
+      "version": "0.2.51-nightly.20261024-102326.a7e28f9"
+    },
+    "9505": {
+      "ok": true,
+      "pid": 49288,
+      "version": "0.2.51-nightly.20261024-115611.5d4dc0e"
+    },
+    "9524": {
+      "ok": true,
+      "pid": 6196,
+      "version": "0.2.51-nightly.20261024-115611.5d4dc0e"
+    }
+  },
+  "installed_tests": "passed (see installed-tests.txt)",
+  "restarted_sessions": false
+}

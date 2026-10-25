@@ -64,6 +64,22 @@ In both runs:
 - there was no model-API egress;
 - owned processes stopped, and live router PIDs were unchanged.
 
+# Release and local install
+
+This release ships this fix together with the Ollama semantic retry ([verification](/2026/10/24/fixes/ollama-semantic-retry/verification.md)).
+
+- Commits `5921bdf` (Ollama retry) and `144bebcb34b32d325809906f8744dbbdfcaa9008` (this fix) were pushed to `nightly`. CI 40163425408 passed all 6 jobs ([watch](evidence/ci-watch.txt)) and Publish 40163425415 succeeded ([watch](evidence/publish-watch.txt)).
+- Registry `nightly` = `0.2.51-nightly.20261025-050332.144bebc` with that exact gitHead.
+- Local deployment ([deploy_local.py](evidence/deploy_local.py), [deployment](evidence/deployment.json), [output](evidence/deploy-output.txt)):
+  - asserted the gitHead, then used the exact tarball and `npm install -g`;
+  - made 455 per-file atomic replacements; no `install.ps1`, no restart;
+  - `conversation_turn_policy.py`, `ollama_semantic_retry.py`, `streaming_anthropic.py`, `ollama_forwarding.py` and `provider_option_panel.py` have the same hash in git, the tarball, the snapshot and npm-global.
+- Installed-path tests, Python 3.14: 166 OK, loaded from `~/.local/share/ciel-runtime` ([output](evidence/installed-tests.txt)).
+  - The first attempt had 1 error out of 172 ([log](evidence/installed-tests-first-attempt.txt)). `test_ollama_empty_response_options` reads `ciel-runtime-menu.py` beside `ciel_runtime.py`, and the snapshot keeps the menu in `~/.local/bin`.
+  - That module passes 6/6 against the npm-global package, which has the repo layout ([output](evidence/installed-npm-menu-test.txt)). The installed `ciel-runtime-menu.py` in `~/.local/bin` and npm-global hashes to the same value as git (`4771d46f…`).
+- Real Claude CLI E2E on the installed code ([run-installed](evidence/run-installed/result.json)): no drop, `Exit plan mode?` dialog ([03-response.png](evidence/run-installed/shots/03-response.png)).
+- Live router PIDs were unchanged (9385=6032, 9464=54764, 9489=67368, 9505=49288, 9524=6196). Running sessions, including ciel-code, keep their loaded code until they restart. Regina and other machines were not updated.
+
 # Limits
 
 - The reminder texts are matched literally. A future Claude Code wording change would bring the old behaviour back for sessions that have no `EnterPlanMode` history.

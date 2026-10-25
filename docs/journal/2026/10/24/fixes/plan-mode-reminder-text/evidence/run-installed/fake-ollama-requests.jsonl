@@ -1,0 +1,3 @@
+{"n": 1, "t": 4.71, "at": "00:19:56", "method": "GET", "path": "/api/tags", "kind": "meta"}
+{"n": 2, "t": 12.51, "at": "00:20:04", "method": "GET", "path": "/api/tags", "kind": "meta"}
+{"n": 3, "t": 30.27, "at": "00:20:21", "method": "POST", "path": "/api/chat", "kind": "main", "attempt": 1, "served": "exit_plan_mode", "stream": true, "bytes": 98481, "model": "osr-fake", "messages": 3, "tools": 31, "think": null, "options_keys": [], "prompt_marker": true, "replay_instruction_last": false, "replay_instruction_text": null, "base_sha256": "a439b9ced6030021ff459dadc7d3f1892ad815c2be8021b2567161748b58a40c", "body_sha256": "a439b9ced6030021ff459dadc7d3f1892ad815c2be8021b2567161748b58a40c", "compat_header": {}}

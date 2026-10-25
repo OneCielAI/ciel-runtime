@@ -1,0 +1,14 @@
+C:\Users\djlov\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime_support\codex_app_server_session.py:417: SyntaxWarning: 'return' in a 'finally' block
+  return _RemoteRun(1)
+installed_module C:\Users\djlov\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime.py
+test_bad_mutations_are_rejected_without_changes (test_ollama_empty_response_options.OllamaEmptyResponseOptionTests.test_bad_mutations_are_rejected_without_changes) ... ok
+test_cli_both_entrypoints_and_read_only_status (test_ollama_empty_response_options.OllamaEmptyResponseOptionTests.test_cli_both_entrypoints_and_read_only_status) ... ok
+test_effective_status_and_prompt_are_read_only (test_ollama_empty_response_options.OllamaEmptyResponseOptionTests.test_effective_status_and_prompt_are_read_only) ... ok
+test_mutation_stays_out_of_upstream_options_and_clamps (test_ollama_empty_response_options.OllamaEmptyResponseOptionTests.test_mutation_stays_out_of_upstream_options_and_clamps) ... ok
+test_portable_menu_row_and_mutation_roundtrip (test_ollama_empty_response_options.OllamaEmptyResponseOptionTests.test_portable_menu_row_and_mutation_roundtrip) ... ok
+test_standalone_menu_has_edit_control_and_effective_summary (test_ollama_empty_response_options.OllamaEmptyResponseOptionTests.test_standalone_menu_has_edit_control_and_effective_summary) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 3.094s
+
+OK
