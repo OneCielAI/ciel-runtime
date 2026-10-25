@@ -67,3 +67,7 @@ Access: `ssh -p 1004 sjglobal@100.64.0.25`, then `sudo -n -u regina-ai python3 -
 - ✅ Installed `0.2.51-nightly.20261024-184918.4af30c7`; `workspace_router_selection.py` SHA-256 equals the 4af30c7 file.
 - ✅ At 02:02 the lease holder was the live menu process, and no router for the workspace was running yet (it started 85 s later). This is the reproduced condition; the earlier 🟡 about router state is resolved for this failure.
 - ✅ The lease record still names PID 3774716 after its `expires_at`, consistent with the code never comparing `expires_at` to the clock.
+
+# Fix
+
+Fixed in `299b711` (nightly `0.2.51-nightly.20261025-025145.299b711`), see [/2026/10/24/fixes/backup-launch-lease/verification.md](/2026/10/24/fixes/backup-launch-lease/verification.md). Regina itself was not updated.

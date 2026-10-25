@@ -59,6 +59,18 @@ In both runs:
 
 A first fixed run produced 160×28 title-bar captures because its window was minimized. The rerun restores the window without activating it before each capture ([restore_title.ps1](evidence/restore_title.ps1)).
 
+# Release and local install
+
+- Code commit `299b71148784757783e025343d95483e1b53c33c` pushed to `nightly`. CI 40155313172 passed all 6 jobs ([watch](evidence/ci-watch.txt)) and Publish 40155313156 succeeded ([watch](evidence/publish-watch.txt)).
+- Registry `nightly` = `0.2.51-nightly.20261025-025145.299b711` with that exact gitHead.
+- Local deployment ([deploy_local.py](evidence/deploy_local.py), [deployment](evidence/deployment.json), [output](evidence/deploy-output.txt)):
+  - asserted the gitHead, then used the exact registry tarball and `npm install -g`;
+  - made 454 per-file atomic replacements into `~/.local/share/ciel-runtime` and `~/.local/bin`; no `install.ps1`, no restart;
+  - `workspace_router_selection.py` SHA-256 `fa8f53b8…` is the same in git, the tarball, the snapshot and global npm.
+- Installed-path tests (selection, runtime paths, router workspace lifecycle, router startup, session backup), Python 3.14: 87 OK, module loaded from `~/.local/share/ciel-runtime` ([output](evidence/installed-tests.txt)).
+- Real menu E2E on the installed code: [run-installed](evidence/run-installed/result.json) printed `Saved snapshot 20261025T030343Z-a513d8 to local.` ([03-result.png](evidence/run-installed/shots/03-result.png)).
+- Live router PIDs were unchanged (9385=6032, 9464=54764, 9489=67368, 9505=49288, 9524=6196). Running sessions keep their loaded code until they restart. Regina and other machines were not updated.
+
 # Limits
 
 - The real-menu E2E ran on Windows. On Linux (Regina) the identity comes from `/proc/<pid>/stat` field 22. The selection unit tests cover the logic, but the Linux path was not executed in this verification.
