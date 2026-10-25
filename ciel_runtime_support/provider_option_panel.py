@@ -134,6 +134,9 @@ def _add_ollama_controls(
     add("Think", "think", projection.ollama_think_status(model, config))
     add("Keep alive", "keep_alive", config.get("keep_alive", "default"))
     add("Timeout ms", "request_timeout_ms", config.get("request_timeout_ms", "default"))
+    from .ollama_semantic_retry import configured_retries
+    add("Empty response retries", "empty_response_retries",
+        f"{configured_retries(config)} extra; default 1, 0 off, max 2")
     _add_stream_controls(add, config)
     add("RPM limiter", "rate_limit_enabled", projection.rate_limit_status(provider, config))
     add("Rate limit RPM", "rate_limit_rpm", projection.rate_limit_rpm(provider, config))
@@ -262,6 +265,9 @@ def option_prompt_default(
     if key == "ip_family":
         return projection.ip_family(provider, config)
     if policy.context_strategy == "ollama":
+        if key == "empty_response_retries":
+            from .ollama_semantic_retry import configured_retries
+            return str(configured_retries(config))
         options = projection.ollama_options(config)
         if key == "num_ctx":
             return str(config.get("num_ctx", "auto"))

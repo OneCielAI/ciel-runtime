@@ -9,8 +9,20 @@ from typing import Any, Callable
 import urllib.error
 import urllib.request
 
+from .ollama_semantic_retry import (
+    collected_retry_reason,
+    configured_retries as configured_semantic_retries,
+    replay_body as semantic_replay_body,
+)
 from .remote_bridge import REMOTE_BRIDGE_CONFIG_MARKER, is_remote_bridge_request
 from .upstream_error_policy import terminal_usage_limit_error
+
+
+def _close_quietly(response: Any) -> None:
+    try:
+        response.close()
+    except Exception:
+        pass
 
 
 @dataclass(frozen=True, slots=True)
@@ -184,6 +196,78 @@ def forward_ollama_api_chat(
     else:
         waited, rpm_used, rpm_limit = apply_router_rate_limit(provider, pcfg, model)
     rpm_status = bool(pcfg.get("rate_limit_status", False))
+    semantic_retries = (
+        0 if remote_bridge or compatibility_test else configured_semantic_retries(pcfg)
+    )
+
+    def open_semantic_retry(
+        base_body: dict[str, Any], attempt: int, reason: str, *, stream: bool
+    ) -> Any:
+        """Open the upstream exactly once for one semantic replay.
+
+        The replay is rebuilt from the request that produced the empty turn,
+        so model, options and the original messages are unchanged and no
+        failed attempt accumulates.  Transport failures are raised to the
+        caller; no gateway retry budget is spent here.
+        """
+
+        retry_body = semantic_replay_body(base_body)
+        retry_bytes = json.dumps(retry_body).encode("utf-8")
+        retry_tokens = estimate_tokens(retry_body)
+        stream_fields = {"stream": True} if stream else {}
+        if not sleep_until_or_client_disconnect(
+            handler, upstream_retry_wait_seconds(attempt)
+        ) or router_client_connection_closed(handler):
+            write_router_activity(
+                "cancel", provider, model, stage="semantic_retry_wait",
+                reason=reason, attempt=attempt, total=semantic_retries,
+                **stream_fields,
+            )
+            router_log(
+                "WARN",
+                f"ollama_semantic_retry_cancelled provider={provider} model={model} "
+                f"attempt={attempt}/{semantic_retries} reason={reason}",
+            )
+            raise UpstreamClientDisconnected(
+                "client disconnected before semantic retry"
+            )
+        if not compatibility_test:
+            apply_router_rate_limit(provider, pcfg, model)
+        timeout = ollama_request_timeout_seconds(pcfg)
+        write_router_activity(
+            "request", provider, model, attempt=attempt, total=semantic_retries,
+            reason=reason, tokens=retry_tokens, bytes=len(retry_bytes),
+            timeout=timeout, **stream_fields,
+        )
+        router_log(
+            "INFO",
+            f"ollama_semantic_retry_request provider={provider} model={model} "
+            f"attempt={attempt}/{semantic_retries} reason={reason} "
+            f"tokens={retry_tokens} bytes={len(retry_bytes)} stream={stream}",
+        )
+        req = urllib.request.Request(url, data=retry_bytes, headers=headers, method="POST")
+        try:
+            opened = provider_urlopen(req, timeout=timeout, provider=provider, pcfg=pcfg)
+        except urllib.error.HTTPError as exc:
+            learn_router_rate_limit_headers(provider, pcfg, model, exc.headers)
+            _close_quietly(exc)
+            router_log(
+                "WARN",
+                f"ollama_semantic_retry_http_error provider={provider} model={model} "
+                f"attempt={attempt}/{semantic_retries} code={exc.code}",
+            )
+            raise
+        try:
+            if stream:
+                set_upstream_stream_read_timeout(
+                    opened, provider_stream_idle_timeout_seconds(pcfg)
+                )
+            learn_router_rate_limit_headers(provider, pcfg, model, opened.headers)
+        except BaseException:
+            _close_quietly(opened)
+            raise
+        return opened
+
     if stream_requested:
         # Stream Ollama response through as Anthropic SSE
         data_bytes = json.dumps(req_body).encode("utf-8")
@@ -307,10 +391,27 @@ def forward_ollama_api_chat(
                 504,
             )
             return
+        # The request that produced this stream; every semantic replay is
+        # rebuilt from it, never from an earlier replay.
+        semantic_base_body = req_body
+
+        def reopen_semantic(attempt: int, reason: str) -> Any:
+            return open_semantic_retry(semantic_base_body, attempt, reason, stream=True)
+
         # Check if Claude Code requested SSE streaming
         accept = handler.headers.get("accept", "")
         if "text/event-stream" in accept or stream_requested:
-            _ollama_stream_to_anthropic_sse(handler, resp, model, word_chunking=word_chunking, provider=provider, source_body=projection_body, idle_timeout=stream_idle_timeout)
+            _ollama_stream_to_anthropic_sse(
+                handler,
+                resp,
+                model,
+                word_chunking=word_chunking,
+                provider=provider,
+                source_body=projection_body,
+                idle_timeout=stream_idle_timeout,
+                semantic_retries=semantic_retries,
+                reopen_semantic=reopen_semantic,
+            )
         else:
             # Non-SSE client but streaming from Ollama: collect full response
             chunks = []
@@ -477,6 +578,72 @@ def forward_ollama_api_chat(
             504,
         )
         return
+    # Replay a clean stop that carried no visible text or tool call, at most
+    # ``semantic_retries`` times, before anything is projected.  A failed
+    # replay keeps the last complete response, so projection is unchanged.
+    semantic_base_body = req_body
+    semantic_attempt = 0
+    semantic_reason = collected_retry_reason(data) if semantic_retries else ""
+    while semantic_reason and semantic_attempt < semantic_retries:
+        semantic_attempt += 1
+        write_router_activity(
+            "retry", provider, model, reason=semantic_reason,
+            attempt=semantic_attempt, total=semantic_retries,
+        )
+        router_log(
+            "WARN",
+            f"ollama_semantic_retry provider={provider} model={model} "
+            f"attempt={semantic_attempt}/{semantic_retries} reason={semantic_reason}",
+        )
+        try:
+            retry_resp = open_semantic_retry(
+                semantic_base_body, semantic_attempt, semantic_reason, stream=False
+            )
+        except UpstreamClientDisconnected:
+            return
+        except Exception as exc:  # noqa: BLE001 - keep the complete response we have
+            router_log(
+                "WARN",
+                f"ollama_semantic_retry_open_failed provider={provider} model={model} "
+                f"attempt={semantic_attempt}/{semantic_retries} error={type(exc).__name__}",
+            )
+            break
+        try:
+            retried = json.loads(retry_resp.read().decode("utf-8"))
+        except Exception as exc:  # noqa: BLE001 - keep the complete response we have
+            router_log(
+                "WARN",
+                f"ollama_semantic_retry_read_failed provider={provider} model={model} "
+                f"attempt={semantic_attempt}/{semantic_retries} error={type(exc).__name__}",
+            )
+            break
+        finally:
+            _close_quietly(retry_resp)
+        if (
+            not isinstance(retried, dict)
+            or retried.get("error") is not None
+            or not isinstance(retried.get("message"), dict)
+        ):
+            router_log(
+                "WARN",
+                f"ollama_semantic_retry_invalid_response provider={provider} model={model} "
+                f"attempt={semantic_attempt}/{semantic_retries}",
+            )
+            break
+        data = retried
+        semantic_reason = collected_retry_reason(data)
+    if semantic_attempt and semantic_reason:
+        router_log(
+            "WARN",
+            f"ollama_semantic_exhausted provider={provider} model={model} "
+            f"attempts={semantic_attempt + 1} reason={semantic_reason}",
+        )
+    elif semantic_attempt:
+        router_log(
+            "INFO",
+            f"ollama_semantic_recovered provider={provider} model={model} "
+            f"attempts={semantic_attempt + 1}",
+        )
     message = ollama_chat_to_anthropic(
         data, model, source_body=projection_body
     )

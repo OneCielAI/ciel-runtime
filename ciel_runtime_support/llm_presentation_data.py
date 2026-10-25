@@ -220,6 +220,7 @@ RUNTIME_LLM_OPTION_KEYS = {
     "max_output_tokens",
     "request_timeout_ms",
     "stream_idle_timeout_ms",
+    "empty_response_retries",
     "temperature",
     "top_p",
     "top_k",
@@ -309,6 +310,12 @@ LLM_OPTION_DESCRIPTIONS: dict[str, dict[str, str]] = {
         "ko": "타임아웃 프리셋을 선택합니다. 업스트림 대기 시간과 스트림 idle timeout을 함께 설정합니다.",
         "ja": "timeout preset を選びます。上流待機 timeout と stream idle timeout を同時に設定します。",
         "zh": "选择 timeout 预设，同时设置上游等待超时和 stream idle timeout。",
+    },
+    "empty_response_retries": {
+        "en": "Extra Ollama attempts for empty responses. Default 1; 0 disables; values above 2 are capped. default/unset restores 1.",
+        "ko": "Ollama 빈 응답 추가 시도 횟수입니다. 기본 1회, 0이면 끄기, 최대 2회입니다. default/unset으로 기본값을 복원합니다.",
+        "ja": "Ollamaの空応答に対する追加試行回数。既定1、0で無効、上限2。default/unsetで既定値に戻します。",
+        "zh": "Ollama 空响应的额外尝试次数。默认 1，0 禁用，上限 2。default/unset 恢复默认值。",
     },
     "stream_idle_timeout_ms": {
         "en": "Maximum silence allowed while a stream is open. If no bytes arrive for this long, ciel-runtime retries or reports a timeout.",

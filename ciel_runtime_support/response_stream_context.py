@@ -347,6 +347,9 @@ class ResponseStreamContext:
         provider: str = "ollama",
         source_body: dict[str, Any] | None = None,
         idle_timeout: float = 30.0,
+        *,
+        semantic_retries: int = 0,
+        reopen_semantic: Callable[[int, str], Any] | None = None,
     ) -> None:
         return streaming_anthropic.ollama_stream_to_anthropic_sse(
             handler,
@@ -357,6 +360,8 @@ class ResponseStreamContext:
             source_body=source_body,
             idle_timeout=idle_timeout,
             services=self.ollama_stream_services(),
+            semantic_retries=semantic_retries,
+            reopen_semantic=reopen_semantic,
         )
 
     def openai_chat_to_anthropic(

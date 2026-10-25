@@ -935,8 +935,10 @@ def ollama_ctx_text(pcfg: dict) -> str:
 
 
 def ollama_options_summary(pcfg: dict) -> str:
+    from ciel_runtime_support.ollama_semantic_retry import configured_retries
     parts = [
         f"ctx {ollama_ctx_text(pcfg)}",
+        f"empty_response_retries={configured_retries(pcfg)}",
         f"keep {pcfg.get('keep_alive', 'default')}",
         f"think {str(bool(pcfg.get('think', False))).lower()}",
         f"timeout {pcfg.get('request_timeout_ms', 'default')}ms",
@@ -1261,6 +1263,10 @@ def ollama_option_description(value: str) -> str:
     if value in OLLAMA_OPTION_DESCRIPTIONS:
         entry = OLLAMA_OPTION_DESCRIPTIONS[value]
         return entry.get(lang, entry["en"])
+    if value == "__edit_empty_response_retries__" or value.startswith("empty_response_retries="):
+        from ciel_runtime_support.llm_presentation_data import LLM_OPTION_DESCRIPTIONS
+        entry = LLM_OPTION_DESCRIPTIONS["empty_response_retries"]
+        return entry.get(lang, entry["en"])
     if value.startswith("num_ctx=auto"):
         return {
             "en": "Use automatic context sizing based on request size, bounded by the configured min/max.",
@@ -1324,6 +1330,7 @@ def ollama_option_description(value: str) -> str:
 
 
 def build_ollama_options_submenu() -> dict:
+    from ciel_runtime_support.ollama_semantic_retry import configured_retries
     provider, pcfg = current_provider_cfg()
     ctx = pcfg.get("num_ctx", "auto")
     keep = str(pcfg.get("keep_alive", "5m"))
@@ -1335,6 +1342,7 @@ def build_ollama_options_submenu() -> dict:
         options = {}
     choices = [
         ("__edit_num_ctx__", f"Edit num_ctx [{ollama_ctx_text(pcfg)}]", False),
+        ("__edit_empty_response_retries__", f"Empty response retries [{configured_retries(pcfg)} extra; 0 off, max 2]", False),
         ("__edit_min__", f"Edit auto minimum [{pcfg.get('num_ctx_min', 32768)}]", False),
         ("__edit_max__", f"Edit auto maximum [{pcfg.get('num_ctx_max', 131072)}]", False),
         ("__edit_keep_alive__", f"Edit keep_alive [{keep}]", False),
@@ -2094,6 +2102,11 @@ def main() -> int:
                         default = str(pcfg_now.get("num_ctx", "auto"))
                         entered = inline_prompt(None, "num_ctx (auto or integer): ", row, default)
                         value = f"num_ctx={entered}" if entered else ""
+                    elif action_value == "__edit_empty_response_retries__":
+                        from ciel_runtime_support.ollama_semantic_retry import configured_retries
+                        default = str(configured_retries(pcfg_now))
+                        entered = inline_prompt(None, "empty_response_retries (0 off, max 2; default/unset clears): ", row, default)
+                        value = f"empty_response_retries={entered}" if entered else ""
                     elif action_value == "__edit_min__":
                         default = str(pcfg_now.get("num_ctx_min", 32768))
                         entered = inline_prompt(None, "num_ctx auto minimum: ", row, default)

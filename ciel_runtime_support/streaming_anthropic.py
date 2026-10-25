@@ -1606,8 +1606,12 @@ def ollama_stream_to_anthropic_sse(
     idle_timeout: float = 30.0,
     *,
     services: OllamaStreamServices,
+    semantic_retries: int = 0,
+    reopen_semantic: Callable[[int, str], Any] | None = None,
 ) -> None:
     """Stream Ollama NDJSON /api/chat response as Anthropic SSE /v1/messages format."""
+
+    from .ollama_semantic_retry import exhausted_notice, retry_reason
 
     remote_bridge = is_remote_bridge_request(handler)
     UpstreamClientDisconnected = services.io.UpstreamClientDisconnected
@@ -1689,6 +1693,16 @@ def ollama_stream_to_anthropic_sse(
     sse_trace_outcome = "started"
     sse_trace_error: str | None = None
     terminal_received = False
+    try:
+        semantic_retries = max(0, min(2, int(semantic_retries)))
+    except (TypeError, ValueError):
+        semantic_retries = 0
+    semantic_attempt = 0
+    semantic_failed = False
+    semantic_enabled = bool(not remote_bridge and source_body is not None
+                            and reopen_semantic is not None and semantic_retries > 0)
+    usage_input = 0
+    usage_output = 0
 
     def emit(event_name: str, payload: dict[str, Any]) -> None:
         try:
@@ -1925,166 +1939,232 @@ def ollama_stream_to_anthropic_sse(
         update_stream_activity()
 
     try:
-        for line in iter_upstream_lines_until_client_disconnect(handler, resp, idle_timeout):
-            chunks_seen += 1
-            line = line.decode(
-                "utf-8", errors="strict" if remote_bridge else "ignore"
-            ).strip()
-            if not line:
-                continue
-            try:
-                chunk = json.loads(line)
-            except Exception as exc:
-                if remote_bridge:
-                    raise RuntimeError(
-                        "invalid upstream Ollama stream payload"
-                    ) from exc
-                continue
-            if not isinstance(chunk, dict):
-                if remote_bridge:
-                    raise RuntimeError(
-                        "invalid upstream Ollama stream payload"
-                    )
-                continue
-            if remote_bridge and chunk.get("error") is not None:
-                raise RuntimeError("upstream Ollama stream reported an error")
-            if chunk.get("done") is True:
-                terminal_received = True
-            raw_message = chunk.get("message")
-            if remote_bridge and not isinstance(raw_message, dict):
-                raise RuntimeError(
-                    "upstream Ollama stream payload requires a message object"
-                )
-            message = raw_message if isinstance(raw_message, dict) else {}
-            input_tokens = max(input_tokens, int(chunk.get("prompt_eval_count") or 0))
-            output_tokens = max(output_tokens, int(chunk.get("eval_count") or 0))
-            if not started:
-                ensure_message_started()
-            # Native Ollama thinking is a distinct field, not visible answer text.
-            handle_thinking_chunk(str(message.get("thinking") or ""))
-            # Handle text content
-            raw_text_chunk = str(message.get("content") or "")
-            text_chunk = thinking_markup_filter.feed(raw_text_chunk)
-            if text_chunk != raw_text_chunk:
-                thinking_markup_suppressed = True
-            if text_chunk:
-                handle_text_chunk(text_chunk)
-            # Handle tool calls
-            raw_tool_calls = message.get("tool_calls")
-            if (
-                remote_bridge
-                and raw_tool_calls is not None
-                and not isinstance(raw_tool_calls, list)
-            ):
-                raise RuntimeError(
-                    "upstream Ollama tool_calls must be an array"
-                )
-            for call in raw_tool_calls or []:
-                if not isinstance(call, dict):
+        while True:
+            terminal_received = False
+            chunk = {}
+            attempt_invalid = False
+            attempt_tool_intent = False
+            attempt_input = 0
+            attempt_output = 0
+            estimated_input = estimate_tokens(source_body) if isinstance(source_body, dict) else 0
+            attempt_thinking_start = len(thinking_so_far)
+            for line in iter_upstream_lines_until_client_disconnect(handler, resp, idle_timeout):
+                chunks_seen += 1
+                line = line.decode(
+                    "utf-8", errors="strict" if remote_bridge else "ignore"
+                ).strip()
+                if not line:
+                    continue
+                try:
+                    chunk = json.loads(line)
+                except Exception as exc:
+                    attempt_invalid = True
                     if remote_bridge:
                         raise RuntimeError(
-                            "upstream Ollama tool call must be an object"
+                            "invalid upstream Ollama stream payload"
+                        ) from exc
+                    continue
+                if not isinstance(chunk, dict):
+                    attempt_invalid = True
+                    chunk = {}
+                    if remote_bridge:
+                        raise RuntimeError(
+                            "invalid upstream Ollama stream payload"
                         )
                     continue
-                raw_function = call.get("function")
-                if remote_bridge and not isinstance(raw_function, dict):
+                if chunk.get("error") is not None:
+                    attempt_invalid = True
+                if remote_bridge and chunk.get("error") is not None:
+                    raise RuntimeError("upstream Ollama stream reported an error")
+                if chunk.get("done") is True:
+                    terminal_received = True
+                raw_message = chunk.get("message")
+                if remote_bridge and not isinstance(raw_message, dict):
                     raise RuntimeError(
-                        "upstream Ollama tool call requires a function object"
+                        "upstream Ollama stream payload requires a message object"
                     )
-                fn = raw_function if isinstance(raw_function, dict) else {}
-                raw_function_name = fn.get("name")
-                if remote_bridge and (
-                    not isinstance(raw_function_name, str)
-                    or not raw_function_name.strip()
+                if not isinstance(raw_message, dict):
+                    attempt_invalid = True
+                message = raw_message if isinstance(raw_message, dict) else {}
+                attempt_input = max(attempt_input, int(chunk.get("prompt_eval_count") or 0))
+                attempt_output = max(attempt_output, int(chunk.get("eval_count") or 0))
+                input_tokens = usage_input + (attempt_input or estimated_input)
+                output_tokens = usage_output + attempt_output
+                if not started:
+                    ensure_message_started()
+                # Native Ollama thinking is a distinct field, not visible answer text.
+                handle_thinking_chunk(str(message.get("thinking") or ""))
+                # Handle text content
+                raw_text_chunk = str(message.get("content") or "")
+                if any(marker in raw_text_chunk.lower() for marker in
+                       ("<tool_call", "<function", "[tool_call", "<invoke")):
+                    attempt_tool_intent = True
+                text_chunk = thinking_markup_filter.feed(raw_text_chunk)
+                if text_chunk != raw_text_chunk:
+                    thinking_markup_suppressed = True
+                if text_chunk:
+                    handle_text_chunk(text_chunk)
+                # Handle tool calls
+                raw_tool_calls = message.get("tool_calls")
+                if raw_tool_calls is not None and raw_tool_calls != []:
+                    attempt_tool_intent = True
+                if (
+                    remote_bridge
+                    and raw_tool_calls is not None
+                    and not isinstance(raw_tool_calls, list)
                 ):
                     raise RuntimeError(
-                        "upstream Ollama tool call requires a function name"
+                        "upstream Ollama tool_calls must be an array"
                     )
-                if not fn.get("name"):
-                    continue
-                raw_name = str(fn["name"])
-                matched_name = resolve_emitted_tool_name(raw_name, source_body)
-                raw_args = fn.get("arguments")
-                if remote_bridge and not isinstance(raw_args, dict):
-                    raise RuntimeError(
-                        "upstream Ollama tool call arguments must be an object"
-                    )
-                normalized_args = (
-                    dict(raw_args)
-                    if remote_bridge
-                    else normalize_tool_arguments(matched_name, raw_args)
-                )
-                emitted_name = matched_name
-                fixed_input = _validate_and_fix_tool_input(
-                    matched_name, normalized_args, source_body
-                )
-                if source_body is not None:
-                    matched_name, fixed_input = plan_mode_tool_name_for_emit(source_body, matched_name, fixed_input)
-                    if matched_name is None:
+                for call in raw_tool_calls or []:
+                    if not isinstance(call, dict):
+                        if remote_bridge:
+                            raise RuntimeError(
+                                "upstream Ollama tool call must be an object"
+                            )
                         continue
-                fixed_input = cap_mcp_notification_wait_tool_input(matched_name, fixed_input)
-                supplied_input = normalized_args if matched_name == emitted_name else None
-                if should_drop_emitted_tool_call(matched_name, fixed_input, raw_name, source_body, supplied_input):
-                    continue
-                if should_drop_duplicate_side_effect_tool_call(matched_name, fixed_input, raw_name, source_body):
-                    repeated_completed_tool_dropped = True
-                    continue
-                close_thinking_block()
-                close_text_block()
-                tool_calls.append({"function": {"name": matched_name, "arguments": fixed_input}})
-                tool_id = f"toolu_ollama_{int(time.time() * 1000)}_{len(tool_calls) - 1}"
-                tool_index = next_content_index
-                next_content_index += 1
-                tool_indices.append(tool_index)
-                _remember_channel_injected_tool_use(source_body, tool_id, matched_name, fixed_input)
-                append_tool_call_log(
-                    "ollama_stream_tool_call",
-                    {
-                        "model": model,
-                        "tool_id": tool_id,
-                        "raw_name": raw_name,
-                        "matched_name": matched_name,
-                        "raw_arguments": raw_args,
-                        "normalized_arguments": normalized_args,
-                        "emitted_input": fixed_input,
-                        "sse_index": tool_index,
-                    },
-                )
-                emit_tool_block(tool_index, tool_id, matched_name, fixed_input)
+                    raw_function = call.get("function")
+                    if remote_bridge and not isinstance(raw_function, dict):
+                        raise RuntimeError(
+                            "upstream Ollama tool call requires a function object"
+                        )
+                    fn = raw_function if isinstance(raw_function, dict) else {}
+                    raw_function_name = fn.get("name")
+                    if remote_bridge and (
+                        not isinstance(raw_function_name, str)
+                        or not raw_function_name.strip()
+                    ):
+                        raise RuntimeError(
+                            "upstream Ollama tool call requires a function name"
+                        )
+                    if not fn.get("name"):
+                        continue
+                    raw_name = str(fn["name"])
+                    matched_name = resolve_emitted_tool_name(raw_name, source_body)
+                    raw_args = fn.get("arguments")
+                    if remote_bridge and not isinstance(raw_args, dict):
+                        raise RuntimeError(
+                            "upstream Ollama tool call arguments must be an object"
+                        )
+                    normalized_args = (
+                        dict(raw_args)
+                        if remote_bridge
+                        else normalize_tool_arguments(matched_name, raw_args)
+                    )
+                    emitted_name = matched_name
+                    fixed_input = _validate_and_fix_tool_input(
+                        matched_name, normalized_args, source_body
+                    )
+                    if source_body is not None:
+                        matched_name, fixed_input = plan_mode_tool_name_for_emit(source_body, matched_name, fixed_input)
+                        if matched_name is None:
+                            continue
+                    fixed_input = cap_mcp_notification_wait_tool_input(matched_name, fixed_input)
+                    supplied_input = normalized_args if matched_name == emitted_name else None
+                    if should_drop_emitted_tool_call(matched_name, fixed_input, raw_name, source_body, supplied_input):
+                        continue
+                    if should_drop_duplicate_side_effect_tool_call(matched_name, fixed_input, raw_name, source_body):
+                        repeated_completed_tool_dropped = True
+                        continue
+                    close_thinking_block()
+                    close_text_block()
+                    tool_calls.append({"function": {"name": matched_name, "arguments": fixed_input}})
+                    tool_id = f"toolu_ollama_{int(time.time() * 1000)}_{len(tool_calls) - 1}"
+                    tool_index = next_content_index
+                    next_content_index += 1
+                    tool_indices.append(tool_index)
+                    _remember_channel_injected_tool_use(source_body, tool_id, matched_name, fixed_input)
+                    append_tool_call_log(
+                        "ollama_stream_tool_call",
+                        {
+                            "model": model,
+                            "tool_id": tool_id,
+                            "raw_name": raw_name,
+                            "matched_name": matched_name,
+                            "raw_arguments": raw_args,
+                            "normalized_arguments": normalized_args,
+                            "emitted_input": fixed_input,
+                            "sse_index": tool_index,
+                        },
+                    )
+                    emit_tool_block(tool_index, tool_id, matched_name, fixed_input)
+                    update_stream_activity()
                 update_stream_activity()
-            update_stream_activity()
-            if runaway_verdict is not None:
-                # Stop reading upstream. The finally block closes the response,
-                # which ends generation instead of paying for the whole loop.
-                router_log(
-                    "WARN",
-                    f"ollama_stream_runaway_repetition provider={provider} model={model} "
-                    f"chunks={chunks_seen} {runaway_verdict.log_fields()}",
+                if runaway_verdict is not None:
+                    # Stop reading upstream. The finally block closes the response,
+                    # which ends generation instead of paying for the whole loop.
+                    router_log(
+                        "WARN",
+                        f"ollama_stream_runaway_repetition provider={provider} model={model} "
+                        f"chunks={chunks_seen} {runaway_verdict.log_fields()}",
+                    )
+                    write_router_activity(
+                        "error", provider, model, error="runaway_repetition", stream=True
+                    )
+                    break
+                if terminal_received:
+                    break
+            if remote_bridge and not terminal_received:
+                raise RuntimeError(
+                    "upstream Ollama stream ended before a terminal event"
                 )
-                write_router_activity(
-                    "error", provider, model, error="runaway_repetition", stream=True
-                )
-                break
-            if terminal_received:
-                break
-        if remote_bridge and not terminal_received:
-            raise RuntimeError(
-                "upstream Ollama stream ended before a terminal event"
+            runaway_stopped = runaway_verdict is not None
+            trailing_text = thinking_markup_filter.finish()
+            if trailing_text and not runaway_stopped:
+                handle_text_chunk(trailing_text)
+            if thinking_markup_suppressed:
+                router_log("WARN", f"suppressed visible Ollama thinking markup from stream model={model}")
+            update_stream_activity(force=True)
+            close_thinking_block()
+            close_text_block()
+            reason = retry_reason(
+                terminal_received=terminal_received,
+                done_reason=str(chunk.get("done_reason") or ""),
+                text=text_so_far,
+                thinking=thinking_so_far[attempt_thinking_start:],
+                tool_intent=attempt_tool_intent or bool(tool_calls),
+                invalid=attempt_invalid,
+                runaway=runaway_stopped,
             )
-        runaway_stopped = runaway_verdict is not None
-        trailing_text = thinking_markup_filter.finish()
-        if trailing_text and not runaway_stopped:
-            handle_text_chunk(trailing_text)
-        if thinking_markup_suppressed:
-            router_log("WARN", f"suppressed visible Ollama thinking markup from stream model={model}")
-        update_stream_activity(force=True)
-        close_thinking_block()
+            usage_input += attempt_input
+            usage_output += attempt_output
+            input_tokens = usage_input or estimated_input
+            output_tokens = usage_output
+            if not semantic_enabled or not reason:
+                break
+            if semantic_attempt >= semantic_retries:
+                semantic_failed = True
+                break
+            semantic_attempt += 1
+            router_log("WARN", f"ollama_semantic_retry provider={provider} model={model} "
+                       f"attempt={semantic_attempt}/{semantic_retries} reason={reason}")
+            write_router_activity("retry", provider, model, reason=reason,
+                                  attempt=semantic_attempt, total=semantic_retries, stream=True)
+            resp.close()
+            try:
+                resp = reopen_semantic(semantic_attempt, reason)
+            except UpstreamClientDisconnected:
+                raise
+            except Exception as exc:
+                semantic_failed = True
+                router_log("WARN", f"ollama_semantic_retry_open_failed provider={provider} "
+                           f"model={model} error={type(exc).__name__}")
+                break
+            # Preserve emitted blocks and indices; discard only per-attempt filters.
+            text_so_far = ""
+            text_buffer = ""
+            text_suppressed_for_plan = False
+            thinking_markup_filter = VisibleThinkingMarkupFilter()
+            text_runaway = RunawayOutputDetector(runaway_policy)
+            thinking_runaway = RunawayOutputDetector(runaway_policy)
         if not runaway_stopped and repeated_completed_tool_dropped and not text_so_far.strip() and not tool_calls:
             handle_text_chunk(
                 "[ciel-runtime] Stopped an identical completed tool call from repeating. "
                 "The previous result is already in context; choose a different action or finish the turn."
             )
         reasoning_only = thinking_started and not text_so_far.strip() and not tool_calls and not runaway_stopped
+        if semantic_failed:
+            reasoning_only = False
         if remote_bridge and (reasoning_only or (not text_started and not tool_calls)):
             raise RuntimeError(
                 "upstream Ollama stream completed without assistant content or a tool call"
@@ -2093,7 +2173,7 @@ def ollama_stream_to_anthropic_sse(
         # below exists to keep work moving, which is the opposite of what a
         # runaway needs, so they are all skipped once the guard has fired.
         # Flush any remaining buffered text when word-chunking is active
-        if not runaway_stopped and not reasoning_only and source_body is not None and should_auto_enter_plan_mode(source_body, text_so_far, tool_calls):
+        if not semantic_failed and not runaway_stopped and not reasoning_only and source_body is not None and should_auto_enter_plan_mode(source_body, text_so_far, tool_calls):
             ensure_message_started()
             close_text_block()
             router_log("WARN", "auto-synthesized EnterPlanMode from short/empty upstream stream")
@@ -2103,7 +2183,7 @@ def ollama_stream_to_anthropic_sse(
             next_content_index += 1
             tool_indices.append(tool_index)
             emit_tool_block(tool_index, tool_id, "EnterPlanMode", {})
-        elif not runaway_stopped and not reasoning_only and source_body is not None and should_recover_empty_end_turn_with_tasklist(source_body, text_so_far, tool_calls):
+        elif not semantic_failed and not runaway_stopped and not reasoning_only and source_body is not None and should_recover_empty_end_turn_with_tasklist(source_body, text_so_far, tool_calls):
             ensure_message_started()
             close_text_block()
             router_log("WARN", "auto-synthesized TaskList from empty upstream end_turn stream")
@@ -2113,7 +2193,7 @@ def ollama_stream_to_anthropic_sse(
             next_content_index += 1
             tool_indices.append(tool_index)
             emit_tool_block(tool_index, tool_id, "TaskList", {})
-        elif text_suppressed_for_plan and not text_started and text_so_far:
+        elif not semantic_failed and text_suppressed_for_plan and not text_started and text_so_far:
             active_text_index = open_text_block()
             event = {
                 "type": "content_block_delta",
@@ -2121,7 +2201,7 @@ def ollama_stream_to_anthropic_sse(
                 "delta": {"type": "text_delta", "text": text_so_far},
             }
             emit("content_block_delta", event)
-        if not runaway_stopped and not reasoning_only and source_body is not None and should_keep_work_alive_with_tasklist(source_body, text_so_far, tool_calls):
+        if not semantic_failed and not runaway_stopped and not reasoning_only and source_body is not None and should_keep_work_alive_with_tasklist(source_body, text_so_far, tool_calls):
             ensure_message_started()
             close_text_block()
             router_log("WARN", "auto-synthesized TaskList to keep work moving after tool result stream")
@@ -2131,7 +2211,7 @@ def ollama_stream_to_anthropic_sse(
             next_content_index += 1
             tool_indices.append(tool_index)
             emit_tool_block(tool_index, tool_id, "TaskList", {})
-        if not runaway_stopped and not reasoning_only and source_body is not None and should_auto_continue_choice_question_with_tasklist(source_body, text_so_far, tool_calls):
+        if not semantic_failed and not runaway_stopped and not reasoning_only and source_body is not None and should_auto_continue_choice_question_with_tasklist(source_body, text_so_far, tool_calls):
             ensure_message_started()
             close_text_block()
             router_log("WARN", "auto-synthesized TaskList after clarification question stream")
@@ -2174,6 +2254,14 @@ def ollama_stream_to_anthropic_sse(
                 next_content_index += 1
                 tool_indices.append(tool_index)
                 emit_tool_block(tool_index, tool_id, "TaskList", {})
+        elif semantic_failed:
+            notice = exhausted_notice(semantic_attempt + 1)
+            text_so_far = notice
+            notice_index = next_content_index
+            next_content_index += 1
+            emit_text_block(notice_index, notice)
+            router_log("WARN", f"ollama_semantic_exhausted provider={provider} model={model} "
+                       f"attempts={semantic_attempt + 1}")
         elif reasoning_only:
             router_log(
                 "WARN",
@@ -2186,7 +2274,7 @@ def ollama_stream_to_anthropic_sse(
             notice_index = next_content_index
             next_content_index += 1
             emit_text_block(notice_index, notice)
-        elif not text_started and not tool_indices:
+        elif not text_so_far.strip() and not tool_indices:
             router_log("WARN", f"ollama_empty_stream provider={provider} model={model} chunks={chunks_seen}")
             write_router_activity("error", provider, model, error="empty_stream", stream=True)
             empty_index = next_content_index
@@ -2212,8 +2300,18 @@ def ollama_stream_to_anthropic_sse(
         emit("message_delta", event)
         # Send message_stop
         emit("message_stop", {"type": "message_stop"})
-        sse_trace_outcome = "success"
-        if thinking_started or text_started or tool_indices:
+        sse_trace_outcome = "exhausted" if semantic_failed else "success"
+        if semantic_failed:
+            # The input reached the model; only its output was empty. Keep the
+            # delivery confirmed as before so the channel cursor commits and the
+            # same external message is not injected again on a later request.
+            write_router_activity("error", provider, model, error="ollama_semantic_exhausted",
+                                  attempts=semantic_attempt + 1, stream=True,
+                                  tokens=input_tokens, output_tokens=output_tokens)
+        elif semantic_attempt:
+            router_log("INFO", f"ollama_semantic_recovered provider={provider} model={model} "
+                       f"attempts={semantic_attempt + 1}")
+        if not semantic_failed and (thinking_started or text_started or tool_indices):
             write_router_activity(
                 "success",
                 provider,

@@ -81,6 +81,7 @@ _PROVIDER_EXAMPLES = (
 )
 _OLLAMA_EXAMPLES = (
     "  ciel-runtimectl ollama-options num_ctx=auto min=32768 max=131072",
+    "  ciel-runtimectl ollama-options ollama-cloud empty_response_retries=1",
     "  ciel-runtimectl ollama-options num_ctx=65536 temperature=0.7 top_p=0.8 max_tokens=32768 timeout=300000",
     "  ciel-runtime --ca-ollama-option temperature=0.7 --ca-ollama-num-ctx 65536",
 )
@@ -237,6 +238,7 @@ class ProviderOptionCliController:
         self._lines(_PROVIDER_EXAMPLES)
 
     def _ollama_status(self, provider: str, config: dict[str, Any]) -> None:
+        from .ollama_semantic_retry import configured_retries
         self._lines(
             (
                 f"provider: {provider}",
@@ -244,6 +246,7 @@ class ProviderOptionCliController:
                 f"keep_alive: {config.get('keep_alive', 'default')}",
                 f"think: {bool(config.get('think', False))}",
                 f"request_timeout_ms: {config.get('request_timeout_ms', 'default')}",
+                f"empty_response_retries: {configured_retries(config)}",
             )
         )
         used, limit = self.ollama.rate_usage(provider, config)
@@ -253,6 +256,9 @@ class ProviderOptionCliController:
                 suffix = f"{used}/{limit}" if limit > 0 else f"{used}/min (unmanaged)"
                 self.config.output(f"rpm_used: {suffix}")
         self.config.output(f"ollama_options: {self.ollama.options_status(config)}")
+        self.config.output("Notes:")
+        self.config.output("  empty_response_retries sets extra Ollama attempts for empty responses (default 1, 0 off, capped at 2).")
+        self.config.output("  unset:empty_response_retries or empty_response_retries=default restores 1; this is a router setting, not an upstream Ollama option.")
         self.config.output("Examples:")
         self._lines(_OLLAMA_EXAMPLES)
 

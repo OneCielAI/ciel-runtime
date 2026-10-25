@@ -1,0 +1,14 @@
+test_disabled_has_no_extra_request (test_ollama_semantic_retry_stream.OllamaSemanticRetryStreamTests.test_disabled_has_no_extra_request) ... ok
+test_empty_then_answer (test_ollama_semantic_retry_stream.OllamaSemanticRetryStreamTests.test_empty_then_answer) ... ok
+test_invalid_payload_and_error_prevent_retry (test_ollama_semantic_retry_stream.OllamaSemanticRetryStreamTests.test_invalid_payload_and_error_prevent_retry) ... ok
+test_no_retry_on_answer_tool_length_or_incomplete (test_ollama_semantic_retry_stream.OllamaSemanticRetryStreamTests.test_no_retry_on_answer_tool_length_or_incomplete) ... ok
+test_open_failure_is_a_single_terminal_response (test_ollama_semantic_retry_stream.OllamaSemanticRetryStreamTests.test_open_failure_is_a_single_terminal_response) ... ok
+test_reasoning_then_answer_keeps_blocks_separate (test_ollama_semantic_retry_stream.OllamaSemanticRetryStreamTests.test_reasoning_then_answer_keeps_blocks_separate) ... ok
+test_reasoning_then_tool (test_ollama_semantic_retry_stream.OllamaSemanticRetryStreamTests.test_reasoning_then_tool) ... ok
+test_repeated_failures_are_bounded_and_not_success (test_ollama_semantic_retry_stream.OllamaSemanticRetryStreamTests.test_repeated_failures_are_bounded_and_not_success) ... ok
+test_whitespace_and_hidden_markup_retry (test_ollama_semantic_retry_stream.OllamaSemanticRetryStreamTests.test_whitespace_and_hidden_markup_retry) ... ok
+
+----------------------------------------------------------------------
+Ran 9 tests in 0.053s
+
+OK
