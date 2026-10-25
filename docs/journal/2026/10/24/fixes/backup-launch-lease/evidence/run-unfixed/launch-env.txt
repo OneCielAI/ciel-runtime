@@ -1,0 +1,11 @@
+CIEL_RUNTIME_CONFIG_DIR=C:\Users\djlov\AppData\Local\Temp\ciel-backup-e2e-h7l3cuml\home\.config\ciel-runtime
+CLAUDE_CONFIG_DIR=C:\Users\djlov\AppData\Local\Temp\ciel-backup-e2e-h7l3cuml\home\.claude
+Environment variable ANTHROPIC  not defined
+CODEX_HOME=C:\Users\djlov\AppData\Local\Temp\ciel-backup-e2e-h7l3cuml\home\.codex
+Environment variable OPENAI  not defined
+HOME=C:\Users\djlov\AppData\Local\Temp\ciel-backup-e2e-h7l3cuml\home
+HOMEDRIVE=C:
+HOMEPATH=\Users\djlov\AppData\Local\Temp\ciel-backup-e2e-h7l3cuml\home
+APPDATA=C:\Users\djlov\AppData\Local\Temp\ciel-backup-e2e-h7l3cuml\home\AppData\Roaming
+HTTPS_PROXY=http://127.0.0.1:58863
+HTTP_PROXY=http://127.0.0.1:58863

@@ -1,0 +1,92 @@
+{
+  "repo": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-unfixed-ZRXr",
+  "scratch": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-backup-e2e-h7l3cuml",
+  "title": "ciel-backup-e2e-run-unfixed-1792895592",
+  "live_health_before": {
+    "9385": {
+      "pid": 6032,
+      "version": "0.2.51-nightly.20261024-115611.5d4dc0e"
+    },
+    "9464": {
+      "pid": 54764,
+      "version": "0.2.51-nightly.20261024-102326.a7e28f9"
+    },
+    "9489": {
+      "pid": 67368,
+      "version": "0.2.51-nightly.20261024-102326.a7e28f9"
+    },
+    "9505": {
+      "pid": 49288,
+      "version": "0.2.51-nightly.20261024-115611.5d4dc0e"
+    },
+    "9524": {
+      "pid": 6196,
+      "version": "0.2.51-nightly.20261024-115611.5d4dc0e"
+    }
+  },
+  "outcome": "not-saved",
+  "owned_processes": [
+    {
+      "pid": 35312,
+      "ppid": 38812,
+      "name": "py.exe",
+      "cmd": "py  -3 \"C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-unfixed-ZRXr\\ciel_runtime.py\" cli --ca-menu --ca-no-update-check --ca-no-self-update-check"
+    },
+    {
+      "pid": 66736,
+      "ppid": 35312,
+      "name": "python.exe",
+      "cmd": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe \"C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-unfixed-ZRXr\\ciel_runtime.py\" cli --ca-menu --ca-no-update-check --ca-no-self-update-check"
+    }
+  ],
+  "registry_after": {
+    "version": 1,
+    "workspaces": {
+      "b6180d629fcc": {
+        "launch_lease": {
+          "expires_at": 1792895631.20049,
+          "identity": "134373691931187575",
+          "pid": 66736
+        },
+        "port": 9734,
+        "reservation": "auto",
+        "workspace": "c:\\users\\djlov\\appdata\\local\\temp\\ciel-backup-e2e-h7l3cuml\\ws"
+      }
+    }
+  },
+  "backup_state": {
+    "b6180d629fcc": {
+      "cwd": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-backup-e2e-h7l3cuml\\ws",
+      "last_started": 1792895625.9979513,
+      "last_trigger": "menu",
+      "running": false,
+      "last_finished": 1792895634.1743526,
+      "last_ok": false,
+      "last_id": null,
+      "last_error": "SPACE_ROUTER_REGISTRY_PATH,\n    )\n  File \"C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-unfixed-ZRXr\\ciel_runtime_support\\workspace_router_selection.py\", line 253, in select_workspace_router_port\n    _check_own_launch_lease(own_record)\n    ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^\n  File \"C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-unfixed-ZRXr\\ciel_runtime_support\\workspace_router_selection.py\", line 324, in _check_own_launch_lease\n    raise RuntimeError(\"workspace router launch already reserved by another or unknown process\")\nRuntimeError: workspace router launch already reserved by another or unknown process"
+    }
+  },
+  "live_health_after": {
+    "9385": {
+      "pid": 6032,
+      "version": "0.2.51-nightly.20261024-115611.5d4dc0e"
+    },
+    "9464": {
+      "pid": 54764,
+      "version": "0.2.51-nightly.20261024-102326.a7e28f9"
+    },
+    "9489": {
+      "pid": 67368,
+      "version": "0.2.51-nightly.20261024-102326.a7e28f9"
+    },
+    "9505": {
+      "pid": 49288,
+      "version": "0.2.51-nightly.20261024-115611.5d4dc0e"
+    },
+    "9524": {
+      "pid": 6196,
+      "version": "0.2.51-nightly.20261024-115611.5d4dc0e"
+    }
+  },
+  "live_unchanged": true
+}

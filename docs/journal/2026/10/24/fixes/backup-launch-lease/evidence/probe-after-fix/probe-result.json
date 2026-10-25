@@ -1,0 +1,16 @@
+{
+  "repo": "C:\\Users\\djlov\\ciel-runtime-wt-lease",
+  "workspace": "C:\\Users\\djlov\\AppData\\Local\\Temp\\lease-probe-v7g43g7j\\ws",
+  "parent_pid": 48680,
+  "parent_port": 8961,
+  "lease_pid": 48680,
+  "child_import": {
+    "exit": 0,
+    "stdout": "8961",
+    "stderr_tail": []
+  },
+  "run_backup": {
+    "ok": true,
+    "output_tail": ""
+  }
+}

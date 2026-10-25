@@ -1,0 +1,18 @@
+{
+  "repo": "C:\\Users\\djlov\\ciel-runtime-wt-timeout",
+  "workspace": "C:\\Users\\djlov\\AppData\\Local\\Temp\\lease-probe-zq3ay751\\ws",
+  "parent_pid": 67436,
+  "parent_port": 9463,
+  "lease_pid": 67436,
+  "child_import": {
+    "exit": 1,
+    "stdout": "",
+    "stderr_tail": [
+      "RuntimeError: workspace router launch already reserved by another or unknown process"
+    ]
+  },
+  "run_backup": {
+    "ok": false,
+    "output_tail": "line 253, in select_workspace_router_port\n    _check_own_launch_lease(own_record)\n  File \"C:\\Users\\djlov\\ciel-runtime-wt-timeout\\ciel_runtime_support\\workspace_router_selection.py\", line 324, in _check_own_launch_lease\n    raise RuntimeError(\"workspace router launch already reserved by another or unknown process\")\nRuntimeError: workspace router launch already reserved by another or unknown process"
+  }
+}

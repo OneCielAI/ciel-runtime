@@ -1,0 +1,84 @@
+{
+  "repo": "C:\\Users\\djlov\\ciel-runtime-wt-lease",
+  "workspace": "C:\\Users\\djlov\\AppData\\Local\\Temp\\backup-probe-t61kawy7\\ws",
+  "parent_pid": 72508,
+  "parent_port": 9368,
+  "lease_pid": 72508,
+  "child_import": {
+    "exit": 0,
+    "stdout": "9368",
+    "stderr_tail": []
+  },
+  "run_backup": {
+    "ok": true,
+    "trigger": "menu",
+    "seconds": 9.1,
+    "id": "20261025T022041Z-144867",
+    "workspace": "SAMA--djlov--ws-989804dc9f2d",
+    "targets": [
+      "local"
+    ],
+    "files": 1,
+    "skipped": 0,
+    "not_backed_up": [],
+    "not_backed_up_count": 0,
+    "left_out": {
+      "folders": [],
+      "worktrees": [],
+      "worktree_mode": "off",
+      "outside_worktrees": []
+    },
+    "secrets": "left out (0 items, no backup key)",
+    "sessions": {},
+    "stats": {
+      "chunks": 1,
+      "uploaded_chunks": 1,
+      "bytes_total": 45,
+      "bytes_uploaded": 53,
+      "reused_files": 0,
+      "reused_bytes": 0
+    },
+    "pruned": {
+      "local": 0
+    }
+  },
+  "lease_after": {
+    "expires_at": 1792894854.8152132,
+    "identity": "134373684170519616",
+    "pid": 72508
+  },
+  "lease_pid_unchanged": true,
+  "run_backup_full": {
+    "ok": true,
+    "trigger": "menu",
+    "seconds": 9.2,
+    "id": "20261025T022050Z-29831f",
+    "workspace": "SAMA--djlov--ws-989804dc9f2d",
+    "targets": [
+      "local"
+    ],
+    "files": 1,
+    "skipped": 0,
+    "not_backed_up": [],
+    "not_backed_up_count": 0,
+    "left_out": {
+      "folders": [],
+      "worktrees": [],
+      "worktree_mode": "off",
+      "outside_worktrees": []
+    },
+    "secrets": "left out (0 items, no backup key)",
+    "sessions": {},
+    "stats": {
+      "chunks": 1,
+      "uploaded_chunks": 0,
+      "bytes_total": 45,
+      "bytes_uploaded": 0,
+      "reused_files": 0,
+      "reused_bytes": 0
+    },
+    "pruned": {
+      "local": 0
+    }
+  }
+}

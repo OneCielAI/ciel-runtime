@@ -4,6 +4,8 @@ import tempfile
 import concurrent.futures
 import os
 import socket
+import subprocess
+import sys
 import time
 from unittest.mock import patch
 
@@ -339,6 +341,79 @@ class ExhaustedRouterReservationTests(unittest.TestCase):
                 }, registry_path=self.registry, health=lambda _port: None, available=lambda _port: True,
             )
         self.assertEqual(before, self.registry.read_bytes())
+
+    def test_child_of_live_lease_holder_reuses_port_and_keeps_parent_lease(self):
+        port = self.select()
+        before = self.registry.read_bytes()
+        parent = os.getpid()
+        with patch.object(selection.os, "getpid", return_value=parent + 1000000), \
+                patch.object(selection.os, "getppid", return_value=parent):
+            self.assertEqual(port, self.select())
+            # The parent may already be binding the port for its router.
+            self.assertEqual(port, self.select(available=lambda _port: False))
+        self.assertEqual(before, self.registry.read_bytes())
+
+    def test_lease_holder_that_is_not_the_parent_still_refuses(self):
+        self.select()
+        before = self.registry.read_bytes()
+        parent = os.getpid()
+        with patch.object(selection.os, "getpid", return_value=parent + 1000000):
+            with patch.object(selection.os, "getppid", return_value=parent + 2000000):
+                with self.assertRaisesRegex(RuntimeError, "launch already reserved"):
+                    self.select()
+            # A reused parent PID is not the process that took the lease.
+            with patch.object(selection.os, "getppid", return_value=parent), \
+                    patch.object(selection, "_process_identity", return_value="another-birth"):
+                with self.assertRaisesRegex(RuntimeError, "launch already reserved"):
+                    self.select()
+        self.assertEqual(before, self.registry.read_bytes())
+
+    def test_explicit_port_helper_child_keeps_parent_lease(self):
+        environ = {"CIEL_RUNTIME_ROUTER_PORT": "9550"}
+        select_workspace_router_port(
+            9550, Path("C:/work/new"), environ, registry_path=self.registry,
+            health=lambda _port: None, available=lambda _port: True,
+        )
+        before = self.registry.read_bytes()
+        parent = os.getpid()
+        with patch.object(selection.os, "getpid", return_value=parent + 1000000), \
+                patch.object(selection.os, "getppid", return_value=parent):
+            self.assertEqual(9550, select_workspace_router_port(
+                9550, Path("C:/work/new"), environ, registry_path=self.registry,
+                health=lambda _port: None, available=lambda _port: True,
+            ))
+        self.assertEqual(before, self.registry.read_bytes())
+
+    def test_real_child_process_shares_its_parents_launch_lease(self):
+        port = self.select()
+        before = self.registry.read_bytes()
+        script = (
+            "import sys; from pathlib import Path; sys.path.insert(0, sys.argv[1]);"
+            "import ciel_runtime_support.workspace_router_selection as s;"
+            "print(s.select_workspace_router_port(9464, Path('C:/work/new'), {}, registry_path=Path(sys.argv[2]),"
+            " health=lambda _p: None, available=lambda _p: True))"
+        )
+        root = str(Path(selection.__file__).resolve().parents[1])
+        child = subprocess.run([sys.executable, "-c", script, root, str(self.registry)],
+                               capture_output=True, text=True, timeout=60)
+        self.assertEqual(0, child.returncode, child.stderr)
+        self.assertEqual(str(port), child.stdout.strip())
+        self.assertEqual(before, self.registry.read_bytes())
+
+        # A live process that is not the parent keeps the protection.
+        holder = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"])
+        self.addCleanup(holder.wait)
+        self.addCleanup(holder.kill)
+        identity = selection._process_identity(holder.pid)
+        self.assertTrue(identity)
+        payload = json.loads(before)
+        record = payload["workspaces"][selection.workspace_digest("C:/work/new")]
+        record["launch_lease"].update(pid=holder.pid, identity=identity)
+        self.registry.write_text(json.dumps(payload), encoding="utf-8")
+        child = subprocess.run([sys.executable, "-c", script, root, str(self.registry)],
+                               capture_output=True, text=True, timeout=60)
+        self.assertNotEqual(0, child.returncode)
+        self.assertIn("launch already reserved", child.stderr)
 
     def test_process_identity_distinguishes_current_pid_from_absent_pid(self):
         self.assertTrue(selection._process_identity(os.getpid()))

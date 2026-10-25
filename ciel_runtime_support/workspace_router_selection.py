@@ -249,6 +249,9 @@ def select_workspace_router_port(
                     _save_registry(registry_path, registry)
                 return port
 
+        if mapped_port and _lease_held_by_parent(own_record):
+            return mapped_port
+
         if mapped_port and observed_ports[mapped_port] is None and available(mapped_port):
             _check_own_launch_lease(own_record)
             reservation = own_record.get("reservation", "auto")
@@ -303,6 +306,27 @@ def _record_port(record: Any) -> int:
         return port if 1 <= port <= 65535 else 0
     except (TypeError, ValueError):
         return 0
+
+
+def _lease_held_by_parent(record: Any) -> bool:
+    """Return whether the live launch lease belongs to this process's parent.
+
+    The menu takes the lease when it starts, before any router exists, and
+    then runs helpers such as `cli backup create` that import runtime_paths.
+    Menu backups on Regina (2026-10-24 20:48 and 10-25 02:02 UTC) failed
+    against their own parent's lease. A direct child belongs to the same
+    launch: it reuses the port and leaves the parent's lease untouched.
+    """
+
+    lease = record.get("launch_lease") if isinstance(record, dict) else None
+    if not isinstance(lease, dict):
+        return False
+    try:
+        pid = int(lease["pid"])
+        identity = lease.get("identity")
+        return bool(identity) and pid == os.getppid() and _process_identity(pid) == identity
+    except (TypeError, ValueError, KeyError):
+        return False
 
 
 def _check_own_launch_lease(record: dict[str, Any]) -> None:
@@ -410,6 +434,9 @@ def _claim_explicit_port(
                 )
             except (TypeError, ValueError, KeyError):
                 pass
+        # Other helpers of the launcher (backup with an explicit port) share
+        # the launch the same way.
+        inherited = inherited or _lease_held_by_parent(own_record)
         if observed is None and not inherited:
             _check_own_launch_lease(own_record)
     if not inherited:
