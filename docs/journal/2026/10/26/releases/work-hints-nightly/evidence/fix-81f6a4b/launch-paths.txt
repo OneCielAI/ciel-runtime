@@ -1,0 +1,12 @@
+# 2026-10-26T18:47:38Z launch-path version checks (after switch)
+$ %USERPROFILE%\.local\bin\ciel-runtimectl.cmd version
+ciel-runtime 0.2.51-nightly.20261026-183726.81f6a4b
+$ %APPDATA%\npm\ciel-runtimectl.cmd version
+C:\Users\djlov\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime_support\codex_app_server_session.py:417: SyntaxWarning: 'return' in a 'finally' block
+  return _RemoteRun(1)
+ciel-runtime 0.2.51-nightly.20261026-183726.81f6a4b
+$ ~/.local/bin/ciel-runtimectl.ps1 version
+ciel-runtime 0.2.51-nightly.20261026-183726.81f6a4b
+# live router health after switch
+9505 pid 38368 version 0.2.51-nightly.20261026-162537.2faae14 fingerprint 72c6bfb456e30cd7
+9524 pid 25276 version 0.2.51 fingerprint f86ee3638ee760f3
