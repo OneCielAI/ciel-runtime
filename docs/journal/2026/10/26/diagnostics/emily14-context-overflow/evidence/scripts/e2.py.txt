@@ -1,0 +1,33 @@
+import os, json, glob, time
+home = r"C:\Data\Source\SGSWMSCrossing\u4\home\emily-ai"
+acct = r"C:\Users\aapw-a11u4"
+def ver(p):
+    try: return json.load(open(p, encoding="utf-8")).get("version")
+    except Exception as e: return f"ERR {type(e).__name__}"
+print("RUNTIME", ver(os.path.join(home, r".npm-global\node_modules\@one-ciel-ai\ciel-runtime\package.json")))
+print("CLAUDE", ver(os.path.join(home, r".npm-global\node_modules\@anthropic-ai\claude-code\package.json")))
+base = os.path.join(acct, r"AppData\Roaming\ciel-runtime")
+try: print("CIEL_DIR", sorted(x for x in os.listdir(base) if not x.endswith(".tmp"))[:60])
+except Exception as e: print("CIEL_DIR_ERR", type(e).__name__, e)
+for cand in [os.path.join(base, "config.json")]:
+    try:
+        c = json.load(open(cand, encoding="utf-8"))
+        keep = {k: v for k, v in c.items() if (k in ("provider", "current_model", "compact_safeguard") or "compact" in k.lower() or "context" in k.lower()) and isinstance(v, (bool, int, float, str)) and "key" not in k.lower() and "token" not in k.lower()}
+        print("CONFIG", cand, json.dumps(keep, ensure_ascii=False))
+        prov = c.get("providers") or {}
+        p = prov.get("cielairouter") if isinstance(prov, dict) else None
+        if isinstance(p, dict):
+            print("PROVIDER_CIELAIROUTER_KEYS", sorted(p))
+            print("PROVIDER_CIELAIROUTER_CTX", json.dumps({k: v for k, v in p.items() if ("context" in k.lower() or "window" in k.lower() or "compact" in k.lower() or "limit" in k.lower()) and isinstance(v, (bool, int, float, str, dict))}, ensure_ascii=False)[:1500])
+    except Exception as e: print("CONFIG_ERR", cand, type(e).__name__, e)
+inst_root = os.path.join(base, "router-instances")
+try:
+    insts = sorted(os.listdir(inst_root), key=lambda d: os.path.getmtime(os.path.join(inst_root, d)))
+    print("INSTANCES", insts[-5:])
+except Exception as e: print("INST_ERR", e); insts = []
+proj = os.path.join(acct, r".claude\projects")
+try:
+    for d in os.listdir(proj):
+        fs = sorted(glob.glob(os.path.join(proj, d, "*.jsonl")), key=os.path.getmtime)[-3:]
+        for f in fs: print("JSONL", time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(os.path.getmtime(f))), os.path.getsize(f), f)
+except Exception as e: print("PROJ_ERR", type(e).__name__, e)

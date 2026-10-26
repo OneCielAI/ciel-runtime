@@ -1,0 +1,33 @@
+observed_at_utc 2026-10-26T21:06:11Z script scripts/p4.py (read-only, via scripts/remote_read.py)
+LEDGER_KEYS ['chains', 'failures', 'handled', 'recent']
+FAILURE 2026-10-21T19:10:47Z {"runtime": "claude", "session_id": "6094b07a-ac93-463a-80d4-db02edd7223c", "epoch": "3142c1515bcb460ca64877133c411196", "message_id": "1792609768218", "failed_at": 1792609847.4324777, "provider": "cielairouter", "reason": "anthropic_stream_upstream_error_event", "upstream_error_type": "api_error", "visible_text": false, "tool_uncertain": true, "saw_tool_use": true, "emitted_tool_use": true}
+FAILURE 2026-10-23T02:56:24Z {"runtime": "claude", "session_id": "6094b07a-ac93-463a-80d4-db02edd7223c", "epoch": "298fe57f80d240ee860a412d49870d45", "message_id": "1792724184477", "failed_at": 1792724184.6612148, "provider": "cielairouter", "reason": "anthropic_stream_upstream_error:ConnectionResetError", "upstream_error_type": "", "visible_text": false, "tool_uncertain": true, "saw_tool_use": true, "emitted_tool_use": true}
+FAILURE 2026-10-24T17:21:54Z {"runtime": "claude", "session_id": "5ac1ee55-d0d1-4ef7-b4df-3d68e62bbd1b", "epoch": "4fc8588288a5432ea542a7344626186c", "message_id": "msg_011CgMSumediwCEaCknekmdx", "failed_at": 1792862514.8303857, "provider": "cielairouter", "reason": "anthropic_stream_upstream_incomplete", "upstream_error_type": "", "visible_text": false, "tool_uncertain": true, "saw_tool_use": true, "emitted_tool_use": true}
+FAILURE 2026-10-25T21:38:06Z {"runtime": "claude", "session_id": "5ac1ee55-d0d1-4ef7-b4df-3d68e62bbd1b", "epoch": "4fc8588288a5432ea542a7344626186c", "message_id": "1792964189051", "failed_at": 1792964286.0848384, "provider": "cielairouter", "reason": "anthropic_stream_upstream_error_event", "upstream_error_type": "api_error", "visible_text": false, "tool_uncertain": true, "saw_tool_use": true, "emitted_tool_use": true}
+FAILURE 2026-10-25T21:48:17Z {"runtime": "claude", "session_id": "5ac1ee55-d0d1-4ef7-b4df-3d68e62bbd1b", "epoch": "4fc8588288a5432ea542a7344626186c", "message_id": "1792964891725", "failed_at": 1792964897.5094213, "provider": "cielairouter", "reason": "anthropic_stream_upstream_error_event", "upstream_error_type": "api_error", "visible_text": false, "tool_uncertain": true, "saw_tool_use": true, "emitted_tool_use": true}
+HANDLED_COUNT 0
+RECENT 2026-10-25T04:13:55Z {"at": 1792901635.8967404, "error": "compact:8f5f65a885a6ef58e969874071d05c93be7cf55e492d4530f707b253979a38fc", "status": "skipped", "reason": "compact_no_observed_task"}
+RECENT 2026-10-25T06:51:24Z {"at": 1792911084.4009774, "error": "compact:fc01cb5e80572d9e84d265b174abf610d547c6c7ffcd5473263c76a69efd1714", "status": "skipped", "reason": "compact_no_observed_task"}
+RECENT 2026-10-25T12:02:22Z {"at": 1792929742.6826994, "error": "compact:3fc7d98832cf6a59e4f998b2ebea6c0a8c5255440a7f854e1af5a7ef11752b2a", "status": "skipped", "reason": "compact_no_observed_task"}
+RECENT 2026-10-25T15:17:57Z {"at": 1792941477.633864, "error": "compact:eec0c7d2bbf3eef2ce01ff3b00fdd14db4f5aade8a2e919045ca28724acbd250", "status": "skipped", "reason": "compact_no_observed_task"}
+RECENT 2026-10-25T21:10:46Z {"at": 1792962646.6402075, "error": "compact:61ef7400fcfefdb2b80f6b5037aba3a3724acc341352b37dbc1f440d20bdc5ec", "status": "skipped", "reason": "compact_no_observed_task"}
+RECENT 2026-10-26T00:36:49Z {"at": 1792975009.5961795, "error": "compact:ee8c4a6fbbe74c2523544eb35ee67a58b4680bcba0aa2c1b9c574fcb64a10fe2", "status": "skipped", "reason": "compact_no_observed_task"}
+RECENT 2026-10-26T03:50:11Z {"at": 1792986611.9505832, "error": "compact:9e2c222bf98bdc032f920ab0e3f37ec1b91ce5e54b0d739fb9d56f6d1bf2cb6c", "status": "skipped", "reason": "compact_no_observed_task"}
+RECENT 2026-10-26T17:36:22Z {"at": 1793036182.8092735, "error": "compact:6fb8f4084fa539796a2be0947d91283ca860d4cec64241305e36890ff15c32a9", "status": "skipped", "reason": "compact_no_observed_task"}
+CHAINS {}
+ROUTER_LOG 3131910 2026-10-26T13:01:19
+LOG_HITS 0
+LOG_TAIL_FIRSTLINE ciel-runtime router starting on 127.0.0.1:9780 (client base http://127.0.0.1:9780, log level ERROR, source=default)
+LINES_1350_1359 9
+L 2026-10-22T20:52:43 [ERROR] channel_stdin_proxy_blocked cursor=6484 message_id=6485 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+L 2026-10-22T20:52:43 [ERROR] channel_stdin_proxy_blocked cursor=6485 message_id=6486 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+L 2026-10-22T20:52:43 [ERROR] channel_stdin_proxy_blocked cursor=6486 message_id=6487 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+L 2026-10-22T20:55:37 [ERROR] channel_stdin_proxy_blocked cursor=6484 message_id=6485 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+L 2026-10-22T20:55:38 [ERROR] channel_stdin_proxy_blocked cursor=6485 message_id=6486 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+L 2026-10-22T20:55:38 [ERROR] channel_stdin_proxy_blocked cursor=6486 message_id=6487 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+L 2026-10-22T20:57:40 [ERROR] channel_stdin_proxy_blocked cursor=6484 message_id=6485 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+L 2026-10-22T20:57:40 [ERROR] channel_stdin_proxy_blocked cursor=6485 message_id=6486 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+L 2026-10-22T20:57:40 [ERROR] channel_stdin_proxy_blocked cursor=6486 message_id=6487 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+
+
+exit 0

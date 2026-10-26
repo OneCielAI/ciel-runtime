@@ -1,0 +1,6 @@
+observed_at_utc 2026-10-26T21:14:05Z script scripts/e8.py (read-only, via scripts/remote_read.py)
+WS_DIRS ['c27b0d656c05']
+D_ERR c27b0d656c05 PermissionError [WinError 5] Access is denied: 'C:\\Users\\aapw-a11u4\\AppData\\Roaming\\ciel-runtime\\workspaces\\c27b0d656c05'
+
+
+exit 0

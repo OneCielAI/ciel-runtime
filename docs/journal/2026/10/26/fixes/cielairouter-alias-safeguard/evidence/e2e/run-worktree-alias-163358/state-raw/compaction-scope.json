@@ -1,0 +1,28 @@
+{
+  "runtime": "claude",
+  "epoch": "21999205e6a64bffa29fb7a998d93d3a",
+  "started_at": 1793050448.3255365,
+  "identity_since": 1793050449.2898786,
+  "session_id": "8592add4-4d7f-4e8e-9715-5ee2b5c9cc2d",
+  "cwd": "C:\\Windows\\Temp\\ciel-owned-alias-wh3gpm4e\\ws",
+  "codex_home": "",
+  "path": "C:\\Windows\\Temp\\ciel-owned-alias-wh3gpm4e\\home\\.claude\\projects\\C--Windows-Temp-ciel-owned-alias-wh3gpm4e-ws\\8592add4-4d7f-4e8e-9715-5ee2b5c9cc2d.jsonl",
+  "messaging_socket_path": "\\\\.\\pipe\\LOCAL\\cc-msg-6b7363512ce532097626db9f49019e1b",
+  "owned_pid": 0,
+  "launcher_pid": 5868,
+  "claude_config_dir": "C:\\Windows\\Temp\\ciel-owned-alias-wh3gpm4e\\home\\.claude",
+  "request_identity": true,
+  "seeded": true,
+  "request_observed": true,
+  "identity_ready": {
+    "session_id": "8592add4-4d7f-4e8e-9715-5ee2b5c9cc2d",
+    "pid": 79596,
+    "proc_start": "134375240483705495",
+    "at": 1793050449.364
+  },
+  "native_models": {
+    "ciel-runtime-cielairouter-owned-route-alias": [
+      "claude-opus-5-5"
+    ]
+  }
+}

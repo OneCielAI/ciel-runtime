@@ -191,6 +191,10 @@ def _ignore_stream_failure(_metadata: dict[str, Any]) -> None:
     return None
 
 
+def _ignore_stream_model(_native_model: str) -> None:
+    return None
+
+
 def _stream_session_id(handler: Any) -> str | None:
     getter = getattr(getattr(handler, "headers", None), "get", None)
     value = getter("x-claude-code-session-id") if callable(getter) else None
@@ -336,6 +340,7 @@ def rebatch_anthropic_sse_text(
     *,
     services: AnthropicStreamServices,
     stream_failure_observer: Callable[[dict[str, Any]], None] = _ignore_stream_failure,
+    stream_model_observer: Callable[[str], None] = _ignore_stream_model,
 ) -> None:
     """
     Parse upstream Anthropic SSE and re-emit it with text_delta events buffered
@@ -348,6 +353,10 @@ def rebatch_anthropic_sse_text(
     did not complete, once the upstream response is closed. It carries counts
     and flags only, never body text, tool arguments or credentials, and it
     cannot change what was sent downstream.
+
+    ``stream_model_observer`` receives message_start's ``message.model`` (the
+    model that actually answered, which an upstream alias may name differently
+    from the request). It cannot change what is sent downstream either.
     """
 
     ANTHROPIC_THINKING_BLOCK_TYPES = services.io.ANTHROPIC_THINKING_BLOCK_TYPES
@@ -1066,6 +1075,11 @@ def rebatch_anthropic_sse_text(
             message = event.get("message")
             if isinstance(message, dict) and isinstance(message.get("id"), str):
                 upstream_message_id = message["id"][:128]
+            if isinstance(message, dict) and isinstance(message.get("model"), str) and message["model"].strip():
+                try:
+                    stream_model_observer(message["model"][:128])
+                except Exception as exc:
+                    router_log("WARN", f"anthropic_stream_model_observer_failed error={type(exc).__name__}")
         elif evt_type == "message_stop":
             saw_message_stop = True
             pending_message_stop = (event_type, data_str)

@@ -1,0 +1,49 @@
+Local installed 81f6a4b matches Edward source hashes in 01-transcript-facts.txt.
+ineligible_reason(observed upstream failure) = 'tool_use_seen'
+
+ciel_runtime_support/claude_stream_recovery_runtime.py sha256=e8636810fdfc0125447db027207fdd6e50cc5592a675397043f94fa5ebb9491c
+65: def ineligible_reason(failure: dict[str, Any]) -> str:
+66:     """Why a recorded failure may not be continued; empty when it may."""
+67: 
+68:     if (
+69:         failure.get("tool_uncertain") is not False
+70:         or failure.get("saw_tool_use") or failure.get("emitted_tool_use")
+71:     ):
+72:         return "tool_use_seen"
+73:     if not failure.get("visible_text"):
+74:         return "nothing_shown"
+75:     reason = str(failure.get("reason") or "")
+76:     if reason == _TRANSIENT_ERROR_EVENT:
+77:         if str(failure.get("upstream_error_type") or "") not in _TRANSIENT_ERROR_TYPES:
+78:             return "upstream_error_type"
+79:         return ""
+80:     if not reason.startswith(_TRANSIENT_REASONS):
+81:         return "reason"
+82:     return ""
+83: 
+
+ciel_runtime_support/claude_stream_recovery_runtime.py sha256=e8636810fdfc0125447db027207fdd6e50cc5592a675397043f94fa5ebb9491c
+529:     def _observe_error(self, record: dict[str, Any]) -> None:
+530:         # Another error replaces a candidate that never got quiet.
+531:         self._cancel("superseded_error")
+532:         error_uuid = str(record.get("uuid") or "")
+533:         message_id = self._assistant_ids.get(str(record.get("parentUuid") or ""), "")
+534:         if record.get("truncatedAfterOutput") is not True or not error_uuid or not message_id:
+535:             return
+536:         if self._plan_mode is not False:
+537:             reason = "plan_mode" if self._plan_mode else "permission_mode_unknown"
+538:             self._skip({"error_uuid": error_uuid}, reason, f"error={error_uuid}")
+539:             return
+540:         self._pending = {
+541:             "error_uuid": error_uuid,
+542:             "message_id": message_id,
+543:             "session_id": str(record.get("sessionId") or ""),
+544:             "continues_chain": self._last_prompt_recovery,
+545:             "seen_at": self.now(),
+546:             # Runtime input admitted after this point is newer work; the
+547:             # continuation must not reach Claude Code in front of it.
+548:             "input_watermark": self._watermark(),
+549:         }
+
+register.js sha256=abf039660d7bd7399856497b251cf0b11b8430bc1f45a3102466c4ad5b0d4712
+turn.complete hooks found: 0

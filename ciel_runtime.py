@@ -2936,7 +2936,7 @@ def _router_request_context() -> RouterRequestContext:
         assembly.ClaudeRouterResponsePorts(_rebatch_anthropic_sse_text, preserves_anthropic_thinking_contract, should_normalize_anthropic_stream_tool_use,
                                            set_upstream_stream_read_timeout, normalize_response_thinking_for_non_anthropic_provider, append_synthetic_tasklist_to_message,
                                            prepend_anthropic_text, rate_limit_notice, register_api_key_cooldown, key_from_request_headers),
-        assembly.ClaudeRouterContextRecoveryPorts(lambda body, raw, pcfg: native_context_recovery.recover_output_budget(body, raw, reserve_tokens=positive_int(pcfg.get("context_reserve_tokens")) or 0), _RUNTIME_COMPACTION.observe_request, _RUNTIME_COMPACTION.observe_failure, _RUNTIME_CONTEXT_REJECTION.reject_request, _STREAM_RECOVERY.request_scope, _STREAM_RECOVERY.recorder),
+        assembly.ClaudeRouterContextRecoveryPorts(lambda body, raw, pcfg: native_context_recovery.recover_output_budget(body, raw, reserve_tokens=positive_int(pcfg.get("context_reserve_tokens")) or 0), _RUNTIME_COMPACTION.observe_request, _RUNTIME_COMPACTION.observe_failure, _RUNTIME_CONTEXT_REJECTION.reject_request, _STREAM_RECOVERY.request_scope, _STREAM_RECOVERY.recorder, _RUNTIME_COMPACTION.observe_native_model),
     )
     return assembly.RouterRequestAssembly(
         openai, assembly.RouterRequestOuterPorts(forward_codex_backend_json, forward_codex_backend_get, write_openai_responses_error, try_write_json,

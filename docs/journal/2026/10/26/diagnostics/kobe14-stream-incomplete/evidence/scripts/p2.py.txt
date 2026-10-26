@@ -1,0 +1,23 @@
+import os, glob, json, time
+home = r"C:\ProgramData\aap-win\sandboxes\u24\home\kobe-ai"
+pkg = os.path.join(home, r".npm-global\node_modules\@one-ciel-ai\ciel-runtime\package.json")
+try: print("RUNTIME", json.load(open(pkg, encoding="utf-8")).get("version"))
+except Exception as e: print("RUNTIME_ERR", type(e).__name__, e)
+cpkg = os.path.join(home, r".npm-global\node_modules\@anthropic-ai\claude-code\package.json")
+try: print("CLAUDE", json.load(open(cpkg, encoding="utf-8")).get("version"))
+except Exception as e: print("CLAUDE_ERR", type(e).__name__, e)
+inst = r"C:\Users\aapw-a24u24\AppData\Roaming\ciel-runtime\router-instances\9780-651d879f6c68"
+try: print("INSTANCE_FILES", sorted(os.listdir(inst)))
+except Exception as e: print("INSTANCE_ERR", type(e).__name__, e)
+for base in [r"C:\Users\aapw-a24u24\.claude\projects", os.path.join(home, r".claude\projects")]:
+    try:
+        ds = os.listdir(base)
+        print("PROJECTS", base, ds)
+    except Exception as e:
+        print("PROJECTS_ERR", base, type(e).__name__, e); continue
+    files = []
+    for d in ds:
+        for f in glob.glob(os.path.join(base, d, "*.jsonl")):
+            st = os.stat(f); files.append((st.st_mtime, st.st_size, f))
+    for m, s, f in sorted(files)[-6:]:
+        print("JSONL", time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(m)), s, f)

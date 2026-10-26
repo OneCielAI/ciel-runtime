@@ -1,0 +1,18 @@
+import os, json
+acct = r"C:\Users\aapw-a11u4"
+c = json.load(open(os.path.join(acct, r"AppData\Roaming\ciel-runtime\config.json"), encoding="utf-8"))
+print("TOP_KEYS", sorted(k for k in c if "key" not in k.lower() and "token" not in k.lower() and "secret" not in k.lower())[:80])
+for k in ("provider", "active_provider", "current_provider"):
+    if k in c: print("TOP", k, c[k])
+p = (c.get("providers") or {}).get("cielairouter") or {}
+safe = {k: p.get(k) for k in ("current_model", "advisor_model", "context_window", "max_model_len", "native_compat", "preflight_prompt_compaction", "request_timeout_ms", "stream_enabled", "stream_word_chunking", "base_url")}
+print("CIELAIROUTER", json.dumps(safe, ensure_ascii=False))
+cm = p.get("custom_models")
+print("CUSTOM_MODELS", json.dumps(cm, ensure_ascii=False)[:1500])
+for name in ("model-list-cache.json", "model-registry.json"):
+    try:
+        v = json.load(open(os.path.join(acct, r"AppData\Roaming\ciel-runtime", name), encoding="utf-8"))
+        s = json.dumps(v, ensure_ascii=False)
+        i = s.find("walkie_opus55-sol61")
+        print("MODELFILE", name, len(s), s[max(0, i-300): i+700] if i >= 0 else "no walkie_opus55-sol61")
+    except Exception as e: print("MODELFILE_ERR", name, type(e).__name__)

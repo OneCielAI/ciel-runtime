@@ -1,0 +1,12 @@
+import os
+log = r"C:\Users\aapw-a11u4\AppData\Roaming\ciel-runtime\router-instances\8966-c27b0d656c05\router.log"
+st = os.stat(log)
+with open(log, "rb") as fh:
+    fh.seek(max(0, st.st_size - 3*1024*1024)); lines = fh.read().decode("utf-8", "replace").splitlines()
+print("FIRST", lines[1][:120] if len(lines) > 1 else "")
+sel = [l for l in lines if l[:19] >= "2026-10-26T13:37" and any(k in l for k in ("compact", "Compact", "context", "overflow", "too long", "safeguard", "idle", "cancel", "summar"))]
+print("SELECTED", len(sel))
+for l in sel[:60]: print("L", l[:420])
+if len(sel) > 60:
+    print("...")
+    for l in sel[-30:]: print("L", l[:420])

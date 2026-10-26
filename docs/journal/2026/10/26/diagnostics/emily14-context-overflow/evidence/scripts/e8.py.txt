@@ -1,0 +1,18 @@
+import os, json, time
+acct = r"C:\Users\aapw-a11u4"
+ws = os.path.join(acct, r"AppData\Roaming\ciel-runtime\workspaces")
+try:
+    ds = os.listdir(ws); print("WS_DIRS", ds)
+except Exception as e: print("WS_ERR", type(e).__name__, e); ds = []
+for d in ds:
+    p = os.path.join(ws, d)
+    try: fs = os.listdir(p)
+    except Exception as e: print("D_ERR", d, type(e).__name__, e); continue
+    print("D", d, fs[:40])
+    cp = os.path.join(p, "config.json")
+    if os.path.isfile(cp):
+        try:
+            c = json.load(open(cp, encoding="utf-8"))
+            pr = (c.get("providers") or {}).get("cielairouter") or {}
+            print("  CFG mtime", time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(os.path.getmtime(cp))), "current_provider", c.get("current_provider"), "compact_safeguard", c.get("compact_safeguard"), "cielairouter.current_model", pr.get("current_model"), "context_window", pr.get("context_window"), "max_model_len", pr.get("max_model_len"))
+        except Exception as e: print("  CFG_ERR", type(e).__name__, e)

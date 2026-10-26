@@ -1,0 +1,29 @@
+  File "<frozen runpy>", line 291, in run_path
+  File "<frozen runpy>", line 98, in _run_module_code
+  File "<frozen runpy>", line 88, in _run_code
+  File "C:\Users\djlov\ciel-runtime-wt-work\ciel_runtime.py", line 4976, in <module>
+    main()
+  File "C:\Users\djlov\ciel-runtime-wt-work\ciel_runtime_support\cli_application_context.py", line 153, in main
+    self.context().main()
+  File "C:\Users\djlov\ciel-runtime-wt-work\ciel_runtime_support\cli_application_context.py", line 75, in main
+    raise SystemExit(self.run_cli(arguments[2:]))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\djlov\ciel-runtime-wt-work\ciel_runtime_support\cli_application_context.py", line 38, in run_cli
+    return self.dispatch.dispatch(argv, self.dispatch.services())
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\djlov\ciel-runtime-wt-work\ciel_runtime_support\cli_dispatch.py", line 872, in dispatch_cli
+    return launch_claude(
+           ^^^^^^^^^^^^^^
+  File "C:\Users\djlov\ciel-runtime-wt-work\ciel_runtime_support\remote_instructions.py", line 309, in __call__
+    return self.delegate(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\djlov\ciel-runtime-wt-work\ciel_runtime_support\runtime_launch_context.py", line 113, in launch_claude
+    return self.context().launch_claude(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\djlov\ciel-runtime-wt-work\ciel_runtime_support\runtime_launch_context.py", line 46, in launch_claude
+    return self.runners.claude(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\djlov\ciel-runtime-wt-work\ciel_runtime_support\runtime_launch.py", line 475, in run_claude
+    raise RuntimeError(
+RuntimeError: No concrete model is selected for provider cielairouter; choose a model from the provider model list befor
+e launching Claude Code.

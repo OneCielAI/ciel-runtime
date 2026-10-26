@@ -16,7 +16,7 @@ import test_router_raw_context_observers as route_fixtures
 
 
 class ClaudeStreamScopeCaptureTests(unittest.TestCase):
-    def exercise_stream(self, *, switch_epoch):
+    def exercise_stream(self, *, switch_epoch, main_session=True):
         scope_a = CompactionScope("claude", recovery_fixtures.SESSION, "epoch-A")
         scope_b = CompactionScope("claude", recovery_fixtures.SESSION, "epoch-B")
         binding = SimpleNamespace(scope=scope_a)
@@ -36,7 +36,7 @@ class ClaudeStreamScopeCaptureTests(unittest.TestCase):
 
         def capture_scope(_headers, _body):
             events.append("scope")
-            return binding.scope
+            return binding.scope if main_session else None
 
         def select_protocol(*_args):
             events.append("dispatch")
@@ -59,7 +59,12 @@ class ClaudeStreamScopeCaptureTests(unittest.TestCase):
                 self.assertIs(handler, actual_handler)
                 self.assertIs(response, actual_response)
                 kwargs["stream_failure_observer"](failure_metadata)
+                if main_session:
+                    kwargs["stream_model_observer"]("claude-opus-5-5")
+                else:
+                    self.assertNotIn("stream_model_observer", kwargs)
 
+            native = mock.Mock()
             services = route_fixtures.RawContextObserverTests().claude_services(None, events)
             services = replace(services,
                 routing=replace(services.routing, select_protocol=select_protocol,
@@ -79,7 +84,7 @@ class ClaudeStreamScopeCaptureTests(unittest.TestCase):
                     rebatch_sse=mock.Mock(side_effect=relay)),
                 context_recovery=replace(services.context_recovery,
                     reject_request=lambda *_a: None, stream_scope=scope,
-                    observe_stream_failure=record))
+                    observe_stream_failure=record, observe_native_model=native))
             with mock.patch.object(claude, "anthropic_request_run"), mock.patch.object(
                 claude, "open_with_oauth", side_effect=lambda _run, headers, opener: opener(headers)
             ), mock.patch.object(ledger, "record_failure", wraps=ledger.record_failure) as write:
@@ -89,11 +94,16 @@ class ClaudeStreamScopeCaptureTests(unittest.TestCase):
                 services.context_recovery.observe_request.assert_called_once_with(
                     "test", {}, raw_body, "claude", handler.headers)
                 scope.assert_called_once_with(handler.headers, raw_body)
-                record.assert_called_once_with(scope_a, failure_metadata)
+                record.assert_called_once_with(scope_a if main_session else None, failure_metadata)
                 services.transport.open_request.assert_called_once()
                 services.response.rebatch_sse.assert_called_once()
                 services.core.try_write_json.assert_not_called()
                 handler.send_response.assert_called_once_with(200)
+                if not main_session:
+                    native.assert_not_called()
+                    return
+                # The request-start scope and the unmodified request model, even after an epoch switch.
+                native.assert_called_once_with(scope_a, "model", "claude-opus-5-5")
                 if switch_epoch:
                     self.assertEqual(scope_b, binding.scope)
                     write.assert_not_called()
@@ -111,6 +121,9 @@ class ClaudeStreamScopeCaptureTests(unittest.TestCase):
 
     def test_unchanged_request_scope_records_stream_failure(self):
         self.exercise_stream(switch_epoch=False)
+
+    def test_request_outside_main_session_reports_no_native_model(self):
+        self.exercise_stream(switch_epoch=False, main_session=False)
 
 
 if __name__ == "__main__":

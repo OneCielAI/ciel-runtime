@@ -1,0 +1,18 @@
+observed_at_utc 2026-10-26T21:06:03Z script scripts/p1.py (read-only, via scripts/remote_read.py)
+SANDBOX_HITS []
+PROC 21668 7940 node.exe /Date(1793033149316)/ "C:\Program Files\nodejs\node.exe" C:\ProgramData\aap-win\sandboxes\u24\home\kobe-ai\.npm-global/node_modules/@one-ciel-ai/ciel-runtime/npm-bin/ciel-runtime.js --continue
+PROC 23244 21668 py.exe /Date(1793033149705)/ py -3 C:\ProgramData\aap-win\sandboxes\u24\home\kobe-ai\.npm-global\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime.py cli --continue
+PROC 17844 23244 python.exe /Date(1793033149745)/ "C:\Program Files\Python313\python.exe" C:\ProgramData\aap-win\sandboxes\u24\home\kobe-ai\.npm-global\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime.py cli --continue
+PROC 4572 17844 python.exe /Date(1793033215018)/ "C:\Program Files\Python313\python.exe" C:\ProgramData\aap-win\sandboxes\u24\home\kobe-ai\.npm-global\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime.py serve
+PROC 5316 17844 cmd.exe /Date(1793042109926)/ C:\WINDOWS\system32\cmd.exe /d /s /c "C:\ProgramData\aap-win\sandboxes\u24\home\kobe-ai\.npm-global\claude.cmd --dangerously-skip-permissions --permission-mode bypassPermissions --disallowedTools WebSearch,WebFetch --model ciel-runtime-cielairouter-_walkie_sol61-opus55-fast --mcp-config C:\Users\aapw-a24u24\AppData\Roaming\ciel-runtime\router-instances\9780-651d879f6c68\web-tools-mcp.json C:\Users
+PROC 6060 17844 python.exe /Date(1793042109964)/ "C:\Program Files\Python313\python.exe" C:\ProgramData\aap-win\sandboxes\u24\home\kobe-ai\.npm-global\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime_support\windows_console_guard.py 17844 487 7
+PROC 12532 5316 claude.exe /Date(1793042110012)/ "C:\ProgramData\aap-win\sandboxes\u24\home\kobe-ai\.npm-global\\node_modules\@anthropic-ai\claude-code\bin\claude.exe"    --dangerously-skip-permissions --permission-mode bypassPermissions --disallowedTools WebSearch,WebFetch --model ciel-runtime-cielairouter-_walkie_sol61-opus55-fast --mcp-config C:\Users\aapw-a24u24\AppData\Roaming\ciel-runtime\router-instances\9780-651d879f6c68\web-tools-mcp.js
+PROC 14860 12532 python.exe /Date(1793042115594)/ "C:\Program Files\Python313\python.exe" C:\ProgramData\aap-win\sandboxes\u24\home\kobe-ai\.local\walkie-install\mcp-stdio.py C:\ProgramData\aap-win\sandboxes\u24\home\kobe-ai\.local\walkie-install\mcp-credential.json
+PROC 8556 12532 python.exe /Date(1793042115620)/ "C:\Program Files\Python313\python.exe" C:\ProgramData\aap-win\sandboxes\u24\home\kobe-ai\.local\walkie-install\transcript-relay.py --stdio C:\ProgramData\aap-win\sandboxes\u24\home\kobe-ai\.local\walkie-install\mcp-credential.json
+PROC 22068 14860 python.exe /Date(1793042123532)/ "C:\Program Files\Python313\python.exe" C:\ProgramData\aap-win\sandboxes\u24\home\kobe-ai\.local\walkie-install\transcript-relay.py C:\ProgramData\aap-win\sandboxes\u24\home\kobe-ai\.local\walkie-install\transcript-relay.json
+PROC 14720 14860 node.exe /Date(1793042124108)/ "C:\Program Files\nodejs\node.EXE" C:\ProgramData\aap-win\sandboxes\u24\home\kobe-ai\.local\walkie-install\walkie-presence-mcp.mjs C:\ProgramData\aap-win\sandboxes\u24\home\kobe-ai\.local\walkie-install\presence.json
+PROC 10336 14128 powershell.exe /Date(1793048762818)/ powershell -NoProfile -Command "Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'kobe' } | Select-Object ProcessId,ParentProcessId,Name,CreationDate,CommandLine | ConvertTo-Json -Depth 2"
+
+
+
+exit 0

@@ -1,0 +1,158 @@
+{
+  "label": "previous-3c95a4b",
+  "expect": "none",
+  "runtime_root": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-prev-3c95a4b",
+  "scratch": "C:\\Windows\\Temp\\ciel-owned-alias-tirhdvb6",
+  "stripped_env_names": [
+    "ANTHROPIC_AUTH_TOKEN",
+    "ANTHROPIC_BASE_URL",
+    "ANTHROPIC_CUSTOM_MODEL_OPTION",
+    "ANTHROPIC_CUSTOM_MODEL_OPTION_SUPPORTED_CAPABILITIES",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTED_CAPABILITIES",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTS",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTED_CAPABILITIES",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTS",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTED_CAPABILITIES",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTS",
+    "ANTHROPIC_MODEL",
+    "CIEL_RUNTIME_AUTO_ALLOW_DANGEROUS_RM",
+    "CIEL_RUNTIME_BYPASS_PERMISSIONS",
+    "CIEL_RUNTIME_CONFIG_DIR",
+    "CIEL_RUNTIME_HOME",
+    "CIEL_RUNTIME_LAUNCH_CWD",
+    "CIEL_RUNTIME_MODEL_ALIAS",
+    "CIEL_RUNTIME_PROVIDER",
+    "CIEL_RUNTIME_REGISTERED_HOME",
+    "CIEL_RUNTIME_SCRIPT",
+    "CIEL_RUNTIME_SELECTED_HOME",
+    "CIEL_RUNTIME_STATE_DIR",
+    "CIEL_RUNTIME_WORKSPACE_STATE_DIR",
+    "CLAUDECODE",
+    "CLAUDE_CHROME_CLASSIFIER_FLOOR",
+    "CLAUDE_CODE_ATTRIBUTION_HEADER",
+    "CLAUDE_CODE_AUTO_COMPACT_WINDOW",
+    "CLAUDE_CODE_CHILD_SESSION",
+    "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS",
+    "CLAUDE_CODE_DISABLE_NONSTREAMING_FALLBACK",
+    "CLAUDE_CODE_DISABLE_TERMINAL_TITLE",
+    "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY",
+    "CLAUDE_CODE_ENTRYPOINT",
+    "CLAUDE_CODE_EXECPATH",
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS",
+    "CLAUDE_CODE_MAX_CONTEXT_TOKENS",
+    "CLAUDE_CODE_MAX_OUTPUT_TOKENS",
+    "CLAUDE_CODE_MAX_RETRIES",
+    "CLAUDE_CODE_MESSAGING_SOCKET",
+    "CLAUDE_CODE_MESSAGING_TOKEN",
+    "CLAUDE_CODE_NONSTREAMING_TIMEOUT_RETRIES",
+    "CLAUDE_CODE_RETRY_WATCHDOG",
+    "CLAUDE_CODE_SEND_FEEDBACK",
+    "CLAUDE_CODE_SESSION_ATTENDED",
+    "CLAUDE_CODE_SESSION_ID",
+    "CLAUDE_CODE_SUBAGENT_MODEL",
+    "CLAUDE_CODE_SUBAGENT_MODEL_FORCE",
+    "CLAUDE_EFFORT",
+    "CLAUDE_PID",
+    "CODEX_SPARKLE_ENABLED",
+    "OLLAMA_CONTEXT_LENGTH",
+    "OLLAMA_FLASH_ATTENTION",
+    "OLLAMA_HOST",
+    "OLLAMA_KV_CACHE_TYPE",
+    "OLLAMA_MODELS",
+    "OLLAMA_NUM_PARALLEL",
+    "OLLAMA_SCHED_SPREAD"
+  ],
+  "claude_version": "2.1.310 (Claude Code)",
+  "command": [
+    "C:\\Program Files\\Python311\\python.exe",
+    "-I",
+    "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\fixes\\cielairouter-alias-safeguard\\evidence\\e2e\\launch_shim.py",
+    "--",
+    "cli",
+    "--ca-runtime",
+    "claude",
+    "--ca-no-update-check",
+    "--ca-no-self-update-check",
+    "--ca-no-web-search",
+    "--",
+    "--permission-mode",
+    "default",
+    "--debug-file",
+    "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\fixes\\cielairouter-alias-safeguard\\evidence\\e2e\\run-previous-3c95a4b-163558\\native-debug.log"
+  ],
+  "ports": {
+    "router": 54504,
+    "fixture": 54505
+  },
+  "fixture": {
+    "alias": "owned-route-alias",
+    "native_model": "claude-opus-5-5",
+    "window": 200000,
+    "high_tokens": 190000
+  },
+  "events": [
+    {
+      "at": 1793050558.179,
+      "kind": "launched",
+      "pid": 12144,
+      "watcher": 74488
+    },
+    {
+      "at": 1793050572.656,
+      "kind": "wait_pass",
+      "label": "owned router health"
+    },
+    {
+      "at": 1793050573.072,
+      "kind": "wait_pass",
+      "label": "native launch"
+    },
+    {
+      "at": 1793050573.102,
+      "kind": "wait_pass",
+      "label": "native process present"
+    },
+    {
+      "at": 1793050585.504,
+      "kind": "wait_pass",
+      "label": "watcher typed baseline"
+    },
+    {
+      "at": 1793050585.906,
+      "kind": "wait_pass",
+      "label": "high-usage turn reached loopback"
+    },
+    {
+      "at": 1793050586.321,
+      "kind": "wait_pass",
+      "label": "high-usage reply rendered"
+    },
+    {
+      "at": 1793050589.925,
+      "kind": "wait_pass",
+      "label": "screenshot 01-high-usage-reply"
+    },
+    {
+      "at": 1793050621.529,
+      "kind": "wait_pass",
+      "label": "screenshot 02-no-compact"
+    }
+  ],
+  "live_before": {
+    "9505": {
+      "pid": 77432,
+      "version": "0.2.51-nightly.20261026-183726.81f6a4b",
+      "source_fingerprint": "72c6bfb456e30cd7",
+      "error": null
+    },
+    "9524": {
+      "pid": 25276,
+      "version": "0.2.51",
+      "source_fingerprint": "f86ee3638ee760f3",
+      "error": null
+    }
+  }
+}

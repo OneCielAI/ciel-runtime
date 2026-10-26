@@ -1,0 +1,48 @@
+observed_at_utc 2026-10-26T20:39:26.236059+00:00
+transcript C:\Users\aapw-a22u22\.claude\projects\C--ProgramData-aap-win-sandboxes-u22-home-edward-ai\354281f4-a695-46c2-a0db-450d681953b8.jsonl
+PARENT_CHAIN fb61962b-8b69-47d0-b4ec-778fdcb7de38
+{"ts": "2026-10-26T20:16:19.062Z", "type": "user", "subtype": null, "uuid": "fb61962b-8b69-47d0-b4ec-778fdcb7de38", "parent": "a3df7556-9efe-4e55-a9bb-291555df30fb", "stop": null, "mid": null, "api": null, "truncatedAfterOutput": null, "blocks": ["text"]}
+{"ts": "2026-10-26T20:16:03.828Z", "type": "system", "subtype": "turn_duration", "uuid": "a3df7556-9efe-4e55-a9bb-291555df30fb", "parent": "d3e3ed58-3bb0-4bc3-97d0-ed8b76d78af9", "stop": null, "mid": null, "api": null, "truncatedAfterOutput": null, "blocks": []}
+{"ts": "2026-10-26T20:16:03.811Z", "type": "system", "subtype": "stop_hook_summary", "uuid": "d3e3ed58-3bb0-4bc3-97d0-ed8b76d78af9", "parent": "3d596afa-c772-4d6a-99bb-df05f2f5e3ca", "stop": null, "mid": null, "api": null, "truncatedAfterOutput": null, "blocks": []}
+{"ts": "2026-10-26T20:16:02.285Z", "type": "assistant", "subtype": null, "uuid": "3d596afa-c772-4d6a-99bb-df05f2f5e3ca", "parent": "6e257f15-9c2f-42de-b849-307f90685fe9", "stop": "end_turn", "mid": "1793045752651", "api": null, "truncatedAfterOutput": null, "blocks": ["text"]}
+{"ts": "2026-10-26T20:15:38.477Z", "type": "user", "subtype": null, "uuid": "6e257f15-9c2f-42de-b849-307f90685fe9", "parent": "03e29041-2ab6-4b65-a761-5d24286ec29d", "stop": null, "mid": null, "api": null, "truncatedAfterOutput": null, "blocks": ["tool_result"]}
+PARENT_CHAIN 1ce83240-bd3e-4e3f-b2ab-32b91e7f8f48
+{"ts": "2026-10-26T20:20:04.547Z", "type": "assistant", "subtype": null, "uuid": "1ce83240-bd3e-4e3f-b2ab-32b91e7f8f48", "parent": "5bad1f7d-cdde-4433-ba3f-fe39e9856cb2", "stop": "stop_sequence", "mid": "77d4bc28-12de-4906-8d9d-c10cdcaff794", "api": true, "truncatedAfterOutput": null, "blocks": ["text"]}
+{"ts": "2026-10-26T20:19:48.853Z", "type": "user", "subtype": null, "uuid": "5bad1f7d-cdde-4433-ba3f-fe39e9856cb2", "parent": "0f7e6c30-f8a1-4d9a-9467-9fc61d2bd988", "stop": null, "mid": null, "api": null, "truncatedAfterOutput": null, "blocks": ["tool_result"]}
+{"ts": "2026-10-26T20:19:46.512Z", "type": "assistant", "subtype": null, "uuid": "0f7e6c30-f8a1-4d9a-9467-9fc61d2bd988", "parent": "22613a9f-7930-40fb-bf5d-4f2f6c715b62", "stop": "tool_use", "mid": "1793045985892", "api": null, "truncatedAfterOutput": null, "blocks": ["Agent"]}
+{"ts": "2026-10-26T20:19:25.749Z", "type": "user", "subtype": null, "uuid": "22613a9f-7930-40fb-bf5d-4f2f6c715b62", "parent": "1b7d6650-eda9-4c06-b7ce-51a5d10d619a", "stop": null, "mid": null, "api": null, "truncatedAfterOutput": null, "blocks": ["tool_result"]}
+{"ts": "2026-10-26T20:19:24.368Z", "type": "assistant", "subtype": null, "uuid": "1b7d6650-eda9-4c06-b7ce-51a5d10d619a", "parent": "463656c2-0a99-4cd1-b5d6-dd4009538d9a", "stop": "tool_use", "mid": "1793045964010", "api": null, "truncatedAfterOutput": null, "blocks": ["mcp__ciel-runtime-router__work_node_update"]}
+PARENT_CHAIN d2fe8a60-ea7f-4b28-8be9-c4c31d64883c
+{"ts": "2026-10-26T20:24:48.344Z", "type": "assistant", "subtype": null, "uuid": "d2fe8a60-ea7f-4b28-8be9-c4c31d64883c", "parent": "85a0db45-1f49-4413-898d-d9f29b89a48a", "stop": "end_turn", "mid": "1793046280930", "api": null, "truncatedAfterOutput": null, "blocks": ["text"]}
+{"ts": "2026-10-26T20:24:33.520Z", "type": "user", "subtype": null, "uuid": "85a0db45-1f49-4413-898d-d9f29b89a48a", "parent": "0603aaae-ef4c-43a5-890f-a029c4ec8372", "stop": null, "mid": null, "api": null, "truncatedAfterOutput": null, "blocks": ["tool_result"]}
+{"ts": "2026-10-26T20:24:32.570Z", "type": "assistant", "subtype": null, "uuid": "0603aaae-ef4c-43a5-890f-a029c4ec8372", "parent": "3ca70450-793a-413c-9fe7-bffe7a230bdd", "stop": "tool_use", "mid": "1793046271771", "api": null, "truncatedAfterOutput": null, "blocks": ["mcp__walkie__walkie_read_messages"]}
+WORK 2026-10-26T20:13:38.098Z 1/9 executing
+WORK 2026-10-26T20:13:51.684Z 1/9 executing
+WORK 2026-10-26T20:14:30.865Z 1/9 executing
+STOP_HOOK {"timestamp": "2026-10-26T20:16:03.811Z", "parentUuid": "3d596afa-c772-4d6a-99bb-df05f2f5e3ca", "hookCount": 1, "hookErrors": [], "preventedContinuation": false, "hasOutput": false}
+WORK 2026-10-26T20:17:29.655Z 1/9 executing
+STOP_HOOK {"timestamp": "2026-10-26T20:18:22.440Z", "parentUuid": "50f15a0d-065c-40fc-aa7e-f01218e5a0ab", "hookCount": 1, "hookErrors": [], "preventedContinuation": false, "hasOutput": false}
+WORK 2026-10-26T20:18:38.773Z 1/11 planning
+WORK 2026-10-26T20:18:48.503Z 1/11 executing
+WORK 2026-10-26T20:19:15.431Z 1/11 executing
+WORK 2026-10-26T20:19:25.749Z 1/11 executing
+WORK 2026-10-26T20:21:03.589Z 2/11 executing
+WORK 2026-10-26T20:21:17.735Z 2/11 executing
+WORK 2026-10-26T20:21:30.960Z 1/11 executing
+WORK 2026-10-26T20:21:43.376Z 2/11 executing
+WORK 2026-10-26T20:22:29.980Z 3/11 executing
+WORK 2026-10-26T20:22:42.332Z 4/11 executing
+STOP_HOOK {"timestamp": "2026-10-26T20:23:27.180Z", "parentUuid": "3bbd126a-b569-4cfd-bf60-de433700d854", "hookCount": 1, "hookErrors": [], "preventedContinuation": false, "hasOutput": false}
+STOP_HOOK {"timestamp": "2026-10-26T20:24:49.093Z", "parentUuid": "d2fe8a60-ea7f-4b28-8be9-c4c31d64883c", "hookCount": 1, "hookErrors": [], "preventedContinuation": false, "hasOutput": false}
+WORK 2026-10-26T20:27:37.660Z 4/11 executing
+STOP_HOOK {"timestamp": "2026-10-26T20:27:51.675Z", "parentUuid": "7f6f0197-ba42-4991-bf16-e425d0013eb8", "hookCount": 1, "hookErrors": [], "preventedContinuation": false, "hasOutput": false}
+FAILURE {"runtime": "claude", "session_id": "354281f4-a695-46c2-a0db-450d681953b8", "epoch": "9e9f3d213c724de09004fdf45cf394c8", "message_id": "1793046003178", "failed_at": 1793046003.8639765, "provider": "cielairouter", "reason": "anthropic_stream_upstream_error_event", "upstream_error_type": "api_error", "visible_text": false, "tool_uncertain": true, "saw_tool_use": true, "emitted_tool_use": true}
+HANDLED_COUNT 0
+RECENT_LAST [{"at": 1793032858.5283868, "error": "compact:d1612090f9f7f2975d1bf4ae0bf61f7bdb2f56685184181d2df065682effe3a9", "status": "skipped", "reason": "compact_no_observed_task"}, {"at": 1793038174.4904647, "error": "compact:7ec8e5b9edafe8f3bbaf548988611df40d626eefab015f156fde4d1bfe6e0336", "status": "skipped", "reason": "compact_no_observed_task"}]
+SOURCE_HASH ciel_runtime_support/claude_stream_recovery_runtime.py e8636810fdfc0125447db027207fdd6e50cc5592a675397043f94fa5ebb9491c
+SOURCE_HASH ciel_runtime_support/claude_mods/ciel-work/hooks/register.js abf039660d7bd7399856497b251cf0b11b8430bc1f45a3102466c4ad5b0d4712
+HEALTH {"pid": 18768, "version": "0.2.51-nightly.20261026-183726.81f6a4b", "provider": "cielairouter", "workspace": "c:\\programdata\\aap-win\\sandboxes\\u22\\home\\edward-ai", "source_fingerprint": "72c6bfb456e30cd7"}
+LOG_LEVEL=ERROR; INFO recovery decisions unavailable; no log-level changes performed
+
+
+exit 0

@@ -1,0 +1,9 @@
+observed_at_utc 2026-10-26T21:14:07Z script scripts/e9.py (read-only, via scripts/remote_read.py)
+FIRST ciel-runtime router starting on 127.0.0.1:8966 (client base http://127.0.0.1:8966, log level WARN, source=file)
+SELECTED 3
+L 2026-10-26T13:59:17 [WARN] context_compact_chunk_retry provider=cielairouter chunk=248 attempt=1/3 completed_chunks=8 error=UpstreamFailure cause=UpstreamFailure
+L 2026-10-26T14:02:38 [WARN] context_compact_failed provider=cielairouter model=ciel-runtime-cielairouter-_walkie_opus55-sol61-fast completed_chunks=8/20 reused_chunks=0 summary_calls=14 saved_steps=12 reason=client_cancelled error=ContextCompactionFailed
+L 2026-10-26T14:02:38 [WARN] router_client_disconnected provider=cielairouter model=ciel-runtime-cielairouter-_walkie_opus55-sol61-fast error=ContextCompactionFailed: semantic context compaction failed: client_cancelled
+
+
+exit 0

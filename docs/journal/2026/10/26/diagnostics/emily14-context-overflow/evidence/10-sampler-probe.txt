@@ -1,0 +1,10 @@
+local probe against worktree 3c95a4b (same native_model_usage.py as deployed 3c95a4b: identical)
+configured='_Walkie_Opus55-Sol61-Fast'                                native='claude-opus-5-5'                                       sample=None
+configured='_Walkie_Opus55-Sol61-Fast'                                native='gpt-6.1-sol'                                           sample=None
+configured='_Walkie_Opus55-Sol61-Fast'                                native='_Walkie_Opus55-Sol61-Fast'                             sample=tokens=800000
+configured='_walkie_opus55-sol61-fast'                                native='claude-opus-5-5'                                       sample=None
+configured='_walkie_opus55-sol61-fast'                                native='gpt-6.1-sol'                                           sample=None
+configured='_walkie_opus55-sol61-fast'                                native='_walkie_opus55-sol61-fast'                             sample=tokens=800000
+configured='ciel-runtime-cielairouter-_walkie_opus55-sol61-fast'      native='claude-opus-5-5'                                       sample=None
+configured='ciel-runtime-cielairouter-_walkie_opus55-sol61-fast'      native='gpt-6.1-sol'                                           sample=None
+configured='ciel-runtime-cielairouter-_walkie_opus55-sol61-fast'      native='ciel-runtime-cielairouter-_walkie_opus55-sol61-fast'   sample=tokens=800000

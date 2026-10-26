@@ -1,0 +1,38 @@
+{
+  "scope": {
+    "runtime": "claude",
+    "session_id": "8592add4-4d7f-4e8e-9715-5ee2b5c9cc2d",
+    "epoch": "21999205e6a64bffa29fb7a998d93d3a"
+  },
+  "phase": "verified",
+  "pressure": false,
+  "baseline_tokens": 190000,
+  "context_limit": 200000,
+  "requested_at": 1793050462.5400174,
+  "deadline": 1793051663.0240831,
+  "baseline_checkpoint_id": "",
+  "checkpoint_id": "f528b2209e2174f133ff7c79d15953ac6571081dfdf8bc4726cbfb3491f6235b",
+  "request_id": "6b039d9a68f5474a86c89e15e6dd105a",
+  "attempts": 1,
+  "safeguard_model": "owned-route-alias",
+  "safeguard_sample": "7874ccd6e7f107fcecd73b2fa0cb573f93901b19856d60642622c99ba33ff32f",
+  "safeguard_seen": [
+    "7874ccd6e7f107fcecd73b2fa0cb573f93901b19856d60642622c99ba33ff32f"
+  ],
+  "dispatch": {
+    "automatic": true,
+    "source": "model-compact-safeguard",
+    "scope": {
+      "runtime": "claude",
+      "session_id": "8592add4-4d7f-4e8e-9715-5ee2b5c9cc2d",
+      "epoch": "21999205e6a64bffa29fb7a998d93d3a"
+    },
+    "request_id": "6b039d9a68f5474a86c89e15e6dd105a",
+    "baseline_checkpoint_id": "",
+    "dispatched_at": 1793050462.6587038,
+    "submission": "submitted"
+  },
+  "checkpoint_observed_at": 1793050463.8736284,
+  "verified_at": 1793050463.8761458,
+  "next_raw_tokens": 2682
+}

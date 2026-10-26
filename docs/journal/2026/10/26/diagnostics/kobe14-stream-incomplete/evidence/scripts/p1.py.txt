@@ -1,0 +1,22 @@
+import os, glob, subprocess, json
+root = r"C:\ProgramData\aap-win-sandboxes"
+hits = []
+for u in sorted(os.listdir(root)) if os.path.isdir(root) else []:
+    home = os.path.join(root, u, "home")
+    if os.path.isdir(home):
+        for n in os.listdir(home):
+            if "kobe" in n.lower():
+                hits.append(os.path.join(home, n))
+print("SANDBOX_HITS", hits)
+ps = r"Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'kobe' } | Select-Object ProcessId,ParentProcessId,Name,CreationDate,CommandLine | ConvertTo-Json -Depth 2"
+r = subprocess.run(["powershell", "-NoProfile", "-Command", ps], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=40)
+out = r.stdout.strip()
+try:
+    rows = json.loads(out) if out else []
+    rows = rows if isinstance(rows, list) else [rows]
+except Exception as e:
+    print("PSERR", e, out[:500]); rows = []
+for x in rows:
+    cl = (x.get("CommandLine") or "")
+    print("PROC", x.get("ProcessId"), x.get("ParentProcessId"), x.get("Name"), x.get("CreationDate"), cl[:400])
+print(r.stderr[:300])
