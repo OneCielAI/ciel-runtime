@@ -1,0 +1,11 @@
+owned router: yes
+owned cmd: yes
+owned window: yes
+interactive ready: yes
+start notice: yes
+empty plan hint: yes
+owned stop 71144 SUCCESS: The process with PID 68768 (child process of PID 71144) has been terminated.
+SUCCESS: The process with PID 71144 (child process of PID 49736) has been terminated.
+owned stop 53576 SUCCESS: The process with PID 53576 (child process of PID 54808) has been terminated.
+owned stop 35452 SUCCESS: The process with PID 35452 (child process of PID 54808) has been terminated.
+evidence C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-mode-hints\evidence\run-1b68d59b

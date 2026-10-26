@@ -27,6 +27,9 @@ let enabled = true
 let generation = 0
 let cachedSession = null
 let hinted = ''
+let starts = 0
+let noticed = 0
+const RETRY_MS = [250, 500, 1000, 2000, 4000, 8000]
 const INSTRUCTIONS = 'Ciel Work mode is on. Before edits or state-changing commands, use '
   + 'work_plan_set: goal -> phases -> tasks -> concrete verifiable steps. Triage every new user '
   + 'request first: an independent request becomes its own goal (root-level item), its title starting '
@@ -140,13 +143,34 @@ async function openDetails($, id = null, origin = null) {
   if (await sessionId($) === identity) await $.ui.open({ id: PANE, title: 'Work details',
     focus: true, closeOnEscape: true, rows: 18, columns: 64 })
 }
+// A transcript notice for the person, once per session start; the model never reads it.
+function notice($, ticket) {
+  if (noticed === ticket) return
+  noticed = ticket
+  try { $.ui.log(NOTICE) } catch {}
+}
+// On a mod's first load the engine can still be connecting the router when the session starts
+// ("no connected MCP tool"): read again shortly instead of staying unavailable until the next prompt.
+function retryStart($, ticket, attempt = 0) {
+  if (attempt >= RETRY_MS.length) return
+  try {
+    $.clock.after(RETRY_MS[attempt], async () => {
+      if (ticket !== starts) return
+      const s = cached || await refresh($)
+      if (ticket !== starts) return
+      if (!s) retryStart($, ticket, attempt + 1)
+      else if (s.enabled) notice($, ticket)
+    })
+  } catch {}
+}
 export function register(on) {
   on('session.start', async ($, e, next) => {
     await $.command.register({ name: 'work-mode', description: 'Work mode: summary, help, keyboard inspector, tree or raw status',
       argumentHint: '[help|view|tree|status]', immediate: true })
+    const ticket = ++starts
     const s = await refresh($)
-    // A transcript notice for the person; the model never reads it.
-    if (e.isInteractive && s?.enabled) { try { $.ui.log(NOTICE) } catch {} }
+    if (e.isInteractive && s?.enabled) notice($, ticket)
+    else if (e.isInteractive && !s) retryStart($, ticket)
     return next(e)
   })
   on('prompt.submit', async ($, e, next) => {

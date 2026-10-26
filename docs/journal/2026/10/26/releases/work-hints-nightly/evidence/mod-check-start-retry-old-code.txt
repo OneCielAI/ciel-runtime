@@ -1,0 +1,80 @@
+claude: 2.1.310 (Claude Code)
+== plugin validate --strict
+Validating plugin manifest: C:\Users\djlov\AppData\Local\Temp\tmp.0ddI3qgw1W\ciel-work\.claude-plugin\plugin.json
+
+  > types ./types/index.d.ts declares on $: nothing (no EngineInterface member)
+  > types ./types/index.d.ts declares state: ciel-work.detail
+
+Validating hooks: C:\Users\djlov\AppData\Local\Temp\tmp.0ddI3qgw1W\ciel-work\hooks\hooks.json
+
+  > ./register.js hooks: session.start, prompt.submit, command.run{command=work-mode}, tool.call, tool.check, session.end, ui.render{component=AbovePrompt}, ui.render{component=Pane, requestId=work-details}, ui.render{component=SessionMode}
+  > ./register.js answers its own command: command.run{command=work-mode}
+  > ./register.js gating hook without .catch: prompt.submit
+  > ./register.js gating hook without .catch: tool.call
+  > ./register.js gating hook without .catch: tool.check
+  > ./register.js calls: $.command.register, $.mcp.call (via openDetails, planText, refresh), $.session.id (via sessionId), $.state.get, $.state.set, $.ui.ask, $.ui.close, $.ui.invalidate (via refresh), $.ui.log, $.ui.open (via openDetails), $.ui.resolve, $.ui.toast (via hintPlanning)
+  > ./register.js state writes: ciel-work.detail
+  > ./register.js state reads: ciel-work.detail
+
+Plugin directory checks for C:\Users\djlov\AppData\Local\Temp\tmp.0ddI3qgw1W\ciel-work. The plugin directory is the catalog that plugins are submitted to; this is a subset of what it runs.
+
+× Found 2 problems the plugin directory refuses a submission for:
+
+  > README.md: README missing (README_MISSING). This plugin has no README.md. People who install it and the directory's automated review read the README to learn what it does; the first line of a README in the plugin folder also stands in as the listing summary when plugin.json has no description.
+    Fix: Add a README.md to the plugin folder describing what the plugin does, how to use it, and any setup it needs, in at least 40 words. A README at the repository root also counts for a plugin in a sub-folder.
+  > LICENSE: License missing (LICENSE_MISSING). This plugin has no LICENSE file and plugin.json has no `license`. The directory requires one of them.
+    Fix: Add a LICENSE file to the plugin folder, or set `license` (an SPDX id) in plugin.json. A LICENSE at the repository root also counts for a plugin in a sub-folder.
+
+‼ Found 1 plugin directory warning:
+
+  > .claude-plugin/plugin.json icon: No icon (ICON_MISSING). No icon found in the plugin. The validator looked for `icon` in plugin.json and for a file at .claude-plugin/icon.png or .svg, assets/icon.png or .svg, or a similar path.
+    Fix: Add a square PNG to the plugin folder at .claude-plugin/icon.png, or set `icon` in plugin.json to the path of a square PNG or JPEG in the plugin: 512 to 2048 px on each side, under 2 MB. SVG and WebP are not accepted. That file may become the listing icon only once: the first time the plugin is saved or submitted in the developer portal. Adding or changing it later does not change the icon.
+
+About these checks:
+
+  > The repository root was taken to be C:\, the nearest parent folder with a .git folder or file. No README or license file that counts (a regular file with one of the file names the plugin directory accepts) was found there either. For a plugin submitted from a git repository, the repository root is the top folder of that repository, with only what is committed there, so check that the folder named above is that top folder.
+  > hooks/hooks.json names a hooks module (a code file listed under `modules`). The plugin directory has rules of its own for such code, and these checks apply none of them, so passing here does not mean the directory accepts the plugin. The developer portal's own validation applies those rules.
+
+These plugin directory checks do not change the result below. To fail on problems the directory refuses a submission for, run this command with --profile directory.
+
+The directory also runs a safety scan and a policy review that this command does not.
+
+√ Validation passed
+exit=0
+== plugin test
+
+tests\work.test.ts:
+(pass) immediate command, router tree, bounded prompt context [49.49ms]
+(pass) planning denies all known writes including subagents; live phase refresh [28.83ms]
+(pass) shells use engine read-only flag and disabled state clears guards [24.57ms]
+(pass) unavailable and malformed status fail closed but reads pass [21.93ms]
+(pass) auto strips forged confirmation and refreshes after result [22.02ms]
+(pass) ask: Approve [22.02ms]
+(pass) ask: Keep planning [19.95ms]
+(pass) ask: Other [21.19ms]
+(pass) approval rejects changed plan [22.25ms]
+(pass) SessionMode planning, progress, off and unavailable are read-only renders [44.86ms]
+(pass) unavailable shell and execute fail closed; missing approval tree cannot execute [20.83ms]
+(pass) every Work result refreshes; another server is not treated as Work [30.41ms]
+(pass) conversation changes isolate every router read and override forged tool session ids [30.36ms]
+(pass) approval rejects a conversation switch even when plan counters match [19.91ms]
+(pass) compact footer and vertical branch buttons [22.65ms]
+(pass) branch press opens read-only details with notes and evidence, nested node and parent [45.68ms]
+(pass) detail state is hidden after version or conversation changes and offline [32.20ms]
+(pass) interactive start logs one person-facing notice; -p and off do not [24.40ms]
+(fail) a router still connecting at start is read again; band and notice follow once it answers [19.35ms]
+  AssertionError: expect(received).toBe()
+
+  Expected: 1
+  Received: 0
+(pass) start retries stop after a bounded window, on a new session start and when Work is off [21.68ms]
+(pass) planning denial explains itself and toasts once per plan version [20.22ms]
+(pass) help, readable bare command and raw status [20.01ms]
+(pass) band shows a hint while no plan exists and the phase once one does [25.19ms]
+(pass) triage guidance reaches the model; queue shows in band and summary without becoming focusable [27.48ms]
+(pass) survey yields, disabled hides, long branch list retains every item [22.81ms]
+
+ 24 pass
+ 1 fail
+Ran 25 tests across 1 file. [0.84s]
+exit=1

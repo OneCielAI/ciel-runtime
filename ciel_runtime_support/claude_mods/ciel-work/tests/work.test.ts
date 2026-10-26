@@ -1,4 +1,4 @@
-import { expect, test } from 'claude-code/testing'
+import { expect, mock, test } from 'claude-code/testing'
 const T = 'mcp__ciel-runtime-router__'
 function setup(on, extra = {}) {
   const s = { snapshot: { enabled: true, phase: 'planning', approval: 'auto', version: 1,
@@ -231,6 +231,49 @@ test('interactive start logs one person-facing notice; -p and off do not', async
   expect(s.logs[0]).toContain('LLM options → Work mode')
   s.snapshot.enabled = false
   await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
+  expect(s.logs.length).toBe(1)
+})
+test('a router still connecting at start is read again; band and notice follow once it answers', async ($, on) => {
+  const s = hints(on); const clock = mock.clock(on)
+  s.offline = true
+  await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
+  const band = await $.ui.mount(BAND)
+  expect(await band.find({ type: 'Text', text: /Work unavailable/ })).toBeDefined()
+  expect(s.logs.length).toBe(0)
+  await clock.advance(750)
+  expect(s.logs.length).toBe(0)
+  s.offline = false
+  await clock.advance(1000)
+  expect(s.logs.length).toBe(1)
+  expect(await band.find({ type: 'Text', text: /no plan yet|Work planning/ })).toBeDefined()
+  const reads = s.calls.length
+  await clock.advance(20000)
+  expect(s.calls.length).toBe(reads)
+  expect(s.logs.length).toBe(1)
+  await band.unmount()
+})
+test('start retries stop after a bounded window, on a new session start and when Work is off', async ($, on) => {
+  const s = hints(on); const clock = mock.clock(on)
+  s.offline = true
+  await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
+  await clock.advance(16000)
+  const reads = s.calls.length
+  await clock.advance(60000)
+  expect(s.calls.length).toBe(reads)
+  await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
+  s.offline = false; s.sessionId = 'session-b'
+  await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
+  expect(s.logs.length).toBe(1)
+  await clock.advance(16000)
+  expect(s.logs.length).toBe(1)
+  s.offline = true
+  await $.session.start({ surface: null, isInteractive: false, cwd: '/isolated' })
+  const quiet = s.calls.length
+  await clock.advance(16000)
+  expect(s.calls.length).toBe(quiet)
+  await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
+  s.offline = false; s.snapshot.enabled = false
+  await clock.advance(16000)
   expect(s.logs.length).toBe(1)
 })
 test('planning denial explains itself and toasts once per plan version', async ($, on) => {

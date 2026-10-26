@@ -1,0 +1,25 @@
+owned router: yes
+owned cmd: yes
+owned window: yes
+interactive ready: yes
+start notice: NO
+empty plan hint: NO
+console command: yes
+help: yes
+console command: yes
+bare summary: yes
+console command: yes
+planning toast: yes
+planning deny text: yes
+numbered band: yes
+main finished: yes
+console command: yes
+queued while running: yes
+queue advanced: yes
+queue finished: yes
+console command: yes
+summary after advance: yes
+owned stop 70604 SUCCESS: The process with PID 72636 (child process of PID 70604) has been terminated.
+SUCCESS: The process with PID 70604 (child process of PID 49736) has been terminated.
+owned stop 70640 SUCCESS: The process with PID 70640 (child process of PID 72608) has been terminated.
+evidence C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-mode-hints\evidence\run-1f2dd9a8

@@ -1,0 +1,38 @@
+     • Planning: the model builds a plan with work_plan_set: goal → phases → tasks → verifiab╭────────────────────────────────────────╮
+     state-changing commands wait.                                                           │ ciel-work                              │
+     • New requests: an independent request becomes its own numbered item ("2. …") and waits │ Work mode is planning: edits wait for  │
+     change to an existing item is added under that item.                                    │ the approved plan · /work-mode help    │
+     • Executing: after work_execute (automatic, or your approval when set to ask) the model ╰────────────────────────────────────────╯
+     done with evidence.
+     • Above the prompt: Ctrl+X Tab focuses the items · Tab/↑↓ select · Enter inspects · Esc returns.
+     • /work-mode view: keyboard inspector · /work-mode tree: plan tree · /work-mode status: raw snapshot (JSON) · /work-mode help:
+     this help
+     • Settings: ciel-runtime menu → LLM options → Work mode (on/off) and Work plan approval (auto/ask).
+
+❯ /work-mode
+  ⎿  ciel-work: Ciel Work mode: planning · 0/0 steps · approval auto
+     No plan yet — the model plans before editing.
+     /work-mode help · view · tree · status
+
+❯ E2EHINT-MAIN try an edit while planning, then plan with numbered items.
+
+● Update(subject.txt)
+  ⎿  Error: Work mode is planning: edits and state-changing commands wait until the plan is approved. Build it with work_plan_set, then
+     call work_execute. (/work-mode help)
+
+  Called ciel-runtime-router
+
+● E2EHINT-MAIN-DONE
+
+✽ Zigzagging… (0s · ↓ 72 tokens)
+  ⎿  Tip: Use Plan Mode to prepare for a complex request before making changes. Press shift+tab twice to enable.
+Work planning 0/3 — 1. Hint check                                                                                                  [-]
+1: [ ] Parser 0/2
+2: [ ] Cache 0/1
+w: All items / refresh
+Ctrl+X Tab: focus · Tab/↑↓: select · Enter: inspect · Esc: return · /work-mode help
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · esc to interrupt                                                     work: plan 0/3

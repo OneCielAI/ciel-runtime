@@ -1,0 +1,7 @@
+same ciel_runtime_support/claude_mods/ciel-work/hooks/register.js
+same ciel_runtime_support/work_plan_tree.py
+same ciel_runtime_support/work_mcp_tools.py
+same ciel_runtime_support/work_mode_launch.py
+same ciel_runtime_support/runtime_launch.py
+CI success e1826009db5e9bffa50355f7edb3e12709a50bdd
+Publish success e1826009db5e9bffa50355f7edb3e12709a50bdd

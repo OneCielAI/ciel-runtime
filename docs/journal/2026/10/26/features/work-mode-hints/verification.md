@@ -43,11 +43,24 @@ On this session's own plan (router 9524, code before this change) adding the Wal
   - The model's requests carried the triage text and the `work_plan_set` description; the session notice never reached the model; the model received the `queued behind` and `next queued goal` results.
 - [Codex prompt check](evidence/codex-prompt-check.json) ([script](evidence/codex_prompt_check.py)): codex-cli 0.158.0 `debug prompt-input` in an isolated `CODEX_HOME`; the developer prompt has the triage, numbering, child, queue and how-to-turn-off texts.
 
+# Start on a mod's first load
+
+The installed-snapshot run of the published e1826009 build (run-111efba6) passed 8 of 10 checks: no start notice, and the band said `Work unavailable — /work-mode status` until the first command ([01 PNG](evidence/run-111efba6/01-start-notice-and-empty-hint.png)).
+
+- Instrumented temporary copies (not shipped; [diff](/docs/journal/2026/10/26/releases/work-hints-nightly/evidence/start-diag/instrumentation.diff)) recorded the start read.
+  - With an existing `.claude-plugin/types` directory, 4 of 4 starts read Work at 0 ms (run-21d3e101, run-374aa408, run-4393287d, run-1b68d59b).
+  - Fresh copies without it, as a new install is: 2 of 2 failed at 0 ms with `$.mcp.call: no connected MCP tool "work_status" on a server named "ciel-runtime-router"` and 0 router tools, then read Work at 301 and 296 ms (run-1f2dd9a8, run-acc6e897; [records](/docs/journal/2026/10/26/releases/work-hints-nightly/evidence/start-diag/)).
+  - Claude Code writes `.claude-plugin/types` into the mod directory at its first load (13:06:47.76 in run-111efba6). Why the router connects later on that load was not determined.
+- The mod read Work once at start and never again until the next prompt or command. It now reads again with `$.clock.after` at 250, 500, 1000, 2000, 4000 and 8000 ms when the interactive start read fails, logs the notice once for that start, and stops on success, a new start, or Work off.
+- Tests: two new mod tests (retry, bounds/new start/off); [25 pass](/docs/journal/2026/10/26/releases/work-hints-nightly/evidence/mod-check-start-retry-1.txt), and the retry test [fails on the previous code](/docs/journal/2026/10/26/releases/work-hints-nightly/evidence/mod-check-start-retry-old-code.txt).
+- Real CLI on fresh first-load copies with the fix: run-b96f7a86 and run-00cb229e, 10 of 10 each. `screen-002` shows `Work unavailable`, `screen-003` (about 200 ms later) shows the notice and `no plan yet` ([01 PNG](evidence/run-b96f7a86/01-start-notice-and-empty-hint.png)).
+
 # Failed or invalid runs
 
 - run-c6b21f5b: keystrokes typed by the person landed in the newly opened E2E window (`분석할것` prefixed the help command). The harness now minimizes its owned window right away and shows it without activation only for screenshots; it also refuses to type into a non-empty prompt.
 - run-ef0277ad: toast check matched text that wraps inside the toast box; fixed to match its first line.
 - run-a7a6ccd0: the shared console agent exited with `PermissionError` before the first command (harness file race); rerun passed.
+- run-1b68d59b: the harness refused to type `/work-mode help` because the prompt already held `cccccccc`, typed into the owned window from outside the harness; nothing was sent.
 - run-711742ad passed the hint checks before the queue work; run-9612574c failed one stale harness predicate after the help text changed; run-a5ecb4e8 passed but its queued screenshot was taken after the queue had already advanced, so the gateway now holds item 1 until the screenshot.
 
 # Limits
