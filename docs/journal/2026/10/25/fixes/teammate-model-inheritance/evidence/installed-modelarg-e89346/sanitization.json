@@ -1,0 +1,13 @@
+{
+ "raw_removed": [
+  "ccfg/",
+  "cfg/",
+  "home/",
+  "ws/"
+ ],
+ "owned_pids_absent": [
+  52536
+ ],
+ "owned_pids_alive": [],
+ "retained_policy": "metadata, console and result only; all raw config/home/workspace/transcripts removed"
+}

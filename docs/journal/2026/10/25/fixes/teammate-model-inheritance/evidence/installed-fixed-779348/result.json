@@ -1,0 +1,546 @@
+{
+ "installed_modules": {
+  "ciel_runtime": {
+   "file": "C:\\Users\\djlov\\.local\\share\\ciel-runtime\\ciel_runtime.py",
+   "sha256": "49b907420b3f019f249dc078e6598044c0fb004800c8822ba5a4eb075cafd3d4"
+  },
+  "claude_environment": {
+   "file": "C:\\Users\\djlov\\.local\\share\\ciel-runtime\\ciel_runtime_support\\claude_environment.py",
+   "sha256": "8824ab05d5ac564a21971cdbdb850faae072b0022dc3d04f190ed9931116adaa"
+  },
+  "runtime_constants": {
+   "file": "C:\\Users\\djlov\\.local\\share\\ciel-runtime\\ciel_runtime_support\\runtime_constants.py",
+   "sha256": "3571f75f6afc28b4fd25e65aa4434b78f845683979d0475d22c6c5201f6c679f"
+  },
+  "runtime_version": "0.2.51-nightly.20261026-044702.d15822f",
+  "config_dir": "C:\\Users\\djlov\\ciel-runtime-wt-lease\\docs\\journal\\2026\\10\\25\\fixes\\teammate-model-inheritance\\evidence\\installed-fixed-779348\\cfg",
+  "python": "3.11.6 (tags/v3.11.6:8b6ee5b, Oct  2 2023, 14:57:12) [MSC v.1935 64 bit (AMD64)]",
+  "flags": {
+   "isolated": 1,
+   "dont_write_bytecode": 1,
+   "utf8_mode": 1
+  }
+ },
+ "net_sampler": {
+  "samples": 22,
+  "max_tree": 15,
+  "nonloopback": [],
+  "errors": []
+ },
+ "case": "fixed",
+ "cli_version": "2.1.310 (Claude Code)",
+ "requests": [
+  {
+   "n": 1,
+   "path": "/v1/messages",
+   "model": "fake-parent-a",
+   "role": "parent",
+   "tag": "plain",
+   "ua": "claude-cli/2.1.310 (external, sdk-cli)",
+   "agent_schema_model": false,
+   "agent_schema_keys": [
+    "description",
+    "prompt",
+    "subagent_type",
+    "effort",
+    "run_in_background",
+    "name",
+    "team_name",
+    "mode",
+    "isolation"
+   ],
+   "prior_tool_error": false,
+   "served_tool_model": null,
+   "served_name": null,
+   "retry_without_model": false
+  },
+  {
+   "n": 2,
+   "path": "/v1/messages",
+   "model": "fake-parent-a",
+   "role": "child",
+   "tag": "plain",
+   "ua": "claude-cli/2.1.310 (external, sdk-cli)",
+   "agent_schema_model": false,
+   "agent_schema_keys": [
+    "description",
+    "prompt",
+    "subagent_type",
+    "effort",
+    "run_in_background",
+    "name",
+    "team_name",
+    "mode",
+    "isolation"
+   ],
+   "prior_tool_error": false
+  },
+  {
+   "n": 3,
+   "path": "/v1/messages",
+   "model": "fake-parent-a",
+   "role": "parent",
+   "tag": "plain",
+   "ua": "claude-cli/2.1.310 (external, sdk-cli)",
+   "agent_schema_model": false,
+   "agent_schema_keys": [
+    "description",
+    "prompt",
+    "subagent_type",
+    "effort",
+    "run_in_background",
+    "name",
+    "team_name",
+    "mode",
+    "isolation"
+   ],
+   "prior_tool_error": false
+  },
+  {
+   "n": 4,
+   "path": "/v1/messages",
+   "model": "fake-parent-a",
+   "role": "parent",
+   "tag": "haiku",
+   "ua": "claude-cli/2.1.310 (external, sdk-cli)",
+   "agent_schema_model": false,
+   "agent_schema_keys": [
+    "description",
+    "prompt",
+    "subagent_type",
+    "effort",
+    "run_in_background",
+    "name",
+    "team_name",
+    "mode",
+    "isolation"
+   ],
+   "prior_tool_error": false,
+   "served_tool_model": "haiku",
+   "served_name": null,
+   "retry_without_model": false
+  },
+  {
+   "n": 5,
+   "path": "/v1/messages",
+   "model": "fake-parent-a",
+   "role": "child",
+   "tag": "haiku",
+   "ua": "claude-cli/2.1.310 (external, sdk-cli)",
+   "agent_schema_model": false,
+   "agent_schema_keys": [
+    "description",
+    "prompt",
+    "subagent_type",
+    "effort",
+    "run_in_background",
+    "name",
+    "team_name",
+    "mode",
+    "isolation"
+   ],
+   "prior_tool_error": false
+  },
+  {
+   "n": 6,
+   "path": "/v1/messages",
+   "model": "fake-parent-a",
+   "role": "parent",
+   "tag": "haiku",
+   "ua": "claude-cli/2.1.310 (external, sdk-cli)",
+   "agent_schema_model": false,
+   "agent_schema_keys": [
+    "description",
+    "prompt",
+    "subagent_type",
+    "effort",
+    "run_in_background",
+    "name",
+    "team_name",
+    "mode",
+    "isolation"
+   ],
+   "prior_tool_error": false
+  },
+  {
+   "n": 7,
+   "path": "/v1/messages",
+   "model": "fake-parent-a",
+   "role": "parent",
+   "tag": "sonnet",
+   "ua": "claude-cli/2.1.310 (external, sdk-cli)",
+   "agent_schema_model": false,
+   "agent_schema_keys": [
+    "description",
+    "prompt",
+    "subagent_type",
+    "effort",
+    "run_in_background",
+    "name",
+    "team_name",
+    "mode",
+    "isolation"
+   ],
+   "prior_tool_error": false,
+   "served_tool_model": "sonnet",
+   "served_name": null,
+   "retry_without_model": false
+  },
+  {
+   "n": 8,
+   "path": "/v1/messages",
+   "model": "fake-parent-a",
+   "role": "child",
+   "tag": "sonnet",
+   "ua": "claude-cli/2.1.310 (external, sdk-cli)",
+   "agent_schema_model": false,
+   "agent_schema_keys": [
+    "description",
+    "prompt",
+    "subagent_type",
+    "effort",
+    "run_in_background",
+    "name",
+    "team_name",
+    "mode",
+    "isolation"
+   ],
+   "prior_tool_error": false
+  },
+  {
+   "n": 9,
+   "path": "/v1/messages",
+   "model": "fake-parent-a",
+   "role": "parent",
+   "tag": "sonnet",
+   "ua": "claude-cli/2.1.310 (external, sdk-cli)",
+   "agent_schema_model": false,
+   "agent_schema_keys": [
+    "description",
+    "prompt",
+    "subagent_type",
+    "effort",
+    "run_in_background",
+    "name",
+    "team_name",
+    "mode",
+    "isolation"
+   ],
+   "prior_tool_error": false
+  },
+  {
+   "n": 10,
+   "path": "/v1/messages",
+   "model": "fake-parent-a",
+   "role": "parent",
+   "tag": "definition",
+   "ua": "claude-cli/2.1.310 (external, sdk-cli)",
+   "agent_schema_model": false,
+   "agent_schema_keys": [
+    "description",
+    "prompt",
+    "subagent_type",
+    "effort",
+    "run_in_background",
+    "name",
+    "team_name",
+    "mode",
+    "isolation"
+   ],
+   "prior_tool_error": false,
+   "served_tool_model": null,
+   "served_name": null,
+   "retry_without_model": false
+  },
+  {
+   "n": 11,
+   "path": "/v1/messages",
+   "model": "fake-parent-a",
+   "role": "child",
+   "tag": "definition",
+   "ua": "claude-cli/2.1.310 (external, sdk-cli)",
+   "agent_schema_model": false,
+   "agent_schema_keys": [
+    "description",
+    "prompt",
+    "subagent_type",
+    "effort",
+    "run_in_background",
+    "name",
+    "team_name",
+    "mode",
+    "isolation"
+   ],
+   "prior_tool_error": false
+  },
+  {
+   "n": 12,
+   "path": "/v1/messages",
+   "model": "fake-parent-a",
+   "role": "parent",
+   "tag": "definition",
+   "ua": "claude-cli/2.1.310 (external, sdk-cli)",
+   "agent_schema_model": false,
+   "agent_schema_keys": [
+    "description",
+    "prompt",
+    "subagent_type",
+    "effort",
+    "run_in_background",
+    "name",
+    "team_name",
+    "mode",
+    "isolation"
+   ],
+   "prior_tool_error": false
+  },
+  {
+   "n": 13,
+   "path": "/v1/messages",
+   "model": "fake-parent-b",
+   "role": "parent",
+   "tag": "modelarg",
+   "ua": "claude-cli/2.1.310 (external, sdk-cli)",
+   "agent_schema_model": false,
+   "agent_schema_keys": [
+    "description",
+    "prompt",
+    "subagent_type",
+    "effort",
+    "run_in_background",
+    "name",
+    "team_name",
+    "mode",
+    "isolation"
+   ],
+   "prior_tool_error": false,
+   "served_tool_model": null,
+   "served_name": null,
+   "retry_without_model": false
+  },
+  {
+   "n": 14,
+   "path": "/v1/messages",
+   "model": "fake-parent-b",
+   "role": "child",
+   "tag": "modelarg",
+   "ua": "claude-cli/2.1.310 (external, sdk-cli)",
+   "agent_schema_model": false,
+   "agent_schema_keys": [
+    "description",
+    "prompt",
+    "subagent_type",
+    "effort",
+    "run_in_background",
+    "name",
+    "team_name",
+    "mode",
+    "isolation"
+   ],
+   "prior_tool_error": false
+  },
+  {
+   "n": 15,
+   "path": "/v1/messages",
+   "model": "fake-parent-b",
+   "role": "parent",
+   "tag": "modelarg",
+   "ua": "claude-cli/2.1.310 (external, sdk-cli)",
+   "agent_schema_model": false,
+   "agent_schema_keys": [
+    "description",
+    "prompt",
+    "subagent_type",
+    "effort",
+    "run_in_background",
+    "name",
+    "team_name",
+    "mode",
+    "isolation"
+   ],
+   "prior_tool_error": false
+  },
+  {
+   "n": 16,
+   "path": "/v1/messages",
+   "model": "fake-parent-a",
+   "role": "parent",
+   "tag": "named",
+   "ua": "claude-cli/2.1.310 (external, cli)",
+   "agent_schema_model": false,
+   "agent_schema_keys": [
+    "description",
+    "prompt",
+    "subagent_type",
+    "effort",
+    "name",
+    "team_name",
+    "mode",
+    "isolation"
+   ],
+   "prior_tool_error": false,
+   "served_tool_model": null,
+   "served_name": "e2e-mate-839983ab",
+   "retry_without_model": false
+  },
+  {
+   "n": 17,
+   "path": "/v1/messages",
+   "model": "fake-parent-a",
+   "role": "parent",
+   "tag": "named",
+   "ua": "claude-cli/2.1.310 (external, cli)",
+   "agent_schema_model": false,
+   "agent_schema_keys": [
+    "description",
+    "prompt",
+    "subagent_type",
+    "effort",
+    "name",
+    "team_name",
+    "mode",
+    "isolation"
+   ],
+   "prior_tool_error": false
+  },
+  {
+   "n": 18,
+   "path": "/v1/messages",
+   "model": "fake-parent-a",
+   "role": "child",
+   "tag": "named",
+   "ua": "claude-cli/2.1.310 (external, cli)",
+   "agent_schema_model": false,
+   "agent_schema_keys": [
+    "description",
+    "prompt",
+    "subagent_type",
+    "effort",
+    "name",
+    "team_name",
+    "mode",
+    "isolation"
+   ],
+   "prior_tool_error": false
+  },
+  {
+   "n": 19,
+   "path": "/v1/messages",
+   "model": "fake-parent-a",
+   "role": "parent",
+   "tag": "named",
+   "ua": "claude-cli/2.1.310 (external, cli)",
+   "agent_schema_model": false,
+   "agent_schema_keys": [
+    "description",
+    "prompt",
+    "subagent_type",
+    "effort",
+    "name",
+    "team_name",
+    "mode",
+    "isolation"
+   ],
+   "prior_tool_error": false
+  },
+  {
+   "n": 20,
+   "path": "/v1/messages",
+   "model": "fake-parent-b",
+   "role": "aux",
+   "tag": null,
+   "ua": "claude-cli/2.1.310 (external, cli)",
+   "agent_schema_model": false,
+   "agent_schema_keys": [],
+   "prior_tool_error": false
+  }
+ ],
+ "print_results": [
+  {
+   "tag": "plain",
+   "rc": 0,
+   "stdout_bytes": 1602,
+   "stderr_bytes": 80,
+   "child_ok": false,
+   "parent_ok": true,
+   "type": "result",
+   "subtype": "success",
+   "is_error": false,
+   "num_turns": 2,
+   "result": "PARENT-OK-plain"
+  },
+  {
+   "tag": "haiku",
+   "rc": 0,
+   "stdout_bytes": 1601,
+   "stderr_bytes": 80,
+   "child_ok": false,
+   "parent_ok": true,
+   "type": "result",
+   "subtype": "success",
+   "is_error": false,
+   "num_turns": 2,
+   "result": "PARENT-OK-haiku"
+  },
+  {
+   "tag": "sonnet",
+   "rc": 0,
+   "stdout_bytes": 1602,
+   "stderr_bytes": 80,
+   "child_ok": false,
+   "parent_ok": true,
+   "type": "result",
+   "subtype": "success",
+   "is_error": false,
+   "num_turns": 2,
+   "result": "PARENT-OK-sonnet"
+  },
+  {
+   "tag": "definition",
+   "rc": 0,
+   "stdout_bytes": 1600,
+   "stderr_bytes": 80,
+   "child_ok": false,
+   "parent_ok": true,
+   "type": "result",
+   "subtype": "success",
+   "is_error": false,
+   "num_turns": 2,
+   "result": "PARENT-OK-definition"
+  },
+  {
+   "tag": "modelarg",
+   "rc": 0,
+   "stdout_bytes": 1603,
+   "stderr_bytes": 80,
+   "child_ok": false,
+   "parent_ok": true,
+   "type": "result",
+   "subtype": "success",
+   "is_error": false,
+   "num_turns": 2,
+   "result": "PARENT-OK-modelarg"
+  }
+ ],
+ "egress": [
+  {
+   "method": "CONNECT",
+   "host": "downloads.claude.ai:443"
+  },
+  {
+   "method": "CONNECT",
+   "host": "github.com:443"
+  }
+ ],
+ "owned_pids": [
+  75648,
+  61384,
+  66268,
+  89348,
+  38268,
+  82316,
+  83340
+ ],
+ "live_pid_unchanged": false,
+ "inherit_on_wire": false
+}

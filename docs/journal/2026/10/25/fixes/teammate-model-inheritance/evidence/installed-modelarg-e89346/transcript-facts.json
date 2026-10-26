@@ -1,0 +1,18 @@
+[
+ {
+  "file": "c38a80b0-5c81-4f03-a20d-4e6801ef5d0d.jsonl",
+  "kind": "Agent",
+  "model": null,
+  "name": null,
+  "subagent_type": "general-purpose"
+ },
+ {
+  "file": "c38a80b0-5c81-4f03-a20d-4e6801ef5d0d.jsonl",
+  "kind": "tool_result",
+  "is_error": false,
+  "child_ok_marker": true,
+  "spawned_metadata": false,
+  "resolvedModel": "fake-parent-b",
+  "status": "completed"
+ }
+]

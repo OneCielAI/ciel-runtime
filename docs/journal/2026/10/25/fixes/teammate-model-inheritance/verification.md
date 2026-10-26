@@ -41,7 +41,7 @@ Other details:
 - **Not in scope.**
   - The `ANTHROPIC_DEFAULT_HAIKU/SONNET/OPUS_MODEL` family aliases are unchanged. Claude Code also uses them for background helper requests.
   - Running sessions keep their launch environment until they restart.
-- **Docs.** [docs/Configuration.md](../../../../../Configuration.md) describes the rule.
+- **Docs.** `docs/Configuration.md` describes the rule.
 
 # Verification
 
@@ -97,4 +97,37 @@ Further results:
 - **Routed runs.** They record the model the router forwarded, not the literal string the CLI sent to the router.
 - **Superseded attempts.** Four earlier attempts are kept for audit: a harness classifier bug, a pre-screenshot matrix, and an isolated router that did not start. They are listed in `comparison.json`.
 - **Fake model only.** The gateway is a fake with fixed replies, and no real model was called.
-- **Not shipped.** This change is not committed, pushed or installed. Running sessions, including ciel-Walkie, keep their old environment until a new install and a restart.
+
+# Release and local install
+
+- Source commit `d15822ff6ff66bb4750e64c575661ccfd3253401` was pushed to `nightly` after diagnosis commit `abffba6`.
+- CI [40269838107](https://github.com/OneCielAI/ciel-runtime/actions/runs/40269838107) passed all 6 jobs; npm Publish [40269837320](https://github.com/OneCielAI/ciel-runtime/actions/runs/40269837320) succeeded ([CI watch](evidence/ci-watch.txt), [publish watch](evidence/publish-watch.txt)).
+- npm nightly = `0.2.51-nightly.20261026-044702.d15822f`; the registry gitHead was checked against that exact source commit before installing.
+- [deploy_local.py](evidence/deploy_local.py) installed the exact version npm-globally and replaced 455 snapshot/bin files individually with `os.replace`, without `install.ps1` or restarting a session ([output](evidence/deploy-output.txt), [report](evidence/deployment.json)).
+- `claude_environment.py` SHA-256 is `8824ab05d5ac564a21971cdbdb850faae072b0022dc3d04f190ed9931116adaa` in the source, npm tarball, npm-global package and installed snapshot.
+- Installed snapshot tests: 305 run, OK with 1 skipped ([output](evidence/installed-tests.txt)). The skipped test assumes the repo/npm layout (`ciel-runtime-menu.py` alongside `ciel_runtime.py`), while the snapshot keeps it in `~/.local/bin`. That test passes separately against npm-global ([output](evidence/installed-npm-menu-test.txt)); npm-global and installed-bin menu bytes match. The first installed run failed only that layout check (FileNotFoundError, 305 run); the runner now makes that distinction explicit.
+- Live router PIDs stayed the same: 9385=6032, 9464=54764, 9489=67368, 9505=81624, 9524=81772. Running sessions still have their old launch environment. No remote machine was updated.
+
+# Installed-code CLI E2E
+
+Harness: [e2e_models_installed.py](evidence/e2e_models_installed.py) with [console_agent.py](evidence/console_agent.py). It imports the modules from the installed root `~/.local/share/ciel-runtime` (runtime `0.2.51-nightly.20261026-044702.d15822f`), not from the repo, with the same isolation, fake gateway and egress sentinel as above. [installed-model-env.json](evidence/installed-model-env.json) shows the installed `claude_environment.py` projecting `CLAUDE_CODE_SUBAGENT_MODEL=inherit` and `..._FORCE=1`.
+
+Child request model at the gateway, Claude Code 2.1.310, direct data path:
+
+| plain | Agent `model=haiku` | Agent `model=sonnet` | definition `model: haiku` | `--model fake-parent-b` | named teammate | new teammate after `/model fake-parent-b` |
+|---|---|---|---|---|---|---|
+| a | a | a | a | b | a | b |
+
+- Evidence: [installed-fixed-1fe97e/result.json](evidence/installed-fixed-1fe97e/result.json) (all seven cases) and [installed-modelarg-e89346/result.json](evidence/installed-modelarg-e89346/result.json) (`--model` alone). Every child request carried the parent's model; for haiku and sonnet the gateway had served the parent an `Agent` call with that `model`.
+- The `Agent` schema had no `model` property in any request, and no request carried `inherit` as its model.
+- The five `-p` runs exited 0 with the parent's marker on stdout. Their `child_ok=false` only means the child's marker is not in the parent's printed answer; child requests are counted at the gateway.
+- Console text ([screen-*.txt](evidence/installed-fixed-1fe97e/screen-latest.txt)) shows `Teammate @e2e-mate-09b41a47 finished` / `CHILD-OK-named`, then `/model fake-parent-b`, then `Teammate @e2e-mate-new-09b41a47 finished` / `CHILD-OK-named-switched`. PrintWindow captures [named.png](evidence/installed-fixed-1fe97e/named.png) and [named-switched.png](evidence/installed-fixed-1fe97e/named-switched.png) (1129×635) exist with recorded SHA-256 values; their pixels were not inspected visually in this session.
+- Egress: no non-loopback TCP connection from the harness tree; the sentinel saw only blocked `CONNECT`s to `downloads.claude.ai:443` and `github.com:443`. All harness-owned PIDs were gone afterwards, the installed files were unchanged, and raw configs and workspaces were deleted ([sanitization.json](evidence/installed-fixed-1fe97e/sanitization.json)).
+- Superseded attempts, kept for audit: `installed-fixed-779348` (the switched-teammate command never reached the console) and `installed-fixed-d5f266` (fake gateway connection resets; the console helper then gained explicit exit recording).
+
+## Live router observation (cause not established)
+
+- The two final runs saw the same live routers before and after.
+- During the window of attempt `installed-fixed-d5f266` (started 2026-10-26 00:08:49 local), the router on 9464 changed from PID 54764 (`a7e28f9`) to PID 51556 (`d15822f`, the newly installed nightly). `%APPDATA%/ciel-runtime/workspace-router-ports.json` lists 9464 for the `c:\users\djlov\ciel-code` workspace with a launch lease held by PID 51556, expiring 00:13:57 local, so a non-isolated ciel-runtime launch happened in that workspace in that window.
+- The harness runs with its own `HOME`, `APPDATA`, `CIEL_RUNTIME_CONFIG_DIR` and router port and only `taskkill`s PIDs it started. That does not prove what caused the 9464 relaunch, which remains unexplained.
+- Port 9466 (PID 77836, `144bebc`) answered before and after attempt 779348 and was gone by attempt d5f266. Who owned it was not established.

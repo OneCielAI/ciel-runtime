@@ -1,0 +1,6 @@
+{
+  "module": "C:\\Users\\djlov\\.local\\share\\ciel-runtime\\ciel_runtime_support\\claude_environment.py",
+  "parent": "ciel-runtime-cielairouter-fake-parent-a",
+  "child": "inherit",
+  "force": "1"
+}

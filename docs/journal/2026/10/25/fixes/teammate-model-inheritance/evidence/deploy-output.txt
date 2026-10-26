@@ -1,0 +1,84 @@
+REGISTRY {'version': '0.2.51-nightly.20261026-044702.d15822f', 'gitHead': 'd15822ff6ff66bb4750e64c575661ccfd3253401'} BEFORE {'9385': {'ok': True, 'pid': 6032, 'version': '0.2.51-nightly.20261024-115611.5d4dc0e'}, '9464': {'ok': True, 'pid': 54764, 'version': '0.2.51-nightly.20261024-102326.a7e28f9'}, '9465': {'error': 'URLError'}, '9489': {'ok': True, 'pid': 67368, 'version': '0.2.51-nightly.20261024-102326.a7e28f9'}, '9505': {'ok': True, 'pid': 81624, 'version': '0.2.51-nightly.20261025-050332.144bebc'}, '9524': {'ok': True, 'pid': 81772, 'version': '0.2.51-nightly.20261025-050332.144bebc'}}
+
+changed 1 package in 1s
+
+RUN ['C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe', '-X', 'utf8', '-I', 'C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-release-xobg67ff\\installed_runner.py', 'test_claude_environment', 'test_launch_data_path', 'test_claude_native_provider', 'test_deepseek_provider', 'test_meta_provider', 'test_workspace_router_selection', 'test_plan_mode_reminder_text', 'test_ollama_semantic_retry_policy']
+RUN ['C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe', '-X', 'utf8', '-I', 'C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-release-xobg67ff\\npm_runner.py', 'test_launch_data_path.GatewayDataPathOptionTests.test_external_menu_offers_both_data_paths']
+{
+  "commit": "d15822ff6ff66bb4750e64c575661ccfd3253401",
+  "version": "0.2.51-nightly.20261026-044702.d15822f",
+  "registry": {
+    "version": "0.2.51-nightly.20261026-044702.d15822f",
+    "gitHead": "d15822ff6ff66bb4750e64c575661ccfd3253401"
+  },
+  "copied_files": 455,
+  "hashes": {
+    "ciel_runtime_support/claude_environment.py": {
+      "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-release-xobg67ff\\package": "8824ab05d5ac564a21971cdbdb850faae072b0022dc3d04f190ed9931116adaa",
+      "C:\\Users\\djlov\\.local\\share\\ciel-runtime": "8824ab05d5ac564a21971cdbdb850faae072b0022dc3d04f190ed9931116adaa",
+      "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime": "8824ab05d5ac564a21971cdbdb850faae072b0022dc3d04f190ed9931116adaa"
+    }
+  },
+  "health_before": {
+    "9385": {
+      "ok": true,
+      "pid": 6032,
+      "version": "0.2.51-nightly.20261024-115611.5d4dc0e"
+    },
+    "9464": {
+      "ok": true,
+      "pid": 54764,
+      "version": "0.2.51-nightly.20261024-102326.a7e28f9"
+    },
+    "9465": {
+      "error": "URLError"
+    },
+    "9489": {
+      "ok": true,
+      "pid": 67368,
+      "version": "0.2.51-nightly.20261024-102326.a7e28f9"
+    },
+    "9505": {
+      "ok": true,
+      "pid": 81624,
+      "version": "0.2.51-nightly.20261025-050332.144bebc"
+    },
+    "9524": {
+      "ok": true,
+      "pid": 81772,
+      "version": "0.2.51-nightly.20261025-050332.144bebc"
+    }
+  },
+  "health_after": {
+    "9385": {
+      "ok": true,
+      "pid": 6032,
+      "version": "0.2.51-nightly.20261024-115611.5d4dc0e"
+    },
+    "9464": {
+      "ok": true,
+      "pid": 54764,
+      "version": "0.2.51-nightly.20261024-102326.a7e28f9"
+    },
+    "9465": {
+      "error": "URLError"
+    },
+    "9489": {
+      "ok": true,
+      "pid": 67368,
+      "version": "0.2.51-nightly.20261024-102326.a7e28f9"
+    },
+    "9505": {
+      "ok": true,
+      "pid": 81624,
+      "version": "0.2.51-nightly.20261025-050332.144bebc"
+    },
+    "9524": {
+      "ok": true,
+      "pid": 81772,
+      "version": "0.2.51-nightly.20261025-050332.144bebc"
+    }
+  },
+  "installed_tests": "passed (see installed-tests.txt)",
+  "restarted_sessions": false
+}

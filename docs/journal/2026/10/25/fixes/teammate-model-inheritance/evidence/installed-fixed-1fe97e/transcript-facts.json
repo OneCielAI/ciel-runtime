@@ -1,0 +1,121 @@
+[
+ {
+  "file": "018b6591-f5f2-4f58-9c4c-a199914da66f.jsonl",
+  "kind": "Agent",
+  "model": null,
+  "name": null,
+  "subagent_type": "general-purpose"
+ },
+ {
+  "file": "018b6591-f5f2-4f58-9c4c-a199914da66f.jsonl",
+  "kind": "tool_result",
+  "is_error": false,
+  "validation_model_error": false,
+  "child_ok_marker": true,
+  "spawned_metadata": false,
+  "resolvedModel": "fake-parent-a",
+  "status": "completed"
+ },
+ {
+  "file": "2274f211-170b-4064-b4cc-06f70af6600d.jsonl",
+  "kind": "Agent",
+  "model": "haiku",
+  "name": null,
+  "subagent_type": "general-purpose"
+ },
+ {
+  "file": "2274f211-170b-4064-b4cc-06f70af6600d.jsonl",
+  "kind": "tool_result",
+  "is_error": false,
+  "validation_model_error": false,
+  "child_ok_marker": true,
+  "spawned_metadata": false,
+  "resolvedModel": "fake-parent-a",
+  "status": "completed"
+ },
+ {
+  "file": "33957214-97b9-40f8-8418-217e9794963c.jsonl",
+  "kind": "Agent",
+  "model": null,
+  "name": null,
+  "subagent_type": "general-purpose"
+ },
+ {
+  "file": "33957214-97b9-40f8-8418-217e9794963c.jsonl",
+  "kind": "tool_result",
+  "is_error": false,
+  "validation_model_error": false,
+  "child_ok_marker": true,
+  "spawned_metadata": false,
+  "resolvedModel": "fake-parent-b",
+  "status": "completed"
+ },
+ {
+  "file": "6e499e35-836b-42c5-a1b0-06055d93be75.jsonl",
+  "kind": "Agent",
+  "model": null,
+  "name": null,
+  "subagent_type": "haiku-def"
+ },
+ {
+  "file": "6e499e35-836b-42c5-a1b0-06055d93be75.jsonl",
+  "kind": "tool_result",
+  "is_error": false,
+  "validation_model_error": false,
+  "child_ok_marker": true,
+  "spawned_metadata": false,
+  "resolvedModel": "fake-parent-a",
+  "status": "completed"
+ },
+ {
+  "file": "76d20b46-9f85-4577-bd12-14196b08fe55.jsonl",
+  "kind": "Agent",
+  "model": "sonnet",
+  "name": null,
+  "subagent_type": "general-purpose"
+ },
+ {
+  "file": "76d20b46-9f85-4577-bd12-14196b08fe55.jsonl",
+  "kind": "tool_result",
+  "is_error": false,
+  "validation_model_error": false,
+  "child_ok_marker": true,
+  "spawned_metadata": false,
+  "resolvedModel": "fake-parent-a",
+  "status": "completed"
+ },
+ {
+  "file": "b338f495-5e74-4cd2-a1d2-d0d6cee69a31.jsonl",
+  "kind": "Agent",
+  "model": null,
+  "name": "e2e-mate-09b41a47",
+  "subagent_type": "general-purpose"
+ },
+ {
+  "file": "b338f495-5e74-4cd2-a1d2-d0d6cee69a31.jsonl",
+  "kind": "tool_result",
+  "is_error": false,
+  "validation_model_error": false,
+  "child_ok_marker": false,
+  "spawned_metadata": true,
+  "resolvedModel": "fake-parent-a",
+  "status": "teammate_spawned"
+ },
+ {
+  "file": "b338f495-5e74-4cd2-a1d2-d0d6cee69a31.jsonl",
+  "kind": "Agent",
+  "model": null,
+  "name": "e2e-mate-new-09b41a47",
+  "subagent_type": "general-purpose"
+ },
+ {
+  "file": "b338f495-5e74-4cd2-a1d2-d0d6cee69a31.jsonl",
+  "kind": "tool_result",
+  "is_error": false,
+  "validation_model_error": false,
+  "child_ok_marker": false,
+  "spawned_metadata": true,
+  "resolvedModel": "fake-parent-b",
+  "status": "teammate_spawned"
+ }
+]
