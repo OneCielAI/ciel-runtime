@@ -1,0 +1,9 @@
+{
+  "at": "2026-10-26T11:38:26-0500",
+  "statusline_previous_sha256": "1550c68ad243e762a957c39c1b0e1bb425e47ba05e07ffe0db397c60aaad0496",
+  "statusline_backup": "C:\\Users\\djlov\\AppData\\Local\\ciel-runtime\\bin\\ciel-runtime-statusline.py.before-2faae14-20261026",
+  "statusline_new_sha256": "da5766c522fc184ac3565ccd15c6acd67a4c945a136a4f3f43c58793bb2851f6",
+  "statusline_matches_snapshot_template": true,
+  "ciel_runtime_home_previous": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-work-breakdown-20261026-122744",
+  "ciel_runtime_home_now": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-2faae14453a948936e76cdfd3c1ee77b4d291371"
+}

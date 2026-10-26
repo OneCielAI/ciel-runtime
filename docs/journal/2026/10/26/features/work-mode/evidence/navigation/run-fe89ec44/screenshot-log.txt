@@ -1,0 +1,4 @@
+01-vertical-items
+saved C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-mode\evidence\navigation\run-fe89ec44\01-vertical-items.png handle=61281574 printwindow=True
+02-keyboard-B-detail
+saved C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-mode\evidence\navigation\run-fe89ec44\02-keyboard-B-detail.png handle=61281574 printwindow=True

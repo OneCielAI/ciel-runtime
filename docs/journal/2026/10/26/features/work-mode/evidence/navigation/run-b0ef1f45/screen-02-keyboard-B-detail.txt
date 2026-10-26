@@ -1,0 +1,38 @@
+         {                                                                 │                                                         ✕
+           "id": "n2",                                                     │Work details — version 5
+           "title": "Exercise guarded mutation",                           │r: Refresh
+           "status": "in_progress",                                        │w: All items
+           "done": 1,                                                      │b: Parent
+           "total": 2                                                      │q: Close
+         },                                                                │[ ] B booking calendar
+         {                                                                 │  Note: Capacity and FIFO policies
+           "id": "n6",                                                     │  [ ] Verify half-open intervals
+           "title": "B booking calendar",                                  │Tab/↑↓: navigate/scroll · Enter: inspect node · Esc: close
+           "status": "pending",                                            │
+           "done": 0,                                                      │
+           "total": 1                                                      │
+         },                                                                │
+         {                                                                 │
+           "id": "n8",                                                     │
+           "title": "C inventory stream",                                  │
+           "status": "pending",                                            │
+           "done": 0,                                                      │
+           "total": 1                                                      │
+         }                                                                 │
+       ],                                                                  │
+       "ready": true,                                                      │
+       "ready_reason": "ready",                                            │
+       "goals": 1                                                          │
+     }                                                                     │
+Work 1/4 — Verify real Work mode                                       [-] │
+1: [~] Exercise guarded mutation 1/2                                       │
+2: [ ] B booking calendar 0/1                                              │
+3: [ ] C inventory stream 0/1                                              │
+w: All items / refresh                                                     │
+Ctrl+X Tab: focus · Tab/↑↓: select · Enter: inspect · Esc: return          │
+                                                         ● high · /effort  │
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+                                                                                                                       work: plan 1/4
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · ← for agents
