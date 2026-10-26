@@ -1,0 +1,8 @@
+docs/journal/2026/10/21/releases/sse-history-tolerance/release.okf exit 0
+  [32m✓ conformant — no issues[0m
+docs/journal/2026/10/21/diagnostics/sse-admission-regression/verification.okf exit 0
+  [32m✓ conformant — no issues[0m
+docs/journal/2026/10/21/diagnostics/sse-admission-regression/investigation.okf exit 0
+  [32m✓ conformant — no issues[0m
+docs/journal/2026/10/21/diagnostics/delivery-health-partial/verification.okf exit 0
+  [32m✓ conformant — no issues[0m

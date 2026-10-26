@@ -1,0 +1,178 @@
+---
+type: diagnosis
+title: Celly cannot compact a history larger than the upstream window
+description: The native compact request is forwarded unmodified at 1.45M tokens and the gateway rejects it; a checkpoint past the whole context window is now chunked instead.
+tags: [celly, compaction, cielairouter, context-window]
+timestamp: 2026-10-22
+status: verified-source
+---
+
+# Reported symptom
+
+Celly (local AAP sandbox, G:\ciel-bridge-service, router 9385, build
+0.2.51-nightly.20261022-060129.64ec9c4, provider cielairouter, model
+_Walkie_Opus55-Sol61-Fast, context 872,000): compaction never completes; the
+user asked that an oversized context be chunked.
+
+# Evidence
+
+- 08:41:47 runtime_compaction_control event=admission_paused phase=compacting.
+- 08:43:17 native_compact_started, then immediately
+  upstream_direct_request tokens=1458490 bytes=6307171, and
+  08:43:20 anthropic_sse_upstream_error_event text_len=0.
+- 08:50:10 the same request at tokens=1458498, answered
+  08:50:12 upstream_direct_http_error code=400:
+  "invalid_request_error: Conversation exceeds the known context limits of all
+  eligible combo targets. Compact the conversation before retrying."
+- No `compacted anthropic payload` line accompanies either request, while at
+  02:20-02:29 ordinary turns did compact (1.45M -> ~683K, budget 716,750).
+
+# Mechanism (code facts)
+
+- prompt_compaction.compact_anthropic_body_for_budget deliberately leaves a
+  native checkpoint untouched unless pcfg["_context_compact_context_rejected"]
+  is set; the upstream rejection was the only authorisation.
+- The Messages path (claude_router) only recovers an output-budget 400
+  (context_recovery.recover_output_budget) and has no context-window
+  recovery, so the 400 went straight back to Claude.
+- The upstream wording ("Conversation exceeds the known context limits")
+  also does not match context_compaction.no_output_context_rejection.
+
+So an oversized compact request could never be compacted: the request that
+would shrink the history was itself rejected for being too large.
+
+# Change
+
+compact_anthropic_body_for_budget now treats a native checkpoint estimated
+above its model's whole context window (pcfg context_window / max_model_len)
+as compactable, using the existing semantic chunked path. Checkpoints at or
+below the window keep the old pass-through without any estimation, and
+malformed/boolean window values keep it too.
+
+# Verification
+
+tests/test_native_compact_passthrough.py NativeCompactOverWindowTests:
+over-window body is chunked (llm_compact_messages called once, tools dropped),
+in-window body passes unchanged without estimation, malformed values pass.
+318 exact-file tests OK (42 existing skips) including compaction, request
+builder, transient retry and architecture contracts.
+
+# Not established
+
+The provider's own upper bound on a compact request is not documented here;
+this change is justified by the observed 1.45M > 872K rejection, not by an
+estimate of what the gateway would accept.
+
+# Correction after CI
+
+The first form applied the window rule to every full compact request. CI run
+39792088196 (test (runtime)) failed
+test_large_checkpoint_without_rejection_preserves_full_history: a translated
+Codex checkpoint over its window was chunked without a confirmed rejection,
+which that path's recovery contract forbids. The Publish run failed with it, so
+no nightly was published from 57b39d4.
+
+8045ba0 scopes the rule to Claude's own checkpoint (compact_kind "claude",
+marked by provider_request_builder as _context_compact_native_over_window);
+a translated Codex checkpoint keeps its confirmed-rejection rule, asserted by
+test_translated_codex_checkpoint_keeps_its_rejection_rule.
+
+# Follow-up: exact combo rejection
+
+The deployed 64ec9c4 build still did not recognize the router's prose rejection
+when a compact request reached the provider before the over-window estimate was
+available. `no_output_context_rejection` now classifies the exact
+`invalid_request_error` text, "Conversation exceeds the known context limits of
+all eligible combo targets. Compact the conversation before retrying.", as a
+no-output context rejection. Unrelated 400 responses remain non-retryable.
+
+Verification after this follow-up: focused context-compaction and native
+passthrough suites passed (42 tests); the runtime group passed 441 tests with
+19 existing skips after removing inherited `CIEL_RUNTIME_CODEX_API_KEY`,
+`CIEL_RUNTIME_ROUTER_PORT`, and `CIEL_RUNTIME_TEST_ISOLATED` test-process
+variables. Ruff passed for the changed source and test files.
+
+# Second stage: the live build still failed
+
+Celly was confirmed running 0.2.51-nightly.20261022-142105.8045ba0 at 09:03
+and 09:08 and forwarded the same 1,458,507-token request; the gateway answered
+the same prose 400. So the preflight rule did not fire there: the checkpoint
+kind was not proven at request time, and a native checkpoint still must not be
+rewritten on a local estimate alone.
+
+The error itself is the proof the preflight lacked. 81a270b:
+- no_output_context_rejection recognizes "exceeds the known context limit"
+  and "compact the conversation before retrying" for invalid_request_error.
+- The native Messages path, on a no-output 400, compacts the rejected history
+  through the semantic chunked path (_context_compact_context_rejected) and
+  retries once under a fresh unshared transient-retry scope.
+- The two pre-existing recovery branches are now an if/else; before, a
+  successful window recovery fell through to the output-budget branch and
+  raised TypeError('NoneType' object is not subscriptable).
+
+tests/test_claude_transient_context_recovery.py
+CielAiRouterContextWindowRecoveryTests: the prose 400 produces exactly one
+second upstream request whose body is the compacted one, and an unrelated 400
+is returned unchanged with no compaction. 330 exact-file tests OK.
+
+# Third stage: recovery fired but did not shrink
+
+Celly at 10:06:51 and 10:13:02 (build a174231) logged context_window_recovery
+and then the identical prose 400 again. The recovered body was 6,455,592 and
+6,457,259 bytes -- larger than the original 6,307,244 -- so the semantic
+reducers never ran: compact_kind was still unrecognized, full_compact_request
+stayed false, and only the deterministic tail guard executed.
+
+e062fa5: a confirmed no-output context rejection now forces
+full_compact_request (compact_runtime 'claude') in the request builder, so the
+window recovery reaches the map/reduce reducers that chunk to the input
+budget. Tests assert the semantic function runs with the marker and does not
+run without it; a 4 MB synthetic history reduces to the injected summary.
+324 exact-file tests OK.
+
+# Fourth stage: trigger before the error, not only after it
+
+42e52d5 runs the window guard for every routed Claude request: a body
+estimated above the model's context window is chunked before it is sent, so
+the gateway never sees a request it must refuse. Below the window the old
+rules stay: a native checkpoint waits for the explicit no-output rejection and
+an ordinary turn keeps the tail guard; native Anthropic and the preflight
+opt-out are untouched. Both triggers now exist -- proactive over the window,
+reactive on the rejected error.
+
+# Fifth stage: the preflight opt-out bypassed the window guard
+
+The Celly router at 11:22 ran 418caa6 and still sent tokens=1,480,927
+bytes=6,457,566 unchanged; the gateway answered 200 with an in-stream error
+event (`anthropic_sse_upstream_error_event text_len=0`), which Claude reported
+as "automatic compaction failed". No context_window_recovery line appeared
+because the reply was not an HTTP 4xx.
+
+Root cause: commit 58f5469 gave cielairouter `preflight_prompt_compaction=False`
+by default, and the builder returned every non-Codex request before the window
+check. c1a0329 keeps the opt-out meaning ("do not pre-compact a segment that
+may still fit") but still delivers the request to the window guard, which acts
+only above the model's whole context window; a body inside the window is
+untouched. Tests cover both sides.
+
+Note for the future: a rejection delivered as an in-stream SSE error event has
+no HTTP status to react to; the error-driven recovery added in 81a270b only
+sees HTTP 4xx replies.
+
+# Sixth stage: the token estimate was script-blind
+
+estimate_tokens counted characters uniformly (len(text)//4). Celly's
+conversation is Korean, where a character is close to a token, so Ciel
+under-estimated by roughly 4x: a body it sized at 1.45M tokens while the
+provider reported the same session past its 872K window. The window guard
+therefore fires late for CJK conversations.
+
+The estimate now counts ASCII at four characters per token and every other
+character at one token (ciel_runtime_support/token_estimate.py): 4,000 English
+characters -> 1,002 tokens, 4,000 Hangul characters -> 4,002. The function moved
+out of the composition root, which returns under its 4,980-line ratchet (4,970).
+
+Injected channel messages do not escape the guard: in
+claude_router.handle_claude_messages_post the pending channel messages are
+merged at lines 341-342 and cap_anthropic_body runs at line 431, so the size
+that reaches the window guard includes them.

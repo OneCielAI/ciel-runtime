@@ -1,0 +1,69 @@
+{
+  "passed": true,
+  "status_text": "observation stream live | session delivery not_blocked | known queued 2 | history_observation_partial line 2",
+  "source_unchanged": true,
+  "runtime": "C:\\Users\\djlov\\ciel-runtime\\ciel_runtime.py",
+  "screenshot": "final-tui-not-blocked.png",
+  "owned_server_closed": true,
+  "delivery": {
+    "state": "not_blocked",
+    "reason": "history_observation_partial",
+    "scope": "private_runtime_inputs",
+    "blocker_scope": null,
+    "admission_blocked": false,
+    "launcher_hold_observed": false,
+    "line_number": 2,
+    "known_queued_count": 2,
+    "queue_age_coverage": "complete",
+    "queued_coverage": "partial",
+    "history": {
+      "complete": false,
+      "coverage": "partial",
+      "scanned_bytes": 141,
+      "failure_count": 1,
+      "recovered_count": 1,
+      "diagnostics": [
+        {
+          "line_number": 2,
+          "byte_offset": 58,
+          "failure_category": "invalid_json"
+        }
+      ],
+      "diagnostics_truncated": false
+    },
+    "oldest_queued_age_seconds": 1792572971.2201936
+  },
+  "menu_row_text": "not_blocked; known queued 2; oldest 1792572971s; coverage partial; history observation partial line 2 (damaged lines ignored)",
+  "unreadable_case": {
+    "delivery": {
+      "state": "unknown",
+      "reason": "delivery_observation_unavailable",
+      "scope": "private_runtime_inputs",
+      "blocker_scope": null,
+      "admission_blocked": null,
+      "launcher_hold_observed": false,
+      "line_number": 0,
+      "known_queued_count": 0,
+      "queue_age_coverage": "complete",
+      "queued_coverage": "unknown",
+      "history": {
+        "complete": false,
+        "coverage": "unknown",
+        "scanned_bytes": 0,
+        "failure_count": 1,
+        "recovered_count": 0,
+        "diagnostics": [
+          {
+            "line_number": 0,
+            "byte_offset": 0,
+            "failure_category": "read_unavailable"
+          }
+        ],
+        "diagnostics_truncated": false
+      },
+      "oldest_queued_age_seconds": null
+    },
+    "menu_row_text": "unknown; known queued 0; oldest unknown; coverage unknown; observation unavailable"
+  },
+  "api_screenshot": "final-tui-status-partial.png"
+}

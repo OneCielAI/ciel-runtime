@@ -1,0 +1,39 @@
+15:42:39
+
+ ▐▛███▛█   Claude Code v2.1.310
+▝▜██████▀  ciel-runtime-ollama-osr-fake · API Usage Billing
+ ▝▝   ▝▝   C:\Users\djlov\AppData\Local\Temp\ciel-osr-e2e-recover-r1-nvcsd1w1\ws
+
+
+❯ OSR-E2E-RECOVER-6a23064bbc reply with one short line
+
+  Thinking for 1s…
+  ⎿  Considering the request before answering.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+✢ Beboppin'… (1s · ↓ 11 tokens · thinking)
+                                                                                                                     ● high · /effort
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · esc to interrupt · ← for agents

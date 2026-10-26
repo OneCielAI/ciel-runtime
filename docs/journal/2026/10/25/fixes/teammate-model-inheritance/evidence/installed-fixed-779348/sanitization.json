@@ -1,0 +1,34 @@
+{
+ "raw_removed": [
+  "ccfg/",
+  "cfg/",
+  "console-command.json",
+  "home/",
+  "interactive.cmd",
+  "ws/"
+ ],
+ "raw_parent_transcripts_processed": 6,
+ "raw_parent_transcript_bytes": 1520893,
+ "owned_pids_absent": [
+  75648,
+  61384,
+  66268,
+  89348,
+  38268,
+  82316,
+  83340
+ ],
+ "owned_pids_alive": [],
+ "screenshots": [
+  {
+   "file": "named.png",
+   "bytes": 26812,
+   "sha256": "75f8fc169a0cdf04a149b17348ba83b11ffcc86f3bcb813b78eec08b4ba531b8",
+   "dimensions": [
+    1129,
+    635
+   ]
+  }
+ ],
+ "retained_policy": "metadata, screenshot, console and result only; removed all run config/home/workspace/transcript trees and launch commands"
+}

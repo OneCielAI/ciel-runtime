@@ -4,7 +4,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from threading import Lock, RLock
+import time
 from typing import Any, Callable
+
+from . import runtime_input_retry
+from .runtime_input_retry import RetrySettings
+
+# Transcript and poll clocks may disagree by this much; an error record older
+# than the attempt by more than this was left by an earlier attempt.
+_ATTEMPT_CLOCK_SKEW_SECONDS = 2.0
 
 
 @dataclass(slots=True)
@@ -54,6 +62,11 @@ class ChannelWakeDeliveryRepository:
             state = self.attempts = DeliveryAttempts()
         state.child_epoch = str(child_epoch or "")
         return state
+
+    def admission_status(self, message_id: int) -> str:
+        get = getattr(self.status, "get", None)
+        row = get(message_id) if callable(get) else None
+        return str(row.get("status") or "") if isinstance(row, dict) else ""
 
     def interrupted(self, message_id: int) -> bool:
         get = getattr(self.status, "get", None)
@@ -127,6 +140,58 @@ class ChannelWakeDeliveryRepository:
             for grouped_id in sorted(message_ids):
                 self.prompts.pop(grouped_id, None)
                 self.batches.pop(grouped_id, None)
+
+    def pending_retry(self, message_id: int) -> dict[str, Any] | None:
+        """The scheduled resend of a queued input, read from its status row."""
+        get = getattr(self.status, "get", None)
+        return runtime_input_retry.pending_retry(get(message_id) if callable(get) else None)
+
+    def turn_failed(
+        self, message_id: int, state: str, attempt_started_at: float = 0.0,
+        retry_settings: RetrySettings | None = None,
+    ) -> str:
+        """Settle a prompt that an API error answered: "retry", "failed" or "stale".
+
+        Each input of the prompt's batch is either queued again with its next
+        resend record (status CAS on the attempt it owned) or failed with its
+        typed reason.  An input without a durable status row keeps the old
+        completion reading: nothing durable could schedule or bound a resend.
+        """
+        failure = runtime_input_retry.decode_failed_state(state)
+        if failure is None or self.interrupted(message_id):
+            return "failed"
+        failed_at = runtime_input_retry.failed_state_epoch(state)
+        if failed_at is not None and attempt_started_at > 0 and failed_at < attempt_started_at - _ATTEMPT_CLOCK_SKEW_SECONDS:
+            return "stale"
+        settings = retry_settings or RetrySettings()
+        with self.lock:
+            message_ids = self._prompt_group(message_id)
+        get = getattr(self.status, "get", None)
+        outcome = "completed"
+        for grouped_id in sorted(message_ids):
+            row = get(grouped_id) if callable(get) else None
+            if not isinstance(row, dict) or row.get("status") != "submitted":
+                continue
+            data = row.get("data") if isinstance(row.get("data"), dict) else {}
+            previous = data.get("retry") if isinstance(data.get("retry"), dict) else None
+            retry = runtime_input_retry.next_retry(previous, failure, settings, time.time(), runtime="claude")
+            attempts = self.attempts
+            expected = attempts.by_message.get(grouped_id) if attempts is not None else None
+            if retry is not None and self.status.schedule_retry(
+                grouped_id, retry, reason=f"retry_scheduled:{failure.label}", expected_attempt=expected
+            ):
+                outcome = "retry"
+                continue
+            self._transition(grouped_id, "failed", reason=runtime_input_retry.terminal_reason(previous, failure, settings))
+            outcome = "failed" if outcome == "completed" else outcome
+        for grouped_id in sorted(message_ids):
+            self.clear_claim(grouped_id)
+        with self.lock:
+            for grouped_id in sorted(message_ids):
+                self.delivered.discard(grouped_id)
+                self.prompts.pop(grouped_id, None)
+                self.batches.pop(grouped_id, None)
+        return outcome
 
     def mark_delivered(self, message_id: int) -> bool:
         with self.lock:

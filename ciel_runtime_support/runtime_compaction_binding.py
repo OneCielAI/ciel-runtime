@@ -18,8 +18,12 @@ from typing import Any, Callable
 
 from .claude_session_socket import canonical_socket_path
 from .channel_message_repository import exclusive_file_lock
-from .channel_transcript_repository import ChannelTranscriptRepository
+from .channel_transcript_repository import (
+    ChannelTranscriptRepository,
+    read_codex_session_meta,
+)
 from .native_context_recovery import parse_context_overflow
+from .native_model_usage import latest_native_model_usage
 from .oauth_routing import codex_session_key
 from .process_control import pid_is_running
 from .remote_bridge import REMOTE_BRIDGE_CONFIG_MARKER
@@ -30,12 +34,29 @@ from .secure_json_repository import SecureJsonEffects, SecureJsonRepository
 # /clear and /resume, which Claude Code 2.1.303 writes as a new sessionId.
 PUBLISHED_RECHECK_SECONDS = 2.0
 
+# An unproven launch identity holds external input until published idle or a
+# routed request. Older clients without idle status retain this fallback: Celly held
+# 6363 until the user typed "222" (2026-10-23 01:35). After this window the
+# gate opens for the launch's own socket; the first request still re-binds the
+# exact scope, and any request that overflows re-arms compaction admission.
+REQUEST_IDENTITY_GRACE_SECONDS = 120.0
+
 
 def _positive(value: Any) -> int:
     try:
         return max(0, int(value))
     except (ValueError, TypeError, OverflowError):
         return 0
+
+
+def _identity_expired(value: dict[str, Any], now: float) -> bool:
+    """A held launch identity older than the grace window no longer blocks."""
+
+    try:
+        since = float(value.get("identity_since") or value.get("started_at") or 0)
+    except (ValueError, TypeError, OverflowError):
+        return False
+    return since > 0 and now - since >= REQUEST_IDENTITY_GRACE_SECONDS
 
 
 def _header(headers: Any, name: str) -> str:
@@ -121,7 +142,7 @@ class RuntimeCompactionBinding:
                  log: Callable[[str, str], None]) -> None:
         self.home, self.builder, self.estimate, self.config, self.log = home, builder, estimate, config, log
         self.repository = SecureJsonRepository(root / "compaction-scope.json", SecureJsonEffects(log=log))
-        self.seed_lock_path = root / "compaction-seed"
+        self.safeguard_checked = 0.0
         self.cache: dict[str, Any] = {}
         self.seeded = ""
         self.pending_logged = ""
@@ -137,8 +158,9 @@ class RuntimeCompactionBinding:
         return self.builder().budget.compact_kind(body)
 
     def bind(self, runtime: str, **options: Any) -> None:
+        started_at = options.get("started_at") or time.time()
         value = {"runtime": runtime, "epoch": uuid.uuid4().hex,
-                 "started_at": options.get("started_at") or time.time(),
+                 "started_at": started_at, "identity_since": started_at,
                  "session_id": str(options.get("session_id") or "").strip(),
                  "cwd": str(options.get("cwd") or ""),
                  "codex_home": str(options.get("codex_home") or ""), "path": "",
@@ -157,6 +179,8 @@ class RuntimeCompactionBinding:
             self.log("WARN", f"runtime_compaction_scope_bind_failed runtime={runtime} error={type(exc).__name__}")
 
     def _update(self, epoch: str, **fields: Any) -> dict[str, Any]:
+        # Reads take the short scope lock too: on Windows an open reader makes
+        # the writer's atomic replace fail (measured: 2194 failed saves in 3 s).
         with exclusive_file_lock(self.repository.path):
             value = self.repository.load("compaction_scope")
             if value is None:
@@ -166,7 +190,7 @@ class RuntimeCompactionBinding:
                 self.repository.save(value, "compaction_scope")
             return value
 
-    def _published_claude_session(self, value: dict[str, Any]) -> str:
+    def _published_claude_record(self, value: dict[str, Any]) -> dict[str, Any]:
         """The session Claude Code publishes for this launch's exact socket.
 
         The record must name the launch's messaging socket and cwd, carry a
@@ -177,13 +201,13 @@ class RuntimeCompactionBinding:
         target = str(value.get("messaging_socket_path") or "")
         cwd = ChannelTranscriptRepository._normalized_cwd(value.get("cwd"))
         if not target or not cwd:
-            return ""
+            return {}
         directory = Path(value.get("claude_config_dir") or self.home / ".claude") / "sessions"
         candidates = []
         try:
             paths = list(directory.glob("*.json"))
         except OSError:
-            return ""
+            return {}
         for path in paths:
             try:
                 if path.stat().st_size > 64 * 1024:
@@ -203,21 +227,60 @@ class RuntimeCompactionBinding:
                 published = str(record.get("messagingSocketPath") or "")
                 session_id = str(record.get("sessionId") or "").strip()
                 if published and session_id and canonical_socket_path(published) == canonical_socket_path(target):
-                    candidates.append(session_id)
+                    candidates.append(record)
             except (OSError, ValueError, TypeError, UnicodeError):
                 continue
-        return candidates[0] if len(candidates) == 1 else ""
+        return candidates[0] if len(candidates) == 1 else {}
 
     def _follow_published(self, value: dict[str, Any]) -> dict[str, Any]:
         epoch, now = value["epoch"], time.time()
         checked_epoch, checked_at = self.published_checked
-        if value.get("session_id") and checked_epoch == epoch and now - checked_at < PUBLISHED_RECHECK_SECONDS:
+        if value.get("identity_ready") and checked_epoch == epoch and now - checked_at < PUBLISHED_RECHECK_SECONDS:
             return value
         self.published_checked = (epoch, now)
-        session_id = self._published_claude_session(value)
-        if session_id and session_id != value.get("session_id") and self._switch(epoch, "claude", session_id, "socket"):
-            return self._update("")
-        return value
+        record = self._published_claude_record(value)
+        session_id = str(record.get("sessionId") or "").strip()
+        ready = None
+        if session_id:
+            peer = {"session_id": session_id, "pid": record["pid"], "proc_start": record["procStart"]}
+            previous = value.get("identity_ready")
+            if isinstance(previous, dict) and all(previous.get(key) == item for key, item in peer.items()):
+                # Readiness establishes identity once; busy turns do not make
+                # that same native process provisional again.
+                ready = previous
+            else:
+                try:
+                    stamp = record.get("statusUpdatedAt")
+                    if (record.get("status") == "idle" and not isinstance(stamp, bool)
+                            and float(record["startedAt"]) / 1000 - 1 <= float(stamp) / 1000 <= now + 1
+                            and float(stamp) / 1000 >= float(value["started_at"]) - 1):
+                        ready = {**peer, "at": float(stamp) / 1000}
+                except (ValueError, TypeError, OverflowError):
+                    pass
+        with exclusive_file_lock(self.repository.path):
+            current = self.repository.load("compaction_scope")
+            if current is None:
+                raise OSError("compaction scope is unreadable")
+            # A scan cannot overwrite a newer launch or a concurrent retarget.
+            fields = ("epoch", "session_id", "messaging_socket_path", "identity_since", "identity_ready", "request_observed")
+            if any(current.get(key) != value.get(key) for key in fields):
+                return current
+            switched = bool(session_id and session_id != current.get("session_id"))
+            if switched:
+                current.update({"session_id": session_id, "path": "", "seeded": False,
+                                "request_observed": False, "identity_since": now})
+            changed = current.get("identity_ready") != ready
+            if ready:
+                current["identity_ready"] = ready
+            else:
+                current.pop("identity_ready", None)
+            if switched or changed:
+                self.repository.save(current, "compaction_scope")
+        if switched:
+            self.log("INFO", f"runtime_compaction_scope_bound runtime=claude session={session_id} via=socket")
+        if ready and changed:
+            self.log("INFO", f"runtime_compaction_scope identity=ready reason=published_idle runtime=claude session={session_id}")
+        return current
 
     def _switch(self, epoch: str, runtime: str, session_id: str, via: str, *, unbound_only: bool = False) -> bool:
         """Retarget one launch epoch to an exactly observed native session."""
@@ -230,8 +293,11 @@ class RuntimeCompactionBinding:
                 return True
             if unbound_only and value.get("session_id"):
                 return False
-            # Proof belongs to one conversation: path and seeding start over.
-            value.update({"session_id": session_id, "path": "", "seeded": False, "request_observed": False})
+            # Proof belongs to one conversation: path and seeding start over,
+            # and the new identity gets its own grace window.
+            value.pop("identity_ready", None)
+            value.update({"session_id": session_id, "path": "", "seeded": False,
+                          "request_observed": False, "identity_since": time.time()})
             self.repository.save(value, "compaction_scope")
         self.log("INFO", f"runtime_compaction_scope_bound runtime={runtime} session={session_id} via={via}")
         return True
@@ -306,15 +372,13 @@ class RuntimeCompactionBinding:
         if runtime == "claude":
             session_id = ChannelTranscriptRepository._claude_session_identity(path)[2]
             return session_id if any(record.get("sessionId") == session_id for record in _records(path, 64 * 1024)) else ""
-        try:
-            with path.open("rb") as stream:
-                header = json.loads(stream.readline(64 * 1024))
-        except (OSError, ValueError, TypeError):
+        # A large ``base_instructions`` payload makes the first physical line
+        # longer than any bounded readline; the shared reader validates the
+        # record and returns only its exact identity scalars.
+        meta = read_codex_session_meta(path)
+        if meta is None or meta.record_type != "session_meta" or meta.is_sidechain:
             return ""
-        payload = header.get("payload") if isinstance(header, dict) else None
-        if not isinstance(payload, dict) or header.get("type") != "session_meta" or header.get("isSidechain") is True:
-            return ""
-        return str(payload.get("id") or payload.get("session_id") or "")
+        return meta.identity
 
     def scope(self) -> CompactionScope | None:
         value = self._resolve()
@@ -337,8 +401,13 @@ class RuntimeCompactionBinding:
                   or configured or 4096)
         return max(8192, limit - output - budget.reserve(config, limit))
 
+    def _admission_state(self) -> dict[str, Any] | None:
+        # Never called while the admission lock is held; see _update.
+        with self.control.ports.lock():
+            return self.control.ports.load()
+
     def _active_state(self, scope: CompactionScope | None) -> dict[str, Any]:
-        state = self.control.ports.load() if scope else None
+        state = self._admission_state() if scope else None
         if not state or state.get("scope") != scope.payload() or state.get("phase") == "verified":
             return {}
         return state
@@ -367,6 +436,15 @@ class RuntimeCompactionBinding:
         # always pass the header container, even when it has no session key.
         return scope if headers is None or session == scope.session_id else None
 
+    def request_scope(self, runtime: str, headers: Any, body: dict[str, Any]) -> CompactionScope | None:
+        """The bound scope when this HTTP request belongs to its main conversation."""
+
+        try:
+            return self._main_session(runtime, headers, body)
+        except (OSError, ValueError, TypeError) as exc:
+            self.log("WARN", f"runtime_compaction_request_scope_failed runtime={runtime} error={type(exc).__name__}")
+            return None
+
     def observe_request(self, provider: str, config: dict[str, Any], body: dict[str, Any], runtime: str,
                         headers: Any = None) -> None:
         try:
@@ -386,22 +464,23 @@ class RuntimeCompactionBinding:
         tokens = self.estimate({key: value for key, value in body.items() if key != "max_tokens"})
         # A raw Responses body names its output budget max_output_tokens.
         limit = self.input_budget(provider, config, {"max_tokens": body.get("max_tokens", body.get("max_output_tokens"))})
-        with exclusive_file_lock(self.seed_lock_path):
-            self._update(scope.epoch, request_observed=True)
-            active = self._active_state(scope)
-            # Claude owns proactive compaction of native Messages turns: only a
-            # native compact, or the proof an active cycle waits for, is seen.
-            if provider == "anthropic" and runtime == "claude" and not active and not native:
-                return
-            if active and not limit:
-                # Unknown capacity: the observed compact request size is the
-                # only bound a real next request can be proven smaller than.
-                limit = _positive(active.get("baseline_tokens"))
-            self.control.observe_request(body, tokens, limit, scope=scope)
-            after = self._active_state(scope)
-            if not native and after.get("phase") == "awaiting_shrink":
-                # The real next request did not shrink: stop admitting probes.
-                self._update(scope.epoch, failed_probe=after.get("checkpoint_id", ""))
+        self._update(scope.epoch, request_observed=True)
+        active = self._active_state(scope)
+        # Native clients own proactive timing. JSON/4 is not tokenizer
+        # evidence and the Runtime input reserve is not the CLI threshold.
+        # Keep observing native checkpoints and an existing recovery cycle,
+        # but only a confirmed upstream overflow may start pressure here.
+        if not active and not native:
+            return
+        if active and not limit:
+            # Unknown capacity: the observed compact request size is the
+            # only bound a real next request can be proven smaller than.
+            limit = _positive(active.get("baseline_tokens"))
+        self.control.observe_request(body, tokens, limit, scope=scope)
+        after = self._active_state(scope)
+        if not native and after.get("phase") == "awaiting_shrink":
+            # The real next request did not shrink: stop admitting probes.
+            self._update(scope.epoch, failed_probe=after.get("checkpoint_id", ""))
 
     def observe_failure(self, provider: str, config: dict[str, Any], body: dict[str, Any], raw: Any, runtime: str,
                         headers: Any = None) -> None:
@@ -423,23 +502,79 @@ class RuntimeCompactionBinding:
         limit = max(1, overflow.context_limit - self.builder().budget.reserve(config, overflow.context_limit))
         if overflow.message_tokens < limit:
             return
-        with exclusive_file_lock(self.seed_lock_path):
-            self.control.observe_request(body, overflow.message_tokens, limit, scope=scope, recovery_required=True)
+        self.control.observe_request(body, overflow.message_tokens, limit, scope=scope, recovery_required=True)
 
     def _admission_paused(self) -> bool:
         """Strict gate for router-side append: paused until shrink is verified."""
 
         try:
-            with exclusive_file_lock(self.seed_lock_path):
-                scope = self.scope()
-                if scope is None:
-                    return self._identity_pending()
-                if self.seeded != f"{scope.epoch}:{scope.session_id}":
-                    self._seed(scope)
+            scope = self.scope()
+            if scope is None:
+                return self._identity_pending()
+            if self._request_identity_pending(self._update("")):
+                return True
+            if self.seeded != f"{scope.epoch}:{scope.session_id}":
+                self._seed(scope)
+            self._observe_safeguard(scope)
         except (OSError, ValueError, TypeError) as exc:
             self.log("WARN", f"runtime_compaction_scope admission=paused reason=state_unavailable error={type(exc).__name__}")
             return True
         return self.control.external_admission_paused()
+
+    def _observe_safeguard(self, scope, force=False):
+        now = time.monotonic()
+        if not force and now - self.safeguard_checked < 2:
+            return
+        self.safeguard_checked = now
+        provider, config = self.config()
+        value = self._update(str())
+        model = str(config.get('current_model') or str()).strip()
+        enabled = (provider == 'cielairouter' and scope.runtime == 'claude'
+                   and config.get('compact_safeguard') is not False
+                   and not config.get(REMOTE_BRIDGE_CONFIG_MARKER))
+        limit = self.builder().budget.context_limit(provider, config) if enabled else 0
+        since = max(float(value.get('started_at') or 0), float(value.get('identity_since') or 0))
+        sample = latest_native_model_usage(self.transcript_path(), scope, since, model) if enabled else None
+        def validate():
+            current_provider, current = self.config()
+            return (current_provider == provider
+                    and str(current.get('current_model') or '').strip() == model
+                    and current.get('compact_safeguard') == config.get('compact_safeguard')
+                    and not current.get(REMOTE_BRIDGE_CONFIG_MARKER)
+                    and (not enabled or self.builder().budget.context_limit(current_provider, current) == limit))
+        self.control.observe_proactive(scope, sample, _positive(limit), model.casefold(), validate=validate)
+
+    def _request_identity_pending(self, value: dict[str, Any]) -> bool:
+        """Hold external input until this launch proves its routed session.
+
+        Claude publishes a session id from the socket before it necessarily
+        completes the first resumed turn. The first published id can be
+        replaced, so a socket-only identity is provisional: injecting an event
+        against it can observe the wrong compaction scope and race the actual
+        request past a full context window (Celly, 2026-10-22 11:22/11:35).
+        Claude's exact published idle record establishes readiness without a
+        user turn. The first routed request is independent proof. Older clients
+        without a readiness record retain the compatibility deadline after
+        ``REQUEST_IDENTITY_GRACE_SECONDS`` from this identity binding.
+        """
+
+        if (value.get("runtime") != "claude"
+                or not value.get("messaging_socket_path")
+                or value.get("request_observed") is True
+                or value.get("identity_ready")):
+            return False
+        pid = _positive(value.get("launcher_pid"))
+        running = bool(pid and pid_is_running(pid))
+        held = running and not _identity_expired(value, time.time())
+        marker = f"request:{value.get('epoch')}:{value.get('session_id')}:{held}"
+        if self.pending_logged != marker:
+            self.pending_logged = marker
+            reason = "request_identity_pending" if held else (
+                "request_identity_expired" if running else "request_identity_unavailable")
+            self.log("INFO" if held else "WARN", "runtime_compaction_scope "
+                     f"admission={'paused' if held else 'ungated'} "
+                     f"reason={reason} runtime=claude")
+        return held
 
     def _identity_pending(self) -> bool:
         """A live supported launch whose exact native identity is not yet known."""
@@ -449,18 +584,24 @@ class RuntimeCompactionBinding:
             return False
         pid = _positive(value.get("launcher_pid"))
         sources = bool(value.get("messaging_socket_path")) or value.get("request_identity") is not False
-        held = bool(sources and pid and pid_is_running(pid))
-        if self.pending_logged != value["epoch"]:
-            self.pending_logged = value["epoch"]
+        running = bool(pid and pid_is_running(pid))
+        held = bool(sources and running and not _identity_expired(value, time.time()))
+        marker = f"{value['epoch']}:{held}"
+        if self.pending_logged != marker:
+            self.pending_logged = marker
+            reason = "identity_pending" if held else (
+                "identity_expired" if sources and running else "identity_unavailable")
             self.log("INFO" if held else "WARN", f"runtime_compaction_scope admission={'paused' if held else 'ungated'} "
-                     f"reason={'identity_pending' if held else 'identity_unavailable'} runtime={value['runtime']}")
+                     f"reason={reason} runtime={value['runtime']}")
         return held
 
     def external_admission_paused(self) -> bool:
         """Hold external deliveries until checkpoint AND raw shrink are proven.
 
-        A manual compact may wait here for the next user/native request. An
-        external SSE delivery must not be used as a recovery probe.
+        An automatic compact releases through the retry request that follows
+        it; a manual /compact has none and releases on its own boundary. An
+        unproven launch identity holds only for its grace window. An external
+        SSE delivery is never used as a recovery probe.
         """
         return self._admission_paused()
 
@@ -488,9 +629,9 @@ class RuntimeCompactionBinding:
         budget = self.input_budget(provider, config, {})
         self.log("INFO", f"runtime_compaction_seed runtime={scope.runtime} session={scope.session_id} "
                  f"native_input_tokens={'unknown' if tokens is None else tokens} input_budget={budget or 'unknown'}")
-        if tokens is not None and budget and tokens >= budget:
-            # An initial pressure observation only; it can never prove shrink.
-            self.control.observe_request({}, tokens, budget, scope=scope)
+        # Transcript usage predates this launch and is not tied to the current
+        # provider/model. It is diagnostic only, never proactive pressure. The
+        # native CLI applies its own threshold to the resumed conversation.
 
     def context_pause_reason(self, body: dict[str, Any]) -> str:
         if self._compact_kind(body):
@@ -499,7 +640,44 @@ class RuntimeCompactionBinding:
             return ""
         return "context_recovery" if self.scope() is not None else "identity_pending"
 
+    def recovery_status(self) -> dict[str, Any]:
+        try:
+            scope = self.scope()
+            state = self._admission_state() if scope is not None else None
+            if not isinstance(state, dict):
+                return {}
+            if state.get("scope") != scope.payload():
+                if state.get("phase") in {None, "verified"}:
+                    return {}
+                # Diagnostic only: a state an earlier session scope left
+                # unfinished never gates this scope and never opens it.
+                stored = state.get("scope") if isinstance(state.get("scope"), dict) else {}
+                return {"phase": "stale_scope", "failure":
+                        f"earlier_{stored.get('runtime') or '-'}_scope_{state.get('phase')}_not_gating",
+                        "failure_at": state.get("failure_at") or state.get("requested_at"),
+                        "checkpoint_observed_at": state.get("checkpoint_observed_at"),
+                        "deadline": state.get("deadline")}
+            return {key: state.get(key) for key in (
+                "phase", "failure", "failure_at", "checkpoint_observed_at", "deadline")}
+        except (OSError, ValueError, TypeError):
+            return {"phase": "unknown", "failure": "state_unavailable"}
+
+    def compact_dispatch(self) -> dict[str, Any]:
+        """Exact confirmed runtime dispatch for a continuation observer."""
+        scope = self.scope()
+        state = self._admission_state() if scope is not None else None
+        if not isinstance(state, dict) or state.get("scope") != scope.payload():
+            return {}
+        dispatch = state.get("dispatch")
+        if not isinstance(dispatch, dict):
+            return {}
+        return {**dispatch, "verified_at": state.get("verified_at")}
+
     def command_ready(self, request: dict[str, Any]) -> bool:
+        if request.get('automatic') is True:
+            scope = self.scope()
+            if scope is not None:
+                self._observe_safeguard(scope, force=True)
         return self.control.command_ready(request)
 
     def command_submitted(self, request: dict[str, Any]) -> None:

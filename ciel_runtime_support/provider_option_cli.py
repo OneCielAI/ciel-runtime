@@ -6,6 +6,8 @@ from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
+from .transient_retry import DEFAULT_RETRIES, MAX_RETRIES
+
 
 @dataclass(frozen=True, slots=True)
 class ProviderOptionCliConfig:
@@ -68,6 +70,7 @@ _PROVIDER_EXAMPLES = (
     "  ciel-runtimectl provider-options cielairouter gateway_selection=auto",
     "  ciel-runtimectl provider-options cielairouter gateway-status",
     "  ciel-runtimectl provider-options cielairouter gateway_data_path=direct",
+    "  ciel-runtimectl provider-options cielairouter gateway_retries=3",
     "  ciel-runtimectl provider-options deepseek max_output_tokens=8192 context_window=1048576",
     "  ciel-runtimectl provider-options opencode-go endpoint:custom-model=chat",
     "  ciel-runtimectl provider-options opencode ip_family=ipv6-preferred",
@@ -78,6 +81,7 @@ _PROVIDER_EXAMPLES = (
 )
 _OLLAMA_EXAMPLES = (
     "  ciel-runtimectl ollama-options num_ctx=auto min=32768 max=131072",
+    "  ciel-runtimectl ollama-options ollama-cloud empty_response_retries=1",
     "  ciel-runtimectl ollama-options num_ctx=65536 temperature=0.7 top_p=0.8 max_tokens=32768 timeout=300000",
     "  ciel-runtime --ca-ollama-option temperature=0.7 --ca-ollama-num-ctx 65536",
 )
@@ -86,6 +90,8 @@ DEFAULT_PROVIDER_NOTES: Mapping[str, Sequence[str]] = {
     "cielairouter": (
         "  gateway_selection=auto enables automatic selection; gateway_selection=off uses the configured central base.",
         "  gateway-status reads the local router /health only; it does not probe or reselect gateways.",
+        f"  gateway_retries=0..{MAX_RETRIES} sets extra retries (default {DEFAULT_RETRIES}); 0 disables retries.",
+        "  Retry settings apply to router requests; direct Claude/Codex HTTP uses them after CLI restart.",
         "  Changes apply to subsequent requests; in-flight requests are not replayed.",
         "  gateway_data_path=router (default) sends CLI model requests through the local router;",
         "  gateway_data_path=direct sends them straight to the gateway selected at launch",
@@ -203,8 +209,8 @@ class ProviderOptionCliController:
             for token in values:
                 self.provider.apply(provider, provider_config, token)
             gateway_only = provider == "cielairouter" and all(
-                token in ("unset:gateway_selection", "unset:gateway_data_path")
-                or token.split("=", 1)[0].strip() in ("gateway_selection", "gateway_data_path")
+                token in ("unset:gateway_selection", "unset:gateway_data_path", "unset:gateway_retries")
+                or token.split("=", 1)[0].strip() in ("gateway_selection", "gateway_data_path", "gateway_retries")
                 for token in values
             )
             cap_lines = [] if gateway_only else self.provider.cap_context(provider, provider_config)
@@ -232,6 +238,7 @@ class ProviderOptionCliController:
         self._lines(_PROVIDER_EXAMPLES)
 
     def _ollama_status(self, provider: str, config: dict[str, Any]) -> None:
+        from .ollama_semantic_retry import configured_retries
         self._lines(
             (
                 f"provider: {provider}",
@@ -239,6 +246,7 @@ class ProviderOptionCliController:
                 f"keep_alive: {config.get('keep_alive', 'default')}",
                 f"think: {bool(config.get('think', False))}",
                 f"request_timeout_ms: {config.get('request_timeout_ms', 'default')}",
+                f"empty_response_retries: {configured_retries(config)}",
             )
         )
         used, limit = self.ollama.rate_usage(provider, config)
@@ -248,6 +256,9 @@ class ProviderOptionCliController:
                 suffix = f"{used}/{limit}" if limit > 0 else f"{used}/min (unmanaged)"
                 self.config.output(f"rpm_used: {suffix}")
         self.config.output(f"ollama_options: {self.ollama.options_status(config)}")
+        self.config.output("Notes:")
+        self.config.output("  empty_response_retries sets extra Ollama attempts for empty responses (default 1, 0 off, capped at 2).")
+        self.config.output("  unset:empty_response_retries or empty_response_retries=default restores 1; this is a router setting, not an upstream Ollama option.")
         self.config.output("Examples:")
         self._lines(_OLLAMA_EXAMPLES)
 

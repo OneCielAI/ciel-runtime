@@ -1,0 +1,92 @@
+[
+ {
+  "file": "16324566-e8a5-4f4a-abfe-1ad5660bdcaf.jsonl",
+  "kind": "Agent",
+  "model": null,
+  "name": null,
+  "subagent_type": "general-purpose"
+ },
+ {
+  "file": "16324566-e8a5-4f4a-abfe-1ad5660bdcaf.jsonl",
+  "kind": "tool_result",
+  "is_error": false,
+  "validation_model_error": false,
+  "child_ok_marker": true,
+  "spawned_metadata": false
+ },
+ {
+  "file": "290692bb-a408-4a0a-b021-d6ef232d2673.jsonl",
+  "kind": "Agent",
+  "model": null,
+  "name": "e2e-mate-90b5e0ad",
+  "subagent_type": "general-purpose"
+ },
+ {
+  "file": "290692bb-a408-4a0a-b021-d6ef232d2673.jsonl",
+  "kind": "tool_result",
+  "is_error": false,
+  "validation_model_error": false,
+  "child_ok_marker": false,
+  "spawned_metadata": true
+ },
+ {
+  "file": "62fc0c75-9abf-4a14-b628-a44560d20db1.jsonl",
+  "kind": "Agent",
+  "model": null,
+  "name": null,
+  "subagent_type": "haiku-def"
+ },
+ {
+  "file": "62fc0c75-9abf-4a14-b628-a44560d20db1.jsonl",
+  "kind": "tool_result",
+  "is_error": false,
+  "validation_model_error": false,
+  "child_ok_marker": true,
+  "spawned_metadata": false
+ },
+ {
+  "file": "b3db9cd5-f9fa-42f5-8cac-f7c59a639c81.jsonl",
+  "kind": "Agent",
+  "model": "sonnet",
+  "name": null,
+  "subagent_type": "general-purpose"
+ },
+ {
+  "file": "b3db9cd5-f9fa-42f5-8cac-f7c59a639c81.jsonl",
+  "kind": "tool_result",
+  "is_error": false,
+  "validation_model_error": false,
+  "child_ok_marker": true,
+  "spawned_metadata": false
+ },
+ {
+  "file": "bfb4f971-3816-4482-ab62-36e8eb5ee926.jsonl",
+  "kind": "Agent",
+  "model": "haiku",
+  "name": null,
+  "subagent_type": "general-purpose"
+ },
+ {
+  "file": "bfb4f971-3816-4482-ab62-36e8eb5ee926.jsonl",
+  "kind": "tool_result",
+  "is_error": false,
+  "validation_model_error": false,
+  "child_ok_marker": true,
+  "spawned_metadata": false
+ },
+ {
+  "file": "ea0979e7-c466-41c8-826b-75ddc3d71dd9.jsonl",
+  "kind": "Agent",
+  "model": null,
+  "name": null,
+  "subagent_type": "general-purpose"
+ },
+ {
+  "file": "ea0979e7-c466-41c8-826b-75ddc3d71dd9.jsonl",
+  "kind": "tool_result",
+  "is_error": false,
+  "validation_model_error": false,
+  "child_ok_marker": true,
+  "spawned_metadata": false
+ }
+]

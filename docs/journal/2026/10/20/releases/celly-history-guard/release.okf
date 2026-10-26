@@ -1,0 +1,42 @@
+---
+type: release-verification
+title: Celly history guard local nightly deployment
+description: Deploy the startup crash regression guard while keeping incomplete ownership history fail-closed.
+timestamp: 2026-10-20
+tags: [celly, history, crash, nightly, deployment]
+---
+
+# Identity
+
+Commit 1b08402a1da27fd13a870ddf5c8e0d11145d9f4c.
+Version 0.2.51-nightly.20261020-232321.1b08402.
+CI 39514168078 and Publish to npm 39514168077 both succeeded at exact SHA.
+Registry nightly/gitHead matched; SHA-1/SHA-512 verified before extraction.
+Tarball SHA-256 ed4ef84ee05af07124abf97b8cfa95a35ea410382d8dd241e13763c6438c6202.
+485 package entries; no docs/journal payload entries.
+
+# Local installation and verification
+
+Verified tarball installed into npm global and fresh non-overwriting snapshot:
+~/.local/share/ciel-runtime-1b08402a1da27fd13a870ddf5c8e0d11145d9f4c.
+User CIEL_RUNTIME_HOME points to that snapshot. Version command reports the exact
+nightly. Both snapshot and npm global match all 430 Python files in the tarball.
+Installed focused tests: 372 run, zero failures/errors, 80 skipped.
+Source native corrupt-history acceptance passed in run-claude-corrupt-history-v3-181742:
+CLI alive while history corrupt; no send; owned fixture restoration then input
+reply; no owned listeners after cleanup. Installed native acceptance
+passed_corrupt_history_guard in run-claude-installed-history-guard-182944
+passed the same corruption/no-send/recovery checks. Terminal text was captured;
+the console HWND does not expose a usable window screenshot.
+
+# Scope and limits
+
+The previous release did not handle strict history errors at the polling
+boundary and caused the startup crash seen on Celly. This release catches only
+the typed pre-send condition, preserving the cursor and holding delivery. It
+does not skip broken records or rewrite user history. Actual sandbox status
+contents remain inaccessible (WinError 5); damaged row identity and origin are
+unknown. Recovery of corrupted user history is not claimed.
+
+No live session restart, sandbox install, ACL change, cursor rewrite, or queue
+deletion was performed. Source and installed native testing uses owned fixtures.

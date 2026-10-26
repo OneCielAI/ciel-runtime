@@ -1,0 +1,93 @@
+Python: 3.11.6 (tags/v3.11.6:8b6ee5b, Oct  2 2023, 14:57:12) [MSC v.1935 64 bit (AMD64)]
+Selected runtime: C:\Users\djlov\ciel-runtime
+test_configured_directory_is_projected_as_a_portable_workspace_relative_path (test_remote_memory.RemoteMemoryTests.test_configured_directory_is_projected_as_a_portable_workspace_relative_path) ... ok
+test_cross_origin_public_file_does_not_receive_manifest_authorization (test_remote_memory.RemoteMemoryTests.test_cross_origin_public_file_does_not_receive_manifest_authorization) ... ok
+test_disabling_remote_memory_removes_only_the_managed_block (test_remote_memory.RemoteMemoryTests.test_disabling_remote_memory_removes_only_the_managed_block) ... ok
+test_distinct_project_workspaces_receive_isolated_memory_trees (test_remote_memory.RemoteMemoryTests.test_distinct_project_workspaces_receive_isolated_memory_trees) ... ok
+test_downloaded_instruction_file_ends_with_memory_guidance_for_every_runtime (test_remote_memory.RemoteMemoryTests.test_downloaded_instruction_file_ends_with_memory_guidance_for_every_runtime) ... ok
+test_downloads_multiple_formats_and_overwrites_the_tree_on_each_sync (test_remote_memory.RemoteMemoryTests.test_downloads_multiple_formats_and_overwrites_the_tree_on_each_sync) ... ok
+test_failed_instruction_download_does_not_modify_a_user_instruction_file (test_remote_memory.RemoteMemoryTests.test_failed_instruction_download_does_not_modify_a_user_instruction_file) ... ok
+test_failed_refresh_preserves_the_previous_native_memory_pointer (test_remote_memory.RemoteMemoryTests.test_failed_refresh_preserves_the_previous_native_memory_pointer) ... ok
+test_instruction_refresh_for_an_unsupported_runtime_is_logged_not_raised (test_remote_memory.RemoteMemoryTests.test_instruction_refresh_for_an_unsupported_runtime_is_logged_not_raised) ... ERROR
+test_manifest_accepts_all_documented_text_formats_and_aliases (test_remote_memory.RemoteMemoryTests.test_manifest_accepts_all_documented_text_formats_and_aliases) ... ok
+test_manifest_rejects_traversal_duplicates_and_unknown_formats (test_remote_memory.RemoteMemoryTests.test_manifest_rejects_traversal_duplicates_and_unknown_formats) ... ok
+test_manual_memory_sync_does_not_create_native_instruction_files (test_remote_memory.RemoteMemoryTests.test_manual_memory_sync_does_not_create_native_instruction_files) ... ok
+test_manual_memory_sync_preserves_every_configured_agents_runtime_pointer (test_remote_memory.RemoteMemoryTests.test_manual_memory_sync_preserves_every_configured_agents_runtime_pointer) ... ok
+test_memory_only_sync_removes_a_legacy_pointer_without_creating_instructions (test_remote_memory.RemoteMemoryTests.test_memory_only_sync_removes_a_legacy_pointer_without_creating_instructions) ... ok
+test_pointer_projection_failure_reports_updated_download_with_detail (test_remote_memory.RemoteMemoryTests.test_pointer_projection_failure_reports_updated_download_with_detail) ... ok
+test_pointer_replacement_preserves_user_text_and_stays_at_the_bottom (test_remote_memory.RemoteMemoryTests.test_pointer_replacement_preserves_user_text_and_stays_at_the_bottom) ... ok
+test_real_local_http_manifest_downloads_a_nested_memory_tree (test_remote_memory.RemoteMemoryTests.test_real_local_http_manifest_downloads_a_nested_memory_tree) ... ok
+test_saved_index_is_rejected_for_a_different_launch_workspace (test_remote_memory.RemoteMemoryTests.test_saved_index_is_rejected_for_a_different_launch_workspace) ... ok
+test_sha_mismatch_keeps_the_previous_memory_tree (test_remote_memory.RemoteMemoryTests.test_sha_mismatch_keeps_the_previous_memory_tree) ... ok
+test_stale_shared_instruction_state_does_not_modify_a_user_owned_agents_file (test_remote_memory.RemoteMemoryTests.test_stale_shared_instruction_state_does_not_modify_a_user_owned_agents_file) ... ok
+test_state_commit_failure_rolls_back_the_memory_tree_and_pointer (test_remote_memory.RemoteMemoryTests.test_state_commit_failure_rolls_back_the_memory_tree_and_pointer) ... ok
+test_unsupported_runtime_pointer_projection_is_a_value_error (test_remote_memory.RemoteMemoryTests.test_unsupported_runtime_pointer_projection_is_a_value_error) ... ERROR
+test_remote_instructions (unittest.loader._FailedTest.test_remote_instructions) ... ERROR
+test_channel_bridge (unittest.loader._FailedTest.test_channel_bridge) ... ERROR
+
+======================================================================
+ERROR: test_instruction_refresh_for_an_unsupported_runtime_is_logged_not_raised (test_remote_memory.RemoteMemoryTests.test_instruction_refresh_for_an_unsupported_runtime_is_logged_not_raised)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime\tests\test_remote_memory.py", line 1096, in test_instruction_refresh_for_an_unsupported_runtime_is_logged_not_raised
+    result = sync_instruction_with_memory_pointer(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\djlov\ciel-runtime\ciel_runtime_support\remote_memory.py", line 968, in sync_instruction_with_memory_pointer
+    memory_synchronizer().project_current_pointer(runtime)
+  File "C:\Users\djlov\ciel-runtime\ciel_runtime_support\remote_memory.py", line 799, in project_current_pointer
+    if not _shared_target_has_projectable_pointer(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\djlov\ciel-runtime\ciel_runtime_support\remote_memory.py", line 619, in _shared_target_has_projectable_pointer
+    filename = RUNTIME_FILES[runtime]
+               ~~~~~~~~~~~~~^^^^^^^^^
+KeyError: 'codex-remote'
+
+======================================================================
+ERROR: test_unsupported_runtime_pointer_projection_is_a_value_error (test_remote_memory.RemoteMemoryTests.test_unsupported_runtime_pointer_projection_is_a_value_error)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime\tests\test_remote_memory.py", line 1078, in test_unsupported_runtime_pointer_projection_is_a_value_error
+    memory.project_current_pointer("codex-remote")
+  File "C:\Users\djlov\ciel-runtime\ciel_runtime_support\remote_memory.py", line 799, in project_current_pointer
+    if not _shared_target_has_projectable_pointer(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\djlov\ciel-runtime\ciel_runtime_support\remote_memory.py", line 619, in _shared_target_has_projectable_pointer
+    filename = RUNTIME_FILES[runtime]
+               ~~~~~~~~~~~~~^^^^^^^^^
+KeyError: 'codex-remote'
+
+======================================================================
+ERROR: test_remote_instructions (unittest.loader._FailedTest.test_remote_instructions)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_remote_instructions
+Traceback (most recent call last):
+  File "C:\Program Files\Python311\Lib\unittest\loader.py", line 419, in _find_test_path
+    module = self._get_module_from_name(name)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Program Files\Python311\Lib\unittest\loader.py", line 362, in _get_module_from_name
+    __import__(name)
+  File "C:\Users\djlov\ciel-runtime\tests\test_remote_instructions.py", line 9, in <module>
+    from ciel_runtime_support.remote_instructions import (
+ImportError: cannot import name 'instruction_runtime' from 'ciel_runtime_support.remote_instructions' (C:\Users\djlov\ciel-runtime\ciel_runtime_support\remote_instructions.py)
+
+
+======================================================================
+ERROR: test_channel_bridge (unittest.loader._FailedTest.test_channel_bridge)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_channel_bridge
+Traceback (most recent call last):
+  File "C:\Program Files\Python311\Lib\unittest\loader.py", line 419, in _find_test_path
+    module = self._get_module_from_name(name)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Program Files\Python311\Lib\unittest\loader.py", line 362, in _get_module_from_name
+    __import__(name)
+  File "C:\Users\djlov\ciel-runtime\tests\test_channel_bridge.py", line 2338
+    status = ciel_runtime._inject_pending_compact_request(123, b"
+                                                               ^
+SyntaxError: unterminated string literal (detected at line 2338)
+
+
+----------------------------------------------------------------------
+Ran 24 tests in 1.149s
+
+FAILED (errors=4)

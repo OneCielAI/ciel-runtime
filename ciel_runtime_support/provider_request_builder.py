@@ -143,13 +143,26 @@ class ProviderRequestBuilder:
             # so let the selected upstream return its normal context error.
             return capped
         compact_kind = self.budget.compact_kind(capped)
-        local_compact_refresh = bool(compact_kind)
-        # Anthropic/Claude owns persistent compaction for its native Messages
-        # protocol.  The JSON-size estimator below is only a provider-neutral
-        # fallback and must never rewrite an ordinary native Claude turn.
-        # The sole exception is an explicitly translated Codex checkpoint,
-        # whose client cannot perform Anthropic-native compaction itself.
-        if provider == "anthropic" and compact_kind != "codex":
+        # A confirmed no-output context rejection is proof that the history no
+        # longer fits even when the checkpoint kind was not recognized, so that
+        # recovery runs the semantic (chunked) path instead of the tail guard.
+        rejected = bool(config.get("_context_compact_context_rejected"))
+        local_compact_refresh = bool(compact_kind) or rejected
+        # Native Anthropic owns persistent compaction. Routed providers can
+        # opt out of the JSON-size preflight for ordinary turns when their
+        # upstream has authoritative context rejection; reactive recovery
+        # still handles a confirmed overflow. The estimator must never rewrite
+        # a native compact request or an opted-out ordinary turn. A translated
+        # Codex checkpoint remains the exception because its client cannot
+        # perform Anthropic-native compaction itself.
+        preflight_disabled = config.get("preflight_prompt_compaction") is False
+        # A native checkpoint estimated past the model window cannot be served
+        # by any upstream, so an explicit preflight opt-out must not hide it
+        # from the window guard. An ordinary routed turn stays untouched: its
+        # authoritative path is the upstream's own rejection.
+        guarded_by_window = compact_kind == "claude" and provider != "anthropic"
+        if not rejected and not guarded_by_window and compact_kind != "codex" and (
+                provider == "anthropic" or preflight_disabled):
             return capped
         context_limit = (
             self.budget.context_limit(provider, config)
@@ -169,14 +182,27 @@ class ProviderRequestBuilder:
         if ratio_capped:
             capped["max_tokens"] = ratio_capped
 
+        # Any request past the model window is chunked before it is sent; a
+        # translated Codex checkpoint keeps the confirmed-rejection rule of its
+        # own recovery path, as does native Anthropic (it owns compaction).
+        compact_config = (
+            {**config, "_context_compact_native_over_window": True,
+             "_context_compact_only_if_over_window": preflight_disabled}
+            if guarded_by_window
+            else config
+        )
         capped = self.budget.compact_anthropic(
             capped,
             input_budget,
             provider=provider,
-            pcfg=config,
+            pcfg=compact_config,
             model=str(capped.get("model") or config.get("current_model") or ""),
             full_compact_request=local_compact_refresh,
-            compact_runtime=compact_kind if local_compact_refresh else None,
+            compact_runtime=(
+                compact_kind or ("claude" if rejected else None)
+                if local_compact_refresh
+                else None
+            ),
         )
         output_tokens = self.budget.cap_output(
             config,

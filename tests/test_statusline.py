@@ -553,6 +553,7 @@ class StatuslineTests(unittest.TestCase):
                         "parallel_sessions": 3,
                         "phase": "map",
                         "completed_chunks": 2,
+                        "reused_chunks": 1,
                     }
                 ),
                 encoding="utf-8",
@@ -576,7 +577,7 @@ class StatuslineTests(unittest.TestCase):
                 check=True,
             )
 
-        self.assertIn("compact map 2/3 parallel 3/3", proc.stdout)
+        self.assertIn("compact map 2/3 reused 1 parallel 3/3", proc.stdout)
 
     def test_statusline_distinguishes_semantic_progress_and_failure(self):
         for phase, completed, expected in (

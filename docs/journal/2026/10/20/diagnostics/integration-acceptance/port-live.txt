@@ -1,0 +1,2 @@
+{"passed": true, "base": 33000, "selected": 33001, "registry_entries": 50, "live_routers_preserved": 3, "same_workspace_reuses": true}
+Owned listeners closed; real registry untouched.

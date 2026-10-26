@@ -1,0 +1,70 @@
+---
+type: diagnostic-verification
+title: Codex no-output HTTP retry loopback acceptance
+description: Owned loopback evidence for bounded pre-response Codex no-output retry.
+tags: [codex, retry, loopback, verification]
+timestamp: 2026-10-21
+---
+
+# Scope
+
+Current working-tree retry patch after the review-fix pass; actual HTTPServer bound to 127.0.0.1 port 0,
+real urllib.request.urlopen and HTTPError/HTTPResponse. Existing adapter_for
+request/retry wiring reused; downstream FakeHandler is an in-memory capture.
+Production and regression-test files were edited; no commits, provider calls, or remote-host calls.
+
+# Observations
+
+- Explicit error-only SSE 502 then output-bearing 200: exactly 2 requests;
+  status 200 and full synthetic success stream byte-for-byte preserved.
+- Repeated explicit errors with retry limit 2: exactly 3 requests; final 502
+  body byte-for-byte preserved (each attempt uses a distinct synthetic body).
+- Zero retry budget: exactly 1 request, final body preserved.
+- Ambiguous 502: exactly 1 request, final body preserved.
+- Output-bearing JSON error and mixed output/error SSE: each exactly 1 request,
+  final body preserved.
+- Broken chunked 200: exactly 1 request; 65536 downstream bytes forwarded,
+  then real http.client.IncompleteRead; no replay despite retryable classifier.
+
+# Isolation and cleanup
+
+All CIEL_RUNTIME_* and credential/proxy environment variables removed before
+repository imports. Credential headers replaced with an empty mapping. Proxy
+handler disabled. socket.connect audit blocks every non-127.0.0.1 destination.
+Seven owned single-threaded servers shut down and closed; seven owned threads
+joined; no new threads remained. Production/harness source hashes matched
+before and after the successful acceptance run. No bytecode writes enabled.
+
+# Evidence
+
+- acceptance_loopback.py: standalone acceptance driver; run with python -I.
+- result.json: payload-free structured observations and source SHA-256 hashes.
+- run.log: payload-free command output and allowlisted retry metadata logs.
+
+A focused isolated suite then ran 59 tests across the retry, repair, completion,
+router, upstream-retry, and translated-compaction modules. It passed with zero
+failures/errors and verified unchanged source bytes during execution. The final
+source hashes are recorded in focused-final.json. The added regressions cover
+shared retry allowance across outer loops, failed/incomplete HTTP error-body
+reads, malformed verdict fields, downstream disconnects, and output-bearing
+responses.
+
+# Outer overload policy qualification
+
+Independent full-forward_json loopback acceptance observed that an ambiguous
+502 did not enter the new no-output retry branch, but did retry under the
+pre-existing outer overload policy when its budget was positive (two requests).
+Therefore the seven-case observation above must not be interpreted as an
+unconditional end-to-end no-retry guarantee for ambiguous502. With overload
+disabled that case made one request. Evidence: real-loopback-453c6d665d.json.
+That run binds router_http.py SHA256
+ab1721fb4c3d9f46da4c1f0f87beba821f36f3cd0157d44b2b5107b2359d9f31;
+actual backoff sleep timing was not exercised. That run is historical, not the
+final source identity. Final focused and seven-case loopback evidence both bind
+router_http.py SHA256
+2d1cd4f0306a096ef4ef4e56636af5699eddf9dc28091428fa79b7179a4d938d
+and test_codex_no_output_http_retry.py SHA256
+2067e70996c26e29947260044008ce84613f03a63be405467b01b52b6405d418.
+The retry implementation is now ready for the scoped follow-up release after the
+final repository gates. Commit, push, CI, package publication and installation
+are tracked in the follow-up release journal.

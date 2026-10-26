@@ -1,0 +1,23 @@
+Python: 3.11.6 (tags/v3.11.6:8b6ee5b, Oct  2 2023, 14:57:12) [MSC v.1935 64 bit (AMD64)]
+Selected runtime: C:\Users\djlov\ciel-runtime
+test_context_default_has_no_callback (test_claude_stream_recovery_terminal.RecoveryAdmissionPortForwardingTests.test_context_default_has_no_callback) ... ok
+test_context_forwards_callback_to_every_policy_service (test_claude_stream_recovery_terminal.RecoveryAdmissionPortForwardingTests.test_context_forwards_callback_to_every_policy_service) ... ok
+test_facade_policy_constructor_publishes_to_stream_recovery_monitor (test_claude_stream_recovery_terminal.RecoveryAdmissionPortForwardingTests.test_facade_policy_constructor_publishes_to_stream_recovery_monitor) ... ok
+test_busy_and_compaction_are_sampled_once_per_interval (test_claude_stream_recovery_terminal.RecoveryAdmissionReporterTests.test_busy_and_compaction_are_sampled_once_per_interval) ... ok
+test_callback_failure_is_logged_once_and_never_raised (test_claude_stream_recovery_terminal.RecoveryAdmissionReporterTests.test_callback_failure_is_logged_once_and_never_raised) ... ok
+test_close_withdraws_admission_and_ignores_later_reports (test_claude_stream_recovery_terminal.RecoveryAdmissionReporterTests.test_close_withdraws_admission_and_ignores_later_reports) ... ok
+test_missing_callback_reports_nothing (test_claude_stream_recovery_terminal.RecoveryAdmissionReporterTests.test_missing_callback_reports_nothing) ... ok
+test_unreadable_busy_state_withdraws_admission (test_claude_stream_recovery_terminal.RecoveryAdmissionReporterTests.test_unreadable_busy_state_withdraws_admission) ... ok
+test_manual_input_probe_fails_closed (test_claude_stream_recovery_terminal.RecoveryAdmissionSnapshotTests.test_manual_input_probe_fails_closed) ... ok
+test_pending_reflects_inflight_message_and_backlog (test_claude_stream_recovery_terminal.RecoveryAdmissionSnapshotTests.test_pending_reflects_inflight_message_and_backlog) ... ok
+test_ready_requires_every_clean_observation (test_claude_stream_recovery_terminal.RecoveryAdmissionSnapshotTests.test_ready_requires_every_clean_observation) ... ok
+test_terminal_replies_are_not_operator_input (test_claude_stream_recovery_terminal.RecoveryAdmissionSnapshotTests.test_terminal_replies_are_not_operator_input) ... ok
+test_unknown_draft_is_reported_as_manual_and_not_ready (test_claude_stream_recovery_terminal.RecoveryAdmissionSnapshotTests.test_unknown_draft_is_reported_as_manual_and_not_ready) ... ok
+test_conpty_draft_dialog_and_busy_turn_are_not_ready (test_claude_stream_recovery_terminal.WindowsProxyRecoveryAdmissionTests.test_conpty_draft_dialog_and_busy_turn_are_not_ready) ... ok
+test_conpty_idle_prompt_reports_ready_then_withdraws_on_exit (test_claude_stream_recovery_terminal.WindowsProxyRecoveryAdmissionTests.test_conpty_idle_prompt_reports_ready_then_withdraws_on_exit) ... ok
+test_console_input_transport_cannot_prove_clean_draft (test_claude_stream_recovery_terminal.WindowsProxyRecoveryAdmissionTests.test_console_input_transport_cannot_prove_clean_draft) ... ok
+
+----------------------------------------------------------------------
+Ran 16 tests in 0.085s
+
+OK

@@ -1,0 +1,92 @@
+{
+  "repo": "C:\\Users\\djlov\\ciel-runtime-wt-lease",
+  "scratch": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-backup-e2e-lbewht8u",
+  "title": "ciel-backup-e2e-run-fixed-1792895729",
+  "live_health_before": {
+    "9385": {
+      "pid": 6032,
+      "version": "0.2.51-nightly.20261024-115611.5d4dc0e"
+    },
+    "9464": {
+      "pid": 54764,
+      "version": "0.2.51-nightly.20261024-102326.a7e28f9"
+    },
+    "9489": {
+      "pid": 67368,
+      "version": "0.2.51-nightly.20261024-102326.a7e28f9"
+    },
+    "9505": {
+      "pid": 49288,
+      "version": "0.2.51-nightly.20261024-115611.5d4dc0e"
+    },
+    "9524": {
+      "pid": 6196,
+      "version": "0.2.51-nightly.20261024-115611.5d4dc0e"
+    }
+  },
+  "outcome": "saved",
+  "owned_processes": [
+    {
+      "pid": 69308,
+      "ppid": 70604,
+      "name": "py.exe",
+      "cmd": "py  -3 \"C:\\Users\\djlov\\ciel-runtime-wt-lease\\ciel_runtime.py\" cli --ca-menu --ca-no-update-check --ca-no-self-update-check"
+    },
+    {
+      "pid": 15916,
+      "ppid": 69308,
+      "name": "python.exe",
+      "cmd": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe \"C:\\Users\\djlov\\ciel-runtime-wt-lease\\ciel_runtime.py\" cli --ca-menu --ca-no-update-check --ca-no-self-update-check"
+    }
+  ],
+  "registry_after": {
+    "version": 1,
+    "workspaces": {
+      "443d59380207": {
+        "launch_lease": {
+          "expires_at": 1792895768.2119267,
+          "identity": "134373693301601975",
+          "pid": 15916
+        },
+        "port": 8852,
+        "reservation": "auto",
+        "workspace": "c:\\users\\djlov\\appdata\\local\\temp\\ciel-backup-e2e-lbewht8u\\ws"
+      }
+    }
+  },
+  "backup_state": {
+    "443d59380207": {
+      "cwd": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-backup-e2e-lbewht8u\\ws",
+      "last_started": 1792895763.0903366,
+      "last_trigger": "menu",
+      "running": false,
+      "last_finished": 1792895772.42109,
+      "last_ok": true,
+      "last_id": "20261025T023612Z-a37a92",
+      "last_error": ""
+    }
+  },
+  "live_health_after": {
+    "9385": {
+      "pid": 6032,
+      "version": "0.2.51-nightly.20261024-115611.5d4dc0e"
+    },
+    "9464": {
+      "pid": 54764,
+      "version": "0.2.51-nightly.20261024-102326.a7e28f9"
+    },
+    "9489": {
+      "pid": 67368,
+      "version": "0.2.51-nightly.20261024-102326.a7e28f9"
+    },
+    "9505": {
+      "pid": 49288,
+      "version": "0.2.51-nightly.20261024-115611.5d4dc0e"
+    },
+    "9524": {
+      "pid": 6196,
+      "version": "0.2.51-nightly.20261024-115611.5d4dc0e"
+    }
+  },
+  "live_unchanged": true
+}

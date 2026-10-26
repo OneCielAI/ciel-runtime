@@ -119,6 +119,9 @@ class TranscriptDeliveryPorts:
     event_recent: Callable[..., list[dict[str, Any]]] = lambda **_kwargs: []
     # Receives one agent.turn_ended event per finished turn (posted to the router).
     agent_turn_post: Callable[[dict[str, Any]], Any] | None = None
+    # Returns the monitor that sees every new Claude record (observe) and
+    # decides once per poll (tick); see claude_stream_recovery_runtime.
+    stream_recovery: Callable[[], Any] | None = None
 
 
 class TranscriptDeltaDeliveryService:
@@ -139,6 +142,7 @@ class TranscriptDeltaDeliveryService:
         self._last_error = ""
         self._last_error_at = 0.0
         self._turn_source: dict[str, Any] = {}
+        self._recovery_source: dict[str, Any] = {}
 
     def start(self) -> None:
         with self._lock:
@@ -386,6 +390,50 @@ class TranscriptDeltaDeliveryService:
         self._save_turn_offset(source_key, path, batch.end)
         return count
 
+    def poll_stream_recovery(self) -> int:
+        """Feed new Claude records to the stream recovery monitor, then let it decide.
+
+        The offset lives in memory only: a restarted launcher starts at the
+        transcript's end and never continues a failure it did not watch.
+        """
+
+        if self.ports.stream_recovery is None:
+            return 0
+        monitor = self.ports.stream_recovery()
+        scope = self.ports.scope()
+        if str(scope.get("runtime") or "") != "claude":
+            return 0
+        path = self.ports.latest_transcript()
+        if path is None:
+            return 0
+        try:
+            path = path.resolve()
+            size = path.stat().st_size
+        except OSError:
+            return 0
+        source = self._recovery_source
+        if source.get("path") != str(path) or size < int(source.get("offset") or 0):
+            source.clear()
+            source.update(path=str(path), offset=size)
+            monitor.reset()
+            return 0
+        offset = int(source["offset"])
+        batch = self._read_complete_batch(path, offset, 1_048_576, "stream_recovery")
+        count = 0
+        for raw_line in batch.payload.decode("utf-8", errors="replace").splitlines():
+            try:
+                record = json.loads(raw_line)
+            except (TypeError, ValueError):
+                continue
+            if isinstance(record, dict):
+                monitor.observe(record)
+                count += 1
+        source["offset"] = batch.end
+        # A cancelling record may still lie beyond this bounded batch.
+        if batch.end >= size:
+            monitor.tick()
+        return count
+
     def _save_turn_offset(self, source_key: str, path: Path, offset: int) -> None:
         cursors = self._load_cursors()
         cursors["agent_turn_sources"][source_key] = self._cursor_record(path, offset)
@@ -419,6 +467,9 @@ class TranscriptDeltaDeliveryService:
                 if not isinstance(config.get("agent_turn_events"), dict) or config["agent_turn_events"].get("enabled", True) is not False:
                     interval = min(interval, 1.0)
                     self.poll_agent_turns()
+                if self.ports.stream_recovery is not None:
+                    interval = min(interval, 1.0)
+                    self.poll_stream_recovery()
             except Exception as exc:
                 self._report_error(f"poll {type(exc).__name__}: {exc}")
             self._stop.wait(interval)

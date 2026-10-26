@@ -1,0 +1,37 @@
+
+ ▐▛███▛█   Claude Code v2.1.310
+▝▜██████▀  fake-parent-a · API Usage Billing
+ ▝▝   ▝▝   C:\Users\djlov\ciel-runtime-wt-lease\docs\journal\2026\10\25\fixes\teammate-model-inheritance\evidence\installed-fixed-…
+
+
+❯ E2EPARENT-named
+
+● Agent(verify child model)
+
+● PARENT-OK-named
+
+
+● Teammate @e2e-mate-839983ab finished
+  CHILD-OK-named
+
+● PARENT-OK-named
+
+
+
+
+
+
+
+
+
+
+
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
+   Switch model?
+   Your next response will be slower and use more tokens
+
+   This conversation is cached for the current model. Switching to fake-parent-b means the full history gets re-read on your next
+   message.
+
+   ❯ 1. Yes, switch to fake-parent-b
+     2. No, go back

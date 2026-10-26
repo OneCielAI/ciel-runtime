@@ -1,0 +1,32 @@
+[
+  {
+    "label": "default-off",
+    "stored_setting": false,
+    "setting_present": true,
+    "inherited": "1",
+    "projected": "0",
+    "actual_child": {
+      "CLAUDE_CODE_SEND_FEEDBACK": "0"
+    }
+  },
+  {
+    "label": "menu-on",
+    "stored_setting": true,
+    "setting_present": true,
+    "inherited": "1",
+    "projected": "1",
+    "actual_child": {
+      "CLAUDE_CODE_SEND_FEEDBACK": "1"
+    }
+  },
+  {
+    "label": "menu-off",
+    "stored_setting": false,
+    "setting_present": true,
+    "inherited": "1",
+    "projected": "0",
+    "actual_child": {
+      "CLAUDE_CODE_SEND_FEEDBACK": "0"
+    }
+  }
+]

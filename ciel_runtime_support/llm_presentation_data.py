@@ -220,6 +220,7 @@ RUNTIME_LLM_OPTION_KEYS = {
     "max_output_tokens",
     "request_timeout_ms",
     "stream_idle_timeout_ms",
+    "empty_response_retries",
     "temperature",
     "top_p",
     "top_k",
@@ -309,6 +310,12 @@ LLM_OPTION_DESCRIPTIONS: dict[str, dict[str, str]] = {
         "ko": "타임아웃 프리셋을 선택합니다. 업스트림 대기 시간과 스트림 idle timeout을 함께 설정합니다.",
         "ja": "timeout preset を選びます。上流待機 timeout と stream idle timeout を同時に設定します。",
         "zh": "选择 timeout 预设，同时设置上游等待超时和 stream idle timeout。",
+    },
+    "empty_response_retries": {
+        "en": "Extra Ollama attempts for empty responses. Default 1; 0 disables; values above 2 are capped. default/unset restores 1.",
+        "ko": "Ollama 빈 응답 추가 시도 횟수입니다. 기본 1회, 0이면 끄기, 최대 2회입니다. default/unset으로 기본값을 복원합니다.",
+        "ja": "Ollamaの空応答に対する追加試行回数。既定1、0で無効、上限2。default/unsetで既定値に戻します。",
+        "zh": "Ollama 空响应的额外尝试次数。默认 1，0 禁用，上限 2。default/unset 恢复默认值。",
     },
     "stream_idle_timeout_ms": {
         "en": "Maximum silence allowed while a stream is open. If no bytes arrive for this long, ciel-runtime retries or reports a timeout.",
@@ -424,6 +431,12 @@ LLM_OPTION_DESCRIPTIONS: dict[str, dict[str, str]] = {
         "ja": "0より大きい場合、デバッグ用イベントdataに直近ユーザーメッセージの先頭N文字を含めます。プライバシー保護のため既定値は0です。",
         "zh": "大于0时，在调试事件data中包含最近用户消息的前N个字符。为保护隐私默认值为0。",
     },
+    "claude_feedback_drafts": {
+        "en": "Off by default: Ciel sets CLAUDE_CODE_SEND_FEEDBACK=0 on every Claude launch so Claude cannot draft feedback reports. On lets Claude Code's account and personal settings decide; drafts stay on this machine until you send them. Manual /feedback remains available. Applies on the next Claude launch.",
+        "ko": "기본값은 off입니다. Ciel이 Claude 실행 때마다 CLAUDE_CODE_SEND_FEEDBACK=0을 설정해 Claude가 피드백 초안을 만들지 못하게 합니다. on이면 Claude Code 계정/개인 설정을 따르며, 초안은 전송 전까지 이 PC에만 저장됩니다. 수동 /feedback은 계속 사용할 수 있습니다. 다음 Claude 실행부터 적용됩니다.",
+        "ja": "既定は off です。Ciel は Claude の起動ごとに CLAUDE_CODE_SEND_FEEDBACK=0 を設定し、Claude がフィードバック下書きを作成できないようにします。on の場合は Claude Code のアカウント/個人設定に従い、下書きは送信するまでこの PC にのみ保存されます。手動 /feedback は利用できます。次回の Claude 起動から適用されます。",
+        "zh": "默认关闭。Ciel 会在每次启动 Claude 时设置 CLAUDE_CODE_SEND_FEEDBACK=0，使 Claude 无法生成反馈草稿。开启后由 Claude Code 账户和个人设置决定；草稿在发送前只保存在本机。手动 /feedback 仍可用。下次启动 Claude 时生效。",
+    },
     "back": {
         "en": "Return to the main menu.",
         "ko": "메인 메뉴로 돌아갑니다.",
@@ -441,6 +454,7 @@ LLM_OPTION_TOGGLE_KEYS = {
     "rate_limit_enabled",
     "rate_limit_status",
     "router_debug_external_access",
+    "claude_feedback_drafts",
     "route_through_router",
     "workflows_enabled",
     "ultracode_enabled",

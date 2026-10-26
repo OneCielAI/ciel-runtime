@@ -1,0 +1,183 @@
+---
+type: Implementation
+title: Claude mid-response stream recovery (text-only continuation)
+description: Router records broken main-session streams; the launcher matches the native yellow error and admits one continuation through the runtime input gateway.
+timestamp: 2026-10-20
+tags: [claude, router, streaming, recovery, cielairouter]
+---
+
+# Request
+
+User (screenshot #15): Ciel AI Router's yellow "API Error: Server error
+mid-response. The response above may be incomplete." needs a retry like other
+errors; today the user types "계속" by hand. User chose to keep live streaming
+(no whole-response buffering).
+
+# Evidence the design rests on (owned native probe, v2.1.305)
+
+Run `run-claude-v2-204448` (loopback fixture, owned scratch tree):
+
+- Closed text block then EOF: native records `isApiErrorMessage`,
+  `error=server_error`, `truncatedAfterOutput=true`, shows the yellow error and
+  sends no further request for 12 s (stalled). One harness input through the
+  existing `/ca/chat/notify` + session socket path was queued, became a user
+  record and completed in the same native process.
+- Open text block then EOF: native retried non-streaming by itself
+  (`stream=false`), no error record.
+- Tool block held by the relay (normalized provider) then EOF: native error,
+  tool not dispatched.
+- Complete tool block then EOF: the tool ran once, native continued with the
+  tool result by itself.
+- The native error record has `requestId=null`. Its `parentUuid` is the
+  assistant record whose `message.id` equals the upstream `message_start` id
+  (msg_owned_4). That id is the correlation key.
+
+# Change
+
+- `streaming_anthropic.py`: optional `stream_failure_observer` receives flags
+  and counts after a stream that did not complete (upstream message id,
+  confirmed upstream ending, text length, tool flags, in-stream error type,
+  client disconnect). No body text, tool arguments or credentials. Downstream
+  bytes are unchanged (tested with and without observer).
+- `claude_router.py` / `router_request_assembly.py` /
+  `response_stream_context.py`: pass the observer for local streamed requests
+  to `observe_stream_failure`.
+- `runtime_compaction_binding.request_scope`: public form of the existing
+  main-session check (session header must equal the bound session, subagent
+  header excluded).
+- `claude_stream_recovery_runtime.py` (new):
+  - `StreamRecoveryLedger` (router-instance dir, file lock, secure JSON):
+    failures by upstream message id, claimed native error ids, per-session
+    chain budget, last 20 decisions.
+  - `ClaudeStreamFailureRecorder` (router process).
+  - `ClaudeStreamRecoveryMonitor` (launcher process): needs the native error
+    record with `truncatedAfterOutput=true` whose parent carries a recorded
+    failure id of the same session and epoch; waits 4 s of transcript quiet;
+    cancels on any later user record, queue enqueue, assistant record, tool
+    result, plan mode or compaction boundary; admits one raw-injection notice
+    through `RuntimeInputGateway.submit_notification` (same path as the
+    restart notice), so delivery keeps all existing idle/modal/ownership gates.
+  - Excluded: any tool_use seen or shown, nothing shown, relay errors, client
+    disconnect, upstream that did not itself end, in-stream error types other
+    than api/overloaded/server/timeout, sidechain, other session/epoch.
+  - Budget: default 1 continuation per chain, setting 1..2; a failure that
+    answers a continuation spends the same chain; claims are durable so two
+    monitors cannot admit the same error twice. Offsets are in memory only:
+    a restarted launcher never continues an error it did not watch.
+- `transcript_delta_delivery.poll_stream_recovery`: feeds new records to the
+  monitor each second (Claude scope only).
+- Settings (`claude_stream_recovery_settings.py`, default on / 1 attempt):
+  main menu row 17 "Dangerous delete prompt · Stream recovery" shows the
+  state; its panel toggles on/off and attempts 1/2, and shows the recent
+  decision (continued / skipped with reason / cancelled / exhausted).
+
+# Defects found during owned acceptance
+
+- Run 211930: a second continuation with identical text was held as
+  `queued` by channel delivery (raw injections are matched by exact prompt
+  text). Each continuation now names its native error id.
+- Run 212228: Claude Code records session-socket input as `isMeta: true` with
+  `origin.kind: "peer"`; the monitor ignored meta records, so a failure
+  answering a continuation opened a new chain (2 continuations at limit 1).
+  Peer meta records now count as input.
+
+# Audit fixes (read-only audit agent, six findings)
+
+1. Chain identity no longer depends on the marker text alone: the runtime
+   input id of the admitted continuation also matches a router wake marker
+   (`[ciel-wake] pending_ids=N`).
+2. A queued continuation carries its scope (runtime, session, epoch) and a
+   120 s lifetime; channel delivery drops it as
+   `stream_recovery_scope_changed` / `stream_recovery_expired`
+   (`channel_replay_policy.scoped_skip_reason`).
+3. The main-session scope is read when the stream starts; a failure is
+   recorded only while that scope is still current, and the monitor requires
+   the launcher's own bound epoch.
+4. Eligibility uses `visible_text_len` (text written and flushed downstream)
+   and `tool_uncertain` (any `*tool_use` block, tool-input delta, or pseudo
+   tool text, shown or held); a relay without the field counts as uncertain.
+5. Unknown permission mode (no `permission-mode` record since attach) fails
+   closed as `permission_mode_unknown`.
+6. Decisions are made only after the transcript tail is read.
+
+Also: a continuation is not admitted when a newer runtime input exists
+(`newer_input`) or the runtime input queue cannot be read.
+
+# Verification
+
+- Focused + architecture runner (exact files, isolated state): 371 tests,
+  0 failures, 0 errors, 42 skipped — `evidence/focused-final.txt`.
+- Stream metadata: 41 tests; 11 representative streams byte-identical before
+  and after the change — `evidence/metadata-audit-tests.txt`.
+- ruff: all checks passed on changed files.
+- Owned native acceptance (Claude Code 2.1.305, loopback fixture, no harness
+  continuation): `run-claude-auto-215824` passed_auto_stream_recovery.
+  Text-only break → 1 automatic continuation, same native process; failure
+  answering it → exhausted (no second); new input during the quiet interval
+  → cancelled, 0 continuations; tool-bearing breaks → 0 continuations,
+  completed tool ran once, partial tool not dispatched; router/app/fixture
+  listeners all gone after teardown. Earlier passing runs 212558 and 213333.
+- Screenshots (rendered console buffer image; Korean glyphs render as boxes
+  in that renderer, screen text keeps them): `auto-text-closed-error-*`,
+  `auto-text-recovered-*`, `auto-chain-exhausted-*`, `auto-partial-tool-*`,
+  `auto-completed-tool-*`.
+
+# Today's live failures this change can address
+
+Router logs (read-only), 2026-10-20, cielairouter: 61 stream failures.
+58 failed before `message_start` with no output, 1 started without text,
+1 had a tool block streamed (19:42:59, the reported screenshot), 1 sent
+10,135 characters of text before an in-stream error (09:06:37; error type not
+logged). Only the last kind can be continued by this change.
+
+# Known limits
+
+- The Walkie incident recorded `emitted_tool_use=True` (a tool block was
+  already streamed). Such failures are excluded by design; this change does
+  not continue them. The user still continues those by hand.
+- Requests that bypass the router (cielairouter direct path) produce no
+  router failure record and are not continued.
+- Only the Anthropic SSE relay reports failures (other stream relays do not).
+
+# Terminal admission and current native acceptance
+
+Recovery admission now requires a terminal report less than three seconds old:
+no manual draft, active turn/tool, modal, compaction, or pending input. The
+callback belongs to ChannelTerminalPolicy (not Polling, which retains its
+10-field architecture bound). Proxy teardown withdraws admission.
+
+Exact-file isolated runner: 386 tests, 0 failures/errors, 42 skips
+(`evidence/focused-policy-move.txt`). Terminal-only after lint: 16 tests pass
+(`evidence/terminal-after-ruff.txt`). Changed recovery modules passed ruff.
+
+Claude Code updated locally from 2.1.305 to 2.1.306. Owned native acceptance:
+- `run-claude-gate-224130`: vllm provider, passed_auto_stream_recovery.
+- `run-claude-gate-cielairouter-224744`: failed acceptance; a nonempty Korean
+  prompt draft was present from the first captured native screen, before any
+  harness case. Monitor refused continuation with manual_input. Harness logs
+  contain no typed event for that run; draft origin remains unknown.
+- `run-claude-gate-cielairouter-clean-232304`: cielairouter provider using a
+  controlled loopback fixture, passed_auto_stream_recovery. This verifies the
+  provider adapter path, not live Ciel AI Router service availability.
+
+Both passing runs show one automatic continuation in the same native process,
+chain exhaustion without a second continuation, newer queued input cancelling
+recovery, and zero recovery continuations for tool-bearing breaks. Completed
+tool executes once, partial tool is not dispatched. Result JSON records no
+remaining owned router/fixture listeners after teardown.
+
+Console PNGs are rendered console-buffer captures because PrintWindow had no
+usable window rectangle; screen text preserves glyphs that the font may not.
+They are not direct window screenshots. POSIX admission remains conservative:
+after operator input it stays withdrawn for that attachment. Windows modal
+checking relies on the existing stream-based modal guard. These limitations
+are not presented as full cross-platform native acceptance.
+
+# Request-scope capture audit
+
+The initial scope was being captured after the upstream open. Capture now
+happens immediately after main-session request observation, before pending
+input projection or upstream dispatch. A dynamic route test changes the bound
+epoch during open, verifies the callback still carries the original scope,
+and verifies the recorder rejects it after that change. An unchanged-scope
+control records the failure. Both tests pass (`test_claude_stream_scope_capture`).

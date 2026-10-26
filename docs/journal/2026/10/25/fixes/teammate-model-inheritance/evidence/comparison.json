@@ -1,0 +1,450 @@
+{
+ "runs": [
+  {
+   "run": "e2e-old-bbeb99",
+   "case": "old",
+   "cli_version": "2.1.310 (Claude Code)",
+   "child_requests": [
+    {
+     "tag": "plain",
+     "model": "fake-parent-a"
+    },
+    {
+     "tag": "haiku",
+     "model": "fake-haiku"
+    },
+    {
+     "tag": "sonnet",
+     "model": "fake-sonnet"
+    },
+    {
+     "tag": "definition",
+     "model": "fake-haiku"
+    },
+    {
+     "tag": "modelarg",
+     "model": "fake-parent-a"
+    },
+    {
+     "tag": "named",
+     "model": "fake-parent-a"
+    }
+   ],
+   "agent_model_field_in_schema": [
+    false,
+    true
+   ],
+   "print_results": [
+    {
+     "tag": "plain",
+     "rc": 0,
+     "stdout_bytes": 1602,
+     "stderr_bytes": 80,
+     "child_ok": false,
+     "parent_ok": true,
+     "type": "result",
+     "subtype": "success",
+     "is_error": false,
+     "num_turns": 2,
+     "result": "PARENT-OK-plain"
+    },
+    {
+     "tag": "haiku",
+     "rc": 0,
+     "stdout_bytes": 1887,
+     "stderr_bytes": 183,
+     "child_ok": false,
+     "parent_ok": true,
+     "type": "result",
+     "subtype": "success",
+     "is_error": false,
+     "num_turns": 2,
+     "result": "PARENT-OK-haiku"
+    },
+    {
+     "tag": "sonnet",
+     "rc": 0,
+     "stdout_bytes": 1888,
+     "stderr_bytes": 184,
+     "child_ok": false,
+     "parent_ok": true,
+     "type": "result",
+     "subtype": "success",
+     "is_error": false,
+     "num_turns": 2,
+     "result": "PARENT-OK-sonnet"
+    },
+    {
+     "tag": "definition",
+     "rc": 0,
+     "stdout_bytes": 1884,
+     "stderr_bytes": 176,
+     "child_ok": false,
+     "parent_ok": true,
+     "type": "result",
+     "subtype": "success",
+     "is_error": false,
+     "num_turns": 2,
+     "result": "PARENT-OK-definition"
+    },
+    {
+     "tag": "modelarg",
+     "rc": 0,
+     "stdout_bytes": 1896,
+     "stderr_bytes": 186,
+     "child_ok": false,
+     "parent_ok": true,
+     "type": "result",
+     "subtype": "success",
+     "is_error": false,
+     "num_turns": 2,
+     "result": "PARENT-OK-modelarg"
+    }
+   ],
+   "egress": [
+    {
+     "method": "CONNECT",
+     "host": "downloads.claude.ai:443"
+    },
+    {
+     "method": "CONNECT",
+     "host": "github.com:443"
+    }
+   ],
+   "live_pid_unchanged": true,
+   "inherit_on_wire": false
+  },
+  {
+   "run": "e2e-fixed-ea293e",
+   "case": "fixed",
+   "cli_version": "2.1.310 (Claude Code)",
+   "child_requests": [
+    {
+     "tag": "plain",
+     "model": "fake-parent-a"
+    },
+    {
+     "tag": "haiku",
+     "model": "fake-parent-a"
+    },
+    {
+     "tag": "sonnet",
+     "model": "fake-parent-a"
+    },
+    {
+     "tag": "definition",
+     "model": "fake-parent-a"
+    },
+    {
+     "tag": "modelarg",
+     "model": "fake-parent-b"
+    },
+    {
+     "tag": "named",
+     "model": "fake-parent-a"
+    }
+   ],
+   "agent_model_field_in_schema": [
+    false
+   ],
+   "print_results": [
+    {
+     "tag": "plain",
+     "rc": 0,
+     "stdout_bytes": 1602,
+     "stderr_bytes": 237,
+     "child_ok": false,
+     "parent_ok": true,
+     "type": "result",
+     "subtype": "success",
+     "is_error": false,
+     "num_turns": 2,
+     "result": "PARENT-OK-plain"
+    },
+    {
+     "tag": "haiku",
+     "rc": 0,
+     "stdout_bytes": 1602,
+     "stderr_bytes": 237,
+     "child_ok": false,
+     "parent_ok": true,
+     "type": "result",
+     "subtype": "success",
+     "is_error": false,
+     "num_turns": 2,
+     "result": "PARENT-OK-haiku"
+    },
+    {
+     "tag": "sonnet",
+     "rc": 0,
+     "stdout_bytes": 1603,
+     "stderr_bytes": 237,
+     "child_ok": false,
+     "parent_ok": true,
+     "type": "result",
+     "subtype": "success",
+     "is_error": false,
+     "num_turns": 2,
+     "result": "PARENT-OK-sonnet"
+    },
+    {
+     "tag": "definition",
+     "rc": 0,
+     "stdout_bytes": 1601,
+     "stderr_bytes": 237,
+     "child_ok": false,
+     "parent_ok": true,
+     "type": "result",
+     "subtype": "success",
+     "is_error": false,
+     "num_turns": 2,
+     "result": "PARENT-OK-definition"
+    },
+    {
+     "tag": "modelarg",
+     "rc": 0,
+     "stdout_bytes": 1605,
+     "stderr_bytes": 237,
+     "child_ok": false,
+     "parent_ok": true,
+     "type": "result",
+     "subtype": "success",
+     "is_error": false,
+     "num_turns": 2,
+     "result": "PARENT-OK-modelarg"
+    }
+   ],
+   "egress": [
+    {
+     "method": "CONNECT",
+     "host": "downloads.claude.ai:443"
+    },
+    {
+     "method": "CONNECT",
+     "host": "github.com:443"
+    }
+   ],
+   "live_pid_unchanged": true,
+   "inherit_on_wire": false
+  },
+  {
+   "run": "e2e-routed-ef077c",
+   "case": "routed",
+   "cli_version": "2.1.310 (Claude Code)",
+   "child_requests": [
+    {
+     "tag": "plain",
+     "model": "fake-parent-a"
+    },
+    {
+     "tag": "haiku",
+     "model": "fake-parent-a"
+    },
+    {
+     "tag": "sonnet",
+     "model": "fake-parent-a"
+    },
+    {
+     "tag": "definition",
+     "model": "fake-parent-a"
+    },
+    {
+     "tag": "modelarg",
+     "model": "fake-parent-b"
+    },
+    {
+     "tag": "named",
+     "model": "fake-parent-a"
+    }
+   ],
+   "agent_model_field_in_schema": [
+    false
+   ],
+   "print_results": [
+    {
+     "tag": "plain",
+     "rc": 0,
+     "stdout_bytes": 1654,
+     "stderr_bytes": 263,
+     "child_ok": false,
+     "parent_ok": true,
+     "type": "result",
+     "subtype": "success",
+     "is_error": false,
+     "num_turns": 2,
+     "result": "PARENT-OK-plain"
+    },
+    {
+     "tag": "haiku",
+     "rc": 0,
+     "stdout_bytes": 1654,
+     "stderr_bytes": 263,
+     "child_ok": false,
+     "parent_ok": true,
+     "type": "result",
+     "subtype": "success",
+     "is_error": false,
+     "num_turns": 2,
+     "result": "PARENT-OK-haiku"
+    },
+    {
+     "tag": "sonnet",
+     "rc": 0,
+     "stdout_bytes": 1655,
+     "stderr_bytes": 263,
+     "child_ok": false,
+     "parent_ok": true,
+     "type": "result",
+     "subtype": "success",
+     "is_error": false,
+     "num_turns": 2,
+     "result": "PARENT-OK-sonnet"
+    },
+    {
+     "tag": "definition",
+     "rc": 0,
+     "stdout_bytes": 1653,
+     "stderr_bytes": 263,
+     "child_ok": false,
+     "parent_ok": true,
+     "type": "result",
+     "subtype": "success",
+     "is_error": false,
+     "num_turns": 2,
+     "result": "PARENT-OK-definition"
+    },
+    {
+     "tag": "modelarg",
+     "rc": 0,
+     "stdout_bytes": 1657,
+     "stderr_bytes": 263,
+     "child_ok": false,
+     "parent_ok": true,
+     "type": "result",
+     "subtype": "success",
+     "is_error": false,
+     "num_turns": 2,
+     "result": "PARENT-OK-modelarg"
+    }
+   ],
+   "egress": [
+    {
+     "method": "CONNECT",
+     "host": "downloads.claude.ai:443"
+    },
+    {
+     "method": "CONNECT",
+     "host": "github.com:443"
+    }
+   ],
+   "live_pid_unchanged": true,
+   "inherit_on_wire": false
+  },
+  {
+   "run": "e2e-switch-21da1f",
+   "case": "switch",
+   "cli_version": "2.1.310 (Claude Code)",
+   "child_requests": [
+    {
+     "tag": "named",
+     "model": "fake-parent-a"
+    },
+    {
+     "tag": "named-switched",
+     "model": "fake-parent-b"
+    }
+   ],
+   "agent_model_field_in_schema": [
+    false
+   ],
+   "print_results": [],
+   "egress": [
+    {
+     "method": "CONNECT",
+     "host": "downloads.claude.ai:443"
+    },
+    {
+     "method": "CONNECT",
+     "host": "github.com:443"
+    }
+   ],
+   "live_pid_unchanged": true,
+   "inherit_on_wire": false
+  },
+  {
+   "run": "e2e-routedswitch-82ff03",
+   "case": "routedswitch",
+   "cli_version": "2.1.310 (Claude Code)",
+   "child_requests": [
+    {
+     "tag": "named",
+     "model": "fake-parent-a"
+    },
+    {
+     "tag": "named-switched",
+     "model": "fake-parent-b"
+    }
+   ],
+   "agent_model_field_in_schema": [
+    false
+   ],
+   "print_results": [],
+   "egress": [
+    {
+     "method": "CONNECT",
+     "host": "downloads.claude.ai:443"
+    },
+    {
+     "method": "CONNECT",
+     "host": "github.com:443"
+    }
+   ],
+   "live_pid_unchanged": true,
+   "inherit_on_wire": false
+  }
+ ],
+ "owned_pids_checked": [
+  92628,
+  62844,
+  79008,
+  86976,
+  29516,
+  58004,
+  70684,
+  31448,
+  85144,
+  95576,
+  73132,
+  73544,
+  48408,
+  96772,
+  75892,
+  53668,
+  44164,
+  80812,
+  32968,
+  69312,
+  79376,
+  77484,
+  97116,
+  34888,
+  60588,
+  78568,
+  49788
+ ],
+ "owned_roots_still_alive": [],
+ "source_sha256": "8824ab05d5ac564a21971cdbdb850faae072b0022dc3d04f190ed9931116adaa",
+ "limitations": [
+  "Gateway responses are deterministic synthetic Messages SSE, not real model intelligence.",
+  "Direct source projection was invoked through actual ciel_runtime.env_vars(data_path=LaunchDataPath); this verifies the direct environment and actual CLI, not gateway discovery/launcher integration.",
+  "Fixed Agent schema omits model, but CLI 2.1.310 accepted forged explicit haiku/sonnet inputs, ignored them, and sent actual children to parent; no validation failure occurred.",
+  "Original direct/routed interactive switch attempts missed second composer input; settled retry completed both direct and routed switches.",
+  "Blocked downloads.claude.ai/github.com CONNECTs are updater attempts, not model gateway requests; all actual model requests observed at loopback.",
+  "Synthetic private runtime/config/transcript state removed after narrowly scoped transcript metadata extraction; no real credentials were used.",
+  "Superseded attempts kept for audit: e2e-fixed-642d9a (classifier bug), e2e-old-0dd904/e2e-fixed-b90e11 (pre-screenshot matrix), e2e-routed-a58ca2 (isolated router import failure, ECONNREFUSED).",
+  "Old baseline applies only the requested pre-fix env control to the generated projection: SUBAGENT_MODEL=ANTHROPIC_MODEL and FORCE removed; it is not a HEAD-code launcher run.",
+  "Interactive /model switch baseline was not run; stale-model baseline is shown by the --model print case (parent fake-parent-b, child fake-parent-a).",
+  "PNG screenshots were captured by PrintWindow of the actual Windows Terminal Claude Code window; their pixel content was checked non-blank, and the matching console text is in each run screen-latest.txt."
+ ],
+ "pid_reuse_note": "PID 92628 was alive at check time as E:/ciel-view-team-analysis/.../codec_lab.exe (created 20:43:07, parent 61740), unrelated to this harness; no harness process name/command line remained."
+}

@@ -7,6 +7,7 @@ from typing import Any, Callable
 
 from .context_compaction import ContextCompactionFailed
 from .context_summary_policy import compact_instruction_kind, native_compact_text, semantic_payload_cost
+from .media_payload import opaque_media
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,6 +47,10 @@ def compact_chat_messages_for_budget(
     services: PromptCompactionServices,
 ) -> list[dict[str, Any]]:
     if not messages:
+        return messages
+    # Native checkpoint requests get their own upstream attempt first. A local
+    # estimate is not proof that semantic recovery is necessary.
+    if full_compact_request and not (pcfg or {}).get("_context_compact_context_rejected"):
         return messages
     text = services.text
     runtime = services.runtime
@@ -314,7 +319,7 @@ def compact_responses_input_for_budget(
         # so the visible items are not the complete semantic source.
         if (instruction_index is None or body.get("previous_response_id")
                 or pcfg is None or not provider or not model
-                or semantic_payload_cost(body, runtime.estimate_tokens) <= budget_tokens):
+                or not pcfg.get("_context_compact_context_rejected")):
             return body
         messages = ([{"role": "system", "content": body["instructions"]}]
                     if body.get("instructions") else [])
@@ -412,6 +417,22 @@ def compact_responses_input_for_budget(
     return out
 
 
+def _context_window_tokens(pcfg: dict[str, Any] | None) -> int | None:
+    """The model's whole context window, when the config states one."""
+
+    for key in ("context_window", "max_model_len"):
+        raw = (pcfg or {}).get(key)
+        if isinstance(raw, bool):
+            continue
+        try:
+            value = int(raw)
+        except (TypeError, ValueError):
+            continue
+        if value > 0:
+            return value
+    return None
+
+
 def anthropic_message_has_tool_result(message: dict[str, Any]) -> bool:
     content = message.get("content")
     return isinstance(content, list) and any(
@@ -444,10 +465,40 @@ def compact_anthropic_body_for_budget(
     text = services.text
     runtime = services.runtime
     budget_tokens = max(8192, budget_tokens)
+    rejected = bool((pcfg or {}).get("_context_compact_context_rejected"))
+    # A request already past the model's whole context window cannot be served
+    # by any upstream, so it is chunked here. Everything below the window keeps
+    # the estimator out of the checkpoint decision: a native checkpoint waits
+    # for the upstream's explicit no-output rejection, and an ordinary turn
+    # keeps the tail guard.
+    window = (
+        _context_window_tokens(pcfg)
+        if (pcfg or {}).get("_context_compact_native_over_window")
+        else None
+    )
+    if full_compact_request and not rejected:
+        if window is None or runtime.estimate_tokens(body) <= window:
+            return body
+        text_only, media = opaque_media(body)
+        if media.images and runtime.estimate_tokens(text_only) <= window:
+            # Only encoded image bytes put this checkpoint past the window, and
+            # their visual cost is unknown here. Let the upstream decide; a real
+            # overflow still returns the no-output rejection that recovers.
+            runtime.log(
+                "INFO",
+                "context_compact_native_media_forwarded "
+                f"provider={provider} images={media.images} "
+                f"encoded_image_bytes={media.encoded_bytes} window={window}",
+            )
+            return body
     initial_tokens = runtime.estimate_tokens(body)
+    over_window = window is not None and initial_tokens > window
+    if (pcfg or {}).get("_context_compact_only_if_over_window") and not over_window:
+        # The provider opted out of preflight; only the window guard may act.
+        return body
     if initial_tokens <= budget_tokens:
         return body
-    if full_compact_request and pcfg is not None and provider and model:
+    if (full_compact_request or over_window) and pcfg is not None and provider and model:
         envelope = {key: value for key, value in body.items()
                     if key not in {"messages", "tools", "tool_choice", "parallel_tool_calls"}}
         semantic_budget = max(1, budget_tokens - semantic_payload_cost(envelope, runtime.estimate_tokens))

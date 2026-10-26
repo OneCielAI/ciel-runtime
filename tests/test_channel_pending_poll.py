@@ -4,6 +4,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 from ciel_runtime_support.channel_message_repository import ChannelFileLockBusy
+from ciel_runtime_support.runtime_input_status import WakeAttemptConflict
 from ciel_runtime_support.channel_pending_poll import (
     ChannelPendingInjectionOptions,
     ChannelPendingPollPolicy,
@@ -79,6 +80,24 @@ class ChannelPendingPollTests(unittest.TestCase):
         self.assertTrue(state.pending_recheck)
         self.assertEqual(31.0, state.defer_logged_at)
         self.assertIn("channel_test_deferred cursor=10 reason=active_turn", logs[0][1])
+
+    def test_ownership_conflict_rechecks_without_advancing_frontier(self):
+        state = ChannelPendingPollState(last_id=10, last_marker=(1.0, 5), last_scan_at=2.0)
+        inject = Mock(side_effect=[WakeAttemptConflict(20, "replied"), 21])
+        services = self.services(inject=inject)
+        result = poll_pending_channel_messages(
+            31.0, 1, bytes([13]), state, self.options(), self.policy(), services)
+        self.assertIs(state, result)
+        self.assertEqual(10, state.last_id)
+        self.assertEqual((1.0, 5), state.last_marker)
+        self.assertEqual(2.0, state.last_scan_at)
+        self.assertTrue(state.pending_recheck)
+        self.assertIsNone(state.inflight_message_id)
+        poll_pending_channel_messages(31.1, 1, bytes([13]), state, self.options(), self.policy(), services)
+        inject.assert_called_once()
+        poll_pending_channel_messages(32.0, 1, bytes([13]), state, self.options(), self.policy(), services)
+        self.assertEqual(2, inject.call_count)
+        self.assertEqual(21, state.last_id)
 
     def test_injection_updates_cursor_and_inflight_state(self):
         observed = []
@@ -444,6 +463,66 @@ class ChannelPendingPollTests(unittest.TestCase):
         inject.assert_not_called()
         marker.assert_not_called()
         cursor.assert_not_called()
+
+    def test_recovery_protection_follows_backlog_but_not_new_submission(self):
+        state = ChannelPendingPollState(last_id=10)
+        state.inflight_message_id = 11
+        state.inflight_started_at = 20.0
+        state.inflight.backlog = [9]
+        state.inflight.hold_for_recovery(25.0, True)
+        state.inflight.hold_for_recovery(525.0, False)
+
+        def inject(*args, **kwargs):
+            kwargs["injected_message_ids"].append(12)
+            return 12
+
+        poll_pending_channel_messages(
+            530.0, None, b"cr", state, self.options(), self.policy(),
+            self.services(inject=inject),
+        )
+        self.assertEqual([9, 11], state.inflight.backlog)
+        self.assertEqual({9, 11}, state.inflight.recovery_protected)
+        self.assertEqual(12, state.inflight_message_id)
+        self.assertEqual(530.0, state.inflight_started_at)
+        state.inflight_message_id = None
+        poll_pending_channel_messages(
+            531.0, None, b"cr", state, self.options(), self.policy(), self.services(),
+        )
+        self.assertEqual(9, state.inflight_message_id)
+        self.assertEqual({9, 11}, state.inflight.recovery_protected)
+        state.inflight_message_id = None
+        self.assertEqual({11}, state.inflight.recovery_protected)
+
+    def test_pause_clock_does_not_leak_to_replaced_or_new_inflight(self):
+        for original in (None, 11):
+            with self.subTest(original=original):
+                state = ChannelPendingPollState(last_id=10)
+                state.inflight_message_id = original
+                state.inflight_started_at = 20.0 if original else 0.0
+                state.inflight.hold_for_recovery(25.0, True)
+                state.inflight_message_id = 12
+                state.inflight_started_at = 500.0
+                state.inflight.hold_for_recovery(525.0, False)
+                self.assertEqual(500.0, state.inflight_started_at)
+                self.assertNotIn(12, state.inflight.recovery_protected)
+
+    def test_new_attempt_of_same_id_does_not_inherit_recovery_protection(self):
+        state = ChannelPendingPollState(last_id=10)
+        state.inflight_message_id = 11
+        state.inflight_started_at = 20.0
+        state.inflight.hold_for_recovery(25.0, True)
+        state.inflight.hold_for_recovery(525.0, False)
+
+        def inject(*args, **kwargs):
+            kwargs["injected_message_ids"].append(11)
+            return 11
+
+        poll_pending_channel_messages(
+            530.0, None, b"cr", state, self.options(), self.policy(),
+            self.services(inject=inject),
+        )
+        self.assertNotIn(11, state.inflight.recovery_protected)
+        self.assertEqual(530.0, state.inflight_started_at)
 
     def test_compaction_pause_does_not_age_an_unconfirmed_wake(self):
         state = ChannelPendingPollState(last_id=10)

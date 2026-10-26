@@ -1,0 +1,1268 @@
+FILE channel_pending_injection.py SHA256 4a24cb1e649d66a308fbbe7093fac3815b4fa85ce701e893fdb0da97f6f1fe83 LINES 532
+1: """Pending channel-message injection application service."""
+2: 
+3: from __future__ import annotations
+4: 
+14:     message_response_mcp,
+15:     message_response_mode,
+16:     message_raw_injection,
+17:     web_chat_input_mode,
+18: )
+19: 
+22: class ChannelInjectionState:
+23:     active_tool_call: Callable[[], bool]
+24:     active_turn: Callable[[], bool]
+25:     recover_cursor: Callable[[int], int]
+26:     pending_scan_limit: Callable[[], int]
+27:     superseded_ids: Callable[..., set[int]]
+24:     active_turn: Callable[[], bool]
+25:     recover_cursor: Callable[[int], int]
+26:     pending_scan_limit: Callable[[], int]
+27:     superseded_ids: Callable[..., set[int]]
+28:     message_is_web_chat: Callable[..., bool]
+29:     message_skip_reason: Callable[..., str]
+28:     message_is_web_chat: Callable[..., bool]
+29:     message_skip_reason: Callable[..., str]
+30:     event_identity_key: Callable[..., tuple[str, ...]]
+31:     wake_state_for_message: Callable[..., str]
+32:     queued_wake_is_stale: Callable[..., bool]
+33: 
+55: @dataclass(frozen=True, slots=True)
+56: class ChannelInjectionIO:
+57:     inject_lock: Any
+58:     read_messages: Callable[..., list[dict[str, Any]]]
+59:     write_prompt: Callable[..., Any]
+60:     log: Callable[[str, str], Any]
+92:     The cursor may only move past messages that are consumed (delivered, or
+93:     skipped because they need no delivery).  A message skipped while it still
+94:     has to be delivered - claimed for a later scan, held pending a turn
+95:     boundary - must stay at or above the cursor, otherwise a later successful
+96:     injection commits the advanced id and the skipped messages are never
+97:     scanned again (live: 2026-09-22, 32 Walkie messages stuck behind cursor
+94:     has to be delivered - claimed for a later scan, held pending a turn
+95:     boundary - must stay at or above the cursor, otherwise a later successful
+96:     injection commits the advanced id and the skipped messages are never
+97:     scanned again (live: 2026-09-22, 32 Walkie messages stuck behind cursor
+98:     533 while the durable cursor kept moving).
+99:     """
+162: 
+163: 
+164: def inject_pending_channel_messages(
+165:     master_fd: int,
+166:     last_id: int,
+167:     enter_bytes: bytes | None = None,
+171:     display_llm_delivery_body: bool = False,
+172:     commit_cursor: bool = True,
+173:     injected_message_ids: list[int] | None = None,
+174:     injected_commit_cursors: list[int] | None = None,
+175:     submit_retry_count: int = 1,
+176:     confirm_submit: bool = False,
+172:     commit_cursor: bool = True,
+173:     injected_message_ids: list[int] | None = None,
+174:     injected_commit_cursors: list[int] | None = None,
+175:     submit_retry_count: int = 1,
+176:     confirm_submit: bool = False,
+177:     bracketed_paste: bool = False,
+174:     injected_commit_cursors: list[int] | None = None,
+175:     submit_retry_count: int = 1,
+176:     confirm_submit: bool = False,
+177:     bracketed_paste: bool = False,
+178:     submit_delay_seconds: float | None = None,
+179:     skip_blocking_wake_states: bool = False,
+186:     io = services.io
+187:     original_cursor = last_id
+188:     with io.inject_lock:
+189:         # Independent of the busy-turn policy: whole-message sockets bypass
+190:         # that policy but may not feed a session awaiting native recovery.
+191:         if io.external_admission_paused():
+193:             return last_id
+194:         active_tool_call = state.active_tool_call()
+195:         active_turn = state.active_turn()
+196:         if not web_chat_only:
+197:             last_id = state.recover_cursor(last_id)
+198:         pending: list[dict[str, Any]] = []
+196:         if not web_chat_only:
+197:             last_id = state.recover_cursor(last_id)
+198:         pending: list[dict[str, Any]] = []
+199:         return_last_id = last_id
+200:         deferred = _DeferralFloor()
+201:         candidates = io.read_messages(last_id, None, None, state.pending_scan_limit())
+199:         return_last_id = last_id
+200:         deferred = _DeferralFloor()
+201:         candidates = io.read_messages(last_id, None, None, state.pending_scan_limit())
+202:         superseded_ids = state.superseded_ids(candidates)
+203:         batch_limit = services.policy.wake_batch_limit() if wake_for_llm_delivery else 1
+204:         # A session-socket submission is one whole user message, not a TUI
+204:         # A session-socket submission is one whole user message, not a TUI
+205:         # draft, so everything deferred behind a busy turn goes in together
+206:         # (Walkie 2026-09-23: every injection was count=1, one turn each).
+207:         socket_batch_limit = services.policy.wake_batch_limit()
+208:         pending_batch_key: tuple[str, str, str] | None = None
+209:         pending_uses_router = False
+206:         # (Walkie 2026-09-23: every injection was count=1, one turn each).
+207:         socket_batch_limit = services.policy.wake_batch_limit()
+208:         pending_batch_key: tuple[str, str, str] | None = None
+209:         pending_uses_router = False
+210:         pending_uses_session_socket = False
+211:         seen_event_keys: set[tuple[str, ...]] = set()
+207:         socket_batch_limit = services.policy.wake_batch_limit()
+208:         pending_batch_key: tuple[str, str, str] | None = None
+209:         pending_uses_router = False
+210:         pending_uses_session_socket = False
+211:         seen_event_keys: set[tuple[str, ...]] = set()
+212:         for message in candidates:
+208:         pending_batch_key: tuple[str, str, str] | None = None
+209:         pending_uses_router = False
+210:         pending_uses_session_socket = False
+211:         seen_event_keys: set[tuple[str, ...]] = set()
+212:         for message in candidates:
+213:             previous_last_id = last_id
+260:                 wake_store.lifecycle.skip(message_id, "superseded_channel_notice")
+261:                 continue
+262:             event_key = state.event_identity_key(message)
+263:             if event_key and event_key in seen_event_keys:
+264:                 io.log("INFO", f"channel_stdin_proxy_skipped_noise message_id={message_id} channel={channel} reason=duplicate_channel_event")
+265:                 wake_store.lifecycle.skip(message_id, "duplicate_channel_event")
+275:             from .launch_data_path import model_http_bypassed
+276:             if terminal_available and model_http_bypassed():
+277:                 # Direct model HTTP never reaches the router's body injector.
+278:                 # Prefer a whole-message socket; otherwise type the complete body.
+279:                 requested_session_socket = _session_socket_usable(io)
+280:                 requested_router = False
+332:                 deferred.mark(message_id)
+333:                 last_id = previous_last_id
+334:                 if pending:
+335:                     break
+336:                 return deferred.clamp(last_id)
+337:             if not requested_session_socket and (active_tool_call or active_turn):
+335:                     break
+336:                 return deferred.clamp(last_id)
+337:             if not requested_session_socket and (active_tool_call or active_turn):
+338:                 reason = "active_tool_call" if active_tool_call else "active_turn"
+339:                 io.log("INFO", f"channel_stdin_proxy_deferred cursor={previous_last_id} reason={reason}")
+340:                 deferred.mark(message_id)
+336:                 return deferred.clamp(last_id)
+337:             if not requested_session_socket and (active_tool_call or active_turn):
+338:                 reason = "active_tool_call" if active_tool_call else "active_turn"
+339:                 io.log("INFO", f"channel_stdin_proxy_deferred cursor={previous_last_id} reason={reason}")
+340:                 deferred.mark(message_id)
+341:                 last_id = previous_last_id
+340:                 deferred.mark(message_id)
+341:                 last_id = previous_last_id
+342:                 if pending:
+343:                     break
+344:                 return deferred.clamp(last_id)
+345:             if requested_router and not wake_for_llm_delivery:
+351:                 deferred.mark(message_id)
+352:                 last_id = previous_last_id
+353:                 if pending:
+354:                     break
+355:                 return deferred.clamp(last_id)
+356:             if skip_blocking_wake_states and wake_state == "missing" and wake_store.claim_for_nonblocking_scan(message_id):
+358:                 io.log("INFO", f"channel_stdin_proxy_skipped_noise message_id={message_id} channel={channel} reason=stdin_wake_claimed_continue")
+359:                 continue
+360:             if wake_state in {"pending", "queued"}:
+361:                 if wake_state == "queued" and state.queued_wake_is_stale(message, message_prompt):
+362:                     wake_store.release_stale(message_id, not web_chat_only)
+363:                     io.log("WARN", f"channel_stdin_proxy_skipped_noise message_id={message_id} channel={channel} reason=stale_queued_wake")
+370:                 deferred.mark(message_id)
+371:                 last_id = previous_last_id
+372:                 if pending:
+373:                     break
+374:                 return deferred.clamp(last_id)
+375:             response_mode = message_response_mode(message)
+383:             batch_key_base = (
+384:                 ("raw", str(message_id))
+385:                 if message_raw_injection(message)
+386:                 else
+387:                 ("web_chat", web_chat_input_mode(message) + ":" + response_key)
+388:                 if state.message_is_web_chat(message)
+397:             )
+398:             batch_key = (batch_key_base[0], batch_key_base[1], transport_key)
+399:             if pending and pending_batch_key != batch_key:
+400:                 last_id = previous_last_id
+401:                 break
+402:             if not candidate_uses_router and wake_store.lifecycle.is_delivered(message_id):
+403:                 io.log("INFO", f"channel_stdin_proxy_skipped_noise message_id={message_id} channel={channel} reason=stdin_wake_delivered")
+404:                 continue
+405:             pending.append(message)
+406:             pending_batch_key = batch_key
+407:             pending_uses_router = candidate_uses_router
+408:             pending_uses_session_socket = requested_session_socket
+404:                 continue
+405:             pending.append(message)
+406:             pending_batch_key = batch_key
+407:             pending_uses_router = candidate_uses_router
+408:             pending_uses_session_socket = requested_session_socket
+409:             if event_key:
+405:             pending.append(message)
+406:             pending_batch_key = batch_key
+407:             pending_uses_router = candidate_uses_router
+408:             pending_uses_session_socket = requested_session_socket
+409:             if event_key:
+410:                 seen_event_keys.add(event_key)
+406:             pending_batch_key = batch_key
+407:             pending_uses_router = candidate_uses_router
+408:             pending_uses_session_socket = requested_session_socket
+409:             if event_key:
+410:                 seen_event_keys.add(event_key)
+411:             if candidate_uses_router and len(pending) == 1:
+409:             if event_key:
+410:                 seen_event_keys.add(event_key)
+411:             if candidate_uses_router and len(pending) == 1:
+412:                 return_last_id = previous_last_id
+413:             last_id = message_id
+414:             if len(pending) >= (socket_batch_limit if requested_session_socket else batch_limit):
+412:                 return_last_id = previous_last_id
+413:             last_id = message_id
+414:             if len(pending) >= (socket_batch_limit if requested_session_socket else batch_limit):
+415:                 break
+416:             if not candidate_uses_router and not requested_session_socket:
+417:                 # A TUI draft carries exactly one request. This prevents a
+417:                 # A TUI draft carries exactly one request. This prevents a
+418:                 # later request from being appended to an earlier,
+419:                 # not-yet-confirmed draft.
+420:                 break
+421:         if not pending:
+422:             return deferred.clamp(last_id)
+419:                 # not-yet-confirmed draft.
+420:                 break
+421:         if not pending:
+422:             return deferred.clamp(last_id)
+423:         if pending_uses_router:
+424:             formatter = (
+421:         if not pending:
+422:             return deferred.clamp(last_id)
+423:         if pending_uses_router:
+424:             formatter = (
+425:                 prompts.visible_llm_delivery
+426:                 if display_llm_delivery_body
+427:                 else prompts.llm_delivery
+428:             )
+429:             prompt = formatter(pending)
+430:         # Preserve the private reply contract even when the proxy accepts both
+431:         # Web Chat and ordinary external-channel messages.
+432:         elif all(state.message_is_web_chat(message) for message in pending):
+430:         # Preserve the private reply contract even when the proxy accepts both
+431:         # Web Chat and ordinary external-channel messages.
+432:         elif all(state.message_is_web_chat(message) for message in pending):
+433:             prompt = prompts.web_chat(pending)
+434:         else:
+435:             prompt = prompts.standard(pending)
+431:         # Web Chat and ordinary external-channel messages.
+432:         elif all(state.message_is_web_chat(message) for message in pending):
+433:             prompt = prompts.web_chat(pending)
+434:         else:
+435:             prompt = prompts.standard(pending)
+436:         submit_bytes = prompts.enter_bytes(enter_bytes)
+433:             prompt = prompts.web_chat(pending)
+434:         else:
+435:             prompt = prompts.standard(pending)
+436:         submit_bytes = prompts.enter_bytes(enter_bytes)
+437:         if io.external_admission_paused():
+438:             io.log("INFO", f"channel_stdin_proxy_deferred cursor={original_cursor} reason=context_recovery")
+439:             return original_cursor
+440:         claimed_ids: list[int] = []
+441:         if pending_uses_router:
+442:             for message in pending:
+443:                 claim_id = _message_id(message)
+444:                 if claim_id <= 0:
+440:         claimed_ids: list[int] = []
+441:         if pending_uses_router:
+442:             for message in pending:
+443:                 claim_id = _message_id(message)
+444:                 if claim_id <= 0:
+445:                     continue
+457:         if callable(begin_attempt):
+458:             try:
+459:                 begin_attempt(pending)
+460:             except Exception:
+461:                 _release_claims(claimed_ids, services)
+462:                 raise
+461:                 _release_claims(claimed_ids, services)
+462:                 raise
+463:         if not pending_uses_router:
+464:             # Candidate selection can acquire file locks. Only mark delivery
+465:             # after every pre-submit read succeeds, so a safe recheck cannot
+466:             # skip an input that was selected but never sent.
+465:             # after every pre-submit read succeeds, so a safe recheck cannot
+466:             # skip an input that was selected but never sent.
+467:             for message in pending:
+468:                 wake_store.lifecycle.mark_delivered(_message_id(message))
+469:         with _submission_boundary(io):
+470:             try:
+469:         with _submission_boundary(io):
+470:             try:
+471:                 if pending_uses_session_socket:
+472:                     submitted = bool(io.write_session_socket and io.write_session_socket(prompt, pending))
+473:                     if submitted is False and terminal_available and not (active_tool_call or active_turn):
+474:                         ids = ",".join(str(message.get("id") or "") for message in pending)
+470:             try:
+471:                 if pending_uses_session_socket:
+472:                     submitted = bool(io.write_session_socket and io.write_session_socket(prompt, pending))
+473:                     if submitted is False and terminal_available and not (active_tool_call or active_turn):
+474:                         ids = ",".join(str(message.get("id") or "") for message in pending)
+475:                         io.log(
+471:                 if pending_uses_session_socket:
+472:                     submitted = bool(io.write_session_socket and io.write_session_socket(prompt, pending))
+473:                     if submitted is False and terminal_available and not (active_tool_call or active_turn):
+474:                         ids = ",".join(str(message.get("id") or "") for message in pending)
+475:                         io.log(
+476:                             "WARN",
+472:                     submitted = bool(io.write_session_socket and io.write_session_socket(prompt, pending))
+473:                     if submitted is False and terminal_available and not (active_tool_call or active_turn):
+474:                         ids = ",".join(str(message.get("id") or "") for message in pending)
+475:                         io.log(
+476:                             "WARN",
+477:                             "channel_stdin_proxy_transport_fallback "
+484:                             submit_bytes,
+485:                             submit_retry_count=submit_retry_count,
+486:                             confirm_submit=confirm_submit,
+487:                             bracketed_paste=bracketed_paste,
+488:                             submit_delay_seconds=submit_delay_seconds,
+489:                         )
+489:                         )
+490:                         if submitted is not False:
+491:                             pending_uses_session_socket = False
+492:                 else:
+493:                     submitted = io.write_prompt(
+494:                         master_fd,
+496:                         submit_bytes,
+497:                         submit_retry_count=submit_retry_count,
+498:                         confirm_submit=confirm_submit,
+499:                         bracketed_paste=bracketed_paste,
+500:                         submit_delay_seconds=submit_delay_seconds,
+501:                     )
+501:                     )
+502:                 if submitted is False:
+503:                     wake_store.lifecycle.fail(pending, claimed_ids, "prompt_not_submitted")
+504:                     ids = ",".join(str(message.get("id") or "") for message in pending)
+505:                     io.log(
+506:                         "WARN",
+502:                 if submitted is False:
+503:                     wake_store.lifecycle.fail(pending, claimed_ids, "prompt_not_submitted")
+504:                     ids = ",".join(str(message.get("id") or "") for message in pending)
+505:                     io.log(
+506:                         "WARN",
+507:                         "channel_stdin_proxy_deferred "
+508:                         f"message_ids={ids} reason=prompt_not_submitted",
+509:                     )
+510:                     return return_last_id if pending_uses_router else previous_last_id
+511:                 wake_store.lifecycle.record_prompts(pending, prompt)
+512:             except Exception:
+513:                 wake_store.lifecycle.fail(pending, claimed_ids, "submission_exception")
+509:                     )
+510:                     return return_last_id if pending_uses_router else previous_last_id
+511:                 wake_store.lifecycle.record_prompts(pending, prompt)
+512:             except Exception:
+513:                 wake_store.lifecycle.fail(pending, claimed_ids, "submission_exception")
+514:                 raise
+511:                 wake_store.lifecycle.record_prompts(pending, prompt)
+512:             except Exception:
+513:                 wake_store.lifecycle.fail(pending, claimed_ids, "submission_exception")
+514:                 raise
+515:             if not web_chat_only:
+516:                 if commit_cursor:
+516:                 if commit_cursor:
+517:                     wake_store.commit_cursor(deferred.clamp(last_id))
+518:                 if injected_message_ids is not None:
+519:                     injected_message_ids.extend(message_id for message in pending if (message_id := _message_id(message)) > 0)
+520:                 if injected_commit_cursors is not None:
+521:                     injected_commit_cursors.append(deferred.clamp(last_id))
+517:                     wake_store.commit_cursor(deferred.clamp(last_id))
+518:                 if injected_message_ids is not None:
+519:                     injected_message_ids.extend(message_id for message in pending if (message_id := _message_id(message)) > 0)
+520:                 if injected_commit_cursors is not None:
+521:                     injected_commit_cursors.append(deferred.clamp(last_id))
+522:             ids = ",".join(str(message.get("id") or "") for message in pending)
+518:                 if injected_message_ids is not None:
+519:                     injected_message_ids.extend(message_id for message in pending if (message_id := _message_id(message)) > 0)
+520:                 if injected_commit_cursors is not None:
+521:                     injected_commit_cursors.append(deferred.clamp(last_id))
+522:             ids = ",".join(str(message.get("id") or "") for message in pending)
+523:             channels = ",".join(sorted({str(message.get("channel") or "default") for message in pending}))
+519:                     injected_message_ids.extend(message_id for message in pending if (message_id := _message_id(message)) > 0)
+520:                 if injected_commit_cursors is not None:
+521:                     injected_commit_cursors.append(deferred.clamp(last_id))
+522:             ids = ",".join(str(message.get("id") or "") for message in pending)
+523:             channels = ",".join(sorted({str(message.get("channel") or "default") for message in pending}))
+524:             io.log(
+520:                 if injected_commit_cursors is not None:
+521:                     injected_commit_cursors.append(deferred.clamp(last_id))
+522:             ids = ",".join(str(message.get("id") or "") for message in pending)
+523:             channels = ",".join(sorted({str(message.get("channel") or "default") for message in pending}))
+524:             io.log(
+525:                 "INFO",
+521:                     injected_commit_cursors.append(deferred.clamp(last_id))
+522:             ids = ",".join(str(message.get("id") or "") for message in pending)
+523:             channels = ",".join(sorted({str(message.get("channel") or "default") for message in pending}))
+524:             io.log(
+525:                 "INFO",
+526:                 f"channel_stdin_proxy_injected count={len(pending)} message_ids={ids} "
+524:             io.log(
+525:                 "INFO",
+526:                 f"channel_stdin_proxy_injected count={len(pending)} message_ids={ids} "
+527:                 f"channels={channels} enter={prompts.enter_label(submit_bytes)} "
+528:                 f"transport={'session_socket' if pending_uses_session_socket else 'router' if pending_uses_router else 'tty'} "
+529:                 f"commit_cursor={commit_cursor} "
+526:                 f"channel_stdin_proxy_injected count={len(pending)} message_ids={ids} "
+527:                 f"channels={channels} enter={prompts.enter_label(submit_bytes)} "
+528:                 f"transport={'session_socket' if pending_uses_session_socket else 'router' if pending_uses_router else 'tty'} "
+529:                 f"commit_cursor={commit_cursor} "
+530:                 f"display_body={bool(pending_uses_router and display_llm_delivery_body)}",
+531:             )
+528:                 f"transport={'session_socket' if pending_uses_session_socket else 'router' if pending_uses_router else 'tty'} "
+529:                 f"commit_cursor={commit_cursor} "
+530:                 f"display_body={bool(pending_uses_router and display_llm_delivery_body)}",
+531:             )
+532:             return return_last_id if pending_uses_router else deferred.clamp(last_id)
+530:                 f"display_body={bool(pending_uses_router and display_llm_delivery_body)}",
+531:             )
+532:             return return_last_id if pending_uses_router else deferred.clamp(last_id)
+FILE channel_pending_poll.py SHA256 0af80cae36e1787c8ebd7fe6b1d0049f34ee0207279620a9f649c3b8255fde8c LINES 235
+1: """Shared polling state machine for pending channel message injection."""
+2: 
+3: from __future__ import annotations
+4: 
+18:     started_at: float = 0.0
+19:     attempts: int = 0
+20:     # Earlier injections still awaiting confirmation.  A socket input can go
+21:     # in during a turn and another one right after it; tracking only the
+22:     # newest left the earlier ones at "submitted" forever.
+23:     backlog: list[int] = field(default_factory=list)
+42:     last_poll_at: float = 0.0
+43:     last_scan_at: float = 0.0
+44:     pending_recheck: bool = False
+45:     defer_logged_at: float = 0.0
+46:     inflight: ChannelPendingInflightState = field(
+47:         default_factory=ChannelPendingInflightState
+88:     display_llm_delivery_body: bool
+89:     submit_retry_count: int
+90:     confirm_submit: bool
+91:     bracketed_paste: bool
+92:     submit_delay_seconds: float | None
+93:     terminal_available: bool = True
+109:     active: Callable[[], bool]
+110:     ensure_cursor: Callable[[], int]
+111:     inject_pending: Callable[..., int]
+112:     log: Callable[[str, str], Any]
+113:     session_socket_ready: Callable[[], bool] = lambda: False
+114:     external_admission_paused: Callable[[], bool] = lambda: False
+115: 
+116: 
+117: def poll_pending_channel_messages(
+118:     now: float,
+119:     writer: Any,
+120:     enter_bytes: bytes,
+128:     paused = state.inflight.hold_for_recovery(now, services.external_admission_paused())
+129:     if paused:
+130:         state.pending_recheck = True
+131:         return state
+132:     if state.inflight_message_id is None and state.inflight.backlog:
+133:         state.inflight_message_id = state.inflight.backlog.pop(0)
+140:     marker = services.file_marker()
+141:     marker_requires_scan = services.should_check(
+142:         marker, state.last_marker, state.pending_recheck, state.inflight_message_id
+143:     )
+144:     safety_rescan_due = (
+145:         state.last_scan_at <= 0.0
+151:     busy = services.active()
+152:     if busy:
+153:         state.pending_recheck = True
+154:         # Only terminal typing must wait for the turn boundary.  A
+155:         # session-socket input goes into the CLI's own queue, which holds it
+156:         # until the turn ends (measured with Claude Code 2.1.278: enqueue
+157:         # during the turn, dequeue and delivery right after it).  This gate
+158:         # predates the socket transport and used to hold every input until
+159:         # the turn ended (Walkie 2026-09-23).  inject_pending still defers
+160:         # TTY inputs itself, so scan only when new input or the safety
+161:         # rescan calls for it rather than on every poll.
+162:         socket_scan = services.session_socket_ready() and (
+172:             return state
+173: 
+174:     injected_ids: list[int] = []
+175:     injected_commit_cursors: list[int] = []
+176:     try:
+177:         cursor = max(state.last_id, services.ensure_cursor())
+173: 
+174:     injected_ids: list[int] = []
+175:     injected_commit_cursors: list[int] = []
+176:     try:
+177:         cursor = max(state.last_id, services.ensure_cursor())
+178:         last_id = services.inject_pending(
+176:     try:
+177:         cursor = max(state.last_id, services.ensure_cursor())
+178:         last_id = services.inject_pending(
+179:             writer,
+180:             cursor,
+181:             enter_bytes,
+183:             wake_for_llm_delivery=options.wake_for_llm_delivery,
+184:             display_llm_delivery_body=options.display_llm_delivery_body,
+185:             # A runtime without transcript confirmation (for example Muse Code)
+186:             # uses a single fire-and-forget TTY write. Persist its cursor in that
+187:             # same operation; otherwise the generic inflight verifier sees every
+188:             # successful delivery as "missing" and replays it.
+187:             # same operation; otherwise the generic inflight verifier sees every
+188:             # successful delivery as "missing" and replays it.
+189:             commit_cursor=not options.confirm_submit,
+190:             injected_message_ids=injected_ids,
+191:             injected_commit_cursors=injected_commit_cursors,
+192:             submit_retry_count=options.submit_retry_count,
+188:             # successful delivery as "missing" and replays it.
+189:             commit_cursor=not options.confirm_submit,
+190:             injected_message_ids=injected_ids,
+191:             injected_commit_cursors=injected_commit_cursors,
+192:             submit_retry_count=options.submit_retry_count,
+193:             confirm_submit=options.confirm_submit,
+189:             commit_cursor=not options.confirm_submit,
+190:             injected_message_ids=injected_ids,
+191:             injected_commit_cursors=injected_commit_cursors,
+192:             submit_retry_count=options.submit_retry_count,
+193:             confirm_submit=options.confirm_submit,
+194:             bracketed_paste=options.bracketed_paste,
+191:             injected_commit_cursors=injected_commit_cursors,
+192:             submit_retry_count=options.submit_retry_count,
+193:             confirm_submit=options.confirm_submit,
+194:             bracketed_paste=options.bracketed_paste,
+195:             submit_delay_seconds=options.submit_delay_seconds,
+196:             skip_blocking_wake_states=state.inflight_message_id is not None,
+198:         )
+199:     except WakeAttemptConflict as exc:
+200:         # The injector releases only this scan's claims before exposing this
+201:         # type. No send or ownership write occurred; rebuild on a bounded poll.
+202:         state.pending_recheck = True
+203:         if now - state.defer_logged_at >= policy.defer_log_interval_seconds:
+200:         # The injector releases only this scan's claims before exposing this
+201:         # type. No send or ownership write occurred; rebuild on a bounded poll.
+202:         state.pending_recheck = True
+203:         if now - state.defer_logged_at >= policy.defer_log_interval_seconds:
+204:             state.defer_logged_at = now
+205:             services.log("WARN", f"{policy.log_namespace}_deferred stage=pre_submit "
+207:         return state
+208:     except ChannelFileLockBusy as exc:
+209:         # The injector never exposes this type after a submission attempt.
+210:         # Keep the unconsumed marker/cursor and recheck on the next bounded poll.
+211:         state.pending_recheck = True
+212:         services.log(
+209:         # The injector never exposes this type after a submission attempt.
+210:         # Keep the unconsumed marker/cursor and recheck on the next bounded poll.
+211:         state.pending_recheck = True
+212:         services.log(
+213:             "WARN",
+214:             f"{policy.log_namespace}_deferred stage=pre_submit errno={exc.errno} "
+219:     # A scan during a turn may have left TTY inputs behind; look again once
+220:     # the turn ends.
+221:     state.pending_recheck = busy
+222:     state.last_scan_at = now
+223:     state.last_id = last_id
+224:     if injected_ids and options.confirm_submit:
+222:     state.last_scan_at = now
+223:     state.last_id = last_id
+224:     if injected_ids and options.confirm_submit:
+225:         if state.inflight_message_id is not None:
+226:             state.inflight.backlog.append(state.inflight_message_id)
+227:         state.inflight_message_id = injected_ids[-1]
+225:         if state.inflight_message_id is not None:
+226:             state.inflight.backlog.append(state.inflight_message_id)
+227:         state.inflight_message_id = injected_ids[-1]
+228:         state.inflight.attempts += 1
+229:         # Router delivery may return its pre-batch cursor, while a mixed scan
+230:         # may have deferred an earlier input. Use the injector's safe commit
+228:         state.inflight.attempts += 1
+229:         # Router delivery may return its pre-batch cursor, while a mixed scan
+230:         # may have deferred an earlier input. Use the injector's safe commit
+231:         # ceiling rather than committing across that unresolved deferral.
+232:         state.inflight_cursor = min(injected_commit_cursors) if injected_commit_cursors else max(injected_ids)
+233:         state.inflight_logged_at = now
+230:         # may have deferred an earlier input. Use the injector's safe commit
+231:         # ceiling rather than committing across that unresolved deferral.
+232:         state.inflight_cursor = min(injected_commit_cursors) if injected_commit_cursors else max(injected_ids)
+233:         state.inflight_logged_at = now
+234:         state.inflight_started_at = now
+235:     return state
+FILE channel_wake_context.py SHA256 c129c7391e4ce07327605959c36c71701ee26ef211df7dcac6ad7b9299b451b4 LINES 704
+7: from typing import Any, Callable
+8: 
+9: from . import channel_injection, channel_llm_context
+10: from .channel_cursor_recovery import (
+11:     ChannelCursorRecoveryPolicy,
+12:     ChannelCursorRecoveryPorts,
+13:     ChannelCursorRecoveryService,
+14: )
+15: from .channel_compact_injection import (
+16:     ChannelCompactInjectionService,
+17:     ChannelCompactRequestPorts,
+18:     ChannelCompactRuntimePorts,
+18:     ChannelCompactRuntimePorts,
+19: )
+20: from .channel_pending_injection import (
+21:     ChannelInjectionIO,
+22:     ChannelInjectionPolicy,
+23:     ChannelInjectionPrompts,
+25:     ChannelInjectionState,
+26:     ChannelInjectionWakeStore,
+27:     inject_pending_channel_messages,
+28: )
+29: from .channel_replay_policy import ChannelReplaySafetyPolicy
+30: from .channel_transcript import (
+39: from .channel_wake_claim_repository import ChannelWakeClaimRepository
+40: from .channel_wake_delivery_repository import ChannelWakeDeliveryRepository
+41: from .runtime_compaction_control import RuntimeCompactionControl
+42: 
+43: CODEX_LATE_CONFIRM_SECONDS = 15.0
+44: 
+102:     read_tail: Callable[[Path], str]
+103:     active_tool_call_from_text: Callable[..., bool]
+104:     active_turn_from_text: Callable[..., bool]
+105:     queued_age_from_text: Callable[..., float | None]
+106:     wake_state_evidence_from_text: Callable[..., WakeStateEvidence]
+107: 
+121: class ChannelPendingStatePorts:
+122:     active_tool_call: Callable[[], bool]
+123:     active_turn: Callable[[], bool]
+124:     recover_cursor: Callable[[int], int]
+125:     pending_scan_limit: Callable[[], int]
+126:     superseded_ids: Callable[[list[dict[str, Any]]], set[int]]
+123:     active_turn: Callable[[], bool]
+124:     recover_cursor: Callable[[int], int]
+125:     pending_scan_limit: Callable[[], int]
+126:     superseded_ids: Callable[[list[dict[str, Any]]], set[int]]
+127:     message_is_web_chat: Callable[[dict[str, Any]], bool]
+128:     message_skip_reason: Callable[[dict[str, Any]], str]
+127:     message_is_web_chat: Callable[[dict[str, Any]], bool]
+128:     message_skip_reason: Callable[[dict[str, Any]], str]
+129:     event_identity_key: Callable[[dict[str, Any]], str]
+130:     wake_state_for_message: Callable[..., str]
+131:     queued_wake_is_stale: Callable[..., bool]
+132: 
+146: @dataclass(frozen=True, slots=True)
+147: class ChannelPendingIoPorts:
+148:     inject_lock: Any
+149:     read_messages: Callable[..., list[dict[str, Any]]]
+150:     write_prompt: Callable[..., bool]
+151:     compact_read: Callable[[], dict[str, Any] | None]
+155:     write_session_socket: Callable[[str, list[dict[str, Any]]], bool] | None = None
+156:     session_socket_available: Callable[[], bool] | None = None
+157:     compaction: RuntimeCompactionControl | None = None
+158: 
+159: 
+160: @dataclass(frozen=True, slots=True)
+176:     transcript: ChannelTranscriptPorts
+177:     transcript_policy: ChannelTranscriptPolicyPorts
+178:     pending_state: ChannelPendingStatePorts
+179:     pending_delivery: ChannelPendingDeliveryPorts
+180:     pending_io: ChannelPendingIoPorts
+181:     pending_policy: ChannelPendingPolicyPorts
+177:     transcript_policy: ChannelTranscriptPolicyPorts
+178:     pending_state: ChannelPendingStatePorts
+179:     pending_delivery: ChannelPendingDeliveryPorts
+180:     pending_io: ChannelPendingIoPorts
+181:     pending_policy: ChannelPendingPolicyPorts
+182: 
+178:     pending_state: ChannelPendingStatePorts
+179:     pending_delivery: ChannelPendingDeliveryPorts
+180:     pending_io: ChannelPendingIoPorts
+181:     pending_policy: ChannelPendingPolicyPorts
+182: 
+183:     def claim_repository(self) -> ChannelWakeClaimRepository:
+179:     pending_delivery: ChannelPendingDeliveryPorts
+180:     pending_io: ChannelPendingIoPorts
+181:     pending_policy: ChannelPendingPolicyPorts
+182: 
+183:     def claim_repository(self) -> ChannelWakeClaimRepository:
+184:         return ChannelWakeClaimRepository(
+258:         )
+259: 
+260:     def body_with_pending_messages(self, body: dict[str, Any]) -> dict[str, Any]:
+261:         return channel_llm_context.inject_pending_channel_context(
+262:             body,
+263:             channel_llm_context.ChannelLlmContextServices(
+259: 
+260:     def body_with_pending_messages(self, body: dict[str, Any]) -> dict[str, Any]:
+261:         return channel_llm_context.inject_pending_channel_context(
+262:             body,
+263:             channel_llm_context.ChannelLlmContextServices(
+264:                 policy=channel_llm_context.ChannelLlmContextPolicy(
+278:                     read_messages=self.messages.read_messages,
+279:                     superseded_ids=self.messages.superseded_ids,
+280:                     mark_skipped=self.pending_delivery.lifecycle.skip,
+281:                 ),
+282:                 projection=channel_llm_context.ChannelLlmContextProjection(
+283:                     remove_wake_prompt=self.messages.remove_wake_prompt,
+285:                 ),
+286:                 log=self.claims.log,
+287:                 pause_reason=(self.pending_io.compaction.context_pause_reason
+288:                               if self.pending_io.compaction else lambda _body: ""),
+289:             ),
+290:         )
+286:                 log=self.claims.log,
+287:                 pause_reason=(self.pending_io.compaction.context_pause_reason
+288:                               if self.pending_io.compaction else lambda _body: ""),
+289:             ),
+290:         )
+291: 
+332:         *,
+333:         submit_retry_count: int = 1,
+334:         confirm_submit: bool = False,
+335:         bracketed_paste: bool = False,
+336:         submit_delay_seconds: float | None = None,
+337:         write_all: Callable[[Any, bytes], None] | None = None,
+347:         )
+348:         submission_receipt = None
+349:         if confirm_submit and getattr(master_fd, "supports_prompt_ready_wait", False):
+350:             from .submission_receipt import LatestTranscriptSubmissionReceipt
+351: 
+352:             try:
+354:             except OSError:
+355:                 submission_receipt = LatestTranscriptSubmissionReceipt(lambda: None, prompt)
+356:                 self.input.log("WARN", "channel_input_receipt unavailable=transcript_unreadable confirmation=pending_new_transcript")
+357:             if not submission_receipt.watching:
+358:                 # The prompt may open the session's first transcript; the
+359:                 # receipt picks it up once the CLI creates it.
+358:                 # The prompt may open the session's first transcript; the
+359:                 # receipt picks it up once the CLI creates it.
+360:                 self.input.log("INFO", "channel_input_receipt transcript_missing confirmation=awaiting_new_transcript")
+361:             else:
+362:                 self.input.log("INFO", f"channel_input_receipt watching {submission_receipt.describe()}")
+363:         injector = channel_injection.ChannelPromptInjector(
+361:             else:
+362:                 self.input.log("INFO", f"channel_input_receipt watching {submission_receipt.describe()}")
+363:         injector = channel_injection.ChannelPromptInjector(
+364:             sleep=self.input.sleep,
+365:             retry_delay_seconds=self.input.retry_delay_seconds,
+366:             snapshot=snapshot or self.current_tmux_pane_text,
+368:             submission_receipt=submission_receipt,
+369:         )
+370:         submitted = injector.inject(
+371:             channel_injection.CallableInputTransport(
+372:                 master_fd, write_all or self.write_all
+373:             ),
+369:         )
+370:         submitted = injector.inject(
+371:             channel_injection.CallableInputTransport(
+372:                 master_fd, write_all or self.write_all
+373:             ),
+374:             channel_injection.PromptInjection(
+372:                 master_fd, write_all or self.write_all
+373:             ),
+374:             channel_injection.PromptInjection(
+375:                 prompt=prompt,
+376:                 policy=channel_injection.RuntimeInjectionPolicy(
+377:                     runtime="interactive-cli",
+374:             channel_injection.PromptInjection(
+375:                 prompt=prompt,
+376:                 policy=channel_injection.RuntimeInjectionPolicy(
+377:                     runtime="interactive-cli",
+378:                     clear_input=b"\x15",
+379:                     submit_input=self.enter_bytes(enter_bytes),
+380:                     submit_delay_seconds=delay,
+381:                     submit_attempts=max(1, min(8, int(submit_retry_count or 1))),
+382:                     confirm_submission=confirm_submit,
+383:                     bracketed_paste=bracketed_paste,
+384:                     # Codex 0.157+ (fullscreen transcript by default) can still be
+385:                     # counting the injected keys as a paste burst when Enter
+383:                     bracketed_paste=bracketed_paste,
+384:                     # Codex 0.157+ (fullscreen transcript by default) can still be
+385:                     # counting the injected keys as a paste burst when Enter
+386:                     # arrives; every Enter then became a newline and the prompt
+387:                     # stayed in the composer (ara, 2026-10-01).
+388:                     submit_prefix=(
+387:                     # stayed in the composer (ara, 2026-10-01).
+388:                     submit_prefix=(
+389:                         channel_injection.CODEX_PASTE_BURST_BREAK
+390:                         if codex_conpty
+391:                         else b""
+392:                     ),
+393:                     # The same slow Codex submitted queued keys ~2 s after the
+394:                     # last Enter; keep watching the transcript before failing.
+395:                     late_confirm_seconds=CODEX_LATE_CONFIRM_SECONDS if codex_conpty else 0.0,
+396:                 ),
+397:             ),
+398:         )
+542:         return started_at if started_at > 0 else None
+543: 
+544:     def active_turn(self) -> bool:
+545:         path = self.transcript_policy.latest_transcript()
+546:         if path is None:
+547:             return bool(self.transcript.scope.get("turn_active"))
+553:             return bool(self.transcript.scope.get("turn_active"))
+554:         active = bool(
+555:             self.transcript.active_turn_from_text(
+556:                 text,
+557:                 not_before=self.console_started_at(),
+558:                 initial_active=bool(self.transcript.scope.get("turn_active")),
+585:         )
+586: 
+587:     def pending_injection_services(self) -> ChannelInjectionServices:
+588:         return ChannelInjectionServices(
+589:             state=ChannelInjectionState(
+590:                 active_tool_call=self.pending_state.active_tool_call,
+588:         return ChannelInjectionServices(
+589:             state=ChannelInjectionState(
+590:                 active_tool_call=self.pending_state.active_tool_call,
+591:                 active_turn=self.pending_state.active_turn,
+592:                 recover_cursor=self.pending_state.recover_cursor,
+593:                 pending_scan_limit=self.pending_state.pending_scan_limit,
+589:             state=ChannelInjectionState(
+590:                 active_tool_call=self.pending_state.active_tool_call,
+591:                 active_turn=self.pending_state.active_turn,
+592:                 recover_cursor=self.pending_state.recover_cursor,
+593:                 pending_scan_limit=self.pending_state.pending_scan_limit,
+594:                 superseded_ids=self.pending_state.superseded_ids,
+590:                 active_tool_call=self.pending_state.active_tool_call,
+591:                 active_turn=self.pending_state.active_turn,
+592:                 recover_cursor=self.pending_state.recover_cursor,
+593:                 pending_scan_limit=self.pending_state.pending_scan_limit,
+594:                 superseded_ids=self.pending_state.superseded_ids,
+595:                 message_is_web_chat=self.pending_state.message_is_web_chat,
+591:                 active_turn=self.pending_state.active_turn,
+592:                 recover_cursor=self.pending_state.recover_cursor,
+593:                 pending_scan_limit=self.pending_state.pending_scan_limit,
+594:                 superseded_ids=self.pending_state.superseded_ids,
+595:                 message_is_web_chat=self.pending_state.message_is_web_chat,
+596:                 message_skip_reason=self.pending_state.message_skip_reason,
+592:                 recover_cursor=self.pending_state.recover_cursor,
+593:                 pending_scan_limit=self.pending_state.pending_scan_limit,
+594:                 superseded_ids=self.pending_state.superseded_ids,
+595:                 message_is_web_chat=self.pending_state.message_is_web_chat,
+596:                 message_skip_reason=self.pending_state.message_skip_reason,
+597:                 event_identity_key=self.pending_state.event_identity_key,
+593:                 pending_scan_limit=self.pending_state.pending_scan_limit,
+594:                 superseded_ids=self.pending_state.superseded_ids,
+595:                 message_is_web_chat=self.pending_state.message_is_web_chat,
+596:                 message_skip_reason=self.pending_state.message_skip_reason,
+597:                 event_identity_key=self.pending_state.event_identity_key,
+598:                 wake_state_for_message=self.pending_state.wake_state_for_message,
+594:                 superseded_ids=self.pending_state.superseded_ids,
+595:                 message_is_web_chat=self.pending_state.message_is_web_chat,
+596:                 message_skip_reason=self.pending_state.message_skip_reason,
+597:                 event_identity_key=self.pending_state.event_identity_key,
+598:                 wake_state_for_message=self.pending_state.wake_state_for_message,
+599:                 queued_wake_is_stale=self.pending_state.queued_wake_is_stale,
+595:                 message_is_web_chat=self.pending_state.message_is_web_chat,
+596:                 message_skip_reason=self.pending_state.message_skip_reason,
+597:                 event_identity_key=self.pending_state.event_identity_key,
+598:                 wake_state_for_message=self.pending_state.wake_state_for_message,
+599:                 queued_wake_is_stale=self.pending_state.queued_wake_is_stale,
+600:             ),
+596:                 message_skip_reason=self.pending_state.message_skip_reason,
+597:                 event_identity_key=self.pending_state.event_identity_key,
+598:                 wake_state_for_message=self.pending_state.wake_state_for_message,
+599:                 queued_wake_is_stale=self.pending_state.queued_wake_is_stale,
+600:             ),
+601:             prompts=ChannelInjectionPrompts(
+597:                 event_identity_key=self.pending_state.event_identity_key,
+598:                 wake_state_for_message=self.pending_state.wake_state_for_message,
+599:                 queued_wake_is_stale=self.pending_state.queued_wake_is_stale,
+600:             ),
+601:             prompts=ChannelInjectionPrompts(
+602:                 llm_delivery=self.pending_delivery.format_llm_delivery,
+600:             ),
+601:             prompts=ChannelInjectionPrompts(
+602:                 llm_delivery=self.pending_delivery.format_llm_delivery,
+603:                 visible_llm_delivery=(
+604:                     self.pending_delivery.format_visible_llm_delivery
+605:                 ),
+602:                 llm_delivery=self.pending_delivery.format_llm_delivery,
+603:                 visible_llm_delivery=(
+604:                     self.pending_delivery.format_visible_llm_delivery
+605:                 ),
+606:                 web_chat=self.pending_delivery.format_web_chat,
+607:                 standard=self.pending_delivery.format_standard,
+604:                     self.pending_delivery.format_visible_llm_delivery
+605:                 ),
+606:                 web_chat=self.pending_delivery.format_web_chat,
+607:                 standard=self.pending_delivery.format_standard,
+608:                 enter_bytes=self.enter_bytes,
+609:                 enter_label=self.pending_delivery.enter_label,
+605:                 ),
+606:                 web_chat=self.pending_delivery.format_web_chat,
+607:                 standard=self.pending_delivery.format_standard,
+608:                 enter_bytes=self.enter_bytes,
+609:                 enter_label=self.pending_delivery.enter_label,
+610:             ),
+607:                 standard=self.pending_delivery.format_standard,
+608:                 enter_bytes=self.enter_bytes,
+609:                 enter_label=self.pending_delivery.enter_label,
+610:             ),
+611:             wake_store=ChannelInjectionWakeStore(
+612:                 claim_for_nonblocking_scan=self.transcript_policy.claim_prompt,
+613:                 claim_prompt=self.claim_wake_prompt,
+614:                 clear_claim=self.clear_wake_claim,
+615:                 release_stale=self.pending_delivery.release_stale,
+616:                 lifecycle=self.pending_delivery.lifecycle,
+617:                 commit_cursor=self.pending_delivery.commit_cursor,
+618:             ),
+614:                 clear_claim=self.clear_wake_claim,
+615:                 release_stale=self.pending_delivery.release_stale,
+616:                 lifecycle=self.pending_delivery.lifecycle,
+617:                 commit_cursor=self.pending_delivery.commit_cursor,
+618:             ),
+619:             io=ChannelInjectionIO(
+615:                 release_stale=self.pending_delivery.release_stale,
+616:                 lifecycle=self.pending_delivery.lifecycle,
+617:                 commit_cursor=self.pending_delivery.commit_cursor,
+618:             ),
+619:             io=ChannelInjectionIO(
+620:                 inject_lock=self.pending_io.inject_lock,
+618:             ),
+619:             io=ChannelInjectionIO(
+620:                 inject_lock=self.pending_io.inject_lock,
+621:                 read_messages=self.pending_io.read_messages,
+622:                 write_prompt=self.pending_io.write_prompt,
+623:                 log=self.pending_io.log,
+619:             io=ChannelInjectionIO(
+620:                 inject_lock=self.pending_io.inject_lock,
+621:                 read_messages=self.pending_io.read_messages,
+622:                 write_prompt=self.pending_io.write_prompt,
+623:                 log=self.pending_io.log,
+624:                 write_session_socket=self.pending_io.write_session_socket,
+620:                 inject_lock=self.pending_io.inject_lock,
+621:                 read_messages=self.pending_io.read_messages,
+622:                 write_prompt=self.pending_io.write_prompt,
+623:                 log=self.pending_io.log,
+624:                 write_session_socket=self.pending_io.write_session_socket,
+625:                 session_socket_available=self.pending_io.session_socket_available,
+621:                 read_messages=self.pending_io.read_messages,
+622:                 write_prompt=self.pending_io.write_prompt,
+623:                 log=self.pending_io.log,
+624:                 write_session_socket=self.pending_io.write_session_socket,
+625:                 session_socket_available=self.pending_io.session_socket_available,
+626:                 external_admission_paused=(self.pending_io.compaction.external_admission_paused
+622:                 write_prompt=self.pending_io.write_prompt,
+623:                 log=self.pending_io.log,
+624:                 write_session_socket=self.pending_io.write_session_socket,
+625:                 session_socket_available=self.pending_io.session_socket_available,
+626:                 external_admission_paused=(self.pending_io.compaction.external_admission_paused
+627:                                            if self.pending_io.compaction else lambda: False),
+623:                 log=self.pending_io.log,
+624:                 write_session_socket=self.pending_io.write_session_socket,
+625:                 session_socket_available=self.pending_io.session_socket_available,
+626:                 external_admission_paused=(self.pending_io.compaction.external_admission_paused
+627:                                            if self.pending_io.compaction else lambda: False),
+628:             ),
+624:                 write_session_socket=self.pending_io.write_session_socket,
+625:                 session_socket_available=self.pending_io.session_socket_available,
+626:                 external_admission_paused=(self.pending_io.compaction.external_admission_paused
+627:                                            if self.pending_io.compaction else lambda: False),
+628:             ),
+629:             policy=ChannelInjectionPolicy(
+625:                 session_socket_available=self.pending_io.session_socket_available,
+626:                 external_admission_paused=(self.pending_io.compaction.external_admission_paused
+627:                                            if self.pending_io.compaction else lambda: False),
+628:             ),
+629:             policy=ChannelInjectionPolicy(
+630:                 wake_batch_limit=self.pending_policy.wake_batch_limit,
+628:             ),
+629:             policy=ChannelInjectionPolicy(
+630:                 wake_batch_limit=self.pending_policy.wake_batch_limit,
+631:                 replay_skip_reason=ChannelReplaySafetyPolicy(
+632:                     self.pending_policy.now,
+633:                     self.pending_policy.replay_ttl_seconds,
+630:                 wake_batch_limit=self.pending_policy.wake_batch_limit,
+631:                 replay_skip_reason=ChannelReplaySafetyPolicy(
+632:                     self.pending_policy.now,
+633:                     self.pending_policy.replay_ttl_seconds,
+634:                     self.pending_policy.timestamp_seconds,
+635:                     self.pending_policy.is_web_chat,
+631:                 replay_skip_reason=ChannelReplaySafetyPolicy(
+632:                     self.pending_policy.now,
+633:                     self.pending_policy.replay_ttl_seconds,
+634:                     self.pending_policy.timestamp_seconds,
+635:                     self.pending_policy.is_web_chat,
+636:                     self.pending_policy.scoped_skip_reason,
+632:                     self.pending_policy.now,
+633:                     self.pending_policy.replay_ttl_seconds,
+634:                     self.pending_policy.timestamp_seconds,
+635:                     self.pending_policy.is_web_chat,
+636:                     self.pending_policy.scoped_skip_reason,
+637:                 ).skip_reason,
+633:                     self.pending_policy.replay_ttl_seconds,
+634:                     self.pending_policy.timestamp_seconds,
+635:                     self.pending_policy.is_web_chat,
+636:                     self.pending_policy.scoped_skip_reason,
+637:                 ).skip_reason,
+638:             ),
+634:                     self.pending_policy.timestamp_seconds,
+635:                     self.pending_policy.is_web_chat,
+636:                     self.pending_policy.scoped_skip_reason,
+637:                 ).skip_reason,
+638:             ),
+639:         )
+639:         )
+640: 
+641:     def inject_pending(
+642:         self,
+643:         master_fd: int,
+644:         last_id: int,
+646:         **options: Any,
+647:     ) -> int:
+648:         return inject_pending_channel_messages(
+649:             master_fd,
+650:             last_id,
+651:             enter_bytes,
+650:             last_id,
+651:             enter_bytes,
+652:             services=self.pending_injection_services(),
+653:             **options,
+654:         )
+655: 
+654:         )
+655: 
+656:     def inject_compact(
+657:         self,
+658:         master_fd: int,
+659:         enter_bytes: bytes | None = None,
+662:         return ChannelCompactInjectionService(
+663:             request=ChannelCompactRequestPorts(
+664:                 read=self.pending_io.compact_read,
+665:                 clear=self.pending_io.compact_clear,
+666:             ),
+667:             runtime=ChannelCompactRuntimePorts(
+663:             request=ChannelCompactRequestPorts(
+664:                 read=self.pending_io.compact_read,
+665:                 clear=self.pending_io.compact_clear,
+666:             ),
+667:             runtime=ChannelCompactRuntimePorts(
+668:                 active_tool_call=self.pending_state.active_tool_call,
+666:             ),
+667:             runtime=ChannelCompactRuntimePorts(
+668:                 active_tool_call=self.pending_state.active_tool_call,
+669:                 active_turn=self.pending_state.active_turn,
+670:                 enter_bytes=self.enter_bytes,
+671:                 write_prompt=self.pending_io.write_prompt,
+667:             runtime=ChannelCompactRuntimePorts(
+668:                 active_tool_call=self.pending_state.active_tool_call,
+669:                 active_turn=self.pending_state.active_turn,
+670:                 enter_bytes=self.enter_bytes,
+671:                 write_prompt=self.pending_io.write_prompt,
+672:                 enter_label=self.pending_delivery.enter_label,
+669:                 active_turn=self.pending_state.active_turn,
+670:                 enter_bytes=self.enter_bytes,
+671:                 write_prompt=self.pending_io.write_prompt,
+672:                 enter_label=self.pending_delivery.enter_label,
+673:             ),
+674:             log=self.pending_io.log,
+670:                 enter_bytes=self.enter_bytes,
+671:                 write_prompt=self.pending_io.write_prompt,
+672:                 enter_label=self.pending_delivery.enter_label,
+673:             ),
+674:             log=self.pending_io.log,
+675:         ).inject(master_fd, enter_bytes, control=self.pending_io.compaction, **options)
+672:                 enter_label=self.pending_delivery.enter_label,
+673:             ),
+674:             log=self.pending_io.log,
+675:         ).inject(master_fd, enter_bytes, control=self.pending_io.compaction, **options)
+676: 
+677:     def messages_file_marker(self) -> tuple[float, int]:
+673:             ),
+674:             log=self.pending_io.log,
+675:         ).inject(master_fd, enter_bytes, control=self.pending_io.compaction, **options)
+676: 
+677:     def messages_file_marker(self) -> tuple[float, int]:
+678:         try:
+677:     def messages_file_marker(self) -> tuple[float, int]:
+678:         try:
+679:             stat = self.pending_io.messages_path.stat()
+680:             return (stat.st_mtime, stat.st_size)
+681:         except Exception:
+682:             return (0.0, 0)
+FILE channel_terminal_context.py SHA256 22d65b9cf6885fb0d77579d507f02fff154bae0336afdc053758ebec9698fc4d LINES 420
+7: from typing import Any, Callable
+8: 
+9: from .runtime_compaction_control import RuntimeCompactionControl
+10: from .runtime_interaction import RuntimeInteractionEvent
+11: 
+12: from .channel_pending_poll import ChannelPendingPollState
+10: from .runtime_interaction import RuntimeInteractionEvent
+11: 
+12: from .channel_pending_poll import ChannelPendingPollState
+13: from .channel_terminal_dispatch import (
+14:     ChannelDirectDeliveryServices,
+15:     ChannelDirectProcessPorts,
+46:     inflight_is_stale: Callable[..., bool]
+47:     log: Callable[[str, str], None]
+48:     compaction: RuntimeCompactionControl | None = None
+49:     # Receives the proxy's recovery admission snapshot (see
+50:     # channel_terminal_proxy.terminal_recovery_admission_snapshot).
+51:     recovery_admission: Callable[[dict[str, Any]], None] | None = None
+54: @dataclass(frozen=True, slots=True)
+55: class ChannelTerminalPollingPorts:
+56:     inject_compact: Callable[..., Any]
+57:     file_marker: Callable[[], Any]
+58:     should_check: Callable[..., bool]
+59:     active_tool_call: Callable[..., bool]
+58:     should_check: Callable[..., bool]
+59:     active_tool_call: Callable[..., bool]
+60:     active_turn: Callable[..., bool]
+61:     inject_pending: Callable[..., Any]
+62:     wake_state: Callable[[int], Any]
+63:     inflight_effects: Callable[[], Any]
+59:     active_tool_call: Callable[..., bool]
+60:     active_turn: Callable[..., bool]
+61:     inject_pending: Callable[..., Any]
+62:     wake_state: Callable[[int], Any]
+63:     inflight_effects: Callable[[], Any]
+64:     runtime_interaction: Callable[[], RuntimeInteractionEvent | None] = lambda: None
+84:     startup_grace_seconds: Callable[[], float]
+85:     reset_interval_seconds: Callable[[float], float]
+86:     active_turn: Callable[[], bool]
+87:     sleep: Callable[[float], None]
+88:     open_conpty: Callable[[list[str], dict[str, str], Callable[[str, str], None]], Any | None]
+89: 
+127:             inflight_is_stale=self.policy.inflight_is_stale,
+128:             log=self.policy.log,
+129:             compaction=self.policy.compaction,
+130:             recovery_admission=self.policy.recovery_admission,
+131:         )
+132: 
+133:     def polling_services(self) -> ChannelTerminalPolling:
+134:         return ChannelTerminalPolling(
+135:             inject_compact=self.polling.inject_compact,
+136:             file_marker=self.polling.file_marker,
+137:             should_check=self.polling.should_check,
+138:             active_tool_call=self.polling.active_tool_call,
+137:             should_check=self.polling.should_check,
+138:             active_tool_call=self.polling.active_tool_call,
+139:             active_turn=self.polling.active_turn,
+140:             inject_pending=self.polling.inject_pending,
+141:             wake_state=self.polling.wake_state,
+142:             inflight_effects=self.polling.inflight_effects,
+138:             active_tool_call=self.polling.active_tool_call,
+139:             active_turn=self.polling.active_turn,
+140:             inject_pending=self.polling.inject_pending,
+141:             wake_state=self.polling.wake_state,
+142:             inflight_effects=self.polling.inflight_effects,
+143:             runtime_interaction=self.polling.runtime_interaction,
+171:                 startup_grace_seconds=self.windows.startup_grace_seconds,
+172:                 reset_interval_seconds=self.windows.reset_interval_seconds,
+173:                 active_turn=self.windows.active_turn,
+174:                 sleep=self.windows.sleep,
+175:                 open_conpty=self.windows.open_conpty,
+176:             ),
+223:         env: dict[str, str],
+224:         *,
+225:         inject_channel_messages: bool = True,
+226:         inject_web_chat_only: bool = False,
+227:         wake_for_llm_delivery: bool = False,
+228:         channel_wake_display_body: bool = False,
+224:         *,
+225:         inject_channel_messages: bool = True,
+226:         inject_web_chat_only: bool = False,
+227:         wake_for_llm_delivery: bool = False,
+228:         channel_wake_display_body: bool = False,
+229:         synthetic_enter_bytes: str | bytes | None = None,
+230:         normalize_bare_cr_for_synthetic_enter: bool = True,
+231:         channel_wake_submit_retries: int = 1,
+232:         channel_wake_confirm_submit: bool = False,
+233:         channel_wake_bracketed_paste: bool = False,
+234:         channel_wake_submit_delay_seconds: float | None = None,
+235:         tracked_child_pid_path: Path | None = None,
+239:         session_command_actions: frozenset[str] | None = None,
+240:     ) -> int:
+241:         if inject_channel_messages:
+242:             self.dispatch_ports.prepare_delivery()
+243:         return self.dispatch_service().dispatch(
+244:             cmd,
+244:             cmd,
+245:             env,
+246:             inject_channel_messages=inject_channel_messages,
+247:             inject_web_chat_only=inject_web_chat_only,
+248:             wake_for_llm_delivery=wake_for_llm_delivery,
+249:             channel_wake_display_body=channel_wake_display_body,
+245:             env,
+246:             inject_channel_messages=inject_channel_messages,
+247:             inject_web_chat_only=inject_web_chat_only,
+248:             wake_for_llm_delivery=wake_for_llm_delivery,
+249:             channel_wake_display_body=channel_wake_display_body,
+250:             synthetic_enter_bytes=synthetic_enter_bytes,
+253:             ),
+254:             channel_wake_submit_retries=channel_wake_submit_retries,
+255:             channel_wake_confirm_submit=channel_wake_confirm_submit,
+256:             channel_wake_bracketed_paste=channel_wake_bracketed_paste,
+257:             channel_wake_submit_delay_seconds=channel_wake_submit_delay_seconds,
+258:             tracked_child_pid_path=tracked_child_pid_path,
+308:         env: dict[str, str],
+309:         *,
+310:         inject_channel_messages: bool = True,
+311:         inject_web_chat_only: bool = False,
+312:         wake_for_llm_delivery: bool = False,
+313:         channel_wake_display_body: bool = False,
+309:         *,
+310:         inject_channel_messages: bool = True,
+311:         inject_web_chat_only: bool = False,
+312:         wake_for_llm_delivery: bool = False,
+313:         channel_wake_display_body: bool = False,
+314:         synthetic_enter_bytes: str | bytes | None = None,
+315:         normalize_bare_cr_for_synthetic_enter: bool = True,
+316:         channel_wake_submit_retries: int = 1,
+317:         channel_wake_confirm_submit: bool = False,
+318:         channel_wake_bracketed_paste: bool = False,
+319:         channel_wake_submit_delay_seconds: float | None = None,
+320:         tracked_child_pid_path: Path | None = None,
+323:         session_command_runtime: str = "",
+324:         session_command_actions: frozenset[str] | None = None,
+325:         pending_poll_state: ChannelPendingPollState | None = None,
+326:     ) -> int:
+327:         return self.context().run_windows(
+328:             cmd,
+328:             cmd,
+329:             env,
+330:             inject_channel_messages=inject_channel_messages,
+331:             inject_web_chat_only=inject_web_chat_only,
+332:             wake_for_llm_delivery=wake_for_llm_delivery,
+333:             channel_wake_display_body=channel_wake_display_body,
+329:             env,
+330:             inject_channel_messages=inject_channel_messages,
+331:             inject_web_chat_only=inject_web_chat_only,
+332:             wake_for_llm_delivery=wake_for_llm_delivery,
+333:             channel_wake_display_body=channel_wake_display_body,
+334:             synthetic_enter_bytes=synthetic_enter_bytes,
+337:             ),
+338:             channel_wake_submit_retries=channel_wake_submit_retries,
+339:             channel_wake_confirm_submit=channel_wake_confirm_submit,
+340:             channel_wake_bracketed_paste=channel_wake_bracketed_paste,
+341:             channel_wake_submit_delay_seconds=channel_wake_submit_delay_seconds,
+342:             tracked_child_pid_path=tracked_child_pid_path,
+345:             session_command_runtime=session_command_runtime,
+346:             session_command_actions=session_command_actions,
+347:             pending_poll_state=pending_poll_state,
+348:         )
+349: 
+350:     def dispatch(
+353:         env: dict[str, str],
+354:         *,
+355:         inject_channel_messages: bool = True,
+356:         inject_web_chat_only: bool = False,
+357:         wake_for_llm_delivery: bool = False,
+358:         channel_wake_display_body: bool = False,
+354:         *,
+355:         inject_channel_messages: bool = True,
+356:         inject_web_chat_only: bool = False,
+357:         wake_for_llm_delivery: bool = False,
+358:         channel_wake_display_body: bool = False,
+359:         synthetic_enter_bytes: str | bytes | None = None,
+360:         normalize_bare_cr_for_synthetic_enter: bool = True,
+361:         channel_wake_submit_retries: int = 1,
+362:         channel_wake_confirm_submit: bool = False,
+363:         channel_wake_bracketed_paste: bool = False,
+364:         channel_wake_submit_delay_seconds: float | None = None,
+365:         tracked_child_pid_path: Path | None = None,
+372:             cmd,
+373:             env,
+374:             inject_channel_messages=inject_channel_messages,
+375:             inject_web_chat_only=inject_web_chat_only,
+376:             wake_for_llm_delivery=wake_for_llm_delivery,
+377:             channel_wake_display_body=channel_wake_display_body,
+373:             env,
+374:             inject_channel_messages=inject_channel_messages,
+375:             inject_web_chat_only=inject_web_chat_only,
+376:             wake_for_llm_delivery=wake_for_llm_delivery,
+377:             channel_wake_display_body=channel_wake_display_body,
+378:             synthetic_enter_bytes=synthetic_enter_bytes,
+381:             ),
+382:             channel_wake_submit_retries=channel_wake_submit_retries,
+383:             channel_wake_confirm_submit=channel_wake_confirm_submit,
+384:             channel_wake_bracketed_paste=channel_wake_bracketed_paste,
+385:             channel_wake_submit_delay_seconds=channel_wake_submit_delay_seconds,
+386:             tracked_child_pid_path=tracked_child_pid_path,

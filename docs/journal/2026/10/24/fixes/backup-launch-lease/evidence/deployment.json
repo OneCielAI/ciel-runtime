@@ -1,0 +1,78 @@
+{
+  "commit": "299b71148784757783e025343d95483e1b53c33c",
+  "version": "0.2.51-nightly.20261025-025145.299b711",
+  "registry": {
+    "version": "0.2.51-nightly.20261025-025145.299b711",
+    "gitHead": "299b71148784757783e025343d95483e1b53c33c"
+  },
+  "copied_files": 454,
+  "hashes": {
+    "ciel_runtime_support/workspace_router_selection.py": {
+      "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-release-7hr1rv_t\\package": "fa8f53b8116c505c6e8b19d77b827054a525ed0668150d47a82a3b7b04306368",
+      "C:\\Users\\djlov\\.local\\share\\ciel-runtime": "fa8f53b8116c505c6e8b19d77b827054a525ed0668150d47a82a3b7b04306368",
+      "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime": "fa8f53b8116c505c6e8b19d77b827054a525ed0668150d47a82a3b7b04306368"
+    }
+  },
+  "health_before": {
+    "9385": {
+      "ok": true,
+      "pid": 6032,
+      "version": "0.2.51-nightly.20261024-115611.5d4dc0e"
+    },
+    "9464": {
+      "ok": true,
+      "pid": 54764,
+      "version": "0.2.51-nightly.20261024-102326.a7e28f9"
+    },
+    "9465": {
+      "error": "URLError"
+    },
+    "9489": {
+      "ok": true,
+      "pid": 67368,
+      "version": "0.2.51-nightly.20261024-102326.a7e28f9"
+    },
+    "9505": {
+      "ok": true,
+      "pid": 49288,
+      "version": "0.2.51-nightly.20261024-115611.5d4dc0e"
+    },
+    "9524": {
+      "ok": true,
+      "pid": 6196,
+      "version": "0.2.51-nightly.20261024-115611.5d4dc0e"
+    }
+  },
+  "health_after": {
+    "9385": {
+      "ok": true,
+      "pid": 6032,
+      "version": "0.2.51-nightly.20261024-115611.5d4dc0e"
+    },
+    "9464": {
+      "ok": true,
+      "pid": 54764,
+      "version": "0.2.51-nightly.20261024-102326.a7e28f9"
+    },
+    "9465": {
+      "error": "URLError"
+    },
+    "9489": {
+      "ok": true,
+      "pid": 67368,
+      "version": "0.2.51-nightly.20261024-102326.a7e28f9"
+    },
+    "9505": {
+      "ok": true,
+      "pid": 49288,
+      "version": "0.2.51-nightly.20261024-115611.5d4dc0e"
+    },
+    "9524": {
+      "ok": true,
+      "pid": 6196,
+      "version": "0.2.51-nightly.20261024-115611.5d4dc0e"
+    }
+  },
+  "installed_tests": "passed (see installed-tests.txt)",
+  "restarted_sessions": false
+}

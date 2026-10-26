@@ -1,0 +1,122 @@
+{
+  "commit": "f276c63e5f85258def26ed6949d636cdd626f2d4",
+  "version": "0.2.51-nightly.20261024-063453.f276c63",
+  "registry": {
+    "version": "0.2.51-nightly.20261024-063453.f276c63",
+    "gitHead": "f276c63e5f85258def26ed6949d636cdd626f2d4"
+  },
+  "copied_files": 453,
+  "hashes": {
+    "ciel_runtime.py": {
+      "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-release-cnx40lk2\\package": "f428422cf25d0ced45f6180555a013f44483b6be6370260f452cd4b55c5fdd95",
+      "C:\\Users\\djlov\\.local\\share\\ciel-runtime": "f428422cf25d0ced45f6180555a013f44483b6be6370260f452cd4b55c5fdd95",
+      "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime": "f428422cf25d0ced45f6180555a013f44483b6be6370260f452cd4b55c5fdd95"
+    },
+    "ciel_runtime_support/channel_message_repository.py": {
+      "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-release-cnx40lk2\\package": "7f78542ec551707d92a18a91adeef3beb26ad1cf07c04a96f3a8c09069675b21",
+      "C:\\Users\\djlov\\.local\\share\\ciel-runtime": "7f78542ec551707d92a18a91adeef3beb26ad1cf07c04a96f3a8c09069675b21",
+      "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime": "7f78542ec551707d92a18a91adeef3beb26ad1cf07c04a96f3a8c09069675b21"
+    },
+    "ciel_runtime_support/claude_router.py": {
+      "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-release-cnx40lk2\\package": "2fcc3871f9c5836f1ee56deff4a27e1afddc4e19b74c7b19de561d7bb8597013",
+      "C:\\Users\\djlov\\.local\\share\\ciel-runtime": "2fcc3871f9c5836f1ee56deff4a27e1afddc4e19b74c7b19de561d7bb8597013",
+      "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime": "2fcc3871f9c5836f1ee56deff4a27e1afddc4e19b74c7b19de561d7bb8597013"
+    },
+    "ciel_runtime_support/context_compaction.py": {
+      "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-release-cnx40lk2\\package": "9df31c2e564100dbc6c80a46125c9132aa3b6a8bcde078f6546969a9383eb9eb",
+      "C:\\Users\\djlov\\.local\\share\\ciel-runtime": "9df31c2e564100dbc6c80a46125c9132aa3b6a8bcde078f6546969a9383eb9eb",
+      "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime": "9df31c2e564100dbc6c80a46125c9132aa3b6a8bcde078f6546969a9383eb9eb"
+    },
+    "ciel_runtime_support/context_compaction_progress.py": {
+      "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-release-cnx40lk2\\package": "336249135f0d7ca157798730ce439ed6baa7e1763211b41dfe65cfc72e5217d6",
+      "C:\\Users\\djlov\\.local\\share\\ciel-runtime": "336249135f0d7ca157798730ce439ed6baa7e1763211b41dfe65cfc72e5217d6",
+      "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime": "336249135f0d7ca157798730ce439ed6baa7e1763211b41dfe65cfc72e5217d6"
+    },
+    "ciel_runtime_support/context_summary_policy.py": {
+      "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-release-cnx40lk2\\package": "a49d342e08bfeaa19dff4331b3c05de1bc9d452b23cd80c49d78af97944c2854",
+      "C:\\Users\\djlov\\.local\\share\\ciel-runtime": "a49d342e08bfeaa19dff4331b3c05de1bc9d452b23cd80c49d78af97944c2854",
+      "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime": "a49d342e08bfeaa19dff4331b3c05de1bc9d452b23cd80c49d78af97944c2854"
+    },
+    "ciel_runtime_support/external_event_menu.py": {
+      "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-release-cnx40lk2\\package": "978519ea8b5eebe758e668ed0b53dfb9d6457fd97c9f42ba28abff13e1925d1c",
+      "C:\\Users\\djlov\\.local\\share\\ciel-runtime": "978519ea8b5eebe758e668ed0b53dfb9d6457fd97c9f42ba28abff13e1925d1c",
+      "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime": "978519ea8b5eebe758e668ed0b53dfb9d6457fd97c9f42ba28abff13e1925d1c"
+    },
+    "ciel_runtime_support/media_payload.py": {
+      "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-release-cnx40lk2\\package": "4a26cc4d4794a8949ca26e64268d7a2d507d58d71b9337b4af3235a518a1af9c",
+      "C:\\Users\\djlov\\.local\\share\\ciel-runtime": "4a26cc4d4794a8949ca26e64268d7a2d507d58d71b9337b4af3235a518a1af9c",
+      "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime": "4a26cc4d4794a8949ca26e64268d7a2d507d58d71b9337b4af3235a518a1af9c"
+    },
+    "ciel_runtime_support/prompt_compaction.py": {
+      "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-release-cnx40lk2\\package": "b4e3527b2a0223f9741fa85a4f8b72fbaa59ee80e31864b14e52f05788bb4658",
+      "C:\\Users\\djlov\\.local\\share\\ciel-runtime": "b4e3527b2a0223f9741fa85a4f8b72fbaa59ee80e31864b14e52f05788bb4658",
+      "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime": "b4e3527b2a0223f9741fa85a4f8b72fbaa59ee80e31864b14e52f05788bb4658"
+    },
+    "ciel_runtime_support/runtime_compaction_binding.py": {
+      "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-release-cnx40lk2\\package": "572cc6a1ec52c6732318adf5d11d934a703b9ec337743590fe0591d3b4e53d06",
+      "C:\\Users\\djlov\\.local\\share\\ciel-runtime": "572cc6a1ec52c6732318adf5d11d934a703b9ec337743590fe0591d3b4e53d06",
+      "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime": "572cc6a1ec52c6732318adf5d11d934a703b9ec337743590fe0591d3b4e53d06"
+    },
+    "ciel_runtime_support/runtime_compaction_control.py": {
+      "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-release-cnx40lk2\\package": "5429882204726b3594a9b5e9035cc37258f4d18ae9d65584d745c0c98ea3ca59",
+      "C:\\Users\\djlov\\.local\\share\\ciel-runtime": "5429882204726b3594a9b5e9035cc37258f4d18ae9d65584d745c0c98ea3ca59",
+      "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime": "5429882204726b3594a9b5e9035cc37258f4d18ae9d65584d745c0c98ea3ca59"
+    },
+    "ciel_runtime_support/runtime_sse_recovery.py": {
+      "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-release-cnx40lk2\\package": "5a097d89892177a0210858a00beba28ddd3f530de13aa4e5ae3ed3a9fdf5a0fe",
+      "C:\\Users\\djlov\\.local\\share\\ciel-runtime": "5a097d89892177a0210858a00beba28ddd3f530de13aa4e5ae3ed3a9fdf5a0fe",
+      "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime": "5a097d89892177a0210858a00beba28ddd3f530de13aa4e5ae3ed3a9fdf5a0fe"
+    },
+    "ciel_runtime_support/statusline_script.py": {
+      "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-release-cnx40lk2\\package": "0e1cfac0f2a0ef6423f02b7c3b4a121c60c3fd00a74fd301ee608973ce87817f",
+      "C:\\Users\\djlov\\.local\\share\\ciel-runtime": "0e1cfac0f2a0ef6423f02b7c3b4a121c60c3fd00a74fd301ee608973ce87817f",
+      "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime": "0e1cfac0f2a0ef6423f02b7c3b4a121c60c3fd00a74fd301ee608973ce87817f"
+    }
+  },
+  "health_before": {
+    "9489": {
+      "ok": true,
+      "pid": 77744,
+      "version": "0.2.51-nightly.20261023-155417.dfcf41a"
+    },
+    "9505": {
+      "ok": true,
+      "pid": 33444,
+      "version": "0.2.51-nightly.20261023-052413.0cd6c60"
+    },
+    "9524": {
+      "ok": true,
+      "pid": 26568,
+      "version": "0.2.51-nightly.20261023-220155.1c48c8e"
+    },
+    "9385": {
+      "ok": true,
+      "pid": 69748,
+      "version": "0.2.51-nightly.20261023-155417.dfcf41a"
+    }
+  },
+  "health_after": {
+    "9489": {
+      "ok": true,
+      "pid": 77744,
+      "version": "0.2.51-nightly.20261023-155417.dfcf41a"
+    },
+    "9505": {
+      "ok": true,
+      "pid": 33444,
+      "version": "0.2.51-nightly.20261023-052413.0cd6c60"
+    },
+    "9524": {
+      "ok": true,
+      "pid": 26568,
+      "version": "0.2.51-nightly.20261023-220155.1c48c8e"
+    },
+    "9385": {
+      "ok": true,
+      "pid": 69748,
+      "version": "0.2.51-nightly.20261023-155417.dfcf41a"
+    }
+  },
+  "installed_tests": "passed (see installed-tests.txt)",
+  "restarted_sessions": false
+}

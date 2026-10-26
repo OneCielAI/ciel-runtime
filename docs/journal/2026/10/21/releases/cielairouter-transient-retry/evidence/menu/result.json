@@ -1,0 +1,46 @@
+{
+  "scratch": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-menu-evidence-7xnqdxtv",
+  "port": 64532,
+  "workspace": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-menu-evidence-7xnqdxtv\\workspace",
+  "scope": "Actual production portable_prelaunch_menu and renderer with Win32 key input. Router control uses synthetic loopback MCP fixture, not real runtime restart. No provider credentials.",
+  "cleared_environment_prefixes": [
+    "CIEL_RUNTIME_",
+    "CLAUDE_",
+    "ANTHROPIC_",
+    "CODEX_",
+    "OPENAI_",
+    "OLLAMA_",
+    "GEMINI_",
+    "GOOGLE_",
+    "AZURE_",
+    "AWS_",
+    "DEEPSEEK_",
+    "MISTRAL_",
+    "NVIDIA_",
+    "ZAI_",
+    "KIMI_",
+    "GROQ_",
+    "OPENCODE_",
+    "GITHUB_",
+    "COPILOT_"
+  ],
+  "menu_exit_code": 0,
+  "assertions": [
+    "retry default 3 rendered",
+    "real key input changed setting to 0 and persisted",
+    "restored setting to 3",
+    "SSE recovery row rendered",
+    "Recover SSE delivery now invoked MCP recover_sse_delivery action=auto",
+    "no-reset response displayed no session restarted"
+  ],
+  "pixel_screenshot": {
+    "status": "unavailable",
+    "observed": "PrintWindow helper could not find drawable owned console window; all six attempts returned window handle not found. No PNG produced or claimed.",
+    "terminal_evidence": "ReadConsoleOutputCharacterW captures of actual production TUI in 01-main.txt through 06-sse-action-result.txt."
+  },
+  "source_digests": {
+    "C:\\Users\\djlov\\ciel-runtime\\ciel_runtime_support\\provider_option_panel.py": "938a05593919ad3611b7d0587ef5c0bf28d4f40e0e5892dd1e072b6c396a4f0e",
+    "C:\\Users\\djlov\\ciel-runtime\\ciel_runtime_support\\external_event_menu.py": "f39dd40b0d3e5767d409ff6430cd1ca90fc59ee19c511a459263de8a14bd4591",
+    "C:\\Users\\djlov\\ciel-runtime\\ciel_runtime_support\\prelaunch.py": "8fe3a078b45c6ed8e5c610b03a797a9505012619676cd67190050899fd242e76"
+  }
+}

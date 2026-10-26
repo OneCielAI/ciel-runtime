@@ -1,0 +1,30 @@
+
+› E2E-RT-TURN-1 owned baseline
+
+
+• STUB-REPLY-3
+
+  2:42 PM
+
+
+› 계속-세션재시작됨
+
+
+• STUB-REPLY-5
+
+  2:42 PM
+
+
+› [ciel-runtime external channel message] channel=owned-e2e room=owned-e2e from=owned-driver id=2 thread=2 text="E2E-
+  RT-TURN-3 owned post restart"
+
+
+• STUB-REPLY-9
+
+  2:42 PM
+
+
+› Ask Codex to do anything
+
+  stub-model (vLLM) medium · C:\Windows\Temp\ciel-owned-restart-ur6tpkk8\ws                 Goal paused (/goal resume)
+  ? for shortcuts

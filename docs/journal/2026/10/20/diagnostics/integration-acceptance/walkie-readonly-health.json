@@ -1,0 +1,29 @@
+{
+  "health": {
+    "complete": false,
+    "coverage": "partial",
+    "scanned_bytes": 5016811,
+    "failure_count": 2,
+    "diagnostics": [
+      {
+        "line_number": 12888,
+        "byte_offset": 1872911,
+        "failure_category": "leading_nul_prefix_candidate",
+        "remainder_request_id": 4606,
+        "remainder_status": "replied"
+      },
+      {
+        "line_number": 30025,
+        "byte_offset": 4338269,
+        "failure_category": "leading_nul_prefix_candidate",
+        "remainder_request_id": 10342,
+        "remainder_status": "queued"
+      }
+    ],
+    "diagnostics_truncated": false
+  },
+  "original_prefix_sha256": "56d1e8e6c59c7e2edbdaaf4000f8a15793fec0a96178ffc1dde0a5a4dd8b570c",
+  "prefix_unchanged": true,
+  "before_bytes": 5016811,
+  "after_bytes": 5016811
+}

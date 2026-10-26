@@ -1,0 +1,324 @@
+{
+ "run-exhaust-r1": {
+  "case": "exhaust",
+  "empty_response_retries": 1,
+  "all_checks_pass": true,
+  "failed_checks": [],
+  "main_posts": [
+   {
+    "attempt": 1,
+    "at": "15:43:44",
+    "served": "empty",
+    "messages": 3,
+    "replay_instruction_last": false,
+    "base_sha256": "4747ebb365a0e032d0dcd8b89772cbf0b787777e12ca0fb61dd7545440e06a7b"
+   },
+   {
+    "attempt": 2,
+    "at": "15:43:46",
+    "served": "empty",
+    "messages": 4,
+    "replay_instruction_last": true,
+    "base_sha256": "4747ebb365a0e032d0dcd8b89772cbf0b787777e12ca0fb61dd7545440e06a7b"
+   }
+  ],
+  "main_posts_at_response": 2,
+  "aux_posts": 0,
+  "claude_messages_requests": 1,
+  "sse": {
+   "outcome": "exhausted",
+   "stop_reason": "end_turn",
+   "event_names": [
+    "message_start",
+    "content_block_start",
+    "content_block_delta",
+    "content_block_stop",
+    "message_delta",
+    "message_stop"
+   ]
+  },
+  "transcript_assistant_ids": [
+   "msg_ollama_1792874624496"
+  ],
+  "transcript_text": [
+   "[ciel-runtime] Upstream model returned no visible answer or tool call after 2 attempts; automatic retries are exhausted. Retry the request or ask me to continue."
+  ],
+  "router_semantic_lines": [
+   "[INFO] ollama_stream_request provider=ollama model=osr-fake attempt=1/1 tokens=22697 bytes=93068",
+   "[WARN] ollama_semantic_retry provider=ollama model=osr-fake attempt=1/1 reason=empty_response",
+   "[INFO] ollama_semantic_retry_request provider=ollama model=osr-fake attempt=1/1 reason=empty_response tokens=22758 bytes=93313 stream=True",
+   "[WARN] ollama_semantic_exhausted provider=ollama model=osr-fake attempts=2"
+  ],
+  "egress_refused": [
+   "downloads.claude.ai:443",
+   "github.com:443",
+   "pypi.org:443",
+   "registry.npmjs.org:443"
+  ],
+  "egress_refused_count": 18,
+  "owned_killed": [
+   [
+    72552,
+    "cmd.exe"
+   ],
+   [
+    20908,
+    "python.exe"
+   ],
+   [
+    35504,
+    "python.exe"
+   ],
+   [
+    71156,
+    "conhost.exe"
+   ],
+   [
+    65168,
+    "claude.exe"
+   ],
+   [
+    53524,
+    "python.exe"
+   ]
+  ],
+  "owned_still_alive": [],
+  "live_pids_before": {
+   "9385": 6032,
+   "9464": 54764,
+   "9489": 67368,
+   "9505": 49288,
+   "9524": 6196
+  },
+  "live_pids_after": {
+   "9385": 6032,
+   "9464": 54764,
+   "9489": 67368,
+   "9505": 49288,
+   "9524": 6196
+  },
+  "claude": "2.1.310 (screen banner)",
+  "python": "C:\\Program Files\\Python311\\python.EXE",
+  "repo": "C:\\Users\\djlov\\ciel-runtime-wt-timeout"
+ },
+ "run-exhaust-r2": {
+  "case": "exhaust",
+  "empty_response_retries": 2,
+  "all_checks_pass": true,
+  "failed_checks": [],
+  "main_posts": [
+   {
+    "attempt": 1,
+    "at": "15:44:46",
+    "served": "empty",
+    "messages": 3,
+    "replay_instruction_last": false,
+    "base_sha256": "959a4cb1040c5a242cd62e72f9aa53f8f9ae792b5e860c147c60c078ea95391a"
+   },
+   {
+    "attempt": 2,
+    "at": "15:44:48",
+    "served": "empty",
+    "messages": 4,
+    "replay_instruction_last": true,
+    "base_sha256": "959a4cb1040c5a242cd62e72f9aa53f8f9ae792b5e860c147c60c078ea95391a"
+   },
+   {
+    "attempt": 3,
+    "at": "15:44:52",
+    "served": "empty",
+    "messages": 4,
+    "replay_instruction_last": true,
+    "base_sha256": "959a4cb1040c5a242cd62e72f9aa53f8f9ae792b5e860c147c60c078ea95391a"
+   }
+  ],
+  "main_posts_at_response": 3,
+  "aux_posts": 0,
+  "claude_messages_requests": 1,
+  "sse": {
+   "outcome": "exhausted",
+   "stop_reason": "end_turn",
+   "event_names": [
+    "message_start",
+    "content_block_start",
+    "content_block_delta",
+    "content_block_stop",
+    "message_delta",
+    "message_stop"
+   ]
+  },
+  "transcript_assistant_ids": [
+   "msg_ollama_1792874686120"
+  ],
+  "transcript_text": [
+   "[ciel-runtime] Upstream model returned no visible answer or tool call after 3 attempts; automatic retries are exhausted. Retry the request or ask me to continue."
+  ],
+  "router_semantic_lines": [
+   "[INFO] ollama_stream_request provider=ollama model=osr-fake attempt=1/1 tokens=22697 bytes=93068",
+   "[WARN] ollama_semantic_retry provider=ollama model=osr-fake attempt=1/2 reason=empty_response",
+   "[INFO] ollama_semantic_retry_request provider=ollama model=osr-fake attempt=1/2 reason=empty_response tokens=22758 bytes=93313 stream=True",
+   "[WARN] ollama_semantic_retry provider=ollama model=osr-fake attempt=2/2 reason=empty_response",
+   "[INFO] ollama_semantic_retry_request provider=ollama model=osr-fake attempt=2/2 reason=empty_response tokens=22758 bytes=93313 stream=True",
+   "[WARN] ollama_semantic_exhausted provider=ollama model=osr-fake attempts=3"
+  ],
+  "egress_refused": [
+   "downloads.claude.ai:443",
+   "github.com:443",
+   "pypi.org:443",
+   "registry.npmjs.org:443"
+  ],
+  "egress_refused_count": 19,
+  "owned_killed": [
+   [
+    72328,
+    "cmd.exe"
+   ],
+   [
+    54992,
+    "python.exe"
+   ],
+   [
+    56260,
+    "python.exe"
+   ],
+   [
+    36292,
+    "conhost.exe"
+   ],
+   [
+    65496,
+    "claude.exe"
+   ],
+   [
+    70564,
+    "python.exe"
+   ]
+  ],
+  "owned_still_alive": [],
+  "live_pids_before": {
+   "9385": 6032,
+   "9464": 54764,
+   "9489": 67368,
+   "9505": 49288,
+   "9524": 6196
+  },
+  "live_pids_after": {
+   "9385": 6032,
+   "9464": 54764,
+   "9489": 67368,
+   "9505": 49288,
+   "9524": 6196
+  },
+  "claude": "2.1.310 (screen banner)",
+  "python": "C:\\Program Files\\Python311\\python.EXE",
+  "repo": "C:\\Users\\djlov\\ciel-runtime-wt-timeout"
+ },
+ "run-recover-r1": {
+  "case": "recover",
+  "empty_response_retries": 1,
+  "all_checks_pass": true,
+  "failed_checks": [],
+  "main_posts": [
+   {
+    "attempt": 1,
+    "at": "15:42:38",
+    "served": "reasoning_only",
+    "messages": 3,
+    "replay_instruction_last": false,
+    "base_sha256": "9cdde9d88caa90f5d0586d4c95bbd1b6601b072779b472787812aa811e3342dd"
+   },
+   {
+    "attempt": 2,
+    "at": "15:42:40",
+    "served": "answer",
+    "messages": 4,
+    "replay_instruction_last": true,
+    "base_sha256": "9cdde9d88caa90f5d0586d4c95bbd1b6601b072779b472787812aa811e3342dd"
+   }
+  ],
+  "main_posts_at_response": 2,
+  "aux_posts": 0,
+  "claude_messages_requests": 1,
+  "sse": {
+   "outcome": "success",
+   "stop_reason": "end_turn",
+   "event_names": [
+    "message_start",
+    "content_block_start",
+    "content_block_delta",
+    "content_block_delta",
+    "content_block_delta",
+    "content_block_stop",
+    "content_block_start",
+    "content_block_delta",
+    "content_block_delta",
+    "content_block_stop",
+    "message_delta",
+    "message_stop"
+   ]
+  },
+  "transcript_assistant_ids": [
+   "msg_ollama_1792874558326"
+  ],
+  "transcript_text": [
+   "OSR-ANSWER-6a23064bbc recovered after the semantic replay."
+  ],
+  "router_semantic_lines": [
+   "[INFO] ollama_stream_request provider=ollama model=osr-fake attempt=1/1 tokens=22697 bytes=93068",
+   "[WARN] ollama_semantic_retry provider=ollama model=osr-fake attempt=1/1 reason=reasoning_only",
+   "[INFO] ollama_semantic_retry_request provider=ollama model=osr-fake attempt=1/1 reason=reasoning_only tokens=22758 bytes=93313 stream=True",
+   "[INFO] ollama_semantic_recovered provider=ollama model=osr-fake attempts=2"
+  ],
+  "egress_refused": [
+   "downloads.claude.ai:443",
+   "github.com:443",
+   "pypi.org:443",
+   "registry.npmjs.org:443"
+  ],
+  "egress_refused_count": 19,
+  "owned_killed": [
+   [
+    71364,
+    "cmd.exe"
+   ],
+   [
+    71440,
+    "python.exe"
+   ],
+   [
+    55284,
+    "python.exe"
+   ],
+   [
+    2904,
+    "conhost.exe"
+   ],
+   [
+    35776,
+    "claude.exe"
+   ],
+   [
+    67316,
+    "python.exe"
+   ]
+  ],
+  "owned_still_alive": [],
+  "live_pids_before": {
+   "9385": 6032,
+   "9464": 54764,
+   "9489": 67368,
+   "9505": 49288,
+   "9524": 6196
+  },
+  "live_pids_after": {
+   "9385": 6032,
+   "9464": 54764,
+   "9489": 67368,
+   "9505": 49288,
+   "9524": 6196
+  },
+  "claude": "2.1.310 (screen banner)",
+  "python": "C:\\Program Files\\Python311\\python.EXE",
+  "repo": "C:\\Users\\djlov\\ciel-runtime-wt-timeout"
+ }
+}

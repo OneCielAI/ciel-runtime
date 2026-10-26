@@ -62,6 +62,8 @@ def apply_ollama_option(
             pcfg.setdefault("ollama_options", {}).pop("num_predict", None)
             pcfg.pop("output_tokens_explicit", None)
             _set_ollama_option_explicit(pcfg, "num_predict", False)
+        elif key == "empty_response_retries":
+            pcfg.pop("empty_response_retries", None)
         elif key in ("keep_alive", "keepalive"):
             pcfg.pop("keep_alive", None)
             pcfg.pop("keep_alive_explicit", None)
@@ -87,6 +89,17 @@ def apply_ollama_option(
         raise SystemExit(f"Expected key=value or unset:key, got: {token}")
     key, raw_value = token.split("=", 1)
     key = key.strip()
+    if key == "empty_response_retries":
+        raw = raw_value.strip()
+        if raw.lower() in ("default", "unset", "none", "null"):
+            pcfg.pop("empty_response_retries", None)
+            return
+        if not raw.isascii() or not raw.isdecimal():
+            raise SystemExit("empty_response_retries must be a non-negative integer; default 1, 0 off, maximum 2")
+        # Clamp without converting arbitrarily long user input to an integer.
+        digits = raw.lstrip("0") or "0"
+        pcfg[key] = 2 if len(digits) > 1 else min(int(digits), 2)
+        return
     value = parse_config_value(raw_value)
     if key in ("num_ctx", "ctx"):
         if isinstance(value, str) and value.lower() in ("auto", "dynamic"):
@@ -211,6 +224,18 @@ def apply_provider_option(
             raise SystemExit("gateway_data_path must be router or direct")
         pcfg["gateway_data_path"] = raw
         return
+    if token.split("=", 1)[0].strip() == "gateway_retries" or token == "unset:gateway_retries":
+        if not capabilities.supports_gateway_selection:
+            raise SystemExit("gateway_retries is only available for cielairouter")
+        if token == "unset:gateway_retries":
+            pcfg.pop("gateway_retries", None)
+            return
+        from .transient_retry import MAX_RETRIES
+        raw = token.split("=", 1)[1].strip() if "=" in token else ""
+        if not raw.isascii() or not raw.isdecimal() or len(raw) > 16 or int(raw) > MAX_RETRIES:
+            raise SystemExit(f"gateway_retries must be an integer from 0 to {MAX_RETRIES}; 0 disables retries")
+        pcfg["gateway_retries"] = int(raw)
+        return
     normalize_claude_code_supported_capabilities = policy.normalize_claude_code_supported_capabilities
     normalize_ip_family = policy.normalize_ip_family
     normalize_model_id = policy.normalize_model_id
@@ -251,6 +276,8 @@ def apply_provider_option(
     if capabilities.mutation_strategy == "ollama" and token_key not in provider_common_keys:
         apply_ollama_option(pcfg, token, policy=policy)
         return
+    if token_key == "empty_response_retries":
+        raise SystemExit("empty_response_retries is only available for Ollama providers")
     if token.startswith("unset:"):
         key = token.split(":", 1)[1].strip()
         if key in ("context_window", "context", "max_model_len"):

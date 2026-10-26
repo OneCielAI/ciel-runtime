@@ -1,0 +1,2 @@
+saved C:\Users\djlov\ciel-runtime-wt-lease\docs\journal\2026\10\25\fixes\teammate-model-inheritance\evidence\installed-fixed-779348\named.png handle=666558 printwindow=True
+window 'CIELE2E-MODELS-839983ab' not found

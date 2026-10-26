@@ -21,6 +21,7 @@ from http.server import BaseHTTPRequestHandler
 from typing import Any, Callable, Iterator
 
 from .agent_turn_events import EVENT_KIND as AGENT_TURN_ENDED, POST_PATH as AGENT_TURN_PATH, SeenTurns, valid_turn_event
+from .runtime_input_delivery_health import unavailable_delivery_health
 
 
 DEFAULT_OBSERVATION_BUFFER = 2_000
@@ -560,6 +561,7 @@ class TuiObservationHttpPorts:
     write_json: Callable[..., Any]
     write_text: Callable[..., Any]
     log: Callable[[str, str], None]
+    delivery_health: Callable[[], dict[str, Any]] = unavailable_delivery_health
 
 
 class TuiObservationHttpAdapter:
@@ -597,6 +599,7 @@ class TuiObservationHttpAdapter:
                 {
                     "ok": True,
                     **self._ports.bus.status(),
+                    "delivery": self._ports.delivery_health(),
                     "endpoints": {
                         "recent": "GET /ca/tui/recent",
                         "stream": "GET /ca/tui/stream",
@@ -707,7 +710,7 @@ def render_tui_observation_html() -> str:
 <title>Ciel Runtime TUI Live</title><style>
 :root{color-scheme:dark;font-family:ui-sans-serif,system-ui,sans-serif}*{box-sizing:border-box}body{margin:0;background:#080c12;color:#e7edf5;height:100vh;overflow:hidden}header{height:56px;display:flex;align-items:center;gap:14px;padding:0 18px;border-bottom:1px solid #243044;background:#101722}h1{font-size:16px;margin:0}a{color:#7dd3fc}.state{color:#94a3b8;font:12px ui-monospace,monospace}main{height:calc(100vh - 56px);overflow:auto;padding:14px}.event{padding:9px 11px;margin-bottom:7px;border:1px solid #263448;border-radius:8px;background:#0e1520}.meta{font:11px ui-monospace,monospace;color:#8190a5}.text{white-space:pre-wrap;word-break:break-word;margin-top:5px}.input{border-left:3px solid #60a5fa}.output{border-left:3px solid #34d399}.tool{border-left:3px solid #fbbf24}.turn{opacity:.8}.error{border-left:3px solid #fb7185}</style></head>
 <body><header><h1>TUI Live</h1><span class="state" id="state">connecting</span><a href="/ca/web/chat">Web Chat</a><a href="/ca/events">Router Events</a></header><main id="events"></main>
-<script>const root=document.getElementById('events'),state=document.getElementById('state');let seen=new Set();function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}function add(e){if(seen.has(e.id))return;seen.add(e.id);const c=String(e.kind||'').split('.')[0],d=e.data||{},summary=e.text||((d.name?'tool '+d.name:'')||(e.kind==='turn.completed'?'turn completed':(e.kind==='agent.turn_ended'?'agent turn ended: '+d.reason:'')));const row=document.createElement('div');row.className='event '+c+(c==='output'&&e.kind.endsWith('error')?' error':'');row.innerHTML='<div class="meta">#'+e.id+' '+esc(e.time)+' · '+esc(e.kind)+' · '+esc(e.provider)+' '+esc(e.model)+'</div><div class="text">'+esc(summary)+'</div>';root.appendChild(row);while(root.children.length>1200)root.firstChild.remove();root.scrollTop=root.scrollHeight}fetch('/ca/tui/recent?limit=300').then(r=>r.json()).then(j=>(j.events||[]).forEach(add));const es=new EventSource('/ca/tui/stream');es.onopen=()=>state.textContent='live';es.onerror=()=>state.textContent='reconnecting';es.addEventListener('tui',ev=>{try{add(JSON.parse(ev.data))}catch(_){}});</script></body></html>"""
+<script>const root=document.getElementById('events'),state=document.getElementById('state');let seen=new Set();function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}function add(e){if(seen.has(e.id))return;seen.add(e.id);const c=String(e.kind||'').split('.')[0],d=e.data||{},summary=e.text||((d.name?'tool '+d.name:'')||(e.kind==='turn.completed'?'turn completed':(e.kind==='agent.turn_ended'?'agent turn ended: '+d.reason:'')));const row=document.createElement('div');row.className='event '+c+(c==='output'&&e.kind.endsWith('error')?' error':'');row.innerHTML='<div class="meta">#'+e.id+' '+esc(e.time)+' · '+esc(e.kind)+' · '+esc(e.provider)+' '+esc(e.model)+'</div><div class="text">'+esc(summary)+'</div>';root.appendChild(row);while(root.children.length>1200)root.firstChild.remove();root.scrollTop=root.scrollHeight}fetch('/ca/tui/recent?limit=300').then(r=>r.json()).then(j=>(j.events||[]).forEach(add));const es=new EventSource('/ca/tui/stream');async function deliveryState(){try{const r=await fetch('/ca/tui/status'),j=await r.json(),d=j.delivery||{};state.textContent='observation stream '+(es.readyState===1?'live':'reconnecting')+' | session delivery '+(d.state||'unknown')+' | known queued '+(d.known_queued_count??'?')+(d.reason?' | '+d.reason+(d.line_number?' line '+d.line_number:''):'')}catch(_){state.textContent='session delivery unknown'}}es.onopen=deliveryState;setInterval(deliveryState,5000);deliveryState();es.onerror=()=>state.textContent='reconnecting';es.addEventListener('tui',ev=>{try{add(JSON.parse(ev.data))}catch(_){}});</script></body></html>"""
 
 
 __all__ = [

@@ -63,8 +63,8 @@ class CodexTranslatedCompactionTests(unittest.TestCase):
         return request, summaries
 
     def test_over_budget_checkpoint_maps_complete_history_to_final_wire_reducer(self):
-        request, summaries = self.request(230)
-        self.assertGreater(summaries.call_count, 8)
+        request, summaries = self.request(230, _context_compact_context_rejected=True)
+        self.assertGreater(summaries.call_count, 1)
         self.assertLessEqual(summaries.call_count, 256)
         self.assertIn("[ciel-runtime segmented compact]", request["messages"][-1]["content"])
         self.assertIn("segment summary", request["messages"][-1]["content"])
@@ -73,6 +73,15 @@ class CodexTranslatedCompactionTests(unittest.TestCase):
         self.assertIn("history 0 ", prompts[0])
         self.assertIn("history 229 ", prompts[-1])
         self.assertNotIn("local context checkpoint", str(request))
+
+    def test_large_checkpoint_without_rejection_preserves_full_history(self):
+        request, summaries = self.request(230)
+
+        summaries.assert_not_called()
+        self.assertNotIn("[ciel-runtime segmented compact]", str(request))
+        self.assertIn("history 0 ", str(request["messages"]))
+        self.assertIn("history 229 ", str(request["messages"]))
+        self.assertEqual(CODEX_CONTEXT_CHECKPOINT_PROMPT, request["messages"][-1]["content"])
 
     def test_within_budget_checkpoint_does_not_start_auxiliary_summaries(self):
         request, summaries = self.request(1)
@@ -83,9 +92,9 @@ class CodexTranslatedCompactionTests(unittest.TestCase):
             request["messages"][-1]["content"],
         )
 
-    def test_failed_automatic_summary_is_propagated_once_without_fake_checkpoint(self):
+    def test_failed_confirmed_rejection_summary_is_propagated_once_without_fake_checkpoint(self):
         summaries = mock.Mock(side_effect=RuntimeError("high demand"))
-        config = self.config(gateway_retries=10)
+        config = self.config(gateway_retries=10, _context_compact_context_rejected=True)
         with mock.patch.object(ciel_runtime, "context_compact_request_summary", summaries):
             with self.assertRaisesRegex(RuntimeError, "high demand"):
                 ciel_runtime.openai_compatible_chat_request(
@@ -128,14 +137,14 @@ class CodexTranslatedCompactionTests(unittest.TestCase):
         )
 
     def test_anthropic_wire_compacts_only_the_codex_checkpoint_exception(self):
-        config = self.config(api_key="test-key")
+        config = self.config(api_key="test-key", _context_compact_context_rejected=True)
         compact_body = translated_checkpoint_body(230)
         summaries = mock.Mock(side_effect=lambda *_args, **_kwargs: "segment summary")
 
         with mock.patch.object(ciel_runtime, "context_compact_request_summary", summaries):
             request = ciel_runtime.cap_anthropic_body_for_provider("anthropic", config, compact_body)
 
-        self.assertGreater(summaries.call_count, 8)
+        self.assertGreater(summaries.call_count, 1)
         self.assertLessEqual(summaries.call_count, 256)
         self.assertIn("[ciel-runtime segmented compact]", request["messages"][-1]["content"])
 

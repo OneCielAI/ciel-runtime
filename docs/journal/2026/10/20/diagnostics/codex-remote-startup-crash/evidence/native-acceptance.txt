@@ -1,0 +1,4 @@
+Native owned acceptance: run-codex-remote-startup-crash-fix-142024
+status: passed_paused_goal_restart
+checks: old native gone; new input replied; paused goal preserved; app-server listener release observed
+Evidence source: owned harness output and result.json under docs/journal/2026/10/20/diagnostics/remote-paused-goal/evidence/run-codex-remote-startup-crash-fix-142024/

@@ -1,0 +1,40 @@
+{
+  "run": "docs\\journal\\2026\\10\\20\\diagnostics\\restart-delivery\\evidence\\run-claude-installed-ownership-180422",
+  "status": "passed_scoped_restart_delivery",
+  "events": [
+    {
+      "at": 1792537516.349,
+      "kind": "acceptance_pass",
+      "checks": {
+        "old_native_gone": true,
+        "new_input_replied": true,
+        "claude_submitted_old_fenced": true,
+        "appserver_listener_release_observed": false
+      }
+    }
+  ],
+  "teardown": {
+    "killed": [
+      {
+        "pid": 8440
+      },
+      {
+        "pid": 16008
+      },
+      {
+        "pid": 21120
+      },
+      {
+        "pid": 37900
+      },
+      {
+        "pid": 41560
+      },
+      {
+        "pid": 68720
+      }
+    ],
+    "router_listener_after": null,
+    "app_listener_after": null
+  }
+}

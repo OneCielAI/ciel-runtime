@@ -120,7 +120,7 @@ class SemanticProviderRequestTests(unittest.TestCase):
 
 
 class SemanticProviderFacadeIntegrationTests(unittest.TestCase):
-    def test_real_semantic_map_sees_full_tool_payload_and_auto_block_history(self):
+    def test_confirmed_rejection_semantic_map_sees_full_tool_payload_and_auto_block_history(self):
         import ciel_runtime
         from ciel_runtime_support.context_summary_policy import (
             CLAUDE_COMPACT_TEXT_PREFIX, CLAUDE_COMPACT_TASK, CLAUDE_COMPACT_END,
@@ -135,7 +135,8 @@ class SemanticProviderFacadeIntegrationTests(unittest.TestCase):
                 original = copy.deepcopy(body)
                 summaries = mock.Mock(return_value="semantic segment")
                 config = {"context_window": 16384, "max_model_len": 16384,
-                          "num_ctx": 16384, "current_model": "model"}
+                          "num_ctx": 16384, "current_model": "model",
+                          "_context_compact_context_rejected": True}
                 with mock.patch.object(ciel_runtime, "context_compact_request_summary", summaries),                      mock.patch.object(ciel_runtime, "_latest_remote_instruction", return_value=""):
                     if wire == "ollama":
                         request = ciel_runtime.ollama_chat_request("model", body, config)

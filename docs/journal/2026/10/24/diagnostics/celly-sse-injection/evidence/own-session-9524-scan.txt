@@ -1,0 +1,6 @@
+3.14.2 own 9524 transcript scan 0 None fstat_ctime==stat_ctime False
+3.14.2 own 9524 transcript scan 1 None fstat_ctime==stat_ctime False
+3.14.2 own 9524 transcript scan 2 None fstat_ctime==stat_ctime False
+3.11.6 own 9524 transcript scan 0 checkpoint persisted_at=1792840295.936 trigger=manual fstat_ctime==stat_ctime True
+3.11.6 own 9524 transcript scan 1 checkpoint persisted_at=1792840295.936 trigger=manual fstat_ctime==stat_ctime True
+3.11.6 own 9524 transcript scan 2 checkpoint persisted_at=1792840295.936 trigger=manual fstat_ctime==stat_ctime True

@@ -616,7 +616,9 @@ def _shared_target_has_projectable_pointer(
     workspace: Path,
     runtime: str,
 ) -> bool:
-    filename = RUNTIME_FILES[runtime]
+    filename = RUNTIME_FILES.get(runtime)
+    if not filename:
+        raise ValueError(f"unsupported instruction runtime: {runtime}")
     return any(
         _can_project_native_pointer(config, state_dir, workspace, candidate)
         for candidate, candidate_filename in RUNTIME_FILES.items()

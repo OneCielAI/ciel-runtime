@@ -1,0 +1,32 @@
+[
+ {
+  "file": "7a35d404-99a4-4443-a86a-20d6e5d9a319.jsonl",
+  "kind": "Agent",
+  "model": null,
+  "name": "e2e-mate-79b10fa6",
+  "subagent_type": "general-purpose"
+ },
+ {
+  "file": "7a35d404-99a4-4443-a86a-20d6e5d9a319.jsonl",
+  "kind": "tool_result",
+  "is_error": false,
+  "validation_model_error": false,
+  "child_ok_marker": false,
+  "spawned_metadata": true
+ },
+ {
+  "file": "7a35d404-99a4-4443-a86a-20d6e5d9a319.jsonl",
+  "kind": "Agent",
+  "model": null,
+  "name": "e2e-mate-new-79b10fa6",
+  "subagent_type": "general-purpose"
+ },
+ {
+  "file": "7a35d404-99a4-4443-a86a-20d6e5d9a319.jsonl",
+  "kind": "tool_result",
+  "is_error": false,
+  "validation_model_error": false,
+  "child_ok_marker": false,
+  "spawned_metadata": true
+ }
+]

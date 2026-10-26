@@ -40,3 +40,13 @@ Before push: assert the merged tree equals origin/nightly except this journal,
 check merge whitespace, and verify both parent SHAs. Push main without force,
 then publish nightly-20261020 and set its upstream to its matching remote branch.
 Main workflow results will be appended locally after observing them.
+
+# Observed result
+
+Main and nightly-20261020 both resolve remotely to
+dfb51ce946d5fee38c84d2574d67bf3a272be858 (parents a5cb6bb and 03fb196).
+Main CI 39465621300 succeeded. Publish to npm 39465621337 succeeded: channel
+tag=latest, @one-ciel-ai/ciel-runtime@0.2.51 already published, npm publish
+skipped. Registry latest remained 0.2.51; no new stable package was created.
+The original nightly branch remains at 03fb196. The new waiting branch is
+nightly-20261020; no operational session was restarted by this integration.

@@ -1,0 +1,6 @@
+{"request_id":1,"status":"queued","updated_at":"2026-10-20T14:21:00-05:00","updated_at_epoch":1792524060.3923428,"data":{"channel":"restart","input_transport":"tty"}}
+{"request_id":1,"status":"submitted","updated_at":"2026-10-20T14:21:12-05:00","updated_at_epoch":1792524072.1090446,"data":{"channel":"restart","input_transport":"tty"}}
+{"request_id":2,"status":"queued","updated_at":"2026-10-20T14:21:12-05:00","updated_at_epoch":1792524072.7565327,"data":{"channel":"owned-e2e","input_transport":"router"}}
+{"request_id":1,"status":"replied","updated_at":"2026-10-20T14:21:13-05:00","updated_at_epoch":1792524073.119555,"data":{"channel":"restart","input_transport":"tty"}}
+{"request_id":2,"status":"submitted","updated_at":"2026-10-20T14:21:13-05:00","updated_at_epoch":1792524073.1560233,"data":{"channel":"owned-e2e","input_transport":"router"}}
+{"request_id":2,"status":"replied","updated_at":"2026-10-20T14:21:14-05:00","updated_at_epoch":1792524074.1648884,"data":{"channel":"owned-e2e","input_transport":"router"}}

@@ -1,0 +1,352 @@
+{
+  "mode": "codex-remote",
+  "label": "startup-crash-fix",
+  "scratch": "C:\\Windows\\Temp\\ciel-owned-restart-v1h59dbr",
+  "versions": {
+    "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@anthropic-ai\\claude-code\\bin\\claude.exe": "2.1.292 (Claude Code)",
+    "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@openai\\codex\\node_modules\\@openai\\codex-win32-x64\\vendor\\x86_64-pc-windows-msvc\\bin\\codex.exe": "codex-cli 0.158.0"
+  },
+  "path_resolution": {
+    "claude": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@anthropic-ai\\claude-code\\bin\\claude.EXE",
+    "codex": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@openai\\codex\\node_modules\\@openai\\codex-win32-x64\\vendor\\x86_64-pc-windows-msvc\\bin\\codex.EXE"
+  },
+  "command": [
+    "C:\\Program Files\\Python311\\python.exe",
+    "C:\\Users\\djlov\\ciel-runtime\\docs\\journal\\2026\\10\\20\\diagnostics\\remote-paused-goal\\evidence\\launch_shim.py",
+    "--",
+    "cli",
+    "--ca-runtime",
+    "codex-remote",
+    "--ca-no-update-check",
+    "--ca-no-self-update-check",
+    "--ca-no-web-search"
+  ],
+  "probe_timeout_shim": null,
+  "ports": {
+    "router": 64522,
+    "appserver": 64523,
+    "fixture": 64524
+  },
+  "events": [
+    {
+      "at": 1792524025.042,
+      "kind": "launched",
+      "pid": 63816,
+      "watcher": 71964
+    },
+    {
+      "at": 1792524037.887,
+      "kind": "wait_pass",
+      "label": "router health"
+    },
+    {
+      "at": 1792524040.763,
+      "kind": "wait_pass",
+      "label": "native launch codex_remote_tui_start"
+    },
+    {
+      "at": 1792524040.788,
+      "kind": "wait_pass",
+      "label": "native process present"
+    },
+    {
+      "at": 1792524052.957,
+      "kind": "children_before",
+      "processes": [
+        {
+          "pid": 8480,
+          "ct": 1792524025.013,
+          "name": "conhost.exe",
+          "ppid": 63816,
+          "cmd": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4"
+        },
+        {
+          "pid": 71204,
+          "ct": 1792524036.213,
+          "name": "python.exe",
+          "ppid": 63816,
+          "cmd": "C:\\Program Files\\Python311\\python.exe C:\\Users\\djlov\\ciel-runtime\\ciel_runtime.py serve"
+        },
+        {
+          "pid": 72280,
+          "ct": 1792524040.009,
+          "name": "codex.exe",
+          "ppid": 63816,
+          "cmd": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@openai\\codex\\node_modules\\@openai\\codex-win32-x64\\vendor\\x86_64-pc-windows-msvc\\bin\\codex.exe app-server -c approval_policy=\"never\" -c sandbox_mode=\"danger-full-access\" -c model_provider=\"ciel-runtime\" -c model_"
+        },
+        {
+          "pid": 65208,
+          "ct": 1792524040.556,
+          "name": "conhost.exe",
+          "ppid": 63816,
+          "cmd": "\\\\?\\C:\\WINDOWS\\system32\\conhost.exe --headless --width 120 --height 30 --signal 0x2a4 --server 0x2d0"
+        },
+        {
+          "pid": 53848,
+          "ct": 1792524040.568,
+          "name": "codex.exe",
+          "ppid": 63816,
+          "cmd": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@openai\\codex\\node_modules\\@openai\\codex-win32-x64\\vendor\\x86_64-pc-windows-msvc\\bin\\codex.exe -c model_provider=\"ciel-runtime\" -c model_providers.ciel-runtime.name=\"Ciel Runtime\" -c model_providers.ciel-runtime."
+        },
+        {
+          "pid": 35296,
+          "ct": 1792524040.573,
+          "name": "python.exe",
+          "ppid": 63816,
+          "cmd": "C:\\Program Files\\Python311\\python.exe C:\\Users\\djlov\\ciel-runtime\\ciel_runtime_support\\windows_console_guard.py 63816 487 7"
+        }
+      ]
+    },
+    {
+      "at": 1792524052.958,
+      "kind": "typed",
+      "text": "E2E-RT-TURN-1 owned baseline"
+    },
+    {
+      "at": 1792524053.359,
+      "kind": "wait_pass",
+      "label": "watcher consumed typed input"
+    },
+    {
+      "at": 1792524054.161,
+      "kind": "wait_pass",
+      "label": "baseline reached loopback"
+    },
+    {
+      "at": 1792524054.192,
+      "kind": "wait_pass",
+      "label": "baseline reply rendered in native TUI"
+    },
+    {
+      "at": 1792524056.332,
+      "kind": "native_before",
+      "natives": [
+        {
+          "pid": 72280,
+          "ct": 1792524040.009,
+          "name": "codex.exe",
+          "ppid": 63816,
+          "cmd": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@openai\\codex\\node_modules\\@openai\\codex-win32-x64\\vendor\\x86_64-pc-windows-msvc\\bin\\codex.exe app-server -c approval_policy=\"never\" -c sandbox_mode=\"danger-full-access\" -c model_provider=\"ciel-runtime\" -c model_"
+        },
+        {
+          "pid": 53848,
+          "ct": 1792524040.568,
+          "name": "codex.exe",
+          "ppid": 63816,
+          "cmd": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@openai\\codex\\node_modules\\@openai\\codex-win32-x64\\vendor\\x86_64-pc-windows-msvc\\bin\\codex.exe -c model_provider=\"ciel-runtime\" -c model_providers.ciel-runtime.name=\"Ciel Runtime\" -c model_providers.ciel-runtime."
+        }
+      ],
+      "app_listener_pid": 72280,
+      "app_listener_cmd": {
+        "pid": 72280,
+        "ct": 1792524040.009,
+        "name": "codex.exe",
+        "ppid": 63816,
+        "cmd": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@openai\\codex\\node_modules\\@openai\\codex-win32-x64\\vendor\\x86_64-pc-windows-msvc\\bin\\codex.exe app-server -c approval_policy=\"never\" -c sandbox_mode=\"danger-full-access\" -c model_provider=\"ciel-runtime\" -c model_"
+      }
+    },
+    {
+      "at": 1792524056.383,
+      "kind": "goal_rpc",
+      "method": "thread/goal/set",
+      "thread_id": "01a15ac2-3ab3-7a80-a064-f46cc7a9639b",
+      "result": {
+        "goal": {
+          "threadId": "01a15ac2-3ab3-7a80-a064-f46cc7a9639b",
+          "objective": "OWNED-E2E preserve paused goal",
+          "status": "paused",
+          "tokenBudget": null,
+          "tokensUsed": 0,
+          "timeUsedSeconds": 0,
+          "createdAt": 1792524056,
+          "updatedAt": 1792524056
+        }
+      }
+    },
+    {
+      "at": 1792524056.388,
+      "kind": "goal_rpc",
+      "method": "thread/goal/get",
+      "thread_id": "01a15ac2-3ab3-7a80-a064-f46cc7a9639b",
+      "result": {
+        "goal": {
+          "threadId": "01a15ac2-3ab3-7a80-a064-f46cc7a9639b",
+          "objective": "OWNED-E2E preserve paused goal",
+          "status": "paused",
+          "tokenBudget": null,
+          "tokensUsed": 0,
+          "timeUsedSeconds": 0,
+          "createdAt": 1792524056,
+          "updatedAt": 1792524056
+        }
+      }
+    },
+    {
+      "at": 1792524056.39,
+      "kind": "goal_seeded_paused",
+      "goal": {
+        "threadId": "01a15ac2-3ab3-7a80-a064-f46cc7a9639b",
+        "objective": "OWNED-E2E preserve paused goal",
+        "status": "paused",
+        "tokenBudget": null,
+        "tokensUsed": 0,
+        "timeUsedSeconds": 0,
+        "createdAt": 1792524056,
+        "updatedAt": 1792524056
+      }
+    },
+    {
+      "at": 1792524056.397,
+      "kind": "restart_requested",
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"ok\":true,\"queued\":true,\"request\":{\"schema\":\"ciel-runtime.runtime-session-restart/v1\",\"id\":\"d4575afaa13d4c6ab7f678c649fece27\",\"source\":\"ciel-runtime-router-tool\",\"reason\":\"owned isolated interrupted delivery proof\",\"runtime\":\"\",\"target_pid\":63816,\"resume\":true,\"requested_at\":1792524056.393617,\"expires_at\":1792524356.393617,\"wait_turn\":false},\"target\":{\"pid\":63816,\"workspace\":\"C:\\\\Windows\\\\Temp\\\\ciel-owned-restart-v1h59dbr\\\\ws\",\"started_at\":\"2026-10-20T14:20:37\",\"router_port\":64522,\"instance\":\"cfg\"},\"clients\":[{\"pid\":63816,\"workspace\":\"C:\\\\Windows\\\\Temp\\\\ciel-owned-restart-v1h59dbr\\\\ws\",\"started_at\":\"2026-10-20T14:20:37\",\"router_port\":64522,\"instance\":\"cfg\"}]}"
+            }
+          ],
+          "isError": false
+        }
+      }
+    },
+    {
+      "at": 1792524060.488,
+      "kind": "wait_pass",
+      "label": "restart event codex_remote_session_restart"
+    },
+    {
+      "at": 1792524062.643,
+      "kind": "wait_pass",
+      "label": "new native identity present"
+    },
+    {
+      "at": 1792524072.706,
+      "kind": "native_after",
+      "natives": [
+        {
+          "pid": 33552,
+          "ct": 1792524062.443,
+          "name": "codex.exe",
+          "ppid": 63816,
+          "cmd": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@openai\\codex\\node_modules\\@openai\\codex-win32-x64\\vendor\\x86_64-pc-windows-msvc\\bin\\codex.exe app-server -c approval_policy=\"never\" -c sandbox_mode=\"danger-full-access\" -c model_provider=\"ciel-runtime\" -c model_"
+        },
+        {
+          "pid": 67064,
+          "ct": 1792524063.093,
+          "name": "codex.exe",
+          "ppid": 63816,
+          "cmd": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@openai\\codex\\node_modules\\@openai\\codex-win32-x64\\vendor\\x86_64-pc-windows-msvc\\bin\\codex.exe -c model_provider=\"ciel-runtime\" -c model_providers.ciel-runtime.name=\"Ciel Runtime\" -c model_providers.ciel-runtime."
+        }
+      ],
+      "old_native_alive": [],
+      "old_any_alive": [
+        [
+          8480,
+          1792524025.013358
+        ],
+        [
+          71204,
+          1792524036.2130914
+        ]
+      ],
+      "app_listener_pid": 33552
+    },
+    {
+      "at": 1792524072.722,
+      "kind": "wait_pass",
+      "label": "runtime Leave paused dismissal"
+    },
+    {
+      "at": 1792524072.732,
+      "kind": "goal_rpc",
+      "method": "thread/goal/get",
+      "thread_id": "01a15ac2-3ab3-7a80-a064-f46cc7a9639b",
+      "result": {
+        "goal": {
+          "threadId": "01a15ac2-3ab3-7a80-a064-f46cc7a9639b",
+          "objective": "OWNED-E2E preserve paused goal",
+          "status": "paused",
+          "tokenBudget": null,
+          "tokensUsed": 0,
+          "timeUsedSeconds": 0,
+          "createdAt": 1792524056,
+          "updatedAt": 1792524056
+        }
+      }
+    },
+    {
+      "at": 1792524072.76,
+      "kind": "notify",
+      "text": "E2E-RT-TURN-3 owned post restart",
+      "response": {
+        "ok": true,
+        "message": {
+          "id": 2,
+          "time": "2026-10-20T14:21:12",
+          "created_at_epoch": 1792524072.7510214,
+          "channel": "owned-e2e",
+          "sender_id": "owned-driver",
+          "recipients": [
+            "all"
+          ],
+          "thread_id": "2",
+          "parent_id": null,
+          "message": "E2E-RT-TURN-3 owned post restart",
+          "kind": "notification",
+          "meta": {
+            "source": "ciel-runtime-notify",
+            "source_kind": "notification",
+            "input_transport": "router"
+          },
+          "visibility": "private_runtime",
+          "delivery": [
+            "llm"
+          ]
+        }
+      }
+    },
+    {
+      "at": 1792524073.592,
+      "kind": "wait_pass",
+      "label": "post-restart notify reached loopback"
+    },
+    {
+      "at": 1792524078.031,
+      "kind": "wait_pass",
+      "label": "owned console screenshot attempted"
+    },
+    {
+      "at": 1792524078.032,
+      "kind": "acceptance_pass",
+      "checks": {
+        "old_native_gone": true,
+        "new_input_replied": true,
+        "paused_goal_preserved": true,
+        "appserver_listener_release_observed": true
+      }
+    }
+  ],
+  "goal_before": {
+    "threadId": "01a15ac2-3ab3-7a80-a064-f46cc7a9639b",
+    "objective": "OWNED-E2E preserve paused goal",
+    "status": "paused",
+    "tokenBudget": null,
+    "tokensUsed": 0,
+    "timeUsedSeconds": 0,
+    "createdAt": 1792524056,
+    "updatedAt": 1792524056
+  },
+  "goal_after_before_input": {
+    "threadId": "01a15ac2-3ab3-7a80-a064-f46cc7a9639b",
+    "objective": "OWNED-E2E preserve paused goal",
+    "status": "paused",
+    "tokenBudget": null,
+    "tokensUsed": 0,
+    "timeUsedSeconds": 0,
+    "createdAt": 1792524056,
+    "updatedAt": 1792524056
+  }
+}

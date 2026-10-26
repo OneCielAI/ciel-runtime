@@ -1,0 +1,67 @@
+---
+type: fix-verification
+title: DeepSeek V4.1-Flash image input across Ciel wires
+description: Ollama's native wire now forwards inline images, and Alibaba's DeepSeek catalog states the documented modality for Codex instead of inheriting image support.
+tags: [deepseek, alibaba, ollama, vision, image]
+timestamp: 2026-10-21
+status: source-verified
+---
+
+# What the vendors state
+
+- DeepSeek (https://api-docs.deepseek.com/quick_start/pricing): model id
+  deepseek-flash, version DeepSeek-V4.1-Flash-1017; "Vision ✓" for Flash and
+  "Not supported" for V4-Pro. The vision guide lists OpenAI Chat image_url,
+  Anthropic image blocks (base64/url/file) and Responses input_image, with
+  "Images are supported in user messages only".
+- Alibaba Model Studio DeepSeek FAQ: "deepseek-v4.1-flash and
+  deepseek-v4.1-flash-1017 support text and image input and text-only output".
+  The page does not state which request format carries the image.
+- Ollama deepseek-v4.1-flash:1017-cloud: tags list "Text, Image input".
+
+# Verified code facts before the change
+
+- Claude/Anthropic wire preserves image blocks end to end:
+  protocols/chat_projection.py openai_multimodal_content converts them for a
+  chat wire, and the native Anthropic path forwards the body unchanged.
+- Ollama's native chat wire did NOT: anthropic_messages_to_ollama ran every
+  user block through content_to_text, which ignores image blocks, so an
+  attached image disappeared without any error.
+- The Codex catalog is built from a bundled template
+  (codex debug models --bundled: all 10 templates declare ["text","image"]),
+  so every routed model inherited image input — including deepseek-v4-pro,
+  which the provider documents as text only.
+
+# Change
+
+- protocols/chat_projection.py: ollama_image_payloads() collects inline
+  base64 image blocks, and the user message carries them as Ollama's
+  "images" list. A remote URL cannot be forwarded on this wire and is left
+  out; an image-only message is kept.
+- providers/alibaba.py: deepseek-v4.1-flash (and the -1017 snapshot) returns
+  a Codex catalog with input_modalities ["text","image"];
+  other DeepSeek models on this adapter state ["text"] so a previously
+  applied image catalog cannot leak onto a text-only model.
+
+# Verification
+
+- evidence/codex-catalog-check.txt: real Codex catalog generation on this
+  machine (codex debug models --bundled) yields
+  deepseek-v4.1-flash-1017 -> ['text','image'],
+  deepseek-v4.1-flash -> ['text','image'],
+  deepseek-v4-pro -> ['text'], qwen3.8-max -> ['text','image'].
+- tests/test_ollama_image_input.py: inline image reaches the Ollama message,
+  image-only message kept, URL/empty source add nothing, text-only history
+  unchanged.
+- tests/test_alibaba_provider.py: AlibabaDeepSeekVisionTests covers all three
+  adapters and both model ids, plus the text-only reset.
+- evidence/focused-tests.txt: 239 exact-file tests OK. Ruff and diff
+  whitespace checks passed.
+
+# Not established
+
+Whether Alibaba's Anthropic-compatible endpoint forwards images for this model
+(their docs state model support and endpoint support separately). No model
+endpoint was called, so this is a wire/catalog fix, not a live image round
+trip. Claude Code on this session received the user's pasted screenshots, so
+the Anthropic path already worked here.

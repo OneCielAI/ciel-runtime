@@ -1,0 +1,40 @@
+{
+  "ok": true,
+  "input_mode": "structured",
+  "input_transport": "session_socket",
+  "response_mode": "web_chat",
+  "raw_injection": false,
+  "injection_mode": "web_chat",
+  "message": {
+    "id": 1,
+    "time": "2026-10-25T23:57:06",
+    "created_at_epoch": 1792990626.014471,
+    "channel": "research-default-work-mode-20261026",
+    "sender_id": "runtime-research",
+    "recipients": [],
+    "thread_id": "research-default-work-mode-20261026",
+    "parent_id": null,
+    "message": "Authorized one-time read-only handoff request from ciel-runtime research (not an instruction to execute /work). Please explain the implemented /work hierarchical work-board system in C:/Users/djlov/ciel-code. Do NOT run /work, mutate boards, edit files/config, install, restart, or change live queues. Return canonical skill and source paths with line refs; schema parent/children and task hierarchy versus flat todo/plan; CLI/MCP/UI surfaces; persistence, concurrency/locking, resume; permission/bypass handling; and recommendations for integrating an optional default work mode/menu toggle in ciel-runtime for Claude always bypassPermissions and ideally Codex TUI/app-server, including direct-native Claude versus routed paths. Mark proposed design and unknowns. Please reply to THIS web-chat thread via ciel-runtime-router send_message so the researcher can read it. Concise source-grounded handoff only.",
+    "kind": "web_chat",
+    "meta": {
+      "injection_mode": "structured",
+      "input_transport": "session_socket",
+      "response_mode": "web_chat",
+      "raw_injection": false,
+      "source": "ciel-runtime-web-chat",
+      "reply_channel": "research-default-work-mode-20261026",
+      "reply_recipient": "web"
+    }
+  },
+  "request_id": 1,
+  "request": {
+    "request_id": 1,
+    "status": "queued",
+    "updated_at": "2026-10-25T23:57:06-05:00",
+    "updated_at_epoch": 1792990626.016232,
+    "data": {
+      "channel": "research-default-work-mode-20261026",
+      "input_transport": "session_socket"
+    }
+  }
+}

@@ -1,0 +1,35 @@
+---
+type: integration-verification
+title: Nightly integration into main and the nightly-20261026 branch
+description: Evidence for the requested main merge and the new branch that carries the experimental Work mode.
+timestamp: 2026-10-26
+tags: [git, main, nightly, integration, work-mode]
+---
+
+# Authorization
+
+The user asked to merge into the head branch (`git remote show origin` reports `HEAD branch: main`) and to implement the experimental Work mode on a new nightly branch.
+
+# Observed preflight
+
+- Remote main: dfb51ce946d5fee38c84d2574d67bf3a272be858.
+- Remote nightly: 179b9edd7e0aa06ff54a7de56d666e017336b292 (the docs commit recording the installed teammate-model E2E, pushed with `[skip ci]`).
+- Main is an ancestor of nightly; 113 commits are pending integration.
+- `nightly-20261020` has no content outside origin/nightly: `git diff --name-only origin/nightly...nightly-20261020` is empty and the second parents of its four merge commits are all ancestors of origin/nightly.
+- `nightly-20261026` was created from origin/main in its own worktree, and `git merge --no-ff origin/nightly` completed without conflicts. Other worktrees and branches were not modified.
+
+# Existing runtime verification
+
+The latest code change d15822ff6ff66bb4750e64c575661ccfd3253401 has a successful CI run 40269838107 and npm publish run 40269837320. Its installed-code E2E is recorded in `docs/journal/2026/10/25/fixes/teammate-model-inheritance/verification.md`. The most recent nightly CI and Publish runs on code commits (a7e28f9, 5d4dc0e, 4af30c7, 299b711, 144bebc, d15822f) all report success. This integration makes no source changes.
+
+# Publication boundary
+
+- Package `@one-ciel-ai/ciel-runtime`; both branches declare 0.2.51 and the registry reports latest=0.2.51.
+- `npm-publish.yml` skips publication when that exact version already exists, and no version bump is requested or made.
+- `nightly-20261026` is not a `main` or `nightly` push trigger, so pushing it starts neither CI nor publish.
+
+# Integration verification
+
+Before push: the merged tree must equal origin/nightly except this journal, the merge must pass a whitespace check, and both parent SHAs must be verified. Then push main without force and push `nightly-20261026` with its upstream. Main workflow results are appended after they are observed.
+
+Observed before commit: `git diff --cached --name-only origin/nightly` lists only this journal, and `git diff --cached --check origin/nightly` passes. The check against main reports whitespace only in files under `docs/journal/` that are already on nightly (verbatim console and test captures); no source file is reported.

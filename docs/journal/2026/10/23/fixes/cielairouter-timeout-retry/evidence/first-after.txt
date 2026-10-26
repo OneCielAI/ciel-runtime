@@ -1,0 +1,53 @@
+test_accepted_body_timeout_is_not_reopened (test_transient_retry_timeout.TimeoutRetryTests.test_accepted_body_timeout_is_not_reopened) ... ok
+test_already_handled_timeout_cannot_open_a_second_allowance (test_transient_retry_timeout.TimeoutRetryTests.test_already_handled_timeout_cannot_open_a_second_allowance) ... ok
+test_cancellation_after_timeout_stops_before_backoff (test_transient_retry_timeout.TimeoutRetryTests.test_cancellation_after_timeout_stops_before_backoff) ... ok
+test_expired_open_timeout_does_not_restart_deadline (test_transient_retry_timeout.TimeoutRetryTests.test_expired_open_timeout_does_not_restart_deadline) ... ok
+test_explicit_zero_and_other_providers_preserve_timeout (test_transient_retry_timeout.TimeoutRetryTests.test_explicit_zero_and_other_providers_preserve_timeout) ... ok
+test_exposed_owner_forbids_timeout_retry (test_transient_retry_timeout.TimeoutRetryTests.test_exposed_owner_forbids_timeout_retry) ... ok
+test_mixed_http_and_timeout_spend_one_allowance (test_transient_retry_timeout.TimeoutRetryTests.test_mixed_http_and_timeout_spend_one_allowance) ... ok
+test_other_transport_errors_still_do_not_replay (test_transient_retry_timeout.TimeoutRetryTests.test_other_transport_errors_still_do_not_replay) ... ok
+test_timeout_with_time_remaining_reselects_same_budget (test_transient_retry_timeout.TimeoutRetryTests.test_timeout_with_time_remaining_reselects_same_budget) ... ok
+test_typed_open_timeouts_retry_then_success (test_transient_retry_timeout.TimeoutRetryTests.test_typed_open_timeouts_retry_then_success) ... ok
+test_all_terminal_and_malformed_marked_without_retry (test_transient_retry.TransientRetryTests.test_all_terminal_and_malformed_marked_without_retry) ... ok
+test_ambiguous_transport_is_never_retried (test_transient_retry.TransientRetryTests.test_ambiguous_transport_is_never_retried) ... ok
+test_cancellation_before_open_and_after_wait (test_transient_retry.TransientRetryTests.test_cancellation_before_open_and_after_wait) ... ok
+test_configured_limit_public_contract (test_transient_retry.TransientRetryTests.test_configured_limit_public_contract) ... ok
+test_deadline_includes_attempt_and_wait (test_transient_retry.TransientRetryTests.test_deadline_includes_attempt_and_wait) ... ok
+test_exhaustion_preserves_exact_status_headers_body_reason (test_transient_retry.TransientRetryTests.test_exhaustion_preserves_exact_status_headers_body_reason) ... ok
+test_explicit_zero_and_other_providers_untouched (test_transient_retry.TransientRetryTests.test_explicit_zero_and_other_providers_untouched) ... ok
+test_nested_owner_does_not_multiply_budget (test_transient_retry.TransientRetryTests.test_nested_owner_does_not_multiply_budget) ... ok
+test_nested_scope_cannot_reset_active_owner (test_transient_retry.TransientRetryTests.test_nested_scope_cannot_reset_active_owner) ... ok
+test_oversized_error_replays_all_bytes (test_transient_retry.TransientRetryTests.test_oversized_error_replays_all_bytes) ... ok
+test_persistent_rate_limit_exhausts_one_shared_budget (test_transient_retry.TransientRetryTests.test_persistent_rate_limit_exhausts_one_shared_budget) ... ok
+test_rate_limit_retry_after_is_bounded (test_transient_retry.TransientRetryTests.test_rate_limit_retry_after_is_bounded) ... ok
+test_rate_limit_shares_the_same_attempt_ceiling (test_transient_retry.TransientRetryTests.test_rate_limit_shares_the_same_attempt_ceiling) ... ok
+test_retry_after_finite_and_remaining_below_minimum (test_transient_retry.TransientRetryTests.test_retry_after_finite_and_remaining_below_minimum) ... ok
+test_same_request_cannot_reopen_after_error_or_exposure (test_transient_retry.TransientRetryTests.test_same_request_cannot_reopen_after_error_or_exposure) ... ok
+test_scope_identity_no_config_mutation_or_cross_request_leak (test_transient_retry.TransientRetryTests.test_scope_identity_no_config_mutation_or_cross_request_leak) ... ok
+test_screenshot_retries_then_succeeds_and_closes_error (test_transient_retry.TransientRetryTests.test_screenshot_retries_then_succeeds_and_closes_error) ... ok
+test_sequential_unconsumed_reopens_share_allowance (test_transient_retry.TransientRetryTests.test_sequential_unconsumed_reopens_share_allowance) ... ok
+test_specialized_recovery_spends_same_budget (test_transient_retry.TransientRetryTests.test_specialized_recovery_spends_same_budget) ... ok
+test_strict_json_rejects_mixed_duplicate_nan_and_unknown (test_transient_retry.TransientRetryTests.test_strict_json_rejects_mixed_duplicate_nan_and_unknown) ... ok
+test_structural_json_and_complete_sse_variants (test_transient_retry.TransientRetryTests.test_structural_json_and_complete_sse_variants) ... ok
+test_structured_rate_limit_retries_then_succeeds (test_transient_retry.TransientRetryTests.test_structured_rate_limit_retries_then_succeeds) ... ok
+test_terminal_rate_limit_verdicts_are_not_replayed (test_transient_retry.TransientRetryTests.test_terminal_rate_limit_verdicts_are_not_replayed) ... ok
+test_thread_scopes_independent_on_same_config (test_transient_retry.TransientRetryTests.test_thread_scopes_independent_on_same_config) ... ok
+test_active_timeout_clips_each_attempt_against_current_remainder (test_transient_retry_deadline.TransientRetryDeadlineTests.test_active_timeout_clips_each_attempt_against_current_remainder) ... ok
+test_expired_helper_stops_before_network (test_transient_retry_deadline.TransientRetryDeadlineTests.test_expired_helper_stops_before_network) ... ok
+test_expired_initial_attempt_never_calls_opener (test_transient_retry_deadline.TransientRetryDeadlineTests.test_expired_initial_attempt_never_calls_opener) ... ok
+test_expired_nested_attempt_never_calls_inner_opener (test_transient_retry_deadline.TransientRetryDeadlineTests.test_expired_nested_attempt_never_calls_inner_opener) ... ok
+test_other_provider_disabled_and_unscoped_preserve_timeout_exactly (test_transient_retry_deadline.TransientRetryDeadlineTests.test_other_provider_disabled_and_unscoped_preserve_timeout_exactly) ... ok
+test_stalled_loopback_headers_hit_bounded_socket_timeout_without_replay (test_transient_retry_deadline.TransientRetryDeadlineTests.test_stalled_loopback_headers_hit_bounded_socket_timeout_without_replay) ... FAIL
+
+======================================================================
+FAIL: test_stalled_loopback_headers_hit_bounded_socket_timeout_without_replay (test_transient_retry_deadline.TransientRetryDeadlineTests.test_stalled_loopback_headers_hit_bounded_socket_timeout_without_replay)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-timeout\tests\test_transient_retry_deadline.py", line 122, in test_stalled_loopback_headers_hit_bounded_socket_timeout_without_replay
+    self.assertLessEqual(timeouts[0], 0.15)
+AssertionError: 0.1500000000014552 not less than or equal to 0.15
+
+----------------------------------------------------------------------
+Ran 40 tests in 0.184s
+
+FAILED (failures=1)

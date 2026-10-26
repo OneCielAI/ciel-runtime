@@ -1,0 +1,9 @@
+Installing verified version=0.2.51-nightly.20261021-090826.1c0b706 sha=1c0b706 target=C:\Users\djlov\.local\share\ciel-runtime-1c0b706
+
+changed 1 package in 2s
+Installed Ciel Runtime to C:\Users\djlov\.local\share\ciel-runtime-1c0b706
+Pinned future Windows launches to C:\Users\djlov\.local\share\ciel-runtime-1c0b706
+Registered C:\Users\djlov\.local\bin at the front of the user PATH and notified the Windows shell.
+Open a new terminal window if the current terminal has an older PATH snapshot.
+registered=C:\Users\djlov\.local\share\ciel-runtime-1c0b706
+global-version=0.2.51-nightly.20261021-090826.1c0b706

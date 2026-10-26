@@ -1,0 +1,820 @@
+Refreshing run status every 30 seconds. Press Ctrl+C to quit.
+
+* nightly CI · 40269838107
+Triggered via push less than a minute ago
+
+JOBS
+* python-minimum (ID 121400052544)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run python -m compileall -q ciel_runtime.py ciel_runtime_support ciel-runtime-menu.py ciel-runtime-tool-guard.py scripts
+  * Run python scripts/run_test_group.py unit
+  * Post Run actions/setup-python@v5
+  * Post Run actions/checkout@v4
+✓ test (channel) in 15s (ID 121400052684)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run python scripts/run_test_group.py channel
+  ✓ Post Run actions/setup-python@v5
+  ✓ Post Run actions/checkout@v4
+  ✓ Complete job
+* test (router) (ID 121400052714)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  * Run python scripts/run_test_group.py router
+  * Post Run actions/setup-python@v5
+  * Post Run actions/checkout@v4
+✓ quality in 15s (ID 121400052748)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run actions/setup-node@v4
+  ✓ Run python -m pip install --upgrade pip "ruff==0.15.22" pillow
+  ✓ Run python -m compileall -q ciel_runtime.py ciel_runtime_support ciel-runtime-menu.py ciel-runtime-tool-guard.py scripts
+  ✓ Run python -m ruff check .
+  ✓ Run npm run check:docs
+  ✓ Run npm pack --dry-run
+  ✓ Post Run actions/setup-node@v4
+  ✓ Post Run actions/setup-python@v5
+  ✓ Post Run actions/checkout@v4
+  ✓ Complete job
+* test (runtime) (ID 121400052752)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  * Run python scripts/run_test_group.py runtime
+  * Post Run actions/setup-python@v5
+  * Post Run actions/checkout@v4
+* test (unit) (ID 121400052847)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  * Run python scripts/run_test_group.py unit
+  * Post Run actions/setup-python@v5
+  * Post Run actions/checkout@v4
+
+ANNOTATIONS
+! Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-python@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+test (channel): .github#2
+
+- "The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748"
+test (channel): .github#1
+
+! Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4, actions/setup-python@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+quality: .github#2
+
+- "The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748"
+quality: .github#1
+
+Refreshing run status every 30 seconds. Press Ctrl+C to quit.
+
+* nightly CI · 40269838107
+Triggered via push about 1 minute ago
+
+JOBS
+* python-minimum (ID 121400052544)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run python -m compileall -q ciel_runtime.py ciel_runtime_support ciel-runtime-menu.py ciel-runtime-tool-guard.py scripts
+  * Run python scripts/run_test_group.py unit
+  * Post Run actions/setup-python@v5
+  * Post Run actions/checkout@v4
+✓ test (channel) in 15s (ID 121400052684)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run python scripts/run_test_group.py channel
+  ✓ Post Run actions/setup-python@v5
+  ✓ Post Run actions/checkout@v4
+  ✓ Complete job
+* test (router) (ID 121400052714)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  * Run python scripts/run_test_group.py router
+  * Post Run actions/setup-python@v5
+  * Post Run actions/checkout@v4
+✓ quality in 15s (ID 121400052748)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run actions/setup-node@v4
+  ✓ Run python -m pip install --upgrade pip "ruff==0.15.22" pillow
+  ✓ Run python -m compileall -q ciel_runtime.py ciel_runtime_support ciel-runtime-menu.py ciel-runtime-tool-guard.py scripts
+  ✓ Run python -m ruff check .
+  ✓ Run npm run check:docs
+  ✓ Run npm pack --dry-run
+  ✓ Post Run actions/setup-node@v4
+  ✓ Post Run actions/setup-python@v5
+  ✓ Post Run actions/checkout@v4
+  ✓ Complete job
+✓ test (runtime) in 53s (ID 121400052752)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run python scripts/run_test_group.py runtime
+  ✓ Post Run actions/setup-python@v5
+  ✓ Post Run actions/checkout@v4
+  ✓ Complete job
+* test (unit) (ID 121400052847)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  * Run python scripts/run_test_group.py unit
+  * Post Run actions/setup-python@v5
+  * Post Run actions/checkout@v4
+
+ANNOTATIONS
+! Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-python@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+test (channel): .github#2
+
+- "The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748"
+test (channel): .github#1
+
+! Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4, actions/setup-python@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+quality: .github#2
+
+- "The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748"
+quality: .github#1
+
+! Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-python@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+test (runtime): .github#2
+
+- "The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748"
+test (runtime): .github#1
+
+Refreshing run status every 30 seconds. Press Ctrl+C to quit.
+
+* nightly CI · 40269838107
+Triggered via push about 1 minute ago
+
+JOBS
+* python-minimum (ID 121400052544)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run python -m compileall -q ciel_runtime.py ciel_runtime_support ciel-runtime-menu.py ciel-runtime-tool-guard.py scripts
+  * Run python scripts/run_test_group.py unit
+  * Post Run actions/setup-python@v5
+  * Post Run actions/checkout@v4
+✓ test (channel) in 15s (ID 121400052684)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run python scripts/run_test_group.py channel
+  ✓ Post Run actions/setup-python@v5
+  ✓ Post Run actions/checkout@v4
+  ✓ Complete job
+* test (router) (ID 121400052714)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  * Run python scripts/run_test_group.py router
+  * Post Run actions/setup-python@v5
+  * Post Run actions/checkout@v4
+✓ quality in 15s (ID 121400052748)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run actions/setup-node@v4
+  ✓ Run python -m pip install --upgrade pip "ruff==0.15.22" pillow
+  ✓ Run python -m compileall -q ciel_runtime.py ciel_runtime_support ciel-runtime-menu.py ciel-runtime-tool-guard.py scripts
+  ✓ Run python -m ruff check .
+  ✓ Run npm run check:docs
+  ✓ Run npm pack --dry-run
+  ✓ Post Run actions/setup-node@v4
+  ✓ Post Run actions/setup-python@v5
+  ✓ Post Run actions/checkout@v4
+  ✓ Complete job
+✓ test (runtime) in 53s (ID 121400052752)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run python scripts/run_test_group.py runtime
+  ✓ Post Run actions/setup-python@v5
+  ✓ Post Run actions/checkout@v4
+  ✓ Complete job
+* test (unit) (ID 121400052847)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  * Run python scripts/run_test_group.py unit
+  * Post Run actions/setup-python@v5
+  * Post Run actions/checkout@v4
+
+ANNOTATIONS
+! Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-python@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+test (channel): .github#2
+
+- "The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748"
+test (channel): .github#1
+
+! Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4, actions/setup-python@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+quality: .github#2
+
+- "The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748"
+quality: .github#1
+
+! Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-python@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+test (runtime): .github#2
+
+- "The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748"
+test (runtime): .github#1
+
+Refreshing run status every 30 seconds. Press Ctrl+C to quit.
+
+* nightly CI · 40269838107
+Triggered via push about 2 minutes ago
+
+JOBS
+* python-minimum (ID 121400052544)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run python -m compileall -q ciel_runtime.py ciel_runtime_support ciel-runtime-menu.py ciel-runtime-tool-guard.py scripts
+  * Run python scripts/run_test_group.py unit
+  * Post Run actions/setup-python@v5
+  * Post Run actions/checkout@v4
+✓ test (channel) in 15s (ID 121400052684)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run python scripts/run_test_group.py channel
+  ✓ Post Run actions/setup-python@v5
+  ✓ Post Run actions/checkout@v4
+  ✓ Complete job
+* test (router) (ID 121400052714)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  * Run python scripts/run_test_group.py router
+  * Post Run actions/setup-python@v5
+  * Post Run actions/checkout@v4
+✓ quality in 15s (ID 121400052748)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run actions/setup-node@v4
+  ✓ Run python -m pip install --upgrade pip "ruff==0.15.22" pillow
+  ✓ Run python -m compileall -q ciel_runtime.py ciel_runtime_support ciel-runtime-menu.py ciel-runtime-tool-guard.py scripts
+  ✓ Run python -m ruff check .
+  ✓ Run npm run check:docs
+  ✓ Run npm pack --dry-run
+  ✓ Post Run actions/setup-node@v4
+  ✓ Post Run actions/setup-python@v5
+  ✓ Post Run actions/checkout@v4
+  ✓ Complete job
+✓ test (runtime) in 53s (ID 121400052752)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run python scripts/run_test_group.py runtime
+  ✓ Post Run actions/setup-python@v5
+  ✓ Post Run actions/checkout@v4
+  ✓ Complete job
+* test (unit) (ID 121400052847)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  * Run python scripts/run_test_group.py unit
+  * Post Run actions/setup-python@v5
+  * Post Run actions/checkout@v4
+
+ANNOTATIONS
+! Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-python@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+test (channel): .github#2
+
+- "The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748"
+test (channel): .github#1
+
+! Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4, actions/setup-python@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+quality: .github#2
+
+- "The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748"
+quality: .github#1
+
+! Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-python@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+test (runtime): .github#2
+
+- "The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748"
+test (runtime): .github#1
+
+Refreshing run status every 30 seconds. Press Ctrl+C to quit.
+
+* nightly CI · 40269838107
+Triggered via push about 2 minutes ago
+
+JOBS
+* python-minimum (ID 121400052544)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run python -m compileall -q ciel_runtime.py ciel_runtime_support ciel-runtime-menu.py ciel-runtime-tool-guard.py scripts
+  * Run python scripts/run_test_group.py unit
+  * Post Run actions/setup-python@v5
+  * Post Run actions/checkout@v4
+✓ test (channel) in 15s (ID 121400052684)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run python scripts/run_test_group.py channel
+  ✓ Post Run actions/setup-python@v5
+  ✓ Post Run actions/checkout@v4
+  ✓ Complete job
+* test (router) (ID 121400052714)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  * Run python scripts/run_test_group.py router
+  * Post Run actions/setup-python@v5
+  * Post Run actions/checkout@v4
+✓ quality in 15s (ID 121400052748)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run actions/setup-node@v4
+  ✓ Run python -m pip install --upgrade pip "ruff==0.15.22" pillow
+  ✓ Run python -m compileall -q ciel_runtime.py ciel_runtime_support ciel-runtime-menu.py ciel-runtime-tool-guard.py scripts
+  ✓ Run python -m ruff check .
+  ✓ Run npm run check:docs
+  ✓ Run npm pack --dry-run
+  ✓ Post Run actions/setup-node@v4
+  ✓ Post Run actions/setup-python@v5
+  ✓ Post Run actions/checkout@v4
+  ✓ Complete job
+✓ test (runtime) in 53s (ID 121400052752)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run python scripts/run_test_group.py runtime
+  ✓ Post Run actions/setup-python@v5
+  ✓ Post Run actions/checkout@v4
+  ✓ Complete job
+✓ test (unit) in 2m24s (ID 121400052847)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run python scripts/run_test_group.py unit
+  ✓ Post Run actions/setup-python@v5
+  ✓ Post Run actions/checkout@v4
+  ✓ Complete job
+
+ANNOTATIONS
+! Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-python@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+test (channel): .github#2
+
+- "The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748"
+test (channel): .github#1
+
+! Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4, actions/setup-python@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+quality: .github#2
+
+- "The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748"
+quality: .github#1
+
+! Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-python@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+test (runtime): .github#2
+
+- "The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748"
+test (runtime): .github#1
+
+! Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-python@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+test (unit): .github#2
+
+- "The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748"
+test (unit): .github#1
+
+Refreshing run status every 30 seconds. Press Ctrl+C to quit.
+
+* nightly CI · 40269838107
+Triggered via push about 3 minutes ago
+
+JOBS
+✓ python-minimum in 2m55s (ID 121400052544)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run python -m compileall -q ciel_runtime.py ciel_runtime_support ciel-runtime-menu.py ciel-runtime-tool-guard.py scripts
+  ✓ Run python scripts/run_test_group.py unit
+  ✓ Post Run actions/setup-python@v5
+  ✓ Post Run actions/checkout@v4
+  ✓ Complete job
+✓ test (channel) in 15s (ID 121400052684)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run python scripts/run_test_group.py channel
+  ✓ Post Run actions/setup-python@v5
+  ✓ Post Run actions/checkout@v4
+  ✓ Complete job
+* test (router) (ID 121400052714)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  * Run python scripts/run_test_group.py router
+  * Post Run actions/setup-python@v5
+  * Post Run actions/checkout@v4
+✓ quality in 15s (ID 121400052748)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run actions/setup-node@v4
+  ✓ Run python -m pip install --upgrade pip "ruff==0.15.22" pillow
+  ✓ Run python -m compileall -q ciel_runtime.py ciel_runtime_support ciel-runtime-menu.py ciel-runtime-tool-guard.py scripts
+  ✓ Run python -m ruff check .
+  ✓ Run npm run check:docs
+  ✓ Run npm pack --dry-run
+  ✓ Post Run actions/setup-node@v4
+  ✓ Post Run actions/setup-python@v5
+  ✓ Post Run actions/checkout@v4
+  ✓ Complete job
+✓ test (runtime) in 53s (ID 121400052752)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run python scripts/run_test_group.py runtime
+  ✓ Post Run actions/setup-python@v5
+  ✓ Post Run actions/checkout@v4
+  ✓ Complete job
+✓ test (unit) in 2m24s (ID 121400052847)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run python scripts/run_test_group.py unit
+  ✓ Post Run actions/setup-python@v5
+  ✓ Post Run actions/checkout@v4
+  ✓ Complete job
+
+ANNOTATIONS
+! Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-python@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+test (channel): .github#2
+
+- "The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748"
+test (channel): .github#1
+
+! Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4, actions/setup-python@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+quality: .github#2
+
+- "The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748"
+quality: .github#1
+
+! Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-python@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+test (runtime): .github#2
+
+- "The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748"
+test (runtime): .github#1
+
+! Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-python@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+test (unit): .github#2
+
+- "The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748"
+test (unit): .github#1
+
+Refreshing run status every 30 seconds. Press Ctrl+C to quit.
+
+* nightly CI · 40269838107
+Triggered via push about 3 minutes ago
+
+JOBS
+✓ python-minimum in 2m55s (ID 121400052544)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run python -m compileall -q ciel_runtime.py ciel_runtime_support ciel-runtime-menu.py ciel-runtime-tool-guard.py scripts
+  ✓ Run python scripts/run_test_group.py unit
+  ✓ Post Run actions/setup-python@v5
+  ✓ Post Run actions/checkout@v4
+  ✓ Complete job
+✓ test (channel) in 15s (ID 121400052684)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run python scripts/run_test_group.py channel
+  ✓ Post Run actions/setup-python@v5
+  ✓ Post Run actions/checkout@v4
+  ✓ Complete job
+* test (router) (ID 121400052714)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  * Run python scripts/run_test_group.py router
+  * Post Run actions/setup-python@v5
+  * Post Run actions/checkout@v4
+✓ quality in 15s (ID 121400052748)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run actions/setup-node@v4
+  ✓ Run python -m pip install --upgrade pip "ruff==0.15.22" pillow
+  ✓ Run python -m compileall -q ciel_runtime.py ciel_runtime_support ciel-runtime-menu.py ciel-runtime-tool-guard.py scripts
+  ✓ Run python -m ruff check .
+  ✓ Run npm run check:docs
+  ✓ Run npm pack --dry-run
+  ✓ Post Run actions/setup-node@v4
+  ✓ Post Run actions/setup-python@v5
+  ✓ Post Run actions/checkout@v4
+  ✓ Complete job
+✓ test (runtime) in 53s (ID 121400052752)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run python scripts/run_test_group.py runtime
+  ✓ Post Run actions/setup-python@v5
+  ✓ Post Run actions/checkout@v4
+  ✓ Complete job
+✓ test (unit) in 2m24s (ID 121400052847)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run python scripts/run_test_group.py unit
+  ✓ Post Run actions/setup-python@v5
+  ✓ Post Run actions/checkout@v4
+  ✓ Complete job
+
+ANNOTATIONS
+! Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-python@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+test (channel): .github#2
+
+- "The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748"
+test (channel): .github#1
+
+! Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4, actions/setup-python@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+quality: .github#2
+
+- "The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748"
+quality: .github#1
+
+! Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-python@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+test (runtime): .github#2
+
+- "The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748"
+test (runtime): .github#1
+
+! Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-python@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+test (unit): .github#2
+
+- "The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748"
+test (unit): .github#1
+
+Refreshing run status every 30 seconds. Press Ctrl+C to quit.
+
+* nightly CI · 40269838107
+Triggered via push about 4 minutes ago
+
+JOBS
+✓ python-minimum in 2m55s (ID 121400052544)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run python -m compileall -q ciel_runtime.py ciel_runtime_support ciel-runtime-menu.py ciel-runtime-tool-guard.py scripts
+  ✓ Run python scripts/run_test_group.py unit
+  ✓ Post Run actions/setup-python@v5
+  ✓ Post Run actions/checkout@v4
+  ✓ Complete job
+✓ test (channel) in 15s (ID 121400052684)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run python scripts/run_test_group.py channel
+  ✓ Post Run actions/setup-python@v5
+  ✓ Post Run actions/checkout@v4
+  ✓ Complete job
+* test (router) (ID 121400052714)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  * Run python scripts/run_test_group.py router
+  * Post Run actions/setup-python@v5
+  * Post Run actions/checkout@v4
+✓ quality in 15s (ID 121400052748)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run actions/setup-node@v4
+  ✓ Run python -m pip install --upgrade pip "ruff==0.15.22" pillow
+  ✓ Run python -m compileall -q ciel_runtime.py ciel_runtime_support ciel-runtime-menu.py ciel-runtime-tool-guard.py scripts
+  ✓ Run python -m ruff check .
+  ✓ Run npm run check:docs
+  ✓ Run npm pack --dry-run
+  ✓ Post Run actions/setup-node@v4
+  ✓ Post Run actions/setup-python@v5
+  ✓ Post Run actions/checkout@v4
+  ✓ Complete job
+✓ test (runtime) in 53s (ID 121400052752)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run python scripts/run_test_group.py runtime
+  ✓ Post Run actions/setup-python@v5
+  ✓ Post Run actions/checkout@v4
+  ✓ Complete job
+✓ test (unit) in 2m24s (ID 121400052847)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run python scripts/run_test_group.py unit
+  ✓ Post Run actions/setup-python@v5
+  ✓ Post Run actions/checkout@v4
+  ✓ Complete job
+
+ANNOTATIONS
+! Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-python@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+test (channel): .github#2
+
+- "The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748"
+test (channel): .github#1
+
+! Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4, actions/setup-python@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+quality: .github#2
+
+- "The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748"
+quality: .github#1
+
+! Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-python@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+test (runtime): .github#2
+
+- "The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748"
+test (runtime): .github#1
+
+! Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-python@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+test (unit): .github#2
+
+- "The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748"
+test (unit): .github#1
+
+Refreshing run status every 30 seconds. Press Ctrl+C to quit.
+
+* nightly CI · 40269838107
+Triggered via push about 4 minutes ago
+
+JOBS
+✓ python-minimum in 2m55s (ID 121400052544)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run python -m compileall -q ciel_runtime.py ciel_runtime_support ciel-runtime-menu.py ciel-runtime-tool-guard.py scripts
+  ✓ Run python scripts/run_test_group.py unit
+  ✓ Post Run actions/setup-python@v5
+  ✓ Post Run actions/checkout@v4
+  ✓ Complete job
+✓ test (channel) in 15s (ID 121400052684)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run python scripts/run_test_group.py channel
+  ✓ Post Run actions/setup-python@v5
+  ✓ Post Run actions/checkout@v4
+  ✓ Complete job
+* test (router) (ID 121400052714)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  * Run python scripts/run_test_group.py router
+  * Post Run actions/setup-python@v5
+  * Post Run actions/checkout@v4
+✓ quality in 15s (ID 121400052748)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run actions/setup-node@v4
+  ✓ Run python -m pip install --upgrade pip "ruff==0.15.22" pillow
+  ✓ Run python -m compileall -q ciel_runtime.py ciel_runtime_support ciel-runtime-menu.py ciel-runtime-tool-guard.py scripts
+  ✓ Run python -m ruff check .
+  ✓ Run npm run check:docs
+  ✓ Run npm pack --dry-run
+  ✓ Post Run actions/setup-node@v4
+  ✓ Post Run actions/setup-python@v5
+  ✓ Post Run actions/checkout@v4
+  ✓ Complete job
+✓ test (runtime) in 53s (ID 121400052752)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run python scripts/run_test_group.py runtime
+  ✓ Post Run actions/setup-python@v5
+  ✓ Post Run actions/checkout@v4
+  ✓ Complete job
+✓ test (unit) in 2m24s (ID 121400052847)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run python scripts/run_test_group.py unit
+  ✓ Post Run actions/setup-python@v5
+  ✓ Post Run actions/checkout@v4
+  ✓ Complete job
+
+ANNOTATIONS
+! Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-python@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+test (channel): .github#2
+
+- "The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748"
+test (channel): .github#1
+
+! Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4, actions/setup-python@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+quality: .github#2
+
+- "The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748"
+quality: .github#1
+
+! Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-python@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+test (runtime): .github#2
+
+- "The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748"
+test (runtime): .github#1
+
+! Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-python@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+test (unit): .github#2
+
+- "The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748"
+test (unit): .github#1
+
+✓ nightly CI · 40269838107
+Triggered via push about 5 minutes ago
+
+JOBS
+✓ python-minimum in 2m55s (ID 121400052544)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run python -m compileall -q ciel_runtime.py ciel_runtime_support ciel-runtime-menu.py ciel-runtime-tool-guard.py scripts
+  ✓ Run python scripts/run_test_group.py unit
+  ✓ Post Run actions/setup-python@v5
+  ✓ Post Run actions/checkout@v4
+  ✓ Complete job
+✓ test (channel) in 15s (ID 121400052684)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run python scripts/run_test_group.py channel
+  ✓ Post Run actions/setup-python@v5
+  ✓ Post Run actions/checkout@v4
+  ✓ Complete job
+✓ test (router) in 5m11s (ID 121400052714)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run python scripts/run_test_group.py router
+  ✓ Post Run actions/setup-python@v5
+  ✓ Post Run actions/checkout@v4
+  ✓ Complete job
+✓ quality in 15s (ID 121400052748)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run actions/setup-node@v4
+  ✓ Run python -m pip install --upgrade pip "ruff==0.15.22" pillow
+  ✓ Run python -m compileall -q ciel_runtime.py ciel_runtime_support ciel-runtime-menu.py ciel-runtime-tool-guard.py scripts
+  ✓ Run python -m ruff check .
+  ✓ Run npm run check:docs
+  ✓ Run npm pack --dry-run
+  ✓ Post Run actions/setup-node@v4
+  ✓ Post Run actions/setup-python@v5
+  ✓ Post Run actions/checkout@v4
+  ✓ Complete job
+✓ test (runtime) in 53s (ID 121400052752)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run python scripts/run_test_group.py runtime
+  ✓ Post Run actions/setup-python@v5
+  ✓ Post Run actions/checkout@v4
+  ✓ Complete job
+✓ test (unit) in 2m24s (ID 121400052847)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run python scripts/run_test_group.py unit
+  ✓ Post Run actions/setup-python@v5
+  ✓ Post Run actions/checkout@v4
+  ✓ Complete job
+
+ANNOTATIONS
+! Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-python@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+test (channel): .github#2
+
+- "The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748"
+test (channel): .github#1
+
+! Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4, actions/setup-python@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+quality: .github#2
+
+- "The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748"
+quality: .github#1
+
+! Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-python@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+test (runtime): .github#2
+
+- "The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748"
+test (runtime): .github#1
+
+! Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-python@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+test (unit): .github#2
+
+- "The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748"
+test (unit): .github#1
+
+ci_exit=0

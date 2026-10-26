@@ -1,0 +1,129 @@
+{
+ "claude": "C:\\Users\\djlov\\.local\\bin\\claude.exe",
+ "mode": "resume",
+ "child_pid": 71604,
+ "seeded_sessions": [
+  "ca772567-ffcb-48d2-853f-6c2e5f1ee6b0"
+ ],
+ "launch_t": 4.13,
+ "seconds": 30.0,
+ "record_changes": [
+  {
+   "t": 4.84,
+   "file": "71604.json",
+   "sessionId": "ca772567-ffcb-48d2-853f-6c2e5f1ee6b0",
+   "status": null,
+   "statusUpdatedAt": null,
+   "socket_matches": true,
+   "peerFeatures": [
+    "notify_idle",
+    "artifact_yield"
+   ]
+  },
+  {
+   "t": 5.23,
+   "file": "71604.json",
+   "sessionId": "ca772567-ffcb-48d2-853f-6c2e5f1ee6b0",
+   "status": "idle",
+   "statusUpdatedAt": 1792866768494,
+   "socket_matches": true,
+   "peerFeatures": [
+    "notify_idle",
+    "artifact_yield"
+   ]
+  },
+  {
+   "t": 5.42,
+   "file": "71604.json",
+   "sessionId": "ca772567-ffcb-48d2-853f-6c2e5f1ee6b0",
+   "status": "busy",
+   "statusUpdatedAt": 1792866768791,
+   "socket_matches": true,
+   "peerFeatures": [
+    "notify_idle",
+    "artifact_yield"
+   ]
+  },
+  {
+   "t": 5.57,
+   "file": "71604.json",
+   "sessionId": "ca772567-ffcb-48d2-853f-6c2e5f1ee6b0",
+   "status": "idle",
+   "statusUpdatedAt": 1792866769018,
+   "socket_matches": true,
+   "peerFeatures": [
+    "notify_idle",
+    "artifact_yield"
+   ]
+  }
+ ],
+ "upstream": [
+  {
+   "t": 3.87,
+   "method": "POST",
+   "path": "/v1/messages?beta=true",
+   "session_header": "ca772567-ffcb-48d2-853f-6c2e5f1ee6b0",
+   "messages": 2,
+   "stream": true,
+   "external_marker": false
+  },
+  {
+   "t": 4.13,
+   "method": "-",
+   "path": "seed exit=0 transcripts=['ca772567-ffcb-48d2-853f-6c2e5f1ee6b0']"
+  },
+  {
+   "t": 5.5,
+   "method": "POST",
+   "path": "/v1/messages?beta=true",
+   "session_header": "ca772567-ffcb-48d2-853f-6c2e5f1ee6b0",
+   "messages": 4,
+   "stream": true,
+   "external_marker": true
+  }
+ ],
+ "delivery": {
+  "t": 5.26,
+  "sent": true,
+  "session": "ca772567-ffcb-48d2-853f-6c2e5f1ee6b0",
+  "request_observed_before_send": false
+ },
+ "logs": [
+  {
+   "t": 4.13,
+   "level": "INFO",
+   "text": "claude_session_socket_configured target=\\\\.\\pipe\\LOCAL\\cc-msg-probe46d11d61e0db"
+  },
+  {
+   "t": 4.15,
+   "level": "INFO",
+   "text": "runtime_compaction_scope admission=paused reason=identity_pending runtime=claude"
+  },
+  {
+   "t": 4.84,
+   "level": "INFO",
+   "text": "runtime_compaction_scope_bound runtime=claude session=ca772567-ffcb-48d2-853f-6c2e5f1ee6b0 via=socket"
+  },
+  {
+   "t": 4.86,
+   "level": "INFO",
+   "text": "runtime_compaction_scope admission=paused reason=request_identity_pending runtime=claude"
+  },
+  {
+   "t": 5.23,
+   "level": "INFO",
+   "text": "runtime_compaction_scope identity=ready reason=published_idle runtime=claude session=ca772567-ffcb-48d2-853f-6c2e5f1ee6b0"
+  },
+  {
+   "t": 5.25,
+   "level": "INFO",
+   "text": "runtime_compaction_seed runtime=claude session=ca772567-ffcb-48d2-853f-6c2e5f1ee6b0 native_input_tokens=10 input_budget=18000"
+  },
+  {
+   "t": 5.26,
+   "level": "INFO",
+   "text": "claude_session_socket_injected bytes=225 target=\\\\.\\pipe\\LOCAL\\cc-msg-probe46d11d61e0db"
+  }
+ ],
+ "scratch": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-idle-probe-1792866763"
+}

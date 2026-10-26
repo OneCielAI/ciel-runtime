@@ -1,0 +1,13 @@
+{"at": "2026-10-22T21:38:32.877612+00:00", "elapsed_s": 0.015, "kind": "launch", "argv": ["C:\\Users\\djlov\\.local\\share\\claude\\versions\\2.1.308", "--bare", "-p", "Reply only with the fixture response.", "--tools", "", "--strict-mcp-config", "--mcp-config", "{\"mcpServers\":{}}", "--setting-sources", "", "--disable-slash-commands", "--no-session-persistence", "--model", "claude-sonnet-5-5", "--max-turns", "1", "--output-format", "json"], "api_timeout_ms": 3000, "config_empty": true, "cwd_empty": true, "environment_keys": ["ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL", "API_TIMEOUT_MS", "APPDATA", "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", "CLAUDE_CODE_DISABLE_NONSTREAMING_FALLBACK", "CLAUDE_CODE_MAX_RETRIES", "CLAUDE_CODE_NONSTREAMING_TIMEOUT_RETRIES", "CLAUDE_CODE_RETRY_WATCHDOG", "CLAUDE_CONFIG_DIR", "COMSPEC", "DISABLE_AUTOUPDATER", "HOME", "LOCALAPPDATA", "NO_COLOR", "NO_PROXY", "NUMBER_OF_PROCESSORS", "PATH", "PATHEXT", "PROCESSOR_ARCHITECTURE", "SYSTEMDRIVE", "SYSTEMROOT", "TEMP", "TMP", "USERPROFILE", "WINDIR"], "controls": {"CLAUDE_CODE_MAX_RETRIES": "0", "CLAUDE_CODE_RETRY_WATCHDOG": "0", "CLAUDE_CODE_NONSTREAMING_TIMEOUT_RETRIES": "0", "CLAUDE_CODE_DISABLE_NONSTREAMING_FALLBACK": "1", "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"}}
+{"at": "2026-10-22T21:38:32.881612+00:00", "elapsed_s": 0.015, "kind": "owned_child_started", "pid": 52912}
+{"at": "2026-10-22T21:38:33.491944+00:00", "elapsed_s": 0.625, "kind": "messages_request", "path": "/v1/messages", "stream": true, "tools_count": 0, "request_bytes": 1035}
+{"at": "2026-10-22T21:38:33.492450+00:00", "elapsed_s": 0.625, "kind": "headers_flushed", "request_elapsed_s": 0.0}
+{"at": "2026-10-22T21:38:33.492450+00:00", "elapsed_s": 0.625, "kind": "ping_flushed", "request_elapsed_s": 0.0}
+{"at": "2026-10-22T21:38:34.497699+00:00", "elapsed_s": 1.625, "kind": "ping_flushed", "request_elapsed_s": 1.0}
+{"at": "2026-10-22T21:38:35.504203+00:00", "elapsed_s": 2.64, "kind": "ping_flushed", "request_elapsed_s": 2.015}
+{"at": "2026-10-22T21:38:36.497457+00:00", "elapsed_s": 3.625, "kind": "ping_flushed", "request_elapsed_s": 3.0}
+{"at": "2026-10-22T21:38:37.507551+00:00", "elapsed_s": 4.64, "kind": "ping_flushed", "request_elapsed_s": 4.015}
+{"at": "2026-10-22T21:38:38.499202+00:00", "elapsed_s": 5.625, "kind": "ping_flushed", "request_elapsed_s": 5.0}
+{"at": "2026-10-22T21:38:39.505082+00:00", "elapsed_s": 6.64, "kind": "ping_flushed", "request_elapsed_s": 6.015}
+{"at": "2026-10-22T21:38:40.497972+00:00", "elapsed_s": 7.625, "kind": "ping_flushed", "request_elapsed_s": 7.0}
+{"at": "2026-10-22T21:38:41.509173+00:00", "elapsed_s": 8.64, "kind": "real_message_flushed", "request_elapsed_s": 8.015}

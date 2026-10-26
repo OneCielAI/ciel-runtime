@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ctypes
 import json
 import os
 import socket
@@ -41,6 +42,8 @@ def probe_router_health(port: int, timeout: float = 0.15) -> dict[str, Any] | No
 def port_is_free(port: int) -> bool:
     probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
+        if hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
+            probe.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
         probe.bind(("127.0.0.1", port))
         return True
     except OSError:
@@ -54,6 +57,112 @@ def port_is_free(port: int) -> bool:
 # ports (9464-9495) were reserved while only 6 were listening, and a new
 # workspace could not start.
 ROUTER_PORT_SCAN_SIZE = 50
+ROUTER_LAUNCH_LEASE_SECONDS = 30.0
+
+
+def _process_identity(pid: int) -> str | None:
+    """Return a live creation token, empty for dead, or None for unknown.
+
+    Do not use pid_is_running's false result here: inspection failures must
+    preserve reservations, rather than look like a verified dead process.
+    """
+
+    if pid <= 0:
+        return None
+    if os.name == "nt":
+        try:
+            kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+            kernel32.OpenProcess.argtypes = (ctypes.c_uint32, ctypes.c_int, ctypes.c_uint32)
+            kernel32.OpenProcess.restype = ctypes.c_void_p
+            kernel32.GetProcessTimes.argtypes = (ctypes.c_void_p,) + (ctypes.POINTER(ctypes.c_ulonglong),) * 4
+            kernel32.GetProcessTimes.restype = ctypes.c_int
+            kernel32.CloseHandle.argtypes = (ctypes.c_void_p,)
+            handle = kernel32.OpenProcess(0x1000, False, pid)
+            if not handle:
+                error = ctypes.get_last_error()
+                return "" if error in (2, 3, 87) else None
+            try:
+                times = [ctypes.c_ulonglong() for _ in range(4)]
+                if not kernel32.GetProcessTimes(handle, *(ctypes.byref(value) for value in times)):
+                    return None
+                return "" if times[1].value else str(times[0].value)
+            finally:
+                kernel32.CloseHandle(handle)
+        except Exception:
+            return None
+    try:
+        # The command in parentheses may itself contain spaces or parentheses.
+        fields = Path(f"/proc/{pid}/stat").read_text(encoding="ascii").rsplit(")", 1)[1].split()
+        return fields[19]
+    except FileNotFoundError:
+        if Path("/proc/self/stat").exists():
+            return ""
+    except (OSError, ValueError, IndexError):
+        pass
+    return None
+
+
+def _launch_record(target: str, port: int, reservation: str = "auto") -> dict[str, Any]:
+    pid = os.getpid()
+    return {
+        "workspace": target,
+        "port": port,
+        "reservation": reservation,
+        "launch_lease": {
+            "pid": pid,
+            "identity": _process_identity(pid),
+            "expires_at": time.time() + ROUTER_LAUNCH_LEASE_SECONDS,
+        },
+    }
+
+
+def _inactive_reservation(record: dict[str, Any], registry_path: Path) -> bool:
+    """Prove inactivity without modifying instance files or processes."""
+
+    if record.get("reservation", "auto") != "auto":
+        return False
+    workspace = workspace_identity(record.get("workspace"))
+    if not workspace:
+        return False
+    try:
+        lease = record.get("launch_lease")
+        if lease is not None:
+            if not isinstance(lease, dict):
+                return False
+            # A live/reused/unknown PID remains protected even after expiry.
+            if _process_identity(int(lease["pid"])) != "":
+                return False
+            expires = float(lease["expires_at"])
+            if not 0 < expires <= time.time():
+                return False
+        # Keep all recorded live owners, including PIDs reused by other
+        # processes. Legacy instance files only carry PIDs, not birth tokens.
+        if "owner_pid" in record and _process_identity(int(record["owner_pid"])) != "":
+            return False
+        root = registry_path.parent / "router-instances"
+        instance = root / f"{int(record['port'])}-{workspace_digest(workspace)}"
+        if instance.exists() and not instance.is_dir():
+            return False
+        pid_path = instance / "router.pid"
+        if pid_path.exists() and _process_identity(int(pid_path.read_text().strip())) != "":
+            return False
+        clients = instance / "router-clients"
+        if clients.exists():
+            for path in clients.iterdir():
+                if path.suffix != ".json":
+                    continue
+                client = json.loads(path.read_text(encoding="utf-8"))
+                if _process_identity(int(client["pid"])) != "":
+                    return False
+        # stat, unlike exists(), keeps permission/IO failures explicit.
+        for path in (root, instance, pid_path, clients):
+            try:
+                path.stat()
+            except FileNotFoundError:
+                pass
+        return True
+    except (OSError, ValueError, TypeError, KeyError):
+        return False
 
 
 def select_workspace_router_port(
@@ -95,7 +204,10 @@ def select_workspace_router_port(
         except FileExistsError:
             try:
                 stale = time.time() - lock_path.stat().st_mtime > 30.0
-            except OSError:
+                if stale:
+                    lock_pid = int(lock_path.read_text(encoding="ascii").strip())
+                    stale = _process_identity(lock_pid) == ""
+            except (OSError, ValueError):
                 stale = False
             if stale:
                 try:
@@ -120,30 +232,61 @@ def select_workspace_router_port(
                 registry,
                 health,
                 available,
+                environ,
             )
             return base_port
-        own_record = records.get(key) if isinstance(records, dict) else None
-        if isinstance(own_record, dict):
-            try:
-                mapped_port = int(own_record.get("port") or 0)
-            except (TypeError, ValueError):
-                mapped_port = 0
-            if 1 <= mapped_port <= 65535:
-                observed = health(mapped_port)
-                running_workspace = workspace_identity(
-                    observed.get("workspace") if isinstance(observed, dict) else ""
-                )
-                if running_workspace == target or (observed is None and available(mapped_port)):
-                    return mapped_port
+        # Scan live health before honoring even our own offline mapping.
+        maximum = min(65535, base_port + max(1, scan_size) - 1)
+        observed_ports = {port: health(port) for port in range(base_port, maximum + 1)}
+        own_record = records.get(key)
+        mapped_port = _record_port(own_record)
+        if mapped_port and mapped_port not in observed_ports:
+            observed_ports[mapped_port] = health(mapped_port)
+        for port, observed in observed_ports.items():
+            if isinstance(observed, dict) and workspace_identity(observed.get("workspace")) == target:
+                if port != mapped_port:
+                    records[key] = {"workspace": target, "port": port, "reservation": "auto"}
+                    _save_registry(registry_path, registry)
+                return port
+
+        if mapped_port and _lease_held_by_parent(own_record):
+            return mapped_port
+
+        if mapped_port and observed_ports[mapped_port] is None and available(mapped_port):
+            _check_own_launch_lease(own_record)
+            reservation = own_record.get("reservation", "auto")
+            records[key] = _launch_record(target, mapped_port, reservation)
+            _save_registry(registry_path, registry)
+            return mapped_port
 
         reserved = {
-            int(record.get("port") or 0)
+            _record_port(record)
             for record_key, record in records.items()
-            if record_key != key and isinstance(record, dict)
-            and str(record.get("port") or "").isdigit()
+            if record_key != key
         }
-        selected = _select_port(base_port, target, health, available, scan_size, reserved)
-        records[key] = {"workspace": target, "port": selected}
+        try:
+            selected = _select_port(
+                base_port, target, observed_ports.get, available, scan_size, reserved
+            )
+        except RuntimeError:
+            selected = 0
+            for port in range(base_port, maximum + 1):
+                owners = [record for record in records.values() if _record_port(record) == port]
+                if not owners or observed_ports[port] is not None or not available(port):
+                    continue
+                if (
+                    all(_inactive_reservation(record, registry_path) for record in owners)
+                    and health(port) is None
+                    and available(port)
+                ):
+                    selected = port
+                    break
+            if not selected:
+                raise
+            for record_key in list(records):
+                if _record_port(records[record_key]) == selected:
+                    del records[record_key]
+        records[key] = _launch_record(target, selected)
         _save_registry(registry_path, registry)
         return selected
     finally:
@@ -155,6 +298,54 @@ def select_workspace_router_port(
                 lock_path.unlink()
             except OSError:
                 pass
+
+
+def _record_port(record: Any) -> int:
+    try:
+        port = int(record.get("port") or 0) if isinstance(record, dict) else 0
+        return port if 1 <= port <= 65535 else 0
+    except (TypeError, ValueError):
+        return 0
+
+
+def _lease_held_by_parent(record: Any) -> bool:
+    """Return whether the live launch lease belongs to this process's parent.
+
+    The menu takes the lease when it starts, before any router exists, and
+    then runs helpers such as `cli backup create` that import runtime_paths.
+    Menu backups on Regina (2026-10-24 20:48 and 10-25 02:02 UTC) failed
+    against their own parent's lease. A direct child belongs to the same
+    launch: it reuses the port and leaves the parent's lease untouched.
+    """
+
+    lease = record.get("launch_lease") if isinstance(record, dict) else None
+    if not isinstance(lease, dict):
+        return False
+    try:
+        pid = int(lease["pid"])
+        identity = lease.get("identity")
+        return bool(identity) and pid == os.getppid() and _process_identity(pid) == identity
+    except (TypeError, ValueError, KeyError):
+        return False
+
+
+def _check_own_launch_lease(record: dict[str, Any]) -> None:
+    lease = record.get("launch_lease")
+    if lease is None:
+        return
+    try:
+        pid = int(lease["pid"])
+        current = _process_identity(pid)
+        if pid == os.getpid() and current and current == lease.get("identity"):
+            return
+        float(lease["expires_at"])  # Validate the stored lease shape.
+        # A verified-dead owner cannot still be launching, even if its short
+        # lease had not elapsed when the process disappeared.
+        if current == "":
+            return
+    except (TypeError, ValueError, KeyError):
+        pass
+    raise RuntimeError("workspace router launch already reserved by another or unknown process")
 
 
 def _select_port(
@@ -196,6 +387,7 @@ def _claim_explicit_port(
     registry: dict[str, Any],
     health: Callable[[int], dict[str, Any] | None],
     available: Callable[[int], bool],
+    environ: Mapping[str, str],
 ) -> None:
     for record_key, record in records.items():
         if record_key == key or not isinstance(record, dict):
@@ -224,8 +416,32 @@ def _claim_explicit_port(
             f"ciel-runtime port {port} is already used by another local service; "
             f"choose a different CIEL_RUNTIME_ROUTER_PORT for {target}"
         )
-    records[key] = {"workspace": target, "port": port}
-    _save_registry(registry_path, registry)
+    own_record = records.get(key)
+    # The router child inherits an explicit endpoint from its launcher. It
+    # must neither turn that automatic claim into an explicit one nor steal
+    # the launcher's lease while it imports runtime_paths.
+    inherited = False
+    if isinstance(own_record, dict) and _record_port(own_record) == port:
+        lease = own_record.get("launch_lease")
+        if isinstance(lease, dict):
+            try:
+                owner_pid = int(environ.get("CIEL_RUNTIME_ROUTER_OWNER_PID") or 0)
+                inherited = (
+                    environ.get("CIEL_RUNTIME_MANAGED_ROUTER") == "1"
+                    and owner_pid == os.getppid() == int(lease["pid"])
+                    and bool(lease.get("identity"))
+                    and _process_identity(owner_pid) == lease["identity"]
+                )
+            except (TypeError, ValueError, KeyError):
+                pass
+        # Other helpers of the launcher (backup with an explicit port) share
+        # the launch the same way.
+        inherited = inherited or _lease_held_by_parent(own_record)
+        if observed is None and not inherited:
+            _check_own_launch_lease(own_record)
+    if not inherited:
+        records[key] = _launch_record(target, port, "explicit")
+        _save_registry(registry_path, registry)
 
 
 def _load_registry(path: Path) -> dict[str, Any]:

@@ -15,6 +15,7 @@ from ciel_runtime_support.runtime_compaction_control import (
     RuntimeCompactionControl,
     RuntimeCompactionPolicy,
     RuntimeCompactionPorts,
+    build_runtime_compaction_control,
     native_checkpoint_from_transcript,
 )
 from ciel_runtime_support.secure_json_repository import SecureJsonEffects, SecureJsonRepository
@@ -33,7 +34,7 @@ def boundary(session_id, when, identity="checkpoint-1"):
         "type": "system", "subtype": "compact_boundary", "sessionId": session_id,
         "timestamp": datetime.fromtimestamp(when, timezone.utc).isoformat(),
         "uuid": identity, "isSidechain": False,
-        "compactMetadata": {"trigger": "auto", "preTokens": 1200, "postTokens": 120},
+        "compactMetadata": {"preTokens": 1200, "postTokens": 120},
     }
 
 
@@ -70,6 +71,15 @@ class _ControllerHarness(unittest.TestCase):
             compact_kind=compact_kind, log=lambda *args: self.logs.append(args),
             now=lambda: self.clock,
         ), RuntimeCompactionPolicy(confirmation_timeout_seconds=10, retry_cooldown_seconds=3, max_attempts=2))
+
+    def factory(self):
+        return build_runtime_compaction_control(
+            self.state.path, scope=lambda: self.scope,
+            transcript_path=lambda: self.trace, requests=self.repository,
+            compact_kind=compact_kind, log=lambda *args: self.logs.append(args),
+            policy=RuntimeCompactionPolicy(
+                confirmation_timeout_seconds=10, retry_cooldown_seconds=3, max_attempts=2),
+        )
 
     def request(self, tokens=1200, body=None):
         with patch("ciel_runtime_support.channel_compact_request_repository.time.time", return_value=self.clock):
@@ -205,6 +215,54 @@ class RuntimeCompactionControlTests(_ControllerHarness):
         self.assertTrue(self.control.external_admission_paused())
         self.assertEqual("retry_wait", self.snapshot()["phase"])
 
+    def test_manual_compact_releases_on_its_own_boundary_without_a_retry(self):
+        # /compact has no pending turn to retry, so the boundary postTokens is
+        # the only measurement that will ever exist (Regina 2026-10-23).
+        native = {"messages": [{"role": "user", "content": "<command-name>/compact</command-name>"}]}
+        self.request(1200, native)
+        self.assertEqual("compacting", self.snapshot()["phase"])
+        self.clock += 1
+        record = boundary("session-a", self.clock)
+        record["compactMetadata"]["trigger"] = "manual"
+        self.append(record)
+        self.assertFalse(self.control.external_admission_paused())
+        state = self.snapshot()
+        self.assertEqual("verified", state["phase"])
+        self.assertEqual(120, state["next_raw_tokens"])
+        self.assertTrue(any("evidence=manual_checkpoint_post_tokens" in str(item) for item in self.logs))
+
+    def test_auto_compact_releases_from_fresh_boundary_without_another_request(self):
+        native = {"messages": [{"role": "user", "content": "<command-name>/compact</command-name>"}]}
+        self.request(1200, native)
+        self.clock += 1
+        record = boundary("session-a", self.clock)
+        record["compactMetadata"]["trigger"] = "auto"
+        self.append(record)
+        self.assertFalse(self.control.external_admission_paused())
+        self.assertEqual("verified", self.snapshot()["phase"])
+        self.assertTrue(any("evidence=auto_checkpoint_post_tokens" in str(row) for row in self.logs))
+
+    def test_auto_boundary_without_valid_post_count_keeps_gate_closed(self):
+        for post_tokens in (0, 1500):
+            with self.subTest(post_tokens=post_tokens):
+                native = {"messages": [{"role": "user", "content": "<command-name>/compact</command-name>"}]}
+                self.request(1200, native)
+                self.clock += 1
+                record = boundary("session-a", self.clock, str(post_tokens))
+                record["compactMetadata"].update(trigger="auto", postTokens=post_tokens)
+                self.append(record)
+                self.assertTrue(self.control.external_admission_paused())
+
+    def test_manual_compact_whose_boundary_is_still_full_stays_bounded(self):
+        native = {"messages": [{"role": "user", "content": "<command-name>/compact</command-name>"}]}
+        self.request(1200, native)
+        self.clock += 1
+        record = boundary("session-a", self.clock)
+        record["compactMetadata"].update({"trigger": "manual", "postTokens": 1500})
+        self.append(record)
+        self.assertTrue(self.control.external_admission_paused())
+        self.assertEqual("retry_wait", self.snapshot()["phase"])
+
     def test_historical_wrong_session_and_quoted_markers_do_not_confirm(self):
         self.append(boundary("session-a", self.clock - 5, "old"))
         self.request()
@@ -281,6 +339,29 @@ class RuntimeCompactionControlTests(_ControllerHarness):
         self.clock += 50
         self.assertTrue(self.control.external_admission_paused())
         self.assertIsNone(self.repository.read())
+
+    def test_unreadable_state_is_quarantined_and_a_new_cycle_can_verify(self):
+        self.state.path.write_text("not json", encoding="utf-8")
+        control = self.factory()
+        # An unreadable file is moved aside once, not allowed to block forever.
+        self.assertFalse(control.external_admission_paused())
+        quarantined = sorted(self.root.glob("control.json.corrupt-*"))
+        self.assertEqual(1, len(quarantined))
+        self.assertEqual("not json", quarantined[0].read_text(encoding="utf-8"))
+        self.assertIsNone(self.repository.read())
+        # The next measured request still controls safety: a full context
+        # pauses admission until the cycle proves a smaller request.
+        with patch("ciel_runtime_support.channel_compact_request_repository.time.time", return_value=self.clock):
+            control.observe_request({"messages": [{"role": "user", "content": "big"}]}, 1200, 1000)
+        self.assertTrue(control.external_admission_paused())
+        request = self.repository.read()
+        self.assertIsNotNone(request)
+        self.assertTrue(control.command_ready(request))
+        control.command_submitted(request)
+        self.repository.clear(request["id"])
+        self.append(boundary("session-a", self.clock))
+        control.observe_request({"messages": [{"role": "user", "content": "small"}]}, 120, 1000)
+        self.assertFalse(control.external_admission_paused())
 
     def test_corrupt_state_fails_closed_without_consuming_command(self):
         self.state.path.write_text("not json", encoding="utf-8")

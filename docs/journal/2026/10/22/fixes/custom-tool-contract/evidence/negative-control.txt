@@ -1,0 +1,491 @@
+Selected runtime: C:\Users\djlov\AppData\Local\Temp\ciel-contract-control-uyind6ah
+Exact files: test_responses_custom_contract.py
+test_additional_tools_catalogue_is_collected_with_empty_top_level_tools (test_responses_custom_contract.ResponsesCustomHelperTests.test_additional_tools_catalogue_is_collected_with_empty_top_level_tools) ... FAIL
+test_ambiguous_bare_name_is_not_guessed_but_aliases_resolve (test_responses_custom_contract.ResponsesCustomHelperTests.test_ambiguous_bare_name_is_not_guessed_but_aliases_resolve) ... 
+  test_ambiguous_bare_name_is_not_guessed_but_aliases_resolve (test_responses_custom_contract.ResponsesCustomHelperTests.test_ambiguous_bare_name_is_not_guessed_but_aliases_resolve) (name='functions', item={'id': 'fc_exec', 'type': 'function_call', 'status': 'completed', 'call_id': 'call_exec', 'name': 'functions__exec', 'arguments': '{"input": "const text = \'한글 café 🚀\';\\nconsole.log(text);"}'}) ... FAIL
+  test_ambiguous_bare_name_is_not_guessed_but_aliases_resolve (test_responses_custom_contract.ResponsesCustomHelperTests.test_ambiguous_bare_name_is_not_guessed_but_aliases_resolve) (name='functions', item={'id': 'fc_exec', 'type': 'function_call', 'status': 'completed', 'call_id': 'call_exec', 'name': 'exec', 'arguments': '{"input": "const text = \'한글 café 🚀\';\\nconsole.log(text);"}', 'namespace': 'functions'}) ... FAIL
+  test_ambiguous_bare_name_is_not_guessed_but_aliases_resolve (test_responses_custom_contract.ResponsesCustomHelperTests.test_ambiguous_bare_name_is_not_guessed_but_aliases_resolve) (name='other', item={'id': 'fc_exec', 'type': 'function_call', 'status': 'completed', 'call_id': 'call_exec', 'name': 'other__exec', 'arguments': '{"input": "const text = \'한글 café 🚀\';\\nconsole.log(text);"}'}) ... FAIL
+  test_ambiguous_bare_name_is_not_guessed_but_aliases_resolve (test_responses_custom_contract.ResponsesCustomHelperTests.test_ambiguous_bare_name_is_not_guessed_but_aliases_resolve) (name='other', item={'id': 'fc_exec', 'type': 'function_call', 'status': 'completed', 'call_id': 'call_exec', 'name': 'exec', 'arguments': '{"input": "const text = \'한글 café 🚀\';\\nconsole.log(text);"}', 'namespace': 'other'}) ... FAIL
+test_argument_done_can_match_by_index_without_item_id (test_responses_custom_contract.ResponsesCustomHelperTests.test_argument_done_can_match_by_index_without_item_id) ... ok
+test_exact_top_level_function_owns_bare_exec_not_namespace_custom (test_responses_custom_contract.ResponsesCustomHelperTests.test_exact_top_level_function_owns_bare_exec_not_namespace_custom) ... FAIL
+test_native_and_unrelated_sse_frames_keep_exact_wire_bytes (test_responses_custom_contract.ResponsesCustomHelperTests.test_native_and_unrelated_sse_frames_keep_exact_wire_bytes) ... 
+  test_native_and_unrelated_sse_frames_keep_exact_wire_bytes (test_responses_custom_contract.ResponsesCustomHelperTests.test_native_and_unrelated_sse_frames_keep_exact_wire_bytes) (item_type='custom_tool_call') ... FAIL
+  test_native_and_unrelated_sse_frames_keep_exact_wire_bytes (test_responses_custom_contract.ResponsesCustomHelperTests.test_native_and_unrelated_sse_frames_keep_exact_wire_bytes) (item_type='function_call') ... FAIL
+test_native_custom_item_is_not_reinterpreted (test_responses_custom_contract.ResponsesCustomHelperTests.test_native_custom_item_is_not_reinterpreted) ... ok
+test_sse_event_field_supplies_missing_json_type (test_responses_custom_contract.ResponsesCustomHelperTests.test_sse_event_field_supplies_missing_json_type) ... FAIL
+test_sse_every_single_split_including_multibyte_utf8 (test_responses_custom_contract.ResponsesCustomHelperTests.test_sse_every_single_split_including_multibyte_utf8) ... FAIL
+test_sse_spacing_crlf_and_bytewise_utf8_boundaries (test_responses_custom_contract.ResponsesCustomHelperTests.test_sse_spacing_crlf_and_bytewise_utf8_boundaries) ... 
+  test_sse_spacing_crlf_and_bytewise_utf8_boundaries (test_responses_custom_contract.ResponsesCustomHelperTests.test_sse_spacing_crlf_and_bytewise_utf8_boundaries) (space='', newline='\n') ... FAIL
+  test_sse_spacing_crlf_and_bytewise_utf8_boundaries (test_responses_custom_contract.ResponsesCustomHelperTests.test_sse_spacing_crlf_and_bytewise_utf8_boundaries) (space='', newline='\r\n') ... FAIL
+  test_sse_spacing_crlf_and_bytewise_utf8_boundaries (test_responses_custom_contract.ResponsesCustomHelperTests.test_sse_spacing_crlf_and_bytewise_utf8_boundaries) (space=' ', newline='\n') ... FAIL
+  test_sse_spacing_crlf_and_bytewise_utf8_boundaries (test_responses_custom_contract.ResponsesCustomHelperTests.test_sse_spacing_crlf_and_bytewise_utf8_boundaries) (space=' ', newline='\r\n') ... FAIL
+test_top_level_custom_exec_unwraps_input_without_mutating_sources (test_responses_custom_contract.ResponsesCustomHelperTests.test_top_level_custom_exec_unwraps_input_without_mutating_sources) ... ok
+test_unique_namespace_accepts_bare_alias_and_explicit_identity (test_responses_custom_contract.ResponsesCustomHelperTests.test_unique_namespace_accepts_bare_alias_and_explicit_identity) ... 
+  test_unique_namespace_accepts_bare_alias_and_explicit_identity (test_responses_custom_contract.ResponsesCustomHelperTests.test_unique_namespace_accepts_bare_alias_and_explicit_identity) (item={'id': 'fc_exec', 'type': 'function_call', 'status': 'completed', 'call_id': 'call_exec', 'name': 'exec', 'arguments': '{"input": "const text = \'한글 café 🚀\';\\nconsole.log(text);"}'}) ... FAIL
+  test_unique_namespace_accepts_bare_alias_and_explicit_identity (test_responses_custom_contract.ResponsesCustomHelperTests.test_unique_namespace_accepts_bare_alias_and_explicit_identity) (item={'id': 'fc_exec', 'type': 'function_call', 'status': 'completed', 'call_id': 'call_exec', 'name': 'functions__exec', 'arguments': '{"input": "const text = \'한글 café 🚀\';\\nconsole.log(text);"}'}) ... FAIL
+  test_unique_namespace_accepts_bare_alias_and_explicit_identity (test_responses_custom_contract.ResponsesCustomHelperTests.test_unique_namespace_accepts_bare_alias_and_explicit_identity) (item={'id': 'fc_exec', 'type': 'function_call', 'status': 'completed', 'call_id': 'call_exec', 'name': 'exec', 'arguments': '{"input": "const text = \'한글 café 🚀\';\\nconsole.log(text);"}', 'namespace': 'functions'}) ... FAIL
+test_unrelated_function_arguments_preserve_whitespace_and_float (test_responses_custom_contract.ResponsesCustomHelperTests.test_unrelated_function_arguments_preserve_whitespace_and_float) ... ok
+test_ambiguous_namespace_bare_is_untouched_but_alias_is_repaired (test_responses_custom_contract.ResponsesCustomPassthroughTests.test_ambiguous_namespace_bare_is_untouched_but_alias_is_repaired) ... 
+  test_ambiguous_namespace_bare_is_untouched_but_alias_is_repaired (test_responses_custom_contract.ResponsesCustomPassthroughTests.test_ambiguous_namespace_bare_is_untouched_but_alias_is_repaired) (name='functions__exec') ... FAIL
+test_flagged_meta_integer_normalization_stays_enabled (test_responses_custom_contract.ResponsesCustomPassthroughTests.test_flagged_meta_integer_normalization_stays_enabled) ... ok
+test_genuine_function_wire_is_exact_without_conversion_flag (test_responses_custom_contract.ResponsesCustomPassthroughTests.test_genuine_function_wire_is_exact_without_conversion_flag) ... ok
+test_native_buffered_stream_repairs_custom_without_flag (test_responses_custom_contract.ResponsesCustomPassthroughTests.test_native_buffered_stream_repairs_custom_without_flag) ... 
+  test_native_buffered_stream_repairs_custom_without_flag (test_responses_custom_contract.ResponsesCustomPassthroughTests.test_native_buffered_stream_repairs_custom_without_flag) (config={}, name='exec') ... FAIL
+  test_native_buffered_stream_repairs_custom_without_flag (test_responses_custom_contract.ResponsesCustomPassthroughTests.test_native_buffered_stream_repairs_custom_without_flag) (config={}, name='functions__exec') ... FAIL
+  test_native_buffered_stream_repairs_custom_without_flag (test_responses_custom_contract.ResponsesCustomPassthroughTests.test_native_buffered_stream_repairs_custom_without_flag) (config={'responses_custom_tools_as_functions': False}, name='exec') ... FAIL
+  test_native_buffered_stream_repairs_custom_without_flag (test_responses_custom_contract.ResponsesCustomPassthroughTests.test_native_buffered_stream_repairs_custom_without_flag) (config={'responses_custom_tools_as_functions': False}, name='functions__exec') ... FAIL
+test_native_custom_payload_remains_native (test_responses_custom_contract.ResponsesCustomPassthroughTests.test_native_custom_payload_remains_native) ... ok
+test_nonstream_custom_repair_needs_no_flag_or_false_flag (test_responses_custom_contract.ResponsesCustomPassthroughTests.test_nonstream_custom_repair_needs_no_flag_or_false_flag) ... 
+  test_nonstream_custom_repair_needs_no_flag_or_false_flag (test_responses_custom_contract.ResponsesCustomPassthroughTests.test_nonstream_custom_repair_needs_no_flag_or_false_flag) (config={}, declared=[{'type': 'custom', 'name': 'exec', 'format': {'type': 'text'}}]) ... FAIL
+  test_nonstream_custom_repair_needs_no_flag_or_false_flag (test_responses_custom_contract.ResponsesCustomPassthroughTests.test_nonstream_custom_repair_needs_no_flag_or_false_flag) (config={}, declared=[{'type': 'namespace', 'name': 'functions', 'tools': [{'type': 'custom', 'name': 'exec', 'format': {'type': 'text'}}]}]) ... FAIL
+  test_nonstream_custom_repair_needs_no_flag_or_false_flag (test_responses_custom_contract.ResponsesCustomPassthroughTests.test_nonstream_custom_repair_needs_no_flag_or_false_flag) (config={'responses_custom_tools_as_functions': False}, declared=[{'type': 'custom', 'name': 'exec', 'format': {'type': 'text'}}]) ... FAIL
+  test_nonstream_custom_repair_needs_no_flag_or_false_flag (test_responses_custom_contract.ResponsesCustomPassthroughTests.test_nonstream_custom_repair_needs_no_flag_or_false_flag) (config={'responses_custom_tools_as_functions': False}, declared=[{'type': 'namespace', 'name': 'functions', 'tools': [{'type': 'custom', 'name': 'exec', 'format': {'type': 'text'}}]}]) ... FAIL
+test_remote_bridge_new_restoration_guard_is_not_applied_without_flag (test_responses_custom_contract.ResponsesCustomPassthroughTests.test_remote_bridge_new_restoration_guard_is_not_applied_without_flag) ... ok
+test_top_level_function_precedence_does_not_normalize_without_flag (test_responses_custom_contract.ResponsesCustomPassthroughTests.test_top_level_function_precedence_does_not_normalize_without_flag) ... ok
+test_unbuffered_stream_collects_additional_tools_before_normalizing (test_responses_custom_contract.ResponsesCustomPassthroughTests.test_unbuffered_stream_collects_additional_tools_before_normalizing) ... FAIL
+test_unrelated_function_wire_is_exact_with_custom_catalogue_present (test_responses_custom_contract.ResponsesCustomPassthroughTests.test_unrelated_function_wire_is_exact_with_custom_catalogue_present) ... ok
+
+======================================================================
+FAIL: test_additional_tools_catalogue_is_collected_with_empty_top_level_tools (test_responses_custom_contract.ResponsesCustomHelperTests.test_additional_tools_catalogue_is_collected_with_empty_top_level_tools)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-custom-contract\tests\test_responses_custom_contract.py", line 150, in test_additional_tools_catalogue_is_collected_with_empty_top_level_tools
+    self.assert_custom(result["output"][0], namespace_name="functions")
+  File "C:\Users\djlov\ciel-runtime-wt-custom-contract\tests\test_responses_custom_contract.py", line 99, in assert_custom
+    self.assertEqual("custom_tool_call", item["type"])
+AssertionError: 'custom_tool_call' != 'function_call'
+- custom_tool_call
++ function_call
+
+
+======================================================================
+FAIL: test_ambiguous_bare_name_is_not_guessed_but_aliases_resolve (test_responses_custom_contract.ResponsesCustomHelperTests.test_ambiguous_bare_name_is_not_guessed_but_aliases_resolve) (name='functions', item={'id': 'fc_exec', 'type': 'function_call', 'status': 'completed', 'call_id': 'call_exec', 'name': 'functions__exec', 'arguments': '{"input": "const text = \'한글 café 🚀\';\\nconsole.log(text);"}'})
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-custom-contract\tests\test_responses_custom_contract.py", line 159, in test_ambiguous_bare_name_is_not_guessed_but_aliases_resolve
+    self.assert_custom(project_response_payload(response_payload(item), tools)
+  File "C:\Users\djlov\ciel-runtime-wt-custom-contract\tests\test_responses_custom_contract.py", line 99, in assert_custom
+    self.assertEqual("custom_tool_call", item["type"])
+AssertionError: 'custom_tool_call' != 'function_call'
+- custom_tool_call
++ function_call
+
+
+======================================================================
+FAIL: test_ambiguous_bare_name_is_not_guessed_but_aliases_resolve (test_responses_custom_contract.ResponsesCustomHelperTests.test_ambiguous_bare_name_is_not_guessed_but_aliases_resolve) (name='functions', item={'id': 'fc_exec', 'type': 'function_call', 'status': 'completed', 'call_id': 'call_exec', 'name': 'exec', 'arguments': '{"input": "const text = \'한글 café 🚀\';\\nconsole.log(text);"}', 'namespace': 'functions'})
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-custom-contract\tests\test_responses_custom_contract.py", line 159, in test_ambiguous_bare_name_is_not_guessed_but_aliases_resolve
+    self.assert_custom(project_response_payload(response_payload(item), tools)
+  File "C:\Users\djlov\ciel-runtime-wt-custom-contract\tests\test_responses_custom_contract.py", line 99, in assert_custom
+    self.assertEqual("custom_tool_call", item["type"])
+AssertionError: 'custom_tool_call' != 'function_call'
+- custom_tool_call
++ function_call
+
+
+======================================================================
+FAIL: test_ambiguous_bare_name_is_not_guessed_but_aliases_resolve (test_responses_custom_contract.ResponsesCustomHelperTests.test_ambiguous_bare_name_is_not_guessed_but_aliases_resolve) (name='other', item={'id': 'fc_exec', 'type': 'function_call', 'status': 'completed', 'call_id': 'call_exec', 'name': 'other__exec', 'arguments': '{"input": "const text = \'한글 café 🚀\';\\nconsole.log(text);"}'})
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-custom-contract\tests\test_responses_custom_contract.py", line 159, in test_ambiguous_bare_name_is_not_guessed_but_aliases_resolve
+    self.assert_custom(project_response_payload(response_payload(item), tools)
+  File "C:\Users\djlov\ciel-runtime-wt-custom-contract\tests\test_responses_custom_contract.py", line 99, in assert_custom
+    self.assertEqual("custom_tool_call", item["type"])
+AssertionError: 'custom_tool_call' != 'function_call'
+- custom_tool_call
++ function_call
+
+
+======================================================================
+FAIL: test_ambiguous_bare_name_is_not_guessed_but_aliases_resolve (test_responses_custom_contract.ResponsesCustomHelperTests.test_ambiguous_bare_name_is_not_guessed_but_aliases_resolve) (name='other', item={'id': 'fc_exec', 'type': 'function_call', 'status': 'completed', 'call_id': 'call_exec', 'name': 'exec', 'arguments': '{"input": "const text = \'한글 café 🚀\';\\nconsole.log(text);"}', 'namespace': 'other'})
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-custom-contract\tests\test_responses_custom_contract.py", line 159, in test_ambiguous_bare_name_is_not_guessed_but_aliases_resolve
+    self.assert_custom(project_response_payload(response_payload(item), tools)
+  File "C:\Users\djlov\ciel-runtime-wt-custom-contract\tests\test_responses_custom_contract.py", line 99, in assert_custom
+    self.assertEqual("custom_tool_call", item["type"])
+AssertionError: 'custom_tool_call' != 'function_call'
+- custom_tool_call
++ function_call
+
+
+======================================================================
+FAIL: test_exact_top_level_function_owns_bare_exec_not_namespace_custom (test_responses_custom_contract.ResponsesCustomHelperTests.test_exact_top_level_function_owns_bare_exec_not_namespace_custom)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-custom-contract\tests\test_responses_custom_contract.py", line 173, in test_exact_top_level_function_owns_bare_exec_not_namespace_custom
+    self.assert_custom(project_response_payload(
+  File "C:\Users\djlov\ciel-runtime-wt-custom-contract\tests\test_responses_custom_contract.py", line 99, in assert_custom
+    self.assertEqual("custom_tool_call", item["type"])
+AssertionError: 'custom_tool_call' != 'function_call'
+- custom_tool_call
++ function_call
+
+
+======================================================================
+FAIL: test_native_and_unrelated_sse_frames_keep_exact_wire_bytes (test_responses_custom_contract.ResponsesCustomHelperTests.test_native_and_unrelated_sse_frames_keep_exact_wire_bytes) (item_type='custom_tool_call')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-custom-contract\tests\test_responses_custom_contract.py", line 235, in test_native_and_unrelated_sse_frames_keep_exact_wire_bytes
+    self.assertEqual(wire, project_chunks(wire,
+AssertionError: b'eve[313 chars];"}}\r\n\r\nevent: response.completed\r\ndata:[394 chars]\r\n' != b'eve[313 chars];"}}\n\nevent: response.completed\r\ndata:{"ty[386 chars]\n\n'
+
+======================================================================
+FAIL: test_native_and_unrelated_sse_frames_keep_exact_wire_bytes (test_responses_custom_contract.ResponsesCustomHelperTests.test_native_and_unrelated_sse_frames_keep_exact_wire_bytes) (item_type='function_call')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-custom-contract\tests\test_responses_custom_contract.py", line 235, in test_native_and_unrelated_sse_frames_keep_exact_wire_bytes
+    self.assertEqual(wire, project_chunks(wire,
+AssertionError: b'eve[250 chars] "}}\r\n\r\nevent: response.completed\r\ndata:[331 chars]\r\n' != b'eve[250 chars] "}}\n\nevent: response.completed\r\ndata:{"ty[323 chars]\n\n'
+
+======================================================================
+FAIL: test_sse_event_field_supplies_missing_json_type (test_responses_custom_contract.ResponsesCustomHelperTests.test_sse_event_field_supplies_missing_json_type)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-custom-contract\tests\test_responses_custom_contract.py", line 212, in test_sse_event_field_supplies_missing_json_type
+    self.assert_stream_custom(project_chunks(wire, tool_definitions({"tools": [CUSTOM]}),
+  File "C:\Users\djlov\ciel-runtime-wt-custom-contract\tests\test_responses_custom_contract.py", line 112, in assert_stream_custom
+    self.assertEqual([
+AssertionError: Lists differ: ['res[31 chars]onse.custom_tool_call_input.delta', 'response.[75 chars]ted'] != ['res[31 chars]onse.function_call_arguments.delta', 'response[77 chars]ted']
+
+First differing element 1:
+'response.custom_tool_call_input.delta'
+'response.function_call_arguments.delta'
+
+  ['response.output_item.added',
+-  'response.custom_tool_call_input.delta',
+-  'response.custom_tool_call_input.done',
++  'response.function_call_arguments.delta',
++  'response.function_call_arguments.done',
+   'response.output_item.done',
+   'response.completed']
+
+======================================================================
+FAIL: test_sse_every_single_split_including_multibyte_utf8 (test_responses_custom_contract.ResponsesCustomHelperTests.test_sse_every_single_split_including_multibyte_utf8)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-custom-contract\tests\test_responses_custom_contract.py", line 205, in test_sse_every_single_split_including_multibyte_utf8
+    self.assert_stream_custom(expected)
+  File "C:\Users\djlov\ciel-runtime-wt-custom-contract\tests\test_responses_custom_contract.py", line 112, in assert_stream_custom
+    self.assertEqual([
+AssertionError: Lists differ: ['res[31 chars]onse.custom_tool_call_input.delta', 'response.[75 chars]ted'] != ['res[31 chars]onse.function_call_arguments.delta', 'response[77 chars]ted']
+
+First differing element 1:
+'response.custom_tool_call_input.delta'
+'response.function_call_arguments.delta'
+
+  ['response.output_item.added',
+-  'response.custom_tool_call_input.delta',
+-  'response.custom_tool_call_input.done',
++  'response.function_call_arguments.delta',
++  'response.function_call_arguments.done',
+   'response.output_item.done',
+   'response.completed']
+
+======================================================================
+FAIL: test_sse_spacing_crlf_and_bytewise_utf8_boundaries (test_responses_custom_contract.ResponsesCustomHelperTests.test_sse_spacing_crlf_and_bytewise_utf8_boundaries) (space='', newline='\n')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-custom-contract\tests\test_responses_custom_contract.py", line 198, in test_sse_spacing_crlf_and_bytewise_utf8_boundaries
+    self.assert_stream_custom(project_chunks(wire, tools, range(1, len(wire))),
+  File "C:\Users\djlov\ciel-runtime-wt-custom-contract\tests\test_responses_custom_contract.py", line 112, in assert_stream_custom
+    self.assertEqual([
+AssertionError: Lists differ: ['res[31 chars]onse.custom_tool_call_input.delta', 'response.[75 chars]ted'] != ['res[31 chars]onse.function_call_arguments.delta', 'response[77 chars]ted']
+
+First differing element 1:
+'response.custom_tool_call_input.delta'
+'response.function_call_arguments.delta'
+
+  ['response.output_item.added',
+-  'response.custom_tool_call_input.delta',
+-  'response.custom_tool_call_input.done',
++  'response.function_call_arguments.delta',
++  'response.function_call_arguments.done',
+   'response.output_item.done',
+   'response.completed']
+
+======================================================================
+FAIL: test_sse_spacing_crlf_and_bytewise_utf8_boundaries (test_responses_custom_contract.ResponsesCustomHelperTests.test_sse_spacing_crlf_and_bytewise_utf8_boundaries) (space='', newline='\r\n')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-custom-contract\tests\test_responses_custom_contract.py", line 198, in test_sse_spacing_crlf_and_bytewise_utf8_boundaries
+    self.assert_stream_custom(project_chunks(wire, tools, range(1, len(wire))),
+  File "C:\Users\djlov\ciel-runtime-wt-custom-contract\tests\test_responses_custom_contract.py", line 112, in assert_stream_custom
+    self.assertEqual([
+AssertionError: Lists differ: ['res[31 chars]onse.custom_tool_call_input.delta', 'response.[75 chars]ted'] != ['res[31 chars]onse.function_call_arguments.delta', 'response[77 chars]ted']
+
+First differing element 1:
+'response.custom_tool_call_input.delta'
+'response.function_call_arguments.delta'
+
+  ['response.output_item.added',
+-  'response.custom_tool_call_input.delta',
+-  'response.custom_tool_call_input.done',
++  'response.function_call_arguments.delta',
++  'response.function_call_arguments.done',
+   'response.output_item.done',
+   'response.completed']
+
+======================================================================
+FAIL: test_sse_spacing_crlf_and_bytewise_utf8_boundaries (test_responses_custom_contract.ResponsesCustomHelperTests.test_sse_spacing_crlf_and_bytewise_utf8_boundaries) (space=' ', newline='\n')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-custom-contract\tests\test_responses_custom_contract.py", line 198, in test_sse_spacing_crlf_and_bytewise_utf8_boundaries
+    self.assert_stream_custom(project_chunks(wire, tools, range(1, len(wire))),
+  File "C:\Users\djlov\ciel-runtime-wt-custom-contract\tests\test_responses_custom_contract.py", line 112, in assert_stream_custom
+    self.assertEqual([
+AssertionError: Lists differ: ['res[31 chars]onse.custom_tool_call_input.delta', 'response.[75 chars]ted'] != ['res[31 chars]onse.function_call_arguments.delta', 'response[77 chars]ted']
+
+First differing element 1:
+'response.custom_tool_call_input.delta'
+'response.function_call_arguments.delta'
+
+  ['response.output_item.added',
+-  'response.custom_tool_call_input.delta',
+-  'response.custom_tool_call_input.done',
++  'response.function_call_arguments.delta',
++  'response.function_call_arguments.done',
+   'response.output_item.done',
+   'response.completed']
+
+======================================================================
+FAIL: test_sse_spacing_crlf_and_bytewise_utf8_boundaries (test_responses_custom_contract.ResponsesCustomHelperTests.test_sse_spacing_crlf_and_bytewise_utf8_boundaries) (space=' ', newline='\r\n')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-custom-contract\tests\test_responses_custom_contract.py", line 198, in test_sse_spacing_crlf_and_bytewise_utf8_boundaries
+    self.assert_stream_custom(project_chunks(wire, tools, range(1, len(wire))),
+  File "C:\Users\djlov\ciel-runtime-wt-custom-contract\tests\test_responses_custom_contract.py", line 112, in assert_stream_custom
+    self.assertEqual([
+AssertionError: Lists differ: ['res[31 chars]onse.custom_tool_call_input.delta', 'response.[75 chars]ted'] != ['res[31 chars]onse.function_call_arguments.delta', 'response[77 chars]ted']
+
+First differing element 1:
+'response.custom_tool_call_input.delta'
+'response.function_call_arguments.delta'
+
+  ['response.output_item.added',
+-  'response.custom_tool_call_input.delta',
+-  'response.custom_tool_call_input.done',
++  'response.function_call_arguments.delta',
++  'response.function_call_arguments.done',
+   'response.output_item.done',
+   'response.completed']
+
+======================================================================
+FAIL: test_unique_namespace_accepts_bare_alias_and_explicit_identity (test_responses_custom_contract.ResponsesCustomHelperTests.test_unique_namespace_accepts_bare_alias_and_explicit_identity) (item={'id': 'fc_exec', 'type': 'function_call', 'status': 'completed', 'call_id': 'call_exec', 'name': 'exec', 'arguments': '{"input": "const text = \'한글 café 🚀\';\\nconsole.log(text);"}'})
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-custom-contract\tests\test_responses_custom_contract.py", line 142, in test_unique_namespace_accepts_bare_alias_and_explicit_identity
+    self.assert_custom(project_response_payload(response_payload(item), tools)
+  File "C:\Users\djlov\ciel-runtime-wt-custom-contract\tests\test_responses_custom_contract.py", line 99, in assert_custom
+    self.assertEqual("custom_tool_call", item["type"])
+AssertionError: 'custom_tool_call' != 'function_call'
+- custom_tool_call
++ function_call
+
+
+======================================================================
+FAIL: test_unique_namespace_accepts_bare_alias_and_explicit_identity (test_responses_custom_contract.ResponsesCustomHelperTests.test_unique_namespace_accepts_bare_alias_and_explicit_identity) (item={'id': 'fc_exec', 'type': 'function_call', 'status': 'completed', 'call_id': 'call_exec', 'name': 'functions__exec', 'arguments': '{"input": "const text = \'한글 café 🚀\';\\nconsole.log(text);"}'})
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-custom-contract\tests\test_responses_custom_contract.py", line 142, in test_unique_namespace_accepts_bare_alias_and_explicit_identity
+    self.assert_custom(project_response_payload(response_payload(item), tools)
+  File "C:\Users\djlov\ciel-runtime-wt-custom-contract\tests\test_responses_custom_contract.py", line 99, in assert_custom
+    self.assertEqual("custom_tool_call", item["type"])
+AssertionError: 'custom_tool_call' != 'function_call'
+- custom_tool_call
++ function_call
+
+
+======================================================================
+FAIL: test_unique_namespace_accepts_bare_alias_and_explicit_identity (test_responses_custom_contract.ResponsesCustomHelperTests.test_unique_namespace_accepts_bare_alias_and_explicit_identity) (item={'id': 'fc_exec', 'type': 'function_call', 'status': 'completed', 'call_id': 'call_exec', 'name': 'exec', 'arguments': '{"input": "const text = \'한글 café 🚀\';\\nconsole.log(text);"}', 'namespace': 'functions'})
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-custom-contract\tests\test_responses_custom_contract.py", line 142, in test_unique_namespace_accepts_bare_alias_and_explicit_identity
+    self.assert_custom(project_response_payload(response_payload(item), tools)
+  File "C:\Users\djlov\ciel-runtime-wt-custom-contract\tests\test_responses_custom_contract.py", line 99, in assert_custom
+    self.assertEqual("custom_tool_call", item["type"])
+AssertionError: 'custom_tool_call' != 'function_call'
+- custom_tool_call
++ function_call
+
+
+======================================================================
+FAIL: test_ambiguous_namespace_bare_is_untouched_but_alias_is_repaired (test_responses_custom_contract.ResponsesCustomPassthroughTests.test_ambiguous_namespace_bare_is_untouched_but_alias_is_repaired) (name='functions__exec')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-custom-contract\tests\test_responses_custom_contract.py", line 325, in test_ambiguous_namespace_bare_is_untouched_but_alias_is_repaired
+    self.assert_custom(json.loads(output)["output"][0], namespace_name="functions")
+  File "C:\Users\djlov\ciel-runtime-wt-custom-contract\tests\test_responses_custom_contract.py", line 99, in assert_custom
+    self.assertEqual("custom_tool_call", item["type"])
+AssertionError: 'custom_tool_call' != 'function_call'
+- custom_tool_call
++ function_call
+
+
+======================================================================
+FAIL: test_native_buffered_stream_repairs_custom_without_flag (test_responses_custom_contract.ResponsesCustomPassthroughTests.test_native_buffered_stream_repairs_custom_without_flag) (config={}, name='exec')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-custom-contract\tests\test_responses_custom_contract.py", line 305, in test_native_buffered_stream_repairs_custom_without_flag
+    self.assert_stream_custom(output, namespace_name="functions")
+  File "C:\Users\djlov\ciel-runtime-wt-custom-contract\tests\test_responses_custom_contract.py", line 112, in assert_stream_custom
+    self.assertEqual([
+AssertionError: Lists differ: ['res[31 chars]onse.custom_tool_call_input.delta', 'response.[75 chars]ted'] != ['res[31 chars]onse.function_call_arguments.delta', 'response[77 chars]ted']
+
+First differing element 1:
+'response.custom_tool_call_input.delta'
+'response.function_call_arguments.delta'
+
+  ['response.output_item.added',
+-  'response.custom_tool_call_input.delta',
+-  'response.custom_tool_call_input.done',
++  'response.function_call_arguments.delta',
++  'response.function_call_arguments.done',
+   'response.output_item.done',
+   'response.completed']
+
+======================================================================
+FAIL: test_native_buffered_stream_repairs_custom_without_flag (test_responses_custom_contract.ResponsesCustomPassthroughTests.test_native_buffered_stream_repairs_custom_without_flag) (config={}, name='functions__exec')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-custom-contract\tests\test_responses_custom_contract.py", line 305, in test_native_buffered_stream_repairs_custom_without_flag
+    self.assert_stream_custom(output, namespace_name="functions")
+  File "C:\Users\djlov\ciel-runtime-wt-custom-contract\tests\test_responses_custom_contract.py", line 112, in assert_stream_custom
+    self.assertEqual([
+AssertionError: Lists differ: ['res[31 chars]onse.custom_tool_call_input.delta', 'response.[75 chars]ted'] != ['res[31 chars]onse.function_call_arguments.delta', 'response[77 chars]ted']
+
+First differing element 1:
+'response.custom_tool_call_input.delta'
+'response.function_call_arguments.delta'
+
+  ['response.output_item.added',
+-  'response.custom_tool_call_input.delta',
+-  'response.custom_tool_call_input.done',
++  'response.function_call_arguments.delta',
++  'response.function_call_arguments.done',
+   'response.output_item.done',
+   'response.completed']
+
+======================================================================
+FAIL: test_native_buffered_stream_repairs_custom_without_flag (test_responses_custom_contract.ResponsesCustomPassthroughTests.test_native_buffered_stream_repairs_custom_without_flag) (config={'responses_custom_tools_as_functions': False}, name='exec')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-custom-contract\tests\test_responses_custom_contract.py", line 305, in test_native_buffered_stream_repairs_custom_without_flag
+    self.assert_stream_custom(output, namespace_name="functions")
+  File "C:\Users\djlov\ciel-runtime-wt-custom-contract\tests\test_responses_custom_contract.py", line 112, in assert_stream_custom
+    self.assertEqual([
+AssertionError: Lists differ: ['res[31 chars]onse.custom_tool_call_input.delta', 'response.[75 chars]ted'] != ['res[31 chars]onse.function_call_arguments.delta', 'response[77 chars]ted']
+
+First differing element 1:
+'response.custom_tool_call_input.delta'
+'response.function_call_arguments.delta'
+
+  ['response.output_item.added',
+-  'response.custom_tool_call_input.delta',
+-  'response.custom_tool_call_input.done',
++  'response.function_call_arguments.delta',
++  'response.function_call_arguments.done',
+   'response.output_item.done',
+   'response.completed']
+
+======================================================================
+FAIL: test_native_buffered_stream_repairs_custom_without_flag (test_responses_custom_contract.ResponsesCustomPassthroughTests.test_native_buffered_stream_repairs_custom_without_flag) (config={'responses_custom_tools_as_functions': False}, name='functions__exec')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-custom-contract\tests\test_responses_custom_contract.py", line 305, in test_native_buffered_stream_repairs_custom_without_flag
+    self.assert_stream_custom(output, namespace_name="functions")
+  File "C:\Users\djlov\ciel-runtime-wt-custom-contract\tests\test_responses_custom_contract.py", line 112, in assert_stream_custom
+    self.assertEqual([
+AssertionError: Lists differ: ['res[31 chars]onse.custom_tool_call_input.delta', 'response.[75 chars]ted'] != ['res[31 chars]onse.function_call_arguments.delta', 'response[77 chars]ted']
+
+First differing element 1:
+'response.custom_tool_call_input.delta'
+'response.function_call_arguments.delta'
+
+  ['response.output_item.added',
+-  'response.custom_tool_call_input.delta',
+-  'response.custom_tool_call_input.done',
++  'response.function_call_arguments.delta',
++  'response.function_call_arguments.done',
+   'response.output_item.done',
+   'response.completed']
+
+======================================================================
+FAIL: test_nonstream_custom_repair_needs_no_flag_or_false_flag (test_responses_custom_contract.ResponsesCustomPassthroughTests.test_nonstream_custom_repair_needs_no_flag_or_false_flag) (config={}, declared=[{'type': 'custom', 'name': 'exec', 'format': {'type': 'text'}}])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-custom-contract\tests\test_responses_custom_contract.py", line 294, in test_nonstream_custom_repair_needs_no_flag_or_false_flag
+    self.assert_custom(json.loads(output)["output"][0], namespace_name=(
+  File "C:\Users\djlov\ciel-runtime-wt-custom-contract\tests\test_responses_custom_contract.py", line 99, in assert_custom
+    self.assertEqual("custom_tool_call", item["type"])
+AssertionError: 'custom_tool_call' != 'function_call'
+- custom_tool_call
++ function_call
+
+
+======================================================================
+FAIL: test_nonstream_custom_repair_needs_no_flag_or_false_flag (test_responses_custom_contract.ResponsesCustomPassthroughTests.test_nonstream_custom_repair_needs_no_flag_or_false_flag) (config={}, declared=[{'type': 'namespace', 'name': 'functions', 'tools': [{'type': 'custom', 'name': 'exec', 'format': {'type': 'text'}}]}])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-custom-contract\tests\test_responses_custom_contract.py", line 294, in test_nonstream_custom_repair_needs_no_flag_or_false_flag
+    self.assert_custom(json.loads(output)["output"][0], namespace_name=(
+  File "C:\Users\djlov\ciel-runtime-wt-custom-contract\tests\test_responses_custom_contract.py", line 99, in assert_custom
+    self.assertEqual("custom_tool_call", item["type"])
+AssertionError: 'custom_tool_call' != 'function_call'
+- custom_tool_call
++ function_call
+
+
+======================================================================
+FAIL: test_nonstream_custom_repair_needs_no_flag_or_false_flag (test_responses_custom_contract.ResponsesCustomPassthroughTests.test_nonstream_custom_repair_needs_no_flag_or_false_flag) (config={'responses_custom_tools_as_functions': False}, declared=[{'type': 'custom', 'name': 'exec', 'format': {'type': 'text'}}])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-custom-contract\tests\test_responses_custom_contract.py", line 294, in test_nonstream_custom_repair_needs_no_flag_or_false_flag
+    self.assert_custom(json.loads(output)["output"][0], namespace_name=(
+  File "C:\Users\djlov\ciel-runtime-wt-custom-contract\tests\test_responses_custom_contract.py", line 99, in assert_custom
+    self.assertEqual("custom_tool_call", item["type"])
+AssertionError: 'custom_tool_call' != 'function_call'
+- custom_tool_call
++ function_call
+
+
+======================================================================
+FAIL: test_nonstream_custom_repair_needs_no_flag_or_false_flag (test_responses_custom_contract.ResponsesCustomPassthroughTests.test_nonstream_custom_repair_needs_no_flag_or_false_flag) (config={'responses_custom_tools_as_functions': False}, declared=[{'type': 'namespace', 'name': 'functions', 'tools': [{'type': 'custom', 'name': 'exec', 'format': {'type': 'text'}}]}])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-custom-contract\tests\test_responses_custom_contract.py", line 294, in test_nonstream_custom_repair_needs_no_flag_or_false_flag
+    self.assert_custom(json.loads(output)["output"][0], namespace_name=(
+  File "C:\Users\djlov\ciel-runtime-wt-custom-contract\tests\test_responses_custom_contract.py", line 99, in assert_custom
+    self.assertEqual("custom_tool_call", item["type"])
+AssertionError: 'custom_tool_call' != 'function_call'
+- custom_tool_call
++ function_call
+
+
+======================================================================
+FAIL: test_unbuffered_stream_collects_additional_tools_before_normalizing (test_responses_custom_contract.ResponsesCustomPassthroughTests.test_unbuffered_stream_collects_additional_tools_before_normalizing)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-custom-contract\tests\test_responses_custom_contract.py", line 314, in test_unbuffered_stream_collects_additional_tools_before_normalizing
+    self.assert_stream_custom(output, namespace_name="functions")
+  File "C:\Users\djlov\ciel-runtime-wt-custom-contract\tests\test_responses_custom_contract.py", line 112, in assert_stream_custom
+    self.assertEqual([
+AssertionError: Lists differ: ['res[31 chars]onse.custom_tool_call_input.delta', 'response.[75 chars]ted'] != ['res[31 chars]onse.function_call_arguments.delta', 'response[77 chars]ted']
+
+First differing element 1:
+'response.custom_tool_call_input.delta'
+'response.function_call_arguments.delta'
+
+  ['response.output_item.added',
+-  'response.custom_tool_call_input.delta',
+-  'response.custom_tool_call_input.done',
++  'response.function_call_arguments.delta',
++  'response.function_call_arguments.done',
+   'response.output_item.done',
+   'response.completed']
+
+----------------------------------------------------------------------
+Ran 22 tests in 0.028s
+
+FAILED (failures=27)

@@ -1,0 +1,29 @@
+{
+  "version": "0.2.51-nightly.20261020-193048.f6fc7ac",
+  "gitHead": "f6fc7ac656629a39e0508726b505f861c5524a96",
+  "tags": {
+    "latest": "0.2.51",
+    "nightly": "0.2.51-nightly.20261020-193048.f6fc7ac"
+  },
+  "dist": {
+    "shasum": "1eccd049bdc10df6821c52ffd018e4989968dd85",
+    "tarball": "https://registry.npmjs.org/@one-ciel-ai/ciel-runtime/-/ciel-runtime-0.2.51-nightly.20261020-193048.f6fc7ac.tgz",
+    "fileCount": 485,
+    "integrity": "sha512-ICeWmFwxB6vAT6Bw1+qaDjcmz9NUgCjb44x8TMbpRiFLeBKchC33pVDRjzcEMM2Rv76M6R/VavnKiiaLvcCEFQ==",
+    "signatures": [
+      {
+        "sig": "MEQCIGK4YSDPmHIQxXixyXfEqCENTJJ7f8C73ZxbQtfuYfXwAiB2tHntaopCL9qhMD5sxFxO3betPlnRpEi3+f3uyZx57g==",
+        "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+      },
+      {
+        "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U",
+        "sig": "MEUCIQCk2jGW/rzrkg2LGrymbbUayCneg/W/f9O76UJ2LHFoIgIgP0qsKzWfoFsBBC1xjZ226Tw5H13D/IPlsiR+Ksvip9w="
+      }
+    ],
+    "unpackedSize": 6269075
+  },
+  "tarball_sha256": "ea0b0e9c1c7ed9003f3f9d25abd9f63efeee6b86deb4a1283b9c81f1def251ef",
+  "tarball_bytes": 1407994,
+  "files": 485,
+  "package_dir": "docs\\journal\\2026\\10\\20\\releases\\codex-remote-crash\\evidence\\payload\\unpack\\package"
+}

@@ -87,6 +87,80 @@ class ExternalEventMenuTests(unittest.TestCase):
             "available": True, "accepted": False})
         self.assertIn("rejected", messages[0])
 
+    def test_sse_recovery_row_shows_tool_evidence_and_only_resets_on_evidence(self):
+        def control(action, body=None):
+            if action == "status":
+                return {"available": True, "status": {"state": "connected"}}
+            if action == "sse_status":
+                return {"available": True, "result": {
+                    "ok": True, "problem": True, "reset": False,
+                    "evidence": {"reasons": ["queued_input_stale"],
+                                 "known_queued_count": 3,
+                                 "oldest_queued_age_seconds": 400.0}}}
+            if action == "sse_recover":
+                return {"available": True, "result": {
+                    "ok": True, "problem": True, "reset": True,
+                    "evidence": {"reasons": ["queued_input_stale"]}}}
+            return {"available": False}
+
+        rows, values = panel_rows(_Service(), "http://127.0.0.1:6971", control=control)
+        self.assertIn("recover_sse_delivery", values)
+        status = next(row for row in rows if row.startswith("SSE delivery recovery"))
+        self.assertIn("problem", status)
+        self.assertIn("queued_input_stale", status)
+        self.assertIn("queued 3", status)
+
+        messages = update_config(_Service(), "recover_sse_delivery", None, control=control)
+        self.assertIn("restart queued", messages[0])
+        self.assertIn("not delivery confirmation", messages[1])
+
+    def test_sse_recovery_refuses_without_evidence_or_tool(self):
+        def control(action, body=None):
+            if action == "status":
+                return {"available": True, "status": {}}
+            if action == "sse_status":
+                return {"available": True, "result": {
+                    "ok": True, "problem": False, "reset": False,
+                    "evidence": {"reasons": [], "known_queued_count": 0}}}
+            if action == "sse_recover":
+                return {"available": True, "result": {
+                    "ok": True, "problem": False, "reset": False,
+                    "reason": "no_sse_delivery_problem", "evidence": {"reasons": []}}}
+            return {"available": False}
+
+        rows, _ = panel_rows(_Service(), "http://127.0.0.1:6971", control=control)
+        self.assertIn("ok", next(row for row in rows if row.startswith("SSE delivery recovery")))
+        messages = update_config(_Service(), "recover_sse_delivery", None, control=control)
+        self.assertIn("No session was restarted", messages[0])
+        unavailable = update_config(_Service(), "recover_sse_delivery", None,
+                                    control=lambda *_a, **_k: {"available": False})
+        self.assertIn("unavailable", unavailable[0])
+
+    def test_unobservable_sse_health_is_not_labelled_ok(self):
+        def control(action, body=None):
+            if action == "status":
+                return {"available": True, "status": {}}
+            return {"available": True, "result": {
+                "ok": True, "problem": False, "reset": False,
+                "evidence": {"observable": False, "reason": "delivery_health_unavailable:OSError"}}}
+        rows, _ = panel_rows(_Service(), "http://127.0.0.1:6971", control=control)
+        row = next(row for row in rows if row.startswith("SSE delivery recovery"))
+        self.assertIn("unavailable", row)
+        self.assertNotIn("[ok", row)
+
+    def test_compaction_recovery_reason_and_evidence_time_are_visible(self):
+        rows, values = panel_rows(_Service(), "http://127.0.0.1:1", control=lambda *_args: {
+            "available": True, "status": {}, "result": {"compaction": {
+                "phase": "awaiting_shrink", "failure": "shrink_unconfirmed",
+                "checkpoint_observed_at": 100, "failure_at": 200}}})
+        row = next(row for row in rows if row.startswith("Compaction recovery"))
+        self.assertIn("awaiting_shrink", row)
+        self.assertIn("shrink_unconfirmed", row)
+        self.assertIn("checkpoint observed 100", row)
+        self.assertIn("failure at 200", row)
+        self.assertEqual("__info__", values[rows.index(row)])
+        print(row)
+
     def test_idle_timeout_is_set_and_blank_clears_it_explicitly(self):
         service = _Service()
         update_config(service, "idle_timeout_seconds", "45")

@@ -1,0 +1,24 @@
+CIEL_RUNTIME_CODEX_APP_SERVER_LISTEN=ws://127.0.0.1:62902
+CIEL_RUNTIME_CODEX_CLEAN_UNTRACKED=0
+CIEL_RUNTIME_CONFIG_DIR=C:\Users\djlov\AppData\Local\Temp\ciel-plan-e2e-fixed-votli5ga\cfg
+CIEL_RUNTIME_ROUTER_PORT=62901
+CIEL_RUNTIME_SKIP_MENU=1
+CIEL_RUNTIME_SSE_TRACE=1
+CIEL_RUNTIME_STARTUP_AUTO_ANSWER=1
+CIEL_RUNTIME_TEST_ISOLATED=1
+CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
+CLAUDE_CONFIG_DIR=C:\Users\djlov\AppData\Local\Temp\ciel-plan-e2e-fixed-votli5ga\claude-config
+Environment variable ANTHROPIC  not defined
+CODEX_HOME=C:\Users\djlov\AppData\Local\Temp\ciel-plan-e2e-fixed-votli5ga\codex-home
+Environment variable OPENAI  not defined
+HOME=C:\Users\djlov\AppData\Local\Temp\ciel-plan-e2e-fixed-votli5ga\home
+HOMEDRIVE=C:
+HOMEPATH=\Users\djlov\AppData\Local\Temp\ciel-plan-e2e-fixed-votli5ga\home
+USERPROFILE=C:\Users\djlov\AppData\Local\Temp\ciel-plan-e2e-fixed-votli5ga\home
+APPDATA=C:\Users\djlov\AppData\Local\Temp\ciel-plan-e2e-fixed-votli5ga\home\AppData\Roaming
+LOCALAPPDATA=C:\Users\djlov\AppData\Local\Temp\ciel-plan-e2e-fixed-votli5ga\home\AppData\Local
+TEMP=C:\Users\djlov\AppData\Local\Temp\ciel-plan-e2e-fixed-votli5ga\home\AppData\Local\Temp
+HTTPS_PROXY=http://127.0.0.1:62900
+HTTP_PROXY=http://127.0.0.1:62900
+ALL_PROXY=http://127.0.0.1:62900
+NO_PROXY=127.0.0.1,localhost,::1

@@ -1,0 +1,116 @@
+{
+ "Before": [
+  {
+   "t": "2026-10-22T15:21:27.549Z",
+   "type": "custom_tool_call",
+   "name": "exec",
+   "context": {
+    "t": "2026-10-22T14:05:05.974Z",
+    "model": "ciel-runtime-cielairouter-_walkie_dk41-1017-sonnet55-sol61",
+    "provider": null,
+    "effort": "high"
+   }
+  },
+  {
+   "t": "2026-10-22T15:21:58.392Z",
+   "type": "custom_tool_call",
+   "name": "exec",
+   "context": {
+    "t": "2026-10-22T14:05:05.974Z",
+    "model": "ciel-runtime-cielairouter-_walkie_dk41-1017-sonnet55-sol61",
+    "provider": null,
+    "effort": "high"
+   }
+  },
+  {
+   "t": "2026-10-22T15:22:31.970Z",
+   "type": "custom_tool_call",
+   "name": "exec",
+   "context": {
+    "t": "2026-10-22T14:05:05.974Z",
+    "model": "ciel-runtime-cielairouter-_walkie_dk41-1017-sonnet55-sol61",
+    "provider": null,
+    "effort": "high"
+   }
+  },
+  {
+   "t": "2026-10-22T15:23:07.706Z",
+   "type": "custom_tool_call",
+   "name": "exec",
+   "context": {
+    "t": "2026-10-22T14:05:05.974Z",
+    "model": "ciel-runtime-cielairouter-_walkie_dk41-1017-sonnet55-sol61",
+    "provider": null,
+    "effort": "high"
+   }
+  },
+  {
+   "t": "2026-10-22T15:23:45.082Z",
+   "type": "custom_tool_call",
+   "name": "exec",
+   "context": {
+    "t": "2026-10-22T14:05:05.974Z",
+    "model": "ciel-runtime-cielairouter-_walkie_dk41-1017-sonnet55-sol61",
+    "provider": null,
+    "effort": "high"
+   }
+  }
+ ],
+ "After": [
+  {
+   "t": "2026-10-22T16:18:46.162Z",
+   "type": "function_call",
+   "name": "exec",
+   "context": {
+    "t": "2026-10-22T16:17:55.957Z",
+    "model": "ciel-runtime-cielairouter-_walkie_sol61-opus55-fast",
+    "provider": null,
+    "effort": "high"
+   }
+  },
+  {
+   "t": "2026-10-22T16:18:50.091Z",
+   "type": "function_call",
+   "name": "exec",
+   "context": {
+    "t": "2026-10-22T16:17:55.957Z",
+    "model": "ciel-runtime-cielairouter-_walkie_sol61-opus55-fast",
+    "provider": null,
+    "effort": "high"
+   }
+  },
+  {
+   "t": "2026-10-22T16:18:55.302Z",
+   "type": "function_call",
+   "name": "exec",
+   "context": {
+    "t": "2026-10-22T16:17:55.957Z",
+    "model": "ciel-runtime-cielairouter-_walkie_sol61-opus55-fast",
+    "provider": null,
+    "effort": "high"
+   }
+  },
+  {
+   "t": "2026-10-22T16:19:00.981Z",
+   "type": "function_call",
+   "name": "exec",
+   "context": {
+    "t": "2026-10-22T16:17:55.957Z",
+    "model": "ciel-runtime-cielairouter-_walkie_sol61-opus55-fast",
+    "provider": null,
+    "effort": "high"
+   }
+  },
+  {
+   "t": "2026-10-22T16:19:07.802Z",
+   "type": "function_call",
+   "name": "exec",
+   "context": {
+    "t": "2026-10-22T16:17:55.957Z",
+    "model": "ciel-runtime-cielairouter-_walkie_sol61-opus55-fast",
+    "provider": null,
+    "effort": "high"
+   }
+  }
+ ]
+}

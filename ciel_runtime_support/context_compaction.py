@@ -4,17 +4,22 @@ import time
 import re
 import urllib.error
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Callable
 
+from .context_compaction_progress import MapProgress, stable_digest
 from .context_summary_policy import (
     ContextSummaryFragment, compact_instruction_kind, native_compact_text, semantic_payload_cost,
 )
-from .upstream_error_policy import UpstreamFailure
+from .upstream_error_policy import UpstreamFailure, is_upstream_transport_error
+from .transient_retry import owns_transient_retries
 
 
 MAX_MAP_CHUNKS = 256
 MAX_SUMMARY_CALLS = 512
 MAX_REDUCE_ROUNDS = 12
+# Retry only internal, tool-free summary generation; never replace source with excerpts.
+SUMMARY_MAP_ATTEMPTS = 3
 COMPACTION_TIMEOUT_SECONDS = 900.0
 
 
@@ -34,6 +39,7 @@ class ContextCompactionTransport:
     post_json: Callable[..., Any]
     headers: Callable[[str, dict[str, Any]], dict[str, str]]
     extract_text: Callable[[Any, str], str]
+    resolve_model: Callable[[str, dict[str, Any], str], str] = lambda _provider, _config, model: model
 
 
 @dataclass(frozen=True)
@@ -65,6 +71,8 @@ class ContextCompactionServices:
     workflow: ContextCompactionWorkflow
     projection: ContextCompactionProjection
     map_system_prompt: str
+    # Router-instance directory for the map progress journal; None disables it.
+    progress_root: Path | None = None
 
 
 class ContextCompactionFailed(RuntimeError):
@@ -79,6 +87,7 @@ def _summary_request(
     provider: str, model: str, config: dict[str, Any], prompt: str,
     services: ContextCompactionServices, wire: str, budget: int,
 ) -> tuple[dict[str, Any], str]:
+    model = services.transport.resolve_model(provider, config, model)
     maximum = min(
         max(32, services.transport.summary_output_tokens(config, budget)),
         max(32, budget // 8),
@@ -115,7 +124,7 @@ def _request_cost(
 ) -> int:
     request, _operation = _summary_request(provider, model, config, prompt, services, wire, budget)
     output = min(max(32, services.transport.summary_output_tokens(config, budget)), max(32, budget // 8))
-    # This UTF-8 envelope is a local safety bound, not tokenizer authority.
+    # Estimated tokens remain a recovery sizing heuristic, not tokenizer authority.
     return semantic_payload_cost(request, services.workflow.estimate_tokens) + output + 512
 
 
@@ -129,6 +138,7 @@ def request_context_summary(
         provider, model, provider_config, prompt, services, wire, budget_tokens
     )
     transport = services.transport
+    model = str(request["model"])
     timeout = min(
         transport.request_timeout(provider_config),
         float(provider_config.get("_context_compact_timeout_seconds", 120.0)),
@@ -143,7 +153,7 @@ def request_context_summary(
         data = transport.post_json(
             transport.endpoint(provider, config, operation), request,
             headers, timeout, provider, config, model,
-            # Generation is non-idempotent: never replay after an ambiguous failure.
+            # The workflow owns bounded retries of these internal tool-free summaries.
             retry_rate_limits=False,
         )
     except urllib.error.HTTPError as exc:
@@ -199,6 +209,8 @@ class _SummaryRun:
     calls: int = 0
     completed_chunks: int = 0
     total_chunks: int = 0
+    progress: MapProgress | None = None
+    reused_chunks: int = 0
 
     def fits(self, prompt: str) -> bool:
         return _request_cost(
@@ -206,7 +218,16 @@ class _SummaryRun:
             self.services, self.wire, self.budget,
         ) <= self.budget
 
-    def generate(self, prompt: str) -> str:
+    def check_cancelled(self) -> None:
+        cancel_event = self.config.get("_context_compact_cancel_event")
+        cancelled = self.config.get("_context_compact_cancelled")
+        if hasattr(cancel_event, "is_set") and cancel_event.is_set():
+            raise ContextCompactionFailed("client_cancelled")
+        if callable(cancelled) and cancelled():
+            raise ContextCompactionFailed("client_cancelled")
+
+    def generate(self, prompt: str, keep: Callable[[str], None] | None = None) -> str:
+        self.check_cancelled()
         remaining = self.deadline - time.monotonic()
         if remaining <= 0:
             raise ContextCompactionFailed("deadline_exceeded")
@@ -216,33 +237,62 @@ class _SummaryRun:
             raise ContextCompactionFailed("summary_request_exceeds_budget")
         self.calls += 1
         config = {**self.config, "_context_compact_timeout_seconds": min(remaining, 120.0)}
-        summary = self.services.workflow.request_summary(
-            self.provider, self.model, config, prompt, wire=self.wire, budget_tokens=self.budget,
-        )
+        try:
+            summary = self.services.workflow.request_summary(
+                self.provider, self.model, config, prompt, wire=self.wire, budget_tokens=self.budget,
+            )
+        except Exception:
+            # A disconnected client wins over transport retry classification.
+            self.check_cancelled()
+            raise
+        # Finite output guard even for transports without a proven output knob.
+        maximum = min(self.services.transport.summary_output_tokens(config, self.budget), max(32, self.budget // 8))
+        valid = (time.monotonic() <= self.deadline and isinstance(summary, str) and bool(summary.strip())
+                 and len(summary.encode("utf-8")) <= max(1024, maximum * 32))
+        if valid and keep is not None:
+            # A complete answer that arrived while the client disconnected is
+            # already paid for; keep it before honouring the cancellation.
+            keep(summary.strip())
+        self.check_cancelled()
         if time.monotonic() > self.deadline:
             raise ContextCompactionFailed("deadline_exceeded")
         if not isinstance(summary, str) or not summary.strip():
             raise ContextCompactionFailed("empty_summary")
-        # Finite output guard even for transports without a proven output knob.
-        maximum = min(self.services.transport.summary_output_tokens(config, self.budget), max(32, self.budget // 8))
         if len(summary.encode("utf-8")) > max(1024, maximum * 32):
             raise ContextCompactionFailed("summary_output_limit")
         return summary.strip()
 
 
 
-def _no_output_context_rejection(error: BaseException) -> bool:
+def no_output_context_rejection(error: BaseException) -> bool:
     if not isinstance(error, UpstreamFailure):
         return False
     if error.source != "http_status" or error.upstream_status not in {400, 413}:
         return False
     if error.output_started or error.response_id:
         return False
-    return error.error_type in {"context_length_exceeded", "context_window_exceeded"} or (
-        error.error_type == "invalid_request_error" and bool(re.match(
-            r"^prompt is too long: [0-9]+ tokens > [0-9]+ maximum", error.message.casefold()
-        ))
+    if error.error_type in {"context_length_exceeded", "context_window_exceeded"}:
+        return True
+    if error.error_type != "invalid_request_error":
+        return False
+    message = error.message.casefold()
+    # CielAiRouter names the condition in prose rather than a typed error:
+    # "Conversation exceeds the known context limits of all eligible combo
+    # targets. Compact the conversation before retrying." (Celly, 2026-10-22).
+    return bool(
+        re.match(r"^prompt is too long: [0-9]+ tokens > [0-9]+ maximum", message)
+        or "exceeds the known context limit" in message
+        or "compact the conversation before retrying" in message
     )
+
+
+def retryable_summary_truncation(error: BaseException) -> bool:
+    """A finite output was truncated, so a smaller source may complete."""
+
+    return isinstance(error, ContextCompactionFailed) and error.reason in {
+        "truncated_summary",
+        "incomplete_summary_response",
+    }
 
 
 def _split_rejected_chunk(
@@ -263,31 +313,104 @@ def _split_rejected_chunk(
     return [(fragment.source_index, [left]), (fragment.source_index, [right])]
 
 
+def _summary_transport_cause(error: BaseException) -> BaseException | None:
+    """Recognize explicit transport causes, never error-message substrings."""
+    if (isinstance(error, UpstreamFailure) and error.source == "http_status"
+            and not error.output_started and not error.response_id
+            and owns_transient_retries(error.provider)
+            and error.upstream_status in {502, 503, 504, 529}
+            and error.error_type in {"api_error", "server_error", "overloaded_error"}
+            and error.retryable):
+        # Internal tool-free summaries have their own bounded three-attempt
+        # owner; the transport deliberately disables nested gateway retries.
+        # A real typed provider failure used to bypass this owner entirely.
+        return error
+    seen: set[int] = set()
+    while id(error) not in seen:
+        seen.add(id(error))
+        if is_upstream_transport_error(error):
+            return error
+        # Only unwrap the retry layer's explicit causal wrapper. HTTP/provider
+        # failures and semantic compaction failures must retain their verdict.
+        if type(error) is not RuntimeError or error.__cause__ is None:
+            return None
+        error = error.__cause__
+    return None
+
+
 def _map_summaries(chunks: list[Any], run: _SummaryRun, initial_tokens: int) -> list[str]:
     pending = [(start, chunk, 0) for start, chunk in chunks]
     summaries: list[str] = []
     total = len(chunks)
     run.total_chunks = total
+    progress = run.progress
+
+    def keep(prompt: str) -> Callable[[str], None] | None:
+        return (lambda text: progress.record(prompt, "summary", text)) if progress else None
+
+    def split(start: int, chunk: Any, depth: int) -> None:
+        nonlocal total
+        smaller = _split_rejected_chunk(chunk, start)
+        total += len(smaller) - 1
+        run.total_chunks = total
+        pending[0:0] = [(offset, parts, depth + 1) for offset, parts in smaller]
+
     while pending:
+        run.check_cancelled()
         start, chunk, depth = pending.pop(0)
         prompt = run.services.projection.build_chunk_prompt(chunk, start, len(summaries) + 1, total)
-        try:
-            summary = run.generate(prompt)
-        except Exception as exc:
-            if not _no_output_context_rejection(exc) or depth >= 4:
-                raise
-            if total >= MAX_MAP_CHUNKS:
-                raise ContextCompactionFailed("map_chunk_limit") from exc
-            smaller = _split_rejected_chunk(chunk, start)
-            total += len(smaller) - 1
-            run.total_chunks = total
-            pending[0:0] = [(offset, parts, depth + 1) for offset, parts in smaller]
+        summary = None
+        recorded = progress.take(prompt) if progress else None
+        if recorded is not None:
+            # The same prompt was answered (or proven too large) by an earlier
+            # attempt of this exact run; reuse its outcome without a new call.
+            if recorded["kind"] == "split":
+                if depth >= 4 or total >= MAX_MAP_CHUNKS:
+                    raise ContextCompactionFailed("map_chunk_limit")
+                split(start, chunk, depth)
+                continue
+            summary = recorded["text"]
+            run.reused_chunks += 1
+        for attempt in range(0 if summary is not None else SUMMARY_MAP_ATTEMPTS):
+            try:
+                summary = run.generate(prompt, keep(prompt))
+                break
+            except Exception as exc:
+                run.check_cancelled()
+                retryable = (
+                    no_output_context_rejection(exc)
+                    or retryable_summary_truncation(exc)
+                )
+                if retryable:
+                    if depth >= 4:
+                        raise
+                    if total >= MAX_MAP_CHUNKS:
+                        raise ContextCompactionFailed("map_chunk_limit") from exc
+                    if progress:
+                        progress.record(prompt, "split")
+                    split(start, chunk, depth)
+                    summary = None
+                    break
+                cause = _summary_transport_cause(exc)
+                if cause is None or attempt + 1 >= SUMMARY_MAP_ATTEMPTS:
+                    raise
+                run.services.projection.log(
+                    "WARN", "context_compact_chunk_retry "
+                    f"provider={run.provider} chunk={start} "
+                    f"attempt={attempt + 1}/{SUMMARY_MAP_ATTEMPTS} "
+                    f"completed_chunks={run.completed_chunks} "
+                    f"error={type(exc).__name__} cause={type(cause).__name__}",
+                )
+        if summary is None and not pending:
+            continue
+        if summary is None:
             continue
         summaries.append(summary)
         run.completed_chunks = len(summaries)
         _write_activity(run.provider, run.model, total, initial_tokens,
             sum(run.services.workflow.estimate_tokens(item) for item in summaries),
-            run.budget, "map", len(summaries), run.services.workflow)
+            run.budget, "map", len(summaries), run.services.workflow,
+            reused_chunks=run.reused_chunks)
     return summaries
 
 def _reduce_summaries(
@@ -303,6 +426,7 @@ def _reduce_summaries(
         )
 
     for round_number in range(MAX_REDUCE_ROUNDS + 1):
+        run.check_cancelled()
         output = [*system_messages, {"role": "user", "content": prompt(summaries)}]
         if semantic_payload_cost({"messages": output}, estimate) + 512 <= run.budget:
             return output
@@ -310,6 +434,7 @@ def _reduce_summaries(
             raise ContextCompactionFailed("reduce_round_limit")
         parts: list[str] = []
         for summary in summaries:
+            run.check_cancelled()
             if run.fits(prompt([summary])):
                 parts.append(summary)
                 continue
@@ -420,23 +545,41 @@ def build_llm_compacted_messages(
         ]
         if not all(run.fits(prompt) for prompt in prompts):
             raise ContextCompactionFailed("map_request_exceeds_budget")
+        run.progress = _map_progress(
+            provider, model, config, services, wire, budget_tokens, target,
+            history, systems, instruction, prompts,
+        )
+        if run.progress is not None and run.progress.recorded:
+            projection.log("INFO", f"context_compact_progress_found provider={provider} "
+                           f"run={run.progress.run[:16]} recorded_steps={run.progress.recorded}")
+        run.check_cancelled()
+        on_semantic_start = config.get("_context_compact_on_semantic_start")
+        if callable(on_semantic_start):
+            on_semantic_start()
+        run.check_cancelled()
         _write_activity(provider, model, len(chunks), initial_tokens, 0, budget_tokens, "map", 0, workflow)
         summaries = _map_summaries(chunks, run, initial_tokens)
         completed = len(summaries)
         output = _reduce_summaries(summaries, instruction, len(history), systems, run)
+        run.check_cancelled()
     except BaseException as exc:
         workflow.write_activity(
             provider or "provider", model, phase="failed", chunks=run.total_chunks or len(chunks),
             completed_chunks=run.completed_chunks, summary_calls=run.calls,
+            reused_chunks=run.reused_chunks,
             reason=exc.reason if isinstance(exc, ContextCompactionFailed) else type(exc).__name__,
             tokens=initial_tokens, budget=budget_tokens,
         )
         projection.log("WARN", f"context_compact_failed provider={provider} model={model} "
-                       f"completed_chunks={run.completed_chunks}/{run.total_chunks or len(chunks)} error={type(exc).__name__}")
+                       f"completed_chunks={run.completed_chunks}/{run.total_chunks or len(chunks)} "
+                       f"reused_chunks={run.reused_chunks} summary_calls={run.calls} "
+                       f"saved_steps={run.progress.recorded if run.progress else 0} "
+                       f"reason={exc.reason if isinstance(exc, ContextCompactionFailed) else '-'} "
+                       f"error={type(exc).__name__}")
         raise
     final_tokens = workflow.estimate_tokens({"messages": output})
     projection.log("WARN", f"context_compact_map_reduce provider={provider} model={model} "
-                   f"chunks={run.total_chunks} summary_calls={run.calls} "
+                   f"chunks={run.total_chunks} summary_calls={run.calls} reused_chunks={run.reused_chunks} "
                    f"tokens={initial_tokens}->{final_tokens} budget={budget_tokens}")
     # Not completed yet: the existing final wire generation owns real usage and
     # the native CLI owns persistence of its checkpoint. Never mint local success.
@@ -444,18 +587,49 @@ def build_llm_compacted_messages(
         provider or "provider", model, chunks=run.total_chunks, parallel_sessions=1,
         tokens=initial_tokens, final_tokens=final_tokens, budget=budget_tokens,
         phase="reduce", completed_chunks=completed, retained_messages=len(output),
-        summary_calls=run.calls,
+        summary_calls=run.calls, reused_chunks=run.reused_chunks,
     )
     return output
+
+
+def _map_progress(
+    provider: str, model: str, config: dict[str, Any], services: ContextCompactionServices,
+    wire: str, budget: int, target: int, history: list[dict[str, Any]],
+    systems: list[dict[str, Any]], instruction: str, prompts: list[str],
+) -> MapProgress | None:
+    """A journal only for an exactly identified local main-session request."""
+
+    scope = config.get("_context_compact_scope")
+    if services.progress_root is None or not isinstance(scope, dict) or not all(
+            scope.get(key) for key in ("runtime", "session_id", "epoch")):
+        return None
+    transport = services.transport
+    request, operation = _summary_request(provider, model, config, "", services, wire, budget)
+    identity = {
+        "scope": {key: str(scope[key]) for key in ("runtime", "session_id", "epoch")},
+        "provider": provider, "model": transport.resolve_model(provider, config, model), "wire": wire,
+        "endpoint": stable_digest(transport.endpoint(provider, config, operation)),
+        "budget": budget, "target": target,
+        "summary_output": transport.summary_output_tokens(config, budget),
+        "map_system": stable_digest(services.map_system_prompt),
+        # The projected request shape covers provider options (for example
+        # Ollama sampling and think settings) that change the generated text.
+        "request": stable_digest(request),
+        # Full source digests: image bytes are covered although the textual
+        # map prompts carry only a marker for them.
+        "history": stable_digest(history), "systems": stable_digest(systems),
+        "instruction": stable_digest(instruction), "prompts": stable_digest(prompts),
+    }
+    return MapProgress(services.progress_root, identity, services.projection.log)
 
 
 def _write_activity(
     provider: str, model: str, chunks: int, tokens: int, final_tokens: int,
     budget: int, phase: str, completed_chunks: int,
-    workflow: ContextCompactionWorkflow,
+    workflow: ContextCompactionWorkflow, **extra: Any,
 ) -> None:
     workflow.write_activity(
         provider or "provider", model, chunks=chunks, parallel_sessions=1,
         tokens=tokens, final_tokens=final_tokens, budget=budget,
-        phase=phase, completed_chunks=completed_chunks,
+        phase=phase, completed_chunks=completed_chunks, **extra,
     )

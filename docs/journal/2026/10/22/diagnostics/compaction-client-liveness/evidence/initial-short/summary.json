@@ -1,0 +1,45 @@
+{
+  "finished_at": "2026-10-22T21:38:41.679158+00:00",
+  "passed": true,
+  "six_minute_claim": false,
+  "results": [
+    {
+      "mode": "delayed_headers",
+      "delay_s": 5.0,
+      "ping_s": 1.0,
+      "api_timeout_ms": 3000,
+      "returncode": 1,
+      "elapsed_s": 3.75,
+      "checks": {
+        "one_message_request": true,
+        "streaming": true,
+        "no_tools": true,
+        "no_harness_timeout": true,
+        "cli_timeout_error": true,
+        "no_headers_before_exit": true,
+        "no_real_message": true
+      },
+      "passed": true
+    },
+    {
+      "mode": "early_sse",
+      "delay_s": 8.0,
+      "ping_s": 1.0,
+      "api_timeout_ms": 3000,
+      "returncode": 0,
+      "elapsed_s": 8.703,
+      "checks": {
+        "one_message_request": true,
+        "streaming": true,
+        "no_tools": true,
+        "no_harness_timeout": true,
+        "exit_zero": true,
+        "marker_returned": true,
+        "real_message_after_delay": true,
+        "immediate_headers": true,
+        "pings_observed": true
+      },
+      "passed": true
+    }
+  ]
+}

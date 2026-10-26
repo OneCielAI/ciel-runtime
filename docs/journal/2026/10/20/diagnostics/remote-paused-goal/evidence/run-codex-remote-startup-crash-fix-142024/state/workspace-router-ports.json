@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "workspaces": {
+    "b3aebf99af5b": {
+      "port": 64522,
+      "workspace": "c:\\windows\\temp\\ciel-owned-restart-v1h59dbr\\ws"
+    }
+  }
+}

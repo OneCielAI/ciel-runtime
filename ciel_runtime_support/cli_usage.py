@@ -38,6 +38,8 @@ Control plane, runs before Claude Code and does not require LLM connectivity:
   ciel-runtime ollama-native [on|off]  Use Ollama's official Claude Code env path
   ciel-runtime ollama-options [provider] [key=value ...]
                                       Set Ollama num_ctx/options/keep_alive/think
+  ciel-runtime ollama-options [provider] empty_response_retries=1
+                                      Extra empty-response attempts (default 1, 0 off, capped at 2; default/unset clears)
   ciel-runtime provider-options [provider] [key=value ...]
                                       Set vLLM/NIM/NVIDIA output/context/timeouts
   ciel-runtime provider-options cielairouter gateway_selection=auto|off

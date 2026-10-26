@@ -1,0 +1,67 @@
+[
+ {
+  "tag": "plain",
+  "rc": 0,
+  "stdout_bytes": 1597,
+  "stderr_bytes": 237,
+  "child_ok": false,
+  "parent_ok": false,
+  "type": "result",
+  "subtype": "success",
+  "is_error": false,
+  "num_turns": 2,
+  "result": "E2E-AUX-OK"
+ },
+ {
+  "tag": "haiku",
+  "rc": 0,
+  "stdout_bytes": 1597,
+  "stderr_bytes": 237,
+  "child_ok": false,
+  "parent_ok": false,
+  "type": "result",
+  "subtype": "success",
+  "is_error": false,
+  "num_turns": 2,
+  "result": "E2E-AUX-OK"
+ },
+ {
+  "tag": "sonnet",
+  "rc": 0,
+  "stdout_bytes": 1597,
+  "stderr_bytes": 237,
+  "child_ok": false,
+  "parent_ok": false,
+  "type": "result",
+  "subtype": "success",
+  "is_error": false,
+  "num_turns": 2,
+  "result": "E2E-AUX-OK"
+ },
+ {
+  "tag": "definition",
+  "rc": 0,
+  "stdout_bytes": 1591,
+  "stderr_bytes": 237,
+  "child_ok": false,
+  "parent_ok": false,
+  "type": "result",
+  "subtype": "success",
+  "is_error": false,
+  "num_turns": 2,
+  "result": "E2E-AUX-OK"
+ },
+ {
+  "tag": "modelarg",
+  "rc": 0,
+  "stdout_bytes": 1597,
+  "stderr_bytes": 237,
+  "child_ok": false,
+  "parent_ok": false,
+  "type": "result",
+  "subtype": "success",
+  "is_error": false,
+  "num_turns": 2,
+  "result": "E2E-AUX-OK"
+ }
+]

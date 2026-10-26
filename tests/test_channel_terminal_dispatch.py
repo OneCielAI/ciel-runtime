@@ -270,6 +270,203 @@ class ChannelTerminalDispatchServiceTests(unittest.TestCase):
         self.assertEqual(20, state.inflight_started_at)
         self.assertEqual([], events)
 
+    def _recovery_batch(self, temp):
+        import threading
+        from dataclasses import replace
+        from functools import partial
+        from test_channel_pending_injection import _InjectionHarness, _message
+        from ciel_runtime_support.channel_inflight import ChannelInflightEffects
+        from ciel_runtime_support.channel_pending_injection import inject_pending_channel_messages
+        from ciel_runtime_support.channel_pending_poll import ChannelPendingInjectionOptions, ChannelPendingPollState
+        from ciel_runtime_support.channel_runtime_environment import ChannelRuntimeEnvironmentPolicy
+        from ciel_runtime_support.channel_terminal_dispatch import _DirectChannelPoller
+        from ciel_runtime_support.channel_transcript import (
+            ChannelWakeStateReader, ChannelWakeStateReaderPorts, ChannelWakeTranscriptServices,
+            WakeStateEvidence, queued_age_seconds_from_text, queued_dropped_from_text,
+            wake_state_evidence_from_text,
+        )
+        from ciel_runtime_support.channel_wake_claim_repository import prompt_message_ids, prompt_references_message_id
+        from ciel_runtime_support.runtime_input_status import RuntimeInputStatusRepository
+
+        harness = _InjectionHarness([_message(n) for n in range(40, 45)])
+        status = RuntimeInputStatusRepository(Path(temp) / "status.jsonl", mock.Mock(), mock.Mock(), threading.Lock())
+        harness.delivery.status = status
+        harness.delivery.bind_child_epoch("child-fixture")
+        for message in harness.messages.values():
+            message["meta"] = {"input_transport": "session_socket"}
+            status.transition(message["id"], "queued")
+        paused, text, clock, cursor = [False], [""], [100.0], [39]
+        transcript = ChannelWakeTranscriptServices(
+            harness.delivery.prompt, prompt_references_message_id, prompt_message_ids, lambda: clock[0],
+        )
+        def evidence(message_id, content, *args, **kwargs):
+            if harness.delivery.interrupted(message_id):
+                return WakeStateEvidence("interrupted_uncertain")
+            return wake_state_evidence_from_text(message_id, content, (), transcript, **kwargs)
+        reader = ChannelWakeStateReader(ChannelWakeStateReaderPorts(
+            lambda: "fixture.jsonl", lambda _: text[0], evidence,
+            partial(queued_age_seconds_from_text, services=transcript),
+            partial(queued_dropped_from_text, services=transcript), lambda: 10, mock.Mock(),
+        ))
+        send = mock.Mock(return_value=True)
+        base = harness.services()
+        injection = replace(
+            base, state=replace(base.state, wake_state_for_message=reader.state_for_message,
+                                queued_wake_is_stale=reader.queued_is_stale),
+            io=replace(base.io, write_session_socket=send, session_socket_available=lambda: True),
+            policy=replace(base.policy, wake_batch_limit=lambda: 5),
+        )
+        release = mock.Mock(side_effect=lambda n: harness.delivery.release_stale(n, False))
+        complete = mock.Mock(side_effect=harness.delivery.complete)
+        commits = []
+        def commit(n):
+            commits.append(n)
+            cursor[0] = n
+        effects = ChannelInflightEffects(commit, complete, release, lambda: cursor[0], mock.Mock())
+        delivery = self._delivery(lambda *a, **k: inject_pending_channel_messages(*a, **k, services=injection))
+        delivery = replace(
+            delivery,
+            policy=replace(delivery.policy, initial_cursor=lambda: cursor[0], unseen_retry_seconds=lambda: 10,
+                inflight_is_stale=lambda state, started, now: ChannelRuntimeEnvironmentPolicy.inflight_is_stale(state, started, now, 10),
+                compaction=SimpleNamespace(external_admission_paused=lambda: paused[0])),
+            polling=replace(delivery.polling, wake_state=reader.state, inflight_effects=lambda: effects),
+        )
+        state = ChannelPendingPollState(last_id=39)
+        poller = _DirectChannelPoller(delivery, ChannelPendingInjectionOptions(
+            True, False, True, False, 1, True, False, None, False), b"cr", state)
+        poller.poll(100.0)
+        self.assertEqual(44, state.inflight_message_id)
+        send.assert_called_once()
+        self.assertEqual(list(range(40, 45)), [row["id"] for row in send.call_args.args[1]])
+        attempt = status.get(40)["data"]["attempt_id"]
+        self.assertTrue(attempt)
+        self.assertEqual({attempt}, {status.get(n)["data"]["attempt_id"] for n in range(40, 45)})
+        paused[0] = True
+        poller.poll(125.0)  # older than both timeouts before compaction
+        poller.poll(10125.0)
+        paused[0] = False
+        return SimpleNamespace(harness=harness, status=status, text=text, clock=clock, poller=poller,
+            state=state, send=send, release=release, complete=complete, commits=commits, reader=reader, paused=paused)
+
+    def test_recovery_real_validator_batch_preserves_status_until_evidence(self):
+        import json
+        import tempfile
+        for resolution in ("completed", "child_exit", "queue_removed"):
+            with self.subTest(resolution=resolution), tempfile.TemporaryDirectory() as temp:
+                batch = self._recovery_batch(temp)
+                prompt = batch.harness.delivery.prompt(44)
+                summary = {"type": "user", "isCompactSummary": True,
+                           "message": {"role": "user", "content": prompt}}
+                assistant = {"type": "assistant", "message": {"role": "assistant", "content": "unrelated"}}
+                # An empty tail or compact-summary echo is not delivery proof.
+                # Check 17s after resume as well as far beyond both age limits.
+                for now, content, expected in (
+                    (10126.0, "", "unknown"),
+                    (10143.0, chr(10).join(map(json.dumps, [summary, assistant])), "missing"),
+                    (1000000.0, "", "unknown"),
+                ):
+                    batch.text[0], batch.clock[0] = content, now
+                    self.assertEqual(expected, batch.reader.state(44))
+                    batch.poller.poll(now)
+                    self.assertEqual(["submitted"] * 5, [batch.status.get(n)["status"] for n in range(40, 45)])
+                    self.assertEqual(44, batch.state.inflight_message_id)
+                batch.send.assert_called_once()
+                batch.release.assert_not_called()
+                batch.complete.assert_not_called()
+                self.assertEqual([], batch.commits)
+                if resolution == "completed":
+                    batch.text[0] = chr(10).join(map(json.dumps, [
+                        {"type": "user", "origin": {"kind": "peer"}, "isMeta": True,
+                         "message": {"role": "user", "content": prompt}}, assistant,
+                    ]))
+                    self.assertEqual("completed", batch.reader.state(44))
+                    batch.poller.poll(1000001.0)
+                    self.assertEqual(["replied"] * 5, [batch.status.get(n)["status"] for n in range(40, 45)])
+                    batch.complete.assert_called_once_with(44)
+                    self.assertEqual([44], batch.commits)
+                    self.assertIsNone(batch.state.inflight_message_id)
+                    self.assertEqual(set(), batch.state.inflight.recovery_protected)
+                elif resolution == "child_exit":
+                    self.assertEqual([], batch.harness.delivery.child_exited("child-fixture", verified_exit=False))
+                    self.assertEqual(["submitted"] * 5, [batch.status.get(n)["status"] for n in range(40, 45)])
+                    self.assertEqual(list(range(40, 45)), batch.harness.delivery.child_exited("child-fixture", verified_exit=True))
+                    batch.text[0] = json.dumps({"type": "system", "subtype": "compact_boundary"})
+                    self.assertEqual("interrupted_uncertain", batch.reader.state(44))
+                    batch.poller.poll(1000001.0)
+                    self.assertEqual(["interrupted_uncertain"] * 5, [batch.status.get(n)["status"] for n in range(40, 45)])
+                    batch.complete.assert_not_called()
+                    self.assertIsNone(batch.state.inflight_message_id)
+                else:
+                    batch.text[0] = chr(10).join(json.dumps({
+                        "type": "queue-operation", "operation": operation,
+                        "content": prompt, "timestamp": timestamp,
+                    }) for operation, timestamp in (("enqueue", 100), ("remove", 101)))
+                    self.assertEqual("queued", batch.reader.state(44))
+                    for message in batch.harness.messages.values():
+                        self.assertTrue(batch.reader.queued_is_stale(message, prompt))
+                    # Existing evidence-driven release is independent of the
+                    # inflight age guard. Do not redefine queue/cursor policy.
+                    batch.harness.delivery.release_stale(44, False)
+                    self.assertEqual(["failed"] * 5, [batch.status.get(n)["status"] for n in range(40, 45)])
+                    self.assertEqual(["stale_unconfirmed"] * 5, [batch.status.get(n)["reason"] for n in range(40, 45)])
+                    self.assertEqual([], batch.commits)
+                batch.release.assert_not_called()
+                batch.send.assert_called_once()
+
+    def test_windows_proxy_propagates_recovery_guard_to_real_batch_validator(self):
+        import json
+        import tempfile
+        with tempfile.TemporaryDirectory() as temp:
+            batch = self._recovery_batch(temp)
+            # Let the proxy itself observe the pause, not just the direct loop.
+            batch.state.inflight.recovery_protected.clear()
+            batch.state.inflight_started_at = 100.0
+            batch.paused[0] = True
+            step, now = [0], [125.0]
+            proc = mock.Mock(pid=57)
+            proc.poll.side_effect = lambda: None if step[0] < 4 else 0
+            proc.wait.return_value = 0
+            prompt = batch.harness.delivery.prompt(44)
+            def tick(_seconds):
+                step[0] += 1
+                if step[0] == 1:
+                    self.assertEqual({44}, batch.state.inflight.recovery_protected)
+                    batch.paused[0] = False
+                    now[0] = 10126.0
+                elif step[0] == 2:
+                    self.assertEqual(["submitted"] * 5, [batch.status.get(n)["status"] for n in range(40, 45)])
+                    batch.text[0] = json.dumps({"type": "system", "subtype": "compact_boundary"})
+                    now[0] = 10143.0
+                elif step[0] == 3:
+                    self.assertEqual(["submitted"] * 5, [batch.status.get(n)["status"] for n in range(40, 45)])
+                    batch.text[0] = chr(10).join(map(json.dumps, [
+                        {"type": "user", "message": {"role": "user", "content": prompt}},
+                        {"type": "assistant", "message": {"role": "assistant", "content": "answer"}},
+                    ]))
+                    now[0] += 1
+            delivery = batch.poller.delivery
+            services = SimpleNamespace(
+                process=SimpleNamespace(popen=lambda *a, **k: proc, write_child_record=mock.Mock(),
+                    terminate_child=mock.Mock(), release_child_record=mock.Mock()),
+                policy=delivery.policy, polling=delivery.polling,
+                console=SimpleNamespace(open_conpty=lambda *a: None, reset_input_mode=mock.Mock(),
+                    mouse_guard=lambda: mock.Mock(), input_writer=lambda: mock.Mock(),
+                    startup_grace_seconds=lambda: 0, reset_interval_seconds=lambda n: n,
+                    active_turn=lambda: False, sleep=tick),
+            )
+            with mock.patch("ciel_runtime_support.channel_terminal_proxy.time.time", side_effect=lambda: now[0]), mock.patch(
+                "ciel_runtime_support.channel_terminal_proxy.poll_pending_compaction", side_effect=lambda *a, **k: a[5],
+            ):
+                self.assertEqual(0, run_windows_channel_terminal_proxy(
+                    ["fixture"], {}, services, pending_poll_state=batch.state, channel_wake_confirm_submit=True,
+                ))
+            self.assertEqual(4, step[0])
+            self.assertEqual(["replied"] * 5, [batch.status.get(n)["status"] for n in range(40, 45)])
+            batch.release.assert_not_called()
+            batch.complete.assert_called_once_with(44)
+            batch.send.assert_called_once()
+            self.assertEqual([44], batch.commits)
+
     def test_direct_child_survives_transient_lock_during_confirmation(self):
         from ciel_runtime_support.channel_message_repository import ChannelFileLockBusy
         proc = mock.Mock(pid=54)

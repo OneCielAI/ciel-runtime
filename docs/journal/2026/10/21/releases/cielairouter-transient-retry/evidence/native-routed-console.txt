@@ -1,0 +1,7 @@
+{"name": "claude_503_then_success", "passed": true, "cli_requests": 1, "upstream_hits": 2, "upstream_statuses": [503, 200], "successes": 1, "returncode": 0}
+{"name": "claude_persistent503", "passed": true, "cli_requests": 1, "upstream_hits": 4, "upstream_statuses": [503, 503, 503, 503], "successes": 0, "returncode": 1}
+{"name": "codex_503_then_success", "passed": true, "cli_requests": 1, "upstream_hits": 2, "upstream_statuses": [503, 200], "successes": 1, "returncode": 0}
+{"name": "codex_persistent503", "passed": true, "cli_requests": 1, "upstream_hits": 4, "upstream_statuses": [503, 503, 503, 503], "successes": 0, "returncode": 1}
+{"name": "codex_503_then_success", "passed": true, "cli_requests": 1, "upstream_hits": 2, "upstream_statuses": [503, 200], "successes": 1, "returncode": 0}
+{"name": "codex_persistent503", "passed": true, "cli_requests": 1, "upstream_hits": 4, "upstream_statuses": [503, 503, 503, 503], "successes": 0, "returncode": 1}
+{"evidence": "C:\\Users\\djlov\\ciel-runtime\\docs\\journal\\2026\\10\\21\\diagnostics\\cielairouter-transient-retry\\harness\\routed-native-e2e.json", "all_passed": true}

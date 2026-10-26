@@ -1,0 +1,38 @@
+
+ ▐▛███▛█   Claude Code v2.1.310
+▝▜██████▀  ciel-runtime-cielairouter-fake-parent-b · API Usage Billing
+ ▝▝   ▝▝   C:\Users\djlov\ciel-runtime-wt-lease\docs\journal\2026\10\25\fixes\teammate-model-inheritance\evidence\e2e-routedswitch…
+
+
+❯ E2EPARENT-named
+
+● Agent(verify child model)
+
+● PARENT-OK-named
+
+
+● Teammate @e2e-mate-4147a7db finished
+  CHILD-OK-named
+
+● PARENT-OK-named
+
+❯ /model ciel-runtime-cielairouter-fake-parent-b
+  ⎿  Set model to ciel-runtime-cielairouter-fake-parent-b and saved as your default for new sessions
+          ANTHROPIC_MODEL is set to ciel-runtime-cielairouter-fake-parent-a — new sessions use that while it is set
+
+
+
+
+
+
+
+
+
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · ↓ to manage
+
+  ● main
+  ◯ e2e-mate-4147a7db  verify child model                                                                                        idle

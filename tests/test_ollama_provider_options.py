@@ -900,6 +900,18 @@ class OllamaProviderOptionTests(unittest.TestCase):
         self.assertEqual(32768, request["options"]["num_ctx"])
         self.assertEqual(2048, request["options"]["num_predict"])
 
+    def test_large_native_compact_without_rejection_stays_untouched(self):
+        messages = [{"role": "user", "content": "history " + ("x" * 10000)} for _ in range(4)]
+        messages.append({"role": "user", "content": "<command-name>/compact</command-name>" + chr(10) + "Create a detailed summary of the conversation."})
+        with mock.patch.object(ciel_runtime, "context_compact_request_summary") as summaries:
+            forwarded = ciel_runtime.compact_ollama_messages_for_budget(
+                messages, [], 8192, provider="ollama-cloud", model="deepseek-v4-flash",
+                pcfg={"context_compact_llm": True}, full_compact_request=True, wire="ollama",
+            )
+
+        summaries.assert_not_called()
+        self.assertIs(messages, forwarded)
+
     def test_compact_request_uses_segmented_llm_compaction(self):
         calls = []
         original = ciel_runtime.context_compact_request_summary
@@ -915,6 +927,7 @@ class OllamaProviderOptionTests(unittest.TestCase):
                 "context_compact_llm": True,
                 "context_compact_chunk_tokens": 512,
                 "context_compact_summary_tokens": 512,
+                "_context_compact_context_rejected": True,
             }
             messages = [
                 {"role": "user", "content": "history " + ("x" * 10000)}

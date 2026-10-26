@@ -2,15 +2,19 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
+import errno
 import json
+import math
 import os
 import uuid
 from pathlib import Path
 import threading
 import time
 from typing import Any, Callable
+
+from .channel_message_repository import ChannelFileLockBusy, exclusive_file_lock
 
 
 RUNTIME_INPUT_STATES = frozenset({"queued", "submitted", "replied", "failed", "skipped", "interrupted_uncertain"})
@@ -19,6 +23,81 @@ RUNTIME_INPUT_STATES = frozenset({"queued", "submitted", "replied", "failed", "s
 # pending forever.
 _TERMINAL_STATES = frozenset({"replied", "failed", "skipped", "interrupted_uncertain"})
 
+_HISTORY_LINE_BUDGET = 256 * 1024
+_HISTORY_DIAGNOSTIC_LIMIT = 32
+# The history is append-only and tens of thousands of inputs pass a day. Past
+# this size it is rewritten as one latest row per request; superseded rows and
+# unreadable lines are deleted, never archived.
+_HISTORY_COMPACT_BYTES = 4 * 1024 * 1024
+_HISTORY_COMPACT_RETRY_SECONDS = 60.0
+
+
+class _HistoryDecodeFailure(ValueError):
+    pass
+
+
+def _history_object(pairs):
+    item = {}
+    for key, value in pairs:
+        if key in item:
+            raise _HistoryDecodeFailure("duplicate_key")
+        item[key] = value
+    return item
+
+
+def _history_constant(_value):
+    raise _HistoryDecodeFailure("nonfinite_number")
+
+
+def _history_float(value):
+    number = float(value)
+    if not math.isfinite(number):
+        raise _HistoryDecodeFailure("nonfinite_number")
+    return number
+
+
+def _decode_history_row(raw: bytes) -> dict[str, Any]:
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise _HistoryDecodeFailure("invalid_utf8") from exc
+    if "\x00" in text:
+        raise _HistoryDecodeFailure("nul_byte")
+    try:
+        item = json.loads(text, object_pairs_hook=_history_object,
+                          parse_constant=_history_constant, parse_float=_history_float)
+    except json.JSONDecodeError as exc:
+        raise _HistoryDecodeFailure("invalid_json") from exc
+    if not isinstance(item, dict):
+        raise _HistoryDecodeFailure("invalid_record")
+    request_id = item.get("request_id")
+    # Keep sparse/string-ID legacy-shaped rows valid. The exact writer schema
+    # below is only for diagnostics, not a migration or admission requirement.
+    valid_id = (type(request_id) is int and request_id > 0) or (
+        isinstance(request_id, str) and request_id.isascii()
+        and request_id.isdigit() and int(request_id) > 0)
+    if not valid_id or item.get("status") not in RUNTIME_INPUT_STATES:
+        raise _HistoryDecodeFailure("invalid_record")
+    if "data" in item and not isinstance(item["data"], dict):
+        raise _HistoryDecodeFailure("invalid_record")
+    return item
+
+
+class StatusHistoryUnreadable(ChannelFileLockBusy):
+    """The history file could not be read now; defer like a busy lock.
+
+    Reading nothing would make delivered inputs look new.
+    """
+
+
+class WakeAttemptConflict(RuntimeError):
+    """Batch admission was refused before any ownership record or send."""
+
+    def __init__(self, request_id: int, status: str) -> None:
+        self.request_id = request_id
+        self.status = status
+        super().__init__(f"wake ownership conflict request_id={request_id} status={status}")
+
 
 @dataclass(slots=True)
 class RuntimeInputStatusRepository:
@@ -26,6 +105,12 @@ class RuntimeInputStatusRepository:
     publish_event: Callable[..., Any]
     log: Callable[[str, str], None]
     lock: threading.Lock | threading.RLock
+    # Lowest input id the queue can still return. Statuses below it can never
+    # be selected again, so compaction deletes them; 0 keeps every request.
+    request_floor: Callable[[], int] = lambda: 0
+    _compact_after: float = field(default=0.0, init=False, repr=False)
+    _compacted_size: int = field(default=0, init=False, repr=False)
+    _damage_logged: tuple[int, int] = field(default=(0, 0), init=False, repr=False)
 
     def transition(
         self,
@@ -42,7 +127,7 @@ class RuntimeInputStatusRepository:
             raise ValueError("request_id must be positive")
         if status not in RUNTIME_INPUT_STATES:
             raise ValueError(f"invalid runtime input status: {status}")
-        with self.lock:
+        with self.lock, exclusive_file_lock(self.path):
             current = self.get(request_id, _locked=True)
             current_status = str((current or {}).get("status") or "")
             current_data = dict((current or {}).get("data") or {})
@@ -92,19 +177,117 @@ class RuntimeInputStatusRepository:
         )
         return record
 
+    def schedule_retry(
+        self, request_id: int, retry: dict[str, Any], *, reason: str, expected_attempt: str | None = None
+    ) -> dict[str, Any]:
+        """Return a submitted input to the queue for one resend.
+
+        The resend count is the compare-and-set: only the caller that saw
+        attempt ``n - 1`` may schedule attempt ``n``, so concurrent pollers or
+        a restarted injector never schedule (or send) the same attempt twice.
+        Returns {} when another owner already moved the row.
+        """
+        request_id = int(request_id)
+        with self.lock, exclusive_file_lock(self.path):
+            current = self.get(request_id, _locked=True) or {}
+            data = dict(current.get("data") or {})
+            previous = data.get("retry") if isinstance(data.get("retry"), dict) else {}
+            if (current.get("status") != "submitted"
+                    or int(previous.get("attempt") or 0) != int(retry.get("attempt") or 0) - 1
+                    or (expected_attempt is not None and data.get("attempt_id") != expected_attempt)):
+                return {}
+            data["retry"] = dict(retry)
+            record = self._record(request_id, "queued", reason, data)
+        self.publish_event(level="warn", category="runtime_input.status", message="runtime input retry scheduled",
+                           source="runtime-input", request_id=str(request_id), data=record)
+        return record
+
+    def claim_retry(self, request_id: int, attempt: int, *, now: float | None = None) -> str:
+        """Own one due resend before sending it; '' when it is not ours to send."""
+        request_id = int(request_id)
+        with self.lock, exclusive_file_lock(self.path):
+            current = self.get(request_id, _locked=True) or {}
+            data = dict(current.get("data") or {})
+            retry = data.get("retry") if isinstance(data.get("retry"), dict) else {}
+            if current.get("status") != "queued" or int(retry.get("attempt") or 0) != int(attempt) or retry.get("claim"):
+                return ""
+            claim = uuid.uuid4().hex
+            data["retry"] = {**retry, "claim": claim, "claimed_at_epoch": time.time() if now is None else now}
+            self._record(request_id, "queued", str(current.get("reason") or ""), data)
+        return claim
+
+    def release_retry_claim(self, request_id: int, claim: str, due_epoch: float) -> bool:
+        """Give a claimed resend back after its send RPC failed (nothing was sent)."""
+        request_id = int(request_id)
+        with self.lock, exclusive_file_lock(self.path):
+            current = self.get(request_id, _locked=True) or {}
+            data = dict(current.get("data") or {})
+            retry = data.get("retry") if isinstance(data.get("retry"), dict) else {}
+            if current.get("status") != "queued" or not claim or retry.get("claim") != claim:
+                return False
+            data["retry"] = {**retry, "claim": "", "due_epoch": due_epoch}
+            self._record(request_id, "queued", str(current.get("reason") or ""), data)
+        return True
+
+    def expire_launch_backlog(self, floor: int, cutoff_epoch: float) -> list[int]:
+        """Mark queued inputs a launch fast-forward put behind its replay floor.
+
+        They can never be delivered (the clear floor bounds every rewind), so
+        they are recorded skipped with the launch boundary instead of staying
+        queued forever (Ara, .14 2026-10-23: ids 10365-10384).
+        """
+        floor = int(floor)
+        if floor <= 0:
+            return []
+        with self.lock:
+            latest = {int(row["request_id"]): row for row in self._items()
+                      if str(row.get("request_id", "")).isdigit()}
+        expired = []
+        for request_id in sorted(latest):
+            if request_id > floor or latest[request_id].get("status") != "queued":
+                continue
+            record = self.transition(request_id, "skipped", reason="launch_replay_window_expired",
+                                     data={"launch_floor": floor, "launch_cutoff_epoch": cutoff_epoch})
+            if record.get("status") == "skipped":
+                expired.append(request_id)
+        if expired:
+            self.log("WARN", f"runtime_input_launch_backlog_expired count={len(expired)} "
+                     f"first={expired[0]} last={expired[-1]} floor={floor}")
+        return expired
+
     def begin_attempt(self, message_ids: list[int], child_epoch: str) -> str:
         """Persist ownership before a transport is permitted to send a batch."""
         if not child_epoch:
             raise ValueError("child epoch is required")
         attempt_id = uuid.uuid4().hex
         ids = sorted(set(int(value) for value in message_ids if int(value) > 0))
-        for request_id in ids:
-            record = self.transition(request_id, "submitted", data={
-                "child_epoch": child_epoch, "attempt_id": attempt_id,
-                "batch_ids": ids,
-            })
-            if record.get("data", {}).get("attempt_id") != attempt_id:
-                raise RuntimeError("wake attempt ownership persistence rejected")
+        writing = False
+        try:
+            with self.lock, exclusive_file_lock(self.path):
+                latest = {int(row["request_id"]): row for row in self._items()
+                          if str(row.get("request_id", "")).isdigit()}
+                # Validate the whole batch before writing its first member. A
+                # completion racing candidate selection must not strand earlier
+                # queued work as submitted. Existing ownership is never stolen.
+                for request_id in ids:
+                    status = str(latest.get(request_id, {}).get("status") or "")
+                    if status not in {"", "queued"}:
+                        raise WakeAttemptConflict(request_id, status)
+                records = []
+                for request_id in ids:
+                    data = {**(latest.get(request_id, {}).get("data") or {}),
+                            "child_epoch": child_epoch, "attempt_id": attempt_id,
+                            "batch_ids": ids}
+                    writing = True
+                    records.append(self._record(request_id, "submitted", "", data))
+            for record in records:
+                self.publish_event(level="info", category="runtime_input.status",
+                                   message="runtime input submitted", source="runtime-input",
+                                   request_id=str(record["request_id"]), data=record)
+        except ChannelFileLockBusy as exc:
+            if writing:
+                raise RuntimeError("wake ownership persistence uncertain") from exc
+            raise
         return attempt_id
 
     def reconcile_child_exit(self, child_epoch: str, *, verified_exit: bool) -> list[int]:
@@ -115,11 +298,8 @@ class RuntimeInputStatusRepository:
         """
         if not verified_exit or not child_epoch:
             return []
-        # Do not advance a scan frontier from a truncated ownership history.
-        if self.path.exists() and self.path.stat().st_size > 8 * 1024 * 1024:
-            raise RuntimeError("wake ownership history exceeds reconciliation budget")
         with self.lock:
-            latest = {int(row["request_id"]): row for row in self._items(strict=True)
+            latest = {int(row["request_id"]): row for row in self._items()
                       if str(row.get("request_id", "")).isdigit()}
         reconciled = []
         for request_id, row in latest.items():
@@ -153,12 +333,62 @@ class RuntimeInputStatusRepository:
             record["reason"] = str(reason)
         if data:
             record["data"] = dict(data)
+        line = json.dumps(record, ensure_ascii=False, separators=(",", ":")).encode("utf-8") + b"\n"
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        with self.path.open("a", encoding="utf-8") as stream:
-            stream.write(json.dumps(record, ensure_ascii=False, separators=(",", ":")) + "\n")
+        with self.path.open("a+b") as stream:
+            stream.seek(0, os.SEEK_END)
+            if stream.tell():
+                # A torn tail without its newline would swallow this record.
+                stream.seek(-1, os.SEEK_END)
+                if stream.read(1) != b"\n":
+                    line = b"\n" + line
+            stream.write(line)
             stream.flush()
             os.fsync(stream.fileno())
+        self._compact_if_oversized()
         return record
+
+    def _compact_if_oversized(self) -> None:
+        """Delete old history in place; callers hold the file lock.
+
+        Failure only postpones the next attempt (Windows refuses the replace
+        while another process has the file open); the append already stands.
+        """
+        now = time.monotonic()
+        temporary = self.path.with_name(f".{self.path.name}.{os.getpid()}.compact")
+        try:
+            # Rows the queue still holds survive compaction; wait for the
+            # file to double again rather than rescanning it on every append.
+            limit = max(_HISTORY_COMPACT_BYTES, 2 * self._compacted_size)
+            if now < self._compact_after or self.path.stat().st_size <= limit:
+                return
+            items, health = self._scan_history()
+            if health["coverage"] == "unknown":
+                raise OSError("status history read unavailable")
+            latest: dict[int, dict[str, Any]] = {}
+            for item in items:
+                latest[int(item["request_id"])] = item
+            # Delete superseded transitions and requests the queue no longer
+            # holds; a request still in the queue keeps its ownership.
+            floor = int(self.request_floor())
+            kept = [request_id for request_id in sorted(latest) if request_id >= floor]
+            with temporary.open("wb") as stream:
+                for request_id in kept:
+                    stream.write(json.dumps(latest[request_id], ensure_ascii=False,
+                                            separators=(",", ":")).encode("utf-8") + b"\n")
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(temporary, self.path)
+            self._compacted_size = self.path.stat().st_size
+            self.log("INFO", f"runtime_input_status_history_compacted kept={len(kept)} "
+                     f"dropped_rows={len(items) - len(kept)}")
+        except Exception as exc:
+            self._compact_after = now + _HISTORY_COMPACT_RETRY_SECONDS
+            self.log("WARN", f"runtime_input_status_history_compact_deferred error={type(exc).__name__}")
+            try:
+                temporary.unlink()
+            except OSError:
+                pass
 
     def get(self, request_id: int, *, _locked: bool = False) -> dict[str, Any] | None:
         def read() -> dict[str, Any] | None:
@@ -198,29 +428,92 @@ class RuntimeInputStatusRepository:
             rows = [row for row in rows if row.get("status") == expected]
         return rows[: max(1, min(500, int(limit)))]
 
-    def _items(self, *, strict: bool = False) -> list[dict[str, Any]]:
-        if not self.path.exists():
-            return []
-        items: list[dict[str, Any]] = []
-        try:
-            with self.path.open("r", encoding="utf-8") as stream:
-                for line in stream:
-                    try:
-                        item = json.loads(line)
-                    except (json.JSONDecodeError, TypeError):
-                        if strict:
-                            raise RuntimeError("wake ownership history contains an incomplete record")
-                        continue
-                    if isinstance(item, dict):
-                        items.append(item)
-        except OSError as exc:
-            if strict:
-                raise
-            self.log(
-                "WARN",
-                f"runtime_input_status_read_failed error={type(exc).__name__}: {exc}",
-            )
+    def history_health(self) -> dict[str, Any]:
+        """Read-only, bounded coverage and payload-free physical diagnostics."""
+        with self.lock:
+            _, health = self._scan_history()
+        return health
+
+    def _items(self) -> list[dict[str, Any]]:
+        items, health = self._scan_history()
+        if health["coverage"] == "unknown":
+            raise StatusHistoryUnreadable(errno.EIO, "runtime input status history unreadable")
+        if not health["complete"]:
+            # Damaged lines are ignored, never a reason to hold delivery.
+            # Report each new damage state once rather than on every read.
+            first = health["diagnostics"][0]
+            seen = (health["failure_count"], first["line_number"])
+            if seen != self._damage_logged:
+                self._damage_logged = seen
+                self.log("WARN", "runtime_input_status_history_damage_ignored "
+                         f"lines={health['failure_count']} first_line={first['line_number']} "
+                         f"category={first['failure_category']}")
         return items
 
+    def _scan_history(self) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+        items: list[dict[str, Any]] = []
+        health: dict[str, Any] = {
+            "complete": True, "coverage": "complete", "scanned_bytes": 0,
+            "failure_count": 0, "recovered_count": 0,
+            "diagnostics": [], "diagnostics_truncated": False,
+        }
 
-__all__ = ["RUNTIME_INPUT_STATES", "RuntimeInputStatusRepository"]
+        def failure(line_number, byte_offset, category):
+            health["complete"] = False
+            health["coverage"] = "partial"
+            health["failure_count"] += 1
+            if len(health["diagnostics"]) < _HISTORY_DIAGNOSTIC_LIMIT:
+                health["diagnostics"].append({"line_number": line_number, "byte_offset": byte_offset,
+                                              "failure_category": category})
+            else:
+                health["diagnostics_truncated"] = True
+
+        line_number = 0
+        offset = 0
+        try:
+            with self.path.open("rb") as stream:
+                while True:
+                    raw = stream.readline(_HISTORY_LINE_BUDGET + 1)
+                    if not raw:
+                        break
+                    line_number += 1
+                    start = offset
+                    offset += len(raw)
+                    # A torn append can leave a NUL run of any length before
+                    # the record written after it. The NULs are ignored; only
+                    # the surviving record counts against the line budget.
+                    prefixed = raw.startswith(b"\x00")
+                    body = raw.lstrip(b"\x00")
+                    while prefixed and not raw.endswith(b"\n") and len(body) <= _HISTORY_LINE_BUDGET:
+                        raw = stream.readline(_HISTORY_LINE_BUDGET + 1)
+                        if not raw:
+                            break
+                        offset += len(raw)
+                        body = body + raw if body else raw.lstrip(b"\x00")
+                    if len(body) > _HISTORY_LINE_BUDGET:
+                        while raw and not raw.endswith(b"\n"):
+                            raw = stream.readline(_HISTORY_LINE_BUDGET + 1)
+                            offset += len(raw)
+                        failure(line_number, start, "line_budget_exceeded")
+                        continue
+                    try:
+                        items.append(_decode_history_row(body))
+                    except (ValueError, TypeError, RecursionError) as exc:
+                        # A complete record without its newline is still
+                        # history; only an undecodable tail is unfinished.
+                        category = ("unfinished_eof" if not body.endswith(b"\n") else
+                                    str(exc) if isinstance(exc, _HistoryDecodeFailure) else "invalid_record")
+                        failure(line_number, start, category)
+                        continue
+                    if prefixed:
+                        health["recovered_count"] += 1
+        except FileNotFoundError:
+            pass
+        except OSError:
+            failure(line_number, offset, "read_unavailable")
+            health["coverage"] = "unknown"
+        health["scanned_bytes"] = offset
+        return items, health
+
+
+__all__ = ["RUNTIME_INPUT_STATES", "RuntimeInputStatusRepository", "StatusHistoryUnreadable", "WakeAttemptConflict"]

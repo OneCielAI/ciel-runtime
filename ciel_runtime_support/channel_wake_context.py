@@ -164,6 +164,7 @@ class ChannelPendingPolicyPorts:
     replay_ttl_seconds: Callable[[], float]
     timestamp_seconds: Callable[[dict[str, Any]], float | None]
     is_web_chat: Callable[[dict[str, Any]], bool]
+    scoped_skip_reason: Callable[[dict[str, Any]], str] = lambda _message: ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -632,6 +633,7 @@ class ChannelWakeContext:
                     self.pending_policy.replay_ttl_seconds,
                     self.pending_policy.timestamp_seconds,
                     self.pending_policy.is_web_chat,
+                    self.pending_policy.scoped_skip_reason,
                 ).skip_reason,
             ),
         )

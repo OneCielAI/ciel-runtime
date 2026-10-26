@@ -1,0 +1,40 @@
+{
+ "raw_removed": [
+  "ccfg/",
+  "cfg/",
+  "home/",
+  "interactive.cmd",
+  "ws/"
+ ],
+ "owned_pids_absent": [
+  13520,
+  32276,
+  31800,
+  74988,
+  32968,
+  35472,
+  91248
+ ],
+ "owned_pids_alive": [],
+ "screenshots": [
+  {
+   "file": "named-switched.png",
+   "bytes": 36482,
+   "sha256": "e79e564124bb17dd614d69ce6a610b318cd48b4fac75c1efe943587c5bc61f11",
+   "dimensions": [
+    1129,
+    635
+   ]
+  },
+  {
+   "file": "named.png",
+   "bytes": 26890,
+   "sha256": "1ddeea7936fed100954e3b7d42337db627d163b930d73ce4ee50733a5b44109d",
+   "dimensions": [
+    1129,
+    635
+   ]
+  }
+ ],
+ "retained_policy": "metadata, screenshot, console and result only; removed all run config/home/workspace/transcript trees and launch commands"
+}

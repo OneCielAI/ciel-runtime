@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import copy
+import contextlib
 import io
 import base64
 import hashlib
+import http.client
 import json
 import sys
 import tempfile
@@ -53,7 +55,12 @@ from ciel_runtime_support.remote_bridge import (
 from ciel_runtime_support.model_override import with_forced_model
 from ciel_runtime_support.oauth_routing import codex_request_run
 from ciel_runtime_support.tool_schema import request_tool_schema_scope
+from ciel_runtime_support.transient_retry import request_scope, retry_handled
 from ciel_runtime_support.upstream_dump import dump_upstream_request
+from ciel_runtime_support.upstream_stream_io import (
+    UpstreamClientDisconnected,
+    client_connection_closed,
+)
 from ciel_runtime_support.upstream_overload_retry import (
     DEFAULT_BUDGET_SECONDS as OVERLOAD_BUDGET_SECONDS,
     OverloadRetryState,
@@ -79,6 +86,14 @@ class UpstreamContextExceeded(Exception):
         super().__init__(code)
         self.code = code
         self.payload = payload
+
+
+@dataclass(slots=True)
+class _CodexTransportRetryState:
+    """One forwarded request's shared transport/no-output retry allowance."""
+
+    limit: int
+    used: int = 0
 
 
 @dataclass(slots=True)
@@ -335,12 +350,14 @@ class CodexBackendHttpAdapter:
         # of the router retrying in silence.
         compaction_rounds = 0
         overload = OverloadRetryState(budget_seconds=self._request.overload_budget())
+        transport_retry = _CodexTransportRetryState(self._request.transport_retry_limit())
         for attempt in range(MAX_REPLAY_REPAIR_ATTEMPTS + 1):
             try:
                 self._send_codex_request(
                     handler, provider, config, url, headers, data, upstream_body,
                     mutate_responses=mutate_responses,
                     observe=oauth_run.observe_response if oauth_run is not None else None,
+                    transport_retry=transport_retry,
                 )
                 return delivery_body
             except UpstreamContextExceeded as exc:
@@ -355,6 +372,10 @@ class CodexBackendHttpAdapter:
                 data = json.dumps(upstream_body).encode("utf-8")
                 dump_upstream_request(url, data, self._retry.log)
             except urllib.error.HTTPError as exc:
+                if (retry_handled(exc)
+                        or getattr(exc, "_codex_no_output_retry_exhausted", False)
+                        or getattr(exc, "_codex_http_body_read_failed", False)):
+                    raise
                 if oauth_run is not None and exc.code in (401, 429):
                     retry, relay = oauth_run.retry_headers(exc, base_headers)
                     if retry is None:
@@ -400,6 +421,8 @@ class CodexBackendHttpAdapter:
     ) -> None:
         """Wait out an overloaded upstream, or relay its error with what was tried."""
 
+        if retry_handled(exc):
+            raise exc
         raw = exc.read()
         wait = overload.next_wait(exc.code, raw, exc.headers)
         excerpt = message_excerpt(raw)
@@ -600,12 +623,17 @@ class CodexBackendHttpAdapter:
         *,
         mutate_responses: bool,
         observe: Callable[..., None] | None = None,
+        transport_retry: _CodexTransportRetryState | None = None,
     ) -> None:
+        if transport_retry is None:
+            transport_retry = _CodexTransportRetryState(self._request.transport_retry_limit())
         max_retries = self._retry.retry_limit() if mutate_responses else 0
         for attempt in range(max_retries + 1):
             request = urllib.request.Request(url, data=data, headers=headers, method="POST")
             with self._open_with_transport_retry(
-                request, provider, config, str(upstream_body.get("model") or ""), "responses"
+                request, provider, config, str(upstream_body.get("model") or ""), "responses",
+                handler=handler,
+                retry_state=transport_retry,
             ) as response:
                 if observe is not None:
                     observe(response.headers, int(getattr(response, "status", 200)))
@@ -755,6 +783,39 @@ class CodexBackendHttpAdapter:
             handler.wfile.write(chunk)
             handler.wfile.flush()
 
+    @staticmethod
+    def _no_output_http_failure(error: urllib.error.HTTPError, payload: bytes) -> bool:
+        """Recognize the provider's explicit pre-response failure verdict.
+
+        A status code alone is not enough to replay a Codex request.  The
+        provider must say that it produced no usable output; generic 5xx
+        responses remain non-retryable at this boundary.
+        """
+
+        if error.code not in (502, 503, 504) or not payload:
+            return False
+        try:
+            text = payload.decode("utf-8").strip()
+            if text.startswith("event:"):
+                lines = [line.strip() for line in text.splitlines() if line.strip()]
+                if len(lines) != 2 or lines[0] != "event: error" or not lines[1].startswith("data:"):
+                    return False
+                text = lines[1][5:].strip()
+            value = json.loads(text)
+        except (UnicodeDecodeError, ValueError, TypeError):
+            return False
+        if not isinstance(value, dict) or set(value) - {"type", "error"}:
+            return False
+        detail = value.get("error")
+        if (value.get("type") != "error" or not isinstance(detail, dict)
+                or set(detail) - {"type", "message", "code"}
+                or not isinstance(detail.get("type"), str)
+                or detail["type"] not in {"server_error", "api_error"}
+                or not isinstance(detail.get("message"), str)):
+            return False
+        message = detail["message"].casefold()
+        return "upstream reported a failed response without usable output" in message
+
     def _open_with_transport_retry(
         self,
         request: urllib.request.Request,
@@ -762,9 +823,16 @@ class CodexBackendHttpAdapter:
         config: dict[str, Any],
         model: str,
         operation: str,
+        *,
+        handler: Any = None,
+        retry_state: _CodexTransportRetryState | None = None,
     ) -> Any:
-        retries = self._request.transport_retry_limit()
-        for attempt in range(retries + 1):
+        if retry_state is None:
+            retry_state = _CodexTransportRetryState(self._request.transport_retry_limit())
+        retries = retry_state.limit
+        while True:
+            if handler is not None and client_connection_closed(handler):
+                raise UpstreamClientDisconnected("downstream client disconnected before upstream open")
             try:
                 return self._request.urlopen(
                     request,
@@ -773,18 +841,67 @@ class CodexBackendHttpAdapter:
                     pcfg=config,
                 )
             except (TimeoutError, urllib.error.URLError, OSError) as error:
-                if isinstance(error, urllib.error.HTTPError):
+                if provider == "cielairouter" or retry_handled(error):
+                    # The request-scoped executor is the sole transient owner;
+                    # transport loss is not an explicit pre-output rejection.
                     raise
-                if attempt >= retries or not self._request.retryable_exception(error):
-                    if attempt and self._request.retryable_exception(error):
+                payload = b""
+                if isinstance(error, urllib.error.HTTPError):
+                    try:
+                        payload = error.read()
+                    except (OSError, ValueError, http.client.HTTPException) as read_error:
+                        # An unreadable verdict cannot authorize any replay,
+                        # including the outer OAuth/overload/repair loops.
+                        error._codex_http_body_read_failed = True
+                        raise error from read_error
+                    if operation != "responses" or not self._no_output_http_failure(error, payload):
+                        raise urllib.error.HTTPError(
+                            error.url, error.code, error.msg, error.hdrs, io.BytesIO(payload)
+                        ) from None
+                    if retry_state.used >= retries:
+                        exhausted = urllib.error.HTTPError(
+                            error.url, error.code, error.msg, error.hdrs, io.BytesIO(payload)
+                        )
+                        exhausted._codex_no_output_retry_exhausted = True
+                        raise exhausted from None
+                    retry_state.used += 1
+                    retry_number = retry_state.used
+                    wait = self._retry.retry_wait(retry_number)
+                    self._retry.log(
+                        "WARN",
+                        "codex_no_output_http_retry "
+                        f"operation={operation} model={model} status={error.code} "
+                        f"attempt={retry_number}/{retries} wait={wait:.2f}s",
+                    )
+                    self._retry.publish(
+                        level="warn",
+                        category="router.retry",
+                        message="Codex no-output HTTP retry",
+                        provider=provider,
+                        model=model,
+                        data={
+                            "operation": operation,
+                            "attempt": retry_number,
+                            "total": retries,
+                            "status": error.code,
+                            "wait_seconds": wait,
+                        },
+                    )
+                    if handler is not None and client_connection_closed(handler):
+                        raise UpstreamClientDisconnected("downstream client disconnected before HTTP retry")
+                    self._retry.sleep(wait)
+                    continue
+                if retry_state.used >= retries or not self._request.retryable_exception(error):
+                    if retry_state.used and self._request.retryable_exception(error):
                         self._retry.log(
                             "ERROR",
                             "codex_transport_exhausted "
-                            f"operation={operation} model={model} attempts={attempt + 1} "
+                            f"operation={operation} model={model} attempts={retry_state.used + 1} "
                             f"error={type(error).__name__}: {error}",
                         )
                     raise
-                retry_number = attempt + 1
+                retry_state.used += 1
+                retry_number = retry_state.used
                 wait = self._retry.retry_wait(retry_number)
                 self._retry.log(
                     "WARN",
@@ -1503,20 +1620,30 @@ class RouterHttpHandler(BaseHTTPRequestHandler):
         session = gateway_session(self, provider, body) if gateways is not None else ""
         if gateways is not None:
             pcfg = gateways.apply(provider, pcfg, path=path, session=session)
-        for _attempt in range(8):
-            model = str(body.get("model") or pcfg.get("current_model") or "")
-            try:
-                with services.core.observe_runtime(self, path, provider, model, body):
-                    return bool(endpoints.runtime(self, cfg, provider, pcfg, path, body))
-            except FailoverRequested as request:
-                if failover is None or self._ciel_runtime_response_status is not None:
-                    raise
-                services.core.log("WARN", f"provider_failover_retry path={path} {request}")
-                provider, pcfg = failover.effective(cfg, request.from_provider, pcfg, turn_start=False)
-                if gateways is not None:
-                    session = gateway_session(self, provider, pristine)
-                    pcfg = gateways.apply(provider, pcfg, path=path, session=session)
-                body = copy.deepcopy(pristine)
+        with contextlib.ExitStack() as retry_scope:
+            scoped_provider = None
+            for _attempt in range(8):
+                if llm and provider != scoped_provider:
+                    retry_scope.close()
+                    if provider == "cielairouter":
+                        # One allowance for the entire logical dispatch, including
+                        # nested context recovery and legacy reopen loops. Never
+                        # attach mutable retry state to a reusable provider config.
+                        retry_scope.enter_context(request_scope(pcfg, provider))
+                    scoped_provider = provider
+                model = str(body.get("model") or pcfg.get("current_model") or "")
+                try:
+                    with services.core.observe_runtime(self, path, provider, model, body):
+                        return bool(endpoints.runtime(self, cfg, provider, pcfg, path, body))
+                except FailoverRequested as request:
+                    if failover is None or self._ciel_runtime_response_status is not None:
+                        raise
+                    services.core.log("WARN", f"provider_failover_retry path={path} {request}")
+                    provider, pcfg = failover.effective(cfg, request.from_provider, pcfg, turn_start=False)
+                    if gateways is not None:
+                        session = gateway_session(self, provider, pristine)
+                        pcfg = gateways.apply(provider, pcfg, path=path, session=session)
+                    body = copy.deepcopy(pristine)
         return False
 
     def do_POST(self) -> None:

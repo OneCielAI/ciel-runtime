@@ -93,7 +93,11 @@ class ScriptedResponse:
         return self
 
     def __exit__(self, *_args):
+        self.close()
         return False
+
+    def close(self):
+        pass
 
     def read(self, _size):
         if not self.steps:
@@ -162,14 +166,14 @@ class ProviderResponsesGatewayReplayGuardTests(unittest.TestCase):
         patcher.start()
         self.addCleanup(patcher.stop)
 
-    def forward(self, config, responses, *, tools=False):
+    def forward(self, config, responses, *, tools=False, provider=PROVIDER):
         logs = []
         downstream = handler()
         urlopen = mock.Mock(side_effect=[ScriptedResponse(r) for r in responses])
         outcome = SimpleNamespace(logs=logs, handler=downstream, urlopen=urlopen)
         try:
             outcome.delivery = passthrough(urlopen, logs).forward(
-                downstream, PROVIDER, config, body(tools=tools)
+                downstream, provider, config, body(tools=tools)
             )
             outcome.error = None
         except UpstreamStreamReadError as error:
@@ -218,7 +222,7 @@ class ProviderResponsesGatewayReplayGuardTests(unittest.TestCase):
                         ]
                     )
 
-    def test_unoverlaid_config_keeps_configured_replays(self):
+    def test_unoverlaid_cielairouter_does_not_replay_ambiguous_truncation(self):
         restored = discovery_provider_config(selected_gateway_config())
         self.assertNotIn(ROUTE_TOKEN_KEY, restored)
         for label, config in (("central", central_config()), ("restored", restored)):
@@ -228,8 +232,8 @@ class ProviderResponsesGatewayReplayGuardTests(unittest.TestCase):
                 )
 
                 self.assertIsNotNone(outcome.error)
-                self.assertEqual(CONFIGURED_RETRIES + 1, outcome.urlopen.call_count)
-                self.assertEqual(CONFIGURED_RETRIES + 1, outcome.error.attempts)
+                self.assertEqual(1, outcome.urlopen.call_count)
+                self.assertEqual(1, outcome.error.attempts)
                 self.assertFalse(outcome.error.downstream_started)
                 self.assert_nothing_sent(outcome)
                 retries = [
@@ -237,12 +241,13 @@ class ProviderResponsesGatewayReplayGuardTests(unittest.TestCase):
                     for _, message in outcome.logs
                     if "provider_responses_stream_retry" in message
                 ]
-                self.assertEqual(CONFIGURED_RETRIES, len(retries))
+                self.assertEqual(0, len(retries))
 
-    def test_unoverlaid_config_recovers_after_partial_read_exception(self):
+    def test_other_provider_recovers_after_partial_read_exception(self):
         outcome = self.forward(
             central_config(),
             [[IncompleteRead(CREATED, 4096)], [COMPLETE]],
+            provider="openai",
         )
 
         self.assertIsNone(outcome.error)

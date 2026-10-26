@@ -1,0 +1,15 @@
+2026-10-24T14:40:00 [INFO] ollama_stream_request provider=ollama-cloud model=glm-5.3-flash attempt=1/1 tokens=262936 bytes=1052250
+2026-10-24T14:40:04 [INFO] ollama_stream_request provider=ollama-cloud model=glm-5.3-flash attempt=1/1 tokens=265037 bytes=1062260
+2026-10-24T14:40:05 [INFO] ollama_stream_request provider=ollama-cloud model=glm-5.3-flash attempt=1/1 tokens=265178 bytes=1062827
+2026-10-24T14:40:10 [INFO] ollama_stream_request provider=ollama-cloud model=glm-5.3-flash attempt=1/1 tokens=265684 bytes=1064860
+2026-10-24T14:40:27 [INFO] ollama_stream_request provider=ollama-cloud model=glm-5.3-flash attempt=1/1 tokens=768422 bytes=3186764
+2026-10-24T14:41:19 [INFO] ollama_stream_request provider=ollama-cloud model=glm-5.3-flash attempt=1/1 tokens=522443 bytes=2202326
+2026-10-24T14:43:39 [INFO] ollama_stream_request provider=ollama-cloud model=glm-5.3-flash attempt=1/1 tokens=267177 bytes=1077756
+2026-10-24T14:43:42 [WARN] ollama_reasoning_only_stream provider=ollama-cloud model=glm-5.3-flash chunks=9 thinking_chars=89 done_reason=stop
+2026-10-24T14:45:01 [INFO] ollama_stream_request provider=ollama-cloud model=glm-5.3-flash attempt=1/1 tokens=267245 bytes=1078033
+2026-10-24T14:45:05 [WARN] ollama_reasoning_only_stream provider=ollama-cloud model=glm-5.3-flash chunks=70 thinking_chars=952 done_reason=stop
+2026-10-24T14:45:45 [INFO] ollama_stream_request provider=ollama-cloud model=glm-5.3-flash attempt=1/1 tokens=267544 bytes=1079240
+2026-10-24T14:45:47 [WARN] ollama_empty_stream provider=ollama-cloud model=glm-5.3-flash chunks=3
+2026-10-24T14:46:02 [INFO] ollama_stream_request provider=ollama-cloud model=glm-5.3-flash attempt=1/1 tokens=267599 bytes=1079465
+2026-10-24T14:46:03 [WARN] ollama_reasoning_only_stream provider=ollama-cloud model=glm-5.3-flash chunks=13 thinking_chars=129 done_reason=stop
+2026-10-24T14:49:05 [INFO] ollama_stream_request provider=ollama-cloud model=glm-5.3-flash attempt=1/1 tokens=267746 bytes=1080055

@@ -1,0 +1,14 @@
+Live vision probe against the running router (alitoken / deepseek-v4.1-flash-1017)
+Router: http://127.0.0.1:9512  version 0.2.51-nightly.20261022-030938.625faed
+Provider: alitoken   Model: ciel-runtime-alitoken-deepseek-v4.1-flash-1017
+
+1) Anthropic Messages wire, solid red 96x96 PNG (199 bytes, sha256 527b9d8cc8ad521a...)
+   POST /v1/messages
+   -> HTTP 200, stop_reason=end_turn, text: "Red"
+
+2) OpenAI Chat wire, solid blue 96x96 PNG, image_url data URI
+   POST /v1/chat/completions
+   -> HTTP 200, content: "Blue unpredictable"
+     (two words instead of one; the color itself is correct)
+
+Conclusion: image input reaches this model through Ciel Runtime on both wires.

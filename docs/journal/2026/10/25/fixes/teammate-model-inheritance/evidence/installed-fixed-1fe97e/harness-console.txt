@@ -1,0 +1,134 @@
+case fixed tag plain
+----------------------------------------
+Exception occurred during processing of request from ('127.0.0.1', 60327)
+Traceback (most recent call last):
+  File "C:\Program Files\Python311\Lib\socketserver.py", line 691, in process_request_thread
+    self.finish_request(request, client_address)
+  File "C:\Program Files\Python311\Lib\socketserver.py", line 361, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Program Files\Python311\Lib\socketserver.py", line 755, in __init__
+    self.handle()
+  File "C:\Program Files\Python311\Lib\http\server.py", line 438, in handle
+    self.handle_one_request()
+  File "C:\Program Files\Python311\Lib\http\server.py", line 404, in handle_one_request
+    self.raw_requestline = self.rfile.readline(65537)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Program Files\Python311\Lib\socket.py", line 706, in readinto
+    return self._sock.recv_into(b)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+ConnectionResetError: [WinError 10054] An existing connection was forcibly closed by the remote host
+----------------------------------------
+case fixed tag haiku
+----------------------------------------
+Exception occurred during processing of request from ('127.0.0.1', 58888)
+Traceback (most recent call last):
+  File "C:\Program Files\Python311\Lib\socketserver.py", line 691, in process_request_thread
+    self.finish_request(request, client_address)
+  File "C:\Program Files\Python311\Lib\socketserver.py", line 361, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Program Files\Python311\Lib\socketserver.py", line 755, in __init__
+    self.handle()
+  File "C:\Program Files\Python311\Lib\http\server.py", line 438, in handle
+    self.handle_one_request()
+  File "C:\Program Files\Python311\Lib\http\server.py", line 404, in handle_one_request
+    self.raw_requestline = self.rfile.readline(65537)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Program Files\Python311\Lib\socket.py", line 706, in readinto
+    return self._sock.recv_into(b)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+ConnectionResetError: [WinError 10054] An existing connection was forcibly closed by the remote host
+----------------------------------------
+case fixed tag sonnet
+----------------------------------------
+Exception occurred during processing of request from ('127.0.0.1', 58906)
+Traceback (most recent call last):
+  File "C:\Program Files\Python311\Lib\socketserver.py", line 691, in process_request_thread
+    self.finish_request(request, client_address)
+  File "C:\Program Files\Python311\Lib\socketserver.py", line 361, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Program Files\Python311\Lib\socketserver.py", line 755, in __init__
+    self.handle()
+  File "C:\Program Files\Python311\Lib\http\server.py", line 438, in handle
+    self.handle_one_request()
+  File "C:\Program Files\Python311\Lib\http\server.py", line 404, in handle_one_request
+    self.raw_requestline = self.rfile.readline(65537)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Program Files\Python311\Lib\socket.py", line 706, in readinto
+    return self._sock.recv_into(b)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+ConnectionResetError: [WinError 10054] An existing connection was forcibly closed by the remote host
+----------------------------------------
+case fixed tag definition
+----------------------------------------
+Exception occurred during processing of request from ('127.0.0.1', 58923)
+Traceback (most recent call last):
+  File "C:\Program Files\Python311\Lib\socketserver.py", line 691, in process_request_thread
+    self.finish_request(request, client_address)
+  File "C:\Program Files\Python311\Lib\socketserver.py", line 361, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Program Files\Python311\Lib\socketserver.py", line 755, in __init__
+    self.handle()
+  File "C:\Program Files\Python311\Lib\http\server.py", line 438, in handle
+    self.handle_one_request()
+  File "C:\Program Files\Python311\Lib\http\server.py", line 404, in handle_one_request
+    self.raw_requestline = self.rfile.readline(65537)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Program Files\Python311\Lib\socket.py", line 706, in readinto
+    return self._sock.recv_into(b)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+ConnectionResetError: [WinError 10054] An existing connection was forcibly closed by the remote host
+----------------------------------------
+case fixed tag modelarg
+----------------------------------------
+Exception occurred during processing of request from ('127.0.0.1', 58941)
+Traceback (most recent call last):
+  File "C:\Program Files\Python311\Lib\socketserver.py", line 691, in process_request_thread
+    self.finish_request(request, client_address)
+  File "C:\Program Files\Python311\Lib\socketserver.py", line 361, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Program Files\Python311\Lib\socketserver.py", line 755, in __init__
+    self.handle()
+  File "C:\Program Files\Python311\Lib\http\server.py", line 438, in handle
+    self.handle_one_request()
+  File "C:\Program Files\Python311\Lib\http\server.py", line 404, in handle_one_request
+    self.raw_requestline = self.rfile.readline(65537)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Program Files\Python311\Lib\socket.py", line 706, in readinto
+    return self._sock.recv_into(b)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+ConnectionResetError: [WinError 10054] An existing connection was forcibly closed by the remote host
+----------------------------------------
+interactive owned cmd: yes
+interactive ready: yes
+console command: yes
+named child request: yes
+console command: yes
+model dialog or result: yes
+console key enter: yes
+model switched and prompt idle: yes
+console command: yes
+switched named child request (first send): yes
+switched named child request: yes
+agent-exit before shutdown: none
+----------------------------------------
+Exception occurred during processing of request from ('127.0.0.1', 58962)
+Traceback (most recent call last):
+  File "C:\Program Files\Python311\Lib\socketserver.py", line 691, in process_request_thread
+    self.finish_request(request, client_address)
+  File "C:\Program Files\Python311\Lib\socketserver.py", line 361, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Program Files\Python311\Lib\socketserver.py", line 755, in __init__
+    self.handle()
+  File "C:\Program Files\Python311\Lib\http\server.py", line 438, in handle
+    self.handle_one_request()
+  File "C:\Program Files\Python311\Lib\http\server.py", line 404, in handle_one_request
+    self.raw_requestline = self.rfile.readline(65537)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Program Files\Python311\Lib\socket.py", line 706, in readinto
+    return self._sock.recv_into(b)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+ConnectionResetError: [WinError 10054] An existing connection was forcibly closed by the remote host
+----------------------------------------
+evidence C:\Users\djlov\ciel-runtime-wt-lease\docs\journal\2026\10\25\fixes\teammate-model-inheritance\evidence\installed-fixed-1fe97e
+
+exit=0

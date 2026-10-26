@@ -1,0 +1,10 @@
+{
+  "runtime": "C:/Users/djlov/.local/share/ciel-runtime",
+  "requests": 1,
+  "received_type": "function_call",
+  "delivered_type": "custom_tool_call",
+  "namespace": "functions",
+  "raw_script_preserved": true,
+  "outbound_flag": "absent",
+  "status": "PASS"
+}

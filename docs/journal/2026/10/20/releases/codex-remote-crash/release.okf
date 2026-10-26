@@ -1,0 +1,50 @@
+---
+type: release-verification
+title: Codex app-server TUI crash fix local nightly deployment
+description: Exact published nightly snapshot installed locally and verified without restarting live sessions.
+timestamp: 2026-10-20
+tags: [codex, app-server, tui, nightly, deployment]
+---
+
+# Identity
+
+Fix commit: `f6fc7ac656629a39e0508726b505f861c5524a96`.
+Published version: `0.2.51-nightly.20261020-193048.f6fc7ac`.
+Nightly CI: 39483409734 passed. Publish to npm: 39483409740 passed.
+Registry nightly gitHead and version matched the exact fix commit.
+Published tarball SHA-256: `ea0b0e9c1c7ed9003f3f9d25abd9f63efeee6b86deb4a1283b9c81f1def251ef`.
+Published tarball had 485 files and no journal payload was used for installation.
+
+# Local deployment
+
+The exact published tarball was acquired with SHA-1/SHA-512 verification and
+extracted into the task evidence directory. npm global installation from the
+verified tarball succeeded. A new non-overwriting snapshot was installed at
+`%USERPROFILE%\.local\share\ciel-runtime-f6fc7ac656629a39e0508726b505f861c5524a96`.
+User `CIEL_RUNTIME_HOME` now points to that snapshot. The direct registry
+version install was attempted first but failed with ETARGET while the publish
+verification endpoint was still propagating; the verified local tarball path
+was then used, with no weakened verification.
+
+# Verification
+
+- Installed focused suites: 375 run, zero failures/errors, 80 skipped.
+- Recursive source integrity: 430 Python files checked for snapshot and npm
+  global package; zero mismatches against the verified tarball.
+- Snapshot version command: exit 0,
+  `ciel-runtime 0.2.51-nightly.20261020-193048.f6fc7ac`.
+- Native installed acceptance `run-codex-remote-installed-f6fc7ac-144153` passed:
+  same-thread restart, Leave paused dismissal, unchanged paused goal, new external
+  input replied, old native process gone, app-server port release observed.
+  Both owned listeners were absent after teardown.
+- Screenshot attempt could not capture a window; rendered terminal text shows
+  `STUB-REPLY-9` and `Goal paused (/goal resume)`. Initial AttachConsole error 6
+  is preserved in the owned harness record; subsequent captures and acceptance
+  succeeded.
+
+# Live-session safety
+
+No live Bob, Walkie, or local runtime session was restarted. Pre-install process
+identities were captured in `evidence/preinstall.json`; installation used a new
+full-SHA snapshot and did not overwrite the prior `9ac82f0` snapshot. Existing
+processes therefore remain on their previously loaded code.

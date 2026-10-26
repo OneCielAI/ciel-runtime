@@ -1,0 +1,1 @@
+{"updated_at":1792874692.332682,"time":"2026-10-24T15:44:52","event":"error","provider":"ollama","model":"osr-fake","error":"ollama_semantic_exhausted","attempts":3,"stream":true,"tokens":360,"output_tokens":0}

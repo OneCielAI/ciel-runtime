@@ -14,6 +14,7 @@ from ciel_runtime_support.context_compaction import (
     ContextCompactionTransport,
     ContextCompactionWorkflow,
     build_llm_compacted_messages,
+    no_output_context_rejection,
     request_context_summary,
 )
 from ciel_runtime_support.context_summary_policy import (
@@ -183,8 +184,8 @@ class ContextCompactionTests(unittest.TestCase):
         self.assertEqual(0, services.workflow.request_summary.call_args.args[2]["gateway_retries"])
         self.assertEqual(10, config["gateway_retries"])
 
-    def test_failures_empty_timeout_and_cancel_never_complete_or_retry(self):
-        for failure in (RuntimeError("high demand"), TimeoutError("ambiguous"), asyncio.CancelledError(), KeyboardInterrupt(), ""):
+    def test_semantic_failures_empty_and_cancel_never_complete_or_retry(self):
+        for failure in (RuntimeError("high demand"), asyncio.CancelledError(), KeyboardInterrupt(), ""):
             with self.subTest(failure=repr(failure)):
                 services = self.services()
                 if isinstance(failure, BaseException):
@@ -268,7 +269,7 @@ class ContextCompactionTests(unittest.TestCase):
         ]}
         self.compact(services, history=[message])
         prompts = [call.args[3] for call in services.workflow.request_summary.call_args_list]
-        self.assertGreater(len(prompts), 8)
+        self.assertGreater(len(prompts), 1)
         self.assertTrue(any("FINAL_FACT" in prompt for prompt in prompts))
         self.assertTrue(any("RESULT_FACT" in prompt for prompt in prompts))
         self.assertTrue(all("truncated" not in prompt for prompt in prompts))
@@ -281,7 +282,7 @@ class ContextCompactionTests(unittest.TestCase):
         def generate(_provider, _model, _config, prompt, **_kwargs):
             if prompt.startswith("Segment "):
                 number = int(prompt.split()[1].split("/")[0].rstrip("."))
-                return f"fact-{number}:" + "x" * 900
+                return f"fact-{number}:" + "x" * 2200
             return "reduced:" + ",".join(f"fact-{i}:" for i in range(1, 19) if f"fact-{i}:" in prompt)
         services.workflow.request_summary.side_effect = generate
         result = self.compact(services, history=[{"role": "assistant", "content": f"history {i}"} for i in range(18)])
@@ -297,7 +298,7 @@ class ContextCompactionTests(unittest.TestCase):
         services = self.real_services()
         services = replace(services, workflow=replace(services.workflow,
             split_messages=lambda messages, _target: [(i, [message]) for i, message in enumerate(messages)]))
-        services.workflow.request_summary.side_effect = ["x" * 1200] * 10 + [TimeoutError("reduce")]
+        services.workflow.request_summary.side_effect = ["x" * 4000] * 10 + [TimeoutError("reduce")]
         with self.assertRaises(TimeoutError):
             self.compact(services, history=[{"role": "assistant", "content": "history"}] * 10)
         self.assertEqual(11, services.workflow.request_summary.call_count)
@@ -312,7 +313,7 @@ class ContextCompactionTests(unittest.TestCase):
 
     def test_full_map_request_checks_protocol_system_and_output_budget(self):
         services = self.real_services()
-        services = replace(services, map_system_prompt="system" * 2000)
+        services = replace(services, map_system_prompt="system" * 6000)
         with self.assertRaisesRegex(ContextCompactionFailed, "insufficient_summary_budget"):
             self.compact(services)
         services.workflow.request_summary.assert_not_called()
@@ -325,8 +326,24 @@ class ContextCompactionTests(unittest.TestCase):
         self.assertEqual(1024, services.transport.post_json.call_args.args[1]["max_tokens"])
         services.transport.post_json.reset_mock()
         with self.assertRaisesRegex(ContextCompactionFailed, "summary_request_exceeds_budget"):
-            request_context_summary("provider", "model", {}, "한글" * 3000, services, wire="openai", budget_tokens=8192)
+            request_context_summary("provider", "model", {}, "한글" * 16000, services, wire="openai", budget_tokens=8192)
         services.transport.post_json.assert_not_called()
+
+    def test_summary_transport_resolves_internal_alias_before_sending(self):
+        services = self.real_services()
+        resolve = mock.Mock(return_value="provider/upstream")
+        services = replace(services, transport=replace(services.transport, resolve_model=resolve))
+        request_context_summary("provider", "ciel-runtime-provider-alias", {}, "prompt", services,
+                                wire="openai", budget_tokens=8192)
+        request = services.transport.post_json.call_args.args[1]
+        self.assertEqual("provider/upstream", request["model"])
+        self.assertEqual("provider/upstream", services.transport.post_json.call_args.args[6])
+
+    def test_cancelled_summary_run_stops_before_billable_call(self):
+        services = self.real_services()
+        with self.assertRaisesRegex(ContextCompactionFailed, "client_cancelled"):
+            self.compact(services, {"_context_compact_cancelled": lambda: True})
+        services.workflow.request_summary.assert_not_called()
 
     def test_transport_rejects_partial_generation_and_empty_output(self):
         for data in ({"choices": [{"finish_reason": "length"}]}, {"stop_reason": "max_tokens"}, {"status": "incomplete"}, {"error": {"message": "failed"}}):
@@ -351,6 +368,54 @@ class ContextCompactionTests(unittest.TestCase):
         self.assertEqual(3, len(calls))
         self.assertNotEqual(calls[0].args[3], calls[1].args[3])
         self.assertNotEqual(calls[0].args[3], calls[2].args[3])
+        self.assertEqual(2, services.workflow.write_activity.call_args.kwargs["completed_chunks"])
+
+    def test_context_limit_rejection_is_recognized_from_custom_exact_text(self):
+        failure = UpstreamFailure(
+            "cielairouter",
+            "combo",
+            status=400,
+            error_type="invalid_request_error",
+            message=(
+                "Conversation exceeds the known context limits of all eligible combo "
+                "targets. Compact the conversation before retrying."
+            ),
+            source="http_status",
+        )
+
+        self.assertTrue(no_output_context_rejection(failure))
+
+    def test_unrelated_invalid_request_is_not_a_context_rejection(self):
+        failure = UpstreamFailure(
+            "cielairouter",
+            "combo",
+            status=400,
+            error_type="invalid_request_error",
+            message="Unsupported tool: 'exec'. Only 'apply_patch' is supported.",
+            source="http_status",
+        )
+
+        self.assertFalse(no_output_context_rejection(failure))
+
+    def test_truncated_map_summary_is_split_and_regenerated(self):
+        services = self.real_services()
+        services.workflow.request_summary.side_effect = [
+            ContextCompactionFailed("truncated_summary"),
+            "left summary",
+            "right summary",
+        ]
+
+        result = self.compact(
+            services,
+            history=[{"role": "assistant", "content": "left fact " * 120 + "right fact " * 120}],
+        )
+
+        calls = services.workflow.request_summary.call_args_list
+        self.assertEqual(3, len(calls))
+        self.assertNotEqual(calls[0].args[3], calls[1].args[3])
+        self.assertNotEqual(calls[0].args[3], calls[2].args[3])
+        self.assertIn("left summary", result[-1]["content"])
+        self.assertIn("right summary", result[-1]["content"])
         self.assertEqual(2, services.workflow.write_activity.call_args.kwargs["completed_chunks"])
 
     def test_ambiguous_rejections_and_partial_output_are_not_split_or_retried(self):
@@ -379,7 +444,7 @@ class ContextCompactionTests(unittest.TestCase):
         services = self.prompt_services([])
         messages = [{"role": "user", "content": CODEX_CONTEXT_CHECKPOINT_PROMPT}]
         result = compact_chat_messages_for_budget(messages, [], 8192, provider="provider", model="model",
-            pcfg={}, full_compact_request=True, services=services)
+            pcfg={"_context_compact_context_rejected": True}, full_compact_request=True, services=services)
         self.assertIs(messages, result)
         services.runtime.llm_compact_messages.assert_not_called()
 
@@ -390,24 +455,25 @@ class ContextCompactionTests(unittest.TestCase):
             with self.assertRaisesRegex(ContextCompactionFailed, "final_reduce_exceeds_budget"):
                 if wire == "openai":
                     compact_chat_messages_for_budget(messages, [], 8192, provider="provider", model="model",
-                        pcfg={}, full_compact_request=True, services=services)
+                        pcfg={"_context_compact_context_rejected": True}, full_compact_request=True, services=services)
                 else:
                     compact_anthropic_body_for_budget({"messages": messages}, 8192, provider="provider", model="model",
-                        pcfg={}, full_compact_request=True, services=services)
+                        pcfg={"_context_compact_context_rejected": True}, full_compact_request=True, services=services)
             services.text.build_summary.assert_not_called()
 
     def test_anthropic_system_envelope_is_reserved_before_semantic_work(self):
         services = self.prompt_services([{"role": "user", "content": "final reducer"}])
         body = {"system": "system constraints " * 150, "messages": [{"role": "user", "content": "history " * 10000}], "max_tokens": 512}
-        compact_anthropic_body_for_budget(body, 8192, provider="provider", model="model", pcfg={},
+        compact_anthropic_body_for_budget(body, 8192, provider="provider", model="model", pcfg={"_context_compact_context_rejected": True},
             full_compact_request=True, services=services)
         supplied = services.runtime.llm_compact_messages.call_args.args[4]
-        self.assertLess(supplied, 8192 - len(body["system"]))
+        self.assertLess(supplied, 8192 - len(body["system"]) // 4)
         self.assertGreater(supplied, 1024)
 
     def test_one_oversized_map_summary_is_split_completely_for_reduce(self):
         services = self.real_services()
-        original = "BEGIN " + "한글" * 2000 + " END"
+        services = replace(services, transport=replace(services.transport, summary_output_tokens=lambda *_: 8192))
+        original = "BEGIN " + "word " * 6200 + " END"
         observed = []
         def generate(_provider, _model, _config, prompt, **_kwargs):
             if prompt.startswith("Segment "):
@@ -471,3 +537,152 @@ class ContextCompactionTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ChunkTransportFailureTests(unittest.TestCase):
+    services = ContextCompactionTests.services
+    compact = ContextCompactionTests.compact
+    def wrapped_timeout(self):
+        error = RuntimeError("upstream request failed")
+        error.__cause__ = TimeoutError("timed out")
+        return error
+
+    def test_wrapped_timeout_retries_only_failed_chunk_preserving_prior_summary(self):
+        services = self.services(split_messages=lambda messages, _target: [
+            (i, [message]) for i, message in enumerate(messages)])
+        services = replace(services, projection=replace(services.projection,
+            build_chunk_prompt=lambda chunk, *_: chunk[0]["content"],
+            build_reduce_prompt=lambda summaries, *_args, **_kwargs: "|".join(summaries)))
+        services.workflow.request_summary.side_effect = ["first-summary", self.wrapped_timeout(), "second-summary"]
+        result = self.compact(services, history=[
+            {"role": "user", "content": "first-source"},
+            {"role": "assistant", "content": "second-source"}])
+        self.assertEqual(["first-source", "second-source", "second-source"],
+                         [call.args[3] for call in services.workflow.request_summary.call_args_list])
+        self.assertEqual("first-summary|second-summary", result[-1]["content"])
+        self.assertEqual("reduce", services.workflow.write_activity.call_args.kwargs["phase"])
+
+    def test_persistent_transport_failure_fails_honestly_without_excerpt(self):
+        for failure in (TimeoutError("timeout"), self.wrapped_timeout(), ConnectionResetError("reset")):
+            with self.subTest(failure=type(failure).__name__):
+                services = self.services()
+                services.workflow.request_summary.side_effect = failure
+                with self.assertRaises(type(failure)):
+                    self.compact(services)
+                self.assertEqual(3, services.workflow.request_summary.call_count)
+                self.assertEqual("failed", services.workflow.write_activity.call_args.kwargs["phase"])
+                self.assertEqual(0, services.workflow.write_activity.call_args.kwargs["completed_chunks"])
+
+    def test_cancel_between_timeout_and_retry_stops_without_new_request(self):
+        services = self.services()
+        cancelled = asyncio.Event()
+        def timeout_then_cancel(*_args, **_kwargs):
+            cancelled.set()
+            raise self.wrapped_timeout()
+        services.workflow.request_summary.side_effect = timeout_then_cancel
+        with self.assertRaisesRegex(ContextCompactionFailed, "client_cancelled"):
+            self.compact(services, {"_context_compact_cancelled": cancelled.is_set})
+        services.workflow.request_summary.assert_called_once()
+
+    def test_deadline_between_timeout_and_retry_stops_without_new_request(self):
+        services = self.services()
+        services.workflow.request_summary.side_effect = self.wrapped_timeout()
+        with mock.patch("ciel_runtime_support.context_compaction.time.monotonic", side_effect=[0, 1, 901]):
+            with self.assertRaisesRegex(ContextCompactionFailed, "deadline_exceeded"):
+                self.compact(services)
+        services.workflow.request_summary.assert_called_once()
+
+    def test_structured_summary_timeout_and_predispatch_retries_failed_chunk(self):
+        for status, error_type in ((504, "api_error"), (503, "overloaded_error")):
+            with self.subTest(status=status):
+                services = self.services()
+                failure = UpstreamFailure("cielairouter", "model", status=status,
+                    error_type=error_type, message="temporarily unavailable", source="http_status")
+                services.workflow.request_summary.side_effect = [failure, "summary"]
+                result = self.compact(services)
+                self.assertTrue(result)
+                self.assertEqual(2, services.workflow.request_summary.call_count)
+
+    def test_structured_summary_errors_stay_bounded_and_do_not_retry_output(self):
+        for started in (False, True):
+            services = self.services()
+            services.workflow.request_summary.side_effect = UpstreamFailure(
+                "cielairouter", "model", status=504, error_type="api_error",
+                message="timed out", source="http_status", output_started=started)
+            with self.subTest(output_started=started), self.assertRaises(UpstreamFailure):
+                self.compact(services)
+            self.assertEqual(1 if started else 3, services.workflow.request_summary.call_count)
+
+    def test_non_cielairouter_structured_failure_policy_is_unchanged(self):
+        services = self.services()
+        services.workflow.request_summary.side_effect = UpstreamFailure(
+            "other", "model", status=504, error_type="api_error", message="timeout", source="http_status")
+        with self.assertRaises(UpstreamFailure):
+            self.compact(services)
+        services.workflow.request_summary.assert_called_once()
+
+    def test_exception_text_does_not_authorize_retry(self):
+        services = self.services()
+        services.workflow.request_summary.side_effect = RuntimeError("TimeoutError: timed out")
+        with self.assertRaises(RuntimeError):
+            self.compact(services)
+        services.workflow.request_summary.assert_called_once()
+
+    def test_http_timeout_recovery_through_real_summary_transport(self):
+        import threading
+        import time
+        import urllib.request
+        from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+        requests = []
+        class Handler(BaseHTTPRequestHandler):
+            def log_message(self, *_args):
+                pass
+
+            def do_POST(self):
+                payload = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+                text = payload["messages"][-1]["content"]
+                requests.append(text)
+                if len(requests) == 2:
+                    time.sleep(0.15)
+                body = json.dumps({"summary": text + "-summary"}).encode()
+                self.send_response(200)
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                try:
+                    self.wfile.write(body)
+                except OSError:
+                    pass
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            services = self.services(split_messages=lambda messages, _target: [
+                (i, [message]) for i, message in enumerate(messages)])
+            def post(url, request, headers, timeout, *_args, **_kwargs):
+                req = urllib.request.Request(url, data=json.dumps(request).encode(), headers=headers)
+                try:
+                    with urllib.request.urlopen(req, timeout=timeout) as response:
+                        return json.load(response)
+                except OSError as error:
+                    raise RuntimeError("upstream request failed") from error
+            services = replace(services,
+                transport=replace(services.transport, post_json=post,
+                    request_timeout=lambda _config: 0.05,
+                    endpoint=lambda *_: f"http://127.0.0.1:{server.server_port}/summary",
+                    extract_text=lambda data, _wire: data["summary"]),
+                projection=replace(services.projection,
+                    build_chunk_prompt=lambda chunk, *_: chunk[0]["content"],
+                    build_reduce_prompt=lambda summaries, *_args, **_kwargs: "|".join(summaries)))
+            services = replace(services, workflow=replace(services.workflow,
+                request_summary=lambda *args, **kwargs: request_context_summary(*args, services, **kwargs)))
+            result = self.compact(services, history=[
+                {"role": "user", "content": "first"},
+                {"role": "assistant", "content": "second"}])
+            self.assertEqual(["first", "second", "second"], requests)
+            self.assertEqual("first-summary|second-summary", result[-1]["content"])
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)

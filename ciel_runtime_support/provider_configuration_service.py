@@ -130,6 +130,7 @@ class ProviderStatusService:
     def _provider_lines(self, provider: str, provider_config: dict[str, Any], policy: Any) -> list[str]:
         lines: list[str] = []
         if policy.uses_ollama_status:
+            from .ollama_semantic_retry import configured_retries
             model = self.projection.current_upstream_model(provider, provider_config)
             lines.extend(
                 (
@@ -138,6 +139,7 @@ class ProviderStatusService:
                     f"keep_alive: {provider_config.get('keep_alive', 'default')}",
                     f"think: {self.projection.ollama_think_status(model, provider_config)}",
                     f"request_timeout_ms: {provider_config.get('request_timeout_ms', 'default')}",
+                    f"empty_response_retries: {configured_retries(provider_config)}",
                     f"stream_idle_timeout_ms: {provider_config.get('stream_idle_timeout_ms', 'auto')}",
                 )
             )

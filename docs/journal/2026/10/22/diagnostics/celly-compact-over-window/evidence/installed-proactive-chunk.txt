@@ -1,0 +1,5 @@
+installed module: C:\Users\djlov\.local\share\ciel-runtime\ciel_runtime.py
+estimate_tokens: 1504938 bytes: 6019755
+semantic reducer calls: [('cielairouter', 300, 812738, 'anthropic')]
+messages: 300 -> 1 bytes: 6019755 -> 128
+RESULT: installed build chunks a 1.5M-token request before sending

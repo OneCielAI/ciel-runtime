@@ -1,0 +1,15 @@
+[
+ {
+  "tag": "modelarg",
+  "rc": 0,
+  "stdout_bytes": 1605,
+  "stderr_bytes": 80,
+  "child_ok": false,
+  "parent_ok": true,
+  "type": "result",
+  "subtype": "success",
+  "is_error": false,
+  "num_turns": 2,
+  "result": "PARENT-OK-modelarg"
+ }
+]

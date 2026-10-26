@@ -1,0 +1,17 @@
+{"at": 1792574152.841, "kind": "launched", "pid": 78752, "watcher": 41880}
+{"at": 1792574164.876, "kind": "wait_pass", "label": "router health"}
+{"at": 1792574165.703, "kind": "wait_pass", "label": "native launch claude_session_socket"}
+{"at": 1792574165.749, "kind": "wait_pass", "label": "native process present"}
+{"at": 1792574178.043, "kind": "children_before", "processes": [{"pid": 33068, "ct": 1792574152.806, "name": "conhost.exe", "ppid": 78752, "cmd": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4"}, {"pid": 9280, "ct": 1792574162.854, "name": "python.exe", "ppid": 78752, "cmd": "C:\\Program Files\\Python311\\python.exe C:\\Users\\djlov\\.local\\share\\ciel-runtime-1c0b706\\ciel_runtime.py serve"}, {"pid": 35568, "ct": 1792574165.482, "name": "conhost.exe", "ppid": 78752, "cmd": "\\\\?\\C:\\WINDOWS\\system32\\conhost.exe --headless --width 120 --height 30 --signal 0x3ec --server 0x3e4"}, {"pid": 74
+{"at": 1792574178.083, "kind": "receiver_enabled", "receiver_id": "default", "transport": "sse"}
+{"at": 1792574178.484, "kind": "wait_pass", "label": "local SSE event emitted"}
+{"at": 1792574178.493, "kind": "wait_pass", "label": "real receiver gateway queued id 7 over damaged history"}
+{"at": 1792574179.295, "kind": "wait_pass", "label": "native CLI received new SSE input"}
+{"at": 1792574179.696, "kind": "wait_pass", "label": "native transcript confirmed replied id 7"}
+{"at": 1792574179.704, "kind": "wait_pass", "label": "native reply rendered"}
+{"at": 1792574185.136, "kind": "wait_pass", "label": "local repeat SSE event emitted"}
+{"at": 1792574185.137, "kind": "wait_pass", "label": "native CLI received repeat-scan input"}
+{"at": 1792574185.538, "kind": "wait_pass", "label": "native transcript confirmed replied id 8"}
+{"at": 1792574190.976, "kind": "wait_pass", "label": "owned decisive screenshot attempted"}
+{"at": 1792574190.977, "kind": "acceptance_pass", "checks": {"real_native_cli": true, "sse_gateway_queued": true, "native_transcript_replied": true, "socket_send_count": 1, "new_statuses": ["queued", "submitted", "replied"], "old_history_bytes_unchanged": true, "old_prefix_sha256": "60060e4a938af652978eef0fdbf0d307f105e8651672baaddfb318606bb909c5", "old_states": {"1": "submitted", "2": "replied", "3": "interrupted_uncertain", "4": "submitted", "5": "replied", "6": "interrupted_uncertain"}, "old_inputs_sent": 0, "repeat_scan_sends": ["8"], "repeat_scan_resent_7": false, "archive_or_quarantine_f
+RESULT C:\Users\djlov\ciel-runtime\docs\journal\2026\10\21\diagnostics\sse-admission-regression\run-claude-installed-1c0b706-041552 passed_native_sse_damaged_history

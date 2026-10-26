@@ -10,9 +10,14 @@ import unittest
 from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from ciel_runtime_support.channel_compact_request_repository import ChannelCompactRequestRepository
-from ciel_runtime_support.runtime_compaction_binding import RuntimeCompactionBinding, native_input_tokens
+from ciel_runtime_support.runtime_compaction_binding import (
+    REQUEST_IDENTITY_GRACE_SECONDS,
+    RuntimeCompactionBinding,
+    native_input_tokens,
+)
 from ciel_runtime_support.runtime_compaction_control import CompactionScope
 from ciel_runtime_support.remote_bridge import REMOTE_BRIDGE_CONFIG_MARKER
 from ciel_runtime_support.secure_json_repository import SecureJsonEffects, SecureJsonRepository
@@ -31,6 +36,11 @@ class BindingHarness(unittest.TestCase):
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name)
         self.home = self.root / "home"
+        # The exact-file runner provides its own safe Claude home. This fixture
+        # owns a different home, so bind its transcript directory explicitly.
+        environment = patch.dict(os.environ, {"CLAUDE_CONFIG_DIR": str(self.home / ".claude")})
+        environment.start()
+        self.addCleanup(environment.stop)
         self.logs = []
         self.log = lambda *args: self.logs.append(args)
         artifact = SecureJsonRepository(self.root / "command.json", SecureJsonEffects(self.log))
@@ -121,15 +131,14 @@ class ScopeIdentityTests(BindingHarness):
 
 
 class ResumedPressureTests(BindingHarness):
-    def test_resumed_native_usage_gates_before_first_submit_without_mutation(self):
+    def test_resumed_usage_is_diagnostic_only_without_mutation(self):
         self.binding.bind("claude", session_id="exact", cwd=self.root)
         original = self.path.read_bytes()
         self.assertEqual(15000, self.binding.input_budget("other", {}, {}))
-        self.assertTrue(self.binding.external_admission_paused())
-        self.assertTrue(self.make().external_admission_paused())
+        self.assertFalse(self.binding.external_admission_paused())
+        self.assertFalse(self.make().external_admission_paused())
         self.assertEqual(original, self.path.read_bytes())
-        self.assertTrue(self.requests.read()["automatic"])
-        self.assertEqual("queued", self.state()["phase"])
+        self.assertIsNone(self.requests.read())
 
     def test_unknown_and_post_checkpoint_usage_stay_unknown(self):
         self.checkpoint()
@@ -165,7 +174,7 @@ class ResumedPressureTests(BindingHarness):
         path.write_text("".join(json.dumps(line) + chr(10) for line in lines), encoding="utf-8")
         self.binding.bind("codex", session_id="native", codex_home=codex, cwd=self.root)
         self.assertEqual(16000, native_input_tokens(path, self.binding.scope()))
-        self.assertTrue(self.binding.external_admission_paused())
+        self.assertFalse(self.binding.external_admission_paused())
 
 
 class ObservationTests(BindingHarness):
@@ -175,7 +184,7 @@ class ObservationTests(BindingHarness):
         self.binding.observe_request("other", {}, {"tokens": 100}, "claude")  # resumed, small
 
     def test_raw_pressure_queues_once_and_router_append_stays_paused(self):
-        self.binding.observe_request("other", {}, {"tokens": 15000}, "claude")
+        self.binding.observe_failure("other", {}, {"tokens": 15000}, "prompt is too long: 21000 tokens > 20000 maximum", "claude")
         request = self.requests.read()
         self.binding.observe_request("other", {}, {"tokens": 16000}, "claude")
         self.assertEqual(request["id"], self.requests.read()["id"])
@@ -200,7 +209,7 @@ class ObservationTests(BindingHarness):
         self.assertTrue(self.state()["pressure"])
 
     def test_checkpoint_alone_holds_consumers_until_real_shrink(self):
-        self.binding.observe_request("other", {}, {"tokens": 15000}, "claude")
+        self.binding.observe_failure("other", {}, {"tokens": 15000}, "prompt is too long: 21000 tokens > 20000 maximum", "claude")
         request = self.requests.read()
         self.assertTrue(self.binding.command_ready(request))
         self.binding.command_submitted(request)
@@ -217,7 +226,7 @@ class ObservationTests(BindingHarness):
         self.assertFalse(self.binding.external_admission_paused())
 
     def test_non_shrinking_probe_closes_consumer_gate_without_fake_success(self):
-        self.binding.observe_request("other", {}, {"tokens": 15000}, "claude")
+        self.binding.observe_failure("other", {}, {"tokens": 15000}, "prompt is too long: 21000 tokens > 20000 maximum", "claude")
         request = self.requests.read()
         self.binding.command_ready(request)
         self.binding.command_submitted(request)
@@ -236,7 +245,7 @@ class ObservationTests(BindingHarness):
         self.binding.observe_request("other", {}, {"tokens": 90000}, "claude", {"X-Claude-Code-Session-Id": "other"})
         self.binding.observe_request("other", {}, {"tokens": 90000}, "claude", {})
         self.assertIsNone(self.requests.read())
-        self.binding.observe_request("other", {}, {"tokens": 15000}, "claude", main)
+        self.binding.observe_failure("other", {}, {"tokens": 15000}, "prompt is too long: 21000 tokens > 20000 maximum", "claude", main)
         request = self.requests.read()
         self.binding.command_ready(request)
         self.binding.command_submitted(request)
@@ -260,7 +269,7 @@ class ObservationTests(BindingHarness):
         self.binding.observe_request("other", {}, {"tokens": 90000}, "codex", {"session_id": "subagent"})
         self.assertIsNone(self.requests.read())
         self.binding.observe_request("other", {}, {"tokens": 90000, "prompt_cache_key": "thread"}, "codex", {})
-        self.assertTrue(self.requests.read()["automatic"])
+        self.assertIsNone(self.requests.read())
 
     def test_router_callback_shapes_are_accepted(self):
         from ciel_runtime_support import claude_router, openai_responses_router
@@ -286,6 +295,39 @@ class ObservationTests(BindingHarness):
         self.assertTrue(self.binding.external_admission_paused())
         self.binding.observe_request("anthropic", {}, {"tokens": 900}, "claude")
         self.assertEqual("verified", self.state()["phase"])
+
+
+class RequestIdentityGraceTests(BindingHarness):
+    def bind_socket(self, binding=None, **options):
+        options.setdefault("cwd", self.root)
+        options.setdefault("messaging_socket_path", "/tmp/cc-msg-test.sock")
+        (binding or self.binding).bind("claude", **options)
+
+    def age_identity(self, seconds):
+        value = self.binding.repository.load("compaction_scope")
+        value["identity_since"] = time.time() - seconds
+        self.binding.repository.save(value, "compaction_scope")
+
+    def test_unproven_identity_holds_then_opens_after_the_grace(self):
+        # Celly 2026-10-23: the launch held 6363 until the user typed "222".
+        self.bind_socket(session_id="exact")
+        self.assertTrue(self.binding.external_admission_paused())
+        self.age_identity(REQUEST_IDENTITY_GRACE_SECONDS + 1)
+        self.assertFalse(self.binding.external_admission_paused())
+
+    def test_routed_request_proves_identity_without_waiting_for_the_grace(self):
+        self.bind_socket(session_id="exact")
+        self.assertTrue(self.binding.external_admission_paused())
+        self.binding.observe_request(self.provider, {}, {"tokens": 100}, "claude")
+        self.assertFalse(self.binding.external_admission_paused())
+
+    def test_unpublished_identity_also_opens_after_the_grace(self):
+        fresh = self.make()
+        self.bind_socket(fresh)
+        self.assertTrue(fresh.external_admission_paused())
+        expired = self.make()
+        self.bind_socket(expired, started_at=time.time() - REQUEST_IDENTITY_GRACE_SECONDS - 1)
+        self.assertFalse(expired.external_admission_paused())
 
 
 class FacadeWiringTests(unittest.TestCase):

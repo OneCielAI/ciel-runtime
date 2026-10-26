@@ -1,0 +1,15 @@
+# Celly router 9385, build 0.2.51-nightly.20261023-052413.0cd6c60, 2026-10-23
+# launch -> identity gate -> typed turn -> first request -> injection
+2026-10-23T01:35:05 [INFO] claude_session_socket_configured target=\\.\pipe\LOCAL\cc-msg-b69a5633cdc153f4381daffb9369dc21
+2026-10-23T01:35:06 [INFO] runtime_compaction_scope admission=paused reason=identity_pending runtime=claude
+2026-10-23T01:35:32 [INFO] runtime_compaction_scope_bound runtime=claude session=6cbb7f76-b7aa-44ec-b16f-83937353e684 via=socket
+2026-10-23T01:35:32 [INFO] runtime_compaction_scope admission=paused reason=request_identity_pending runtime=claude
+2026-10-23T01:35:36 [INFO] runtime_compaction_scope_bound runtime=claude session=30179e9a-f9b9-4860-99ff-6045b647bf6f via=socket
+2026-10-23T01:35:36 [INFO] runtime_compaction_scope admission=paused reason=request_identity_pending runtime=claude
+2026-10-23T01:35:57 [INFO] filtered upstream tools for cielairouter: EnterWorktree, ExitWorktree, PushNotification, ScheduleWakeup, SendMessage
+2026-10-23T01:35:58 [INFO] channel_llm_inject_deferred message_id=6363 channel=external:default reason=input_transport_tty
+2026-10-23T01:35:59 [INFO] channel_stdin_proxy_injected count=1 message_ids=6363 channels=external:default enter=crlf transport=session_socket commit_cursor=False display_body=False
+2026-10-23T01:36:00 [INFO] agent_turn_ended turn=077eca97-5d22-4fce-b394-dc0024da2a99 runtime=claude reason=interrupted by_user_input=true
+2026-10-23T01:36:00 [INFO] agent_turn_ended turn=96565f1d-f867-4e26-bc18-cfdab9d1223d runtime=claude reason=interrupted by_user_input=false
+2026-10-23T01:36:03 [INFO] filtered upstream tools for cielairouter: EnterWorktree, ExitWorktree, PushNotification, ScheduleWakeup, SendMessage
+2026-10-23T01:36:04 [INFO] channel_llm_inject_skipped message_id=6363 channel=external:default reason=already_in_request

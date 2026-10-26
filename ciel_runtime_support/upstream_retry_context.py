@@ -61,6 +61,8 @@ class UpstreamRetryTransportPorts:
     urlopen: Callable[..., Any]
     set_stream_read_timeout: Callable[..., Any]
     stream_idle_timeout_seconds: Callable[..., float]
+    reselect: Callable[[dict[str, Any]], dict[str, Any]] | None = None
+    publish: Callable[..., Any] = lambda **_kwargs: None
 
 
 @dataclass(frozen=True, slots=True)
@@ -129,6 +131,8 @@ class UpstreamRetryContext:
                     self.transport.stream_idle_timeout_seconds
                 ),
                 upstream_http_error_message=self.http_error_message,
+                reselect=self.transport.reselect,
+                publish=self.transport.publish,
             ),
         )
 

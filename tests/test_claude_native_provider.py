@@ -193,6 +193,7 @@ class NativeEnvContractTests(unittest.TestCase):
             "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTS",
             "ANTHROPIC_AUTH_TOKEN",
             "CLAUDE_CODE_SUBAGENT_MODEL",
+            "CLAUDE_CODE_SUBAGENT_MODEL_FORCE",
             "CLAUDE_CODE_MAX_OUTPUT_TOKENS",
             "CLAUDE_CODE_AUTO_COMPACT_WINDOW",
             "CLAUDE_CODE_DISABLE_TERMINAL_TITLE",
@@ -349,6 +350,40 @@ class NativeEnvContractTests(unittest.TestCase):
         self.assertEqual(
             {"enabled": True}, unchanged_oversized["future_request_field"]
         )
+
+    def test_native_claude_turn_is_unchanged_for_a_routed_provider(self):
+        pcfg = {
+            "current_model": "_Walkie_Opus55-Sol61-Fast",
+            "context_window": 872_000,
+            "max_model_len": 872_000,
+            "max_output_tokens": 128_000,
+            "native_compat": True,
+            "preflight_prompt_compaction": False,
+        }
+        oversized = {
+            "model": "_Walkie_Opus55-Sol61-Fast",
+            "messages": [
+                {"role": "user", "content": "history " * 250_000},
+                {"role": "assistant", "content": "history " * 250_000},
+                {"role": "user", "content": "latest request"},
+            ],
+            "tools": [
+                {
+                    "name": f"tool_{index}",
+                    "description": "tool description " * 200,
+                    "input_schema": {"type": "object", "properties": {}},
+                }
+                for index in range(40)
+            ],
+            "max_tokens": 128_000,
+        }
+        self.assertGreater(ciel_runtime.estimate_tokens(oversized), 716_750)
+
+        request = ciel_runtime.cap_anthropic_body_for_provider(
+            "cielairouter", pcfg, oversized
+        )
+
+        self.assertEqual(oversized, request)
 
     def test_routed_anthropic_keeps_mid_conversation_system_context_inline_for_every_model(self):
         for model in ("claude-opus-5", "claude-fable-5", "claude-sonnet-4-6"):

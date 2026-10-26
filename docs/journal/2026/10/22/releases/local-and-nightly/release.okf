@@ -1,0 +1,43 @@
+---
+type: release-record
+title: Timeout, vision and feedback fixes shipped to nightly
+description: Four commits merged with the published nightly, CI and npm publish succeeded, and the released build is installed into the runtime home.
+tags: [release, nightly, npm, install]
+timestamp: 2026-10-22
+status: released-and-installed
+---
+
+# Commits
+
+- 3377e1c fix(router): read an accepted stream under the caller's timeout
+- 0c21d53 fix(provider): carry image input to Ollama and state DeepSeek's modality
+- 9947937 feat(claude): menu control for feedback drafts, off by default
+- 2638497 docs(journal): record the timeout, vision, feedback and combo findings
+- 64ec9c4 Merge remote-tracking branch 'origin/nightly' into nightly-20261020
+  (brings the published 625faed truncated-summary retry)
+
+Pushed to nightly-20261020 and nightly (3885e64 -> 64ec9c4).
+
+# CI and registry
+
+- CI run 39730871935 succeeded in all six jobs (python-minimum, quality,
+  unit, runtime, router, channel).
+- Publish run 39730872035 succeeded.
+- Registry nightly: 0.2.51-nightly.20261022-060129.64ec9c4, gitHead
+  64ec9c43801852bbb38afbc2721a76148d18ca26, integrity
+  sha512-lURlf09eK2rLtkS0ua7s3eDDdg+KGMAT/J+yYeJ13QavuYfj03G7xpJkJ/L6LGuhtxVowQtXWtH8Pj6PfPLL5A==
+  (evidence/registry.json).
+
+# Local install
+
+- npm global updated to the nightly (`npm install -g ...@nightly`).
+- The package's install.ps1 copied it into the runtime home
+  C:\Users\djlov\.local\share\ciel-runtime and pinned CIEL_RUNTIME_HOME there.
+- `ciel-runtime version` from that home prints
+  0.2.51-nightly.20261022-060129.64ec9c4, and the five fixes plus 625faed's
+  truncated-summary retry are all present in the installed files.
+
+# Pending
+
+The running router (started before this release) keeps its old code until the
+next restart; no live session was restarted here.

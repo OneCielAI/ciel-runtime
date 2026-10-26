@@ -1,0 +1,61 @@
+---
+type: regression-verification
+title: Celly incomplete ownership history startup crash
+description: Keep the native CLI alive while refusing delivery without verifiable ownership history.
+timestamp: 2026-10-20
+tags: [celly, crash, ownership, corrupt-history]
+---
+
+# Observed
+
+Celly sandbox G:/ciel-bridge-service router instance 9385-52ea0f8a2296 at
+2026-10-20T18:07:05 logged pending_poll -> begin_attempt -> _items line 243;
+routed exit diagnostic at 18:07:07 identifies e7d81c7. The deployed line raises
+wake ownership history contains an incomplete record. Existing prior logs
+already recorded strict reconciliation failure for incomplete history. That
+condition was not covered by the previous startup acceptance.
+
+Actual status history could not be opened: WinError 5 for the sandbox workspace
+status directory/file. Windows sudo is disabled. No ACL/config repair or user
+history mutation was attempted; damaged line contents and origin remain unknown.
+
+# Fix boundary
+
+Strict parsing now raises typed WakeHistoryUnavailable with a line number,
+without logging raw rows. The pending poll catches this pre-send condition,
+keeps cursor/marker/inflight unchanged, rate-limits a delivery_held diagnostic,
+and leaves the CLI running. It does not treat unknown history as an empty queue
+or completion proof. A post-submit instance of the same exception cannot become
+a safe retry. Claim cleanup retains its existing fail-closed rules.
+
+# Verification
+
+76 focused tests passed. New epoch-bound real-poll tests cover incomplete tail,
+malformed middle row and blank row: no send, no ownership/cursor write, no crash,
+bounded polling/logging. Restoring only the owned test fixture resumes delivery.
+Post-send history errors remain non-retryable. 296 adjacent tests ran with zero
+failures/errors and 80 skips. Ruff and architecture checks passed. Native
+corrupt-history fixture acceptance is recorded after completion.
+
+# Limits
+
+This fixes session termination, not corrupted user data. While the real durable
+history is unverifiable, external input remains held rather than replayed.
+No live Celly/Walkie restart or sandbox deployment is performed automatically.
+
+
+# Native harness iterations
+
+First owned run proved the CLI remained alive and held delivery during corrupt
+history. The script then timed out because its request marker was not in the
+fixture's recognized marker allowlist, even though rendered STUB-REPLY-3 and
+socket/confirmation logs showed delivery after owned-fixture restoration.
+Second iteration exited on a harness psutil.NoSuchProcess race during process
+sampling before the corruption test. Neither is counted as full acceptance.
+The dedicated third iteration catches vanished sampling children and verifies
+only corrupt-history startup, no-send, and owned-fixture recovery. No live
+workspace data is repaired by the harness.
+
+Native third iteration passed: CLI alive during corruption, no transport send
+without ownership history, held input replied after owned-fixture restoration,
+and router listener absent after teardown. See evidence/native-source.json.

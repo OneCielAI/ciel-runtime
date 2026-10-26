@@ -1,0 +1,54 @@
+---
+type: Verification Record
+title: Integrated recovery acceptance
+description: Owned execution evidence and remaining integration gates.
+timestamp: 2026-10-20
+---
+
+# Confirmed execution
+
+- Real loopback port probe: 50 scratch registry reservations, three owned
+  live HTTP routers; selected inactive port 33001 while preserving all three
+  live reservations; repeated same-workspace selection stayed stable.
+  All owned listeners closed. Real registry untouched. See port-live.txt.
+- History/port/gateway/scope isolated integration: 100 tests, 0 failures/errors,
+  no skips. See history-ports.txt.
+- Native history acceptance (2.1.306): owned corrupted fixture kept CLI alive,
+  no transport sends before restoration; restoring only owned fixture allowed
+  one held reply. The notify API returned HTTP500 after durable queue append
+  because queued status mutation refused corrupted history. This is a known
+  admission uncertainty requiring explicit handling, not a passing API result.
+  Native run: restart-delivery/evidence/run-claude-diagnostic-source-235129.
+- Stream recovery provider-adapter acceptance: both vllm and cielairouter
+  loopback native runs passed; see adjacent claude-stream-recovery journal.
+
+# Incomplete gates
+
+Compaction combined suite initially had one import SyntaxError while the
+parallel delivery-health module was still being authored. No passing combined
+result is claimed. Re-run after all writers finish. Local install and nightly
+publish have not been performed for these changes.
+
+# Live coordination authorization
+
+After verified local/nightly deployment, user requests contacting ciel-walkie
+through Claude socket, asking that peer to restart via its Runtime MCP, and
+cooperating until new SSE input actually reaches/replies in the session. A
+status message (not a restart command) was sent successfully over the peer
+socket; socket write alone is not peer acknowledgement or SSE verification.
+No live queue replay, cursor reset or corrupt-history rewrite was performed.
+
+# Later integration checks
+
+Compaction focused rerun: 121 tests passed. History recovery generation fence
+was separated into a dependency-free marker module to remove a support import
+cycle. Delivery health/API/menu/statusline/ack/architecture rerun: 353 tests,
+0 failures/errors, 42 skips. Offline quarantine/gateway/status/ack focused:
+71 tests passed. Further final combined matrix is running; no deployment yet.
+
+# Release gate
+
+Final integrated exact-file matrix: 638 tests, 0 failures/errors, 42 skipped
+(final-focused-v2.txt). Ruff across the repository passed after removing four
+unused imports in updated tests. Documentation metadata passed. npm dry-run
+includes all six new support modules and zero docs/journal files.

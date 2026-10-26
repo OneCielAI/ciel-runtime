@@ -857,6 +857,14 @@ compact 요청 판정·text-only 변환, tool 입력 축약, persisted-output �
 
 `ContextSummaryCompatibilityApi`는 compact request 탐지·text-only 변환·chunk/reduce projection 공개 표면을 명시적 typed method로 연결하는 Adapter이다. facade에는 policy 조립과 호환 alias만 남긴다.
 
+### `ciel_runtime_support/context_compaction_progress.py`
+
+Bounded, versioned resumable map-progress journal. It stores prompt digests, split decisions and validated summaries only, with exact request identity, TTL, byte/count caps, quarantine and stale-writer rejection.
+
+### `ciel_runtime_support/media_payload.py`
+
+Protocol-scoped multimodal projection that replaces recognized image payload bytes with opaque digest markers for text-only map prompts while preserving the original request for native forwarding.
+
 ### `ciel_runtime_support/runtime_compaction_control.py`
 
 Native compact 명령의 예약·제출·persisted checkpoint·다음 raw request 감소를 구분하는 복구 상태기계. private atomic state와 cross-process lock으로 자동 명령을 중복 예약하지 않으며, SSE 입력을 durable queue에 보존한 채 admission을 보류한다. 미확인 제출은 재전송하지 않고 실패·재시도는 bounded이다.

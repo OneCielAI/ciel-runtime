@@ -1,0 +1,45 @@
+{
+  "run": "docs\\journal\\2026\\10\\20\\diagnostics\\restart-delivery\\evidence\\run-claude-installed-history-guard-182944",
+  "status": "passed_corrupt_history_guard",
+  "checks": [
+    {
+      "at": 1792539014.78,
+      "kind": "corrupt_history_guard_pass",
+      "launcher_alive": true,
+      "transport_calls": 0
+    },
+    {
+      "at": 1792539019.81,
+      "kind": "acceptance_pass",
+      "checks": {
+        "alive_during_corruption": true,
+        "no_send_without_history": true,
+        "owned_fixture_recovery_replied": true
+      }
+    }
+  ],
+  "teardown": {
+    "killed": [
+      {
+        "pid": 25196
+      },
+      {
+        "pid": 27560
+      },
+      {
+        "pid": 37844
+      },
+      {
+        "pid": 48172
+      },
+      {
+        "pid": 65368
+      },
+      {
+        "pid": 67216
+      }
+    ],
+    "router_listener_after": null,
+    "app_listener_after": null
+  }
+}

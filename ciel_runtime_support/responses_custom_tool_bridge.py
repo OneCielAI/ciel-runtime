@@ -6,31 +6,81 @@ import json
 from copy import deepcopy
 from typing import Any, Mapping
 
+from .protocols.openai_responses import _namespace_tool_alias
 
-def tool_definitions(body: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
-    """Return uniquely named top-level function and custom Responses tools."""
+
+ToolKey = str | tuple[str, str]
+
+
+def tool_definitions(
+    body: Mapping[str, Any], *, include_functions: bool = True
+) -> dict[ToolKey, dict[str, Any]]:
+    """Index original declarations, retaining only unambiguous identities.
+
+    Resolve explicit namespace/member pairs independently of wire aliases and
+    bare names. An exact top-level name owns unqualified calls, even if that
+    declaration is duplicated or excluded from the returned custom-only index.
+    """
 
     tools = body.get("tools")
-    if not isinstance(tools, list):
-        return {}
-    found: dict[str, dict[str, Any]] = {}
-    duplicates: set[str] = set()
-    for tool in tools:
-        if (
-            not isinstance(tool, Mapping)
-            or tool.get("type") not in {"function", "custom"}
-        ):
-            continue
-        name = str(tool.get("name") or "").strip()
-        if not name:
-            continue
-        if name in found:
-            duplicates.add(name)
-        else:
-            found[name] = deepcopy(dict(tool))
-    for name in duplicates:
-        found.pop(name, None)
-    return found
+    declarations = list(tools) if isinstance(tools, list) else []
+    raw_input = body.get("input")
+    if isinstance(raw_input, list):
+        for item in raw_input:
+            if isinstance(item, Mapping) and item.get("type") == "additional_tools":
+                tools = item.get("tools")
+                if isinstance(tools, list):
+                    declarations.extend(tools)
+    candidates: dict[ToolKey, list[dict[str, Any]]] = {}
+    top_level: dict[str, list[dict[str, Any]]] = {}
+
+    def collect(tools: list[Any], namespace: str | None = None) -> None:
+        for tool in tools:
+            if not isinstance(tool, Mapping):
+                continue
+            name = tool.get("name")
+            if not isinstance(name, str) or not name.strip():
+                continue
+            name = name.strip()
+            if tool.get("type") == "namespace":
+                members = tool.get("tools")
+                if isinstance(members, list):
+                    collect(members, name)
+                continue
+            if tool.get("type") not in {"function", "custom"}:
+                continue
+            definition = deepcopy(dict(tool))
+            definition["name"] = name
+            if namespace is None:
+                top_level.setdefault(name, []).append(definition)
+            else:
+                definition["namespace"] = namespace
+                keys: set[ToolKey] = {
+                    (namespace, name), name, _namespace_tool_alias(namespace, name)
+                }
+                for key in keys:
+                    candidates.setdefault(key, []).append(definition)
+
+    collect(declarations)
+    candidates.update(top_level)
+    return {
+        key: matches[0]
+        for key, matches in candidates.items()
+        if len(matches) == 1
+        and (include_functions or matches[0].get("type") == "custom")
+    }
+
+
+def _source_tool(
+    item: Mapping[str, Any], tools: Mapping[ToolKey, Mapping[str, Any]]
+) -> Mapping[str, Any] | None:
+    name = str(item.get("name") or "")
+    namespace = item.get("namespace")
+    if namespace is not None:
+        if not isinstance(namespace, str) or not namespace:
+            return None
+        return tools.get((namespace, name))
+    return tools.get(name)
 
 
 def _raw_custom_input(arguments: Any) -> str:
@@ -77,39 +127,35 @@ def _normalized_function_arguments(arguments: Any, schema: Any) -> str:
 
 
 def _project_tool_item(
-    item: Any, tool_definitions_by_name: Mapping[str, Mapping[str, Any]]
+    item: Any, tools: Mapping[ToolKey, Mapping[str, Any]]
 ) -> Any:
     if not isinstance(item, Mapping):
         return deepcopy(item)
     projected = deepcopy(dict(item))
-    name = str(projected.get("name") or "")
-    source_tool = tool_definitions_by_name.get(name)
-    if projected.get("type") == "function_call" and isinstance(source_tool, Mapping):
-        schema = source_tool.get("parameters")
-        projected["arguments"] = _normalized_function_arguments(
-            projected.get("arguments"), schema
-        )
-    if (
-        projected.get("type") == "function_call"
-        and isinstance(source_tool, Mapping)
-        and source_tool.get("type") == "custom"
-    ):
+    source_tool = _source_tool(projected, tools)
+    if projected.get("type") != "function_call" or source_tool is None:
+        return projected
+    if source_tool.get("namespace"):
+        projected["namespace"] = source_tool["namespace"]
+        projected["name"] = source_tool["name"]
+    if source_tool.get("type") == "custom":
         projected["type"] = "custom_tool_call"
         projected["input"] = _raw_custom_input(projected.pop("arguments", ""))
+    else:
+        projected["arguments"] = _normalized_function_arguments(
+            projected.get("arguments"), source_tool.get("parameters")
+        )
     return projected
 
 
 def project_response_payload(
     payload: Any,
-    tools: Mapping[str, Mapping[str, Any]],
+    tools: Mapping[ToolKey, Mapping[str, Any]],
 ) -> Any:
     """Restore function-enveloped calls to the custom-tool Responses contract."""
 
     if not isinstance(payload, Mapping) or not tools:
         return deepcopy(payload)
-    custom_tools = {
-        name: tool for name, tool in tools.items() if tool.get("type") == "custom"
-    }
     projected = deepcopy(dict(payload))
     output = projected.get("output")
     if isinstance(output, list):
@@ -118,12 +164,14 @@ def project_response_payload(
     if isinstance(response_tools, list):
         restored: list[Any] = []
         for tool in response_tools:
+            source_tool = _source_tool(tool, tools) if isinstance(tool, Mapping) else None
             if (
                 isinstance(tool, Mapping)
                 and tool.get("type") == "function"
-                and str(tool.get("name") or "") in custom_tools
+                and source_tool is not None
+                and source_tool.get("type") == "custom"
             ):
-                restored.append(deepcopy(dict(custom_tools[str(tool["name"])])))
+                restored.append(deepcopy(dict(source_tool)))
             else:
                 restored.append(deepcopy(tool))
         projected["tools"] = restored
@@ -133,17 +181,11 @@ def project_response_payload(
 class ResponsesCustomToolStreamProjector:
     """Incrementally restore custom-tool item/event shapes in an SSE stream."""
 
-    def __init__(self, tools: Mapping[str, Mapping[str, Any]]) -> None:
-        self._tools = {
-            str(name): deepcopy(dict(tool)) for name, tool in tools.items()
-        }
-        self._custom_tools = {
-            str(name): deepcopy(dict(tool)) for name, tool in tools.items()
-            if tool.get("type") == "custom"
-        }
+    def __init__(self, tools: Mapping[ToolKey, Mapping[str, Any]]) -> None:
+        self._tools = {key: deepcopy(dict(tool)) for key, tool in tools.items()}
         self._buffer = b""
-        self._item_names: dict[str, str] = {}
-        self._index_names: dict[int, str] = {}
+        self._item_tools: dict[str, Mapping[str, Any]] = {}
+        self._index_tools: dict[int, Mapping[str, Any]] = {}
 
     @staticmethod
     def _separator(buffer: bytes) -> tuple[int, int] | None:
@@ -157,38 +199,41 @@ class ResponsesCustomToolStreamProjector:
         return min(candidates) if candidates else None
 
     @staticmethod
-    def _encode_event(event: Mapping[str, Any]) -> bytes:
+    def _encode_event(
+        event: Mapping[str, Any], metadata: list[bytes], newline: bytes
+    ) -> bytes:
         event_type = str(event.get("type") or "message")
         data = json.dumps(event, ensure_ascii=False, separators=(",", ":"))
-        return f"event: {event_type}\ndata: {data}\n\n".encode("utf-8")
+        lines = [
+            *metadata,
+            f"event: {event_type}".encode("utf-8"),
+            f"data: {data}".encode("utf-8"),
+            b"", b"",
+        ]
+        return newline.join(lines)
 
     def _is_projected_event(self, event: Mapping[str, Any]) -> bool:
         item_id = str(event.get("item_id") or "")
         output_index = event.get("output_index")
-        return item_id in self._item_names or (
-            isinstance(output_index, int) and output_index in self._index_names
+        return item_id in self._item_tools or (
+            isinstance(output_index, int) and output_index in self._index_tools
         )
 
     def _project_event(self, event: Mapping[str, Any]) -> list[dict[str, Any]]:
         event_type = str(event.get("type") or "")
         projected = deepcopy(dict(event))
-        names = set(self._tools)
-
         if event_type in {"response.output_item.added", "response.output_item.done"}:
             item = projected.get("item")
-            if (
-                isinstance(item, Mapping)
-                and item.get("type") == "function_call"
-                and str(item.get("name") or "") in names
-            ):
-                item_id = str(item.get("id") or "")
-                output_index = projected.get("output_index")
-                tool_name = str(item.get("name") or "")
-                if item_id:
-                    self._item_names[item_id] = tool_name
-                if isinstance(output_index, int):
-                    self._index_names[output_index] = tool_name
-                projected["item"] = _project_tool_item(item, self._tools)
+            if isinstance(item, Mapping) and item.get("type") == "function_call":
+                source_tool = _source_tool(item, self._tools)
+                if source_tool is not None:
+                    item_id = str(item.get("id") or "")
+                    output_index = projected.get("output_index")
+                    if item_id:
+                        self._item_tools[item_id] = source_tool
+                    if isinstance(output_index, int):
+                        self._index_tools[output_index] = source_tool
+                    projected["item"] = _project_tool_item(item, self._tools)
             return [projected]
 
         if event_type == "response.function_call_arguments.delta" and self._is_projected_event(projected):
@@ -200,26 +245,23 @@ class ResponsesCustomToolStreamProjector:
         if event_type == "response.function_call_arguments.done" and self._is_projected_event(projected):
             item_id = str(projected.get("item_id") or "")
             output_index = projected.get("output_index")
-            tool_name = self._item_names.get(item_id) or (
-                self._index_names.get(output_index)
+            source_tool = self._item_tools.get(item_id) or (
+                self._index_tools.get(output_index, {})
                 if isinstance(output_index, int)
-                else None
+                else {}
             )
-            source_tool = self._tools.get(str(tool_name or ""), {})
-            arguments = _normalized_function_arguments(
-                projected.get("arguments"), source_tool.get("parameters")
-            )
-            is_custom = source_tool.get("type") == "custom"
-            if is_custom:
-                raw_value = _raw_custom_input(arguments)
+            if source_tool.get("type") == "custom":
+                raw_value = _raw_custom_input(projected.get("arguments"))
                 projected.pop("arguments", None)
                 projected["type"] = "response.custom_tool_call_input.done"
                 projected["input"] = raw_value
                 delta_type = "response.custom_tool_call_input.delta"
                 done_field = "input"
             else:
-                raw_value = arguments
-                projected["arguments"] = arguments
+                raw_value = _normalized_function_arguments(
+                    projected.get("arguments"), source_tool.get("parameters")
+                )
+                projected["arguments"] = raw_value
                 delta_type = "response.function_call_arguments.delta"
                 done_field = "arguments"
             events: list[dict[str, Any]] = []
@@ -242,21 +284,42 @@ class ResponsesCustomToolStreamProjector:
             )
         return [projected]
 
-    def _project_frame(self, frame: bytes) -> bytes:
-        normalized = frame.replace(b"\r\n", b"\n")
-        data_lines = [line[6:] for line in normalized.splitlines() if line.startswith(b"data: ")]
+    def _project_frame(self, frame: bytes, separator: bytes = b"\n\n") -> bytes:
+        newline = b"\r\n" if separator == b"\r\n\r\n" else b"\n"
+        original = frame + separator
+        lines = frame.replace(b"\r\n", b"\n").split(b"\n")
+        data_lines: list[bytes] = []
+        event_type = b""
+        metadata: list[bytes] = []
+        for line in lines:
+            field, _, value = line.partition(b":")
+            if value.startswith(b" "):
+                value = value[1:]
+            if field == b"data":
+                data_lines.append(value)
+            elif field == b"event":
+                event_type = value
+            else:
+                metadata.append(line)
         if not data_lines:
-            return frame + b"\n\n"
+            return original
         raw_data = b"\n".join(data_lines)
         if raw_data == b"[DONE]":
-            return frame + b"\n\n"
+            return original
         try:
             event = json.loads(raw_data)
+            if not isinstance(event, Mapping):
+                return original
+            if not event.get("type") and event_type:
+                event = {**event, "type": event_type.decode("utf-8")}
         except (UnicodeDecodeError, ValueError):
-            return frame + b"\n\n"
-        if not isinstance(event, Mapping):
-            return frame + b"\n\n"
-        return b"".join(self._encode_event(item) for item in self._project_event(event))
+            return original
+        projected = self._project_event(event)
+        if projected == [event]:
+            return original
+        return b"".join(
+            self._encode_event(item, metadata, newline) for item in projected
+        )
 
     def feed(self, chunk: bytes) -> bytes:
         self._buffer += chunk
@@ -264,8 +327,9 @@ class ResponsesCustomToolStreamProjector:
         while (separator := self._separator(self._buffer)) is not None:
             offset, size = separator
             frame = self._buffer[:offset]
+            delimiter = self._buffer[offset : offset + size]
             self._buffer = self._buffer[offset + size :]
-            output.extend(self._project_frame(frame))
+            output.extend(self._project_frame(frame, delimiter))
         return bytes(output)
 
     def finish(self) -> bytes:
@@ -277,6 +341,7 @@ class ResponsesCustomToolStreamProjector:
 
 __all__ = [
     "ResponsesCustomToolStreamProjector",
+    "ToolKey",
     "project_response_payload",
     "tool_definitions",
 ]

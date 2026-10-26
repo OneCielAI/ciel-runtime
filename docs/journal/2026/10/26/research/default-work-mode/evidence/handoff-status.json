@@ -1,0 +1,39 @@
+{
+  "ok": true,
+  "request": {
+    "request_id": 1,
+    "status": "queued",
+    "updated_at": "2026-10-25T23:57:06-05:00",
+    "updated_at_epoch": 1792990626.016232,
+    "data": {
+      "channel": "research-default-work-mode-20261026",
+      "input_transport": "session_socket"
+    }
+  },
+  "delivery": {
+    "state": "not_blocked",
+    "reason": "",
+    "scope": "private_runtime_inputs",
+    "blocker_scope": null,
+    "admission_blocked": false,
+    "launcher_hold_observed": false,
+    "line_number": null,
+    "known_queued_count": 1,
+    "queue_age_coverage": "complete",
+    "queued_coverage": "complete",
+    "retrying_count": 0,
+    "retry_exhausted_count": 0,
+    "launch_expired_count": 0,
+    "last_failure": null,
+    "history": {
+      "complete": true,
+      "coverage": "complete",
+      "scanned_bytes": 205,
+      "failure_count": 0,
+      "recovered_count": 0,
+      "diagnostics": [],
+      "diagnostics_truncated": false
+    },
+    "oldest_queued_age_seconds": 164.09568309783936
+  }
+}

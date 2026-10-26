@@ -44,7 +44,9 @@ class PrelaunchPanelProjectionTests(unittest.TestCase):
         self.assertIn("14. Web Backend", rows[14])
         self.assertIn("15. OAuth tokens", rows[15])
         self.assertIn("16. Web access", rows[16])
-        self.assertIn("17. Dangerous delete prompt  [Claude · auto-allow off]", rows[17])
+        self.assertIn(
+            "17. Dangerous delete prompt · Stream recovery  [Claude · auto-allow off · stream recovery on]", rows[17]
+        )
         self.assertIn("18. Session backup", rows[18])
         self.assertIn("19. Provider fallback", rows[19])
 

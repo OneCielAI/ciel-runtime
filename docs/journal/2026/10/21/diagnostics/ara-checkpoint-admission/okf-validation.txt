@@ -1,0 +1,12 @@
+{
+  "bundle": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-ara-okf-strict-yz60nm1t",
+  "conformant": true,
+  "passed": true,
+  "counts": {
+    "concepts": 1,
+    "indexes": 0,
+    "logs": 0
+  },
+  "errors": [],
+  "warnings": []
+}

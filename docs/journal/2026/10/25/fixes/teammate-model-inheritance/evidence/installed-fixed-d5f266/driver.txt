@@ -1,0 +1,18 @@
+case fixed tag plain
+case fixed tag haiku
+case fixed tag sonnet
+case fixed tag definition
+case fixed tag modelarg
+interactive owned cmd: yes
+interactive ready: yes
+console command: yes
+named child request: yes
+console command: yes
+model dialog or result: yes
+console key enter: yes
+model switched and prompt idle: yes
+console command: yes
+switched named child request (first send): yes
+switched named child request: yes
+agent-exit before shutdown: none
+evidence C:\Users\djlov\ciel-runtime-wt-lease\docs\journal\2026\10\25\fixes\teammate-model-inheritance\evidence\installed-fixed-d5f266

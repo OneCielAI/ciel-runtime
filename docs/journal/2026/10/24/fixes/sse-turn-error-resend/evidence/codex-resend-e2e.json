@@ -1,0 +1,784 @@
+{
+ "codex": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\codex.CMD",
+ "scenarios": {
+  "A_504x3_then_success": {
+   "settled": true,
+   "seconds": 31.8,
+   "final": {
+    "request_id": 1,
+    "status": "replied",
+    "updated_at": "2026-10-24T05:06:33-05:00",
+    "updated_at_epoch": 1792836393.4672728,
+    "data": {
+     "retry": {
+      "attempt": 3,
+      "limit": 10,
+      "interval_seconds": 10.0,
+      "due_epoch": 1792836393.1173766,
+      "last_failure": "httpConnectionFailed 504",
+      "http_status": 504,
+      "claim": "",
+      "runtime": "codex",
+      "tool_activity": false
+     }
+    }
+   }
+  },
+  "B_400_then_next": {
+   "settled": true,
+   "message_2": {
+    "request_id": 2,
+    "status": "failed",
+    "updated_at": "2026-10-24T05:06:33-05:00",
+    "updated_at_epoch": 1792836393.7796474,
+    "reason": "turn_failed:other {\"error\": {\"message\": \"fake upstream 400\", \"type\": \"server_error\"}}"
+   },
+   "message_3": {
+    "request_id": 3,
+    "status": "replied",
+    "updated_at": "2026-10-24T05:06:34-05:00",
+    "updated_at_epoch": 1792836394.0915897
+   }
+  },
+  "C_504_forever_then_next": {
+   "settled": true,
+   "seconds": 104.5,
+   "message_4": {
+    "request_id": 4,
+    "status": "failed",
+    "updated_at": "2026-10-24T05:08:18-05:00",
+    "updated_at_epoch": 1792836498.2827382,
+    "reason": "retry_exhausted:httpConnectionFailed 504",
+    "data": {
+     "retry": {
+      "attempt": 10,
+      "limit": 10,
+      "interval_seconds": 10.0,
+      "due_epoch": 1792836497.8719933,
+      "last_failure": "httpConnectionFailed 504",
+      "http_status": 504,
+      "claim": "",
+      "runtime": "codex",
+      "tool_activity": false
+     }
+    }
+   },
+   "message_5": {
+    "request_id": 5,
+    "status": "replied",
+    "updated_at": "2026-10-24T05:08:18-05:00",
+    "updated_at_epoch": 1792836498.5960326,
+    "data": {
+     "retry": {
+      "attempt": 1,
+      "limit": 10,
+      "interval_seconds": 10.0,
+      "due_epoch": 1792836404.465865,
+      "last_failure": "httpConnectionFailed 504",
+      "http_status": 504,
+      "claim": "",
+      "runtime": "codex",
+      "tool_activity": false
+     }
+    }
+   }
+  }
+ },
+ "health_text": "not_blocked; known queued 0; oldest unknown; coverage complete; resend exhausted 1; last failure #4 retry_exhausted:httpConnectionFailed 504 at 05:08",
+ "upstream_requests": [
+  {
+   "at": 1792836362.0,
+   "path": "/v1/responses",
+   "input": "E2E-ONE",
+   "status": 504,
+   "resend_marker": "",
+   "first_line_kept": true
+  },
+  {
+   "at": 1792836372.5,
+   "path": "/v1/responses",
+   "input": "E2E-ONE",
+   "status": 504,
+   "resend_marker": "1/10 · 이전 시도 업스트림 오류: httpConnectionFailed 504",
+   "first_line_kept": true
+  },
+  {
+   "at": 1792836382.9,
+   "path": "/v1/responses",
+   "input": "E2E-ONE",
+   "status": 504,
+   "resend_marker": "2/10 · 이전 시도 업스트림 오류: httpConnectionFailed 504",
+   "first_line_kept": true
+  },
+  {
+   "at": 1792836393.3,
+   "path": "/v1/responses",
+   "input": "E2E-ONE",
+   "status": 200,
+   "resend_marker": "3/10 · 이전 시도 업스트림 오류: httpConnectionFailed 504",
+   "first_line_kept": true
+  },
+  {
+   "at": 1792836393.6,
+   "path": "/v1/responses",
+   "input": "E2E-TWO",
+   "status": 400,
+   "resend_marker": "",
+   "first_line_kept": true
+  },
+  {
+   "at": 1792836393.9,
+   "path": "/v1/responses",
+   "input": "E2E-THREE",
+   "status": 200,
+   "resend_marker": "",
+   "first_line_kept": true
+  },
+  {
+   "at": 1792836394.2,
+   "path": "/v1/responses",
+   "input": "E2E-FOUR",
+   "status": 504,
+   "resend_marker": "",
+   "first_line_kept": true
+  },
+  {
+   "at": 1792836404.6,
+   "path": "/v1/responses",
+   "input": "E2E-FOUR",
+   "status": 504,
+   "resend_marker": "1/10 · 이전 시도 업스트림 오류: httpConnectionFailed 504",
+   "first_line_kept": true
+  },
+  {
+   "at": 1792836415.0,
+   "path": "/v1/responses",
+   "input": "E2E-FOUR",
+   "status": 504,
+   "resend_marker": "2/10 · 이전 시도 업스트림 오류: httpConnectionFailed 504",
+   "first_line_kept": true
+  },
+  {
+   "at": 1792836425.4,
+   "path": "/v1/responses",
+   "input": "E2E-FOUR",
+   "status": 504,
+   "resend_marker": "3/10 · 이전 시도 업스트림 오류: httpConnectionFailed 504",
+   "first_line_kept": true
+  },
+  {
+   "at": 1792836435.7,
+   "path": "/v1/responses",
+   "input": "E2E-FOUR",
+   "status": 504,
+   "resend_marker": "4/10 · 이전 시도 업스트림 오류: httpConnectionFailed 504",
+   "first_line_kept": true
+  },
+  {
+   "at": 1792836446.1,
+   "path": "/v1/responses",
+   "input": "E2E-FOUR",
+   "status": 504,
+   "resend_marker": "5/10 · 이전 시도 업스트림 오류: httpConnectionFailed 504",
+   "first_line_kept": true
+  },
+  {
+   "at": 1792836456.5,
+   "path": "/v1/responses",
+   "input": "E2E-FOUR",
+   "status": 504,
+   "resend_marker": "6/10 · 이전 시도 업스트림 오류: httpConnectionFailed 504",
+   "first_line_kept": true
+  },
+  {
+   "at": 1792836466.9,
+   "path": "/v1/responses",
+   "input": "E2E-FOUR",
+   "status": 504,
+   "resend_marker": "7/10 · 이전 시도 업스트림 오류: httpConnectionFailed 504",
+   "first_line_kept": true
+  },
+  {
+   "at": 1792836477.3,
+   "path": "/v1/responses",
+   "input": "E2E-FOUR",
+   "status": 504,
+   "resend_marker": "8/10 · 이전 시도 업스트림 오류: httpConnectionFailed 504",
+   "first_line_kept": true
+  },
+  {
+   "at": 1792836487.7,
+   "path": "/v1/responses",
+   "input": "E2E-FOUR",
+   "status": 504,
+   "resend_marker": "9/10 · 이전 시도 업스트림 오류: httpConnectionFailed 504",
+   "first_line_kept": true
+  },
+  {
+   "at": 1792836498.1,
+   "path": "/v1/responses",
+   "input": "E2E-FOUR",
+   "status": 504,
+   "resend_marker": "10/10 · 이전 시도 업스트림 오류: httpConnectionFailed 504",
+   "first_line_kept": true
+  },
+  {
+   "at": 1792836498.4,
+   "path": "/v1/responses",
+   "input": "E2E-FIVE",
+   "status": 200,
+   "resend_marker": "1/10 · 이전 시도 업스트림 오류: httpConnectionFailed 504",
+   "first_line_kept": true
+  }
+ ],
+ "notifications": [
+  {
+   "at": 1792836362.3,
+   "method": "error",
+   "status": null,
+   "willRetry": false,
+   "error": {
+    "message": "unexpected status 504 Gateway Timeout: fake upstream 504, url: http://127.0.0.1:55615/v1/responses",
+    "codexErrorInfo": {
+     "httpConnectionFailed": {
+      "httpStatusCode": 504
+     }
+    },
+    "additionalDetails": null,
+    "misalignment": null
+   }
+  },
+  {
+   "at": 1792836362.3,
+   "method": "turn/completed",
+   "status": "failed",
+   "willRetry": null,
+   "error": {
+    "message": "unexpected status 504 Gateway Timeout: fake upstream 504, url: http://127.0.0.1:55615/v1/responses",
+    "codexErrorInfo": {
+     "httpConnectionFailed": {
+      "httpStatusCode": 504
+     }
+    },
+    "additionalDetails": null,
+    "misalignment": null
+   }
+  },
+  {
+   "at": 1792836372.7,
+   "method": "error",
+   "status": null,
+   "willRetry": false,
+   "error": {
+    "message": "unexpected status 504 Gateway Timeout: fake upstream 504, url: http://127.0.0.1:55615/v1/responses",
+    "codexErrorInfo": {
+     "httpConnectionFailed": {
+      "httpStatusCode": 504
+     }
+    },
+    "additionalDetails": null,
+    "misalignment": null
+   }
+  },
+  {
+   "at": 1792836372.7,
+   "method": "turn/completed",
+   "status": "failed",
+   "willRetry": null,
+   "error": {
+    "message": "unexpected status 504 Gateway Timeout: fake upstream 504, url: http://127.0.0.1:55615/v1/responses",
+    "codexErrorInfo": {
+     "httpConnectionFailed": {
+      "httpStatusCode": 504
+     }
+    },
+    "additionalDetails": null,
+    "misalignment": null
+   }
+  },
+  {
+   "at": 1792836383.1,
+   "method": "error",
+   "status": null,
+   "willRetry": false,
+   "error": {
+    "message": "unexpected status 504 Gateway Timeout: fake upstream 504, url: http://127.0.0.1:55615/v1/responses",
+    "codexErrorInfo": {
+     "httpConnectionFailed": {
+      "httpStatusCode": 504
+     }
+    },
+    "additionalDetails": null,
+    "misalignment": null
+   }
+  },
+  {
+   "at": 1792836383.1,
+   "method": "turn/completed",
+   "status": "failed",
+   "willRetry": null,
+   "error": {
+    "message": "unexpected status 504 Gateway Timeout: fake upstream 504, url: http://127.0.0.1:55615/v1/responses",
+    "codexErrorInfo": {
+     "httpConnectionFailed": {
+      "httpStatusCode": 504
+     }
+    },
+    "additionalDetails": null,
+    "misalignment": null
+   }
+  },
+  {
+   "at": 1792836393.5,
+   "method": "turn/completed",
+   "status": "completed",
+   "willRetry": null,
+   "error": null
+  },
+  {
+   "at": 1792836393.8,
+   "method": "error",
+   "status": null,
+   "willRetry": false,
+   "error": {
+    "message": "{\"error\": {\"message\": \"fake upstream 400\", \"type\": \"server_error\"}}",
+    "codexErrorInfo": "other",
+    "additionalDetails": null,
+    "misalignment": null
+   }
+  },
+  {
+   "at": 1792836393.8,
+   "method": "turn/completed",
+   "status": "failed",
+   "willRetry": null,
+   "error": {
+    "message": "{\"error\": {\"message\": \"fake upstream 400\", \"type\": \"server_error\"}}",
+    "codexErrorInfo": "other",
+    "additionalDetails": null,
+    "misalignment": null
+   }
+  },
+  {
+   "at": 1792836394.1,
+   "method": "turn/completed",
+   "status": "completed",
+   "willRetry": null,
+   "error": null
+  },
+  {
+   "at": 1792836394.4,
+   "method": "error",
+   "status": null,
+   "willRetry": false,
+   "error": {
+    "message": "unexpected status 504 Gateway Timeout: fake upstream 504, url: http://127.0.0.1:55615/v1/responses",
+    "codexErrorInfo": {
+     "httpConnectionFailed": {
+      "httpStatusCode": 504
+     }
+    },
+    "additionalDetails": null,
+    "misalignment": null
+   }
+  },
+  {
+   "at": 1792836394.4,
+   "method": "turn/completed",
+   "status": "failed",
+   "willRetry": null,
+   "error": {
+    "message": "unexpected status 504 Gateway Timeout: fake upstream 504, url: http://127.0.0.1:55615/v1/responses",
+    "codexErrorInfo": {
+     "httpConnectionFailed": {
+      "httpStatusCode": 504
+     }
+    },
+    "additionalDetails": null,
+    "misalignment": null
+   }
+  },
+  {
+   "at": 1792836404.8,
+   "method": "error",
+   "status": null,
+   "willRetry": false,
+   "error": {
+    "message": "unexpected status 504 Gateway Timeout: fake upstream 504, url: http://127.0.0.1:55615/v1/responses",
+    "codexErrorInfo": {
+     "httpConnectionFailed": {
+      "httpStatusCode": 504
+     }
+    },
+    "additionalDetails": null,
+    "misalignment": null
+   }
+  },
+  {
+   "at": 1792836404.8,
+   "method": "turn/completed",
+   "status": "failed",
+   "willRetry": null,
+   "error": {
+    "message": "unexpected status 504 Gateway Timeout: fake upstream 504, url: http://127.0.0.1:55615/v1/responses",
+    "codexErrorInfo": {
+     "httpConnectionFailed": {
+      "httpStatusCode": 504
+     }
+    },
+    "additionalDetails": null,
+    "misalignment": null
+   }
+  },
+  {
+   "at": 1792836415.2,
+   "method": "error",
+   "status": null,
+   "willRetry": false,
+   "error": {
+    "message": "unexpected status 504 Gateway Timeout: fake upstream 504, url: http://127.0.0.1:55615/v1/responses",
+    "codexErrorInfo": {
+     "httpConnectionFailed": {
+      "httpStatusCode": 504
+     }
+    },
+    "additionalDetails": null,
+    "misalignment": null
+   }
+  },
+  {
+   "at": 1792836415.2,
+   "method": "turn/completed",
+   "status": "failed",
+   "willRetry": null,
+   "error": {
+    "message": "unexpected status 504 Gateway Timeout: fake upstream 504, url: http://127.0.0.1:55615/v1/responses",
+    "codexErrorInfo": {
+     "httpConnectionFailed": {
+      "httpStatusCode": 504
+     }
+    },
+    "additionalDetails": null,
+    "misalignment": null
+   }
+  },
+  {
+   "at": 1792836425.6,
+   "method": "error",
+   "status": null,
+   "willRetry": false,
+   "error": {
+    "message": "unexpected status 504 Gateway Timeout: fake upstream 504, url: http://127.0.0.1:55615/v1/responses",
+    "codexErrorInfo": {
+     "httpConnectionFailed": {
+      "httpStatusCode": 504
+     }
+    },
+    "additionalDetails": null,
+    "misalignment": null
+   }
+  },
+  {
+   "at": 1792836425.6,
+   "method": "turn/completed",
+   "status": "failed",
+   "willRetry": null,
+   "error": {
+    "message": "unexpected status 504 Gateway Timeout: fake upstream 504, url: http://127.0.0.1:55615/v1/responses",
+    "codexErrorInfo": {
+     "httpConnectionFailed": {
+      "httpStatusCode": 504
+     }
+    },
+    "additionalDetails": null,
+    "misalignment": null
+   }
+  },
+  {
+   "at": 1792836435.9,
+   "method": "error",
+   "status": null,
+   "willRetry": false,
+   "error": {
+    "message": "unexpected status 504 Gateway Timeout: fake upstream 504, url: http://127.0.0.1:55615/v1/responses",
+    "codexErrorInfo": {
+     "httpConnectionFailed": {
+      "httpStatusCode": 504
+     }
+    },
+    "additionalDetails": null,
+    "misalignment": null
+   }
+  },
+  {
+   "at": 1792836435.9,
+   "method": "turn/completed",
+   "status": "failed",
+   "willRetry": null,
+   "error": {
+    "message": "unexpected status 504 Gateway Timeout: fake upstream 504, url: http://127.0.0.1:55615/v1/responses",
+    "codexErrorInfo": {
+     "httpConnectionFailed": {
+      "httpStatusCode": 504
+     }
+    },
+    "additionalDetails": null,
+    "misalignment": null
+   }
+  },
+  {
+   "at": 1792836446.3,
+   "method": "error",
+   "status": null,
+   "willRetry": false,
+   "error": {
+    "message": "unexpected status 504 Gateway Timeout: fake upstream 504, url: http://127.0.0.1:55615/v1/responses",
+    "codexErrorInfo": {
+     "httpConnectionFailed": {
+      "httpStatusCode": 504
+     }
+    },
+    "additionalDetails": null,
+    "misalignment": null
+   }
+  },
+  {
+   "at": 1792836446.3,
+   "method": "turn/completed",
+   "status": "failed",
+   "willRetry": null,
+   "error": {
+    "message": "unexpected status 504 Gateway Timeout: fake upstream 504, url: http://127.0.0.1:55615/v1/responses",
+    "codexErrorInfo": {
+     "httpConnectionFailed": {
+      "httpStatusCode": 504
+     }
+    },
+    "additionalDetails": null,
+    "misalignment": null
+   }
+  },
+  {
+   "at": 1792836456.7,
+   "method": "error",
+   "status": null,
+   "willRetry": false,
+   "error": {
+    "message": "unexpected status 504 Gateway Timeout: fake upstream 504, url: http://127.0.0.1:55615/v1/responses",
+    "codexErrorInfo": {
+     "httpConnectionFailed": {
+      "httpStatusCode": 504
+     }
+    },
+    "additionalDetails": null,
+    "misalignment": null
+   }
+  },
+  {
+   "at": 1792836456.7,
+   "method": "turn/completed",
+   "status": "failed",
+   "willRetry": null,
+   "error": {
+    "message": "unexpected status 504 Gateway Timeout: fake upstream 504, url: http://127.0.0.1:55615/v1/responses",
+    "codexErrorInfo": {
+     "httpConnectionFailed": {
+      "httpStatusCode": 504
+     }
+    },
+    "additionalDetails": null,
+    "misalignment": null
+   }
+  },
+  {
+   "at": 1792836467.1,
+   "method": "error",
+   "status": null,
+   "willRetry": false,
+   "error": {
+    "message": "unexpected status 504 Gateway Timeout: fake upstream 504, url: http://127.0.0.1:55615/v1/responses",
+    "codexErrorInfo": {
+     "httpConnectionFailed": {
+      "httpStatusCode": 504
+     }
+    },
+    "additionalDetails": null,
+    "misalignment": null
+   }
+  },
+  {
+   "at": 1792836467.1,
+   "method": "turn/completed",
+   "status": "failed",
+   "willRetry": null,
+   "error": {
+    "message": "unexpected status 504 Gateway Timeout: fake upstream 504, url: http://127.0.0.1:55615/v1/responses",
+    "codexErrorInfo": {
+     "httpConnectionFailed": {
+      "httpStatusCode": 504
+     }
+    },
+    "additionalDetails": null,
+    "misalignment": null
+   }
+  },
+  {
+   "at": 1792836477.5,
+   "method": "error",
+   "status": null,
+   "willRetry": false,
+   "error": {
+    "message": "unexpected status 504 Gateway Timeout: fake upstream 504, url: http://127.0.0.1:55615/v1/responses",
+    "codexErrorInfo": {
+     "httpConnectionFailed": {
+      "httpStatusCode": 504
+     }
+    },
+    "additionalDetails": null,
+    "misalignment": null
+   }
+  },
+  {
+   "at": 1792836477.5,
+   "method": "turn/completed",
+   "status": "failed",
+   "willRetry": null,
+   "error": {
+    "message": "unexpected status 504 Gateway Timeout: fake upstream 504, url: http://127.0.0.1:55615/v1/responses",
+    "codexErrorInfo": {
+     "httpConnectionFailed": {
+      "httpStatusCode": 504
+     }
+    },
+    "additionalDetails": null,
+    "misalignment": null
+   }
+  },
+  {
+   "at": 1792836487.9,
+   "method": "error",
+   "status": null,
+   "willRetry": false,
+   "error": {
+    "message": "unexpected status 504 Gateway Timeout: fake upstream 504, url: http://127.0.0.1:55615/v1/responses",
+    "codexErrorInfo": {
+     "httpConnectionFailed": {
+      "httpStatusCode": 504
+     }
+    },
+    "additionalDetails": null,
+    "misalignment": null
+   }
+  },
+  {
+   "at": 1792836487.9,
+   "method": "turn/completed",
+   "status": "failed",
+   "willRetry": null,
+   "error": {
+    "message": "unexpected status 504 Gateway Timeout: fake upstream 504, url: http://127.0.0.1:55615/v1/responses",
+    "codexErrorInfo": {
+     "httpConnectionFailed": {
+      "httpStatusCode": 504
+     }
+    },
+    "additionalDetails": null,
+    "misalignment": null
+   }
+  },
+  {
+   "at": 1792836498.3,
+   "method": "error",
+   "status": null,
+   "willRetry": false,
+   "error": {
+    "message": "unexpected status 504 Gateway Timeout: fake upstream 504, url: http://127.0.0.1:55615/v1/responses",
+    "codexErrorInfo": {
+     "httpConnectionFailed": {
+      "httpStatusCode": 504
+     }
+    },
+    "additionalDetails": null,
+    "misalignment": null
+   }
+  },
+  {
+   "at": 1792836498.3,
+   "method": "turn/completed",
+   "status": "failed",
+   "willRetry": null,
+   "error": {
+    "message": "unexpected status 504 Gateway Timeout: fake upstream 504, url: http://127.0.0.1:55615/v1/responses",
+    "codexErrorInfo": {
+     "httpConnectionFailed": {
+      "httpStatusCode": 504
+     }
+    },
+    "additionalDetails": null,
+    "misalignment": null
+   }
+  },
+  {
+   "at": 1792836498.6,
+   "method": "turn/completed",
+   "status": "completed",
+   "willRetry": null,
+   "error": null
+  }
+ ],
+ "injector_log": [
+  "05:06:01 INFO codex_desktop_channel_ready thread=01a16d5f-dc77-7623-b232-9d8b36eacde9 cwd=C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-resend-e2e-ajhxtw74\\work",
+  "05:06:01 INFO codex_desktop_channel_injected message_id=1 thread=01a16d5f-dc77-7623-b232-9d8b36eacde9 turn=01a16d5f-ddc7-7833-a50e-b7842aea5b32 via=turn/start",
+  "05:06:02 WARN codex_desktop_channel_retry_scheduled message_id=1 attempt=1/10 error=httpConnectionFailed 504 tool_activity=false due_in=10s",
+  "05:06:02 INFO codex_desktop_channel_turn_completed message_id=1 turn=01a16d5f-ddc7-7833-a50e-b7842aea5b32 status=failed",
+  "05:06:12 WARN codex_desktop_channel_retry_sent message_id=1 attempt=1/10 thread=01a16d5f-dc77-7623-b232-9d8b36eacde9 turn=01a16d60-07bd-7822-8591-378cc8f95862 previous_error=httpConnectionFailed 504",
+  "05:06:12 WARN codex_desktop_channel_retry_scheduled message_id=1 attempt=2/10 error=httpConnectionFailed 504 tool_activity=false due_in=10s",
+  "05:06:12 INFO codex_desktop_channel_turn_completed message_id=1 turn=01a16d60-07bd-7822-8591-378cc8f95862 status=failed",
+  "05:06:22 WARN codex_desktop_channel_retry_sent message_id=1 attempt=2/10 thread=01a16d5f-dc77-7623-b232-9d8b36eacde9 turn=01a16d60-305b-7551-a9b2-f08bf04c8fc3 previous_error=httpConnectionFailed 504",
+  "05:06:23 WARN codex_desktop_channel_retry_scheduled message_id=1 attempt=3/10 error=httpConnectionFailed 504 tool_activity=false due_in=10s",
+  "05:06:23 INFO codex_desktop_channel_turn_completed message_id=1 turn=01a16d60-305b-7551-a9b2-f08bf04c8fc3 status=failed",
+  "05:06:33 WARN codex_desktop_channel_retry_sent message_id=1 attempt=3/10 thread=01a16d5f-dc77-7623-b232-9d8b36eacde9 turn=01a16d60-58d5-7c11-91dd-b3b4c4302e30 previous_error=httpConnectionFailed 504",
+  "05:06:33 INFO codex_desktop_channel_turn_completed message_id=1 turn=01a16d60-58d5-7c11-91dd-b3b4c4302e30 status=completed",
+  "05:06:33 INFO codex_desktop_channel_injected message_id=2 thread=01a16d5f-dc77-7623-b232-9d8b36eacde9 turn=01a16d60-5a0e-7900-abfa-26c3a079f0d3 via=turn/start",
+  "05:06:33 INFO codex_desktop_channel_turn_completed message_id=2 turn=01a16d60-5a0e-7900-abfa-26c3a079f0d3 status=failed",
+  "05:06:33 INFO codex_desktop_channel_injected message_id=3 thread=01a16d5f-dc77-7623-b232-9d8b36eacde9 turn=01a16d60-5b45-7331-b273-0bba74961a4d via=turn/start",
+  "05:06:34 INFO codex_desktop_channel_turn_completed message_id=3 turn=01a16d60-5b45-7331-b273-0bba74961a4d status=completed",
+  "05:06:34 INFO codex_desktop_channel_injected message_id=4 thread=01a16d5f-dc77-7623-b232-9d8b36eacde9 turn=01a16d60-5c8b-7ab2-a560-c584ff719fa7 via=turn/start",
+  "05:06:34 INFO codex_desktop_channel_injected message_id=5 thread=01a16d5f-dc77-7623-b232-9d8b36eacde9 turn=01a16d60-5c8b-7ab2-a560-c584ff719fa7 via=turn/start",
+  "05:06:34 WARN codex_desktop_channel_retry_scheduled message_id=4 attempt=1/10 error=httpConnectionFailed 504 tool_activity=false due_in=10s",
+  "05:06:34 INFO codex_desktop_channel_turn_completed message_id=4 turn=01a16d60-5c8b-7ab2-a560-c584ff719fa7 status=failed",
+  "05:06:34 WARN codex_desktop_channel_retry_scheduled message_id=5 attempt=1/10 error=httpConnectionFailed 504 tool_activity=false due_in=10s",
+  "05:06:34 INFO codex_desktop_channel_turn_completed message_id=5 turn=01a16d60-5c8b-7ab2-a560-c584ff719fa7 status=failed",
+  "05:06:44 WARN codex_desktop_channel_retry_sent message_id=4 attempt=1/10 thread=01a16d5f-dc77-7623-b232-9d8b36eacde9 turn=01a16d60-8536-7dc0-882e-780b61b72c2d previous_error=httpConnectionFailed 504",
+  "05:06:44 WARN codex_desktop_channel_retry_scheduled message_id=4 attempt=2/10 error=httpConnectionFailed 504 tool_activity=false due_in=10s",
+  "05:06:44 INFO codex_desktop_channel_turn_completed message_id=4 turn=01a16d60-8536-7dc0-882e-780b61b72c2d status=failed",
+  "05:06:54 WARN codex_desktop_channel_retry_sent message_id=4 attempt=2/10 thread=01a16d5f-dc77-7623-b232-9d8b36eacde9 turn=01a16d60-adbe-7f30-afd3-0894206eb63f previous_error=httpConnectionFailed 504",
+  "05:06:55 WARN codex_desktop_channel_retry_scheduled message_id=4 attempt=3/10 error=httpConnectionFailed 504 tool_activity=false due_in=10s",
+  "05:06:55 INFO codex_desktop_channel_turn_completed message_id=4 turn=01a16d60-adbe-7f30-afd3-0894206eb63f status=failed",
+  "05:07:05 WARN codex_desktop_channel_retry_sent message_id=4 attempt=3/10 thread=01a16d5f-dc77-7623-b232-9d8b36eacde9 turn=01a16d60-d63b-7052-86d7-c64ff02d9515 previous_error=httpConnectionFailed 504",
+  "05:07:05 WARN codex_desktop_channel_retry_scheduled message_id=4 attempt=4/10 error=httpConnectionFailed 504 tool_activity=false due_in=10s",
+  "05:07:05 INFO codex_desktop_channel_turn_completed message_id=4 turn=01a16d60-d63b-7052-86d7-c64ff02d9515 status=failed",
+  "05:07:15 WARN codex_desktop_channel_retry_sent message_id=4 attempt=4/10 thread=01a16d5f-dc77-7623-b232-9d8b36eacde9 turn=01a16d60-feba-7d93-adce-962c294b9736 previous_error=httpConnectionFailed 504",
+  "05:07:15 WARN codex_desktop_channel_retry_scheduled message_id=4 attempt=5/10 error=httpConnectionFailed 504 tool_activity=false due_in=10s",
+  "05:07:15 INFO codex_desktop_channel_turn_completed message_id=4 turn=01a16d60-feba-7d93-adce-962c294b9736 status=failed",
+  "05:07:26 WARN codex_desktop_channel_retry_sent message_id=4 attempt=5/10 thread=01a16d5f-dc77-7623-b232-9d8b36eacde9 turn=01a16d61-2741-7e12-a33d-58d1649bb03a previous_error=httpConnectionFailed 504",
+  "05:07:26 WARN codex_desktop_channel_retry_scheduled message_id=4 attempt=6/10 error=httpConnectionFailed 504 tool_activity=false due_in=10s",
+  "05:07:26 INFO codex_desktop_channel_turn_completed message_id=4 turn=01a16d61-2741-7e12-a33d-58d1649bb03a status=failed",
+  "05:07:36 WARN codex_desktop_channel_retry_sent message_id=4 attempt=6/10 thread=01a16d5f-dc77-7623-b232-9d8b36eacde9 turn=01a16d61-4fcb-7c33-8ca2-6bd7455711d7 previous_error=httpConnectionFailed 504",
+  "05:07:36 WARN codex_desktop_channel_retry_scheduled message_id=4 attempt=7/10 error=httpConnectionFailed 504 tool_activity=false due_in=10s",
+  "05:07:36 INFO codex_desktop_channel_turn_completed message_id=4 turn=01a16d61-4fcb-7c33-8ca2-6bd7455711d7 status=failed",
+  "05:07:46 WARN codex_desktop_channel_retry_sent message_id=4 attempt=7/10 thread=01a16d5f-dc77-7623-b232-9d8b36eacde9 turn=01a16d61-7849-7c71-bdf3-4f950cc74edf previous_error=httpConnectionFailed 504",
+  "05:07:47 WARN codex_desktop_channel_retry_scheduled message_id=4 attempt=8/10 error=httpConnectionFailed 504 tool_activity=false due_in=10s",
+  "05:07:47 INFO codex_desktop_channel_turn_completed message_id=4 turn=01a16d61-7849-7c71-bdf3-4f950cc74edf status=failed",
+  "05:07:57 WARN codex_desktop_channel_retry_sent message_id=4 attempt=8/10 thread=01a16d5f-dc77-7623-b232-9d8b36eacde9 turn=01a16d61-a0f8-77e3-b90d-eaeb245862ea previous_error=httpConnectionFailed 504",
+  "05:07:57 WARN codex_desktop_channel_retry_scheduled message_id=4 attempt=9/10 error=httpConnectionFailed 504 tool_activity=false due_in=10s",
+  "05:07:57 INFO codex_desktop_channel_turn_completed message_id=4 turn=01a16d61-a0f8-77e3-b90d-eaeb245862ea status=failed",
+  "05:08:07 WARN codex_desktop_channel_retry_sent message_id=4 attempt=9/10 thread=01a16d5f-dc77-7623-b232-9d8b36eacde9 turn=01a16d61-c99a-7d62-8bec-07933650318e previous_error=httpConnectionFailed 504",
+  "05:08:07 WARN codex_desktop_channel_retry_scheduled message_id=4 attempt=10/10 error=httpConnectionFailed 504 tool_activity=false due_in=10s",
+  "05:08:07 INFO codex_desktop_channel_turn_completed message_id=4 turn=01a16d61-c99a-7d62-8bec-07933650318e status=failed",
+  "05:08:18 WARN codex_desktop_channel_retry_sent message_id=4 attempt=10/10 thread=01a16d5f-dc77-7623-b232-9d8b36eacde9 turn=01a16d61-f240-7f83-a955-0b92be69306d previous_error=httpConnectionFailed 504",
+  "05:08:18 INFO codex_desktop_channel_turn_completed message_id=4 turn=01a16d61-f240-7f83-a955-0b92be69306d status=failed",
+  "05:08:18 WARN codex_desktop_channel_retry_sent message_id=5 attempt=1/10 thread=01a16d5f-dc77-7623-b232-9d8b36eacde9 turn=01a16d61-f37c-7650-83b4-05198b0df9ef previous_error=httpConnectionFailed 504",
+  "05:08:18 INFO codex_desktop_channel_turn_completed message_id=5 turn=01a16d61-f37c-7650-83b4-05198b0df9ef status=completed"
+ ]
+}

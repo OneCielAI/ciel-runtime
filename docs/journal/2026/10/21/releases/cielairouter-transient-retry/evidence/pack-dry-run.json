@@ -1,0 +1,2831 @@
+[
+  {
+    "id": "@one-ciel-ai/ciel-runtime@0.2.51",
+    "name": "@one-ciel-ai/ciel-runtime",
+    "version": "0.2.51",
+    "size": 6442857,
+    "unpackedSize": 12035803,
+    "shasum": "4bcae21da6772a408639f4950475315f7523cb4a",
+    "integrity": "sha512-80KmZbUSSKC1EYsZloPvcCHx0VHYGJqGqvgfmHEXrFkGET57TtdwVC24VfgpTnllm3yIGQgnWWfYH8SWFxPKqQ==",
+    "filename": "one-ciel-ai-ciel-runtime-0.2.51.tgz",
+    "files": [
+      {
+        "path": "CHANGELOG.md",
+        "size": 59289,
+        "mode": 420
+      },
+      {
+        "path": "LICENSE",
+        "size": 1070,
+        "mode": 420
+      },
+      {
+        "path": "NOTICE",
+        "size": 273,
+        "mode": 420
+      },
+      {
+        "path": "README.md",
+        "size": 10924,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/__init__.py",
+        "size": 195,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/advisor_client.py",
+        "size": 6882,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/advisor_policy.py",
+        "size": 11232,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/advisor_refinement.py",
+        "size": 5731,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/advisor_request_builder.py",
+        "size": 9656,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/agent_router.py",
+        "size": 2719,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/agent_runtime_event_push.py",
+        "size": 14513,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/agent_turn_events.py",
+        "size": 13417,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/agy_cli.py",
+        "size": 8457,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/agy_installer.py",
+        "size": 7686,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/anthropic_model_policy.py",
+        "size": 9590,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/anthropic_response_writer.py",
+        "size": 8610,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/anthropic_responses_bridge.py",
+        "size": 5855,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/anthropic_tool_turns.py",
+        "size": 7929,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/api_key_cooldown.py",
+        "size": 6049,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/architecture_budget.py",
+        "size": 1383,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/architecture.py",
+        "size": 31890,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/channel_backlog.py",
+        "size": 2204,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/channel_compact_injection.py",
+        "size": 5703,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/channel_compact_poll.py",
+        "size": 2900,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/channel_compact_request_repository.py",
+        "size": 5991,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/channel_cursor_recovery.py",
+        "size": 3572,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/channel_cursor_repository.py",
+        "size": 3022,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/channel_cursor_service.py",
+        "size": 2561,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/channel_delivery_context.py",
+        "size": 11368,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/channel_event_identity.py",
+        "size": 7304,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/channel_event_projection.py",
+        "size": 10784,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/channel_inflight.py",
+        "size": 4544,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/channel_injection.py",
+        "size": 17224,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/channel_launch_guard_repository.py",
+        "size": 2230,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/channel_llm_context.py",
+        "size": 9368,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/channel_mcp_context.py",
+        "size": 2181,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/channel_mcp_http_controller.py",
+        "size": 10625,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/channel_mcp_tools.py",
+        "size": 33043,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/channel_message_context.py",
+        "size": 6702,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/channel_message_dedupe.py",
+        "size": 2073,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/channel_message_policy.py",
+        "size": 10630,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/channel_message_prompt.py",
+        "size": 21675,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/channel_message_repository.py",
+        "size": 17661,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/channel_notification_projection.py",
+        "size": 8226,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/channel_pending_injection.py",
+        "size": 26337,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/channel_pending_poll.py",
+        "size": 9504,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/channel_replay_policy.py",
+        "size": 1630,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/channel_runtime_environment.py",
+        "size": 5213,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/channel_terminal_context.py",
+        "size": 16595,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/channel_terminal_dispatch.py",
+        "size": 13340,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/channel_terminal_input.py",
+        "size": 9389,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/channel_terminal_proxy.py",
+        "size": 44123,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/channel_tool_context.py",
+        "size": 6826,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/channel_transcript_repository.py",
+        "size": 20756,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/channel_transcript.py",
+        "size": 34822,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/channel_wake_claim_repository.py",
+        "size": 4598,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/channel_wake_context.py",
+        "size": 28722,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/channel_wake_delivery_repository.py",
+        "size": 9429,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/chat_files.py",
+        "size": 8505,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/chat_http_controller.py",
+        "size": 24937,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/cielairouter_gateway_overlay.py",
+        "size": 25739,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/cielairouter_gateway_transport.py",
+        "size": 15053,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/cielairouter_gateways.py",
+        "size": 24696,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/claude_environment.py",
+        "size": 27951,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/claude_launch_assembly.py",
+        "size": 10079,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/claude_router.py",
+        "size": 34196,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/claude_session_socket.py",
+        "size": 8304,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/claude_stream_recovery_runtime.py",
+        "size": 27143,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/claude_stream_recovery_settings.py",
+        "size": 5397,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/cli_application_context.py",
+        "size": 6391,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/cli_assembly.py",
+        "size": 1488,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/cli_dispatch.py",
+        "size": 37700,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/cli_parser.py",
+        "size": 8358,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/cli_usage.py",
+        "size": 8250,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/codex_app_server_resume.py",
+        "size": 6748,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/codex_app_server_session.py",
+        "size": 22213,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/codex_app_server_websocket.py",
+        "size": 8296,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/codex_app_server.py",
+        "size": 16301,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/codex_backend_context.py",
+        "size": 15867,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/codex_cli.py",
+        "size": 12066,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/codex_completion_gate.py",
+        "size": 7380,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/codex_config_effort.py",
+        "size": 3970,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/codex_config.py",
+        "size": 9501,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/codex_desktop_injection.py",
+        "size": 27994,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/codex_desktop_runtime.py",
+        "size": 14087,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/codex_launch_assembly.py",
+        "size": 9929,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/codex_launch_configuration.py",
+        "size": 17960,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/codex_launch_policy.py",
+        "size": 2011,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/codex_model_catalog.py",
+        "size": 8132,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/codex_owned_server.py",
+        "size": 3406,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/codex_process_lifecycle.py",
+        "size": 9186,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/codex_reasoning_rejects.py",
+        "size": 8147,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/codex_router_auth.py",
+        "size": 3666,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/codex_router.py",
+        "size": 12283,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/codex_session_repository.py",
+        "size": 4265,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/codex_session_selection.py",
+        "size": 4128,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/codex_turn_recovery.py",
+        "size": 28575,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/colab_speech_jobs.py",
+        "size": 16454,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/command_asset_installer.py",
+        "size": 3783,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/company_prompt_reload.py",
+        "size": 5928,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/compatibility_probe.py",
+        "size": 9028,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/compatibility_protocol.py",
+        "size": 9622,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/compatibility_runtime.py",
+        "size": 6923,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/compatibility_test.py",
+        "size": 17077,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/config_migrations.py",
+        "size": 39370,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/config_repository.py",
+        "size": 13824,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/config_value_codec.py",
+        "size": 1579,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/configuration_cli.py",
+        "size": 15089,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/context_compaction.py",
+        "size": 21711,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/context_setup.py",
+        "size": 7765,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/context_summary_policy.py",
+        "size": 25500,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/credential_cli.py",
+        "size": 4195,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/credential_management.py",
+        "size": 10664,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/credentials.py",
+        "size": 9278,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/dangerous_rm_auto_allow.py",
+        "size": 2109,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/event_delivery_ack.py",
+        "size": 32004,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/event_receiver_connection.py",
+        "size": 5402,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/event_receiver_diagnostics.py",
+        "size": 2587,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/event_settings_cli.py",
+        "size": 29204,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/executable_discovery.py",
+        "size": 5684,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/external_event_control.py",
+        "size": 5012,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/external_event_menu.py",
+        "size": 10376,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/external_event_receiver.py",
+        "size": 43430,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/github_copilot_oauth_runtime.py",
+        "size": 6976,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/github_copilot_oauth.py",
+        "size": 11796,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/header_forwarding.py",
+        "size": 2089,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/headless_config.py",
+        "size": 7117,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/hosted_formula_tools.py",
+        "size": 8354,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/http_response.py",
+        "size": 4781,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/initial_stream_retry.py",
+        "size": 3309,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/install_diagnostics.py",
+        "size": 5277,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/kimi_identity.py",
+        "size": 7025,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/kimi_runtime_context.py",
+        "size": 7340,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/launch_data_path.py",
+        "size": 21575,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/launch_diagnostics.py",
+        "size": 7513,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/launch_state.py",
+        "size": 4267,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/live_api_key_controller.py",
+        "size": 2503,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/llm_config_http.py",
+        "size": 6042,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/llm_option_config.py",
+        "size": 13810,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/llm_presentation_data.py",
+        "size": 29728,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/llm_preset_context.py",
+        "size": 12877,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/llm_presets.py",
+        "size": 29342,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/lm_studio_runtime.py",
+        "size": 16055,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/managed_mcp_config.py",
+        "size": 5269,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/managed_service_cleanup.py",
+        "size": 2796,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/managed_tool_injection.py",
+        "size": 3366,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/mcp_config_reader.py",
+        "size": 442,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/mcp_inventory.py",
+        "size": 1769,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/model_cache_lifecycle.py",
+        "size": 3631,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/model_catalog_projection.py",
+        "size": 2007,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/model_context_hints.py",
+        "size": 3322,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/model_override.py",
+        "size": 1118,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/model_panel.py",
+        "size": 5509,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/model_registry_repository.py",
+        "size": 9515,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/muse_catalog.py",
+        "size": 3974,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/muse_cli.py",
+        "size": 3573,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/muse_injection.py",
+        "size": 24651,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/muse_mcp.py",
+        "size": 14386,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/muse_msp.py",
+        "size": 24203,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/muse_oauth.py",
+        "size": 4881,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/muse_runtime_context.py",
+        "size": 34920,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/native_context_recovery.py",
+        "size": 2869,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/npm_runtime.py",
+        "size": 7720,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/oauth_import_sync.py",
+        "size": 4979,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/oauth_login.py",
+        "size": 9818,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/oauth_routing.py",
+        "size": 14240,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/oauth_token_cli.py",
+        "size": 7303,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/oauth_token_endpoints.py",
+        "size": 9447,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/oauth_token_menu.py",
+        "size": 5252,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/oauth_token_pool.py",
+        "size": 7951,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/oauth_token_refresh.py",
+        "size": 8152,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/oauth_token_store.py",
+        "size": 11724,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/oauth_usage_signals.py",
+        "size": 6757,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/observability.py",
+        "size": 9716,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/ollama_catalog_cli.py",
+        "size": 1269,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/ollama_catalog_context.py",
+        "size": 6891,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/ollama_catalog_repository.py",
+        "size": 2834,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/ollama_catalog.py",
+        "size": 16445,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/ollama_context_sync.py",
+        "size": 5007,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/ollama_forwarding.py",
+        "size": 27011,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/ollama_stream_collection.py",
+        "size": 5922,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/ollama_thinking.py",
+        "size": 12392,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/ollama_wire_projection.py",
+        "size": 5230,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/openai_chat_compatibility_bridge.py",
+        "size": 13633,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/openai_chat_passthrough.py",
+        "size": 5278,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/openai_chat_router.py",
+        "size": 4816,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/openai_forwarding.py",
+        "size": 18824,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/openai_responses_router.py",
+        "size": 32294,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/openai_responses_stream.py",
+        "size": 5580,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/otlp_logs.py",
+        "size": 35050,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/output_budget.py",
+        "size": 3131,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/package_lifecycle.py",
+        "size": 10132,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/plan_artifact_controller.py",
+        "size": 3794,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/prelaunch_assembly.py",
+        "size": 1009,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/prelaunch_launch_panel.py",
+        "size": 1593,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/prelaunch_launch_preference.py",
+        "size": 2908,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/prelaunch_panel_context.py",
+        "size": 15341,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/prelaunch_panel_projection.py",
+        "size": 16584,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/prelaunch_shell_context.py",
+        "size": 13163,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/prelaunch_terminal.py",
+        "size": 28984,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/prelaunch.py",
+        "size": 70102,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/process_control.py",
+        "size": 25197,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/prompt_compaction.py",
+        "size": 24317,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/prompt_injection.py",
+        "size": 8214,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/protocols/__init__.py",
+        "size": 674,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/protocols/anthropic_content.py",
+        "size": 942,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/protocols/anthropic_thinking_policy.py",
+        "size": 12437,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/protocols/chat_projection.py",
+        "size": 19623,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/protocols/conversation_policy.py",
+        "size": 8621,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/protocols/conversation_turn_policy.py",
+        "size": 44100,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/protocols/ollama_chat.py",
+        "size": 4831,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/protocols/ollama_response.py",
+        "size": 12606,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/protocols/openai_chat_compat.py",
+        "size": 22179,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/protocols/openai_reasoning.py",
+        "size": 2454,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/protocols/openai_responses.py",
+        "size": 162647,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/protocols/pseudo_tool_history.py",
+        "size": 8616,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/protocols/tool_result_projection.py",
+        "size": 4415,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/provider_adapters.py",
+        "size": 8425,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/provider_administration_context.py",
+        "size": 8594,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/provider_catalog_sources.py",
+        "size": 14855,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/provider_choice.py",
+        "size": 9269,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/provider_compatibility.py",
+        "size": 6446,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/provider_config_mutations.py",
+        "size": 20449,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/provider_configuration_service.py",
+        "size": 7325,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/provider_context.py",
+        "size": 10561,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/provider_contract_projection.py",
+        "size": 3317,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/provider_descriptor.py",
+        "size": 3108,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/provider_endpoint_policy.py",
+        "size": 4211,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/provider_endpoint_probe.py",
+        "size": 5221,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/provider_failover_menu.py",
+        "size": 9312,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/provider_failover.py",
+        "size": 22077,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/provider_files_proxy.py",
+        "size": 8752,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/provider_launch_endpoint.py",
+        "size": 4603,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/provider_limits.py",
+        "size": 20323,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/provider_model_catalog_context.py",
+        "size": 4951,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/provider_model_context.py",
+        "size": 3780,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/provider_model_identity.py",
+        "size": 5337,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/provider_model_metadata_context.py",
+        "size": 7529,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/provider_model_profile.py",
+        "size": 2401,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/provider_model_selection.py",
+        "size": 21692,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/provider_model_specs.py",
+        "size": 5290,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/provider_models.py",
+        "size": 18561,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/provider_network.py",
+        "size": 7183,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/provider_option_cli.py",
+        "size": 12685,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/provider_option_panel.py",
+        "size": 12934,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/provider_option_status.py",
+        "size": 10809,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/provider_policy.py",
+        "size": 5046,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/provider_query_policy.py",
+        "size": 1931,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/provider_readiness_context.py",
+        "size": 6694,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/provider_readiness.py",
+        "size": 4137,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/provider_request_access.py",
+        "size": 7365,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/provider_request_builder.py",
+        "size": 19266,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/provider_responses_passthrough.py",
+        "size": 39342,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/provider_runtime_info.py",
+        "size": 4177,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/provider_runtime_modes.py",
+        "size": 5598,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/provider_sampling_policy.py",
+        "size": 1483,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/provider_status.py",
+        "size": 5680,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/provider_timeout_policy.py",
+        "size": 8160,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/provider_tool_policy.py",
+        "size": 4533,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/providers/__init__.py",
+        "size": 2984,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/providers/alibaba.py",
+        "size": 31457,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/providers/anthropic_catalog.py",
+        "size": 3695,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/providers/anthropic.py",
+        "size": 6291,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/providers/base.py",
+        "size": 7900,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/providers/catalog.py",
+        "size": 12691,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/providers/cielairouter.py",
+        "size": 16170,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/providers/cloud.py",
+        "size": 6115,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/providers/constants.py",
+        "size": 1990,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/providers/deepseek.py",
+        "size": 11021,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/providers/fireworks.py",
+        "size": 5895,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/providers/github_copilot_oauth.py",
+        "size": 10676,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/providers/kimi.py",
+        "size": 15420,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/providers/lm_studio.py",
+        "size": 2728,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/providers/meta.py",
+        "size": 22893,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/providers/native.py",
+        "size": 7091,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/providers/nim.py",
+        "size": 2373,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/providers/nvidia_runtime.py",
+        "size": 9954,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/providers/nvidia.py",
+        "size": 5692,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/providers/ollama_context.py",
+        "size": 8556,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/providers/ollama_runtime.py",
+        "size": 8650,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/providers/ollama.py",
+        "size": 9233,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/providers/opencode_catalog.py",
+        "size": 4606,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/providers/opencode_go.py",
+        "size": 1925,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/providers/opencode.py",
+        "size": 24310,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/providers/openrouter.py",
+        "size": 6157,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/providers/tabitoken.py",
+        "size": 4556,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/providers/vllm.py",
+        "size": 2384,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/providers/xai.py",
+        "size": 7443,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/providers/zai.py",
+        "size": 17888,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/pseudo_tool_parser.py",
+        "size": 4702,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/pty_master_writer.py",
+        "size": 5245,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/rate_limit_policy.py",
+        "size": 3131,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/rate_limit_repository.py",
+        "size": 5010,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/registry.py",
+        "size": 1533,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/remote_bridge_cli.py",
+        "size": 3470,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/remote_bridge_runtime.py",
+        "size": 10047,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/remote_bridge.py",
+        "size": 7837,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/remote_instructions.py",
+        "size": 15456,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/remote_management_http.py",
+        "size": 18981,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/remote_memory.py",
+        "size": 36257,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/remote_provision.py",
+        "size": 21133,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/request_body_policy.py",
+        "size": 10353,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/request_limits_config.py",
+        "size": 12145,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/request_shortcuts.py",
+        "size": 8693,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/request_trace.py",
+        "size": 10630,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/response_collection_context.py",
+        "size": 21906,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/response_collection.py",
+        "size": 11281,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/response_stream_context.py",
+        "size": 24293,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/responses_anthropic_stream.py",
+        "size": 48163,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/responses_cache_diagnostics.py",
+        "size": 2909,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/responses_custom_tool_bridge.py",
+        "size": 10868,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/responses_input_compatibility.py",
+        "size": 11885,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/responses_usage_observer.py",
+        "size": 3465,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/router_access.py",
+        "size": 13098,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/router_client_lifecycle.py",
+        "size": 16216,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/router_health_policy.py",
+        "size": 3077,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/router_http.py",
+        "size": 78993,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/router_observability_context.py",
+        "size": 9664,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/router_process_context.py",
+        "size": 5756,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/router_process_lifecycle.py",
+        "size": 16234,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/router_rate_limit_service.py",
+        "size": 12154,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/router_request_assembly.py",
+        "size": 16545,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/router_request_context.py",
+        "size": 9901,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/router_server_context.py",
+        "size": 3557,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/router_server_runtime.py",
+        "size": 3442,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/router_shortcuts.py",
+        "size": 8653,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/routing_fallback.py",
+        "size": 2558,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/runaway_output_guard.py",
+        "size": 17959,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/runtime_activity_repository.py",
+        "size": 4624,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/runtime_adapters.py",
+        "size": 7949,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/runtime_asset_assembly.py",
+        "size": 5179,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/runtime_asset_context.py",
+        "size": 10094,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/runtime_command_factory.py",
+        "size": 2463,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/runtime_compaction_binding.py",
+        "size": 26598,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/runtime_compaction_control.py",
+        "size": 21071,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/runtime_compaction_rejection.py",
+        "size": 3734,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/runtime_compatibility.py",
+        "size": 1719,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/runtime_constants.py",
+        "size": 14149,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/runtime_error_events.py",
+        "size": 2256,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/runtime_input_delivery_health.py",
+        "size": 10275,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/runtime_input_gateway.py",
+        "size": 14330,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/runtime_input_status.py",
+        "size": 20154,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/runtime_interaction.py",
+        "size": 6729,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/runtime_launch_context.py",
+        "size": 3832,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/runtime_launch.py",
+        "size": 99567,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/runtime_llm_options.py",
+        "size": 13045,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/runtime_logging.py",
+        "size": 6125,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/runtime_maintenance_assembly.py",
+        "size": 1920,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/runtime_maintenance_context.py",
+        "size": 10720,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/runtime_maintenance_services.py",
+        "size": 9180,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/runtime_paths.py",
+        "size": 9449,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/runtime_primitives.py",
+        "size": 2132,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/runtime_restart.py",
+        "size": 3699,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/runtime_session_restart.py",
+        "size": 35280,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/runtime_sse_recovery.py",
+        "size": 12194,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/runtime_upgrade.py",
+        "size": 5830,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/sandbox_profile.py",
+        "size": 3310,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/secure_json_repository.py",
+        "size": 1813,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/session_backup_cli.py",
+        "size": 25379,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/session_backup_collect.py",
+        "size": 34947,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/session_backup_menu.py",
+        "size": 33600,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/session_backup_ops.py",
+        "size": 12369,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/session_backup_remap.py",
+        "size": 6725,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/session_backup_secrets.py",
+        "size": 6329,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/session_backup_service.py",
+        "size": 18956,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/session_backup_store.py",
+        "size": 11881,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/session_backup_synology.py",
+        "size": 23446,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/session_backup_targets.py",
+        "size": 15819,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/session_import.py",
+        "size": 12888,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/session_resume_last.py",
+        "size": 3307,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/settings_repository.py",
+        "size": 246,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/slash_command_assets.py",
+        "size": 7551,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/speech_http_controller.py",
+        "size": 41012,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/speech_models.py",
+        "size": 1972,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/sse_stream_collection.py",
+        "size": 17936,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/sse_stream.py",
+        "size": 1674,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/sse_trace.py",
+        "size": 8457,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/startup_prompt_answers.py",
+        "size": 22684,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/statusline_script.py",
+        "size": 30366,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/statusline_settings.py",
+        "size": 1810,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/stream_chunk_policy.py",
+        "size": 510,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/streaming_anthropic.py",
+        "size": 139637,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/submission_receipt.py",
+        "size": 8294,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/synthetic_tool_policy.py",
+        "size": 3649,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/terminal_input_frames.py",
+        "size": 3290,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/terminal_modal_guard.py",
+        "size": 3943,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/terminal_platform_io.py",
+        "size": 3633,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/terminal_startup_gate.py",
+        "size": 1305,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/test_isolation_guard.py",
+        "size": 3597,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/timeout_profile.py",
+        "size": 7396,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/tool_call_events.py",
+        "size": 3536,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/tool_dialects.py",
+        "size": 3775,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/tool_exposure_policy.py",
+        "size": 2903,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/tool_guard_hooks.py",
+        "size": 6977,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/tool_request_projection.py",
+        "size": 2626,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/tool_schema.py",
+        "size": 18663,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/tool_side_effect_dedupe.py",
+        "size": 9747,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/transcript_delta_delivery.py",
+        "size": 32702,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/transcript_filter.py",
+        "size": 912,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/transcript_public_projection.py",
+        "size": 5999,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/transient_retry.py",
+        "size": 27597,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/tts_reference_audio_repository.py",
+        "size": 11924,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/tui_observation.py",
+        "size": 30471,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/ui_text.py",
+        "size": 13013,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/unattended_restart_menu.py",
+        "size": 2181,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/upstream_dump.py",
+        "size": 3260,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/upstream_error_policy.py",
+        "size": 23325,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/upstream_overload_retry.py",
+        "size": 5063,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/upstream_retry_context.py",
+        "size": 8748,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/upstream_retry.py",
+        "size": 41470,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/upstream_stream_io.py",
+        "size": 3209,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/usage_events.py",
+        "size": 5070,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/usage_service.py",
+        "size": 42379,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/visible_stream_filters.py",
+        "size": 4193,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/web_access_http.py",
+        "size": 15609,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/web_access_menu.py",
+        "size": 4270,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/web_access_ui.py",
+        "size": 13822,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/web_accounts.py",
+        "size": 8983,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/web_endpoints.py",
+        "size": 23083,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/web_search_result_events.py",
+        "size": 5793,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/web_ui_controller.py",
+        "size": 5784,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/web_ui.py",
+        "size": 120353,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/windows_command_line.py",
+        "size": 1256,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/windows_conpty.py",
+        "size": 41589,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/windows_console_guard.py",
+        "size": 3906,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/windows_console_input.py",
+        "size": 9920,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/windows_console_mode.py",
+        "size": 6569,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/windows_terminal_modes.py",
+        "size": 2634,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/workspace_mcp.py",
+        "size": 22877,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/workspace_router_selection.py",
+        "size": 17340,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/workspace_state.py",
+        "size": 2825,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/zai_oauth.py",
+        "size": 10898,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/zai_start_plan_captcha.py",
+        "size": 20424,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/zcode_credential_reader.cjs",
+        "size": 2009,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime_support/zcode_runtime_context.py",
+        "size": 9902,
+        "mode": 420
+      },
+      {
+        "path": "ciel_runtime.py",
+        "size": 391957,
+        "mode": 420
+      },
+      {
+        "path": "ciel-runtime",
+        "size": 212,
+        "mode": 420
+      },
+      {
+        "path": "ciel-runtime-menu.py",
+        "size": 115354,
+        "mode": 420
+      },
+      {
+        "path": "ciel-runtime-stop",
+        "size": 212,
+        "mode": 420
+      },
+      {
+        "path": "ciel-runtime-stop.cmd",
+        "size": 1105,
+        "mode": 420
+      },
+      {
+        "path": "ciel-runtime-stop.ps1",
+        "size": 785,
+        "mode": 420
+      },
+      {
+        "path": "ciel-runtime-tool-guard.py",
+        "size": 36259,
+        "mode": 420
+      },
+      {
+        "path": "ciel-runtime.cmd",
+        "size": 1099,
+        "mode": 420
+      },
+      {
+        "path": "ciel-runtime.ps1",
+        "size": 788,
+        "mode": 420
+      },
+      {
+        "path": "ciel-runtimectl",
+        "size": 208,
+        "mode": 420
+      },
+      {
+        "path": "ciel-runtimectl.cmd",
+        "size": 1087,
+        "mode": 420
+      },
+      {
+        "path": "ciel-runtimectl.ps1",
+        "size": 776,
+        "mode": 420
+      },
+      {
+        "path": "docs/.gitkeep",
+        "size": 0,
+        "mode": 420
+      },
+      {
+        "path": "docs/adr/0001-runtime-bounded-contexts.md",
+        "size": 13189,
+        "mode": 420
+      },
+      {
+        "path": "docs/AGY-CLI-Research.md",
+        "size": 2581,
+        "mode": 420
+      },
+      {
+        "path": "docs/Architecture.md",
+        "size": 11261,
+        "mode": 420
+      },
+      {
+        "path": "docs/CLI-Reference.md",
+        "size": 18411,
+        "mode": 420
+      },
+      {
+        "path": "docs/Codex-CLI-Research.md",
+        "size": 9856,
+        "mode": 420
+      },
+      {
+        "path": "docs/Codex-Desktop.md",
+        "size": 5009,
+        "mode": 420
+      },
+      {
+        "path": "docs/Codex-Remote.md",
+        "size": 4904,
+        "mode": 420
+      },
+      {
+        "path": "docs/COLAB_SPEECH.md",
+        "size": 9476,
+        "mode": 420
+      },
+      {
+        "path": "docs/Configuration.md",
+        "size": 38755,
+        "mode": 420
+      },
+      {
+        "path": "docs/Home.md",
+        "size": 1985,
+        "mode": 420
+      },
+      {
+        "path": "docs/install.md",
+        "size": 8819,
+        "mode": 420
+      },
+      {
+        "path": "docs/Installation.md",
+        "size": 5637,
+        "mode": 420
+      },
+      {
+        "path": "docs/Managed-Tool-Injection.md",
+        "size": 1514,
+        "mode": 420
+      },
+      {
+        "path": "docs/MCP-Channels.md",
+        "size": 14143,
+        "mode": 420
+      },
+      {
+        "path": "docs/Module-Map.md",
+        "size": 127372,
+        "mode": 420
+      },
+      {
+        "path": "docs/Muse-Code.md",
+        "size": 12929,
+        "mode": 420
+      },
+      {
+        "path": "docs/Observability.md",
+        "size": 8096,
+        "mode": 420
+      },
+      {
+        "path": "docs/OTLP-Logs.md",
+        "size": 4051,
+        "mode": 420
+      },
+      {
+        "path": "docs/Plan-Mode.md",
+        "size": 2685,
+        "mode": 420
+      },
+      {
+        "path": "docs/Providers.md",
+        "size": 20184,
+        "mode": 420
+      },
+      {
+        "path": "docs/Rate-Limiting.md",
+        "size": 2633,
+        "mode": 420
+      },
+      {
+        "path": "docs/Remote-Bridge.md",
+        "size": 17446,
+        "mode": 420
+      },
+      {
+        "path": "docs/Remote-Memory.md",
+        "size": 4635,
+        "mode": 420
+      },
+      {
+        "path": "docs/Remote-Provision.md",
+        "size": 4413,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/ai-memory-report/build_report.py",
+        "size": 2440,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/ai-memory-report/pages/check-01.png",
+        "size": 32534,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/ai-memory-report/pages/check-06.png",
+        "size": 44003,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/ai-memory-report/pages/check-07.png",
+        "size": 39082,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/ai-memory-report/pages/check-13.png",
+        "size": 46416,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/ai-memory-report/pages/contact-check.png",
+        "size": 306476,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/ai-memory-report/pages/er-check.png",
+        "size": 40583,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/ai-memory-report/pages/page-01.png",
+        "size": 40327,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/ai-memory-report/pages/page-02.png",
+        "size": 78848,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/ai-memory-report/pages/page-03.png",
+        "size": 39559,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/ai-memory-report/pages/page-04.png",
+        "size": 50543,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/ai-memory-report/pages/page-05.png",
+        "size": 28889,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/ai-memory-report/pages/page-06.png",
+        "size": 54029,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/ai-memory-report/pages/page-07.png",
+        "size": 48065,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/ai-memory-report/pages/page-08.png",
+        "size": 65803,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/ai-memory-report/pages/page-09.png",
+        "size": 54277,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/ai-memory-report/pages/page-10.png",
+        "size": 41681,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/ai-memory-report/pages/page-11.png",
+        "size": 47825,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/ai-memory-report/pages/page-12.png",
+        "size": 37873,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/ai-memory-report/pages/page-13.png",
+        "size": 56926,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/ai-memory-report/pages/page-14.png",
+        "size": 73935,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/ai-memory-report/pages/page-15.png",
+        "size": 81958,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/ai-memory-report/pages/page-16.png",
+        "size": 53626,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/ai-memory-report/rendered/figure-01.png",
+        "size": 41336,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/ai-memory-report/rendered/figure-02.png",
+        "size": 37664,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/ai-memory-report/rendered/figure-03.png",
+        "size": 33081,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/ai-memory-report/rendered/figure-04.png",
+        "size": 18449,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/ai-memory-report/rendered/figure-05.png",
+        "size": 23658,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/ai-memory-report/rendered/figure-06.png",
+        "size": 55039,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/ai-memory-report/rendered/figure-07.png",
+        "size": 32480,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/ai-memory-report/rendered/figure-08.png",
+        "size": 33847,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/ai-memory-report/rendered/figure-09.png",
+        "size": 9192,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/ai-memory-report/report.html",
+        "size": 38496,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/ai-memory-report/verification.json",
+        "size": 268,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/ai-memory-research-plan.md",
+        "size": 26827,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/ai-memory-research-report.pdf",
+        "size": 292250,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/runtime-message-delivery/build_pdf.py",
+        "size": 7785,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/runtime-message-delivery/pages/check-8.png",
+        "size": 109679,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/runtime-message-delivery/pages/contact.png",
+        "size": 1266188,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/runtime-message-delivery/pages/p01.png",
+        "size": 44315,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/runtime-message-delivery/pages/p02.png",
+        "size": 48847,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/runtime-message-delivery/pages/p03.png",
+        "size": 61295,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/runtime-message-delivery/pages/p04.png",
+        "size": 89958,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/runtime-message-delivery/pages/p05.png",
+        "size": 66073,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/runtime-message-delivery/pages/p06.png",
+        "size": 54739,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/runtime-message-delivery/pages/p07.png",
+        "size": 29065,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/runtime-message-delivery/pages/p08.png",
+        "size": 36468,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/runtime-message-delivery/pages/p09.png",
+        "size": 69031,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/runtime-message-delivery/pages/p10.png",
+        "size": 53599,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/runtime-message-delivery/pages/p11.png",
+        "size": 48494,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/runtime-message-delivery/pages/p12.png",
+        "size": 61676,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/runtime-message-delivery/pages/p13.png",
+        "size": 79635,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/runtime-message-delivery/pages/p14.png",
+        "size": 34413,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/runtime-message-delivery/pages/p15.png",
+        "size": 32967,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/runtime-message-delivery/pages/p16.png",
+        "size": 78239,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/runtime-message-delivery/pages/p17.png",
+        "size": 83406,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/runtime-message-delivery/pages/p18.png",
+        "size": 23110,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/runtime-message-delivery/rendered/figure-01.png",
+        "size": 56223,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/runtime-message-delivery/rendered/figure-02.png",
+        "size": 52366,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/runtime-message-delivery/rendered/figure-03.png",
+        "size": 21334,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/runtime-message-delivery/rendered/figure-04.png",
+        "size": 27437,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/runtime-message-delivery/rendered/figure-05.png",
+        "size": 36846,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/runtime-message-delivery/rendered/figure-06.png",
+        "size": 23985,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/runtime-message-delivery/rendered/figure-07.png",
+        "size": 60282,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/runtime-message-delivery/rendered/figure-08.png",
+        "size": 31645,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/runtime-message-delivery/rendered/figure-09.png",
+        "size": 39823,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/runtime-message-delivery/runtime-message-delivery.html",
+        "size": 84035,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/runtime-message-delivery/runtime-message-delivery.md",
+        "size": 35750,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/runtime-message-delivery/runtime-message-delivery.pdf",
+        "size": 488539,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/runtime-message-delivery/source-evidence.json",
+        "size": 212798,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/runtime-message-delivery/sources.md",
+        "size": 7199,
+        "mode": 420
+      },
+      {
+        "path": "docs/research/runtime-message-delivery/verification.json",
+        "size": 292,
+        "mode": 420
+      },
+      {
+        "path": "docs/Router.md",
+        "size": 7323,
+        "mode": 420
+      },
+      {
+        "path": "docs/runtime-error-events.md",
+        "size": 2045,
+        "mode": 420
+      },
+      {
+        "path": "docs/Test-Suite.md",
+        "size": 4527,
+        "mode": 420
+      },
+      {
+        "path": "docs/Thinking-Passthrough.md",
+        "size": 2818,
+        "mode": 420
+      },
+      {
+        "path": "docs/Tool-Guard.md",
+        "size": 4214,
+        "mode": 420
+      },
+      {
+        "path": "docs/UI-Designer-Handoff.md",
+        "size": 14815,
+        "mode": 420
+      },
+      {
+        "path": "docs/usage-observability.md",
+        "size": 5914,
+        "mode": 420
+      },
+      {
+        "path": "install.ps1",
+        "size": 6373,
+        "mode": 420
+      },
+      {
+        "path": "install.sh",
+        "size": 1796,
+        "mode": 420
+      },
+      {
+        "path": "npm-bin/ciel-runtime-stop.js",
+        "size": 136,
+        "mode": 420
+      },
+      {
+        "path": "npm-bin/ciel-runtime.js",
+        "size": 109,
+        "mode": 420
+      },
+      {
+        "path": "npm-bin/ciel-runtimectl.js",
+        "size": 106,
+        "mode": 420
+      },
+      {
+        "path": "npm-bin/run-ciel-runtime.js",
+        "size": 2644,
+        "mode": 420
+      },
+      {
+        "path": "package.json",
+        "size": 2318,
+        "mode": 420
+      },
+      {
+        "path": "scripts/colab/bootstrap_cosyvoice3.py",
+        "size": 6633,
+        "mode": 420
+      },
+      {
+        "path": "scripts/colab/bootstrap_moss_tts.py",
+        "size": 7001,
+        "mode": 420
+      },
+      {
+        "path": "scripts/colab/bootstrap_qwen_asr.py",
+        "size": 7043,
+        "mode": 420
+      },
+      {
+        "path": "scripts/configure_speech_workers.py",
+        "size": 5672,
+        "mode": 420
+      },
+      {
+        "path": "scripts/deploy_colab_speech.ps1",
+        "size": 15449,
+        "mode": 420
+      }
+    ],
+    "entryCount": 563,
+    "bundled": []
+  }
+]

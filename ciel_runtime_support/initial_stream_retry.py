@@ -6,6 +6,7 @@ from collections.abc import Callable, Iterator, Mapping
 from typing import Any
 
 from .cielairouter_gateway_overlay import ROUTE_TOKEN_KEY
+from .transient_retry import retry_handled
 
 
 def gateway_route_selected(config: Any) -> bool:
@@ -68,7 +69,8 @@ class InitialStreamRetry:
                 failure = EOFError("upstream stream ended before its first byte")
             except BaseException as error:
                 failure = error
-            if delivered or attempt >= self._retries or not self._retryable(failure):
+            if (delivered or attempt >= self._retries or retry_handled(failure)
+                    or not self._retryable(failure)):
                 raise failure
             while True:
                 attempt += 1
@@ -81,7 +83,8 @@ class InitialStreamRetry:
                     break
                 except BaseException as error:
                     failure = error
-                    if attempt >= self._retries or not self._retryable(error):
+                    if (attempt >= self._retries or retry_handled(error)
+                            or not self._retryable(error)):
                         raise
 
     def close(self) -> None:

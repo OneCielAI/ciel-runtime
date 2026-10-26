@@ -1,0 +1,12 @@
+total 8006
+last compact_boundary line 7882
+(7825, '2026-10-24T19:37:20.239Z', 'user.permissionMode', 'bypassPermissions', None)
+(7828, '2026-10-24T19:38:05.488Z', 'tool_use', 'EnterPlanMode', None)
+(7837, '2026-10-24T19:38:05.907Z', 'attachment', 'plan_mode_reentry', None)
+(7838, '2026-10-24T19:38:05.910Z', 'attachment', 'plan_mode', None)
+(7863, '2026-10-24T19:40:25.986Z', 'user.permissionMode', 'plan', None)
+(7892, '2026-10-24T19:43:37.926Z', 'attachment', 'plan_file_reference', None)
+(7893, '2026-10-24T19:43:37.927Z', 'attachment', 'plan_mode', None)
+(7916, '2026-10-24T19:44:59.915Z', 'user.permissionMode', 'plan', None)
+(7976, '2026-10-24T20:34:52.766Z', 'attachment', 'plan_mode', None)
+(7996, '2026-10-24T21:30:16.468Z', 'user.permissionMode', 'plan', None)

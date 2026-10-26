@@ -65,6 +65,8 @@ class ChannelLaunchCursorPorts:
     recent_seconds: Callable[[], float]
     scan_max_before_epoch: Callable[[float], int]
     write_launch_guard: Callable[[int], None]
+    # (clear floor, cutoff epoch): records queued inputs the floor strands.
+    expire_backlog: Callable[[int, float], Any] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -204,20 +206,27 @@ class ChannelDeliveryContext:
     def prepare_for_launch(self) -> int:
         current = self.ensure_cursor_initialized()
         recent_seconds = self.launch.recent_seconds()
+        cutoff = self.cursor.now() - recent_seconds
         if recent_seconds <= 0:
             target = self.cursor.scan_max_id()
         else:
-            target = self.launch.scan_max_before_epoch(
-                self.cursor.now() - recent_seconds
-            )
+            target = self.launch.scan_max_before_epoch(cutoff)
         # The stale cutoff is a durable safety boundary, not merely a startup
         # cursor optimization.  Transcript recovery may legitimately rewind a
         # cursor for a recently queued command that was not completed before a
         # crash, but it must never reopen commands older than this launch's
         # replay window.
-        self.write_clear_floor(max(self.read_clear_floor(), target))
+        floor = max(self.read_clear_floor(), target)
+        self.write_clear_floor(floor)
         last_id = self.reset_cursor(max(current, target))
         self.launch.write_launch_guard(last_id)
+        if self.launch.expire_backlog is not None:
+            # Inputs behind the floor are never delivered; say so instead of
+            # leaving them queued forever.  Failure here never blocks launch.
+            try:
+                self.launch.expire_backlog(floor, cutoff)
+            except Exception as exc:
+                self.cursor.log("WARN", f"channel_llm_launch_backlog_expiry_failed error={type(exc).__name__}")
         self.cursor.log(
             "INFO",
             "channel_llm_cursor_fast_forward_on_launch "

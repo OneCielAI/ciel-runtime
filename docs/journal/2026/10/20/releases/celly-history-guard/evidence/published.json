@@ -1,0 +1,29 @@
+{
+  "version": "0.2.51-nightly.20261020-232321.1b08402",
+  "gitHead": "1b08402a1da27fd13a870ddf5c8e0d11145d9f4c",
+  "tags": {
+    "latest": "0.2.51",
+    "nightly": "0.2.51-nightly.20261020-232321.1b08402"
+  },
+  "dist": {
+    "shasum": "a7be9b2f47fd715da7adb36d90b3bab852b1aca6",
+    "tarball": "https://registry.npmjs.org/@one-ciel-ai/ciel-runtime/-/ciel-runtime-0.2.51-nightly.20261020-232321.1b08402.tgz",
+    "fileCount": 485,
+    "integrity": "sha512-uGUJgr8lOCJJIMrMFgVcBA9Z1uXN42k+FGvMYIafnTbhUcGR4e/XxZrtLNGoic2MG5ZVhAOUnx/LeJl3n14KUw==",
+    "signatures": [
+      {
+        "sig": "MEUCIFiKp8v5WNcuEjWan4ZJnUEoWBTCiTZQj2SrPku32ymVAiEAj9uwfwJIuR4FJYzx1yc7SwBFd6Fb4itcF1LXNWjyeWk=",
+        "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+      },
+      {
+        "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U",
+        "sig": "MEUCIQD/i/kQEoT3AEG9onHpaH1Y0WWIj92TOz/sh77Yh/PwGwIgbKwOaF1zfpSzqJOe5lwQQHIZKD1ar7Sewd4wtLh6HgM="
+      }
+    ],
+    "unpackedSize": 6274391
+  },
+  "tarball_sha256": "ed4ef84ee05af07124abf97b8cfa95a35ea410382d8dd241e13763c6438c6202",
+  "tarball_bytes": 1409233,
+  "files": 485,
+  "package_dir": "docs\\journal\\2026\\10\\20\\releases\\celly-history-guard\\evidence\\payload\\unpack\\package"
+}

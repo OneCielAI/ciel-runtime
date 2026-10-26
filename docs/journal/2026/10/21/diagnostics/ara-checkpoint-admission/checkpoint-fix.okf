@@ -1,0 +1,51 @@
+---
+type: implementation-journal
+title: Bounded native checkpoint evidence admission
+description: Exact-session bounded-memory checkpoint scans and durable shrink rechecks recover missed native compaction proof without clearing input state.
+tags: [compaction, checkpoint, admission, codex, claude]
+timestamp: 2026-10-21
+date: 2026-10-21
+status: isolated-functional-verified
+---
+
+# Scope
+
+Only runtime_compaction_control.py and test_runtime_compaction_checkpoint_evidence.py were changed by this task. No live processes, session files, hosts, config resets, queue cursors, or transcript identity readers were modified.
+
+# Verified changes
+
+Whole-file JSONL scan retains at most one 8 MiB record, draining oversized lines without parsing their tails. Complete JSON and native session/sidechain/timestamp checks remain mandatory. Cache retains scalar evidence for up to four exact path/scope/cap signatures; changed signatures rescan, avoiding stale proof after replacement or truncation. A 600 KiB checkpoint and a checkpoint followed by 600 KiB later history are detected.
+
+Persisted awaiting_shrink rechecks the matching post-request checkpoint even when its identity was already saved. Native usage must follow that checkpoint physically and have a timestamp at or after it. Existing baseline and capacity shrink thresholds are unchanged. A manual cycle stores capacity only when a real request supplies it; unknown capacity remains held.
+
+# Evidence
+
+Exact-file isolated runner: reproduction.okf/evidence/scripts/focused.py. Final output: reproduction.okf/evidence/fix-focused-tests.txt. Result: 46 tests passed, 1.092 seconds. Scoped Ruff passed. Includes blocked then late matching checkpoint, durable shrink recovery, same-session native input 120, old/wrong-session/invalid/partial checkpoints, old usage timestamp, unknown evidence, full capacity, and baseline safety.
+
+Earlier adjacent isolated run: 77 tests passed in 90.173 seconds (binding, identity, rejection, launch contracts, large transcript, transcript repository). This run preceded final scanner simplification and is not claimed as final-tree adjacent verification.
+
+Final scanner functional benchmark: temporary 230879716-byte transcript, 600 KiB checkpoint plus later history; checkpoint_found=true; last_input_tokens=120; first_scan_seconds=1.485; traced Python peak bytes=2471199; unchanged cached poll seconds=0.000120; same_proof=true. Fixture deleted by TemporaryDirectory. Cold scan is synchronous and changed signatures rescan the entire file; bounded-memory does not imply bounded latency.
+
+# Final coordinated identity and adjacent regression checks
+
+The shared Codex first-record reader now accepts valid large session_meta
+headers with bounded memory (4 MiB source cap, 256 Ki-character projection,
+24 Ki-character retained strings). Discovery and revalidation use one identity;
+conflicting direct id/session_id values fail closed. Identity-like instruction
+text or nested IDs never choose a session. New identity tests are named
+`test_runtime_transcript_large_identity.py` so CI discovers them.
+
+Final coordinated adjacent sweep: `adjacent-final-tests.txt` — 404 tests,
+42 retired-architecture skips, no failures. Two fixture families were pinned
+to their own temporary CLAUDE_CONFIG_DIR; the shared runner's safe temporary
+Claude home otherwise differs from those fixtures' explicit home. No production
+identity behavior was changed to work around this test isolation issue.
+
+# Limitations
+
+No live native CLI or Ara-host validation was performed; isolated durable-state/JSONL functional fixtures only. Identity readers are owned by another concurrent task. No commits.
+
+# Source identities
+
+ciel_runtime_support/runtime_compaction_control.py sha256=2fdc456f3636277de215aa14d30ee4d4b48eb69d79c8f2a2af2c3998438aad28
+tests/test_runtime_compaction_checkpoint_evidence.py sha256=a566f7f2b0ed65cc5cda71855475af0675cc649e49722794a671f6b12d80057f

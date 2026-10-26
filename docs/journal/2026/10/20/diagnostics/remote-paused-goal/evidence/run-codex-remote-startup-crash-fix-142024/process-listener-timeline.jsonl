@@ -1,0 +1,17 @@
+{"at": 1792524025.038, "procs": [[8480, "conhost.exe"]]}
+{"at": 1792524026.721, "procs": [[8480, "conhost.exe"], [54584, "py.exe"], [57328, "cmd.exe"], [69844, "node.exe"]]}
+{"at": 1792524027.0, "procs": [[8480, "conhost.exe"], [28628, "python.exe"], [54584, "py.exe"], [57328, "cmd.exe"], [69844, "node.exe"]]}
+{"at": 1792524028.435, "procs": [[4544, "py.exe"], [8480, "conhost.exe"], [63048, "python.exe"], [69256, "cmd.exe"]]}
+{"at": 1792524030.162, "procs": [[8480, "conhost.exe"]]}
+{"at": 1792524036.443, "procs": [[8480, "conhost.exe"], [71204, "python.exe"]]}
+{"at": 1792524037.598, "router": 71204}
+{"at": 1792524040.174, "procs": [[8480, "conhost.exe"], [71204, "python.exe"], [72280, "codex.exe"]]}
+{"at": 1792524040.463, "app": 72280, "procs": [[7316, "git-remote-https.exe"], [8480, "conhost.exe"], [39952, "git.exe"], [53516, "git.exe"], [69972, "git.exe"], [71204, "python.exe"], [72280, "codex.exe"]]}
+{"at": 1792524040.754, "procs": [[8480, "conhost.exe"], [35296, "python.exe"], [53848, "codex.exe"], [65208, "conhost.exe"], [71204, "python.exe"], [72280, "codex.exe"]]}
+{"at": 1792524056.474, "procs": [[8480, "conhost.exe"], [35296, "python.exe"], [53848, "codex.exe"], [57004, "taskkill.exe"], [65208, "conhost.exe"], [71204, "python.exe"], [72280, "codex.exe"]]}
+{"at": 1792524057.331, "procs": [[8480, "conhost.exe"], [71204, "python.exe"], [72280, "codex.exe"]]}
+{"at": 1792524057.901, "procs": [[8480, "conhost.exe"], [38208, "taskkill.exe"], [71204, "python.exe"], [72280, "codex.exe"]]}
+{"at": 1792524058.471, "app": null, "procs": [[8480, "conhost.exe"], [71204, "python.exe"]]}
+{"at": 1792524062.491, "procs": [[8480, "conhost.exe"], [33552, "codex.exe"], [71204, "python.exe"]]}
+{"at": 1792524062.779, "app": 33552}
+{"at": 1792524063.339, "procs": [[8480, "conhost.exe"], [33552, "codex.exe"], [63396, "python.exe"], [67064, "codex.exe"], [71204, "python.exe"], [71888, "conhost.exe"]]}

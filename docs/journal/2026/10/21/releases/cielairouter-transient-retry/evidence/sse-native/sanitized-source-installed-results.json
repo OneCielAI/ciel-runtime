@@ -1,0 +1,446 @@
+[
+  {
+    "source_result": "run-claude-installed-f87747a-152529/result.json",
+    "mode": "claude",
+    "label": "installed-f87747a",
+    "status": "passed_native_sse_recovery",
+    "versions": {
+      "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@anthropic-ai\\claude-code\\bin\\claude.exe": "2.1.292 (Claude Code)",
+      "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@openai\\codex\\node_modules\\@openai\\codex-win32-x64\\vendor\\x86_64-pc-windows-msvc\\bin\\codex.exe": "codex-cli 0.158.0"
+    },
+    "checks": {
+      "actual_native": true,
+      "mcp_auto_reset": true,
+      "cooldown_second_call": true,
+      "production_restart_claimed": true,
+      "pid_changed": true,
+      "resume_flag": true,
+      "restart_request_consumed": true,
+      "original_stale_input_replied_once": true,
+      "history_queue_prefix_preserved": true,
+      "tool_preserved_queue_history_cursor": true
+    },
+    "tool_preserved_queue_history_cursor_bytes_and_mtime": true,
+    "limitations": [
+      "Local fixture provider, not live infrastructure.",
+      "Queue age synthetic; only owned launcher suspended to prevent setup races. No transport failure inferred.",
+      "MCP and resumed restart use production router/service/launcher without callback replacement."
+    ],
+    "teardown": {
+      "router_listener_after": null
+    },
+    "source_digests": {
+      "ciel_runtime.py": "4df9d4d66a74fcaeebdc17bb36e5ff2eef8580c20ee2f37b0f896313ce220423",
+      "ciel_runtime_support/runtime_sse_recovery.py": "8430138b0ba7714e9b88106c304bdb1ae2cddfe48f546668ac77663573f235df",
+      "ciel_runtime_support/runtime_session_restart.py": "7ddb00f419c0f05d84505dec7163f365b46b7b43d554b34e958d5b966ca1a049",
+      "ciel_runtime_support/runtime_launch.py": "395b1a8efdff8afb77d15fdea3e84ded54e12141133c71fa9f0a470a8a90712a"
+    },
+    "events": [
+      {
+        "at": 1792614329.751,
+        "kind": "launched",
+        "pid": 15432,
+        "watcher": 47756
+      },
+      {
+        "at": 1792614339.988,
+        "kind": "wait_pass",
+        "label": "owned router health"
+      },
+      {
+        "at": 1792614340.405,
+        "kind": "wait_pass",
+        "label": "native launch"
+      },
+      {
+        "at": 1792614340.442,
+        "kind": "wait_pass",
+        "label": "native process present"
+      },
+      {
+        "at": 1792614352.443,
+        "kind": "typed",
+        "text": "E2E-RT-TURN-1 owned baseline"
+      },
+      {
+        "at": 1792614352.845,
+        "kind": "wait_pass",
+        "label": "watcher consumed typed input"
+      },
+      {
+        "at": 1792614355.248,
+        "kind": "wait_pass",
+        "label": "baseline reached loopback"
+      },
+      {
+        "at": 1792614355.692,
+        "kind": "wait_pass",
+        "label": "baseline rendered"
+      },
+      {
+        "at": 1792614358.81,
+        "kind": "native_before"
+      },
+      {
+        "at": 1792614358.811,
+        "kind": "owned_launcher_suspended_for_fixture_seed",
+        "pid": 15432
+      },
+      {
+        "at": 1792614358.848,
+        "kind": "status_observed"
+      },
+      {
+        "at": 1792614358.911,
+        "kind": "recovery_auto"
+      },
+      {
+        "at": 1792614358.928,
+        "kind": "recovery_cooldown"
+      },
+      {
+        "at": 1792614358.93,
+        "kind": "owned_launcher_resumed",
+        "pid": 15432
+      },
+      {
+        "at": 1792614360.188,
+        "kind": "wait_pass",
+        "label": "production restart executed"
+      },
+      {
+        "at": 1792614360.214,
+        "kind": "wait_pass",
+        "label": "new native process"
+      },
+      {
+        "at": 1792614360.281,
+        "kind": "native_after"
+      },
+      {
+        "at": 1792614368.374,
+        "kind": "wait_pass",
+        "label": "stale input reached resumed CLI"
+      },
+      {
+        "at": 1792614368.38,
+        "kind": "wait_pass",
+        "label": "stale input confirmed replied"
+      },
+      {
+        "at": 1792614374.796,
+        "kind": "wait_pass",
+        "label": "owned console screenshot attempted"
+      },
+      {
+        "at": 1792614374.797,
+        "kind": "acceptance_pass"
+      }
+    ],
+    "mcp_tool_results": [
+      {
+        "ok": true,
+        "action": "status",
+        "reset": false,
+        "reason": null,
+        "evidence": {
+          "problem": true,
+          "observable": true,
+          "restart_eligible": true,
+          "reasons": [
+            "queued_input_stale"
+          ],
+          "state": "not_blocked",
+          "reason": "",
+          "admission_blocked": false,
+          "admission_paused": false,
+          "pause_observable": true,
+          "launcher_hold_observed": false,
+          "blocker_scope": null,
+          "known_queued_count": 1,
+          "oldest_queued_age_seconds": 400.03367280960083,
+          "queued_coverage": "complete",
+          "history_coverage": "complete",
+          "line_number": null
+        },
+        "cooldown_remaining_seconds": 0.0
+      },
+      {
+        "ok": true,
+        "action": "auto",
+        "reset": true,
+        "reason": "sse_delivery_recovery_queued",
+        "evidence": {
+          "problem": true,
+          "observable": true,
+          "restart_eligible": true,
+          "reasons": [
+            "queued_input_stale"
+          ],
+          "state": "not_blocked",
+          "reason": "",
+          "admission_blocked": false,
+          "admission_paused": false,
+          "pause_observable": true,
+          "launcher_hold_observed": false,
+          "blocker_scope": null,
+          "known_queued_count": 1,
+          "oldest_queued_age_seconds": 400.0923788547516,
+          "queued_coverage": "complete",
+          "history_coverage": "complete",
+          "line_number": null
+        },
+        "cooldown_remaining_seconds": 0.0
+      },
+      {
+        "ok": true,
+        "action": "auto",
+        "reset": false,
+        "reason": "cooldown_active",
+        "evidence": {
+          "problem": true,
+          "observable": true,
+          "restart_eligible": true,
+          "reasons": [
+            "queued_input_stale"
+          ],
+          "state": "not_blocked",
+          "reason": "",
+          "admission_blocked": false,
+          "admission_paused": false,
+          "pause_observable": true,
+          "launcher_hold_observed": false,
+          "blocker_scope": null,
+          "known_queued_count": 1,
+          "oldest_queued_age_seconds": 400.1079251766205,
+          "queued_coverage": "complete",
+          "history_coverage": "complete",
+          "line_number": null
+        },
+        "cooldown_remaining_seconds": 899.9784626960754
+      }
+    ]
+  },
+  {
+    "source_result": "run-claude-source-f87747a-152236/result.json",
+    "mode": "claude",
+    "label": "source-f87747a",
+    "status": "passed_native_sse_recovery",
+    "versions": {
+      "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@anthropic-ai\\claude-code\\bin\\claude.exe": "2.1.292 (Claude Code)",
+      "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@openai\\codex\\node_modules\\@openai\\codex-win32-x64\\vendor\\x86_64-pc-windows-msvc\\bin\\codex.exe": "codex-cli 0.158.0"
+    },
+    "checks": {
+      "actual_native": true,
+      "mcp_auto_reset": true,
+      "cooldown_second_call": true,
+      "production_restart_claimed": true,
+      "pid_changed": true,
+      "resume_flag": true,
+      "restart_request_consumed": true,
+      "original_stale_input_replied_once": true,
+      "history_queue_prefix_preserved": true,
+      "tool_preserved_queue_history_cursor": true
+    },
+    "tool_preserved_queue_history_cursor_bytes_and_mtime": true,
+    "limitations": [
+      "Local fixture provider, not live infrastructure.",
+      "Queue age synthetic; only owned launcher suspended to prevent setup races. No transport failure inferred.",
+      "MCP and resumed restart use production router/service/launcher without callback replacement."
+    ],
+    "teardown": {
+      "router_listener_after": null
+    },
+    "source_digests": {
+      "ciel_runtime.py": "0b62581240643d526242958854a84b03c7a02a858acb475491060fc2e5e77392",
+      "ciel_runtime_support/runtime_sse_recovery.py": "c65c61fce6de34f5c7ea41d9338a5dd8ef7a7016c77f85e9d52645bfdb631401",
+      "ciel_runtime_support/runtime_session_restart.py": "7ddb00f419c0f05d84505dec7163f365b46b7b43d554b34e958d5b966ca1a049",
+      "ciel_runtime_support/runtime_launch.py": "395b1a8efdff8afb77d15fdea3e84ded54e12141133c71fa9f0a470a8a90712a"
+    },
+    "events": [
+      {
+        "at": 1792614156.917,
+        "kind": "launched",
+        "pid": 79220,
+        "watcher": 83480
+      },
+      {
+        "at": 1792614167.326,
+        "kind": "wait_pass",
+        "label": "owned router health"
+      },
+      {
+        "at": 1792614167.742,
+        "kind": "wait_pass",
+        "label": "native launch"
+      },
+      {
+        "at": 1792614167.773,
+        "kind": "wait_pass",
+        "label": "native process present"
+      },
+      {
+        "at": 1792614179.774,
+        "kind": "typed",
+        "text": "E2E-RT-TURN-1 owned baseline"
+      },
+      {
+        "at": 1792614180.193,
+        "kind": "wait_pass",
+        "label": "watcher consumed typed input"
+      },
+      {
+        "at": 1792614181.795,
+        "kind": "wait_pass",
+        "label": "baseline reached loopback"
+      },
+      {
+        "at": 1792614181.802,
+        "kind": "wait_pass",
+        "label": "baseline rendered"
+      },
+      {
+        "at": 1792614184.942,
+        "kind": "native_before"
+      },
+      {
+        "at": 1792614184.943,
+        "kind": "owned_launcher_suspended_for_fixture_seed",
+        "pid": 79220
+      },
+      {
+        "at": 1792614184.96,
+        "kind": "status_observed"
+      },
+      {
+        "at": 1792614184.995,
+        "kind": "recovery_auto"
+      },
+      {
+        "at": 1792614185.011,
+        "kind": "recovery_cooldown"
+      },
+      {
+        "at": 1792614185.012,
+        "kind": "owned_launcher_resumed",
+        "pid": 79220
+      },
+      {
+        "at": 1792614186.244,
+        "kind": "wait_pass",
+        "label": "production restart executed"
+      },
+      {
+        "at": 1792614186.285,
+        "kind": "wait_pass",
+        "label": "new native process"
+      },
+      {
+        "at": 1792614186.359,
+        "kind": "native_after"
+      },
+      {
+        "at": 1792614194.81,
+        "kind": "wait_pass",
+        "label": "stale input reached resumed CLI"
+      },
+      {
+        "at": 1792614194.817,
+        "kind": "wait_pass",
+        "label": "stale input confirmed replied"
+      },
+      {
+        "at": 1792614201.238,
+        "kind": "wait_pass",
+        "label": "owned console screenshot attempted"
+      },
+      {
+        "at": 1792614201.239,
+        "kind": "acceptance_pass"
+      }
+    ],
+    "mcp_tool_results": [
+      {
+        "ok": true,
+        "action": "status",
+        "reset": false,
+        "reason": null,
+        "evidence": {
+          "problem": true,
+          "observable": true,
+          "restart_eligible": true,
+          "reasons": [
+            "queued_input_stale"
+          ],
+          "state": "not_blocked",
+          "reason": "",
+          "admission_blocked": false,
+          "admission_paused": false,
+          "pause_observable": true,
+          "launcher_hold_observed": false,
+          "blocker_scope": null,
+          "known_queued_count": 1,
+          "oldest_queued_age_seconds": 400.01403617858887,
+          "queued_coverage": "complete",
+          "history_coverage": "complete",
+          "line_number": null
+        },
+        "cooldown_remaining_seconds": 0.0
+      },
+      {
+        "ok": true,
+        "action": "auto",
+        "reset": true,
+        "reason": "sse_delivery_recovery_queued",
+        "evidence": {
+          "problem": true,
+          "observable": true,
+          "restart_eligible": true,
+          "reasons": [
+            "queued_input_stale"
+          ],
+          "state": "not_blocked",
+          "reason": "",
+          "admission_blocked": false,
+          "admission_paused": false,
+          "pause_observable": true,
+          "launcher_hold_observed": false,
+          "blocker_scope": null,
+          "known_queued_count": 1,
+          "oldest_queued_age_seconds": 400.0442237854004,
+          "queued_coverage": "complete",
+          "history_coverage": "complete",
+          "line_number": null
+        },
+        "cooldown_remaining_seconds": 0.0
+      },
+      {
+        "ok": true,
+        "action": "auto",
+        "reset": false,
+        "reason": "cooldown_active",
+        "evidence": {
+          "problem": true,
+          "observable": true,
+          "restart_eligible": true,
+          "reasons": [
+            "queued_input_stale"
+          ],
+          "state": "not_blocked",
+          "reason": "",
+          "admission_blocked": false,
+          "admission_paused": false,
+          "pause_observable": true,
+          "launcher_hold_observed": false,
+          "blocker_scope": null,
+          "known_queued_count": 1,
+          "oldest_queued_age_seconds": 400.0577607154846,
+          "queued_coverage": "complete",
+          "history_coverage": "complete",
+          "line_number": null
+        },
+        "cooldown_remaining_seconds": 899.9804365634918
+      }
+    ]
+  }
+]

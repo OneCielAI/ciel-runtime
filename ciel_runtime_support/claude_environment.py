@@ -14,6 +14,7 @@ from typing import Any, Callable
 
 from .architecture import ProviderRuntimeCompactionPolicy
 from .anthropic_model_policy import defaults_to_one_million_context
+from .transient_retry import configured_retry_limit
 
 
 CLAUDE_PROJECTED_ENV_KEYS = (
@@ -25,6 +26,11 @@ CLAUDE_PROJECTED_ENV_KEYS = (
     "CLAUDE_CODE_MAX_CONTEXT_TOKENS",
     "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE",
     "CLAUDE_CODE_EFFORT_LEVEL",
+    "CLAUDE_CODE_MAX_RETRIES",
+    "CLAUDE_CODE_RETRY_WATCHDOG",
+    "CLAUDE_CODE_NONSTREAMING_TIMEOUT_RETRIES",
+    "CLAUDE_CODE_DISABLE_NONSTREAMING_FALLBACK",
+    "CLAUDE_CODE_SEND_FEEDBACK",
     "ANTHROPIC_MODEL",
     "ANTHROPIC_CUSTOM_MODEL_OPTION",
     "ANTHROPIC_CUSTOM_MODEL_OPTION_SUPPORTED_CAPABILITIES",
@@ -54,6 +60,13 @@ CLAUDE_DIRECT_MODEL_KEYS = (
 )
 CLAUDE_AUTO_COMPACT_WINDOW_MAX = 1_000_000
 ANTHROPIC_STANDARD_CONTEXT_TOKENS = 200_000
+
+
+def _feedback_drafts_env(config: dict[str, Any]) -> dict[str, str]:
+    """Claude Code v2.1.238+ automatic feedback drafts, off by default."""
+
+    enabled = config.get("claude_feedback_drafts") is True
+    return {"CLAUDE_CODE_SEND_FEEDBACK": "1" if enabled else "0"}
 
 # Claude Code >= 2.1.278 gives the built-in Claude-in-Chrome MCP server a
 # classifier "floor": in a bypassPermissions (or auto) session its tools are
@@ -177,6 +190,13 @@ class ClaudeLimitPolicy:
                 percent = max(1, min(100, (desired_tokens * 100) // window))
         if guarded:
             percent = self._guarded_percent(percent, window, provider, config)
+        if provider == "cielairouter" and guarded and window and percent:
+            # Gateway aliases do not reliably take the CLI's native percentage
+            # path. Express the selected profile's trigger as a token window,
+            # retaining the full model context separately and applying no
+            # second percentage to the derived window. CLI accepts 100K..1M.
+            window = min(window, max(100_000, window * percent // 100))
+            percent = None
         return ClaudeCompactionSnapshot(limit or None, window, percent)
 
     def _guarded_percent(
@@ -541,6 +561,7 @@ class ClaudeEnvironmentProjection:
             env = {
                 "CIEL_RUNTIME_PROVIDER": provider,
                 CLAUDE_CHROME_CLASSIFIER_FLOOR_ENV: CLAUDE_CHROME_CLASSIFIER_FLOOR_OFF,
+                **_feedback_drafts_env(config),
             }
             key = self._sources.primary_api_key(provider, provider_config)
             if self._sources.meaningful_key(key):
@@ -560,16 +581,21 @@ class ClaudeEnvironmentProjection:
             context_limit=context_limit,
         )
         configured_subagent = str(provider_config.get("subagent_model") or "").strip()
-        subagent_model = (
-            self._aliases.routed_model_alias(
+        # Claude Code's force flag overrides Agent/model and agent definitions.
+        # Inherit at spawn time so /model and --model cannot leave children on
+        # a stale launch model (or a provider's auto-claude family route).
+        force_parent_model = provider != "anthropic"
+        if force_parent_model or configured_subagent == "inherit":
+            subagent_model = "inherit"
+        elif configured_subagent:
+            subagent_model = self._aliases.routed_model_alias(
                 provider,
                 provider_config,
                 configured_subagent,
                 context_limit=context_limit,
             )
-            if configured_subagent
-            else claude_model
-        )
+        else:
+            subagent_model = claude_model
         env = {
             "CIEL_RUNTIME_PROVIDER": provider,
             "ANTHROPIC_BASE_URL": self._router_base,
@@ -584,8 +610,9 @@ class ClaudeEnvironmentProjection:
             "CIEL_RUNTIME_MODEL_ALIAS": claude_model,
             "CIEL_RUNTIME_BYPASS_PERMISSIONS": "1",
             CLAUDE_CHROME_CLASSIFIER_FLOOR_ENV: CLAUDE_CHROME_CLASSIFIER_FLOOR_OFF,
+            **_feedback_drafts_env(config),
         }
-        if configured_subagent:
+        if force_parent_model or configured_subagent:
             env["CLAUDE_CODE_SUBAGENT_MODEL_FORCE"] = "1"
         auth_token = self._features.router_auth_token(provider, provider_config)
         if auth_token:
@@ -593,6 +620,15 @@ class ClaudeEnvironmentProjection:
         direct = data_path is not None and bool(getattr(data_path, "direct", False))
         if direct:
             self._apply_direct_data_path(provider, provider_config, env, data_path)
+        if provider == "cielairouter":
+            # One retry owner: the router in routed mode, the CLI in direct mode.
+            # Timeout resend and stream fallback are separate replay paths.
+            env.update({
+                "CLAUDE_CODE_MAX_RETRIES": str(configured_retry_limit(provider_config) if direct else 0),
+                "CLAUDE_CODE_RETRY_WATCHDOG": "0",
+                "CLAUDE_CODE_NONSTREAMING_TIMEOUT_RETRIES": "0",
+                "CLAUDE_CODE_DISABLE_NONSTREAMING_FALLBACK": "1",
+            })
         # A direct data path bypasses the router, so nothing is trimmed there.
         return self.apply_common(provider, provider_config, env, guarded=not direct)
 
@@ -603,7 +639,7 @@ class ClaudeEnvironmentProjection:
         fallback = self._features.current_upstream_model(provider, config)
         for key in CLAUDE_DIRECT_MODEL_KEYS:
             value = str(env.get(key) or "").strip()
-            if not value:
+            if not value or (key == "CLAUDE_CODE_SUBAGENT_MODEL" and value == "inherit"):
                 continue
             upstream = self._features.resolve_requested_model(provider, config, value)
             env[key] = fallback if not upstream or upstream.startswith(alias_prefix) else upstream

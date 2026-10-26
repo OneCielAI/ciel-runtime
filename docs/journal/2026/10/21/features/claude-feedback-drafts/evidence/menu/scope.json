@@ -1,0 +1,27 @@
+{
+  "scratch": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-feedback-menu-cof8zy9e",
+  "port": 52795,
+  "workspace": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-feedback-menu-cof8zy9e\\workspace",
+  "scope": "Actual production portable_prelaunch_menu and renderer with Win32 key input; catalogue-only owned loopback fixture. Production Claude environment projection applied to real owned child processes; no native Claude or feedback submission.",
+  "cleared_environment_prefixes": [
+    "CIEL_RUNTIME_",
+    "CLAUDE_",
+    "ANTHROPIC_",
+    "CODEX_",
+    "OPENAI_",
+    "OLLAMA_",
+    "GEMINI_",
+    "GOOGLE_",
+    "AZURE_",
+    "AWS_",
+    "DEEPSEEK_",
+    "MISTRAL_",
+    "NVIDIA_",
+    "ZAI_",
+    "KIMI_",
+    "GROQ_",
+    "OPENCODE_",
+    "GITHUB_",
+    "COPILOT_"
+  ]
+}

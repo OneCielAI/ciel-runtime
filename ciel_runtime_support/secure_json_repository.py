@@ -35,6 +35,34 @@ class SecureJsonRepository:
             return None
         return value if isinstance(value, dict) else {}
 
+    def quarantine(self, purpose: str) -> Path | None:
+        """Move an unreadable state file aside so a fresh cycle can start.
+
+        The original bytes are kept for diagnosis. A move that fails leaves
+        the file in place, so callers keep failing closed rather than
+        overwriting evidence they could not read.
+        """
+
+        target = self.path.with_name(f"{self.path.name}.corrupt-{self.effects.time_ns()}")
+        try:
+            self.path.replace(target)
+            try:
+                self.effects.chmod(target, 0o600)
+            except OSError:
+                pass
+        except OSError as exc:
+            self.effects.log(
+                "WARN",
+                f"secure_json_quarantine_failed purpose={purpose} path={self.path} "
+                f"error={type(exc).__name__}: {exc}",
+            )
+            return None
+        self.effects.log(
+            "WARN",
+            f"secure_json_quarantined purpose={purpose} path={self.path} moved_to={target}",
+        )
+        return target
+
     def save(self, value: dict[str, Any], purpose: str) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         temporary_path = self.path.with_name(

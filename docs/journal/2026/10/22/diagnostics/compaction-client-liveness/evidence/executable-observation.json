@@ -1,0 +1,28 @@
+{
+  "observation": "read-only local process metadata; no process changes",
+  "observed_native_children": [
+    {
+      "pid": 88740,
+      "parent_pid": 30128,
+      "executable": "C:/Users/djlov/.local/bin/claude.exe"
+    },
+    {
+      "pid": 12440,
+      "parent_pid": 84076,
+      "executable": "C:/Users/djlov/.local/bin/claude.exe"
+    }
+  ],
+  "observed_parent_program": "C:/Users/djlov/.local/share/ciel-runtime/ciel_runtime.py cli --continue",
+  "limitation": "Metadata identifies native local children, not the Celly display name. Versioned native fallback chosen explicitly.",
+  "live_bin_sha256": "c9796ba22a9221586b36371b36f5b66198d66eb4badf6a4cf4a5f7b07becea53",
+  "versioned_native_path": "C:/Users/djlov/.local/share/claude/versions/2.1.308",
+  "versioned_native_sha256": "c9796ba22a9221586b36371b36f5b66198d66eb4badf6a4cf4a5f7b07becea53",
+  "native_version": "2.1.308 (Claude Code)",
+  "npm_shim_path": "C:/Users/djlov/AppData/Roaming/npm/claude",
+  "npm_cli_version": "2.1.292 (Claude Code)",
+  "protocol_reference": "https://platform.claude.com/docs/en/api/messages-streaming",
+  "documented_ping_event": "event: ping\ndata: {\"type\":\"ping\"}\n\n",
+  "cadence_note": "1-10s requested test range, not a documented protocol timing guarantee",
+  "short_results": "initial-short-verified/summary.json",
+  "long_run_expected": "long-365s/summary.json; not a success claim until created and passed"
+}

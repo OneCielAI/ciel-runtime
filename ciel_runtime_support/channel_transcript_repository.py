@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+import codecs
 from dataclasses import dataclass
 from datetime import datetime
 import json
@@ -24,6 +25,176 @@ TURN_UPDATE_SKIP_SCAN_BYTES = 64 * 1024
 # deadline; callers that miss it serve their cached view instead.
 BOUNDARY_SCAN_TIMEOUT_SECONDS = 2.5
 TRANSCRIPT_SCAN_DEADLINE_SECONDS = 2.5
+
+# Instruction strings share the first session_meta record with native identity.
+# Bound both source scanning and the projected JSON rather than truncating the
+# first line at 64 KiB. Unknown large strings are validated but not retained.
+CODEX_SESSION_META_MAX_BYTES = 4 * 1024 * 1024
+_CODEX_META_CHUNK_BYTES = 64 * 1024
+_CODEX_META_PROJECTION_CHARS = 256 * 1024
+_CODEX_META_STRING_CHARS = 24 * 1024
+_CODEX_STRING_SPECIAL = re.compile(r'["\\\x00-\x1f]')
+
+
+@dataclass(frozen=True, slots=True)
+class CodexSessionMeta:
+    """First-record fields shared by transcript discovery and revalidation."""
+
+    record_type: str
+    is_sidechain: bool
+    started_at: float | None
+    cwd: str
+    id: Any
+    session_id: Any
+
+    @property
+    def identity(self) -> str:
+        return str(self.id or self.session_id or "")
+
+
+def read_codex_session_meta(
+    path: Path, *, max_bytes: int = CODEX_SESSION_META_MAX_BYTES
+) -> CodexSessionMeta | None:
+    """Validate the whole first record, retaining no large instruction string.
+
+    Oversized strings become an empty array in a bounded JSON projection.
+    Every original escape is validated, and every non-string token is kept:
+    json.loads therefore still validates the complete object/array grammar.
+    Identity is read only from direct payload fields, never matching text or
+    nested ids. An unreadable identity field fails closed, not via fallback.
+    """
+
+    try:
+        limit = int(max_bytes)
+        if limit <= 0:
+            return None
+        with path.open("rb") as stream:
+            head = stream.readline(min(limit, _CODEX_META_CHUNK_BYTES) + 1)
+            if head.endswith(b"\n") or len(head) <= min(limit, _CODEX_META_CHUNK_BYTES):
+                record = json.loads(head)
+            else:
+                stream.seek(0)
+                record = _project_codex_header(stream, limit)
+        if not isinstance(record, dict):
+            return None
+        payload = record.get("payload")
+        metadata = payload if isinstance(payload, dict) else {}
+        if any(isinstance(metadata.get(key), (dict, list))
+               for key in ("id", "session_id", "cwd")):
+            return None
+        if (metadata.get("id") and metadata.get("session_id")
+                and str(metadata["id"]) != str(metadata["session_id"])):
+            # Discovery and revalidation must never select different sessions
+            # from the same ambiguous header.
+            return None
+        raw_timestamp = metadata.get("timestamp") or record.get("timestamp")
+        started_at = None
+        if isinstance(raw_timestamp, (int, float)):
+            started_at = float(raw_timestamp)
+        elif isinstance(raw_timestamp, str) and raw_timestamp.strip():
+            try:
+                started_at = datetime.fromisoformat(
+                    raw_timestamp.strip().replace("Z", "+00:00")).timestamp()
+            except ValueError:
+                pass
+        return CodexSessionMeta(
+            record.get("type") if isinstance(record.get("type"), str) else "",
+            record.get("isSidechain") is True, started_at,
+            str(metadata.get("cwd") or ""), metadata.get("id"), metadata.get("session_id"),
+        )
+    except (OSError, UnicodeError, ValueError, TypeError, RecursionError):
+        return None
+
+
+def _project_codex_header(stream: Any, limit: int) -> Any:
+    """Stream one physical line into a small, syntax-preserving JSON projection."""
+
+    decoder = codecs.getincrementaldecoder("utf-8-sig")("strict")
+    parts: list[str] = []
+    projected = used = depth = 0
+    in_string = escaped = False
+    unicode_left = 0
+    string_parts: list[str] = []
+    string_size = 0
+
+    def append(part: str) -> None:
+        nonlocal projected
+        projected += len(part)
+        if projected > _CODEX_META_PROJECTION_CHARS:
+            raise ValueError("session metadata projection exceeds bound")
+        parts.append(part)
+
+    while True:
+        chunk = stream.readline(min(_CODEX_META_CHUNK_BYTES, limit + 2 - used))
+        ended = not chunk or chunk.endswith(b"\n")
+        if ended:
+            chunk = chunk.removesuffix(b"\n").removesuffix(b"\r")
+        used += len(chunk)
+        if used > limit:
+            raise ValueError("session metadata exceeds bound")
+        text = decoder.decode(chunk, final=ended)
+        index = 0
+        while index < len(text):
+            if not in_string:
+                quote = text.find('"', index)
+                if quote < 0:
+                    span = text[index:]
+                    for char in span:
+                        depth += 1 if char in "{[" else -1 if char in "}]" else 0
+                        if depth > 128:
+                            raise ValueError("session metadata nesting exceeds bound")
+                    append(span)
+                    break
+                span = text[index:quote]
+                for char in span:
+                    depth += 1 if char in "{[" else -1 if char in "}]" else 0
+                    if depth > 128:
+                        raise ValueError("session metadata nesting exceeds bound")
+                append(span)
+                in_string = True
+                string_parts, string_size = [], 0
+                index = quote + 1
+                continue
+            if unicode_left or escaped:
+                char = text[index]
+                if unicode_left:
+                    if char not in "0123456789abcdefABCDEF":
+                        raise ValueError("invalid unicode escape")
+                    unicode_left -= 1
+                else:
+                    if char == "u":
+                        unicode_left = 4
+                    elif char not in '"\\/bfnrt':
+                        raise ValueError("invalid string escape")
+                    escaped = False
+                token = char
+                index += 1
+            else:
+                match = _CODEX_STRING_SPECIAL.search(text, index)
+                end = match.start() if match else len(text)
+                token = text[index:end]
+                index = end
+                if not token and match:
+                    char = text[index]
+                    index += 1
+                    if char == '"':
+                        append('"' + "".join(string_parts) + '"'
+                               if string_size <= _CODEX_META_STRING_CHARS else "[]")
+                        in_string = False
+                        continue
+                    if char != "\\":
+                        raise ValueError("raw control character in string")
+                    escaped = True
+                    token = char
+            string_size += len(token)
+            if string_size <= _CODEX_META_STRING_CHARS:
+                string_parts.append(token)
+            else:
+                string_parts.clear()
+        if ended:
+            if in_string:
+                raise ValueError("incomplete session metadata string")
+            return json.loads("".join(parts))
 
 
 class _TranscriptScanWorker:
@@ -423,28 +594,10 @@ class ChannelTranscriptRepository:
 
     @staticmethod
     def _codex_session_identity(path: Path) -> tuple[float | None, str, str]:
-        try:
-            with path.open("r", encoding="utf-8", errors="replace") as stream:
-                record = json.loads(stream.readline(64 * 1024))
-        except (OSError, UnicodeError, ValueError, TypeError):
+        meta = read_codex_session_meta(path)
+        if meta is None:
             return None, "", ""
-        if not isinstance(record, dict):
-            return None, "", ""
-        payload = record.get("payload")
-        metadata = payload if isinstance(payload, dict) else {}
-        raw_timestamp = metadata.get("timestamp") or record.get("timestamp")
-        started_at: float | None = None
-        if isinstance(raw_timestamp, (int, float)):
-            started_at = float(raw_timestamp)
-        elif isinstance(raw_timestamp, str) and raw_timestamp.strip():
-            try:
-                started_at = datetime.fromisoformat(
-                    raw_timestamp.strip().replace("Z", "+00:00")
-                ).timestamp()
-            except ValueError:
-                started_at = None
-        session_id = str(metadata.get("session_id") or metadata.get("id") or "")
-        return started_at, str(metadata.get("cwd") or ""), session_id
+        return meta.started_at, meta.cwd, meta.identity
 
     @staticmethod
     def _claude_session_identity(path: Path) -> tuple[float | None, str, str]:

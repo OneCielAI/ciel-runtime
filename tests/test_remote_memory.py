@@ -1065,5 +1065,46 @@ class RemoteMemoryTests(unittest.TestCase):
             self.assertEqual("# User rules\n", path.read_text(encoding="utf-8"))
 
 
+    def test_unsupported_runtime_pointer_projection_is_a_value_error(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            memory = RemoteMemorySynchronizer(
+                load_config=lambda: {},
+                workspace=lambda: root,
+                state_dir=root,
+                log=lambda *_args: None,
+            )
+            with self.assertRaisesRegex(ValueError, "unsupported instruction runtime: codex-remote"):
+                memory.project_current_pointer("codex-remote")
+
+    def test_instruction_refresh_for_an_unsupported_runtime_is_logged_not_raised(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            logs = []
+            instructions = RemoteInstructionSynchronizer(
+                load_config=lambda: {},
+                workspace=lambda: root,
+                state_dir=root,
+                log=lambda *_args: None,
+            )
+            memory = RemoteMemorySynchronizer(
+                load_config=lambda: {},
+                workspace=lambda: root,
+                state_dir=root,
+                log=lambda *_args: None,
+            )
+            result = sync_instruction_with_memory_pointer(
+                "codex-remote",
+                reason="pre-compact",
+                instruction_synchronizer=lambda: instructions,
+                memory_synchronizer=lambda: memory,
+                log=lambda level, message: logs.append((level, message)),
+            )
+
+            self.assertEqual("disabled", result.status)
+            self.assertEqual(["WARN"], [level for level, _message in logs])
+            self.assertIn("remote_memory_pointer_failed runtime=codex-remote", logs[0][1])
+
+
 if __name__ == "__main__":
     unittest.main()

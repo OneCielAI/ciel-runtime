@@ -1,0 +1,47 @@
+{
+  "claude_exit": 0,
+  "claude_stdout": "OK",
+  "claude_stderr_tail": "or classifier requests in Claude Code. However, this session isn't eligible because your requests go through 127.0.0.1:64914, which isn't compatible with this update. Nothing breaks: auto mode keeps working, and its classifier requests are billed as before. To fix it and access the new version of auto mode, ask your gateway to implement: https://code.claude.com/docs/en/auto-mode-classifier-billing",
+  "requests": [
+    {
+      "path": "/v1/messages?beta=true",
+      "tools": 14,
+      "messages": [
+        {
+          "role": "user",
+          "keys": [
+            "content",
+            "role"
+          ],
+          "block_types": [
+            "text",
+            "text",
+            "text",
+            "text"
+          ],
+          "plan_reminder_text": []
+        },
+        {
+          "role": "system",
+          "keys": [
+            "content",
+            "output_config",
+            "role"
+          ],
+          "block_types": [
+            "text"
+          ],
+          "plan_reminder_text": [
+            "with codebase documentation\n- security-review: Complete a security review of the pending changes on the current branch\n\nPlan mode is active. The user indicated that they do not want you to execute yet -- you MUST NOT make any edits (with the exception of the plan file mentioned below), run any non-readonly tools (including changing configs or making commits)"
+          ]
+        }
+      ],
+      "router_plan_mode_active": true,
+      "router_emits_ExitPlanMode_as": "ExitPlanMode"
+    }
+  ],
+  "control_with_EnterPlanMode_history": {
+    "router_plan_mode_active": true,
+    "router_emits_ExitPlanMode_as": "ExitPlanMode"
+  }
+}

@@ -1,0 +1,43 @@
+$ ciel-runtimectl ollama-options empty_response_retries=2 -> exit 0
+empty_response_retries: 2
+  empty_response_retries sets extra Ollama attempts for empty responses (default 1, 0 off, capped at 2).
+  unset:empty_response_retries or empty_response_retries=default restores 1; this is a router setting, not an upstream Ollama option.
+  ciel-runtimectl ollama-options ollama-cloud empty_response_retries=1
+
+  stored ollama empty_response_retries= 2 | in ollama_options: False
+  stored ollama-cloud empty_response_retries= <unset> | in ollama_options: False
+$ ciel-runtimectl ollama-options empty_response_retries=9 -> exit 0
+empty_response_retries: 2
+  empty_response_retries sets extra Ollama attempts for empty responses (default 1, 0 off, capped at 2).
+  unset:empty_response_retries or empty_response_retries=default restores 1; this is a router setting, not an upstream Ollama option.
+  ciel-runtimectl ollama-options ollama-cloud empty_response_retries=1
+
+  stored ollama empty_response_retries= 2 | in ollama_options: False
+  stored ollama-cloud empty_response_retries= <unset> | in ollama_options: False
+$ ciel-runtimectl ollama-options empty_response_retries=0 -> exit 0
+empty_response_retries: 0
+  empty_response_retries sets extra Ollama attempts for empty responses (default 1, 0 off, capped at 2).
+  unset:empty_response_retries or empty_response_retries=default restores 1; this is a router setting, not an upstream Ollama option.
+  ciel-runtimectl ollama-options ollama-cloud empty_response_retries=1
+
+  stored ollama empty_response_retries= 0 | in ollama_options: False
+  stored ollama-cloud empty_response_retries= <unset> | in ollama_options: False
+$ ciel-runtimectl ollama-options empty_response_retries=true -> exit 1
+empty_response_retries must be a non-negative integer; default 1, 0 off, maximum 2
+
+  stored ollama empty_response_retries= 0 | in ollama_options: False
+  stored ollama-cloud empty_response_retries= <unset> | in ollama_options: False
+$ ciel-runtimectl ollama-options unset:empty_response_retries -> exit 0
+empty_response_retries: 1
+  empty_response_retries sets extra Ollama attempts for empty responses (default 1, 0 off, capped at 2).
+  unset:empty_response_retries or empty_response_retries=default restores 1; this is a router setting, not an upstream Ollama option.
+  ciel-runtimectl ollama-options ollama-cloud empty_response_retries=1
+
+  stored ollama empty_response_retries= <unset> | in ollama_options: False
+  stored ollama-cloud empty_response_retries= <unset> | in ollama_options: False
+$ ciel-runtimectl ollama-options -> exit 0
+empty_response_retries: 1
+  empty_response_retries sets extra Ollama attempts for empty responses (default 1, 0 off, capped at 2).
+  unset:empty_response_retries or empty_response_retries=default restores 1; this is a router setting, not an upstream Ollama option.
+  ciel-runtimectl ollama-options ollama-cloud empty_response_retries=1
+

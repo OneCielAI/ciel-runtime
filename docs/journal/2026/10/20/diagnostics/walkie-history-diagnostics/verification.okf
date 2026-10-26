@@ -1,0 +1,37 @@
+---
+title: Walkie history diagnostics verification
+kind: journal
+type: verification
+timestamp: 2026-10-20
+status: verified
+---
+
+# Walkie history diagnostics
+
+## Scope
+
+Bounded, read-only diagnostics inspect runtime input history without repairing, quarantining, rewriting, advancing cursors, or admitting ownership.
+
+## Evidence
+
+- `history_health()` reports coverage, physical line/byte offsets, bounded failure categories, and only leading-NUL remainder request/status identity when the writer-shaped remainder validates.
+- Strict admission remains fail-closed for malformed duplicate keys, nonfinite numbers, invalid UTF-8, interior/leading NUL, trailing bytes, unfinished EOF, read errors, and concurrent changes.
+- Existing legacy records remain accepted and are not rewritten.
+
+## Tests
+
+- `python -m unittest discover -s tests -p test_runtime_input_status.py` — 9 passed.
+- `python -m unittest discover -s tests -p test_channel_interrupted_attempts.py` — 12 passed.
+- `python -m unittest discover -s tests -p test_channel_pending_injection.py` — 43 passed.
+
+## Isolated final run
+
+The exact-file runner cleared inherited `CIEL_RUNTIME_*`, used a temporary configuration directory and loaded only the three owned test files. Result: 64 tests passed in 10.059s. Full execution output: [exact-test-output.txt](exact-test-output.txt).
+
+Initial direct `python -I -m unittest` attempts did not find the repository modules; the final runner explicitly added the repository root under isolated Python. No live runtime, configuration, message queue, source history, session, install, commit, or push was touched.
+
+## Integration concern
+
+The gateway appends before recording queued. Strict transition rejection can
+leave appended work with failed caller admission; integration must expose that
+uncertainty, not weaken ownership validation or silently duplicate the input.

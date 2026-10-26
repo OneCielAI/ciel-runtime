@@ -1,0 +1,467 @@
+Refreshing run status every 45 seconds. Press Ctrl+C to quit.
+
+* nightly Publish to npm · 39981199746
+Triggered via push about 3 minutes ago
+
+JOBS
+* publish (ID 120508620505)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run actions/setup-node@v4
+  ✓ Run python -m pip install --upgrade pip "ruff==0.15.22" pillow
+  ✓ Run python -m py_compile ciel_runtime.py ciel-runtime-menu.py ciel-runtime-tool-guard.py scripts/make_demo_assets.py
+  ✓ Run python -m ruff check .
+  * Run npm test
+  * Determine publish channel
+  * Compute and apply nightly version
+  * Run pkg="$(node -p "require('./package.json').name")"
+  * Run npm publish --access public --tag ${{ steps.channel.outputs.tag }}
+  * Verify published tarball
+  * Post Run actions/setup-node@v4
+  * Post Run actions/setup-python@v5
+  * Post Run actions/checkout@v4
+Refreshing run status every 45 seconds. Press Ctrl+C to quit.
+
+* nightly Publish to npm · 39981199746
+Triggered via push about 4 minutes ago
+
+JOBS
+* publish (ID 120508620505)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run actions/setup-node@v4
+  ✓ Run python -m pip install --upgrade pip "ruff==0.15.22" pillow
+  ✓ Run python -m py_compile ciel_runtime.py ciel-runtime-menu.py ciel-runtime-tool-guard.py scripts/make_demo_assets.py
+  ✓ Run python -m ruff check .
+  * Run npm test
+  * Determine publish channel
+  * Compute and apply nightly version
+  * Run pkg="$(node -p "require('./package.json').name")"
+  * Run npm publish --access public --tag ${{ steps.channel.outputs.tag }}
+  * Verify published tarball
+  * Post Run actions/setup-node@v4
+  * Post Run actions/setup-python@v5
+  * Post Run actions/checkout@v4
+Refreshing run status every 45 seconds. Press Ctrl+C to quit.
+
+* nightly Publish to npm · 39981199746
+Triggered via push about 4 minutes ago
+
+JOBS
+* publish (ID 120508620505)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run actions/setup-node@v4
+  ✓ Run python -m pip install --upgrade pip "ruff==0.15.22" pillow
+  ✓ Run python -m py_compile ciel_runtime.py ciel-runtime-menu.py ciel-runtime-tool-guard.py scripts/make_demo_assets.py
+  ✓ Run python -m ruff check .
+  * Run npm test
+  * Determine publish channel
+  * Compute and apply nightly version
+  * Run pkg="$(node -p "require('./package.json').name")"
+  * Run npm publish --access public --tag ${{ steps.channel.outputs.tag }}
+  * Verify published tarball
+  * Post Run actions/setup-node@v4
+  * Post Run actions/setup-python@v5
+  * Post Run actions/checkout@v4
+Refreshing run status every 45 seconds. Press Ctrl+C to quit.
+
+* nightly Publish to npm · 39981199746
+Triggered via push about 5 minutes ago
+
+JOBS
+* publish (ID 120508620505)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run actions/setup-node@v4
+  ✓ Run python -m pip install --upgrade pip "ruff==0.15.22" pillow
+  ✓ Run python -m py_compile ciel_runtime.py ciel-runtime-menu.py ciel-runtime-tool-guard.py scripts/make_demo_assets.py
+  ✓ Run python -m ruff check .
+  * Run npm test
+  * Determine publish channel
+  * Compute and apply nightly version
+  * Run pkg="$(node -p "require('./package.json').name")"
+  * Run npm publish --access public --tag ${{ steps.channel.outputs.tag }}
+  * Verify published tarball
+  * Post Run actions/setup-node@v4
+  * Post Run actions/setup-python@v5
+  * Post Run actions/checkout@v4
+Refreshing run status every 45 seconds. Press Ctrl+C to quit.
+
+* nightly Publish to npm · 39981199746
+Triggered via push about 6 minutes ago
+
+JOBS
+* publish (ID 120508620505)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run actions/setup-node@v4
+  ✓ Run python -m pip install --upgrade pip "ruff==0.15.22" pillow
+  ✓ Run python -m py_compile ciel_runtime.py ciel-runtime-menu.py ciel-runtime-tool-guard.py scripts/make_demo_assets.py
+  ✓ Run python -m ruff check .
+  * Run npm test
+  * Determine publish channel
+  * Compute and apply nightly version
+  * Run pkg="$(node -p "require('./package.json').name")"
+  * Run npm publish --access public --tag ${{ steps.channel.outputs.tag }}
+  * Verify published tarball
+  * Post Run actions/setup-node@v4
+  * Post Run actions/setup-python@v5
+  * Post Run actions/checkout@v4
+Refreshing run status every 45 seconds. Press Ctrl+C to quit.
+
+* nightly Publish to npm · 39981199746
+Triggered via push about 7 minutes ago
+
+JOBS
+* publish (ID 120508620505)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run actions/setup-node@v4
+  ✓ Run python -m pip install --upgrade pip "ruff==0.15.22" pillow
+  ✓ Run python -m py_compile ciel_runtime.py ciel-runtime-menu.py ciel-runtime-tool-guard.py scripts/make_demo_assets.py
+  ✓ Run python -m ruff check .
+  * Run npm test
+  * Determine publish channel
+  * Compute and apply nightly version
+  * Run pkg="$(node -p "require('./package.json').name")"
+  * Run npm publish --access public --tag ${{ steps.channel.outputs.tag }}
+  * Verify published tarball
+  * Post Run actions/setup-node@v4
+  * Post Run actions/setup-python@v5
+  * Post Run actions/checkout@v4
+Refreshing run status every 45 seconds. Press Ctrl+C to quit.
+
+* nightly Publish to npm · 39981199746
+Triggered via push about 8 minutes ago
+
+JOBS
+* publish (ID 120508620505)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run actions/setup-node@v4
+  ✓ Run python -m pip install --upgrade pip "ruff==0.15.22" pillow
+  ✓ Run python -m py_compile ciel_runtime.py ciel-runtime-menu.py ciel-runtime-tool-guard.py scripts/make_demo_assets.py
+  ✓ Run python -m ruff check .
+  ✓ Run npm test
+  ✓ Determine publish channel
+  ✓ Compute and apply nightly version
+  ✓ Run pkg="$(node -p "require('./package.json').name")"
+  ✓ Run npm publish --access public --tag nightly
+  * Verify published tarball
+  * Post Run actions/setup-node@v4
+  * Post Run actions/setup-python@v5
+  * Post Run actions/checkout@v4
+Refreshing run status every 45 seconds. Press Ctrl+C to quit.
+
+* nightly Publish to npm · 39981199746
+Triggered via push about 8 minutes ago
+
+JOBS
+* publish (ID 120508620505)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run actions/setup-node@v4
+  ✓ Run python -m pip install --upgrade pip "ruff==0.15.22" pillow
+  ✓ Run python -m py_compile ciel_runtime.py ciel-runtime-menu.py ciel-runtime-tool-guard.py scripts/make_demo_assets.py
+  ✓ Run python -m ruff check .
+  ✓ Run npm test
+  ✓ Determine publish channel
+  ✓ Compute and apply nightly version
+  ✓ Run pkg="$(node -p "require('./package.json').name")"
+  ✓ Run npm publish --access public --tag nightly
+  * Verify published tarball
+  * Post Run actions/setup-node@v4
+  * Post Run actions/setup-python@v5
+  * Post Run actions/checkout@v4
+Refreshing run status every 45 seconds. Press Ctrl+C to quit.
+
+* nightly Publish to npm · 39981199746
+Triggered via push about 9 minutes ago
+
+JOBS
+* publish (ID 120508620505)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run actions/setup-node@v4
+  ✓ Run python -m pip install --upgrade pip "ruff==0.15.22" pillow
+  ✓ Run python -m py_compile ciel_runtime.py ciel-runtime-menu.py ciel-runtime-tool-guard.py scripts/make_demo_assets.py
+  ✓ Run python -m ruff check .
+  ✓ Run npm test
+  ✓ Determine publish channel
+  ✓ Compute and apply nightly version
+  ✓ Run pkg="$(node -p "require('./package.json').name")"
+  ✓ Run npm publish --access public --tag nightly
+  * Verify published tarball
+  * Post Run actions/setup-node@v4
+  * Post Run actions/setup-python@v5
+  * Post Run actions/checkout@v4
+Refreshing run status every 45 seconds. Press Ctrl+C to quit.
+
+* nightly Publish to npm · 39981199746
+Triggered via push about 10 minutes ago
+
+JOBS
+* publish (ID 120508620505)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run actions/setup-node@v4
+  ✓ Run python -m pip install --upgrade pip "ruff==0.15.22" pillow
+  ✓ Run python -m py_compile ciel_runtime.py ciel-runtime-menu.py ciel-runtime-tool-guard.py scripts/make_demo_assets.py
+  ✓ Run python -m ruff check .
+  ✓ Run npm test
+  ✓ Determine publish channel
+  ✓ Compute and apply nightly version
+  ✓ Run pkg="$(node -p "require('./package.json').name")"
+  ✓ Run npm publish --access public --tag nightly
+  * Verify published tarball
+  * Post Run actions/setup-node@v4
+  * Post Run actions/setup-python@v5
+  * Post Run actions/checkout@v4
+Refreshing run status every 45 seconds. Press Ctrl+C to quit.
+
+* nightly Publish to npm · 39981199746
+Triggered via push about 11 minutes ago
+
+JOBS
+* publish (ID 120508620505)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run actions/setup-node@v4
+  ✓ Run python -m pip install --upgrade pip "ruff==0.15.22" pillow
+  ✓ Run python -m py_compile ciel_runtime.py ciel-runtime-menu.py ciel-runtime-tool-guard.py scripts/make_demo_assets.py
+  ✓ Run python -m ruff check .
+  ✓ Run npm test
+  ✓ Determine publish channel
+  ✓ Compute and apply nightly version
+  ✓ Run pkg="$(node -p "require('./package.json').name")"
+  ✓ Run npm publish --access public --tag nightly
+  * Verify published tarball
+  * Post Run actions/setup-node@v4
+  * Post Run actions/setup-python@v5
+  * Post Run actions/checkout@v4
+Refreshing run status every 45 seconds. Press Ctrl+C to quit.
+
+* nightly Publish to npm · 39981199746
+Triggered via push about 11 minutes ago
+
+JOBS
+* publish (ID 120508620505)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run actions/setup-node@v4
+  ✓ Run python -m pip install --upgrade pip "ruff==0.15.22" pillow
+  ✓ Run python -m py_compile ciel_runtime.py ciel-runtime-menu.py ciel-runtime-tool-guard.py scripts/make_demo_assets.py
+  ✓ Run python -m ruff check .
+  ✓ Run npm test
+  ✓ Determine publish channel
+  ✓ Compute and apply nightly version
+  ✓ Run pkg="$(node -p "require('./package.json').name")"
+  ✓ Run npm publish --access public --tag nightly
+  * Verify published tarball
+  * Post Run actions/setup-node@v4
+  * Post Run actions/setup-python@v5
+  * Post Run actions/checkout@v4
+Refreshing run status every 45 seconds. Press Ctrl+C to quit.
+
+* nightly Publish to npm · 39981199746
+Triggered via push about 12 minutes ago
+
+JOBS
+* publish (ID 120508620505)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run actions/setup-node@v4
+  ✓ Run python -m pip install --upgrade pip "ruff==0.15.22" pillow
+  ✓ Run python -m py_compile ciel_runtime.py ciel-runtime-menu.py ciel-runtime-tool-guard.py scripts/make_demo_assets.py
+  ✓ Run python -m ruff check .
+  ✓ Run npm test
+  ✓ Determine publish channel
+  ✓ Compute and apply nightly version
+  ✓ Run pkg="$(node -p "require('./package.json').name")"
+  ✓ Run npm publish --access public --tag nightly
+  * Verify published tarball
+  * Post Run actions/setup-node@v4
+  * Post Run actions/setup-python@v5
+  * Post Run actions/checkout@v4
+Refreshing run status every 45 seconds. Press Ctrl+C to quit.
+
+* nightly Publish to npm · 39981199746
+Triggered via push about 13 minutes ago
+
+JOBS
+* publish (ID 120508620505)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run actions/setup-node@v4
+  ✓ Run python -m pip install --upgrade pip "ruff==0.15.22" pillow
+  ✓ Run python -m py_compile ciel_runtime.py ciel-runtime-menu.py ciel-runtime-tool-guard.py scripts/make_demo_assets.py
+  ✓ Run python -m ruff check .
+  ✓ Run npm test
+  ✓ Determine publish channel
+  ✓ Compute and apply nightly version
+  ✓ Run pkg="$(node -p "require('./package.json').name")"
+  ✓ Run npm publish --access public --tag nightly
+  * Verify published tarball
+  * Post Run actions/setup-node@v4
+  * Post Run actions/setup-python@v5
+  * Post Run actions/checkout@v4
+Refreshing run status every 45 seconds. Press Ctrl+C to quit.
+
+* nightly Publish to npm · 39981199746
+Triggered via push about 14 minutes ago
+
+JOBS
+* publish (ID 120508620505)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run actions/setup-node@v4
+  ✓ Run python -m pip install --upgrade pip "ruff==0.15.22" pillow
+  ✓ Run python -m py_compile ciel_runtime.py ciel-runtime-menu.py ciel-runtime-tool-guard.py scripts/make_demo_assets.py
+  ✓ Run python -m ruff check .
+  ✓ Run npm test
+  ✓ Determine publish channel
+  ✓ Compute and apply nightly version
+  ✓ Run pkg="$(node -p "require('./package.json').name")"
+  ✓ Run npm publish --access public --tag nightly
+  * Verify published tarball
+  * Post Run actions/setup-node@v4
+  * Post Run actions/setup-python@v5
+  * Post Run actions/checkout@v4
+Refreshing run status every 45 seconds. Press Ctrl+C to quit.
+
+* nightly Publish to npm · 39981199746
+Triggered via push about 15 minutes ago
+
+JOBS
+* publish (ID 120508620505)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run actions/setup-node@v4
+  ✓ Run python -m pip install --upgrade pip "ruff==0.15.22" pillow
+  ✓ Run python -m py_compile ciel_runtime.py ciel-runtime-menu.py ciel-runtime-tool-guard.py scripts/make_demo_assets.py
+  ✓ Run python -m ruff check .
+  ✓ Run npm test
+  ✓ Determine publish channel
+  ✓ Compute and apply nightly version
+  ✓ Run pkg="$(node -p "require('./package.json').name")"
+  ✓ Run npm publish --access public --tag nightly
+  * Verify published tarball
+  * Post Run actions/setup-node@v4
+  * Post Run actions/setup-python@v5
+  * Post Run actions/checkout@v4
+Refreshing run status every 45 seconds. Press Ctrl+C to quit.
+
+* nightly Publish to npm · 39981199746
+Triggered via push about 15 minutes ago
+
+JOBS
+* publish (ID 120508620505)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run actions/setup-node@v4
+  ✓ Run python -m pip install --upgrade pip "ruff==0.15.22" pillow
+  ✓ Run python -m py_compile ciel_runtime.py ciel-runtime-menu.py ciel-runtime-tool-guard.py scripts/make_demo_assets.py
+  ✓ Run python -m ruff check .
+  ✓ Run npm test
+  ✓ Determine publish channel
+  ✓ Compute and apply nightly version
+  ✓ Run pkg="$(node -p "require('./package.json').name")"
+  ✓ Run npm publish --access public --tag nightly
+  * Verify published tarball
+  * Post Run actions/setup-node@v4
+  * Post Run actions/setup-python@v5
+  * Post Run actions/checkout@v4
+Refreshing run status every 45 seconds. Press Ctrl+C to quit.
+
+* nightly Publish to npm · 39981199746
+Triggered via push about 16 minutes ago
+
+JOBS
+* publish (ID 120508620505)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run actions/setup-node@v4
+  ✓ Run python -m pip install --upgrade pip "ruff==0.15.22" pillow
+  ✓ Run python -m py_compile ciel_runtime.py ciel-runtime-menu.py ciel-runtime-tool-guard.py scripts/make_demo_assets.py
+  ✓ Run python -m ruff check .
+  ✓ Run npm test
+  ✓ Determine publish channel
+  ✓ Compute and apply nightly version
+  ✓ Run pkg="$(node -p "require('./package.json').name")"
+  ✓ Run npm publish --access public --tag nightly
+  * Verify published tarball
+  * Post Run actions/setup-node@v4
+  * Post Run actions/setup-python@v5
+  * Post Run actions/checkout@v4
+Refreshing run status every 45 seconds. Press Ctrl+C to quit.
+
+* nightly Publish to npm · 39981199746
+Triggered via push about 17 minutes ago
+
+JOBS
+* publish (ID 120508620505)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run actions/setup-node@v4
+  ✓ Run python -m pip install --upgrade pip "ruff==0.15.22" pillow
+  ✓ Run python -m py_compile ciel_runtime.py ciel-runtime-menu.py ciel-runtime-tool-guard.py scripts/make_demo_assets.py
+  ✓ Run python -m ruff check .
+  ✓ Run npm test
+  ✓ Determine publish channel
+  ✓ Compute and apply nightly version
+  ✓ Run pkg="$(node -p "require('./package.json').name")"
+  ✓ Run npm publish --access public --tag nightly
+  * Verify published tarball
+  * Post Run actions/setup-node@v4
+  * Post Run actions/setup-python@v5
+  * Post Run actions/checkout@v4
+✓ nightly Publish to npm · 39981199746
+Triggered via push about 18 minutes ago
+
+JOBS
+✓ publish in 17m44s (ID 120508620505)
+  ✓ Set up job
+  ✓ Run actions/checkout@v4
+  ✓ Run actions/setup-python@v5
+  ✓ Run actions/setup-node@v4
+  ✓ Run python -m pip install --upgrade pip "ruff==0.15.22" pillow
+  ✓ Run python -m py_compile ciel_runtime.py ciel-runtime-menu.py ciel-runtime-tool-guard.py scripts/make_demo_assets.py
+  ✓ Run python -m ruff check .
+  ✓ Run npm test
+  ✓ Determine publish channel
+  ✓ Compute and apply nightly version
+  ✓ Run pkg="$(node -p "require('./package.json').name")"
+  ✓ Run npm publish --access public --tag nightly
+  ✓ Verify published tarball
+  ✓ Post Run actions/setup-node@v4
+  ✓ Post Run actions/setup-python@v5
+  ✓ Post Run actions/checkout@v4
+  ✓ Complete job
+
+ANNOTATIONS
+! Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4, actions/setup-python@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+publish: .github#2
+
+- "The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748"
+publish: .github#1
+

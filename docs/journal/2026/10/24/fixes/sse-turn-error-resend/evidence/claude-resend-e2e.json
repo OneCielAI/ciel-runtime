@@ -1,0 +1,337 @@
+{
+ "claude": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\claude.CMD",
+ "attempt_1": {
+  "cli_result": {
+   "is_error": true,
+   "subtype": "success",
+   "result": "API Error: 503 fake upstream 503. This is a server-side issue, usually temporary — try again in a moment. If it persists, check your inference gateway (127.0.0.1:53237).",
+   "session_id": "3c40c822-413a-4d93-ba1e-2f250fd305d0"
+  },
+  "api_error_records": [
+   {
+    "error": "server_error",
+    "apiErrorStatus": 503,
+    "apiErrorIsTransient": null,
+    "resendCannotCure": null,
+    "truncatedAfterOutput": null
+   }
+  ],
+  "wake_state": "turn_failed:1:1792835603.341:server_error 503"
+ },
+ "settlement": {
+  "inflight_action": "retrying",
+  "rescan_from": 6,
+  "cursor_commits": [],
+  "status": "queued",
+  "reason": "retry_scheduled:server_error 503",
+  "retry": {
+   "attempt": 1,
+   "limit": 10,
+   "interval_seconds": 10.0,
+   "due_epoch": 1792835613.4468334,
+   "last_failure": "server_error 503",
+   "http_status": 503,
+   "claim": "",
+   "runtime": "claude"
+  }
+ },
+ "injector": {
+  "written_before_due": [],
+  "written_when_due": [
+   "[ciel-runtime 재전송 1/10 · 이전 시도 업스트림 오류: server_error 503]\nE2E-CLAUDE please answer"
+  ],
+  "status_after_send": "submitted"
+ },
+ "attempt_2": {
+  "cli_result": {
+   "is_error": false,
+   "subtype": "success",
+   "result": "done"
+  },
+  "prompt_first_line": "[ciel-runtime external channel message] channel=external:default room=external:default from=e2e id=7 text=\"[ciel-runtime 재전송 1/10 · 이전 시도 업스트림 오류: server_error 503] E2E-CLAUDE please answer\"",
+  "wake_state": "completed"
+ },
+ "bad_request": {
+  "wake_state": "turn_failed:0:1792835605.421:unknown 400",
+  "cli_result": {
+   "is_error": true,
+   "result": "API Error: 400 fake upstream 400"
+  },
+  "records": [
+   {
+    "type": "queue-operation",
+    "api_error": null,
+    "error": null,
+    "status": null,
+    "text": null
+   },
+   {
+    "type": "queue-operation",
+    "api_error": null,
+    "error": null,
+    "status": null,
+    "text": null
+   },
+   {
+    "type": "user",
+    "api_error": null,
+    "error": null,
+    "status": null,
+    "text": "[ciel-runtime external channel message] channel=external:default room=external:default fro"
+   },
+   {
+    "type": "attachment",
+    "api_error": null,
+    "error": null,
+    "status": null,
+    "text": null
+   },
+   {
+    "type": "attachment",
+    "api_error": null,
+    "error": null,
+    "status": null,
+    "text": null
+   },
+   {
+    "type": "attachment",
+    "api_error": null,
+    "error": null,
+    "status": null,
+    "text": null
+   },
+   {
+    "type": "attachment",
+    "api_error": null,
+    "error": null,
+    "status": null,
+    "text": null
+   },
+   {
+    "type": "attachment",
+    "api_error": null,
+    "error": null,
+    "status": null,
+    "text": null
+   },
+   {
+    "type": "attachment",
+    "api_error": null,
+    "error": null,
+    "status": null,
+    "text": null
+   },
+   {
+    "type": "atis-latch",
+    "api_error": null,
+    "error": null,
+    "status": null,
+    "text": null
+   },
+   {
+    "type": "attachment",
+    "api_error": null,
+    "error": null,
+    "status": null,
+    "text": null
+   },
+   {
+    "type": "attachment",
+    "api_error": null,
+    "error": null,
+    "status": null,
+    "text": null
+   },
+   {
+    "type": "attachment",
+    "api_error": null,
+    "error": null,
+    "status": null,
+    "text": null
+   },
+   {
+    "type": "attachment",
+    "api_error": null,
+    "error": null,
+    "status": null,
+    "text": null
+   },
+   {
+    "type": "attachment",
+    "api_error": null,
+    "error": null,
+    "status": null,
+    "text": null
+   },
+   {
+    "type": "api-request-shape",
+    "api_error": null,
+    "error": null,
+    "status": null,
+    "text": null
+   },
+   {
+    "type": "api-request-blob",
+    "api_error": null,
+    "error": null,
+    "status": null,
+    "text": "[{\"type\": \"text\", \"text\": \"<system-reminder>\\n# Environment\\nYou have been invoked in the "
+   },
+   {
+    "type": "api-request",
+    "api_error": null,
+    "error": null,
+    "status": null,
+    "text": null
+   },
+   {
+    "type": "last-prompt",
+    "api_error": null,
+    "error": null,
+    "status": null,
+    "text": null
+   },
+   {
+    "type": "atis-latch",
+    "api_error": null,
+    "error": null,
+    "status": null,
+    "text": null
+   },
+   {
+    "type": "api-request",
+    "api_error": null,
+    "error": null,
+    "status": null,
+    "text": null
+   },
+   {
+    "type": "api-request-shape",
+    "api_error": null,
+    "error": null,
+    "status": null,
+    "text": null
+   },
+   {
+    "type": "api-request-blob",
+    "api_error": null,
+    "error": null,
+    "status": null,
+    "text": "[{\"type\": \"text\", \"text\": \"<system-reminder>\\n# Environment\\nYou have been invoked in the "
+   },
+   {
+    "type": "api-request",
+    "api_error": null,
+    "error": null,
+    "status": null,
+    "text": null
+   },
+   {
+    "type": "api-request",
+    "api_error": null,
+    "error": null,
+    "status": null,
+    "text": null
+   },
+   {
+    "type": "assistant",
+    "api_error": true,
+    "error": "unknown",
+    "status": 400,
+    "text": "[{\"type\": \"text\", \"text\": \"API Error: 400 fake upstream 400\"}]"
+   },
+   {
+    "type": "last-prompt",
+    "api_error": null,
+    "error": null,
+    "status": null,
+    "text": null
+   },
+   {
+    "type": "atis-latch",
+    "api_error": null,
+    "error": null,
+    "status": null,
+    "text": null
+   },
+   {
+    "type": "cost-state",
+    "api_error": null,
+    "error": null,
+    "status": null,
+    "text": null
+   }
+  ],
+  "outcome": "failed",
+  "status": "failed",
+  "reason": "turn_failed:unknown 400"
+ },
+ "upstream_requests": [
+  {
+   "at": 1792835603.3,
+   "path": "/v1/messages?beta=true",
+   "main": true,
+   "status": 503,
+   "model": "claude-sonnet-4-5",
+   "tools": 14,
+   "messages": 1,
+   "stream": true,
+   "max_tokens": 32000
+  },
+  {
+   "at": 1792835604.4,
+   "path": "/v1/messages?beta=true",
+   "main": true,
+   "status": 200,
+   "model": "claude-sonnet-4-5",
+   "tools": 14,
+   "messages": 1,
+   "stream": true,
+   "max_tokens": 32000
+  },
+  {
+   "at": 1792835605.4,
+   "path": "/v1/messages?beta=true",
+   "main": true,
+   "status": 400,
+   "model": "claude-sonnet-4-5",
+   "tools": 14,
+   "messages": 1,
+   "stream": true,
+   "max_tokens": 32000
+  },
+  {
+   "at": 1792835605.4,
+   "path": "/v1/messages?beta=true",
+   "main": true,
+   "status": 400,
+   "model": "claude-sonnet-4-5",
+   "tools": 14,
+   "messages": 1,
+   "stream": true,
+   "max_tokens": 32000
+  },
+  {
+   "at": 1792835605.4,
+   "path": "/v1/messages?beta=true",
+   "main": true,
+   "status": 400,
+   "model": "claude-sonnet-4-5",
+   "tools": 27,
+   "messages": 1,
+   "stream": true,
+   "max_tokens": 32000
+  },
+  {
+   "at": 1792835605.4,
+   "path": "/v1/messages?beta=true",
+   "main": true,
+   "status": 400,
+   "model": "claude-sonnet-4-5",
+   "tools": 27,
+   "messages": 1,
+   "stream": true,
+   "max_tokens": 32000
+  }
+ ]
+}

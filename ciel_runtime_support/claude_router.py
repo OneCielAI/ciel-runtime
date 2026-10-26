@@ -8,6 +8,7 @@ import os
 import time
 import urllib.error
 from collections.abc import Mapping
+from contextlib import nullcontext
 from dataclasses import dataclass
 from typing import Any, Callable
 
@@ -16,7 +17,11 @@ from .provider_failover import FailoverRequested, failover_service, maybe_fail_o
 from .oauth_routing import anthropic_request_run, open_with_oauth
 from .protocols.openai_responses import strip_openai_responses_reasoning_envelopes
 from .remote_bridge import is_remote_bridge_request
+from .transient_retry import owns_transient_retries, request_scope
+from .context_compaction import no_output_context_rejection
 from .upstream_error_policy import UpstreamFailure
+from .streaming_anthropic import SemanticCompactionSSE
+from .upstream_stream_io import UpstreamClientDisconnected
 
 
 @dataclass(frozen=True, slots=True)
@@ -126,6 +131,10 @@ class ClaudeRouterContextRecovery:
     observe_failure: Callable[..., Any] = lambda *_args: None
     # Returns an error payload to send as HTTP 400 before upstream, or None.
     reject_request: Callable[..., Any] = lambda *_args: None
+    # The main-session scope a streamed request starts in (None outside it),
+    # then (that scope, metadata) once the stream broke before message_stop.
+    stream_scope: Callable[..., Any] = lambda *_args: None
+    observe_stream_failure: Callable[..., Any] = lambda *_args: None
 
 
 @dataclass(frozen=True, slots=True)
@@ -153,6 +162,40 @@ def handle_claude_count_tokens_post(
     tokens = count.estimate_tokens(body)
     count.write_context_usage(provider, pcfg, body, "count_tokens")
     count.write_json(handler, {"input_tokens": tokens})
+
+
+def _context_window_recovery_body(
+    provider: str,
+    pcfg: dict[str, Any],
+    upstream_body: dict[str, Any],
+    error: urllib.error.HTTPError,
+    raw_error: bytes,
+    local_request: bool,
+    cap_body: Callable[..., dict[str, Any]],
+) -> dict[str, Any] | None:
+    """Chunk the rejected history and retry once, when the rejection is provable.
+
+    Only a no-output context-window rejection authorizes this: the upstream
+    then stated that nothing was generated, so replaying a compacted request
+    cannot duplicate a partial answer.
+    """
+    if not local_request or getattr(error, "code", None) != 400:
+        return None
+    failure = UpstreamFailure.from_http_error(
+        provider, str(upstream_body.get("model") or ""), error, raw_error,
+        output_started=False,
+    )
+    if not no_output_context_rejection(failure):
+        return None
+    compacted = cap_body(
+        provider,
+        {**pcfg, "_context_compact_context_rejected": True,
+         "_context_compact_native_over_window": True},
+        upstream_body,
+    )
+    if not isinstance(compacted, dict) or compacted is upstream_body:
+        return None
+    return compacted
 
 
 def handle_claude_messages_post(
@@ -285,8 +328,10 @@ def handle_claude_messages_post(
         return
     if local_request:
         body = strip_autonomous_advisor_server_tools(provider, body)
+    stream_scope = None
     if local_request:
         context_recovery.observe_request(provider, pcfg, raw_body, "claude", getattr(self, "headers", None))
+        stream_scope = context_recovery.stream_scope(getattr(self, "headers", None), raw_body)
         # Decided on the unmodified request, before pending input or the
         # outbound guard could change it; Claude Code compacts natively and
         # retries this same turn.
@@ -299,6 +344,45 @@ def handle_claude_messages_post(
         body = body_with_channel_tool_result_context(body)
         begin_pending_channel_delivery(self, body)
     responses_projection_body = body
+    early_sse: SemanticCompactionSSE | None = None
+    compact_config = pcfg
+
+    def check_compaction_client() -> None:
+        if early_sse is not None:
+            early_sse.check_cancelled()
+
+    def open_final_request(attempt_headers: dict[str, str], config: dict[str, Any]) -> Any:
+        # The heartbeat stays alive through this potentially blocking open.
+        check_compaction_client()
+        try:
+            # Semantic work may outlive dispatch's pre-output retry budget.
+            # This already-committed stream gets one independent final open,
+            # like the existing confirmed-context recovery path (no replay).
+            committed = early_sse is not None and early_sse.started
+            final_config = {**config, "gateway_retries": 0} if committed else config
+            scope = request_scope(final_config, provider) if committed else nullcontext()
+            with scope:
+                upstream_response = open_provider_request_with_key_retry(
+                    url,
+                    upstream_body,
+                    attempt_headers,
+                    provider_request_timeout_seconds(final_config),
+                    provider,
+                    final_config,
+                    upstream_model,
+                    stream=bool(body.get("stream", stream_enabled)),
+                )
+        except Exception:
+            # A disconnected client wins over upstream error classification.
+            check_compaction_client()
+            raise
+        try:
+            check_compaction_client()
+        except Exception:
+            upstream_response.close()
+            raise
+        return upstream_response
+
     try:
         upstream_model = resolve_requested_model(provider, pcfg, body.get("model"))
         selected_protocol = select_provider_protocol(provider, pcfg, "anthropic_messages", upstream_model)
@@ -385,7 +469,29 @@ def handle_claude_messages_post(
             return
         body = normalize_thinking_for_non_anthropic_provider(provider, pcfg, body)
         body = normalize_anthropic_system_role_messages(provider, pcfg, body)
-        body = cap_anthropic_body_for_provider(provider, pcfg, body)
+        if (
+            local_request
+            and provider != "anthropic"
+            and bool(pcfg.get("stream_enabled", True))
+            and body.get("stream") is True
+        ):
+            early_sse = SemanticCompactionSSE(self)
+            # Request-local only: shared provider config and upstream JSON
+            # never receive these callables. The hook fires solely when the
+            # semantic workflow admits its first billable generation.
+            compact_config = {
+                **pcfg,
+                "_context_compact_on_semantic_start": early_sse.start,
+                "_context_compact_cancelled": early_sse.cancelled,
+                "_context_compact_cancel_event": early_sse.cancel_event,
+                # Exact main-session scope, or None: only then may completed
+                # map summaries be journaled for an identical retry.
+                "_context_compact_scope": (
+                    stream_scope.payload() if hasattr(stream_scope, "payload") else None
+                ),
+            }
+        body = cap_anthropic_body_for_provider(provider, compact_config, body)
+        check_compaction_client()
         body = apply_provider_request_options(provider, pcfg, body)
         if local_request:
             body = rehydrate_suppressed_thinking_passback(provider, pcfg, body)
@@ -420,18 +526,10 @@ def handle_claude_messages_post(
                 resp = open_with_oauth(
                     oauth_run,
                     headers,
-                    lambda attempt_headers: open_provider_request_with_key_retry(
-                        url,
-                        upstream_body,
-                        attempt_headers,
-                        provider_request_timeout_seconds(pcfg),
-                        provider,
-                        pcfg,
-                        upstream_model,
-                        stream=bool(body.get("stream", stream_enabled)),
-                    ),
+                    lambda attempt_headers: open_final_request(attempt_headers, pcfg),
                 )
             except urllib.error.HTTPError as initial_error:
+                check_compaction_client()
                 raw_error = initial_error.read()
                 recovered_body = (
                     context_recovery.recover_output_budget(
@@ -442,38 +540,82 @@ def handle_claude_messages_post(
                 )
                 if recovered_body is None:
                     initial_error.ciel_runtime_body = raw_error
-                    raise
-                previous_output = upstream_body.get("max_tokens")
-                upstream_body = recovered_body
-                body["max_tokens"] = recovered_body["max_tokens"]
-                router_log(
-                    "WARN",
-                    "native_context_output_retry "
-                    f"provider={provider} model={upstream_model} "
-                    f"max_tokens={previous_output}->{recovered_body['max_tokens']}",
-                )
-                write_router_activity(
-                    "retry",
-                    provider,
-                    upstream_model,
-                    code=400,
-                    reason="context_output_budget",
-                    max_tokens=recovered_body["max_tokens"],
-                )
-                resp = open_with_oauth(
-                    oauth_run,
-                    headers,
-                    lambda attempt_headers: open_provider_request_with_key_retry(
-                        url,
-                        upstream_body,
-                        attempt_headers,
-                        provider_request_timeout_seconds(pcfg),
+                    # A context-window rejection is the only proof that the
+                    # history no longer fits; compact it (chunked) and retry
+                    # once instead of handing the 400 back to the client.
+                    compacted = _context_window_recovery_body(
+                        provider, compact_config, upstream_body, initial_error, raw_error,
+                        local_request, cap_anthropic_body_for_provider,
+                    )
+                    if compacted is None:
+                        raise
+                    upstream_body = compacted
+                    recovery_config = (
+                        {**pcfg, "gateway_retries": 0}
+                        if owns_transient_retries(provider)
+                        else pcfg
+                    )
+                    router_log(
+                        "WARN",
+                        "context_window_recovery "
+                        f"provider={provider} model={upstream_model} "
+                        f"bytes={len(json.dumps(compacted, ensure_ascii=False).encode('utf-8'))}",
+                    )
+                    write_router_activity(
+                        "retry", provider, upstream_model, code=400,
+                        reason="context_window_recovery",
+                    )
+                    recovery_scope = (
+                        request_scope(recovery_config, provider)
+                        if owns_transient_retries(provider)
+                        else nullcontext()
+                    )
+                    with recovery_scope:
+                        resp = open_with_oauth(
+                            oauth_run,
+                            headers,
+                            lambda attempt_headers: open_final_request(
+                                attempt_headers, recovery_config
+                            ),
+                        )
+                else:
+                    previous_output = upstream_body.get("max_tokens")
+                    upstream_body = recovered_body
+                    body["max_tokens"] = recovered_body["max_tokens"]
+                    router_log(
+                        "WARN",
+                        "native_context_output_retry "
+                        f"provider={provider} model={upstream_model} "
+                        f"max_tokens={previous_output}->{recovered_body['max_tokens']}",
+                    )
+                    write_router_activity(
+                        "retry",
                         provider,
-                        pcfg,
                         upstream_model,
-                        stream=bool(body.get("stream", stream_enabled)),
-                    ),
-                )
+                        code=400,
+                        reason="context_output_budget",
+                        max_tokens=recovered_body["max_tokens"],
+                    )
+                    # A changed output budget is one semantic recovery attempt,
+                    # not another transient retry window after the terminal 400.
+                    recovery_config = (
+                        {**pcfg, "gateway_retries": 0}
+                        if owns_transient_retries(provider)
+                        else pcfg
+                    )
+                    recovery_scope = (
+                        request_scope(recovery_config, provider)
+                        if owns_transient_retries(provider)
+                        else nullcontext()
+                    )
+                    with recovery_scope:
+                        resp = open_with_oauth(
+                            oauth_run,
+                            headers,
+                            lambda attempt_headers: open_final_request(
+                                attempt_headers, recovery_config
+                            ),
+                        )
             if bool(body.get("stream", stream_enabled)):
                 set_upstream_stream_read_timeout(resp, provider_stream_idle_timeout_seconds(pcfg))
             status = getattr(resp, "status", 200)
@@ -486,12 +628,26 @@ def handle_claude_messages_post(
                     self.wfile.write(chunk)
                     self.wfile.flush()
                 return
+            if early_sse is not None and early_sse.started:
+                # Single-writer handoff: the heartbeat is joined before the
+                # relay writes. Anything but upstream SSE fails closed, since
+                # the committed 200 event-stream cannot carry JSON.
+                try:
+                    if status != 200 or "text/event-stream" not in ctype:
+                        raise RuntimeError(
+                            "upstream answered non-SSE after semantic compaction started"
+                        )
+                    early_sse.handoff()
+                except BaseException:
+                    resp.close()
+                    raise
             if stream_enabled and "text/event-stream" in ctype:
-                self.send_response(status)
-                self.send_header("content-type", ctype)
-                self.send_header("cache-control", "no-cache")
-                self.send_header("connection", "close")
-                self.end_headers()
+                if early_sse is None or not early_sse.started:
+                    self.send_response(status)
+                    self.send_header("content-type", ctype)
+                    self.send_header("cache-control", "no-cache")
+                    self.send_header("connection", "close")
+                    self.end_headers()
                 _rebatch_anthropic_sse_text(
                     self,
                     resp,
@@ -501,6 +657,9 @@ def handle_claude_messages_post(
                     preserve_thinking=preserves_anthropic_thinking_contract(provider, pcfg),
                     normalize_tool_use=should_normalize_anthropic_stream_tool_use(provider, pcfg),
                     provider=provider,
+                    stream_failure_observer=lambda metadata: context_recovery.observe_stream_failure(
+                        stream_scope, metadata
+                    ),
                 )
             else:
                 self.send_response(status)
@@ -527,6 +686,8 @@ def handle_claude_messages_post(
                 self.wfile.flush()
                 mark_pending_channel_delivery_success(self, "anthropic_json")
             if local_request:
+                # The relay owns disconnect accounting once it took over; a
+                # client closing after message_stop is a normal end of stream.
                 commit_pending_channel_delivery_cursors(body, self)
         except urllib.error.HTTPError as e:
             err = getattr(e, "ciel_runtime_body", None)
@@ -534,11 +695,21 @@ def handle_claude_messages_post(
                 err = e.read()
             if local_request:
                 context_recovery.observe_failure(provider, pcfg, raw_body, err, "claude", getattr(self, "headers", None))
+            committed = early_sse is not None and early_sse.started
             if e.code == 429:
                 register_api_key_cooldown(provider, pcfg, key_from_request_headers(headers), e.headers)
-                failover_service(router_log, event_bus.publish)
-                maybe_fail_over(self, provider, status=e.code, headers=e.headers, reason=err)
+                # Failover replays through another provider's headers; after
+                # the early SSE commit that would be a second status line.
+                if not committed:
+                    failover_service(router_log, event_bus.publish)
+                    maybe_fail_over(self, provider, status=e.code, headers=e.headers, reason=err)
             event_bus.publish(level="error", category="upstream.error", message=f"upstream HTTP {e.code}", request_id=request_id, provider=provider, model=upstream_model, data={"status": e.code})
+            if committed and early_sse is not None:
+                mark_pending_channel_delivery_failed(self, f"compaction_upstream_http:{e.code}")
+                early_sse.fail(
+                    UpstreamFailure.from_http_error(provider, upstream_model, e, err).anthropic_payload()
+                )
+                return
             self.send_response(e.code)
             self.send_header("content-type", e.headers.get("content-type", "application/json"))
             self.end_headers()
@@ -555,7 +726,15 @@ def handle_claude_messages_post(
             else:
                 reason = exc.body or exc.message
             context_recovery.observe_failure(provider, pcfg, raw_body, reason, "claude", getattr(self, "headers", None))
-        if is_client_disconnect_error(exc):
+        early_committed = early_sse is not None and early_sse.started
+        if (
+            is_client_disconnect_error(exc)
+            or isinstance(exc, UpstreamClientDisconnected)
+            or (early_committed and early_sse is not None and early_sse.cancelled())
+        ):
+            if early_sse is not None:
+                # Join the heartbeat; a disconnected client gets no write.
+                early_sse.finish()
             if local_request:
                 mark_pending_channel_delivery_failed(
                     self, f"client_disconnected:{type(exc).__name__}"
@@ -581,6 +760,28 @@ def handle_claude_messages_post(
             )
             return
         event_bus.publish(level="error", category="router.error", message=str(exc), request_id=request_id, provider=provider, model=str(body.get("model") or ""), data={"error_type": type(exc).__name__})
+        if early_committed and early_sse is not None:
+            # The 200 event-stream is committed: one typed SSE error, never a
+            # second status line and never a success.
+            mark_pending_channel_delivery_failed(
+                self, f"compaction_error:{type(exc).__name__}"
+            )
+            if isinstance(exc, UpstreamFailure):
+                payload = exc.anthropic_payload()
+            elif isinstance(exc, urllib.error.HTTPError):
+                payload = UpstreamFailure.from_http_error(
+                    provider, str(body.get("model") or ""), exc
+                ).anthropic_payload()
+            else:
+                payload = {"type": "error", "error": {"type": "api_error", "message": str(exc)}}
+            router_log(
+                "ERROR",
+                "anthropic_route_error_after_compaction_sse "
+                f"provider={provider} model={body.get('model')} "
+                f"error={type(exc).__name__}: {str(exc)[:300]}",
+            )
+            early_sse.fail(payload)
+            return
         response_status = getattr(self, "_ciel_runtime_response_status", None)
         if isinstance(response_status, int):
             self.close_connection = True
@@ -596,6 +797,9 @@ def handle_claude_messages_post(
             f"anthropic_route_error provider={provider} model={body.get('model')} status=500 error={type(exc).__name__}: {str(exc)[:300]}",
         )
         try_write_json(self, {"type": "error", "error": {"type": "api_error", "message": str(exc)}}, 500)
+    finally:
+        if early_sse is not None:
+            early_sse.finish()
 
 
 class ClaudeRouter:

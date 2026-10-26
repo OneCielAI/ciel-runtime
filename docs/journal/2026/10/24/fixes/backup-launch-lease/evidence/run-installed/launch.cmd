@@ -1,0 +1,26 @@
+@echo off
+for /f "delims==" %%v in ('set CIEL_RUNTIME_ 2^>nul') do set "%%v="
+for /f "delims==" %%v in ('set CLAUDE 2^>nul') do set "%%v="
+for /f "delims==" %%v in ('set ANTHROPIC 2^>nul') do set "%%v="
+for /f "delims==" %%v in ('set CODEX 2^>nul') do set "%%v="
+for /f "delims==" %%v in ('set OPENAI 2^>nul') do set "%%v="
+set "HOME=C:\Users\djlov\AppData\Local\Temp\ciel-backup-e2e-5f1gfhxp\home"
+set "USERPROFILE=C:\Users\djlov\AppData\Local\Temp\ciel-backup-e2e-5f1gfhxp\home"
+set "HOMEDRIVE=C:"
+set "HOMEPATH=\Users\djlov\AppData\Local\Temp\ciel-backup-e2e-5f1gfhxp\home"
+set "APPDATA=C:\Users\djlov\AppData\Local\Temp\ciel-backup-e2e-5f1gfhxp\home\AppData\Roaming"
+set "LOCALAPPDATA=C:\Users\djlov\AppData\Local\Temp\ciel-backup-e2e-5f1gfhxp\home\AppData\Local"
+set "TEMP=C:\Users\djlov\AppData\Local\Temp\ciel-backup-e2e-5f1gfhxp\home\AppData\Local\Temp"
+set "TMP=C:\Users\djlov\AppData\Local\Temp\ciel-backup-e2e-5f1gfhxp\home\AppData\Local\Temp"
+set "XDG_CONFIG_HOME=C:\Users\djlov\AppData\Local\Temp\ciel-backup-e2e-5f1gfhxp\home\.config"
+set "HTTP_PROXY=http://127.0.0.1:56461"
+set "HTTPS_PROXY=http://127.0.0.1:56461"
+set "ALL_PROXY=http://127.0.0.1:56461"
+set "NO_PROXY=127.0.0.1,localhost,::1"
+set "CIEL_RUNTIME_CONFIG_DIR=C:\Users\djlov\AppData\Local\Temp\ciel-backup-e2e-5f1gfhxp\home\.config\ciel-runtime"
+set "CLAUDE_CONFIG_DIR=C:\Users\djlov\AppData\Local\Temp\ciel-backup-e2e-5f1gfhxp\home\.claude"
+set "CODEX_HOME=C:\Users\djlov\AppData\Local\Temp\ciel-backup-e2e-5f1gfhxp\home\.codex"
+(set CIEL_RUNTIME_ & set CLAUDE & set ANTHROPIC & set CODEX & set OPENAI & set HOME & set APPDATA & set HTTP) > "C:\Users\djlov\ciel-runtime-wt-lease\docs\journal\2026\10\24\fixes\backup-launch-lease\evidence\run-installed\launch-env.txt" 2>&1
+cd /d "C:\Users\djlov\AppData\Local\Temp\ciel-backup-e2e-5f1gfhxp\ws"
+py -3 "C:\Users\djlov\.local\share\ciel-runtime\ciel_runtime.py" cli --ca-menu --ca-no-update-check --ca-no-self-update-check
+echo LAUNCHER-EXIT=%ERRORLEVEL%

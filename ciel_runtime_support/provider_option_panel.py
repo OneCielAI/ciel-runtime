@@ -33,6 +33,7 @@ class OptionPanelRuntime:
     current_model: Callable[[str, dict[str, Any]], str]
     workflows_enabled: Callable[[str, dict[str, Any]], bool]
     ultracode_enabled: Callable[[str, dict[str, Any]], bool]
+    claude_feedback_drafts: Callable[[], bool] = lambda: False
 
 
 @dataclass(frozen=True)
@@ -85,6 +86,8 @@ def build_option_panel_rows(
     add(text.ui_text("timeout_preset", language), "timeout_profile", text.timeout_status(config, language))
     add("Router debug external", "router_debug_external_access", "on" if runtime.router_debug_external() else "off")
     add("Event message preview", "router_debug_message_preview_chars", runtime.message_preview_chars())
+    add("Claude feedback drafts", "claude_feedback_drafts",
+        "on" if runtime.claude_feedback_drafts() else "off (default)")
     if not runtime.direct_native(provider, config) and policy.shows_workflows:
         model = runtime.current_model(provider, config)
         capabilities = runtime.capability_string(provider, config, model)
@@ -95,6 +98,9 @@ def build_option_panel_rows(
         from .cielairouter_gateway_overlay import selection_enabled
         add("Automatic gateway", "gateway_selection", "auto" if selection_enabled(config) else "off (central)")
         add("Gateway status", "gateway_status", "read-only /health (Enter)")
+        from .transient_retry import configured_retry_limit
+        add("CielAiRouter retries", "gateway_retries",
+            f"{configured_retry_limit(config)} extra; 0 off, max 10; router/direct CLI HTTP")
     if policy.presentation.show_gateway_data_path:
         from .launch_data_path import configured_data_path
         add("Gateway data path", "gateway_data_path", f"{configured_data_path(config)} (applies at launch)")
@@ -128,6 +134,9 @@ def _add_ollama_controls(
     add("Think", "think", projection.ollama_think_status(model, config))
     add("Keep alive", "keep_alive", config.get("keep_alive", "default"))
     add("Timeout ms", "request_timeout_ms", config.get("request_timeout_ms", "default"))
+    from .ollama_semantic_retry import configured_retries
+    add("Empty response retries", "empty_response_retries",
+        f"{configured_retries(config)} extra; default 1, 0 off, max 2")
     _add_stream_controls(add, config)
     add("RPM limiter", "rate_limit_enabled", projection.rate_limit_status(provider, config))
     add("Rate limit RPM", "rate_limit_rpm", projection.rate_limit_rpm(provider, config))
@@ -207,6 +216,8 @@ def current_option_bool(
         return bool(config.get("rate_limit_status", False))
     if key == "router_debug_external_access":
         return runtime.router_debug_external()
+    if key == "claude_feedback_drafts":
+        return runtime.claude_feedback_drafts()
     if key == "route_through_router":
         return projection.parse_bool(config.get("route_through_router"), default=False)
     if key == "workflows_enabled":
@@ -227,6 +238,7 @@ def option_prompt_default(
     projection = services.provider
     boolean_keys = {
         "router_debug_external_access",
+        "claude_feedback_drafts",
         "route_through_router",
         "stream_enabled",
         "stream_word_chunking",
@@ -237,6 +249,9 @@ def option_prompt_default(
     }
     if key in boolean_keys:
         return "true" if current_option_bool(provider, config, key, policy, services) else "false"
+    if key == "gateway_retries" and provider == "cielairouter":
+        from .transient_retry import configured_retry_limit
+        return str(configured_retry_limit(config))
     if key == "router_debug_message_preview_chars":
         return str(runtime.message_preview_chars())
     if key == "claude_code_supported_capabilities":
@@ -250,6 +265,9 @@ def option_prompt_default(
     if key == "ip_family":
         return projection.ip_family(provider, config)
     if policy.context_strategy == "ollama":
+        if key == "empty_response_retries":
+            from .ollama_semantic_retry import configured_retries
+            return str(configured_retries(config))
         options = projection.ollama_options(config)
         if key == "num_ctx":
             return str(config.get("num_ctx", "auto"))

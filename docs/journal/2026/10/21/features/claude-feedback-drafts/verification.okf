@@ -1,0 +1,68 @@
+---
+type: feature-verification
+title: Claude feedback default-off menu control
+description: A persisted Ciel Runtime menu toggle controls Claude feedback drafting and is reapplied to every Claude child launch and resumed restart.
+tags: [claude, feedback, menu, environment, launch]
+timestamp: 2026-10-21
+status: source-verified
+---
+
+# Context
+
+The user requested a menu control for Claude Code's automatically drafted bug
+reports, off by default, and applied every time Claude starts through Ciel
+Runtime. The official SendFeedback control is CLAUDE_CODE_SEND_FEEDBACK=0;
+this does not disable manual /feedback or send any report.
+
+# Implementation
+
+- Root config claude_feedback_drafts defaults to false. Missing or malformed
+  non-boolean stored values remain off; the menu saves true/false explicitly.
+- Main menu -> LLM options -> Claude feedback drafts. Enter toggles off/on.
+  The same root choice is shown regardless of provider and does not mutate
+  provider models, sampling, request caps or timeouts.
+- ClaudeEnvironmentProjection.build sets CLAUDE_CODE_SEND_FEEDBACK explicitly
+  on native Anthropic, routed and direct-gateway paths. It is a projected key,
+  so an inherited value cannot silently retain the preceding launch choice.
+- run_claude_session reloads the persisted root choice before every child run,
+  including routed/native restarts that do not reselect their model endpoint.
+  A launcher regression observes 0 -> 1 -> 0 across three child runs in both
+  router and direct mode as the saved choice changes between runs.
+- Personal Claude settings, existing feedback drafts and manual /feedback are
+  untouched. On does not override account availability, managed policy or the
+  user's own Claude feedbackDrafts=off. No automatic sending is added.
+
+# Verification
+
+- evidence/focused-tests.txt: 464 exact-file tests, OK (42 existing retired
+  architecture skips). Covers default/old config, invalid values, provider
+  independence, native/routed/direct environment, shell projection and repeat
+  launches/restarts. The composition root remains at its 4980-line ratchet.
+- evidence/menu/verification.okf and result.json: actual production
+  portable_prelaunch_menu, Win32 keyboard input, off -> on -> off persisted
+  round trip. New owned child processes observed feedback environment 0 ->
+  1 -> 0 even when the probe parent carried 1.
+- Actual menu console captures: evidence/menu/02-feedback-default-off.txt,
+  03-feedback-on.txt and 04-feedback-off.txt. These are actual console-buffer
+  text, not generated UI mockups. Pixel capture failed with window not found;
+  no PNG is claimed.
+- Repository Ruff, compileall, documentation metadata and diff whitespace
+  checks passed. Exact commands and results are in evidence/static-checks.txt.
+
+# Boundaries
+
+This is verified working-tree source, not a published or globally installed
+release. No commit/push/install or live Claude session restart was performed
+for this task. Running Claude children retain their existing environment until
+their next launch; each subsequent launch reads the saved choice. No native
+feedback draft was triggered or sent in the verification session. Tests and
+menu probes used isolated fixture homes/configs/workspaces and owned processes.
+
+# References
+
+- https://code.claude.com/docs/en/tools-reference#sendfeedback-tool-behavior
+- https://code.claude.com/docs/en/env-vars
+- ciel_runtime_support/claude_environment.py
+- ciel_runtime_support/runtime_launch.py
+- ciel_runtime_support/provider_option_panel.py
+- ciel_runtime_support/llm_option_config.py

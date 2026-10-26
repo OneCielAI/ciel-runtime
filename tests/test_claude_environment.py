@@ -1,7 +1,9 @@
 import unittest
+from types import SimpleNamespace
 
 from ciel_runtime_support.architecture import ProviderRuntimeCompactionPolicy
 from ciel_runtime_support.claude_environment import (
+    CLAUDE_PROJECTED_ENV_KEYS,
     ClaudeEnvironmentFeaturePorts,
     ClaudeEnvironmentProjection,
     ClaudeEnvironmentShellRenderer,
@@ -91,16 +93,26 @@ class ClaudeEnvironmentPolicyTests(unittest.TestCase):
 
         snapshot = policy.compaction_snapshot("cielairouter", {})
 
-        self.assertEqual(872_000, snapshot.auto_compact_window)
-        self.assertEqual(82, snapshot.auto_compact_percent)
-        self.assertLessEqual(
-            872_000 * snapshot.auto_compact_percent // 100, 716_750
-        )
+        self.assertEqual(872_000, snapshot.context_window)
+        self.assertEqual(715_040, snapshot.auto_compact_window)
+        self.assertIsNone(snapshot.auto_compact_percent)
+        self.assertLessEqual(snapshot.auto_compact_window, 716_750)
         # A direct data path bypasses the router, so nothing is trimmed.
         self.assertIsNone(policy.compaction_snapshot("cielairouter", {}, guarded=False).auto_compact_percent)
         # The window itself is the model's real context; only the trigger moves.
-        self.assertEqual(872_000, policy.auto_compact_window("cielairouter", {}, guarded=True))
+        self.assertEqual(715_040, policy.auto_compact_window("cielairouter", {}, guarded=True))
         self.assertEqual(872_000, policy.auto_compact_window("cielairouter", {}))
+
+    def test_cielairouter_explicit_window_and_direct_model_limits_are_independent(self):
+        policy = self._guarded_policy(716750)
+        explicit = policy.compaction_snapshot("cielairouter", {"auto_compact_window": 600000})
+        self.assertEqual(872000, explicit.context_window)
+        self.assertEqual(600000, explicit.auto_compact_window)
+        self.assertIsNone(explicit.auto_compact_percent)
+        direct = policy.compaction_snapshot("cielairouter", {}, guarded=False)
+        self.assertEqual(872000, direct.context_window)
+        self.assertEqual(872000, direct.auto_compact_window)
+        self.assertIsNone(direct.auto_compact_percent)
 
     def test_guarded_percent_is_only_added_below_the_window_and_never_raised(self):
         policy = self._guarded_policy(716_750)
@@ -131,6 +143,7 @@ class ClaudeEnvironmentPolicyTests(unittest.TestCase):
                 "CIEL_RUNTIME_PROVIDER": "anthropic",
                 "ANTHROPIC_API_KEY": "secret",
                 "CLAUDE_CHROME_CLASSIFIER_FLOOR": "0",
+                "CLAUDE_CODE_SEND_FEEDBACK": "0",
             },
             projection.build({"provider": "anthropic"}),
         )
@@ -143,7 +156,97 @@ class ClaudeEnvironmentPolicyTests(unittest.TestCase):
         self.assertEqual("token", env["ANTHROPIC_AUTH_TOKEN"])
         self.assertEqual("1024", env["CLAUDE_CODE_MAX_OUTPUT_TOKENS"])
         self.assertEqual("1", env["CLAUDE_CODE_DISABLE_TERMINAL_TITLE"])
-        self.assertNotIn("CLAUDE_CODE_SUBAGENT_MODEL_FORCE", env)
+        self.assertEqual("inherit", env["CLAUDE_CODE_SUBAGENT_MODEL"])
+        self.assertEqual("1", env["CLAUDE_CODE_SUBAGENT_MODEL_FORCE"])
+
+    def test_feedback_drafts_default_off_and_explicit_on_on_every_path(self):
+        route = SimpleNamespace(direct=True, endpoint="http://gateway", api_key="fixture-key")
+        for native, data_path in ((True, None), (False, None), (False, route)):
+            projection = self._projection(native=native, key="")
+            for value, expected in ((None, "0"), (False, "0"), (True, "1"),
+                                    ("true", "0"), (1, "0"), ({}, "0")):
+                with self.subTest(native=native, direct=data_path is not None, value=value):
+                    config = {"provider": "cielairouter"}
+                    if value is not None:
+                        config["claude_feedback_drafts"] = value
+                    env = projection.build(config, data_path=data_path)
+                    self.assertEqual(expected, env["CLAUDE_CODE_SEND_FEEDBACK"])
+                    self.assertNotIn("DISABLE_FEEDBACK_COMMAND", env)
+                    self.assertNotIn("DISABLE_BUG_COMMAND", env)
+        self.assertIn("CLAUDE_CODE_SEND_FEEDBACK", CLAUDE_PROJECTED_ENV_KEYS)
+
+    def test_feedback_drafts_shell_projection_explicitly_sets_each_launch(self):
+        for enabled, expected in ((False, "0"), (True, "1"), (False, "0")):
+            env = self._projection(native=False, key="").build(
+                {"provider": "test", "claude_feedback_drafts": enabled})
+            lines = ClaudeEnvironmentShellRenderer.lines(env)
+            self.assertIn(f'export CLAUDE_CODE_SEND_FEEDBACK="{expected}"', lines)
+
+    def test_cielairouter_routed_launch_leaves_retries_to_the_router(self):
+        projection = self._projection(native=False, key="")
+        for limit in (None, 0, 3, 10):
+            with self.subTest(limit=limit):
+                env = projection.build({"provider": "cielairouter", "gateway_retries": limit})
+                self.assertEqual("0", env["CLAUDE_CODE_MAX_RETRIES"])
+                self.assertEqual("0", env["CLAUDE_CODE_RETRY_WATCHDOG"])
+                self.assertEqual("0", env["CLAUDE_CODE_NONSTREAMING_TIMEOUT_RETRIES"])
+                self.assertEqual("1", env["CLAUDE_CODE_DISABLE_NONSTREAMING_FALLBACK"])
+
+    def test_cielairouter_direct_launch_uses_shared_bounded_retry_limit(self):
+        projection = self._projection(native=False, key="")
+        route = SimpleNamespace(direct=True, endpoint="http://gateway", api_key="fixture-key")
+        for limit, expected in ((None, "3"), (0, "0"), (2, "2"), ("5", "5"),
+                                (100, "10"), (-1, "0"), (True, "3"), (1.5, "3"),
+                                ("invalid", "3")):
+            with self.subTest(limit=limit):
+                env = projection.build(
+                    {"provider": "cielairouter", "gateway_retries": limit}, data_path=route
+                )
+                self.assertEqual(expected, env["CLAUDE_CODE_MAX_RETRIES"])
+                self.assertEqual("0", env["CLAUDE_CODE_RETRY_WATCHDOG"])
+                self.assertEqual("0", env["CLAUDE_CODE_NONSTREAMING_TIMEOUT_RETRIES"])
+                self.assertEqual("1", env["CLAUDE_CODE_DISABLE_NONSTREAMING_FALLBACK"])
+                self.assertEqual("http://gateway", env["ANTHROPIC_BASE_URL"])
+
+    def test_retry_projection_cleans_inherited_and_restarted_environment(self):
+        projection = self._projection(native=False, key="")
+        route = SimpleNamespace(direct=True, endpoint="http://gateway", api_key="fixture-key")
+        keys = ("CLAUDE_CODE_MAX_RETRIES", "CLAUDE_CODE_RETRY_WATCHDOG",
+                "CLAUDE_CODE_NONSTREAMING_TIMEOUT_RETRIES", "CLAUDE_CODE_DISABLE_NONSTREAMING_FALLBACK")
+        env = dict.fromkeys(keys, "inherited")
+        for provider, data_path, expected in (
+            ("cielairouter", route, "3"), ("cielairouter", None, "0"),
+            ("test", None, None), ("test", route, None),
+        ):
+            with self.subTest(provider=provider, direct=data_path is not None):
+                snapshot = projection.build({"provider": provider}, data_path=data_path)
+                # runtime_launch uses this shared list before each initial/restart snapshot.
+                for key in CLAUDE_PROJECTED_ENV_KEYS:
+                    env.pop(key, None)
+                env.update(snapshot)
+                self.assertEqual(expected, env.get("CLAUDE_CODE_MAX_RETRIES"))
+                shell = ClaudeEnvironmentShellRenderer.lines(snapshot)
+                for key in keys:
+                    self.assertIn(key, CLAUDE_PROJECTED_ENV_KEYS)
+                    if expected is None:
+                        self.assertNotIn(key, env)
+                        self.assertIn(f"unset {key}", shell)
+                    else:
+                        self.assertIn(f'export {key}="{snapshot[key]}"', shell)
+
+    def test_retry_settings_do_not_change_other_providers_or_native_anthropic(self):
+        keys = {"CLAUDE_CODE_MAX_RETRIES", "CLAUDE_CODE_RETRY_WATCHDOG",
+                "CLAUDE_CODE_NONSTREAMING_TIMEOUT_RETRIES", "CLAUDE_CODE_DISABLE_NONSTREAMING_FALLBACK"}
+        route = SimpleNamespace(direct=True, endpoint="http://gateway", api_key="fixture-key")
+        for provider, native, data_path in (
+            ("anthropic", True, None), ("anthropic", False, None),
+            ("test", False, route), ("ollama", False, None),
+        ):
+            with self.subTest(provider=provider, native=native):
+                env = self._projection(native=native, key="").build(
+                    {"provider": provider, "gateway_retries": 2}, data_path=data_path
+                )
+                self.assertFalse(keys.intersection(env))
 
     def test_chrome_classifier_floor_is_disabled_for_every_claude_launch(self):
         # Claude Code 2.1.278 re-routes Claude-in-Chrome MCP tools to its
@@ -158,14 +261,56 @@ class ClaudeEnvironmentPolicyTests(unittest.TestCase):
                 f"native={native}",
             )
 
-    def test_configured_subagent_model_is_routed_and_forced(self):
+    def test_non_anthropic_ignores_old_subagent_override_and_forces_parent(self):
+        for provider in ("test", "cielairouter", "ollama-cloud", "deepseek", "opencode", "meta"):
+            for configured in (None, "", "worker-model", "inherit"):
+                with self.subTest(provider=provider, configured=configured):
+                    config = {"provider": provider, "subagent_model": configured}
+                    env = self._projection(native=False, key="").build(config)
+                    self.assertEqual("inherit", env["CLAUDE_CODE_SUBAGENT_MODEL"])
+                    self.assertEqual("1", env["CLAUDE_CODE_SUBAGENT_MODEL_FORCE"])
+                    self.assertEqual(configured, config["subagent_model"])
+
+    def test_anthropic_routed_without_override_keeps_existing_policy(self):
+        env = self._projection(native=False, key="").build({"provider": "anthropic"})
+        self.assertEqual("current", env["CLAUDE_CODE_SUBAGENT_MODEL"])
+        self.assertNotIn("CLAUDE_CODE_SUBAGENT_MODEL_FORCE", env)
+
+    def test_direct_parent_inheritance_is_not_resolved_as_model_id(self):
+        projection = self._projection(native=False, key="")
+        from dataclasses import replace
+        route = SimpleNamespace(direct=True, endpoint="http://gateway", api_key="fixture-key")
+        projection._features = replace(
+            projection._features, resolve_requested_model=lambda *_args: "")
+        env = projection.build({"provider": "test"}, data_path=route)
+        self.assertEqual("inherit", env["CLAUDE_CODE_SUBAGENT_MODEL"])
+        self.assertEqual("1", env["CLAUDE_CODE_SUBAGENT_MODEL_FORCE"])
+
+    def test_configured_anthropic_subagent_model_is_routed_and_forced(self):
         projection = self._projection(native=False, key="")
         env = projection.build(
-            {"provider": "test", "subagent_model": "worker-model"}
+            {"provider": "anthropic", "subagent_model": "worker-model"}
         )
 
         self.assertEqual("worker-model", env["CLAUDE_CODE_SUBAGENT_MODEL"])
         self.assertEqual("1", env["CLAUDE_CODE_SUBAGENT_MODEL_FORCE"])
+
+    def test_anthropic_explicit_inherit_is_a_control_value_not_an_alias(self):
+        projection = self._projection(native=False, key="")
+        env = projection.build({"provider": "anthropic", "subagent_model": "inherit"})
+        self.assertEqual("inherit", env["CLAUDE_CODE_SUBAGENT_MODEL"])
+        self.assertEqual("1", env["CLAUDE_CODE_SUBAGENT_MODEL_FORCE"])
+
+    def test_parent_inheritance_is_cleared_on_switch_to_native(self):
+        env = self._projection(native=False, key="").build({"provider": "test"})
+        self.assertEqual("1", env["CLAUDE_CODE_SUBAGENT_MODEL_FORCE"])
+        for key in CLAUDE_PROJECTED_ENV_KEYS:
+            env.pop(key, None)
+        env.update(self._projection(native=True, key="").build({"provider": "anthropic"}))
+        self.assertNotIn("CLAUDE_CODE_SUBAGENT_MODEL_FORCE", env)
+        self.assertNotIn("CLAUDE_CODE_SUBAGENT_MODEL", env)
+        shell = ClaudeEnvironmentShellRenderer.lines(env)
+        self.assertIn("unset CLAUDE_CODE_SUBAGENT_MODEL_FORCE", shell)
 
     def test_runtime_settings_respect_explicit_passthrough(self):
         messages = []

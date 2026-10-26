@@ -1,0 +1,289 @@
+{
+  "schema": "isolated-timeout-repro-v1",
+  "repo": "C:\\Users\\djlov\\ciel-runtime",
+  "production_deadline": 60.0,
+  "source_before": {
+    "ciel_runtime_support/provider_responses_passthrough.py": "2249c72772b9103e3de73247828ce1417175b73c796070ec1e27551a5a75decf",
+    "ciel_runtime_support/transient_retry.py": "446735a023382903127d1d545aec8545e2b46ad2824a788290c50670012bb6f2",
+    "ciel_runtime_support/provider_network.py": "b26284a1d6767e450b0f19d6f8fe613b1be517d23f37a7b678098704bfdc2161"
+  },
+  "source_after": {
+    "ciel_runtime_support/provider_responses_passthrough.py": "2249c72772b9103e3de73247828ce1417175b73c796070ec1e27551a5a75decf",
+    "ciel_runtime_support/transient_retry.py": "446735a023382903127d1d545aec8545e2b46ad2824a788290c50670012bb6f2",
+    "ciel_runtime_support/provider_network.py": "b26284a1d6767e450b0f19d6f8fe613b1be517d23f37a7b678098704bfdc2161"
+  },
+  "cases": [
+    {
+      "case": "capped_cielairouter",
+      "provider": "cielairouter",
+      "configured_timeout": 1.0,
+      "injected_budget": 0.1,
+      "fixture_delay": 0.25,
+      "opens": [
+        {
+          "timeout_argument": 0.10000000000582077,
+          "before_open_elapsed": 0.0,
+          "body_sha256": "f4b3d4057ccaf538e0cc09c8561a6a4403918a09efe7b014e8218d434d2435e3",
+          "headers_elapsed": 0.0,
+          "socket_timeout_after_headers": 0.100000001,
+          "status": 200
+        }
+      ],
+      "fixture_requests": [
+        {
+          "method": "POST",
+          "path": "/v1/responses",
+          "body_sha256": "f4b3d4057ccaf538e0cc09c8561a6a4403918a09efe7b014e8218d434d2435e3",
+          "body_bytes": 101,
+          "status": 200,
+          "request_elapsed": 0.0,
+          "first_chunk_elapsed": 0.0,
+          "completion_written": false,
+          "write_error": "ConnectionAbortedError",
+          "completion_elapsed": 0.25
+        }
+      ],
+      "accepted": [
+        {
+          "elapsed": 0.014999999999417923,
+          "socket_timeout": 0.100000001,
+          "status": 200,
+          "wrapper": "_ReplayResponse"
+        }
+      ],
+      "logs": [
+        [
+          "ERROR",
+          "provider_responses_stream_truncated provider=cielairouter model=fixture-model bytes=0 attempts=1"
+        ]
+      ],
+      "outcome": "error",
+      "exception_type": "UpstreamStreamReadError",
+      "exception_message": "Upstream provider 'cielairouter' response stream was truncated (TimeoutError: timed out; model=fixture-model; attempts=1)",
+      "mapped_status": 502,
+      "cause_type": "TimeoutError",
+      "attempts": 1,
+      "downstream_started": false,
+      "response_id": null,
+      "call_elapsed": 0.10899999999674037,
+      "scope": {
+        "deadline": 0.1,
+        "opens": 1,
+        "retries": 0,
+        "exposed": false
+      },
+      "downstream_statuses": [],
+      "downstream_bytes": 0,
+      "exact_fixture": false
+    },
+    {
+      "case": "normal_60s_budget",
+      "provider": "cielairouter",
+      "configured_timeout": 1.0,
+      "injected_budget": null,
+      "fixture_delay": 0.25,
+      "opens": [
+        {
+          "timeout_argument": 1.0,
+          "before_open_elapsed": 0.0,
+          "body_sha256": "f4b3d4057ccaf538e0cc09c8561a6a4403918a09efe7b014e8218d434d2435e3",
+          "headers_elapsed": 0.01600000000325963,
+          "socket_timeout_after_headers": 1.0,
+          "status": 200
+        }
+      ],
+      "fixture_requests": [
+        {
+          "method": "POST",
+          "path": "/v1/responses",
+          "body_sha256": "f4b3d4057ccaf538e0cc09c8561a6a4403918a09efe7b014e8218d434d2435e3",
+          "body_bytes": 101,
+          "status": 200,
+          "request_elapsed": 0.01600000000325963,
+          "first_chunk_elapsed": 0.01600000000325963,
+          "completion_written": true,
+          "completion_elapsed": 0.26600000000325963
+        }
+      ],
+      "accepted": [
+        {
+          "elapsed": 0.01600000000325963,
+          "socket_timeout": 1.0,
+          "status": 200,
+          "wrapper": "_ReplayResponse"
+        }
+      ],
+      "logs": [],
+      "outcome": "completed",
+      "call_elapsed": 0.26600000000325963,
+      "scope": {
+        "deadline": 60.0,
+        "opens": 1,
+        "retries": 0,
+        "exposed": true
+      },
+      "downstream_statuses": [
+        200
+      ],
+      "downstream_bytes": 233,
+      "exact_fixture": true
+    },
+    {
+      "case": "retry_disabled",
+      "provider": "cielairouter",
+      "configured_timeout": 1.0,
+      "injected_budget": 0.1,
+      "fixture_delay": 0.25,
+      "opens": [
+        {
+          "timeout_argument": 1.0,
+          "before_open_elapsed": 0.0,
+          "body_sha256": "f4b3d4057ccaf538e0cc09c8561a6a4403918a09efe7b014e8218d434d2435e3",
+          "headers_elapsed": 0.0,
+          "socket_timeout_after_headers": 1.0,
+          "status": 200
+        }
+      ],
+      "fixture_requests": [
+        {
+          "method": "POST",
+          "path": "/v1/responses",
+          "body_sha256": "f4b3d4057ccaf538e0cc09c8561a6a4403918a09efe7b014e8218d434d2435e3",
+          "body_bytes": 101,
+          "status": 200,
+          "request_elapsed": 0.0,
+          "first_chunk_elapsed": 0.0,
+          "completion_written": true,
+          "completion_elapsed": 0.25
+        }
+      ],
+      "accepted": [
+        {
+          "elapsed": 0.0,
+          "socket_timeout": 1.0,
+          "status": 200,
+          "wrapper": "HTTPResponse"
+        }
+      ],
+      "logs": [],
+      "outcome": "completed",
+      "call_elapsed": 0.26600000000325963,
+      "scope": {
+        "deadline": 0.1,
+        "opens": 0,
+        "retries": 0,
+        "exposed": false
+      },
+      "downstream_statuses": [
+        200
+      ],
+      "downstream_bytes": 233,
+      "exact_fixture": true
+    },
+    {
+      "case": "generic_same_short_budget",
+      "provider": "generic",
+      "configured_timeout": 1.0,
+      "injected_budget": 0.1,
+      "fixture_delay": 0.25,
+      "opens": [
+        {
+          "timeout_argument": 1.0,
+          "before_open_elapsed": 0.0,
+          "body_sha256": "f4b3d4057ccaf538e0cc09c8561a6a4403918a09efe7b014e8218d434d2435e3",
+          "headers_elapsed": 0.0,
+          "socket_timeout_after_headers": 1.0,
+          "status": 200
+        }
+      ],
+      "fixture_requests": [
+        {
+          "method": "POST",
+          "path": "/v1/responses",
+          "body_sha256": "f4b3d4057ccaf538e0cc09c8561a6a4403918a09efe7b014e8218d434d2435e3",
+          "body_bytes": 101,
+          "status": 200,
+          "request_elapsed": 0.0,
+          "first_chunk_elapsed": 0.0,
+          "completion_written": true,
+          "completion_elapsed": 0.25
+        }
+      ],
+      "accepted": [
+        {
+          "elapsed": 0.0,
+          "socket_timeout": 1.0,
+          "status": 200,
+          "wrapper": "HTTPResponse"
+        }
+      ],
+      "logs": [],
+      "outcome": "completed",
+      "call_elapsed": 0.25,
+      "scope": {
+        "deadline": 0.1,
+        "opens": 0,
+        "retries": 0,
+        "exposed": false
+      },
+      "downstream_statuses": [
+        200
+      ],
+      "downstream_bytes": 233,
+      "exact_fixture": true
+    },
+    {
+      "case": "unmodified_default_60s_cap_configured_120s",
+      "provider": "cielairouter",
+      "configured_timeout": 120.0,
+      "injected_budget": null,
+      "fixture_delay": 0.25,
+      "opens": [
+        {
+          "timeout_argument": 60.0,
+          "before_open_elapsed": 0.0,
+          "body_sha256": "f4b3d4057ccaf538e0cc09c8561a6a4403918a09efe7b014e8218d434d2435e3",
+          "headers_elapsed": 0.0,
+          "socket_timeout_after_headers": 60.0,
+          "status": 200
+        }
+      ],
+      "fixture_requests": [
+        {
+          "method": "POST",
+          "path": "/v1/responses",
+          "body_sha256": "f4b3d4057ccaf538e0cc09c8561a6a4403918a09efe7b014e8218d434d2435e3",
+          "body_bytes": 101,
+          "status": 200,
+          "request_elapsed": 0.0,
+          "first_chunk_elapsed": 0.0,
+          "completion_written": true,
+          "completion_elapsed": 0.25
+        }
+      ],
+      "accepted": [
+        {
+          "elapsed": 0.0,
+          "socket_timeout": 60.0,
+          "status": 200,
+          "wrapper": "_ReplayResponse"
+        }
+      ],
+      "logs": [],
+      "outcome": "completed",
+      "call_elapsed": 0.25,
+      "scope": {
+        "deadline": 60.0,
+        "opens": 1,
+        "retries": 0,
+        "exposed": true
+      },
+      "downstream_statuses": [
+        200
+      ],
+      "downstream_bytes": 233,
+      "exact_fixture": true
+    }
+  ],
+  "assertions": "all passed; loopback only; one open each; no replay"
+}

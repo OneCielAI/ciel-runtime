@@ -1,5 +1,7 @@
 """Embedded statusline program distributed with Ciel Runtime."""
 
+from pathlib import Path as _Path
+
 STATUSLINE_SCRIPT = r'''#!/usr/bin/env python3
 import hashlib
 import json
@@ -383,6 +385,29 @@ def _status_channel_message_skip_reason(message):
     return ""
 
 
+def runtime_delivery_status_text():
+    # Installed statuslines can run outside the package directory. Missing
+    # package observation is unknown, never an empty/healthy private queue.
+    try:
+        sys.path.insert(0, __CIEL_RUNTIME_PACKAGE_ROOT__)
+        from ciel_runtime_support.runtime_input_delivery_health import (
+            runtime_input_delivery_health, delivery_health_text,
+        )
+        health = runtime_input_delivery_health(
+            status_path=WORKSPACE_STATE_DIR / "runtime-input-status.jsonl",
+            inputs_path=WORKSPACE_STATE_DIR / "runtime-inputs.jsonl",
+        )
+        failure = health.get("last_failure") if isinstance(health.get("last_failure"), dict) else {}
+        # A resend in progress is queued; a failure stays visible for ten
+        # minutes so an exhausted resend is not silent once the queue drains.
+        recent_failure = time.time() - float(failure.get("at_epoch") or 0) < 600
+        if health.get("admission_blocked") or health.get("known_queued_count") or recent_failure:
+            return "session delivery " + delivery_health_text(health)
+    except (ImportError, OSError, ValueError):
+        return "session delivery unknown"
+    return ""
+
+
 def channel_pending_status_count():
     cursor = load_json(CHANNEL_LLM_CURSOR_PATH, {})
     last_id = _as_int(cursor.get("last_id") if isinstance(cursor, dict) else 0)
@@ -570,6 +595,9 @@ def main():
     cache_text = session_cache_status_text(session)
     if cache_text:
         status_parts.append(color(cache_text))
+    delivery_text = runtime_delivery_status_text()
+    if delivery_text:
+        status_parts.append(color(delivery_text))
     channel_pending = channel_pending_status_count()
     if channel_pending > 0:
         status_parts.append(color(f"channel queue {channel_pending}"))
@@ -697,6 +725,12 @@ def main():
                 compact_text = color(f"context guard {compact_chunks:,} groups")
             elif str(compact_activity.get("event") or "") == "compact":
                 compact_text = color("compact pending")
+            try:
+                reused = max(0, int(compact_activity.get("reused_chunks") or 0))
+            except Exception:
+                reused = 0
+            if reused and compact_text:
+                compact_text += " " + color(f"reused {reused:,}")
             if parallel_sessions > 1 and compact_phase in {"map", "reduce"}:
                 compact_text += " " + color(f"parallel {parallel_sessions:,}/{compact_chunks:,}")
     if compact_text:
@@ -712,3 +746,8 @@ if __name__ == "__main__":
     main()
 
 '''
+
+# Bind only the generated script to its installed package, not the caller cwd.
+STATUSLINE_SCRIPT = STATUSLINE_SCRIPT.replace(
+    "__CIEL_RUNTIME_PACKAGE_ROOT__", repr(str(_Path(__file__).resolve().parent.parent)),
+)

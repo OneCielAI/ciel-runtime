@@ -4,9 +4,12 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from dataclasses import dataclass
+import time
 from typing import Any, Callable
 
+from ciel_runtime_support import runtime_input_retry
 from ciel_runtime_support.channel_message_repository import ChannelFileLockBusy
+from ciel_runtime_support.runtime_input_status import WakeAttemptConflict
 from ciel_runtime_support.channel_message_policy import (
     message_input_transport,
     message_is_external_event,
@@ -126,6 +129,8 @@ def _submission_boundary(io: ChannelInjectionIO):
     # bookkeeping is not evidence that nothing was submitted.
     try:
         yield
+    except WakeAttemptConflict as exc:
+        raise RuntimeError("wake ownership failure after submission attempt") from exc
     except ChannelFileLockBusy as exc:
         io.log(
             "ERROR",
@@ -145,6 +150,8 @@ def _release_claims(claimed_ids: list[int], services: ChannelInjectionServices) 
         except Exception as exc:
             if first_error is None:
                 first_error = exc
+    if isinstance(first_error, WakeAttemptConflict):
+        raise RuntimeError("channel claim cleanup incomplete") from first_error
     if isinstance(first_error, ChannelFileLockBusy):
         services.io.log(
             "ERROR",
@@ -230,6 +237,28 @@ def inject_pending_channel_messages(
                     "action=skipped",
                 )
                 continue
+            admission_status = getattr(wake_store.lifecycle, "admission_status", None)
+            durable = admission_status(message_id) if callable(admission_status) else ""
+            if durable in {"replied", "skipped"}:
+                io.log("INFO", f"channel_stdin_proxy_skipped_noise message_id={message_id} reason=durable_{durable}")
+                continue
+            pending_retry = getattr(wake_store.lifecycle, "pending_retry", None)
+            retry = pending_retry(message_id) if durable == "queued" and callable(pending_retry) else None
+            if retry is not None:
+                # A resend after a transient upstream error stays ahead of
+                # every later input, waits out its interval, and goes into a
+                # fresh turn - never into a turn that is already running.
+                not_due = time.time() < float(retry.get("due_epoch") or 0)
+                if not_due or active_tool_call or active_turn:
+                    io.log("INFO", f"channel_stdin_proxy_deferred message_id={message_id} "
+                           f"reason={'retry_not_due' if not_due else 'retry_waits_for_idle'} "
+                           f"attempt={retry.get('attempt')}/{retry.get('limit')}")
+                    deferred.mark(message_id)
+                    last_id = previous_last_id
+                    if pending:
+                        break
+                    return deferred.clamp(last_id)
+                message = runtime_input_retry.resend_message(message, retry)
             if web_chat_only and not state.message_is_web_chat(message):
                 io.log("INFO", f"channel_stdin_proxy_skipped_noise message_id={message_id} channel={channel} reason=not_web_chat")
                 continue
@@ -301,6 +330,19 @@ def inject_pending_channel_messages(
             wake_state = state.wake_state_for_message(message, message_prompt)
             if wake_state == "completed":
                 io.log("INFO", f"channel_stdin_proxy_skipped_noise message_id={message_id} channel={channel} reason=stdin_wake_completed")
+                continue
+            if runtime_input_retry.is_failed_state(wake_state) and retry is None and durable != "submitted":
+                # Answered by an API error and not scheduled for a resend:
+                # settled by the inflight confirmation, never replayed here.
+                # A still-submitted row is held below until that settles.
+                io.log("INFO", f"channel_stdin_proxy_skipped_noise message_id={message_id} channel={channel} reason=stdin_wake_turn_failed")
+                continue
+            if durable == "submitted":
+                # Missing transcript evidence is not proof that an owned send
+                # never happened. Preserve the frontier; scan later inputs
+                # without resubmitting this one or adopting its attempt.
+                deferred.mark(message_id)
+                io.log("INFO", f"channel_stdin_proxy_deferred message_id={message_id} reason=ownership_submitted action=no_replay")
                 continue
             if not terminal_available and not candidate_uses_router and wake_store.lifecycle.is_delivered(message_id):
                 io.log("INFO", f"channel_stdin_proxy_skipped_noise message_id={message_id} channel={channel} reason=stdin_wake_delivered")

@@ -1,0 +1,12 @@
+{
+ "run": "G:\\ciel-e2e\\sse-resend\\menu-1792836098",
+ "launcher_pid": 59508,
+ "shot_main-menu": "saved C:\\Users\\djlov\\ciel-runtime-wt-timeout\\docs\\journal\\2026\\10\\24\\fixes\\sse-turn-error-resend\\evidence\\menu-shots\\main-menu.png handle=65739460 printwindow=True",
+ "shot_external-events": "saved C:\\Users\\djlov\\ciel-runtime-wt-timeout\\docs\\journal\\2026\\10\\24\\fixes\\sse-turn-error-resend\\evidence\\menu-shots\\external-events.png handle=65739460 printwindow=True",
+ "shot_limit-set": "saved C:\\Users\\djlov\\ciel-runtime-wt-timeout\\docs\\journal\\2026\\10\\24\\fixes\\sse-turn-error-resend\\evidence\\menu-shots\\limit-set.png handle=65739460 printwindow=True",
+ "driver_exit": 0,
+ "saved_runtime_input_retry": {
+  "limit": 5
+ },
+ "cleanup": "stopped 59508"
+}

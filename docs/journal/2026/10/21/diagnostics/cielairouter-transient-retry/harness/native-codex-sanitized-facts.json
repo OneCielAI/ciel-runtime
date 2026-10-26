@@ -1,0 +1,428 @@
+[
+  {
+    "source": "native-codex-installed-0.158.0.json",
+    "source_sha256": "9e631765573fdc8e912b3dcce77143c9ec9377f584bc79529ac03d52d7362e06",
+    "generated_at": "2026-10-21T18:57:50+00:00",
+    "binary_version": "codex-cli 0.158.0",
+    "binary_sha256": "af02050cc0c95f5aeb714af2c1077e635c58e9896c13c89d75099cf5b96477be",
+    "cases": [
+      {
+        "name": "request_503_then_success",
+        "script": [
+          "fail503",
+          "success"
+        ],
+        "config": {
+          "request_max_retries": 3,
+          "stream_max_retries": 0
+        },
+        "expected_hits": 2,
+        "observed_hits": 2,
+        "expected_hit_match": true,
+        "returncode": 0,
+        "timed_out": false,
+        "elapsed_seconds": 0.8,
+        "last_message": "ok",
+        "request_body_sha256s": [
+          "c86af13db6434475b64530ee84653799774fd4bf8296d7f6d70db120809b1b92",
+          "c86af13db6434475b64530ee84653799774fd4bf8296d7f6d70db120809b1b92"
+        ],
+        "request_paths": [
+          "/v1/responses",
+          "/v1/responses"
+        ]
+      },
+      {
+        "name": "request_503_all_fail_limit3",
+        "script": [
+          "fail503"
+        ],
+        "config": {
+          "request_max_retries": 3,
+          "stream_max_retries": 0
+        },
+        "expected_hits": 4,
+        "observed_hits": 4,
+        "expected_hit_match": true,
+        "returncode": 1,
+        "timed_out": false,
+        "elapsed_seconds": 1.8,
+        "last_message": null,
+        "request_body_sha256s": [
+          "988d3e6847027808effc1e29aa452aaf10af4871f5d5e49843722177dc9ee748",
+          "988d3e6847027808effc1e29aa452aaf10af4871f5d5e49843722177dc9ee748",
+          "988d3e6847027808effc1e29aa452aaf10af4871f5d5e49843722177dc9ee748",
+          "988d3e6847027808effc1e29aa452aaf10af4871f5d5e49843722177dc9ee748"
+        ],
+        "request_paths": [
+          "/v1/responses",
+          "/v1/responses",
+          "/v1/responses",
+          "/v1/responses"
+        ]
+      },
+      {
+        "name": "request_503_limit0",
+        "script": [
+          "fail503"
+        ],
+        "config": {
+          "request_max_retries": 0,
+          "stream_max_retries": 0
+        },
+        "expected_hits": 1,
+        "observed_hits": 1,
+        "expected_hit_match": true,
+        "returncode": 1,
+        "timed_out": false,
+        "elapsed_seconds": 0.58,
+        "last_message": null,
+        "request_body_sha256s": [
+          "6899fe6dea76de8bbe7181ab300aff226a9a2d7e235f45e3e80ef90a233b9022"
+        ],
+        "request_paths": [
+          "/v1/responses"
+        ]
+      },
+      {
+        "name": "screenshot_error_before_output_stream0",
+        "script": [
+          "screenshot_error",
+          "success"
+        ],
+        "config": {
+          "request_max_retries": 3,
+          "stream_max_retries": 0
+        },
+        "expected_hits": 1,
+        "observed_hits": 1,
+        "expected_hit_match": true,
+        "returncode": 1,
+        "timed_out": true,
+        "elapsed_seconds": 61.03,
+        "last_message": null,
+        "request_body_sha256s": [
+          "9c536e5b0c1e4c89aff2f1e72c0947aa9f43a2ad7cd5d59fbe6629b7005ffab1"
+        ],
+        "request_paths": [
+          "/v1/responses"
+        ]
+      },
+      {
+        "name": "screenshot_error_before_output_stream2",
+        "script": [
+          "screenshot_error",
+          "success"
+        ],
+        "config": {
+          "request_max_retries": 3,
+          "stream_max_retries": 2
+        },
+        "expected_hits": null,
+        "observed_hits": 2,
+        "expected_hit_match": null,
+        "returncode": 0,
+        "timed_out": false,
+        "elapsed_seconds": 1.69,
+        "last_message": "ok",
+        "request_body_sha256s": [
+          "757dd774bf742f4077469a84d7494ffffde11f04f37b9a21fe75a01307053e5a",
+          "6611b57ed9d8172ae28fec7a104d1e6ec5477be9cd394fc0a4c64ce375049362"
+        ],
+        "request_paths": [
+          "/v1/responses",
+          "/v1/responses"
+        ]
+      },
+      {
+        "name": "screenshot_error_after_output_stream0",
+        "script": [
+          "partial_then_error",
+          "success"
+        ],
+        "config": {
+          "request_max_retries": 3,
+          "stream_max_retries": 0
+        },
+        "expected_hits": 1,
+        "observed_hits": 1,
+        "expected_hit_match": true,
+        "returncode": 1,
+        "timed_out": false,
+        "elapsed_seconds": 0.44,
+        "last_message": null,
+        "request_body_sha256s": [
+          "3dabe801c0571c21eb88ae13217632eeffee1ad17787edfa4d2460eccd79d6c9"
+        ],
+        "request_paths": [
+          "/v1/responses"
+        ]
+      },
+      {
+        "name": "screenshot_error_after_output_stream2",
+        "script": [
+          "partial_then_error",
+          "success"
+        ],
+        "config": {
+          "request_max_retries": 3,
+          "stream_max_retries": 2
+        },
+        "expected_hits": null,
+        "observed_hits": 2,
+        "expected_hit_match": null,
+        "returncode": 0,
+        "timed_out": false,
+        "elapsed_seconds": 1.7,
+        "last_message": "ok",
+        "request_body_sha256s": [
+          "4760357a134e5db2fd4e918491a8f1138cdda7a5df4bc557147b153d6e7bdf1e",
+          "62f8d3024556e02075de704caae7d39491232ab9d4dd1076d6ffb142dd6641c0"
+        ],
+        "request_paths": [
+          "/v1/responses",
+          "/v1/responses"
+        ]
+      },
+      {
+        "name": "native_response_failed_before_output_stream2",
+        "script": [
+          "native_failed",
+          "success"
+        ],
+        "config": {
+          "request_max_retries": 3,
+          "stream_max_retries": 2
+        },
+        "expected_hits": null,
+        "observed_hits": 2,
+        "expected_hit_match": null,
+        "returncode": 0,
+        "timed_out": false,
+        "elapsed_seconds": 1.67,
+        "last_message": "ok",
+        "request_body_sha256s": [
+          "87d0bb52346a542eaef97effa0382c49c19d3ecbe49856aab45bb6fc51c99096",
+          "48ad0cc958dba93fa6c6c95bafc4f591729532a2e76df7f0f134301001c1497a"
+        ],
+        "request_paths": [
+          "/v1/responses",
+          "/v1/responses"
+        ]
+      }
+    ]
+  },
+  {
+    "source": "native-codex-second-install-0.163.0.json",
+    "source_sha256": "7a98f95f24df8941923746c529b44cc9829f9eed73c3556069a919dbc8babf3b",
+    "generated_at": "2026-10-21T18:59:13+00:00",
+    "binary_version": "codex-cli 0.163.0",
+    "binary_sha256": "2692c8c7bb2cf8b0aefe638741fc90236f4b824c59578ce84994f9de58200993",
+    "cases": [
+      {
+        "name": "request_503_then_success",
+        "script": [
+          "fail503",
+          "success"
+        ],
+        "config": {
+          "request_max_retries": 3,
+          "stream_max_retries": 0
+        },
+        "expected_hits": 2,
+        "observed_hits": 2,
+        "expected_hit_match": true,
+        "returncode": 0,
+        "timed_out": false,
+        "elapsed_seconds": 0.73,
+        "last_message": "ok",
+        "request_body_sha256s": [
+          "f01cef74e3a682124d09cfc08b05c25a93031f7ad8846ee8dee89964f4498c86",
+          "f01cef74e3a682124d09cfc08b05c25a93031f7ad8846ee8dee89964f4498c86"
+        ],
+        "request_paths": [
+          "/v1/responses",
+          "/v1/responses"
+        ]
+      },
+      {
+        "name": "request_503_all_fail_limit3",
+        "script": [
+          "fail503"
+        ],
+        "config": {
+          "request_max_retries": 3,
+          "stream_max_retries": 0
+        },
+        "expected_hits": 4,
+        "observed_hits": 4,
+        "expected_hit_match": true,
+        "returncode": 1,
+        "timed_out": false,
+        "elapsed_seconds": 2.66,
+        "last_message": null,
+        "request_body_sha256s": [
+          "e3a7b6a655b9cf22cf782ac15050060f301fc70dfd3185e51fe42d11d1c824aa",
+          "e3a7b6a655b9cf22cf782ac15050060f301fc70dfd3185e51fe42d11d1c824aa",
+          "e3a7b6a655b9cf22cf782ac15050060f301fc70dfd3185e51fe42d11d1c824aa",
+          "e3a7b6a655b9cf22cf782ac15050060f301fc70dfd3185e51fe42d11d1c824aa"
+        ],
+        "request_paths": [
+          "/v1/responses",
+          "/v1/responses",
+          "/v1/responses",
+          "/v1/responses"
+        ]
+      },
+      {
+        "name": "request_503_limit0",
+        "script": [
+          "fail503"
+        ],
+        "config": {
+          "request_max_retries": 0,
+          "stream_max_retries": 0
+        },
+        "expected_hits": 1,
+        "observed_hits": 1,
+        "expected_hit_match": true,
+        "returncode": 1,
+        "timed_out": false,
+        "elapsed_seconds": 1.02,
+        "last_message": null,
+        "request_body_sha256s": [
+          "c210b1c6f0fe211c207051ac8a69cbd8625ed6a53f7f311d814a3ce7e4ecb10b"
+        ],
+        "request_paths": [
+          "/v1/responses"
+        ]
+      },
+      {
+        "name": "screenshot_error_before_output_stream0",
+        "script": [
+          "screenshot_error",
+          "success"
+        ],
+        "config": {
+          "request_max_retries": 3,
+          "stream_max_retries": 0
+        },
+        "expected_hits": 1,
+        "observed_hits": 1,
+        "expected_hit_match": true,
+        "returncode": 1,
+        "timed_out": false,
+        "elapsed_seconds": 0.95,
+        "last_message": null,
+        "request_body_sha256s": [
+          "66c586fbaee5350ea90264a056f7357bf34c18675b8af372b19f9f10b9b949f9"
+        ],
+        "request_paths": [
+          "/v1/responses"
+        ]
+      },
+      {
+        "name": "screenshot_error_before_output_stream2",
+        "script": [
+          "screenshot_error",
+          "success"
+        ],
+        "config": {
+          "request_max_retries": 3,
+          "stream_max_retries": 2
+        },
+        "expected_hits": null,
+        "observed_hits": 2,
+        "expected_hit_match": null,
+        "returncode": 0,
+        "timed_out": false,
+        "elapsed_seconds": 0.8,
+        "last_message": "ok",
+        "request_body_sha256s": [
+          "a77ac35c5c9c23ac86cb0c45b0b2cc81b351c22cce1f3d13712c5fe0e050914b",
+          "c7207b84f63f4022d820a71007baf885cbbe8df3558a8c9697ee36d9fc3bcb83"
+        ],
+        "request_paths": [
+          "/v1/responses",
+          "/v1/responses"
+        ]
+      },
+      {
+        "name": "screenshot_error_after_output_stream0",
+        "script": [
+          "partial_then_error",
+          "success"
+        ],
+        "config": {
+          "request_max_retries": 3,
+          "stream_max_retries": 0
+        },
+        "expected_hits": 1,
+        "observed_hits": 1,
+        "expected_hit_match": true,
+        "returncode": 1,
+        "timed_out": false,
+        "elapsed_seconds": 0.48,
+        "last_message": null,
+        "request_body_sha256s": [
+          "e611b398ce17a999e3f178a7db984f641ee4667484a1e5545a66b21da3d8002e"
+        ],
+        "request_paths": [
+          "/v1/responses"
+        ]
+      },
+      {
+        "name": "screenshot_error_after_output_stream2",
+        "script": [
+          "partial_then_error",
+          "success"
+        ],
+        "config": {
+          "request_max_retries": 3,
+          "stream_max_retries": 2
+        },
+        "expected_hits": null,
+        "observed_hits": 2,
+        "expected_hit_match": null,
+        "returncode": 0,
+        "timed_out": false,
+        "elapsed_seconds": 2.19,
+        "last_message": "ok",
+        "request_body_sha256s": [
+          "0f8ab738fbca5e4281ab20175d533cc289e7052b7a96cb582cea321095c93d01",
+          "da6091e140f41d20804338ec61734248926a63b5211819f7f92204014f12bbf0"
+        ],
+        "request_paths": [
+          "/v1/responses",
+          "/v1/responses"
+        ]
+      },
+      {
+        "name": "native_response_failed_before_output_stream2",
+        "script": [
+          "native_failed",
+          "success"
+        ],
+        "config": {
+          "request_max_retries": 3,
+          "stream_max_retries": 2
+        },
+        "expected_hits": null,
+        "observed_hits": 2,
+        "expected_hit_match": null,
+        "returncode": 0,
+        "timed_out": false,
+        "elapsed_seconds": 1.61,
+        "last_message": "ok",
+        "request_body_sha256s": [
+          "2c13847de60fb2b5b1890a0e52e8837130220481520c886545995a3451c44bf5",
+          "53fcf182360e1095c739ee865424c7f687b5082bdc610bcd5a232ece74c3498a"
+        ],
+        "request_paths": [
+          "/v1/responses",
+          "/v1/responses"
+        ]
+      }
+    ]
+  }
+]

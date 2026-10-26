@@ -19,6 +19,136 @@ from .runaway_output_guard import (
     recent_runaway_notices,
 )
 from .remote_bridge import is_remote_bridge_request
+from .upstream_stream_io import UpstreamClientDisconnected, client_connection_closed
+
+
+def downstream_keepalive_interval() -> float:
+    """One keepalive policy for semantic admission and upstream SSE relay."""
+    raw = os.environ.get("CIEL_RUNTIME_ANTHROPIC_STREAM_KEEPALIVE_SECONDS")
+    if raw is None:
+        return 15.0
+    try:
+        return max(0.0, min(120.0, float(raw)))
+    except (TypeError, ValueError, OverflowError):
+        return 15.0
+
+
+class SemanticCompactionSSE:
+    """Request-local early envelope; the sidecar only probes and writes pings.
+
+    The request thread must join the sole heartbeat writer before relaying or
+    reporting an error. A stuck writer fails closed instead of handing off.
+    Summary generation deliberately never runs on this thread.
+    """
+
+    def __init__(self, handler: Any) -> None:
+        self.handler = handler
+        self.state = "UNSTARTED"
+        self.cancel_event = threading.Event()
+        self._stop = threading.Event()
+        self._thread: threading.Thread | None = None
+
+    @property
+    def started(self) -> bool:
+        return self.state != "UNSTARTED"
+
+    def cancelled(self) -> bool:
+        if not self.cancel_event.is_set() and client_connection_closed(self.handler):
+            self.cancel_event.set()
+        return self.cancel_event.is_set()
+
+    def check_cancelled(self) -> None:
+        if self.started and self.cancelled():
+            raise UpstreamClientDisconnected("downstream client disconnected during compaction")
+
+    def _ping(self) -> None:
+        self.handler.wfile.write(b'event: ping\ndata: {"type":"ping"}\n\n')
+        self.handler.wfile.flush()
+
+    def start(self) -> None:
+        if self.cancelled():
+            raise UpstreamClientDisconnected("downstream client disconnected before compaction")
+        if self.started:
+            return
+        # Mark before writing any headers: even a partial commit cannot be
+        # answered with another HTTP status line.
+        self.state = "EARLY_SSE"
+        self.handler.close_connection = True
+        try:
+            self.handler.send_response(200)
+            self.handler.send_header("content-type", "text/event-stream")
+            self.handler.send_header("cache-control", "no-cache")
+            self.handler.send_header("connection", "close")
+            self.handler.end_headers()
+            self._ping()
+        except Exception:
+            self.cancel_event.set()
+            raise
+        self._thread = threading.Thread(
+            target=self._heartbeat, daemon=True, name="ciel-compaction-heartbeat",
+        )
+        self._thread.start()
+
+    def _heartbeat(self) -> None:
+        interval = downstream_keepalive_interval()
+        next_ping = time.monotonic() + interval
+        try:
+            while not self._stop.wait(0.25):
+                if self.cancelled():
+                    return
+                if interval > 0 and time.monotonic() >= next_ping:
+                    if self._stop.is_set():
+                        return
+                    self._ping()
+                    next_ping = time.monotonic() + interval
+        except Exception:
+            self.cancel_event.set()
+
+    def stop(self) -> bool:
+        """Bounded writer join. False forbids any further downstream writes."""
+        self._stop.set()
+        thread = self._thread
+        if thread is not None:
+            thread.join(timeout=1.0)
+            if thread.is_alive():
+                self.cancel_event.set()
+                # Interrupt a blocked socket write; never race it with relay.
+                connection = getattr(self.handler, "connection", None)
+                if connection is not None:
+                    try:
+                        connection.shutdown(2)
+                    except OSError:
+                        pass
+                thread.join(timeout=1.0)
+                return False
+        return True
+
+    def handoff(self) -> None:
+        if not self.stop():
+            raise UpstreamClientDisconnected("compaction heartbeat writer did not stop")
+        self.check_cancelled()
+        self.state = "RELAYING"
+
+    def fail(self, payload: dict[str, Any]) -> None:
+        """At most one typed error, and only before the existing relay owns IO."""
+        stopped = self.stop()
+        if self.state != "EARLY_SSE":
+            return
+        self.state = "TERMINAL"
+        self.handler.close_connection = True
+        if not stopped or self.cancelled():
+            return
+        try:
+            data = json.dumps(payload, ensure_ascii=False)
+            self.handler.wfile.write(f"event: error\ndata: {data}\n\n".encode("utf-8"))
+            self.handler.wfile.flush()
+        except Exception:
+            self.cancel_event.set()
+
+    def finish(self) -> None:
+        self.stop()
+        if self.started:
+            self.state = "TERMINAL"
 
 
 def _remote_noop(*_args: Any, **_kwargs: Any) -> None:
@@ -55,6 +185,18 @@ def _stream_runaway_policy(handler: Any) -> RunawayOutputPolicy:
 
 def _remote_empty_list(*_args: Any, **_kwargs: Any) -> list[Any]:
     return []
+
+
+def _ignore_stream_failure(_metadata: dict[str, Any]) -> None:
+    return None
+
+
+def _stream_session_id(handler: Any) -> str | None:
+    getter = getattr(getattr(handler, "headers", None), "get", None)
+    value = getter("x-claude-code-session-id") if callable(getter) else None
+    if not isinstance(value, str):
+        return None
+    return value.strip()[:128] or None
 
 
 def _complete_sse_data(parts: list[str]) -> bool:
@@ -193,6 +335,7 @@ def rebatch_anthropic_sse_text(
     provider: str = "",
     *,
     services: AnthropicStreamServices,
+    stream_failure_observer: Callable[[dict[str, Any]], None] = _ignore_stream_failure,
 ) -> None:
     """
     Parse upstream Anthropic SSE and re-emit it with text_delta events buffered
@@ -200,6 +343,11 @@ def rebatch_anthropic_sse_text(
     When the selected provider cannot preserve Anthropic's thinking passback
     contract, thinking blocks are suppressed and later content block indices are
     compacted.
+
+    ``stream_failure_observer`` receives one metadata dict after a stream that
+    did not complete, once the upstream response is closed. It carries counts
+    and flags only, never body text, tool arguments or credentials, and it
+    cannot change what was sent downstream.
     """
 
     ANTHROPIC_THINKING_BLOCK_TYPES = services.io.ANTHROPIC_THINKING_BLOCK_TYPES
@@ -281,6 +429,20 @@ def rebatch_anthropic_sse_text(
     reading_upstream = True
     completing_stream = False
     failure_reason: str | None = None
+    # Failure metadata: how the upstream side ended, as far as it was observed.
+    upstream_message_id: str | None = None
+    upstream_error_type = ""
+    upstream_eof = False
+    upstream_read_failed = False
+    client_disconnected = False
+    # Text the client actually received: counted only after emit_raw flushed it.
+    visible_text_len = 0
+    # Any upstream block whose type ends in "tool_use" (tool_use,
+    # server_tool_use, mcp_tool_use, ...) or any tool-input delta. Metadata
+    # only: it never changes what is relayed.
+    saw_tool_like_block = False
+    # A pseudo XML tool call was detected in streamed text at least once.
+    saw_pseudo_tool_text = False
     allow_tasklist_synthesis = should_synthesize_tasklist_for_provider(provider)
     filter_visible_tool_call_artifacts = bool(
         provider == "anthropic"
@@ -300,15 +462,6 @@ def rebatch_anthropic_sse_text(
         nonlocal runaway_verdict
         if runaway_verdict is None:
             runaway_verdict = detector.feed(text)
-
-    def downstream_keepalive_interval() -> float:
-        raw = os.environ.get("CIEL_RUNTIME_ANTHROPIC_STREAM_KEEPALIVE_SECONDS")
-        if raw is None:
-            return 15.0
-        try:
-            return max(0.0, min(120.0, float(raw)))
-        except Exception:
-            return 15.0
 
     def emit_raw(event_type: str | None, data_str: str) -> None:
         try:
@@ -372,6 +525,13 @@ def rebatch_anthropic_sse_text(
                 raise value
             return
 
+    def note_visible_text(text: Any) -> None:
+        """Call only after emit_raw returned, i.e. the bytes were written and flushed."""
+
+        nonlocal visible_text_len
+        if isinstance(text, str):
+            visible_text_len += len(text)
+
     def emit_text_delta_raw(index: int, text: str) -> None:
         if not text:
             return
@@ -381,6 +541,7 @@ def rebatch_anthropic_sse_text(
             "delta": {"type": "text_delta", "text": text},
         }
         emit_raw("content_block_delta", json.dumps(payload, ensure_ascii=False))
+        note_visible_text(text)
 
     def emit_text_delta(index: int, text: str) -> None:
         if not text:
@@ -617,11 +778,13 @@ def rebatch_anthropic_sse_text(
     def tracked_upstream_lines() -> Iterable[Any]:
         """Mark whether a failure came from reading upstream or from relaying a line."""
 
-        nonlocal reading_upstream
+        nonlocal reading_upstream, upstream_eof
         for raw_line in upstream_lines_with_downstream_keepalive():
             reading_upstream = False
             yield raw_line
             reading_upstream = True
+        # Reached only when the upstream ran out, not when the relay stopped reading.
+        upstream_eof = True
 
     def flush_received_text(*, unfinished: bool = False) -> None:
         for index in list(text_buffers.keys()):
@@ -635,7 +798,12 @@ def rebatch_anthropic_sse_text(
     def forward_upstream_error(event_type: str | None, data_str: str) -> None:
         """Relay Anthropic's in-stream error after what preceded it; nothing follows it."""
 
-        nonlocal upstream_error_forwarded, ending_started
+        nonlocal upstream_error_forwarded, ending_started, upstream_error_type
+        try:
+            parsed_error = json.loads(data_str).get("error")
+            upstream_error_type = str(parsed_error.get("type") or "")[:64] if isinstance(parsed_error, dict) else ""
+        except (AttributeError, TypeError, ValueError):
+            upstream_error_type = ""
         flush_received_text(unfinished=True)
         upstream_error_forwarded = True
         ending_started = True
@@ -874,7 +1042,7 @@ def rebatch_anthropic_sse_text(
         return True
 
     def process_event(event_type: str | None, data_str: str) -> None:
-        nonlocal saw_message_start, saw_message_stop, text_so_far, saw_tool_use, emitted_tool_use, next_content_index, pending_message_delta, pending_message_stop
+        nonlocal saw_message_start, saw_message_stop, text_so_far, saw_tool_use, emitted_tool_use, next_content_index, pending_message_delta, pending_message_stop, upstream_message_id, saw_tool_like_block, saw_pseudo_tool_text
         if saw_message_stop and not completing_stream:
             router_log("WARN", f"anthropic_sse_event_after_message_stop_ignored provider={provider} model={model} event={event_type or '-'}")
             return
@@ -895,6 +1063,9 @@ def rebatch_anthropic_sse_text(
             return
         if evt_type == "message_start":
             saw_message_start = True
+            message = event.get("message")
+            if isinstance(message, dict) and isinstance(message.get("id"), str):
+                upstream_message_id = message["id"][:128]
         elif evt_type == "message_stop":
             saw_message_stop = True
             pending_message_stop = (event_type, data_str)
@@ -902,6 +1073,9 @@ def rebatch_anthropic_sse_text(
         elif evt_type == "content_block_start":
             index = event.get("index")
             content_block = event.get("content_block") if isinstance(event.get("content_block"), dict) else {}
+            block_type = content_block.get("type")
+            if isinstance(block_type, str) and block_type.endswith("tool_use"):
+                saw_tool_like_block = True
             mapped_index: int | None = None
             if isinstance(index, int):
                 if not preserve_thinking and content_block.get("type") in ANTHROPIC_THINKING_BLOCK_TYPES:
@@ -1100,6 +1274,8 @@ def rebatch_anthropic_sse_text(
             return
         if evt_type == "content_block_delta":
             delta = event.get("delta") if isinstance(event.get("delta"), dict) else {}
+            if delta.get("type") == "input_json_delta":
+                saw_tool_like_block = True
             index = event.get("index")
             mapped_index = mapped_content_index(index)
             if isinstance(index, int) and mapped_index is None:
@@ -1131,6 +1307,7 @@ def rebatch_anthropic_sse_text(
                     return
                 pseudo_start = _find_pseudo_xml_tool_start(text, source_body) if provider != "anthropic" else -1
                 if pseudo_start >= 0:
+                    saw_pseudo_tool_text = True
                     prefix = text[:pseudo_start]
                     held_pseudo_tool_text[mapped_index] = text[pseudo_start:]
                     if not prefix:
@@ -1148,6 +1325,8 @@ def rebatch_anthropic_sse_text(
                 flush_buffer(mapped_index, force=False)
                 return
             emit_raw(event_type, data_str)
+            if delta.get("type") == "text_delta":
+                note_visible_text(delta.get("text"))
             return
         if evt_type == "content_block_stop":
             index = event.get("index")
@@ -1172,6 +1351,11 @@ def rebatch_anthropic_sse_text(
         if evt_type == "message_stop":
             flush_suppressed_thinking_passback()
         emit_raw(event_type, data_str)
+        if evt_type == "content_block_start":
+            # A text block may carry initial text in content_block_start.
+            started_block = event.get("content_block")
+            if isinstance(started_block, dict) and started_block.get("type") == "text":
+                note_visible_text(started_block.get("text"))
 
     def stream_state() -> str:
         return (
@@ -1179,6 +1363,62 @@ def rebatch_anthropic_sse_text(
             f"message_start={saw_message_start} message_delta={pending_message_delta is not None} "
             f"open_blocks={len(open_content_blocks) + len(buffered_tool_uses)}"
         )
+
+    def stream_failure_metadata(reason: str) -> dict[str, Any]:
+        """Counts and flags only; no body text, tool arguments or credentials."""
+
+        return {
+            "event": "anthropic_stream_failure",
+            "provider": provider,
+            "model": model,
+            "session_id": _stream_session_id(handler),
+            "upstream_message_id": upstream_message_id,
+            # The upstream itself ended (EOF, read error or error event) without
+            # message_stop. False when the relay stopped reading first, so the
+            # upstream's own ending is unknown.
+            "confirmed_incomplete": bool(
+                not saw_message_stop and (upstream_eof or upstream_read_failed or upstream_error_forwarded)
+            ),
+            # Text received from upstream, including text the relay still held.
+            "text_len": len(text_so_far),
+            # Text the client received: text_delta (and initial text-block
+            # text) counted only after the write and flush succeeded.
+            "visible_text_len": visible_text_len,
+            "emitted_tool_use": emitted_tool_use,
+            # Only blocks typed exactly "tool_use"; see saw_tool_like_block.
+            "saw_tool_use": saw_tool_use,
+            "saw_tool_like_block": saw_tool_like_block,
+            "saw_pseudo_tool_text": saw_pseudo_tool_text,
+            # Indices whose pseudo tool-call text was held and never relayed.
+            "held_pseudo_tool_text": len(held_pseudo_tool_text),
+            # Conservative: any client, server or MCP tool block, tool-input
+            # delta, held tool_use, or pseudo tool text makes this True.
+            "tool_uncertain": bool(
+                saw_tool_use
+                or emitted_tool_use
+                or saw_tool_like_block
+                or buffered_tool_uses
+                or saw_pseudo_tool_text
+                or held_pseudo_tool_text
+            ),
+            # Blocks started downstream without a content_block_stop; buffered
+            # tool_use blocks were never started downstream and count separately.
+            "open_blocks": len(open_content_blocks.difference(buffered_tool_uses)),
+            "held_tool_uses": len(buffered_tool_uses),
+            "upstream_error": upstream_error_forwarded,
+            # Anthropic's error.type from the forwarded in-stream error event.
+            "upstream_error_type": upstream_error_type,
+            "client_disconnected": client_disconnected,
+            "saw_message_start": saw_message_start,
+            "saw_message_stop": saw_message_stop,
+            "failure_reason": reason,
+        }
+
+    def notify_stream_failure(reason: str) -> None:
+        try:
+            stream_failure_observer(stream_failure_metadata(reason))
+        except Exception as exc:
+            router_log("WARN", f"anthropic_stream_failure_observer_failed error={type(exc).__name__}")
 
     try:
         for raw in tracked_upstream_lines():
@@ -1221,6 +1461,7 @@ def rebatch_anthropic_sse_text(
                 "anthropic_stream_upstream_incomplete",
             )
     except ClientStreamDisconnected as exc:
+        client_disconnected = True
         failure_reason = failure_reason or "anthropic_stream_client_disconnected"
         router_log(
             "WARN",
@@ -1231,6 +1472,7 @@ def rebatch_anthropic_sse_text(
         )
     except Exception as exc:
         source = "upstream" if reading_upstream else "relay"
+        upstream_read_failed = source == "upstream"
         try:
             if ending_started:
                 # Part of an ending is already downstream; anything more would
@@ -1275,6 +1517,7 @@ def rebatch_anthropic_sse_text(
                         f"anthropic_stream_{source}_error:{type(exc).__name__}",
                     )
         except ClientStreamDisconnected as emit_exc:
+            client_disconnected = True
             failure_reason = failure_reason or "anthropic_stream_client_disconnected"
             router_log(
                 "WARN",
@@ -1283,6 +1526,7 @@ def rebatch_anthropic_sse_text(
         except Exception as emit_exc:
             router_log("WARN", f"anthropic_stream_fallback_emit_failed error={type(emit_exc).__name__}: {emit_exc}")
     finally:
+        reported_failure_reason: str | None = None
         if stream_success:
             mark_pending_channel_delivery_success(handler, "anthropic_stream_message_stop")
         else:
@@ -1291,10 +1535,13 @@ def rebatch_anthropic_sse_text(
                 or "anthropic_stream_incomplete"
             )
             mark_pending_channel_delivery_failed(handler, reason)
+            reported_failure_reason = reason
         try:
             resp.close()
         except Exception as exc:
             router_log("WARN", f"anthropic_stream_response_close_failed error={type(exc).__name__}: {exc}")
+        if reported_failure_reason is not None:
+            notify_stream_failure(reported_failure_reason)
 
 
 @dataclass(frozen=True, slots=True)
@@ -1359,8 +1606,12 @@ def ollama_stream_to_anthropic_sse(
     idle_timeout: float = 30.0,
     *,
     services: OllamaStreamServices,
+    semantic_retries: int = 0,
+    reopen_semantic: Callable[[int, str], Any] | None = None,
 ) -> None:
     """Stream Ollama NDJSON /api/chat response as Anthropic SSE /v1/messages format."""
+
+    from .ollama_semantic_retry import exhausted_notice, retry_reason
 
     remote_bridge = is_remote_bridge_request(handler)
     UpstreamClientDisconnected = services.io.UpstreamClientDisconnected
@@ -1442,6 +1693,16 @@ def ollama_stream_to_anthropic_sse(
     sse_trace_outcome = "started"
     sse_trace_error: str | None = None
     terminal_received = False
+    try:
+        semantic_retries = max(0, min(2, int(semantic_retries)))
+    except (TypeError, ValueError):
+        semantic_retries = 0
+    semantic_attempt = 0
+    semantic_failed = False
+    semantic_enabled = bool(not remote_bridge and source_body is not None
+                            and reopen_semantic is not None and semantic_retries > 0)
+    usage_input = 0
+    usage_output = 0
 
     def emit(event_name: str, payload: dict[str, Any]) -> None:
         try:
@@ -1678,166 +1939,232 @@ def ollama_stream_to_anthropic_sse(
         update_stream_activity()
 
     try:
-        for line in iter_upstream_lines_until_client_disconnect(handler, resp, idle_timeout):
-            chunks_seen += 1
-            line = line.decode(
-                "utf-8", errors="strict" if remote_bridge else "ignore"
-            ).strip()
-            if not line:
-                continue
-            try:
-                chunk = json.loads(line)
-            except Exception as exc:
-                if remote_bridge:
-                    raise RuntimeError(
-                        "invalid upstream Ollama stream payload"
-                    ) from exc
-                continue
-            if not isinstance(chunk, dict):
-                if remote_bridge:
-                    raise RuntimeError(
-                        "invalid upstream Ollama stream payload"
-                    )
-                continue
-            if remote_bridge and chunk.get("error") is not None:
-                raise RuntimeError("upstream Ollama stream reported an error")
-            if chunk.get("done") is True:
-                terminal_received = True
-            raw_message = chunk.get("message")
-            if remote_bridge and not isinstance(raw_message, dict):
-                raise RuntimeError(
-                    "upstream Ollama stream payload requires a message object"
-                )
-            message = raw_message if isinstance(raw_message, dict) else {}
-            input_tokens = max(input_tokens, int(chunk.get("prompt_eval_count") or 0))
-            output_tokens = max(output_tokens, int(chunk.get("eval_count") or 0))
-            if not started:
-                ensure_message_started()
-            # Native Ollama thinking is a distinct field, not visible answer text.
-            handle_thinking_chunk(str(message.get("thinking") or ""))
-            # Handle text content
-            raw_text_chunk = str(message.get("content") or "")
-            text_chunk = thinking_markup_filter.feed(raw_text_chunk)
-            if text_chunk != raw_text_chunk:
-                thinking_markup_suppressed = True
-            if text_chunk:
-                handle_text_chunk(text_chunk)
-            # Handle tool calls
-            raw_tool_calls = message.get("tool_calls")
-            if (
-                remote_bridge
-                and raw_tool_calls is not None
-                and not isinstance(raw_tool_calls, list)
-            ):
-                raise RuntimeError(
-                    "upstream Ollama tool_calls must be an array"
-                )
-            for call in raw_tool_calls or []:
-                if not isinstance(call, dict):
+        while True:
+            terminal_received = False
+            chunk = {}
+            attempt_invalid = False
+            attempt_tool_intent = False
+            attempt_input = 0
+            attempt_output = 0
+            estimated_input = estimate_tokens(source_body) if isinstance(source_body, dict) else 0
+            attempt_thinking_start = len(thinking_so_far)
+            for line in iter_upstream_lines_until_client_disconnect(handler, resp, idle_timeout):
+                chunks_seen += 1
+                line = line.decode(
+                    "utf-8", errors="strict" if remote_bridge else "ignore"
+                ).strip()
+                if not line:
+                    continue
+                try:
+                    chunk = json.loads(line)
+                except Exception as exc:
+                    attempt_invalid = True
                     if remote_bridge:
                         raise RuntimeError(
-                            "upstream Ollama tool call must be an object"
+                            "invalid upstream Ollama stream payload"
+                        ) from exc
+                    continue
+                if not isinstance(chunk, dict):
+                    attempt_invalid = True
+                    chunk = {}
+                    if remote_bridge:
+                        raise RuntimeError(
+                            "invalid upstream Ollama stream payload"
                         )
                     continue
-                raw_function = call.get("function")
-                if remote_bridge and not isinstance(raw_function, dict):
+                if chunk.get("error") is not None:
+                    attempt_invalid = True
+                if remote_bridge and chunk.get("error") is not None:
+                    raise RuntimeError("upstream Ollama stream reported an error")
+                if chunk.get("done") is True:
+                    terminal_received = True
+                raw_message = chunk.get("message")
+                if remote_bridge and not isinstance(raw_message, dict):
                     raise RuntimeError(
-                        "upstream Ollama tool call requires a function object"
+                        "upstream Ollama stream payload requires a message object"
                     )
-                fn = raw_function if isinstance(raw_function, dict) else {}
-                raw_function_name = fn.get("name")
-                if remote_bridge and (
-                    not isinstance(raw_function_name, str)
-                    or not raw_function_name.strip()
+                if not isinstance(raw_message, dict):
+                    attempt_invalid = True
+                message = raw_message if isinstance(raw_message, dict) else {}
+                attempt_input = max(attempt_input, int(chunk.get("prompt_eval_count") or 0))
+                attempt_output = max(attempt_output, int(chunk.get("eval_count") or 0))
+                input_tokens = usage_input + (attempt_input or estimated_input)
+                output_tokens = usage_output + attempt_output
+                if not started:
+                    ensure_message_started()
+                # Native Ollama thinking is a distinct field, not visible answer text.
+                handle_thinking_chunk(str(message.get("thinking") or ""))
+                # Handle text content
+                raw_text_chunk = str(message.get("content") or "")
+                if any(marker in raw_text_chunk.lower() for marker in
+                       ("<tool_call", "<function", "[tool_call", "<invoke")):
+                    attempt_tool_intent = True
+                text_chunk = thinking_markup_filter.feed(raw_text_chunk)
+                if text_chunk != raw_text_chunk:
+                    thinking_markup_suppressed = True
+                if text_chunk:
+                    handle_text_chunk(text_chunk)
+                # Handle tool calls
+                raw_tool_calls = message.get("tool_calls")
+                if raw_tool_calls is not None and raw_tool_calls != []:
+                    attempt_tool_intent = True
+                if (
+                    remote_bridge
+                    and raw_tool_calls is not None
+                    and not isinstance(raw_tool_calls, list)
                 ):
                     raise RuntimeError(
-                        "upstream Ollama tool call requires a function name"
+                        "upstream Ollama tool_calls must be an array"
                     )
-                if not fn.get("name"):
-                    continue
-                raw_name = str(fn["name"])
-                matched_name = resolve_emitted_tool_name(raw_name, source_body)
-                raw_args = fn.get("arguments")
-                if remote_bridge and not isinstance(raw_args, dict):
-                    raise RuntimeError(
-                        "upstream Ollama tool call arguments must be an object"
-                    )
-                normalized_args = (
-                    dict(raw_args)
-                    if remote_bridge
-                    else normalize_tool_arguments(matched_name, raw_args)
-                )
-                emitted_name = matched_name
-                fixed_input = _validate_and_fix_tool_input(
-                    matched_name, normalized_args, source_body
-                )
-                if source_body is not None:
-                    matched_name, fixed_input = plan_mode_tool_name_for_emit(source_body, matched_name, fixed_input)
-                    if matched_name is None:
+                for call in raw_tool_calls or []:
+                    if not isinstance(call, dict):
+                        if remote_bridge:
+                            raise RuntimeError(
+                                "upstream Ollama tool call must be an object"
+                            )
                         continue
-                fixed_input = cap_mcp_notification_wait_tool_input(matched_name, fixed_input)
-                supplied_input = normalized_args if matched_name == emitted_name else None
-                if should_drop_emitted_tool_call(matched_name, fixed_input, raw_name, source_body, supplied_input):
-                    continue
-                if should_drop_duplicate_side_effect_tool_call(matched_name, fixed_input, raw_name, source_body):
-                    repeated_completed_tool_dropped = True
-                    continue
-                close_thinking_block()
-                close_text_block()
-                tool_calls.append({"function": {"name": matched_name, "arguments": fixed_input}})
-                tool_id = f"toolu_ollama_{int(time.time() * 1000)}_{len(tool_calls) - 1}"
-                tool_index = next_content_index
-                next_content_index += 1
-                tool_indices.append(tool_index)
-                _remember_channel_injected_tool_use(source_body, tool_id, matched_name, fixed_input)
-                append_tool_call_log(
-                    "ollama_stream_tool_call",
-                    {
-                        "model": model,
-                        "tool_id": tool_id,
-                        "raw_name": raw_name,
-                        "matched_name": matched_name,
-                        "raw_arguments": raw_args,
-                        "normalized_arguments": normalized_args,
-                        "emitted_input": fixed_input,
-                        "sse_index": tool_index,
-                    },
-                )
-                emit_tool_block(tool_index, tool_id, matched_name, fixed_input)
+                    raw_function = call.get("function")
+                    if remote_bridge and not isinstance(raw_function, dict):
+                        raise RuntimeError(
+                            "upstream Ollama tool call requires a function object"
+                        )
+                    fn = raw_function if isinstance(raw_function, dict) else {}
+                    raw_function_name = fn.get("name")
+                    if remote_bridge and (
+                        not isinstance(raw_function_name, str)
+                        or not raw_function_name.strip()
+                    ):
+                        raise RuntimeError(
+                            "upstream Ollama tool call requires a function name"
+                        )
+                    if not fn.get("name"):
+                        continue
+                    raw_name = str(fn["name"])
+                    matched_name = resolve_emitted_tool_name(raw_name, source_body)
+                    raw_args = fn.get("arguments")
+                    if remote_bridge and not isinstance(raw_args, dict):
+                        raise RuntimeError(
+                            "upstream Ollama tool call arguments must be an object"
+                        )
+                    normalized_args = (
+                        dict(raw_args)
+                        if remote_bridge
+                        else normalize_tool_arguments(matched_name, raw_args)
+                    )
+                    emitted_name = matched_name
+                    fixed_input = _validate_and_fix_tool_input(
+                        matched_name, normalized_args, source_body
+                    )
+                    if source_body is not None:
+                        matched_name, fixed_input = plan_mode_tool_name_for_emit(source_body, matched_name, fixed_input)
+                        if matched_name is None:
+                            continue
+                    fixed_input = cap_mcp_notification_wait_tool_input(matched_name, fixed_input)
+                    supplied_input = normalized_args if matched_name == emitted_name else None
+                    if should_drop_emitted_tool_call(matched_name, fixed_input, raw_name, source_body, supplied_input):
+                        continue
+                    if should_drop_duplicate_side_effect_tool_call(matched_name, fixed_input, raw_name, source_body):
+                        repeated_completed_tool_dropped = True
+                        continue
+                    close_thinking_block()
+                    close_text_block()
+                    tool_calls.append({"function": {"name": matched_name, "arguments": fixed_input}})
+                    tool_id = f"toolu_ollama_{int(time.time() * 1000)}_{len(tool_calls) - 1}"
+                    tool_index = next_content_index
+                    next_content_index += 1
+                    tool_indices.append(tool_index)
+                    _remember_channel_injected_tool_use(source_body, tool_id, matched_name, fixed_input)
+                    append_tool_call_log(
+                        "ollama_stream_tool_call",
+                        {
+                            "model": model,
+                            "tool_id": tool_id,
+                            "raw_name": raw_name,
+                            "matched_name": matched_name,
+                            "raw_arguments": raw_args,
+                            "normalized_arguments": normalized_args,
+                            "emitted_input": fixed_input,
+                            "sse_index": tool_index,
+                        },
+                    )
+                    emit_tool_block(tool_index, tool_id, matched_name, fixed_input)
+                    update_stream_activity()
                 update_stream_activity()
-            update_stream_activity()
-            if runaway_verdict is not None:
-                # Stop reading upstream. The finally block closes the response,
-                # which ends generation instead of paying for the whole loop.
-                router_log(
-                    "WARN",
-                    f"ollama_stream_runaway_repetition provider={provider} model={model} "
-                    f"chunks={chunks_seen} {runaway_verdict.log_fields()}",
+                if runaway_verdict is not None:
+                    # Stop reading upstream. The finally block closes the response,
+                    # which ends generation instead of paying for the whole loop.
+                    router_log(
+                        "WARN",
+                        f"ollama_stream_runaway_repetition provider={provider} model={model} "
+                        f"chunks={chunks_seen} {runaway_verdict.log_fields()}",
+                    )
+                    write_router_activity(
+                        "error", provider, model, error="runaway_repetition", stream=True
+                    )
+                    break
+                if terminal_received:
+                    break
+            if remote_bridge and not terminal_received:
+                raise RuntimeError(
+                    "upstream Ollama stream ended before a terminal event"
                 )
-                write_router_activity(
-                    "error", provider, model, error="runaway_repetition", stream=True
-                )
-                break
-            if terminal_received:
-                break
-        if remote_bridge and not terminal_received:
-            raise RuntimeError(
-                "upstream Ollama stream ended before a terminal event"
+            runaway_stopped = runaway_verdict is not None
+            trailing_text = thinking_markup_filter.finish()
+            if trailing_text and not runaway_stopped:
+                handle_text_chunk(trailing_text)
+            if thinking_markup_suppressed:
+                router_log("WARN", f"suppressed visible Ollama thinking markup from stream model={model}")
+            update_stream_activity(force=True)
+            close_thinking_block()
+            close_text_block()
+            reason = retry_reason(
+                terminal_received=terminal_received,
+                done_reason=str(chunk.get("done_reason") or ""),
+                text=text_so_far,
+                thinking=thinking_so_far[attempt_thinking_start:],
+                tool_intent=attempt_tool_intent or bool(tool_calls),
+                invalid=attempt_invalid,
+                runaway=runaway_stopped,
             )
-        runaway_stopped = runaway_verdict is not None
-        trailing_text = thinking_markup_filter.finish()
-        if trailing_text and not runaway_stopped:
-            handle_text_chunk(trailing_text)
-        if thinking_markup_suppressed:
-            router_log("WARN", f"suppressed visible Ollama thinking markup from stream model={model}")
-        update_stream_activity(force=True)
-        close_thinking_block()
+            usage_input += attempt_input
+            usage_output += attempt_output
+            input_tokens = usage_input or estimated_input
+            output_tokens = usage_output
+            if not semantic_enabled or not reason:
+                break
+            if semantic_attempt >= semantic_retries:
+                semantic_failed = True
+                break
+            semantic_attempt += 1
+            router_log("WARN", f"ollama_semantic_retry provider={provider} model={model} "
+                       f"attempt={semantic_attempt}/{semantic_retries} reason={reason}")
+            write_router_activity("retry", provider, model, reason=reason,
+                                  attempt=semantic_attempt, total=semantic_retries, stream=True)
+            resp.close()
+            try:
+                resp = reopen_semantic(semantic_attempt, reason)
+            except UpstreamClientDisconnected:
+                raise
+            except Exception as exc:
+                semantic_failed = True
+                router_log("WARN", f"ollama_semantic_retry_open_failed provider={provider} "
+                           f"model={model} error={type(exc).__name__}")
+                break
+            # Preserve emitted blocks and indices; discard only per-attempt filters.
+            text_so_far = ""
+            text_buffer = ""
+            text_suppressed_for_plan = False
+            thinking_markup_filter = VisibleThinkingMarkupFilter()
+            text_runaway = RunawayOutputDetector(runaway_policy)
+            thinking_runaway = RunawayOutputDetector(runaway_policy)
         if not runaway_stopped and repeated_completed_tool_dropped and not text_so_far.strip() and not tool_calls:
             handle_text_chunk(
                 "[ciel-runtime] Stopped an identical completed tool call from repeating. "
                 "The previous result is already in context; choose a different action or finish the turn."
             )
         reasoning_only = thinking_started and not text_so_far.strip() and not tool_calls and not runaway_stopped
+        if semantic_failed:
+            reasoning_only = False
         if remote_bridge and (reasoning_only or (not text_started and not tool_calls)):
             raise RuntimeError(
                 "upstream Ollama stream completed without assistant content or a tool call"
@@ -1846,7 +2173,7 @@ def ollama_stream_to_anthropic_sse(
         # below exists to keep work moving, which is the opposite of what a
         # runaway needs, so they are all skipped once the guard has fired.
         # Flush any remaining buffered text when word-chunking is active
-        if not runaway_stopped and not reasoning_only and source_body is not None and should_auto_enter_plan_mode(source_body, text_so_far, tool_calls):
+        if not semantic_failed and not runaway_stopped and not reasoning_only and source_body is not None and should_auto_enter_plan_mode(source_body, text_so_far, tool_calls):
             ensure_message_started()
             close_text_block()
             router_log("WARN", "auto-synthesized EnterPlanMode from short/empty upstream stream")
@@ -1856,7 +2183,7 @@ def ollama_stream_to_anthropic_sse(
             next_content_index += 1
             tool_indices.append(tool_index)
             emit_tool_block(tool_index, tool_id, "EnterPlanMode", {})
-        elif not runaway_stopped and not reasoning_only and source_body is not None and should_recover_empty_end_turn_with_tasklist(source_body, text_so_far, tool_calls):
+        elif not semantic_failed and not runaway_stopped and not reasoning_only and source_body is not None and should_recover_empty_end_turn_with_tasklist(source_body, text_so_far, tool_calls):
             ensure_message_started()
             close_text_block()
             router_log("WARN", "auto-synthesized TaskList from empty upstream end_turn stream")
@@ -1866,7 +2193,7 @@ def ollama_stream_to_anthropic_sse(
             next_content_index += 1
             tool_indices.append(tool_index)
             emit_tool_block(tool_index, tool_id, "TaskList", {})
-        elif text_suppressed_for_plan and not text_started and text_so_far:
+        elif not semantic_failed and text_suppressed_for_plan and not text_started and text_so_far:
             active_text_index = open_text_block()
             event = {
                 "type": "content_block_delta",
@@ -1874,7 +2201,7 @@ def ollama_stream_to_anthropic_sse(
                 "delta": {"type": "text_delta", "text": text_so_far},
             }
             emit("content_block_delta", event)
-        if not runaway_stopped and not reasoning_only and source_body is not None and should_keep_work_alive_with_tasklist(source_body, text_so_far, tool_calls):
+        if not semantic_failed and not runaway_stopped and not reasoning_only and source_body is not None and should_keep_work_alive_with_tasklist(source_body, text_so_far, tool_calls):
             ensure_message_started()
             close_text_block()
             router_log("WARN", "auto-synthesized TaskList to keep work moving after tool result stream")
@@ -1884,7 +2211,7 @@ def ollama_stream_to_anthropic_sse(
             next_content_index += 1
             tool_indices.append(tool_index)
             emit_tool_block(tool_index, tool_id, "TaskList", {})
-        if not runaway_stopped and not reasoning_only and source_body is not None and should_auto_continue_choice_question_with_tasklist(source_body, text_so_far, tool_calls):
+        if not semantic_failed and not runaway_stopped and not reasoning_only and source_body is not None and should_auto_continue_choice_question_with_tasklist(source_body, text_so_far, tool_calls):
             ensure_message_started()
             close_text_block()
             router_log("WARN", "auto-synthesized TaskList after clarification question stream")
@@ -1927,6 +2254,14 @@ def ollama_stream_to_anthropic_sse(
                 next_content_index += 1
                 tool_indices.append(tool_index)
                 emit_tool_block(tool_index, tool_id, "TaskList", {})
+        elif semantic_failed:
+            notice = exhausted_notice(semantic_attempt + 1)
+            text_so_far = notice
+            notice_index = next_content_index
+            next_content_index += 1
+            emit_text_block(notice_index, notice)
+            router_log("WARN", f"ollama_semantic_exhausted provider={provider} model={model} "
+                       f"attempts={semantic_attempt + 1}")
         elif reasoning_only:
             router_log(
                 "WARN",
@@ -1939,7 +2274,7 @@ def ollama_stream_to_anthropic_sse(
             notice_index = next_content_index
             next_content_index += 1
             emit_text_block(notice_index, notice)
-        elif not text_started and not tool_indices:
+        elif not text_so_far.strip() and not tool_indices:
             router_log("WARN", f"ollama_empty_stream provider={provider} model={model} chunks={chunks_seen}")
             write_router_activity("error", provider, model, error="empty_stream", stream=True)
             empty_index = next_content_index
@@ -1965,8 +2300,18 @@ def ollama_stream_to_anthropic_sse(
         emit("message_delta", event)
         # Send message_stop
         emit("message_stop", {"type": "message_stop"})
-        sse_trace_outcome = "success"
-        if thinking_started or text_started or tool_indices:
+        sse_trace_outcome = "exhausted" if semantic_failed else "success"
+        if semantic_failed:
+            # The input reached the model; only its output was empty. Keep the
+            # delivery confirmed as before so the channel cursor commits and the
+            # same external message is not injected again on a later request.
+            write_router_activity("error", provider, model, error="ollama_semantic_exhausted",
+                                  attempts=semantic_attempt + 1, stream=True,
+                                  tokens=input_tokens, output_tokens=output_tokens)
+        elif semantic_attempt:
+            router_log("INFO", f"ollama_semantic_recovered provider={provider} model={model} "
+                       f"attempts={semantic_attempt + 1}")
+        if not semantic_failed and (thinking_started or text_started or tool_indices):
             write_router_activity(
                 "success",
                 provider,

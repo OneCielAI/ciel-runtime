@@ -1,0 +1,63 @@
+---
+type: verification
+title: Owned native SSE self-reset and resumed delivery
+description: Actual owned native Claude restart, resume and one original queued-input reply verified against source and installed f87747a.
+tags: [sse, recovery, native, restart, verification]
+status: passed-source-and-installed
+timestamp: 2026-10-21
+---
+
+# Scope
+
+Actual Claude Code 2.1.292, production ciel-runtime source at f87747a,
+owned local provider fixture, fresh private HOME/config/workspace/temp and router ports.
+No live router/session reset or private prompts copied. No production source edits.
+
+## Evidence
+
+- Harness: `native_sse_recovery.py` (accepts `--runtime-root` for installed retarget).
+- Console: `console-source.txt`.
+- Result: `run-claude-source-f87747a-152236/result.json`.
+- Logs: `run-claude-source-f87747a-152236/router-combined.log`.
+- Durable statuses: `run-claude-source-f87747a-152236/state/runtime-input-status.jsonl`.
+- Native screen text: `run-claude-source-f87747a-152236/screen-latest.txt`.
+
+### Observations
+
+A fresh synthetic external SSE-shaped input was appended to the owned queue/status
+with age 400 seconds. Only the owned launcher was temporarily suspended during
+fixture publication and MCP calls to prevent delivery races; the router and native
+CLI remained running. This does not establish a real transport failure.
+
+Production `/ca/mcp` `recover_sse_delivery` status observed complete queue/history,
+one stale request, compaction admission false and eligible true. Auto queued one
+resumed restart to sole launcher 79220, request abbad0c1a7e1483f9f5592964aaaa111.
+Second auto returned cooldown_active with 899.98 seconds remaining. Queue/history/
+cursor bytes and mtimes were identical during the calls.
+
+After owned launcher resumed, production control claimed the durable request,
+terminated native child 82196 and launched native child 72176 with --continue,
+renewing MCP launch and messaging socket. The restart request file was consumed.
+Original request 1 reached the resumed CLI exactly once and transitioned
+queued -> submitted -> replied. One socket injection and one fixture request
+with the original as last user were observed. Original queue/history prefixes
+were preserved. Teardown left no listener on the owned router port.
+
+#### Capture limitation
+
+PrintWindow was attempted against only the owned console; its rectangle was 0x0.
+`native-screen-rendered.png` renders the captured native console text, not pixels.
+The text contains the synthetic input, STUB-REPLY-4 and resumed notice response.
+Actual pixel screenshot is unavailable in this console environment. Decisive
+execution proof is the process identities, resume argv, MCP responses and logs.
+
+# Boundary
+
+Source-native acceptance passed. Parent then retargeted the harness to the
+registry-installed f87747a; `run-claude-installed-f87747a-152529/result.json`
+reports passed_native_sse_recovery and all ten checks true, including changed
+native PID, --continue, consumed durable restart, original queued input replied
+once, preserved queue/history prefixes and listener closed after teardown.
+The public `sanitized-source-installed-results.json` retains both runs without
+native command-line prompt bodies. Fixture age is synthetic; no upstream SSE
+transport fault/reconnect is claimed.

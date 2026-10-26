@@ -1,0 +1,44 @@
+[
+  {
+    "path": "/ca/mcp",
+    "body": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "tools/call",
+      "params": {
+        "name": "recover_sse_delivery",
+        "arguments": {
+          "action": "status"
+        }
+      }
+    }
+  },
+  {
+    "path": "/ca/mcp",
+    "body": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "tools/call",
+      "params": {
+        "name": "recover_sse_delivery",
+        "arguments": {
+          "action": "auto"
+        }
+      }
+    }
+  },
+  {
+    "path": "/ca/mcp",
+    "body": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "tools/call",
+      "params": {
+        "name": "recover_sse_delivery",
+        "arguments": {
+          "action": "status"
+        }
+      }
+    }
+  }
+]

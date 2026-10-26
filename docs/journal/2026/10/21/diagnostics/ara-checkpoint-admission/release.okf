@@ -1,0 +1,97 @@
+---
+type: verification-journal
+title: Ara checkpoint admission acceptance
+description: Isolated production-bound Codex checkpoint admission with durable state and unchanged input artifacts.
+tags: [compaction, codex, admission, acceptance]
+timestamp: 2026-10-21T00:00:00Z
+date: 2026-10-21
+status: installed-functional-verified
+---
+
+# Scope
+
+This acceptance exercises the production `RuntimeCompactionBinding` and
+`RuntimeCompactionControl` against a temporary Codex transcript and temporary
+queue, status-history, and cursor repositories. It does not launch a native
+CLI, contact a provider, access an Ara host, or use the live router state
+paths. Provider-budget callbacks are minimal fixture ports; binding,
+transcript discovery, checkpoint scanning, durable admission state, terminal
+admission projection, and recovery status are production implementations.
+
+# Evidence
+
+* [acceptance.py](acceptance.py) is the exact isolated runner.
+* [result.json](result.json) is the payload-free machine-readable result.
+* [adjacent-acceptance-tests.txt](adjacent-acceptance-tests.txt) records the
+  current exact-file isolated adjacent run: 404 tests, 52.201 seconds,
+  successful with 42 skips. It uses the renamed
+  `test_runtime_transcript_large_identity.py`, not the obsolete filename.
+* The run passed 13 case projections in 0.978591 seconds and deleted its temporary
+  fixture directory.
+* The main case used a Codex `session_meta` first record over 64 KiB, a
+  compacted checkpoint over 600 KiB, over 600 KiB of later ordinary history,
+  and a later native `token_count` input of 120. It changed durable admission
+  from `blocked` to `verified`, with `next_raw_tokens=120`; terminal admission
+  became ready and recovery status reported no reset.
+* Reconstructing the binding from the same temporary state restored the same
+  epoch and verified state. Persisted `awaiting_shrink` reconstructed and
+  verified as well.
+* Incomplete JSON, wrong thread identity, pre-request checkpoint timestamps,
+  replaced-file wrong header identity, unknown capacity, above-capacity
+  usage, and usage not below the 1200-token baseline remained paused. Queue,
+  status history, and cursor file SHA-256 digests were unchanged in every
+  observation.
+
+# Publication and installed verification
+
+- Implementation `a13c08f0d88e23eac7793ed54996363b38477c87` pushed to
+  nightly and nightly-20261020. CI 39674790685 passed all six jobs; npm
+  publish 39674790670 succeeded.
+- Registry nightly: `0.2.51-nightly.20261021-210312.a13c08f`.
+  Tarball SHA-256:
+  `eb3dde045193e9e1bde9c89a8be2b23ac76d8528192afb8061f86fe87b8a47e9`.
+- Installed globally and to `~/.local/share/ciel-runtime-a13c08f`.
+  `installed-source-match.json` verifies all 433 shipped Python files in
+  each installation against the exact commit, permitting only the workflow
+  version stamp. No running session was restarted.
+- `installed-result.json`: all 13 production-binding projections passed.
+  Large metadata/checkpoint/tail recovered `verified`, input 120, terminal
+  admission ready; invalid/old/wrong-session/unknown/full-capacity controls
+  stayed paused. Queue/status/cursor bytes stayed unchanged.
+- `installed-focused.txt`: 141 adjacent exact-file tests passed, including
+  checkpoint, identity, binding, rejection, input gateway and SSE recovery.
+- `acceptance.py --runtime <installed-root> --out <evidence.json>` verifies
+  the selected installation without touching a live Ara session.
+
+# Limitations
+
+This is isolated functional evidence, not live CLI/provider or Ara-host
+validation. It does not establish a cause for any live Ara behavior. The
+acceptance performs synchronous cold transcript scans; this result does not
+claim a hard latency deadline.
+
+The separate scanner benchmark recorded in [checkpoint-fix.okf](checkpoint-fix.okf)
+used a temporary 230879716-byte transcript: first scan 1.485 seconds, traced
+Python peak 2471199 bytes, unchanged cached poll 0.000120 seconds, native input
+120. Those values are the other task's recorded scanner benchmark, not a live
+Ara observation or a new measurement by this acceptance. Changed file
+signatures rescan the full file synchronously; bounded memory is not bounded
+latency.
+
+No source policy was changed by this acceptance and no commit was created.
+The nonshrinking fixture deliberately uses capacity 2000 and baseline 1200 to
+show that capacity alone cannot release a same-size 1200-token request.
+The principal fixture is baseline 1200 / capacity 1000 / new native input 120.
+
+# Source identities
+
+`result.json` records SHA-256 identities for the acceptance script and the
+three source modules used by the binding/scanner path.
+
+# OKF validation
+
+The deterministic strict checker receives a temporary bundle with this
+`.okf` journal projected verbatim to `acceptance.md` because its file walker
+only checks `.md` concepts. Evidence companions are copied alongside it so
+links resolve. The log is [okf-validation.txt](okf-validation.txt). The coordinated parent validation also removed the nested index's root-only
+frontmatter; all three concept files now pass the whole-parent strict checker.

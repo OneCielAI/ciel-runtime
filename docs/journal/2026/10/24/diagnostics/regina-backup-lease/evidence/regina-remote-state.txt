@@ -1,0 +1,24 @@
+# Regina .25 (ssh -p 1004 sjglobal@100.64.0.25, sudo -n -u regina-ai), read-only, UTC
+NOW 2026-10-25T02:09:32+0000
+PACKAGE 0.2.51-nightly.20261024-184918.4af30c7 None
+FILE workspace_router_selection.py sha256 2b10bf0ede8e22dfc22303acfcbd80f540980bc7fdd8752cce8b4d438779d3aa
+REGISTRY /home/regina-ai/.config/ciel-runtime/workspace-router-ports.json mtime 2026-10-25T02:01:41+0000
+WORKSPACE a86e135c5025 {"workspace": "/home/regina-ai", "port": 8801}
+  LEASE {"expires_at": 1792893731.0216684, "identity": "57720720", "pid": 3774716}
+  LEASE_PROC {"alive": true, "args": "python3 /home/regina-ai/.npm-global/lib/node_modules/@one-ciel-ai/ciel-runtime/ciel_runtime.py cli --continue", "cwd": "/home/regina-ai", "proc_mtime": "2026-10-25T02:01:40+0000"}
+  HEALTH {"pid": 3776675, "version": "0.2.51-nightly.20261024-184918.4af30c7", "workspace": "/home/regina-ai"}
+WORKSPACE c0d8adf2b287 {"workspace": "/home/sjglobal", "port": 8800}
+  LEASE {"expires_at": 1792711479.8407636, "identity": "39495611", "pid": 497178}
+  LEASE_PROC {"alive": false}
+  HEALTH "unreachable: URLError"
+PS ciel-runtime processes
+  3774708 {"alive": true, "args": "node /home/regina-ai/.npm-global/bin/ciel-runtime --continue", "cwd": "/home/regina-ai", "proc_mtime": "2026-10-25T02:01:40+0000"}
+  3774716 {"alive": true, "args": "python3 /home/regina-ai/.npm-global/lib/node_modules/@one-ciel-ai/ciel-runtime/ciel_runtime.py cli --continue", "cwd": "/home/regina-ai", "proc_mtime": "2026-10-25T02:01:40+0000"}
+  3776675 {"alive": true, "args": "/usr/bin/python3 /home/regina-ai/.npm-global/lib/node_modules/@one-ciel-ai/ciel-runtime/ciel_runtime.py serve", "cwd": "/home/regina-ai", "proc_mtime": "2026-10-25T02:03:27+0000"}
+  3776822 {"alive": true, "args": "/home/regina-ai/.npm-global/bin/claude --dangerously-skip-permissions --permission-mode bypassPermissions --disallowedTools WebSearch,WebFetch --model ciel-runtime-cielairouter-_walkie_opus55-sol61-fast --mcp-config /hom", "cwd": "/home/regina-ai", "proc_mtime": "2026-10-25T02:03:31+0000"}
+BACKUP_STATE_FILE session-backup-state.json mtime 2026-10-25T02:02:02+0000
+# session-backup-state.json (a86e135c5025)
+last_started 2026-10-25T02:02:02.620Z  last_finished 02:02:02.967Z  last_trigger menu  last_ok False
+last_error ... workspace_router_selection.py, line 253 ... line 324 ... RuntimeError: workspace router launch already reserved by another or unknown process
+# lease expires_at 1792893731.02 = 2026-10-25T02:02:11.021Z
+# local: git show 4af30c7:ciel_runtime_support/workspace_router_selection.py | sha256sum = 2b10bf0ede8e22dfc22303acfcbd80f540980bc7fdd8752cce8b4d438779d3aa

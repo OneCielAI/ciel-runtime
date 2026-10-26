@@ -1,0 +1,9 @@
+test_direct_environment_points_at_the_gateway_with_upstream_models (test_launch_data_path.ClaudeEnvironmentTests.test_direct_environment_points_at_the_gateway_with_upstream_models) ... ok
+test_router_mode_environment_is_unchanged (test_launch_data_path.ClaudeEnvironmentTests.test_router_mode_environment_is_unchanged) ... ok
+test_spawned_child_receives_model_context_and_token_compact_window (test_launch_data_path.ClaudeEnvironmentTests.test_spawned_child_receives_model_context_and_token_compact_window) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.059s
+
+OK
+spawned_compact_environment {'CLAUDE_CODE_MAX_CONTEXT_TOKENS': '872000', 'CLAUDE_CODE_AUTO_COMPACT_WINDOW': '837120', 'CLAUDE_AUTOCOMPACT_PCT_OVERRIDE': None}

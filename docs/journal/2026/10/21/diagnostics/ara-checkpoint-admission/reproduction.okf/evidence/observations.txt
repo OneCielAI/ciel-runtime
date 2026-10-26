@@ -1,0 +1,27 @@
+tree: nightly-20261020 (working tree)
+
+[1] parser tail window (claude compact_boundary)
+  small boundary at end: found = True
+  boundary line bytes = 614646 > 512KiB: True -> found = False
+  boundary then 600KiB tail: file bytes = 614667 -> found = False
+
+[2] controller: 600KiB codex compacted line
+  compacted line bytes = 614610 phase before timeout = compacting paused = True
+  after 10s deadline: phase = blocked failure = checkpoint_unconfirmed paused = True
+
+[3] controller: checkpoint pushed past tail
+  file bytes = 614695 -> found = False
+  after 10s deadline: phase = blocked failure = checkpoint_unconfirmed
+
+[4] controller: persisted awaiting_shrink
+  after checkpoint: phase = awaiting_shrink baseline = 100
+  after post-checkpoint request(120, limit=1000): phase = awaiting_shrink paused = True
+  after +100000s: phase = awaiting_shrink paused = True
+  control request(90) below baseline: phase = verified
+
+[5] codex session_meta > 64KiB
+  session_meta line bytes = 71847 > 64KiB: True | full parse id = thread
+  _transcript_session = '' | _codex_session_identity = (None, '', '')
+  bound scope session = thread | transcript_path = None
+  phase after native compact request = compacting
+  after confirmation deadline: phase = blocked failure = checkpoint_unconfirmed

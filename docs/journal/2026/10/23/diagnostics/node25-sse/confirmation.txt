@@ -1,0 +1,367 @@
+TIME 2026-10-23T19:03:52.575548+00:00
+SOURCE context_compaction.py sha256 d35e341a132aa04ad11855742af4a4a9b8787cdce3c74c521989ab6d074deb95
+134:     )
+135:     transport = services.transport
+136:     model = str(request["model"])
+137:     timeout = min(
+138:         transport.request_timeout(provider_config),
+139:         float(provider_config.get("_context_compact_timeout_seconds", 120.0)),
+140:         120.0,
+141:     )
+142:     config = {**provider_config, "gateway_retries": 0}
+143:     headers = transport.headers(provider, config)
+144:     if wire == "responses":
+145:         headers = {name: value for name, value in headers.items()
+146:                    if str(name).casefold() != "anthropic-version"}
+147:     try:
+148:         data = transport.post_json(
+149:             transport.endpoint(provider, config, operation), request,
+150:             headers, timeout, provider, config, model,
+SOURCE context_compaction.py sha256 d35e341a132aa04ad11855742af4a4a9b8787cdce3c74c521989ab6d074deb95
+135:     transport = services.transport
+136:     model = str(request["model"])
+137:     timeout = min(
+138:         transport.request_timeout(provider_config),
+139:         float(provider_config.get("_context_compact_timeout_seconds", 120.0)),
+140:         120.0,
+141:     )
+142:     config = {**provider_config, "gateway_retries": 0}
+143:     headers = transport.headers(provider, config)
+144:     if wire == "responses":
+145:         headers = {name: value for name, value in headers.items()
+146:                    if str(name).casefold() != "anthropic-version"}
+147:     try:
+148:         data = transport.post_json(
+149:             transport.endpoint(provider, config, operation), request,
+150:             headers, timeout, provider, config, model,
+151:             # The workflow owns bounded retries of these internal tool-free summaries.
+SOURCE context_compaction.py sha256 d35e341a132aa04ad11855742af4a4a9b8787cdce3c74c521989ab6d074deb95
+227:         if self.calls >= MAX_SUMMARY_CALLS:
+228:             raise ContextCompactionFailed("summary_call_limit")
+229:         if not self.fits(prompt):
+230:             raise ContextCompactionFailed("summary_request_exceeds_budget")
+231:         self.calls += 1
+232:         config = {**self.config, "_context_compact_timeout_seconds": min(remaining, 120.0)}
+233:         try:
+234:             summary = self.services.workflow.request_summary(
+235:                 self.provider, self.model, config, prompt, wire=self.wire, budget_tokens=self.budget,
+236:             )
+237:         except Exception:
+238:             # A disconnected client wins over transport retry classification.
+239:             self.check_cancelled()
+240:             raise
+241:         self.check_cancelled()
+242:         if time.monotonic() > self.deadline:
+243:             raise ContextCompactionFailed("deadline_exceeded")
+SOURCE runtime_compaction_control.py sha256 584f448c1314785bb62ddcb060e80ee32a2a49e2df76f559cdd608bbe718d28b
+373:                 if not pressure and not native:
+374:                     return
+375:                 state = self._start(scope, raw_tokens, context_limit, pressure=pressure)
+376:                 if native:
+377:                     state.update({"phase": "compacting", "attempts": 1})
+378:                 self._write(state, "admission_paused")
+379:             elif native:
+380:                 if state.get("phase") == "queued" and state.get("request_id"):
+381:                     self.ports.clear(str(state["request_id"]))
+382:                     state["request_id"] = ""
+383:                 if state.get("phase") not in {"queued", "dispatching", "awaiting_checkpoint", "compacting"}:
+384:                     # A client-started (reactive or manual) compaction is an
+385:                     # attempt too; otherwise non-shrinking cycles never end.
+386:                     # One that supersedes our queued command uses its count.
+387:                     state["attempts"] = _positive(state.get("attempts")) + 1
+388:                 state["phase"] = "compacting"
+389:                 state["deadline"] = self.ports.now() + self.policy.confirmation_timeout_seconds
+SOURCE runtime_compaction_control.py sha256 584f448c1314785bb62ddcb060e80ee32a2a49e2df76f559cdd608bbe718d28b
+468:         state.pop("shrink_observed", None)
+469:         state.update({"baseline_checkpoint_id": state.get("checkpoint_id") or "",
+470:                       "checkpoint_id": "", "requested_at": self.ports.now()})
+471:         self._retry(state, reason)
+472: 
+473:     def external_admission_paused(self) -> bool:
+474:         try:
+475:             scope = self.ports.scope()
+476:             if scope is None:
+477:                 return False
+478:             with self.ports.lock():
+479:                 state = self._read(scope)
+480:                 self._refresh(state, scope)
+481:                 return bool(state and state.get("phase") != "verified")
+482:         except (OSError, ValueError, TypeError) as exc:
+483:             self.ports.log("WARN", f"runtime_compaction_control admission=paused reason=state_unavailable error={type(exc).__name__}")
+484:             return True
+SOURCE runtime_compaction_control.py sha256 584f448c1314785bb62ddcb060e80ee32a2a49e2df76f559cdd608bbe718d28b
+484:             return True
+485: 
+486:     def context_pause_reason(self, body: dict[str, Any]) -> str:
+487:         if self.ports.compact_kind(body):
+488:             return "native_compaction"
+489:         return "context_recovery" if self.external_admission_paused() else ""
+490: 
+491:     def command_ready(self, request: dict[str, Any]) -> bool:
+492:         if request.get("action", "compact") != "compact":
+493:             return True
+494:         if not request.get("id"):
+495:             return request.get("automatic") is not True
+496:         scope = self.ports.scope()
+497:         if scope is None:
+498:             return request.get("automatic") is not True
+499:         with self.ports.lock():
+500:             state = self._read(scope)
+SOURCE runtime_compaction_binding.py sha256 c7d4260c418266bf289ec80bc3bd0fc7422bb0926ba9d09debbe67175ad72c7e
+36: # An unproven launch identity holds external input until the first routed
+37: # request, but an idle relaunched session never produces one: Celly held
+38: # 6363 until the user typed "222" (2026-10-23 01:35). After this window the
+39: # gate opens for the launch's own socket; the first request still re-binds the
+40: # exact scope, and any request that overflows re-arms compaction admission.
+41: REQUEST_IDENTITY_GRACE_SECONDS = 120.0
+42: 
+43: 
+44: def _positive(value: Any) -> int:
+45:     try:
+46:         return max(0, int(value))
+47:     except (ValueError, TypeError, OverflowError):
+48:         return 0
+49: 
+50: 
+51: def _identity_expired(value: dict[str, Any], now: float) -> bool:
+52:     """A held launch identity older than the grace window no longer blocks."""
+SOURCE runtime_compaction_binding.py sha256 c7d4260c418266bf289ec80bc3bd0fc7422bb0926ba9d09debbe67175ad72c7e
+53: 
+54:     try:
+55:         since = float(value.get("identity_since") or value.get("started_at") or 0)
+56:     except (ValueError, TypeError, OverflowError):
+57:         return False
+58:     return since > 0 and now - since >= REQUEST_IDENTITY_GRACE_SECONDS
+59: 
+60: 
+61: def _header(headers: Any, name: str) -> str:
+62:     getter = getattr(headers, "get", None)
+63:     if not callable(getter):
+64:         return ""
+65:     value = getter(name)
+66:     if value is None:
+67:         value = next((item for key, item in dict(headers).items() if str(key).lower() == name), None)
+68:     return str(value or "").strip()
+69: 
+SOURCE runtime_compaction_binding.py sha256 c7d4260c418266bf289ec80bc3bd0fc7422bb0926ba9d09debbe67175ad72c7e
+456:         if overflow.message_tokens < limit:
+457:             return
+458:         with exclusive_file_lock(self.seed_lock_path):
+459:             self.control.observe_request(body, overflow.message_tokens, limit, scope=scope, recovery_required=True)
+460: 
+461:     def _admission_paused(self) -> bool:
+462:         """Strict gate for router-side append: paused until shrink is verified."""
+463: 
+464:         try:
+465:             with exclusive_file_lock(self.seed_lock_path):
+466:                 scope = self.scope()
+467:                 if scope is None:
+468:                     return self._identity_pending()
+469:                 if self._request_identity_pending(self._update("")):
+470:                     return True
+471:                 if self.seeded != f"{scope.epoch}:{scope.session_id}":
+472:                     self._seed(scope)
+SOURCE runtime_compaction_binding.py sha256 c7d4260c418266bf289ec80bc3bd0fc7422bb0926ba9d09debbe67175ad72c7e
+464:         try:
+465:             with exclusive_file_lock(self.seed_lock_path):
+466:                 scope = self.scope()
+467:                 if scope is None:
+468:                     return self._identity_pending()
+469:                 if self._request_identity_pending(self._update("")):
+470:                     return True
+471:                 if self.seeded != f"{scope.epoch}:{scope.session_id}":
+472:                     self._seed(scope)
+473:         except (OSError, ValueError, TypeError) as exc:
+474:             self.log("WARN", f"runtime_compaction_scope admission=paused reason=state_unavailable error={type(exc).__name__}")
+475:             return True
+476:         return self.control.external_admission_paused()
+477: 
+478:     def _request_identity_pending(self, value: dict[str, Any]) -> bool:
+479:         """Hold external input until this launch proves its routed session.
+480: 
+SOURCE runtime_compaction_binding.py sha256 c7d4260c418266bf289ec80bc3bd0fc7422bb0926ba9d09debbe67175ad72c7e
+471:                 if self.seeded != f"{scope.epoch}:{scope.session_id}":
+472:                     self._seed(scope)
+473:         except (OSError, ValueError, TypeError) as exc:
+474:             self.log("WARN", f"runtime_compaction_scope admission=paused reason=state_unavailable error={type(exc).__name__}")
+475:             return True
+476:         return self.control.external_admission_paused()
+477: 
+478:     def _request_identity_pending(self, value: dict[str, Any]) -> bool:
+479:         """Hold external input until this launch proves its routed session.
+480: 
+481:         Claude publishes a session id from the socket before it necessarily
+482:         completes the first resumed turn. The first published id can be
+483:         replaced, so a socket-only identity is provisional: injecting an event
+484:         against it can observe the wrong compaction scope and race the actual
+485:         request past a full context window (Celly, 2026-10-22 11:22/11:35).
+486:         A locally typed user turn is not gated; the first routed request marks
+487:         the identity observed and opens external delivery. A session that
+SOURCE runtime_compaction_binding.py sha256 c7d4260c418266bf289ec80bc3bd0fc7422bb0926ba9d09debbe67175ad72c7e
+473:         except (OSError, ValueError, TypeError) as exc:
+474:             self.log("WARN", f"runtime_compaction_scope admission=paused reason=state_unavailable error={type(exc).__name__}")
+475:             return True
+476:         return self.control.external_admission_paused()
+477: 
+478:     def _request_identity_pending(self, value: dict[str, Any]) -> bool:
+479:         """Hold external input until this launch proves its routed session.
+480: 
+481:         Claude publishes a session id from the socket before it necessarily
+482:         completes the first resumed turn. The first published id can be
+483:         replaced, so a socket-only identity is provisional: injecting an event
+484:         against it can observe the wrong compaction scope and race the actual
+485:         request past a full context window (Celly, 2026-10-22 11:22/11:35).
+486:         A locally typed user turn is not gated; the first routed request marks
+487:         the identity observed and opens external delivery. A session that
+488:         stays idle never sends one, so the hold also ends after
+489:         ``REQUEST_IDENTITY_GRACE_SECONDS`` from this identity binding.
+SOURCE runtime_compaction_binding.py sha256 c7d4260c418266bf289ec80bc3bd0fc7422bb0926ba9d09debbe67175ad72c7e
+484:         against it can observe the wrong compaction scope and race the actual
+485:         request past a full context window (Celly, 2026-10-22 11:22/11:35).
+486:         A locally typed user turn is not gated; the first routed request marks
+487:         the identity observed and opens external delivery. A session that
+488:         stays idle never sends one, so the hold also ends after
+489:         ``REQUEST_IDENTITY_GRACE_SECONDS`` from this identity binding.
+490:         """
+491: 
+492:         if (value.get("runtime") != "claude"
+493:                 or not value.get("messaging_socket_path")
+494:                 or value.get("request_observed") is True):
+495:             return False
+496:         pid = _positive(value.get("launcher_pid"))
+497:         running = bool(pid and pid_is_running(pid))
+498:         held = running and not _identity_expired(value, time.time())
+499:         marker = f"request:{value.get('epoch')}:{value.get('session_id')}:{held}"
+500:         if self.pending_logged != marker:
+SOURCE runtime_compaction_binding.py sha256 c7d4260c418266bf289ec80bc3bd0fc7422bb0926ba9d09debbe67175ad72c7e
+497:         running = bool(pid and pid_is_running(pid))
+498:         held = running and not _identity_expired(value, time.time())
+499:         marker = f"request:{value.get('epoch')}:{value.get('session_id')}:{held}"
+500:         if self.pending_logged != marker:
+501:             self.pending_logged = marker
+502:             reason = "request_identity_pending" if held else (
+503:                 "request_identity_expired" if running else "request_identity_unavailable")
+504:             self.log("INFO" if held else "WARN", "runtime_compaction_scope "
+505:                      f"admission={'paused' if held else 'ungated'} "
+506:                      f"reason={reason} runtime=claude")
+507:         return held
+508: 
+509:     def _identity_pending(self) -> bool:
+510:         """A live supported launch whose exact native identity is not yet known."""
+511: 
+512:         value = self._update("")
+513:         if value.get("runtime") not in {"claude", "codex"} or not value.get("epoch"):
+SOURCE runtime_compaction_binding.py sha256 c7d4260c418266bf289ec80bc3bd0fc7422bb0926ba9d09debbe67175ad72c7e
+498:         held = running and not _identity_expired(value, time.time())
+499:         marker = f"request:{value.get('epoch')}:{value.get('session_id')}:{held}"
+500:         if self.pending_logged != marker:
+501:             self.pending_logged = marker
+502:             reason = "request_identity_pending" if held else (
+503:                 "request_identity_expired" if running else "request_identity_unavailable")
+504:             self.log("INFO" if held else "WARN", "runtime_compaction_scope "
+505:                      f"admission={'paused' if held else 'ungated'} "
+506:                      f"reason={reason} runtime=claude")
+507:         return held
+508: 
+509:     def _identity_pending(self) -> bool:
+510:         """A live supported launch whose exact native identity is not yet known."""
+511: 
+512:         value = self._update("")
+513:         if value.get("runtime") not in {"claude", "codex"} or not value.get("epoch"):
+514:             return False
+SOURCE runtime_compaction_binding.py sha256 c7d4260c418266bf289ec80bc3bd0fc7422bb0926ba9d09debbe67175ad72c7e
+523:                 "identity_expired" if sources and running else "identity_unavailable")
+524:             self.log("INFO" if held else "WARN", f"runtime_compaction_scope admission={'paused' if held else 'ungated'} "
+525:                      f"reason={reason} runtime={value['runtime']}")
+526:         return held
+527: 
+528:     def external_admission_paused(self) -> bool:
+529:         """Hold external deliveries until checkpoint AND raw shrink are proven.
+530: 
+531:         An automatic compact releases through the retry request that follows
+532:         it; a manual /compact has none and releases on its own boundary. An
+533:         unproven launch identity holds only for its grace window. An external
+534:         SSE delivery is never used as a recovery probe.
+535:         """
+536:         return self._admission_paused()
+537: 
+538:     def _seed(self, scope: CompactionScope) -> None:
+539:         value = self._update(scope.epoch)
+SOURCE runtime_compaction_binding.py sha256 c7d4260c418266bf289ec80bc3bd0fc7422bb0926ba9d09debbe67175ad72c7e
+531:         An automatic compact releases through the retry request that follows
+532:         it; a manual /compact has none and releases on its own boundary. An
+533:         unproven launch identity holds only for its grace window. An external
+534:         SSE delivery is never used as a recovery probe.
+535:         """
+536:         return self._admission_paused()
+537: 
+538:     def _seed(self, scope: CompactionScope) -> None:
+539:         value = self._update(scope.epoch)
+540:         if value.get("epoch") != scope.epoch or value.get("session_id") != scope.session_id:
+541:             return
+542:         if value.get("request_observed") or value.get("seeded"):
+543:             self.seeded = f"{scope.epoch}:{scope.session_id}"
+544:             return
+545:         # Retried until the native transcript exists, before external input.
+546:         path = self.transcript_path()
+547:         if path is None:
+SOURCE runtime_compaction_binding.py sha256 c7d4260c418266bf289ec80bc3bd0fc7422bb0926ba9d09debbe67175ad72c7e
+564:         # native CLI applies its own threshold to the resumed conversation.
+565: 
+566:     def context_pause_reason(self, body: dict[str, Any]) -> str:
+567:         if self._compact_kind(body):
+568:             return "native_compaction"
+569:         if not self._admission_paused():
+570:             return ""
+571:         return "context_recovery" if self.scope() is not None else "identity_pending"
+572: 
+573:     def command_ready(self, request: dict[str, Any]) -> bool:
+574:         return self.control.command_ready(request)
+575: 
+576:     def command_submitted(self, request: dict[str, Any]) -> None:
+577:         self.control.command_submitted(request)
+578: 
+579:     def command_failed(self, request: dict[str, Any], reason: str, *, uncertain: bool = False) -> None:
+580:         self.control.command_failed(request, reason, uncertain=uncertain)
+TRANSPORT 312 {'source': 'ciel-runtime-external-event', 'receiver_id': 'default', 'transport': 'sse', 'event_type': 'com.ciel.walkie.support.message', 'transport_event_id': '911', 'input_transport': 'session_socket'}
+TRANSPORT 313 {'source': 'ciel-runtime-external-event', 'receiver_id': 'default', 'transport': 'sse', 'event_type': 'com.ciel.walkie.support.message', 'transport_event_id': '918', 'input_transport': 'session_socket'}
+TRANSPORT 314 {'source': 'ciel-runtime-external-event', 'receiver_id': 'default', 'transport': 'sse', 'event_type': 'com.ciel.walkie.support.message', 'transport_event_id': '919', 'input_transport': 'session_socket'}
+TRANSPORT 315 {'source': 'ciel-runtime-external-event', 'receiver_id': 'default', 'transport': 'sse', 'event_type': 'com.ciel.walkie.support.message', 'transport_event_id': '922', 'input_transport': 'session_socket'}
+TRANSPORT 316 {'source': 'ciel-runtime-external-event', 'receiver_id': 'default', 'transport': 'sse', 'event_type': 'com.ciel.walkie.support.message', 'transport_event_id': '923', 'input_transport': 'session_socket'}
+TRANSPORT 317 {'source': 'ciel-runtime-external-event', 'receiver_id': 'default', 'transport': 'sse', 'event_type': 'com.ciel.walkie.support.message', 'transport_event_id': '924', 'input_transport': 'session_socket'}
+TRANSPORT 318 {'source': 'ciel-runtime-external-event', 'receiver_id': 'default', 'transport': 'sse', 'event_type': 'com.ciel.walkie.support.message', 'transport_event_id': '925', 'input_transport': 'session_socket'}
+TRANSPORT 319 {'source': 'ciel-runtime-external-event', 'receiver_id': 'default', 'transport': 'sse', 'event_type': 'com.ciel.walkie.support.message', 'transport_event_id': '926', 'input_transport': 'session_socket'}
+EXACT_EVENT_MATCHES [{"time": "2026-10-23T18:58:41.684Z", "type": "user", "matched_input_ids_by_exact_event_id": ["315", "316", "317", "318", "319"], "content_types": ["string"]}]
+POST_INJECTION_TYPE_COUNTS {'queue-operation': 2, 'user': 6, 'api-request-shape': 1, 'api-request': 2, 'assistant': 5, 'attachment': 8} LATEST_END_TURN None
+TAIL_COMPACT_BOUNDARIES []
+CURRENT_ADMISSION {
+  "scope": {
+    "runtime": "claude",
+    "session_id": "71bc7a99-f225-4f52-a1f5-471df3871aaa",
+    "epoch": "3a2980f4d97841878f291dda6f483615"
+  },
+  "phase": "compacting",
+  "pressure": true,
+  "baseline_tokens": 1076457,
+  "context_limit": 716750,
+  "requested_at": 1792781923.168492,
+  "deadline": 1792783296.916813,
+  "baseline_checkpoint_id": "70f0731d9432dacfa0f843cd002fe73c00e522c4d23a24fdb2ad9bb4f362d326",
+  "checkpoint_id": "",
+  "request_id": "",
+  "attempts": 1
+}
+
+CURRENT_CURSOR {"last_id":314}
+
+LOG 2026-10-23T18:56:36 [INFO] runtime_compaction_scope admission=paused reason=identity_pending runtime=claude
+LOG 2026-10-23T18:56:38 [INFO] runtime_compaction_scope admission=paused reason=request_identity_pending runtime=claude
+LOG 2026-10-23T18:56:41 [INFO] runtime_compaction_scope admission=paused reason=request_identity_pending runtime=claude
+LOG 2026-10-23T18:58:41 [WARN] runtime_compaction_scope admission=ungated reason=request_identity_expired runtime=claude
+LOG 2026-10-23T18:58:43 [INFO] runtime_compaction_control event=admission_paused phase=compacting runtime=claude session=71bc7a99-f225-4f52-a1f5-471df3871aaa epoch=3a2980f4d97841878f291dda6f483615 attempts=1
+LOG 2026-10-23T18:59:34 [WARN] context_compact_failed provider=cielairouter model=ciel-runtime-cielairouter-_walkie_opus55-sol61-fast completed_chunks=0/19 error=UpstreamFailure
+LOG 2026-10-23T18:59:34 [ERROR] anthropic_route_error_after_compaction_sse provider=cielairouter model=ciel-runtime-cielairouter-_walkie_opus55-sol61-fast error=UpstreamFailure: Upstream provider 'cielairouter' returned HTTP 502 (server_error: claude/claude-opus-5-5: rate limit — [claude/claude-opus-5-5] [429]: This request would exceed your account's rate limit. Please try again later. (reset after 11m 4s) (HTTP 429); codex/gpt-6.1-sol-high: provider — Model codex/gpt-6.1-
+LOG 2026-10-23T19:00:10 [INFO] runtime_compaction_control event=native_compact_started phase=compacting runtime=claude session=71bc7a99-f225-4f52-a1f5-471df3871aaa epoch=3a2980f4d97841878f291dda6f483615 attempts=1
+LOG 2026-10-23T19:01:13 [WARN] context_compact_failed provider=cielairouter model=ciel-runtime-cielairouter-_walkie_opus55-sol61-fast completed_chunks=0/19 error=UpstreamFailure
+LOG 2026-10-23T19:01:13 [ERROR] anthropic_route_error_after_compaction_sse provider=cielairouter model=ciel-runtime-cielairouter-_walkie_opus55-sol61-fast error=UpstreamFailure: Upstream provider 'cielairouter' returned HTTP 502 (server_error: claude/claude-opus-5-5: rate limit — [claude/claude-opus-5-5] [429]: This request would exceed your account's rate limit. Please try again later. (reset after 22m 53s) (HTTP 429); codex/gpt-6.1-sol-high: provider — Model codex/gpt-6.1
+LOG 2026-10-23T19:01:37 [INFO] runtime_compaction_control event=native_compact_started phase=compacting runtime=claude session=71bc7a99-f225-4f52-a1f5-471df3871aaa epoch=3a2980f4d97841878f291dda6f483615 attempts=1

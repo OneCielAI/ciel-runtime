@@ -981,6 +981,14 @@ class WindowsConPtySession:
         with lock:
             return bool(self._parent_input_draft)
 
+    def operator_input_generation(self) -> tuple[int, float]:
+        """Monotonic input generation and wall time, including submit/cancel."""
+        lock = getattr(self, "_parent_input_state_lock", None)
+        if lock is None:
+            return (0, 0.0)
+        with lock:
+            return (getattr(self, "_parent_input_generation", 0), getattr(self, "_parent_input_at", 0.0))
+
     def _observe_parent_input(self, data: bytes) -> None:
         """Track manual text so an external wake cannot erase it with Ctrl+U."""
 
@@ -989,6 +997,9 @@ class WindowsConPtySession:
             lock = threading.Lock()
             self._parent_input_state_lock = lock
         with lock:
+            if data:
+                self._parent_input_generation = getattr(self, "_parent_input_generation", 0) + 1
+                self._parent_input_at = time.time()
             escape = getattr(self, "_parent_input_escape", bytearray())
             decoder = getattr(
                 self,

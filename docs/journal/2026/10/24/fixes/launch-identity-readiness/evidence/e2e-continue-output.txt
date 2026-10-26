@@ -1,0 +1,101 @@
+{
+ "seeded": [
+  "16322aae-5f82-4bd9-b6dc-21bcfc7fae6b"
+ ],
+ "changes": [
+  {
+   "t": 64.71,
+   "file": "70904.json",
+   "sessionId": "16322aae-5f82-4bd9-b6dc-21bcfc7fae6b",
+   "status": "idle",
+   "statusUpdatedAt": 1792866849706,
+   "socket_matches": false,
+   "peerFeatures": [
+    "notify_idle",
+    "artifact_yield"
+   ]
+  },
+  {
+   "t": 65.36,
+   "file": "44968.json",
+   "sessionId": "b2512229-23bb-4f27-870d-a58d9c964c0e",
+   "status": null,
+   "statusUpdatedAt": null,
+   "socket_matches": true,
+   "peerFeatures": [
+    "notify_idle",
+    "artifact_yield"
+   ]
+  },
+  {
+   "t": 65.68,
+   "file": "44968.json",
+   "sessionId": "16322aae-5f82-4bd9-b6dc-21bcfc7fae6b",
+   "status": null,
+   "statusUpdatedAt": null,
+   "socket_matches": true,
+   "peerFeatures": [
+    "notify_idle",
+    "artifact_yield"
+   ]
+  },
+  {
+   "t": 65.76,
+   "file": "44968.json",
+   "sessionId": "16322aae-5f82-4bd9-b6dc-21bcfc7fae6b",
+   "status": "idle",
+   "statusUpdatedAt": 1792866854383,
+   "socket_matches": true,
+   "peerFeatures": [
+    "notify_idle",
+    "artifact_yield"
+   ]
+  },
+  {
+   "t": 65.96,
+   "file": "44968.json",
+   "sessionId": "16322aae-5f82-4bd9-b6dc-21bcfc7fae6b",
+   "status": "busy",
+   "statusUpdatedAt": 1792866854767,
+   "socket_matches": true,
+   "peerFeatures": [
+    "notify_idle",
+    "artifact_yield"
+   ]
+  },
+  {
+   "t": 66.17,
+   "file": "44968.json",
+   "sessionId": "16322aae-5f82-4bd9-b6dc-21bcfc7fae6b",
+   "status": "idle",
+   "statusUpdatedAt": 1792866855000,
+   "socket_matches": true,
+   "peerFeatures": [
+    "notify_idle",
+    "artifact_yield"
+   ]
+  }
+ ],
+ "delivery": {
+  "t": 65.81,
+  "sent": true,
+  "session": "16322aae-5f82-4bd9-b6dc-21bcfc7fae6b",
+  "request_observed_before_send": false
+ },
+ "upstream_after_launch": [
+  {
+   "t": 64.69,
+   "method": "-",
+   "path": "seed [('prompt', True), ('reply', True)] transcripts=['16322aae-5f82-4bd9-b6dc-21bcfc7fae6b']"
+  },
+  {
+   "t": 66.06,
+   "method": "POST",
+   "path": "/v1/messages?beta=true",
+   "session_header": "16322aae-5f82-4bd9-b6dc-21bcfc7fae6b",
+   "messages": 4,
+   "stream": true,
+   "external_marker": true
+  }
+ ]
+}

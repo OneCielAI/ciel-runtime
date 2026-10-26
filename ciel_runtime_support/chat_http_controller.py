@@ -13,6 +13,8 @@ from pathlib import Path
 from threading import Condition
 from typing import Any, Callable
 
+from .runtime_input_delivery_health import delivery_health_for_callback
+
 
 CHAT_FILE_STREAM_CHUNK_BYTES = 1024 * 1024
 CHAT_INPUT_MODES = frozenset({"structured", "tty"})
@@ -48,6 +50,9 @@ class ChatHttpReadServices:
     files_dir: Path
     request_status: Callable[[int], dict[str, Any] | None] = lambda _request_id: None
     request_statuses: Callable[..., list[dict[str, Any]]] = lambda **_kwargs: []
+
+    def delivery_health(self) -> dict[str, Any]:
+        return delivery_health_for_callback(self.request_status)
 
 
 @dataclass(frozen=True, slots=True)
@@ -226,6 +231,9 @@ class ChatHttpController:
                 },
             )
             return True
+        if path == "/ca/chat/delivery-health":
+            self.writes.write_json(handler, {"ok": True, "delivery": self.reads.delivery_health()})
+            return True
         if path == "/ca/chat/requests":
             params = self._params(handler)
             try:
@@ -239,7 +247,8 @@ class ChatHttpController:
                 status=self._first(params, "status", ""),
                 limit=limit,
             )
-            self.writes.write_json(handler, {"ok": True, "requests": rows})
+            self.writes.write_json(handler, {"ok": True, "requests": rows,
+                                             "delivery": self.reads.delivery_health()})
             return True
         if path.startswith("/ca/chat/requests/"):
             raw_id = path[len("/ca/chat/requests/") :]
@@ -251,7 +260,8 @@ class ChatHttpController:
             status = self.reads.request_status(request_id)
             self.writes.write_json(
                 handler,
-                {"ok": status is not None, "request": status},
+                {"ok": status is not None, "request": status,
+                 "delivery": self.reads.delivery_health()},
                 200 if status is not None else 404,
             )
             return True

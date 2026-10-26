@@ -1,0 +1,52 @@
+---
+type: verification
+title: Walkie delivery health observability
+timestamp: 2026-10-21
+tags: [walkie, delivery, runtime-inputs, read-only]
+---
+
+# Implemented
+
+Added payload-free, cached read-only projection of private runtime-input queue
+health. It reports known queued count, oldest original queue age, incomplete
+ownership-history line and partial coverage. It explicitly reports that launcher
+hold is unobserved; no queue, cursor, lifecycle status, event-ack/1 receipt, or
+injection is changed.
+
+# Surfaces
+
+- `GET /ca/chat/delivery-health` and additive `delivery` in request responses.
+- Receiver public status includes `status.delivery`.
+- TUI status includes `delivery`; the TUI page distinguishes observation SSE
+  connectivity from session delivery state.
+- External-event menu and generated statusline show informational delivery state.
+
+# Evidence
+
+Focused exact-file tests passed on 2026-10-21 in clean temporary state:
+`test_runtime_input_delivery_health.py` (8), `test_chat_http_injection_mode.py`
+(16), `test_external_event_receiver.py` (13), `test_statusline.py` (15), and
+`test_event_delivery_ack.py` (33). Python compilation passed for all changed
+modules. Existing TUI integration test
+`test_routed_sse_turn_is_available_from_recent_api` timed out twice at its
+2-second HTTP response deadline, including with isolated CIEL_RUNTIME paths.
+Cause not established; it was not treated as a delivery-health pass.
+
+
+# Integration boundary
+
+TUI HTTP ports accept an additive optional `delivery_health` callback. The facade
+owner must wire it to the status repository and actual private input path. Chat
+request APIs infer that repository from their existing bound `request_status`
+method; receivers infer it from the bound gateway `submit_external_event`.
+No facade edits are included in this work unit.
+
+# Runtime evidence
+
+The focused suite starts an actual ThreadingHTTPServer on an ephemeral loopback
+port, requests `/ca/channel/requests/1`, observes `ok=true`, lifecycle `queued`,
+and additive `delivery.state=admission_blocked`, then verifies source file bytes
+are unchanged. A generated statusline subprocess runs outside the package cwd
+and renders `session delivery admission_blocked` with the physical failure line.
+A connected receiver remains `state=connected` while its separate delivery
+observation is blocked. No live session or external endpoint was altered.

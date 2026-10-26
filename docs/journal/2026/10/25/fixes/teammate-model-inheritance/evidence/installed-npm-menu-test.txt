@@ -1,0 +1,8 @@
+C:\Users\djlov\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime_support\codex_app_server_session.py:417: SyntaxWarning: 'return' in a 'finally' block
+  return _RemoteRun(1)
+test_external_menu_offers_both_data_paths (test_launch_data_path.GatewayDataPathOptionTests.test_external_menu_offers_both_data_paths) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 0.040s
+
+OK

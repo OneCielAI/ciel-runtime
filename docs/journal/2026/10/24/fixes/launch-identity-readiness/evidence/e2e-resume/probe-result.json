@@ -1,0 +1,101 @@
+{
+ "claude": "C:\\Users\\djlov\\.local\\bin\\claude.exe",
+ "mode": "resume",
+ "child_pid": 53956,
+ "seeded_sessions": [
+  "190c8215-c939-4f1d-ae82-a2bb33727980"
+ ],
+ "launch_t": 4.21,
+ "seconds": 30.0,
+ "record_changes": [
+  {
+   "t": 5.03,
+   "file": "53956.json",
+   "sessionId": "190c8215-c939-4f1d-ae82-a2bb33727980",
+   "status": null,
+   "statusUpdatedAt": null,
+   "socket_matches": true,
+   "peerFeatures": [
+    "notify_idle",
+    "artifact_yield"
+   ]
+  },
+  {
+   "t": 5.49,
+   "file": "53956.json",
+   "sessionId": "190c8215-c939-4f1d-ae82-a2bb33727980",
+   "status": "idle",
+   "statusUpdatedAt": 1792866671615,
+   "socket_matches": true,
+   "peerFeatures": [
+    "notify_idle",
+    "artifact_yield"
+   ]
+  }
+ ],
+ "upstream": [
+  {
+   "t": 3.92,
+   "method": "POST",
+   "path": "/v1/messages?beta=true",
+   "session_header": "190c8215-c939-4f1d-ae82-a2bb33727980",
+   "messages": 2,
+   "stream": true,
+   "external_marker": false
+  },
+  {
+   "t": 4.21,
+   "method": "-",
+   "path": "seed exit=0 transcripts=['190c8215-c939-4f1d-ae82-a2bb33727980']"
+  }
+ ],
+ "delivery": {
+  "t": 5.52,
+  "sent": false,
+  "session": "190c8215-c939-4f1d-ae82-a2bb33727980",
+  "request_observed_before_send": false
+ },
+ "logs": [
+  {
+   "t": 4.22,
+   "level": "INFO",
+   "text": "claude_session_socket_configured target=\\\\.\\pipe\\LOCAL\\cc-msg-probe0ed640bf63f8"
+  },
+  {
+   "t": 4.24,
+   "level": "INFO",
+   "text": "runtime_compaction_scope admission=paused reason=identity_pending runtime=claude"
+  },
+  {
+   "t": 5.04,
+   "level": "INFO",
+   "text": "runtime_compaction_scope_bound runtime=claude session=190c8215-c939-4f1d-ae82-a2bb33727980 via=socket"
+  },
+  {
+   "t": 5.05,
+   "level": "INFO",
+   "text": "runtime_compaction_scope admission=paused reason=request_identity_pending runtime=claude"
+  },
+  {
+   "t": 5.49,
+   "level": "INFO",
+   "text": "runtime_compaction_scope identity=ready reason=published_idle runtime=claude session=190c8215-c939-4f1d-ae82-a2bb33727980"
+  },
+  {
+   "t": 5.51,
+   "level": "INFO",
+   "text": "runtime_compaction_seed runtime=claude session=190c8215-c939-4f1d-ae82-a2bb33727980 native_input_tokens=10 input_budget=18000"
+  },
+  {
+   "t": 5.52,
+   "level": "INFO",
+   "text": "claude_session_socket_deferred reason=auth_key_unavailable"
+  },
+  {
+   "t": 5.52,
+   "level": "ERROR",
+   "text": "claude_session_socket_unavailable reason=auth_key_unavailable target=\\\\.\\pipe\\LOCAL\\cc-msg-probe0ed640bf63f8 fallback=terminal"
+  }
+ ],
+ "scratch": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-idle-probe-1792866666"
+}

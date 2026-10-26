@@ -1,0 +1,2 @@
+saved C:\Users\djlov\ciel-runtime-wt-lease\docs\journal\2026\10\25\fixes\teammate-model-inheritance\evidence\e2e-routedswitch-82ff03\named.png handle=5251444 printwindow=True
+saved C:\Users\djlov\ciel-runtime-wt-lease\docs\journal\2026\10\25\fixes\teammate-model-inheritance\evidence\e2e-routedswitch-82ff03\named-switched.png handle=5251444 printwindow=True

@@ -1,0 +1,16 @@
+[
+  {
+    "root": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime",
+    "git_commit": "a13c08f0d88e23eac7793ed54996363b38477c87",
+    "python_files_compared": 433,
+    "version_stamp_only": true,
+    "mismatches": []
+  },
+  {
+    "root": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-a13c08f",
+    "git_commit": "a13c08f0d88e23eac7793ed54996363b38477c87",
+    "python_files_compared": 433,
+    "version_stamp_only": true,
+    "mismatches": []
+  }
+]

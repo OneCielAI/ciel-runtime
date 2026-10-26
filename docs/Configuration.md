@@ -236,13 +236,21 @@ Ciel의 `prompt_compaction` soft guard는 이 native auto-compaction과 별개�
 compact가 먼저 일어나지 못한 예외 상황의 마지막 방어선으로만 남긴다. 일반 `413`, `429`,
 high-demand 또는 network 오류를 context overflow로 재분류하지 않는다.
 
-Codex가 local checkpoint compact를 일반 `/v1/responses` 요청으로 보내고, 그 요청이 선택한
-provider/model의 입력 예산을 초과하면 translated Chat/Anthropic 경로에서만 기존 segmented
-compact를 자동 사용한다. 보조 map 호출은 최대 8개이며, 더 많은 chunk가 필요하면 추가 모델
-호출 없이 deterministic soft guard로 전환한다. 정상 turn, 예산 안의 checkpoint, native
-Responses의 opaque compaction item에는 이 경로를 적용하지 않는다. provider 설정에
-`context_compact_llm=false`를 명시하면 자동 segmented compact도 끌 수 있고, `true`는 기존의
-명시적 opt-in 동작을 유지한다.
+Codex가 local checkpoint compact를 일반 `/v1/responses` 요청으로 보내면 먼저 원본
+checkpoint를 선택한 upstream provider/model에 그대로 전달한다. Ciel은 JSON/4 추정치나
+UTF-8 byte 수를 provider token 수로 취급하지 않으며, native 요청이 예산 안이라고 관측되면
+보조 summary를 만들지 않는다. provider가 출력 없이 명시적인 context-length 거절을 반환한
+경우에만 기존 bounded map/reduce recovery를 한 번 시작할 수 있고, 일반 `400`, `413`,
+network 오류, partial output은 재요약 근거가 아니다. 요약 요청은 내부 Ciel alias가 아닌
+해석된 upstream model ID를 사용하며, client disconnect/turn cancellation 때 중단한다.
+정상 turn과 native Responses의 opaque compaction item에는 이 경로를 적용하지 않는다.
+provider 설정에 `context_compact_llm=false`를 명시하면 segmented compact를 끌 수 있다.
+
+라우팅 provider가 공급자의 실제 context-length 거절을 그대로 받을 수 있으면
+`preflight_prompt_compaction=false`를 명시한다. 그러면 JSON 크기 추정치만으로 일반
+턴을 미리 압축하지 않는다. 실제 backlog가 남아 있는 요청은 공급자 거절을 받은 뒤
+기존 reactive context recovery가 한 번 압축·재시도한다. 이 값은 옵션 기본값이며
+네이티브 compact 요청과 번역된 Codex checkpoint에는 적용하지 않는다.
 
 Alibaba Model Studio Token Plan(`alitoken`)의 native Responses endpoint는 실제 서비스가
 10 MiB wire body를 거절하므로, Ciel은 이 provider에만 9 MiB 선제 경계를 적용한다. 본문이
@@ -467,13 +475,25 @@ ciel-runtimectl provider-options cielairouter gateway-status              # 설�
 `direct`가 실제로 적용되면:
 
 - Claude Code: `ANTHROPIC_BASE_URL`=게이트웨이 루트, `ANTHROPIC_AUTH_TOKEN`=CielAiRouter
-  라우터 키, `ANTHROPIC_MODEL`·기본 haiku/opus/sonnet·subagent·`--model`은 라우터가 보냈을
+  라우터 키, `ANTHROPIC_MODEL`·기본 haiku/opus/sonnet·`--model`은 라우터가 보냈을
   upstream 모델 id(`ciel-runtime-cielairouter-*` 별칭은 보내지 않는다).
+  `CLAUDE_CODE_SUBAGENT_MODEL=inherit`는 모델 id가 아닌 제어 값으로 유지한다.
+
 - Codex(app-server, codex-remote): `model_providers.ciel-runtime-gateway.base_url`=게이트웨이
   `/v1`, `env_key`=`CIEL_RUNTIME_GATEWAY_API_KEY`(라우터 키는 이 환경 변수에만 들어간다),
   모델과 model catalog slug는 upstream 모델 id. direct는 별도 provider id를 사용한다.
 - 로컬 라우터는 그대로 시작되고 router MCP(`/ca/mcp`), workspace MCP, 채널 프록시·세션 소켓,
   외부 이벤트(SSE) 수신, 세션 재시작은 router 모드와 같다. 모델 요청만 라우터를 거치지 않는다.
+
+Claude Code에서 Anthropic 이외 공급자를 선택하면 subagent와 teammate는 부모의 **현재 모델을 강제 상속**한다
+(`CLAUDE_CODE_SUBAGENT_MODEL=inherit`, `CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1`, Claude Code 2.1.257 이상).
+Agent 호출의 `model=haiku/sonnet`, 에이전트 정의의 model, 기존 provider `subagent_model` 값은
+이 경로에서 무시한다. 설정 파일의 해당 값은 삭제하지 않는다. 부모 `/model` 변경 뒤 새로 만든
+자식은 변경 모델을 따르며, 이미 실행 중인 자식은 바뀌지 않는다. 공급자·모델 메뉴 선택으로 자동 적용되고,
+실행 중 세션에는 소급 적용되지 않는다. Anthropic native/routed의 기존 정책과 보조 분류기 가족 별칭은
+변경하지 않는다.
+
+[Claude Code 공식 모델 우선순위](https://code.claude.com/docs/en/agent-teams#specify-teammates-and-models).
 
 다음 경우에는 그 실행을 router 경로로 유지하고 키 없는 로그 한 줄
 (`launch_data_path ... active=router reason=...`)과 안내 한 줄을 남긴다: `gateway_selection`이

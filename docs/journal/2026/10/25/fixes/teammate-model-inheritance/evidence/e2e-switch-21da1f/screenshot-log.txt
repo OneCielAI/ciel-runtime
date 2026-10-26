@@ -1,0 +1,2 @@
+saved C:\Users\djlov\ciel-runtime-wt-lease\docs\journal\2026\10\25\fixes\teammate-model-inheritance\evidence\e2e-switch-21da1f\named.png handle=2367852 printwindow=True
+saved C:\Users\djlov\ciel-runtime-wt-lease\docs\journal\2026\10\25\fixes\teammate-model-inheritance\evidence\e2e-switch-21da1f\named-switched.png handle=2367852 printwindow=True

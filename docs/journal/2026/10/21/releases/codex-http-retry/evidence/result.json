@@ -1,0 +1,154 @@
+{
+  "passed": true,
+  "failure_type": null,
+  "transport": "real urllib.request.urlopen; owned HTTPServer on 127.0.0.1 port 0",
+  "environment_cleaned_before_repository_imports": true,
+  "removed_environment_variable_count": 16,
+  "runtime_env_remaining": 0,
+  "credential_headers_sent": false,
+  "network_guard": "socket.connect audit denies non-127.0.0.1; proxies disabled",
+  "socket_connect_count": 10,
+  "owned_listener_count": 7,
+  "cleanup": [
+    {
+      "thread_joined": true,
+      "listener_closed": true
+    },
+    {
+      "thread_joined": true,
+      "listener_closed": true
+    },
+    {
+      "thread_joined": true,
+      "listener_closed": true
+    },
+    {
+      "thread_joined": true,
+      "listener_closed": true
+    },
+    {
+      "thread_joined": true,
+      "listener_closed": true
+    },
+    {
+      "thread_joined": true,
+      "listener_closed": true
+    },
+    {
+      "thread_joined": true,
+      "listener_closed": true
+    }
+  ],
+  "no_new_threads_remaining": true,
+  "production_and_tests_unchanged_during_run": true,
+  "source_sha256": {
+    "C:\\Users\\djlov\\.local\\share\\ciel-runtime-9d1666f\\ciel_runtime_support\\router_http.py": "2d1cd4f0306a096ef4ef4e56636af5699eddf9dc28091428fa79b7179a4d938d",
+    "C:\\Users\\djlov\\ciel-runtime\\tests\\test_codex_backend_item_repair.py": "ac5600461e17289f9a40841cd66a430e8347a802841d5dd5cf874cb9c2b3aec5",
+    "C:\\Users\\djlov\\ciel-runtime\\tests\\test_codex_no_output_http_retry.py": "2067e70996c26e29947260044008ce84613f03a63be405467b01b52b6405d418"
+  },
+  "cases": {
+    "explicit_error_only_sse_502_then_output_200": {
+      "passed": true,
+      "server_requests": 2,
+      "urlopen_attempts": 2,
+      "retry_limit": 1,
+      "retry_wait_count": 1,
+      "downstream_status": 200,
+      "downstream_bytes": 348,
+      "exception_type": null,
+      "terminal_http_status": null,
+      "terminal_body_preserved": null,
+      "success_output_exact": true,
+      "retry_logs": [
+        "codex_no_output_http_retry operation=responses model=synthetic-loopback-model status=502 attempt=1/1 wait=0.00s"
+      ]
+    },
+    "repeated_explicit_errors_bounded": {
+      "passed": true,
+      "server_requests": 3,
+      "urlopen_attempts": 3,
+      "retry_limit": 2,
+      "retry_wait_count": 2,
+      "downstream_status": null,
+      "downstream_bytes": 0,
+      "exception_type": "HTTPError",
+      "terminal_http_status": 502,
+      "terminal_body_preserved": true,
+      "success_output_exact": false,
+      "retry_logs": [
+        "codex_no_output_http_retry operation=responses model=synthetic-loopback-model status=502 attempt=1/2 wait=0.00s",
+        "codex_no_output_http_retry operation=responses model=synthetic-loopback-model status=502 attempt=2/2 wait=0.00s"
+      ]
+    },
+    "explicit_error_zero_retry_budget": {
+      "passed": true,
+      "server_requests": 1,
+      "urlopen_attempts": 1,
+      "retry_limit": 0,
+      "retry_wait_count": 0,
+      "downstream_status": null,
+      "downstream_bytes": 0,
+      "exception_type": "HTTPError",
+      "terminal_http_status": 502,
+      "terminal_body_preserved": true,
+      "success_output_exact": false,
+      "retry_logs": []
+    },
+    "ambiguous_502": {
+      "passed": true,
+      "server_requests": 1,
+      "urlopen_attempts": 1,
+      "retry_limit": 2,
+      "retry_wait_count": 0,
+      "downstream_status": null,
+      "downstream_bytes": 0,
+      "exception_type": "HTTPError",
+      "terminal_http_status": 502,
+      "terminal_body_preserved": true,
+      "success_output_exact": false,
+      "retry_logs": []
+    },
+    "output_bearing_json_error": {
+      "passed": true,
+      "server_requests": 1,
+      "urlopen_attempts": 1,
+      "retry_limit": 2,
+      "retry_wait_count": 0,
+      "downstream_status": null,
+      "downstream_bytes": 0,
+      "exception_type": "HTTPError",
+      "terminal_http_status": 502,
+      "terminal_body_preserved": true,
+      "success_output_exact": false,
+      "retry_logs": []
+    },
+    "output_bearing_sse_error": {
+      "passed": true,
+      "server_requests": 1,
+      "urlopen_attempts": 1,
+      "retry_limit": 2,
+      "retry_wait_count": 0,
+      "downstream_status": null,
+      "downstream_bytes": 0,
+      "exception_type": "HTTPError",
+      "terminal_http_status": 502,
+      "terminal_body_preserved": true,
+      "success_output_exact": false,
+      "retry_logs": []
+    },
+    "after_open_broken_chunked_stream": {
+      "passed": true,
+      "server_requests": 1,
+      "urlopen_attempts": 1,
+      "retry_limit": 2,
+      "retry_wait_count": 0,
+      "downstream_status": 200,
+      "downstream_bytes": 65536,
+      "exception_type": "IncompleteRead",
+      "terminal_http_status": null,
+      "terminal_body_preserved": null,
+      "success_output_exact": false,
+      "retry_logs": []
+    }
+  }
+}

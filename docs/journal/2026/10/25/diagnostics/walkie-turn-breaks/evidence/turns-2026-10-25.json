@@ -1,0 +1,868 @@
+{
+ "turns": [
+  {
+   "start": "2026-10-25T10:33:34.668Z",
+   "trigger": "external-channel",
+   "tool_calls": 2,
+   "models": {
+    "gpt-6.1-sol": 3
+   },
+   "ended": {
+    "at": "2026-10-25T10:34:16.709Z",
+    "model": "gpt-6.1-sol",
+    "has_text": true
+   }
+  },
+  {
+   "start": "2026-10-25T10:41:07.467Z",
+   "trigger": "task-notification",
+   "tool_calls": 0,
+   "models": {},
+   "ended": null,
+   "synthetic": true,
+   "superseded_by": "external-channel"
+  },
+  {
+   "start": "2026-10-25T11:22:32.315Z",
+   "trigger": "external-channel",
+   "tool_calls": 2,
+   "models": {
+    "gpt-6.1-sol": 1,
+    "claude-opus-5-5": 1
+   },
+   "ended": null,
+   "superseded_by": "compaction-summary"
+  },
+  {
+   "start": "2026-10-25T11:26:04.537Z",
+   "trigger": "compaction-summary",
+   "tool_calls": 109,
+   "models": {
+    "gpt-6.1-sol": 110
+   },
+   "ended": {
+    "at": "2026-10-25T12:03:28.514Z",
+    "model": "gpt-6.1-sol",
+    "has_text": true
+   }
+  },
+  {
+   "start": "2026-10-25T12:04:06.721Z",
+   "trigger": "external-channel",
+   "tool_calls": 2,
+   "models": {
+    "gpt-6.1-sol": 3
+   },
+   "ended": {
+    "at": "2026-10-25T12:04:58.670Z",
+    "model": "gpt-6.1-sol",
+    "has_text": true
+   }
+  },
+  {
+   "start": "2026-10-25T12:04:59.632Z",
+   "trigger": "external-channel",
+   "tool_calls": 6,
+   "models": {
+    "gpt-6.1-sol": 7
+   },
+   "ended": {
+    "at": "2026-10-25T12:07:23.665Z",
+    "model": "gpt-6.1-sol",
+    "has_text": true
+   }
+  },
+  {
+   "start": "2026-10-25T12:08:38.312Z",
+   "trigger": "external-channel",
+   "tool_calls": 39,
+   "models": {
+    "gpt-6.1-sol": 40
+   },
+   "ended": {
+    "at": "2026-10-25T12:23:53.701Z",
+    "model": "gpt-6.1-sol",
+    "has_text": true
+   }
+  },
+  {
+   "start": "2026-10-25T12:24:08.523Z",
+   "trigger": "task-notification",
+   "tool_calls": 27,
+   "models": {
+    "gpt-6.1-sol": 28
+   },
+   "ended": {
+    "at": "2026-10-25T12:36:23.065Z",
+    "model": "gpt-6.1-sol",
+    "has_text": true
+   }
+  },
+  {
+   "start": "2026-10-25T12:36:24.466Z",
+   "trigger": "external-channel",
+   "tool_calls": 3,
+   "models": {
+    "gpt-6.1-sol": 4
+   },
+   "ended": {
+    "at": "2026-10-25T12:38:42.693Z",
+    "model": "gpt-6.1-sol",
+    "has_text": true
+   }
+  },
+  {
+   "start": "2026-10-25T12:41:11.966Z",
+   "trigger": "external-channel",
+   "tool_calls": 2,
+   "models": {
+    "gpt-6.1-sol": 3
+   },
+   "ended": {
+    "at": "2026-10-25T12:42:54.223Z",
+    "model": "gpt-6.1-sol",
+    "has_text": true
+   }
+  },
+  {
+   "start": "2026-10-25T12:43:27.586Z",
+   "trigger": "task-notification",
+   "tool_calls": 5,
+   "models": {
+    "gpt-6.1-sol": 6
+   },
+   "ended": {
+    "at": "2026-10-25T12:45:21.680Z",
+    "model": "gpt-6.1-sol",
+    "has_text": true
+   }
+  },
+  {
+   "start": "2026-10-25T12:46:15.909Z",
+   "trigger": "external-channel",
+   "tool_calls": 17,
+   "models": {
+    "gpt-6.1-sol": 18
+   },
+   "ended": {
+    "at": "2026-10-25T12:53:44.217Z",
+    "model": "gpt-6.1-sol",
+    "has_text": true
+   }
+  },
+  {
+   "start": "2026-10-25T12:56:39.052Z",
+   "trigger": "external-channel",
+   "tool_calls": 13,
+   "models": {
+    "gpt-6.1-sol": 14
+   },
+   "ended": {
+    "at": "2026-10-25T13:02:14.795Z",
+    "model": "gpt-6.1-sol",
+    "has_text": true
+   }
+  },
+  {
+   "start": "2026-10-25T13:02:16.144Z",
+   "trigger": "task-notification",
+   "tool_calls": 16,
+   "models": {
+    "gpt-6.1-sol": 13,
+    "claude-opus-5-5": 4
+   },
+   "ended": {
+    "at": "2026-10-25T13:09:05.153Z",
+    "model": "claude-opus-5-5",
+    "has_text": true
+   }
+  },
+  {
+   "start": "2026-10-25T13:09:36.808Z",
+   "trigger": "task-notification",
+   "tool_calls": 5,
+   "models": {
+    "claude-opus-5-5": 6
+   },
+   "ended": {
+    "at": "2026-10-25T13:11:19.228Z",
+    "model": "claude-opus-5-5",
+    "has_text": true
+   }
+  },
+  {
+   "start": "2026-10-25T13:16:18.720Z",
+   "trigger": "external-channel",
+   "tool_calls": 6,
+   "models": {
+    "claude-opus-5-5": 7
+   },
+   "ended": {
+    "at": "2026-10-25T13:18:42.034Z",
+    "model": "claude-opus-5-5",
+    "has_text": true
+   }
+  },
+  {
+   "start": "2026-10-25T13:20:10.103Z",
+   "trigger": "task-notification",
+   "tool_calls": 42,
+   "models": {
+    "claude-opus-5-5": 41,
+    "gpt-6.1-sol": 1
+   },
+   "ended": null,
+   "superseded_by": "compaction-summary"
+  },
+  {
+   "start": "2026-10-25T13:40:10.630Z",
+   "trigger": "compaction-summary",
+   "tool_calls": 109,
+   "models": {
+    "claude-opus-5-5": 110
+   },
+   "ended": {
+    "at": "2026-10-25T14:08:17.389Z",
+    "model": "claude-opus-5-5",
+    "has_text": true
+   }
+  },
+  {
+   "start": "2026-10-25T14:29:34.935Z",
+   "trigger": "task-notification",
+   "tool_calls": 28,
+   "models": {
+    "claude-opus-5-5": 29
+   },
+   "ended": {
+    "at": "2026-10-25T14:36:17.777Z",
+    "model": "claude-opus-5-5",
+    "has_text": true
+   }
+  },
+  {
+   "start": "2026-10-25T14:39:26.218Z",
+   "trigger": "task-notification",
+   "tool_calls": 7,
+   "models": {
+    "claude-opus-5-5": 8
+   },
+   "ended": {
+    "at": "2026-10-25T14:40:54.104Z",
+    "model": "claude-opus-5-5",
+    "has_text": true
+   }
+  },
+  {
+   "start": "2026-10-25T14:44:30.719Z",
+   "trigger": "task-notification",
+   "tool_calls": 16,
+   "models": {
+    "claude-opus-5-5": 17
+   },
+   "ended": {
+    "at": "2026-10-25T14:47:45.784Z",
+    "model": "claude-opus-5-5",
+    "has_text": true
+   }
+  },
+  {
+   "start": "2026-10-25T14:50:53.135Z",
+   "trigger": "external-channel",
+   "tool_calls": 1,
+   "models": {
+    "claude-opus-5-5": 2
+   },
+   "ended": {
+    "at": "2026-10-25T14:51:13.325Z",
+    "model": "claude-opus-5-5",
+    "has_text": true
+   }
+  },
+  {
+   "start": "2026-10-25T14:55:07.366Z",
+   "trigger": "task-notification",
+   "tool_calls": 14,
+   "models": {
+    "claude-opus-5-5": 15
+   },
+   "ended": {
+    "at": "2026-10-25T14:57:56.211Z",
+    "model": "claude-opus-5-5",
+    "has_text": true
+   }
+  },
+  {
+   "start": "2026-10-25T15:01:08.009Z",
+   "trigger": "external-channel",
+   "tool_calls": 5,
+   "models": {
+    "claude-opus-5-5": 6
+   },
+   "ended": {
+    "at": "2026-10-25T15:03:36.394Z",
+    "model": "claude-opus-5-5",
+    "has_text": true
+   }
+  },
+  {
+   "start": "2026-10-25T15:11:08.223Z",
+   "trigger": "external-channel",
+   "tool_calls": 0,
+   "models": {
+    "claude-opus-5-5": 1
+   },
+   "ended": {
+    "at": "2026-10-25T15:11:20.171Z",
+    "model": "claude-opus-5-5",
+    "has_text": true
+   }
+  },
+  {
+   "start": "2026-10-25T15:11:22.312Z",
+   "trigger": "external-channel",
+   "tool_calls": 5,
+   "models": {
+    "claude-opus-5-5": 6
+   },
+   "ended": {
+    "at": "2026-10-25T15:12:40.298Z",
+    "model": "claude-opus-5-5",
+    "has_text": true
+   }
+  },
+  {
+   "start": "2026-10-25T15:13:14.971Z",
+   "trigger": "external-channel",
+   "tool_calls": 1,
+   "models": {
+    "claude-opus-5-5": 1
+   },
+   "ended": null,
+   "superseded_by": "compaction-summary"
+  },
+  {
+   "start": "2026-10-25T15:15:58.281Z",
+   "trigger": "compaction-summary",
+   "tool_calls": 3,
+   "models": {
+    "claude-opus-5-5": 3
+   },
+   "ended": null,
+   "synthetic": true,
+   "superseded_by": "external-channel"
+  },
+  {
+   "start": "2026-10-25T15:22:21.195Z",
+   "trigger": "external-channel",
+   "tool_calls": 177,
+   "models": {
+    "claude-opus-5-5": 167,
+    "gpt-6.1-sol": 10
+   },
+   "ended": null,
+   "superseded_by": "compaction-summary"
+  },
+  {
+   "start": "2026-10-25T16:17:25.463Z",
+   "trigger": "compaction-summary",
+   "tool_calls": 112,
+   "models": {
+    "claude-opus-5-5": 112,
+    "gpt-6.1-sol": 1
+   },
+   "ended": {
+    "at": "2026-10-25T16:46:02.628Z",
+    "model": "claude-opus-5-5",
+    "has_text": true
+   }
+  },
+  {
+   "start": "2026-10-25T16:46:03.042Z",
+   "trigger": "teammate-message",
+   "tool_calls": 73,
+   "models": {
+    "claude-opus-5-5": 72,
+    "gpt-6.1-sol": 1
+   },
+   "ended": null,
+   "superseded_by": "compaction-summary"
+  },
+  {
+   "start": "2026-10-25T17:17:53.347Z",
+   "trigger": "compaction-summary",
+   "tool_calls": 74,
+   "models": {
+    "claude-opus-5-5": 69,
+    "gpt-6.1-sol": 6
+   },
+   "ended": {
+    "at": "2026-10-25T17:36:12.038Z",
+    "model": "claude-opus-5-5",
+    "has_text": true
+   }
+  },
+  {
+   "start": "2026-10-25T17:36:12.427Z",
+   "trigger": "teammate-message",
+   "tool_calls": 8,
+   "models": {
+    "claude-opus-5-5": 9
+   },
+   "ended": {
+    "at": "2026-10-25T17:38:45.235Z",
+    "model": "claude-opus-5-5",
+    "has_text": true
+   }
+  },
+  {
+   "start": "2026-10-25T17:39:23.630Z",
+   "trigger": "external-channel",
+   "tool_calls": 80,
+   "models": {
+    "claude-opus-5-5": 81
+   },
+   "ended": {
+    "at": "2026-10-25T18:06:06.702Z",
+    "model": "claude-opus-5-5",
+    "has_text": true
+   }
+  },
+  {
+   "start": "2026-10-25T18:06:09.534Z",
+   "trigger": "external-channel",
+   "tool_calls": 2,
+   "models": {
+    "claude-opus-5-5": 3
+   },
+   "ended": {
+    "at": "2026-10-25T18:06:50.484Z",
+    "model": "claude-opus-5-5",
+    "has_text": true
+   }
+  },
+  {
+   "start": "2026-10-25T18:08:39.295Z",
+   "trigger": "task-notification",
+   "tool_calls": 23,
+   "models": {
+    "claude-opus-5-5": 24
+   },
+   "ended": {
+    "at": "2026-10-25T18:14:56.506Z",
+    "model": "claude-opus-5-5",
+    "has_text": true
+   }
+  },
+  {
+   "start": "2026-10-25T18:22:31.559Z",
+   "trigger": "task-notification",
+   "tool_calls": 0,
+   "models": {
+    "claude-opus-5-5": 1
+   },
+   "ended": {
+    "at": "2026-10-25T18:22:48.188Z",
+    "model": "claude-opus-5-5",
+    "has_text": true
+   }
+  },
+  {
+   "start": "2026-10-25T18:22:50.714Z",
+   "trigger": "external-channel",
+   "tool_calls": 3,
+   "models": {
+    "claude-opus-5-5": 4
+   },
+   "ended": {
+    "at": "2026-10-25T18:23:45.858Z",
+    "model": "claude-opus-5-5",
+    "has_text": true
+   }
+  },
+  {
+   "start": "2026-10-25T18:33:53.703Z",
+   "trigger": "external-channel",
+   "tool_calls": 2,
+   "models": {
+    "claude-opus-5-5": 3
+   },
+   "ended": {
+    "at": "2026-10-25T18:34:29.371Z",
+    "model": "claude-opus-5-5",
+    "has_text": true
+   }
+  },
+  {
+   "start": "2026-10-25T18:36:31.462Z",
+   "trigger": "external-channel",
+   "tool_calls": 15,
+   "models": {
+    "claude-opus-5-5": 16
+   },
+   "ended": {
+    "at": "2026-10-25T18:40:41.787Z",
+    "model": "claude-opus-5-5",
+    "has_text": true
+   }
+  },
+  {
+   "start": "2026-10-25T18:50:06.348Z",
+   "trigger": "task-notification",
+   "tool_calls": 13,
+   "models": {
+    "claude-opus-5-5": 14
+   },
+   "ended": {
+    "at": "2026-10-25T18:52:41.408Z",
+    "model": "claude-opus-5-5",
+    "has_text": true
+   }
+  },
+  {
+   "start": "2026-10-25T18:52:43.047Z",
+   "trigger": "external-channel",
+   "tool_calls": 2,
+   "models": {
+    "claude-opus-5-5": 2
+   },
+   "ended": null,
+   "superseded_by": "compaction-summary"
+  },
+  {
+   "start": "2026-10-25T18:55:12.237Z",
+   "trigger": "compaction-summary",
+   "tool_calls": 116,
+   "models": {
+    "claude-opus-5-5": 117
+   },
+   "ended": {
+    "at": "2026-10-25T19:20:32.626Z",
+    "model": "claude-opus-5-5",
+    "has_text": true
+   }
+  },
+  {
+   "start": "2026-10-25T19:20:35.530Z",
+   "trigger": "external-channel",
+   "tool_calls": 10,
+   "models": {
+    "claude-opus-5-5": 11
+   },
+   "ended": {
+    "at": "2026-10-25T19:23:15.399Z",
+    "model": "claude-opus-5-5",
+    "has_text": true
+   }
+  },
+  {
+   "start": "2026-10-25T19:28:47.648Z",
+   "trigger": "external-channel",
+   "tool_calls": 0,
+   "models": {
+    "claude-opus-5-5": 1
+   },
+   "ended": {
+    "at": "2026-10-25T19:29:04.459Z",
+    "model": "claude-opus-5-5",
+    "has_text": true
+   }
+  },
+  {
+   "start": "2026-10-25T19:30:54.477Z",
+   "trigger": "external-channel",
+   "tool_calls": 43,
+   "models": {
+    "claude-opus-5-5": 24,
+    "gpt-6.1-sol": 20
+   },
+   "ended": {
+    "at": "2026-10-25T19:41:47.823Z",
+    "model": "claude-opus-5-5",
+    "has_text": true
+   }
+  },
+  {
+   "start": "2026-10-25T19:44:50.521Z",
+   "trigger": "external-channel",
+   "tool_calls": 14,
+   "models": {
+    "claude-opus-5-5": 15
+   },
+   "ended": {
+    "at": "2026-10-25T19:47:33.852Z",
+    "model": "claude-opus-5-5",
+    "has_text": true
+   }
+  },
+  {
+   "start": "2026-10-25T19:55:02.371Z",
+   "trigger": "external-channel",
+   "tool_calls": 6,
+   "models": {
+    "gpt-6.1-sol": 7
+   },
+   "ended": {
+    "at": "2026-10-25T19:56:59.400Z",
+    "model": "gpt-6.1-sol",
+    "has_text": true
+   }
+  },
+  {
+   "start": "2026-10-25T19:56:59.817Z",
+   "trigger": "task-notification",
+   "tool_calls": 11,
+   "models": {
+    "gpt-6.1-sol": 12
+   },
+   "ended": {
+    "at": "2026-10-25T20:00:34.823Z",
+    "model": "gpt-6.1-sol",
+    "has_text": true
+   }
+  },
+  {
+   "start": "2026-10-25T20:06:02.721Z",
+   "trigger": "external-channel",
+   "tool_calls": 14,
+   "models": {
+    "gpt-6.1-sol": 15
+   },
+   "ended": {
+    "at": "2026-10-25T20:11:27.767Z",
+    "model": "gpt-6.1-sol",
+    "has_text": true
+   }
+  },
+  {
+   "start": "2026-10-25T20:17:07.512Z",
+   "trigger": "external-channel",
+   "tool_calls": 9,
+   "models": {
+    "gpt-6.1-sol": 10
+   },
+   "ended": {
+    "at": "2026-10-25T20:19:41.606Z",
+    "model": "gpt-6.1-sol",
+    "has_text": true
+   }
+  },
+  {
+   "start": "2026-10-25T20:19:46.224Z",
+   "trigger": "task-notification",
+   "tool_calls": 5,
+   "models": {
+    "gpt-6.1-sol": 6
+   },
+   "ended": {
+    "at": "2026-10-25T20:21:18.627Z",
+    "model": "gpt-6.1-sol",
+    "has_text": true
+   }
+  },
+  {
+   "start": "2026-10-25T20:54:27.892Z",
+   "trigger": "external-channel",
+   "tool_calls": 7,
+   "models": {
+    "gpt-6.1-sol": 8
+   },
+   "ended": {
+    "at": "2026-10-25T20:57:21.327Z",
+    "model": "gpt-6.1-sol",
+    "has_text": true
+   }
+  },
+  {
+   "start": "2026-10-25T20:57:24.906Z",
+   "trigger": "external-channel",
+   "tool_calls": 10,
+   "models": {
+    "gpt-6.1-sol": 11
+   },
+   "ended": {
+    "at": "2026-10-25T21:01:15.694Z",
+    "model": "gpt-6.1-sol",
+    "has_text": true
+   }
+  },
+  {
+   "start": "2026-10-25T21:01:26.084Z",
+   "trigger": "task-notification",
+   "tool_calls": 3,
+   "models": {
+    "gpt-6.1-sol": 4
+   },
+   "ended": {
+    "at": "2026-10-25T21:02:23.506Z",
+    "model": "gpt-6.1-sol",
+    "has_text": true
+   }
+  },
+  {
+   "start": "2026-10-25T21:02:53.001Z",
+   "trigger": "task-notification",
+   "tool_calls": 24,
+   "models": {
+    "gpt-6.1-sol": 25
+   },
+   "ended": {
+    "at": "2026-10-25T21:09:42.156Z",
+    "model": "gpt-6.1-sol",
+    "has_text": true
+   }
+  },
+  {
+   "start": "2026-10-25T21:20:28.507Z",
+   "trigger": "external-channel",
+   "tool_calls": 7,
+   "models": {
+    "gpt-6.1-sol": 8
+   },
+   "ended": {
+    "at": "2026-10-25T21:25:15.319Z",
+    "model": "gpt-6.1-sol",
+    "has_text": true
+   }
+  },
+  {
+   "start": "2026-10-25T21:30:40.941Z",
+   "trigger": "external-channel",
+   "tool_calls": 8,
+   "models": {
+    "gpt-6.1-sol": 9
+   },
+   "ended": {
+    "at": "2026-10-25T21:35:01.511Z",
+    "model": "gpt-6.1-sol",
+    "has_text": true
+   }
+  },
+  {
+   "start": "2026-10-25T21:38:32.063Z",
+   "trigger": "external-channel",
+   "tool_calls": 3,
+   "models": {
+    "gpt-6.1-sol": 4
+   },
+   "ended": {
+    "at": "2026-10-25T21:39:31.836Z",
+    "model": "gpt-6.1-sol",
+    "has_text": true
+   }
+  },
+  {
+   "start": "2026-10-25T21:48:23.698Z",
+   "trigger": "external-channel",
+   "tool_calls": 4,
+   "models": {
+    "gpt-6.1-sol": 5
+   },
+   "ended": {
+    "at": "2026-10-25T21:49:38.282Z",
+    "model": "gpt-6.1-sol",
+    "has_text": true
+   }
+  },
+  {
+   "start": "2026-10-25T21:49:42.357Z",
+   "trigger": "external-channel",
+   "tool_calls": 1,
+   "models": {
+    "gpt-6.1-sol": 2
+   },
+   "ended": {
+    "at": "2026-10-25T21:50:06.311Z",
+    "model": "gpt-6.1-sol",
+    "has_text": true
+   }
+  },
+  {
+   "start": "2026-10-25T21:54:41.885Z",
+   "trigger": "human",
+   "tool_calls": 2,
+   "models": {
+    "gpt-6.1-sol": 3
+   },
+   "ended": {
+    "at": "2026-10-25T21:55:35.765Z",
+    "model": "gpt-6.1-sol",
+    "has_text": true
+   }
+  },
+  {
+   "start": "2026-10-25T22:10:37.024Z",
+   "trigger": "external-channel",
+   "tool_calls": 0,
+   "models": {
+    "gpt-6.1-sol": 1
+   },
+   "ended": {
+    "at": "2026-10-25T22:10:53.883Z",
+    "model": "gpt-6.1-sol",
+    "has_text": true
+   }
+  },
+  {
+   "start": "2026-10-25T22:11:23.974Z",
+   "trigger": "human",
+   "tool_calls": 0,
+   "models": {
+    "gpt-6.1-sol": 1
+   },
+   "ended": {
+    "at": "2026-10-25T22:11:39.051Z",
+    "model": "gpt-6.1-sol",
+    "has_text": true
+   }
+  },
+  {
+   "start": "2026-10-25T22:11:39.820Z",
+   "trigger": "human",
+   "tool_calls": 1,
+   "models": {
+    "gpt-6.1-sol": 2
+   },
+   "ended": {
+    "at": "2026-10-25T22:12:43.728Z",
+    "model": "gpt-6.1-sol",
+    "has_text": true
+   }
+  },
+  {
+   "start": "2026-10-25T22:13:20.218Z",
+   "trigger": "human",
+   "tool_calls": 8,
+   "models": {
+    "gpt-6.1-sol": 7,
+    "claude-opus-5-5": 1
+   },
+   "ended": null,
+   "superseded_by": "compaction-summary"
+  },
+  {
+   "start": "2026-10-25T22:18:49.774Z",
+   "trigger": "compaction-summary",
+   "tool_calls": 25,
+   "models": {
+    "gpt-6.1-sol": 3,
+    "claude-opus-5-5": 22
+   },
+   "ended": null
+  }
+ ],
+ "ended_by_model_and_trigger": {
+  "gpt-6.1-sol": {
+   "external-channel": 19,
+   "compaction-summary": 1,
+   "task-notification": 6,
+   "human": 3
+  },
+  "claude-opus-5-5": {
+   "task-notification": 9,
+   "external-channel": 14,
+   "compaction-summary": 4,
+   "teammate-message": 1
+  }
+ }
+}

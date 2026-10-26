@@ -1,0 +1,64 @@
+{
+ "claude": "C:\\Users\\djlov\\.local\\bin\\claude.exe",
+ "mode": "continue",
+ "child_pid": 58988,
+ "seeded_sessions": [
+  "aad6528b-c202-4df7-ae93-baa3c890647e"
+ ],
+ "launch_t": 64.83,
+ "seconds": 45.0,
+ "record_changes": [
+  {
+   "t": 64.85,
+   "file": "25676.json",
+   "sessionId": "aad6528b-c202-4df7-ae93-baa3c890647e",
+   "status": "idle",
+   "statusUpdatedAt": 1792859530457,
+   "socket_matches": false,
+   "peerFeatures": [
+    "notify_idle",
+    "artifact_yield"
+   ]
+  },
+  {
+   "t": 65.46,
+   "file": "58988.json",
+   "sessionId": "e5d8e09e-67e8-4891-ae59-ddca34afffce",
+   "status": null,
+   "statusUpdatedAt": null,
+   "socket_matches": true,
+   "peerFeatures": [
+    "notify_idle",
+    "artifact_yield"
+   ]
+  },
+  {
+   "t": 65.76,
+   "file": "58988.json",
+   "sessionId": "aad6528b-c202-4df7-ae93-baa3c890647e",
+   "status": "idle",
+   "statusUpdatedAt": 1792859534991,
+   "socket_matches": true,
+   "peerFeatures": [
+    "notify_idle",
+    "artifact_yield"
+   ]
+  }
+ ],
+ "upstream": [
+  {
+   "t": 61.01,
+   "method": "POST",
+   "path": "/v1/messages?beta=true",
+   "session_header": "aad6528b-c202-4df7-ae93-baa3c890647e",
+   "messages": 2,
+   "stream": true
+  },
+  {
+   "t": 64.83,
+   "method": "-",
+   "path": "seed [('prompt', True), ('reply', True)] transcripts=['aad6528b-c202-4df7-ae93-baa3c890647e']"
+  }
+ ],
+ "scratch": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-idle-probe-1792859469"
+}

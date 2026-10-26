@@ -6,6 +6,7 @@ from typing import Any, Callable
 
 from .external_event_control import ExternalEventControl
 from .external_event_receiver import ExternalEventReceiverService
+from .runtime_input_delivery_health import delivery_health_text
 
 
 def panel_rows(
@@ -48,6 +49,24 @@ def panel_rows(
 
     live = control("status") if control is not None else {"available": False}
     status = live.get("status") or {}
+    sse = control("sse_status") if control is not None else {"available": False}
+    sse_result = sse.get("result") if isinstance(sse.get("result"), dict) else {}
+    sse_evidence = (sse_result.get("evidence")
+                    if isinstance(sse_result.get("evidence"), dict) else {})
+    if not sse.get("available"):
+        sse_text = "unavailable"
+    elif sse_result.get("ok") is False or sse_evidence.get("observable") is False:
+        sse_text = str(sse_result.get("reason") or sse_evidence.get("reason") or "observation unavailable")[:70]
+    elif sse_result:
+        reasons = ", ".join(str(value) for value in sse_evidence.get("reasons") or [])
+        oldest = sse_evidence.get("oldest_queued_age_seconds")
+        sse_text = (
+            f"{'problem' if sse_result.get('problem') else 'ok'} · {reasons or 'no problem'}"
+            f" · queued {sse_evidence.get('known_queued_count', 0)}"
+            f" · oldest {f'{oldest:.0f}s' if isinstance(oldest, (int, float)) else '-'}"
+        )
+    else:
+        sse_text = str(sse.get("tool_error") or sse.get("reason") or "unavailable")[:60]
     state = str(status.get("state") or "unknown") if live.get("available") else "unavailable"
     failure = status.get("last_failure") or {}
     if not isinstance(failure, dict):
@@ -96,6 +115,18 @@ def panel_rows(
         "__info__",
         "back",
     ]
+    rows.insert(-1, f"Session delivery  [{delivery_health_text(status.get('delivery') or {})}]")
+    values.insert(-1, "__info__")
+    rows.insert(-1, f"SSE delivery recovery  [{sse_text}]")
+    values.insert(-1, "__info__")
+    compact = sse_result.get("compaction")
+    if isinstance(compact, dict) and compact.get("phase"):
+        rows.insert(-1, f"Compaction recovery  [{compact['phase']} ; reason {compact.get('failure') or '-'} ; "
+                    f"checkpoint observed {compact.get('checkpoint_observed_at') or '-'} ; "
+                    f"failure at {compact.get('failure_at') or '-'}]")
+        values.insert(-1, "__info__")
+    rows.insert(-1, "Recover SSE delivery now")
+    values.insert(-1, "recover_sse_delivery")
     return rows, values
 
 
@@ -103,6 +134,29 @@ def update_config(
     service: ExternalEventReceiverService, key: str, value: Any,
     *, control: Callable[..., dict[str, Any]] | None = None,
 ) -> list[str]:
+    if key == "recover_sse_delivery":
+        result = control("sse_recover") if control is not None else {"available": False}
+        if not result.get("available"):
+            return ["SSE delivery recovery is unavailable (router tool unreachable); no session was restarted."]
+        if result.get("tool_error"):
+            return [f"SSE delivery recovery failed: {result['tool_error']}"]
+        recovered = result.get("result") or {}
+        evidence = recovered.get("evidence") if isinstance(recovered.get("evidence"), dict) else {}
+        if recovered.get("reset"):
+            reasons = ", ".join(str(value) for value in evidence.get("reasons") or [])
+            return [
+                f"Session restart queued after observed SSE delivery trouble ({reasons}); resume is requested.",
+                "This is a queued restart, not delivery confirmation; verify queued input after the session returns.",
+            ]
+        reason = str(recovered.get("reason") or "not_reset")
+        detail = {
+            "no_sse_delivery_problem": "no SSE delivery problem was observed (queue fresh, admission not paused)",
+            "cooldown_active": "the recovery cooldown is still active",
+            "restart_refused": "the restart service refused the request",
+            "compaction_admission_paused": "compaction admission is paused; recovery does not bypass it",
+            "restart_evidence_insufficient": "complete stale-queue evidence is unavailable",
+        }.get(reason, reason)
+        return [f"No session was restarted: {detail}."]
     if key in {"refresh_receiver", "reconnect_receiver"}:
         action = "status" if key == "refresh_receiver" else "reconnect"
         result = control(action) if control is not None else {"available": False}

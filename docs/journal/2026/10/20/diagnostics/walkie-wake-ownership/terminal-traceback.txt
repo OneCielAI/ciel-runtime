@@ -1,0 +1,77 @@
+ALIAS cmd.exe 0  error 31
+ALIAS CMD.EXE 0  error 31
+ALIAS C:\WINDOWS\System32\cmd.exe 0  error 31
+BUFFER 316 89 CURSOR 88
+        cmd,
+        ^^^^
+    ...<17 lines>...
+        session_command_actions=session_command_actions,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\djlov\.local\share\ciel-runtime-9ac82f0e86a067b8cf9fcdfe3fc69ef695071ff8\ciel_runtime_support\channel_terminal_context.py", line 239, in dispatch
+    return self.dispatch_service().dispatch(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        cmd,
+        ^^^^
+    ...<17 lines>...
+        session_command_actions=session_command_actions,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\djlov\.local\share\ciel-runtime-9ac82f0e86a067b8cf9fcdfe3fc69ef695071ff8\ciel_runtime_support\channel_terminal_dispatch.py", line 140, in dispatch
+    return self.call_direct(
+           ~~~~~~~~~~~~~~~~^
+        cmd,
+        ^^^^
+    ...<16 lines>...
+        pending_state=pending_state,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\djlov\.local\share\ciel-runtime-9ac82f0e86a067b8cf9fcdfe3fc69ef695071ff8\ciel_runtime_support\channel_terminal_dispatch.py", line 207, in call_direct
+    return self._await_child(proc, restart_poll, restart_state, poller)
+           ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\djlov\.local\share\ciel-runtime-9ac82f0e86a067b8cf9fcdfe3fc69ef695071ff8\ciel_runtime_support\channel_terminal_dispatch.py", line 241, in _await_child
+    poller.poll(time.time())
+    ~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\Users\djlov\.local\share\ciel-runtime-9ac82f0e86a067b8cf9fcdfe3fc69ef695071ff8\ciel_runtime_support\channel_terminal_dispatch.py", line 314, in poll
+    self.state = poll_pending_channel_messages(
+                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        now,
+        ^^^^
+    ...<14 lines>...
+        ),
+        ^^
+    )
+    ^
+  File "C:\Users\djlov\.local\share\ciel-runtime-9ac82f0e86a067b8cf9fcdfe3fc69ef695071ff8\ciel_runtime_support\channel_pending_poll.py", line 177, in poll_pending_channel_messages
+    last_id = services.inject_pending(
+        writer,
+    ...<17 lines>...
+        terminal_available=options.terminal_available,
+    )
+  File "C:\Users\djlov\.local\share\ciel-runtime-9ac82f0e86a067b8cf9fcdfe3fc69ef695071ff8\ciel_runtime.py", line 4525, in _inject_pending_channel_messages
+    return channel_wake_context().inject_pending(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        master_fd,
+        ^^^^^^^^^^
+    ...<11 lines>...
+        skip_blocking_wake_states=skip_blocking_wake_states, terminal_available=terminal_available,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\djlov\.local\share\ciel-runtime-9ac82f0e86a067b8cf9fcdfe3fc69ef695071ff8\ciel_runtime_support\channel_wake_context.py", line 646, in inject_pending
+    return inject_pending_channel_messages(
+        master_fd,
+    ...<3 lines>...
+        **options,
+    )
+  File "C:\Users\djlov\.local\share\ciel-runtime-9ac82f0e86a067b8cf9fcdfe3fc69ef695071ff8\ciel_runtime_support\channel_pending_injection.py", line 442, in inject_pending_channel_messages
+    begin_attempt(pending)
+    ~~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\djlov\.local\share\ciel-runtime-9ac82f0e86a067b8cf9fcdfe3fc69ef695071ff8\ciel_runtime_support\channel_wake_delivery_repository.py", line 46, in begin_attempt
+    attempt_id = self.status.begin_attempt(ids, state.child_epoch)
+  File "C:\Users\djlov\.local\share\ciel-runtime-9ac82f0e86a067b8cf9fcdfe3fc69ef695071ff8\ciel_runtime_support\runtime_input_status.py", line 107, in begin_attempt
+    raise RuntimeError("wake attempt ownership persistence rejected")
+RuntimeError: wake attempt ownership persistence rejected

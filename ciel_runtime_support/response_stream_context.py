@@ -283,6 +283,7 @@ class ResponseStreamContext:
         preserve_thinking: bool = True,
         normalize_tool_use: bool = False,
         provider: str = "",
+        stream_failure_observer: Callable[[dict[str, Any]], None] | None = None,
     ) -> None:
         return streaming_anthropic.rebatch_anthropic_sse_text(
             handler,
@@ -294,6 +295,7 @@ class ResponseStreamContext:
             normalize_tool_use=normalize_tool_use,
             provider=provider,
             services=self.anthropic_stream_services(),
+            **({"stream_failure_observer": stream_failure_observer} if stream_failure_observer is not None else {}),
         )
 
     def ollama_stream_services(self) -> streaming_anthropic.OllamaStreamServices:
@@ -345,6 +347,9 @@ class ResponseStreamContext:
         provider: str = "ollama",
         source_body: dict[str, Any] | None = None,
         idle_timeout: float = 30.0,
+        *,
+        semantic_retries: int = 0,
+        reopen_semantic: Callable[[int, str], Any] | None = None,
     ) -> None:
         return streaming_anthropic.ollama_stream_to_anthropic_sse(
             handler,
@@ -355,6 +360,8 @@ class ResponseStreamContext:
             source_body=source_body,
             idle_timeout=idle_timeout,
             services=self.ollama_stream_services(),
+            semantic_retries=semantic_retries,
+            reopen_semantic=reopen_semantic,
         )
 
     def openai_chat_to_anthropic(

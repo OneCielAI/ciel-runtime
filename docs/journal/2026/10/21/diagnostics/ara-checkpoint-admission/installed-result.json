@@ -1,0 +1,428 @@
+{
+  "status": "passed",
+  "synthetic_isolated_production_binding": true,
+  "live_cli_or_provider": false,
+  "live_host_access": false,
+  "source_root": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime",
+  "cases": {
+    "large_checkpoint_and_large_tail": {
+      "before": {
+        "admission_paused": true,
+        "phase": "blocked",
+        "next_raw_tokens": null,
+        "checkpoint_id": "",
+        "terminal_ready": false,
+        "recovery_admission_paused": true,
+        "queue_history_cursor_unchanged": true,
+        "protected_files": {
+          "runtime-inputs.jsonl": {
+            "bytes": 242,
+            "sha256": "92b791c74d3846fb90183312ac860815ef0940ab27db2ac56829e981f1dc883c"
+          },
+          "runtime-input-status.jsonl": {
+            "bytes": 114,
+            "sha256": "c403f42dcc6503c24ca720e918de5ecca21512fd03c6b8ecb4f127dda5479630"
+          },
+          "channel-llm-cursor.json": {
+            "bytes": 15,
+            "sha256": "b2c6b0013d8c951d3cbee34b6e595b140786a6ed25116ed9d9d39d36bad4896e"
+          }
+        },
+        "baseline_tokens": 1200,
+        "context_limit": 1000
+      },
+      "after": {
+        "admission_paused": false,
+        "phase": "verified",
+        "next_raw_tokens": 120,
+        "checkpoint_id": "4c727ff0dd48c64565f6468f7504e1b018032640f9e53141f07fce50dccf0e55",
+        "terminal_ready": true,
+        "recovery_admission_paused": false,
+        "queue_history_cursor_unchanged": true,
+        "protected_files": {
+          "runtime-inputs.jsonl": {
+            "bytes": 242,
+            "sha256": "92b791c74d3846fb90183312ac860815ef0940ab27db2ac56829e981f1dc883c"
+          },
+          "runtime-input-status.jsonl": {
+            "bytes": 114,
+            "sha256": "c403f42dcc6503c24ca720e918de5ecca21512fd03c6b8ecb4f127dda5479630"
+          },
+          "channel-llm-cursor.json": {
+            "bytes": 15,
+            "sha256": "b2c6b0013d8c951d3cbee34b6e595b140786a6ed25116ed9d9d39d36bad4896e"
+          }
+        },
+        "baseline_tokens": 1200,
+        "context_limit": 1000
+      },
+      "reconstructed_binding": {
+        "admission_paused": false,
+        "phase": "verified",
+        "next_raw_tokens": 120,
+        "checkpoint_id": "4c727ff0dd48c64565f6468f7504e1b018032640f9e53141f07fce50dccf0e55",
+        "terminal_ready": true,
+        "recovery_admission_paused": false,
+        "queue_history_cursor_unchanged": true,
+        "protected_files": {
+          "runtime-inputs.jsonl": {
+            "bytes": 242,
+            "sha256": "92b791c74d3846fb90183312ac860815ef0940ab27db2ac56829e981f1dc883c"
+          },
+          "runtime-input-status.jsonl": {
+            "bytes": 114,
+            "sha256": "c403f42dcc6503c24ca720e918de5ecca21512fd03c6b8ecb4f127dda5479630"
+          },
+          "channel-llm-cursor.json": {
+            "bytes": 15,
+            "sha256": "b2c6b0013d8c951d3cbee34b6e595b140786a6ed25116ed9d9d39d36bad4896e"
+          }
+        },
+        "baseline_tokens": 1200,
+        "context_limit": 1000
+      },
+      "same_epoch_restored": true,
+      "session_meta_bytes": 98535,
+      "checkpoint_bytes": 614594,
+      "ordinary_tail_bytes": 689584,
+      "transcript": {
+        "bytes": 1402856,
+        "sha256": "69eab75c315d6b2fd6229e606f97f9eed8c3f17906d956b172d5680162e5fd35"
+      },
+      "protected_files": {
+        "runtime-inputs.jsonl": {
+          "bytes": 242,
+          "sha256": "92b791c74d3846fb90183312ac860815ef0940ab27db2ac56829e981f1dc883c"
+        },
+        "runtime-input-status.jsonl": {
+          "bytes": 114,
+          "sha256": "c403f42dcc6503c24ca720e918de5ecca21512fd03c6b8ecb4f127dda5479630"
+        },
+        "channel-llm-cursor.json": {
+          "bytes": 15,
+          "sha256": "b2c6b0013d8c951d3cbee34b6e595b140786a6ed25116ed9d9d39d36bad4896e"
+        }
+      }
+    },
+    "incomplete_json": {
+      "admission_paused": true,
+      "phase": "blocked",
+      "next_raw_tokens": null,
+      "checkpoint_id": "",
+      "terminal_ready": false,
+      "recovery_admission_paused": true,
+      "queue_history_cursor_unchanged": true,
+      "protected_files": {
+        "runtime-inputs.jsonl": {
+          "bytes": 241,
+          "sha256": "841e27185b9c3cf66a961830909423f57e360da29d630e9f108f255f1300c5dd"
+        },
+        "runtime-input-status.jsonl": {
+          "bytes": 113,
+          "sha256": "4ec63a598600c39450426d82df7a47dfc8ba31da09c1ea451ddbd09c41c03342"
+        },
+        "channel-llm-cursor.json": {
+          "bytes": 15,
+          "sha256": "b2c6b0013d8c951d3cbee34b6e595b140786a6ed25116ed9d9d39d36bad4896e"
+        }
+      },
+      "baseline_tokens": 1200,
+      "context_limit": 1000
+    },
+    "complete_json_without_newline": {
+      "admission_paused": true,
+      "phase": "blocked",
+      "next_raw_tokens": null,
+      "checkpoint_id": "",
+      "terminal_ready": false,
+      "recovery_admission_paused": true,
+      "queue_history_cursor_unchanged": true,
+      "protected_files": {
+        "runtime-inputs.jsonl": {
+          "bytes": 241,
+          "sha256": "841e27185b9c3cf66a961830909423f57e360da29d630e9f108f255f1300c5dd"
+        },
+        "runtime-input-status.jsonl": {
+          "bytes": 113,
+          "sha256": "4ec63a598600c39450426d82df7a47dfc8ba31da09c1ea451ddbd09c41c03342"
+        },
+        "channel-llm-cursor.json": {
+          "bytes": 15,
+          "sha256": "b2c6b0013d8c951d3cbee34b6e595b140786a6ed25116ed9d9d39d36bad4896e"
+        }
+      },
+      "baseline_tokens": 1200,
+      "context_limit": 1000
+    },
+    "completed_boundary_no_usage": {
+      "admission_paused": true,
+      "phase": "awaiting_shrink",
+      "next_raw_tokens": null,
+      "checkpoint_id": "4c727ff0dd48c64565f6468f7504e1b018032640f9e53141f07fce50dccf0e55",
+      "terminal_ready": false,
+      "recovery_admission_paused": true,
+      "queue_history_cursor_unchanged": true,
+      "protected_files": {
+        "runtime-inputs.jsonl": {
+          "bytes": 241,
+          "sha256": "841e27185b9c3cf66a961830909423f57e360da29d630e9f108f255f1300c5dd"
+        },
+        "runtime-input-status.jsonl": {
+          "bytes": 113,
+          "sha256": "4ec63a598600c39450426d82df7a47dfc8ba31da09c1ea451ddbd09c41c03342"
+        },
+        "channel-llm-cursor.json": {
+          "bytes": 15,
+          "sha256": "b2c6b0013d8c951d3cbee34b6e595b140786a6ed25116ed9d9d39d36bad4896e"
+        }
+      },
+      "baseline_tokens": 1200,
+      "context_limit": 1000
+    },
+    "completed_boundary_with_usage": {
+      "admission_paused": false,
+      "phase": "verified",
+      "next_raw_tokens": 120,
+      "checkpoint_id": "4c727ff0dd48c64565f6468f7504e1b018032640f9e53141f07fce50dccf0e55",
+      "terminal_ready": true,
+      "recovery_admission_paused": false,
+      "queue_history_cursor_unchanged": true,
+      "protected_files": {
+        "runtime-inputs.jsonl": {
+          "bytes": 241,
+          "sha256": "841e27185b9c3cf66a961830909423f57e360da29d630e9f108f255f1300c5dd"
+        },
+        "runtime-input-status.jsonl": {
+          "bytes": 113,
+          "sha256": "4ec63a598600c39450426d82df7a47dfc8ba31da09c1ea451ddbd09c41c03342"
+        },
+        "channel-llm-cursor.json": {
+          "bytes": 15,
+          "sha256": "b2c6b0013d8c951d3cbee34b6e595b140786a6ed25116ed9d9d39d36bad4896e"
+        }
+      },
+      "baseline_tokens": 1200,
+      "context_limit": 1000
+    },
+    "wrong_checkpoint_thread_id": {
+      "admission_paused": true,
+      "phase": "blocked",
+      "next_raw_tokens": null,
+      "checkpoint_id": "",
+      "terminal_ready": false,
+      "recovery_admission_paused": true,
+      "queue_history_cursor_unchanged": true,
+      "protected_files": {
+        "runtime-inputs.jsonl": {
+          "bytes": 241,
+          "sha256": "cd99e89f4b5efd952b504aa639ba1ce11a45bbb7682eed88ce9951b2dad8386d"
+        },
+        "runtime-input-status.jsonl": {
+          "bytes": 114,
+          "sha256": "d35ff1cf4191b5beb45399e4a6456f26693e8e624db5c799012b3c5cb4c9c1e6"
+        },
+        "channel-llm-cursor.json": {
+          "bytes": 15,
+          "sha256": "b2c6b0013d8c951d3cbee34b6e595b140786a6ed25116ed9d9d39d36bad4896e"
+        }
+      },
+      "baseline_tokens": 1200,
+      "context_limit": 1000
+    },
+    "checkpoint_before_requested_at": {
+      "admission_paused": true,
+      "phase": "blocked",
+      "next_raw_tokens": null,
+      "checkpoint_id": "",
+      "terminal_ready": false,
+      "recovery_admission_paused": true,
+      "queue_history_cursor_unchanged": true,
+      "protected_files": {
+        "runtime-inputs.jsonl": {
+          "bytes": 242,
+          "sha256": "94492626f61b583ae3dc66a40f2d8cd9197c51917f98750bf2724ba33f75bdf2"
+        },
+        "runtime-input-status.jsonl": {
+          "bytes": 114,
+          "sha256": "11b818b045fd3497011229c8b38c355705477c028f00dd9a4009a2e2c7a96dbe"
+        },
+        "channel-llm-cursor.json": {
+          "bytes": 15,
+          "sha256": "b2c6b0013d8c951d3cbee34b6e595b140786a6ed25116ed9d9d39d36bad4896e"
+        }
+      },
+      "baseline_tokens": 1200,
+      "context_limit": 1000
+    },
+    "usage_before_checkpoint_timestamp": {
+      "admission_paused": true,
+      "phase": "awaiting_shrink",
+      "next_raw_tokens": null,
+      "checkpoint_id": "4c727ff0dd48c64565f6468f7504e1b018032640f9e53141f07fce50dccf0e55",
+      "terminal_ready": false,
+      "recovery_admission_paused": true,
+      "queue_history_cursor_unchanged": true,
+      "protected_files": {
+        "runtime-inputs.jsonl": {
+          "bytes": 241,
+          "sha256": "5ae0671ffc644262b79d36260f1016ad9a613d6e0875837d3d6b6e63f0c2a51f"
+        },
+        "runtime-input-status.jsonl": {
+          "bytes": 113,
+          "sha256": "6b50a7279dd053994362f1cb3cad5aa03e2d24ea876512b711f5e71569faff7e"
+        },
+        "channel-llm-cursor.json": {
+          "bytes": 15,
+          "sha256": "b2c6b0013d8c951d3cbee34b6e595b140786a6ed25116ed9d9d39d36bad4896e"
+        }
+      },
+      "baseline_tokens": 1200,
+      "context_limit": 1000
+    },
+    "replaced_file_wrong_header_id": {
+      "admission_paused": true,
+      "phase": "blocked",
+      "next_raw_tokens": null,
+      "checkpoint_id": "",
+      "terminal_ready": false,
+      "recovery_admission_paused": true,
+      "queue_history_cursor_unchanged": true,
+      "protected_files": {
+        "runtime-inputs.jsonl": {
+          "bytes": 241,
+          "sha256": "1f26fc390db1bc069e76cef14e3ff9edb15dc45e06362e3c824d92a77e54d3a2"
+        },
+        "runtime-input-status.jsonl": {
+          "bytes": 113,
+          "sha256": "ee0e97a4737b4786f728cc07ea5c05b42e77f280eec97b6147c858c445614a2d"
+        },
+        "channel-llm-cursor.json": {
+          "bytes": 15,
+          "sha256": "b2c6b0013d8c951d3cbee34b6e595b140786a6ed25116ed9d9d39d36bad4896e"
+        }
+      },
+      "baseline_tokens": 1200,
+      "context_limit": 1000
+    },
+    "unknown_capacity": {
+      "admission_paused": true,
+      "phase": "awaiting_shrink",
+      "next_raw_tokens": null,
+      "checkpoint_id": "4c727ff0dd48c64565f6468f7504e1b018032640f9e53141f07fce50dccf0e55",
+      "terminal_ready": false,
+      "recovery_admission_paused": true,
+      "queue_history_cursor_unchanged": true,
+      "protected_files": {
+        "runtime-inputs.jsonl": {
+          "bytes": 242,
+          "sha256": "179e30ebb5bf754e2328efe421a848589efa29c233acc6ac53a8e11a4b39828c"
+        },
+        "runtime-input-status.jsonl": {
+          "bytes": 114,
+          "sha256": "36cc00331883779ee2d0985ccf4bf592bef4aeb8dfa3109bdfbe0abcb4254cd0"
+        },
+        "channel-llm-cursor.json": {
+          "bytes": 15,
+          "sha256": "b2c6b0013d8c951d3cbee34b6e595b140786a6ed25116ed9d9d39d36bad4896e"
+        }
+      },
+      "baseline_tokens": 1200,
+      "context_limit": 0
+    },
+    "above_capacity": {
+      "admission_paused": true,
+      "phase": "awaiting_shrink",
+      "next_raw_tokens": null,
+      "checkpoint_id": "4c727ff0dd48c64565f6468f7504e1b018032640f9e53141f07fce50dccf0e55",
+      "terminal_ready": false,
+      "recovery_admission_paused": true,
+      "queue_history_cursor_unchanged": true,
+      "protected_files": {
+        "runtime-inputs.jsonl": {
+          "bytes": 241,
+          "sha256": "dbdf03cb5433581db0f17701f0129b8cb772403ffda63e3543c31a91f4941358"
+        },
+        "runtime-input-status.jsonl": {
+          "bytes": 114,
+          "sha256": "23e6b501a5943d0d53969f8dc6d4dad064bf36ec22c3e5596183ac4e8805aa30"
+        },
+        "channel-llm-cursor.json": {
+          "bytes": 15,
+          "sha256": "b2c6b0013d8c951d3cbee34b6e595b140786a6ed25116ed9d9d39d36bad4896e"
+        }
+      },
+      "baseline_tokens": 1200,
+      "context_limit": 1000
+    },
+    "not_below_baseline": {
+      "admission_paused": true,
+      "phase": "awaiting_shrink",
+      "next_raw_tokens": null,
+      "checkpoint_id": "4c727ff0dd48c64565f6468f7504e1b018032640f9e53141f07fce50dccf0e55",
+      "terminal_ready": false,
+      "recovery_admission_paused": true,
+      "queue_history_cursor_unchanged": true,
+      "protected_files": {
+        "runtime-inputs.jsonl": {
+          "bytes": 242,
+          "sha256": "5b34bdae0fbac3e57ee77b8bfb812f0ab7b45e784cdc6d44fa02637e57efb1f2"
+        },
+        "runtime-input-status.jsonl": {
+          "bytes": 114,
+          "sha256": "d8f0c059e6d93e9e83feba5d48015c520ebcb7a6e159a902d3758d0db5e7c5cf"
+        },
+        "channel-llm-cursor.json": {
+          "bytes": 15,
+          "sha256": "b2c6b0013d8c951d3cbee34b6e595b140786a6ed25116ed9d9d39d36bad4896e"
+        }
+      },
+      "baseline_tokens": 1200,
+      "context_limit": 2000
+    },
+    "persisted_awaiting_shrink_reconstructed": {
+      "admission_paused": false,
+      "phase": "verified",
+      "next_raw_tokens": 120,
+      "checkpoint_id": "4c727ff0dd48c64565f6468f7504e1b018032640f9e53141f07fce50dccf0e55",
+      "terminal_ready": true,
+      "recovery_admission_paused": false,
+      "queue_history_cursor_unchanged": true,
+      "protected_files": {
+        "runtime-inputs.jsonl": {
+          "bytes": 242,
+          "sha256": "cf8fc2472df72f4d05225aca8c4e82d59676528a18cefc64d80a1bcf4a630a78"
+        },
+        "runtime-input-status.jsonl": {
+          "bytes": 114,
+          "sha256": "0ca2a0d81e24bc8c9ab3eaed10bc9185a2af0ed0d02c668876d0411dd4bcff0f"
+        },
+        "channel-llm-cursor.json": {
+          "bytes": 15,
+          "sha256": "b2c6b0013d8c951d3cbee34b6e595b140786a6ed25116ed9d9d39d36bad4896e"
+        }
+      },
+      "baseline_tokens": 1200,
+      "context_limit": 1000
+    }
+  },
+  "temporary_fixture_deleted": true,
+  "elapsed_seconds": 0.965495,
+  "source_digests": {
+    "runtime_compaction_binding.py": {
+      "bytes": 26548,
+      "sha256": "50634fd28097f742e21be038eba616dc028db7401ae80a1af43eabd9fd921de4"
+    },
+    "runtime_compaction_control.py": {
+      "bytes": 27870,
+      "sha256": "5c2dd1aea44ce132caf8c96d16adb7f27d338b0b1855c9189d61a76051760cc2"
+    },
+    "channel_transcript_repository.py": {
+      "bytes": 26783,
+      "sha256": "479ba311b4310d38c42e9f6505321bf192b22e8be9ee53101a6a0d47c477c354"
+    }
+  },
+  "acceptance_script": {
+    "bytes": 13530,
+    "sha256": "3e2f283e83150d8722b6b78669963ded7d2e22669c422d98d301c1cac64a65a2"
+  }
+}

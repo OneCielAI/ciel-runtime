@@ -1,0 +1,827 @@
+{
+  "mode": "claude",
+  "label": "final-source",
+  "scratch": "C:\\Windows\\Temp\\ciel-owned-restart-zz7vygo9",
+  "versions": {
+    "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@anthropic-ai\\claude-code\\bin\\claude.exe": "2.1.292 (Claude Code)",
+    "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@openai\\codex\\node_modules\\@openai\\codex-win32-x64\\vendor\\x86_64-pc-windows-msvc\\bin\\codex.exe": "codex-cli 0.158.0"
+  },
+  "path_resolution": {
+    "claude": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@anthropic-ai\\claude-code\\bin\\claude.EXE",
+    "codex": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@openai\\codex\\node_modules\\@openai\\codex-win32-x64\\vendor\\x86_64-pc-windows-msvc\\bin\\codex.EXE"
+  },
+  "command": [
+    "C:\\Program Files\\Python311\\python.exe",
+    "-I",
+    "C:\\Users\\djlov\\ciel-runtime\\docs\\journal\\2026\\10\\20\\diagnostics\\restart-delivery\\evidence\\launch_shim.py",
+    "--",
+    "cli",
+    "--ca-runtime",
+    "claude",
+    "--ca-no-update-check",
+    "--ca-no-self-update-check",
+    "--ca-no-web-search",
+    "--",
+    "--debug-file",
+    "C:\\Users\\djlov\\ciel-runtime\\docs\\journal\\2026\\10\\21\\diagnostics\\sse-admission-regression\\run-claude-final-source-035809\\native-debug.log"
+  ],
+  "probe_timeout_shim": null,
+  "ports": {
+    "router": 51578,
+    "appserver": null,
+    "fixture": 51581
+  },
+  "events": [
+    {
+      "at": 1792573090.037,
+      "kind": "launched",
+      "pid": 62104,
+      "watcher": 67912
+    },
+    {
+      "at": 1792573100.165,
+      "kind": "wait_pass",
+      "label": "router health"
+    },
+    {
+      "at": 1792573101.404,
+      "kind": "wait_pass",
+      "label": "native launch claude_session_socket"
+    },
+    {
+      "at": 1792573101.44,
+      "kind": "wait_pass",
+      "label": "native process present"
+    },
+    {
+      "at": 1792573113.669,
+      "kind": "children_before",
+      "processes": [
+        {
+          "pid": 77924,
+          "ct": 1792573089.995,
+          "name": "conhost.exe",
+          "ppid": 62104,
+          "cmd": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4"
+        },
+        {
+          "pid": 64900,
+          "ct": 1792573098.832,
+          "name": "python.exe",
+          "ppid": 62104,
+          "cmd": "C:\\Program Files\\Python311\\python.exe C:\\Users\\djlov\\ciel-runtime\\ciel_runtime.py serve"
+        },
+        {
+          "pid": 48156,
+          "ct": 1792573101.28,
+          "name": "conhost.exe",
+          "ppid": 62104,
+          "cmd": "\\\\?\\C:\\WINDOWS\\system32\\conhost.exe --headless --width 120 --height 30 --signal 0x3e0 --server 0x3d8"
+        },
+        {
+          "pid": 29868,
+          "ct": 1792573101.286,
+          "name": "claude.exe",
+          "ppid": 62104,
+          "cmd": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@anthropic-ai\\claude-code\\bin\\claude.exe --dangerously-skip-permissions --permission-mode bypassPermissions --disallowedTools WebSearch,WebFetch --model ciel-runtime-vllm-stub-model --mcp-config C:\\Windows\\Temp\\c"
+        },
+        {
+          "pid": 42616,
+          "ct": 1792573101.293,
+          "name": "python.exe",
+          "ppid": 62104,
+          "cmd": "C:\\Program Files\\Python311\\python.exe C:\\Users\\djlov\\ciel-runtime\\ciel_runtime_support\\windows_console_guard.py 62104 487 7"
+        }
+      ]
+    },
+    {
+      "at": 1792573113.7,
+      "kind": "receiver_enabled",
+      "receiver_id": "default",
+      "transport": "sse"
+    },
+    {
+      "at": 1792573114.101,
+      "kind": "wait_pass",
+      "label": "local SSE event emitted"
+    },
+    {
+      "at": 1792573114.102,
+      "kind": "wait_pass",
+      "label": "real receiver gateway queued id 7 over damaged history"
+    },
+    {
+      "at": 1792573114.503,
+      "kind": "wait_pass",
+      "label": "native CLI received new SSE input"
+    },
+    {
+      "at": 1792573114.503,
+      "kind": "wait_pass",
+      "label": "native transcript confirmed replied id 7"
+    },
+    {
+      "at": 1792573114.51,
+      "kind": "wait_pass",
+      "label": "native reply rendered"
+    },
+    {
+      "at": 1792573119.924,
+      "kind": "wait_pass",
+      "label": "local repeat SSE event emitted"
+    },
+    {
+      "at": 1792573119.924,
+      "kind": "wait_pass",
+      "label": "native CLI received repeat-scan input"
+    },
+    {
+      "at": 1792573120.333,
+      "kind": "wait_pass",
+      "label": "native transcript confirmed replied id 8"
+    },
+    {
+      "at": 1792573125.783,
+      "kind": "wait_pass",
+      "label": "owned decisive screenshot attempted"
+    },
+    {
+      "at": 1792573125.784,
+      "kind": "acceptance_pass",
+      "checks": {
+        "real_native_cli": true,
+        "sse_gateway_queued": true,
+        "native_transcript_replied": true,
+        "socket_send_count": 1,
+        "new_statuses": [
+          "queued",
+          "submitted",
+          "replied"
+        ],
+        "old_history_bytes_unchanged": true,
+        "old_prefix_sha256": "60060e4a938af652978eef0fdbf0d307f105e8651672baaddfb318606bb909c5",
+        "old_states": {
+          "1": "submitted",
+          "2": "replied",
+          "3": "interrupted_uncertain",
+          "4": "submitted",
+          "5": "replied",
+          "6": "interrupted_uncertain"
+        },
+        "old_inputs_sent": 0,
+        "repeat_scan_sends": [
+          "8"
+        ],
+        "repeat_scan_resent_7": false,
+        "archive_or_quarantine_files": 0
+      }
+    }
+  ],
+  "status": "passed_native_sse_damaged_history",
+  "requests": [
+    {
+      "n": 1,
+      "at": 1792573092.5416195,
+      "path": "/v1/messages",
+      "users": 0,
+      "last": "",
+      "history": [],
+      "tools": [],
+      "replied_at": 1792573092.5416195
+    },
+    {
+      "n": 2,
+      "at": 1792573092.5446198,
+      "path": "/v1/chat/completions",
+      "users": 0,
+      "last": "",
+      "history": [],
+      "tools": [],
+      "replied_at": 1792573092.5446198
+    },
+    {
+      "n": 3,
+      "at": 1792573114.134564,
+      "path": "/v1/messages",
+      "users": 1,
+      "last": "E2E-RT-TURN-4",
+      "history": [
+        "E2E-RT-TURN-4"
+      ],
+      "tools": [
+        "Agent",
+        "AskUserQuestion",
+        "Bash",
+        "CronCreate",
+        "CronDelete",
+        "CronList",
+        "DesignSync",
+        "Edit",
+        "EnterPlanMode",
+        "ExitPlanMode",
+        "Glob",
+        "Grep",
+        "ListAgents",
+        "NotebookEdit",
+        "Read",
+        "ReportFindings",
+        "Skill",
+        "TaskStop",
+        "Workflow",
+        "Write",
+        "mcp__ciel-runtime-router__compact_session",
+        "mcp__ciel-runtime-router__goal_clear",
+        "mcp__ciel-runtime-router__llm_options",
+        "mcp__ciel-runtime-router__new_session",
+        "mcp__ciel-runtime-router__provider_fallback",
+        "mcp__ciel-runtime-router__restart_session",
+        "mcp__ciel-runtime-router__send_file",
+        "mcp__ciel-runtime-router__session_backup",
+        "mcp__ciel-runtime-router__submit_input",
+        "mcp__ciel-runtime-router__telemetry_logs"
+      ],
+      "replied_at": 1792573114.135064
+    },
+    {
+      "n": 4,
+      "at": 1792573119.8500662,
+      "path": "/v1/messages",
+      "users": 2,
+      "last": "E2E-RT-TURN-3",
+      "history": [
+        "E2E-RT-TURN-3",
+        "E2E-RT-TURN-4"
+      ],
+      "tools": [
+        "Agent",
+        "AskUserQuestion",
+        "Bash",
+        "CronCreate",
+        "CronDelete",
+        "CronList",
+        "DesignSync",
+        "Edit",
+        "EnterPlanMode",
+        "ExitPlanMode",
+        "Glob",
+        "Grep",
+        "ListAgents",
+        "NotebookEdit",
+        "Read",
+        "ReportFindings",
+        "Skill",
+        "TaskStop",
+        "Workflow",
+        "Write",
+        "mcp__ciel-runtime-router__compact_session",
+        "mcp__ciel-runtime-router__goal_clear",
+        "mcp__ciel-runtime-router__llm_options",
+        "mcp__ciel-runtime-router__new_session",
+        "mcp__ciel-runtime-router__provider_fallback",
+        "mcp__ciel-runtime-router__restart_session",
+        "mcp__ciel-runtime-router__send_file",
+        "mcp__ciel-runtime-router__session_backup",
+        "mcp__ciel-runtime-router__submit_input",
+        "mcp__ciel-runtime-router__telemetry_logs"
+      ],
+      "replied_at": 1792573119.8500662
+    }
+  ],
+  "restart_requested_at": null,
+  "teardown": {
+    "killed": [
+      {
+        "pid": 29868
+      },
+      {
+        "pid": 42616
+      },
+      {
+        "pid": 48156
+      },
+      {
+        "pid": 62104
+      },
+      {
+        "pid": 64900
+      },
+      {
+        "pid": 77924
+      }
+    ],
+    "router_listener_after": null,
+    "app_listener_after": null
+  },
+  "timeline": [
+    {
+      "at": 1792573090.032,
+      "procs": [
+        [
+          77924,
+          "conhost.exe"
+        ]
+      ]
+    },
+    {
+      "at": 1792573091.46,
+      "procs": [
+        [
+          69232,
+          "python.exe"
+        ],
+        [
+          74748,
+          "node.exe"
+        ],
+        [
+          76868,
+          "cmd.exe"
+        ],
+        [
+          77924,
+          "conhost.exe"
+        ],
+        [
+          79792,
+          "py.exe"
+        ]
+      ]
+    },
+    {
+      "at": 1792573092.021,
+      "procs": [
+        [
+          36332,
+          "py.exe"
+        ],
+        [
+          63156,
+          "python.exe"
+        ],
+        [
+          77752,
+          "cmd.exe"
+        ],
+        [
+          77924,
+          "conhost.exe"
+        ]
+      ]
+    },
+    {
+      "at": 1792573092.612,
+      "procs": [
+        [
+          77924,
+          "conhost.exe"
+        ]
+      ]
+    },
+    {
+      "at": 1792573098.859,
+      "procs": [
+        [
+          64900,
+          "python.exe"
+        ],
+        [
+          77924,
+          "conhost.exe"
+        ]
+      ]
+    },
+    {
+      "at": 1792573100.081,
+      "router": 64900
+    },
+    {
+      "at": 1792573100.695,
+      "procs": [
+        [
+          34968,
+          "claude.exe"
+        ],
+        [
+          64900,
+          "python.exe"
+        ],
+        [
+          77924,
+          "conhost.exe"
+        ]
+      ]
+    },
+    {
+      "at": 1792573101.289,
+      "procs": [
+        [
+          48156,
+          "conhost.exe"
+        ],
+        [
+          64900,
+          "python.exe"
+        ],
+        [
+          77924,
+          "conhost.exe"
+        ]
+      ]
+    },
+    {
+      "at": 1792573101.601,
+      "procs": [
+        [
+          29868,
+          "claude.exe"
+        ],
+        [
+          32708,
+          "conhost.exe"
+        ],
+        [
+          42616,
+          "python.exe"
+        ],
+        [
+          48156,
+          "conhost.exe"
+        ],
+        [
+          51936,
+          "git.exe"
+        ],
+        [
+          64900,
+          "python.exe"
+        ],
+        [
+          77924,
+          "conhost.exe"
+        ]
+      ]
+    },
+    {
+      "at": 1792573101.902,
+      "procs": [
+        [
+          29868,
+          "claude.exe"
+        ],
+        [
+          42616,
+          "python.exe"
+        ],
+        [
+          48156,
+          "conhost.exe"
+        ],
+        [
+          64900,
+          "python.exe"
+        ],
+        [
+          77924,
+          "conhost.exe"
+        ]
+      ]
+    },
+    {
+      "at": 1792573102.219,
+      "procs": [
+        [
+          29868,
+          "claude.exe"
+        ],
+        [
+          42616,
+          "python.exe"
+        ],
+        [
+          48156,
+          "conhost.exe"
+        ],
+        [
+          48848,
+          "conhost.exe"
+        ],
+        [
+          60860,
+          "git.exe"
+        ],
+        [
+          64900,
+          "python.exe"
+        ],
+        [
+          77924,
+          "conhost.exe"
+        ]
+      ]
+    },
+    {
+      "at": 1792573102.555,
+      "procs": [
+        [
+          29868,
+          "claude.exe"
+        ],
+        [
+          42616,
+          "python.exe"
+        ],
+        [
+          48156,
+          "conhost.exe"
+        ],
+        [
+          64900,
+          "python.exe"
+        ],
+        [
+          68572,
+          "claude.exe"
+        ],
+        [
+          75972,
+          "claude.exe"
+        ],
+        [
+          77924,
+          "conhost.exe"
+        ]
+      ]
+    },
+    {
+      "at": 1792573102.861,
+      "procs": [
+        [
+          29868,
+          "claude.exe"
+        ],
+        [
+          42616,
+          "python.exe"
+        ],
+        [
+          48156,
+          "conhost.exe"
+        ],
+        [
+          64900,
+          "python.exe"
+        ],
+        [
+          77924,
+          "conhost.exe"
+        ]
+      ]
+    },
+    {
+      "at": 1792573103.153,
+      "procs": [
+        [
+          29868,
+          "claude.exe"
+        ],
+        [
+          37804,
+          "where.exe"
+        ],
+        [
+          42616,
+          "python.exe"
+        ],
+        [
+          48156,
+          "conhost.exe"
+        ],
+        [
+          64900,
+          "python.exe"
+        ],
+        [
+          71580,
+          "conhost.exe"
+        ],
+        [
+          77924,
+          "conhost.exe"
+        ]
+      ]
+    },
+    {
+      "at": 1792573103.451,
+      "procs": [
+        [
+          29868,
+          "claude.exe"
+        ],
+        [
+          34852,
+          "findstr.exe"
+        ],
+        [
+          42616,
+          "python.exe"
+        ],
+        [
+          48156,
+          "conhost.exe"
+        ],
+        [
+          64900,
+          "python.exe"
+        ],
+        [
+          68428,
+          "tasklist.exe"
+        ],
+        [
+          74588,
+          "cmd.exe"
+        ],
+        [
+          77924,
+          "conhost.exe"
+        ],
+        [
+          78912,
+          "conhost.exe"
+        ]
+      ]
+    },
+    {
+      "at": 1792573103.799,
+      "procs": [
+        [
+          26300,
+          "git.exe"
+        ],
+        [
+          29868,
+          "claude.exe"
+        ],
+        [
+          34852,
+          "findstr.exe"
+        ],
+        [
+          42616,
+          "python.exe"
+        ],
+        [
+          48156,
+          "conhost.exe"
+        ],
+        [
+          64900,
+          "python.exe"
+        ],
+        [
+          68428,
+          "tasklist.exe"
+        ],
+        [
+          74112,
+          "conhost.exe"
+        ],
+        [
+          74588,
+          "cmd.exe"
+        ],
+        [
+          77924,
+          "conhost.exe"
+        ],
+        [
+          78912,
+          "conhost.exe"
+        ]
+      ]
+    },
+    {
+      "at": 1792573104.097,
+      "procs": [
+        [
+          29868,
+          "claude.exe"
+        ],
+        [
+          34852,
+          "findstr.exe"
+        ],
+        [
+          42616,
+          "python.exe"
+        ],
+        [
+          48156,
+          "conhost.exe"
+        ],
+        [
+          64900,
+          "python.exe"
+        ],
+        [
+          68124,
+          "ssh.exe"
+        ],
+        [
+          68428,
+          "tasklist.exe"
+        ],
+        [
+          72768,
+          "conhost.exe"
+        ],
+        [
+          74588,
+          "cmd.exe"
+        ],
+        [
+          77924,
+          "conhost.exe"
+        ],
+        [
+          78040,
+          "git.exe"
+        ],
+        [
+          78912,
+          "conhost.exe"
+        ],
+        [
+          81800,
+          "sh.exe"
+        ]
+      ]
+    },
+    {
+      "at": 1792573104.396,
+      "procs": [
+        [
+          29868,
+          "claude.exe"
+        ],
+        [
+          34852,
+          "findstr.exe"
+        ],
+        [
+          42616,
+          "python.exe"
+        ],
+        [
+          48156,
+          "conhost.exe"
+        ],
+        [
+          64900,
+          "python.exe"
+        ],
+        [
+          68428,
+          "tasklist.exe"
+        ],
+        [
+          74588,
+          "cmd.exe"
+        ],
+        [
+          77924,
+          "conhost.exe"
+        ],
+        [
+          78912,
+          "conhost.exe"
+        ]
+      ]
+    },
+    {
+      "at": 1792573104.698,
+      "procs": [
+        [
+          29868,
+          "claude.exe"
+        ],
+        [
+          42616,
+          "python.exe"
+        ],
+        [
+          48156,
+          "conhost.exe"
+        ],
+        [
+          64900,
+          "python.exe"
+        ],
+        [
+          77924,
+          "conhost.exe"
+        ]
+      ]
+    }
+  ]
+}

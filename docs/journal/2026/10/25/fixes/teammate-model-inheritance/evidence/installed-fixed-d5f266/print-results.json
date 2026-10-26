@@ -1,0 +1,68 @@
+[
+ {
+  "tag": "plain",
+  "rc": 0,
+  "stdout_bytes": 1602,
+  "stderr_bytes": 80,
+  "child_ok": false,
+  "parent_ok": true,
+  "type": "result",
+  "subtype": "success",
+  "is_error": false,
+  "num_turns": 2,
+  "result": "PARENT-OK-plain"
+ },
+ {
+  "tag": "haiku",
+  "rc": 0,
+  "stdout_bytes": 1602,
+  "stderr_bytes": 80,
+  "child_ok": false,
+  "parent_ok": true,
+  "type": "result",
+  "subtype": "success",
+  "is_error": false,
+  "num_turns": 2,
+  "result": "PARENT-OK-haiku"
+ },
+ {
+  "tag": "sonnet",
+  "rc": 0,
+  "stdout_bytes": 1603,
+  "stderr_bytes": 80,
+  "child_ok": false,
+  "parent_ok": true,
+  "type": "result",
+  "subtype": "success",
+  "is_error": false,
+  "num_turns": 2,
+  "result": "PARENT-OK-sonnet"
+ },
+ {
+  "tag": "definition",
+  "rc": 0,
+  "stdout_bytes": 1601,
+  "stderr_bytes": 80,
+  "child_ok": false,
+  "parent_ok": true,
+  "type": "result",
+  "subtype": "success",
+  "is_error": false,
+  "num_turns": 2,
+  "result": "PARENT-OK-definition"
+ },
+ {
+  "tag": "modelarg",
+  "timeout": true
+ },
+ {
+  "tag": "modelarg",
+  "rc": 1,
+  "stdout_bytes": 0,
+  "stderr_bytes": 0,
+  "child_ok": false,
+  "parent_ok": false,
+  "non_json_tail": "",
+  "stderr": ""
+ }
+]

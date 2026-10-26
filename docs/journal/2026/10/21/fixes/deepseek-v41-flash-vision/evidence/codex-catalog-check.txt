@@ -1,0 +1,6 @@
+ciel_runtime ci_version: n/a
+codex bundled templates all declare input_modalities: see codex debug models --bundled
+deepseek-v4.1-flash-1017     -> input_modalities ['text', 'image']
+deepseek-v4.1-flash          -> input_modalities ['text', 'image']
+deepseek-v4-pro              -> input_modalities ['text']
+qwen3.8-max                  -> input_modalities ['text', 'image']

@@ -322,6 +322,12 @@ class CielAiRouterProviderTests(unittest.TestCase):
     def test_adapter_contract_defaults(self):
         adapter = CielAiRouterProviderAdapter()
         policy = adapter.model_catalog_policy(self.contract())
+        self.assertIs(
+            False,
+            ciel_runtime.DEFAULT_CONFIG["providers"]["cielairouter"][
+                "preflight_prompt_compaction"
+            ],
+        )
         self.assertTrue(policy.authoritative_upstream_catalog)
         self.assertTrue(policy.per_key_catalog)
         self.assertTrue(policy.reapply_catalog_profile_at_launch)

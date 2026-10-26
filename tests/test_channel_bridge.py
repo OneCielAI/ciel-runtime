@@ -53,6 +53,15 @@ class ChannelBridgeTests(unittest.TestCase):
         self._home_patch = mock.patch.object(ciel_runtime, "HOME", Path(self._home_tmp.name))
         self._home_patch.start()
         self.addCleanup(self._home_patch.stop)
+        # Durable admission is part of candidate selection. Synthetic message
+        # ids are reused across these tests, so their status history must be
+        # isolated just like their transcript and delivery dictionaries.
+        self._status_patch = mock.patch.object(
+            ciel_runtime._RUNTIME_INPUT_STATUS_REPOSITORY,
+            "path", Path(self._home_tmp.name) / "runtime-input-status.jsonl",
+        )
+        self._status_patch.start()
+        self.addCleanup(self._status_patch.stop)
         # The facade binding persists launch scope under the process-wide
         # router instance directory; a test that binds a launch would hold
         # every later delivery as identity_pending. Each test gets its own.
@@ -565,6 +574,33 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertEqual(3, last_id)
         self.assertEqual(3, saved["last_id"])
         self.assertEqual(3, guard["max_existing_id"])
+
+    def test_launch_fast_forward_records_the_stranded_queue_as_skipped(self):
+        # Ara .14 2026-10-23: ids 10365-10384 stayed queued behind the floor.
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            path = root / "chat-messages.jsonl"
+            old_time = time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(time.time() - 3600))
+            path.write_text(
+                "\n".join(json.dumps({"id": item_id, "time": old_time, "message": f"old-{item_id}"}) for item_id in (1, 2, 3)) + "\n",
+                encoding="utf-8",
+            )
+            status = ciel_runtime._RUNTIME_INPUT_STATUS_REPOSITORY
+            status.transition(2, "queued")
+            status.transition(3, "queued")
+            status.transition(3, "submitted")
+            with (
+                mock.patch.object(ciel_runtime, "CONFIG_DIR", root),
+                mock.patch.object(ciel_runtime, "CHAT_MESSAGES_PATH", path),
+                mock.patch.object(ciel_runtime, "CHANNEL_LLM_CURSOR_PATH", root / "channel-llm-cursor.json"),
+                mock.patch.object(ciel_runtime, "CHANNEL_LLM_LAUNCH_GUARD_PATH", root / "channel-llm-launch-guard.json"),
+                mock.patch.object(ciel_runtime, "_CHANNEL_LLM_CURSOR_LAST_ID", None),
+            ):
+                ciel_runtime.prepare_channel_llm_delivery_for_launch()
+
+        self.assertEqual(("skipped", "launch_replay_window_expired"),
+                         (status.get(2)["status"], status.get(2)["reason"]))
+        self.assertEqual("submitted", status.get(3)["status"])
 
     def test_mcp_endpoint_event_initializes_sse_session(self):
         name = "unit-mcp"
@@ -2305,6 +2341,88 @@ class ChannelBridgeTests(unittest.TestCase):
             self.assertEqual(b"\n", write_prompt.call_args.args[2])
             self.assertFalse(request_path.exists())
 
+    def test_compact_request_for_a_codex_remote_launch_does_not_end_the_launch(self):
+        # Bob/Walkie 2026-10-21: a pending context-pressure compaction made the
+        # terminal proxy refresh instructions for last_launch_runtime(), which is
+        # "codex-remote" after a TUI + app-server launch; the unknown runtime
+        # raised KeyError and ended every restart.
+        from ciel_runtime_support.remote_instructions import RemoteInstructionSynchronizer
+        from ciel_runtime_support.remote_memory import RemoteMemorySynchronizer
+
+        with tempfile.TemporaryDirectory(prefix="ca-compact-request-") as td:
+            root = Path(td)
+            request_path = root / "channel-compact-request.json"
+            instructions = RemoteInstructionSynchronizer(
+                load_config=lambda: {}, workspace=lambda: root, state_dir=root, log=lambda *_args: None
+            )
+            memory = RemoteMemorySynchronizer(
+                load_config=lambda: {}, workspace=lambda: root, state_dir=root, log=lambda *_args: None
+            )
+            for launch_runtime in ("codex-remote", "codex-desktop"):
+                with self.subTest(launch_runtime=launch_runtime), (
+                    mock.patch.object(ciel_runtime, "CONFIG_DIR", root)
+                ), mock.patch.object(ciel_runtime, "CHANNEL_COMPACT_REQUEST_PATH", request_path), (
+                    mock.patch.object(ciel_runtime, "router_log")
+                ), mock.patch.object(ciel_runtime, "last_launch_runtime", return_value=launch_runtime), (
+                    mock.patch.object(ciel_runtime, "remote_instruction_synchronizer", return_value=instructions)
+                ), mock.patch.object(ciel_runtime, "remote_memory_synchronizer", return_value=memory):
+                    ciel_runtime._write_channel_compact_request("test", launch_runtime)
+                    with (
+                        mock.patch.object(ciel_runtime, "_channel_stdin_active_tool_call", return_value=False),
+                        mock.patch.object(ciel_runtime, "_write_channel_wake_prompt"),
+                    ):
+                        status = ciel_runtime._inject_pending_compact_request(123, bytes([10]))
+
+                    self.assertEqual("injected", status)
+
+    def test_remote_tui_leaves_app_server_compact_request_for_rpc_consumer(self):
+        with tempfile.TemporaryDirectory(prefix="ca-compact-request-") as td:
+            root = Path(td)
+            request_path = root / "channel-compact-request.json"
+            with (
+                mock.patch.object(ciel_runtime, "CONFIG_DIR", root),
+                mock.patch.object(ciel_runtime, "CHANNEL_COMPACT_REQUEST_PATH", request_path),
+                mock.patch.object(ciel_runtime, "router_log"),
+                mock.patch.object(ciel_runtime, "last_launch_runtime", return_value="codex-remote"),
+                mock.patch.object(ciel_runtime, "remote_instruction_synchronizer"),
+                mock.patch.object(ciel_runtime, "remote_memory_synchronizer"),
+            ):
+                request = ciel_runtime._write_channel_compact_request("test", "remote")
+                with (
+                    mock.patch.object(ciel_runtime, "_channel_stdin_active_tool_call", return_value=False),
+                    mock.patch.object(ciel_runtime, "_write_channel_wake_prompt") as write_prompt,
+                ):
+                    status = ciel_runtime._inject_pending_compact_request(
+                        123,
+                        bytes([10]),
+                        runtime="codex",
+                        actions=frozenset({"new_session"}),
+                    )
+
+            self.assertEqual("none", status)
+            self.assertEqual(request["id"], json.loads(request_path.read_text(encoding="utf-8"))["id"])
+            write_prompt.assert_not_called()
+
+    def test_compact_request_refreshes_the_app_server_instructions_for_a_codex_remote_launch(self):
+        with tempfile.TemporaryDirectory(prefix="ca-compact-request-") as td:
+            root = Path(td)
+            request_path = root / "channel-compact-request.json"
+            with (
+                mock.patch.object(ciel_runtime, "CONFIG_DIR", root),
+                mock.patch.object(ciel_runtime, "CHANNEL_COMPACT_REQUEST_PATH", request_path),
+                mock.patch.object(ciel_runtime, "router_log"),
+                mock.patch.object(ciel_runtime, "last_launch_runtime", return_value="codex-remote"),
+                mock.patch.object(ciel_runtime, "sync_remote_instruction") as refresh,
+            ):
+                ciel_runtime._write_channel_compact_request("test", "remote")
+                with (
+                    mock.patch.object(ciel_runtime, "_channel_stdin_active_tool_call", return_value=False),
+                    mock.patch.object(ciel_runtime, "_write_channel_wake_prompt"),
+                ):
+                    ciel_runtime._inject_pending_compact_request(123, bytes([10]))
+
+            refresh.assert_called_once_with("codex-app-server", reason="pre-compact")
+
     def test_inject_pending_channel_messages_writes_prompt_to_child_stdin(self):
         messages = [
             {
@@ -2333,6 +2451,7 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertEqual(b"\r\n", write_all.call_args_list[1].args[1])
 
         ciel_runtime._CHANNEL_STDIN_WAKE_DELIVERED.clear()
+        ciel_runtime._RUNTIME_INPUT_STATUS_REPOSITORY.path.unlink(missing_ok=True)
         with (
             mock.patch.object(ciel_runtime, "read_chat_messages", return_value=messages),
             mock.patch.object(ciel_runtime, "_write_fd_all") as write_all_cr,

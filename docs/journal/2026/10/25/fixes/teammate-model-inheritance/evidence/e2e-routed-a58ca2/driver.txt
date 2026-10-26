@@ -1,0 +1,7 @@
+isolated router: NO
+case routed tag plain
+case routed tag haiku
+case routed tag sonnet
+case routed tag definition
+case routed tag modelarg
+evidence C:\Users\djlov\ciel-runtime-wt-lease\docs\journal\2026\10\25\fixes\teammate-model-inheritance\evidence\e2e-routed-a58ca2

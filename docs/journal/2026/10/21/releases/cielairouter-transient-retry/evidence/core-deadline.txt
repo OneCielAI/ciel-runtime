@@ -1,0 +1,12 @@
+test_active_timeout_clips_each_attempt_against_current_remainder (test_transient_retry_deadline.TransientRetryDeadlineTests.test_active_timeout_clips_each_attempt_against_current_remainder) ... ok
+test_expired_helper_stops_before_network (test_transient_retry_deadline.TransientRetryDeadlineTests.test_expired_helper_stops_before_network) ... ok
+test_expired_initial_attempt_never_calls_opener (test_transient_retry_deadline.TransientRetryDeadlineTests.test_expired_initial_attempt_never_calls_opener) ... ok
+test_expired_nested_attempt_never_calls_inner_opener (test_transient_retry_deadline.TransientRetryDeadlineTests.test_expired_nested_attempt_never_calls_inner_opener) ... ok
+test_other_provider_disabled_and_unscoped_preserve_timeout_exactly (test_transient_retry_deadline.TransientRetryDeadlineTests.test_other_provider_disabled_and_unscoped_preserve_timeout_exactly) ... ok
+test_stalled_loopback_headers_hit_bounded_socket_timeout_without_replay (test_transient_retry_deadline.TransientRetryDeadlineTests.test_stalled_loopback_headers_hit_bounded_socket_timeout_without_replay) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.179s
+
+OK
+loopback_stall elapsed=0.156s socket_timeout=0.150s opens=1 retries=0 handled=True

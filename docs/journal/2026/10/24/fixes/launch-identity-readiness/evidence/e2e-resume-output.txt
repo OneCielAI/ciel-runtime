@@ -1,0 +1,44 @@
+{
+ "seeded": [
+  "190c8215-c939-4f1d-ae82-a2bb33727980"
+ ],
+ "changes": [
+  {
+   "t": 5.03,
+   "file": "53956.json",
+   "sessionId": "190c8215-c939-4f1d-ae82-a2bb33727980",
+   "status": null,
+   "statusUpdatedAt": null,
+   "socket_matches": true,
+   "peerFeatures": [
+    "notify_idle",
+    "artifact_yield"
+   ]
+  },
+  {
+   "t": 5.49,
+   "file": "53956.json",
+   "sessionId": "190c8215-c939-4f1d-ae82-a2bb33727980",
+   "status": "idle",
+   "statusUpdatedAt": 1792866671615,
+   "socket_matches": true,
+   "peerFeatures": [
+    "notify_idle",
+    "artifact_yield"
+   ]
+  }
+ ],
+ "delivery": {
+  "t": 5.52,
+  "sent": false,
+  "session": "190c8215-c939-4f1d-ae82-a2bb33727980",
+  "request_observed_before_send": false
+ },
+ "upstream_after_launch": [
+  {
+   "t": 4.21,
+   "method": "-",
+   "path": "seed exit=0 transcripts=['190c8215-c939-4f1d-ae82-a2bb33727980']"
+  }
+ ]
+}

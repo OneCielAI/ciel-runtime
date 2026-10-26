@@ -292,6 +292,9 @@ class _DirectChannelPoller:
                     logged_at=state.inflight_logged_at,
                     now=now,
                     last_id=state.last_id,
+                    recovery_protected=(
+                        state.inflight_message_id in state.inflight.recovery_protected
+                    ),
                 ),
                 ChannelInflightPolicy(
                     unseen_retry_seconds=policy.unseen_retry_seconds(),

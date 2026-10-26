@@ -1,0 +1,38 @@
+[
+  {
+    "role": "user",
+    "content": [
+      {
+        "type": "text",
+        "text": "<system-reminder>\n\n[redacted: 2499 chars]"
+      },
+      {
+        "type": "text",
+        "text": "<system-reminder>\n\n[redacted: 537 chars]"
+      },
+      {
+        "type": "text",
+        "text": "<system-reminder>\n\n[redacted: 562 chars]"
+      },
+      {
+        "type": "text",
+        "text": "\n[redacted: 14 chars]"
+      }
+    ]
+  },
+  {
+    "role": "system",
+    "content": [
+      {
+        "type": "text",
+        "text": "[redacted: 8851 chars]\nPlan mode is active. The user indicated that they do not want you to execute yet -- you MUST NOT make any edits (with the exception of the plan file mentioned below), run any non-readonly tools (including changing configs or making commits), or otherwise make any changes to the system. This supercedes any other instructions you have received.\n\n## Plan File Info:\nNo plan file exists yet. You should create your plan at C:\\Users\\djlov\\AppData\\Local\\Temp\\plan-wire-probe-lo974gbj\\claude\\plans\\reply-with-ok-wild-truffle.md using the Write tool.\nYou should build your plan incrementally by writing to or editing this file. NOTE that this is the only file you are allowed to edit - other than this you \n[redacted: 4325 chars]",
+        "cache_control": {
+          "type": "ephemeral"
+        }
+      }
+    ],
+    "output_config": {
+      "effort": "medium"
+    }
+  }
+]

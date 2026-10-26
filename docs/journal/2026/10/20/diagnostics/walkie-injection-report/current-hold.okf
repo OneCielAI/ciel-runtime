@@ -1,0 +1,56 @@
+---
+type: incident-investigation
+title: Walkie queued delivery ownership-history hold
+description: Distinguish the initial compact failure from the later fail-closed ownership blocker.
+timestamp: 2026-10-20
+tags: [walkie, delivery, corruption, ownership]
+---
+
+# Read-only observations
+
+Workspace aae7db361c7f: request 11946 submitted 2026-10-20T19:41:46-05:00,
+replied 19:42:26. Request 11947 queued 19:52:53 while native compact attempts
+failed with an upstream model-alias HTTP 400. After the 19:55 launch, the
+poller repeatedly logs pre_submit wake_history_incomplete at physical line
+12888 and delivery_held. Later peer report lists request 11983 still queued;
+that later report is supplied evidence, not an independently rerun measurement.
+
+The read-only status-file scan found two non-JSON physical lines:
+12888 has 119 NUL bytes before a surviving replied record for 4606;
+30025 has 314 NUL bytes before a surviving queued record for 10342.
+Neither proves why bytes are NUL or that no ownership record was overwritten.
+Do not treat prefix removal as proof that history is complete.
+
+# Attribution correction
+
+The first queued input predates the update observation. The current strict
+history hold explains later non-submission, not the entire original outage.
+The 1b08402 change keeps the CLI alive while withholding delivery when strict
+ownership parsing fails. Earlier f6fc7ac also had strict reconciliation code.
+No claim that an update created the NULs is supported.
+
+# Boundaries and authorized work
+
+User requested source improvements, local deployment and nightly push.
+No live history repair, queue replay, cursor reset, quarantine activation or
+session restart is authorized by that source-deployment request.
+
+Implement payload-free history diagnostics and read-only queue-age/blocker
+visibility separately from queued/submitted/replied. Keep event-ack/1 queued
+receipt separate from actual injected receipt. Any future recovery boundary
+must explicitly quarantine all pre-boundary uncertainty rather than replay it,
+and requires a stale-safe preview and separate confirmation.
+
+# Verification status
+
+Implementation and owned acceptance are in progress. This document does not
+claim a restored Walkie backlog or deployed fix.
+
+# Follow-up authorization
+
+User explicitly requested that after local and nightly deployment, this session
+contact ciel-walkie over the Claude socket, ask that session to restart through
+its Ciel Runtime MCP, and coordinate until actual SSE-to-session delivery works.
+This authorizes that later restart coordination, not arbitrary history repair,
+queue replay, cursor resets or fabricated injection receipts. Verify newly
+received input transitions queued -> submitted -> replied, not only SSE receipt.

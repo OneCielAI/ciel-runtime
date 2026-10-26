@@ -1,0 +1,590 @@
+{
+ "case": "exhaust",
+ "retries": 2,
+ "expected_main_posts": 3,
+ "uid": "a97f2ee9b7",
+ "prompt": "OSR-E2E-EXHAUST-a97f2ee9b7 reply with one short line",
+ "answer_marker": null,
+ "ports": {
+  "fake_ollama": 63055,
+  "egress_sentinel": 63056,
+  "router": 63057,
+  "codex_app_server_unused": 63058
+ },
+ "scratch": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-osr-e2e-exhaust-r2-c1u4k3ri",
+ "repo": "C:\\Users\\djlov\\ciel-runtime-wt-timeout",
+ "title": "CIELE2E-OSR-exhaust-r2-a97f2ee9b7",
+ "python": "C:\\Program Files\\Python311\\python.EXE",
+ "driver_python": "C:\\Program Files\\Python311\\python.exe",
+ "driver_stripped_env_names": [
+  "ANTHROPIC_AUTH_TOKEN",
+  "ANTHROPIC_BASE_URL",
+  "ANTHROPIC_CUSTOM_MODEL_OPTION",
+  "ANTHROPIC_CUSTOM_MODEL_OPTION_SUPPORTED_CAPABILITIES",
+  "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+  "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTED_CAPABILITIES",
+  "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTS",
+  "ANTHROPIC_DEFAULT_OPUS_MODEL",
+  "ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTED_CAPABILITIES",
+  "ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTS",
+  "ANTHROPIC_DEFAULT_SONNET_MODEL",
+  "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTED_CAPABILITIES",
+  "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTS",
+  "ANTHROPIC_MODEL",
+  "CIEL_RUNTIME_AUTO_ALLOW_DANGEROUS_RM",
+  "CIEL_RUNTIME_BYPASS_PERMISSIONS",
+  "CIEL_RUNTIME_CONFIG_DIR",
+  "CIEL_RUNTIME_HOME",
+  "CIEL_RUNTIME_LAUNCH_CWD",
+  "CIEL_RUNTIME_MODEL_ALIAS",
+  "CIEL_RUNTIME_PROVIDER",
+  "CIEL_RUNTIME_REGISTERED_HOME",
+  "CIEL_RUNTIME_SCRIPT",
+  "CIEL_RUNTIME_SELECTED_HOME",
+  "CIEL_RUNTIME_STATE_DIR",
+  "CIEL_RUNTIME_WORKSPACE_STATE_DIR",
+  "CLAUDECODE",
+  "CLAUDE_CHROME_CLASSIFIER_FLOOR",
+  "CLAUDE_CODE_ATTRIBUTION_HEADER",
+  "CLAUDE_CODE_AUTO_COMPACT_WINDOW",
+  "CLAUDE_CODE_CHILD_SESSION",
+  "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS",
+  "CLAUDE_CODE_DISABLE_NONSTREAMING_FALLBACK",
+  "CLAUDE_CODE_DISABLE_TERMINAL_TITLE",
+  "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY",
+  "CLAUDE_CODE_ENTRYPOINT",
+  "CLAUDE_CODE_EXECPATH",
+  "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS",
+  "CLAUDE_CODE_MAX_CONTEXT_TOKENS",
+  "CLAUDE_CODE_MAX_OUTPUT_TOKENS",
+  "CLAUDE_CODE_MAX_RETRIES",
+  "CLAUDE_CODE_MESSAGING_SOCKET",
+  "CLAUDE_CODE_MESSAGING_TOKEN",
+  "CLAUDE_CODE_NONSTREAMING_TIMEOUT_RETRIES",
+  "CLAUDE_CODE_RETRY_WATCHDOG",
+  "CLAUDE_CODE_SEND_FEEDBACK",
+  "CLAUDE_CODE_SESSION_ATTENDED",
+  "CLAUDE_CODE_SESSION_ID",
+  "CLAUDE_CODE_SUBAGENT_MODEL",
+  "CLAUDE_EFFORT",
+  "CLAUDE_PID",
+  "CODEX_SPARKLE_ENABLED"
+ ],
+ "live_health_before": {
+  "9385": {
+   "attempts": 1,
+   "ok": true,
+   "pid": 6032,
+   "version": "0.2.51-nightly.20261024-115611.5d4dc0e"
+  },
+  "9464": {
+   "attempts": 1,
+   "ok": true,
+   "pid": 54764,
+   "version": "0.2.51-nightly.20261024-102326.a7e28f9"
+  },
+  "9489": {
+   "attempts": 1,
+   "ok": true,
+   "pid": 67368,
+   "version": "0.2.51-nightly.20261024-102326.a7e28f9"
+  },
+  "9505": {
+   "attempts": 1,
+   "ok": true,
+   "pid": 49288,
+   "version": "0.2.51-nightly.20261024-115611.5d4dc0e"
+  },
+  "9524": {
+   "attempts": 1,
+   "ok": true,
+   "pid": 6196,
+   "version": "0.2.51-nightly.20261024-115611.5d4dc0e"
+  }
+ },
+ "router_health": {
+  "ok": true,
+  "version": "0.2.51",
+  "source_fingerprint": "49b907420b3f019f",
+  "pid": 56260,
+  "user": "djlov",
+  "home": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-osr-e2e-exhaust-r2-c1u4k3ri\\home",
+  "config_dir": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-osr-e2e-exhaust-r2-c1u4k3ri\\cfg",
+  "workspace": "c:\\users\\djlov\\appdata\\local\\temp\\ciel-osr-e2e-exhaust-r2-c1u4k3ri\\ws",
+  "router_port": 63057,
+  "instance_id": "63057-974844ee3124",
+  "active_client_count": 0,
+  "active_client_pids": [],
+  "provider": "ollama",
+  "model": "ciel-runtime-ollama-osr-fake",
+  "web_chat": "/ca/web/chat",
+  "web_chat_api": "/ca/web/chat/api",
+  "speech": "/ca/speech/health",
+  "chat": "/ca/chat/health",
+  "plan": "/ca/plan/artifacts",
+  "events": "/ca/events",
+  "events_websocket": "/ca/events/ws",
+  "external_event_receivers": "/ca/events/receivers",
+  "otlp_logs": "/v1/logs",
+  "telemetry_logs_tool": "POST /ca/mcp tools/call telemetry_logs",
+  "tui": "/ca/tui",
+  "tui_status": "/ca/tui/status",
+  "tui_stream": "/ca/tui/stream"
+ },
+ "main_posts_at_response": 3,
+ "owned_processes": [
+  {
+   "pid": 72328,
+   "ppid": 29128,
+   "name": "cmd.exe",
+   "cmd": "cmd /k C:\\Users\\djlov\\ciel-runtime-wt-timeout\\docs\\journal\\2026\\10\\24\\fixes\\ollama-semantic-retry\\evidence\\run-exhaust-r2\\launch.cmd"
+  },
+  {
+   "pid": 54992,
+   "ppid": 72328,
+   "name": "python.exe",
+   "cmd": "\"C:\\Program Files\\Python311\\python.EXE\"  \"C:\\Users\\djlov\\ciel-runtime-wt-timeout\\ciel_runtime.py\" cli --ca-runtime claude --ca-no-update-check --ca-no-self-update-check"
+  },
+  {
+   "pid": 56260,
+   "ppid": 54992,
+   "name": "python.exe",
+   "cmd": "\"C:\\Program Files\\Python311\\python.EXE\" C:\\Users\\djlov\\ciel-runtime-wt-timeout\\ciel_runtime.py serve"
+  },
+  {
+   "pid": 36292,
+   "ppid": 54992,
+   "name": "conhost.exe",
+   "cmd": "\\\\?\\C:\\WINDOWS\\system32\\conhost.exe --headless --width 135 --height 38 --signal 0x314 --server 0x2fc"
+  },
+  {
+   "pid": 65496,
+   "ppid": 54992,
+   "name": "claude.exe",
+   "cmd": "C:\\Users\\djlov\\.local\\bin\\claude.exe --dangerously-skip-permissions --permission-mode bypassPermissions --disallowedTools WebSearch,WebFetch --model ciel-runtime-ollama-osr-fake --mcp-config C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-osr-e2e-exhaust-r2-c1u4k3ri\\cfg\\web-tools-mcp.json C:\\Users\\djlov\\AppD"
+  },
+  {
+   "pid": 70564,
+   "ppid": 54992,
+   "name": "python.exe",
+   "cmd": "\"C:\\Program Files\\Python311\\python.EXE\" C:\\Users\\djlov\\ciel-runtime-wt-timeout\\ciel_runtime_support\\windows_console_guard.py 54992 487 7"
+  }
+ ],
+ "router_pid_file": 56260,
+ "router_port_listeners": [
+  "56260"
+ ],
+ "kills": [
+  {
+   "pid": 72328,
+   "rc": 0,
+   "out": "SUCCESS: The process with PID 56260 (child process of PID 54992) has been terminated.\nSUCCESS: The process with PID 36292 (child process of PID 54992) has been terminated.\nSUCCESS: The process with PID 65496 (child process of PID 54992) has been terminated.\nSUCCESS: The process with PID 70564 (child process of PID 54992) has been terminated.\nSUCCESS: The process with PID 54992 (child process of PI"
+  },
+  {
+   "pid": 56260,
+   "rc": 128,
+   "out": "ERROR: The process \"56260\" not found."
+  }
+ ],
+ "owned_still_alive": [],
+ "live_health_after": {
+  "9385": {
+   "attempts": 1,
+   "ok": true,
+   "pid": 6032,
+   "version": "0.2.51-nightly.20261024-115611.5d4dc0e"
+  },
+  "9464": {
+   "attempts": 1,
+   "ok": true,
+   "pid": 54764,
+   "version": "0.2.51-nightly.20261024-102326.a7e28f9"
+  },
+  "9489": {
+   "attempts": 1,
+   "ok": true,
+   "pid": 67368,
+   "version": "0.2.51-nightly.20261024-102326.a7e28f9"
+  },
+  "9505": {
+   "attempts": 1,
+   "ok": true,
+   "pid": 49288,
+   "version": "0.2.51-nightly.20261024-115611.5d4dc0e"
+  },
+  "9524": {
+   "attempts": 1,
+   "ok": true,
+   "pid": 6196,
+   "version": "0.2.51-nightly.20261024-115611.5d4dc0e"
+  }
+ },
+ "fake_ollama_requests": [
+  {
+   "n": 1,
+   "t": 2.69,
+   "at": "15:44:33",
+   "method": "GET",
+   "path": "/api/tags",
+   "kind": "meta"
+  },
+  {
+   "n": 2,
+   "t": 10.47,
+   "at": "15:44:40",
+   "method": "GET",
+   "path": "/api/tags",
+   "kind": "meta"
+  },
+  {
+   "n": 3,
+   "t": 15.6,
+   "at": "15:44:46",
+   "method": "POST",
+   "path": "/api/chat",
+   "kind": "main",
+   "attempt": 1,
+   "served": "empty",
+   "stream": true,
+   "bytes": 93068,
+   "model": "osr-fake",
+   "messages": 3,
+   "tools": 31,
+   "think": null,
+   "options_keys": [],
+   "prompt_marker": true,
+   "replay_instruction_last": false,
+   "replay_instruction_text": null,
+   "base_sha256": "959a4cb1040c5a242cd62e72f9aa53f8f9ae792b5e860c147c60c078ea95391a",
+   "body_sha256": "959a4cb1040c5a242cd62e72f9aa53f8f9ae792b5e860c147c60c078ea95391a",
+   "compat_header": {}
+  },
+  {
+   "n": 4,
+   "t": 17.68,
+   "at": "15:44:48",
+   "method": "POST",
+   "path": "/api/chat",
+   "kind": "main",
+   "attempt": 2,
+   "served": "empty",
+   "stream": true,
+   "bytes": 93313,
+   "model": "osr-fake",
+   "messages": 4,
+   "tools": 31,
+   "think": null,
+   "options_keys": [],
+   "prompt_marker": true,
+   "replay_instruction_last": true,
+   "replay_instruction_text": "[ciel-runtime] The previous attempt at this turn ended without visible text or a tool call, so the runtime is asking again. Call the next required tool now, or give the concrete final answer if no too",
+   "base_sha256": "959a4cb1040c5a242cd62e72f9aa53f8f9ae792b5e860c147c60c078ea95391a",
+   "body_sha256": "ab3470a710dd6d7412a7d7ec7f160d48313f26e9ab86fba61732a6b8cb4996a8",
+   "compat_header": {}
+  },
+  {
+   "n": 5,
+   "t": 21.76,
+   "at": "15:44:52",
+   "method": "POST",
+   "path": "/api/chat",
+   "kind": "main",
+   "attempt": 3,
+   "served": "empty",
+   "stream": true,
+   "bytes": 93313,
+   "model": "osr-fake",
+   "messages": 4,
+   "tools": 31,
+   "think": null,
+   "options_keys": [],
+   "prompt_marker": true,
+   "replay_instruction_last": true,
+   "replay_instruction_text": "[ciel-runtime] The previous attempt at this turn ended without visible text or a tool call, so the runtime is asking again. Call the next required tool now, or give the concrete final answer if no too",
+   "base_sha256": "959a4cb1040c5a242cd62e72f9aa53f8f9ae792b5e860c147c60c078ea95391a",
+   "body_sha256": "ab3470a710dd6d7412a7d7ec7f160d48313f26e9ab86fba61732a6b8cb4996a8",
+   "compat_header": {}
+  }
+ ],
+ "main_posts": [
+  {
+   "n": 3,
+   "t": 15.6,
+   "at": "15:44:46",
+   "method": "POST",
+   "path": "/api/chat",
+   "kind": "main",
+   "attempt": 1,
+   "served": "empty",
+   "stream": true,
+   "bytes": 93068,
+   "model": "osr-fake",
+   "messages": 3,
+   "tools": 31,
+   "think": null,
+   "options_keys": [],
+   "prompt_marker": true,
+   "replay_instruction_last": false,
+   "replay_instruction_text": null,
+   "base_sha256": "959a4cb1040c5a242cd62e72f9aa53f8f9ae792b5e860c147c60c078ea95391a",
+   "body_sha256": "959a4cb1040c5a242cd62e72f9aa53f8f9ae792b5e860c147c60c078ea95391a",
+   "compat_header": {}
+  },
+  {
+   "n": 4,
+   "t": 17.68,
+   "at": "15:44:48",
+   "method": "POST",
+   "path": "/api/chat",
+   "kind": "main",
+   "attempt": 2,
+   "served": "empty",
+   "stream": true,
+   "bytes": 93313,
+   "model": "osr-fake",
+   "messages": 4,
+   "tools": 31,
+   "think": null,
+   "options_keys": [],
+   "prompt_marker": true,
+   "replay_instruction_last": true,
+   "replay_instruction_text": "[ciel-runtime] The previous attempt at this turn ended without visible text or a tool call, so the runtime is asking again. Call the next required tool now, or give the concrete final answer if no too",
+   "base_sha256": "959a4cb1040c5a242cd62e72f9aa53f8f9ae792b5e860c147c60c078ea95391a",
+   "body_sha256": "ab3470a710dd6d7412a7d7ec7f160d48313f26e9ab86fba61732a6b8cb4996a8",
+   "compat_header": {}
+  },
+  {
+   "n": 5,
+   "t": 21.76,
+   "at": "15:44:52",
+   "method": "POST",
+   "path": "/api/chat",
+   "kind": "main",
+   "attempt": 3,
+   "served": "empty",
+   "stream": true,
+   "bytes": 93313,
+   "model": "osr-fake",
+   "messages": 4,
+   "tools": 31,
+   "think": null,
+   "options_keys": [],
+   "prompt_marker": true,
+   "replay_instruction_last": true,
+   "replay_instruction_text": "[ciel-runtime] The previous attempt at this turn ended without visible text or a tool call, so the runtime is asking again. Call the next required tool now, or give the concrete final answer if no too",
+   "base_sha256": "959a4cb1040c5a242cd62e72f9aa53f8f9ae792b5e860c147c60c078ea95391a",
+   "body_sha256": "ab3470a710dd6d7412a7d7ec7f160d48313f26e9ab86fba61732a6b8cb4996a8",
+   "compat_header": {}
+  }
+ ],
+ "main_post_count": 3,
+ "aux_post_count": 0,
+ "egress_sentinel_requests": [
+  {
+   "t": 11.57,
+   "method": "CONNECT",
+   "target": "downloads.claude.ai:443"
+  },
+  {
+   "t": 11.77,
+   "method": "CONNECT",
+   "target": "pypi.org:443"
+  },
+  {
+   "t": 11.77,
+   "method": "CONNECT",
+   "target": "pypi.org:443"
+  },
+  {
+   "t": 12.06,
+   "method": "CONNECT",
+   "target": "github.com:443"
+  },
+  {
+   "t": 12.17,
+   "method": "CONNECT",
+   "target": "registry.npmjs.org:443"
+  },
+  {
+   "t": 12.19,
+   "method": "CONNECT",
+   "target": "registry.npmjs.org:443"
+  },
+  {
+   "t": 13.04,
+   "method": "CONNECT",
+   "target": "pypi.org:443"
+  },
+  {
+   "t": 13.23,
+   "method": "CONNECT",
+   "target": "registry.npmjs.org:443"
+  },
+  {
+   "t": 13.48,
+   "method": "CONNECT",
+   "target": "pypi.org:443"
+  },
+  {
+   "t": 15.79,
+   "method": "CONNECT",
+   "target": "pypi.org:443"
+  },
+  {
+   "t": 17.02,
+   "method": "CONNECT",
+   "target": "pypi.org:443"
+  },
+  {
+   "t": 17.11,
+   "method": "CONNECT",
+   "target": "pypi.org:443"
+  },
+  {
+   "t": 17.18,
+   "method": "CONNECT",
+   "target": "pypi.org:443"
+  },
+  {
+   "t": 17.18,
+   "method": "CONNECT",
+   "target": "pypi.org:443"
+  },
+  {
+   "t": 18.6,
+   "method": "CONNECT",
+   "target": "pypi.org:443"
+  },
+  {
+   "t": 18.85,
+   "method": "CONNECT",
+   "target": "pypi.org:443"
+  },
+  {
+   "t": 20.12,
+   "method": "CONNECT",
+   "target": "pypi.org:443"
+  },
+  {
+   "t": 21.71,
+   "method": "CONNECT",
+   "target": "pypi.org:443"
+  },
+  {
+   "t": 24.67,
+   "method": "CONNECT",
+   "target": "pypi.org:443"
+  }
+ ],
+ "router_semantic_lines": [
+  "2026-10-24T15:44:46 [INFO] ollama_stream_request provider=ollama model=osr-fake attempt=1/1 tokens=22697 bytes=93068",
+  "2026-10-24T15:44:46 [WARN] ollama_semantic_retry provider=ollama model=osr-fake attempt=1/2 reason=empty_response",
+  "2026-10-24T15:44:48 [INFO] ollama_semantic_retry_request provider=ollama model=osr-fake attempt=1/2 reason=empty_response tokens=22758 bytes=93313 stream=True",
+  "2026-10-24T15:44:48 [WARN] ollama_semantic_retry provider=ollama model=osr-fake attempt=2/2 reason=empty_response",
+  "2026-10-24T15:44:52 [INFO] ollama_semantic_retry_request provider=ollama model=osr-fake attempt=2/2 reason=empty_response tokens=22758 bytes=93313 stream=True",
+  "2026-10-24T15:44:52 [WARN] ollama_semantic_exhausted provider=ollama model=osr-fake attempts=3"
+ ],
+ "router_messages_access_lines": [
+  "2026-10-24T15:44:46 [INFO] access \"POST /v1/messages?beta=true HTTP/1.1\" 200 -"
+ ],
+ "main_sse_traces": [
+  {
+   "time": "2026-10-24T15:44:46",
+   "finished_at": "2026-10-24T15:44:52",
+   "outcome": "exhausted",
+   "stop_reason": "end_turn",
+   "text_len": 161,
+   "chunks": 6,
+   "tools_count": 31,
+   "messages_count": 2,
+   "event_count": 6,
+   "event_names": [
+    "message_start",
+    "content_block_start",
+    "content_block_delta",
+    "content_block_stop",
+    "message_delta",
+    "message_stop"
+   ]
+  }
+ ],
+ "transcript": {
+  "files": [
+   "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-osr-e2e-exhaust-r2-c1u4k3ri\\claude-config\\projects\\C--Users-djlov-AppData-Local-Temp-ciel-osr-e2e-exhaust-r2-c1u4k3ri-ws\\2305b33a-200c-4c1c-ab58-d660dc2336ae.jsonl"
+  ],
+  "user_prompt_entries": 1,
+  "assistant_message_ids": [
+   "msg_ollama_1792874686120"
+  ],
+  "assistant_blocks": [
+   {
+    "message_id": "msg_ollama_1792874686120",
+    "stop_reason": "end_turn",
+    "model": "osr-fake",
+    "type": "text",
+    "text": "[ciel-runtime] Upstream model returned no visible answer or tool call after 3 attempts; automatic retries are exhausted. Retry the request or ask me to continue.",
+    "thinking_len": null,
+    "isApiErrorMessage": null
+   }
+  ],
+  "api_error_entries": 0,
+  "entry_types": [
+   "mode",
+   "permission-mode",
+   "atis-latch",
+   "atis-latch",
+   "attachment",
+   "attachment",
+   "attachment",
+   "attachment",
+   "attachment",
+   "file-history-snapshot",
+   "user",
+   "attachment",
+   "attachment",
+   "attachment",
+   "attachment",
+   "attachment",
+   "api-request-shape",
+   "api-request-blob",
+   "api-request-blob",
+   "api-request",
+   "last-prompt",
+   "mode",
+   "permission-mode",
+   "atis-latch",
+   "assistant",
+   "attachment",
+   "system",
+   "last-prompt",
+   "mode",
+   "permission-mode",
+   "atis-latch"
+  ]
+ },
+ "final_screen": "15:44:52\n\n ▐▛███▛█   Claude Code v2.1.310\n▝▜██████▀  ciel-runtime-ollama-osr-fake · API Usage Billing\n ▝▝   ▝▝   C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-osr-e2e-exhaust-r2-c1u4k3ri\\ws\n\n\n❯ OSR-E2E-EXHAUST-a97f2ee9b7 reply with one short line\n\n● [ciel-runtime] Upstream model returned no visible answer or tool call after 3 attempts; automatic retries are exhausted. Retry the\n  request or ask me to continue.\n\n✻ Brewed for 6s · done 3:44 PM\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────\n❯\n───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────\n  ⏵⏵ bypass permissions on (shift+tab to cycle)",
+ "checks": {
+  "main_post_count_is_3": true,
+  "no_post_after_response": true,
+  "replays_carry_runtime_instruction": true,
+  "replays_rebuilt_from_first_request": true,
+  "one_main_sse_trace": true,
+  "single_message_start_and_stop": true,
+  "sse_outcome": true,
+  "sse_stop_reason_end_turn": true,
+  "one_claude_messages_request_for_turn": true,
+  "transcript_one_user_prompt": true,
+  "transcript_one_assistant_message": true,
+  "transcript_has_expected_text": true,
+  "transcript_no_please_retry": true,
+  "transcript_no_api_error": true,
+  "screen_shows_expected_text": true,
+  "router_log_retry_line": true,
+  "router_log_outcome_line": true,
+  "no_model_api_egress_attempt": true,
+  "owned_processes_stopped": true,
+  "live_router_pids_observed_and_unchanged": true,
+  "exactly_one_exhaustion_text": true
+ },
+ "all_checks_pass": true
+}

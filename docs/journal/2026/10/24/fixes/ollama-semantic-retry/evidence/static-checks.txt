@@ -1,0 +1,9 @@
+ruff 0.14.11
+All checks passed!
+warning: in the working copy of 'ciel-runtime-menu.py', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'ciel_runtime_support/provider_config_mutations.py', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'ciel_runtime_support/provider_configuration_service.py', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'ciel_runtime_support/provider_option_panel.py', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'ciel_runtime_support/provider_option_status.py', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'ciel_runtime_support/response_stream_context.py', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'ciel_runtime_support/streaming_anthropic.py', CRLF will be replaced by LF the next time Git touches it

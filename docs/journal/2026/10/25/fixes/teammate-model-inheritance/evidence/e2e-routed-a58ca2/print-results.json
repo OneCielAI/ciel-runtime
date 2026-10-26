@@ -1,0 +1,67 @@
+[
+ {
+  "tag": "plain",
+  "rc": 1,
+  "stdout_bytes": 1267,
+  "stderr_bytes": 106,
+  "child_ok": false,
+  "parent_ok": false,
+  "type": "result",
+  "subtype": "success",
+  "is_error": true,
+  "num_turns": 1,
+  "result": "API Error: Connection refused — a firewall or proxy may be blocking it (ECONNREFUSED)"
+ },
+ {
+  "tag": "haiku",
+  "rc": 1,
+  "stdout_bytes": 1267,
+  "stderr_bytes": 106,
+  "child_ok": false,
+  "parent_ok": false,
+  "type": "result",
+  "subtype": "success",
+  "is_error": true,
+  "num_turns": 1,
+  "result": "API Error: Connection refused — a firewall or proxy may be blocking it (ECONNREFUSED)"
+ },
+ {
+  "tag": "sonnet",
+  "rc": 1,
+  "stdout_bytes": 1267,
+  "stderr_bytes": 106,
+  "child_ok": false,
+  "parent_ok": false,
+  "type": "result",
+  "subtype": "success",
+  "is_error": true,
+  "num_turns": 1,
+  "result": "API Error: Connection refused — a firewall or proxy may be blocking it (ECONNREFUSED)"
+ },
+ {
+  "tag": "definition",
+  "rc": 1,
+  "stdout_bytes": 1267,
+  "stderr_bytes": 106,
+  "child_ok": false,
+  "parent_ok": false,
+  "type": "result",
+  "subtype": "success",
+  "is_error": true,
+  "num_turns": 1,
+  "result": "API Error: Connection refused — a firewall or proxy may be blocking it (ECONNREFUSED)"
+ },
+ {
+  "tag": "modelarg",
+  "rc": 1,
+  "stdout_bytes": 1267,
+  "stderr_bytes": 106,
+  "child_ok": false,
+  "parent_ok": false,
+  "type": "result",
+  "subtype": "success",
+  "is_error": true,
+  "num_turns": 1,
+  "result": "API Error: Connection refused — a firewall or proxy may be blocking it (ECONNREFUSED)"
+ }
+]

@@ -1,0 +1,14 @@
+[
+  {
+    "target": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-1c0b706",
+    "python_files": 431,
+    "mismatches": [],
+    "removed_modules_remaining": []
+  },
+  {
+    "target": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime",
+    "python_files": 431,
+    "mismatches": [],
+    "removed_modules_remaining": []
+  }
+]

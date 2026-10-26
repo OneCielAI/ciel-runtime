@@ -112,6 +112,8 @@ class ProviderOptionStatusProjection:
         if presentation.show_rate_limit:
             parts.extend(self._rate_limit(provider, config))
         if context_strategy == "ollama":
+            from .ollama_semantic_retry import configured_retries
+            parts.append(f"empty_response_retries={configured_retries(config)}")
             parts.insert(0, f"num_ctx={self.ports.ollama_num_ctx(config)}")
             parts.append(
                 f"ollama_options={self.ports.ollama_options_status(config)}"
@@ -151,7 +153,9 @@ class ProviderOptionStatusProjection:
                 parts.append("word_chunk=on")
         if presentation.show_gateway_selection:
             from .cielairouter_gateway_overlay import selection_enabled
+            from .transient_retry import configured_retry_limit
             parts.append(f"gateway_selection={'auto' if selection_enabled(config) else 'off'}")
+            parts.append(f"gateway_retries={configured_retry_limit(config)}")
         if presentation.show_gateway_data_path:
             from .launch_data_path import configured_data_path
             parts.append(f"gateway_data_path={configured_data_path(config)}")
@@ -171,12 +175,14 @@ class ProviderOptionStatusProjection:
         contract = self.ports.contract_config(provider, config)
         presentation = adapter.option_presentation_policy(contract)
         if adapter.context_policy(contract).settings_strategy == "ollama":
+            from .ollama_semantic_retry import configured_retries
             options = self.ports.ollama_extra_options(config)
             pieces = [
                 f"ctx {self.ports.ollama_num_ctx(config)}",
                 f"keep {config.get('keep_alive', 'default')}",
                 f"think {bool(config.get('think', False))}",
                 f"timeout {config.get('request_timeout_ms', 'default')}ms",
+                f"empty_response_retries={configured_retries(config)}",
             ]
             if config.get("stream_idle_timeout_ms") is not None:
                 pieces.append(

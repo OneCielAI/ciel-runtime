@@ -1,0 +1,63 @@
+# Celly soft-guard preflight false positives
+
+## Observation
+
+The local router logged repeated `compacted anthropic payload` entries while
+Celly was issuing ordinary tool-loop requests. The estimator reported roughly
+958k tokens and the log showed 472 mapped-down messages, but the matching
+Claude Code responses reported about 449k provider tokens against an 872k
+context window. The JSON-length estimator therefore caused an unnecessary
+request-local rewrite.
+
+## Change
+
+CielAiRouter now declares `preflight_prompt_compaction: false`. Ordinary
+Anthropic-wire turns and native compact requests pass through unchanged; the
+existing native client compaction and reactive provider-overflow recovery
+remain responsible for actual pressure. Translated Codex checkpoints still
+use the guarded path because their client cannot perform Anthropic-native
+compaction itself.
+
+## Verification
+
+- Focused provider, compaction, Codex translated-checkpoint, request-policy,
+  and vLLM tests: 69 passed, 15 subtests passed.
+- Architecture contracts: 5 passed, 7 subtests passed.
+- `python -m ruff check`: passed.
+- A live-config probe with an oversized body reported an estimated 750,026
+  tokens, called the soft compactor zero times, and returned the body unchanged.
+
+## Truncated semantic checkpoint follow-up
+
+- A later Celly run at 21:46-21:50 local time logged 120-second upstream
+  requests and repeated `context_compact_failed ... completed_chunks=0/13`.
+  The error detail was `truncated_summary`, not a 60-second timeout.
+- The map phase previously retried only explicit provider context rejections.
+  A finite summary that ended at its output limit aborted the entire checkpoint
+  before one source chunk completed, so the same turn failed again.
+- A truncated or incomplete summary response now splits its source chunk and
+  regenerates the smaller segment, matching the existing bounded retry used for
+  an explicit context rejection. Client cancellation, deadline exhaustion, and
+  ambiguous provider failures still abort without replay.
+- Added a regression test that forces the first map summary to truncate and
+  verifies the split segments complete. The full context-compaction suite
+  passed: 31 tests.
+
+## Published and installed
+
+- Fix commit `e83bea7`; no-ff merge `625faed32c8680615ea1f46b9f29bc0764c3b886`.
+- CI run `39714827921` passed. Publish run `39714827923` passed and published
+  `@one-ciel-ai/ciel-runtime@0.2.51-nightly.20261022-030938.625faed`.
+- Global install now reports that exact version. The installed package contains
+  both `preflight_prompt_compaction=False` and the truncated-summary retry path;
+  an import-level installed-package check passed.
+- Already-running Ciel Runtime processes keep their previously loaded Python
+  modules in memory. A relaunched Celly/Ara session is required to activate the
+  new package in those processes; no live conversation process was terminated.
+- The package installer then refreshed the stable Windows runtime home from the
+  old snapshot pointer to `C:\Users\djlov\.local\share\ciel-runtime`. Both
+  fixes are present in that installed copy, and an import-level check passed.
+- A graceful restart request for the Celly workspace was claimed, but the old
+  runtime's child termination returned `taskkill` status 128. The old parent
+  process still has its previously loaded modules; closing and reopening the
+  Ciel Runtime launcher is required to load the stable runtime.

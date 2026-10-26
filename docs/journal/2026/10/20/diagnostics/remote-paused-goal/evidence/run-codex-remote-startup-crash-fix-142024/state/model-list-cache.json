@@ -1,0 +1,17 @@
+{
+  "time": 1792524037.8887105,
+  "key": "{\"account_id\": \"\", \"api\": \"key\", \"base_url\": \"http://127.0.0.1:64524\", \"custom\": [\"my-model\"], \"model_api_base_url\": \"\", \"provider\": \"vllm\", \"schema\": 7}",
+  "models": [
+    "my-model",
+    "stub-model"
+  ],
+  "metadata": {
+    "model_info": {
+      "stub-model": {
+        "owned_by": "stub",
+        "object": "model",
+        "max_model_len": 128000
+      }
+    }
+  }
+}

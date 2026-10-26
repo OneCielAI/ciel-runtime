@@ -1,0 +1,18 @@
+[
+  [
+    4459,
+    "2026-10-20T14:43:56 [ERROR] channel_windows_console_proxy_exception stage=pending_poll type=RuntimeError errno=None winerror=None frames=channel_terminal_proxy.py:522:run_windows_channel_terminal_proxy,channel_pending_poll.py:177:poll_pending_channel_messages,ciel_runtime.py:4525:_inject_pending_channel_messages,channel_wake_context.py:646:inject_pending,channel_pending_injection.py:442:inject_pending_channel_messages,channel_wake_delivery_repository.py:46:begin_attempt,runtime_input_status.py:107:begin_attempt pid=2360 cursor=11901"
+  ],
+  [
+    4465,
+    "2026-10-20T14:43:57 [WARN] channel_windows_console_proxy_failed stage=windows_proxy type=RuntimeError errno=None winerror=None frames=channel_terminal_context.py:182:run_windows,channel_terminal_proxy.py:522:run_windows_channel_terminal_proxy,channel_pending_poll.py:177:poll_pending_channel_messages,ciel_runtime.py:4525:_inject_pending_channel_messages,channel_wake_context.py:646:inject_pending,channel_pending_injection.py:442:inject_pending_channel_messages,channel_wake_delivery_repository.py:46:begin_attempt,runtime_input_status.py:107:begin_attempt; using direct subprocess call"
+  ],
+  [
+    4505,
+    "2026-10-20T14:44:03 [WARN] claude_routed_exit_diagnostic Ciel Runtime diagnostic: Claude Code exited with code 1 while routed through http://127.0.0.1:9505. | Router: health=ok base=http://127.0.0.1:9505 pid=35932 version=0.2.51-nightly.20261020-165616.9ac82f0 source=129836be214180d6 provider=cielairouter model=ciel-runtime-cielairouter-_walkie_opus55-sol61-fast config_dir=C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\router-instances\\9505-aae7db361c7f | Provider: cielairouter upstream=https://ciel-router-01.ezonebot.com/v1/messages | Router log: C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\router-instances\\9505-aae7db361c7f\\router.log"
+  ],
+  [
+    4509,
+    "2026-10-20T14:44:08 [INFO] router_lifetime_stopped reason=claude_exit stopped=True"
+  ]
+]

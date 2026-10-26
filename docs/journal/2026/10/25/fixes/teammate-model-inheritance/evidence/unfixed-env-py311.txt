@@ -1,0 +1,276 @@
+test_anthropic_explicit_inherit_is_a_control_value_not_an_alias (test_claude_environment.ClaudeEnvironmentPolicyTests.test_anthropic_explicit_inherit_is_a_control_value_not_an_alias) ... ok
+test_anthropic_routed_without_override_keeps_existing_policy (test_claude_environment.ClaudeEnvironmentPolicyTests.test_anthropic_routed_without_override_keeps_existing_policy) ... ok
+test_chrome_classifier_floor_is_disabled_for_every_claude_launch (test_claude_environment.ClaudeEnvironmentPolicyTests.test_chrome_classifier_floor_is_disabled_for_every_claude_launch) ... ok
+test_cielairouter_direct_launch_uses_shared_bounded_retry_limit (test_claude_environment.ClaudeEnvironmentPolicyTests.test_cielairouter_direct_launch_uses_shared_bounded_retry_limit) ... ok
+test_cielairouter_explicit_window_and_direct_model_limits_are_independent (test_claude_environment.ClaudeEnvironmentPolicyTests.test_cielairouter_explicit_window_and_direct_model_limits_are_independent) ... ok
+test_cielairouter_routed_launch_leaves_retries_to_the_router (test_claude_environment.ClaudeEnvironmentPolicyTests.test_cielairouter_routed_launch_leaves_retries_to_the_router) ... ok
+test_configured_anthropic_subagent_model_is_routed_and_forced (test_claude_environment.ClaudeEnvironmentPolicyTests.test_configured_anthropic_subagent_model_is_routed_and_forced) ... ok
+test_direct_parent_inheritance_is_not_resolved_as_model_id (test_claude_environment.ClaudeEnvironmentPolicyTests.test_direct_parent_inheritance_is_not_resolved_as_model_id) ... FAIL
+test_feedback_drafts_default_off_and_explicit_on_on_every_path (test_claude_environment.ClaudeEnvironmentPolicyTests.test_feedback_drafts_default_off_and_explicit_on_on_every_path) ... ok
+test_feedback_drafts_shell_projection_explicitly_sets_each_launch (test_claude_environment.ClaudeEnvironmentPolicyTests.test_feedback_drafts_shell_projection_explicitly_sets_each_launch) ... ok
+test_guarded_percent_is_only_added_below_the_window_and_never_raised (test_claude_environment.ClaudeEnvironmentPolicyTests.test_guarded_percent_is_only_added_below_the_window_and_never_raised) ... ok
+test_limit_policy_caps_output_and_compact_windows (test_claude_environment.ClaudeEnvironmentPolicyTests.test_limit_policy_caps_output_and_compact_windows) ... ok
+test_model_alias_policy_marks_only_million_context_models (test_claude_environment.ClaudeEnvironmentPolicyTests.test_model_alias_policy_marks_only_million_context_models) ... ok
+test_native_projection_only_sets_marker_key_and_chrome_floor_off (test_claude_environment.ClaudeEnvironmentPolicyTests.test_native_projection_only_sets_marker_key_and_chrome_floor_off) ... ok
+test_non_anthropic_ignores_old_subagent_override_and_forces_parent (test_claude_environment.ClaudeEnvironmentPolicyTests.test_non_anthropic_ignores_old_subagent_override_and_forces_parent) ... 
+  test_non_anthropic_ignores_old_subagent_override_and_forces_parent (test_claude_environment.ClaudeEnvironmentPolicyTests.test_non_anthropic_ignores_old_subagent_override_and_forces_parent) (provider='test', configured=None) ... FAIL
+  test_non_anthropic_ignores_old_subagent_override_and_forces_parent (test_claude_environment.ClaudeEnvironmentPolicyTests.test_non_anthropic_ignores_old_subagent_override_and_forces_parent) (provider='test', configured='') ... FAIL
+  test_non_anthropic_ignores_old_subagent_override_and_forces_parent (test_claude_environment.ClaudeEnvironmentPolicyTests.test_non_anthropic_ignores_old_subagent_override_and_forces_parent) (provider='test', configured='worker-model') ... FAIL
+  test_non_anthropic_ignores_old_subagent_override_and_forces_parent (test_claude_environment.ClaudeEnvironmentPolicyTests.test_non_anthropic_ignores_old_subagent_override_and_forces_parent) (provider='cielairouter', configured=None) ... FAIL
+  test_non_anthropic_ignores_old_subagent_override_and_forces_parent (test_claude_environment.ClaudeEnvironmentPolicyTests.test_non_anthropic_ignores_old_subagent_override_and_forces_parent) (provider='cielairouter', configured='') ... FAIL
+  test_non_anthropic_ignores_old_subagent_override_and_forces_parent (test_claude_environment.ClaudeEnvironmentPolicyTests.test_non_anthropic_ignores_old_subagent_override_and_forces_parent) (provider='cielairouter', configured='worker-model') ... FAIL
+  test_non_anthropic_ignores_old_subagent_override_and_forces_parent (test_claude_environment.ClaudeEnvironmentPolicyTests.test_non_anthropic_ignores_old_subagent_override_and_forces_parent) (provider='ollama-cloud', configured=None) ... FAIL
+  test_non_anthropic_ignores_old_subagent_override_and_forces_parent (test_claude_environment.ClaudeEnvironmentPolicyTests.test_non_anthropic_ignores_old_subagent_override_and_forces_parent) (provider='ollama-cloud', configured='') ... FAIL
+  test_non_anthropic_ignores_old_subagent_override_and_forces_parent (test_claude_environment.ClaudeEnvironmentPolicyTests.test_non_anthropic_ignores_old_subagent_override_and_forces_parent) (provider='ollama-cloud', configured='worker-model') ... FAIL
+  test_non_anthropic_ignores_old_subagent_override_and_forces_parent (test_claude_environment.ClaudeEnvironmentPolicyTests.test_non_anthropic_ignores_old_subagent_override_and_forces_parent) (provider='deepseek', configured=None) ... FAIL
+  test_non_anthropic_ignores_old_subagent_override_and_forces_parent (test_claude_environment.ClaudeEnvironmentPolicyTests.test_non_anthropic_ignores_old_subagent_override_and_forces_parent) (provider='deepseek', configured='') ... FAIL
+  test_non_anthropic_ignores_old_subagent_override_and_forces_parent (test_claude_environment.ClaudeEnvironmentPolicyTests.test_non_anthropic_ignores_old_subagent_override_and_forces_parent) (provider='deepseek', configured='worker-model') ... FAIL
+  test_non_anthropic_ignores_old_subagent_override_and_forces_parent (test_claude_environment.ClaudeEnvironmentPolicyTests.test_non_anthropic_ignores_old_subagent_override_and_forces_parent) (provider='opencode', configured=None) ... FAIL
+  test_non_anthropic_ignores_old_subagent_override_and_forces_parent (test_claude_environment.ClaudeEnvironmentPolicyTests.test_non_anthropic_ignores_old_subagent_override_and_forces_parent) (provider='opencode', configured='') ... FAIL
+  test_non_anthropic_ignores_old_subagent_override_and_forces_parent (test_claude_environment.ClaudeEnvironmentPolicyTests.test_non_anthropic_ignores_old_subagent_override_and_forces_parent) (provider='opencode', configured='worker-model') ... FAIL
+  test_non_anthropic_ignores_old_subagent_override_and_forces_parent (test_claude_environment.ClaudeEnvironmentPolicyTests.test_non_anthropic_ignores_old_subagent_override_and_forces_parent) (provider='meta', configured=None) ... FAIL
+  test_non_anthropic_ignores_old_subagent_override_and_forces_parent (test_claude_environment.ClaudeEnvironmentPolicyTests.test_non_anthropic_ignores_old_subagent_override_and_forces_parent) (provider='meta', configured='') ... FAIL
+  test_non_anthropic_ignores_old_subagent_override_and_forces_parent (test_claude_environment.ClaudeEnvironmentPolicyTests.test_non_anthropic_ignores_old_subagent_override_and_forces_parent) (provider='meta', configured='worker-model') ... FAIL
+test_parent_inheritance_is_cleared_on_switch_to_native (test_claude_environment.ClaudeEnvironmentPolicyTests.test_parent_inheritance_is_cleared_on_switch_to_native) ... ERROR
+test_provider_compaction_percent_does_not_reduce_model_context (test_claude_environment.ClaudeEnvironmentPolicyTests.test_provider_compaction_percent_does_not_reduce_model_context) ... ok
+test_retry_projection_cleans_inherited_and_restarted_environment (test_claude_environment.ClaudeEnvironmentPolicyTests.test_retry_projection_cleans_inherited_and_restarted_environment) ... ok
+test_retry_settings_do_not_change_other_providers_or_native_anthropic (test_claude_environment.ClaudeEnvironmentPolicyTests.test_retry_settings_do_not_change_other_providers_or_native_anthropic) ... ok
+test_routed_launch_pins_the_trigger_at_the_forwarded_budget (test_claude_environment.ClaudeEnvironmentPolicyTests.test_routed_launch_pins_the_trigger_at_the_forwarded_budget) ... ok
+test_routed_projection_builds_gateway_models_and_common_features (test_claude_environment.ClaudeEnvironmentPolicyTests.test_routed_projection_builds_gateway_models_and_common_features) ... FAIL
+test_runtime_settings_accept_cross_session_input_for_ciel_socket (test_claude_environment.ClaudeEnvironmentPolicyTests.test_runtime_settings_accept_cross_session_input_for_ciel_socket) ... ok
+test_runtime_settings_respect_explicit_passthrough (test_claude_environment.ClaudeEnvironmentPolicyTests.test_runtime_settings_respect_explicit_passthrough) ... ok
+test_shell_renderer_quotes_values_and_unsets_missing_keys (test_claude_environment.ClaudeEnvironmentPolicyTests.test_shell_renderer_quotes_values_and_unsets_missing_keys) ... ok
+
+======================================================================
+ERROR: test_parent_inheritance_is_cleared_on_switch_to_native (test_claude_environment.ClaudeEnvironmentPolicyTests.test_parent_inheritance_is_cleared_on_switch_to_native)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-lease\tests\test_claude_environment.py", line 306, in test_parent_inheritance_is_cleared_on_switch_to_native
+    self.assertEqual("1", env["CLAUDE_CODE_SUBAGENT_MODEL_FORCE"])
+                          ~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyError: 'CLAUDE_CODE_SUBAGENT_MODEL_FORCE'
+
+======================================================================
+FAIL: test_direct_parent_inheritance_is_not_resolved_as_model_id (test_claude_environment.ClaudeEnvironmentPolicyTests.test_direct_parent_inheritance_is_not_resolved_as_model_id)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-lease\tests\test_claude_environment.py", line 286, in test_direct_parent_inheritance_is_not_resolved_as_model_id
+    self.assertEqual("inherit", env["CLAUDE_CODE_SUBAGENT_MODEL"])
+AssertionError: 'inherit' != 'upstream'
+- inherit
++ upstream
+
+
+======================================================================
+FAIL: test_non_anthropic_ignores_old_subagent_override_and_forces_parent (test_claude_environment.ClaudeEnvironmentPolicyTests.test_non_anthropic_ignores_old_subagent_override_and_forces_parent) (provider='test', configured=None)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-lease\tests\test_claude_environment.py", line 270, in test_non_anthropic_ignores_old_subagent_override_and_forces_parent
+    self.assertEqual("inherit", env["CLAUDE_CODE_SUBAGENT_MODEL"])
+AssertionError: 'inherit' != 'current'
+- inherit
++ current
+
+
+======================================================================
+FAIL: test_non_anthropic_ignores_old_subagent_override_and_forces_parent (test_claude_environment.ClaudeEnvironmentPolicyTests.test_non_anthropic_ignores_old_subagent_override_and_forces_parent) (provider='test', configured='')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-lease\tests\test_claude_environment.py", line 270, in test_non_anthropic_ignores_old_subagent_override_and_forces_parent
+    self.assertEqual("inherit", env["CLAUDE_CODE_SUBAGENT_MODEL"])
+AssertionError: 'inherit' != 'current'
+- inherit
++ current
+
+
+======================================================================
+FAIL: test_non_anthropic_ignores_old_subagent_override_and_forces_parent (test_claude_environment.ClaudeEnvironmentPolicyTests.test_non_anthropic_ignores_old_subagent_override_and_forces_parent) (provider='test', configured='worker-model')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-lease\tests\test_claude_environment.py", line 270, in test_non_anthropic_ignores_old_subagent_override_and_forces_parent
+    self.assertEqual("inherit", env["CLAUDE_CODE_SUBAGENT_MODEL"])
+AssertionError: 'inherit' != 'worker-model'
+- inherit
++ worker-model
+
+
+======================================================================
+FAIL: test_non_anthropic_ignores_old_subagent_override_and_forces_parent (test_claude_environment.ClaudeEnvironmentPolicyTests.test_non_anthropic_ignores_old_subagent_override_and_forces_parent) (provider='cielairouter', configured=None)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-lease\tests\test_claude_environment.py", line 270, in test_non_anthropic_ignores_old_subagent_override_and_forces_parent
+    self.assertEqual("inherit", env["CLAUDE_CODE_SUBAGENT_MODEL"])
+AssertionError: 'inherit' != 'current'
+- inherit
++ current
+
+
+======================================================================
+FAIL: test_non_anthropic_ignores_old_subagent_override_and_forces_parent (test_claude_environment.ClaudeEnvironmentPolicyTests.test_non_anthropic_ignores_old_subagent_override_and_forces_parent) (provider='cielairouter', configured='')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-lease\tests\test_claude_environment.py", line 270, in test_non_anthropic_ignores_old_subagent_override_and_forces_parent
+    self.assertEqual("inherit", env["CLAUDE_CODE_SUBAGENT_MODEL"])
+AssertionError: 'inherit' != 'current'
+- inherit
++ current
+
+
+======================================================================
+FAIL: test_non_anthropic_ignores_old_subagent_override_and_forces_parent (test_claude_environment.ClaudeEnvironmentPolicyTests.test_non_anthropic_ignores_old_subagent_override_and_forces_parent) (provider='cielairouter', configured='worker-model')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-lease\tests\test_claude_environment.py", line 270, in test_non_anthropic_ignores_old_subagent_override_and_forces_parent
+    self.assertEqual("inherit", env["CLAUDE_CODE_SUBAGENT_MODEL"])
+AssertionError: 'inherit' != 'worker-model'
+- inherit
++ worker-model
+
+
+======================================================================
+FAIL: test_non_anthropic_ignores_old_subagent_override_and_forces_parent (test_claude_environment.ClaudeEnvironmentPolicyTests.test_non_anthropic_ignores_old_subagent_override_and_forces_parent) (provider='ollama-cloud', configured=None)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-lease\tests\test_claude_environment.py", line 270, in test_non_anthropic_ignores_old_subagent_override_and_forces_parent
+    self.assertEqual("inherit", env["CLAUDE_CODE_SUBAGENT_MODEL"])
+AssertionError: 'inherit' != 'current'
+- inherit
++ current
+
+
+======================================================================
+FAIL: test_non_anthropic_ignores_old_subagent_override_and_forces_parent (test_claude_environment.ClaudeEnvironmentPolicyTests.test_non_anthropic_ignores_old_subagent_override_and_forces_parent) (provider='ollama-cloud', configured='')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-lease\tests\test_claude_environment.py", line 270, in test_non_anthropic_ignores_old_subagent_override_and_forces_parent
+    self.assertEqual("inherit", env["CLAUDE_CODE_SUBAGENT_MODEL"])
+AssertionError: 'inherit' != 'current'
+- inherit
++ current
+
+
+======================================================================
+FAIL: test_non_anthropic_ignores_old_subagent_override_and_forces_parent (test_claude_environment.ClaudeEnvironmentPolicyTests.test_non_anthropic_ignores_old_subagent_override_and_forces_parent) (provider='ollama-cloud', configured='worker-model')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-lease\tests\test_claude_environment.py", line 270, in test_non_anthropic_ignores_old_subagent_override_and_forces_parent
+    self.assertEqual("inherit", env["CLAUDE_CODE_SUBAGENT_MODEL"])
+AssertionError: 'inherit' != 'worker-model'
+- inherit
++ worker-model
+
+
+======================================================================
+FAIL: test_non_anthropic_ignores_old_subagent_override_and_forces_parent (test_claude_environment.ClaudeEnvironmentPolicyTests.test_non_anthropic_ignores_old_subagent_override_and_forces_parent) (provider='deepseek', configured=None)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-lease\tests\test_claude_environment.py", line 270, in test_non_anthropic_ignores_old_subagent_override_and_forces_parent
+    self.assertEqual("inherit", env["CLAUDE_CODE_SUBAGENT_MODEL"])
+AssertionError: 'inherit' != 'current'
+- inherit
++ current
+
+
+======================================================================
+FAIL: test_non_anthropic_ignores_old_subagent_override_and_forces_parent (test_claude_environment.ClaudeEnvironmentPolicyTests.test_non_anthropic_ignores_old_subagent_override_and_forces_parent) (provider='deepseek', configured='')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-lease\tests\test_claude_environment.py", line 270, in test_non_anthropic_ignores_old_subagent_override_and_forces_parent
+    self.assertEqual("inherit", env["CLAUDE_CODE_SUBAGENT_MODEL"])
+AssertionError: 'inherit' != 'current'
+- inherit
++ current
+
+
+======================================================================
+FAIL: test_non_anthropic_ignores_old_subagent_override_and_forces_parent (test_claude_environment.ClaudeEnvironmentPolicyTests.test_non_anthropic_ignores_old_subagent_override_and_forces_parent) (provider='deepseek', configured='worker-model')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-lease\tests\test_claude_environment.py", line 270, in test_non_anthropic_ignores_old_subagent_override_and_forces_parent
+    self.assertEqual("inherit", env["CLAUDE_CODE_SUBAGENT_MODEL"])
+AssertionError: 'inherit' != 'worker-model'
+- inherit
++ worker-model
+
+
+======================================================================
+FAIL: test_non_anthropic_ignores_old_subagent_override_and_forces_parent (test_claude_environment.ClaudeEnvironmentPolicyTests.test_non_anthropic_ignores_old_subagent_override_and_forces_parent) (provider='opencode', configured=None)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-lease\tests\test_claude_environment.py", line 270, in test_non_anthropic_ignores_old_subagent_override_and_forces_parent
+    self.assertEqual("inherit", env["CLAUDE_CODE_SUBAGENT_MODEL"])
+AssertionError: 'inherit' != 'current'
+- inherit
++ current
+
+
+======================================================================
+FAIL: test_non_anthropic_ignores_old_subagent_override_and_forces_parent (test_claude_environment.ClaudeEnvironmentPolicyTests.test_non_anthropic_ignores_old_subagent_override_and_forces_parent) (provider='opencode', configured='')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-lease\tests\test_claude_environment.py", line 270, in test_non_anthropic_ignores_old_subagent_override_and_forces_parent
+    self.assertEqual("inherit", env["CLAUDE_CODE_SUBAGENT_MODEL"])
+AssertionError: 'inherit' != 'current'
+- inherit
++ current
+
+
+======================================================================
+FAIL: test_non_anthropic_ignores_old_subagent_override_and_forces_parent (test_claude_environment.ClaudeEnvironmentPolicyTests.test_non_anthropic_ignores_old_subagent_override_and_forces_parent) (provider='opencode', configured='worker-model')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-lease\tests\test_claude_environment.py", line 270, in test_non_anthropic_ignores_old_subagent_override_and_forces_parent
+    self.assertEqual("inherit", env["CLAUDE_CODE_SUBAGENT_MODEL"])
+AssertionError: 'inherit' != 'worker-model'
+- inherit
++ worker-model
+
+
+======================================================================
+FAIL: test_non_anthropic_ignores_old_subagent_override_and_forces_parent (test_claude_environment.ClaudeEnvironmentPolicyTests.test_non_anthropic_ignores_old_subagent_override_and_forces_parent) (provider='meta', configured=None)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-lease\tests\test_claude_environment.py", line 270, in test_non_anthropic_ignores_old_subagent_override_and_forces_parent
+    self.assertEqual("inherit", env["CLAUDE_CODE_SUBAGENT_MODEL"])
+AssertionError: 'inherit' != 'current'
+- inherit
++ current
+
+
+======================================================================
+FAIL: test_non_anthropic_ignores_old_subagent_override_and_forces_parent (test_claude_environment.ClaudeEnvironmentPolicyTests.test_non_anthropic_ignores_old_subagent_override_and_forces_parent) (provider='meta', configured='')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-lease\tests\test_claude_environment.py", line 270, in test_non_anthropic_ignores_old_subagent_override_and_forces_parent
+    self.assertEqual("inherit", env["CLAUDE_CODE_SUBAGENT_MODEL"])
+AssertionError: 'inherit' != 'current'
+- inherit
++ current
+
+
+======================================================================
+FAIL: test_non_anthropic_ignores_old_subagent_override_and_forces_parent (test_claude_environment.ClaudeEnvironmentPolicyTests.test_non_anthropic_ignores_old_subagent_override_and_forces_parent) (provider='meta', configured='worker-model')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-lease\tests\test_claude_environment.py", line 270, in test_non_anthropic_ignores_old_subagent_override_and_forces_parent
+    self.assertEqual("inherit", env["CLAUDE_CODE_SUBAGENT_MODEL"])
+AssertionError: 'inherit' != 'worker-model'
+- inherit
++ worker-model
+
+
+======================================================================
+FAIL: test_routed_projection_builds_gateway_models_and_common_features (test_claude_environment.ClaudeEnvironmentPolicyTests.test_routed_projection_builds_gateway_models_and_common_features)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-lease\tests\test_claude_environment.py", line 159, in test_routed_projection_builds_gateway_models_and_common_features
+    self.assertEqual("inherit", env["CLAUDE_CODE_SUBAGENT_MODEL"])
+AssertionError: 'inherit' != 'current'
+- inherit
++ current
+
+
+----------------------------------------------------------------------
+Ran 24 tests in 0.007s
+
+FAILED (failures=20, errors=1)

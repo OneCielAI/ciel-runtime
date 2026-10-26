@@ -1,0 +1,155 @@
+test_accepted_body_timeout_is_not_reopened (test_transient_retry_timeout.TimeoutRetryTests.test_accepted_body_timeout_is_not_reopened) ... ok
+test_already_handled_timeout_cannot_open_a_second_allowance (test_transient_retry_timeout.TimeoutRetryTests.test_already_handled_timeout_cannot_open_a_second_allowance) ... ok
+test_cancellation_after_timeout_stops_before_backoff (test_transient_retry_timeout.TimeoutRetryTests.test_cancellation_after_timeout_stops_before_backoff) ... ERROR
+test_expired_open_timeout_does_not_restart_deadline (test_transient_retry_timeout.TimeoutRetryTests.test_expired_open_timeout_does_not_restart_deadline) ... ok
+test_explicit_zero_and_other_providers_preserve_timeout (test_transient_retry_timeout.TimeoutRetryTests.test_explicit_zero_and_other_providers_preserve_timeout) ... ok
+test_exposed_owner_forbids_timeout_retry (test_transient_retry_timeout.TimeoutRetryTests.test_exposed_owner_forbids_timeout_retry) ... ok
+test_mixed_http_and_timeout_spend_one_allowance (test_transient_retry_timeout.TimeoutRetryTests.test_mixed_http_and_timeout_spend_one_allowance) ... FAIL
+test_other_transport_errors_still_do_not_replay (test_transient_retry_timeout.TimeoutRetryTests.test_other_transport_errors_still_do_not_replay) ... ok
+test_timeout_with_time_remaining_reselects_same_budget (test_transient_retry_timeout.TimeoutRetryTests.test_timeout_with_time_remaining_reselects_same_budget) ... ERROR
+test_typed_open_timeouts_retry_then_success (test_transient_retry_timeout.TimeoutRetryTests.test_typed_open_timeouts_retry_then_success) ... 
+  test_typed_open_timeouts_retry_then_success (test_transient_retry_timeout.TimeoutRetryTests.test_typed_open_timeouts_retry_then_success) (error=TimeoutError('The read operation timed out')) ... ERROR
+  test_typed_open_timeouts_retry_then_success (test_transient_retry_timeout.TimeoutRetryTests.test_typed_open_timeouts_retry_then_success) (error=TimeoutError('timed out')) ... ERROR
+  test_typed_open_timeouts_retry_then_success (test_transient_retry_timeout.TimeoutRetryTests.test_typed_open_timeouts_retry_then_success) (error=URLError(TimeoutError('The read operation timed out'))) ... ERROR
+
+======================================================================
+ERROR: test_cancellation_after_timeout_stops_before_backoff (test_transient_retry_timeout.TimeoutRetryTests.test_cancellation_after_timeout_stops_before_backoff)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-timeout\tests\test_transient_retry_timeout.py", line 110, in test_cancellation_after_timeout_stops_before_backoff
+    self.invoke(open_once, sleep=sleep, cancelled=lambda: cancelled, reselect=reselect)
+  File "C:\Users\djlov\ciel-runtime-wt-timeout\tests\test_transient_retry_timeout.py", line 16, in invoke
+    return retry.open_with_transient_retry(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\djlov\ciel-runtime-wt-timeout\ciel_runtime_support\transient_retry.py", line 601, in open_with_transient_retry
+    return open_with_transient_retry(open_once, provider=provider, config=config,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\djlov\ciel-runtime-wt-timeout\ciel_runtime_support\transient_retry.py", line 622, in open_with_transient_retry
+    return _execute(open_once, budget, log, publish, sleep, cancelled, request, reselect, model)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\djlov\ciel-runtime-wt-timeout\ciel_runtime_support\transient_retry.py", line 639, in _execute
+    response = open_once()
+               ^^^^^^^^^^^
+  File "C:\Users\djlov\ciel-runtime-wt-timeout\tests\test_transient_retry_timeout.py", line 107, in open_once
+    raise TimeoutError("timed out")
+TimeoutError: timed out
+
+======================================================================
+ERROR: test_timeout_with_time_remaining_reselects_same_budget (test_transient_retry_timeout.TimeoutRetryTests.test_timeout_with_time_remaining_reselects_same_budget)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-timeout\tests\test_transient_retry_timeout.py", line 96, in test_timeout_with_time_remaining_reselects_same_budget
+    result = self.invoke(open_once, config, sleep=clock.sleep, reselect=reselect)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\djlov\ciel-runtime-wt-timeout\tests\test_transient_retry_timeout.py", line 16, in invoke
+    return retry.open_with_transient_retry(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\djlov\ciel-runtime-wt-timeout\ciel_runtime_support\transient_retry.py", line 622, in open_with_transient_retry
+    return _execute(open_once, budget, log, publish, sleep, cancelled, request, reselect, model)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\djlov\ciel-runtime-wt-timeout\ciel_runtime_support\transient_retry.py", line 639, in _execute
+    response = open_once()
+               ^^^^^^^^^^^
+  File "C:\Users\djlov\ciel-runtime-wt-timeout\tests\test_transient_retry_timeout.py", line 92, in open_once
+    raise TimeoutError("timed out")
+TimeoutError: timed out
+
+======================================================================
+ERROR: test_typed_open_timeouts_retry_then_success (test_transient_retry_timeout.TimeoutRetryTests.test_typed_open_timeouts_retry_then_success) (error=TimeoutError('The read operation timed out'))
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-timeout\tests\test_transient_retry_timeout.py", line 27, in test_typed_open_timeouts_retry_then_success
+    result = self.invoke(opener, log=lambda *args: logs.append(args),
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\djlov\ciel-runtime-wt-timeout\tests\test_transient_retry_timeout.py", line 16, in invoke
+    return retry.open_with_transient_retry(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\djlov\ciel-runtime-wt-timeout\ciel_runtime_support\transient_retry.py", line 601, in open_with_transient_retry
+    return open_with_transient_retry(open_once, provider=provider, config=config,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\djlov\ciel-runtime-wt-timeout\ciel_runtime_support\transient_retry.py", line 622, in open_with_transient_retry
+    return _execute(open_once, budget, log, publish, sleep, cancelled, request, reselect, model)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\djlov\ciel-runtime-wt-timeout\ciel_runtime_support\transient_retry.py", line 639, in _execute
+    response = open_once()
+               ^^^^^^^^^^^
+  File "C:\Program Files\Python311\Lib\unittest\mock.py", line 1124, in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Program Files\Python311\Lib\unittest\mock.py", line 1128, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Program Files\Python311\Lib\unittest\mock.py", line 1187, in _execute_mock_call
+    raise result
+TimeoutError: The read operation timed out
+
+======================================================================
+ERROR: test_typed_open_timeouts_retry_then_success (test_transient_retry_timeout.TimeoutRetryTests.test_typed_open_timeouts_retry_then_success) (error=TimeoutError('timed out'))
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-timeout\tests\test_transient_retry_timeout.py", line 27, in test_typed_open_timeouts_retry_then_success
+    result = self.invoke(opener, log=lambda *args: logs.append(args),
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\djlov\ciel-runtime-wt-timeout\tests\test_transient_retry_timeout.py", line 16, in invoke
+    return retry.open_with_transient_retry(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\djlov\ciel-runtime-wt-timeout\ciel_runtime_support\transient_retry.py", line 601, in open_with_transient_retry
+    return open_with_transient_retry(open_once, provider=provider, config=config,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\djlov\ciel-runtime-wt-timeout\ciel_runtime_support\transient_retry.py", line 622, in open_with_transient_retry
+    return _execute(open_once, budget, log, publish, sleep, cancelled, request, reselect, model)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\djlov\ciel-runtime-wt-timeout\ciel_runtime_support\transient_retry.py", line 639, in _execute
+    response = open_once()
+               ^^^^^^^^^^^
+  File "C:\Program Files\Python311\Lib\unittest\mock.py", line 1124, in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Program Files\Python311\Lib\unittest\mock.py", line 1128, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Program Files\Python311\Lib\unittest\mock.py", line 1187, in _execute_mock_call
+    raise result
+TimeoutError: timed out
+
+======================================================================
+ERROR: test_typed_open_timeouts_retry_then_success (test_transient_retry_timeout.TimeoutRetryTests.test_typed_open_timeouts_retry_then_success) (error=URLError(TimeoutError('The read operation timed out')))
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-timeout\tests\test_transient_retry_timeout.py", line 27, in test_typed_open_timeouts_retry_then_success
+    result = self.invoke(opener, log=lambda *args: logs.append(args),
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\djlov\ciel-runtime-wt-timeout\tests\test_transient_retry_timeout.py", line 16, in invoke
+    return retry.open_with_transient_retry(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\djlov\ciel-runtime-wt-timeout\ciel_runtime_support\transient_retry.py", line 601, in open_with_transient_retry
+    return open_with_transient_retry(open_once, provider=provider, config=config,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\djlov\ciel-runtime-wt-timeout\ciel_runtime_support\transient_retry.py", line 622, in open_with_transient_retry
+    return _execute(open_once, budget, log, publish, sleep, cancelled, request, reselect, model)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\djlov\ciel-runtime-wt-timeout\ciel_runtime_support\transient_retry.py", line 639, in _execute
+    response = open_once()
+               ^^^^^^^^^^^
+  File "C:\Program Files\Python311\Lib\unittest\mock.py", line 1124, in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Program Files\Python311\Lib\unittest\mock.py", line 1128, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Program Files\Python311\Lib\unittest\mock.py", line 1187, in _execute_mock_call
+    raise result
+urllib.error.URLError: <urlopen error The read operation timed out>
+
+======================================================================
+FAIL: test_mixed_http_and_timeout_spend_one_allowance (test_transient_retry_timeout.TimeoutRetryTests.test_mixed_http_and_timeout_spend_one_allowance)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-timeout\tests\test_transient_retry_timeout.py", line 43, in test_mixed_http_and_timeout_spend_one_allowance
+    self.assertIs(final, caught.exception)
+AssertionError: TimeoutError('last timeout') is not TimeoutError('second')
+
+----------------------------------------------------------------------
+Ran 10 tests in 0.009s
+
+FAILED (failures=1, errors=5)

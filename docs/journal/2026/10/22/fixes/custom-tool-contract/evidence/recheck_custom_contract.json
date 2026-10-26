@@ -1,0 +1,19 @@
+{
+  "known_custom_repaired": true,
+  "genuine_function_preserved": true,
+  "native_custom_preserved": true,
+  "namespace_custom": {
+    "known": [],
+    "output_type": "function_call"
+  },
+  "top_level_custom": {
+    "known": [
+      "exec"
+    ],
+    "output_type": "custom_tool_call"
+  },
+  "outbound_flag_False": "function_call",
+  "outbound_flag_True": "custom_tool_call",
+  "SSE_no_space_False": "custom_tool_call",
+  "SSE_no_space_True": "function_call"
+}

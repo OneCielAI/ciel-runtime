@@ -1,0 +1,66 @@
+---
+type: verification
+title: Delivery health reports history damage as partial, never admission_blocked
+description: Read-only delivery observation follows the status history that ignores damaged lines; unreadable history is unknown.
+tags: [tui, delivery-health, status-history, regression]
+timestamp: 2026-10-21
+---
+
+# Change
+
+`ciel_runtime_support/runtime_input_delivery_health.py` no longer reports
+`admission_blocked: true` / `wake_history_incomplete` for historical corruption.
+The status history (parent-owned `runtime_input_status.py`) now ignores damaged
+lines and recovers a complete row after a NUL prefix, with no
+`WakeHistoryUnavailable` gate, so that report was false.
+
+- Damaged lines: `state: not_blocked`, `admission_blocked: false`,
+  `reason: history_observation_partial`, `queued_coverage: partial`, first damaged
+  `line_number` kept. Text: `history observation partial line N (damaged lines ignored)`.
+- Unreadable status history (`history.coverage == unknown`): `state: unknown`,
+  `admission_blocked: null`, `reason: delivery_observation_unavailable`,
+  `queued_coverage: unknown`. Never a confirmed hold.
+- Status rows and history health come from one call to the repository's own
+  `_scan_history()`, so an ignored line is ignored here and a recovered row counts
+  here (the first draft mirrored the parser and diverged when the parser changed).
+  The `path` + `history_health` port contract remains for non-repository callers.
+- `blocker_scope` is `null`. Every key of `unavailable_delivery_health()` is kept.
+
+# Regression
+
+`tests/test_runtime_input_delivery_health.py` (16 tests) and
+`tests/test_tui_observation.py` (12 tests): 28 tests OK, `evidence/tests.txt`.
+New cases cover partial damage, NUL-prefix and long NUL-run recovery, malformed
+lines not shadowing valid state, oversized-line skip, unreadable history, a missing
+file, key compatibility, the `path`/`history_health` port, the menu row, the
+generated statusline subprocess, and loopback chat request status. The production
+factory test (`handle_tui_observation_get`) covers clean, corrupt and unreadable cases.
+Against the HEAD delivery-health module, 9 of the then 14 delivery tests failed.
+
+# Browser evidence
+
+`evidence/tui_browser.py` serves the real `ciel_runtime.handle_tui_observation_get`
+over an owned loopback server against a temp fixture (one queued row, one NUL-damaged
+line, one NUL-prefixed recovered row) and drives headless Edge:
+
+- `evidence/source-tui-not-blocked.png`: monitor shows
+  `session delivery not_blocked | known queued 2`.
+- `evidence/source-tui-status-partial.png`: `/ca/tui/status` JSON with
+  `admission_blocked: false`, `reason: history_observation_partial`,
+  `recovered_count: 1`, `failure_count: 1`, `line_number: 2`.
+- `evidence/source-tui-browser.json`: also the menu row text and an unreadable case
+  (`unknown`, `admission_blocked: null`). Fixture hashes were unchanged.
+
+Open: the `/ca/tui` HTML (parent-owned `tui_observation.py`) shows the reason only
+when `admission_blocked` is truthy, so the monitor page does not display
+`history_observation_partial`. The JSON, menu row and statusline do.
+
+# Isolation
+
+Tests ran with every inherited `CIEL_RUNTIME_*`, `CLAUDE*` and `ANTHROPIC*` variable
+removed before import, a temp HOME/USERPROFILE/config, and `CIEL_RUNTIME_TEST_ISOLATED=1`.
+The browser harness also clears those prefixes and gives the runtime a temp HOME;
+Edge keeps the host profile environment because it refuses to start with a
+redirected USERPROFILE. Live router pid 4120 on 127.0.0.1:9512 was unchanged before
+and after (read-only health check only). No provider calls, no live state mutation,
+no commit.
