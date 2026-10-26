@@ -1,9 +1,13 @@
 import json
 import tempfile
-import tomllib
 import unittest
 from pathlib import Path
 from ciel_runtime_support import work_mode_launch as w
+
+try:
+    import tomllib
+except ModuleNotFoundError:  # pragma: no cover - Python 3.10 compatibility
+    tomllib = None
 
 
 class WorkModeLaunchTests(unittest.TestCase):
@@ -46,6 +50,7 @@ class WorkModeLaunchTests(unittest.TestCase):
         self.assertEqual(w.claude_work_mode_args({}, native=False, router_mcp_attached=True,
                                                 mod_dir=self.mod / "missing"), [])
 
+    @unittest.skipIf(tomllib is None, "tomllib is unavailable on Python 3.10")
     def test_codex_contract_is_exact_valid_toml(self):
         args = w.codex_work_mode_args({}, native=False, router_mcp_attached=True)
         self.assertEqual(args[0::2], ["-c"] * 9)

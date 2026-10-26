@@ -648,6 +648,9 @@ class ClaudeLaunchTests(ResolverHarness):
             self.assertEqual(0, runtime_launch.run_claude([], skip_menu=True, update_check=False,
                                                        self_update_check=False, services=services))
         self.assertEqual([1, 0, 1, 1], [cmd.count("--plugin-dir") for cmd, _env in launches])
+        # A resumed child keeps --plugin-dir ahead of the --continue the relaunch added.
+        last = launches[-1][0]
+        self.assertLess(last.index("--plugin-dir"), last.index("--continue"))
 
     def test_restart_selects_again_and_falls_back_to_the_router(self):
         policy = FakeGatewayPolicy(_gateway(), _gateway(endpoint="https://gw2.example", node="n2"),

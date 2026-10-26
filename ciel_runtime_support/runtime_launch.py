@@ -25,6 +25,7 @@ from ciel_runtime_support.runtime_constants import (
 )
 from ciel_runtime_support.runtime_paths import CONFIG_DIR, LOG_PATH, ROUTER_BASE, ROUTER_INSTANCE_DIR, WORKSPACE_STATE_DIR
 from ciel_runtime_support.runtime_session_restart import (
+    SESSION_CONTROL_FLAGS,
     SessionRestartPorts,
     restart_claim_label,
     restart_notice_body,
@@ -270,6 +271,18 @@ class ClaudeLaunchServices:
     channel_delivery: ClaudeLaunchChannelDelivery
     mcp_config: ClaudeLaunchMcpConfig
     restart: SessionRestartPorts = SessionRestartPorts()
+
+
+def _work_mode_args_index(cmd: list[str]) -> int:
+    """Where the Work --plugin-dir pair goes: ahead of any session selector a
+    relaunch added (--continue etc.), otherwise ahead of a bare ``--``."""
+
+    for index, argument in enumerate(cmd):
+        if argument == "--" or argument in SESSION_CONTROL_FLAGS or any(
+            argument.startswith(f"{flag}=") for flag in SESSION_CONTROL_FLAGS if flag.startswith("--")
+        ):
+            return index
+    return len(cmd)
 
 
 def run_claude(
@@ -825,8 +838,8 @@ def run_claude(
                 current_config, native=use_native_anthropic, router_mcp_attached=claude_router_mcp is not None,
             )
             if refreshed_work_args:
-                boundary = cmd.index("--") if "--" in cmd else len(cmd)
-                cmd[boundary:boundary] = refreshed_work_args
+                work_index = _work_mode_args_index(cmd)
+                cmd[work_index:work_index] = refreshed_work_args
             work_mode_args = refreshed_work_args
             restart_control.reset()
             rc = run_claude_process()
