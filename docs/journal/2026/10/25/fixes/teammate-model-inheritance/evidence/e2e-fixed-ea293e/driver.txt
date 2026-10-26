@@ -1,0 +1,13 @@
+case fixed tag plain
+case fixed tag haiku
+case fixed tag sonnet
+case fixed tag definition
+case fixed tag modelarg
+interactive owned cmd: yes
+interactive ready: yes
+console command: yes
+named child request: yes
+console command: yes
+console command: yes
+switched named child request: NO
+evidence C:\Users\djlov\ciel-runtime-wt-lease\docs\journal\2026\10\25\fixes\teammate-model-inheritance\evidence\e2e-fixed-ea293e

@@ -1,0 +1,77 @@
+[
+ {
+  "file": "18ded931-f83f-43dd-bb02-ccdee7f61f6d.jsonl",
+  "kind": "Agent",
+  "model": null,
+  "name": null,
+  "subagent_type": "haiku-def"
+ },
+ {
+  "file": "18ded931-f83f-43dd-bb02-ccdee7f61f6d.jsonl",
+  "kind": "tool_result",
+  "is_error": false,
+  "validation_model_error": false,
+  "child_ok_marker": true,
+  "spawned_metadata": false
+ },
+ {
+  "file": "4c439285-0fd6-4034-a6e4-a4b2442a746d.jsonl",
+  "kind": "Agent",
+  "model": null,
+  "name": null,
+  "subagent_type": "general-purpose"
+ },
+ {
+  "file": "4c439285-0fd6-4034-a6e4-a4b2442a746d.jsonl",
+  "kind": "tool_result",
+  "is_error": false,
+  "validation_model_error": false,
+  "child_ok_marker": true,
+  "spawned_metadata": false
+ },
+ {
+  "file": "78e7a8aa-ffb0-41ad-ba47-a4501b16dde8.jsonl",
+  "kind": "Agent",
+  "model": "haiku",
+  "name": null,
+  "subagent_type": "general-purpose"
+ },
+ {
+  "file": "78e7a8aa-ffb0-41ad-ba47-a4501b16dde8.jsonl",
+  "kind": "tool_result",
+  "is_error": false,
+  "validation_model_error": false,
+  "child_ok_marker": true,
+  "spawned_metadata": false
+ },
+ {
+  "file": "9ab3de6d-48f6-4e3b-acab-13ec06a8d63f.jsonl",
+  "kind": "Agent",
+  "model": null,
+  "name": null,
+  "subagent_type": "general-purpose"
+ },
+ {
+  "file": "9ab3de6d-48f6-4e3b-acab-13ec06a8d63f.jsonl",
+  "kind": "tool_result",
+  "is_error": false,
+  "validation_model_error": false,
+  "child_ok_marker": true,
+  "spawned_metadata": false
+ },
+ {
+  "file": "c10ae75a-0561-4e42-a918-c1ce9c184bda.jsonl",
+  "kind": "Agent",
+  "model": "sonnet",
+  "name": null,
+  "subagent_type": "general-purpose"
+ },
+ {
+  "file": "c10ae75a-0561-4e42-a918-c1ce9c184bda.jsonl",
+  "kind": "tool_result",
+  "is_error": false,
+  "validation_model_error": false,
+  "child_ok_marker": true,
+  "spawned_metadata": false
+ }
+]

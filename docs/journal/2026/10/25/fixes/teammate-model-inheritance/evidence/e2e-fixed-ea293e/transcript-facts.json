@@ -1,0 +1,92 @@
+[
+ {
+  "file": "08dbd460-658b-4ebe-9a67-4c6d5d983f72.jsonl",
+  "kind": "Agent",
+  "model": null,
+  "name": null,
+  "subagent_type": "haiku-def"
+ },
+ {
+  "file": "08dbd460-658b-4ebe-9a67-4c6d5d983f72.jsonl",
+  "kind": "tool_result",
+  "is_error": false,
+  "validation_model_error": false,
+  "child_ok_marker": true,
+  "spawned_metadata": false
+ },
+ {
+  "file": "16e87215-dc11-4b7b-9d43-7fc8f72c29ef.jsonl",
+  "kind": "Agent",
+  "model": null,
+  "name": "e2e-mate-cf287aa3",
+  "subagent_type": "general-purpose"
+ },
+ {
+  "file": "16e87215-dc11-4b7b-9d43-7fc8f72c29ef.jsonl",
+  "kind": "tool_result",
+  "is_error": false,
+  "validation_model_error": false,
+  "child_ok_marker": false,
+  "spawned_metadata": true
+ },
+ {
+  "file": "17f26cc5-b2a2-449b-8552-8d92ed055382.jsonl",
+  "kind": "Agent",
+  "model": null,
+  "name": null,
+  "subagent_type": "general-purpose"
+ },
+ {
+  "file": "17f26cc5-b2a2-449b-8552-8d92ed055382.jsonl",
+  "kind": "tool_result",
+  "is_error": false,
+  "validation_model_error": false,
+  "child_ok_marker": true,
+  "spawned_metadata": false
+ },
+ {
+  "file": "185ba906-2608-4949-b46e-6db271f4e594.jsonl",
+  "kind": "Agent",
+  "model": "sonnet",
+  "name": null,
+  "subagent_type": "general-purpose"
+ },
+ {
+  "file": "185ba906-2608-4949-b46e-6db271f4e594.jsonl",
+  "kind": "tool_result",
+  "is_error": false,
+  "validation_model_error": false,
+  "child_ok_marker": true,
+  "spawned_metadata": false
+ },
+ {
+  "file": "dd971eca-5d91-4b51-8622-18bbeb115e21.jsonl",
+  "kind": "Agent",
+  "model": null,
+  "name": null,
+  "subagent_type": "general-purpose"
+ },
+ {
+  "file": "dd971eca-5d91-4b51-8622-18bbeb115e21.jsonl",
+  "kind": "tool_result",
+  "is_error": false,
+  "validation_model_error": false,
+  "child_ok_marker": true,
+  "spawned_metadata": false
+ },
+ {
+  "file": "de3982c4-1ffd-4cc0-91b6-c18b8804d1d6.jsonl",
+  "kind": "Agent",
+  "model": "haiku",
+  "name": null,
+  "subagent_type": "general-purpose"
+ },
+ {
+  "file": "de3982c4-1ffd-4cc0-91b6-c18b8804d1d6.jsonl",
+  "kind": "tool_result",
+  "is_error": false,
+  "validation_model_error": false,
+  "child_ok_marker": true,
+  "spawned_metadata": false
+ }
+]

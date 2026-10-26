@@ -1,0 +1,14 @@
+isolated router: yes
+case routed tag plain
+case routed tag haiku
+case routed tag sonnet
+case routed tag definition
+case routed tag modelarg
+interactive owned cmd: yes
+interactive ready: yes
+console command: yes
+named child request: yes
+console command: yes
+console command: yes
+switched named child request: NO
+evidence C:\Users\djlov\ciel-runtime-wt-lease\docs\journal\2026\10\25\fixes\teammate-model-inheritance\evidence\e2e-routed-ef077c

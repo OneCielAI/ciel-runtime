@@ -156,7 +156,8 @@ class ClaudeEnvironmentPolicyTests(unittest.TestCase):
         self.assertEqual("token", env["ANTHROPIC_AUTH_TOKEN"])
         self.assertEqual("1024", env["CLAUDE_CODE_MAX_OUTPUT_TOKENS"])
         self.assertEqual("1", env["CLAUDE_CODE_DISABLE_TERMINAL_TITLE"])
-        self.assertNotIn("CLAUDE_CODE_SUBAGENT_MODEL_FORCE", env)
+        self.assertEqual("inherit", env["CLAUDE_CODE_SUBAGENT_MODEL"])
+        self.assertEqual("1", env["CLAUDE_CODE_SUBAGENT_MODEL_FORCE"])
 
     def test_feedback_drafts_default_off_and_explicit_on_on_every_path(self):
         route = SimpleNamespace(direct=True, endpoint="http://gateway", api_key="fixture-key")
@@ -260,14 +261,56 @@ class ClaudeEnvironmentPolicyTests(unittest.TestCase):
                 f"native={native}",
             )
 
-    def test_configured_subagent_model_is_routed_and_forced(self):
+    def test_non_anthropic_ignores_old_subagent_override_and_forces_parent(self):
+        for provider in ("test", "cielairouter", "ollama-cloud", "deepseek", "opencode", "meta"):
+            for configured in (None, "", "worker-model", "inherit"):
+                with self.subTest(provider=provider, configured=configured):
+                    config = {"provider": provider, "subagent_model": configured}
+                    env = self._projection(native=False, key="").build(config)
+                    self.assertEqual("inherit", env["CLAUDE_CODE_SUBAGENT_MODEL"])
+                    self.assertEqual("1", env["CLAUDE_CODE_SUBAGENT_MODEL_FORCE"])
+                    self.assertEqual(configured, config["subagent_model"])
+
+    def test_anthropic_routed_without_override_keeps_existing_policy(self):
+        env = self._projection(native=False, key="").build({"provider": "anthropic"})
+        self.assertEqual("current", env["CLAUDE_CODE_SUBAGENT_MODEL"])
+        self.assertNotIn("CLAUDE_CODE_SUBAGENT_MODEL_FORCE", env)
+
+    def test_direct_parent_inheritance_is_not_resolved_as_model_id(self):
+        projection = self._projection(native=False, key="")
+        from dataclasses import replace
+        route = SimpleNamespace(direct=True, endpoint="http://gateway", api_key="fixture-key")
+        projection._features = replace(
+            projection._features, resolve_requested_model=lambda *_args: "")
+        env = projection.build({"provider": "test"}, data_path=route)
+        self.assertEqual("inherit", env["CLAUDE_CODE_SUBAGENT_MODEL"])
+        self.assertEqual("1", env["CLAUDE_CODE_SUBAGENT_MODEL_FORCE"])
+
+    def test_configured_anthropic_subagent_model_is_routed_and_forced(self):
         projection = self._projection(native=False, key="")
         env = projection.build(
-            {"provider": "test", "subagent_model": "worker-model"}
+            {"provider": "anthropic", "subagent_model": "worker-model"}
         )
 
         self.assertEqual("worker-model", env["CLAUDE_CODE_SUBAGENT_MODEL"])
         self.assertEqual("1", env["CLAUDE_CODE_SUBAGENT_MODEL_FORCE"])
+
+    def test_anthropic_explicit_inherit_is_a_control_value_not_an_alias(self):
+        projection = self._projection(native=False, key="")
+        env = projection.build({"provider": "anthropic", "subagent_model": "inherit"})
+        self.assertEqual("inherit", env["CLAUDE_CODE_SUBAGENT_MODEL"])
+        self.assertEqual("1", env["CLAUDE_CODE_SUBAGENT_MODEL_FORCE"])
+
+    def test_parent_inheritance_is_cleared_on_switch_to_native(self):
+        env = self._projection(native=False, key="").build({"provider": "test"})
+        self.assertEqual("1", env["CLAUDE_CODE_SUBAGENT_MODEL_FORCE"])
+        for key in CLAUDE_PROJECTED_ENV_KEYS:
+            env.pop(key, None)
+        env.update(self._projection(native=True, key="").build({"provider": "anthropic"}))
+        self.assertNotIn("CLAUDE_CODE_SUBAGENT_MODEL_FORCE", env)
+        self.assertNotIn("CLAUDE_CODE_SUBAGENT_MODEL", env)
+        shell = ClaudeEnvironmentShellRenderer.lines(env)
+        self.assertIn("unset CLAUDE_CODE_SUBAGENT_MODEL_FORCE", shell)
 
     def test_runtime_settings_respect_explicit_passthrough(self):
         messages = []

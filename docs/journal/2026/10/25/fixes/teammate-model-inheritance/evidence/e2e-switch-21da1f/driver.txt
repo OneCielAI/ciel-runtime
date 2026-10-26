@@ -1,0 +1,9 @@
+interactive owned cmd: yes
+interactive ready: yes
+console command: yes
+named child request: yes
+console command: yes
+console command: yes
+console command: yes
+switched named child request: yes
+evidence C:\Users\djlov\ciel-runtime-wt-lease\docs\journal\2026\10\25\fixes\teammate-model-inheritance\evidence\e2e-switch-21da1f

@@ -402,8 +402,11 @@ class ClaudeEnvironmentTests(unittest.TestCase):
         # is pinned to the forwarded budget; a direct launch is not trimmed.
         self.assertEqual({"ANTHROPIC_BASE_URL", "ANTHROPIC_MODEL", "ANTHROPIC_CUSTOM_MODEL_OPTION",
                           "ANTHROPIC_DEFAULT_HAIKU_MODEL", "ANTHROPIC_DEFAULT_OPUS_MODEL", "ANTHROPIC_DEFAULT_SONNET_MODEL",
-                          "CLAUDE_CODE_SUBAGENT_MODEL", "CIEL_RUNTIME_MODEL_ALIAS",
+                          "CIEL_RUNTIME_MODEL_ALIAS",
                           "CLAUDE_CODE_AUTO_COMPACT_WINDOW", "CLAUDE_CODE_MAX_RETRIES"}, changed)
+        for env in (routed, direct):
+            self.assertEqual("inherit", env["CLAUDE_CODE_SUBAGENT_MODEL"])
+            self.assertEqual("1", env["CLAUDE_CODE_SUBAGENT_MODEL_FORCE"])
         self.assertEqual("0", routed["CLAUDE_CODE_MAX_RETRIES"])
         self.assertEqual("3", direct["CLAUDE_CODE_MAX_RETRIES"])
         self.assertNotIn("CLAUDE_AUTOCOMPACT_PCT_OVERRIDE", direct)

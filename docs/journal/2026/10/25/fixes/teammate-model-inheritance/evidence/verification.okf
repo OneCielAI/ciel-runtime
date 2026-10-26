@@ -1,0 +1,40 @@
+---
+name: teammate-model-inheritance-real-cli-e2e
+node_type: verification
+type: evidence
+---
+# Real Claude CLI 2.1.310 E2E: forced parent-model inheritance
+
+Harness: `e2e_models.py` (+ `console_agent.py`, reused `console_driver.py`/`shot_title.ps1` from 2026/10/16).
+Fake loopback Anthropic Messages server returns deterministic Agent tool_use; children are identified by an
+`E2ECHILD-<tag>` marker in their first user turn. Only model/tool-schema/marker metadata is kept.
+Summary: `comparison.json`. Environment: projection from source `ciel_runtime.env_vars()` (no hand-set model env),
+all inherited CIEL_RUNTIME_/CLAUDE*/ANTHROPIC*/CODEX*/OPENAI* removed, fresh HOME/config/workspace/ports, egress sentinel proxy.
+
+## Child model on the wire (gateway-observed)
+
+| case | plain | Agent model=haiku | Agent model=sonnet | definition model: haiku | --model fake-parent-b | named teammate | new teammate after /model fake-parent-b |
+|---|---|---|---|---|---|---|---|
+| old env (SUBAGENT_MODEL=parent, no FORCE) direct `e2e-old-bbeb99` | fake-parent-a | fake-haiku | fake-sonnet | fake-haiku | fake-parent-a (stale) | fake-parent-a | not run |
+| fixed direct `e2e-fixed-ea293e`, `e2e-switch-21da1f` | fake-parent-a | fake-parent-a | fake-parent-a | fake-parent-a | fake-parent-b | fake-parent-a | fake-parent-b |
+| fixed routed `e2e-routed-ef077c`, `e2e-routedswitch-82ff03` | fake-parent-a | fake-parent-a | fake-parent-a | fake-parent-a | fake-parent-b | fake-parent-a | fake-parent-b |
+
+- Fixed projection (direct and routed) recorded `CLAUDE_CODE_SUBAGENT_MODEL=inherit` and `CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1`
+  while provider config carried `subagent_model=fake-haiku` (ignored). Direct keeps `inherit` (not mapped to an upstream id).
+- Fixed Agent tool schema sent by the CLI has no `model` property; CLI 2.1.310 still accepted the explicit haiku/sonnet
+  inputs (no validation error in transcript tool_results) and ran the child on the parent model. No retry was needed.
+- `inherit` never appeared as a request model in any run (`inherit_on_wire=false`).
+- Named teammates returned teammate-spawned metadata (agent teams enabled via `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`).
+
+## Screenshots (actual Windows Terminal Claude Code windows, PrintWindow)
+`screenshot-fixed-switched.png`, `screenshot-routed-switched.png` (teammate before and after /model),
+`screenshot-fixed-named.png`, `screenshot-old-named.png`. Matching console text: each run `screen-latest.txt`.
+
+## Safety
+Live routers 9385/9464/9489/9505/9524 /health PIDs identical before/after in every run. Only harness-owned PIDs were killed.
+Egress sentinel saw only blocked CONNECTs to downloads.claude.ai and github.com (CLI non-model traffic); no model request left loopback.
+
+## Limitations
+See `comparison.json.limitations`. Notably: old case is an env control on the generated projection, not a HEAD launcher run;
+direct cases call the source projection with a LaunchDataPath and start claude.exe directly (no gateway discovery);
+routed cases record router-forwarded upstream model, not the literal CLI->router model string; superseded attempts retained.

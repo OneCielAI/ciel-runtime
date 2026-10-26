@@ -1,0 +1,38 @@
+
+ ▐▛███▛█   Claude Code v2.1.310
+▝▜██████▀  fake-parent-a · API Usage Billing
+ ▝▝   ▝▝   C:\Users\djlov\ciel-runtime-wt-lease\docs\journal\2026\10\25\fixes\teammate-model-inheritance\evidence\e2e-switch-21da1…
+
+
+❯ E2EPARENT-named
+
+● Agent(verify child model)
+
+● PARENT-OK-named
+
+
+● Teammate @e2e-mate-79b10fa6 finished
+  CHILD-OK-named
+
+● PARENT-OK-named
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                                                                   1 teammate started
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · ↓ to manage
+
+  ● main
+  ◯ e2e-mate-79b10fa6  verify child model                                                                                        idle

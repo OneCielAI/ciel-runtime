@@ -475,13 +475,25 @@ ciel-runtimectl provider-options cielairouter gateway-status              # 설�
 `direct`가 실제로 적용되면:
 
 - Claude Code: `ANTHROPIC_BASE_URL`=게이트웨이 루트, `ANTHROPIC_AUTH_TOKEN`=CielAiRouter
-  라우터 키, `ANTHROPIC_MODEL`·기본 haiku/opus/sonnet·subagent·`--model`은 라우터가 보냈을
+  라우터 키, `ANTHROPIC_MODEL`·기본 haiku/opus/sonnet·`--model`은 라우터가 보냈을
   upstream 모델 id(`ciel-runtime-cielairouter-*` 별칭은 보내지 않는다).
+  `CLAUDE_CODE_SUBAGENT_MODEL=inherit`는 모델 id가 아닌 제어 값으로 유지한다.
+
 - Codex(app-server, codex-remote): `model_providers.ciel-runtime-gateway.base_url`=게이트웨이
   `/v1`, `env_key`=`CIEL_RUNTIME_GATEWAY_API_KEY`(라우터 키는 이 환경 변수에만 들어간다),
   모델과 model catalog slug는 upstream 모델 id. direct는 별도 provider id를 사용한다.
 - 로컬 라우터는 그대로 시작되고 router MCP(`/ca/mcp`), workspace MCP, 채널 프록시·세션 소켓,
   외부 이벤트(SSE) 수신, 세션 재시작은 router 모드와 같다. 모델 요청만 라우터를 거치지 않는다.
+
+Claude Code에서 Anthropic 이외 공급자를 선택하면 subagent와 teammate는 부모의 **현재 모델을 강제 상속**한다
+(`CLAUDE_CODE_SUBAGENT_MODEL=inherit`, `CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1`, Claude Code 2.1.257 이상).
+Agent 호출의 `model=haiku/sonnet`, 에이전트 정의의 model, 기존 provider `subagent_model` 값은
+이 경로에서 무시한다. 설정 파일의 해당 값은 삭제하지 않는다. 부모 `/model` 변경 뒤 새로 만든
+자식은 변경 모델을 따르며, 이미 실행 중인 자식은 바뀌지 않는다. 공급자·모델 메뉴 선택으로 자동 적용되고,
+실행 중 세션에는 소급 적용되지 않는다. Anthropic native/routed의 기존 정책과 보조 분류기 가족 별칭은
+변경하지 않는다.
+
+[Claude Code 공식 모델 우선순위](https://code.claude.com/docs/en/agent-teams#specify-teammates-and-models).
 
 다음 경우에는 그 실행을 router 경로로 유지하고 키 없는 로그 한 줄
 (`launch_data_path ... active=router reason=...`)과 안내 한 줄을 남긴다: `gateway_selection`이

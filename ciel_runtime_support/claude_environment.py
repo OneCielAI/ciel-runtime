@@ -581,16 +581,21 @@ class ClaudeEnvironmentProjection:
             context_limit=context_limit,
         )
         configured_subagent = str(provider_config.get("subagent_model") or "").strip()
-        subagent_model = (
-            self._aliases.routed_model_alias(
+        # Claude Code's force flag overrides Agent/model and agent definitions.
+        # Inherit at spawn time so /model and --model cannot leave children on
+        # a stale launch model (or a provider's auto-claude family route).
+        force_parent_model = provider != "anthropic"
+        if force_parent_model or configured_subagent == "inherit":
+            subagent_model = "inherit"
+        elif configured_subagent:
+            subagent_model = self._aliases.routed_model_alias(
                 provider,
                 provider_config,
                 configured_subagent,
                 context_limit=context_limit,
             )
-            if configured_subagent
-            else claude_model
-        )
+        else:
+            subagent_model = claude_model
         env = {
             "CIEL_RUNTIME_PROVIDER": provider,
             "ANTHROPIC_BASE_URL": self._router_base,
@@ -607,7 +612,7 @@ class ClaudeEnvironmentProjection:
             CLAUDE_CHROME_CLASSIFIER_FLOOR_ENV: CLAUDE_CHROME_CLASSIFIER_FLOOR_OFF,
             **_feedback_drafts_env(config),
         }
-        if configured_subagent:
+        if force_parent_model or configured_subagent:
             env["CLAUDE_CODE_SUBAGENT_MODEL_FORCE"] = "1"
         auth_token = self._features.router_auth_token(provider, provider_config)
         if auth_token:
@@ -634,7 +639,7 @@ class ClaudeEnvironmentProjection:
         fallback = self._features.current_upstream_model(provider, config)
         for key in CLAUDE_DIRECT_MODEL_KEYS:
             value = str(env.get(key) or "").strip()
-            if not value:
+            if not value or (key == "CLAUDE_CODE_SUBAGENT_MODEL" and value == "inherit"):
                 continue
             upstream = self._features.resolve_requested_model(provider, config, value)
             env[key] = fallback if not upstream or upstream.startswith(alias_prefix) else upstream
