@@ -144,6 +144,43 @@ class DeliveryHealthTests(unittest.TestCase):
         self.assertIn("observation unavailable", delivery_health_text(h))
         self.assertNotIn("admission_blocked", delivery_health_text(h))
 
+    def test_ids_whose_terminal_status_predates_the_row_are_reported_as_reused(self):
+        # 2026-10-26: rows 14877+ were lost in a crash; new inputs got those ids
+        # back while their old statuses still said replied/failed.
+        self.write_rows(self.path, [
+            {"request_id": 76, "status": "replied", "updated_at_epoch": 1000},
+            {"request_id": 77, "status": "replied", "updated_at_epoch": 1100},
+            {"request_id": 78, "status": "failed", "updated_at_epoch": 1200},
+            {"request_id": 79, "status": "replied", "updated_at_epoch": 9000},
+        ])
+        self.inputs.write_bytes(
+            json.dumps({"id": 76, "created_at_epoch": 990, "message": "SECRET_PAYLOAD"}).encode() + b"\n"
+            + bytes(4096) + b"\r\n"
+            + b"".join(json.dumps({"id": i, "created_at_epoch": 5000 + i}).encode() + b"\n" for i in (77, 78, 79)))
+        h = runtime_input_delivery_health(self.status, now=10000)
+        self.assertEqual((2, 78), (h["reused_id_count"], h["reused_id_newest"]))
+        self.assertIn("reused ids 2 (newest #78", delivery_health_text(h))
+        self.assertNotIn("SECRET", json.dumps(h))
+
+    def test_normal_history_reports_no_reuse(self):
+        self.fixture()
+        h = runtime_input_delivery_health(self.status, now=200)
+        self.assertEqual((0, None), (h["reused_id_count"], h["reused_id_newest"]))
+        self.assertNotIn("reused", delivery_health_text(h))
+
+    def test_reuse_check_reads_only_the_newest_megabyte(self):
+        from ciel_runtime_support import runtime_input_delivery_health as health
+        self.write_rows(self.path, [{"request_id": 1, "status": "replied", "updated_at_epoch": 10},
+                                    {"request_id": 2, "status": "replied", "updated_at_epoch": 10}])
+        filler = {"id": 0, "created_at_epoch": 1, "message": "x" * 2000}
+        with self.inputs.open("wb") as stream:
+            stream.write(json.dumps({"id": 1, "created_at_epoch": 500}).encode() + b"\n")
+            for _ in range(health._REUSE_SCAN_BYTES // 2000 + 10):
+                stream.write(json.dumps(filler).encode() + b"\n")
+            stream.write(json.dumps({"id": 2, "created_at_epoch": 500}).encode() + b"\n")
+        h = runtime_input_delivery_health(self.status, now=600)
+        self.assertEqual((1, 2), (h["reused_id_count"], h["reused_id_newest"]))
+
     def test_missing_history_is_complete_empty_observation(self):
         h = runtime_input_delivery_health(self.status, now=200)
         self.assertEqual(("not_blocked", "", "complete", 0),

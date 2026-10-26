@@ -115,7 +115,7 @@ from ciel_runtime_support.channel_wake_delivery_repository import ChannelWakeDel
 from ciel_runtime_support.chat_files import ChatFilePorts, ChatFileRepository
 from ciel_runtime_support.chat_http_controller import ChatHttpController, ChatHttpReadServices, ChatHttpWriteServices
 from ciel_runtime_support.runtime_input_gateway import RuntimeInputGateway
-from ciel_runtime_support.runtime_input_status import RuntimeInputStatusRepository
+from ciel_runtime_support.runtime_input_status import RuntimeInputStatusRepository, recorded_max_request_id
 from ciel_runtime_support.runtime_input_delivery_health import runtime_input_delivery_health
 from ciel_runtime_support.runtime_sse_recovery import router_recovery
 from ciel_runtime_support.cielairouter_gateway_overlay import reselect_gateway as project_reselect_gateway
@@ -1839,6 +1839,10 @@ def _runtime_input_storage_path() -> Path:
     # queue port. Normal runtime execution always selects RUNTIME_INPUTS_PATH.
     return CHAT_MESSAGES_PATH if CHAT_MESSAGES_PATH != _CANONICAL_CHAT_MESSAGES_PATH else RUNTIME_INPUTS_PATH
 
+def _runtime_input_issued_id_floor() -> int:
+    # Status rows live beside the queue they describe; ids they recorded stay reserved.
+    return recorded_max_request_id(_runtime_input_storage_path().with_name(RUNTIME_INPUT_STATUS_PATH.name))
+
 def _runtime_input_next_id_cache() -> int | None: return _RUNTIME_INPUT_NEXT_ID
 
 def _set_runtime_input_next_id_cache(next_id: int) -> None:
@@ -1850,6 +1854,7 @@ def runtime_input_message_context() -> ChannelMessageContext:
         storage=ChannelMessageStoragePorts(
             _runtime_input_storage_path, CHAT_MESSAGES_MAX_BYTES,
             _RUNTIME_INPUT_CONDITION, exclusive_file_lock, router_log,
+            _runtime_input_issued_id_floor,
         ),
         identity=ChannelMessageIdentityPorts(
             _chat_message_stable_dedupe_key, _chat_message_fallback_dedupe_key,

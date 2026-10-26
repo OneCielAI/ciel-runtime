@@ -1,0 +1,4 @@
+14:19:45 dialog bypass
+14:19:45 select('Yes, I accept'): cursor line 13 -> target line 14
+14:19:57 typed 30 chars: 'E2E-WALKIE-BASE owned baseline'
+14:20:38 stop requested

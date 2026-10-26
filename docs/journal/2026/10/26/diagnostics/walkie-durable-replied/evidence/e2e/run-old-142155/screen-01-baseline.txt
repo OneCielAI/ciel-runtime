@@ -1,0 +1,30 @@
+
+ ▐▛███▛█   Claude Code v2.1.310
+▝▜██████▀  ciel-runtime-vllm-stub-model · API Usage Billing
+ ▝▝   ▝▝   C:\Windows\Temp\ciel-owned-walkie-m61cqcz3\ws
+
+▎ Debug mode enabled · logging to C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\diagnostics\walkie-durable
+▎ -replied\evidence\e2e\run-old-142155\native-debug.log
+
+❯ WALKIE-BASELINE-TURN owned baseline
+
+● STUB-REPLY-3
+
+✻ Cooked for 0s · done 2:22 PM
+
+
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle)                                                         work: plan 0/0

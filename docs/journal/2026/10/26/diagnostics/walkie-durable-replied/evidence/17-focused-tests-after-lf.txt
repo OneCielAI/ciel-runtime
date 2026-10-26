@@ -1,0 +1,10 @@
+# 2026-10-26T19:28:00Z after normalizing ciel_runtime.py to LF (0 CR bytes); exact modules:
+# test_architecture_contracts test_channel_bridge test_channel_compact_poll test_channel_direct_socket_e2e test_channel_interrupted_attempts test_channel_message_repository test_channel_pending_injection test_channel_pending_poll test_channel_terminal_dispatch test_channel_wake_claim_repository test_channel_wake_delivery_repository test_channel_walkie_delivery test_runtime_compaction_contention test_runtime_input_delivery_health test_runtime_input_retry test_runtime_input_status test_runtime_sse_recovery test_tui_observation test_runtime_paths
+live before: "pid": 38368 "pid": 25276
+== py -3.14 3.14.2
+Ran 776 tests in 32.396s
+OK (skipped=122)
+== py -3.10 3.10.6
+Ran 776 tests in 76.380s
+OK (skipped=122)
+live after: "pid": 38368 "pid": 25276

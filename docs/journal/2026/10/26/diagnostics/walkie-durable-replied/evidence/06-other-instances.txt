@@ -1,0 +1,31 @@
+# Other live instances: durable_replied / durable_skipped / injected line counts for 2026-10-26 (logs modified today), collected 2026-10-26T16:12:38Z
+9464-3c2987735124/router.log durable_replied_lines=0 unique_ids=0 durable_skipped=0 injected=0
+9464-3c2987735124/router.log.1 durable_replied_lines=0 unique_ids=0 durable_skipped=0 injected=0
+9466-beab5fdb8c31/router.log durable_replied_lines=0 unique_ids=0 durable_skipped=0 injected=0
+9489-b35f12ba1034/router.log durable_replied_lines=0 unique_ids=0 durable_skipped=0 injected=0
+9505-aae7db361c7f/router.log durable_replied_lines=21 unique_ids=15 durable_skipped=0 injected=0
+9505-aae7db361c7f/router.log.1 durable_replied_lines=5982 unique_ids=60 durable_skipped=0 injected=61
+9524-bd5f642b3583/router.log durable_replied_lines=0 unique_ids=0 durable_skipped=0 injected=0
+9524-bd5f642b3583/router.log.1 durable_replied_lines=0 unique_ids=0 durable_skipped=0 injected=0
+
+# 9505 router.log (post-crash): ids skipped durable_replied that were never injected in this log
+skipped_durable_replied_ids [14877, 14878, 14879, 14880, 14881, 14882, 14883, 14884, 14885, 14886, 14887, 14888, 14890, 14891, 14892]
+injected_ids []
+skipped_never_injected [14877, 14878, 14879, 14880, 14881, 14882, 14883, 14884, 14885, 14886, 14887, 14888, 14890, 14891, 14892]
+
+# All workspaces: status-history max request_id vs decodable queue max id, NUL-damaged queue lines
+08c021f4fb95 status_max=23 queue_max=23 undecodable_lines=0 nul_lines=[]
+2bbe56bbee5b status_max=28 queue_max=28 undecodable_lines=0 nul_lines=[]
+2c7b8c2f1283 status_max=8 queue_max=8 undecodable_lines=0 nul_lines=[]
+3c2987735124 status_max=1 queue_max=1 undecodable_lines=0 nul_lines=[]
+46d5d4cb20f7 status_max=0 queue_max=4 undecodable_lines=0 nul_lines=[]
+52ea0f8a2296 status_max=1 queue_max=1 undecodable_lines=0 nul_lines=[]
+81e6fa259d15 status_max=300 queue_max=300 undecodable_lines=0 nul_lines=[]
+84a9f0d21381 status_max=0 queue_max=9 undecodable_lines=0 nul_lines=[]
+aae7db361c7f status_max=14907 queue_max=14892 undecodable_lines=1 nul_lines=[(2681, 172094)]  <== STATUS AHEAD OF QUEUE (id reuse exposure)
+b35f12ba1034 status_max=1 queue_max=1 undecodable_lines=0 nul_lines=[]
+bd5f642b3583 status_max=58 queue_max=58 undecodable_lines=0 nul_lines=[]
+d167f30b8fa4 status_max=0 queue_max=132 undecodable_lines=0 nul_lines=[]
+d5b7b86b83d4 status_max=11 queue_max=11 undecodable_lines=0 nul_lines=[]
+
+# router.log.1 (pre-crash) check: 60 ids skipped durable_replied, range 14843-14905; skipped without an earlier injection in the same log: [] (every pre-crash durable_replied skip followed a channel_stdin_proxy_injected of that id)

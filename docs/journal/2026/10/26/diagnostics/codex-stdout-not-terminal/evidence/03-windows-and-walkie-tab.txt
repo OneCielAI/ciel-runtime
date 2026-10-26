@@ -1,0 +1,21 @@
+# 2026-10-26T20:01:30Z terminal windows and the Walkie tab (read-only: EnumWindows, UI Automation tab names, Win32_Process, router log)
+Visible terminal windows now: one Windows Terminal window (hwnd 923088, WindowsTerminal.exe pid 49736) with 3 tabs:
+  tab 1 'C:\WINDOWS\system32\cmd.exe' = cmd.exe 36412 (started 08:46:13 from explorer) - the G:\ciel-Walkie launcher tab
+  tab 2 'C:\Users\djlov\.local\bin\claude.exe' = cmd.exe 25320 (this session, router 9524)
+  tab 3 'C:\Users\djlov\.local\bin\claude.exe' = cmd.exe 66224
+The user's screenshot shows a window whose only tab is 'C:\WINDOWS\system32\cm...' followed directly by '+' : a single-tab window.
+No such window is open now. Process-creation auditing (Security 4688) and Sysmon are not enabled, so the process that opened it is not recorded.
+
+Walkie tab 1 launches after the Walkie CLI exited (router 9505 router.log / router.log.1, local time):
+2026-10-26T14:38:02 [INFO] channel_windows_console_child_exit pid=43072 returncode=0
+2026-10-26T14:39:02 [INFO] claude_launch_cmd ciel_mcp_config=C:\Users\djlov\AppData\Roaming\ciel-runtime\router-instances\9505-aae7db361c7f\web-tools-
+2026-10-26T14:39:03 [INFO] channel_windows_console_child_exit pid=80296 returncode=1
+2026-10-26T14:42:16 [INFO] claude_launch_cmd ciel_mcp_config=C:\Users\djlov\AppData\Roaming\ciel-runtime\router-instances\9505-aae7db361c7f\web-tools-
+2026-10-26T14:42:17 [INFO] channel_windows_console_child_exit pid=60832 returncode=1
+2026-10-26T14:44:45 [INFO] claude_launch_cmd ciel_mcp_config=C:\Users\djlov\AppData\Roaming\ciel-runtime\router-instances\9505-aae7db361c7f\web-tools-
+2026-10-26T14:44:47 [INFO] channel_windows_console_child_exit pid=76196 returncode=1
+2026-10-26T14:46:22 [INFO] claude_launch_cmd ciel_mcp_config=C:\Users\djlov\AppData\Roaming\ciel-runtime\router-instances\9505-aae7db361c7f\web-tools-
+2026-10-26T14:47:17 [INFO] channel_windows_console_child_exit pid=77124 returncode=0
+2026-10-26T14:49:59 [INFO] claude_launch_cmd ciel_mcp_config=C:\Users\djlov\AppData\Roaming\ciel-runtime\router-instances\9505-aae7db361c7f\web-tools-
+Claude Code exited with code 1 about one second after launch at 14:39:03, 14:42:17 and 14:44:47; the launches at 14:46:22 and 14:49:59 started normally.
+What those code-1 exits printed is not recorded in any log. claude.exe (2.1.308-2.1.310) does not contain the text 'stdout is not a terminal' (01-string-search.txt).

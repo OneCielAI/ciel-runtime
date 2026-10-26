@@ -1,0 +1,51 @@
+# router.log.1 = pre-crash log (original ids 14877-14907). Each distinct skip/blocked line shown once.
+# timestamps are local UTC-5
+router.log.1:18513: 2026-10-26T06:27:35 [INFO] event_ack_received receiver=default stream_id=33162 outcome=queued request_id=14877
+router.log.1:18516: 2026-10-26T06:27:36 [INFO] channel_stdin_proxy_injected count=1 message_ids=14877 channels=external:default enter=crlf transport=session_socket commit_cursor=False display_body=False
+router.log.1:18520: 2026-10-26T06:27:38 [INFO] channel_stdin_proxy_injected count=1 message_ids=14878 channels=external:default enter=crlf transport=session_socket commit_cursor=False display_body=False
+router.log.1:18522: 2026-10-26T06:27:39 [INFO] channel_stdin_proxy_injected count=1 message_ids=14879 channels=external:default enter=crlf transport=session_socket commit_cursor=False display_body=False
+router.log.1:18545: 2026-10-26T06:27:47 [INFO] channel_wake_completed_evidence message_id=14877 transcript=<path> prompt_record=12 completion_record=21 record_type=attachment session_id=417ef30b-1289-47a5-8921-a4d45eb93f2e timestamp=2026-10-26T11:27:36.571Z
+router.log.1:21206: 2026-10-26T07:01:35 [INFO] channel_stdin_proxy_injected count=1 message_ids=14889 channels=external:default enter=crlf transport=session_socket commit_cursor=False display_body=False
+router.log.1:29862: 2026-10-26T08:24:02 [INFO] event_ack_received receiver=default stream_id=33217 outcome=queued request_id=14907
+router.log.1:29865: 2026-10-26T08:24:03 [INFO] channel_stdin_proxy_injected count=1 message_ids=14907 channels=external:default enter=crlf transport=session_socket commit_cursor=False display_body=False
+
+# router.log = post-crash launch at 08:46:46 (ids re-issued from 14877). Each distinct skip/blocked line shown once.
+router.log:1: 2026-10-26T08:46:46 [INFO] remote_instructions_unchanged runtime=claude reason=launch
+router.log:2: 2026-10-26T08:46:46 [INFO] remote_instructions_unchanged runtime=codex reason=launch
+router.log:3: 2026-10-26T08:47:49 [INFO] remote_instructions_unchanged runtime=claude reason=launch
+router.log:4: 2026-10-26T08:47:49 [INFO] remote_instructions_unchanged runtime=codex reason=launch
+router.log:7: ciel-runtime router starting on 127.0.0.1:9505 (client base http://127.0.0.1:9505, log level DEBUG, source=file)
+router.log:18: 2026-10-26T08:48:56 [INFO] claude_launch_cmd (args omitted)
+router.log:23: 2026-10-26T08:48:56 [WARN] channel_llm_cursor_queue_generation_reset recovered_cursor=0
+router.log:24: 2026-10-26T08:48:56 [INFO] channel_llm_cursor_fast_forward_on_launch last_id=14876 previous_cursor=0 recent_seconds=600
+router.log:1811: 2026-10-26T09:10:05 [INFO] channel_stdin_proxy_skipped_noise message_id=14877 reason=durable_replied
+router.log:2654: 2026-10-26T09:28:53 [INFO] event_ack_received receiver=default stream_id=33223 outcome=queued request_id=14878
+router.log:2656: 2026-10-26T09:28:53 [INFO] channel_stdin_proxy_skipped_noise message_id=14878 reason=durable_replied
+router.log:2828: 2026-10-26T09:34:48 [INFO] channel_stdin_proxy_skipped_noise message_id=14879 reason=durable_replied
+router.log:3644: 2026-10-26T09:54:50 [INFO] event_ack_received receiver=default stream_id=33226 outcome=queued request_id=14880
+router.log:3646: 2026-10-26T09:54:51 [INFO] channel_stdin_proxy_skipped_noise message_id=14880 reason=durable_replied
+router.log:4247: 2026-10-26T10:15:42 [INFO] channel_stdin_proxy_skipped_noise message_id=14881 reason=durable_replied
+router.log:4943: 2026-10-26T10:23:40 [INFO] channel_stdin_proxy_skipped_noise message_id=14882 reason=durable_replied
+router.log:5271: 2026-10-26T10:26:53 [INFO] channel_stdin_proxy_skipped_noise message_id=14883 reason=durable_replied
+router.log:5313: 2026-10-26T10:27:21 [INFO] runtime_session_restart_queued id=040329633945479c9964596cf36eb916 source=ciel-runtime-router-tool runtime=claude target_pid=62860 resume=true wait_turn=false reason=Walkie events skipped_noise durable_replied since 13:46Z...
+router.log:5349: 2026-10-26T10:27:38 [INFO] claude_session_restart_notice_queued request_id=14884
+router.log:5350: 2026-10-26T10:27:38 [INFO] claude_session_restart exit_code=1 source=ciel-runtime-router-tool reason=Walkie events skipped_noise durable_replied since 13:46Z...
+router.log:5353: 2026-10-26T10:27:39 [INFO] channel_llm_cursor_fast_forward_on_launch last_id=14881 previous_cursor=14876 recent_seconds=600
+router.log:5375: 2026-10-26T10:27:48 [INFO] channel_stdin_proxy_skipped_noise message_id=14884 reason=durable_replied
+router.log:5420: 2026-10-26T10:29:17 [INFO] event_ack_received receiver=default stream_id=33239 outcome=queued request_id=14886
+router.log:5422: 2026-10-26T10:29:17 [INFO] channel_stdin_proxy_skipped_noise message_id=14885 reason=durable_replied
+router.log:5423: 2026-10-26T10:29:17 [INFO] channel_stdin_proxy_skipped_noise message_id=14886 reason=durable_replied
+router.log:5679: 2026-10-26T10:33:38 [INFO] remote_instructions_unchanged runtime=claude reason=launch
+router.log:5680: 2026-10-26T10:33:38 [INFO] remote_instructions_unchanged runtime=codex reason=launch
+router.log:5683: ciel-runtime router starting on 127.0.0.1:9505 (client base http://127.0.0.1:9505, log level DEBUG, source=file)
+router.log:5692: 2026-10-26T10:35:51 [INFO] claude_launch_cmd (args omitted)
+router.log:5697: 2026-10-26T10:35:52 [INFO] channel_llm_cursor_fast_forward_on_launch last_id=14882 previous_cursor=14881 recent_seconds=600
+router.log:5755: 2026-10-26T10:37:12 [INFO] event_ack_received receiver=default stream_id=33242 outcome=queued request_id=14887
+router.log:5758: 2026-10-26T10:37:13 [INFO] channel_stdin_proxy_skipped_noise message_id=14887 reason=durable_replied
+router.log:6333: 2026-10-26T10:46:32 [INFO] channel_stdin_proxy_skipped_noise message_id=14888 reason=durable_replied
+router.log:7959: 2026-10-26T11:08:23 [INFO] event_ack_received receiver=default stream_id=33248 outcome=queued request_id=14889
+router.log:7962: 2026-10-26T11:08:23 [ERROR] channel_stdin_proxy_blocked cursor=14888 message_id=14889 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+router.log:8036: 2026-10-26T11:09:25 [INFO] event_ack_received receiver=default stream_id=33250 outcome=queued request_id=14891
+router.log:8039: 2026-10-26T11:09:26 [INFO] channel_stdin_proxy_skipped_noise message_id=14890 reason=durable_replied
+router.log:8041: 2026-10-26T11:09:26 [INFO] channel_stdin_proxy_skipped_noise message_id=14891 reason=durable_replied
+router.log:8070: 2026-10-26T11:09:55 [INFO] channel_stdin_proxy_skipped_noise message_id=14892 reason=durable_replied

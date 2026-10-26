@@ -1,6 +1,7 @@
 import contextlib
 import errno
 import json
+import os
 from pathlib import Path
 import tempfile
 import threading
@@ -317,6 +318,83 @@ class ChannelMessageRepositoryTests(unittest.TestCase):
             marker.write_bytes(b"\xff damaged")
             self.assertEqual(90, repository.max_id())
             self.assertEqual(91, repository.append({"text": "next"}, self.ports())["id"])
+
+    def test_ids_recorded_outside_the_queue_are_never_reissued(self):
+        logs = []
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "messages.jsonl"
+            path.write_bytes(b'{"id":5,"message":"kept"}\n' + b"\x00" * 64 + b"\r\n")
+            repository = ChannelMessageRepository(
+                path=path, log=lambda level, message: logs.append((level, message)),
+                issued_id_floor=lambda: 9)
+
+            self.assertEqual(9, repository.max_id())
+            self.assertEqual(10, repository.append({"text": "after crash"}, self.ports())["id"])
+            self.assertEqual(11, repository.append({"text": "next"}, self.ports())["id"])
+
+        floor_logs = [message for _level, message in logs if "issued_floor" in message]
+        self.assertEqual(["chat_message_id_above_issued_floor queue=messages.jsonl queue_max_id=5 "
+                          "issued_floor=9 next_id=10"], floor_logs)
+
+    def test_unreadable_issued_floor_allocates_from_the_queue(self):
+        logs = []
+
+        def unreadable():
+            raise OSError(errno.EIO, "status history unreadable")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "messages.jsonl"
+            path.write_text('{"id":5}\n', encoding="utf-8")
+            repository = ChannelMessageRepository(
+                path=path, log=lambda level, message: logs.append((level, message)),
+                issued_id_floor=unreadable)
+            self.assertEqual(6, repository.append({"text": "new"}, self.ports())["id"])
+
+        self.assertIn(("WARN", "chat_message_issued_floor_unavailable queue=messages.jsonl error=OSError"), logs)
+
+    def test_append_reaches_the_disk_before_returning(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "messages.jsonl"
+            synced = []
+            real_fsync = os.fsync
+
+            def fsync(fd):
+                synced.append(path.read_bytes())
+                real_fsync(fd)
+
+            with patch("ciel_runtime_support.channel_message_repository.os.fsync", side_effect=fsync):
+                saved = self.repository(path).append({"text": "durable"}, self.ports())
+
+        self.assertEqual(1, len(synced))
+        self.assertIn(b'"id":1,', synced[0])
+        self.assertEqual(1, saved["id"])
+
+    def test_crash_shaped_queue_gets_ids_above_the_status_history(self):
+        """2026-10-26: queue rows 14877-14907 became NULs, their status rows said replied."""
+        from ciel_runtime_support.runtime_input_status import (
+            RuntimeInputStatusRepository, recorded_max_request_id,
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            queue = Path(tmp) / "runtime-inputs.jsonl"
+            status_path = Path(tmp) / "runtime-input-status.jsonl"
+            queue.write_bytes(b'{"id":76,"message":"before"}\n' + b"\x00" * 4096 + b"\r\n")
+            status = RuntimeInputStatusRepository(status_path, lambda **_event: None,
+                                                  lambda *_args: None, threading.RLock())
+            for request_id in range(76, 82):
+                for state in ("queued", "submitted", "replied"):
+                    status.transition(request_id, state)
+            # The queue alone would reissue 77, whose recorded status says replied.
+            self.assertEqual(77, ChannelMessageRepository(path=queue, log=lambda *_args: None).max_id() + 1)
+            self.assertEqual("replied", status.get(77)["status"])
+            repository = ChannelMessageRepository(
+                path=queue, log=lambda *_args: None,
+                issued_id_floor=lambda: recorded_max_request_id(status_path))
+
+            fresh = repository.append({"text": "first input after the reboot"}, self.ports())
+
+            self.assertEqual(82, fresh["id"])
+            self.assertIsNone(status.get(fresh["id"]))
 
 
 if __name__ == "__main__":

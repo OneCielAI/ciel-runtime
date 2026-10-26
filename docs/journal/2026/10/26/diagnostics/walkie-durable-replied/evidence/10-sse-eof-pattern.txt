@@ -1,0 +1,8 @@
+# 2026-10-26T18:52:15Z SSE EOF pattern, current 9505 router.log (pid 38368)
+disconnects 114 first 2026-10-26 11:56:29 last 2026-10-26 13:51:36
+gap seconds min 61.0 median 61.0 max 62.0
+receivers Counter({'default': 114})
+diagnostics Counter({'{"category": "eof", "class": "EOFError", "phase": "read"}': 114})
+# receiver endpoints (config.json, secrets omitted): default -> http://100.64.0.9:8787/api/notification-delivery/stream, idle_timeout_seconds unset; daniel-dm -> http://127.0.0.1:51068/events/..., idle_timeout_seconds unset
+# client code (worktree = snapshot text): external_event_receiver.py:846-866 reads frames until the response ends; a clean end without stop/reconnect raises EOFError (:865-866), logged WARN at :894, retry starts at 1.0 s and resets after a stream that lived >= 30 s (:788-800).
+# event_receiver_connection.idle_timeout_seconds: None preserves legacy streams (no client idle timeout).

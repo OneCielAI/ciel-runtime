@@ -128,6 +128,17 @@ class RecoveryTests(unittest.TestCase):
         self.assertEqual([], self.resets)
         self.assertFalse(self.state.exists())
 
+    def test_reused_input_ids_are_a_problem_but_never_restart_authority(self):
+        health = {**self.healthy(), "reused_id_count": 13, "reused_id_newest": 14907}
+        status = self.run_tool(health)
+        self.assertTrue(status["problem"])
+        self.assertEqual(["input_id_reuse"], status["evidence"]["reasons"])
+        self.assertEqual((13, 14907), (status["evidence"]["reused_id_count"], status["evidence"]["reused_id_newest"]))
+        auto = self.run_tool(health, {"action": "auto"})
+        self.assertFalse(auto["reset"])
+        self.assertEqual("restart_evidence_insufficient", auto["reason"])
+        self.assertEqual([], self.resets)
+
     def test_complete_stale_queue_queues_one_resumed_restart(self):
         result = self.run_tool(self.held(), {"action": "auto"})
         self.assertTrue(result["reset"])

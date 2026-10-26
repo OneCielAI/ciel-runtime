@@ -1,0 +1,23 @@
+# 2026-10-26T18:51:12Z read-only snapshot of Walkie workspace aae7db361c7f (router 9505)
+-rw-r--r-- 1 djlov 197610  2732070 2026-10-26 08:24:14.761371700 -0500 C:\Users\djlov\AppData\Roaming/ciel-runtime/workspaces/aae7db361c7f/runtime-input-status.jsonl
+-rw-r--r-- 1 djlov 197610 16459291 2026-10-26 13:48:14.022418800 -0500 C:\Users\djlov\AppData\Roaming/ciel-runtime/workspaces/aae7db361c7f/runtime-inputs.jsonl
+queue rows 2711 undecodable rows 1 queue max id 14907
+status max id 14907
+post-reboot ids 14877.. latest status: 14877:replied 14878:replied 14879:replied 14880:replied 14881:replied 14882:replied 14883:replied 14884:replied 14885:replied 14886:replied 14887:replied 14888:replied 14889:failed 14890:replied 14891:replied 14892:replied 14893:replied 14894:replied 14895:replied 14896:replied 14897:replied 14898:replied 14899:replied 14900:replied 14901:replied 14902:replied 14903:replied 14904:replied 14905:replied 14906:replied 14907:replied
+# 9505 /health
+pid 38368 version 0.2.51-nightly.20261026-162537.2faae14 fingerprint 72c6bfb456e30cd7
+# current router.log: inject/skip decisions for ids >= 14877
+43:2026-10-26T11:55:39 [INFO] channel_stdin_proxy_skipped_noise message_id=14895 reason=durable_replied
+44:2026-10-26T11:55:39 [INFO] channel_stdin_proxy_skipped_noise message_id=14896 reason=durable_replied
+220:2026-10-26T12:00:05 [INFO] channel_stdin_proxy_skipped_noise message_id=14897 reason=durable_replied
+1771:2026-10-26T12:23:37 [INFO] channel_stdin_proxy_skipped_noise message_id=14898 reason=durable_replied
+2448:2026-10-26T12:35:38 [INFO] channel_stdin_proxy_skipped_noise message_id=14899 reason=durable_replied
+2836:2026-10-26T12:42:11 [INFO] channel_stdin_proxy_skipped_noise message_id=14900 reason=durable_replied
+2852:2026-10-26T12:42:42 [INFO] channel_stdin_proxy_skipped_noise message_id=14901 reason=durable_replied
+3259:2026-10-26T12:53:03 [INFO] channel_stdin_proxy_skipped_noise message_id=14902 reason=durable_replied
+3459:2026-10-26T12:55:01 [INFO] channel_stdin_proxy_skipped_noise message_id=14903 reason=durable_replied
+4529:2026-10-26T13:18:27 [INFO] channel_stdin_proxy_skipped_noise message_id=14904 reason=durable_replied
+4642:2026-10-26T13:21:15 [INFO] channel_stdin_proxy_skipped_noise message_id=14905 reason=durable_replied
+6735:2026-10-26T13:47:51 [INFO] channel_stdin_proxy_skipped_noise message_id=14906 reason=durable_replied
+6785:2026-10-26T13:48:16 [INFO] channel_stdin_proxy_skipped_noise message_id=14907 reason=durable_replied
+# durable_replied count in current router.log: 13

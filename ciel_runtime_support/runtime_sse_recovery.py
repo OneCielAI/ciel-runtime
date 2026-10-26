@@ -141,6 +141,8 @@ def sse_delivery_evidence(
     queued = int(queued_number) if queued_number is not None and queued_number.is_integer() else 0
     oldest = _number(health.get("oldest_queued_age_seconds"))
     blocked = health.get("admission_blocked") is True
+    reused_number = _number(health.get("reused_id_count"))
+    reused = int(reused_number) if reused_number is not None and reused_number.is_integer() else 0
     min_age = _number(min_queue_age_seconds)
     stale = queued > 0 and oldest is not None and min_age is not None and oldest >= max(1.0, min_age)
     # This is observed delivery delay, not proof of a transport failure. Do
@@ -155,8 +157,13 @@ def sse_delivery_evidence(
         reasons.append("compaction_admission_paused")
     if stale:
         reasons.append("queued_input_stale")
+    if reused > 0:
+        # New inputs carrying ids whose terminal status predates them are
+        # skipped as already delivered. A restart keeps the same files, so this
+        # is reported, never restart authority.
+        reasons.append("input_id_reuse")
     return {
-        "problem": bool(blocked or stale or paused),
+        "problem": bool(blocked or stale or paused or reused > 0),
         "observable": True,
         "restart_eligible": bool(restart_signal and pause_observable and paused is False),
         "reasons": reasons,
@@ -168,6 +175,8 @@ def sse_delivery_evidence(
         "launcher_hold_observed": health.get("launcher_hold_observed") is True,
         "blocker_scope": health.get("blocker_scope"),
         "known_queued_count": queued,
+        "reused_id_count": reused,
+        "reused_id_newest": health.get("reused_id_newest"),
         "oldest_queued_age_seconds": oldest,
         "queued_coverage": health.get("queued_coverage"),
         "history_coverage": (health.get("history") or {}).get("coverage")

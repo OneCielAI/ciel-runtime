@@ -1,0 +1,9 @@
+# Windows System event log, read-only query (Get-WinEvent), local time UTC-5
+LastBootUpTime=2026-10-26T08:33:02
+2026-10-26T08:33:27 id=12 Microsoft-Windows-Wininit :: LSASS.exe was started as a protected process with level: 4.
+2026-10-26T08:33:27 id=13 Microsoft-Windows-Wininit :: Credential Guard was started and will protect LSA credentials.
+2026-10-26T08:33:06 id=41 Microsoft-Windows-Kernel-Power :: The system has rebooted without cleanly shutting down first. This error could be caused if the system stopped responding, crashed, or lost power unexpectedly.
+2026-10-26T08:33:28 id=6005 EventLog :: The Event log service was started.
+2026-10-26T08:33:28 id=6009 EventLog :: Microsoft (R) Windows (R) 10.00. 26200  Multiprocessor Free.
+2026-10-26T08:33:28 id=6008 EventLog :: The previous system shutdown at 8:32:16 AM on ?10/?26/?2026 was unexpected.
+2026-10-26T08:33:03 id=12 Microsoft-Windows-Kernel-General :: The operating system started at system time ?2026?-?10?-?26T13:33:02.500000000Z.

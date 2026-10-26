@@ -14,6 +14,7 @@ from .channel_message_dedupe import (
 from .channel_message_repository import (
     ChannelMessageAppendPorts,
     ChannelMessageRepository,
+    _no_issued_ids,
 )
 
 
@@ -24,6 +25,7 @@ class ChannelMessageStoragePorts:
     condition: Any
     file_lock: Callable[[Path], Any]
     log: Callable[[str, str], None]
+    issued_id_floor: Callable[[], int] = _no_issued_ids
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,6 +62,7 @@ class ChannelMessageContext:
             path=self.storage.path(),
             log=self.storage.log,
             max_bytes=self.storage.max_bytes,
+            issued_id_floor=self.storage.issued_id_floor,
         )
 
     def max_id(self) -> int:

@@ -1,0 +1,7 @@
+# 2026-10-26T19:03:19Z worktree code, read-only against aae7db361c7f
+status history recorded max request id: 14913
+queue-only max id (old allocator): 14913 -> next id 14914
+fixed allocator next id: 14914
+delivery health: {"state": "not_blocked", "known_queued_count": 0, "queued_coverage": "partial", "reused_id_count": 31, "reused_id_newest": 14907}
+text: not_blocked; known queued 0; oldest unknown; coverage partial; expired at launch 404; reused ids 31 (newest #14907, skipped as already delivered); last failure #14889 stale_unconfirmed at 07:01; history observation partial (damaged lines ignored)
+live files unchanged (size and mtime)

@@ -1,0 +1,150 @@
+{
+  "label": "old",
+  "runtime_root": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-2faae14453a948936e76cdfd3c1ee77b4d291371",
+  "scratch": "C:\\Windows\\Temp\\ciel-owned-walkie-oiy4nhi2",
+  "stripped_env_names": [
+    "ANTHROPIC_AUTH_TOKEN",
+    "ANTHROPIC_BASE_URL",
+    "ANTHROPIC_CUSTOM_MODEL_OPTION",
+    "ANTHROPIC_CUSTOM_MODEL_OPTION_SUPPORTED_CAPABILITIES",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTED_CAPABILITIES",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTS",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTED_CAPABILITIES",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTS",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTED_CAPABILITIES",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTS",
+    "ANTHROPIC_MODEL",
+    "CIEL_RUNTIME_AUTO_ALLOW_DANGEROUS_RM",
+    "CIEL_RUNTIME_BYPASS_PERMISSIONS",
+    "CIEL_RUNTIME_CONFIG_DIR",
+    "CIEL_RUNTIME_HOME",
+    "CIEL_RUNTIME_LAUNCH_CWD",
+    "CIEL_RUNTIME_MODEL_ALIAS",
+    "CIEL_RUNTIME_PROVIDER",
+    "CIEL_RUNTIME_REGISTERED_HOME",
+    "CIEL_RUNTIME_SCRIPT",
+    "CIEL_RUNTIME_SELECTED_HOME",
+    "CIEL_RUNTIME_STATE_DIR",
+    "CIEL_RUNTIME_WORKSPACE_STATE_DIR",
+    "CLAUDECODE",
+    "CLAUDE_CHROME_CLASSIFIER_FLOOR",
+    "CLAUDE_CODE_ATTRIBUTION_HEADER",
+    "CLAUDE_CODE_AUTO_COMPACT_WINDOW",
+    "CLAUDE_CODE_CHILD_SESSION",
+    "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS",
+    "CLAUDE_CODE_DISABLE_NONSTREAMING_FALLBACK",
+    "CLAUDE_CODE_DISABLE_TERMINAL_TITLE",
+    "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY",
+    "CLAUDE_CODE_ENTRYPOINT",
+    "CLAUDE_CODE_EXECPATH",
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS",
+    "CLAUDE_CODE_MAX_CONTEXT_TOKENS",
+    "CLAUDE_CODE_MAX_OUTPUT_TOKENS",
+    "CLAUDE_CODE_MAX_RETRIES",
+    "CLAUDE_CODE_MESSAGING_SOCKET",
+    "CLAUDE_CODE_MESSAGING_TOKEN",
+    "CLAUDE_CODE_NONSTREAMING_TIMEOUT_RETRIES",
+    "CLAUDE_CODE_RETRY_WATCHDOG",
+    "CLAUDE_CODE_SEND_FEEDBACK",
+    "CLAUDE_CODE_SESSION_ATTENDED",
+    "CLAUDE_CODE_SESSION_ID",
+    "CLAUDE_CODE_SUBAGENT_MODEL",
+    "CLAUDE_CODE_SUBAGENT_MODEL_FORCE",
+    "CLAUDE_EFFORT",
+    "CLAUDE_PID",
+    "CODEX_SPARKLE_ENABLED",
+    "OLLAMA_CONTEXT_LENGTH",
+    "OLLAMA_FLASH_ATTENTION",
+    "OLLAMA_HOST",
+    "OLLAMA_KV_CACHE_TYPE",
+    "OLLAMA_MODELS",
+    "OLLAMA_NUM_PARALLEL",
+    "OLLAMA_SCHED_SPREAD"
+  ],
+  "claude_version": "2.1.310 (Claude Code)",
+  "command": [
+    "C:\\Program Files\\Python311\\python.exe",
+    "-I",
+    "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\diagnostics\\walkie-durable-replied\\evidence\\e2e\\launch_shim.py",
+    "--",
+    "cli",
+    "--ca-runtime",
+    "claude",
+    "--ca-no-update-check",
+    "--ca-no-self-update-check",
+    "--ca-no-web-search",
+    "--",
+    "--permission-mode",
+    "default",
+    "--tools",
+    "",
+    "--debug-file",
+    "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\diagnostics\\walkie-durable-replied\\evidence\\e2e\\run-old-141934\\native-debug.log"
+  ],
+  "ports": {
+    "router": 59690,
+    "fixture": 59691
+  },
+  "seed_sha256": {
+    "runtime-inputs.jsonl": "5397e38cbd80ee86f4e12a5288aea5ebebcb6061b08d86fb5a6b0427c4c66a8b",
+    "runtime-input-status.jsonl": "95fb0aaf986509cf5ae1bec3bf54c5942a09e4af775da204e258fd97eea4db40",
+    "channel-llm-cursor.json": "275c3ad71f932bed9c3a5d2b84b52a8b053ead039abf56da40eafbe94cfc57ef"
+  },
+  "events": [
+    {
+      "at": 1793042374.772,
+      "kind": "launched",
+      "pid": 73472,
+      "watcher": 55232
+    },
+    {
+      "at": 1793042384.446,
+      "kind": "wait_pass",
+      "label": "owned router health"
+    },
+    {
+      "at": 1793042385.27,
+      "kind": "wait_pass",
+      "label": "native launch"
+    },
+    {
+      "at": 1793042385.298,
+      "kind": "wait_pass",
+      "label": "native process present"
+    },
+    {
+      "at": 1793042397.701,
+      "kind": "wait_pass",
+      "label": "watcher typed baseline"
+    },
+    {
+      "at": 1793042398.102,
+      "kind": "wait_pass",
+      "label": "baseline reached loopback"
+    },
+    {
+      "at": 1793042438.18,
+      "kind": "failure",
+      "error": "Traceback (most recent call last):\n  File \"C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\diagnostics\\walkie-durable-replied\\evidence\\e2e\\walkie_reuse_e2e.py\", line 345, in <module>\n    wait(lambda: \"STUB-REPLY\" in screen(), 40, \"baseline rendered\")\n  File \"C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\diagnostics\\walkie-durable-replied\\evidence\\e2e\\walkie_reuse_e2e.py\", line 248, in wait\n    raise RuntimeError(\"timeout \" + label)\nRuntimeError: timeout baseline rendered\n"
+    }
+  ],
+  "live_before": {
+    "9505": {
+      "pid": 38368,
+      "version": "0.2.51-nightly.20261026-162537.2faae14",
+      "source_fingerprint": "72c6bfb456e30cd7",
+      "error": null
+    },
+    "9524": {
+      "pid": 25276,
+      "version": "0.2.51",
+      "source_fingerprint": "f86ee3638ee760f3",
+      "error": null
+    }
+  },
+  "status": "failed",
+  "error": "Traceback (most recent call last):\n  File \"C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\diagnostics\\walkie-durable-replied\\evidence\\e2e\\walkie_reuse_e2e.py\", line 345, in <module>\n    wait(lambda: \"STUB-REPLY\" in screen(), 40, \"baseline rendered\")\n  File \"C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\diagnostics\\walkie-durable-replied\\evidence\\e2e\\walkie_reuse_e2e.py\", line 248, in wait\n    raise RuntimeError(\"timeout \" + label)\nRuntimeError: timeout baseline rendered\n"
+}
