@@ -30,6 +30,12 @@ timestamp: 2026-10-26T23:40:00Z
 
 Fresh owned console run passed all nine checks, including default auto continue on and Enter off/on with persisted config. All nine PNG captures succeeded with PrintWindow; owned menu and host exited ([result](evidence/menu-clean/result.json), [off](evidence/menu-clean/08-auto-continue-off.png), [on](evidence/menu-clean/09-auto-continue-on.png)).
 
+# Nightly CI failure and fix
+
+- Commit 040b9ee failed CI unit and python-minimum, and Publish stopped at npm test before publishing: `test_architecture_contracts` limits `OptionPanelRuntime` to 10 fields and the new toggle made 11 ([CI](https://github.com/OneCielAI/ciel-runtime/actions/runs/40413807363), [Publish](https://github.com/OneCielAI/ciel-runtime/actions/runs/40413807401)). This contract was not in the focused set.
+- Fix: the three Work callbacks became one `work_settings` reader; values are derived through `work_mode_launch`. 361 tests including the architecture contract pass on Python 3.14 and 3.10 ([3.14](evidence/06-after-contract-fix-py314.txt), [3.10](evidence/07-after-contract-fix-py310.txt)). Actual menu re-run passed all nine checks with PNG captures ([result](evidence/menu-after-contract-fix/result.json)).
+- Priority re-run with a screen assertion after the click passed ([result](evidence/run-5717aaf4/result.json)).
+
 # Not yet verified
 
 - Installed-package verification and local/nightly release are pending.

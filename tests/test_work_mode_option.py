@@ -32,9 +32,10 @@ class WorkModeOptionTests(unittest.TestCase):
 
     def test_runtime_fields_are_optional_for_older_callers(self):
         runtime = OptionPanelRuntime(*([lambda *args: None] * 7))
-        self.assertIs(True, runtime.work_mode())
-        self.assertIs(False, runtime.work_plan_approval_ask())
-        self.assertIs(True, runtime.work_auto_continue())
+        self.assertEqual({}, runtime.work_settings())
+        self.assertIs(True, work_mode_enabled(runtime.work_settings()))
+        self.assertIs(False, work_plan_approval_ask(runtime.work_settings()))
+        self.assertIs(True, work_auto_continue_enabled(runtime.work_settings()))
 
     def test_default_rows_without_stored_keys(self):
         config = copy.deepcopy(ciel_runtime.DEFAULT_CONFIG)

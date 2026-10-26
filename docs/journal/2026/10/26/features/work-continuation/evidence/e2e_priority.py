@@ -222,6 +222,7 @@ try:
     screenshot('02-move-up-focused')
     command(key='enter')
     checks['queued_became_active'] = wait(lambda: store.read().get('active_root') == 'n4', 15, 'explicit priority click changed active')
+    checks['reordered_band'] = wait(lambda: 'Work planning 0/1 — 2. Queued priority proof' in screen(), 15, 'reordered band rendered')
     screenshot('03-priority-order-after-click')
     RESULT['checks'] = checks
     if not all(checks.values()): RESULT['verification_failed'] = [name for name, ok in checks.items() if not ok]
