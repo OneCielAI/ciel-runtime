@@ -328,6 +328,85 @@ ciel-runtimectl remote-provision run
 
 ---
 
+## Work 모드 (실험적)
+
+> 소스: `ciel_runtime_support/work_mode_launch.py`, `work_mcp_tools.py`, `work_plan_store.py`,
+> `claude_mods/ciel-work/` — 실험 기능이며 동작·키는 바뀔 수 있다.
+
+Work 모드는 Plan 모드처럼 먼저 계획을 세우되, 목표 → 단계 → 작업 → 검증 가능한 스텝의
+계층 트리로 계획을 유지하며 실행하게 한다. 계획은 라우터 MCP 서버(`ciel-runtime-router`)의
+`work_*` 도구(`work_status`, `work_plan_set`, `work_node_add`, `work_node_update`,
+`work_node_remove`, `work_select`, `work_execute`, `work_replan`) 뒤에 저장된다.
+
+| config.json 키 | 기본값 | 메뉴 (LLM options) | 의미 |
+|---|---|---|---|
+| `work_mode` | `true` (켜짐) | `Work mode [on (default)]` | `false`로 명시해야만 꺼진다 |
+| `work_plan_approval_ask` | `false` (자동 승인) | `Work plan approval [auto (default)]` | `true`(`ask user`)면 실행 전 사용자 승인을 요구 |
+
+- 메뉴 입력값: `Work mode`는 `on`/`off`, `Work plan approval`은 `ask`/`auto`.
+  `default`/`unset`을 입력하면 키를 지워 기본값으로 돌아간다.
+- 꺼져 있으면 `work_status`(`format: json`)는 `enabled: false` 스냅샷을, 그 외 `work_*` 호출은
+  `Ciel Work mode is off` 오류를 돌려준다.
+
+### 적용 범위
+
+- 적용 조건: Work 모드가 켜져 있고, **네이티브 실행이 아니며**, 해당 실행에 라우터 MCP 서버가
+  붙을 때만 적용된다 (`work_mode_applies`).
+- **네이티브 실행(Claude Native, 네이티브 Codex)은 제외**된다. 아무 인자도 주입하지 않으므로
+  설정과 무관하게 Work 모드가 적용되지 않는다.
+- Claude: 번들 모드(mod) `ciel-work`를 `--plugin-dir <패키지>/ciel_runtime_support/claude_mods/ciel-work`
+  로 붙인다. `--plugin-dir`는 반복 가능한 플래그라 사용자 플래그는 유지된다.
+  `.claude-plugin/plugin.json`이 없으면 인자를 넣지 않는다. 세션 재시작 시 현재 설정으로
+  인자를 다시 계산한다.
+- Codex (TUI·app-server): `-c developer_instructions=...`로 Work 계약 지침을 넣고, Work 도구에만
+  `mcp_servers.ciel-runtime-router.tools.<도구>.approval_mode="approve"`를 넣는다
+  (`approval_policy=never`에서 MCP 호출이 막히지 않도록). 사용자가 같은 `-c` 키를 직접 지정하면
+  사용자 값이 우선한다. 다른 라우터 도구의 승인 기본값은 바뀌지 않는다.
+
+### Claude `/work-mode` 와 기존 외부 `/work` 는 별개
+
+| | `/work-mode` (이 기능) | `/work` (기존 외부 명령) |
+|---|---|---|
+| 제공 위치 | 런타임 번들 모드 `ciel-work`가 세션 시작 시 등록 | 사용자 전역 명령 `~/.claude/commands/work.md` → ciel-code `work` CLI |
+| 인자 | `status` (기본) \| `tree` | ciel-code 작업 보드 명령 |
+| 저장소 | 라우터의 대화별 Work 계획 | ciel-code `CONFIG_DIR()/boards/sessions/<session-id>/active.json` (별도 CLI 보드) |
+
+두 명령은 데이터를 공유하지 않는다. 외부 `/work`의 세션 공유 버그는 별도 수정으로 로컬 배포했다.
+이 기능의 계획과 외부 CLI 보드는 서로 이관하거나 합치지 않는다.
+
+### 계획 단계와 승인
+
+- **Claude**: 모드가 강제한다. 계획(`planning`) 단계에서는 `Edit`/`Write`/`NotebookEdit`/`apply_patch`
+  를 거부하고, `Bash`/`PowerShell`은 엔진이 읽기 전용으로 분류한 호출만 허용한다. Work 상태를
+  확인할 수 없으면 쓰기·셸 호출을 거부한다. `work_execute` 호출 시 모델이 넣은 `user_confirmed`는
+  제거되며, `ask` 승인이면 모드가 `$.ui.ask` 대화상자(`Approve` / `Keep planning`)로 사용자에게
+  묻고 승인 후 대화·계획 버전이 그대로일 때만 `user_confirmed=true`로 실행한다.
+  Claude Code 2.1.310 실제 CLI에서 `bypassPermissions` 상태에서도 계획 중 Edit 및
+  파일을 쓰는 Bash 호출이 차단되는 것을 검증했다.
+- **Codex**: **모델 매개(model-mediated)** 방식이다. 계획 단계와 승인 규칙은 지침으로만 전달되며,
+  이 버전은 Codex 편집에 대해 계획 게이트나 승인 게이트를 강제하지 않는다. `ask` 승인이면
+  라우터의 `work_execute`가 "User confirmation is required" 응답을 돌려주고, 모델이 사용자에게
+  계획을 보여 주고 동의를 받은 뒤 `user_confirmed=true`로 다시 호출해야 한다.
+
+### 세션(대화) 분리
+
+계획은 대화마다 따로 저장된다:
+`WORKSPACE_STATE_DIR/work-sessions/<sha256(런타임:대화 ID)>/work-plan.json`.
+식별자는 `claude:<id>` 또는 `codex:<id>` 형식(`[A-Za-z0-9_-]{1,200}`)이어야 하며, 없거나 형식이
+틀리면 공유 기본값으로 대체하지 않고 거부한다(fail closed).
+
+- **Claude**: 모드가 매 호출마다 엔진의 `$.session.id()`를 읽어 `claude:<id>`로 넣고, 모델이 넣은
+  `session_id`는 덮어쓴다. `/clear`·재개 후에도 다시 읽으며, `session.end`에서 표시 캐시를 비운다.
+  같은 대화의 서브에이전트는 부모 대화의 계획을 쓴다.
+- **Codex**: MCP 호출의 네이티브 메타데이터 `_meta.sessionId`를 `codex:<id>`로 사용하며 모델 인자보다
+  우선한다. `_meta.threadId`는 쓰지 않으므로 자식 스레드는 루트 대화의 계획을 공유한다.
+  네이티브 메타데이터 없이 `codex:` 접두사만 붙인 인자는 거부된다.
+- 새 대화는 별도의 빈 계획을 갖고, 같은 대화를 재개하면 계획이 유지된다.
+- 이전의 워크스페이스 공유 파일 `WORKSPACE_STATE_DIR/work-plan.json`은 읽거나 옮기거나 지우지 않는다.
+- 이것은 네임스페이스 분리이며 인증이 아니다. HTTP 호출자는 메타데이터를 위조할 수 있다.
+
+---
+
 ## 반복 폭주 가드
 
 모델이 같은 문장을 끝없이 되풀이하는 생성 루프에 빠지면 라우터가 이를 끊는다.

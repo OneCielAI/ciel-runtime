@@ -437,6 +437,18 @@ LLM_OPTION_DESCRIPTIONS: dict[str, dict[str, str]] = {
         "ja": "既定は off です。Ciel は Claude の起動ごとに CLAUDE_CODE_SEND_FEEDBACK=0 を設定し、Claude がフィードバック下書きを作成できないようにします。on の場合は Claude Code のアカウント/個人設定に従い、下書きは送信するまでこの PC にのみ保存されます。手動 /feedback は利用できます。次回の Claude 起動から適用されます。",
         "zh": "默认关闭。Ciel 会在每次启动 Claude 时设置 CLAUDE_CODE_SEND_FEEDBACK=0，使 Claude 无法生成反馈草稿。开启后由 Claude Code 账户和个人设置决定；草稿在发送前只保存在本机。手动 /feedback 仍可用。下次启动 Claude 时生效。",
     },
+    "work_mode": {
+        "en": "On by default: Ciel-launched Claude and Codex sessions that attach the router MCP server keep a hierarchical plan with the router work tools. Native sessions are unchanged. Codex receives planning instructions only; this version does not enforce a planning gate for Codex. Applies on the next launch.",
+        "ko": "기본값은 on입니다. 라우터 MCP를 연결한 Ciel 실행 Claude·Codex 세션은 라우터 work 도구로 계층형 계획을 유지합니다. 네이티브 세션은 바뀌지 않습니다. Codex는 계획 지침만 받으며 이 버전은 계획 게이트를 강제하지 않습니다. 다음 실행부터 적용됩니다.",
+        "ja": "既定は on です。ルーター MCP を接続した Ciel 起動の Claude・Codex はルーターの work ツールで階層型計画を保持します。ネイティブセッションは変わりません。Codex には計画用指示だけを渡し、このバージョンでは計画ゲートを強制しません。次回起動から適用されます。",
+        "zh": "默认开启。连接路由器 MCP 的 Ciel 启动 Claude 和 Codex 会话通过路由器 work 工具维护分层计划。原生会话不受影响。Codex 仅接收规划指令，此版本不强制规划关卡。下次启动时生效。",
+    },
+    "work_plan_approval_ask": {
+        "en": "Auto by default: work_execute proceeds when the plan is complete. Ask user requires confirmation before execution. Native sessions are unchanged; this version does not enforce this approval as a gate on Codex edits. Applies from the next work_execute call.",
+        "ko": "기본값은 auto입니다. 계획이 완성되면 work_execute가 진행됩니다. ask user이면 실행 전에 확인을 요구합니다. 네이티브 세션은 바뀌지 않으며 이 버전은 Codex 편집에 승인을 강제하지 않습니다. 다음 work_execute부터 적용됩니다.",
+        "ja": "既定は auto です。計画が完成すると work_execute は進みます。ask user では実行前に確認を求めます。ネイティブセッションは変わらず、このバージョンは Codex の編集に承認を強制しません。次の work_execute から適用されます。",
+        "zh": "默认 auto：计划完成后 work_execute 继续执行。ask user 会在执行前要求确认。原生会话不受影响，此版本不会对 Codex 编辑强制审批。从下一次 work_execute 起生效。",
+    },
     "back": {
         "en": "Return to the main menu.",
         "ko": "메인 메뉴로 돌아갑니다.",
@@ -455,6 +467,8 @@ LLM_OPTION_TOGGLE_KEYS = {
     "rate_limit_status",
     "router_debug_external_access",
     "claude_feedback_drafts",
+    "work_mode",
+    "work_plan_approval_ask",
     "route_through_router",
     "workflows_enabled",
     "ultracode_enabled",

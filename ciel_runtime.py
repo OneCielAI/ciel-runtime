@@ -2078,7 +2078,7 @@ def _write_channel_compact_request(source: str = "mcp", reason: str = "", action
 def _read_channel_compact_request() -> dict[str, Any] | None: return channel_compact_request_repository().read()
 def _clear_channel_compact_request(request_id: str | None = None) -> bool: return channel_compact_request_repository().clear(request_id)
 runtime_session_restart_service = local_runtime_session_restart(lambda: RuntimeSessionRestartServicePorts(ROUTER_INSTANCE_DIR, CONFIG_DIR / "router-instances", pid_is_running, router_log, lambda path: workspace_digest(workspace_identity(path)), unisolated_test=_unisolated_test_process))
-_channel_mcp_tool_schemas = channel_mcp_tool_schemas
+def _channel_mcp_tool_schemas() -> list[dict[str, Any]]: return channel_mcp_tool_schemas(load_config)
 _channel_mcp_tool_response = channel_mcp_tool_response
 
 def _channel_mcp_tool_call_response(request_id: Any, params: dict[str, Any]) -> dict[str, Any]:
@@ -2093,7 +2093,7 @@ def _channel_mcp_tool_call_response(request_id: Any, params: dict[str, Any]) -> 
             runtime=ChannelMcpRuntimeServices(
                 submit_input=runtime_input_gateway().submit_stream_input, read_runtime_inputs=read_runtime_inputs,
                 telemetry_logs=_TELEMETRY_LOG_RUNTIME.tool, restart_session=runtime_session_restart_service().queue_tool,
-                recover_sse_delivery=lambda args: router_recovery(args, status_repository=_RUNTIME_INPUT_STATUS_REPOSITORY, compaction=_RUNTIME_COMPACTION, restart=runtime_session_restart_service().queue_tool, root=ROUTER_INSTANCE_DIR),
+                recover_sse_delivery=lambda args: router_recovery(args, status_repository=_RUNTIME_INPUT_STATUS_REPOSITORY, compaction=_RUNTIME_COMPACTION, restart=runtime_session_restart_service().queue_tool, root=ROUTER_INSTANCE_DIR), load_config=load_config,
             ),
         ),
     )
@@ -3525,7 +3525,8 @@ def option_panel_services() -> OptionPanelServices:
     return OptionPanelServices(
         text=OptionPanelText(compact_text, ui_text, context_setting_status, applied_preset_id, llm_preset_text, timeout_profile_status),
         runtime=OptionPanelRuntime(router_debug_external_access_enabled, router_debug_message_preview_chars, direct_native_anthropic_enabled,
-                                   claude_code_capability_string, current_upstream_model_id, claude_code_workflows_enabled, claude_code_ultracode_enabled, lambda: load_config().get("claude_feedback_drafts") is True),
+                                   claude_code_capability_string, current_upstream_model_id, claude_code_workflows_enabled, claude_code_ultracode_enabled, lambda: load_config().get("claude_feedback_drafts") is True,
+                                   lambda: load_config().get("work_mode") is not False, lambda: load_config().get("work_plan_approval_ask") is True),
         provider=OptionPanelProvider(ollama_extra_options, ollama_num_ctx_status, ollama_think_status, upstream_query_string_status,
                                      provider_tool_choice_status, rate_limit_status_label, rate_limit_rpm_label, provider_ip_family, parse_bool,
                                      router_rate_limit_configured_rpm),

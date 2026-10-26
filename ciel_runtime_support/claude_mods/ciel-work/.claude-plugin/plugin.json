@@ -1,0 +1,1 @@
+{"name": "ciel-work", "version": "0.1.0", "description": "Router-backed hierarchical Work planning and execution guard", "author": {"name": "Ciel Runtime"}, "types": "./types/index.d.ts"}

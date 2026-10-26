@@ -488,12 +488,20 @@ def display_capacity(rpm):
 
 def main():
     try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    try:
         session = json.load(sys.stdin)
         if not isinstance(session, dict):
             session = {}
     except Exception:
         session = {}
     if not is_ciel_runtime_session(session):
+        # 비런타임 세션(일반 claude): 상태줄 전체는 생략하고 [work] 보드 세그먼트만 표시
+        work_only = (work_plan_status_text(session) or work_board_status_text(session))
+        if work_only:
+            print(work_only)
         return
     cfg = load_json(CONFIG_PATH, {})
     providers = cfg.get("providers") if isinstance(cfg.get("providers"), dict) else {}
@@ -736,10 +744,96 @@ def main():
     if compact_text:
         status_parts.append(compact_text)
     status_text = " | ".join(status_parts)
+    # [work] 현재 대화의 세션별 보드만 표시한다.
+    work_text = (work_plan_status_text(session) or work_board_status_text(session))
     if status_text:
         print(f"{left} | {status_text}")
     else:
         print(left)
+    if work_text:
+        print(work_text)
+
+
+def work_plan_status_text(session):
+    session_id = session.get("session_id")
+    if not isinstance(session_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,200}", session_id):
+        return ""
+    if load_json(CONFIG_PATH, {}).get("work_mode") is False:
+        return ""
+    digest = hashlib.sha256(("claude:" + session_id).encode("utf-8")).hexdigest()
+    plan = load_json(WORKSPACE_STATE_DIR / "work-sessions" / digest / "work-plan.json", {})
+    if not plan:
+        return ""
+    try:
+        package_root = __CIEL_RUNTIME_PACKAGE_ROOT__
+        if package_root not in sys.path:
+            sys.path.insert(0, package_root)
+        from ciel_runtime_support.work_plan_tree import normalize_document, snapshot
+        state = snapshot(normalize_document(plan))
+    except Exception:
+        return "[work] unavailable"
+    clip = _work_status_clip
+    phase = state["phase"]
+    root = state.get("active_root")
+    summary = f"[work {phase}] {state['done']}/{state['total']}"
+    if root:
+        summary += " " + clip(root["title"], 48)
+    # One branch per line, every branch: the status line is vertical, so a
+    # breakdown is never cut to its first few branches.
+    lines = [summary]
+    for branch in state.get("breakdown", []):
+        lines.append(f"  - {clip(branch['title'], 48)} {branch['done']}/{branch['total']}")
+    current = state.get("next")
+    if current:
+        lines.append("  " + current["status"] + " " + clip(current["id"], 32) + " " + " > ".join(
+            clip(part, 32) for part in current["path"][-4:]))
+    else:
+        lines.append("  " + ("complete" if root else "no goal"))
+    return chr(10).join(lines)
+
+
+def _work_status_clip(value, limit):
+    # Terminal controls (C0, DEL, C1) and line breaks never reach the status
+    # line: each work entry must stay on exactly one row.
+    text = re.sub(r"[\x00-\x1f\x7f-\x9f]", " ", str(value or ""))
+    text = " ".join(text.split())
+    return text if len(text) <= limit else text[:limit - 3] + "..."
+
+
+def work_board_status_text(session):
+    session_id = session.get("session_id")
+    if not isinstance(session_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,200}", session_id):
+        return ""
+    base = (
+        os.environ.get("CIEL_CODE_CONFIG_DIR")
+        or os.path.join(os.environ.get("APPDATA") or str(HOME), "ciel-code")
+    )
+    path = Path(base) / "boards" / "sessions" / session_id / "active.json"
+    board = load_json(path, {})
+    items = board.get("items")
+    if not isinstance(items, list) or not items:
+        return ""
+    steps_map = board.get("steps")
+    steps_map = steps_map if isinstance(steps_map, dict) else {}
+    active = str(board.get("activeItem") or "")
+    icons = {"running": ">", "done": "x", "planning": "~", "paused": "|"}
+    lines = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        item_id = str(item.get("id") or "")
+        status = str(item.get("status") or "")
+        steps = steps_map.get(item_id)
+        steps = steps if isinstance(steps, list) else []
+        done = sum(1 for s in steps if isinstance(s, dict) and s.get("state") == "done")
+        total = len(steps)
+        detail = f"{done}/{total}" if total else ("done" if status == "done" else "ready")
+        title = _work_status_clip(item.get("title"), 48)
+        mark = " <-" if item_id == active else ""
+        lines.append(f"  {icons.get(status, '*')}{detail} {title}{mark}")
+    if not lines:
+        return ""
+    return chr(10).join(["[work]"] + lines)
 
 
 if __name__ == "__main__":

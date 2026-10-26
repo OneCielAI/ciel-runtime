@@ -34,6 +34,7 @@ from ciel_runtime_support.runtime_session_restart import (
 from ciel_runtime_support.session_resume_last import ResumeLastRequest, resume_last_requested
 from ciel_runtime_support.startup_prompt_answers import STARTUP_AUTO_ANSWER_ENV
 from ciel_runtime_support.workspace_mcp import renew_launch_command
+from ciel_runtime_support.work_mode_launch import claude_work_mode_args, codex_work_mode_args, work_mode_applies
 from ciel_runtime_support.web_endpoints import (
     current_web_workspace,
     web_backend_owned_by_workspace,
@@ -612,6 +613,12 @@ def run_claude(
     append_claude_code_runtime_settings_args(
         extra_args, launch_passthrough, provider, runtime_settings_config
     )
+    work_mode_args = claude_work_mode_args(
+        cfg, native=use_native_anthropic, router_mcp_attached=claude_router_mcp is not None
+    )
+    if work_mode_args:
+        extra_args.extend(work_mode_args)
+        router_log("INFO", f"claude_work_mode plugin_dir={work_mode_args[-1]}")
     if fork_native_session:
         session_id = str(uuid.uuid4())
         extra_args.extend(["--session-id", session_id])
@@ -799,14 +806,28 @@ def run_claude(
             os.environ.pop(launch_data_path.ACTIVE_ENV, None)
 
     def run_claude_session() -> int:
+        nonlocal work_mode_args
         handled: set[str] = set()
         if resume_last_requested():
             queue_restart_notice(services.restart, "claude", ResumeLastRequest(), router_log)
         while True:
             # Reapply the current global choice to every child, including a
             # routed/native relaunch that keeps its existing model endpoint.
-            feedback = load_config().get("claude_feedback_drafts") is True
+            current_config = load_config()
+            feedback = current_config.get("claude_feedback_drafts") is True
             env["CLAUDE_CODE_SEND_FEEDBACK"] = "1" if feedback else "0"
+            if work_mode_args:
+                for index in range(len(cmd) - 1):
+                    if cmd[index:index + 2] == work_mode_args:
+                        del cmd[index:index + 2]
+                        break
+            refreshed_work_args = claude_work_mode_args(
+                current_config, native=use_native_anthropic, router_mcp_attached=claude_router_mcp is not None,
+            )
+            if refreshed_work_args:
+                boundary = cmd.index("--") if "--" in cmd else len(cmd)
+                cmd[boundary:boundary] = refreshed_work_args
+            work_mode_args = refreshed_work_args
             restart_control.reset()
             rc = run_claude_process()
             # The transport returned, so this child is gone: any wake it owned
@@ -1243,13 +1264,17 @@ def run_codex(
         manage_router_lifetime = bool(start_router_if_needed())
     if not native_codex_enabled(provider):
         ensure_model_cache_for_launch(provider, pcfg)
+    codex_router_mcp = (
+        (channel_delivery_mode(cfg) == "llm" and web_backend_start_requested(cfg))
+        or router_mcp_enabled_for_launch(cfg, native=use_native_codex)
+    )
     codex_mcp_compat_args = codex_mcp_native_http_compat_args(
         None,
-        include_builtin_channel=(
-            (channel_delivery_mode(cfg) == "llm" and web_backend_start_requested(cfg))
-            or router_mcp_enabled_for_launch(cfg, native=use_native_codex)
-        ),
+        include_builtin_channel=codex_router_mcp,
     )
+    codex_mcp_compat_args.extend(codex_work_mode_args(
+        cfg, native=use_native_codex, router_mcp_attached=codex_router_mcp, passthrough=codex_passthrough,
+    ))
     workspace_mcp_launch = (
         workspace_mcp.prepare("codex", cfg, env, native=native_codex_enabled(provider)) if workspace_mcp is not None else None
     )
@@ -1693,12 +1718,20 @@ def run_codex_app_server(
         *config_args,
         *codex_runtime_model_catalog_args(codex, cfg, passthrough, **direct_options),
     ]
+    app_server_router_mcp = (
+        (channel_delivery_mode(cfg) == "llm" and web_backend_start_requested(cfg))
+        or work_mode_applies(
+            cfg, native=use_native_codex,
+            router_mcp_attached=router_mcp_enabled_for_launch(cfg, native=use_native_codex),
+        )
+    )
     codex_mcp_compat_args = codex_mcp_native_http_compat_args(
         None,
-        include_builtin_channel=(
-            channel_delivery_mode(cfg) == "llm" and web_backend_start_requested(cfg)
-        ),
+        include_builtin_channel=app_server_router_mcp,
     )
+    codex_mcp_compat_args.extend(codex_work_mode_args(
+        cfg, native=use_native_codex, router_mcp_attached=app_server_router_mcp, passthrough=passthrough,
+    ))
     workspace_mcp_launch = (
         workspace_mcp.prepare("codex-app-server", cfg, env, native=native_codex_enabled(provider))
         if workspace_mcp is not None else None

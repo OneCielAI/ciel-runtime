@@ -6,6 +6,9 @@ from dataclasses import dataclass
 import re
 from typing import Any, Callable
 
+from .work_mode_launch import (WORK_MODE_KEY, WORK_PLAN_APPROVAL_ASK_KEY, work_mode_menu_label,
+                               work_plan_approval_menu_label)
+
 
 @dataclass(frozen=True, slots=True)
 class LlmOptionRepository:
@@ -188,6 +191,8 @@ def set_llm_option_config(
         save_config(cfg)
         return [f"Claude feedback drafts {'on' if enabled else 'off'}.",
                 "Applied on every Claude launch; manual /feedback remains available. Restart Claude to change a running session."]
+    if key in (WORK_MODE_KEY, WORK_PLAN_APPROVAL_ASK_KEY):
+        return set_work_mode_option(cfg, key, value, parse_bool, save_config)
     if key == "router_debug_message_preview_chars":
         fixed = positive_int(value)
         if str(value).lower() in ("0", "false", "off", "disable", "disabled", "none", "unset"):
@@ -296,6 +301,25 @@ def set_llm_option_config(
     save_config(cfg)
     clear_model_cache()
     return [f"{PROVIDER_LABELS.get(provider, provider)} option updated.", f"{key}: {value}", *cap_lines, *timeout_lines]
+
+
+_WORK_MODE_BOOL_WORDS = ("on", "true", "yes", "1", "enable", "enabled", "off", "false", "no", "0", "disable", "disabled")
+
+
+def set_work_mode_option(cfg: dict[str, Any], key: str, value: str, parse_bool, save_config) -> list[str]:
+    normalized = value.strip().lower()
+    if key == WORK_PLAN_APPROVAL_ASK_KEY:
+        normalized = {"ask": "true", "ask user": "true", "auto": "false"}.get(normalized, normalized)
+    if normalized in ("default", "unset", "none", "null"):
+        cfg.pop(key, None)
+    elif normalized in _WORK_MODE_BOOL_WORDS:
+        cfg[key] = parse_bool(normalized, default=key == WORK_MODE_KEY)
+    else:
+        return [f"{key}: enter on or off." if key == WORK_MODE_KEY else f"{key}: enter ask or auto."]
+    save_config(cfg)
+    if key == WORK_MODE_KEY:
+        return [f"Work mode {work_mode_menu_label(cfg)}.", "Native sessions are unchanged. Codex receives planning instructions only; this version does not enforce a planning gate for Codex."]
+    return [f"Work plan approval {work_plan_approval_menu_label(cfg)}.", "Native sessions are unchanged. Codex receives planning instructions only; this version does not enforce this approval as a gate on Codex edits."]
 
 
 def gateway_status_lines(router_health, matches_config, load_config) -> list[str]:
