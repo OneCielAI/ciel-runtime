@@ -1,0 +1,11 @@
+10:07:48 injected A1 offset=60.0
+10:08:48 injected B1 offset=120.0
+10:09:48 injected C1 offset=180.016
+10:10:48 injected A2 offset=240.0
+10:11:48 injected B2 offset=300.016
+10:12:48 injected C2 offset=360.016
+10:13:48 injected A3 offset=420.016
+10:14:48 injected B3 offset=480.0
+10:15:48 injected C3 offset=540.016
+10:15:56 injected FINAL offset=548.016
+10:21:42 finished C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-mode\evidence\minute-eval\run-4997239b

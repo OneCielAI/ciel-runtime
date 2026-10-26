@@ -1,0 +1,30 @@
+  ⎿  Added 13 lines
+      100          applied.extend(self._line(line))
+      101          return applied
+      102
+      103 +    def undo(self, event_id):
+      104 +        self._name(event_id)
+      105 +        if event_id not in self._accepted or event_id in self._undone:
+      106 +            raise InventoryError("unknown or already undone event")
+      107 +        candidate = self._balances.copy()
+      108 +        for sku, delta in self._deltas[event_id].items():
+      109 +            value = candidate.get(sku, 0) - delta
+      110 +            if value < 0:
+      111 +                raise InventoryError("undo would make stock negative")
+      112 +            candidate[sku] = value
+      113 +        self._balances = candidate
+      114 +        self._undone.add(event_id)
+      115 +
+      116      def balance(self, sku):
+      117          self._name(sku)
+      118          return self._balances.get(sku, 0)
+
+✽ Pollinating… (8m 16s · ↓ 18.3k tokens)
+  ⎿  Tip: Use /btw to ask a quick side question without interrupting Claude's current work
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · esc to interrupt
+      work: run 11/14 [A: routing_gr… 4/4 | B: booking_ca… 4/4 | C: inventory_… 3/4 | …] · REQ-C2 net-delta undo with
+      tombstones > Implement/test undo of e…

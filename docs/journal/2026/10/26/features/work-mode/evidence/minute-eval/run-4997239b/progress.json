@@ -1,0 +1,454 @@
+{
+  "provider": "cielairouter",
+  "model": "_Walkie_Opus55-Sol61-Fast",
+  "snapshot": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-work-breakdown-20261026-122744",
+  "port": 57184,
+  "workspace": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-work-coding-eval-171z0pb7\\workspace",
+  "scratch": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-work-coding-eval-171z0pb7",
+  "transport": "actual MCP submit_input/session_socket",
+  "live_before": {
+    "9385": {
+      "error": "URLError"
+    },
+    "9464": {
+      "error": "URLError"
+    },
+    "9489": {
+      "error": "URLError"
+    },
+    "9505": {
+      "ok": true,
+      "version": "0.2.51",
+      "pid": 57432
+    },
+    "9524": {
+      "ok": true,
+      "version": "0.2.51",
+      "pid": 25276
+    }
+  },
+  "injections": [
+    {
+      "id": "INITIAL",
+      "at": 1793027146.6920805,
+      "transport": "short console instruction -> complete request file"
+    },
+    {
+      "id": "A1",
+      "at": 1793027268.4674797,
+      "scheduled_offset_seconds": 60.0,
+      "actual_offset_seconds": 60.0,
+      "schedule_lateness_seconds": 0.0,
+      "activity_observed": true,
+      "before": {
+        "bytes": 723971,
+        "last_type": "user",
+        "last_tools": [
+          "mcp__ciel-runtime-router__work_node_update"
+        ],
+        "timestamp": "2026-10-26T15:07:23.301Z"
+      },
+      "router_activity": {
+        "updated_at": 1793027243.4491746,
+        "time": "2026-10-26T10:07:23",
+        "event": "request",
+        "attempt": 1,
+        "tokens": 37189
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": "3b92fe6729014663adc52761e0bf219c",
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"ok\":true,\"message\":{\"id\":1,\"time\":\"2026-10-26T10:07:48\",\"created_at_epoch\":1793027268.4715054,\"channel\":\"minute-eval:A\",\"sender_id\":\"minute-evaluator\",\"recipients\":[\"all\"],\"thread_id\":\"minute-eval-A\",\"parent_id\":null,\"message\":\"REQ-A1: Amend A only. shortest(src,dst,*,blocked=(),max_hops=None): blocked nodes excluded entirely, unknown blocked name ValueError. Blocked src/dst NoPathError even src==dst. max_hops None or nonnegative int excluding bool; invalid ValueError. Enforce hop bound BEFORE selecting minimum cost, not by truncating an unrestricted route. A0 cost/fewest-edge/lex ties unchanged. Add case where cheap route violates bound and more costly route succeeds. Preserve B/C.\",\"kind\":\"mcp_streamable_input\",\"meta\":{\"source\":\"ciel-runtime-mcp-streamable\",\"source_kind\":\"mcp_streamable_input\",\"injection_mode\":\"structured\",\"input_transport\":\"session_socket\",\"response_mode\":\"mcp\"},\"visibility\":\"private_runtime\",\"delivery\":[\"llm\"]}}"
+            }
+          ],
+          "isError": false
+        }
+      }
+    },
+    {
+      "id": "B1",
+      "at": 1793027328.4639652,
+      "scheduled_offset_seconds": 120.0,
+      "actual_offset_seconds": 120.0,
+      "schedule_lateness_seconds": 0.0,
+      "activity_observed": true,
+      "before": {
+        "bytes": 882977,
+        "last_type": "user",
+        "last_tools": [
+          "Edit"
+        ],
+        "timestamp": "2026-10-26T15:08:43.092Z"
+      },
+      "router_activity": {
+        "updated_at": 1793027323.2487516,
+        "time": "2026-10-26T10:08:43",
+        "event": "request",
+        "attempt": 1,
+        "tokens": 47360
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": "cca3e66b6a2243adaf9a95fe84ce07b7",
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"ok\":true,\"message\":{\"id\":2,\"time\":\"2026-10-26T10:08:48\",\"created_at_epoch\":1793027328.467967,\"channel\":\"minute-eval:B\",\"sender_id\":\"minute-evaluator\",\"recipients\":[\"all\"],\"thread_id\":\"minute-eval-B\",\"parent_id\":null,\"message\":\"REQ-B1: Amend B only. reserve_many(requests) receives iterable (id,start,end,units) and reserves ALL atomically. Batch invalid/duplicate/capacity error leaves state unchanged, including duplicate IDs inside batch. replace(id,start,end,units=1) atomically replaces active id, capacity checked EXCLUDING its own old booking. Unknown id ValueError; failed replacement retains original. allocations sorting unchanged. Preserve A/C.\",\"kind\":\"mcp_streamable_input\",\"meta\":{\"source\":\"ciel-runtime-mcp-streamable\",\"source_kind\":\"mcp_streamable_input\",\"injection_mode\":\"structured\",\"input_transport\":\"session_socket\",\"response_mode\":\"mcp\"},\"visibility\":\"private_runtime\",\"delivery\":[\"llm\"]}}"
+            }
+          ],
+          "isError": false
+        }
+      }
+    },
+    {
+      "id": "C1",
+      "at": 1793027388.4695048,
+      "scheduled_offset_seconds": 180.0,
+      "actual_offset_seconds": 180.01600000000053,
+      "schedule_lateness_seconds": 0.016000000000531145,
+      "activity_observed": true,
+      "before": {
+        "bytes": 1047099,
+        "last_type": "user",
+        "last_tools": [
+          "Edit"
+        ],
+        "timestamp": "2026-10-26T15:09:35.185Z"
+      },
+      "router_activity": {
+        "updated_at": 1793027375.3326666,
+        "time": "2026-10-26T10:09:35",
+        "event": "request",
+        "attempt": 1,
+        "tokens": 56164
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": "3c60311bec464038be39ea41a867fd27",
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"ok\":true,\"message\":{\"id\":3,\"time\":\"2026-10-26T10:09:48\",\"created_at_epoch\":1793027388.4735162,\"channel\":\"minute-eval:C\",\"sender_id\":\"minute-evaluator\",\"recipients\":[\"all\"],\"thread_id\":\"minute-eval-C\",\"parent_id\":null,\"message\":\"REQ-C1: Amend C only. New kind batch: {id,kind:batch,ops:[stock-or-move dicts WITHOUT id]}; batch is a JSON string. Ops apply listed order, later ops may consume earlier stock. Any invalid op rolls back ALL effects and does not reserve outer id; nested batches forbidden; empty ops allowed and outer id recorded. Identical repeated outer id ignored, different content ConflictError. Failed batch can retry corrected payload with same id. Return outer ID only. Preserve A/B.\",\"kind\":\"mcp_streamable_input\",\"meta\":{\"source\":\"ciel-runtime-mcp-streamable\",\"source_kind\":\"mcp_streamable_input\",\"injection_mode\":\"structured\",\"input_transport\":\"session_socket\",\"response_mode\":\"mcp\"},\"visibility\":\"private_runtime\",\"delivery\":[\"llm\"]}}"
+            }
+          ],
+          "isError": false
+        }
+      }
+    },
+    {
+      "id": "A2",
+      "at": 1793027448.4609702,
+      "scheduled_offset_seconds": 240.0,
+      "actual_offset_seconds": 240.0,
+      "schedule_lateness_seconds": 0.0,
+      "activity_observed": true,
+      "before": {
+        "bytes": 1207126,
+        "last_type": "user",
+        "last_tools": [
+          "Write"
+        ],
+        "timestamp": "2026-10-26T15:10:46.660Z"
+      },
+      "router_activity": {
+        "updated_at": 1793027446.8409433,
+        "time": "2026-10-26T10:10:46",
+        "event": "request",
+        "attempt": 1,
+        "tokens": 67177
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": "bea42260230840f091137aa6f8800be6",
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"ok\":true,\"message\":{\"id\":4,\"time\":\"2026-10-26T10:10:48\",\"created_at_epoch\":1793027448.4880238,\"channel\":\"minute-eval:A\",\"sender_id\":\"minute-evaluator\",\"recipients\":[\"all\"],\"thread_id\":\"minute-eval-A\",\"parent_id\":null,\"message\":\"REQ-A2: Amend A only. snapshot() returns independent read-only graph object with shortest and version frozen; later graph mutation cannot alter it. apply(changes,*,expected_version=None) atomically applies op dicts add_node/name, set_edge/src/dst/cost, remove_edge/src/dst, remove_node/name. Earlier ops visible to later. Any invalid op rolls back. Version mismatch raises ConflictError BEFORE applying. Changed successful batch increments version ONCE, empty/no-change batch no increment. Snapshots support A1 blocked/hops. Preserve B/C.\",\"kind\":\"mcp_streamable_input\",\"meta\":{\"source\":\"ciel-runtime-mcp-streamable\",\"source_kind\":\"mcp_streamable_input\",\"injection_mode\":\"structured\",\"input_transport\":\"session_socket\",\"response_mode\":\"mcp\"},\"visibility\":\"private_runtime\",\"delivery\":[\"llm\"]}}"
+            }
+          ],
+          "isError": false
+        }
+      }
+    },
+    {
+      "id": "B2",
+      "at": 1793027508.469415,
+      "scheduled_offset_seconds": 300.0,
+      "actual_offset_seconds": 300.01600000000053,
+      "schedule_lateness_seconds": 0.016000000000531145,
+      "activity_observed": true,
+      "before": {
+        "bytes": 1294088,
+        "last_type": "user",
+        "last_tools": [
+          "Edit"
+        ],
+        "timestamp": "2026-10-26T15:11:45.839Z"
+      },
+      "router_activity": {
+        "updated_at": 1793027506.0103269,
+        "time": "2026-10-26T10:11:46",
+        "event": "request",
+        "attempt": 1,
+        "tokens": 73493
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": "0f799ca29c87424b9fd8ac0897942aa5",
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"ok\":true,\"message\":{\"id\":5,\"time\":\"2026-10-26T10:11:48\",\"created_at_epoch\":1793027508.4734342,\"channel\":\"minute-eval:B\",\"sender_id\":\"minute-evaluator\",\"recipients\":[\"all\"],\"thread_id\":\"minute-eval-B\",\"parent_id\":null,\"message\":\"REQ-B2: Amend B only. wait(id,start,end,units=1,priority=0) validates ordinary shape/unique id across active+waiting, but accepts overcapacity. priority int excluding bool, negative allowed. waiting()->list[id] order HIGHER priority then FIFO insertion (NOT lexical). promote()->list[id] scans this order, reserves every currently fitting request; skip nonfitting and CONTINUE. Success changes later fit. Return promoted IDs ordered, skipped remain waiting. Waiting consumes no capacity. cancel active OR waiting, no auto promotion. reserve/replace/reserve_many cannot steal waiting IDs. Preserve A/C.\",\"kind\":\"mcp_streamable_input\",\"meta\":{\"source\":\"ciel-runtime-mcp-streamable\",\"source_kind\":\"mcp_streamable_input\",\"injection_mode\":\"structured\",\"input_transport\":\"session_socket\",\"response_mode\":\"mcp\"},\"visibility\":\"private_runtime\",\"delivery\":[\"llm\"]}}"
+            }
+          ],
+          "isError": false
+        }
+      }
+    },
+    {
+      "id": "C2",
+      "at": 1793027568.4700341,
+      "scheduled_offset_seconds": 360.0,
+      "actual_offset_seconds": 360.01600000000053,
+      "schedule_lateness_seconds": 0.016000000000531145,
+      "activity_observed": true,
+      "before": {
+        "bytes": 1509974,
+        "last_type": "user",
+        "last_tools": [
+          "Bash"
+        ],
+        "timestamp": "2026-10-26T15:12:44.305Z"
+      },
+      "router_activity": {
+        "updated_at": 1793027565.4950933,
+        "time": "2026-10-26T10:12:45",
+        "event": "request",
+        "attempt": 1,
+        "tokens": 88129
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": "733b78149e5643d68afb931b61e53991",
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"ok\":true,\"message\":{\"id\":6,\"time\":\"2026-10-26T10:12:48\",\"created_at_epoch\":1793027568.4735494,\"channel\":\"minute-eval:C\",\"sender_id\":\"minute-evaluator\",\"recipients\":[\"all\"],\"thread_id\":\"minute-eval-C\",\"parent_id\":null,\"message\":\"REQ-C2: Amend C only. undo(event_id) atomically reverses successful event including batch. Unknown/already undone InventoryError. If net reversal makes ANY SKU negative fail with balances/status unchanged; retry later allowed. Use per-event NET signed SKU delta, not reversed validation order of ops. Successful undo keeps tombstone: identical feed ignored, changed same ID ConflictError, cannot resurrect. Unrelated events independently undoable; no auto undo of later events. Preserve A/B.\",\"kind\":\"mcp_streamable_input\",\"meta\":{\"source\":\"ciel-runtime-mcp-streamable\",\"source_kind\":\"mcp_streamable_input\",\"injection_mode\":\"structured\",\"input_transport\":\"session_socket\",\"response_mode\":\"mcp\"},\"visibility\":\"private_runtime\",\"delivery\":[\"llm\"]}}"
+            }
+          ],
+          "isError": false
+        }
+      }
+    },
+    {
+      "id": "A3",
+      "at": 1793027628.4656777,
+      "scheduled_offset_seconds": 420.0,
+      "actual_offset_seconds": 420.01600000000053,
+      "schedule_lateness_seconds": 0.016000000000531145,
+      "activity_observed": true,
+      "before": {
+        "bytes": 1700324,
+        "last_type": "user",
+        "last_tools": [
+          "Bash"
+        ],
+        "timestamp": "2026-10-26T15:13:35.394Z"
+      },
+      "router_activity": {
+        "updated_at": 1793027616.5839326,
+        "time": "2026-10-26T10:13:36",
+        "event": "request",
+        "attempt": 1,
+        "tokens": 100742
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": "8ac1cc77523c49e38edaa8ee026811a9",
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"ok\":true,\"message\":{\"id\":7,\"time\":\"2026-10-26T10:13:48\",\"created_at_epoch\":1793027628.4686885,\"channel\":\"minute-eval:A\",\"sender_id\":\"minute-evaluator\",\"recipients\":[\"all\"],\"thread_id\":\"minute-eval-A\",\"parent_id\":null,\"message\":\"REQ-A3: Amend A only. SUPERSEDE A0 equal-cost tie: final default LEXICAL FULL PATH FIRST then hops (not fewest edges first). Simple paths, zero-cost cycles, blocked/hops unchanged. Include longer lex-smaller equal-cost route. Expose Graph(tie_policy=lexical) with string values lexical/fewest_hops; final default lexical; explicit fewest_hops preserves original policy. Invalid policy ValueError. Snapshots freeze data AND originating tie policy. Preserve B high-priority/FIFO and C first-id-wins.\",\"kind\":\"mcp_streamable_input\",\"meta\":{\"source\":\"ciel-runtime-mcp-streamable\",\"source_kind\":\"mcp_streamable_input\",\"injection_mode\":\"structured\",\"input_transport\":\"session_socket\",\"response_mode\":\"mcp\"},\"visibility\":\"private_runtime\",\"delivery\":[\"llm\"]}}"
+            }
+          ],
+          "isError": false
+        }
+      }
+    },
+    {
+      "id": "B3",
+      "at": 1793027688.453617,
+      "scheduled_offset_seconds": 480.0,
+      "actual_offset_seconds": 480.0,
+      "schedule_lateness_seconds": 0.0,
+      "activity_observed": true,
+      "before": {
+        "bytes": 1931779,
+        "last_type": "user",
+        "last_tools": [
+          "Bash"
+        ],
+        "timestamp": "2026-10-26T15:14:47.485Z"
+      },
+      "router_activity": {
+        "updated_at": 1793027687.684461,
+        "time": "2026-10-26T10:14:47",
+        "event": "request",
+        "attempt": 1,
+        "tokens": 114367
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": "6313ac8dde2c4fbab0591350f4da65fb",
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"ok\":true,\"message\":{\"id\":8,\"time\":\"2026-10-26T10:14:48\",\"created_at_epoch\":1793027688.4571233,\"channel\":\"minute-eval:B\",\"sender_id\":\"minute-evaluator\",\"recipients\":[\"all\"],\"thread_id\":\"minute-eval-B\",\"parent_id\":null,\"message\":\"REQ-B3: Amend B only. checkpoint()->opaque immutable value; restore(cp) atomically restores active+waiting bookings, priorities, original waiting insertion sequence and capacity. Same Calendar checkpoints only, foreign/invalid ValueError. Reusable deep independent checkpoint. Calendar.version starts 0; increments ONCE per state-changing reserve/cancel/replace/reserve_many/wait/promote/restore; not per promoted member; no-op/error unchanged. restore increments CURRENT version, never rewinds; already identical state no-op. Restore exact wait FIFO. No auto promotion on cancel. Preserve A/C.\",\"kind\":\"mcp_streamable_input\",\"meta\":{\"source\":\"ciel-runtime-mcp-streamable\",\"source_kind\":\"mcp_streamable_input\",\"injection_mode\":\"structured\",\"input_transport\":\"session_socket\",\"response_mode\":\"mcp\"},\"visibility\":\"private_runtime\",\"delivery\":[\"llm\"]}}"
+            }
+          ],
+          "isError": false
+        }
+      }
+    },
+    {
+      "id": "C3",
+      "at": 1793027748.4618697,
+      "scheduled_offset_seconds": 540.0,
+      "actual_offset_seconds": 540.0160000000005,
+      "schedule_lateness_seconds": 0.016000000000531145,
+      "activity_observed": true,
+      "before": {
+        "bytes": 2034000,
+        "last_type": "user",
+        "last_tools": [
+          "mcp__ciel-runtime-router__work_node_update"
+        ],
+        "timestamp": "2026-10-26T15:14:53.788Z"
+      },
+      "router_activity": {
+        "updated_at": 1793027737.446159,
+        "time": "2026-10-26T10:15:37",
+        "event": "request",
+        "attempt": 1,
+        "tokens": 125193
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": "c9db10db0814401dbc58261bcec16680",
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"ok\":true,\"message\":{\"id\":9,\"time\":\"2026-10-26T10:15:48\",\"created_at_epoch\":1793027748.465382,\"channel\":\"minute-eval:C\",\"sender_id\":\"minute-evaluator\",\"recipients\":[\"all\"],\"thread_id\":\"minute-eval-C\",\"parent_id\":null,\"message\":\"REQ-C3: Amend C only. checkpoint()->opaque immutable; restore(cp) restores balances, accepted payloads/tombstones/undo deltas AND unfinished fragment buffer. Reusable independent checkpoint from same InventoryStream only; foreign/invalid InventoryError. Restore replays fragments correctly preserving idempotency/undo at checkpoint time. MAX line length 4096 Unicode code points (not bytes), complete or unfinished. Any feed that would exceed bound raises InventoryError and rolls back ALL effects/buffer/idempotency from THAT call, even earlier complete events in it. Preserve A/B policies.\",\"kind\":\"mcp_streamable_input\",\"meta\":{\"source\":\"ciel-runtime-mcp-streamable\",\"source_kind\":\"mcp_streamable_input\",\"injection_mode\":\"structured\",\"input_transport\":\"session_socket\",\"response_mode\":\"mcp\"},\"visibility\":\"private_runtime\",\"delivery\":[\"llm\"]}}"
+            }
+          ],
+          "isError": false
+        }
+      }
+    },
+    {
+      "id": "FINAL",
+      "at": 1793027756.4590895,
+      "scheduled_offset_seconds": 548.0,
+      "actual_offset_seconds": 548.0160000000005,
+      "schedule_lateness_seconds": 0.016000000000531145,
+      "activity_observed": true,
+      "before": {
+        "bytes": 2034139,
+        "last_type": "user",
+        "last_tools": [
+          "mcp__ciel-runtime-router__work_node_update"
+        ],
+        "timestamp": "2026-10-26T15:14:53.788Z"
+      },
+      "router_activity": {
+        "updated_at": 1793027737.446159,
+        "time": "2026-10-26T10:15:37",
+        "event": "request",
+        "attempt": 1,
+        "tokens": 125193
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": "35e7604c41404bd18698ba7d2f59e59a",
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"ok\":true,\"message\":{\"id\":10,\"time\":\"2026-10-26T10:15:56\",\"created_at_epoch\":1793027756.4631011,\"channel\":\"minute-eval:all\",\"sender_id\":\"minute-evaluator\",\"recipients\":[\"all\"],\"thread_id\":\"minute-eval-all\",\"parent_id\":null,\"message\":\"REQ-FINAL: All nine amendments delivered. Complete A0-A3, B0-B3, C0-C3 and retain superseding policies. Run python -m unittest discover -v plus verification. Save completion.json mapping all TWELVE IDs to implementation/tests/evidence and honest unsatisfied items. Retain A/B/C Work branches and verified evidence on every done leaf. If finished reply EVAL-COMPLETE; if blocked EVAL-BLOCKED with cause, do not loop. No external/session-control actions.\",\"kind\":\"mcp_streamable_input\",\"meta\":{\"source\":\"ciel-runtime-mcp-streamable\",\"source_kind\":\"mcp_streamable_input\",\"injection_mode\":\"structured\",\"input_transport\":\"session_socket\",\"response_mode\":\"mcp\"},\"visibility\":\"private_runtime\",\"delivery\":[\"llm\"]}}"
+            }
+          ],
+          "isError": false
+        }
+      }
+    }
+  ],
+  "screens": [
+    {
+      "label": "00-ready",
+      "exit": 0,
+      "bytes": 15832
+    },
+    {
+      "label": "inject-A1",
+      "exit": 0,
+      "bytes": 39437
+    },
+    {
+      "label": "inject-B1",
+      "exit": 0,
+      "bytes": 43174
+    },
+    {
+      "label": "inject-C1",
+      "exit": 0,
+      "bytes": 47091
+    },
+    {
+      "label": "inject-A2",
+      "exit": 0,
+      "bytes": 43930
+    },
+    {
+      "label": "inject-B2",
+      "exit": 0,
+      "bytes": 47765
+    },
+    {
+      "label": "inject-C2",
+      "exit": 0,
+      "bytes": 42544
+    },
+    {
+      "label": "inject-A3",
+      "exit": 0,
+      "bytes": 42677
+    },
+    {
+      "label": "inject-B3",
+      "exit": 0,
+      "bytes": 37604
+    },
+    {
+      "label": "inject-C3",
+      "exit": 0,
+      "bytes": 50065
+    }
+  ],
+  "owned_launcher_pid": 67560,
+  "console_host_pid": 60072,
+  "owned_console_agent_pid": 29756,
+  "initial_full_request_verified": true,
+  "cadence_origin_epoch": 1793027208.4636157
+}

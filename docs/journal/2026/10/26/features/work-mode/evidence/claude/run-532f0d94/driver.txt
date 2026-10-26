@@ -1,0 +1,18 @@
+owned router: yes
+interactive owned cmd: yes
+interactive ready: yes
+console command: yes
+tree command: yes
+console command: yes
+ask deny dialog: yes
+console command: yes
+console command: yes
+deny response: yes
+console command: yes
+ask approve dialog: yes
+console command: yes
+approve response: yes
+owned stop 74648 SUCCESS: The process with PID 92700 (child process of PID 74648) has been terminated.
+SUCCESS: The process with PID 74648 (child process of PID 29128) has been terminated.
+owned stop 93500 SUCCESS: The process with PID 93500 (child process of PID 80588) has been terminated.
+evidence C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-mode\evidence\claude\run-532f0d94

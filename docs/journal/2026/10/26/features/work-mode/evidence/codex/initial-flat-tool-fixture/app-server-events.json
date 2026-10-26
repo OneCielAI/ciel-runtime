@@ -1,0 +1,379 @@
+[
+  {
+    "id": 1,
+    "result": {
+      "userAgent": "work-proof/0.158.0 (Windows 10.0.26200; x86_64) WindowsTerminal (work-proof; 1)",
+      "codexHome": "C:\\Users\\djlov\\AppData\\Local\\Temp\\codex-work-proof-hwkcdlg4\\codex",
+      "platformFamily": "windows",
+      "platformOs": "windows"
+    }
+  },
+  {
+    "method": "configWarning",
+    "params": {
+      "summary": "Project-local config, hooks, and exec policies are disabled in the following folders until the project is trusted, but skills still load.\n    1. C:\\Users\\djlov\\.codex\n       To load project-local config, hooks, and exec policies, add c:\\ as a trusted project in C:\\Users\\djlov\\AppData\\Local\\Temp\\codex-work-proof-hwkcdlg4\\codex\\config.toml.\n",
+      "details": null
+    },
+    "emittedAtMs": 1792995545369
+  },
+  {
+    "method": "remoteControl/status/changed",
+    "params": {
+      "status": "disabled",
+      "serverName": "SAMA",
+      "installationId": "779b4a2a-ba0f-42f4-b79a-4c106363f193",
+      "environmentId": null
+    },
+    "emittedAtMs": 1792995545370
+  },
+  {
+    "id": 2,
+    "result": {
+      "thread": {
+        "id": "01a176dc-d12a-7693-b1ba-5c3a76e3f346",
+        "environments": [
+          {
+            "environmentId": "local",
+            "cwd": "C:\\Users\\djlov\\AppData\\Local\\Temp\\codex-work-proof-hwkcdlg4\\workspace",
+            "runtimeWorkspaceRoots": [
+              "C:\\Users\\djlov\\AppData\\Local\\Temp\\codex-work-proof-hwkcdlg4\\workspace"
+            ]
+          }
+        ],
+        "extra": null,
+        "sessionId": "01a176dc-d12a-7693-b1ba-5c3a76e3f346",
+        "forkedFromId": null,
+        "parentThreadId": null,
+        "preview": "",
+        "ephemeral": true,
+        "section": null,
+        "sectionEnteredAt": null,
+        "projectId": null,
+        "historyMode": "paginated",
+        "modelProvider": "workproof",
+        "model": "work-probe",
+        "reasoningEffort": null,
+        "createdAt": 1792995545,
+        "updatedAt": 1792995545,
+        "recencyAt": 1792995545,
+        "status": {
+          "type": "idle"
+        },
+        "path": null,
+        "cwd": "C:\\Users\\djlov\\AppData\\Local\\Temp\\codex-work-proof-hwkcdlg4\\workspace",
+        "cliVersion": "0.158.0",
+        "originator": "work-proof",
+        "source": "vscode",
+        "canAcceptDirectInput": true,
+        "threadSource": null,
+        "agentNickname": null,
+        "agentRole": null,
+        "gitInfo": null,
+        "name": null,
+        "daybreakEnabled": null,
+        "turns": []
+      },
+      "model": "work-probe",
+      "modelProvider": "workproof",
+      "serviceTier": null,
+      "disabledPluginIds": [],
+      "cwd": "C:\\Users\\djlov\\AppData\\Local\\Temp\\codex-work-proof-hwkcdlg4\\workspace",
+      "runtimeWorkspaceRoots": [
+        "C:\\Users\\djlov\\AppData\\Local\\Temp\\codex-work-proof-hwkcdlg4\\workspace"
+      ],
+      "instructionSources": [],
+      "approvalPolicy": "never",
+      "approvalsReviewer": "user",
+      "sandbox": {
+        "type": "readOnly",
+        "networkAccess": false
+      },
+      "activePermissionProfile": null,
+      "reasoningEffort": null,
+      "multiAgentMode": "explicitRequestOnly"
+    }
+  },
+  {
+    "method": "thread/started",
+    "params": {
+      "thread": {
+        "id": "01a176dc-d12a-7693-b1ba-5c3a76e3f346",
+        "environments": [
+          {
+            "environmentId": "local",
+            "cwd": "C:\\Users\\djlov\\AppData\\Local\\Temp\\codex-work-proof-hwkcdlg4\\workspace",
+            "runtimeWorkspaceRoots": [
+              "C:\\Users\\djlov\\AppData\\Local\\Temp\\codex-work-proof-hwkcdlg4\\workspace"
+            ]
+          }
+        ],
+        "extra": null,
+        "sessionId": "01a176dc-d12a-7693-b1ba-5c3a76e3f346",
+        "forkedFromId": null,
+        "parentThreadId": null,
+        "preview": "",
+        "ephemeral": true,
+        "section": null,
+        "sectionEnteredAt": null,
+        "projectId": null,
+        "historyMode": "paginated",
+        "modelProvider": "workproof",
+        "model": "work-probe",
+        "reasoningEffort": null,
+        "createdAt": 1792995545,
+        "updatedAt": 1792995545,
+        "recencyAt": 1792995545,
+        "status": {
+          "type": "idle"
+        },
+        "path": null,
+        "cwd": "C:\\Users\\djlov\\AppData\\Local\\Temp\\codex-work-proof-hwkcdlg4\\workspace",
+        "cliVersion": "0.158.0",
+        "originator": "work-proof",
+        "source": "vscode",
+        "canAcceptDirectInput": true,
+        "threadSource": null,
+        "agentNickname": null,
+        "agentRole": null,
+        "gitInfo": null,
+        "name": null,
+        "daybreakEnabled": null,
+        "turns": []
+      }
+    },
+    "emittedAtMs": 1792995545478
+  },
+  {
+    "method": "mcpServer/startupStatus/updated",
+    "params": {
+      "threadId": "01a176dc-d12a-7693-b1ba-5c3a76e3f346",
+      "name": "ciel-runtime-router",
+      "status": "starting",
+      "error": null,
+      "failureReason": null
+    },
+    "emittedAtMs": 1792995545479
+  },
+  {
+    "method": "warning",
+    "params": {
+      "threadId": "01a176dc-d12a-7693-b1ba-5c3a76e3f346",
+      "message": "Model metadata for `work-probe` not found. Defaulting to fallback metadata; this can degrade performance and cause issues."
+    },
+    "emittedAtMs": 1792995545513
+  },
+  {
+    "method": "mcpServer/startupStatus/updated",
+    "params": {
+      "threadId": "01a176dc-d12a-7693-b1ba-5c3a76e3f346",
+      "name": "ciel-runtime-router",
+      "status": "ready",
+      "error": null,
+      "failureReason": null
+    },
+    "emittedAtMs": 1792995545516
+  },
+  {
+    "id": 3,
+    "result": {
+      "turn": {
+        "id": "01a176dc-d193-7e31-90ae-7a2478bf8480",
+        "items": [],
+        "itemsView": "notLoaded",
+        "status": "inProgress",
+        "error": null,
+        "startedAt": null,
+        "completedAt": null,
+        "durationMs": null
+      }
+    }
+  },
+  {
+    "method": "thread/status/changed",
+    "params": {
+      "threadId": "01a176dc-d12a-7693-b1ba-5c3a76e3f346",
+      "status": {
+        "type": "active",
+        "activeFlags": []
+      }
+    },
+    "emittedAtMs": 1792995545550
+  },
+  {
+    "method": "turn/started",
+    "params": {
+      "threadId": "01a176dc-d12a-7693-b1ba-5c3a76e3f346",
+      "turn": {
+        "id": "01a176dc-d193-7e31-90ae-7a2478bf8480",
+        "items": [],
+        "itemsView": "notLoaded",
+        "status": "inProgress",
+        "error": null,
+        "startedAt": 1792995545,
+        "completedAt": null,
+        "durationMs": null
+      }
+    },
+    "emittedAtMs": 1792995545551
+  },
+  {
+    "method": "item/started",
+    "params": {
+      "item": {
+        "type": "userMessage",
+        "id": "01a176dc-d1e1-7941-9669-30eafb61aa8e",
+        "clientId": null,
+        "content": [
+          {
+            "type": "text",
+            "text": "Verify Work integration using the router Work plan tools. This is an isolated fixture; no files need changes.",
+            "text_elements": []
+          }
+        ]
+      },
+      "threadId": "01a176dc-d12a-7693-b1ba-5c3a76e3f346",
+      "turnId": "01a176dc-d193-7e31-90ae-7a2478bf8480",
+      "startedAtMs": 1792995545569
+    },
+    "emittedAtMs": 1792995545573
+  },
+  {
+    "method": "item/completed",
+    "params": {
+      "item": {
+        "type": "userMessage",
+        "id": "01a176dc-d1e1-7941-9669-30eafb61aa8e",
+        "clientId": null,
+        "content": [
+          {
+            "type": "text",
+            "text": "Verify Work integration using the router Work plan tools. This is an isolated fixture; no files need changes.",
+            "text_elements": []
+          }
+        ]
+      },
+      "threadId": "01a176dc-d12a-7693-b1ba-5c3a76e3f346",
+      "turnId": "01a176dc-d193-7e31-90ae-7a2478bf8480",
+      "completedAtMs": 1792995545570
+    },
+    "emittedAtMs": 1792995545574
+  },
+  {
+    "method": "item/started",
+    "params": {
+      "item": {
+        "type": "agentMessage",
+        "id": "msg_final",
+        "text": "CODEX_WORK_PROTOCOL_OK",
+        "phase": null,
+        "memoryCitation": null,
+        "delivery": null,
+        "questions": null
+      },
+      "threadId": "01a176dc-d12a-7693-b1ba-5c3a76e3f346",
+      "turnId": "01a176dc-d193-7e31-90ae-7a2478bf8480",
+      "startedAtMs": 1792995547118
+    },
+    "emittedAtMs": 1792995547120
+  },
+  {
+    "method": "item/completed",
+    "params": {
+      "item": {
+        "type": "agentMessage",
+        "id": "msg_final",
+        "text": "CODEX_WORK_PROTOCOL_OK",
+        "phase": null,
+        "memoryCitation": null,
+        "delivery": null,
+        "questions": null
+      },
+      "threadId": "01a176dc-d12a-7693-b1ba-5c3a76e3f346",
+      "turnId": "01a176dc-d193-7e31-90ae-7a2478bf8480",
+      "completedAtMs": 1792995547119
+    },
+    "emittedAtMs": 1792995547120
+  },
+  {
+    "method": "thread/tokenUsage/updated",
+    "params": {
+      "threadId": "01a176dc-d12a-7693-b1ba-5c3a76e3f346",
+      "turnId": "01a176dc-d193-7e31-90ae-7a2478bf8480",
+      "tokenUsage": {
+        "total": {
+          "totalTokens": 120,
+          "inputTokens": 100,
+          "cachedInputTokens": 0,
+          "cacheWriteInputTokens": 0,
+          "outputTokens": 20,
+          "reasoningOutputTokens": 0
+        },
+        "last": {
+          "totalTokens": 120,
+          "inputTokens": 100,
+          "cachedInputTokens": 0,
+          "cacheWriteInputTokens": 0,
+          "outputTokens": 20,
+          "reasoningOutputTokens": 0
+        },
+        "modelContextWindow": 258400
+      }
+    },
+    "emittedAtMs": 1792995547121
+  },
+  {
+    "method": "account/rateLimits/updated",
+    "params": {
+      "rateLimits": {
+        "limitId": "codex",
+        "limitName": null,
+        "normalModelSlug": null,
+        "primary": null,
+        "secondary": null,
+        "credits": null,
+        "individualLimit": null,
+        "spendControlReached": null,
+        "planType": null,
+        "rateLimitReachedType": null
+      }
+    },
+    "emittedAtMs": 1792995547121
+  },
+  {
+    "method": "thread/status/changed",
+    "params": {
+      "threadId": "01a176dc-d12a-7693-b1ba-5c3a76e3f346",
+      "status": {
+        "type": "idle"
+      }
+    },
+    "emittedAtMs": 1792995547128
+  },
+  {
+    "method": "turn/completed",
+    "params": {
+      "threadId": "01a176dc-d12a-7693-b1ba-5c3a76e3f346",
+      "turn": {
+        "id": "01a176dc-d193-7e31-90ae-7a2478bf8480",
+        "items": [
+          {
+            "type": "agentMessage",
+            "id": "msg_final",
+            "text": "CODEX_WORK_PROTOCOL_OK",
+            "phase": null,
+            "memoryCitation": null,
+            "delivery": null,
+            "questions": null
+          }
+        ],
+        "itemsView": "summary",
+        "status": "completed",
+        "error": null,
+        "startedAt": 1792995545,
+        "completedAt": 1792995547,
+        "durationMs": 1614
+      }
+    },
+    "emittedAtMs": 1792995547128
+  }
+]

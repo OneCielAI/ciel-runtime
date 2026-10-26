@@ -1,0 +1,38 @@
+           "title": "C inventory stream",
+           "status": "pending",
+           "done": 0,
+           "total": 1
+         }
+       ],
+       "ready": true,
+       "ready_reason": "ready",
+       "goals": 1
+     }
+
+❯ /work-mode view
+  ⎿  ciel-work: Work inspector: Tab/arrows navigate, Enter opens, Esc returns.
+
+❯ /work-mode tree
+  ⎿  ciel-work: Work phase: planning
+     Active goal progress: 1/4 steps done
+     [~] n1 Verify real Work mode
+       [~] n2 Exercise guarded mutation
+         [~] n3 Edit and verify subject
+           [x] n4 Apply verified edit  (evidence: Actual Edit returned success and Bash cat subject.txt returned AFTER.)
+           [ ] n5 Continue persisted plan
+       [ ] n6 B booking calendar
+         [ ] n7 Verify half-open intervals
+       [ ] n8 C inventory stream
+         [ ] n9 Verify stock and undo
+Work 1/4 — Verify real Work mode                                                                                                   [-]
+1: [~] Exercise guarded mutation 1/2
+2: [ ] B booking calendar 0/1
+3: [ ] C inventory stream 0/1
+w: All items / refresh
+Ctrl+X Tab: focus · Tab/↑↓: select · Enter: inspect · Esc: return
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+                                                                                                                       work: plan 1/4
+  ⏵⏵ bypass permissions on (shift+tab to cycle)

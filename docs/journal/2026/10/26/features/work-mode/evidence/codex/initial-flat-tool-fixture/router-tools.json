@@ -1,0 +1,652 @@
+{
+  "jsonrpc": "2.0",
+  "id": 1792995544073,
+  "result": {
+    "tools": [
+      {
+        "name": "submit_input",
+        "description": "Submit an external message to the active Ciel Runtime session. Claude sessions use their authenticated session socket by default; callers may explicitly select session_socket, tty, or router.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "message": {
+              "type": "string"
+            },
+            "channel": {
+              "type": "string"
+            },
+            "sender_id": {
+              "type": "string"
+            },
+            "thread_id": {
+              "type": "string"
+            },
+            "input_transport": {
+              "type": "string",
+              "enum": [
+                "session_socket",
+                "tty",
+                "router"
+              ]
+            },
+            "response_mode": {
+              "type": "string",
+              "enum": [
+                "web_chat",
+                "tty",
+                "mcp"
+              ]
+            }
+          },
+          "required": [
+            "message"
+          ]
+        }
+      },
+      {
+        "name": "compact_session",
+        "description": "Compact the active Ciel Runtime-launched session's conversation. Terminal sessions (Claude Code, Codex) get /compact typed once the turn ends; Codex app-server sessions (desktop, --remote TUI) get thread/compact/start. Use this when the conversation context is too large and the session should compact itself.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "reason": {
+              "type": "string",
+              "description": "Optional short reason shown in Ciel Runtime logs."
+            }
+          }
+        }
+      },
+      {
+        "name": "new_session",
+        "description": "Start a new conversation in the active Ciel Runtime-launched session once the current turn ends. Claude Code gets /clear typed, the Codex TUI gets /new, and Codex app-server sessions (desktop, bare app-server) get a new thread via thread/start. The previous conversation stays on disk and can be resumed.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "reason": {
+              "type": "string",
+              "description": "Optional short reason shown in Ciel Runtime logs."
+            }
+          }
+        }
+      },
+      {
+        "name": "goal_clear",
+        "description": "Clear the active goal of the Ciel Runtime-launched session (set with /goal in Claude Code or Codex), so it stops continuing on its own. Terminal sessions get /goal clear typed, even while a turn runs; Codex app-server sessions (desktop, --remote TUI, bare app-server) get thread/goal/clear. Setting a goal stays with the runtime's own /goal command.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "reason": {
+              "type": "string",
+              "description": "Optional short reason shown in Ciel Runtime logs."
+            }
+          }
+        }
+      },
+      {
+        "name": "send_message",
+        "description": "Send a reply or status message to a Ciel Runtime channel. Use this to answer messages delivered through the Ciel Runtime channel inbox, including /ca/web/chat browser sessions.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "channel": {
+              "type": "string",
+              "description": "Destination channel id from the incoming message."
+            },
+            "message": {
+              "type": "string",
+              "description": "Legacy unstructured message body."
+            },
+            "response": {
+              "type": "object",
+              "description": "Structured Web Chat response. Prefer this for browser acknowledgements and replies.",
+              "properties": {
+                "spoken": {
+                  "type": "string",
+                  "description": "Short conversational text intended for speech synthesis."
+                },
+                "overview": {
+                  "type": "string",
+                  "description": "Concise on-screen summary."
+                },
+                "details": {
+                  "type": "string",
+                  "description": "Optional detailed supporting Markdown."
+                }
+              }
+            },
+            "recipients": {
+              "description": "Recipient id, 'all', or an array of recipients. Use 'web' for /ca/web/chat replies."
+            },
+            "thread_id": {
+              "type": "string",
+              "description": "Thread/conversation id to continue."
+            },
+            "parent_id": {
+              "description": "Optional parent message id."
+            },
+            "reply_token": {
+              "type": "string",
+              "description": "Opaque Web Chat reply token from the current routing contract."
+            },
+            "delivery": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Delivery targets. Use ['web'] for browser-only replies."
+            },
+            "kind": {
+              "type": "string",
+              "description": "Optional message kind, for example 'reply' or 'status'."
+            }
+          },
+          "required": [
+            "channel"
+          ],
+          "anyOf": [
+            {
+              "required": [
+                "message"
+              ]
+            },
+            {
+              "required": [
+                "response"
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "name": "send_file",
+        "description": "Send a file attachment to a Ciel Runtime channel. Use this to return files to /ca/web/chat browser sessions. Provide either path for an existing local file, or content with encoding='text' or encoding='base64'.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "channel": {
+              "type": "string",
+              "description": "Destination channel id from the incoming message."
+            },
+            "path": {
+              "type": "string",
+              "description": "Optional local file path to attach."
+            },
+            "content": {
+              "type": "string",
+              "description": "Optional inline file content when path is not used."
+            },
+            "encoding": {
+              "type": "string",
+              "description": "Inline content encoding: text or base64."
+            },
+            "name": {
+              "type": "string",
+              "description": "Display filename. Defaults to the source path basename or file.txt."
+            },
+            "content_type": {
+              "type": "string",
+              "description": "Optional MIME type."
+            },
+            "message": {
+              "type": "string",
+              "description": "Optional message body to show with the file link."
+            },
+            "recipients": {
+              "description": "Recipient id, 'all', or an array of recipients. Use 'web' for /ca/web/chat replies."
+            },
+            "thread_id": {
+              "type": "string",
+              "description": "Thread/conversation id to continue."
+            },
+            "parent_id": {
+              "description": "Optional parent message id."
+            },
+            "reply_token": {
+              "type": "string",
+              "description": "Opaque Web Chat reply token from the current routing contract."
+            },
+            "delivery": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Delivery targets. Use ['web'] for browser-only replies."
+            }
+          },
+          "required": [
+            "channel"
+          ]
+        }
+      },
+      {
+        "name": "llm_options",
+        "description": "Show, apply, or restore ciel-runtime live LLM option presets for the current routed session. Use action='list' to show keyboard-selectable slash commands, action='apply' with preset, or action='restore' to return to the captured original options.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "action": {
+              "type": "string",
+              "description": "One of status, list, apply, or restore."
+            },
+            "preset": {
+              "type": "string",
+              "description": "Preset id or alias when action is apply, for example balanced, long-context-256k, long-context-300k, long-context-512k, or million-context-1m."
+            }
+          }
+        }
+      },
+      {
+        "name": "restart_session",
+        "description": "Restart the CLI session (Claude Code, Codex, AGY, ...) that is currently running through this Ciel Runtime router. The launcher that owns the CLI terminates it and relaunches it with the runtime's session-continue argument (--continue for Claude Code, resume --last for Codex), so the conversation resumes instead of starting over. A turn in progress finishes first (the console shows a notice while the restart waits), the workspace MCP servers are started anew, and codex-remote restarts its app-server too, on the same thread. Use this after deploying a new runtime build, or to recover a wedged CLI. The caller is disconnected when the session restarts.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "reason": {
+              "type": "string",
+              "description": "Optional short reason recorded in the Ciel Runtime logs."
+            },
+            "runtime": {
+              "type": "string",
+              "description": "Optional runtime label for the notice, for example claude or codex."
+            },
+            "client_pid": {
+              "type": "integer",
+              "description": "Optional launcher pid from a previous restart_session result. Defaults to the most recently started active client of this router instance."
+            },
+            "resume": {
+              "type": "boolean",
+              "description": "Add the runtime's session-continue argument when the current command line has none. Defaults to true."
+            }
+          }
+        }
+      },
+      {
+        "name": "recover_sse_delivery",
+        "description": "Report or recover a session whose external SSE inputs are not reaching it. action=status returns payload-free delivery evidence without changing anything; action=reset or auto queues a resumed restart only for the sole registered local client when queued input is observably stale (at least 120 s), compaction admission is not paused, and the recovery cooldown (at least 900 s) has elapsed. Compaction pauses never authorize a reset. No history, queue or cursor is modified.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "action": {
+              "type": "string",
+              "enum": [
+                "status",
+                "reset",
+                "auto"
+              ]
+            },
+            "reason": {
+              "type": "string",
+              "description": "Short reason recorded in the logs."
+            },
+            "runtime": {
+              "type": "string",
+              "description": "Optional runtime label, e.g. claude or codex."
+            },
+            "client_pid": {
+              "type": "integer",
+              "description": "Optional launcher pid from restart_session."
+            },
+            "min_queue_age_seconds": {
+              "type": "number",
+              "minimum": 1,
+              "description": "Queue age threshold; enforced minimum/default 120 s."
+            },
+            "cooldown_seconds": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Seconds between recovery attempts; enforced minimum/default 900."
+            },
+            "force": {
+              "type": "boolean",
+              "description": "Compatibility field; cannot bypass evidence or cooldown."
+            }
+          }
+        }
+      },
+      {
+        "name": "provider_fallback",
+        "description": "Show or change the provider fallback: while the current provider is rate-limited (429 / usage limit), requests are served by a backup provider whose credentials are already stored, until the provider's reset time. Actions: status, switch (provider, minutes, model), return (back to the configured provider now), enable, disable.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "action": {
+              "type": "string",
+              "enum": [
+                "status",
+                "switch",
+                "return",
+                "enable",
+                "disable"
+              ]
+            },
+            "provider": {
+              "type": "string",
+              "description": "switch: the backup provider id."
+            },
+            "minutes": {
+              "type": "number",
+              "minimum": 1,
+              "description": "switch: how long (default: the configured cooldown)."
+            },
+            "model": {
+              "type": "string",
+              "description": "switch: the model on that provider (default: its configured model)."
+            }
+          },
+          "required": [
+            "action"
+          ]
+        }
+      },
+      {
+        "name": "session_backup",
+        "description": "Back up this agent session now (conversation, Ciel session state, CLI settings and work files) to the configured backup targets, list its snapshots, or show the backup schedule and last run. Restoring is a local `ciel-runtime backup restore` command, not a tool.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "action": {
+              "type": "string",
+              "enum": [
+                "create",
+                "list",
+                "status"
+              ]
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "description": "list: newest snapshots to return (default 20)."
+            }
+          },
+          "required": [
+            "action"
+          ]
+        }
+      },
+      {
+        "name": "telemetry_logs",
+        "description": "Inspect cursor-addressable OpenTelemetry logs stored by Ciel Runtime without loading whole telemetry batches into model context. Actions: list, read, configure, roll, delete.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "action": {
+              "type": "string",
+              "enum": [
+                "list",
+                "read",
+                "configure",
+                "roll",
+                "delete"
+              ]
+            },
+            "file": {
+              "type": "string",
+              "description": "Logical log.file.name."
+            },
+            "segment": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "max_bytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1048576
+            },
+            "line_start": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "line_end": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "segment_max_bytes": {
+              "type": "integer",
+              "minimum": 65536
+            },
+            "max_segments": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1024
+            },
+            "ttl_seconds": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "0 disables TTL deletion; non-zero values must be at least 60."
+            },
+            "confirm": {
+              "type": "boolean",
+              "description": "Required for destructive delete actions."
+            }
+          },
+          "required": [
+            "action"
+          ]
+        }
+      },
+      {
+        "name": "work_status",
+        "description": "Show the Ciel Work plan: phase (planning/executing), the active goal as an indented tree with statuses, progress and the next step. format=json returns a machine-readable snapshot.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "format": {
+              "type": "string",
+              "enum": [
+                "text",
+                "json"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "name": "work_plan_set",
+        "description": "Create a goal with its whole hierarchical plan in one call: goal -> phases -> tasks -> steps, nested through children. Keep decomposing until every leaf is one verifiable action. With root_id, replace that goal's plan. Puts Work in the planning phase.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "goal": {
+              "type": "string",
+              "description": "The goal title."
+            },
+            "note": {
+              "type": "string"
+            },
+            "children": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string"
+                  },
+                  "note": {
+                    "type": "string"
+                  },
+                  "children": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  }
+                },
+                "required": [
+                  "title"
+                ]
+              }
+            },
+            "root_id": {
+              "type": "string",
+              "description": "Replace the plan of this existing goal."
+            },
+            "expected_version": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Optional: the plan version you last saw; the call fails if the plan changed since."
+            }
+          },
+          "required": [
+            "goal"
+          ]
+        }
+      },
+      {
+        "name": "work_node_add",
+        "description": "Add a node (optionally with nested children) under parent_id; without parent_id it starts a new goal.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "parent_id": {
+              "type": "string"
+            },
+            "title": {
+              "type": "string"
+            },
+            "note": {
+              "type": "string"
+            },
+            "children": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string"
+                  },
+                  "note": {
+                    "type": "string"
+                  },
+                  "children": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  }
+                },
+                "required": [
+                  "title"
+                ]
+              }
+            },
+            "expected_version": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Optional: the plan version you last saw; the call fails if the plan changed since."
+            }
+          },
+          "required": [
+            "title"
+          ]
+        }
+      },
+      {
+        "name": "work_node_update",
+        "description": "Update a node: status (pending, in_progress, done, blocked), title, note or evidence. Mark a step done only with evidence that it was verified; parents complete automatically.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "in_progress",
+                "done",
+                "blocked"
+              ]
+            },
+            "title": {
+              "type": "string"
+            },
+            "note": {
+              "type": "string"
+            },
+            "evidence": {
+              "type": "string"
+            },
+            "expected_version": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Optional: the plan version you last saw; the call fails if the plan changed since."
+            }
+          },
+          "required": [
+            "id"
+          ]
+        }
+      },
+      {
+        "name": "work_node_remove",
+        "description": "Remove a node and everything below it.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "expected_version": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Optional: the plan version you last saw; the call fails if the plan changed since."
+            }
+          },
+          "required": [
+            "id"
+          ]
+        }
+      },
+      {
+        "name": "work_select",
+        "description": "Make another goal the active one (returns to the planning phase).",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "root_id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "root_id"
+          ]
+        }
+      },
+      {
+        "name": "work_execute",
+        "description": "Approve the active goal's plan and switch Work to the executing phase. The plan must reach at least goal -> phase -> task. When user approval is configured, call it again with user_confirmed=true only after the user explicitly agreed to the plan.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "user_confirmed": {
+              "type": "boolean"
+            },
+            "expected_version": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Optional: the plan version you last saw; the call fails if the plan changed since."
+            }
+          }
+        }
+      },
+      {
+        "name": "work_replan",
+        "description": "Return to the planning phase to revise the active goal's plan.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "reason": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    ]
+  }
+}

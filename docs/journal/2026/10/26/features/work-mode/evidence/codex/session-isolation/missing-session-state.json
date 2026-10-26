@@ -1,0 +1,13 @@
+{
+  "jsonrpc": "2.0",
+  "id": 1792997293973,
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "a runtime-qualified conversation session_id is required (claude:<id> or codex:<id>)"
+      }
+    ],
+    "isError": true
+  }
+}

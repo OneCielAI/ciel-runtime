@@ -1,0 +1,30 @@
+      82 +        self.assertEqual(graph.version, 1)
+      83 +        with self.assertRaises(ValueError): graph.shortest("a", "b")
+      84 +        graph.apply([], expected_version=1)
+      85 +        graph.apply([{"op": "add_node", "name": "a"}])
+      86 +        graph.apply([{"op": "add_node", "name": "x"}, {"op": "remove_node", "name": "x"}])
+      87 +        self.assertEqual(graph.version, 1)
+      88 +        graph.apply([{"op": "add_node", "name": "b"}, {"op": "set_edge", "src": "a", "dst": "b", "cost"
+         +: 2},
+      89 +                     {"op": "remove_edge", "src": "a", "dst": "b"}, {"op": "set_edge", "src": "b", "dst
+         +": "a", "cost": 0}],
+      90 +                    expected_version=1)
+      91 +        self.assertEqual(graph.version, 2)
+      92 +        self.assertEqual(graph.shortest("b", "a"), (0, ("b", "a")))
+      93 +
+      94 +
+      95  if __name__ == "__main__":
+      96      unittest.main()
+
+● Reading booking_calendar.py
+  ⎿  booking_calendar.py
+
+✽ Pollinating… (7m 16s · ↓ 16.0k tokens)
+  ⎿  Tip: Use /btw to ask a quick side question without interrupting Claude's current work
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · esc to interrupt
+    work: run 10/13 [A: routing_gr… 4/4 | B: booking_ca… 3/4 | C: inventory_… 3/3 | …] · REQ-B2 priority waiting list
+    and promotion > Implement/test wait…

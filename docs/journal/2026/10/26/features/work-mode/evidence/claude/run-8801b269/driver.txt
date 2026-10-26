@@ -1,0 +1,10 @@
+owned router: yes
+interactive owned cmd: yes
+interactive ready: NO
+owned stop 95552 
+owned stop 23524 
+owned stop 15112 SUCCESS: The process with PID 58876 (child process of PID 15112) has been terminated.
+SUCCESS: The process with PID 15112 (child process of PID 29128) has been terminated.
+owned stop 38112 SUCCESS: The process with PID 38112 (child process of PID 52404) has been terminated.
+owned stop 91748 SUCCESS: The process with PID 91748 (child process of PID 52404) has been terminated.
+evidence C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-mode\evidence\claude\run-8801b269

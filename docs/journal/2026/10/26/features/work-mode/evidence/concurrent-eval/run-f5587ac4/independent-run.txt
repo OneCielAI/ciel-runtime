@@ -1,0 +1,7 @@
+{
+  "tests": 23,
+  "failures": [],
+  "errors": [],
+  "passed": true,
+  "scope": "separate original-plus-amended requirement assertions, no fixes applied to evaluated code"
+}

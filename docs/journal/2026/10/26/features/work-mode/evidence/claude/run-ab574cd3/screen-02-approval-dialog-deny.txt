@@ -1,0 +1,38 @@
+
+  Called ciel-runtime-router
+
+● E2EWORK-CONTINUE-DONE
+
+❯ /work-mode tree
+  ⎿  ciel-work: Work phase: planning
+     Active goal progress: 1/2 steps done
+     [~] n1 Verify real Work mode
+       [~] n2 Exercise guarded mutation
+         [~] n3 Edit and verify subject
+           [x] n4 Apply verified edit  (evidence: Actual Edit returned success and Bash cat subject.txt returned AFTER.)
+           [ ] n5 Continue persisted plan
+
+❯ E2EWORK-ASK-deny verify user approval refusal.
+  ⎿  1 agent type available
+
+  Calling ciel-runtime-router…
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ ☐ Plugin
+
+│ Approve this Work plan?
+│
+│ Work phase: planning
+│ Active goal progress: 1/2 steps done
+│ [~] n1 Verify real Work mode
+│   [~] n2 Exercise guarded mutation
+│     [~] n3 Edit and verify subject
+│       [x] n4 Apply verified edit  (evidence: Actual Edit returned success and Bash cat subject.txt returned AFTER.)
+│       [ ] n5 Continue persisted plan
+
+❯ 1. Approve
+  2. Keep planning
+  3. Type something.
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  4. Chat about this
+
+Enter to select · ↑/↓ to navigate · Esc to cancel

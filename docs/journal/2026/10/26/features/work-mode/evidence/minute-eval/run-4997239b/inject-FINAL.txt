@@ -1,0 +1,30 @@
+
+
+❯ [ciel-runtime external channel message] channel=minute-eval:B room=minute-eval:B from=minute-evaluator id=8
+  thread=minute-eval-B text="REQ-B3: Amend B only. checkpoint()->opaque immutable value; restore(cp) atomically
+  restores active+waiting bookings, priorities, original waiting insertion sequence and capacity. Same Calendar
+  checkpoints only, foreign/invalid ValueError. Reusable deep independent checkpoint. Calendar.version starts 0;
+  increments ONCE per state-changing reserve/cancel/replace/reserve_many/wait/promote/restore; not per promoted member;
+  no-op/error unchanged. restore increments CURRENT version, never rewinds; already identical state no-op. Restore
+  exact wait FIFO. No auto promotion on cancel. Preserve A/C."
+
+● Reading routing_graph.py
+  ⎿  routing_graph.py
+
+❯ [ciel-runtime external channel message] channel=minute-eval:C room=minute-eval:C from=minute-evaluator id=9
+  thread=minute-eval-C text="REQ-C3: Amend C only. checkpoint()->opaque immutable; restore(cp) restores balances,
+  accepted payloads/tombstones/undo deltas AND unfinished fragment buffer. Reusable independent checkpoint from same
+  InventoryStream only; foreign/invalid InventoryError. Restore replays fragments correctly preserving idempotency/undo
+  at checkpoint time. MAX line length 4096 Unicode code points (not bytes), complete or unfinished. Any feed that
+  would exceed bound raises InventoryError and rolls back ALL effects/buffer/idempotency from THAT call, even earlier
+  complete events in it. Preserve A/B policies."
+
+· Architecting… (10m 10s · ↓ 60.6k tokens)
+  ⎿  Tip: Use /btw to ask a quick side question without interrupting Claude's current work
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · esc to interrupt
+     work: run 18/22 [A: routing_gr… 6/8 | B: booking_ca… 6/6 | C: inventory_… 6/6 | …] · REQ-A3: tie_policy (default
+     lexical; fewest_hops preserves A0) —…

@@ -1,0 +1,253 @@
+{
+ "schema": 1,
+ "version": 32,
+ "phase": "executing",
+ "active_root": "n1",
+ "next_id": 29,
+ "nodes": [
+  {
+   "id": "n1",
+   "parent_id": null,
+   "title": "Concurrent eval run: independent coding problems A/B/C (finalize only after REQ-FINAL)",
+   "status": "in_progress",
+   "note": "Each task defines 'priority' in its own meaning; no shared policy across files. Standard library only; edit only this workspace.",
+   "evidence": "",
+   "updated_at": 1793016290.939814
+  },
+  {
+   "id": "n2",
+   "parent_id": "n1",
+   "title": "A: Cache(clock, capacity) with TTL/versions/transactions/snapshots (REQ-A0 + REQ-A1)",
+   "status": "pending",
+   "note": "REQ-A1 (received): optional capacity (None=unlimited), reject nonpositive; capacity counts live keys only; evict OLDEST INSERTED live key (FIFO, not LRU); overwrite and get do NOT refresh order; expired entries don't count; eviction bumps version/tombstone so pre-existing transactions conflict; atomic commits apply writes in call order then FIFO-evict; snapshots keep pre-eviction values. REQ-A0 base spec text was NOT received (initial message truncated) - API for get/set/TTL/transactions/snapshots/priority meaning unknown.",
+   "evidence": "",
+   "updated_at": 1793016438.5882301
+  },
+  {
+   "id": "n3",
+   "parent_id": "n2",
+   "title": "A1: Obtain full A specification (API, priority meaning)",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "updated_at": 1793016303.746698
+  },
+  {
+   "id": "n4",
+   "parent_id": "n3",
+   "title": "A1.1: Search workspace/messages for A spec; if absent, report missing spec to requester",
+   "status": "blocked",
+   "note": "",
+   "evidence": "Workspace contains only CLAUDE.md (ls output). Initial request began mid-sentence ('ll tasks use shared word priority...Start A now'); REQ-A1 references 'A0 requirements' never delivered. No SendMessage tool available and workspace CLAUDE.md forbids session control actions, so the gap is reported in the session response instead.",
+   "updated_at": 1793016303.746698
+  },
+  {
+   "id": "n5",
+   "parent_id": "n2",
+   "title": "A2: Implement A module per spec (stdlib only)",
+   "status": "blocked",
+   "note": "",
+   "evidence": "REQ-A0 text never received (first message truncated mid-sentence); module name, get/set/TTL/transaction/snapshot API and A's priority meaning unknown. Not implemented to avoid inventing a spec.",
+   "updated_at": 1793016435.708439
+  },
+  {
+   "id": "n6",
+   "parent_id": "n2",
+   "title": "A3: Write and run A tests",
+   "status": "blocked",
+   "note": "",
+   "evidence": "Depends on n5; no A0 API to test against.",
+   "updated_at": 1793016436.539663
+  },
+  {
+   "id": "n7",
+   "parent_id": "n1",
+   "title": "B: dag_scheduler.py (REQ-B0)",
+   "status": "done",
+   "note": "priority = HIGHER-FIRST, ties by task_id lexical. No TTL/cache behavior.",
+   "evidence": "",
+   "updated_at": 1793016374.946506
+  },
+  {
+   "id": "n8",
+   "parent_id": "n7",
+   "title": "B1: Implement dag_scheduler.py",
+   "status": "done",
+   "note": "",
+   "evidence": "",
+   "updated_at": 1793016372.8215554
+  },
+  {
+   "id": "n9",
+   "parent_id": "n8",
+   "title": "B1.1: Scheduler.add with existing-deps check, duplicate check, priority",
+   "status": "done",
+   "note": "",
+   "evidence": "dag_scheduler.py add(): ValueError unknown dep/duplicate, CycleError self-dep; tests test_unknown_dependency_rejected, test_duplicate_task_rejected, test_self_dependency_on_add OK (19/19 pass)",
+   "updated_at": 1793016370.5703402
+  },
+  {
+   "id": "n10",
+   "parent_id": "n8",
+   "title": "B1.2: ready() ordering (-priority, insertion order per REQ-B1); start/finish/status with StateError; failed deps block descendants",
+   "status": "done",
+   "note": "",
+   "evidence": "ready() sorts (-priority, insertion seq); test_higher_priority_first_then_insertion_order expects [z,m,b,a]; start/finish StateError tests and test_failed_dependency_blocks_descendants OK",
+   "updated_at": 1793016371.720054
+  },
+  {
+   "id": "n11",
+   "parent_id": "n7",
+   "title": "B2: Tests test_dag_scheduler.py (unittest)",
+   "status": "done",
+   "note": "",
+   "evidence": "",
+   "updated_at": 1793016374.946506
+  },
+  {
+   "id": "n12",
+   "parent_id": "n11",
+   "title": "B2.1: Write tests: priority+insertion tie-break, unknown deps, start non-ready, finish non-running, failure blocking, replace_deps atomicity/cycles, retry flow",
+   "status": "done",
+   "note": "",
+   "evidence": "test_dag_scheduler.py written with 19 tests across Add/Ready, State, Retry, ReplaceDeps",
+   "updated_at": 1793016374.1152346
+  },
+  {
+   "id": "n13",
+   "parent_id": "n11",
+   "title": "B2.2: Run python -m unittest and capture output",
+   "status": "done",
+   "note": "",
+   "evidence": "python -m unittest test_dag_scheduler -v: Ran 19 tests in 0.001s OK",
+   "updated_at": 1793016374.946506
+  },
+  {
+   "id": "n14",
+   "parent_id": "n1",
+   "title": "C: ledger.py reconcile(chunks) (REQ-C0)",
+   "status": "done",
+   "note": "Streaming RFC4180 CSV over arbitrary fragments; Decimal sums; no float; no scheduler priority concept.",
+   "evidence": "",
+   "updated_at": 1793016432.6043746
+  },
+  {
+   "id": "n16",
+   "parent_id": "n1",
+   "title": "FINAL: wait for REQ-FINAL, then run full test suite and report",
+   "status": "done",
+   "note": "",
+   "evidence": "",
+   "updated_at": 1793016466.8245337
+  },
+  {
+   "id": "n17",
+   "parent_id": "n16",
+   "title": "F1: Journal entry docs/journal/2026/10/26/ in workspace",
+   "status": "done",
+   "note": "",
+   "evidence": "docs/journal/2026/10/26/concurrent-eval-run.md written in workspace",
+   "updated_at": 1793016466.0241501
+  },
+  {
+   "id": "n18",
+   "parent_id": "n16",
+   "title": "F2: On REQ-FINAL run all tests and summarize",
+   "status": "done",
+   "note": "",
+   "evidence": "REQ-FINAL received; python -m unittest discover -v: Ran 42 tests OK; completion.json parses with A0/A1 unsatisfied, B0/B1/C0/C1 satisfied",
+   "updated_at": 1793016466.8245337
+  },
+  {
+   "id": "n19",
+   "parent_id": "n14",
+   "title": "C1: Implement ledger.py",
+   "status": "done",
+   "note": "",
+   "evidence": "",
+   "updated_at": 1793016430.6997101
+  },
+  {
+   "id": "n20",
+   "parent_id": "n19",
+   "title": "C1.1: Join fragments and parse with csv module (newline='' semantics) handling quoted newlines/CRLF splits",
+   "status": "done",
+   "note": "",
+   "evidence": "ledger.py joins str fragments then csv.reader(StringIO(newline=''), strict=True); test_every_single_split_point / test_every_pair_of_split_points / test_split_inside_crlf / quoted CRLF in account OK",
+   "updated_at": 1793016429.422968
+  },
+  {
+   "id": "n21",
+   "parent_id": "n19",
+   "title": "C1.2: Validate header/every row (id/account non-empty, finite Decimal); skip blank rows; REQ-C1 last-row-wins per id (move contribution if account changes); keep zero-total accounts",
+   "status": "done",
+   "note": "",
+   "evidence": "Header/field/amount regex+Decimal validation on every row; latest[id] last-wins; zero-total accounts kept; exact context traps Inexact/Rounded. ValidationTests, AmountTests, DuplicateIdTests OK",
+   "updated_at": 1793016430.6997101
+  },
+  {
+   "id": "n22",
+   "parent_id": "n14",
+   "title": "C2: Tests test_ledger.py",
+   "status": "done",
+   "note": "",
+   "evidence": "",
+   "updated_at": 1793016432.6043746
+  },
+  {
+   "id": "n23",
+   "parent_id": "n22",
+   "title": "C2.1: Write tests: every split point, quoted newline, CRLF split, negatives/zero, blank rows, empty input, NaN/Inf/invalid/missing fields",
+   "status": "done",
+   "note": "",
+   "evidence": "test_ledger.py: 23 tests incl. all split points, NaN/Infinity/invalid amounts, missing fields, last-row-wins account move, overridden-row validation",
+   "updated_at": 1793016431.9093063
+  },
+  {
+   "id": "n24",
+   "parent_id": "n22",
+   "title": "C2.2: Run python -m unittest and capture output",
+   "status": "done",
+   "note": "",
+   "evidence": "python -m unittest test_ledger -v: Ran 23 tests in 0.039s OK",
+   "updated_at": 1793016432.6043746
+  },
+  {
+   "id": "n25",
+   "parent_id": "n2",
+   "title": "A4: Apply REQ-A1 FIFO capacity amendment once A0 base API known",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "updated_at": 1793016438.5882301
+  },
+  {
+   "id": "n26",
+   "parent_id": "n25",
+   "title": "A4.1: capacity validation + FIFO eviction of live keys (insertion order not refreshed by overwrite/get)",
+   "status": "blocked",
+   "note": "",
+   "evidence": "REQ-A1 amends A0 ('Preserve all A0 requirements'); cannot apply without A0 base API.",
+   "updated_at": 1793016437.5505838
+  },
+  {
+   "id": "n27",
+   "parent_id": "n25",
+   "title": "A4.2: eviction bumps version/tombstone; commit writes in order then evict; snapshot keeps pre-eviction values; tests",
+   "status": "blocked",
+   "note": "",
+   "evidence": "Version/tombstone, transaction and snapshot semantics are defined in missing REQ-A0.",
+   "updated_at": 1793016438.5882301
+  },
+  {
+   "id": "n28",
+   "parent_id": "n8",
+   "title": "B1.3 (REQ-B1): replace_deps atomic (ValueError unknown, CycleError self/cycle, StateError nonpending) and retry(failed->pending)",
+   "status": "done",
+   "note": "",
+   "evidence": "replace_deps validates before mutating; ReplaceDepsTests (5) verify ready/status/deps snapshot unchanged after ValueError/CycleError; RetryTests (3) OK",
+   "updated_at": 1793016372.8215554
+  }
+ ],
+ "updated_at": 1793016466.8245337
+}

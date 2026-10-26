@@ -1,0 +1,36 @@
+07:10:18 Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-mode\evidence\concurrent-eval\evaluate.py", line 84, in <module>
+    else:raise RuntimeError("CLI startup timeout: "+screen()[-800:])
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: CLI startup timeout: Ciel Runtime launch blocked:
+- Launch blocked: Base URL: unreachable (TimeoutError)
+- Set a reachable Base URL before launching Claude Code.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+07:10:19 finished C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-mode\evidence\concurrent-eval\run-7a2f7f19

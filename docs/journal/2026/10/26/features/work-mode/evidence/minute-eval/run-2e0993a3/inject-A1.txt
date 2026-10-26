@@ -1,0 +1,30 @@
+      10 class ConflictError(Exception):
+     … +73 lines
+
+● Write(test_routing_graph.py)
+  ⎿  Wrote 53 lines to test_routing_graph.py
+       1 import unittest
+       2 from routing_graph import ConflictError, Graph, NoPathError
+       3
+       4
+       5 class GraphTests(unittest.TestCase):
+       6     def test_mutations_and_version(self):
+       7         graph = Graph()
+       8         self.assertEqual(graph.version, 0)
+       9         graph.add_node("a")
+      10         graph.add_node("a")
+     … +43 lines
+
+● Calling ciel-runtime-router 3 times, running 1 shell command…
+  ⎿  $ cd "C:/Users/djlov/AppData/Local/Temp/ciel-work-coding-eval-5mecm_8d/workspace" && python -m unittest -v
+     test_routing_graph.py
+
+✻ Pollinating… (2m 16s · ↓ 4.9k tokens)
+  ⎿  Tip: Use /btw to ask a quick side question without interrupting Claude's current work
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · esc to interrupt
+   work: run 0/8 [A: routing_gr… 0/2 | B: booking_ca… 0/2 | C: inventory_… 0/2 | …] · A0 implement routing_graph.py >
+   Write Graph/NoPathError/Conflict…

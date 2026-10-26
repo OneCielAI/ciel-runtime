@@ -1,0 +1,283 @@
+{
+ "9385": {
+  "ok": true,
+  "version": "0.2.51-nightly.20261024-115611.5d4dc0e",
+  "source_fingerprint": "49b907420b3f019f",
+  "pid": 6032,
+  "user": "aapw-a15u17",
+  "home": "G:\\ciel-bridge-service",
+  "config_dir": "G:\\ciel-bridge-service\\AppData\\Roaming\\ciel-runtime\\router-instances\\9385-52ea0f8a2296",
+  "workspace": "g:\\ciel-bridge-service",
+  "router_port": 9385,
+  "instance_id": "9385-52ea0f8a2296",
+  "active_client_count": 1,
+  "active_client_pids": [
+   48200
+  ],
+  "provider": "cielairouter",
+  "model": "ciel-runtime-cielairouter-_walkie_opus55-sol61-fast",
+  "web_chat": "/ca/web/chat",
+  "web_chat_api": "/ca/web/chat/api",
+  "speech": "/ca/speech/health",
+  "chat": "/ca/chat/health",
+  "plan": "/ca/plan/artifacts",
+  "events": "/ca/events",
+  "events_websocket": "/ca/events/ws",
+  "external_event_receivers": "/ca/events/receivers",
+  "otlp_logs": "/v1/logs",
+  "telemetry_logs_tool": "POST /ca/mcp tools/call telemetry_logs",
+  "tui": "/ca/tui",
+  "tui_status": "/ca/tui/status",
+  "tui_stream": "/ca/tui/stream",
+  "cielairouter_gateway": {
+   "provider": "cielairouter",
+   "selector_module": "ciel_runtime_support.cielairouter_gateways",
+   "selector": "available",
+   "selector_error": "",
+   "sessions": 1,
+   "routes": [
+    {
+     "central": "ciel-router-01.ezonebot.com",
+     "state": "gateway",
+     "endpoint": "http://127.0.0.1:20128",
+     "node_id": "6016dfc3-4689-4e8b-8479-45eeb49cc48b",
+     "reason": "ranked",
+     "degraded": false,
+     "generation": 254,
+     "at": 1793021262.07817,
+     "since": 1793021126.7088175
+    }
+   ],
+   "gateways": [
+    {
+     "origin": "ciel-router-01.ezonebot.com",
+     "endpoint": "http://127.0.0.1:20128",
+     "reason": "ranked",
+     "degraded": false,
+     "generation": 254,
+     "cooldowns": {
+      "http://127.0.0.1:20128": 1792975812.661774
+     }
+    }
+   ]
+  }
+ },
+ "9464": {
+  "ok": true,
+  "version": "0.2.51-nightly.20261026-044702.d15822f",
+  "source_fingerprint": "49b907420b3f019f",
+  "pid": 51556,
+  "user": "djlov",
+  "home": "C:\\Users\\djlov",
+  "config_dir": "C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\router-instances\\9464-3c2987735124",
+  "workspace": "c:\\users\\djlov\\ciel-code",
+  "router_port": 9464,
+  "instance_id": "9464-3c2987735124",
+  "active_client_count": 1,
+  "active_client_pids": [
+   90256
+  ],
+  "provider": "ollama-cloud",
+  "model": "ciel-runtime-ollama-cloud-glm-5.3-flash",
+  "web_chat": "/ca/web/chat",
+  "web_chat_api": "/ca/web/chat/api",
+  "speech": "/ca/speech/health",
+  "chat": "/ca/chat/health",
+  "plan": "/ca/plan/artifacts",
+  "events": "/ca/events",
+  "events_websocket": "/ca/events/ws",
+  "external_event_receivers": "/ca/events/receivers",
+  "otlp_logs": "/v1/logs",
+  "telemetry_logs_tool": "POST /ca/mcp tools/call telemetry_logs",
+  "tui": "/ca/tui",
+  "tui_status": "/ca/tui/status",
+  "tui_stream": "/ca/tui/stream"
+ },
+ "9489": {
+  "ok": true,
+  "version": "0.2.51-nightly.20261024-102326.a7e28f9",
+  "source_fingerprint": "49b907420b3f019f",
+  "pid": 67368,
+  "user": "djlov",
+  "home": "C:\\Users\\djlov",
+  "config_dir": "C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\router-instances\\9489-b35f12ba1034",
+  "workspace": "f:\\omini-router",
+  "router_port": 9489,
+  "instance_id": "9489-b35f12ba1034",
+  "active_client_count": 1,
+  "active_client_pids": [
+   50412
+  ],
+  "provider": "cielairouter",
+  "model": "ciel-runtime-cielairouter-_walkie_sol61-opus55-fast",
+  "web_chat": "/ca/web/chat",
+  "web_chat_api": "/ca/web/chat/api",
+  "speech": "/ca/speech/health",
+  "chat": "/ca/chat/health",
+  "plan": "/ca/plan/artifacts",
+  "events": "/ca/events",
+  "events_websocket": "/ca/events/ws",
+  "external_event_receivers": "/ca/events/receivers",
+  "otlp_logs": "/v1/logs",
+  "telemetry_logs_tool": "POST /ca/mcp tools/call telemetry_logs",
+  "tui": "/ca/tui",
+  "tui_status": "/ca/tui/status",
+  "tui_stream": "/ca/tui/stream",
+  "cielairouter_gateway": {
+   "provider": "cielairouter",
+   "selector_module": "ciel_runtime_support.cielairouter_gateways",
+   "selector": "available",
+   "selector_error": "",
+   "sessions": 1,
+   "routes": [
+    {
+     "central": "ciel-router-01.ezonebot.com",
+     "state": "gateway",
+     "endpoint": "http://127.0.0.1:20128",
+     "node_id": "6016dfc3-4689-4e8b-8479-45eeb49cc48b",
+     "reason": "ranked",
+     "degraded": false,
+     "generation": 42,
+     "at": 1792979157.574416,
+     "since": 1792978445.915942
+    }
+   ],
+   "gateways": [
+    {
+     "origin": "ciel-router-01.ezonebot.com",
+     "endpoint": "http://127.0.0.1:20128",
+     "reason": "ranked",
+     "degraded": false,
+     "generation": 42,
+     "cooldowns": {
+      "http://127.0.0.1:20128": 1792975821.575979
+     }
+    }
+   ]
+  }
+ },
+ "9505": {
+  "ok": true,
+  "version": "0.2.51-nightly.20261026-044702.d15822f",
+  "source_fingerprint": "49b907420b3f019f",
+  "pid": 93416,
+  "user": "djlov",
+  "home": "C:\\Users\\djlov",
+  "config_dir": "C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\router-instances\\9505-aae7db361c7f",
+  "workspace": "g:\\ciel-walkie",
+  "router_port": 9505,
+  "instance_id": "9505-aae7db361c7f",
+  "active_client_count": 1,
+  "active_client_pids": [
+   94844
+  ],
+  "provider": "cielairouter",
+  "model": "ciel-runtime-cielairouter-_walkie_opus55-sol61-fast",
+  "web_chat": "/ca/web/chat",
+  "web_chat_api": "/ca/web/chat/api",
+  "speech": "/ca/speech/health",
+  "chat": "/ca/chat/health",
+  "plan": "/ca/plan/artifacts",
+  "events": "/ca/events",
+  "events_websocket": "/ca/events/ws",
+  "external_event_receivers": "/ca/events/receivers",
+  "otlp_logs": "/v1/logs",
+  "telemetry_logs_tool": "POST /ca/mcp tools/call telemetry_logs",
+  "tui": "/ca/tui",
+  "tui_status": "/ca/tui/status",
+  "tui_stream": "/ca/tui/stream",
+  "cielairouter_gateway": {
+   "provider": "cielairouter",
+   "selector_module": "ciel_runtime_support.cielairouter_gateways",
+   "selector": "available",
+   "selector_error": "",
+   "sessions": 1,
+   "routes": [
+    {
+     "central": "ciel-router-01.ezonebot.com",
+     "state": "gateway",
+     "endpoint": "http://127.0.0.1:20128",
+     "node_id": "6016dfc3-4689-4e8b-8479-45eeb49cc48b",
+     "reason": "ranked",
+     "degraded": false,
+     "generation": 35,
+     "at": 1793021255.209792,
+     "since": 1793019075.2761123
+    }
+   ],
+   "gateways": [
+    {
+     "origin": "ciel-router-01.ezonebot.com",
+     "endpoint": "http://127.0.0.1:20128",
+     "reason": "ranked",
+     "degraded": false,
+     "generation": 35,
+     "cooldowns": {}
+    }
+   ]
+  }
+ },
+ "9524": {
+  "ok": true,
+  "version": "0.2.51-nightly.20261025-050332.144bebc",
+  "source_fingerprint": "49b907420b3f019f",
+  "pid": 81772,
+  "user": "djlov",
+  "home": "C:\\Users\\djlov",
+  "config_dir": "C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\router-instances\\9524-bd5f642b3583",
+  "workspace": "c:\\users\\djlov\\ciel-runtime",
+  "router_port": 9524,
+  "instance_id": "9524-bd5f642b3583",
+  "active_client_count": 1,
+  "active_client_pids": [
+   51992
+  ],
+  "provider": "cielairouter",
+  "model": "ciel-runtime-cielairouter-_walkie_opus55-sol61-fast",
+  "web_chat": "/ca/web/chat",
+  "web_chat_api": "/ca/web/chat/api",
+  "speech": "/ca/speech/health",
+  "chat": "/ca/chat/health",
+  "plan": "/ca/plan/artifacts",
+  "events": "/ca/events",
+  "events_websocket": "/ca/events/ws",
+  "external_event_receivers": "/ca/events/receivers",
+  "otlp_logs": "/v1/logs",
+  "telemetry_logs_tool": "POST /ca/mcp tools/call telemetry_logs",
+  "tui": "/ca/tui",
+  "tui_status": "/ca/tui/status",
+  "tui_stream": "/ca/tui/stream",
+  "cielairouter_gateway": {
+   "provider": "cielairouter",
+   "selector_module": "ciel_runtime_support.cielairouter_gateways",
+   "selector": "available",
+   "selector_error": "",
+   "sessions": 1,
+   "routes": [
+    {
+     "central": "ciel-router-01.ezonebot.com",
+     "state": "gateway",
+     "endpoint": "http://127.0.0.1:20128",
+     "node_id": "6016dfc3-4689-4e8b-8479-45eeb49cc48b",
+     "reason": "ranked",
+     "degraded": false,
+     "generation": 54,
+     "at": 1793021359.9786117,
+     "since": 1793019564.5236855
+    }
+   ],
+   "gateways": [
+    {
+     "origin": "ciel-router-01.ezonebot.com",
+     "endpoint": "http://127.0.0.1:20128",
+     "reason": "ranked",
+     "degraded": false,
+     "generation": 54,
+     "cooldowns": {
+      "http://127.0.0.1:20128": 1792975812.6588318
+     }
+    }
+   ]
+  }
+ }
+}

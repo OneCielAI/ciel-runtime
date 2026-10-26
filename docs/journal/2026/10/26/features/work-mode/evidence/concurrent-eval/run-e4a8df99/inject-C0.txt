@@ -1,0 +1,30 @@
+
+ ▐▛███▛█   Claude Code v2.1.310
+▝▜██████▀  ciel-runtime-cielairouter-_walkie_opus55-sol61-fast · API Usage Billing
+ ▝▝   ▝▝   C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-mode\evidence\concurrent-eval\…
+
+
+❯ ll tasks use shared word 'priority' only in the meaning prescribed per task; do not merge policies across files.
+  Start A now. More independent requests will arrive while you work; retain A and incorporate them in ONE hierarchical
+  Work plan with separate A/B/C branches. Do not prematurely finalize the overall run until REQ-FINAL arrives.
+
+  Listed 1 directory, called ciel-runtime-router
+
+❯ [ciel-runtime external channel message] channel=eval:B room=eval:B from=coding-evaluator id=1 thread=work-eval-B
+  text="REQ-B0: Additional independent coding problem B arrived while A is in progress. Preserve unfinished A.
+  Implement dag_scheduler.py exposing class Scheduler and exceptions CycleError, StateError. API add(task_id, deps=(),
+  priority=0), ready()->list[str], start(task_id), finish(task_id, success=True), status(task_id)->str. Dependencies
+  must already exist. States pending/running/done/failed. ready lists pending tasks all of whose deps are done; order
+  higher priority first then task_id lexical. start only ready tasks else StateError. Failed dependencies block
+  descendants. Add tests. B priority is HIGHER-FIRST. No TTL or cache behavior in B. Add this request to the existing
+  plan without losing A."
+
+
+
+
+✶ Honking… (16s · ↓ 266 tokens)
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · esc to interrupt                                      work: planning

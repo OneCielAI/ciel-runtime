@@ -1,0 +1,53 @@
+validate exit=0
+Validating plugin manifest: C:\Users\djlov\ciel-runtime-wt-work\ciel_runtime_support\claude_mods\ciel-work\.claude-plugin\plugin.json
+
+Validating hooks: C:\Users\djlov\ciel-runtime-wt-work\ciel_runtime_support\claude_mods\ciel-work\hooks\hooks.json
+
+  ❯ ./register.js hooks: session.start, prompt.submit, command.run{command=work-mode}, tool.call, tool.check, session.end, ui.render{component=SessionMode}
+  ❯ ./register.js answers its own command: command.run{command=work-mode}
+  ❯ ./register.js gating hook without .catch: prompt.submit
+  ❯ ./register.js gating hook without .catch: tool.call
+  ❯ ./register.js gating hook without .catch: tool.check
+  ❯ ./register.js calls: $.command.register, $.mcp.call (via planText, refresh), $.session.id (via sessionId), $.ui.ask, $.ui.invalidate (via refresh)
+
+Plugin directory checks for C:\Users\djlov\ciel-runtime-wt-work\ciel_runtime_support\claude_mods\ciel-work. The plugin directory is the catalog that plugins are submitted to; this is a subset of what it runs.
+
+⚠ Found 1 plugin directory warning:
+
+  ❯ .claude-plugin/plugin.json icon: No icon (ICON_MISSING). No icon found in the plugin. The validator looked for `icon` in plugin.json and for a file at .claude-plugin/icon.png or .svg, assets/icon.png or .svg, or a similar path.
+    Fix: Add a square PNG to the plugin folder at .claude-plugin/icon.png, or set `icon` in plugin.json to the path of a square PNG or JPEG in the plugin: 512 to 2048 px on each side, under 2 MB. SVG and WebP are not accepted. That file may become the listing icon only once: the first time the plugin is saved or submitted in the developer portal. Adding or changing it later does not change the icon.
+
+About these checks:
+
+  ❯ The repository root was taken to be C:\Users\djlov\ciel-runtime-wt-work, the nearest parent folder with a .git folder or file. README.md and LICENSE were taken from it, because this plugin folder has none of its own. For a plugin submitted from a git repository, the repository root is the top folder of that repository, with only what is committed there, so check that the folder named above is that top folder.
+  ❯ hooks/hooks.json names a hooks module (a code file listed under `modules`). The plugin directory has rules of its own for such code, and these checks apply none of them, so passing here does not mean the directory accepts the plugin. The developer portal's own validation applies those rules.
+
+These plugin directory checks do not change the result below.
+
+The directory also runs a safety scan and a policy review that this command does not.
+
+✔ Validation passed
+
+
+test exit=0
+
+tests\work.test.ts:
+(pass) immediate command, router tree, bounded prompt context [45.73ms]
+(pass) planning denies all known writes including subagents; live phase refresh [25.37ms]
+(pass) shells use engine read-only flag and disabled state clears guards [22.28ms]
+(pass) unavailable and malformed status fail closed but reads pass [22.42ms]
+(pass) auto strips forged confirmation and refreshes after result [25.86ms]
+(pass) ask: Approve [20.99ms]
+(pass) ask: Keep planning [18.26ms]
+(pass) ask: Other [21.52ms]
+(pass) approval rejects changed plan [21.45ms]
+(pass) SessionMode planning, progress, off and unavailable are read-only renders [40.97ms]
+(pass) unavailable shell and execute fail closed; missing approval tree cannot execute [29.73ms]
+(pass) every Work result refreshes; another server is not treated as Work [27.86ms]
+(pass) conversation changes isolate every router read and override forged tool session ids [17.43ms]
+(pass) approval rejects a conversation switch even when plan counters match [18.70ms]
+
+ 14 pass
+ 0 fail
+Ran 14 tests across 1 file. [0.54s]
+

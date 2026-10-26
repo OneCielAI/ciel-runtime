@@ -1,0 +1,30 @@
+      116 +            check[rid] = staged[rid]
+      117 +        self._active = staged
+      118 +
+      119 +    def replace(self, id, start, end, units=1):
+      120 +        """REQ-B1: atomically move active `id` to a new interval/units."""
+      121 +        _check_id(id)
+      122 +        _check_interval(start, end)
+      123 +        _check_positive(units, "units")
+      124 +        if id not in self._active:
+      125 +            raise ValueError("unknown reservation id: %r" % (id,))
+      126 +        others = {k: v for k, v in self._active.items() if k != id}
+      127 +        if self._peak(start, end, others) + units > self._capacity:
+      128 +            raise CapacityError(
+      129 +                "replacement %r [%r, %r) x%r exceeds capacity %r"
+      130 +                % (id, start, end, units, self._capacity))
+      131 +        self._active[id] = (start, end, units)
+      132 +
+      133      def cancel(self, id):
+      134          _check_id(id)
+      135          return self._active.pop(id, None) is not None
+
+· Architecting… (4m 2s · ↓ 23.9k tokens)
+  ⎿  Tip: Use /btw to ask a quick side question without interrupting Claude's current work
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · esc to interrupt
+   work: run 6/12 [A: routing_gr… 4/4 | B: booking_ca… 2/4 | C: inventory_… 0/2 | …] · REQ-B1: reserve_many + replace
+   (atomic) > Implement reserve_many…

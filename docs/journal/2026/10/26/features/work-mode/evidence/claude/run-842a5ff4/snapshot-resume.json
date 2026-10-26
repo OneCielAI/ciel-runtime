@@ -1,0 +1,13 @@
+{
+ "jsonrpc": "2.0",
+ "id": "06d6812ba26d49fd9395c2dcf97989c2",
+ "result": {
+  "content": [
+   {
+    "type": "text",
+    "text": "{\"enabled\": true, \"phase\": \"planning\", \"approval\": \"auto\", \"version\": 0, \"active_root\": null, \"done\": 0, \"total\": 0, \"next\": null, \"ready\": false, \"ready_reason\": \"no active goal; create one with work_plan_set\", \"goals\": 0}"
+   }
+  ],
+  "isError": false
+ }
+}

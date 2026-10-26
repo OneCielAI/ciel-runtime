@@ -33,3 +33,7 @@ The latest code change d15822ff6ff66bb4750e64c575661ccfd3253401 has a successful
 Before push: the merged tree must equal origin/nightly except this journal, the merge must pass a whitespace check, and both parent SHAs must be verified. Then push main without force and push `nightly-20261026` with its upstream. Main workflow results are appended after they are observed.
 
 Observed before commit: `git diff --cached --name-only origin/nightly` lists only this journal, and `git diff --cached --check origin/nightly` passes. The check against main reports whitespace only in files under `docs/journal/` that are already on nightly (verbatim console and test captures); no source file is reported.
+
+# Post-push workflow result
+
+Rechecked 2026-10-26 via gh run view: CI 40275304219 and Publish 40275304237 both completed successfully. Full returned metadata is recorded under features/work-mode/evidence/deployment/integration-ci.json.

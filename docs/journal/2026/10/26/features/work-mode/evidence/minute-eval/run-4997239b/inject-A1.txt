@@ -1,0 +1,30 @@
+       9     """Enumerate every simple path and pick min by (cost, hops, path)."""
+      10     if src == dst:                                                                                        ● Wri
+ e   … +227 lines
+
+● Running graph tests
+  ⎿  $ python -m unittest test_routing_graph -v 2>&1 | tail -25
+
+● Write(booking_calendar.py)
+  ⎿  Wrote 90 lines to booking_calendar.py
+       1 """Capacity-limited booking calendar (REQ-B0).
+       2
+       3 Reservations occupy half-open intervals [start, end) and consume `units` of a
+       4 shared cumulative capacity.  Every failing call leaves the calendar unchanged.
+       5 """
+       6
+       7 __all__ = ["Calendar", "CapacityError", "ConflictError"]
+       8
+       9
+      10 class CapacityError(Exception):
+     … +80 lines
+
+· Architecting… (2m 2s · ↓ 10.8k tokens)
+  ⎿  Tip: Use /btw to ask a quick side question without interrupting Claude's current work
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · esc to interrupt
+                      work: run 2/8 [A: routing_gr… 2/2 | B: booking_ca… 0/2 | C: inventory_… 0/2 | …] · B0 implement
+                      Calendar/CapacityError/ConflictError > Write bookin…

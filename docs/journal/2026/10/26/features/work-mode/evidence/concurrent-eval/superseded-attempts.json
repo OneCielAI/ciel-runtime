@@ -1,0 +1,26 @@
+[
+  {
+    "run": "run-7a2f7f19",
+    "error_tail": "",
+    "complete_input": false,
+    "injection_count": 0,
+    "live_pids_unchanged": true,
+    "coding_verdict": "not scored; complete input/run preconditions not satisfied"
+  },
+  {
+    "run": "run-b20040c5",
+    "error_tail": "RuntimeError: owned console exited during evaluation",
+    "complete_input": false,
+    "injection_count": 7,
+    "live_pids_unchanged": true,
+    "coding_verdict": "not scored; complete input/run preconditions not satisfied"
+  },
+  {
+    "run": "run-e4a8df99",
+    "error_tail": null,
+    "complete_input": false,
+    "injection_count": 7,
+    "live_pids_unchanged": true,
+    "coding_verdict": "not scored; complete input/run preconditions not satisfied"
+  }
+]

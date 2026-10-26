@@ -1,0 +1,19 @@
+{
+  "sha256": "088093d038b261c77b04663cecf65d67de7a041810b861dd625b61faa35b4ccf",
+  "amendments": 9,
+  "interval_seconds": 60,
+  "total_task_requirement_ids": 12,
+  "order": [
+    "INITIAL",
+    "A1",
+    "B1",
+    "C1",
+    "A2",
+    "B2",
+    "C2",
+    "A3",
+    "B3",
+    "C3",
+    "FINAL"
+  ]
+}

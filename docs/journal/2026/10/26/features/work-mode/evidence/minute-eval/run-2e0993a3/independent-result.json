@@ -1,0 +1,726 @@
+{
+  "verifier_sha256": "8261b2ece309244f75a3bc9e63a431aeeddc32aec173d5469541bcc691fe74a0",
+  "requests_sha256": "088093d038b261c77b04663cecf65d67de7a041810b861dd625b61faa35b4ccf",
+  "authored_from": "requests.json only; generated implementation/tests not read before verifier hash freeze",
+  "run_directory": "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\features\\work-mode\\evidence\\minute-eval\\run-2e0993a3",
+  "workspace": "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\features\\work-mode\\evidence\\minute-eval\\run-2e0993a3\\workspace",
+  "tests_run": 38,
+  "failures": 1,
+  "errors": 0,
+  "successful": false,
+  "import_errors": {},
+  "requirement_coverage": {
+    "A0": {
+      "tests": [
+        "__main__.GraphContract.test_apply_order_atomicity_and_single_version",
+        "__main__.GraphContract.test_exhaustive_simple_path_oracle",
+        "__main__.GraphContract.test_final_default_and_explicit_original_tie",
+        "__main__.GraphContract.test_mutation_versions_noops_incident_edges",
+        "__main__.GraphContract.test_simple_paths_zero_cycles",
+        "__main__.GraphContract.test_validation_and_atomic_errors"
+      ],
+      "failures": 0,
+      "status": "passed"
+    },
+    "A1": {
+      "tests": [
+        "__main__.GraphContract.test_blocking_and_hop_bound_before_minimum_selection",
+        "__main__.GraphContract.test_exhaustive_simple_path_oracle",
+        "__main__.GraphContract.test_simple_paths_zero_cycles",
+        "__main__.GraphContract.test_snapshot_freezes_data_version_and_policy"
+      ],
+      "failures": 0,
+      "status": "passed"
+    },
+    "A2": {
+      "tests": [
+        "__main__.GraphContract.test_apply_conflict_precedes_ops_and_noops",
+        "__main__.GraphContract.test_apply_order_atomicity_and_single_version",
+        "__main__.GraphContract.test_exhaustive_simple_path_oracle",
+        "__main__.GraphContract.test_snapshot_freezes_data_version_and_policy"
+      ],
+      "failures": 0,
+      "status": "passed"
+    },
+    "A3": {
+      "tests": [
+        "__main__.GraphContract.test_blocking_and_hop_bound_before_minimum_selection",
+        "__main__.GraphContract.test_exhaustive_simple_path_oracle",
+        "__main__.GraphContract.test_final_default_and_explicit_original_tie",
+        "__main__.GraphContract.test_simple_paths_zero_cycles",
+        "__main__.GraphContract.test_snapshot_freezes_data_version_and_policy",
+        "__main__.GraphContract.test_validation_and_atomic_errors"
+      ],
+      "failures": 0,
+      "status": "passed"
+    },
+    "B0": {
+      "tests": [
+        "__main__.CalendarContract.test_capacity_half_open_negatives_sort_and_copy",
+        "__main__.CalendarContract.test_many_overlaps_sweep_oracle",
+        "__main__.CalendarContract.test_validation_across_public_operations"
+      ],
+      "failures": 0,
+      "status": "passed"
+    },
+    "B1": {
+      "tests": [
+        "__main__.CalendarContract.test_batch_atomic_capacity_duplicates_and_iterable",
+        "__main__.CalendarContract.test_replace_excludes_original_and_retains_on_failure",
+        "__main__.CalendarContract.test_validation_across_public_operations",
+        "__main__.CalendarContract.test_waiting_ids_cannot_be_stolen"
+      ],
+      "failures": 0,
+      "status": "passed"
+    },
+    "B2": {
+      "tests": [
+        "__main__.CalendarContract.test_checkpoint_immutable_reusable_exact_restore_current_version",
+        "__main__.CalendarContract.test_promotion_updates_later_fit",
+        "__main__.CalendarContract.test_validation_across_public_operations",
+        "__main__.CalendarContract.test_wait_priority_fifo_skip_continue_and_promotion_version",
+        "__main__.CalendarContract.test_waiting_ids_cannot_be_stolen"
+      ],
+      "failures": 0,
+      "status": "passed"
+    },
+    "B3": {
+      "tests": [
+        "__main__.CalendarContract.test_batch_atomic_capacity_duplicates_and_iterable",
+        "__main__.CalendarContract.test_capacity_half_open_negatives_sort_and_copy",
+        "__main__.CalendarContract.test_checkpoint_immutable_reusable_exact_restore_current_version",
+        "__main__.CalendarContract.test_checkpoint_restores_original_wait_sequence",
+        "__main__.CalendarContract.test_invalid_foreign_checkpoint_atomic",
+        "__main__.CalendarContract.test_many_overlaps_sweep_oracle",
+        "__main__.CalendarContract.test_promotion_updates_later_fit",
+        "__main__.CalendarContract.test_replace_excludes_original_and_retains_on_failure",
+        "__main__.CalendarContract.test_validation_across_public_operations",
+        "__main__.CalendarContract.test_wait_priority_fifo_skip_continue_and_promotion_version",
+        "__main__.CalendarContract.test_waiting_ids_cannot_be_stolen"
+      ],
+      "failures": 1,
+      "status": "failed"
+    },
+    "C0": {
+      "tests": [
+        "__main__.StreamContract.test_batch_order_outer_id_empty_and_duplicates",
+        "__main__.StreamContract.test_checkpoint_buffer_payloads_tombstones_deltas_reuse",
+        "__main__.StreamContract.test_finish_failure_consumed_and_corrected_retry",
+        "__main__.StreamContract.test_fragmented_quotes_crlf_blank_and_final_line",
+        "__main__.StreamContract.test_identity_key_order_first_id_conflict_consumption",
+        "__main__.StreamContract.test_invalid_events_consumed_and_ids_not_reserved",
+        "__main__.StreamContract.test_overflow_whole_call_rolls_back_events_ids_buffer",
+        "__main__.StreamContract.test_semantic_failure_keeps_earlier_complete_event",
+        "__main__.StreamContract.test_undo_stock_failure_retry_and_tombstone",
+        "__main__.StreamContract.test_unicode_codepoint_bound_complete_unfinished_finish"
+      ],
+      "failures": 0,
+      "status": "passed"
+    },
+    "C1": {
+      "tests": [
+        "__main__.StreamContract.test_batch_invalid_op_rollback_and_corrected_id_retry",
+        "__main__.StreamContract.test_batch_order_outer_id_empty_and_duplicates",
+        "__main__.StreamContract.test_batch_undo_aggregates_signed_deltas_atomically",
+        "__main__.StreamContract.test_checkpoint_buffer_payloads_tombstones_deltas_reuse",
+        "__main__.StreamContract.test_undo_net_delta_not_reversed_validation_order"
+      ],
+      "failures": 0,
+      "status": "passed"
+    },
+    "C2": {
+      "tests": [
+        "__main__.StreamContract.test_batch_undo_aggregates_signed_deltas_atomically",
+        "__main__.StreamContract.test_checkpoint_buffer_payloads_tombstones_deltas_reuse",
+        "__main__.StreamContract.test_overflow_whole_call_rolls_back_events_ids_buffer",
+        "__main__.StreamContract.test_undo_net_delta_not_reversed_validation_order",
+        "__main__.StreamContract.test_undo_stock_failure_retry_and_tombstone",
+        "__main__.StreamContract.test_unrelated_undo_not_a_stack"
+      ],
+      "failures": 0,
+      "status": "passed"
+    },
+    "C3": {
+      "tests": [
+        "__main__.StreamContract.test_checkpoint_buffer_payloads_tombstones_deltas_reuse",
+        "__main__.StreamContract.test_checkpoint_restores_pre_undo_status",
+        "__main__.StreamContract.test_invalid_foreign_checkpoint_preserves_buffer_state",
+        "__main__.StreamContract.test_overflow_whole_call_rolls_back_events_ids_buffer",
+        "__main__.StreamContract.test_overflow_whole_feed_even_after_semantically_bad_line",
+        "__main__.StreamContract.test_unfinished_overflow_restores_prior_buffer_for_finish",
+        "__main__.StreamContract.test_unicode_codepoint_bound_complete_unfinished_finish"
+      ],
+      "failures": 0,
+      "status": "passed"
+    }
+  },
+  "tests": [
+    {
+      "test": "__main__.GraphContract.test_apply_conflict_precedes_ops_and_noops",
+      "status": "passed",
+      "requirements": [
+        "A2"
+      ],
+      "seconds": 0.0,
+      "detail": null
+    },
+    {
+      "test": "__main__.GraphContract.test_apply_order_atomicity_and_single_version",
+      "status": "passed",
+      "requirements": [
+        "A2",
+        "A0"
+      ],
+      "seconds": 0.0,
+      "detail": null
+    },
+    {
+      "test": "__main__.GraphContract.test_blocking_and_hop_bound_before_minimum_selection",
+      "status": "passed",
+      "requirements": [
+        "A1",
+        "A3"
+      ],
+      "seconds": 0.0,
+      "detail": null
+    },
+    {
+      "test": "__main__.GraphContract.test_exhaustive_simple_path_oracle",
+      "status": "passed",
+      "requirements": [
+        "A0",
+        "A1",
+        "A2",
+        "A3"
+      ],
+      "seconds": 0.063,
+      "detail": null
+    },
+    {
+      "test": "__main__.GraphContract.test_final_default_and_explicit_original_tie",
+      "status": "passed",
+      "requirements": [
+        "A0",
+        "A3"
+      ],
+      "seconds": 0.0,
+      "detail": null
+    },
+    {
+      "test": "__main__.GraphContract.test_mutation_versions_noops_incident_edges",
+      "status": "passed",
+      "requirements": [
+        "A0"
+      ],
+      "seconds": 0.0,
+      "detail": null
+    },
+    {
+      "test": "__main__.GraphContract.test_simple_paths_zero_cycles",
+      "status": "passed",
+      "requirements": [
+        "A0",
+        "A1",
+        "A3"
+      ],
+      "seconds": 0.0,
+      "detail": null
+    },
+    {
+      "test": "__main__.GraphContract.test_snapshot_freezes_data_version_and_policy",
+      "status": "passed",
+      "requirements": [
+        "A2",
+        "A3",
+        "A1"
+      ],
+      "seconds": 0.0,
+      "detail": null
+    },
+    {
+      "test": "__main__.GraphContract.test_validation_and_atomic_errors",
+      "status": "passed",
+      "requirements": [
+        "A0",
+        "A3"
+      ],
+      "seconds": 0.0,
+      "detail": null
+    },
+    {
+      "test": "__main__.CalendarContract.test_batch_atomic_capacity_duplicates_and_iterable",
+      "status": "passed",
+      "requirements": [
+        "B1",
+        "B3"
+      ],
+      "seconds": 0.0,
+      "detail": null
+    },
+    {
+      "test": "__main__.CalendarContract.test_capacity_half_open_negatives_sort_and_copy",
+      "status": "passed",
+      "requirements": [
+        "B0",
+        "B3"
+      ],
+      "seconds": 0.0,
+      "detail": null
+    },
+    {
+      "test": "__main__.CalendarContract.test_checkpoint_immutable_reusable_exact_restore_current_version",
+      "status": "passed",
+      "requirements": [
+        "B3",
+        "B2"
+      ],
+      "seconds": 0.0,
+      "detail": null
+    },
+    {
+      "test": "__main__.CalendarContract.test_checkpoint_restores_original_wait_sequence",
+      "status": "failed",
+      "requirements": [
+        "B3"
+      ],
+      "seconds": 0.0,
+      "detail": "Traceback (most recent call last):\n  File \"C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\features\\work-mode\\evidence\\minute-eval\\independent_verify.py\", line 524, in test_checkpoint_restores_original_wait_sequence\n    self.assertEqual(c.version, v + 1)\nAssertionError: 3 != 4\n"
+    },
+    {
+      "test": "__main__.CalendarContract.test_invalid_foreign_checkpoint_atomic",
+      "status": "passed",
+      "requirements": [
+        "B3"
+      ],
+      "seconds": 0.0,
+      "detail": null
+    },
+    {
+      "test": "__main__.CalendarContract.test_many_overlaps_sweep_oracle",
+      "status": "passed",
+      "requirements": [
+        "B0",
+        "B3"
+      ],
+      "seconds": 0.015,
+      "detail": null
+    },
+    {
+      "test": "__main__.CalendarContract.test_promotion_updates_later_fit",
+      "status": "passed",
+      "requirements": [
+        "B2",
+        "B3"
+      ],
+      "seconds": 0.0,
+      "detail": null
+    },
+    {
+      "test": "__main__.CalendarContract.test_replace_excludes_original_and_retains_on_failure",
+      "status": "passed",
+      "requirements": [
+        "B1",
+        "B3"
+      ],
+      "seconds": 0.0,
+      "detail": null
+    },
+    {
+      "test": "__main__.CalendarContract.test_validation_across_public_operations",
+      "status": "passed",
+      "requirements": [
+        "B0",
+        "B1",
+        "B2",
+        "B3"
+      ],
+      "seconds": 0.0,
+      "detail": null
+    },
+    {
+      "test": "__main__.CalendarContract.test_wait_priority_fifo_skip_continue_and_promotion_version",
+      "status": "passed",
+      "requirements": [
+        "B2",
+        "B3"
+      ],
+      "seconds": 0.0,
+      "detail": null
+    },
+    {
+      "test": "__main__.CalendarContract.test_waiting_ids_cannot_be_stolen",
+      "status": "passed",
+      "requirements": [
+        "B1",
+        "B2",
+        "B3"
+      ],
+      "seconds": 0.0,
+      "detail": null
+    },
+    {
+      "test": "__main__.StreamContract.test_batch_invalid_op_rollback_and_corrected_id_retry",
+      "status": "passed",
+      "requirements": [
+        "C1"
+      ],
+      "seconds": 0.0,
+      "detail": null
+    },
+    {
+      "test": "__main__.StreamContract.test_batch_order_outer_id_empty_and_duplicates",
+      "status": "passed",
+      "requirements": [
+        "C0",
+        "C1"
+      ],
+      "seconds": 0.0,
+      "detail": null
+    },
+    {
+      "test": "__main__.StreamContract.test_batch_undo_aggregates_signed_deltas_atomically",
+      "status": "passed",
+      "requirements": [
+        "C1",
+        "C2"
+      ],
+      "seconds": 0.0,
+      "detail": null
+    },
+    {
+      "test": "__main__.StreamContract.test_checkpoint_buffer_payloads_tombstones_deltas_reuse",
+      "status": "passed",
+      "requirements": [
+        "C3",
+        "C0",
+        "C1",
+        "C2"
+      ],
+      "seconds": 0.0,
+      "detail": null
+    },
+    {
+      "test": "__main__.StreamContract.test_checkpoint_restores_pre_undo_status",
+      "status": "passed",
+      "requirements": [
+        "C3"
+      ],
+      "seconds": 0.0,
+      "detail": null
+    },
+    {
+      "test": "__main__.StreamContract.test_finish_failure_consumed_and_corrected_retry",
+      "status": "passed",
+      "requirements": [
+        "C0"
+      ],
+      "seconds": 0.0,
+      "detail": null
+    },
+    {
+      "test": "__main__.StreamContract.test_fragmented_quotes_crlf_blank_and_final_line",
+      "status": "passed",
+      "requirements": [
+        "C0"
+      ],
+      "seconds": 0.0,
+      "detail": null
+    },
+    {
+      "test": "__main__.StreamContract.test_identity_key_order_first_id_conflict_consumption",
+      "status": "passed",
+      "requirements": [
+        "C0"
+      ],
+      "seconds": 0.0,
+      "detail": null
+    },
+    {
+      "test": "__main__.StreamContract.test_invalid_events_consumed_and_ids_not_reserved",
+      "status": "passed",
+      "requirements": [
+        "C0"
+      ],
+      "seconds": 0.0,
+      "detail": null
+    },
+    {
+      "test": "__main__.StreamContract.test_invalid_foreign_checkpoint_preserves_buffer_state",
+      "status": "passed",
+      "requirements": [
+        "C3"
+      ],
+      "seconds": 0.0,
+      "detail": null
+    },
+    {
+      "test": "__main__.StreamContract.test_overflow_whole_call_rolls_back_events_ids_buffer",
+      "status": "passed",
+      "requirements": [
+        "C3",
+        "C0",
+        "C2"
+      ],
+      "seconds": 0.0,
+      "detail": null
+    },
+    {
+      "test": "__main__.StreamContract.test_overflow_whole_feed_even_after_semantically_bad_line",
+      "status": "passed",
+      "requirements": [
+        "C3"
+      ],
+      "seconds": 0.0,
+      "detail": null
+    },
+    {
+      "test": "__main__.StreamContract.test_semantic_failure_keeps_earlier_complete_event",
+      "status": "passed",
+      "requirements": [
+        "C0"
+      ],
+      "seconds": 0.0,
+      "detail": null
+    },
+    {
+      "test": "__main__.StreamContract.test_undo_net_delta_not_reversed_validation_order",
+      "status": "passed",
+      "requirements": [
+        "C2",
+        "C1"
+      ],
+      "seconds": 0.0,
+      "detail": null
+    },
+    {
+      "test": "__main__.StreamContract.test_undo_stock_failure_retry_and_tombstone",
+      "status": "passed",
+      "requirements": [
+        "C2",
+        "C0"
+      ],
+      "seconds": 0.0,
+      "detail": null
+    },
+    {
+      "test": "__main__.StreamContract.test_unfinished_overflow_restores_prior_buffer_for_finish",
+      "status": "passed",
+      "requirements": [
+        "C3"
+      ],
+      "seconds": 0.0,
+      "detail": null
+    },
+    {
+      "test": "__main__.StreamContract.test_unicode_codepoint_bound_complete_unfinished_finish",
+      "status": "passed",
+      "requirements": [
+        "C3",
+        "C0"
+      ],
+      "seconds": 0.0,
+      "detail": null
+    },
+    {
+      "test": "__main__.StreamContract.test_unrelated_undo_not_a_stack",
+      "status": "passed",
+      "requirements": [
+        "C2"
+      ],
+      "seconds": 0.0,
+      "detail": null
+    }
+  ],
+  "subtest_counts": {
+    "__main__.GraphContract.test_apply_conflict_precedes_ops_and_noops": {
+      "passed": 0,
+      "failed": 0,
+      "error": 0
+    },
+    "__main__.GraphContract.test_apply_order_atomicity_and_single_version": {
+      "passed": 4,
+      "failed": 0,
+      "error": 0
+    },
+    "__main__.GraphContract.test_blocking_and_hop_bound_before_minimum_selection": {
+      "passed": 9,
+      "failed": 0,
+      "error": 0
+    },
+    "__main__.GraphContract.test_exhaustive_simple_path_oracle": {
+      "passed": 9600,
+      "failed": 0,
+      "error": 0
+    },
+    "__main__.GraphContract.test_final_default_and_explicit_original_tie": {
+      "passed": 0,
+      "failed": 0,
+      "error": 0
+    },
+    "__main__.GraphContract.test_mutation_versions_noops_incident_edges": {
+      "passed": 0,
+      "failed": 0,
+      "error": 0
+    },
+    "__main__.GraphContract.test_simple_paths_zero_cycles": {
+      "passed": 0,
+      "failed": 0,
+      "error": 0
+    },
+    "__main__.GraphContract.test_snapshot_freezes_data_version_and_policy": {
+      "passed": 2,
+      "failed": 0,
+      "error": 0
+    },
+    "__main__.GraphContract.test_validation_and_atomic_errors": {
+      "passed": 19,
+      "failed": 0,
+      "error": 0
+    },
+    "__main__.CalendarContract.test_batch_atomic_capacity_duplicates_and_iterable": {
+      "passed": 4,
+      "failed": 0,
+      "error": 0
+    },
+    "__main__.CalendarContract.test_capacity_half_open_negatives_sort_and_copy": {
+      "passed": 0,
+      "failed": 0,
+      "error": 0
+    },
+    "__main__.CalendarContract.test_checkpoint_immutable_reusable_exact_restore_current_version": {
+      "passed": 0,
+      "failed": 0,
+      "error": 0
+    },
+    "__main__.CalendarContract.test_checkpoint_restores_original_wait_sequence": {
+      "passed": 0,
+      "failed": 0,
+      "error": 0
+    },
+    "__main__.CalendarContract.test_invalid_foreign_checkpoint_atomic": {
+      "passed": 7,
+      "failed": 0,
+      "error": 0
+    },
+    "__main__.CalendarContract.test_many_overlaps_sweep_oracle": {
+      "passed": 120,
+      "failed": 0,
+      "error": 0
+    },
+    "__main__.CalendarContract.test_promotion_updates_later_fit": {
+      "passed": 0,
+      "failed": 0,
+      "error": 0
+    },
+    "__main__.CalendarContract.test_replace_excludes_original_and_retains_on_failure": {
+      "passed": 0,
+      "failed": 0,
+      "error": 0
+    },
+    "__main__.CalendarContract.test_validation_across_public_operations": {
+      "passed": 52,
+      "failed": 0,
+      "error": 0
+    },
+    "__main__.CalendarContract.test_wait_priority_fifo_skip_continue_and_promotion_version": {
+      "passed": 0,
+      "failed": 0,
+      "error": 0
+    },
+    "__main__.CalendarContract.test_waiting_ids_cannot_be_stolen": {
+      "passed": 0,
+      "failed": 0,
+      "error": 0
+    },
+    "__main__.StreamContract.test_batch_invalid_op_rollback_and_corrected_id_retry": {
+      "passed": 9,
+      "failed": 0,
+      "error": 0
+    },
+    "__main__.StreamContract.test_batch_order_outer_id_empty_and_duplicates": {
+      "passed": 0,
+      "failed": 0,
+      "error": 0
+    },
+    "__main__.StreamContract.test_batch_undo_aggregates_signed_deltas_atomically": {
+      "passed": 0,
+      "failed": 0,
+      "error": 0
+    },
+    "__main__.StreamContract.test_checkpoint_buffer_payloads_tombstones_deltas_reuse": {
+      "passed": 0,
+      "failed": 0,
+      "error": 0
+    },
+    "__main__.StreamContract.test_checkpoint_restores_pre_undo_status": {
+      "passed": 0,
+      "failed": 0,
+      "error": 0
+    },
+    "__main__.StreamContract.test_finish_failure_consumed_and_corrected_retry": {
+      "passed": 0,
+      "failed": 0,
+      "error": 0
+    },
+    "__main__.StreamContract.test_fragmented_quotes_crlf_blank_and_final_line": {
+      "passed": 0,
+      "failed": 0,
+      "error": 0
+    },
+    "__main__.StreamContract.test_identity_key_order_first_id_conflict_consumption": {
+      "passed": 0,
+      "failed": 0,
+      "error": 0
+    },
+    "__main__.StreamContract.test_invalid_events_consumed_and_ids_not_reserved": {
+      "passed": 22,
+      "failed": 0,
+      "error": 0
+    },
+    "__main__.StreamContract.test_invalid_foreign_checkpoint_preserves_buffer_state": {
+      "passed": 7,
+      "failed": 0,
+      "error": 0
+    },
+    "__main__.StreamContract.test_overflow_whole_call_rolls_back_events_ids_buffer": {
+      "passed": 2,
+      "failed": 0,
+      "error": 0
+    },
+    "__main__.StreamContract.test_overflow_whole_feed_even_after_semantically_bad_line": {
+      "passed": 0,
+      "failed": 0,
+      "error": 0
+    },
+    "__main__.StreamContract.test_semantic_failure_keeps_earlier_complete_event": {
+      "passed": 0,
+      "failed": 0,
+      "error": 0
+    },
+    "__main__.StreamContract.test_undo_net_delta_not_reversed_validation_order": {
+      "passed": 0,
+      "failed": 0,
+      "error": 0
+    },
+    "__main__.StreamContract.test_undo_stock_failure_retry_and_tombstone": {
+      "passed": 0,
+      "failed": 0,
+      "error": 0
+    },
+    "__main__.StreamContract.test_unfinished_overflow_restores_prior_buffer_for_finish": {
+      "passed": 0,
+      "failed": 0,
+      "error": 0
+    },
+    "__main__.StreamContract.test_unicode_codepoint_bound_complete_unfinished_finish": {
+      "passed": 6,
+      "failed": 0,
+      "error": 0
+    },
+    "__main__.StreamContract.test_unrelated_undo_not_a_stack": {
+      "passed": 0,
+      "failed": 0,
+      "error": 0
+    }
+  }
+}

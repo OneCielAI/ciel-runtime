@@ -1,0 +1,49 @@
+{
+  "snapshot": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-work-breakdown-20261026-122744",
+  "unchanged_snapshot": true,
+  "files": [
+    {
+      "path": "ciel_runtime.py",
+      "tested_snapshot_sha256": "f86ee3638ee760f348510429973679b129ea48f3106cc786da090471b68cef71",
+      "worktree_sha256": "f86ee3638ee760f348510429973679b129ea48f3106cc786da090471b68cef71",
+      "same": true
+    },
+    {
+      "path": "ciel_runtime_support/work_plan_store.py",
+      "tested_snapshot_sha256": "a6517033ddc7333fc62dea2102742772847ff1c8b927ea5c8d6bebf201b3d772",
+      "worktree_sha256": "a6517033ddc7333fc62dea2102742772847ff1c8b927ea5c8d6bebf201b3d772",
+      "same": true
+    },
+    {
+      "path": "ciel_runtime_support/work_plan_tree.py",
+      "tested_snapshot_sha256": "1da58fd6f36fcb4065bc751b7664ef95cfa83dc3e01a547c607f583b6cc99312",
+      "worktree_sha256": "1da58fd6f36fcb4065bc751b7664ef95cfa83dc3e01a547c607f583b6cc99312",
+      "same": true
+    },
+    {
+      "path": "ciel_runtime_support/work_mode_launch.py",
+      "tested_snapshot_sha256": "18435751b6c2936cea5a33c0865d4b6cec39cb548e02cb80b527c08502a3c18f",
+      "worktree_sha256": "18435751b6c2936cea5a33c0865d4b6cec39cb548e02cb80b527c08502a3c18f",
+      "same": true
+    },
+    {
+      "path": "ciel_runtime_support/channel_mcp_tools.py",
+      "tested_snapshot_sha256": "64fd02099203a7e4db852b57461d356c9c747e2ecc497c831923d01d7751e703",
+      "worktree_sha256": "64fd02099203a7e4db852b57461d356c9c747e2ecc497c831923d01d7751e703",
+      "same": true
+    },
+    {
+      "path": "ciel_runtime_support/work_mcp_tools.py",
+      "tested_snapshot_sha256": "4293ea761a6cc70f692953b9855b43b2c8907969627a89a5de5ed092f5348e83",
+      "worktree_sha256": "adf3edee8371c5f2544608e0fa9adc1a34ec8073073bddf3febb175673511ef4",
+      "same": false
+    },
+    {
+      "path": "ciel_runtime_support/claude_mods/ciel-work/hooks/register.js",
+      "tested_snapshot_sha256": "72604d6ab0dc600a5ddbf1f0321dd4f49c87237c7a69e6703fd0272133f3ba4e",
+      "worktree_sha256": "a323ebb476b629a46e4b4534fa4f4f0f841a164a4712ae989bc902d8563e622e",
+      "same": false
+    }
+  ],
+  "note": "Uses currently selected deployed breakdown snapshot, not newer staged navigation snapshot. Snapshot not modified."
+}

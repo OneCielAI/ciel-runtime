@@ -1,0 +1,10 @@
+test_launcher_mod_dir_is_inside_packaged_directory (test_work_mode_packaging.WorkModePackagingTests.test_launcher_mod_dir_is_inside_packaged_directory) ... ok
+test_mod_manifest_hooks_and_register_are_present (test_work_mode_packaging.WorkModePackagingTests.test_mod_manifest_hooks_and_register_are_present) ... ok
+test_package_files_include_claude_mods_directory (test_work_mode_packaging.WorkModePackagingTests.test_package_files_include_claude_mods_directory) ... ok
+test_packaged_mod_dir_yields_plugin_dir_argument (test_work_mode_packaging.WorkModePackagingTests.test_packaged_mod_dir_yields_plugin_dir_argument) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.002s
+
+OK
+exit=0

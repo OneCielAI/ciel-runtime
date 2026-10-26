@@ -1,0 +1,3 @@
+source: channel=eval:A from=coding-evaluator id=3 thread=work-eval-A
+
+REQ-A1: Amend task A only: Cache(clock, capacity=2) optional capacity (default unlimited when omitted/None), reject nonpositive capacity. Capacity applies to live keys. Evict OLDEST INSERTED live key (FIFO), NOT LRU; overwriting existing key does NOT refresh its insertion order. Cache.get does NOT refresh order. Expired entries do not count toward capacity. Eviction must increment version/tombstone so preexisting transactions conflict. Atomic transaction commits apply their writes in call order before FIFO eviction. Snapshots retain pre-eviction values. Preserve all A0 requirements and unfinished B/C.

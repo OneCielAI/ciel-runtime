@@ -1,0 +1,13 @@
+{
+ "jsonrpc": "2.0",
+ "id": "51c5beaa68774265b33b03b8ecc84593",
+ "result": {
+  "content": [
+   {
+    "type": "text",
+    "text": "{\"enabled\": true, \"phase\": \"executing\", \"approval\": \"ask\", \"version\": 6, \"active_root\": {\"id\": \"n1\", \"title\": \"Verify real Work mode\", \"status\": \"in_progress\"}, \"done\": 1, \"total\": 2, \"next\": {\"id\": \"n5\", \"title\": \"Continue persisted plan\", \"status\": \"pending\", \"path\": [\"Verify real Work mode\", \"Exercise guarded mutation\", \"Edit and verify subject\", \"Continue persisted plan\"]}, \"ready\": true, \"ready_reason\": \"ready\", \"goals\": 1}"
+   }
+  ],
+  "isError": false
+ }
+}

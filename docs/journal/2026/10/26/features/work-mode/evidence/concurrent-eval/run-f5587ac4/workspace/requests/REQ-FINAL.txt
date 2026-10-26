@@ -1,0 +1,3 @@
+source: channel=eval:all from=coding-evaluator id=6 thread=work-eval-all
+
+REQ-FINAL: All requirements have arrived. Complete A0+A1, B0+B1, C0+C1 without dropping any task. Run python -m unittest discover -v (your tests) and any other verification needed. Write completion.json mapping each request ID A0,B0,C0,A1,B1,C1 to its implementation file and verification evidence; include any unsatisfied requirement honestly. Update all Work plan leaf statuses with evidence, retaining all three task branches. Only when genuinely finished reply EVAL-COMPLETE with concise result. Do not call external services, send_message, restart_session, new_session, or modify files outside this isolated workspace.

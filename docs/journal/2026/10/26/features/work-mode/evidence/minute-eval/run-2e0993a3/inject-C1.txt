@@ -1,0 +1,30 @@
+      64 +                id, start, end, units = request
+      65 +            except (TypeError, ValueError) as error:
+      66 +                raise ValueError("expected (id, start, end, units)") from error
+      67 +            candidate.reserve(id, start, end, units)
+      68 +        self._reservations = candidate._reservations
+      69 +
+      70 +    def replace(self, id, start, end, units=1):
+      71 +        self._id(id)
+      72 +        self._interval(start, end, units)
+      73 +        if id not in self._reservations:
+      74 +            raise ValueError("unknown id")
+      75 +        candidate = Calendar(self.capacity)
+      76 +        candidate._reservations = self._reservations.copy()
+      77 +        del candidate._reservations[id]
+      78 +        candidate.reserve(id, start, end, units)
+      79 +        self._reservations = candidate._reservations
+      80 +
+      81      def cancel(self, id):
+      82          self._id(id)
+      83          if id not in self._reservations:
+
+✽ Pollinating… (4m 16s · ↓ 7.7k tokens)
+  ⎿  Tip: Use /btw to ask a quick side question without interrupting Claude's current work
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · esc to interrupt
+  work: run 3/10 [A: routing_gr… 3/3 | B: booking_ca… 0/3 | C: inventory_… 0/2 | …] · B0 implement booking_calendar.py
+  > Write Calendar/CapacityError/…

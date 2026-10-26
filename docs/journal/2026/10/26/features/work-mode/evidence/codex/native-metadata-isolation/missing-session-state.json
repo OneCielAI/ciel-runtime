@@ -1,0 +1,13 @@
+{
+  "jsonrpc": "2.0",
+  "id": 1792997537078,
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "conversation identity is unavailable; no shared Work fallback is allowed"
+      }
+    ],
+    "isError": true
+  }
+}

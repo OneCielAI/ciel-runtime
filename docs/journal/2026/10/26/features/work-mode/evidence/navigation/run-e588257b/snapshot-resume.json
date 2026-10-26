@@ -1,0 +1,13 @@
+{
+ "jsonrpc": "2.0",
+ "id": "be76f155cc74448bb35780fe216a4c4f",
+ "result": {
+  "content": [
+   {
+    "type": "text",
+    "text": "{\"enabled\": true, \"phase\": \"executing\", \"approval\": \"auto\", \"version\": 4, \"active_root\": {\"id\": \"n1\", \"title\": \"Verify real Work mode\", \"status\": \"in_progress\"}, \"done\": 1, \"total\": 4, \"next\": {\"id\": \"n5\", \"title\": \"Continue persisted plan\", \"status\": \"pending\", \"path\": [\"Verify real Work mode\", \"Exercise guarded mutation\", \"Edit and verify subject\", \"Continue persisted plan\"]}, \"breakdown\": [{\"id\": \"n2\", \"title\": \"Exercise guarded mutation\", \"status\": \"in_progress\", \"done\": 1, \"total\": 2}, {\"id\": \"n6\", \"title\": \"B booking calendar\", \"status\": \"pending\", \"done\": 0, \"total\": 1}, {\"id\": \"n8\", \"title\": \"C inventory stream\", \"status\": \"pending\", \"done\": 0, \"total\": 1}], \"ready\": true, \"ready_reason\": \"ready\", \"goals\": 1}"
+   }
+  ],
+  "isError": false
+ }
+}

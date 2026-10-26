@@ -1,0 +1,30 @@
+      203 -                           [("a", 0, 3, 1), ("b", 2, 5, 1)])
+      202 +            c.reserve_many([("a", 0, 3, 1), ("b", 2, 5, 1)])
+      203          self.assertEqual(c.allocations(), before)
+      204          # each alone would fit; together they overload [2,3)
+      205          self.assertTrue(c.available(0, 3))
+
+  Called ciel-runtime-router 5 times, ran 1 shell command
+
+● Write(inventory_stream.py)
+  ⎿  Wrote 182 lines to inventory_stream.py
+      1 """Incremental JSONL inventory event stream (REQ-C0, REQ-C1).
+      2
+      3 Text arrives as arbitrary fragments (a split may fall anywhere, including
+      4 inside JSON strings or between CR and LF).  Each complete nonblank line is one
+      5 event object:
+      6
+      7     {"id": ..., "kind": "stock", "sku": ..., "qty": ...}
+      8     {"id": ..., "kind": "move", "src": ..., "dst": ..., "qty": ...}
+      9     {"id": ..., "kind": "batch", "ops": [<stock/move op without id>, ...]}
+     … +172 lines
+
+· Architecting… (5m 2s · ↓ 30.8k tokens)
+  ⎿  Tip: Use /btw to ask a quick side question without interrupting Claude's current work
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · esc to interrupt
+                     work: run 8/14 [A: routing_gr… 4/4 | B: booking_ca… 4/4 | C: inventory_… 0/4 | …] · C0 implement
+                     InventoryStream/InventoryError/ConflictError > Writ…

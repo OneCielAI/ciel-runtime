@@ -1,0 +1,3 @@
+OKF v0.1 conformance — docs\okf
+  concepts: 3   index.md: 3   log.md: 1
+  [32m✓ conformant — no issues[0m

@@ -1,0 +1,3 @@
+owned router: yes
+owned stop 93868 SUCCESS: The process with PID 93868 (child process of PID 85044) has been terminated.
+evidence C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-mode\evidence\claude\run-472eb6a0

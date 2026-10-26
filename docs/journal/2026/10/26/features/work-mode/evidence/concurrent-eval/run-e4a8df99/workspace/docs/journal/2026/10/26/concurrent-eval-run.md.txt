@@ -1,0 +1,16 @@
+# 2026-10-26 Concurrent eval run-e4a8df99
+
+## Requests received
+- Initial message (truncated, began mid-sentence) — asked to "Start A"; A0 spec text not present.
+- REQ-B0, REQ-C0, REQ-A1, REQ-B1, REQ-C1, REQ-FINAL via eval channels.
+
+## Result
+- B (B0+B1): `dag_scheduler.py`, `test_dag_scheduler.py` — 19 tests OK.
+- C (C0+C1): `ledger.py`, `test_ledger.py` — 23 tests OK.
+- A (A0+A1): not implemented. A0 base spec never arrived; A1 amends it. Recorded as unsatisfied in `completion.json`.
+
+## Verification
+`python -m unittest discover -v` (Python 3.11.6): Ran 42 tests in 0.041s, OK.
+
+## Work plan
+One goal n1 with separate A (blocked), B (done), C (done), FINAL branches.

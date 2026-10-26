@@ -1,0 +1,15 @@
+owned router: yes
+interactive owned cmd: yes
+interactive ready: yes
+console command: yes
+console command: yes
+console command: yes
+console command: yes
+keyboard B details: NO
+owned stop 94796 
+owned stop 33208 
+owned stop 65336 SUCCESS: The process with PID 70372 (child process of PID 65336) has been terminated.
+SUCCESS: The process with PID 65336 (child process of PID 29128) has been terminated.
+owned stop 20372 SUCCESS: The process with PID 20372 (child process of PID 78200) has been terminated.
+owned stop 96668 SUCCESS: The process with PID 96668 (child process of PID 78200) has been terminated.
+evidence C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-mode\evidence\navigation\run-e588257b

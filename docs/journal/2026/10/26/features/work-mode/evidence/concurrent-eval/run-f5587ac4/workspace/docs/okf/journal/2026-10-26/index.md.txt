@@ -1,0 +1,5 @@
+# 2026-10-26
+
+* [A](A.md) - Snapshot cache and FIFO capacity.
+* [B](B.md) - Dependency scheduler and retries.
+* [C](C.md) - CSV reconciliation and exact totals.

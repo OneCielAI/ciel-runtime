@@ -1,0 +1,30 @@
+  3. The mid-turn message showed only [ciel-wake] pending_ids=1. Its content never reached me, and I have no tool that
+     reads pending messages. Your CLAUDE.md also rules out session control actions.
+
+I haven't  ditednanything and haven't created a Workeplan. A plan wioh an empty or.guessed Task A branch would be
+  made-up content.
+
+Please re-send Task A in full: the file or files, what to build, what "priority" means for A, and how to check it's
+  done. Also re-send the pending request if it was B. Once I have them, I'll build one Work plan with separate A, B and
+  C branches, start A, and add B and C as they arrive. I won't finalise the run until REQ-FINAL arrives.
+
+✻ Cogitated for 17s · done 6:58 AM
+
+❯ [ciel-wake] pending_ids=2
+
+● API Error: 503 Ciel Router deferred wake body injection behind TTY message id=1. This is a server-side issue,
+  usually temporary — try again in a moment. If it persists, check your inference gateway (127.0.0.1:65522).
+
+✻ Churned for 0s · done 6:58 AM
+
+❯ [ciel-wake] pending_ids=3
+
+● API Error: 503 Ciel Router deferred wake body injection behind TTY message id=1. This is a server-side issue,
+  usually temporary — try again in a moment. If it persists, check your inference gateway (127.0.0.1:65522).
+
+✻ Cooked for 0s · done 6:58 AM
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle)                                                         work: planning

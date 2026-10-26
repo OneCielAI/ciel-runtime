@@ -1,0 +1,7 @@
+07:11:25 injected B0
+07:11:48 injected C0
+07:12:04 injected A1
+07:12:21 injected B1
+07:12:38 injected C1
+07:14:05 injected FINAL
+07:25:13 finished C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-mode\evidence\concurrent-eval\run-f5587ac4

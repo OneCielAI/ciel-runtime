@@ -1,0 +1,16 @@
+01-vertical-items
+saved C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-mode\evidence\navigation\run-b9530cac\01-vertical-items.png handle=5243670 printwindow=True
+02-keyboard-B-detail
+saved C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-mode\evidence\navigation\run-b9530cac\02-keyboard-B-detail.png handle=5243670 printwindow=True
+03-keyboard-tree
+saved C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-mode\evidence\navigation\run-b9530cac\03-keyboard-tree.png handle=5243670 printwindow=True
+01-persisted-tree
+saved C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-mode\evidence\navigation\run-b9530cac\01-persisted-tree.png handle=5243670 printwindow=True
+02-approval-dialog-deny
+saved C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-mode\evidence\navigation\run-b9530cac\02-approval-dialog-deny.png handle=5243670 printwindow=True
+03-denied-planning
+saved C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-mode\evidence\navigation\run-b9530cac\03-denied-planning.png handle=5243670 printwindow=True
+04-approval-dialog-approve
+saved C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-mode\evidence\navigation\run-b9530cac\04-approval-dialog-approve.png handle=5243670 printwindow=True
+05-approved-executing
+saved C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-mode\evidence\navigation\run-b9530cac\05-approved-executing.png handle=5243670 printwindow=True

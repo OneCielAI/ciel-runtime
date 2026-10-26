@@ -1,0 +1,1394 @@
+{
+  "requests_seen": {
+    "A0": [
+      {
+        "timestamp": "2026-10-26T12:11:24.824Z",
+        "uuid": "084072d1-fc69-431d-880d-c07c45cc8b1a",
+        "source": "initial Read result"
+      }
+    ],
+    "B0": [
+      {
+        "timestamp": "2026-10-26T12:11:25.491Z",
+        "uuid": "45ab68d1-4a62-4d35-a98f-4a2996eebbd7",
+        "source": "queued_command",
+        "delivery_id": "d142bb69-821f-4fc9-ba95-8f1949ec58f3"
+      }
+    ],
+    "C0": [
+      {
+        "timestamp": "2026-10-26T12:11:49.936Z",
+        "uuid": "7a3a429d-e5e3-4e6f-8a6a-51fb0b454a07",
+        "source": "queued_command",
+        "delivery_id": "5c3818ed-e498-47a2-999d-5e8b7960c6c7"
+      }
+    ],
+    "A1": [
+      {
+        "timestamp": "2026-10-26T12:12:05.266Z",
+        "uuid": "c08acf7b-3189-4477-bd09-684b54d7f0fb",
+        "source": "queued_command",
+        "delivery_id": "47091e34-9915-489c-a94d-989e1bfb0708"
+      }
+    ],
+    "B1": [
+      {
+        "timestamp": "2026-10-26T12:12:21.526Z",
+        "uuid": "b7dcedb3-c564-4b93-abb2-a5dbf93d8c6b",
+        "source": "queued_command",
+        "delivery_id": "9e2c3b85-2449-4b2a-9f9a-f152bbb0a7e4"
+      }
+    ],
+    "C1": [
+      {
+        "timestamp": "2026-10-26T12:12:38.551Z",
+        "uuid": "70a83d9a-73af-496a-a3d3-6e6c98cb2b49",
+        "source": "queued_command",
+        "delivery_id": "b1d878b9-2b20-4dd1-b6c5-c18c198a8a5c"
+      }
+    ],
+    "FINAL": [
+      {
+        "timestamp": "2026-10-26T12:14:06.031Z",
+        "uuid": "8c74c29f-0d41-4a49-9bcf-087ae348c3b8",
+        "source": "queued_command",
+        "delivery_id": "788a2193-87cf-4bcf-ac70-3913efedd579"
+      }
+    ]
+  },
+  "duplicate_request_entries": {},
+  "missing_requests": [],
+  "tool_calls": 116,
+  "work_calls": [
+    {
+      "timestamp": "2026-10-26T12:11:47.648Z",
+      "tool": "mcp__ciel-runtime-router__work_plan_set",
+      "id": "toolu_011Y8Cyq9uxEi8G7ZEduYJVm",
+      "input": {
+        "goal": "Isolated eval: implement requested tasks A/B/C (standard library only), finalize only after REQ-FINAL",
+        "note": "Requests are preserved verbatim in initial_request.txt and later messages. Do not finalize until REQ-FINAL.",
+        "children": [
+          {
+            "title": "A: REQ-A0 mvcc_cache.py (MVCC TTL cache with snapshots and optimistic transactions)",
+            "children": [
+              {
+                "title": "A1: Implement mvcc_cache.py",
+                "children": [
+                  {
+                    "title": "A1.1 Cache(clock) set/get/delete with inclusive TTL and per-key monotonic versions incl. tombstones"
+                  },
+                  {
+                    "title": "A1.2 Snapshot with creation-time values and creation-time TTL visibility (version chains)"
+                  },
+                  {
+                    "title": "A1.3 Transaction: snapshot reads, read-your-writes, commit-time TTL, atomic commit, ConflictError over read+write keys, RuntimeError after close"
+                  }
+                ]
+              },
+              {
+                "title": "A2: Tests test_mvcc_cache.py (unittest)",
+                "children": [
+                  {
+                    "title": "A2.1 Write tests covering TTL, versions, snapshots, transactions, conflicts, closed state"
+                  },
+                  {
+                    "title": "A2.2 Run tests and capture passing output"
+                  }
+                ]
+              },
+              {
+                "title": "A3: Record journal entry for A in docs/ (OKF hierarchy)"
+              }
+            ]
+          },
+          {
+            "title": "B: placeholder for incoming request B (to be refined on arrival)"
+          },
+          {
+            "title": "C: placeholder for incoming request C (to be refined on arrival)"
+          },
+          {
+            "title": "FINAL: await REQ-FINAL, then run full verification and report"
+          }
+        ]
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:11:51.482Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "toolu_01GeNFwxuU95v1JBx8L7BTY5",
+      "input": {
+        "id": "n11",
+        "title": "B: REQ-B0 dag_scheduler.py (DAG scheduler, priority HIGHER-FIRST, no TTL/cache)",
+        "note": "REQ-B0 from eval:B; preserved verbatim in requests/REQ-B0.txt"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:11:52.684Z",
+      "tool": "mcp__ciel-runtime-router__work_node_add",
+      "id": "toolu_01AZgZLjEYXACLPisV1tFW58",
+      "input": {
+        "parent_id": "n11",
+        "title": "B1: Implement dag_scheduler.py",
+        "children": [
+          {
+            "title": "B1.1 Scheduler.add with existing-deps check, CycleError, StateError; states pending/running/done/failed"
+          },
+          {
+            "title": "B1.2 ready() ordered priority desc then task_id asc; start only ready; finish(success); failed deps block descendants; status()"
+          }
+        ]
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:11:53.938Z",
+      "tool": "mcp__ciel-runtime-router__work_node_add",
+      "id": "toolu_01RxkeyySWSod5AWb53iHe8z",
+      "input": {
+        "parent_id": "n11",
+        "title": "B2: Tests test_dag_scheduler.py",
+        "children": [
+          {
+            "title": "B2.1 Write tests for add/deps/ready ordering/start/finish/failure blocking/errors"
+          },
+          {
+            "title": "B2.2 Run tests and capture passing output"
+          }
+        ]
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:11:54.592Z",
+      "tool": "mcp__ciel-runtime-router__work_node_add",
+      "id": "toolu_01StKctVJrRbiC9BmfmAjzur",
+      "input": {
+        "parent_id": "n11",
+        "title": "B3: Record journal entry for B in docs/"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:11:55.593Z",
+      "tool": "mcp__ciel-runtime-router__work_node_add",
+      "id": "toolu_01MNhdY4DW4sVZgddutUJAQt",
+      "input": {
+        "parent_id": "n1",
+        "title": "R: Preserve incoming requests verbatim under requests/",
+        "children": [
+          {
+            "title": "R1 Save REQ-A0 and REQ-B0 text to requests/ (append later requests as they arrive)"
+          }
+        ]
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:11:58.432Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "toolu_015fK2naUp5dvDe931FxTWde",
+      "input": {
+        "id": "n12",
+        "title": "C: REQ-C0 ledger.py reconcile(chunks) streaming RFC4180 CSV -> Decimal sums (no scheduler priority)",
+        "note": "REQ-C0 from eval:C; preserved verbatim in requests/REQ-C0.txt"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:12:00.929Z",
+      "tool": "mcp__ciel-runtime-router__work_node_add",
+      "id": "toolu_018wDw7D5TtbtJ6A743JCS2z",
+      "input": {
+        "parent_id": "n12",
+        "title": "C1: Implement ledger.py",
+        "children": "[{\"title\": \"C1.1 Join/stream chunks into csv.reader handling quoted newlines, CRLF split across chunks, header validation\"}, {\"title\": \"C1.2 Row validation: blank rows ignored, missing/empty id/account -> ValueError, Decimal finite only (NaN/Infinity rejected), empty input -> {}\"}]}, {\"title\": \"C2: Tests test_ledger.py\", \"children\": [{\"title\": \"C2.1 Write tests incl. arbitrary fragmentation (every split point), quoted newline, CRLF, negatives/zero, errors\"}, {\"title\": \"C2.2 Run tests and capture passing output\"}]}, {\"title\": \"C3: Record journal entry for C in docs/\"}]"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:12:01.510Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "toolu_01E5m4efmSJP1mKdtfSCa1ko",
+      "input": {
+        "id": "n22",
+        "title": "R1 Save REQ-A0, REQ-B0, REQ-C0 text to requests/ (append later requests as they arrive)"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:12:04.486Z",
+      "tool": "mcp__ciel-runtime-router__work_node_add",
+      "id": "toolu_0157qf213P9Mrsnz7ya3JaXV",
+      "input": {
+        "parent_id": "n12",
+        "title": "C1: Implement ledger.py",
+        "children": [
+          {
+            "title": "C1.1 Stream chunks through csv.reader handling quoted newlines, CRLF split across chunks, header validation"
+          },
+          {
+            "title": "C1.2 Row validation: blank rows ignored, missing/empty id/account -> ValueError, finite Decimal only (NaN/Infinity rejected), empty input -> {}"
+          }
+        ]
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:12:05.678Z",
+      "tool": "mcp__ciel-runtime-router__work_node_add",
+      "id": "toolu_01XkyC6KXQp4hiWk7VR8PK8s",
+      "input": {
+        "parent_id": "n12",
+        "title": "C2: Tests test_ledger.py",
+        "children": [
+          {
+            "title": "C2.1 Write tests incl. every-split-point fragmentation, quoted newline, CRLF, negative/zero, errors"
+          },
+          {
+            "title": "C2.2 Run tests and capture passing output"
+          }
+        ]
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:12:06.115Z",
+      "tool": "mcp__ciel-runtime-router__work_node_add",
+      "id": "toolu_015d9HXgevYNg6Ac79oXRwgr",
+      "input": {
+        "parent_id": "n12",
+        "title": "C3: Record journal entry for C in docs/"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:12:09.423Z",
+      "tool": "mcp__ciel-runtime-router__work_node_add",
+      "id": "toolu_01QWUU3CpgViitHxVxsHQzeS",
+      "input": {
+        "parent_id": "n3",
+        "title": "A1.4 REQ-A1: capacity (None=unlimited, nonpositive rejected), FIFO eviction of oldest-inserted live key; overwrite/get do not refresh; expired don't count; eviction tombstones bump version; txn commit writes in call order then evict; snapshots keep pre-eviction values"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:12:09.916Z",
+      "tool": "mcp__ciel-runtime-router__work_node_add",
+      "id": "toolu_01LjuoH2SPrSpbFf4UU7CTQo",
+      "input": {
+        "parent_id": "n7",
+        "title": "A2.3 REQ-A1 capacity/FIFO tests (no LRU refresh, expired not counted, eviction conflicts txns, commit order, snapshot retains)"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:12:11.899Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "toolu_01VWAYGqgjRhjpFtnaTXBZBD",
+      "input": {
+        "id": "n22",
+        "title": "R1 Save REQ-A0, REQ-B0, REQ-C0, REQ-A1 text to requests/ (append later requests as they arrive)"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:12:11.914Z",
+      "tool": "mcp__ciel-runtime-router__work_execute",
+      "id": "toolu_01XtWrr1Ln2fVvZn813acdwx",
+      "input": {}
+    },
+    {
+      "timestamp": "2026-10-26T12:12:15.801Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "toolu_01YEtnwH6zBkR7D2t7whLUWq",
+      "input": {
+        "id": "n22",
+        "status": "in_progress"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:12:29.023Z",
+      "tool": "mcp__ciel-runtime-router__work_node_add",
+      "id": "toolu_014daGeLKJKn5HTkpGXRqLGH",
+      "input": {
+        "parent_id": "n14",
+        "title": "B1.3 REQ-B1: replace_deps (pending only else StateError; unknown->ValueError; self/cycle->CycleError; atomic), retry (failed only -> pending), tie-break = insertion order (supersedes B0 lexical)"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:12:29.843Z",
+      "tool": "mcp__ciel-runtime-router__work_node_add",
+      "id": "toolu_017WBoSeJ4G515D9XyPpGx5x",
+      "input": {
+        "parent_id": "n17",
+        "title": "B2.3 REQ-B1 tests: replace_deps errors atomic, retry flow unblocks descendants, insertion-order tie-break"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:12:30.636Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "toolu_01A22k7BF9cbXUoa8jxNajeo",
+      "input": {
+        "id": "n16",
+        "title": "B1.2 ready() ordered priority desc then tie-break (lexical per B0, superseded by B1 insertion order); start only ready; finish(success); failed deps block descendants; status()"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:12:32.704Z",
+      "tool": "mcp__ciel-runtime-router__work_execute",
+      "id": "toolu_016BMoiNTCJR8Y2QKvhjP3rf",
+      "input": {}
+    },
+    {
+      "timestamp": "2026-10-26T12:13:59.059Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "toolu_01GAPpDqBySMu7qrwQaJkR53",
+      "input": {
+        "id": "n22",
+        "status": "done",
+        "evidence": "ls requests -> REQ-A0.txt(1362B, copy of initial_request.txt) REQ-A1.txt REQ-B0.txt REQ-B1.txt REQ-C0.txt; later requests will be appended as new files"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:13:59.430Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "toolu_01DoqsndZAbTshFeiCk54MuL",
+      "input": {
+        "id": "n4",
+        "status": "in_progress"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:14:15.804Z",
+      "tool": "mcp__ciel-runtime-router__work_node_add",
+      "id": "toolu_01SR1QJucbMgzR4ZRbwXJKUh",
+      "input": {
+        "parent_id": "n23",
+        "title": "C1.3 REQ-C1: duplicate id last-row-wins globally (account change removes earlier contribution), retain zero-total accounts, validate every row"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:14:16.548Z",
+      "tool": "mcp__ciel-runtime-router__work_node_add",
+      "id": "toolu_01LkKzMTuR3DoNNvF9WCwzuq",
+      "input": {
+        "parent_id": "n26",
+        "title": "C2.3 REQ-C1 tests: duplicate id same/different account, zero-total retained, invalid overridden row still raises"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:15:31.258Z",
+      "tool": "mcp__ciel-runtime-router__work_execute",
+      "id": "call_8289bf3663d84620ad0705d3b0fa04cb",
+      "input": {}
+    },
+    {
+      "timestamp": "2026-10-26T12:15:36.559Z",
+      "tool": "mcp__ciel-runtime-router__work_node_add",
+      "id": "toolu_01Rzi4MMAdUxsFzAs1HAwYJB",
+      "input": {
+        "parent_id": "n13",
+        "title": "FINAL steps (REQ-FINAL received)",
+        "children": [
+          {
+            "title": "F1 Save REQ-FINAL text to requests/"
+          },
+          {
+            "title": "F2 Run python -m unittest discover -v; capture output to verification/unittest_output.txt"
+          },
+          {
+            "title": "F3 Write completion.json mapping A0,B0,C0,A1,B1,C1 to files and evidence (honest unsatisfied list)"
+          },
+          {
+            "title": "F4 Update all leaf statuses with evidence; reply EVAL-COMPLETE in final answer"
+          }
+        ]
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:15:38.539Z",
+      "tool": "mcp__ciel-runtime-router__work_execute",
+      "id": "toolu_01FJrHG7s32z4jJcXkL6zmM9",
+      "input": {}
+    },
+    {
+      "timestamp": "2026-10-26T12:15:50.050Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "toolu_01R5h1AruHd1srQ8eoQw4T99",
+      "input": {
+        "id": "n37",
+        "status": "done",
+        "evidence": "requests/REQ-FINAL.txt written (verbatim text, source id=6); REQ-C1.txt also saved earlier"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:18:04.260Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "call_e7f868d877a047298e18146d52f7f10e",
+      "input": {
+        "id": "n5",
+        "status": "in_progress",
+        "title": "A1.2 Snapshot with creation-time values and TTL visibility (copied bindings and versions)"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:18:04.265Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "call_5266a92e9b9d4457b345c954ab8f8f80",
+      "input": {
+        "id": "n6",
+        "status": "in_progress"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:18:04.268Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "call_7ebfe31d1ccb41c5800f8415c76fa59b",
+      "input": {
+        "id": "n30",
+        "status": "in_progress"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:18:04.270Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "call_939dc74e6ad745dd975e37c5166cf87f",
+      "input": {
+        "id": "n8",
+        "status": "in_progress"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:18:04.272Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "call_ffa80447a6ad4dbea2059ad780be9d41",
+      "input": {
+        "id": "n31",
+        "status": "in_progress"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:18:45.746Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "call_cb108422eace4081b9c1c7443a59b6a7",
+      "input": {
+        "id": "n9",
+        "status": "in_progress"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:19:04.518Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "call_d145e82930374b43a42438ddd2881b93",
+      "input": {
+        "id": "n15",
+        "status": "in_progress"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:19:04.521Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "call_70ced1c246cd4853980e19fc114d9061",
+      "input": {
+        "id": "n16",
+        "status": "in_progress"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:19:04.522Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "call_697f26c4748a491fbd6c3979a7a56041",
+      "input": {
+        "id": "n32",
+        "status": "in_progress"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:19:43.803Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "call_17dac2ec30474308bbc9559a5fa2e745",
+      "input": {
+        "id": "n18",
+        "status": "in_progress"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:19:43.805Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "call_d723236d31794828bb743d041213b088",
+      "input": {
+        "id": "n33",
+        "status": "in_progress"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:19:49.695Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "call_9b45bee9052d4f08a71f61920183ff8b",
+      "input": {
+        "id": "n19",
+        "status": "in_progress"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:19:49.701Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "call_71b21de2c82640598cd31a30db1ba112",
+      "input": {
+        "id": "n24",
+        "status": "in_progress"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:19:49.702Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "call_6b1dff0a63a342fa8ca6be92d284f9a8",
+      "input": {
+        "id": "n25",
+        "status": "in_progress"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:19:49.703Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "call_2e1cbe903aa24c7a9b532aa5a7102ef0",
+      "input": {
+        "id": "n34",
+        "status": "in_progress"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:20:53.579Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "call_98d8a24793bf44c5afcb4af380ce32ae",
+      "input": {
+        "id": "n27",
+        "status": "in_progress"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:20:53.583Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "call_66124450531d442ba35067b6e41c240b",
+      "input": {
+        "id": "n35",
+        "status": "in_progress"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:20:57.169Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "call_3f0a12d5ba8a4f7a9c7f71e2bef4bdfd",
+      "input": {
+        "id": "n28",
+        "status": "in_progress"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:21:23.347Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "call_ea10e4670669411497df2a195a1ff7d0",
+      "input": {
+        "id": "n4",
+        "status": "done",
+        "evidence": "python -m unittest test_mvcc_cache -v: 13 tests OK; test_ttl_boundary_zero_and_delete and test_versions_are_per_key_monotonic_including_tombstones verify API and versions"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:21:23.352Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "call_f64d709b0d4f4cb8b3618d8d873c4e96",
+      "input": {
+        "id": "n5",
+        "status": "done",
+        "evidence": "13 A tests OK; test_snapshot_freezes_bindings_and_ttl_visibility verifies writes/deletes/clock advance don't alter creation-time view; test_fifo_not_lru_or_overwrite_refresh verifies pre-eviction snapshot"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:21:23.355Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "call_1ac3786ec551402188416a7cc3fe45bf",
+      "input": {
+        "id": "n6",
+        "status": "done",
+        "evidence": "13 A tests OK incl. read/write/absent/late/ABA conflicts, concurrency, atomic failed commit, read-your-writes, commit-time TTL, commit/rollback closed guards"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:21:23.358Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "call_65076be00b554a3d845ee762d1ef015f",
+      "input": {
+        "id": "n30",
+        "status": "done",
+        "evidence": "test_mvcc_cache.CapacityTests: 4 tests OK; FIFO no access/overwrite refresh, expired keys excluded, eviction tombstone conflicts, writes call-order before eviction, unlimited/invalid capacity"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:21:23.360Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "call_cd94979d87694fea91377fc6b15835d2",
+      "input": {
+        "id": "n8",
+        "status": "done",
+        "evidence": "test_mvcc_cache.py contains 9 CacheTests; all passed via python -m unittest test_mvcc_cache -v"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:21:23.363Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "call_22b2874914364b5f8b90c5447ba3bd34",
+      "input": {
+        "id": "n9",
+        "status": "done",
+        "evidence": "python -m unittest test_mvcc_cache -v -> Ran 13 tests in 0.002s, OK"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:21:23.366Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "call_8a7bf85799de4dd7bee283e52a489786",
+      "input": {
+        "id": "n31",
+        "status": "done",
+        "evidence": "test_mvcc_cache.py has 4 CapacityTests; all passed via python -m unittest test_mvcc_cache -v"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:22:07.066Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "call_3dad818e21764201944585791b73309e",
+      "input": {
+        "id": "n15",
+        "status": "done",
+        "evidence": "python -m unittest test_dag_scheduler -v: 8 tests OK incl add unknown/self/duplicate rejection atomic, state guards, dependency flow"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:22:07.069Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "call_0580aac8d19b4589b6b0590613b6f020",
+      "input": {
+        "id": "n16",
+        "status": "done",
+        "evidence": "8 B tests OK; higher priority + original insertion-order ties (B1 supersedes lexical), start/finish/status and transitive failed-dependency blocking verified"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:22:07.071Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "call_bdc2b414e42641cd88f37cb0e42d3275",
+      "input": {
+        "id": "n32",
+        "status": "done",
+        "evidence": "8 B tests OK; replace_deps_success/failure_is_atomic; state guards; failed_dependency_blocks_descendants_and_retry; higher_priority_insertion_ties_not_lexical; deep-graph cycle"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:22:07.072Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "call_3bba4a0f8b554643b483193642212ff5",
+      "input": {
+        "id": "n18",
+        "status": "done",
+        "evidence": "test_dag_scheduler.py has 8 passing tests for API, states, dependency validation/flow/blocked descendants/order"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:22:07.072Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "call_aacdef2a333047b38f3fb26db5d2121c",
+      "input": {
+        "id": "n19",
+        "status": "done",
+        "evidence": "python -m unittest test_dag_scheduler -v -> Ran 8 tests in 0.112s, OK"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:22:07.073Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "call_c408d892183845c5a0c4718bbce75ed5",
+      "input": {
+        "id": "n33",
+        "status": "done",
+        "evidence": "test_dag_scheduler.py passed atomic dependency replacement, retry flow, insertion-order tie-break, nonpending guards, iterative deep-cycle check"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:22:07.073Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "call_4d345daad4274cec8863e2e0b77db0cb",
+      "input": {
+        "id": "n24",
+        "status": "done",
+        "evidence": "python -m unittest test_ledger -v -> 12 tests OK; joined fragments + csv.reader, all two-cut partitions and character chunks, quoted CRLF/quotes/commas/Unicode/header tests"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:22:07.074Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "call_bc47e30b110e44ca8e3ef148260541e0",
+      "input": {
+        "id": "n25",
+        "status": "done",
+        "evidence": "12 C tests OK; empty/blank, missing/empty fields, invalid and nonfinite amounts; exact sum beyond Decimal context precision and large exponent cancellation"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:22:07.074Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "call_28e7b84216a0445bac3354029ebeeec4",
+      "input": {
+        "id": "n34",
+        "status": "done",
+        "evidence": "12 C tests OK; global last-id wins across accounts, same-id last amount, zero-total accounts retained, every overridden row validated, seeded fragmentation/reference"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:22:07.074Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "call_dac996710a5b420783511ff3f630c543",
+      "input": {
+        "id": "n27",
+        "status": "done",
+        "evidence": "test_ledger.py contains 12 passing tests incl every two-cut boundary, randomized fragments, exact arithmetic, validation"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:22:07.074Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "call_a9288036ebd547fbacd7301d8d77c5ec",
+      "input": {
+        "id": "n28",
+        "status": "done",
+        "evidence": "python -m unittest test_ledger -v -> Ran 12 tests in 0.012s, OK"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:22:07.075Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "call_e661ff4fe179457da12c610d99fcb8fa",
+      "input": {
+        "id": "n35",
+        "status": "done",
+        "evidence": "test_ledger.py passed global_last_id_wins_account_changes_and_zero_retained, same_id_last_amount_only, every_row_validated_even_if_overridden"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:22:15.970Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "call_9abfd01f2c7e4fc79ec0b270e2eb3e55",
+      "input": {
+        "id": "n10",
+        "status": "in_progress"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:22:15.973Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "call_11479ff28b4c4b9e9d01f2299e8bd99d",
+      "input": {
+        "id": "n20",
+        "status": "in_progress"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:22:15.974Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "call_f9f0b5d7e4f34a06a457c572c9c967de",
+      "input": {
+        "id": "n29",
+        "status": "in_progress"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:22:15.975Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "call_3d7b44928dc348fd841746dc60e6d8fc",
+      "input": {
+        "id": "n38",
+        "status": "in_progress"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:23:14.463Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "call_0b8066fde8bc47b38a3ed520099d5d80",
+      "input": {
+        "id": "n16",
+        "status": "in_progress",
+        "note": "Final contract check: start on an unknown task is not ready, so must raise StateError (not generic unknown-task ValueError)."
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:23:14.464Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "call_e714e5074cfd44c59518a5d30d97c078",
+      "input": {
+        "id": "n18",
+        "status": "in_progress",
+        "note": "Add regression for unknown start -> StateError."
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:23:14.466Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "call_76bc7f74d8ce4d5a95d070d1387be158",
+      "input": {
+        "id": "n39",
+        "status": "in_progress"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:24:37.255Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "call_8cde3ef430c44c4e84731f2e3241f06e",
+      "input": {
+        "id": "n16",
+        "status": "done",
+        "evidence": "Final python -m unittest discover -v: 33 tests OK incl unknown start -> StateError; verification/unittest_output.txt (B tests lines 1-8)"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:24:37.258Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "call_0e17062067624f9e842a825da930867f",
+      "input": {
+        "id": "n18",
+        "status": "done",
+        "evidence": "8 scheduler tests passed in final 33-test run, including unknown start state regression; verification/unittest_output.txt"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:24:37.259Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "call_203d75fb97af4a929efb0dc3ff23612d",
+      "input": {
+        "id": "n10",
+        "status": "done",
+        "evidence": "docs/okf/journal/2026-10-26/A.md written in 4-level hierarchy; deterministic OKF checker -> 3 concepts, 3 indexes, 1 log, conformant no issues; verification/okf_validation.txt"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:24:37.260Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "call_a54f544260f1405e9fdc91c81f47e2ff",
+      "input": {
+        "id": "n20",
+        "status": "done",
+        "evidence": "docs/okf/journal/2026-10-26/B.md records B0+B1 policies and tests; OKF checker conformant no issues (verification/okf_validation.txt)"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:24:37.261Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "call_1421eec233c742e5bf96d28bf4c5d76f",
+      "input": {
+        "id": "n29",
+        "status": "done",
+        "evidence": "docs/okf/journal/2026-10-26/C.md records C0+C1 policies, exact arithmetic, buffering, tests; OKF checker conformant no issues (verification/okf_validation.txt)"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:24:37.261Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "call_fc546070491c4da28764a85611977edb",
+      "input": {
+        "id": "n38",
+        "status": "done",
+        "evidence": "python -m unittest discover -v -> Ran 33 tests in 0.122s, OK. Output saved verification/unittest_output.txt. AST import check verifies stdlib-only implementation imports; verification/source_checks.txt."
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:24:37.262Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "call_db16bff7bcc54afd980cbd2c6e2b8dfa",
+      "input": {
+        "id": "n40",
+        "status": "in_progress"
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:24:49.942Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "call_dd1f6624b61840649053fac53cc11e20",
+      "input": {
+        "id": "n39",
+        "status": "done",
+        "evidence": "completion.json maps all six IDs to implementation/test files and named captured tests; JSON parsed and all paths/test names checked against verification/unittest_output.txt, output 'all six request IDs accounted for'. Unsatisfied list empty; Git limitation honestly recorded."
+      }
+    },
+    {
+      "timestamp": "2026-10-26T12:24:57.634Z",
+      "tool": "mcp__ciel-runtime-router__work_node_update",
+      "id": "call_ad491c0a3bc34d56a24cee3416394f22",
+      "input": {
+        "id": "n40",
+        "status": "done",
+        "evidence": "Work update responses confirm A, B, C branches retained and complete with evidence; all other 26 leaves done. Final 33-test run OK, completion.json cross-checked, request archive contains all seven incoming requests; ready to report EVAL-COMPLETE."
+      }
+    }
+  ],
+  "injection_activity": [
+    {
+      "id": "A0",
+      "activity_observed": null,
+      "before": null,
+      "at": 1793016678.2708871
+    },
+    {
+      "id": "B0",
+      "activity_observed": true,
+      "before": {
+        "bytes": 427367,
+        "last_type": null,
+        "last_tools": []
+      },
+      "at": 1793016685.2965267
+    },
+    {
+      "id": "C0",
+      "activity_observed": true,
+      "before": {
+        "bytes": 710847,
+        "last_type": null,
+        "last_tools": []
+      },
+      "at": 1793016708.000697
+    },
+    {
+      "id": "A1",
+      "activity_observed": true,
+      "before": {
+        "bytes": 945479,
+        "last_type": "user",
+        "last_tools": [
+          "mcp__ciel-runtime-router__work_node_update"
+        ],
+        "timestamp": "2026-10-26T12:12:01.562Z"
+      },
+      "at": 1793016724.7373939
+    },
+    {
+      "id": "B1",
+      "activity_observed": true,
+      "before": {
+        "bytes": 1038651,
+        "last_type": "user",
+        "last_tools": [
+          "mcp__ciel-runtime-router__work_execute"
+        ],
+        "timestamp": "2026-10-26T12:12:12.037Z"
+      },
+      "at": 1793016741.386181
+    },
+    {
+      "id": "C1",
+      "activity_observed": true,
+      "before": {
+        "bytes": 1157329,
+        "last_type": "user",
+        "last_tools": [
+          "Bash"
+        ],
+        "timestamp": "2026-10-26T12:12:33.608Z"
+      },
+      "at": 1793016758.0601008
+    },
+    {
+      "id": "FINAL",
+      "activity_observed": true,
+      "before": {
+        "bytes": 1226655,
+        "last_type": "user",
+        "last_tools": [
+          "mcp__ciel-runtime-router__work_node_update"
+        ],
+        "timestamp": "2026-10-26T12:13:59.473Z"
+      },
+      "at": 1793016845.8873107
+    }
+  ],
+  "plan": {
+    "schema": 1,
+    "version": 81,
+    "phase": "planning",
+    "active_root": "n1",
+    "next_id": 41,
+    "nodes": [
+      {
+        "id": "n1",
+        "parent_id": null,
+        "title": "Isolated eval: implement requested tasks A/B/C (standard library only), finalize only after REQ-FINAL",
+        "status": "done",
+        "note": "Requests are preserved verbatim in initial_request.txt and later messages. Do not finalize until REQ-FINAL.",
+        "evidence": "",
+        "updated_at": 1793017497.6719518
+      },
+      {
+        "id": "n2",
+        "parent_id": "n1",
+        "title": "A: REQ-A0 mvcc_cache.py (MVCC TTL cache with snapshots and optimistic transactions)",
+        "status": "done",
+        "note": "",
+        "evidence": "",
+        "updated_at": 1793017477.4601262
+      },
+      {
+        "id": "n3",
+        "parent_id": "n2",
+        "title": "A1: Implement mvcc_cache.py",
+        "status": "done",
+        "note": "",
+        "evidence": "",
+        "updated_at": 1793017283.8023462
+      },
+      {
+        "id": "n4",
+        "parent_id": "n3",
+        "title": "A1.1 Cache(clock) set/get/delete with inclusive TTL and per-key monotonic versions incl. tombstones",
+        "status": "done",
+        "note": "",
+        "evidence": "python -m unittest test_mvcc_cache -v: 13 tests OK; test_ttl_boundary_zero_and_delete and test_versions_are_per_key_monotonic_including_tombstones verify API and versions",
+        "updated_at": 1793017283.4267147
+      },
+      {
+        "id": "n5",
+        "parent_id": "n3",
+        "title": "A1.2 Snapshot with creation-time values and TTL visibility (copied bindings and versions)",
+        "status": "done",
+        "note": "",
+        "evidence": "13 A tests OK; test_snapshot_freezes_bindings_and_ttl_visibility verifies writes/deletes/clock advance don't alter creation-time view; test_fifo_not_lru_or_overwrite_refresh verifies pre-eviction snapshot",
+        "updated_at": 1793017283.5805945
+      },
+      {
+        "id": "n6",
+        "parent_id": "n3",
+        "title": "A1.3 Transaction: snapshot reads, read-your-writes, commit-time TTL, atomic commit, ConflictError over read+write keys, RuntimeError after close",
+        "status": "done",
+        "note": "",
+        "evidence": "13 A tests OK incl. read/write/absent/late/ABA conflicts, concurrency, atomic failed commit, read-your-writes, commit-time TTL, commit/rollback closed guards",
+        "updated_at": 1793017283.6830933
+      },
+      {
+        "id": "n7",
+        "parent_id": "n2",
+        "title": "A2: Tests test_mvcc_cache.py (unittest)",
+        "status": "done",
+        "note": "",
+        "evidence": "",
+        "updated_at": 1793017284.1763446
+      },
+      {
+        "id": "n8",
+        "parent_id": "n7",
+        "title": "A2.1 Write tests covering TTL, versions, snapshots, transactions, conflicts, closed state",
+        "status": "done",
+        "note": "",
+        "evidence": "test_mvcc_cache.py contains 9 CacheTests; all passed via python -m unittest test_mvcc_cache -v",
+        "updated_at": 1793017283.9205883
+      },
+      {
+        "id": "n9",
+        "parent_id": "n7",
+        "title": "A2.2 Run tests and capture passing output",
+        "status": "done",
+        "note": "",
+        "evidence": "python -m unittest test_mvcc_cache -v -> Ran 13 tests in 0.002s, OK",
+        "updated_at": 1793017284.0245275
+      },
+      {
+        "id": "n10",
+        "parent_id": "n2",
+        "title": "A3: Record journal entry for A in docs/ (OKF hierarchy)",
+        "status": "done",
+        "note": "",
+        "evidence": "docs/okf/journal/2026-10-26/A.md written in 4-level hierarchy; deterministic OKF checker -> 3 concepts, 3 indexes, 1 log, conformant no issues; verification/okf_validation.txt",
+        "updated_at": 1793017477.4601262
+      },
+      {
+        "id": "n11",
+        "parent_id": "n1",
+        "title": "B: REQ-B0 dag_scheduler.py (DAG scheduler, priority HIGHER-FIRST, no TTL/cache)",
+        "status": "done",
+        "note": "REQ-B0 from eval:B; preserved verbatim in requests/REQ-B0.txt",
+        "evidence": "",
+        "updated_at": 1793017477.5323238
+      },
+      {
+        "id": "n12",
+        "parent_id": "n1",
+        "title": "C: REQ-C0 ledger.py reconcile(chunks) streaming RFC4180 CSV -> Decimal sums (no scheduler priority)",
+        "status": "done",
+        "note": "REQ-C0 from eval:C; preserved verbatim in requests/REQ-C0.txt",
+        "evidence": "",
+        "updated_at": 1793017477.602957
+      },
+      {
+        "id": "n13",
+        "parent_id": "n1",
+        "title": "FINAL: await REQ-FINAL, then run full verification and report",
+        "status": "done",
+        "note": "",
+        "evidence": "",
+        "updated_at": 1793017497.6719518
+      },
+      {
+        "id": "n14",
+        "parent_id": "n11",
+        "title": "B1: Implement dag_scheduler.py",
+        "status": "done",
+        "note": "",
+        "evidence": "",
+        "updated_at": 1793017477.3034606
+      },
+      {
+        "id": "n15",
+        "parent_id": "n14",
+        "title": "B1.1 Scheduler.add with existing-deps check, CycleError, StateError; states pending/running/done/failed",
+        "status": "done",
+        "note": "",
+        "evidence": "python -m unittest test_dag_scheduler -v: 8 tests OK incl add unknown/self/duplicate rejection atomic, state guards, dependency flow",
+        "updated_at": 1793017327.115382
+      },
+      {
+        "id": "n16",
+        "parent_id": "n14",
+        "title": "B1.2 ready() ordered priority desc then tie-break (lexical per B0, superseded by B1 insertion order); start only ready; finish(success); failed deps block descendants; status()",
+        "status": "done",
+        "note": "Final contract check: start on an unknown task is not ready, so must raise StateError (not generic unknown-task ValueError).",
+        "evidence": "Final python -m unittest discover -v: 33 tests OK incl unknown start -> StateError; verification/unittest_output.txt (B tests lines 1-8)",
+        "updated_at": 1793017477.3034606
+      },
+      {
+        "id": "n17",
+        "parent_id": "n11",
+        "title": "B2: Tests test_dag_scheduler.py",
+        "status": "done",
+        "note": "",
+        "evidence": "",
+        "updated_at": 1793017477.3800917
+      },
+      {
+        "id": "n18",
+        "parent_id": "n17",
+        "title": "B2.1 Write tests for add/deps/ready ordering/start/finish/failure blocking/errors",
+        "status": "done",
+        "note": "Add regression for unknown start -> StateError.",
+        "evidence": "8 scheduler tests passed in final 33-test run, including unknown start state regression; verification/unittest_output.txt",
+        "updated_at": 1793017477.3800917
+      },
+      {
+        "id": "n19",
+        "parent_id": "n17",
+        "title": "B2.2 Run tests and capture passing output",
+        "status": "done",
+        "note": "",
+        "evidence": "python -m unittest test_dag_scheduler -v -> Ran 8 tests in 0.112s, OK",
+        "updated_at": 1793017327.4373748
+      },
+      {
+        "id": "n20",
+        "parent_id": "n11",
+        "title": "B3: Record journal entry for B in docs/",
+        "status": "done",
+        "note": "",
+        "evidence": "docs/okf/journal/2026-10-26/B.md records B0+B1 policies and tests; OKF checker conformant no issues (verification/okf_validation.txt)",
+        "updated_at": 1793017477.5323238
+      },
+      {
+        "id": "n21",
+        "parent_id": "n1",
+        "title": "R: Preserve incoming requests verbatim under requests/",
+        "status": "done",
+        "note": "",
+        "evidence": "",
+        "updated_at": 1793016839.102741
+      },
+      {
+        "id": "n22",
+        "parent_id": "n21",
+        "title": "R1 Save REQ-A0, REQ-B0, REQ-C0, REQ-A1 text to requests/ (append later requests as they arrive)",
+        "status": "done",
+        "note": "",
+        "evidence": "ls requests -> REQ-A0.txt(1362B, copy of initial_request.txt) REQ-A1.txt REQ-B0.txt REQ-B1.txt REQ-C0.txt; later requests will be appended as new files",
+        "updated_at": 1793016839.102741
+      },
+      {
+        "id": "n23",
+        "parent_id": "n12",
+        "title": "C1: Implement ledger.py",
+        "status": "done",
+        "note": "",
+        "evidence": "",
+        "updated_at": 1793017327.7641044
+      },
+      {
+        "id": "n24",
+        "parent_id": "n23",
+        "title": "C1.1 Stream chunks through csv.reader handling quoted newlines, CRLF split across chunks, header validation",
+        "status": "done",
+        "note": "",
+        "evidence": "python -m unittest test_ledger -v -> 12 tests OK; joined fragments + csv.reader, all two-cut partitions and character chunks, quoted CRLF/quotes/commas/Unicode/header tests",
+        "updated_at": 1793017327.6014924
+      },
+      {
+        "id": "n25",
+        "parent_id": "n23",
+        "title": "C1.2 Row validation: blank rows ignored, missing/empty id/account -> ValueError, finite Decimal only (NaN/Infinity rejected), empty input -> {}",
+        "status": "done",
+        "note": "",
+        "evidence": "12 C tests OK; empty/blank, missing/empty fields, invalid and nonfinite amounts; exact sum beyond Decimal context precision and large exponent cancellation",
+        "updated_at": 1793017327.6812477
+      },
+      {
+        "id": "n26",
+        "parent_id": "n12",
+        "title": "C2: Tests test_ledger.py",
+        "status": "done",
+        "note": "",
+        "evidence": "",
+        "updated_at": 1793017328.079919
+      },
+      {
+        "id": "n27",
+        "parent_id": "n26",
+        "title": "C2.1 Write tests incl. every-split-point fragmentation, quoted newline, CRLF, negative/zero, errors",
+        "status": "done",
+        "note": "",
+        "evidence": "test_ledger.py contains 12 passing tests incl every two-cut boundary, randomized fragments, exact arithmetic, validation",
+        "updated_at": 1793017327.8632722
+      },
+      {
+        "id": "n28",
+        "parent_id": "n26",
+        "title": "C2.2 Run tests and capture passing output",
+        "status": "done",
+        "note": "",
+        "evidence": "python -m unittest test_ledger -v -> Ran 12 tests in 0.012s, OK",
+        "updated_at": 1793017327.9734862
+      },
+      {
+        "id": "n29",
+        "parent_id": "n12",
+        "title": "C3: Record journal entry for C in docs/",
+        "status": "done",
+        "note": "",
+        "evidence": "docs/okf/journal/2026-10-26/C.md records C0+C1 policies, exact arithmetic, buffering, tests; OKF checker conformant no issues (verification/okf_validation.txt)",
+        "updated_at": 1793017477.602957
+      },
+      {
+        "id": "n30",
+        "parent_id": "n3",
+        "title": "A1.4 REQ-A1: capacity (None=unlimited, nonpositive rejected), FIFO eviction of oldest-inserted live key; overwrite/get do not refresh; expired don't count; eviction tombstones bump version; txn commit writes in call order then evict; snapshots keep pre-eviction values",
+        "status": "done",
+        "note": "",
+        "evidence": "test_mvcc_cache.CapacityTests: 4 tests OK; FIFO no access/overwrite refresh, expired keys excluded, eviction tombstone conflicts, writes call-order before eviction, unlimited/invalid capacity",
+        "updated_at": 1793017283.8023462
+      },
+      {
+        "id": "n31",
+        "parent_id": "n7",
+        "title": "A2.3 REQ-A1 capacity/FIFO tests (no LRU refresh, expired not counted, eviction conflicts txns, commit order, snapshot retains)",
+        "status": "done",
+        "note": "",
+        "evidence": "test_mvcc_cache.py has 4 CapacityTests; all passed via python -m unittest test_mvcc_cache -v",
+        "updated_at": 1793017284.1763446
+      },
+      {
+        "id": "n32",
+        "parent_id": "n14",
+        "title": "B1.3 REQ-B1: replace_deps (pending only else StateError; unknown->ValueError; self/cycle->CycleError; atomic), retry (failed only -> pending), tie-break = insertion order (supersedes B0 lexical)",
+        "status": "done",
+        "note": "",
+        "evidence": "8 B tests OK; replace_deps_success/failure_is_atomic; state guards; failed_dependency_blocks_descendants_and_retry; higher_priority_insertion_ties_not_lexical; deep-graph cycle",
+        "updated_at": 1793017327.278155
+      },
+      {
+        "id": "n33",
+        "parent_id": "n17",
+        "title": "B2.3 REQ-B1 tests: replace_deps errors atomic, retry flow unblocks descendants, insertion-order tie-break",
+        "status": "done",
+        "note": "",
+        "evidence": "test_dag_scheduler.py passed atomic dependency replacement, retry flow, insertion-order tie-break, nonpending guards, iterative deep-cycle check",
+        "updated_at": 1793017327.5173857
+      },
+      {
+        "id": "n34",
+        "parent_id": "n23",
+        "title": "C1.3 REQ-C1: duplicate id last-row-wins globally (account change removes earlier contribution), retain zero-total accounts, validate every row",
+        "status": "done",
+        "note": "",
+        "evidence": "12 C tests OK; global last-id wins across accounts, same-id last amount, zero-total accounts retained, every overridden row validated, seeded fragmentation/reference",
+        "updated_at": 1793017327.7641044
+      },
+      {
+        "id": "n35",
+        "parent_id": "n26",
+        "title": "C2.3 REQ-C1 tests: duplicate id same/different account, zero-total retained, invalid overridden row still raises",
+        "status": "done",
+        "note": "",
+        "evidence": "test_ledger.py passed global_last_id_wins_account_changes_and_zero_retained, same_id_last_amount_only, every_row_validated_even_if_overridden",
+        "updated_at": 1793017328.079919
+      },
+      {
+        "id": "n36",
+        "parent_id": "n13",
+        "title": "FINAL steps (REQ-FINAL received)",
+        "status": "done",
+        "note": "",
+        "evidence": "",
+        "updated_at": 1793017497.6719518
+      },
+      {
+        "id": "n37",
+        "parent_id": "n36",
+        "title": "F1 Save REQ-FINAL text to requests/",
+        "status": "done",
+        "note": "",
+        "evidence": "requests/REQ-FINAL.txt written (verbatim text, source id=6); REQ-C1.txt also saved earlier",
+        "updated_at": 1793016950.1205044
+      },
+      {
+        "id": "n38",
+        "parent_id": "n36",
+        "title": "F2 Run python -m unittest discover -v; capture output to verification/unittest_output.txt",
+        "status": "done",
+        "note": "",
+        "evidence": "python -m unittest discover -v -> Ran 33 tests in 0.122s, OK. Output saved verification/unittest_output.txt. AST import check verifies stdlib-only implementation imports; verification/source_checks.txt.",
+        "updated_at": 1793017477.677332
+      },
+      {
+        "id": "n39",
+        "parent_id": "n36",
+        "title": "F3 Write completion.json mapping A0,B0,C0,A1,B1,C1 to files and evidence (honest unsatisfied list)",
+        "status": "done",
+        "note": "",
+        "evidence": "completion.json maps all six IDs to implementation/test files and named captured tests; JSON parsed and all paths/test names checked against verification/unittest_output.txt, output 'all six request IDs accounted for'. Unsatisfied list empty; Git limitation honestly recorded.",
+        "updated_at": 1793017489.982496
+      },
+      {
+        "id": "n40",
+        "parent_id": "n36",
+        "title": "F4 Update all leaf statuses with evidence; reply EVAL-COMPLETE in final answer",
+        "status": "done",
+        "note": "",
+        "evidence": "Work update responses confirm A, B, C branches retained and complete with evidence; all other 26 leaves done. Final 33-test run OK, completion.json cross-checked, request archive contains all seven incoming requests; ready to report EVAL-COMPLETE.",
+        "updated_at": 1793017497.6719518
+      }
+    ],
+    "updated_at": 1793017497.6719518
+  },
+  "live_pids_unchanged": true,
+  "run_error": null,
+  "timeout": false,
+  "request_text_fidelity": {
+    "B0": true,
+    "C0": true,
+    "A1": true,
+    "B1": true,
+    "C1": true,
+    "FINAL": true
+  },
+  "checks": {
+    "all_requests_present": true,
+    "each_request_once": true,
+    "multiple_mid_activity_injections": true,
+    "no_driver_error": true,
+    "plan_saved": true,
+    "all_plan_leaves_verified": true,
+    "live_pids_unchanged": true,
+    "complete_addition_texts_retained": true
+  },
+  "root_titles": [
+    "Isolated eval: implement requested tasks A/B/C (standard library only), finalize only after REQ-FINAL"
+  ]
+}

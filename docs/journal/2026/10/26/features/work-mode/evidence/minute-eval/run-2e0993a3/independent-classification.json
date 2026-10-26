@@ -1,0 +1,39 @@
+{
+  "verifier_frozen_sha256": "8261b2ece309244f75a3bc9e63a431aeeddc32aec173d5469541bcc691fe74a0",
+  "failed_test": "CalendarContract.test_checkpoint_restores_original_wait_sequence",
+  "observed_before": {
+    "version": 3,
+    "allocations": [],
+    "waiting": [
+      "a"
+    ]
+  },
+  "observed_after": {
+    "version": 3,
+    "allocations": [],
+    "waiting": [
+      "a"
+    ]
+  },
+  "later_promotion": [
+    "a"
+  ],
+  "observably_changed_fifo_before": {
+    "version": 4,
+    "waiting": [
+      "b",
+      "a"
+    ]
+  },
+  "observably_changed_fifo_restored": {
+    "version": 5,
+    "waiting": [
+      "a",
+      "b"
+    ]
+  },
+  "classification": "Verifier overconstraint / specification ambiguity, not a confirmed implementation defect",
+  "rationale": "B3 requires original waiting insertion sequence and identical-state restore no-op. The failing test cancels/reinserts the only waiting item, leaving the same active/waiting rows and FIFO order. The specification does not require a publicly unobservable absolute insertion counter. Demanding a version increment in that state is not justified by observable FIFO semantics. A two-item genuine FIFO reorder restores order and increments version correctly.",
+  "handling": "Frozen verifier and its failing assertion remain unchanged. Do not count the sole failure as a confirmed B3 defect or summarize this output as all-pass. Parent review is needed before using that assertion as a grading gate.",
+  "independence": "No generated files read before original verifier hash freeze. booking_calendar.py was read only afterward to classify this failure. No generated code changed."
+}

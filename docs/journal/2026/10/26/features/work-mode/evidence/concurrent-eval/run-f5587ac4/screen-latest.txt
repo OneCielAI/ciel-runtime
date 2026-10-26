@@ -1,0 +1,47 @@
+      89
+      90      def test_state_guards(self):
+      91          s = self.s
+      92 +        with self.assertRaises(StateError):
+      93 +            s.start('unknown')
+      94          s.add('x')
+      95          for op in (lambda: s.finish('x'), lambda: s.retry('x')):
+      96              with self.assertRaises(StateError):
+
+  Thought for 21s, read 1 file, ran 3 shell commands
+
+● Write(completion.json)
+  ⎿  Wrote 79 lines to completion.json
+       1 {
+       2   "A0": {
+       4     "status": "satisfied",
+       5     "verification_evidence": {
+       6       "test_file": "test_mvcc_cache.py",
+       8       "tests": ["test_ttl_boundary_zero_and_delete", "test_snapshot_freezes_bindings_and_ttl_visibility", "test_versions_are_per_k
+         ey_monotonic_including_tombstones", "test_transaction_snapshot_and_read_your_writes_commit_ttl", "test_read_and_write_conflicts_ar
+         e_atomic", "test_late_read_and_missing_delete_conflict", "test_closed_after_commit_or_rollback", "test_concurrent_conflict", "test
+       9     },
+      10     "unsatisfied_requirements": []
+     … +82 lines
+
+  Thought for 7s, called ciel-runtime-router 9 times, ran 1 shell command
+
+● EVAL-COMPLETE
+
+  Implemented all six requests:
+  - A0+A1: mvcc_cache.py — TTL snapshots, atomic conflict-checked transactions, FIFO capacity eviction.
+  - B0+B1: dag_scheduler.py — dependency scheduling, insertion-order ties, atomic dependency replacement, retries.
+  - C0+C1: ledger.py — fragmented CSV parsing, exact Decimal totals, global last-ID-wins reconciliation.
+
+  Verification: python -m unittest discover -v — 33 tests passed. Output: verification/unittest_output.txt.
+
+  completion.json records request mappings and evidence. All 27 Work leaves are complete; requests and validated OKF journals are preserved. No
+  unsatisfied requirements recorded.
+
+  Git status/diff checks were blocked by repository ownership validation; no configuration was changed.
+
+✻ Sautéed for 13m 49s · done 7:25 AM
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle)                                                                                   work: planning

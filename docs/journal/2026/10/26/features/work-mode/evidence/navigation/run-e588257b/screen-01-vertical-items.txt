@@ -1,0 +1,38 @@
+
+ ▐▛███▛█   Claude Code v2.1.310
+▝▜██████▀  fake-work · API Usage Billing
+ ▝▝   ▝▝   C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-mode\evidence\navigation\run-e588257b\ws
+
+⚠ Model "fake-work" isn't recognized · context assumed to be 200k tokens · update Claude Code, or see the docs
+
+❯ E2EWORK-MAIN verify planning guard then execute.
+
+  Read 1 file
+
+● Update(subject.txt)
+  ⎿  Error: Work is planning. Build the plan and call work_execute before changing state.
+
+  Called ciel-runtime-router 2 times, ran 1 shell command
+
+● Update(subject.txt)
+  ⎿  Added 1 line, removed 1 line
+      1 -BEFORE
+      1 +AFTER
+
+  Read 1 file, called ciel-runtime-router 3 times
+
+● E2EWORK-MAIN-DONE
+
+❯ E2EWORK-CONTINUE verify persisted plan.
+
+  Called ciel-runtime-router
+
+● E2EWORK-CONTINUE-DONE
+
+Work unavailable — /work-mode status                                                                                               [-]
+                                                                                                                     ● high · /effort
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+                                                                                                                    work: unavailable
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · ← for agents

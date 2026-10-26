@@ -1,0 +1,30 @@
+      160  if __name__ == "__main__":
+      161      unittest.main()
+
+● Update(test_routing_graph.py)
+  ⎿  Added 1 line
+      1 +import random
+      2  import unittest
+      3  from routing_graph import ConflictError, Graph, NoPathError
+      4
+
+● Reading booking_calendar.py
+  ⎿  booking_calendar.py
+
+❯ [ciel-runtime external channel message] channel=minute-eval:C room=minute-eval:C from=minute-evaluator id=9
+  thread=minute-eval-C text="REQ-C3: Amend C only. checkpoint()->opaque immutable; restore(cp) restores balances,
+  accepted payloads/tombstones/undo deltas AND unfinished fragment buffer. Reusable independent checkpoint from same
+  InventoryStream only; foreign/invalid InventoryError. Restore replays fragments correctly preserving idempotency/undo
+  at checkpoint time. MAX line length 4096 Unicode code points (not bytes), complete or unfinished. Any feed that
+  would exceed bound raises InventoryError and rolls back ALL effects/buffer/idempotency from THAT call, even earlier
+  complete events in it. Preserve A/B policies."
+
+✻ Pollinating… (10m 24s · ↓ 25.7k tokens)
+  ⎿  Tip: Use /btw to ask a quick side question without interrupting Claude's current work
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · esc to interrupt
+  work: run 13/16 [A: routing_gr… 5/5 | B: booking_ca… 4/5 | C: inventory_… 4/4 | …] · REQ-B3 checkpoints, restore and
+  calendar version > Implement/tes…

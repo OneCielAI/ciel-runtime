@@ -1,0 +1,30 @@
+      102 +class _RouteView:
+      103 +    """Shared read-only query logic over ``self._adj``."""
+      104 +
+      105 +    __slots__ = ()
+      106 +
+      107 +    def _require(self, name):
+      108 +        _require_in(self._adj, name)
+      109 +
+      110      def shortest(self, src, dst, *, blocked=(), max_hops=None):
+      111          """Return (cost, path_tuple) of the best simple path src->dst.
+      112
+
+● Appending Graph/GraphSnapshot and rerunning graph tests
+  ⎿  $ cat >> routing_graph.py <<'EOF'
+     class GraphSnapshot(_RouteView):
+     """REQ-A2: immutable point-in-time copy of a Graph."""
+     __slots__ = ("_adj", "_version")
+     def __init__(self, adj, version):
+     object.__setattr__(self, "_adj", {n: dict(e) for n, e in adj.items()})
+     object.__setattr__(self, "_version", ve…
+
+· Architecting… (7m 2s · ↓ 43.8k tokens)
+  ⎿  Tip: Use /btw to ask a quick side question without interrupting Claude's current work
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · esc to interrupt
+            work: run 12/18 [A: routing_gr… 4/6 | B: booking_ca… 4/6 | C: inventory_… 4/4 | …] · REQ-A2: snapshot() +
+            apply(changes, expected_version) > Implemen…

@@ -1,0 +1,265 @@
+{
+  "provider": "cielairouter",
+  "model": "_Walkie_Opus55-Sol61-Fast",
+  "snapshot": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-work-20261026-113105",
+  "port": 55205,
+  "workspace": "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\features\\work-mode\\evidence\\concurrent-eval\\run-e4a8df99\\workspace",
+  "scratch": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-work-coding-eval-enhk299v",
+  "transport": "actual MCP submit_input/session_socket",
+  "live_before": {
+    "9385": {
+      "ok": true,
+      "version": "0.2.51-nightly.20261024-115611.5d4dc0e",
+      "pid": 6032
+    },
+    "9464": {
+      "ok": true,
+      "version": "0.2.51-nightly.20261026-044702.d15822f",
+      "pid": 51556
+    },
+    "9489": {
+      "ok": true,
+      "version": "0.2.51-nightly.20261024-102326.a7e28f9",
+      "pid": 67368
+    },
+    "9505": {
+      "ok": true,
+      "version": "0.2.51-nightly.20261026-044702.d15822f",
+      "pid": 93416
+    },
+    "9524": {
+      "ok": true,
+      "version": "0.2.51-nightly.20261025-050332.144bebc",
+      "pid": 81772
+    }
+  },
+  "injections": [
+    {
+      "id": "A0",
+      "at": 1793016259.1538613,
+      "transport": "initial console"
+    },
+    {
+      "id": "B0",
+      "at": 1793016265.1865182,
+      "activity_observed": true,
+      "before": {
+        "bytes": 172413,
+        "last_type": "user",
+        "last_tools": [],
+        "timestamp": "2026-10-26T12:04:19.013Z"
+      },
+      "router_activity": {
+        "time": "2026-10-26T07:04:24",
+        "event": "request",
+        "attempt": 1,
+        "tokens": 24960
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": "50e61867d0954ae48bc74a3a688cb3d0",
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"ok\":true,\"message\":{\"id\":1,\"time\":\"2026-10-26T07:04:25\",\"created_at_epoch\":1793016265.1901765,\"channel\":\"eval:B\",\"sender_id\":\"coding-evaluator\",\"recipients\":[\"all\"],\"thread_id\":\"work-eval-B\",\"parent_id\":null,\"message\":\"REQ-B0: Additional independent coding problem B arrived while A is in progress. Preserve unfinished A. Implement dag_scheduler.py exposing class Scheduler and exceptions CycleError, StateError. API add(task_id, deps=(), priority=0), ready()->list[str], start(task_id), finish(task_id, success=True), status(task_id)->str. Dependencies must already exist. States pending/running/done/failed. ready lists pending tasks all of whose deps are done; order higher priority first then task_id lexical. start only ready tasks else StateError. Failed dependencies block descendants. Add tests. B priority is HIGHER-FIRST. No TTL or cache behavior in B. Add this request to the existing plan without losing A.\",\"kind\":\"mcp_streamable_input\",\"meta\":{\"source\":\"ciel-runtime-mcp-streamable\",\"source_kind\":\"mcp_streamable_input\",\"injection_mode\":\"structured\",\"input_transport\":\"session_socket\",\"response_mode\":\"mcp\"},\"visibility\":\"private_runtime\",\"delivery\":[\"llm\"]}}"
+            }
+          ],
+          "isError": false
+        }
+      }
+    },
+    {
+      "id": "C0",
+      "at": 1793016275.8673458,
+      "activity_observed": true,
+      "before": {
+        "bytes": 440695,
+        "last_type": null,
+        "last_tools": []
+      },
+      "router_activity": {
+        "time": "2026-10-26T07:04:34",
+        "event": "request",
+        "attempt": 1,
+        "tokens": 26681
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": "57fd1be765244b9994bd1ce355424843",
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"ok\":true,\"message\":{\"id\":2,\"time\":\"2026-10-26T07:04:35\",\"created_at_epoch\":1793016275.8736188,\"channel\":\"eval:C\",\"sender_id\":\"coding-evaluator\",\"recipients\":[\"all\"],\"thread_id\":\"work-eval-C\",\"parent_id\":null,\"message\":\"REQ-C0: Third independent problem C arrived; keep A and B. Implement ledger.py, standard library only. Expose reconcile(chunks) where chunks is an iterable of arbitrary string fragments of one CSV document. Header id,account,amount; RFC4180 quoting including newline inside quoted account; arbitrary fragment boundaries including inside CRLF and quotes. Return dict account -> Decimal exact sum of amounts; support negative and zero, never use float. Blank rows ignored. Missing/empty id, account or invalid finite decimal raise ValueError. Empty input returns {}. Amount NaN/Infinity rejected. Add tests and add separate C plan branch. No B scheduler priority in C.\",\"kind\":\"mcp_streamable_input\",\"meta\":{\"source\":\"ciel-runtime-mcp-streamable\",\"source_kind\":\"mcp_streamable_input\",\"injection_mode\":\"structured\",\"input_transport\":\"session_socket\",\"response_mode\":\"mcp\"},\"visibility\":\"private_runtime\",\"delivery\":[\"llm\"]}}"
+            }
+          ],
+          "isError": false
+        }
+      }
+    },
+    {
+      "id": "A1",
+      "at": 1793016294.725231,
+      "activity_observed": true,
+      "before": {
+        "bytes": 636385,
+        "last_type": "user",
+        "last_tools": [
+          "mcp__ciel-runtime-router__work_node_update"
+        ],
+        "timestamp": "2026-10-26T12:04:51.049Z"
+      },
+      "router_activity": {
+        "time": "2026-10-26T07:04:51",
+        "event": "request",
+        "attempt": 1,
+        "tokens": 29877
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": "c43e8ceb610046488b810caab7e973b6",
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"ok\":true,\"message\":{\"id\":3,\"time\":\"2026-10-26T07:04:54\",\"created_at_epoch\":1793016294.7303734,\"channel\":\"eval:A\",\"sender_id\":\"coding-evaluator\",\"recipients\":[\"all\"],\"thread_id\":\"work-eval-A\",\"parent_id\":null,\"message\":\"REQ-A1: Amend task A only: Cache(clock, capacity=2) optional capacity (default unlimited when omitted/None), reject nonpositive capacity. Capacity applies to live keys. Evict OLDEST INSERTED live key (FIFO), NOT LRU; overwriting existing key does NOT refresh its insertion order. Cache.get does NOT refresh order. Expired entries do not count toward capacity. Eviction must increment version/tombstone so preexisting transactions conflict. Atomic transaction commits apply their writes in call order before FIFO eviction. Snapshots retain pre-eviction values. Preserve all A0 requirements and unfinished B/C.\",\"kind\":\"mcp_streamable_input\",\"meta\":{\"source\":\"ciel-runtime-mcp-streamable\",\"source_kind\":\"mcp_streamable_input\",\"injection_mode\":\"structured\",\"input_transport\":\"session_socket\",\"response_mode\":\"mcp\"},\"visibility\":\"private_runtime\",\"delivery\":[\"llm\"]}}"
+            }
+          ],
+          "isError": false
+        }
+      }
+    },
+    {
+      "id": "B1",
+      "at": 1793016311.4509766,
+      "activity_observed": true,
+      "before": {
+        "bytes": 713875,
+        "last_type": "user",
+        "last_tools": [
+          "mcp__ciel-runtime-router__work_execute"
+        ],
+        "timestamp": "2026-10-26T12:05:06.991Z"
+      },
+      "router_activity": {
+        "time": "2026-10-26T07:05:07",
+        "event": "request",
+        "attempt": 1,
+        "tokens": 35020
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": "1a49578b500d4644b4f0a0c66a305f4e",
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"ok\":true,\"message\":{\"id\":4,\"time\":\"2026-10-26T07:05:11\",\"created_at_epoch\":1793016311.4545038,\"channel\":\"eval:B\",\"sender_id\":\"coding-evaluator\",\"recipients\":[\"all\"],\"thread_id\":\"work-eval-B\",\"parent_id\":null,\"message\":\"REQ-B1: Amend B only: add replace_deps(task_id,deps) for pending tasks. Reject unknown dependencies with ValueError, self-dependency or any cycle with CycleError. Failure must be ATOMIC: keep old dependencies/status/ready order unchanged. Nonpending target -> StateError. Add retry(task_id), valid only for failed tasks, puts it pending. Descendants become ready only after prerequisite retries and completes. REVERSE the B0 tie-break ONLY: equal priority now uses original task insertion order (NOT lexical). Higher priority still first. Do not apply A FIFO eviction policy or C last-wins to B.\",\"kind\":\"mcp_streamable_input\",\"meta\":{\"source\":\"ciel-runtime-mcp-streamable\",\"source_kind\":\"mcp_streamable_input\",\"injection_mode\":\"structured\",\"input_transport\":\"session_socket\",\"response_mode\":\"mcp\"},\"visibility\":\"private_runtime\",\"delivery\":[\"llm\"]}}"
+            }
+          ],
+          "isError": false
+        }
+      }
+    },
+    {
+      "id": "C1",
+      "at": 1793016328.1774068,
+      "activity_observed": true,
+      "before": {
+        "bytes": 793229,
+        "last_type": "user",
+        "last_tools": [
+          "mcp__ciel-runtime-router__work_execute"
+        ],
+        "timestamp": "2026-10-26T12:05:19.099Z"
+      },
+      "router_activity": {
+        "time": "2026-10-26T07:05:19",
+        "event": "request",
+        "attempt": 1,
+        "tokens": 40606
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": "2783a2a99d8148cfa4586fd67dd51289",
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"ok\":true,\"message\":{\"id\":5,\"time\":\"2026-10-26T07:05:28\",\"created_at_epoch\":1793016328.1804302,\"channel\":\"eval:C\",\"sender_id\":\"coding-evaluator\",\"recipients\":[\"all\"],\"thread_id\":\"work-eval-C\",\"parent_id\":null,\"message\":\"REQ-C1: Amend C only: duplicate CSV id is LAST ROW WINS globally, including when its account changes; remove earlier row contribution from prior account. Retain accounts with final zero total. Exact Decimal semantics, no float; final mapping totals must reflect only last occurrence of each id. Validate EVERY row even if a later duplicate would override it. No sorting/priority scheme from B and no FIFO key eviction from A. Preserve all tasks.\",\"kind\":\"mcp_streamable_input\",\"meta\":{\"source\":\"ciel-runtime-mcp-streamable\",\"source_kind\":\"mcp_streamable_input\",\"injection_mode\":\"structured\",\"input_transport\":\"session_socket\",\"response_mode\":\"mcp\"},\"visibility\":\"private_runtime\",\"delivery\":[\"llm\"]}}"
+            }
+          ],
+          "isError": false
+        }
+      }
+    },
+    {
+      "id": "FINAL",
+      "at": 1793016344.8826146,
+      "activity_observed": true,
+      "before": {
+        "bytes": 829966,
+        "last_type": "user",
+        "last_tools": [
+          "Write"
+        ],
+        "timestamp": "2026-10-26T12:05:36.471Z"
+      },
+      "router_activity": {
+        "time": "2026-10-26T07:05:37",
+        "event": "request",
+        "attempt": 1,
+        "tokens": 43274
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": "b7c604f62aca4986b1802e5afd38df70",
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"ok\":true,\"message\":{\"id\":6,\"time\":\"2026-10-26T07:05:44\",\"created_at_epoch\":1793016344.8881333,\"channel\":\"eval:all\",\"sender_id\":\"coding-evaluator\",\"recipients\":[\"all\"],\"thread_id\":\"work-eval-all\",\"parent_id\":null,\"message\":\"REQ-FINAL: All requirements have arrived. Complete A0+A1, B0+B1, C0+C1 without dropping any task. Run python -m unittest discover -v (your tests) and any other verification needed. Write completion.json mapping each request ID A0,B0,C0,A1,B1,C1 to its implementation file and verification evidence; include any unsatisfied requirement honestly. Update all Work plan leaf statuses with evidence, retaining all three task branches. Only when genuinely finished reply EVAL-COMPLETE with concise result. Do not call external services, send_message, restart_session, new_session, or modify files outside this isolated workspace.\",\"kind\":\"mcp_streamable_input\",\"meta\":{\"source\":\"ciel-runtime-mcp-streamable\",\"source_kind\":\"mcp_streamable_input\",\"injection_mode\":\"structured\",\"input_transport\":\"session_socket\",\"response_mode\":\"mcp\"},\"visibility\":\"private_runtime\",\"delivery\":[\"llm\"]}}"
+            }
+          ],
+          "isError": false
+        }
+      }
+    }
+  ],
+  "screens": [
+    {
+      "label": "00-ready",
+      "exit": 0,
+      "bytes": 18898
+    },
+    {
+      "label": "inject-B0",
+      "exit": 0,
+      "bytes": 45428
+    },
+    {
+      "label": "inject-C0",
+      "exit": 0,
+      "bytes": 59012
+    },
+    {
+      "label": "inject-A1",
+      "exit": 0,
+      "bytes": 53952
+    },
+    {
+      "label": "inject-B1",
+      "exit": 0,
+      "bytes": 52891
+    },
+    {
+      "label": "inject-C1",
+      "exit": 0,
+      "bytes": 55702
+    }
+  ],
+  "owned_launcher_pid": 56600,
+  "console_host_pid": 85168,
+  "owned_console_agent_pid": 70104
+}

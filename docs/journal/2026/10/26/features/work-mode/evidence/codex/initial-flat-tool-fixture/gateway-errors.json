@@ -1,0 +1,5 @@
+[
+  "RuntimeError(\"missing work_plan_set among ['exec_command', 'write_stdin', 'list_mcp_resources', 'list_mcp_resource_templates', 'read_mcp_resource', 'request_user_input', 'view_image', 'get_goal', 'create_goal', 'update_goal']\")",
+  "RuntimeError(\"missing work_execute among ['exec_command', 'write_stdin', 'list_mcp_resources', 'list_mcp_resource_templates', 'read_mcp_resource', 'request_user_input', 'view_image', 'get_goal', 'create_goal', 'update_goal']\")",
+  "RuntimeError(\"missing work_status among ['exec_command', 'write_stdin', 'list_mcp_resources', 'list_mcp_resource_templates', 'read_mcp_resource', 'request_user_input', 'view_image', 'get_goal', 'create_goal', 'update_goal']\")"
+]

@@ -1,0 +1,135 @@
+{
+  "temp_root": "C:\\Users\\djlov\\AppData\\Local\\Temp\\codex-work-proof-r9fgzyi6",
+  "binary": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@openai\\codex\\node_modules\\@openai\\codex-win32-x64\\vendor\\x86_64-pc-windows-msvc\\bin\\codex.exe",
+  "inherited_prefixes_removed": [
+    "CIEL_RUNTIME_*",
+    "CLAUDE*",
+    "ANTHROPIC*",
+    "CODEX*",
+    "OPENAI*"
+  ],
+  "version": "codex-cli 0.158.0",
+  "helper_args": [
+    "-c",
+    "developer_instructions=\"Ciel Work mode is on. Work like Plan mode, but with a deeper, hierarchical plan that you keep current while you execute.\\n1. Planning phase: before changing files, decompose the user's task into a tree with work_plan_set: goal -> phases -> tasks -> steps. Keep splitting until every leaf is one concrete, verifiable action. Read-only exploration is fine while planning; file edits and state-changing commands wait for execution.\\n2. When the plan is complete, call work_execute. If it reports that user confirmation is required, show the plan, ask the user, and call work_execute again with user_confirmed=true only after they agree.\\n3. Executing phase: work through the leaves in order. Mark a leaf in_progress when you start it and done with short evidence (command output, test result, file) when it is verified. Add or split nodes with work_node_add when you discover more work; use work_replan when the approach changes.\\n4. Call work_status to see the tree. Never report a step as done without evidence.\""
+  ],
+  "prompt_off": {
+    "exit": 0,
+    "work_in_developer": false
+  },
+  "prompt_on": {
+    "exit": 0,
+    "work_in_developer": true
+  },
+  "schema_thread_fields": [
+    "approvalPolicy",
+    "approvalsReviewer",
+    "baseInstructions",
+    "config",
+    "cwd",
+    "developerInstructions",
+    "ephemeral",
+    "model",
+    "modelProvider",
+    "personality",
+    "sandbox",
+    "serviceName",
+    "serviceTier",
+    "sessionStartSource",
+    "threadSource"
+  ],
+  "router_pid": 52536,
+  "router_port": 56254,
+  "router_work_tools": [
+    "work_status",
+    "work_plan_set",
+    "work_node_add",
+    "work_node_update",
+    "work_node_remove",
+    "work_select",
+    "work_execute",
+    "work_replan"
+  ],
+  "app_server_command": [
+    "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@openai\\codex\\node_modules\\@openai\\codex-win32-x64\\vendor\\x86_64-pc-windows-msvc\\bin\\codex.exe",
+    "-c",
+    "developer_instructions=\"Ciel Work mode is on. Work like Plan mode, but with a deeper, hierarchical plan that you keep current while you execute.\\n1. Planning phase: before changing files, decompose the user's task into a tree with work_plan_set: goal -> phases -> tasks -> steps. Keep splitting until every leaf is one concrete, verifiable action. Read-only exploration is fine while planning; file edits and state-changing commands wait for execution.\\n2. When the plan is complete, call work_execute. If it reports that user confirmation is required, show the plan, ask the user, and call work_execute again with user_confirmed=true only after they agree.\\n3. Executing phase: work through the leaves in order. Mark a leaf in_progress when you start it and done with short evidence (command output, test result, file) when it is verified. Add or split nodes with work_node_add when you discover more work; use work_replan when the approach changes.\\n4. Call work_status to see the tree. Never report a step as done without evidence.\"",
+    "-c",
+    "model=\"work-probe\"",
+    "-c",
+    "model_provider=\"workproof\"",
+    "-c",
+    "model_providers.workproof.name=\"Work proof\"",
+    "-c",
+    "model_providers.workproof.base_url=\"http://127.0.0.1:56251/v1\"",
+    "-c",
+    "model_providers.workproof.wire_api=\"responses\"",
+    "-c",
+    "model_providers.workproof.requires_openai_auth=false",
+    "-c",
+    "mcp_servers.ciel-runtime-router.url=\"http://127.0.0.1:56254/ca/mcp\"",
+    "app-server"
+  ],
+  "initialize": {
+    "userAgent": "work-proof/0.158.0 (Windows 10.0.26200; x86_64) WindowsTerminal (work-proof; 1)",
+    "codexHome": "C:\\Users\\djlov\\AppData\\Local\\Temp\\codex-work-proof-r9fgzyi6\\codex",
+    "platformFamily": "windows",
+    "platformOs": "windows"
+  },
+  "turn_start": {
+    "turn": {
+      "id": "01a176dd-b292-77a0-9c3d-54b707797dca",
+      "items": [],
+      "itemsView": "notLoaded",
+      "status": "inProgress",
+      "error": null,
+      "startedAt": null,
+      "completedAt": null,
+      "durationMs": null
+    }
+  },
+  "turn_completed": {
+    "method": "turn/completed",
+    "params": {
+      "threadId": "01a176dd-b274-70d2-b744-fdc25dd51da8",
+      "turn": {
+        "id": "01a176dd-b292-77a0-9c3d-54b707797dca",
+        "items": [
+          {
+            "type": "agentMessage",
+            "id": "msg_final",
+            "text": "CODEX_WORK_PROTOCOL_OK",
+            "phase": null,
+            "memoryCitation": null,
+            "delivery": null,
+            "questions": null
+          }
+        ],
+        "itemsView": "summary",
+        "status": "completed",
+        "error": null,
+        "startedAt": 1792995603,
+        "completedAt": 1792995603,
+        "durationMs": 78
+      }
+    },
+    "emittedAtMs": 1792995603178
+  },
+  "gateway_request_count": 4,
+  "app_server_work_tools": [
+    "work_execute",
+    "work_node_add",
+    "work_node_remove",
+    "work_node_update",
+    "work_plan_set",
+    "work_replan",
+    "work_select",
+    "work_status"
+  ],
+  "gateway_developer_instructions": true,
+  "gateway_errors": [],
+  "owned_processes_exited": {
+    "62676": 1,
+    "52536": 1
+  }
+}

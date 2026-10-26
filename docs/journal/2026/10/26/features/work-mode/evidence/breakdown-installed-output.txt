@@ -1,0 +1,3 @@
+Synthetic display projection from copied completed evaluation plan; not a live progress claim.
+[work executing] 26/27 Isolated eval: implement requested tasks A/B/... | A: REQ-A0 mvcc_cach... 7/8 | B: REQ-B0 dag_sched... 7/7 | C: REQ-C0 ledger.py... 7/7 | FINAL: await REQ-FI... 4/4 | +1 branches
+  in_progress n30 Isolated eval: implement requ... > A: REQ-A0 mvcc_cache.py (MVCC... > A1: Implement mvcc_cache.py > A1.4 REQ-A1: capacity (None=u...

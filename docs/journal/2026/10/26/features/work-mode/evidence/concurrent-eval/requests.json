@@ -1,0 +1,37 @@
+[
+  {
+    "id": "A0",
+    "task": "A",
+    "text": "REQ-A0: Implement task A in mvcc_cache.py, standard library only. Expose class Cache(clock) using an injected clock callable returning numeric seconds. API: set(key,value,ttl=None), get(key,default=None), delete(key)->bool, snapshot()->Snapshot, transaction()->Transaction. A Snapshot.get(key,default=None) must retain its creation-time values and creation-time TTL visibility even after later writes, deletes, or clock advances. TTL expiration is inclusive: expires_at <= clock() is expired; ttl=0 immediately invisible. Cache uses monotonic integer per-key versions including tombstones. Transaction.get/set/delete read from a creation-time snapshot, support read-your-writes, and commit atomically with optimistic conflict detection across ALL read or written keys: if any changed after transaction creation, commit raises ConflictError and applies nothing. Transaction.set accepts ttl; TTL is measured from commit time. commit()/rollback() close the transaction; subsequent operations raise RuntimeError. Add tests. In all tasks use shared word 'priority' only in the meaning prescribed per task; do not merge policies across files. Start A now. More independent requests will arrive while you work; retain A and incorporate them in ONE hierarchical Work plan with separate A/B/C branches. Do not prematurely finalize the overall run until REQ-FINAL arrives."
+  },
+  {
+    "id": "B0",
+    "task": "B",
+    "text": "REQ-B0: Additional independent coding problem B arrived while A is in progress. Preserve unfinished A. Implement dag_scheduler.py exposing class Scheduler and exceptions CycleError, StateError. API add(task_id, deps=(), priority=0), ready()->list[str], start(task_id), finish(task_id, success=True), status(task_id)->str. Dependencies must already exist. States pending/running/done/failed. ready lists pending tasks all of whose deps are done; order higher priority first then task_id lexical. start only ready tasks else StateError. Failed dependencies block descendants. Add tests. B priority is HIGHER-FIRST. No TTL or cache behavior in B. Add this request to the existing plan without losing A."
+  },
+  {
+    "id": "C0",
+    "task": "C",
+    "text": "REQ-C0: Third independent problem C arrived; keep A and B. Implement ledger.py, standard library only. Expose reconcile(chunks) where chunks is an iterable of arbitrary string fragments of one CSV document. Header id,account,amount; RFC4180 quoting including newline inside quoted account; arbitrary fragment boundaries including inside CRLF and quotes. Return dict account -> Decimal exact sum of amounts; support negative and zero, never use float. Blank rows ignored. Missing/empty id, account or invalid finite decimal raise ValueError. Empty input returns {}. Amount NaN/Infinity rejected. Add tests and add separate C plan branch. No B scheduler priority in C."
+  },
+  {
+    "id": "A1",
+    "task": "A",
+    "text": "REQ-A1: Amend task A only: Cache(clock, capacity=2) optional capacity (default unlimited when omitted/None), reject nonpositive capacity. Capacity applies to live keys. Evict OLDEST INSERTED live key (FIFO), NOT LRU; overwriting existing key does NOT refresh its insertion order. Cache.get does NOT refresh order. Expired entries do not count toward capacity. Eviction must increment version/tombstone so preexisting transactions conflict. Atomic transaction commits apply their writes in call order before FIFO eviction. Snapshots retain pre-eviction values. Preserve all A0 requirements and unfinished B/C."
+  },
+  {
+    "id": "B1",
+    "task": "B",
+    "text": "REQ-B1: Amend B only: add replace_deps(task_id,deps) for pending tasks. Reject unknown dependencies with ValueError, self-dependency or any cycle with CycleError. Failure must be ATOMIC: keep old dependencies/status/ready order unchanged. Nonpending target -> StateError. Add retry(task_id), valid only for failed tasks, puts it pending. Descendants become ready only after prerequisite retries and completes. REVERSE the B0 tie-break ONLY: equal priority now uses original task insertion order (NOT lexical). Higher priority still first. Do not apply A FIFO eviction policy or C last-wins to B."
+  },
+  {
+    "id": "C1",
+    "task": "C",
+    "text": "REQ-C1: Amend C only: duplicate CSV id is LAST ROW WINS globally, including when its account changes; remove earlier row contribution from prior account. Retain accounts with final zero total. Exact Decimal semantics, no float; final mapping totals must reflect only last occurrence of each id. Validate EVERY row even if a later duplicate would override it. No sorting/priority scheme from B and no FIFO key eviction from A. Preserve all tasks."
+  },
+  {
+    "id": "FINAL",
+    "task": "all",
+    "text": "REQ-FINAL: All requirements have arrived. Complete A0+A1, B0+B1, C0+C1 without dropping any task. Run python -m unittest discover -v (your tests) and any other verification needed. Write completion.json mapping each request ID A0,B0,C0,A1,B1,C1 to its implementation file and verification evidence; include any unsatisfied requirement honestly. Update all Work plan leaf statuses with evidence, retaining all three task branches. Only when genuinely finished reply EVAL-COMPLETE with concise result. Do not call external services, send_message, restart_session, new_session, or modify files outside this isolated workspace."
+  }
+]

@@ -1,0 +1,3 @@
+owned router: yes
+owned stop 69384 SUCCESS: The process with PID 69384 (child process of PID 93804) has been terminated.
+evidence C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-mode\evidence\claude\run-842a5ff4

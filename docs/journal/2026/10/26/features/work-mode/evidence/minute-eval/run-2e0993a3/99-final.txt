@@ -1,0 +1,30 @@
+      going.
+    - Opaque checkpoints and restore. version goes up once per state change; promoting several bookings at once counts
+      as one change.
+  - C (inventory_stream.py):
+    - Parses JSONL from fragments split anywhere, including inside quotes and CRLF.
+    - A repeated event ID with identical content is ignored and the first accepted version wins; different content
+      raises ConflictError.
+    - batch events roll back completely if any operation fails.
+    - undo reverses each event's net per-SKU change, and undone IDs can't be reused.
+    - Checkpoints include the unfinished input buffer.
+    - Lines are capped at 4096 code points, and a feed containing an overlong line is rejected as a whole.
+
+  Reports: completion.json maps all 12 IDs to their code, tests and evidence. There is also a journal in
+  docs/journal/2026/10/, and every finished step in the A/B/C plan has evidence recorded.
+
+  Caveats (also listed in completion.json):
+  - The route search is correct against brute force, but it has no pruning, so it can get exponentially slow on dense
+    graphs.
+  - How a CR counts toward the 4096 limit is my own reading, since REQ-C3 didn't say. A CR right before the LF, or at
+    the end of an unfinished line, is not counted.
+  - git status failed because git refuses to treat C:/ as a safe repository (it's owned by another account). I left the
+    git configuration unchanged.
+
+✻ Sautéed for 13m 32s · done 8:20 AM
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle)
+                        work: plan 18/18 [A: routing_gr… 5/5 | B: booking_ca… 5/5 | C: inventory_… 5/5 | …] · complete

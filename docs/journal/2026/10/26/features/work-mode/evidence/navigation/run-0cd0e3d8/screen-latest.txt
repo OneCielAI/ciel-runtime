@@ -1,0 +1,38 @@
+     [~] n1 Verify real Work mode
+       [~] n2 Exercise guarded mutation
+         [~] n3 Edit and verify subject
+           [x] n4 Apply verified edit  (evidence: Actual Edit returned success and Bash cat subject.txt returned AFTER.)
+           [ ] n5 Continue persisted plan
+       [ ] n6 B booking calendar
+         [ ] n7 Verify half-open intervals
+       [ ] n8 C inventory stream
+         [ ] n9 Verify stock and undo
+
+❯ E2EWORK-ASK-deny verify user approval refusal.
+  ⎿  1 agent type available
+
+  Called ciel-runtime-router
+
+● E2EWORK-ASK-DENY-DONE
+
+✻ Crunched for 0s · done 8:31 AM
+
+❯ E2EWORK-ASK-approve verify user approval acceptance.
+
+  Called ciel-runtime-router
+
+● E2EWORK-ASK-APPROVE-DONE
+
+✻ Cooked for 0s · done 8:32 AM
+Work 1/4 — Verify real Work mode                                                                                                   [-]
+1: [~] Exercise guarded mutation 1/2
+2: [ ] B booking calendar 0/1
+3: [ ] C inventory stream 0/1
+w: All items / refresh
+Ctrl+X Tab: focus · Tab/↑↓: select · Enter: inspect · Esc: return
+                                                                                                                     ● high · /effort
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+                                                                                                                        work: run 1/4
+  ⏵⏵ bypass permissions on (shift+tab to cycle)

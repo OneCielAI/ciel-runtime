@@ -1,0 +1,30 @@
+    - Checkpoints include the unfinished input buffer. Lines are limited to 4096 code points; a feed that breaks the
+      limit is rolled back entirely.
+
+  How it was checked
+  - The graph was compared on random inputs against listing every possible simple path, for both tie policies.
+  - The calendar was compared against a simple instant-by-instant model.
+  - The stream was compared against a model of the expected events.
+
+  Choices I made where the requests were silent (all listed under assumptions in completion.json):
+  - In the stream, ConflictError is a subclass of InventoryError.
+  - If a line fails in the middle of a feed, the error is raised at once and that line is consumed. IDs already applied
+    in that call are on exc.applied. Complete lines after the failure stay buffered for the next feed or finish.
+  - In apply, the change type goes under an "op" key; "kind" and "type" are also accepted.
+  - replace with identical values is a no-op and does not change version.
+
+  Other notes
+  - One of my patch scripts converted the files to Windows line endings and broke some escape sequences. I fixed them
+    and switched everything back to LF before the final test run.
+  - I wrote the journal at docs/journal/2026/10/26/coding-eval-a-b-c.md, indexed from docs/index.md.
+  - Nothing was committed, and the Work plan still has all its branches.
+  - I had no way to send a message back to the evaluator from this session, so the EVAL-COMPLETE reply is only in this
+    answer and in completion.json.
+
+✻ Sautéed for 15m 47s · done 10:21 AM
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle)
+                        work: plan 28/28 [A: routing_gr… 8/8 | B: booking_ca… 8/8 | C: inventory_… 8/8 | …] · complete

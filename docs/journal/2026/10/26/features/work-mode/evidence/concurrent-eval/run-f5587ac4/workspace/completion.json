@@ -1,0 +1,79 @@
+{
+  "A0": {
+    "implementation_file": "mvcc_cache.py",
+    "status": "satisfied",
+    "verification_evidence": {
+      "test_file": "test_mvcc_cache.py",
+      "output": "verification/unittest_output.txt",
+      "tests": ["test_ttl_boundary_zero_and_delete", "test_snapshot_freezes_bindings_and_ttl_visibility", "test_versions_are_per_key_monotonic_including_tombstones", "test_transaction_snapshot_and_read_your_writes_commit_ttl", "test_read_and_write_conflicts_are_atomic", "test_late_read_and_missing_delete_conflict", "test_closed_after_commit_or_rollback", "test_concurrent_conflict", "test_invalid_ttl_does_not_partially_commit"]
+    },
+    "unsatisfied_requirements": []
+  },
+  "B0": {
+    "implementation_file": "dag_scheduler.py",
+    "status": "satisfied_as_amended_by_B1",
+    "verification_evidence": {
+      "test_file": "test_dag_scheduler.py",
+      "output": "verification/unittest_output.txt",
+      "tests": ["test_dependency_flow", "test_failed_dependency_blocks_descendants_and_retry", "test_add_invalid_is_atomic", "test_state_guards", "test_higher_priority_insertion_ties_not_lexical"]
+    },
+    "superseded_requirements": ["Equal-priority lexical ordering is explicitly replaced by original task insertion order in B1."],
+    "unsatisfied_requirements": []
+  },
+  "C0": {
+    "implementation_file": "ledger.py",
+    "status": "satisfied_as_amended_by_C1",
+    "verification_evidence": {
+      "test_file": "test_ledger.py",
+      "output": "verification/unittest_output.txt",
+      "tests": ["test_every_single_and_double_fragment_boundary", "test_multiline_quotes_commas_unicode", "test_exact_negative_and_zero", "test_empty_and_blank_rows", "test_missing_and_empty_fields", "test_invalid_finite_decimals", "test_bad_header_and_malformed_csv", "test_exact_beyond_decimal_context_precision_and_exponents"]
+    },
+    "notes": ["Fragments are buffered and joined before RFC4180 parsing; bounded-memory streaming was not requested.", "All implementation imports are Python standard library."],
+    "unsatisfied_requirements": []
+  },
+  "A1": {
+    "implementation_file": "mvcc_cache.py",
+    "status": "satisfied",
+    "verification_evidence": {
+      "test_file": "test_mvcc_cache.py",
+      "output": "verification/unittest_output.txt",
+      "tests": ["test_validation_and_default_unlimited", "test_fifo_not_lru_or_overwrite_refresh", "test_expired_dont_count_and_reinsert_is_new", "test_commit_operations_call_order_before_eviction"]
+    },
+    "unsatisfied_requirements": []
+  },
+  "B1": {
+    "implementation_file": "dag_scheduler.py",
+    "status": "satisfied",
+    "verification_evidence": {
+      "test_file": "test_dag_scheduler.py",
+      "output": "verification/unittest_output.txt",
+      "tests": ["test_replace_deps_success", "test_replace_deps_failure_is_atomic", "test_cycle_check_is_iterative_for_deep_graph", "test_state_guards", "test_failed_dependency_blocks_descendants_and_retry", "test_higher_priority_insertion_ties_not_lexical"]
+    },
+    "unsatisfied_requirements": []
+  },
+  "C1": {
+    "implementation_file": "ledger.py",
+    "status": "satisfied",
+    "verification_evidence": {
+      "test_file": "test_ledger.py",
+      "output": "verification/unittest_output.txt",
+      "tests": ["test_global_last_id_wins_account_changes_and_zero_retained", "test_same_id_last_amount_only", "test_every_row_validated_even_if_overridden", "test_random_fragmentation_and_last_wins_reference", "test_exact_beyond_decimal_context_precision_and_exponents"]
+    },
+    "unsatisfied_requirements": []
+  },
+  "verification": {
+    "command": "python -m unittest discover -v",
+    "result": "OK",
+    "tests_run": 33,
+    "failures": 0,
+    "errors": 0,
+    "output": "verification/unittest_output.txt",
+    "source_checks": "verification/source_checks.txt",
+    "okf_validation": "verification/okf_validation.txt",
+    "okf_result": "conformant; no issues",
+    "request_archive": "requests/",
+    "journal_root": "docs/okf/journal/2026-10-26/",
+    "limitations": ["Git status/diff check was unavailable because Git resolves the enclosing repository to C:/ and rejects its ownership. No Git configuration was changed.", "Library runtime evidence is captured as test command output; no UI exists, so no screenshot applies."]
+  },
+  "unsatisfied_requirements": []
+}

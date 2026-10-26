@@ -1,0 +1,30 @@
+      77 +        stream.feed(line({"id": "drain", "kind": "move", "src": "b", "dst": "c", "qty": 3}))
+      78 +        with self.assertRaises(InventoryError): stream.undo("b")
+      79 +        self.assertEqual(stream.snapshot(), {"z": 1, "a": 2, "b": 0, "c": 3})
+      80 +        stream.undo("drain")
+      81 +        stream.undo("b")
+      82 +        self.assertEqual(stream.snapshot(), {"z": 1, "a": 0, "b": 0, "c": 0})
+      83 +        with self.assertRaises(InventoryError): stream.undo("b")
+      84 +        with self.assertRaises(InventoryError): stream.undo("missing")
+      85 +        self.assertEqual(stream.feed(line(batch)), [])
+      86 +        with self.assertRaises(ConflictError): stream.feed(line(stock("b")))
+      87 +        self.assertEqual(stream.balance("a"), 0)
+      88 +        stream.undo("other")
+      89 +        self.assertEqual(stream.balance("z"), 0)
+      90
+      91 +
+      92  if __name__ == "__main__":
+      93      unittest.main()
+
+● Calling ciel-runtime-router 2 times, running 1 shell command…
+  ⎿  $ python -m unittest -v test_inventory_stream 2>&1 | tail -5
+
+✻ Pollinating… (9m 16s · ↓ 20.4k tokens)
+  ⎿  Tip: Use /btw to ask a quick side question without interrupting Claude's current work
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · esc to interrupt
+    work: run 12/15 [A: routing_gr… 4/5 | B: booking_ca… 4/4 | C: inventory_… 4/4 | …] · REQ-A3 supersede default tie
+    policy, preserve explicit original …

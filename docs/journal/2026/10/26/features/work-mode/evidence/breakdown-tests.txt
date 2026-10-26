@@ -1,0 +1,53 @@
+test_current_hierarchy_branch_counts_and_active_leaf (test_work_breakdown_statusline.BreakdownStatuslineTests.test_current_hierarchy_branch_counts_and_active_leaf) ... ok
+test_disabled_mode_hides_breakdown (test_work_breakdown_statusline.BreakdownStatuslineTests.test_disabled_mode_hides_breakdown) ... ok
+test_other_missing_invalid_session_never_reads_plan (test_work_breakdown_statusline.BreakdownStatuslineTests.test_other_missing_invalid_session_never_reads_plan) ... ok
+test_snapshot_exposes_all_branches (test_work_breakdown_statusline.BreakdownStatuslineTests.test_snapshot_exposes_all_branches) ... ok
+test_terminal_controls_are_sanitized (test_work_breakdown_statusline.BreakdownStatuslineTests.test_terminal_controls_are_sanitized) ... ok
+test_statusline_distinguishes_semantic_progress_and_failure (test_statusline.StatuslineTests.test_statusline_distinguishes_semantic_progress_and_failure) ... ok
+test_statusline_finds_a_model_picked_in_claude_code_in_the_cached_list (test_statusline.StatuslineTests.test_statusline_finds_a_model_picked_in_claude_code_in_the_cached_list) ... ok
+test_statusline_is_silent_for_native_claude_session (test_statusline.StatuslineTests.test_statusline_is_silent_for_native_claude_session) ... ok
+test_statusline_names_the_provider_model_behind_the_alias (test_statusline.StatuslineTests.test_statusline_names_the_provider_model_behind_the_alias) ... ok
+test_statusline_outputs_for_ciel_runtime_session (test_statusline.StatuslineTests.test_statusline_outputs_for_ciel_runtime_session) ... ok
+test_statusline_prefers_provider_reported_session_usage_over_router_estimate (test_statusline.StatuslineTests.test_statusline_prefers_provider_reported_session_usage_over_router_estimate) ... ok
+test_statusline_shows_an_active_provider_fallback_on_a_legacy_code_page (test_statusline.StatuslineTests.test_statusline_shows_an_active_provider_fallback_on_a_legacy_code_page) ... ok
+test_statusline_shows_anthropic_cache_hit_write_and_uncached_tokens (test_statusline.StatuslineTests.test_statusline_shows_anthropic_cache_hit_write_and_uncached_tokens) ... ok
+test_statusline_shows_context_compact_chunks (test_statusline.StatuslineTests.test_statusline_shows_context_compact_chunks) ... ok
+test_statusline_shows_multi_key_rate_limit_summary (test_statusline.StatuslineTests.test_statusline_shows_multi_key_rate_limit_summary) ... ok
+test_statusline_shows_native_responses_cache_activity (test_statusline.StatuslineTests.test_statusline_shows_native_responses_cache_activity) ... ok
+test_statusline_shows_parallel_context_compact_sessions (test_statusline.StatuslineTests.test_statusline_shows_parallel_context_compact_sessions) ... ok
+test_statusline_shows_pending_channel_queue_count (test_statusline.StatuslineTests.test_statusline_shows_pending_channel_queue_count) ... ok
+test_statusline_understands_responses_cached_token_shape (test_statusline.StatuslineTests.test_statusline_understands_responses_cached_token_shape) ... ok
+test_statusline_uses_current_configured_context_limit_over_stale_router_limit (test_statusline.StatuslineTests.test_statusline_uses_current_configured_context_limit_over_stale_router_limit) ... ok
+test_bad_specs (test_work_plan_tree.WorkPlanTreeTests.test_bad_specs) ... ok
+test_completion_aggregation_and_reopen (test_work_plan_tree.WorkPlanTreeTests.test_completion_aggregation_and_reopen) ... ok
+test_depth_cap (test_work_plan_tree.WorkPlanTreeTests.test_depth_cap) ... ok
+test_done_leaf_requires_verification_evidence (test_work_plan_tree.WorkPlanTreeTests.test_done_leaf_requires_verification_evidence) ... ok
+test_empty (test_work_plan_tree.WorkPlanTreeTests.test_empty) ... ok
+test_falsey_non_list_children_rejected (test_work_plan_tree.WorkPlanTreeTests.test_falsey_non_list_children_rejected) ... ok
+test_invalid_replacement_atomic (test_work_plan_tree.WorkPlanTreeTests.test_invalid_replacement_atomic) ... ok
+test_malformed_documents_and_cycles (test_work_plan_tree.WorkPlanTreeTests.test_malformed_documents_and_cycles) ... ok
+test_next_priority (test_work_plan_tree.WorkPlanTreeTests.test_next_priority) ... ok
+test_node_cap (test_work_plan_tree.WorkPlanTreeTests.test_node_cap) ... ok
+test_normalize_allocator_unique (test_work_plan_tree.WorkPlanTreeTests.test_normalize_allocator_unique) ... ok
+test_normalize_caps (test_work_plan_tree.WorkPlanTreeTests.test_normalize_caps) ... ok
+test_readiness (test_work_plan_tree.WorkPlanTreeTests.test_readiness) ... ok
+test_remove_unfinished_sibling_reaggregates_completion (test_work_plan_tree.WorkPlanTreeTests.test_remove_unfinished_sibling_reaggregates_completion) ... ok
+test_replace_remove_select (test_work_plan_tree.WorkPlanTreeTests.test_replace_remove_select) ... ok
+test_unfinished_parent_rejected (test_work_plan_tree.WorkPlanTreeTests.test_unfinished_parent_rejected) ... ok
+test_add_remove_update_completion (test_work_mcp_tools.WorkMcpToolsTests.test_add_remove_update_completion) ... ok
+test_ask_requires_literal_true (test_work_mcp_tools.WorkMcpToolsTests.test_ask_requires_literal_true) ... ok
+test_auto_execute_and_replan (test_work_mcp_tools.WorkMcpToolsTests.test_auto_execute_and_replan) ... ok
+test_bad_requests_rollback (test_work_mcp_tools.WorkMcpToolsTests.test_bad_requests_rollback) ... ok
+test_cas_errors_do_not_mutate (test_work_mcp_tools.WorkMcpToolsTests.test_cas_errors_do_not_mutate) ... ok
+test_codex_native_metadata_overrides_model_session_id (test_work_mcp_tools.WorkMcpToolsTests.test_codex_native_metadata_overrides_model_session_id) ... ok
+test_execute_rejects_empty_and_shallow (test_work_mcp_tools.WorkMcpToolsTests.test_execute_rejects_empty_and_shallow) ... ok
+test_json_status (test_work_mcp_tools.WorkMcpToolsTests.test_json_status) ... ok
+test_off_never_accesses_store (test_work_mcp_tools.WorkMcpToolsTests.test_off_never_accesses_store) ... ok
+test_real_dispatch_isolates_conversations_and_preserves_resume (test_work_mcp_tools.WorkMcpToolsTests.test_real_dispatch_isolates_conversations_and_preserves_resume) ... ok
+test_replace_select (test_work_mcp_tools.WorkMcpToolsTests.test_replace_select) ... ok
+test_schema_on_off (test_work_mcp_tools.WorkMcpToolsTests.test_schema_on_off) ... ok
+
+----------------------------------------------------------------------
+Ran 48 tests in 3.259s
+
+OK

@@ -1,0 +1,3 @@
+source: channel=eval:C from=coding-evaluator id=5 thread=work-eval-C
+
+REQ-C1: Amend C only: duplicate CSV id is LAST ROW WINS globally, including when its account changes; remove earlier row contribution from prior account. Retain accounts with final zero total. Exact Decimal semantics, no float; final mapping totals must reflect only last occurrence of each id. Validate EVERY row even if a later duplicate would override it. No sorting/priority scheme from B and no FIFO key eviction from A. Preserve all tasks.

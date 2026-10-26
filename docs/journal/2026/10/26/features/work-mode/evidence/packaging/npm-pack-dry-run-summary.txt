@@ -1,0 +1,12 @@
+command: npm pack --dry-run --json --ignore-scripts (cwd=ciel-runtime-wt-work, scrubbed env, temp HOME/cache/user+global npmrc)
+exit: 0
+package: @one-ciel-ai/ciel-runtime@0.2.51 entryCount=506
+claude_mods entries (5):
+  ciel_runtime_support/claude_mods/ciel-work/.claude-plugin/plugin.json
+  ciel_runtime_support/claude_mods/ciel-work/hooks/hooks.json
+  ciel_runtime_support/claude_mods/ciel-work/hooks/register.js
+  ciel_runtime_support/claude_mods/ciel-work/tests/work.test.ts
+  ciel_runtime_support/claude_mods/ciel-work/tsconfig.json
+required ciel_runtime_support/claude_mods/ciel-work/.claude-plugin/plugin.json: present
+required ciel_runtime_support/claude_mods/ciel-work/hooks/hooks.json: present
+required ciel_runtime_support/claude_mods/ciel-work/hooks/register.js: present

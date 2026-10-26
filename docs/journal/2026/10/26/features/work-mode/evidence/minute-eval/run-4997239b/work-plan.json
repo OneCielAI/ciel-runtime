@@ -1,0 +1,469 @@
+{
+ "schema": 1,
+ "version": 61,
+ "phase": "planning",
+ "active_root": "n1",
+ "next_id": 52,
+ "nodes": [
+  {
+   "id": "n1",
+   "parent_id": null,
+   "title": "REQ-INITIAL: Implement A0/B0/C0 (stdlib Python, separate files/tests), absorb amendments, await REQ-FINAL",
+   "status": "done",
+   "note": "Preserve request IDs. Never remove branches before REQ-FINAL.",
+   "evidence": "",
+   "updated_at": 1793028080.3441672
+  },
+  {
+   "id": "n2",
+   "parent_id": "n1",
+   "title": "A: routing_graph.py (REQ-A0)",
+   "status": "done",
+   "note": "",
+   "evidence": "",
+   "updated_at": 1793027846.0435772
+  },
+  {
+   "id": "n3",
+   "parent_id": "n2",
+   "title": "A0 implement Graph/NoPathError/ConflictError",
+   "status": "done",
+   "note": "",
+   "evidence": "",
+   "updated_at": 1793027241.9736936
+  },
+  {
+   "id": "n4",
+   "parent_id": "n3",
+   "title": "Write routing_graph.py with validation, version, Dijkstra (cost,hops,path)",
+   "status": "done",
+   "note": "",
+   "evidence": "routing_graph.py written; exercised by 16 tests",
+   "updated_at": 1793027241.9736936
+  },
+  {
+   "id": "n5",
+   "parent_id": "n2",
+   "title": "A0 tests",
+   "status": "done",
+   "note": "",
+   "evidence": "",
+   "updated_at": 1793027242.901109
+  },
+  {
+   "id": "n6",
+   "parent_id": "n5",
+   "title": "Write test_routing_graph.py incl. brute-force simple-path comparison; run green",
+   "status": "done",
+   "note": "",
+   "evidence": "python -m unittest test_routing_graph: Ran 16 tests OK (incl. 400 random graphs vs brute-force simple path enumeration)",
+   "updated_at": 1793027242.901109
+  },
+  {
+   "id": "n7",
+   "parent_id": "n1",
+   "title": "B: booking_calendar.py (REQ-B0)",
+   "status": "done",
+   "note": "",
+   "evidence": "",
+   "updated_at": 1793027900.311027
+  },
+  {
+   "id": "n8",
+   "parent_id": "n7",
+   "title": "B0 implement Calendar/CapacityError/ConflictError",
+   "status": "done",
+   "note": "",
+   "evidence": "",
+   "updated_at": 1793027302.5262637
+  },
+  {
+   "id": "n9",
+   "parent_id": "n8",
+   "title": "Write booking_calendar.py with sweep-line cumulative capacity, atomic failures",
+   "status": "done",
+   "note": "",
+   "evidence": "booking_calendar.py written; exercised by 14 tests OK",
+   "updated_at": 1793027302.5262637
+  },
+  {
+   "id": "n10",
+   "parent_id": "n7",
+   "title": "B0 tests",
+   "status": "done",
+   "note": "",
+   "evidence": "",
+   "updated_at": 1793027303.626547
+  },
+  {
+   "id": "n11",
+   "parent_id": "n10",
+   "title": "Write test_booking_calendar.py incl. many-overlap randomized check; run green",
+   "status": "done",
+   "note": "",
+   "evidence": "python -m unittest test_booking_calendar: Ran 14 tests OK (100-way overlap, staircase, 60x120 randomized ops vs naive per-instant model)",
+   "updated_at": 1793027303.626547
+  },
+  {
+   "id": "n12",
+   "parent_id": "n1",
+   "title": "C: inventory_stream.py (REQ-C0)",
+   "status": "done",
+   "note": "",
+   "evidence": "",
+   "updated_at": 1793028016.1194694
+  },
+  {
+   "id": "n13",
+   "parent_id": "n12",
+   "title": "C0 implement InventoryStream/InventoryError/ConflictError",
+   "status": "done",
+   "note": "",
+   "evidence": "",
+   "updated_at": 1793027516.3098054
+  },
+  {
+   "id": "n14",
+   "parent_id": "n13",
+   "title": "Write inventory_stream.py with fragment buffering, validation, idempotency",
+   "status": "done",
+   "note": "",
+   "evidence": "inventory_stream.py written (buffered line splitting, strict schema, staged apply, idempotency registry)",
+   "updated_at": 1793027516.3098054
+  },
+  {
+   "id": "n15",
+   "parent_id": "n12",
+   "title": "C0 tests",
+   "status": "done",
+   "note": "",
+   "evidence": "",
+   "updated_at": 1793027517.3705604
+  },
+  {
+   "id": "n16",
+   "parent_id": "n15",
+   "title": "Write test_inventory_stream.py incl. arbitrary fragment splits, CRLF; run green",
+   "status": "done",
+   "note": "",
+   "evidence": "python -m unittest test_inventory_stream: Ran 21 tests OK (300 random fragment splits incl. inside quotes/CRLF, char-by-char, 80 random streams vs model)",
+   "updated_at": 1793027517.3705604
+  },
+  {
+   "id": "n17",
+   "parent_id": "n1",
+   "title": "X: Cross-cutting",
+   "status": "done",
+   "note": "",
+   "evidence": "",
+   "updated_at": 1793028080.3441672
+  },
+  {
+   "id": "n18",
+   "parent_id": "n17",
+   "title": "Journal",
+   "status": "done",
+   "note": "",
+   "evidence": "",
+   "updated_at": 1793028045.3924277
+  },
+  {
+   "id": "n19",
+   "parent_id": "n18",
+   "title": "Create docs/ OKF-style journal hierarchy and record task entries",
+   "status": "done",
+   "note": "",
+   "evidence": "docs/index.md + docs/journal/2026/10/26/coding-eval-a-b-c.md (4-level hierarchy, YAML frontmatter) written",
+   "updated_at": 1793028045.3924277
+  },
+  {
+   "id": "n20",
+   "parent_id": "n17",
+   "title": "Full suite",
+   "status": "done",
+   "note": "",
+   "evidence": "",
+   "updated_at": 1793028026.2086673
+  },
+  {
+   "id": "n21",
+   "parent_id": "n20",
+   "title": "Run all tests together and capture output",
+   "status": "done",
+   "note": "",
+   "evidence": "python -m unittest discover -v (Python 3.11.6): Ran 100 tests OK, exit=0; log saved to unittest_discover.log",
+   "updated_at": 1793028026.2086673
+  },
+  {
+   "id": "n22",
+   "parent_id": "n2",
+   "title": "REQ-A1: shortest(blocked=, max_hops=)",
+   "status": "done",
+   "note": "",
+   "evidence": "",
+   "updated_at": 1793027355.3723192
+  },
+  {
+   "id": "n23",
+   "parent_id": "n22",
+   "title": "Implement blocked/max_hops with hop-layered DP (bound enforced before min cost)",
+   "status": "done",
+   "note": "",
+   "evidence": "routing_graph.shortest now keyword-only blocked/max_hops; layered DP for bounded case; tests pass",
+   "updated_at": 1793027353.9696827
+  },
+  {
+   "id": "n24",
+   "parent_id": "n22",
+   "title": "Tests: cheap route violates bound, costlier succeeds; blocked src/dst; validation; randomized vs brute force; run green",
+   "status": "done",
+   "note": "",
+   "evidence": "python -m unittest test_routing_graph: Ran 23 tests OK (incl. cheap 4-hop cost4 vs max_hops=1 -> cost10 s-t; 300 random trials w/ blocked+max_hops vs brute force)",
+   "updated_at": 1793027355.3723192
+  },
+  {
+   "id": "n25",
+   "parent_id": "n7",
+   "title": "REQ-B1: reserve_many + replace (atomic)",
+   "status": "done",
+   "note": "",
+   "evidence": "",
+   "updated_at": 1793027407.1466436
+  },
+  {
+   "id": "n26",
+   "parent_id": "n25",
+   "title": "Implement reserve_many (validate all, in-batch dup, cumulative capacity) and replace (exclude own old booking)",
+   "status": "done",
+   "note": "",
+   "evidence": "reserve_many/replace added to booking_calendar.py; tests pass",
+   "updated_at": 1793027406.0879803
+  },
+  {
+   "id": "n27",
+   "parent_id": "n25",
+   "title": "Tests: batch atomicity incl. in-batch dup, replace capacity exclusion, unknown id, failure retains original; run green",
+   "status": "done",
+   "note": "",
+   "evidence": "python -m unittest test_booking_calendar: Ran 21 tests OK (in-batch dup, cumulative batch overload, 7 invalid batch kinds unchanged, replace excludes own booking, failed replace retains original)",
+   "updated_at": 1793027407.1466436
+  },
+  {
+   "id": "n28",
+   "parent_id": "n12",
+   "title": "REQ-C1: kind batch (atomic ops, no nesting)",
+   "status": "done",
+   "note": "",
+   "evidence": "",
+   "updated_at": 1793027520.0159888
+  },
+  {
+   "id": "n29",
+   "parent_id": "n28",
+   "title": "Implement batch kind: ops without id, sequential apply on staged balances, all-or-nothing, empty allowed",
+   "status": "done",
+   "note": "",
+   "evidence": "batch kind implemented in inventory_stream._event/_apply_line (staged balances, nested/id-bearing ops rejected)",
+   "updated_at": 1793027518.4223647
+  },
+  {
+   "id": "n30",
+   "parent_id": "n28",
+   "title": "Tests: later op consumes earlier stock, rollback + id not reserved, nested forbidden, empty ops, dup/conflict, retry corrected; run green",
+   "status": "done",
+   "note": "",
+   "evidence": "Batch test class (6 tests) in 21 OK: later ops consume earlier stock, 6 invalid batches rolled back + same id retried OK, empty ops recorded, reordered keys dup ignored, reversed ops ConflictError",
+   "updated_at": 1793027520.0159888
+  },
+  {
+   "id": "n31",
+   "parent_id": "n2",
+   "title": "REQ-A2: snapshot() + apply(changes, expected_version)",
+   "status": "done",
+   "note": "",
+   "evidence": "",
+   "updated_at": 1793027595.132416
+  },
+  {
+   "id": "n32",
+   "parent_id": "n31",
+   "title": "Implement frozen snapshot (read-only, shortest w/ A1 options, version) and atomic apply on staged copy",
+   "status": "done",
+   "note": "",
+   "evidence": "routing_graph: GraphSnapshot (slots, setattr blocked), Graph.snapshot(), Graph.apply() staged copy + net-change version bump",
+   "updated_at": 1793027593.8724847
+  },
+  {
+   "id": "n33",
+   "parent_id": "n31",
+   "title": "Tests: snapshot independence/read-only, apply rollback, version once, no-change no increment, expected_version ConflictError before apply; run green",
+   "status": "done",
+   "note": "",
+   "evidence": "python -m unittest test_routing_graph: Ran 29 tests OK (snapshot frozen across mutations, read-only AttributeError, 9 invalid batches rolled back, ConflictError precedes invalid batch, no-change batches keep version)",
+   "updated_at": 1793027595.132416
+  },
+  {
+   "id": "n34",
+   "parent_id": "n7",
+   "title": "REQ-B2: waiting list (wait/waiting/promote)",
+   "status": "done",
+   "note": "",
+   "evidence": "",
+   "updated_at": 1793027639.4134107
+  },
+  {
+   "id": "n35",
+   "parent_id": "n34",
+   "title": "Implement wait/waiting/promote; unique ids across active+waiting; cancel waiting; reserve/replace/reserve_many reject waiting ids",
+   "status": "done",
+   "note": "",
+   "evidence": "booking_calendar: wait/waiting/promote added; cancel covers waiting; reserve/reserve_many reject waiting ids; replace only active",
+   "updated_at": 1793027638.0922465
+  },
+  {
+   "id": "n36",
+   "parent_id": "n34",
+   "title": "Tests: priority+FIFO order, promote skip-and-continue, success changes later fit, no capacity use, cancel waiting, no stealing; run green",
+   "status": "done",
+   "note": "",
+   "evidence": "python -m unittest test_booking_calendar: Ran 29 tests OK (priority+FIFO order m,c,z,a,b; promote skip-and-continue -> [p1,p3,p4]; cancel no auto promotion; no stealing via reserve/reserve_many/replace)",
+   "updated_at": 1793027639.4134107
+  },
+  {
+   "id": "n37",
+   "parent_id": "n12",
+   "title": "REQ-C2: undo(event_id) with net deltas + tombstones",
+   "status": "done",
+   "note": "",
+   "evidence": "",
+   "updated_at": 1793027693.4495556
+  },
+  {
+   "id": "n38",
+   "parent_id": "n37",
+   "title": "Implement undo: per-event net signed delta, negative check, tombstone keeps idempotency",
+   "status": "done",
+   "note": "",
+   "evidence": "inventory_stream.undo added; _deltas tracks net signed per-SKU delta per live event; _seen retained as tombstone",
+   "updated_at": 1793027692.1408205
+  },
+  {
+   "id": "n39",
+   "parent_id": "n37",
+   "title": "Tests: undo stock/move/batch, unknown/double undo, negative-fail unchanged + retry, net delta vs op order, tombstone dup/conflict; run green",
+   "status": "done",
+   "note": "",
+   "evidence": "python -m unittest test_inventory_stream: Ran 30 tests OK (Undo class 9 tests: net delta where reverse-op replay would fail, negative undo unchanged + retry, tombstone dup ignored / changed ConflictError, no cascade)",
+   "updated_at": 1793027693.4495556
+  },
+  {
+   "id": "n40",
+   "parent_id": "n2",
+   "title": "REQ-A3: tie_policy (default lexical; fewest_hops preserves A0) — supersedes A0 tie order",
+   "status": "done",
+   "note": "",
+   "evidence": "",
+   "updated_at": 1793027846.0435772
+  },
+  {
+   "id": "n41",
+   "parent_id": "n40",
+   "title": "Implement Graph(tie_policy='lexical'|'fewest_hops'); lexical = (cost, path, hops) over simple paths, incl. blocked/max_hops; snapshot freezes policy",
+   "status": "done",
+   "note": "",
+   "evidence": "routing_graph.py: Graph(tie_policy='lexical'|'fewest_hops'), lexical simple-prefix Dijkstra with blocked/max_hops; GraphSnapshot freezes MappingProxyType adjacency + tie_policy",
+   "updated_at": 1793027844.820434
+  },
+  {
+   "id": "n42",
+   "parent_id": "n40",
+   "title": "Tests: longer lex-smaller equal-cost route wins by default; fewest_hops explicit keeps A0; invalid policy ValueError; snapshot keeps policy; randomized vs brute force both policies; run green",
+   "status": "done",
+   "note": "",
+   "evidence": "python -m unittest test_routing_graph: Ran 33 tests OK; longer lex-smaller 0-cost route s,a,b,t wins by default, fewest_hops gives s,t; 250 random trials x both policies vs simple-path enumeration",
+   "updated_at": 1793027846.0435772
+  },
+  {
+   "id": "n43",
+   "parent_id": "n7",
+   "title": "REQ-B3: checkpoint/restore + Calendar.version",
+   "status": "done",
+   "note": "",
+   "evidence": "",
+   "updated_at": 1793027900.311027
+  },
+  {
+   "id": "n44",
+   "parent_id": "n43",
+   "title": "Implement opaque per-calendar checkpoint, atomic restore, version counting once per state change",
+   "status": "done",
+   "note": "",
+   "evidence": "booking_calendar: CalendarCheckpoint (slots, immutable, owner token), checkpoint()/restore(), read-only version property bumped once per state change",
+   "updated_at": 1793027898.894762
+  },
+  {
+   "id": "n45",
+   "parent_id": "n43",
+   "title": "Tests: FIFO/priorities/capacity restored, reusable+independent cp, foreign/invalid ValueError, version rules; run green",
+   "status": "done",
+   "note": "",
+   "evidence": "python -m unittest test_booking_calendar: Ran 33 tests OK (restore keeps FIFO w3,w1,w2 and new waits behind; reusable cp; foreign/None/str ValueError; version 0..11 sequence incl. identical restore no-op and forward-only restore)",
+   "updated_at": 1793027900.311027
+  },
+  {
+   "id": "n46",
+   "parent_id": "n12",
+   "title": "REQ-C3: checkpoint/restore + 4096 code-point line bound",
+   "status": "done",
+   "note": "",
+   "evidence": "",
+   "updated_at": 1793028016.1194694
+  },
+  {
+   "id": "n47",
+   "parent_id": "n46",
+   "title": "Implement opaque per-stream checkpoint/restore (balances, payloads, tombstones, deltas, buffer) and per-feed rollback on overlong line",
+   "status": "done",
+   "note": "",
+   "evidence": "inventory_stream: InventoryCheckpoint (immutable, owner token, deep copies), checkpoint()/restore(); feed pre-scans all segments vs MAX_LINE=4096 code points before applying anything",
+   "updated_at": 1793028014.313217
+  },
+  {
+   "id": "n48",
+   "parent_id": "n46",
+   "title": "Tests: restore replay idempotency/undo, foreign/invalid InventoryError, 4096 vs 4097 code points, overlong feed rolls back earlier complete events; run green",
+   "status": "done",
+   "note": "",
+   "evidence": "python -m unittest test_inventory_stream: Ran 34 tests OK (restore replays unfinished fragment -> m1, tombstone/undo state at cp, reusable; foreign/None/str/dict InventoryError; 4096 ok vs 4097 rejected with multibyte chars; overlong feed rolled back earlier complete events s1,m and buffer)",
+   "updated_at": 1793028016.1194694
+  },
+  {
+   "id": "n49",
+   "parent_id": "n17",
+   "title": "REQ-FINAL: completion package",
+   "status": "done",
+   "note": "",
+   "evidence": "",
+   "updated_at": 1793028080.3441672
+  },
+  {
+   "id": "n50",
+   "parent_id": "n49",
+   "title": "Write completion.json for A0-A3/B0-B3/C0-C3 with implementation/tests/evidence/unsatisfied items",
+   "status": "done",
+   "note": "",
+   "evidence": "completion.json parsed with json.load: 12 request IDs REQ-A0..A3, B0..B3, C0..C3, each with implementation/tests/evidence/unsatisfied; assumptions listed",
+   "updated_at": 1793028079.5154421
+  },
+  {
+   "id": "n51",
+   "parent_id": "n49",
+   "title": "Run python -m unittest discover -v and record the output",
+   "status": "done",
+   "note": "",
+   "evidence": "Final python -m unittest discover -v: Ran 100 tests in 0.216s OK, exit=0; saved to unittest_discover.log",
+   "updated_at": 1793028080.3441672
+  }
+ ],
+ "updated_at": 1793028080.3441672
+}

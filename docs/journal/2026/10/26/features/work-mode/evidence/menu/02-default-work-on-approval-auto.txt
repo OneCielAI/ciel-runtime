@@ -1,0 +1,59 @@
+Credits: One Ciel LLC
+
+provider: cielairouter    language: en    mode: ciel-runtime-router
+base_url: http://127.0.0.1:53256
+model: EVIDENCE-MODEL
+API key: missing (CielAiRouter required)
+
+  0. Language  [English]
+  1. Provider  [cielairouter]
+  2. API key  [not set]
+  3. Base URL  [http://127.0.0.1:53256]
+  4. Model  [EVIDENCE-MODEL]
+  5. Advisor Model  [off]
+  6. LLM options  [context_window=872000, reserve=default, max_output_tokens=d...]
+  7. Log level  [ERROR (default)]
+  8. Test compatibility
+  9. Launch  [Claude · Codex TUI · AGY · Kimi · Grok · Codex TUI + app-server · Codex app-server (no TUI) · Codex desktop]
+  10. External event inputs  [CloudEvents + Webhook/SSE · resend 10x/10s]
+  11. Remote instructions  [HTTP GET · off]
+  12. Workspace MCP modules  [launch scoped]
+  13. Request/file limits  [workspace scoped]
+  14. Web backend  [off · 127.0.0.1:53256]
+  15. OAuth tokens  [none · Codex/Claude rotation]
+  16. Web access  [0 accounts · admin token]
+  17. Dangerous delete prompt · Stream recovery  [Claude · auto-allow off · stream recovery on]
+  18. Session backup  [incremental · schedule off · to local · last never]
+  19. Provider fallback  [auto off · 0/0 backups ready]
+  20. Unattended restart  [no script]
+  Quit
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+LLM options
+    Context setup            [model max 872,000; window 872,000]
+    Apply preset             [Long context 512K]
+    Timeout preset           [Standard 5m; 300000ms]
+    Router debug external    [off]
+    Event message preview    [0]
+    Claude feedback drafts   [off (default)]
+  > Work mode                [on (default)]
+    Work plan approval       [auto (default)]
+    Claude Code workflows    [off]
+    Claude Code ultracode    [off]
+    Claude Code capabilities [auto/none]
+    Automatic gateway        [auto]
+    Gateway status           [read-only /health (Enter)]
+    CielAiRouter retries     [3 extra; 0 off, max 10; router/direct CLI HTTP]
+    Gateway data path        [router (applies at launch)]
+    Context window           [872000]
+    Context reserve          [default]
+    Max output tokens        [default]
+    ... 15 below
+
+  On by default: Ciel-launched Claude and Codex sessions that attach the router MCP server keep a hierarchical plan with the router work tools. Na...
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+  Base URL: model list reachable (/v1/models?prefix=alias&configuredOnly=true&availableOnly=true, 1 models)
+  API key: missing (CielAiRouter required)
+
+Up/Down moves. PgUp/PgDn jumps. Home/End bounds. Enter selects. Esc/Left closes. q quits.

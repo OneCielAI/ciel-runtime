@@ -1,0 +1,38 @@
+
+
+❯ E2EWORK-ASK-deny verify user approval refusal.
+  ⎿  1 agent type available
+
+  Called ciel-runtime-router
+
+● E2EWORK-ASK-DENY-DONE
+
+✻ Crunched for 0s · done 8:31 AM
+
+❯ E2EWORK-ASK-approve verify user approval acceptance.
+
+  Calling ciel-runtime-router…
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ ☐ Plugin
+
+│ Approve this Work plan?
+│
+│ Work phase: planning
+│ Active goal progress: 1/4 steps done
+│ [~] n1 Verify real Work mode
+│   [~] n2 Exercise guarded mutation
+│     [~] n3 Edit and verify subject
+│       [x] n4 Apply verified edit  (evidence: Actual Edit returned success and Bash cat subject.txt returned AFTER.)
+│       [ ] n5 Continue persisted plan
+│   [ ] n6 B booking calendar
+│     [ ] n7 Verify half-open intervals
+│   [ ] n8 C inventory stream
+│     [ ] n9 Verify stock and undo
+
+❯ 1. Approve
+  2. Keep planning
+  3. Type something.
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  4. Chat about this
+
+Enter to select · ↑/↓ to navigate · Esc to cancel

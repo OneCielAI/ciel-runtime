@@ -1,0 +1,30 @@
+  done. Also re-send the pending request if it was B. Once I have them, I'll build one Work plan with separate A, B and
+PlC branchss, start A, anduadd BhandiC asrthey arrive. Iowbn't finalisepthe run until REQ-FIN Lndrrives.
+
+✻ Cogitated for 17s · done 6:58 AM
+
+❯ [ciel-wake] pending_ids=2
+Pl
+● API Error: 503 Ciel Router deferred wake body injection behind TTY message id=1. This is a server-side issue,
+  usually temporary — try again in a moment. If it persists, check your inference gateway (127.0.0.1:65522).
+
+✻ Churned for 0s · done 6:58 AM
+
+❯ [ciel-wake] pending_ids=3
+
+● API Error: 503 Ciel Router deferred wake body injection behind TTY message id=1. This is a server-side issue,
+  usually temporary — try again in a moment. If it persists, check your inference gateway (127.0.0.1:65522).
+
+✻ Cooked for 0s · done 6:58 AM
+
+❯ [ciel-wake] pending_ids=4
+
+● API Error: 503 Ciel Router deferred wake body injection behind TTY message id=1. This is a server-side issue,
+  usually temporary — try again in a moment. If it persists, check your inference gateway (127.0.0.1:65522).
+
+✻ Worked for 0s · done 6:58 AM
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle)                                                         work: planning

@@ -1,0 +1,28 @@
+---
+id: work-mode-menu-e2e-20261026
+title: Work mode prelaunch menu E2E
+type: verification
+status: verified
+---
+
+# Scope
+Actual portable_prelaunch_menu from this worktree, driven by real Win32 console key events.
+Isolated HOME, USERPROFILE, APPDATA, LOCALAPPDATA and config. Inherited runtime/provider/credential variables stripped before launching the owned console. Catalogue-only loopback fixture, OS-assigned port 53256; observed GET /health and catalogue GET only. No native client launch or live router modification. Only files in this new evidence directory were authored; no product edits or commits.
+
+# Observed results
+- Default rows: Work mode [on (default)], Work plan approval [auto (default)]; both settings initially absent from isolated config.
+- Enter on Work mode: [off], saved work_mode=false; next Enter: [on (default)], saved work_mode=true.
+- Enter on Work plan approval: [ask user], saved work_plan_approval_ask=true; next Enter: [auto (default)], saved false.
+- Four toggles asserted against saved config and rendered rows. Final persisted settings: work_mode=true, work_plan_approval_ask=false.
+- Six paired PNG/text captures, 1233x999 pixels; PrintWindow returned success for each, nonuniform pixel data verified. No OCR or image-viewer inspection was available through these tools; decisive row text was read directly from the same console, not inferred from filenames.
+- Esc then q exited menu; menu-exit.txt contains 10 (menu result, not OS exit code). Remaining owned classic conhost was terminated after ten seconds; only harness-owned processes were targeted.
+- Post-run process checks, exclusive fixture-port rebind, removed temporary HOME, and unchanged product source hashes are recorded in result.json.
+
+# Evidence
+- result.json: per-step rows, saved setting values, source hashes, screenshot calls, fixture requests, cleanup checks.
+- 01-main.png/.txt through 06-approval-auto.png/.txt: actual console snapshots.
+- capture_menu.py, menu_bootstrap.py, console_driver.py, shot_hwnd.ps1: reproducible owned harness adapted from the October 21 feedback-menu evidence.
+- driver.log and menu-exit.txt: execution trace and menu return.
+
+# Limitations
+This checks prelaunch menu rendering and saved configuration only, not downstream Work planning enforcement or a live model session. The harness remained catalogue-only.

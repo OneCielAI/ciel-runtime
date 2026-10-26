@@ -1,0 +1,70 @@
+{
+  "provider": "cielairouter",
+  "model": "_Walkie_Opus55-Sol61-Fast",
+  "snapshot": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-work-20261026-113105",
+  "port": 56625,
+  "workspace": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-work-coding-eval-ayaa45og\\workspace",
+  "scratch": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-work-coding-eval-ayaa45og",
+  "transport": "actual MCP submit_input/session_socket",
+  "live_before": {
+    "9385": {
+      "ok": true,
+      "version": "0.2.51-nightly.20261024-115611.5d4dc0e",
+      "pid": 6032
+    },
+    "9464": {
+      "ok": true,
+      "version": "0.2.51-nightly.20261026-044702.d15822f",
+      "pid": 51556
+    },
+    "9489": {
+      "ok": true,
+      "version": "0.2.51-nightly.20261024-102326.a7e28f9",
+      "pid": 67368
+    },
+    "9505": {
+      "ok": true,
+      "version": "0.2.51-nightly.20261026-044702.d15822f",
+      "pid": 93416
+    },
+    "9524": {
+      "ok": true,
+      "version": "0.2.51-nightly.20261025-050332.144bebc",
+      "pid": 81772
+    }
+  },
+  "injections": [],
+  "screens": [],
+  "owned_launcher_pid": 88452,
+  "console_host_pid": 29148,
+  "owned_console_agent_pid": 77140,
+  "error": "Traceback (most recent call last):\n  File \"C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\features\\work-mode\\evidence\\concurrent-eval\\evaluate.py\", line 84, in <module>\n    else:raise RuntimeError(\"CLI startup timeout: \"+screen()[-800:])\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nRuntimeError: CLI startup timeout: Ciel Runtime launch blocked:\n- Launch blocked: Base URL: unreachable (TimeoutError)\n- Set a reachable Base URL before launching Claude Code.\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n",
+  "live_after": {
+    "9385": {
+      "ok": true,
+      "version": "0.2.51-nightly.20261024-115611.5d4dc0e",
+      "pid": 6032
+    },
+    "9464": {
+      "ok": true,
+      "version": "0.2.51-nightly.20261026-044702.d15822f",
+      "pid": 51556
+    },
+    "9489": {
+      "ok": true,
+      "version": "0.2.51-nightly.20261024-102326.a7e28f9",
+      "pid": 67368
+    },
+    "9505": {
+      "ok": true,
+      "version": "0.2.51-nightly.20261026-044702.d15822f",
+      "pid": 93416
+    },
+    "9524": {
+      "ok": true,
+      "version": "0.2.51-nightly.20261025-050332.144bebc",
+      "pid": 81772
+    }
+  },
+  "live_pids_unchanged": true
+}
