@@ -1,0 +1,739 @@
+== C:/Users/djlov/AppData/Roaming/ciel-runtime/router-instances/9505-aae7db361c7f/router.log.1
+2026-10-25T14:50:06 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=https://agent-aap.tail.headscale.ezonebot.com:20129/v1/messages attempt=1/1 tokens=297312 bytes=1169116 timeout=300.0
+2026-10-25T14:50:07 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=https://agent-aap.tail.headscale.ezonebot.com:20129/v1/messages attempt=1/1 tokens=305411 bytes=1201301 timeout=300.0
+2026-10-25T14:50:09 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:50:10 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:50:16 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=https://agent-aap.tail.headscale.ezonebot.com:20129/v1/messages attempt=1/1 tokens=307036 bytes=1207799 timeout=300.0
+2026-10-25T14:50:18 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:50:21 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=https://agent-aap.tail.headscale.ezonebot.com:20129/v1/messages attempt=1/1 tokens=308984 bytes=1215567 timeout=300.0
+2026-10-25T14:50:24 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:50:27 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=https://agent-aap.tail.headscale.ezonebot.com:20129/v1/messages attempt=1/1 tokens=310882 bytes=1223157 timeout=300.0
+2026-10-25T14:50:30 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:50:40 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=https://agent-aap.tail.headscale.ezonebot.com:20129/v1/messages attempt=1/1 tokens=311044 bytes=1223804 timeout=300.0
+2026-10-25T14:50:42 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:51:03 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=316772 bytes=1246718 timeout=300.0
+2026-10-25T14:51:05 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:51:13 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=316934 bytes=1247365 timeout=300.0
+2026-10-25T14:51:15 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:51:19 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=323823 bytes=1274866 timeout=300.0
+2026-10-25T14:51:21 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:51:35 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=325111 bytes=1280018 timeout=300.0
+2026-10-25T14:51:37 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:51:46 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=327031 bytes=1287698 timeout=300.0
+2026-10-25T14:51:48 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:51:50 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=327193 bytes=1288343 timeout=300.0
+2026-10-25T14:51:52 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:51:54 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=328433 bytes=1293304 timeout=300.0
+2026-10-25T14:51:56 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:52:06 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=329434 bytes=1297308 timeout=300.0
+2026-10-25T14:52:08 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:52:14 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=333815 bytes=1314704 timeout=300.0
+2026-10-25T14:52:16 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:52:21 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=335115 bytes=1319887 timeout=300.0
+2026-10-25T14:52:23 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:52:31 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=335276 bytes=1320531 timeout=300.0
+2026-10-25T14:52:33 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:52:34 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=335663 bytes=1322075 timeout=300.0
+2026-10-25T14:52:36 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:52:42 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=338504 bytes=1333318 timeout=300.0
+2026-10-25T14:52:44 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:52:50 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=341273 bytes=1344259 timeout=300.0
+2026-10-25T14:52:52 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:53:04 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=341434 bytes=1344903 timeout=300.0
+2026-10-25T14:53:05 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=342092 bytes=1347513 timeout=300.0
+2026-10-25T14:53:06 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:53:07 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:53:13 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=342772 bytes=1350236 timeout=300.0
+2026-10-25T14:53:15 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:53:25 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=343858 bytes=1354575 timeout=300.0
+2026-10-25T14:53:27 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:53:34 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=345294 bytes=1360232 timeout=300.0
+2026-10-25T14:53:36 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:53:39 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=345457 bytes=1360884 timeout=300.0
+2026-10-25T14:53:41 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:53:42 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=346388 bytes=1364589 timeout=300.0
+2026-10-25T14:53:44 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:53:59 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=347407 bytes=1368633 timeout=300.0
+2026-10-25T14:54:01 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:54:09 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=348232 bytes=1371931 timeout=300.0
+2026-10-25T14:54:11 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:54:14 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=348399 bytes=1372598 timeout=300.0
+2026-10-25T14:54:16 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:54:16 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=348891 bytes=1374563 timeout=300.0
+2026-10-25T14:54:18 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:54:25 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=349544 bytes=1377174 timeout=300.0
+2026-10-25T14:54:27 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:54:33 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=349816 bytes=1378261 timeout=300.0
+2026-10-25T14:54:35 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:54:43 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=350529 bytes=1381114 timeout=300.0
+2026-10-25T14:54:45 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:54:48 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=350690 bytes=1381758 timeout=300.0
+2026-10-25T14:54:50 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:54:53 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=351741 bytes=1385958 timeout=300.0
+2026-10-25T14:54:55 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:55:02 [INFO] channel_stdin_proxy_injected count=1 message_ids=14760 channels=external:default enter=crlf transport=session_socket commit_cursor=False display_body=False
+2026-10-25T14:55:03 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=523284 bytes=2038465 timeout=300.0
+2026-10-25T14:55:05 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:55:07 [INFO] channel_windows_console_deferred cursor=14760 reason=active_turn
+2026-10-25T14:55:14 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=524031 bytes=2041415 timeout=300.0
+2026-10-25T14:55:16 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:55:23 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=351903 bytes=1386604 timeout=300.0
+2026-10-25T14:55:25 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:55:25 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=524249 bytes=2042219 timeout=300.0
+2026-10-25T14:55:28 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:55:35 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=524637 bytes=2043749 timeout=300.0
+2026-10-25T14:55:37 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:55:37 [INFO] channel_windows_console_deferred cursor=14760 reason=active_turn
+2026-10-25T14:55:48 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=352374 bytes=1388488 timeout=300.0
+2026-10-25T14:55:50 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:55:51 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=525669 bytes=2047432 timeout=300.0
+2026-10-25T14:55:53 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:55:57 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=352534 bytes=1389129 timeout=300.0
+2026-10-25T14:55:59 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:56:07 [INFO] channel_windows_console_deferred cursor=14760 reason=active_turn
+2026-10-25T14:56:08 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=352622 bytes=1389482 timeout=300.0
+2026-10-25T14:56:10 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:56:18 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=527360 bytes=2053568 timeout=300.0
+2026-10-25T14:56:20 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:56:37 [INFO] channel_windows_console_deferred cursor=14760 reason=active_turn
+2026-10-25T14:56:38 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=352782 bytes=1390121 timeout=300.0
+2026-10-25T14:56:40 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:56:41 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=528134 bytes=2056567 timeout=300.0
+2026-10-25T14:56:44 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:57:00 [INFO] agent_turn_ended turn=9c01e7d3-610c-4f03-bdec-5842caa5385a runtime=claude reason=end_turn by_user_input=false
+2026-10-25T14:57:00 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=531501 bytes=2068412 timeout=300.0
+2026-10-25T14:57:02 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:57:08 [INFO] channel_windows_console_deferred cursor=14760 reason=active_turn
+2026-10-25T14:57:12 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=531718 bytes=2069267 timeout=300.0
+2026-10-25T14:57:14 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:57:28 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=532004 bytes=2070395 timeout=300.0
+2026-10-25T14:57:30 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:57:38 [INFO] channel_windows_console_deferred cursor=14760 reason=active_turn
+2026-10-25T14:57:39 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=532505 bytes=2072401 timeout=300.0
+2026-10-25T14:57:41 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:57:49 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=533796 bytes=2076832 timeout=300.0
+2026-10-25T14:57:51 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:58:08 [INFO] channel_windows_console_deferred cursor=14760 reason=active_turn
+2026-10-25T14:58:20 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=279840 bytes=1099388 timeout=300.0
+2026-10-25T14:58:22 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=534700 bytes=2080435 timeout=300.0
+2026-10-25T14:58:23 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:58:24 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:58:32 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=282729 bytes=1110943 timeout=300.0
+2026-10-25T14:58:34 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:58:39 [INFO] channel_windows_console_deferred cursor=14760 reason=active_turn
+2026-10-25T14:58:39 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=282930 bytes=1111746 timeout=300.0
+2026-10-25T14:58:41 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:58:44 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=535504 bytes=2083634 timeout=300.0
+2026-10-25T14:58:46 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:58:50 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=283071 bytes=1112310 timeout=300.0
+2026-10-25T14:58:52 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:58:55 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=283135 bytes=1112564 timeout=300.0
+2026-10-25T14:58:57 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:58:59 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=536225 bytes=2086491 timeout=300.0
+2026-10-25T14:59:00 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=287586 bytes=1130370 timeout=300.0
+2026-10-25T14:59:02 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:59:02 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:59:07 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=288418 bytes=1133697 timeout=300.0
+2026-10-25T14:59:09 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:59:09 [INFO] channel_windows_console_deferred cursor=14760 reason=active_turn
+2026-10-25T14:59:13 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=288571 bytes=1134310 timeout=300.0
+2026-10-25T14:59:15 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:59:18 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=536967 bytes=2089094 timeout=300.0
+2026-10-25T14:59:19 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=294397 bytes=1157609 timeout=300.0
+2026-10-25T14:59:20 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:59:21 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:59:23 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=294557 bytes=1158249 timeout=300.0
+2026-10-25T14:59:24 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=298275 bytes=1172970 timeout=300.0
+2026-10-25T14:59:25 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:59:26 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:59:31 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=304112 bytes=1196188 timeout=300.0
+2026-10-25T14:59:33 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:59:35 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=541118 bytes=2105659 timeout=300.0
+2026-10-25T14:59:36 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=307494 bytes=1209703 timeout=300.0
+2026-10-25T14:59:37 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:59:38 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T14:59:40 [INFO] channel_windows_console_deferred cursor=14760 reason=active_turn
+2026-10-25T14:59:57 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=307655 bytes=1210346 timeout=300.0
+2026-10-25T14:59:59 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:00:03 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=541968 bytes=2108964 timeout=300.0
+2026-10-25T15:00:05 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:00:10 [INFO] channel_windows_console_deferred cursor=14760 reason=active_turn
+2026-10-25T15:00:19 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=542278 bytes=2110083 timeout=300.0
+2026-10-25T15:00:21 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:00:36 [INFO] agent_turn_ended turn=4d15a26b-cef1-4533-b470-b2692b99a0fe runtime=claude reason=end_turn by_user_input=false
+2026-10-25T15:01:19 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=307579 bytes=1210046 timeout=300.0
+2026-10-25T15:01:22 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:01:29 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=307667 bytes=1210396 timeout=300.0
+2026-10-25T15:01:30 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=307830 bytes=1211049 timeout=300.0
+2026-10-25T15:01:31 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:01:32 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:01:35 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=309908 bytes=1219353 timeout=300.0
+2026-10-25T15:01:38 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:01:46 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=310119 bytes=1220198 timeout=300.0
+2026-10-25T15:01:48 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:01:56 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=311248 bytes=1224715 timeout=300.0
+2026-10-25T15:01:58 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:02:04 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=311412 bytes=1225369 timeout=300.0
+2026-10-25T15:02:06 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:02:07 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=313971 bytes=1235568 timeout=300.0
+2026-10-25T15:02:10 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:02:40 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=314466 bytes=1237550 timeout=300.0
+2026-10-25T15:02:42 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:02:50 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=315302 bytes=1240892 timeout=300.0
+2026-10-25T15:02:52 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:03:00 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=316053 bytes=1243896 timeout=300.0
+2026-10-25T15:03:02 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:03:04 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=316213 bytes=1244538 timeout=300.0
+2026-10-25T15:03:06 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:03:47 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=320998 bytes=1263644 timeout=300.0
+2026-10-25T15:03:49 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:04:13 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=321160 bytes=1264291 timeout=300.0
+2026-10-25T15:04:15 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:04:17 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=326352 bytes=1284731 timeout=300.0
+2026-10-25T15:04:19 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:04:49 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=326514 bytes=1285377 timeout=300.0
+2026-10-25T15:04:52 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:06:02 [INFO] channel_stdin_proxy_injected count=1 message_ids=14761 channels=external:default enter=crlf transport=session_socket commit_cursor=False display_body=False
+2026-10-25T15:06:05 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=544309 bytes=2117518 timeout=300.0
+2026-10-25T15:06:07 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:06:08 [INFO] channel_windows_console_deferred cursor=14761 reason=active_turn
+2026-10-25T15:06:13 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=544873 bytes=2119770 timeout=300.0
+2026-10-25T15:06:15 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:06:26 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=545266 bytes=2121341 timeout=300.0
+2026-10-25T15:06:28 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:06:34 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=545840 bytes=2123632 timeout=300.0
+2026-10-25T15:06:36 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:06:39 [INFO] channel_windows_console_deferred cursor=14761 reason=active_turn
+2026-10-25T15:07:00 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=546734 bytes=2127183 timeout=300.0
+2026-10-25T15:07:02 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:07:09 [INFO] channel_windows_console_deferred cursor=14761 reason=active_turn
+2026-10-25T15:07:39 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=547170 bytes=2128925 timeout=300.0
+2026-10-25T15:07:40 [INFO] channel_windows_console_deferred cursor=14761 reason=active_turn
+2026-10-25T15:07:41 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:07:51 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=549539 bytes=2138326 timeout=300.0
+2026-10-25T15:07:54 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:08:10 [INFO] channel_windows_console_deferred cursor=14761 reason=active_turn
+2026-10-25T15:08:18 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=550199 bytes=2140936 timeout=300.0
+2026-10-25T15:08:20 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:08:23 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=326670 bytes=1286003 timeout=300.0
+2026-10-25T15:08:25 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:08:29 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=554441 bytes=2155216 timeout=300.0
+2026-10-25T15:08:31 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:08:40 [INFO] channel_windows_console_deferred cursor=14761 reason=active_turn
+2026-10-25T15:08:51 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=554854 bytes=2156845 timeout=300.0
+2026-10-25T15:08:53 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=326832 bytes=1286649 timeout=300.0
+2026-10-25T15:08:53 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:08:55 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:09:08 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=555869 bytes=2160876 timeout=300.0
+2026-10-25T15:09:10 [INFO] channel_windows_console_deferred cursor=14761 reason=active_turn
+2026-10-25T15:09:10 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:09:34 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=327473 bytes=1289210 timeout=300.0
+2026-10-25T15:09:36 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:09:41 [INFO] channel_windows_console_deferred cursor=14761 reason=active_turn
+2026-10-25T15:09:59 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=327633 bytes=1289849 timeout=300.0
+2026-10-25T15:10:00 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=329492 bytes=1297289 timeout=300.0
+2026-10-25T15:10:01 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:10:02 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:10:05 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=557641 bytes=2167013 timeout=300.0
+2026-10-25T15:10:08 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:10:11 [INFO] channel_windows_console_deferred cursor=14761 reason=active_turn
+2026-10-25T15:10:34 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=329651 bytes=1297923 timeout=300.0
+2026-10-25T15:10:34 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=330773 bytes=1302413 timeout=300.0
+2026-10-25T15:10:36 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:10:36 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:10:37 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=558611 bytes=2170453 timeout=300.0
+2026-10-25T15:10:39 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:10:41 [INFO] channel_windows_console_deferred cursor=14761 reason=active_turn
+2026-10-25T15:10:49 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=331349 bytes=1304714 timeout=300.0
+2026-10-25T15:10:51 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:10:58 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=559393 bytes=2173478 timeout=300.0
+2026-10-25T15:11:00 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:11:12 [INFO] channel_windows_console_deferred cursor=14761 reason=active_turn
+2026-10-25T15:11:12 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=331512 bytes=1305367 timeout=300.0
+2026-10-25T15:11:14 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:11:17 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=560038 bytes=2175843 timeout=300.0
+2026-10-25T15:11:19 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:11:29 [INFO] agent_turn_ended turn=bdfeffa8-02f1-4eb1-a055-75bf72c81bfd runtime=claude reason=end_turn by_user_input=false
+2026-10-25T15:12:17 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=332135 bytes=1307860 timeout=300.0
+2026-10-25T15:12:17 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=332294 bytes=1308494 timeout=300.0
+2026-10-25T15:12:19 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:12:19 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:12:44 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=332312 bytes=1308567 timeout=300.0
+2026-10-25T15:12:46 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:12:52 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=332477 bytes=1309225 timeout=300.0
+2026-10-25T15:12:55 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:13:13 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=332962 bytes=1311162 timeout=300.0
+2026-10-25T15:13:15 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:13:29 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=333123 bytes=1311806 timeout=300.0
+2026-10-25T15:13:31 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:13:59 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=335296 bytes=1320498 timeout=300.0
+2026-10-25T15:14:01 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:14:04 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=335455 bytes=1321133 timeout=300.0
+2026-10-25T15:14:06 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:14:14 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=335492 bytes=1321281 timeout=300.0
+2026-10-25T15:14:16 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:14:26 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=335687 bytes=1322060 timeout=300.0
+2026-10-25T15:14:28 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:14:38 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=335848 bytes=1322705 timeout=300.0
+2026-10-25T15:14:40 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:14:45 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=336696 bytes=1326096 timeout=300.0
+2026-10-25T15:14:48 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:15:17 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=336859 bytes=1326747 timeout=300.0
+2026-10-25T15:15:19 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:15:31 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=337284 bytes=1328450 timeout=300.0
+2026-10-25T15:15:33 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:15:40 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=338142 bytes=1331883 timeout=300.0
+2026-10-25T15:15:42 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:15:51 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=338299 bytes=1332509 timeout=300.0
+2026-10-25T15:15:53 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:16:07 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=338727 bytes=1334222 timeout=300.0
+2026-10-25T15:16:09 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:16:19 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=338900 bytes=1334915 timeout=300.0
+2026-10-25T15:16:21 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:16:26 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=339058 bytes=1335543 timeout=300.0
+2026-10-25T15:16:28 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:17:02 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=339559 bytes=1337551 timeout=300.0
+2026-10-25T15:17:02 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=339717 bytes=1338180 timeout=300.0
+2026-10-25T15:17:04 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:17:05 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:17:07 [INFO] channel_stdin_proxy_injected count=1 message_ids=14762 channels=external:default enter=crlf transport=session_socket commit_cursor=False display_body=False
+2026-10-25T15:17:09 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=562608 bytes=2185065 timeout=300.0
+2026-10-25T15:17:11 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:17:12 [INFO] channel_windows_console_deferred cursor=14762 reason=active_turn
+2026-10-25T15:17:42 [INFO] channel_windows_console_deferred cursor=14762 reason=active_turn
+2026-10-25T15:17:55 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=340190 bytes=1340069 timeout=300.0
+2026-10-25T15:17:57 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:17:58 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=562974 bytes=2186526 timeout=300.0
+2026-10-25T15:17:58 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=340031 bytes=1339432 timeout=300.0
+2026-10-25T15:18:00 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:18:00 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:18:06 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=563286 bytes=2187695 timeout=300.0
+2026-10-25T15:18:07 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=340255 bytes=1340328 timeout=300.0
+2026-10-25T15:18:08 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:18:09 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:18:13 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=343018 bytes=1351382 timeout=300.0
+2026-10-25T15:18:13 [INFO] channel_windows_console_deferred cursor=14762 reason=active_turn
+2026-10-25T15:18:15 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:18:31 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=563830 bytes=2189742 timeout=300.0
+2026-10-25T15:18:33 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:18:33 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=343184 bytes=1352046 timeout=300.0
+2026-10-25T15:18:34 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=343768 bytes=1354383 timeout=300.0
+2026-10-25T15:18:35 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:18:37 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:18:42 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=347710 bytes=1370149 timeout=300.0
+2026-10-25T15:18:43 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=563947 bytes=2190210 timeout=300.0
+2026-10-25T15:18:44 [INFO] channel_windows_console_deferred cursor=14762 reason=active_turn
+2026-10-25T15:18:44 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:18:45 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:18:49 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=564998 bytes=2194401 timeout=300.0
+2026-10-25T15:18:51 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:18:56 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=565288 bytes=2195512 timeout=300.0
+2026-10-25T15:18:57 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=348295 bytes=1372489 timeout=300.0
+2026-10-25T15:18:59 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:18:59 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:19:11 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=348454 bytes=1373124 timeout=300.0
+2026-10-25T15:19:11 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=565950 bytes=2197970 timeout=300.0
+2026-10-25T15:19:13 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:19:14 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:19:14 [INFO] channel_windows_console_deferred cursor=14762 reason=active_turn
+2026-10-25T15:19:18 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=350169 bytes=1379984 timeout=300.0
+2026-10-25T15:19:20 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:19:22 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=566363 bytes=2199496 timeout=300.0
+2026-10-25T15:19:25 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:19:34 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=566661 bytes=2200679 timeout=300.0
+2026-10-25T15:19:36 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:19:43 [INFO] agent_turn_ended turn=8e3407b1-c941-4ed8-891a-3a1feae4662c runtime=claude reason=end_turn by_user_input=false
+2026-10-25T15:19:47 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=568117 bytes=2205901 timeout=300.0
+2026-10-25T15:19:48 [INFO] channel_windows_console_deferred cursor=14762 reason=active_turn
+2026-10-25T15:19:49 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:19:56 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=571282 bytes=2218539 timeout=300.0
+2026-10-25T15:19:58 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:20:11 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=571697 bytes=2220177 timeout=300.0
+2026-10-25T15:20:13 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:20:19 [INFO] channel_windows_console_deferred cursor=14762 reason=active_turn
+2026-10-25T15:20:27 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=573317 bytes=2226612 timeout=300.0
+2026-10-25T15:20:29 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:20:38 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=574006 bytes=2229351 timeout=300.0
+2026-10-25T15:20:40 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:20:49 [INFO] channel_windows_console_deferred cursor=14762 reason=active_turn
+2026-10-25T15:21:09 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=574711 bytes=2232056 timeout=300.0
+2026-10-25T15:21:11 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:21:20 [INFO] agent_turn_ended turn=94bc3d0e-1db6-43e3-8dbc-a0f304afd243 runtime=claude reason=end_turn by_user_input=false
+2026-10-25T15:24:21 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=575110 bytes=2233437 timeout=300.0
+2026-10-25T15:24:24 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:54:27 [INFO] channel_stdin_proxy_injected count=1 message_ids=14763 channels=external:default enter=crlf transport=session_socket commit_cursor=False display_body=False
+2026-10-25T15:54:33 [INFO] channel_windows_console_deferred cursor=14763 reason=active_turn
+2026-10-25T15:54:33 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=576733 bytes=2239456 timeout=300.0
+2026-10-25T15:54:35 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:54:49 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=577201 bytes=2241248 timeout=300.0
+2026-10-25T15:54:51 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:55:03 [INFO] channel_windows_console_deferred cursor=14763 reason=active_turn
+2026-10-25T15:55:10 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=578103 bytes=2244501 timeout=300.0
+2026-10-25T15:55:12 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:55:33 [INFO] channel_windows_console_deferred cursor=14763 reason=active_turn
+2026-10-25T15:55:44 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=580587 bytes=2254425 timeout=300.0
+2026-10-25T15:55:46 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:56:03 [INFO] channel_windows_console_deferred cursor=14763 reason=active_turn
+2026-10-25T15:56:09 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=581150 bytes=2256647 timeout=300.0
+2026-10-25T15:56:11 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:56:21 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=581593 bytes=2258406 timeout=300.0
+2026-10-25T15:56:24 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:56:34 [INFO] channel_windows_console_deferred cursor=14763 reason=active_turn
+2026-10-25T15:56:49 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=582479 bytes=2261572 timeout=300.0
+2026-10-25T15:56:51 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:57:04 [INFO] channel_windows_console_deferred cursor=14763 reason=active_turn
+2026-10-25T15:57:11 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=583034 bytes=2263757 timeout=300.0
+2026-10-25T15:57:14 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:57:22 [INFO] agent_turn_ended turn=80684a61-2ca8-4442-a244-26d501506490 runtime=claude reason=end_turn by_user_input=false
+2026-10-25T15:57:24 [INFO] channel_stdin_proxy_injected count=1 message_ids=14764 channels=external:default enter=crlf transport=session_socket commit_cursor=False display_body=False
+2026-10-25T15:57:25 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=584294 bytes=2268327 timeout=300.0
+2026-10-25T15:57:27 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:57:35 [INFO] channel_windows_console_deferred cursor=14764 reason=active_turn
+2026-10-25T15:58:01 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=585335 bytes=2272491 timeout=300.0
+2026-10-25T15:58:03 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:58:05 [INFO] channel_windows_console_deferred cursor=14764 reason=active_turn
+2026-10-25T15:58:20 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=588252 bytes=2284080 timeout=300.0
+2026-10-25T15:58:22 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:58:35 [INFO] channel_windows_console_deferred cursor=14764 reason=active_turn
+2026-10-25T15:58:39 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=589218 bytes=2287910 timeout=300.0
+2026-10-25T15:58:41 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:58:54 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=590014 bytes=2291072 timeout=300.0
+2026-10-25T15:58:56 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:59:05 [INFO] channel_windows_console_deferred cursor=14764 reason=active_turn
+2026-10-25T15:59:12 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=590435 bytes=2292739 timeout=300.0
+2026-10-25T15:59:14 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T15:59:36 [INFO] channel_windows_console_deferred cursor=14764 reason=active_turn
+2026-10-25T15:59:39 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=591349 bytes=2296358 timeout=300.0
+2026-10-25T15:59:41 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:00:04 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=591745 bytes=2297917 timeout=300.0
+2026-10-25T16:00:06 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:00:07 [INFO] channel_windows_console_deferred cursor=14764 reason=active_turn
+2026-10-25T16:00:15 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=592080 bytes=2299242 timeout=300.0
+2026-10-25T16:00:18 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:00:37 [INFO] channel_windows_console_deferred cursor=14764 reason=active_turn
+2026-10-25T16:00:41 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=592603 bytes=2301244 timeout=300.0
+2026-10-25T16:00:43 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:00:55 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=592927 bytes=2302450 timeout=300.0
+2026-10-25T16:00:57 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:01:07 [INFO] channel_windows_console_deferred cursor=14764 reason=active_turn
+2026-10-25T16:01:17 [INFO] agent_turn_ended turn=fcf5c1a9-77c2-45af-9321-28f4d467bd28 runtime=claude reason=end_turn by_user_input=false
+2026-10-25T16:01:31 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=593714 bytes=2305406 timeout=300.0
+2026-10-25T16:01:33 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:01:37 [INFO] channel_windows_console_deferred cursor=14764 reason=active_turn
+2026-10-25T16:01:41 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=594727 bytes=2309422 timeout=300.0
+2026-10-25T16:01:43 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:01:52 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=594988 bytes=2310465 timeout=300.0
+2026-10-25T16:01:54 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:02:08 [INFO] channel_windows_console_deferred cursor=14764 reason=active_turn
+2026-10-25T16:02:11 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=595464 bytes=2312350 timeout=300.0
+2026-10-25T16:02:13 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:02:25 [INFO] agent_turn_ended turn=92b066a8-a3e9-4793-a2f2-6c7a05dc2b07 runtime=claude reason=end_turn by_user_input=false
+2026-10-25T16:02:54 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=595922 bytes=2314034 timeout=300.0
+2026-10-25T16:02:56 [INFO] channel_windows_console_deferred cursor=14764 reason=active_turn
+2026-10-25T16:02:56 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:03:06 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=596199 bytes=2315128 timeout=300.0
+2026-10-25T16:03:08 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:03:27 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=596342 bytes=2315701 timeout=300.0
+2026-10-25T16:03:27 [INFO] channel_windows_console_deferred cursor=14764 reason=active_turn
+2026-10-25T16:03:29 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:03:43 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=596461 bytes=2316178 timeout=300.0
+2026-10-25T16:03:45 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:03:57 [INFO] channel_windows_console_deferred cursor=14764 reason=active_turn
+2026-10-25T16:04:01 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=279403 bytes=1097637 timeout=300.0
+2026-10-25T16:04:01 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=597050 bytes=2318521 timeout=300.0
+2026-10-25T16:04:03 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:04:04 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:04:18 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=597411 bytes=2319952 timeout=300.0
+2026-10-25T16:04:20 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:04:27 [INFO] channel_windows_console_deferred cursor=14764 reason=active_turn
+2026-10-25T16:04:31 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=597686 bytes=2321055 timeout=300.0
+2026-10-25T16:04:31 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=279534 bytes=1098163 timeout=300.0
+2026-10-25T16:04:33 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:04:34 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:04:36 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=281605 bytes=1106446 timeout=300.0
+2026-10-25T16:04:38 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:04:42 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=282037 bytes=1108173 timeout=300.0
+2026-10-25T16:04:45 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:04:45 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=598011 bytes=2322351 timeout=300.0
+2026-10-25T16:04:47 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:04:49 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=282615 bytes=1110485 timeout=300.0
+2026-10-25T16:04:51 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:04:58 [INFO] channel_windows_console_deferred cursor=14764 reason=active_turn
+2026-10-25T16:05:02 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=599088 bytes=2326392 timeout=300.0
+2026-10-25T16:05:04 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:05:12 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=599584 bytes=2328337 timeout=300.0
+2026-10-25T16:05:15 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:05:24 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=600044 bytes=2329993 timeout=300.0
+2026-10-25T16:05:26 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:05:28 [INFO] channel_windows_console_deferred cursor=14764 reason=active_turn
+2026-10-25T16:05:38 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=600303 bytes=2331032 timeout=300.0
+2026-10-25T16:05:40 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:05:50 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=601626 bytes=2336301 timeout=300.0
+2026-10-25T16:05:53 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:05:58 [INFO] channel_windows_console_deferred cursor=14764 reason=active_turn
+2026-10-25T16:06:04 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=602471 bytes=2339681 timeout=300.0
+2026-10-25T16:06:06 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:06:17 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=603001 bytes=2341785 timeout=300.0
+2026-10-25T16:06:20 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:06:28 [INFO] channel_windows_console_deferred cursor=14764 reason=active_turn
+2026-10-25T16:06:38 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=604176 bytes=2346459 timeout=300.0
+2026-10-25T16:06:40 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:06:51 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=604518 bytes=2347802 timeout=300.0
+2026-10-25T16:06:54 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:06:59 [INFO] channel_windows_console_deferred cursor=14764 reason=active_turn
+2026-10-25T16:07:08 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=604967 bytes=2349600 timeout=300.0
+2026-10-25T16:07:10 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:07:16 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=605212 bytes=2350562 timeout=300.0
+2026-10-25T16:07:18 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:07:29 [INFO] channel_windows_console_deferred cursor=14764 reason=active_turn
+2026-10-25T16:07:36 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=606040 bytes=2353830 timeout=300.0
+2026-10-25T16:07:38 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:07:59 [INFO] channel_windows_console_deferred cursor=14764 reason=active_turn
+2026-10-25T16:08:03 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=606391 bytes=2355215 timeout=300.0
+2026-10-25T16:08:05 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:08:24 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=606687 bytes=2356389 timeout=300.0
+2026-10-25T16:08:26 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:08:30 [INFO] channel_windows_console_deferred cursor=14764 reason=active_turn
+2026-10-25T16:08:39 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=606926 bytes=2357336 timeout=300.0
+2026-10-25T16:08:41 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:09:00 [INFO] channel_windows_console_deferred cursor=14764 reason=active_turn
+2026-10-25T16:09:05 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=607781 bytes=2360349 timeout=300.0
+2026-10-25T16:09:07 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:09:30 [INFO] channel_windows_console_deferred cursor=14764 reason=active_turn
+2026-10-25T16:09:32 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=608860 bytes=2364248 timeout=300.0
+2026-10-25T16:09:34 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:09:44 [INFO] agent_turn_ended turn=82e1649a-7d32-48fe-88e9-9af3cdc13ea8 runtime=claude reason=end_turn by_user_input=false
+2026-10-25T16:12:50 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=609211 bytes=2365437 timeout=300.0
+2026-10-25T16:12:52 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:20:28 [INFO] channel_stdin_proxy_injected count=1 message_ids=14765 channels=external:default enter=crlf transport=session_socket commit_cursor=False display_body=False
+2026-10-25T16:20:33 [WARN] cielairouter_gateway_central central=ciel-router-01.ezonebot.com reason=discovery unavailable degraded=True generation=59 elapsed_ms=5114; requests use the configured base URL
+2026-10-25T16:20:35 [INFO] channel_windows_console_deferred cursor=14765 reason=active_turn
+2026-10-25T16:21:04 [INFO] channel_windows_console_deferred cursor=14765 reason=active_turn
+2026-10-25T16:21:06 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=https://ciel-router-01.ezonebot.com/v1/messages attempt=1/1 tokens=610855 bytes=2371435 timeout=300.0
+2026-10-25T16:21:13 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:21:34 [INFO] channel_windows_console_deferred cursor=14765 reason=active_turn
+2026-10-25T16:22:04 [INFO] channel_windows_console_deferred cursor=14765 reason=active_turn
+2026-10-25T16:22:35 [INFO] channel_windows_console_deferred cursor=14765 reason=active_turn
+2026-10-25T16:22:42 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=612250 bytes=2376118 timeout=300.0
+2026-10-25T16:22:45 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:23:02 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=612829 bytes=2378416 timeout=300.0
+2026-10-25T16:23:04 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:23:05 [INFO] channel_windows_console_deferred cursor=14765 reason=active_turn
+2026-10-25T16:23:15 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=613344 bytes=2380459 timeout=300.0
+2026-10-25T16:23:17 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:23:28 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=613805 bytes=2382278 timeout=300.0
+2026-10-25T16:23:30 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:23:36 [INFO] channel_windows_console_deferred cursor=14765 reason=active_turn
+2026-10-25T16:23:46 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=618106 bytes=2399239 timeout=300.0
+2026-10-25T16:23:48 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:24:06 [INFO] channel_windows_console_deferred cursor=14765 reason=active_turn
+2026-10-25T16:24:19 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=618507 bytes=2400815 timeout=300.0
+2026-10-25T16:24:21 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:24:36 [INFO] channel_windows_console_deferred cursor=14765 reason=active_turn
+2026-10-25T16:25:04 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=619172 bytes=2403251 timeout=300.0
+2026-10-25T16:25:06 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:25:07 [INFO] channel_windows_console_deferred cursor=14765 reason=active_turn
+2026-10-25T16:25:18 [INFO] agent_turn_ended turn=e6ba816b-98e0-45b1-a9d5-8d0244df1bd8 runtime=claude reason=end_turn by_user_input=false
+2026-10-25T16:28:18 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=619410 bytes=2404084 timeout=300.0
+2026-10-25T16:28:20 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:30:40 [INFO] channel_stdin_proxy_injected count=1 message_ids=14766 channels=external:default enter=crlf transport=session_socket commit_cursor=False display_body=False
+2026-10-25T16:30:44 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=621053 bytes=2410082 timeout=300.0
+2026-10-25T16:30:46 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:30:47 [INFO] channel_windows_console_deferred cursor=14766 reason=active_turn
+2026-10-25T16:31:05 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=621331 bytes=2411170 timeout=300.0
+2026-10-25T16:31:07 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:31:17 [INFO] channel_windows_console_deferred cursor=14766 reason=active_turn
+2026-10-25T16:31:38 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=621965 bytes=2413684 timeout=300.0
+2026-10-25T16:31:40 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:31:47 [INFO] channel_windows_console_deferred cursor=14766 reason=active_turn
+2026-10-25T16:32:08 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=622933 bytes=2417534 timeout=300.0
+2026-10-25T16:32:10 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:32:17 [INFO] channel_windows_console_deferred cursor=14766 reason=active_turn
+2026-10-25T16:32:35 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=623143 bytes=2418355 timeout=300.0
+2026-10-25T16:32:37 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:32:47 [INFO] channel_windows_console_deferred cursor=14766 reason=active_turn
+2026-10-25T16:33:18 [INFO] channel_windows_console_deferred cursor=14766 reason=active_turn
+2026-10-25T16:33:42 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=625188 bytes=2425472 timeout=300.0
+2026-10-25T16:33:44 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:33:48 [INFO] channel_windows_console_deferred cursor=14766 reason=active_turn
+2026-10-25T16:34:04 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=625358 bytes=2426135 timeout=300.0
+2026-10-25T16:34:06 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:34:18 [INFO] channel_windows_console_deferred cursor=14766 reason=active_turn
+2026-10-25T16:34:33 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=626418 bytes=2429810 timeout=300.0
+2026-10-25T16:34:35 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:34:48 [INFO] channel_windows_console_deferred cursor=14766 reason=active_turn
+2026-10-25T16:34:50 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=627067 bytes=2432269 timeout=300.0
+2026-10-25T16:34:52 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:35:02 [INFO] agent_turn_ended turn=f49067eb-9656-4eec-a59c-f2ffd6238ba4 runtime=claude reason=end_turn by_user_input=false
+2026-10-25T16:38:05 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=627414 bytes=2433433 timeout=300.0
+2026-10-25T16:38:07 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:38:32 [INFO] channel_stdin_proxy_injected count=1 message_ids=14767 channels=external:default enter=crlf transport=session_socket commit_cursor=False display_body=False
+2026-10-25T16:38:34 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=629518 bytes=2441054 timeout=300.0
+2026-10-25T16:38:36 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:38:37 [INFO] channel_windows_console_deferred cursor=14767 reason=active_turn
+2026-10-25T16:38:51 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=629944 bytes=2442628 timeout=300.0
+2026-10-25T16:38:53 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:39:07 [INFO] channel_windows_console_deferred cursor=14767 reason=active_turn
+2026-10-25T16:39:09 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=630730 bytes=2445569 timeout=300.0
+2026-10-25T16:39:11 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:39:22 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=631072 bytes=2446812 timeout=300.0
+2026-10-25T16:39:24 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:39:33 [INFO] agent_turn_ended turn=6fa00873-7d85-4d41-a373-58a12a57a67f runtime=claude reason=end_turn by_user_input=false
+2026-10-25T16:42:46 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=631294 bytes=2447597 timeout=300.0
+2026-10-25T16:42:49 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:48:23 [INFO] channel_stdin_proxy_injected count=1 message_ids=14768 channels=external:default enter=crlf transport=session_socket commit_cursor=False display_body=False
+2026-10-25T16:48:28 [INFO] channel_windows_console_deferred cursor=14768 reason=active_turn
+2026-10-25T16:48:33 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=632672 bytes=2452783 timeout=300.0
+2026-10-25T16:48:35 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:48:49 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=635319 bytes=2463259 timeout=300.0
+2026-10-25T16:48:51 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:48:58 [INFO] channel_windows_console_deferred cursor=14768 reason=active_turn
+2026-10-25T16:49:01 [INFO] channel_stdin_proxy_injected count=1 message_ids=14769 channels=external:default enter=crlf transport=session_socket commit_cursor=False display_body=False
+2026-10-25T16:49:03 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=637277 bytes=2470620 timeout=300.0
+2026-10-25T16:49:05 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:49:20 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=638506 bytes=2475036 timeout=300.0
+2026-10-25T16:49:22 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:49:29 [INFO] channel_windows_console_deferred cursor=14769 reason=active_turn
+2026-10-25T16:49:31 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=638914 bytes=2476555 timeout=300.0
+2026-10-25T16:49:33 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:49:41 [INFO] agent_turn_ended turn=5129fd2e-6fdd-4727-b16c-b1a07fda00be runtime=claude reason=end_turn by_user_input=false
+2026-10-25T16:49:42 [INFO] channel_stdin_proxy_injected count=1 message_ids=14770 channels=external:default enter=crlf transport=session_socket commit_cursor=False display_body=False
+2026-10-25T16:49:43 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=640198 bytes=2481160 timeout=300.0
+2026-10-25T16:49:45 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:49:58 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=640639 bytes=2482798 timeout=300.0
+2026-10-25T16:49:59 [INFO] channel_windows_console_deferred cursor=14770 reason=active_turn
+2026-10-25T16:50:00 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:50:07 [INFO] agent_turn_ended turn=d6864a78-9978-4b3d-9d4c-b5c64c11d2e3 runtime=claude reason=end_turn by_user_input=false
+2026-10-25T16:53:10 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=640873 bytes=2483619 timeout=300.0
+2026-10-25T16:53:12 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:54:46 [INFO] channel_windows_console_deferred cursor=14770 reason=active_turn
+2026-10-25T16:54:46 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=640829 bytes=2483432 timeout=300.0
+2026-10-25T16:54:48 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:55:03 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=641261 bytes=2485142 timeout=300.0
+2026-10-25T16:55:05 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:55:16 [INFO] channel_windows_console_deferred cursor=14770 reason=active_turn
+2026-10-25T16:55:22 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=642169 bytes=2488752 timeout=300.0
+2026-10-25T16:55:24 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T16:55:37 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=642901 bytes=2491379 timeout=300.0
+2026-10-25T16:55:37 [INFO] agent_turn_ended turn=4bf5124b-f311-4d49-a99e-1658d27e01f6 runtime=claude reason=end_turn by_user_input=true
+2026-10-25T16:55:39 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+== C:/Users/djlov/AppData/Roaming/ciel-runtime/router-instances/9505-aae7db361c7f/router.log
+2026-10-25T17:10:23 [INFO] router_spawned running=True base=http://127.0.0.1:9505 elapsed=2.1s
+2026-10-25T17:10:37 [INFO] channel_stdin_proxy_injected count=3 message_ids=14771,14772,14773 channels=external:default enter=crlf transport=session_socket commit_cursor=False display_body=False
+2026-10-25T17:10:40 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=589445 bytes=2277070 timeout=300.0
+2026-10-25T17:10:42 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T17:10:55 [INFO] agent_turn_ended turn=d5916d0c-3136-4a55-ad0c-06b3a5baed55 runtime=claude reason=end_turn by_user_input=false
+2026-10-25T17:10:55 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=590121 bytes=2279570 timeout=300.0
+2026-10-25T17:10:57 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T17:11:24 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=589787 bytes=2278221 timeout=300.0
+2026-10-25T17:11:26 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T17:11:40 [INFO] agent_turn_ended turn=a5099a08-4abc-442f-8011-e38aece35ff4 runtime=claude reason=end_turn by_user_input=true
+2026-10-25T17:11:40 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=590364 bytes=2280389 timeout=300.0
+2026-10-25T17:11:41 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=590020 bytes=2279010 timeout=300.0
+2026-10-25T17:11:43 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T17:11:43 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T17:11:53 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=590332 bytes=2280239 timeout=300.0
+2026-10-25T17:11:55 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T17:12:44 [INFO] agent_turn_ended turn=50089073-1332-4c35-b640-fe41b2747cc8 runtime=claude reason=end_turn by_user_input=true
+2026-10-25T17:13:21 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=590595 bytes=2281133 timeout=300.0
+2026-10-25T17:13:23 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T17:13:37 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=591348 bytes=2284128 timeout=300.0
+2026-10-25T17:13:40 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T17:13:49 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=591570 bytes=2285009 timeout=300.0
+2026-10-25T17:13:51 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T17:13:53 [INFO] channel_stdin_proxy_injected count=1 message_ids=14774 channels=external:default enter=crlf transport=session_socket commit_cursor=False display_body=False
+2026-10-25T17:14:03 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=595868 bytes=2301831 timeout=300.0
+2026-10-25T17:14:06 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T17:14:18 [INFO] channel_stdin_proxy_injected count=1 message_ids=14775 channels=external:default enter=crlf transport=session_socket commit_cursor=False display_body=False
+2026-10-25T17:14:24 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=598827 bytes=2313195 timeout=300.0
+2026-10-25T17:14:26 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T17:14:41 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=599618 bytes=2316338 timeout=300.0
+2026-10-25T17:14:43 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T17:15:05 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=601965 bytes=2325677 timeout=300.0
+2026-10-25T17:15:07 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T17:15:24 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=605807 bytes=2340995 timeout=300.0
+2026-10-25T17:15:26 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T17:16:48 [INFO] channel_llm_inject_deferred reason=native_compaction
+2026-10-25T17:16:49 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=674212 bytes=2605402 timeout=300.0
+2026-10-25T17:16:51 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T17:18:49 [WARN] dropped emitted tool call with missing required fields raw_name='mcp__rea__inspect_analysis_view' matched_name='mcp__rea__inspect_analysis_view' fields=source,view
+2026-10-25T17:19:06 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=317546 bytes=1246215 timeout=300.0
+2026-10-25T17:19:08 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T17:19:33 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=317704 bytes=1246847 timeout=300.0
+2026-10-25T17:19:35 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T17:19:41 [INFO] channel_llm_inject_deferred message_id=14776 channel=external:default reason=input_transport_tty
+2026-10-25T17:19:41 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=321298 bytes=1261177 timeout=300.0
+2026-10-25T17:19:42 [INFO] channel_stdin_proxy_injected count=1 message_ids=14776 channels=external:default enter=crlf transport=session_socket commit_cursor=False display_body=False
+2026-10-25T17:19:43 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T17:19:51 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=325414 bytes=1277061 timeout=300.0
+2026-10-25T17:19:53 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T17:20:06 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=330054 bytes=1295226 timeout=300.0
+2026-10-25T17:20:08 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T17:20:18 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=330997 bytes=1298992 timeout=300.0
+2026-10-25T17:20:20 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T17:20:25 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=332093 bytes=1302980 timeout=300.0
+2026-10-25T17:20:27 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T17:20:39 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=333332 bytes=1307508 timeout=300.0
+2026-10-25T17:20:42 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T17:20:43 [INFO] channel_windows_console_deferred cursor=14776 reason=active_turn
+2026-10-25T17:21:10 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=336215 bytes=1319032 timeout=300.0
+2026-10-25T17:21:12 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T17:21:13 [INFO] channel_windows_console_deferred cursor=14776 reason=active_turn
+2026-10-25T17:21:18 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=339270 bytes=1331174 timeout=300.0
+2026-10-25T17:21:20 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T17:21:40 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=341548 bytes=1340272 timeout=300.0
+2026-10-25T17:21:42 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T17:21:44 [INFO] channel_windows_console_deferred cursor=14776 reason=active_turn
+2026-10-25T17:22:01 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=344779 bytes=1353182 timeout=300.0
+2026-10-25T17:22:03 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T17:22:13 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=350799 bytes=1376999 timeout=300.0
+2026-10-25T17:22:14 [INFO] channel_windows_console_deferred cursor=14776 reason=active_turn
+2026-10-25T17:22:15 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T17:22:22 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=351554 bytes=1380010 timeout=300.0
+2026-10-25T17:22:24 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T17:22:32 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=352147 bytes=1382372 timeout=300.0
+2026-10-25T17:22:34 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T17:22:45 [INFO] channel_windows_console_deferred cursor=14776 reason=active_turn
+2026-10-25T17:22:49 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=353649 bytes=1388367 timeout=300.0
+2026-10-25T17:22:51 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T17:23:15 [INFO] channel_windows_console_deferred cursor=14776 reason=active_turn
+2026-10-25T17:23:18 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=356390 bytes=1399315 timeout=300.0
+2026-10-25T17:23:20 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T17:23:41 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=357468 bytes=1403611 timeout=300.0
+2026-10-25T17:23:43 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T17:23:46 [INFO] channel_stdin_proxy_injected count=3 message_ids=14777,14778,14779 channels=external:default enter=crlf transport=session_socket commit_cursor=False display_body=False
+2026-10-25T17:23:52 [INFO] channel_stdin_proxy_injected count=5 message_ids=14780,14781,14782,14783,14784 channels=external:default enter=crlf transport=session_socket commit_cursor=False display_body=False
+2026-10-25T17:23:56 [INFO] channel_windows_console_deferred cursor=14776 reason=active_turn
+2026-10-25T17:24:07 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=377067 bytes=1474586 timeout=300.0
+2026-10-25T17:24:09 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T17:24:21 [INFO] channel_llm_inject_deferred message_id=14785 channel=external:default reason=input_transport_tty
+2026-10-25T17:24:21 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=380618 bytes=1488209 timeout=300.0
+2026-10-25T17:24:22 [INFO] channel_stdin_proxy_injected count=1 message_ids=14785 channels=external:default enter=crlf transport=session_socket commit_cursor=False display_body=False
+2026-10-25T17:24:23 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T17:24:27 [INFO] channel_windows_console_deferred cursor=14785 reason=active_turn
+2026-10-25T17:24:57 [INFO] channel_windows_console_deferred cursor=14785 reason=active_turn
+2026-10-25T17:25:01 [INFO] channel_stdin_proxy_injected count=1 message_ids=14786 channels=external:default enter=crlf transport=session_socket commit_cursor=False display_body=False
+2026-10-25T17:25:08 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=388034 bytes=1516906 timeout=300.0
+2026-10-25T17:25:10 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T17:25:28 [INFO] channel_windows_console_deferred cursor=14786 reason=active_turn
+2026-10-25T17:25:30 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=390510 bytes=1526396 timeout=300.0
+2026-10-25T17:25:32 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T17:25:40 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=391350 bytes=1529735 timeout=300.0
+2026-10-25T17:25:43 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T17:25:49 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=392288 bytes=1533481 timeout=300.0
+2026-10-25T17:25:51 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T17:25:59 [INFO] channel_windows_console_deferred cursor=14786 reason=active_turn
+2026-10-25T17:26:06 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=392585 bytes=1534658 timeout=300.0
+2026-10-25T17:26:08 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T17:26:29 [INFO] channel_windows_console_deferred cursor=14786 reason=active_turn
+2026-10-25T17:26:33 [INFO] channel_stdin_proxy_injected count=1 message_ids=14787 channels=external:default enter=crlf transport=session_socket commit_cursor=False display_body=False
+2026-10-25T17:26:43 [INFO] channel_llm_inject_deferred message_id=14787 channel=external:default reason=input_transport_tty
+2026-10-25T17:26:44 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=282763 bytes=1111052 timeout=300.0
+2026-10-25T17:26:46 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T17:26:55 [INFO] channel_llm_inject_deferred message_id=14787 channel=external:default reason=input_transport_tty
+2026-10-25T17:26:55 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=282611 bytes=1110448 timeout=300.0
+2026-10-25T17:26:56 [INFO] channel_llm_inject_deferred message_id=14787 channel=external:default reason=input_transport_tty
+2026-10-25T17:26:56 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=286885 bytes=1127537 timeout=300.0
+2026-10-25T17:26:57 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -
+2026-10-25T17:26:59 [INFO] channel_windows_console_deferred cursor=14787 reason=active_turn
+2026-10-25T17:26:59 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 200 -

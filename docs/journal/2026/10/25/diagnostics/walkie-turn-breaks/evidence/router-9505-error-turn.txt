@@ -1,0 +1,10 @@
+== C:/Users/djlov/AppData/Roaming/ciel-runtime/router-instances/9505-aae7db361c7f/router.log.1
+2026-10-25T10:17:15 [INFO] channel_windows_console_deferred cursor=14706 reason=active_turn
+2026-10-25T10:17:46 [INFO] channel_windows_console_deferred cursor=14706 reason=active_turn
+2026-10-25T10:17:51 [WARN] model_list_unavailable provider=cielairouter cause=timeout after 20 s
+2026-10-25T10:18:16 [INFO] channel_windows_console_deferred cursor=14706 reason=active_turn
+2026-10-25T10:18:32 [WARN] model_list_unavailable provider=cielairouter cause=timeout after 20 s
+2026-10-25T10:18:43 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Opus55-Sol61-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=330427 bytes=1295321 timeout=300.0
+2026-10-25T10:18:43 [ERROR] anthropic_route_error provider=cielairouter model=_Walkie_Opus55-Sol61-Fast status=500 error=RuntimeError: transient retry deadline or attempt limit reached
+2026-10-25T10:18:43 [INFO] access "POST /v1/messages?beta=true HTTP/1.1" 500 -
+2026-10-25T10:18:44 [INFO] agent_turn_ended turn=1ac993d6-a3d3-4770-830c-17730ad85538 runtime=claude reason=error by_user_input=false
