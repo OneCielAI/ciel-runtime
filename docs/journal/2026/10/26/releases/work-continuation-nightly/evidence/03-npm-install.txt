@@ -1,0 +1,10 @@
+== before
+C:\Users\djlov\AppData\Roaming\npm
+`-- @one-ciel-ai/ciel-runtime@0.2.51-nightly.20261026-183726.81f6a4b
+
+== install
+
+changed 1 package in 1s
+== after
+C:\Users\djlov\AppData\Roaming\npm
+`-- @one-ciel-ai/ciel-runtime@0.2.51-nightly.20261026-225621.5054af2
