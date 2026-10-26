@@ -58,7 +58,7 @@ class BreakdownStatuslineTests(unittest.TestCase):
             self.plan(tmp)
             out = self.render(tmp)
             self.assertIn("[work executing] 0/3 Three problems", out)
-            for label in ["A Cache 0/1", "B DAG 0/1", "C Ledger 0/1", "in_progress n4", "A Cache > TTL > Verify expiry"]:
+            for label in ["A Cache", "B DAG", "C Ledger", "    [~] TTL", "in_progress n4", "A Cache > TTL > Verify expiry"]:
                 self.assertIn(label, out)
             self.assertIn(NL + "  in_progress", out)
 
@@ -68,9 +68,12 @@ class BreakdownStatuslineTests(unittest.TestCase):
             out = self.render(tmp)
             self.assertEqual(out.splitlines(), [
                 "[work executing] 0/3 Three problems",
-                "  - A Cache 0/1",
-                "  - B DAG 0/1",
-                "  - C Ledger 0/1",
+                "  [~] A Cache",
+                "    [~] TTL",
+                "  [ ] B DAG",
+                "    [ ] Cycles",
+                "  [ ] C Ledger",
+                "    [ ] Duplicates",
                 "  in_progress n4 Three problems > A Cache > TTL > Verify expiry",
             ])
             self.assertNotIn(" | ", out)
@@ -85,9 +88,10 @@ class BreakdownStatuslineTests(unittest.TestCase):
             self.write_plan(tmp, doc)
             lines = self.render(tmp).splitlines()
             self.assertEqual(lines[0], "[work executing] 0/9 Nine problems")
-            self.assertEqual(lines[1:10], ["  - " + title + " 0/1" for title in titles])
-            self.assertTrue(lines[10].startswith("  pending "), lines)
-            self.assertEqual(len(lines), 11)
+            self.assertEqual(lines[1:19:2], ["  [ ] " + title for title in titles])
+            self.assertEqual(lines[2:19:2], ["    [ ] " + title + " step" for title in titles])
+            self.assertTrue(lines[19].startswith("  pending "), lines)
+            self.assertEqual(len(lines), 20)
             self.assertFalse(any("branches" in line for line in lines), lines)
 
     def test_finished_goal_reports_complete_on_its_own_line(self):
@@ -99,9 +103,12 @@ class BreakdownStatuslineTests(unittest.TestCase):
             # Completing the active goal returns the tree to the planning phase.
             self.assertEqual(self.render(tmp).splitlines(), [
                 "[work planning] 3/3 Three problems",
-                "  - A Cache 1/1",
-                "  - B DAG 1/1",
-                "  - C Ledger 1/1",
+                "  ✓ A Cache",
+                "    ✓ TTL",
+                "  ✓ B DAG",
+                "    ✓ Cycles",
+                "  ✓ C Ledger",
+                "    ✓ Duplicates",
                 "  complete",
             ])
 
@@ -128,9 +135,9 @@ class BreakdownStatuslineTests(unittest.TestCase):
             self.assertIn("Cache", out)
             lines = out.splitlines()
             # A newline inside a title must not add a status-line row.
-            self.assertEqual(len(lines), 5, lines)
-            self.assertEqual(lines[1], "  - Cache [31m unsafe 0/1")
-            self.assertTrue(lines[4].startswith("  in_progress n4 [2J "), lines)
+            self.assertEqual(len(lines), 8, lines)
+            self.assertEqual(lines[1], "  [~] Cache [31m unsafe")
+            self.assertTrue(lines[7].startswith("  in_progress n4 [2J "), lines)
 
     def test_snapshot_exposes_all_branches(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -151,7 +158,7 @@ class BreakdownStatuslineTests(unittest.TestCase):
             self.assertEqual(self.render(tmp).splitlines(), [
                 "[work]",
                 "  >1/2 Item 1 <-",
-                "  xdone Item 2",
+                "  ✓done Item 2",
                 "  ~ready Item 3",
                 "  ~ready Item 4",
                 "  ~ready Item 5",

@@ -23,9 +23,17 @@ MAX_NODES = 600
 MAX_TITLE_CHARS = 300
 MAX_TEXT_CHARS = 2000
 MAX_QUEUE_IN_SNAPSHOT = 20
+# What an item waits for outside the conversation, and an id it is linked to;
+# both are one line and kept apart from the title.
+MAX_WAIT_CHARS = 120
+MAX_REF_CHARS = 64
+# Third-level rows per branch in the snapshot; the rest is counted.
+MAX_BRANCH_CHILDREN_IN_SNAPSHOT = 8
+MAX_WAITING_IN_CONTINUATION = 5
 # A plan is ready to execute once the active goal reaches at least
 # goal -> phase -> task (a leaf at depth 2).
 READY_MIN_LEAF_DEPTH = 2
+STATUS_MARKS = {"pending": "[ ]", "in_progress": "[~]", "done": "[✓]", "blocked": "[!]"}
 
 
 class WorkPlanError(ValueError):
@@ -72,6 +80,9 @@ def normalize_document(raw: Any) -> dict[str, Any]:
             "status": item.get("status") if item.get("status") in STATUSES else "pending",
             "note": _clip(item.get("note"), MAX_TEXT_CHARS),
             "evidence": _clip(item.get("evidence"), MAX_TEXT_CHARS),
+            "waiting_on": _line(item.get("waiting_on"), MAX_WAIT_CHARS),
+            "ref": _line(item.get("ref"), MAX_REF_CHARS),
+            "urgent": item.get("urgent") is True and item.get("parent_id") is None,
             "updated_at": float(item.get("updated_at") or 0.0),
         }
         if not node["id"] or node["id"] in seen or not node["title"]:
@@ -92,7 +103,8 @@ def normalize_document(raw: Any) -> dict[str, Any]:
     return doc
 
 
-def add_node(doc: dict[str, Any], parent_id: str | None, title: Any, note: Any = "", *, now: float | None = None) -> str:
+def add_node(doc: dict[str, Any], parent_id: str | None, title: Any, note: Any = "", *, now: float | None = None,
+             ref: Any = "", waiting_on: Any = "") -> str:
     stamp = time.time() if now is None else now
     by_id = _index(doc)
     # A new goal waits behind an unfinished active goal instead of taking its place.
@@ -117,6 +129,9 @@ def add_node(doc: dict[str, Any], parent_id: str | None, title: Any, note: Any =
         "status": "pending",
         "note": _clip(note, MAX_TEXT_CHARS),
         "evidence": "",
+        "waiting_on": _line(waiting_on, MAX_WAIT_CHARS),
+        "ref": _line(ref, MAX_REF_CHARS),
+        "urgent": False,
         "updated_at": stamp,
     })
     if parent_id is None:
@@ -135,7 +150,8 @@ def add_subtree(doc: dict[str, Any], parent_id: str | None, spec: Any, *, now: f
 
     if not isinstance(spec, dict):
         raise WorkPlanError("a plan node must be an object with a title")
-    node_id = add_node(doc, parent_id, spec.get("title"), spec.get("note", ""), now=now)
+    node_id = add_node(doc, parent_id, spec.get("title"), spec.get("note", ""), now=now,
+                       ref=spec.get("ref", ""), waiting_on=spec.get("waiting_on", ""))
     children = spec.get("children", [])
     if not isinstance(children, list):
         raise WorkPlanError("children must be a list")
@@ -167,6 +183,9 @@ def set_plan(doc: dict[str, Any], spec: Any, root_id: str | None = None, *, now:
         root["title"] = _clip(spec.get("title"), MAX_TITLE_CHARS)
     if "note" in spec:
         root["note"] = _clip(spec.get("note"), MAX_TEXT_CHARS)
+    for key, limit in (("ref", MAX_REF_CHARS), ("waiting_on", MAX_WAIT_CHARS)):
+        if key in spec:
+            root[key] = _line(spec[key], limit)
     root["status"] = "pending"
     root["updated_at"] = time.time() if now is None else now
     for child in children:
@@ -180,7 +199,8 @@ def set_plan(doc: dict[str, Any], spec: Any, root_id: str | None = None, *, now:
 
 
 def update_node(doc: dict[str, Any], node_id: str, *, status: Any = None, title: Any = None,
-                note: Any = None, evidence: Any = None, now: float | None = None) -> dict[str, Any]:
+                note: Any = None, evidence: Any = None, now: float | None = None,
+                waiting_on: Any = None, ref: Any = None) -> dict[str, Any]:
     stamp = time.time() if now is None else now
     by_id = _index(doc)
     node_id = str(node_id)
@@ -208,6 +228,10 @@ def update_node(doc: dict[str, Any], node_id: str, *, status: Any = None, title:
         node["note"] = _clip(note, MAX_TEXT_CHARS)
     if evidence is not None:
         node["evidence"] = _clip(evidence, MAX_TEXT_CHARS)
+    if waiting_on is not None:
+        node["waiting_on"] = _line(waiting_on, MAX_WAIT_CHARS)
+    if ref is not None:
+        node["ref"] = _line(ref, MAX_REF_CHARS)
     node["updated_at"] = stamp
     if node["parent_id"] is not None:
         if status == "done":
@@ -250,6 +274,89 @@ def select_root(doc: dict[str, Any], root_id: str) -> None:
     if doc.get("active_root") != root_id:
         doc["active_root"] = root_id
         doc["phase"] = PHASE_PLANNING
+
+
+def reorder_root(doc: dict[str, Any], root_id: str, position: int, *, user_requested: bool = False) -> None:
+    """Order unfinished roots; the active slot changes only on an explicit request."""
+
+    roots = [node for node in doc["nodes"] if node["parent_id"] is None and node["status"] != "done"]
+    active = doc.get("active_root")
+    roots.sort(key=lambda node: node["id"] != active)
+    selected = next((node for node in roots if node["id"] == root_id), None)
+    if selected is None:
+        raise WorkPlanError(f"{root_id} is not an unfinished goal")
+    if isinstance(position, bool) or not isinstance(position, int) or not 1 <= position <= len(roots):
+        raise WorkPlanError(f"position must be between 1 and {len(roots)}")
+    roots.remove(selected)
+    roots.insert(position - 1, selected)
+    if roots[0]["id"] != active and not user_requested:
+        raise WorkPlanError("moving the active goal requires an explicit user request (user_requested=true)")
+    ordered = iter(roots)
+    doc["nodes"] = [next(ordered) if node["parent_id"] is None and node["status"] != "done" else node
+                    for node in doc["nodes"]]
+    if roots[0]["id"] != active:
+        doc["active_root"] = roots[0]["id"]
+        doc["phase"] = PHASE_PLANNING
+
+
+def add_urgent(doc: dict[str, Any], spec: Any, *, user_requested: bool = False) -> str:
+    if not user_requested:
+        raise WorkPlanError("urgent mode requires an explicit user request (user_requested=true)")
+    trial = copy.deepcopy(doc)
+    root = add_subtree(trial, None, spec)
+    _index(trial)[root]["urgent"] = True
+    reorder_root(trial, root, 1, user_requested=True)
+    doc.clear()
+    doc.update(trial)
+    return root
+
+
+def continuation(doc: dict[str, Any]) -> dict[str, Any]:
+    """Select runnable leaves, respecting ancestor waits, blocks and urgent holds."""
+
+    by_id = _index(doc)
+    active = by_id.get(doc.get("active_root"))
+    held = bool(active and active.get("urgent") and active["status"] != "done")
+    roots = ([active] if active and active["status"] != "done" else []) + queued_roots(doc)
+    waiting: list[dict[str, Any]] = []
+    blocked = 0
+    available: list[list[dict[str, Any]]] = []
+    for root in roots:
+        candidates = []
+        for leaf_id in _leaves(doc, root["id"]):
+            leaf = by_id[leaf_id]
+            if leaf["status"] == "done":
+                continue
+            path = []
+            current = leaf
+            while True:
+                path.append(current)
+                if current["parent_id"] is None:
+                    break
+                current = by_id[current["parent_id"]]
+            wait = next((node for node in reversed(path) if node.get("waiting_on")), None)
+            if wait:
+                if not any(row["id"] == wait["id"] for row in waiting):
+                    waiting.append({"id": wait["id"], "title": wait["title"], "waiting_on": wait["waiting_on"]})
+            elif any(node["status"] == "blocked" for node in path):
+                blocked += 1
+            elif not held or root is active:
+                candidates.append(leaf)
+        candidates.sort(key=lambda node: node["status"] != "in_progress")
+        available.append(candidates)
+    chosen = next((rows for rows in available if rows), [])
+    nxt = chosen[0] if chosen else None
+    return {
+        "actionable": len(chosen),
+        "next": dict(_node_summary(nxt), path=path_titles(doc, nxt["id"])) if nxt else None,
+        "waiting": waiting[:MAX_WAITING_IN_CONTINUATION],
+        "blocked": blocked,
+        "held": len(queued_roots(doc)) if held else 0,
+    }
+
+
+def _node_summary(node: dict[str, Any]) -> dict[str, Any]:
+    return {key: node.get(key, "") for key in ("id", "title", "status", "ref", "waiting_on", "urgent")}
 
 
 def readiness(doc: dict[str, Any]) -> tuple[bool, str]:
@@ -315,14 +422,17 @@ def snapshot(doc: dict[str, Any], *, enabled: bool = True, approval_ask: bool = 
         "phase": doc.get("phase", PHASE_PLANNING),
         "approval": "ask" if approval_ask else "auto",
         "version": doc.get("version", 0),
-        "active_root": {"id": root, "title": by_id[root]["title"], "status": by_id[root]["status"]} if root else None,
+        "active_root": _node_summary(by_id[root]) if root else None,
+        "continuation": continuation(doc),
         "done": done,
         "total": total,
         "next": {"id": nxt["id"], "title": nxt["title"], "status": nxt["status"], "path": path_titles(doc, nxt["id"])} if nxt else None,
         "breakdown": [
-            {"id": child["id"], "title": child["title"], "status": child["status"],
-             "done": progress(doc, child["id"])[0] if _children(doc, child["id"]) else int(child["status"] == "done"),
-             "total": progress(doc, child["id"])[1] if _children(doc, child["id"]) else 1}
+            dict(_node_summary(child),
+                 done=progress(doc, child["id"])[0] if _children(doc, child["id"]) else int(child["status"] == "done"),
+                 total=progress(doc, child["id"])[1] if _children(doc, child["id"]) else 1,
+                 children=[_node_summary(node) for node in _children(doc, child["id"])[:MAX_BRANCH_CHILDREN_IN_SNAPSHOT]],
+                 more=max(0, len(_children(doc, child["id"])) - MAX_BRANCH_CHILDREN_IN_SNAPSHOT))
             for child in _children(doc, root)
         ] if root else [],
         "ready": ready,
@@ -330,8 +440,8 @@ def snapshot(doc: dict[str, Any], *, enabled: bool = True, approval_ask: bool = 
         "goals": sum(1 for node in doc["nodes"] if node["parent_id"] is None),
         # Unfinished goals waiting behind the active one, in the order they become active.
         "queue": [
-            {"id": node["id"], "title": node["title"], "status": node["status"],
-             "done": progress(doc, node["id"])[0], "total": progress(doc, node["id"])[1]}
+            dict(_node_summary(node), done=progress(doc, node["id"])[0], total=progress(doc, node["id"])[1],
+                 held=bool(root and by_id[root].get("urgent") and by_id[root]["status"] != "done"))
             for node in queued_roots(doc)[:MAX_QUEUE_IN_SNAPSHOT]
         ],
     }
@@ -349,8 +459,8 @@ def render(doc: dict[str, Any], *, max_lines: int = 80) -> str:
         lines.append(f"Active goal progress: {done}/{total} steps done")
         for node_id, depth in _walk(doc, root):
             node = _index(doc)[node_id]
-            mark = {"pending": "[ ]", "in_progress": "[~]", "done": "[x]", "blocked": "[!]"}[node["status"]]
-            text = f"{'  ' * depth}{mark} {node['id']} {node['title']}"
+            mark = STATUS_MARKS[node["status"]]
+            text = f"{'  ' * depth}{mark} {node['id']} {_display_title(node)}"
             if node.get("evidence"):
                 text += f"  (evidence: {_clip(node['evidence'], 120)})"
             lines.append(text)
@@ -360,7 +470,9 @@ def render(doc: dict[str, Any], *, max_lines: int = 80) -> str:
     queued = queued_roots(doc)
     if queued:
         lines.append("Queued goals (next first): " + "; ".join(
-            f"{node['id']} {node['title']} ({node['status']})" for node in queued[:10]))
+            f"{node['id']} {_display_title(node)} ({node['status']})"
+            + (" [held]" if _index(doc).get(root, {}).get("urgent") and _index(doc)[root]["status"] != "done" else "")
+            for node in queued[:10]))
     finished = [node for node in doc["nodes"] if node["parent_id"] is None and node["id"] != root and node["status"] == "done"]
     if finished:
         lines.append("Finished goals: " + "; ".join(f"{node['id']} {node['title']}" for node in finished[-10:]))
@@ -467,6 +579,19 @@ def _reopen_ancestors(doc: dict[str, Any], node_id: str | None, stamp: float) ->
             ) else "pending"
             node["updated_at"] = stamp
         node_id = node["parent_id"]
+
+
+def _display_title(node: dict[str, Any]) -> str:
+    title = f"[ {node['ref']} ] {node['title']}" if node.get("ref") else node["title"]
+    if node.get("urgent"):
+        title += " [urgent]"
+    if node.get("waiting_on"):
+        title += f"  ◷ {node['waiting_on']}"
+    return title
+
+
+def _line(value: Any, limit: int) -> str:
+    return " ".join(str(value or "").split())[:limit].rstrip()
 
 
 def _clip(value: Any, limit: int) -> str:

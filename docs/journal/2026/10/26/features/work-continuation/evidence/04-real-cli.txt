@@ -1,0 +1,128 @@
+owned router: yes
+owned cmd: yes
+owned window: yes
+interactive ready: yes
+console command: yes
+normal Stop continued: yes
+three levels ids and wait: yes
+urgent Stop continued: yes
+urgent holds: yes
+previous active resumed: yes
+done and wait: yes
+all actions done: yes
+owned stop 67728 SUCCESS: The process with PID 73632 (child process of PID 67728) has been terminated.
+SUCCESS: The process with PID 67728 (child process of PID 49736) has been terminated.
+owned stop 51092 SUCCESS: The process with PID 51092 (child process of PID 40700) has been terminated.
+evidence C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-continuation\evidence\run-29886202
+{
+ "repo": "C:\\Users\\djlov\\ciel-runtime-wt-work",
+ "stripped_env": [
+  "ANTHROPIC_AUTH_TOKEN",
+  "ANTHROPIC_BASE_URL",
+  "ANTHROPIC_CUSTOM_MODEL_OPTION",
+  "ANTHROPIC_CUSTOM_MODEL_OPTION_SUPPORTED_CAPABILITIES",
+  "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+  "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTED_CAPABILITIES",
+  "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTS",
+  "ANTHROPIC_DEFAULT_OPUS_MODEL",
+  "ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTED_CAPABILITIES",
+  "ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTS",
+  "ANTHROPIC_DEFAULT_SONNET_MODEL",
+  "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTED_CAPABILITIES",
+  "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTS",
+  "ANTHROPIC_MODEL",
+  "CIEL_RUNTIME_AUTO_ALLOW_DANGEROUS_RM",
+  "CIEL_RUNTIME_BYPASS_PERMISSIONS",
+  "CIEL_RUNTIME_CONFIG_DIR",
+  "CIEL_RUNTIME_HOME",
+  "CIEL_RUNTIME_LAUNCH_CWD",
+  "CIEL_RUNTIME_MODEL_ALIAS",
+  "CIEL_RUNTIME_PROVIDER",
+  "CIEL_RUNTIME_REGISTERED_HOME",
+  "CIEL_RUNTIME_SCRIPT",
+  "CIEL_RUNTIME_SELECTED_HOME",
+  "CIEL_RUNTIME_STATE_DIR",
+  "CIEL_RUNTIME_WORKSPACE_STATE_DIR",
+  "CLAUDECODE",
+  "CLAUDE_CHROME_CLASSIFIER_FLOOR",
+  "CLAUDE_CODE_ATTRIBUTION_HEADER",
+  "CLAUDE_CODE_AUTO_COMPACT_WINDOW",
+  "CLAUDE_CODE_CHILD_SESSION",
+  "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS",
+  "CLAUDE_CODE_DISABLE_NONSTREAMING_FALLBACK",
+  "CLAUDE_CODE_DISABLE_TERMINAL_TITLE",
+  "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY",
+  "CLAUDE_CODE_ENTRYPOINT",
+  "CLAUDE_CODE_EXECPATH",
+  "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS",
+  "CLAUDE_CODE_MAX_CONTEXT_TOKENS",
+  "CLAUDE_CODE_MAX_OUTPUT_TOKENS",
+  "CLAUDE_CODE_MAX_RETRIES",
+  "CLAUDE_CODE_MESSAGING_SOCKET",
+  "CLAUDE_CODE_MESSAGING_TOKEN",
+  "CLAUDE_CODE_NONSTREAMING_TIMEOUT_RETRIES",
+  "CLAUDE_CODE_RETRY_WATCHDOG",
+  "CLAUDE_CODE_SEND_FEEDBACK",
+  "CLAUDE_CODE_SESSION_ATTENDED",
+  "CLAUDE_CODE_SESSION_ID",
+  "CLAUDE_CODE_SUBAGENT_MODEL",
+  "CLAUDE_CODE_SUBAGENT_MODEL_FORCE",
+  "CLAUDE_EFFORT",
+  "CLAUDE_PID",
+  "CODEX_SPARKLE_ENABLED"
+ ],
+ "mod": "C:\\Users\\djlov\\ciel-runtime-wt-work\\ciel_runtime_support\\claude_mods\\ciel-work",
+ "cli_version": "2.1.310 (Claude Code)",
+ "checks": {
+  "continued_without_dot": true,
+  "three_levels_ref_wait": true,
+  "urgent_continued": true,
+  "urgent_holds": true,
+  "previous_active_resumed": true,
+  "done_and_wait": true,
+  "all_done": true,
+  "stopped_when_complete": true,
+  "all_goals_verified_done": true,
+  "priority_succeeded": true,
+  "urgent_succeeded": true
+ },
+ "model_user_prompts_sent": 1,
+ "egress": [
+  {
+   "method": "CONNECT",
+   "path": "downloads.claude.ai:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "github.com:443"
+  }
+ ],
+ "live_before": {
+  "9505": {
+   "pid": 77432,
+   "version": "0.2.51-nightly.20261026-183726.81f6a4b",
+   "source_fingerprint": "72c6bfb456e30cd7",
+   "error": null
+  },
+  "9524": {
+   "pid": 25276,
+   "version": "0.2.51",
+   "source_fingerprint": "f86ee3638ee760f3",
+   "error": null
+  }
+ },
+ "live_after": {
+  "9505": {
+   "pid": 77432,
+   "version": "0.2.51-nightly.20261026-183726.81f6a4b",
+   "source_fingerprint": "72c6bfb456e30cd7",
+   "error": null
+  },
+  "9524": {
+   "pid": 25276,
+   "version": "0.2.51",
+   "source_fingerprint": "f86ee3638ee760f3",
+   "error": null
+  }
+ }
+}

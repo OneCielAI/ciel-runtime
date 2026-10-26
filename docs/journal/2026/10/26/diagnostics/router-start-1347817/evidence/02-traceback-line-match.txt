@@ -1,0 +1,5 @@
+traceback line numbers from the user's paste matched against commits (2026-10-26T21:43:21Z)
+f9c3eea ciel_runtime.py:4183=[return start_project_router_if_needed(] :4976=[main()] runtime_launch.py:394=[return services.dispatch.launch_codex_remote(]
+3c95a4b ciel_runtime.py:4183=[return start_project_router_if_needed(] :4976=[main()] runtime_launch.py:394=[return services.dispatch.launch_codex_remote(]
+81f6a4b ciel_runtime.py:4183=[health_matches_current=router_health_matches_current, health_config_matches_current=router_health_config_matches_current,] :4976=[] runtime_launch.py:394=[return services.dispatch.launch_codex_remote(]
+2faae14 ciel_runtime.py:4183=[health_matches_current=router_health_matches_current, health_config_matches_current=router_health_config_matches_current,] :4976=[] runtime_launch.py:394=[passthrough, skip_menu=True, force_menu=False,]

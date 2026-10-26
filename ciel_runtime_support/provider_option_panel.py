@@ -4,8 +4,8 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from .architecture import ProviderOptionPresentationPolicy
-from .work_mode_launch import (WORK_MODE_KEY, WORK_PLAN_APPROVAL_ASK_KEY, work_mode_menu_label,
-                               work_plan_approval_menu_label)
+from .work_mode_launch import (WORK_AUTO_CONTINUE_KEY, WORK_MODE_KEY, WORK_PLAN_APPROVAL_ASK_KEY,
+                               work_auto_continue_menu_label, work_mode_menu_label, work_plan_approval_menu_label)
 
 
 @dataclass(frozen=True)
@@ -38,6 +38,7 @@ class OptionPanelRuntime:
     claude_feedback_drafts: Callable[[], bool] = lambda: False
     work_mode: Callable[[], bool] = lambda: True
     work_plan_approval_ask: Callable[[], bool] = lambda: False
+    work_auto_continue: Callable[[], bool] = lambda: True
 
 
 @dataclass(frozen=True)
@@ -95,6 +96,8 @@ def build_option_panel_rows(
     add("Work mode", WORK_MODE_KEY, work_mode_menu_label({WORK_MODE_KEY: runtime.work_mode()}))
     add("Work plan approval", WORK_PLAN_APPROVAL_ASK_KEY,
         work_plan_approval_menu_label({WORK_PLAN_APPROVAL_ASK_KEY: runtime.work_plan_approval_ask()}))
+    add("Work auto continue", WORK_AUTO_CONTINUE_KEY,
+        work_auto_continue_menu_label({WORK_AUTO_CONTINUE_KEY: runtime.work_auto_continue()}))
     if not runtime.direct_native(provider, config) and policy.shows_workflows:
         model = runtime.current_model(provider, config)
         capabilities = runtime.capability_string(provider, config, model)
@@ -229,6 +232,8 @@ def current_option_bool(
         return runtime.work_mode()
     if key == WORK_PLAN_APPROVAL_ASK_KEY:
         return runtime.work_plan_approval_ask()
+    if key == WORK_AUTO_CONTINUE_KEY:
+        return runtime.work_auto_continue()
     if key == "route_through_router":
         return projection.parse_bool(config.get("route_through_router"), default=False)
     if key == "workflows_enabled":
@@ -252,6 +257,7 @@ def option_prompt_default(
         "claude_feedback_drafts",
         WORK_MODE_KEY,
         WORK_PLAN_APPROVAL_ASK_KEY,
+        WORK_AUTO_CONTINUE_KEY,
         "route_through_router",
         "stream_enabled",
         "stream_word_chunking",

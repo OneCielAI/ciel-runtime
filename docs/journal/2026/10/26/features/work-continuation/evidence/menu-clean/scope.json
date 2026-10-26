@@ -1,0 +1,35 @@
+{
+  "scratch": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-work-menu-4waal4q9",
+  "port": 60781,
+  "scope": "Actual production portable_prelaunch_menu (worktree source) with Win32 key input in a harness-owned console; catalogue-only owned loopback fixture on an OS-assigned free port; temporary HOME/APPDATA/config. No Claude/Codex launch, no live router contact.",
+  "cleared_environment_prefixes": [
+    "CIEL_RUNTIME_",
+    "CLAUDE",
+    "ANTHROPIC_",
+    "CODEX_",
+    "OPENAI_",
+    "OLLAMA_",
+    "GEMINI_",
+    "GOOGLE_",
+    "AZURE_",
+    "AWS_",
+    "DEEPSEEK_",
+    "MISTRAL_",
+    "NVIDIA_",
+    "ZAI_",
+    "KIMI_",
+    "GROQ_",
+    "OPENCODE_",
+    "OPENROUTER_",
+    "XAI_",
+    "GITHUB_",
+    "COPILOT_"
+  ],
+  "stripped_variable_names_count": 60,
+  "source_sha256": {
+    "ciel_runtime_support/provider_option_panel.py": "f328b4e428ba03e36b0d62dcb809bff7796251c63d4500408b66a0315ca77624",
+    "ciel_runtime_support/llm_option_config.py": "5a89509ed57f955071c55de1c4f9de83ab81b841eb9cc1f98d96a05860bd3ac3",
+    "ciel_runtime_support/work_mode_launch.py": "5c750400812e7d8640fc92193f01ba09c17284c573029486088fae03c0d0be53",
+    "ciel_runtime.py": "6abc1555f37ab3162c0e8c7967ff1ac5776eb7aab4dae66c42a3b2eed2be664a"
+  }
+}

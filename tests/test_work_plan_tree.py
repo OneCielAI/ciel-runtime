@@ -219,5 +219,213 @@ class WorkPlanTreeTests(unittest.TestCase):
             with self.subTest(children=children), self.assertRaises(t.WorkPlanError):
                 t.set_plan(t.empty_document(), {"title": "goal", "children": children})
 
+class WorkContinuationTreeTests(unittest.TestCase):
+    def setUp(self):
+        self.doc = t.empty_document()
+
+    def plan(self, title="goal", **fields):
+        return t.set_plan(self.doc, {"title": title, **fields, "children": [
+            {"title": title + " phase", "children": [{"title": title + " one"}, {"title": title + " two"}]}]}, now=10)
+
+    def index(self):
+        return {n["id"]: n for n in self.doc["nodes"]}
+
+    def test_ref_wait_normalization_legacy_defaults_and_root_only_urgent(self):
+        raw = dict(t.empty_document(), active_root="n1", nodes=[
+            dict(node("n1"), ref=" \t연결\n  42\r\n", waiting_on="  review\tby\n peer ", urgent=True),
+            dict(node("n2", "n1"), ref="r" * 100, waiting_on="w" * 200, urgent=True),
+            node("n3", "n1"), dict(node("n4"), urgent="true"), dict(node("n5"), urgent=1)])
+        doc = t.normalize_document(raw)
+        root, child, legacy, text_flag, int_flag = doc["nodes"]
+        self.assertEqual((root["ref"], root["waiting_on"], root["urgent"]), ("연결 42", "review by peer", True))
+        self.assertEqual((child["ref"], child["waiting_on"], child["urgent"]),
+                         ("r" * t.MAX_REF_CHARS, "w" * t.MAX_WAIT_CHARS, False))
+        self.assertEqual((legacy["ref"], legacy["waiting_on"], legacy["urgent"]), ("", "", False))
+        self.assertIs(text_flag["urgent"], False)
+        self.assertIs(int_flag["urgent"], False)
+        self.assertEqual(t.normalize_document(doc), doc)
+        self.assertEqual(raw["nodes"][0]["ref"], " \t연결\n  42\r\n")  # no input mutation
+
+    def test_ref_wait_add_update_and_replace_empty_clears(self):
+        root = self.plan(ref=" id\n 7 ", waiting_on=" review\t pending ")
+        child = t.add_node(self.doc, root, "child", ref=" issue\n8 ", waiting_on=" build\n9 ", now=11)
+        self.assertEqual((self.index()[child]["ref"], self.index()[child]["waiting_on"]), ("issue 8", "build 9"))
+        t.update_node(self.doc, root, note="keep labels", now=12)
+        self.assertEqual((self.index()[root]["ref"], self.index()[root]["waiting_on"]), ("id 7", "review pending"))
+        t.update_node(self.doc, child, ref="", waiting_on=" \n\t ", now=13)
+        self.assertEqual((self.index()[child]["ref"], self.index()[child]["waiting_on"]), ("", ""))
+        t.set_plan(self.doc, {"title": "revised", "children": [
+            {"title": "phase", "ref": " p\t2 ", "waiting_on": " peer\n2 ", "children": [{"title": "step"}]}]}, root, now=14)
+        self.assertEqual((self.index()[root]["ref"], self.index()[root]["waiting_on"]), ("id 7", "review pending"))
+        self.assertEqual((self.doc["nodes"][1]["ref"], self.doc["nodes"][1]["waiting_on"]), ("p 2", "peer 2"))
+        t.set_plan(self.doc, {"title": "clear", "ref": "", "waiting_on": "", "children": []}, root, now=15)
+        self.assertEqual((self.index()[root]["ref"], self.index()[root]["waiting_on"]), ("", ""))
+        self.assertEqual(t.normalize_document(self.doc), self.doc)
+
+    def test_ref_wait_clipping_boundary_is_stable_on_roundtrip(self):
+        # A clip at an inter-word space must not change on the next store read.
+        for field, limit in (("ref", t.MAX_REF_CHARS), ("waiting_on", t.MAX_WAIT_CHARS)):
+            with self.subTest(field=field):
+                doc = t.empty_document()
+                t.add_node(doc, None, "goal", **{field: "a" * (limit - 1) + " b"}, now=10)
+                saved = doc["nodes"][0][field]
+                loaded = t.normalize_document(doc)["nodes"][0][field]
+                self.assertEqual(loaded, saved, f"{field}: saved={saved!r}, loaded={loaded!r}")
+
+    def test_continuation_excludes_ancestor_waits_blocks_done_and_leaf_waits(self):
+        root = t.set_plan(self.doc, {"title": "goal", "children": [
+            {"title": "waiting branch", "waiting_on": "review", "children": [{"title": "w1"}, {"title": "w2"}]},
+            {"title": "blocked branch", "children": [{"title": "b1"}, {"title": "b2"}]},
+            {"title": "open", "children": [{"title": "leaf wait", "waiting_on": "build"},
+                {"title": "blocked leaf"}, {"title": "done leaf"}, {"title": "ready"}]}]})
+        ids = {n["title"]: n["id"] for n in self.doc["nodes"]}
+        t.update_node(self.doc, ids["blocked branch"], status="blocked")
+        t.update_node(self.doc, ids["blocked leaf"], status="blocked")
+        t.update_node(self.doc, ids["done leaf"], status="done", evidence="verified")
+        before = copy.deepcopy(self.doc)
+        state = t.continuation(self.doc)
+        self.assertEqual((state["actionable"], state["blocked"], state["held"]), (1, 3, 0))
+        self.assertEqual(state["next"]["path"], ["goal", "open", "ready"])
+        self.assertEqual([(r["id"], r["waiting_on"]) for r in state["waiting"]],
+                         [(ids["waiting branch"], "review"), (ids["leaf wait"], "build")])
+        self.assertEqual(self.doc, before)
+        t.update_node(self.doc, root, waiting_on="root review")
+        state = t.continuation(self.doc)
+        self.assertEqual((state["actionable"], state["next"]), (0, None))
+        self.assertEqual(state["waiting"], [{"id": root, "title": "goal", "waiting_on": "root review"}])
+        t.update_node(self.doc, root, waiting_on="", status="blocked")
+        self.assertEqual(t.continuation(self.doc)["actionable"], 0)
+        t.update_node(self.doc, root, status="pending")
+        self.assertEqual(t.continuation(self.doc)["next"]["id"], ids["ready"])
+
+    def test_continuation_falls_back_to_queue_without_changing_active_or_phase(self):
+        root = self.plan("active", waiting_on="peer")
+        queued = self.plan("queued")
+        later = self.plan("later")
+        qleaves = [n for n in self.doc["nodes"] if n["title"] in ("queued one", "queued two")]
+        t.update_node(self.doc, qleaves[1]["id"], status="in_progress")
+        self.doc["phase"] = "executing"
+        before = copy.deepcopy(self.doc)
+        state = t.continuation(self.doc)
+        self.assertEqual((state["actionable"], state["next"]["id"]), (2, qleaves[1]["id"]))
+        self.assertEqual(state["next"]["path"], ["queued", "queued phase", "queued two"])
+        self.assertEqual(self.doc, before)
+        t.update_node(self.doc, queued, waiting_on="build")
+        self.assertEqual(t.continuation(self.doc)["next"]["path"][0], "later")
+        t.update_node(self.doc, later, status="blocked")
+        self.assertIsNone(t.continuation(self.doc)["next"])
+        t.update_node(self.doc, root, waiting_on="")
+        self.assertEqual(t.continuation(self.doc)["next"]["path"][0], "active")
+        self.assertEqual((self.doc["active_root"], self.doc["phase"]), (root, "executing"))
+
+    def test_continuation_waiting_rows_are_bounded_but_all_waits_exclude_leaves(self):
+        t.set_plan(self.doc, {"title": "goal", "children": [
+            {"title": str(i), "waiting_on": "peer " + str(i)} for i in range(t.MAX_WAITING_IN_CONTINUATION + 3)]})
+        state = t.continuation(self.doc)
+        self.assertEqual((state["actionable"], state["next"]), (0, None))
+        self.assertEqual([r["title"] for r in state["waiting"]], [str(i) for i in range(t.MAX_WAITING_IN_CONTINUATION)])
+        self.assertEqual(t.continuation(t.empty_document()),
+                         {"actionable": 0, "next": None, "waiting": [], "blocked": 0, "held": 0})
+
+    def test_nested_urgent_holds_queue_and_resumes_former_active_in_order(self):
+        older = self.plan("older")
+        former = self.plan("former")
+        later = self.plan("later")
+        t.select_root(self.doc, former)  # local pure fixture, not the shared Work plan
+        self.doc["phase"] = "executing"
+        first = t.add_urgent(self.doc, {"title": "urgent one", "ref": "u1", "children": [
+            {"title": "phase", "children": [{"title": "urgent step"}]}]}, user_requested=True)
+        second = t.add_urgent(self.doc, {"title": "urgent two", "children": [
+            {"title": "phase", "children": [{"title": "nested step"}]}]}, user_requested=True)
+        self.assertEqual((self.doc["active_root"], self.doc["phase"]), (second, "planning"))
+        self.assertEqual([n["id"] for n in t.queued_roots(self.doc)], [first, former, older, later])
+        self.assertEqual(t.normalize_document(self.doc), self.doc)
+        state = t.snapshot(self.doc)
+        self.assertIs(state["active_root"]["urgent"], True)
+        self.assertTrue(all(row["held"] for row in state["queue"]))
+        self.assertEqual((state["continuation"]["held"], state["continuation"]["next"]["title"]), (4, "nested step"))
+        t.update_node(self.doc, second, waiting_on="external")
+        self.assertEqual((t.continuation(self.doc)["actionable"], t.continuation(self.doc)["next"]), (0, None))
+        t.update_node(self.doc, second, waiting_on="")
+        t.update_node(self.doc, self.doc["nodes"][-1]["id"], status="done", evidence="nested urgent verified")
+        self.assertEqual((self.doc["active_root"], self.doc["phase"]), (first, "planning"))
+        self.assertEqual(t.continuation(self.doc)["held"], 3)
+        leaf = next(n["id"] for n in self.doc["nodes"] if n["title"] == "urgent step")
+        t.update_node(self.doc, leaf, status="done", evidence="urgent verified")
+        self.assertEqual((self.doc["active_root"], self.doc["phase"]), (former, "planning"))
+        self.assertEqual([n["id"] for n in t.queued_roots(self.doc)], [older, later])
+        self.assertEqual(t.continuation(self.doc)["held"], 0)
+        self.assertTrue(all(not row["held"] for row in t.snapshot(self.doc)["queue"]))
+
+    def test_urgent_requires_user_request_and_invalid_spec_is_atomic(self):
+        self.plan()
+        before = copy.deepcopy(self.doc)
+        with self.assertRaisesRegex(t.WorkPlanError, "explicit user request"):
+            t.add_urgent(self.doc, {"title": "unrequested"})
+        for spec in (None, {"title": ""}, {"title": "partial", "children": [{"title": "ok"}, None]}):
+            with self.subTest(spec=spec), self.assertRaises(t.WorkPlanError):
+                t.add_urgent(self.doc, spec, user_requested=True)
+            self.assertEqual(self.doc, before)
+
+    def test_reorder_queue_default_and_explicit_active_change_preserve_subtrees(self):
+        first = self.plan("first")
+        second = self.plan("second")
+        third = self.plan("third")
+        children = {n["id"]: copy.deepcopy(n) for n in self.doc["nodes"] if n["parent_id"] is not None}
+        self.doc["phase"] = "executing"
+        t.reorder_root(self.doc, third, 2)
+        self.assertEqual((self.doc["active_root"], self.doc["phase"]), (first, "executing"))
+        self.assertEqual([n["id"] for n in t.queued_roots(self.doc)], [third, second])
+        before = copy.deepcopy(self.doc)
+        for root, position in ((second, 1), (first, 3)):
+            with self.assertRaisesRegex(t.WorkPlanError, "explicit user request"):
+                t.reorder_root(self.doc, root, position)
+            self.assertEqual(self.doc, before)
+        t.reorder_root(self.doc, second, 1, user_requested=True)
+        self.assertEqual((self.doc["active_root"], self.doc["phase"]), (second, "planning"))
+        self.assertEqual([n["id"] for n in t.queued_roots(self.doc)], [first, third])
+        self.assertEqual({n["id"]: n for n in self.doc["nodes"] if n["parent_id"] is not None}, children)
+        self.assertEqual(t.normalize_document(self.doc), self.doc)
+
+    def test_reorder_rejects_bad_positions_finished_roots_and_children_atomically(self):
+        root = self.plan()
+        finished = t.add_node(self.doc, None, "finished")
+        t.update_node(self.doc, finished, status="done", evidence="verified")
+        child = self.doc["nodes"][1]["id"]
+        before = copy.deepcopy(self.doc)
+        for position in (None, 0, -1, 2, True, False, 1.0, "1"):
+            with self.subTest(position=position), self.assertRaises(t.WorkPlanError):
+                t.reorder_root(self.doc, root, position, user_requested=True)
+            self.assertEqual(self.doc, before)
+        for invalid in ("missing", child, finished):
+            with self.subTest(root=invalid), self.assertRaises(t.WorkPlanError):
+                t.reorder_root(self.doc, invalid, 1, user_requested=True)
+            self.assertEqual(self.doc, before)
+
+    def test_snapshot_three_levels_metadata_counts_and_child_overflow(self):
+        cap = t.MAX_BRANCH_CHILDREN_IN_SNAPSHOT
+        root = t.set_plan(self.doc, {"title": "goal", "ref": "G", "children": [
+            {"title": "branch", "ref": "B", "waiting_on": "review", "children": [
+                {"title": str(i), "ref": "T" + str(i), "waiting_on": "build" if i == 1 else "",
+                 "children": [{"title": "fourth level"}]} for i in range(cap + 2)]},
+            {"title": "direct leaf"}]})
+        fourth = next(n for n in self.doc["nodes"] if n["title"] == "fourth level")
+        t.update_node(self.doc, fourth["id"], status="done", evidence="verified")
+        before = copy.deepcopy(self.doc)
+        state = t.snapshot(self.doc)
+        branch, direct = state["breakdown"]
+        self.assertEqual((state["active_root"]["id"], state["active_root"]["ref"]), (root, "G"))
+        self.assertEqual((branch["ref"], branch["waiting_on"], branch["done"], branch["total"], branch["more"]),
+                         ("B", "review", 1, cap + 2, 2))
+        self.assertEqual([row["title"] for row in branch["children"]], [str(i) for i in range(cap)])
+        self.assertEqual((branch["children"][0]["status"], branch["children"][1]["ref"],
+                          branch["children"][1]["waiting_on"]), ("done", "T1", "build"))
+        self.assertTrue(all("children" not in row for row in branch["children"]))
+        self.assertEqual((direct["children"], direct["more"], direct["done"], direct["total"]), ([], 0, 0, 1))
+        self.assertIn("[ G ] goal", t.render(self.doc))
+        self.assertIn("[ B ] branch  ◷ review", t.render(self.doc))
+        self.assertEqual(self.doc, before)
+
+
 if __name__ == "__main__":
     unittest.main()

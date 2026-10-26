@@ -29,6 +29,11 @@ class WorkModeLaunchTests(unittest.TestCase):
         self.assertEqual(w.work_mode_menu_label({"work_mode": False}), "off")
         self.assertEqual(w.work_plan_approval_menu_label({}), "auto (default)")
         self.assertEqual(w.work_plan_approval_menu_label({"work_plan_approval_ask": True}), "ask user")
+        self.assertTrue(w.work_auto_continue_enabled({}))
+        self.assertFalse(w.work_auto_continue_enabled({"work_auto_continue": False}))
+        self.assertTrue(w.work_auto_continue_enabled({"work_auto_continue": "false"}))
+        self.assertEqual(w.work_auto_continue_menu_label({}), "on (default)")
+        self.assertEqual(w.work_auto_continue_menu_label({"work_auto_continue": False}), "off")
 
     def test_native_no_router_and_disabled_skip_both_clients(self):
         for enabled in (False, True):
@@ -53,7 +58,7 @@ class WorkModeLaunchTests(unittest.TestCase):
     @unittest.skipIf(tomllib is None, "tomllib is unavailable on Python 3.10")
     def test_codex_contract_is_exact_valid_toml(self):
         args = w.codex_work_mode_args({}, native=False, router_mcp_attached=True)
-        self.assertEqual(args[0::2], ["-c"] * 9)
+        self.assertEqual(args[0::2], ["-c"] * (1 + len(w.WORK_TOOL_NAMES)))
         self.assertEqual(tomllib.loads(args[1])["developer_instructions"], w.WORK_MODE_INSTRUCTIONS)
         approvals = {item.split("=", 1)[0]: tomllib.loads("v=" + item.split("=", 1)[1])["v"] for item in args[3::2]}
         from ciel_runtime_support.work_mcp_tools import WORK_TOOL_NAMES
@@ -64,6 +69,15 @@ class WorkModeLaunchTests(unittest.TestCase):
             self.assertIn(tool, w.WORK_MODE_INSTRUCTIONS)
         self.assertIn("user_confirmed=true", w.WORK_MODE_INSTRUCTIONS)
 
+    @unittest.skipIf(tomllib is None, "tomllib is unavailable on Python 3.10")
+    def test_codex_auto_continue_off_drops_only_the_continuation_rules(self):
+        args = w.codex_work_mode_args({"work_auto_continue": False}, native=False, router_mcp_attached=True)
+        self.assertEqual(tomllib.loads(args[1])["developer_instructions"], w.WORK_MODE_BASE_INSTRUCTIONS)
+        self.assertNotIn(w.WORK_AUTO_CONTINUE_INSTRUCTIONS, w.WORK_MODE_BASE_INSTRUCTIONS)
+        self.assertIn(w.WORK_AUTO_CONTINUE_INSTRUCTIONS, w.WORK_MODE_INSTRUCTIONS)
+        self.assertIn("LLM options -> Work auto continue", w.WORK_AUTO_CONTINUE_INSTRUCTIONS)
+        self.assertEqual(args[2:], w.codex_work_mode_args({}, native=False, router_mcp_attached=True)[2:])
+
     def test_codex_explicit_developer_override_wins(self):
         for passthrough in (["-c", 'developer_instructions="mine"'],
                             ["--config", 'developer_instructions="mine"'],
@@ -73,7 +87,7 @@ class WorkModeLaunchTests(unittest.TestCase):
                 before = list(passthrough)
                 args = w.codex_work_mode_args({}, native=False, router_mcp_attached=True, passthrough=passthrough)
                 self.assertFalse(any(item.startswith("developer_instructions=") for item in args))
-                self.assertEqual(16, len(args))
+                self.assertEqual(2 * len(w.WORK_TOOL_NAMES), len(args))
                 self.assertEqual(passthrough, before)
 
     def test_codex_explicit_tool_approval_override_wins(self):
@@ -81,7 +95,7 @@ class WorkModeLaunchTests(unittest.TestCase):
         args = w.codex_work_mode_args({}, native=False, router_mcp_attached=True,
                                       passthrough=["-c", f'{key}="prompt"'])
         self.assertNotIn(f'{key}="approve"', args)
-        self.assertEqual(16, len(args))
+        self.assertEqual(2 * len(w.WORK_TOOL_NAMES), len(args))
 
     def test_launch_notice_follows_work_mode_applies(self):
         for enabled in (False, True):

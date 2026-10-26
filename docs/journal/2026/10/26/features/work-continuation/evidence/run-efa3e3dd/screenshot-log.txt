@@ -1,0 +1,6 @@
+01-root-priority-controls
+saved C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-continuation\evidence\run-efa3e3dd\01-root-priority-controls.png handle=5839850 printwindow=True
+02-move-up-focused
+saved C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-continuation\evidence\run-efa3e3dd\02-move-up-focused.png handle=5839850 printwindow=True
+03-priority-order-after-click
+saved C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-continuation\evidence\run-efa3e3dd\03-priority-order-after-click.png handle=5839850 printwindow=True

@@ -1,0 +1,8 @@
+observed_at_utc 2026-10-26T21:43:10Z from this computer (read-only)
+    Packets: Sent = 2, Received = 2, Lost = 0 (0% loss),
+    Minimum = 3ms, Maximum = 4ms, Average = 3ms
+GET http://10.0.0.238:9683/health http=000 time=4.002555
+tcp 22 closed/timeout
+tcp 445 open
+tcp 3389 open
+tcp 9683 closed/timeout

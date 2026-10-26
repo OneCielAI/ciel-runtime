@@ -152,6 +152,45 @@ test('approval rejects a conversation switch even when plan counters match', asy
   expect(s.tools.filter(t => t.tool === T + 'work_execute').length).toBe(0)
 })
 
+const STOP = { hook_event_name: 'Stop', session_id: 'session-a', transcript_path: '/isolated/transcript',
+  cwd: '/isolated', stop_hook_active: false }
+function continuing(on, extra = {}) {
+  const s = hints(on, { auto_continue: true, phase: 'executing', continuation: {
+    actionable: 1, next: { id: 'leaf', title: 'Verify next' }, waiting: [] }, ...extra })
+  on('classic.Stop', () => ({}))
+  return s
+}
+test('normal Stop continues, unchanged plan is bounded, progress and user input reset it', async ($, on) => {
+  const s = continuing(on)
+  expect((await $.classic.Stop(STOP)).block).toContain('Verify next')
+  expect((await $.classic.Stop({ ...STOP, stop_hook_active: true })).block).toContain('last continuation')
+  expect((await $.classic.Stop(STOP)).block).toBeUndefined()
+  expect(s.toasts.length).toBe(1)
+  s.snapshot.version++
+  expect((await $.classic.Stop(STOP)).block).toContain('approved scope')
+  await $.prompt.submit({ text: 'continue', wait: false })
+  expect((await $.classic.Stop(STOP)).block).toContain('Verify next')
+})
+for (const extra of [{ enabled: false }, { auto_continue: false }, { continuation: { actionable: 0 } },
+  { phase: 'planning', approval: 'ask', ready: true }]) {
+  test('Stop guard ' + JSON.stringify(extra), async ($, on) => {
+    continuing(on, extra)
+    expect((await $.classic.Stop(STOP)).block).toBeUndefined()
+  })
+}
+test('Stop excludes background tasks, child threads, other conversations and offline', async ($, on) => {
+  const s = continuing(on)
+  expect((await $.classic.Stop({ ...STOP, background_tasks: [{ id: 'b' }] })).block).toBeUndefined()
+  expect((await $.classic.Stop({ ...STOP, agent_id: 'child' })).block).toBeUndefined()
+  expect((await $.classic.Stop({ ...STOP, session_id: 'other' })).block).toBeUndefined()
+  s.offline = true
+  expect((await $.classic.Stop(STOP)).block).toBeUndefined()
+})
+test('auto planning continues decomposition but never crosses an approval boundary', async ($, on) => {
+  continuing(on, { phase: 'planning', approval: 'auto', ready: false })
+  expect((await $.classic.Stop(STOP)).block).toContain('No new scope or approval boundary')
+})
+
 const BAND = { plugin: 'ciel-work', component: 'AbovePrompt', surface: 'terminal', props: {
   hasSurvey: false, isWorking: false, maxRows: 16, bodyColumns: 80, scroll: { offset: 0, bodyRows: 15 }, view: {} } } as const
 const PANE = { plugin: 'ciel-work', component: 'Pane', requestId: 'work-details', surface: 'terminal', props: {
@@ -168,6 +207,37 @@ function inspection(on) {
   on('ui.close', () => ({}))
   return s
 }
+test('three levels display linked ids, waits, urgent holds and green done checks', async ($, on) => {
+  const s = inspection(on)
+  s.snapshot.active_root.urgent = true
+  s.snapshot.breakdown[0].ref = 'A-10'
+  s.snapshot.breakdown[0].children = [
+    { id: 'leaf', title: 'Verify expiry', status: 'done', ref: 'A-11' },
+    { id: 'wait', title: 'Release', status: 'pending', waiting_on: 'CI publish' }]
+  s.snapshot.breakdown[0].more = 2
+  s.snapshot.queue = [{ id: 'q', title: 'Other goal', status: 'pending', held: true, done: 0, total: 1 }]
+  await $.command.run({ command: 'work-mode', args: 'status' })
+  const band = await $.ui.mount(BAND)
+  expect((await band.find({ key: 'branch-a' }))?.text).toContain('[ A-10 ] Cache')
+  expect((await band.find({ key: 'child-leaf' }))?.text).toContain('[ A-11 ] Verify expiry')
+  expect((await band.find({ key: 'child-wait' }))?.text).toContain('◷ CI publish')
+  expect((await band.find({ type: 'Text', text: /more · Enter/ }))?.text).toContain('+2 more')
+  expect((await band.find({ type: 'Text', text: /Held:/ }))?.text).toContain('Held:')
+  expect((await band.find({ type: 'Text', text: '✓ ' }))?.props.color).toBe('success')
+  expect((await band.find({ type: 'Text', text: /Work running/ }))?.text).toContain('[urgent]')
+  await band.unmount()
+})
+test('root move buttons pin version, identity and explicit user request', async ($, on) => {
+  const s = inspection(on)
+  s.snapshot.queue = [{ id: 'q', title: 'Queued goal', status: 'pending', done: 0, total: 1 }]
+  await $.command.run({ command: 'work-mode', args: 'view' })
+  const pane = await $.ui.mount(PANE)
+  await pane.press({ key: 'up-q' })
+  const move = s.calls.find(c => c.tool === 'work_reorder')
+  expect(move.args).toEqual({ root_id: 'q', position: 1, user_requested: true,
+    expected_version: 1, session_id: 'claude:session-a' })
+  await pane.unmount()
+})
 test('compact footer and vertical branch buttons', async ($, on) => {
   inspection(on)
   await $.command.run({ command: 'work-mode', args: 'status' })
@@ -176,8 +246,8 @@ test('compact footer and vertical branch buttons', async ($, on) => {
   await footer.unmount()
   const ui = await $.ui.mount(BAND)
   expect((await ui.drawn()).props.flexDirection).toBe('column')
-  expect((await ui.find({ key: 'branch-a' }))?.text).toContain('Cache 1/3')
-  expect((await ui.find({ key: 'branch-b' }))?.text).toContain('DAG 0/2')
+  expect((await ui.find({ key: 'branch-a' }))?.text).toContain('Cache')
+  expect((await ui.find({ key: 'branch-b' }))?.text).toContain('DAG')
   await ui.unmount()
 })
 test('branch press opens read-only details with notes and evidence, nested node and parent', async ($, on) => {

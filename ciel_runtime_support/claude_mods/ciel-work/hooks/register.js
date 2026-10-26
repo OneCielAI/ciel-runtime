@@ -5,7 +5,7 @@ const detailView = atom({ plugin: 'ciel-work', key: 'detail' }, null)
 const PANE = 'work-details'
 const PREFIX = 'mcp__ciel-runtime-router__'
 const WORK = new Set(['work_status', 'work_plan_set', 'work_node_add', 'work_node_update',
-  'work_node_remove', 'work_select', 'work_execute', 'work_replan'])
+  'work_node_remove', 'work_select', 'work_execute', 'work_replan', 'work_reorder', 'work_urgent'])
 const WRITES = new Set(['Edit', 'Write', 'NotebookEdit', 'apply_patch'])
 const SHELLS = new Set(['Bash', 'PowerShell'])
 const UNAVAILABLE = 'Work status unavailable: router connection or snapshot could not be verified.'
@@ -20,7 +20,10 @@ const HELP = [
   '• Executing: after work_execute (automatic, or your approval when set to ask) the model works step by step and marks each step done with evidence.',
   '• Above the prompt: Ctrl+X Tab focuses the items · Tab/↑↓ select · Enter inspects · Esc returns.',
   '• /work-mode view: keyboard inspector · /work-mode tree: plan tree · /work-mode status: raw snapshot (JSON) · /work-mode help: this help',
-  '• Settings: ciel-runtime menu → LLM options → Work mode (on/off) and Work plan approval (auto/ask).',
+  '• Priorities: All items → Move up / Move down orders root goals. Moving the active goal requires your request; a button press is that request.',
+  '• Linked IDs appear as [ id ] description; ◷ names an external wait; green ✓ means verified done. An urgent request holds other goals until it finishes.',
+  '• Auto continue: normal turn endings resume actionable Work, bounded by no-progress checks; waits, approval and background tasks do not trigger it. Codex receives instructions only.',
+  '• Settings: ciel-runtime menu → LLM options → Work mode (on/off), Work plan approval (auto/ask), Work auto continue (on/off).',
 ].join('\n')
 let cached = null
 let enabled = true
@@ -29,6 +32,8 @@ let cachedSession = null
 let hinted = ''
 let starts = 0
 let noticed = 0
+let continuationVersion = null
+let unchangedContinuations = 0
 const RETRY_MS = [250, 500, 1000, 2000, 4000, 8000]
 const INSTRUCTIONS = 'Ciel Work mode is on. Before edits or state-changing commands, use '
   + 'work_plan_set: goal -> phases -> tasks -> concrete verifiable steps. Triage every new user '
@@ -42,7 +47,11 @@ const INSTRUCTIONS = 'Ciel Work mode is on. Before edits or state-changing comma
   + 'During execution mark the current leaf in_progress with work_node_update, then done only '
   + 'with verification evidence. Add/split nodes using work_node_add; use work_replan when the '
   + 'approach changes. Use work_status for the tree and expected_version where supported. '
-  + 'These rules include subagents: no delegated state changes during planning or unavailable status.'
+  + 'These rules include subagents: no delegated state changes during planning or unavailable status. '
+  + 'Set ref for a linked id, and waiting_on for what an item waits on (empty text clears). '
+  + 'Use work_reorder to change root order: queue-only by default; changing the active slot needs an explicit '
+  + 'user request and user_requested=true. On an explicit urgent/ad-hoc request use work_urgent with '
+  + 'user_requested=true to hold other goals, break down the request and execute; held goals resume afterwards.'
 function textOf(r) {
   if (!r || r.isError) throw new Error('Router error')
   const text = (r.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n')
@@ -58,7 +67,10 @@ async function refresh($) {
   const ticket = ++generation
   try {
     const identity = await sessionId($)
-    if (cachedSession !== identity) { cached = null; cachedSession = identity; await update($, detailView, () => null) }
+    if (cachedSession !== identity) {
+      cached = null; cachedSession = identity; continuationVersion = null; unchangedContinuations = 0
+      await update($, detailView, () => null)
+    }
     const s = JSON.parse(textOf(await $.mcp.call('ciel-runtime-router', 'work_status', { format: 'json', session_id: identity })))
     if (s?.enabled !== false && (s?.enabled !== true
       || !['planning', 'executing'].includes(s.phase) || !['auto', 'ask'].includes(s.approval)
@@ -89,12 +101,12 @@ function hintPlanning($, s, reason) {
 function summary(s) {
   const lines = ['Ciel Work mode: ' + s.phase + ' · ' + s.done + '/' + s.total + ' steps · approval ' + s.approval]
   if (!s.active_root) lines.push('No plan yet — the model plans before editing.')
-  else lines.push('Goal: ' + clipped(s.active_root.title, 200))
-  for (const b of s.breakdown || []) lines.push('  ' + mark(b.status) + ' ' + clipped(b.title, 200) + ' ' + b.done + '/' + b.total)
+  else lines.push('Goal: ' + itemTitle(s.active_root, 240))
+  for (const b of s.breakdown || []) lines.push('  ' + (b.status === 'done' ? '✓' : mark(b.status)) + ' ' + itemTitle(b, 240) + ' ' + b.done + '/' + b.total)
   if (s.next?.title) lines.push('Next: ' + clipped(s.next.title, 200))
   if (s.queue?.length) {
     lines.push('Queue (next first):')
-    for (const q of s.queue) lines.push('  ' + mark(q.status) + ' ' + clipped(q.title, 200) + ' ' + q.done + '/' + q.total)
+    for (const q of s.queue) lines.push('  ' + (q.status === 'done' ? '✓' : mark(q.status)) + ' ' + itemTitle(q, 240) + ' ' + q.done + '/' + q.total)
   }
   lines.push('/work-mode help · view · tree · status')
   return lines.join('\n')
@@ -106,6 +118,29 @@ function clipped(value, limit) {
   const text = String(value || '').replace(/[\x00-\x1f\x7f-\x9f]/g, ' ').replace(/\s+/g, ' ').trim()
   return text.length <= limit ? text : text.slice(0, limit - 1) + '…'
 }
+function itemTitle(node, width) {
+  return clipped((node.ref ? '[ ' + node.ref + ' ] ' : '') + node.title
+    + (node.urgent ? ' [urgent]' : '') + (node.waiting_on ? ' ◷ ' + node.waiting_on : ''), width)
+}
+function statusButton(Box, Button, Text, node, props) {
+  const button = Button(props)
+  return node.status === 'done' ? Box({ flexDirection: 'row', children: [
+    Text({ color: 'success', children: '✓ ' }), button] }) : button
+}
+async function moveRoot($, id, offset, origin) {
+  if (await sessionId($) !== origin) return
+  const s = await refresh($)
+  if (!s?.enabled || await sessionId($) !== origin) return
+  const roots = [s.active_root, ...(s.queue || [])].filter(Boolean)
+  const index = roots.findIndex(n => n.id === id)
+  if (index < 0 || index + offset < 0 || index + offset >= roots.length) return
+  try {
+    textOf(await $.mcp.call('ciel-runtime-router', 'work_reorder', {
+      root_id: id, position: index + offset + 1, user_requested: true,
+      expected_version: s.version, session_id: origin }))
+    await openDetails($, null, origin)
+  } catch { try { $.ui.toast('Work order changed or is unavailable; refresh and try again.') } catch {} }
+}
 function breakdownLabel(s) {
   return 'work: ' + (s.phase === 'planning' ? 'plan' : 'run') + ' ' + s.done + '/' + s.total
 }
@@ -113,12 +148,12 @@ function breakdownLabel(s) {
 function queued(s, width, Text) {
   const queue = s.queue || []
   const rows = queue.slice(0, 3).map(q => Text({ key: 'queue-' + q.id, dimColor: true,
-    children: 'Queued: ' + mark(q.status) + ' ' + clipped(q.title, width) + ' ' + q.done + '/' + q.total }))
+    children: (q.held ? 'Held: ' : 'Queued: ') + mark(q.status) + ' ' + itemTitle(q, width) + ' ' + q.done + '/' + q.total }))
   if (queue.length > 3) rows.push(Text({ key: 'queue-more', dimColor: true, children: '+' + (queue.length - 3) + ' more queued · /work-mode' }))
   return rows
 }
 function mark(status) {
-  return ({ pending: '[ ]', in_progress: '[~]', done: '[x]', blocked: '[!]' })[status] || '[?]'
+  return ({ pending: '[ ]', in_progress: '[~]', done: '', blocked: '[!]' })[status] ?? '[?]'
 }
 async function openDetails($, id = null, origin = null) {
   const identity = await sessionId($)
@@ -173,7 +208,34 @@ export function register(on) {
     else if (e.isInteractive && !s) retryStart($, ticket)
     return next(e)
   })
+  on('classic.Stop', async ($, e, next) => {
+    const result = await next(e)
+    if (result?.block || result?.preventContinuation || e.agent_id) return result
+    if (e.background_tasks?.length) return result
+    const identity = await sessionId($)
+    if (e.session_id && identity !== 'claude:' + e.session_id) return result
+    const s = await refresh($)
+    if (await sessionId($) !== identity || !s?.enabled || s.auto_continue !== true
+        || (s.phase === 'planning' && s.approval === 'ask' && s.ready)
+        || !(s.continuation?.actionable > 0)) return result
+    if (continuationVersion !== s.version) { continuationVersion = s.version; unchangedContinuations = 0 }
+    else unchangedContinuations++
+    if (unchangedContinuations > 1) {
+      try { $.ui.toast('Work auto continue paused: no plan progress. Update the plan or send a message to resume.') } catch {}
+      return result
+    }
+    const c = s.continuation
+    return { ...result, block: 'Ciel Work has ' + c.actionable + ' actionable unfinished item(s) within the approved scope. '
+      + 'The next item is ' + clipped(c.next?.id, 64) + ': ' + itemTitle(c.next || {}, 400) + '. '
+      + 'Pending user requests belong in the Work tree without duplicates (independent goals, dependent children). '
+      + 'Approved actionable items remain to be completed and verified; independent actions may run in parallel. '
+      + 'An external dependency belongs in waiting_on, including a person or approval that is needed; other '
+      + 'independent items can proceed while it waits. No new scope or approval boundary is authorized by this notice. '
+      + 'Waiting items: ' + clipped((c.waiting || []).map(n => n.id + ': ' + n.waiting_on).join('; ') || 'none', 700)
+      + (unchangedContinuations === 1 ? '. This is the last continuation without a plan update.' : '') }
+  })
   on('prompt.submit', async ($, e, next) => {
+    continuationVersion = null; unchangedContinuations = 0
     const s = await refresh($)
     if (s?.enabled === false || (!s && !enabled)) return next(e)
     return next({ ...e, context: [...(e.context || []), INSTRUCTIONS
@@ -241,7 +303,7 @@ export function register(on) {
     return next(e)
   })
   on('session.end', async ($, e, next) => {
-    generation++; cached = null; cachedSession = null; hinted = ''
+    generation++; cached = null; cachedSession = null; hinted = ''; continuationVersion = null; unchangedContinuations = 0
     await update($, detailView, () => null)
     return next(e)
   })
@@ -253,13 +315,21 @@ export function register(on) {
     if (!cached) return Text({ dimColor: true, children: 'Work unavailable — /work-mode status' })
     if (!cached.active_root) return Text({ dimColor: true, children: 'Work mode: no plan yet — the model plans before editing · /work-mode help' })
     const width = Math.max(16, e.props.bodyColumns - 8)
-    const rows = (cached.breakdown || []).map((b, i) => Button({ key: 'branch-' + b.id,
-      plain: true, ...(i < 9 ? { hotkey: String(i + 1) } : {}), ...(i === 0 ? { autoFocus: true } : {}),
-      label: mark(b.status) + ' ' + clipped(b.title, width) + ' ' + b.done + '/' + b.total,
-      onPress: () => openDetails($, b.id, origin) }))
+    const rows = []
+    for (const [i, b] of (cached.breakdown || []).entries()) {
+      rows.push(statusButton(Box, Button, Text, b, { key: 'branch-' + b.id,
+        plain: true, ...(i < 9 ? { hotkey: String(i + 1) } : {}), ...(i === 0 ? { autoFocus: true } : {}),
+        label: mark(b.status) + ' ' + itemTitle(b, width),
+        onPress: () => openDetails($, b.id, origin) }))
+      for (const child of b.children || []) rows.push(statusButton(Box, Button, Text, child, {
+        key: 'child-' + child.id, plain: true,
+        label: '  ' + mark(child.status) + ' ' + itemTitle(child, width - 2),
+        onPress: () => openDetails($, child.id, origin) }))
+      if (b.more) rows.push(Text({ key: 'more-' + b.id, dimColor: true, children: '  +' + b.more + ' more · Enter to inspect' }))
+    }
     return Box({ flexDirection: 'column', children: [
       Text({ bold: true, children: 'Work ' + (cached.phase === 'planning' ? 'planning' : 'running') + ' ' + cached.done + '/'
-        + cached.total + ' — ' + clipped(cached.active_root.title, width) }),
+        + cached.total + ' — ' + itemTitle(cached.active_root, width) }),
       ...rows,
       ...queued(cached, width, Text),
       Button({ key: 'work-all', plain: true, label: 'All items / refresh', hotkey: 'w', onPress: () => openDetails($, null, origin) }),
@@ -286,13 +356,25 @@ export function register(on) {
         : view.error || 'No active goal.' }), ...controls] })
     const rows = []
     const visit = (node, depth) => {
-      rows.push(Button({ key: 'node-' + node.id, plain: true, label: '  '.repeat(depth) + mark(node.status) + ' ' + clipped(node.title, 300),
+      rows.push(statusButton(Box, Button, Text, node, { key: 'node-' + node.id, plain: true,
+        label: '  '.repeat(depth) + mark(node.status) + ' ' + itemTitle(node, 480),
         onPress: () => openDetails($, node.id, origin) }))
       if (node.note) rows.push(Text({ children: '  '.repeat(depth + 1) + 'Note: ' + clipped(node.note, 2000) }))
       if (node.evidence) rows.push(Text({ children: '  '.repeat(depth + 1) + 'Evidence: ' + clipped(node.evidence, 2000) }))
       for (const child of view.nodes.filter(n => n.parent_id === node.id)) visit(child, depth + 1)
     }
     visit(selected, 0)
+    if (!selected.parent_id) {
+      const roots = [cached.active_root, ...(cached.queue || [])].filter(n => n && n.status !== 'done')
+      for (const [i, root] of roots.entries()) {
+        rows.push(Text({ key: 'order-' + root.id, children: 'Priority ' + (i + 1) + ': ' + itemTitle(root, 360)
+          + (root.held ? ' [held]' : '') }))
+        if (i > 0) rows.push(Button({ key: 'up-' + root.id, plain: true, label: 'Move up',
+          onPress: () => moveRoot($, root.id, -1, origin) }))
+        if (i + 1 < roots.length) rows.push(Button({ key: 'down-' + root.id, plain: true, label: 'Move down',
+          onPress: () => moveRoot($, root.id, 1, origin) }))
+      }
+    }
     return Box({ flexDirection: 'column', children: [Text({ bold: true, children: 'Work details — version ' + view.version }),
       ...controls, ...rows, Text({ dimColor: true, children: 'Tab/↑↓: navigate/scroll · Enter: inspect node · Esc: close' })] })
   })

@@ -449,6 +449,12 @@ LLM_OPTION_DESCRIPTIONS: dict[str, dict[str, str]] = {
         "ja": "既定は auto です。計画が完成すると work_execute は進みます。ask user では実行前に確認を求めます。ネイティブセッションは変わらず、このバージョンは Codex の編集に承認を強制しません。次の work_execute から適用されます。",
         "zh": "默认 auto：计划完成后 work_execute 继续执行。ask user 会在执行前要求确认。原生会话不受影响，此版本不会对 Codex 编辑强制审批。从下一次 work_execute 起生效。",
     },
+    "work_auto_continue": {
+        "en": "On by default while Work mode is on: when executing Work still has actionable approved items, a normal Claude turn ending continues the work through the Ciel Work mod instead of waiting for you to type. Blocked or waiting items do not trigger it. Native sessions are unchanged. Codex receives continuation instructions only; this version does not enforce automatic continuation for Codex. Applies on the next launch.",
+        "ko": "Work 모드가 켜져 있을 때 기본값은 on입니다. 실행 중인 Work에 승인된 처리 가능 항목이 남아 있으면 Claude 턴이 정상 종료될 때 Ciel Work mod가 입력을 기다리지 않고 작업을 계속합니다. 차단되었거나 대기 중인 항목으로는 계속하지 않습니다. 네이티브 세션은 바뀌지 않습니다. Codex는 계속 진행 지침만 받으며 이 버전은 Codex의 자동 계속을 강제하지 않습니다. 다음 실행부터 적용됩니다.",
+        "ja": "Work モードが on の間、既定は on です。実行中の Work に承認済みで着手可能な項目が残っていると、Claude のターンが通常終了したとき Ciel Work mod が入力を待たずに作業を続けます。ブロック中・待機中の項目では続行しません。ネイティブセッションは変わりません。Codex には続行用の指示だけを渡し、このバージョンでは Codex の自動続行を強制しません。次回起動から適用されます。",
+        "zh": "Work 模式开启时默认开启。执行中的 Work 仍有已批准且可执行的项目时，Claude 回合正常结束后由 Ciel Work mod 继续工作，而不等待你输入。被阻塞或等待中的项目不会触发继续。原生会话不受影响。Codex 仅接收继续执行的指令，此版本不会对 Codex 强制自动继续。下次启动时生效。",
+    },
     "back": {
         "en": "Return to the main menu.",
         "ko": "메인 메뉴로 돌아갑니다.",
@@ -469,6 +475,7 @@ LLM_OPTION_TOGGLE_KEYS = {
     "claude_feedback_drafts",
     "work_mode",
     "work_plan_approval_ask",
+    "work_auto_continue",
     "route_through_router",
     "workflows_enabled",
     "ultracode_enabled",

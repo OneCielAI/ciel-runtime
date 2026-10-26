@@ -15,6 +15,7 @@ from ciel_runtime_support.codex_config import codex_config_override_keys, toml_s
 
 WORK_MODE_KEY = "work_mode"
 WORK_PLAN_APPROVAL_ASK_KEY = "work_plan_approval_ask"
+WORK_AUTO_CONTINUE_KEY = "work_auto_continue"
 CLAUDE_MOD_NAME = "ciel-work"
 CLAUDE_MOD_DIR = Path(__file__).resolve().parent / "claude_mods" / CLAUDE_MOD_NAME
 # The router's Work tools; work_mcp_tools serves them, launch pre-approves them.
@@ -27,9 +28,11 @@ WORK_TOOL_NAMES = (
     "work_select",
     "work_execute",
     "work_replan",
+    "work_reorder",
+    "work_urgent",
 )
 
-WORK_MODE_INSTRUCTIONS = (
+WORK_MODE_BASE_INSTRUCTIONS = (
     "Ciel Work mode is on. Work like Plan mode, but with a deeper, hierarchical plan that you keep "
     "current while you execute.\n"
     "Work plans are private to this conversation. Codex supplies the conversation identity in MCP metadata; "
@@ -47,9 +50,33 @@ WORK_MODE_INSTRUCTIONS = (
     "with short evidence (command output, test result, file) when it is verified. Add or split nodes with "
     "work_node_add when you discover more work; use work_replan when the approach changes.\n"
     "4. Call work_status to see the tree. Never report a step as done without evidence.\n"
+    "Set ref for a linked id (shown as [ id ] description); set waiting_on for an external dependency, "
+    "and clear it with empty text when ready. Reorder root goals with work_reorder (1-based position); "
+    "by default reorder only queued goals. Changing the active slot requires the user's explicit request "
+    "and user_requested=true. On an explicit urgent/ad-hoc request use work_urgent with user_requested=true "
+    "to hold other goals, decompose that request and execute; held goals resume afterwards.\n"
     "If the user asks how Work mode works or why an edit waited, explain this briefly; it is switched on or off "
     "in the ciel-runtime menu under LLM options -> Work mode."
 )
+
+# Codex gets these rules as instructions only; nothing in Ciel resumes a Codex turn.
+WORK_AUTO_CONTINUE_INSTRUCTIONS = (
+    "Work auto continue is on. In the executing phase, before you end a turn:\n"
+    "- Keep handling approved pending Work. While actionable unfinished items remain inside the approved plan, "
+    "continue with the next one instead of stopping to ask whether to go on.\n"
+    "- Triage the backlog first: register any user request that is not yet in the tree, within the scope the user "
+    "already approved and without duplicates (independent requests as numbered goals, dependent ones as children).\n"
+    "- Take the highest-priority actionable item first; equal priorities keep their plan order.\n"
+    "- When an item waits on something outside this conversation (a person, a review, a build, another agent), "
+    "set its waiting_on label to what it waits for instead of editing its title, and meanwhile work on other "
+    "independent actionable items, running independent actions in parallel where your tools allow.\n"
+    "- End the turn only when every unfinished item is truly blocked, waiting or needs user approval, and say what "
+    "each one waits for. Do not invent work, expand the approved scope or cross an approval boundary to keep going.\n"
+    "Work auto continue is switched on or off in the ciel-runtime menu under LLM options -> Work auto continue."
+)
+
+# The default Codex contract: Work mode with auto continue on.
+WORK_MODE_INSTRUCTIONS = WORK_MODE_BASE_INSTRUCTIONS + "\n" + WORK_AUTO_CONTINUE_INSTRUCTIONS
 
 WORK_MODE_LAUNCH_NOTICE = (
     "Ciel Work mode is on: the model plans first (work_plan_set) and edits after work_execute. "
@@ -74,6 +101,22 @@ def work_plan_approval_ask(config: dict[str, Any]) -> bool:
     """Automatic approval unless the user asked to confirm each plan."""
 
     return config.get(WORK_PLAN_APPROVAL_ASK_KEY) is True
+
+
+def work_auto_continue_enabled(config: dict[str, Any]) -> bool:
+    """The stored Work auto continue setting: on unless the user turned it off explicitly.
+
+    This reads the setting only; whether Work mode itself applies to a launch is
+    ``work_mode_applies``.
+    """
+
+    return config.get(WORK_AUTO_CONTINUE_KEY) is not False
+
+
+def codex_work_mode_instructions(config: dict[str, Any]) -> str:
+    """The Codex ``developer_instructions`` text for this configuration."""
+
+    return WORK_MODE_INSTRUCTIONS if work_auto_continue_enabled(config) else WORK_MODE_BASE_INSTRUCTIONS
 
 
 def work_mode_applies(config: dict[str, Any], *, native: bool, router_mcp_attached: bool) -> bool:
@@ -104,7 +147,7 @@ def codex_work_mode_args(config: dict[str, Any], *, native: bool, router_mcp_att
     overrides = codex_config_override_keys(list(passthrough))
     args: list[str] = []
     if "developer_instructions" not in overrides:
-        args.extend(["-c", f"developer_instructions={toml_string(WORK_MODE_INSTRUCTIONS)}"])
+        args.extend(["-c", f"developer_instructions={toml_string(codex_work_mode_instructions(config))}"])
     # Codex blocks MCP calls that need approval when approval_policy is never.
     # Only Ciel's Work tools are pre-approved; other router tools keep defaults.
     for tool in WORK_TOOL_NAMES:
@@ -120,3 +163,7 @@ def work_mode_menu_label(config: dict[str, Any]) -> str:
 
 def work_plan_approval_menu_label(config: dict[str, Any]) -> str:
     return "ask user" if work_plan_approval_ask(config) else "auto (default)"
+
+
+def work_auto_continue_menu_label(config: dict[str, Any]) -> str:
+    return "on (default)" if work_auto_continue_enabled(config) else "off"

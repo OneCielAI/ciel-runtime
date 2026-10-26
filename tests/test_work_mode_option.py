@@ -7,8 +7,8 @@ import ciel_runtime
 from ciel_runtime_support.config_repository import build_default_config, deep_merge
 from ciel_runtime_support.llm_presentation_data import LLM_OPTION_DESCRIPTIONS, LLM_OPTION_TOGGLE_KEYS
 from ciel_runtime_support.provider_option_panel import OptionPanelRuntime
-from ciel_runtime_support.work_mode_launch import (WORK_MODE_KEY, WORK_PLAN_APPROVAL_ASK_KEY, work_mode_enabled,
-                                                   work_plan_approval_ask)
+from ciel_runtime_support.work_mode_launch import (WORK_AUTO_CONTINUE_KEY, WORK_MODE_KEY, WORK_PLAN_APPROVAL_ASK_KEY,
+                                                   work_auto_continue_enabled, work_mode_enabled, work_plan_approval_ask)
 
 
 def _row(provider, pcfg, key):
@@ -21,9 +21,12 @@ class WorkModeOptionTests(unittest.TestCase):
         defaults = build_default_config({})
         self.assertIs(True, defaults[WORK_MODE_KEY])
         self.assertIs(False, defaults[WORK_PLAN_APPROVAL_ASK_KEY])
+        self.assertIs(True, defaults[WORK_AUTO_CONTINUE_KEY])
         merged = deep_merge(defaults, {"language": "ko"})
         self.assertTrue(work_mode_enabled(merged))
         self.assertFalse(work_plan_approval_ask(merged))
+        self.assertTrue(work_auto_continue_enabled(merged))
+        self.assertIs(False, deep_merge(defaults, {WORK_AUTO_CONTINUE_KEY: False})[WORK_AUTO_CONTINUE_KEY])
         self.assertIs(False, deep_merge(defaults, {WORK_MODE_KEY: False})[WORK_MODE_KEY])
         self.assertIs(True, deep_merge(defaults, {WORK_PLAN_APPROVAL_ASK_KEY: True})[WORK_PLAN_APPROVAL_ASK_KEY])
 
@@ -31,11 +34,13 @@ class WorkModeOptionTests(unittest.TestCase):
         runtime = OptionPanelRuntime(*([lambda *args: None] * 7))
         self.assertIs(True, runtime.work_mode())
         self.assertIs(False, runtime.work_plan_approval_ask())
+        self.assertIs(True, runtime.work_auto_continue())
 
     def test_default_rows_without_stored_keys(self):
         config = copy.deepcopy(ciel_runtime.DEFAULT_CONFIG)
         config.pop(WORK_MODE_KEY, None)
         config.pop(WORK_PLAN_APPROVAL_ASK_KEY, None)
+        config.pop(WORK_AUTO_CONTINUE_KEY, None)
         pcfg = config["providers"]["cielairouter"]
         with mock.patch.object(ciel_runtime, "load_config", return_value=config):
             self.assertIn("[on (default)]", _row("cielairouter", pcfg, WORK_MODE_KEY))
@@ -44,6 +49,10 @@ class WorkModeOptionTests(unittest.TestCase):
             self.assertIn("Work plan approval", _row("cielairouter", pcfg, WORK_PLAN_APPROVAL_ASK_KEY))
             self.assertTrue(ciel_runtime.llm_option_current_bool("cielairouter", pcfg, WORK_MODE_KEY))
             self.assertFalse(ciel_runtime.llm_option_current_bool("cielairouter", pcfg, WORK_PLAN_APPROVAL_ASK_KEY))
+            self.assertIn("[on (default)]", _row("cielairouter", pcfg, WORK_AUTO_CONTINUE_KEY))
+            self.assertIn("Work auto continue", _row("cielairouter", pcfg, WORK_AUTO_CONTINUE_KEY))
+            self.assertTrue(ciel_runtime.llm_option_current_bool("cielairouter", pcfg, WORK_AUTO_CONTINUE_KEY))
+            self.assertEqual("true", ciel_runtime.llm_option_prompt_default("cielairouter", pcfg, WORK_AUTO_CONTINUE_KEY))
 
     def test_enter_toggle_roundtrip_is_global(self):
         config = copy.deepcopy(ciel_runtime.DEFAULT_CONFIG)
@@ -52,7 +61,8 @@ class WorkModeOptionTests(unittest.TestCase):
               mock.patch.object(ciel_runtime, "save_config") as save,
               mock.patch.object(ciel_runtime, "clear_model_cache") as clear):
             for provider, key, labels in (("cielairouter", WORK_MODE_KEY, ("[on (default)]", "[off]")),
-                                          ("anthropic", WORK_PLAN_APPROVAL_ASK_KEY, ("[auto (default)]", "[ask user]"))):
+                                          ("anthropic", WORK_PLAN_APPROVAL_ASK_KEY, ("[auto (default)]", "[ask user]")),
+                                          ("ollama", WORK_AUTO_CONTINUE_KEY, ("[on (default)]", "[off]"))):
                 pcfg = config["providers"][provider]
                 for expected_label in (labels[1], labels[0]):
                     with self.subTest(provider=provider, key=key, label=expected_label):
@@ -65,7 +75,7 @@ class WorkModeOptionTests(unittest.TestCase):
                         text = " ".join(messages)
                         self.assertIn("Native sessions are unchanged", text)
                         self.assertIn("does not enforce", text)
-            self.assertEqual(4, save.call_count)
+            self.assertEqual(6, save.call_count)
             clear.assert_not_called()
         self.assertEqual(before, config["providers"])
 
@@ -81,14 +91,22 @@ class WorkModeOptionTests(unittest.TestCase):
             ciel_runtime.set_llm_option_config("ollama", WORK_MODE_KEY, "default")
             self.assertNotIn(WORK_MODE_KEY, config)
             self.assertTrue(work_mode_enabled(config))
-            self.assertEqual(4, save.call_count)
+            ciel_runtime.set_llm_option_config("ollama", WORK_AUTO_CONTINUE_KEY, "off")
+            self.assertIs(False, config[WORK_AUTO_CONTINUE_KEY])
+            self.assertFalse(work_auto_continue_enabled(config))
+            ciel_runtime.set_llm_option_config("ollama", WORK_AUTO_CONTINUE_KEY, "default")
+            self.assertNotIn(WORK_AUTO_CONTINUE_KEY, config)
+            self.assertTrue(work_auto_continue_enabled(config))
+            self.assertEqual(6, save.call_count)
             self.assertIn("enter on or off", ciel_runtime.set_llm_option_config("ollama", WORK_MODE_KEY, "maybe")[0])
             self.assertIn("enter ask or auto",
                           ciel_runtime.set_llm_option_config("ollama", WORK_PLAN_APPROVAL_ASK_KEY, "later")[0])
-            self.assertEqual(4, save.call_count)
+            self.assertIn("enter on or off",
+                          ciel_runtime.set_llm_option_config("ollama", WORK_AUTO_CONTINUE_KEY, "maybe")[0])
+            self.assertEqual(6, save.call_count)
 
     def test_enter_toggle_and_help_are_registered_in_all_languages(self):
-        for key in (WORK_MODE_KEY, WORK_PLAN_APPROVAL_ASK_KEY):
+        for key in (WORK_MODE_KEY, WORK_PLAN_APPROVAL_ASK_KEY, WORK_AUTO_CONTINUE_KEY):
             self.assertIn(key, LLM_OPTION_TOGGLE_KEYS)
             for language in ("en", "ko", "ja", "zh"):
                 with self.subTest(key=key, language=language):

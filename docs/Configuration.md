@@ -336,12 +336,13 @@ ciel-runtimectl remote-provision run
 Work 모드는 Plan 모드처럼 먼저 계획을 세우되, 목표 → 단계 → 작업 → 검증 가능한 스텝의
 계층 트리로 계획을 유지하며 실행하게 한다. 계획은 라우터 MCP 서버(`ciel-runtime-router`)의
 `work_*` 도구(`work_status`, `work_plan_set`, `work_node_add`, `work_node_update`,
-`work_node_remove`, `work_select`, `work_execute`, `work_replan`) 뒤에 저장된다.
+`work_node_remove`, `work_select`, `work_execute`, `work_replan`, `work_reorder`, `work_urgent`) 뒤에 저장된다.
 
 | config.json 키 | 기본값 | 메뉴 (LLM options) | 의미 |
 |---|---|---|---|
 | `work_mode` | `true` (켜짐) | `Work mode [on (default)]` | `false`로 명시해야만 꺼진다 |
 | `work_plan_approval_ask` | `false` (자동 승인) | `Work plan approval [auto (default)]` | `true`(`ask user`)면 실행 전 사용자 승인을 요구 |
+| `work_auto_continue` | `true` (켜짐) | `Work auto continue [on (default)]` | Claude 정상 턴 종료 시 실행 가능한 미결 Work를 자동 계속. Codex는 지침만 전달 |
 
 - 메뉴 입력값: `Work mode`는 `on`/`off`, `Work plan approval`은 `ask`/`auto`.
   `default`/`unset`을 입력하면 키를 지워 기본값으로 돌아간다.
@@ -427,6 +428,25 @@ Codex 지침은 사용자가 Work 모드 사용법을 물으면 간단히 설명
 끄기·승인 방식: `ciel-runtime` 메뉴 → `LLM options` → `Work mode`(on/off), `Work plan approval`(auto/ask).
 라우터는 Work 도구 호출마다 설정을 다시 읽는다(`work_mcp_tools.dispatch_work_tool`). Work 모드가 꺼진
 상태로 시작한 Claude 세션에는 모드가 붙지 않는다.
+
+### 자동 계속·우선순위·긴급 요청
+
+- Claude의 `classic.Stop` 모드 훅은 정확한 대화의 Work 스냅샷을 읽고 실행 가능한 미결 항목이
+  있으면 다음 모델 턴을 요청한다. Work/auto continue 꺼짐, 서브에이전트, 진행 중 백그라운드 작업,
+  연결 실패, 실행 승인 대기는 제외한다. 사용자 중단·API 오류는 이 정상 Stop 경로에 포함하지 않는다.
+- 같은 계획 버전에서는 두 번까지 계속하고 그 뒤에는 진행 없음 토스트와 함께 멈춘다.
+  계획 버전 변경 또는 새 사용자 입력으로 다시 허용한다. Claude Code 자체의 연속 훅 제한도 적용된다.
+- `waiting_on`(최대 120자)은 외부 의존 대상이며 `◷ 대상`으로 끝에 표시한다. 조상 항목의
+  대기·blocked 상태도 실행 가능 판정에서 제외한다. 활성 목표에 실행 가능한 것이 없으면 큐를 찾는다.
+- `ref`(최대 64자)는 연결 ID이며 `[ id ] 설명`으로 표시한다. 두 필드는 add/plan/update로
+  설정하며 update의 빈 문자열로 해제한다. 프롬프트 위에는 목표 → 가지 → 하위 항목을 표시하고,
+  가지별 하위 8개 초과분은 `+N more`로 알린다. 완료 표시는 녹색 `✓`다.
+- `work_reorder(root_id, position)`은 미완료 루트 순서(1부터, 1은 활성 자리)를 바꾼다.
+  기본은 큐 내 이동만 허용하며 활성 자리가 바뀌면 명시적인 사용자 요청과 `user_requested=true`가 필요하다.
+  `/work-mode view`의 루트 상세에 있는 Move up/down 버튼도 같은 도구를 호출하며 버튼 입력은 사용자 요청이다.
+- 명시적 긴급 요청은 `work_urgent(goal, children, user_requested=true)`로 분해하여 최상위에 놓는다.
+  다른 모든 목표는 `Held`로 표시하고 자동 계속 대상에서 제외한다. 긴급 목표가 끝나면 직전 활성 목표부터 복귀한다.
+- Codex에는 같은 규칙을 지침으로 전달할 뿐 Ciel이 종료된 Codex 턴을 직접 재개하지 않는다.
 
 ### 계획 단계와 승인
 

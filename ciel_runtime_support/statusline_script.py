@@ -777,12 +777,18 @@ def work_plan_status_text(session):
     root = state.get("active_root")
     summary = f"[work {phase}] {state['done']}/{state['total']}"
     if root:
-        summary += " " + clip(root["title"], 48)
+        summary += " " + _work_item_title(root)
     # One branch per line, every branch: the status line is vertical, so a
     # breakdown is never cut to its first few branches.
     lines = [summary]
     for branch in state.get("breakdown", []):
-        lines.append(f"  - {clip(branch['title'], 48)} {branch['done']}/{branch['total']}")
+        lines.append("  " + _work_item_mark(branch) + " " + _work_item_title(branch))
+        for child in branch.get("children", []):
+            lines.append("    " + _work_item_mark(child) + " " + _work_item_title(child))
+        if branch.get("more"):
+            lines.append(f"    +{branch['more']} more")
+    for queued in state.get("queue", [])[:3]:
+        lines.append(("  Held: " if queued.get("held") else "  Queued: ") + _work_item_title(queued))
     current = state.get("next")
     if current:
         lines.append("  " + current["status"] + " " + clip(current["id"], 32) + " " + " > ".join(
@@ -790,6 +796,22 @@ def work_plan_status_text(session):
     else:
         lines.append("  " + ("complete" if root else "no goal"))
     return chr(10).join(lines)
+
+
+def _work_item_title(node):
+    title = ("[ " + str(node["ref"]) + " ] " if node.get("ref") else "") + str(node.get("title", ""))
+    title += " [urgent]" if node.get("urgent") else ""
+    title += " ◷ " + str(node["waiting_on"]) if node.get("waiting_on") else ""
+    return _work_status_clip(title, 180)
+
+
+def _work_done_mark():
+    return "✓" if os.environ.get("CIEL_RUNTIME_STATUSLINE_ANSI", "1").lower() in ("0", "false", "no") else "\x1b[32m✓\x1b[0m"
+
+
+def _work_item_mark(node):
+    return _work_done_mark() if node.get("status") == "done" else {
+        "pending": "[ ]", "in_progress": "[~]", "blocked": "[!]"}.get(node.get("status"), "[?]")
 
 
 def _work_status_clip(value, limit):
@@ -816,7 +838,7 @@ def work_board_status_text(session):
     steps_map = board.get("steps")
     steps_map = steps_map if isinstance(steps_map, dict) else {}
     active = str(board.get("activeItem") or "")
-    icons = {"running": ">", "done": "x", "planning": "~", "paused": "|"}
+    icons = {"running": ">", "done": _work_done_mark(), "planning": "~", "paused": "|"}
     lines = []
     for item in items:
         if not isinstance(item, dict):

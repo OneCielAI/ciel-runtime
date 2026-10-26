@@ -105,6 +105,7 @@ def build_default_config(provider_defaults: dict[str, Any]) -> dict[str, Any]:
         "claude_feedback_drafts": False,
         "work_mode": True,
         "work_plan_approval_ask": False,
+        "work_auto_continue": True,
         "remote_bridge": {
             "enabled": False,
             "host": "0.0.0.0",
