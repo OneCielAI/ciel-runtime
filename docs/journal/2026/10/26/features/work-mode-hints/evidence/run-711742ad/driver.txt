@@ -1,0 +1,19 @@
+owned router: yes
+owned cmd: yes
+owned window: yes
+interactive ready: yes
+start notice: yes
+empty plan hint: yes
+console command: yes
+help: yes
+console command: yes
+bare summary: yes
+console command: yes
+planning toast: yes
+planning deny text: yes
+numbered band: yes
+main finished: yes
+owned stop 66960 SUCCESS: The process with PID 61120 (child process of PID 66960) has been terminated.
+SUCCESS: The process with PID 66960 (child process of PID 49736) has been terminated.
+owned stop 67560 SUCCESS: The process with PID 67560 (child process of PID 69068) has been terminated.
+evidence C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-mode-hints\evidence\run-711742ad

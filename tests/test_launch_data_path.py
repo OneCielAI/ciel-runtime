@@ -864,7 +864,7 @@ class CodexAppServerLaunchTests(ResolverHarness):
                 restart=runtime_launch.SessionRestartPorts(),
                 data_path=resolver,
             )
-            stack.enter_context(redirect_stdout(io.StringIO()))
+            self.server_stdout = stack.enter_context(redirect_stdout(io.StringIO()))
             self.assertEqual(0, runtime_launch.run_codex_app_server(["--listen", "ws://127.0.0.1:8899"], services=services, desktop=session))
         return launches
 
@@ -873,9 +873,10 @@ class CodexAppServerLaunchTests(ResolverHarness):
 
     def test_work_instructions_survive_app_server_and_remote_tui_materialization(self):
         from ciel_runtime_support.codex_app_server_session import remote_tui_command
-        from ciel_runtime_support.work_mode_launch import WORK_MODE_INSTRUCTIONS
+        from ciel_runtime_support.work_mode_launch import WORK_MODE_INSTRUCTIONS, WORK_MODE_LAUNCH_NOTICE
 
         launches = self.run_server(None)
+        self.assertEqual(1, self.server_stdout.getvalue().splitlines().count(WORK_MODE_LAUNCH_NOTICE))
         command = launches[0][0]
         for args in (command, remote_tui_command(command, "ws://127.0.0.1:8899")):
             entries = [arg for arg in args if arg.startswith("developer_instructions=")]

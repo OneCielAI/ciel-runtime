@@ -83,6 +83,29 @@ class WorkModeLaunchTests(unittest.TestCase):
         self.assertNotIn(f'{key}="approve"', args)
         self.assertEqual(16, len(args))
 
+    def test_launch_notice_follows_work_mode_applies(self):
+        for enabled in (False, True):
+            for native in (False, True):
+                for attached in (False, True):
+                    with self.subTest(enabled=enabled, native=native, attached=attached):
+                        notice = w.work_mode_launch_notice({"work_mode": enabled}, native=native,
+                                                           router_mcp_attached=attached)
+                        self.assertEqual(notice, w.WORK_MODE_LAUNCH_NOTICE if enabled and not native and attached else "")
+        self.assertIn("LLM options -> Work mode", w.WORK_MODE_LAUNCH_NOTICE)
+
+    def test_triage_and_numbering_guidance_reaches_codex_and_the_tools(self):
+        from ciel_runtime_support.work_mcp_tools import work_tool_schemas
+
+        self.assertIn('its item number where possible ("1. ...", "2. ...")', w.WORK_MODE_INSTRUCTIONS)
+        self.assertIn("goes under that item as a child (work_node_add with parent_id)", w.WORK_MODE_INSTRUCTIONS)
+        self.assertIn("queues behind the unfinished active goal", w.WORK_MODE_INSTRUCTIONS)
+        self.assertIn("LLM options -> Work mode", w.WORK_MODE_INSTRUCTIONS)
+        tools = {tool["name"]: tool["description"] for tool in work_tool_schemas()}
+        self.assertIn('its item number ("1. ...", "2. ...")', tools["work_plan_set"])
+        self.assertIn("queued behind it", tools["work_plan_set"])
+        self.assertIn("goes under that item", tools["work_node_add"])
+        self.assertIn("queued behind it", tools["work_node_add"])
+
     def test_codex_unrelated_override_preserves_work(self):
         for passthrough in ([], ["-c", 'model="other"'], ["--config", 'developer_instructions_extra="x"'],
                             ("resume", "--last")):

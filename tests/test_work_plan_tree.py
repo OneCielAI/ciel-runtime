@@ -111,8 +111,55 @@ class WorkPlanTreeTests(unittest.TestCase):
         self.assertFalse(t.readiness(self.doc)[0])
         t.add_node(self.doc, phase, "action")
         self.assertTrue(t.readiness(self.doc)[0])
-        t.add_node(self.doc, None, "unplanned other goal")
+        other = t.add_node(self.doc, None, "unplanned other goal")
+        # The new goal queues; the planned active goal stays ready.
+        self.assertTrue(t.readiness(self.doc)[0])
+        t.select_root(self.doc, other)
         self.assertFalse(t.readiness(self.doc)[0])
+
+    def test_new_goals_queue_behind_the_unfinished_active_goal(self):
+        root, phase, one, two = self.plan()
+        self.doc["phase"] = "executing"
+        second = t.set_plan(self.doc, {"title": "2. second", "children": [{"title": "p", "children": [{"title": "s"}]}]})
+        third = t.add_node(self.doc, None, "3. third")
+        self.assertEqual((self.doc["active_root"], self.doc["phase"]), (root, "executing"))
+        self.assertEqual([n["id"] for n in t.queued_roots(self.doc)], [second, third])
+        snap = t.snapshot(self.doc)
+        self.assertEqual([(q["id"], q["done"], q["total"]) for q in snap["queue"]], [(second, 0, 1), (third, 0, 0)])
+        rendered = t.render(self.doc)
+        self.assertIn(f"Queued goals (next first): {second} 2. second (pending); {third} 3. third (pending)", rendered)
+        # A dependent request under a queued goal does not touch the active goal either.
+        t.add_node(self.doc, third, "child of three")
+        t.set_plan(self.doc, {"title": "2. second revised", "children": [{"title": "p2"}]}, second)
+        self.assertEqual((self.doc["active_root"], self.doc["phase"]), (root, "executing"))
+        # Finishing the active goal activates the oldest queued goal in planning.
+        t.update_node(self.doc, one, status="done", evidence="verified")
+        t.update_node(self.doc, two, status="done", evidence="verified")
+        self.assertEqual((self.doc["active_root"], self.doc["phase"]), (second, "planning"))
+        self.assertEqual([n["id"] for n in t.queued_roots(self.doc)], [third])
+        self.assertIn(f"Finished goals: {root} goal", t.render(self.doc))
+
+    def test_first_goal_and_goal_after_finished_one_become_active(self):
+        root, _, one, two = self.plan()
+        for leaf in (one, two):
+            t.update_node(self.doc, leaf, status="done", evidence="verified")
+        self.assertEqual(self.doc["active_root"], root)
+        nxt = t.add_node(self.doc, None, "next")
+        self.assertEqual((self.doc["active_root"], self.doc["phase"]), (nxt, "planning"))
+
+    def test_reopened_finished_goal_queues_and_removing_active_child_advances(self):
+        root, phase, one, two = self.plan()
+        t.update_node(self.doc, one, status="done", evidence="verified")
+        second = t.add_node(self.doc, None, "second")
+        second_step = t.add_node(self.doc, t.add_node(self.doc, second, "phase"), "step")
+        self.assertEqual(self.doc["active_root"], root)
+        t.remove_node(self.doc, two)
+        self.assertEqual((self.doc["active_root"], self.doc["phase"]), (second, "planning"))
+        t.add_node(self.doc, phase, "dependent follow-up")
+        self.assertEqual(self.doc["active_root"], second)
+        self.assertEqual([n["id"] for n in t.queued_roots(self.doc)], [root])
+        t.update_node(self.doc, second_step, status="done", evidence="verified")
+        self.assertEqual(self.doc["active_root"], root)
 
     def test_next_priority(self):
         _, _, one, two = self.plan()

@@ -1,0 +1,8 @@
+HEAD 2a7e4c4b3f4d5107be90e1422f24cdd7d3259378 branch nightly-20261026 origin/nightly 2a7e4c4b3f4d5107be90e1422f24cdd7d3259378
+tracked changes:
+ M docs/journal/2026/10/17/diagnostics/tls-eof/evidence/passthrough-after-wire.txt
+ M docs/journal/2026/10/17/diagnostics/tls-eof/evidence/passthrough-before-wire.txt
+router 9505:
+{'version': '0.2.51-nightly.20261026-162537.2faae14', 'source_fingerprint': '72c6bfb456e30cd7', 'pid': 38368, 'workspace': 'g:\\ciel-walkie', 'active_client_pids': [48420]}
+router 9524:
+{'version': '0.2.51', 'source_fingerprint': 'f86ee3638ee760f3', 'pid': 25276, 'workspace': 'c:\\users\\djlov\\ciel-runtime', 'active_client_pids': [63248]}

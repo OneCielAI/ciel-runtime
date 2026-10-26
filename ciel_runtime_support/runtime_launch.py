@@ -35,7 +35,8 @@ from ciel_runtime_support.runtime_session_restart import (
 from ciel_runtime_support.session_resume_last import ResumeLastRequest, resume_last_requested
 from ciel_runtime_support.startup_prompt_answers import STARTUP_AUTO_ANSWER_ENV
 from ciel_runtime_support.workspace_mcp import renew_launch_command
-from ciel_runtime_support.work_mode_launch import claude_work_mode_args, codex_work_mode_args, work_mode_applies
+from ciel_runtime_support.work_mode_launch import (claude_work_mode_args, codex_work_mode_args, work_mode_applies,
+                                                   work_mode_launch_notice)
 from ciel_runtime_support.web_endpoints import (
     current_web_workspace,
     web_backend_owned_by_workspace,
@@ -1288,6 +1289,9 @@ def run_codex(
     codex_mcp_compat_args.extend(codex_work_mode_args(
         cfg, native=use_native_codex, router_mcp_attached=codex_router_mcp, passthrough=codex_passthrough,
     ))
+    codex_work_notice = work_mode_launch_notice(cfg, native=use_native_codex, router_mcp_attached=codex_router_mcp)
+    if codex_work_notice:
+        print(codex_work_notice, flush=True)
     workspace_mcp_launch = (
         workspace_mcp.prepare("codex", cfg, env, native=native_codex_enabled(provider)) if workspace_mcp is not None else None
     )
@@ -1772,6 +1776,10 @@ def run_codex_app_server(
     session_label = str(getattr(desktop, "display_name", "desktop app")) if desktop is not None else "App Server"
     session_mode = str(getattr(desktop, "launch_mode", "codex-desktop-router")) if desktop is not None else ""
     print(f"Launching Codex {session_label} through Ciel Runtime.", flush=True)
+    app_server_work_notice = work_mode_launch_notice(
+        cfg, native=use_native_codex, router_mcp_attached=app_server_router_mcp)
+    if app_server_work_notice:
+        print(app_server_work_notice, flush=True)
     actual_listen = next((arg.split("=", 1)[1] for arg in cmd if arg.startswith("--listen=")), "")
     if "--listen" in cmd and cmd.index("--listen") + 1 < len(cmd):
         actual_listen = cmd[cmd.index("--listen") + 1]

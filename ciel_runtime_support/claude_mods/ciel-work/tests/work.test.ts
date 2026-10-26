@@ -215,6 +215,89 @@ test('detail state is hidden after version or conversation changes and offline',
   expect(await pane.find({ key: 'node-a' })).toBeUndefined()
   await pane.unmount()
 })
+function hints(on, extra = {}) {
+  const s = setup(on, extra); s.logs = []; s.toasts = []
+  on('ui.log', (_, e) => { s.logs.push(e.text); return { value: undefined } })
+  on('ui.toast', (_, e) => { s.toasts.push(e.text); return { value: undefined } })
+  return s
+}
+test('interactive start logs one person-facing notice; -p and off do not', async ($, on) => {
+  const s = hints(on)
+  await $.session.start({ surface: null, isInteractive: false, cwd: '/isolated' })
+  expect(s.logs.length).toBe(0)
+  await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
+  expect(s.logs.length).toBe(1)
+  expect(s.logs[0]).toContain('/work-mode help')
+  expect(s.logs[0]).toContain('LLM options → Work mode')
+  s.snapshot.enabled = false
+  await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
+  expect(s.logs.length).toBe(1)
+})
+test('planning denial explains itself and toasts once per plan version', async ($, on) => {
+  const s = hints(on)
+  const first = await $.tool.call({ tool: 'Edit', file_path: '/x' })
+  expect(first.deny).toContain('work_execute')
+  expect(first.deny).toContain('/work-mode help')
+  await $.tool.call({ tool: 'Write', file_path: '/x', content: 'x' })
+  expect((await $.tool.check({ tool: 'Bash', input: {} })).decision).toBe('deny')
+  expect(s.toasts.length).toBe(1)
+  s.snapshot.version++
+  await $.tool.check({ tool: 'Bash', input: {} })
+  expect(s.toasts.length).toBe(2)
+  s.offline = true
+  await $.tool.call({ tool: 'Edit', file_path: '/x' })
+  expect(s.toasts.length).toBe(2)
+})
+test('help, readable bare command and raw status', async ($, on) => {
+  const s = hints(on, { breakdown: [{ id: 'p1', title: '1. Parser', status: 'pending', done: 0, total: 2 }],
+    next: { id: 'n1', title: 'Write tokenizer', status: 'pending' } })
+  await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
+  expect(s.registered.argumentHint).toContain('help')
+  const help = (await $.command.run({ command: 'work-mode', args: 'help' })).text
+  expect(help).toContain('its own numbered item')
+  expect(help).toContain('added under that item')
+  expect(help).toContain('Ctrl+X Tab')
+  expect(help).toContain('LLM options')
+  const bare = (await $.command.run({ command: 'work-mode', args: '' })).text
+  expect(bare).toContain('planning · 0/2 steps')
+  expect(bare).toContain('[ ] 1. Parser 0/2')
+  expect(bare).toContain('Next: Write tokenizer')
+  expect(bare.includes('{')).toBe(false)
+  expect((await $.command.run({ command: 'work-mode', args: 'status' })).text).toContain('"version": 1')
+  expect((await $.command.run({ command: 'work-mode', args: 'bogus' })).text).toContain('help|view|tree|status')
+  s.snapshot.enabled = false
+  expect((await $.command.run({ command: 'work-mode', args: '' })).text).toContain('LLM options → Work mode')
+  expect(s.tools.length).toBe(0)
+})
+test('band shows a hint while no plan exists and the phase once one does', async ($, on) => {
+  const s = inspection(on)
+  s.snapshot.active_root = null; s.snapshot.breakdown = []; s.snapshot.total = 0
+  await $.command.run({ command: 'work-mode', args: 'status' })
+  const band = await $.ui.mount(BAND)
+  expect((await band.find({ type: 'Text', text: /no plan yet/ }))?.text).toContain('/work-mode help')
+  s.snapshot.active_root = { id: 'g1', title: 'Goal' }; s.snapshot.phase = 'planning'; s.snapshot.total = 2
+  await $.command.run({ command: 'work-mode', args: 'status' })
+  await band.redraw(BAND.props)
+  expect((await band.find({ type: 'Text', text: /Work planning 0\/2/ }))?.text).toContain('Goal')
+  await band.unmount()
+})
+test('triage guidance reaches the model; queue shows in band and summary without becoming focusable', async ($, on) => {
+  const s = inspection(on)
+  const r = await $.prompt.submit({ text: 'new request', wait: false })
+  expect(r.context[0]).toContain('Triage every new user request')
+  expect(r.context[0]).toContain('goes under that item as a child')
+  s.snapshot.queue = Array.from({ length: 5 }, (_, i) => ({ id: 'q' + i, title: (i + 2) + '. Queued ' + i, status: 'pending', done: 0, total: 2 }))
+  await $.command.run({ command: 'work-mode', args: 'status' })
+  const band = await $.ui.mount(BAND)
+  expect((await band.find({ type: 'Text', text: /Queued: \[ \] 2\. Queued 0/ }))?.text).toContain('0/2')
+  expect((await band.find({ type: 'Text', text: /more queued/ }))?.text).toContain('+2 more queued')
+  expect(await band.find({ type: 'Text', text: /Queued 3/ })).toBeUndefined()
+  expect((await band.findAll({ type: 'Button' })).length).toBe(3)
+  await band.unmount()
+  const summary = (await $.command.run({ command: 'work-mode', args: '' })).text
+  expect(summary).toContain('Queue (next first):')
+  expect(summary).toContain('[ ] 6. Queued 4 0/2')
+})
 test('survey yields, disabled hides, long branch list retains every item', async ($, on) => {
   const s = inspection(on)
   s.snapshot.breakdown = Array.from({ length: 20 }, (_, i) => ({ id: 'b'+i, title: 'Branch '+i, status: 'pending', done: 0, total: 1 }))

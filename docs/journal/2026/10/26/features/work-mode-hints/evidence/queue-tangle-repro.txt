@@ -1,0 +1,20 @@
+Live reproduction on this session's own Work plan, router 9524 (pid 25276, source fingerprint f86ee3638ee760f3,
+code before this change). 2026-10-26.
+
+Before: work_status json version 68
+  phase executing, active_root n66 "1. Work mode hints, request triage and queue integrity; local + nightly deploy"
+  (in_progress, 11/16 steps done)
+
+Action: work_node_add with no parent_id, title "2. Walkie (g:\ciel-walkie, router 9505): ..." and 6 child steps
+  (an independent request that should wait behind n66).
+
+After: work_status json version 69
+  phase planning, active_root n98 (the new item), done 0/6.
+  The running goal n66 lost the active slot and execution stopped: the Claude mod denies edits while the phase is
+  planning, so the current work was blocked by a request that was only meant to be queued.
+
+Recovery used: work_select n66, add the remaining n66 phases, work_execute.
+
+Cause in code: ciel_runtime_support/work_plan_tree.py add_node() sets doc["active_root"] = node_id and
+doc["phase"] = PHASE_PLANNING for every new root (parent_id is None), regardless of an unfinished active goal.
+set_plan() without root_id goes through add_subtree() -> add_node(), so work_plan_set behaves the same.

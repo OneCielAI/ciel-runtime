@@ -368,11 +368,65 @@ Work 모드는 Plan 모드처럼 먼저 계획을 세우되, 목표 → 단계 �
 | | `/work-mode` (이 기능) | `/work` (기존 외부 명령) |
 |---|---|---|
 | 제공 위치 | 런타임 번들 모드 `ciel-work`가 세션 시작 시 등록 | 사용자 전역 명령 `~/.claude/commands/work.md` → ciel-code `work` CLI |
-| 인자 | `status` (기본) \| `tree` | ciel-code 작업 보드 명령 |
+| 인자 | 없음(요약) \| `help` \| `view` \| `tree` \| `status`(JSON) | ciel-code 작업 보드 명령 |
 | 저장소 | 라우터의 대화별 Work 계획 | ciel-code `CONFIG_DIR()/boards/sessions/<session-id>/active.json` (별도 CLI 보드) |
 
 두 명령은 데이터를 공유하지 않는다. 외부 `/work`의 세션 공유 버그는 별도 수정으로 로컬 배포했다.
 이 기능의 계획과 외부 CLI 보드는 서로 이관하거나 합치지 않는다.
+
+### 사용 힌트
+
+사용자에게 보이는 안내(모델에는 보내지 않는 것)와 모델 지침을 구분한다.
+
+| 위치 | 언제 | 내용 |
+|---|---|---|
+| 대화 기록 알림 (`$.ui.log`, 모델 미전달) | Claude 대화형 세션 시작, Work 켜짐 | 계획 먼저(`work_plan_set`) → `work_execute` 후 편집, `/work-mode help`, 끄는 위치 |
+| 프롬프트 위 줄 | 계획 없음 | `Work mode: no plan yet … /work-mode help` |
+| 프롬프트 위 목록 머리 | 계획 있음 | `Work planning` 또는 `Work running` + 진행률, 큐 목표(`Queued: …`), 키 안내 끝에 `/work-mode help` |
+| 토스트 (`$.ui.toast`) | 계획 단계에서 쓰기·셸이 거부될 때 | 대화·계획 버전마다 한 번 |
+| 거부 사유 (모델과 사용자 모두 봄) | 계획 단계 쓰기·셸 거부 | `work_plan_set` 후 `work_execute`, `/work-mode help` |
+| 콘솔 한 줄 | Codex TUI·app-server 실행 전, Work 적용 시 | Work 켜짐, 끄는 위치. Codex는 모드 UI가 없어 실행 전 콘솔에만 찍는다 |
+
+`/work-mode` 명령(Claude):
+
+- 인자 없음: 단계·진행률·승인 방식, 활성 목표의 항목 목록, 다음 스텝, 큐를 읽기 쉬운 요약으로 보여 준다.
+- `help`: 계획/실행 흐름, 새 요청 처리(독립 요청은 번호 붙은 새 아이템으로 큐, 변경 요청은 해당 아이템 아래),
+  프롬프트 위 목록 키(Ctrl+X Tab 포커스, Tab/↑↓ 선택, Enter 상세, Esc 복귀), 하위 명령, 설정 위치.
+- `view`: 키보드 상세 보기 창, `tree`: 계획 트리, `status`: 원본 스냅샷(JSON).
+
+Codex 지침은 사용자가 Work 모드 사용법을 물으면 간단히 설명하고 끄는 위치를 알려 주라고 덧붙인다.
+
+### 새 요청 분류와 작업 큐
+
+모델 지침(Claude 모드 프롬프트 문맥, Codex `developer_instructions`, `work_plan_set`·`work_node_add`
+도구 설명)은 새 사용자 요청마다 먼저 분류하라고 안내한다.
+
+- **독립 요청** → 별도 목표(루트 레벨 아이템). 가능하면 제목을 아이템 번호로 시작(`"1. ..."`, `"2. ..."`).
+- **기존 아이템을 바꾸거나 늘리는 요청** → 그 아이템 아래 자식으로 추가(`work_node_add`의 `parent_id`).
+
+번호는 안내일 뿐 라우터가 붙이거나 강제하지 않는다. 큐 동작은 라우터가 보장한다
+(`work_plan_tree.py`):
+
+| 상황 | 동작 |
+|---|---|
+| 끝나지 않은 활성 목표가 있을 때 새 목표 추가 (`work_plan_set` 또는 `parent_id` 없는 `work_node_add`) | 새 목표는 큐에 들어가고, 활성 목표와 단계(`executing` 등)는 그대로 |
+| 활성 목표가 없거나 이미 끝났을 때 새 목표 추가 | 새 목표가 바로 활성, `planning` |
+| 큐에 있는 목표나 끝난 목표를 `root_id`로 다시 계획 | 활성 목표는 그대로, 그 목표는 큐에 남음 |
+| 큐에 있는 목표 아래 자식 추가 | 활성 목표·단계 변화 없음 |
+| 끝난 목표 아래 자식 추가 | 그 목표가 다시 열려 생성 순서 위치로 큐에 들어감 |
+| 활성 목표의 마지막 스텝 완료(또는 남은 스텝 제거) | 가장 오래된 큐 목표가 활성이 되고 `planning`. 실행하려면 `work_execute` |
+| `work_select` | 사용자가 고른 목표를 지금 활성으로 바꾸고 `planning` |
+
+- 스냅샷(`work_status` JSON)에 `queue`(활성 목표 다음 순서, 최대 20개, 진행률 포함)가 추가됐다.
+  텍스트 트리는 `Queued goals (next first)`와 `Finished goals` 줄로 나눠 보여 준다.
+- Claude 프롬프트 위 목록은 활성 목표의 항목 아래에 `Queued: …` 줄을 최대 3개(나머지는 `+N more queued`)
+  보여 준다. 이 줄은 포커스 대상이 아니다. `/work-mode` 요약에는 `Queue (next first):` 목록이 붙는다.
+- 이 변경 전에는 새 목표를 추가하면 실행 중인 목표가 활성 자리를 잃고 `planning`으로 돌아가
+  Claude 편집이 막혔다(2026-10-26 실측 재현, 작업 저널 참고).
+
+끄기·승인 방식: `ciel-runtime` 메뉴 → `LLM options` → `Work mode`(on/off), `Work plan approval`(auto/ask).
+라우터는 Work 도구 호출마다 설정을 다시 읽는다(`work_mcp_tools.dispatch_work_tool`). Work 모드가 꺼진
+상태로 시작한 Claude 세션에는 모드가 붙지 않는다.
 
 ### 계획 단계와 승인
 

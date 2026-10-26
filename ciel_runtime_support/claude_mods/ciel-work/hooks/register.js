@@ -9,12 +9,31 @@ const WORK = new Set(['work_status', 'work_plan_set', 'work_node_add', 'work_nod
 const WRITES = new Set(['Edit', 'Write', 'NotebookEdit', 'apply_patch'])
 const SHELLS = new Set(['Bash', 'PowerShell'])
 const UNAVAILABLE = 'Work status unavailable: router connection or snapshot could not be verified.'
+const PLANNING = 'Work mode is planning: edits and state-changing commands wait until the plan is approved. '
+  + 'Build it with work_plan_set, then call work_execute. (/work-mode help)'
+const NOTICE = 'Ciel Work mode is on: the model plans first (work_plan_set) and edits after work_execute. '
+  + 'Items show above the prompt · /work-mode help · turn off: ciel-runtime menu → LLM options → Work mode'
+const HELP = [
+  'Ciel Work mode — plan first, then execute',
+  '• Planning: the model builds a plan with work_plan_set: goal → phases → tasks → verifiable steps. Reading is allowed; edits and state-changing commands wait.',
+  '• New requests: an independent request becomes its own numbered item ("2. …") and waits in the queue behind the active item; a change to an existing item is added under that item.',
+  '• Executing: after work_execute (automatic, or your approval when set to ask) the model works step by step and marks each step done with evidence.',
+  '• Above the prompt: Ctrl+X Tab focuses the items · Tab/↑↓ select · Enter inspects · Esc returns.',
+  '• /work-mode view: keyboard inspector · /work-mode tree: plan tree · /work-mode status: raw snapshot (JSON) · /work-mode help: this help',
+  '• Settings: ciel-runtime menu → LLM options → Work mode (on/off) and Work plan approval (auto/ask).',
+].join('\n')
 let cached = null
 let enabled = true
 let generation = 0
 let cachedSession = null
+let hinted = ''
 const INSTRUCTIONS = 'Ciel Work mode is on. Before edits or state-changing commands, use '
-  + 'work_plan_set: goal -> phases -> tasks -> concrete verifiable steps. Read-only exploration '
+  + 'work_plan_set: goal -> phases -> tasks -> concrete verifiable steps. Triage every new user '
+  + 'request first: an independent request becomes its own goal (root-level item), its title starting '
+  + 'with its item number where possible ("1. ...", "2. ..."); a request that changes or extends an '
+  + 'existing item goes under that item as a child (work_node_add with parent_id). A new goal queues '
+  + 'behind the unfinished active goal and becomes active when it is done; keep the active goal going. '
+  + 'Read-only exploration '
   + 'is allowed while planning. Call work_execute when ready; auto approval is default and '
   + 'configured ask approval uses the Work dialog. Never supply user_confirmed yourself. '
   + 'During execution mark the current leaf in_progress with work_node_update, then done only '
@@ -54,7 +73,28 @@ async function refresh($) {
 function blocked(s) {
   if (s?.enabled === false || (!s && !enabled)) return ''
   if (!s) return UNAVAILABLE
-  return s.phase === 'planning' ? 'Work is planning. Build the plan and call work_execute before changing state.' : ''
+  return s.phase === 'planning' ? PLANNING : ''
+}
+// One toast per conversation and plan version: the deny text itself goes to the model.
+function hintPlanning($, s, reason) {
+  if (reason !== PLANNING || !cachedSession) return
+  const key = cachedSession + ':' + s.version
+  if (hinted === key) return
+  hinted = key
+  try { $.ui.toast('Work mode is planning: edits wait for the approved plan · /work-mode help', { timeoutMs: 6000 }) } catch {}
+}
+function summary(s) {
+  const lines = ['Ciel Work mode: ' + s.phase + ' · ' + s.done + '/' + s.total + ' steps · approval ' + s.approval]
+  if (!s.active_root) lines.push('No plan yet — the model plans before editing.')
+  else lines.push('Goal: ' + clipped(s.active_root.title, 200))
+  for (const b of s.breakdown || []) lines.push('  ' + mark(b.status) + ' ' + clipped(b.title, 200) + ' ' + b.done + '/' + b.total)
+  if (s.next?.title) lines.push('Next: ' + clipped(s.next.title, 200))
+  if (s.queue?.length) {
+    lines.push('Queue (next first):')
+    for (const q of s.queue) lines.push('  ' + mark(q.status) + ' ' + clipped(q.title, 200) + ' ' + q.done + '/' + q.total)
+  }
+  lines.push('/work-mode help · view · tree · status')
+  return lines.join('\n')
 }
 async function planText($) {
   return textOf(await $.mcp.call('ciel-runtime-router', 'work_status', { format: 'text', session_id: await sessionId($) }))
@@ -65,6 +105,14 @@ function clipped(value, limit) {
 }
 function breakdownLabel(s) {
   return 'work: ' + (s.phase === 'planning' ? 'plan' : 'run') + ' ' + s.done + '/' + s.total
+}
+// Goals waiting behind the active one, oldest first; plain rows, the active goal keeps the focus ring.
+function queued(s, width, Text) {
+  const queue = s.queue || []
+  const rows = queue.slice(0, 3).map(q => Text({ key: 'queue-' + q.id, dimColor: true,
+    children: 'Queued: ' + mark(q.status) + ' ' + clipped(q.title, width) + ' ' + q.done + '/' + q.total }))
+  if (queue.length > 3) rows.push(Text({ key: 'queue-more', dimColor: true, children: '+' + (queue.length - 3) + ' more queued · /work-mode' }))
+  return rows
 }
 function mark(status) {
   return ({ pending: '[ ]', in_progress: '[~]', done: '[x]', blocked: '[!]' })[status] || '[?]'
@@ -94,9 +142,11 @@ async function openDetails($, id = null, origin = null) {
 }
 export function register(on) {
   on('session.start', async ($, e, next) => {
-    await $.command.register({ name: 'work-mode', description: 'Inspect Work items with the keyboard, or show status/tree',
-      argumentHint: '[view|status|tree]', immediate: true })
-    await refresh($)
+    await $.command.register({ name: 'work-mode', description: 'Work mode: summary, help, keyboard inspector, tree or raw status',
+      argumentHint: '[help|view|tree|status]', immediate: true })
+    const s = await refresh($)
+    // A transcript notice for the person; the model never reads it.
+    if (e.isInteractive && s?.enabled) { try { $.ui.log(NOTICE) } catch {} }
     return next(e)
   })
   on('prompt.submit', async ($, e, next) => {
@@ -107,16 +157,18 @@ export function register(on) {
       + (s ? JSON.stringify(s).slice(0, 2400) : UNAVAILABLE)] })
   })
   on('command.run', { command: 'work-mode' }, async ($, e) => {
-    const arg = e.args.trim() || 'status'
-    if (!['view', 'status', 'tree'].includes(arg)) return { text: 'Usage: /work-mode view|status|tree' }
+    const arg = e.args.trim()
+    if (!['', 'help', 'view', 'status', 'tree'].includes(arg)) return { text: 'Usage: /work-mode [help|view|tree|status]' }
+    if (arg === 'help') return { text: HELP }
     if (arg === 'view') { await openDetails($); return { text: 'Work inspector: Tab/arrows navigate, Enter opens, Esc returns.' } }
     const s = await refresh($)
     if (!s) return { text: UNAVAILABLE }
-    if (!s.enabled) return { text: 'Ciel Work mode is off.' }
+    if (!s.enabled) return { text: 'Ciel Work mode is off. Turn it on: ciel-runtime menu → LLM options → Work mode.' }
     if (arg === 'tree') {
       try { return { text: await planText($) } }
       catch { return { text: 'Work tree unavailable.' } }
     }
+    if (arg === '') return { text: summary(s) }
     return { text: 'Ciel Work mode\n' + JSON.stringify(s, null, 2) }
   })
   on('tool.call', async ($, e, next) => {
@@ -126,7 +178,7 @@ export function register(on) {
     let s = null
     if (name || knownWrite || SHELLS.has(e.tool)) s = await refresh($)
     if (SHELLS.has(e.tool) && !s && enabled) return { deny: UNAVAILABLE }
-    if (knownWrite) { const reason = blocked(s); if (reason) return { deny: reason } }
+    if (knownWrite) { const reason = blocked(s); if (reason) { hintPlanning($, s, reason); return { deny: reason } } }
     let input = e
     if (name) {
       try { input = { ...e, session_id: await sessionId($) } }
@@ -159,12 +211,13 @@ export function register(on) {
   // Classification comes from the engine. Permission bypass may skip tool.check.
   on('tool.check', async ($, e, next) => {
     if (!SHELLS.has(e.tool) && !WRITES.has(e.tool)) return next(e)
-    const reason = blocked(await refresh($))
-    if (reason && (WRITES.has(e.tool) || e.isReadOnly !== true)) return { decision: 'deny', reason }
+    const s = await refresh($)
+    const reason = blocked(s)
+    if (reason && (WRITES.has(e.tool) || e.isReadOnly !== true)) { hintPlanning($, s, reason); return { decision: 'deny', reason } }
     return next(e)
   })
   on('session.end', async ($, e, next) => {
-    generation++; cached = null; cachedSession = null
+    generation++; cached = null; cachedSession = null; hinted = ''
     await update($, detailView, () => null)
     return next(e)
   })
@@ -174,17 +227,19 @@ export function register(on) {
     const origin = cachedSession
     const { Box, Button, Text } = $.ui.resolve(e)
     if (!cached) return Text({ dimColor: true, children: 'Work unavailable — /work-mode status' })
-    if (!cached.active_root) return next(e)
+    if (!cached.active_root) return Text({ dimColor: true, children: 'Work mode: no plan yet — the model plans before editing · /work-mode help' })
     const width = Math.max(16, e.props.bodyColumns - 8)
     const rows = (cached.breakdown || []).map((b, i) => Button({ key: 'branch-' + b.id,
       plain: true, ...(i < 9 ? { hotkey: String(i + 1) } : {}), ...(i === 0 ? { autoFocus: true } : {}),
       label: mark(b.status) + ' ' + clipped(b.title, width) + ' ' + b.done + '/' + b.total,
       onPress: () => openDetails($, b.id, origin) }))
     return Box({ flexDirection: 'column', children: [
-      Text({ bold: true, children: 'Work ' + cached.done + '/' + cached.total + ' — ' + clipped(cached.active_root.title, width) }),
+      Text({ bold: true, children: 'Work ' + (cached.phase === 'planning' ? 'planning' : 'running') + ' ' + cached.done + '/'
+        + cached.total + ' — ' + clipped(cached.active_root.title, width) }),
       ...rows,
+      ...queued(cached, width, Text),
       Button({ key: 'work-all', plain: true, label: 'All items / refresh', hotkey: 'w', onPress: () => openDetails($, null, origin) }),
-      Text({ dimColor: true, children: 'Ctrl+X Tab: focus · Tab/↑↓: select · Enter: inspect · Esc: return' }),
+      Text({ dimColor: true, children: 'Ctrl+X Tab: focus · Tab/↑↓: select · Enter: inspect · Esc: return · /work-mode help' }),
     ] })
   })
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e, next) => {

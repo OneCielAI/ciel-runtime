@@ -1,0 +1,19 @@
+owned router: yes
+owned cmd: yes
+owned window: yes
+interactive ready: yes
+start notice: yes
+empty plan hint: yes
+console command: yes
+help: yes
+console command: yes
+bare summary: yes
+console command: yes
+planning deny text: yes
+planning toast: NO
+numbered band: yes
+main finished: yes
+owned stop 71712 SUCCESS: The process with PID 64152 (child process of PID 71712) has been terminated.
+SUCCESS: The process with PID 71712 (child process of PID 49736) has been terminated.
+owned stop 72132 SUCCESS: The process with PID 72132 (child process of PID 33224) has been terminated.
+evidence C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-mode-hints\evidence\run-ef0277ad

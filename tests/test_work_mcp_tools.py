@@ -109,7 +109,9 @@ class WorkMcpToolsTests(unittest.TestCase):
         node = next(n for n in detail["nodes"] if n["id"] == leaf)
         self.assertEqual((node["note"], node["evidence"]), ("Inspect this", "Verified output"))
         self.assertEqual(self.store.read(), before)
-        self.assertNotIn("other private goal", json.dumps(detail))
+        # Detail nodes stay with the active goal; the queued goal appears only as a queue entry.
+        self.assertNotIn("other", json.dumps(detail["nodes"]))
+        self.assertEqual([q["title"] for q in detail["queue"]], ["other private goal"])
 
     def test_auto_execute_and_replan(self):
         self.plan()
@@ -167,6 +169,25 @@ class WorkMcpToolsTests(unittest.TestCase):
                                   children=[{"title": "new"}])["error"])
         self.assertEqual(len(self.store.read()["nodes"]), 3)
         self.assertEqual(self.store.read()["active_root"], root)
+
+    def test_independent_request_queues_and_activates_after_the_active_goal(self):
+        doc = self.plan()
+        root = doc["active_root"]
+        self.assertFalse(self.call("work_execute")["error"])
+        queued = self.call("work_plan_set", goal="2. next request",
+                           children=[{"title": "p", "children": [{"title": "s"}]}])
+        self.assertIn(f"queued behind the active goal {root}", queued["text"])
+        added = self.call("work_node_add", title="3. later request")
+        self.assertIn(f"queued behind the active goal {root}", added["text"])
+        snap = json.loads(self.call("work_status", format="json")["text"])
+        self.assertEqual((snap["active_root"]["id"], snap["phase"]), (root, "executing"))
+        self.assertEqual([q["title"] for q in snap["queue"]], ["2. next request", "3. later request"])
+        for leaf in doc["nodes"][2:]:
+            response = self.call("work_node_update", id=leaf["id"], status="done", evidence="verified")
+        self.assertIn("next queued goal", response["text"])
+        snap = json.loads(self.call("work_status", format="json")["text"])
+        self.assertEqual((snap["active_root"]["title"], snap["phase"]), ("2. next request", "planning"))
+        self.assertEqual([q["title"] for q in snap["queue"]], ["3. later request"])
 
     def test_cas_errors_do_not_mutate(self):
         doc = self.plan()

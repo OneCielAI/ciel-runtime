@@ -1,0 +1,267 @@
+[
+ {
+  "n": 1,
+  "tag": "aux",
+  "stage": 0,
+  "tool_names": [],
+  "context_number_hint": false,
+  "plan_tool_number_hint": false,
+  "notice_sent_to_model": false,
+  "prior_results": [],
+  "response": [
+   {
+    "type": "text",
+    "text": "E2EHINT-AUX-OK"
+   }
+  ]
+ },
+ {
+  "n": 2,
+  "tag": "main",
+  "stage": 0,
+  "tool_names": [
+   "Agent",
+   "AskUserQuestion",
+   "Bash",
+   "CronCreate",
+   "CronDelete",
+   "CronList",
+   "Edit",
+   "EnterPlanMode",
+   "EnterWorktree",
+   "ExitPlanMode",
+   "ExitWorktree",
+   "Glob",
+   "Grep",
+   "ListAgents",
+   "Monitor",
+   "NotebookEdit",
+   "Read",
+   "ReportFindings",
+   "ScheduleWakeup",
+   "SendMessage",
+   "Skill",
+   "TaskStop",
+   "WebFetch",
+   "WebSearch",
+   "Workflow",
+   "Write",
+   "mcp__ciel-runtime-router__compact_session",
+   "mcp__ciel-runtime-router__goal_clear",
+   "mcp__ciel-runtime-router__llm_options",
+   "mcp__ciel-runtime-router__new_session",
+   "mcp__ciel-runtime-router__provider_fallback",
+   "mcp__ciel-runtime-router__recover_sse_delivery",
+   "mcp__ciel-runtime-router__restart_session",
+   "mcp__ciel-runtime-router__send_file",
+   "mcp__ciel-runtime-router__session_backup",
+   "mcp__ciel-runtime-router__submit_input",
+   "mcp__ciel-runtime-router__telemetry_logs",
+   "mcp__ciel-runtime-router__work_execute",
+   "mcp__ciel-runtime-router__work_node_add",
+   "mcp__ciel-runtime-router__work_node_remove",
+   "mcp__ciel-runtime-router__work_node_update",
+   "mcp__ciel-runtime-router__work_plan_set",
+   "mcp__ciel-runtime-router__work_replan",
+   "mcp__ciel-runtime-router__work_select",
+   "mcp__ciel-runtime-router__work_status"
+  ],
+  "context_number_hint": true,
+  "plan_tool_number_hint": true,
+  "notice_sent_to_model": false,
+  "prior_results": [],
+  "served_tool": "Edit",
+  "response": [
+   {
+    "type": "tool_use",
+    "id": "toolu_h2",
+    "name": "Edit",
+    "input": {
+     "file_path": "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\features\\work-mode-hints\\evidence\\run-711742ad\\ws\\subject.txt",
+     "old_string": "BEFORE",
+     "new_string": "PLANNING-EDIT"
+    }
+   }
+  ]
+ },
+ {
+  "n": 3,
+  "tag": "main",
+  "stage": 1,
+  "tool_names": [
+   "Agent",
+   "AskUserQuestion",
+   "Bash",
+   "CronCreate",
+   "CronDelete",
+   "CronList",
+   "Edit",
+   "EnterPlanMode",
+   "EnterWorktree",
+   "ExitPlanMode",
+   "ExitWorktree",
+   "Glob",
+   "Grep",
+   "ListAgents",
+   "Monitor",
+   "NotebookEdit",
+   "Read",
+   "ReportFindings",
+   "ScheduleWakeup",
+   "SendMessage",
+   "Skill",
+   "TaskStop",
+   "WebFetch",
+   "WebSearch",
+   "Workflow",
+   "Write",
+   "mcp__ciel-runtime-router__compact_session",
+   "mcp__ciel-runtime-router__goal_clear",
+   "mcp__ciel-runtime-router__llm_options",
+   "mcp__ciel-runtime-router__new_session",
+   "mcp__ciel-runtime-router__provider_fallback",
+   "mcp__ciel-runtime-router__recover_sse_delivery",
+   "mcp__ciel-runtime-router__restart_session",
+   "mcp__ciel-runtime-router__send_file",
+   "mcp__ciel-runtime-router__session_backup",
+   "mcp__ciel-runtime-router__submit_input",
+   "mcp__ciel-runtime-router__telemetry_logs",
+   "mcp__ciel-runtime-router__work_execute",
+   "mcp__ciel-runtime-router__work_node_add",
+   "mcp__ciel-runtime-router__work_node_remove",
+   "mcp__ciel-runtime-router__work_node_update",
+   "mcp__ciel-runtime-router__work_plan_set",
+   "mcp__ciel-runtime-router__work_replan",
+   "mcp__ciel-runtime-router__work_select",
+   "mcp__ciel-runtime-router__work_status"
+  ],
+  "context_number_hint": true,
+  "plan_tool_number_hint": true,
+  "notice_sent_to_model": false,
+  "prior_results": [
+   {
+    "type": "tool_result",
+    "content": "<tool_use_error>Work mode is planning: edits and state-changing commands wait until the plan is approved. Build it with work_plan_set, then call work_execute. (/work-mode help)</tool_use_error>",
+    "is_error": true,
+    "tool_use_id": "toolu_h2",
+    "cache_control": {
+     "type": "ephemeral"
+    }
+   }
+  ],
+  "served_tool": "mcp__ciel-runtime-router__work_plan_set",
+  "response": [
+   {
+    "type": "tool_use",
+    "id": "toolu_h3",
+    "name": "mcp__ciel-runtime-router__work_plan_set",
+    "input": {
+     "goal": "Hint check",
+     "children": [
+      {
+       "title": "1. Parser",
+       "children": [
+        {
+         "title": "Tokenize input"
+        },
+        {
+         "title": "Verify tokens"
+        }
+       ]
+      },
+      {
+       "title": "2. Cache",
+       "children": [
+        {
+         "title": "Verify expiry"
+        }
+       ]
+      }
+     ]
+    }
+   }
+  ]
+ },
+ {
+  "n": 4,
+  "tag": "main",
+  "stage": 2,
+  "tool_names": [
+   "Agent",
+   "AskUserQuestion",
+   "Bash",
+   "CronCreate",
+   "CronDelete",
+   "CronList",
+   "Edit",
+   "EnterPlanMode",
+   "EnterWorktree",
+   "ExitPlanMode",
+   "ExitWorktree",
+   "Glob",
+   "Grep",
+   "ListAgents",
+   "Monitor",
+   "NotebookEdit",
+   "Read",
+   "ReportFindings",
+   "ScheduleWakeup",
+   "SendMessage",
+   "Skill",
+   "TaskStop",
+   "WebFetch",
+   "WebSearch",
+   "Workflow",
+   "Write",
+   "mcp__ciel-runtime-router__compact_session",
+   "mcp__ciel-runtime-router__goal_clear",
+   "mcp__ciel-runtime-router__llm_options",
+   "mcp__ciel-runtime-router__new_session",
+   "mcp__ciel-runtime-router__provider_fallback",
+   "mcp__ciel-runtime-router__recover_sse_delivery",
+   "mcp__ciel-runtime-router__restart_session",
+   "mcp__ciel-runtime-router__send_file",
+   "mcp__ciel-runtime-router__session_backup",
+   "mcp__ciel-runtime-router__submit_input",
+   "mcp__ciel-runtime-router__telemetry_logs",
+   "mcp__ciel-runtime-router__work_execute",
+   "mcp__ciel-runtime-router__work_node_add",
+   "mcp__ciel-runtime-router__work_node_remove",
+   "mcp__ciel-runtime-router__work_node_update",
+   "mcp__ciel-runtime-router__work_plan_set",
+   "mcp__ciel-runtime-router__work_replan",
+   "mcp__ciel-runtime-router__work_select",
+   "mcp__ciel-runtime-router__work_status"
+  ],
+  "context_number_hint": true,
+  "plan_tool_number_hint": true,
+  "notice_sent_to_model": false,
+  "prior_results": [
+   {
+    "type": "tool_result",
+    "content": "<tool_use_error>Work mode is planning: edits and state-changing commands wait until the plan is approved. Build it with work_plan_set, then call work_execute. (/work-mode help)</tool_use_error>",
+    "is_error": true,
+    "tool_use_id": "toolu_h2"
+   },
+   {
+    "tool_use_id": "toolu_h3",
+    "type": "tool_result",
+    "content": [
+     {
+      "type": "text",
+      "text": "Plan for goal n1 saved; Work is in the planning phase.\n\nWork phase: planning\nActive goal progress: 0/3 steps done\n[ ] n1 Hint check\n  [ ] n2 1. Parser\n    [ ] n3 Tokenize input\n    [ ] n4 Verify tokens\n  [ ] n5 2. Cache\n    [ ] n6 Verify expiry"
+     }
+    ],
+    "cache_control": {
+     "type": "ephemeral"
+    }
+   }
+  ],
+  "response": [
+   {
+    "type": "text",
+    "text": "E2EHINT-MAIN-DONE"
+   }
+  ]
+ }
+]

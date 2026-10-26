@@ -1,0 +1,14 @@
+== py -3.14 Python 3.14.2
+test_runtime_filter_and_claude_projection (test_workspace_mcp.WorkspaceMcpProjectionTests.test_runtime_filter_and_claude_projection) ... ok
+
+----------------------------------------------------------------------
+Ran 576 tests in 39.821s
+
+OK (skipped=54)
+== py -3.10 Python 3.10.6
+test_runtime_filter_and_claude_projection (test_workspace_mcp.WorkspaceMcpProjectionTests) ... ok
+
+----------------------------------------------------------------------
+Ran 576 tests in 83.750s
+
+OK (skipped=55)

@@ -1,0 +1,376 @@
+{
+ "repo": "C:\\Users\\djlov\\ciel-runtime-wt-work",
+ "stripped_env": [
+  "ANTHROPIC_AUTH_TOKEN",
+  "ANTHROPIC_BASE_URL",
+  "ANTHROPIC_CUSTOM_MODEL_OPTION",
+  "ANTHROPIC_CUSTOM_MODEL_OPTION_SUPPORTED_CAPABILITIES",
+  "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+  "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTED_CAPABILITIES",
+  "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTS",
+  "ANTHROPIC_DEFAULT_OPUS_MODEL",
+  "ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTED_CAPABILITIES",
+  "ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTS",
+  "ANTHROPIC_DEFAULT_SONNET_MODEL",
+  "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTED_CAPABILITIES",
+  "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTS",
+  "ANTHROPIC_MODEL",
+  "CIEL_RUNTIME_AUTO_ALLOW_DANGEROUS_RM",
+  "CIEL_RUNTIME_BYPASS_PERMISSIONS",
+  "CIEL_RUNTIME_CONFIG_DIR",
+  "CIEL_RUNTIME_HOME",
+  "CIEL_RUNTIME_LAUNCH_CWD",
+  "CIEL_RUNTIME_MODEL_ALIAS",
+  "CIEL_RUNTIME_PROVIDER",
+  "CIEL_RUNTIME_REGISTERED_HOME",
+  "CIEL_RUNTIME_SCRIPT",
+  "CIEL_RUNTIME_SELECTED_HOME",
+  "CIEL_RUNTIME_STATE_DIR",
+  "CIEL_RUNTIME_WORKSPACE_STATE_DIR",
+  "CLAUDECODE",
+  "CLAUDE_CHROME_CLASSIFIER_FLOOR",
+  "CLAUDE_CODE_ATTRIBUTION_HEADER",
+  "CLAUDE_CODE_AUTO_COMPACT_WINDOW",
+  "CLAUDE_CODE_CHILD_SESSION",
+  "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS",
+  "CLAUDE_CODE_DISABLE_NONSTREAMING_FALLBACK",
+  "CLAUDE_CODE_DISABLE_TERMINAL_TITLE",
+  "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY",
+  "CLAUDE_CODE_ENTRYPOINT",
+  "CLAUDE_CODE_EXECPATH",
+  "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS",
+  "CLAUDE_CODE_MAX_CONTEXT_TOKENS",
+  "CLAUDE_CODE_MAX_OUTPUT_TOKENS",
+  "CLAUDE_CODE_MAX_RETRIES",
+  "CLAUDE_CODE_MESSAGING_SOCKET",
+  "CLAUDE_CODE_MESSAGING_TOKEN",
+  "CLAUDE_CODE_NONSTREAMING_TIMEOUT_RETRIES",
+  "CLAUDE_CODE_RETRY_WATCHDOG",
+  "CLAUDE_CODE_SEND_FEEDBACK",
+  "CLAUDE_CODE_SESSION_ATTENDED",
+  "CLAUDE_CODE_SESSION_ID",
+  "CLAUDE_CODE_SUBAGENT_MODEL",
+  "CLAUDE_CODE_SUBAGENT_MODEL_FORCE",
+  "CLAUDE_EFFORT",
+  "CLAUDE_PID",
+  "CODEX_SPARKLE_ENABLED"
+ ],
+ "mod": "C:\\Users\\djlov\\ciel-runtime-wt-work\\ciel_runtime_support\\claude_mods\\ciel-work",
+ "cli_version": "2.1.310 (Claude Code)",
+ "checks": {
+  "start_notice": true,
+  "empty_plan_hint": true,
+  "help": false,
+  "bare_summary": true,
+  "deny_text": false,
+  "toast": false,
+  "numbered_band": true
+ },
+ "target_unchanged": true,
+ "model_saw_number_hint_in_context": true,
+ "plan_tool_description_number_hint": true,
+ "notice_never_sent_to_model": true,
+ "deny_result_seen_by_model": false,
+ "rows": [
+  {
+   "n": 1,
+   "tag": "aux",
+   "stage": 0,
+   "tool_names": [],
+   "context_number_hint": false,
+   "plan_tool_number_hint": false,
+   "notice_sent_to_model": false,
+   "prior_results": [],
+   "response": [
+    {
+     "type": "text",
+     "text": "E2EHINT-AUX-OK"
+    }
+   ]
+  },
+  {
+   "n": 2,
+   "tag": "aux",
+   "stage": 1,
+   "tool_names": [
+    "Agent",
+    "AskUserQuestion",
+    "Bash",
+    "CronCreate",
+    "CronDelete",
+    "CronList",
+    "Edit",
+    "EnterPlanMode",
+    "EnterWorktree",
+    "ExitPlanMode",
+    "ExitWorktree",
+    "Glob",
+    "Grep",
+    "ListAgents",
+    "Monitor",
+    "NotebookEdit",
+    "Read",
+    "ReportFindings",
+    "ScheduleWakeup",
+    "SendMessage",
+    "Skill",
+    "TaskStop",
+    "WebFetch",
+    "WebSearch",
+    "Workflow",
+    "Write",
+    "mcp__ciel-runtime-router__compact_session",
+    "mcp__ciel-runtime-router__goal_clear",
+    "mcp__ciel-runtime-router__llm_options",
+    "mcp__ciel-runtime-router__new_session",
+    "mcp__ciel-runtime-router__provider_fallback",
+    "mcp__ciel-runtime-router__recover_sse_delivery",
+    "mcp__ciel-runtime-router__restart_session",
+    "mcp__ciel-runtime-router__send_file",
+    "mcp__ciel-runtime-router__session_backup",
+    "mcp__ciel-runtime-router__submit_input",
+    "mcp__ciel-runtime-router__telemetry_logs",
+    "mcp__ciel-runtime-router__work_execute",
+    "mcp__ciel-runtime-router__work_node_add",
+    "mcp__ciel-runtime-router__work_node_remove",
+    "mcp__ciel-runtime-router__work_node_update",
+    "mcp__ciel-runtime-router__work_plan_set",
+    "mcp__ciel-runtime-router__work_replan",
+    "mcp__ciel-runtime-router__work_select",
+    "mcp__ciel-runtime-router__work_status"
+   ],
+   "context_number_hint": true,
+   "plan_tool_number_hint": true,
+   "notice_sent_to_model": false,
+   "prior_results": [],
+   "response": [
+    {
+     "type": "text",
+     "text": "E2EHINT-AUX-OK"
+    }
+   ]
+  },
+  {
+   "n": 3,
+   "tag": "main",
+   "stage": 0,
+   "tool_names": [],
+   "context_number_hint": false,
+   "plan_tool_number_hint": false,
+   "notice_sent_to_model": false,
+   "prior_results": [],
+   "schema_error": {
+    "requested": "Edit",
+    "matches": []
+   },
+   "response": [
+    {
+     "type": "text",
+     "text": "E2EHINT-SCHEMA-MISSING"
+    }
+   ]
+  },
+  {
+   "n": 4,
+   "tag": "main",
+   "stage": 1,
+   "tool_names": [
+    "Agent",
+    "AskUserQuestion",
+    "Bash",
+    "CronCreate",
+    "CronDelete",
+    "CronList",
+    "Edit",
+    "EnterPlanMode",
+    "EnterWorktree",
+    "ExitPlanMode",
+    "ExitWorktree",
+    "Glob",
+    "Grep",
+    "ListAgents",
+    "Monitor",
+    "NotebookEdit",
+    "Read",
+    "ReportFindings",
+    "ScheduleWakeup",
+    "SendMessage",
+    "Skill",
+    "TaskStop",
+    "WebFetch",
+    "WebSearch",
+    "Workflow",
+    "Write",
+    "mcp__ciel-runtime-router__compact_session",
+    "mcp__ciel-runtime-router__goal_clear",
+    "mcp__ciel-runtime-router__llm_options",
+    "mcp__ciel-runtime-router__new_session",
+    "mcp__ciel-runtime-router__provider_fallback",
+    "mcp__ciel-runtime-router__recover_sse_delivery",
+    "mcp__ciel-runtime-router__restart_session",
+    "mcp__ciel-runtime-router__send_file",
+    "mcp__ciel-runtime-router__session_backup",
+    "mcp__ciel-runtime-router__submit_input",
+    "mcp__ciel-runtime-router__telemetry_logs",
+    "mcp__ciel-runtime-router__work_execute",
+    "mcp__ciel-runtime-router__work_node_add",
+    "mcp__ciel-runtime-router__work_node_remove",
+    "mcp__ciel-runtime-router__work_node_update",
+    "mcp__ciel-runtime-router__work_plan_set",
+    "mcp__ciel-runtime-router__work_replan",
+    "mcp__ciel-runtime-router__work_select",
+    "mcp__ciel-runtime-router__work_status"
+   ],
+   "context_number_hint": true,
+   "plan_tool_number_hint": true,
+   "notice_sent_to_model": false,
+   "prior_results": [],
+   "served_tool": "mcp__ciel-runtime-router__work_plan_set",
+   "response": [
+    {
+     "type": "tool_use",
+     "id": "toolu_h4",
+     "name": "mcp__ciel-runtime-router__work_plan_set",
+     "input": {
+      "goal": "Hint check",
+      "children": [
+       {
+        "title": "1. Parser",
+        "children": [
+         {
+          "title": "Tokenize input"
+         },
+         {
+          "title": "Verify tokens"
+         }
+        ]
+       },
+       {
+        "title": "2. Cache",
+        "children": [
+         {
+          "title": "Verify expiry"
+         }
+        ]
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "n": 5,
+   "tag": "main",
+   "stage": 2,
+   "tool_names": [
+    "Agent",
+    "AskUserQuestion",
+    "Bash",
+    "CronCreate",
+    "CronDelete",
+    "CronList",
+    "Edit",
+    "EnterPlanMode",
+    "EnterWorktree",
+    "ExitPlanMode",
+    "ExitWorktree",
+    "Glob",
+    "Grep",
+    "ListAgents",
+    "Monitor",
+    "NotebookEdit",
+    "Read",
+    "ReportFindings",
+    "ScheduleWakeup",
+    "SendMessage",
+    "Skill",
+    "TaskStop",
+    "WebFetch",
+    "WebSearch",
+    "Workflow",
+    "Write",
+    "mcp__ciel-runtime-router__compact_session",
+    "mcp__ciel-runtime-router__goal_clear",
+    "mcp__ciel-runtime-router__llm_options",
+    "mcp__ciel-runtime-router__new_session",
+    "mcp__ciel-runtime-router__provider_fallback",
+    "mcp__ciel-runtime-router__recover_sse_delivery",
+    "mcp__ciel-runtime-router__restart_session",
+    "mcp__ciel-runtime-router__send_file",
+    "mcp__ciel-runtime-router__session_backup",
+    "mcp__ciel-runtime-router__submit_input",
+    "mcp__ciel-runtime-router__telemetry_logs",
+    "mcp__ciel-runtime-router__work_execute",
+    "mcp__ciel-runtime-router__work_node_add",
+    "mcp__ciel-runtime-router__work_node_remove",
+    "mcp__ciel-runtime-router__work_node_update",
+    "mcp__ciel-runtime-router__work_plan_set",
+    "mcp__ciel-runtime-router__work_replan",
+    "mcp__ciel-runtime-router__work_select",
+    "mcp__ciel-runtime-router__work_status"
+   ],
+   "context_number_hint": true,
+   "plan_tool_number_hint": true,
+   "notice_sent_to_model": false,
+   "prior_results": [
+    {
+     "tool_use_id": "toolu_h4",
+     "type": "tool_result",
+     "content": [
+      {
+       "type": "text",
+       "text": "Plan for goal n1 saved; Work is in the planning phase.\n\nWork phase: planning\nActive goal progress: 0/3 steps done\n[ ] n1 Hint check\n  [ ] n2 1. Parser\n    [ ] n3 Tokenize input\n    [ ] n4 Verify tokens\n  [ ] n5 2. Cache\n    [ ] n6 Verify expiry"
+      }
+     ],
+     "cache_control": {
+      "type": "ephemeral"
+     }
+    }
+   ],
+   "response": [
+    {
+     "type": "text",
+     "text": "E2EHINT-MAIN-DONE"
+    }
+   ]
+  }
+ ],
+ "egress": [
+  {
+   "method": "CONNECT",
+   "path": "downloads.claude.ai:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "github.com:443"
+  }
+ ],
+ "live_before": {
+  "9505": {
+   "pid": 38368,
+   "version": "0.2.51-nightly.20261026-162537.2faae14",
+   "source_fingerprint": "72c6bfb456e30cd7",
+   "error": null
+  },
+  "9524": {
+   "pid": 25276,
+   "version": "0.2.51",
+   "source_fingerprint": "f86ee3638ee760f3",
+   "error": null
+  }
+ },
+ "live_after": {
+  "9505": {
+   "pid": 38368,
+   "version": "0.2.51-nightly.20261026-162537.2faae14",
+   "source_fingerprint": "72c6bfb456e30cd7",
+   "error": null
+  },
+  "9524": {
+   "pid": 25276,
+   "version": "0.2.51",
+   "source_fingerprint": "f86ee3638ee760f3",
+   "error": null
+  }
+ }
+}

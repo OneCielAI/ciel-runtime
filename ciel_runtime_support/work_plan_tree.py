@@ -22,6 +22,7 @@ MAX_DEPTH = 8
 MAX_NODES = 600
 MAX_TITLE_CHARS = 300
 MAX_TEXT_CHARS = 2000
+MAX_QUEUE_IN_SNAPSHOT = 20
 # A plan is ready to execute once the active goal reaches at least
 # goal -> phase -> task (a leaf at depth 2).
 READY_MIN_LEAF_DEPTH = 2
@@ -94,6 +95,8 @@ def normalize_document(raw: Any) -> dict[str, Any]:
 def add_node(doc: dict[str, Any], parent_id: str | None, title: Any, note: Any = "", *, now: float | None = None) -> str:
     stamp = time.time() if now is None else now
     by_id = _index(doc)
+    # A new goal waits behind an unfinished active goal instead of taking its place.
+    queue_behind = parent_id is None and _open_active_root(doc, by_id) is not None
     if parent_id is not None:
         parent_id = str(parent_id)
         if parent_id not in by_id:
@@ -117,8 +120,9 @@ def add_node(doc: dict[str, Any], parent_id: str | None, title: Any, note: Any =
         "updated_at": stamp,
     })
     if parent_id is None:
-        doc["active_root"] = node_id
-        doc["phase"] = PHASE_PLANNING
+        if not queue_behind:
+            doc["active_root"] = node_id
+            doc["phase"] = PHASE_PLANNING
     else:
         _reopen_ancestors(doc, parent_id, stamp)
         if _root_of(_index(doc), parent_id) == doc.get("active_root"):
@@ -154,6 +158,8 @@ def set_plan(doc: dict[str, Any], spec: Any, root_id: str | None = None, *, now:
     children = spec.get("children", [])
     if not isinstance(children, list):
         raise WorkPlanError("children must be a list")
+    # Re-planning a queued or finished goal must not take the slot of the unfinished active goal.
+    open_active = _open_active_root(doc, by_id)
     trial = copy.deepcopy(doc)
     _remove_descendants(trial, root_id)
     root = _index(trial)[root_id]
@@ -165,8 +171,9 @@ def set_plan(doc: dict[str, Any], spec: Any, root_id: str | None = None, *, now:
     root["updated_at"] = time.time() if now is None else now
     for child in children:
         add_subtree(trial, root_id, child, now=now)
-    trial["active_root"] = root_id
-    trial["phase"] = PHASE_PLANNING
+    if open_active is None or open_active == root_id:
+        trial["active_root"] = root_id
+        trial["phase"] = PHASE_PLANNING
     doc.clear()
     doc.update(trial)
     return root_id
@@ -210,6 +217,7 @@ def update_node(doc: dict[str, Any], node_id: str, *, status: Any = None, title:
     root = _root_of(by_id, node_id)
     if root == doc.get("active_root") and by_id[root]["status"] == "done":
         doc["phase"] = PHASE_PLANNING
+        _advance_queue(doc)
     return node
 
 
@@ -226,6 +234,7 @@ def remove_node(doc: dict[str, Any], node_id: str) -> int:
         active = _index(doc).get(doc.get("active_root"))
         if active and active["status"] == "done":
             doc["phase"] = PHASE_PLANNING
+            _advance_queue(doc)
     if parent_id is None and doc.get("active_root") == node_id:
         remaining = [node["id"] for node in doc["nodes"] if node["parent_id"] is None and node["status"] != "done"]
         doc["active_root"] = remaining[0] if remaining else None
@@ -258,7 +267,7 @@ def readiness(doc: dict[str, Any]) -> tuple[bool, str]:
             "and keep splitting until each leaf is one verifiable action"
         )
     if all(by_id[leaf]["status"] == "done" for leaf in leaves):
-        return False, "every step of the active goal is already done; start a new goal"
+        return False, "every step of the active goal is already done; start a new goal or select a queued one"
     return True, "ready"
 
 
@@ -319,6 +328,12 @@ def snapshot(doc: dict[str, Any], *, enabled: bool = True, approval_ask: bool = 
         "ready": ready,
         "ready_reason": reason,
         "goals": sum(1 for node in doc["nodes"] if node["parent_id"] is None),
+        # Unfinished goals waiting behind the active one, in the order they become active.
+        "queue": [
+            {"id": node["id"], "title": node["title"], "status": node["status"],
+             "done": progress(doc, node["id"])[0], "total": progress(doc, node["id"])[1]}
+            for node in queued_roots(doc)[:MAX_QUEUE_IN_SNAPSHOT]
+        ],
     }
 
 
@@ -342,9 +357,13 @@ def render(doc: dict[str, Any], *, max_lines: int = 80) -> str:
             if len(lines) >= max_lines:
                 lines.append(f"... {len(doc['nodes'])} nodes in total; call work_status for the rest")
                 break
-    others = [node for node in doc["nodes"] if node["parent_id"] is None and node["id"] != root]
-    if others:
-        lines.append("Other goals: " + "; ".join(f"{node['id']} {node['title']} ({node['status']})" for node in others[:10]))
+    queued = queued_roots(doc)
+    if queued:
+        lines.append("Queued goals (next first): " + "; ".join(
+            f"{node['id']} {node['title']} ({node['status']})" for node in queued[:10]))
+    finished = [node for node in doc["nodes"] if node["parent_id"] is None and node["id"] != root and node["status"] == "done"]
+    if finished:
+        lines.append("Finished goals: " + "; ".join(f"{node['id']} {node['title']}" for node in finished[-10:]))
     return "\n".join(lines)
 
 
@@ -389,6 +408,25 @@ def _root_of(by_id: dict[str, dict[str, Any]], node_id: str) -> str:
     while by_id[current]["parent_id"] is not None:
         current = by_id[current]["parent_id"]
     return current
+
+
+def _open_active_root(doc: dict[str, Any], by_id: dict[str, dict[str, Any]]) -> str | None:
+    active = doc.get("active_root")
+    return active if active in by_id and by_id[active]["status"] != "done" else None
+
+
+def queued_roots(doc: dict[str, Any]) -> list[dict[str, Any]]:
+    """Unfinished goals other than the active one, oldest first: the order they become active."""
+
+    active = doc.get("active_root")
+    return [node for node in doc["nodes"] if node["parent_id"] is None and node["status"] != "done" and node["id"] != active]
+
+
+def _advance_queue(doc: dict[str, Any]) -> None:
+    queued = queued_roots(doc)
+    if queued:
+        doc["active_root"] = queued[0]["id"]
+        doc["phase"] = PHASE_PLANNING
 
 
 def _remove_descendants(doc: dict[str, Any], node_id: str) -> int:

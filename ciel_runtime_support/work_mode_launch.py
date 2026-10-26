@@ -37,13 +37,31 @@ WORK_MODE_INSTRUCTIONS = (
     "1. Planning phase: before changing files, decompose the user's task into a tree with work_plan_set: "
     "goal -> phases -> tasks -> steps. Keep splitting until every leaf is one concrete, verifiable action. "
     "Read-only exploration is fine while planning; file edits and state-changing commands wait for execution.\n"
+    "Triage every new user request first: an independent request becomes its own goal (root-level item), its title "
+    "starting with its item number where possible (\"1. ...\", \"2. ...\"); a request that changes or extends an "
+    "existing item goes under that item as a child (work_node_add with parent_id). A new goal queues behind the "
+    "unfinished active goal and becomes active when that goal is done; keep the active goal going meanwhile.\n"
     "2. When the plan is complete, call work_execute. If it reports that user confirmation is required, show "
     "the plan, ask the user, and call work_execute again with user_confirmed=true only after they agree.\n"
     "3. Executing phase: work through the leaves in order. Mark a leaf in_progress when you start it and done "
     "with short evidence (command output, test result, file) when it is verified. Add or split nodes with "
     "work_node_add when you discover more work; use work_replan when the approach changes.\n"
-    "4. Call work_status to see the tree. Never report a step as done without evidence."
+    "4. Call work_status to see the tree. Never report a step as done without evidence.\n"
+    "If the user asks how Work mode works or why an edit waited, explain this briefly; it is switched on or off "
+    "in the ciel-runtime menu under LLM options -> Work mode."
 )
+
+WORK_MODE_LAUNCH_NOTICE = (
+    "Ciel Work mode is on: the model plans first (work_plan_set) and edits after work_execute. "
+    "Turn off: ciel-runtime menu -> LLM options -> Work mode."
+)
+
+
+def work_mode_launch_notice(config: dict[str, Any], *, native: bool, router_mcp_attached: bool) -> str:
+    """The console line printed before a Codex launch that carries Work mode; Codex has no plugin UI."""
+
+    return WORK_MODE_LAUNCH_NOTICE if work_mode_applies(
+        config, native=native, router_mcp_attached=router_mcp_attached) else ""
 
 
 def work_mode_enabled(config: dict[str, Any]) -> bool:

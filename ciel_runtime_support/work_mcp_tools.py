@@ -48,9 +48,13 @@ def work_tool_schemas() -> list[dict[str, Any]]:
         {
             "name": "work_plan_set",
             "description": (
-                "Create a goal with its whole hierarchical plan in one call: goal -> phases -> tasks -> steps, "
-                "nested through children. Keep decomposing until every leaf is one verifiable action. "
-                "With root_id, replace that goal's plan. Puts Work in the planning phase."
+                "Create a goal (a root-level item) with its whole hierarchical plan in one call: goal -> phases -> "
+                "tasks -> steps, nested through children. Keep decomposing until every leaf is one verifiable action. "
+                "One independent user request is one goal; where possible start its title with its item number "
+                "(\"1. ...\", \"2. ...\") so it stays easy to reference. A request that changes or extends an existing "
+                "item goes under that item with work_node_add and parent_id, not into a new goal. While another goal "
+                "is unfinished, a new goal is queued behind it and becomes active when that goal is done. "
+                "With root_id, replace that goal's plan; the active goal returns to planning, a queued goal stays queued."
             ),
             "inputSchema": {
                 "type": "object",
@@ -67,7 +71,9 @@ def work_tool_schemas() -> list[dict[str, Any]]:
         {
             "name": "work_node_add",
             "description": (
-                "Add a node (optionally with nested children) under parent_id; without parent_id it starts a new goal."
+                "Add a node (optionally with nested children) under parent_id: a request that depends on an existing "
+                "item goes under that item. Without parent_id it adds a new goal (root-level item) for an independent "
+                "request; while another goal is unfinished the new goal is queued behind it."
             ),
             "inputSchema": {
                 "type": "object",
@@ -111,7 +117,10 @@ def work_tool_schemas() -> list[dict[str, Any]]:
         },
         {
             "name": "work_select",
-            "description": "Make another goal the active one (returns to the planning phase).",
+            "description": (
+                "Make another goal the active one now (returns to the planning phase). Queued goals become active "
+                "by themselves, oldest first, when the active goal is done."
+            ),
             "inputSchema": {
                 "type": "object",
                 "properties": {"root_id": {"type": "string"}},
@@ -200,6 +209,9 @@ def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bo
         doc, root = store.transaction(
             lambda d: tree.set_plan(d, spec, str(root_id) if root_id else None), expected_version=expected
         )
+        if doc.get("active_root") != root:
+            return _after(doc, f"Plan for goal {root} saved and queued behind the active goal {doc['active_root']}; "
+                               "it becomes active when that goal is done, or earlier with work_select.")
         return _after(doc, f"Plan for goal {root} saved; Work is in the planning phase.")
     if name == "work_node_add":
         parent = args.get("parent_id")
@@ -207,18 +219,26 @@ def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bo
         doc, node = store.transaction(
             lambda d: tree.add_subtree(d, str(parent) if parent else None, spec), expected_version=expected
         )
+        if not parent and doc.get("active_root") != node:
+            return _after(doc, f"Added goal {node}, queued behind the active goal {doc['active_root']}; "
+                               "it becomes active when that goal is done, or earlier with work_select.")
         return _after(doc, f"Added {node}.")
     if name == "work_node_update":
         node_id = str(args.get("id") or "")
-        doc, node = store.transaction(
-            lambda d: tree.update_node(
+
+        def update(d: dict[str, Any]) -> tuple[dict[str, Any], str | None]:
+            before = d.get("active_root")
+            return tree.update_node(
                 d, node_id, status=args.get("status"), title=args.get("title"),
                 note=args.get("note"), evidence=args.get("evidence"),
-            ),
-            expected_version=expected,
-        )
+            ), before
+
+        doc, (node, before) = store.transaction(update, expected_version=expected)
         message = f"Updated {node['id']} ({node['status']})."
-        if doc.get("active_root") and tree.progress(doc)[1] and tree.next_leaf(doc) is None:
+        if before and doc.get("active_root") != before:
+            message += (f" Goal {before} is done; the next queued goal {doc['active_root']} is now active in the "
+                        "planning phase. Review its plan and call work_execute.")
+        elif doc.get("active_root") and tree.progress(doc)[1] and tree.next_leaf(doc) is None:
             message += " Every step of the active goal is done; Work returned to the planning phase for the next goal."
         return _after(doc, message)
     if name == "work_node_remove":
