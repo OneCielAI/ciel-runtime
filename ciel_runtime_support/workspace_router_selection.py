@@ -58,6 +58,9 @@ def port_is_free(port: int) -> bool:
 # workspace could not start.
 ROUTER_PORT_SCAN_SIZE = 50
 ROUTER_LAUNCH_LEASE_SECONDS = 30.0
+# Set by a launcher for the one child that continues its launch (the Windows
+# self-update restart); the value is the launcher's PID.
+LAUNCH_LEASE_HANDOFF_ENV = "CIEL_RUNTIME_LAUNCH_LEASE_HANDOFF"
 
 
 def _process_identity(pid: int) -> str | None:
@@ -244,10 +247,18 @@ def select_workspace_router_port(
             observed_ports[mapped_port] = health(mapped_port)
         for port, observed in observed_ports.items():
             if isinstance(observed, dict) and workspace_identity(observed.get("workspace")) == target:
-                if port != mapped_port:
+                if port == mapped_port and _lease_handed_off_by_parent(own_record, environ):
+                    records[key] = _launch_record(target, port, own_record.get("reservation", "auto"))
+                    _save_registry(registry_path, registry)
+                elif port != mapped_port:
                     records[key] = {"workspace": target, "port": port, "reservation": "auto"}
                     _save_registry(registry_path, registry)
                 return port
+
+        if mapped_port and _lease_handed_off_by_parent(own_record, environ):
+            records[key] = _launch_record(target, mapped_port, own_record.get("reservation", "auto"))
+            _save_registry(registry_path, registry)
+            return mapped_port
 
         if mapped_port and _lease_held_by_parent(own_record):
             return mapped_port
@@ -325,6 +336,26 @@ def _lease_held_by_parent(record: Any) -> bool:
         pid = int(lease["pid"])
         identity = lease.get("identity")
         return bool(identity) and pid == os.getppid() and _process_identity(pid) == identity
+    except (TypeError, ValueError, KeyError):
+        return False
+
+
+def _lease_handed_off_by_parent(record: Any, environ: Mapping[str, str]) -> bool:
+    """Return whether the live parent explicitly handed its launch to us.
+
+    On Windows the self-update restart runs the new version as a child and
+    waits for it, so the updater stays alive holding the lease. Sharing it
+    like a helper left the lease with the updater, and the restarted
+    launcher's own helpers and managed router (the updater's grandchildren)
+    then failed with "launch already reserved". Only a parent that names
+    itself in the handoff marker transfers its lease.
+    """
+
+    if not _lease_held_by_parent(record):
+        return False
+    try:
+        marker = int(str(environ.get(LAUNCH_LEASE_HANDOFF_ENV) or "").strip())
+        return marker == int(record["launch_lease"]["pid"])
     except (TypeError, ValueError, KeyError):
         return False
 
@@ -421,6 +452,7 @@ def _claim_explicit_port(
     # must neither turn that automatic claim into an explicit one nor steal
     # the launcher's lease while it imports runtime_paths.
     inherited = False
+    handed_off = False
     if isinstance(own_record, dict) and _record_port(own_record) == port:
         lease = own_record.get("launch_lease")
         if isinstance(lease, dict):
@@ -437,9 +469,13 @@ def _claim_explicit_port(
         # Other helpers of the launcher (backup with an explicit port) share
         # the launch the same way.
         inherited = inherited or _lease_held_by_parent(own_record)
+        handed_off = _lease_handed_off_by_parent(own_record, environ)
         if observed is None and not inherited:
             _check_own_launch_lease(own_record)
-    if not inherited:
+    if handed_off:
+        records[key] = _launch_record(target, port, own_record.get("reservation", "explicit"))
+        _save_registry(registry_path, registry)
+    elif not inherited:
         records[key] = _launch_record(target, port, "explicit")
         _save_registry(registry_path, registry)
 

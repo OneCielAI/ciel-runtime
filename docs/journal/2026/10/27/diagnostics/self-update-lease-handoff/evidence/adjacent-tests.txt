@@ -1,0 +1,107 @@
+test_diagnostics_filter_reads_only_relevant_tail (test_router_client_lifecycle.RouterClientLifecycleTests.test_diagnostics_filter_reads_only_relevant_tail) ... ok
+test_exit_cancels_inflight_probe_before_releasing_client (test_router_client_lifecycle.RouterClientLifecycleTests.test_exit_cancels_inflight_probe_before_releasing_client) ... ok
+test_exit_waits_for_an_already_started_restart_before_final_stop (test_router_client_lifecycle.RouterClientLifecycleTests.test_exit_waits_for_an_already_started_restart_before_final_stop) ... ok
+test_managed_router_keeps_active_clients (test_router_client_lifecycle.RouterClientLifecycleTests.test_managed_router_keeps_active_clients) ... ok
+test_managed_router_reason_prioritizes_owner_death (test_router_client_lifecycle.RouterClientLifecycleTests.test_managed_router_reason_prioritizes_owner_death) ... ok
+test_registry_never_terminates_a_client_when_no_clients_are_requested (test_router_client_lifecycle.RouterClientLifecycleTests.test_registry_never_terminates_a_client_when_no_clients_are_requested) ... ok
+test_registry_records_active_client_and_removes_stale_lease (test_router_client_lifecycle.RouterClientLifecycleTests.test_registry_records_active_client_and_removes_stale_lease) ... ok
+test_registry_terminates_wrapper_root_and_releases_lease (test_router_client_lifecycle.RouterClientLifecycleTests.test_registry_terminates_wrapper_root_and_releases_lease) ... ok
+test_release_failure_still_requests_idle_stop (test_router_client_lifecycle.RouterClientLifecycleTests.test_release_failure_still_requests_idle_stop) ... ok
+test_runner_releases_lease_and_requests_idle_stop (test_router_client_lifecycle.RouterClientLifecycleTests.test_runner_releases_lease_and_requests_idle_stop) ... ok
+
+----------------------------------------------------------------------
+Ran 10 tests in 0.022s
+
+OK
+test_launch_without_a_request_runs_once (test_runtime_session_restart.ClaudeSessionRestartLoopTests.test_launch_without_a_request_runs_once) ... ok
+test_restart_queues_the_completion_notice_for_the_resumed_session (test_runtime_session_restart.ClaudeSessionRestartLoopTests.test_restart_queues_the_completion_notice_for_the_resumed_session) ... Ciel Runtime: restarting Claude Code source=ciel-runtime-router-tool reason=deploy
+ok
+test_restart_renews_the_workspace_mcp_launch (test_runtime_session_restart.ClaudeSessionRestartLoopTests.test_restart_renews_the_workspace_mcp_launch) ... Ciel Runtime: restarting Claude Code source=ciel-runtime-router-tool reason=mcp
+ok
+test_restart_request_relaunches_the_cli_with_continue (test_runtime_session_restart.ClaudeSessionRestartLoopTests.test_restart_request_relaunches_the_cli_with_continue) ... Ciel Runtime: restarting Claude Code source=ciel-runtime-router-tool reason=deploy
+ok
+test_codex_launch_without_a_request_runs_once (test_runtime_session_restart.CodexSessionRestartLoopTests.test_codex_launch_without_a_request_runs_once) ... Ciel Work mode is on: the model plans first (work_plan_set) and edits after work_execute. Turn off: ciel-runtime menu -> LLM options -> Work mode.
+ok
+test_restart_request_relaunches_codex_with_resume_last (test_runtime_session_restart.CodexSessionRestartLoopTests.test_restart_request_relaunches_codex_with_resume_last) ... Ciel Work mode is on: the model plans first (work_plan_set) and edits after work_execute. Turn off: ciel-runtime menu -> LLM options -> Work mode.
+Ciel Runtime: restarting Codex source=cli reason=deploy
+ok
+test_call_without_poll_uses_the_blocking_call_port (test_runtime_session_restart.DirectTransportRestartTests.test_call_without_poll_uses_the_blocking_call_port) ... ok
+test_restart_request_terminates_the_cli_child (test_runtime_session_restart.DirectTransportRestartTests.test_restart_request_terminates_the_cli_child) ... ok
+test_dispatch_rejects_invalid_pid (test_runtime_session_restart.McpToolTests.test_dispatch_rejects_invalid_pid) ... ok
+test_dispatch_reports_missing_service (test_runtime_session_restart.McpToolTests.test_dispatch_reports_missing_service) ... ok
+test_dispatch_returns_queued_request (test_runtime_session_restart.McpToolTests.test_dispatch_returns_queued_request) ... ok
+test_dispatch_surfaces_no_active_client (test_runtime_session_restart.McpToolTests.test_dispatch_surfaces_no_active_client) ... ok
+test_schema_exposes_restart_session (test_runtime_session_restart.McpToolTests.test_schema_exposes_restart_session) ... ok
+test_a_repeated_request_id_after_exit_relaunches_only_once (test_runtime_session_restart.RestartControlAfterChildExitTests.test_a_repeated_request_id_after_exit_relaunches_only_once) ... Ciel Runtime: restarting Claude Code source=mcp reason=deploy
+ok
+test_a_request_held_for_the_turn_is_released_when_the_child_ends (test_runtime_session_restart.RestartControlAfterChildExitTests.test_a_request_held_for_the_turn_is_released_when_the_child_ends) ... ok
+test_a_request_the_transport_took_is_returned_without_another_claim (test_runtime_session_restart.RestartControlAfterChildExitTests.test_a_request_the_transport_took_is_returned_without_another_claim) ... ok
+test_exact_repository_claim_leaves_broadcast_and_foreign_requests (test_runtime_session_restart.RestartControlAfterChildExitTests.test_exact_repository_claim_leaves_broadcast_and_foreign_requests) ... ok
+test_the_exit_claim_runs_once_per_launch (test_runtime_session_restart.RestartControlAfterChildExitTests.test_the_exit_claim_runs_once_per_launch) ... ok
+test_without_an_exit_claim_an_ended_child_ends_the_session (test_runtime_session_restart.RestartControlAfterChildExitTests.test_without_an_exit_claim_an_ended_child_ends_the_session) ... ok
+test_incoming_polls_once_until_marked (test_runtime_session_restart.RestartControlTests.test_incoming_polls_once_until_marked) ... ok
+test_notice_is_the_exact_continue_message_with_the_restart_in_meta (test_runtime_session_restart.RestartNoticeBodyTests.test_notice_is_the_exact_continue_message_with_the_restart_in_meta) ... ok
+test_broadcast_request_applies_to_any_client (test_runtime_session_restart.RestartRepositoryTests.test_broadcast_request_applies_to_any_client) ... ok
+test_claim_ignores_another_client (test_runtime_session_restart.RestartRepositoryTests.test_claim_ignores_another_client) ... ok
+test_clear_with_other_id_keeps_request (test_runtime_session_restart.RestartRepositoryTests.test_clear_with_other_id_keeps_request) ... ok
+test_expired_request_is_dropped (test_runtime_session_restart.RestartRepositoryTests.test_expired_request_is_dropped) ... ok
+test_invalid_payload_is_discarded (test_runtime_session_restart.RestartRepositoryTests.test_invalid_payload_is_discarded) ... ok
+test_queue_writes_one_slot_and_claim_consumes_it (test_runtime_session_restart.RestartRepositoryTests.test_queue_writes_one_slot_and_claim_consumes_it) ... ok
+test_after_exit_claim_takes_only_a_request_addressed_to_this_launcher (test_runtime_session_restart.RestartRequestAtChildExitTests.test_after_exit_claim_takes_only_a_request_addressed_to_this_launcher) ... ok
+test_claude_normal_exit_without_a_request_ends_the_session (test_runtime_session_restart.RestartRequestAtChildExitTests.test_claude_normal_exit_without_a_request_ends_the_session) ... ok
+test_claude_request_queued_as_the_child_exits_relaunches_once (test_runtime_session_restart.RestartRequestAtChildExitTests.test_claude_request_queued_as_the_child_exits_relaunches_once) ... Ciel Runtime: restarting Claude Code source=ciel-runtime-router-tool reason=deploy
+ok
+test_claude_request_waiting_for_the_turn_survives_the_child_exit (test_runtime_session_restart.RestartRequestAtChildExitTests.test_claude_request_waiting_for_the_turn_survives_the_child_exit) ... Ciel Runtime: restarting Claude Code source=ciel-runtime-router-tool reason=deploy
+ok
+test_claude_request_without_resume_relaunches_without_continue (test_runtime_session_restart.RestartRequestAtChildExitTests.test_claude_request_without_resume_relaunches_without_continue) ... Ciel Runtime: restarting Claude Code source=ciel-runtime-router-tool reason=deploy
+ok
+test_claude_restart_after_exit_renews_the_workspace_mcp_launch (test_runtime_session_restart.RestartRequestAtChildExitTests.test_claude_restart_after_exit_renews_the_workspace_mcp_launch) ... Ciel Runtime: restarting Claude Code source=ciel-runtime-router-tool reason=deploy
+ok
+test_codex_normal_exit_without_a_request_ends_the_session (test_runtime_session_restart.RestartRequestAtChildExitTests.test_codex_normal_exit_without_a_request_ends_the_session) ... Ciel Work mode is on: the model plans first (work_plan_set) and edits after work_execute. Turn off: ciel-runtime menu -> LLM options -> Work mode.
+ok
+test_codex_remote_request_waiting_for_the_turn_survives_the_tui_exit (test_runtime_session_restart.RestartRequestAtChildExitTests.test_codex_remote_request_waiting_for_the_turn_survives_the_tui_exit) ... Ciel Runtime: restarting Codex app-server and TUI source=ciel-runtime-router-tool reason=deploy thread=(new)
+ok
+test_codex_remote_tui_exit_keeps_a_queued_restart (test_runtime_session_restart.RestartRequestAtChildExitTests.test_codex_remote_tui_exit_keeps_a_queued_restart) ... Ciel Runtime: restarting Codex app-server and TUI source=ciel-runtime-router-tool reason=deploy thread=01a0-saved
+ok
+test_codex_remote_tui_exit_without_a_request_ends_the_session (test_runtime_session_restart.RestartRequestAtChildExitTests.test_codex_remote_tui_exit_without_a_request_ends_the_session) ... ok
+test_codex_request_queued_as_the_child_exits_relaunches_with_resume_last (test_runtime_session_restart.RestartRequestAtChildExitTests.test_codex_request_queued_as_the_child_exits_relaunches_with_resume_last) ... Ciel Work mode is on: the model plans first (work_plan_set) and edits after work_execute. Turn off: ciel-runtime menu -> LLM options -> Work mode.
+Ciel Runtime: restarting Codex source=ciel-runtime-router-tool reason=deploy
+ok
+test_one_shot_print_run_is_never_restarted_after_it_exits (test_runtime_session_restart.RestartRequestAtChildExitTests.test_one_shot_print_run_is_never_restarted_after_it_exits) ... ok
+test_request_for_another_client_is_left_for_that_client (test_runtime_session_restart.RestartRequestAtChildExitTests.test_request_for_another_client_is_left_for_that_client) ... ok
+test_explicit_pid_selects_its_instance (test_runtime_session_restart.RestartSessionCommandTests.test_explicit_pid_selects_its_instance) ... ok
+test_missing_session_exits_with_failure (test_runtime_session_restart.RestartSessionCommandTests.test_missing_session_exits_with_failure) ... ok
+test_multiple_clients_require_a_selection (test_runtime_session_restart.RestartSessionCommandTests.test_multiple_clients_require_a_selection) ... ok
+test_single_client_is_restarted (test_runtime_session_restart.RestartSessionCommandTests.test_single_client_is_restarted) ... ok
+test_unregistered_pid_exits_with_failure (test_runtime_session_restart.RestartSessionCommandTests.test_unregistered_pid_exits_with_failure) ... ok
+test_workspace_selects_its_instance (test_runtime_session_restart.RestartSessionCommandTests.test_workspace_selects_its_instance) ... ok
+test_claude_appends_continue_when_absent (test_runtime_session_restart.ResumeCommandTests.test_claude_appends_continue_when_absent) ... ok
+test_claude_inserts_continue_before_passthrough_boundary (test_runtime_session_restart.ResumeCommandTests.test_claude_inserts_continue_before_passthrough_boundary) ... ok
+test_claude_keeps_existing_session_control (test_runtime_session_restart.ResumeCommandTests.test_claude_keeps_existing_session_control) ... ok
+test_codex_appends_resume_last_when_absent (test_runtime_session_restart.ResumeCommandTests.test_codex_appends_resume_last_when_absent) ... ok
+test_codex_config_override_is_not_continue (test_runtime_session_restart.ResumeCommandTests.test_codex_config_override_is_not_continue) ... ok
+test_codex_keeps_resume_subcommand (test_runtime_session_restart.ResumeCommandTests.test_codex_keeps_resume_subcommand) ... ok
+test_muse_appends_resume_last_when_absent (test_runtime_session_restart.ResumeCommandTests.test_muse_appends_resume_last_when_absent) ... ok
+test_muse_keeps_an_existing_resume_subcommand (test_runtime_session_restart.ResumeCommandTests.test_muse_keeps_an_existing_resume_subcommand) ... ok
+test_unknown_runtime_is_passed_through (test_runtime_session_restart.ResumeCommandTests.test_unknown_runtime_is_passed_through) ... ok
+test_control_claims_the_runtime_request_for_this_process (test_runtime_session_restart.RouterQueueTests.test_control_claims_the_runtime_request_for_this_process) ... ok
+test_instances_list_only_instances_with_live_clients (test_runtime_session_restart.RouterQueueTests.test_instances_list_only_instances_with_live_clients) ... ok
+test_queue_rejects_unknown_client_pid (test_runtime_session_restart.RouterQueueTests.test_queue_rejects_unknown_client_pid) ... ok
+test_queue_reports_when_no_client_is_live (test_runtime_session_restart.RouterQueueTests.test_queue_reports_when_no_client_is_live) ... ok
+test_queue_targets_the_newest_live_client (test_runtime_session_restart.RouterQueueTests.test_queue_targets_the_newest_live_client) ... ok
+test_queue_tool_labels_the_mcp_source (test_runtime_session_restart.RouterQueueTests.test_queue_tool_labels_the_mcp_source) ... ok
+test_runtime_service_is_wired_to_the_router_instance_directory (test_runtime_session_restart.RouterQueueTests.test_runtime_service_is_wired_to_the_router_instance_directory) ... ok
+test_unisolated_test_runner_never_queues_a_restart (test_runtime_session_restart.RouterQueueTests.test_unisolated_test_runner_never_queues_a_restart) ... ok
+
+----------------------------------------------------------------------
+Ran 63 tests in 0.438s
+
+OK
+ciel-runtime restart-session: queued request_id=r1 client_pid=42 workspace=- resume=false
+ciel-runtime restart-session: no active CLI session is running through ciel-runtime
+ciel-runtime restart-session: multiple CLI sessions are active; select one:
+  --pid 1  workspace=C:/work router_port=9611 started=-
+  --pid 2  workspace=C:/work router_port=9611 started=-
+ciel-runtime restart-session: queued request_id=r1 client_pid=50788 workspace=C:/work resume=true
+ciel-runtime restart-session: client pid 99 is not an active CLI session
+ciel-runtime restart-session: queued request_id=r1 client_pid=7 workspace=- resume=true

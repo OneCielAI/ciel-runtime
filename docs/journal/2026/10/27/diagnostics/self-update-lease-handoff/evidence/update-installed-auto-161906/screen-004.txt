@@ -1,0 +1,49 @@
+Traceback (most recent call last):
+  File "C:\Users\djlov\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime.py", line 4980, in <module>
+    main()
+    ~~~~^^
+  File "C:\Users\djlov\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime_support\cli_application_context.py", line 153, in main
+    self.context().main()
+    ~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\djlov\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime_support\cli_application_context.py", line 75, in main
+    raise SystemExit(self.run_cli(arguments[2:]))
+                     ~~~~~~~~~~~~^^^^^^^^^^^^^^^
+  File "C:\Users\djlov\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime_support\cli_application_context.py", line 38, in run_cli
+    return self.dispatch.dispatch(argv, self.dispatch.services())
+           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\djlov\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime_support\cli_dispatch.py", line 872, in dispatch_cli
+    return launch_claude(
+        passthrough,
+    ...<4 lines>...
+        self_update_check=self_update_check,
+    )
+  File "C:\Users\djlov\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime_support\remote_instructions.py", line 309, in __call__
+    return self.delegate(*args, **kwargs)
+           ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\Users\djlov\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime_support\runtime_launch_context.py", line 113, in launch_claude
+    return self.context().launch_claude(*args, **kwargs)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\Users\djlov\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime_support\runtime_launch_context.py", line 46, in launch_claude
+    return self.runners.claude(
+           ~~~~~~~~~~~~~~~~~~~^
+        passthrough,
+        ^^^^^^^^^^^^
+    ...<5 lines>...
+        services=self.services.claude(),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\djlov\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime_support\runtime_launch.py", line 463, in run_claude
+    manage_router_lifetime = bool(start_router_if_needed())
+                                  ~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\djlov\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime.py", line 4187, in start_router_if_needed
+    return start_project_router_if_needed(
+        replace_active_clients=replace_active_clients,
+    ...<11 lines>...
+        platform_name=os.name,
+    )
+  File "C:\Users\djlov\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime_support\router_process_lifecycle.py", line 267, in start_router_if_needed
+    raise RuntimeError(f"ciel-runtime router did not start ({failure}). See {log_path}")
+RuntimeError: ciel-runtime router did not start (pid=46472 exit_code=1 state=child_exited elapsed=30.6s version=0.2.51-nightly.20261027-205033.3160858 source=11b9fec1d2
+441894 executable=C:\Users\djlov\AppData\Local\Python\pythoncore-3.14-64\python.exe entrypoint=C:\Users\djlov\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime
+\ciel_runtime.py log_path=C:\Users\djlov\AppData\Local\Temp\selfupd-54583a22\cfg\router.log). See C:\Users\djlov\AppData\Local\Temp\selfupd-54583a22\cfg\router.log

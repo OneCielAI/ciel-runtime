@@ -1,0 +1,11 @@
+owned cmd: yes
+owned window: yes
+self-update restart announced: yes
+launch settled: yes
+console command: yes
+Codex main prompt ready: yes
+console command: yes
+launcher exited: yes
+router down after exit: yes
+owned stop 15520 SUCCESS: The process with PID 15520 (child process of PID 28560) has been terminated.
+evidence C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\27\diagnostics\self-update-lease-handoff\evidence\update-source-auto-codex-162447

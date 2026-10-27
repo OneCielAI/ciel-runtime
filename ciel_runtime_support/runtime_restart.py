@@ -7,6 +7,8 @@ from dataclasses import dataclass
 import os
 from pathlib import Path
 
+from .workspace_router_selection import LAUNCH_LEASE_HANDOFF_ENV
+
 
 def running_from_npm_package(path: Path, environ: MutableMapping[str, str]) -> bool:
     if environ.get("CIEL_RUNTIME_NPM_MODE") is not None:
@@ -74,10 +76,11 @@ class RuntimeRestartService:
                 # the pre-update console/process state and leave the relaunched
                 # menu unable to advance to the selected runtime.  A fresh
                 # Python process matches a manual restart and cleanly loads the
-                # newly installed package before the updater exits.
-                raise SystemExit(
-                    self.ports.call(argv, env=dict(self.settings.environ))
-                )
+                # newly installed package before the updater exits.  The
+                # waiting updater hands its router launch lease to that child.
+                environment = dict(self.settings.environ)
+                environment[LAUNCH_LEASE_HANDOFF_ENV] = str(os.getpid())
+                raise SystemExit(self.ports.call(argv, env=environment))
             self.ports.execv(
                 self.settings.python_executable,
                 argv,

@@ -1,0 +1,33 @@
+2026-10-27T16:20:03 [INFO] router_port_clear reason=pre_spawn port=55954 stopped=false
+2026-10-27T16:20:03 [INFO] router_check_state running=False spawn=True base=http://127.0.0.1:55954
+2026-10-27T16:20:03 [INFO] router_spawn_start base=http://127.0.0.1:55954 version=0.2.51-nightly.20261027-205033.3160858 source=11b9fec1d2441894 executable=C:\Users\djlov\AppData\Local\Python\pythoncore-3.14-64\python.exe entrypoint=C:\Users\djlov\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime.py log_path=C:\Users\djlov\AppData\Local\Temp\selfupd-54583a22\cfg\router.log
+Traceback (most recent call last):
+  File "C:\Users\djlov\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime.py", line 23, in <module>
+    from ciel_runtime_support import agent_runtime_event_push, agent_turn_events, claude_stream_recovery_runtime, company_prompt_reload, event_delivery_ack, channel_llm_context, session_backup_service, claude_launch_assembly, cli_assembly, cli_dispatch, cli_parser, codex_config_effort, codex_launch_configuration, codex_turn_recovery, kimi_identity, launch_data_path, llm_option_config, llm_presets, native_context_recovery, remote_management_http, web_access_http
+  File "C:\Users\djlov\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime_support\claude_launch_assembly.py", line 8, in <module>
+    from . import runtime_launch
+  File "C:\Users\djlov\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime_support\runtime_launch.py", line 26, in <module>
+    from ciel_runtime_support.runtime_paths import CONFIG_DIR, LOG_PATH, ROUTER_BASE, ROUTER_INSTANCE_DIR, WORKSPACE_STATE_DIR
+  File "C:\Users\djlov\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime_support\runtime_paths.py", line 136, in <module>
+    ROUTER_PORT = select_workspace_router_port(
+        _BASE_ROUTER_PORT,
+    ...<2 lines>...
+        registry_path=WORKSPACE_ROUTER_REGISTRY_PATH,
+    )
+  File "C:\Users\djlov\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime_support\workspace_router_selection.py", line 226, in select_workspace_router_port
+    _claim_explicit_port(
+    ~~~~~~~~~~~~~~~~~~~~^
+        base_port,
+        ^^^^^^^^^^
+    ...<7 lines>...
+        environ,
+        ^^^^^^^^
+    )
+    ^
+  File "C:\Users\djlov\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime_support\workspace_router_selection.py", line 441, in _claim_explicit_port
+    _check_own_launch_lease(own_record)
+    ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+  File "C:\Users\djlov\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime_support\workspace_router_selection.py", line 348, in _check_own_launch_lease
+    raise RuntimeError("workspace router launch already reserved by another or unknown process")
+RuntimeError: workspace router launch already reserved by another or unknown process
+2026-10-27T16:20:34 [ERROR] router_spawn_failed pid=46472 exit_code=1 state=child_exited elapsed=30.6s version=0.2.51-nightly.20261027-205033.3160858 source=11b9fec1d2441894 executable=C:\Users\djlov\AppData\Local\Python\pythoncore-3.14-64\python.exe entrypoint=C:\Users\djlov\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime.py log_path=C:\Users\djlov\AppData\Local\Temp\selfupd-54583a22\cfg\router.log
