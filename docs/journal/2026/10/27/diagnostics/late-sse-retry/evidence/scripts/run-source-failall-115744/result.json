@@ -1,0 +1,113 @@
+{
+  "scratch": "C:\\Windows\\Temp\\ciel-send-92r6fi58",
+  "root": "C:\\Users\\djlov\\ciel-runtime-wt-work",
+  "provider": "cielairouter",
+  "ports": [
+    52931,
+    52930
+  ],
+  "owned_health": {
+    "ok": true,
+    "version": "0.2.51",
+    "source_fingerprint": "59743d83f45331de",
+    "pid": 73208,
+    "user": "djlov",
+    "home": "C:\\Windows\\Temp\\ciel-send-92r6fi58\\home",
+    "config_dir": "C:\\Windows\\Temp\\ciel-send-92r6fi58\\cfg",
+    "workspace": "c:\\windows\\temp\\ciel-send-92r6fi58\\ws",
+    "router_port": 52931,
+    "instance_id": "52931-39807c68534c",
+    "active_client_count": 0,
+    "active_client_pids": [],
+    "provider": "cielairouter",
+    "model": "ciel-runtime-cielairouter-owned-send",
+    "web_chat": "/ca/web/chat",
+    "web_chat_api": "/ca/web/chat/api",
+    "speech": "/ca/speech/health",
+    "chat": "/ca/chat/health",
+    "plan": "/ca/plan/artifacts",
+    "events": "/ca/events",
+    "events_websocket": "/ca/events/ws",
+    "external_event_receivers": "/ca/events/receivers",
+    "otlp_logs": "/v1/logs",
+    "telemetry_logs_tool": "POST /ca/mcp tools/call telemetry_logs",
+    "tui": "/ca/tui",
+    "tui_status": "/ca/tui/status",
+    "tui_stream": "/ca/tui/stream",
+    "cielairouter_gateway": {
+      "provider": "cielairouter",
+      "selector_module": "ciel_runtime_support.cielairouter_gateways",
+      "selector": "not_loaded",
+      "selector_error": "",
+      "routes": [],
+      "gateways": []
+    }
+  },
+  "cmd": [
+    "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@anthropic-ai\\claude-code\\bin\\claude.exe",
+    "-p",
+    "LATE-SSE-MAIN: answer once.",
+    "--output-format",
+    "stream-json",
+    "--verbose",
+    "--dangerously-skip-permissions",
+    "--strict-mcp-config",
+    "--mcp-config",
+    "{\"mcpServers\":{}}",
+    "--model",
+    "owned-send",
+    "--debug-file",
+    "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\27\\diagnostics\\late-sse-retry\\evidence\\scripts\\run-source-failall-115744\\native-debug.log"
+  ],
+  "version": "2.1.311 (Claude Code)",
+  "exit": 1,
+  "main_body_sha256": [
+    "be03cef0336eca604cbf1c7f66c0a2e0447c9555f7e837c8124096d4a24323c7",
+    "be03cef0336eca604cbf1c7f66c0a2e0447c9555f7e837c8124096d4a24323c7",
+    "be03cef0336eca604cbf1c7f66c0a2e0447c9555f7e837c8124096d4a24323c7",
+    "be03cef0336eca604cbf1c7f66c0a2e0447c9555f7e837c8124096d4a24323c7"
+  ],
+  "retry_log_lines": [
+    "2026-10-27T11:57:49 [WARN] cielairouter_late_sse_retry operation_id=eae5175251e946c68d6555e996ac11d8 attempt=1/3 wait=1.00s message_start=False output_exposed=False",
+    "2026-10-27T11:57:50 [WARN] cielairouter_late_sse_retry operation_id=eae5175251e946c68d6555e996ac11d8 attempt=2/3 wait=2.00s message_start=False output_exposed=False",
+    "2026-10-27T11:57:53 [WARN] cielairouter_late_sse_retry operation_id=eae5175251e946c68d6555e996ac11d8 attempt=3/3 wait=4.00s message_start=False output_exposed=False",
+    "2026-10-27T11:57:57 [WARN] cielairouter_late_sse_stopped operation_id=eae5175251e946c68d6555e996ac11d8 attempts=3 reason=budget_exhausted",
+    "2026-10-27T11:57:57 [WARN] anthropic_sse_upstream_error_event provider=cielairouter model=owned-send text_len=0 emitted_tool_use=False message_start=False message_delta=False open_blocks=0"
+  ],
+  "checks": {
+    "four_upstream_main_requests": true,
+    "identical_payloads": true,
+    "three_retries_logged": true,
+    "exhaustion_logged": true,
+    "error_surfaced_to_cli": true,
+    "exit_nonzero": true,
+    "no_cli_nonstreaming_fallback": true
+  },
+  "main_attempts": 4,
+  "requests": [
+    {
+      "n": 1,
+      "path": "/v1/messages",
+      "main": true,
+      "main_attempt": 1
+    },
+    {
+      "n": 2,
+      "path": "/v1/messages",
+      "main": true,
+      "main_attempt": 2
+    },
+    {
+      "n": 3,
+      "path": "/v1/messages",
+      "main": true,
+      "main_attempt": 3
+    },
+    {
+      "n": 4,
+      "path": "/v1/messages",
+      "main": true,
+      "main_attempt": 4
+    }
+  ]
+}

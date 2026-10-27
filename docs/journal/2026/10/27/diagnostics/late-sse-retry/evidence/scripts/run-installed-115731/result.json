@@ -1,0 +1,88 @@
+{
+  "scratch": "C:\\Windows\\Temp\\ciel-send-bdcrdnbb",
+  "root": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-8ebacfa3ba3f677be4942be6a9a2e61ceef33250",
+  "provider": "cielairouter",
+  "ports": [
+    63747,
+    63746
+  ],
+  "owned_health": {
+    "ok": true,
+    "version": "0.2.51-nightly.20261027-155105.8ebacfa",
+    "source_fingerprint": "11b9fec1d2441894",
+    "pid": 70972,
+    "user": "djlov",
+    "home": "C:\\Windows\\Temp\\ciel-send-bdcrdnbb\\home",
+    "config_dir": "C:\\Windows\\Temp\\ciel-send-bdcrdnbb\\cfg",
+    "workspace": "c:\\windows\\temp\\ciel-send-bdcrdnbb\\ws",
+    "router_port": 63747,
+    "instance_id": "63747-da3c72e2eb14",
+    "active_client_count": 0,
+    "active_client_pids": [],
+    "provider": "cielairouter",
+    "model": "ciel-runtime-cielairouter-owned-send",
+    "web_chat": "/ca/web/chat",
+    "web_chat_api": "/ca/web/chat/api",
+    "speech": "/ca/speech/health",
+    "chat": "/ca/chat/health",
+    "plan": "/ca/plan/artifacts",
+    "events": "/ca/events",
+    "events_websocket": "/ca/events/ws",
+    "external_event_receivers": "/ca/events/receivers",
+    "otlp_logs": "/v1/logs",
+    "telemetry_logs_tool": "POST /ca/mcp tools/call telemetry_logs",
+    "tui": "/ca/tui",
+    "tui_status": "/ca/tui/status",
+    "tui_stream": "/ca/tui/stream",
+    "cielairouter_gateway": {
+      "provider": "cielairouter",
+      "selector_module": "ciel_runtime_support.cielairouter_gateways",
+      "selector": "not_loaded",
+      "selector_error": "",
+      "routes": [],
+      "gateways": []
+    }
+  },
+  "cmd": [
+    "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@anthropic-ai\\claude-code\\bin\\claude.exe",
+    "-p",
+    "LATE-SSE-MAIN: answer once.",
+    "--output-format",
+    "stream-json",
+    "--verbose",
+    "--dangerously-skip-permissions",
+    "--strict-mcp-config",
+    "--mcp-config",
+    "{\"mcpServers\":{}}",
+    "--model",
+    "owned-send",
+    "--debug-file",
+    "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\27\\diagnostics\\late-sse-retry\\evidence\\scripts\\run-installed-115731\\native-debug.log"
+  ],
+  "version": "2.1.311 (Claude Code)",
+  "exit": 1,
+  "main_body_sha256": [
+    "65a4e701471edf139b3bad48df52e73a6817fd3efeafe9d523dcafcd1b186c14"
+  ],
+  "retry_log_lines": [
+    "2026-10-27T11:57:36 [WARN] anthropic_sse_upstream_error_event provider=cielairouter model=owned-send text_len=0 emitted_tool_use=False message_start=False message_delta=False open_blocks=0"
+  ],
+  "checks": {
+    "two_upstream_main_requests": false,
+    "retry_logged": false,
+    "success_returned": false,
+    "aggregate_error_not_returned": false,
+    "exit_zero": false,
+    "identical_payloads": true,
+    "no_cli_nonstreaming_fallback": true
+  },
+  "main_attempts": 1,
+  "requests": [
+    {
+      "n": 1,
+      "path": "/v1/messages",
+      "main": true,
+      "main_attempt": 1
+    }
+  ]
+}

@@ -4,7 +4,9 @@ The generation dispatcher enters request_scope; reusable config never owns a
 mutable budget. Typed TimeoutError (also inside URLError) during open may
 retry under that same budget; other ambiguous transport failures do not.
 A timeout does not prove the upstream did no work, so replay may duplicate
-upstream generation or billing. Accepted-stream reads never reopen here.
+upstream generation or billing. After message_start or any unknown generation
+frame, reads never reopen. Before that boundary, delayed explicit SSE rejections
+may reopen under the same budget; no visible output or tool use is replayed.
 
 open_once must not expose downstream bytes. Only text/event-stream success
 responses are inspected: at most 64 KiB for at most 100 ms (also limited by
@@ -12,7 +14,12 @@ the monotonic request deadline), using only ready bytes. Unknown streams or
 incomplete HTTP framing are returned without a blocking probe. Prefix bytes
 are replayed unchanged through the response contract; the first non-error,
 unknown or mixed dispatch closes inspection, never a full-stream buffer.
-Every byte returned by that adapter marks the budget exposed. A caller may
+Accepted SSE responses additionally have a read-time guard that holds at most
+64 KiB of comment/ping preamble until the first generation/unknown frame. It uses
+the existing stream idle timeout, not a longer synchronous open-time probe. Only
+an error-only complete transient verdict can reopen; unknown/mixed/partial or
+post-message-start errors stay unchanged. Terminal auth/quota remain terminal.
+Every byte returned by the outer adapter marks the budget exposed. A caller may
 sequentially reopen an unconsumed response within the same scope, spending the
 same allowance. Materially different checkpoint recovery after terminal 400
 must explicitly enter a fresh request_scope; the executor never resets one.
@@ -373,12 +380,13 @@ class _ReplayResponse:
         self._prefix = io.BytesIO(prefix)
         self._budget = budget
         self.closed = False
+        self._defer_exposure = False
 
     def __getattr__(self, name):
         return getattr(self._response, name)
 
     def _expose(self, data):
-        if data:
+        if data and not self._defer_exposure:
             self._budget.exposed = True
         return data
 
@@ -446,6 +454,147 @@ class _ReplayResponse:
 def _check_cancelled(cancelled):
     if cancelled is not None and cancelled():
         raise UpstreamClientDisconnected("downstream client disconnected during transient retry")
+
+
+class _PreOutputSSE(_ReplayResponse):
+    """Read-time rejection guard, bounded by bytes and the existing idle timeout.
+
+    Headers may already be downstream; no generation event is exposed before
+    this guard commits. Unknown/mixed events commit unchanged. Read exceptions
+    never authorize replay. A relay may close this response from another thread
+    while a retry waits; no reopen starts, and none survives, after close.
+    """
+    def __init__(self, response, budget, reopen, log, publish, sleep, cancelled, request, reselect, model):
+        super().__init__(response, b"", budget)
+        self._swap = threading.Lock()
+        response._defer_exposure = True
+        self._pending = bytearray()
+        self._committed = False
+        self._reopen = reopen
+        self._log, self._publish, self._sleep = log, publish, sleep
+        self._cancelled, self._request, self._reselect, self._model = cancelled, request, reselect, model
+
+    @staticmethod
+    def _heartbeat(frame):
+        lines = [line for line in frame.split(bytes([10])) if line and not line.startswith(b":")]
+        if not lines:
+            return True
+        if len(lines) != 2 or lines[0] != b"event: ping" or not lines[1].startswith(b"data:"):
+            return False
+        try:
+            return _strict_json(lines[1][5:].strip().decode("utf-8")) == {"type": "ping"}
+        except (ValueError, UnicodeDecodeError, TypeError, RecursionError):
+            return False
+
+    def _check_open(self):
+        if self.closed:
+            raise UpstreamClientDisconnected("response closed during pre-output transient retry")
+
+    def close(self):
+        with self._swap:
+            super().close()
+
+    def _accept(self):
+        self._committed = True
+        self._prefix = io.BytesIO(bytes(self._pending))
+        self._pending.clear()
+        self._response._defer_exposure = False
+
+    def _inspect(self):
+        if self._committed:
+            return
+        while len(self._pending) < MAX_ERROR_BYTES:
+            _check_cancelled(self._cancelled)
+            chunk = self._response.read1(min(8192, MAX_ERROR_BYTES - len(self._pending)))
+            if not chunk:
+                self._accept()
+                return
+            self._pending.extend(chunk)
+            raw = bytes(self._pending).replace(bytes([13, 10]), bytes([10])).replace(bytes([13]), bytes([10]))
+            frames = raw.split(bytes([10, 10]))
+            meaningful = [f for f in frames[:-1] if not self._heartbeat(f)]
+            if not meaningful:
+                continue
+            if len(meaningful) != 1 or frames[-1]:
+                self._accept()
+                return
+            error_bytes = meaningful[0] + bytes([10, 10])
+            if not _retryable_verdict(503, error_bytes):
+                self._accept()
+                return
+            error = urllib.error.HTTPError(getattr(self._request, "full_url", ""), 503,
+                                           "Delayed pre-output SSE error", self.headers, io.BytesIO(error_bytes))
+            wait = self._budget.next_wait(error, error_bytes, self.headers)
+            if wait is None:
+                self._budget.stopped = True
+                self._log("WARN", f"cielairouter_late_sse_stopped operation_id={self._budget.operation_id} "
+                          f"attempts={self._budget.attempts} reason=budget_exhausted")
+                self._accept()
+                return
+            _close(self._response)
+            self._log("WARN", f"cielairouter_late_sse_retry operation_id={self._budget.operation_id} "
+                      f"attempt={self._budget.attempts}/{self._budget.limit} wait={wait:.2f}s "
+                      "message_start=False output_exposed=False")
+            if self._publish is not None:
+                self._publish(level="warn", category="router.retry", message="Pre-output upstream SSE error; retrying",
+                    provider=PROVIDER, model=self._model, data={"kind": "late_sse_error", "attempt": self._budget.attempts,
+                    "total": self._budget.limit, "operation_id": self._budget.operation_id})
+            _check_cancelled(self._cancelled)
+            self._check_open()
+            self._sleep(wait)
+            _check_cancelled(self._cancelled)
+            self._check_open()
+            if self._reselect is not None:
+                self._reselect()
+            try:
+                with self._budget.lock:
+                    if self._budget.owner is not None:
+                        raise RuntimeError("pre-output retry cannot overlap an active opener")
+                    self._budget.owner = threading.get_ident()
+                try:
+                    response = _execute(self._reopen, self._budget, self._log, self._publish, self._sleep,
+                                        self._cancelled, self._request, self._reselect, self._model)
+                finally:
+                    with self._budget.lock:
+                        self._budget.owner = None
+            except urllib.error.HTTPError as failure:
+                body = failure.read(MAX_ERROR_BYTES + 1)
+                _close(failure)
+                if _error_verdict(body) is None:
+                    raise
+                if body.lstrip().startswith(b"{"):
+                    body = b"event: error" + bytes([10]) + b"data: " + body + bytes([10, 10])
+                self._response = _ReplayResponse(io.BytesIO(b""), b"", self._budget)
+                self._pending = bytearray(body)
+                self._accept()
+                return
+            with self._swap:
+                if self.closed:
+                    _close(response)
+                    raise UpstreamClientDisconnected("response closed during pre-output transient reopen")
+                self._response = response
+            self._pending.clear()
+            self._committed = True
+            return
+        self._accept()
+
+    def read(self, size=-1):
+        if size == 0:
+            return b""
+        self._inspect()
+        return super().read(size)
+
+    def read1(self, size=-1):
+        if size == 0:
+            return b""
+        self._inspect()
+        return super().read1(size)
+
+    def readline(self, size=-1):
+        if size == 0:
+            return b""
+        self._inspect()
+        return super().readline(size)
 
 
 def _socket(response):
@@ -711,7 +860,12 @@ def _execute(open_once, budget, log, publish, sleep, cancelled, request, reselec
                 _mark(caught, budget)
                 raise
             if raw is None:
-                return release_read_timeout(response, budget)
+                accepted = release_read_timeout(response, budget)
+                headers = getattr(response, "headers", {})
+                ctype = str(headers.get("Content-Type", headers.get("content-type", ""))).lower()
+                if isinstance(accepted, _ReplayResponse) and "text/event-stream" in ctype:
+                    return _PreOutputSSE(accepted, budget, open_once, log, publish, sleep, cancelled, request, reselect, model)
+                return accepted
             headers = getattr(response, "headers", {})
             status = getattr(response, "status", 200)
             url = getattr(response, "url", getattr(request, "full_url", ""))

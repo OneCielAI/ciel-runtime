@@ -1,0 +1,3 @@
+ciel-runtime router starting on 127.0.0.1:55393 (client base http://127.0.0.1:55393, log level INFO, source=env)
+web: http://127.0.0.1:55393/
+web_tailscale_https_recommended: ciel-runtime --ca-web-port 55393 --ca-tailscale-https=55393
