@@ -1,0 +1,9 @@
+owned cmd: yes
+owned window: yes
+self-update restart announced: yes
+launch settled: yes
+console command: yes
+launcher exited: yes
+router down after exit: yes
+owned stop 29748 SUCCESS: The process with PID 29748 (child process of PID 28560) has been terminated.
+evidence C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\27\diagnostics\self-update-lease-handoff\evidence\update-installed-auto-164510

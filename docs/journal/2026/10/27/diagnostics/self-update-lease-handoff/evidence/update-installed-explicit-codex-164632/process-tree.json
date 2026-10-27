@@ -1,0 +1,135 @@
+[
+ {
+  "depth": 1,
+  "pid": 63640,
+  "ppid": 50792,
+  "name": "node.exe",
+  "cmd": "node  C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\npm-bin\\ciel-runtime.js --ca-runtime codex --ca-no-update-check"
+ },
+ {
+  "depth": 2,
+  "pid": 15248,
+  "ppid": 63640,
+  "name": "py.exe",
+  "cmd": "py -3 C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime.py cli --ca-runtime codex --ca-no-update-check"
+ },
+ {
+  "depth": 3,
+  "pid": 68048,
+  "ppid": 15248,
+  "name": "python.exe",
+  "cmd": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime.py cli --ca-runtime codex --ca-no-update-check"
+ },
+ {
+  "depth": 4,
+  "pid": 13388,
+  "ppid": 68048,
+  "name": "python.exe",
+  "cmd": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime.py cli --ca-runtime codex --ca-no-update-check"
+ },
+ {
+  "depth": 5,
+  "pid": 65468,
+  "ppid": 13388,
+  "name": "python.exe",
+  "cmd": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime.py serve"
+ },
+ {
+  "depth": 5,
+  "pid": 67900,
+  "ppid": 13388,
+  "name": "conhost.exe",
+  "cmd": "\\\\?\\C:\\WINDOWS\\system32\\conhost.exe --headless --width 168 --height 50 --signal 0x270 --server 0x290"
+ },
+ {
+  "depth": 5,
+  "pid": 48152,
+  "ppid": 13388,
+  "name": "codex.exe",
+  "cmd": "C:\\Users\\djlov\\AppData\\Local\\Programs\\OpenAI\\Codex\\bin\\codex.exe --yolo -c model_provider=\\\"ciel-runtime\\\" -c \"model_providers.ciel-runtime.name=\\\"Ciel Runtime\\\"\" -c model_providers.ciel-runtime.base_url=\\\"http://127.0.0.1:57918/v1\\\" -c model_providers.ciel-runtime.wire_api=\\\"responses\\\" -c model_pr"
+ },
+ {
+  "depth": 5,
+  "pid": 66488,
+  "ppid": 13388,
+  "name": "python.exe",
+  "cmd": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\windows_console_guard.py 13388 487 7"
+ },
+ {
+  "depth": 6,
+  "pid": 22524,
+  "ppid": 48152,
+  "name": "uvx.exe",
+  "cmd": "\"C:\\Program Files\\Python311\\Scripts\\uvx.exe\" mcp-server-fetch"
+ },
+ {
+  "depth": 6,
+  "pid": 1832,
+  "ppid": 48152,
+  "name": "node_repl.exe",
+  "cmd": "\"C:\\Users\\djlov\\AppData\\Local\\OpenAI\\Codex\\runtimes\\cua_node\\a9ba6825a525118c\\bin\\node_repl.exe\""
+ },
+ {
+  "depth": 6,
+  "pid": 62580,
+  "ppid": 48152,
+  "name": "cmd.exe",
+  "cmd": "cmd.exe /e:ON /v:OFF /d /c \"\"C:\\Program Files\\nodejs\\npx.cmd\" -y ddg-mcp-search\""
+ },
+ {
+  "depth": 6,
+  "pid": 55724,
+  "ppid": 48152,
+  "name": "cmd.exe",
+  "cmd": "\"C:\\WINDOWS\\system32\\cmd.exe\" /d /c npx -y rea-agents@6.5.0 mcp"
+ },
+ {
+  "depth": 7,
+  "pid": 62232,
+  "ppid": 55724,
+  "name": "conhost.exe",
+  "cmd": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4"
+ },
+ {
+  "depth": 7,
+  "pid": 65084,
+  "ppid": 55724,
+  "name": "node.exe",
+  "cmd": "\"C:\\Program Files\\nodejs\\\\node.exe\"  \"C:\\Program Files\\nodejs\\\\node_modules\\npm\\bin\\npx-cli.js\" -y rea-agents@6.5.0 mcp"
+ },
+ {
+  "depth": 7,
+  "pid": 67060,
+  "ppid": 62580,
+  "name": "conhost.exe",
+  "cmd": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4"
+ },
+ {
+  "depth": 7,
+  "pid": 64716,
+  "ppid": 62580,
+  "name": "node.exe",
+  "cmd": "\"C:\\Program Files\\nodejs\\\\node.exe\"  \"C:\\Program Files\\nodejs\\\\node_modules\\npm\\bin\\npx-cli.js\" -y ddg-mcp-search"
+ },
+ {
+  "depth": 7,
+  "pid": 50540,
+  "ppid": 1832,
+  "name": "conhost.exe",
+  "cmd": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4"
+ },
+ {
+  "depth": 7,
+  "pid": 66100,
+  "ppid": 22524,
+  "name": "conhost.exe",
+  "cmd": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4"
+ },
+ {
+  "depth": 7,
+  "pid": 64964,
+  "ppid": 22524,
+  "name": "uv.exe",
+  "cmd": "\"C:\\Program Files\\Python311\\Scripts\\uv.exe\" tool uvx mcp-server-fetch"
+ }
+]
