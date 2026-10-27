@@ -222,8 +222,12 @@ class RouterClientSupervisor:
             value = 15.0
         return max(2.0, min(120.0, value))
 
-    def ensure_running(self) -> bool:
+    def ensure_running(self, stop_event: threading.Event | None = None) -> bool:
+        if stop_event is not None and stop_event.is_set():
+            return False
         health = self._ports.router_health()
+        if stop_event is not None and stop_event.is_set():
+            return False
         if self._ports.health_matches_current(health):
             return True
         if health is not None:
@@ -259,8 +263,13 @@ class RouterClientSupervisor:
         probe_interval = 0.5
         probe_count = max(2, int(math.ceil(self.down_confirmation_seconds() / probe_interval)))
         for attempt in range(probe_count):
-            time.sleep(0.5)
+            if stop_event is None:
+                time.sleep(0.5)
+            elif stop_event.wait(0.5):
+                return False
             health = self._ports.router_health()
+            if stop_event is not None and stop_event.is_set():
+                return False
             if health is not None:
                 reason = (
                     "transient_health_miss"
@@ -280,6 +289,8 @@ class RouterClientSupervisor:
                     f"retry={attempt + 1} base={self._router_base}",
                 )
                 return True
+        if stop_event is not None and stop_event.is_set():
+            return False
         self._ports.log("WARN", f"router_lifetime_restart reason=router_down_active_client base={self._router_base}")
         return self._restart()
 
@@ -294,7 +305,7 @@ class RouterClientSupervisor:
         def watch() -> None:
             interval = self.interval_seconds()
             while not stop_event.wait(interval):
-                self.ensure_running()
+                self.ensure_running(stop_event)
 
         thread = threading.Thread(target=watch, daemon=True, name="ca-router-client-supervisor")
         thread.start()
@@ -317,11 +328,12 @@ class RouterLifetimeRunner:
     def run(self, runner: Callable[[], int], manage_router: bool) -> int:
         client_path: Path | None = None
         supervisor_stop: threading.Event | None = None
+        supervisor: threading.Thread | None = None
         if manage_router:
             try:
                 client_path = self._ports.register_client()
                 supervisor_stop = threading.Event()
-                self._ports.start_supervisor(supervisor_stop)
+                supervisor = self._ports.start_supervisor(supervisor_stop)
             except Exception as exc:
                 self._ports.log("WARN", f"router_client_register_failed error={type(exc).__name__}: {exc}")
         try:
@@ -329,9 +341,16 @@ class RouterLifetimeRunner:
         finally:
             if supervisor_stop is not None:
                 supervisor_stop.set()
+            # A probe or restart already in flight must settle before the last
+            # client lease is released and the router is stopped. Otherwise it
+            # can spawn a replacement after cleanup has finished.
+            if supervisor is not None and supervisor.ident is not None and supervisor is not threading.current_thread():
+                supervisor.join()
             if manage_router:
-                self._ports.release_client(client_path)
-                self._ports.stop_if_idle("claude_exit", quiet=True)
+                try:
+                    self._ports.release_client(client_path)
+                finally:
+                    self._ports.stop_if_idle("claude_exit", quiet=True)
 
 
 @dataclass(frozen=True)

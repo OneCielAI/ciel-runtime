@@ -12,6 +12,8 @@ from ciel_runtime_support.router_client_lifecycle import (
     RoutedLaunchDiagnostics,
     RouterClientRegistry,
     RouterClientRegistryPorts,
+    RouterClientSupervisor,
+    RouterClientSupervisorPorts,
     RouterLifetimeRunner,
     RouterLifetimeRunnerPorts,
 )
@@ -124,6 +126,87 @@ class RouterClientLifecycleTests(unittest.TestCase):
         self.assertEqual(3, runner.run(lambda: 3, True))
         self.assertTrue(stop_event.is_set())
         self.assertEqual([("release", Path("7.json")), ("claude_exit", True)], calls)
+
+    def test_exit_cancels_inflight_probe_before_releasing_client(self):
+        entered, release, finished = threading.Event(), threading.Event(), threading.Event()
+        calls = []
+        stop_events = []
+
+        def health():
+            entered.set()
+            self.assertTrue(release.wait(3))
+            return None
+
+        supervisor = RouterClientSupervisor("fixture", RouterClientSupervisorPorts(
+            router_health=health, listener_reachable=lambda: False,
+            health_matches_current=lambda _h: False, health_config_matches_current=lambda _h: False,
+            health_summary=str, start_router=lambda **_kw: calls.append("spawn") or True, log=lambda *_: None))
+
+        def start(event):
+            stop_events.append(event)
+            thread = threading.Thread(target=lambda: supervisor.ensure_running(event))
+            thread.start()
+            return thread
+
+        def native():
+            self.assertTrue(entered.wait(3))
+            return 0
+
+        runner = RouterLifetimeRunner(RouterLifetimeRunnerPorts(
+            register_client=lambda: Path("fixture.json"), release_client=lambda _p: calls.append("release"),
+            start_supervisor=start, stop_if_idle=lambda *_a, **_kw: calls.append("stop") or True,
+            log=lambda *_: None))
+        def launch():
+            try:
+                runner.run(native, True)
+            finally:
+                finished.set()
+        thread = threading.Thread(target=launch)
+        thread.start()
+        try:
+            self.assertTrue(entered.wait(3))
+            self.assertTrue(stop_events[0].wait(3))
+            self.assertFalse(finished.is_set())
+            self.assertEqual(calls, [])
+        finally:
+            release.set()
+            thread.join(5)
+        self.assertFalse(thread.is_alive())
+        self.assertEqual(calls, ["release", "stop"])
+
+    def test_exit_waits_for_an_already_started_restart_before_final_stop(self):
+        spawned, release = threading.Event(), threading.Event()
+        calls = []
+        def start(event):
+            def restart():
+                calls.append("restart-begin")
+                spawned.set()
+                release.wait(3)
+                calls.append("restart-end")
+            thread = threading.Thread(target=restart)
+            thread.start()
+            return thread
+        def native():
+            self.assertTrue(spawned.wait(3))
+            release.set()
+            return 3
+        runner = RouterLifetimeRunner(RouterLifetimeRunnerPorts(
+            register_client=lambda: Path("fixture.json"), release_client=lambda _p: calls.append("release"),
+            start_supervisor=start, stop_if_idle=lambda *_a, **_kw: calls.append("stop") or True,
+            log=lambda *_: None))
+        self.assertEqual(runner.run(native, True), 3)
+        self.assertEqual(calls, ["restart-begin", "restart-end", "release", "stop"])
+
+    def test_release_failure_still_requests_idle_stop(self):
+        stopped = []
+        runner = RouterLifetimeRunner(RouterLifetimeRunnerPorts(
+            register_client=lambda: Path("fixture.json"),
+            release_client=mock.Mock(side_effect=OSError("fixture")),
+            start_supervisor=lambda _e: threading.Thread(),
+            stop_if_idle=lambda *_a, **_kw: stopped.append(True), log=lambda *_: None))
+        with self.assertRaises(OSError):
+            runner.run(lambda: 0, True)
+        self.assertEqual(stopped, [True])
 
     def test_diagnostics_filter_reads_only_relevant_tail(self):
         with tempfile.TemporaryDirectory() as directory:

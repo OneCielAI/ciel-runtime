@@ -1,0 +1,21 @@
+{
+ "module": "C:/Users/djlov/.local/share/ciel-runtime-77929651290a8a0c4647eb47fe251fb5db4d1206/ciel_runtime_support/router_client_lifecycle.py",
+ "events": [
+  {
+   "event": "release"
+  },
+  {
+   "event": "stop"
+  },
+  {
+   "event": "spawn",
+   "pid": 49832
+  }
+ ],
+ "exit_code": 0,
+ "lease_exists": false,
+ "port_listening_after_exit": true,
+ "alive_owned_router_pids": [
+  49832
+ ]
+}
