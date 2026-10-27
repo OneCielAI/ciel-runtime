@@ -1,0 +1,14 @@
+C:\Users\djlov\.local\share\ciel-runtime-0555b6c1e080d3466d44437d7eb01b7f61367615
+[{"Name":"ciel-runtime.ps1","Source":"C:\\Users\\djlov\\AppData\\Roaming\\npm\\ciel-runtime.ps1"},{"Name":"ciel-runtime.cmd","Source":"C:\\Users\\djlov\\AppData\\Roaming\\npm\\ciel-runtime.cmd"},{"Name":"ciel-runtime","Source":"C:\\Users\\djlov\\AppData\\Roaming\\npm\\ciel-runtime"},{"Name":"ciel-runtime.ps1","Source":"C:\\Users\\djlov\\.local\\bin\\ciel-runtime.ps1"},{"Name":"ciel-runtime.cmd","Source":"C:\\Users\\djlov\\.local\\bin\\ciel-runtime.cmd"},{"Name":"ciel-runtime","Source":"C:\\Users\\djlov\\.local\\bin\\ciel-runtime"},{"Name":"cielrt.ps1","Source":"C:\\Users\\djlov\\AppData\\Roaming\\npm\\cielrt.ps1"},{"Name":"cielrt.cmd","Source":"C:\\Users\\djlov\\AppData\\Roaming\\npm\\cielrt.cmd"},{"Name":"cielrt","Source":"C:\\Users\\djlov\\AppData\\Roaming\\npm\\cielrt"},{"Name":"cielrt.ps1","Source":"C:\\Users\\djlov\\.local\\bin\\cielrt.ps1"},{"Name":"cielrt.cmd","Source":"C:\\Users\\djlov\\.local\\bin\\cielrt.cmd"},{"Name":"cielrt","Source":"C:\\Users\\djlov\\.local\\bin\\cielrt"}]
+0.2.51-nightly.20261027-031627.0555b6c
+C:\Users\djlov\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime_support\codex_app_server_session.py:417: SyntaxWarning: 'return' in a 'finally' block
+  return _RemoteRun(1)
+ciel-runtime 0.2.51-nightly.20261027-031627.0555b6c
+
+C:/Users/djlov/.local/bin/ciel-runtime.cmd exit=0
+ciel-runtime 0.2.51-nightly.20261027-031627.0555b6c
+C:\Users\djlov\.local\share\ciel-runtime-0555b6c1e080d3466d44437d7eb01b7f61367615\ciel_runtime_support\codex_app_server_session.py:417: SyntaxWarning: 'return' in a 'finally' block
+  return _RemoteRun(1)
+
+C:/Users/djlov/AppData/Roaming/npm/ciel-runtime.cmd exit=0
+ciel-runtime 0.2.51-nightly.20261027-031627.0555b6c

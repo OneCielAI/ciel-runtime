@@ -27,3 +27,7 @@ timestamp: 2026-10-27T03:35:00Z
 - The native creation-token handoff verification is directly exercised on Windows. macOS identity verification is unavailable in the existing process helper and therefore fails closed; no unsupported identity is accepted. No timeout-based fallback to a parked TTY is added.
 
 - Final review regression run: 355 tests OK (42 skipped), mod 48/48 pass, full-repository Ruff passes. A prior command misspelled test_architecture_contracts as singular and failed import; corrected invocation passed.
+
+# Published installation
+
+Installed exact nightly 0.2.51-nightly.20261027-031627.0555b6c; native CLI installed checks pass. See release proof at `docs/journal/2026/10/26/releases/edward-ara-nightly/verification.md`. Local live sessions unchanged; .14 was not installed/restarted.

@@ -1,0 +1,12 @@
+[
+  {
+    "kind": "handoff",
+    "exit_code": 0,
+    "log": "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\releases\\edward-ara-nightly\\evidence\\installed-handoff.txt"
+  },
+  {
+    "kind": "work-stop",
+    "exit_code": 0,
+    "log": "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\releases\\edward-ara-nightly\\evidence\\installed-work-stop.txt"
+  }
+]

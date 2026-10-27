@@ -17,3 +17,7 @@ timestamp: 2026-10-27T03:15:00Z
 # Release
 
 Installed-package verification and nightly/local switch are pending.
+
+# Published installation
+
+Installed exact nightly 0.2.51-nightly.20261027-031627.0555b6c; native CLI installed checks pass. See release proof at `docs/journal/2026/10/26/releases/edward-ara-nightly/verification.md`. Local live sessions unchanged; .14 was not installed/restarted.
