@@ -1,0 +1,125 @@
+{
+ "schema": 1,
+ "version": 9,
+ "phase": "planning",
+ "active_root": "n7",
+ "focus_ids": [
+  "n4",
+  "n7"
+ ],
+ "next_id": 10,
+ "nodes": [
+  {
+   "id": "n4",
+   "parent_id": null,
+   "title": "2. AAAA first",
+   "status": "done",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793118081.7115626,
+   "phase": "planning"
+  },
+  {
+   "id": "n2",
+   "parent_id": "n1",
+   "title": "Phase",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793118080.2089443
+  },
+  {
+   "id": "n3",
+   "parent_id": "n2",
+   "title": "Other leaf",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793118080.2089443
+  },
+  {
+   "id": "n7",
+   "parent_id": null,
+   "title": "3. AAAA second",
+   "status": "done",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793118082.7671344,
+   "phase": "planning"
+  },
+  {
+   "id": "n5",
+   "parent_id": "n4",
+   "title": "Phase",
+   "status": "done",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793118081.7115626
+  },
+  {
+   "id": "n6",
+   "parent_id": "n5",
+   "title": "AAAA first leaf",
+   "status": "done",
+   "note": "",
+   "evidence": "Owned AAAA first file verified by driver",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793118081.7115626
+  },
+  {
+   "id": "n1",
+   "parent_id": null,
+   "title": "1. Other existing work",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793118080.2089443,
+   "phase": "executing"
+  },
+  {
+   "id": "n8",
+   "parent_id": "n7",
+   "title": "Phase",
+   "status": "done",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793118082.7671344
+  },
+  {
+   "id": "n9",
+   "parent_id": "n8",
+   "title": "AAAA second leaf",
+   "status": "done",
+   "note": "",
+   "evidence": "Owned AAAA second file verified by driver",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793118082.7671344
+  }
+ ],
+ "updated_at": 1793118082.7671344
+}

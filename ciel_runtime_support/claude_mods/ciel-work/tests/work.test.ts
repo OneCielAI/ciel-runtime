@@ -445,6 +445,40 @@ test('root move buttons pin version, identity and explicit user request', async 
     expected_version: 1, session_id: 'claude:session-a' })
   await pane.unmount()
 })
+test('Inspector focus and clear pin exact user intent, version and conversation', async ($, on) => {
+  const s = inspection(on)
+  await $.command.run({ command: 'work-mode', args: 'view' })
+  const pane = await $.ui.mount(PANE)
+  await pane.press({ key: 'detail-focus' })
+  expect(s.calls.find(c => c.tool === 'work_focus').args).toEqual({ node_ids: ['g1'], user_requested: true,
+    expected_version: 1, session_id: 'claude:session-a' })
+  s.snapshot.focus = { node_ids: ['g1'], exhausted: true }
+  await $.command.run({ command: 'work-mode', args: 'view' })
+  await pane.redraw(PANE.props)
+  await pane.press({ key: 'detail-unfocus' })
+  expect(s.calls.filter(c => c.tool === 'work_focus').at(-1).args).toEqual({ node_ids: [], user_requested: true,
+    expected_version: 1, session_id: 'claude:session-a' })
+  await pane.unmount()
+})
+test('Inspector appends an inspected existing item to focus in order', async ($, on) => {
+  const s = inspection(on)
+  s.snapshot.focus = { node_ids: ['b'], exhausted: false }
+  await $.command.run({ command: 'work-mode', args: 'view' })
+  const pane = await $.ui.mount(PANE)
+  await pane.press({ key: 'detail-focus-add' })
+  expect(s.calls.find(c => c.tool === 'work_focus').args).toEqual({ node_ids: ['b', 'g1'], user_requested: true,
+    expected_version: 1, session_id: 'claude:session-a' })
+  await pane.unmount()
+})
+test('focus intent reaches model and exhausted focus explains held unrelated Work', async ($, on) => {
+  const s = continuing(on, { continuation: { actionable: 0, next: null, held: 2 },
+    focus: { node_ids: ['a', 'b'], exhausted: true } })
+  const r = await $.prompt.submit({ text: 'AAAA only', wait: false })
+  expect(r.context[0]).toContain('call work_focus')
+  expect(r.context[0]).toContain('"focus":{"node_ids":["a","b"],"exhausted":true}')
+  expect((await $.classic.Stop(STOP)).block).toBeUndefined()
+  expect(s.logs.at(-1)).toContain('other Work stays held until you clear focus')
+})
 test('compact footer and vertical branch buttons', async ($, on) => {
   inspection(on)
   await $.command.run({ command: 'work-mode', args: 'status' })
@@ -993,7 +1027,7 @@ test('inspector bounds long notes and trees with paging; every note chunk stays 
   do {
     if (await pane.find({ text: /END OF NOTE/ })) end = true
     if (await pane.find({ key: 'node-leaf39' })) last = true
-    expect((await pane.findAll({ type: 'Button' })).length <= 17).toBe(true)
+    expect((await pane.findAll({ type: 'Button' })).length <= 18).toBe(true)
     pages++
     if (!await pane.find({ key: 'detail-next' })) break
     await pane.press({ key: 'detail-next' })

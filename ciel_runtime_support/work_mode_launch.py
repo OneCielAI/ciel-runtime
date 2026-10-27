@@ -30,9 +30,13 @@ WORK_TOOL_NAMES = (
     "work_replan",
     "work_reorder",
     "work_urgent",
+    "work_focus",
 )
 
 WORK_MODE_BASE_INSTRUCTIONS = (
+    "When the user asks to prioritize existing items and work only on them, resolve exact node IDs from Work status, "
+    "call work_focus(node_ids=[...], user_requested=true), and preserve unrelated Work. Focus remains after completion; "
+    "clear with node_ids=[] only on explicit user request. "
     "Ciel Work mode is hybrid per-item planning and execution, not native Plan Mode. Keep a hierarchical plan "
     "current while executing approved work and planning queued requests concurrently.\n"
     "Work plans are private to this conversation. Codex supplies the conversation identity in MCP metadata; "

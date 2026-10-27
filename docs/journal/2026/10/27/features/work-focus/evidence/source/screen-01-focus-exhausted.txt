@@ -1,0 +1,38 @@
+
+
+  Called ciel-runtime-router 6 times
+
+● Write(subject.txt)
+  ⎿  Added 1 line, removed 1 line
+      1 -BEFORE
+      1 +AAAA-FIRST
+
+  Called ciel-runtime-router
+
+● FOCUS-FIRST-END
+
+  Called ciel-runtime-router 2 times
+
+● Write(subject.txt)
+  ⎿  Added 1 line, removed 1 line
+      1 -AAAA-FIRST
+      1 +AAAA-SECOND
+
+  Called ciel-runtime-router
+
+● FOCUS-ONLY-FINISHED
+
+● ciel-work: Ciel Work stopped: unfinished items remain but none can run now (focus only: n4, n7 finished; other Work stays
+  held until you clear focus · 1 goal(s) held behind the urgent goal). Clear a wait, unblock or close an item, or send a
+  message to continue. /work-mode tree lists every item.
+
+✻ Sautéed for 3s · done 11:21 AM
+Work planning 1/1 [FOCUS n4,n7] — 3. AAAA second                                                                                   [-]
+[Progress 0] Queue 1 Completed 4
+No unfinished rows · inspect the active goal
+1/1 w: Inspector
+                                                                                                                     ● high · /effort
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · ← for agents                                                         work: plan 1/1

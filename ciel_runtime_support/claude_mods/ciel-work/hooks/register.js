@@ -6,7 +6,7 @@ const panelView = atom({ plugin: 'ciel-work', key: 'panel' }, null)
 const PANE = 'work-details'
 const PREFIX = 'mcp__ciel-runtime-router__'
 const WORK = new Set(['work_status', 'work_plan_set', 'work_node_add', 'work_node_update',
-  'work_node_remove', 'work_select', 'work_execute', 'work_replan', 'work_reorder', 'work_urgent'])
+  'work_node_remove', 'work_select', 'work_execute', 'work_replan', 'work_reorder', 'work_urgent', 'work_focus'])
 const WRITES = new Set(['Edit', 'Write', 'NotebookEdit', 'apply_patch'])
 const UNAVAILABLE = 'Work status unavailable: router connection or snapshot could not be verified.'
 const PLANNING = 'Work mode is planning: direct file edits wait until the plan is approved. '
@@ -22,6 +22,7 @@ const HELP = [
   '• Executing: after work_execute (automatic, or your approval when set to ask) the model works step by step and marks each step done with evidence.',
   '• Above the prompt: Progress / Queue / Completed are read-only button tabs; Prev / Next (p / n) page the list; w opens the Inspector. Ctrl+X Tab focuses · Tab/↑↓ select · Enter inspects · Esc returns. Tiny screens use Inspect Work. Rows of other plugins stay below the Work rows; the band scrolls to them.',
   '• /work-mode view: keyboard inspector · /work-mode tree: plan tree · /work-mode status: raw snapshot (JSON) · /work-mode help: this help',
+  '• Focus: inspect an item → Focus only this item. Clear focus / resume all releases the hold. A chat request can select multiple exact IDs; focus stays until explicitly cleared.',
   '• Priorities: All items → Move up / Move down orders root goals. Moving the active goal requires your request; a button press is that request.',
   '• Linked IDs appear as [ id ] description; ◷ names an external wait; green ✓ means verified done. An urgent request holds other goals until it finishes.',
   '• Auto continue: normal turn endings resume actionable Work, bounded by no-progress checks; waits, blocks and approval do not trigger it; background tasks do not block independent Work, and a dim line says why it stopped. Codex receives instructions only.',
@@ -105,6 +106,7 @@ const INSTRUCTIONS = 'Ciel Work mode is hybrid per-item planning and execution, 
   + 'Bash and PowerShell permission decisions belong to the native host, not the Work board. Work does not inspect shell side effects or override native permissions; keep commands within the approved scope. '
   + 'These workflow rules include subagents: do not use a shell or delegate changes to evade required planning or approval. '
   + 'Set ref for a linked id, and waiting_on for what an item waits on (empty text clears). '
+  + 'When the user asks to prioritize specific existing items and work only on them, resolve the exact IDs from Work status and call work_focus with ordered node_ids and user_requested=true. Do not duplicate goals or mark unrelated items blocked. Focus persists after those items finish; only an explicit user request clears it with node_ids=[]. '
   + 'Use work_reorder to change root order: queue-only by default; changing the active slot needs an explicit '
   + 'user request and user_requested=true, except that when every active step waits or is blocked, work_select may move to '
   + 'the queued goal holding the next runnable step. On an explicit urgent/ad-hoc request use work_urgent with '
@@ -184,6 +186,7 @@ function summary(s) {
   if (!s.active_root) lines.push('No plan yet — the model plans before editing.')
   else lines.push('Goal: ' + itemTitle(s.active_root, 240))
   for (const b of s.breakdown || []) lines.push('  ' + (b.status === 'done' ? '✓' : mark(b.status)) + ' ' + itemTitle(b, 240) + ' ' + b.done + '/' + b.total)
+  if (s.focus?.node_ids?.length) lines.push('Focus only: ' + s.focus.node_ids.join(', ') + (s.focus.exhausted ? ' — exhausted; other Work stays held until cleared' : ''))
   if (s.next?.title) lines.push('Next: ' + clipped(s.next.title, 200))
   if (s.queue?.length) {
     lines.push('Queue (next first):')
@@ -199,6 +202,7 @@ function promptSummary(s) {
   return { version: s.version, phase: s.phase, approval: s.approval,
     active_root: node(s.active_root), done: s.done, total: s.total,
     next: node(s.next), ready: s.ready,
+    ...(s.focus?.node_ids?.length ? { focus: { node_ids: s.focus.node_ids, exhausted: s.focus.exhausted } } : {}),
     queue_count: s.queue?.length || 0,
     queued_ids: (s.queue || []).slice(0, 5).map(n => clipped(n.id, 64)),
     detail: 'work_status(root_id=...) on demand; raw user messages remain in native history' }
@@ -236,6 +240,16 @@ async function moveRoot($, id, offset, origin) {
       expected_version: s.version, session_id: origin }))
     await openDetails($, null, origin)
   } catch { try { $.ui.toast('Work order changed or is unavailable; refresh and try again.') } catch {} }
+}
+async function focusItems($, ids, origin) {
+  if (await sessionId($) !== origin) return
+  const s = await refresh($)
+  if (!s?.enabled || await sessionId($) !== origin) return
+  try {
+    textOf(await $.mcp.call('ciel-runtime-router', 'work_focus', {
+      node_ids: ids, user_requested: true, expected_version: s.version, session_id: origin }))
+    await openDetails($, null, origin)
+  } catch { try { $.ui.toast('Work focus changed or is unavailable; refresh and try again.') } catch {} }
 }
 function breakdownLabel(s) {
   return 'work: ' + (s.phase === 'planning' ? 'plan' : 'run') + ' ' + s.done + '/' + s.total
@@ -363,6 +377,8 @@ function stopNotice($, identity, text) {
 }
 function notRunnable(s, c) {
   const parts = []
+  if (s.focus?.node_ids?.length) parts.push('focus only: ' + s.focus.node_ids.join(', ')
+    + (s.focus.exhausted ? ' finished; other Work stays held until you clear focus' : '; unrelated items stay held'))
   const waits = (c.waiting || []).map(n => clipped(n.id, 64) + ' ◷ ' + clipped(n.waiting_on, 120))
   if (waits.length) parts.push('waiting: ' + waits.join('; '))
   if (c.blocked > 0) parts.push(c.blocked + ' blocked step(s)')
@@ -582,6 +598,7 @@ export function register(on) {
     const heading = !cached ? 'Work unavailable — /work-mode status'
       : !cached.active_root ? 'Work mode: no plan yet — /work-mode help'
       : 'Work ' + (cached.phase === 'planning' ? 'planning' : 'running') + ' ' + cached.done + '/' + cached.total
+        + (cached.focus?.node_ids?.length ? ' [FOCUS ' + cached.focus.node_ids.join(',') + ']' : '')
         + ' — ' + itemTitle(cached.active_root, width)
     const work = []
     // Tiny/narrow terminals get an actionable summary; the inspector carries
@@ -634,6 +651,13 @@ export function register(on) {
     const controls = [
       Button({ key: 'detail-refresh', plain: true, hotkey: 'r', label: 'Refresh', onPress: () => openDetails($, valid ? view.id : null, origin) }),
       Button({ key: 'detail-all', plain: true, hotkey: 'w', label: 'All items', onPress: () => openDetails($, null, origin) }),
+      ...(fresh && selected && selected.status !== 'done' ? [Button({ key: 'detail-focus', plain: true, hotkey: 'f', label: 'Focus only this item',
+        onPress: () => focusItems($, [selected.id], origin) })] : []),
+      ...(fresh && selected && selected.status !== 'done' && cached?.focus?.node_ids?.length && !cached.focus.node_ids.includes(selected.id)
+        ? [Button({ key: 'detail-focus-add', plain: true, hotkey: 'a', label: 'Append to focus',
+          onPress: () => focusItems($, [...cached.focus.node_ids, selected.id], origin) })] : []),
+      ...(cached?.focus?.node_ids?.length ? [Button({ key: 'detail-unfocus', plain: true, hotkey: 'c', label: 'Clear focus / resume all',
+        onPress: () => focusItems($, [], origin) })] : []),
       ...(selected?.parent_id ? [Button({ key: 'detail-parent', plain: true, hotkey: 'b', label: 'Parent',
         onPress: () => openDetails($, selected.parent_id, origin) })] : []),
       Button({ key: 'detail-close', plain: true, hotkey: 'q', label: 'Close', onPress: () => $.ui.close({ id: PANE }) }),
@@ -648,6 +672,8 @@ export function register(on) {
     const rows = []
     const width = Math.max(1, e.props.bodyColumns - 2)
     const text = value => Text({ wrap: 'truncate-end', children: value })
+    if (cached?.focus?.node_ids?.length) rows.push(text('Focus only: ' + cached.focus.node_ids.join(', ')
+      + (cached.focus.exhausted ? ' (finished — other Work held)' : ' (other Work held)')))
     const listing = state?.session === identity && state.detailList === true
     if (listing) {
       for (const row of panelRows(cached, tab)) rows.push(statusButton(Box, Button, Text, row.node, {

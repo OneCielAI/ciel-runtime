@@ -172,6 +172,14 @@ def work_tool_schemas() -> list[dict[str, Any]]:
             }, "required": ["root_id", "position"]},
         },
         {
+            "name": "work_focus",
+            "description": "On explicit user request, prioritize existing nodes (roots or subtrees) in node_ids order and work ONLY on them. Resolve exact IDs from Work status. Unrelated Work is held, never deleted or blocked. Focus remains after completion; clear with node_ids=[] only on explicit request. Approval and ancestor waits/blocks remain.",
+            "inputSchema": {"type": "object", "properties": {
+                "node_ids": {"type": "array", "items": {"type": "string"}, "maxItems": tree.MAX_NODES},
+                "user_requested": {"type": "boolean"}, "expected_version": _EXPECTED_VERSION,
+            }, "required": ["node_ids", "user_requested"]},
+        },
+        {
             "name": "work_urgent",
             "description": "On an explicit user request, create a top-priority urgent goal and hold all other goals until it finishes; the former active goal resumes next. Break down the ad-hoc request with children and call work_execute before executing.",
             "inputSchema": {"type": "object", "properties": {
@@ -243,6 +251,7 @@ def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bo
                 return json.dumps({"enabled": True, "version": doc["version"], "root_id": root_id,
                     "is_active": doc["active_root"] == root_id, "phase": tree.root_phase(doc, root_id),
                     "approval": "ask" if approval_ask else "auto",
+                    "focus": tree.snapshot(doc)["focus"],
                     "nodes": [n for n in doc["nodes"] if n["id"] in ids]}, ensure_ascii=False)
             scoped = dict(doc, nodes=[n for n in doc["nodes"] if n["id"] in ids], active_root=root_id,
                           phase=tree.root_phase(doc, root_id))
@@ -313,6 +322,10 @@ def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bo
             d, str(args.get("root_id") or ""), args.get("position"),
             user_requested=args.get("user_requested") is True), expected_version=expected)
         return _after(doc, "Goal priority updated.")
+    if name == "work_focus":
+        doc, _ = store.transaction(lambda d: tree.set_focus(d, args.get("node_ids"),
+            user_requested=args.get("user_requested") is True), expected_version=expected)
+        return _after(doc, "Work focus updated; unrelated items stay held until explicit clear." if doc.get("focus_ids") else "Work focus cleared; normal priority resumed.")
     if name == "work_urgent":
         spec = {"title": args.get("goal"), "note": args.get("note", ""),
                 "ref": args.get("ref", ""), "children": args.get("children") or []}
