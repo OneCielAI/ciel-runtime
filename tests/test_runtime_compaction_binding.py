@@ -183,6 +183,12 @@ class ObservationTests(BindingHarness):
         self.binding.bind("claude", session_id="exact", cwd=self.root)
         self.binding.observe_request("other", {}, {"tokens": 100}, "claude")  # resumed, small
 
+    def test_first_corrupt_state_diagnostic_does_not_claim_nongating_stale_scope(self):
+        (self.root / "compaction-admission.json").write_text("broken", encoding="utf-8")
+        self.assertEqual({"phase": "unknown", "failure": "state_unavailable"}, self.binding.recovery_status())
+        self.assertTrue(self.binding.external_admission_paused())
+        self.assertEqual("state_unavailable", self.binding.admission_reason())
+
     def test_raw_pressure_queues_once_and_router_append_stays_paused(self):
         self.binding.observe_failure("other", {}, {"tokens": 15000}, "prompt is too long: 21000 tokens > 20000 maximum", "claude")
         request = self.requests.read()
