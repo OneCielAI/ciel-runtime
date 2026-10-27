@@ -4,7 +4,7 @@ import os
 import threading
 import time
 
-from .tui_observation import ObservedResponseWriter, OBSERVED_RUNTIME_PATHS
+from .tui_observation import ObservedResponseWriter, OBSERVED_RUNTIME_PATHS, observe_runtime_response
 from .work_runtime_status import RuntimeStatusTracker, RuntimeStatusScope
 
 
@@ -13,6 +13,12 @@ class WorkRuntimeObserver:
         self.tracker = RuntimeStatusTracker()
         self.lock = threading.RLock()
         self.active = {}
+
+    @contextmanager
+    def combined(self, handler, path, provider, model, body, binding, bus):
+        with self.observe(handler, path, provider, model, body, binding):
+            with observe_runtime_response(handler, path, provider, model, body, bus):
+                yield
 
     @contextmanager
     def observe(self, handler, path, provider, model, body, binding):
