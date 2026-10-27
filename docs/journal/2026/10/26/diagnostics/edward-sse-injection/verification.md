@@ -18,7 +18,7 @@ timestamp: 2026-10-27T03:35:00Z
 - The no-write-only handoff exception can requeue its own attempt; failed/uncertain transport writes never fall back to the parked TTY and are not blindly retried. Native session/epoch remains exact; no newest-file heuristic.
 - First harness attempt held the peer message because it omitted production crossSessionInbound accept. Second failed its immediate transcript assertion before the native file/TTL settled; retry waits up to 15 s. These are harness failures. Architecture test initially caught a static import cycle; canonical socket paths moved to a leaf module and revalidated.
 - One focused sweep used a globally pinned CLAUDE_CONFIG_DIR against per-test key dirs and failed four fixture tests; fixtures now pin their own config dir. Re-run passed. No live target was modified.
-- Installation and nightly verification pending.
+- Installation and nightly verification passed; exact published version and proof are recorded below.
 
 # Review follow-up
 

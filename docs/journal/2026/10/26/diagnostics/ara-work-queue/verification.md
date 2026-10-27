@@ -16,7 +16,7 @@ timestamp: 2026-10-27T03:15:00Z
 
 # Release
 
-Installed-package verification and nightly/local switch are pending.
+Installed-package verification and nightly/local switch passed; exact version and proof are recorded below.
 
 # Published installation
 
