@@ -1,0 +1,26 @@
+LOCAL_BEFORE 1793062300.971 LOCAL_AFTER 1793062304.853 ROUNDTRIP 3.882
+REMOTE_START 1793062300.946
+REMOTE_LOCAL 2026-10-26T17:51:40 tm_gmtoff -25200 tm_zone Pacific Daylight Time tzname ('Pacific Standard Time', 'Pacific Daylight Time') isdst 1
+REMOTE_UTC 2026-10-27T00:51:40.946139+00:00
+CMD w32tm /query /status rc 2147943462
+   The following error occurred: The service has not been started. (0x80070426)
+CMD w32tm /query /source rc 2147943462
+   The following error occurred: The service has not been started. (0x80070426)
+CMD tzutil /g rc 0
+   Pacific Standard Time
+RUNTIME 0.2.51-nightly.20261026-225621.5054af2 mtime 2026-10-26T16:43:37
+PROC 18124 19944 py.exe /Date(1793058251198)/ py -3 C:\ProgramData\aap-win\sandboxes\u24\home\kobe-ai\.npm-global\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime.py cli --continue
+PROC 11480 18124 python.exe /Date(1793058251235)/ "C:\Program Files\Python313\python.exe" C:\ProgramData\aap-win\sandboxes\u24\home\kobe-ai\.npm-global\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime.py cli --continue
+PROC 5008 11480 python.exe /Date(1793058346554)/ "C:\Program Files\Python313\python.exe" C:\ProgramData\aap-win\sandboxes\u24\home\kobe-ai\.npm-global\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime.py serve
+PROC 24044 11480 cmd.exe /Date(1793058355267)/ C:\WINDOWS\system32\cmd.exe /d /s /c "C:\ProgramData\aap-win\sandboxes\u24\home\kobe-ai\.npm-global\claude.cmd --dangerously-skip-permissions --permission-mode bypassPermissions --disallowedTools WebSearch,WebFetch --model ciel-ru
+PROC 14376 11480 python.exe /Date(1793058355289)/ "C:\Program Files\Python313\python.exe" C:\ProgramData\aap-win\sandboxes\u24\home\kobe-ai\.npm-global\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime_support\windows_console_guard.py 11480 487 7
+PROC 21288 24044 claude.exe /Date(1793058355329)/ "C:\ProgramData\aap-win\sandboxes\u24\home\kobe-ai\.npm-global\\node_modules\@anthropic-ai\claude-code\bin\claude.exe"    --dangerously-skip-permissions --permission-mode bypassPermissions --disallowedTools WebSearch,WebFetch --mo
+PROC 21172 21288 cmd.exe /Date(1793062126903)/ C:\WINDOWS\System32\cmd.exe /d /s /c ""C:\WINDOWS\System32\chcp.com" 65001 >nul & "C:\WINDOWS\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "$__claudeCodeScript = $env:
+INSTANCE 9779-651d879f6c68 mtime 2026-10-12T23:30:13 router.pid 
+INSTANCE 9780-651d879f6c68 mtime 2026-10-26T17:49:55 router.pid 5008
+WORKSPACE 651d879f6c68 mtime 2026-10-26T17:49:55 files []
+PORTS_MAP {"version": 1, "workspaces": {"651d879f6c68": {"launch_lease": {"expires_at": 1793058292.8741126, "identity": "134375318512352576", "pid": 11480}, "port": 9780, "reservation": "auto", "workspace": "c:\\programdata\\aap-win\\sandboxes\\u24\\home\\kobe-ai"}}}
+REMOTE_END 1793062302.110
+
+
+exit 0

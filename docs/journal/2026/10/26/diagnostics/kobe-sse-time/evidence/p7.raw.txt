@@ -1,0 +1,64 @@
+LOCAL_BEFORE 1793063520.602 LOCAL_AFTER 1793063523.928 ROUNDTRIP 3.326
+PROC 3132 ppid 3068 conhost.exe session 0 /Date(1792211289640)/ \??\C:\WINDOWS\system32\conhost.exe 0x4
+PROC 5336 ppid 9540 conhost.exe session 0 /Date(1792211350144)/ \??\C:\WINDOWS\system32\conhost.exe 0x4
+PROC 2028 ppid 2392 conhost.exe session 0 /Date(1792686600240)/ \??\C:\WINDOWS\system32\conhost.exe 0x4
+PROC 21016 ppid 4116 conhost.exe session 0 /Date(1792730518967)/ \\?\C:\WINDOWS\system32\conhost.exe --headless --width 120 --height 30 --signal 0xe34 --server 0xc48
+PROC 8124 ppid 23312 conhost.exe session 0 /Date(1793000499871)/ \??\C:\WINDOWS\system32\conhost.exe 0x4
+PROC 18176 ppid 4116 conhost.exe session 0 /Date(1793013462427)/ \\?\C:\WINDOWS\system32\conhost.exe --headless --width 120 --height 30 --signal 0xd84 --server 0xe68
+PROC 22668 ppid 15564 conhost.exe session 0 /Date(1793013777637)/ \??\C:\WINDOWS\system32\conhost.exe 0x4
+PROC 11572 ppid 4116 conhost.exe session 0 /Date(1793029298457)/ \\?\C:\WINDOWS\system32\conhost.exe --headless --width 120 --height 30 --signal 0x9b4 --server 0xa04
+PROC 17740 ppid 21036 conhost.exe session 0 /Date(1793033135848)/ \??\C:\WINDOWS\system32\conhost.exe 0x4
+PROC 16848 ppid 4116 conhost.exe session 0 /Date(1793033237918)/ \\?\C:\WINDOWS\system32\conhost.exe --headless --width 120 --height 30 --signal 0xd00 --server 0xc40
+PROC 8688 ppid 4116 conhost.exe session 0 /Date(1793045210972)/ \\?\C:\WINDOWS\system32\conhost.exe --headless --width 120 --height 30 --signal 0x9b4 --server 0xc5c
+PROC 22660 ppid 17580 conhost.exe session 0 /Date(1793045415825)/ \??\C:\WINDOWS\system32\conhost.exe 0x4
+PROC 8112 ppid 4116 conhost.exe session 0 /Date(1793045874078)/ \\?\C:\WINDOWS\system32\conhost.exe --headless --width 120 --height 30 --signal 0xd9c --server 0xe08
+PROC 2528 ppid 10144 conhost.exe session 0 /Date(1793046047703)/ \??\C:\WINDOWS\system32\conhost.exe 0x4
+PROC 2068 ppid 4356 conhost.exe session 0 /Date(1793047092637)/ \\?\C:\WINDOWS\system32\conhost.exe --headless --width 164 --height 87 --signal 0x33c --server 0x328
+PROC 2796 ppid 10876 conhost.exe session 0 /Date(1793047112723)/ \??\C:\WINDOWS\system32\conhost.exe 0x4
+PROC 16752 ppid 20956 conhost.exe session 0 /Date(1793047112738)/ \??\C:\WINDOWS\system32\conhost.exe 0x4
+PROC 23996 ppid 7888 conhost.exe session 0 /Date(1793047112752)/ \??\C:\WINDOWS\system32\conhost.exe 0x4
+PROC 24552 ppid 16316 conhost.exe session 0 /Date(1793047114719)/ \??\C:\WINDOWS\system32\conhost.exe 0x4
+PROC 23428 ppid 18800 conhost.exe session 0 /Date(1793056124119)/ \??\C:\WINDOWS\system32\conhost.exe 0x4
+PROC 3660 ppid 464 conhost.exe session 0 /Date(1793057467289)/ \\?\C:\WINDOWS\system32\conhost.exe --headless --width 365 --height 87 --signal 0x2e4 --server 0x2f0
+PROC 20900 ppid 19388 conhost.exe session 0 /Date(1793057476716)/ \??\C:\WINDOWS\system32\conhost.exe 0x4
+PROC 14292 ppid 24412 conhost.exe session 0 /Date(1793057476718)/ \??\C:\WINDOWS\system32\conhost.exe 0x4
+PROC 13236 ppid 14484 conhost.exe session 0 /Date(1793057478826)/ \??\C:\WINDOWS\system32\conhost.exe 0x4
+PROC 15748 ppid 23036 conhost.exe session 0 /Date(1793057981100)/ \\?\C:\WINDOWS\system32\conhost.exe --headless --width 365 --height 87 --signal 0x2a4 --server 0x2c8
+PROC 16228 ppid 6576 conhost.exe session 0 /Date(1793057990019)/ \??\C:\WINDOWS\system32\conhost.exe 0x4
+PROC 13320 ppid 19772 conhost.exe session 0 /Date(1793057990040)/ \??\C:\WINDOWS\system32\conhost.exe 0x4
+PROC 19648 ppid 15288 conhost.exe session 0 /Date(1793057990060)/ \??\C:\WINDOWS\system32\conhost.exe 0x4
+PROC 13820 ppid 11040 conhost.exe session 0 /Date(1793057990855)/ \??\C:\WINDOWS\system32\conhost.exe 0x4
+PROC 21320 ppid 7312 conhost.exe session 0 /Date(1793057990877)/ \??\C:\WINDOWS\system32\conhost.exe 0x4
+PROC 17624 ppid 1012 conhost.exe session 0 /Date(1793057991115)/ \??\C:\WINDOWS\system32\conhost.exe 0x4
+PROC 6872 ppid 17924 conhost.exe session 0 /Date(1793057991884)/ \??\C:\WINDOWS\system32\conhost.exe 0x4
+PROC 20584 ppid 13244 conhost.exe session 0 /Date(1793057991905)/ \??\C:\WINDOWS\system32\conhost.exe 0x4
+PROC 20624 ppid 12932 conhost.exe session 0 /Date(1793057994368)/ \??\C:\WINDOWS\system32\conhost.exe 0x4
+PROC 23364 ppid 3656 conhost.exe session 0 /Date(1793057996040)/ \??\C:\WINDOWS\system32\conhost.exe 0x4
+PROC 19944 ppid 7940 node.exe session 0 /Date(1793058250831)/ "C:\Program Files\nodejs\node.exe" C:\ProgramData\aap-win\sandboxes\u24\home\kobe-ai\.npm-global/node_modules/@one-ciel-ai/ciel-runtime/npm-bin/ciel-runtime.js --continue
+PROC 18124 ppid 19944 py.exe session 0 /Date(1793058251198)/ py -3 C:\ProgramData\aap-win\sandboxes\u24\home\kobe-ai\.npm-global\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime.py cli --continue
+PROC 11480 ppid 18124 python.exe session 0 /Date(1793058251235)/ "C:\Program Files\Python313\python.exe" C:\ProgramData\aap-win\sandboxes\u24\home\kobe-ai\.npm-global\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime.py cli --continue
+PROC 5008 ppid 11480 python.exe session 0 /Date(1793058346554)/ "C:\Program Files\Python313\python.exe" C:\ProgramData\aap-win\sandboxes\u24\home\kobe-ai\.npm-global\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime.py serve
+PROC 2652 ppid 11480 conhost.exe session 0 /Date(1793058355255)/ \\?\C:\WINDOWS\system32\conhost.exe --headless --width 365 --height 87 --signal 0x31c --server 0x314
+PROC 24044 ppid 11480 cmd.exe session 0 /Date(1793058355267)/ C:\WINDOWS\system32\cmd.exe /d /s /c "C:\ProgramData\aap-win\sandboxes\u24\home\kobe-ai\.npm-global\claude.cmd --dangerously-skip-permissions --permission-mode bypassPermissions --disallowedTools WebS
+PROC 14376 ppid 11480 python.exe session 0 /Date(1793058355289)/ "C:\Program Files\Python313\python.exe" C:\ProgramData\aap-win\sandboxes\u24\home\kobe-ai\.npm-global\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime_support\windows_console_guard.py 11480 487 7
+PROC 21288 ppid 24044 claude.exe session 0 /Date(1793058355329)/ "C:\ProgramData\aap-win\sandboxes\u24\home\kobe-ai\.npm-global\\node_modules\@anthropic-ai\claude-code\bin\claude.exe"    --dangerously-skip-permissions --permission-mode bypassPermissions --disallowe
+PROC 4956 ppid 21288 cmd.exe session 0 /Date(1793058360935)/ C:\WINDOWS\system32\cmd.exe /d /s /c "C:\Program^ Files\nodejs\npx.cmd ^"-y^" ^"ddg-mcp-search^""
+PROC 9200 ppid 4956 conhost.exe session 0 /Date(1793058360975)/ \??\C:\WINDOWS\system32\conhost.exe 0x4
+PROC 15148 ppid 21288 python.exe session 0 /Date(1793058360975)/ "C:\Program Files\Python313\python.exe" C:\ProgramData\aap-win\sandboxes\u24\home\kobe-ai\.local\walkie-install\mcp-stdio.py C:\ProgramData\aap-win\sandboxes\u24\home\kobe-ai\.local\walkie-install\mcp
+PROC 15164 ppid 21288 python.exe session 0 /Date(1793058360990)/ "C:\Program Files\Python313\python.exe" C:\ProgramData\aap-win\sandboxes\u24\home\kobe-ai\.local\walkie-install\transcript-relay.py --stdio C:\ProgramData\aap-win\sandboxes\u24\home\kobe-ai\.local\wal
+PROC 15128 ppid 15148 conhost.exe session 0 /Date(1793058361005)/ \??\C:\WINDOWS\system32\conhost.exe 0x4
+PROC 16472 ppid 15164 conhost.exe session 0 /Date(1793058361010)/ \??\C:\WINDOWS\system32\conhost.exe 0x4
+PROC 15960 ppid 20108 conhost.exe session 0 /Date(1793058362943)/ \??\C:\WINDOWS\system32\conhost.exe 0x4
+PROC 5564 ppid 11124 conhost.exe session 0 /Date(1793061544117)/ \\?\C:\WINDOWS\system32\conhost.exe --headless --width 365 --height 87 --signal 0x288 --server 0x27c
+PROC 4048 ppid 3536 conhost.exe session 0 /Date(1793061544126)/ \\?\C:\WINDOWS\system32\conhost.exe --headless --width 365 --height 87 --signal 0x284 --server 0x278
+PROC 2324 ppid 11208 conhost.exe session 0 /Date(1793061547509)/ \??\C:\WINDOWS\system32\conhost.exe 0x4
+PROC 7320 ppid 9156 conhost.exe session 0 /Date(1793061547523)/ \??\C:\WINDOWS\system32\conhost.exe 0x4
+PROC 3316 ppid 5776 conhost.exe session 0 /Date(1793061550050)/ \??\C:\WINDOWS\system32\conhost.exe 0x4
+PROC 22524 ppid 16392 conhost.exe session 0 /Date(1793061550082)/ \??\C:\WINDOWS\system32\conhost.exe 0x4
+PROC 18372 ppid 24468 conhost.exe session 0 /Date(1793063475040)/ \??\C:\WINDOWS\system32\conhost.exe 0x4
+PROC 5296 ppid 11340 conhost.exe session 0 /Date(1793063519581)/ \??\C:\WINDOWS\system32\conhost.exe 0x4
+
+REMOTE_NOW 1793063521.157
+
+
+exit 0

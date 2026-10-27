@@ -1,0 +1,13 @@
+LOCAL_BEFORE 1793063576.491 LOCAL_AFTER 1793063579.786 ROUNDTRIP 3.295
+PROC 4116 ppid 1488 AapWin.Host.exe session 0 /Date(1792211290486)/ C:\Program Files\aap-win\AapWin.Host.exe
+PROC 7940 ppid 4116 powershell.exe session 0 /Date(1793029298571)/ C:\WINDOWS\system32\WindowsPowerShell\v1.0\powershell.exe
+PROC 21036 ppid 16408 node.exe session 0 /Date(1793033135829)/ C:\Program Files\nodejs\node.exe
+PROC 4356 ppid 14268 python.exe session 0 /Date(1793047009041)/ C:\Program Files\Python313\python.exe
+PROC 464 ppid 8480 python.exe session 0 /Date(1793057416144)/ C:\Program Files\Python313\python.exe
+PROC 23036 ppid 23216 python.exe session 0 /Date(1793057905685)/ C:\Program Files\Python313\python.exe
+PROC 11124 ppid 4284 claude.exe session 0 /Date(1793061543878)/ C:\ProgramData\aap-win\sandboxes\u22\home\edward-ai\.npm-global\node_modules\@anthropic-ai\claude-code\bin\claude.exe
+PROC 3536 ppid 4284 claude.exe session 0 /Date(1793061543908)/ C:\ProgramData\aap-win\sandboxes\u22\home\edward-ai\.npm-global\node_modules\@anthropic-ai\claude-code\bin\claude.exe
+ABSENT [17844]
+
+
+exit 0

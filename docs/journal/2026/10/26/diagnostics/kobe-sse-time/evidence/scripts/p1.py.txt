@@ -1,0 +1,58 @@
+import os, json, time, subprocess, datetime
+t0 = time.time()
+print("REMOTE_START %.3f" % t0)
+lt = time.localtime(t0)
+print("REMOTE_LOCAL", time.strftime("%Y-%m-%dT%H:%M:%S", lt), "tm_gmtoff", lt.tm_gmtoff, "tm_zone", lt.tm_zone, "tzname", time.tzname, "isdst", lt.tm_isdst)
+print("REMOTE_UTC", datetime.datetime.fromtimestamp(t0, datetime.timezone.utc).isoformat())
+for args in (["w32tm", "/query", "/status"], ["w32tm", "/query", "/source"], ["tzutil", "/g"]):
+    try:
+        r = subprocess.run(args, capture_output=True, text=True, timeout=20, errors="replace")
+        print("CMD", " ".join(args), "rc", r.returncode)
+        for line in (r.stdout + r.stderr).splitlines():
+            if line.strip():
+                print("  ", line.strip())
+    except Exception as e:
+        print("CMD_ERR", args, type(e).__name__, e)
+home = r"C:\ProgramData\aap-win\sandboxes\u24\home\kobe-ai"
+pkg = os.path.join(home, r".npm-global\node_modules\@one-ciel-ai\ciel-runtime\package.json")
+try: print("RUNTIME", json.load(open(pkg, encoding="utf-8")).get("version"), "mtime", time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(os.path.getmtime(pkg))))
+except Exception as e: print("RUNTIME_ERR", type(e).__name__, e)
+ps = r"Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'u24' -and $_.CommandLine -match 'ciel_runtime|claude' } | Select-Object ProcessId,ParentProcessId,Name,CreationDate,CommandLine | ConvertTo-Json -Depth 2"
+r = subprocess.run(["powershell", "-NoProfile", "-Command", ps], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
+try:
+    rows = json.loads(r.stdout) if r.stdout.strip() else []
+    rows = rows if isinstance(rows, list) else [rows]
+except Exception as e:
+    print("PSERR", e); rows = []
+for x in rows:
+    cl = (x.get("CommandLine") or "")
+    if "Get-CimInstance" in cl:
+        continue
+    print("PROC", x.get("ProcessId"), x.get("ParentProcessId"), x.get("Name"), x.get("CreationDate"), cl[:230])
+appdata = r"C:\Users\aapw-a24u24\AppData\Roaming\ciel-runtime"
+ri = os.path.join(appdata, "router-instances")
+try:
+    for n in sorted(os.listdir(ri)):
+        p = os.path.join(ri, n)
+        pid = ""
+        try: pid = open(os.path.join(p, "router.pid"), encoding="utf-8").read().strip()[:40]
+        except Exception: pass
+        print("INSTANCE", n, "mtime", time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(os.path.getmtime(p))), "router.pid", pid)
+except Exception as e:
+    print("INSTANCES_ERR", type(e).__name__, e)
+ws = os.path.join(appdata, "workspaces")
+try:
+    for n in sorted(os.listdir(ws)):
+        p = os.path.join(ws, n)
+        files = []
+        try: files = sorted(os.listdir(p))
+        except Exception: pass
+        print("WORKSPACE", n, "mtime", time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(os.path.getmtime(p))), "files", [f for f in files if not f.endswith(".tmp")][:60])
+except Exception as e:
+    print("WORKSPACES_ERR", type(e).__name__, e)
+try:
+    m = json.load(open(os.path.join(appdata, "workspace-router-ports.json"), encoding="utf-8"))
+    print("PORTS_MAP", json.dumps(m, ensure_ascii=False)[:1500])
+except Exception as e:
+    print("PORTS_MAP_ERR", type(e).__name__, e)
+print("REMOTE_END %.3f" % time.time())

@@ -1,0 +1,333 @@
+LOCAL_BEFORE 1793063270.453 LOCAL_AFTER 1793063273.187 ROUNDTRIP 2.734
+TRANSCRIPT_SIZE 123245045
+PROGRESS 0.0 bisect 0 123245045 61622522 2026-10-25T11:31:03.256Z
+PROGRESS 0.0 bisect 61622522 123245045 92433783 2026-10-26T02:51:41.934Z
+PROGRESS 0.0 bisect 92433783 123245045 107839414 2026-10-26T19:13:53.240Z
+PROGRESS 0.0 bisect 92433783 107839414 100136598 2026-10-26T08:49:16.605Z
+PROGRESS 0.0 bisect 100136598 107839414 103988006 2026-10-26T17:05:53.252Z
+PROGRESS 0.0 bisect 103988006 107839414 105913710 2026-10-26T17:42:06.039Z
+PROGRESS 0.0 bisect 105913710 107839414 106876562 2026-10-26T17:59:03.698Z
+WINDOW_START_OFFSET 106881679
+PROGRESS 0.1 lines 2000 113121747
+RECORDS_IN_WINDOW 1816
+REC 2026-10-26T19:01:46.662Z gap_before_s=0 queue-operation:enqueue len 0 restart_msg False socket_marker False meta None api_err None content_len=0
+REC 2026-10-26T19:01:46.769Z gap_before_s=0 queue-operation:dequeue len 0 restart_msg False socket_marker False meta None api_err None content_len=0
+REC 2026-10-26T19:01:46.980Z gap_before_s=-3 user_text len 2529 restart_msg False socket_marker True meta True api_err None 
+REC 2026-10-26T19:03:55.635Z gap_before_s=126 queue-operation:enqueue len 0 restart_msg False socket_marker False meta None api_err None content_len=0
+REC 2026-10-26T19:04:45.878Z gap_before_s=50 queue-operation:dequeue len 0 restart_msg False socket_marker False meta None api_err None content_len=0
+REC 2026-10-26T19:04:45.741Z gap_before_s=-0 assistant:stop_sequence len 0 restart_msg False socket_marker False meta None api_err True 
+REC 2026-10-26T19:04:45.777Z gap_before_s=0 system:turn_duration len 0 restart_msg False socket_marker False meta False api_err None 
+REC 2026-10-26T19:04:45.957Z gap_before_s=-2 user_text len 2509 restart_msg False socket_marker True meta True api_err None 
+REC 2026-10-26T19:05:53.522Z gap_before_s=20 queue-operation:enqueue len 0 restart_msg False socket_marker False meta None api_err None content_len=0
+REC 2026-10-26T19:06:06.769Z gap_before_s=8 queue-operation:remove len 0 restart_msg False socket_marker False meta None api_err None content_len=2932
+REC 2026-10-26T19:05:53.522Z gap_before_s=-13 attachment: len 0 restart_msg False socket_marker False meta None api_err None attachment_type=queued_command
+REC 2026-10-26T19:11:21.196Z gap_before_s=19 queue-operation:enqueue len 0 restart_msg False socket_marker False meta None api_err None content_len=0
+REC 2026-10-26T19:11:25.777Z gap_before_s=3 queue-operation:remove len 0 restart_msg False socket_marker False meta None api_err None content_len=2954
+REC 2026-10-26T19:11:21.195Z gap_before_s=-5 attachment: len 0 restart_msg False socket_marker False meta None api_err None attachment_type=queued_command
+REC 2026-10-26T19:14:16.907Z gap_before_s=11 queue-operation:enqueue len 0 restart_msg False socket_marker False meta None api_err None content_len=0
+REC 2026-10-26T19:14:24.385Z gap_before_s=3 queue-operation:remove len 0 restart_msg False socket_marker False meta None api_err None content_len=2941
+REC 2026-10-26T19:14:16.907Z gap_before_s=-7 attachment: len 0 restart_msg False socket_marker False meta None api_err None attachment_type=queued_command
+REC 2026-10-26T19:17:39.262Z gap_before_s=153 user_text len 45 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T19:24:48.678Z gap_before_s=1 queue-operation:enqueue len 0 restart_msg False socket_marker False meta None api_err None content_len=2246
+REC 2026-10-26T19:24:51.976Z gap_before_s=3 queue-operation:remove len 0 restart_msg False socket_marker False meta None api_err None content_len=2246
+REC 2026-10-26T19:24:48.678Z gap_before_s=-3 attachment: len 0 restart_msg False socket_marker False meta None api_err None attachment_type=queued_command
+REC 2026-10-26T19:26:58.744Z gap_before_s=1 system:stop_hook_summary len 0 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T19:26:58.758Z gap_before_s=0 system:turn_duration len 0 restart_msg False socket_marker False meta False api_err None 
+REC 2026-10-26T19:30:08.463Z gap_before_s=190 system:away_summary len 0 restart_msg False socket_marker False meta False api_err None 
+REC 2026-10-26T19:46:38.308Z gap_before_s=990 api-request: len 0 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T19:46:35.515Z gap_before_s=-3 user_text len 45 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T19:47:35.087Z gap_before_s=1 system:stop_hook_summary len 0 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T19:47:35.099Z gap_before_s=0 system:turn_duration len 0 restart_msg False socket_marker False meta False api_err None 
+REC 2026-10-26T19:55:10.579Z gap_before_s=455 api-request: len 0 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T19:55:07.821Z gap_before_s=-3 user_text len 45 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T19:55:19.171Z gap_before_s=9 queue-operation:enqueue len 0 restart_msg False socket_marker False meta None api_err None content_len=21
+REC 2026-10-26T19:55:35.637Z gap_before_s=0 queue-operation:remove len 0 restart_msg False socket_marker False meta None api_err None content_len=21
+REC 2026-10-26T19:55:16.940Z gap_before_s=-19 attachment: len 0 restart_msg False socket_marker False meta None api_err None attachment_type=queued_command
+REC 2026-10-26T19:56:02.790Z gap_before_s=6 queue-operation:enqueue len 0 restart_msg False socket_marker False meta None api_err None content_len=69
+REC 2026-10-26T19:56:09.009Z gap_before_s=0 queue-operation:remove len 0 restart_msg False socket_marker False meta None api_err None content_len=69
+REC 2026-10-26T19:56:00.789Z gap_before_s=-8 attachment: len 0 restart_msg False socket_marker False meta None api_err None attachment_type=queued_command
+REC 2026-10-26T19:56:32.755Z gap_before_s=10 queue-operation:enqueue len 0 restart_msg False socket_marker False meta None api_err None content_len=45
+REC 2026-10-26T19:56:45.583Z gap_before_s=1 queue-operation:remove len 0 restart_msg False socket_marker False meta None api_err None content_len=45
+REC 2026-10-26T19:56:30.532Z gap_before_s=-15 attachment: len 0 restart_msg False socket_marker False meta None api_err None attachment_type=queued_command
+REC 2026-10-26T20:09:08.559Z gap_before_s=7 queue-operation:enqueue len 0 restart_msg False socket_marker False meta None api_err None content_len=464
+REC 2026-10-26T20:09:17.379Z gap_before_s=2 queue-operation:remove len 0 restart_msg False socket_marker False meta None api_err None content_len=464
+REC 2026-10-26T20:09:08.559Z gap_before_s=-9 attachment: len 0 restart_msg False socket_marker False meta None api_err None attachment_type=queued_command
+REC 2026-10-26T20:16:29.212Z gap_before_s=4 queue-operation:enqueue len 0 restart_msg False socket_marker False meta None api_err None content_len=2201
+REC 2026-10-26T20:16:41.004Z gap_before_s=2 queue-operation:remove len 0 restart_msg False socket_marker False meta None api_err None content_len=2201
+REC 2026-10-26T20:16:29.212Z gap_before_s=-12 attachment: len 0 restart_msg False socket_marker False meta None api_err None attachment_type=queued_command
+REC 2026-10-26T20:21:14.525Z gap_before_s=3 queue-operation:enqueue len 0 restart_msg False socket_marker False meta None api_err None content_len=464
+REC 2026-10-26T20:21:32.545Z gap_before_s=2 queue-operation:remove len 0 restart_msg False socket_marker False meta None api_err None content_len=464
+REC 2026-10-26T20:21:14.524Z gap_before_s=-18 attachment: len 0 restart_msg False socket_marker False meta None api_err None attachment_type=queued_command
+REC 2026-10-26T20:27:45.794Z gap_before_s=9 queue-operation:enqueue len 0 restart_msg False socket_marker False meta None api_err None content_len=458
+REC 2026-10-26T20:27:49.065Z gap_before_s=3 queue-operation:remove len 0 restart_msg False socket_marker False meta None api_err None content_len=458
+REC 2026-10-26T20:27:45.794Z gap_before_s=-3 attachment: len 0 restart_msg False socket_marker False meta None api_err None attachment_type=queued_command
+REC 2026-10-26T20:35:37.894Z gap_before_s=2 queue-operation:enqueue len 0 restart_msg False socket_marker False meta None api_err None content_len=463
+REC 2026-10-26T20:35:40.690Z gap_before_s=3 queue-operation:remove len 0 restart_msg False socket_marker False meta None api_err None content_len=463
+REC 2026-10-26T20:35:37.893Z gap_before_s=-3 attachment: len 0 restart_msg False socket_marker False meta None api_err None attachment_type=queued_command
+REC 2026-10-26T20:44:03.710Z gap_before_s=1 system:stop_hook_summary len 0 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T20:44:03.734Z gap_before_s=0 system:turn_duration len 0 restart_msg False socket_marker False meta False api_err None 
+REC 2026-10-26T20:45:49.630Z gap_before_s=-2 user_text len 6 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T20:45:57.809Z gap_before_s=6 queue-operation:enqueue len 0 restart_msg False socket_marker False meta None api_err None content_len=92
+REC 2026-10-26T20:46:08.855Z gap_before_s=1 queue-operation:dequeue len 0 restart_msg False socket_marker False meta None api_err None content_len=0
+REC 2026-10-26T20:46:08.797Z gap_before_s=-0 system:stop_hook_summary len 0 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T20:46:08.809Z gap_before_s=0 system:turn_duration len 0 restart_msg False socket_marker False meta False api_err None 
+REC 2026-10-26T20:46:08.973Z gap_before_s=-0 user_text len 92 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T20:46:30.194Z gap_before_s=21 queue-operation:enqueue len 0 restart_msg False socket_marker False meta None api_err None content_len=29
+REC 2026-10-26T20:46:34.176Z gap_before_s=0 queue-operation:remove len 0 restart_msg False socket_marker False meta None api_err None content_len=29
+REC 2026-10-26T20:46:27.931Z gap_before_s=-6 attachment: len 0 restart_msg False socket_marker False meta None api_err None attachment_type=queued_command
+REC 2026-10-26T20:52:33.739Z gap_before_s=1 system:stop_hook_summary len 0 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T20:52:33.750Z gap_before_s=0 system:turn_duration len 0 restart_msg False socket_marker False meta False api_err None 
+REC 2026-10-26T20:52:40.043Z gap_before_s=6 queue-operation:enqueue len 0 restart_msg False socket_marker False meta None api_err None content_len=1839
+REC 2026-10-26T20:52:40.056Z gap_before_s=0 queue-operation:dequeue len 0 restart_msg False socket_marker False meta None api_err None content_len=0
+REC 2026-10-26T20:52:40.086Z gap_before_s=-2 user_text len 1839 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T20:57:13.480Z gap_before_s=10 queue-operation:enqueue len 0 restart_msg False socket_marker False meta None api_err None content_len=452
+REC 2026-10-26T20:57:22.788Z gap_before_s=5 queue-operation:remove len 0 restart_msg False socket_marker False meta None api_err None content_len=452
+REC 2026-10-26T20:58:03.436Z gap_before_s=4 queue-operation:enqueue len 0 restart_msg False socket_marker False meta None api_err None content_len=3550
+REC 2026-10-26T20:58:14.422Z gap_before_s=3 queue-operation:remove len 0 restart_msg False socket_marker False meta None api_err None content_len=3550
+REC 2026-10-26T20:58:03.436Z gap_before_s=-11 attachment: len 0 restart_msg False socket_marker False meta None api_err None attachment_type=queued_command
+REC 2026-10-26T20:58:27.160Z gap_before_s=-0 user_text len 105 restart_msg False socket_marker False meta True api_err None 
+REC 2026-10-26T20:59:15.194Z gap_before_s=13 assistant:stop_sequence len 0 restart_msg False socket_marker False meta None api_err True 
+REC 2026-10-26T20:59:15.212Z gap_before_s=0 system:turn_duration len 0 restart_msg False socket_marker False meta False api_err None 
+REC 2026-10-26T20:59:48.322Z gap_before_s=-11 user_text len 2 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T21:17:21.305Z gap_before_s=-0 user_text len 105 restart_msg False socket_marker False meta True api_err None 
+REC 2026-10-26T21:19:51.167Z gap_before_s=1 system:stop_hook_summary len 0 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T21:19:51.183Z gap_before_s=0 system:turn_duration len 0 restart_msg False socket_marker False meta False api_err None 
+REC 2026-10-26T21:25:04.586Z gap_before_s=313 api-request: len 0 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T21:25:01.829Z gap_before_s=-3 user_text len 20 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T21:32:46.491Z gap_before_s=1 system:stop_hook_summary len 0 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T21:32:46.507Z gap_before_s=0 system:turn_duration len 0 restart_msg False socket_marker False meta False api_err None 
+REC 2026-10-26T21:35:34.491Z gap_before_s=168 api-request: len 0 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T21:35:31.960Z gap_before_s=-3 user_text len 122 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T21:38:51.029Z gap_before_s=24 queue-operation:enqueue len 0 restart_msg False socket_marker False meta None api_err None content_len=2195
+REC 2026-10-26T21:38:54.589Z gap_before_s=2 queue-operation:remove len 0 restart_msg False socket_marker False meta None api_err None content_len=2195
+REC 2026-10-26T21:38:51.029Z gap_before_s=-4 attachment: len 0 restart_msg False socket_marker False meta None api_err None attachment_type=queued_command
+REC 2026-10-26T21:39:01.922Z gap_before_s=7 queue-operation:enqueue len 0 restart_msg False socket_marker False meta None api_err None content_len=2510
+REC 2026-10-26T21:39:27.288Z gap_before_s=3 queue-operation:remove len 0 restart_msg False socket_marker False meta None api_err None content_len=2510
+REC 2026-10-26T21:39:01.922Z gap_before_s=-25 attachment: len 0 restart_msg False socket_marker False meta None api_err None attachment_type=queued_command
+REC 2026-10-26T21:43:23.266Z gap_before_s=1 system:stop_hook_summary len 0 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T21:43:23.288Z gap_before_s=0 system:turn_duration len 0 restart_msg False socket_marker False meta False api_err None 
+REC 2026-10-26T21:48:17.548Z gap_before_s=294 queue-operation:enqueue len 0 restart_msg False socket_marker False meta None api_err None content_len=1525
+REC 2026-10-26T21:48:17.571Z gap_before_s=0 queue-operation:dequeue len 0 restart_msg False socket_marker False meta None api_err None content_len=0
+REC 2026-10-26T21:48:17.614Z gap_before_s=-2 user_text len 1525 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T21:53:23.218Z gap_before_s=1 system:stop_hook_summary len 0 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T21:53:23.239Z gap_before_s=0 system:turn_duration len 0 restart_msg False socket_marker False meta False api_err None 
+REC 2026-10-26T21:55:35.505Z gap_before_s=132 api-request: len 0 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T21:55:32.775Z gap_before_s=-3 user_text len 122 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T21:58:09.653Z gap_before_s=154 assistant:tool_use len 0 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T21:59:20.546Z gap_before_s=32 queue-operation:enqueue len 0 restart_msg False socket_marker False meta None api_err None content_len=20
+REC 2026-10-26T21:59:26.693Z gap_before_s=1 queue-operation:remove len 0 restart_msg False socket_marker False meta None api_err None content_len=20
+REC 2026-10-26T21:59:17.950Z gap_before_s=-9 attachment: len 0 restart_msg False socket_marker False meta None api_err None attachment_type=queued_command
+REC 2026-10-26T21:59:39.684Z gap_before_s=1 queue-operation:enqueue len 0 restart_msg False socket_marker False meta None api_err None content_len=18
+REC 2026-10-26T21:59:40.648Z gap_before_s=0 queue-operation:remove len 0 restart_msg False socket_marker False meta None api_err None content_len=18
+REC 2026-10-26T21:59:37.401Z gap_before_s=-3 attachment: len 0 restart_msg False socket_marker False meta None api_err None attachment_type=queued_command
+REC 2026-10-26T21:59:44.863Z gap_before_s=4 queue-operation:enqueue len 0 restart_msg False socket_marker False meta None api_err None content_len=9
+REC 2026-10-26T22:00:19.599Z gap_before_s=0 queue-operation:remove len 0 restart_msg False socket_marker False meta None api_err None content_len=9
+REC 2026-10-26T21:59:42.378Z gap_before_s=-37 attachment: len 0 restart_msg False socket_marker False meta None api_err None attachment_type=queued_command
+REC 2026-10-26T22:01:07.910Z gap_before_s=1 system:stop_hook_summary len 0 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T22:01:07.944Z gap_before_s=0 system:turn_duration len 0 restart_msg False socket_marker False meta False api_err None 
+REC 2026-10-26T22:03:19.004Z gap_before_s=131 api-request: len 0 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T22:02:48.297Z gap_before_s=-31 user_text len 45 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T22:03:52.023Z gap_before_s=33 queue-operation:enqueue len 0 restart_msg False socket_marker False meta None api_err None content_len=18
+REC 2026-10-26T22:04:11.441Z gap_before_s=19 queue-operation:enqueue len 0 restart_msg False socket_marker False meta None api_err None content_len=124
+REC 2026-10-26T22:04:16.339Z gap_before_s=5 queue-operation:enqueue len 0 restart_msg False socket_marker False meta None api_err None content_len=1180
+REC 2026-10-26T22:04:21.410Z gap_before_s=5 queue-operation:enqueue len 0 restart_msg False socket_marker False meta None api_err None content_len=23
+REC 2026-10-26T22:04:33.516Z gap_before_s=7 queue-operation:remove len 0 restart_msg False socket_marker False meta None api_err None content_len=18
+REC 2026-10-26T22:04:33.516Z gap_before_s=0 queue-operation:remove len 0 restart_msg False socket_marker False meta None api_err None content_len=124
+REC 2026-10-26T22:04:33.516Z gap_before_s=0 queue-operation:remove len 0 restart_msg False socket_marker False meta None api_err None content_len=1180
+REC 2026-10-26T22:04:33.517Z gap_before_s=0 queue-operation:remove len 0 restart_msg False socket_marker False meta None api_err None content_len=23
+REC 2026-10-26T22:03:48.087Z gap_before_s=-45 attachment: len 0 restart_msg False socket_marker False meta None api_err None attachment_type=queued_command
+REC 2026-10-26T22:04:09.291Z gap_before_s=-24 attachment: len 0 restart_msg False socket_marker False meta None api_err None attachment_type=queued_command
+REC 2026-10-26T22:04:16.339Z gap_before_s=-17 attachment: len 0 restart_msg False socket_marker False meta None api_err None attachment_type=queued_command
+REC 2026-10-26T22:04:19.349Z gap_before_s=-14 attachment: len 0 restart_msg False socket_marker False meta None api_err None attachment_type=queued_command
+REC 2026-10-26T22:06:53.645Z gap_before_s=1 system:stop_hook_summary len 0 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T22:06:53.666Z gap_before_s=0 system:turn_duration len 0 restart_msg False socket_marker False meta False api_err None 
+REC 2026-10-26T22:09:13.405Z gap_before_s=140 api-request: len 0 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T22:09:09.461Z gap_before_s=-4 user_text len 124 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T22:12:43.082Z gap_before_s=1 system:stop_hook_summary len 0 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T22:12:43.123Z gap_before_s=0 system:turn_duration len 0 restart_msg False socket_marker False meta False api_err None 
+REC 2026-10-26T22:14:56.276Z gap_before_s=133 queue-operation:enqueue len 0 restart_msg False socket_marker False meta None api_err None content_len=1594
+REC 2026-10-26T22:14:56.295Z gap_before_s=0 queue-operation:dequeue len 0 restart_msg False socket_marker False meta None api_err None content_len=0
+REC 2026-10-26T22:14:56.336Z gap_before_s=-2 user_text len 1594 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T22:21:36.061Z gap_before_s=189 assistant:stop_sequence len 0 restart_msg False socket_marker False meta None api_err True 
+REC 2026-10-26T22:21:36.093Z gap_before_s=0 system:turn_duration len 0 restart_msg False socket_marker False meta False api_err None 
+REC 2026-10-26T22:23:02.732Z gap_before_s=-2 user_text len 124 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T22:27:39.424Z gap_before_s=275 assistant:stop_sequence len 0 restart_msg False socket_marker False meta None api_err True 
+REC 2026-10-26T22:27:39.455Z gap_before_s=0 system:turn_duration len 0 restart_msg False socket_marker False meta False api_err None 
+REC 2026-10-26T22:32:43.367Z gap_before_s=304 api-request: len 0 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T22:32:41.269Z gap_before_s=-2 user_text len 2 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T22:33:43.651Z gap_before_s=1 system:stop_hook_summary len 0 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T22:33:43.672Z gap_before_s=0 system:turn_duration len 0 restart_msg False socket_marker False meta False api_err None 
+REC 2026-10-26T22:41:04.361Z gap_before_s=441 api-request: len 0 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T22:41:01.882Z gap_before_s=-2 user_text len 2 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T22:41:53.389Z gap_before_s=1 system:stop_hook_summary len 0 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T22:41:53.405Z gap_before_s=0 system:turn_duration len 0 restart_msg False socket_marker False meta False api_err None 
+REC 2026-10-26T22:42:45.296Z gap_before_s=-2 user_text len 43 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T22:43:03.824Z gap_before_s=16 queue-operation:enqueue len 0 restart_msg False socket_marker False meta None api_err None content_len=20
+REC 2026-10-26T22:43:13.323Z gap_before_s=1 queue-operation:dequeue len 0 restart_msg False socket_marker False meta None api_err None content_len=0
+REC 2026-10-26T22:43:13.248Z gap_before_s=-0 system:stop_hook_summary len 0 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T22:43:13.265Z gap_before_s=0 system:turn_duration len 0 restart_msg False socket_marker False meta False api_err None 
+REC 2026-10-26T22:43:13.410Z gap_before_s=-0 user_text len 20 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T22:43:35.766Z gap_before_s=4 queue-operation:enqueue len 0 restart_msg False socket_marker False meta None api_err None content_len=20
+REC 2026-10-26T22:43:41.539Z gap_before_s=0 queue-operation:remove len 0 restart_msg False socket_marker False meta None api_err None content_len=20
+REC 2026-10-26T22:43:33.145Z gap_before_s=-8 attachment: len 0 restart_msg False socket_marker False meta None api_err None attachment_type=queued_command
+REC 2026-10-26T22:44:15.086Z gap_before_s=1 system:stop_hook_summary len 0 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T22:44:15.101Z gap_before_s=0 system:turn_duration len 0 restart_msg False socket_marker False meta False api_err None 
+REC 2026-10-26T22:44:15.819Z gap_before_s=-3 user_text len 31 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T22:45:09.389Z gap_before_s=4 queue-operation:enqueue len 0 restart_msg False socket_marker False meta None api_err None content_len=38
+REC 2026-10-26T22:45:25.594Z gap_before_s=1 queue-operation:dequeue len 0 restart_msg False socket_marker False meta None api_err None content_len=0
+REC 2026-10-26T22:45:25.527Z gap_before_s=-0 system:stop_hook_summary len 0 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T22:45:25.542Z gap_before_s=0 system:turn_duration len 0 restart_msg False socket_marker False meta False api_err None 
+REC 2026-10-26T22:45:25.679Z gap_before_s=-0 user_text len 38 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T22:46:47.570Z gap_before_s=1 system:stop_hook_summary len 0 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T22:46:47.585Z gap_before_s=0 system:turn_duration len 0 restart_msg False socket_marker False meta False api_err None 
+REC 2026-10-26T22:47:21.436Z gap_before_s=34 queue-operation:enqueue len 0 restart_msg False socket_marker False meta None api_err None content_len=1828
+REC 2026-10-26T22:47:21.452Z gap_before_s=0 queue-operation:dequeue len 0 restart_msg False socket_marker False meta None api_err None content_len=0
+REC 2026-10-26T22:47:21.482Z gap_before_s=-2 user_text len 1828 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T22:48:28.845Z gap_before_s=1 system:stop_hook_summary len 0 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T22:48:28.862Z gap_before_s=0 system:turn_duration len 0 restart_msg False socket_marker False meta False api_err None 
+REC 2026-10-26T22:51:26.481Z gap_before_s=178 api-request: len 0 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T22:51:24.202Z gap_before_s=-2 user_text len 20 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T22:52:00.141Z gap_before_s=16 queue-operation:enqueue len 0 restart_msg False socket_marker False meta None api_err None content_len=29
+REC 2026-10-26T22:52:10.162Z gap_before_s=1 queue-operation:dequeue len 0 restart_msg False socket_marker False meta None api_err None content_len=0
+REC 2026-10-26T22:52:10.095Z gap_before_s=-0 system:stop_hook_summary len 0 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T22:52:10.115Z gap_before_s=0 system:turn_duration len 0 restart_msg False socket_marker False meta False api_err None 
+REC 2026-10-26T22:52:10.244Z gap_before_s=-0 user_text len 29 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T22:53:33.904Z gap_before_s=1 system:stop_hook_summary len 0 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T22:53:33.924Z gap_before_s=0 system:turn_duration len 0 restart_msg False socket_marker False meta False api_err None 
+REC 2026-10-26T22:55:54.187Z gap_before_s=140 queue-operation:enqueue len 0 restart_msg False socket_marker False meta None api_err None content_len=4597
+REC 2026-10-26T22:56:01.561Z gap_before_s=7 queue-operation:remove len 0 restart_msg False socket_marker False meta None api_err None content_len=4597
+REC 2026-10-26T22:57:35.026Z gap_before_s=93 queue-operation:enqueue len 0 restart_msg False socket_marker False meta None api_err None content_len=2372
+REC 2026-10-26T22:57:35.046Z gap_before_s=0 queue-operation:dequeue len 0 restart_msg False socket_marker False meta None api_err None content_len=0
+REC 2026-10-26T22:57:35.085Z gap_before_s=-3 user_text len 2372 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T23:02:46.443Z gap_before_s=1 system:stop_hook_summary len 0 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T23:02:46.467Z gap_before_s=0 system:turn_duration len 0 restart_msg False socket_marker False meta False api_err None 
+REC 2026-10-26T23:04:31.724Z gap_before_s=-2 user_text len 2 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T23:04:40.941Z gap_before_s=7 queue-operation:enqueue len 0 restart_msg False socket_marker False meta None api_err None content_len=69
+REC 2026-10-26T23:04:40.942Z gap_before_s=0 system:agents_killed len 0 restart_msg False socket_marker False meta False api_err None 
+REC 2026-10-26T23:08:10.372Z gap_before_s=209 queue-operation:enqueue len 0 restart_msg False socket_marker False meta None api_err None content_len=776
+REC 2026-10-26T23:08:11.124Z gap_before_s=1 queue-operation:dequeue len 0 restart_msg False socket_marker False meta None api_err None content_len=0
+REC 2026-10-26T23:08:11.133Z gap_before_s=0 user_text len 776 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T23:08:36.757Z gap_before_s=26 queue-operation:enqueue len 0 restart_msg False socket_marker False meta None api_err None content_len=0
+REC 2026-10-26T23:08:36.784Z gap_before_s=0 queue-operation:dequeue len 0 restart_msg False socket_marker False meta None api_err None content_len=0
+REC 2026-10-26T23:08:36.833Z gap_before_s=0 user_text len 3146 restart_msg False socket_marker True meta True api_err None 
+REC 2026-10-26T23:09:13.065Z gap_before_s=29 queue-operation:enqueue len 0 restart_msg False socket_marker False meta None api_err None content_len=2
+REC 2026-10-26T23:09:45.442Z gap_before_s=0 queue-operation:remove len 0 restart_msg False socket_marker False meta None api_err None content_len=2
+REC 2026-10-26T23:09:05.931Z gap_before_s=-40 attachment: len 0 restart_msg False socket_marker False meta None api_err None attachment_type=queued_command
+REC 2026-10-26T23:15:05.072Z gap_before_s=28 queue-operation:enqueue len 0 restart_msg False socket_marker False meta None api_err None content_len=460
+REC 2026-10-26T23:15:16.340Z gap_before_s=3 queue-operation:remove len 0 restart_msg False socket_marker False meta None api_err None content_len=460
+REC 2026-10-26T23:15:05.071Z gap_before_s=-11 attachment: len 0 restart_msg False socket_marker False meta None api_err None attachment_type=queued_command
+REC 2026-10-26T23:18:00.020Z gap_before_s=7 queue-operation:enqueue len 0 restart_msg False socket_marker False meta None api_err None content_len=1255
+REC 2026-10-26T23:18:07.371Z gap_before_s=2 queue-operation:remove len 0 restart_msg False socket_marker False meta None api_err None content_len=1255
+REC 2026-10-26T23:18:00.020Z gap_before_s=-7 attachment: len 0 restart_msg False socket_marker False meta None api_err None attachment_type=queued_command
+REC 2026-10-26T23:18:18.559Z gap_before_s=11 queue-operation:enqueue len 0 restart_msg False socket_marker False meta None api_err None content_len=0
+REC 2026-10-26T23:18:24.766Z gap_before_s=4 queue-operation:remove len 0 restart_msg False socket_marker False meta None api_err None content_len=3509
+REC 2026-10-26T23:18:18.559Z gap_before_s=-6 attachment: len 0 restart_msg False socket_marker False meta None api_err None attachment_type=queued_command
+REC 2026-10-26T23:19:49.103Z gap_before_s=3 user_text len 593 restart_msg False socket_marker False meta True api_err None 
+REC 2026-10-26T23:19:49.104Z gap_before_s=0 system:stop_hook_summary len 0 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T23:25:18.277Z gap_before_s=3 user_text len 593 restart_msg False socket_marker False meta True api_err None 
+REC 2026-10-26T23:25:18.279Z gap_before_s=0 system:stop_hook_summary len 0 restart_msg False socket_marker False meta None api_err None 
+REC 2026-10-26T23:29:01.809Z gap_before_s=223 assistant:stop_sequence len 0 restart_msg False socket_marker False meta None api_err True 
+REC 2026-10-26T23:29:01.837Z gap_before_s=0 system:turn_duration len 0 restart_msg False socket_marker False meta False api_err None 
+BUCKET 2026-10-26T19:00 {'queue-operation': 12, 'api-request': 67, 'user_text': 3, 'attachment': 17, 'assistant': 86, 'system': 3, 'tool_result': 68, 'file-history-delta': 4}
+BUCKET 2026-10-26T19:30 {'system': 3, 'api-request': 19, 'user_text': 2, 'attachment': 8, 'assistant': 21, 'tool_result': 17, 'queue-operation': 6, 'file-history-delta': 1}
+BUCKET 2026-10-26T20:00 {'assistant': 114, 'file-history-delta': 8, 'tool_result': 87, 'api-request': 87, 'attachment': 25, 'queue-operation': 8}
+BUCKET 2026-10-26T20:30 {'assistant': 109, 'file-history-delta': 6, 'tool_result': 85, 'api-request': 86, 'queue-operation': 12, 'attachment': 18, 'system': 7, 'user_text': 5}
+BUCKET 2026-10-26T21:00 {'assistant': 75, 'tool_result': 56, 'api-request': 57, 'attachment': 14, 'file-history-delta': 5, 'user_text': 2, 'system': 2}
+BUCKET 2026-10-26T21:30 {'assistant': 53, 'tool_result': 43, 'api-request': 41, 'system': 6, 'user_text': 3, 'attachment': 12, 'queue-operation': 11}
+BUCKET 2026-10-26T22:00 {'assistant': 31, 'tool_result': 20, 'queue-operation': 11, 'attachment': 13, 'api-request': 24, 'system': 8, 'user_text': 4, 'file-history-delta': 1}
+BUCKET 2026-10-26T22:30 {'api-request': 37, 'user_text': 10, 'attachment': 12, 'assistant': 42, 'tool_result': 27, 'system': 18, 'queue-operation': 14}
+BUCKET 2026-10-26T23:00 {'attachment': 16, 'assistant': 48, 'tool_result': 39, 'api-request': 41, 'system': 6, 'user_text': 5, 'queue-operation': 13, 'api-request-shape': 1, 'file-history-delta': 1}
+STATEVAL context-compact-progress.json /version 1
+STATEKEY context-compact-progress.json /runs dict 1
+STATEKEY context-compact-progress.json /runs/01dd61f5bbc26deaa497b5af0fb4ca214b9540175842ab84aded14a165facf00 dict 2
+STATEVAL context-compact-progress.json /runs/01dd61f5bbc26deaa497b5af0fb4ca214b9540175842ab84aded14a165facf00/at 1793060382.9755156
+STATEKEY context-compact-progress.json /runs/01dd61f5bbc26deaa497b5af0fb4ca214b9540175842ab84aded14a165facf00/steps list 14
+STATEVAL context-compact-activity.json /updated_at 1793060383.0154934
+STATEVAL context-compact-activity.json /time 2026-10-26T17:19:43
+STATEVAL context-compact-activity.json /event compact
+STATEVAL context-compact-activity.json /provider cielairouter
+STATEVAL context-compact-activity.json /model ciel-runtime-cielairouter-_walkie_sol61-opus55-fast
+STATEVAL context-compact-activity.json /chunks 14
+STATEVAL context-compact-activity.json /parallel_sessions 1
+STATEVAL context-compact-activity.json /tokens 1011241
+STATEVAL context-compact-activity.json /final_tokens 26825
+STATEVAL context-compact-activity.json /budget 833355
+STATEVAL context-compact-activity.json /phase reduce
+STATEVAL context-compact-activity.json /completed_chunks 14
+STATEVAL context-compact-activity.json /retained_messages 1
+STATEVAL context-compact-activity.json /summary_calls 14
+STATEVAL context-compact-activity.json /reused_chunks 0
+STATEKEY claude-stream-recovery.json /failures dict 5
+STATEKEY claude-stream-recovery.json /failures/1792609768218 dict 12
+STATEVAL claude-stream-recovery.json /failures/1792609768218/runtime claude
+STATEVAL claude-stream-recovery.json /failures/1792609768218/session_id 6094b07a-ac93-463a-80d4-db02edd7223c
+STATEVAL claude-stream-recovery.json /failures/1792609768218/epoch 3142c1515bcb460ca64877133c411196
+STATEVAL claude-stream-recovery.json /failures/1792609768218/message_id 1792609768218
+STATEVAL claude-stream-recovery.json /failures/1792609768218/failed_at 1792609847.4324777
+STATEVAL claude-stream-recovery.json /failures/1792609768218/provider cielairouter
+STATEVAL claude-stream-recovery.json /failures/1792609768218/reason anthropic_stream_upstream_error_event
+STATEVAL claude-stream-recovery.json /failures/1792609768218/upstream_error_type api_error
+STATEVAL claude-stream-recovery.json /failures/1792609768218/visible_text False
+STATEVAL claude-stream-recovery.json /failures/1792609768218/tool_uncertain True
+STATEVAL claude-stream-recovery.json /failures/1792609768218/saw_tool_use True
+STATEVAL claude-stream-recovery.json /failures/1792609768218/emitted_tool_use True
+STATEKEY claude-stream-recovery.json /failures/1792724184477 dict 12
+STATEVAL claude-stream-recovery.json /failures/1792724184477/runtime claude
+STATEVAL claude-stream-recovery.json /failures/1792724184477/session_id 6094b07a-ac93-463a-80d4-db02edd7223c
+STATEVAL claude-stream-recovery.json /failures/1792724184477/epoch 298fe57f80d240ee860a412d49870d45
+STATEVAL claude-stream-recovery.json /failures/1792724184477/message_id 1792724184477
+STATEVAL claude-stream-recovery.json /failures/1792724184477/failed_at 1792724184.6612148
+STATEVAL claude-stream-recovery.json /failures/1792724184477/provider cielairouter
+STATEVAL claude-stream-recovery.json /failures/1792724184477/reason anthropic_stream_upstream_error:ConnectionResetError
+STATEVAL claude-stream-recovery.json /failures/1792724184477/upstream_error_type 
+STATEVAL claude-stream-recovery.json /failures/1792724184477/visible_text False
+STATEVAL claude-stream-recovery.json /failures/1792724184477/tool_uncertain True
+STATEVAL claude-stream-recovery.json /failures/1792724184477/saw_tool_use True
+STATEVAL claude-stream-recovery.json /failures/1792724184477/emitted_tool_use True
+STATEKEY claude-stream-recovery.json /failures/msg_011CgMSumediwCEaCknekmdx dict 12
+STATEVAL claude-stream-recovery.json /failures/msg_011CgMSumediwCEaCknekmdx/runtime claude
+STATEVAL claude-stream-recovery.json /failures/msg_011CgMSumediwCEaCknekmdx/session_id 5ac1ee55-d0d1-4ef7-b4df-3d68e62bbd1b
+STATEVAL claude-stream-recovery.json /failures/msg_011CgMSumediwCEaCknekmdx/epoch 4fc8588288a5432ea542a7344626186c
+STATEVAL claude-stream-recovery.json /failures/msg_011CgMSumediwCEaCknekmdx/message_id msg_011CgMSumediwCEaCknekmdx
+STATEVAL claude-stream-recovery.json /failures/msg_011CgMSumediwCEaCknekmdx/failed_at 1792862514.8303857
+STATEVAL claude-stream-recovery.json /failures/msg_011CgMSumediwCEaCknekmdx/provider cielairouter
+STATEVAL claude-stream-recovery.json /failures/msg_011CgMSumediwCEaCknekmdx/reason anthropic_stream_upstream_incomplete
+STATEVAL claude-stream-recovery.json /failures/msg_011CgMSumediwCEaCknekmdx/upstream_error_type 
+STATEVAL claude-stream-recovery.json /failures/msg_011CgMSumediwCEaCknekmdx/visible_text False
+STATEVAL claude-stream-recovery.json /failures/msg_011CgMSumediwCEaCknekmdx/tool_uncertain True
+STATEVAL claude-stream-recovery.json /failures/msg_011CgMSumediwCEaCknekmdx/saw_tool_use True
+STATEVAL claude-stream-recovery.json /failures/msg_011CgMSumediwCEaCknekmdx/emitted_tool_use True
+STATEKEY claude-stream-recovery.json /failures/1792964189051 dict 12
+STATEVAL claude-stream-recovery.json /failures/1792964189051/runtime claude
+STATEVAL claude-stream-recovery.json /failures/1792964189051/session_id 5ac1ee55-d0d1-4ef7-b4df-3d68e62bbd1b
+STATEVAL claude-stream-recovery.json /failures/1792964189051/epoch 4fc8588288a5432ea542a7344626186c
+STATEVAL claude-stream-recovery.json /failures/1792964189051/message_id 1792964189051
+STATEVAL claude-stream-recovery.json /failures/1792964189051/failed_at 1792964286.0848384
+STATEVAL claude-stream-recovery.json /failures/1792964189051/provider cielairouter
+STATEVAL claude-stream-recovery.json /failures/1792964189051/reason anthropic_stream_upstream_error_event
+STATEVAL claude-stream-recovery.json /failures/1792964189051/upstream_error_type api_error
+STATEVAL claude-stream-recovery.json /failures/1792964189051/visible_text False
+STATEVAL claude-stream-recovery.json /failures/1792964189051/tool_uncertain True
+STATEVAL claude-stream-recovery.json /failures/1792964189051/saw_tool_use True
+STATEVAL claude-stream-recovery.json /failures/1792964189051/emitted_tool_use True
+STATEKEY claude-stream-recovery.json /failures/1792964891725 dict 12
+STATEVAL claude-stream-recovery.json /failures/1792964891725/runtime claude
+STATEVAL claude-stream-recovery.json /failures/1792964891725/session_id 5ac1ee55-d0d1-4ef7-b4df-3d68e62bbd1b
+STATEVAL claude-stream-recovery.json /failures/1792964891725/epoch 4fc8588288a5432ea542a7344626186c
+STATEVAL claude-stream-recovery.json /failures/1792964891725/message_id 1792964891725
+STATEVAL claude-stream-recovery.json /failures/1792964891725/failed_at 1792964897.5094213
+STATEVAL claude-stream-recovery.json /failures/1792964891725/provider cielairouter
+STATEVAL claude-stream-recovery.json /failures/1792964891725/reason anthropic_stream_upstream_error_event
+STATEVAL claude-stream-recovery.json /failures/1792964891725/upstream_error_type api_error
+STATEVAL claude-stream-recovery.json /failures/1792964891725/visible_text False
+STATEVAL claude-stream-recovery.json /failures/1792964891725/tool_uncertain True
+STATEVAL claude-stream-recovery.json /failures/1792964891725/saw_tool_use True
+STATEVAL claude-stream-recovery.json /failures/1792964891725/emitted_tool_use True
+STATEKEY claude-stream-recovery.json /handled dict 0
+STATEKEY claude-stream-recovery.json /chains dict 0
+STATEKEY claude-stream-recovery.json /recent list 13
+STATELIST claude-stream-recovery.json /recent len 13 last_keys ['at', 'error', 'reason', 'status']
+REMOTE_END 1793063270.437
+
+
+exit 0
