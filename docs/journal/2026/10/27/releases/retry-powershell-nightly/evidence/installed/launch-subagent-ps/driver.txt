@@ -1,0 +1,12 @@
+owned cmd: yes
+owned window: yes
+interactive ready: yes
+console command: yes
+turn outcome with child result: yes
+owned stop 84236 SUCCESS: The process with PID 66724 (child process of PID 72492) has been terminated.
+SUCCESS: The process with PID 27080 (child process of PID 72492) has been terminated.
+SUCCESS: The process with PID 66540 (child process of PID 72492) has been terminated.
+SUCCESS: The process with PID 83660 (child process of PID 72492) has been terminated.
+SUCCESS: The process with PID 72492 (child process of PID 84236) has been terminated.
+SUCCESS: The process with PID 84236 (child process of PID 49736) has been terminated.
+evidence C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\27\diagnostics\subagent-powershell\evidence\scripts\launch-installed-133317
