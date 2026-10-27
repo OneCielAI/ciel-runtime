@@ -1,0 +1,273 @@
+owned cmd: yes
+owned window: yes
+ready: yes
+console command: yes
+seed reply: yes
+production SSE model request: yes
+production delivery replied: yes
+original socket reply: yes
+console command: yes
+native parked: yes
+bg record: yes
+binding successor: yes
+production SSE model request: yes
+production delivery replied: yes
+after reached background: yes
+launcher successor scope: yes
+successor transcript: yes
+owned stop 71744 SUCCESS: The process with PID 82640 (child process of PID 71904) has been terminated.
+SUCCESS: The process with PID 83604 (child process of PID 71904) has been terminated.
+SUCCESS: The process with PID 53296 (child process of PID 72032) has been terminated.
+SUCCESS: The process with PID 7700 (child process of PID 72032) has been terminated.
+SUCCESS: The process with PID 71904 (child process of PID 46620) has been terminated.
+SUCCESS: The process with PID 72032 (child process of PID 82512) has been terminated.
+SUCCESS: The process with PID 612 (child process of PID 60808) has been terminated.
+SUCCESS: The process with PID 21676 (child process of PID 53796) has been terminated.
+SUCCESS: The process with PID 82512 (child process of PID 60808) has been terminated.
+SUCCESS: The process with PID 46620 (child process of PID 53796) has been terminated.
+SUCCESS: The process with PID 60808 (child process of PID 71744) has been terminated.
+SUCCESS: The process with PID 53796 (child process of PID 71744) has been terminated.
+SUCCESS: The process with PID 71744 (child process of PID 12344) has been terminated.
+owned stop 64224 
+owned stop 81420 SUCCESS: The process with PID 33700 (child process of PID 33944) has been terminated.
+SUCCESS: The process with PID 78684 (child process of PID 33944) has been terminated.
+SUCCESS: The process with PID 70184 (child process of PID 33944) has been terminated.
+SUCCESS: The process with PID 64340 (child process of PID 33944) has been terminated.
+SUCCESS: The process with PID 33944 (child process of PID 81420) has been terminated.
+SUCCESS: The process with PID 81420 (child process of PID 49736) has been terminated.
+{
+ "repo": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-eec7d694af216308e2a95d4103535f43c5546f09",
+ "stripped_env": [],
+ "original": {
+  "pid": 70184,
+  "sessionId": "1c41ca4c-ced3-42d7-b43d-52203940b4e6",
+  "kind": "interactive",
+  "procStart": "134375536766573501",
+  "messagingSocketPath": "\\\\.\\pipe\\LOCAL\\cc-msg-620f4e563587007f38a09160b427d7f5"
+ },
+ "bg": {
+  "pid": 82512,
+  "sessionId": "19d83929-c107-4db6-b21e-248be81a2437",
+  "jobId": "19d83929",
+  "kind": "bg",
+  "procStart": "134375536905297363",
+  "messagingSocketPath": "\\\\.\\pipe\\LOCAL\\cc-msg-2032006e12c8b027a8ab80f3f93e67b9"
+ },
+ "transitions": [
+  [
+   1,
+   "queued"
+  ],
+  [
+   2,
+   "queued"
+  ]
+ ],
+ "checks": {
+  "seed_replied": true,
+  "before_socket_sent": true,
+  "before_socket_replied": true,
+  "native_parked": true,
+  "bg_record": true,
+  "binding_followed": true,
+  "socket_followed": true,
+  "after_socket_sent": true,
+  "after_reached_bg": true,
+  "after_not_original": true,
+  "production_launcher_scope_followed": true,
+  "transcript_followed": true,
+  "live_unchanged": true
+ },
+ "requests": [
+  {
+   "sid": "1c41ca4c-ced3-42d7-b43d-52203940b4e6",
+   "before": false,
+   "after": false
+  },
+  {
+   "sid": "1c41ca4c-ced3-42d7-b43d-52203940b4e6",
+   "before": true,
+   "after": false
+  },
+  {
+   "sid": "1c41ca4c-ced3-42d7-b43d-52203940b4e6",
+   "before": true,
+   "after": false
+  },
+  {
+   "sid": "19d83929-c107-4db6-b21e-248be81a2437",
+   "before": true,
+   "after": true
+  },
+  {
+   "sid": "19d83929-c107-4db6-b21e-248be81a2437",
+   "before": true,
+   "after": true
+  },
+  {
+   "sid": "19d83929-c107-4db6-b21e-248be81a2437",
+   "before": false,
+   "after": false
+  }
+ ],
+ "logs": [
+  {
+   "level": "INFO",
+   "text": "claude_session_socket_configured target=\\\\.\\pipe\\LOCAL\\cc-msg-620f4e563587007f38a09160b427d7f5",
+   "at": 1793080062.5872178
+  },
+  {
+   "level": "INFO",
+   "text": "runtime_compaction_scope_bound runtime=claude session=19d83929-c107-4db6-b21e-248be81a2437 via=socket",
+   "at": 1793080091.0693557
+  },
+  {
+   "level": "INFO",
+   "text": "runtime_compaction_scope identity=ready reason=published_idle runtime=claude session=19d83929-c107-4db6-b21e-248be81a2437",
+   "at": 1793080093.3679612
+  }
+ ],
+ "egress": [
+  {
+   "method": "CONNECT",
+   "path": "downloads.claude.ai:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "github.com:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "registry.npmjs.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "registry.npmjs.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "registry.npmjs.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "registry.npmjs.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "registry.npmjs.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "registry.npmjs.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "registry.npmjs.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  }
+ ],
+ "run": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-handoff-5482b327",
+ "live_before": {
+  "9505": {
+   "pid": null,
+   "version": null,
+   "source_fingerprint": null,
+   "error": "<urlopen error [WinError 10061] No connection could be made because the target machine actively refused it>"
+  },
+  "9524": {
+   "pid": 25276,
+   "version": "0.2.51",
+   "source_fingerprint": "f86ee3638ee760f3",
+   "error": null
+  }
+ },
+ "live_after": {
+  "9505": {
+   "pid": null,
+   "version": null,
+   "source_fingerprint": null,
+   "error": "<urlopen error [WinError 10061] No connection could be made because the target machine actively refused it>"
+  },
+  "9524": {
+   "pid": 25276,
+   "version": "0.2.51",
+   "source_fingerprint": "f86ee3638ee760f3",
+   "error": null
+  }
+ }
+}

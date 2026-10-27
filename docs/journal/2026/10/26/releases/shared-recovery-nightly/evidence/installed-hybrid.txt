@@ -1,0 +1,79 @@
+RUN=C:\Users\djlov\AppData\Local\Temp\work-hybrid-482fb007
+owned router: yes
+owned cmd: yes
+owned window: yes
+interactive ready: yes
+console command: yes
+active executing hold: yes
+console command: yes
+incoming native queue: yes
+queue and priority loop: yes
+owned stop 53532 SUCCESS: The process with PID 5380 (child process of PID 53532) has been terminated.
+SUCCESS: The process with PID 53532 (child process of PID 49736) has been terminated.
+owned stop 81604 SUCCESS: The process with PID 81604 (child process of PID 35680) has been terminated.
+evidence C:\Users\djlov\AppData\Local\Temp\work-hybrid-482fb007
+{
+ "repo": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-eec7d694af216308e2a95d4103535f43c5546f09",
+ "stripped_env": [
+  "OLLAMA_CONTEXT_LENGTH",
+  "OLLAMA_FLASH_ATTENTION",
+  "OLLAMA_HOST",
+  "OLLAMA_KV_CACHE_TYPE",
+  "OLLAMA_MODELS",
+  "OLLAMA_NUM_PARALLEL",
+  "OLLAMA_SCHED_SPREAD"
+ ],
+ "mod": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-eec7d694af216308e2a95d4103535f43c5546f09\\ciel_runtime_support\\claude_mods\\ciel-work",
+ "cli_version": "2.1.310 (Claude Code)",
+ "checks": {
+  "active_turn_busy": true,
+  "active_executing": true,
+  "incoming_queued_while_busy": true,
+  "queue_finished": true,
+  "active_resumed_approved": true,
+  "resumed_write": true,
+  "native_shell_deny_preserved": true,
+  "implicit_priority_rejected": true,
+  "queued_write_denied_until_approved": true,
+  "exact_active_detail_excludes_queue": true,
+  "raw_user_history_not_isolated": true
+ },
+ "egress": [
+  {
+   "method": "CONNECT",
+   "path": "downloads.claude.ai:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "github.com:443"
+  }
+ ],
+ "live_before": {
+  "9505": {
+   "pid": null,
+   "version": null,
+   "source_fingerprint": null,
+   "error": "<urlopen error [WinError 10061] No connection could be made because the target machine actively refused it>"
+  },
+  "9524": {
+   "pid": 25276,
+   "version": "0.2.51",
+   "source_fingerprint": "f86ee3638ee760f3",
+   "error": null
+  }
+ },
+ "live_after": {
+  "9505": {
+   "pid": null,
+   "version": null,
+   "source_fingerprint": null,
+   "error": "<urlopen error [WinError 10061] No connection could be made because the target machine actively refused it>"
+  },
+  "9524": {
+   "pid": 25276,
+   "version": "0.2.51",
+   "source_fingerprint": "f86ee3638ee760f3",
+   "error": null
+  }
+ }
+}

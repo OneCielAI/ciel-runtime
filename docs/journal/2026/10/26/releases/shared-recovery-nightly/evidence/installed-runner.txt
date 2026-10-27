@@ -1,0 +1,9 @@
+compact-sse 0 PASS
+hybrid 0 PASS
+shell 0 PASS
+handoff 0 PASS
+work-stop 0 PASS
+codex 0 PASS
+sendmessage-cielairouter 0 PASS
+sendmessage-vllm 0 PASS
+runner rc=0

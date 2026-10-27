@@ -1,0 +1,65 @@
+owned router: yes
+owned cmd: yes
+owned window: yes
+interactive ready: yes
+console command: yes
+shell proof ended: yes
+owned stop 30860 SUCCESS: The process with PID 12312 (child process of PID 30860) has been terminated.
+SUCCESS: The process with PID 30860 (child process of PID 49736) has been terminated.
+owned stop 79724 SUCCESS: The process with PID 79724 (child process of PID 83808) has been terminated.
+evidence C:\Users\djlov\AppData\Local\Temp\work-shell-proof-e3ff9130
+{
+ "repo": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-eec7d694af216308e2a95d4103535f43c5546f09",
+ "stripped_env": [],
+ "mod": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-eec7d694af216308e2a95d4103535f43c5546f09\\ciel_runtime_support\\claude_mods\\ciel-work",
+ "cli_version": "2.1.310 (Claude Code)",
+ "native_PowerShell_exposed": false,
+ "permission_mode": "bypass",
+ "expected": "executed",
+ "checks": {
+  "turn_ended": true,
+  "work_still_planning": true,
+  "direct_write_blocked": true,
+  "bash-marker.txt": true,
+  "powershell-marker.txt": true,
+  "native_Bash_exposed": true
+ },
+ "egress": [
+  {
+   "method": "CONNECT",
+   "path": "downloads.claude.ai:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "github.com:443"
+  }
+ ],
+ "live_before": {
+  "9505": {
+   "pid": null,
+   "version": null,
+   "source_fingerprint": null,
+   "error": "<urlopen error [WinError 10061] No connection could be made because the target machine actively refused it>"
+  },
+  "9524": {
+   "pid": 25276,
+   "version": "0.2.51",
+   "source_fingerprint": "f86ee3638ee760f3",
+   "error": null
+  }
+ },
+ "live_after": {
+  "9505": {
+   "pid": null,
+   "version": null,
+   "source_fingerprint": null,
+   "error": "<urlopen error [WinError 10061] No connection could be made because the target machine actively refused it>"
+  },
+  "9524": {
+   "pid": 25276,
+   "version": "0.2.51",
+   "source_fingerprint": "f86ee3638ee760f3",
+   "error": null
+  }
+ }
+}

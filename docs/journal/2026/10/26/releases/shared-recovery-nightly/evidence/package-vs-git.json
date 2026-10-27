@@ -1,0 +1,30 @@
+{
+ "commit": "eec7d694af216308e2a95d4103535f43c5546f09",
+ "compared": 460,
+ "mismatch": [
+  "ciel_runtime_support/runtime_constants.py",
+  "scripts/deploy_colab_speech.ps1"
+ ],
+ "missing_in_package": [
+  "scripts/check_project_metadata.py",
+  "scripts/diag_window_activity.py",
+  "scripts/make_demo_assets.py",
+  "scripts/probe_claude_raw_prompt_render.py",
+  "scripts/probe_muse_msp_injection.py",
+  "scripts/probe_runtime_input_lifecycle.py",
+  "scripts/probe_runtime_session_restart.py",
+  "scripts/probe_web_search_result_stream.py",
+  "scripts/probe_windows_conpty_first_input.py",
+  "scripts/probe_windows_conpty_tui_resize.py",
+  "scripts/remote-cleanup.sh",
+  "scripts/run_test_group.py",
+  "scripts/store_colab_tailscale_state.py",
+  "scripts/test-raw-term.py"
+ ],
+ "package_extra": [],
+ "mismatch_explained": {
+  "ciel_runtime_support/runtime_constants.py": "only line 108 VERSION stamped by publish: 0.2.51 -> 0.2.51-nightly.20261027-053202.eec7d69",
+  "scripts/deploy_colab_speech.ps1": "identical after removing CR; package has CRLF line endings"
+ },
+ "missing_in_package_reason": "excluded by package.json files allow-list (only scripts/colab/*.py, configure_speech_workers.py, deploy_colab_speech.ps1 are packaged)"
+}

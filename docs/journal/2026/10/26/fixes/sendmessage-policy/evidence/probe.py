@@ -6,8 +6,9 @@ import argparse, json, re, socket, subprocess, threading, time, tempfile, traceb
 from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 A=argparse.ArgumentParser(); A.add_argument('--provider',default='cielairouter'); A.add_argument('--override',action='store_true'); A.add_argument('--baseline',action='store_true'); args=A.parse_args()
-ROOT=next(p for p in Path(__file__).resolve().parents if (p/'ciel_runtime.py').exists())
-OUT=Path(__file__).parent/('run-'+args.provider+('-override' if args.override else '-default')+'-'+time.strftime('%H%M%S')); OUT.mkdir()
+INSTALLED=os.environ.get('SENDMESSAGE_PROOF_REPO')  # an exact installed snapshot instead of the worktree
+ROOT=Path(INSTALLED) if INSTALLED else next(p for p in Path(__file__).resolve().parents if (p/'ciel_runtime.py').exists())
+OUT=Path(os.environ.get('SENDMESSAGE_PROOF_OUT') or Path(__file__).parent)/('run-'+('installed-' if INSTALLED else '')+args.provider+('-override' if args.override else '-default')+'-'+time.strftime('%H%M%S')); OUT.mkdir()
 SCR=Path(tempfile.mkdtemp(prefix='ciel-send-',dir='C:/Windows/Temp'))
 CFG, HOME, CC, WS=(SCR/x for x in ('cfg','home','claude','ws'))
 for d in (CFG,HOME,CC,WS,HOME/'AppData/Roaming',HOME/'AppData/Local/Temp'): d.mkdir(parents=True,exist_ok=True)

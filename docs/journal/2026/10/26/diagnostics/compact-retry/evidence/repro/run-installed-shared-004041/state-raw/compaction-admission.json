@@ -1,0 +1,37 @@
+{
+  "scope": {
+    "runtime": "claude",
+    "session_id": "071f40e9-e81f-4fad-abbe-acd3c1ac803e",
+    "epoch": "1745def29a404ec7932a7dac919db8c4"
+  },
+  "phase": "verified",
+  "pressure": false,
+  "baseline_tokens": 32486,
+  "context_limit": 189654,
+  "requested_at": 1793079670.3729355,
+  "deadline": 1793081201.5200102,
+  "baseline_checkpoint_id": "",
+  "checkpoint_id": "bd13fe0b927f89d9b1670f7ffba60c0605297fd48d340d30eb71950ef4290c1d",
+  "request_id": "d26ff33f67d440fa80c7badb223a148e",
+  "attempts": 2,
+  "native_started_at": 1793080001.5200102,
+  "native_failure_id": "1e5995ace893c1cf711850b8a876e2e9d498c4de36f8cd36559bcf605210cde6",
+  "native_failure_at": 1793079970.533,
+  "cooldown_until": 1793080000.7090418,
+  "dispatch": {
+    "automatic": true,
+    "source": "context-pressure",
+    "scope": {
+      "runtime": "claude",
+      "session_id": "071f40e9-e81f-4fad-abbe-acd3c1ac803e",
+      "epoch": "1745def29a404ec7932a7dac919db8c4"
+    },
+    "request_id": "d26ff33f67d440fa80c7badb223a148e",
+    "baseline_checkpoint_id": "",
+    "dispatched_at": 1793080001.1294658,
+    "submission": "submitted"
+  },
+  "checkpoint_observed_at": 1793080002.3514693,
+  "verified_at": 1793080002.353985,
+  "next_raw_tokens": 2771
+}

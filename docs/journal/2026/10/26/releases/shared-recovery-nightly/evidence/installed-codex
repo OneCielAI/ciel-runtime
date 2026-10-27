@@ -1,0 +1,240 @@
+{
+ "codex": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\codex.CMD",
+ "version": "codex-cli 0.158.0",
+ "authority": "real Codex app-server, local HTTP Responses fixture, controlled RPC response loss",
+ "scenarios": {
+  "typed_504_retry_success": {
+   "pass": true,
+   "final": {
+    "request_id": 1,
+    "status": "replied",
+    "updated_at": "2026-10-27T00:48:48-05:00",
+    "updated_at_epoch": 1793080128.2036855,
+    "data": {
+     "child_epoch": "codex-d90976a595df4e3bbefb562fbb55b394",
+     "attempt_id": "90daf58ac3974fdd8752cdd7945bf43b",
+     "batch_ids": [
+      1
+     ],
+     "native_runtime": "codex",
+     "native_thread_id": "01a17be7-6c72-7ea3-8bdc-fd0f814b4128",
+     "native_turn_id": "01a17be7-71b1-78b2-ab27-f174813168c7",
+     "retry": {
+      "attempt": 2,
+      "limit": 2,
+      "interval_seconds": 0.05,
+      "due_epoch": 1793080127.680345,
+      "last_failure": "httpConnectionFailed 504",
+      "http_status": 504,
+      "claim": "",
+      "runtime": "codex",
+      "tool_activity": false,
+      "native_thread_id": "01a17be7-6c72-7ea3-8bdc-fd0f814b4128"
+     }
+    }
+   }
+  },
+  "native_start_ack_loss_no_replay": {
+   "pass": true,
+   "final": {
+    "request_id": 2,
+    "status": "interrupted_uncertain",
+    "updated_at": "2026-10-27T00:48:48-05:00",
+    "updated_at_epoch": 1793080128.3392444,
+    "reason": "submit_uncertain",
+    "data": {
+     "child_epoch": "codex-d90976a595df4e3bbefb562fbb55b394",
+     "attempt_id": "85e6efa421ef4052951e11eeb5d5088c",
+     "batch_ids": [
+      2
+     ],
+     "native_runtime": "codex",
+     "native_thread_id": "01a17be7-6c72-7ea3-8bdc-fd0f814b4128",
+     "native_turn_id": ""
+    }
+   },
+   "cursor": 1,
+   "upstream_request_count": 1,
+   "dropped_actual_response": [
+    {
+     "id": 6,
+     "result": {
+      "turn": {
+       "id": "01a17be7-72eb-7c91-b08d-163132a4521a",
+       "items": [],
+       "itemsView": "notLoaded",
+       "status": "inProgress",
+       "error": null,
+       "startedAt": null,
+       "completedAt": null,
+       "durationMs": null
+      }
+     }
+    }
+   ]
+  },
+  "native_start_crash_no_replay": {
+   "pass": true,
+   "final": {
+    "request_id": 3,
+    "status": "submitted",
+    "updated_at": "2026-10-27T00:48:49-05:00",
+    "updated_at_epoch": 1793080129.2460835,
+    "data": {
+     "child_epoch": "codex-96d6a3c3a804464ea54904b0ff0c4405",
+     "attempt_id": "e110bda5e0cb496fb39a3d414ea35278",
+     "batch_ids": [
+      3
+     ],
+     "native_runtime": "codex",
+     "native_thread_id": "01a17be7-7689-7d41-89b3-f1f0cd56a44a",
+     "native_turn_id": ""
+    }
+   },
+   "cursor": 2,
+   "upstream_request_count": 1
+  }
+ },
+ "health_text": "not_blocked; known queued 0; oldest unknown; coverage complete",
+ "upstream_requests": [
+  {
+   "at": 1793080126.9,
+   "path": "/v1/responses",
+   "input": "E2E-ONE",
+   "status": 504,
+   "resend_marker": "",
+   "first_line_kept": true
+  },
+  {
+   "at": 1793080127.4,
+   "path": "/v1/responses",
+   "input": "E2E-ONE",
+   "status": 504,
+   "resend_marker": "1/2 · 이전 시도 업스트림 오류: httpConnectionFailed 504",
+   "first_line_kept": true
+  },
+  {
+   "at": 1793080128.0,
+   "path": "/v1/responses",
+   "input": "E2E-ONE",
+   "status": 200,
+   "resend_marker": "2/2 · 이전 시도 업스트림 오류: httpConnectionFailed 504",
+   "first_line_kept": true
+  },
+  {
+   "at": 1793080128.3,
+   "path": "/v1/responses",
+   "input": "E2E-TWO",
+   "status": 200,
+   "resend_marker": "",
+   "first_line_kept": true
+  },
+  {
+   "at": 1793080129.3,
+   "path": "/v1/responses",
+   "input": "E2E-THREE",
+   "status": 200,
+   "resend_marker": "",
+   "first_line_kept": true
+  }
+ ],
+ "notifications": [
+  {
+   "at": 1793080127.1,
+   "method": "error",
+   "status": null,
+   "willRetry": false,
+   "error": {
+    "message": "unexpected status 504 Gateway Timeout: fake upstream 504, url: http://127.0.0.1:63903/v1/responses",
+    "codexErrorInfo": {
+     "httpConnectionFailed": {
+      "httpStatusCode": 504
+     }
+    },
+    "additionalDetails": null,
+    "misalignment": null
+   }
+  },
+  {
+   "at": 1793080127.1,
+   "method": "turn/completed",
+   "status": "failed",
+   "willRetry": null,
+   "error": {
+    "message": "unexpected status 504 Gateway Timeout: fake upstream 504, url: http://127.0.0.1:63903/v1/responses",
+    "codexErrorInfo": {
+     "httpConnectionFailed": {
+      "httpStatusCode": 504
+     }
+    },
+    "additionalDetails": null,
+    "misalignment": null
+   }
+  },
+  {
+   "at": 1793080127.6,
+   "method": "error",
+   "status": null,
+   "willRetry": false,
+   "error": {
+    "message": "unexpected status 504 Gateway Timeout: fake upstream 504, url: http://127.0.0.1:63903/v1/responses",
+    "codexErrorInfo": {
+     "httpConnectionFailed": {
+      "httpStatusCode": 504
+     }
+    },
+    "additionalDetails": null,
+    "misalignment": null
+   }
+  },
+  {
+   "at": 1793080127.6,
+   "method": "turn/completed",
+   "status": "failed",
+   "willRetry": null,
+   "error": {
+    "message": "unexpected status 504 Gateway Timeout: fake upstream 504, url: http://127.0.0.1:63903/v1/responses",
+    "codexErrorInfo": {
+     "httpConnectionFailed": {
+      "httpStatusCode": 504
+     }
+    },
+    "additionalDetails": null,
+    "misalignment": null
+   }
+  },
+  {
+   "at": 1793080128.2,
+   "method": "turn/completed",
+   "status": "completed",
+   "willRetry": null,
+   "error": null
+  },
+  {
+   "at": 1793080128.3,
+   "method": "turn/completed",
+   "status": "completed",
+   "willRetry": null,
+   "error": null
+  },
+  {
+   "at": 1793080129.5,
+   "method": "turn/completed",
+   "status": "completed",
+   "willRetry": null,
+   "error": null
+  }
+ ],
+ "injector_log": [
+  "00:48:46 INFO codex_desktop_channel_ready thread=01a17be7-6c72-7ea3-8bdc-fd0f814b4128 cwd=C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-resend-e2e-hy1am49d\\work",
+  "00:48:46 INFO codex_desktop_channel_injected message_id=1 thread=01a17be7-6c72-7ea3-8bdc-fd0f814b4128 turn=01a17be7-6d35-7280-b8b6-a32e1048cb52 via=turn/start",
+  "00:48:47 WARN codex_desktop_channel_retry_scheduled message_id=1 attempt=1/2 error=httpConnectionFailed 504 tool_activity=false due_in=0.05s",
+  "00:48:47 INFO codex_desktop_channel_turn_completed message_id=1 turn=01a17be7-6d35-7280-b8b6-a32e1048cb52 status=failed",
+  "00:48:47 WARN codex_desktop_channel_retry_sent message_id=1 attempt=1/2 thread=01a17be7-6c72-7ea3-8bdc-fd0f814b4128 turn=01a17be7-6f78-7631-9fd4-3b7304a80215 previous_error=httpConnectionFailed 504",
+  "00:48:47 WARN codex_desktop_channel_retry_scheduled message_id=1 attempt=2/2 error=httpConnectionFailed 504 tool_activity=false due_in=0.05s",
+  "00:48:47 INFO codex_desktop_channel_turn_completed message_id=1 turn=01a17be7-6f78-7631-9fd4-3b7304a80215 status=failed",
+  "00:48:47 WARN codex_desktop_channel_retry_sent message_id=1 attempt=2/2 thread=01a17be7-6c72-7ea3-8bdc-fd0f814b4128 turn=01a17be7-71b1-78b2-ab27-f174813168c7 previous_error=httpConnectionFailed 504",
+  "00:48:48 INFO codex_desktop_channel_turn_completed message_id=1 turn=01a17be7-71b1-78b2-ab27-f174813168c7 status=completed",
+  "00:48:48 WARN codex_desktop_channel_uncertain message_id=2 error=timed out waiting for codex app-server response to turn/start"
+ ]
+}

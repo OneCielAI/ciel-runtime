@@ -1,0 +1,29 @@
+{
+  "version": "0.2.51-nightly.20261027-053202.eec7d69",
+  "gitHead": "eec7d694af216308e2a95d4103535f43c5546f09",
+  "tags": {
+    "latest": "0.2.51",
+    "nightly": "0.2.51-nightly.20261027-053202.eec7d69"
+  },
+  "dist": {
+    "shasum": "68ad0c700bdc6637709bfd94215c88e993888a4a",
+    "tarball": "https://registry.npmjs.org/@one-ciel-ai/ciel-runtime/-/ciel-runtime-0.2.51-nightly.20261027-053202.eec7d69.tgz",
+    "fileCount": 513,
+    "integrity": "sha512-8MwzxfmZpKY/TZgmYIYsculCX8Wy7+H+pNI2aEyjR4k/4T1Ej+dszn9wP82IBBQ6L/nZOefVPsAtXyo7rManUA==",
+    "signatures": [
+      {
+        "sig": "MEUCIQCqxzg7x+ebGdqrsWUyVEdiCn8luYiXraMH6HH/sEZyxgIgNyoycReymxQS4Nm3O6jfx0ceS7ElupDFL6smNJ9MZuI=",
+        "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+      },
+      {
+        "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U",
+        "sig": "MEUCIQDTQ7o6GmUHtNy/oACWzMW3fCsr/qDLrZLFAXEhIGVZWAIgSHs5rwWF6llelac4ktICVMxa+c58sMwQz2YmH22/0jE="
+      }
+    ],
+    "unpackedSize": 6866382
+  },
+  "tarball_sha256": "35a81e48cd8f77cbd3f4075be572a2b43b39e1cb2e7f299730f1fc25618358e8",
+  "tarball_bytes": 1561894,
+  "files": 513,
+  "package_dir": "C:\\Users\\djlov\\AppData\\Local\\Temp\\shared-recovery-published-eec7d69\\payload\\unpack\\package"
+}

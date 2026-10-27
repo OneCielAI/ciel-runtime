@@ -1,0 +1,135 @@
+[
+  {
+    "case": "compact-sse",
+    "exit_code": 0,
+    "run": "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\diagnostics\\compact-retry\\evidence\\repro\\run-installed-shared-004041",
+    "log": "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\releases\\shared-recovery-nightly\\evidence\\installed-compact-sse.txt",
+    "checks": {
+      "compact_dispatched_once": true,
+      "one_bounded_retry": true,
+      "phase_verified": true,
+      "queued_sse_replied_once": true,
+      "live_unchanged": true
+    },
+    "passed": true
+  },
+  {
+    "case": "hybrid",
+    "exit_code": 0,
+    "run": "C:\\Users\\djlov\\AppData\\Local\\Temp\\work-hybrid-482fb007",
+    "log": "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\releases\\shared-recovery-nightly\\evidence\\installed-hybrid.txt",
+    "checks": {
+      "active_turn_busy": true,
+      "active_executing": true,
+      "incoming_queued_while_busy": true,
+      "queue_finished": true,
+      "active_resumed_approved": true,
+      "resumed_write": true,
+      "native_shell_deny_preserved": true,
+      "implicit_priority_rejected": true,
+      "queued_write_denied_until_approved": true,
+      "exact_active_detail_excludes_queue": true,
+      "raw_user_history_not_isolated": true
+    },
+    "error": null,
+    "verification_failed": null,
+    "passed": true
+  },
+  {
+    "case": "shell",
+    "exit_code": 0,
+    "run": "C:\\Users\\djlov\\AppData\\Local\\Temp\\work-shell-proof-e3ff9130",
+    "log": "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\releases\\shared-recovery-nightly\\evidence\\installed-shell.txt",
+    "checks": {
+      "turn_ended": true,
+      "work_still_planning": true,
+      "direct_write_blocked": true,
+      "bash-marker.txt": true,
+      "powershell-marker.txt": true,
+      "native_Bash_exposed": true
+    },
+    "error": null,
+    "verification_failed": null,
+    "passed": true
+  },
+  {
+    "case": "handoff",
+    "exit_code": 0,
+    "run": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-handoff-5482b327",
+    "log": "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\releases\\shared-recovery-nightly\\evidence\\installed-handoff.txt",
+    "checks": {
+      "seed_replied": true,
+      "before_socket_sent": true,
+      "before_socket_replied": true,
+      "native_parked": true,
+      "bg_record": true,
+      "binding_followed": true,
+      "socket_followed": true,
+      "after_socket_sent": true,
+      "after_reached_bg": true,
+      "after_not_original": true,
+      "production_launcher_scope_followed": true,
+      "transcript_followed": true,
+      "live_unchanged": true
+    },
+    "error": null,
+    "verification_failed": null,
+    "passed": true
+  },
+  {
+    "case": "work-stop",
+    "exit_code": 0,
+    "run": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ara-work-stop-c651ef2b",
+    "log": "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\releases\\shared-recovery-nightly\\evidence\\installed-work-stop.txt",
+    "checks": {
+      "notice_visible": true,
+      "no_model_retry_when_blocked": true,
+      "notice_not_sent_to_model": true,
+      "once_per_stop": true,
+      "wait_released": true,
+      "actionable_pushed": true,
+      "no_progress_notice": true,
+      "bounded_requests": true
+    },
+    "error": null,
+    "verification_failed": null,
+    "passed": true
+  },
+  {
+    "case": "codex",
+    "exit_code": 0,
+    "run": "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\releases\\shared-recovery-nightly\\evidence\\installed-codex",
+    "log": "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\releases\\shared-recovery-nightly\\evidence\\installed-codex.txt",
+    "passed": true
+  },
+  {
+    "case": "sendmessage-cielairouter",
+    "exit_code": 0,
+    "run": "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\releases\\shared-recovery-nightly\\evidence\\installed-sendmessage\\run-installed-cielairouter-default-004851",
+    "log": "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\releases\\shared-recovery-nightly\\evidence\\installed-sendmessage-cielairouter.txt",
+    "exit": 0,
+    "error": null,
+    "paths": [
+      "/v1/messages"
+    ],
+    "sendmessage_advertised": true,
+    "child_received": true,
+    "child_ack": true,
+    "passed": true
+  },
+  {
+    "case": "sendmessage-vllm",
+    "exit_code": 0,
+    "run": "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\releases\\shared-recovery-nightly\\evidence\\installed-sendmessage\\run-installed-vllm-default-004859",
+    "log": "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\releases\\shared-recovery-nightly\\evidence\\installed-sendmessage-vllm.txt",
+    "exit": 0,
+    "error": null,
+    "paths": [
+      "/v1/chat/completions"
+    ],
+    "sendmessage_advertised": true,
+    "child_received": true,
+    "child_ack": true,
+    "passed": true
+  }
+]
