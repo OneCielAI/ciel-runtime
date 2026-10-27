@@ -284,9 +284,9 @@ for (const extra of [{ enabled: false }, { auto_continue: false }, { continuatio
     expect((await $.classic.Stop(STOP)).block).toBeUndefined()
   })
 }
-test('Stop excludes background tasks, child threads, other conversations and offline', async ($, on) => {
+test('Stop continues independent Work despite background tasks; excludes children, other conversations and offline', async ($, on) => {
   const s = continuing(on)
-  expect((await $.classic.Stop({ ...STOP, background_tasks: [{ id: 'b' }] })).block).toBeUndefined()
+  expect((await $.classic.Stop({ ...STOP, background_tasks: [{ id: 'b' }] })).block).toContain('proceed only with independent Work')
   expect((await $.classic.Stop({ ...STOP, agent_id: 'child' })).block).toBeUndefined()
   expect((await $.classic.Stop({ ...STOP, session_id: 'other' })).block).toBeUndefined()
   s.offline = true
@@ -341,6 +341,7 @@ test('approval, background tasks and an unreadable status explain the stop; fini
   expect((await $.classic.Stop(STOP)).block).toBeUndefined()
   expect(s.logs.at(-1)).toContain('waits for your approval')
   s.snapshot.phase = 'executing'
+  s.snapshot.continuation = { actionable: 0, next: null, waiting: [{ id: 'n2', waiting_on: 'background result' }] }
   expect((await $.classic.Stop({ ...STOP, background_tasks: [{ id: 'b', type: 'subagent', status: 'running', description: 'x' }] })).block).toBeUndefined()
   expect(s.logs.at(-1)).toContain('1 background task(s) still running will wake this session')
   s.offline = true
@@ -360,6 +361,19 @@ test('approval, background tasks and an unreadable status explain the stop; fini
   expect((await $.classic.Stop({ ...STOP, agent_id: 'child' })).block).toBeUndefined()
   expect((await $.classic.Stop({ ...STOP, session_id: 'other' })).block).toBeUndefined()
   expect(s.logs.length).toBe(before)
+})
+test('background Work continuation reaches the same bounded block path, not person-only log', async ($, on) => {
+  const s = continuing(on)
+  const e = { ...STOP, background_tasks: [{ id: 'shell', type: 'local_bash', status: 'running' }] }
+  const first = await $.classic.Stop(e)
+  expect(first.block).toContain('The next item is leaf: Verify next')
+  expect(first.block).toContain('Do not duplicate, poll, cancel or mark those tasks done')
+  expect(s.logs.length).toBe(0)
+  expect((await $.classic.Stop(e)).block).toContain('last continuation')
+  expect((await $.classic.Stop(e)).block).toBeUndefined()
+  expect(s.logs.at(-1)).toContain('plan did not change')
+  s.snapshot.version++
+  expect((await $.classic.Stop(e)).block).toContain('Verify next')
 })
 test('a Stop read superseded by a newer successful read is not reported as unavailable', async ($, on) => {
   const s = continuing(on, STALLED); const clock = mock.clock(on)

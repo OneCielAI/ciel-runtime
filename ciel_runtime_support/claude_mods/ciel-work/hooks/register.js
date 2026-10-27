@@ -24,7 +24,7 @@ const HELP = [
   '• /work-mode view: keyboard inspector · /work-mode tree: plan tree · /work-mode status: raw snapshot (JSON) · /work-mode help: this help',
   '• Priorities: All items → Move up / Move down orders root goals. Moving the active goal requires your request; a button press is that request.',
   '• Linked IDs appear as [ id ] description; ◷ names an external wait; green ✓ means verified done. An urgent request holds other goals until it finishes.',
-  '• Auto continue: normal turn endings resume actionable Work, bounded by no-progress checks; waits, blocks, approval and background tasks do not trigger it, and a dim line says why it stopped. Codex receives instructions only.',
+  '• Auto continue: normal turn endings resume actionable Work, bounded by no-progress checks; waits, blocks and approval do not trigger it; background tasks do not block independent Work, and a dim line says why it stopped. Codex receives instructions only.',
   '• Settings: ciel-runtime menu → LLM options → Work mode (on/off), Work plan approval (auto/ask), Work auto continue (on/off).',
 ].join('\n')
 let cached = null
@@ -429,7 +429,7 @@ export function register(on) {
     if (!s) { if (enabled && !cached) stopNotice($, identity, STOP_UNAVAILABLE); return result }
     if (!s.enabled || s.auto_continue !== true) return result
     // Every stop that leaves unfinished Work either continues with a runnable item or says why not.
-    if (e.background_tasks?.length) {
+    if (e.background_tasks?.length && !(s.continuation?.actionable > 0)) {
       if (openWork(s)) stopNotice($, identity, 'Ciel Work auto continue waits: ' + e.background_tasks.length
         + ' background task(s) still running will wake this session, and the next stop checks unfinished items again.')
       return result
@@ -464,7 +464,10 @@ export function register(on) {
       + 'Pending user requests belong in the Work tree without duplicates (independent goals, dependent children). '
       + 'Continue within the approved scope only. Approved actionable items remain to be completed and verified; independent actions may run in parallel. '
       + 'An external dependency belongs in waiting_on, including a person or approval that is needed; other '
-      + 'independent items can proceed while it waits. No new scope or approval boundary is authorized by this notice. '
+      + 'independent items can proceed while it waits. '
+      + (e.background_tasks?.length ? e.background_tasks.length + ' background task(s) still run; proceed only with independent Work. '
+        + 'Do not duplicate, poll, cancel or mark those tasks done; record their dependent items as waiting_on until their completion notification. ' : '')
+      + 'No new scope or approval boundary is authorized by this notice. '
       + 'Waiting items: ' + clipped((c.waiting || []).map(n => n.id + ': ' + n.waiting_on).join('; ') || 'none', 700)
       + (unchangedContinuations === 1 ? '. This is the last continuation without a plan update.' : '') }
   })

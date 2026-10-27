@@ -1,0 +1,38 @@
+
+ ▐▛███▛█   Claude Code v2.1.311
+▝▜██████▀  fake-work · API Usage Billing
+ ▝▝   ▝▝   C:\Users\djlov\AppData\Local\Temp\work-bg-stop-b00bc70c\ws
+
+⚠ Model "fake-work" isn't recognized · context assumed to be 200k tokens · update Claude Code, or see the docs
+
+▎ Debug mode enabled · logging to C:\Users\djlov\AppData\Local\Temp\work-bg-stop-b00bc70c\native-debug.log
+
+● ciel-work: Ciel Work mode is on: plan and execute by item; new independent requests queue without pausing approved Work.
+  Items show above the prompt · /work-mode help · turn off: ciel-runtime menu → LLM options → Work mode
+
+❯ E2EHINT-MAIN run background and independent Work. Only the background item depends on its result; the independent item can proceed
+  now.
+
+  Called ciel-runtime-router 3 times, ran 1 shell command
+
+● BG-FIRST-END
+
+● ciel-work: Ciel Work auto continue waits: 1 background task(s) still running will wake this session, and the next stop checks
+  unfinished items again.
+
+✻ Baked for 2s · done 10:38 AM · 1 shell still running
+
+
+
+
+Work running 0/2 — 1. Background and independent Work                                                                              [-]
+[Progress 3] Queue 0 Completed 0
+[~] Phase
+  [~] Background task ◷ owned background result
+  [ ] Independent item
+1/1 w: Inspector
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on · 1 shell · ↓ to manage                                                                      work: run 0/2

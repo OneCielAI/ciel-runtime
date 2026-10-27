@@ -1,0 +1,202 @@
+{
+ "enabled": true,
+ "phase": "executing",
+ "approval": "auto",
+ "version": 3,
+ "active_root": {
+  "id": "n1",
+  "title": "1. Background and independent Work",
+  "status": "in_progress",
+  "ref": "",
+  "waiting_on": "",
+  "urgent": false,
+  "phase": "executing"
+ },
+ "continuation": {
+  "actionable": 1,
+  "next": {
+   "id": "n4",
+   "title": "Independent item",
+   "status": "pending",
+   "ref": "",
+   "waiting_on": "",
+   "urgent": false,
+   "path": [
+    "1. Background and independent Work",
+    "Phase",
+    "Independent item"
+   ],
+   "root_id": "n1",
+   "phase": "executing"
+  },
+  "waiting": [
+   {
+    "id": "n3",
+    "title": "Background task",
+    "waiting_on": "owned background result"
+   }
+  ],
+  "blocked": 0,
+  "held": 0
+ },
+ "done": 0,
+ "total": 2,
+ "attention": {
+  "waiting": 1,
+  "blocked": 0
+ },
+ "next": {
+  "id": "n3",
+  "title": "Background task",
+  "status": "in_progress",
+  "waiting_on": "owned background result",
+  "path": [
+   "1. Background and independent Work",
+   "Phase",
+   "Background task"
+  ]
+ },
+ "breakdown": [
+  {
+   "id": "n2",
+   "title": "Phase",
+   "status": "in_progress",
+   "ref": "",
+   "waiting_on": "",
+   "urgent": false,
+   "done": 0,
+   "total": 2,
+   "children": [
+    {
+     "id": "n3",
+     "title": "Background task",
+     "status": "in_progress",
+     "ref": "",
+     "waiting_on": "owned background result",
+     "urgent": false,
+     "hidden": {
+      "waiting": 0,
+      "blocked": 0
+     }
+    },
+    {
+     "id": "n4",
+     "title": "Independent item",
+     "status": "pending",
+     "ref": "",
+     "waiting_on": "",
+     "urgent": false,
+     "hidden": {
+      "waiting": 0,
+      "blocked": 0
+     }
+    }
+   ],
+   "more": 0,
+   "more_attention": {
+    "waiting": 0,
+    "blocked": 0
+   }
+  }
+ ],
+ "root_index": [
+  {
+   "id": "n1",
+   "title": "1. Background and independent Work",
+   "status": "in_progress",
+   "ref": "",
+   "waiting_on": "",
+   "urgent": false,
+   "phase": "executing",
+   "held": false
+  }
+ ],
+ "completed_active": [],
+ "ready": true,
+ "ready_reason": "ready",
+ "goals": 1,
+ "queue": [],
+ "ok": true,
+ "schema_version": 1,
+ "session_id": "claude:c718d758-3636-4084-8176-2cc198b3aa4d",
+ "updated_at": 1793115520.6624947,
+ "nodes": [
+  {
+   "id": "n1",
+   "parent_id": null,
+   "title": "1. Background and independent Work",
+   "status": "in_progress",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793115520.6624947,
+   "phase": "executing"
+  },
+  {
+   "id": "n2",
+   "parent_id": "n1",
+   "title": "Phase",
+   "status": "in_progress",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793115520.6624947
+  },
+  {
+   "id": "n3",
+   "parent_id": "n2",
+   "title": "Background task",
+   "status": "in_progress",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "owned background result",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793115520.6624947
+  },
+  {
+   "id": "n4",
+   "parent_id": "n2",
+   "title": "Independent item",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793115518.806224
+  }
+ ],
+ "active_root_id": "n1",
+ "root_ids": [
+  "n1"
+ ],
+ "queue_ids": [],
+ "auto_continue": true,
+ "runtime": {
+  "ciel_runtime": {
+   "version": "0.2.51-nightly.20261027-144102.54cfce3",
+   "source_fingerprint": "11b9fec1d2441894",
+   "instance_id": "64619-2d811ef3db2f"
+  },
+  "session_id": "claude:c718d758-3636-4084-8176-2cc198b3aa4d",
+  "runtime": "claude",
+  "configured": {
+   "provider": "cielairouter",
+   "model": "fake-work",
+   "alias": "ciel-runtime-cielairouter-fake-work",
+   "source": "configuration"
+  },
+  "epoch": null,
+  "in_flight": [],
+  "last_observed": null,
+  "last_error": null,
+  "observation_status": "unavailable",
+  "errors": []
+ },
+ "events": "/ca/work/events"
+}
