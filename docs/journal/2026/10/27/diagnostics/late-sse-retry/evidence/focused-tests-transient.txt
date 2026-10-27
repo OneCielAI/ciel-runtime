@@ -1,6 +1,6 @@
-........................................................................
+...........................................................................
 ----------------------------------------------------------------------
-Ran 72 tests in 10.614s
+Ran 75 tests in 10.600s
 
 OK
-loopback_stall elapsed=0.172s socket_timeout=0.150s opens=1 retries=0 handled=True
+loopback_stall elapsed=0.156s socket_timeout=0.150s opens=1 retries=0 handled=True

@@ -59,9 +59,15 @@ The sized deadline already covers the live timing: default scopes size `(limit+1
 
 # Verification
 
-- [Transient suite](evidence/focused-tests-transient.txt): `test_transient_retry*.py`, 72 tests OK (12 in `test_transient_retry_late_sse.py`). Before the change, 2 of the first 4 late-SSE tests failed ([baseline](evidence/baseline-tests.txt)). The two close-guard tests fail with the guard removed (`ValueError: I/O operation on closed file`, a reopen occurred), checked in a temporary copy.
+- [Transient suite](evidence/focused-tests-transient.txt): `test_transient_retry*.py`, 72 tests OK at f54104c (12 in `test_transient_retry_late_sse.py`; 75 after the follow-up fix below). Before the change, 2 of the first 4 late-SSE tests failed ([baseline](evidence/baseline-tests.txt)). The two close-guard tests fail with the guard removed (`ValueError: I/O operation on closed file`, a reopen occurred), checked in a temporary copy.
 - [Related files](evidence/focused-tests-related.txt): api_key_rotation 46, architecture_contracts 261 (42 skipped), handled_error_guards 9, timeout_route, transient_integration 5, transient_context_recovery, meta_provider 49, router_transient_retry_scope 7, upstream_retry 4: OK. `test_claude_compaction_liveness` 1 error: `test_native_anthropic_does_not_install_semantic_start` times out identically on HEAD eedd8ee in the same stripped env ([evidence](evidence/preexisting-native-anthropic-timeout.txt)); not caused by this change, cause not investigated.
 - ruff clean on both changed files. Live health before/after the test runs unchanged ([before](evidence/live-before-tests.txt), [after](evidence/live-after-tests.txt)).
+
+# CI regression and follow-up fix
+
+CI 40548121490 for f54104c failed the router group ([log excerpt](evidence/ci-40548121490-router-failure.txt)): two `test_openai_responses_upstream_stream_error` wire tests lost `response.created` when the upstream raised on the next read (TLS EOF, connection reset). Cause: the guard had moved `response.created` into its held prefix, and `_ReplayResponse.read(size)` joins the prefix with an upstream read in one call, so the upstream exception discarded the held bytes. Publish 40548121582 failed with it; nothing was published for f54104c.
+
+Fix: held bytes are returned on their own for sized reads, and a read failure while bytes are held is deferred (`_FailAfter`) until those bytes are delivered. Three socketless tests cover sized delivery, a partial frame then reset, and a failure with nothing held. After the fix: the two wire tests pass, [25 router-group files](evidence/router-subset-tests.txt) that touch streaming, passthrough, upstream or retry pass, the transient suite is 75 tests OK, and the source `-p` success and exhaustion proofs were rerun with the same results ([success](evidence/scripts/run-source-125312/result.json), [exhaustion](evidence/scripts/run-source-failall-125316/result.json)).
 
 # Limits
 

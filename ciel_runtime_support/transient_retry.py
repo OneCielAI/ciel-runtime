@@ -456,13 +456,32 @@ def _check_cancelled(cancelled):
         raise UpstreamClientDisconnected("downstream client disconnected during transient retry")
 
 
+class _FailAfter:
+    """Raise a deferred upstream read failure once the bytes read before it are delivered."""
+    def __init__(self, response, error):
+        self._response, self._error = response, error
+
+    def __getattr__(self, name):
+        return getattr(self._response, name)
+
+    def _raise(self, *_args, **_kwargs):
+        raise self._error
+
+    read = read1 = readline = _raise
+
+    def close(self):
+        _close(self._response)
+
+
 class _PreOutputSSE(_ReplayResponse):
     """Read-time rejection guard, bounded by bytes and the existing idle timeout.
 
     Headers may already be downstream; no generation event is exposed before
     this guard commits. Unknown/mixed events commit unchanged. Read exceptions
-    never authorize replay. A relay may close this response from another thread
-    while a retry waits; no reopen starts, and none survives, after close.
+    never authorize replay; held bytes are delivered before such a failure. Held
+    bytes are returned on their own, so a sized read never couples them with an
+    upstream read that may fail. A relay may close this response from another
+    thread while a retry waits; no reopen starts, and none survives, after close.
     """
     def __init__(self, response, budget, reopen, log, publish, sleep, cancelled, request, reselect, model):
         super().__init__(response, b"", budget)
@@ -505,7 +524,14 @@ class _PreOutputSSE(_ReplayResponse):
             return
         while len(self._pending) < MAX_ERROR_BYTES:
             _check_cancelled(self._cancelled)
-            chunk = self._response.read1(min(8192, MAX_ERROR_BYTES - len(self._pending)))
+            try:
+                chunk = self._response.read1(min(8192, MAX_ERROR_BYTES - len(self._pending)))
+            except Exception as error:
+                if not self._pending:
+                    raise
+                self._accept()
+                self._response = _FailAfter(self._response, error)
+                return
             if not chunk:
                 self._accept()
                 return
@@ -578,17 +604,25 @@ class _PreOutputSSE(_ReplayResponse):
             return
         self._accept()
 
+    def _held(self, size):
+        left = len(self._prefix.getbuffer()) - self._prefix.tell()
+        if left <= 0 or (size is None or size < 0) and not isinstance(self._response, _FailAfter):
+            return None
+        return self._expose(self._prefix.read(left if size is None or size < 0 else min(size, left)))
+
     def read(self, size=-1):
         if size == 0:
             return b""
         self._inspect()
-        return super().read(size)
+        held = self._held(size)
+        return held if held is not None else super().read(size)
 
     def read1(self, size=-1):
         if size == 0:
             return b""
         self._inspect()
-        return super().read1(size)
+        held = self._held(size)
+        return held if held is not None else super().read1(size)
 
     def readline(self, size=-1):
         if size == 0:

@@ -159,3 +159,53 @@ class LateSSETests(unittest.TestCase):
         with response:
             self.assertEqual(response.read(), ERROR)
         self.assertEqual(len(hits), 1)
+
+
+class _Scripted:
+    """Socketless upstream whose successive reads return bytes or raise."""
+    headers = {"content-type": "text/event-stream"}
+    status = 200
+
+    def __init__(self, steps):
+        self.steps = list(steps)
+        self.closed = False
+
+    def read(self, _size=-1):
+        if not self.steps:
+            return b""
+        step = self.steps.pop(0)
+        if isinstance(step, BaseException):
+            raise step
+        return step
+
+    def close(self):
+        self.closed = True
+
+
+class LateSSEReadFailureTests(unittest.TestCase):
+    def open(self, steps):
+        upstream = _Scripted(steps)
+        with retry.request_scope({}, "cielairouter"):
+            response = retry.open_with_transient_retry(lambda: upstream, provider="cielairouter", config={},
+                                                       log=lambda *_: None, sleep=lambda _: None)
+        self.assertIsInstance(response, retry._PreOutputSSE)
+        return response, upstream
+
+    def test_sized_read_delivers_generation_before_upstream_failure(self):
+        response, _ = self.open([OUTPUT, ConnectionResetError(10054, "upstream reset")])
+        self.assertEqual(response.read(65536), OUTPUT)
+        with self.assertRaises(ConnectionResetError):
+            response.read(65536)
+
+    def test_partial_frame_is_delivered_before_upstream_failure(self):
+        response, upstream = self.open([OUTPUT[:9], ConnectionResetError(10054, "upstream reset")])
+        self.assertEqual(response.read(), OUTPUT[:9])
+        with self.assertRaises(ConnectionResetError):
+            response.read()
+        response.close()
+        self.assertTrue(upstream.closed)
+
+    def test_failure_without_held_bytes_raises_unchanged(self):
+        response, _ = self.open([ConnectionResetError(10054, "upstream reset")])
+        with self.assertRaises(ConnectionResetError):
+            response.read(65536)
