@@ -1,0 +1,29 @@
+{
+  "version": "0.2.51-nightly.20261027-224345.def252d",
+  "gitHead": "def252dcb269859a7109e595b168412c0b3c6be9",
+  "tags": {
+    "latest": "0.2.51",
+    "nightly": "0.2.51-nightly.20261027-224345.def252d"
+  },
+  "dist": {
+    "shasum": "d1302a13151197111ec4f259ba8beb4bb413b93e",
+    "tarball": "https://registry.npmjs.org/@one-ciel-ai/ciel-runtime/-/ciel-runtime-0.2.51-nightly.20261027-224345.def252d.tgz",
+    "fileCount": 513,
+    "integrity": "sha512-vsNgF5NLzd+kH1ghBZpMKKGhLJ4RAQM/n9lRSb0RLu1WahqlFgNgcEVFHUI8PqQBq3ozi8XlwT9/OTovygHqhA==",
+    "signatures": [
+      {
+        "sig": "MEUCIA0omuapczdULqibJFZdbh95WQH/BIhRba9sr9uzR7UbAiEAn0Mn9/GYdhHDN6xizzhkyfnQQa3W+0WSPdrRK3RclYw=",
+        "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+      },
+      {
+        "sig": "MEUCIQDNbRCsye0Yi+ZSHo7tGov0v2nUVYzfAQWTXxVfUL//BgIgXf00o5rKVW9W3E665Js/dUf39+31nir7wc/G4/+RpLU=",
+        "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+      }
+    ],
+    "unpackedSize": 6926260
+  },
+  "tarball_sha256": "d70a8bca50044354b4a65f8c77b43dbe8f1515f24a86c76f2bf373d557046508",
+  "tarball_bytes": 1575679,
+  "files": 513,
+  "package_dir": "docs\\journal\\2026\\10\\27\\releases\\work-stop-race-nightly\\evidence\\payload\\unpack\\package"
+}

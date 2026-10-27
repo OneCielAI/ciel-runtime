@@ -1,0 +1,1 @@
+test_claude_compaction_liveness test_native_anthropic_does_not_install_semantic_start fails with TimeoutError both with and without this diagnostic-only diff (same local run, 2 tries).

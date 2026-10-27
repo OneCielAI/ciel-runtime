@@ -1,0 +1,13 @@
+owned router: yes
+owned cmd: yes
+owned window: yes
+interactive ready: yes
+console command: yes
+queue continuation: yes
+queue selected: yes
+queued file write: yes
+queue finished: yes
+owned stop 70276 SUCCESS: The process with PID 74348 (child process of PID 70276) has been terminated.
+SUCCESS: The process with PID 70276 (child process of PID 28560) has been terminated.
+owned stop 74316 SUCCESS: The process with PID 74316 (child process of PID 74060) has been terminated.
+evidence C:\Users\djlov\AppData\Local\Temp\work-queue-yield-24ae7eb3

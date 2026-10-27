@@ -513,7 +513,12 @@ class _PreOutputSSE(_ReplayResponse):
         with self._swap:
             super().close()
 
-    def _accept(self):
+    def _accept(self, reason="accepted"):
+        # Fixed reason codes and counts only: no payload, URL, header or error
+        # message values. Unknown streams must still be relayed, not replayed.
+        self._log("INFO", f"cielairouter_preoutput_commit operation_id={self._budget.operation_id} "
+                  f"reason={reason} held_bytes={len(self._pending)} "
+                  f"attempts={self._budget.attempts} opens={self._budget.opens}")
         self._committed = True
         self._prefix = io.BytesIO(bytes(self._pending))
         self._pending.clear()
@@ -529,11 +534,11 @@ class _PreOutputSSE(_ReplayResponse):
             except Exception as error:
                 if not self._pending:
                     raise
-                self._accept()
+                self._accept("read_failure_with_prefix")
                 self._response = _FailAfter(self._response, error)
                 return
             if not chunk:
-                self._accept()
+                self._accept("eof")
                 return
             self._pending.extend(chunk)
             raw = bytes(self._pending).replace(bytes([13, 10]), bytes([10])).replace(bytes([13]), bytes([10]))
@@ -542,11 +547,12 @@ class _PreOutputSSE(_ReplayResponse):
             if not meaningful:
                 continue
             if len(meaningful) != 1 or frames[-1]:
-                self._accept()
+                self._accept("multiple_frames" if len(meaningful) != 1 else "trailing_bytes")
                 return
             error_bytes = meaningful[0] + bytes([10, 10])
             if not _retryable_verdict(503, error_bytes):
-                self._accept()
+                reason = "unrecognized_frame" if _error_verdict(error_bytes) is None else "terminal_verdict"
+                self._accept(reason)
                 return
             error = urllib.error.HTTPError(getattr(self._request, "full_url", ""), 503,
                                            "Delayed pre-output SSE error", self.headers, io.BytesIO(error_bytes))
@@ -555,7 +561,7 @@ class _PreOutputSSE(_ReplayResponse):
                 self._budget.stopped = True
                 self._log("WARN", f"cielairouter_late_sse_stopped operation_id={self._budget.operation_id} "
                           f"attempts={self._budget.attempts} reason=budget_exhausted")
-                self._accept()
+                self._accept("budget_exhausted")
                 return
             _close(self._response)
             self._log("WARN", f"cielairouter_late_sse_retry operation_id={self._budget.operation_id} "
@@ -592,7 +598,7 @@ class _PreOutputSSE(_ReplayResponse):
                     body = b"event: error" + bytes([10]) + b"data: " + body + bytes([10, 10])
                 self._response = _ReplayResponse(io.BytesIO(b""), b"", self._budget)
                 self._pending = bytearray(body)
-                self._accept()
+                self._accept("reopen_http_error")
                 return
             with self._swap:
                 if self.closed:
@@ -602,7 +608,7 @@ class _PreOutputSSE(_ReplayResponse):
             self._pending.clear()
             self._committed = True
             return
-        self._accept()
+        self._accept("byte_bound")
 
     def _held(self, size):
         left = len(self._prefix.getbuffer()) - self._prefix.tell()
@@ -898,7 +904,10 @@ def _execute(open_once, budget, log, publish, sleep, cancelled, request, reselec
                 headers = getattr(response, "headers", {})
                 ctype = str(headers.get("Content-Type", headers.get("content-type", ""))).lower()
                 if isinstance(accepted, _ReplayResponse) and "text/event-stream" in ctype:
+                    log("INFO", f"cielairouter_preoutput_guard operation_id={budget.operation_id} state=armed")
                     return _PreOutputSSE(accepted, budget, open_once, log, publish, sleep, cancelled, request, reselect, model)
+                log("INFO", f"cielairouter_preoutput_guard operation_id={budget.operation_id} "
+                    "state=not_armed reason=not_event_stream")
                 return accepted
             headers = getattr(response, "headers", {})
             status = getattr(response, "status", 200)

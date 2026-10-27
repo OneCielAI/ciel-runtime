@@ -182,6 +182,61 @@ class _Scripted:
         self.closed = True
 
 
+class LateSSECommitDiagnosticsTests(unittest.TestCase):
+    def probe(self, raw, content_type="text/event-stream"):
+        logs, opens = [], []
+        def open_once():
+            response = _Scripted([raw])
+            response.headers = {"content-type": content_type}
+            opens.append(response)
+            return response
+        with retry.request_scope({}, "cielairouter"):
+            response = retry.open_with_transient_retry(open_once, provider="cielairouter", config={},
+                log=lambda level, message: logs.append((level, message)), sleep=lambda _: None)
+        with response:
+            result = response.read()
+        self.assertEqual(result, raw)
+        self.assertEqual(len(opens), 1)
+        return "\n".join(message for _, message in logs)
+
+    def test_unrecognized_error_shapes_are_observable_without_relaxing_replay(self):
+        for raw in (
+            ERROR.replace(b'"message":', b'"code":504,"message":'),
+            ERROR.replace(b'"type":"error",', b'"type":"error","status":504,'),
+        ):
+            with self.subTest(raw=raw):
+                logs = self.probe(raw)
+                self.assertIn("state=armed", logs)
+                self.assertIn("reason=unrecognized_frame", logs)
+                self.assertNotIn("Model timed out", logs)
+                self.assertNotIn('"code"', logs)
+
+    def test_mixed_stream_and_terminal_error_diagnostics_do_not_log_payload(self):
+        cases = (
+            (ERROR + OUTPUT, "multiple_frames"),
+            (ERROR + b"data: [DONE]" + NL + NL, "multiple_frames"),
+            (b'data: {"type":"ping"}' + NL + NL + ERROR, "multiple_frames"),
+            (ERROR + b"data: pending", "trailing_bytes"),
+            (ERROR.replace(b"api_error", b"authentication_error").replace(
+                b"Model timed out (HTTP 504)", b"PRIVATE-CREDENTIAL invalid API key"), "terminal_verdict"),
+            (b":" + b"x" * retry.MAX_ERROR_BYTES, "byte_bound"),
+            (ERROR[:-1], "eof"),
+        )
+        for raw, reason in cases:
+            with self.subTest(reason=reason):
+                logs = self.probe(raw)
+                self.assertIn("reason=" + reason, logs)
+                self.assertNotIn("PRIVATE-CREDENTIAL", logs)
+                self.assertNotIn("Model timed out", logs)
+
+    def test_wrong_or_missing_content_type_is_observable(self):
+        for content_type in ("", "application/json", "PRIVATE-HEADER"):
+            with self.subTest(content_type=content_type):
+                logs = self.probe(ERROR, content_type)
+                self.assertIn("state=not_armed reason=not_event_stream", logs)
+                self.assertNotIn("PRIVATE-HEADER", logs)
+
+
 class LateSSEReadFailureTests(unittest.TestCase):
     def open(self, steps):
         upstream = _Scripted(steps)
