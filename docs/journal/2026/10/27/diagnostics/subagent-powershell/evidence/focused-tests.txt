@@ -1,0 +1,11 @@
+test_claude_powershell_tool_env Ran 4 tests in 0.000s OK 
+test_architecture_contracts Ran 261 tests in 46.445s OK (skipped=42) 
+test_claude_environment Ran 24 tests in 0.002s OK 
+test_claude_session_socket_launch Ran 1 test in 0.008s OK 
+test_compaction_launch_contracts Ran 6 tests in 87.584s OK 
+test_launch_data_path Ran 49 tests in 3.584s OK 
+test_runtime_session_restart Ran 63 tests in 0.549s OK 
+test_external_mcp_ownership Ran 3 tests in 0.001s OK 
+test_headless_update_checks Ran 19 tests in 0.075s OK 
+test_runtime_maintenance_context Ran 5 tests in 0.002s OK 
+test_company_prompt_reload Ran 14 tests in 0.879s OK 

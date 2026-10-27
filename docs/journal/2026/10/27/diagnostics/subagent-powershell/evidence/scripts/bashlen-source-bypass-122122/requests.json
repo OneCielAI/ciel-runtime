@@ -1,0 +1,243 @@
+[
+ {
+  "n": 1,
+  "role": "main",
+  "tools_count": 40,
+  "has_powershell": false,
+  "has_bash": true,
+  "agent_tool": "Agent",
+  "results": [],
+  "sent_command_chars": 2092
+ },
+ {
+  "n": 2,
+  "role": "main",
+  "tools_count": 40,
+  "has_powershell": false,
+  "has_bash": true,
+  "agent_tool": "Agent",
+  "results": [
+   {
+    "error": false,
+    "text": "BYTES=1972 LAST=L00028 EXPECTED_LAST=L00028\nShell cwd was reset to C:\\Users\\djlov\\AppData\\Local\\Temp\\subps-13c0ffcd\\ws"
+   }
+  ],
+  "sent_command_chars": 4064
+ },
+ {
+  "n": 3,
+  "role": "main",
+  "tools_count": 40,
+  "has_powershell": false,
+  "has_bash": true,
+  "agent_tool": "Agent",
+  "results": [
+   {
+    "error": false,
+    "text": "BYTES=1972 LAST=L00028 EXPECTED_LAST=L00028\nShell cwd was reset to C:\\Users\\djlov\\AppData\\Local\\Temp\\subps-13c0ffcd\\ws"
+   },
+   {
+    "error": false,
+    "text": "/usr/bin/bash: line 107: warning: here-document at line 54 delimited by end-of-file (wanted `EOF')"
+   }
+  ],
+  "sent_command_chars": 5968
+ },
+ {
+  "n": 4,
+  "role": "main",
+  "tools_count": 40,
+  "has_powershell": false,
+  "has_bash": true,
+  "agent_tool": "Agent",
+  "results": [
+   {
+    "error": false,
+    "text": "BYTES=1972 LAST=L00028 EXPECTED_LAST=L00028\nShell cwd was reset to C:\\Users\\djlov\\AppData\\Local\\Temp\\subps-13c0ffcd\\ws"
+   },
+   {
+    "error": false,
+    "text": "/usr/bin/bash: line 107: warning: here-document at line 54 delimited by end-of-file (wanted `EOF')"
+   },
+   {
+    "error": false,
+    "text": "/usr/bin/bash: line 107: warning: here-document at line 54 delimited by end-of-file (wanted `EOF')"
+   }
+  ],
+  "sent_command_chars": 6988
+ },
+ {
+  "n": 5,
+  "role": "main",
+  "tools_count": 40,
+  "has_powershell": false,
+  "has_bash": true,
+  "agent_tool": "Agent",
+  "results": [
+   {
+    "error": false,
+    "text": "BYTES=1972 LAST=L00028 EXPECTED_LAST=L00028\nShell cwd was reset to C:\\Users\\djlov\\AppData\\Local\\Temp\\subps-13c0ffcd\\ws"
+   },
+   {
+    "error": false,
+    "text": "/usr/bin/bash: line 107: warning: here-document at line 54 delimited by end-of-file (wanted `EOF')"
+   },
+   {
+    "error": false,
+    "text": "/usr/bin/bash: line 107: warning: here-document at line 54 delimited by end-of-file (wanted `EOF')"
+   },
+   {
+    "error": false,
+    "text": "/usr/bin/bash: line 107: warning: here-document at line 54 delimited by end-of-file (wanted `EOF')"
+   }
+  ],
+  "sent_command_chars": 7940
+ },
+ {
+  "n": 6,
+  "role": "main",
+  "tools_count": 40,
+  "has_powershell": false,
+  "has_bash": true,
+  "agent_tool": "Agent",
+  "results": [
+   {
+    "error": false,
+    "text": "BYTES=1972 LAST=L00028 EXPECTED_LAST=L00028\nShell cwd was reset to C:\\Users\\djlov\\AppData\\Local\\Temp\\subps-13c0ffcd\\ws"
+   },
+   {
+    "error": false,
+    "text": "/usr/bin/bash: line 107: warning: here-document at line 54 delimited by end-of-file (wanted `EOF')"
+   },
+   {
+    "error": false,
+    "text": "/usr/bin/bash: line 107: warning: here-document at line 54 delimited by end-of-file (wanted `EOF')"
+   },
+   {
+    "error": false,
+    "text": "/usr/bin/bash: line 107: warning: here-document at line 54 delimited by end-of-file (wanted `EOF')"
+   },
+   {
+    "error": false,
+    "text": "/usr/bin/bash: line 107: warning: here-document at line 54 delimited by end-of-file (wanted `EOF')"
+   }
+  ],
+  "sent_command_chars": 8892
+ },
+ {
+  "n": 7,
+  "role": "main",
+  "tools_count": 40,
+  "has_powershell": false,
+  "has_bash": true,
+  "agent_tool": "Agent",
+  "results": [
+   {
+    "error": false,
+    "text": "BYTES=1972 LAST=L00028 EXPECTED_LAST=L00028\nShell cwd was reset to C:\\Users\\djlov\\AppData\\Local\\Temp\\subps-13c0ffcd\\ws"
+   },
+   {
+    "error": false,
+    "text": "/usr/bin/bash: line 107: warning: here-document at line 54 delimited by end-of-file (wanted `EOF')"
+   },
+   {
+    "error": false,
+    "text": "/usr/bin/bash: line 107: warning: here-document at line 54 delimited by end-of-file (wanted `EOF')"
+   },
+   {
+    "error": false,
+    "text": "/usr/bin/bash: line 107: warning: here-document at line 54 delimited by end-of-file (wanted `EOF')"
+   },
+   {
+    "error": false,
+    "text": "/usr/bin/bash: line 107: warning: here-document at line 54 delimited by end-of-file (wanted `EOF')"
+   },
+   {
+    "error": false,
+    "text": "/usr/bin/bash: line 107: warning: here-document at line 54 delimited by end-of-file (wanted `EOF')"
+   }
+  ],
+  "sent_command_chars": 11816
+ },
+ {
+  "n": 8,
+  "role": "main",
+  "tools_count": 40,
+  "has_powershell": false,
+  "has_bash": true,
+  "agent_tool": "Agent",
+  "results": [
+   {
+    "error": false,
+    "text": "BYTES=1972 LAST=L00028 EXPECTED_LAST=L00028\nShell cwd was reset to C:\\Users\\djlov\\AppData\\Local\\Temp\\subps-13c0ffcd\\ws"
+   },
+   {
+    "error": false,
+    "text": "/usr/bin/bash: line 107: warning: here-document at line 54 delimited by end-of-file (wanted `EOF')"
+   },
+   {
+    "error": false,
+    "text": "/usr/bin/bash: line 107: warning: here-document at line 54 delimited by end-of-file (wanted `EOF')"
+   },
+   {
+    "error": false,
+    "text": "/usr/bin/bash: line 107: warning: here-document at line 54 delimited by end-of-file (wanted `EOF')"
+   },
+   {
+    "error": false,
+    "text": "/usr/bin/bash: line 107: warning: here-document at line 54 delimited by end-of-file (wanted `EOF')"
+   },
+   {
+    "error": false,
+    "text": "/usr/bin/bash: line 107: warning: here-document at line 54 delimited by end-of-file (wanted `EOF')"
+   },
+   {
+    "error": true,
+    "text": "ENAMETOOLONG: name too long, uv_spawn"
+   }
+  ],
+  "sent_command_chars": 19568
+ },
+ {
+  "n": 9,
+  "role": "main",
+  "tools_count": 40,
+  "has_powershell": false,
+  "has_bash": true,
+  "agent_tool": "Agent",
+  "results": [
+   {
+    "error": false,
+    "text": "BYTES=1972 LAST=L00028 EXPECTED_LAST=L00028\nShell cwd was reset to C:\\Users\\djlov\\AppData\\Local\\Temp\\subps-13c0ffcd\\ws"
+   },
+   {
+    "error": false,
+    "text": "/usr/bin/bash: line 107: warning: here-document at line 54 delimited by end-of-file (wanted `EOF')"
+   },
+   {
+    "error": false,
+    "text": "/usr/bin/bash: line 107: warning: here-document at line 54 delimited by end-of-file (wanted `EOF')"
+   },
+   {
+    "error": false,
+    "text": "/usr/bin/bash: line 107: warning: here-document at line 54 delimited by end-of-file (wanted `EOF')"
+   },
+   {
+    "error": false,
+    "text": "/usr/bin/bash: line 107: warning: here-document at line 54 delimited by end-of-file (wanted `EOF')"
+   },
+   {
+    "error": false,
+    "text": "/usr/bin/bash: line 107: warning: here-document at line 54 delimited by end-of-file (wanted `EOF')"
+   },
+   {
+    "error": true,
+    "text": "ENAMETOOLONG: name too long, uv_spawn"
+   },
+   {
+    "error": true,
+    "text": "ENAMETOOLONG: name too long, uv_spawn"
+   }
+  ]
+ }
+]

@@ -1,0 +1,3 @@
+ciel-runtime router starting on 127.0.0.1:58008 (client base http://127.0.0.1:58008, log level INFO, source=env)
+web: http://127.0.0.1:58008/
+web_tailscale_https_recommended: ciel-runtime --ca-web-port 58008 --ca-tailscale-https=58008

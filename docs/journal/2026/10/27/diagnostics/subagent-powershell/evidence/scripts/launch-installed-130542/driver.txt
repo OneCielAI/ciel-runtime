@@ -1,0 +1,15 @@
+owned cmd: yes
+owned window: yes
+interactive ready: yes
+console command: yes
+turn outcome with child result: yes
+owned stop 50868 SUCCESS: The process with PID 40008 (child process of PID 57208) has been terminated.
+SUCCESS: The process with PID 19116 (child process of PID 57208) has been terminated.
+SUCCESS: The process with PID 57208 (child process of PID 12772) has been terminated.
+SUCCESS: The process with PID 88020 (child process of PID 85208) has been terminated.
+SUCCESS: The process with PID 83420 (child process of PID 85208) has been terminated.
+SUCCESS: The process with PID 12772 (child process of PID 85208) has been terminated.
+SUCCESS: The process with PID 44564 (child process of PID 85208) has been terminated.
+SUCCESS: The process with PID 85208 (child process of PID 50868) has been terminated.
+SUCCESS: The process with PID 50868 (child process of PID 49736) has been terminated.
+evidence C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\27\diagnostics\subagent-powershell\evidence\scripts\launch-installed-130542

@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import json
 import re
+import sys
 from typing import Any, Callable
 
 from .architecture import ProviderRuntimeCompactionPolicy
@@ -83,6 +84,20 @@ def _feedback_drafts_env(config: dict[str, Any]) -> dict[str, str]:
 # feature flag.
 CLAUDE_CHROME_CLASSIFIER_FLOOR_ENV = "CLAUDE_CHROME_CLASSIFIER_FLOOR"
 CLAUDE_CHROME_CLASSIFIER_FLOOR_OFF = "0"
+CLAUDE_POWERSHELL_TOOL_ENV = "CLAUDE_CODE_USE_POWERSHELL_TOOL"
+
+
+def default_powershell_tool(env: dict[str, str], platform: str = sys.platform) -> dict[str, str]:
+    """Turn on Claude Code's PowerShell tool on Windows unless the user chose a value.
+
+    With Git Bash installed the tool is on by default only for some account
+    types; on 2026-10-27 a live session had it while its general-purpose
+    subagent did not. The explicit setting reaches the main agent and its
+    subagents alike. An inherited value, including "0", is left unchanged.
+    """
+    if platform == "win32" and not str(env.get(CLAUDE_POWERSHELL_TOOL_ENV) or "").strip():
+        env[CLAUDE_POWERSHELL_TOOL_ENV] = "1"
+    return env
 
 
 def anthropic_routed_mode(
@@ -698,6 +713,8 @@ __all__ = [
     "CLAUDE_AUTO_COMPACT_WINDOW_MAX",
     "CLAUDE_CHROME_CLASSIFIER_FLOOR_ENV",
     "CLAUDE_CHROME_CLASSIFIER_FLOOR_OFF",
+    "CLAUDE_POWERSHELL_TOOL_ENV",
+    "default_powershell_tool",
     "CLAUDE_DIRECT_MODEL_KEYS",
     "CLAUDE_PROJECTED_ENV_KEYS",
     "ClaudeCompactionSnapshot",

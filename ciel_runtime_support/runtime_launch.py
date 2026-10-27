@@ -8,7 +8,7 @@ from typing import Any, Callable
 from dataclasses import dataclass
 
 from ciel_runtime_support import dangerous_rm_auto_allow, launch_data_path
-from ciel_runtime_support.claude_environment import CLAUDE_PROJECTED_ENV_KEYS
+from ciel_runtime_support.claude_environment import CLAUDE_PROJECTED_ENV_KEYS, default_powershell_tool
 from ciel_runtime_support.managed_tool_injection import should_inject_tool, codex_native_web_tool_overrides
 from ciel_runtime_support.codex_cli import codex_without_resume_command
 from ciel_runtime_support.codex_router_auth import authenticated_codex_command
@@ -445,6 +445,7 @@ def run_claude(
     # "inherit the previous model".
     for key in CLAUDE_PROJECTED_ENV_KEYS:
         env.pop(key, None)
+    default_powershell_tool(env)
     launch_passthrough = list(passthrough)
     native_channel_bridge = False
     stdin_channel_proxy = should_use_channel_stdin_proxy(use_router_mode, launch_passthrough, cfg)

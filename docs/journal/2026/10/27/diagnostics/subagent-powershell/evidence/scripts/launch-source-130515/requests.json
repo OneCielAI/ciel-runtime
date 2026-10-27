@@ -1,0 +1,84 @@
+[
+ {
+  "n": 1,
+  "role": "main",
+  "tools_count": 44,
+  "has_powershell": true,
+  "has_bash": true,
+  "agent_tool": "Agent",
+  "results": []
+ },
+ {
+  "n": 2,
+  "role": "main",
+  "tools_count": 44,
+  "has_powershell": true,
+  "has_bash": true,
+  "agent_tool": "Agent",
+  "results": [
+   {
+    "error": false,
+    "text": "PS-MAIN-OK-42"
+   }
+  ]
+ },
+ {
+  "n": 3,
+  "role": "child",
+  "tools_count": 35,
+  "has_powershell": true,
+  "has_bash": true,
+  "agent_tool": "Agent",
+  "results": []
+ },
+ {
+  "n": 4,
+  "role": "child",
+  "tools_count": 35,
+  "has_powershell": true,
+  "has_bash": true,
+  "agent_tool": "Agent",
+  "results": [
+   {
+    "error": false,
+    "text": "PS-CHILD-OK-42"
+   }
+  ]
+ },
+ {
+  "n": 5,
+  "role": "main",
+  "tools_count": 44,
+  "has_powershell": true,
+  "has_bash": true,
+  "agent_tool": "Agent",
+  "results": [
+   {
+    "error": false,
+    "text": "PS-MAIN-OK-42"
+   },
+   {
+    "error": false,
+    "text": "[{\"type\": \"text\", \"text\": \"Async agent launched successfully. (This tool result is internal metadata \\u2014 never quote or paste any part of it, including the agentId below, into a user-facing reply.)\\nagentId: a0a45e70df2e47ec9 (internal ID - do not mention to user. Use SendMessage with to: 'a0a45e70df2e47ec9', summary: '<5-10 word recap>' to continue this agent.)\\nThe agent is working in the bac"
+   }
+  ]
+ },
+ {
+  "n": 6,
+  "role": "main",
+  "tools_count": 44,
+  "has_powershell": true,
+  "has_bash": true,
+  "agent_tool": "Agent",
+  "results": [
+   {
+    "error": false,
+    "text": "PS-MAIN-OK-42"
+   },
+   {
+    "error": false,
+    "text": "[{\"type\": \"text\", \"text\": \"Async agent launched successfully. (This tool result is internal metadata \\u2014 never quote or paste any part of it, including the agentId below, into a user-facing reply.)\\nagentId: a0a45e70df2e47ec9 (internal ID - do not mention to user. Use SendMessage with to: 'a0a45e70df2e47ec9', summary: '<5-10 word recap>' to continue this agent.)\\nThe agent is working in the bac"
+   }
+  ]
+ }
+]

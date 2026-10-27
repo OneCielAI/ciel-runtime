@@ -1,0 +1,15 @@
+owned cmd: yes
+owned window: yes
+interactive ready: yes
+console command: yes
+turn outcome with child result: yes
+owned stop 80604 SUCCESS: The process with PID 73940 (child process of PID 82860) has been terminated.
+SUCCESS: The process with PID 78632 (child process of PID 82860) has been terminated.
+SUCCESS: The process with PID 82860 (child process of PID 50516) has been terminated.
+SUCCESS: The process with PID 88316 (child process of PID 78344) has been terminated.
+SUCCESS: The process with PID 85756 (child process of PID 78344) has been terminated.
+SUCCESS: The process with PID 50516 (child process of PID 78344) has been terminated.
+SUCCESS: The process with PID 87028 (child process of PID 78344) has been terminated.
+SUCCESS: The process with PID 78344 (child process of PID 80604) has been terminated.
+SUCCESS: The process with PID 80604 (child process of PID 49736) has been terminated.
+evidence C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\27\diagnostics\subagent-powershell\evidence\scripts\launch-source-130515
