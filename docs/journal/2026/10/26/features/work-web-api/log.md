@@ -1,5 +1,8 @@
 # Directory Update Log
 
+## 2026-10-27
+* **Release**: Published and installed locally from e6514c8; installed snapshot re-verified. See the release record linked from verification.
+
 ## 2026-10-26
 * **Creation**: Added the authenticated Work HTTP API contract and focused verification record.
 

@@ -31,4 +31,8 @@ Owned Claude Code 2.1.310 run [424a4f4d](evidence/run-424a4f4d/result.json) pass
 
 Earlier failures are retained, not counted as passes: fixture path extraction, Windows path spelling, unavailable Work requery, recognizing the populated-plan approval dialog, and one screenshot subprocess timeout. The final implementation permits only the exact engine-pinned native plan file independently of Work network availability; ordinary edits remain guarded. Diagnostic WORKPROBE output was removed.
 
-Final focused suite: 360 tests run, 42 skipped, no failures ([output](evidence/final-focused-tests.txt)). Mod suite: 44 passed, zero failed ([output](evidence/mod-tests-final.txt)). No commit, Publish, installation or live-session restart performed.
+Final focused suite: 360 tests run, 42 skipped, no failures ([output](evidence/final-focused-tests.txt)). Mod suite: 44 passed, zero failed ([output](evidence/mod-tests-final.txt)). No commit, Publish, installation or live-session restart was performed at that point.
+
+# Release
+
+Published as `0.2.51-nightly.20261027-010349.e6514c8` (commit e6514c8); the installed snapshot passed the production HTTP check and the same seven real CLI checks. See [Work API nightly release](/docs/journal/2026/10/26/releases/work-web-api-nightly/release.md).

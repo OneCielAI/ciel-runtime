@@ -1,0 +1,229 @@
+{
+  "ok": true,
+  "snapshot": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-e6514c80b2ab84e7eba8d32b65a56b093e135236",
+  "version": "0.2.51-nightly.20261027-010349.e6514c8",
+  "initial": {
+    "enabled": true,
+    "phase": "planning",
+    "approval": "auto",
+    "version": 0,
+    "active_root": null,
+    "continuation": {
+      "actionable": 0,
+      "next": null,
+      "waiting": [],
+      "blocked": 0,
+      "held": 0
+    },
+    "done": 0,
+    "total": 0,
+    "next": null,
+    "breakdown": [],
+    "ready": false,
+    "ready_reason": "no active goal; create one with work_plan_set",
+    "goals": 0,
+    "queue": [],
+    "ok": true,
+    "schema_version": 1,
+    "session_id": "claude:installed-proof",
+    "updated_at": 0.0,
+    "nodes": [],
+    "active_root_id": null,
+    "root_ids": [],
+    "queue_ids": [],
+    "auto_continue": true,
+    "runtime": {
+      "ciel_runtime": {
+        "version": "0.2.51-nightly.20261027-010349.e6514c8",
+        "source_fingerprint": "11b9fec1d2441894",
+        "instance_id": "63878-c470ed7fa724"
+      },
+      "session_id": "claude:installed-proof",
+      "runtime": "claude",
+      "configured": {
+        "provider": "nvidia-hosted",
+        "model": "z-ai/glm-5.3",
+        "alias": "ciel-runtime-nvidia-hosted-z-ai-glm-5.3",
+        "source": "configuration"
+      },
+      "epoch": null,
+      "in_flight": [],
+      "last_observed": null,
+      "last_error": null,
+      "observation_status": "unavailable",
+      "errors": []
+    },
+    "events": "/ca/work/events"
+  },
+  "changed": {
+    "enabled": true,
+    "phase": "planning",
+    "approval": "auto",
+    "version": 2,
+    "active_root": {
+      "id": "n1",
+      "title": "Installed API proof",
+      "status": "pending",
+      "ref": "",
+      "waiting_on": "",
+      "urgent": false
+    },
+    "continuation": {
+      "actionable": 2,
+      "next": {
+        "id": "n4",
+        "title": "B",
+        "status": "pending",
+        "ref": "",
+        "waiting_on": "",
+        "urgent": false,
+        "path": [
+          "Installed API proof",
+          "phase",
+          "B"
+        ]
+      },
+      "waiting": [],
+      "blocked": 0,
+      "held": 0
+    },
+    "done": 0,
+    "total": 2,
+    "next": {
+      "id": "n4",
+      "title": "B",
+      "status": "pending",
+      "path": [
+        "Installed API proof",
+        "phase",
+        "B"
+      ]
+    },
+    "breakdown": [
+      {
+        "id": "n2",
+        "title": "phase",
+        "status": "pending",
+        "ref": "",
+        "waiting_on": "",
+        "urgent": false,
+        "done": 0,
+        "total": 2,
+        "children": [
+          {
+            "id": "n4",
+            "title": "B",
+            "status": "pending",
+            "ref": "",
+            "waiting_on": "",
+            "urgent": false
+          },
+          {
+            "id": "n3",
+            "title": "A",
+            "status": "pending",
+            "ref": "",
+            "waiting_on": "",
+            "urgent": false
+          }
+        ],
+        "more": 0
+      }
+    ],
+    "ready": true,
+    "ready_reason": "ready",
+    "goals": 1,
+    "queue": [],
+    "ok": true,
+    "schema_version": 1,
+    "session_id": "claude:installed-proof",
+    "updated_at": 1793063428.3422325,
+    "nodes": [
+      {
+        "id": "n1",
+        "parent_id": null,
+        "title": "Installed API proof",
+        "status": "pending",
+        "note": "",
+        "evidence": "",
+        "waiting_on": "",
+        "ref": "",
+        "urgent": false,
+        "updated_at": 1793063428.3208807
+      },
+      {
+        "id": "n2",
+        "parent_id": "n1",
+        "title": "phase",
+        "status": "pending",
+        "note": "",
+        "evidence": "",
+        "waiting_on": "",
+        "ref": "",
+        "urgent": false,
+        "updated_at": 1793063428.3208807
+      },
+      {
+        "id": "n4",
+        "parent_id": "n2",
+        "title": "B",
+        "status": "pending",
+        "note": "",
+        "evidence": "",
+        "waiting_on": "",
+        "ref": "",
+        "urgent": false,
+        "updated_at": 1793063428.3208807
+      },
+      {
+        "id": "n3",
+        "parent_id": "n2",
+        "title": "A",
+        "status": "pending",
+        "note": "",
+        "evidence": "",
+        "waiting_on": "",
+        "ref": "",
+        "urgent": false,
+        "updated_at": 1793063428.3208807
+      }
+    ],
+    "active_root_id": "n1",
+    "root_ids": [
+      "n1"
+    ],
+    "queue_ids": [],
+    "auto_continue": true,
+    "runtime": {
+      "ciel_runtime": {
+        "version": "0.2.51-nightly.20261027-010349.e6514c8",
+        "source_fingerprint": "11b9fec1d2441894",
+        "instance_id": "63878-c470ed7fa724"
+      },
+      "session_id": "claude:installed-proof",
+      "runtime": "claude",
+      "configured": {
+        "provider": "nvidia-hosted",
+        "model": "z-ai/glm-5.3",
+        "alias": "ciel-runtime-nvidia-hosted-z-ai-glm-5.3",
+        "source": "configuration"
+      },
+      "epoch": null,
+      "in_flight": [],
+      "last_observed": null,
+      "last_error": null,
+      "observation_status": "unavailable",
+      "errors": []
+    },
+    "events": "/ca/work/events",
+    "changed": true,
+    "operation": "reorder"
+  },
+  "conflict": {
+    "ok": false,
+    "error": "version_conflict",
+    "version": 2
+  },
+  "isolation": "codex:other",
+  "help_status": 200
+}
