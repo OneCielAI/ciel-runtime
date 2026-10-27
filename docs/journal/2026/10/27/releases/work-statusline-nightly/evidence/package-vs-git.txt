@@ -1,0 +1,9 @@
+checked 460 diff ['ciel_runtime_support/runtime_constants.py', 'scripts/deploy_colab_speech.ps1'] missing ['scripts/check_project_metadata.py', 'scripts/diag_window_activity.py', 'scripts/make_demo_assets.py', 'scripts/probe_claude_raw_prompt_render.py', 'scripts/probe_muse_msp_injection.py', 'scripts/probe_runtime_input_lifecycle.py', 'scripts/probe_runtime_session_restart.py', 'scripts/probe_web_search_result_stream.py', 'scripts/probe_windows_conpty_first_input.py', 'scripts/probe_windows_conpty_tui_resize.py', 'scripts/remote-cleanup.sh', 'scripts/run_test_group.py', 'scripts/store_colab_tailscale_state.py', 'scripts/test-raw-term.py']
+108c108
+< VERSION = "0.2.51"
+---
+> VERSION = "0.2.51-nightly.20261027-144102.54cfce3"
+--- ps1 CRLF-normalized equal:
+True
+--- package.json files:
+["ciel_runtime.py","ciel_runtime_support/*.py","ciel_runtime_support/*.cjs","ciel_runtime_support/providers/*.py","ciel_runtime_support/protocols/*.py","ciel_runtime_support/claude_mods/","ciel-runtime","ciel-runtime.cmd","ciel-runtime.ps1","ciel-runtime-menu.py","ciel-runtime-tool-guard.py","ciel-runtimectl","ciel-runtimectl.cmd","ciel-runtimectl.ps1","ciel-runtime-stop","ciel-runtime-stop.cmd","ciel-runtime-stop.ps1","npm-bin/","scripts/colab/*.py","scripts/configure_speech_workers.py","scripts/deploy_colab_speech.ps1","install.sh","install.ps1","README.md","CHANGELOG.md","LICENSE","NOTICE","docs/"]
