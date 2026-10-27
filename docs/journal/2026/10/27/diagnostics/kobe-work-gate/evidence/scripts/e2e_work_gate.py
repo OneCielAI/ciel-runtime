@@ -214,7 +214,7 @@ try:
     checks = {}
     if not wait(lambda: 'shift+tab' in screen() or '? for shortcuts' in screen(), 45, 'interactive ready'): raise RuntimeError('interactive not ready')
     command('GATE-MAIN: verify waiting-goal handoff, then parallel child edits.')
-    checks['turn_done'] = wait(lambda: 'GATE-MAIN-DONE' in screen(), 200, 'concurrent child edits complete')
+    checks['turn_done'] = wait(lambda: all(any(r['tag'] == name and r['stage'] >= 6 for r in ROWS) for name in TARGETS), 200, 'all child terminal requests received')
     screenshot('01-concurrent-edits')
     plans = list(CFG.rglob('work-plan.json'))
     board = json.loads(plans[0].read_text(encoding='utf-8')) if plans else {}
@@ -244,3 +244,5 @@ finally:
     AFTER = health(); dump('live-after.json', AFTER); RESULT['live_before'] = BEFORE; RESULT['live_after'] = AFTER
     dump('result.json', RESULT); log('evidence ' + str(RUN))
     print(json.dumps({k: v for k, v in RESULT.items() if k not in ('rows',)}, indent=1))
+
+if RESULT.get('error') or RESULT.get('verification_failed'): raise SystemExit(1)

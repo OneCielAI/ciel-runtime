@@ -1,0 +1,3 @@
+ciel-runtime router starting on 127.0.0.1:57133 (client base http://127.0.0.1:57133, log level ERROR, source=default)
+web: http://127.0.0.1:57133/
+web_tailscale_https_recommended: ciel-runtime --ca-web-port 57133 --ca-tailscale-https=57133

@@ -2,14 +2,16 @@
 {"scenario":"concurrent-call","first":"allow","second":"allow"}
 {"scenario":"turn-start-during-check","first":"allow"}
 {"scenario":"concurrent-planning","first":"deny: Work mode is planning: direct file edits wait until the plan is approved. Build it with work_plan_set, then call work_execute. (/work-mode help)","second":"deny: Work mode is planning: direct file edits wait until the plan is approved. Build it with work_plan_set, then call work_execute. (/work-mode help)"}
-{"scenario":"concurrent-mixed","first":"deny: Work status unavailable: router connection or snapshot could not be verified. [router-error: store unreadable]","second":"allow"}
+{"scenario":"concurrent-mixed","first":"deny: Work status unavailable: router connection or snapshot could not be verified. [router-error; wg-mvr3j9v8-1]","second":"allow"}
 {"scenario":"execute-during-edit","first":"allow","second":"deny: Work mode is planning: direct file edits wait until the plan is approved. Build it with work_plan_set, then call work_execute. (/work-mode help)"}
-{"scenario":"planning","first":"deny: Work mode is planning: direct file edits wait until the plan is approved. Build it with work_plan_set, then call work_execute. (/work-mode help)"}
-{"scenario":"router-error","first":"deny: Work status unavailable: router connection or snapshot could not be verified. [router-error: boom]"}
-{"scenario":"router-throws","first":"deny: Work status unavailable: router connection or snapshot could not be verified. [router-call: no connected MCP tool]"}
-{"scenario":"invalid-snapshot","first":"deny: Work status unavailable: router connection or snapshot could not be verified. [snapshot-schema]"}
-{"scenario":"not-json","first":"deny: Work status unavailable: router connection or snapshot could not be verified. [snapshot-parse]"}
-{"scenario":"identity-change","first":"deny: Work status unavailable: router connection or snapshot could not be verified. [identity-changed]"}
+{"scenario":"router-error","first":"deny: Work status unavailable: router connection or snapshot could not be verified. [router-error; wg-mvr3ja1r-1]"}
+{"scenario":"router-throws","first":"deny: Work status unavailable: router connection or snapshot could not be verified. [router-call; wg-mvr3ja30-1]"}
+{"scenario":"router-timeout","first":"deny: Work status unavailable: router connection or snapshot could not be verified. [router-timeout; wg-mvr3ja49-1]","logs":["Ciel Work gate wg-mvr3ja49-1: router-timeout"]}
+{"scenario":"invalid-snapshot","first":"deny: Work status unavailable: router connection or snapshot could not be verified. [snapshot-schema; wg-mvr3ja5g-1]"}
+{"scenario":"not-json","first":"deny: Work status unavailable: router connection or snapshot could not be verified. [snapshot-parse; wg-mvr3ja6m-1]"}
+{"scenario":"identity-change","first":"deny: Work status unavailable: router connection or snapshot could not be verified. [identity-changed; wg-mvr3ja7v-1]"}
+{"scenario":"session-end-during-check","first":"deny: Work status unavailable: router connection or snapshot could not be verified. [identity-changed; wg-mvr3ja93-1]"}
+{"scenario":"stale-snapshot","first":"deny: Work status unavailable: router connection or snapshot could not be verified. [snapshot-version; wg-mvr3jabo-2]"}
 {"scenario":"disabled","first":"allow"}
 {"scenario":"stop-superseded","block":false}
 {"scenario":"stop-continues","block":true}

@@ -1,0 +1,85 @@
+{
+ "schema": 1,
+ "version": 5,
+ "phase": "executing",
+ "active_root": "n4",
+ "focus_ids": [],
+ "next_id": 7,
+ "nodes": [
+  {
+   "id": "n1",
+   "parent_id": null,
+   "title": "1. Waiting contract",
+   "status": "blocked",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "external contract",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793130375.973748,
+   "phase": "planning"
+  },
+  {
+   "id": "n2",
+   "parent_id": "n1",
+   "title": "Review",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793130375.1281734
+  },
+  {
+   "id": "n3",
+   "parent_id": "n2",
+   "title": "Contract",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793130375.1281734
+  },
+  {
+   "id": "n4",
+   "parent_id": null,
+   "title": "2. Concurrent verified edits",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793130376.832295,
+   "phase": "executing"
+  },
+  {
+   "id": "n5",
+   "parent_id": "n4",
+   "title": "Verify",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793130376.832295
+  },
+  {
+   "id": "n6",
+   "parent_id": "n5",
+   "title": "Agent gates",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793130376.832295
+  }
+ ],
+ "updated_at": 1793130378.5143898
+}

@@ -1,0 +1,50 @@
+
+⚠ Model "fake-work" isn't recognized · context assumed to be 200k tokens · update Claude Code, or see the docs
+
+● ciel-work: Ciel Work mode is on: plan and execute by item; new independent requests queue without pausing approved Work. Items show above the prompt ·
+  /work-mode help · turn off: ciel-runtime menu → LLM options → Work mode
+
+❯ GATE-MAIN: verify waiting-goal handoff, then parallel child edits.
+
+● Write(subject.txt)
+  ⎿  Error: Work mode is planning: direct file edits wait until the plan is approved. Build it with work_plan_set, then call work_execute. (/work-mode help)
+
+  Called ciel-runtime-router 5 times
+
+● 3 background agents launched (↓ to manage)
+   ├ Verify edit alpha
+   ├ Verify edit bravo
+   └ Verify edit charlie
+
+● GATE-MAIN-DONE
+
+✻ Waiting for 3 background agents to finish
+
+● Agent "Verify edit alpha" finished · 4s
+
+● GATE-MAIN-DONE
+
+✻ Waiting for 2 background agents to finish
+
+● Agent "Verify edit bravo" finished · 4s
+
+● GATE-MAIN-DONE
+
+✻ Worked for 0s · done 2:47 PM
+
+● Agent "Verify edit charlie" finished · 5s
+
+● GATE-MAIN-DONE
+
+✻ Transmogrifying… (0s · ↓ 2 tokens)
+  ⎿  Tip: Start with small features or bug fixes, tell Claude to propose a plan, and verify its suggested edits
+Work running 0/1 — 2. Concurrent verified edits                                                                                                                     [-]
+[Progress 2] Queue 1 Completed 0
+[ ] Verify
+  [ ] Agent gates
+1/1 w: Inspector
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · /tasks to see subagents · esc to interrupt                                                             work: run 0/1

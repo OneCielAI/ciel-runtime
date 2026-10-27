@@ -1,0 +1,2 @@
+case modelarg tag modelarg
+evidence C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\25\fixes\teammate-model-inheritance\evidence\installed-modelarg-42b593
