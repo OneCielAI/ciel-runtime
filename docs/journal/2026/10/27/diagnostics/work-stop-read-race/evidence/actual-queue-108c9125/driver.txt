@@ -1,0 +1,13 @@
+owned router: yes
+owned cmd: yes
+owned window: yes
+interactive ready: yes
+console command: yes
+queue continuation: yes
+queue selected: yes
+queued file write: yes
+queue finished: yes
+owned stop 5192 SUCCESS: The process with PID 68968 (child process of PID 5192) has been terminated.
+SUCCESS: The process with PID 5192 (child process of PID 28560) has been terminated.
+owned stop 48064 SUCCESS: The process with PID 48064 (child process of PID 28552) has been terminated.
+evidence C:\Users\djlov\AppData\Local\Temp\work-queue-yield-108c9125

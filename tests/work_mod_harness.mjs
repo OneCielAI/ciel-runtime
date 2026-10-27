@@ -146,6 +146,25 @@ const scenarios = {
     const result = await pending
     return { block: Boolean(result?.block) }
   },
+  // A UI/inspector refresh is not a new model turn and must not cancel Stop.
+  async 'stop-display-refresh'() {
+    const ready = { ...snapshot(), continuation: { actionable: 1, next: { id: 'n3', title: 'queued', root_id: 'n2', phase: 'executing' }, waiting: [] } }
+    const delays = [60, 5]
+    const { $, state } = host(async () => { await sleep(delays.shift() ?? 0); return text(ready) })
+    const pending = handlers['classic.Stop']($, { session_id: 'S1' }, next({}))
+    await sleep(10)
+    await handlers['command.run']($, { args: 'status' })
+    const result = await pending
+    return { block: Boolean(result?.block), text: result?.block || '', logs: state.logs }
+  },
+  async 'stop-session-end'() {
+    const ready = { ...snapshot(), continuation: { actionable: 1, next: { id: 'n2', title: 'x', root_id: 'n1' }, waiting: [] } }
+    const { $ } = host(async () => { await sleep(40); return text(ready) })
+    const pending = handlers['classic.Stop']($, { session_id: 'S1' }, next({}))
+    await sleep(10)
+    await handlers['session.end']($, {}, next(undefined))
+    return { block: Boolean((await pending)?.block) }
+  },
   async 'stop-continues'() {
     const ready = { ...snapshot(), continuation: { actionable: 1, next: { id: 'n2', title: 'x', root_id: 'n1' }, waiting: [] } }
     const { $ } = host(async () => text(ready))

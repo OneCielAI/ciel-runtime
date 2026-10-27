@@ -84,6 +84,14 @@ class WorkModWriteGateTests(unittest.TestCase):
     def test_disabled_work_mode_does_not_gate(self):
         self.assertEqual(self.run_scenario("disabled")["first"], "allow")
 
+    def test_display_refresh_does_not_drop_runnable_queued_work_at_stop(self):
+        result = self.run_scenario("stop-display-refresh")
+        self.assertTrue(result["block"], result)
+        self.assertIn("call work_select with root_id n2", result["text"])
+
+    def test_stop_after_session_end_does_not_continue(self):
+        self.assertFalse(self.run_scenario("stop-session-end")["block"])
+
     def test_stop_continuation_still_yields_to_a_new_turn(self):
         self.assertFalse(self.run_scenario("stop-superseded")["block"])
         self.assertTrue(self.run_scenario("stop-continues")["block"])

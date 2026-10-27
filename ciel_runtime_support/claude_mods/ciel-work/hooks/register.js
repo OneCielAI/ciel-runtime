@@ -31,6 +31,7 @@ const HELP = [
 let cached = null
 let enabled = true
 let generation = 0
+let mainTurnEpoch = 0
 let cachedSession = null
 let hinted = ''
 let starts = 0
@@ -480,7 +481,7 @@ export function register(on) {
     return next(e)
   })
   on('turn.start', async ($, e, next) => {
-    if (e.agentId === undefined) { working = true; stopIdleRefresh(); generation++ }
+    if (e.agentId === undefined) { working = true; stopIdleRefresh(); generation++; mainTurnEpoch++ }
     return next(e)
   })
   on('turn.complete', async ($, e, next) => {
@@ -491,12 +492,16 @@ export function register(on) {
   on('classic.Stop', async ($, e, next) => {
     const result = await next(e)
     if (result?.block || result?.preventContinuation || e.agent_id) return result
+    const lifecycle = starts
+    const turn = mainTurnEpoch
     const identity = await sessionId($)
     if (e.session_id && identity !== 'claude:' + e.session_id) return result
-    const s = await refresh($)
-    if (await sessionId($) !== identity) return result
-    // A read superseded by a newer one also returns null; only a failed latest read is reported.
-    if (!s) { if (enabled && !cached) stopNotice($, identity, STOP_UNAVAILABLE); return result }
+    // Display/idle reads may overlap Stop. Only a new main turn or session
+    // lifecycle invalidates this decision, not another reader's generation.
+    const read = await gateRead($)
+    if (lifecycle !== starts || turn !== mainTurnEpoch || await sessionId($) !== identity) return result
+    const s = read.s
+    if (!s) { if (enabled) stopNotice($, identity, STOP_UNAVAILABLE); return result }
     if (!s.enabled || s.auto_continue !== true) return result
     // Every stop that leaves unfinished Work either continues with a runnable item or says why not.
     if (e.background_tasks?.length && !(s.continuation?.actionable > 0)) {

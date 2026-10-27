@@ -1,0 +1,20 @@
+[
+  {
+    "scenario": "stop-display-refresh",
+    "block": false,
+    "text": "",
+    "logs": []
+  },
+  {
+    "scenario": "stop-superseded",
+    "block": false
+  },
+  {
+    "scenario": "stop-session-end",
+    "block": false
+  },
+  {
+    "scenario": "stop-continues",
+    "block": true
+  }
+]
