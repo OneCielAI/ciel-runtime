@@ -1,0 +1,10 @@
+publish	Run python -m ruff check .	2026-10-27T03:08:58.5115535Z All checks passed!
+publish	Run npm test	2026-10-27T03:11:07.5021291Z Ran 2855 tests in 126.537s
+publish	Run npm test	2026-10-27T03:11:07.5021524Z OK (skipped=59)
+publish	Run npm test	2026-10-27T03:15:56.5599033Z Ran 1468 tests in 288.045s
+publish	Run npm test	2026-10-27T03:16:04.0854985Z Ran 574 tests in 6.810s
+publish	Run npm test	2026-10-27T03:16:04.0855208Z OK (skipped=80)
+publish	Run npm test	2026-10-27T03:16:27.4643048Z Ran 441 tests in 22.687s
+publish	Run npm test	2026-10-27T03:16:27.4643266Z OK (skipped=19)
+publish	Compute and apply nightly version	2026-10-27T03:16:27.5549076Z [36;1mecho "Nightly version: ${new}"[0m
+publish	Compute and apply nightly version	2026-10-27T03:16:27.5932141Z Nightly version: 0.2.51-nightly.20261027-031627.0555b6c
