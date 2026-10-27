@@ -1,0 +1,42 @@
+[
+  {
+    "case": "queue",
+    "run": "C:\\Users\\djlov\\AppData\\Local\\Temp\\work-queue-yield-d1181efb",
+    "repo": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-ea59a6105838f611d1c4168ab150f01c6f4e6fd2",
+    "checks": {
+      "queue_continuation_received": true,
+      "queue_selected_without_user_flag": true,
+      "queued_write": true,
+      "queued_done": true,
+      "wait_preserved": true,
+      "queue_completed": true,
+      "resumed_waiting_goal": true,
+      "queue_select_guidance": true,
+      "single_user_prompt": true,
+      "bounded_requests": true
+    },
+    "passed": true,
+    "live_unchanged": true
+  },
+  {
+    "case": "panel",
+    "run": "C:\\Users\\djlov\\AppData\\Local\\Temp\\work-panel-tabs-bc4568c0",
+    "repo": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-ea59a6105838f611d1c4168ab150f01c6f4e6fd2",
+    "checks": {
+      "idle": true,
+      "companion_visible": true,
+      "open_visible": true,
+      "native_render_valid": true,
+      "work_band_at_most_10_rows": true,
+      "completed_hidden_initially": true,
+      "inspector": true,
+      "queue_tab": true,
+      "completed_tab": true,
+      "native_retained_after_tab": true,
+      "completed_page_two": true,
+      "display_only": true
+    },
+    "passed": true,
+    "live_unchanged": true
+  }
+]

@@ -39,3 +39,7 @@ Requested: separate progress, queue and completed tabs; bounded above-prompt hei
 # Release
 
 Final repository source proof: `source-panel-final/` (12/12, tabs/height/registered companion/inspector/page/display-only) and `source-queue-final/` (10/10) on Claude 2.1.311. Work Python tests 144 pass, mod tests 63 pass; Ruff and compile pass. Native engine content is an unsized sibling, never clipped or paged by Work. The earlier Native mode was removed because host validation rejects sizing ancestors of opaque native content. CI/Publish, registry identity/digests, fresh snapshot installed proof and local switch remain required; no new release claimed yet.
+
+# Published acceptance
+
+Published and locally installed `0.2.51-nightly.20261027-080148.ea59a61`; CI/Publish succeeded, exact tarball SHA1/SHA512 verified, fresh snapshot 460 files matched. Installed queue 10/10 and panel 12/12 actual CLI checks pass. See [release verification](../../releases/work-queue-panel-nightly/verification.md). Live 9505/9524 unchanged; no remote deployment.
