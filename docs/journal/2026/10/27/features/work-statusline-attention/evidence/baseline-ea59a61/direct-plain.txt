@@ -1,0 +1,11 @@
+[work executing] 0/6 1. STATUS-ATTENTION
+  [~] Deploy
+    [ ] Reserve UI save ◷ n201 source contract, incremental run and Eric workspace routing verification
+    [!] Admission check ◷ deploy approval from Daniel
+    [~] Run smoke
+  [ ] Rollback
+    [ ] Drain path
+  [ ] Docs
+    [ ] Write notes
+  Queued: 2. QUEUED-WAIT ◷ Daniel 검수 응답
+  in_progress n5 1. STATUS-ATTENTION > Deploy > Run smoke

@@ -188,6 +188,80 @@ class BreakdownStatuslineTests(unittest.TestCase):
             self.assertIn("[work executing]", out)
             self.assertNotIn("Board item", out)
 
+    def attention_plan(self, directory):
+        doc = tree.empty_document()
+        tree.set_plan(doc, {"title": "1. Attention", "children": [
+            {"title": "Deploy", "children": [
+                {"title": "Reserve UI save", "waiting_on": "n201 source contract, incremental run and Eric workspace routing"},
+                {"title": "Admission check"},
+                {"title": "Run smoke"}]},
+            {"title": "Rollback", "children": [
+                {"title": "Drain path", "children": [
+                    {"title": "Signal forwarding", "waiting_on": "external ingress control"},
+                    {"title": "Scheduler drain"}]}]}]})
+        ids = {node["title"]: node["id"] for node in doc["nodes"]}
+        tree.update_node(doc, ids["Admission check"], status="blocked", waiting_on="deploy approval")
+        tree.update_node(doc, ids["Scheduler drain"], status="blocked")
+        tree.set_phase(doc, "executing")
+        tree.update_node(doc, ids["Run smoke"], status="in_progress")
+        tree.add_subtree(doc, None, {"title": "2. Queued", "waiting_on": "Daniel 검수 응답",
+                                     "children": [{"title": "Phase", "children": [{"title": "Step"}]}]})
+        return doc, ids, self.write_plan(directory, doc)
+
+    def test_waiting_and_blocked_items_show_clock_short_reason_and_badge(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.attention_plan(tmp)
+            reason = "n201 source contract, incremental run and Eric workspace routing"
+            self.assertEqual(self.render(tmp).splitlines(), [
+                "[work executing] 0/5 1. Attention · ◷ 2 waiting · [!] 2 BLOCKED",
+                "  [~] Deploy",
+                "    ◷ Reserve UI save · waiting: " + reason[:37] + "...",
+                "    [!] BLOCKED Admission check · deploy approval",
+                "    [~] Run smoke",
+                "  [ ] Rollback",
+                "    [ ] Drain path (◷1 !1)",
+                "  Queued: ◷ 2. Queued · waiting: Daniel 검수 응답",
+                "  in_progress n5 1. Attention > Deploy > Run smoke",
+            ])
+
+    def test_blocked_badge_and_wait_clock_are_colored(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.attention_plan(tmp)
+            directory = Path(tmp)
+            script = directory / "statusline.py"
+            script.write_text(STATUSLINE_SCRIPT, encoding="utf-8")
+            env = {k: v for k, v in os.environ.items() if not k.startswith(("CIEL_RUNTIME_", "CIEL_CODE_", "CLAUDE", "ANTHROPIC", "CODEX", "OPENAI"))}
+            env.update(CIEL_RUNTIME_CONFIG_DIR=tmp, CIEL_RUNTIME_WORKSPACE_STATE_DIR=tmp, CIEL_CODE_CONFIG_DIR=str(directory / "ciel-code"))
+            (directory / "config.json").write_text("{}", encoding="utf-8")
+            out = subprocess.run([sys.executable, str(script)], input=json.dumps({"session_id": "s1"}), env=env,
+                                 capture_output=True, text=True, encoding="utf-8", timeout=10).stdout
+            self.assertIn(ESC + "[1;97;41m[!] BLOCKED" + ESC + "[0m Admission check · " + ESC + "[1;31mdeploy approval" + ESC + "[0m", out)
+            self.assertIn(ESC + "[1;38;5;220m◷" + ESC + "[0m Reserve UI save · " + ESC + "[1;38;5;220mwaiting: n201", out)
+            self.assertIn(ESC + "[1;97;41m[!] 2 BLOCKED" + ESC + "[0m", out.splitlines()[0])
+
+    def test_next_line_flags_a_waiting_or_blocked_step(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            doc, ids, path = self.attention_plan(tmp)
+            tree.update_node(doc, ids["Run smoke"], status="done", evidence="smoke passed")
+            path.write_text(json.dumps(doc), encoding="utf-8")
+            # The next pending step is the one that waits.
+            self.assertEqual(self.render(tmp).splitlines()[-1],
+                             "  ◷ " + ids["Reserve UI save"] + " 1. Attention > Deploy > Reserve UI save · waiting: n201 source contract, incremental run...")
+            for title in ("Reserve UI save", "Signal forwarding"):
+                tree.update_node(doc, ids[title], status="done", evidence="resolved")
+            path.write_text(json.dumps(doc), encoding="utf-8")
+            self.assertEqual(self.render(tmp).splitlines()[-1],
+                             "  [!] BLOCKED " + ids["Admission check"] + " 1. Attention > Deploy > Admission check · deploy approval")
+
+    def test_finished_item_keeps_no_wait_marker(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            doc, ids, path = self.attention_plan(tmp)
+            tree.update_node(doc, ids["Reserve UI save"], status="done", evidence="contract verified")
+            path.write_text(json.dumps(doc), encoding="utf-8")
+            lines = self.render(tmp).splitlines()
+            self.assertIn("    ✓ Reserve UI save", lines)
+            self.assertTrue(lines[0].endswith("· ◷ 1 waiting · [!] 2 BLOCKED"), lines[0])
+
     def test_external_board_other_session_is_not_rendered(self):
         with tempfile.TemporaryDirectory() as tmp:
             self.write_board(tmp, {"items": [{"id": "a", "title": "Board item", "status": "running"}]}, "s2")

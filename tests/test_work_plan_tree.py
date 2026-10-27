@@ -614,6 +614,30 @@ class WorkContinuationTreeTests(unittest.TestCase):
         self.assertIn("[ B ] branch  ◷ review", t.render(self.doc))
         self.assertEqual(self.doc, before)
 
+    def test_snapshot_counts_waiting_and_blocked_below_displayed_depth(self):
+        cap = t.MAX_BRANCH_CHILDREN_IN_SNAPSHOT
+        t.set_plan(self.doc, {"title": "goal", "waiting_on": "root review", "children": [
+            {"title": "branch", "children": [
+                {"title": "task", "children": [{"title": "deep wait", "waiting_on": "build"},
+                                               {"title": "deep blocked"}, {"title": "deep done", "waiting_on": "old"}]},
+                *[{"title": "filler " + str(i)} for i in range(cap - 1)],
+                {"title": "cut blocked", "waiting_on": "approval"},
+                {"title": "cut task", "children": [{"title": "cut wait", "waiting_on": "peer"}]}]}]})
+        ids = {n["title"]: n["id"] for n in self.doc["nodes"]}
+        t.update_node(self.doc, ids["deep blocked"], status="blocked")
+        t.update_node(self.doc, ids["deep done"], status="done", evidence="verified")
+        t.update_node(self.doc, ids["cut blocked"], status="blocked")
+        before = copy.deepcopy(self.doc)
+        state = t.snapshot(self.doc)
+        branch = state["breakdown"][0]
+        # The goal's own wait is shown on its title, not counted; a blocked node that also waits counts as blocked.
+        self.assertEqual(state["attention"], {"waiting": 2, "blocked": 2})
+        self.assertEqual(branch["children"][0]["hidden"], {"waiting": 1, "blocked": 1})
+        self.assertEqual(branch["children"][1]["hidden"], {"waiting": 0, "blocked": 0})
+        self.assertEqual((branch["more"], branch["more_attention"]), (2, {"waiting": 1, "blocked": 1}))
+        self.assertEqual(state["next"]["waiting_on"], "build")
+        self.assertEqual(self.doc, before)
+
 
 class WorkPanelSnapshotTests(unittest.TestCase):
     def test_complete_root_index_exceeds_queue_preview_without_private_subtrees(self):

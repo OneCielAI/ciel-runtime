@@ -444,6 +444,25 @@ def _node_summary(node: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+def attention(doc: dict[str, Any], node_ids: list[str], *, include_self: bool = True) -> dict[str, int]:
+    """Count unfinished nodes in these subtrees that are blocked or wait on something.
+
+    A blocked node counts as blocked even when it also names what it waits on.
+    """
+    by_id = _index(doc)
+    counts = {"waiting": 0, "blocked": 0}
+    for top in node_ids:
+        for node_id, depth in _walk(doc, top):
+            node = by_id[node_id]
+            if (depth == 0 and not include_self) or node["status"] == "done":
+                continue
+            if node["status"] == "blocked":
+                counts["blocked"] += 1
+            elif node.get("waiting_on"):
+                counts["waiting"] += 1
+    return counts
+
+
 def readiness(doc: dict[str, Any]) -> tuple[bool, str]:
     root = doc.get("active_root")
     if root is None:
@@ -511,13 +530,18 @@ def snapshot(doc: dict[str, Any], *, enabled: bool = True, approval_ask: bool = 
         "continuation": continuation(doc),
         "done": done,
         "total": total,
-        "next": {"id": nxt["id"], "title": nxt["title"], "status": nxt["status"], "path": path_titles(doc, nxt["id"])} if nxt else None,
+        # Waiting/blocked counts over the active goal, so items below the displayed depth stay visible.
+        "attention": attention(doc, [root], include_self=False) if root else {"waiting": 0, "blocked": 0},
+        "next": {"id": nxt["id"], "title": nxt["title"], "status": nxt["status"], "waiting_on": nxt.get("waiting_on", ""),
+                 "path": path_titles(doc, nxt["id"])} if nxt else None,
         "breakdown": [
             dict(_node_summary(child),
                  done=progress(doc, child["id"])[0] if _children(doc, child["id"]) else int(child["status"] == "done"),
                  total=progress(doc, child["id"])[1] if _children(doc, child["id"]) else 1,
-                 children=[_node_summary(node) for node in _children(doc, child["id"])[:MAX_BRANCH_CHILDREN_IN_SNAPSHOT]],
-                 more=max(0, len(_children(doc, child["id"])) - MAX_BRANCH_CHILDREN_IN_SNAPSHOT))
+                 children=[dict(_node_summary(node), hidden=attention(doc, [node["id"]], include_self=False))
+                           for node in _children(doc, child["id"])[:MAX_BRANCH_CHILDREN_IN_SNAPSHOT]],
+                 more=max(0, len(_children(doc, child["id"])) - MAX_BRANCH_CHILDREN_IN_SNAPSHOT),
+                 more_attention=attention(doc, [node["id"] for node in _children(doc, child["id"])[MAX_BRANCH_CHILDREN_IN_SNAPSHOT:]]))
             for child in _children(doc, root)
         ] if root else [],
         # Complete display index, bounded by MAX_NODES; summaries only (no notes,

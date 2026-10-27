@@ -778,31 +778,76 @@ def work_plan_status_text(session):
     summary = f"[work {phase}] {state['done']}/{state['total']}"
     if root:
         summary += " " + _work_item_title(root)
+    totals = state.get("attention") or {}
+    if totals.get("waiting"):
+        summary += " · " + _work_style(f"◷ {totals['waiting']} waiting", WORK_WAIT_STYLE)
+    if totals.get("blocked"):
+        summary += " · " + _work_style(f"[!] {totals['blocked']} BLOCKED", WORK_BLOCKED_STYLE)
     # One branch per line, every branch: the status line is vertical, so a
     # breakdown is never cut to its first few branches.
     lines = [summary]
     for branch in state.get("breakdown", []):
         lines.append("  " + _work_item_mark(branch) + " " + _work_item_title(branch))
         for child in branch.get("children", []):
-            lines.append("    " + _work_item_mark(child) + " " + _work_item_title(child))
+            lines.append("    " + _work_item_mark(child) + " " + _work_item_title(child)
+                         + _work_attention_suffix(child.get("hidden")))
         if branch.get("more"):
-            lines.append(f"    +{branch['more']} more")
+            lines.append(f"    +{branch['more']} more" + _work_attention_suffix(branch.get("more_attention")))
     for queued in state.get("queue", [])[:3]:
-        lines.append(("  Held: " if queued.get("held") else "  Queued: ") + _work_item_title(queued))
+        flagged = queued.get("status") == "blocked" or queued.get("waiting_on")
+        lines.append(("  Held: " if queued.get("held") else "  Queued: ")
+                     + (_work_item_mark(queued) + " " if flagged else "") + _work_item_title(queued))
     current = state.get("next")
     if current:
-        lines.append("  " + current["status"] + " " + clip(current["id"], 32) + " " + " > ".join(
-            clip(part, 32) for part in current["path"][-4:]))
+        label = _work_item_mark(current) if current["status"] == "blocked" or current.get("waiting_on") else current["status"]
+        lines.append("  " + label + " " + clip(current["id"], 32) + " " + " > ".join(
+            clip(part, 32) for part in current["path"][-4:]) + _work_reason(current))
     else:
         lines.append("  " + ("complete" if root else "no goal"))
     return chr(10).join(lines)
 
 
+# Waiting items get a clock and a short reason; blocked items a red badge, so
+# both stand out in a long breakdown.
+WORK_REASON_CHARS = 40
+WORK_WAIT_STYLE = "1;38;5;220"
+WORK_BLOCKED_STYLE = "1;97;41"
+WORK_BLOCKED_REASON_STYLE = "1;31"
+
+
+def _work_ansi():
+    return os.environ.get("CIEL_RUNTIME_STATUSLINE_ANSI", "1").lower() not in ("0", "false", "no")
+
+
+def _work_style(text, code):
+    return f"\x1b[{code}m{text}\x1b[0m" if _work_ansi() else text
+
+
 def _work_item_title(node):
     title = ("[ " + str(node["ref"]) + " ] " if node.get("ref") else "") + str(node.get("title", ""))
     title += " [urgent]" if node.get("urgent") else ""
-    title += " ◷ " + str(node["waiting_on"]) if node.get("waiting_on") else ""
-    return _work_status_clip(title, 180)
+    return _work_status_clip(title, 140) + _work_reason(node)
+
+
+def _work_reason(node):
+    # Sanitized and clipped before styling; a finished item no longer waits.
+    reason = _work_status_clip(node.get("waiting_on"), WORK_REASON_CHARS)
+    if not reason or node.get("status") == "done":
+        return ""
+    if node.get("status") == "blocked":
+        return " · " + _work_style(reason, WORK_BLOCKED_REASON_STYLE)
+    return " · " + _work_style("waiting: " + reason, WORK_WAIT_STYLE)
+
+
+def _work_attention_suffix(counts):
+    # Waiting/blocked items below the displayed depth.
+    counts = counts if isinstance(counts, dict) else {}
+    parts = []
+    if counts.get("waiting"):
+        parts.append(_work_style(f"◷{counts['waiting']}", WORK_WAIT_STYLE))
+    if counts.get("blocked"):
+        parts.append(_work_style(f"!{counts['blocked']}", WORK_BLOCKED_REASON_STYLE))
+    return " (" + " ".join(parts) + ")" if parts else ""
 
 
 def _work_done_mark():
@@ -810,8 +855,14 @@ def _work_done_mark():
 
 
 def _work_item_mark(node):
-    return _work_done_mark() if node.get("status") == "done" else {
-        "pending": "[ ]", "in_progress": "[~]", "blocked": "[!]"}.get(node.get("status"), "[?]")
+    status = node.get("status")
+    if status == "done":
+        return _work_done_mark()
+    if status == "blocked":
+        return _work_style("[!] BLOCKED", WORK_BLOCKED_STYLE)
+    if node.get("waiting_on"):
+        return _work_style("◷", WORK_WAIT_STYLE)
+    return {"pending": "[ ]", "in_progress": "[~]"}.get(status, "[?]")
 
 
 def _work_status_clip(value, limit):
