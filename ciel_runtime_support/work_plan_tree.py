@@ -336,7 +336,7 @@ def select_root(doc: dict[str, Any], root_id: str, *, user_requested: bool = Fal
         if _open_active_root(doc, by_id) is not None and not user_requested:
             nxt = continuation(doc)["next"]
             if nxt is None or nxt["root_id"] != root_id:
-                raise WorkPlanError("changing the active goal requires an explicit user request (user_requested=true)")
+                raise WorkPlanError(_select_refusal(doc, root_id))
         _activate(doc, root_id)
 
 
@@ -446,6 +446,32 @@ def continuation(doc: dict[str, Any]) -> dict[str, Any]:
     by_id = _index(doc)
     focus = doc.get("focus_ids", [])
     focus_leaves = _focus_leaves(doc) if focus else []
+    roots, available, waiting, blocked = _runnable_by_root(doc, by_id, focus_leaves)
+    chosen_index = next((i for i, rows in enumerate(available) if rows), None)
+    chosen = available[chosen_index] if chosen_index is not None else []
+    if focus:
+        chosen = sorted((n for group in available for n in group), key=lambda n: focus_leaves.index(n["id"]))
+    nxt = chosen[0] if chosen else None
+    target_root = _root_of(by_id, nxt["id"]) if nxt else None
+    active = by_id.get(doc.get("active_root"))
+    held = bool(active and active.get("urgent") and active["status"] != "done")
+    return {
+        "actionable": len(chosen),
+        "next": dict(_node_summary(nxt), path=path_titles(doc, nxt["id"]), root_id=target_root,
+                     phase=root_phase(doc, target_root)) if nxt else None,
+        "waiting": waiting[:MAX_WAITING_IN_CONTINUATION],
+        "blocked": blocked,
+        "held": (sum(1 for n in doc["nodes"] if n["parent_id"] is None and n["status"] != "done"
+                      and n["id"] not in {_root_of(by_id, f) for f in focus})
+                 if focus else len(queued_roots(doc)) if held else 0),
+    }
+
+
+def _runnable_by_root(doc: dict[str, Any], by_id: dict[str, dict[str, Any]], focus_leaves: list[str]
+                      ) -> tuple[list[dict[str, Any]], list[list[dict[str, Any]]], list[dict[str, Any]], int]:
+    """Unfinished roots in activation order with each one's runnable leaves (in-progress first)."""
+
+    focus = doc.get("focus_ids", [])
     active = by_id.get(doc.get("active_root"))
     held = bool(active and active.get("urgent") and active["status"] != "done")
     roots = ([active] if active and active["status"] != "done" else []) + queued_roots(doc)
@@ -477,22 +503,32 @@ def continuation(doc: dict[str, Any]) -> dict[str, Any]:
                 candidates.append(leaf)
         candidates.sort(key=lambda node: node["status"] != "in_progress")
         available.append(candidates)
-    chosen_index = next((i for i, rows in enumerate(available) if rows), None)
-    chosen = available[chosen_index] if chosen_index is not None else []
-    if focus:
-        chosen = sorted((n for group in available for n in group), key=lambda n: focus_leaves.index(n["id"]))
-    nxt = chosen[0] if chosen else None
-    target_root = _root_of(by_id, nxt["id"]) if nxt else None
-    return {
-        "actionable": len(chosen),
-        "next": dict(_node_summary(nxt), path=path_titles(doc, nxt["id"]), root_id=target_root,
-                     phase=root_phase(doc, target_root)) if nxt else None,
-        "waiting": waiting[:MAX_WAITING_IN_CONTINUATION],
-        "blocked": blocked,
-        "held": (sum(1 for n in doc["nodes"] if n["parent_id"] is None and n["status"] != "done"
-                      and n["id"] not in {_root_of(by_id, f) for f in focus})
-                 if focus else len(queued_roots(doc)) if held else 0),
-    }
+    return roots, available, waiting, blocked
+
+
+def _select_refusal(doc: dict[str, Any], root_id: str) -> str:
+    """Why an unrequested switch to root_id was refused, with the facts the guard used."""
+
+    by_id = _index(doc)
+    focus_leaves = _focus_leaves(doc) if doc.get("focus_ids") else []
+    roots, available, waiting, blocked = _runnable_by_root(doc, by_id, focus_leaves)
+    active = doc.get("active_root")
+    runnable = {root["id"]: rows for root, rows in zip(roots, available)}
+    nxt = continuation(doc)["next"]
+    if by_id[active].get("urgent"):
+        reason = f"the active goal {active} is urgent and holds every other goal"
+    elif nxt is None:
+        reason = "no goal has a runnable step"
+    elif nxt["root_id"] == active:
+        reason = f"the active goal {active} still has a runnable step ({nxt['id']})"
+    else:
+        reason = f"the first runnable step ({nxt['id']}) is in goal {nxt['root_id']}"
+    requested = ("is held" if by_id[active].get("urgent")
+                 else "has a runnable step" if runnable.get(root_id) else "has no runnable step")
+    return (f"changing the active goal requires an explicit user request (user_requested=true): "
+            f"without it only the goal holding the first runnable step can be selected, and {reason}; "
+            f"requested goal {root_id} {requested} [active {active} {root_phase(doc, active)}, "
+            f"waiting {len(waiting)}, blocked steps {blocked}, version {doc.get('version', 0)}]")
 
 
 def _node_summary(node: dict[str, Any]) -> dict[str, Any]:

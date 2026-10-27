@@ -225,6 +225,70 @@ class WorkPlanTreeTests(unittest.TestCase):
             t.select_root(self.doc, queued)
         self.assertEqual(self.doc, before)
 
+    def waiting_board(self):
+        """The .14 kobe v681 shape: the active goal waits at the root, its branches and leaves are
+        blocked with their own waits, one leaf is done; a blocked waiting goal precedes the target."""
+        active = t.set_plan(self.doc, {"title": "active", "waiting_on": "SDK approval", "children": [
+            {"title": "review", "children": [{"title": "contract"}, {"title": "read events"}]},
+            {"title": "design", "children": [{"title": "sync design"}, {"title": "plan"}]}]})
+        ids = {n["title"]: n["id"] for n in self.doc["nodes"]}
+        t.update_node(self.doc, ids["read events"], status="done", evidence="read")
+        for title in ("contract", "sync design", "plan"):
+            t.update_node(self.doc, ids[title], status="blocked", waiting_on="approval")
+        for title in ("review", "design"):
+            t.update_node(self.doc, ids[title], status="blocked", waiting_on="leaves")
+        first = t.set_plan(self.doc, {"title": "blocked queue", "waiting_on": "deploy approval",
+                                      "children": [{"title": "fix", "children": [{"title": "button"}]}]})
+        t.update_node(self.doc, first, status="blocked")
+        target = t.set_plan(self.doc, {"title": "target", "children": [
+            {"title": "deploy", "waiting_on": "source contract", "children": [{"title": "verify"}]},
+            {"title": "cache", "children": [{"title": "bind"}]}]})
+        later = t.set_plan(self.doc, {"title": "later", "children": [{"title": "watermark"}]})
+        self.assertEqual(self.doc["active_root"], active)
+        self.assertEqual(t.root_phase(self.doc, active), "planning")
+        return active, first, target, later, {n["title"]: n["id"] for n in self.doc["nodes"]}
+
+    def test_waiting_board_yields_to_target_with_runnable_step(self):
+        active, first, target, later, ids = self.waiting_board()
+        t.set_phase(self.doc, "executing", target)
+        nxt = t.continuation(self.doc)["next"]
+        self.assertEqual((nxt["root_id"], nxt["id"]), (target, ids["bind"]))
+        with self.assertRaisesRegex(t.WorkPlanError, f"first runnable step \\({ids['bind']}\\) is in goal {target}"):
+            t.select_root(self.doc, later)
+        t.select_root(self.doc, target)
+        self.assertEqual((self.doc["active_root"], self.doc["phase"]), (target, "executing"))
+        self.assertEqual([n["id"] for n in t.queued_roots(self.doc)], [active, first, later])
+
+    def test_waiting_board_refusal_names_the_first_runnable_goal(self):
+        active, first, target, later, ids = self.waiting_board()
+        t.update_node(self.doc, ids["bind"], status="blocked", waiting_on="cache owner")
+        before = copy.deepcopy(self.doc)
+        with self.assertRaises(t.WorkPlanError) as raised:
+            t.select_root(self.doc, target)
+        message = str(raised.exception)
+        self.assertIn("explicit user request (user_requested=true)", message)
+        self.assertIn(f"first runnable step ({ids['watermark']}) is in goal {later}", message)
+        self.assertIn(f"requested goal {target} has no runnable step", message)
+        self.assertIn(f"active {active} planning", message)
+        self.assertIn(f"version {self.doc['version']}", message)
+        self.assertEqual(self.doc, before)
+        t.select_root(self.doc, later)
+        self.assertEqual(self.doc["active_root"], later)
+
+    def test_refusal_reasons_for_runnable_active_and_no_runnable_goal(self):
+        root, _, one, two = self.plan()
+        queued = t.set_plan(self.doc, {"title": "queued", "children": [{"title": "q"}]})
+        with self.assertRaisesRegex(t.WorkPlanError, f"active goal {root} still has a runnable step \\({one}\\)"):
+            t.select_root(self.doc, queued)
+        queued_leaf = self.doc["nodes"][-1]["id"]
+        for leaf in (one, two, queued_leaf):
+            t.update_node(self.doc, leaf, waiting_on="review")
+        with self.assertRaisesRegex(t.WorkPlanError, "no goal has a runnable step; requested goal .* has no runnable"):
+            t.select_root(self.doc, queued)
+        self.doc["nodes"][0]["urgent"] = True
+        with self.assertRaisesRegex(t.WorkPlanError, f"active goal {root} is urgent.*requested goal {queued} is held"):
+            t.select_root(self.doc, queued)
+
     def test_legacy_document_migrates_only_active_approval(self):
         root, *_ = self.plan()
         queued = t.add_node(self.doc, None, "queue")

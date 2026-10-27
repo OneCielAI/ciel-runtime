@@ -1,0 +1,15 @@
+{"scenario":"concurrent-check","first":"allow","second":"allow"}
+{"scenario":"concurrent-call","first":"allow","second":"allow"}
+{"scenario":"turn-start-during-check","first":"allow"}
+{"scenario":"concurrent-planning","first":"deny: Work mode is planning: direct file edits wait until the plan is approved. Build it with work_plan_set, then call work_execute. (/work-mode help)","second":"deny: Work mode is planning: direct file edits wait until the plan is approved. Build it with work_plan_set, then call work_execute. (/work-mode help)"}
+{"scenario":"concurrent-mixed","first":"deny: Work status unavailable: router connection or snapshot could not be verified. [router-error: store unreadable]","second":"allow"}
+{"scenario":"execute-during-edit","first":"allow","second":"deny: Work mode is planning: direct file edits wait until the plan is approved. Build it with work_plan_set, then call work_execute. (/work-mode help)"}
+{"scenario":"planning","first":"deny: Work mode is planning: direct file edits wait until the plan is approved. Build it with work_plan_set, then call work_execute. (/work-mode help)"}
+{"scenario":"router-error","first":"deny: Work status unavailable: router connection or snapshot could not be verified. [router-error: boom]"}
+{"scenario":"router-throws","first":"deny: Work status unavailable: router connection or snapshot could not be verified. [router-call: no connected MCP tool]"}
+{"scenario":"invalid-snapshot","first":"deny: Work status unavailable: router connection or snapshot could not be verified. [snapshot-schema]"}
+{"scenario":"not-json","first":"deny: Work status unavailable: router connection or snapshot could not be verified. [snapshot-parse]"}
+{"scenario":"identity-change","first":"deny: Work status unavailable: router connection or snapshot could not be verified. [identity-changed]"}
+{"scenario":"disabled","first":"allow"}
+{"scenario":"stop-superseded","block":false}
+{"scenario":"stop-continues","block":true}

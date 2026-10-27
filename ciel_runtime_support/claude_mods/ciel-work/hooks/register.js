@@ -122,6 +122,28 @@ async function sessionId($) {
   if (typeof id !== 'string' || !/^[A-Za-z0-9_-]{1,200}$/.test(id)) throw new Error('Missing session identity')
   return 'claude:' + id
 }
+let gateSequence = 0
+let gateIdentity = null
+let gateVersion = -1
+function readFailure(stage) {
+  return Object.assign(new Error(stage), { stage })
+}
+// One verified snapshot of this conversation's board; failures name the step that failed.
+async function readSnapshot($, identity) {
+  let r
+  try { r = await $.mcp.call('ciel-runtime-router', 'work_status', { format: 'json', session_id: identity }) }
+  catch (error) { throw readFailure(/timed?\s*out|timeout/i.test(String(error?.message)) ? 'router-timeout' : 'router-call') }
+  if (!r || r.isError) throw readFailure('router-error')
+  let s
+  try { s = JSON.parse(textOf(r)) } catch { throw readFailure('snapshot-parse') }
+  if (s?.enabled !== false && (s?.enabled !== true
+    || !['planning', 'executing'].includes(s.phase) || !['auto', 'ask'].includes(s.approval)
+    || !Number.isInteger(s.version) || s.version < 0 || !Number.isInteger(s.done)
+    || !Number.isInteger(s.total) || s.done < 0 || s.total < s.done
+    || !(s.active_root === null || (typeof s.active_root?.id === 'string'
+      && typeof s.active_root.title === 'string')))) throw readFailure('snapshot-schema')
+  return s
+}
 async function refresh($) {
   const ticket = ++generation
   try {
@@ -134,21 +156,52 @@ async function refresh($) {
       await update($, panelView, () => null)
       if (ticket !== generation) return null
     }
-    const s = JSON.parse(textOf(await $.mcp.call('ciel-runtime-router', 'work_status', { format: 'json', session_id: identity })))
+    const s = await readSnapshot($, identity)
     const currentIdentity = await sessionId($)
     if (ticket !== generation || currentIdentity !== identity) return null
-    if (s?.enabled !== false && (s?.enabled !== true
-      || !['planning', 'executing'].includes(s.phase) || !['auto', 'ask'].includes(s.approval)
-      || !Number.isInteger(s.version) || s.version < 0 || !Number.isInteger(s.done)
-      || !Number.isInteger(s.total) || s.done < 0 || s.total < s.done
-      || !(s.active_root === null || (typeof s.active_root?.id === 'string'
-        && typeof s.active_root.title === 'string')))) throw new Error('Invalid snapshot')
     if (ticket === generation) { cached = s; enabled = s.enabled; $.ui.invalidate('ui.render') }
     return s
   } catch {
     if (ticket === generation) { cached = null; $.ui.invalidate('ui.render') }
     return null
   }
+}
+// Edit/Write and approval gates decide on their own verified read. Agents gate
+// concurrently, so a read started elsewhere (another agent's gate, a new turn)
+// must not turn this decision into "unavailable"; it does not bump the display
+// generation either. Only a failed read or a changed conversation denies.
+async function gateRead($) {
+  const correlation = 'wg-' + Date.now().toString(36) + '-' + (++gateSequence).toString(36)
+  const fail = stage => {
+    // Only generated identifiers and fixed stage codes: never log router text or tool input.
+    try { $.ui.log('Ciel Work gate ' + correlation + ': ' + stage) } catch {}
+    return { s: null, stage, correlation }
+  }
+  const lifecycle = starts
+  let identity
+  try { identity = await sessionId($) } catch { return fail('identity') }
+  if (gateIdentity !== identity) { gateIdentity = identity; gateVersion = -1 }
+  const ticket = generation
+  try {
+    const s = await readSnapshot($, identity)
+    let current = null
+    try { current = await sessionId($) } catch {}
+    if (lifecycle !== starts || current !== identity) return fail('identity-changed')
+    if (s.enabled !== false) {
+      if (s.version < gateVersion) return fail('snapshot-version')
+      gateVersion = s.version
+    }
+    if (ticket === generation && cachedSession === identity
+        && (!cached || s.enabled === false || cached.enabled === false || s.version >= cached.version)) {
+      cached = s; enabled = s.enabled; $.ui.invalidate('ui.render')
+    }
+    return { s, stage: '', correlation }
+  } catch (error) {
+    return fail(error?.stage || 'unknown')
+  }
+}
+function unavailable(read) {
+  return UNAVAILABLE + ' [' + read.stage + (read.correlation ? '; ' + read.correlation : '') + ']'
 }
 // Only the host-pinned plan attachment identifies the file; never infer it from
 // tool arguments, a tool result, reminder prose or a path under a plans folder.
@@ -168,9 +221,10 @@ async function nativePlanWrite($, tool, input, agentId) {
   const plan = planPathKey(nativePlanPaths.get(planKey(await sessionId($), agentId)))
   return plan !== null && planPathKey(input?.file_path) === plan
 }
-function blocked(s) {
+function blocked(read) {
+  const s = read.s
   if (s?.enabled === false || (!s && !enabled)) return ''
-  if (!s) return UNAVAILABLE
+  if (!s) return unavailable(read)
   return s.phase === 'planning' ? PLANNING : ''
 }
 // One toast per conversation and plan version: the deny text itself goes to the model.
@@ -521,10 +575,12 @@ export function register(on) {
     // Planning the work must not require the board's network permission.
     // Native host permissions still decide this exact plan-file operation.
     if (knownWrite && await nativePlanWrite($, e.tool, e, e.agentId)) return next(e)
-    let s = null
-    if (name || knownWrite) s = await refresh($)
+    let read = { s: null, stage: '' }
+    if (knownWrite || name === 'work_execute') read = await gateRead($)
+    else if (name) read.s = await refresh($)
+    const s = read.s
     if (knownWrite) {
-      const reason = blocked(s)
+      const reason = blocked(read)
       const exactNativePlan = await nativePlanWrite($, e.tool, e, e.agentId)
       if (reason && !exactNativePlan) {
         hintPlanning($, s, reason); return { deny: reason }
@@ -533,12 +589,12 @@ export function register(on) {
     let input = e
     if (name) {
       try { input = { ...e, session_id: await sessionId($) } }
-      catch { return { deny: UNAVAILABLE } }
+      catch { return { deny: unavailable({ stage: 'identity' }) } }
     }
     if (name === 'work_execute') {
       const { user_confirmed, ...clean } = input
       input = clean
-      if (!s && enabled) return { deny: UNAVAILABLE }
+      if (!s && enabled) return { deny: unavailable(read) }
       if (s?.enabled && s.approval === 'ask') {
         let answer
         const approvalSession = await sessionId($)
@@ -548,7 +604,7 @@ export function register(on) {
           answer = await $.ui.ask('Approve this Work plan?\n\n' + plan, ['Approve', 'Keep planning'])
         } catch { return { deny: 'Work approval was not obtained; keep planning.' } }
         if (answer !== 'Approve') return { deny: 'Work plan not approved; keep planning.' }
-        const current = await refresh($)
+        const current = (await gateRead($)).s
         if (await sessionId($) !== approvalSession || !current || !current.enabled || current.version !== s.version
             || current.phase !== s.phase || current.approval !== s.approval
             || current.active_root?.id !== s.active_root?.id) {
@@ -563,10 +619,10 @@ export function register(on) {
   on('tool.check', async ($, e, next) => {
     if (!WRITES.has(e.tool)) return next(e)
     if (await nativePlanWrite($, e.tool, e.input, e.agentId)) return next(e)
-    const s = await refresh($)
-    const reason = blocked(s)
+    const read = await gateRead($)
+    const reason = blocked(read)
     const planWrite = await nativePlanWrite($, e.tool, e.input, e.agentId)
-    if (reason && !planWrite) { hintPlanning($, s, reason); return { decision: 'deny', reason } }
+    if (reason && !planWrite) { hintPlanning($, read.s, reason); return { decision: 'deny', reason } }
     return next(e)
   })
   on('session.end', async ($, e, next) => {

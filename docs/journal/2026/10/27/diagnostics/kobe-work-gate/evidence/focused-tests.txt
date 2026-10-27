@@ -1,0 +1,2 @@
+FAILED tests/test_work_plan_store.py::WorkPlanStoreTests::test_read_snapshot_observes_whole_atomic_documents_during_writes
+1 failed, 219 passed, 174 subtests passed in 39.63s
