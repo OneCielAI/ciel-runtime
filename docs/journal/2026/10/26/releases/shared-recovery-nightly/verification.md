@@ -7,7 +7,7 @@ timestamp: 2026-10-27T05:55:00Z
 ---
 # Status
 
-Published, installed into a fresh local snapshot, verified with 8 installed native proofs, and switched locally. Live routers and native sessions were not restarted or modified. Managed hosts (.14, 10.0.0.238) were not touched.
+Published, installed into a fresh local snapshot, verified with 9 installed native proofs, and switched locally. Live routers and native sessions were not restarted or modified. Managed hosts (.14, 10.0.0.238) were not touched.
 
 # Publication
 
@@ -37,6 +37,7 @@ All run by [scripts/run-installed.py](evidence/scripts/run-installed.py) against
 | Codex durable recovery | 3/3: typed 504 retry then replied, native start ACK loss no replay, native start crash no replay | [installed-codex](evidence/installed-codex), [native-status.jsonl](evidence/native-status.jsonl) |
 | SendMessage CielAiRouter | `/v1/messages`: tool advertised, background child received marker, child ACK reached parent | [run](evidence/installed-sendmessage/run-installed-cielairouter-default-004851/result.json) |
 | SendMessage vLLM | `/v1/chat/completions`: same three checks pass | [run](evidence/installed-sendmessage/run-installed-vllm-default-004859/result.json) |
+| Walkie id reuse after crash | crash-shaped queue/status seed: new notification issued as id 5 (not reissued 2–4), injected and replied | [run](../../diagnostics/walkie-durable-replied/evidence/e2e/run-installed-eec7d69-005347/result.json), `02-after-notifications.png`, [log](evidence/installed-walkie-reuse.txt) |
 
 # Local switch
 

@@ -1,0 +1,142 @@
+{
+  "label": "installed-eec7d69",
+  "runtime_root": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-eec7d694af216308e2a95d4103535f43c5546f09",
+  "scratch": "C:\\Windows\\Temp\\ciel-owned-walkie-2cj62578",
+  "stripped_env_names": [
+    "OLLAMA_CONTEXT_LENGTH",
+    "OLLAMA_FLASH_ATTENTION",
+    "OLLAMA_HOST",
+    "OLLAMA_KV_CACHE_TYPE",
+    "OLLAMA_MODELS",
+    "OLLAMA_NUM_PARALLEL",
+    "OLLAMA_SCHED_SPREAD"
+  ],
+  "claude_version": "2.1.310 (Claude Code)",
+  "command": [
+    "C:\\Program Files\\Python311\\python.exe",
+    "-I",
+    "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\diagnostics\\walkie-durable-replied\\evidence\\e2e\\launch_shim.py",
+    "--",
+    "cli",
+    "--ca-runtime",
+    "claude",
+    "--ca-no-update-check",
+    "--ca-no-self-update-check",
+    "--ca-no-web-search",
+    "--",
+    "--permission-mode",
+    "default",
+    "--tools",
+    "",
+    "--debug-file",
+    "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\diagnostics\\walkie-durable-replied\\evidence\\e2e\\run-installed-eec7d69-005347\\native-debug.log"
+  ],
+  "ports": {
+    "router": 64272,
+    "fixture": 64273
+  },
+  "seed_sha256": {
+    "runtime-inputs.jsonl": "2474696b98d8ae054b9827dcc5cf88b8c99480f40ea6879912975b6fc8c43266",
+    "runtime-input-status.jsonl": "8fb7461bc0f0838016e1731db7a684260f82ba09bbc80fbb618fb6f54cc24e03",
+    "channel-llm-cursor.json": "275c3ad71f932bed9c3a5d2b84b52a8b053ead039abf56da40eafbe94cfc57ef"
+  },
+  "events": [
+    {
+      "at": 1793080429.764,
+      "kind": "launched",
+      "pid": 10380,
+      "watcher": 83484
+    },
+    {
+      "at": 1793080439.404,
+      "kind": "wait_pass",
+      "label": "owned router health"
+    },
+    {
+      "at": 1793080440.233,
+      "kind": "wait_pass",
+      "label": "native launch"
+    },
+    {
+      "at": 1793080440.262,
+      "kind": "wait_pass",
+      "label": "native process present"
+    },
+    {
+      "at": 1793080452.664,
+      "kind": "wait_pass",
+      "label": "watcher typed baseline"
+    },
+    {
+      "at": 1793080454.266,
+      "kind": "wait_pass",
+      "label": "baseline reached loopback"
+    },
+    {
+      "at": 1793080454.273,
+      "kind": "wait_pass",
+      "label": "baseline rendered"
+    },
+    {
+      "at": 1793080457.877,
+      "kind": "wait_pass",
+      "label": "screenshot 01-baseline"
+    },
+    {
+      "at": 1793080457.886,
+      "kind": "notify",
+      "marker": "WALKIE-NOTE-ONE",
+      "request_id": 5,
+      "error": null
+    },
+    {
+      "at": 1793080458.306,
+      "kind": "wait_pass",
+      "label": "injector decision for 5"
+    },
+    {
+      "at": 1793080458.307,
+      "kind": "decision",
+      "marker": "WALKIE-NOTE-ONE",
+      "request_id": 5,
+      "outcome": "injected"
+    },
+    {
+      "at": 1793080460.71,
+      "kind": "wait_pass",
+      "label": "WALKIE-NOTE-ONE reached loopback"
+    },
+    {
+      "at": 1793080461.512,
+      "kind": "wait_pass",
+      "label": "5 replied"
+    },
+    {
+      "at": 1793080467.123,
+      "kind": "wait_pass",
+      "label": "screenshot 02-after-notifications"
+    }
+  ],
+  "live_before": {
+    "9505": {
+      "pid": null,
+      "version": null,
+      "source_fingerprint": null,
+      "error": "URLError: <urlopen error [WinError 10061] No connection could be made because the target machine actively refused it>"
+    },
+    "9524": {
+      "pid": 25276,
+      "version": "0.2.51",
+      "source_fingerprint": "f86ee3638ee760f3",
+      "error": null
+    }
+  },
+  "notifications": [
+    {
+      "marker": "WALKIE-NOTE-ONE",
+      "request_id": 5,
+      "outcome": "injected",
+      "line": "2026-10-27T00:54:18 [INFO] channel_stdin_proxy_injected count=1 message_ids=5 channels=owned-e2e enter=crlf transport=session_socket commit_cursor=False display_body=False"
+    }
+  ]
+}
