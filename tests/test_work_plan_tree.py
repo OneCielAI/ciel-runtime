@@ -214,6 +214,95 @@ class WorkPlanTreeTests(unittest.TestCase):
         self.assertEqual(index[phase]["status"], "done")
         self.assertEqual(index[root]["status"], "done")
 
+    def test_update_semantic_noop_preserves_entire_document(self):
+        root, _, one, _ = self.plan()
+        self.doc["phase"] = "executing"
+        t.update_node(self.doc, one, status="done", evidence="verified", now=20)
+        for node_id in (root, one):
+            item = next(n for n in self.doc["nodes"] if n["id"] == node_id)
+            before = copy.deepcopy(self.doc)
+            result = t.update_node(self.doc, node_id, status=item["status"],
+                title=" " + item["title"] + " ", note="", evidence=item["evidence"],
+                waiting_on=" \n\t ", ref="", now=100)
+            self.assertEqual(self.doc, before)
+            self.assertIs(result, item)
+            t.update_node(self.doc, node_id, now=200)
+            self.assertEqual(self.doc, before)
+
+    def test_invalid_combined_update_does_not_mutate_node(self):
+        _, _, one, _ = self.plan()
+        before = copy.deepcopy(self.doc)
+        with self.assertRaises(t.WorkPlanError):
+            t.update_node(self.doc, one, status="in_progress", title=" ", now=100)
+        self.assertEqual(self.doc, before)
+
+    def test_reorder_siblings_at_every_nonroot_depth_preserves_nodes(self):
+        for depth in range(1, t.MAX_DEPTH + 1):
+            with self.subTest(depth=depth):
+                doc = t.empty_document()
+                parent = t.add_node(doc, None, "goal", now=1)
+                for level in range(1, depth):
+                    parent = t.add_node(doc, parent, str(level), now=1)
+                siblings = [t.add_node(doc, parent, title, now=1) for title in ("one", "two", "three")]
+                if depth < t.MAX_DEPTH:
+                    t.add_node(doc, siblings[1], "descendant", now=2)
+                other = t.add_node(doc, None, "other", now=1)
+                t.add_node(doc, other, "unrelated", now=1)
+                doc["phase"] = "executing"
+                before = copy.deepcopy(doc)
+                index = {n["id"]: copy.deepcopy(n) for n in doc["nodes"]}
+                t.reorder_node(doc, siblings[2], 1)
+                self.assertEqual([n["id"] for n in doc["nodes"] if n["parent_id"] == parent],
+                                 [siblings[2], siblings[0], siblings[1]])
+                self.assertEqual({n["id"]: n for n in doc["nodes"]}, index)
+                self.assertEqual({k: v for k, v in doc.items() if k != "nodes"},
+                                 {k: v for k, v in before.items() if k != "nodes"})
+                after = copy.deepcopy(doc)
+                t.reorder_node(doc, siblings[2], 1, user_requested=True)
+                self.assertEqual(doc, after)
+                self.assertEqual(t.normalize_document(doc), doc)
+
+    def test_reorder_child_includes_finished_siblings_and_rejects_bad_inputs(self):
+        _, phase, one, two = self.plan()
+        t.update_node(self.doc, two, status="done", evidence="verified", now=20)
+        t.reorder_node(self.doc, two, 1)
+        self.assertEqual([n["id"] for n in self.doc["nodes"] if n["parent_id"] == phase], [two, one])
+        before = copy.deepcopy(self.doc)
+        for position in (None, 0, -1, 3, True, False, 1.0, "1"):
+            with self.subTest(position=position), self.assertRaises(t.WorkPlanError):
+                t.reorder_node(self.doc, one, position)
+            self.assertEqual(self.doc, before)
+        with self.assertRaises(t.WorkPlanError):
+            t.reorder_node(self.doc, "missing", 1)
+        self.assertEqual(self.doc, before)
+
+    def test_reorder_node_root_delegates_guards_and_keeps_current_slot_noop(self):
+        root, *_ = self.plan()
+        second = t.add_node(self.doc, None, "second", now=10)
+        third = t.add_node(self.doc, None, "third", now=10)
+        t.select_root(self.doc, third)
+        self.doc["phase"] = "executing"
+        before = copy.deepcopy(self.doc)
+        # The active root is logically first even when its storage slot is last.
+        t.reorder_node(self.doc, third, 1)
+        self.assertEqual(self.doc, before)
+        t.reorder_node(self.doc, root, 2)
+        self.assertEqual(self.doc, before)
+        with self.assertRaisesRegex(t.WorkPlanError, "explicit user request"):
+            t.reorder_node(self.doc, second, 1)
+        self.assertEqual(self.doc, before)
+        t.reorder_node(self.doc, second, 1, user_requested=True)
+        self.assertEqual((self.doc["active_root"], self.doc["phase"]), (second, "planning"))
+        self.assertEqual([n["id"] for n in t.queued_roots(self.doc)], [third, root])
+
+    def test_root_reorder_from_finished_active_is_not_noop(self):
+        finished = t.add_node(self.doc, None, "finished", now=1)
+        t.update_node(self.doc, finished, status="done", evidence="verified", now=2)
+        unfinished = t.add_node(self.doc, None, "unfinished", now=3)
+        t.select_root(self.doc, finished)
+        t.reorder_node(self.doc, unfinished, 1, user_requested=True)
+        self.assertEqual(self.doc["active_root"], unfinished)
+
     def test_falsey_non_list_children_rejected(self):
         for children in ({}, "", 0, False):
             with self.subTest(children=children), self.assertRaises(t.WorkPlanError):

@@ -279,7 +279,7 @@ def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bo
         return _after(doc, f"Removed {removed} node(s).")
     if name == "work_select":
         root_id = str(args.get("root_id") or "")
-        doc, _ = store.transaction(lambda d: tree.select_root(d, root_id))
+        doc, _ = store.transaction(lambda d: tree.select_root(d, root_id), expected_version=expected)
         return _after(doc, f"Goal {root_id} is active; Work is in the planning phase.")
     if name == "work_reorder":
         doc, _ = store.transaction(lambda d: tree.reorder_root(
@@ -295,7 +295,7 @@ def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bo
     if name == "work_execute":
         return _execute(store, approval_ask, args.get("user_confirmed") is True, expected_version=expected)
     if name == "work_replan":
-        doc, _ = store.transaction(lambda d: d.__setitem__("phase", tree.PHASE_PLANNING))
+        doc, _ = store.transaction(lambda d: d.__setitem__("phase", tree.PHASE_PLANNING), expected_version=expected)
         return _after(doc, "Work returned to the planning phase.")
     raise tree.WorkPlanError(f"unknown Work tool {name}")
 

@@ -1,0 +1,144 @@
+{
+ "enabled": true,
+ "phase": "planning",
+ "approval": "auto",
+ "version": 2,
+ "active_root": {
+  "id": "n1",
+  "title": "1. Work API proof",
+  "status": "pending",
+  "ref": "",
+  "waiting_on": "",
+  "urgent": false
+ },
+ "continuation": {
+  "actionable": 1,
+  "next": {
+   "id": "n3",
+   "title": "HTTP-EDIT-REFRESHED",
+   "status": "pending",
+   "ref": "",
+   "waiting_on": "",
+   "urgent": false,
+   "path": [
+    "1. Work API proof",
+    "API phase",
+    "HTTP-EDIT-REFRESHED"
+   ]
+  },
+  "waiting": [],
+  "blocked": 0,
+  "held": 0
+ },
+ "done": 0,
+ "total": 1,
+ "next": {
+  "id": "n3",
+  "title": "HTTP-EDIT-REFRESHED",
+  "status": "pending",
+  "path": [
+   "1. Work API proof",
+   "API phase",
+   "HTTP-EDIT-REFRESHED"
+  ]
+ },
+ "breakdown": [
+  {
+   "id": "n2",
+   "title": "API phase",
+   "status": "pending",
+   "ref": "",
+   "waiting_on": "",
+   "urgent": false,
+   "done": 0,
+   "total": 1,
+   "children": [
+    {
+     "id": "n3",
+     "title": "HTTP-EDIT-REFRESHED",
+     "status": "pending",
+     "ref": "",
+     "waiting_on": "",
+     "urgent": false
+    }
+   ],
+   "more": 0
+  }
+ ],
+ "ready": true,
+ "ready_reason": "ready",
+ "goals": 1,
+ "queue": [],
+ "ok": true,
+ "schema_version": 1,
+ "session_id": "claude:cc6564e3-503a-4d05-b339-1abbdd0c488e",
+ "updated_at": 1793059760.5939713,
+ "nodes": [
+  {
+   "id": "n1",
+   "parent_id": null,
+   "title": "1. Work API proof",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793059658.7118084
+  },
+  {
+   "id": "n2",
+   "parent_id": "n1",
+   "title": "API phase",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793059658.7118084
+  },
+  {
+   "id": "n3",
+   "parent_id": "n2",
+   "title": "HTTP-EDIT-REFRESHED",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793059760.5939713
+  }
+ ],
+ "active_root_id": "n1",
+ "root_ids": [
+  "n1"
+ ],
+ "queue_ids": [],
+ "auto_continue": false,
+ "runtime": {
+  "ciel_runtime": {
+   "version": "0.2.51",
+   "source_fingerprint": "feb0fd9a54865568",
+   "instance_id": "56958-08eefa60ca3a"
+  },
+  "session_id": "claude:cc6564e3-503a-4d05-b339-1abbdd0c488e",
+  "runtime": "claude",
+  "configured": {
+   "provider": "cielairouter",
+   "model": "fake-work",
+   "alias": "ciel-runtime-cielairouter-fake-work",
+   "source": "configuration"
+  },
+  "epoch": null,
+  "in_flight": [],
+  "last_observed": null,
+  "last_error": null,
+  "observation_status": "unavailable",
+  "errors": []
+ },
+ "events": "/ca/work/events",
+ "changed": true,
+ "operation": "update"
+}

@@ -7,8 +7,11 @@ import threading
 import time
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 from ciel_runtime_support import work_plan_tree as t
-from ciel_runtime_support.work_plan_store import WorkPlanConflict, WorkPlanStore, session_work_plan_store
+from ciel_runtime_support.work_plan_store import (
+    WorkPlanConflict, WorkPlanStore, session_work_plan_store, subscribe_work_plan_changes,
+)
 
 
 class WorkPlanStoreTests(unittest.TestCase):
@@ -123,6 +126,142 @@ except WorkPlanConflict:
             self.assertEqual(process.returncode, 0, stderr)
         self.assertEqual(sorted(out.strip() for out, _ in outputs), ["conflict", "conflict", "won"])
         self.assertEqual(self.store.read()["version"], 1)
+
+    def test_expected_version_is_strict(self):
+        for value in (True, False, 1.0, "1"):
+            with self.subTest(value=value), self.assertRaises(t.WorkPlanError):
+                self.store.transaction(lambda d: None, expected_version=value)
+
+    def test_read_snapshot_is_read_only_and_corrupt_fails_without_quarantine(self):
+        path = self.path
+        original = b"{broken JSON"
+        path.parent.mkdir(parents=True)
+        path.write_bytes(original)
+        with patch("ciel_runtime_support.work_plan_store.exclusive_file_lock") as lock:
+            with self.assertRaises(t.WorkPlanError):
+                self.store.read_snapshot()
+            lock.assert_not_called()
+        self.assertEqual(path.read_bytes(), original)
+        self.assertEqual(list(path.parent.iterdir()), [path])
+
+    def test_read_snapshot_missing_creates_nothing(self):
+        self.assertEqual(self.store.read_snapshot(), t.empty_document())
+        self.assertFalse(self.path.parent.exists())
+
+    def test_commit_observers_are_shared_noop_safe_and_errors_are_isolated(self):
+        events = []
+        unsubscribe = subscribe_work_plan_changes(lambda path, before, after: events.append(
+            (path, before["version"], after["version"])))
+        self.addCleanup(unsubscribe)
+        callback_error = subscribe_work_plan_changes(lambda *_: (_ for _ in ()).throw(RuntimeError("ignored")))
+        self.addCleanup(callback_error)
+        other = WorkPlanStore(self.path)
+        other.transaction(lambda d: t.add_node(d, None, "goal"))
+        other.transaction(lambda d: "noop")
+        self.assertEqual([(p, old, new) for p, old, new in events], [(other.path, 0, 1)])
+        unsubscribe()
+        other.transaction(lambda d: t.add_node(d, None, "second"))
+        self.assertEqual(len(events), 1)
+
+    def test_read_snapshot_is_detached_bounded_and_rejects_invalid_encodings(self):
+        saved, _ = self.store.transaction(lambda d: t.add_node(d, None, "snapshot"))
+        first = self.store.read_snapshot()
+        first["nodes"][0]["title"] = "detached"
+        self.assertEqual(self.store.read_snapshot(), saved)
+        with patch("ciel_runtime_support.work_plan_store.MAX_WORK_PLAN_BYTES", 8):
+            with self.assertRaisesRegex(t.WorkPlanError, "size limit"):
+                self.store.read_snapshot()
+        self.path.write_bytes(b"\xff")
+        with self.assertRaisesRegex(t.WorkPlanError, "invalid Work plan snapshot"):
+            self.store.read_snapshot()
+        self.assertEqual(self.path.read_bytes(), b"\xff")
+        self.assertEqual(list(self.path.parent.glob("*.corrupt-*")), [])
+
+    def test_read_snapshot_observes_whole_atomic_documents_during_writes(self):
+        self.store.transaction(lambda d: t.add_node(d, None, "0"))
+        writer = WorkPlanStore(self.path)
+        def write():
+            for i in range(1, 21):
+                writer.transaction(lambda d: t.update_node(d, "n1", title=str(i)))
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(write)
+            snapshots = [self.store.read_snapshot() for _ in range(100)]
+            future.result(timeout=15)
+        for doc in snapshots:
+            self.assertEqual(doc["version"], int(doc["nodes"][0]["title"]) + 1)
+        self.assertEqual(self.store.read_snapshot()["version"], 21)
+
+    def test_update_and_reorder_semantic_noops_preserve_file_bytes_and_timestamps(self):
+        def plan(doc):
+            t.set_plan(doc, {"title": "first", "children": [{"title": "one"}, {"title": "two"}]}, now=1)
+            t.add_node(doc, None, "second", now=1)
+            root = t.add_node(doc, None, "third", now=1)
+            t.select_root(doc, root)
+        saved, _ = self.store.transaction(plan)
+        contents = self.path.read_bytes()
+        for mutate in (lambda d: t.update_node(d, "n2", title=" one ", ref=" \n ", now=100),
+                       lambda d: t.reorder_node(d, "n2", 1),
+                       lambda d: t.reorder_node(d, "n5", 1)):
+            doc, _ = self.store.transaction(mutate, expected_version=saved["version"])
+            self.assertEqual(doc, saved)
+            self.assertEqual(self.path.read_bytes(), contents)
+
+    def test_observers_run_after_replace_outside_all_locks_with_detached_documents(self):
+        events = []
+        callbacks = []
+        def observe(path, before, after):
+            # A separate thread must acquire both store and file locks while this
+            # callback waits. Reentrant acquisition in this thread is insufficient.
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                persisted = pool.submit(self.store.read).result(timeout=5)
+            self.assertEqual(persisted, after)
+            events.append((path, before, after))
+            after["nodes"][0]["title"] = "observer mutation"
+            callbacks.append(subscribe_work_plan_changes(lambda *_: None))
+        unsubscribe = subscribe_work_plan_changes(observe)
+        self.addCleanup(unsubscribe)
+        # Observer exceptions are intentionally swallowed by production; retain
+        # exceptions here so assertion failures are not hidden from the test.
+        errors = []
+        unsubscribe()
+        def checked(*args):
+            try:
+                observe(*args)
+            except Exception as error:
+                errors.append(error)
+        unsubscribe = subscribe_work_plan_changes(checked)
+        self.addCleanup(unsubscribe)
+        untouched = []
+        unsubscribe_other = subscribe_work_plan_changes(lambda _, __, after: untouched.append(after))
+        self.addCleanup(unsubscribe_other)
+        doc, result = self.store.transaction(lambda d: t.add_node(d, None, "committed"))
+        for remove in callbacks:
+            remove()
+        self.assertEqual(errors, [])
+        self.assertEqual(len(events), 1)
+        self.assertEqual((events[0][0], events[0][1]["version"]), (self.store.path, 0))
+        self.assertEqual(doc["nodes"][0]["title"], "committed")
+        self.assertEqual(untouched[0]["nodes"][0]["title"], "committed")
+        self.assertEqual(result, "n1")
+        self.assertEqual(self.store.read_snapshot(), doc)
+
+    def test_failed_and_noop_transactions_never_emit_commit_events(self):
+        self.store.transaction(lambda d: t.add_node(d, None, "original"))
+        events = []
+        unsubscribe = subscribe_work_plan_changes(lambda *event: events.append(event))
+        self.addCleanup(unsubscribe)
+        before = self.path.read_bytes()
+        self.store.transaction(lambda d: t.update_node(d, "n1", title="original"))
+        with self.assertRaises(WorkPlanConflict):
+            self.store.transaction(lambda d: t.add_node(d, None, "stale"), expected_version=0)
+        with self.assertRaises(t.WorkPlanError):
+            self.store.transaction(lambda d: t.update_node(d, "missing", title="missing"))
+        with patch("ciel_runtime_support.work_plan_store.os.replace", side_effect=OSError("write failed")):
+            with self.assertRaises(OSError):
+                self.store.transaction(lambda d: t.update_node(d, "n1", title="not committed"))
+        self.assertEqual(events, [])
+        self.assertEqual(self.path.read_bytes(), before)
+        self.assertEqual(list(self.path.parent.glob("*.tmp")), [])
 
     def test_corruption_read_fails_closed(self):
         self.path.parent.mkdir(parents=True)

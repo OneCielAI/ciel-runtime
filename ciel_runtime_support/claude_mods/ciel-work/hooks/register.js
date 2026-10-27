@@ -35,6 +35,58 @@ let noticed = 0
 let continuationVersion = null
 let unchangedContinuations = 0
 const RETRY_MS = [250, 500, 1000, 2000, 4000, 8000]
+const IDLE_REFRESH_MS = [1000, 2000, 4000, 8000, 16000, 30000]
+const nativePlanPaths = new Map()
+let idleRefresh = null
+let idleReadPending = false
+let interactive = false
+let working = false
+function planKey(identity, agentId) {
+  return identity + ':' + (typeof agentId === 'string' ? agentId : '')
+}
+function clearNativePlanPaths(identity = null) {
+  if (identity === null) nativePlanPaths.clear()
+  else for (const key of nativePlanPaths.keys()) if (key.startsWith(identity + ':')) nativePlanPaths.delete(key)
+}
+function stopIdleRefresh() {
+  if (idleRefresh) idleRefresh.active = false
+  if (idleRefresh?.timer) {
+    try { idleRefresh.timer.cancel() } catch {}
+  }
+  idleRefresh = null
+}
+function scheduleIdleRefresh($, poll, attempt = poll.attempt) {
+  if (idleRefresh !== poll || !poll.active || poll.running || poll.timer || idleReadPending) return
+  const delay = IDLE_REFRESH_MS[Math.min(attempt, IDLE_REFRESH_MS.length - 1)]
+  try {
+    poll.timer = $.clock.after(delay, async () => {
+      poll.timer = null
+      if (idleRefresh !== poll || !poll.active || poll.running) return
+      poll.running = true; idleReadPending = true
+      const before = cached?.version
+      try {
+        if (await sessionId($) !== poll.identity) { stopIdleRefresh(); return }
+        const s = await refresh($)
+        if (idleRefresh !== poll || !poll.active) return
+        if (s?.enabled === false) { stopIdleRefresh(); return }
+        if (cachedSession !== poll.identity || await sessionId($) !== poll.identity) { stopIdleRefresh(); return }
+        poll.attempt = s && s.version !== before ? 0 : Math.min(poll.attempt + 1, IDLE_REFRESH_MS.length - 1)
+      } catch {
+        poll.attempt = Math.min(poll.attempt + 1, IDLE_REFRESH_MS.length - 1)
+      } finally {
+        poll.running = false; idleReadPending = false
+        if (idleRefresh?.active) scheduleIdleRefresh($, idleRefresh, idleRefresh.attempt)
+      }
+    })
+  } catch {}
+}
+function startIdleRefresh($, identity) {
+  if (!interactive || working || !identity || !enabled || (idleRefresh?.identity === identity && idleRefresh.active)) return
+  stopIdleRefresh()
+  const poll = { identity, active: true, running: false, timer: null, attempt: 0 }
+  idleRefresh = poll
+  scheduleIdleRefresh($, poll)
+}
 const INSTRUCTIONS = 'Ciel Work mode is on. Before edits or state-changing commands, use '
   + 'work_plan_set: goal -> phases -> tasks -> concrete verifiable steps. Triage every new user '
   + 'request first: an independent request becomes its own goal (root-level item), its title starting '
@@ -67,11 +119,16 @@ async function refresh($) {
   const ticket = ++generation
   try {
     const identity = await sessionId($)
+    if (ticket !== generation) return null
     if (cachedSession !== identity) {
+      if (cachedSession) clearNativePlanPaths(cachedSession)
       cached = null; cachedSession = identity; continuationVersion = null; unchangedContinuations = 0
       await update($, detailView, () => null)
+      if (ticket !== generation) return null
     }
     const s = JSON.parse(textOf(await $.mcp.call('ciel-runtime-router', 'work_status', { format: 'json', session_id: identity })))
+    const currentIdentity = await sessionId($)
+    if (ticket !== generation || currentIdentity !== identity) return null
     if (s?.enabled !== false && (s?.enabled !== true
       || !['planning', 'executing'].includes(s.phase) || !['auto', 'ask'].includes(s.approval)
       || !Number.isInteger(s.version) || s.version < 0 || !Number.isInteger(s.done)
@@ -84,6 +141,24 @@ async function refresh($) {
     if (ticket === generation) { cached = null; $.ui.invalidate('ui.render') }
     return null
   }
+}
+// Only the host-pinned plan attachment identifies the file; never infer it from
+// tool arguments, a tool result, reminder prose or a path under a plans folder.
+function planPathKey(path) {
+  if (typeof path !== 'string') return null
+  // Native Windows facts use backslashes; model tool paths may use slashes.
+  // Do not broaden this to a directory exception or resolve relative paths.
+  if (/^[A-Za-z]:/.test(path) && (path[2] === '/' || path.charCodeAt(2) === 92)) {
+    const normalized = path.replaceAll(String.fromCharCode(92), '/')
+    if (normalized.split('/').some(part => part === '.' || part === '..')) return null
+    return normalized.toLowerCase()
+  }
+  return path.startsWith('/') ? path : null
+}
+async function nativePlanWrite($, tool, input, agentId) {
+  if (tool !== 'Edit' && tool !== 'Write') return false
+  const plan = planPathKey(nativePlanPaths.get(planKey(await sessionId($), agentId)))
+  return plan !== null && planPathKey(input?.file_path) === plan
 }
 function blocked(s) {
   if (s?.enabled === false || (!s && !enabled)) return ''
@@ -194,7 +269,7 @@ function retryStart($, ticket, attempt = 0) {
       const s = cached || await refresh($)
       if (ticket !== starts) return
       if (!s) retryStart($, ticket, attempt + 1)
-      else if (s.enabled) notice($, ticket)
+      else if (s.enabled) { notice($, ticket); startIdleRefresh($, cachedSession) }
     })
   } catch {}
 }
@@ -203,10 +278,30 @@ export function register(on) {
     await $.command.register({ name: 'work-mode', description: 'Work mode: summary, help, keyboard inspector, tree or raw status',
       argumentHint: '[help|view|tree|status]', immediate: true })
     const ticket = ++starts
+    stopIdleRefresh(); clearNativePlanPaths(); interactive = e.isInteractive
     const s = await refresh($)
-    if (e.isInteractive && s?.enabled) notice($, ticket)
+    if (e.isInteractive && s?.enabled) { notice($, ticket); startIdleRefresh($, cachedSession) }
     else if (e.isInteractive && !s) retryStart($, ticket)
     return next(e)
+  })
+  on('prompt.attachment', { type: ['plan_mode', 'plan_mode_exit'] }, async ($, e, next) => {
+    if (next.origin.plugin === 'engine' && e.origin.kind === 'engine') {
+      const identity = await sessionId($)
+      const key = planKey(identity, e.agentId)
+      const path = e.detail?.planFilePath
+      if (e.type === 'plan_mode' && typeof path === 'string' && path.length > 0) nativePlanPaths.set(key, path)
+      else nativePlanPaths.delete(key)
+    }
+    return next(e)
+  })
+  on('turn.start', async ($, e, next) => {
+    if (e.agentId === undefined) { working = true; stopIdleRefresh(); generation++ }
+    return next(e)
+  })
+  on('turn.complete', async ($, e, next) => {
+    const result = await next(e)
+    if (e.agentId === undefined) { working = false; if (interactive) startIdleRefresh($, await sessionId($)) }
+    return result
   })
   on('classic.Stop', async ($, e, next) => {
     const result = await next(e)
@@ -261,10 +356,19 @@ export function register(on) {
     const work = e.tool.startsWith(PREFIX) ? e.tool.slice(PREFIX.length) : ''
     const name = WORK.has(work) ? work : null
     const knownWrite = WRITES.has(e.tool)
+    // Planning the work must not require the board's network permission.
+    // Native host permissions still decide this exact plan-file operation.
+    if (knownWrite && await nativePlanWrite($, e.tool, e, e.agentId)) return next(e)
     let s = null
     if (name || knownWrite || SHELLS.has(e.tool)) s = await refresh($)
     if (SHELLS.has(e.tool) && !s && enabled) return { deny: UNAVAILABLE }
-    if (knownWrite) { const reason = blocked(s); if (reason) { hintPlanning($, s, reason); return { deny: reason } } }
+    if (knownWrite) {
+      const reason = blocked(s)
+      const exactNativePlan = await nativePlanWrite($, e.tool, e, e.agentId)
+      if (reason && !exactNativePlan) {
+        hintPlanning($, s, reason); return { deny: reason }
+      }
+    }
     let input = e
     if (name) {
       try { input = { ...e, session_id: await sessionId($) } }
@@ -297,12 +401,15 @@ export function register(on) {
   // Classification comes from the engine. Permission bypass may skip tool.check.
   on('tool.check', async ($, e, next) => {
     if (!SHELLS.has(e.tool) && !WRITES.has(e.tool)) return next(e)
+    if (await nativePlanWrite($, e.tool, e.input, e.agentId)) return next(e)
     const s = await refresh($)
     const reason = blocked(s)
-    if (reason && (WRITES.has(e.tool) || e.isReadOnly !== true)) { hintPlanning($, s, reason); return { decision: 'deny', reason } }
+    const planWrite = await nativePlanWrite($, e.tool, e.input, e.agentId)
+    if (reason && !planWrite && (WRITES.has(e.tool) || e.isReadOnly !== true)) { hintPlanning($, s, reason); return { decision: 'deny', reason } }
     return next(e)
   })
   on('session.end', async ($, e, next) => {
+    stopIdleRefresh(); interactive = false; working = false; clearNativePlanPaths(); starts++
     generation++; cached = null; cachedSession = null; hinted = ''; continuationVersion = null; unchangedContinuations = 0
     await update($, detailView, () => null)
     return next(e)

@@ -207,6 +207,7 @@ def update_node(doc: dict[str, Any], node_id: str, *, status: Any = None, title:
     if node_id not in by_id:
         raise WorkPlanError(f"unknown node {node_id}")
     node = by_id[node_id]
+    candidate = dict(node)
     if status is not None:
         if status not in STATUSES:
             raise WorkPlanError(f"status must be one of {', '.join(STATUSES)}")
@@ -218,20 +219,23 @@ def update_node(doc: dict[str, Any], node_id: str, *, status: Any = None, title:
             evidence if evidence is not None else node.get("evidence"), MAX_TEXT_CHARS
         ):
             raise WorkPlanError("a completed leaf needs verification evidence")
-        node["status"] = status
+        candidate["status"] = status
     if title is not None:
         clean = _clip(title, MAX_TITLE_CHARS)
         if not clean:
             raise WorkPlanError("node title must not be empty")
-        node["title"] = clean
+        candidate["title"] = clean
     if note is not None:
-        node["note"] = _clip(note, MAX_TEXT_CHARS)
+        candidate["note"] = _clip(note, MAX_TEXT_CHARS)
     if evidence is not None:
-        node["evidence"] = _clip(evidence, MAX_TEXT_CHARS)
+        candidate["evidence"] = _clip(evidence, MAX_TEXT_CHARS)
     if waiting_on is not None:
-        node["waiting_on"] = _line(waiting_on, MAX_WAIT_CHARS)
+        candidate["waiting_on"] = _line(waiting_on, MAX_WAIT_CHARS)
     if ref is not None:
-        node["ref"] = _line(ref, MAX_REF_CHARS)
+        candidate["ref"] = _line(ref, MAX_REF_CHARS)
+    if candidate == node:
+        return node
+    node.update(candidate)
     node["updated_at"] = stamp
     if node["parent_id"] is not None:
         if status == "done":
@@ -282,6 +286,7 @@ def reorder_root(doc: dict[str, Any], root_id: str, position: int, *, user_reque
     roots = [node for node in doc["nodes"] if node["parent_id"] is None and node["status"] != "done"]
     active = doc.get("active_root")
     roots.sort(key=lambda node: node["id"] != active)
+    previous = list(roots)
     selected = next((node for node in roots if node["id"] == root_id), None)
     if selected is None:
         raise WorkPlanError(f"{root_id} is not an unfinished goal")
@@ -291,12 +296,41 @@ def reorder_root(doc: dict[str, Any], root_id: str, position: int, *, user_reque
     roots.insert(position - 1, selected)
     if roots[0]["id"] != active and not user_requested:
         raise WorkPlanError("moving the active goal requires an explicit user request (user_requested=true)")
+    if roots == previous and roots[0]["id"] == active:
+        return
     ordered = iter(roots)
     doc["nodes"] = [next(ordered) if node["parent_id"] is None and node["status"] != "done" else node
                     for node in doc["nodes"]]
     if roots[0]["id"] != active:
         doc["active_root"] = roots[0]["id"]
         doc["phase"] = PHASE_PLANNING
+
+
+def reorder_node(doc: dict[str, Any], node_id: str, position: int, *, user_requested: bool = False) -> None:
+    """Move a node within its siblings (1-based), never changing parentage.
+
+    Root ordering retains ``reorder_root``'s unfinished-goal and active-slot
+    guards. Non-root ordering includes finished siblings and leaves all node
+    data, descendants, timestamps and execution state unchanged.
+    """
+
+    by_id = _index(doc)
+    node_id = str(node_id)
+    if node_id not in by_id:
+        raise WorkPlanError(f"unknown node {node_id}")
+    selected = by_id[node_id]
+    parent_id = selected["parent_id"]
+    if parent_id is None:
+        return reorder_root(doc, node_id, position, user_requested=user_requested)
+    siblings = _children(doc, parent_id)
+    if isinstance(position, bool) or not isinstance(position, int) or not 1 <= position <= len(siblings):
+        raise WorkPlanError(f"position must be between 1 and {len(siblings)}")
+    if siblings[position - 1]["id"] == node_id:
+        return
+    siblings.remove(selected)
+    siblings.insert(position - 1, selected)
+    ordered = iter(siblings)
+    doc["nodes"] = [next(ordered) if node["parent_id"] == parent_id else node for node in doc["nodes"]]
 
 
 def add_urgent(doc: dict[str, Any], spec: Any, *, user_requested: bool = False) -> str:

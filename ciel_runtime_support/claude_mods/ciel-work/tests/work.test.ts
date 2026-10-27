@@ -3,16 +3,26 @@ const T = 'mcp__ciel-runtime-router__'
 function setup(on, extra = {}) {
   const s = { snapshot: { enabled: true, phase: 'planning', approval: 'auto', version: 1,
     active_root: { id: 'g1', title: 'Goal' }, done: 0, total: 2, ...extra },
-    sessionId: 'session-a', calls: [], tools: [], registered: null, offline: false, answer: 'Approve', change: false, rendered: null, failText: false }
+    sessionId: 'session-a', calls: [], tools: [], registered: null, offline: false, answer: 'Approve', change: false, rendered: null, failText: false,
+    waitStatus: null, activeReads: 0, maxReads: 0 }
   on('session.id', () => ({ value: s.sessionId }))
-  on('mcp.call', ($, e) => {
+  on('mcp.call', async ($, e) => {
     s.calls.push(e)
-    if (s.offline || (s.failText && e.args.format === 'text')) return { deny: 'offline' }
-    return { value: { isError: false, content: [{ type: 'text', text: e.args.format === 'json'
-      ? JSON.stringify(s.snapshot) : 'Goal -> phase -> task' }] } }
+    s.activeReads++; s.maxReads = Math.max(s.maxReads, s.activeReads)
+    const snapshot = JSON.stringify(s.snapshot)
+    try {
+      if (s.waitStatus) await s.waitStatus()
+      if (s.offline || (s.failText && e.args.format === 'text')) return { deny: 'offline' }
+      return { value: { isError: false, content: [{ type: 'text', text: e.args.format === 'json'
+        ? snapshot : 'Goal -> phase -> task' }] } }
+    } finally { s.activeReads-- }
   })
   on('command.register', ($, e) => { s.registered = e; return { value: { command: e.name } } })
   on('session.start', () => ({ cwd: '/isolated' }))
+  on('session.end', () => ({ sessionId: s.sessionId }))
+  on('turn.start', (_, e) => ({ turnId: e.turnId }))
+  on('turn.complete', (_, e) => ({ text: e.answer }))
+  on('prompt.attachment', (_, e) => ({ text: e.text }))
   on('prompt.submit', ($, e) => ({ text: e.text, context: e.context }))
   on('tool.check', () => ({ decision: 'allow' }))
   on('ui.render', ($, e) => { s.rendered = e; return { type: 'Text', props: {}, children: e.props.modes } })
@@ -49,6 +59,73 @@ test('planning denies all known writes including subagents; live phase refresh',
   expect((await $.tool.call({ tool: 'Write', file_path: '/x', content: 'x' })).deny).toBeUndefined()
   s.snapshot.phase = 'planning'
   expect((await $.tool.call({ tool: 'Edit', file_path: '/x' })).deny).toContain('planning')
+})
+const NATIVE_PLAN = { type: 'plan_mode', text: 'Native planning instructions', origin: { kind: 'engine' },
+  detail: { reminder: 'full', planFilePath: 'C:\\Users\\person\\.claude\\plans\\exact-plan.md', hasPlan: false } } as const
+async function planAttachment($, extra = {}) {
+  return $.prompt.attachment({ ...NATIVE_PLAN, ...extra })
+}
+test('only exact engine plan attachments exempt Edit and Write in the same native loop', async ($, on) => {
+  const state = setup(on)
+  const path = NATIVE_PLAN.detail.planFilePath
+  await planAttachment($)
+  const before = state.calls.length
+  expect((await $.tool.call({ tool: 'Write', file_path: path, content: 'plan' })).deny).toBeUndefined()
+  expect(state.calls.length).toBe(before)
+  for (const tool of ['Edit', 'Write']) {
+    expect((await $.tool.call({ tool, file_path: path, content: 'plan' })).deny).toBeUndefined()
+    expect((await $.tool.check({ tool, input: { file_path: path } })).decision).toBe('allow')
+    expect((await $.tool.call({ tool, file_path: path + '.other' })).deny).toContain('planning')
+    expect((await $.tool.call({ tool, file_path: 'C:\\repo\\main.py' })).deny).toContain('planning')
+    expect((await $.tool.call({ tool, file_path: path, agentId: 'child' })).deny).toContain('planning')
+  }
+  expect((await $.tool.call({ tool: 'NotebookEdit', notebook_path: path })).deny).toContain('planning')
+  expect((await $.tool.call({ tool: 'apply_patch', patch: path })).deny).toContain('planning')
+  expect((await $.tool.check({ tool: 'Bash', input: { command: 'write ' + path } })).decision).toBe('deny')
+  await planAttachment($, { agentId: 'child', detail: { ...NATIVE_PLAN.detail, planFilePath: '/child-plan' } })
+  expect((await $.tool.call({ tool: 'Write', file_path: '/child-plan', agentId: 'child' })).deny).toBeUndefined()
+  expect((await $.tool.call({ tool: 'Write', file_path: '/child-plan' })).deny).toContain('planning')
+})
+test('native Windows plan facts accept slash spelling without widening the path', async ($, on) => {
+  setup(on)
+  const path = 'C:' + String.fromCharCode(92) + 'Plans' + String.fromCharCode(92) + 'Exact.md'
+  await planAttachment($, { detail: { ...NATIVE_PLAN.detail, planFilePath: path } })
+  expect((await $.tool.call({ tool: 'Write', file_path: 'c:/plans/exact.md' })).deny).toBeUndefined()
+  expect((await $.tool.call({ tool: 'Write', file_path: 'c:/plans/../plans/exact.md' })).deny).toContain('planning')
+  expect((await $.tool.call({ tool: 'Write', file_path: 'c:/plans/other.md' })).deny).toContain('planning')
+})
+test('no guessed paths, prose, plugin context or EnterPlanMode result can identify a plan file', async ($, on) => {
+  setup(on)
+  const path = NATIVE_PLAN.detail.planFilePath
+  for (const extra of [{ detail: undefined, text: 'Write the plan to ' + path },
+    { origin: { kind: 'hook', event: 'SessionStart' } }, { origin: { kind: 'plugin', event: 'prompt.submit' } }]) {
+    await planAttachment($, extra)
+    expect((await $.tool.call({ tool: 'Write', file_path: path })).deny).toContain('planning')
+  }
+  await $.tool.call({ tool: 'EnterPlanMode', planFilePath: path })
+  expect((await $.tool.call({ tool: 'Write', file_path: path })).deny).toContain('planning')
+})
+test('native plan exemption clears on exit, missing facts and session changes; offline permits only that file', async ($, on) => {
+  const s = setup(on)
+  const path = NATIVE_PLAN.detail.planFilePath
+  await planAttachment($)
+  await $.prompt.attachment({ type: 'plan_mode_exit', text: 'Exit', origin: { kind: 'engine' },
+    detail: { planFilePath: path, hasPlan: true } })
+  expect((await $.tool.call({ tool: 'Write', file_path: path })).deny).toContain('planning')
+  await planAttachment($)
+  await planAttachment($, { detail: undefined })
+  expect((await $.tool.call({ tool: 'Write', file_path: path })).deny).toContain('planning')
+  await planAttachment($)
+  s.offline = true
+  expect((await $.tool.call({ tool: 'Write', file_path: path })).deny).toBeUndefined()
+  expect((await $.tool.call({ tool: 'Write', file_path: path + '.other' })).deny).toContain('unavailable')
+  s.offline = false; s.sessionId = 'other'
+  expect((await $.tool.call({ tool: 'Write', file_path: path })).deny).toContain('planning')
+  s.sessionId = 'session-a'
+  expect((await $.tool.call({ tool: 'Write', file_path: path })).deny).toContain('planning')
+  await planAttachment($)
+  await $.session.end({ reason: 'clear' })
+  expect((await $.tool.call({ tool: 'Write', file_path: path })).deny).toContain('planning')
 })
 test('shells use engine read-only flag and disabled state clears guards', async ($, on) => {
   const s = setup(on)
@@ -318,7 +395,7 @@ test('a router still connecting at start is read again; band and notice follow o
   expect(await band.find({ type: 'Text', text: /no plan yet|Work planning/ })).toBeDefined()
   const reads = s.calls.length
   await clock.advance(20000)
-  expect(s.calls.length).toBe(reads)
+  expect(s.calls.length > reads).toBe(true)
   expect(s.logs.length).toBe(1)
   await band.unmount()
 })
@@ -345,6 +422,119 @@ test('start retries stop after a bounded window, on a new session start and when
   s.offline = false; s.snapshot.enabled = false
   await clock.advance(16000)
   expect(s.logs.length).toBe(1)
+})
+const TURN_DONE = { turnId: 'turn-1', answer: 'done', durationMs: 1, isAborted: false, reason: 'answer' } as const
+test('idle refresh reflects out-of-band edits, backs off and never starts a model turn', async ($, on) => {
+  const s = hints(on); const clock = mock.clock(on)
+  await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
+  const band = await $.ui.mount(BAND)
+  s.snapshot.active_root.title = 'Updated over HTTP'; s.snapshot.version++
+  await clock.advance(1000)
+  expect((await band.find({ type: 'Text', text: /Updated over HTTP/ }))?.text).toContain('Updated over HTTP')
+  const reads = s.calls.length
+  await clock.advance(31000)
+  expect(s.calls.length - reads).toBe(5)
+  await clock.advance(29999)
+  expect(s.calls.length - reads).toBe(5)
+  await clock.advance(1)
+  expect(s.calls.length - reads).toBe(6)
+  expect(s.tools.length).toBe(0)
+  expect(s.calls.every(c => c.tool === 'work_status' && c.args.session_id === 'claude:session-a')).toBe(true)
+  expect(s.logs.length).toBe(1)
+  await band.unmount()
+})
+test('idle refresh pauses in a main turn but not a child turn, and stops at end or disabled', async ($, on) => {
+  const s = hints(on); const clock = mock.clock(on)
+  await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
+  await $.turn.start({ turnId: 'child-turn', text: 'child', agentId: 'child' })
+  await clock.advance(1000)
+  expect(s.calls.length).toBe(2)
+  await $.turn.start({ turnId: 'turn-1', text: 'run' })
+  const busy = s.calls.length
+  await clock.advance(120000)
+  expect(s.calls.length).toBe(busy)
+  await $.turn.complete({ ...TURN_DONE, agentId: 'child' })
+  await clock.advance(1000)
+  expect(s.calls.length).toBe(busy)
+  await $.turn.complete(TURN_DONE)
+  await clock.advance(1000)
+  expect(s.calls.length).toBe(busy + 1)
+  s.snapshot.enabled = false
+  await clock.advance(2000)
+  const disabled = s.calls.length
+  await clock.advance(120000)
+  expect(s.calls.length).toBe(disabled)
+  s.snapshot.enabled = true
+  await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
+  await $.session.end({ reason: 'clear' })
+  const ended = s.calls.length
+  await clock.advance(120000)
+  expect(s.calls.length).toBe(ended)
+})
+test('idle refresh never overlaps a slow poll and discards its late response after end', async ($, on) => {
+  const s = hints(on); const clock = mock.clock(on)
+  await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
+  let release
+  s.waitStatus = () => new Promise(resolve => { release = resolve })
+  await clock.advance(1000)
+  expect(s.activeReads).toBe(1)
+  const reads = s.calls.length
+  await clock.advance(120000)
+  expect(s.calls.length).toBe(reads)
+  expect(s.maxReads).toBe(1)
+  await $.session.end({ reason: 'clear' })
+  s.waitStatus = null; release()
+  await clock.settle()
+  const band = await $.ui.mount(BAND)
+  expect(await band.find({ type: 'Text', text: /Work unavailable/ })).toBeDefined()
+  await clock.advance(120000)
+  expect(s.calls.length).toBe(reads)
+  await band.unmount()
+})
+test('late old-session poll cannot overwrite new-session state or spawn another timer', async ($, on) => {
+  const s = hints(on); const clock = mock.clock(on)
+  await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
+  let release
+  s.waitStatus = () => new Promise(resolve => { release = resolve })
+  await clock.advance(1000)
+  s.waitStatus = null; s.sessionId = 'session-b'; s.snapshot.version = 2; s.snapshot.active_root.title = 'Session B'
+  await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
+  release(); await clock.settle()
+  const band = await $.ui.mount(BAND)
+  expect(await band.find({ type: 'Text', text: /Session B/ })).toBeDefined()
+  const reads = s.calls.length
+  await clock.advance(1000)
+  expect(s.calls.length).toBe(reads + 1)
+  expect(s.calls.at(-1).args.session_id).toBe('claude:session-b')
+  await band.unmount()
+})
+test('offline idle refresh backs off and recovers without a prompt; startup retries stop at end', async ($, on) => {
+  const s = hints(on); const clock = mock.clock(on)
+  await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
+  const band = await $.ui.mount(BAND)
+  s.offline = true
+  await clock.advance(31000)
+  expect(s.calls.length).toBe(6)
+  expect(await band.find({ type: 'Text', text: /Work unavailable/ })).toBeDefined()
+  s.offline = false; s.snapshot.active_root.title = 'Recovered'; s.snapshot.version++
+  await clock.advance(30000)
+  expect(await band.find({ type: 'Text', text: /Recovered/ })).toBeDefined()
+  await $.session.end({ reason: 'clear' })
+  s.offline = true
+  await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
+  await $.session.end({ reason: 'clear' })
+  const ended = s.calls.length
+  await clock.advance(120000)
+  expect(s.calls.length).toBe(ended)
+  await band.unmount()
+})
+test('silent identity changes stop the idle poll before any cross-session router read', async ($, on) => {
+  const s = hints(on); const clock = mock.clock(on)
+  await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
+  s.sessionId = 'session-b'
+  const reads = s.calls.length
+  await clock.advance(120000)
+  expect(s.calls.length).toBe(reads)
 })
 test('planning denial explains itself and toasts once per plan version', async ($, on) => {
   const s = hints(on)

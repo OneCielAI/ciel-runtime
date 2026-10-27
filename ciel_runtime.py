@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import getpass
 import json
 import os
@@ -218,6 +219,8 @@ from ciel_runtime_support.openai_responses_stream import write_openai_responses 
 from ciel_runtime_support.openai_responses_stream import write_openai_responses_error as project_openai_responses_error
 from ciel_runtime_support.output_budget import OpenAIContextBudgetPolicy, OutputBudgetPolicy
 from ciel_runtime_support.plan_artifact_controller import PlanArtifactController, PlanArtifactServices
+from ciel_runtime_support.work_http_controller import WorkHttpController, WorkHttpServices
+from ciel_runtime_support.work_runtime_observer import WorkRuntimeObserver
 from ciel_runtime_support.prelaunch_launch_preference import preferred_provider_launch_action
 from ciel_runtime_support.prelaunch_panel_context import AuthPanelPorts, ConfigurationPanelContextPorts, MainMenuPanelPorts, ModelPanelCatalogPorts, ModelPanelPresentationPorts, PrelaunchPanelCompatibilityApi, PrelaunchPanelContext, ProviderChoicePanelPorts, WebBackendPanelPorts
 from ciel_runtime_support.prelaunch_panel_projection import ProviderPanelConstants
@@ -1778,7 +1781,13 @@ def handle_usage_post(handler: BaseHTTPRequestHandler, path: str, body: dict[str
 def handle_observability_get(handler: BaseHTTPRequestHandler, path: str, query: dict[str, list[str]]) -> bool: return _USAGE_HTTP_ADAPTER.handle_get(handler, path, query) or handle_events_get(handler, path, query)
 def tui_observation_http_adapter() -> TuiObservationHttpAdapter: return TuiObservationHttpAdapter(TuiObservationHttpPorts(TUI_OBSERVATION_BUS, write_json, write_text_response, router_log, delivery_health=lambda: runtime_input_delivery_health(_RUNTIME_INPUT_STATUS_REPOSITORY)))
 def handle_tui_observation_get(handler: BaseHTTPRequestHandler, path: str, query: dict[str, list[str]]) -> bool: return tui_observation_http_adapter().handle_get(handler, path, query)
-def observe_tui_runtime_response(handler: BaseHTTPRequestHandler, path: str, provider: str, model: str, body: dict[str, Any]) -> Any: return observe_runtime_response(handler, path, provider, model, body, TUI_OBSERVATION_BUS)
+_WORK_RUNTIME_OBSERVER = WorkRuntimeObserver()
+
+@contextlib.contextmanager
+def observe_tui_runtime_response(handler: BaseHTTPRequestHandler, path: str, provider: str, model: str, body: dict[str, Any]) -> Any:
+    with _WORK_RUNTIME_OBSERVER.observe(handler, path, provider, model, body, _RUNTIME_COMPACTION):
+        with observe_runtime_response(handler, path, provider, model, body, TUI_OBSERVATION_BUS):
+            yield
 _safe_segment = ChatFileRepository.safe_segment
 chat_file_max_bytes = ChatFileRepository.configured_max_bytes
 def chat_file_repository() -> ChatFileRepository: return ChatFileRepository(CHAT_FILES_DIR, ROUTER_BASE, ChatFilePorts(timestamp=time.time, timestamp_ns=time.time_ns, max_bytes=lambda: configured_workspace_request_limits().chat_attachment_max_bytes))
@@ -2146,8 +2155,55 @@ def chat_http_controller() -> ChatHttpController:
 def handle_chat_get(handler: BaseHTTPRequestHandler, path: str) -> bool: return chat_http_controller().get(handler, path)
 def handle_chat_post(handler: BaseHTTPRequestHandler, path: str, body: dict[str, Any]) -> bool: return chat_http_controller().post(handler, path, body)
 def plan_artifact_controller() -> PlanArtifactController: return PlanArtifactController(PlanArtifactServices(PLAN_ARTIFACTS_DIR, ROUTER_BASE, _safe_segment, write_json, write_text_response, append_chat_message))
-def handle_plan_get(handler: BaseHTTPRequestHandler, path: str) -> bool: return plan_artifact_controller().get(handler, path)
-def handle_plan_post(handler: BaseHTTPRequestHandler, path: str, body: dict[str, Any]) -> bool: return plan_artifact_controller().post(handler, path, body)
+def _work_current_identity() -> str | None:
+    # Do not call scope(): resolving identity can mutate launch metadata on GET.
+    try:
+        value = json.loads((ROUTER_INSTANCE_DIR / "compaction-scope.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(value, dict) or not value.get("session_id"):
+        return None
+    return str(value.get("runtime") or "") + ":" + str(value["session_id"])
+
+
+def _work_runtime_status(identity: str | None) -> dict[str, Any]:
+    cfg = load_config()
+    provider, pcfg = get_current_provider(cfg)
+    try:
+        scope = json.loads((ROUTER_INSTANCE_DIR / "compaction-scope.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        scope = None
+    if not isinstance(scope, dict) or str(scope.get("runtime")) + ":" + str(scope.get("session_id")) != identity:
+        scope = None
+    observations = _WORK_RUNTIME_OBSERVER.snapshot(scope)
+    return {"ciel_runtime": {"version": VERSION, "source_fingerprint": SOURCE_FINGERPRINT,
+                             "instance_id": ROUTER_INSTANCE_ID},
+            "session_id": identity, "runtime": identity.split(":", 1)[0] if identity else None,
+            "configured": {"provider": provider, "model": str(pcfg.get("current_model") or "") or None,
+                           "alias": current_alias(cfg), "source": "configuration"},
+            "epoch": scope.get("epoch") if scope else None, **observations}
+
+
+def _work_recent_errors(identity: str) -> list[dict[str, Any]]:
+    # The event bus is the router's already-redacted, request-correlated source.
+    observed = _work_runtime_status(identity).get("last_error")
+    if observed:
+        return [observed]
+    # Legacy bus events lack exact launch-epoch correlation; never borrow them.
+    return []
+
+
+_WORK_HTTP = WorkHttpController(WorkHttpServices(
+    WORKSPACE_STATE_DIR, load_config, _work_current_identity, _work_runtime_status, write_json,
+    ROUTER_INSTANCE_ID, _work_recent_errors))
+
+
+def handle_plan_get(handler: BaseHTTPRequestHandler, path: str) -> bool:
+    return _WORK_HTTP.get(handler, path) or plan_artifact_controller().get(handler, path)
+
+
+def handle_plan_post(handler: BaseHTTPRequestHandler, path: str, body: dict[str, Any]) -> bool:
+    return _WORK_HTTP.post(handler, path, body) or plan_artifact_controller().post(handler, path, body)
 
 COMPACT_TEXT_ONLY_SYSTEM_PROMPT = (
     "The coding client is compacting the conversation. Return only the requested summary text. "
