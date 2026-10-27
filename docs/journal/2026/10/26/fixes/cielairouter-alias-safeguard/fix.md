@@ -37,3 +37,10 @@ Threshold, gates and dispatch are unchanged: strictly above 90% of the configure
 - Emily's overflow was a single step from 87.98% to 102.75% in one response. A ninety-percent trigger cannot fire on a step that skips the 90-100% range; the next request would still overflow. Whether that step came from the alias switching to another upstream model is not determined.
 - The names are kept per launch epoch. After a relaunch, the first response of the new launch records them again before the safeguard can use them.
 - Running sessions keep the code they started with until they are relaunched.
+
+# Published and installed
+
+- Source fix f9c3eea is an ancestor of published 0555b6c, verified with `git merge-base --is-ancestor`.
+- The earlier installed 5054af2 native run reached `compact_dispatched_once` with source `model-compact-safeguard`, preserved live routers, and sampled zero owned foreground hits out of 1058 samples. See `evidence/e2e/run-installed-5054af2-180641/result.json` and its after-compact screenshot.
+- Current local exact nightly is `0.2.51-nightly.20261027-031627.0555b6c`. Its CI/publish/snapshot/shim proof is recorded in `docs/journal/2026/10/26/releases/edward-ara-nightly/verification.md`.
+- Screenshot #13 compaction timeout/retry is a separate ongoing diagnostic; it is not claimed fixed by this alias usage change.
