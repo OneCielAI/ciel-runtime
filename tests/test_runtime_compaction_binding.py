@@ -188,7 +188,7 @@ class ObservationTests(BindingHarness):
         request = self.requests.read()
         self.binding.observe_request("other", {}, {"tokens": 16000}, "claude")
         self.assertEqual(request["id"], self.requests.read()["id"])
-        self.assertEqual("context_recovery", self.binding.context_pause_reason({}))
+        self.assertEqual("compaction_checkpoint_pending", self.binding.context_pause_reason({}))
         self.assertEqual("native_compaction", self.binding.context_pause_reason({"native": "claude"}))
 
     def test_remote_bridge_and_other_runtime_are_bypassed(self):
@@ -218,7 +218,7 @@ class ObservationTests(BindingHarness):
         self.checkpoint()
         # Persisted checkpoint alone must not release external SSE as a probe.
         self.assertTrue(self.binding.external_admission_paused())
-        self.assertEqual("context_recovery", self.binding.context_pause_reason({}))
+        self.assertEqual("compaction_shrink_pending", self.binding.context_pause_reason({}))
         self.assertEqual("awaiting_shrink", self.state()["phase"])
         self.binding.observe_request("other", {}, {"tokens": 900}, "claude")
         self.assertEqual("verified", self.state()["phase"])

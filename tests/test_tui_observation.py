@@ -253,7 +253,8 @@ class TuiObservationRouterIntegrationTests(unittest.TestCase):
         # never admission_blocked. Only an unreadable history is unknown.
         expectations = {
             "clean": ("not_blocked", False, "", 2, "complete", None),
-            "corrupt": ("not_blocked", False, "history_observation_partial", 3, "partial", 3),
+            # Recovered history-only id 3 is diagnostic, not retained queue work.
+            "corrupt": ("not_blocked", False, "history_observation_partial", 2, "partial", 3),
             "unreadable": ("unknown", None, "delivery_observation_unavailable", 0, "unknown", None),
         }
         for case, expected in expectations.items():
