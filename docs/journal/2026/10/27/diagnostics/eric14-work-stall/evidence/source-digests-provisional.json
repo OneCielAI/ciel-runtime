@@ -1,0 +1,7 @@
+{
+  "ciel_runtime_support/work_plan_tree.py": "3e7691aa59b00beabae5ac86575bad6188d118de51c5ced8e0f967d278442ec8",
+  "ciel_runtime_support/work_mcp_tools.py": "552fe171ecf20af93931d2153ffa131a69874664811c2d83a654790ebc945bbf",
+  "ciel_runtime_support/work_mode_launch.py": "e494ed448482c08a49b7b7a8ec7832882a7a6c1a24551ebfeda8434b9f9527fb",
+  "ciel_runtime_support/claude_mods/ciel-work/hooks/register.js": "0aeaa48435c4d5a44b77a33a54d0f62cfef3c681dafe331d180a4145a9a0174e",
+  "ciel_runtime_support/claude_mods/ciel-work/types/index.d.ts": "f60deff68cb6cd00ba952cd86303f4f7c91f54cb7717f28dd1f5b6cb1a8d301d"
+}

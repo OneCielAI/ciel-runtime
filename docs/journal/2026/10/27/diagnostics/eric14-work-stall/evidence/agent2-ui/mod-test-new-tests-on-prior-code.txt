@@ -1,0 +1,94 @@
+
+tests\work.test.ts:
+(pass) immediate command, router tree, bounded prompt context [79.31ms]
+(pass) planning denies all known writes including subagents; live phase refresh [59.47ms]
+(pass) only exact engine plan attachments exempt Edit and Write in the same native loop [69.05ms]
+(pass) native Windows plan facts accept slash spelling without widening the path [36.81ms]
+(pass) no guessed paths, prose, plugin context or EnterPlanMode result can identify a plan file [45.67ms]
+(pass) native plan exemption clears on exit, missing facts and session changes; offline permits only that file [70.41ms]
+(pass) shells delegate to native policy and disabled state clears edit guards [45.18ms]
+(pass) Bash never depends on Work status or rewrites native permission results [114.88ms]
+(pass) PowerShell never depends on Work status or rewrites native permission results [85.92ms]
+(pass) unavailable and malformed status fail closed but reads pass [48.08ms]
+(pass) auto strips forged confirmation and refreshes after result [41.80ms]
+(pass) ask: Approve [40.21ms]
+(pass) ask: Keep planning [41.25ms]
+(pass) ask: Other [33.20ms]
+(pass) approval rejects changed plan [31.00ms]
+(pass) SessionMode planning, progress, off and unavailable are read-only renders [47.77ms]
+(pass) offline shells delegate but execute and missing approval tree still fail closed [35.82ms]
+(pass) every Work result refreshes; another server is not treated as Work [59.57ms]
+(pass) conversation changes isolate every router read and override forged tool session ids [42.66ms]
+(pass) approval rejects a conversation switch even when plan counters match [37.24ms]
+(pass) normal Stop continues, unchanged plan is bounded, progress and user input reset it [34.49ms]
+(pass) Stop guard {"enabled":false} [28.86ms]
+(pass) Stop guard {"auto_continue":false} [27.38ms]
+(pass) Stop guard {"continuation":{"actionable":0}} [26.59ms]
+(pass) Stop guard {"phase":"planning","approval":"ask","ready":true} [25.97ms]
+(pass) Stop excludes background tasks, child threads, other conversations and offline [40.04ms]
+(pass) a stop with unfinished but unrunnable Work explains why, once per state, without continuing [46.86ms]
+(pass) a runnable item is still pushed after an explained stall, with the same no-progress bound [35.56ms]
+(pass) approval, background tasks and an unreadable status explain the stop; finished or off Work stays silent [31.55ms]
+(pass) a Stop read superseded by a newer successful read is not reported as unavailable [38.23ms]
+(pass) auto planning continues decomposition but never crosses an approval boundary [24.43ms]
+(fail) three levels display linked ids, waits, urgent holds and green done checks [45.27ms]
+  AssertionError: expect(received).toMatch()
+  
+  Expected: /^  \[ \] Release/
+  Received: "[ ] Release ◷ CI publish"
+(pass) root move buttons pin version, identity and explicit user request [60.18ms]
+(pass) compact footer and vertical branch buttons [50.44ms]
+(fail) branch press opens read-only details with notes and evidence, nested node and parent [39.31ms]
+  AssertionError: expect(received).toMatch()
+  
+  Expected: /^  Verify expiry/
+  Received: "Verify expiry"
+(pass) detail state is hidden after version or conversation changes and offline [61.23ms]
+(pass) interactive start logs one person-facing notice; -p and off do not [43.49ms]
+(pass) a router still connecting at start is read again; band and notice follow once it answers [86.72ms]
+(pass) start retries stop after a bounded window, on a new session start and when Work is off [47.85ms]
+(pass) idle refresh reflects out-of-band edits, backs off and never starts a model turn [90.92ms]
+(pass) idle refresh pauses in a main turn but not a child turn, and stops at end or disabled [48.94ms]
+(pass) idle refresh never overlaps a slow poll and discards its late response after end [52.08ms]
+(pass) late old-session poll cannot overwrite new-session state or spawn another timer [60.53ms]
+(pass) offline idle refresh backs off and recovers without a prompt; startup retries stop at end [66.12ms]
+(pass) silent identity changes stop the idle poll before any cross-session router read [34.47ms]
+(pass) planning denial explains itself and toasts once per plan version [29.56ms]
+(pass) help, readable bare command and raw status [39.87ms]
+(pass) band shows a hint while no plan exists and the phase once one does [35.97ms]
+(fail) triage guidance reaches the model; queue tab is read-only and summary keeps root order [45.15ms]
+  AssertionError: expect(received).toContain()
+  
+  Expected: containing "2. Queued 0 0/2"
+  Received: "Queued: [ ] 2. Queued 0"
+(pass) survey yields, disabled hides, long branch list retains every item [41.42ms]
+(pass) hybrid prompt keeps bounded valid active summary without queued title note or subtree [38.56ms]
+(pass) ask approval reads exact active goal only and never overrides native edit denial [28.43ms]
+(pass) Stop moves on to the runnable queued goal when every active step waits [30.14ms]
+(pass) Stop keeps the active goal when its own step is next [28.92ms]
+(pass) queued planning target cannot inherit active approval during continuation [33.26ms]
+(pass) tabs classify by status not ratios and completion counts follow the latest snapshot [39.68ms]
+(pass) bounded root index pages every queued/history root; details only read the pressed root [82.55ms]
+(fail) whole band cap follows host maxRows and viewport; only Work rows are bounded, native follows [29.08ms]
+  AssertionError: expect(received).toBeUndefined()
+  
+  Expected: undefined
+  Received: 10
+(fail) the host accepts the band around an engine-drawn native element and a companion tree [48.29ms]
+  AssertionError: expect(received).toBeDefined()
+  
+  Expected: defined
+  Received: undefined
+  
+  the engine reported:
+    ui.render (AbovePrompt): a hook returned a tree that does not validate (engine node under a Box with prop "height")
+    ciel-work's ui.render hook was skipped: ciel-work: returned a tree AbovePrompt refuses: engine node under a Box with prop "height"
+(pass) tiny band opens inspector with all tab lists and exact details on demand [69.06ms]
+(pass) tab and paging state resets at conversation change and end; no work mutations [66.36ms]
+(pass) inspector bounds long notes and trees with paging; every note chunk stays reachable [101.30ms]
+(pass) exact wide-character detail is paged without losing text and snapshot shrink clamps pages [98.53ms]
+
+ 58 pass
+ 5 fail
+Ran 63 tests across 1 file. [3.40s]
+exit=1

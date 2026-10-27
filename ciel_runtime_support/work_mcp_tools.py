@@ -133,8 +133,9 @@ def work_tool_schemas() -> list[dict[str, Any]]:
             "name": "work_select",
             "description": (
                 "Make another goal active, retaining its own approval phase (new goals remain planning). "
-                "Interrupting unfinished Work requires an explicit user request and user_requested=true. Queued goals become active "
-                "by themselves, oldest first, when the active goal is done."
+                "Interrupting unfinished Work requires an explicit user request and user_requested=true, except that "
+                "when every unfinished active step waits or is blocked, the queued goal holding the first runnable step "
+                "may be selected without it. Queued goals become active by themselves, oldest first, when the active goal is done."
             ),
             "inputSchema": {
                 "type": "object",

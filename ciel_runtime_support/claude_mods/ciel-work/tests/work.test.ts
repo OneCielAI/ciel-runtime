@@ -25,7 +25,7 @@ function setup(on, extra = {}) {
   on('prompt.attachment', (_, e) => ({ text: e.text }))
   on('prompt.submit', ($, e) => ({ text: e.text, context: e.context }))
   on('tool.check', (_, e) => { s.nativeChecks.push(e); return s.nativeVerdict })
-  on('ui.render', ($, e) => { s.rendered = e; return { type: 'Text', props: {}, children: e.props.modes } })
+  on('ui.render', ($, e) => { s.rendered = e; return s.nativeTree || { type: 'Text', props: {}, children: e.props.modes } })
   on('tool.call', ($, e) => {
     s.tools.push(e)
     if (e.tool === 'AskUserQuestion') {
@@ -379,7 +379,7 @@ test('auto planning continues decomposition but never crosses an approval bounda
   expect((await $.classic.Stop(STOP)).block).toContain('No new scope or approval boundary')
 })
 
-const BAND = { plugin: 'ciel-work', component: 'AbovePrompt', surface: 'terminal', props: {
+const BAND = { plugin: 'ciel-work', component: 'AbovePrompt', surface: 'terminal', viewport: { columns: 80, rows: 40 }, props: {
   hasSurvey: false, isWorking: false, maxRows: 16, bodyColumns: 80, scroll: { offset: 0, bodyRows: 15 }, view: {} } } as const
 const PANE = { plugin: 'ciel-work', component: 'Pane', requestId: 'work-details', surface: 'terminal', props: {
   title: 'Work details', isFocused: true, bodyColumns: 64, placement: 'inline', scroll: { offset: 0, bodyRows: 18 }, view: {} } } as const
@@ -407,10 +407,15 @@ test('three levels display linked ids, waits, urgent holds and green done checks
   await $.command.run({ command: 'work-mode', args: 'status' })
   const band = await $.ui.mount(BAND)
   expect((await band.find({ key: 'branch-a' }))?.text).toContain('[ A-10 ] Cache')
-  expect((await band.find({ key: 'child-leaf' }))?.text).toContain('[ A-11 ] Verify expiry')
+  expect(await band.find({ key: 'child-leaf' })).toBeUndefined()
   expect((await band.find({ key: 'child-wait' }))?.text).toContain('◷ CI publish')
-  expect((await band.find({ type: 'Text', text: /more · Enter/ }))?.text).toContain('+2 more')
-  expect((await band.find({ type: 'Text', text: /Held:/ }))?.text).toContain('Held:')
+  // Hierarchy indentation survives the whitespace-collapsing clip.
+  expect((await band.find({ key: 'child-wait' }))?.text).toMatch(/^  \[ \] Release/)
+  expect((await band.find({ key: 'more-a' }))?.text).toContain('+2 more')
+  await band.press({ key: 'work-tab-queue' })
+  expect((await band.find({ key: 'queue-q' }))?.text).toContain('Held:')
+  await band.press({ key: 'work-tab-completed' })
+  expect((await band.find({ key: 'completed-leaf' }))?.text).toContain('[ A-11 ] Verify expiry')
   expect((await band.find({ type: 'Text', text: '✓ ' }))?.props.color).toBe('success')
   expect((await band.find({ type: 'Text', text: /Work running/ }))?.text).toContain('[urgent]')
   await band.unmount()
@@ -446,8 +451,11 @@ test('branch press opens read-only details with notes and evidence, nested node 
   expect(s.opened.id).toBe('work-details')
   const pane = await $.ui.mount(PANE)
   expect((await pane.find({ type: 'Text', text: /TTL policy/ }))?.text).toContain('TTL policy')
-  expect((await pane.find({ type: 'Text', text: /expiry test passed/ }))?.text).toContain('expiry test passed')
+  expect(await pane.find({ type: 'Text', text: /expiry test passed/ })).toBeUndefined()
+  // A child of the inspected node keeps its indentation outside the clipped text.
+  expect((await pane.find({ key: 'node-leaf' }))?.text).toMatch(/^  Verify expiry/)
   await pane.press({ key: 'node-leaf' })
+  expect((await pane.find({ type: 'Text', text: /expiry test passed/ }))?.text).toContain('expiry test passed')
   expect((await pane.find({ key: 'node-leaf' }))?.text).toContain('Verify expiry')
   expect(await pane.find({ key: 'node-a' })).toBeUndefined()
   await pane.press({ key: 'detail-parent' })
@@ -695,7 +703,7 @@ test('band shows a hint while no plan exists and the phase once one does', async
   expect((await band.find({ type: 'Text', text: /Work planning 0\/2/ }))?.text).toContain('Goal')
   await band.unmount()
 })
-test('triage guidance reaches the model; queue shows in band and summary without becoming focusable', async ($, on) => {
+test('triage guidance reaches the model; queue tab is read-only and summary keeps root order', async ($, on) => {
   const s = inspection(on)
   const r = await $.prompt.submit({ text: 'new request', wait: false })
   expect(r.context[0]).toContain('Triage every new user request')
@@ -703,10 +711,13 @@ test('triage guidance reaches the model; queue shows in band and summary without
   s.snapshot.queue = Array.from({ length: 5 }, (_, i) => ({ id: 'q' + i, title: (i + 2) + '. Queued ' + i, status: 'pending', done: 0, total: 2 }))
   await $.command.run({ command: 'work-mode', args: 'status' })
   const band = await $.ui.mount(BAND)
-  expect((await band.find({ type: 'Text', text: /Queued: \[ \] 2\. Queued 0/ }))?.text).toContain('0/2')
-  expect((await band.find({ type: 'Text', text: /more queued/ }))?.text).toContain('+2 more queued')
-  expect(await band.find({ type: 'Text', text: /Queued 3/ })).toBeUndefined()
-  expect((await band.findAll({ type: 'Button' })).length).toBe(3)
+  expect(await band.find({ key: 'queue-q0' })).toBeUndefined()
+  const reads = s.calls.length
+  await band.press({ key: 'work-tab-queue' })
+  expect((await band.find({ key: 'queue-q0' }))?.text).toContain('2. Queued 0 0/2')
+  expect((await band.find({ key: 'queue-q4' }))?.text).toContain('6. Queued 4')
+  expect(s.calls.length).toBe(reads)
+  expect(s.tools.length).toBe(0)
   await band.unmount()
   const summary = (await $.command.run({ command: 'work-mode', args: '' })).text
   expect(summary).toContain('Queue (next first):')
@@ -717,7 +728,13 @@ test('survey yields, disabled hides, long branch list retains every item', async
   s.snapshot.breakdown = Array.from({ length: 20 }, (_, i) => ({ id: 'b'+i, title: 'Branch '+i, status: 'pending', done: 0, total: 1 }))
   await $.command.run({ command: 'work-mode', args: 'status' })
   const band = await $.ui.mount(BAND)
-  expect((await band.findAll({ type: 'Button' })).length).toBe(21)
+  const found = []
+  for (let i = 0; i < 4; i++) {
+    for (let j = 0; j < 20; j++) if (await band.find({ key: 'branch-b' + j })) found.push(j)
+    if (i < 3) await band.press({ key: 'work-next' })
+  }
+  expect(found.length).toBe(20)
+  expect(new Set(found).size).toBe(20)
   await band.redraw({ ...BAND.props, hasSurvey: true })
   expect((await band.findAll({ type: 'Button' })).length).toBe(0)
   s.snapshot.enabled = false
@@ -756,8 +773,243 @@ test('ask approval reads exact active goal only and never overrides native edit 
   expect(s.calls.find(c => c.args.format === 'text').args.root_id).toBe('g1')
 })
 
+test('Stop moves on to the runnable queued goal when every active step waits', async ($, on) => {
+  continuing(on, { active_root: { id: 'g1', title: 'waiting goal', status: 'in_progress' },
+    continuation: { actionable: 1, next: { id: 'q-leaf', title: 'Queued step', root_id: 'q1', phase: 'planning' },
+      waiting: [{ id: 'g1-leaf', title: 'Review', waiting_on: 'external review' }] } })
+  const block = (await $.classic.Stop(STOP)).block
+  expect(block).toContain('call work_select with root_id q1')
+  expect(block).toContain('call work_execute before changing files')
+  expect(block).not.toContain('user-priority rule')
+})
+test('Stop keeps the active goal when its own step is next', async ($, on) => {
+  continuing(on, { active_root: { id: 'g1', title: 'active', status: 'in_progress' },
+    continuation: { actionable: 1, next: { id: 'g1-leaf', title: 'Active step', root_id: 'g1', phase: 'executing' }, waiting: [] } })
+  const block = (await $.classic.Stop(STOP)).block
+  expect(block).toContain('Active step')
+  expect(block).not.toContain('work_select')
+})
 test('queued planning target cannot inherit active approval during continuation', async ($, on) => {
   continuing(on, { phase: 'executing', approval: 'ask', auto_continue: true,
     continuation: { actionable: 1, next: { id: 'queued-leaf', title: 'private', root_id: 'q1', phase: 'planning' } } })
   expect((await $.classic.Stop(STOP)).block).toBeUndefined()
+})
+
+test('tabs classify by status not ratios and completion counts follow the latest snapshot', async ($, on) => {
+  const s = inspection(on)
+  s.snapshot.breakdown = [
+    { id: 'open', title: 'Open despite ratio', status: 'in_progress', done: 1, total: 1 },
+    { id: 'empty', title: 'Empty open', status: 'pending', done: 0, total: 0 },
+    { id: 'done', title: 'Verified branch', status: 'done', done: 0, total: 0 }]
+  s.snapshot.completed_active = [{ id: 'done', title: 'Verified branch', status: 'done' },
+    { id: 'deep', title: 'Deep completed leaf', status: 'done' }]
+  s.snapshot.root_index = [{ id: 'g1', title: 'Goal', status: 'in_progress' },
+    { id: 'past', title: 'Completed root', status: 'done' }]
+  await $.command.run({ command: 'work-mode', args: 'status' })
+  const band = await $.ui.mount(BAND)
+  expect(await band.find({ key: 'branch-open' })).toBeDefined()
+  expect(await band.find({ key: 'branch-empty' })).toBeDefined()
+  expect(await band.find({ key: 'branch-done' })).toBeUndefined()
+  expect((await band.find({ key: 'work-tab-completed' }))?.text).toContain('Completed 3')
+  const reads = s.calls.length
+  await band.press({ key: 'work-tab-completed' })
+  expect(await band.find({ key: 'finished-past' })).toBeDefined()
+  expect(await band.find({ key: 'completed-deep' })).toBeDefined()
+  expect(s.calls.length).toBe(reads)
+  s.snapshot.version++; s.snapshot.completed_active = []; s.snapshot.root_index = [s.snapshot.root_index[0]]
+  await $.command.run({ command: 'work-mode', args: 'status' })
+  expect((await band.find({ key: 'work-tab-completed' }))?.text).toContain('Completed 0')
+  expect(await band.find({ key: 'completed-deep' })).toBeUndefined()
+  s.offline = true
+  await $.command.run({ command: 'work-mode', args: 'status' })
+  expect(await band.find({ key: 'finished-past' })).toBeUndefined()
+  expect(await band.find({ type: 'Text', text: /Work unavailable/ })).toBeDefined()
+  await band.unmount()
+})
+test('bounded root index pages every queued/history root; details only read the pressed root', async ($, on) => {
+  const s = inspection(on)
+  const queue = Array.from({ length: 25 }, (_, i) => ({ id: 'q' + i, title: 'Queued ' + i, status: 'pending', children: [{ title: 'NO SUBTREE' }] }))
+  const history = Array.from({ length: 24 }, (_, i) => ({ id: 'h' + i, title: 'Finished ' + i, status: 'done' }))
+  s.snapshot.root_index = [s.snapshot.active_root, ...queue, ...history]
+  s.snapshot.queue = queue.slice(0, 20)
+  await $.command.run({ command: 'work-mode', args: 'status' })
+  const band = await $.ui.mount(BAND)
+  const reads = s.calls.length
+  await band.press({ key: 'work-tab-queue' })
+  const found = []
+  for (let page = 0; page < 5; page++) {
+    for (let i = 0; i < 25; i++) if (await band.find({ key: 'queue-q' + i })) found.push(i)
+    if (page < 4) await band.press({ key: 'work-next' })
+  }
+  expect(new Set(found).size).toBe(25)
+  expect(s.calls.length).toBe(reads)
+  expect(await band.find({ text: /NO SUBTREE/ })).toBeUndefined()
+  await band.press({ key: 'work-tab-completed' })
+  for (let i = 0; i < 4; i++) await band.press({ key: 'work-next' })
+  expect(await band.find({ key: 'finished-h23' })).toBeDefined()
+  // The exact-goal detail mock returns only this root; no queued nodes are fetched.
+  s.snapshot.nodes = [{ id: 'h23', parent_id: null, title: 'Finished 23', status: 'done', evidence: 'archived proof' }]
+  await band.press({ key: 'finished-h23' })
+  expect(s.calls.at(-1).args).toEqual({ format: 'json', detail: true, root_id: 'h23', session_id: 'claude:session-a' })
+  const pane = await $.ui.mount(PANE)
+  expect(await pane.find({ text: /archived proof/ })).toBeDefined()
+  expect(s.calls.every(c => c.tool === 'work_status')).toBe(true)
+  await pane.unmount(); await band.unmount()
+})
+// Claude Code 2.1.311 refuses an engine node under a Box with display, overflow, position, a size
+// or an offset; the AbovePrompt hook is then skipped and no Work row shows (actual CLI fixture).
+const CONCEALING = ['display', 'overflow', 'position', 'width', 'height', 'minWidth', 'minHeight', 'top', 'left', 'right', 'bottom']
+function enginePath(node, path = []) {
+  if (!node || typeof node !== 'object') return null
+  if (node.type === 'engine') return [...path, node]
+  for (const child of node.children || []) {
+    const found = enginePath(child, [...path, node])
+    if (found) return found
+  }
+  return null
+}
+test('whole band cap follows host maxRows and viewport; only Work rows are bounded, native follows', async ($, on) => {
+  const s = inspection(on)
+  s.snapshot.breakdown = Array.from({ length: 20 }, (_, i) => ({ id: 'b' + i, title: 'Branch ' + i, status: 'pending', done: 0, total: 1 }))
+  s.nativeTree = { type: 'Box', props: { flexDirection: 'column' }, children: Array.from({ length: 25 }, (_, i) =>
+    ({ type: 'Text', props: {}, children: ['TEAM/NATIVE ' + i] })) }
+  await $.command.run({ command: 'work-mode', args: 'status' })
+  // [maxRows, viewport rows, Work panel rows]: a quarter of the viewport, at most ten, two kept for the rest.
+  for (const [maxRows, viewportRows, expected] of [[16, 40, 8], [12, 32, 6], [8, 24, 1], [4, 12, 1], [2, 8, 0]]) {
+    const band = await $.ui.mount({ ...BAND, viewport: { columns: 80, rows: viewportRows }, props: { ...BAND.props, maxRows } })
+    if (expected) {
+      const drawn = await band.drawn()
+      expect(drawn.props.height).toBeUndefined()
+      expect((await band.find({ key: 'work-panel' }))?.props.height).toBe(expected)
+      expect(drawn.children.length).toBe(2)
+    } else expect((await band.drawn()).children).toEqual(s.nativeTree.children)
+    expect(await band.find({ text: 'TEAM/NATIVE 24' })).toBeDefined()
+    await band.unmount()
+  }
+  const band = await $.ui.mount(BAND)
+  const reads = s.calls.length
+  // Paging and the inspector have letter hotkeys while the band holds the focus (never digits).
+  expect((await band.find({ key: 'work-next' }))?.props.hotkey).toBe('n')
+  expect((await band.find({ key: 'work-all' }))?.props.hotkey).toBe('w')
+  for (const key of ['work-tab-queue', 'work-tab-completed', 'work-tab-progress', 'work-next']) {
+    await band.press({ key })
+    expect(await band.find({ text: 'TEAM/NATIVE 24' })).toBeDefined()
+  }
+  expect((await band.find({ key: 'work-prev' }))?.props.hotkey).toBe('p')
+  expect(await band.find({ key: 'work-native-open' })).toBeUndefined()
+  expect(s.calls.length).toBe(reads)
+  await band.redraw({ ...BAND.props, hasSurvey: true })
+  expect((await band.drawn()).children).toEqual(s.nativeTree.children)
+  await band.unmount()
+})
+test('the host accepts the band around an engine-drawn native element and a companion tree', async ($, on) => {
+  const s = inspection(on)
+  s.snapshot.breakdown = Array.from({ length: 20 }, (_, i) => ({ id: 'b' + i, title: 'Branch ' + i, status: 'pending', done: 0, total: 1 }))
+  s.nativeTree = { type: 'engine', ref: 0 }
+  await $.command.run({ command: 'work-mode', args: 'status' })
+  const band = await $.ui.mount(BAND)
+  // A refused tree is skipped by the host: the tabs would be absent and only the engine node drawn.
+  expect(await band.find({ key: 'work-tab-progress' })).toBeDefined()
+  for (const key of [null, 'work-tab-queue', 'work-tab-completed', 'work-tab-progress', 'work-next']) {
+    if (key) await band.press({ key })
+    const path = enginePath(await band.drawn())
+    expect(path).not.toBeNull()
+    for (const ancestor of path.slice(0, -1)) {
+      expect(Object.keys(ancestor.props || {}).filter(name => CONCEALING.includes(name))).toEqual([])
+    }
+  }
+  await band.redraw({ ...BAND.props, hasSurvey: true })
+  expect(await band.drawn()).toEqual({ type: 'engine', ref: 0 })
+  await band.unmount()
+  s.nativeTree = { type: 'Box', props: { flexDirection: 'column' }, children: [{ type: 'engine', ref: 0 },
+    { type: 'Text', props: {}, children: ['COMPANION-ROW'] }] }
+  const composed = await $.ui.mount(BAND)
+  expect(await composed.find({ key: 'work-tab-progress' })).toBeDefined()
+  expect(await composed.find({ text: 'COMPANION-ROW' })).toBeDefined()
+  expect(enginePath(await composed.drawn())).not.toBeNull()
+  await composed.unmount()
+})
+test('tiny band opens inspector with all tab lists and exact details on demand', async ($, on) => {
+  const s = inspection(on)
+  s.snapshot.queue = Array.from({ length: 13 }, (_, i) => ({ id: 'q' + i, title: 'Queued ' + i, status: 'pending' }))
+  await $.command.run({ command: 'work-mode', args: 'status' })
+  const band = await $.ui.mount({ ...BAND, viewport: { columns: 42, rows: 20 }, props: { ...BAND.props, bodyColumns: 42, maxRows: 8 } })
+  expect(await band.find({ key: 'work-tab-progress' })).toBeUndefined()
+  expect(await band.find({ key: 'work-all' })).toBeDefined()
+  await band.press({ key: 'work-all' })
+  const pane = await $.ui.mount(PANE)
+  const reads = s.calls.length
+  await pane.press({ key: 'detail-tab-queue' })
+  expect(await pane.find({ key: 'detail-queue-q0' })).toBeDefined()
+  await pane.press({ key: 'detail-next' })
+  expect(await pane.find({ key: 'detail-queue-q12' })).toBeDefined()
+  expect(s.calls.length).toBe(reads)
+  await pane.press({ key: 'detail-prev' })
+  expect(await pane.find({ key: 'detail-queue-q0' })).toBeDefined()
+  await pane.unmount(); await band.unmount()
+})
+test('tab and paging state resets at conversation change and end; no work mutations', async ($, on) => {
+  const s = inspection(on)
+  s.snapshot.queue = Array.from({ length: 20 }, (_, i) => ({ id: 'q' + i, title: 'Queued ' + i, status: 'pending' }))
+  await $.command.run({ command: 'work-mode', args: 'status' })
+  const band = await $.ui.mount(BAND)
+  await band.press({ key: 'work-tab-queue' }); await band.press({ key: 'work-next' })
+  s.sessionId = 'session-b'
+  // Before a new snapshot lands, the old session tree is not drawn.
+  await band.redraw(BAND.props)
+  expect(await band.find({ key: 'queue-q5' })).toBeUndefined()
+  await $.command.run({ command: 'work-mode', args: 'status' })
+  expect((await band.find({ key: 'work-tab-progress' }))?.text).toContain('[Progress')
+  expect(await band.find({ key: 'branch-a' })).toBeDefined()
+  await band.press({ key: 'work-tab-queue' })
+  await $.session.end({ reason: 'clear' })
+  await $.command.run({ command: 'work-mode', args: 'status' })
+  expect((await band.find({ key: 'work-tab-progress' }))?.text).toContain('[Progress')
+  expect(s.tools.length).toBe(0)
+  expect(s.calls.every(c => c.tool === 'work_status')).toBe(true)
+  await band.unmount()
+})
+test('inspector bounds long notes and trees with paging; every note chunk stays reachable', async ($, on) => {
+  const s = inspection(on)
+  s.snapshot.nodes = [{ id: 'g1', parent_id: null, title: 'Goal', status: 'in_progress', note: 'x'.repeat(1950) + 'END OF NOTE' },
+    ...Array.from({ length: 40 }, (_, i) => ({ id: 'leaf' + i, parent_id: 'g1', title: 'Leaf ' + i, status: 'pending' }))]
+  await $.command.run({ command: 'work-mode', args: 'view' })
+  const pane = await $.ui.mount(PANE)
+  let end = false; let last = false; let pages = 0
+  do {
+    if (await pane.find({ text: /END OF NOTE/ })) end = true
+    if (await pane.find({ key: 'node-leaf39' })) last = true
+    expect((await pane.findAll({ type: 'Button' })).length <= 17).toBe(true)
+    pages++
+    if (!await pane.find({ key: 'detail-next' })) break
+    await pane.press({ key: 'detail-next' })
+  } while (pages < 20)
+  expect(end).toBe(true); expect(last).toBe(true)
+  expect(pages < 20).toBe(true)
+  await pane.unmount()
+})
+test('exact wide-character detail is paged without losing text and snapshot shrink clamps pages', async ($, on) => {
+  const s = inspection(on)
+  const note = '한글'.repeat(100) + '\n마지막 줄'
+  s.snapshot.nodes[1].note = note
+  s.snapshot.breakdown = Array.from({ length: 22 }, (_, i) => ({ id: 'b' + i, title: 'Branch ' + i, status: 'pending' }))
+  await $.command.run({ command: 'work-mode', args: 'status' })
+  const band = await $.ui.mount(BAND)
+  for (let i = 0; i < 4; i++) await band.press({ key: 'work-next' })
+  s.snapshot.version++; s.snapshot.breakdown = [{ id: 'a', title: 'Cache', status: 'in_progress' }]
+  await $.command.run({ command: 'work-mode', args: 'status' })
+  expect(await band.find({ key: 'branch-a' })).toBeDefined()
+  expect(await band.find({ key: 'work-next' })).toBeUndefined()
+  await band.press({ key: 'branch-a' })
+  const pane = await $.ui.mount({ ...PANE, props: { ...PANE.props, bodyColumns: 30 } })
+  let captured = ''
+  for (let i = 0; i < 12; i++) {
+    for (const row of await pane.findAll({ type: 'Text' })) {
+      if (row.text.startsWith('Note:') || /한|글|마지막/.test(row.text)) captured += row.text
+    }
+    if (!await pane.find({ key: 'detail-next' })) break
+    await pane.press({ key: 'detail-next' })
+  }
+  expect(captured).toBe('Note: ' + note.replace('\n', ''))
+  await pane.unmount(); await band.unmount()
 })

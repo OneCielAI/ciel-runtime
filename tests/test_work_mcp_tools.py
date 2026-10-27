@@ -85,6 +85,31 @@ class WorkMcpToolsTests(unittest.TestCase):
         self.assertFalse(json.loads(response["text"])["enabled"])
         self.assertEqual(self.store.mock_calls, [])
 
+    def test_waiting_active_can_select_exact_queued_candidate_with_cas_and_new_approval(self):
+        doc = self.plan()
+        root = doc["active_root"]
+        self.assertFalse(self.call("work_execute")["error"])
+        self.assertFalse(self.call("work_node_add", title="queue", children=[
+            {"title": "queue phase", "children": [{"title": "queue step"}]}])["error"])
+        queued = self.store.read()["nodes"][-3]["id"]
+        for n in doc["nodes"]:
+            if n["title"] in ("one", "two"):
+                self.assertFalse(self.call("work_node_update", id=n["id"], waiting_on="review")["error"])
+        before = self.store.read()
+        stale = self.call("work_select", root_id=queued, expected_version=before["version"] - 1)
+        self.assertTrue(stale["error"])
+        self.assertEqual(self.store.read(), before)
+        self.assertFalse(self.call("work_select", root_id=queued, expected_version=before["version"])["error"])
+        after = self.store.read()
+        self.assertEqual((after["active_root"], after["phase"]), (queued, "planning"))
+        prior = next(n for n in after["nodes"] if n["id"] == root)
+        self.assertEqual(prior["phase"], "executing")
+        self.config["work_plan_approval_ask"] = True
+        pending = self.call("work_execute")
+        self.assertFalse(pending["error"], pending)
+        self.assertIn("confirmation", pending["text"])
+        self.assertEqual(self.store.read(), after)
+
     def test_json_status(self):
         doc = self.plan()
         response = self.call("work_status", format="json")

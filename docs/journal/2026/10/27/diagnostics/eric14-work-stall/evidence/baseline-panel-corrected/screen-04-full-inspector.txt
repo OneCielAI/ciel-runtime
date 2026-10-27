@@ -1,0 +1,38 @@
+▎ Debug mode enabled · logging to C:\Users\djlov\AppData\Local\Temp\work-pa│                                                         ✕
+▎ nel-tabs-a9f1d4f2\native-debug.log                                       │Work details — version 1
+                                                                           │r: Refresh
+● ciel-work: Ciel Work mode is on: plan and execute by item; new           │w: All items
+  independent requests queue without pausing approved Work. Items          │q: Close
+  show above the prompt · /work-mode help · turn off: ciel-runtime         │[~] 1. LARGE-WORK-PANEL
+  menu → LLM options → Work mode                                           │  [~] Phase 00
+                                                                           │✓      DONE-ITEM-00
+❯ E2EHINT-MAIN inspect the owned Work panel and end the turn.              │      Evidence: Owned fixture completed leaf
+                                                                           │    [ ] OPEN-ITEM-00
+  Called ciel-runtime-router                                               │  [~] Phase 01
+                                                                           │✓      DONE-ITEM-01
+● WORK-PANEL-FIXTURE-IDLE                                                  │      Evidence: Owned fixture completed leaf
+                                                                           │    [ ] OPEN-ITEM-01
+✻ Crunched for 0s · done 2:33 AM                                           │  [~] Phase 02
+                                                                           │✓      DONE-ITEM-02
+❯ /work-mode view                                                          │      Evidence: Owned fixture completed leaf
+  ⎿  ciel-work: Work inspector: Tab/arrows navigate, Enter opens, Esc      │    [ ] OPEN-ITEM-02
+     returns.                                                              │  [~] Phase 03
+Work running 20/40 — 1. LARGE-WORK-PANEL                               [-] │✓      DONE-ITEM-03
+1: [~] Phase 00                                                            │      Evidence: Owned fixture completed leaf
+✓    DONE-ITEM-00                                                          │    [ ] OPEN-ITEM-03
+  [ ] OPEN-ITEM-00                                                         │  [~] Phase 04
+2: [~] Phase 01                                                            │✓      DONE-ITEM-04
+✓    DONE-ITEM-01                                                          │      Evidence: Owned fixture completed leaf
+  [ ] OPEN-ITEM-01                                                         │    [ ] OPEN-ITEM-04
+3: [~] Phase 02                                                            │  [~] Phase 05
+✓    DONE-ITEM-02                                                          │✓      DONE-ITEM-05
+  [ ] OPEN-ITEM-02                                                         │      Evidence: Owned fixture completed leaf
+4: [~] Phase 03                                                            │    [ ] OPEN-ITEM-05
+✓    DONE-ITEM-03                                                          │  [~] Phase 06
+  [ ] OPEN-ITEM-03                                                         │✓      DONE-ITEM-06
+↓ 55 more                                                                  │      Evidence: Owned fixture completed leaf
+                                                                           │
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle)                                                                       work: run 20/40

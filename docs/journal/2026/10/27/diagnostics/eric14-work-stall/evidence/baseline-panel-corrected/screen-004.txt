@@ -1,0 +1,38 @@
+
+▗▟▛███▛█▄  Claude Code v2.1.311
+ ▜██████▘  fake-work · API Usage Billing
+ ▝▝   ▝▝   C:\Users\djlov\AppData\Local\Temp\work-panel-tabs-a9f1d4f2\ws
+
+⚠ Model "fake-work" isn't recognized · context assumed to be 200k tokens · update Claude Code, or see the docs
+
+▎ Debug mode enabled · logging to C:\Users\djlov\AppData\Local\Temp\work-panel-tabs-a9f1d4f2\native-debug.log
+
+● ciel-work: Ciel Work mode is on: plan and execute by item; new independent requests queue without pausing approved Work.
+  Items show above the prompt · /work-mode help · turn off: ciel-runtime menu → LLM options → Work mode
+
+❯ E2EHINT-MAIN inspect the owned Work panel and end the turn.
+
+  Calling ciel-runtime-router…
+
+
+
+· Recombobulating… (0s · ↓ 5 tokens)
+Work running 20/40 — 1. LARGE-WORK-PANEL                                                                                           [-]
+1: [~] Phase 00
+✓    DONE-ITEM-00
+  [ ] OPEN-ITEM-00
+2: [~] Phase 01
+✓    DONE-ITEM-01
+  [ ] OPEN-ITEM-01
+3: [~] Phase 02
+✓    DONE-ITEM-02
+  [ ] OPEN-ITEM-02
+4: [~] Phase 03
+✓    DONE-ITEM-03
+  [ ] OPEN-ITEM-03
+↓ 54 more
+                                                                                                                     ● high · /effort
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · esc to interrupt · ← for agents                                     work: run 20/40

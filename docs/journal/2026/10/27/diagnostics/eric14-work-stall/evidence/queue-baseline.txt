@@ -1,0 +1,74 @@
+owned router: yes
+owned cmd: yes
+owned window: yes
+interactive ready: yes
+console command: yes
+queue continuation: yes
+queue selected: NO
+queued file write: yes
+queue finished: yes
+owned stop 85252 SUCCESS: The process with PID 33180 (child process of PID 85252) has been terminated.
+SUCCESS: The process with PID 85252 (child process of PID 49736) has been terminated.
+owned stop 84684 SUCCESS: The process with PID 84684 (child process of PID 35616) has been terminated.
+evidence C:\Users\djlov\AppData\Local\Temp\work-queue-yield-c8cca02a
+{
+ "repo": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-eec7d694af216308e2a95d4103535f43c5546f09",
+ "stripped_env": [],
+ "mod": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-eec7d694af216308e2a95d4103535f43c5546f09\\ciel_runtime_support\\claude_mods\\ciel-work",
+ "cli_version": "2.1.311 (Claude Code)",
+ "checks": {
+  "queue_continuation_received": true,
+  "queue_selected_without_user_flag": false,
+  "queued_write": true,
+  "queued_done": true,
+  "wait_preserved": true,
+  "queue_completed": true,
+  "resumed_waiting_goal": true,
+  "queue_select_guidance": false,
+  "single_user_prompt": true,
+  "bounded_requests": true
+ },
+ "model_user_prompts_sent": 1,
+ "verification_failed": [
+  "queue_selected_without_user_flag",
+  "queue_select_guidance"
+ ],
+ "egress": [
+  {
+   "method": "CONNECT",
+   "path": "downloads.claude.ai:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "github.com:443"
+  }
+ ],
+ "live_before": {
+  "9505": {
+   "pid": 33384,
+   "version": "0.2.51-nightly.20261027-053202.eec7d69",
+   "source_fingerprint": "11b9fec1d2441894",
+   "error": null
+  },
+  "9524": {
+   "pid": 65156,
+   "version": "0.2.51-nightly.20261027-053202.eec7d69",
+   "source_fingerprint": "11b9fec1d2441894",
+   "error": null
+  }
+ },
+ "live_after": {
+  "9505": {
+   "pid": 33384,
+   "version": "0.2.51-nightly.20261027-053202.eec7d69",
+   "source_fingerprint": "11b9fec1d2441894",
+   "error": null
+  },
+  "9524": {
+   "pid": 65156,
+   "version": "0.2.51-nightly.20261027-053202.eec7d69",
+   "source_fingerprint": "11b9fec1d2441894",
+   "error": null
+  }
+ }
+}

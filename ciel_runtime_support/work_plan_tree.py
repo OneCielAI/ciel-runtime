@@ -317,8 +317,12 @@ def select_root(doc: dict[str, Any], root_id: str, *, user_requested: bool = Fal
     if root_id not in by_id or by_id[root_id]["parent_id"] is not None:
         raise WorkPlanError(f"{root_id} is not a goal")
     if doc.get("active_root") != root_id:
+        # An unfinished active goal yields without a user request only when none of its steps can run and
+        # this goal holds the first runnable step in queue order (never past an urgent hold).
         if _open_active_root(doc, by_id) is not None and not user_requested:
-            raise WorkPlanError("changing the active goal requires an explicit user request (user_requested=true)")
+            nxt = continuation(doc)["next"]
+            if nxt is None or nxt["root_id"] != root_id:
+                raise WorkPlanError("changing the active goal requires an explicit user request (user_requested=true)")
         _activate(doc, root_id)
 
 
@@ -516,6 +520,15 @@ def snapshot(doc: dict[str, Any], *, enabled: bool = True, approval_ask: bool = 
                  more=max(0, len(_children(doc, child["id"])) - MAX_BRANCH_CHILDREN_IN_SNAPSHOT))
             for child in _children(doc, root)
         ] if root else [],
+        # Complete display index, bounded by MAX_NODES; summaries only (no notes,
+        # evidence or queued descendants). Keeps roots beyond the short queue
+        # preview and completed history reachable without loading other contexts.
+        "root_index": [dict(_node_summary(node),
+                            held=bool(root and node["id"] != root and by_id[root].get("urgent")
+                                      and by_id[root]["status"] != "done" and node["status"] != "done"))
+                       for node in doc["nodes"] if node["parent_id"] is None],
+        "completed_active": [_node_summary(by_id[node_id]) for node_id, _ in _walk(doc, root)
+                             if node_id != root and by_id[node_id]["status"] == "done"] if root else [],
         "ready": ready,
         "ready_reason": reason,
         "goals": sum(1 for node in doc["nodes"] if node["parent_id"] is None),

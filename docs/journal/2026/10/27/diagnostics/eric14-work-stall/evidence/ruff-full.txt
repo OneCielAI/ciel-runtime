@@ -1,0 +1,26 @@
+F841 Local variable `root` is assigned to but never used
+   --> tests\test_work_plan_tree.py:639:9
+    |
+637 |     def test_active_completed_rows_include_deep_descendants_and_classify_by_status(self):
+638 |         doc = t.empty_document()
+639 |         root = t.set_plan(doc, {"title": "active", "children": [
+    |         ^^^^
+640 |             {"title": "phase", "children": [{"title": "task", "children": [
+641 |                 {"title": "verified"}, {"title": "open"}]}]}]})
+    |
+help: Remove assignment to unused variable `root`
+
+F841 Local variable `root` is assigned to but never used
+   --> tests\test_work_plan_tree.py:659:9
+    |
+657 |     def test_display_indexes_are_bounded_by_document_node_limit_and_preserve_held_metadata(self):
+658 |         doc = t.empty_document()
+659 |         root = t.add_node(doc, None, "active")
+    |         ^^^^
+660 |         doc["nodes"][0]["urgent"] = True
+661 |         for i in range(t.MAX_NODES - 1):
+    |
+help: Remove assignment to unused variable `root`
+
+Found 2 errors.
+No fixes available (2 hidden fixes can be enabled with the `--unsafe-fixes` option).

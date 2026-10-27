@@ -383,7 +383,7 @@ Work 모드는 Plan 모드처럼 먼저 계획을 세우되, 목표 → 단계 �
 |---|---|---|
 | 대화 기록 알림 (`$.ui.log`, 모델 미전달) | Claude 대화형 세션 시작, Work 켜짐 | 계획 먼저(`work_plan_set`) → `work_execute` 후 편집, `/work-mode help`, 끄는 위치 |
 | 프롬프트 위 줄 | 계획 없음 | `Work mode: no plan yet … /work-mode help` |
-| 프롬프트 위 목록 머리 | 계획 있음 | `Work planning` 또는 `Work running` + 진행률, 큐 목표(`Queued: …`), 키 안내 끝에 `/work-mode help` |
+| 프롬프트 위 목록 머리 | 계획 있음 | `Work planning` 또는 `Work running` + 진행률, Progress / Queue / Completed 탭과 Inspector |
 | 토스트 (`$.ui.toast`) | 계획 단계에서 쓰기·셸이 거부될 때 | 대화·계획 버전마다 한 번 |
 | 거부 사유 (모델과 사용자 모두 봄) | 계획 단계 쓰기·셸 거부 | `work_plan_set` 후 `work_execute`, `/work-mode help` |
 | 콘솔 한 줄 | Codex TUI·app-server 실행 전, Work 적용 시 | Work 켜짐, 끄는 위치. Codex는 모드 UI가 없어 실행 전 콘솔에만 찍는다 |
@@ -420,8 +420,7 @@ Codex 지침은 사용자가 Work 모드 사용법을 물으면 간단히 설명
 
 - 스냅샷(`work_status` JSON)에 `queue`(활성 목표 다음 순서, 최대 20개, 진행률 포함)가 추가됐다.
   텍스트 트리는 `Queued goals (next first)`와 `Finished goals` 줄로 나눠 보여 준다.
-- Claude 프롬프트 위 목록은 활성 목표의 항목 아래에 `Queued: …` 줄을 최대 3개(나머지는 `+N more queued`)
-  보여 준다. 이 줄은 포커스 대상이 아니다. `/work-mode` 요약에는 `Queue (next first):` 목록이 붙는다.
+- Claude 프롬프트 위 Work 목록은 `Progress / Queue / Completed` 탭으로 나눈다. Progress는 완료 항목을 숨기고, Queue는 대기 목표, Completed는 완료 목표·현재 목표의 완료 항목을 따로 표시한다. Tab/방향키로 탭·행을 선택하고 Enter로 열며 `n`/`p`로 페이지를 바꾼다. `w` 또는 `/work-mode view`로 전체 상세에 접근한다. Work 자체 높이는 화면·host maxRows에 맞춰 최대 10행 안에서 제한하고, 네이티브 팀/다른 모드 영역은 크기를 덮어쓰지 않은 별도 형제 트리로 보존한다. 아주 작은 화면에서는 요약과 Inspector만 표시한다. `/work-mode` 요약에는 `Queue (next first):` 목록이 붙는다.
 - 이 변경 전에는 새 목표를 추가하면 실행 중인 목표가 활성 자리를 잃고 `planning`으로 돌아가
   Claude 편집이 막혔다(2026-10-26 실측 재현, 작업 저널 참고).
 
@@ -441,8 +440,7 @@ Codex 지침은 사용자가 Work 모드 사용법을 물으면 간단히 설명
 - `waiting_on`(최대 120자)은 외부 의존 대상이며 `◷ 대상`으로 끝에 표시한다. 조상 항목의
   대기·blocked 상태도 실행 가능 판정에서 제외한다. 활성 목표에 실행 가능한 것이 없으면 큐를 찾는다.
 - `ref`(최대 64자)는 연결 ID이며 `[ id ] 설명`으로 표시한다. 두 필드는 add/plan/update로
-  설정하며 update의 빈 문자열로 해제한다. 프롬프트 위에는 목표 → 가지 → 하위 항목을 표시하고,
-  가지별 하위 8개 초과분은 `+N more`로 알린다. 완료 표시는 녹색 `✓`다.
+  설정하며 update의 빈 문자열로 해제한다. 프롬프트 위에는 페이지 안에서 목표 → 가지 → 하위 항목을 표시한다. 스냅샷의 가지별 샘플보다 깊거나 큰 트리는 Inspector에서 페이지로 탐색할 수 있다. 완료 표시는 녹색 `✓`다.
 - `work_reorder(root_id, position)`은 미완료 루트 순서(1부터, 1은 활성 자리)를 바꾼다.
   기본은 큐 내 이동만 허용하며 활성 자리가 바뀌면 명시적인 사용자 요청과 `user_requested=true`가 필요하다.
   `/work-mode view`의 루트 상세에 있는 Move up/down 버튼도 같은 도구를 호출하며 버튼 입력은 사용자 요청이다.
@@ -455,7 +453,7 @@ Codex 지침은 사용자가 Work 모드 사용법을 물으면 간단히 설명
 Work는 네이티브 Plan Mode가 아니라 목표별 계획·실행 보드다. 승인된 활성 목표를 실행하는 동안 독립 요청의 계획은 별도 루트에 큐잉하며 활성 목표의 실행 상태를 바꾸지 않는다. 목표별 `phase`를 보존하므로 사용자가 우선순위를 바꾸거나 긴급 목표를 끝내면 기존 승인 목표는 실행 상태로 복귀한다. 새 목표는 반드시 planning부터 시작한다.
 
 - `work_node_add(within_scope=true)`는 기존 승인 범위 안의 세분화에만 사용한다. 생략하면 해당 목표만 planning으로 돌아가 범위 재검토·승인을 기다린다. 이 플래그는 새 범위를 승인하는 권한이 아니며 의미상 범위 판단은 모델 매개다. 제목·설명(note)을 변경해도 해당 목표만 재검토한다.
-- `work_reorder`, `work_urgent`, `work_select`로 미완료 활성 목표를 교체하려면 사용자의 명시적 우선순위 요청과 `user_requested=true`가 필요하다. `expected_version`으로 동시 변경을 감지한다.
+- `work_reorder`, `work_urgent` 또는 실행 가능한 활성 목표를 중단하는 `work_select`에는 사용자의 명시적 우선순위 요청과 `user_requested=true`가 필요하다. 단, 활성 목표의 모든 미완료 단계가 대기·차단 상태이면 `continuation.next.root_id`가 가리키는 첫 실행 가능 큐 목표로 `work_select`할 수 있다. 임의 큐 건너뛰기나 긴급 목표의 hold 해제는 허용하지 않는다. 목표별 승인 phase는 그대로 보존하고 새 목표는 planning에서 승인받는다. `expected_version`으로 동시 변경을 감지한다.
 - 자동 프롬프트 문맥에는 한정된 활성 목표 요약과 큐 ID 최대 5개만 넣는다. 큐의 제목·설명·하위 트리는 넣지 않는다. 필요할 때 `work_status(root_id=...)`로 정확히 한 목표의 전체 노드·설명·검증 증거를 조회하며 선택·승인 상태는 변경하지 않는다.
 - **문맥 격리 한계**: 원본 사용자 메시지와 명시적으로 호출한 도구 응답은 네이티브 대화 기록에 남는다. 큐를 저장하거나 요약을 제한해도 기존 대화에서 텍스트를 삭제·격리하지 않으며, 목표별 별도 모델 세션을 만들지 않는다. Work는 히스토리 격리 또는 모든 부작용을 차단하는 보안 경계가 아니다.
 

@@ -1,0 +1,9 @@
+listen {"LocalAddress":"127.0.0.1","LocalPort":9179}
+health 9179 {"version": "0.2.51-nightly.20261027-053202.eec7d69", "source_fingerprint": "11b9fec1d2441894", "pid": 20300, "config_dir": "C:\\Users\\aapw-a21u21\\AppData\\Roaming\\ciel-runtime\\router-instances\\9179-fe924fced90d", "workspace": "c:\\programdata\\aap-win\\sandboxes\\u21\\home\\ara-ai", "router_port": 9179, "instance_id": "9179-fe924fced90d", "active_client_count": 1, "active_client_pids": [23832]}
+mtime package.json 2026-10-26T22:53:30 ctime 2026-10-26T22:53:30
+mtime ciel_runtime_support/claude_mods/ciel-work/hooks/register.js 2026-10-26T22:53:30 ctime 2026-10-26T22:53:30
+mtime ciel_runtime.py 2026-10-26T22:53:33 ctime 2026-10-26T22:53:32
+now 2026-10-26T23:34:04
+
+
+exit 0

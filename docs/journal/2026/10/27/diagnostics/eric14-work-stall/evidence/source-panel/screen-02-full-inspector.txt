@@ -1,0 +1,38 @@
+                                                                           │                                                         ✕
+ ▐▛███▛█   Claude Code v2.1.311                                            │Work details — version 1
+▝▜██████▀  fake-work · API Usage Billing                                   │[Progress] Queue Completed
+ ▝▝   ▝▝   C:\Users\djlov\AppData\Local\Temp\work-panel-tabs-1724c830\…    │r: Refresh
+                                                                           │w: All items
+⚠ Model "fake-work" isn't recognized · context assumed to be 200k tokens · │q: Close
+  update Claude Code, or see the docs                                      │[~] 1. LARGE-WORK-PANEL
+                                                                           │[~] Phase 00
+▎ Debug mode enabled · logging to C:\Users\djlov\AppData\Local\Temp\work-pa│✓ DONE-ITEM-00
+▎ nel-tabs-1724c830\native-debug.log                                       │[ ] OPEN-ITEM-00
+                                                                           │[~] Phase 01
+● ciel-work: ui.render hook skipped: returned the wrong shape (a           │✓ DONE-ITEM-01
+  tree AbovePrompt refuses: engine node under a Box with prop              │[ ] OPEN-ITEM-01
+  "height")                                                                │[~] Phase 02
+                                                                           │✓ DONE-ITEM-02
+● ciel-work: Ciel Work mode is on: plan and execute by item; new           │[ ] OPEN-ITEM-02
+  independent requests queue without pausing approved Work. Items          │1/8 Next
+  show above the prompt · /work-mode help · turn off: ciel-runtime         │Tab/↑↓: navigate · Enter: inspect · Esc: close
+  menu → LLM options → Work mode                                           │
+                                                                           │
+❯ E2EHINT-MAIN inspect the owned Work panel and end the turn.              │
+                                                                           │
+  Called ciel-runtime-router                                               │
+                                                                           │
+● WORK-PANEL-FIXTURE-IDLE                                                  │
+                                                                           │
+✻ Cooked for 0s · done 2:18 AM                                             │
+                                                                           │
+❯ /work-mode view                                                          │
+  ⎿  ciel-work: Work inspector: Tab/arrows navigate, Enter opens, Esc      │
+     returns.                                                              │
+                                                                           │
+                                                                           │
+                                                         ● high · /effort  │
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · ← for agents                                                        work: run 20/40

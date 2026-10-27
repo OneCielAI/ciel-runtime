@@ -1,0 +1,15 @@
+.......................................................................................................E........................................
+======================================================================
+ERROR: test_complete_root_index_exceeds_queue_preview_without_private_subtrees (test_work_plan_tree.WorkPanelSnapshotTests.test_complete_root_index_exceeds_queue_preview_without_private_subtrees)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-work\tests\test_work_plan_tree.py", line 626, in test_complete_root_index_exceeds_queue_preview_without_private_subtrees
+    child = next(n for n in doc["nodes"] if n["parent_id"] == roots[-1])
+  File "C:\Users\djlov\ciel-runtime-wt-work\ciel_runtime_support\work_plan_tree.py", line 253, in update_node
+    raise WorkPlanError(f"{node_id} still has unfinished children; finish them first")
+ciel_runtime_support.work_plan_tree.WorkPlanError: n26 still has unfinished children; finish them first
+
+----------------------------------------------------------------------
+Ran 144 tests in 30.132s
+
+FAILED (errors=1)

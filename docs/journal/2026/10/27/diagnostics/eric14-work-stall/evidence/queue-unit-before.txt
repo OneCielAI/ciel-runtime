@@ -1,0 +1,15 @@
+.......................................E
+======================================================================
+ERROR: test_waiting_active_yields_only_to_first_runnable_queue_goal (test_work_plan_tree.WorkPlanTreeTests.test_waiting_active_yields_only_to_first_runnable_queue_goal)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-work\tests\test_work_plan_tree.py", line 185, in test_waiting_active_yields_only_to_first_runnable_queue_goal
+    t.select_root(self.doc, first)
+  File "C:\Users\djlov\ciel-runtime-wt-work\ciel_runtime_support\work_plan_tree.py", line 321, in select_root
+    raise WorkPlanError("changing the active goal requires an explicit user request (user_requested=true)")
+ciel_runtime_support.work_plan_tree.WorkPlanError: changing the active goal requires an explicit user request (user_requested=true)
+
+----------------------------------------------------------------------
+Ran 40 tests in 0.075s
+
+FAILED (errors=1)

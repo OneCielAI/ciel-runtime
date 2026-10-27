@@ -1,0 +1,38 @@
+ ▐▛███▛█   Claude Code v2.1.311
+▝▜██████▀  fake-work · API Usage Billing
+ ▝▝   ▝▝   C:\Users\djlov\AppData\Local\Temp\work-queue-yield-d8c6a127\ws
+
+⚠ Model "fake-work" isn't recognized · context assumed to be 200k tokens · update Claude Code, or see the docs
+
+▎ Debug mode enabled · logging to C:\Users\djlov\AppData\Local\Temp\work-queue-yield-d8c6a127\native-debug.log
+
+● ciel-work: Ciel Work mode is on: plan and execute by item; new independent requests queue without pausing approved Work.
+  Items show above the prompt · /work-mode help · turn off: ciel-runtime menu → LLM options → Work mode
+
+❯ E2EHINT-MAIN create waiting active Work and runnable queued Work, then end the turn. No user priority change is requested.
+
+  Called ciel-runtime-router 3 times
+
+● QUEUE-YIELD-FIRST-END
+
+  Called ciel-runtime-router
+
+● QUEUE-YIELD-SELECT-FAILED
+
+● QUEUE-YIELD-SELECT-FAILED
+
+● ciel-work: Ciel Work auto continue paused: the plan did not change after the last continuation (next: n6 Queued leaf). Update
+  the plan or send a message to resume.
+
+✻ Churned for 2s · done 1:59 AM
+Work running 0/1 — 1. Waiting active goal                                                                                          [-]
+1: [ ] Wait phase
+  [ ] Wait leaf ◷ external-proof
+Queued: [ ] 2. Runnable queued goal 0/1
+w: All items / refresh
+Ctrl+X Tab: focus · Tab/↑↓: select · Enter: inspect · Esc: return · /work-mode help
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle)                                                                         work: run 0/1

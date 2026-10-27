@@ -170,6 +170,61 @@ class WorkPlanTreeTests(unittest.TestCase):
         t.update_node(self.doc, one, note="changed scope")
         self.assertEqual(self.doc["phase"], "planning")
 
+    def test_waiting_active_yields_only_to_first_runnable_queue_goal(self):
+        root, _, one, two = self.plan()
+        t.set_phase(self.doc, "executing")
+        first = t.set_plan(self.doc, {"title": "first queue", "children": [nested(2)]})
+        second = t.set_plan(self.doc, {"title": "second queue", "children": [nested(2)]})
+        t.update_node(self.doc, one, waiting_on="external review")
+        t.update_node(self.doc, two, status="blocked")
+        self.assertEqual(t.continuation(self.doc)["next"]["root_id"], first)
+        before = copy.deepcopy(self.doc)
+        with self.assertRaises(t.WorkPlanError):
+            t.select_root(self.doc, second)
+        self.assertEqual(self.doc, before)
+        t.select_root(self.doc, first)
+        self.assertEqual((self.doc["active_root"], self.doc["phase"]), (first, "planning"))
+        self.assertEqual(t.root_phase(self.doc, root), "executing")
+        self.assertEqual([n["id"] for n in t.queued_roots(self.doc)], [root, second])
+
+    def test_yield_skips_blocked_queue_without_reordering_or_approving_it(self):
+        root, _, one, two = self.plan()
+        t.set_phase(self.doc, "executing")
+        blocked = t.set_plan(self.doc, {"title": "blocked queue", "children": [nested(2)]})
+        blocked_leaf = self.doc["nodes"][-1]["id"]
+        runnable = t.set_plan(self.doc, {"title": "runnable queue", "children": [nested(2)]})
+        t.update_node(self.doc, one, waiting_on="review")
+        t.update_node(self.doc, two, status="blocked")
+        t.update_node(self.doc, blocked_leaf, status="blocked")
+        t.select_root(self.doc, runnable)
+        self.assertEqual(self.doc["active_root"], runnable)
+        self.assertEqual(self.doc["phase"], "planning")
+        self.assertEqual([n["id"] for n in t.queued_roots(self.doc)], [root, blocked])
+        self.assertEqual(t.root_phase(self.doc, blocked), "planning")
+
+    def test_select_cannot_yield_when_every_goal_waits(self):
+        _, _, one, two = self.plan()
+        queued = t.set_plan(self.doc, {"title": "queued", "children": [nested(2)]})
+        queued_leaf = self.doc["nodes"][-1]["id"]
+        for leaf in (one, two, queued_leaf):
+            t.update_node(self.doc, leaf, waiting_on="review")
+        before = copy.deepcopy(self.doc)
+        with self.assertRaises(t.WorkPlanError):
+            t.select_root(self.doc, queued)
+        self.assertEqual(self.doc, before)
+
+    def test_urgent_waiting_active_does_not_yield_automatically(self):
+        root, _, one, two = self.plan()
+        t.set_phase(self.doc, "executing")
+        queued = t.set_plan(self.doc, {"title": "queued", "children": [nested(2)]})
+        self.doc["nodes"][0]["urgent"] = True
+        t.update_node(self.doc, one, waiting_on="review")
+        t.update_node(self.doc, two, status="blocked")
+        before = copy.deepcopy(self.doc)
+        with self.assertRaises(t.WorkPlanError):
+            t.select_root(self.doc, queued)
+        self.assertEqual(self.doc, before)
+
     def test_legacy_document_migrates_only_active_approval(self):
         root, *_ = self.plan()
         queued = t.add_node(self.doc, None, "queue")
@@ -558,6 +613,57 @@ class WorkContinuationTreeTests(unittest.TestCase):
         self.assertIn("[ G ] goal", t.render(self.doc))
         self.assertIn("[ B ] branch  ◷ review", t.render(self.doc))
         self.assertEqual(self.doc, before)
+
+
+class WorkPanelSnapshotTests(unittest.TestCase):
+    def test_complete_root_index_exceeds_queue_preview_without_private_subtrees(self):
+        doc = t.empty_document()
+        active = t.add_node(doc, None, "active")
+        roots = [t.add_node(doc, None, "queued " + str(i), note="PRIVATE")
+                 for i in range(t.MAX_QUEUE_IN_SNAPSHOT + 5)]
+        for root in roots:
+            t.add_node(doc, root, "QUEUED CHILD", note="PRIVATE", within_scope=True)
+        child = next(n for n in doc["nodes"] if n["parent_id"] == roots[-1])
+        t.update_node(doc, child["id"], status="done", evidence="PRIVATE PROOF")
+        before = copy.deepcopy(doc)
+        state = t.snapshot(doc)
+        self.assertEqual(len(state["queue"]), t.MAX_QUEUE_IN_SNAPSHOT)
+        self.assertEqual([n["id"] for n in state["root_index"]], [active] + roots)
+        self.assertEqual(state["root_index"][-1]["status"], "done")
+        self.assertNotIn("PRIVATE", repr(state["root_index"]))
+        self.assertNotIn("QUEUED CHILD", repr(state["root_index"]))
+        self.assertEqual(doc, before)
+
+    def test_active_completed_rows_include_deep_descendants_and_classify_by_status(self):
+        doc = t.empty_document()
+        t.set_plan(doc, {"title": "active", "children": [
+            {"title": "phase", "children": [{"title": "task", "children": [
+                {"title": "verified"}, {"title": "open"}]}]}]})
+        leaf = next(n for n in doc["nodes"] if n["title"] == "verified")
+        t.update_node(doc, leaf["id"], status="done", evidence="PRIVATE PROOF")
+        state = t.snapshot(doc)
+        self.assertEqual([n["id"] for n in state["completed_active"]], [leaf["id"]])
+        self.assertNotIn("PRIVATE", repr(state["completed_active"]))
+        # A root with all leaf counters done but its own state still open remains
+        # open in the projection (including the empty 0/0 case).
+        empty = t.empty_document()
+        t.add_node(empty, None, "empty")
+        state = t.snapshot(empty)
+        self.assertEqual((state["done"], state["total"]), (0, 0))
+        self.assertEqual(state["root_index"][0]["status"], "pending")
+        self.assertEqual(state["completed_active"], [])
+        self.assertEqual(t.snapshot(t.empty_document())["root_index"], [])
+
+    def test_display_indexes_are_bounded_by_document_node_limit_and_preserve_held_metadata(self):
+        doc = t.empty_document()
+        t.add_node(doc, None, "active")
+        doc["nodes"][0]["urgent"] = True
+        for i in range(t.MAX_NODES - 1):
+            t.add_node(doc, None, "queued " + str(i))
+        state = t.snapshot(doc)
+        self.assertEqual(len(state["root_index"]), t.MAX_NODES)
+        self.assertFalse(state["root_index"][0]["held"])
+        self.assertTrue(all(n["held"] for n in state["root_index"][1:]))
 
 
 if __name__ == "__main__":

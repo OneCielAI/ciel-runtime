@@ -3,5 +3,6 @@ export type WorkDetail = { session: string; id: string | null; version: number;
     ref?: string; waiting_on?: string; urgent?: boolean }[];
   error: string }
 declare module 'claude-code' {
-  interface PluginState { 'ciel-work': { detail: WorkDetail | null } }
+  interface PluginState { 'ciel-work': { detail: WorkDetail | null; panel: { session: string;
+    tab: 'progress' | 'queue' | 'completed'; page: number; detailPage: number; detailList?: boolean } | null } }
 }

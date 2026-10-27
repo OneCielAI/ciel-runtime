@@ -1,0 +1,38 @@
+
+           Claude Code v2.1.311
+           fake-work · API Usage Billing
+ ▐▛███▛█   C:\Users\djlov\AppData\Local\Temp\work-panel-tabs-a9f1d4f2\ws
+
+⚠ Model "fake-work" isn't recognized · context assumed to be 200k tokens · update Claude Code, or see the docs
+
+▎ Debug mode enabled · logging to C:\Users\djlov\AppData\Local\Temp\work-panel-tabs-a9f1d4f2\native-debug.log
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Work unavailable — /work-mode status                                                                                               [-]
+                                                                                                                     ● high · /effort
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · ← for agents                                                      work: unavailable

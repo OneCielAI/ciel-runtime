@@ -1,0 +1,10 @@
+VERSION ['VERSION = "0.2.51-nightly.20261027-053202.eec7d69"']
+package.json version 0.2.51-nightly.20261027-053202.eec7d69
+register.js sha256 652f3490149de4133dab915d78e3ff9cf9964df71fbca78c7d80381299ce141d 34049
+claude-code 2.1.311
+roaming exists False
+instances ERR FileNotFoundError [WinError 3] The system cannot find the path specified: 'C:\\ProgramData\\aap-win\\sandboxes\\u21\\home\\ara-ai\\AppData\\Roaming\\ciel-runtime\\router-instances'
+config ERR JSONDecodeError Expecting value: line 1 column 1 (char 0)
+
+
+exit 0
