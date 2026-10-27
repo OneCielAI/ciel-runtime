@@ -1,0 +1,60 @@
+{
+ "schema": 1,
+ "version": 2,
+ "phase": "executing",
+ "active_root": "n1",
+ "focus_ids": [],
+ "next_id": 5,
+ "nodes": [
+  {
+   "id": "n1",
+   "parent_id": null,
+   "title": "Codex isolated Work proof",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793134636.3336983,
+   "phase": "executing"
+  },
+  {
+   "id": "n2",
+   "parent_id": "n1",
+   "title": "Protocol phase",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793134636.3336983
+  },
+  {
+   "id": "n3",
+   "parent_id": "n2",
+   "title": "Inspect shared state",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793134636.3336983
+  },
+  {
+   "id": "n4",
+   "parent_id": "n3",
+   "title": "Observe work_status output",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793134636.3336983
+  }
+ ],
+ "updated_at": 1793134636.386183
+}

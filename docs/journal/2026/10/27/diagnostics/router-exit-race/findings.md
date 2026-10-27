@@ -40,3 +40,13 @@ The earlier `launch-source-153204` checked failed health rather than a refused T
 # Codex boundary
 
 [Actual Codex 0.158.0 app-server](evidence/codex-source-recheck/summary.json): Work instructions appear only when enabled; `work_plan_set`, `work_execute`, `work_status` run through native MCP metadata; the turn completes, a second conversation stays empty and missing identity is rejected. This did not reproduce a Work-mode-specific startup crash. The first fixture failed on its obsolete instruction substring (`Ciel Work mode is on.`); changing only the expected substring to the current hybrid wording allowed the actual protocol run. No product behavior was changed for that fixture mismatch.
+
+# Native Codex TUI exit proof
+
+[Codex TUI run codex-launch-source-155433](evidence/codex-launch-source-155433/result.json): actual launcher selected Codex 0.164.0 with Work on; first entry, `/exit`, closed TCP listener, second entry, second `/exit`, closed TCP listener all pass (7/7). [Relaunch screenshot](evidence/codex-launch-source-155433/03-relaunch.png), [second exit](evidence/codex-launch-source-155433/04-second-exit.png).
+
+Earlier Codex TUI fixture runs are retained as failed verification attempts. They typed `/exit` while native hook-review dialogs were still open. The final fixture waits past the banner and skips those dialogs with Escape (does not trust hooks or change native permission policy) on both entries. Those earlier attempts do not establish a product crash or successful exit. The app-server proof separately executes Work tools.
+
+# Installed proof
+
+[Published snapshot run launch-installed-155420](evidence/launch-installed-155420/result.json): seven exit/relaunch/port-close checks passed using snapshot 3160858. Live 9505 PID 62984 and 9524 PID 8544 unchanged throughout.

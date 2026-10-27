@@ -1,0 +1,196 @@
+{
+ "repo": "C:\\Users\\djlov\\ciel-runtime-wt-work",
+ "stripped_env": [
+  "ANTHROPIC_AUTH_TOKEN",
+  "ANTHROPIC_BASE_URL",
+  "ANTHROPIC_CUSTOM_MODEL_OPTION",
+  "ANTHROPIC_CUSTOM_MODEL_OPTION_SUPPORTED_CAPABILITIES",
+  "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+  "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTED_CAPABILITIES",
+  "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTS",
+  "ANTHROPIC_DEFAULT_OPUS_MODEL",
+  "ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTED_CAPABILITIES",
+  "ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTS",
+  "ANTHROPIC_DEFAULT_SONNET_MODEL",
+  "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTED_CAPABILITIES",
+  "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTS",
+  "ANTHROPIC_MODEL",
+  "CIEL_RUNTIME_AUTO_ALLOW_DANGEROUS_RM",
+  "CIEL_RUNTIME_BYPASS_PERMISSIONS",
+  "CIEL_RUNTIME_CONFIG_DIR",
+  "CIEL_RUNTIME_HOME",
+  "CIEL_RUNTIME_LAUNCH_CWD",
+  "CIEL_RUNTIME_MODEL_ALIAS",
+  "CIEL_RUNTIME_PROVIDER",
+  "CIEL_RUNTIME_REGISTERED_HOME",
+  "CIEL_RUNTIME_SCRIPT",
+  "CIEL_RUNTIME_SELECTED_HOME",
+  "CIEL_RUNTIME_STATE_DIR",
+  "CIEL_RUNTIME_WORKSPACE_STATE_DIR",
+  "CLAUDECODE",
+  "CLAUDE_CHROME_CLASSIFIER_FLOOR",
+  "CLAUDE_CODE_ATTRIBUTION_HEADER",
+  "CLAUDE_CODE_AUTO_COMPACT_WINDOW",
+  "CLAUDE_CODE_CHILD_SESSION",
+  "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS",
+  "CLAUDE_CODE_DISABLE_NONSTREAMING_FALLBACK",
+  "CLAUDE_CODE_DISABLE_TERMINAL_TITLE",
+  "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY",
+  "CLAUDE_CODE_ENTRYPOINT",
+  "CLAUDE_CODE_EXECPATH",
+  "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS",
+  "CLAUDE_CODE_MAX_CONTEXT_TOKENS",
+  "CLAUDE_CODE_MAX_OUTPUT_TOKENS",
+  "CLAUDE_CODE_MAX_RETRIES",
+  "CLAUDE_CODE_MESSAGING_SOCKET",
+  "CLAUDE_CODE_MESSAGING_TOKEN",
+  "CLAUDE_CODE_NONSTREAMING_TIMEOUT_RETRIES",
+  "CLAUDE_CODE_RETRY_WATCHDOG",
+  "CLAUDE_CODE_SEND_FEEDBACK",
+  "CLAUDE_CODE_SESSION_ATTENDED",
+  "CLAUDE_CODE_SESSION_ID",
+  "CLAUDE_CODE_SUBAGENT_MODEL",
+  "CLAUDE_CODE_SUBAGENT_MODEL_FORCE",
+  "CLAUDE_CODE_USE_POWERSHELL_TOOL",
+  "CLAUDE_EFFORT",
+  "CLAUDE_PID",
+  "CODEX_SPARKLE_ENABLED"
+ ],
+ "scratch": "C:\\Users\\djlov\\AppData\\Local\\Temp\\subps-ui-abef0b37",
+ "cli": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@openai\\codex\\node_modules\\@openai\\codex-win32-x64\\vendor\\x86_64-pc-windows-msvc\\bin\\codex.exe",
+ "ps_env": null,
+ "cli_version": "codex-cli 0.158.0",
+ "checks": {
+  "first_router_up": true,
+  "first_exit": false,
+  "first_router_down": false,
+  "second_router_up": true,
+  "second_cli_ready": true,
+  "second_exit": false,
+  "second_router_down": false
+ },
+ "observed": {
+  "repeated_exit_checks": false
+ },
+ "verification_failed": [
+  "first_exit",
+  "first_router_down",
+  "second_exit",
+  "second_router_down"
+ ],
+ "rows": [],
+ "egress": [
+  {
+   "method": "CONNECT",
+   "path": "api.github.com:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "raw.githubusercontent.com:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "chatgpt.com:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "github.com:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "api.github.com:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "chatgpt.com:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "api.github.com:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "developers.openai.com:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "mcp.higgsfield.ai:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "developers.openai.com:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "mcp.higgsfield.ai:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "mcp.higgsfield.ai:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "developers.openai.com:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "ab.chatgpt.com:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "mcp.higgsfield.ai:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "developers.openai.com:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "mcp.higgsfield.ai:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "developers.openai.com:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "developers.openai.com:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "mcp.higgsfield.ai:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "ab.chatgpt.com:443"
+  }
+ ],
+ "live_before": {
+  "9505": {
+   "pid": 62984,
+   "version": "0.2.51-nightly.20261027-194324.273856d",
+   "source_fingerprint": "11b9fec1d2441894",
+   "error": null
+  },
+  "9524": {
+   "pid": 8544,
+   "version": "0.2.51-nightly.20261027-182520.7792965",
+   "source_fingerprint": "11b9fec1d2441894",
+   "error": null
+  }
+ },
+ "live_after": {
+  "9505": {
+   "pid": 62984,
+   "version": "0.2.51-nightly.20261027-194324.273856d",
+   "source_fingerprint": "11b9fec1d2441894",
+   "error": null
+  },
+  "9524": {
+   "pid": 8544,
+   "version": "0.2.51-nightly.20261027-182520.7792965",
+   "source_fingerprint": "11b9fec1d2441894",
+   "error": null
+  }
+ }
+}

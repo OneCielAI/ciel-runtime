@@ -1,0 +1,4 @@
+npm error code ETARGET
+npm error notarget No matching version found for @one-ciel-ai/ciel-runtime@0.2.51-nightly.20261027-205033.3160858.
+npm error notarget In most cases you or one of your dependencies are requesting a package version that doesn't exist.
+npm error A complete log of this run can be found in: C:\Users\djlov\AppData\Local\npm-cache\_logs\2026-10-27T20_55_20_977Z-debug-0.log

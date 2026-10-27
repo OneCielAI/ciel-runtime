@@ -1,0 +1,29 @@
+{
+  "version": "0.2.51-nightly.20261027-205033.3160858",
+  "gitHead": "31608580bb380cd982dddf8d2dcadac92171c3d6",
+  "tags": {
+    "latest": "0.2.51",
+    "nightly": "0.2.51-nightly.20261027-205033.3160858"
+  },
+  "dist": {
+    "shasum": "26ce0df27a39ec51705c55c59736bf10eee082db",
+    "tarball": "https://registry.npmjs.org/@one-ciel-ai/ciel-runtime/-/ciel-runtime-0.2.51-nightly.20261027-205033.3160858.tgz",
+    "fileCount": 513,
+    "integrity": "sha512-Lktlx52b0G6c7cCxlu8A98fet/31Zp9kgWdbERa5XD9KatUazK8WOylMI8p1eTvL1u0/8Aoi/mXa9FwqdXL3tA==",
+    "signatures": [
+      {
+        "sig": "MEUCIQCY52aXsDPAvws8Tw/QjeDAwqw1e/huotbfqXzL8hIqUgIgTZYtQU3JAvFzhj4wn2XwgwVCmeUBENbxImFHM2o8cJw=",
+        "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+      },
+      {
+        "sig": "MEQCIEZLQsc8B/c8AAja/zVbNUsmBcesx7D65/R8ESTBlAZDAiAshlvOjFDjDuitNnW2tFnc0JIsMKD/CAzopbUYDScvPw==",
+        "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+      }
+    ],
+    "unpackedSize": 6923972
+  },
+  "tarball_sha256": "ebfc5e95254c920c9f061195b818093e55fcef53ff4821654e214c4b423c5dd1",
+  "tarball_bytes": 1575178,
+  "files": 513,
+  "package_dir": "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\27\\releases\\router-exit-race-nightly\\evidence\\payload\\unpack\\package"
+}

@@ -1,0 +1,14 @@
+owned cmd: yes
+owned window: yes
+interactive ready: yes
+console command: yes
+first launcher exited: yes
+router down after exit: yes
+console command: yes
+relaunch router up: yes
+relaunch CLI ready: yes
+console command: yes
+second launcher exited: yes
+router down after second exit: yes
+owned stop 55564 SUCCESS: The process with PID 55564 (child process of PID 28560) has been terminated.
+evidence C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\27\diagnostics\router-exit-race\evidence\launch-installed-155420
