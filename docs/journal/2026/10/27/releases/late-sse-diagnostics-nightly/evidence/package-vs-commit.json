@@ -1,0 +1,36 @@
+{
+  "commit": "ac3b505d6ae8f22ed59b7a5f46a404ea0bd7e15d",
+  "package_files": 513,
+  "identical_to_commit": 503,
+  "differ": [
+    "ciel-runtime-stop.cmd",
+    "ciel-runtime-stop.ps1",
+    "ciel-runtime.cmd",
+    "ciel-runtime.ps1",
+    "ciel-runtimectl.cmd",
+    "ciel-runtimectl.ps1",
+    "ciel_runtime_support/runtime_constants.py",
+    "install.ps1",
+    "package.json",
+    "scripts/deploy_colab_speech.ps1"
+  ],
+  "not_in_commit": [],
+  "differ_explained": {
+    "ciel-runtime-stop.cmd": "line-endings only",
+    "ciel-runtime-stop.ps1": "line-endings only",
+    "ciel-runtime.cmd": "line-endings only",
+    "ciel-runtime.ps1": "line-endings only",
+    "ciel-runtimectl.cmd": "line-endings only",
+    "ciel-runtimectl.ps1": "line-endings only",
+    "ciel_runtime_support/runtime_constants.py": [
+      "-VERSION = \"0.2.51\"",
+      "+VERSION = \"0.2.51-nightly.20261027-231234.ac3b505\""
+    ],
+    "install.ps1": "line-endings only",
+    "package.json": [
+      "-  \"version\": \"0.2.51\",",
+      "+  \"version\": \"0.2.51-nightly.20261027-231234.ac3b505\","
+    ],
+    "scripts/deploy_colab_speech.ps1": "line-endings only"
+  }
+}
