@@ -1,0 +1,174 @@
+{
+  "label": "changed-plain",
+  "expect": "codex",
+  "runtime_root": "C:\\Users\\djlov\\ciel-runtime-wt-work",
+  "scratch": "C:\\Windows\\Temp\\ciel-owned-alias-wywjp_7z",
+  "stripped_env_names": [
+    "ANTHROPIC_AUTH_TOKEN",
+    "ANTHROPIC_BASE_URL",
+    "ANTHROPIC_CUSTOM_MODEL_OPTION",
+    "ANTHROPIC_CUSTOM_MODEL_OPTION_SUPPORTED_CAPABILITIES",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTED_CAPABILITIES",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTS",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTED_CAPABILITIES",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTS",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTED_CAPABILITIES",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTS",
+    "ANTHROPIC_MODEL",
+    "CIEL_RUNTIME_AUTO_ALLOW_DANGEROUS_RM",
+    "CIEL_RUNTIME_BYPASS_PERMISSIONS",
+    "CIEL_RUNTIME_CONFIG_DIR",
+    "CIEL_RUNTIME_HOME",
+    "CIEL_RUNTIME_LAUNCH_CWD",
+    "CIEL_RUNTIME_MODEL_ALIAS",
+    "CIEL_RUNTIME_PROVIDER",
+    "CIEL_RUNTIME_REGISTERED_HOME",
+    "CIEL_RUNTIME_SCRIPT",
+    "CIEL_RUNTIME_SELECTED_HOME",
+    "CIEL_RUNTIME_STATE_DIR",
+    "CIEL_RUNTIME_WORKSPACE_STATE_DIR",
+    "CLAUDECODE",
+    "CLAUDE_CHROME_CLASSIFIER_FLOOR",
+    "CLAUDE_CODE_ATTRIBUTION_HEADER",
+    "CLAUDE_CODE_AUTO_COMPACT_WINDOW",
+    "CLAUDE_CODE_CHILD_SESSION",
+    "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS",
+    "CLAUDE_CODE_DISABLE_NONSTREAMING_FALLBACK",
+    "CLAUDE_CODE_DISABLE_TERMINAL_TITLE",
+    "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY",
+    "CLAUDE_CODE_ENTRYPOINT",
+    "CLAUDE_CODE_EXECPATH",
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS",
+    "CLAUDE_CODE_MAX_CONTEXT_TOKENS",
+    "CLAUDE_CODE_MAX_OUTPUT_TOKENS",
+    "CLAUDE_CODE_MAX_RETRIES",
+    "CLAUDE_CODE_MESSAGING_SOCKET",
+    "CLAUDE_CODE_MESSAGING_TOKEN",
+    "CLAUDE_CODE_NONSTREAMING_TIMEOUT_RETRIES",
+    "CLAUDE_CODE_RETRY_WATCHDOG",
+    "CLAUDE_CODE_SEND_FEEDBACK",
+    "CLAUDE_CODE_SESSION_ATTENDED",
+    "CLAUDE_CODE_SESSION_ID",
+    "CLAUDE_CODE_SUBAGENT_MODEL",
+    "CLAUDE_CODE_SUBAGENT_MODEL_FORCE",
+    "CLAUDE_EFFORT",
+    "CLAUDE_PID",
+    "CODEX_SPARKLE_ENABLED",
+    "OLLAMA_CONTEXT_LENGTH",
+    "OLLAMA_FLASH_ATTENTION",
+    "OLLAMA_HOST",
+    "OLLAMA_KV_CACHE_TYPE",
+    "OLLAMA_MODELS",
+    "OLLAMA_NUM_PARALLEL",
+    "OLLAMA_SCHED_SPREAD"
+  ],
+  "claude_version": "2.1.310 (Claude Code)",
+  "command": [
+    "cmd.exe",
+    "/d",
+    "/k",
+    "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\diagnostics\\shared-launcher-verification\\evidence\\run-changed-plain-233623\\launch.cmd"
+  ],
+  "ports": {
+    "router": 51634,
+    "fixture": 51635
+  },
+  "fixture": {
+    "alias": "stub-model",
+    "native_model": "claude-opus-5-5",
+    "window": 200000,
+    "high_tokens": 190000
+  },
+  "events": [
+    {
+      "at": 1793075783.117,
+      "kind": "launched",
+      "pid": 37612,
+      "watcher": 65276
+    },
+    {
+      "at": 1793075793.766,
+      "kind": "wait_pass",
+      "label": "owned router health"
+    },
+    {
+      "at": 1793075795.016,
+      "kind": "wait_pass",
+      "label": "native model rendered"
+    },
+    {
+      "at": 1793075800.621,
+      "kind": "wait_pass",
+      "label": "screenshot 01-started"
+    },
+    {
+      "at": 1793075801.424,
+      "kind": "wait_pass",
+      "label": "prompt reached fixture"
+    },
+    {
+      "at": 1793075801.833,
+      "kind": "wait_pass",
+      "label": "reply rendered"
+    },
+    {
+      "at": 1793075803.437,
+      "kind": "wait_pass",
+      "label": "screenshot 02-reply"
+    }
+  ],
+  "live_before": {
+    "9505": {
+      "pid": 77432,
+      "version": "0.2.51-nightly.20261026-183726.81f6a4b",
+      "source_fingerprint": "72c6bfb456e30cd7",
+      "error": null
+    },
+    "9524": {
+      "pid": 25276,
+      "version": "0.2.51",
+      "source_fingerprint": "f86ee3638ee760f3",
+      "error": null
+    }
+  },
+  "owned_health": {
+    "ok": true,
+    "version": "0.2.51",
+    "source_fingerprint": "59743d83f45331de",
+    "pid": 12844,
+    "user": "djlov",
+    "home": "C:\\Windows\\Temp\\ciel-owned-alias-wywjp_7z\\home",
+    "config_dir": "C:\\Windows\\Temp\\ciel-owned-alias-wywjp_7z\\cfg\\router-instances\\51634-77d7128b6f47",
+    "workspace": "c:\\windows\\temp\\ciel-owned-alias-wywjp_7z\\ws",
+    "router_port": 51634,
+    "instance_id": "51634-77d7128b6f47",
+    "active_client_count": 0,
+    "active_client_pids": [],
+    "provider": "cielairouter",
+    "model": "ciel-runtime-cielairouter-stub-model",
+    "web_chat": "/ca/web/chat",
+    "web_chat_api": "/ca/web/chat/api",
+    "speech": "/ca/speech/health",
+    "chat": "/ca/chat/health",
+    "plan": "/ca/plan/artifacts",
+    "events": "/ca/events",
+    "events_websocket": "/ca/events/ws",
+    "external_event_receivers": "/ca/events/receivers",
+    "otlp_logs": "/v1/logs",
+    "telemetry_logs_tool": "POST /ca/mcp tools/call telemetry_logs",
+    "tui": "/ca/tui",
+    "tui_status": "/ca/tui/status",
+    "tui_stream": "/ca/tui/stream",
+    "cielairouter_gateway": {
+      "provider": "cielairouter",
+      "selector_module": "ciel_runtime_support.cielairouter_gateways",
+      "selector": "not_loaded",
+      "selector_error": "",
+      "routes": [],
+      "gateways": []
+    }
+  }
+}

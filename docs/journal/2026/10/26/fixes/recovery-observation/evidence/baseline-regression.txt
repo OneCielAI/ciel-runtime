@@ -1,0 +1,24 @@
+Baseline HEAD proxy/direct modules loaded in isolated process; worktree tests and shared helper unchanged.
+Expected failing regression, no source mutation.
+exit=1
+test_exact_batch_completion_is_settled_while_recovery_admission_stays_paused (test_channel_terminal_dispatch.ChannelTerminalDispatchServiceTests.test_exact_batch_completion_is_settled_while_recovery_admission_stays_paused) ... FAIL
+
+======================================================================
+FAIL: test_exact_batch_completion_is_settled_while_recovery_admission_stays_paused (test_channel_terminal_dispatch.ChannelTerminalDispatchServiceTests.test_exact_batch_completion_is_settled_while_recovery_admission_stays_paused)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-work\tests\test_channel_terminal_dispatch.py", line 430, in test_exact_batch_completion_is_settled_while_recovery_admission_stays_paused
+    self.assertEqual(["replied"] * 5, [batch.status.get(n)["status"] for n in range(40, 45)])
+AssertionError: Lists differ: ['replied', 'replied', 'replied', 'replied', 'replied'] != ['submitted', 'submitted', 'submitted', 'submitted', 'submitted']
+
+First differing element 0:
+'replied'
+'submitted'
+
+- ['replied', 'replied', 'replied', 'replied', 'replied']
++ ['submitted', 'submitted', 'submitted', 'submitted', 'submitted']
+
+----------------------------------------------------------------------
+Ran 1 test in 0.105s
+
+FAILED (failures=1)

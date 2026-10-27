@@ -1,0 +1,14 @@
+{"at": 1793072537.388, "kind": "launched", "pid": 46828, "watcher": 73852}
+{"at": 1793072547.532, "kind": "wait_pass", "label": "owned router health"}
+{"at": 1793072547.955, "kind": "wait_pass", "label": "native launch"}
+{"at": 1793072547.996, "kind": "wait_pass", "label": "native process present"}
+{"at": 1793072560.399, "kind": "wait_pass", "label": "watcher typed baseline"}
+{"at": 1793072561.2, "kind": "wait_pass", "label": "high-usage turn reached loopback"}
+{"at": 1793072561.206, "kind": "wait_pass", "label": "high-usage reply rendered"}
+{"at": 1793072562.81, "kind": "wait_pass", "label": "screenshot 01-before-compact"}
+{"at": 1793072563.613, "kind": "wait_pass", "label": "first manual compact reached fixture"}
+{"at": 1793072563.613, "kind": "first_compact_started", "native_watchdog": true}
+{"at": 1793072863.85, "kind": "wait_pass", "label": "native idle-timeout error rendered"}
+{"at": 1793072865.455, "kind": "wait_pass", "label": "screenshot 02-native-idle-error"}
+{"at": 1793072907.059, "kind": "wait_pass", "label": "screenshot 03-no-retry"}
+RESULT C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\diagnostics\compact-retry\evidence\repro\run-baseline-224217 no_compact

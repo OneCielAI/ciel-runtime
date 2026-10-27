@@ -1,0 +1,29 @@
+  11. Remote instructions  [HTTP GET · off]
+  12. Workspace MCP modules  [launch scoped]
+  13. Request/file limits  [workspace scoped]
+  14. Web backend  [off · 127.0.0.1:9554]
+  15. OAuth tokens  [none · Codex/Claude rotation]
+  16. Web access  [0 accounts · admin token]
+  17. Dangerous delete prompt · Stream recovery  [Claude · auto-allow off · stream recovery on]
+  18. Session backup  [incremental · schedule off · to local · last never]
+  19. Provider fallback  [auto off · 0/0 backups ready]
+  20. Unattended restart  [no script]
+  Quit
+
+-----------------------------------------------------------------------------------------------------------------------
+LLM options
+    ... 4 above
+    Event message preview    [0]
+    Claude feedback drafts   [off (default)]
+  > Tool blocklist (routed)  [default]
+    Work mode                [on (default)]
+    Work plan approval       [auto (default)]
+    ... 26 below
+
+  Routed requests only: default restores compatibility blocks; a JSON list replaces the entire blocklist. false or [...
+
+-----------------------------------------------------------------------------------------------------------------------
+  Base URL: unreachable (URLError)
+  API key: set (CielAiRouter; primary owne...ummy; fp 831a71ecbb13)
+
+Up/Down moves. PgUp/PgDn jumps. Home/End bounds. Enter selects. Esc/Left closes. q quits.

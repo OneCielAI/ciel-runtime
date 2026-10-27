@@ -1,0 +1,13 @@
+{
+  "9505": {
+    "pid": 77432,
+    "version": "0.2.51-nightly.20261026-183726.81f6a4b",
+    "source_fingerprint": "72c6bfb456e30cd7"
+  },
+  "9524": {
+    "pid": 25276,
+    "version": "0.2.51",
+    "source_fingerprint": "f86ee3638ee760f3"
+  },
+  "leftover_owned_drivers": []
+}

@@ -1,0 +1,3 @@
+OKF v0.1 conformance — C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\fixes\work-hybrid-contract
+  concepts: 1   index.md: 1   log.md: 1
+  [32m✓ conformant — no issues[0m

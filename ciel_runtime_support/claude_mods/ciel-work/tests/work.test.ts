@@ -4,7 +4,7 @@ function setup(on, extra = {}) {
   const s = { snapshot: { enabled: true, phase: 'planning', approval: 'auto', version: 1,
     active_root: { id: 'g1', title: 'Goal' }, done: 0, total: 2, ...extra },
     sessionId: 'session-a', calls: [], tools: [], registered: null, offline: false, answer: 'Approve', change: false, rendered: null, failText: false,
-    waitStatus: null, activeReads: 0, maxReads: 0 }
+    waitStatus: null, activeReads: 0, maxReads: 0, nativeVerdict: { decision: 'allow' }, nativeChecks: [] }
   on('session.id', () => ({ value: s.sessionId }))
   on('mcp.call', async ($, e) => {
     s.calls.push(e)
@@ -24,7 +24,7 @@ function setup(on, extra = {}) {
   on('turn.complete', (_, e) => ({ text: e.answer }))
   on('prompt.attachment', (_, e) => ({ text: e.text }))
   on('prompt.submit', ($, e) => ({ text: e.text, context: e.context }))
-  on('tool.check', () => ({ decision: 'allow' }))
+  on('tool.check', (_, e) => { s.nativeChecks.push(e); return s.nativeVerdict })
   on('ui.render', ($, e) => { s.rendered = e; return { type: 'Text', props: {}, children: e.props.modes } })
   on('tool.call', ($, e) => {
     s.tools.push(e)
@@ -81,7 +81,7 @@ test('only exact engine plan attachments exempt Edit and Write in the same nativ
   }
   expect((await $.tool.call({ tool: 'NotebookEdit', notebook_path: path })).deny).toContain('planning')
   expect((await $.tool.call({ tool: 'apply_patch', patch: path })).deny).toContain('planning')
-  expect((await $.tool.check({ tool: 'Bash', input: { command: 'write ' + path } })).decision).toBe('deny')
+  expect((await $.tool.check({ tool: 'Bash', input: { command: 'write ' + path } })).decision).toBe('allow')
   await planAttachment($, { agentId: 'child', detail: { ...NATIVE_PLAN.detail, planFilePath: '/child-plan' } })
   expect((await $.tool.call({ tool: 'Write', file_path: '/child-plan', agentId: 'child' })).deny).toBeUndefined()
   expect((await $.tool.call({ tool: 'Write', file_path: '/child-plan' })).deny).toContain('planning')
@@ -127,16 +127,45 @@ test('native plan exemption clears on exit, missing facts and session changes; o
   await $.session.end({ reason: 'clear' })
   expect((await $.tool.call({ tool: 'Write', file_path: path })).deny).toContain('planning')
 })
-test('shells use engine read-only flag and disabled state clears guards', async ($, on) => {
+test('shells delegate to native policy and disabled state clears edit guards', async ($, on) => {
   const s = setup(on)
   for (const tool of ['Bash', 'PowerShell']) {
-    expect((await $.tool.check({ tool, input: {} })).decision).toBe('deny')
+    expect((await $.tool.check({ tool, input: {} })).decision).toBe('allow')
     expect((await $.tool.check({ tool, input: {}, isReadOnly: true })).decision).toBe('allow')
   }
   s.snapshot.enabled = false
   expect((await $.tool.call({ tool: 'Write', file_path: '/x', content: 'x' })).deny).toBeUndefined()
   expect((await $.prompt.submit({ text: 'x', wait: false })).context).toBeUndefined()
 })
+for (const tool of ['Bash', 'PowerShell']) {
+  test(tool + ' never depends on Work status or rewrites native permission results', async ($, on) => {
+    const s = setup(on)
+    for (const state of ['planning', 'executing', 'disabled', 'offline', 'malformed']) {
+      s.snapshot.enabled = state !== 'disabled'; s.offline = state === 'offline'
+      s.snapshot.phase = state === 'malformed' ? 'bogus' : state === 'executing' ? 'executing' : 'planning'
+      for (const agentId of [undefined, 'child']) {
+        const input = { tool, command: 'harmless marker', agentId }
+        const before = s.calls.length
+        s.nativeVerdict = { decision: 'allow' }
+        expect((await $.tool.call(input)).result).toBe('ok')
+        expect(s.tools.at(-1).tool).toBe(input.tool)
+        expect(s.tools.at(-1).command).toBe(input.command)
+        expect(s.tools.at(-1).agentId).toBe(input.agentId)
+        for (const isReadOnly of [undefined, true, false]) {
+          for (const decision of ['allow', 'ask', 'deny']) {
+            s.nativeVerdict = { decision, reason: 'native policy' }
+            const check = { tool, input: { command: input.command }, agentId, isReadOnly }
+            expect(await $.tool.check(check)).toEqual(s.nativeVerdict)
+            expect(s.nativeChecks.at(-1).input).toEqual(check.input)
+            expect(s.nativeChecks.at(-1).isReadOnly).toBe(isReadOnly)
+            expect(s.nativeChecks.at(-1).agentId).toBe(agentId)
+          }
+        }
+        expect(s.calls.length).toBe(before)
+      }
+    }
+  })
+}
 test('unavailable and malformed status fail closed but reads pass', async ($, on) => {
   const s = setup(on); s.offline = true
   expect((await $.tool.call({ tool: 'Write', file_path: '/x' })).deny).toContain('unavailable')
@@ -189,13 +218,13 @@ test('SessionMode planning, progress, off and unavailable are read-only renders'
   await $.command.run({ command: 'work-mode', args: 'status' })
   expect(await render()).toEqual(['auto'])
 })
-test('unavailable shell and execute fail closed; missing approval tree cannot execute', async ($, on) => {
+test('offline shells delegate but execute and missing approval tree still fail closed', async ($, on) => {
   const s = setup(on, { approval: 'ask' }); s.offline = true
-  expect((await $.tool.call({ tool: 'Bash', command: 'anything' })).deny).toContain('unavailable')
+  expect((await $.tool.call({ tool: 'Bash', command: 'anything' })).deny).toBeUndefined()
   expect((await $.tool.call({ tool: T + 'work_execute' })).deny).toContain('unavailable')
   s.offline = false; s.failText = true
   expect((await $.tool.call({ tool: T + 'work_execute' })).deny).toContain('not obtained')
-  expect(s.tools.length).toBe(0)
+  expect(s.tools.map(t => t.tool)).toEqual(['Bash'])
 })
 test('every Work result refreshes; another server is not treated as Work', async ($, on) => {
   const s = setup(on)
@@ -624,10 +653,10 @@ test('planning denial explains itself and toasts once per plan version', async (
   expect(first.deny).toContain('work_execute')
   expect(first.deny).toContain('/work-mode help')
   await $.tool.call({ tool: 'Write', file_path: '/x', content: 'x' })
-  expect((await $.tool.check({ tool: 'Bash', input: {} })).decision).toBe('deny')
+  expect((await $.tool.check({ tool: 'Write', input: { file_path: '/x' } })).decision).toBe('deny')
   expect(s.toasts.length).toBe(1)
   s.snapshot.version++
-  await $.tool.check({ tool: 'Bash', input: {} })
+  await $.tool.check({ tool: 'Write', input: { file_path: '/x' } })
   expect(s.toasts.length).toBe(2)
   s.offline = true
   await $.tool.call({ tool: 'Edit', file_path: '/x' })
@@ -696,4 +725,39 @@ test('survey yields, disabled hides, long branch list retains every item', async
   await band.redraw(BAND.props)
   expect((await band.findAll({ type: 'Button' })).length).toBe(0)
   await band.unmount()
+})
+
+test('hybrid prompt keeps bounded valid active summary without queued title note or subtree', async ($, on) => {
+  const s = setup(on, { phase: 'executing',
+    active_root: { id: 'active', title: 'a'.repeat(10000), note: 'ACTIVE-NOTE' },
+    breakdown: [{ id: 'branch', title: 'ACTIVE-BRANCH-NOTE' }],
+    queue: Array.from({ length: 20 }, (_, i) => ({ id: 'q' + i, title: 'QUEUED-PRIVATE-TITLE',
+      note: 'QUEUED-PRIVATE-NOTE', children: [{ title: 'QUEUED-PRIVATE-STEP' }] })) })
+  const text = (await $.prompt.submit({ text: 'RAW-USER-REQUEST', wait: false })).context.at(-1)
+  expect(text).toContain('hybrid per-item')
+  expect(text).toContain('not native Plan Mode')
+  expect(text).toContain('within_scope=true')
+  expect(text).toContain('raw user messages remain in native history')
+  expect(text).not.toContain('QUEUED-PRIVATE')
+  expect(text).not.toContain('ACTIVE-NOTE')
+  const data = JSON.parse(text.slice(text.lastIndexOf(String.fromCharCode(10)) + 1))
+  expect(data.phase).toBe('executing')
+  expect(data.active_root.title.length <= 180).toBe(true)
+  expect(data.queue_count).toBe(20)
+  expect(data.queued_ids.length).toBe(5)
+  expect(text.length < 4400).toBe(true)
+})
+test('ask approval reads exact active goal only and never overrides native edit denial', async ($, on) => {
+  const s = setup(on, { approval: 'ask', phase: 'executing' })
+  s.nativeVerdict = { decision: 'deny', reason: 'native policy' }
+  expect(await $.tool.check({ tool: 'Write', input: { file_path: '/x' } })).toEqual(s.nativeVerdict)
+  s.snapshot.phase = 'planning'
+  await $.tool.call({ tool: T + 'work_execute' })
+  expect(s.calls.find(c => c.args.format === 'text').args.root_id).toBe('g1')
+})
+
+test('queued planning target cannot inherit active approval during continuation', async ($, on) => {
+  continuing(on, { phase: 'executing', approval: 'ask', auto_continue: true,
+    continuation: { actionable: 1, next: { id: 'queued-leaf', title: 'private', root_id: 'q1', phase: 'planning' } } })
+  expect((await $.classic.Stop(STOP)).block).toBeUndefined()
 })

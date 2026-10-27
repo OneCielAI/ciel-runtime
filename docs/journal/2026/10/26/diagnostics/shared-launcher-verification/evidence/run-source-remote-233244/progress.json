@@ -1,0 +1,173 @@
+{
+  "label": "source-remote",
+  "expect": "codex-remote",
+  "runtime_root": "C:\\Users\\djlov\\ciel-runtime-wt-work",
+  "scratch": "C:\\Windows\\Temp\\ciel-owned-alias-yk73upnc",
+  "stripped_env_names": [
+    "ANTHROPIC_AUTH_TOKEN",
+    "ANTHROPIC_BASE_URL",
+    "ANTHROPIC_CUSTOM_MODEL_OPTION",
+    "ANTHROPIC_CUSTOM_MODEL_OPTION_SUPPORTED_CAPABILITIES",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTED_CAPABILITIES",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTS",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTED_CAPABILITIES",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTS",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTED_CAPABILITIES",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTS",
+    "ANTHROPIC_MODEL",
+    "CIEL_RUNTIME_AUTO_ALLOW_DANGEROUS_RM",
+    "CIEL_RUNTIME_BYPASS_PERMISSIONS",
+    "CIEL_RUNTIME_CONFIG_DIR",
+    "CIEL_RUNTIME_HOME",
+    "CIEL_RUNTIME_LAUNCH_CWD",
+    "CIEL_RUNTIME_MODEL_ALIAS",
+    "CIEL_RUNTIME_PROVIDER",
+    "CIEL_RUNTIME_REGISTERED_HOME",
+    "CIEL_RUNTIME_SCRIPT",
+    "CIEL_RUNTIME_SELECTED_HOME",
+    "CIEL_RUNTIME_STATE_DIR",
+    "CIEL_RUNTIME_WORKSPACE_STATE_DIR",
+    "CLAUDECODE",
+    "CLAUDE_CHROME_CLASSIFIER_FLOOR",
+    "CLAUDE_CODE_ATTRIBUTION_HEADER",
+    "CLAUDE_CODE_AUTO_COMPACT_WINDOW",
+    "CLAUDE_CODE_CHILD_SESSION",
+    "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS",
+    "CLAUDE_CODE_DISABLE_NONSTREAMING_FALLBACK",
+    "CLAUDE_CODE_DISABLE_TERMINAL_TITLE",
+    "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY",
+    "CLAUDE_CODE_ENTRYPOINT",
+    "CLAUDE_CODE_EXECPATH",
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS",
+    "CLAUDE_CODE_MAX_CONTEXT_TOKENS",
+    "CLAUDE_CODE_MAX_OUTPUT_TOKENS",
+    "CLAUDE_CODE_MAX_RETRIES",
+    "CLAUDE_CODE_MESSAGING_SOCKET",
+    "CLAUDE_CODE_MESSAGING_TOKEN",
+    "CLAUDE_CODE_NONSTREAMING_TIMEOUT_RETRIES",
+    "CLAUDE_CODE_RETRY_WATCHDOG",
+    "CLAUDE_CODE_SEND_FEEDBACK",
+    "CLAUDE_CODE_SESSION_ATTENDED",
+    "CLAUDE_CODE_SESSION_ID",
+    "CLAUDE_CODE_SUBAGENT_MODEL",
+    "CLAUDE_CODE_SUBAGENT_MODEL_FORCE",
+    "CLAUDE_EFFORT",
+    "CLAUDE_PID",
+    "CODEX_SPARKLE_ENABLED",
+    "OLLAMA_CONTEXT_LENGTH",
+    "OLLAMA_FLASH_ATTENTION",
+    "OLLAMA_HOST",
+    "OLLAMA_KV_CACHE_TYPE",
+    "OLLAMA_MODELS",
+    "OLLAMA_NUM_PARALLEL",
+    "OLLAMA_SCHED_SPREAD"
+  ],
+  "claude_version": "2.1.310 (Claude Code)",
+  "command": [
+    "cmd.exe",
+    "/d",
+    "/k",
+    "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\diagnostics\\shared-launcher-verification\\evidence\\run-source-remote-233244\\launch.cmd"
+  ],
+  "ports": {
+    "router": 65373,
+    "fixture": 65374
+  },
+  "fixture": {
+    "alias": "stub-model",
+    "native_model": "claude-opus-5-5",
+    "window": 200000,
+    "high_tokens": 190000
+  },
+  "events": [
+    {
+      "at": 1793075564.729,
+      "kind": "launched",
+      "pid": 70376,
+      "watcher": 79860
+    },
+    {
+      "at": 1793075574.897,
+      "kind": "wait_pass",
+      "label": "owned router health"
+    },
+    {
+      "at": 1793075577.752,
+      "kind": "wait_pass",
+      "label": "remote TUI started"
+    },
+    {
+      "at": 1793075578.167,
+      "kind": "wait_pass",
+      "label": "native model rendered"
+    },
+    {
+      "at": 1793075583.772,
+      "kind": "wait_pass",
+      "label": "screenshot 01-started"
+    },
+    {
+      "at": 1793075643.83,
+      "kind": "failure",
+      "error": "Traceback (most recent call last):\n  File \"C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\diagnostics\\shared-launcher-verification\\evidence\\owned_launch.py\", line 465, in <module>\n    wait(lambda: any(q.get(\"turn\") == \"1\" for q in EVENTS), 60, \"prompt reached fixture\")\n  File \"C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\diagnostics\\shared-launcher-verification\\evidence\\owned_launch.py\", line 380, in wait\n    raise RuntimeError(\"timeout \" + label)\nRuntimeError: timeout prompt reached fixture\n"
+    }
+  ],
+  "live_before": {
+    "9505": {
+      "pid": 77432,
+      "version": "0.2.51-nightly.20261026-183726.81f6a4b",
+      "source_fingerprint": "72c6bfb456e30cd7",
+      "error": null
+    },
+    "9524": {
+      "pid": 25276,
+      "version": "0.2.51",
+      "source_fingerprint": "f86ee3638ee760f3",
+      "error": null
+    }
+  },
+  "owned_health": {
+    "ok": true,
+    "version": "0.2.51",
+    "source_fingerprint": "59743d83f45331de",
+    "pid": 62952,
+    "user": "djlov",
+    "home": "C:\\Windows\\Temp\\ciel-owned-alias-yk73upnc\\home",
+    "config_dir": "C:\\Windows\\Temp\\ciel-owned-alias-yk73upnc\\cfg\\router-instances\\65373-0273f3bc45cd",
+    "workspace": "c:\\windows\\temp\\ciel-owned-alias-yk73upnc\\ws",
+    "router_port": 65373,
+    "instance_id": "65373-0273f3bc45cd",
+    "active_client_count": 1,
+    "active_client_pids": [
+      37612
+    ],
+    "provider": "cielairouter",
+    "model": "ciel-runtime-cielairouter-stub-model",
+    "web_chat": "/ca/web/chat",
+    "web_chat_api": "/ca/web/chat/api",
+    "speech": "/ca/speech/health",
+    "chat": "/ca/chat/health",
+    "plan": "/ca/plan/artifacts",
+    "events": "/ca/events",
+    "events_websocket": "/ca/events/ws",
+    "external_event_receivers": "/ca/events/receivers",
+    "otlp_logs": "/v1/logs",
+    "telemetry_logs_tool": "POST /ca/mcp tools/call telemetry_logs",
+    "tui": "/ca/tui",
+    "tui_status": "/ca/tui/status",
+    "tui_stream": "/ca/tui/stream",
+    "cielairouter_gateway": {
+      "provider": "cielairouter",
+      "selector_module": "ciel_runtime_support.cielairouter_gateways",
+      "selector": "not_loaded",
+      "selector_error": "",
+      "routes": [],
+      "gateways": []
+    }
+  },
+  "status": "failed",
+  "error": "Traceback (most recent call last):\n  File \"C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\diagnostics\\shared-launcher-verification\\evidence\\owned_launch.py\", line 465, in <module>\n    wait(lambda: any(q.get(\"turn\") == \"1\" for q in EVENTS), 60, \"prompt reached fixture\")\n  File \"C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\diagnostics\\shared-launcher-verification\\evidence\\owned_launch.py\", line 380, in wait\n    raise RuntimeError(\"timeout \" + label)\nRuntimeError: timeout prompt reached fixture\n"
+}

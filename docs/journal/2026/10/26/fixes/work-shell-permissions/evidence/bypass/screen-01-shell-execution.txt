@@ -1,0 +1,38 @@
+                                                                                             ╭────────────────────────────────────────╮
+ ▐▛███▛█   Claude Code v2.1.310                                                              │ ciel-work                              │
+▝▜██████▀  fake-work · API Usage Billing                                                     │ Work mode is planning: edits wait for  │
+ ▝▝   ▝▝   C:\Users\djlov\AppData\Local\Temp\work-shell-proof-3a3f659e\ws                    │ the approved plan · /work-mode help    │
+                                                                                             ╰────────────────────────────────────────╯
+⚠ Model "fake-work" isn't recognized · context assumed to be 200k tokens · update Claude Code, or see the docs
+
+▎ Debug mode enabled · logging to C:\Users\djlov\AppData\Local\Temp\work-shell-proof-3a3f659e\native-debug.log
+
+● ciel-work: Ciel Work mode is on: the model plans first (work_plan_set) and edits after work_execute. Items show above the
+  prompt · /work-mode help · turn off: ciel-runtime menu → LLM options → Work mode
+
+❯ E2EHINT-MAIN execute disposable shell proof while Work is planning.
+
+  Ran 2 shell commands
+
+● Write(subject.txt)
+  ⎿  Error: Work mode is planning: direct file edits wait until the plan is approved. Build it with work_plan_set, then call
+     work_execute. (/work-mode help)
+
+● WORK-SHELL-PROOF-END
+
+✻ Worked for 2s · done 10:56 PM
+
+
+
+
+
+
+
+
+
+Work mode: no plan yet — the model plans before editing · /work-mode help                                                          [-]
+                                                                                                                     ● high · /effort
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · ← for agents                                                         work: plan 0/0

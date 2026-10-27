@@ -143,7 +143,9 @@ PLAN_MODE_SELF_TOOLS = ("EnterPlanMode", "ExitPlanMode")
 ANTHROPIC_THINKING_BLOCK_TYPES = ("thinking", "redacted_thinking")
 DEFAULT_BLOCKED_TOOLS_NON_ANTHROPIC = (
     "EnterWorktree", "ExitWorktree", "TeamCreate", "TeamDelete", "TeammateTool",
-    "SendMessage", "SendMessageTool", "ScheduleWakeup", "WaitForMcpServers",
+    # SendMessage is a client-executed agent inbox tool, not a server-side API.
+    # Keep the legacy SendMessageTool/team lifecycle tools blocked until verified.
+    "SendMessageTool", "ScheduleWakeup", "WaitForMcpServers",
     "WebSearch", "web_search", "WebFetch", "web_fetch", "RemoteTrigger", "PushNotification",
 )
 CLAUDE_SERVER_SIDE_WEB_TOOLS = ("WebSearch", "WebFetch")

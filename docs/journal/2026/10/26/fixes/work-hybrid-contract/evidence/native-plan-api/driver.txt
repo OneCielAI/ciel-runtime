@@ -1,0 +1,14 @@
+owned router: yes
+owned cmd: yes
+owned window: yes
+interactive ready: yes
+console command: yes
+native exit dialog: yes
+console command: yes
+native lifecycle reached idle: yes
+original band: yes
+idle HTTP band refresh: yes
+owned stop 51108 SUCCESS: The process with PID 28716 (child process of PID 51108) has been terminated.
+SUCCESS: The process with PID 51108 (child process of PID 49736) has been terminated.
+owned stop 81496 SUCCESS: The process with PID 81496 (child process of PID 28252) has been terminated.
+evidence C:\Users\djlov\AppData\Local\Temp\ciel-work-api-b2e6d525

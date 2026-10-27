@@ -1,0 +1,38 @@
+
+           Claude Code v2.1.310
+           fake-work · API Usage Billing
+           C:\Users\djlov\AppData\Local\Temp\work-hybrid-e9a6e66d\ws
+
+⚠ Model "fake-work" isn't recognized · context assumed to be 200k tokens · update Claude Code, or see the docs
+
+▎ Debug mode enabled · logging to C:\Users\djlov\AppData\Local\Temp\work-hybrid-e9a6e66d\native-debug.log
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Work unavailable — /work-mode status                                                                                               [-]
+                                                                                                                     ● high · /effort
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · ← for agents                                                      work: unavailable

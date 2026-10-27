@@ -1,0 +1,8 @@
+C:\Program Files\Python311\python.exe -I -m py_compile ciel_runtime_support/channel_inflight.py ciel_runtime_support/channel_pending_poll.py ciel_runtime_support/channel_terminal_dispatch.py ciel_runtime_support/channel_terminal_proxy.py tests/test_channel_inflight.py tests/test_channel_pending_poll.py tests/test_channel_terminal_dispatch.py tests/test_channel_direct_socket_e2e.py
+exit=0
+
+
+C:\Program Files\Python311\python.exe -I -m ruff check ciel_runtime_support/channel_inflight.py ciel_runtime_support/channel_pending_poll.py ciel_runtime_support/channel_terminal_dispatch.py ciel_runtime_support/channel_terminal_proxy.py tests/test_channel_inflight.py tests/test_channel_pending_poll.py tests/test_channel_terminal_dispatch.py tests/test_channel_direct_socket_e2e.py
+exit=0
+All checks passed!
+

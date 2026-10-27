@@ -196,7 +196,7 @@ except WorkPlanConflict:
             t.set_plan(doc, {"title": "first", "children": [{"title": "one"}, {"title": "two"}]}, now=1)
             t.add_node(doc, None, "second", now=1)
             root = t.add_node(doc, None, "third", now=1)
-            t.select_root(doc, root)
+            t.select_root(doc, root, user_requested=True)
         saved, _ = self.store.transaction(plan)
         contents = self.path.read_bytes()
         for mutate in (lambda d: t.update_node(d, "n2", title=" one ", ref=" \n ", now=100),

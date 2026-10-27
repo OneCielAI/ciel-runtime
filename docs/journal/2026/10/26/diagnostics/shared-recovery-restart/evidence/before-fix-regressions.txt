@@ -1,0 +1,100 @@
+owned-pipeline removed reset= False reason= restart_evidence_insufficient queued= 1 coverage= unknown
+owned-pipeline corrupt_queue reset= False reason= restart_evidence_insufficient queued= 1 coverage= partial
+owned-pipeline torn_queue reset= False reason= restart_evidence_insufficient queued= 1 coverage= partial
+owned-pipeline partial_history reset= False reason= restart_evidence_insufficient queued= 1 coverage= partial
+owned-pipeline retained_stale reset= True reason= sse_delivery_recovery_queued queued= 1 coverage= complete
+owned-pipeline cooldown reset= True reason= sse_delivery_recovery_queued queued= 1 coverage= complete
+owned-pipeline uncertain_restart reset= False reason= restart_failed:OSError queued= 1 coverage= complete
+test_historical_A_and_retained_B_never_share_count_or_age (test_runtime_input_delivery_health.DeliveryHealthTests.test_historical_A_and_retained_B_never_share_count_or_age) ... FAIL
+test_owned_pipeline_exact_retained_nonterminal_id_matrix (test_runtime_sse_recovery.RecoveryTests.test_owned_pipeline_exact_retained_nonterminal_id_matrix)
+Real history/queue -> router recovery -> sole local restart fixture. ... 
+  test_owned_pipeline_exact_retained_nonterminal_id_matrix (test_runtime_sse_recovery.RecoveryTests.test_owned_pipeline_exact_retained_nonterminal_id_matrix) (case='mismatch')
+Real history/queue -> router recovery -> sole local restart fixture. ... FAIL
+  test_owned_pipeline_exact_retained_nonterminal_id_matrix (test_runtime_sse_recovery.RecoveryTests.test_owned_pipeline_exact_retained_nonterminal_id_matrix) (case='recent_B')
+Real history/queue -> router recovery -> sole local restart fixture. ... FAIL
+  test_owned_pipeline_exact_retained_nonterminal_id_matrix (test_runtime_sse_recovery.RecoveryTests.test_owned_pipeline_exact_retained_nonterminal_id_matrix) (case='terminal_B')
+Real history/queue -> router recovery -> sole local restart fixture. ... FAIL
+  test_owned_pipeline_exact_retained_nonterminal_id_matrix (test_runtime_sse_recovery.RecoveryTests.test_owned_pipeline_exact_retained_nonterminal_id_matrix) (case='uncertain_B')
+Real history/queue -> router recovery -> sole local restart fixture. ... FAIL
+  test_owned_pipeline_exact_retained_nonterminal_id_matrix (test_runtime_sse_recovery.RecoveryTests.test_owned_pipeline_exact_retained_nonterminal_id_matrix) (case='changed_history')
+Real history/queue -> router recovery -> sole local restart fixture. ... FAIL
+  test_owned_pipeline_exact_retained_nonterminal_id_matrix (test_runtime_sse_recovery.RecoveryTests.test_owned_pipeline_exact_retained_nonterminal_id_matrix) (case='reuse')
+Real history/queue -> router recovery -> sole local restart fixture. ... FAIL
+
+======================================================================
+FAIL: test_historical_A_and_retained_B_never_share_count_or_age (test_runtime_input_delivery_health.DeliveryHealthTests.test_historical_A_and_retained_B_never_share_count_or_age)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-work/tests\test_runtime_input_delivery_health.py", line 199, in test_historical_A_and_retained_B_never_share_count_or_age
+    self.assertEqual((1, 10, "complete"),
+AssertionError: Tuples differ: (1, 10, 'complete') != (2, 190.0, 'complete')
+
+First differing element 0:
+1
+2
+
+- (1, 10, 'complete')
+?   ^^^
+
++ (2, 190.0, 'complete')
+?  +++ ^^^
+
+
+======================================================================
+FAIL: test_owned_pipeline_exact_retained_nonterminal_id_matrix (test_runtime_sse_recovery.RecoveryTests.test_owned_pipeline_exact_retained_nonterminal_id_matrix) (case='mismatch')
+Real history/queue -> router recovery -> sole local restart fixture.
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-work/tests\test_runtime_sse_recovery.py", line 602, in test_owned_pipeline_exact_retained_nonterminal_id_matrix
+    self.assertEqual(allowed, result["reset"], result)
+AssertionError: False != True : {'ok': True, 'action': 'auto', 'problem': True, 'evidence': {'problem': True, 'observable': True, 'restart_eligible': True, 'reasons': ['queued_input_stale'], 'state': 'not_blocked', 'reason': '', 'admission_blocked': False, 'admission_paused': False, 'pause_observable': True, 'launcher_hold_observed': False, 'blocker_scope': None, 'known_queued_count': 1, 'reused_id_count': 0, 'reused_id_newest': None, 'oldest_queued_age_seconds': 400.0185971260071, 'queued_coverage': 'complete', 'history_coverage': 'complete', 'line_number': None}, 'checked_at': 1793075169.810084, 'last_reset_at': None, 'cooldown_seconds': 900.0, 'cooldown_remaining_seconds': 0.0, 'restart': {'ok': True, 'action': 'restart', 'client_pid': 74096}, 'reset': True, 'reason': 'sse_delivery_recovery_queued'}
+
+======================================================================
+FAIL: test_owned_pipeline_exact_retained_nonterminal_id_matrix (test_runtime_sse_recovery.RecoveryTests.test_owned_pipeline_exact_retained_nonterminal_id_matrix) (case='recent_B')
+Real history/queue -> router recovery -> sole local restart fixture.
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-work/tests\test_runtime_sse_recovery.py", line 602, in test_owned_pipeline_exact_retained_nonterminal_id_matrix
+    self.assertEqual(allowed, result["reset"], result)
+AssertionError: False != True : {'ok': True, 'action': 'auto', 'problem': True, 'evidence': {'problem': True, 'observable': True, 'restart_eligible': True, 'reasons': ['queued_input_stale'], 'state': 'not_blocked', 'reason': '', 'admission_blocked': False, 'admission_paused': False, 'pause_observable': True, 'launcher_hold_observed': False, 'blocker_scope': None, 'known_queued_count': 2, 'reused_id_count': 0, 'reused_id_newest': None, 'oldest_queued_age_seconds': 400.0158860683441, 'queued_coverage': 'complete', 'history_coverage': 'complete', 'line_number': None}, 'checked_at': 1793075169.8289707, 'last_reset_at': None, 'cooldown_seconds': 900.0, 'cooldown_remaining_seconds': 0.0, 'restart': {'ok': True, 'action': 'restart', 'client_pid': 74096}, 'reset': True, 'reason': 'sse_delivery_recovery_queued'}
+
+======================================================================
+FAIL: test_owned_pipeline_exact_retained_nonterminal_id_matrix (test_runtime_sse_recovery.RecoveryTests.test_owned_pipeline_exact_retained_nonterminal_id_matrix) (case='terminal_B')
+Real history/queue -> router recovery -> sole local restart fixture.
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-work/tests\test_runtime_sse_recovery.py", line 602, in test_owned_pipeline_exact_retained_nonterminal_id_matrix
+    self.assertEqual(allowed, result["reset"], result)
+AssertionError: False != True : {'ok': True, 'action': 'auto', 'problem': True, 'evidence': {'problem': True, 'observable': True, 'restart_eligible': True, 'reasons': ['queued_input_stale', 'input_id_reuse'], 'state': 'not_blocked', 'reason': '', 'admission_blocked': False, 'admission_paused': False, 'pause_observable': True, 'launcher_hold_observed': False, 'blocker_scope': None, 'known_queued_count': 1, 'reused_id_count': 1, 'reused_id_newest': 2, 'oldest_queued_age_seconds': 400.014062166214, 'queued_coverage': 'complete', 'history_coverage': 'complete', 'line_number': None}, 'checked_at': 1793075169.8457167, 'last_reset_at': None, 'cooldown_seconds': 900.0, 'cooldown_remaining_seconds': 0.0, 'restart': {'ok': True, 'action': 'restart', 'client_pid': 74096}, 'reset': True, 'reason': 'sse_delivery_recovery_queued'}
+
+======================================================================
+FAIL: test_owned_pipeline_exact_retained_nonterminal_id_matrix (test_runtime_sse_recovery.RecoveryTests.test_owned_pipeline_exact_retained_nonterminal_id_matrix) (case='uncertain_B')
+Real history/queue -> router recovery -> sole local restart fixture.
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-work/tests\test_runtime_sse_recovery.py", line 602, in test_owned_pipeline_exact_retained_nonterminal_id_matrix
+    self.assertEqual(allowed, result["reset"], result)
+AssertionError: False != True : {'ok': True, 'action': 'auto', 'problem': True, 'evidence': {'problem': True, 'observable': True, 'restart_eligible': True, 'reasons': ['queued_input_stale', 'input_id_reuse'], 'state': 'not_blocked', 'reason': '', 'admission_blocked': False, 'admission_paused': False, 'pause_observable': True, 'launcher_hold_observed': False, 'blocker_scope': None, 'known_queued_count': 1, 'reused_id_count': 1, 'reused_id_newest': 2, 'oldest_queued_age_seconds': 400.0135314464569, 'queued_coverage': 'complete', 'history_coverage': 'complete', 'line_number': None}, 'checked_at': 1793075169.8622801, 'last_reset_at': None, 'cooldown_seconds': 900.0, 'cooldown_remaining_seconds': 0.0, 'restart': {'ok': True, 'action': 'restart', 'client_pid': 74096}, 'reset': True, 'reason': 'sse_delivery_recovery_queued'}
+
+======================================================================
+FAIL: test_owned_pipeline_exact_retained_nonterminal_id_matrix (test_runtime_sse_recovery.RecoveryTests.test_owned_pipeline_exact_retained_nonterminal_id_matrix) (case='changed_history')
+Real history/queue -> router recovery -> sole local restart fixture.
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-work/tests\test_runtime_sse_recovery.py", line 602, in test_owned_pipeline_exact_retained_nonterminal_id_matrix
+    self.assertEqual(allowed, result["reset"], result)
+AssertionError: False != True : {'ok': True, 'action': 'auto', 'problem': True, 'evidence': {'problem': True, 'observable': True, 'restart_eligible': True, 'reasons': ['queued_input_stale'], 'state': 'not_blocked', 'reason': '', 'admission_blocked': False, 'admission_paused': False, 'pause_observable': True, 'launcher_hold_observed': False, 'blocker_scope': None, 'known_queued_count': 1, 'reused_id_count': 0, 'reused_id_newest': None, 'oldest_queued_age_seconds': 400.0125288963318, 'queued_coverage': 'complete', 'history_coverage': 'complete', 'line_number': None}, 'checked_at': 1793075169.9381943, 'last_reset_at': None, 'cooldown_seconds': 900.0, 'cooldown_remaining_seconds': 0.0, 'restart': {'ok': True, 'action': 'restart', 'client_pid': 74096}, 'reset': True, 'reason': 'sse_delivery_recovery_queued'}
+
+======================================================================
+FAIL: test_owned_pipeline_exact_retained_nonterminal_id_matrix (test_runtime_sse_recovery.RecoveryTests.test_owned_pipeline_exact_retained_nonterminal_id_matrix) (case='reuse')
+Real history/queue -> router recovery -> sole local restart fixture.
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-work/tests\test_runtime_sse_recovery.py", line 602, in test_owned_pipeline_exact_retained_nonterminal_id_matrix
+    self.assertEqual(allowed, result["reset"], result)
+AssertionError: False != True : {'ok': True, 'action': 'auto', 'problem': True, 'evidence': {'problem': True, 'observable': True, 'restart_eligible': True, 'reasons': ['queued_input_stale', 'input_id_reuse'], 'state': 'not_blocked', 'reason': '', 'admission_blocked': False, 'admission_paused': False, 'pause_observable': True, 'launcher_hold_observed': False, 'blocker_scope': None, 'known_queued_count': 1, 'reused_id_count': 1, 'reused_id_newest': 2, 'oldest_queued_age_seconds': 400.01434683799744, 'queued_coverage': 'complete', 'history_coverage': 'complete', 'line_number': None}, 'checked_at': 1793075169.9550498, 'last_reset_at': None, 'cooldown_seconds': 900.0, 'cooldown_remaining_seconds': 0.0, 'restart': {'ok': True, 'action': 'restart', 'client_pid': 74096}, 'reset': True, 'reason': 'sse_delivery_recovery_queued'}
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.246s
+
+FAILED (failures=7)

@@ -1,0 +1,33 @@
+[
+  {
+    "n": 1,
+    "path": "/v1/messages",
+    "tag": "parent",
+    "stage": 0,
+    "tools": [
+      "Agent",
+      "Bash",
+      "CronCreate",
+      "CronDelete",
+      "CronList",
+      "Edit",
+      "Glob",
+      "Grep",
+      "ListAgents",
+      "Monitor",
+      "NotebookEdit",
+      "Read",
+      "ReportFindings",
+      "Skill",
+      "TaskStop",
+      "Workflow",
+      "Write"
+    ],
+    "response": [
+      {
+        "type": "text",
+        "text": "OWNED-BASELINE-FINISHED"
+      }
+    ]
+  }
+]

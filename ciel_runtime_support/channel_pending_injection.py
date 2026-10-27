@@ -65,6 +65,7 @@ class ChannelInjectionIO:
     # False while no session socket is configured (every runtime but Claude).
     session_socket_available: Callable[[], bool] | None = None
     external_admission_paused: Callable[[], bool] = lambda: False
+    external_admission_reason: Callable[[], str] = lambda: "context_recovery"
 
 
 @dataclass(frozen=True, slots=True)
@@ -192,7 +193,7 @@ def inject_pending_channel_messages(
         # Independent of the busy-turn policy: whole-message sockets bypass
         # that policy but may not feed a session awaiting native recovery.
         if io.external_admission_paused():
-            io.log("INFO", f"channel_stdin_proxy_deferred cursor={last_id} reason=context_recovery")
+            io.log("INFO", f"channel_stdin_proxy_deferred cursor={last_id} reason={io.external_admission_reason() or 'context_recovery'}")
             return last_id
         active_tool_call = state.active_tool_call()
         active_turn = state.active_turn()
@@ -461,7 +462,7 @@ def inject_pending_channel_messages(
             prompt = prompts.standard(pending)
         submit_bytes = prompts.enter_bytes(enter_bytes)
         if io.external_admission_paused():
-            io.log("INFO", f"channel_stdin_proxy_deferred cursor={original_cursor} reason=context_recovery")
+            io.log("INFO", f"channel_stdin_proxy_deferred cursor={original_cursor} reason={io.external_admission_reason() or 'context_recovery'}")
             return original_cursor
         claimed_ids: list[int] = []
         if pending_uses_router:

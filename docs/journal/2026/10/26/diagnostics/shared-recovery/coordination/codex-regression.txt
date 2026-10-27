@@ -1,0 +1,1 @@
+Parent regression: test_runtime_compaction_identity.AppServerThreadIdentityTests.test_injector_retries_thread_bind_until_its_launch_binds open()->_adopt_attempts status None AttributeError list_latest. Please maintain optional status fixture compatibility. Parent owns no Codex source.

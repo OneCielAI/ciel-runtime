@@ -1,0 +1,13 @@
+owned router: yes
+owned cmd: yes
+owned window: yes
+interactive ready: yes
+console command: yes
+active executing hold: yes
+console command: yes
+incoming native queue: yes
+queue and priority loop: yes
+owned stop 33092 SUCCESS: The process with PID 60612 (child process of PID 33092) has been terminated.
+SUCCESS: The process with PID 33092 (child process of PID 49736) has been terminated.
+owned stop 76772 SUCCESS: The process with PID 76772 (child process of PID 46744) has been terminated.
+evidence C:\Users\djlov\AppData\Local\Temp\work-hybrid-979dd792

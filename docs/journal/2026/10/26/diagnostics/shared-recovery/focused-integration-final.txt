@@ -1,0 +1,19 @@
+idle_retry first=retry_wait admission=paused retry=queued scope=exact checkpoint+shrink=verified
+owned-pipeline mismatch reset= False reason= no_sse_delivery_problem queued= 0 coverage= complete
+owned-pipeline recent_B reset= False reason= no_sse_delivery_problem queued= 1 coverage= complete
+owned-pipeline terminal_B reset= False reason= restart_evidence_insufficient queued= 0 coverage= complete
+owned-pipeline uncertain_B reset= False reason= restart_evidence_insufficient queued= 0 coverage= complete
+owned-pipeline removed reset= False reason= no_sse_delivery_problem queued= 0 coverage= complete
+owned-pipeline corrupt_queue reset= False reason= restart_evidence_insufficient queued= 1 coverage= partial
+owned-pipeline torn_queue reset= False reason= restart_evidence_insufficient queued= 1 coverage= partial
+owned-pipeline partial_history reset= False reason= restart_evidence_insufficient queued= 1 coverage= partial
+owned-pipeline changed_history reset= False reason= restart_evidence_insufficient queued= 1 coverage= partial
+owned-pipeline reuse reset= False reason= restart_evidence_insufficient queued= 0 coverage= complete
+owned-pipeline retained_stale reset= True reason= sse_delivery_recovery_queued queued= 1 coverage= complete
+owned-pipeline cooldown reset= True reason= sse_delivery_recovery_queued queued= 1 coverage= complete
+owned-pipeline uncertain_restart reset= False reason= restart_failed:OSError queued= 1 coverage= complete
+..................................................................................................................................................................................................................................................................................................s..sss.......s.ss......sssssssss..............ss...s....s..s.......s.............s..s..............s.ssssssssssss...........................ss..................................................................................s.ss...................
+----------------------------------------------------------------------
+Ran 537 tests in 61.614s
+
+OK (skipped=42)

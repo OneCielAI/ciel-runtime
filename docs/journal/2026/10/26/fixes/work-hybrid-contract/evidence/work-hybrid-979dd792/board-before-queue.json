@@ -1,0 +1,146 @@
+{
+ "enabled": true,
+ "phase": "executing",
+ "approval": "auto",
+ "version": 2,
+ "active_root": {
+  "id": "n1",
+  "title": "1. Active approved Work",
+  "status": "pending",
+  "ref": "",
+  "waiting_on": "",
+  "urgent": false,
+  "phase": "executing"
+ },
+ "continuation": {
+  "actionable": 1,
+  "next": {
+   "id": "n3",
+   "title": "Active leaf",
+   "status": "pending",
+   "ref": "",
+   "waiting_on": "",
+   "urgent": false,
+   "path": [
+    "1. Active approved Work",
+    "Active phase",
+    "Active leaf"
+   ],
+   "root_id": "n1",
+   "phase": "executing"
+  },
+  "waiting": [],
+  "blocked": 0,
+  "held": 0
+ },
+ "done": 0,
+ "total": 1,
+ "next": {
+  "id": "n3",
+  "title": "Active leaf",
+  "status": "pending",
+  "path": [
+   "1. Active approved Work",
+   "Active phase",
+   "Active leaf"
+  ]
+ },
+ "breakdown": [
+  {
+   "id": "n2",
+   "title": "Active phase",
+   "status": "pending",
+   "ref": "",
+   "waiting_on": "",
+   "urgent": false,
+   "done": 0,
+   "total": 1,
+   "children": [
+    {
+     "id": "n3",
+     "title": "Active leaf",
+     "status": "pending",
+     "ref": "",
+     "waiting_on": "",
+     "urgent": false
+    }
+   ],
+   "more": 0
+  }
+ ],
+ "ready": true,
+ "ready_reason": "ready",
+ "goals": 1,
+ "queue": [],
+ "ok": true,
+ "schema_version": 1,
+ "session_id": "claude:387b407b-f9de-4cbf-a34e-b011b5ea9b24",
+ "updated_at": 1793075685.001339,
+ "nodes": [
+  {
+   "id": "n1",
+   "parent_id": null,
+   "title": "1. Active approved Work",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793075684.7877288,
+   "phase": "executing"
+  },
+  {
+   "id": "n2",
+   "parent_id": "n1",
+   "title": "Active phase",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793075684.7877288
+  },
+  {
+   "id": "n3",
+   "parent_id": "n2",
+   "title": "Active leaf",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793075684.7877288
+  }
+ ],
+ "active_root_id": "n1",
+ "root_ids": [
+  "n1"
+ ],
+ "queue_ids": [],
+ "auto_continue": false,
+ "runtime": {
+  "ciel_runtime": {
+   "version": "0.2.51",
+   "source_fingerprint": "59743d83f45331de",
+   "instance_id": "59430-b6ec4a0efb78"
+  },
+  "session_id": "claude:387b407b-f9de-4cbf-a34e-b011b5ea9b24",
+  "runtime": "claude",
+  "configured": {
+   "provider": "cielairouter",
+   "model": "fake-work",
+   "alias": "ciel-runtime-cielairouter-fake-work",
+   "source": "configuration"
+  },
+  "epoch": null,
+  "in_flight": [],
+  "last_observed": null,
+  "last_error": null,
+  "observation_status": "unavailable",
+  "errors": []
+ },
+ "events": "/ca/work/events"
+}

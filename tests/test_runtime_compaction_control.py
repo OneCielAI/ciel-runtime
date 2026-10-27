@@ -97,6 +97,35 @@ class RuntimeCompactionControlTests(_ControllerHarness):
     def test_controller_ports_are_bounded(self):
         self.assertLessEqual(len(fields(RuntimeCompactionPorts)), 10)
 
+    def test_admission_reason_tracks_checkpoint_shrink_and_uncertainty(self):
+        self.assertEqual("", self.control.admission_reason())
+        self.request()
+        self.assertEqual("compaction_checkpoint_pending", self.control.admission_reason())
+        self.clock += 1
+        self.append(boundary("session-a", self.clock))
+        self.assertEqual("compaction_shrink_pending", self.control.admission_reason())
+        self.request(120)
+        self.assertEqual("", self.control.admission_reason())
+
+    def test_corruption_reason_is_not_reported_as_success(self):
+        self.state.path.write_text("broken", encoding="utf-8")
+        self.assertEqual("state_unavailable", self.factory().admission_reason())
+        self.assertEqual("state_unavailable", self.factory().admission_reason())
+
+    def test_exact_terminal_recovery_gate_is_shared_by_runtime_scopes(self):
+        for runtime in ("claude", "codex"):
+            with self.subTest(runtime=runtime):
+                self.scope = CompactionScope(runtime, "session-a", "launch-" + runtime)
+                self.request()
+                self.assertTrue(self.control.external_admission_paused())
+                request = self.repository.read()
+                self.assertTrue(self.control.command_ready(request))
+                self.control.command_failed(request, "rpc_unconfirmed", uncertain=True)
+                self.assertEqual("blocked", self.snapshot()["phase"])
+                self.clock += 100
+                self.assertTrue(self.control.external_admission_paused())
+                self.assertIsNone(self.repository.read())
+
     def test_small_ordinary_turn_does_not_touch_state_or_usage(self):
         body = {"messages": [{"role": "user", "content": "hello"}], "usage": {"input_tokens": 11}}
         before = copy.deepcopy(body)
@@ -340,28 +369,65 @@ class RuntimeCompactionControlTests(_ControllerHarness):
         self.assertTrue(self.control.external_admission_paused())
         self.assertIsNone(self.repository.read())
 
-    def test_unreadable_state_is_quarantined_and_a_new_cycle_can_verify(self):
+    def test_unreadable_state_preserves_hold_across_restart_until_new_native_proof(self):
         self.state.path.write_text("not json", encoding="utf-8")
         control = self.factory()
-        # An unreadable file is moved aside once, not allowed to block forever.
-        self.assertFalse(control.external_admission_paused())
+        self.assertTrue(control.external_admission_paused())
+        self.assertTrue(self.factory().external_admission_paused())
         quarantined = sorted(self.root.glob("control.json.corrupt-*"))
         self.assertEqual(1, len(quarantined))
         self.assertEqual("not json", quarantined[0].read_text(encoding="utf-8"))
+        self.assertTrue(self.state.path.with_name("control.json.unresolved").exists())
         self.assertIsNone(self.repository.read())
-        # The next measured request still controls safety: a full context
-        # pauses admission until the cycle proves a smaller request.
-        with patch("ciel_runtime_support.channel_compact_request_repository.time.time", return_value=self.clock):
-            control.observe_request({"messages": [{"role": "user", "content": "big"}]}, 1200, 1000)
-        self.assertTrue(control.external_admission_paused())
-        request = self.repository.read()
-        self.assertIsNotNone(request)
-        self.assertTrue(control.command_ready(request))
-        control.command_submitted(request)
-        self.repository.clear(request["id"])
-        self.append(boundary("session-a", self.clock))
+        # Corruption is not proof that a native write failed. Only a new
+        # explicit native compact request establishes a fresh proof baseline.
+        manual = self.repository.queue("mcp", "manual")
+        self.assertTrue(control.command_ready(manual))
+        control.command_submitted(manual)
+        self.repository.clear(manual["id"])
+        control.observe_request({"messages": [{"role": "user", "content": "big"}]}, 1200, 1000)
+        now = __import__("time").time()
+        self.append(boundary("session-a", now + .01))
         control.observe_request({"messages": [{"role": "user", "content": "small"}]}, 120, 1000)
         self.assertFalse(control.external_admission_paused())
+        self.assertFalse(self.factory().external_admission_paused())
+
+    def test_corruption_hold_does_not_gate_a_new_verified_launch_scope(self):
+        self.state.path.write_text("not json", encoding="utf-8")
+        self.assertTrue(self.factory().external_admission_paused())
+        self.scope = CompactionScope("claude", "new-session", "new-launch")
+        self.assertFalse(self.factory().external_admission_paused())
+
+    def test_incomplete_scope_and_nonobject_sidecar_are_unknown(self):
+        for malformed in ({"scope": {}, "phase": "blocked"},
+                          {"scope": {"runtime": "claude", "session_id": "session-a"}, "phase": "blocked"}):
+            self.state.path.write_text(json.dumps(malformed), encoding="utf-8")
+            self.assertTrue(self.factory().external_admission_paused())
+            self.assertEqual("state_unavailable", self.factory().admission_reason())
+        self.state.path.unlink(missing_ok=True)
+        self.state.path.with_name("control.json.unresolved").write_text("[]", encoding="utf-8")
+        self.assertTrue(self.factory().external_admission_paused())
+        self.assertEqual("state_unavailable", self.factory().admission_reason())
+
+    def test_nonobject_state_is_unknown_not_an_empty_success(self):
+        self.state.path.write_text("[]", encoding="utf-8")
+        self.assertTrue(self.factory().external_admission_paused())
+        self.assertEqual("state_unavailable", self.factory().admission_reason())
+
+    def test_small_request_after_corruption_does_not_fake_native_completion(self):
+        self.state.path.write_text("broken", encoding="utf-8")
+        control = self.factory()
+        self.assertTrue(control.external_admission_paused())
+        control.observe_request({"messages": [{"role": "user", "content": "small"}]}, 10, 1000)
+        self.assertTrue(control.external_admission_paused())
+        self.assertIsNone(self.repository.read())
+
+    def test_late_unrelated_checkpoint_cannot_release_corruption_hold(self):
+        self.state.path.write_text("broken", encoding="utf-8")
+        control = self.factory()
+        self.assertTrue(control.external_admission_paused())
+        self.append(boundary("other-session", __import__("time").time() + 1))
+        self.assertTrue(control.external_admission_paused())
 
     def test_corrupt_state_fails_closed_without_consuming_command(self):
         self.state.path.write_text("not json", encoding="utf-8")

@@ -1,0 +1,415 @@
+{
+  "label": "source-remote",
+  "expect": "codex-remote",
+  "runtime_root": "C:\\Users\\djlov\\ciel-runtime-wt-work",
+  "scratch": "C:\\Windows\\Temp\\ciel-owned-alias-yk73upnc",
+  "stripped_env_names": [
+    "ANTHROPIC_AUTH_TOKEN",
+    "ANTHROPIC_BASE_URL",
+    "ANTHROPIC_CUSTOM_MODEL_OPTION",
+    "ANTHROPIC_CUSTOM_MODEL_OPTION_SUPPORTED_CAPABILITIES",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTED_CAPABILITIES",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTS",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTED_CAPABILITIES",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTS",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTED_CAPABILITIES",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTS",
+    "ANTHROPIC_MODEL",
+    "CIEL_RUNTIME_AUTO_ALLOW_DANGEROUS_RM",
+    "CIEL_RUNTIME_BYPASS_PERMISSIONS",
+    "CIEL_RUNTIME_CONFIG_DIR",
+    "CIEL_RUNTIME_HOME",
+    "CIEL_RUNTIME_LAUNCH_CWD",
+    "CIEL_RUNTIME_MODEL_ALIAS",
+    "CIEL_RUNTIME_PROVIDER",
+    "CIEL_RUNTIME_REGISTERED_HOME",
+    "CIEL_RUNTIME_SCRIPT",
+    "CIEL_RUNTIME_SELECTED_HOME",
+    "CIEL_RUNTIME_STATE_DIR",
+    "CIEL_RUNTIME_WORKSPACE_STATE_DIR",
+    "CLAUDECODE",
+    "CLAUDE_CHROME_CLASSIFIER_FLOOR",
+    "CLAUDE_CODE_ATTRIBUTION_HEADER",
+    "CLAUDE_CODE_AUTO_COMPACT_WINDOW",
+    "CLAUDE_CODE_CHILD_SESSION",
+    "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS",
+    "CLAUDE_CODE_DISABLE_NONSTREAMING_FALLBACK",
+    "CLAUDE_CODE_DISABLE_TERMINAL_TITLE",
+    "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY",
+    "CLAUDE_CODE_ENTRYPOINT",
+    "CLAUDE_CODE_EXECPATH",
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS",
+    "CLAUDE_CODE_MAX_CONTEXT_TOKENS",
+    "CLAUDE_CODE_MAX_OUTPUT_TOKENS",
+    "CLAUDE_CODE_MAX_RETRIES",
+    "CLAUDE_CODE_MESSAGING_SOCKET",
+    "CLAUDE_CODE_MESSAGING_TOKEN",
+    "CLAUDE_CODE_NONSTREAMING_TIMEOUT_RETRIES",
+    "CLAUDE_CODE_RETRY_WATCHDOG",
+    "CLAUDE_CODE_SEND_FEEDBACK",
+    "CLAUDE_CODE_SESSION_ATTENDED",
+    "CLAUDE_CODE_SESSION_ID",
+    "CLAUDE_CODE_SUBAGENT_MODEL",
+    "CLAUDE_CODE_SUBAGENT_MODEL_FORCE",
+    "CLAUDE_EFFORT",
+    "CLAUDE_PID",
+    "CODEX_SPARKLE_ENABLED",
+    "OLLAMA_CONTEXT_LENGTH",
+    "OLLAMA_FLASH_ATTENTION",
+    "OLLAMA_HOST",
+    "OLLAMA_KV_CACHE_TYPE",
+    "OLLAMA_MODELS",
+    "OLLAMA_NUM_PARALLEL",
+    "OLLAMA_SCHED_SPREAD"
+  ],
+  "claude_version": "2.1.310 (Claude Code)",
+  "command": [
+    "cmd.exe",
+    "/d",
+    "/k",
+    "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\diagnostics\\shared-launcher-verification\\evidence\\run-source-remote-233244\\launch.cmd"
+  ],
+  "ports": {
+    "router": 65373,
+    "fixture": 65374
+  },
+  "fixture": {
+    "alias": "stub-model",
+    "native_model": "claude-opus-5-5",
+    "window": 200000,
+    "high_tokens": 190000
+  },
+  "events": [
+    {
+      "at": 1793075564.729,
+      "kind": "launched",
+      "pid": 70376,
+      "watcher": 79860
+    },
+    {
+      "at": 1793075574.897,
+      "kind": "wait_pass",
+      "label": "owned router health"
+    },
+    {
+      "at": 1793075577.752,
+      "kind": "wait_pass",
+      "label": "remote TUI started"
+    },
+    {
+      "at": 1793075578.167,
+      "kind": "wait_pass",
+      "label": "native model rendered"
+    },
+    {
+      "at": 1793075583.772,
+      "kind": "wait_pass",
+      "label": "screenshot 01-started"
+    },
+    {
+      "at": 1793075643.83,
+      "kind": "failure",
+      "error": "Traceback (most recent call last):\n  File \"C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\diagnostics\\shared-launcher-verification\\evidence\\owned_launch.py\", line 465, in <module>\n    wait(lambda: any(q.get(\"turn\") == \"1\" for q in EVENTS), 60, \"prompt reached fixture\")\n  File \"C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\diagnostics\\shared-launcher-verification\\evidence\\owned_launch.py\", line 380, in wait\n    raise RuntimeError(\"timeout \" + label)\nRuntimeError: timeout prompt reached fixture\n"
+    }
+  ],
+  "live_before": {
+    "9505": {
+      "pid": 77432,
+      "version": "0.2.51-nightly.20261026-183726.81f6a4b",
+      "source_fingerprint": "72c6bfb456e30cd7",
+      "error": null
+    },
+    "9524": {
+      "pid": 25276,
+      "version": "0.2.51",
+      "source_fingerprint": "f86ee3638ee760f3",
+      "error": null
+    }
+  },
+  "owned_health": {
+    "ok": true,
+    "version": "0.2.51",
+    "source_fingerprint": "59743d83f45331de",
+    "pid": 62952,
+    "user": "djlov",
+    "home": "C:\\Windows\\Temp\\ciel-owned-alias-yk73upnc\\home",
+    "config_dir": "C:\\Windows\\Temp\\ciel-owned-alias-yk73upnc\\cfg\\router-instances\\65373-0273f3bc45cd",
+    "workspace": "c:\\windows\\temp\\ciel-owned-alias-yk73upnc\\ws",
+    "router_port": 65373,
+    "instance_id": "65373-0273f3bc45cd",
+    "active_client_count": 1,
+    "active_client_pids": [
+      37612
+    ],
+    "provider": "cielairouter",
+    "model": "ciel-runtime-cielairouter-stub-model",
+    "web_chat": "/ca/web/chat",
+    "web_chat_api": "/ca/web/chat/api",
+    "speech": "/ca/speech/health",
+    "chat": "/ca/chat/health",
+    "plan": "/ca/plan/artifacts",
+    "events": "/ca/events",
+    "events_websocket": "/ca/events/ws",
+    "external_event_receivers": "/ca/events/receivers",
+    "otlp_logs": "/v1/logs",
+    "telemetry_logs_tool": "POST /ca/mcp tools/call telemetry_logs",
+    "tui": "/ca/tui",
+    "tui_status": "/ca/tui/status",
+    "tui_stream": "/ca/tui/stream",
+    "cielairouter_gateway": {
+      "provider": "cielairouter",
+      "selector_module": "ciel_runtime_support.cielairouter_gateways",
+      "selector": "not_loaded",
+      "selector_error": "",
+      "routes": [],
+      "gateways": []
+    }
+  },
+  "status": "failed",
+  "error": "Traceback (most recent call last):\n  File \"C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\diagnostics\\shared-launcher-verification\\evidence\\owned_launch.py\", line 465, in <module>\n    wait(lambda: any(q.get(\"turn\") == \"1\" for q in EVENTS), 60, \"prompt reached fixture\")\n  File \"C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\diagnostics\\shared-launcher-verification\\evidence\\owned_launch.py\", line 380, in wait\n    raise RuntimeError(\"timeout \" + label)\nRuntimeError: timeout prompt reached fixture\n",
+  "requests": [
+    {
+      "server": "central",
+      "path": "/v1/models"
+    },
+    {
+      "server": "central",
+      "path": "/v1/models"
+    }
+  ],
+  "foreground": {
+    "samples": 1560,
+    "owned_hits": 0,
+    "owned_intervals": []
+  },
+  "teardown_owned_identities": [
+    {
+      "pid": 11564,
+      "name": "codex.exe",
+      "ppid": 37612,
+      "cmd": [
+        "C:\\Users\\djlov\\AppData\\Local\\Programs\\OpenAI\\Codex\\bin\\codex.exe",
+        "app-server",
+        "-c",
+        "approval_policy=\"never\"",
+        "-c",
+        "sandbox_mode=\"danger-full-access\"",
+        "-c",
+        "model_provider=\"ciel-runtime\"",
+        "-c",
+        "model_providers.ciel-runtime.name=\"Ciel Runtime\"",
+        "-c",
+        "model_providers.ciel-runtime.base_url=\"http://127.0.0.1:65373/v1\"",
+        "-c",
+        "model_providers.ciel-runtime.wire_api=\"responses\"",
+        "-c",
+        "model_providers.ciel-runtime.env_key=\"CIEL_RUNTIME_CODEX_API_KEY\"",
+        "-c",
+        "model_providers.ciel-runtime.request_max_retries=0",
+        "-c",
+        "model_providers.ciel-runtime.stream_max_retries=0",
+        "-c",
+        "model=\"ciel-runtime-cielairouter-stub-model\"",
+        "-c",
+        "model_catalog_json=\"C:\\\\Windows\\\\Temp\\\\ciel-owned-alias-yk73upnc\\\\cfg\\\\codex-model-catalogs\\\\f70149eddbe95ac16909239e321b6bde8d2c5b26749b47ff89afb65c503771e8.json\"",
+        "-c",
+        "mcp_servers.ciel-runtime-router.url=\"http://127.0.0.1:65373/ca/mcp\"",
+        "-c",
+        "developer_instructions=\"Ciel Work mode is hybrid per-item planning and execution, not native Plan Mode. Keep a hierarchical plan current while executing approved work and planning queued requests concurrently.\\nWork plans are private to this conversation. Codex supplies the conversation identity in MCP metadata; do not supply or invent a session_id argument. A new conversation has a separate plan; resuming retains it.\\n1. Planning phase: before changing files, decompose the user's task into a tree with work_plan_set: goal -> phases -> tasks -> steps. Keep splitting until every leaf is one concrete, verifiable action. Read-only exploration is fine while planning; file edits and state-changing commands wait for execution. Shell permissions and sandboxing belong to the native host; Work does not inspect shell side effects or override native permissions. Do not use a shell to evade required planning or approval.\\nTriage every new user request first: an independent request becomes its own goal (root-level item), its title starting with its item number where possible (\\\"1. ...\\\", \\\"2. ...\\\"); a request that changes or extends an existing item goes under that item as a child (work_node_add with parent_id). A new goal queues behind the unfinished active goal and becomes active when that goal is done; keep the active goal going meanwhile.\\n2. When the plan is complete, call work_execute. If it reports that user confirmation is required, show the plan, ask the user, and call work_execute again with user_confirmed=true only after they agree.\\n3. Executing phase: work through the leaves in order. Mark a leaf in_progress when you start it and done with short evidence (command output, test result, file) when it is verified. Add or split nodes with work_node_add with within_scope=true only for refinements wholly inside already approved scope; omit it for new scope requiring review/approval. Planning queued requests never pauses active execution. Use work_replan when the approach changes.\\n4. Call work_status(root_id=...) for exact goal details only on demand. Raw user messages remain in native history; Work does not isolate that history. Never report a step as done without evidence.\\nSet ref for a linked id (shown as [ id ] description); set waiting_on for an external dependency, and clear it with empty text when ready. Reorder root goals with work_reorder (1-based position); by default reorder only queued goals. Changing the active slot requires the user's explicit request and user_requested=true. On an explicit urgent/ad-hoc request use work_urgent with user_requested=true to hold other goals, decompose that request and execute; held goals resume afterwards.\\nIf the user asks how Work mode works or why an edit waited, explain this briefly; it is switched on or off in the ciel-runtime menu under LLM options -> Work mode.\\nWork auto continue is on. In the executing phase, before you end a turn:\\n- Keep handling approved pending Work. While actionable unfinished items remain inside the approved plan, continue with the next one instead of stopping to ask whether to go on.\\n- Triage the backlog first: register any user request that is not yet in the tree, within the scope the user already approved and without duplicates (independent requests as numbered goals, dependent ones as children).\\n- Take the highest-priority actionable item first; equal priorities keep their plan order.\\n- When an item waits on something outside this conversation (a person, a review, a build, another agent), set its waiting_on label to what it waits for instead of editing its title, and meanwhile work on other independent actionable items, running independent actions in parallel where your tools allow.\\n- End the turn only when every unfinished item is truly blocked, waiting or needs user approval, and say what each one waits for. Do not invent work, expand the approved scope or cross an approval boundary to keep going.\\nWork auto continue is switched on or off in the ciel-runtime menu under LLM options -> Work auto continue.\"",
+        "-c",
+        "mcp_servers.ciel-runtime-router.tools.work_status.approval_mode=\"approve\"",
+        "-c",
+        "mcp_servers.ciel-runtime-router.tools.work_plan_set.approval_mode=\"approve\"",
+        "-c",
+        "mcp_servers.ciel-runtime-router.tools.work_node_add.approval_mode=\"approve\"",
+        "-c",
+        "mcp_servers.ciel-runtime-router.tools.work_node_update.approval_mode=\"approve\"",
+        "-c",
+        "mcp_servers.ciel-runtime-router.tools.work_node_remove.approval_mode=\"approve\"",
+        "-c",
+        "mcp_servers.ciel-runtime-router.tools.work_select.approval_mode=\"approve\"",
+        "-c",
+        "mcp_servers.ciel-runtime-router.tools.work_execute.approval_mode=\"approve\"",
+        "-c",
+        "mcp_servers.ciel-runtime-router.tools.work_replan.approval_mode=\"approve\"",
+        "-c",
+        "mcp_servers.ciel-runtime-router.tools.work_reorder.approval_mode=\"approve\"",
+        "-c",
+        "mcp_servers.ciel-runtime-router.tools.work_urgent.approval_mode=\"approve\"",
+        "--listen",
+        "ws://127.0.0.1:65375",
+        "--ws-auth",
+        "capability-token",
+        "--ws-token-file",
+        "C:\\Windows\\Temp\\ciel-owned-alias-yk73upnc\\cfg\\codex-remote\\0273f3bc45cd\\ws-token"
+      ]
+    },
+    {
+      "pid": 12368,
+      "name": "conhost.exe",
+      "ppid": 37612,
+      "cmd": [
+        "\\\\?\\C:\\WINDOWS\\system32\\conhost.exe",
+        "--headless",
+        "--width",
+        "120",
+        "--height",
+        "30",
+        "--signal",
+        "0x218",
+        "--server",
+        "0x2c0"
+      ]
+    },
+    {
+      "pid": 15520,
+      "name": "python.exe",
+      "ppid": 37612,
+      "cmd": [
+        "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe",
+        "C:\\Users\\djlov\\ciel-runtime-wt-work\\ciel_runtime_support\\windows_console_guard.py",
+        "37612",
+        "487",
+        "3"
+      ]
+    },
+    {
+      "pid": 37612,
+      "name": "python.exe",
+      "ppid": 75408,
+      "cmd": [
+        "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe",
+        "C:\\Users\\djlov\\ciel-runtime-wt-work\\ciel_runtime.py",
+        "cli",
+        "--ca-runtime",
+        "codex-remote",
+        "--ca-no-update-check",
+        "--ca-no-self-update-check"
+      ]
+    },
+    {
+      "pid": 60400,
+      "name": "codex.exe",
+      "ppid": 37612,
+      "cmd": [
+        "C:\\Users\\djlov\\AppData\\Local\\Programs\\OpenAI\\Codex\\bin\\codex.exe",
+        "-c",
+        "model_provider=\"ciel-runtime\"",
+        "-c",
+        "model_providers.ciel-runtime.name=\"Ciel Runtime\"",
+        "-c",
+        "model_providers.ciel-runtime.base_url=\"http://127.0.0.1:65373/v1\"",
+        "-c",
+        "model_providers.ciel-runtime.wire_api=\"responses\"",
+        "-c",
+        "model_providers.ciel-runtime.env_key=\"CIEL_RUNTIME_CODEX_API_KEY\"",
+        "-c",
+        "model_providers.ciel-runtime.request_max_retries=0",
+        "-c",
+        "model_providers.ciel-runtime.stream_max_retries=0",
+        "-c",
+        "model=\"ciel-runtime-cielairouter-stub-model\"",
+        "-c",
+        "model_catalog_json=\"C:\\\\Windows\\\\Temp\\\\ciel-owned-alias-yk73upnc\\\\cfg\\\\codex-model-catalogs\\\\f70149eddbe95ac16909239e321b6bde8d2c5b26749b47ff89afb65c503771e8.json\"",
+        "-c",
+        "mcp_servers.ciel-runtime-router.url=\"http://127.0.0.1:65373/ca/mcp\"",
+        "-c",
+        "developer_instructions=\"Ciel Work mode is hybrid per-item planning and execution, not native Plan Mode. Keep a hierarchical plan current while executing approved work and planning queued requests concurrently.\\nWork plans are private to this conversation. Codex supplies the conversation identity in MCP metadata; do not supply or invent a session_id argument. A new conversation has a separate plan; resuming retains it.\\n1. Planning phase: before changing files, decompose the user's task into a tree with work_plan_set: goal -> phases -> tasks -> steps. Keep splitting until every leaf is one concrete, verifiable action. Read-only exploration is fine while planning; file edits and state-changing commands wait for execution. Shell permissions and sandboxing belong to the native host; Work does not inspect shell side effects or override native permissions. Do not use a shell to evade required planning or approval.\\nTriage every new user request first: an independent request becomes its own goal (root-level item), its title starting with its item number where possible (\\\"1. ...\\\", \\\"2. ...\\\"); a request that changes or extends an existing item goes under that item as a child (work_node_add with parent_id). A new goal queues behind the unfinished active goal and becomes active when that goal is done; keep the active goal going meanwhile.\\n2. When the plan is complete, call work_execute. If it reports that user confirmation is required, show the plan, ask the user, and call work_execute again with user_confirmed=true only after they agree.\\n3. Executing phase: work through the leaves in order. Mark a leaf in_progress when you start it and done with short evidence (command output, test result, file) when it is verified. Add or split nodes with work_node_add with within_scope=true only for refinements wholly inside already approved scope; omit it for new scope requiring review/approval. Planning queued requests never pauses active execution. Use work_replan when the approach changes.\\n4. Call work_status(root_id=...) for exact goal details only on demand. Raw user messages remain in native history; Work does not isolate that history. Never report a step as done without evidence.\\nSet ref for a linked id (shown as [ id ] description); set waiting_on for an external dependency, and clear it with empty text when ready. Reorder root goals with work_reorder (1-based position); by default reorder only queued goals. Changing the active slot requires the user's explicit request and user_requested=true. On an explicit urgent/ad-hoc request use work_urgent with user_requested=true to hold other goals, decompose that request and execute; held goals resume afterwards.\\nIf the user asks how Work mode works or why an edit waited, explain this briefly; it is switched on or off in the ciel-runtime menu under LLM options -> Work mode.\\nWork auto continue is on. In the executing phase, before you end a turn:\\n- Keep handling approved pending Work. While actionable unfinished items remain inside the approved plan, continue with the next one instead of stopping to ask whether to go on.\\n- Triage the backlog first: register any user request that is not yet in the tree, within the scope the user already approved and without duplicates (independent requests as numbered goals, dependent ones as children).\\n- Take the highest-priority actionable item first; equal priorities keep their plan order.\\n- When an item waits on something outside this conversation (a person, a review, a build, another agent), set its waiting_on label to what it waits for instead of editing its title, and meanwhile work on other independent actionable items, running independent actions in parallel where your tools allow.\\n- End the turn only when every unfinished item is truly blocked, waiting or needs user approval, and say what each one waits for. Do not invent work, expand the approved scope or cross an approval boundary to keep going.\\nWork auto continue is switched on or off in the ciel-runtime menu under LLM options -> Work auto continue.\"",
+        "-c",
+        "mcp_servers.ciel-runtime-router.tools.work_status.approval_mode=\"approve\"",
+        "-c",
+        "mcp_servers.ciel-runtime-router.tools.work_plan_set.approval_mode=\"approve\"",
+        "-c",
+        "mcp_servers.ciel-runtime-router.tools.work_node_add.approval_mode=\"approve\"",
+        "-c",
+        "mcp_servers.ciel-runtime-router.tools.work_node_update.approval_mode=\"approve\"",
+        "-c",
+        "mcp_servers.ciel-runtime-router.tools.work_node_remove.approval_mode=\"approve\"",
+        "-c",
+        "mcp_servers.ciel-runtime-router.tools.work_select.approval_mode=\"approve\"",
+        "-c",
+        "mcp_servers.ciel-runtime-router.tools.work_execute.approval_mode=\"approve\"",
+        "-c",
+        "mcp_servers.ciel-runtime-router.tools.work_replan.approval_mode=\"approve\"",
+        "-c",
+        "mcp_servers.ciel-runtime-router.tools.work_reorder.approval_mode=\"approve\"",
+        "-c",
+        "mcp_servers.ciel-runtime-router.tools.work_urgent.approval_mode=\"approve\"",
+        "--remote",
+        "ws://127.0.0.1:65375",
+        "--remote-auth-token-env",
+        "CIEL_RUNTIME_CODEX_REMOTE_TOKEN"
+      ]
+    },
+    {
+      "pid": 62952,
+      "name": "python.exe",
+      "ppid": 37612,
+      "cmd": [
+        "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe",
+        "C:\\Users\\djlov\\ciel-runtime-wt-work\\ciel_runtime.py",
+        "serve"
+      ]
+    },
+    {
+      "pid": 70376,
+      "name": "cmd.exe",
+      "ppid": 78448,
+      "cmd": [
+        "cmd.exe",
+        "/d",
+        "/k",
+        "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\diagnostics\\shared-launcher-verification\\evidence\\run-source-remote-233244\\launch.cmd"
+      ]
+    },
+    {
+      "pid": 74444,
+      "name": "conhost.exe",
+      "ppid": 70376,
+      "cmd": [
+        "\\??\\C:\\WINDOWS\\system32\\conhost.exe",
+        "0x4"
+      ]
+    },
+    {
+      "pid": 75408,
+      "name": "py.exe",
+      "ppid": 70376,
+      "cmd": [
+        "py",
+        "-3",
+        "C:\\Users\\djlov\\ciel-runtime-wt-work\\ciel_runtime.py",
+        "cli",
+        "--ca-runtime",
+        "codex-remote",
+        "--ca-no-update-check",
+        "--ca-no-self-update-check"
+      ]
+    }
+  ],
+  "live_after": {
+    "9505": {
+      "pid": 77432,
+      "version": "0.2.51-nightly.20261026-183726.81f6a4b",
+      "source_fingerprint": "72c6bfb456e30cd7",
+      "error": null
+    },
+    "9524": {
+      "pid": 25276,
+      "version": "0.2.51",
+      "source_fingerprint": "f86ee3638ee760f3",
+      "error": null
+    }
+  },
+  "live_unchanged": true,
+  "source_digests": {
+    "ciel_runtime.py": "59743d83f45331de69d815be55844863b821d83086bd7657fb0d63ed2b2de61e",
+    "ciel_runtime_support/native_model_usage.py": "927cfc350ea2bc08a9427dc9fe4c3974a1cd34b0d741389ad6596c31e4f7b80c",
+    "ciel_runtime_support/runtime_compaction_binding.py": "e3f3af65b4805aa9051a5b8ef410f1bf7c950bbfb504aa0e1528e19f3f5214d0",
+    "ciel_runtime_support/streaming_anthropic.py": "5b46c636f450b9cfcb54c32080f060cdd5bd4b14c6ed1345d50fe55530598f13",
+    "ciel_runtime_support/claude_router.py": "fed923ebedf3e0f64fca9b1854c4900436fb093c2db3e9c17bc8861234a8aada"
+  }
+}

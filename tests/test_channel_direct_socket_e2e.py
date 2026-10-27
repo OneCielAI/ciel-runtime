@@ -43,45 +43,48 @@ threading.Timer(20,lambda:os._exit(4)).start()
 if Path(receipt).exists():
     while not Path(release).exists():time.sleep(0.02)
     os._exit(0)
-if os.name == 'nt':
-    from ctypes import wintypes
-    k=ctypes.WinDLL('kernel32',use_last_error=True)
-    k.CreateNamedPipeW.argtypes=[wintypes.LPCWSTR,wintypes.DWORD,wintypes.DWORD,wintypes.DWORD,wintypes.DWORD,wintypes.DWORD,wintypes.DWORD,ctypes.c_void_p]
-    k.CreateNamedPipeW.restype=wintypes.HANDLE
-    k.ConnectNamedPipe.argtypes=[wintypes.HANDLE,ctypes.c_void_p]
-    k.ReadFile.argtypes=[wintypes.HANDLE,ctypes.c_void_p,wintypes.DWORD,ctypes.POINTER(wintypes.DWORD),ctypes.c_void_p]
-    k.CloseHandle.argtypes=[wintypes.HANDLE]
-    handle=k.CreateNamedPipeW(pipe,1,8,1,65536,65536,0,None)
-    if handle == ctypes.c_void_p(-1).value:raise ctypes.WinError(ctypes.get_last_error())
-    Path(key).write_text(json.dumps({'peerToken':'ab'*16}),encoding='utf-8')
-    if not k.ConnectNamedPipe(handle,None) and ctypes.get_last_error()!=535:raise ctypes.WinError(ctypes.get_last_error())
-    data=bytearray()
-    while data.count(bytes([10]))<2:
-        buf=ctypes.create_string_buffer(65536);n=wintypes.DWORD()
-        if not k.ReadFile(handle,buf,len(buf),ctypes.byref(n),None):break
-        data.extend(buf.raw[:n.value])
-    k.CloseHandle(handle)
-else:
-    server=socket.socket(socket.AF_UNIX,socket.SOCK_STREAM)
-    server.bind(pipe);server.listen(1)
-    Path(key).write_text(json.dumps({'peerToken':'ab'*16}),encoding='utf-8')
-    c,_=server.accept();data=bytearray()
-    with c:
+prompts=[]
+for batch_index in range(int(os.environ.get('CIEL_FIXTURE_BATCHES','1'))):
+    if os.name == 'nt':
+        from ctypes import wintypes
+        k=ctypes.WinDLL('kernel32',use_last_error=True)
+        k.CreateNamedPipeW.argtypes=[wintypes.LPCWSTR,wintypes.DWORD,wintypes.DWORD,wintypes.DWORD,wintypes.DWORD,wintypes.DWORD,wintypes.DWORD,ctypes.c_void_p]
+        k.CreateNamedPipeW.restype=wintypes.HANDLE
+        k.ConnectNamedPipe.argtypes=[wintypes.HANDLE,ctypes.c_void_p]
+        k.ReadFile.argtypes=[wintypes.HANDLE,ctypes.c_void_p,wintypes.DWORD,ctypes.POINTER(wintypes.DWORD),ctypes.c_void_p]
+        k.CloseHandle.argtypes=[wintypes.HANDLE]
+        handle=k.CreateNamedPipeW(pipe,1,8,1,65536,65536,0,None)
+        if handle == ctypes.c_void_p(-1).value:raise ctypes.WinError(ctypes.get_last_error())
+        Path(key).write_text(json.dumps({'peerToken':'ab'*16}),encoding='utf-8')
+        if not k.ConnectNamedPipe(handle,None) and ctypes.get_last_error()!=535:raise ctypes.WinError(ctypes.get_last_error())
+        data=bytearray()
         while data.count(bytes([10]))<2:
-            block=c.recv(65536)
-            if not block:break
-            data.extend(block)
-    server.close()
-    Path(pipe).unlink(missing_ok=True)
-frames=[json.loads(row) for row in bytes(data).splitlines()]
-assert frames[0]=={'type':'auth','token':'ab'*16}
-assert frames[1]['type']=='user'
-Path(receipt).write_text(json.dumps({'accepted':True,'prompt':frames[1]['message']['content'],'user_frames':sum(f['type']=='user' for f in frames)}),encoding='utf-8')
-from datetime import datetime,timezone
-stamp=datetime.now(timezone.utc).isoformat()
-rows=[{'type':'user','sessionId':'owned-fixture','timestamp':stamp,'message':frames[1]['message']},
-      {'type':'assistant','sessionId':'owned-fixture','timestamp':stamp,'message':{'role':'assistant','content':[{'type':'text','text':'synthetic fixture reply'}]}}]
-Path(transcript).write_text(''.join(json.dumps(row)+chr(10) for row in rows),encoding='utf-8')
+            buf=ctypes.create_string_buffer(65536);n=wintypes.DWORD()
+            if not k.ReadFile(handle,buf,len(buf),ctypes.byref(n),None):break
+            data.extend(buf.raw[:n.value])
+        k.CloseHandle(handle)
+    else:
+        server=socket.socket(socket.AF_UNIX,socket.SOCK_STREAM)
+        server.bind(pipe);server.listen(1)
+        Path(key).write_text(json.dumps({'peerToken':'ab'*16}),encoding='utf-8')
+        c,_=server.accept();data=bytearray()
+        with c:
+            while data.count(bytes([10]))<2:
+                block=c.recv(65536)
+                if not block:break
+                data.extend(block)
+        server.close()
+        Path(pipe).unlink(missing_ok=True)
+    frames=[json.loads(row) for row in bytes(data).splitlines()]
+    assert frames[0]=={'type':'auth','token':'ab'*16}
+    assert frames[1]['type']=='user'
+    prompts.append(frames[1]['message']['content'])
+    Path(receipt).write_text(json.dumps({'accepted':True,'prompt':prompts[-1],'prompts':prompts,'user_frames':len(prompts)}),encoding='utf-8')
+    from datetime import datetime,timezone
+    stamp=datetime.now(timezone.utc).isoformat()
+    rows=[{'type':'user','sessionId':'owned-fixture','timestamp':stamp,'message':frames[1]['message']},
+          {'type':'assistant','sessionId':'owned-fixture','timestamp':stamp,'message':{'role':'assistant','content':[{'type':'text','text':'synthetic fixture reply'}]}}]
+    with Path(transcript).open('a',encoding='utf-8') as out:out.write(''.join(json.dumps(row)+chr(10) for row in rows))
 while not Path(release).exists():time.sleep(0.02)
 os._exit(0)
 """
@@ -100,7 +103,10 @@ class DirectSocketDeliveryE2ETests(unittest.TestCase):
     def test_damaged_history_replacement_preserves_old_owners(self):
         self._run_pipeline(fail_after_submit=True, damaged_history=True)
 
-    def _run_pipeline(self, *, fail_after_submit, damaged_history=False):
+    def test_paused_recovery_settles_submitted_batch_then_releases_next_sse_batch_once(self):
+        self._run_pipeline(fail_after_submit=False, recovery_batches=True)
+
+    def _run_pipeline(self, *, fail_after_submit, damaged_history=False, recovery_batches=False):
         with tempfile.TemporaryDirectory(prefix="ciel-direct-e2e-") as raw:
             root = Path(raw)
             environment = mock.patch.dict(os.environ, {"CLAUDE_CONFIG_DIR": str(root / ".claude")})
@@ -115,6 +121,10 @@ class DirectSocketDeliveryE2ETests(unittest.TestCase):
             evidence_states = []
             socket_sends = []
             repeat_ids = []
+            recovery_paused = [False]
+            settled_while_paused = []
+            held_checks = [0]
+            gate_releases = []
             fresh_id = 7 if damaged_history else 1
             release = root / "release"
             target = generated_socket_path("nt") if os.name == "nt" else str(root / "session.sock")
@@ -172,7 +182,10 @@ class DirectSocketDeliveryE2ETests(unittest.TestCase):
                 ).state
             def send_socket(prompt, messages):
                 socket_sends.append([row["id"] for row in messages])
-                return client.send(prompt, messages)
+                sent = client.send(prompt, messages)
+                if recovery_batches and len(socket_sends) == 1:
+                    recovery_paused[0] = True
+                return sent
             def no_tty(*args, **kwargs):
                 raise AssertionError("direct fallback tried terminal input")
             def format_prompt(messages):
@@ -204,13 +217,31 @@ class DirectSocketDeliveryE2ETests(unittest.TestCase):
                     write_prompt=no_tty, log=log, write_session_socket=send_socket,
                     session_socket_available=client.available,
                 ),
-                policy=ChannelInjectionPolicy(wake_batch_limit=lambda: 1, replay_skip_reason=lambda row: ""),
+                policy=ChannelInjectionPolicy(wake_batch_limit=lambda: 3 if recovery_batches else 1, replay_skip_reason=lambda row: ""),
             )
             def inject(writer, last_id, enter, **options):
                 return inject_pending_channel_messages(writer, last_id, enter, services=injection, **options)
             def complete(message_id):
                 lifecycle.complete(message_id)
-                release.touch()
+                if recovery_batches:
+                    if message_id == 3:
+                        self.assertTrue(recovery_paused[0])
+                        self.assertEqual(["replied"] * 3, [status.get(n)["status"] for n in (1, 2, 3)])
+                        self.assertEqual(["queued"] * 3, [status.get(n)["status"] for n in (4, 5, 6)])
+                        settled_while_paused.extend((1, 2, 3))
+                    elif message_id == 6:
+                        release.touch()
+                else:
+                    release.touch()
+            def admission_paused():
+                if settled_while_paused and recovery_paused[0]:
+                    self.assertEqual([[1, 2, 3]], socket_sends)
+                    self.assertEqual(["queued"] * 3, [status.get(n)["status"] for n in (4, 5, 6)])
+                    held_checks[0] += 1
+                    if held_checks[0] >= 6:
+                        recovery_paused[0] = False
+                        gate_releases.append("released_after_exact_settlement")
+                return recovery_paused[0]
             processes = []
             def popen(cmd, env):
                 proc = subprocess.Popen(cmd, env=env, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
@@ -254,6 +285,7 @@ class DirectSocketDeliveryE2ETests(unittest.TestCase):
                 options.pop("normalize_bare_cr_for_synthetic_enter", None)
                 return run_windows_channel_terminal_proxy(cmd, env, services, **options)
             api = ChannelTerminalCompatibilityApi(lambda: context)
+            from types import SimpleNamespace
             context = ChannelTerminalContext(
                 process=ChannelTerminalProcessPorts(
                     popen=popen, write_record=lambda *a: None, terminate=terminate,
@@ -264,6 +296,7 @@ class DirectSocketDeliveryE2ETests(unittest.TestCase):
                     enter_label=lambda _: "cr", enter_is_fixed=lambda: True,
                     unseen_retry_seconds=lambda: 30, inflight_is_stale=lambda *a: False,
                     log=log,
+                    compaction=SimpleNamespace(external_admission_paused=admission_paused),
                 ),
                 polling=ChannelTerminalPollingPorts(
                     inject_compact=compact,
@@ -299,11 +332,13 @@ class DirectSocketDeliveryE2ETests(unittest.TestCase):
                     self.send_response(200)
                     self.send_header("content-type", "text/event-stream")
                     self.end_headers()
-                    event = {"specversion": "1.0", "id": "fixture-event", "source": "urn:ciel:fixture",
-                             "type": "fixture.message", "data": {"text": "socket-fallback-nonce"}}
-                    frame = "id: fixture-event" + chr(10) + "data: " + json.dumps(event) + chr(10) * 2
-                    self.wfile.write(frame.encode())
-                    self.wfile.flush()
+                    for index in range(1, 7) if recovery_batches else (1,):
+                        event_id = f"fixture-event-{index}"
+                        event = {"specversion": "1.0", "id": event_id, "source": "urn:ciel:fixture",
+                                 "type": "fixture.message", "data": {"text": f"socket-fallback-nonce-{index}"}}
+                        frame = "id: " + event_id + chr(10) + "data: " + json.dumps(event) + chr(10) * 2
+                        self.wfile.write(frame.encode())
+                        self.wfile.flush()
                     ready.set()
                 def log_message(self, *args):
                     pass
@@ -326,6 +361,7 @@ class DirectSocketDeliveryE2ETests(unittest.TestCase):
             env = {k: v for k, v in os.environ.items() if not k.upper().startswith(purge)
                    and not any(word in k.upper() for word in ("TOKEN", "SECRET", "PASSWORD", "API_KEY", "CREDENTIAL"))}
             env.update(HOME=str(root), USERPROFILE=str(root), CLAUDE_CONFIG_DIR=str(root / ".claude"))
+            env["CIEL_FIXTURE_BATCHES"] = "2" if recovery_batches else "1"
             env["CIEL_RUNTIME_TEST_ISOLATED"] = "1"
             env["CIEL_RUNTIME_CONFIG_DIR"] = str(root / "config")
             try:
@@ -334,10 +370,10 @@ class DirectSocketDeliveryE2ETests(unittest.TestCase):
                 deadline = time.monotonic() + 3
                 # Wait for gateway admission itself: its queued status row is
                 # appended after the queue row, and old rows already exist.
-                while (fresh_id, "queued") not in evidence_states and time.monotonic() < deadline:
+                while ((6 if recovery_batches else fresh_id), "queued") not in evidence_states and time.monotonic() < deadline:
                     time.sleep(0.01)
-                self.assertEqual(fresh_id, queue.max_id())
-                self.assertEqual([(fresh_id, "queued")], evidence_states)
+                self.assertEqual(6 if recovery_batches else fresh_id, queue.max_id())
+                self.assertEqual([(n, "queued") for n in range(1, 7)] if recovery_batches else [(fresh_id, "queued")], evidence_states)
                 self.assertEqual("queued", status.get(fresh_id)["status"])
                 self.assertEqual([], socket_sends, "transport preceded queued admission")
                 receiver.stop()
@@ -350,23 +386,30 @@ class DirectSocketDeliveryE2ETests(unittest.TestCase):
                 record = json.loads(receipt.read_text(encoding="utf-8"))
                 self.assertTrue(record["accepted"])
                 self.assertIn("socket-fallback-nonce", record["prompt"])
-                self.assertEqual(1, record["user_frames"])
-                self.assertEqual(fresh_id, len(queue.read()))
+                self.assertEqual(2 if recovery_batches else 1, record["user_frames"])
+                self.assertEqual(6 if recovery_batches else fresh_id, len(queue.read()))
                 # A readable old submitted owner holds the frontier without
                 # blocking or resending; later independent inputs still go.
-                self.assertEqual(0 if damaged_history else fresh_id, cursor[0])
+                self.assertEqual(6 if recovery_batches else 0 if damaged_history else fresh_id, cursor[0])
                 self.assertEqual("replied", status.get(fresh_id)["status"])
                 fresh_body = queue.read(fresh_id - 1)[0]["message"]
                 self.assertEqual("completed", wake_state(fresh_id, fresh_body))
-                self.assertEqual([(fresh_id, "queued"), (fresh_id, "submitted"), (fresh_id, "replied")],
-                                 evidence_states)
-                self.assertEqual([[fresh_id]], socket_sends)
-                self.assertEqual(1, sum("claude_session_socket_injected" in message for _, message in logs))
+                expected_states = ([(n, "queued") for n in range(1, 7)] +
+                    [(n, stage) for first in (1, 4) for stage in ("submitted", "replied") for n in range(first, first + 3)]
+                    if recovery_batches else [(fresh_id, "queued"), (fresh_id, "submitted"), (fresh_id, "replied")])
+                self.assertEqual(expected_states, evidence_states)
+                expected_sends = [[1, 2, 3], [4, 5, 6]] if recovery_batches else [[fresh_id]]
+                self.assertEqual(expected_sends, socket_sends)
+                self.assertEqual(2 if recovery_batches else 1, sum("claude_session_socket_injected" in message for _, message in logs))
+                if recovery_batches:
+                    self.assertEqual([1, 2, 3], settled_while_paused)
+                    self.assertEqual(["released_after_exact_settlement"], gate_releases)
+                    self.assertEqual(["replied"] * 6, [status.get(n)["status"] for n in range(1, 7)])
                 appended_before_repeat = status.path.read_bytes()
                 # Full rescan from zero, not just an empty tail after the cursor.
                 inject(None, 0, bytes([13]), terminal_available=False, injected_message_ids=repeat_ids)
                 self.assertEqual([], repeat_ids)
-                self.assertEqual([[fresh_id]], socket_sends)
+                self.assertEqual(expected_sends, socket_sends)
                 self.assertEqual(appended_before_repeat, status.path.read_bytes(), "repeat scan wrote status")
                 for message_id, old_state in original_states.items():
                     self.assertEqual(old_state, status.get(message_id)["status"])
@@ -376,12 +419,14 @@ class DirectSocketDeliveryE2ETests(unittest.TestCase):
                 self.assertEqual([], [p.name for p in root.rglob("*") if "archive" in p.name or "quarantine" in p.name])
                 evidence_dir = os.environ.get("E2E_EVIDENCE_DIR")
                 if evidence_dir:
-                    label = ("damaged" if damaged_history else "baseline") + ("-replacement" if fail_after_submit else "")
+                    label = ("recovery-batches" if recovery_batches else "damaged" if damaged_history else "baseline") + ("-replacement" if fail_after_submit else "")
                     appended = final_history[len(history_prefix):]
                     evidence = {
                         "fixture": "owned python protocol child (not native Claude Code)",
                         "platform": os.name, "message_id": fresh_id, "cursor": cursor[0],
                         "socket_sends": socket_sends, "repeat_scan_injected_ids": repeat_ids,
+                        "settled_while_paused": settled_while_paused, "held_admission_checks_after_settlement": held_checks[0],
+                        "gate_releases": gate_releases,
                         "status_events": evidence_states,
                         "old_states_before": original_states,
                         "old_states_after": {i: status.get(i)["status"] for i in original_states},

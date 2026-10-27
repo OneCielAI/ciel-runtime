@@ -1,0 +1,17 @@
+{
+  "scope": {
+    "runtime": "claude",
+    "session_id": "10a68cab-ef59-4ab0-9e15-2b510b011a4f",
+    "epoch": "741aefa427124c6ea397b5470277c08b"
+  },
+  "phase": "compacting",
+  "pressure": false,
+  "baseline_tokens": 32036,
+  "context_limit": 189654,
+  "requested_at": 1793072563.4064994,
+  "deadline": 1793073763.4064994,
+  "baseline_checkpoint_id": "",
+  "checkpoint_id": "",
+  "request_id": "",
+  "attempts": 1
+}

@@ -1,0 +1,17 @@
+idle_retry first=retry_wait admission=paused retry=queued scope=exact checkpoint+shrink=verified
+..........................................................................................................E................s..sss.......s.ss......sssssssss..............ss...s....s..s.......s.............s..s..............s.ssssssssssss...........................ss..................................................................................s.ss...................
+======================================================================
+ERROR: test_channel_wake_context (unittest.loader._FailedTest.test_channel_wake_context)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_channel_wake_context
+Traceback (most recent call last):
+  File "C:\Program Files\Python311\Lib\unittest\loader.py", line 162, in loadTestsFromName
+    module = __import__(module_name)
+             ^^^^^^^^^^^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'test_channel_wake_context'
+
+
+----------------------------------------------------------------------
+Ran 370 tests in 49.077s
+
+FAILED (errors=1, skipped=42)

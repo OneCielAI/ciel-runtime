@@ -40,11 +40,13 @@ def work_tool_schemas() -> list[dict[str, Any]]:
             "name": "work_status",
             "description": (
                 "Show the Ciel Work plan: phase (planning/executing), the active goal as an indented tree with "
-                "statuses, progress and the next step. format=json returns a machine-readable snapshot."
+                "statuses, progress and the next step. format=json returns a machine-readable snapshot. "
+                "Use root_id for one exact goal only; detail=true includes its full notes/evidence without other goals."
             ),
             "inputSchema": {"type": "object", "properties": {
                 "format": {"type": "string", "enum": ["text", "json"]},
-                "detail": {"type": "boolean", "description": "Include active-goal nodes with notes and evidence for read-only UI inspection."},
+                "detail": {"type": "boolean", "description": "Include selected-goal nodes with notes and evidence for read-only inspection."},
+                "root_id": {"type": "string", "description": "Read only this exact goal; does not select it or change execution."},
             }},
         },
         {
@@ -77,12 +79,15 @@ def work_tool_schemas() -> list[dict[str, Any]]:
             "description": (
                 "Add a node (optionally with nested children) under parent_id: a request that depends on an existing "
                 "item goes under that item. Without parent_id it adds a new goal (root-level item) for an independent "
-                "request; while another goal is unfinished the new goal is queued behind it."
+                "request; while another goal is unfinished the new goal is queued behind it. "
+                "An active-goal addition returns it to planning unless within_scope=true explicitly marks a "
+                "refinement wholly inside its already approved scope. This flag is not approval for new scope."
             ),
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "parent_id": {"type": "string"},
+                    "within_scope": {"type": "boolean", "description": "True only for a refinement within the existing approved goal; preserves its phase. Omit for new scope requiring review."},
                     "title": {"type": "string"},
                     "note": {"type": "string"},
                     "ref": _NODE_SPEC["properties"]["ref"],
@@ -97,7 +102,8 @@ def work_tool_schemas() -> list[dict[str, Any]]:
             "name": "work_node_update",
             "description": (
                 "Update a node: status (pending, in_progress, done, blocked), title, note or evidence. "
-                "Mark a step done only with evidence that it was verified; parents complete automatically."
+                "Mark a step done only with evidence that it was verified; parents complete automatically. "
+                "Changing title or note returns only that goal to planning for scope review."
             ),
             "inputSchema": {
                 "type": "object",
@@ -126,12 +132,14 @@ def work_tool_schemas() -> list[dict[str, Any]]:
         {
             "name": "work_select",
             "description": (
-                "Make another goal the active one now (returns to the planning phase). Queued goals become active "
+                "Make another goal active, retaining its own approval phase (new goals remain planning). "
+                "Interrupting unfinished Work requires an explicit user request and user_requested=true. Queued goals become active "
                 "by themselves, oldest first, when the active goal is done."
             ),
             "inputSchema": {
                 "type": "object",
-                "properties": {"root_id": {"type": "string"}},
+                "properties": {"root_id": {"type": "string"}, "user_requested": {"type": "boolean"},
+                               "expected_version": _EXPECTED_VERSION},
                 "required": ["root_id"],
             },
         },
@@ -222,6 +230,22 @@ def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bo
     expected = _expected_version(args)
     if name == "work_status":
         doc = store.read()
+        if args.get("root_id") is not None:
+            root_id = str(args["root_id"])
+            root = next((n for n in doc["nodes"] if n["id"] == root_id and n["parent_id"] is None), None)
+            if root is None:
+                raise tree.WorkPlanError(f"{root_id} is not a goal")
+            ids = {root_id}
+            for _ in range(tree.MAX_DEPTH):
+                ids.update(n["id"] for n in doc["nodes"] if n["parent_id"] in ids)
+            if args.get("format") == "json":
+                return json.dumps({"enabled": True, "version": doc["version"], "root_id": root_id,
+                    "is_active": doc["active_root"] == root_id, "phase": tree.root_phase(doc, root_id),
+                    "approval": "ask" if approval_ask else "auto",
+                    "nodes": [n for n in doc["nodes"] if n["id"] in ids]}, ensure_ascii=False)
+            scoped = dict(doc, nodes=[n for n in doc["nodes"] if n["id"] in ids], active_root=root_id,
+                          phase=tree.root_phase(doc, root_id))
+            return tree.render(scoped, max_lines=tree.MAX_NODES + 4)
         if args.get("format") == "json":
             state = tree.snapshot(doc, approval_ask=approval_ask)
             state["auto_continue"] = auto_continue
@@ -248,7 +272,8 @@ def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bo
         spec = {"title": args.get("title"), "note": args.get("note", ""), "children": args.get("children") or [],
                 "ref": args.get("ref", ""), "waiting_on": args.get("waiting_on", "")}
         doc, node = store.transaction(
-            lambda d: tree.add_subtree(d, str(parent) if parent else None, spec), expected_version=expected
+            lambda d: tree.add_subtree(d, str(parent) if parent else None, spec,
+                                       within_scope=args.get("within_scope") is True), expected_version=expected
         )
         if not parent and doc.get("active_root") != node:
             return _after(doc, f"Added goal {node}, queued behind the active goal {doc['active_root']}; "
@@ -269,7 +294,7 @@ def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bo
         message = f"Updated {node['id']} ({node['status']})."
         if before and doc.get("active_root") != before:
             message += (f" Goal {before} is done; the next queued goal {doc['active_root']} is now active in the "
-                        "planning phase. Review its plan and call work_execute.")
+                        f"{doc['phase']} phase. Review its plan; call work_execute if it is planning.")
         elif doc.get("active_root") and tree.progress(doc)[1] and tree.next_leaf(doc) is None:
             message += " Every step of the active goal is done; Work returned to the planning phase for the next goal."
         return _after(doc, message)
@@ -279,8 +304,9 @@ def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bo
         return _after(doc, f"Removed {removed} node(s).")
     if name == "work_select":
         root_id = str(args.get("root_id") or "")
-        doc, _ = store.transaction(lambda d: tree.select_root(d, root_id), expected_version=expected)
-        return _after(doc, f"Goal {root_id} is active; Work is in the planning phase.")
+        doc, _ = store.transaction(lambda d: tree.select_root(d, root_id,
+            user_requested=args.get("user_requested") is True), expected_version=expected)
+        return _after(doc, f"Goal {root_id} is active; Work is in the {doc['phase']} phase.")
     if name == "work_reorder":
         doc, _ = store.transaction(lambda d: tree.reorder_root(
             d, str(args.get("root_id") or ""), args.get("position"),
@@ -295,7 +321,7 @@ def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bo
     if name == "work_execute":
         return _execute(store, approval_ask, args.get("user_confirmed") is True, expected_version=expected)
     if name == "work_replan":
-        doc, _ = store.transaction(lambda d: d.__setitem__("phase", tree.PHASE_PLANNING), expected_version=expected)
+        doc, _ = store.transaction(lambda d: tree.set_phase(d, tree.PHASE_PLANNING), expected_version=expected)
         return _after(doc, "Work returned to the planning phase.")
     raise tree.WorkPlanError(f"unknown Work tool {name}")
 
@@ -309,7 +335,7 @@ def _execute(store: WorkPlanStore, approval_ask: bool, user_confirmed: bool, *, 
             return "already"
         if approval_ask and not user_confirmed:
             return "pending"
-        doc["phase"] = tree.PHASE_EXECUTING
+        tree.set_phase(doc, tree.PHASE_EXECUTING)
         return "started"
 
     doc, outcome = store.transaction(mutate, expected_version=expected_version)
@@ -331,7 +357,6 @@ def _expected_version(args: dict[str, Any]) -> int | None:
     value = args.get("expected_version")
     if value is None or value == "":
         return None
-    try:
-        return int(value)
-    except (TypeError, ValueError) as error:
-        raise tree.WorkPlanError("expected_version must be an integer") from error
+    if type(value) is not int or value < 0:
+        raise tree.WorkPlanError("expected_version must be a nonnegative integer")
+    return value

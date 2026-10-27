@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from ciel_runtime_support.codex_app_server import (  # noqa: E402
     CodexAppServerClient,
     CodexAppServerError,
+    CodexAppServerNotSent, CodexAppServerRejected, CodexAppServerUncertain,
     codex_app_server_launch_args,
     command_for_popen,
     responses_user_message_item,
@@ -60,6 +61,41 @@ class FakeProcess:
 
 
 class CodexAppServerSupportTests(unittest.TestCase):
+    def test_missing_stdin_and_serialization_failure_are_proven_not_sent(self):
+        process = FakeProcess("")
+        client = CodexAppServerClient(process)
+        process.stdin = None
+        with self.assertRaises(CodexAppServerNotSent):
+            client.request("turn/start", {})
+        process.stdin = CapturingStdin()
+        with self.assertRaises(CodexAppServerNotSent):
+            client.request("turn/start", {"bad": object()})
+        self.assertEqual([], process.stdin.writes)
+
+    def test_write_flush_timeout_and_bad_response_are_uncertain(self):
+        for boundary in ("write", "flush", "timeout", "response"):
+            with self.subTest(boundary=boundary):
+                text = '{"id":1,"result":null}' + chr(10) if boundary == "response" else ""
+                process = FakeProcess(text)
+                client = CodexAppServerClient(process)
+                if boundary in {"write", "flush"}:
+                    def fail(*args):
+                        raise OSError("after attempted write")
+                    setattr(process.stdin, boundary, fail)
+                with self.assertRaises(CodexAppServerUncertain):
+                    client.request("turn/start", {}, timeout=0.01)
+
+    def test_explicit_rejection_retains_method_code_and_exact_no_active_proof(self):
+        error = {"code": -32600, "message": "no active turn to steer"}
+        client = CodexAppServerClient(FakeProcess(json.dumps({"id": 1, "error": error}) + chr(10)))
+        with self.assertRaises(CodexAppServerRejected) as raised:
+            client.turn_steer("thread", "turn", "message")
+        self.assertEqual(error, raised.exception.error)
+        self.assertTrue(raised.exception.no_active_turn)
+        self.assertFalse(CodexAppServerRejected("turn/start", error).no_active_turn)
+        self.assertFalse(CodexAppServerRejected("turn/steer", {**error, "code": -32603}).no_active_turn)
+        self.assertFalse(CodexAppServerRejected("turn/steer", {**error, "message": "turn mismatch"}).no_active_turn)
+
     def test_windows_batch_launcher_preserves_embedded_config_quotes(self):
         with (
             mock.patch("ciel_runtime_support.codex_app_server.os.name", "nt"),

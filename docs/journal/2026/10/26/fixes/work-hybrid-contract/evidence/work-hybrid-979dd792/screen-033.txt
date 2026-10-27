@@ -1,0 +1,38 @@
+
+▎ Debug mode enabled · logging to C:\Users\djlov\AppData\Local\Temp\work-hybrid-979dd792\native-debug.log
+
+● ciel-work: Ciel Work mode is on: plan and execute by item; new independent requests queue without pausing approved Work.
+  Items show above the prompt · /work-mode help · turn off: ciel-runtime menu → LLM options → Work mode
+
+❯ E2EHINT-MAIN create approved active Work and keep working; print the harmless shell marker.
+
+  Called ciel-runtime-router 2 times, ran 1 shell command
+
+● HYBRID-ACTIVE-FIRST-TURN-DONE
+
+✻ Cogitated for 6s · done 11:34 PM
+
+❯ E2EHINT-QUEUE new independent request: queue it first while active Work continues. Then I explicitly request moving it to priority
+  1. Keep refinements within existing scope, finish the priority request, and resume approved active Work. RAW-USER-QUEUED-TEXT
+
+  Called ciel-runtime-router 2 times
+
+● Write(subject.txt)
+  ⎿  Added 1 line, removed 1 line
+      1 -BEFORE
+      1 +ACTIVE-WRITE-AFTER-QUEUE
+
+● Calling ciel-runtime-router 2 times…
+
+✶ Doodling… (1s · ↓ 116 tokens)
+Work running 0/1 — 1. Active approved Work                                                                                         [-]
+1: [ ] Active phase
+  [ ] Active leaf
+Queued: [ ] 2. Queued independent request 0/1
+w: All items / refresh
+Ctrl+X Tab: focus · Tab/↑↓: select · Enter: inspect · Esc: return · /work-mode help
+                                                                                                                     ● high · /effort
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · esc to interrupt · ← for agents                                       work: run 0/1

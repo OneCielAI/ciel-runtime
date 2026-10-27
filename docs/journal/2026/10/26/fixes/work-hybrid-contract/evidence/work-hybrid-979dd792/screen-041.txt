@@ -1,0 +1,38 @@
+❯ E2EHINT-QUEUE new independent request: queue it first while active Work continues. Then I e╭────────────────────────────────────────╮
+  1. Keep refinements within existing scope, finish the priority request, and resume approved│ ciel-work                              │
+                                                                                             │ Work mode is planning: edits wait for  │
+  Called ciel-runtime-router 2 times                                                         │ the approved plan · /work-mode help    │
+                                                                                             ╰────────────────────────────────────────╯
+● Write(subject.txt)
+  ⎿  Added 1 line, removed 1 line
+      1 -BEFORE
+      1 +ACTIVE-WRITE-AFTER-QUEUE
+
+  Called ciel-runtime-router 3 times
+
+● Write(subject.txt)
+  ⎿  Error: Work mode is planning: direct file edits wait until the plan is approved. Build it with work_plan_set, then call
+     work_execute. (/work-mode help)
+
+  Called ciel-runtime-router 2 times
+
+● Write(subject.txt)
+  ⎿  Added 1 line, removed 1 line
+      1 -ACTIVE-WRITE-AFTER-QUEUE
+      1 +RESUMED-APPROVED-ACTIVE
+
+  Ran 1 shell command
+
+● HYBRID-QUEUE-VERIFIED
+
+· Doodling… (2s · ↓ 258 tokens)
+Work running 0/1 — 1. Active approved Work                                                                                         [-]
+1: [ ] Active phase
+  [ ] Active leaf
+w: All items / refresh
+Ctrl+X Tab: focus · Tab/↑↓: select · Enter: inspect · Esc: return · /work-mode help
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · esc to interrupt                                                      work: run 0/1

@@ -1,0 +1,8 @@
+{
+  "codex": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\codex.CMD",
+  "home": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-codex-durable-qbct0_vi",
+  "probe": "native RPC turn/steer on idle thread, no model request",
+  "thread": "01a17b94-99d8-7483-8c35-325c1ca66be4",
+  "error": "codex app-server turn/steer failed: {'code': -32600, 'message': 'no active turn to steer'}",
+  "exception_type": "CodexAppServerError"
+}

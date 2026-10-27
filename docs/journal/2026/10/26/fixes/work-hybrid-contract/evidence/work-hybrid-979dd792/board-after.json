@@ -1,0 +1,212 @@
+{
+ "enabled": true,
+ "phase": "executing",
+ "approval": "auto",
+ "version": 7,
+ "active_root": {
+  "id": "n1",
+  "title": "1. Active approved Work",
+  "status": "pending",
+  "ref": "",
+  "waiting_on": "",
+  "urgent": false,
+  "phase": "executing"
+ },
+ "continuation": {
+  "actionable": 1,
+  "next": {
+   "id": "n8",
+   "title": "Scoped verification",
+   "status": "pending",
+   "ref": "",
+   "waiting_on": "",
+   "urgent": false,
+   "path": [
+    "1. Active approved Work",
+    "Active phase",
+    "Active leaf",
+    "Scoped refinement",
+    "Scoped verification"
+   ],
+   "root_id": "n1",
+   "phase": "executing"
+  },
+  "waiting": [],
+  "blocked": 0,
+  "held": 0
+ },
+ "done": 0,
+ "total": 1,
+ "next": {
+  "id": "n8",
+  "title": "Scoped verification",
+  "status": "pending",
+  "path": [
+   "1. Active approved Work",
+   "Active phase",
+   "Active leaf",
+   "Scoped refinement",
+   "Scoped verification"
+  ]
+ },
+ "breakdown": [
+  {
+   "id": "n2",
+   "title": "Active phase",
+   "status": "pending",
+   "ref": "",
+   "waiting_on": "",
+   "urgent": false,
+   "done": 0,
+   "total": 1,
+   "children": [
+    {
+     "id": "n3",
+     "title": "Active leaf",
+     "status": "pending",
+     "ref": "",
+     "waiting_on": "",
+     "urgent": false
+    }
+   ],
+   "more": 0
+  }
+ ],
+ "ready": true,
+ "ready_reason": "ready",
+ "goals": 2,
+ "queue": [],
+ "ok": true,
+ "schema_version": 1,
+ "session_id": "claude:387b407b-f9de-4cbf-a34e-b011b5ea9b24",
+ "updated_at": 1793075693.0085495,
+ "nodes": [
+  {
+   "id": "n4",
+   "parent_id": null,
+   "title": "2. Queued independent request",
+   "status": "done",
+   "note": "QUEUED-PRIVATE-NOTE",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793075693.0085495,
+   "phase": "planning"
+  },
+  {
+   "id": "n2",
+   "parent_id": "n1",
+   "title": "Active phase",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793075691.3424525
+  },
+  {
+   "id": "n3",
+   "parent_id": "n2",
+   "title": "Active leaf",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793075691.3424525
+  },
+  {
+   "id": "n1",
+   "parent_id": null,
+   "title": "1. Active approved Work",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793075691.3424525,
+   "phase": "executing"
+  },
+  {
+   "id": "n5",
+   "parent_id": "n4",
+   "title": "Queued phase",
+   "status": "done",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793075693.0085495
+  },
+  {
+   "id": "n6",
+   "parent_id": "n5",
+   "title": "QUEUED-PRIVATE-STEP",
+   "status": "done",
+   "note": "",
+   "evidence": "Owned queue priority proof verified",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793075693.0085495
+  },
+  {
+   "id": "n7",
+   "parent_id": "n3",
+   "title": "Scoped refinement",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793075691.3424525
+  },
+  {
+   "id": "n8",
+   "parent_id": "n7",
+   "title": "Scoped verification",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793075691.3424525
+  }
+ ],
+ "active_root_id": "n1",
+ "root_ids": [
+  "n4",
+  "n1"
+ ],
+ "queue_ids": [],
+ "auto_continue": false,
+ "runtime": {
+  "ciel_runtime": {
+   "version": "0.2.51",
+   "source_fingerprint": "59743d83f45331de",
+   "instance_id": "59430-b6ec4a0efb78"
+  },
+  "session_id": "claude:387b407b-f9de-4cbf-a34e-b011b5ea9b24",
+  "runtime": "claude",
+  "configured": {
+   "provider": "cielairouter",
+   "model": "fake-work",
+   "alias": "ciel-runtime-cielairouter-fake-work",
+   "source": "configuration"
+  },
+  "epoch": null,
+  "in_flight": [],
+  "last_observed": null,
+  "last_error": null,
+  "observation_status": "unavailable",
+  "errors": []
+ },
+ "events": "/ca/work/events"
+}

@@ -637,6 +637,8 @@ class ChannelWakeContext:
                 session_socket_available=self.pending_io.session_socket_available,
                 external_admission_paused=(self.pending_io.compaction.external_admission_paused
                                            if self.pending_io.compaction else lambda: False),
+                external_admission_reason=(getattr(self.pending_io.compaction, "admission_reason", lambda: "context_recovery")
+                                           if self.pending_io.compaction else lambda: ""),
             ),
             policy=ChannelInjectionPolicy(
                 wake_batch_limit=self.pending_policy.wake_batch_limit,

@@ -1,0 +1,6 @@
+idle_retry first=retry_wait admission=paused retry=queued scope=exact checkpoint+shrink=verified
+............................................
+----------------------------------------------------------------------
+Ran 44 tests in 1.218s
+
+OK

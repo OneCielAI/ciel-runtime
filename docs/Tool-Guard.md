@@ -8,7 +8,7 @@
 
 Tool Guard는 두 가지 역할을 수행한다:
 
-1. **툴 차단** (`blocked_tools`): 비-Anthropic 제공자에서 작동하지 않는 툴 제거
+1. **툴 차단** (`blocked_tools`): 라우터 요청의 호환성 기본 차단 목록 적용 (CLI 권한과 별개)
 2. **툴 입력 수정** (`_validate_and_fix_tool_input()`): 비표준 모델이 잘못 생성한 툴 입력 자동 교정
 
 ---
@@ -19,7 +19,7 @@ Tool Guard는 두 가지 역할을 수행한다:
 DEFAULT_BLOCKED_TOOLS_NON_ANTHROPIC = (
     "EnterWorktree", "ExitWorktree",
     "TeamCreate", "TeamDelete", "TeammateTool",
-    "SendMessage", "SendMessageTool",
+    "SendMessageTool",
     "ScheduleWakeup",
     "WaitForMcpServers",
     "WebSearch", "web_search",
@@ -28,6 +28,27 @@ DEFAULT_BLOCKED_TOOLS_NON_ANTHROPIC = (
     "PushNotification",
 )
 ```
+
+`SendMessage`는 Claude Code가 로컬에서 실행하는 에이전트 메시지 도구이며 기본 차단하지 않습니다.
+Claude Code 2.1.310 + 소유한 루프백 서버에서 CielAiRouter `/v1/messages` 및 vLLM
+`/v1/chat/completions` 변환 경로로 자식 에이전트가 메시지를 받아 응답한 것을 확인했습니다.
+이는 실제 원격 제공자의 모델 품질/스키마 수용 또는 구형 `SendMessageTool`, 팀 생성/삭제 검증을 의미하지 않습니다.
+다른 기본 차단은 유지됩니다.
+
+## 제공자별 차단 목록 설정
+
+런처 메뉴의 **LLM options → Tool blocklist (routed)** 에서 변경합니다.
+
+- `default` / `unset` / `auto`: 해당 제공자의 기본 정책으로 복원.
+- `["SendMessage", "WebSearch"]`: 전체 차단 목록을 명시한 배열로 교체 (추가 방식 아님).
+- `false` / `[]`: 모든 호환성 차단 해제. 미지원 서버 도구도 노출되므로 주의해야 합니다.
+- 빈 입력은 기존 값을 유지하고 잘못된 JSON/타입은 저장하지 않습니다.
+
+저장 위치는 `providers.<name>.blocked_tools` 입니다. 다음 라우터 요청부터 적용하며,
+이미 진행 중인 요청을 재생하지 않습니다. native/direct 경로에는 라우터 필터가 없고 CLI 권한은 그대로 유지됩니다.
+명시적 기존 목록에 `SendMessage`가 있으면 새 기본값보다 그 목록이 우선합니다 (자동 변경하지 않음).
+CLI에서도 `provider-options <provider> 'blocked_tools=["SendMessage"]'` 및
+`provider-options <provider> unset:blocked_tools`를 사용할 수 있습니다.
 
 `CLAUDE_SERVER_SIDE_WEB_TOOLS`: `WebSearch`, `WebFetch` — Anthropic 서버사이드 툴로 비-Anthropic 제공자에서 차단.
 

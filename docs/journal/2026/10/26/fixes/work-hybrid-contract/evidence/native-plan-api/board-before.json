@@ -1,0 +1,146 @@
+{
+ "enabled": true,
+ "phase": "executing",
+ "approval": "auto",
+ "version": 2,
+ "active_root": {
+  "id": "n1",
+  "title": "1. Work API proof",
+  "status": "pending",
+  "ref": "",
+  "waiting_on": "",
+  "urgent": false,
+  "phase": "executing"
+ },
+ "continuation": {
+  "actionable": 1,
+  "next": {
+   "id": "n3",
+   "title": "Original pending leaf",
+   "status": "pending",
+   "ref": "",
+   "waiting_on": "",
+   "urgent": false,
+   "path": [
+    "1. Work API proof",
+    "API phase",
+    "Original pending leaf"
+   ],
+   "root_id": "n1",
+   "phase": "executing"
+  },
+  "waiting": [],
+  "blocked": 0,
+  "held": 0
+ },
+ "done": 0,
+ "total": 1,
+ "next": {
+  "id": "n3",
+  "title": "Original pending leaf",
+  "status": "pending",
+  "path": [
+   "1. Work API proof",
+   "API phase",
+   "Original pending leaf"
+  ]
+ },
+ "breakdown": [
+  {
+   "id": "n2",
+   "title": "API phase",
+   "status": "pending",
+   "ref": "",
+   "waiting_on": "",
+   "urgent": false,
+   "done": 0,
+   "total": 1,
+   "children": [
+    {
+     "id": "n3",
+     "title": "Original pending leaf",
+     "status": "pending",
+     "ref": "",
+     "waiting_on": "",
+     "urgent": false
+    }
+   ],
+   "more": 0
+  }
+ ],
+ "ready": true,
+ "ready_reason": "ready",
+ "goals": 1,
+ "queue": [],
+ "ok": true,
+ "schema_version": 1,
+ "session_id": "claude:5670d4a3-c35a-4674-91c2-14b0305295a6",
+ "updated_at": 1793075734.1901386,
+ "nodes": [
+  {
+   "id": "n1",
+   "parent_id": null,
+   "title": "1. Work API proof",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793075732.8615594,
+   "phase": "executing"
+  },
+  {
+   "id": "n2",
+   "parent_id": "n1",
+   "title": "API phase",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793075732.8615594
+  },
+  {
+   "id": "n3",
+   "parent_id": "n2",
+   "title": "Original pending leaf",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793075732.8615594
+  }
+ ],
+ "active_root_id": "n1",
+ "root_ids": [
+  "n1"
+ ],
+ "queue_ids": [],
+ "auto_continue": false,
+ "runtime": {
+  "ciel_runtime": {
+   "version": "0.2.51",
+   "source_fingerprint": "59743d83f45331de",
+   "instance_id": "57436-1922ef1132bf"
+  },
+  "session_id": "claude:5670d4a3-c35a-4674-91c2-14b0305295a6",
+  "runtime": "claude",
+  "configured": {
+   "provider": "cielairouter",
+   "model": "fake-work",
+   "alias": "ciel-runtime-cielairouter-fake-work",
+   "source": "configuration"
+  },
+  "epoch": null,
+  "in_flight": [],
+  "last_observed": null,
+  "last_error": null,
+  "observation_status": "unavailable",
+  "errors": []
+ },
+ "events": "/ca/work/events"
+}

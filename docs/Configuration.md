@@ -450,15 +450,23 @@ Codex 지침은 사용자가 Work 모드 사용법을 물으면 간단히 설명
   다른 모든 목표는 `Held`로 표시하고 자동 계속 대상에서 제외한다. 긴급 목표가 끝나면 직전 활성 목표부터 복귀한다.
 - Codex에는 같은 규칙을 지침으로 전달할 뿐 Ciel이 종료된 Codex 턴을 직접 재개하지 않는다.
 
+### Work 하이브리드 실행 계약
+
+Work는 네이티브 Plan Mode가 아니라 목표별 계획·실행 보드다. 승인된 활성 목표를 실행하는 동안 독립 요청의 계획은 별도 루트에 큐잉하며 활성 목표의 실행 상태를 바꾸지 않는다. 목표별 `phase`를 보존하므로 사용자가 우선순위를 바꾸거나 긴급 목표를 끝내면 기존 승인 목표는 실행 상태로 복귀한다. 새 목표는 반드시 planning부터 시작한다.
+
+- `work_node_add(within_scope=true)`는 기존 승인 범위 안의 세분화에만 사용한다. 생략하면 해당 목표만 planning으로 돌아가 범위 재검토·승인을 기다린다. 이 플래그는 새 범위를 승인하는 권한이 아니며 의미상 범위 판단은 모델 매개다. 제목·설명(note)을 변경해도 해당 목표만 재검토한다.
+- `work_reorder`, `work_urgent`, `work_select`로 미완료 활성 목표를 교체하려면 사용자의 명시적 우선순위 요청과 `user_requested=true`가 필요하다. `expected_version`으로 동시 변경을 감지한다.
+- 자동 프롬프트 문맥에는 한정된 활성 목표 요약과 큐 ID 최대 5개만 넣는다. 큐의 제목·설명·하위 트리는 넣지 않는다. 필요할 때 `work_status(root_id=...)`로 정확히 한 목표의 전체 노드·설명·검증 증거를 조회하며 선택·승인 상태는 변경하지 않는다.
+- **문맥 격리 한계**: 원본 사용자 메시지와 명시적으로 호출한 도구 응답은 네이티브 대화 기록에 남는다. 큐를 저장하거나 요약을 제한해도 기존 대화에서 텍스트를 삭제·격리하지 않으며, 목표별 별도 모델 세션을 만들지 않는다. Work는 히스토리 격리 또는 모든 부작용을 차단하는 보안 경계가 아니다.
+
 ### 계획 단계와 승인
 
-- **Claude**: 모드가 강제한다. 계획(`planning`) 단계에서는 `Edit`/`Write`/`NotebookEdit`/`apply_patch`
-  를 거부하고, `Bash`/`PowerShell`은 엔진이 읽기 전용으로 분류한 호출만 허용한다. Work 상태를
-  확인할 수 없으면 쓰기·셸 호출을 거부한다. `work_execute` 호출 시 모델이 넣은 `user_confirmed`는
-  제거되며, `ask` 승인이면 모드가 `$.ui.ask` 대화상자(`Approve` / `Keep planning`)로 사용자에게
-  묻고 승인 후 대화·계획 버전이 그대로일 때만 `user_confirmed=true`로 실행한다.
-  Claude Code 2.1.310 실제 CLI에서 `bypassPermissions` 상태에서도 계획 중 Edit 및
-  파일을 쓰는 Bash 호출이 차단되는 것을 검증했다.
+- **Claude**: 계획(`planning`) 단계에서는 `Edit`/`Write`/`NotebookEdit`/`apply_patch` 같은 직접 파일 편집 도구를 거부한다. Work 상태를 확인할 수 없어도 직접 편집은 거부한다.
+  `Bash`/`PowerShell`은 Work 계획 상태·상태 조회 성공 여부와 무관하게 네이티브 권한 검사에 위임한다.
+  Work가 shell 호출을 별도로 허용하거나 거부하지 않으며 native 승인·Plan Mode·sandbox·bypass 설정은 그대로 적용된다.
+  Shell은 파일 변경도 가능하므로 Work는 모든 변경을 막는 보안 경계가 아니다. 모델에는 승인된 계획·범위 안에서 작업하도록 계속 지시한다.
+  `work_execute` 호출 시 모델이 넣은 `user_confirmed`는 제거되며, `ask` 승인이면 모드가
+  `$.ui.ask` 대화상자(`Approve` / `Keep planning`)로 묻고 승인 후 대화·계획 버전이 그대로일 때만 실행한다.
 - **Codex**: **모델 매개(model-mediated)** 방식이다. 계획 단계와 승인 규칙은 지침으로만 전달되며,
   이 버전은 Codex 편집에 대해 계획 게이트나 승인 게이트를 강제하지 않는다. `ask` 승인이면
   라우터의 `work_execute`가 "User confirmation is required" 응답을 돌려주고, 모델이 사용자에게

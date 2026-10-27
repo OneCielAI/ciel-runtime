@@ -3,7 +3,8 @@
 A document holds any number of root goals.  Each root decomposes into
 phases, tasks and steps of arbitrary depth (capped by ``MAX_DEPTH``).  The
 document also carries the Work phase: ``planning`` while the active goal is
-being decomposed, ``executing`` once the plan was approved for execution.
+being decomposed, ``executing`` once the active plan was approved. Each root
+retains its own phase when priority changes; the document phase mirrors the active root.
 All functions here are pure; persistence lives in ``work_plan_store``.
 """
 
@@ -85,6 +86,11 @@ def normalize_document(raw: Any) -> dict[str, Any]:
             "urgent": item.get("urgent") is True and item.get("parent_id") is None,
             "updated_at": float(item.get("updated_at") or 0.0),
         }
+        if node["parent_id"] is None:
+            phase = item.get("phase", raw["phase"] if item.get("id") == raw.get("active_root") else PHASE_PLANNING)
+            if phase not in PHASES:
+                raise WorkPlanError("work goal has an invalid phase")
+            node["phase"] = phase
         if not node["id"] or node["id"] in seen or not node["title"]:
             raise WorkPlanError("work plan node has a missing or duplicate id or an empty title")
         seen.add(node["id"])
@@ -100,11 +106,39 @@ def normalize_document(raw: Any) -> dict[str, Any]:
     doc["next_id"] = max(doc["next_id"], max(allocated, default=0) + 1)
     active = raw.get("active_root")
     doc["active_root"] = str(active) if active is not None and str(active) in by_id and by_id[str(active)]["parent_id"] is None else None
+    if doc["active_root"]:
+        doc["phase"] = by_id[doc["active_root"]]["phase"]
     return doc
 
 
+def root_phase(doc: dict[str, Any], root_id: str) -> str:
+    # The document phase is the active-root mirror; inactive approvals live on roots.
+    if root_id == doc.get("active_root"):
+        return doc["phase"]
+    return _index(doc)[root_id].get("phase", PHASE_PLANNING)
+
+
+def set_phase(doc: dict[str, Any], phase: str, root_id: str | None = None) -> None:
+    if phase not in PHASES:
+        raise WorkPlanError("invalid Work phase")
+    root_id = root_id or doc.get("active_root")
+    if root_id:
+        _index(doc)[root_id]["phase"] = phase
+    if root_id == doc.get("active_root"):
+        doc["phase"] = phase
+
+
+def _activate(doc: dict[str, Any], root_id: str | None) -> None:
+    old = doc.get("active_root")
+    if old in _index(doc):
+        _index(doc)[old]["phase"] = doc["phase"]
+    phase = root_phase(doc, root_id) if root_id else PHASE_PLANNING
+    doc["active_root"] = root_id
+    doc["phase"] = phase
+
+
 def add_node(doc: dict[str, Any], parent_id: str | None, title: Any, note: Any = "", *, now: float | None = None,
-             ref: Any = "", waiting_on: Any = "") -> str:
+             ref: Any = "", waiting_on: Any = "", within_scope: bool = False) -> str:
     stamp = time.time() if now is None else now
     by_id = _index(doc)
     # A new goal waits behind an unfinished active goal instead of taking its place.
@@ -135,28 +169,30 @@ def add_node(doc: dict[str, Any], parent_id: str | None, title: Any, note: Any =
         "updated_at": stamp,
     })
     if parent_id is None:
+        _index(doc)[node_id]["phase"] = PHASE_PLANNING
         if not queue_behind:
-            doc["active_root"] = node_id
-            doc["phase"] = PHASE_PLANNING
+            _activate(doc, node_id)
     else:
+        root = _root_of(_index(doc), parent_id)
+        if not within_scope:
+            set_phase(doc, PHASE_PLANNING, root)
         _reopen_ancestors(doc, parent_id, stamp)
-        if _root_of(_index(doc), parent_id) == doc.get("active_root"):
-            doc["phase"] = PHASE_PLANNING
     return node_id
 
 
-def add_subtree(doc: dict[str, Any], parent_id: str | None, spec: Any, *, now: float | None = None) -> str:
+def add_subtree(doc: dict[str, Any], parent_id: str | None, spec: Any, *, now: float | None = None,
+                within_scope: bool = False) -> str:
     """Add a nested ``{title, note, children: [...]}`` spec below ``parent_id``."""
 
     if not isinstance(spec, dict):
         raise WorkPlanError("a plan node must be an object with a title")
     node_id = add_node(doc, parent_id, spec.get("title"), spec.get("note", ""), now=now,
-                       ref=spec.get("ref", ""), waiting_on=spec.get("waiting_on", ""))
+                       ref=spec.get("ref", ""), waiting_on=spec.get("waiting_on", ""), within_scope=within_scope)
     children = spec.get("children", [])
     if not isinstance(children, list):
         raise WorkPlanError("children must be a list")
     for child in children:
-        add_subtree(doc, node_id, child, now=now)
+        add_subtree(doc, node_id, child, now=now, within_scope=within_scope)
     return node_id
 
 
@@ -190,9 +226,9 @@ def set_plan(doc: dict[str, Any], spec: Any, root_id: str | None = None, *, now:
     root["updated_at"] = time.time() if now is None else now
     for child in children:
         add_subtree(trial, root_id, child, now=now)
+    set_phase(trial, PHASE_PLANNING, root_id)
     if open_active is None or open_active == root_id:
-        trial["active_root"] = root_id
-        trial["phase"] = PHASE_PLANNING
+        _activate(trial, root_id)
     doc.clear()
     doc.update(trial)
     return root_id
@@ -235,7 +271,11 @@ def update_node(doc: dict[str, Any], node_id: str, *, status: Any = None, title:
         candidate["ref"] = _line(ref, MAX_REF_CHARS)
     if candidate == node:
         return node
+    scope_changed = (candidate["title"] != node["title"] or candidate["note"] != node["note"]
+                     or (node["status"] == "done" and candidate["status"] != "done"))
     node.update(candidate)
+    if scope_changed:
+        set_phase(doc, PHASE_PLANNING, _root_of(by_id, node_id))
     node["updated_at"] = stamp
     if node["parent_id"] is not None:
         if status == "done":
@@ -243,8 +283,10 @@ def update_node(doc: dict[str, Any], node_id: str, *, status: Any = None, title:
         elif status in ("in_progress", "pending", "blocked"):
             _reopen_ancestors(doc, node["parent_id"], stamp)
     root = _root_of(by_id, node_id)
+    if by_id[root]["status"] == "done":
+        set_phase(doc, PHASE_PLANNING, root)
     if root == doc.get("active_root") and by_id[root]["status"] == "done":
-        doc["phase"] = PHASE_PLANNING
+        set_phase(doc, PHASE_PLANNING)
         _advance_queue(doc)
     return node
 
@@ -261,23 +303,23 @@ def remove_node(doc: dict[str, Any], node_id: str) -> int:
         _complete_ancestors(doc, parent_id, time.time())
         active = _index(doc).get(doc.get("active_root"))
         if active and active["status"] == "done":
-            doc["phase"] = PHASE_PLANNING
+            set_phase(doc, PHASE_PLANNING)
             _advance_queue(doc)
     if parent_id is None and doc.get("active_root") == node_id:
         remaining = [node["id"] for node in doc["nodes"] if node["parent_id"] is None and node["status"] != "done"]
-        doc["active_root"] = remaining[0] if remaining else None
-        doc["phase"] = PHASE_PLANNING
+        _activate(doc, remaining[0] if remaining else None)
     return removed
 
 
-def select_root(doc: dict[str, Any], root_id: str) -> None:
+def select_root(doc: dict[str, Any], root_id: str, *, user_requested: bool = False) -> None:
     by_id = _index(doc)
     root_id = str(root_id)
     if root_id not in by_id or by_id[root_id]["parent_id"] is not None:
         raise WorkPlanError(f"{root_id} is not a goal")
     if doc.get("active_root") != root_id:
-        doc["active_root"] = root_id
-        doc["phase"] = PHASE_PLANNING
+        if _open_active_root(doc, by_id) is not None and not user_requested:
+            raise WorkPlanError("changing the active goal requires an explicit user request (user_requested=true)")
+        _activate(doc, root_id)
 
 
 def reorder_root(doc: dict[str, Any], root_id: str, position: int, *, user_requested: bool = False) -> None:
@@ -302,8 +344,7 @@ def reorder_root(doc: dict[str, Any], root_id: str, position: int, *, user_reque
     doc["nodes"] = [next(ordered) if node["parent_id"] is None and node["status"] != "done" else node
                     for node in doc["nodes"]]
     if roots[0]["id"] != active:
-        doc["active_root"] = roots[0]["id"]
-        doc["phase"] = PHASE_PLANNING
+        _activate(doc, roots[0]["id"])
 
 
 def reorder_node(doc: dict[str, Any], node_id: str, position: int, *, user_requested: bool = False) -> None:
@@ -378,11 +419,14 @@ def continuation(doc: dict[str, Any]) -> dict[str, Any]:
                 candidates.append(leaf)
         candidates.sort(key=lambda node: node["status"] != "in_progress")
         available.append(candidates)
-    chosen = next((rows for rows in available if rows), [])
+    chosen_index = next((i for i, rows in enumerate(available) if rows), None)
+    chosen = available[chosen_index] if chosen_index is not None else []
     nxt = chosen[0] if chosen else None
+    target_root = roots[chosen_index]["id"] if chosen_index is not None else None
     return {
         "actionable": len(chosen),
-        "next": dict(_node_summary(nxt), path=path_titles(doc, nxt["id"])) if nxt else None,
+        "next": dict(_node_summary(nxt), path=path_titles(doc, nxt["id"]), root_id=target_root,
+                     phase=root_phase(doc, target_root)) if nxt else None,
         "waiting": waiting[:MAX_WAITING_IN_CONTINUATION],
         "blocked": blocked,
         "held": len(queued_roots(doc)) if held else 0,
@@ -390,7 +434,10 @@ def continuation(doc: dict[str, Any]) -> dict[str, Any]:
 
 
 def _node_summary(node: dict[str, Any]) -> dict[str, Any]:
-    return {key: node.get(key, "") for key in ("id", "title", "status", "ref", "waiting_on", "urgent")}
+    result = {key: node.get(key, "") for key in ("id", "title", "status", "ref", "waiting_on", "urgent")}
+    if node.get("parent_id") is None:
+        result["phase"] = node.get("phase", PHASE_PLANNING)
+    return result
 
 
 def readiness(doc: dict[str, Any]) -> tuple[bool, str]:
@@ -571,8 +618,7 @@ def queued_roots(doc: dict[str, Any]) -> list[dict[str, Any]]:
 def _advance_queue(doc: dict[str, Any]) -> None:
     queued = queued_roots(doc)
     if queued:
-        doc["active_root"] = queued[0]["id"]
-        doc["phase"] = PHASE_PLANNING
+        _activate(doc, queued[0]["id"])
 
 
 def _remove_descendants(doc: dict[str, Any], node_id: str) -> int:

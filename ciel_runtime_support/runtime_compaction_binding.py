@@ -696,19 +696,33 @@ class RuntimeCompactionBinding:
         # provider/model. It is diagnostic only, never proactive pressure. The
         # native CLI applies its own threshold to the resumed conversation.
 
+    def admission_reason(self) -> str:
+        try:
+            if not self._admission_paused():
+                return ""
+            value = self._update("")
+            if value.get("handoff_pending"):
+                return "native_handoff_pending"
+            if self.scope() is None or self._request_identity_pending(value):
+                return "identity_pending"
+            return self.control.admission_reason() or "context_recovery"
+        except (OSError, ValueError, TypeError):
+            return "state_unavailable"
+
     def context_pause_reason(self, body: dict[str, Any]) -> str:
         if self._compact_kind(body):
             return "native_compaction"
-        if not self._admission_paused():
-            return ""
-        return "context_recovery" if self.scope() is not None else "identity_pending"
+        return self.admission_reason()
 
     def recovery_status(self) -> dict[str, Any]:
         try:
             scope = self.scope()
             state = self._admission_state() if scope is not None else None
-            if not isinstance(state, dict):
-                return {}
+            if not isinstance(state, dict) or not state:
+                reason = self.control.admission_reason()
+                return {"phase": "unknown", "failure": reason} if reason else {}
+            if state.get("unresolved_scope") is True:
+                return {"phase": "unknown", "failure": "state_unavailable"}
             if state.get("scope") != scope.payload():
                 if state.get("phase") in {None, "verified"}:
                     return {}

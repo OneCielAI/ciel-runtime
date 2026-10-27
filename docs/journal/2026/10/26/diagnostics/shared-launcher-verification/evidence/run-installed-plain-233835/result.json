@@ -1,0 +1,382 @@
+{
+  "label": "installed-plain",
+  "expect": "codex",
+  "runtime_root": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-0555b6c1e080d3466d44437d7eb01b7f61367615",
+  "scratch": "C:\\Windows\\Temp\\ciel-owned-launcher-ks1slc8i",
+  "stripped_env_names": [
+    "ANTHROPIC_AUTH_TOKEN",
+    "ANTHROPIC_BASE_URL",
+    "ANTHROPIC_CUSTOM_MODEL_OPTION",
+    "ANTHROPIC_CUSTOM_MODEL_OPTION_SUPPORTED_CAPABILITIES",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTED_CAPABILITIES",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTS",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTED_CAPABILITIES",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTS",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTED_CAPABILITIES",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTS",
+    "ANTHROPIC_MODEL",
+    "CIEL_RUNTIME_AUTO_ALLOW_DANGEROUS_RM",
+    "CIEL_RUNTIME_BYPASS_PERMISSIONS",
+    "CIEL_RUNTIME_CONFIG_DIR",
+    "CIEL_RUNTIME_HOME",
+    "CIEL_RUNTIME_LAUNCH_CWD",
+    "CIEL_RUNTIME_MODEL_ALIAS",
+    "CIEL_RUNTIME_PROVIDER",
+    "CIEL_RUNTIME_REGISTERED_HOME",
+    "CIEL_RUNTIME_SCRIPT",
+    "CIEL_RUNTIME_SELECTED_HOME",
+    "CIEL_RUNTIME_STATE_DIR",
+    "CIEL_RUNTIME_WORKSPACE_STATE_DIR",
+    "CLAUDECODE",
+    "CLAUDE_CHROME_CLASSIFIER_FLOOR",
+    "CLAUDE_CODE_ATTRIBUTION_HEADER",
+    "CLAUDE_CODE_AUTO_COMPACT_WINDOW",
+    "CLAUDE_CODE_CHILD_SESSION",
+    "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS",
+    "CLAUDE_CODE_DISABLE_NONSTREAMING_FALLBACK",
+    "CLAUDE_CODE_DISABLE_TERMINAL_TITLE",
+    "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY",
+    "CLAUDE_CODE_ENTRYPOINT",
+    "CLAUDE_CODE_EXECPATH",
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS",
+    "CLAUDE_CODE_MAX_CONTEXT_TOKENS",
+    "CLAUDE_CODE_MAX_OUTPUT_TOKENS",
+    "CLAUDE_CODE_MAX_RETRIES",
+    "CLAUDE_CODE_MESSAGING_SOCKET",
+    "CLAUDE_CODE_MESSAGING_TOKEN",
+    "CLAUDE_CODE_NONSTREAMING_TIMEOUT_RETRIES",
+    "CLAUDE_CODE_RETRY_WATCHDOG",
+    "CLAUDE_CODE_SEND_FEEDBACK",
+    "CLAUDE_CODE_SESSION_ATTENDED",
+    "CLAUDE_CODE_SESSION_ID",
+    "CLAUDE_CODE_SUBAGENT_MODEL",
+    "CLAUDE_CODE_SUBAGENT_MODEL_FORCE",
+    "CLAUDE_EFFORT",
+    "CLAUDE_PID",
+    "CODEX_SPARKLE_ENABLED",
+    "OLLAMA_CONTEXT_LENGTH",
+    "OLLAMA_FLASH_ATTENTION",
+    "OLLAMA_HOST",
+    "OLLAMA_KV_CACHE_TYPE",
+    "OLLAMA_MODELS",
+    "OLLAMA_NUM_PARALLEL",
+    "OLLAMA_SCHED_SPREAD"
+  ],
+  "command": [
+    "cmd.exe",
+    "/d",
+    "/k",
+    "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\diagnostics\\shared-launcher-verification\\evidence\\run-installed-plain-233835\\launch.cmd"
+  ],
+  "ports": {
+    "router": 61049,
+    "fixture": 61050
+  },
+  "fixture": {
+    "alias": "stub-model",
+    "native_model": "claude-opus-5-5",
+    "window": 200000,
+    "high_tokens": 190000
+  },
+  "events": [
+    {
+      "at": 1793075915.527,
+      "kind": "launched",
+      "pid": 31828,
+      "watcher": 82812
+    },
+    {
+      "at": 1793075926.196,
+      "kind": "wait_pass",
+      "label": "owned router health"
+    },
+    {
+      "at": 1793075927.839,
+      "kind": "wait_pass",
+      "label": "native model rendered"
+    },
+    {
+      "at": 1793075933.445,
+      "kind": "wait_pass",
+      "label": "screenshot 01-started"
+    },
+    {
+      "at": 1793075935.448,
+      "kind": "wait_pass",
+      "label": "prompt reached fixture"
+    },
+    {
+      "at": 1793075935.455,
+      "kind": "wait_pass",
+      "label": "reply rendered"
+    },
+    {
+      "at": 1793075937.059,
+      "kind": "wait_pass",
+      "label": "screenshot 02-reply"
+    }
+  ],
+  "live_before": {
+    "9505": {
+      "pid": 77432,
+      "version": "0.2.51-nightly.20261026-183726.81f6a4b",
+      "source_fingerprint": "72c6bfb456e30cd7",
+      "error": null
+    },
+    "9524": {
+      "pid": 25276,
+      "version": "0.2.51",
+      "source_fingerprint": "f86ee3638ee760f3",
+      "error": null
+    }
+  },
+  "owned_health": {
+    "ok": true,
+    "version": "0.2.51-nightly.20261027-031627.0555b6c",
+    "source_fingerprint": "11b9fec1d2441894",
+    "pid": 7136,
+    "user": "djlov",
+    "home": "C:\\Windows\\Temp\\ciel-owned-launcher-ks1slc8i\\home",
+    "config_dir": "C:\\Windows\\Temp\\ciel-owned-launcher-ks1slc8i\\cfg\\router-instances\\61049-2345bb9a1ed7",
+    "workspace": "c:\\windows\\temp\\ciel-owned-launcher-ks1slc8i\\ws",
+    "router_port": 61049,
+    "instance_id": "61049-2345bb9a1ed7",
+    "active_client_count": 0,
+    "active_client_pids": [],
+    "provider": "cielairouter",
+    "model": "ciel-runtime-cielairouter-stub-model",
+    "web_chat": "/ca/web/chat",
+    "web_chat_api": "/ca/web/chat/api",
+    "speech": "/ca/speech/health",
+    "chat": "/ca/chat/health",
+    "plan": "/ca/plan/artifacts",
+    "events": "/ca/events",
+    "events_websocket": "/ca/events/ws",
+    "external_event_receivers": "/ca/events/receivers",
+    "otlp_logs": "/v1/logs",
+    "telemetry_logs_tool": "POST /ca/mcp tools/call telemetry_logs",
+    "tui": "/ca/tui",
+    "tui_status": "/ca/tui/status",
+    "tui_stream": "/ca/tui/stream",
+    "cielairouter_gateway": {
+      "provider": "cielairouter",
+      "selector_module": "ciel_runtime_support.cielairouter_gateways",
+      "selector": "not_loaded",
+      "selector_error": "",
+      "routes": [],
+      "gateways": []
+    }
+  },
+  "status": "pass",
+  "requests": [
+    {
+      "server": "central",
+      "path": "/v1/models"
+    },
+    {
+      "server": "central",
+      "path": "/v1/models"
+    },
+    {
+      "server": "central",
+      "path": "/v1/responses",
+      "turn": "1",
+      "truncated": false,
+      "auth_ok": true,
+      "model": "stub-model",
+      "bytes": 61366,
+      "user_agent": "codex-tui/0.164.0 (Windows 10.0.26200; x86_64) WindowsTerminal (codex-tui; 0.164.0)",
+      "head1": false,
+      "tail1": false,
+      "head2": false,
+      "tail2": false,
+      "restart_notice": false
+    },
+    {
+      "server": "central",
+      "path": "/v1/responses",
+      "turn": "1",
+      "truncated": false,
+      "auth_ok": true,
+      "model": "stub-model",
+      "bytes": 62147,
+      "user_agent": "codex-tui/0.164.0 (Windows 10.0.26200; x86_64) WindowsTerminal (codex-tui; 0.164.0)",
+      "head1": false,
+      "tail1": false,
+      "head2": false,
+      "tail2": false,
+      "restart_notice": false
+    }
+  ],
+  "foreground": {
+    "samples": 425,
+    "owned_hits": 0,
+    "owned_intervals": []
+  },
+  "teardown_owned_identities": [
+    {
+      "pid": 7136,
+      "name": "python.exe",
+      "ppid": 79136,
+      "cmd": [
+        "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe",
+        "C:\\Users\\djlov\\.local\\share\\ciel-runtime-0555b6c1e080d3466d44437d7eb01b7f61367615\\ciel_runtime.py",
+        "serve"
+      ]
+    },
+    {
+      "pid": 16168,
+      "name": "conhost.exe",
+      "ppid": 31828,
+      "cmd": [
+        "\\??\\C:\\WINDOWS\\system32\\conhost.exe",
+        "0x4"
+      ]
+    },
+    {
+      "pid": 31820,
+      "name": "py.exe",
+      "ppid": 31828,
+      "cmd": [
+        "py",
+        "-3",
+        "C:\\Users\\djlov\\.local\\share\\ciel-runtime-0555b6c1e080d3466d44437d7eb01b7f61367615\\ciel_runtime.py",
+        "cli",
+        "--ca-runtime",
+        "codex",
+        "--ca-no-update-check",
+        "--ca-no-self-update-check"
+      ]
+    },
+    {
+      "pid": 31828,
+      "name": "cmd.exe",
+      "ppid": 51540,
+      "cmd": [
+        "cmd.exe",
+        "/d",
+        "/k",
+        "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\diagnostics\\shared-launcher-verification\\evidence\\run-installed-plain-233835\\launch.cmd"
+      ]
+    },
+    {
+      "pid": 79136,
+      "name": "python.exe",
+      "ppid": 31820,
+      "cmd": [
+        "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe",
+        "C:\\Users\\djlov\\.local\\share\\ciel-runtime-0555b6c1e080d3466d44437d7eb01b7f61367615\\ciel_runtime.py",
+        "cli",
+        "--ca-runtime",
+        "codex",
+        "--ca-no-update-check",
+        "--ca-no-self-update-check"
+      ]
+    },
+    {
+      "pid": 83064,
+      "name": "python.exe",
+      "ppid": 79136,
+      "cmd": [
+        "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe",
+        "C:\\Users\\djlov\\.local\\share\\ciel-runtime-0555b6c1e080d3466d44437d7eb01b7f61367615\\ciel_runtime_support\\windows_console_guard.py",
+        "79136",
+        "487",
+        "3"
+      ]
+    },
+    {
+      "pid": 83104,
+      "name": "conhost.exe",
+      "ppid": 79136,
+      "cmd": [
+        "\\\\?\\C:\\WINDOWS\\system32\\conhost.exe",
+        "--headless",
+        "--width",
+        "120",
+        "--height",
+        "30",
+        "--signal",
+        "0x2f4",
+        "--server",
+        "0x2d0"
+      ]
+    },
+    {
+      "pid": 83184,
+      "name": "codex.exe",
+      "ppid": 79136,
+      "cmd": [
+        "C:\\Users\\djlov\\AppData\\Local\\Programs\\OpenAI\\Codex\\bin\\codex.exe",
+        "--yolo",
+        "-c",
+        "model_provider=\"ciel-runtime\"",
+        "-c",
+        "model_providers.ciel-runtime.name=\"Ciel Runtime\"",
+        "-c",
+        "model_providers.ciel-runtime.base_url=\"http://127.0.0.1:61049/v1\"",
+        "-c",
+        "model_providers.ciel-runtime.wire_api=\"responses\"",
+        "-c",
+        "model_providers.ciel-runtime.env_key=\"CIEL_RUNTIME_CODEX_API_KEY\"",
+        "-c",
+        "model_providers.ciel-runtime.request_max_retries=0",
+        "-c",
+        "model_providers.ciel-runtime.stream_max_retries=0",
+        "-c",
+        "model_catalog_json=\"C:\\\\Windows\\\\Temp\\\\ciel-owned-launcher-ks1slc8i\\\\cfg\\\\codex-model-catalogs\\\\f70149eddbe95ac16909239e321b6bde8d2c5b26749b47ff89afb65c503771e8.json\"",
+        "-c",
+        "mcp_servers.ciel-runtime-router.url=\"http://127.0.0.1:61049/ca/mcp\"",
+        "-c",
+        "developer_instructions=\"Ciel Work mode is on. Work like Plan mode, but with a deeper, hierarchical plan that you keep current while you execute.\\nWork plans are private to this conversation. Codex supplies the conversation identity in MCP metadata; do not supply or invent a session_id argument. A new conversation has a separate plan; resuming retains it.\\n1. Planning phase: before changing files, decompose the user's task into a tree with work_plan_set: goal -> phases -> tasks -> steps. Keep splitting until every leaf is one concrete, verifiable action. Read-only exploration is fine while planning; file edits and state-changing commands wait for execution.\\nTriage every new user request first: an independent request becomes its own goal (root-level item), its title starting with its item number where possible (\\\"1. ...\\\", \\\"2. ...\\\"); a request that changes or extends an existing item goes under that item as a child (work_node_add with parent_id). A new goal queues behind the unfinished active goal and becomes active when that goal is done; keep the active goal going meanwhile.\\n2. When the plan is complete, call work_execute. If it reports that user confirmation is required, show the plan, ask the user, and call work_execute again with user_confirmed=true only after they agree.\\n3. Executing phase: work through the leaves in order. Mark a leaf in_progress when you start it and done with short evidence (command output, test result, file) when it is verified. Add or split nodes with work_node_add when you discover more work; use work_replan when the approach changes.\\n4. Call work_status to see the tree. Never report a step as done without evidence.\\nSet ref for a linked id (shown as [ id ] description); set waiting_on for an external dependency, and clear it with empty text when ready. Reorder root goals with work_reorder (1-based position); by default reorder only queued goals. Changing the active slot requires the user's explicit request and user_requested=true. On an explicit urgent/ad-hoc request use work_urgent with user_requested=true to hold other goals, decompose that request and execute; held goals resume afterwards.\\nIf the user asks how Work mode works or why an edit waited, explain this briefly; it is switched on or off in the ciel-runtime menu under LLM options -> Work mode.\\nWork auto continue is on. In the executing phase, before you end a turn:\\n- Keep handling approved pending Work. While actionable unfinished items remain inside the approved plan, continue with the next one instead of stopping to ask whether to go on.\\n- Triage the backlog first: register any user request that is not yet in the tree, within the scope the user already approved and without duplicates (independent requests as numbered goals, dependent ones as children).\\n- Take the highest-priority actionable item first; equal priorities keep their plan order.\\n- When an item waits on something outside this conversation (a person, a review, a build, another agent), set its waiting_on label to what it waits for instead of editing its title, and meanwhile work on other independent actionable items, running independent actions in parallel where your tools allow.\\n- End the turn only when every unfinished item is truly blocked, waiting or needs user approval, and say what each one waits for. Do not invent work, expand the approved scope or cross an approval boundary to keep going.\\nWork auto continue is switched on or off in the ciel-runtime menu under LLM options -> Work auto continue.\"",
+        "-c",
+        "mcp_servers.ciel-runtime-router.tools.work_status.approval_mode=\"approve\"",
+        "-c",
+        "mcp_servers.ciel-runtime-router.tools.work_plan_set.approval_mode=\"approve\"",
+        "-c",
+        "mcp_servers.ciel-runtime-router.tools.work_node_add.approval_mode=\"approve\"",
+        "-c",
+        "mcp_servers.ciel-runtime-router.tools.work_node_update.approval_mode=\"approve\"",
+        "-c",
+        "mcp_servers.ciel-runtime-router.tools.work_node_remove.approval_mode=\"approve\"",
+        "-c",
+        "mcp_servers.ciel-runtime-router.tools.work_select.approval_mode=\"approve\"",
+        "-c",
+        "mcp_servers.ciel-runtime-router.tools.work_execute.approval_mode=\"approve\"",
+        "-c",
+        "mcp_servers.ciel-runtime-router.tools.work_replan.approval_mode=\"approve\"",
+        "-c",
+        "mcp_servers.ciel-runtime-router.tools.work_reorder.approval_mode=\"approve\"",
+        "-c",
+        "mcp_servers.ciel-runtime-router.tools.work_urgent.approval_mode=\"approve\"",
+        "-m",
+        "ciel-runtime-cielairouter-stub-model"
+      ]
+    }
+  ],
+  "live_after": {
+    "9505": {
+      "pid": 77432,
+      "version": "0.2.51-nightly.20261026-183726.81f6a4b",
+      "source_fingerprint": "72c6bfb456e30cd7",
+      "error": null
+    },
+    "9524": {
+      "pid": 25276,
+      "version": "0.2.51",
+      "source_fingerprint": "f86ee3638ee760f3",
+      "error": null
+    }
+  },
+  "live_unchanged": true,
+  "source_digests": {
+    "ciel_runtime.py": "11b9fec1d24418943a9d85674055ab4fe17532c0a64b733d49db6e5af042441b",
+    "ciel_runtime_support/router_process_lifecycle.py": "5d4acc0eb43d3a3601c12d40d3ab235a4ce8719bd7008f91cf7d27bafbcc52f5",
+    "ciel_runtime_support/codex_app_server_session.py": "d520a949ce28fe53df8572fff73f2e0965920e35283af1deaeb9423d8015031e",
+    "ciel_runtime_support/channel_terminal_proxy.py": "3c71a0a55918f4bb90fa549f5400ebb56513d441b8b5c26e4e7581d5890fa6cd",
+    "ciel_runtime_support/codex_app_server.py": "06be95f178d1d08dbf12b5a96601ea93433e7ad78fa1cce3a1ac442e45dedcd1"
+  }
+}

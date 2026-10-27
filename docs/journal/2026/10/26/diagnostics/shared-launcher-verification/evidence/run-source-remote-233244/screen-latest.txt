@@ -1,0 +1,30 @@
+
+  >_ OpenAI Codex (v0.164.0)
+     C:\Windows\Temp\ciel-owned-alias-yk73upnc\ws
+
+
+› E2E-TURN-1 reply briefly
+
+
+■ stream disconnected before completion: error sending request
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+› Ask Codex to do anything
+
+  stub-model (CielAiRouter) medium · C:\Windows\Temp\ciel-owned-alias-yk73upnc\ws
+  ? for shortcuts

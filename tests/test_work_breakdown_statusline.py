@@ -43,7 +43,7 @@ class BreakdownStatuslineTests(unittest.TestCase):
             {"title": "A Cache", "children": [{"title": "TTL", "children": [{"title": "Verify expiry"}]}]},
             {"title": "B DAG", "children": [{"title": "Cycles"}]},
             {"title": "C Ledger", "children": [{"title": "Duplicates"}]}]})
-        doc["phase"] = "executing"
+        tree.set_phase(doc, "executing")
         tree.update_node(doc, "n4", status="in_progress")
         return doc, self.write_plan(directory, doc)
 
@@ -84,7 +84,7 @@ class BreakdownStatuslineTests(unittest.TestCase):
             doc = tree.empty_document()
             tree.set_plan(doc, {"title": "Nine problems", "children": [
                 {"title": title, "children": [{"title": title + " step"}]} for title in titles]})
-            doc["phase"] = "executing"
+            tree.set_phase(doc, "executing")
             self.write_plan(tmp, doc)
             lines = self.render(tmp).splitlines()
             self.assertEqual(lines[0], "[work executing] 0/9 Nine problems")

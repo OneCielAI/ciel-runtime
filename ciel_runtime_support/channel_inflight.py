@@ -21,6 +21,8 @@ class ChannelInflightSnapshot:
     now: float
     last_id: int
     recovery_protected: bool = False
+    # Admission holds suppress timeout-derived transitions, not exact evidence.
+    admission_paused: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -99,7 +101,7 @@ def advance_channel_inflight(
     # Recovery can replace/truncate transcript evidence. Absence after that
     # boundary proves neither failure nor completion, regardless of elapsed
     # time. Keep ownership until evidence resolves it; never release to replay.
-    age_failure_allowed = not (
+    age_failure_allowed = not snapshot.admission_paused and not (
         snapshot.recovery_protected and state in {"unknown", "missing"}
     )
     if age_failure_allowed and state == "missing" and snapshot.started_at > 0 and age >= policy.unseen_retry_seconds:

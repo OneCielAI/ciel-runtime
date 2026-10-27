@@ -1,0 +1,30 @@
+
+  >_ OpenAI Codex (v0.164.0)
+     C:\Windows\Temp\ciel-owned-alias-om651jdb\ws
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+› Ask Codex to do anything
+
+  stub-model (CielAiRouter) medium · C:\Windows\Temp\ciel-owned-alias-om651jdb\ws
+  ? for shortcuts

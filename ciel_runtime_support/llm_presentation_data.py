@@ -377,6 +377,10 @@ LLM_OPTION_DESCRIPTIONS: dict[str, dict[str, str]] = {
         "ja": "このproviderのAnthropic互換/v1/messagesに直接接続します。offだとciel-runtimeルーターを経由します。",
         "zh": "对该 provider 直接走 Anthropic 兼容 /v1/messages；关闭则经由 ciel-runtime 路由器转换。",
     },
+    "blocked_tools": {
+        "en": 'Routed requests only: default restores compatibility blocks; a JSON list replaces the entire blocklist. false or [] removes ALL blocks, including unsupported server tools. CLI permissions still apply. SendMessage is client-side and allowed by default.',
+        "ko": '라우터 요청에만 적용. default는 기본 차단, JSON 배열은 전체 차단 목록 교체. false 또는 []는 미지원 서버 도구까지 모두 노출합니다. CLI 권한은 유지됩니다. SendMessage는 클라이언트 도구로 기본 허용됩니다.',
+    },
     "supports_tool_choice": {
         "en": "Forward Claude Code tool_choice upstream. For vLLM, enable only when the server was launched with --enable-auto-tool-choice and the matching --tool-call-parser.",
         "ko": "Claude Code의 tool_choice를 upstream에 전달합니다. vLLM은 서버를 --enable-auto-tool-choice 및 모델에 맞는 --tool-call-parser로 실행한 경우에만 켜세요.",

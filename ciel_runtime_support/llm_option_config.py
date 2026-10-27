@@ -169,6 +169,16 @@ def set_llm_option_config(
     value = raw_value.strip()
     if not value:
         return ["Option unchanged."]
+    if key == "blocked_tools":
+        from .provider_tool_policy import configure_blocked_tools, blocked_tools_option_value
+        try:
+            configure_blocked_tools(pcfg, value)
+        except ValueError as exc:
+            return [str(exc)]
+        save_config(cfg)
+        return [f"Provider tool blocklist: {blocked_tools_option_value(pcfg)}.",
+                "Applies to subsequent routed requests only; CLI permissions still apply.",
+                "false or [] disables ALL compatibility blocks, including unsupported server tools."]
     if key == "empty_response_retries":
         if capabilities.mutation_strategy != "ollama":
             raise SystemExit("empty_response_retries is only available for Ollama providers")

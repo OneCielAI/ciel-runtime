@@ -11,8 +11,6 @@ from typing import TYPE_CHECKING, Any
 from ciel_runtime_support.channel_message_repository import ChannelFileLockBusy
 from ciel_runtime_support.channel_inflight import (
     ChannelInflightPolicy,
-    ChannelInflightSnapshot,
-    advance_channel_inflight,
 )
 from ciel_runtime_support.channel_pending_poll import (
     ChannelPendingInjectionOptions,
@@ -20,6 +18,7 @@ from ciel_runtime_support.channel_pending_poll import (
     ChannelPendingPollServices,
     ChannelPendingPollState,
     poll_pending_channel_messages,
+    observe_pending_channel_inflight,
 )
 from ciel_runtime_support.channel_terminal_proxy import terminal_proxy_error_context
 from ciel_runtime_support.startup_prompt_answers import STARTUP_AUTO_ANSWER_ENV, startup_auto_answer_enabled
@@ -276,44 +275,19 @@ class _DirectChannelPoller:
         if self.state is None:
             self.state = ChannelPendingPollState(last_id=policy.initial_cursor())
         state = self.state
-        paused = state.inflight.hold_for_recovery(
-            now, bool(getattr(policy, "compaction", None) and policy.compaction.external_admission_paused())
+        observe_pending_channel_inflight(
+            now, state,
+            ChannelInflightPolicy(
+                unseen_retry_seconds=policy.unseen_retry_seconds(),
+                waiting_log_interval=30.0,
+                is_stale=policy.inflight_is_stale,
+                commit_cursor_on_stale=False,
+                log_namespace="channel_direct_socket",
+                stale_event="stale_inflight_retry",
+            ),
+            polling.wake_state, polling.inflight_effects(),
+            admission_paused=bool(getattr(policy, "compaction", None) and policy.compaction.external_admission_paused()),
         )
-        if paused:
-            state.pending_recheck = True
-            return
-        if state.inflight_message_id is not None:
-            update = advance_channel_inflight(
-                ChannelInflightSnapshot(
-                    message_id=state.inflight_message_id,
-                    cursor=state.inflight_cursor,
-                    wake_state=polling.wake_state(state.inflight_message_id),
-                    started_at=state.inflight_started_at,
-                    logged_at=state.inflight_logged_at,
-                    now=now,
-                    last_id=state.last_id,
-                    recovery_protected=(
-                        state.inflight_message_id in state.inflight.recovery_protected
-                    ),
-                ),
-                ChannelInflightPolicy(
-                    unseen_retry_seconds=policy.unseen_retry_seconds(),
-                    waiting_log_interval=30.0,
-                    is_stale=policy.inflight_is_stale,
-                    commit_cursor_on_stale=False,
-                    log_namespace="channel_direct_socket",
-                    stale_event="stale_inflight_retry",
-                ),
-                polling.inflight_effects(),
-            )
-            state.inflight_message_id = update.message_id
-            state.inflight_cursor = update.cursor
-            state.inflight_started_at = update.started_at
-            state.inflight_logged_at = update.logged_at
-            state.pending_recheck = state.pending_recheck or update.pending_recheck
-            state.last_id = update.last_id
-            if update.action in {"completed", "failed"}:
-                state.inflight.attempts = 0
         self.state = poll_pending_channel_messages(
             now,
             None,

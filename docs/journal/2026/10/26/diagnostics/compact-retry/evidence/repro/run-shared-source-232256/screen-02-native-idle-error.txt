@@ -1,0 +1,30 @@
+
+● ciel-work: reloaded (11 hooks: session.start, prompt.attachment, turn.start, turn.complete, classic.Stop,
+  prompt.submit, command.run, tool.call, tool.check, session.end, ui.render)
+
+● ciel-work: Ciel Work mode is on: plan and execute by item; new independent requests queue without pausing
+  approved Work. Items show above the prompt · /work-mode help · turn off: ciel-runtime menu → LLM options →
+  Work mode
+
+● ciel-work: reloaded (11 hooks: session.start, prompt.attachment, turn.start, turn.complete, classic.Stop,
+  prompt.submit, command.run, tool.call, tool.check, session.end, ui.render)
+
+● ciel-work: Ciel Work mode is on: plan and execute by item; new independent requests queue without pausing
+  approved Work. Items show above the prompt · /work-mode help · turn off: ciel-runtime menu → LLM options →
+  Work mode
+
+● ciel-work: reloaded (11 hooks: session.start, prompt.attachment, turn.start, turn.complete, classic.Stop,
+  prompt.submit, command.run, tool.call, tool.check, session.end, ui.render)
+
+● ciel-work: Ciel Work mode is on: plan and execute by item; new independent requests queue without pausing
+  approved Work. Items show above the prompt · /work-mode help · turn off: ciel-runtime menu → LLM options →
+  Work mode
+
+❯ /compact
+  ⎿  Error during compaction: API Error: Stream idle timeout - no chunks received
+Work mode: no plan yet — the model plans before editing · /work-mode help                                           [-]
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle)                                                         work: plan 0/0

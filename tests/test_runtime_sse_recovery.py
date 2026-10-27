@@ -515,26 +515,104 @@ class RecoveryTests(unittest.TestCase):
                 observed = router_recovery({"action": "status"}, status_repository=status,
                                            compaction=Compaction(), restart=self.restart,
                                            root=instance)
-                self.assertEqual("queueunavailable", observed["evidence"]["reason"])
-                self.assertEqual("unknown", observed["evidence"]["queued_coverage"])
+                self.assertEqual(0, observed["evidence"]["known_queued_count"])
+                self.assertIsNone(observed["evidence"]["oldest_queued_age_seconds"])
                 self.assertFalse(observed["evidence"]["restart_eligible"])
                 self.assertEqual(before, snapshot())
 
                 result = router_recovery({"action": "auto"}, status_repository=status,
                                          compaction=Compaction(), restart=self.restart,
                                          root=instance)
-                self.assertTrue(result["problem"])
-                self.assertEqual(1, result["evidence"]["known_queued_count"])
-                self.assertEqual("queueunavailable", result["evidence"]["reason"])
-                self.assertEqual("unknown", result["evidence"]["queued_coverage"])
+                self.assertFalse(result["problem"])
+                self.assertEqual(0, result["evidence"]["known_queued_count"])
                 self.assertFalse(result["evidence"]["restart_eligible"])
                 self.assertFalse(result["reset"])
-                self.assertEqual("restart_evidence_insufficient", result["reason"])
+                self.assertEqual("no_sse_delivery_problem", result["reason"])
                 self.assertEqual([], self.resets)
                 self.assertFalse((instance / "sse-recovery.json").exists())
                 after = {name: value for name, value in snapshot().items()
                          if not name.startswith("sse-recovery.json")}
                 self.assertEqual(before, after)
+
+    def test_owned_pipeline_exact_retained_nonterminal_id_matrix(self):
+        """Real history/queue -> router recovery -> sole local restart fixture."""
+        from ciel_runtime_support.runtime_input_delivery_health import runtime_input_delivery_health
+        outer = self
+        class Service:
+            def clients(self):
+                return [{"pid": os.getpid()}]
+            def queue_tool(self, **kwargs):
+                return outer.restart(**kwargs)
+            def uncertain(self, **kwargs):
+                raise OSError("uncertain fixture restart")
+        class Compaction:
+            def external_admission_paused(self):
+                return False
+        for case in ("mismatch", "recent_B", "terminal_B", "uncertain_B", "removed",
+                     "corrupt_queue", "torn_queue", "partial_history", "changed_history",
+                     "reuse", "retained_stale", "cooldown", "uncertain_restart"):
+            with self.subTest(case=case):
+                instance = Path(self.root.name) / case
+                instance.mkdir()
+                status_path = instance / "runtime-input-status.jsonl"
+                queue_path = instance / "runtime-inputs.jsonl"
+                cursor_path = instance / "channel-llm-cursor.json"
+                stamp = time.time() - 400
+                rows = [{"request_id": 1, "status": "queued", "updated_at_epoch": stamp}]
+                queue = [{"id": 2, "created_at_epoch": stamp}]
+                if case == "recent_B":
+                    rows.append({"request_id": 2, "status": "queued", "updated_at_epoch": time.time()})
+                    queue[0]["created_at_epoch"] = time.time()
+                elif case in ("terminal_B", "uncertain_B", "reuse"):
+                    rows.append({"request_id": 2, "status": "interrupted_uncertain" if case == "uncertain_B"
+                                 else "replied", "updated_at_epoch": stamp - 10})
+                elif case != "mismatch":
+                    queue[0]["id"] = 1
+                status_path.write_bytes(b"".join(json.dumps(row).encode() + b"\n" for row in rows))
+                queue_path.write_bytes(b"".join(json.dumps(row).encode() + b"\n" for row in queue))
+                cursor_path.write_text('{"last_id": 0}\n', encoding="utf-8")
+                status = RuntimeInputStatusRepository(status_path, lambda **_kw: None,
+                                                     lambda *_a: None, threading.RLock())
+                if case == "removed":
+                    self.assertEqual(1, runtime_input_delivery_health(status)["known_queued_count"])
+                    queue_path.write_bytes(b"")
+                elif case in ("corrupt_queue", "torn_queue"):
+                    with queue_path.open("ab") as stream:
+                        stream.write(b"{broken}\n" if case == "corrupt_queue" else b'{"id":')
+                elif case == "partial_history":
+                    with status_path.open("ab") as stream:
+                        stream.write(b"{broken}\n")
+                before = {p: (p.read_bytes(), p.stat().st_mtime_ns) for p in
+                          (status_path, queue_path, cursor_path)}
+                before_calls = len(self.resets)
+                original_scan = status._scan_history
+                def changing_scan():
+                    result = original_scan()
+                    with status_path.open("ab") as stream:
+                        stream.write(json.dumps({"request_id": 1, "status": "replied",
+                                                 "updated_at_epoch": time.time()}).encode() + b"\n")
+                    return result
+                service = Service()
+                restart = service.uncertain if case == "uncertain_restart" else service.queue_tool
+                with patch.object(RuntimeInputStatusRepository, "_scan_history",
+                                  side_effect=changing_scan if case == "changed_history" else original_scan):
+                    result = router_recovery({"action": "auto"}, status_repository=status,
+                                             compaction=Compaction(), restart=restart, root=instance)
+                allowed = case in ("retained_stale", "cooldown")
+                self.assertEqual(allowed, result["reset"], result)
+                self.assertEqual(before_calls + int(allowed), len(self.resets))
+                if case in ("cooldown", "uncertain_restart"):
+                    again = router_recovery({"action": "auto"}, status_repository=status,
+                                            compaction=Compaction(), restart=service.queue_tool, root=instance)
+                    self.assertEqual("cooldown_active", again["reason"])
+                    self.assertFalse(again["reset"])
+                    self.assertEqual(before_calls + int(allowed), len(self.resets))
+                if case != "changed_history":
+                    for p, identity in before.items():
+                        self.assertEqual(identity, (p.read_bytes(), p.stat().st_mtime_ns), p.name)
+                print("owned-pipeline", case, "reset=", result["reset"], "reason=", result["reason"],
+                      "queued=", result["evidence"]["known_queued_count"],
+                      "coverage=", result["evidence"]["queued_coverage"])
 
     def test_oversized_record_fails_closed(self):
         self.state.write_text(" " * (64 * 1024 + 1), encoding="utf-8")

@@ -82,6 +82,20 @@ class ProviderOptionPanelTests(unittest.TestCase):
         self.assertIn("num_predict", values)
         self.assertIn("keep_alive", values)
 
+    def test_blocklist_override_is_visible_and_roundtrips_in_all_provider_panels(self):
+        services = self.services()
+        for strategy in ("managed", "ollama"):
+            for config, expected in (({}, "default"), ({"blocked_tools": False}, "false"),
+                                     ({"blocked_tools": ["SendMessage"]}, '["SendMessage"]')):
+                rows, values = build_option_panel_rows(
+                    "provider", config,
+                    OptionPanelPolicy(ProviderOptionPresentationPolicy(), strategy, False, "default"),
+                    services, language="en")
+                self.assertEqual(1, values.count("blocked_tools"))
+                self.assertIn(expected, rows[values.index("blocked_tools")])
+                self.assertEqual(expected, option_prompt_default("provider", config, "blocked_tools",
+                                 OptionValuePolicy(strategy, False), services))
+
     def test_option_values_share_panel_ports(self):
         services = self.services()
         policy = OptionValuePolicy(context_strategy="ollama", native_default=False)

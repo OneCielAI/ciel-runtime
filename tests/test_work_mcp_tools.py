@@ -189,6 +189,47 @@ class WorkMcpToolsTests(unittest.TestCase):
         self.assertEqual((snap["active_root"]["title"], snap["phase"]), ("2. next request", "planning"))
         self.assertEqual([q["title"] for q in snap["queue"]], ["3. later request"])
 
+    def test_hybrid_root_detail_scoped_refinement_and_priority_cas(self):
+        doc = self.plan()
+        root, phase = doc["active_root"], doc["nodes"][1]["id"]
+        self.config["work_plan_approval_ask"] = True
+        self.call("work_execute", user_confirmed=True)
+        self.assertFalse(self.call("work_node_add", parent_id=phase, title="scoped", within_scope=True,
+                                   children=[{"title": "verify scoped"}])["error"])
+        self.assertEqual(self.store.read()["phase"], "executing")
+        self.call("work_plan_set", goal="private queued title", note="PRIVATE-QUEUED-NOTE",
+                  children=[{"title": "private phase", "children": [{"title": "PRIVATE-QUEUED-STEP"}]}])
+        queued = next(n["id"] for n in self.store.read()["nodes"] if n["title"] == "private queued title")
+        before = self.store.read()
+        only = self.call("work_status", root_id=root, format="json", detail=True)
+        self.assertNotIn("PRIVATE-QUEUED", only["text"])
+        self.assertEqual({n["id"] for n in json.loads(only["text"])["nodes"]},
+                         {n["id"] for n in before["nodes"] if n["title"] != "private queued title"
+                          and not n["title"].startswith("private phase") and n["title"] != "PRIVATE-QUEUED-STEP"})
+        self.assertEqual(self.store.read(), before)
+        self.assertTrue(self.call("work_status", root_id="missing", format="json")["error"])
+        self.assertTrue(self.call("work_select", root_id=queued)["error"])
+        self.assertTrue(self.call("work_select", root_id=queued, user_requested=True,
+                                  expected_version=before["version"] - 1)["error"])
+        self.assertEqual(self.store.read(), before)
+        self.assertFalse(self.call("work_select", root_id=queued, user_requested=True,
+                                   expected_version=before["version"])["error"])
+        self.assertEqual(self.store.read()["phase"], "planning")
+        pending = self.call("work_execute")
+        self.assertIn("confirmation", pending["text"])
+        self.call("work_select", root_id=root, user_requested=True)
+        self.assertEqual(self.store.read()["phase"], "executing")
+        self.call("work_node_add", parent_id=phase, title="new scope")
+        self.assertEqual(self.store.read()["phase"], "planning")
+        self.assertIn("confirmation", self.call("work_execute")["text"])
+
+    def test_expected_version_rejects_coercion(self):
+        self.plan()
+        before = self.store.read()
+        for value in (True, False, 1.0, "1", -1):
+            self.assertTrue(self.call("work_node_add", title="invalid version", expected_version=value)["error"])
+            self.assertEqual(self.store.read(), before)
+
     def test_cas_errors_do_not_mutate(self):
         doc = self.plan()
         before = self.store.read()

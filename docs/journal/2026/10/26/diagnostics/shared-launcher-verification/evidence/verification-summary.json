@@ -1,0 +1,162 @@
+[
+  {
+    "run": "run-changed-failure-233707",
+    "status": "pass",
+    "live_unchanged": true,
+    "owned_health": {
+      "pid": null,
+      "version": null,
+      "source_fingerprint": null
+    },
+    "foreground": {
+      "samples": 816,
+      "owned_hits": 0,
+      "owned_intervals": []
+    },
+    "evidence": "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\diagnostics\\shared-launcher-verification\\evidence\\run-changed-failure-233707\\result.json"
+  },
+  {
+    "run": "run-changed-plain-233623",
+    "status": "pass",
+    "live_unchanged": true,
+    "owned_health": {
+      "pid": 12844,
+      "version": "0.2.51",
+      "source_fingerprint": "59743d83f45331de"
+    },
+    "foreground": {
+      "samples": 401,
+      "owned_hits": 0,
+      "owned_intervals": []
+    },
+    "evidence": "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\diagnostics\\shared-launcher-verification\\evidence\\run-changed-plain-233623\\result.json"
+  },
+  {
+    "run": "run-changed-remote-233529",
+    "status": "pass",
+    "live_unchanged": true,
+    "owned_health": {
+      "pid": 62076,
+      "version": "0.2.51",
+      "source_fingerprint": "59743d83f45331de"
+    },
+    "foreground": {
+      "samples": 440,
+      "owned_hits": 0,
+      "owned_intervals": []
+    },
+    "evidence": "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\diagnostics\\shared-launcher-verification\\evidence\\run-changed-remote-233529\\result.json"
+  },
+  {
+    "run": "run-installed-plain-233835",
+    "status": "pass",
+    "live_unchanged": true,
+    "owned_health": {
+      "pid": 7136,
+      "version": "0.2.51-nightly.20261027-031627.0555b6c",
+      "source_fingerprint": "11b9fec1d2441894"
+    },
+    "foreground": {
+      "samples": 425,
+      "owned_hits": 0,
+      "owned_intervals": []
+    },
+    "evidence": "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\diagnostics\\shared-launcher-verification\\evidence\\run-installed-plain-233835\\result.json"
+  },
+  {
+    "run": "run-installed-remote-233555",
+    "status": "pass",
+    "live_unchanged": true,
+    "owned_health": {
+      "pid": 74528,
+      "version": "0.2.51-nightly.20261027-031627.0555b6c",
+      "source_fingerprint": "11b9fec1d2441894"
+    },
+    "foreground": {
+      "samples": 456,
+      "owned_hits": 0,
+      "owned_intervals": []
+    },
+    "evidence": "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\diagnostics\\shared-launcher-verification\\evidence\\run-installed-remote-233555\\result.json"
+  },
+  {
+    "run": "run-native-tty-negative-233829",
+    "status": "pass",
+    "live_unchanged": true,
+    "owned_health": {
+      "pid": null,
+      "version": null,
+      "source_fingerprint": null
+    },
+    "foreground": {
+      "samples": 40,
+      "owned_hits": 0,
+      "owned_intervals": []
+    },
+    "evidence": "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\diagnostics\\shared-launcher-verification\\evidence\\run-native-tty-negative-233829\\result.json"
+  },
+  {
+    "run": "run-source-remote-233151",
+    "status": "failed",
+    "live_unchanged": true,
+    "owned_health": {
+      "pid": null,
+      "version": null,
+      "source_fingerprint": null
+    },
+    "foreground": {
+      "samples": 41,
+      "owned_hits": 0,
+      "owned_intervals": []
+    },
+    "evidence": "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\diagnostics\\shared-launcher-verification\\evidence\\run-source-remote-233151\\result.json"
+  },
+  {
+    "run": "run-source-remote-233225",
+    "status": "failed",
+    "live_unchanged": true,
+    "owned_health": {
+      "pid": null,
+      "version": null,
+      "source_fingerprint": null
+    },
+    "foreground": {
+      "samples": 40,
+      "owned_hits": 0,
+      "owned_intervals": []
+    },
+    "evidence": "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\diagnostics\\shared-launcher-verification\\evidence\\run-source-remote-233225\\result.json"
+  },
+  {
+    "run": "run-source-remote-233244",
+    "status": "failed",
+    "live_unchanged": true,
+    "owned_health": {
+      "pid": 62952,
+      "version": "0.2.51",
+      "source_fingerprint": "59743d83f45331de"
+    },
+    "foreground": {
+      "samples": 1560,
+      "owned_hits": 0,
+      "owned_intervals": []
+    },
+    "evidence": "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\diagnostics\\shared-launcher-verification\\evidence\\run-source-remote-233244\\result.json"
+  },
+  {
+    "run": "run-source-remote-233416",
+    "status": "pass",
+    "live_unchanged": true,
+    "owned_health": {
+      "pid": 68836,
+      "version": "0.2.51",
+      "source_fingerprint": "59743d83f45331de"
+    },
+    "foreground": {
+      "samples": 440,
+      "owned_hits": 0,
+      "owned_intervals": []
+    },
+    "evidence": "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\diagnostics\\shared-launcher-verification\\evidence\\run-source-remote-233416\\result.json"
+  }
+]

@@ -172,6 +172,39 @@ class RouterProcessStartupTests(unittest.TestCase):
             self.assertEqual("1", popen.call_args.kwargs["env"]["CIEL_RUNTIME_MANAGED_ROUTER"])
             self.assertTrue(popen.call_args.kwargs["start_new_session"])
 
+    def test_failed_start_retains_child_exit_and_safe_launch_provenance(self):
+        for returncode, expected in ((17, "child_exited"), (None, "health_timeout")):
+            with self.subTest(returncode=returncode), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                child = mock.Mock(pid=1234)
+                child.poll.return_value = returncode
+                popen = mock.Mock(return_value=child)
+                state = self._state(health=None)
+                times = iter((0.0, 31.0, 31.0))
+                spawn = self._spawn(popen, now=lambda: next(times))
+                spawn = RouterSpawnPorts(
+                    popen=spawn.popen, router_up=spawn.router_up, now=spawn.now,
+                    sleep=spawn.sleep, process_id=spawn.process_id,
+                    environment=lambda: {"API_KEY": "must-not-be-logged"},
+                )
+                with self.assertRaises(RuntimeError) as caught:
+                    start_router_if_needed(
+                        replace_active_clients=True, config=self._config(root),
+                        identity=self._identity(), state=state, spawn=spawn,
+                        executable="python", entrypoint=Path("runtime.py"),
+                        log_path=root / "router.log", platform_name="posix",
+                    )
+                message = str(caught.exception)
+                for value in ("pid=1234", f"exit_code={returncode}", f"state={expected}",
+                              "version=1", "source=source", "executable=python",
+                              "entrypoint=runtime.py", str(root / "router.log")):
+                    self.assertIn(value, message)
+                logged = str(state.log.call_args_list)
+                self.assertIn("router_spawn_start", logged)
+                self.assertIn("router_spawn_failed", logged)
+                self.assertNotIn("must-not-be-logged", message + logged)
+                child.poll.assert_called_once_with()
+
     @staticmethod
     def _config(root):
         return RouterProcessConfig(

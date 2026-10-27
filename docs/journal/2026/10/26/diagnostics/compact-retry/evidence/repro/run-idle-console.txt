@@ -1,0 +1,1 @@
+[{"step": "seed-1", "rc": 0, "elapsed_s": 0.5}, {"step": "seed-2", "rc": 0, "elapsed_s": 0.6}, {"step": "compact-1", "rc": 0, "elapsed_s": 600.5}, {"step": "compact-2", "rc": 0, "elapsed_s": 0.7}]

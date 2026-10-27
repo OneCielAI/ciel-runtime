@@ -80,7 +80,7 @@ class WorkPlanTreeTests(unittest.TestCase):
 
     def test_completion_aggregation_and_reopen(self):
         root, phase, one, two = self.plan()
-        self.doc["phase"] = "executing"
+        t.set_phase(self.doc, "executing")
         t.update_node(self.doc, one, status="done", evidence="verified")
         self.assertEqual(t.progress(self.doc), (1, 2))
         index = {n["id"]: n for n in self.doc["nodes"]}
@@ -114,12 +114,12 @@ class WorkPlanTreeTests(unittest.TestCase):
         other = t.add_node(self.doc, None, "unplanned other goal")
         # The new goal queues; the planned active goal stays ready.
         self.assertTrue(t.readiness(self.doc)[0])
-        t.select_root(self.doc, other)
+        t.select_root(self.doc, other, user_requested=True)
         self.assertFalse(t.readiness(self.doc)[0])
 
     def test_new_goals_queue_behind_the_unfinished_active_goal(self):
         root, phase, one, two = self.plan()
-        self.doc["phase"] = "executing"
+        t.set_phase(self.doc, "executing")
         second = t.set_plan(self.doc, {"title": "2. second", "children": [{"title": "p", "children": [{"title": "s"}]}]})
         third = t.add_node(self.doc, None, "3. third")
         self.assertEqual((self.doc["active_root"], self.doc["phase"]), (root, "executing"))
@@ -138,6 +138,50 @@ class WorkPlanTreeTests(unittest.TestCase):
         self.assertEqual((self.doc["active_root"], self.doc["phase"]), (second, "planning"))
         self.assertEqual([n["id"] for n in t.queued_roots(self.doc)], [third])
         self.assertIn(f"Finished goals: {root} goal", t.render(self.doc))
+
+    def test_hybrid_scope_refinement_queue_and_approval_phases(self):
+        root, phase, one, two = self.plan()
+        t.set_phase(self.doc, "executing")
+        refined = t.add_subtree(self.doc, one, {"title": "refinement", "children": [{"title": "verify"}]},
+                                within_scope=True)
+        self.assertEqual(self.doc["phase"], "executing")
+        queued = t.set_plan(self.doc, {"title": "queued", "children": [nested(2)]})
+        t.add_subtree(self.doc, queued, {"title": "more queue planning", "children": [nested(2)]})
+        self.assertEqual((self.doc["active_root"], self.doc["phase"]), (root, "executing"))
+        before = copy.deepcopy(self.doc)
+        with self.assertRaisesRegex(t.WorkPlanError, "explicit user request"):
+            t.select_root(self.doc, queued)
+        self.assertEqual(self.doc, before)
+        t.select_root(self.doc, queued, user_requested=True)
+        self.assertEqual(self.doc["phase"], "planning")
+        t.select_root(self.doc, root, user_requested=True)
+        self.assertEqual(self.doc["phase"], "executing")
+        t.add_node(self.doc, phase, "new scope")
+        self.assertEqual(self.doc["phase"], "planning")
+        t.set_phase(self.doc, "executing")
+        t.select_root(self.doc, queued, user_requested=True)
+        # Editing a paused goal without an explicit scope assertion revokes only that goal.
+        t.add_node(self.doc, refined, "new paused scope")
+        self.assertEqual(self.doc["phase"], "planning")
+        t.select_root(self.doc, root, user_requested=True)
+        self.assertEqual(self.doc["phase"], "planning")
+        self.assertEqual(t.normalize_document(self.doc), self.doc)
+        t.set_phase(self.doc, "executing")
+        t.update_node(self.doc, one, note="changed scope")
+        self.assertEqual(self.doc["phase"], "planning")
+
+    def test_legacy_document_migrates_only_active_approval(self):
+        root, *_ = self.plan()
+        queued = t.add_node(self.doc, None, "queue")
+        for n in self.doc["nodes"]:
+            n.pop("phase", None)
+        self.doc["phase"] = "executing"
+        normalized = t.normalize_document(self.doc)
+        self.assertEqual(t.root_phase(normalized, root), "executing")
+        self.assertEqual(t.root_phase(normalized, queued), "planning")
+        t.select_root(normalized, queued, user_requested=True)
+        t.select_root(normalized, root, user_requested=True)
+        self.assertEqual(normalized["phase"], "executing")
 
     def test_first_goal_and_goal_after_finished_one_become_active(self):
         root, _, one, two = self.plan()
@@ -216,7 +260,7 @@ class WorkPlanTreeTests(unittest.TestCase):
 
     def test_update_semantic_noop_preserves_entire_document(self):
         root, _, one, _ = self.plan()
-        self.doc["phase"] = "executing"
+        t.set_phase(self.doc, "executing")
         t.update_node(self.doc, one, status="done", evidence="verified", now=20)
         for node_id in (root, one):
             item = next(n for n in self.doc["nodes"] if n["id"] == node_id)
@@ -248,7 +292,7 @@ class WorkPlanTreeTests(unittest.TestCase):
                     t.add_node(doc, siblings[1], "descendant", now=2)
                 other = t.add_node(doc, None, "other", now=1)
                 t.add_node(doc, other, "unrelated", now=1)
-                doc["phase"] = "executing"
+                t.set_phase(doc, "executing")
                 before = copy.deepcopy(doc)
                 index = {n["id"]: copy.deepcopy(n) for n in doc["nodes"]}
                 t.reorder_node(doc, siblings[2], 1)
@@ -280,8 +324,8 @@ class WorkPlanTreeTests(unittest.TestCase):
         root, *_ = self.plan()
         second = t.add_node(self.doc, None, "second", now=10)
         third = t.add_node(self.doc, None, "third", now=10)
-        t.select_root(self.doc, third)
-        self.doc["phase"] = "executing"
+        t.select_root(self.doc, third, user_requested=True)
+        t.set_phase(self.doc, "executing")
         before = copy.deepcopy(self.doc)
         # The active root is logically first even when its storage slot is last.
         t.reorder_node(self.doc, third, 1)
@@ -299,7 +343,7 @@ class WorkPlanTreeTests(unittest.TestCase):
         finished = t.add_node(self.doc, None, "finished", now=1)
         t.update_node(self.doc, finished, status="done", evidence="verified", now=2)
         unfinished = t.add_node(self.doc, None, "unfinished", now=3)
-        t.select_root(self.doc, finished)
+        t.select_root(self.doc, finished, user_requested=True)
         t.reorder_node(self.doc, unfinished, 1, user_requested=True)
         self.assertEqual(self.doc["active_root"], unfinished)
 
@@ -393,7 +437,7 @@ class WorkContinuationTreeTests(unittest.TestCase):
         later = self.plan("later")
         qleaves = [n for n in self.doc["nodes"] if n["title"] in ("queued one", "queued two")]
         t.update_node(self.doc, qleaves[1]["id"], status="in_progress")
-        self.doc["phase"] = "executing"
+        t.set_phase(self.doc, "executing")
         before = copy.deepcopy(self.doc)
         state = t.continuation(self.doc)
         self.assertEqual((state["actionable"], state["next"]["id"]), (2, qleaves[1]["id"]))
@@ -420,8 +464,8 @@ class WorkContinuationTreeTests(unittest.TestCase):
         older = self.plan("older")
         former = self.plan("former")
         later = self.plan("later")
-        t.select_root(self.doc, former)  # local pure fixture, not the shared Work plan
-        self.doc["phase"] = "executing"
+        t.select_root(self.doc, former, user_requested=True)  # local pure fixture, not the shared Work plan
+        t.set_phase(self.doc, "executing")
         first = t.add_urgent(self.doc, {"title": "urgent one", "ref": "u1", "children": [
             {"title": "phase", "children": [{"title": "urgent step"}]}]}, user_requested=True)
         second = t.add_urgent(self.doc, {"title": "urgent two", "children": [
@@ -441,7 +485,7 @@ class WorkContinuationTreeTests(unittest.TestCase):
         self.assertEqual(t.continuation(self.doc)["held"], 3)
         leaf = next(n["id"] for n in self.doc["nodes"] if n["title"] == "urgent step")
         t.update_node(self.doc, leaf, status="done", evidence="urgent verified")
-        self.assertEqual((self.doc["active_root"], self.doc["phase"]), (former, "planning"))
+        self.assertEqual((self.doc["active_root"], self.doc["phase"]), (former, "executing"))
         self.assertEqual([n["id"] for n in t.queued_roots(self.doc)], [older, later])
         self.assertEqual(t.continuation(self.doc)["held"], 0)
         self.assertTrue(all(not row["held"] for row in t.snapshot(self.doc)["queue"]))
@@ -461,7 +505,7 @@ class WorkContinuationTreeTests(unittest.TestCase):
         second = self.plan("second")
         third = self.plan("third")
         children = {n["id"]: copy.deepcopy(n) for n in self.doc["nodes"] if n["parent_id"] is not None}
-        self.doc["phase"] = "executing"
+        t.set_phase(self.doc, "executing")
         t.reorder_root(self.doc, third, 2)
         self.assertEqual((self.doc["active_root"], self.doc["phase"]), (first, "executing"))
         self.assertEqual([n["id"] for n in t.queued_roots(self.doc)], [third, second])

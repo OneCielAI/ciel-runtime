@@ -333,6 +333,7 @@ class CodexResendTests(unittest.TestCase):
         self.client = _Client()
         self.clock[0] += 200.0
         restarted = self._injector()
+        restarted._initial_thread_id = "thread-a"
         restarted.open()
         self.assertEqual(("failed", "retry_send_uncertain"), (self.repo.get(2)["status"], self.repo.get(2)["reason"]))
         restarted.poll_once()

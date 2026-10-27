@@ -1,0 +1,4 @@
+23:36:40 PrintWindow screenshot 993x519 ok=1 rows=519 extrema=((0, 255), (0, 255), (0, 255))
+23:36:40 typed 24 chars: 'E2E-TURN-1 reply briefly'
+23:36:43 PrintWindow screenshot 993x519 ok=1 rows=519 extrema=((0, 255), (0, 255), (0, 255))
+23:36:43 stop requested

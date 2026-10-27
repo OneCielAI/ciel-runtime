@@ -1,7 +1,10 @@
 import unittest
 from types import SimpleNamespace
 
-from ciel_runtime_support.provider_tool_policy import ProviderToolPolicy
+from ciel_runtime_support.provider_tool_policy import (
+    ProviderToolPolicy, configure_blocked_tools, blocked_tools_option_value,
+)
+from ciel_runtime_support.runtime_constants import DEFAULT_BLOCKED_TOOLS_NON_ANTHROPIC
 
 
 class ProviderToolPolicyTests(unittest.TestCase):
@@ -45,6 +48,77 @@ class ProviderToolPolicyTests(unittest.TestCase):
             set(),
             policy.blocked_tools("provider", {"blocked_tools": False}),
         )
+
+    def test_only_verified_client_sendmessage_leaves_default_blocklist(self):
+        blocked = set(DEFAULT_BLOCKED_TOOLS_NON_ANTHROPIC)
+        self.assertNotIn("SendMessage", blocked)
+        self.assertTrue({"SendMessageTool", "TeamCreate", "TeamDelete", "TeammateTool",
+                         "WebSearch", "WebFetch", "ScheduleWakeup", "PushNotification"} <= blocked)
+
+    def test_blocklist_editor_validates_replacement_and_reset(self):
+        config = {}
+        for raw, expected in [('false', False), ('[]', []),
+                              ('[" SendMessage ", "WebSearch", "SendMessage"]', ["SendMessage", "WebSearch"])]:
+            configure_blocked_tools(config, raw)
+            self.assertEqual(expected, config["blocked_tools"])
+            self.assertNotEqual("default", blocked_tools_option_value(config))
+        for raw in ('true', 'SendMessage', '[1]', '[""]', '{"SendMessage": true}'):
+            before = dict(config)
+            with self.assertRaises(ValueError):
+                configure_blocked_tools(config, raw)
+            self.assertEqual(before, config)
+        configure_blocked_tools(config, "default")
+        self.assertNotIn("blocked_tools", config)
+        self.assertEqual("default", blocked_tools_option_value(config))
+        self.assertEqual({"SendMessage"}, self.policy().blocked_tools("provider", {"blocked_tools": ["SendMessage"]}))
+
+    def test_runtime_filter_and_forced_choice_preserve_sendmessage_unless_explicitly_blocked(self):
+        import ciel_runtime
+        body = {"tools": [{"name": "SendMessage", "input_schema": {"type": "object"}},
+                          {"name": "SendMessageTool", "input_schema": {"type": "object"}},
+                          {"name": "TeamCreate", "input_schema": {"type": "object"}}],
+                "tool_choice": {"type": "tool", "name": "SendMessage"}}
+        for provider in ("cielairouter", "vllm", "ollama-cloud", "opencode"):
+            filtered = ciel_runtime.filter_blocked_tools(provider, {}, body)
+            self.assertEqual(["SendMessage"], [t["name"] for t in filtered["tools"]])
+            self.assertEqual(body["tool_choice"], filtered["tool_choice"])
+            explicit = ciel_runtime.filter_blocked_tools(provider, {"blocked_tools": ["SendMessage"]}, body)
+            self.assertNotIn("SendMessage", [t["name"] for t in explicit["tools"]])
+            self.assertNotIn("tool_choice", explicit)
+
+    def test_menu_setter_persists_scoped_override_and_rejects_invalid_input(self):
+        import copy
+        from unittest import mock
+        import ciel_runtime
+        config = copy.deepcopy(ciel_runtime.DEFAULT_CONFIG)
+        with (mock.patch.object(ciel_runtime, "load_config", return_value=config),
+              mock.patch.object(ciel_runtime, "save_config") as save):
+            for provider in ("cielairouter", "anthropic", "ollama-cloud", "vllm"):
+                with self.subTest(provider=provider):
+                    before = copy.deepcopy(config["providers"])
+                    lines = ciel_runtime.set_llm_option_config(provider, "blocked_tools", '["SendMessage"]')
+                    self.assertIn("subsequent routed requests", " ".join(lines))
+                    self.assertEqual(["SendMessage"], config["providers"][provider]["blocked_tools"])
+                    self.assertIn("SendMessage", ciel_runtime.resolve_blocked_tools(provider, config["providers"][provider]))
+                    for other, old in before.items():
+                        if other != provider:
+                            self.assertEqual(old, config["providers"][other])
+                    count = save.call_count
+                    ciel_runtime.set_llm_option_config(provider, "blocked_tools", 'true')
+                    self.assertEqual(count, save.call_count)
+                    ciel_runtime.set_llm_option_config(provider, "blocked_tools", 'default')
+                    self.assertNotIn("blocked_tools", config["providers"][provider])
+
+    def test_provider_options_cli_mutation_uses_same_validated_override(self):
+        import ciel_runtime
+        for provider in ("cielairouter", "anthropic", "ollama-cloud", "vllm"):
+            config = {}
+            ciel_runtime.apply_provider_option(provider, config, 'blocked_tools=["SendMessage"]')
+            self.assertEqual(["SendMessage"], config["blocked_tools"])
+            ciel_runtime.apply_provider_option(provider, config, 'unset:blocked_tools')
+            self.assertEqual({}, config)
+            with self.assertRaises(SystemExit):
+                ciel_runtime.apply_provider_option(provider, config, 'blocked_tools=true')
 
     def test_capabilities_drive_normalization_and_repair(self):
         policy = self.policy(repair=True, normalize=True)
