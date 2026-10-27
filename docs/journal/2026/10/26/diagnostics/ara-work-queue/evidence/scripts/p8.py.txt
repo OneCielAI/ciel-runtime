@@ -1,0 +1,33 @@
+# Read-only: first/last appearance of two background task ids (record kinds and tool names only).
+import os, json, time, glob, calendar
+def L(ts):
+    try: return time.strftime("%m-%dT%H:%M:%S", time.localtime(calendar.timegm(time.strptime(ts[:19], "%Y-%m-%dT%H:%M:%S"))))
+    except Exception: return "?"
+f = sorted(glob.glob("C:/Users/aapw-a21u21/.claude/projects/*/*.jsonl"), key=os.path.getmtime)[-1]
+IDS = [b"bkiyht6mh", b"ad2968a1a6df0fde1"]
+names = {}
+with open(f, "rb") as h:
+    for raw in h:
+        hit = [i.decode() for i in IDS if i in raw]
+        if b'"tool_use"' in raw:
+            try:
+                o = json.loads(raw)
+                for b in (o.get("message") or {}).get("content") or []:
+                    if isinstance(b, dict) and b.get("type") == "tool_use":
+                        names[b.get("id")] = (b.get("name"), bool((b.get("input") or {}).get("run_in_background")) if isinstance(b.get("input"), dict) else None)
+            except Exception: pass
+        if not hit: continue
+        try: o = json.loads(raw)
+        except Exception: print("UNPARSED", hit); continue
+        msg = o.get("message") or {}
+        c = msg.get("content")
+        kinds = []
+        if isinstance(c, list):
+            for b in c:
+                if not isinstance(b, dict): continue
+                if b.get("type") == "tool_use": kinds.append("tool_use:" + str(b.get("name")) + ":bg=" + str((b.get("input") or {}).get("run_in_background")))
+                elif b.get("type") == "tool_result": kinds.append("tool_result_for:" + str(names.get(b.get("tool_use_id"))))
+                else: kinds.append(str(b.get("type")))
+        elif isinstance(c, str): kinds.append("str")
+        att = o.get("attachment") or {}
+        print(L(o.get("timestamp", "")), "ids", hit, "type", o.get("type"), o.get("subtype") or "", "att", att.get("type") if att else "", "side", bool(o.get("isSidechain")), kinds[:6])

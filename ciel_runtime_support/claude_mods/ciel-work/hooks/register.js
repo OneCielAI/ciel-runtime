@@ -22,7 +22,7 @@ const HELP = [
   '• /work-mode view: keyboard inspector · /work-mode tree: plan tree · /work-mode status: raw snapshot (JSON) · /work-mode help: this help',
   '• Priorities: All items → Move up / Move down orders root goals. Moving the active goal requires your request; a button press is that request.',
   '• Linked IDs appear as [ id ] description; ◷ names an external wait; green ✓ means verified done. An urgent request holds other goals until it finishes.',
-  '• Auto continue: normal turn endings resume actionable Work, bounded by no-progress checks; waits, approval and background tasks do not trigger it. Codex receives instructions only.',
+  '• Auto continue: normal turn endings resume actionable Work, bounded by no-progress checks; waits, blocks, approval and background tasks do not trigger it, and a dim line says why it stopped. Codex receives instructions only.',
   '• Settings: ciel-runtime menu → LLM options → Work mode (on/off), Work plan approval (auto/ask), Work auto continue (on/off).',
 ].join('\n')
 let cached = null
@@ -34,6 +34,7 @@ let starts = 0
 let noticed = 0
 let continuationVersion = null
 let unchangedContinuations = 0
+let stopNoticeKey = ''
 const RETRY_MS = [250, 500, 1000, 2000, 4000, 8000]
 const IDLE_REFRESH_MS = [1000, 2000, 4000, 8000, 16000, 30000]
 const nativePlanPaths = new Map()
@@ -259,6 +260,35 @@ function notice($, ticket) {
   noticed = ticket
   try { $.ui.log(NOTICE) } catch {}
 }
+const STOP_UNAVAILABLE = 'Ciel Work auto continue could not read the Work status, so unfinished items were not checked. '
+  + '/work-mode status'
+const STOP_APPROVAL = 'Ciel Work stopped: the plan is ready and waits for your approval before execution. '
+  + 'Ask the model to execute it (you approve in the Work dialog) or request changes. /work-mode tree'
+// Unfinished Work the person sees above the prompt: the active goal or a queued goal.
+function openWork(s) {
+  return Boolean((s.active_root && s.active_root.status !== 'done') || s.queue?.length)
+}
+// Why a normal stop did not continue, as one person-facing line the model never reads. The same line is
+// not repeated for the same conversation until the person writes; automated (meta) prompts do not reset it.
+function stopNotice($, identity, text) {
+  const key = identity + '|' + text
+  if (stopNoticeKey === key) return
+  stopNoticeKey = key
+  try { $.ui.log(text) } catch {}
+}
+function notRunnable(s, c) {
+  const parts = []
+  const waits = (c.waiting || []).map(n => clipped(n.id, 64) + ' ◷ ' + clipped(n.waiting_on, 120))
+  if (waits.length) parts.push('waiting: ' + waits.join('; '))
+  if (c.blocked > 0) parts.push(c.blocked + ' blocked step(s)')
+  if (c.held > 0) parts.push(c.held + ' goal(s) held behind the urgent goal')
+  const finished = [s.active_root && s.active_root.status !== 'done' && s.total > 0 && s.done === s.total ? s.active_root : null,
+    ...(s.queue || []).filter(q => q.total > 0 && q.done === q.total)].filter(Boolean).map(n => clipped(n.id, 64))
+  if (finished.length) parts.push('every step done but goal still open: ' + finished.join(', '))
+  return 'Ciel Work stopped: unfinished items remain but none can run now'
+    + (parts.length ? ' (' + parts.join(' · ') + ')' : '')
+    + '. Clear a wait, unblock or close an item, or send a message to continue. /work-mode tree lists every item.'
+}
 // On a mod's first load the engine can still be connecting the router when the session starts
 // ("no connected MCP tool"): read again shortly instead of staying unavailable until the next prompt.
 function retryStart($, ticket, attempt = 0) {
@@ -306,17 +336,34 @@ export function register(on) {
   on('classic.Stop', async ($, e, next) => {
     const result = await next(e)
     if (result?.block || result?.preventContinuation || e.agent_id) return result
-    if (e.background_tasks?.length) return result
     const identity = await sessionId($)
     if (e.session_id && identity !== 'claude:' + e.session_id) return result
     const s = await refresh($)
-    if (await sessionId($) !== identity || !s?.enabled || s.auto_continue !== true
-        || (s.phase === 'planning' && s.approval === 'ask' && s.ready)
-        || !(s.continuation?.actionable > 0)) return result
+    if (await sessionId($) !== identity) return result
+    // A read superseded by a newer one also returns null; only a failed latest read is reported.
+    if (!s) { if (enabled && !cached) stopNotice($, identity, STOP_UNAVAILABLE); return result }
+    if (!s.enabled || s.auto_continue !== true) return result
+    // Every stop that leaves unfinished Work either continues with a runnable item or says why not.
+    if (e.background_tasks?.length) {
+      if (openWork(s)) stopNotice($, identity, 'Ciel Work auto continue waits: ' + e.background_tasks.length
+        + ' background task(s) still running will wake this session, and the next stop checks unfinished items again.')
+      return result
+    }
+    if (s.phase === 'planning' && s.approval === 'ask' && s.ready) {
+      if (openWork(s)) stopNotice($, identity, STOP_APPROVAL)
+      return result
+    }
+    if (!(s.continuation?.actionable > 0)) {
+      if (openWork(s)) stopNotice($, identity, notRunnable(s, s.continuation || {}))
+      return result
+    }
     if (continuationVersion !== s.version) { continuationVersion = s.version; unchangedContinuations = 0 }
     else unchangedContinuations++
     if (unchangedContinuations > 1) {
       try { $.ui.toast('Work auto continue paused: no plan progress. Update the plan or send a message to resume.') } catch {}
+      stopNotice($, identity, 'Ciel Work auto continue paused: the plan did not change after the last continuation (next: '
+        + clipped(s.continuation.next?.id, 64) + ' ' + itemTitle(s.continuation.next || {}, 200)
+        + '). Update the plan or send a message to resume.')
       return result
     }
     const c = s.continuation
@@ -331,6 +378,7 @@ export function register(on) {
   })
   on('prompt.submit', async ($, e, next) => {
     continuationVersion = null; unchangedContinuations = 0
+    if (!e.isMeta) stopNoticeKey = ''
     const s = await refresh($)
     if (s?.enabled === false || (!s && !enabled)) return next(e)
     return next({ ...e, context: [...(e.context || []), INSTRUCTIONS
@@ -355,6 +403,9 @@ export function register(on) {
   on('tool.call', async ($, e, next) => {
     const work = e.tool.startsWith(PREFIX) ? e.tool.slice(PREFIX.length) : ''
     const name = WORK.has(work) ? work : null
+    // A refresh raised by this mod must not recursively refresh and supersede
+    // its own generation (including the Stop check). Model calls still refresh.
+    if (name === 'work_status' && next.origin.plugin === 'ciel-work') return next(e)
     const knownWrite = WRITES.has(e.tool)
     // Planning the work must not require the board's network permission.
     // Native host permissions still decide this exact plan-file operation.
@@ -411,6 +462,7 @@ export function register(on) {
   on('session.end', async ($, e, next) => {
     stopIdleRefresh(); interactive = false; working = false; clearNativePlanPaths(); starts++
     generation++; cached = null; cachedSession = null; hinted = ''; continuationVersion = null; unchangedContinuations = 0
+    stopNoticeKey = ''
     await update($, detailView, () => null)
     return next(e)
   })

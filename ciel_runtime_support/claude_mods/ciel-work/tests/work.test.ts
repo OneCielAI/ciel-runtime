@@ -263,6 +263,88 @@ test('Stop excludes background tasks, child threads, other conversations and off
   s.offline = true
   expect((await $.classic.Stop(STOP)).block).toBeUndefined()
 })
+// .14 ARA: queued goals remained while every runnable step waited or was blocked; the stop was silent.
+const STALLED = { continuation: { actionable: 0, next: null, waiting: [{ id: 'n76', title: 'Deploy', waiting_on: 'peer review' }],
+  blocked: 8, held: 0 }, queue: [{ id: 'n1', title: 'Queued', status: 'in_progress', done: 22, total: 24 },
+  { id: 'n42', title: 'Closed steps', status: 'blocked', done: 5, total: 5 }] }
+test('a stop with unfinished but unrunnable Work explains why, once per state, without continuing', async ($, on) => {
+  const s = continuing(on, STALLED)
+  const first = await $.classic.Stop(STOP)
+  expect(first.block).toBeUndefined()
+  expect(s.logs.length).toBe(1)
+  expect(s.logs[0]).toContain('none can run now')
+  expect(s.logs[0]).toContain('n76 ◷ peer review')
+  expect(s.logs[0]).toContain('8 blocked step(s)')
+  expect(s.logs[0]).toContain('every step done but goal still open: n42')
+  expect((await $.classic.Stop(STOP)).block).toBeUndefined()
+  expect(s.logs.length).toBe(1)
+  await $.prompt.submit({ text: 'injected', isMeta: true, wait: false })
+  expect((await $.classic.Stop(STOP)).block).toBeUndefined()
+  expect(s.logs.length).toBe(1)
+  await $.prompt.submit({ text: 'why did it stop?', wait: false })
+  expect((await $.classic.Stop(STOP)).block).toBeUndefined()
+  expect(s.logs.length).toBe(2)
+  s.snapshot.continuation = { ...STALLED.continuation, blocked: 9 }
+  expect((await $.classic.Stop(STOP)).block).toBeUndefined()
+  expect(s.logs[2]).toContain('9 blocked step(s)')
+  expect(s.toasts.length).toBe(0)
+  s.snapshot.continuation = { actionable: 0, next: null, waiting: [], blocked: 0, held: 2 }
+  await $.classic.Stop(STOP)
+  expect(s.logs[3]).toContain('2 goal(s) held behind the urgent goal')
+})
+test('a runnable item is still pushed after an explained stall, with the same no-progress bound', async ($, on) => {
+  const s = continuing(on, STALLED)
+  await $.classic.Stop(STOP)
+  s.snapshot.continuation = { actionable: 1, next: { id: 'n2', title: 'Runnable step' }, waiting: [], blocked: 8, held: 0 }
+  s.snapshot.version++
+  expect((await $.classic.Stop(STOP)).block).toContain('The next item is n2: Runnable step')
+  expect((await $.classic.Stop(STOP)).block).toContain('last continuation')
+  expect((await $.classic.Stop(STOP)).block).toBeUndefined()
+  expect(s.toasts.length).toBe(1)
+  expect(s.logs.at(-1)).toContain('paused: the plan did not change')
+  expect(s.logs.at(-1)).toContain('n2 Runnable step')
+  expect((await $.classic.Stop(STOP)).block).toBeUndefined()
+  expect(s.logs.filter(l => l.includes('paused')).length).toBe(1)
+})
+test('approval, background tasks and an unreadable status explain the stop; finished or off Work stays silent', async ($, on) => {
+  const s = continuing(on, { ...STALLED, phase: 'planning', approval: 'ask', ready: true,
+    continuation: { actionable: 1, next: { id: 'n2', title: 'Plan' }, waiting: [] } })
+  expect((await $.classic.Stop(STOP)).block).toBeUndefined()
+  expect(s.logs.at(-1)).toContain('waits for your approval')
+  s.snapshot.phase = 'executing'
+  expect((await $.classic.Stop({ ...STOP, background_tasks: [{ id: 'b', type: 'subagent', status: 'running', description: 'x' }] })).block).toBeUndefined()
+  expect(s.logs.at(-1)).toContain('1 background task(s) still running will wake this session')
+  s.offline = true
+  expect((await $.classic.Stop(STOP)).block).toBeUndefined()
+  expect(s.logs.at(-1)).toContain('could not read the Work status')
+  s.offline = false
+  const before = s.logs.length
+  s.snapshot.active_root = { id: 'g1', title: 'Goal', status: 'done' }; s.snapshot.queue = []
+  s.snapshot.continuation = { actionable: 0, next: null, waiting: [], blocked: 0, held: 0 }
+  expect((await $.classic.Stop(STOP)).block).toBeUndefined()
+  s.snapshot.active_root = { id: 'g1', title: 'Goal' }; s.snapshot.queue = STALLED.queue
+  for (const extra of [{ auto_continue: false }, { enabled: false }]) {
+    Object.assign(s.snapshot, extra)
+    expect((await $.classic.Stop(STOP)).block).toBeUndefined()
+  }
+  s.snapshot.enabled = true; s.snapshot.auto_continue = true
+  expect((await $.classic.Stop({ ...STOP, agent_id: 'child' })).block).toBeUndefined()
+  expect((await $.classic.Stop({ ...STOP, session_id: 'other' })).block).toBeUndefined()
+  expect(s.logs.length).toBe(before)
+})
+test('a Stop read superseded by a newer successful read is not reported as unavailable', async ($, on) => {
+  const s = continuing(on, STALLED); const clock = mock.clock(on)
+  let release
+  s.waitStatus = () => new Promise(resolve => { release = resolve })
+  const stop = $.classic.Stop(STOP)
+  await clock.settle()
+  expect(s.activeReads).toBe(1)
+  s.waitStatus = null
+  expect((await $.command.run({ command: 'work-mode', args: 'status' })).text).toContain('"version": 1')
+  release()
+  expect((await stop).block).toBeUndefined()
+  expect(s.logs.some(l => l.includes('could not read'))).toBe(false)
+})
 test('auto planning continues decomposition but never crosses an approval boundary', async ($, on) => {
   continuing(on, { phase: 'planning', approval: 'auto', ready: false })
   expect((await $.classic.Stop(STOP)).block).toContain('No new scope or approval boundary')

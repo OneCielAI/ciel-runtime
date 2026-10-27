@@ -435,6 +435,18 @@ class ChannelWakeContext:
         return self.transcript_repository().roots()
 
     def latest_transcript_path(self, ttl_seconds: float = 2.0) -> Path | None:
+        binding = self.pending_io.compaction
+        resolve = getattr(binding, "transcript_path", None)
+        if self.transcript.scope.get("runtime") == "claude" and callable(resolve):
+            path = resolve()
+            if path is not None:
+                # Socket ownership, admission and transcript confirmation follow
+                # the same published native identity, including parked peers.
+                native = binding.scope()
+                if native is not None and native.runtime == "claude":
+                    self.transcript.scope.update(session_id=native.session_id, bound_path=path)
+                    self.transcript.cache.update(checked_at=self.transcript.now(), path=path)
+                return path
         return self.transcript_repository().latest(ttl_seconds)
 
     def transcript_services(self) -> ChannelWakeTranscriptServices:

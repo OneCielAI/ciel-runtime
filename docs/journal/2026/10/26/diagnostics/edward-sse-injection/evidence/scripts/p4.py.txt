@@ -1,0 +1,66 @@
+import os, json, time, ctypes, msvcrt, re
+from ctypes import wintypes
+# Read-only: shape of the main transcript's continued-in record, local commands and
+# the records around the 00:39Z fork. Prints keys, ids, types and command names only.
+k32 = ctypes.WinDLL("kernel32", use_last_error=True); adv = ctypes.WinDLL("advapi32", use_last_error=True)
+class LUID(ctypes.Structure): _fields_ = [("Low", wintypes.DWORD), ("High", wintypes.LONG)]
+class TP(ctypes.Structure): _fields_ = [("Count", wintypes.DWORD), ("Luid", LUID), ("Attr", wintypes.DWORD)]
+k32.GetCurrentProcess.restype = wintypes.HANDLE
+adv.OpenProcessToken.argtypes = [wintypes.HANDLE, wintypes.DWORD, ctypes.POINTER(wintypes.HANDLE)]
+adv.LookupPrivilegeValueW.argtypes = [wintypes.LPCWSTR, wintypes.LPCWSTR, ctypes.POINTER(LUID)]
+adv.AdjustTokenPrivileges.argtypes = [wintypes.HANDLE, wintypes.BOOL, ctypes.POINTER(TP), wintypes.DWORD, wintypes.LPVOID, wintypes.LPVOID]
+tok = wintypes.HANDLE(); adv.OpenProcessToken(k32.GetCurrentProcess(), 0x28, ctypes.byref(tok))
+luid = LUID(); adv.LookupPrivilegeValueW(None, "SeBackupPrivilege", ctypes.byref(luid))
+tp = TP(1, luid, 2); adv.AdjustTokenPrivileges(tok, False, ctypes.byref(tp), 0, None, None)
+k32.CreateFileW.restype = wintypes.HANDLE
+k32.CreateFileW.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, wintypes.LPVOID, wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE]
+def bopen(p):
+    h = k32.CreateFileW(p, 0x80000000, 7, None, 3, 0x02000000, None)
+    if h in (None, -1, wintypes.HANDLE(-1).value):
+        raise OSError(ctypes.get_last_error(), "open failed", p)
+    return os.fdopen(msvcrt.open_osfhandle(h, os.O_RDONLY | os.O_BINARY), "rb")
+proj = r"C:\Users\aapw-a22u22\.claude\projects\C--ProgramData-aap-win-sandboxes-u22-home-edward-ai"
+def shape(v, depth=0):
+    if isinstance(v, dict):
+        return {k: (shape(x, depth + 1) if depth < 2 else type(x).__name__) for k, x in v.items()}
+    if isinstance(v, list):
+        return ["list", len(v)]
+    if isinstance(v, str):
+        return "str:%d" % len(v)
+    return v
+def scan(path, lo, hi, label):
+    with bopen(path) as fh:
+        fh.seek(0, 2); size = fh.tell(); fh.seek(max(0, size - 12_000_000))
+        if size > 12_000_000: fh.readline()
+        for line in fh:
+            m = re.search(rb'"timestamp":"([^"]+)"', line[-400:]) or re.search(rb'"timestamp":"([^"]+)"', line[:600])
+            t = m.group(1).decode() if m else ""
+            try: r = json.loads(line.replace(b"\x00", b""))
+            except Exception: continue
+            if not isinstance(r, dict): continue
+            typ = str(r.get("type"))
+            if typ == "continued-in" or "continued" in typ:
+                safe = {k: (v if k in ("type", "sessionId", "timestamp", "uuid", "parentUuid", "subtype", "continuedInSessionId", "targetSessionId", "sessionPath", "reason") or not isinstance(v, str) else "str:%d" % len(v)) for k, v in r.items()}
+                print(label, "CONTINUED", json.dumps(safe, ensure_ascii=False)[:1500])
+            if typ == "system" and r.get("subtype") == "local_command":
+                c = str(r.get("content") or "")
+                names = re.findall(r"<command-name>([^<]{0,40})</command-name>", c)
+                print(label, "LOCAL_CMD", t, "names", names, "len", len(c))
+            if lo <= t[:19] <= hi and typ not in ("assistant", "api-request", "attachment", "file-history-delta"):
+                kinds = []
+                msg = r.get("message") if isinstance(r.get("message"), dict) else {}
+                c = msg.get("content")
+                if isinstance(c, list): kinds = [b.get("type") for b in c if isinstance(b, dict)]
+                print(label, "AROUND", t, typ, r.get("subtype") or r.get("operation") or "", "kinds", kinds[:3], "sid", str(r.get("sessionId") or "")[:8],
+                      "keys", sorted(k for k in r.keys())[:30])
+scan(os.path.join(proj, "354281f4-a695-46c2-a0db-450d681953b8.jsonl"), "2026-10-27T00:38:40", "2026-10-27T00:41:30", "MAIN")
+scan(os.path.join(proj, "b1e17ad1-6afd-4210-86e4-5e327c749e3b.jsonl"), "2026-10-27T00:38:40", "2026-10-27T00:40:30", "FORK")
+try:
+    with bopen(os.path.join(proj, "d799590a-0fa3-410e-9c0b-14e031aae6f7.jsonl")) as fh:
+        for line in fh:
+            try: r = json.loads(line)
+            except Exception: continue
+            print("D799", r.get("type"), r.get("subtype") or r.get("operation") or "", r.get("timestamp"), "sid", str(r.get("sessionId") or "")[:8], "keys", sorted(r.keys())[:20])
+except Exception as e:
+    print("D799_ERR", type(e).__name__, e)
+print("REMOTE_END %.3f" % time.time())

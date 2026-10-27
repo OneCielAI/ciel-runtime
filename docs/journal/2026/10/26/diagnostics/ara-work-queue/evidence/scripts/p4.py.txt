@@ -1,0 +1,120 @@
+# Read-only: parses the newest ARA Claude transcript and prints structure only (no message text).
+import os, json, time, re, glob, sys, calendar
+NL = chr(10)
+def L(ts):
+    try: return time.strftime("%m-%dT%H:%M:%S", time.localtime(calendar.timegm(time.strptime(ts[:19], "%Y-%m-%dT%H:%M:%S"))))
+    except Exception: return "?"
+user = "C:/Users/aapw-a21u21"
+files = sorted(glob.glob(user + "/.claude/projects/*/*.jsonl"), key=os.path.getmtime)
+f = files[-1]
+size = os.path.getsize(f)
+print("TRANSCRIPT", os.path.basename(f), "size", size)
+LT = chr(60)
+PREFIXES = ["Stop hook feedback:", LT + "command-name>", LT + "local-command", LT + "channel", LT + "system-reminder>", "[Request interrupted", "Caveat:", "This session is being continued", LT + "task-notification", LT + "bash-"]
+STOPRE = re.compile("Stop hook feedback:.*?Ciel Work has ([0-9]+) actionable unfinished item[(]s[)].*?The next item is (n[0-9]+)", re.S)
+def classify(s):
+    for p in PREFIXES:
+        if s.startswith(p):
+            if p == "Stop hook feedback:":
+                m = STOPRE.match(s)
+                return "STOP_FEEDBACK ciel_work actionable=%s next=%s last=%s" % (m.group(1), m.group(2), "last continuation" in s) if m else "STOP_FEEDBACK other len=%d" % len(s)
+            return "prefix[%s] len=%d" % (p.replace(LT, "LT"), len(s))
+    return "user_prompt len=%d" % len(s)
+CHECK = chr(0x2713); WAIT = chr(0x25f7)
+MARK = {"[ ]": "pend", "[~]": "prog", "[" + CHECK + "]": "done", "[!]": "blck"}
+NODE = re.compile("( *)([[].[]]) (n[0-9]+) ")
+QRE = re.compile("(n[0-9]+) [^;]*?[(](pending|in_progress|blocked|done)[)]( [[]held[]])?(?:;|$)")
+def text_struct(t):
+    out = []
+    for line in t.split(NL):
+        m = re.match("Work phase: ([a-z_]+)", line)
+        if m: out.append("phase=" + m.group(1)); continue
+        m = re.match("Active goal progress: ([0-9]+)/([0-9]+)", line)
+        if m: out.append("progress=%s/%s" % m.groups()); continue
+        m = NODE.match(line)
+        if m:
+            out.append("%d%s%s%s%s" % (len(m.group(1)) // 2, MARK.get(m.group(2), "?"), m.group(3), "W" if WAIT in line else "", "U" if "[urgent]" in line else "")); continue
+        if line.startswith("Queued goals"):
+            out.append("queued=" + ",".join("%s:%s%s" % (a, b, "H" if h else "") for a, b, h in QRE.findall(line)))
+        if line.startswith("Other goals"):
+            out.append("other=" + ",".join("%s:%s" % (a, b) for a, b, h in QRE.findall(line)))
+        if line.startswith("Finished goals"):
+            out.append("finished=" + ",".join(re.findall("(?:^Finished goals: |; )(n[0-9]+) ", line)))
+        m = re.match("(Updated|Added|Removed|Selected|Reordered) (n[0-9]+)", line)
+        if m: out.append("op=%s:%s" % m.groups())
+    return " ".join(out)[:900]
+def json_struct(j):
+    c = j.get("continuation") or {}
+    q = j.get("queue") or []
+    a = j.get("active_root") or {}
+    return "JSON en=%s ph=%s appr=%s ac=%s v=%s active=%s:%s%s %s/%s ready=%s cont[act=%s next=%s:%s wait=%s blk=%s held=%s] queue=%s" % (
+        j.get("enabled"), j.get("phase"), j.get("approval"), j.get("auto_continue"), j.get("version"), a.get("id"), a.get("status"), "U" if a.get("urgent") else "",
+        j.get("done"), j.get("total"), j.get("ready"), c.get("actionable"), (c.get("next") or {}).get("id"), (c.get("next") or {}).get("status"),
+        len(c.get("waiting") or []), c.get("blocked"), c.get("held"),
+        ",".join("%s:%s%s%s/%s" % (x.get("id"), x.get("status"), "H" if x.get("held") else "", x.get("done"), x.get("total")) for x in q))
+counts = {"stop_feedback_ciel": 0, "continued_in": 0, "compact_boundary": 0}
+first_seen = {}
+TSRE = re.compile(b'"timestamp":"([^"]+)"')
+with open(f, "rb") as h:
+    for raw in h:
+        if b"Stop hook feedback:" in raw and b"Ciel Work has" in raw:
+            counts["stop_feedback_ciel"] += 1
+            m = TSRE.search(raw); first_seen.setdefault("stop_feedback_ciel", m.group(1).decode() if m else "?")
+        if b'"continued-in"' in raw: counts["continued_in"] += 1
+        if b'"compact_boundary"' in raw: counts["compact_boundary"] += 1
+print("COUNTS", counts, "first_stop_feedback", L(first_seen.get("stop_feedback_ciel", "")))
+TAIL = int(sys.argv[1]) if len(sys.argv) > 1 else 40 * 1024 * 1024
+with open(f, "rb") as h:
+    h.seek(max(0, size - TAIL)); data = h.read()
+lines = data.split(bytes([10]))[1:]
+names = {}
+rows = []
+for raw in lines:
+    try: o = json.loads(raw)
+    except Exception: continue
+    t = o.get("type"); st = o.get("subtype"); ts = o.get("timestamp", "")
+    msg = o.get("message") or {}
+    c = msg.get("content")
+    side = "S" if o.get("isSidechain") else ""
+    if t == "assistant":
+        tools = []
+        for b in (c or []):
+            if isinstance(b, dict) and b.get("type") == "tool_use":
+                names[b.get("id")] = b.get("name", "")
+                n = b.get("name", "")
+                tools.append(n.replace("mcp__ciel-runtime-router__", "R:") if "ciel-runtime-router" in n else "other")
+        kinds = ",".join(sorted(set(str(b.get("type")) for b in (c or []) if isinstance(b, dict))))
+        rows.append("%s A%s stop=%s kinds=%s tools=%s" % (L(ts), side, msg.get("stop_reason"), kinds, ",".join(tools)))
+    elif t == "user":
+        if isinstance(c, str):
+            rows.append("%s U%s %s meta=%s" % (L(ts), side, classify(c), bool(o.get("isMeta"))))
+        elif isinstance(c, list):
+            for b in c:
+                if not isinstance(b, dict): continue
+                if b.get("type") == "tool_result":
+                    n = names.get(b.get("tool_use_id"), "?")
+                    if "work_" in n:
+                        cc = b.get("content")
+                        txt = cc if isinstance(cc, str) else NL.join(x.get("text", "") for x in (cc or []) if isinstance(x, dict))
+                        try: s = json_struct(json.loads(txt))
+                        except Exception: s = text_struct(txt)
+                        rows.append("%s TR%s %s err=%s %s" % (L(ts), side, n.replace("mcp__ciel-runtime-router__", "R:"), bool(b.get("is_error")), s))
+                elif b.get("type") == "text":
+                    rows.append("%s U%s text %s" % (L(ts), side, classify(b.get("text", ""))))
+    elif t == "system":
+        extra = {k: o.get(k) for k in ("level", "hookCount", "preventedContinuation", "hasOutput", "durationMs") if k in o}
+        if "hookErrors" in o: extra["hookErrors"] = len(o.get("hookErrors") or [])
+        if "hookInfos" in o: extra["hookInfos"] = len(o.get("hookInfos") or [])
+        if st == "api_error": extra["status"] = (o.get("error") or {}).get("status") if isinstance(o.get("error"), dict) else str(o.get("error"))[:60]
+        if st == "compact_boundary": extra["trigger"] = (o.get("compactMetadata") or {}).get("trigger")
+        if st == "informational": extra["content_head"] = str(o.get("content", ""))[:40]
+        rows.append("%s SYS%s %s %s" % (L(ts), side, st, extra))
+    elif t == "attachment":
+        a = o.get("attachment") or {}
+        if str(a.get("type", "")).startswith("hook_"):
+            rows.append("%s ATT %s hook=%s event=%s" % (L(ts), a.get("type"), a.get("hookName"), a.get("hookEvent")))
+    elif t in ("continued-in", "summary"):
+        rows.append("%s %s" % (L(ts), t))
+N = int(sys.argv[2]) if len(sys.argv) > 2 else 260
+print("ROWS_TOTAL", len(rows))
+for r in rows[-N:]: print(r)

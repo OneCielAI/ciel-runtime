@@ -9,6 +9,7 @@ import tempfile
 import threading
 import time
 import unittest
+from unittest import mock
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -102,6 +103,9 @@ class DirectSocketDeliveryE2ETests(unittest.TestCase):
     def _run_pipeline(self, *, fail_after_submit, damaged_history=False):
         with tempfile.TemporaryDirectory(prefix="ciel-direct-e2e-") as raw:
             root = Path(raw)
+            environment = mock.patch.dict(os.environ, {"CLAUDE_CONFIG_DIR": str(root / ".claude")})
+            environment.start()
+            self.addCleanup(environment.stop)
             logs = []
             def log(*entry):
                 logs.append(entry)

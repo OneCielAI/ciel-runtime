@@ -1,0 +1,8 @@
+REMOTE_START 2026-10-26T19:26:53
+WORKPLAN_FILES 0
+WSROOT_ERR PermissionError [WinError 5] Access is denied: 'C:\\Users\\aapw-a21u21\\AppData\\Roaming\\ciel-runtime\\workspaces\\016457eb7a85'
+APPDATA_TOP ['codex-model-catalogs', 'codex-remote', 'config.json', 'launch-state.json', 'model-list-cache.json', 'model-registry.json', 'router-instances', 'workspace-router-ports.json', 'workspaces']
+REMOTE_END 2026-10-26T19:26:53
+
+
+exit 0

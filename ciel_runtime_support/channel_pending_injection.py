@@ -8,6 +8,7 @@ import time
 from typing import Any, Callable
 
 from ciel_runtime_support import runtime_input_retry
+from ciel_runtime_support.claude_session_socket import SessionHandoffPending
 from ciel_runtime_support.channel_message_repository import ChannelFileLockBusy
 from ciel_runtime_support.runtime_input_status import WakeAttemptConflict
 from ciel_runtime_support.channel_message_policy import (
@@ -534,6 +535,10 @@ def inject_pending_channel_messages(
                     )
                     return return_last_id if pending_uses_router else previous_last_id
                 wake_store.lifecycle.record_prompts(pending, prompt)
+            except SessionHandoffPending:
+                wake_store.lifecycle.defer_unsubmitted(pending, claimed_ids)
+                io.log("INFO", f"channel_stdin_proxy_deferred cursor={original_cursor} reason=native_handoff_pending")
+                return original_cursor
             except Exception:
                 wake_store.lifecycle.fail(pending, claimed_ids, "submission_exception")
                 raise

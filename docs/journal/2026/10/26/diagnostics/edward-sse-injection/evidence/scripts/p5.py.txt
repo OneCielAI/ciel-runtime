@@ -1,0 +1,61 @@
+import os, json, time, ctypes, msvcrt
+from ctypes import wintypes
+# Read-only: Claude Code per-process session registry (~/.claude/sessions/*.json) for Edward.
+# Prints keys and identity fields only; string values that are not ids/kinds are reduced to lengths.
+k32 = ctypes.WinDLL("kernel32", use_last_error=True); adv = ctypes.WinDLL("advapi32", use_last_error=True)
+class LUID(ctypes.Structure): _fields_ = [("Low", wintypes.DWORD), ("High", wintypes.LONG)]
+class TP(ctypes.Structure): _fields_ = [("Count", wintypes.DWORD), ("Luid", LUID), ("Attr", wintypes.DWORD)]
+k32.GetCurrentProcess.restype = wintypes.HANDLE
+adv.OpenProcessToken.argtypes = [wintypes.HANDLE, wintypes.DWORD, ctypes.POINTER(wintypes.HANDLE)]
+adv.LookupPrivilegeValueW.argtypes = [wintypes.LPCWSTR, wintypes.LPCWSTR, ctypes.POINTER(LUID)]
+adv.AdjustTokenPrivileges.argtypes = [wintypes.HANDLE, wintypes.BOOL, ctypes.POINTER(TP), wintypes.DWORD, wintypes.LPVOID, wintypes.LPVOID]
+tok = wintypes.HANDLE(); adv.OpenProcessToken(k32.GetCurrentProcess(), 0x28, ctypes.byref(tok))
+luid = LUID(); adv.LookupPrivilegeValueW(None, "SeBackupPrivilege", ctypes.byref(luid))
+tp = TP(1, luid, 2); adv.AdjustTokenPrivileges(tok, False, ctypes.byref(tp), 0, None, None)
+k32.CreateFileW.restype = wintypes.HANDLE
+k32.CreateFileW.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, wintypes.LPVOID, wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE]
+def bopen(p):
+    h = k32.CreateFileW(p, 0x80000000, 7, None, 3, 0x02000000, None)
+    if h in (None, -1, wintypes.HANDLE(-1).value):
+        raise OSError(ctypes.get_last_error(), "open failed", p)
+    return os.fdopen(msvcrt.open_osfhandle(h, os.O_RDONLY | os.O_BINARY), "rb")
+def fmt(t): return time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(t))
+KEEP = ("pid", "sessionId", "kind", "parkedJobId", "jobId", "status", "startedAt", "updatedAt", "procStart", "version", "name", "entrypoint")
+sess = r"C:\Users\aapw-a22u22\.claude\sessions"
+try:
+    with os.scandir(sess) as it:
+        rows = sorted(((e.stat().st_mtime, e.name, e.stat().st_size) for e in it), reverse=True)
+    for m, n, s in rows[:12]:
+        p = os.path.join(sess, n)
+        try:
+            with bopen(p) as fh: v = json.loads(fh.read().decode("utf-8"))
+            safe = {k: (x if k in KEEP or not isinstance(x, str) else "str:%d" % len(x)) for k, x in v.items()} if isinstance(v, dict) else type(v).__name__
+            if isinstance(safe, dict):
+                for k, x in list(safe.items()):
+                    if isinstance(x, (dict, list)): safe[k] = ("dict keys " + ",".join(sorted(x.keys()))[:200]) if isinstance(x, dict) else ["list", len(x)]
+            print("SESSION_FILE", n, fmt(m), s, json.dumps(safe, ensure_ascii=False)[:900])
+        except Exception as e:
+            print("SESSION_FILE_ERR", n, type(e).__name__, e)
+except Exception as e:
+    print("SESS_ERR", type(e).__name__, e)
+print("REMOTE_END %.3f" % time.time())
+# router log lines 16:55-18:45 (log level ERROR, so only ERROR lines exist), counted by event name
+import re as _re
+inst = r"C:\Users\aapw-a22u22\AppData\Roaming\ciel-runtime\router-instances\9397-4d48ef23cb8e"
+try:
+    with bopen(os.path.join(inst, "router.log")) as fh:
+        fh.seek(0, 2); size = fh.tell(); fh.seek(max(0, size - 3_000_000)); data = fh.read()
+    counts = {}
+    for ln in data.split(b"\n"):
+        if ln[:13] >= b"2026-10-26T16" and ln[:16] <= b"2026-10-26T18:46":
+            m = _re.match(rb"(\S+) \[(\w+)\] (\S+)", ln)
+            if m:
+                key = (m.group(1)[:15].decode(), m.group(2).decode(), m.group(3).decode()[:60]); counts[key] = counts.get(key, 0) + 1
+    for k in sorted(counts): print("LOGCOUNT", k[0] + "x", k[1], k[2], counts[k])
+except Exception as e:
+    print("LOG_ERR", type(e).__name__, e)
+try:
+    with os.scandir(sess) as it:
+        print("SESSION_DIR_ALL", sorted(e.name for e in it))
+except Exception as e:
+    print("SESS2_ERR", e)

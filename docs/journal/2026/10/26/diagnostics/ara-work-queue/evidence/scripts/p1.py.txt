@@ -1,0 +1,127 @@
+import os, json, time, subprocess, re, hashlib, sys, glob
+def T(x): return time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(x))
+t0 = time.time(); print("REMOTE_START", T(t0), "gmtoff", time.localtime(t0).tm_gmtoff)
+base = r"C:\ProgramData\aap-win\sandboxes\u21\home"
+try: print("HOMES", os.listdir(base))
+except Exception as e: print("HOMES_ERR", type(e).__name__)
+homes = [os.path.join(base, n) for n in os.listdir(base)] if os.path.isdir(base) else []
+pkgdir = None
+for h in homes:
+    p = os.path.join(h, r".npm-global\node_modules\@one-ciel-ai\ciel-runtime")
+    if os.path.isdir(p):
+        pkgdir = p
+        try:
+            j = json.load(open(os.path.join(p, "package.json"), encoding="utf-8"))
+            print("RUNTIME", j.get("version"), "gitHead", j.get("gitHead"), "mtime", T(os.path.getmtime(os.path.join(p, "package.json"))))
+        except Exception as e: print("RUNTIME_ERR", type(e).__name__)
+        mod = os.path.join(p, r"ciel_runtime_support\claude_mods\ciel-work\hooks\register.js")
+        if os.path.exists(mod):
+            src = open(mod, "rb").read()
+            print("MOD_REGISTER sha256", hashlib.sha256(src).hexdigest(), "bytes", len(src), "has_classic_Stop", b"classic.Stop" in src)
+        else: print("MOD_REGISTER missing")
+    cc = os.path.join(h, r".npm-global\node_modules\@anthropic-ai\claude-code\package.json")
+    if os.path.exists(cc):
+        try: print("CLAUDE_CODE", json.load(open(cc, encoding="utf-8")).get("version"))
+        except Exception as e: print("CC_ERR", type(e).__name__)
+    cx = os.path.join(h, r".npm-global\node_modules\@openai\codex\package.json")
+    if os.path.exists(cx):
+        try: print("CODEX", json.load(open(cx, encoding="utf-8")).get("version"))
+        except Exception as e: print("CX_ERR", type(e).__name__)
+SAFE = ["--continue", "--fork-session", "--dangerously-skip-permissions", "--reply-on-resume", "--print", "-p"]
+VAL = ["--model", "--session-id", "--resume", "--bg-pty-host", "--plugin-dir", "--permission-mode", "-c", "--origin"]
+def sanitize(cl):
+    out = []
+    exe = re.match(r'\s*"?([^"]+?\.(?:exe|cmd|py))"?', cl)
+    if exe: out.append("exe=" + os.path.basename(exe.group(1)))
+    for w in ("ciel_runtime.py cli", "ciel_runtime.py serve", "daemon run", "app-server", "windows_console_guard.py", "codex.js"):
+        if w in cl: out.append("has[" + w + "]")
+    for f in SAFE:
+        if re.search(r'(^|\s)' + re.escape(f) + r'(\s|$)', cl): out.append(f)
+    for f in VAL:
+        for m in re.finditer(r'(?:^|\s)' + re.escape(f) + r'\s+("([^"]*)"|(\S+))', cl):
+            v = m.group(2) if m.group(2) is not None else m.group(3)
+            if f in ("--resume", "--plugin-dir", "--bg-pty-host"): v = os.path.basename(v.rstrip("\/"))
+            if f == "-c" and "=" in v: v = v.split("=")[0] + "=REDACTED"
+            out.append(f + "=" + v[:80])
+    out.append("append_system_prompt_present=%s" % ("--append-system-prompt" in cl))
+    return " ".join(out)
+ps = r"Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'u21|a21u21' } | Select-Object ProcessId,ParentProcessId,Name,CreationDate,CommandLine | ConvertTo-Json -Depth 2"
+r = subprocess.run(["powershell", "-NoProfile", "-Command", ps], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=90)
+try:
+    rows = json.loads(r.stdout) if r.stdout.strip() else []
+    rows = rows if isinstance(rows, list) else [rows]
+except Exception as e:
+    print("PSERR", type(e).__name__); rows = []
+for x in rows:
+    cl = (x.get("CommandLine") or "")
+    if "Get-CimInstance" in cl or "base64" in cl: continue
+    cd = x.get("CreationDate") or ""
+    m = re.search(r"\d+", str(cd)); cdt = T(int(m.group(0)) / 1000) if m else cd
+    print("PROC", x.get("ProcessId"), x.get("ParentProcessId"), x.get("Name"), cdt, sanitize(cl))
+user = r"C:\Users\aapw-a21u21"
+appdata = os.path.join(user, r"AppData\Roaming\ciel-runtime")
+try:
+    cfg = json.load(open(os.path.join(appdata, "config.json"), encoding="utf-8"))
+    print("CONFIG_WORK", {k: cfg.get(k, "ABSENT") for k in ("work_mode", "work_plan_approval_ask", "work_auto_continue")})
+except Exception as e: print("CONFIG_ERR", type(e).__name__)
+ri = os.path.join(appdata, "router-instances")
+try:
+    for n in sorted(os.listdir(ri)):
+        p = os.path.join(ri, n); pid = ""
+        try: pid = open(os.path.join(p, "router.pid"), encoding="utf-8").read().strip()[:20]
+        except Exception: pass
+        print("INSTANCE", n, "mtime", T(os.path.getmtime(p)), "router.pid", pid)
+except Exception as e: print("INSTANCES_ERR", type(e).__name__)
+try:
+    m = json.load(open(os.path.join(appdata, "workspace-router-ports.json"), encoding="utf-8"))
+    for k, v in (m.get("workspaces") or {}).items():
+        print("PORT", k, v.get("port"), "ws", v.get("workspace"), "lease_pid", (v.get("launch_lease") or {}).get("pid"))
+except Exception as e: print("PORTS_ERR", type(e).__name__)
+cands = {}
+for f in glob.glob(os.path.join(user, r".claude\projects\*\*.jsonl")):
+    sid = os.path.basename(f)[:-6]
+    cands[hashlib.sha256(("claude:" + sid).encode()).hexdigest()] = ("claude", sid, f)
+for f in glob.glob(os.path.join(user, r".codex\sessions\**\*.jsonl"), recursive=True):
+    m = re.search(r"([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})", os.path.basename(f))
+    if m: cands[hashlib.sha256(("codex:" + m.group(1)).encode()).hexdigest()] = ("codex", m.group(1), f)
+print("CANDIDATE_SESSIONS", len(cands))
+tl = sorted(glob.glob(os.path.join(user, r".claude\projects\*\*.jsonl")), key=os.path.getmtime)[-8:]
+for f in tl: print("CLAUDE_TRANSCRIPT", os.path.basename(os.path.dirname(f))[-40:], os.path.basename(f), "size", os.path.getsize(f), "mtime", T(os.path.getmtime(f)))
+if pkgdir: sys.path.insert(0, pkgdir)
+try:
+    from ciel_runtime_support import work_plan_tree as wpt
+except Exception as e:
+    wpt = None; print("WPT_IMPORT_ERR", type(e).__name__, str(e)[:200])
+ws = os.path.join(appdata, "workspaces")
+for n in (sorted(os.listdir(ws)) if os.path.isdir(ws) else []):
+    wsd = os.path.join(ws, n, "work-sessions")
+    if not os.path.isdir(wsd): continue
+    for d in sorted(os.listdir(wsd), key=lambda d: os.path.getmtime(os.path.join(wsd, d))):
+        f = os.path.join(wsd, d, "work-plan.json")
+        if not os.path.exists(f): continue
+        c = cands.get(d)
+        print("PLAN ws", n, "digest", d[:16], "session", (c[0] + ":" + c[1]) if c else "UNMAPPED", "mtime", T(os.path.getmtime(f)), "bytes", os.path.getsize(f))
+        try:
+            raw = json.load(open(f, encoding="utf-8"))
+            doc = wpt.normalize_document(raw) if wpt else raw
+            nodes = doc["nodes"]
+            roots = [x for x in nodes if x["parent_id"] is None]
+            print("  version", doc.get("version"), "phase", doc.get("phase"), "active_root", doc.get("active_root"), "nodes", len(nodes), "updated", T(doc.get("updated_at") or 0))
+            for rt in roots:
+                ids = set([rt["id"]]); changed = True
+                while changed:
+                    changed = False
+                    for x in nodes:
+                        if x["parent_id"] in ids and x["id"] not in ids: ids.add(x["id"]); changed = True
+                sub = [x for x in nodes if x["id"] in ids]
+                leaves = [x for x in sub if not any(y["parent_id"] == x["id"] for y in nodes)]
+                st = {}
+                for x in leaves: st[x["status"]] = st.get(x["status"], 0) + 1
+                print("  ROOT", rt["id"], rt["status"], "urgent", rt.get("urgent"), "wait", bool(rt.get("waiting_on")), "leaves", st, "sub_waits", sum(1 for x in sub if x.get("waiting_on")), "sub_blocked", sum(1 for x in sub if x["status"] == "blocked"), "updated", T(rt.get("updated_at") or 0))
+            if wpt:
+                c2 = wpt.continuation(doc)
+                print("  CONTINUATION actionable", c2["actionable"], "next", (c2["next"] or {}).get("id"), (c2["next"] or {}).get("status"), "waiting", [w["id"] for w in c2["waiting"]], "blocked", c2["blocked"], "held", c2["held"])
+                print("  QUEUED", [x["id"] for x in wpt.queued_roots(doc)])
+                ready, why = wpt.readiness(doc); print("  READY", ready, why[:80])
+        except Exception as e: print("  PLAN_ERR", type(e).__name__, str(e)[:200])
+print("REMOTE_END", T(time.time()))

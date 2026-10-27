@@ -187,6 +187,34 @@ class PublishedSocketIdentityTests(IdentityHarness):
         self.assertFalse(self.binding.external_admission_paused())
         self.assertTrue(any("via=socket" in entry[1] for entry in self.logs))
 
+    def test_explicit_background_handoff_updates_scope_path_and_socket(self):
+        self.published(status="idle", statusUpdatedAt=int(time.time() * 1000),
+                       parkedJobId="12345678", pidDomain="test")
+        new_id = "12345678-1234-4234-8234-123456789abc"
+        new_socket = str(self.root / "bg.sock")
+        self.published(new_id, pid=222, messagingSocketPath=new_socket, kind="bg", jobId="12345678",
+                       status="idle", statusUpdatedAt=int(time.time() * 1000), pidDomain="test")
+        from ciel_runtime_support.claude_session_socket import session_key_hash
+        key = self.home / ".claude" / "sessions" / ("222." + session_key_hash(new_socket) + ".key")
+        key.write_text(json.dumps(dict(peerToken="ab" * 16, procStartFt="134369156140544048", pidDomain="test")))
+        with mock.patch("ciel_runtime_support.claude_session_handoff._process_identity", return_value="134369156140544048"):
+            epoch = self.binding.repository.load("compaction_scope")["epoch"]
+            scope = self.binding.scope()
+            self.assertEqual((new_id, epoch), (scope.session_id, scope.epoch))
+            self.path = self.path.with_name(new_id + ".jsonl")
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            self.path.write_text(json.dumps(dict(type="user", sessionId=new_id, cwd=str(self.root))) + chr(10))
+            self.binding.cache["checked_at"] = 0.0
+            self.assertEqual(self.path, self.binding.transcript_path())
+            self.assertEqual(new_socket, self.binding.repository.load("compaction_scope")["delivery_socket_path"])
+            self.assertFalse(self.binding.external_admission_paused())
+
+    def test_missing_background_peer_holds_beyond_identity_grace(self):
+        self.binding.bind("claude", cwd=self.root, messaging_socket_path=self.socket, started_at=1)
+        self.published(parkedJobId="missing", startedAt=1000)
+        self.assertTrue(self.binding.external_admission_paused())
+        self.assertTrue(self.binding.repository.load("compaction_scope")["handoff_pending"])
+
     def test_vanished_transcript_keeps_exact_identity_and_drops_proof_path(self):
         self.published()
         self.transcript(100)

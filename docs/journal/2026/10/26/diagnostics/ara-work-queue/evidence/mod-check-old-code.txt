@@ -1,0 +1,104 @@
+claude: 2.1.310 (Claude Code)
+== plugin validate --strict
+Validating plugin manifest: C:\Users\djlov\ciel-runtime-wt-work\ciel_runtime_support\claude_mods\ciel-work\.claude-plugin\plugin.json
+
+  > types ./types/index.d.ts declares on $: nothing (no EngineInterface member)
+  > types ./types/index.d.ts declares state: ciel-work.detail
+
+Validating hooks: C:\Users\djlov\ciel-runtime-wt-work\ciel_runtime_support\claude_mods\ciel-work\hooks\hooks.json
+
+  > ./register.js hooks: session.start, prompt.attachment{type=plan_mode|plan_mode_exit}, turn.start, turn.complete, classic.Stop, prompt.submit, command.run{command=work-mode}, tool.call, tool.check, session.end, ui.render{component=AbovePrompt}, ui.render{component=Pane, requestId=work-details}, ui.render{component=SessionMode}
+  > ./register.js answers its own command: command.run{command=work-mode}
+  > ./register.js gating hook without .catch: classic.Stop
+  > ./register.js gating hook without .catch: prompt.submit
+  > ./register.js gating hook without .catch: tool.call
+  > ./register.js gating hook without .catch: tool.check
+  > ./register.js calls: $.clock.after (via retryStart, scheduleIdleRefresh), $.command.register, $.mcp.call (via moveRoot, openDetails, planText, refresh), $.session.id (via sessionId), $.state.get, $.state.set, $.ui.ask, $.ui.close, $.ui.invalidate (via refresh), $.ui.log (via notice), $.ui.open (via openDetails), $.ui.resolve, $.ui.toast
+  > ./register.js state writes: ciel-work.detail
+  > ./register.js state reads: ciel-work.detail
+
+Plugin directory checks for C:\Users\djlov\ciel-runtime-wt-work\ciel_runtime_support\claude_mods\ciel-work. The plugin directory is the catalog that plugins are submitted to; this is a subset of what it runs.
+
+‼ Found 1 plugin directory warning:
+
+  > .claude-plugin/plugin.json icon: No icon (ICON_MISSING). No icon found in the plugin. The validator looked for `icon` in plugin.json and for a file at .claude-plugin/icon.png or .svg, assets/icon.png or .svg, or a similar path.
+    Fix: Add a square PNG to the plugin folder at .claude-plugin/icon.png, or set `icon` in plugin.json to the path of a square PNG or JPEG in the plugin: 512 to 2048 px on each side, under 2 MB. SVG and WebP are not accepted. That file may become the listing icon only once: the first time the plugin is saved or submitted in the developer portal. Adding or changing it later does not change the icon.
+
+About these checks:
+
+  > The repository root was taken to be C:\Users\djlov\ciel-runtime-wt-work, the nearest parent folder with a .git folder or file. README.md and LICENSE were taken from it, because this plugin folder has none of its own. For a plugin submitted from a git repository, the repository root is the top folder of that repository, with only what is committed there, so check that the folder named above is that top folder.
+  > hooks/hooks.json names a hooks module (a code file listed under `modules`). The plugin directory has rules of its own for such code, and these checks apply none of them, so passing here does not mean the directory accepts the plugin. The developer portal's own validation applies those rules.
+
+These plugin directory checks do not change the result below.
+
+The directory also runs a safety scan and a policy review that this command does not.
+
+√ Validation passed
+exit=0
+== plugin test
+
+tests\work.test.ts:
+(pass) immediate command, router tree, bounded prompt context [59.82ms]
+(pass) planning denies all known writes including subagents; live phase refresh [38.39ms]
+(pass) only exact engine plan attachments exempt Edit and Write in the same native loop [44.40ms]
+(pass) native Windows plan facts accept slash spelling without widening the path [29.31ms]
+(pass) no guessed paths, prose, plugin context or EnterPlanMode result can identify a plan file [33.26ms]
+(pass) native plan exemption clears on exit, missing facts and session changes; offline permits only that file [40.52ms]
+(pass) shells use engine read-only flag and disabled state clears guards [40.25ms]
+(pass) unavailable and malformed status fail closed but reads pass [27.30ms]
+(pass) auto strips forged confirmation and refreshes after result [23.12ms]
+(pass) ask: Approve [42.61ms]
+(pass) ask: Keep planning [22.67ms]
+(pass) ask: Other [34.79ms]
+(pass) approval rejects changed plan [25.52ms]
+(pass) SessionMode planning, progress, off and unavailable are read-only renders [41.08ms]
+(pass) unavailable shell and execute fail closed; missing approval tree cannot execute [30.94ms]
+(pass) every Work result refreshes; another server is not treated as Work [35.00ms]
+(pass) conversation changes isolate every router read and override forged tool session ids [22.37ms]
+(pass) approval rejects a conversation switch even when plan counters match [21.49ms]
+(pass) normal Stop continues, unchanged plan is bounded, progress and user input reset it [31.25ms]
+(pass) Stop guard {"enabled":false} [28.54ms]
+(pass) Stop guard {"auto_continue":false} [21.11ms]
+(pass) Stop guard {"continuation":{"actionable":0}} [21.15ms]
+(pass) Stop guard {"phase":"planning","approval":"ask","ready":true} [20.59ms]
+(pass) Stop excludes background tasks, child threads, other conversations and offline [25.68ms]
+(fail) a stop with unfinished but unrunnable Work explains why, once per state, without continuing [19.84ms]
+  AssertionError: expect(received).toBe()
+  
+  Expected: 1
+  Received: 0
+(fail) a runnable item is still pushed after an explained stall, with the same no-progress bound [24.69ms]
+  AssertionError: expect(received).toContain()
+  
+  Expected: containing "paused: the plan did not change"
+  Received: undefined
+(fail) approval, background tasks and an unreadable status explain the stop; finished or off Work stays silent [20.87ms]
+  AssertionError: expect(received).toContain()
+  
+  Expected: containing "waits for your approval"
+  Received: undefined
+(pass) auto planning continues decomposition but never crosses an approval boundary [25.12ms]
+(pass) three levels display linked ids, waits, urgent holds and green done checks [24.14ms]
+(pass) root move buttons pin version, identity and explicit user request [30.47ms]
+(pass) compact footer and vertical branch buttons [24.27ms]
+(pass) branch press opens read-only details with notes and evidence, nested node and parent [41.78ms]
+(pass) detail state is hidden after version or conversation changes and offline [31.18ms]
+(pass) interactive start logs one person-facing notice; -p and off do not [21.53ms]
+(pass) a router still connecting at start is read again; band and notice follow once it answers [35.94ms]
+(pass) start retries stop after a bounded window, on a new session start and when Work is off [37.77ms]
+(pass) idle refresh reflects out-of-band edits, backs off and never starts a model turn [35.06ms]
+(pass) idle refresh pauses in a main turn but not a child turn, and stops at end or disabled [26.05ms]
+(pass) idle refresh never overlaps a slow poll and discards its late response after end [44.19ms]
+(pass) late old-session poll cannot overwrite new-session state or spawn another timer [34.81ms]
+(pass) offline idle refresh backs off and recovers without a prompt; startup retries stop at end [33.00ms]
+(pass) silent identity changes stop the idle poll before any cross-session router read [20.29ms]
+(pass) planning denial explains itself and toasts once per plan version [30.61ms]
+(pass) help, readable bare command and raw status [32.84ms]
+(pass) band shows a hint while no plan exists and the phase once one does [21.38ms]
+(pass) triage guidance reaches the model; queue shows in band and summary without becoming focusable [31.38ms]
+(pass) survey yields, disabled hides, long branch list retains every item [26.52ms]
+
+ 44 pass
+ 3 fail
+Ran 47 tests across 1 file. [1.65s]
+exit=1

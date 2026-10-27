@@ -329,6 +329,21 @@ class RuntimeInputStatusRepository:
             raise
         return attempt_id
 
+    def defer_unsubmitted(self, request_id: int, attempt_id: str) -> bool:
+        """Release an exact attempt only when its transport proved no write."""
+        with self.lock, exclusive_file_lock(self.path):
+            row = self.get(request_id, _locked=True) or {}
+            data = dict(row.get("data") or {})
+            if row.get("status") != "submitted" or data.get("attempt_id") != attempt_id:
+                return False
+            for key in ("attempt_id", "child_epoch", "batch_ids"):
+                data.pop(key, None)
+            record = self._record(request_id, "queued", "native_handoff_pending", data)
+        self.publish_event(level="info", category="runtime_input.status",
+                           message="runtime input queued", source="runtime-input",
+                           request_id=str(request_id), data=record)
+        return True
+
     def reconcile_child_exit(self, child_epoch: str, *, verified_exit: bool) -> list[int]:
         """Quarantine only attempts owned by a child whose exit was verified.
 

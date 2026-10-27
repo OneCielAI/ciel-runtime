@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from .claude_session_socket import canonical_socket_path
+from .claude_session_handoff import follow_parked_session
 from .channel_message_repository import exclusive_file_lock
 from .channel_transcript_repository import (
     ChannelTranscriptRepository,
@@ -237,7 +238,12 @@ class RuntimeCompactionBinding:
                     candidates.append(record)
             except (OSError, ValueError, TypeError, UnicodeError):
                 continue
-        return candidates[0] if len(candidates) == 1 else {}
+        if len(candidates) != 1:
+            # Once a published identity was observed, a transient missing or
+            # unreadable record cannot demote it to legacy socket delivery.
+            return {"handoff_pending": True} if (candidates or value.get("delivery_socket_path")) else {}
+        handoff = follow_parked_session(directory, candidates[0])
+        return {"handoff_pending": True} if handoff.pending else handoff.record
 
     def _follow_published(self, value: dict[str, Any]) -> dict[str, Any]:
         epoch, now = value["epoch"], time.time()
@@ -269,14 +275,19 @@ class RuntimeCompactionBinding:
             if current is None:
                 raise OSError("compaction scope is unreadable")
             # A scan cannot overwrite a newer launch or a concurrent retarget.
-            fields = ("epoch", "session_id", "messaging_socket_path", "identity_since", "identity_ready", "request_observed")
+            fields = ("epoch", "session_id", "messaging_socket_path", "identity_since", "identity_ready", "request_observed", "handoff_pending")
             if any(current.get(key) != value.get(key) for key in fields):
                 return current
             switched = bool(session_id and session_id != current.get("session_id"))
             if switched:
                 current.update({"session_id": session_id, "path": "", "seeded": False,
                                 "request_observed": False, "identity_since": now})
-            changed = current.get("identity_ready") != ready
+            pending = record.get("handoff_pending") is True
+            changed = (current.get("identity_ready") != ready or bool(current.get("handoff_pending")) != pending
+                       or (record.get("messagingSocketPath") and current.get("delivery_socket_path") != record["messagingSocketPath"]))
+            current["handoff_pending"] = pending
+            if record.get("messagingSocketPath"):
+                current["delivery_socket_path"] = str(record["messagingSocketPath"])
             if ready:
                 current["identity_ready"] = ready
             else:
@@ -553,7 +564,8 @@ class RuntimeCompactionBinding:
             scope = self.scope()
             if scope is None:
                 return self._identity_pending()
-            if self._request_identity_pending(self._update("")):
+            value = self._update("")
+            if value.get("handoff_pending") or self._request_identity_pending(value):
                 return True
             if self.seeded != f"{scope.epoch}:{scope.session_id}":
                 self._seed(scope)
@@ -631,6 +643,8 @@ class RuntimeCompactionBinding:
         value = self._update("")
         if value.get("runtime") not in {"claude", "codex"} or not value.get("epoch"):
             return False
+        if value.get("handoff_pending"):
+            return True
         pid = _positive(value.get("launcher_pid"))
         sources = bool(value.get("messaging_socket_path")) or value.get("request_identity") is not False
         running = bool(pid and pid_is_running(pid))

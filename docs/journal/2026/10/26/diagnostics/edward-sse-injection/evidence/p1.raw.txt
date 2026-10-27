@@ -1,0 +1,27 @@
+REMOTE_START 1793065496.778
+REMOTE_LOCAL 2026-10-26T18:44:56 tm_gmtoff -25200 tm_zone Pacific Daylight Time tzname ('Pacific Standard Time', 'Pacific Daylight Time') isdst 1
+REMOTE_UTC 2026-10-27T01:44:56.777999+00:00
+CMD w32tm /query /status rc 2147943462
+   The following error occurred: The service has not been started. (0x80070426)
+CMD w32tm /query /source rc 2147943462
+   The following error occurred: The service has not been started. (0x80070426)
+CMD tzutil /g rc 0
+   Pacific Standard Time
+RUNTIME 0.2.51-nightly.20261026-225621.5054af2 mtime 2026-10-26T16:26:03
+PROC 8480 15396 py.exe /Date(1793057416109)/ py -3 C:\ProgramData\aap-win\sandboxes\u22\home\edward-ai\.npm-global\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime.py cli --continue
+PROC 464 8480 python.exe /Date(1793057416144)/ "C:\Program Files\Python313\python.exe" C:\ProgramData\aap-win\sandboxes\u22\home\edward-ai\.npm-global\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime.py cli --continue
+PROC 5704 464 python.exe /Date(1793057458147)/ "C:\Program Files\Python313\python.exe" C:\ProgramData\aap-win\sandboxes\u22\home\edward-ai\.npm-global\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime.py serve
+PROC 21716 464 cmd.exe /Date(1793057467301)/ C:\WINDOWS\system32\cmd.exe /d /s /c "C:\ProgramData\aap-win\sandboxes\u22\home\edward-ai\.npm-global\claude.cmd --dangerously-skip-permissions --permission-mode bypassPermissions --disallowedTools WebSearch,WebFetch --model ciel-runtime-cielairouter-_walkie_sol61-opus55-fast --mcp-config C:\Users\aapw-a22u22\AppData\Roaming\ciel-runtime\router-instances\9397-4d48ef23cb8e\web-tools-mcp.json C:\Users\aapw-a22u22\AppData\Roaming\ciel-runtime\workspaces\4d48ef23cb8e\mcp-launches\94dfa602c05d41848e2742597c733395\claude-mcp.json --append-system-prompt "You are running inside Claude Code through the
+PROC 22780 464 python.exe /Date(1793057467357)/ "C:\Program Files\Python313\python.exe" C:\ProgramData\aap-win\sandboxes\u22\home\edward-ai\.npm-global\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime_support\windows_console_guard.py 464 487 7
+PROC 13456 21716 claude.exe /Date(1793057467363)/ "C:\ProgramData\aap-win\sandboxes\u22\home\edward-ai\.npm-global\\node_modules\@anthropic-ai\claude-code\bin\claude.exe"    --dangerously-skip-permissions --permission-mode bypassPermissions --disallowedTools WebSearch,WebFetch --model ciel-runtime-cielairouter-_walkie_sol61-opus55-fast --mcp-config C:\Users\aapw-a22u22\AppData\Roaming\ciel-runtime\router-instances\9397-4d48ef23cb8e\web-tools-mcp.json C:\Users\aapw-a22u22\AppData\Roaming\ciel-runtime\workspaces\4d48ef23cb8e\mcp-launches\94dfa602c05d41848e2742597c733395\claude-mcp.json --append-system-prompt "You are running inside Claude Code 
+PROC 4284 14040 claude.exe /Date(1793061543267)/ C:\ProgramData\aap-win\sandboxes\u22\home\edward-ai\.npm-global\node_modules\@anthropic-ai\claude-code\bin\claude.exe daemon run --origin transient --spawned-by "{\"label\":\"claude\",\"cwd\":\"C:\\ProgramData\\aap-win\\sandboxes\\u22\\home\\edward-ai\",\"pid\":13456}"
+PROC 3536 4284 claude.exe /Date(1793061543908)/ C:\ProgramData\aap-win\sandboxes\u22\home\edward-ai\.npm-global\node_modules\@anthropic-ai\claude-code\bin\claude.exe --bg-pty-host \\.\pipe\cc-daemon-7a3421e2292012be-pty-b1e17ad1 365 87 -- C:\ProgramData\aap-win\sandboxes\u22\home\edward-ai\.npm-global\node_modules\@anthropic-ai\claude-code\bin\claude.exe --session-id b1e17ad1-6afd-4210-86e4-5e327c749e3b --fork-session --resume C:\Users\aapw-a22u22\.claude\projects\C--ProgramData-aap-win-sandboxes-u22-home-edward-ai\354281f4-a695-46c2-a0db-450d681953b8.jsonl --reply-on-resume --settings "{\"crossSessionInbound\":\"accept\"}" --plugin-dir C:\
+PROC 15712 3536 claude.exe /Date(1793061544138)/ C:\ProgramData\aap-win\sandboxes\u22\home\edward-ai\.npm-global\node_modules\@anthropic-ai\claude-code\bin\claude.exe --session-id b1e17ad1-6afd-4210-86e4-5e327c749e3b --fork-session --resume C:\Users\aapw-a22u22\.claude\projects\C--ProgramData-aap-win-sandboxes-u22-home-edward-ai\354281f4-a695-46c2-a0db-450d681953b8.jsonl --reply-on-resume --settings "{\"crossSessionInbound\":\"accept\"}" --plugin-dir C:\ProgramData\aap-win\sandboxes\u22\home\edward-ai\.npm-global\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime_support\claude_mods\ciel-work --mcp-config C:\Users\aapw-a22u22\AppData\Roamin
+INSTANCE 9396-4d48ef23cb8e mtime 2026-10-13T19:51:31 router.pid 
+INSTANCE 9397-4d48ef23cb8e mtime 2026-10-26T18:44:57 router.pid 5704
+WORKSPACE 4d48ef23cb8e mtime 2026-10-26T18:42:57 files []
+PORTS_MAP {"version": 1, "workspaces": {"4d48ef23cb8e": {"launch_lease": {"expires_at": 1793057454.889628, "identity": "134375310161443272", "pid": 464}, "port": 9397, "reservation": "auto", "workspace": "c:\\programdata\\aap-win\\sandboxes\\u22\\home\\edward-ai"}}}
+REMOTE_END 1793065497.869
+
+
+exit 0
