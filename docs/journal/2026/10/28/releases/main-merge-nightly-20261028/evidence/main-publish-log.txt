@@ -1,0 +1,5 @@
+2026-10-28T07:25:06.7162786Z [36;1mecho "Channel for ref ${ref}: tag=$(grep '^tag=' "$GITHUB_OUTPUT" | tail -n1)"[0m
+2026-10-28T07:25:06.7304665Z Channel for ref main: tag=tag=latest
+2026-10-28T07:25:06.7351641Z [36;1m  echo "Package ${pkg}@${version} is already published; skipping npm publish."[0m
+2026-10-28T07:25:06.7352194Z [36;1m  echo "Package ${pkg}@${version} is not published yet."[0m
+2026-10-28T07:25:08.5575945Z Package @one-ciel-ai/ciel-runtime@0.2.51 is already published; skipping npm publish.
