@@ -196,7 +196,7 @@ class TimeoutRetryTests(unittest.TestCase):
 
     def test_other_transport_errors_still_do_not_replay(self):
         for error in (urllib.error.URLError("timed out"), ssl.SSLEOFError("EOF"),
-                      ConnectionResetError("reset"), BrokenPipeError("broken"),
+                      BrokenPipeError("broken"),
                       OSError("The read operation timed out")):
             opener = mock.Mock(side_effect=error)
             with self.subTest(error=error), self.assertRaises(type(error)) as caught:
