@@ -121,9 +121,9 @@ class RuntimeCompactionControlTests(_ControllerHarness):
                 request = self.repository.read()
                 self.assertTrue(self.control.command_ready(request))
                 self.control.command_failed(request, "rpc_unconfirmed", uncertain=True)
-                self.assertEqual("blocked", self.snapshot()["phase"])
+                self.assertEqual("failed_open", self.snapshot()["phase"])
                 self.clock += 100
-                self.assertTrue(self.control.external_admission_paused())
+                self.assertFalse(self.control.external_admission_paused())
                 self.assertIsNone(self.repository.read())
 
     def test_small_ordinary_turn_does_not_touch_state_or_usage(self):
@@ -228,8 +228,8 @@ class RuntimeCompactionControlTests(_ControllerHarness):
             self.clock += 1
             self.append(boundary("session-a", self.clock, f"reactive-{attempt}"))
             self.request(1300)
-        self.assertEqual("blocked", self.snapshot()["phase"])
-        self.assertTrue(self.control.external_admission_paused())
+        self.assertEqual("failed_open", self.snapshot()["phase"])
+        self.assertFalse(self.control.external_admission_paused())
         self.assertIsNone(self.repository.read())
 
     def test_checkpoint_reporting_full_post_tokens_is_not_release(self):
@@ -273,6 +273,8 @@ class RuntimeCompactionControlTests(_ControllerHarness):
 
     def test_auto_boundary_without_valid_post_count_keeps_gate_closed(self):
         for post_tokens in (0, 1500):
+            # Independent cycles rather than spending the shared budget twice.
+            self.scope = CompactionScope("claude", "session-a", "post-" + str(post_tokens))
             with self.subTest(post_tokens=post_tokens):
                 native = {"messages": [{"role": "user", "content": "<command-name>/compact</command-name>"}]}
                 self.request(1200, native)
@@ -342,11 +344,11 @@ class RuntimeCompactionControlTests(_ControllerHarness):
         self.control.command_submitted(request)
         self.repository.clear(request["id"])
         self.clock += 11
-        self.assertTrue(self.control.external_admission_paused())
-        self.assertEqual("blocked", self.snapshot()["phase"])
+        self.assertFalse(self.control.external_admission_paused())
+        self.assertEqual("failed_open", self.snapshot()["phase"])
         self.assertIsNone(self.repository.read())
         self.clock += 100
-        self.assertTrue(self.control.external_admission_paused())
+        self.assertFalse(self.control.external_admission_paused())
         self.assertIsNone(self.repository.read())
         self.assertTrue(self.control.command_ready(self.repository.queue("mcp", "manual")))
 
@@ -364,9 +366,9 @@ class RuntimeCompactionControlTests(_ControllerHarness):
         self.assertNotEqual(first["id"], second["id"])
         self.assertTrue(self.control.command_ready(second))
         self.control.command_failed(second, "command_not_submitted")
-        self.assertEqual("blocked", self.snapshot()["phase"])
+        self.assertEqual("failed_open", self.snapshot()["phase"])
         self.clock += 50
-        self.assertTrue(self.control.external_admission_paused())
+        self.assertFalse(self.control.external_admission_paused())
         self.assertIsNone(self.repository.read())
 
     def test_unreadable_state_preserves_hold_across_restart_until_new_native_proof(self):

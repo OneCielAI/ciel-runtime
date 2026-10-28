@@ -78,12 +78,12 @@ class RuntimeCompactionContinuationBoundaryTests(unittest.TestCase):
     def test_checkpoint_phase_is_not_successful_submission_authority(self):
         self.assertTrue(self.control.command_ready(self.request))
         self.control.command_failed(self.request, "command_submission_uncertain", uncertain=True)
-        self.assertEqual("blocked", self.state["phase"])
+        self.assertEqual("failed_open", self.state["phase"])
         self.boundary()
-        self.assertTrue(self.control.external_admission_paused())
-        # Current recovery state deliberately follows later checkpoint evidence.
-        # Therefore awaiting_shrink alone cannot authorize a continuation.
-        self.assertEqual("awaiting_shrink", self.state["phase"])
+        self.assertFalse(self.control.external_admission_paused())
+        # Failure release is not successful compact or synthetic continuation authority.
+        self.assertEqual("failed_open", self.state["phase"])
+        self.assertNotIn("verified_at", self.state)
 
     def test_manual_and_runtime_commands_have_same_checkpoint_transition(self):
         self.request["source"] = "manual"

@@ -1,0 +1,11 @@
+{
+  "scenario_success": true,
+  "retry_before_failure_release": true,
+  "sse_tool_after_release": true,
+  "one_sse_trigger_tool": true,
+  "queued_message_replied": true,
+  "final_verified": true,
+  "live_unchanged": true,
+  "no_foreground_steal": true,
+  "screenshots": true
+}

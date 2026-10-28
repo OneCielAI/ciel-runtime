@@ -659,12 +659,12 @@ class RuntimeCompactionBinding:
         return held
 
     def external_admission_paused(self) -> bool:
-        """Hold external deliveries until checkpoint AND raw shrink are proven.
+        """Gate active compact recovery, with distinct success and failure release.
 
-        An automatic compact releases through the retry request that follows
-        it; a manual /compact has none and releases on its own boundary. An
-        unproven launch identity holds only for its grace window. An external
-        SSE delivery is never used as a recovery probe.
+        A checkpoint plus real shrink verifies success. Terminal failure or
+        confirmation expiry releases only the compact gate, retaining failed
+        status; new external input may trigger the native client's compact.
+        Unproven launch identity and unreadable state remain separate holds.
         """
         return self._admission_paused()
 
@@ -735,7 +735,7 @@ class RuntimeCompactionBinding:
                         "checkpoint_observed_at": state.get("checkpoint_observed_at"),
                         "deadline": state.get("deadline")}
             return {key: state.get(key) for key in (
-                "phase", "failure", "failure_at", "checkpoint_observed_at", "deadline")}
+                "phase", "failure", "failure_at", "checkpoint_observed_at", "deadline", "admission_released_at")}
         except (OSError, ValueError, TypeError):
             return {"phase": "unknown", "failure": "state_unavailable"}
 

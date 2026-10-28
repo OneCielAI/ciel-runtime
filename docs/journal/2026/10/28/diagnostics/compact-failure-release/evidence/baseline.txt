@@ -1,0 +1,66 @@
+test_exhaustion_opens_input_and_new_native_compact_gets_new_budget (test_compact_failure_release.CompactFailureReleaseTests.test_exhaustion_opens_input_and_new_native_compact_gets_new_budget) ... FAIL
+test_confirmation_expiry_releases_without_automatic_replay (test_compact_failure_release.CompactFailureReleaseTests.test_confirmation_expiry_releases_without_automatic_replay) ... FAIL
+test_checkpoint_shrink_confirmation_expiry_releases_not_verifies (test_compact_failure_release.CompactFailureReleaseTests.test_checkpoint_shrink_confirmation_expiry_releases_not_verifies) ... FAIL
+test_generic_compact_failure_retries_but_prompt_mentions_do_not (test_compact_failure_release.CompactFailureReleaseTests.test_generic_compact_failure_retries_but_prompt_mentions_do_not) ... FAIL
+test_uncertain_command_exception_releases_without_resending (test_compact_failure_release.CompactFailureReleaseTests.test_uncertain_command_exception_releases_without_resending) ... FAIL
+test_manual_definite_submission_failure_retries (test_compact_failure_release.CompactFailureReleaseTests.test_manual_definite_submission_failure_retries) ... FAIL
+test_read_error_remains_distinct_from_known_failed_compact (test_compact_failure_release.CompactFailureReleaseTests.test_read_error_remains_distinct_from_known_failed_compact) ... ok
+
+======================================================================
+FAIL: test_exhaustion_opens_input_and_new_native_compact_gets_new_budget (test_compact_failure_release.CompactFailureReleaseTests.test_exhaustion_opens_input_and_new_native_compact_gets_new_budget)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users/djlov/ciel-runtime-wt-work/tests\test_compact_failure_release.py", line 25, in test_exhaustion_opens_input_and_new_native_compact_gets_new_budget
+    self.assertFalse(self.control.external_admission_paused())
+AssertionError: True is not false
+
+======================================================================
+FAIL: test_confirmation_expiry_releases_without_automatic_replay (test_compact_failure_release.CompactFailureReleaseTests.test_confirmation_expiry_releases_without_automatic_replay)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users/djlov/ciel-runtime-wt-work/tests\test_compact_failure_release.py", line 42, in test_confirmation_expiry_releases_without_automatic_replay
+    self.assertFalse(self.control.external_admission_paused())
+AssertionError: True is not false
+
+======================================================================
+FAIL: test_checkpoint_shrink_confirmation_expiry_releases_not_verifies (test_compact_failure_release.CompactFailureReleaseTests.test_checkpoint_shrink_confirmation_expiry_releases_not_verifies)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users/djlov/ciel-runtime-wt-work/tests\test_compact_failure_release.py", line 53, in test_checkpoint_shrink_confirmation_expiry_releases_not_verifies
+    self.assertFalse(self.control.external_admission_paused())
+AssertionError: True is not false
+
+======================================================================
+FAIL: test_generic_compact_failure_retries_but_prompt_mentions_do_not (test_compact_failure_release.CompactFailureReleaseTests.test_generic_compact_failure_retries_but_prompt_mentions_do_not)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users/djlov/ciel-runtime-wt-work/tests\test_compact_failure_release.py", line 68, in test_generic_compact_failure_retries_but_prompt_mentions_do_not
+    self.assertEqual("retry_wait", self.snapshot()["phase"])
+AssertionError: 'retry_wait' != 'compacting'
+- retry_wait
++ compacting
+
+
+======================================================================
+FAIL: test_uncertain_command_exception_releases_without_resending (test_compact_failure_release.CompactFailureReleaseTests.test_uncertain_command_exception_releases_without_resending)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users/djlov/ciel-runtime-wt-work/tests\test_compact_failure_release.py", line 76, in test_uncertain_command_exception_releases_without_resending
+    self.assertFalse(self.control.external_admission_paused())
+AssertionError: True is not false
+
+======================================================================
+FAIL: test_manual_definite_submission_failure_retries (test_compact_failure_release.CompactFailureReleaseTests.test_manual_definite_submission_failure_retries)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users/djlov/ciel-runtime-wt-work/tests\test_compact_failure_release.py", line 88, in test_manual_definite_submission_failure_retries
+    self.assertEqual("retry_wait", self.snapshot()["phase"])
+AssertionError: 'retry_wait' != 'blocked'
+- retry_wait
++ blocked
+
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.221s
+
+FAILED (failures=6)

@@ -2,7 +2,8 @@
 
 Counts are the client's unmodified request observations, never fabricated
 usage. Command submission and app-server acceptance are not completion:
-a persisted native checkpoint and smaller next request release pressure.
+a persisted native checkpoint and smaller next request verify success. A
+failed attempt releases its gate separately, never forging shrink proof.
 """
 
 from __future__ import annotations
@@ -54,6 +55,7 @@ class NativeCompactionCheckpoint:
 class NativeCompactionFailure:
     identity: str
     persisted_at: float
+    reason: str = "native_compact_idle_timeout"
 
 
 @dataclass(frozen=True, slots=True)
@@ -207,8 +209,8 @@ def _input_tokens_record(record: Any, scope: CompactionScope) -> int | None:
     return None
 
 
-def _compact_idle_failure(record: Any, scope: CompactionScope) -> float:
-    """Only the native client's explicit compact idle-timeout verdict qualifies."""
+def _compact_terminal_failure(record: Any, scope: CompactionScope) -> float:
+    """Only a scoped native terminal compact verdict, never prompt/tool mentions."""
     if (scope.runtime != "claude" or not isinstance(record, dict)
             or record.get("sessionId") != scope.session_id or record.get("isSidechain") is True
             or not record.get("uuid")):
@@ -219,19 +221,25 @@ def _compact_idle_failure(record: Any, scope: CompactionScope) -> float:
                 or not isinstance(outcome, dict) or outcome.get("kind") != "failed"):
             return 0.0
         text = record.get("content")
-        expected = "<local-command-stderr>Error during compaction: API Error: Stream idle timeout - no chunks received</local-command-stderr>"
-        if text != expected:
+        if not (isinstance(text, str) and text.startswith(
+                "<local-command-stderr>Error during compaction: ")
+                and text.endswith("</local-command-stderr>")):
             return 0.0
     elif record.get("type") == "assistant" and record.get("isApiErrorMessage") is True:
         message = record.get("message")
         content = message.get("content") if isinstance(message, dict) else None
-        expected = "Prompt is too long · automatic compaction failed: API Error: Stream idle timeout - no chunks received"
         if (not isinstance(content, list) or len(content) != 1 or not isinstance(content[0], dict)
-                or content[0].get("type") != "text" or content[0].get("text") != expected):
+                or content[0].get("type") != "text"
+                or not isinstance(content[0].get("text"), str)
+                or not content[0]["text"].startswith("Prompt is too long · automatic compaction failed: ")):
             return 0.0
     else:
         return 0.0
     return _timestamp(record.get("timestamp"))
+
+
+# Compatibility for callers of the original idle-only predicate.
+_compact_idle_failure = _compact_terminal_failure
 
 
 def native_checkpoint_from_transcript(
@@ -270,9 +278,11 @@ def _native_transcript_evidence(
                     record = json.loads(line)
                 except (ValueError, TypeError, UnicodeError, RecursionError):
                     continue
-                failed_at = _compact_idle_failure(record, scope)
+                failed_at = _compact_terminal_failure(record, scope)
                 if failed_at:
-                    failure = NativeCompactionFailure(hashlib.sha256(line).hexdigest(), failed_at)
+                    failure = NativeCompactionFailure(hashlib.sha256(line).hexdigest(), failed_at,
+                        "native_compact_idle_timeout" if b"Stream idle timeout - no chunks received" in line
+                        else "native_compact_failed")
                 found = _checkpoint_record(record, scope, path)
                 if found is not None:
                     newest = NativeCompactionCheckpoint(
@@ -352,7 +362,7 @@ class RuntimeCompactionControl:
         if value.get("scope") != scope.payload():
             return {}
         if value.get("phase") not in {"needed", "queued", "dispatching", "awaiting_checkpoint",
-                                      "compacting", "awaiting_shrink", "blocked", "retry_wait", "verified"}:
+                                      "compacting", "awaiting_shrink", "blocked", "retry_wait", "verified", "failed_open"}:
             raise ValueError("invalid compaction control phase")
         return dict(value)
 
@@ -414,8 +424,9 @@ class RuntimeCompactionControl:
 
     def _observe_native_failure(self, state, checkpoint, failure):
         if (not state or failure is None or state.get("phase") not in {
-                "dispatching", "awaiting_checkpoint", "compacting", "blocked"}
-                or (state.get("phase") == "blocked" and state.get("failure") != "checkpoint_unconfirmed")
+                "dispatching", "awaiting_checkpoint", "compacting", "awaiting_shrink", "blocked", "failed_open"}
+                or (state.get("phase") in {"blocked", "failed_open"}
+                    and state.get("failure") not in {"checkpoint_unconfirmed", "command_submission_uncertain", "compact_rpc_unconfirmed"})
                 or failure.identity == state.get("native_failure_id")):
             return
         dispatch = state.get("dispatch")
@@ -424,21 +435,36 @@ class RuntimeCompactionControl:
         if (failure.persisted_at < started or failure.persisted_at > self.ports.now() + 30
                 or (checkpoint is not None and checkpoint.persisted_at >= failure.persisted_at)):
             return
-        if state.get("request_id"):
-            self.ports.clear(str(state["request_id"]))
         state["native_failure_id"] = failure.identity
         state["native_failure_at"] = failure.persisted_at
         state["baseline_checkpoint_id"] = checkpoint.identity if checkpoint else state.get("baseline_checkpoint_id", "")
         state["checkpoint_id"] = ""
         state.pop("shrink_observed", None)
         state["attempts"] = max(1, _positive(state.get("attempts")))
-        self._retry(state, "native_compact_idle_timeout")
+        self._retry(state, failure.reason)
 
     def _refresh(self, state: dict[str, Any], scope: CompactionScope,
                  checkpoint: NativeCompactionCheckpoint | None) -> None:
         if not state or state.get("phase") == "verified":
             return
         now = self.ports.now()
+        if state.get("phase") == "blocked" and state.get("failure") != "state_unavailable":
+            # Existing persisted terminal failures obey the same release contract.
+            self._fail_open(state, str(state.get("failure") or "compact_blocked"))
+        if state.get("phase") == "failed_open":
+            # A late checkpoint may prove success, but cannot revoke failure release
+            # or replay another compact merely because polling observed it.
+            if (checkpoint and checkpoint.scope == scope
+                    and checkpoint.identity != state.get("baseline_checkpoint_id")
+                    and checkpoint.persisted_at >= float(state.get("requested_at") or 0)
+                    and checkpoint.persisted_at > float(state.get("native_failure_at") or 0)
+                    and not (checkpoint.post_tokens and _positive(state.get("context_limit"))
+                             and checkpoint.post_tokens >= _positive(state.get("context_limit")))):
+                state["checkpoint_id"] = checkpoint.identity
+                self._release(state, checkpoint)
+                if state.get("phase") == "failed_open":
+                    self._write(state)
+            return
         if state.get('proactive') and state.get('phase') in {'needed', 'queued', 'retry_wait'}:
             if (checkpoint.identity if checkpoint else str()) != state.get('baseline_checkpoint_id'):
                 self._cancel_proactive(state, 'proactive_checkpoint_superseded')
@@ -463,23 +489,22 @@ class RuntimeCompactionControl:
             self._release(state, checkpoint)
         if (state.get("phase") == "awaiting_shrink" and now >= float(state.get("deadline") or 0)
                 and state.get("failure") != "shrink_unconfirmed"):
-            # No timer release or replay: late real proof is still accepted.
-            state.update({"failure": "shrink_unconfirmed", "failure_at": now})
-            self._write(state, "shrink_confirmation_timeout")
+            self._fail_open(state, "shrink_unconfirmed")
         if state.get("phase") in {"dispatching", "awaiting_checkpoint", "compacting"}:
             if now >= float(state.get("deadline") or 0):
-                # An uncertain submission cannot authorize another compact.
-                state.update({"phase": "blocked", "failure": "checkpoint_unconfirmed", "failure_at": now})
-                self._write(state, "confirmation_timeout")
+                # No replay on a timer: end this gate lease, preserving uncertainty.
+                self._fail_open(state, "checkpoint_unconfirmed")
         if state.get("phase") == "queued" and now >= float(state.get("deadline") or 0):
-            if state.get("request_id"):
-                self.ports.clear(str(state["request_id"]))
             self._retry(state, "request_expired_before_dispatch")
         elif state.get("phase") == "queued":
             # A manual session action may have replaced our automatic slot.
             # Re-reservation does not overwrite it; once it is consumed a new
             # automatic id can be reserved without waiting for the old TTL.
-            request = self.ports.queue(scope.payload(), "full-history context pressure")
+            try:
+                request = self.ports.queue(scope.payload(), "full-history context pressure")
+            except Exception:
+                self._fail_open(state, "retry_queue_failed")
+                return
             if request is None:
                 if state.get('proactive'):
                     self._cancel_proactive(state, 'manual_priority')
@@ -494,7 +519,11 @@ class RuntimeCompactionControl:
         if state.get("phase") == "retry_wait" and now >= float(state.get("cooldown_until") or 0):
             state["phase"] = "needed"
         if state.get("phase") == "needed":
-            request = self.ports.queue(scope.payload(), "full-history context pressure")
+            try:
+                request = self.ports.queue(scope.payload(), "full-history context pressure")
+            except Exception:  # A failed retry scheduler must not strand external input.
+                self._fail_open(state, "retry_queue_failed")
+                return
             if request:
                 state.update({
                     "phase": "queued", "request_id": str(request.get("id") or ""),
@@ -527,8 +556,8 @@ class RuntimeCompactionControl:
                 state and state.get("phase") != "verified"), preserve_request=True) as (state, checkpoint):
             if state is None:
                 return
-            active = bool(state and state.get("phase") != "verified")
-            if not active:
+            active = bool(state and state.get("phase") not in {"verified", "failed_open"})
+            if not active and (state.get("phase") != "failed_open" or native or recovery_required):
                 if not pressure and not native:
                     return
                 seen = state.get('safeguard_seen', [])
@@ -571,7 +600,7 @@ class RuntimeCompactionControl:
             baseline = _positive(state.get("baseline_tokens"))
             shrunk = bool(not native and not recovery_required
                           and _below_capacity(raw_tokens, context_limit, baseline))
-            if shrunk and state.get("phase") in {"dispatching", "awaiting_checkpoint", "compacting", "awaiting_shrink"}:
+            if shrunk and state.get("phase") in {"dispatching", "awaiting_checkpoint", "compacting", "awaiting_shrink", "failed_open"}:
                 state["shrink_observed"] = {"tokens": raw_tokens, "at": self.ports.now()}
                 self._write(state, "smaller_request_before_checkpoint")
             self._refresh(state, scope, checkpoint)
@@ -650,7 +679,7 @@ class RuntimeCompactionControl:
                 if state is None:
                     return True
                 self._refresh(state, scope, checkpoint)
-                return bool(state and state.get('phase') != 'verified' and not (state.get('proactive') and state.get('phase') in {'needed', 'queued', 'retry_wait'}))
+                return bool(state and state.get('phase') not in {'verified', 'failed_open'} and not (state.get('proactive') and state.get('phase') in {'needed', 'queued', 'retry_wait'}))
         except (OSError, ValueError, TypeError) as exc:
             self.ports.log("WARN", f"runtime_compaction_control admission=paused reason=state_unavailable error={type(exc).__name__}")
             return True
@@ -702,14 +731,15 @@ class RuntimeCompactionControl:
                 self._refresh(state, scope, checkpoint)
                 if (state.get("phase") != "queued"
                         or state.get("request_id") != str(request.get("id") or "")):
-                    if state.get("phase") in {"verified", "awaiting_shrink", "compacting", "blocked"}:
+                    if state.get("phase") in {"verified", "awaiting_shrink", "compacting", "blocked", "failed_open"}:
                         self.ports.clear(str(request.get("id") or ""))
                     return False
-            elif state.get("request_id") == str(request.get("id") or ""):
+            elif (state.get("request_id") == str(request.get("id") or "")
+                    or (state.get("dispatch") or {}).get("request_id") == str(request.get("id") or "")):
                 # Two consumers may have read the same single slot. A manual
                 # retry is a new request id, never a second dispatch of this id.
                 return False
-            elif not state or state.get("phase") == "verified":
+            elif not state or state.get("phase") in {"verified", "failed_open"}:
                 state = self._start(scope, 0, 0, pressure=False, checkpoint=checkpoint)
             if not automatic:
                 state.pop('proactive', None)
@@ -717,6 +747,8 @@ class RuntimeCompactionControl:
                 state["checkpoint_id"] = ""
                 state["requested_at"] = self.ports.now()
             state.pop("shrink_observed", None)
+            if not automatic:
+                state["attempts"] = _positive(state.get("attempts")) + 1
             state['dispatch'] = {'automatic': automatic,
                 'source': 'model-compact-safeguard' if automatic and state.get('proactive') else str(request.get('source') or 'manual'),
                 'scope': scope.payload(), 'request_id': str(request.get('id') or str()),
@@ -750,26 +782,43 @@ class RuntimeCompactionControl:
             if isinstance(dispatch, dict):
                 dispatch["submission"] = "submitted" if reason == "command_submitted" else "uncertain" if phase == "blocked" else "failed"
                 self._write(state)
-            if state.get("phase") in {"awaiting_shrink", "verified", "compacting"}:
+            if state.get("phase") in {"awaiting_shrink", "verified", "compacting", "failed_open"}:
                 return
             if phase == "retry_wait":
-                self.ports.clear(str(request.get("id") or ""))
-                if request.get("automatic") is True:
-                    self._retry(state, reason)
-                else:
-                    state.update({"phase": "blocked", "failure": reason})
-                    self._write(state, reason)
+                self._retry(state, reason)
+            elif phase == "blocked":
+                self._fail_open(state, reason)
             else:
                 state.update({"phase": phase, "failure": reason})
                 self._write(state, reason)
+
+    def _fail_open(self, state: dict[str, Any], reason: str) -> None:
+        if state.get("request_id"):
+            try:
+                self.ports.clear(str(state["request_id"]))
+            except Exception:  # Release remains durable even if slot cleanup fails.
+                # A stale automatic slot still cannot dispatch in failed_open.
+                self.ports.log("WARN", "runtime_compaction_control event=failed_slot_clear_deferred")
+        state.pop("proactive", None)
+        state.pop("shrink_observed", None)
+        state.update({"phase": "failed_open", "failure": reason, "failure_at": self.ports.now(),
+                      "admission_released_at": self.ports.now(), "request_id": ""})
+        self._write(state, "compact_failed_admission_released")
 
     def _retry(self, state: dict[str, Any], reason: str) -> None:
         if state.get('proactive'):
             self._cancel_proactive(state, reason)
             return
+        if state.get("request_id"):
+            try:
+                self.ports.clear(str(state["request_id"]))
+            except Exception:
+                self._fail_open(state, "retry_slot_clear_failed")
+                return
         state.update({"failure": reason, "request_id": ""})
         if _positive(state.get("attempts")) >= self.policy.max_attempts:
-            state["phase"] = "blocked"
+            self._fail_open(state, reason)
+            return
         else:
             state.update({"phase": "retry_wait", "cooldown_until": self.ports.now() + self.policy.retry_cooldown_seconds})
         self._write(state, reason)
@@ -831,7 +880,7 @@ def build_runtime_compaction_control(
                 or any(not isinstance(identity.get(key), str) or not identity[key].strip()
                        for key in ("session_id", "epoch"))
                 or value.get("phase") not in {"needed", "queued", "dispatching", "awaiting_checkpoint",
-                    "compacting", "awaiting_shrink", "blocked", "retry_wait", "verified"})
+                    "compacting", "awaiting_shrink", "blocked", "retry_wait", "verified", "failed_open"})
 
     def unknown_marker():
         return {"scope": {}, "phase": "blocked", "unresolved_scope": True,

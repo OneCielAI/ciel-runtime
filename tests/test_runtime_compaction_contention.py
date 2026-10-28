@@ -138,9 +138,9 @@ class ContentionTests(fixtures._ControllerHarness):
         self.append(fixtures.boundary('session-a', self.clock))
         self.assertTrue(self.control.external_admission_paused())
         self.clock += 11
-        self.assertTrue(self.control.external_admission_paused())
+        self.assertFalse(self.control.external_admission_paused())
         state = self.snapshot()
-        self.assertEqual('awaiting_shrink', state['phase'])
+        self.assertEqual('failed_open', state['phase'])
         self.assertEqual('shrink_unconfirmed', state['failure'])
         self.assertEqual(self.clock, state['failure_at'])
         self.assertIsNone(self.repository.read())

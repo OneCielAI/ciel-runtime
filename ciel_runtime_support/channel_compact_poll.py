@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from .channel_message_repository import ChannelFileLockBusy
+from .channel_compact_injection import CompactSubmissionUncertain
 
 
 @dataclass(frozen=True, slots=True)
@@ -71,6 +72,10 @@ def poll_pending_compaction(
             runtime=options.runtime,
             actions=options.actions,
         )
+    except CompactSubmissionUncertain:
+        # The injector persisted the failed-open result. Do not kill the SSE
+        # poller or replay this command; the controller rejects its old id.
+        return ChannelCompactPollState(now, state.defer_logged_at)
     except ChannelFileLockBusy:
         # The injector masks this type once submission may have started.
         # Leave the request and defer-log timestamp intact for a bounded poll.

@@ -73,12 +73,12 @@ class CompactIdleRetryTests(fixtures._ControllerHarness):
         self.native_start()
         self.clock += 1
         self.append(failure(self.scope, self.clock, identity='idle-2', automatic=True))
-        self.assertTrue(self.control.external_admission_paused())
-        self.assertEqual('blocked', self.snapshot()['phase'])
+        self.assertFalse(self.control.external_admission_paused())
+        self.assertEqual('failed_open', self.snapshot()['phase'])
         self.control = self.factory()
         self.control.ports = replace(self.control.ports, now=lambda: self.clock)
         self.clock += 100
-        self.assertTrue(self.control.external_admission_paused())
+        self.assertFalse(self.control.external_admission_paused())
         self.assertEqual(2, self.snapshot()['attempts'])
         self.assertIsNone(self.repository.read())
 
@@ -127,7 +127,7 @@ class CompactIdleRetryTests(fixtures._ControllerHarness):
     def test_no_native_failure_never_retries_uncertain_timeout(self):
         self.native_start()
         self.clock += 20
-        self.assertTrue(self.control.external_admission_paused())
+        self.assertFalse(self.control.external_admission_paused())
         self.assertEqual('checkpoint_unconfirmed', self.snapshot()['failure'])
         self.assertIsNone(self.repository.read())
 
@@ -150,8 +150,8 @@ class CompactIdleRetryTests(fixtures._ControllerHarness):
     def test_terminal_failure_after_confirmation_timeout_recovers_once(self):
         self.native_start()
         self.clock += 20
-        self.assertTrue(self.control.external_admission_paused())
-        self.assertEqual('blocked', self.snapshot()['phase'])
+        self.assertFalse(self.control.external_admission_paused())
+        self.assertEqual('failed_open', self.snapshot()['phase'])
         self.append(failure(self.scope, self.clock))
         self.assertTrue(self.control.external_admission_paused())
         self.assertEqual('retry_wait', self.snapshot()['phase'])
