@@ -1,0 +1,10 @@
+01-work-on-start
+saved C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\27\features\work-mode-switch\evidence\run-source-211931\01-work-on-start.png handle=14883378 printwindow=True
+02-agent-turned-off
+saved C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\27\features\work-mode-switch\evidence\run-source-211931\02-agent-turned-off.png handle=14883378 printwindow=True
+03-edit-allowed-while-off
+saved C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\27\features\work-mode-switch\evidence\run-source-211931\03-edit-allowed-while-off.png handle=14883378 printwindow=True
+04-agent-turned-on
+saved C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\27\features\work-mode-switch\evidence\run-source-211931\04-agent-turned-on.png handle=14883378 printwindow=True
+05-edit-gated-again
+saved C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\27\features\work-mode-switch\evidence\run-source-211931\05-edit-gated-again.png handle=14883378 printwindow=True

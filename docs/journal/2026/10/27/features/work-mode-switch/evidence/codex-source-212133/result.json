@@ -1,0 +1,81 @@
+{
+  "repo": "C:\\Users\\djlov\\ciel-runtime-wt-work",
+  "preapproved": {
+    "case": "preapproved",
+    "temp_root": "C:\\Users\\djlov\\AppData\\Local\\Temp\\codex-switch-j1r4jfs5",
+    "codex_args": [
+      "-c",
+      "mcp_servers.ciel-runtime-router.tools.work_mode_set.approval_mode=\"approve\""
+    ],
+    "config_before": false,
+    "router_work_tools_while_off": [
+      "work_mode_set"
+    ],
+    "version": "codex-cli 0.158.0",
+    "turn_status": "completed",
+    "config_after": true,
+    "gateway_requests": 2,
+    "tools_offered": [
+      "work_mode_set"
+    ],
+    "mcp_switch_calls": [
+      {
+        "enabled": true
+      }
+    ],
+    "tool_output_seen_by_model": "[{\"type\": \"input_text\", \"text\": \"Wall time: 0.0169 seconds\\nOutput:\"}, {\"type\": \"input_text\", \"text\": \"Ciel Work mode is now on for this workspace (ciel-runtime menu -> LLM options -> Work mode). Sessions launched with Work mode on resume Work at their next check; a session launched while it was off loads the Work tools, hooks and instructions on its next launch.\"}]"
+  },
+  "negative": {
+    "case": "negative",
+    "temp_root": "C:\\Users\\djlov\\AppData\\Local\\Temp\\codex-switch-p4q3gpk9",
+    "codex_args": [],
+    "config_before": false,
+    "router_work_tools_while_off": [
+      "work_mode_set"
+    ],
+    "version": "codex-cli 0.158.0",
+    "turn_status": "completed",
+    "config_after": false,
+    "gateway_requests": 2,
+    "tools_offered": [
+      "work_mode_set"
+    ],
+    "mcp_switch_calls": [],
+    "tool_output_seen_by_model": "[{\"type\": \"input_text\", \"text\": \"Wall time: 0.0044 seconds\\nOutput:\"}, {\"type\": \"input_text\", \"text\": \"MCP tool call requires approval, but approval policy is never\"}]"
+  },
+  "live_before": {
+    "9505": {
+      "pid": 62984,
+      "version": "0.2.51-nightly.20261027-194324.273856d",
+      "error": null
+    },
+    "9524": {
+      "pid": 68132,
+      "version": "0.2.51-nightly.20261028-005129.d2856f8",
+      "error": null
+    }
+  },
+  "live_after": {
+    "9505": {
+      "pid": 62984,
+      "version": "0.2.51-nightly.20261027-194324.273856d",
+      "error": null
+    },
+    "9524": {
+      "pid": 68132,
+      "version": "0.2.51-nightly.20261028-005129.d2856f8",
+      "error": null
+    }
+  },
+  "checks": {
+    "launch_args_preapprove_only_switch": true,
+    "router_lists_only_switch_while_off": true,
+    "preapproved_call_reached_router": true,
+    "preapproved_config_turned_on": true,
+    "preapproved_model_saw_now_on": true,
+    "negative_call_never_reached_router": true,
+    "negative_config_unchanged": true,
+    "no_error": true,
+    "live_unchanged": true
+  }
+}

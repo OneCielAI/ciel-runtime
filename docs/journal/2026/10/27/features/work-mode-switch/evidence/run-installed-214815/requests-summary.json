@@ -1,0 +1,418 @@
+[
+ {
+  "n": 1,
+  "tag": null,
+  "stage": 0,
+  "tools_offered": [],
+  "work_instructions_in_turn_prompt": false,
+  "last_tool_result": null,
+  "config_work_mode": true,
+  "response": [
+   {
+    "type": "text",
+    "text": "AUX-OK"
+   }
+  ]
+ },
+ {
+  "n": 2,
+  "tag": "OFF",
+  "stage": 0,
+  "tools_offered": [
+   "mcp__ciel-runtime-router__work_execute",
+   "mcp__ciel-runtime-router__work_focus",
+   "mcp__ciel-runtime-router__work_mode_set",
+   "mcp__ciel-runtime-router__work_node_add",
+   "mcp__ciel-runtime-router__work_node_remove",
+   "mcp__ciel-runtime-router__work_node_update",
+   "mcp__ciel-runtime-router__work_plan_set",
+   "mcp__ciel-runtime-router__work_reorder",
+   "mcp__ciel-runtime-router__work_replan",
+   "mcp__ciel-runtime-router__work_select",
+   "mcp__ciel-runtime-router__work_status",
+   "mcp__ciel-runtime-router__work_urgent"
+  ],
+  "work_instructions_in_turn_prompt": true,
+  "last_tool_result": null,
+  "config_work_mode": true,
+  "served_tool": {
+   "name": "mcp__ciel-runtime-router__work_mode_set",
+   "input": {
+    "enabled": false
+   }
+  },
+  "response": [
+   {
+    "type": "tool_use",
+    "id": "toolu_s2",
+    "name": "mcp__ciel-runtime-router__work_mode_set",
+    "input": {
+     "enabled": false
+    }
+   }
+  ]
+ },
+ {
+  "n": 3,
+  "tag": "OFF",
+  "stage": 1,
+  "tools_offered": [
+   "mcp__ciel-runtime-router__work_execute",
+   "mcp__ciel-runtime-router__work_focus",
+   "mcp__ciel-runtime-router__work_mode_set",
+   "mcp__ciel-runtime-router__work_node_add",
+   "mcp__ciel-runtime-router__work_node_remove",
+   "mcp__ciel-runtime-router__work_node_update",
+   "mcp__ciel-runtime-router__work_plan_set",
+   "mcp__ciel-runtime-router__work_reorder",
+   "mcp__ciel-runtime-router__work_replan",
+   "mcp__ciel-runtime-router__work_select",
+   "mcp__ciel-runtime-router__work_status",
+   "mcp__ciel-runtime-router__work_urgent"
+  ],
+  "work_instructions_in_turn_prompt": true,
+  "last_tool_result": {
+   "tool_use_id": "toolu_s2",
+   "type": "tool_result",
+   "content": [
+    {
+     "type": "text",
+     "text": "Ciel Work mode is now off for this workspace (ciel-runtime menu -> LLM options -> Work mode): every Ciel session launched from this folder and later launches. Plans are kept. Work prompts, edit gates and auto continue stop at their next check. Turn it back on with work_mode_set(enabled=true)."
+    }
+   ],
+   "cache_control": {
+    "type": "ephemeral"
+   }
+  },
+  "config_work_mode": false,
+  "response": [
+   {
+    "type": "text",
+    "text": "E2EWMS-OFF-DONE"
+   }
+  ]
+ },
+ {
+  "n": 4,
+  "tag": null,
+  "stage": 0,
+  "tools_offered": [],
+  "work_instructions_in_turn_prompt": false,
+  "last_tool_result": null,
+  "config_work_mode": false,
+  "response": [
+   {
+    "type": "text",
+    "text": "AUX-OK"
+   }
+  ]
+ },
+ {
+  "n": 4,
+  "tag": "PROBE-OFF",
+  "stage": 0,
+  "tools_offered": [
+   "mcp__ciel-runtime-router__work_execute",
+   "mcp__ciel-runtime-router__work_focus",
+   "mcp__ciel-runtime-router__work_mode_set",
+   "mcp__ciel-runtime-router__work_node_add",
+   "mcp__ciel-runtime-router__work_node_remove",
+   "mcp__ciel-runtime-router__work_node_update",
+   "mcp__ciel-runtime-router__work_plan_set",
+   "mcp__ciel-runtime-router__work_reorder",
+   "mcp__ciel-runtime-router__work_replan",
+   "mcp__ciel-runtime-router__work_select",
+   "mcp__ciel-runtime-router__work_status",
+   "mcp__ciel-runtime-router__work_urgent"
+  ],
+  "work_instructions_in_turn_prompt": false,
+  "last_tool_result": null,
+  "config_work_mode": false,
+  "served_tool": {
+   "name": "Read",
+   "input": {
+    "file_path": "C:\\Users\\djlov\\AppData\\Local\\Temp\\work-switch-972c19a3\\ws\\subject.txt"
+   }
+  },
+  "response": [
+   {
+    "type": "tool_use",
+    "id": "toolu_s4",
+    "name": "Read",
+    "input": {
+     "file_path": "C:\\Users\\djlov\\AppData\\Local\\Temp\\work-switch-972c19a3\\ws\\subject.txt"
+    }
+   }
+  ]
+ },
+ {
+  "n": 6,
+  "tag": "PROBE-OFF",
+  "stage": 1,
+  "tools_offered": [
+   "mcp__ciel-runtime-router__work_execute",
+   "mcp__ciel-runtime-router__work_focus",
+   "mcp__ciel-runtime-router__work_mode_set",
+   "mcp__ciel-runtime-router__work_node_add",
+   "mcp__ciel-runtime-router__work_node_remove",
+   "mcp__ciel-runtime-router__work_node_update",
+   "mcp__ciel-runtime-router__work_plan_set",
+   "mcp__ciel-runtime-router__work_reorder",
+   "mcp__ciel-runtime-router__work_replan",
+   "mcp__ciel-runtime-router__work_select",
+   "mcp__ciel-runtime-router__work_status",
+   "mcp__ciel-runtime-router__work_urgent"
+  ],
+  "work_instructions_in_turn_prompt": false,
+  "last_tool_result": {
+   "tool_use_id": "toolu_s4",
+   "type": "tool_result",
+   "content": "1\tBEFORE\n2\t",
+   "cache_control": {
+    "type": "ephemeral"
+   }
+  },
+  "config_work_mode": false,
+  "served_tool": {
+   "name": "Edit",
+   "input": {
+    "file_path": "C:\\Users\\djlov\\AppData\\Local\\Temp\\work-switch-972c19a3\\ws\\subject.txt",
+    "old_string": "BEFORE",
+    "new_string": "AFTER-OFF"
+   }
+  },
+  "response": [
+   {
+    "type": "tool_use",
+    "id": "toolu_s6",
+    "name": "Edit",
+    "input": {
+     "file_path": "C:\\Users\\djlov\\AppData\\Local\\Temp\\work-switch-972c19a3\\ws\\subject.txt",
+     "old_string": "BEFORE",
+     "new_string": "AFTER-OFF"
+    }
+   }
+  ]
+ },
+ {
+  "n": 7,
+  "tag": "PROBE-OFF",
+  "stage": 2,
+  "tools_offered": [
+   "mcp__ciel-runtime-router__work_execute",
+   "mcp__ciel-runtime-router__work_focus",
+   "mcp__ciel-runtime-router__work_mode_set",
+   "mcp__ciel-runtime-router__work_node_add",
+   "mcp__ciel-runtime-router__work_node_remove",
+   "mcp__ciel-runtime-router__work_node_update",
+   "mcp__ciel-runtime-router__work_plan_set",
+   "mcp__ciel-runtime-router__work_reorder",
+   "mcp__ciel-runtime-router__work_replan",
+   "mcp__ciel-runtime-router__work_select",
+   "mcp__ciel-runtime-router__work_status",
+   "mcp__ciel-runtime-router__work_urgent"
+  ],
+  "work_instructions_in_turn_prompt": false,
+  "last_tool_result": {
+   "tool_use_id": "toolu_s6",
+   "type": "tool_result",
+   "content": "The file C:\\Users\\djlov\\AppData\\Local\\Temp\\work-switch-972c19a3\\ws\\subject.txt has been updated successfully. (file state is current in your context — no need to Read it back)",
+   "cache_control": {
+    "type": "ephemeral"
+   }
+  },
+  "config_work_mode": false,
+  "response": [
+   {
+    "type": "text",
+    "text": "E2EWMS-PROBE-OFF-DONE"
+   }
+  ]
+ },
+ {
+  "n": 8,
+  "tag": null,
+  "stage": 0,
+  "tools_offered": [],
+  "work_instructions_in_turn_prompt": false,
+  "last_tool_result": null,
+  "config_work_mode": false,
+  "response": [
+   {
+    "type": "text",
+    "text": "AUX-OK"
+   }
+  ]
+ },
+ {
+  "n": 8,
+  "tag": "ON",
+  "stage": 0,
+  "tools_offered": [
+   "mcp__ciel-runtime-router__work_execute",
+   "mcp__ciel-runtime-router__work_focus",
+   "mcp__ciel-runtime-router__work_mode_set",
+   "mcp__ciel-runtime-router__work_node_add",
+   "mcp__ciel-runtime-router__work_node_remove",
+   "mcp__ciel-runtime-router__work_node_update",
+   "mcp__ciel-runtime-router__work_plan_set",
+   "mcp__ciel-runtime-router__work_reorder",
+   "mcp__ciel-runtime-router__work_replan",
+   "mcp__ciel-runtime-router__work_select",
+   "mcp__ciel-runtime-router__work_status",
+   "mcp__ciel-runtime-router__work_urgent"
+  ],
+  "work_instructions_in_turn_prompt": false,
+  "last_tool_result": null,
+  "config_work_mode": false,
+  "served_tool": {
+   "name": "mcp__ciel-runtime-router__work_mode_set",
+   "input": {
+    "enabled": true
+   }
+  },
+  "response": [
+   {
+    "type": "tool_use",
+    "id": "toolu_s8",
+    "name": "mcp__ciel-runtime-router__work_mode_set",
+    "input": {
+     "enabled": true
+    }
+   }
+  ]
+ },
+ {
+  "n": 10,
+  "tag": "ON",
+  "stage": 1,
+  "tools_offered": [
+   "mcp__ciel-runtime-router__work_execute",
+   "mcp__ciel-runtime-router__work_focus",
+   "mcp__ciel-runtime-router__work_mode_set",
+   "mcp__ciel-runtime-router__work_node_add",
+   "mcp__ciel-runtime-router__work_node_remove",
+   "mcp__ciel-runtime-router__work_node_update",
+   "mcp__ciel-runtime-router__work_plan_set",
+   "mcp__ciel-runtime-router__work_reorder",
+   "mcp__ciel-runtime-router__work_replan",
+   "mcp__ciel-runtime-router__work_select",
+   "mcp__ciel-runtime-router__work_status",
+   "mcp__ciel-runtime-router__work_urgent"
+  ],
+  "work_instructions_in_turn_prompt": false,
+  "last_tool_result": {
+   "tool_use_id": "toolu_s8",
+   "type": "tool_result",
+   "content": [
+    {
+     "type": "text",
+     "text": "Ciel Work mode is now on for this workspace (ciel-runtime menu -> LLM options -> Work mode). Sessions launched with Work mode on resume Work at their next check; a session launched while it was off loads the Work tools, hooks and instructions on its next launch."
+    }
+   ],
+   "cache_control": {
+    "type": "ephemeral"
+   }
+  },
+  "config_work_mode": true,
+  "response": [
+   {
+    "type": "text",
+    "text": "E2EWMS-ON-DONE"
+   }
+  ]
+ },
+ {
+  "n": 11,
+  "tag": null,
+  "stage": 0,
+  "tools_offered": [],
+  "work_instructions_in_turn_prompt": false,
+  "last_tool_result": null,
+  "config_work_mode": true,
+  "response": [
+   {
+    "type": "text",
+    "text": "AUX-OK"
+   }
+  ]
+ },
+ {
+  "n": 12,
+  "tag": "PROBE-ON",
+  "stage": 0,
+  "tools_offered": [
+   "mcp__ciel-runtime-router__work_execute",
+   "mcp__ciel-runtime-router__work_focus",
+   "mcp__ciel-runtime-router__work_mode_set",
+   "mcp__ciel-runtime-router__work_node_add",
+   "mcp__ciel-runtime-router__work_node_remove",
+   "mcp__ciel-runtime-router__work_node_update",
+   "mcp__ciel-runtime-router__work_plan_set",
+   "mcp__ciel-runtime-router__work_reorder",
+   "mcp__ciel-runtime-router__work_replan",
+   "mcp__ciel-runtime-router__work_select",
+   "mcp__ciel-runtime-router__work_status",
+   "mcp__ciel-runtime-router__work_urgent"
+  ],
+  "work_instructions_in_turn_prompt": true,
+  "last_tool_result": null,
+  "config_work_mode": true,
+  "served_tool": {
+   "name": "Edit",
+   "input": {
+    "file_path": "C:\\Users\\djlov\\AppData\\Local\\Temp\\work-switch-972c19a3\\ws\\subject.txt",
+    "old_string": "AFTER-OFF",
+    "new_string": "AFTER-ON"
+   }
+  },
+  "response": [
+   {
+    "type": "tool_use",
+    "id": "toolu_s12",
+    "name": "Edit",
+    "input": {
+     "file_path": "C:\\Users\\djlov\\AppData\\Local\\Temp\\work-switch-972c19a3\\ws\\subject.txt",
+     "old_string": "AFTER-OFF",
+     "new_string": "AFTER-ON"
+    }
+   }
+  ]
+ },
+ {
+  "n": 13,
+  "tag": "PROBE-ON",
+  "stage": 1,
+  "tools_offered": [
+   "mcp__ciel-runtime-router__work_execute",
+   "mcp__ciel-runtime-router__work_focus",
+   "mcp__ciel-runtime-router__work_mode_set",
+   "mcp__ciel-runtime-router__work_node_add",
+   "mcp__ciel-runtime-router__work_node_remove",
+   "mcp__ciel-runtime-router__work_node_update",
+   "mcp__ciel-runtime-router__work_plan_set",
+   "mcp__ciel-runtime-router__work_reorder",
+   "mcp__ciel-runtime-router__work_replan",
+   "mcp__ciel-runtime-router__work_select",
+   "mcp__ciel-runtime-router__work_status",
+   "mcp__ciel-runtime-router__work_urgent"
+  ],
+  "work_instructions_in_turn_prompt": true,
+  "last_tool_result": {
+   "type": "tool_result",
+   "content": "<tool_use_error>Work mode is planning: direct file edits wait until the plan is approved. Build it with work_plan_set, then call work_execute. (/work-mode help)</tool_use_error>",
+   "is_error": true,
+   "tool_use_id": "toolu_s12",
+   "cache_control": {
+    "type": "ephemeral"
+   }
+  },
+  "config_work_mode": true,
+  "response": [
+   {
+    "type": "text",
+    "text": "E2EWMS-PROBE-ON-DONE"
+   }
+  ]
+ }
+]

@@ -1,0 +1,5 @@
+C:\Users\djlov\.local\share\ciel-runtime-679245fa9feaff3d72d7c948a53b5a7a92d5a2d4\ciel_runtime_support\codex_app_server_session.py:417: SyntaxWarning: 'return' in a 'finally' block
+  return _RemoteRun(1)
+ciel-runtime router starting on 127.0.0.1:49520 (client base http://127.0.0.1:49520, log level INFO, source=env)
+web: http://127.0.0.1:49520/
+web_tailscale_https_recommended: ciel-runtime --ca-web-port 49520 --ca-tailscale-https=49520

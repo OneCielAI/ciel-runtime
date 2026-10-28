@@ -1,0 +1,18 @@
+{
+  "case": "negative",
+  "temp_root": "C:\\Users\\djlov\\AppData\\Local\\Temp\\codex-switch-yyfbowzt",
+  "codex_args": [],
+  "config_before": false,
+  "router_work_tools_while_off": [
+    "work_mode_set"
+  ],
+  "version": "codex-cli 0.158.0",
+  "turn_status": "completed",
+  "config_after": false,
+  "gateway_requests": 2,
+  "tools_offered": [
+    "work_mode_set"
+  ],
+  "mcp_switch_calls": [],
+  "tool_output_seen_by_model": "[{\"type\": \"input_text\", \"text\": \"Wall time: 0.0005 seconds\\nOutput:\"}, {\"type\": \"input_text\", \"text\": \"MCP tool call requires approval, but approval policy is never\"}]"
+}

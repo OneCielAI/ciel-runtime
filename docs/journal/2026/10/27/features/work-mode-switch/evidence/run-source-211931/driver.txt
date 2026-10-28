@@ -1,0 +1,16 @@
+owned router: yes
+owned cmd: yes
+owned window: yes
+interactive ready: yes
+console command: yes
+OFF turn: yes
+console command: yes
+PROBE-OFF turn: yes
+console command: yes
+ON turn: yes
+console command: yes
+PROBE-ON turn: yes
+owned stop 71884 SUCCESS: The process with PID 18552 (child process of PID 71884) has been terminated.
+SUCCESS: The process with PID 71884 (child process of PID 28560) has been terminated.
+owned stop 69448 SUCCESS: The process with PID 69448 (child process of PID 39984) has been terminated.
+evidence C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\27\features\work-mode-switch\evidence\run-source-211931

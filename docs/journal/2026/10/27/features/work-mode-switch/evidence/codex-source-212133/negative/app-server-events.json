@@ -1,0 +1,478 @@
+[
+  {
+    "id": 1,
+    "result": {
+      "userAgent": "switch-proof/0.158.0 (Windows 10.0.26200; x86_64) xterm-256color (switch-proof; 1)",
+      "codexHome": "C:\\Users\\djlov\\AppData\\Local\\Temp\\codex-switch-p4q3gpk9\\codex",
+      "platformFamily": "windows",
+      "platformOs": "windows"
+    }
+  },
+  {
+    "method": "configWarning",
+    "params": {
+      "summary": "Project-local config, hooks, and exec policies are disabled in the following folders until the project is trusted, but skills still load.\n    1. C:\\Users\\djlov\\.codex\n       To load project-local config, hooks, and exec policies, add c:\\ as a trusted project in C:\\Users\\djlov\\AppData\\Local\\Temp\\codex-switch-p4q3gpk9\\codex\\config.toml.\n",
+      "details": null
+    },
+    "emittedAtMs": 1793154099207
+  },
+  {
+    "method": "remoteControl/status/changed",
+    "params": {
+      "status": "disabled",
+      "serverName": "SAMA",
+      "installationId": "36e6ce6c-9c8a-4d57-a7aa-c22df4cbb821",
+      "environmentId": null
+    },
+    "emittedAtMs": 1793154099208
+  },
+  {
+    "id": 2,
+    "result": {
+      "thread": {
+        "id": "01a18050-2815-7421-bbff-eefde3028d2a",
+        "environments": [
+          {
+            "environmentId": "local",
+            "cwd": "C:\\Users\\djlov\\AppData\\Local\\Temp\\codex-switch-p4q3gpk9\\workspace",
+            "runtimeWorkspaceRoots": [
+              "C:\\Users\\djlov\\AppData\\Local\\Temp\\codex-switch-p4q3gpk9\\workspace"
+            ]
+          }
+        ],
+        "extra": null,
+        "sessionId": "01a18050-2815-7421-bbff-eefde3028d2a",
+        "forkedFromId": null,
+        "parentThreadId": null,
+        "preview": "",
+        "ephemeral": true,
+        "section": null,
+        "sectionEnteredAt": null,
+        "projectId": null,
+        "historyMode": "paginated",
+        "modelProvider": "switchproof",
+        "model": "switch-probe",
+        "reasoningEffort": null,
+        "createdAt": 1793154099,
+        "updatedAt": 1793154099,
+        "recencyAt": 1793154099,
+        "status": {
+          "type": "idle"
+        },
+        "path": null,
+        "cwd": "C:\\Users\\djlov\\AppData\\Local\\Temp\\codex-switch-p4q3gpk9\\workspace",
+        "cliVersion": "0.158.0",
+        "originator": "switch-proof",
+        "source": "vscode",
+        "canAcceptDirectInput": true,
+        "threadSource": null,
+        "agentNickname": null,
+        "agentRole": null,
+        "gitInfo": null,
+        "name": null,
+        "daybreakEnabled": null,
+        "turns": []
+      },
+      "model": "switch-probe",
+      "modelProvider": "switchproof",
+      "serviceTier": null,
+      "disabledPluginIds": [],
+      "cwd": "C:\\Users\\djlov\\AppData\\Local\\Temp\\codex-switch-p4q3gpk9\\workspace",
+      "runtimeWorkspaceRoots": [
+        "C:\\Users\\djlov\\AppData\\Local\\Temp\\codex-switch-p4q3gpk9\\workspace"
+      ],
+      "instructionSources": [],
+      "approvalPolicy": "never",
+      "approvalsReviewer": "user",
+      "sandbox": {
+        "type": "readOnly",
+        "networkAccess": false
+      },
+      "activePermissionProfile": null,
+      "reasoningEffort": null,
+      "multiAgentMode": "explicitRequestOnly"
+    }
+  },
+  {
+    "method": "thread/started",
+    "params": {
+      "thread": {
+        "id": "01a18050-2815-7421-bbff-eefde3028d2a",
+        "environments": [
+          {
+            "environmentId": "local",
+            "cwd": "C:\\Users\\djlov\\AppData\\Local\\Temp\\codex-switch-p4q3gpk9\\workspace",
+            "runtimeWorkspaceRoots": [
+              "C:\\Users\\djlov\\AppData\\Local\\Temp\\codex-switch-p4q3gpk9\\workspace"
+            ]
+          }
+        ],
+        "extra": null,
+        "sessionId": "01a18050-2815-7421-bbff-eefde3028d2a",
+        "forkedFromId": null,
+        "parentThreadId": null,
+        "preview": "",
+        "ephemeral": true,
+        "section": null,
+        "sectionEnteredAt": null,
+        "projectId": null,
+        "historyMode": "paginated",
+        "modelProvider": "switchproof",
+        "model": "switch-probe",
+        "reasoningEffort": null,
+        "createdAt": 1793154099,
+        "updatedAt": 1793154099,
+        "recencyAt": 1793154099,
+        "status": {
+          "type": "idle"
+        },
+        "path": null,
+        "cwd": "C:\\Users\\djlov\\AppData\\Local\\Temp\\codex-switch-p4q3gpk9\\workspace",
+        "cliVersion": "0.158.0",
+        "originator": "switch-proof",
+        "source": "vscode",
+        "canAcceptDirectInput": true,
+        "threadSource": null,
+        "agentNickname": null,
+        "agentRole": null,
+        "gitInfo": null,
+        "name": null,
+        "daybreakEnabled": null,
+        "turns": []
+      }
+    },
+    "emittedAtMs": 1793154099287
+  },
+  {
+    "method": "mcpServer/startupStatus/updated",
+    "params": {
+      "threadId": "01a18050-2815-7421-bbff-eefde3028d2a",
+      "name": "ciel-runtime-router",
+      "status": "starting",
+      "error": null,
+      "failureReason": null
+    },
+    "emittedAtMs": 1793154099287
+  },
+  {
+    "method": "warning",
+    "params": {
+      "threadId": "01a18050-2815-7421-bbff-eefde3028d2a",
+      "message": "Model metadata for `switch-probe` not found. Defaulting to fallback metadata; this can degrade performance and cause issues."
+    },
+    "emittedAtMs": 1793154099305
+  },
+  {
+    "method": "mcpServer/startupStatus/updated",
+    "params": {
+      "threadId": "01a18050-2815-7421-bbff-eefde3028d2a",
+      "name": "ciel-runtime-router",
+      "status": "ready",
+      "error": null,
+      "failureReason": null
+    },
+    "emittedAtMs": 1793154099318
+  },
+  {
+    "id": 3,
+    "result": {
+      "turn": {
+        "id": "01a18050-2859-73b1-8909-1fb70b013609",
+        "items": [],
+        "itemsView": "notLoaded",
+        "status": "inProgress",
+        "error": null,
+        "startedAt": null,
+        "completedAt": null,
+        "durationMs": null
+      }
+    }
+  },
+  {
+    "method": "thread/status/changed",
+    "params": {
+      "threadId": "01a18050-2815-7421-bbff-eefde3028d2a",
+      "status": {
+        "type": "active",
+        "activeFlags": []
+      }
+    },
+    "emittedAtMs": 1793154099334
+  },
+  {
+    "method": "turn/started",
+    "params": {
+      "threadId": "01a18050-2815-7421-bbff-eefde3028d2a",
+      "turn": {
+        "id": "01a18050-2859-73b1-8909-1fb70b013609",
+        "items": [],
+        "itemsView": "notLoaded",
+        "status": "inProgress",
+        "error": null,
+        "startedAt": 1793154099,
+        "completedAt": null,
+        "durationMs": null
+      }
+    },
+    "emittedAtMs": 1793154099334
+  },
+  {
+    "method": "item/started",
+    "params": {
+      "item": {
+        "type": "userMessage",
+        "id": "01a18050-2890-7931-8e5b-28b933640b36",
+        "clientId": null,
+        "content": [
+          {
+            "type": "text",
+            "text": "Turn Ciel Work mode on yourself.",
+            "text_elements": []
+          }
+        ]
+      },
+      "threadId": "01a18050-2815-7421-bbff-eefde3028d2a",
+      "turnId": "01a18050-2859-73b1-8909-1fb70b013609",
+      "startedAtMs": 1793154099345
+    },
+    "emittedAtMs": 1793154099345
+  },
+  {
+    "method": "item/completed",
+    "params": {
+      "item": {
+        "type": "userMessage",
+        "id": "01a18050-2890-7931-8e5b-28b933640b36",
+        "clientId": null,
+        "content": [
+          {
+            "type": "text",
+            "text": "Turn Ciel Work mode on yourself.",
+            "text_elements": []
+          }
+        ]
+      },
+      "threadId": "01a18050-2815-7421-bbff-eefde3028d2a",
+      "turnId": "01a18050-2859-73b1-8909-1fb70b013609",
+      "completedAtMs": 1793154099345
+    },
+    "emittedAtMs": 1793154099345
+  },
+  {
+    "method": "item/started",
+    "params": {
+      "item": {
+        "type": "mcpToolCall",
+        "id": "call_1",
+        "server": "ciel-runtime-router",
+        "tool": "work_mode_set",
+        "status": "inProgress",
+        "arguments": {
+          "enabled": true
+        },
+        "appContext": null,
+        "mcpAppUi": null,
+        "pluginId": null,
+        "readOnlyHint": null,
+        "result": null,
+        "error": null,
+        "durationMs": null
+      },
+      "threadId": "01a18050-2815-7421-bbff-eefde3028d2a",
+      "turnId": "01a18050-2859-73b1-8909-1fb70b013609",
+      "startedAtMs": 1793154099354
+    },
+    "emittedAtMs": 1793154099356
+  },
+  {
+    "method": "item/completed",
+    "params": {
+      "item": {
+        "type": "mcpToolCall",
+        "id": "call_1",
+        "server": "ciel-runtime-router",
+        "tool": "work_mode_set",
+        "status": "failed",
+        "arguments": {
+          "enabled": true
+        },
+        "appContext": null,
+        "mcpAppUi": null,
+        "pluginId": null,
+        "readOnlyHint": null,
+        "result": null,
+        "error": {
+          "message": "MCP tool call requires approval, but approval policy is never"
+        },
+        "durationMs": 0
+      },
+      "threadId": "01a18050-2815-7421-bbff-eefde3028d2a",
+      "turnId": "01a18050-2859-73b1-8909-1fb70b013609",
+      "completedAtMs": 1793154099358
+    },
+    "emittedAtMs": 1793154099358
+  },
+  {
+    "method": "thread/tokenUsage/updated",
+    "params": {
+      "threadId": "01a18050-2815-7421-bbff-eefde3028d2a",
+      "turnId": "01a18050-2859-73b1-8909-1fb70b013609",
+      "tokenUsage": {
+        "total": {
+          "totalTokens": 120,
+          "inputTokens": 100,
+          "cachedInputTokens": 0,
+          "cacheWriteInputTokens": 0,
+          "outputTokens": 20,
+          "reasoningOutputTokens": 0
+        },
+        "last": {
+          "totalTokens": 120,
+          "inputTokens": 100,
+          "cachedInputTokens": 0,
+          "cacheWriteInputTokens": 0,
+          "outputTokens": 20,
+          "reasoningOutputTokens": 0
+        },
+        "modelContextWindow": 258400
+      }
+    },
+    "emittedAtMs": 1793154099359
+  },
+  {
+    "method": "account/rateLimits/updated",
+    "params": {
+      "rateLimits": {
+        "limitId": "codex",
+        "limitName": null,
+        "normalModelSlug": null,
+        "primary": null,
+        "secondary": null,
+        "credits": null,
+        "individualLimit": null,
+        "spendControlReached": null,
+        "planType": null,
+        "rateLimitReachedType": null
+      }
+    },
+    "emittedAtMs": 1793154099359
+  },
+  {
+    "method": "item/started",
+    "params": {
+      "item": {
+        "type": "agentMessage",
+        "id": "msg_final",
+        "text": "CODEX_SWITCH_DONE",
+        "phase": null,
+        "memoryCitation": null,
+        "delivery": null,
+        "questions": null
+      },
+      "threadId": "01a18050-2815-7421-bbff-eefde3028d2a",
+      "turnId": "01a18050-2859-73b1-8909-1fb70b013609",
+      "startedAtMs": 1793154099369
+    },
+    "emittedAtMs": 1793154099369
+  },
+  {
+    "method": "item/completed",
+    "params": {
+      "item": {
+        "type": "agentMessage",
+        "id": "msg_final",
+        "text": "CODEX_SWITCH_DONE",
+        "phase": null,
+        "memoryCitation": null,
+        "delivery": null,
+        "questions": null
+      },
+      "threadId": "01a18050-2815-7421-bbff-eefde3028d2a",
+      "turnId": "01a18050-2859-73b1-8909-1fb70b013609",
+      "completedAtMs": 1793154099369
+    },
+    "emittedAtMs": 1793154099369
+  },
+  {
+    "method": "thread/tokenUsage/updated",
+    "params": {
+      "threadId": "01a18050-2815-7421-bbff-eefde3028d2a",
+      "turnId": "01a18050-2859-73b1-8909-1fb70b013609",
+      "tokenUsage": {
+        "total": {
+          "totalTokens": 240,
+          "inputTokens": 200,
+          "cachedInputTokens": 0,
+          "cacheWriteInputTokens": 0,
+          "outputTokens": 40,
+          "reasoningOutputTokens": 0
+        },
+        "last": {
+          "totalTokens": 120,
+          "inputTokens": 100,
+          "cachedInputTokens": 0,
+          "cacheWriteInputTokens": 0,
+          "outputTokens": 20,
+          "reasoningOutputTokens": 0
+        },
+        "modelContextWindow": 258400
+      }
+    },
+    "emittedAtMs": 1793154099369
+  },
+  {
+    "method": "account/rateLimits/updated",
+    "params": {
+      "rateLimits": {
+        "limitId": "codex",
+        "limitName": null,
+        "normalModelSlug": null,
+        "primary": null,
+        "secondary": null,
+        "credits": null,
+        "individualLimit": null,
+        "spendControlReached": null,
+        "planType": null,
+        "rateLimitReachedType": null
+      }
+    },
+    "emittedAtMs": 1793154099369
+  },
+  {
+    "method": "thread/status/changed",
+    "params": {
+      "threadId": "01a18050-2815-7421-bbff-eefde3028d2a",
+      "status": {
+        "type": "idle"
+      }
+    },
+    "emittedAtMs": 1793154099370
+  },
+  {
+    "method": "turn/completed",
+    "params": {
+      "threadId": "01a18050-2815-7421-bbff-eefde3028d2a",
+      "turn": {
+        "id": "01a18050-2859-73b1-8909-1fb70b013609",
+        "items": [
+          {
+            "type": "agentMessage",
+            "id": "msg_final",
+            "text": "CODEX_SWITCH_DONE",
+            "phase": null,
+            "memoryCitation": null,
+            "delivery": null,
+            "questions": null
+          }
+        ],
+        "itemsView": "summary",
+        "status": "completed",
+        "error": null,
+        "startedAt": 1793154099,
+        "completedAt": 1793154099,
+        "durationMs": 65
+      }
+    },
+    "emittedAtMs": 1793154099370
+  }
+]

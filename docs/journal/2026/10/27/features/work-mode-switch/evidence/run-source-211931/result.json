@@ -1,0 +1,563 @@
+{
+ "repo": "C:\\Users\\djlov\\ciel-runtime-wt-work",
+ "stripped_env": [
+  "ANTHROPIC_AUTH_TOKEN",
+  "ANTHROPIC_BASE_URL",
+  "ANTHROPIC_CUSTOM_MODEL_OPTION",
+  "ANTHROPIC_CUSTOM_MODEL_OPTION_SUPPORTED_CAPABILITIES",
+  "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+  "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTED_CAPABILITIES",
+  "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTS",
+  "ANTHROPIC_DEFAULT_OPUS_MODEL",
+  "ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTED_CAPABILITIES",
+  "ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTS",
+  "ANTHROPIC_DEFAULT_SONNET_MODEL",
+  "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTED_CAPABILITIES",
+  "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTS",
+  "ANTHROPIC_MODEL",
+  "CIEL_RUNTIME_AUTO_ALLOW_DANGEROUS_RM",
+  "CIEL_RUNTIME_BYPASS_PERMISSIONS",
+  "CIEL_RUNTIME_CONFIG_DIR",
+  "CIEL_RUNTIME_HOME",
+  "CIEL_RUNTIME_LAUNCH_CWD",
+  "CIEL_RUNTIME_MODEL_ALIAS",
+  "CIEL_RUNTIME_PROVIDER",
+  "CIEL_RUNTIME_REGISTERED_HOME",
+  "CIEL_RUNTIME_SCRIPT",
+  "CIEL_RUNTIME_SELECTED_HOME",
+  "CIEL_RUNTIME_STATE_DIR",
+  "CIEL_RUNTIME_WORKSPACE_STATE_DIR",
+  "CLAUDECODE",
+  "CLAUDE_CHROME_CLASSIFIER_FLOOR",
+  "CLAUDE_CODE_ATTRIBUTION_HEADER",
+  "CLAUDE_CODE_AUTO_COMPACT_WINDOW",
+  "CLAUDE_CODE_CHILD_SESSION",
+  "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS",
+  "CLAUDE_CODE_DISABLE_NONSTREAMING_FALLBACK",
+  "CLAUDE_CODE_DISABLE_TERMINAL_TITLE",
+  "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY",
+  "CLAUDE_CODE_ENTRYPOINT",
+  "CLAUDE_CODE_EXECPATH",
+  "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS",
+  "CLAUDE_CODE_MAX_CONTEXT_TOKENS",
+  "CLAUDE_CODE_MAX_OUTPUT_TOKENS",
+  "CLAUDE_CODE_MAX_RETRIES",
+  "CLAUDE_CODE_MESSAGING_SOCKET",
+  "CLAUDE_CODE_MESSAGING_TOKEN",
+  "CLAUDE_CODE_NONSTREAMING_TIMEOUT_RETRIES",
+  "CLAUDE_CODE_RETRY_WATCHDOG",
+  "CLAUDE_CODE_SEND_FEEDBACK",
+  "CLAUDE_CODE_SESSION_ATTENDED",
+  "CLAUDE_CODE_SESSION_ID",
+  "CLAUDE_CODE_SUBAGENT_MODEL",
+  "CLAUDE_CODE_SUBAGENT_MODEL_FORCE",
+  "CLAUDE_CODE_USE_POWERSHELL_TOOL",
+  "CLAUDE_EFFORT",
+  "CLAUDE_PID",
+  "CODEX_SPARKLE_ENABLED"
+ ],
+ "scratch": "C:\\Users\\djlov\\AppData\\Local\\Temp\\work-switch-2ae2c6f0",
+ "cli_version": "2.1.312 (Claude Code)",
+ "config_start": true,
+ "turns": {
+  "off": true,
+  "probe_off": true,
+  "on": true,
+  "probe_on": true
+ },
+ "config_after_off": false,
+ "router_work_tools_while_off": [
+  "work_mode_set"
+ ],
+ "subject_after_probe_off": "AFTER-OFF",
+ "config_after_on": true,
+ "router_work_tools_while_on": [
+  "work_execute",
+  "work_focus",
+  "work_mode_set",
+  "work_node_add",
+  "work_node_remove",
+  "work_node_update",
+  "work_plan_set",
+  "work_reorder",
+  "work_replan",
+  "work_select",
+  "work_status",
+  "work_urgent"
+ ],
+ "subject_after_probe_on": "AFTER-OFF",
+ "live_before": {
+  "9505": {
+   "pid": 62984,
+   "version": "0.2.51-nightly.20261027-194324.273856d",
+   "source_fingerprint": "11b9fec1d2441894",
+   "error": null
+  },
+  "9524": {
+   "pid": 68132,
+   "version": "0.2.51-nightly.20261028-005129.d2856f8",
+   "source_fingerprint": "11b9fec1d2441894",
+   "error": null
+  }
+ },
+ "live_after": {
+  "9505": {
+   "pid": 62984,
+   "version": "0.2.51-nightly.20261027-194324.273856d",
+   "source_fingerprint": "11b9fec1d2441894",
+   "error": null
+  },
+  "9524": {
+   "pid": 68132,
+   "version": "0.2.51-nightly.20261028-005129.d2856f8",
+   "source_fingerprint": "11b9fec1d2441894",
+   "error": null
+  }
+ },
+ "egress": [
+  {
+   "method": "CONNECT",
+   "path": "downloads.claude.ai:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "github.com:443"
+  }
+ ],
+ "checks": {
+  "no_error": true,
+  "work_on_before_off": true,
+  "agent_called_work_mode_set_off": true,
+  "off_result_reported": true,
+  "config_off": true,
+  "no_work_prompt_while_off": true,
+  "edit_allowed_while_off": true,
+  "router_lists_only_switch_while_off": true,
+  "router_lists_all_work_tools_when_on": true,
+  "agent_called_work_mode_set_on": true,
+  "on_result_reported": true,
+  "config_on": true,
+  "work_prompt_back_when_on": true,
+  "edit_gated_again": true,
+  "egress_refused_cli_hosts_only": true,
+  "live_unchanged": true
+ },
+ "rows": [
+  {
+   "n": 1,
+   "tag": null,
+   "stage": 0,
+   "tools_offered": [],
+   "work_instructions_in_turn_prompt": false,
+   "last_tool_result": null,
+   "config_work_mode": true,
+   "response": [
+    {
+     "type": "text",
+     "text": "AUX-OK"
+    }
+   ]
+  },
+  {
+   "n": 1,
+   "tag": "OFF",
+   "stage": 0,
+   "tools_offered": [
+    "mcp__ciel-runtime-router__work_execute",
+    "mcp__ciel-runtime-router__work_focus",
+    "mcp__ciel-runtime-router__work_mode_set",
+    "mcp__ciel-runtime-router__work_node_add",
+    "mcp__ciel-runtime-router__work_node_remove",
+    "mcp__ciel-runtime-router__work_node_update",
+    "mcp__ciel-runtime-router__work_plan_set",
+    "mcp__ciel-runtime-router__work_reorder",
+    "mcp__ciel-runtime-router__work_replan",
+    "mcp__ciel-runtime-router__work_select",
+    "mcp__ciel-runtime-router__work_status",
+    "mcp__ciel-runtime-router__work_urgent"
+   ],
+   "work_instructions_in_turn_prompt": true,
+   "last_tool_result": null,
+   "config_work_mode": true,
+   "served_tool": {
+    "name": "mcp__ciel-runtime-router__work_mode_set",
+    "input": {
+     "enabled": false
+    }
+   },
+   "response": [
+    {
+     "type": "tool_use",
+     "id": "toolu_s1",
+     "name": "mcp__ciel-runtime-router__work_mode_set",
+     "input": {
+      "enabled": false
+     }
+    }
+   ]
+  },
+  {
+   "n": 3,
+   "tag": "OFF",
+   "stage": 1,
+   "tools_offered": [
+    "mcp__ciel-runtime-router__work_execute",
+    "mcp__ciel-runtime-router__work_focus",
+    "mcp__ciel-runtime-router__work_mode_set",
+    "mcp__ciel-runtime-router__work_node_add",
+    "mcp__ciel-runtime-router__work_node_remove",
+    "mcp__ciel-runtime-router__work_node_update",
+    "mcp__ciel-runtime-router__work_plan_set",
+    "mcp__ciel-runtime-router__work_reorder",
+    "mcp__ciel-runtime-router__work_replan",
+    "mcp__ciel-runtime-router__work_select",
+    "mcp__ciel-runtime-router__work_status",
+    "mcp__ciel-runtime-router__work_urgent"
+   ],
+   "work_instructions_in_turn_prompt": true,
+   "last_tool_result": {
+    "tool_use_id": "toolu_s1",
+    "type": "tool_result",
+    "content": [
+     {
+      "type": "text",
+      "text": "Ciel Work mode is now off for this workspace (ciel-runtime menu -> LLM options -> Work mode): every Ciel session launched from this folder and later launches. Plans are kept. Work prompts, edit gates and auto continue stop at their next check. Turn it back on with work_mode_set(enabled=true)."
+     }
+    ],
+    "cache_control": {
+     "type": "ephemeral"
+    }
+   },
+   "config_work_mode": false,
+   "response": [
+    {
+     "type": "text",
+     "text": "E2EWMS-OFF-DONE"
+    }
+   ]
+  },
+  {
+   "n": 4,
+   "tag": null,
+   "stage": 0,
+   "tools_offered": [],
+   "work_instructions_in_turn_prompt": false,
+   "last_tool_result": null,
+   "config_work_mode": false,
+   "response": [
+    {
+     "type": "text",
+     "text": "AUX-OK"
+    }
+   ]
+  },
+  {
+   "n": 4,
+   "tag": "PROBE-OFF",
+   "stage": 0,
+   "tools_offered": [
+    "mcp__ciel-runtime-router__work_execute",
+    "mcp__ciel-runtime-router__work_focus",
+    "mcp__ciel-runtime-router__work_mode_set",
+    "mcp__ciel-runtime-router__work_node_add",
+    "mcp__ciel-runtime-router__work_node_remove",
+    "mcp__ciel-runtime-router__work_node_update",
+    "mcp__ciel-runtime-router__work_plan_set",
+    "mcp__ciel-runtime-router__work_reorder",
+    "mcp__ciel-runtime-router__work_replan",
+    "mcp__ciel-runtime-router__work_select",
+    "mcp__ciel-runtime-router__work_status",
+    "mcp__ciel-runtime-router__work_urgent"
+   ],
+   "work_instructions_in_turn_prompt": false,
+   "last_tool_result": null,
+   "config_work_mode": false,
+   "served_tool": {
+    "name": "Read",
+    "input": {
+     "file_path": "C:\\Users\\djlov\\AppData\\Local\\Temp\\work-switch-2ae2c6f0\\ws\\subject.txt"
+    }
+   },
+   "response": [
+    {
+     "type": "tool_use",
+     "id": "toolu_s4",
+     "name": "Read",
+     "input": {
+      "file_path": "C:\\Users\\djlov\\AppData\\Local\\Temp\\work-switch-2ae2c6f0\\ws\\subject.txt"
+     }
+    }
+   ]
+  },
+  {
+   "n": 6,
+   "tag": "PROBE-OFF",
+   "stage": 1,
+   "tools_offered": [
+    "mcp__ciel-runtime-router__work_execute",
+    "mcp__ciel-runtime-router__work_focus",
+    "mcp__ciel-runtime-router__work_mode_set",
+    "mcp__ciel-runtime-router__work_node_add",
+    "mcp__ciel-runtime-router__work_node_remove",
+    "mcp__ciel-runtime-router__work_node_update",
+    "mcp__ciel-runtime-router__work_plan_set",
+    "mcp__ciel-runtime-router__work_reorder",
+    "mcp__ciel-runtime-router__work_replan",
+    "mcp__ciel-runtime-router__work_select",
+    "mcp__ciel-runtime-router__work_status",
+    "mcp__ciel-runtime-router__work_urgent"
+   ],
+   "work_instructions_in_turn_prompt": false,
+   "last_tool_result": {
+    "tool_use_id": "toolu_s4",
+    "type": "tool_result",
+    "content": "1\tBEFORE\n2\t",
+    "cache_control": {
+     "type": "ephemeral"
+    }
+   },
+   "config_work_mode": false,
+   "served_tool": {
+    "name": "Edit",
+    "input": {
+     "file_path": "C:\\Users\\djlov\\AppData\\Local\\Temp\\work-switch-2ae2c6f0\\ws\\subject.txt",
+     "old_string": "BEFORE",
+     "new_string": "AFTER-OFF"
+    }
+   },
+   "response": [
+    {
+     "type": "tool_use",
+     "id": "toolu_s6",
+     "name": "Edit",
+     "input": {
+      "file_path": "C:\\Users\\djlov\\AppData\\Local\\Temp\\work-switch-2ae2c6f0\\ws\\subject.txt",
+      "old_string": "BEFORE",
+      "new_string": "AFTER-OFF"
+     }
+    }
+   ]
+  },
+  {
+   "n": 7,
+   "tag": "PROBE-OFF",
+   "stage": 2,
+   "tools_offered": [
+    "mcp__ciel-runtime-router__work_execute",
+    "mcp__ciel-runtime-router__work_focus",
+    "mcp__ciel-runtime-router__work_mode_set",
+    "mcp__ciel-runtime-router__work_node_add",
+    "mcp__ciel-runtime-router__work_node_remove",
+    "mcp__ciel-runtime-router__work_node_update",
+    "mcp__ciel-runtime-router__work_plan_set",
+    "mcp__ciel-runtime-router__work_reorder",
+    "mcp__ciel-runtime-router__work_replan",
+    "mcp__ciel-runtime-router__work_select",
+    "mcp__ciel-runtime-router__work_status",
+    "mcp__ciel-runtime-router__work_urgent"
+   ],
+   "work_instructions_in_turn_prompt": false,
+   "last_tool_result": {
+    "tool_use_id": "toolu_s6",
+    "type": "tool_result",
+    "content": "The file C:\\Users\\djlov\\AppData\\Local\\Temp\\work-switch-2ae2c6f0\\ws\\subject.txt has been updated successfully. (file state is current in your context — no need to Read it back)",
+    "cache_control": {
+     "type": "ephemeral"
+    }
+   },
+   "config_work_mode": false,
+   "response": [
+    {
+     "type": "text",
+     "text": "E2EWMS-PROBE-OFF-DONE"
+    }
+   ]
+  },
+  {
+   "n": 8,
+   "tag": null,
+   "stage": 0,
+   "tools_offered": [],
+   "work_instructions_in_turn_prompt": false,
+   "last_tool_result": null,
+   "config_work_mode": false,
+   "response": [
+    {
+     "type": "text",
+     "text": "AUX-OK"
+    }
+   ]
+  },
+  {
+   "n": 8,
+   "tag": "ON",
+   "stage": 0,
+   "tools_offered": [
+    "mcp__ciel-runtime-router__work_execute",
+    "mcp__ciel-runtime-router__work_focus",
+    "mcp__ciel-runtime-router__work_mode_set",
+    "mcp__ciel-runtime-router__work_node_add",
+    "mcp__ciel-runtime-router__work_node_remove",
+    "mcp__ciel-runtime-router__work_node_update",
+    "mcp__ciel-runtime-router__work_plan_set",
+    "mcp__ciel-runtime-router__work_reorder",
+    "mcp__ciel-runtime-router__work_replan",
+    "mcp__ciel-runtime-router__work_select",
+    "mcp__ciel-runtime-router__work_status",
+    "mcp__ciel-runtime-router__work_urgent"
+   ],
+   "work_instructions_in_turn_prompt": false,
+   "last_tool_result": null,
+   "config_work_mode": false,
+   "served_tool": {
+    "name": "mcp__ciel-runtime-router__work_mode_set",
+    "input": {
+     "enabled": true
+    }
+   },
+   "response": [
+    {
+     "type": "tool_use",
+     "id": "toolu_s8",
+     "name": "mcp__ciel-runtime-router__work_mode_set",
+     "input": {
+      "enabled": true
+     }
+    }
+   ]
+  },
+  {
+   "n": 10,
+   "tag": "ON",
+   "stage": 1,
+   "tools_offered": [
+    "mcp__ciel-runtime-router__work_execute",
+    "mcp__ciel-runtime-router__work_focus",
+    "mcp__ciel-runtime-router__work_mode_set",
+    "mcp__ciel-runtime-router__work_node_add",
+    "mcp__ciel-runtime-router__work_node_remove",
+    "mcp__ciel-runtime-router__work_node_update",
+    "mcp__ciel-runtime-router__work_plan_set",
+    "mcp__ciel-runtime-router__work_reorder",
+    "mcp__ciel-runtime-router__work_replan",
+    "mcp__ciel-runtime-router__work_select",
+    "mcp__ciel-runtime-router__work_status",
+    "mcp__ciel-runtime-router__work_urgent"
+   ],
+   "work_instructions_in_turn_prompt": false,
+   "last_tool_result": {
+    "tool_use_id": "toolu_s8",
+    "type": "tool_result",
+    "content": [
+     {
+      "type": "text",
+      "text": "Ciel Work mode is now on for this workspace (ciel-runtime menu -> LLM options -> Work mode). Sessions launched with Work mode on resume Work at their next check; a session launched while it was off loads the Work tools, hooks and instructions on its next launch."
+     }
+    ],
+    "cache_control": {
+     "type": "ephemeral"
+    }
+   },
+   "config_work_mode": true,
+   "response": [
+    {
+     "type": "text",
+     "text": "E2EWMS-ON-DONE"
+    }
+   ]
+  },
+  {
+   "n": 11,
+   "tag": null,
+   "stage": 0,
+   "tools_offered": [],
+   "work_instructions_in_turn_prompt": false,
+   "last_tool_result": null,
+   "config_work_mode": true,
+   "response": [
+    {
+     "type": "text",
+     "text": "AUX-OK"
+    }
+   ]
+  },
+  {
+   "n": 11,
+   "tag": "PROBE-ON",
+   "stage": 0,
+   "tools_offered": [
+    "mcp__ciel-runtime-router__work_execute",
+    "mcp__ciel-runtime-router__work_focus",
+    "mcp__ciel-runtime-router__work_mode_set",
+    "mcp__ciel-runtime-router__work_node_add",
+    "mcp__ciel-runtime-router__work_node_remove",
+    "mcp__ciel-runtime-router__work_node_update",
+    "mcp__ciel-runtime-router__work_plan_set",
+    "mcp__ciel-runtime-router__work_reorder",
+    "mcp__ciel-runtime-router__work_replan",
+    "mcp__ciel-runtime-router__work_select",
+    "mcp__ciel-runtime-router__work_status",
+    "mcp__ciel-runtime-router__work_urgent"
+   ],
+   "work_instructions_in_turn_prompt": true,
+   "last_tool_result": null,
+   "config_work_mode": true,
+   "served_tool": {
+    "name": "Edit",
+    "input": {
+     "file_path": "C:\\Users\\djlov\\AppData\\Local\\Temp\\work-switch-2ae2c6f0\\ws\\subject.txt",
+     "old_string": "AFTER-OFF",
+     "new_string": "AFTER-ON"
+    }
+   },
+   "response": [
+    {
+     "type": "tool_use",
+     "id": "toolu_s11",
+     "name": "Edit",
+     "input": {
+      "file_path": "C:\\Users\\djlov\\AppData\\Local\\Temp\\work-switch-2ae2c6f0\\ws\\subject.txt",
+      "old_string": "AFTER-OFF",
+      "new_string": "AFTER-ON"
+     }
+    }
+   ]
+  },
+  {
+   "n": 13,
+   "tag": "PROBE-ON",
+   "stage": 1,
+   "tools_offered": [
+    "mcp__ciel-runtime-router__work_execute",
+    "mcp__ciel-runtime-router__work_focus",
+    "mcp__ciel-runtime-router__work_mode_set",
+    "mcp__ciel-runtime-router__work_node_add",
+    "mcp__ciel-runtime-router__work_node_remove",
+    "mcp__ciel-runtime-router__work_node_update",
+    "mcp__ciel-runtime-router__work_plan_set",
+    "mcp__ciel-runtime-router__work_reorder",
+    "mcp__ciel-runtime-router__work_replan",
+    "mcp__ciel-runtime-router__work_select",
+    "mcp__ciel-runtime-router__work_status",
+    "mcp__ciel-runtime-router__work_urgent"
+   ],
+   "work_instructions_in_turn_prompt": true,
+   "last_tool_result": {
+    "type": "tool_result",
+    "content": "<tool_use_error>Work mode is planning: direct file edits wait until the plan is approved. Build it with work_plan_set, then call work_execute. (/work-mode help)</tool_use_error>",
+    "is_error": true,
+    "tool_use_id": "toolu_s11",
+    "cache_control": {
+     "type": "ephemeral"
+    }
+   },
+   "config_work_mode": true,
+   "response": [
+    {
+     "type": "text",
+     "text": "E2EWMS-PROBE-ON-DONE"
+    }
+   ]
+  }
+ ]
+}
