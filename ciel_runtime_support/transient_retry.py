@@ -55,6 +55,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any, Callable, Mapping
 
+from .sse_diagnostics import prefix_shape
 from .upstream_error_policy import UpstreamFailure, terminal_usage_limit_error
 from .upstream_stream_io import UpstreamClientDisconnected
 
@@ -489,6 +490,7 @@ class _PreOutputSSE(_ReplayResponse):
         response._defer_exposure = True
         self._pending = bytearray()
         self._committed = False
+        self._ciel_preoutput_diagnostic = {"state": "armed", "operation_id": budget.operation_id}
         self._reopen = reopen
         self._log, self._publish, self._sleep = log, publish, sleep
         self._cancelled, self._request, self._reselect, self._model = cancelled, request, reselect, model
@@ -514,11 +516,14 @@ class _PreOutputSSE(_ReplayResponse):
             super().close()
 
     def _accept(self, reason="accepted"):
-        # Fixed reason codes and counts only: no payload, URL, header or error
-        # message values. Unknown streams must still be relayed, not replayed.
+        # Only fixed tokens, field types and lengths; never arbitrary upstream
+        # strings. Unknown streams must still be relayed, not replayed.
+        self._ciel_preoutput_diagnostic = {"state": "committed", "reason": reason,
+                                          "operation_id": self._budget.operation_id}
+        shape = json.dumps(prefix_shape(bytes(self._pending)), separators=(",", ":"))
         self._log("INFO", f"cielairouter_preoutput_commit operation_id={self._budget.operation_id} "
                   f"reason={reason} held_bytes={len(self._pending)} "
-                  f"attempts={self._budget.attempts} opens={self._budget.opens}")
+                  f"attempts={self._budget.attempts} opens={self._budget.opens} shape={shape}")
         self._committed = True
         self._prefix = io.BytesIO(bytes(self._pending))
         self._pending.clear()
@@ -607,6 +612,7 @@ class _PreOutputSSE(_ReplayResponse):
                 self._response = response
             self._pending.clear()
             self._committed = True
+            self._ciel_preoutput_diagnostic = {"state": "reopened", "operation_id": self._budget.operation_id}
             return
         self._accept("byte_bound")
 
@@ -815,6 +821,8 @@ def open_with_transient_retry(open_once: Callable[[], Any], *, provider: str,
                               model: str = "") -> Any:
     if not _limit(config, provider):
         _check_cancelled(cancelled)
+        if provider == PROVIDER:
+            log("INFO", "cielairouter_preoutput_guard state=bypassed reason=retries_disabled")
         return open_once()
     budget = budget_for(config, provider)
     if budget is None:

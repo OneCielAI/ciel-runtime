@@ -209,7 +209,9 @@ class LateSSECommitDiagnosticsTests(unittest.TestCase):
                 self.assertIn("state=armed", logs)
                 self.assertIn("reason=unrecognized_frame", logs)
                 self.assertNotIn("Model timed out", logs)
-                self.assertNotIn('"code"', logs)
+                if b'"code":504' in raw:
+                    self.assertIn('"code":"number"', logs)
+                self.assertNotIn('"code":504', logs)
 
     def test_mixed_stream_and_terminal_error_diagnostics_do_not_log_payload(self):
         cases = (

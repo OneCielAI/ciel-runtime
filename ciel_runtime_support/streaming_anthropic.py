@@ -19,6 +19,7 @@ from .runaway_output_guard import (
     recent_runaway_notices,
 )
 from .remote_bridge import is_remote_bridge_request
+from .sse_diagnostics import payload_shape, response_shape
 from .upstream_stream_io import UpstreamClientDisconnected, client_connection_closed
 
 
@@ -808,6 +809,10 @@ def rebatch_anthropic_sse_text(
         """Relay Anthropic's in-stream error after what preceded it; nothing follows it."""
 
         nonlocal upstream_error_forwarded, ending_started, upstream_error_type
+        if provider == "cielairouter":
+            shape = {"payload": payload_shape(data_str, event_type), "response": response_shape(resp)}
+            router_log("WARN", "anthropic_sse_error_shape "
+                       + json.dumps(shape, separators=(",", ":")))
         try:
             parsed_error = json.loads(data_str).get("error")
             upstream_error_type = str(parsed_error.get("type") or "")[:64] if isinstance(parsed_error, dict) else ""

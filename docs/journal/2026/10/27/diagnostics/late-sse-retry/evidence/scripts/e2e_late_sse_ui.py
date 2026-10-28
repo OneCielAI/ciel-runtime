@@ -8,7 +8,9 @@ from pathlib import Path
 import ctypes
 from ctypes import wintypes
 
-A = argparse.ArgumentParser(); A.add_argument('--delay', type=float, default=20.0); args = A.parse_args()
+A = argparse.ArgumentParser(); A.add_argument('--delay', type=float, default=20.0)
+A.add_argument('--numeric-code', action='store_true', help='Exercise strict no-replay diagnostics for an integer error.code')
+args = A.parse_args()
 HERE = Path(__file__).resolve().parent
 SOURCE = next(p for p in HERE.parents if (p / 'ciel_runtime.py').exists())
 REPO = Path(os.environ.get('LATE_SSE_PROOF_REPO') or SOURCE)
@@ -44,7 +46,7 @@ def health():
         h = http(f'http://127.0.0.1:{p}/health'); out[str(p)] = {k: h.get(k) for k in ('pid', 'version', 'source_fingerprint', 'error')}
     return out
 def procs():
-    try: return json.loads(subprocess.run(['powershell', '-NoProfile', '-Command', 'Get-CimInstance Win32_Process | Select ProcessId,Name,CommandLine | ConvertTo-Json -Compress'], capture_output=True, text=True).stdout)
+    try: return json.loads(subprocess.run(['powershell', '-NoProfile', '-Command', '[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new(); Get-CimInstance Win32_Process | Select ProcessId,Name,CommandLine | ConvertTo-Json -Compress'], capture_output=True, text=True, encoding='utf-8', errors='replace').stdout)
     except Exception: return []
 def wait(pred, secs, label):
     end = time.time() + secs
@@ -94,6 +96,7 @@ class Fake(BaseHTTPRequestHandler):
                 time.sleep(min(10, max(0, end - time.time())))
                 if time.time() < end: self.wfile.write(b'event: ping' + bytes([10]) + b'data: {"type":"ping"}' + bytes([10, 10])); self.wfile.flush()
             payload = {'type': 'error', 'error': {'type': 'api_error', 'message': ERROR_TEXT}}
+            if args.numeric_code: payload['error']['code'] = 504
             self.wfile.write(b'event: error' + bytes([10]) + b'data: ' + json.dumps(payload).encode() + bytes([10, 10])); self.wfile.flush()
             self.close_connection = True; return
         text = 'LATE-SSE-RETRY-SUCCEEDED' if main else 'AUX-OK'
@@ -175,7 +178,7 @@ try:
     s = screen()
     mains = [r for r in ROWS if r['main']]
     rlog = (CFG / 'router.log').read_text(encoding='utf-8', errors='replace') if (CFG / 'router.log').exists() else ''
-    keys = ('late_sse_', 'anthropic_sse_upstream_error_event', 'upstream_direct_request')
+    keys = ('late_sse_', 'preoutput_', 'anthropic_sse_error_shape', 'anthropic_sse_upstream_error_event', 'upstream_direct_request')
     (RUN / 'router-retry-lines.txt').write_text(chr(10).join(l for l in rlog.splitlines() if any(k in l for k in keys)), encoding='utf-8')
     native = (RUN / 'native-debug.log').read_text(encoding='utf-8', errors='replace') if (RUN / 'native-debug.log').exists() else ''
     RESULT['observed'] = {'turn_outcome_seen': outcome, 'success_on_screen': 'LATE-SSE-RETRY-SUCCEEDED' in s,
@@ -199,3 +202,13 @@ finally:
     dump('result.json', RESULT); log('evidence ' + str(RUN))
     print(json.dumps({k: v for k, v in RESULT.items() if k not in ('rows', 'stripped_env')}, ensure_ascii=False, indent=1))
 if RESULT.get('error'): raise SystemExit(1)
+if args.numeric_code:
+    RESULT['checks'] = {'error_visible': RESULT['observed']['api_error_on_screen'],
+                        'one_main_request': RESULT['observed']['main_upstream_requests'] == 1,
+                        'no_retry': not RESULT['observed']['retry_logged'],
+                        'relay_shape_logged': 'anthropic_sse_error_shape' in rlog,
+                        'numeric_code_classified': '"code":"number"' in rlog,
+                        'guard_reason_recorded': 'reason=unrecognized_frame' in rlog,
+                        'live_unchanged': BEFORE == AFTER}
+    dump('result.json', RESULT)
+    if not all(RESULT['checks'].values()): raise SystemExit(1)

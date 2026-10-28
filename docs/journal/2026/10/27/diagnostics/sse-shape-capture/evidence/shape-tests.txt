@@ -1,0 +1,11 @@
+test_error_after_long_ping_preamble_remains_in_shape (test_sse_diagnostics.SSEDiagnosticsTests.test_error_after_long_ping_preamble_remains_in_shape) ... ok
+test_frame_bound_and_partial_tail (test_sse_diagnostics.SSEDiagnosticsTests.test_frame_bound_and_partial_tail) ... ok
+test_only_allowlisted_names_types_and_tokens (test_sse_diagnostics.SSEDiagnosticsTests.test_only_allowlisted_names_types_and_tokens) ... ok
+test_response_diagnostic_values_are_allowlisted (test_sse_diagnostics.SSEDiagnosticsTests.test_response_diagnostic_values_are_allowlisted) ... ok
+test_response_media_never_logs_raw_header (test_sse_diagnostics.SSEDiagnosticsTests.test_response_media_never_logs_raw_header) ... ok
+test_unknown_tokens_and_invalid_json_are_never_logged (test_sse_diagnostics.SSEDiagnosticsTests.test_unknown_tokens_and_invalid_json_are_never_logged) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.001s
+
+OK
