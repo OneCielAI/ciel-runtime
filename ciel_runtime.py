@@ -2101,7 +2101,7 @@ def _channel_mcp_tool_call_response(request_id: Any, params: dict[str, Any]) -> 
             runtime=ChannelMcpRuntimeServices(
                 submit_input=runtime_input_gateway().submit_stream_input, read_runtime_inputs=read_runtime_inputs,
                 telemetry_logs=_TELEMETRY_LOG_RUNTIME.tool, restart_session=runtime_session_restart_service().queue_tool,
-                recover_sse_delivery=lambda args: router_recovery(args, status_repository=_RUNTIME_INPUT_STATUS_REPOSITORY, compaction=_RUNTIME_COMPACTION, restart=runtime_session_restart_service().queue_tool, root=ROUTER_INSTANCE_DIR), load_config=load_config,
+                recover_sse_delivery=lambda args: router_recovery(args, status_repository=_RUNTIME_INPUT_STATUS_REPOSITORY, compaction=_RUNTIME_COMPACTION, restart=runtime_session_restart_service().queue_tool, root=ROUTER_INSTANCE_DIR), load_config=load_config, save_config=save_config,
             ),
         ),
     )

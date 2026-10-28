@@ -6,13 +6,14 @@ const panelView = atom({ plugin: 'ciel-work', key: 'panel' }, null)
 const PANE = 'work-details'
 const PREFIX = 'mcp__ciel-runtime-router__'
 const WORK = new Set(['work_status', 'work_plan_set', 'work_node_add', 'work_node_update',
-  'work_node_remove', 'work_select', 'work_execute', 'work_replan', 'work_reorder', 'work_urgent', 'work_focus'])
+  'work_node_remove', 'work_select', 'work_execute', 'work_replan', 'work_reorder', 'work_urgent', 'work_focus',
+  'work_mode_set'])
 const WRITES = new Set(['Edit', 'Write', 'NotebookEdit', 'apply_patch'])
 const UNAVAILABLE = 'Work status unavailable: router connection or snapshot could not be verified.'
 const PLANNING = 'Work mode is planning: direct file edits wait until the plan is approved. '
   + 'Build it with work_plan_set, then call work_execute. (/work-mode help)'
 const NOTICE = 'Ciel Work mode is on: plan and execute by item; new independent requests queue without pausing approved Work. '
-  + 'Items show above the prompt · /work-mode help · turn off: ciel-runtime menu → LLM options → Work mode'
+  + 'Items show above the prompt · /work-mode help · turn off: ciel-runtime menu → LLM options → Work mode, or the agent (work_mode_set)'
 const HELP = [
   'Ciel Work mode — hybrid planning and execution',
   '• Work is not native Plan Mode. Queued planning does not pause active execution. within_scope=true is only for refinements inside approved scope; new scope needs review.',
@@ -27,6 +28,7 @@ const HELP = [
   '• Linked IDs appear as [ id ] description; ◷ names an external wait; green ✓ means verified done. An urgent request holds other goals until it finishes.',
   '• Auto continue: normal turn endings resume actionable Work, bounded by no-progress checks; waits, blocks and approval do not trigger it; background tasks do not block independent Work, and a dim line says why it stopped. Codex receives instructions only.',
   '• Settings: ciel-runtime menu → LLM options → Work mode (on/off), Work plan approval (auto/ask), Work auto continue (on/off).',
+  '• The agent can switch the same workspace Work mode setting itself with work_mode_set (enabled true/false); plans are kept.',
 ].join('\n')
 let cached = null
 let enabled = true
@@ -562,7 +564,7 @@ export function register(on) {
     if (arg === 'view') { await openDetails($); return { text: 'Work inspector: Tab/arrows navigate, Enter opens, Esc returns.' } }
     const s = await refresh($)
     if (!s) return { text: UNAVAILABLE }
-    if (!s.enabled) return { text: 'Ciel Work mode is off. Turn it on: ciel-runtime menu → LLM options → Work mode.' }
+    if (!s.enabled) return { text: 'Ciel Work mode is off. Turn it on: ciel-runtime menu → LLM options → Work mode, or ask the agent (work_mode_set).' }
     if (arg === 'tree') {
       try { return { text: await planText($) } }
       catch { return { text: 'Work tree unavailable.' } }

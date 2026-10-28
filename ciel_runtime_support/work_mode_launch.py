@@ -18,6 +18,8 @@ WORK_PLAN_APPROVAL_ASK_KEY = "work_plan_approval_ask"
 WORK_AUTO_CONTINUE_KEY = "work_auto_continue"
 CLAUDE_MOD_NAME = "ciel-work"
 CLAUDE_MOD_DIR = Path(__file__).resolve().parent / "claude_mods" / CLAUDE_MOD_NAME
+# The agent's own Work mode switch; served and pre-approved even while Work mode is off.
+WORK_MODE_SWITCH_TOOL = "work_mode_set"
 # The router's Work tools; work_mcp_tools serves them, launch pre-approves them.
 WORK_TOOL_NAMES = (
     "work_status",
@@ -31,6 +33,7 @@ WORK_TOOL_NAMES = (
     "work_reorder",
     "work_urgent",
     "work_focus",
+    WORK_MODE_SWITCH_TOOL,
 )
 
 WORK_MODE_BASE_INSTRUCTIONS = (
@@ -63,7 +66,8 @@ WORK_MODE_BASE_INSTRUCTIONS = (
     "queued goal holding the next runnable step. On an explicit urgent/ad-hoc request use work_urgent with user_requested=true "
     "to hold other goals, decompose that request and execute; held goals resume afterwards.\n"
     "If the user asks how Work mode works or why an edit waited, explain this briefly; it is switched on or off "
-    "in the ciel-runtime menu under LLM options -> Work mode."
+    "in the ciel-runtime menu under LLM options -> Work mode, and you can switch that same workspace setting yourself "
+    "with work_mode_set(enabled=false|true)."
 )
 
 # Codex gets these rules as instructions only; nothing in Ciel resumes a Codex turn.
@@ -146,18 +150,20 @@ def codex_work_mode_args(config: dict[str, Any], *, native: bool, router_mcp_att
     """Codex ``developer_instructions`` carrying the Work mode contract.
 
     A user-supplied ``developer_instructions`` override wins: Ciel does not
-    replace instructions the user chose for this launch.
+    replace instructions the user chose for this launch.  With Work mode off
+    only the switch tool is pre-approved, so the agent can turn it back on.
     """
 
-    if not work_mode_applies(config, native=native, router_mcp_attached=router_mcp_attached):
+    if native or not router_mcp_attached:
         return []
+    applies = work_mode_enabled(config)
     overrides = codex_config_override_keys(list(passthrough))
     args: list[str] = []
-    if "developer_instructions" not in overrides:
+    if applies and "developer_instructions" not in overrides:
         args.extend(["-c", f"developer_instructions={toml_string(codex_work_mode_instructions(config))}"])
     # Codex blocks MCP calls that need approval when approval_policy is never.
     # Only Ciel's Work tools are pre-approved; other router tools keep defaults.
-    for tool in WORK_TOOL_NAMES:
+    for tool in WORK_TOOL_NAMES if applies else (WORK_MODE_SWITCH_TOOL,):
         key = f"mcp_servers.ciel-runtime-router.tools.{tool}.approval_mode"
         if key not in overrides:
             args.extend(["-c", f'{key}="approve"'])

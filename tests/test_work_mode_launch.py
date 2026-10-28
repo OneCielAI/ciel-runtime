@@ -45,7 +45,11 @@ class WorkModeLaunchTests(unittest.TestCase):
                         applies = enabled and not native and attached
                         self.assertEqual(w.work_mode_applies(config, **kwargs), applies)
                         self.assertEqual(bool(w.claude_work_mode_args(config, mod_dir=self.mod, **kwargs)), applies)
-                        self.assertEqual(bool(w.codex_work_mode_args(config, **kwargs)), applies)
+                        codex = w.codex_work_mode_args(config, **kwargs)
+                        if applies or native or not attached:
+                            self.assertEqual(bool(codex), applies)
+                        else:  # Work off on a router-attached launch: only the switch, pre-approved.
+                            self.assertEqual(codex, ["-c", 'mcp_servers.ciel-runtime-router.tools.work_mode_set.approval_mode="approve"'])
 
     def test_claude_flag_keeps_space_containing_path_in_single_argument(self):
         self.assertEqual(w.claude_work_mode_args({}, native=False, router_mcp_attached=True, mod_dir=self.mod),

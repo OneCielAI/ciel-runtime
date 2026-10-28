@@ -72,8 +72,47 @@ class WorkMcpToolsTests(unittest.TestCase):
         for config, enabled in (({}, True), ({"work_mode": True}, True), ({"work_mode": False}, False)):
             with self.subTest(config=config):
                 names = {s["name"] for s in channel_mcp_tool_schemas(lambda: config)}
-                self.assertEqual(names & expected, expected if enabled else set())
+                self.assertEqual(names & expected, expected if enabled else {"work_mode_set"})
         self.assertFalse({s["name"] for s in channel_mcp_tool_schemas()} & expected)
+        switch = next(s for s in m.work_tool_schemas(enabled=False))
+        self.assertEqual(switch["inputSchema"]["required"], ["enabled"])
+        self.assertEqual(switch["inputSchema"]["properties"]["enabled"]["type"], "boolean")
+
+    def test_work_mode_set_switches_the_menu_setting_and_keeps_plans(self):
+        self.plan()
+        plan_bytes = self.store.path.read_bytes()
+        saved = []
+
+        def save_config(config):
+            saved.append(config)
+            self.config = dict(config)
+
+        def call(name, save=True, **args):
+            return m.dispatch_work_tool(7, name, {"session_id": "claude:test-session", **args},
+                load_config=lambda: dict(self.config), state_dir=self.directory, store=self.store,
+                respond=lambda request_id, text, is_error=False: {"text": text, "error": is_error},
+                save_config=save_config if save else None)
+
+        off = call("work_mode_set", enabled=False)
+        self.assertFalse(off["error"], off)
+        self.assertIn("now off", off["text"])
+        self.assertIs(self.config["work_mode"], False)
+        self.assertTrue(call("work_plan_set", goal="refused while off")["error"])
+        self.assertIs(json.loads(call("work_status", format="json")["text"])["enabled"], False)
+        self.assertIn("already off", call("work_mode_set", enabled=False)["text"])
+        self.assertEqual(len(saved), 1)
+        on = call("work_mode_set", enabled=True)
+        self.assertFalse(on["error"], on)
+        self.assertIn("now on", on["text"])
+        self.assertIs(self.config["work_mode"], True)
+        self.assertIs(json.loads(call("work_status", format="json")["text"])["enabled"], True)
+        self.assertEqual(self.store.path.read_bytes(), plan_bytes)
+        for bad in ("false", 0, 1, None):
+            with self.subTest(bad=bad):
+                self.assertTrue(call("work_mode_set", enabled=bad)["error"])
+        self.assertTrue(call("work_mode_set", save=False, enabled=False)["error"])
+        self.assertEqual(len(saved), 2)
+        self.assertIs(self.config["work_mode"], True)
 
     def test_off_never_accesses_store(self):
         self.config = {"work_mode": False}

@@ -23,6 +23,8 @@ class ChannelMcpRuntimeServices:
     recover_sse_delivery: Callable[[dict[str, Any]], dict[str, Any]] | None = None
     # () -> merged config; enables the shared Work plan tools (work_*).
     load_config: Callable[[], dict[str, Any]] | None = None
+    # (config) -> None; persists work_mode_set like the menu's Work mode option.
+    save_config: Callable[[dict[str, Any]], None] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,7 +57,7 @@ def _work_tool_schemas(load_config: Callable[[], dict[str, Any]] | None) -> list
         enabled = work_mode_enabled(load_config())
     except Exception:  # noqa: BLE001 - an unreadable config keeps the session tools listed
         return []
-    return work_tool_schemas() if enabled else []
+    return work_tool_schemas(enabled=enabled)
 
 
 def _session_tool_schemas() -> list[dict[str, Any]]:
@@ -474,6 +476,7 @@ def _work_tool(request_id: Any, name: str, args: dict[str, Any], services: Chann
         state_dir=WORKSPACE_STATE_DIR,
         respond=channel_mcp_tool_response,
         metadata=metadata,
+        save_config=services.runtime.save_config,
     )
 
 

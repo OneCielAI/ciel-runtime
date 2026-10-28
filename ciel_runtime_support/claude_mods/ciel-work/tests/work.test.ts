@@ -34,6 +34,7 @@ function setup(on, extra = {}) {
       return { result: { answers: { [e.questions[0].question]: s.answer } } }
     }
     if (e.tool === T + 'work_execute') s.snapshot.phase = 'executing'
+    if (e.tool === T + 'work_mode_set') s.snapshot.enabled = e.enabled
     return { result: 'ok' }
   })
   return s
@@ -237,6 +238,20 @@ test('every Work result refreshes; another server is not treated as Work', async
   const before = s.calls.length
   await $.tool.call({ tool: 'mcp__other__work_execute', user_confirmed: true })
   expect(s.calls.length).toBe(before)
+})
+
+test('agent work_mode_set refreshes: off lifts the edit gate and prompt context, on restores them', async ($, on) => {
+  const s = setup(on)
+  expect((await $.tool.call({ tool: 'Edit', file_path: '/x' })).deny).toContain('planning')
+  const before = s.calls.length
+  await $.tool.call({ tool: T + 'work_mode_set', enabled: false })
+  expect(s.calls.length - before).toBe(2)
+  expect(s.tools.at(-1).session_id).toBe('claude:session-a')
+  expect((await $.tool.call({ tool: 'Edit', file_path: '/x' })).deny).toBeUndefined()
+  expect((await $.prompt.submit({ text: 'Do it', context: ['existing'], wait: false })).context).toEqual(['existing'])
+  await $.tool.call({ tool: T + 'work_mode_set', enabled: true })
+  expect((await $.tool.call({ tool: 'Edit', file_path: '/x' })).deny).toContain('planning')
+  expect((await $.prompt.submit({ text: 'Do it', context: ['existing'], wait: false })).context[1]).toContain('work_plan_set')
 })
 
 test('conversation changes isolate every router read and override forged tool session ids', async ($, on) => {

@@ -13,7 +13,8 @@ from typing import Any, Callable
 
 from ciel_runtime_support import work_plan_tree as tree
 from ciel_runtime_support.work_mode_launch import WORK_TOOL_NAMES as WORK_TOOL_NAMES  # re-exported for the router
-from ciel_runtime_support.work_mode_launch import work_auto_continue_enabled, work_mode_enabled, work_plan_approval_ask
+from ciel_runtime_support.work_mode_launch import (WORK_MODE_KEY, WORK_MODE_SWITCH_TOOL, work_auto_continue_enabled,
+                                                   work_mode_enabled, work_plan_approval_ask)
 from ciel_runtime_support.work_plan_store import WorkPlanStore, session_work_plan_store
 
 _NODE_SPEC = {
@@ -34,7 +35,9 @@ _EXPECTED_VERSION = {
 }
 
 
-def work_tool_schemas() -> list[dict[str, Any]]:
+def work_tool_schemas(*, enabled: bool = True) -> list[dict[str, Any]]:
+    """Every Work tool while Work mode is on; only the switch while it is off."""
+
     schemas = [
         {
             "name": "work_status",
@@ -189,7 +192,22 @@ def work_tool_schemas() -> list[dict[str, Any]]:
                 "user_requested": {"type": "boolean"}, "expected_version": _EXPECTED_VERSION,
             }, "required": ["goal", "user_requested"]},
         },
+        {
+            "name": WORK_MODE_SWITCH_TOOL,
+            "description": (
+                "Turn Ciel Work mode on or off. This is the same setting as ciel-runtime menu -> LLM options -> "
+                "Work mode: it is stored for this workspace folder and applies to every Ciel session launched from "
+                "it and to later launches. Plans are kept. Off stops Work prompts, edit gates and auto continue at "
+                "their next check; while it is off the router lists only this tool, so it can be turned back on. A session launched "
+                "while Work mode was off loads the Work hooks and instructions on its next launch."
+            ),
+            "inputSchema": {"type": "object", "properties": {
+                "enabled": {"type": "boolean", "description": "true turns Work mode on, false turns it off."},
+            }, "required": ["enabled"]},
+        },
     ])
+    if not enabled:
+        schemas = [schema for schema in schemas if schema["name"] == WORK_MODE_SWITCH_TOOL]
     for schema in schemas:
         inputs = schema["inputSchema"]
         inputs.setdefault("properties", {})["session_id"] = {
@@ -211,12 +229,16 @@ def dispatch_work_tool(
     log: Callable[[str, str], Any] | None = None,
     store: WorkPlanStore | None = None,
     metadata: Any = None,
+    save_config: Callable[[dict[str, Any]], None] | None = None,
 ) -> dict[str, Any]:
+    if name == WORK_MODE_SWITCH_TOOL:
+        return respond(request_id, *_switch_work_mode(args.get("enabled"), load_config, save_config))
     config = load_config()
     if not work_mode_enabled(config):
         if name == "work_status" and args.get("format") == "json":
             return respond(request_id, json.dumps(tree.snapshot(tree.empty_document(), enabled=False)))
-        return respond(request_id, "Ciel Work mode is off (prelaunch menu: LLM options -> Work mode).", True)
+        return respond(request_id, "Ciel Work mode is off (prelaunch menu: LLM options -> Work mode, "
+                                   "or work_mode_set with enabled=true).", True)
     approval_ask = work_plan_approval_ask(config)
     try:
         if isinstance(metadata, dict) and "sessionId" in metadata:
@@ -233,6 +255,29 @@ def dispatch_work_tool(
         return respond(request_id, _run(name, args, store, approval_ask, auto_continue=work_auto_continue_enabled(config)))
     except tree.WorkPlanError as error:
         return respond(request_id, str(error), True)
+
+
+def _switch_work_mode(enabled: Any, load_config: Callable[[], dict[str, Any]],
+                      save_config: Callable[[dict[str, Any]], None] | None) -> tuple[str, bool]:
+    """Write the menu's workspace Work mode setting; plans are never touched."""
+
+    if type(enabled) is not bool:
+        return "enabled must be true or false.", True
+    if save_config is None:
+        return "Work mode cannot be changed through this router.", True
+    config = load_config()
+    state = "on" if enabled else "off"
+    if work_mode_enabled(config) == enabled:
+        return f"Ciel Work mode is already {state} for this workspace; nothing changed.", False
+    config[WORK_MODE_KEY] = enabled
+    save_config(config)
+    if enabled:
+        return ("Ciel Work mode is now on for this workspace (ciel-runtime menu -> LLM options -> Work mode). "
+                "Sessions launched with Work mode on resume Work at their next check; a session launched while it "
+                "was off loads the Work tools, hooks and instructions on its next launch."), False
+    return ("Ciel Work mode is now off for this workspace (ciel-runtime menu -> LLM options -> Work mode): every "
+            "Ciel session launched from this folder and later launches. Plans are kept. Work prompts, edit gates and "
+            "auto continue stop at their next check. Turn it back on with work_mode_set(enabled=true)."), False
 
 
 def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bool, *, auto_continue: bool = True) -> str:
