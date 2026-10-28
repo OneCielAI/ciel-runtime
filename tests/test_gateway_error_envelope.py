@@ -1,4 +1,5 @@
-"""Official gateway combo metadata is not generation; unknown siblings still are unknown.
+"""Official gateway combo metadata is not generation
+unknown siblings still are unknown.
 
 Synthetic contract fixture from OneCiel/ciel-ai-router error.ts blob
 9d80dc159fd6ab07ccd79f38bf1b6b62a05c817a, not a captured live body.
@@ -55,15 +56,23 @@ class GatewayEnvelopeTests(unittest.TestCase):
     def test_unknown_or_malformed_metadata_still_rejected(self):
         variants = []
         for key, val in (("output", []), ("response", {}), ("PRIVATE-KEY", "secret")):
-            v = envelope(); v[key] = val; variants.append(v)
+            v = envelope()
+            v[key] = val
+            variants.append(v)
         for key, val in (("diagnostics", []), ("recovery_hint", "retry")):
-            v = envelope(); v[key] = val; variants.append(v)
+            v = envelope()
+            v[key] = val
+            variants.append(v)
         for key, val in (("poolSize", True), ("attempted", "2"), ("output", []),
                          ("attemptOrder", [{"provider": "fixture", "model": "model", "content": "secret"}])):
-            v = envelope(); v["diagnostics"][key] = val; variants.append(v)
+            v = envelope()
+            v["diagnostics"][key] = val
+            variants.append(v)
         for key, val in (("action", "generate"), ("retry_after_seconds", -1),
                          ("retry_after_seconds", True), ("retry_after_seconds", 3601), ("content", "secret")):
-            v = envelope(); v["recovery_hint"][key] = val; variants.append(v)
+            v = envelope()
+            v["recovery_hint"][key] = val
+            variants.append(v)
         for value in variants:
             with self.subTest(value=value):
                 self.assertIsNone(retry._error_verdict(frame(value)))
@@ -71,7 +80,8 @@ class GatewayEnvelopeTests(unittest.TestCase):
     def test_terminal_error_is_not_reclassified_by_retry_hint(self):
         for kind, text in (("authentication_error", "invalid API key"),
                            ("server_error", "quota exhausted")):
-            value = envelope(); value["error"].update(type=kind, message=text)
+            value = envelope()
+            value["error"].update(type=kind, message=text)
             self.assertFalse(retry._retryable_verdict(503, frame(value)))
 
     def test_metadata_does_not_reopen_after_output_or_mixed_frames(self):
@@ -83,7 +93,8 @@ class GatewayEnvelopeTests(unittest.TestCase):
 
     def test_optional_contract_metadata(self):
         for key in ("diagnostics", "recovery_hint"):
-            value = envelope(); del value[key]
+            value = envelope()
+            del value[key]
             self.assertIsNotNone(retry._error_verdict(frame(value)))
         value = envelope()
         value["diagnostics"]["skippedTargets"] = [{"reason": "persisted_cooldown", "targets": ["fixture/model"]}]

@@ -57,6 +57,6 @@ test_response_media_never_logs_raw_header (test_sse_diagnostics.SSEDiagnosticsTe
 test_unknown_tokens_and_invalid_json_are_never_logged (test_sse_diagnostics.SSEDiagnosticsTests.test_unknown_tokens_and_invalid_json_are_never_logged) ... ok
 
 ----------------------------------------------------------------------
-Ran 57 tests in 9.733s
+Ran 57 tests in 9.718s
 
 OK
